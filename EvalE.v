@@ -128,7 +128,7 @@ Module Interpreter.
                                                      "but found " ++ ind')
         | _ => EvalError "Error in Case"
         end
-      | eFix nm ty b => todo
+      | eFix nm v ty1 ty2 b => todo
       end
     end.
 

@@ -75,7 +75,7 @@ Fixpoint subst_env (ρ : env expr) (e : expr) : expr :=
   | eCase nm_i ty e bs =>
     (* TODO: this case is not complete! We ignore variables bound by patterns *)
     eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
-  | eFix nm ty b => eFix nm ty (subst_env (remove_by_key nm ρ) b)
+  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key v ρ) b)
   end.
 
 
@@ -156,3 +156,15 @@ Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
 Compute (expr_eval 5 Σ [] prog3).
+
+(* An example of a fixpoint *)
+
+Definition factorial_syn :=
+  [| fix "factorial" (x : Nat) : Nat :=
+       case x : Nat_name return Nat of
+       | Z -> 1
+       | Suc y -> x * ("factorial" y)
+  |].
+
+Make Definition factorial :=
+  Eval compute in ((expr_to_term Σ (indexify [] factorial_syn))).

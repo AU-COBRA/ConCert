@@ -68,7 +68,8 @@ Inductive expr : Set :=
 | eConst     : name -> expr
 | eCase      : (inductive * nat) (* # of parameters *) -> type
                -> expr (* discriminee *) -> list (pat * expr) (* branches *) -> expr
-| eFix       : name -> type -> expr -> expr.
+| eFix       : name (* of the fix*) -> name (* of the arg*) ->
+               type (* of the arg *) -> type (* return *) -> expr -> expr.
 
 Definition constr := (name * list type)%type.
 
@@ -149,9 +150,9 @@ Fixpoint indexify (l : list (name * nat)) (e : expr) : expr :=
   | eCase nm_i ty e bs =>
     eCase nm_i ty (indexify l e)
           (map (fun p => (fst p, indexify (number_vars (fst p).(pVars) ++ bump_indices l (length (fst p).(pVars))) (snd p))) bs)
-  | eFix nm ty b =>
-    let bump_list := map (fun '(x,y) => (x, 1+y)) l in
-    eFix nm ty (indexify ((nm, 0) :: bump_list) b)
+  | eFix nm vn ty1 ty2 b =>
+    (* name of the fixpoint becomes an index as well *)
+    eFix nm vn ty1 ty2 (indexify ((nm,1) :: (vn,0) :: bump_indices l 1) b)
   end.
 
 Fixpoint type_to_term (ty : type) : term :=
@@ -201,7 +202,12 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     let branches :=
         List.map (fun x => (length (fst x).(pVars), pat_to_lam (tys x) (expr_to_term (snd x)))) bs in
     tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
-  | eFix nm ty b => tFix [(mkdef _ (nNamed nm) (type_to_term ty) (expr_to_term b) 0)] 0
+  | eFix nm nv ty1 ty2 b =>
+    let tty1 := type_to_term ty1 in
+    let tty2 := (type_to_term ty2) in
+    let ty := tProd nAnon tty1 tty2 in
+    let body := tLambda (nNamed "nv") tty1 (expr_to_term b) in
+    tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   end.
 
 Module BaseTypes.
@@ -217,6 +223,7 @@ Import BaseTypes.
 
 Declare Custom Entry expr.
 Declare Custom Entry pat.
+Declare Custom Entry type.
 
 Notation "[| e |]" := e (e custom expr at level 2).
 Notation "^ i " := (eRel i) (in custom expr at level 3, i constr at level 4).
@@ -283,11 +290,26 @@ Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
 (*         ty constr at level 4). *)
 
 Notation "t1 t2" := (eApp t1 t2) (in custom expr at level 4, left associativity).
+(* Notation "ty" := ty (in custom type at level 0). *)
+(* Notation "ty1 -> ty2" := (tyArr ty1 ty2) *)
+(*                            (in custom type at level 0, *)
+(*                                ty1 constr at level 1, *)
+(*                                ty2 constr at level 1, *)
+(*                                right associativity). *)
+Notation "'fix' fixname ( v : ty1 ) : ty2 := b" := (eFix fixname v ty1 ty2 b)
+                                  (in custom expr at level 0,
+                                      fixname constr at level 4,
+                                      v constr at level 4,
+                                      b custom expr at level 4,
+                                      ty1 constr at level 4,
+                                      ty2 constr at level 4).
 Notation "( x )" := x (in custom expr, x at level 2).
 Notation "{ x }" := x (in custom expr, x constr).
 
 Module StdLib.
   Notation "a + b" := [| {eConst "Coq.Init.Nat.add"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a * b" := [| {eConst "Coq.Init.Nat.mul"} {a} {b} |]
                         (in custom expr at level 0).
   Notation "'Z'" := (eConstr Nat_name "Z") ( in custom expr at level 0).
   Notation "'Suc'" := (eConstr Nat_name "Suc") ( in custom expr at level 0).
