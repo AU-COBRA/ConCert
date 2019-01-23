@@ -152,7 +152,7 @@ Fixpoint indexify (l : list (name * nat)) (e : expr) : expr :=
           (map (fun p => (fst p, indexify (number_vars (fst p).(pVars) ++ bump_indices l (length (fst p).(pVars))) (snd p))) bs)
   | eFix nm vn ty1 ty2 b =>
     (* name of the fixpoint becomes an index as well *)
-    eFix nm vn ty1 ty2 (indexify ((nm,1) :: (vn,0) :: bump_indices l 1) b)
+    eFix nm vn ty1 ty2 (indexify ((nm,1) :: (vn,0) :: bump_indices l 2) b)
   end.
 
 Fixpoint type_to_term (ty : type) : term :=
@@ -206,7 +206,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     let tty1 := type_to_term ty1 in
     let tty2 := (type_to_term ty2) in
     let ty := tProd nAnon tty1 tty2 in
-    let body := tLambda (nNamed "nv") tty1 (expr_to_term b) in
+    let body := tLambda (nNamed nv) tty1 (expr_to_term b) in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   end.
 
@@ -297,7 +297,7 @@ Notation "t1 t2" := (eApp t1 t2) (in custom expr at level 4, left associativity)
 (*                                ty2 constr at level 1, *)
 (*                                right associativity). *)
 Notation "'fix' fixname ( v : ty1 ) : ty2 := b" := (eFix fixname v ty1 ty2 b)
-                                  (in custom expr at level 0,
+                                  (in custom expr at level 2,
                                       fixname constr at level 4,
                                       v constr at level 4,
                                       b custom expr at level 4,

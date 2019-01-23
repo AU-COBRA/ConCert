@@ -32,7 +32,8 @@ Compute (expr_eval 3 Σ [] negb_app_true).
 
 
 (* Make a Coq function from the AST of the program *)
-Make Definition coq_negb_app_true := Eval compute in (expr_to_term Σ (indexify nil negb_app_true)).
+Make Definition coq_negb_app_true :=
+  Eval compute in (expr_to_term Σ (indexify nil negb_app_true)).
 
 Print coq_negb_app_true.
 
@@ -110,7 +111,7 @@ Run TemplateProgram
 
 Lemma my_negb_adequate : forall b, coq_my_negb b = eval_my_negb b.
 Proof.
-  intros b; destruct b;auto.
+  intros [];auto.
 Qed.
 
 Definition is_zero_syn :=
@@ -157,10 +158,11 @@ Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
 Compute (expr_eval 5 Σ [] prog3).
 
-(* An example of a fixpoint *)
+(* Examples of a fixpoint *)
 
 Definition factorial_syn :=
-  [| fix "factorial" (x : Nat) : Nat :=
+  [|
+   fix "factorial" (x : Nat) : Nat :=
        case x : Nat_name return Nat of
        | Z -> 1
        | Suc y -> x * ("factorial" y)
@@ -168,3 +170,56 @@ Definition factorial_syn :=
 
 Make Definition factorial :=
   Eval compute in ((expr_to_term Σ (indexify [] factorial_syn))).
+
+Definition plus_syn :=
+  [| \x : Nat ->
+          (fix "plus" (y : Nat) : Nat :=
+           case y : Nat_name return Nat of
+           | Z -> x
+           | Suc z -> Suc ("plus" z))
+  |].
+
+Make Definition my_plus :=
+  Eval compute in ((expr_to_term Σ (indexify [] plus_syn))).
+
+Lemma my_plus_0 : forall n, my_plus 0 n = n.
+Proof.
+  induction n;simpl;easy.
+Qed.
+
+Lemma my_plus_Sn : forall n m, my_plus (S n) m = S (my_plus n m).
+Proof.
+  induction m;simpl;easy.
+Qed.
+
+Lemma my_plus_comm : forall n m, my_plus n m = my_plus m n.
+Proof.
+  induction n; intros m;simpl.
+  + rewrite my_plus_0. reflexivity.
+  + rewrite my_plus_Sn. easy.
+Qed.
+
+(* my_plus corresponds to addition of natural numbers defined in the standard library *)
+Lemma my_plus_correct : forall n m, my_plus n m = n + m.
+Proof.
+  intros n m.
+  induction m;simpl;easy.
+Qed.
+
+Definition one_plus_one :=
+  [| {plus_syn} 1 1 |].
+
+Compute (expr_eval 10 Σ [] one_plus_one).
+
+Definition id_rec :=
+  [| (fix "plus" (y : Nat) : Nat :=
+           case y : Nat_name return Nat of
+           | Z -> 0
+           | Suc z -> Suc ("plus" z))
+   |].
+
+Definition default_fun_env : fun_env fval := fun k => fvConstr ("No mapping for: " ++ k)%string "Error" [].
+
+Compute (expr_eval_fun 20 Σ default_fun_env [| {id_rec} (Suc (Suc (Suc 1))) |]).
+
+Compute (expr_eval_fun 10 Σ default_fun_env [| {one_plus_one} |]).
