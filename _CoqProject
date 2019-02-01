@@ -1,3 +1,6 @@
+./CustomTactics.v
 ./Ast.v
 ./EvalE.v
 ./Demo.v
+./Facts.v
+./Correctness.v

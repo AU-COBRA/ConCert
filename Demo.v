@@ -7,6 +7,8 @@ From Template Require Ast.
 From Template Require Import TemplateMonad.
 From Template Require Import monad_utils.
 
+
+Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
 
@@ -25,10 +27,10 @@ Print negb_app_true.
 
 Set Printing Notations.
 
-Import Interpreter.
+Import InterpreterEnvList.
 
 (* Execute the program using the interpreter *)
-Compute (expr_eval 3 Σ [] negb_app_true).
+Compute (expr_eval 3 Σ enEmpty negb_app_true).
 
 
 (* Make a Coq function from the AST of the program *)
@@ -37,69 +39,24 @@ Make Definition coq_negb_app_true :=
 
 Print coq_negb_app_true.
 
-(* Inductive equiv_val :  := *)
-(* | *)
-
-(* Lemma negb_app_true_sound : *)
-
 Definition my_negb :=
     [| (\x : Bool -> \y : Bool ->
            case x : Bool_name return Bool of
            | true -> false
            | false -> true) true  |].
 
-Compute (expr_eval 3 Σ [] my_negb).
+Compute (expr_eval 3 Σ enEmpty my_negb).
 
 Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb)).
-
-Fixpoint remove_by_key {A : Set} (key : string) (ρ : env A) : env A :=
-    match ρ with
-      | [] => []
-      | (key', y) :: ρ' => if (string_dec key key') then remove_by_key key ρ'
-                else  (key',y) :: (remove_by_key key ρ')
-    end.
-
-
-(* NOTE: assumes, that [e] is a closed expression! *)
-Fixpoint subst_env (ρ : env expr) (e : expr) : expr :=
-  match e with
-  | eRel i as e' => e'
-  | eVar nm  => match ρ#(nm) with
-                    | Some v => v
-                    | None => e
-                    end
-  | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key nm ρ) b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key nm ρ) e2)
-  | eApp e1 e2 => eApp (subst_env ρ e1) (subst_env ρ e2)
-  | eConstr t i as e' => e'
-  | eConst nm => eConst nm
-  | eCase nm_i ty e bs =>
-    (* TODO: this case is not complete! We ignore variables bound by patterns *)
-    eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key v ρ) b)
-  end.
-
-
-Fixpoint vars_to_apps acc vs :=
-  match vs with
-  | [] => acc
-  | v :: vs' => vars_to_apps (eApp acc v) vs'
-  end.
-
-Fixpoint from_val (v : val) : expr :=
-  match v with
-  | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
-  | vClos ρ nm ty e => subst_env (map (fun x => (fst x, from_val (snd x))) ρ) (eLambda nm ty e)
-  end.
 
 Import MonadNotation.
 
 Run TemplateProgram
     (
-      t <- tmEval lazy (expr_eval 3 Σ [] my_negb);;
+      t <- tmEval lazy (expr_eval 3 Σ InterpreterEnvList.enEmpty my_negb);;
         match t with
           Ok v =>
-          t' <- tmEval lazy (expr_to_term Σ (indexify [] (from_val v))) ;;
+          t' <- tmEval lazy (expr_to_term Σ (indexify [] (InterpreterEnvList.from_val v))) ;;
           def <- tmUnquoteTyped (bool -> bool) t' ;;
           tmDefinition "eval_my_negb" def ;;
              print_nf "Done."
@@ -141,7 +98,7 @@ Make Definition pred' := Eval compute in (expr_to_term Σ (indexify nil pred_syn
 
 Definition prog2 := [| Suc (Suc Z) |].
 
-Compute (expr_eval 3 Σ [] prog2).
+Compute (expr_eval 3 Σ enEmpty prog2).
 
 Inductive blah :=
   Bar : blah -> blah -> blah
@@ -156,7 +113,7 @@ Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
-Compute (expr_eval 5 Σ [] prog3).
+Compute (expr_eval 5 Σ enEmpty prog3).
 
 (* Examples of a fixpoint *)
 
@@ -206,10 +163,17 @@ Proof.
   induction m;simpl;easy.
 Qed.
 
+Definition two :=
+  (vConstr "Coq.Init.Datatypes.nat" "Suc"
+           [vConstr "Coq.Init.Datatypes.nat" "Suc" [vConstr "Coq.Init.Datatypes.nat" "Z" []]]).
+
 Definition one_plus_one :=
   [| {plus_syn} 1 1 |].
 
-Compute (expr_eval 10 Σ [] one_plus_one).
+Compute (expr_eval 10 Σ enEmpty one_plus_one).
+
+Example one_plus_one_two : expr_eval 10 Σ enEmpty one_plus_one = Ok two.
+Proof. reflexivity. Qed.
 
 Definition id_rec :=
   [| (fix "plus" (y : Nat) : Nat :=
@@ -218,8 +182,12 @@ Definition id_rec :=
            | Suc z -> Suc ("plus" z))
    |].
 
-Definition default_fun_env : fun_env fval := fun k => fvConstr ("No mapping for: " ++ k)%string "Error" [].
+Compute (expr_eval 20 Σ enEmpty [| {id_rec} (Suc (Suc (Suc 1))) |]).
 
-Compute (expr_eval_fun 20 Σ default_fun_env [| {id_rec} (Suc (Suc (Suc 1))) |]).
+Compute ( v <- (expr_eval 10 Σ enEmpty [| {one_plus_one} |]);;
+          ret (from_val v)).
 
-Compute (expr_eval_fun 10 Σ default_fun_env [| {one_plus_one} |]).
+Compute (expr_eval 10 Σ enEmpty [| {plus_syn} |]).
+
+Compute ( v <- (expr_eval 10 Σ enEmpty [| {plus_syn} |]);;
+          ret (from_val v)).

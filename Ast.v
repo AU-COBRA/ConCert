@@ -16,46 +16,6 @@ Inductive type : Set :=
 | tyInd : inductive -> type
 | tyArr : type -> type -> type.
 
-Fixpoint stupid_fix (n : nat) : nat :=
-  match n with
-  | O => 0
-  | S n => stupid_fix n
-  end.
-
-Definition stupid_case (b : bool) : nat :=
-  match b with
-  | true => 1
-  | false => 0
-  end.
-
-Definition stupid_case' (b : bool * bool) : nat :=
-  match b with
-  | (true, _) => 1
-  | (false, _) => 0
-  end.
-
-
-Definition is_zero (n : nat) :=
-  match n with
-  | S n => false
-  | O => true
-  end.
-
-Quote Recursively Definition q_stupid_fix := stupid_fix.
-
-Definition Σ := Eval compute in (fst q_stupid_fix).
-(* Eval compute in type_of_constructor Σ ((mkInd "Coq.Init.Datatypes.nat" 0),1) [] [] *)
-Quote Definition q_stupid_case := Eval compute in stupid_case.
-(* Nested patters are transformed into the nested "case" expressions *)
-Quote Definition q_stupid_case' := Eval compute in stupid_case'.
-Quote Definition q_is_zero := Eval compute in is_zero.
-Make Definition is_zero' := Eval compute in q_is_zero.
-Quote Definition q_plus := Eval compute in plus.
-Quote Definition q_app := Eval compute in app.
-
-Definition ex_let n := let q := 1 in q + n.
-Quote Definition q_let := (fun n => let q := 1 in q + n).
-
 Record pat := pConstr {pName : name; pVars : list name}.
 
 Inductive expr : Set :=
@@ -71,15 +31,50 @@ Inductive expr : Set :=
 | eFix       : name (* of the fix*) -> name (* of the arg*) ->
                type (* of the arg *) -> type (* return *) -> expr -> expr.
 
+(* An induction principle that takes into account nested occurrences of expressions
+   in the list of branches for [eCase] *)
+Definition expr_ind_case (P : expr -> Prop)
+           (Hrel    : forall n : nat, P (eRel n))
+           (Hvar    : forall n : name, P (eVar n))
+           (Hlam    :forall (n : name) (t : type) (e : expr), P e -> P (eLambda n t e))
+           (Hletin  : forall (n : name) (e : expr),
+               P e -> forall (t : type) (e0 : expr), P e0 -> P (eLetIn n e t e0))
+           (Happ    :forall e : expr, P e -> forall e0 : expr, P e0 -> P (eApp e e0))
+           (Hconstr :forall (i : inductive) (n : name), P (eConstr i n))
+           (Hconst  :forall n : name, P (eConst n))
+           (Hcase   : forall (p : inductive * nat) (t : type) (e : expr),
+               P e -> forall l : list (pat * expr), Forall (fun x => P (snd x)) l ->P (eCase p t e l))
+           (Hfix    :forall (n n0 : name) (t t0 : type) (e : expr), P e -> P (eFix n n0 t t0 e)) :
+  forall e : expr, P e.
+Proof.
+  refine (fix ind (e : expr) := _ ).
+  destruct e.
+  + apply Hrel.
+  + apply Hvar.
+  + apply Hlam. apply ind.
+  + apply Hletin; apply ind.
+  + apply Happ;apply ind.
+  + apply Hconstr.
+  + apply Hconst.
+  + apply Hcase. apply ind.
+    induction l.
+    * constructor.
+    * constructor. apply ind. apply IHl.
+  + apply Hfix. apply ind.
+Defined.
+
+Definition vars_to_apps acc vs :=
+  fold_left eApp vs acc.
+
 Definition constr := (name * list type)%type.
 
-(* Could be extended to handle declaration of costanst, e.g. function definitions *)
+(* Could be extended to handle declaration of constant, e.g. function definitions *)
 Inductive global_dec :=
 | gdInd : name -> list constr -> global_dec.
 
 Definition global_env := list global_dec.
 
-(* Associates names of types and constants of our langauge to the corresponding names in Coq *)
+(* Associates names of types and constants of our language to the corresponding names in Coq *)
 Definition translation_table := list (name * name).
 
 
