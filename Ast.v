@@ -5,9 +5,9 @@ Require Import Template.Typing.
 Require Import String List.
 
 Import ListNotations.
-
 Open Scope string_scope.
 
+(* Aliases *)
 Definition name := string.
 Definition inductive := string.
 
@@ -18,18 +18,31 @@ Inductive type : Set :=
 
 Record pat := pConstr {pName : name; pVars : list name}.
 
+(** Type of language expressions. Corresponds to "core" Oak AST *)
+
+(* NOTE: we have both named variables and de Bruijn indices.
+   Translation to Template Coq requires indices, while named representation
+   is what we get from real Oak programs.
+   We can define relations on type of expressions ensuring that either
+   names are used, or indices, but not both at the same time.
+
+   Type annotations are required for the translation to Template Coq.
+ *)
 Inductive expr : Set :=
-| eRel       : nat -> expr
-| eVar       : name -> expr
+| eRel       : nat -> expr (*de Bruijn index *)
+| eVar       : name -> expr (* named variables *)
 | eLambda    : name -> type -> expr -> expr
 | eLetIn     : name -> expr -> type -> expr -> expr
 | eApp       : expr -> expr -> expr
 | eConstr    : inductive -> name -> expr
 | eConst     : name -> expr
-| eCase      : (inductive * nat) (* # of parameters *) -> type
-               -> expr (* discriminee *) -> list (pat * expr) (* branches *) -> expr
-| eFix       : name (* of the fix*) -> name (* of the arg*) ->
-               type (* of the arg *) -> type (* return *) -> expr -> expr.
+| eCase      : (inductive * nat) (* # of parameters *) ->
+               type ->
+               expr (* discriminee *) ->
+               list (pat * expr) (* branches *) ->
+               expr
+| eFix       : name (* of the fix *) -> name (* of the arg *) ->
+               type (* of the arg *) -> type (* return type *) -> expr (* body *) -> expr.
 
 (* An induction principle that takes into account nested occurrences of expressions
    in the list of branches for [eCase] *)
@@ -98,15 +111,14 @@ let fix find (i : nat) (l : list A) : option (nat * A) :=
   end in
 find 0 l.
 
-(* Resolves the constructor name to a corresponding position in the list of costructors along
+(* Resolves the constructor name to a corresponding position in the list of constructors along
    with the constructor info *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ident)
   : option (nat * (string * list type)) :=
   match (lookup_global Σ ind_name) with
-  | Some (gdInd n cs) => find_i (fun x => proj1_sig (Sumbool.bool_of_sumbool (string_dec (fst x) constr_name))) cs
+  | Some (gdInd n cs) => find_i (fun x => fst x =? constr_name) cs
   | None => None
   end.
-
 
 Definition from_option {A : Type} ( o : option A) (default : A) :=
   match o with
@@ -163,11 +175,9 @@ Fixpoint pat_to_lam (tys : list (name * type)) (body : term) : term :=
   | (n,ty) :: tys' => tLambda (nNamed n) (type_to_term ty) (pat_to_lam tys' body)
   end.
 
-SearchPattern (list _ -> list _ -> list (_ * _)).
-
 (* Resolves a pattern by looking up in the global environment
-   and returnes a list of pairs mapping pattern variable
-names to the types of the constructor arguments *)
+   and returns a list of pairs mapping pattern variable
+   names to the types of the constructor arguments *)
 Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) :=
   (* FIXME: in lookup failed we return a dummy value [(0,("",[]))]
      to make the function total *)
@@ -267,30 +277,8 @@ Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
         ty2 constr at level 4).
 
 
-(* Notation "'case' x : ty 'of' b1 | b2 | bn" := *)
-(*   (eCase (ty,0) (tyInd "") x [b1;b2;bn]) *)
-(*     (in custom expr at level 1, *)
-(*         b1 custom expr at level 4, *)
-(*         b2 custom expr at level 4, *)
-(*         bn custom expr at level 4, *)
-(*         ty constr at level 4). *)
-
-(* Notation "'case' x : ty 'of' b1 | b2 | b3 | bn" := *)
-(*   (eCase (ty,0) (tyInd "") x [b1;b2;b3;bn]) *)
-(*     (in custom expr at level 1, *)
-(*         b1 custom expr at level 4, *)
-(*         b2 custom expr at level 4, *)
-(*         b3 custom expr at level 4, *)
-(*         bn custom expr at level 4, *)
-(*         ty constr at level 4). *)
-
 Notation "t1 t2" := (eApp t1 t2) (in custom expr at level 4, left associativity).
-(* Notation "ty" := ty (in custom type at level 0). *)
-(* Notation "ty1 -> ty2" := (tyArr ty1 ty2) *)
-(*                            (in custom type at level 0, *)
-(*                                ty1 constr at level 1, *)
-(*                                ty2 constr at level 1, *)
-(*                                right associativity). *)
+
 Notation "'fix' fixname ( v : ty1 ) : ty2 := b" := (eFix fixname v ty1 ty2 b)
                                   (in custom expr at level 2,
                                       fixname constr at level 4,
@@ -323,72 +311,73 @@ Module StdLib.
 
   Notation "'true'" := (eConstr Bool_name "true") (in custom expr at level 0).
   Notation "'false'" := (eConstr Bool_name "false") ( in custom expr at level 0).
-  (* Definition true := (pConstr "true" []). *)
-  (* Definition false := (pConstr "false" []). *)
-
 
   Definition Σ : global_env :=
     [gdInd Bool_name [("true", []); ("false", [])];
      gdInd Nat_name  [("Z", []); ("Suc", [tyInd Nat_name])]].
 End StdLib.
 
-Import StdLib.
+
+Section Examples.
+  Import StdLib.
 
 
-Definition x := "x".
-Definition y := "y".
-Definition z := "z".
+  Definition x := "x".
+  Definition y := "y".
+  Definition z := "z".
 
-Check [| ^0 |].
+  Check [| ^0 |].
 
-Check [| \x : Nat -> y |].
+  Check [| \x : Nat -> y |].
 
-Definition id_f_syn :=  [| (\x : Nat -> ^0) 1 |].
+  Definition id_f_syn :=  [| (\x : Nat -> ^0) 1 |].
 
-Make Definition id_f_one := Eval compute in (expr_to_term Σ id_f_syn).
-Example id_f_eq : id_f_one = 1. Proof. reflexivity. Qed.
+  Make Definition id_f_one := Eval compute in (expr_to_term Σ id_f_syn).
+  Example id_f_eq : id_f_one = 1. Proof. reflexivity. Qed.
 
-(* The same as [id_f_syn], but with named vars *)
-Definition id_f_with_vars := [| (\x : Nat -> x) 1 |].
+  (* The same as [id_f_syn], but with named vars *)
+  Definition id_f_with_vars := [| (\x : Nat -> x) 1 |].
 
-Make Definition id_f_one' := Eval compute in (expr_to_term Σ (indexify [] id_f_with_vars)).
-Example id_f_eq' : id_f_one' = 1. Proof. reflexivity. Qed.
+  Make Definition id_f_one' := Eval compute in (expr_to_term Σ (indexify [] id_f_with_vars)).
+  Example id_f_eq' : id_f_one' = 1. Proof. reflexivity. Qed.
 
-Definition simple_let_syn :=
-  [|
-   \x : Nat ->
-     let y : Nat := 1 in ^0
-   |].
+  Definition simple_let_syn :=
+    [|
+     \x : Nat ->
+       let y : Nat := 1 in ^0
+     |].
 
-Make Definition simple_let := Eval compute in (expr_to_term Σ simple_let_syn).
-Example simple_let_eq : simple_let 1 = 1. Proof. reflexivity. Qed.
+  Make Definition simple_let := Eval compute in (expr_to_term Σ simple_let_syn).
+  Example simple_let_eq : simple_let 1 = 1. Proof. reflexivity. Qed.
 
-Definition simple_let_with_vars_syn :=
-  [|
-   \x : Nat ->
-     let y : Nat := 1 in y
-   |].
+  Definition simple_let_with_vars_syn :=
+    [|
+     \x : Nat ->
+       let y : Nat := 1 in y
+     |].
 
-Make Definition simple_let' := Eval compute in (expr_to_term Σ (indexify [] simple_let_with_vars_syn)).
-Example simple_let_eq' : simple_let' 0 = 1. Proof. reflexivity. Qed.
+  Make Definition simple_let' := Eval compute in (expr_to_term Σ (indexify [] simple_let_with_vars_syn)).
+  Example simple_let_eq' : simple_let' 0 = 1. Proof. reflexivity. Qed.
 
 
-Definition negb_syn :=
-  [|
-   \x : Bool ->
-          case x : Bool_name return Bool of
-          | true -> false
-          | false -> true
-  |].
+  Definition negb_syn :=
+    [|
+     \x : Bool ->
+            case x : Bool_name return Bool of
+            | true -> false
+            | false -> true
+    |].
 
-Make Definition negb' := Eval compute in (expr_to_term Σ (indexify [] negb_syn)).
+  Make Definition negb' := Eval compute in (expr_to_term Σ (indexify [] negb_syn)).
 
-Example negb'_correct : forall b, negb' b = negb b.
-Proof.
-  destruct b;easy.
-Qed.
+  Example negb'_correct : forall b, negb' b = negb b.
+  Proof.
+    destruct b;easy.
+  Qed.
 
-Definition myplus_syn :=
-  [| \x : Nat -> \y : Nat -> x + y |].
+  Definition myplus_syn :=
+    [| \x : Nat -> \y : Nat -> x + y |].
 
-Make Definition myplus := Eval compute in (expr_to_term Σ (indexify [] myplus_syn)).
+  Make Definition myplus := Eval compute in (expr_to_term Σ (indexify [] myplus_syn)).
+
+End Examples.
