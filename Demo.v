@@ -30,7 +30,9 @@ Set Printing Notations.
 Import InterpreterEnvList.
 
 (* Execute the program using the interpreter *)
-Compute (expr_eval 3 Σ enEmpty negb_app_true).
+Compute (expr_eval_n 3 Σ enEmpty negb_app_true).
+
+Compute (expr_eval_i 3 Σ enEmpty (indexify [] negb_app_true)).
 
 
 (* Make a Coq function from the AST of the program *)
@@ -45,7 +47,7 @@ Definition my_negb :=
            | true -> false
            | false -> true) true  |].
 
-Compute (expr_eval 3 Σ enEmpty my_negb).
+Compute (expr_eval_n 3 Σ enEmpty my_negb).
 
 Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb)).
 
@@ -53,7 +55,7 @@ Import MonadNotation.
 
 Run TemplateProgram
     (
-      t <- tmEval lazy (expr_eval 3 Σ InterpreterEnvList.enEmpty my_negb);;
+      t <- tmEval lazy (expr_eval_n 3 Σ InterpreterEnvList.enEmpty my_negb);;
         match t with
           Ok v =>
           t' <- tmEval lazy (expr_to_term Σ (indexify [] (InterpreterEnvList.from_val v))) ;;
@@ -98,7 +100,7 @@ Make Definition pred' := Eval compute in (expr_to_term Σ (indexify nil pred_syn
 
 Definition prog2 := [| Suc (Suc Z) |].
 
-Compute (expr_eval 3 Σ enEmpty prog2).
+Compute (expr_eval_n 3 Σ enEmpty prog2).
 
 Inductive blah :=
   Bar : blah -> blah -> blah
@@ -113,7 +115,7 @@ Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
-Compute (expr_eval 5 Σ enEmpty prog3).
+Compute (expr_eval_n 5 Σ enEmpty prog3).
 
 (* Examples of a fixpoint *)
 
@@ -170,9 +172,9 @@ Definition two :=
 Definition one_plus_one :=
   [| {plus_syn} 1 1 |].
 
-Compute (expr_eval 10 Σ enEmpty one_plus_one).
+Compute (expr_eval_n 10 Σ enEmpty one_plus_one).
 
-Example one_plus_one_two : expr_eval 10 Σ enEmpty one_plus_one = Ok two.
+Example one_plus_one_two : expr_eval_n 10 Σ enEmpty one_plus_one = Ok two.
 Proof. reflexivity. Qed.
 
 Definition id_rec :=
@@ -182,12 +184,26 @@ Definition id_rec :=
            | Suc z -> Suc ("plus" z))
    |].
 
-Compute (expr_eval 20 Σ enEmpty [| {id_rec} (Suc (Suc (Suc 1))) |]).
+Compute (expr_eval_n 20 Σ enEmpty [| {id_rec} (Suc (Suc (Suc 1))) |]).
+Compute (expr_eval_i 20 Σ enEmpty (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |])).
 
-Compute ( v <- (expr_eval 10 Σ enEmpty [| {one_plus_one} |]);;
+Example id_rec_named_and_indexed :
+  let arg := [| Suc (Suc (Suc 1)) |] in
+  expr_eval_n 20 Σ enEmpty [| {id_rec} {arg} |] =
+  expr_eval_i 20 Σ enEmpty (indexify [] [| {id_rec} {arg} |]).
+Proof. reflexivity. Qed.
+
+Example plus_named_and_indexed :
+  let two := [| (Suc 1)|] in
+  let three := [| Suc {two} |] in
+  expr_eval_n 20 Σ enEmpty [| ({plus_syn} {two}) {three} |] =
+  expr_eval_i 20 Σ enEmpty (indexify [] [| ({plus_syn} {two}) {three} |]).
+Proof. compute. reflexivity. Qed.
+
+Compute ( v <- (expr_eval_i 10 Σ enEmpty [| {one_plus_one} |]);;
           ret (from_val v)).
 
-Compute (expr_eval 10 Σ enEmpty [| {plus_syn} |]).
+Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} |]).
 
-Compute ( v <- (expr_eval 10 Σ enEmpty [| {plus_syn} |]);;
+Compute ( v <- (expr_eval_n 10 Σ enEmpty [| {plus_syn} |]);;
           ret (from_val v)).

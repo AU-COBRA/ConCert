@@ -16,8 +16,11 @@ Import ListNotations.
 
 Import InterpreterEnvList.
 
+Hint Unfold expr_eval_n expr_eval_i : facts.
 
 Section Values.
+
+  Import Lia.
 
   Lemma vars_to_apps_unfold vs : forall acc v,
     vars_to_apps acc (vs ++ [v]) = eApp (vars_to_apps acc vs) v.
@@ -42,6 +45,19 @@ Section Values.
     intros x f. destruct x;simpl in *. f_equal. assumption.
   Qed.
 
+  Lemma subst_env_i_empty :
+    forall (e : expr) (k : nat), e = subst_env_i_aux k [] e.
+  Proof.
+    intros e.
+    induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence.
+    + destruct (n-k);destruct (Nat.leb k n); easy.
+    + f_equal;auto.
+    rewrite <- map_id at 1.
+    eapply @Induction.forall_map_spec.
+    eapply H.
+    intros x f. destruct x;simpl in *. f_equal. apply f.
+  Qed.
+
   (* For simplicity, we consider only constructors of arity 0 and 1 *)
   Inductive accepted_val : val -> Prop :=
   | avContsr0 : forall i nm v, accepted_val v -> accepted_val (vConstr i nm [])
@@ -49,7 +65,7 @@ Section Values.
   | avClos : forall ρ nm ty e, accepted_val (vClos ρ nm ty e).
 
   Lemma expr_eval_econstr {n nm Σ ρ i v} :
-    expr_eval n Σ ρ (eConstr i nm) = Ok v ->
+    expr_eval_n n Σ ρ (eConstr i nm) = Ok v ->
     v = vConstr i nm [].
   Proof.
     intros H.
@@ -65,7 +81,7 @@ Section Values.
      values in the environment while converting closures back to expressions *)
   Lemma from_val_correct n Σ v1 v2 :
     accepted_val v1 ->
-    expr_eval n Σ enEmpty (from_val v1) = Ok v2 ->
+    expr_eval_n n Σ enEmpty (from_val v1) = Ok v2 ->
     v1 ≈ v2.
   Proof.
     intros Hav He.
@@ -75,9 +91,9 @@ Section Values.
     + destruct n0;tryfalse.
       inversion Hav;subst.
       * simpl in H1. inversion H1. reflexivity.
-      * simpl in H1.
-        remember (expr_eval n0 Σ enEmpty (eConstr i n)) as c.
-        remember (expr_eval n0 Σ enEmpty (from_val v)) as fv.
+      * autounfold with facts in *. simpl in H1.
+        remember (expr_eval_general n0 true Σ enEmpty (eConstr i n)) as c.
+        remember (expr_eval_general n0 true Σ enEmpty (from_val v)) as fv.
         destruct c as [c0 | | ];try destruct c0;destruct fv;tryfalse.
         ** inversion H1 as [H1'].
            symmetry in Heqfv.
@@ -118,3 +134,28 @@ Section Values.
   Qed.
 
 End Values.
+
+Section Indexify.
+
+  (* Inductive index_env_ok : list (name * nat) -> env val -> Type := *)
+  (* | iecEmpty : index_env_ok [] enEmpty *)
+  (* | iecCons : forall nm a ρ en, *)
+  (*     index_env_ok en ρ -> *)
+  (*     index_env_ok (nm :: en) (enCons nm a ρ) *)
+  (* | iecRec *)
+
+  Lemma indexify_correct n Σ ρ ne v1 v2 e :
+    expr_eval_n n Σ ρ e = Ok v1 ->
+    expr_eval_i n Σ ρ (indexify ne e) = Ok v2 ->
+    v1 = v2.
+  Proof.
+    intros Hn Hi.
+    induction e using expr_ind_case;autounfold with facts in *.
+    + (* This will be proved trivially if we add an assuption that
+         there are no indices in [e] *)
+      admit.
+    + destruct n;tryfalse. simpl in *.
+      destruct (Ast.lookup ne n0) eqn:Heq;tryfalse.
+      Admitted.
+
+End Indexify.

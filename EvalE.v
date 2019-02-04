@@ -143,6 +143,15 @@ Module InterpreterEnvList.
       if (fixname =? key) then Some (vClos ρ nm ty1 e) else lookup ρ' key
     end.
 
+  Fixpoint lookup_i (ρ : env val) (i : nat) : option val :=
+    match ρ with
+    | enEmpty => None
+    | enCons nm a ρ' =>
+      if (Nat.eqb i 0) then Some a else lookup_i ρ' (i-1)
+    | enRec fixname nm e ty1 ty2 ρ' =>
+      if (Nat.eqb i 0) then Some (vClos ρ nm ty1 e) else lookup_i ρ' (i-1)
+    end.
+
   Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
   (** A value environment extension: *)
   Notation "ρ # [ k ~> v ]" := (enCons k v ρ) (at level 50).
@@ -210,20 +219,26 @@ Module InterpreterEnvList.
                      else match_pat constr_name constr_args bs'
     end.
 
-  Fixpoint expr_eval (fuel : nat) (Σ : global_env) (ρ : env val) (e : expr) : res val :=
+  Fixpoint expr_eval_general (fuel : nat) (named : bool) (Σ : global_env)
+           (ρ : env val) (e : expr) : res val :=
     match fuel with
     | O => NotEnoughFuel
     | S n =>
       match e with
-      | eRel i => EvalError "Indices as variables are not supported"
-      | eVar nm => option_to_res (ρ # (nm)) (nm ++ " - var not found")
+      | eRel i => if named then EvalError "Indices as variables are not supported"
+                  else option_to_res (lookup_i ρ i) ("var not found")
+      | eVar nm => if named then
+                    option_to_res (ρ # (nm)) (nm ++ " - var not found")
+                  else EvalError (nm ++ " variable found, but named variables are not supported")
       | eLambda nm ty b =>
         Ok (vClos ρ nm ty b)
-      | eLetIn nm e1 ty e2 => todo
+      | eLetIn nm e1 ty e2 =>
+        v <- expr_eval_general n named Σ ρ e1 ;;
+        expr_eval_general n named Σ (ρ # [nm ~> v]) e2
       | eApp e1 e2 =>
-        match (expr_eval n Σ ρ e1), (expr_eval n Σ ρ e2) with
+        match (expr_eval_general n named Σ ρ e1), (expr_eval_general n named Σ ρ e2) with
         | Ok (vClos ρ' nm _ b), Ok v =>
-          match (expr_eval n Σ (ρ' # [nm ~> v]) b) with
+          match (expr_eval_general n named Σ (ρ' # [nm ~> v]) b) with
           | Ok v' => Ok v'
           | err => err
           end
@@ -236,11 +251,11 @@ Module InterpreterEnvList.
         Ok (vConstr t i [])
       | eConst nm => todo
       | eCase (ind,i) ty e bs =>
-        match (expr_eval n Σ ρ e) with
+        match (expr_eval_general n named Σ ρ e) with
         | Ok (vConstr ind' c vs) => if (string_dec ind ind') then
                                       match (match_pat c vs bs) with
                                       | Some (var_assign, v) =>
-                                        expr_eval n Σ (concat_env (list_to_env var_assign) ρ) v
+                                        expr_eval_general n named Σ (concat_env (list_to_env var_assign) ρ) v
                                       | None => EvalError "No such constructor"
                                       end
                                     else EvalError ("Expecting inductive " ++ ind ++
@@ -248,9 +263,12 @@ Module InterpreterEnvList.
         | v => v
         end
       | eFix fixname vn ty1 ty2 b as e =>
-        expr_eval n Σ (enRec fixname vn b ty1 ty2 ρ) (eLambda vn ty1 b)
+        expr_eval_general n named  Σ (enRec fixname vn b ty1 ty2 ρ) (eLambda vn ty1 b)
       end
     end.
+
+  Definition expr_eval_n n := expr_eval_general n true.
+  Definition expr_eval_i n := expr_eval_general n false.
 
   Definition map_env {A B : Type} (f : A -> B) : env A -> env B :=
     fix menv (ρ : env A) :=
@@ -270,11 +288,11 @@ Module InterpreterEnvList.
   (* This is equivalent to the composition env_to_list ∘ (map_env f), but
      we if we use the comosition in the definition of from_val, then Coq cannot
      recognise it as a fixpoint. So, we have to merge the two definitions *)
-  Definition map_env_list {A B : Type} (f : A -> B) : env A -> list (name * B) :=
+  Definition map_env_list {A B : Type} (f : name -> A -> B) : env A -> list B :=
     fix menv (ρ : env A) :=
       match ρ with
       | enEmpty => []
-      | enCons nm v ρ' => (nm, f v) :: (menv ρ')
+      | enCons nm v ρ' => f nm v :: (menv ρ')
       | enRec fixname nm e ty1 ty2 ρ' => menv ρ'
       end.
 
@@ -291,7 +309,7 @@ Module InterpreterEnvList.
     end.
 
 
-    (* NOTE: assumes, that [e] is a closed expression! *)
+ (* NOTE: assumes, that [e] is a closed expression! *)
  Fixpoint subst_env (ρ : list (name * expr)) (e : expr) : expr :=
   match e with
   | eRel i as e' => e'
@@ -310,6 +328,24 @@ Module InterpreterEnvList.
   | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key_list v ρ) b)
   end.
 
+ Fixpoint subst_env_i_aux (k : nat) (ρ : list expr) (e : expr) : expr :=
+  match e with
+  | eRel i => if Nat.leb k i then nth (i-k) ρ e else eRel i
+  | eVar nm  => eVar nm
+  | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
+  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
+  | eApp e1 e2 => eApp (subst_env_i_aux k ρ e1) (subst_env_i_aux k ρ e2)
+  | eConstr t i as e' => e'
+  | eConst nm => eConst nm
+  | eCase nm_i ty e bs =>
+    (* TODO: this case is not complete! We ignore variables bound by patterns *)
+    eCase nm_i ty (subst_env_i_aux k ρ e)
+          (map (fun x => (fst x, subst_env_i_aux (length (fst x).(pVars) + k) ρ (snd x))) bs)
+  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env_i_aux (2+k) ρ b)
+  end.
+
+ Definition subst_env_i := subst_env_i_aux 0.
+
   (* Converting from values back to expression.
      This will be used to compare results of the evaluation with different semantics, or
      for stating soundness theorem for the translation to a different language, e.g.
@@ -326,12 +362,23 @@ Module InterpreterEnvList.
     | vClos ρ nm ty e =>
       match ρ with
       | enRec fixname _ _ ty1 ty2 _ =>
-        subst_env (map_env_list from_val ρ) (eFix fixname nm ty ty2 e)
-      | _ => subst_env (map_env_list from_val ρ) (eLambda nm ty e)
+        subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) (eFix fixname nm ty ty2 e)
+      | _ => subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) (eLambda nm ty e)
       end
     end.
 
-  Definition inst_env (ρ : env val) (e : expr) : expr := subst_env (map_env_list from_val ρ) e.
+  Definition inst_env (ρ : env val) (e : expr) : expr := subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) e.
+
+  Fixpoint from_val_i (v : val) : expr :=
+    match v with
+    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
+    | vClos ρ nm ty e =>
+      match ρ with
+      | enRec fixname _ _ ty1 ty2 _ =>
+        subst_env_i (map_env_list (fun _ v => from_val v) ρ) (eFix fixname nm ty ty2 e)
+      | _ => subst_env_i (map_env_list (fun _ v => from_val v) ρ) (eLambda nm ty e)
+      end
+    end.
 
   Reserved Notation "v1 ≈ v2" (at level 50).
 
@@ -578,8 +625,12 @@ Module Examples.
            | false -> true) true
      |].
 
-  Example eval_prog1 :
-    InterpreterEnvList.expr_eval 3 Σ InterpreterEnvList.enEmpty prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
+  Example eval_prog1_named :
+    InterpreterEnvList.expr_eval_n 3 Σ InterpreterEnvList.enEmpty prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
+  Proof. simpl. reflexivity. Qed.
+
+  Example eval_prog1_indexed :
+    InterpreterEnvList.expr_eval_i 3 Σ InterpreterEnvList.enEmpty (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
   Example eval_prog1' :
