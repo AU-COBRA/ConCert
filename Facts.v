@@ -20,8 +20,6 @@ Hint Unfold expr_eval_n expr_eval_i : facts.
 
 Section Values.
 
-  Import Lia.
-
   Lemma vars_to_apps_unfold vs : forall acc v,
     vars_to_apps acc (vs ++ [v]) = eApp (vars_to_apps acc vs) v.
   Proof.
