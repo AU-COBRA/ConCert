@@ -125,9 +125,12 @@ Proof.
       destruct n0; tryfalse.
     + (* eLambda *)
       autounfold with facts in *. simpl in HT. simpl in He.
-      inversion He. simpl. inversion HT. subst.
-      destruct ρ.
-      * simpl. repeat f_equal. apply subst_env_i_empty.
-      * simpl. f_equal.
-
+      inversion He. rewrite <- Henv in HT. simpl. inversion HT. subst.
+      reflexivity.
+    + (* eLetIn *)
+      autounfold with facts in *. simpl in HT. simpl in He.
+      destruct (expr_eval_general n false Σ1 ρ e1_1);tryfalse.
+      rewrite <- Henv in HT.
+      unfold inst_env_i,subst_env_i in Henv. simpl in Henv.
+      simpl in *. inversion HT. subst.
 Admitted.

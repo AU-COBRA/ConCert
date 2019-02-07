@@ -83,9 +83,14 @@ Module InterpreterEnvList.
     | (k,v) :: xs' => enCons k v (list_to_env xs')
     end.
 
+  (** A type of labels to distinguish closures corresponding to lambdas and fixpoints *)
+  Inductive clos_mode : Type :=
+    cmLam | cmFix : name -> clos_mode.
+
   Inductive val : Type :=
   | vConstr : inductive -> name -> list val -> val
   | vClos   : env val -> name ->
+              clos_mode ->
               type ->(* types are used to convert closures back to lambdas *)
               expr -> val.
 
@@ -101,8 +106,8 @@ Module InterpreterEnvList.
   Definition val_ind_full
      (P : val -> Prop)
      (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
-     (Hclos : forall (ρ : env val) (n : name) (ty : type) (e0 : expr),
-          ForallEnv P ρ -> P (vClos ρ n ty e0)) :
+     (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty : type) (e0 : expr),
+          ForallEnv P ρ -> P (vClos ρ n cm ty e0)) :
     forall v : val, P v.
     refine (fix val_ind_fix (v : val) := _).
     destruct v.
@@ -149,7 +154,8 @@ Module InterpreterEnvList.
     | enCons nm a ρ' =>
       if (nm =? key) then Some a else lookup ρ' key
     | enRec fixname nm e ty1 ty2 ρ' =>
-      if (fixname =? key) then Some (vClos ρ nm ty1 e) else lookup ρ' key
+      if (fixname =? key) then Some (vClos ρ nm (cmFix fixname) ty1 e)
+      else lookup ρ' key
     end.
 
   (** Lookup by index (similar to [List.nth_error], but for environments *)
@@ -159,7 +165,7 @@ Module InterpreterEnvList.
     | enCons nm a ρ' =>
       if (Nat.eqb i 0) then Some a else lookup_i ρ' (i-1)
     | enRec fixname nm e ty1 ty2 ρ' =>
-      if (Nat.eqb i 0) then Some (vClos ρ nm ty1 e) else lookup_i ρ' (i-1)
+      if (Nat.eqb i 0) then Some (vClos ρ nm (cmFix fixname) ty1 e) else lookup_i ρ' (i-1)
     end.
 
   (** A lookup by index that ignores recursive environments.
@@ -253,13 +259,13 @@ Module InterpreterEnvList.
                     option_to_res (ρ # (nm)) (nm ++ " - var not found")
                   else EvalError (nm ++ " variable found, but named variables are not supported")
       | eLambda nm ty b =>
-        Ok (vClos ρ nm ty b)
+        Ok (vClos ρ nm cmLam ty b)
       | eLetIn nm e1 ty e2 =>
         v <- expr_eval_general n named Σ ρ e1 ;;
         expr_eval_general n named Σ (ρ # [nm ~> v]) e2
       | eApp e1 e2 =>
         match (expr_eval_general n named Σ ρ e1), (expr_eval_general n named Σ ρ e2) with
-        | Ok (vClos ρ' nm _ b), Ok v =>
+        | Ok (vClos ρ' nm _ _ b), Ok v =>
           match (expr_eval_general n named Σ (ρ' # [nm ~> v]) b) with
           | Ok v' => Ok v'
           | err => err
@@ -285,7 +291,8 @@ Module InterpreterEnvList.
         | v => v
         end
       | eFix fixname vn ty1 ty2 b as e =>
-        expr_eval_general n named  Σ (enRec fixname vn b ty1 ty2 ρ) (eLambda vn ty1 b)
+        let ρ' := enRec fixname vn b ty1 ty2 ρ in
+        Ok (vClos ρ' vn (cmFix fixname) ty1 b)
       end
     end.
 
@@ -381,12 +388,14 @@ Module InterpreterEnvList.
   Fixpoint from_val (v : val) : expr :=
     match v with
     | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
-    | vClos ρ nm ty e =>
-      match ρ with
-      | enRec fixname _ _ ty1 ty2 _ =>
-        subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) (eFix fixname nm ty ty2 e)
-      | _ => subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) (eLambda nm ty e)
-      end
+    | vClos ρ nm cm ty e =>
+      let res := match cm with
+                 | cmLam => eLambda nm ty e
+                (* TODO: we should store both source and target types in a closure.
+                   Also, think about a fixpoint name. Does it matter? *)
+                 | cmFix fixname => eFix fixname nm ty ty e
+                 end
+      in subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) res
     end.
 
   Definition inst_env (ρ : env val) (e : expr) : expr :=
@@ -395,81 +404,81 @@ Module InterpreterEnvList.
   Fixpoint from_val_i (v : val) : expr :=
     match v with
     | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val_i vs)
-    | vClos ρ nm ty e =>
-      match ρ with
-      | enRec fixname _ _ ty1 ty2 _ =>
-        subst_env_i (map_env (fun v => from_val_i v) ρ) (eFix fixname nm ty ty2 e)
-      | _ => subst_env_i (map_env (fun v => from_val_i v) ρ) (eLambda nm ty e)
-      end
-    end.
+    | vClos ρ nm cm ty e =>
+      let res := match cm with
+                 | cmLam => eLambda nm ty e
+                (* TODO: we should store both source and target types in a closure.
+                   Also, think about a fixpoint name. Does it matter? *)
+                | cmFix fixname => eFix fixname nm ty ty e
+                end
+     in subst_env_i (map_env (fun v => from_val_i v) ρ) res
+   end.
 
-  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
-    subst_env_i (map_env (fun v => from_val_i v) ρ) e.
+ Definition inst_env_i (ρ : env val) (e : expr) : expr :=
+   subst_env_i (map_env (fun v => from_val_i v) ρ) e.
 
-  Module Equivalence.
-    Reserved Notation "v1 ≈ v2" (at level 50).
+ Module Equivalence.
+   Reserved Notation "v1 ≈ v2" (at level 50).
 
-    Inductive val_equiv : relation val :=
-    | veqConstr i n (vs1 vs2 : list val) :
-        Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2 -> vConstr i n vs1 ≈ vConstr i n vs2
-    | veqClosLam ρ1 ρ2 nm ty e1 e2 :
-        inst_env_i ρ1 (eLambda nm ty e1) = inst_env_i ρ2 (eLambda nm ty e2) ->
-        vClos ρ1 nm ty e1 ≈ vClos ρ2 nm ty e2
-    | veqClosFix ρ1 ρ2 n nm1 nm2 fixname ty ty1 ty2 ty1' ty2' e1 e2 e1' e2':
-        let ρ1' := enRec fixname nm1 e1' ty1 ty2 ρ1 in
-        let ρ2' := enRec fixname nm2 e2' ty1' ty2' ρ2 in
-        inst_env_i ρ1' (eFix fixname n ty ty2 e1) =
-        inst_env_i ρ2' (eFix fixname n ty ty2' e2) ->
-        vClos ρ1' n ty e1 ≈ vClos ρ2' n ty e2
-    where
-    "v1 ≈ v2" := (val_equiv v1 v2).
+   Inductive val_equiv : relation val :=
+   | veqConstr i n (vs1 vs2 : list val) :
+       Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2 -> vConstr i n vs1 ≈ vConstr i n vs2
+   | veqClosLam ρ1 ρ2 nm ty e1 e2 :
+       inst_env_i ρ1 (eLambda nm ty e1) = inst_env_i ρ2 (eLambda nm ty e2) ->
+       vClos ρ1 nm cmLam ty e1 ≈ vClos ρ2 nm cmLam  ty e2
+   | veqClosFix ρ1 ρ2 n ty1 e1 e2 :
+       (forall fixname ty2 , inst_env_i ρ1 (eFix fixname n ty1 ty2 e1) =
+       inst_env_i ρ2 (eFix fixname n ty1 ty2 e2)) ->
+       (forall fixname, vClos ρ1 n (cmFix fixname) ty1 e1 ≈ vClos ρ2 n (cmFix fixname) ty1 e2)
+   where
+   "v1 ≈ v2" := (val_equiv v1 v2).
 
-    Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
-    Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
+   Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
+   Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
 
-    Instance val_equiv_reflexive : Reflexive val_equiv.
-    Proof.
-      intros v. induction v using val_ind_full.
-      + constructor.
-        induction l;constructor; inversion H; easy.
-      + constructor;reflexivity.
-    Defined.
+   Instance val_equiv_reflexive : Reflexive val_equiv.
+   Proof.
+     intros v. induction v using val_ind_full.
+     + constructor.
+       induction l;constructor; inversion H; easy.
+     + destruct cm;constructor;reflexivity.
+   Defined.
 
-    (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)
-    Axiom val_equiv_symmetric : Symmetric val_equiv.
-    Axiom val_equiv_transitive : Transitive val_equiv.
+   (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)
+   Axiom val_equiv_symmetric : Symmetric val_equiv.
+   Axiom val_equiv_transitive : Transitive val_equiv.
 
-    Existing Instance val_equiv_symmetric.
-    Existing Instance val_equiv_transitive.
+   Existing Instance val_equiv_symmetric.
+   Existing Instance val_equiv_transitive.
 
-    Add Relation val val_equiv
-        reflexivity proved by val_equiv_reflexive
-        symmetry proved by val_equiv_symmetric
-        transitivity proved by val_equiv_transitive as val_equiv_rel.
+   Add Relation val val_equiv
+       reflexivity proved by val_equiv_reflexive
+       symmetry proved by val_equiv_symmetric
+       transitivity proved by val_equiv_transitive as val_equiv_rel.
 
-    (* TODO:  Define these  *)
-    Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
-    Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
-    Axiom list_val_equiv_transitive : Transitive list_val_equiv.
+   (* TODO:  Define these  *)
+   Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
+   Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
+   Axiom list_val_equiv_transitive : Transitive list_val_equiv.
 
-    Existing Instance list_val_equiv_symmetric.
-    Existing Instance list_val_equiv_symmetric.
-    Existing Instance list_val_equiv_transitive.
+   Existing Instance list_val_equiv_symmetric.
+   Existing Instance list_val_equiv_symmetric.
+   Existing Instance list_val_equiv_transitive.
 
-    Add Relation (list val) list_val_equiv
-        reflexivity proved by list_val_equiv_reflexive
-        symmetry proved by list_val_equiv_symmetric
-        transitivity proved by list_val_equiv_transitive as list_val_equiv_rel.
+   Add Relation (list val) list_val_equiv
+       reflexivity proved by list_val_equiv_reflexive
+       symmetry proved by list_val_equiv_symmetric
+       transitivity proved by list_val_equiv_transitive as list_val_equiv_rel.
 
-    Lemma list_val_compat v1 v2 vs1 vs2 :
-      v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
-    Proof.
-      intros Heq Heql.
-      constructor;easy.
-    Qed.
+   Lemma list_val_compat v1 v2 vs1 vs2 :
+     v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
+   Proof.
+     intros Heq Heql.
+     constructor;easy.
+   Qed.
 
-    Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
-    Proof.
+   Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
+   Proof.
       cbv;intros;apply list_val_compat;assumption.
     Defined.
 

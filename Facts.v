@@ -73,7 +73,7 @@ Section Values.
   Inductive accepted_val : val -> Prop :=
   | avContsr0 : forall i nm v, accepted_val v -> accepted_val (vConstr i nm [])
   | avContsr1 : forall i nm v, accepted_val v -> accepted_val (vConstr i nm [v])
-  | avClos : forall ρ nm ty e, accepted_val (vClos ρ nm ty e).
+  | avClos : forall ρ nm cm ty e, accepted_val (vClos ρ nm cm ty e).
 
   Lemma expr_eval_econstr {n nm Σ ρ i v mode} :
     expr_eval_general n mode Σ ρ (eConstr i nm) = Ok v ->
@@ -121,26 +121,19 @@ Section Values.
         ** symmetry in Heqc.
            pose proof (expr_eval_econstr Heqc);tryfalse.
     + simpl in H1.
-      destruct H.
-      * destruct n0;tryfalse. simpl in H1.
-        inversion_clear H1.
-        rewrite <- subst_env_i_empty. reflexivity.
+      destruct cm.
       * destruct n0;tryfalse. simpl in H1.
         inversion_clear H1.
         constructor.
-        destruct (nm =? n) eqn:Hnm;
-           unfold inst_env_i,subst_env_i;simpl;
-           rewrite <- subst_env_i_empty;
-           try apply eqb_eq in Hnm; subst; simpl;
-           reflexivity.
-      * (* It takes 2 steps to evaluate a fixpoint to a closure *)
-        destruct n0;tryfalse.
-        destruct n0;tryfalse. simpl in H1. inversion H1.
-        unfold inst_env_i,subst_env_i;simpl.
-        eapply veqClosFix.
         unfold inst_env_i,subst_env_i;simpl;
-          rewrite <- subst_env_i_rec. simpl.
+           rewrite <- subst_env_i_empty.
         reflexivity.
+      * destruct n0;tryfalse. simpl in H1.
+        inversion_clear H1.
+        constructor.
+        intros.
+        unfold inst_env_i,subst_env_i;simpl.
+        rewrite <- subst_env_i_rec;reflexivity.
   Qed.
 
 End Values.
