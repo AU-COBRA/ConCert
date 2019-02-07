@@ -44,11 +44,24 @@ Section Values.
   Qed.
 
   Lemma subst_env_i_empty :
-    forall (e : expr) (k : nat), e = subst_env_i_aux k [] e.
+    forall (e : expr) (k : nat), e = subst_env_i_aux k enEmpty e.
   Proof.
     intros e.
     induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence.
     + destruct (n-k);destruct (Nat.leb k n); easy.
+    + f_equal;auto.
+    rewrite <- map_id at 1.
+    eapply @Induction.forall_map_spec.
+    eapply H.
+    intros x f. destruct x;simpl in *. f_equal. apply f.
+  Qed.
+
+  Lemma subst_env_i_rec n1 n2 e1 t1 t2 :
+    forall (e : expr) (k : nat), e = subst_env_i_aux k (enRec n1 n2 e1 t1 t2 enEmpty) e.
+  Proof.
+    intros e.
+    induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence.
+    + destruct (Nat.leb k n); destruct k; try easy; destruct (n-k); easy.
     + f_equal;auto.
     rewrite <- map_id at 1.
     eapply @Induction.forall_map_spec.
@@ -62,13 +75,14 @@ Section Values.
   | avContsr1 : forall i nm v, accepted_val v -> accepted_val (vConstr i nm [v])
   | avClos : forall ρ nm ty e, accepted_val (vClos ρ nm ty e).
 
-  Lemma expr_eval_econstr {n nm Σ ρ i v} :
-    expr_eval_n n Σ ρ (eConstr i nm) = Ok v ->
+  Lemma expr_eval_econstr {n nm Σ ρ i v mode} :
+    expr_eval_general n mode Σ ρ (eConstr i nm) = Ok v ->
     v = vConstr i nm [].
   Proof.
-    intros H.
-    destruct n;inversion H. reflexivity.
+    destruct mode;  intros H; destruct n;inversion H;reflexivity.
   Qed.
+
+  Import InterpreterEnvList.Equivalence.
 
   (** Correctness of the value-back-to-expression transformation *)
   (* A a creterion of correctness we consider the property that
@@ -77,9 +91,10 @@ Section Values.
      Note that we cannot ask [v1] and [v2] to be equal,
      instead we ask for equivalence. This is due to substitutions of the
      values in the environment while converting closures back to expressions *)
-  Lemma from_val_correct n Σ v1 v2 :
+
+  Lemma from_val_debruijn_correct n Σ v1 v2 :
     accepted_val v1 ->
-    expr_eval_n n Σ enEmpty (from_val v1) = Ok v2 ->
+    expr_eval_i n Σ enEmpty (from_val_i v1) = Ok v2 ->
     v1 ≈ v2.
   Proof.
     intros Hav He.
@@ -90,8 +105,8 @@ Section Values.
       inversion Hav;subst.
       * simpl in H1. inversion H1. reflexivity.
       * autounfold with facts in *. simpl in H1.
-        remember (expr_eval_general n0 true Σ enEmpty (eConstr i n)) as c.
-        remember (expr_eval_general n0 true Σ enEmpty (from_val v)) as fv.
+        remember (expr_eval_general n0 false Σ enEmpty (eConstr i n)) as c.
+        remember (expr_eval_general n0 false Σ enEmpty (from_val_i v)) as fv.
         destruct c as [c0 | | ];try destruct c0;destruct fv;tryfalse.
         ** inversion H1 as [H1'].
            symmetry in Heqfv.
@@ -109,25 +124,22 @@ Section Values.
       destruct H.
       * destruct n0;tryfalse. simpl in H1.
         inversion_clear H1.
-        rewrite <- subst_env_empty. reflexivity.
+        rewrite <- subst_env_i_empty. reflexivity.
       * destruct n0;tryfalse. simpl in H1.
         inversion_clear H1.
         constructor.
-        destruct (nm =? n) eqn:Hnm.
-        ** unfold inst_env. simpl.
-           rewrite <- subst_env_empty.
-           apply eqb_eq in Hnm. subst.
-           rewrite eqb_refl. reflexivity.
-        ** unfold inst_env. simpl.
-           rewrite Hnm.
-           rewrite <- subst_env_empty.
+        destruct (nm =? n) eqn:Hnm;
+           unfold inst_env_i,subst_env_i;simpl;
+           rewrite <- subst_env_i_empty;
+           try apply eqb_eq in Hnm; subst; simpl;
            reflexivity.
       * (* It takes 2 steps to evaluate a fixpoint to a closure *)
         destruct n0;tryfalse.
         destruct n0;tryfalse. simpl in H1. inversion H1.
-        constructor.
-        unfold inst_env. simpl.
-        rewrite <- subst_env_empty.
+        unfold inst_env_i,subst_env_i;simpl.
+        eapply veqClosFix.
+        unfold inst_env_i,subst_env_i;simpl;
+          rewrite <- subst_env_i_rec. simpl.
         reflexivity.
   Qed.
 

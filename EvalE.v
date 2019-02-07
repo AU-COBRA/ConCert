@@ -62,6 +62,14 @@ Module InterpreterEnvList.
   Arguments enCons {_}.
   Arguments enRec {_}.
 
+  (** Size of the context is number of all entries *)
+  Fixpoint size {A} (ρ : env A) : nat :=
+    match ρ with
+    | enEmpty => 0
+    | enCons _ _ ρ' => 1 + size ρ'
+    | enRec _ _ _ _ _ ρ' => 1 + size ρ'
+    end.
+
   Fixpoint concat_env {A : Type} (ρ ρ' : env A) :=
     match ρ with
     | enEmpty => ρ'
@@ -134,6 +142,7 @@ Module InterpreterEnvList.
       inversion H;auto.
   Qed.
 
+  (** Lookup by variable name *)
   Fixpoint lookup (ρ : env val) (key : string) : option val :=
     match ρ with
     | enEmpty => None
@@ -143,6 +152,7 @@ Module InterpreterEnvList.
       if (fixname =? key) then Some (vClos ρ nm ty1 e) else lookup ρ' key
     end.
 
+  (** Lookup by index (similar to [List.nth_error], but for environments *)
   Fixpoint lookup_i (ρ : env val) (i : nat) : option val :=
     match ρ with
     | enEmpty => None
@@ -150,6 +160,18 @@ Module InterpreterEnvList.
       if (Nat.eqb i 0) then Some a else lookup_i ρ' (i-1)
     | enRec fixname nm e ty1 ty2 ρ' =>
       if (Nat.eqb i 0) then Some (vClos ρ nm ty1 e) else lookup_i ρ' (i-1)
+    end.
+
+  (** A lookup by index that ignores recursive environments.
+     Useful for substituting elements of the environment
+     into an expression when converting closures to expressions*)
+  Fixpoint lookup_i_norec {A} (ρ : env A) (i : nat) : option A :=
+    match ρ with
+    | enEmpty => None
+    | enCons nm a ρ' =>
+      if (Nat.eqb i 0) then Some a else lookup_i_norec ρ' (i-1)
+    | enRec fixname nm e ty1 ty2 ρ' =>
+      if (Nat.eqb i 0) then None else lookup_i_norec ρ' (i-1)
     end.
 
   Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
@@ -286,7 +308,7 @@ Module InterpreterEnvList.
     end.
 
   (* This is equivalent to the composition env_to_list ∘ (map_env f), but
-     we if we use the comosition in the definition of from_val, then Coq cannot
+     we if we use the composition in the definition of from_val, then Coq cannot
      recognise it as a fixpoint. So, we have to merge the two definitions *)
   Definition map_env_list {A B : Type} (f : name -> A -> B) : env A -> list B :=
     fix menv (ρ : env A) :=
@@ -328,9 +350,10 @@ Module InterpreterEnvList.
   | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key_list v ρ) b)
   end.
 
- Fixpoint subst_env_i_aux (k : nat) (ρ : list expr) (e : expr) : expr :=
+ Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
   match e with
-  | eRel i => if Nat.leb k i then nth (i-k) ρ e else eRel i
+  | eRel i => if Nat.leb k i then
+               from_option (lookup_i_norec ρ (1+i-k)) (eRel i) else eRel i
   | eVar nm  => eVar nm
   | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
   | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
@@ -338,7 +361,6 @@ Module InterpreterEnvList.
   | eConstr t i as e' => e'
   | eConst nm => eConst nm
   | eCase nm_i ty e bs =>
-    (* TODO: this case is not complete! We ignore variables bound by patterns *)
     eCase nm_i ty (subst_env_i_aux k ρ e)
           (map (fun x => (fst x, subst_env_i_aux (length (fst x).(pVars) + k) ρ (snd x))) bs)
   | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env_i_aux (2+k) ρ b)
@@ -351,8 +373,8 @@ Module InterpreterEnvList.
      for stating soundness theorem for the translation to a different language, e.g.
      to Template Coq terms.
 
-     The most non-trival part is to convert closures, for which we have to perform some form
-     of subsitution of values from the value environment (see [subst_env])
+     The most non-trivial part is to convert closures, for which we have to perform some form
+     of substitution of values from the value environment (see [subst_env])
      Inspired by the implementation of
      "A Certified Implementation of ML with Structural Polymorphism" by Jacques Garrigue.
    *)
@@ -367,93 +389,106 @@ Module InterpreterEnvList.
       end
     end.
 
-  Definition inst_env (ρ : env val) (e : expr) : expr := subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) e.
+  Definition inst_env (ρ : env val) (e : expr) : expr :=
+    subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) e.
 
   Fixpoint from_val_i (v : val) : expr :=
     match v with
-    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
+    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val_i vs)
     | vClos ρ nm ty e =>
       match ρ with
       | enRec fixname _ _ ty1 ty2 _ =>
-        subst_env_i (map_env_list (fun _ v => from_val v) ρ) (eFix fixname nm ty ty2 e)
-      | _ => subst_env_i (map_env_list (fun _ v => from_val v) ρ) (eLambda nm ty e)
+        subst_env_i (map_env (fun v => from_val_i v) ρ) (eFix fixname nm ty ty2 e)
+      | _ => subst_env_i (map_env (fun v => from_val_i v) ρ) (eLambda nm ty e)
       end
     end.
 
-  Reserved Notation "v1 ≈ v2" (at level 50).
+  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
+    subst_env_i (map_env (fun v => from_val_i v) ρ) e.
 
-  Inductive val_equiv : relation val :=
-  | veqConstr i n (vs1 vs2 : list val) :
-      Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2 -> vConstr i n vs1 ≈ vConstr i n vs2
-  | veqClos ρ1 ρ2 nm ty e1 e2 :
-      inst_env ρ1 (eLambda nm ty e1) = inst_env ρ2 (eLambda nm ty e2) ->
-      vClos ρ1 nm ty e1 ≈ vClos ρ2 nm ty e2
-  where
-  "v1 ≈ v2" := (val_equiv v1 v2).
+  Module Equivalence.
+    Reserved Notation "v1 ≈ v2" (at level 50).
 
-  Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
-  Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
+    Inductive val_equiv : relation val :=
+    | veqConstr i n (vs1 vs2 : list val) :
+        Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2 -> vConstr i n vs1 ≈ vConstr i n vs2
+    | veqClosLam ρ1 ρ2 nm ty e1 e2 :
+        inst_env_i ρ1 (eLambda nm ty e1) = inst_env_i ρ2 (eLambda nm ty e2) ->
+        vClos ρ1 nm ty e1 ≈ vClos ρ2 nm ty e2
+    | veqClosFix ρ1 ρ2 n nm1 nm2 fixname ty ty1 ty2 ty1' ty2' e1 e2 e1' e2':
+        let ρ1' := enRec fixname nm1 e1' ty1 ty2 ρ1 in
+        let ρ2' := enRec fixname nm2 e2' ty1' ty2' ρ2 in
+        inst_env_i ρ1' (eFix fixname n ty ty2 e1) =
+        inst_env_i ρ2' (eFix fixname n ty ty2' e2) ->
+        vClos ρ1' n ty e1 ≈ vClos ρ2' n ty e2
+    where
+    "v1 ≈ v2" := (val_equiv v1 v2).
 
-  Instance val_equiv_reflexive : Reflexive val_equiv.
-  Proof.
-    intros v. induction v using val_ind_full.
-    + constructor.
-      induction l;constructor; inversion H; easy.
-    + constructor;reflexivity.
-  Defined.
+    Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
+    Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
 
-  (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)
-  Axiom val_equiv_symmetric : Symmetric val_equiv.
-  Axiom val_equiv_transitive : Transitive val_equiv.
+    Instance val_equiv_reflexive : Reflexive val_equiv.
+    Proof.
+      intros v. induction v using val_ind_full.
+      + constructor.
+        induction l;constructor; inversion H; easy.
+      + constructor;reflexivity.
+    Defined.
 
-  Existing Instance val_equiv_symmetric.
-  Existing Instance val_equiv_transitive.
+    (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)
+    Axiom val_equiv_symmetric : Symmetric val_equiv.
+    Axiom val_equiv_transitive : Transitive val_equiv.
 
-  Add Relation val val_equiv
-      reflexivity proved by val_equiv_reflexive
-      symmetry proved by val_equiv_symmetric
-      transitivity proved by val_equiv_transitive as val_equiv_rel.
+    Existing Instance val_equiv_symmetric.
+    Existing Instance val_equiv_transitive.
 
-  (* TODO:  Define these  *)
-  Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
-  Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
-  Axiom list_val_equiv_transitive : Transitive list_val_equiv.
+    Add Relation val val_equiv
+        reflexivity proved by val_equiv_reflexive
+        symmetry proved by val_equiv_symmetric
+        transitivity proved by val_equiv_transitive as val_equiv_rel.
 
-  Existing Instance list_val_equiv_symmetric.
-  Existing Instance list_val_equiv_symmetric.
-  Existing Instance list_val_equiv_transitive.
+    (* TODO:  Define these  *)
+    Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
+    Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
+    Axiom list_val_equiv_transitive : Transitive list_val_equiv.
 
-  Add Relation (list val) list_val_equiv
-      reflexivity proved by list_val_equiv_reflexive
-      symmetry proved by list_val_equiv_symmetric
-      transitivity proved by list_val_equiv_transitive as list_val_equiv_rel.
+    Existing Instance list_val_equiv_symmetric.
+    Existing Instance list_val_equiv_symmetric.
+    Existing Instance list_val_equiv_transitive.
 
-  Lemma list_val_compat v1 v2 vs1 vs2 :
-    v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
-  Proof.
-    intros Heq Heql.
-    constructor;easy.
-  Qed.
+    Add Relation (list val) list_val_equiv
+        reflexivity proved by list_val_equiv_reflexive
+        symmetry proved by list_val_equiv_symmetric
+        transitivity proved by list_val_equiv_transitive as list_val_equiv_rel.
 
-  Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
-  Proof.
-    cbv;intros;apply list_val_compat;assumption.
-  Defined.
+    Lemma list_val_compat v1 v2 vs1 vs2 :
+      v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
+    Proof.
+      intros Heq Heql.
+      constructor;easy.
+    Qed.
 
-  Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : name) :
-    vs1 ≈ₗ vs2 -> (vConstr i nm vs1) ≈ (vConstr i nm vs2).
-  Proof.
-    intros Heql.
-    constructor.
-    induction Heql.
-    + constructor.
-    + constructor; assumption.
-  Defined.
+    Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
+    Proof.
+      cbv;intros;apply list_val_compat;assumption.
+    Defined.
 
-  Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
-  Proof.
-    cbv;intros;apply constr_cons_compat;assumption.
-  Defined.
+    Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : name) :
+      vs1 ≈ₗ vs2 -> (vConstr i nm vs1) ≈ (vConstr i nm vs2).
+    Proof.
+      intros Heql.
+      constructor.
+      induction Heql.
+      + constructor.
+      + constructor; assumption.
+    Defined.
+
+    Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
+    Proof.
+      cbv;intros;apply constr_cons_compat;assumption.
+    Defined.
+
+  End Equivalence.
 
 End InterpreterEnvList.
 

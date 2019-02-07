@@ -198,12 +198,27 @@ Example plus_named_and_indexed :
   let three := [| Suc {two} |] in
   expr_eval_n 20 Σ enEmpty [| ({plus_syn} {two}) {three} |] =
   expr_eval_i 20 Σ enEmpty (indexify [] [| ({plus_syn} {two}) {three} |]).
-Proof. compute. reflexivity. Qed.
+Proof. reflexivity. Qed.
 
-Compute ( v <- (expr_eval_i 10 Σ enEmpty [| {one_plus_one} |]);;
+Compute ( v <- (expr_eval_i 10 Σ enEmpty (indexify [] [| {one_plus_one} |]));;
           ret (from_val v)).
 
-Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} |]).
+Compute (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} 1 |])).
 
-Compute ( v <- (expr_eval_n 10 Σ enEmpty [| {plus_syn} |]);;
+Compute ( v <- (expr_eval_n 10 Σ enEmpty [| {plus_syn} 1 |]);;
           ret (from_val v)).
+
+Compute (indexify [] [| {plus_syn}|]).
+
+Compute ( v <- (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} |]));;
+          ret (from_val v)).
+
+Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} 0 |]).
+
+Example plus_syn_partial_app :
+  exists v, (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} 0 |])) = Ok v /\
+       from_val_i v = indexify [] id_rec.
+Proof.
+  eexists. split. compute. reflexivity.
+  compute. reflexivity.
+Qed.
