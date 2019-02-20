@@ -1,0 +1,3 @@
+[submodule "vendor/record-update"]
+	path = vendor/record-update
+	url = https://github.com/tchajed/coq-record-update.git
