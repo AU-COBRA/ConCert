@@ -6,7 +6,7 @@ Require Import ZArith.
 Require Import
   Coq.FSets.FMapList
   Coq.Structures.OrderedTypeEx.
-Require Import RecordSet.
+Require Import RecordUpdate.RecordSet.
 Import ApplicativeNotations.
 Import RecordSetNotations.
 
@@ -61,9 +61,6 @@ Instance etaState : Settable _ :=
                                <*> proposals
                                <*> nextProposalId
                                <*> members)%set.
-
-Definition withNewOwner (newOwner : Address) (state : State) : State :=
-  state [owner := newOwner].
 
 Definition version : Version := 1.
 
