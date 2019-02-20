@@ -1,5 +1,7 @@
 *.vo
 *.glob
 .*.aux
+*.v.d
 .coqdeps.d
-_CoqProject
+CoqMakefile
+CoqMakefile.conf
