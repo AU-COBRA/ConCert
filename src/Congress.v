@@ -6,8 +6,7 @@ Require Import ZArith.
 Require Import
   Coq.FSets.FMapList
   Coq.Structures.OrderedTypeEx.
-Require Import RecordUpdate.RecordSet.
-Import ApplicativeNotations.
+Require Import RecordUpdate.RecordUpdate.
 Import RecordSetNotations.
 
 Definition TxOut := nat.
