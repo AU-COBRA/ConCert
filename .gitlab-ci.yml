@@ -1,3 +1,7 @@
+job:
+  tags:
+    - au
+
 stages:
   - build
 
