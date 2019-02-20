@@ -19,12 +19,6 @@ variables:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
     - make
 
-coq:8.4:
-  extends: .build
-
-coq:8.5:
-  extends: .build
-
 coq:8.6:
   extends: .build
 
