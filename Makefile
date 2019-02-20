@@ -9,7 +9,7 @@ all: CoqMakefile
 
 clean: CoqMakefile
 	+@make -f CoqMakefile clean
-	rm -f Makefile.coq
+	rm -f CoqMakefile
 .PHONY: clean
 
 # Create Coq Makefile.
