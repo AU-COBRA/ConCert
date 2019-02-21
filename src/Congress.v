@@ -10,8 +10,6 @@ From RecordUpdate Require Import RecordUpdate.
 Import ListNotations.
 Import RecordSetNotations.
 
-Print Visibility.
-
 Definition TxOut := nat.
 Definition ProposalId := nat.
 Definition Chain := nat.
