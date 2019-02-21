@@ -1,13 +1,16 @@
-Require Import Blockchain.
-Require Import Coq.Strings.String.
-Require Import List.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import ZArith.
+From Coq Require Import Program.Basics.
+From Coq Require MSets FMapAVL.
+From Coq Require OrderedTypeEx.
+From SmartContracts Require Import Blockchain.
+From RecordUpdate Require Import RecordUpdate.
+
 Import ListNotations.
-Require Import ZArith.
-Require Import
-  Coq.FSets.FMapList
-  Coq.Structures.OrderedTypeEx.
-Require Import RecordUpdate.RecordUpdate.
 Import RecordSetNotations.
+
+Print Visibility.
 
 Definition TxOut := nat.
 Definition ProposalId := nat.
@@ -15,11 +18,14 @@ Definition Chain := nat.
 
 Record Proposal :=
   {
-    txs : TxOut ;
-    votes : list (Address * Z) ;
+    txs : list TxOut ;
+    votes : list (address * Z) ;
     voteResult : Z ;
-    proposedIn : BlockId
+    proposedIn : block_id
   }.
+
+Module AddressSet := MSetAVL.Make Address.as_modern_OT.
+Module NatKeyedMap := FMapAVL.Make OrderedTypeEx.Nat_as_OT.
 
 Record Rules :=
   {
@@ -34,10 +40,10 @@ Record Setup :=
   }.
 
 Inductive Msg :=
-| TransferOwnership : Address -> Msg
+| TransferOwnership : address -> Msg
 | ChangeRules : Rules -> Msg
-| AddMember : Address -> Msg
-| RemoveMember : Address -> Msg
+| AddMember : address -> Msg
+| RemoveMember : address -> Msg
 | CreateProposal : list TxOut -> Msg
 | VoteForProposal : ProposalId -> Msg
 | VoteAgainstProposal : ProposalId -> Msg
@@ -46,11 +52,11 @@ Inductive Msg :=
 
 Record State :=
   {
-    owner : Address ;
+    owner : address ;
     stateRules : Rules ;
-    proposals : list (ProposalId * Proposal) ;
+    proposals : NatKeyedMap.t Proposal ;
     nextProposalId : ProposalId ;
-    members : list Address
+    members : AddressSet.t
   }.
 
 Instance etaState : Settable _ :=
@@ -60,8 +66,8 @@ Instance etaState : Settable _ :=
                                <*> proposals
                                <*> nextProposalId
                                <*> members)%set.
-
-Definition version : Version := 1.
+  
+Definition version : version := 1.
 
 Definition validateRules (rules : Rules) : bool :=
     (rules.(minVoteCountPermille) >=? 0)%Z
@@ -71,15 +77,60 @@ Definition validateRules (rules : Rules) : bool :=
         && (rules.(debatingPeriodInBlocks) >=? 0)%Z.
   
 
-Definition init (setup : Setup) (chain : Chain) (details : ContractCallDetails) : option State :=
+Definition init (chain : Chain) (details : contract_call_details) (setup : Setup) : option State :=
   if validateRules setup.(setupRules) then
     Some {| owner := details.(from) ;
             stateRules := setup.(setupRules) ; 
-            proposals := [] ;
+            proposals := NatKeyedMap.empty _ ;
             nextProposalId := 1 ;
-            members := [] |}
+            members := AddressSet.empty |}
   else
     None.
+
+Definition addProposal (txs : list TxOut) (chain : Chain) (state : State) : State :=
+  let id := state.(nextProposalId) in
+  let proposal := {| txs := txs ;
+                     votes := [] ;
+                     voteResult := 0 ;
+                     proposedIn := 0 |} in
+  let newProposals := NatKeyedMap.add id proposal state.(proposals) in
+  state[proposals := newProposals][nextProposalId := id + 1].
+
+Definition receive
+           (chain : Chain)
+           (state : State)
+           (details : contract_call_details)
+           (maybeMsg : option Msg)
+  : option (State * list TxOut) :=
+  let sender := details.(from) in
+  let isFromOwner := sender =? state.(owner) in
+  let isFromMember := AddressSet.mem sender state.(members) in
+  match isFromOwner, isFromMember, maybeMsg with
+  | true, _, Some (TransferOwnership newOwner) =>
+        Some (state[owner := newOwner], [])
+
+  | true, _, Some (ChangeRules newRules) =>
+        if validateRules newRules then
+        Some (state[stateRules := newRules], [])
+        else
+        None
+
+  | true, _, Some (AddMember newMember) =>
+        let newMembers := AddressSet.add newMember state.(members) in
+        Some (state[members := newMembers], [])
+
+  | true, _, Some (RemoveMember oldMember) =>
+        let newMembers := AddressSet.remove oldMember state.(members) in
+        Some (state[members := newMembers], [])
+
+  | _, true, Some (CreateProposal txs) =>
+        Some (addProposal txs chain state, [])
+
+  | _, _, _ =>
+        None
+    
+  end.
+                                       
 
 (*
 module Congress exposing (Msg(..), Proposal, ProposalId, Rules, Setup, State, init, receive, version)

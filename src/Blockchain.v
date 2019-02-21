@@ -1,29 +1,23 @@
 From Coq Require Import String.
+From Coq Require OrderedTypeEx.
 
-Definition Address := nat.
-Definition Amount := nat.
-Definition BlockId := nat.
-Definition BlockHash := string.
-Definition Version := nat.
+Definition address := nat.
+Definition amount := nat.
+Definition block_id := nat.
+Definition block_hash := string.
+Definition version := nat.
 
-Inductive TxBody :=
-| Empty : TxBody.
+Inductive tx_body :=
+| Empty : tx_body.
 
-Record ContractCallDetails :=
-  { from : Address ;
-    to : Address ;
-    amount : Amount
+Record contract_call_details :=
+  { from : address ;
+    to : address ;
+    value : amount
   }.
 
-Record Contract (stateTy : Type) :=
-  {
-    getState : stateTy
-  }.
-
-Record StoredContract :=
-  {
-    stateTy : Type ;
-    contract : Contract stateTy
-  }.
-
-Definition beq_address := Nat.eqb.
+Module Address.
+  Definition eqb := Nat.eqb.
+  Module as_modern_OT := PeanoNat.Nat.
+  Module as_old_OT := OrderedTypeEx.Nat_as_OT.
+End Address.
