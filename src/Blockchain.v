@@ -1,6 +1,4 @@
-Require Import Coq.Strings.String.
-Require Import List.
-Import ListNotations.
+From Coq Require Import String.
 
 Definition Address := nat.
 Definition Amount := nat.
@@ -27,3 +25,5 @@ Record StoredContract :=
     stateTy : Type ;
     contract : Contract stateTy
   }.
+
+Definition beq_address := Nat.eqb.
