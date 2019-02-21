@@ -91,7 +91,7 @@ Module RecordSetNotations.
   Delimit Scope record_set with rs.
   Open Scope rs.
   Notation "x [ proj  :=  v ]" := (set proj (constructor v) x)
-                                    (at level 10, left associativity) : record_set.
+                                    (at level 8, left associativity) : record_set.
   Notation "x [ proj  ::=  f ]" := (set proj f x)
-                                     (at level 10, f at next level, left associativity) : record_set.
+                                     (at level 8, f at next level, left associativity) : record_set.
 End RecordSetNotations.
