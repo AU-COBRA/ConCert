@@ -1,9 +1,6 @@
 stages:
   - build
 
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-
 .build:
   stage: build
   image: coqorg/${CI_JOB_NAME}
@@ -15,7 +12,7 @@ variables:
     - opam config list
     - opam repo list
     - opam list
-    - git clone --branch various-fixes https://github.com/StekiKun/containers.git dep-coq-containers
+    - git clone --branch $COQ_CONTAINERS_BRANCH https://github.com/StekiKun/containers.git dep-coq-containers
     - cd dep-coq-containers
     - make -j
     - make -f Makefile.coq install
@@ -27,15 +24,25 @@ variables:
 
 coq:8.6:
   extends: .build
+  variables:
+    COQ_CONTAINERS_BRANCH: 'v8.6'
 
 coq:8.7:
   extends: .build
+  variables:
+    COQ_CONTAINERS_BRANCH: 'v8.7'
 
 coq:8.8:
   extends: .build
+  variables:
+    COQ_CONTAINERS_BRANCH: 'v8.8'
 
 coq:8.9:
   extends: .build
+  variables:
+    COQ_CONTAINERS_BRANCH: 'various-fixes'
 
 coq:dev:
   extends: .build
+  variables:
+    COQ_CONTAINERS_BRANCH: 'various-fixes'
