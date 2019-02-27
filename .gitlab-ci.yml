@@ -42,7 +42,7 @@ coq:8.9:
   variables:
     COQ_CONTAINERS_BRANCH: 'various-fixes'
 
-coq:dev:
-  extends: .build
-  variables:
-    COQ_CONTAINERS_BRANCH: 'various-fixes'
+## coq:dev:
+##   extends: .build
+##   variables:
+##     COQ_CONTAINERS_BRANCH: 'various-fixes'
