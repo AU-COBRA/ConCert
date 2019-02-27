@@ -69,7 +69,6 @@ Defined.
 
 (*
 Examples:
-*)
 Definition test_bool : OakValue := build_oak_value oak_bool true.
 Definition test_int : OakValue := build_oak_value oak_int 5%Z.
 Definition test_set : OakValue := build_oak_value (oak_set oak_int) {5%Z; {6%Z; {}}}.
@@ -82,7 +81,4 @@ Compute (oak_value_extract oak_int test_int) : option Z.
 Compute (oak_value_extract (oak_set oak_int) test_set) : option (set Z).
 Compute (option_map SetInterface.elements (oak_value_extract (oak_set oak_int) test_set)).
 Compute (option_map elements (oak_value_extract (oak_map oak_int oak_int) test_map)).
-Check @MapAVL.Raw.Proofs.L.map_OrderedType.
-
-Set Typeclasses Debug.
-Check (option_map SetInterface.elements oak_value_extract (oak_set oak_int) test_set).
+*)
