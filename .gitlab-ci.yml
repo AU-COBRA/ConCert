@@ -15,9 +15,15 @@ variables:
     - opam config list
     - opam repo list
     - opam list
+    - git clone --branch various-fixes https://github.com/StekiKun/containers.git dep-coq-containers
+    - cd dep-coq-containers
+    - make -j
+    - make -f Makefile.coq install
+    - cd ..
+    - rm -rf dep-coq-containers
   script:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
-    - make
+    - make -j
 
 coq:8.6:
   extends: .build

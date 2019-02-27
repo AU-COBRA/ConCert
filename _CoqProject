@@ -1,6 +1,7 @@
 -R src SmartContracts
 src/Blockchain.v
 src/Congress.v
+src/OakTypes.v
 -R vendor/record-update RecordUpdate
 vendor/record-update/RecordSet.v
 vendor/record-update/RecordUpdate.v
