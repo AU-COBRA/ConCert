@@ -22,11 +22,6 @@ stages:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
     - make -j
 
-coq:8.6:
-  extends: .build
-  variables:
-    COQ_CONTAINERS_BRANCH: 'v8.6'
-
 coq:8.7:
   extends: .build
   variables:
