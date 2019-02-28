@@ -23,22 +23,6 @@ Program Instance Empty_set_StrictOrder
 Solve Obligations with contradiction.
 Program Instance Empty_set_OrderedType : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
-
-(* These functions help some old Coq versions with inference *)
-Definition make_sum (A B : Type) (_ : OrderedType A) (_ : OrderedType B)
-  := existT OrderedType (A + B)%type _.
-
-Definition make_pair (A B : Type) (_ : OrderedType A) (_ : OrderedType B)
-  := existT OrderedType (A * B)%type _.
-
-Definition make_list (A : Type) (_ : OrderedType A)
-  := existT OrderedType (list A) _.
-
-Definition make_set (A : Type) (_ : OrderedType A)
-  := existT OrderedType (set A) _.
-
-Definition make_map (A B : Type) (_ : OrderedType A) (_ : OrderedType B)
-  := existT OrderedType Map[A, B] _.
   
 Fixpoint interp_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
   match t with
@@ -47,23 +31,23 @@ Fixpoint interp_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
   | oak_int => existT OrderedType Z _
   | oak_bool => existT OrderedType bool _
   | oak_sum a b =>
-    let 'existT aT aOT := interp_with_ordering a in
-    let 'existT bT bOT := interp_with_ordering b in
-    make_sum aT bT aOT bOT
+    let 'existT aT _ := interp_with_ordering a in
+    let 'existT bT _ := interp_with_ordering b in
+    existT OrderedType (aT + bT)%type _
   | oak_pair a b =>
-    let 'existT aT aOT := interp_with_ordering a in
-    let 'existT bT bOT := interp_with_ordering b in
-    make_pair aT bT aOT bOT
+    let 'existT aT _ := interp_with_ordering a in
+    let 'existT bT _ := interp_with_ordering b in
+    existT OrderedType (aT * bT)%type _
   | oak_list a =>
-    let 'existT aT aOT := interp_with_ordering a in
-    make_list aT aOT
+    let 'existT aT _ := interp_with_ordering a in
+    existT OrderedType (list aT) _
   | oak_set a =>
-    let 'existT aT aOT := interp_with_ordering a in
-    make_set aT aOT
+    let 'existT aT _ := interp_with_ordering a in
+    existT OrderedType (set aT) _
   | oak_map a b =>
-    let 'existT aT aOT := interp_with_ordering a in
-    let 'existT bT bOT := interp_with_ordering b in
-    make_map aT bT aOT bOT
+    let 'existT aT _ := interp_with_ordering a in
+    let 'existT bT _ := interp_with_ordering b in
+    existT OrderedType Map[aT, bT] _
   end.
 
 Definition interp (t : OakType) : Type :=
