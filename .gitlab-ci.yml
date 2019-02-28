@@ -12,7 +12,7 @@ stages:
     - opam config list
     - opam repo list
     - opam list
-    - git clone --branch $COQ_CONTAINERS_BRANCH https://github.com/StekiKun/containers.git dep-coq-containers
+    - git clone --branch $COQ_CONTAINERS_BRANCH https://github.com/jakobbotsch/containers.git dep-coq-containers
     - cd dep-coq-containers
     - make -j
     - make -f Makefile.coq install
@@ -35,9 +35,9 @@ coq:8.8:
 coq:8.9:
   extends: .build
   variables:
-    COQ_CONTAINERS_BRANCH: 'various-fixes'
+    COQ_CONTAINERS_BRANCH: 'v8.9'
 
-## coq:dev:
-##   extends: .build
-##   variables:
-##     COQ_CONTAINERS_BRANCH: 'various-fixes'
+coq:dev:
+  extends: .build
+  variables:
+    COQ_CONTAINERS_BRANCH: 'vdev'
