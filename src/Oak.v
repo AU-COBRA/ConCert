@@ -21,48 +21,50 @@ Solve Obligations with contradiction.
 Program Instance Empty_set_OrderedType : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
   
-Local Fixpoint interp_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
+Local Fixpoint interp_type_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
   match t with
   | oak_empty => existT OrderedType Empty_set _
   | oak_unit => existT OrderedType unit _
   | oak_int => existT OrderedType Z _
   | oak_bool => existT OrderedType bool _
   | oak_sum a b =>
-    let 'existT aT _ := interp_with_ordering a in
-    let 'existT bT _ := interp_with_ordering b in
+    let 'existT aT _ := interp_type_with_ordering a in
+    let 'existT bT _ := interp_type_with_ordering b in
     existT OrderedType (aT + bT)%type _
   | oak_pair a b =>
-    let 'existT aT _ := interp_with_ordering a in
-    let 'existT bT _ := interp_with_ordering b in
+    let 'existT aT _ := interp_type_with_ordering a in
+    let 'existT bT _ := interp_type_with_ordering b in
     existT OrderedType (aT * bT)%type _
   | oak_list a =>
-    let 'existT aT _ := interp_with_ordering a in
+    let 'existT aT _ := interp_type_with_ordering a in
     existT OrderedType (list aT) _
   | oak_set a =>
-    let 'existT aT _ := interp_with_ordering a in
+    let 'existT aT _ := interp_type_with_ordering a in
     existT OrderedType (set aT) _
   | oak_map a b =>
-    let 'existT aT _ := interp_with_ordering a in
-    let 'existT bT _ := interp_with_ordering b in
+    let 'existT aT _ := interp_type_with_ordering a in
+    let 'existT bT _ := interp_type_with_ordering b in
     existT OrderedType Map[aT, bT] _
   end.
 
-Definition interp (t : OakType) : Type :=
-  projT1 (interp_with_ordering t).
+Definition interp_type (t : OakType) : Type :=
+  projT1 (interp_type_with_ordering t).
 
 Record OakValue :=
   build_oak_value {
     oak_value_type : OakType;
-    oak_value : interp oak_value_type;
+    oak_value : interp_type oak_value_type;
   }.
 
-Definition oak_value_extract (t : OakType) (value : OakValue) : option (interp t).
+Definition oak_value_extract (t : OakType) (value : OakValue) : option (interp_type t).
 Proof.
   destruct value as [ty val].
   destruct (eq_oak_type_dec t ty); subst.
   - apply (Some val).
   - apply None.
 Defined.
+
+
 
 (*
 Examples:
