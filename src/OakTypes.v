@@ -12,11 +12,8 @@ Inductive OakType :=
   | oak_set : OakType -> OakType
   | oak_map : OakType -> OakType -> OakType.
 
-Lemma eq_oak_type_dec
-  : forall (t1 t2 : OakType), {t1 = t2} + {t1 <> t2}.
-Proof.
-  decide equality.
-Defined.
+Definition eq_oak_type_dec (t1 t2 : OakType) : {t1 = t2} + {t1 <> t2}
+  := ltac:(decide equality).
 
 Program Instance Empty_set_StrictOrder
   : OrderedType.StrictOrder (fun (_ _ : Empty_set) => False) (@eq Empty_set).
@@ -24,7 +21,7 @@ Solve Obligations with contradiction.
 Program Instance Empty_set_OrderedType : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
   
-Fixpoint interp_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
+Local Fixpoint interp_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
   match t with
   | oak_empty => existT OrderedType Empty_set _
   | oak_unit => existT OrderedType unit _
