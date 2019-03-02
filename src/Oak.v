@@ -12,13 +12,13 @@ Inductive OakType :=
   | oak_set : OakType -> OakType
   | oak_map : OakType -> OakType -> OakType.
 
-Definition eq_oak_type_dec (t1 t2 : OakType) : {t1 = t2} + {t1 <> t2}
-  := ltac:(decide equality).
+Definition eq_oak_type_dec (t1 t2 : OakType) : {t1 = t2} + {t1 <> t2}.
+Proof. decide equality. Defined.
 
-Program Instance Empty_set_StrictOrder
+Program Instance empty_set_strict_order
   : OrderedType.StrictOrder (fun (_ _ : Empty_set) => False) (@eq Empty_set).
 Solve Obligations with contradiction.
-Program Instance Empty_set_OrderedType : UsualOrderedType Empty_set.
+Program Instance empty_set_ordered_type : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
   
 Local Fixpoint interp_type_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
@@ -59,25 +59,41 @@ Record OakValue :=
 Definition oak_value_extract (t : OakType) (value : OakValue) : option (interp_type t).
 Proof.
   destruct value as [ty val].
-  destruct (eq_oak_type_dec t ty); subst.
-  - apply (Some val).
-  - apply None.
+  destruct (eq_oak_type_dec t ty).
+  - subst. exact (Some val).
+  - exact None.
 Defined.
-
-
 
 (*
 Examples:
 Definition test_bool : OakValue := build_oak_value oak_bool true.
 Definition test_int : OakValue := build_oak_value oak_int 5%Z.
-Definition test_set : OakValue := build_oak_value (oak_set oak_int) {5%Z; {6%Z; {}}}.
-Definition test_map : OakValue := build_oak_value (oak_map oak_int oak_int) [][5%Z <- 10%Z].
+Definition test_set : OakValue :=
+  build_oak_value
+    (oak_set oak_int)
+    {5; {6; {}}}%Z.
+Definition test_map : OakValue :=
+  build_oak_value
+    (oak_map oak_int oak_int)
+    [][5 <- 10][6 <- 10][5 <- 15]%Z.
+
+Definition test_map2 : OakValue :=
+  build_oak_value
+    (oak_map (oak_map oak_int oak_int) oak_int)
+    [][[][5 <- 10][6 <- 10][5 <- 15] <- 15]%Z.
 
 Compute (oak_value_extract oak_bool test_bool) : option bool.
 Compute (oak_value_extract oak_int test_bool) : option Z.
 Compute (oak_value_extract oak_bool test_int) : option bool.
 Compute (oak_value_extract oak_int test_int) : option Z.
 Compute (oak_value_extract (oak_set oak_int) test_set) : option (set Z).
+Compute
+  (oak_value_extract
+     (oak_map
+        (oak_map oak_int oak_int)
+        oak_int)
+     test_map2)
+  : option Map[Map[Z, Z], Z].
 Compute (option_map SetInterface.elements (oak_value_extract (oak_set oak_int) test_set)).
 Compute (option_map elements (oak_value_extract (oak_map oak_int oak_int) test_map)).
 *)
