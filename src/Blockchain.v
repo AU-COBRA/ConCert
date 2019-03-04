@@ -74,41 +74,46 @@ Inductive ContractCallContext :=
     ctx_amount : Amount;
   }.
 
-Inductive Contract : Type -> Type -> Type -> Type :=
-  | build_contract :
-      forall (setup_ty msg_ty state_ty : Type),
-        Version ->
-        (setup_ty -> ContractCallContext -> option state_ty) -> (* init *)
-        (state_ty -> ContractCallContext ->
-         option msg_ty -> option (state_ty * list ChainAction)) -> (* receive *)
-        Contract setup_ty msg_ty state_ty
-with ChainAction :=
+Inductive ChainAction :=
   | act_transfer (to : Address) (amount : Amount)
+  (* todo: Should we use mutual inductives and store a Contract here?
+     It does not allow contracts to store chain actions in their state,
+     but that may be preferable. *)
   | act_deploy :
       forall setup_ty msg_ty state_ty,
-        Contract setup_ty msg_ty state_ty ->
-        setup_ty ->
+        Version ->
+        (ContractCallContext -> setup_ty -> option state_ty) -> (* init *)
+        (ContractCallContext -> state_ty ->
+         option msg_ty -> option (state_ty * list ChainAction)) -> (* receive *)
         ChainAction
   | act_call (to : Address) (amount : Amount) (msg : OakValue).
 
-Definition contract_version {A B C : Type} (c : Contract A B C) :=
-  let 'build_contract _ _ _ ver _ _ := c in ver.
+Record Contract (setup_ty msg_ty state_ty : Type) :=
+  build_contract {
+    contract_version : Version;
+    contract_init : ContractCallContext -> setup_ty -> option state_ty;
+    contract_receive : ContractCallContext -> state_ty ->
+                       option msg_ty -> option (state_ty * list ChainAction);
+    }.
 
-Definition contract_init {A B C : Type} (c : Contract A B C) :=
-  let 'build_contract _ _ _ _ init _ := c in init.
-
-Definition contract_receive {A B C : Type} (c : Contract A B C) :=
-  let 'build_contract _ _ _ _ _ recv := c in recv.
+Arguments build_contract {_ _ _}.
 
 Record ContractInterface (setup_ty msg_ty state_ty : Type) :=
   build_contract_interface {
+    (* The address of the contract being interfaced with *)
     contract_address : Address;
+    (* The setup that was passed when the contract was deployed *)
     setup : setup_ty;
+    (* Obtain the state at some point of time *)
     get_state : Chain -> option state_ty;
+    (* Make an action transferirng money to the contract without
+       a message *)
     transfer : Amount -> ChainAction;
+    (* Make an action calling the contract *)
     call : Amount -> msg_ty -> ChainAction;
   }.
 
+(*
 (* todo: this should be easier -- we want actual strong typed
    interface by equivalence of oak type (iterated product, for instance)
    to types in contracts. Right now the interface received allows you
@@ -138,3 +143,4 @@ Definition get_contract_interface
         call amt msg := act_call addr amt (build_oak_value msg_oty msg) |}
   | _, _, _ => None
   end.
+*)

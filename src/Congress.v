@@ -5,6 +5,8 @@ From Coq Require Import Program.Basics.
 From Containers Require Import OrderedTypeEx.
 From Containers Require Import MapInterface.
 From Containers Require Import SetInterface.
+From Containers Require MapAVL.
+From Containers Require SetAVL.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
@@ -15,7 +17,6 @@ Import ListNotations.
 Import RecordSetNotations.
 
 Open Scope Z.
-Print Visibility.
 
 Definition ProposalId := nat.
 
@@ -83,7 +84,7 @@ Definition validate_rules (rules : Rules) : bool :=
         && (rules.(margin_needed_permille) <=? 1000)
         && (rules.(debating_period_in_blocks) >=? 0).
 
-Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup) : option State :=
+Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
   if validate_rules setup.(setup_rules) then
     Some {| owner := ctx.(ctx_from);
             state_rules := setup.(setup_rules); 
@@ -158,11 +159,11 @@ Definition finish_proposal
     Some (new_state, response_acts).
 
 Definition receive
-           (chain : Chain)
-           (state : State)
            (ctx : ContractCallContext)
+           (state : State)
            (maybe_msg : option Msg)
   : option (State * list ChainAction) :=
+  let chain := ctx.(ctx_chain) in
   let sender := ctx.(ctx_from) in
   let is_from_owner := (sender =? state.(owner))%address in
   let is_from_member := (sender \in state.(members))%set in
@@ -197,8 +198,11 @@ Definition receive
 
   | _, _, Some (FinishProposal pid) =>
         finish_proposal pid state chain
-
+ 
   | _, _, _ =>
         None
     
   end.
+
+Definition congress_contract : Contract Setup Msg State :=
+  build_contract version init receive.
