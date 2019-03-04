@@ -2,211 +2,201 @@ From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Program.Basics.
-From Coq Require MSets FMapAVL.
-From Coq Require OrderedTypeEx.
+From Containers Require Import OrderedTypeEx.
+From Containers Require Import MapInterface.
+From Containers Require Import SetInterface.
 From SmartContracts Require Import Blockchain.
+From SmartContracts Require Import Oak.
+From SmartContracts Require Import Monads.
 From RecordUpdate Require Import RecordUpdate.
 
+Import MapNotations.
 Import ListNotations.
 Import RecordSetNotations.
 
 Open Scope Z.
+Print Visibility.
 
-Definition TxOut := nat.
 Definition ProposalId := nat.
 
-Module AddressSet := MSetAVL.Make Address.as_modern_OT.
-Module NatKeyedMap := FMapAVL.Make OrderedTypeEx.Nat_as_OT.
-Module AddressKeyedMap := FMapAVL.Make Address.as_old_OT.
-
 Record Proposal :=
-  {
-    txs : list TxOut ;
-    votes : AddressKeyedMap.t Z ;
-    voteResult : Z ;
-    proposedIn : block_id
+  build_proposal {
+    actions : list ChainAction;
+    votes : Map[Address, Z];
+    vote_result : Z;
+    proposed_in : BlockId;
   }.
 
-Instance etaProposal : Settable _ :=
+Instance eta_proposal : Settable _ :=
   mkSettable
-    ((constructor Build_Proposal) <*> txs
+    ((constructor build_proposal) <*> actions
                                   <*> votes
-                                  <*> voteResult
-                                  <*> proposedIn)%set.
+                                  <*> vote_result
+                                  <*> proposed_in)%settable.
 
 Record Rules :=
-  {
-    minVoteCountPermille : Z ;
-    marginNeededPermille : Z ;
-    debatingPeriodInBlocks : Z
+  build_rules {
+    min_vote_count_permille : Z;
+    margin_needed_permille : Z;
+    debating_period_in_blocks : Z;
   }.
 
 Record Setup :=
-  {
-    setupRules : Rules
+  build_setup {
+    setup_rules : Rules;
   }.
 
 Inductive Msg :=
-| TransferOwnership : address -> Msg
+| TransferOwnership : Address -> Msg
 | ChangeRules : Rules -> Msg
-| AddMember : address -> Msg
-| RemoveMember : address -> Msg
-| CreateProposal : list TxOut -> Msg
+| AddMember : Address -> Msg
+| RemoveMember : Address -> Msg
+| CreateProposal : list ChainAction -> Msg
 | VoteForProposal : ProposalId -> Msg
 | VoteAgainstProposal : ProposalId -> Msg
 | RetractVote : ProposalId -> Msg
 | FinishProposal : ProposalId -> Msg.
 
 Record State :=
-  {
-    owner : address ;
-    stateRules : Rules ;
-    proposals : NatKeyedMap.t Proposal ;
-    nextProposalId : ProposalId ;
-    members : AddressSet.t
+  build_state {
+    owner : Address;
+    state_rules : Rules;
+    proposals : Map[nat, Proposal];
+    next_proposal_id : ProposalId;
+    members : SetInterface.set Address;
   }.
 
-Instance etaState : Settable _ :=
+Instance eta_state : Settable _ :=
   mkSettable
-    ((constructor Build_State) <*> owner
-                               <*> stateRules
+    ((constructor build_state) <*> owner
+                               <*> state_rules
                                <*> proposals
-                               <*> nextProposalId
-                               <*> members)%set.
+                               <*> next_proposal_id
+                               <*> members)%settable.
   
-Definition version : version := 1%nat.
+Definition version : Version := 1%nat.
 
-Definition validateRules (rules : Rules) : bool :=
-    (rules.(minVoteCountPermille) >=? 0)
-        && (rules.(minVoteCountPermille) <=? 1000)
-        && (rules.(marginNeededPermille) >=? 0)
-        && (rules.(marginNeededPermille) <=? 1000)
-        && (rules.(debatingPeriodInBlocks) >=? 0).
+Definition validate_rules (rules : Rules) : bool :=
+    (rules.(min_vote_count_permille) >=? 0)
+        && (rules.(min_vote_count_permille) <=? 1000)
+        && (rules.(margin_needed_permille) >=? 0)
+        && (rules.(margin_needed_permille) <=? 1000)
+        && (rules.(debating_period_in_blocks) >=? 0).
 
-Definition init (chain : chain) (details : contract_call_details) (setup : Setup) : option State :=
-  if validateRules setup.(setupRules) then
-    Some {| owner := details.(from) ;
-            stateRules := setup.(setupRules) ; 
-            proposals := NatKeyedMap.empty _ ;
-            nextProposalId := 1%nat ;
-            members := AddressSet.empty |}
+Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup) : option State :=
+  if validate_rules setup.(setup_rules) then
+    Some {| owner := ctx.(ctx_from);
+            state_rules := setup.(setup_rules); 
+            proposals := []%map;
+            next_proposal_id := 1%nat;
+            members := {}%set |}
   else
     None.
 
-Definition addProposal (txs : list TxOut) (chain : chain) (state : State) : State :=
-  let id := state.(nextProposalId) in
-  let headBlock := chain.(headBlock) in
-  let proposal := {| txs := txs ;
-                     votes := AddressKeyedMap.empty _ ;
-                     voteResult := 0 ;
-                     proposedIn := headBlock.(header).(blockNumber) |} in
-  let newProposals := NatKeyedMap.add id proposal state.(proposals) in
-  state[proposals := newProposals][nextProposalId := (id + 1)%nat].
+Definition add_proposal (actions : list ChainAction) (chain : Chain) (state : State) : State :=
+  let id := state.(next_proposal_id) in
+  let head_block := chain.(head_block) in
+  let proposal := {| actions := actions;
+                     votes := []%map;
+                     vote_result := 0;
+                     proposed_in := head_block.(block_header).(block_number) |} in
+  let new_proposals := state.(proposals)[id <- proposal]%map in
+  state[[proposals := new_proposals]][[next_proposal_id := (id + 1)%nat]].
 
-Local Definition option_bind {A B : Type} (f : A -> option B) (v : option A) : option B :=
-  match v with
-  | Some val => f val
-  | None => None
-  end.
-
-Local Notation "'do' X <- A ; B" := (option_bind (fun X => B) A)
-                                      (at level 200, X ident, A at level 100, B at level 200).
-
-Local Notation ret := Some.
-
-Definition voteProposal
-           (voter : address)
+Definition vote_on_proposal
+           (voter : Address)
            (pid : ProposalId)
            (vote : Z)
            (state : State)
   : option State :=
-  do proposal <- NatKeyedMap.find pid state.(proposals) ;
-  let oldVote := match AddressKeyedMap.find voter proposal.(votes) with
-                 | Some oldVote => oldVote
+  do proposal <- state.(proposals)[pid]%map;
+  let old_vote := match proposal.(votes)[voter]%map with
+                 | Some old => old
                  | None => 0
                  end in
-  let newVotes := AddressKeyedMap.add voter vote proposal.(votes) in
-  let newVoteResult := proposal.(voteResult) - oldVote + vote in
-  let newProposal := proposal[votes := newVotes][voteResult := newVoteResult] in
-  ret (set proposals (NatKeyedMap.add pid newProposal) state).
+  let new_votes := proposal.(votes)[voter <- vote]%map in
+  let new_vote_result := proposal.(vote_result) - old_vote + vote in
+  let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
+  Some (state[[proposals ::= MapInterface.add pid new_proposal]]).
 
-Definition retractVote
-           (voter : address)
+Definition retract_vote
+           (voter : Address)
            (pid : ProposalId)
            (state : State)
   : option State :=
-  do proposal <- NatKeyedMap.find pid state.(proposals) ;
-  do oldVote <- AddressKeyedMap.find voter proposal.(votes) ;
-  let newVotes := AddressKeyedMap.remove voter proposal.(votes) in
-  let newVoteResult := proposal.(voteResult) - oldVote in
-  let newProposal := proposal[votes := newVotes][voteResult := newVoteResult] in
-  ret (set proposals (NatKeyedMap.add pid newProposal) state).
+  do proposal <- state.(proposals)[pid]%map;
+  do old_vote <- proposal.(votes)[voter]%map;
+  let new_votes := MapInterface.remove voter proposal.(votes) in
+  let new_vote_result := proposal.(vote_result) - old_vote in
+  let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
+  Some (state[[proposals ::= MapInterface.add pid new_proposal]]).
 
-Definition finishProposal
+Definition finish_proposal
            (pid : ProposalId)
            (state : State)
-           (chain : chain)
-  : option (State * list TxOut) :=
-  do proposal <- NatKeyedMap.find pid state.(proposals) ;
-  let rules := state.(stateRules) in
-  let debateEnd := (Z.of_nat proposal.(proposedIn)) + rules.(debatingPeriodInBlocks) in
-  let curBlock := chain.(headBlock) in
-  if (Z.of_nat curBlock.(header).(blockNumber)) <? debateEnd then
+           (chain : Chain)
+  : option (State * list ChainAction) :=
+  do proposal <- state.(proposals)[pid]%map;
+  let rules := state.(state_rules) in
+  let debate_end := (Z.of_nat proposal.(proposed_in)) + rules.(debating_period_in_blocks) in
+  let cur_block := chain.(head_block) in
+  if (Z.of_nat cur_block.(block_header).(block_number)) <? debate_end then
     None
   else
-    let newState := set proposals (NatKeyedMap.remove pid) state in
-    let totalVotesForProposal := Z.of_nat (AddressKeyedMap.cardinal proposal.(votes)) in
-    let totalMembers := Z.of_nat (AddressSet.cardinal state.(members)) in
-    let ayeVotes := (proposal.(voteResult) + totalVotesForProposal) / 2 in
-    let voteCountPermille := totalVotesForProposal * 1000 / totalMembers in
-    let ayePermille := ayeVotes * 1000 / totalVotesForProposal in
-    let enoughVoters := voteCountPermille >=? rules.(minVoteCountPermille) in
-    let enoughAyes := ayePermille >=? rules.(marginNeededPermille) in
-    let responseTxs := if (enoughVoters && enoughAyes)%bool then proposal.(txs) else [] in
-    ret (newState, responseTxs).
+    let new_state := state[[proposals ::= MapInterface.remove pid]] in
+    let total_votes_for_proposal := Z.of_nat (MapInterface.cardinal proposal.(votes)) in
+    let total_members := Z.of_nat (SetInterface.cardinal state.(members)) in
+    let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
+    let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
+    let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
+    let enough_voters := vote_count_permille >=? rules.(min_vote_count_permille) in
+    let enough_ayes := aye_permille >=? rules.(margin_needed_permille) in
+    let response_acts :=
+        if (enough_voters && enough_ayes)%bool
+        then proposal.(actions)
+        else [ ] in
+    Some (new_state, response_acts).
 
 Definition receive
-           (chain : chain)
+           (chain : Chain)
            (state : State)
-           (details : contract_call_details)
-           (maybeMsg : option Msg)
-  : option (State * list TxOut) :=
-  let sender := details.(from) in
-  let isFromOwner := (sender =? state.(owner))%address in
-  let isFromMember := AddressSet.mem sender state.(members) in
-  let withoutTxs := option_map (fun newState => (newState, [])) in
-  match isFromOwner, isFromMember, maybeMsg with
-  | true, _, Some (TransferOwnership newOwner) =>
-        Some (state[owner := newOwner], [])
+           (ctx : ContractCallContext)
+           (maybe_msg : option Msg)
+  : option (State * list ChainAction) :=
+  let sender := ctx.(ctx_from) in
+  let is_from_owner := (sender =? state.(owner))%address in
+  let is_from_member := (sender \in state.(members))%set in
+  let without_actions := option_map (fun new_state => (new_state, [ ])) in
+  match is_from_owner, is_from_member, maybe_msg with
+  | true, _, Some (TransferOwnership new_owner) =>
+        Some (state[[owner := new_owner]], [ ])
 
-  | true, _, Some (ChangeRules newRules) =>
-        if validateRules newRules then
-            Some (state[stateRules := newRules], [])
+  | true, _, Some (ChangeRules new_rules) =>
+        if validate_rules new_rules then
+            Some (state[[state_rules := new_rules]], [ ])
         else
             None
 
-  | true, _, Some (AddMember newMember) =>
-        let newMembers := AddressSet.add newMember state.(members) in
-        Some (state[members := newMembers], [])
+  | true, _, Some (AddMember new_member) =>
+        Some (state[[members ::= SetInterface.add new_member]], [ ])
 
-  | true, _, Some (RemoveMember oldMember) =>
-        let newMembers := AddressSet.remove oldMember state.(members) in
-        Some (state[members := newMembers], [])
+  | true, _, Some (RemoveMember old_member) =>
+        Some (state[[members ::= SetInterface.remove old_member]], [ ])
 
-  | _, true, Some (CreateProposal txs) =>
-        Some (addProposal txs chain state, [])
+  | _, true, Some (CreateProposal actions) =>
+        Some (add_proposal actions chain state, [ ])
 
   | _, true, Some (VoteForProposal pid) =>
-        withoutTxs (voteProposal sender pid 1 state)
+        without_actions (vote_on_proposal sender pid 1 state)
 
   | _, true, Some (VoteAgainstProposal pid) =>
-        withoutTxs (voteProposal sender pid (-1) state)
+        without_actions (vote_on_proposal sender pid (-1) state)
 
   | _, true, Some (RetractVote pid) =>
-        withoutTxs (retractVote sender pid state)
+        without_actions (retract_vote sender pid state)
 
   | _, _, Some (FinishProposal pid) =>
-        finishProposal pid state chain
+        finish_proposal pid state chain
 
   | _, _, _ =>
         None

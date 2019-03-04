@@ -19,7 +19,7 @@ Definition applicative_ap {E}
   forall (x: Reader E A), Reader E (fun e => B e (x e))  :=
   fun x => fun e => f e (x e).
 Module ApplicativeNotations.
-  Delimit Scope settable_scope with set.
+  Delimit Scope settable_scope with settable.
   Infix "<*>" := (applicative_ap) (at level 11, left associativity) : settable_scope.
 End ApplicativeNotations.
 
@@ -90,8 +90,8 @@ Hint Extern 1 (Setter _) => SetInstance_t : typeclass_instances.
 Module RecordSetNotations.
   Delimit Scope record_set with rs.
   Open Scope rs.
-  Notation "x [ proj  :=  v ]" := (set proj (constructor v) x)
-                                    (at level 8, left associativity) : record_set.
-  Notation "x [ proj  ::=  f ]" := (set proj f x)
-                                     (at level 8, f at next level, left associativity) : record_set.
+  Notation "x [[ proj  :=  v ]]" := (set proj (constructor v) x)
+                                    (at level 12, left associativity) : record_set.
+  Notation "x [[ proj  ::=  f ]]" := (set proj f x)
+                                     (at level 12, f at next level, left associativity) : record_set.
 End RecordSetNotations.

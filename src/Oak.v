@@ -20,7 +20,7 @@ Program Instance empty_set_strict_order
 Solve Obligations with contradiction.
 Program Instance empty_set_ordered_type : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
-  
+
 Local Fixpoint interp_type_with_ordering (t : OakType) : {T : Type & OrderedType T} :=
   match t with
   | oak_empty => existT OrderedType Empty_set _
@@ -56,7 +56,7 @@ Record OakValue :=
     oak_value : interp_type oak_value_type;
   }.
 
-Definition oak_value_extract (t : OakType) (value : OakValue) : option (interp_type t).
+Definition extract_oak_value (t : OakType) (value : OakValue) : option (interp_type t).
 Proof.
   destruct value as [ty val].
   destruct (eq_oak_type_dec t ty).
@@ -82,18 +82,18 @@ Definition test_map2 : OakValue :=
     (oak_map (oak_map oak_int oak_int) oak_int)
     [][[][5 <- 10][6 <- 10][5 <- 15] <- 15]%Z.
 
-Compute (oak_value_extract oak_bool test_bool) : option bool.
-Compute (oak_value_extract oak_int test_bool) : option Z.
-Compute (oak_value_extract oak_bool test_int) : option bool.
-Compute (oak_value_extract oak_int test_int) : option Z.
-Compute (oak_value_extract (oak_set oak_int) test_set) : option (set Z).
+Compute (extract_oak_value oak_bool test_bool) : option bool.
+Compute (extract_oak_value oak_int test_bool) : option Z.
+Compute (extract_oak_value oak_bool test_int) : option bool.
+Compute (extract_oak_value oak_int test_int) : option Z.
+Compute (extract_oak_value (oak_set oak_int) test_set) : option (set Z).
 Compute
-  (oak_value_extract
+  (extract_oak_value
      (oak_map
         (oak_map oak_int oak_int)
         oak_int)
      test_map2)
   : option Map[Map[Z, Z], Z].
-Compute (option_map SetInterface.elements (oak_value_extract (oak_set oak_int) test_set)).
-Compute (option_map elements (oak_value_extract (oak_map oak_int oak_int) test_map)).
+Compute (option_map SetInterface.elements (extract_oak_value (oak_set oak_int) test_set)).
+Compute (option_map elements (extract_oak_value (oak_map oak_int oak_int) test_map)).
 *)
