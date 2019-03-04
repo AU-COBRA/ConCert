@@ -4,10 +4,10 @@ into Coq and verifying them.
 
 ## Building/Developing
 This repo uses the coq-containers library by Stéphane Lescuyer. This must be
-installed first. For Coq 8.9 clone [the repo](https://github.com/coq-contribs/containers)
-and install it with
+installed first. For Coq 8.9 follow the following steps:
 
 ```bash
+git clone https://github.com/coq-contribs/containers
 cd containers
 make -j
 make -f Makefile.coq install
