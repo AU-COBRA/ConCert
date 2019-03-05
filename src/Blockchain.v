@@ -42,7 +42,6 @@ Record Tx :=
 Record BlockHeader :=
   build_block_header {
     block_number : BlockId;
-    block_hash : BlockHash;
   }.
 
 Record Block :=
@@ -51,19 +50,67 @@ Record Block :=
     block_txs : list Tx;
   }.
 
-Inductive Chain :=
-  build_chain {
-    get_chain_at : BlockId -> option Chain;
-    get_block_at : BlockId -> option Block;
-    head_block : Block;
-    get_incoming_txs : Address -> list unit;
-    get_outgoing_txs : Address -> list unit;
-    get_contract_deployment : Address -> option ContractDeployment;
-    get_contract_state : Address -> option OakValue;
+(* This needs to be polymorphic because ... for reasons. LocalChain does not
+   work if not. A smaller repro is:
+Class interface :=
+  { ty : Type;
+    func : ty -> ty;
   }.
 
+(* the problem is that the implementation contains functions taking the
+   interface *)
+Record impl :=
+  {
+    callback : interface -> nat;
+  }.
+
+Definition func_concrete (i : impl) : impl := i.
+
+Instance impl_interface : interface :=
+  {| ty := impl; func := func_concrete |}.
+
+   todo: come back to this and understand universe polymorphism in depth. *)
+Polymorphic Record ChainInterface :=
+  build_chain_interface {
+    ifc_chain_type : Type;
+    ifc_chain_at : ifc_chain_type -> BlockId -> option ifc_chain_type;
+    ifc_head_block : ifc_chain_type -> Block;
+    ifc_incoming_txs : ifc_chain_type -> Address -> list Tx;
+    ifc_outgoing_txs :  ifc_chain_type -> Address -> list Tx;
+    ifc_contract_deployment :  ifc_chain_type -> Address -> option ContractDeployment;
+    ifc_contract_state : ifc_chain_type -> Address -> option OakValue;
+  }.
+
+Record Chain :=
+  build_chain {
+    chain_ifc : ChainInterface;
+    chain_val : ifc_chain_type chain_ifc
+  }.
+
+Definition chain_at (c : Chain) (bid : BlockId) : option Chain :=
+  do x <- c.(chain_ifc).(ifc_chain_at) c.(chain_val) bid;
+     Some {| chain_val := x |}.
+
+Definition head_block (c : Chain) :=
+  c.(chain_ifc).(ifc_head_block) c.(chain_val).
+
+Definition block_at (c : Chain) (bid : BlockId) : option Block :=
+  do c <- chain_at c bid; Some (head_block c).
+
+Definition incoming_txs (c : Chain) :=
+  c.(chain_ifc).(ifc_incoming_txs) c.(chain_val).
+
+Definition outgoing_txs (c : Chain) :=
+  c.(chain_ifc).(ifc_outgoing_txs) c.(chain_val).
+
+Definition contract_deployment (c : Chain) :=
+  c.(chain_ifc).(ifc_contract_deployment) c.(chain_val).
+
+Definition contract_state (c : Chain) :=
+  c.(chain_ifc).(ifc_contract_state) c.(chain_val).
+
 Inductive ContractCallContext :=
-  build_contract_call_ctx {
+build_contract_call_ctx {
     (* Chain *)
     ctx_chain : Chain;
     (* Address sending the funds *)
@@ -72,32 +119,19 @@ Inductive ContractCallContext :=
     ctx_contract_address : Address;
     (* Amount of GTU passed in call *)
     ctx_amount : Amount;
-  }.
+}.
 
 Inductive ChainAction :=
-  | act_transfer (to : Address) (amount : Amount)
-  (* todo: Should we use mutual inductives and store a Contract here?
-     It does not allow contracts to store chain actions in their state,
-     but that may be preferable. *)
-  | act_deploy :
-      forall setup_ty msg_ty state_ty,
-        Version ->
-        (ContractCallContext -> setup_ty -> option state_ty) -> (* init *)
-        (ContractCallContext -> state_ty ->
-         option msg_ty -> option (state_ty * list ChainAction)) -> (* receive *)
-        ChainAction
-  | act_call (to : Address) (amount : Amount) (msg : OakValue).
+| act_transfer (to : Address) (amount : Amount)
+| act_call (to : Address) (amount : Amount) (msg : OakValue)
+| act_deploy
+    {setup_ty msg_ty state_ty : Type}
+    (version : Version)
+    (init : ContractCallContext -> setup_ty -> option state_ty)
+    (receive : ContractCallContext -> state_ty ->
+                option msg_ty -> option (state_ty * list ChainAction)).
 
-Record Contract (setup_ty msg_ty state_ty : Type) :=
-  build_contract {
-    contract_version : Version;
-    contract_init : ContractCallContext -> setup_ty -> option state_ty;
-    contract_receive : ContractCallContext -> state_ty ->
-                       option msg_ty -> option (state_ty * list ChainAction);
-    }.
-
-Arguments build_contract {_ _ _}.
-
+(*
 Record ContractInterface (setup_ty msg_ty state_ty : Type) :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
@@ -106,18 +140,19 @@ Record ContractInterface (setup_ty msg_ty state_ty : Type) :=
     setup : setup_ty;
     (* Obtain the state at some point of time *)
     get_state : Chain -> option state_ty;
-    (* Make an action transferirng money to the contract without
+    (* Make an action transferring money to the contract without
        a message *)
-    transfer : Amount -> ChainAction;
+    transfer : Amount -> ContractAction;
     (* Make an action calling the contract *)
-    call : Amount -> msg_ty -> ChainAction;
+    call : Amount -> msg_ty -> ContractAction;
   }.
+*)
 
 (*
 (* todo: this should be easier -- we want actual strong typed
    interface by equivalence of oak type (iterated product, for instance)
    to types in contracts. Right now the interface received allows you
-   only to interact with a contrat using interpreted types. *)
+   only to interact with a contract using interpreted types. *)
 Definition get_contract_interface
            (setup_oty msg_oty state_oty : OakType)
            (chain : Chain)

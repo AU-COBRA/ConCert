@@ -1,5 +1,4 @@
 From Coq Require Import String.
-From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Program.Basics.
 From Containers Require Import OrderedTypeEx.
@@ -11,6 +10,8 @@ From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From RecordUpdate Require Import RecordUpdate.
+(* This is included last to default things to list rather than map/set *)
+From Coq Require Import List. 
 
 Import MapNotations.
 Import ListNotations.
@@ -20,9 +21,13 @@ Open Scope Z.
 
 Definition ProposalId := nat.
 
+Inductive CongressAction :=
+  | cact_transfer (to : Address) (amount : Amount)
+  | cact_call (to : Address) (amount : Amount) (msg : OakValue).
+
 Record Proposal :=
   build_proposal {
-    actions : list ChainAction;
+    actions : list CongressAction;
     votes : Map[Address, Z];
     vote_result : Z;
     proposed_in : BlockId;
@@ -52,7 +57,7 @@ Inductive Msg :=
 | ChangeRules : Rules -> Msg
 | AddMember : Address -> Msg
 | RemoveMember : Address -> Msg
-| CreateProposal : list ChainAction -> Msg
+| CreateProposal : list CongressAction -> Msg
 | VoteForProposal : ProposalId -> Msg
 | VoteAgainstProposal : ProposalId -> Msg
 | RetractVote : ProposalId -> Msg
@@ -94,7 +99,7 @@ Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
   else
     None.
 
-Definition add_proposal (actions : list ChainAction) (chain : Chain) (state : State) : State :=
+Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
   let id := state.(next_proposal_id) in
   let head_block := chain.(head_block) in
   let proposal := {| actions := actions;
@@ -132,6 +137,12 @@ Definition retract_vote
   let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
   Some (state[[proposals ::= MapInterface.add pid new_proposal]]).
 
+Definition congress_action_to_chain_action (act : CongressAction) : ChainAction :=
+  match act with
+  | cact_transfer to amt => act_transfer to amt
+  | cact_call to amt msg => act_call to amt msg
+  end.
+
 Definition finish_proposal
            (pid : ProposalId)
            (state : State)
@@ -156,7 +167,8 @@ Definition finish_proposal
         if (enough_voters && enough_ayes)%bool
         then proposal.(actions)
         else [ ] in
-    Some (new_state, response_acts).
+    let response_chain_acts := map congress_action_to_chain_action response_acts in
+    Some (new_state, response_chain_acts).
 
 Definition receive
            (ctx : ContractCallContext)
@@ -203,6 +215,3 @@ Definition receive
         None
     
   end.
-
-Definition congress_contract : Contract Setup Msg State :=
-  build_contract version init receive.
