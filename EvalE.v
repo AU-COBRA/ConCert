@@ -62,12 +62,20 @@ Module InterpreterEnvList.
   Arguments enCons {_}.
   Arguments enRec {_}.
 
-  (** Size of the context is number of all entries *)
+  (** Size of the environment is number of all entries *)
   Fixpoint size {A} (ρ : env A) : nat :=
     match ρ with
     | enEmpty => 0
     | enCons _ _ ρ' => 1 + size ρ'
     | enRec _ _ _ _ _ ρ' => 1 + size ρ'
+    end.
+
+  (** Number of non-recursive entries *)
+  Fixpoint size_norec {A} (ρ : env A) : nat :=
+    match ρ with
+    | enEmpty => 0
+    | enCons _ _ ρ' => 1 + size ρ'
+    | enRec _ _ _ _ _ ρ' => size ρ'
     end.
 
   Fixpoint concat_env {A : Type} (ρ ρ' : env A) :=
@@ -100,6 +108,17 @@ Module InterpreterEnvList.
   | feRec  : forall fixname nm e ty1 ty2 ρ,
       ForallEnv P ρ -> ForallEnv P (enRec fixname nm e ty1 ty2 ρ).
 
+  Inductive val_ok : val -> Prop :=
+  | vokClos : forall e nm cm ρ ty,
+      ForallEnv val_ok ρ ->
+      iclosed_n (S (size_norec ρ)) e = true ->
+      val_ok (vClos ρ nm cm ty e)
+  | vokContr : forall i nm vs ,
+      Forall val_ok vs ->
+      val_ok (vConstr i nm vs).
+
+
+  Definition env_ok ρ := ForallEnv val_ok ρ.
 
   (* An induction principle that takes into account nested occurences of elements of [val]
      in the list of arguments of [vConstr] and in the environment of [vClos] *)
@@ -176,8 +195,16 @@ Module InterpreterEnvList.
     | enEmpty => None
     | enCons nm a ρ' =>
       if (Nat.eqb i 0) then Some a else lookup_i_norec ρ' (i-1)
+    | enRec fixname nm e ty1 ty2 ρ' => lookup_i_norec ρ' (i-1)
+    end.
+
+  Fixpoint lookup_i' (ρ : env expr) (i : nat) : option expr :=
+    match ρ with
+    | enEmpty => None
+    | enCons nm a ρ' =>
+      if (Nat.eqb i 0) then Some a else lookup_i' ρ' (i-1)
     | enRec fixname nm e ty1 ty2 ρ' =>
-      if (Nat.eqb i 0) then None else lookup_i_norec ρ' (i-1)
+      if (Nat.eqb i 0) then Some e else lookup_i' ρ' (i-1)
     end.
 
   Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
@@ -360,7 +387,7 @@ Module InterpreterEnvList.
  Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
   match e with
   | eRel i => if Nat.leb k i then
-               from_option (lookup_i_norec ρ (1+i-k)) (eRel i) else eRel i
+               from_option (lookup_i_norec ρ (i-k)) (eRel i) else eRel i
   | eVar nm  => eVar nm
   | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
   | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
@@ -407,8 +434,7 @@ Module InterpreterEnvList.
     | vClos ρ nm cm ty e =>
       let res := match cm with
                  | cmLam => eLambda nm ty e
-                (* TODO: we should store both source and target types in a closure.
-                   Also, think about a fixpoint name. Does it matter? *)
+                (* TODO: we should store both source and target types in a closure. *)
                 | cmFix fixname => eFix fixname nm ty ty e
                 end
      in subst_env_i (map_env (fun v => from_val_i v) ρ) res
@@ -664,7 +690,7 @@ Module Examples.
   Definition prog1 :=
     [|
      (\x : Bool ->
-           case x : Bool_name return Bool of
+           case x : Bool return Bool of
            | true -> false
            | false -> true) true
      |].

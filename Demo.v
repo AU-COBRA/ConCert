@@ -15,7 +15,7 @@ Import StdLib.
 Definition negb_app_true :=
     [|
      (\x : Bool ->
-           case x : Bool_name return Bool of
+           case x : Bool return Bool of
            | true -> false
            | false -> true) true
      |].
@@ -41,21 +41,27 @@ Make Definition coq_negb_app_true :=
 
 Print coq_negb_app_true.
 
-Definition my_negb :=
-    [| (\x : Bool -> \y : Bool ->
-           case x : Bool_name return Bool of
-           | true -> false
-           | false -> true) true  |].
+Definition my_negb_syn :=
+  [| \x : Bool -> case x : Bool return Bool of
+                   | true -> false
+                   | false -> true  |].
 
-Compute (expr_eval_n 3 Σ enEmpty my_negb).
+Make Definition my_negb :=
+  Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
 
-Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb)).
+Lemma my_negb_coq_negb b :
+  my_negb b = negb b.
+Proof. reflexivity. Qed.
+
+Compute (expr_eval_n 3 Σ enEmpty my_negb_syn).
+
+Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
 
 Import MonadNotation.
 
 Run TemplateProgram
     (
-      t <- tmEval lazy (expr_eval_n 3 Σ InterpreterEnvList.enEmpty my_negb);;
+      t <- tmEval lazy (expr_eval_n 3 Σ InterpreterEnvList.enEmpty my_negb_syn);;
         match t with
           Ok v =>
           t' <- tmEval lazy (expr_to_term Σ (indexify [] (InterpreterEnvList.from_val v))) ;;
@@ -77,7 +83,7 @@ Definition is_zero_syn :=
   [|
 
       \x : Nat ->
-           case x : Nat_name return Bool of
+           case x : Nat return Bool of
            | Z -> true
            | Suc y -> false
 
@@ -90,7 +96,7 @@ Definition pred_syn :=
   [|
 
       \x : Nat ->
-           case x : Nat_name return Nat of
+           case x : Nat return Nat of
            | Z -> x
            | Suc y -> y
 
@@ -108,7 +114,7 @@ Inductive blah :=
 
 Definition Σ' : global_env :=
   [gdInd "blah" [("Bar", [tyInd "blah"; tyInd "blah"]); ("Baz", [])];
-     gdInd Nat_name  [("Z", []); ("Suc", [tyInd Nat_name])]].
+     gdInd Nat  [("Z", []); ("Suc", [tyInd Nat])]].
 
 Notation "'Bar'" := (eConstr "blah" "Bar") (in custom expr).
 Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
@@ -122,7 +128,7 @@ Compute (expr_eval_n 5 Σ enEmpty prog3).
 Definition factorial_syn :=
   [|
    fix "factorial" (x : Nat) : Nat :=
-       case x : Nat_name return Nat of
+       case x : Nat return Nat of
        | Z -> 1
        | Suc y -> x * ("factorial" y)
   |].
@@ -130,56 +136,71 @@ Definition factorial_syn :=
 Make Definition factorial :=
   Eval compute in ((expr_to_term Σ (indexify [] factorial_syn))).
 
-Definition plus_syn :=
+Definition plus_syn : expr :=
+  [| fix "plus" (x : Nat) : Nat -> Nat :=
+           case x : Nat return Nat -> Nat of
+           | Z -> \y : Nat -> y
+           | Suc y -> \z : Nat -> Suc ("plus" y z) |].
+
+Make Definition my_plus := Eval compute in (expr_to_term Σ (indexify [] plus_syn)).
+
+Lemma my_plus_correct n m :
+  my_plus n m = n + m.
+Proof. induction n;simpl;auto. Qed.
+
+
+Definition two :=
+  (vConstr Nat "Suc"
+           [vConstr Nat "Suc" [vConstr Nat "Z" []]]).
+
+Definition one_plus_one :=
+  [| {plus_syn} 1 1 |].
+
+Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} 1 1 |]).
+(* = Ok (vConstr "nat" "Suc" [vConstr "nat" "Suc" [vConstr "nat" "Z" []]])*)
+
+Example one_plus_one_two : expr_eval_n 10 Σ enEmpty one_plus_one = Ok two.
+Proof. reflexivity. Qed.
+
+Definition plus_syn' :=
   [| \x : Nat ->
           (fix "plus" (y : Nat) : Nat :=
-           case y : Nat_name return Nat of
+           case y : Nat return Nat of
            | Z -> x
            | Suc z -> Suc ("plus" z))
   |].
 
-Make Definition my_plus :=
-  Eval compute in ((expr_to_term Σ (indexify [] plus_syn))).
+Make Definition my_plus' :=
+  Eval compute in ((expr_to_term Σ (indexify [] plus_syn'))).
 
-Lemma my_plus_0 : forall n, my_plus 0 n = n.
+Lemma my_plus'_0 : forall n, my_plus' 0 n = n.
 Proof.
   induction n;simpl;easy.
 Qed.
 
-Lemma my_plus_Sn : forall n m, my_plus (S n) m = S (my_plus n m).
+Lemma my_plus'_Sn : forall n m, my_plus' (S n) m = S (my_plus' n m).
 Proof.
   induction m;simpl;easy.
 Qed.
 
-Lemma my_plus_comm : forall n m, my_plus n m = my_plus m n.
+Lemma my_plus'_comm : forall n m, my_plus' n m = my_plus' m n.
 Proof.
   induction n; intros m;simpl.
-  + rewrite my_plus_0. reflexivity.
-  + rewrite my_plus_Sn. easy.
+  + rewrite my_plus'_0. reflexivity.
+  + rewrite my_plus'_Sn. easy.
 Qed.
 
 (* my_plus corresponds to addition of natural numbers defined in the standard library *)
-Lemma my_plus_correct : forall n m, my_plus n m = n + m.
+Lemma my_plus'_correct : forall n m, my_plus' n m = n + m.
 Proof.
   intros n m.
   induction m;simpl;easy.
 Qed.
 
-Definition two :=
-  (vConstr "Coq.Init.Datatypes.nat" "Suc"
-           [vConstr "Coq.Init.Datatypes.nat" "Suc" [vConstr "Coq.Init.Datatypes.nat" "Z" []]]).
-
-Definition one_plus_one :=
-  [| {plus_syn} 1 1 |].
-
-Compute (expr_eval_n 10 Σ enEmpty one_plus_one).
-
-Example one_plus_one_two : expr_eval_n 10 Σ enEmpty one_plus_one = Ok two.
-Proof. reflexivity. Qed.
 
 Definition id_rec :=
   [| (fix "plus" (y : Nat) : Nat :=
-           case y : Nat_name return Nat of
+           case y : Nat return Nat of
            | Z -> 0
            | Suc z -> Suc ("plus" z))
    |].
@@ -215,8 +236,28 @@ Compute ( v <- (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} |]));;
 
 Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} 0 |]).
 
+Compute (lookup_i_norec (enRec "plus" "y"
+          [|case ^ 0 : "Coq.Init.Datatypes.nat"
+            return Nat of | Z -> ^ 2 | Suc "z" ->
+            Suc ((^2) (^0))|]
+          (tyInd "Coq.Init.Datatypes.nat") (tyInd "Coq.Init.Datatypes.nat")
+          (enEmpty # ["x" ~> vConstr "Coq.Init.Datatypes.nat" "Z" []])) 0).
+
+Definition fun_app := [| (\x : Nat -> \y : Nat -> y + x) Z |].
+
+Compute (expr_eval_n 10 [] enEmpty fun_app).
+
+Example fun_app_from_val :
+  exists v, (expr_eval_n 10 [] enEmpty (indexify [] fun_app)) = Ok v /\
+       from_val_i v = (indexify [] [|\y : Nat -> y + Z |]).
+Proof.
+  eexists. split. compute. reflexivity.
+  simpl. compute. reflexivity.
+Qed.
+
+
 Example plus_syn_partial_app :
-  exists v, (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} 0 |])) = Ok v /\
+  exists v, (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn'} 0 |])) = Ok v /\
        from_val_i v = indexify [] id_rec.
 Proof.
   eexists. split. compute. reflexivity.

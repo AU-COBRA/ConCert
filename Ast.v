@@ -76,6 +76,21 @@ Proof.
   + apply Hfix. apply ind.
 Defined.
 
+Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
+  match e with
+  | eRel i => Nat.ltb i n
+  | eVar x => false
+  | eLambda nm ty b => iclosed_n (1+n) b
+  | eLetIn nm e1 ty e2 => iclosed_n n e1 && iclosed_n (1+n) e2
+  | eApp e1 e2 => iclosed_n n e1 && iclosed_n n e2
+  | eConstr x x0 => true
+  | eConst x => true
+  | eCase ii ty e bs =>
+    let bs' := List.forallb (fun x => iclosed_n n (snd x)) bs in
+    iclosed_n n e && bs'
+  | eFix fixname nm ty1 ty2 e => iclosed_n (2+n) e
+  end.
+
 Definition vars_to_apps acc vs :=
   fold_left eApp vs acc.
 
@@ -191,7 +206,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eVar nm => tVar nm
   | eLambda nm ty b => tLambda (nNamed nm) (type_to_term ty) (expr_to_term b)
   | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) (expr_to_term e1) (type_to_term ty) (expr_to_term e2)
-  | eApp e1 e2 => tApp (expr_to_term e1) [expr_to_term e2]
+  | eApp e1 e2 => mkApps (expr_to_term e1) [expr_to_term e2]
   | eConstr t i => match (resolve_constr Σ t i) with
                      | Some c => tConstruct (mkInd t 0) (fst c) []
                      (* FIXME: a hack to make the function total *)
@@ -216,10 +231,10 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   end.
 
 Module BaseTypes.
-  Definition Nat_name := "Coq.Init.Datatypes.nat".
-  Definition Nat := tyInd Nat_name.
-  Definition Bool_name := "Coq.Init.Datatypes.bool".
-  Definition Bool := tyInd Bool_name.
+  Definition Nat := "Coq.Init.Datatypes.nat".
+  (* Definition Nat := tyInd Nat_name. *)
+  Definition Bool := "Coq.Init.Datatypes.bool".
+  (* Definition Bool := tyInd Bool_name. *)
   (* Definition true := eConstr Bool_name 0. *)
   (* Definition false := eConstr Bool_name 1. *)
 End BaseTypes.
@@ -230,16 +245,21 @@ Declare Custom Entry expr.
 Declare Custom Entry pat.
 Declare Custom Entry type.
 
+Notation "ty" := (tyInd ty) (in custom type at level 2, ty constr at level 3).
+Notation "ty1 -> ty2" := (tyArr ty1 ty2)
+                          (in custom type at level 4).
+
 Notation "[| e |]" := e (e custom expr at level 2).
 Notation "^ i " := (eRel i) (in custom expr at level 3, i constr at level 4).
 Notation "x" := (eVar x) (in custom expr at level 0, x constr at level 4).
 Notation "\ x : ty -> b" := (eLambda x ty b)
                               (in custom expr at level 1,
-                                  ty constr at level 4,
+                                  ty custom type at level 2,
+                                  b custom expr at level 4,
                                   x constr at level 4).
 Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
                                            (in custom expr at level 1,
-                                               ty constr at level 4,
+                                               ty custom type at level 2,
                                                x constr at level 4).
 
 (* Notation "C x .. y" := (pConstr C (cons x .. (cons y nil) .. )) *)
@@ -247,7 +267,7 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
 (*                              x constr at level 4, *)
 (*                              y constr at level 4). *)
 
-(* Could not make recursive notation work, so below there are several variants
+(* Could not make recursive notation work, so below, there are several variants
    of [case] for different number of cases *)
 
 (* Notation "'case' x : ty 'of'  b1 | .. | bn " := *)
@@ -257,7 +277,6 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
 (*         bn custom expr at level 4, *)
 (*         ty constr at level 4). *)
 
-
 Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
   (eCase (ty1,0) ty2 x [(p1,b1);(pn,bn)])
     (in custom expr at level 1,
@@ -266,7 +285,7 @@ Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
         b1 custom expr at level 4,
         bn custom expr at level 4,
         ty1 constr at level 4,
-        ty2 constr at level 4).
+        ty2 custom type at level 4).
 
 Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
   (eCase (ty1,0) ty2 x [(p1,b1)])
@@ -274,7 +293,7 @@ Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
         p1 custom pat at level 4,
         b1 custom expr at level 4,
         ty1 constr at level 4,
-        ty2 constr at level 4).
+        ty2 custom type at level 4).
 
 
 Notation "t1 t2" := (eApp t1 t2) (in custom expr at level 4, left associativity).
@@ -284,8 +303,8 @@ Notation "'fix' fixname ( v : ty1 ) : ty2 := b" := (eFix fixname v ty1 ty2 b)
                                       fixname constr at level 4,
                                       v constr at level 4,
                                       b custom expr at level 4,
-                                      ty1 constr at level 4,
-                                      ty2 constr at level 4).
+                                      ty1 custom type at level 4,
+                                      ty2 custom type at level 4).
 Notation "( x )" := x (in custom expr, x at level 2).
 Notation "{ x }" := x (in custom expr, x constr).
 
@@ -294,8 +313,8 @@ Module StdLib.
                         (in custom expr at level 0).
   Notation "a * b" := [| {eConst "Coq.Init.Nat.mul"} {a} {b} |]
                         (in custom expr at level 0).
-  Notation "'Z'" := (eConstr Nat_name "Z") ( in custom expr at level 0).
-  Notation "'Suc'" := (eConstr Nat_name "Suc") ( in custom expr at level 0).
+  Notation "'Z'" := (eConstr Nat "Z") ( in custom expr at level 0).
+  Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
   Notation "0" := [| Z |] ( in custom expr at level 0).
   Notation "1" := [| Suc Z |] ( in custom expr at level 0).
 
@@ -309,12 +328,12 @@ Module StdLib.
   Notation "'true'" := (pConstr "true" []) (in custom pat at level 0).
   Notation "'false'" := (pConstr "false" []) ( in custom pat at level 0).
 
-  Notation "'true'" := (eConstr Bool_name "true") (in custom expr at level 0).
-  Notation "'false'" := (eConstr Bool_name "false") ( in custom expr at level 0).
+  Notation "'true'" := (eConstr Bool "true") (in custom expr at level 0).
+  Notation "'false'" := (eConstr Bool "false") ( in custom expr at level 0).
 
   Definition Σ : global_env :=
-    [gdInd Bool_name [("true", []); ("false", [])];
-     gdInd Nat_name  [("Z", []); ("Suc", [tyInd Nat_name])]].
+    [gdInd Bool [("true", []); ("false", [])];
+     gdInd Nat  [("Z", []); ("Suc", [tyInd Nat])]].
 End StdLib.
 
 
@@ -363,7 +382,7 @@ Section Examples.
   Definition negb_syn :=
     [|
      \x : Bool ->
-            case x : Bool_name return Bool of
+            case x : Bool return Bool of
             | true -> false
             | false -> true
     |].
@@ -381,3 +400,80 @@ Section Examples.
   Make Definition myplus := Eval compute in (expr_to_term Σ (indexify [] myplus_syn)).
 
 End Examples.
+
+
+Module Psubst.
+  Definition psubst {A} := nat -> A.
+
+  Definition id_subst : psubst := fun i => eRel i.
+  Definition subst_cons {A} (e : A) (σ : psubst) : psubst :=
+    fun i => if Nat.eqb i 0 then e else σ (i-1).
+
+  Notation ids := id_subst.
+  Notation "↑" := plus.
+  Notation "e ⋅ σ" := (subst_cons e σ) (at level 50).
+
+  Import Basics.
+  Open Scope program_scope.
+
+  Fixpoint erename (r : nat -> nat) (e : expr) : expr :=
+    match e with
+    | eRel i => eRel (r i)
+    | eVar nm  => eVar nm
+    | eLambda nm ty b => eLambda nm ty (erename (↑1 ∘ r) b)
+    | eLetIn nm e1 ty e2 => eLetIn nm (erename r e1) ty (erename r e2)
+    | eApp e1 e2 => eApp (erename r e1) (erename r e2)
+    | eConstr t i as e' => e'
+    | eConst nm => eConst nm
+    | eCase nm_i ty e bs =>
+      eCase nm_i ty (erename r e)
+            (map (fun x =>
+                    let k := length (fst x).(pVars) in
+                    (fst x, erename (↑k ∘ r) (snd x))) bs)
+    | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (erename (↑2 ∘ r) b)
+    end.
+
+  Definition up (σ : psubst) := ids 0 ⋅ (erename (↑1) ∘ σ).
+
+  Fixpoint up_k (k : nat) (σ : psubst) :=
+    match k with
+    | O => σ
+    | S k' => up (up_k k' σ)
+    end.
+
+  Import FunctionalExtensionality.
+  Import Lia.
+
+  Lemma up_k_eq_id k σ :
+    forall i,
+    i < k ->
+    up_k k σ i = ids i.
+  Proof.
+    induction k;intros i H.
+    + inversion H.
+    + simpl.
+      destruct i. reflexivity.
+      unfold up,subst_cons,compose. simpl.
+      replace (i-0) with i by lia.
+      rewrite IHk by lia. reflexivity.
+  Qed.
+
+  Reserved Notation "e .[ σ ]" (at level 0).
+
+  Fixpoint apply_subst (σ : psubst) (e : expr) : expr :=
+    match e with
+    | eRel i => σ i
+    | eVar nm  => eVar nm
+    | eLambda nm ty b => eLambda nm ty (b .[up σ])
+    | eLetIn nm e1 ty e2 => eLetIn nm (e1 .[σ]) ty (e2 .[up σ])
+    | eApp e1 e2 => eApp (e1 .[σ]) (e2 .[σ])
+    | eConstr t i as e' => e'
+    | eConst nm => eConst nm
+    | eCase nm_i ty e bs =>
+      eCase nm_i ty (e .[σ])
+            (map (fun x => (fst x, (snd x) .[up_k (length (fst x).(pVars)) σ])) bs)
+    | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (b .[up_k 2 σ])
+  end
+  where "e .[ σ ]" := (apply_subst σ e).
+
+End Psubst.

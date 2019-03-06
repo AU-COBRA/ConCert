@@ -13,6 +13,8 @@ Import FunctionalExtensionality.
 
 Open Scope string_scope.
 Import ListNotations.
+Import Lia.
+Import Nat.
 
 Import InterpreterEnvList.
 
@@ -30,6 +32,106 @@ Section Values.
       unfold vars_to_apps.
       rewrite fold_left_app; easy.
   Qed.
+
+  Lemma vars_to_apps_iclosed_n :
+        forall (i : inductive) (n0 : name) (l : list val) (n : nat),
+          Forall (fun v : val => iclosed_n n (from_val_i v) = true) l ->
+          iclosed_n n (vars_to_apps (eConstr i n0) (map from_val_i l)) = true.
+  Proof.
+    intros i n0 l n H.
+    induction l using rev_ind.
+    + reflexivity.
+    + rewrite map_app. simpl. rewrite vars_to_apps_unfold.
+      simpl. rewrite Forall_app in H. destruct H as [H1 H2].
+      apply Forall_inv in H2. rewrite H2. rewrite IHl by assumption.
+      reflexivity.
+  Qed.
+
+  Lemma ForallEnv_lookup_i_norec {A} ρ n e (P : A -> Prop) :
+    ForallEnv P ρ -> lookup_i_norec ρ n = Some e -> P e.
+  Proof.
+    intros Hfe Hl.
+    revert dependent n.
+    induction Hfe;intros n Hl.
+    + inversion Hl.
+    + simpl in *. destruct (Nat.eqb n 0);inversion Hl;subst;eauto.
+    + simpl in *. eauto.
+  Qed.
+
+
+  Lemma lookup_norec_size_norec {A} (ρ : env A) n :
+    (n <? size_norec ρ) = true -> exists e, lookup_i_norec ρ n = Some e.
+  Proof.
+  Admitted.
+
+  Lemma iclosed_n_lookup :
+    forall (e1 e2 : expr) (ρ : env expr)  (n : nat),
+      iclosed_n 0 (subst_env_i_aux 0 ρ e1) = true ->
+      lookup_i_norec ρ n = Some e2 ->
+      iclosed_n 0 e2 = true.
+  Proof.
+    intros e1.
+    induction e1;intros e2 ρ n1 Hc Hl.
+    + simpl in *. replace (n-0) with n in * by lia.
+      destruct (lookup_i_norec ρ n);tryfalse. simpl in *.
+  Admitted.
+
+  Lemma iclosed_Sn_subst_env:
+    forall (ρ : env expr) (e : expr),
+      iclosed_n 0 (subst_env_i_aux 0 ρ e) = true ->
+      iclosed_n 1 (subst_env_i_aux 1 ρ e) = true.
+  Proof.
+    intros ρ e0 Hc.
+    induction e0 using expr_ind_case;auto.
+    + simpl in *. destruct n.
+      * reflexivity.
+      * replace (S n - 1) with n in * by lia. simpl in *.
+        destruct (lookup_i_norec ρ (S n)) eqn:Hl;tryfalse. simpl in *.
+
+  Admitted.
+
+  Lemma subst_env_iclosed:
+    forall (ρ : env expr) (e0 : expr),
+      iclosed_n (size_norec ρ) e0 = true ->
+      ForallEnv (fun e => iclosed_n 0 e = true) ρ ->
+      iclosed_n 0 (subst_env_i ρ e0) = true.
+  Proof.
+    intros ρ e0.
+    induction e0 using expr_ind_case;intros Hc Hec;simpl;tryfalse;auto.
+    + (* eRel *)
+      unfold subst_env_i. simpl. replace (n-0) with n by lia.
+      * simpl in *.
+        destruct (lookup_norec_size_norec _ _ Hc) as [e0 He0].
+        rewrite He0. simpl.
+        eapply ForallEnv_lookup_i_norec with (P:=fun e => iclosed_n 0 e = true);eauto.
+    + (* eLambda *)
+      simpl in *.
+  Admitted.
+
+  Lemma Forall_impl_inner {A} (P Q : A -> Prop) l :
+    Forall P l -> Forall (fun x => P x -> Q x) l ->
+    Forall Q l.
+  Proof.
+    intros HP. induction HP;intros HQ.
+    + constructor.
+    + constructor.
+      pose proof (Forall_inv HQ);easy.
+      pose proof (Forall_inv_tail HQ);easy.
+  Qed.
+
+  Lemma from_value_closed v n :
+    val_ok v  (* this ensures that closures contain closed expressions *) ->
+    iclosed_n n ( from_val_i v ) = true.
+  Proof.
+    intros Hv.
+    induction v using val_ind_full.
+    + simpl. apply vars_to_apps_iclosed_n. inversion Hv;subst.
+      eapply Forall_impl_inner;easy.
+    + inversion Hv;subst.
+      destruct cm;simpl.
+      *
+  Admitted.
+
 
   Lemma subst_env_empty :
     forall e : expr, e = subst_env [] e.
@@ -61,7 +163,7 @@ Section Values.
   Proof.
     intros e.
     induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence.
-    + destruct (Nat.leb k n); destruct k; try easy; destruct (n-k); easy.
+    + destruct (Nat.leb k n); destruct k; try easy.
     + f_equal;auto.
     rewrite <- map_id at 1.
     eapply @Induction.forall_map_spec.
