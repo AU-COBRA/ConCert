@@ -89,7 +89,7 @@ Local Definition find_first {A : Type} (f : ChainUpdate -> option A) (lc : Local
 Definition lc_contract_deployment (lc : LocalChain) (addr : Address)
   : option ContractDeployment :=
   find_first (fun u => u.(upd_deployments)[addr]%map) lc.
-  
+
 Definition lc_contract_state (lc : LocalChain) (addr : Address)
   : option OakValue :=
   let get_state_oak_value u :=
@@ -98,11 +98,11 @@ Definition lc_contract_state (lc : LocalChain) (addr : Address)
   find_first get_state_oak_value lc.
 
 Definition local_chain_impl : ChainInterface :=
-  {| ifc_chain_type := LocalChain;
-     ifc_chain_at := lc_chain_at;
-     ifc_head_block := lc_head_block;
-     ifc_incoming_txs := lc_incoming_txs;
-     ifc_outgoing_txs := lc_outgoing_txs;
-     ifc_contract_deployment := lc_contract_deployment;
-     ifc_contract_state := lc_contract_state;
+  {| ci_chain_type := LocalChain;
+     ci_chain_at := lc_chain_at;
+     ci_head_block := lc_head_block;
+     ci_incoming_txs := lc_incoming_txs;
+     ci_outgoing_txs := lc_outgoing_txs;
+     ci_contract_deployment := lc_contract_deployment;
+     ci_contract_state := lc_contract_state;
   |}.
