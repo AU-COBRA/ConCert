@@ -99,7 +99,7 @@ Module InterpreterEnvList.
   | vConstr : inductive -> name -> list val -> val
   | vClos   : env val -> name ->
               clos_mode ->
-              type ->(* types are used to convert closures back to lambdas *)
+              type ->(* type of the domain *)
               expr -> val.
 
   Inductive ForallEnv {A} (P : A -> Prop) : env A -> Prop :=
@@ -196,15 +196,6 @@ Module InterpreterEnvList.
     | enCons nm a ρ' =>
       if (Nat.eqb i 0) then Some a else lookup_i_norec ρ' (i-1)
     | enRec fixname nm e ty1 ty2 ρ' => lookup_i_norec ρ' (i-1)
-    end.
-
-  Fixpoint lookup_i' (ρ : env expr) (i : nat) : option expr :=
-    match ρ with
-    | enEmpty => None
-    | enCons nm a ρ' =>
-      if (Nat.eqb i 0) then Some a else lookup_i' ρ' (i-1)
-    | enRec fixname nm e ty1 ty2 ρ' =>
-      if (Nat.eqb i 0) then Some e else lookup_i' ρ' (i-1)
     end.
 
   Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
@@ -437,11 +428,15 @@ Module InterpreterEnvList.
                 (* TODO: we should store both source and target types in a closure. *)
                 | cmFix fixname => eFix fixname nm ty ty e
                 end
-     in subst_env_i (map_env (fun v => from_val_i v) ρ) res
+     in subst_env_i (map_env from_val_i ρ) res
    end.
 
+  (* The similar notation will be used when we change to a parallel substitution *)
+  Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
+
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
-   subst_env_i (map_env (fun v => from_val_i v) ρ) e.
+   subst_env_i (map_env from_val_i ρ) e.
+ Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
 
  Module Equivalence.
    Reserved Notation "v1 ≈ v2" (at level 50).

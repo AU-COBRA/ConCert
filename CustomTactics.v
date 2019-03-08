@@ -33,3 +33,7 @@ Tactic Notation "false" :=
 
 Tactic Notation "tryfalse" :=
   try solve [ false ].
+
+Ltac some_inv := repeat (match goal with
+                         | [H: Some _ = Some _ |- _] => inversion H; clear H
+                         end).

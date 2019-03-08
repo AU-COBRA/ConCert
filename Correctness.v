@@ -7,12 +7,15 @@ Require Import Template.All.
 
 Require Import List.
 
+Import InterpreterEnvList.
+Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i n Σ ρ e) (at level 100).
+
 Import ListNotations.
 
 Import Lia.
 
 Notation "Σ ;;; Γ |- t1 ⇓ t2 " := (WcbvEval.eval Σ Γ t1 t2) (at level 50).
-Notation "T⟦ e ⟧ Σ " := (expr_to_term Σ e) (at level 40).
+Notation "T⟦ e ⟧ Σ " := (expr_to_term Σ e) (at level 49).
 
 Tactic Notation "simpl_vars_to_apps" "in" ident(H) :=
   simpl in H;try rewrite map_app in H; simpl in H;
@@ -22,7 +25,7 @@ Tactic Notation "simpl_vars_to_apps" :=
   simpl;try rewrite map_app; simpl; rewrite vars_to_apps_unfold;simpl.
 
 
-Import InterpreterEnvList.
+Notation "'exprs' ρ" := (map_env from_val_i ρ) (at level 100).
 
 Lemma expr_closed_term_closed e n Σ:
   iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
@@ -57,7 +60,7 @@ Admitted.
 
 Lemma inst_env_i_in ρ n :
   n < size ρ ->
-  exists v, lookup_i ρ n = Some v /\ inst_env_i ρ (eRel n) = from_val_i v.
+  exists v, lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = from_val_i v.
 Proof.
   intros Hlt.
   revert dependent n.
@@ -154,12 +157,33 @@ Compute ((tLambda (nNamed"x") (tInd (mkInd "nat" 0) []) (tApp (tRel 1) [tRel 2])
 Compute ( (tApp (tApp (tApp (tApp (tRel 1) [tRel 1]) [tRel 1]) [tRel 1]) [tRel 2]) {0:=tVar "blah"}).
 Compute ( T⟦(eApp (eApp (eApp (eApp (eRel 1) (eRel 1)) (eRel 1)) (eRel 1)) (eRel 2))⟧ []).
 
+Lemma lookups_eq {ρ i v1 v2} :
+  lookup_i_norec ρ i = Some v1 -> lookup_i ρ i = Some v2 ->
+  v1 = v2 \/ exists ρ nm fixname ty e,
+      v2 = vClos ρ nm (cmFix fixname) ty e.
+Proof.
+  intros H1 H2.
+  revert dependent i.
+  induction ρ; intros i H1 H2;tryfalse;
+  try (simpl in *;
+       destruct i;simpl in *;
+       [some_inv;subst;easy |
+        replace (i-0) with i in * by lia;easy]).
+Qed.
+
+Lemma option_to_res_ok {A} (o : option A) s v:
+  option_to_res o s = Ok v ->
+  o = Some v.
+Proof.
+  intros H. destruct o. inversion H;auto. tryfalse.
+Qed.
+
 Lemma subst_term_subst_env_rec  e :
   forall v Σ n nm,
   val_ok v ->
   iclosed_n (1+n) e = true ->
   (T⟦e⟧ Σ) {n:=T⟦ from_val_i v ⟧ Σ} =
-  (T⟦subst_env_i_aux n (enEmpty # [nm ~> from_val_i v]) e⟧ Σ).
+  (T⟦e.[enEmpty # [nm ~> from_val_i v]]n⟧ Σ).
 Proof.
   induction e using expr_ind_case;intros v Σ n1 nm nmHv Hc.
   + (* eRel *)
@@ -223,7 +247,7 @@ Lemma subst_term_subst_env e :
   val_ok v ->
   iclosed_n 1 e = true ->
   (T⟦e⟧ Σ) {0:=T⟦ from_val_i v ⟧ Σ} =
-  (T⟦subst_env_i (enEmpty # [nm ~> from_val_i v]) e⟧ Σ).
+  (T⟦e.[enEmpty # [nm ~> from_val_i v]]⟧ Σ).
 Proof.
   intros.
   apply subst_term_subst_env_rec;auto.
@@ -242,9 +266,8 @@ Admitted.
 Lemma subst_env_compose :
   forall (nm : Ast.name) (e e1: expr) (ρ : env expr),
     ForallEnv (fun x => iclosed_n 0 x = true) ρ ->
-    subst_env_i (ρ # [nm ~> e1]) e =
-    subst_env_i (enEmpty # [nm ~> e1])
-                (subst_env_i_aux 1 ρ e).
+    e.[ρ # [nm ~> e1]] =
+    (e.[ρ]1).[enEmpty # [nm ~> e1]].
 Proof.
   intros nm e e1 ρ.
   unfold inst_env_i,subst_env_i in *. simpl in *.
@@ -322,7 +345,7 @@ Qed.
 
 
 Lemma tFix_eq_inv f l Σ e :
-  tFix f l = T⟦e⟧Σ -> exists fixname var ty1 ty2 b, e = eFix fixname var ty1 ty2 b.
+  T⟦e⟧Σ = tFix f l -> exists fixname var ty1 ty2 b, e = eFix fixname var ty1 ty2 b.
 Proof.
   destruct e;intros H1;try easy.
   + simpl in *. now destruct (T⟦ e1 ⟧ Σ).
@@ -336,16 +359,36 @@ Lemma inst_env_eFix_eq_inv (ρ : env val) ty1 ty2 e b fixname var :
       e = eFix fixname1 var1 ty11 ty21 b1) \/
   (exists n fixname1 var1 ty11 ty21 b1,
     e = eRel n /\
-    lookup_i_norec (map_env (fun v => from_val_i v) ρ) n =
+    lookup_i_norec (exprs ρ) n =
     Some (eFix fixname1 var1 ty11 ty21 b1)).
 Proof.
   intros H.
   destruct e;try easy.
-  right.
-  cbn in H.
-  destruct ((lookup_i_norec (map_env (fun v : val => from_val_i v) ρ) (n - 0))) eqn:Hlookup;tryfalse. replace (n-0) with n in * by lia. simpl in *. subst.
+  right. cbn in H.
+  replace (n-0) with n in * by lia.
+  destruct ((lookup_i_norec (exprs ρ) n)) eqn:Hlookup;tryfalse.
+   simpl in *. subst.
   repeat eexists; easy.
 Qed.
+
+Lemma from_val_fix fixname var ty1 ty2 b v :
+  from_val_i v = eFix fixname var ty1 ty2 b ->
+  exists ρ b1, v = vClos ρ var (cmFix fixname) ty1 b1.
+Proof.
+  intros H. induction v.
+  + cbn in  H.
+    destruct l using rev_ind;try simpl_vars_to_apps in H;tryfalse.
+  + destruct c; simpl in *.
+    * tryfalse.
+    * repeat eexists. inversion H. subst. f_equal.
+Qed.
+
+(* This should be a property of env_map *)
+Lemma lookup_i_norec_from_val ρ n e :
+  lookup_i_norec (exprs ρ) n = Some e ->
+  exists v, from_val_i v = e /\ lookup_i_norec ρ n = Some v.
+Proof.
+  Admitted.
 
 Lemma mkApps_isApp t args :
   args <> [] -> isApp t = true -> exists args' f, mkApps t args = tApp f (args' ++ args).
@@ -393,35 +436,33 @@ Lemma mkApps_sound Σ Γ e l t :
   Σ ;;; Γ |- mkApps e l ⇓ t ->
   Σ ;;; Γ |- tApp e l ⇓ t.
 Proof.
-  Admitted.
-
-Compute (T⟦vars_to_apps (eRel 0) [eRel 1; eRel 2;eRel 3;eRel 4]⟧nil).
-Lemma expr_to_term_apps f a args Σ :
-  T⟦vars_to_apps f (args ++ [a])⟧Σ = tApp (T⟦f⟧Σ) (map (fun e => T⟦e⟧Σ) (args++[a])).
-Proof.
-  induction args using rev_ind.
-  + simpl. destruct (T⟦ f ⟧ Σ);auto.
-  (* rewrite vars_to_apps_unfold. simpl. *)
-  (* rewrite IHargs. f_equal. rewrite map_app. *)
-  (* reflexivity. intros H1.  apply H. *)
 Admitted.
 
+Lemma fix_not_constr {e ρ Σ mf n m i nm vs} :
+  T⟦ e.[exprs ρ] ⟧ Σ = tFix mf m ->
+  eval(n,Σ,ρ,e) = Ok (vConstr i nm vs) -> False.
+Proof.
+  intros H1 He.
+  specialize (tFix_eq_inv _ _ _ _ H1) as HH.
+  destruct_ex_named.
+  apply inst_env_eFix_eq_inv in HH.
+  destruct HH.
+  + destruct_ex_named. subst. destruct n;tryfalse.
+  + destruct_ex_named. destruct H as [Heq HH];subst.
+    destruct n;tryfalse. simpl in He.
+    apply option_to_res_ok in He.
+    apply lookup_i_norec_from_val in HH.
+    destruct HH as [v1 HH]. destruct HH as [HH1 HH2].
+    apply from_val_fix in HH1.
+    specialize (lookups_eq HH2 He) as Heq.
+    destruct_ex_named. destruct Heq;destruct_ex_named;tryfalse.
+Qed.
 
-(* Lemma tConstr_inv i1 i2 nm1 nm2 u Σ l : *)
-(*   tConstruct i1 nm1 u = T⟦ from_val_i (vConstr i2 nm2 l) ⟧ Σ -> *)
-(*   i1 = i2 /\ nm1 = nm2 /\ l = []. *)
-(* Proof. *)
-(*   induction l using rev_ind. *)
-(*   simpl. destruct (resolve_constr Σ i2 nm2);tryfalse. *)
-(*   Focus 2. *)
-(*                simpl_vars_to_apps in IH. *)
-(*            inversion IH;subst. *)
-
-Theorem expr_to_term_sound n ρ Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
+Theorem expr_to_term_sound (n : nat) ρ Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
-  expr_eval_i n Σ1 ρ e1 = Ok v ->
-  inst_env_i ρ e1 = e2 ->
+  eval(n, Σ1, ρ, e1) = Ok v ->
+  e1.[exprs ρ] = e2 ->
   iclosed_n 0 e2 = true ->
   t = T⟦from_val_i v⟧Σ1.
 Proof.
@@ -436,12 +477,12 @@ Proof.
     destruct e1.
     + (* eRel*)
       autounfold with facts in *. simpl in *.
-      destruct (lookup_i ρ n0) eqn:Hlookup;tryfalse. simpl in He;inversion He;subst.
+      destruct (lookup_i ρ n0) as [v1| ] eqn:Hlookup;tryfalse; simpl in He;inversion He;subst.
       assert (Hn0 : n0 < size ρ \/ size ρ <= n0) by lia.
       destruct Hn0 as [Hlt | Hge].
-      * destruct (inst_env_i_in _ _ Hlt) as [v1 HH].
+      * destruct (inst_env_i_in _ _ Hlt) as [v2 HH].
         destruct HH as [H1 H2].
-        assert (v1 = v) by congruence. subst.
+        assert (v = v2) by congruence. subst.
         rewrite H2 in HT.
         symmetry.
         eapply Wcbv_eval_value_determ;
@@ -455,7 +496,7 @@ Proof.
       inversion He. rewrite <- Henv in HT. simpl. inversion HT. subst.
       reflexivity.
     + (* eLetIn *)
-      autounfold with facts in *. simpl in HT. simpl in He.
+      cbn in He.
       destruct (expr_eval_general n false Σ1 ρ e1_1) eqn:He1;tryfalse.
       rewrite <- Henv in HT.
       unfold inst_env_i,subst_env_i in Henv. simpl in Henv.
@@ -487,8 +528,8 @@ Proof.
       destruct (expr_eval_general n false Σ1 ρ e1_1) eqn:He1;tryfalse.
       2 :
         { try (destruct (expr_eval_general n false Σ1 ρ e1_2) eqn:He2);tryfalse. }
-      change (T⟦inst_env_i ρ (eApp e1_1 e1_2)⟧Σ1) with
-             (mkApps (T⟦inst_env_i ρ  e1_1⟧Σ1) [T⟦inst_env_i ρ e1_2⟧Σ1]) in HT.
+      change (T⟦(eApp e1_1 e1_2.[exprs ρ])⟧Σ1) with
+             (mkApps (T⟦e1_1.[exprs ρ]⟧Σ1) [T⟦e1_2.[exprs ρ]⟧Σ1]) in HT.
       specialize (mkApps_sound _ _ _ _ _ HT) as HT'. clear HT.
       rewrite <- Henv in Hc.
       simpl in Hc.
@@ -497,29 +538,24 @@ Proof.
       destruct_ex_named.
       (* apply Wcbv_app_inv in HT'. *)
       destruct v0;destruct (expr_eval_general n false Σ1 ρ e1_2) eqn:He2;tryfalse.
-      * (* application evaluates to a construtor *)
+      * (* application evaluates to a constructor *)
         inversion_clear He.
+        (* there are four possibilities for the application with Wcbv
+           of MetaCoq and only one of these should be possible *)
         inversion HT';subst.
-        ** exfalso. now eapply from_vConstr_not_lambda.
-        ** specialize (tFix_eq_inv _ _ _ _ H) as HH.
-           destruct_ex_named. rewrite HH in H. simpl in H.
-           inversion H. subst. cbn in H1. inversion H1. subst. clear H1. clear H.
-           rewrite type_to_term_subst in H5.
-           apply inst_env_eFix_eq_inv in HH.
-           destruct HH.
-           *** destruct_ex_named. subst. destruct n;tryfalse.
-           *** destruct_ex_named. destruct H.
-               subst. destruct n;tryfalse. simpl in He1.
-               (* relate [lookup_i_norec] and [lookup_i] *)
-               admit.
-        ** exfalso; now eapply expr_to_term_not_ind.
+        ** exfalso; now eapply from_vConstr_not_lambda.
+        ** exfalso;symmetry in H; now eapply fix_not_constr.
+        ** exfalso;now eapply expr_to_term_not_ind.
         ** specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH.
            simpl in IH.
            inversion H4;subst. inversion H6;subst. inversion H4;subst.
-           assert (l = []). admit. (* from inversion of IH *)
+           assert (l = []).
+           { destruct l using rev_ind. reflexivity.
+             simpl_vars_to_apps in IH.
+             destruct (T⟦ vars_to_apps _ _ ⟧ _);tryfalse. }
            subst.
-           assert (H : y = T⟦ from_val_i v0 ⟧ Σ1) by easy.
-           subst.
+           assert (H : y = T⟦ from_val_i v0 ⟧ Σ1) by easy. subst.
            rewrite IH. simpl.
            destruct (resolve_constr Σ1 i n0); reflexivity.
+      * (* application evaluates to a closure *)
 Admitted.
