@@ -21,7 +21,7 @@ Definition BlockHash := string.
 Definition Version := nat.
 
 Record ContractDeployment :=
-  {
+  build_contract_deployment {
     deployment_version : Version;
     (* todo: model any type/constraints so we can have this. Right now the
        problem is that Congress messages can contain _any_ oak value (for
@@ -146,11 +146,11 @@ Arguments receive {_ _ _ _ _ _} contract ctx state msg : rename.
 Arguments build_contract {_ _ _ _ _ _}.
 
 Definition contract_to_weak_contract
-           {A B C : Type}
-           {eq_a : OakTypeEquivalence A}
-           {eq_b : OakTypeEquivalence B}
-           {eq_c : OakTypeEquivalence C}
-           (c : Contract A B C) : WeakContract :=
+           {setup_ty msg_ty state_ty : Type}
+           {_ : OakTypeEquivalence setup_ty}
+           {_ : OakTypeEquivalence msg_ty}
+           {_ : OakTypeEquivalence state_ty}
+           (c : Contract setup_ty msg_ty state_ty) : WeakContract :=
   let weak_init ctx oak_setup :=
       do setup <- deserialize oak_setup;
       do state <- c.(init) ctx setup;
@@ -170,51 +170,53 @@ Definition contract_to_weak_contract
 
 Coercion contract_to_weak_contract : Contract >-> WeakContract.
 
-(*
-Record ContractInterface (setup_ty msg_ty state_ty : Type) :=
+Definition create_deployment
+           {setup_ty msg_ty state_ty : Type}
+           {_ : OakTypeEquivalence setup_ty}
+           {_ : OakTypeEquivalence msg_ty}
+           {_ : OakTypeEquivalence state_ty}
+           (amount : Amount)
+           (contract : Contract setup_ty msg_ty state_ty)
+           (setup : setup_ty)
+  : ChainAction :=
+  act_deploy amount contract (serialize setup).
+
+Record ContractInterface {setup_ty msg_ty state_ty : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
     contract_address : Address;
+    (* Version of the contract *)
+    contract_version : Version;
     (* The setup that was passed when the contract was deployed *)
-    setup : setup_ty;
+    contract_setup : setup_ty;
     (* Obtain the state at some point of time *)
     get_state : Chain -> option state_ty;
     (* Make an action transferring money to the contract without
        a message *)
-    transfer : Amount -> ContractAction;
+    transfer : Amount -> ChainAction;
     (* Make an action calling the contract *)
-    call : Amount -> msg_ty -> ContractAction;
+    call : Amount -> msg_ty -> ChainAction;
   }.
-*)
 
-(*
-(* todo: this should be easier -- we want actual strong typed
-   interface by equivalence of oak type (iterated product, for instance)
-   to types in contracts. Right now the interface received allows you
-   only to interact with a contract using interpreted types. *)
+Arguments ContractInterface _ _ _ : clear implicits.
+Arguments build_contract_interface {_ _ _}.
+
 Definition get_contract_interface
-           (setup_oty msg_oty state_oty : OakType)
            (chain : Chain)
            (addr : Address)
-  : option (ContractInterface
-              (interp_type setup_oty)
-              (interp_type msg_oty)
-              (interp_type state_oty)) :=
-  do deployment <- chain.(get_contract_deployment) addr;
-  let (deploy_setup_oty, deploy_setup) := deployment.(deployment_setup) in
-  match eq_oak_type_dec setup_oty deploy_setup_oty,
-        eq_oak_type_dec msg_oty deployment.(deployment_msg_ty),
-        eq_oak_type_dec state_oty deployment.(deployment_state_ty)
-  with
-  | left _, left _, left _ =>
-    Some {|
-        contract_address := addr;
-        setup := let x : interp_type setup_oty := ltac:(subst; exact deploy_setup) in x;
-        get_state futureChain :=
-          do val <- futureChain.(get_contract_state) addr;
-          extract_oak_value state_oty val;
-        transfer := act_transfer addr;
-        call amt msg := act_call addr amt (build_oak_value msg_oty msg) |}
-  | _, _, _ => None
-  end.
-*)
+           (setup_ty msg_ty state_ty : Type)
+           {_ : OakTypeEquivalence setup_ty}
+           {_ : OakTypeEquivalence msg_ty}
+           {_ : OakTypeEquivalence state_ty}
+  : option (ContractInterface setup_ty msg_ty state_ty) :=
+  do 'build_contract_deployment ver ov_setup <- contract_deployment chain addr;
+  do setup <- deserialize ov_setup;
+  let ifc_get_state chain := deserialize =<< (contract_state chain addr) in
+  let ifc_transfer := act_transfer addr in
+  let ifc_call amount msg := act_call addr amount (serialize msg) in
+  Some {| contract_address := addr;
+          contract_version := ver;
+          contract_setup := setup;
+          get_state := ifc_get_state;
+          transfer := ifc_transfer;
+          call := ifc_call; |}.
