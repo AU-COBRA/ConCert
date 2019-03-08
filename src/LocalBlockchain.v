@@ -59,11 +59,12 @@ Definition genesis_block : Block :=
   {| block_header := {| block_number := 0; |};
      block_txs := nil |}.
 
-Definition initial_chain : LocalChain :=
-  {| lc_blocks := [genesis_block];
-     lc_updates :=
-       [{| upd_contracts := []%map;
-           upd_txs := nil |}]
+Definition initial_chain : LocalChainEnvironment :=
+  {| lce_lc := {| lc_blocks := [genesis_block];
+                  lc_updates :=
+                    [{| upd_contracts := []%map;
+                        upd_txs := nil |}] |};
+     lce_contracts := nil;
   |}.
 
 Definition lc_chain_at (lc : LocalChain) (bid : BlockId) : option LocalChain :=
@@ -165,7 +166,7 @@ Section ExecuteActions.
       let acc_c := make_acc_c acc_lce in
       let deploy_contract amount (wc : WeakContract) setup :=
           do verify_amount acc_c from amount;
-          let contract_addr := 0 in (* todo *)
+          let contract_addr := 1 + length acc_lce.(lce_contracts) in (* todo *)
           do verify_no_contract contract_addr acc_lce;
           let ctx := {| ctx_chain := acc_c;
                         ctx_from := from;
@@ -204,7 +205,10 @@ Section ExecuteActions.
           let new_ec := ec[[new_update := new_cu]] in
           let new_ec := if record then new_ec[[block_txs ::= cons new_tx]] else new_ec in
           match find_contract to acc_lce with
-          | None => Some new_ec
+          | None => match msg_opt with
+                    | Some _ => None (* Sending message to non-contract *)
+                    | None => Some new_ec
+                    end
           | Some wc =>
             let acc_lce := make_acc_lce new_ec in
             let acc_c := make_acc_c acc_lce in

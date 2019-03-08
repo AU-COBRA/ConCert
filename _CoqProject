@@ -3,6 +3,7 @@ src/Blockchain.v
 src/Congress.v
 src/Extras.v
 src/LocalBlockchain.v
+src/LocalBlockchainTests.v
 src/Monads.v
 src/Oak.v
 -R vendor/record-update RecordUpdate

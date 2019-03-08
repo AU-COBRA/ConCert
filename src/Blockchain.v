@@ -168,6 +168,8 @@ Definition contract_to_weak_contract
       end in
   build_weak_contract c.(version) weak_init weak_recv.
 
+Coercion contract_to_weak_contract : Contract >-> WeakContract.
+
 (*
 Record ContractInterface (setup_ty msg_ty state_ty : Type) :=
   build_contract_interface {

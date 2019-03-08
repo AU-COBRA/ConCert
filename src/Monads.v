@@ -4,8 +4,8 @@ Definition option_bind {A B : Type} (v : option A) (f : A -> option B) : option 
   | None => None
   end.
 
-Notation "c >>= f" := (option_bind f c) (at level 50, left associativity).
-Notation "f =<< c" := (option_bind f c) (at level 51, right associativity).
+Notation "c >>= f" := (option_bind c f) (at level 50, left associativity).
+Notation "f =<< c" := (option_bind c f) (at level 51, right associativity).
 
 Notation "'do' x <- c1 ; c2" :=
   (option_bind c1 (fun x => c2))
