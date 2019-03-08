@@ -1,8 +1,9 @@
 From Coq Require Import String.
-
 From Coq Require OrderedTypeEx.
+From Coq Require Import List.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
+From SmartContracts Require Import Extras.
 
 Definition Address := nat.
 Delimit Scope address_scope with address.
@@ -22,8 +23,12 @@ Definition Version := nat.
 Record ContractDeployment :=
   {
     deployment_version : Version;
+    (* todo: model any type/constraints so we can have this. Right now the
+       problem is that Congress messages can contain _any_ oak value (for
+       the congress to send out), so there is no bijection from its message type
+       to oak type.
     deployment_msg_ty : OakType;
-    deployment_state_ty : OakType;
+    deployment_state_ty : OakType; *)
     deployment_setup : OakValue;
   }.
 
@@ -51,36 +56,18 @@ Record Block :=
     block_txs : list Tx;
   }.
 
-(* This needs to be polymorphic because ... for reasons. LocalChain does not
-   work if not. A smaller repro is:
-Class interface :=
-  { ty : Type;
-    func : ty -> ty;
-  }.
-
-(* the problem is that the implementation contains functions taking the
-   interface *)
-Record impl :=
-  {
-    callback : interface -> nat;
-  }.
-
-Definition func_concrete (i : impl) : impl := i.
-
-Instance impl_interface : interface :=
-  {| ty := impl; func := func_concrete |}.
-
-   todo: come back to this and understand universe polymorphism in depth. *)
-Polymorphic Record ChainInterface :=
+Record ChainInterface :=
   build_chain_interface {
     (* Would be nice to encapsulate ChainInterface somewhat here
        and avoid these ugly prefixed names *)
     ci_chain_type : Type;
     ci_chain_at : ci_chain_type -> BlockId -> option ci_chain_type;
+    (* Last finished block. During contract execution, this is the previous
+       block, i.e. this block does _not_ contain the transaction that caused
+       the contract to be called *)
     ci_head_block : ci_chain_type -> Block;
     ci_incoming_txs : ci_chain_type -> Address -> list Tx;
     ci_outgoing_txs :  ci_chain_type -> Address -> list Tx;
-    ci_contract_deployment :  ci_chain_type -> Address -> option ContractDeployment;
     ci_contract_state : ci_chain_type -> Address -> option OakValue;
   }.
 
@@ -90,27 +77,31 @@ Record Chain :=
     chain_val : chain_ci.(ci_chain_type);
   }.
 
-Definition chain_at (c : Chain) (bid : BlockId) : option Chain :=
-  do x <- c.(chain_ci).(ci_chain_at) c.(chain_val) bid;
-    Some {| chain_val := x |}.
+Section ChainAccessors.
+  Context (chain : Chain).
 
-Definition head_block (c : Chain) :=
-  c.(chain_ci).(ci_head_block) c.(chain_val).
+  Let g {A : Type} (p : forall chain : ChainInterface, ci_chain_type chain -> A)
+      := p chain.(chain_ci) chain.(chain_val).
 
-Definition block_at (c : Chain) (bid : BlockId) : option Block :=
-  do c <- chain_at c bid; Some (head_block c).
+  Definition chain_at (bid : BlockId) : option Chain :=
+    do x <- chain.(chain_ci).(ci_chain_at) chain.(chain_val) bid;
+      Some {| chain_val := x |}.
 
-Definition incoming_txs (c : Chain) :=
-  c.(chain_ci).(ci_incoming_txs) c.(chain_val).
-
-Definition outgoing_txs (c : Chain) :=
-  c.(chain_ci).(ci_outgoing_txs) c.(chain_val).
-
-Definition contract_deployment (c : Chain) :=
-  c.(chain_ci).(ci_contract_deployment) c.(chain_val).
-
-Definition contract_state (c : Chain) :=
-  c.(chain_ci).(ci_contract_state) c.(chain_val).
+  Definition head_block := g ci_head_block.
+  Definition incoming_txs := g ci_incoming_txs.
+  Definition outgoing_txs := g ci_outgoing_txs.
+  Definition contract_state := g ci_contract_state.
+  Definition account_balance (addr : Address) : Amount :=
+    let sum := fold_right Nat.add 0 in
+    let sum_amounts txs := sum (map tx_amount txs) in
+    sum_amounts (incoming_txs addr) - sum_amounts (outgoing_txs addr).
+  Definition contract_deployment (addr : Address) : option ContractDeployment :=
+    let to_dep tx := match tx.(tx_body) with
+                     | tx_deploy dep => Some dep
+                     | _ => None
+                     end in
+    find_first to_dep (incoming_txs addr).
+End ChainAccessors.
 
 Inductive ContractCallContext :=
   build_contract_call_ctx {
@@ -127,12 +118,55 @@ Inductive ContractCallContext :=
 Inductive ChainAction :=
   | act_transfer (to : Address) (amount : Amount)
   | act_call (to : Address) (amount : Amount) (msg : OakValue)
-  | act_deploy
-      {setup_ty msg_ty state_ty : Type}
-      (version : Version)
-      (init : ContractCallContext -> setup_ty -> option state_ty)
-      (receive : ContractCallContext -> state_ty ->
-                 option msg_ty -> option (state_ty * list ChainAction)).
+  | act_deploy (amount : Amount) (c : WeakContract) (setup : OakValue)
+with WeakContract :=
+     | build_weak_contract
+         (version : Version)
+         (init : ContractCallContext -> OakValue -> option OakValue)
+         (receive : ContractCallContext -> OakValue (* state *) ->
+                    option OakValue (* message *) ->
+                    option (OakValue * list ChainAction)).
+
+Record Contract
+       (setup_ty msg_ty state_ty : Type)
+       {eq_setup : OakTypeEquivalence setup_ty}
+       {eq_msg : OakTypeEquivalence msg_ty}
+       {eq_state : OakTypeEquivalence state_ty} :=
+  build_contract {
+    version : Version;
+    init : ContractCallContext -> setup_ty -> option state_ty;
+    receive :
+      ContractCallContext -> state_ty ->
+      option msg_ty -> option (state_ty * list ChainAction);
+  }.
+
+Arguments version {_ _ _ _ _ _} contract : rename.
+Arguments init {_ _ _ _ _ _} contract ctx setup : rename.
+Arguments receive {_ _ _ _ _ _} contract ctx state msg : rename.
+Arguments build_contract {_ _ _ _ _ _}.
+
+Definition contract_to_weak_contract
+           {A B C : Type}
+           {eq_a : OakTypeEquivalence A}
+           {eq_b : OakTypeEquivalence B}
+           {eq_c : OakTypeEquivalence C}
+           (c : Contract A B C) : WeakContract :=
+  let weak_init ctx oak_setup :=
+      do setup <- deserialize oak_setup;
+      do state <- c.(init) ctx setup;
+      Some (serialize state) in
+  let weak_recv ctx oak_state oak_msg_opt :=
+      do state <- deserialize oak_state;
+      match oak_msg_opt with
+      | Some oak_msg =>
+        do msg <- deserialize oak_msg;
+        do '(new_state, acts) <- c.(receive) ctx state (Some msg);
+        Some (serialize new_state, acts)
+      | None =>
+        do '(new_state, acts) <- c.(receive)  ctx state None;
+        Some (serialize new_state, acts)
+      end in
+  build_weak_contract c.(version) weak_init weak_recv.
 
 (*
 Record ContractInterface (setup_ty msg_ty state_ty : Type) :=
