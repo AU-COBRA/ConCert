@@ -25,7 +25,7 @@ Tactic Notation "simpl_vars_to_apps" :=
   simpl;try rewrite map_app; simpl; rewrite vars_to_apps_unfold;simpl.
 
 
-Notation "'exprs' ρ" := (map_env from_val_i ρ) (at level 100).
+Notation exprs := (map_env from_val_i).
 
 Lemma expr_closed_term_closed e n Σ:
   iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
@@ -518,7 +518,7 @@ Proof.
       eapply ForallEnv_impl with (fun v => val_ok v).
       { intros; apply from_value_closed;assumption. }
       assumption.
-      apply subst_env_iclosed. simpl. assumption.
+      apply subst_env_iclosed_n. simpl. assumption.
       constructor. apply from_value_closed;assumption.
       constructor.
     + (* eApp *)
@@ -546,7 +546,8 @@ Proof.
         ** exfalso; now eapply from_vConstr_not_lambda.
         ** exfalso;symmetry in H; now eapply fix_not_constr.
         ** exfalso;now eapply expr_to_term_not_ind.
-        ** specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH.
+        ** (* the only "real" case *)
+           specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH.
            simpl in IH.
            inversion H4;subst. inversion H6;subst. inversion H4;subst.
            assert (l = []).
@@ -558,4 +559,41 @@ Proof.
            rewrite IH. simpl.
            destruct (resolve_constr Σ1 i n0); reflexivity.
       * (* application evaluates to a closure *)
+        destruct c.
+        ** (* the closure corresponds to lambda *)
+          simpl in *.
+          destruct (expr_eval_general n false Σ1 (e # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
+          inversion He;subst.
+          (* there are four possibilities for the application with Wcbv
+           of MetaCoq and only one of these should be possible *)
+          inversion HT';subst.
+          *** specialize (IHn _ _ _ _ _ Hρ_ok H4 He2 eq_refl Hce2) as IH.
+              simpl in H5.
+              rewrite IH in H5.
+              assert (Hv0_ok : val_ok v0)
+                by (eapply eval_expr_i_val_ok;eauto).
+              assert (Hlam_ok : val_ok (vClos e n0 cmLam t0 e0))
+                by (eapply eval_expr_i_val_ok;eauto).
+              inversion Hlam_ok;subst.
+              assert (He_ok1 : ForallEnv val_ok (e # [n0 ~> v0]))
+                     by now constructor.
+              specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH'.
+              inversion IH'; subst. clear IH'.
+              assert
+                (ForallEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e)).
+              { apply ForallEnv_map. unfold compose.
+                 apply ForallEnv_impl with
+                   (P := fun x => val_ok x).
+                 intros. inversion He_ok1. subst.
+                 now apply from_value_closed. assumption. }
+              assert (iclosed_n 1 (e0 .[ exprs e] 1) = true).
+              { apply subst_env_iclosed_n.
+                * simpl. rewrite map_env_size_norec. assumption.
+                * assumption. }
+              rewrite subst_term_subst_env with (nm:=n0) in H5 by auto.
+              eapply IHn;eauto. now apply subst_env_compose.
+              apply subst_env_iclosed_n. simpl. assumption.
+              constructor. apply from_value_closed;assumption.
+              constructor.
+          ***
 Admitted.

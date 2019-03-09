@@ -58,11 +58,25 @@ Section Values.
     + simpl in *. eauto.
   Qed.
 
+  Lemma ForallEnv_impl :
+  forall (A : Type) (P Q : A -> Prop),
+    (forall a : A, P a -> Q a) -> forall ρ : env A, ForallEnv P ρ -> ForallEnv Q ρ.
+  Proof.
+    intros A P Q H ρ HP.
+    induction HP;constructor;auto.
+  Qed.
+
 
   Lemma lookup_norec_size_norec {A} (ρ : env A) n :
     (n <? size_norec ρ) = true -> exists e, lookup_i_norec ρ n = Some e.
   Proof.
   Admitted.
+
+  Lemma iclosed_m_n e : forall n m, iclosed_n n e = true -> iclosed_n (n+m) e = true.
+  Proof.
+    induction e; intros n1 m1 H;try inversion H;auto.
+    simpl in *.
+    Admitted.
 
   Lemma iclosed_n_lookup :
     forall (e1 e2 : expr) (ρ : env expr)  (n : nat),
@@ -90,20 +104,32 @@ Section Values.
 
   Admitted.
 
-  Lemma subst_env_iclosed:
-    forall (ρ : env expr) (e0 : expr),
-      iclosed_n (size_norec ρ) e0 = true ->
+  Lemma subst_env_iclosed_n :
+    forall n (ρ : env expr) (e : expr),
+      iclosed_n (n + size_norec ρ) e = true ->
       ForallEnv (fun e => iclosed_n 0 e = true) ρ ->
-      iclosed_n 0 (subst_env_i ρ e0) = true.
+      iclosed_n n (e.[ρ]n) = true.
   Proof.
-    intros ρ e0.
-    induction e0 using expr_ind_case;intros Hc Hec;simpl;tryfalse;auto.
+    intros n ρ e.
+    induction e using expr_ind_case;intros Hc Hec;simpl;tryfalse;auto.
     + (* eRel *)
-      unfold subst_env_i. simpl. replace (n-0) with n by lia.
-      * simpl in *.
-        destruct (lookup_norec_size_norec _ _ Hc) as [e0 He0].
+      unfold subst_env_i. simpl.
+      simpl in *.
+      destruct (n <=? n0) eqn:Hnle.
+      * rewrite PeanoNat.Nat.ltb_lt in *.
+        rewrite PeanoNat.Nat.leb_le in *.
+        assert (Hc' : n0-n < size_norec ρ) by lia.
+        rewrite <- PeanoNat.Nat.ltb_lt in *.
+        destruct (lookup_norec_size_norec _ (n0-n) Hc') as [e0 He0].
         rewrite He0. simpl.
-        eapply ForallEnv_lookup_i_norec with (P:=fun e => iclosed_n 0 e = true);eauto.
+        eapply ForallEnv_lookup_i_norec with
+          (P:=fun e => iclosed_n n e = true);eauto.
+        apply ForallEnv_impl with (P:=fun e => iclosed_n 0 e = true);eauto.
+        intros a H;change (iclosed_n (0+n) a = true); now apply iclosed_m_n.
+      * simpl in *.
+        rewrite PeanoNat.Nat.ltb_lt in *.
+        rewrite Compare_dec.leb_iff_conv in *.
+        assumption.
     + (* eLambda *)
       simpl in *.
   Admitted.
@@ -239,6 +265,11 @@ Section Values.
   Qed.
 
 End Values.
+
+Lemma map_env_size_norec {A B} (ρ : env A) (f : A -> B) :
+  size_norec (map_env f ρ) = size_norec ρ.
+Proof.
+  Admitted.
 
 Section Indexify.
 
