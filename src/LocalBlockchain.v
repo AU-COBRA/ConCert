@@ -2,20 +2,18 @@ From Coq Require Import ZArith.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
-From RecordUpdate Require Import RecordUpdate.
-From Containers Require Import Maps.
-From Coq Require Import List.
+From SmartContracts Require Import Containers.
 From SmartContracts Require Import Extras.
+From RecordUpdate Require Import RecordUpdate.
+From Coq Require Import List.
 
 Import RecordSetNotations.
 Import ListNotations.
-(* Note that [ ] or nil is needed for the empty list
-   in this file as [] parses an empty map *)
 
 Local Record ChainUpdate :=
   build_chain_update {
     (* Contracts that had their states updated and the new state *)
-    upd_contracts : Map[Address, OakValue];
+    upd_contracts : FMap Address OakValue;
     (* All transactions caused by update, including internal txs
        (due to contract execution) *)
     upd_txs : list Tx;
@@ -57,14 +55,14 @@ Instance eta_local_chain_environment : Settable _ :=
 
 Definition genesis_block : Block :=
   {| block_header := {| block_number := 0; |};
-     block_txs := nil |}.
+     block_txs := [] |}.
 
 Definition initial_chain : LocalChainEnvironment :=
   {| lce_lc := {| lc_blocks := [genesis_block];
                   lc_updates :=
-                    [{| upd_contracts := []%map;
-                        upd_txs := nil |}] |};
-     lce_contracts := nil;
+                    [{| upd_contracts := FMap.empty;
+                        upd_txs := [] |}] |};
+     lce_contracts := [];
   |}.
 
 Definition lc_chain_at (lc : LocalChain) (bid : BlockId) : option LocalChain :=
@@ -76,7 +74,7 @@ Definition lc_chain_at (lc : LocalChain) (bid : BlockId) : option LocalChain :=
   | hd :: _ => if hd.(block_header).(block_number) =? bid
                 then Some {| lc_blocks := at_blocks; lc_updates := at_updates; |}
                 else None
-  | nil => None
+  | [] => None
   end.
 
 Definition lc_block_at (lc : LocalChain) (bid : BlockId) : option Block :=
@@ -86,7 +84,7 @@ Definition lc_block_at (lc : LocalChain) (bid : BlockId) : option Block :=
 Definition lc_head_block (lc : LocalChain) : Block :=
   match lc.(lc_blocks) with
   | hd :: _ => hd
-  | nil => genesis_block
+  | [] => genesis_block
   end.
 
 Definition lc_incoming_txs (lc : LocalChain) (addr : Address) : list Tx :=
@@ -101,7 +99,7 @@ Definition lc_outgoing_txs (lc : LocalChain) (addr : Address) : list Tx :=
 
 Definition lc_contract_state (lc : LocalChain) (addr : Address)
   : option OakValue :=
-  find_first (fun u => u.(upd_contracts)[addr]%map) lc.(lc_updates).
+  find_first (fun u => FMap.find addr u.(upd_contracts)) lc.(lc_updates).
 
 Definition lc_interface : ChainInterface :=
   {| ci_chain_type := LocalChain;
@@ -182,7 +180,7 @@ Section ExecuteActions.
                            tx_amount := amount;
                            tx_body := tx_deploy contract_deployment |} in
           let new_cu :=
-              ec.(new_update)[[upd_contracts ::= MapInterface.add contract_addr state]]
+              ec.(new_update)[[upd_contracts ::= FMap.add contract_addr state]]
                              [[upd_txs ::= cons new_tx]] in
           let new_contract := (contract_addr, wc) in
           let new_ec :=
@@ -221,13 +219,13 @@ Section ExecuteActions.
                           ctx_amount := amount |} in
             do '(new_state, resp_actions) <- recv ctx state msg_opt;
             let new_cu :=
-                ec.(new_update)[[upd_contracts ::= MapInterface.add to new_state]]
+                ec.(new_update)[[upd_contracts ::= FMap.add to new_state]]
                                [[upd_txs ::= cons new_tx]] in
             let new_ec := ec[[new_update := new_cu]] in
             let new_ec := if record then new_ec[[block_txs ::= cons new_tx]] else new_ec in
             let fix go acts cur_ec :=
                 match acts with
-                  | nil => Some cur_ec
+                  | [] => Some cur_ec
                   | hd :: tl =>
                     do cur_ec <- execute_action (contract_addr, hd) cur_ec gas false;
                     go tl cur_ec
@@ -249,15 +247,15 @@ Section ExecuteActions.
     : option LocalChainEnvironment :=
     let fix go acts ec :=
         match acts with
-        | nil => Some ec
+        | [] => Some ec
         | hd :: tl =>
           do ec <- execute_action hd ec gas true;
           go tl ec
         end in
     let empty_ec := {| block_txs := [coinbase];
-                       new_update := {| upd_contracts := []%map;
+                       new_update := {| upd_contracts := FMap.empty;
                                         upd_txs := [coinbase] |};
-                       new_contracts := nil |} in
+                       new_contracts := [] |} in
     do ec <- go actions empty_ec;
     let new_lce := make_acc_lce ec in
     let recorded_txs := ec.(block_txs) in

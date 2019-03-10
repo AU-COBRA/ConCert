@@ -1,5 +1,3 @@
-From Coq Require Import String.
-From Coq Require OrderedTypeEx.
 From Coq Require Import List.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
@@ -17,7 +15,6 @@ Infix "=?" := Address.eqb (at level 70) : address_scope.
 
 Definition Amount := nat.
 Definition BlockId := nat.
-Definition BlockHash := string.
 Definition Version := nat.
 
 Record ContractDeployment :=

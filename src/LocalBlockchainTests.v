@@ -3,7 +3,7 @@ From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import LocalBlockchain.
 From SmartContracts Require Import Congress.
 From SmartContracts Require Import Oak.
-From Containers Require SetInterface MapInterface OrderedTypeEx.
+From SmartContracts Require Import Containers.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.
@@ -82,13 +82,13 @@ Section LocalBlockchainTests.
     | Some s => s
     | None => {| owner := 0;
                  state_rules := setup_rules;
-                 proposals := MapInterface.empty Proposal;
+                 proposals := FMap.empty;
                  next_proposal_id := 0;
-                 members := SetInterface.empty |}
+                 members := FSet.empty |}
     end.
 
   Compute (congress_ifc.(get_state) chain4).
-  Compute (SetInterface.elements (congress_state chain4).(members)).
+  Compute (FSet.elements (congress_state chain4).(members)).
 
   (* person_1 adds person_1 and person_2 as members of congress *)
   Let add_person p :=
@@ -97,7 +97,7 @@ Section LocalBlockchainTests.
   Let chain5 := otry (LocalBlockchain.add_block baker [(person_1, add_person person_1) ;
                                                        (person_1, add_person person_2)] chain4).
 
-  Compute (SetInterface.elements (congress_state chain4).(members)).
+  Compute (FSet.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
 
   (* person_1 creates a proposal to send 3 coins to person_3 using funds
@@ -106,7 +106,7 @@ Section LocalBlockchainTests.
     congress_ifc.(call) 0 (create_proposal [cact_transfer person_3 3]).
 
   Let chain6 := otry (LocalBlockchain.add_block baker [(person_1, create_proposal_call)] chain5).
-  Compute (MapInterface.elements (congress_state chain6).(proposals)).
+  Compute (FMap.elements (congress_state chain6).(proposals)).
 
   (* person_1 and person_2 votes for the proposal *)
   Let vote_proposal :=
@@ -114,7 +114,7 @@ Section LocalBlockchainTests.
 
   Let chain7 := otry (LocalBlockchain.add_block baker [(person_1, vote_proposal);
                                                        (person_2, vote_proposal)] chain6).
-  Compute (MapInterface.elements (congress_state chain7).(proposals)).
+  Compute (FMap.elements (congress_state chain7).(proposals)).
 
   (* Finish the proposal *)
   Let finish_proposal :=

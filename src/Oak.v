@@ -1,9 +1,9 @@
 From Coq Require Import ZArith.
-From Containers Require Import Sets Maps.
-From Containers Require SetProperties.
 From SmartContracts Require Import Monads.
+From SmartContracts Require Import Containers.
 From Coq Require Import List.
-From Coq Require Import Setoid.
+
+Import ListNotations.
 
 Inductive OakType :=
   | oak_empty : OakType
@@ -27,7 +27,7 @@ Proof.
 Qed.
 
 Program Instance empty_set_strict_order
-  : OrderedType.StrictOrder (fun (_ _ : Empty_set) => False) (@eq Empty_set).
+  : StrictOrder (fun (_ _ : Empty_set) => False) (@eq Empty_set).
 Solve Obligations with contradiction.
 Program Instance empty_set_ordered_type : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
@@ -58,11 +58,11 @@ Local Fixpoint interp_type_with_ordering (t : OakType) : OakInterpretation :=
     build_interpretation (list aT) _
   | oak_set a =>
     let (aT, _) := interp_type_with_ordering a in
-    build_interpretation (set aT) _
+    build_interpretation (FSet aT) _
   | oak_map a b =>
     let (aT, _) := interp_type_with_ordering a in
     let (bT, _) := interp_type_with_ordering b in
-    build_interpretation Map[aT, bT] _
+    build_interpretation (FMap aT bT) _
   end.
 
 Definition interp_type (t : OakType) : Type :=
@@ -116,22 +116,24 @@ Instance oak_int_equivalence : OakTypeEquivalence Z :=
 Instance oak_bool_equivalence : OakTypeEquivalence bool :=
   make_trivial_equiv oak_bool.
 
-Program Instance oak_nat_equivalence : OakTypeEquivalence nat :=
+Instance oak_nat_equivalence : OakTypeEquivalence nat :=
   {| serialize n := serialize (Z.of_nat n);
      deserialize z := do z' <- deserialize z; Some (Z.to_nat z'); |}.
-Next Obligation.
+Proof.
+  intros x.
   rewrite ote_equivalence.
   simpl.
   rewrite Nat2Z.id.
   reflexivity.
-Qed.
+Defined.
 
-Program Instance oak_value_equivalence : OakTypeEquivalence OakValue :=
+Instance oak_value_equivalence : OakTypeEquivalence OakValue :=
   {| serialize v := v;
-     deserialize v := Some v; |}.
+     deserialize v := Some v;
+     ote_equivalence x := eq_refl (Some x); |}.
 
 Generalizable Variables A B.
-Program Instance oak_sum_equivalence
+Instance oak_sum_equivalence
         `{e_a : OakTypeEquivalence A}
         `{e_b : OakTypeEquivalence B}
   : OakTypeEquivalence (A + B)%type :=
@@ -151,19 +153,12 @@ Program Instance oak_sum_equivalence
          else do b <- @deserialize _ e_b (build_oak_value v val);
               Some (inr b)
        | _ => None
-       end;
-  |}.
-Next Obligation.
-  destruct x as [a | b]; rewrite ote_equivalence; reflexivity.
-  (*
-  - change ({| oak_value_type := oak_value_type (serialize a);
-               oak_value := oak_value (serialize a) |}) with (serialize a).
+       end; |}.
+Proof.
+  intros [a | b]; simpl; rewrite ote_equivalence; reflexivity.
+Defined.
 
-    rewrite ote_equivalence.
-  *)
-Qed.
-
-Program Instance oak_pair_equivalence
+Instance oak_pair_equivalence
         `{e_a : OakTypeEquivalence A}
         `{e_b : OakTypeEquivalence B}
   : OakTypeEquivalence (A * B)%type :=
@@ -180,71 +175,78 @@ Program Instance oak_pair_equivalence
        | _ => None
        end;
   |}.
-Next Obligation.
+Proof.
+  intros [a b].
+  simpl.
   repeat rewrite ote_equivalence.
   reflexivity.
-Qed.
+Defined.
 
-Program Instance oak_list_equivalence
+Instance oak_list_equivalence
         `{OakTypeEquivalence A}
   : OakTypeEquivalence (list A) :=
   {| serialize l :=
-       let go a acc :=
-           let 'build_oak_value a_oty a_val := serialize a in
-           let 'build_oak_value acc_oty acc_val := acc in
-           build_oak_value (oak_pair a_oty acc_oty) (a_val, acc_val) in
-       fold_right go (build_oak_value oak_unit tt) l;
-     deserialize ol :=
-       let fix aux (ty : OakType) (val : interp_type ty) : option (list A) :=
-           match ty with
-           | oak_pair hd_ty tl_ty =>
-             let pair : interp_type hd_ty * interp_type tl_ty := ltac:(subst; exact val) in
-             let (hd_val, tl_val) := pair in
-             do hd <- deserialize (build_oak_value hd_ty hd_val);
-             do tl <- aux tl_ty tl_val;
-             Some (hd :: tl)
-           | oak_unit => Some nil
-           | _ => None
-           end in
-       let 'build_oak_value ol_ty ol_val := ol in
-       aux ol_ty ol_val;
+      let go a acc :=
+          let 'build_oak_value a_oty a_val := serialize a in
+          let 'build_oak_value acc_oty acc_val := acc in
+          build_oak_value (oak_pair a_oty acc_oty) (a_val, acc_val) in
+      fold_right go (build_oak_value oak_unit tt) l;
+    deserialize ol :=
+      let fix aux (ty : OakType) (val : interp_type ty) : option (list A) :=
+          match ty, val with
+          | oak_pair hd_ty tl_ty, (hd_val, tl_val) =>
+            do hd <- deserialize (build_oak_value hd_ty hd_val);
+            do tl <- aux tl_ty tl_val;
+            Some (hd :: tl)
+          | oak_unit, _ => Some []
+          | _, _ => None
+          end in
+      let 'build_oak_value ol_ty ol_val := ol in
+      aux ol_ty ol_val;
   |}.
-Solve Obligations with split; discriminate.
-Next Obligation.
+Proof.
   induction x as [| hd tl IHl].
   - reflexivity.
-  - simpl.
-    rewrite IHl.
+  - simpl in *.
+    rewrite IHl; clear IHl.
     rewrite ote_equivalence.
     reflexivity.
-Qed.
+Defined.
 
-Program Instance oak_map_equivalence
+Instance oak_map_equivalence
         `{OakTypeEquivalence A}
         `{OrderedType A}
         `{OakTypeEquivalence B}
-  : OakTypeEquivalence Map[A, B] :=
-  {| serialize m := serialize (MF.to_list m);
+  : OakTypeEquivalence (FMap A B) :=
+  {| serialize m := serialize (FMap.elements m);
      deserialize om :=
        do elems <- deserialize om;
-       Some (MF.of_list elems);
+       Some (FMap.of_list elems);
   |}.
-Next Obligation.
-  (* TODO: Need to use setoids here... *)
-  Admitted.
+Proof.
+  intros m.
+  rewrite ote_equivalence.
+  simpl.
+  rewrite FMap.of_elements_eq.
+  reflexivity.
+Defined.
 
-Program Instance oak_set_equivalence
+Instance oak_set_equivalence
         `{OakTypeEquivalence A}
         `{OrderedType A}
-  : OakTypeEquivalence (SetInterface.set A) :=
-  {| serialize s := serialize (SetProperties.to_list s);
+  : OakTypeEquivalence (FSet A) :=
+  {| serialize s := serialize (FSet.elements s);
      deserialize os :=
        do elems <- deserialize os;
-       Some (SetProperties.of_list elems);
+       Some (FSet.of_list elems);
   |}.
-Next Obligation.
-  (* TODO: Setoids ... *)
-  Admitted.
+Proof.
+  intros s.
+  rewrite ote_equivalence.
+  simpl.
+  rewrite FSet.of_elements_eq.
+  reflexivity.
+Defined.
 
 (*
 Examples:
@@ -253,29 +255,32 @@ Definition test_int : OakValue := build_oak_value oak_int 5%Z.
 Definition test_set : OakValue :=
   build_oak_value
     (oak_set oak_int)
-    {5; {6; {}}}%Z.
+    (FSet.add 5 (FSet.add 6 FSet.empty))%Z.
+Definition test_fmap : FMap Z Z :=
+  (FMap.add 5 10 (FMap.add 6 10 (FMap.add 5 15 FMap.empty)))%Z.
+
 Definition test_map : OakValue :=
   build_oak_value
     (oak_map oak_int oak_int)
-    [][5 <- 10][6 <- 10][5 <- 15]%Z.
+    test_fmap.
 
 Definition test_map2 : OakValue :=
   build_oak_value
     (oak_map (oak_map oak_int oak_int) oak_int)
-    [][[][5 <- 10][6 <- 10][5 <- 15] <- 15]%Z.
+    (FMap.add test_fmap 15%Z FMap.empty).
 
 Compute (extract_oak_value oak_bool test_bool) : option bool.
 Compute (extract_oak_value oak_int test_bool) : option Z.
 Compute (extract_oak_value oak_bool test_int) : option bool.
 Compute (extract_oak_value oak_int test_int) : option Z.
-Compute (extract_oak_value (oak_set oak_int) test_set) : option (set Z).
+Compute (extract_oak_value (oak_set oak_int) test_set) : option (FSet Z).
 Compute
   (extract_oak_value
      (oak_map
         (oak_map oak_int oak_int)
         oak_int)
      test_map2)
-  : option Map[Map[Z, Z], Z].
-Compute (option_map SetInterface.elements (extract_oak_value (oak_set oak_int) test_set)).
-Compute (option_map elements (extract_oak_value (oak_map oak_int oak_int) test_map)).
+  : option (FMap (FMap Z Z) Z).
+Compute (option_map FSet.elements (extract_oak_value (oak_set oak_int) test_set)).
+Compute (option_map FMap.elements (extract_oak_value (oak_map oak_int oak_int) test_map)).
 *)

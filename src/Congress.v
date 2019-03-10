@@ -1,19 +1,14 @@
 From Coq Require Import String.
 From Coq Require Import ZArith.
 From Coq Require Import Program.Basics.
-From Containers Require Import OrderedTypeEx.
-From Containers Require Import MapInterface.
-From Containers Require Import SetInterface.
-From Containers Require MapAVL.
-From Containers Require SetAVL.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
+From SmartContracts Require Import Containers.
 From RecordUpdate Require Import RecordUpdate.
 (* This is included last to default things to list rather than map/set *)
 From Coq Require Import List.
 
-Import MapNotations.
 Import ListNotations.
 Import RecordSetNotations.
 
@@ -29,7 +24,7 @@ Inductive CongressAction :=
 Record Proposal :=
   build_proposal {
     actions : list CongressAction;
-    votes : Map[Address, Z];
+    votes : FMap Address Z;
     vote_result : Z;
     proposed_in : BlockId;
   }.
@@ -68,9 +63,9 @@ Record State :=
   build_state {
     owner : Address;
     state_rules : Rules;
-    proposals : Map[nat, Proposal];
+    proposals : FMap nat Proposal;
     next_proposal_id : ProposalId;
-    members : SetInterface.set Address;
+    members : FSet Address;
   }.
 
 Instance eta_state : Settable _ :=
@@ -94,9 +89,9 @@ Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
   if validate_rules setup.(setup_rules) then
     Some {| owner := ctx.(ctx_from);
             state_rules := setup.(setup_rules);
-            proposals := []%map;
+            proposals := FMap.empty;
             next_proposal_id := 1%nat;
-            members := {}%set |}
+            members := FSet.empty |}
   else
     None.
 
@@ -104,10 +99,10 @@ Definition add_proposal (actions : list CongressAction) (chain : Chain) (state :
   let id := state.(next_proposal_id) in
   let head_block := chain.(head_block) in
   let proposal := {| actions := actions;
-                     votes := []%map;
+                     votes := FMap.empty;
                      vote_result := 0;
                      proposed_in := head_block.(block_header).(block_number) |} in
-  let new_proposals := state.(proposals)[id <- proposal]%map in
+  let new_proposals := FMap.add id proposal state.(proposals) in
   state[[proposals := new_proposals]][[next_proposal_id := (id + 1)%nat]].
 
 Definition vote_on_proposal
@@ -116,27 +111,27 @@ Definition vote_on_proposal
            (vote : Z)
            (state : State)
   : option State :=
-  do proposal <- state.(proposals)[pid]%map;
-  let old_vote := match proposal.(votes)[voter]%map with
+  do proposal <- FMap.find pid state.(proposals);
+  let old_vote := match FMap.find voter proposal.(votes) with
                  | Some old => old
                  | None => 0
                  end in
-  let new_votes := proposal.(votes)[voter <- vote]%map in
+  let new_votes := FMap.add voter vote proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote + vote in
   let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
-  Some (state[[proposals ::= MapInterface.add pid new_proposal]]).
+  Some (state[[proposals ::= FMap.add pid new_proposal]]).
 
 Definition do_retract_vote
            (voter : Address)
            (pid : ProposalId)
            (state : State)
   : option State :=
-  do proposal <- state.(proposals)[pid]%map;
-  do old_vote <- proposal.(votes)[voter]%map;
-  let new_votes := MapInterface.remove voter proposal.(votes) in
+  do proposal <- FMap.find pid state.(proposals);
+  do old_vote <- FMap.find voter proposal.(votes);
+  let new_votes := FMap.remove voter proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote in
   let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
-  Some (state[[proposals ::= MapInterface.add pid new_proposal]]).
+  Some (state[[proposals ::= FMap.add pid new_proposal]]).
 
 Definition congress_action_to_chain_action (act : CongressAction) : ChainAction :=
   match act with
@@ -149,16 +144,16 @@ Definition do_finish_proposal
            (state : State)
            (chain : Chain)
   : option (State * list ChainAction) :=
-  do proposal <- state.(proposals)[pid]%map;
+  do proposal <- FMap.find pid state.(proposals);
   let rules := state.(state_rules) in
   let debate_end := (Z.of_nat proposal.(proposed_in)) + rules.(debating_period_in_blocks) in
   let cur_block := chain.(head_block) in
   if (Z.of_nat cur_block.(block_header).(block_number)) <? debate_end then
     None
   else
-    let new_state := state[[proposals ::= MapInterface.remove pid]] in
-    let total_votes_for_proposal := Z.of_nat (MapInterface.cardinal proposal.(votes)) in
-    let total_members := Z.of_nat (SetInterface.cardinal state.(members)) in
+    let new_state := state[[proposals ::= FMap.remove pid]] in
+    let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
+    let total_members := Z.of_nat (FSet.size state.(members)) in
     let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
     let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
     let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
@@ -167,7 +162,7 @@ Definition do_finish_proposal
     let response_acts :=
         if (enough_voters && enough_ayes)%bool
         then proposal.(actions)
-        else [ ] in
+        else [] in
     let response_chain_acts := map congress_action_to_chain_action response_acts in
     Some (new_state, response_chain_acts).
 
@@ -179,8 +174,8 @@ Definition receive
   let chain := ctx.(ctx_chain) in
   let sender := ctx.(ctx_from) in
   let is_from_owner := (sender =? state.(owner))%address in
-  let is_from_member := (sender \in state.(members))%set in
-  let without_actions := option_map (fun new_state => (new_state, [ ])) in
+  let is_from_member := FSet.mem sender state.(members) in
+  let without_actions := option_map (fun new_state => (new_state, [])) in
   match is_from_owner, is_from_member, maybe_msg with
   | true, _, Some (transfer_ownership new_owner) =>
         Some (state[[owner := new_owner]], [ ])
@@ -192,10 +187,10 @@ Definition receive
             None
 
   | true, _, Some (add_member new_member) =>
-        Some (state[[members ::= SetInterface.add new_member]], [ ])
+        Some (state[[members ::= FSet.add new_member]], [ ])
 
   | true, _, Some (remove_member old_member) =>
-        Some (state[[members ::= SetInterface.remove old_member]], [ ])
+        Some (state[[members ::= FSet.remove old_member]], [ ])
 
   | _, true, Some (create_proposal actions) =>
         Some (add_proposal actions chain state, [ ])
