@@ -255,9 +255,9 @@ Definition test_int : OakValue := build_oak_value oak_int 5%Z.
 Definition test_set : OakValue :=
   build_oak_value
     (oak_set oak_int)
-    (FSet.add 5 (FSet.add 6 FSet.empty))%Z.
+    (FSet.of_list [5; 6]%Z).
 Definition test_fmap : FMap Z Z :=
-  (FMap.add 5 10 (FMap.add 6 10 (FMap.add 5 15 FMap.empty)))%Z.
+  (FMap.of_list [(5, 10); (6, 10); (5, 15)])%Z.
 
 Definition test_map : OakValue :=
   build_oak_value
@@ -267,7 +267,7 @@ Definition test_map : OakValue :=
 Definition test_map2 : OakValue :=
   build_oak_value
     (oak_map (oak_map oak_int oak_int) oak_int)
-    (FMap.add test_fmap 15%Z FMap.empty).
+    (FMap.of_list [(test_fmap, 15)])%Z.
 
 Compute (extract_oak_value oak_bool test_bool) : option bool.
 Compute (extract_oak_value oak_int test_bool) : option Z.
@@ -283,4 +283,3 @@ Compute
   : option (FMap (FMap Z Z) Z).
 Compute (option_map FSet.elements (extract_oak_value (oak_set oak_int) test_set)).
 Compute (option_map FMap.elements (extract_oak_value (oak_map oak_int oak_int) test_map)).
-*)
