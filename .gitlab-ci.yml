@@ -12,6 +12,7 @@ stages:
     - opam config list
     - opam repo list
     - opam list
+    - echo "Cloning branch $COQ_CONTAINERS_BRANCH"
     - git clone --branch $COQ_CONTAINERS_BRANCH https://github.com/jakobbotsch/containers.git dep-coq-containers
     - cd dep-coq-containers
     - make -j
