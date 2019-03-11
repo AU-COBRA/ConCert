@@ -458,6 +458,30 @@ Proof.
     destruct_ex_named. destruct Heq;destruct_ex_named;tryfalse.
 Qed.
 
+
+(* Merge this with the generalisation of [fix_not_constr]
+   to avoid copy-pasting  *)
+Lemma fix_not_lambda {e e1 t ρ1 ρ2 Σ mf n m nm} :
+  T⟦ e.[exprs ρ1] ⟧ Σ = tFix mf m ->
+  eval(n,Σ,ρ1,e) = Ok (vClos ρ2 nm cmLam t e1) -> False.
+Proof.
+  intros H1 He.
+  specialize (tFix_eq_inv _ _ _ _ H1) as HH.
+  destruct_ex_named.
+  apply inst_env_eFix_eq_inv in HH.
+  destruct HH.
+  + destruct_ex_named. subst. destruct n;tryfalse.
+  + destruct_ex_named. destruct H as [Heq HH];subst.
+    destruct n;tryfalse. simpl in He.
+    apply option_to_res_ok in He.
+    apply lookup_i_norec_from_val in HH.
+    destruct HH as [v1 HH]. destruct HH as [HH1 HH2].
+    apply from_val_fix in HH1.
+    specialize (lookups_eq HH2 He) as Heq.
+    destruct_ex_named. destruct Heq;destruct_ex_named;tryfalse.
+Qed.
+
+
 Theorem expr_to_term_sound (n : nat) ρ Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
@@ -567,7 +591,8 @@ Proof.
           (* there are four possibilities for the application with Wcbv
            of MetaCoq and only one of these should be possible *)
           inversion HT';subst.
-          *** specialize (IHn _ _ _ _ _ Hρ_ok H4 He2 eq_refl Hce2) as IH.
+          *** (* the only "real" case *)
+              specialize (IHn _ _ _ _ _ Hρ_ok H4 He2 eq_refl Hce2) as IH.
               simpl in H5.
               rewrite IH in H5.
               assert (Hv0_ok : val_ok v0)
@@ -595,5 +620,7 @@ Proof.
               apply subst_env_iclosed_n. simpl. assumption.
               constructor. apply from_value_closed;assumption.
               constructor.
+          *** exfalso;eapply fix_not_lambda;eauto.
+          *** exfalso;now eapply expr_to_term_not_ind.
           ***
 Admitted.
