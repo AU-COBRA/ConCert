@@ -10,7 +10,7 @@ From Coq Require Import List.
 Import RecordSetNotations.
 Import ListNotations.
 
-Local Record ChainUpdate :=
+Record ChainUpdate :=
   build_chain_update {
     (* Contracts that had their states updated and the new state *)
     upd_contracts : FMap Address OakValue;
@@ -114,14 +114,14 @@ Definition lc_interface : ChainInterface :=
 Section ExecuteActions.
   Context (initial_lce : LocalChainEnvironment).
 
-  Local Record ExecutionContext :=
+  Record ExecutionContext :=
     build_execution_context {
       block_txs : list Tx;
       new_update : ChainUpdate;
       new_contracts : list (Address * WeakContract);
     }.
 
-  Local Instance eta_execution_context : Settable _ :=
+  Instance eta_execution_context : Settable _ :=
     mkSettable
       ((constructor build_execution_context) <*> block_txs
                                              <*> new_update

@@ -33,7 +33,7 @@ Program Instance empty_set_ordered_type : UsualOrderedType Empty_set.
 Solve Obligations with contradiction.
 
 Set Primitive Projections.
-Local Record OakInterpretation :=
+Record OakInterpretation :=
   build_interpretation {
     oi_ty : Type;
     oi_order : OrderedType oi_ty;
@@ -116,10 +116,11 @@ Instance oak_int_equivalence : OakTypeEquivalence Z :=
 Instance oak_bool_equivalence : OakTypeEquivalence bool :=
   make_trivial_equiv oak_bool.
 
-Instance oak_nat_equivalence : OakTypeEquivalence nat :=
-  {| serialize n := serialize (Z.of_nat n);
-     deserialize z := do z' <- deserialize z; Some (Z.to_nat z'); |}.
+Instance oak_nat_equivalence : OakTypeEquivalence nat.
 Proof.
+  refine {| serialize n := serialize (Z.of_nat n);
+            deserialize z := do z' <- deserialize z; Some (Z.to_nat z');
+            ote_equivalence := _; |}.
   intros x.
   rewrite ote_equivalence.
   simpl.
@@ -136,46 +137,50 @@ Generalizable Variables A B.
 Instance oak_sum_equivalence
         `{e_a : OakTypeEquivalence A}
         `{e_b : OakTypeEquivalence B}
-  : OakTypeEquivalence (A + B)%type :=
-  {| serialize s :=
-       let (is_left, ov) :=
-           match s with
-           | inl l => (true, serialize l)
-           | inr r => (false, serialize r)
-           end in
-       build_oak_value (oak_pair oak_bool ov.(oak_value_type)) (is_left, ov.(oak_value));
-     deserialize os :=
-       match os with
-       | build_oak_value (oak_pair oak_bool v) (b, val) =>
-         if b
-         then do a <- @deserialize _ e_a (build_oak_value v val);
-              Some (inl a)
-         else do b <- @deserialize _ e_b (build_oak_value v val);
-              Some (inr b)
-       | _ => None
-       end; |}.
+  : OakTypeEquivalence (A + B)%type.
 Proof.
+  refine
+    {| serialize s :=
+         let (is_left, ov) :=
+             match s with
+             | inl l => (true, serialize l)
+             | inr r => (false, serialize r)
+             end in
+         build_oak_value (oak_pair oak_bool ov.(oak_value_type)) (is_left, ov.(oak_value));
+       deserialize os :=
+         match os with
+         | build_oak_value (oak_pair oak_bool v) (b, val) =>
+           if b
+           then do a <- @deserialize _ e_a (build_oak_value v val);
+                Some (inl a)
+           else do b <- @deserialize _ e_b (build_oak_value v val);
+         Some (inr b)
+         | _ => None
+         end;
+       ote_equivalence := _; |}.
   intros [a | b]; simpl; rewrite ote_equivalence; reflexivity.
 Defined.
 
 Instance oak_pair_equivalence
         `{e_a : OakTypeEquivalence A}
         `{e_b : OakTypeEquivalence B}
-  : OakTypeEquivalence (A * B)%type :=
-  {| serialize '(a, b) :=
-       let 'build_oak_value a_oty a_val := serialize a in
-       let 'build_oak_value b_oty b_val := serialize b in
-       build_oak_value (oak_pair a_oty b_oty) (a_val, b_val);
-     deserialize op :=
-       match op with
-       | build_oak_value (oak_pair a_ty b_ty) (a_val, b_val) =>
-         do a <- @deserialize _ e_a (build_oak_value a_ty a_val);
+  : OakTypeEquivalence (A * B)%type.
+Proof.
+  refine
+    {| serialize '(a, b) :=
+         let 'build_oak_value a_oty a_val := serialize a in
+         let 'build_oak_value b_oty b_val := serialize b in
+         build_oak_value (oak_pair a_oty b_oty) (a_val, b_val);
+       deserialize op :=
+         match op with
+         | build_oak_value (oak_pair a_ty b_ty) (a_val, b_val) =>
+           do a <- @deserialize _ e_a (build_oak_value a_ty a_val);
          do b <- @deserialize _ e_b (build_oak_value b_ty b_val);
          Some (a, b)
-       | _ => None
-       end;
+         | _ => None
+         end;
+       ote_equivalence := _;
   |}.
-Proof.
   intros [a b].
   simpl.
   repeat rewrite ote_equivalence.
@@ -184,27 +189,28 @@ Defined.
 
 Instance oak_list_equivalence
         `{OakTypeEquivalence A}
-  : OakTypeEquivalence (list A) :=
-  {| serialize l :=
-      let go a acc :=
-          let 'build_oak_value a_oty a_val := serialize a in
-          let 'build_oak_value acc_oty acc_val := acc in
-          build_oak_value (oak_pair a_oty acc_oty) (a_val, acc_val) in
-      fold_right go (build_oak_value oak_unit tt) l;
-    deserialize ol :=
-      let fix aux (ty : OakType) (val : interp_type ty) : option (list A) :=
-          match ty, val with
-          | oak_pair hd_ty tl_ty, (hd_val, tl_val) =>
-            do hd <- deserialize (build_oak_value hd_ty hd_val);
-            do tl <- aux tl_ty tl_val;
-            Some (hd :: tl)
-          | oak_unit, _ => Some []
-          | _, _ => None
-          end in
-      let 'build_oak_value ol_ty ol_val := ol in
-      aux ol_ty ol_val;
-  |}.
+  : OakTypeEquivalence (list A).
 Proof.
+  refine
+    {| serialize l :=
+         let go a acc :=
+             let 'build_oak_value a_oty a_val := serialize a in
+             let 'build_oak_value acc_oty acc_val := acc in
+             build_oak_value (oak_pair a_oty acc_oty) (a_val, acc_val) in
+         fold_right go (build_oak_value oak_unit tt) l;
+       deserialize ol :=
+         let fix aux (ty : OakType) (val : interp_type ty) : option (list A) :=
+             match ty, val with
+             | oak_pair hd_ty tl_ty, (hd_val, tl_val) =>
+               do hd <- deserialize (build_oak_value hd_ty hd_val);
+             do tl <- aux tl_ty tl_val;
+             Some (hd :: tl)
+             | oak_unit, _ => Some []
+             | _, _ => None
+             end in
+         let 'build_oak_value ol_ty ol_val := ol in
+         aux ol_ty ol_val;
+       ote_equivalence := _; |}.
   induction x as [| hd tl IHl].
   - reflexivity.
   - simpl in *.
@@ -217,13 +223,14 @@ Instance oak_map_equivalence
         `{OakTypeEquivalence A}
         `{OrderedType A}
         `{OakTypeEquivalence B}
-  : OakTypeEquivalence (FMap A B) :=
-  {| serialize m := serialize (FMap.elements m);
-     deserialize om :=
-       do elems <- deserialize om;
-       Some (FMap.of_list elems);
-  |}.
+  : OakTypeEquivalence (FMap A B).
 Proof.
+  refine
+    {| serialize m := serialize (FMap.elements m);
+       deserialize om :=
+         do elems <- deserialize om;
+       Some (FMap.of_list elems);
+       ote_equivalence := _; |}.
   intros m.
   rewrite ote_equivalence.
   simpl.
@@ -234,13 +241,14 @@ Defined.
 Instance oak_set_equivalence
         `{OakTypeEquivalence A}
         `{OrderedType A}
-  : OakTypeEquivalence (FSet A) :=
-  {| serialize s := serialize (FSet.elements s);
-     deserialize os :=
-       do elems <- deserialize os;
-       Some (FSet.of_list elems);
-  |}.
+  : OakTypeEquivalence (FSet A).
 Proof.
+  refine
+    {| serialize s := serialize (FSet.elements s);
+       deserialize os :=
+         do elems <- deserialize os;
+       Some (FSet.of_list elems);
+       ote_equivalence := _; |}.
   intros s.
   rewrite ote_equivalence.
   simpl.
