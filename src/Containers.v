@@ -18,29 +18,6 @@ Module FSet.
   Notation elements := SetInterface.elements.
   Notation size := SetInterface.cardinal.
   Notation of_list := SetProperties.of_list.
-  (*
-  Section Forwarders.
-    Context {A : Type} {H : OrderedType A} {impl : @SetInterface.FSet A H}.
-
-    Definition empty : FSet A :=
-      SetInterface.empty.
-
-    Definition add (elem : A) (s : FSet A) : FSet A :=
-      SetInterface.add elem s.
-
-    Definition mem (elem : A) (s : FSet A) :=
-      SetInterface.mem elem s.
-
-    Definition remove (elem : A) (s : FSet A) : FSet A :=
-      SetInterface.remove elem s.
-
-    Definition elements (s : FSet A) : list A :=
-      SetInterface.elements s.
-
-    Definition of_list {spec : SetInterface.FSetSpecs impl} (l : list A) :=
-      SetProperties.of_list l.
-  End Forwarders.
-*)
 
   (* TODO: We should really use setoids instead of this hacky crap... *)
   Proposition of_elements_eq
@@ -100,28 +77,6 @@ Module FMap.
   Notation elements := MapInterface.elements.
   Notation size := MapInterface.cardinal.
   Notation of_list := MapFacts.of_list.
-  (*
-  Section Forwarders.
-    Context {K V : Type} {H : OrderedType K} {impl : @MapInterface.FMap K H}.
-    Definition empty : FMap K V :=
-      @MapInterface.empty K H impl V.
-
-    Definition add (k : K) (v : V) (m : FMap K V) : FMap K V :=
-      MapInterface.add k v m.
-
-    Definition mem (k : K) (m : FMap K V) :=
-      MapInterface.mem k m.
-
-    Definition remove (k : K) (m : FMap K V) : FMap K V :=
-      MapInterface.remove k m.
-
-    Definition elements (m : FMap K V) : list (K * V) :=
-      MapInterface.elements m.
-
-    Definition of_list (l : list (K * V)) : FMap K V :=
-      MapFacts.of_list l.
-  End Forwarders.
-*)
 
   Proposition of_elements_eq
               {A B : Type}
