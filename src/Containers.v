@@ -57,7 +57,7 @@ Module FSet.
         unfold SetList.S.add.
         destruct tl as [| hd' tl_tl].
         * reflexivity.
-        * inversion hd_sorted as [|? ? k_k'_lt]; subst.
+        * inversion hd_sorted as [|? ? hd_hd'_lt]; subst.
           destruct (OrderedType.compare_dec hd hd').
           -- reflexivity.
           -- order.
