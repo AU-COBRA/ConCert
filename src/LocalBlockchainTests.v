@@ -1,6 +1,6 @@
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Blockchain.
-From SmartContracts Require Import LocalBlockchain.
+From SmartContracts Require LocalBlockchain.
 From SmartContracts Require Import Congress.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Containers.
@@ -16,27 +16,25 @@ Section LocalBlockchainTests.
   Let person_2 := 12.
   Let person_3 := 13.
 
+  Let chain1 :=
+    initial_chain_builder LocalBlockchain.lc_builder_interface.
+
   Let otry x :=
     match x with
     | Some y => y
-    | None => LocalBlockchain.initial_chain
+    | None => chain1
     end.
-  Let lce_to_chain l := build_chain lc_interface l.(lce_lc) .
-  Local Coercion lce_to_chain : LocalChainEnvironment >-> Chain.
-
-  Let chain1 :=
-    LocalBlockchain.initial_chain.
 
   (* Baker mines an empty block (and gets some coins) *)
   Let chain2 :=
-    otry (LocalBlockchain.add_block baker [] chain1).
+    otry (chain1.(add_block) baker []).
 
   Compute (account_balance chain2 person_1).
   Compute (account_balance chain2 baker).
 
   (* Baker transfers 10 coins to person_1 *)
   Let chain3 :=
-    otry (LocalBlockchain.add_block baker [(baker, act_transfer person_1 10)] chain2).
+    otry (chain2.(add_block) baker [(baker, act_transfer person_1 10)]).
 
   Compute (account_balance chain3 person_1).
   Compute (account_balance chain3 baker).
@@ -53,7 +51,7 @@ Section LocalBlockchainTests.
     create_deployment 5 Congress.contract setup.
 
   Let chain4 :=
-    otry (LocalBlockchain.add_block baker [(person_1, deploy_congress)] chain3).
+    otry (chain3.(add_block) baker [(person_1, deploy_congress)]).
 
   Compute (contract_deployment chain4 congress_1).
   Compute (account_balance chain4 person_1).
@@ -94,8 +92,8 @@ Section LocalBlockchainTests.
   Let add_person p :=
     congress_ifc.(call) 0 (add_member p).
 
-  Let chain5 := otry (LocalBlockchain.add_block baker [(person_1, add_person person_1) ;
-                                                       (person_1, add_person person_2)] chain4).
+  Let chain5 := otry (chain4.(add_block) baker [(person_1, add_person person_1);
+                                                (person_1, add_person person_2)]).
 
   Compute (FSet.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
@@ -105,22 +103,22 @@ Section LocalBlockchainTests.
   Let create_proposal_call :=
     congress_ifc.(call) 0 (create_proposal [cact_transfer person_3 3]).
 
-  Let chain6 := otry (LocalBlockchain.add_block baker [(person_1, create_proposal_call)] chain5).
+  Let chain6 := otry (chain5.(add_block) baker [(person_1, create_proposal_call)]).
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
   (* person_1 and person_2 vote for the proposal *)
   Let vote_proposal  :=
     congress_ifc.(call) 0 (vote_for_proposal 1).
 
-  Let chain7 := otry (LocalBlockchain.add_block baker [(person_1, vote_proposal);
-                                                       (person_2, vote_proposal)] chain6).
+  Let chain7 := otry (chain6.(add_block) baker [(person_1, vote_proposal);
+                                                (person_2, vote_proposal)]).
   Compute (FMap.elements (congress_state chain7).(proposals)).
 
   (* Person 3 finishes the proposal (anyone can finish it after voting) *)
   Let finish_proposal :=
     congress_ifc.(call) 0 (finish_proposal 1).
 
-  Let chain8 := otry (LocalBlockchain.add_block baker [(person_3, finish_proposal)] chain7).
+  Let chain8 := otry (chain7.(add_block) baker [(person_3, finish_proposal)]).
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)
   Compute (account_balance chain7 congress_1).

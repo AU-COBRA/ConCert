@@ -42,27 +42,27 @@ Instance eta_local_chain : Settable _ :=
                                      <*> lc_updates)%settable.
 
 (* Contains full information about a chain, including contracts *)
-Record LocalChainEnvironment :=
-  build_local_chain_environment {
-    lce_lc : LocalChain;
-    lce_contracts : list (Address * WeakContract);
+Record LocalChainBuilder :=
+  build_local_chain_builder {
+    lcb_lc : LocalChain;
+    lcb_contracts : list (Address * WeakContract);
   }.
 
-Instance eta_local_chain_environment : Settable _ :=
+Instance eta_local_chain_builder : Settable _ :=
   mkSettable
-    ((constructor build_local_chain_environment) <*> lce_lc
-                                                 <*> lce_contracts)%settable.
+    ((constructor build_local_chain_builder) <*> lcb_lc
+                                             <*> lcb_contracts)%settable.
 
 Definition genesis_block : Block :=
   {| block_header := {| block_number := 0; |};
      block_txs := [] |}.
 
-Definition initial_chain : LocalChainEnvironment :=
-  {| lce_lc := {| lc_blocks := [genesis_block];
+Definition initial_chain_builder : LocalChainBuilder :=
+  {| lcb_lc := {| lc_blocks := [genesis_block];
                   lc_updates :=
                     [{| upd_contracts := FMap.empty;
                         upd_txs := [] |}] |};
-     lce_contracts := [];
+     lcb_contracts := [];
   |}.
 
 Definition lc_chain_at (lc : LocalChain) (bid : BlockId) : option LocalChain :=
@@ -102,7 +102,7 @@ Definition lc_contract_state (lc : LocalChain) (addr : Address)
   find_first (fun u => FMap.find addr u.(upd_contracts)) lc.(lc_updates).
 
 Definition lc_interface : ChainInterface :=
-  {| ci_chain_type := LocalChain;
+  {| ci_type := LocalChain;
      ci_chain_at := lc_chain_at;
      ci_head_block := lc_head_block;
      ci_incoming_txs := lc_incoming_txs;
@@ -112,7 +112,7 @@ Definition lc_interface : ChainInterface :=
 
 
 Section ExecuteActions.
-  Context (initial_lce : LocalChainEnvironment).
+  Context (initial_lcb : LocalChainBuilder).
 
   Record ExecutionContext :=
     build_execution_context {
@@ -127,13 +127,13 @@ Section ExecuteActions.
                                              <*> new_update
                                              <*> new_contracts)%settable.
 
-  Let make_acc_lce ec :=
-    let new_lc := (initial_lce.(lce_lc))[[lc_updates ::= cons ec.(new_update)]] in
-    let new_contracts := ec.(new_contracts) ++ initial_lce.(lce_contracts) in
-    {| lce_lc := new_lc; lce_contracts := new_contracts |}.
+  Let make_acc_lcb ec :=
+    let new_lc := (initial_lcb.(lcb_lc))[[lc_updates ::= cons ec.(new_update)]] in
+    let new_contracts := ec.(new_contracts) ++ initial_lcb.(lcb_contracts) in
+    {| lcb_lc := new_lc; lcb_contracts := new_contracts |}.
 
-  Let make_acc_c lce : Chain :=
-    build_chain lc_interface lce.(lce_lc).
+  Let make_acc_c lcb : Chain :=
+    build_chain lc_interface lcb.(lcb_lc).
 
   Let verify_amount (c : Chain) (addr : Address) (amt : Amount)
     : option unit :=
@@ -141,11 +141,11 @@ Section ExecuteActions.
     then Some tt
     else None.
 
-  Let find_contract addr lce :=
-    option_map snd (find (fun p => fst p =? addr) lce.(lce_contracts)).
+  Let find_contract addr lcb :=
+    option_map snd (find (fun p => fst p =? addr) lcb.(lcb_contracts)).
 
-  Let verify_no_contract addr lce :=
-    match find_contract addr lce with
+  Let verify_no_contract addr lcb :=
+    match find_contract addr lcb with
     | Some _ => None
     | None => Some tt
     end.
@@ -160,12 +160,12 @@ Section ExecuteActions.
     match gas, act with
     | 0, _ => None
     | S gas, (from, act) =>
-      let acc_lce := make_acc_lce ec in
-      let acc_c := make_acc_c acc_lce in
+      let acc_lcb := make_acc_lcb ec in
+      let acc_c := make_acc_c acc_lcb in
       let deploy_contract amount (wc : WeakContract) setup :=
           do verify_amount acc_c from amount;
-          let contract_addr := 1 + length acc_lce.(lce_contracts) in (* todo *)
-          do verify_no_contract contract_addr acc_lce;
+          let contract_addr := 1 + length acc_lcb.(lcb_contracts) in (* todo *)
+          do verify_no_contract contract_addr acc_lcb;
           let ctx := {| ctx_chain := acc_c;
                         ctx_from := from;
                         ctx_contract_address := contract_addr;
@@ -202,16 +202,16 @@ Section ExecuteActions.
           let new_cu := ec.(new_update)[[upd_txs ::= cons new_tx]] in
           let new_ec := ec[[new_update := new_cu]] in
           let new_ec := if record then new_ec[[block_txs ::= cons new_tx]] else new_ec in
-          match find_contract to acc_lce with
+          match find_contract to acc_lcb with
           | None => match msg_opt with
                     | Some _ => None (* Sending message to non-contract *)
                     | None => Some new_ec
                     end
           | Some wc =>
-            let acc_lce := make_acc_lce new_ec in
-            let acc_c := make_acc_c acc_lce in
+            let acc_lcb := make_acc_lcb new_ec in
+            let acc_c := make_acc_c acc_lcb in
             let contract_addr := to in
-            do state <- lc_contract_state acc_lce.(lce_lc) contract_addr;
+            do state <- lc_contract_state acc_lcb.(lcb_lc) contract_addr;
             let (ver, init, recv) := wc in
             let ctx := {| ctx_chain := acc_c;
                           ctx_from := from;
@@ -244,7 +244,7 @@ Section ExecuteActions.
              (coinbase : Tx)
              (actions : list (Address * ChainAction))
              (gas : nat)
-    : option LocalChainEnvironment :=
+    : option LocalChainBuilder :=
     let fix go acts ec :=
         match acts with
         | [] => Some ec
@@ -257,25 +257,32 @@ Section ExecuteActions.
                                         upd_txs := [coinbase] |};
                        new_contracts := [] |} in
     do ec <- go actions empty_ec;
-    let new_lce := make_acc_lce ec in
+    let new_lcb := make_acc_lcb ec in
     let recorded_txs := ec.(block_txs) in
-    let hdr := {| block_number := length (initial_lce.(lce_lc).(lc_blocks)) |} in
+    let hdr := {| block_number := length (initial_lcb.(lcb_lc).(lc_blocks)) |} in
     let block := build_block hdr recorded_txs in
-    let new_lce := new_lce[[lce_lc := new_lce.(lce_lc)[[lc_blocks ::= cons block]]]] in
-    Some new_lce.
+    let new_lcb := new_lcb[[lcb_lc := new_lcb.(lcb_lc)[[lc_blocks ::= cons block]]]] in
+    Some new_lcb.
 End ExecuteActions.
 
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
 Definition add_block
+           (lcb : LocalChainBuilder)
            (coinbase : Address)
            (actions : list (Address (*from*) * ChainAction))
-           (lce : LocalChainEnvironment)
-  : option LocalChainEnvironment :=
+  : option LocalChainBuilder :=
   let coinbase_tx :=
       {| tx_from := 0;
          tx_to := coinbase;
          tx_amount := 50;
          tx_body := tx_empty |} in
-  execute_actions lce coinbase_tx actions 10.
+  execute_actions lcb coinbase_tx actions 10.
+
+Definition lc_builder_interface : ChainBuilderInterface :=
+  {| cbi_chain_interface := lc_interface;
+     cbi_type := LocalChainBuilder;
+     cbi_chain lcb := lcb.(lcb_lc);
+     cbi_initial := initial_chain_builder;
+     cbi_add_block := add_block; |}.

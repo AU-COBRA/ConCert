@@ -53,31 +53,43 @@ Record Block :=
     block_txs : list Tx;
   }.
 
+(* The ChainInterface is an interface that allows different implementations
+   of chains. This represents the view of the blockchain that a contract
+   can access and interact with. This is separate from
+*)
 Record ChainInterface :=
   build_chain_interface {
     (* Would be nice to encapsulate ChainInterface somewhat here
        and avoid these ugly prefixed names *)
-    ci_chain_type : Type;
-    ci_chain_at : ci_chain_type -> BlockId -> option ci_chain_type;
+    ci_type : Type;
+    ci_chain_at : ci_type -> BlockId -> option ci_type;
     (* Last finished block. During contract execution, this is the previous
        block, i.e. this block does _not_ contain the transaction that caused
        the contract to be called *)
-    ci_head_block : ci_chain_type -> Block;
-    ci_incoming_txs : ci_chain_type -> Address -> list Tx;
-    ci_outgoing_txs :  ci_chain_type -> Address -> list Tx;
-    ci_contract_state : ci_chain_type -> Address -> option OakValue;
+    ci_head_block : ci_type -> Block;
+    ci_incoming_txs : ci_type -> Address -> list Tx;
+    ci_outgoing_txs :  ci_type -> Address -> list Tx;
+    ci_contract_state : ci_type -> Address -> option OakValue;
   }.
 
+(* An actual chain interface together with a value of the chain.
+   For example, one obvious chain implementation could be as a list
+   of blocks and some operations on such a list. Then, the value is
+   simply the list of blocks.
+   This avoids having to either
+   1. Import an actual instance of ChainInterface when taking a chain, or
+   2. Abstracting over any implementation of ChainInterface when taking
+      a chain. *)
 Record Chain :=
   build_chain {
     chain_ci : ChainInterface;
-    chain_val : chain_ci.(ci_chain_type);
+    chain_val : chain_ci.(ci_type);
   }.
 
 Section ChainAccessors.
   Context (chain : Chain).
 
-  Let g {A : Type} (p : forall chain : ChainInterface, ci_chain_type chain -> A)
+  Let g {A : Type} (p : forall chain : ChainInterface, ci_type chain -> A)
       := p chain.(chain_ci) chain.(chain_val).
 
   Definition chain_at (bid : BlockId) : option Chain :=
@@ -112,10 +124,25 @@ Inductive ContractCallContext :=
     ctx_amount : Amount;
   }.
 
+(* Operations that a contract can return that allows it to perform
+   different actions as a result of its execution. *)
 Inductive ChainAction :=
   | act_transfer (to : Address) (amount : Amount)
   | act_call (to : Address) (amount : Amount) (msg : OakValue)
   | act_deploy (amount : Amount) (c : WeakContract) (setup : OakValue)
+(* Since one operation is the possibility to deploy a new contract,
+   this represents an instance of a contract. Note that the act of deploying
+   a contract has to be a separate thing to the contract deployment a contract
+   can access during its execution due to positivity constraints. That is,
+   we would like to allow contracts to obtain information about what another
+   contract was deployed with (its setup, version and amount transferred). An obvious
+   way to model this would be to simply store a WeakContract in the chain.
+   But this is already a non-strict positive occurence, since we dumbed down then
+   end up with
+   Record WeakContract := { receive : (Address -> WeakContract) -> State -> State }.
+   where Address -> WeakContract would be some operation that the chain provides
+   to allow access to contracts in deployments.
+*)
 with WeakContract :=
      | build_weak_contract
          (version : Version)
@@ -124,6 +151,10 @@ with WeakContract :=
                     option OakValue (* message *) ->
                     option (OakValue * list ChainAction)).
 
+(* Represents a strongly-typed contract. This is what user's will primarily
+   use and interact with when they want deployment. We keep the weak contract
+   only "internally" for blockchains, while any strongly-typed contract can
+   be converted to and from *)
 Record Contract
        (setup_ty msg_ty state_ty : Type)
        {eq_setup : OakTypeEquivalence setup_ty}
@@ -167,6 +198,7 @@ Definition contract_to_weak_contract
 
 Coercion contract_to_weak_contract : Contract >-> WeakContract.
 
+(* Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
            {setup_ty msg_ty state_ty : Type}
            {_ : OakTypeEquivalence setup_ty}
@@ -178,6 +210,9 @@ Definition create_deployment
   : ChainAction :=
   act_deploy amount contract (serialize setup).
 
+(* The contract interface is the main mechanism allowing a deployed
+   contract to interact with another deployed contract. This hides
+   the ugly details everything being OakValue away from contracts. *)
 Record ContractInterface {setup_ty msg_ty state_ty : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
@@ -217,3 +252,51 @@ Definition get_contract_interface
           get_state := ifc_get_state;
           transfer := ifc_transfer;
           call := ifc_call; |}.
+
+(* A ChainBuilder represents the additional state, operations and specifications
+   that a concrete implementation of a block chain needs to support. In contrast
+   to Chain and ChainInterface, this contains the _full_ blockchain information.
+   Thus, a ChainBuilder should be convertible into a Chain but not vice-versa.
+   As an example, the builder needs to contains information about all contracts
+   (including their receive functions) to be able to properly call into contracts
+   when receiving messages. The ChainBuilder is what supports the actual
+   "progression of time" induced by new blocks being added. Such a ChainBuilder is
+   what contracts will reason over when proving interesting temporal properties
+   of their behavior. *)
+(* TODO: Naming of this is kind of bad. It is somewhat descriptive, but not really.
+   Maybe something like ChainEnvironment or ChainContext could be better. *)
+Record ChainBuilderInterface :=
+  build_chain_builder_interface {
+    cbi_chain_interface :> ChainInterface;
+    cbi_type : Type;
+    cbi_chain : cbi_type -> cbi_chain_interface.(ci_type);
+    cbi_initial : cbi_type;
+    cbi_add_block : cbi_type -> (* cur *)
+                    Address (* coinbase *) ->
+                    list (Address * ChainAction) (* actions *) ->
+                    option cbi_type;
+  }.
+
+Record ChainBuilder :=
+  build_chain_builder {
+    chain_builder_cbi : ChainBuilderInterface;
+    chain_builder_val : chain_builder_cbi.(cbi_type);
+  }.
+
+Definition chain_builder_chain (cb : ChainBuilder) : Chain :=
+  let (cbi, val) := cb in
+  build_chain cbi (cbi.(cbi_chain) val).
+
+Coercion chain_builder_chain : ChainBuilder >-> Chain.
+
+Definition initial_chain_builder (cbi : ChainBuilderInterface) : ChainBuilder :=
+  build_chain_builder cbi cbi.(cbi_initial).
+
+Definition add_block
+           (cur : ChainBuilder)
+           (coinbase : Address)
+           (actions : list (Address * ChainAction))
+           : option ChainBuilder :=
+  let (ifc, val) := cur in
+  let new_val := ifc.(cbi_add_block) val coinbase actions in
+  option_map (build_chain_builder ifc) new_val.

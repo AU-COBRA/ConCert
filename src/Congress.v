@@ -321,3 +321,13 @@ Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract version init receive.
+
+(*
+(* This first property states that the Congress will only send out actions
+   to be performed if there is a matching CreateProposal somewhere in the
+   past. That is, no CreateProposal can lead to two batches of actions being
+   sent out, and the actions correspond to the ones passed in CreateProposal. *)
+Theorem congress_no_unmatched_actions
+        (chain : Chain)
+        (
+*)
