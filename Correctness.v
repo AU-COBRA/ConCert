@@ -179,13 +179,13 @@ Proof.
 Qed.
 
 Lemma subst_term_subst_env_rec  e :
-  forall v Σ n nm,
+  forall v Σ n nm ρ,
   val_ok v ->
   iclosed_n (1+n) e = true ->
   (T⟦e⟧ Σ) {n:=T⟦ from_val_i v ⟧ Σ} =
-  (T⟦e.[enEmpty # [nm ~> from_val_i v]]n⟧ Σ).
+  (T⟦e.[ρ # [nm ~> from_val_i v]]n⟧ Σ).
 Proof.
-  induction e using expr_ind_case;intros v Σ n1 nm nmHv Hc.
+  induction e using expr_ind_case;intros v Σ n1 nm ρ nmHv Hc.
   + (* eRel *)
     simpl.
     destruct (Nat.compare n1 n) eqn:Hn.
@@ -622,5 +622,43 @@ Proof.
               constructor.
           *** exfalso;eapply fix_not_lambda;eauto.
           *** exfalso;now eapply expr_to_term_not_ind.
-          ***
+          *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
+        ** (* the closure corresponds to fix *)
+          simpl in *.
+          destruct (expr_eval_general n false Σ1 (e # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
+          inversion He;subst.
+          inversion HT';subst.
+          *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
+          *** (* the only "real" case *)
+            symmetry in H.
+            specialize (tFix_eq_inv _ _ _ _ H) as HH.
+            destruct_ex_named.
+            apply inst_env_eFix_eq_inv in HH.
+            destruct HH.
+            **** destruct_ex_named. subst. destruct n;tryfalse. simpl in He1.
+                 inversion He1. subst. clear He1.
+                 simpl in H. inversion H. subst. clear H.
+                 inversion H1. subst. clear H1.
+                 rewrite type_to_term_subst in H5. inversion H2. subst. clear H2.
+                 inversion H6. subst. clear H6.
+                 simpl in H5.
+                 specialize (IHn _ _ _ _ _ Hρ_ok H1 He2 eq_refl Hce2) as IH.
+                 subst.
+
+                 inversion H5. subst. clear H5.
+                 simpl in H8.
+                 inversion H4. subst. clear H4.
+                 remember (tFix [{| dname := nNamed n1;
+                                    dtype := tProd nAnon (type_to_term t0) (type_to_term ty21);
+                                    dbody := tLambda (nNamed n0) (type_to_term t0)
+                                                     (T⟦ e0 .[ exprs ρ] 2 ⟧ Σ1);
+                                    rarg := 0 |}] 0) as tfix.
+                 assert (tfix = T⟦ eFix n1 n0 t0 ty21 (e0.[ exprs ρ] 2) ⟧ Σ1) by assumption.
+                 rewrite H in H8.
+                 pose (from_val_i (vClos (enRec n1 n0 e0 t0 ty21 ρ) n0 (cmFix n1) t0 e0)) as ttt.
+                 (* TODO: add the codomain's typeto the closure *)
+                 Fail change (eFix n1 n0 t0 ty21 (e0 .[ exprs ρ] 2))
+                        with
+                        (from_val_i (vClos (enRec n1 n0 e0 t0 ty21 ρ) n0 (cmFix n1) t0 e0)) in H8.
+                 (* rewrite subst_term_subst_env_rec in H8. *)
 Admitted.
