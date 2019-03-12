@@ -44,7 +44,7 @@ Section LocalBlockchainTests.
   (* person_1 deploys a Congress contract *)
   Let setup_rules :=
     {| min_vote_count_permille := 200; (* 20% of congress needs to vote *)
-       margin_needed_permille := 500;
+       margin_needed_permille := 501;
        debating_period_in_blocks := 0; |}.
 
   Let setup := Congress.build_setup setup_rules.
@@ -108,23 +108,25 @@ Section LocalBlockchainTests.
   Let chain6 := otry (LocalBlockchain.add_block baker [(person_1, create_proposal_call)] chain5).
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
-  (* person_1 and person_2 votes for the proposal *)
-  Let vote_proposal :=
+  (* person_1 and person_2 vote for the proposal *)
+  Let vote_proposal  :=
     congress_ifc.(call) 0 (vote_for_proposal 1).
 
   Let chain7 := otry (LocalBlockchain.add_block baker [(person_1, vote_proposal);
                                                        (person_2, vote_proposal)] chain6).
   Compute (FMap.elements (congress_state chain7).(proposals)).
 
-  (* Finish the proposal *)
+  (* Person 3 finishes the proposal (anyone can finish it after voting) *)
   Let finish_proposal :=
     congress_ifc.(call) 0 (finish_proposal 1).
 
-  Let chain8 := otry (LocalBlockchain.add_block baker [(person_1, finish_proposal)] chain7).
+  Let chain8 := otry (LocalBlockchain.add_block baker [(person_3, finish_proposal)] chain7).
+  Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)
   Compute (account_balance chain7 congress_1).
   Compute (account_balance chain7 person_3).
   (* Balances after: *)
   Compute (account_balance chain8 congress_1).
   Compute (account_balance chain8 person_3).
+  Print Assumptions chain8.
 End LocalBlockchainTests.
