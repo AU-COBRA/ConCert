@@ -178,22 +178,22 @@ Definition receive
   let without_actions := option_map (fun new_state => (new_state, [])) in
   match is_from_owner, is_from_member, maybe_msg with
   | true, _, Some (transfer_ownership new_owner) =>
-        Some (state[[owner := new_owner]], [ ])
+        Some (state[[owner := new_owner]], [])
 
   | true, _, Some (change_rules new_rules) =>
         if validate_rules new_rules then
-            Some (state[[state_rules := new_rules]], [ ])
+            Some (state[[state_rules := new_rules]], [])
         else
             None
 
   | true, _, Some (add_member new_member) =>
-        Some (state[[members ::= FSet.add new_member]], [ ])
+        Some (state[[members ::= FSet.add new_member]], [])
 
   | true, _, Some (remove_member old_member) =>
-        Some (state[[members ::= FSet.remove old_member]], [ ])
+        Some (state[[members ::= FSet.remove old_member]], [])
 
   | _, true, Some (create_proposal actions) =>
-        Some (add_proposal actions chain state, [ ])
+        Some (add_proposal actions chain state, [])
 
   | _, true, Some (vote_for_proposal pid) =>
         without_actions (vote_on_proposal sender pid 1 state)
