@@ -224,7 +224,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
-    let tty2 := (type_to_term ty2) in
+    let tty2 := type_to_term ty2 in
     let ty := tProd nAnon tty1 tty2 in
     let body := tLambda (nNamed nv) tty1 (expr_to_term b) in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0

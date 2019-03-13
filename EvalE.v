@@ -100,6 +100,7 @@ Module InterpreterEnvList.
   | vClos   : env val -> name ->
               clos_mode ->
               type ->(* type of the domain *)
+              type ->(* type of the codomain *)
               expr -> val.
 
   Inductive ForallEnv {A} (P : A -> Prop) : env A -> Prop :=
@@ -109,10 +110,10 @@ Module InterpreterEnvList.
       ForallEnv P ρ -> ForallEnv P (enRec fixname nm e ty1 ty2 ρ).
 
   Inductive val_ok : val -> Prop :=
-  | vokClos : forall e nm cm ρ ty,
+  | vokClos : forall e nm cm ρ ty1 ty2,
       ForallEnv val_ok ρ ->
       iclosed_n (S (size_norec ρ)) e = true ->
-      val_ok (vClos ρ nm cm ty e)
+      val_ok (vClos ρ nm cm ty1 ty2 e)
   | vokContr : forall i nm vs ,
       Forall val_ok vs ->
       val_ok (vConstr i nm vs).
@@ -125,8 +126,8 @@ Module InterpreterEnvList.
   Definition val_ind_full
      (P : val -> Prop)
      (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
-     (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty : type) (e0 : expr),
-          ForallEnv P ρ -> P (vClos ρ n cm ty e0)) :
+     (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
+          ForallEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0)) :
     forall v : val, P v.
     refine (fix val_ind_fix (v : val) := _).
     destruct v.
@@ -173,7 +174,7 @@ Module InterpreterEnvList.
     | enCons nm a ρ' =>
       if (nm =? key) then Some a else lookup ρ' key
     | enRec fixname nm e ty1 ty2 ρ' =>
-      if (fixname =? key) then Some (vClos ρ nm (cmFix fixname) ty1 e)
+      if (fixname =? key) then Some (vClos ρ nm (cmFix fixname) ty1 ty2 e)
       else lookup ρ' key
     end.
 
@@ -184,7 +185,7 @@ Module InterpreterEnvList.
     | enCons nm a ρ' =>
       if (Nat.eqb i 0) then Some a else lookup_i ρ' (i-1)
     | enRec fixname nm e ty1 ty2 ρ' =>
-      if (Nat.eqb i 0) then Some (vClos ρ nm (cmFix fixname) ty1 e) else lookup_i ρ' (i-1)
+      if (Nat.eqb i 0) then Some (vClos ρ nm (cmFix fixname) ty1 ty2 e) else lookup_i ρ' (i-1)
     end.
 
   (** A lookup by index that ignores recursive environments.
@@ -198,9 +199,13 @@ Module InterpreterEnvList.
     | enRec fixname nm e ty1 ty2 ρ' => lookup_i_norec ρ' (i-1)
     end.
 
+  (** A value environment lookup: *)
   Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
   (** A value environment extension: *)
   Notation "ρ # [ k ~> v ]" := (enCons k v ρ) (at level 50).
+  (** A value environment extension with a recursive entry: *)
+  Notation "ρ ## [ fixname ~> ( nm , e , ty1 , ty2 ) ]" :=
+    (enRec fixname nm e ty1 ty2 ρ) (at level 50).
 
   Fixpoint remove_by_key  (key : name) (ρ : env val) : env val :=
     match ρ with
@@ -277,13 +282,15 @@ Module InterpreterEnvList.
                     option_to_res (ρ # (nm)) (nm ++ " - var not found")
                   else EvalError (nm ++ " variable found, but named variables are not supported")
       | eLambda nm ty b =>
-        Ok (vClos ρ nm cmLam ty b)
+        (* NOTE: we pass the same type as the codomain type here.
+           Maybe separate costructors for lambda/fixpoint closures would be better? *)
+        Ok (vClos ρ nm cmLam ty ty b)
       | eLetIn nm e1 ty e2 =>
         v <- expr_eval_general n named Σ ρ e1 ;;
         expr_eval_general n named Σ (ρ # [nm ~> v]) e2
       | eApp e1 e2 =>
         match (expr_eval_general n named Σ ρ e1), (expr_eval_general n named Σ ρ e2) with
-        | Ok (vClos ρ' nm _ _ b), Ok v =>
+        | Ok (vClos ρ' nm _ _ _ b), Ok v =>
           match (expr_eval_general n named Σ (ρ' # [nm ~> v]) b) with
           | Ok v' => Ok v'
           | err => err
@@ -310,7 +317,7 @@ Module InterpreterEnvList.
         end
       | eFix fixname vn ty1 ty2 b as e =>
         let ρ' := enRec fixname vn b ty1 ty2 ρ in
-        Ok (vClos ρ' vn (cmFix fixname) ty1 b)
+        Ok (vClos ρ' vn (cmFix fixname) ty1 ty2 b)
       end
     end.
 
@@ -406,12 +413,10 @@ Module InterpreterEnvList.
   Fixpoint from_val (v : val) : expr :=
     match v with
     | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
-    | vClos ρ nm cm ty e =>
+    | vClos ρ nm cm ty1 ty2 e =>
       let res := match cm with
-                 | cmLam => eLambda nm ty e
-                (* TODO: we should store both source and target types in a closure.
-                   Also, think about a fixpoint name. Does it matter? *)
-                 | cmFix fixname => eFix fixname nm ty ty e
+                 | cmLam => eLambda nm ty1 e
+                 | cmFix fixname => eFix fixname nm ty1 ty2 e
                  end
       in subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) res
     end.
@@ -422,11 +427,10 @@ Module InterpreterEnvList.
   Fixpoint from_val_i (v : val) : expr :=
     match v with
     | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val_i vs)
-    | vClos ρ nm cm ty e =>
+    | vClos ρ nm cm ty1 ty2 e =>
       let res := match cm with
-                 | cmLam => eLambda nm ty e
-                (* TODO: we should store both source and target types in a closure. *)
-                | cmFix fixname => eFix fixname nm ty ty e
+                 | cmLam => eLambda nm ty1 e
+                 | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
      in subst_env_i (map_env from_val_i ρ) res
    end.
@@ -444,13 +448,14 @@ Module InterpreterEnvList.
    Inductive val_equiv : relation val :=
    | veqConstr i n (vs1 vs2 : list val) :
        Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2 -> vConstr i n vs1 ≈ vConstr i n vs2
-   | veqClosLam ρ1 ρ2 nm ty e1 e2 :
-       inst_env_i ρ1 (eLambda nm ty e1) = inst_env_i ρ2 (eLambda nm ty e2) ->
-       vClos ρ1 nm cmLam ty e1 ≈ vClos ρ2 nm cmLam  ty e2
-   | veqClosFix ρ1 ρ2 n ty1 e1 e2 :
+   | veqClosLam ρ1 ρ2 nm ty1 e1 e2 :
+       inst_env_i ρ1 (eLambda nm ty1 e1) = inst_env_i ρ2 (eLambda nm ty1 e2) ->
+       (* ty2 used only by a fixpoint, so it doesn't matter here *)
+       forall ty2 ty2', vClos ρ1 nm cmLam ty1 ty2 e1 ≈ vClos ρ2 nm cmLam ty1 ty2' e2
+   | veqClosFix ρ1 ρ2 n ty1 ty2 e1 e2 :
        (forall fixname ty2 , inst_env_i ρ1 (eFix fixname n ty1 ty2 e1) =
        inst_env_i ρ2 (eFix fixname n ty1 ty2 e2)) ->
-       (forall fixname, vClos ρ1 n (cmFix fixname) ty1 e1 ≈ vClos ρ2 n (cmFix fixname) ty1 e2)
+       (forall fixname, vClos ρ1 n (cmFix fixname) ty1 ty2 e1 ≈ vClos ρ2 n (cmFix fixname) ty1 ty2 e2)
    where
    "v1 ≈ v2" := (val_equiv v1 v2).
 

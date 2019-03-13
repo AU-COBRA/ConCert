@@ -201,7 +201,7 @@ Section Values.
   Inductive accepted_val : val -> Prop :=
   | avContsr0 : forall i nm v, accepted_val v -> accepted_val (vConstr i nm [])
   | avContsr1 : forall i nm v, accepted_val v -> accepted_val (vConstr i nm [v])
-  | avClos : forall ρ nm cm ty e, accepted_val (vClos ρ nm cm ty e).
+  | avClos : forall ρ nm cm ty1 ty2 e, accepted_val (vClos ρ nm cm ty1 ty2 e).
 
   Lemma expr_eval_econstr {n nm Σ ρ i v mode} :
     expr_eval_general n mode Σ ρ (eConstr i nm) = Ok v ->
