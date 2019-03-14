@@ -8,6 +8,7 @@ stages:
     - au
   before_script:
     - if [ -n "${COMPILER_EDGE}" ]; then opam switch ${COMPILER_EDGE} && eval $(opam env); fi
+    - opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
     - opam update -y
     - opam config list
     - opam repo list
