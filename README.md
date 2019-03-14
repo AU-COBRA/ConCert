@@ -3,21 +3,11 @@ This repo is a playground for various experiments with embedding Oak contracts
 into Coq and verifying them.
 
 ## Building/Developing
-This repo uses the coq-containers library by Stéphane Lescuyer. This must be
-installed first. For Coq 8.9 follow the following steps:
+This repo uses the std++ library. This must be installed first and can be
+installed via Opam (`opam install coq-stdpp`). For more instructions, see
+[the stdpp readme](https://gitlab.mpi-sws.org/iris/stdpp).
 
-```bash
-git clone https://github.com/coq-contribs/containers
-cd containers
-make -j
-make -f Makefile.coq install
-```
-
-For other versions of Coq you will need to use an appropriate tag of this repo.
-See [.gitlab-ci.yml](.gitlab-ci.yml) for how the CI builds with older versions
-of Coq.
-
-After coq-containers is installed, this repo should build with
+After stdpp is installed, this repo should build with
 ```bash
 make
 ```

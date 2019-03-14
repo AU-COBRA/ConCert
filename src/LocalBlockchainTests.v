@@ -82,11 +82,11 @@ Section LocalBlockchainTests.
                  state_rules := setup_rules;
                  proposals := FMap.empty;
                  next_proposal_id := 0;
-                 members := FSet.empty |}
+                 members := FMap.empty |}
     end.
 
   Compute (congress_ifc.(get_state) chain4).
-  Compute (FSet.elements (congress_state chain4).(members)).
+  Compute (FMap.elements (congress_state chain4).(members)).
 
   (* person_1 adds person_1 and person_2 as members of congress *)
   Let add_person p :=
@@ -95,7 +95,7 @@ Section LocalBlockchainTests.
   Let chain5 := otry (chain4.(add_block) baker [(person_1, add_person person_1);
                                                 (person_1, add_person person_2)]).
 
-  Compute (FSet.elements (congress_state chain5).(members)).
+  Compute (FMap.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
 
   (* person_1 creates a proposal to send 3 coins to person_3 using funds

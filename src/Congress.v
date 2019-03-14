@@ -65,7 +65,7 @@ Record State :=
     state_rules : Rules;
     proposals : FMap nat Proposal;
     next_proposal_id : ProposalId;
-    members : FSet Address;
+    members : FMap Address unit;
   }.
 
 Instance eta_state : Settable _ :=
@@ -91,7 +91,7 @@ Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
             state_rules := setup.(setup_rules);
             proposals := FMap.empty;
             next_proposal_id := 1%nat;
-            members := FSet.empty |}
+            members := FMap.empty |}
   else
     None.
 
@@ -153,7 +153,7 @@ Definition do_finish_proposal
   else
     let new_state := state[[proposals ::= FMap.remove pid]] in
     let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
-    let total_members := Z.of_nat (FSet.size state.(members)) in
+    let total_members := Z.of_nat (FMap.size state.(members)) in
     let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
     let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
     let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
@@ -174,7 +174,7 @@ Definition receive
   let chain := ctx.(ctx_chain) in
   let sender := ctx.(ctx_from) in
   let is_from_owner := (sender =? state.(owner))%address in
-  let is_from_member := FSet.mem sender state.(members) in
+  let is_from_member := FMap.mem sender state.(members) in
   let without_actions := option_map (fun new_state => (new_state, [])) in
   match is_from_owner, is_from_member, maybe_msg with
   | true, _, Some (transfer_ownership new_owner) =>
@@ -187,10 +187,10 @@ Definition receive
             None
 
   | true, _, Some (add_member new_member) =>
-        Some (state[[members ::= FSet.add new_member]], [])
+        Some (state[[members ::= FMap.add new_member tt]], [])
 
   | true, _, Some (remove_member old_member) =>
-        Some (state[[members ::= FSet.remove old_member]], [])
+        Some (state[[members ::= FMap.remove old_member]], [])
 
   | _, true, Some (create_proposal actions) =>
         Some (add_proposal actions chain state, [])
@@ -224,12 +224,23 @@ Program Instance rules_equivalence : OakTypeEquivalence Rules :=
        Some (build_rules a b c); |}.
        not work here? *)
      deserialize := deserialize_rules; |}.
+Next Obligation.
+  intros x. unfold deserialize_rules.
+  rewrite deserialize_serialize.
+  reflexivity.
+Qed.
 
 Program Instance setup_equivalence : OakTypeEquivalence Setup :=
   {| serialize s := serialize s.(setup_rules);
      deserialize or :=
        do rules <- deserialize or;
        Some (build_setup rules); |}.
+Next Obligation.
+  intros x.
+  simpl.
+  rewrite deserialize_serialize.
+  reflexivity.
+Qed.
 
 Definition deserialize_congress_action (v : OakValue) : option CongressAction :=
   do val <- deserialize v;
@@ -247,9 +258,10 @@ Program Instance congress_action_equivalence : OakTypeEquivalence CongressAction
          end;
      deserialize := deserialize_congress_action; |}.
 Next Obligation.
+  intros ca.
   unfold deserialize_congress_action.
-  rewrite ote_equivalence.
-  destruct x; reflexivity.
+  rewrite deserialize_serialize.
+  destruct ca; reflexivity.
 Qed.
 
 Definition deserialize_proposal (v : OakValue) : option Proposal :=
@@ -263,9 +275,10 @@ Program Instance proposal_equivalence : OakTypeEquivalence Proposal :=
      deserialize := deserialize_proposal;
   |}.
 Next Obligation.
+  intros p.
   unfold deserialize_proposal.
-  rewrite ote_equivalence.
-  destruct x; reflexivity.
+  rewrite deserialize_serialize.
+  destruct p; reflexivity.
 Qed.
 
 Definition serialize_msg (m : Msg) : OakValue :=
@@ -300,8 +313,9 @@ Definition deserialize_msg (v : OakValue) : option Msg :=
 Program Instance msg_equivalence : OakTypeEquivalence Msg :=
   {| serialize := serialize_msg; deserialize := deserialize_msg; |}.
 Next Obligation.
+  intros msg.
   unfold serialize_msg, deserialize_msg.
-  destruct x; repeat (simpl; rewrite ote_equivalence); reflexivity.
+  destruct msg; repeat (simpl; rewrite deserialize_serialize); reflexivity.
 Qed.
 
 Definition serialize_state (s : State) : OakValue :=
@@ -316,11 +330,12 @@ Program Instance state_equivalence : OakTypeEquivalence State :=
   {| serialize := serialize_state; deserialize := deserialize_state; |}.
 Next Obligation.
   unfold serialize_state, deserialize_state.
-  destruct x; repeat (simpl; rewrite ote_equivalence); reflexivity.
+  destruct x; repeat (simpl; rewrite deserialize_serialize); reflexivity.
 Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract version init receive.
+
 
 (*
 (* This first property states that the Congress will only send out actions
