@@ -45,13 +45,13 @@ Instance eta_local_chain : Settable _ :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_contracts : list (Address * WeakContract);
+    lcb_ftxs : list (BlockId * FullTx);
   }.
 
 Instance eta_local_chain_builder : Settable _ :=
   mkSettable
     ((constructor build_local_chain_builder) <*> lcb_lc
-                                             <*> lcb_contracts)%settable.
+                                             <*> lcb_ftxs)%settable.
 
 Definition genesis_block : Block :=
   {| block_header := {| block_number := 0; |};
@@ -62,7 +62,7 @@ Definition initial_chain_builder : LocalChainBuilder :=
                   lc_updates :=
                     [{| upd_contracts := FMap.empty;
                         upd_txs := [] |}] |};
-     lcb_contracts := [];
+     lcb_ftxs := [];
   |}.
 
 Definition lc_chain_at (lc : LocalChain) (bid : BlockId) : option LocalChain :=
@@ -116,23 +116,22 @@ Section ExecuteActions.
 
   Record ExecutionContext :=
     build_execution_context {
-      block_txs : list Tx;
+      new_ftxs : list FullTx;
       new_update : ChainUpdate;
-      new_contracts : list (Address * WeakContract);
     }.
 
   Instance eta_execution_context : Settable _ :=
     mkSettable
-      ((constructor build_execution_context) <*> block_txs
-                                             <*> new_update
-                                             <*> new_contracts)%settable.
+      ((constructor build_execution_context) <*> new_ftxs
+                                             <*> new_update)%settable.
 
-  Let make_acc_lcb ec :=
+  Let make_acc_lcb (ec : ExecutionContext) : LocalChainBuilder :=
     let new_lc := (initial_lcb.(lcb_lc))[[lc_updates ::= cons ec.(new_update)]] in
-    let new_contracts := ec.(new_contracts) ++ initial_lcb.(lcb_contracts) in
-    {| lcb_lc := new_lc; lcb_contracts := new_contracts |}.
+    let new_bid := new_lc.(lc_head_block).(block_header).(block_number) + 1 in
+    let new_bftxs := map (fun t => (new_bid, t)) ec.(new_ftxs) in
+    {| lcb_lc := new_lc; lcb_ftxs := new_bftxs ++ initial_lcb.(lcb_ftxs) |}.
 
-  Let make_acc_c lcb : Chain :=
+  Let make_acc_c (lcb : LocalChainBuilder) : Chain :=
     build_chain lc_interface lcb.(lcb_lc).
 
   Let verify_amount (c : Chain) (addr : Address) (amt : Amount)
@@ -141,20 +140,38 @@ Section ExecuteActions.
     then Some tt
     else None.
 
-  Let find_contract addr lcb :=
-    option_map snd (find (fun p => fst p =? addr) lcb.(lcb_contracts)).
+  Let find_contract (addr : Address) (lcb : LocalChainBuilder)
+    : option WeakContract :=
+    let to_wc (t : BlockId * FullTx) : option WeakContract :=
+        let (bid, ft) := t in
+        if ft.(ftx_to) =? addr then
+          match ft.(ftx_body) with
+          | ftx_deploy wc _ => Some wc
+          | _ => None
+          end
+        else
+          None in
+    find_first to_wc lcb.(lcb_ftxs).
 
-  Let verify_no_contract addr lcb :=
-    match find_contract addr lcb with
-    | Some _ => None
-    | None => Some tt
+  Let count_contract_deployments (lcb : LocalChainBuilder) : nat :=
+    let is_deployment (t : BlockId * FullTx) : bool :=
+        match (snd t).(ftx_body) with
+        | ftx_deploy _ _ => true
+        | _ => false
+        end in
+    length (filter is_deployment lcb.(lcb_ftxs)).
+
+  Let verify_no_txs (addr : Address) (lcb : LocalChainBuilder) : option unit :=
+    match incoming_txs (make_acc_c lcb) addr with
+    | _ :: _ => None
+    | [] => Some tt
     end.
 
   Fixpoint execute_action
           (act : Address (*from*) * ChainAction)
           (ec : ExecutionContext)
           (gas : nat)
-          (record : bool) (* should the action be recorded in the block *)
+          (is_internal : bool)
           {struct gas}
     : option ExecutionContext :=
     match gas, act with
@@ -164,44 +181,40 @@ Section ExecuteActions.
       let acc_c := make_acc_c acc_lcb in
       let deploy_contract amount (wc : WeakContract) setup :=
           do verify_amount acc_c from amount;
-          let contract_addr := 1 + length acc_lcb.(lcb_contracts) in (* todo *)
-          do verify_no_contract contract_addr acc_lcb;
+          let contract_addr := 1 + count_contract_deployments acc_lcb in (* todo *)
+          do verify_no_txs contract_addr acc_lcb;
           let ctx := {| ctx_chain := acc_c;
                         ctx_from := from;
                         ctx_contract_address := contract_addr;
                         ctx_amount := amount |} in
           let (ver, init, recv) := wc in
           do state <- init ctx setup;
-          let contract_deployment :=
-                {| deployment_version := ver;
-                   deployment_setup := setup |} in
-          let new_tx := {| tx_from := from;
-                           tx_to := contract_addr;
-                           tx_amount := amount;
-                           tx_body := tx_deploy contract_deployment |} in
+          let new_ftx := {| ftx_from := from;
+                            ftx_to := contract_addr;
+                            ftx_amount := amount;
+                            ftx_body := ftx_deploy wc setup;
+                            ftx_is_internal := is_internal; |} in
           let new_cu :=
               ec.(new_update)[[upd_contracts ::= FMap.add contract_addr state]]
-                             [[upd_txs ::= cons new_tx]] in
-          let new_contract := (contract_addr, wc) in
+                             [[upd_txs ::= cons (new_ftx : Tx)]] in
           let new_ec :=
               ec[[new_update := new_cu]]
-                [[new_contracts ::= cons new_contract]] in
-          let new_ec := if record then new_ec[[block_txs ::= cons new_tx]] else new_ec in
+                [[new_ftxs ::= cons new_ftx]] in
           Some new_ec in
 
       let send_or_call to amount msg_opt :=
           do verify_amount acc_c from amount;
-          let new_tx := {| tx_from := from;
-                           tx_to := to;
-                           tx_amount := amount;
-                           tx_body :=
-                             match msg_opt with
-                             | Some msg => tx_call msg
-                             | None => tx_empty
-                             end |} in
-          let new_cu := ec.(new_update)[[upd_txs ::= cons new_tx]] in
-          let new_ec := ec[[new_update := new_cu]] in
-          let new_ec := if record then new_ec[[block_txs ::= cons new_tx]] else new_ec in
+          let new_ftx := {| ftx_from := from;
+                            ftx_to := to;
+                            ftx_amount := amount;
+                            ftx_body :=
+                              match msg_opt with
+                              | Some msg => ftx_call msg
+                              | None => ftx_empty
+                              end;
+                            ftx_is_internal := is_internal; |} in
+          let new_cu := ec.(new_update)[[upd_txs ::= cons (new_ftx : Tx)]] in
+          let new_ec := ec[[new_update := new_cu]][[new_ftxs ::= cons new_ftx]] in
           match find_contract to acc_lcb with
           | None => match msg_opt with
                     | Some _ => None (* Sending message to non-contract *)
@@ -220,14 +233,13 @@ Section ExecuteActions.
             do '(new_state, resp_actions) <- recv ctx state msg_opt;
             let new_cu :=
                 ec.(new_update)[[upd_contracts ::= FMap.add to new_state]]
-                               [[upd_txs ::= cons new_tx]] in
-            let new_ec := ec[[new_update := new_cu]] in
-            let new_ec := if record then new_ec[[block_txs ::= cons new_tx]] else new_ec in
+                               [[upd_txs ::= cons (new_ftx : Tx)]] in
+            let new_ec := ec[[new_update := new_cu]][[new_ftxs ::= cons new_ftx]] in
             let fix go acts cur_ec :=
                 match acts with
                   | [] => Some cur_ec
                   | hd :: tl =>
-                    do cur_ec <- execute_action (contract_addr, hd) cur_ec gas false;
+                    do cur_ec <- execute_action (contract_addr, hd) cur_ec gas true;
                     go tl cur_ec
                 end in
             go resp_actions new_ec
@@ -241,7 +253,7 @@ Section ExecuteActions.
     end.
 
   Definition execute_actions
-             (coinbase : Tx)
+             (coinbase : FullTx)
              (actions : list (Address * ChainAction))
              (gas : nat)
     : option LocalChainBuilder :=
@@ -249,18 +261,21 @@ Section ExecuteActions.
         match acts with
         | [] => Some ec
         | hd :: tl =>
-          do ec <- execute_action hd ec gas true;
+          do ec <- execute_action hd ec gas false;
           go tl ec
         end in
-    let empty_ec := {| block_txs := [coinbase];
+    let empty_ec := {| new_ftxs := [coinbase];
                        new_update := {| upd_contracts := FMap.empty;
-                                        upd_txs := [coinbase] |};
-                       new_contracts := [] |} in
+                                        upd_txs := [coinbase : Tx] |}; |} in
     do ec <- go actions empty_ec;
     let new_lcb := make_acc_lcb ec in
-    let recorded_txs := ec.(block_txs) in
+    let recorded_txs := map_option (fun ftx => if ftx.(ftx_is_internal) then
+                                                 Some (ftx : Tx)
+                                               else
+                                                 None) ec.(new_ftxs) in
     let hdr := {| block_number := length (initial_lcb.(lcb_lc).(lc_blocks)) |} in
     let block := build_block hdr recorded_txs in
+    (* make_acc_lcb will have done all updates except adding the actual block *)
     let new_lcb := new_lcb[[lcb_lc := new_lcb.(lcb_lc)[[lc_blocks ::= cons block]]]] in
     Some new_lcb.
 End ExecuteActions.
@@ -273,16 +288,19 @@ Definition add_block
            (coinbase : Address)
            (actions : list (Address (*from*) * ChainAction))
   : option LocalChainBuilder :=
-  let coinbase_tx :=
-      {| tx_from := 0;
-         tx_to := coinbase;
-         tx_amount := 50;
-         tx_body := tx_empty |} in
-  execute_actions lcb coinbase_tx actions 10.
+  let coinbase_ftx :=
+      {| ftx_from := 0;
+         ftx_to := coinbase;
+         ftx_amount := 50;
+         ftx_body := ftx_empty;
+         ftx_is_internal := false; |} in
+  execute_actions lcb coinbase_ftx actions 10.
 
 Definition lc_builder_interface : ChainBuilderInterface :=
   {| cbi_chain_interface := lc_interface;
      cbi_type := LocalChainBuilder;
      cbi_chain lcb := lcb.(lcb_lc);
      cbi_initial := initial_chain_builder;
-     cbi_add_block := add_block; |}.
+     cbi_add_block := add_block;
+     cbi_all_txs lcb := rev (map snd lcb.(lcb_ftxs))
+  |}.

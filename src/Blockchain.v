@@ -306,6 +306,10 @@ Record ChainBuilderInterface :=
                     Address (* coinbase *) ->
                     list (Address * ChainAction) (* actions *) ->
                     option cbi_type;
+    (* List of transactions that have been executed on the chain, in order.
+That is, the head of the list corresponds to actions in the very first block.
+This includes "internal" transactions (txs resulting from contract execution) *)
+    cbi_all_txs : cbi_type -> list FullTx;
   }.
 
 Record ChainBuilder :=
@@ -331,3 +335,7 @@ Definition add_block
   let (ifc, val) := cur in
   let new_val := ifc.(cbi_add_block) val coinbase actions in
   option_map (build_chain_builder ifc) new_val.
+
+Definition all_txs (cb : ChainBuilder) :=
+  let (ifc, val) := cb in
+  ifc.(cbi_all_txs) val.

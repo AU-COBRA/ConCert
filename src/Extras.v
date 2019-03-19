@@ -10,3 +10,13 @@ Fixpoint find_first {A B : Type} (f : A -> option B) (l : list A)
                 end
   | [] => None
   end.
+
+Fixpoint map_option {A B : Type} (f : A -> option B) (l : list A)
+  : list B :=
+  match l with
+  | hd :: tl => match f hd with
+                  | Some b => b :: map_option f tl
+                  | None => map_option f tl
+                end
+  | [] => []
+  end.
