@@ -54,8 +54,9 @@ Record Block :=
   }.
 
 (* The ChainInterface is an interface that allows different implementations
-   of chains. This represents the view of the blockchain that a contract
-   can access and interact with. This is separate from
+of chains. This represents the view of the blockchain that a contract
+can access and interact with. This does not contain all information of
+the chain (and it can't for positivity reasons).
 *)
 Record ChainInterface :=
   build_chain_interface {
@@ -73,13 +74,13 @@ Record ChainInterface :=
   }.
 
 (* An actual chain interface together with a value of the chain.
-   For example, one obvious chain implementation could be as a list
-   of blocks and some operations on such a list. Then, the value is
-   simply the list of blocks.
-   This avoids having to either
-   1. Import an actual instance of ChainInterface when taking a chain, or
-   2. Abstracting over any implementation of ChainInterface when taking
-      a chain. *)
+For example, one obvious chain implementation could be as a list
+of blocks and some operations on such a list. Then, the value is
+simply the list of blocks.
+This avoids having to either
+1. Import an actual instance of ChainInterface when taking a chain, or
+2. Abstracting over any implementation of ChainInterface when taking
+a chain. *)
 Record Chain :=
   build_chain {
     chain_ci : ChainInterface;
@@ -125,23 +126,23 @@ Inductive ContractCallContext :=
   }.
 
 (* Operations that a contract can return that allows it to perform
-   different actions as a result of its execution. *)
+different actions as a result of its execution. *)
 Inductive ChainAction :=
   | act_transfer (to : Address) (amount : Amount)
   | act_call (to : Address) (amount : Amount) (msg : OakValue)
   | act_deploy (amount : Amount) (c : WeakContract) (setup : OakValue)
 (* Since one operation is the possibility to deploy a new contract,
-   this represents an instance of a contract. Note that the act of deploying
-   a contract has to be a separate thing to the contract deployment a contract
-   can access during its execution due to positivity constraints. That is,
-   we would like to allow contracts to obtain information about what another
-   contract was deployed with (its setup, version and amount transferred). An obvious
-   way to model this would be to simply store a WeakContract in the chain.
-   But this is already a non-strict positive occurence, since we dumbed down then
-   end up with
-   Record WeakContract := { receive : (Address -> WeakContract) -> State -> State }.
-   where Address -> WeakContract would be some operation that the chain provides
-   to allow access to contracts in deployments.
+this represents an instance of a contract. Note that the act of deploying
+a contract has to be a separate thing to the contract deployment a contract
+can access during its execution due to positivity constraints. That is,
+we would like to allow contracts to obtain information about what another
+contract was deployed with (its setup, version and amount transferred). An obvious
+way to model this would be to simply store a WeakContract in the chain.
+But this is already a non-strict positive occurence, since we dumbed down then
+end up with
+Record WeakContract := { receive : (Address -> WeakContract) -> State -> State }.
+where Address -> WeakContract would be some operation that the chain provides
+to allow access to contracts in deployments.
 *)
 with WeakContract :=
      | build_weak_contract
@@ -152,14 +153,14 @@ with WeakContract :=
                     option (OakValue * list ChainAction)).
 
 (* Represents a strongly-typed contract. This is what user's will primarily
-   use and interact with when they want deployment. We keep the weak contract
-   only "internally" for blockchains, while any strongly-typed contract can
-   be converted to and from *)
+use and interact with when they want deployment. We keep the weak contract
+only "internally" for blockchains, while any strongly-typed contract can
+be converted to and from *)
 Record Contract
        (setup_ty msg_ty state_ty : Type)
-       {eq_setup : OakTypeEquivalence setup_ty}
-       {eq_msg : OakTypeEquivalence msg_ty}
-       {eq_state : OakTypeEquivalence state_ty} :=
+       `{OakTypeEquivalence setup_ty}
+       `{OakTypeEquivalence msg_ty}
+       `{OakTypeEquivalence state_ty} :=
   build_contract {
     version : Version;
     init : ContractCallContext -> setup_ty -> option state_ty;
@@ -175,9 +176,9 @@ Arguments build_contract {_ _ _ _ _ _}.
 
 Definition contract_to_weak_contract
            {setup_ty msg_ty state_ty : Type}
-           {_ : OakTypeEquivalence setup_ty}
-           {_ : OakTypeEquivalence msg_ty}
-           {_ : OakTypeEquivalence state_ty}
+           `{OakTypeEquivalence setup_ty}
+           `{OakTypeEquivalence msg_ty}
+           `{OakTypeEquivalence state_ty}
            (c : Contract setup_ty msg_ty state_ty) : WeakContract :=
   let weak_init ctx oak_setup :=
       do setup <- deserialize oak_setup;
@@ -201,9 +202,9 @@ Coercion contract_to_weak_contract : Contract >-> WeakContract.
 (* Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
            {setup_ty msg_ty state_ty : Type}
-           {_ : OakTypeEquivalence setup_ty}
-           {_ : OakTypeEquivalence msg_ty}
-           {_ : OakTypeEquivalence state_ty}
+           `{OakTypeEquivalence setup_ty}
+           `{OakTypeEquivalence msg_ty}
+           `{OakTypeEquivalence state_ty}
            (amount : Amount)
            (contract : Contract setup_ty msg_ty state_ty)
            (setup : setup_ty)
@@ -211,8 +212,8 @@ Definition create_deployment
   act_deploy amount contract (serialize setup).
 
 (* The contract interface is the main mechanism allowing a deployed
-   contract to interact with another deployed contract. This hides
-   the ugly details everything being OakValue away from contracts. *)
+contract to interact with another deployed contract. This hides
+the ugly details everything being OakValue away from contracts. *)
 Record ContractInterface {setup_ty msg_ty state_ty : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
@@ -237,9 +238,9 @@ Definition get_contract_interface
            (chain : Chain)
            (addr : Address)
            (setup_ty msg_ty state_ty : Type)
-           {_ : OakTypeEquivalence setup_ty}
-           {_ : OakTypeEquivalence msg_ty}
-           {_ : OakTypeEquivalence state_ty}
+           `{OakTypeEquivalence setup_ty}
+           `{OakTypeEquivalence msg_ty}
+           `{OakTypeEquivalence state_ty}
   : option (ContractInterface setup_ty msg_ty state_ty) :=
   do 'build_contract_deployment ver ov_setup <- contract_deployment chain addr;
   do setup <- deserialize ov_setup;
@@ -253,16 +254,46 @@ Definition get_contract_interface
           transfer := ifc_transfer;
           call := ifc_call; |}.
 
+(* TODO: Is there a more organic way of doing this than duplicating the
+structures? Maybe by abstracting over the details or something? This is
+super ugly.*)
+Inductive FullTxBody :=
+  | ftx_empty
+  | ftx_deploy (contract : WeakContract) (setup : OakValue)
+  | ftx_call (message : OakValue).
+
+Record FullTx :=
+  build_ftx {
+    ftx_from : Address;
+    ftx_to : Address;
+    ftx_amount : Amount;
+    ftx_body : FullTxBody;
+    ftx_is_internal : bool;
+  }.
+
+Definition full_tx_to_tx (ftx : FullTx) : Tx :=
+  let (from, to, amount, fbody, _) := ftx in
+  let body :=
+      match fbody with
+      | ftx_empty => tx_empty
+      | ftx_deploy (build_weak_contract ver _ _) setup =>
+        tx_deploy (build_contract_deployment ver setup)
+      | ftx_call msg => tx_call msg
+      end in
+  build_tx from to amount body.
+
+Coercion full_tx_to_tx : FullTx >-> Tx.
+
 (* A ChainBuilder represents the additional state, operations and specifications
-   that a concrete implementation of a block chain needs to support. In contrast
-   to Chain and ChainInterface, this contains the _full_ blockchain information.
-   Thus, a ChainBuilder should be convertible into a Chain but not vice-versa.
-   As an example, the builder needs to contains information about all contracts
-   (including their receive functions) to be able to properly call into contracts
-   when receiving messages. The ChainBuilder is what supports the actual
-   "progression of time" induced by new blocks being added. Such a ChainBuilder is
-   what contracts will reason over when proving interesting temporal properties
-   of their behavior. *)
+that a concrete implementation of a block chain needs to support. In contrast
+to Chain and ChainInterface, this contains the _full_ blockchain information.
+Thus, a ChainBuilder should be convertible into a Chain but not vice-versa.
+As an example, the builder needs to contain information about all contracts
+(including their receive functions) to be able to properly call into contracts
+when receiving messages. The ChainBuilder is what supports the actual
+"progression of time" induced by new blocks being added. Such a ChainBuilder is
+what contracts will reason over when proving interesting temporal properties
+of their behavior. *)
 (* TODO: Naming of this is kind of bad. It is somewhat descriptive, but not really.
    Maybe something like ChainEnvironment or ChainContext could be better. *)
 Record ChainBuilderInterface :=
