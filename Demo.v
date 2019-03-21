@@ -30,9 +30,9 @@ Set Printing Notations.
 Import InterpreterEnvList.
 
 (* Execute the program using the interpreter *)
-Compute (expr_eval_n 3 Σ enEmpty negb_app_true).
+Compute (expr_eval_n 3 Σ [] negb_app_true).
 
-Compute (expr_eval_i 3 Σ enEmpty (indexify [] negb_app_true)).
+Compute (expr_eval_i 3 Σ [] (indexify [] negb_app_true)).
 
 
 (* Make a Coq function from the AST of the program *)
@@ -53,7 +53,7 @@ Lemma my_negb_coq_negb b :
   my_negb b = negb b.
 Proof. reflexivity. Qed.
 
-Compute (expr_eval_n 3 Σ enEmpty my_negb_syn).
+Compute (expr_eval_n 3 Σ [] my_negb_syn).
 
 Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
 
@@ -61,7 +61,7 @@ Import MonadNotation.
 
 Run TemplateProgram
     (
-      t <- tmEval lazy (expr_eval_n 3 Σ InterpreterEnvList.enEmpty my_negb_syn);;
+      t <- tmEval lazy (expr_eval_n 3 Σ [] my_negb_syn);;
         match t with
           Ok v =>
           t' <- tmEval lazy (expr_to_term Σ (indexify [] (InterpreterEnvList.from_val v))) ;;
@@ -106,7 +106,7 @@ Make Definition pred' := Eval compute in (expr_to_term Σ (indexify nil pred_syn
 
 Definition prog2 := [| Suc (Suc Z) |].
 
-Compute (expr_eval_n 3 Σ enEmpty prog2).
+Compute (expr_eval_n 3 Σ [] prog2).
 
 Inductive blah :=
   Bar : blah -> blah -> blah
@@ -121,7 +121,7 @@ Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
-Compute (expr_eval_n 5 Σ enEmpty prog3).
+Compute (expr_eval_n 5 Σ [] prog3).
 
 (* Examples of a fixpoint *)
 
@@ -156,10 +156,10 @@ Definition two :=
 Definition one_plus_one :=
   [| {plus_syn} 1 1 |].
 
-Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} 1 1 |]).
+Compute (expr_eval_n 10 Σ [] [| {plus_syn} 1 1 |]).
 (* = Ok (vConstr "nat" "Suc" [vConstr "nat" "Suc" [vConstr "nat" "Z" []]])*)
 
-Example one_plus_one_two : expr_eval_n 10 Σ enEmpty one_plus_one = Ok two.
+Example one_plus_one_two : expr_eval_n 10 Σ [] one_plus_one = Ok two.
 Proof. reflexivity. Qed.
 
 Definition plus_syn' :=
@@ -205,50 +205,43 @@ Definition id_rec :=
            | Suc z -> Suc ("plus" z))
    |].
 
-Compute (expr_eval_n 20 Σ enEmpty [| {id_rec} (Suc (Suc (Suc 1))) |]).
-Compute (expr_eval_i 20 Σ enEmpty (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |])).
+Compute (expr_eval_n 20 Σ [] [| {id_rec} (Suc (Suc (Suc 1))) |]).
+Compute (expr_eval_i 20 Σ [] (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |])).
 
 Example id_rec_named_and_indexed :
   let arg := [| Suc (Suc (Suc 1)) |] in
-  expr_eval_n 20 Σ enEmpty [| {id_rec} {arg} |] =
-  expr_eval_i 20 Σ enEmpty (indexify [] [| {id_rec} {arg} |]).
+  expr_eval_n 20 Σ [] [| {id_rec} {arg} |] =
+  expr_eval_i 20 Σ [] (indexify [] [| {id_rec} {arg} |]).
 Proof. reflexivity. Qed.
 
 Example plus_named_and_indexed :
   let two := [| (Suc 1)|] in
   let three := [| Suc {two} |] in
-  expr_eval_n 20 Σ enEmpty [| ({plus_syn} {two}) {three} |] =
-  expr_eval_i 20 Σ enEmpty (indexify [] [| ({plus_syn} {two}) {three} |]).
+  expr_eval_n 20 Σ [] [| ({plus_syn} {two}) {three} |] =
+  expr_eval_i 20 Σ [] (indexify [] [| ({plus_syn} {two}) {three} |]).
 Proof. reflexivity. Qed.
 
-Compute ( v <- (expr_eval_i 10 Σ enEmpty (indexify [] [| {one_plus_one} |]));;
+Compute ( v <- (expr_eval_i 10 Σ [] (indexify [] [| {one_plus_one} |]));;
           ret (from_val v)).
 
-Compute (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} 1 |])).
+Compute (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn} 1 |])).
 
-Compute ( v <- (expr_eval_n 10 Σ enEmpty [| {plus_syn} 1 |]);;
+Compute ( v <- (expr_eval_n 10 Σ [] [| {plus_syn} 1 |]);;
           ret (from_val v)).
 
 Compute (indexify [] [| {plus_syn}|]).
 
-Compute ( v <- (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn} |]));;
+Compute ( v <- (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn} |]));;
           ret (from_val v)).
 
-Compute (expr_eval_n 10 Σ enEmpty [| {plus_syn} 0 |]).
-
-Compute (lookup_i_norec (enRec "plus" "y"
-          [|case ^ 0 : "Coq.Init.Datatypes.nat"
-            return Nat of | Z -> ^ 2 | Suc "z" ->
-            Suc ((^2) (^0))|]
-          (tyInd "Coq.Init.Datatypes.nat") (tyInd "Coq.Init.Datatypes.nat")
-          (enEmpty # ["x" ~> vConstr "Coq.Init.Datatypes.nat" "Z" []])) 0).
+Compute (expr_eval_n 10 Σ [] [| {plus_syn} 0 |]).
 
 Definition fun_app := [| (\x : Nat -> \y : Nat -> y + x) Z |].
 
-Compute (expr_eval_n 10 [] enEmpty fun_app).
+Compute (expr_eval_n 10 [] [] fun_app).
 
 Example fun_app_from_val :
-  exists v, (expr_eval_n 10 [] enEmpty (indexify [] fun_app)) = Ok v /\
+  exists v, (expr_eval_n 10 [] [] (indexify [] fun_app)) = Ok v /\
        from_val_i v = (indexify [] [|\y : Nat -> y + Z |]).
 Proof.
   eexists. split. compute. reflexivity.
@@ -257,7 +250,7 @@ Qed.
 
 
 Example plus_syn_partial_app :
-  exists v, (expr_eval_i 10 Σ enEmpty (indexify [] [| {plus_syn'} 0 |])) = Ok v /\
+  exists v, (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn'} 0 |])) = Ok v /\
        from_val_i v = indexify [] id_rec.
 Proof.
   eexists. split. compute. reflexivity.

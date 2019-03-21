@@ -49,47 +49,13 @@ Definition todo {A} := EvalError (A:=A) "Not implemented".
 
 Module InterpreterEnvList.
 
-  (* An interpreter that uses list-like structure to represent environments.
-     Currently does not handle recursion [fix] *)
+  (* An interpreter that uses lists to represent environments *)
 
-  (* Inspired by this: https://www.cs.bgu.ac.il/~elhadad/advpro/course6.html *)
-  Inductive env (A : Type) :=
-  | enEmpty  : env A
-  | enCons   : name -> A -> env A -> env A
-  | enRec    : name -> name -> expr -> type -> type -> env A -> env A.
+  Import Basics.
 
-  Arguments enEmpty {_}.
-  Arguments enCons {_}.
-  Arguments enRec {_}.
+  Open Scope program_scope.
 
-  (** Size of the environment is number of all entries *)
-  Fixpoint size {A} (ρ : env A) : nat :=
-    match ρ with
-    | enEmpty => 0
-    | enCons _ _ ρ' => 1 + size ρ'
-    | enRec _ _ _ _ _ ρ' => 1 + size ρ'
-    end.
-
-  (** Number of non-recursive entries *)
-  Fixpoint size_norec {A} (ρ : env A) : nat :=
-    match ρ with
-    | enEmpty => 0
-    | enCons _ _ ρ' => 1 + size ρ'
-    | enRec _ _ _ _ _ ρ' => size ρ'
-    end.
-
-  Fixpoint concat_env {A : Type} (ρ ρ' : env A) :=
-    match ρ with
-    | enEmpty => ρ'
-    | enCons nm v ρ'' => enCons nm v (concat_env ρ'' ρ')
-    | enRec fixname nm e ty1 ty2 ρ'' => enRec fixname nm e ty1 ty2 (concat_env ρ'' ρ')
-    end.
-
-  Fixpoint list_to_env {A : Type} (xs : list (name * A)) : env A :=
-    match xs with
-    | [] => enEmpty
-    | (k,v) :: xs' => enCons k v (list_to_env xs')
-    end.
+  Definition env (A : Type) := list (name * A).
 
   (** A type of labels to distinguish closures corresponding to lambdas and fixpoints *)
   Inductive clos_mode : Type :=
@@ -103,23 +69,22 @@ Module InterpreterEnvList.
               type ->(* type of the codomain *)
               expr -> val.
 
-  Inductive ForallEnv {A} (P : A -> Prop) : env A -> Prop :=
-  | feNil : ForallEnv P enEmpty
-  | feCons : forall (nm : name) (a : A) (ρ : env A), P a -> ForallEnv P ρ -> ForallEnv P (enCons nm a ρ)
-  | feRec  : forall fixname nm e ty1 ty2 ρ,
-      ForallEnv P ρ -> ForallEnv P (enRec fixname nm e ty1 ty2 ρ).
+  Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
 
   Inductive val_ok : val -> Prop :=
-  | vokClos : forall e nm cm ρ ty1 ty2,
+  | vokClosLam : forall e nm ρ ty1 ty2,
       ForallEnv val_ok ρ ->
-      iclosed_n (S (size_norec ρ)) e = true ->
-      val_ok (vClos ρ nm cm ty1 ty2 e)
+      iclosed_n (1 + length ρ) e = true ->
+      val_ok (vClos ρ nm cmLam ty1 ty2 e)
+  | vokClosFix : forall e nm fixname ρ ty1 ty2,
+      ForallEnv val_ok ρ ->
+      iclosed_n (2 + length ρ) e = true ->
+      val_ok (vClos ρ nm (cmFix fixname) ty1 ty2 e)
   | vokContr : forall i nm vs ,
       Forall val_ok vs ->
       val_ok (vConstr i nm vs).
 
-
-  Definition env_ok ρ := ForallEnv val_ok ρ.
+  Definition env_ok (ρ : env val) := ForallEnv val_ok ρ.
 
   (* An induction principle that takes into account nested occurences of elements of [val]
      in the list of arguments of [vConstr] and in the environment of [vClos] *)
@@ -137,7 +102,6 @@ Module InterpreterEnvList.
       induction e.
       * constructor.
       * constructor. apply val_ind_fix. apply IHe.
-      * constructor. apply IHe.
   Defined.
 
   (* For some reason, this is not a part of the standard lib *)
@@ -168,52 +132,31 @@ Module InterpreterEnvList.
   Qed.
 
   (** Lookup by variable name *)
-  Fixpoint lookup (ρ : env val) (key : string) : option val :=
+  Fixpoint lookup {A} (ρ : env A) (key : string) : option A :=
     match ρ with
-    | enEmpty => None
-    | enCons nm a ρ' =>
+    | [] => None
+    | (nm,a) :: ρ' =>
       if (nm =? key) then Some a else lookup ρ' key
-    | enRec fixname nm e ty1 ty2 ρ' =>
-      if (fixname =? key) then Some (vClos ρ nm (cmFix fixname) ty1 ty2 e)
-      else lookup ρ' key
     end.
 
   (** Lookup by index (similar to [List.nth_error], but for environments *)
-  Fixpoint lookup_i (ρ : env val) (i : nat) : option val :=
+  Fixpoint lookup_i {A} (ρ : env A) (i : nat) : option A :=
     match ρ with
-    | enEmpty => None
-    | enCons nm a ρ' =>
+    | [] => None
+    | (nm,a) :: ρ' =>
       if (Nat.eqb i 0) then Some a else lookup_i ρ' (i-1)
-    | enRec fixname nm e ty1 ty2 ρ' =>
-      if (Nat.eqb i 0) then Some (vClos ρ nm (cmFix fixname) ty1 ty2 e) else lookup_i ρ' (i-1)
-    end.
-
-  (** A lookup by index that ignores recursive environments.
-     Useful for substituting elements of the environment
-     into an expression when converting closures to expressions*)
-  Fixpoint lookup_i_norec {A} (ρ : env A) (i : nat) : option A :=
-    match ρ with
-    | enEmpty => None
-    | enCons nm a ρ' =>
-      if (Nat.eqb i 0) then Some a else lookup_i_norec ρ' (i-1)
-    | enRec fixname nm e ty1 ty2 ρ' => lookup_i_norec ρ' (i-1)
     end.
 
   (** A value environment lookup: *)
   Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
   (** A value environment extension: *)
-  Notation "ρ # [ k ~> v ]" := (enCons k v ρ) (at level 50).
-  (** A value environment extension with a recursive entry: *)
-  Notation "ρ ## [ fixname ~> ( nm , e , ty1 , ty2 ) ]" :=
-    (enRec fixname nm e ty1 ty2 ρ) (at level 50).
+  Notation "ρ # [ k ~> v ]" := ( (k,v) :: ρ) (at level 50).
 
   Fixpoint remove_by_key  (key : name) (ρ : env val) : env val :=
     match ρ with
-      | enEmpty => enEmpty
-      | enCons nm a ρ' => if (nm =? key) then remove_by_key key ρ'
-                           else enCons nm a (remove_by_key key ρ')
-      | enRec fixname nm e ty1 ty2 ρ'=> if (fixname =? key) then remove_by_key key ρ'
-                          else enRec fixname nm e ty1 ty2 (remove_by_key key ρ')
+      | [] => []
+      | (nm,a) :: ρ' => if (nm =? key) then remove_by_key key ρ'
+                           else (nm,a) :: (remove_by_key key ρ')
     end.
 
   (* This doesn't work for the same reason as for STLC: in the case
@@ -290,8 +233,16 @@ Module InterpreterEnvList.
         expr_eval_general n named Σ (ρ # [nm ~> v]) e2
       | eApp e1 e2 =>
         match (expr_eval_general n named Σ ρ e1), (expr_eval_general n named Σ ρ e2) with
-        | Ok (vClos ρ' nm _ _ _ b), Ok v =>
+        | Ok (vClos ρ' nm cmLam _ _ b), Ok v =>
           match (expr_eval_general n named Σ (ρ' # [nm ~> v]) b) with
+          | Ok v' => Ok v'
+          | err => err
+          end
+        | Ok (vClos ρ' nm (cmFix fixname) ty1 ty2 b), Ok v =>
+          let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
+          let res := expr_eval_general n named Σ
+                                       (ρ # [fixname ~> v_fix] # [nm ~> v]) b in
+          match res with
           | Ok v' => Ok v'
           | err => err
           end
@@ -308,7 +259,7 @@ Module InterpreterEnvList.
         | Ok (vConstr ind' c vs) => if (string_dec ind ind') then
                                       match (match_pat c vs bs) with
                                       | Some (var_assign, v) =>
-                                        expr_eval_general n named Σ (concat_env (list_to_env var_assign) ρ) v
+                                        expr_eval_general n named Σ (List.app var_assign ρ) v
                                       | None => EvalError "No such constructor"
                                       end
                                     else EvalError ("Expecting inductive " ++ ind ++
@@ -316,40 +267,12 @@ Module InterpreterEnvList.
         | v => v
         end
       | eFix fixname vn ty1 ty2 b as e =>
-        let ρ' := enRec fixname vn b ty1 ty2 ρ in
-        Ok (vClos ρ' vn (cmFix fixname) ty1 ty2 b)
+        Ok (vClos ρ vn (cmFix fixname) ty1 ty2 b)
       end
     end.
 
   Definition expr_eval_n n := expr_eval_general n true.
   Definition expr_eval_i n := expr_eval_general n false.
-
-  Definition map_env {A B : Type} (f : A -> B) : env A -> env B :=
-    fix menv (ρ : env A) :=
-      match ρ with
-      | enEmpty => enEmpty
-      | enCons nm v ρ' => enCons nm (f v) (menv ρ')
-      | enRec fixname nm e ty1 ty2 ρ' => enRec fixname nm e ty1 ty2 (menv ρ')
-      end.
-
-  Fixpoint env_to_list {A : Type} (ρ : env A) : list (name * A) :=
-    match ρ with
-    | enEmpty => []
-    | enCons nm v ρ' => (nm, v) :: env_to_list ρ'
-    | enRec fixname nm e ty1 ty2 ρ' => env_to_list ρ'
-    end.
-
-  (* This is equivalent to the composition env_to_list ∘ (map_env f), but
-     we if we use the composition in the definition of from_val, then Coq cannot
-     recognise it as a fixpoint. So, we have to merge the two definitions *)
-  Definition map_env_list {A B : Type} (f : name -> A -> B) : env A -> list B :=
-    fix menv (ρ : env A) :=
-      match ρ with
-      | enEmpty => []
-      | enCons nm v ρ' => f nm v :: (menv ρ')
-      | enRec fixname nm e ty1 ty2 ρ' => menv ρ'
-      end.
-
 
   Definition lookup_list {A : Type} (ρ : list (name * A)) (key : string) : option A :=
     option_map snd (List.find (fun '(key',v) => if (string_dec key key')
@@ -385,7 +308,7 @@ Module InterpreterEnvList.
  Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
   match e with
   | eRel i => if Nat.leb k i then
-               from_option (lookup_i_norec ρ (i-k)) (eRel i) else eRel i
+               from_option (lookup_i ρ (i-k)) (eRel i) else eRel i
   | eVar nm  => eVar nm
   | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
   | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
@@ -418,11 +341,11 @@ Module InterpreterEnvList.
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                  end
-      in subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) res
+      in subst_env (map (fun '(nm,v) => (nm, from_val v)) ρ) res
     end.
 
   Definition inst_env (ρ : env val) (e : expr) : expr :=
-    subst_env (map_env_list (fun nm v => (nm, from_val v)) ρ) e.
+    subst_env (map (fun '(nm,v) => (nm, from_val v)) ρ) e.
 
   Fixpoint from_val_i (v : val) : expr :=
     match v with
@@ -432,14 +355,14 @@ Module InterpreterEnvList.
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
-     in subst_env_i (map_env from_val_i ρ) res
+     in subst_env_i (map (fun '(nm,v) => (nm, from_val_i v)) ρ) res
    end.
 
   (* The similar notation will be used when we change to a parallel substitution *)
   Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
 
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
-   subst_env_i (map_env from_val_i ρ) e.
+   subst_env_i (map (fun '(nm,v) => (nm, from_val_i v)) ρ) e.
  Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
 
  Module Equivalence.
@@ -696,11 +619,11 @@ Module Examples.
      |].
 
   Example eval_prog1_named :
-    InterpreterEnvList.expr_eval_n 3 Σ InterpreterEnvList.enEmpty prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
+    InterpreterEnvList.expr_eval_n 3 Σ [] prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
   Example eval_prog1_indexed :
-    InterpreterEnvList.expr_eval_i 3 Σ InterpreterEnvList.enEmpty (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
+    InterpreterEnvList.expr_eval_i 3 Σ [] (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
   Example eval_prog1' :

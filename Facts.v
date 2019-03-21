@@ -9,7 +9,8 @@ Require Import Morphisms Setoid.
 
 Require Import Template.monad_utils.
 
-Import FunctionalExtensionality.
+Import Basics.
+Open Scope program_scope.
 
 Open Scope string_scope.
 Import ListNotations.
@@ -47,28 +48,19 @@ Section Values.
       reflexivity.
   Qed.
 
-  Lemma ForallEnv_lookup_i_norec {A} ρ n e (P : A -> Prop) :
-    ForallEnv P ρ -> lookup_i_norec ρ n = Some e -> P e.
+  Lemma Forall_lookup_i {A} ρ n e (P : A -> Prop) :
+    ForallEnv P ρ -> lookup_i ρ n = Some e -> P e.
   Proof.
     intros Hfe Hl.
     revert dependent n.
     induction Hfe;intros n Hl.
     + inversion Hl.
-    + simpl in *. destruct (Nat.eqb n 0);inversion Hl;subst;eauto.
-    + simpl in *. eauto.
-  Qed.
-
-  Lemma ForallEnv_impl :
-  forall (A : Type) (P Q : A -> Prop),
-    (forall a : A, P a -> Q a) -> forall ρ : env A, ForallEnv P ρ -> ForallEnv Q ρ.
-  Proof.
-    intros A P Q H ρ HP.
-    induction HP;constructor;auto.
+    + simpl in *. destruct x; destruct (Nat.eqb n 0);inversion Hl;subst;eauto.
   Qed.
 
 
-  Lemma lookup_norec_size_norec {A} (ρ : env A) n :
-    (n <? size_norec ρ) = true -> exists e, lookup_i_norec ρ n = Some e.
+  Lemma lookup_i_length {A} (ρ : env A) n :
+    (n <? length ρ) = true -> exists e, lookup_i ρ n = Some e.
   Proof.
   Admitted.
 
@@ -81,13 +73,13 @@ Section Values.
   Lemma iclosed_n_lookup :
     forall (e1 e2 : expr) (ρ : env expr)  (n : nat),
       iclosed_n 0 (subst_env_i_aux 0 ρ e1) = true ->
-      lookup_i_norec ρ n = Some e2 ->
+      lookup_i ρ n = Some e2 ->
       iclosed_n 0 e2 = true.
   Proof.
     intros e1.
     induction e1;intros e2 ρ n1 Hc Hl.
     + simpl in *. replace (n-0) with n in * by lia.
-      destruct (lookup_i_norec ρ n);tryfalse. simpl in *.
+      destruct (lookup_i ρ n);tryfalse. simpl in *.
   Admitted.
 
   Lemma iclosed_Sn_subst_env:
@@ -100,38 +92,38 @@ Section Values.
     + simpl in *. destruct n.
       * reflexivity.
       * replace (S n - 1) with n in * by lia. simpl in *.
-        destruct (lookup_i_norec ρ (S n)) eqn:Hl;tryfalse. simpl in *.
-
+        destruct (lookup_i ρ (S n)) eqn:Hl;tryfalse. simpl in *.
   Admitted.
 
   Lemma subst_env_iclosed_n :
     forall n (ρ : env expr) (e : expr),
-      iclosed_n (n + size_norec ρ) e = true ->
-      ForallEnv (fun e => iclosed_n 0 e = true) ρ ->
-      iclosed_n n (e.[ρ]n) = true.
+      Forall (fun e => iclosed_n 0 (snd e) = true) ρ ->
+      iclosed_n (n + length ρ) e = true <-> iclosed_n n (e.[ρ]n) = true.
   Proof.
-    intros n ρ e.
-    induction e using expr_ind_case;intros Hc Hec;simpl;tryfalse;auto.
-    + (* eRel *)
-      unfold subst_env_i. simpl.
-      simpl in *.
-      destruct (n <=? n0) eqn:Hnle.
-      * rewrite PeanoNat.Nat.ltb_lt in *.
-        rewrite PeanoNat.Nat.leb_le in *.
-        assert (Hc' : n0-n < size_norec ρ) by lia.
-        rewrite <- PeanoNat.Nat.ltb_lt in *.
-        destruct (lookup_norec_size_norec _ (n0-n) Hc') as [e0 He0].
-        rewrite He0. simpl.
-        eapply ForallEnv_lookup_i_norec with
-          (P:=fun e => iclosed_n n e = true);eauto.
-        apply ForallEnv_impl with (P:=fun e => iclosed_n 0 e = true);eauto.
-        intros a H;change (iclosed_n (0+n) a = true); now apply iclosed_m_n.
-      * simpl in *.
-        rewrite PeanoNat.Nat.ltb_lt in *.
-        rewrite Compare_dec.leb_iff_conv in *.
-        assumption.
-    + (* eLambda *)
-      simpl in *.
+    intros n ρ e H.
+    split.
+    - (* -> *)
+      revert dependent ρ.
+      induction e using expr_ind_case;intros ρ Hc Hec;simpl;tryfalse;auto.
+      + (* eRel *)
+        unfold subst_env_i. simpl.
+        simpl in *.
+        destruct (n <=? n0) eqn:Hnle.
+        * rewrite PeanoNat.Nat.ltb_lt in *.
+          rewrite PeanoNat.Nat.leb_le in *.
+          assert (Hc' : n0-n < length ρ) by lia.
+          rewrite <- PeanoNat.Nat.ltb_lt in *.
+          destruct (lookup_i_length _ (n0-n) Hc') as [e0 He0].
+          rewrite He0. simpl.
+          eapply Forall_lookup_i with (ρ0 := ρ) (P:=fun e1 => iclosed_n n e1 = true);eauto.
+          apply Forall_impl with (P:=fun e1 => iclosed_n 0 (snd e1) = true);eauto.
+          intros a H. unfold compose. change (iclosed_n (0+n) (snd a) = true); now apply iclosed_m_n.
+        * simpl in *.
+          rewrite PeanoNat.Nat.ltb_lt in *.
+          rewrite Compare_dec.leb_iff_conv in *.
+          assumption.
+      + (* eLambda *)
+        simpl in *.
   Admitted.
 
   Lemma Forall_impl_inner {A} (P Q : A -> Prop) l :
@@ -154,8 +146,6 @@ Section Values.
     + simpl. apply vars_to_apps_iclosed_n. inversion Hv;subst.
       eapply Forall_impl_inner;easy.
     + inversion Hv;subst.
-      destruct cm;simpl.
-      *
   Admitted.
 
 
@@ -172,7 +162,7 @@ Section Values.
   Qed.
 
   Lemma subst_env_i_empty :
-    forall (e : expr) (k : nat), e = subst_env_i_aux k enEmpty e.
+    forall (e : expr) (k : nat), e = subst_env_i_aux k [] e.
   Proof.
     intros e.
     induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence.
@@ -184,18 +174,18 @@ Section Values.
     intros x f. destruct x;simpl in *. f_equal. apply f.
   Qed.
 
-  Lemma subst_env_i_rec n1 n2 e1 t1 t2 :
-    forall (e : expr) (k : nat), e = subst_env_i_aux k (enRec n1 n2 e1 t1 t2 enEmpty) e.
-  Proof.
-    intros e.
-    induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence.
-    + destruct (Nat.leb k n); destruct k; try easy.
-    + f_equal;auto.
-    rewrite <- map_id at 1.
-    eapply @Induction.forall_map_spec.
-    eapply H.
-    intros x f. destruct x;simpl in *. f_equal. apply f.
-  Qed.
+  (* Lemma subst_env_i_rec n1 n2 e1 t1 t2 : *)
+  (*   forall (e : expr) (k : nat), e = subst_env_i_aux k (enRec n1 n2 e1 t1 t2 enEmpty) e. *)
+  (* Proof. *)
+  (*   intros e. *)
+  (*   induction e using expr_ind_case;intros k;simpl in *;try easy; try congruence. *)
+  (*   + destruct (Nat.leb k n); destruct k; try easy. *)
+  (*   + f_equal;auto. *)
+  (*   rewrite <- map_id at 1. *)
+  (*   eapply @Induction.forall_map_spec. *)
+  (*   eapply H. *)
+  (*   intros x f. destruct x;simpl in *. f_equal. apply f. *)
+  (* Qed. *)
 
   (* For simplicity, we consider only constructors of arity 0 and 1 *)
   Inductive accepted_val : val -> Prop :=
@@ -222,7 +212,7 @@ Section Values.
 
   Lemma from_val_debruijn_correct n Σ v1 v2 :
     accepted_val v1 ->
-    expr_eval_i n Σ enEmpty (from_val_i v1) = Ok v2 ->
+    expr_eval_i n Σ [] (from_val_i v1) = Ok v2 ->
     v1 ≈ v2.
   Proof.
     intros Hav He.
@@ -233,27 +223,28 @@ Section Values.
       inversion Hav;subst.
       * simpl in H1. inversion H1. reflexivity.
       * autounfold with facts in *. simpl in H1.
-        remember (expr_eval_general n0 false Σ enEmpty (eConstr i n)) as c.
-        remember (expr_eval_general n0 false Σ enEmpty (from_val_i v)) as fv.
-        destruct c as [c0 | | ];try destruct c0;destruct fv;tryfalse.
+        remember (expr_eval_general n0 false Σ [] (eConstr i n)) as cv.
+        remember (expr_eval_general n0 false Σ [] (from_val_i v)) as fv.
+        destruct cv as [cv0 | | ]; try destruct cv0;try destruct c;destruct fv;tryfalse.
         ** inversion H1 as [H1'].
            symmetry in Heqfv.
            apply Forall_inv in H.
            pose proof (H H2 _ _ Heqfv) as HH. subst.
-           symmetry in Heqc.
-           pose proof (expr_eval_econstr Heqc) as HH1. inversion HH1;subst.
+           symmetry in Heqcv.
+           pose proof (expr_eval_econstr Heqcv) as HH1. inversion HH1;subst.
            simpl. clear H Heqfv H1.
            (* this rewrite actually uses setoid_rewrite along the ≈ relation *)
            rewrite HH.
            reflexivity.
-        ** symmetry in Heqc.
-           pose proof (expr_eval_econstr Heqc);tryfalse.
+        ** symmetry in Heqcv.
+           pose proof (expr_eval_econstr Heqcv);tryfalse.
+        ** symmetry in Heqcv;pose proof (expr_eval_econstr Heqcv);tryfalse.
     + simpl in H1.
       destruct cm.
       * destruct n0;tryfalse. simpl in H1.
         inversion_clear H1.
         constructor.
-        unfold inst_env_i,subst_env_i;simpl;
+        unfold inst_env_i,subst_env_i;simpl.
            rewrite <- subst_env_i_empty.
         reflexivity.
       * destruct n0;tryfalse. simpl in H1.
@@ -261,15 +252,10 @@ Section Values.
         constructor.
         intros.
         unfold inst_env_i,subst_env_i;simpl.
-        rewrite <- subst_env_i_rec;reflexivity.
+        rewrite <- subst_env_i_empty;reflexivity.
   Qed.
 
 End Values.
-
-Lemma map_env_size_norec {A B} (ρ : env A) (f : A -> B) :
-  size_norec (map_env f ρ) = size_norec ρ.
-Proof.
-  Admitted.
 
 Section Indexify.
 

@@ -25,15 +25,10 @@ Tactic Notation "simpl_vars_to_apps" :=
   simpl;try rewrite map_app; simpl; rewrite vars_to_apps_unfold;simpl.
 
 
-Notation exprs := (map_env from_val_i).
+Notation exprs := (map (fun '(nm,v) => (nm, from_val_i v))).
 
 Lemma expr_closed_term_closed e n Σ:
   iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
-Admitted.
-
-Lemma map_env_list_size {A B} (f : Ast.name -> A -> B) (ρ : env A) :
-  length (map_env_list f ρ) = size ρ.
-Proof.
 Admitted.
 
 Lemma from_option_indep {A} (o : option A) d  d' v :
@@ -42,24 +37,13 @@ Proof.
   intros;subst;easy.
 Qed.
 
-Lemma lookup_i_norec_some {A} {ρ : env A} {n : nat} :
-  n < size ρ ->
-  exists v, lookup_i_norec ρ n = Some v.
+Lemma lookup_i_form_val_env ρ n v :
+  lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (from_val_i v).
 Proof.
-  revert dependent n.
-  induction ρ;intros n1 Hlt.
-  + eexists;easy.
-  + simpl in *. destruct (Nat.eqb n1 0) eqn:Hn1.
-    * eexists;reflexivity.
-    * assert (Hn2 : exists n2, n1 = S n2) by
-          (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
-      destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
-      subst. apply Lt.lt_S_n in Hlt.
-      (* assert (n1=0) by (apply EqNat.beq_nat_eq; easy). subst. *)
-Admitted.
+  Admitted.
 
 Lemma inst_env_i_in ρ n :
-  n < size ρ ->
+  n < length ρ ->
   exists v, lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = from_val_i v.
 Proof.
   intros Hlt.
@@ -67,31 +51,30 @@ Proof.
   induction ρ;intros n1 Hlt.
   + inversion Hlt.
   + destruct (Nat.eqb n1 0) eqn:Hn1.
-    * eexists. split.
+    * destruct a. eexists. split.
       ** simpl. rewrite Hn1.
          reflexivity.
       ** simpl in *. unfold inst_env_i,subst_env_i. simpl.
          assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
-         subst. simpl. admit.
-    * assert (Hn2 : exists n2, n1 = S n2) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
+         subst. simpl. reflexivity.
+    * destruct a.
+      assert (Hn2 : exists n2, n1 = S n2) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
       destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia. subst. simpl in Hlt.
       apply Lt.lt_S_n in Hlt.
-      specialize (IHρ _ Hlt). destruct IHρ as [v HH]. destruct HH as [H1 H2].
-      exists v. split.
+      specialize (IHρ _ Hlt). destruct IHρ as [v1 HH]. destruct HH as [H1 H2].
+      exists v1. split.
       ** simpl in *. replace (n2 - 0) with n2 by lia. assumption.
-      ** specialize (lookup_i_norec_some Hlt) as Hlookup.
+      ** assert (Hltb : n2 <? #|ρ| = true) by now apply PeanoNat.Nat.ltb_lt.
+        specialize (lookup_i_length _ _ Hltb) as Hlookup.
          destruct Hlookup.
          simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
          rewrite <- H2. replace (n2 - 0) with n2 by lia.
-         eapply from_option_indep.
+         apply lookup_i_form_val_env in H.
+         now eapply from_option_indep.
+Qed.
 
-  (*        apply nth_indep. rewrite map_env_list_size. *)
-  (*        assumption. *)
-  (* + simpl in *. *)
-Admitted.
-
-Lemma inst_env_i_notin ρ n :
-  size ρ <= n -> lookup_i ρ n = None.
+Lemma lookup_i_notin {A} (ρ : env A) n :
+  length ρ <= n -> lookup_i ρ n = None.
 Proof.
   Admitted.
 
@@ -157,20 +140,6 @@ Compute ((tLambda (nNamed"x") (tInd (mkInd "nat" 0) []) (tApp (tRel 1) [tRel 2])
 Compute ( (tApp (tApp (tApp (tApp (tRel 1) [tRel 1]) [tRel 1]) [tRel 1]) [tRel 2]) {0:=tVar "blah"}).
 Compute ( T⟦(eApp (eApp (eApp (eApp (eRel 1) (eRel 1)) (eRel 1)) (eRel 1)) (eRel 2))⟧ []).
 
-Lemma lookups_eq {ρ i v1 v2} :
-  lookup_i_norec ρ i = Some v1 -> lookup_i ρ i = Some v2 ->
-  v1 = v2 \/ exists ρ nm fixname ty1 ty2 e,
-      v2 = vClos ρ nm (cmFix fixname) ty1 ty2 e.
-Proof.
-  intros H1 H2.
-  revert dependent i.
-  induction ρ; intros i H1 H2;tryfalse.
-  simpl in *;destruct i;simpl in *;
-       [some_inv;subst;easy | replace (i-0) with i in * by lia;easy].
-  simpl in *; destruct i;simpl in *. some_inv. right. easy.
-  replace (i-0) with i in * by lia;easy.
-Qed.
-
 Lemma option_to_res_ok {A} (o : option A) s v:
   option_to_res o s = Ok v ->
   o = Some v.
@@ -183,7 +152,7 @@ Lemma subst_term_subst_env_rec  e :
   val_ok v ->
   iclosed_n (1+n) e = true ->
   (T⟦e⟧ Σ) {n:=T⟦ from_val_i v ⟧ Σ} =
-  (T⟦e.[enEmpty # [nm ~> from_val_i v]]n⟧ Σ).
+  (T⟦e.[nil # [nm ~> from_val_i v]]n⟧ Σ).
 Proof.
   induction e using expr_ind_case;intros v Σ n1 nm nmHv Hc.
   + (* eRel *)
@@ -251,7 +220,7 @@ Lemma subst_term_subst_env e :
   val_ok v ->
   iclosed_n 1 e = true ->
   (T⟦e⟧ Σ) {0:=T⟦ from_val_i v ⟧ Σ} =
-  (T⟦e.[enEmpty # [nm ~> from_val_i v]]⟧ Σ).
+  (T⟦e.[nil # [nm ~> from_val_i v]]⟧ Σ).
 Proof.
   intros.
   apply subst_term_subst_env_rec;auto.
@@ -260,7 +229,7 @@ Qed.
 Lemma subst_env_i_closed_eq :
   forall (e : expr) (n : nat) (ρ : env expr),
     iclosed_n 0 e = true ->
-    subst_env_i_aux n ρ e = e.
+    e.[ρ]n = e.
 Proof.
   intros e n ρ Hc.
 Admitted.
@@ -269,9 +238,9 @@ Admitted.
    At least for [subst_env_i_aux n] *)
 Lemma subst_env_compose_1 :
   forall (nm : Ast.name) (e e1: expr) (ρ : env expr),
-    ForallEnv (fun x => iclosed_n 0 x = true) ρ ->
+    Forall (fun x => iclosed_n 0 (snd x) = true) ρ ->
     e.[ρ # [nm ~> e1]] =
-    (e.[ρ]1).[enEmpty # [nm ~> e1]].
+    (e.[ρ]1).[nil # [nm ~> e1]].
 Proof.
   intros nm e e1 ρ.
   unfold inst_env_i,subst_env_i in *. simpl in *.
@@ -279,9 +248,9 @@ Proof.
   + simpl. destruct n.
     * reflexivity.
     * simpl. replace (n-0) with n by lia.
-      destruct (lookup_i_norec ρ n) eqn:Hl;auto.
+      destruct (lookup_i ρ n) eqn:Hl;auto.
       simpl. assert (iclosed_n 0 e = true) by
-          (eapply ForallEnv_lookup_i_norec with
+          (eapply Forall_lookup_i with
                (P:=fun x : expr => iclosed_n 0 x = true);eauto).
       symmetry. apply subst_env_i_closed_eq. assumption.
   + reflexivity.
@@ -292,36 +261,30 @@ Admitted.
    we will restate this in terms of parallel substitutions *)
 Lemma subst_env_compose_2 :
   forall (nm1 nm2 : Ast.name) (e e1 e2: expr) (ρ : env expr),
-    ForallEnv (fun x => iclosed_n 0 x = true) ρ ->
+    Forall (fun x => iclosed_n 0 (snd x) = true) ρ ->
     e.[ρ # [nm1 ~> e1] # [nm2 ~> e2]] =
-    (e.[ρ]2).[enEmpty # [nm1 ~> e1] # [nm2 ~> e2]].
+    (e.[ρ]2).[nil # [nm1 ~> e1] # [nm2 ~> e2]].
 Proof.
   Admitted.
 
 Import Basics.
 Open Scope program_scope.
 
-Lemma ForallEnv_map {A B} (f : A -> B) (ρ : env A) (P : B -> Prop) :
-  ForallEnv (P ∘ f) ρ -> ForallEnv P (map_env f ρ).
-Proof.
-  induction ρ; intros HP; inversion HP; subst; constructor;easy.
-Qed.
+(* Lemma forall_ForallEnv {A} (ρ : env A) (P : A -> Prop) : *)
+(*   (forall a : A, P a) -> ForallEnv P ρ. *)
+(* Proof. *)
+(*   induction ρ;intros HP;constructor;auto. *)
+(* Qed. *)
 
-Lemma forall_ForallEnv {A} (ρ : env A) (P : A -> Prop) :
-  (forall a : A, P a) -> ForallEnv P ρ.
-Proof.
-  induction ρ;intros HP;constructor;auto.
-Qed.
+(* Lemma ForallEnv_impl: *)
+(*   forall (A : Type) (P Q : A -> Prop), *)
+(*     (forall a : A, P a -> Q a) -> forall ρ, ForallEnv P ρ -> ForallEnv Q ρ. *)
+(* Proof. *)
+(*   intros. *)
+(*   Admitted. *)
 
-Lemma ForallEnv_impl:
-  forall (A : Type) (P Q : A -> Prop),
-    (forall a : A, P a -> Q a) -> forall ρ, ForallEnv P ρ -> ForallEnv Q ρ.
-Proof.
-  intros.
-  Admitted.
-
-Lemma eval_expr_i_val_ok  n ρ Σ e v :
-  ForallEnv val_ok ρ ->
+Lemma eval_val_ok  n ρ Σ e v :
+  env_ok ρ ->
   expr_eval_i n Σ ρ e = Ok v ->
   val_ok v.
 Admitted.
@@ -373,14 +336,14 @@ Lemma inst_env_eFix_eq_inv (ρ : env val) ty1 ty2 e b fixname var :
       e = eFix fixname1 var1 ty11 ty21 b1) \/
   (exists n fixname1 var1 ty11 ty21 b1,
     e = eRel n /\
-    lookup_i_norec (exprs ρ) n =
+    lookup_i (exprs ρ) n =
     Some (eFix fixname1 var1 ty11 ty21 b1)).
 Proof.
   intros H.
   destruct e;try easy.
   right. cbn in H.
   replace (n-0) with n in * by lia.
-  destruct ((lookup_i_norec (exprs ρ) n)) eqn:Hlookup;tryfalse.
+  destruct ((lookup_i (exprs ρ) n)) eqn:Hlookup;tryfalse.
    simpl in *. subst.
   repeat eexists; easy.
 Qed.
@@ -396,13 +359,6 @@ Proof.
     * tryfalse.
     * repeat eexists. inversion H. subst. f_equal.
 Qed.
-
-(* This should be a property of env_map *)
-Lemma lookup_i_norec_from_val ρ n e :
-  lookup_i_norec (exprs ρ) n = Some e ->
-  exists v, from_val_i v = e /\ lookup_i_norec ρ n = Some v.
-Proof.
-  Admitted.
 
 Lemma mkApps_isApp t args :
   args <> [] -> isApp t = true -> exists args' f, mkApps t args = tApp f (args' ++ args).
@@ -465,11 +421,8 @@ Proof.
   + destruct_ex_named. destruct H as [Heq HH];subst.
     destruct n;tryfalse. simpl in He.
     apply option_to_res_ok in He.
-    apply lookup_i_norec_from_val in HH.
-    destruct HH as [v1 HH]. destruct HH as [HH1 HH2].
-    apply from_val_fix in HH1.
-    specialize (lookups_eq HH2 He) as Heq.
-    destruct_ex_named. destruct Heq;destruct_ex_named;tryfalse.
+    apply lookup_i_form_val_env in He. simpl in *.
+    destruct vs using rev_ind;simpl in He;try simpl_vars_to_apps in He;tryfalse.
 Qed.
 
 
@@ -488,15 +441,31 @@ Proof.
   + destruct_ex_named. destruct H as [Heq HH];subst.
     destruct n;tryfalse. simpl in He.
     apply option_to_res_ok in He.
-    apply lookup_i_norec_from_val in HH.
-    destruct HH as [v1 HH]. destruct HH as [HH1 HH2].
-    apply from_val_fix in HH1.
-    specialize (lookups_eq HH2 He) as Heq.
-    destruct_ex_named. destruct Heq;destruct_ex_named;tryfalse.
+    apply lookup_i_form_val_env in He;simpl in *. rewrite HH in He. inversion He.
 Qed.
 
+Lemma forall_Forall {A : Type} (P : A -> Prop) (l : list A) :
+  (forall a, P a) -> Forall P l.
+Proof.
+  intros H.
+  induction l;constructor;auto.
+Qed.
 
-Theorem expr_to_term_sound (n : nat) ρ Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
+Lemma closed_exprs e n (ρ : env val) :
+  iclosed_n (n + #|exprs ρ|) e = true ->
+  iclosed_n (n + #|ρ|) e = true.
+Proof.
+  intros H. erewrite <- map_length. eauto.
+Qed.
+
+Hint Constructors val_ok Forall : hints.
+
+Hint Resolve closed_exprs eval_val_ok from_value_closed : hints.
+
+Hint Resolve <- subst_env_iclosed_n : hints.
+Hint Resolve -> subst_env_iclosed_n : hints.
+
+Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
   eval(n, Σ1, ρ, e1) = Ok v ->
@@ -516,7 +485,7 @@ Proof.
     + (* eRel*)
       autounfold with facts in *. simpl in *.
       destruct (lookup_i ρ n0) as [v1| ] eqn:Hlookup;tryfalse; simpl in He;inversion He;subst.
-      assert (Hn0 : n0 < size ρ \/ size ρ <= n0) by lia.
+      assert (Hn0 : n0 < length ρ \/ length ρ <= n0) by lia.
       destruct Hn0 as [Hlt | Hge].
       * destruct (inst_env_i_in _ _ Hlt) as [v2 HH].
         destruct HH as [H1 H2].
@@ -525,7 +494,7 @@ Proof.
         symmetry.
         eapply Wcbv_eval_value_determ;
         [apply Wcbv_from_value_value | eassumption ].
-      * specialize (inst_env_i_notin _ _ Hge) as Hnone;tryfalse.
+      * specialize (lookup_i_notin _ _ Hge) as Hnone;tryfalse.
     + (* eVar *)
       (* This case is trivial because we only consider terms with de Bruijn indices *)
       destruct n0; tryfalse.
@@ -544,21 +513,18 @@ Proof.
       apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 Hce2].
       specialize (IHn _ _ _ _ _ Hρ_ok H He1 eq_refl Hce1) as IH.
       rewrite IH in H0.
-      assert (Hv0_ok : val_ok v0) by (eapply eval_expr_i_val_ok;eauto).
+      assert (Hv0_ok : val_ok v0) by eauto with hints.
       (* An important bit of the proof is to show how substitution of the environment into an expression
          interacts with the substitution of MetaCoq *)
       rewrite subst_term_subst_env with (nm:=n0) in H0 by auto.
 
-      assert (Hρ_ok1 : ForallEnv val_ok (ρ # [n0 ~> v0])).
-      { constructor. eapply eval_expr_i_val_ok;eauto. assumption. }
+      assert (Hρ_ok1 : env_ok (ρ # [n0 ~> v0])) by (cbv;eauto with hints).
       eapply IHn;eauto. apply subst_env_compose_1.
-      apply ForallEnv_map.
-      eapply ForallEnv_impl with (fun v => val_ok v).
-      { intros; apply from_value_closed;assumption. }
+      apply Forall_map. unfold compose;simpl.
+      eapply Forall_impl with (P := fun v => val_ok (snd v)).
+      { intros a ?;destruct a;simpl; auto with hints. }
       assumption.
-      apply subst_env_iclosed_n. simpl. assumption.
-      constructor. apply from_value_closed;assumption.
-      constructor.
+      apply subst_env_iclosed_n;cbv;auto with hints.
     + (* eApp *)
       autounfold with facts in *. simpl in He.
       pose proof HT as HT1.
@@ -609,37 +575,30 @@ Proof.
               specialize (IHn _ _ _ _ _ Hρ_ok H4 He2 eq_refl Hce2) as IH.
               simpl in H5.
               rewrite IH in H5.
-              assert (Hv0_ok : val_ok v0)
-                by (eapply eval_expr_i_val_ok;eauto).
-              assert (Hlam_ok : val_ok (vClos e n0 cmLam t0 t1 e0))
-                by (eapply eval_expr_i_val_ok;eauto).
+              assert (Hv0_ok : val_ok v0) by eauto with hints.
+              assert (Hlam_ok : val_ok (vClos e n0 cmLam t0 t1 e0)) by eauto with hints.
               inversion Hlam_ok;subst.
-              assert (He_ok1 : ForallEnv val_ok (e # [n0 ~> v0]))
-                     by now constructor.
+              assert (He_ok1 : env_ok (e # [n0 ~> v0])) by now constructor.
               specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH'.
               inversion IH'; subst. clear IH'.
               assert
                 (ForallEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e)).
-              { apply ForallEnv_map. unfold compose.
-                 apply ForallEnv_impl with
-                   (P := fun x => val_ok x).
-                 intros. inversion He_ok1. subst.
-                 now apply from_value_closed. assumption. }
+              { apply Forall_map. unfold compose.
+                 apply Forall_impl with
+                   (P := fun x => val_ok (snd x)).
+                 intros a ?. destruct a. inversion He_ok1. subst.
+                 simpl;eauto with hints. assumption. }
               assert (iclosed_n 1 (e0 .[ exprs e] 1) = true).
-              { apply subst_env_iclosed_n.
-                * simpl. rewrite map_env_size_norec. assumption.
-                * assumption. }
+              { apply subst_env_iclosed_n; simpl;try rewrite map_length; eauto with hints. }
               rewrite subst_term_subst_env with (nm:=n0) in H5 by auto.
               eapply IHn;eauto. now apply subst_env_compose_1.
-              apply subst_env_iclosed_n. simpl. assumption.
-              constructor. apply from_value_closed;assumption.
-              constructor.
+              apply subst_env_iclosed_n;cbv;eauto with hints.
           *** exfalso;eapply fix_not_lambda;eauto.
           *** exfalso;now eapply expr_to_term_not_ind.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
         ** (* the closure corresponds to fix *)
           simpl in *.
-          destruct (expr_eval_general n false Σ1 (e # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
+          destruct (expr_eval_general n false Σ1 (((n1, vClos e n0 (cmFix n1) t0 t1 e0) :: ρ) # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
           inversion He;subst.
           inversion HT';subst.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
@@ -650,25 +609,23 @@ Proof.
             apply inst_env_eFix_eq_inv in HH.
             destruct HH.
             **** destruct_ex_named. subst. destruct n;tryfalse. simpl in He1.
-                 inversion He1. subst. clear He1.
+                 inversion He1. subst. clear He1. rename e into ρ.
                  simpl in H. inversion H. subst.
                  clear H. inversion H1. subst. clear H1.
                  rewrite type_to_term_subst in H5. inversion H2. subst. clear H2.
                  inversion H6. subst. clear H6.
-                 simpl in H5.
                  specialize (IHn _ _ _ _ _ Hρ_ok H1 He2 eq_refl Hce2) as IH.
                  subst.
-
+                 (* Now we have lambda applied to the translation of an argument, so we do inversion
+                    on this application *)
                  inversion H5. subst. clear H5.
                  simpl in H8.
                  inversion H4. subst. clear H4.
                  remember
                    (tFix
-                      [{|
-                          dname := nNamed n1;
+                      [{| dname := nNamed n1;
                           dtype := tProd nAnon (type_to_term t0) (type_to_term t1);
-                          dbody := tLambda (nNamed n0) (type_to_term t0)
-                                           (T⟦ e0 .[ exprs ρ] 2 ⟧ Σ1);
+                          dbody := tLambda (nNamed n0) (type_to_term t0) (T⟦ e0 .[ exprs ρ] 2 ⟧ Σ1);
                           rarg := 0 |}] 0) as tfix.
                  assert (tfix = T⟦ eFix n1 n0 t0 t1 (e0.[ exprs ρ] 2) ⟧ Σ1)
                    by assumption.
@@ -676,19 +633,34 @@ Proof.
                  change (eFix n1 n0 t0 t1 (e0 .[ exprs ρ] 2)) with
                         (from_val_i (vClos ρ n0 (cmFix n1) t0 t1 e0)) in H.
                  rewrite H in H8.
-                 rewrite subst_term_subst_env_rec with (nm:=n1) in H8;
-                   eauto.
                  assert (Ha' : a' = T⟦ from_val_i v0 ⟧ Σ1).
                  { admit. (*from H1 and H7 *) }
-                 assert (val_ok v0) by (eapply eval_expr_i_val_ok;eauto).
-                 rewrite Ha' in H8.
-                 rewrite subst_term_subst_env_rec with (nm:=n0) in H8;
+                 assert (val_ok v0) by eauto with hints.
+                 assert (Hexprs : ForallEnv (fun e => iclosed_n 0 e = true)
+                                            (exprs ρ)).
+                 { apply Forall_map. unfold compose;simpl.
+                   eapply Forall_impl with (P := fun v => val_ok (snd v)).
+                   { intros a ?;destruct a;cbv;eauto with hints. }
+                   assumption. }
+                 assert (env_ok (ρ # [n1 ~> vClos ρ n0 (cmFix n1) t0 t1 e0]
+                                   # [n0 ~> v0]))
+                   by (constructor;cbv;eauto with hints).
+                 rewrite subst_term_subst_env_rec with (nm:=n1) in H8;
                    eauto.
-                 assert (env_ok (enRec n1 n0 e0 t0 t1 ρ # [n0 ~> v0])).
-                 { constructor; try constructor; assumption. }
+                 rewrite Ha' in H8.
+                 rewrite subst_term_subst_env_rec with (nm:=n0) in H8;eauto.
 
-                 eapply IHn with (ρ:=enRec n1 n0 e0 t0 t1 ρ # [n0 ~> v0]);eauto.
-                 rewrite <- subst_env_compose_1. rewrite <- subst_env_compose_2.
-                 simpl. simpl in Hce1.
-                 (* f_equal. simpl. f_equal. *)
+                 eapply IHn with (ρ:= ρ # [n1 ~> vClos ρ n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);eauto.
+                 rewrite <- subst_env_compose_1 by eauto with hints.
+                 rewrite <- subst_env_compose_2 by eauto with hints.
+                 reflexivity.
+                 (* we could do better here, bu [auto] does not simplify expresions, and
+                    [snd] gets on the way. Maybe we should chnage the definition of [ForallEnv]? *)
+                 apply subst_env_iclosed_n; unfold snd;eauto with hints.
+                 apply subst_env_iclosed_n; unfold snd;eauto with hints.
+                 eauto with hints.
+
+                 exfalso;now eapply expr_to_term_not_ind.
+                 exfalso;now eapply from_vConstr_not_lambda.
+            ****
 Admitted.
