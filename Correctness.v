@@ -451,19 +451,21 @@ Proof.
   induction l;constructor;auto.
 Qed.
 
-Lemma closed_exprs e n (ρ : env val) :
-  iclosed_n (n + #|exprs ρ|) e = true ->
+Lemma closed_exprs_iff e n (ρ : env val) :
+  iclosed_n (n + #|exprs ρ|) e = true <->
   iclosed_n (n + #|ρ|) e = true.
 Proof.
-  intros H. erewrite <- map_length. eauto.
+  split.
+  intros H. rewrite map_length in H. assumption.
+  intros H. rewrite map_length. assumption.
 Qed.
 
 Hint Constructors val_ok Forall : hints.
 
-Hint Resolve closed_exprs eval_val_ok from_value_closed : hints.
+Hint Resolve eval_val_ok from_value_closed : hints.
 
-Hint Resolve <- subst_env_iclosed_n : hints.
-Hint Resolve -> subst_env_iclosed_n : hints.
+Hint Resolve <- subst_env_iclosed_n closed_exprs_iff : hints.
+Hint Resolve -> subst_env_iclosed_n closed_exprs_iff : hints.
 
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok ρ ->
@@ -541,7 +543,8 @@ Proof.
       assert (Hneq : [T⟦ inst_env_i ρ e1_2 ⟧ Σ1] <> []) by easy.
       destruct_ex_named.
       (* apply Wcbv_app_inv in HT'. *)
-      destruct v0;destruct (expr_eval_general n false Σ1 ρ e1_2) eqn:He2;tryfalse.
+      destruct v0;
+        destruct (expr_eval_general n false Σ1 ρ e1_2) eqn:He2;tryfalse.
       * (* application evaluates to a constructor *)
         inversion_clear He.
         (* there are four possibilities for the application with Wcbv
@@ -592,13 +595,13 @@ Proof.
               { apply subst_env_iclosed_n; simpl;try rewrite map_length; eauto with hints. }
               rewrite subst_term_subst_env with (nm:=n0) in H5 by auto.
               eapply IHn;eauto. now apply subst_env_compose_1.
-              apply subst_env_iclosed_n;cbv;eauto with hints.
+              apply subst_env_iclosed_n;unfold snd;eauto with hints.
           *** exfalso;eapply fix_not_lambda;eauto.
           *** exfalso;now eapply expr_to_term_not_ind.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
         ** (* the closure corresponds to fix *)
-          simpl in *.
-          destruct (expr_eval_general n false Σ1 (((n1, vClos e n0 (cmFix n1) t0 t1 e0) :: ρ) # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
+          simpl in *. rename e into ρ'.
+          destruct (expr_eval_general n false Σ1 (((n1, vClos ρ' n0 (cmFix n1) t0 t1 e0) :: ρ') # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
           inversion He;subst.
           inversion HT';subst.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
@@ -609,14 +612,15 @@ Proof.
             apply inst_env_eFix_eq_inv in HH.
             destruct HH.
             **** destruct_ex_named. subst. destruct n;tryfalse. simpl in He1.
-                 inversion He1. subst. clear He1. rename e into ρ.
-                 simpl in H. inversion H. subst.
-                 clear H. inversion H1. subst. clear H1.
+                 inversion He1. subst. clear He1.
+                 simpl in H.
+                 inversion H. subst. clear H.
+                 inversion H1. subst. clear H1.
                  rewrite type_to_term_subst in H5. inversion H2. subst. clear H2.
                  inversion H6. subst. clear H6.
                  specialize (IHn _ _ _ _ _ Hρ_ok H1 He2 eq_refl Hce2) as IH.
                  subst.
-                 (* Now we have lambda applied to the translation of an argument, so we do inversion
+                 (* Now we have lambda applied to the translation of the argument, so we do inversion
                     on this application *)
                  inversion H5. subst. clear H5.
                  simpl in H8.
@@ -625,24 +629,24 @@ Proof.
                    (tFix
                       [{| dname := nNamed n1;
                           dtype := tProd nAnon (type_to_term t0) (type_to_term t1);
-                          dbody := tLambda (nNamed n0) (type_to_term t0) (T⟦ e0 .[ exprs ρ] 2 ⟧ Σ1);
+                          dbody := tLambda (nNamed n0) (type_to_term t0) (T⟦ e0 .[ exprs ρ'] 2 ⟧ Σ1);
                           rarg := 0 |}] 0) as tfix.
-                 assert (tfix = T⟦ eFix n1 n0 t0 t1 (e0.[ exprs ρ] 2) ⟧ Σ1)
+                 assert (tfix = T⟦ eFix n1 n0 t0 t1 (e0.[ exprs ρ'] 2) ⟧ Σ1)
                    by assumption.
 
-                 change (eFix n1 n0 t0 t1 (e0 .[ exprs ρ] 2)) with
-                        (from_val_i (vClos ρ n0 (cmFix n1) t0 t1 e0)) in H.
+                 change (eFix n1 n0 t0 t1 (e0 .[ exprs ρ'] 2)) with
+                        (from_val_i (vClos ρ' n0 (cmFix n1) t0 t1 e0)) in H.
                  rewrite H in H8.
                  assert (Ha' : a' = T⟦ from_val_i v0 ⟧ Σ1).
                  { admit. (*from H1 and H7 *) }
                  assert (val_ok v0) by eauto with hints.
                  assert (Hexprs : ForallEnv (fun e => iclosed_n 0 e = true)
-                                            (exprs ρ)).
+                                            (exprs ρ')).
                  { apply Forall_map. unfold compose;simpl.
                    eapply Forall_impl with (P := fun v => val_ok (snd v)).
                    { intros a ?;destruct a;cbv;eauto with hints. }
                    assumption. }
-                 assert (env_ok (ρ # [n1 ~> vClos ρ n0 (cmFix n1) t0 t1 e0]
+                 assert (env_ok (ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0]
                                    # [n0 ~> v0]))
                    by (constructor;cbv;eauto with hints).
                  rewrite subst_term_subst_env_rec with (nm:=n1) in H8;
@@ -650,11 +654,11 @@ Proof.
                  rewrite Ha' in H8.
                  rewrite subst_term_subst_env_rec with (nm:=n0) in H8;eauto.
 
-                 eapply IHn with (ρ:= ρ # [n1 ~> vClos ρ n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);eauto.
+                 eapply IHn with (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);eauto.
                  rewrite <- subst_env_compose_1 by eauto with hints.
                  rewrite <- subst_env_compose_2 by eauto with hints.
                  reflexivity.
-                 (* we could do better here, bu [auto] does not simplify expresions, and
+                 (* we could do better here, by [auto] does not simplify expresions, and
                     [snd] gets on the way. Maybe we should chnage the definition of [ForallEnv]? *)
                  apply subst_env_iclosed_n; unfold snd;eauto with hints.
                  apply subst_env_iclosed_n; unfold snd;eauto with hints.
@@ -663,4 +667,76 @@ Proof.
                  exfalso;now eapply expr_to_term_not_ind.
                  exfalso;now eapply from_vConstr_not_lambda.
             ****
+              (* TODO: we have a huge code duplication here, the previous
+                 case is pretty much the same *)
+              destruct_ex_named. destruct H0. subst. destruct n;tryfalse. simpl in He1.
+                 apply option_to_res_ok in He1.
+                 assert (Hclos_ok : val_ok (vClos ρ' n0 (cmFix n1) t0 t1 e0))
+                   by (eapply Forall_lookup_i;eauto).
+                 assert (env_ok ρ') by now inversion Hclos_ok.
+                 apply lookup_i_form_val_env in He1. simpl in He1.
+                 rewrite H4 in He1.
+                 inversion He1. subst. clear He1.
+                 unfold subst_env_i in H. simpl in H.
+                 replace (n2-0) with n2 in * by lia.
+                 rewrite H4 in H. simpl in H.
+                 inversion H. subst. clear H.
+                 inversion H1. subst. clear H1.
+                 rewrite type_to_term_subst in H5. inversion H2. subst. clear H2.
+                 specialize (IHn _ _ _ _ _ Hρ_ok H6 He2 eq_refl Hce2) as IH.
+                 subst.
+                 (* Now we have lambda applied to the translation of the argument, so we do inversion
+                    on this application *)
+                 inversion H5. subst. clear H5.
+                 inversion H7. subst. clear H7.
+                 remember
+                   (tFix
+                      [{| dname := nNamed n1;
+                          dtype := tProd nAnon (type_to_term t0) (type_to_term t1);
+                          dbody := tLambda (nNamed n0) (type_to_term t0) (T⟦ e0 .[ exprs ρ'] 2 ⟧ Σ1);
+                          rarg := 0 |}] 0) as tfix.
+                 assert (H : tfix = T⟦ eFix n1 n0 t0 t1 (e0.[ exprs ρ'] 2) ⟧ Σ1)
+                   by assumption.
+
+                 change (eFix n1 n0 t0 t1 (e0 .[ exprs ρ'] 2)) with
+                        (from_val_i (vClos ρ' n0 (cmFix n1) t0 t1 e0)) in H.
+                 rewrite H in *. clear H. clear Heqtfix.
+                 assert (Ha' : a' = T⟦ from_val_i v0 ⟧ Σ1).
+                 { admit. (*from H1 and H9 *) }
+                 assert (val_ok v0) by eauto with hints.
+                 assert (Hexprs : ForallEnv (fun e => iclosed_n 0 e = true)
+                                            (exprs ρ')).
+                 { apply Forall_map. unfold compose;simpl.
+                   eapply Forall_impl with (P := fun v => val_ok (snd v)).
+                   { intros a ?;destruct a;cbv;eauto with hints. }
+                   assumption. }
+                 assert (env_ok (ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0]
+                                   # [n0 ~> v0]))
+                   by (constructor;cbv;eauto with hints).
+                 inversion H8. subst. clear H8.
+
+                 assert (Hce0 : iclosed_n 2 (e0 .[ exprs ρ'] 2) = true) by
+                     (inversion Hclos_ok;auto with hints).
+
+                 rewrite subst_term_subst_env_rec with (nm:=n1) in *
+                   by eauto with hints.
+                 rewrite subst_term_subst_env_rec with (nm:=n0) in *
+                   by eauto with hints.
+
+                 (* we could do better here, but [auto] does not simplify expresions, and
+                    [snd] gets on the way. Maybe we should chnage the definition of [ForallEnv]? *)
+                 eapply IHn with
+                 (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);
+                   try apply subst_env_iclosed_n; simpl;unfold snd;eauto with hints.
+                 rewrite <- subst_env_compose_1 by (unfold snd;eauto with hints).
+                 rewrite <- subst_env_compose_2 by eauto with hints.
+                 reflexivity.
+                 exfalso;now eapply expr_to_term_not_ind.
+                 exfalso;now eapply from_vConstr_not_lambda.
+          *** exfalso;now eapply expr_to_term_not_ind.
+          *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
+      * destruct c;tryfalse.
+      * destruct c;tryfalse.
+    + (* eConstr *)
+      inversion He. subst. clear He.
 Admitted.

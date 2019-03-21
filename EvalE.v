@@ -241,7 +241,7 @@ Module InterpreterEnvList.
         | Ok (vClos ρ' nm (cmFix fixname) ty1 ty2 b), Ok v =>
           let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
           let res := expr_eval_general n named Σ
-                                       (ρ # [fixname ~> v_fix] # [nm ~> v]) b in
+                                       (ρ' # [fixname ~> v_fix] # [nm ~> v]) b in
           match res with
           | Ok v' => Ok v'
           | err => err
