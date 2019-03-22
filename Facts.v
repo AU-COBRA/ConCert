@@ -203,7 +203,7 @@ Section Values.
   Import InterpreterEnvList.Equivalence.
 
   (** Correctness of the value-back-to-expression transformation *)
-  (* A a creterion of correctness we consider the property that
+  (* A creterion of correctness we consider the property that
      if we start with a value [v1], the output of [from_val v1] after evaluation,
      should give as some [v2] equivalent to [v1].
      Note that we cannot ask [v1] and [v2] to be equal,

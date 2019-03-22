@@ -78,7 +78,8 @@ Lemma lookup_i_notin {A} (ρ : env A) n :
 Proof.
   Admitted.
 
-Lemma Wcbv_from_value_value v Σ : WcbvEval.value (T⟦ from_val_i v⟧Σ).
+Lemma Wcbv_from_value_value v Σ :
+  val_ok v -> WcbvEval.value (T⟦ from_val_i v⟧Σ).
 Proof.
 Admitted.
 
@@ -401,7 +402,8 @@ Ltac destruct_one_ex_named' Hex :=
 
 Ltac destruct_ex_named := repeat (destruct_one_ex_named).
 
-(* Since [mkApps] a smart constructor, it should be semantically equivalent to ordinary [tApp] *)
+(* Since [mkApps] a smart constructor, it should be semantically
+   equivalent to the ordinary [tApp] *)
 Lemma mkApps_sound Σ Γ e l t :
   Σ ;;; Γ |- mkApps e l ⇓ t ->
   Σ ;;; Γ |- tApp e l ⇓ t.
@@ -467,6 +469,23 @@ Hint Resolve eval_val_ok from_value_closed : hints.
 Hint Resolve <- subst_env_iclosed_n closed_exprs_iff : hints.
 Hint Resolve -> subst_env_iclosed_n closed_exprs_iff : hints.
 
+Lemma mkApps_vars_to_apps:
+  forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : Ast.name) (l0 : list val)
+    (u : universe_instance) ci,
+    resolve_constr Σ1 i0 n1 = Some ci ->
+    mkApps (tConstruct (mkInd i0 0) (fst ci) []) (map (fun x => T⟦from_val_i x⟧ Σ1) l0) =
+    T⟦ vars_to_apps (eConstr i0 n1) (map from_val_i l0) ⟧ Σ1.
+Proof.
+  intros Σ1 i0 n1 l0 u ci Hci.
+  induction l0 using rev_ind.
+  + simpl. rewrite Hci. reflexivity.
+  + repeat rewrite map_app. simpl. rewrite vars_to_apps_unfold.
+    change (mkApps (tConstruct {| inductive_mind := i0; inductive_ind := 0 |} (fst ci) [])
+                   (map (fun x0 : val => T⟦ from_val_i x0 ⟧ Σ1) l0 ++ [T⟦ from_val_i x ⟧ Σ1]) =
+            mkApps (T⟦vars_to_apps (eConstr i0 n1) (map from_val_i l0)⟧ Σ1) [T⟦from_val_i x⟧ Σ1]).
+    rewrite <- IHl0. rewrite mkApp_nested. reflexivity.
+Qed.
+
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
@@ -492,10 +511,11 @@ Proof.
       * destruct (inst_env_i_in _ _ Hlt) as [v2 HH].
         destruct HH as [H1 H2].
         assert (v = v2) by congruence. subst.
+        assert (val_ok v2) by (eapply Forall_lookup_i;eauto).
         rewrite H2 in HT.
         symmetry.
         eapply Wcbv_eval_value_determ;
-        [apply Wcbv_from_value_value | eassumption ].
+        [apply Wcbv_from_value_value;assumption | eassumption ].
       * specialize (lookup_i_notin _ _ Hge) as Hnone;tryfalse.
     + (* eVar *)
       (* This case is trivial because we only consider terms with de Bruijn indices *)
@@ -638,7 +658,8 @@ Proof.
                         (from_val_i (vClos ρ' n0 (cmFix n1) t0 t1 e0)) in H.
                  rewrite H in H8.
                  assert (Ha' : a' = T⟦ from_val_i v0 ⟧ Σ1).
-                 { admit. (*from H1 and H7 *) }
+                 { symmetry;eapply Wcbv_eval_value_determ;eauto.
+                   apply Wcbv_from_value_value;eauto with hints. }
                  assert (val_ok v0) by eauto with hints.
                  assert (Hexprs : ForallEnv (fun e => iclosed_n 0 e = true)
                                             (exprs ρ')).
@@ -653,7 +674,6 @@ Proof.
                    eauto.
                  rewrite Ha' in H8.
                  rewrite subst_term_subst_env_rec with (nm:=n0) in H8;eauto.
-
                  eapply IHn with (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);eauto.
                  rewrite <- subst_env_compose_1 by eauto with hints.
                  rewrite <- subst_env_compose_2 by eauto with hints.
@@ -702,7 +722,8 @@ Proof.
                         (from_val_i (vClos ρ' n0 (cmFix n1) t0 t1 e0)) in H.
                  rewrite H in *. clear H. clear Heqtfix.
                  assert (Ha' : a' = T⟦ from_val_i v0 ⟧ Σ1).
-                 { admit. (*from H1 and H9 *) }
+                 { symmetry;eapply Wcbv_eval_value_determ;eauto.
+                   apply Wcbv_from_value_value;eauto with hints. }
                  assert (val_ok v0) by eauto with hints.
                  assert (Hexprs : ForallEnv (fun e => iclosed_n 0 e = true)
                                             (exprs ρ')).
@@ -731,7 +752,7 @@ Proof.
                  rewrite <- subst_env_compose_1 by (unfold snd;eauto with hints).
                  rewrite <- subst_env_compose_2 by eauto with hints.
                  reflexivity.
-                 exfalso;now eapply expr_to_term_not_ind.
+                 exfalso;eapply expr_to_term_not_ind;easy.
                  exfalso;now eapply from_vConstr_not_lambda.
           *** exfalso;now eapply expr_to_term_not_ind.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
@@ -739,4 +760,29 @@ Proof.
       * destruct c;tryfalse.
     + (* eConstr *)
       inversion He. subst. clear He.
+      simpl in *.
+      destruct (resolve_constr Σ1 i n0);tryfalse;
+      inversion HT;eauto.
+    + (* eConst *)
+      (* The traslation does not support constants yet *)
+      inversion He.
+    + (* eCase *)
+      unfold expr_eval_i in He. destruct p.
+      simpl in He.
+      destruct (expr_eval_general n false Σ1 ρ e1) eqn:He1;tryfalse.
+      destruct v0;tryfalse.
+      destruct (resolve_constr Σ1 i0 n1) eqn:Hresolve;tryfalse.
+      destruct (string_dec i i0) eqn:Hi;tryfalse.
+      destruct (match_pat n1 l0 l) eqn:Hpat;tryfalse.
+      destruct p. subst. simpl in HT.
+      inversion HT. subst. clear HT.
+      simpl in Hc. apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 HH].
+      specialize (IHn _ _ _ _ _ Hρ_ok H5 He1 eq_refl Hce1) as IH.
+      simpl in IH.
+      rewrite map_map in H6. simpl in H6.
+      (* erewrite <- mkApps_vars_to_apps in IH;eauto. *)
+      admit.
+    + inversion He;subst;clear He.
+      simpl in *.
+      inversion HT.
 Admitted.

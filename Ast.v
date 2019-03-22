@@ -191,13 +191,14 @@ Fixpoint pat_to_lam (tys : list (name * type)) (body : term) : term :=
   end.
 
 (* Resolves a pattern by looking up in the global environment
-   and returns a list of pairs mapping pattern variable
-   names to the types of the constructor arguments *)
-Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) :=
-  (* FIXME: in lookup failed we return a dummy value [(0,("",[]))]
+   and returns an index of the consrutor in the list of contrutors for the given iductive and
+   a list of pairs mapping pattern variable names to the types of the constructor arguments *)
+Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat * list (name * type) :=
+  (* NOTE: in lookup failed we return a dummy value [(0,("",[]))]
      to make the function total *)
-  combine p.(pVars)
-  (snd (snd (from_option (resolve_constr Σ ind_name p.(pName)) (0,("",[]))))).
+  let o_ci := resolve_constr Σ ind_name p.(pName) in
+  let (i, nm_tys) := from_option o_ci (0,("",[])) in
+  (i, combine p.(pVars) (snd nm_tys)).
 
 Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   fix expr_to_term e :=
@@ -218,7 +219,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
        Patterns must be in the same order as constructors in the definition *)
     let (nm,i) := nm_i in
     let typeInfo := tLambda nAnon (tInd (mkInd nm 0) []) (type_to_term ty) in
-    let tys n := resolve_pat_arity Σ nm (fst n) in
+    let tys n := snd (resolve_pat_arity Σ nm (fst n)) in
     let branches :=
         List.map (fun x => (length (fst x).(pVars), pat_to_lam (tys x) (expr_to_term (snd x)))) bs in
     tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches

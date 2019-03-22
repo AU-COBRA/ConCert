@@ -225,7 +225,7 @@ Module InterpreterEnvList.
                     option_to_res (ρ # (nm)) (nm ++ " - var not found")
                   else EvalError (nm ++ " variable found, but named variables are not supported")
       | eLambda nm ty b =>
-        (* NOTE: we pass the same type as the codomain type here.
+        (* NOTE: we pass the same type as the codomain type here (because it's not needed for lambda).
            Maybe separate costructors for lambda/fixpoint closures would be better? *)
         Ok (vClos ρ nm cmLam ty ty b)
       | eLetIn nm e1 ty e2 =>
@@ -256,14 +256,19 @@ Module InterpreterEnvList.
       | eConst nm => todo
       | eCase (ind,i) ty e bs =>
         match (expr_eval_general n named Σ ρ e) with
-        | Ok (vConstr ind' c vs) => if (string_dec ind ind') then
-                                      match (match_pat c vs bs) with
-                                      | Some (var_assign, v) =>
-                                        expr_eval_general n named Σ (List.app var_assign ρ) v
-                                      | None => EvalError "No such constructor"
-                                      end
-                                    else EvalError ("Expecting inductive " ++ ind ++
-                                                     " but found " ++ ind')
+        | Ok (vConstr ind' c vs) =>
+          match resolve_constr Σ ind' c with
+            | Some _ => if (string_dec ind ind') then
+                         match (match_pat c vs bs) with
+                         | Some (var_assign, v) =>
+                           expr_eval_general n named Σ (List.app var_assign ρ) v
+                         | None => EvalError "No such constructor"
+                         end
+                       else EvalError ("Expecting inductive " ++ ind ++
+                                                              " but found " ++ ind')
+            | None => EvalError "No constructor or inductive found in the global envirionment"
+          end
+        | Ok _ => EvalError "Discriminee should evaluate to constructor"
         | v => v
         end
       | eFix fixname vn ty1 ty2 b as e =>

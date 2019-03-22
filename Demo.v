@@ -256,3 +256,30 @@ Proof.
   eexists. split. compute. reflexivity.
   compute. reflexivity.
 Qed.
+
+Inductive mybool :=
+| mfalse
+| mtrue.
+
+Definition stupid_case (b : mybool) : nat :=
+  match b with
+  | mtrue => 1
+  | mfalse => 0
+  end.
+
+Definition stupid_case' (b : mybool * mybool) : nat :=
+  match b with
+  | (mtrue, _) => 1
+  | (mfalse, _) => 0
+  end.
+
+
+Definition is_zero (n : nat) :=
+  match n with
+  | S n => mfalse
+  | O => mtrue
+  end.
+
+Quote Definition q_stupid_case := Eval compute in stupid_case.
+(* Nested patters are transformed into the nested "case" expressions *)
+Quote Definition q_stupid_case' := Eval compute in stupid_case'.
