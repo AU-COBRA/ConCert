@@ -1,2 +1,2 @@
 From RecordUpdate Require Export RecordSet.
-Export ApplicativeNotations.
+Export RecordSetNotations.

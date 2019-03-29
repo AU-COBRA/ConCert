@@ -1,8 +1,11 @@
 -R src SmartContracts
+src/Automation.v
 src/Blockchain.v
+src/BoundedN.v
 src/Congress.v
 src/Containers.v
 src/Extras.v
+src/Finite.v
 src/LocalBlockchain.v
 src/LocalBlockchainTests.v
 src/Monads.v

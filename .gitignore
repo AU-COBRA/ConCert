@@ -3,5 +3,6 @@
 .*.aux
 *.v.d
 .coqdeps.d
+*.cache
 CoqMakefile
 CoqMakefile.conf

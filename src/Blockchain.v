@@ -1,29 +1,60 @@
+From Coq Require Import Arith ZArith.
 From Coq Require Import List.
+From Coq Require Import Psatz.
+From Coq Require Import Permutation.
+From Coq Require Import Morphisms.
+From Coq Require Import Setoid.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Extras.
+From SmartContracts Require Import Automation.
+From RecordUpdate Require Import RecordUpdate.
+From stdpp Require countable.
 
-Definition Address := nat.
+Import ListNotations.
+
+Definition Version := nat.
+
+Definition Amount := Z.
+
+Bind Scope Z_scope with Amount.
+
+Class ChainBaseTypes :=
+  build_chain_base_types {
+    Address : Type;
+    address_eqb : Address -> Address -> bool;
+    address_eqb_spec : forall (a b : Address), Bool.reflect (a = b) (address_eqb a b);
+    address_eqdec :> stdpp.base.EqDecision Address;
+    address_countable :> countable.Countable Address;
+    address_ote :> OakTypeEquivalence Address;
+    compute_block_reward : nat -> Amount;
+  }.
+
+Global Opaque Address address_eqb address_eqb_spec
+       address_eqdec address_countable
+       address_ote
+       compute_block_reward.
+
 Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
+Infix "=?" := address_eqb (at level 70) : address_scope.
 
-Module Address.
-  Definition eqb := Nat.eqb.
-End Address.
+Global Ltac destruct_address_eq :=
+  repeat
+    match goal with
+    | [|- context[(?a =? ?b)%address]] => destruct (address_eqb_spec a b)
+    end.
 
-Infix "=?" := Address.eqb (at level 70) : address_scope.
-
-Definition Amount := nat.
-Definition BlockId := nat.
-Definition Version := nat.
+Section Blockchain.
+Context {BaseTypes : ChainBaseTypes}.
 
 Record ContractDeployment :=
   build_contract_deployment {
     deployment_version : Version;
     (* todo: model any type/constraints so we can have this. Right now the
-       problem is that Congress messages can contain _any_ oak value (for
-       the congress to send out), so there is no bijection from its message type
-       to oak type.
+problem is that Congress messages can contain _any_ oak value (for
+the congress to send out), so there is no bijection from its message type
+to oak type.
     deployment_msg_ty : OakType;
     deployment_state_ty : OakType; *)
     deployment_setup : OakValue;
@@ -44,79 +75,80 @@ Record Tx :=
 
 Record BlockHeader :=
   build_block_header {
-    block_number : BlockId;
+    block_height : nat;
+    slot_number : nat;
+    finalized_height : nat;
   }.
 
-Record Block :=
-  build_block {
-    block_header : BlockHeader;
-    block_txs : list Tx;
-  }.
-
-(* The ChainInterface is an interface that allows different implementations
-of chains. This represents the view of the blockchain that a contract
-can access and interact with. This does not contain all information of
-the chain (and it can't for positivity reasons).
-*)
-Record ChainInterface :=
-  build_chain_interface {
-    (* Would be nice to encapsulate ChainInterface somewhat here
-       and avoid these ugly prefixed names *)
-    ci_type : Type;
-    ci_chain_at : ci_type -> BlockId -> option ci_type;
-    (* Last finished block. During contract execution, this is the previous
-       block, i.e. this block does _not_ contain the transaction that caused
-       the contract to be called *)
-    ci_head_block : ci_type -> Block;
-    ci_incoming_txs : ci_type -> Address -> list Tx;
-    ci_outgoing_txs :  ci_type -> Address -> list Tx;
-    ci_contract_state : ci_type -> Address -> option OakValue;
-  }.
-
-(* An actual chain interface together with a value of the chain.
-For example, one obvious chain implementation could be as a list
-of blocks and some operations on such a list. Then, the value is
-simply the list of blocks.
-This avoids having to either
-1. Import an actual instance of ChainInterface when taking a chain, or
-2. Abstracting over any implementation of ChainInterface when taking
-a chain. *)
+(* This represents the view of the blockchain that a contract
+can access and interact with. *)
 Record Chain :=
   build_chain {
-    chain_ci : ChainInterface;
-    chain_val : chain_ci.(ci_type);
+    block_header : BlockHeader;
+    incoming_txs : Address -> list Tx;
+    outgoing_txs : Address -> list Tx;
+    blocks_baked : Address -> list nat;
+    contract_state : Address -> option OakValue;
   }.
 
-Section ChainAccessors.
-  Context (chain : Chain).
+Record ChainEquiv (c1 c2 : Chain) : Prop :=
+  build_chain_equiv {
+    header_eq : block_header c1 = block_header c2;
+    incoming_txs_eq : forall addr, incoming_txs c1 addr = incoming_txs c2 addr;
+    outgoing_txs_eq : forall addr, outgoing_txs c1 addr = outgoing_txs c2 addr;
+    blocks_baked_eq : forall addr, blocks_baked c1 addr = blocks_baked c2 addr;
+    contract_state_eq : forall addr, contract_state c1 addr = contract_state c2 addr;
+  }.
 
-  Let g {A : Type} (p : forall chain : ChainInterface, ci_type chain -> A)
-      := p chain.(chain_ci) chain.(chain_val).
+Global Program Instance chain_equiv_equivalence : Equivalence ChainEquiv.
+Next Obligation.
+  intros x; apply build_chain_equiv; reflexivity.
+Qed.
+Next Obligation.
+  intros x y eq.
+  destruct eq; apply build_chain_equiv; congruence.
+Qed.
+Next Obligation.
+  intros x y z eq_xy eq_yz.
+  destruct eq_xy, eq_yz; apply build_chain_equiv; congruence.
+Qed.
 
-  Definition chain_at (bid : BlockId) : option Chain :=
-    do x <- chain.(chain_ci).(ci_chain_at) chain.(chain_val) bid;
-      Some {| chain_val := x |}.
+Global Instance chain_equiv_header_proper :
+  Proper (ChainEquiv ==> eq) block_header.
+Proof. intros x y. apply header_eq. Qed.
+Global Instance chain_equiv_incoming_txs_proper :
+  Proper (ChainEquiv ==> eq ==> eq) incoming_txs.
+Proof. intros x y eq a b eq'; subst; apply incoming_txs_eq; assumption. Qed.
+Global Instance chain_equiv_outgoing_txs_proper :
+  Proper (ChainEquiv ==> eq ==> eq) outgoing_txs.
+Proof. intros x y eq a b eq'; subst; apply outgoing_txs_eq; assumption. Qed.
+Global Instance chain_equiv_blocks_backes_proper :
+  Proper (ChainEquiv ==> eq ==> eq) blocks_baked.
+Proof. intros x y eq a b eq'; subst; apply blocks_baked_eq; assumption. Qed.
+Global Instance chain_equiv_contract_state_proper :
+  Proper (ChainEquiv ==> eq ==> eq) contract_state.
+Proof. intros x y eq a b eq'; subst; apply contract_state_eq; assumption. Qed.
 
-  Definition head_block := g ci_head_block.
-  Definition incoming_txs := g ci_incoming_txs.
-  Definition outgoing_txs := g ci_outgoing_txs.
-  Definition contract_state := g ci_contract_state.
-  Definition account_balance (addr : Address) : Amount :=
-    let sum := fold_right Nat.add 0 in
-    let sum_amounts txs := sum (map tx_amount txs) in
-    sum_amounts (incoming_txs addr) - sum_amounts (outgoing_txs addr).
-  Definition contract_deployment (addr : Address) : option ContractDeployment :=
-    let to_dep tx := match tx.(tx_body) with
-                     | tx_deploy dep => Some dep
-                     | _ => None
-                     end in
-    find_first to_dep (incoming_txs addr).
-End ChainAccessors.
+Section Accessors.
+Local Open Scope Z.
 
-Inductive ContractCallContext :=
-  build_contract_call_ctx {
-    (* Chain *)
-    ctx_chain : Chain;
+Definition account_balance (chain : Chain) (addr : Address)
+  : Amount :=
+  let sum_amounts txs := sumZ tx_amount txs in
+  sum_amounts (incoming_txs chain addr) - sum_amounts (outgoing_txs chain addr) +
+  sumZ compute_block_reward (blocks_baked chain addr).
+
+Definition contract_deployment (chain : Chain) (addr : Address)
+  : option ContractDeployment :=
+  let to_dep tx := match tx.(tx_body) with
+                  | tx_deploy dep => Some dep
+                  | _ => None
+                  end in
+  find_first to_dep (incoming_txs chain addr).
+End Accessors.
+
+Record ContractCallContext :=
+  build_ctx {
     (* Address sending the funds *)
     ctx_from : Address;
     (* Address of the contract being called *)
@@ -125,12 +157,13 @@ Inductive ContractCallContext :=
     ctx_amount : Amount;
   }.
 
-(* Operations that a contract can return that allows it to perform
-different actions as a result of its execution. *)
-Inductive ChainAction :=
+(* Operations that a contract can return or that a user can use
+to interact with a chain. *)
+Inductive ActionBody :=
   | act_transfer (to : Address) (amount : Amount)
   | act_call (to : Address) (amount : Amount) (msg : OakValue)
   | act_deploy (amount : Amount) (c : WeakContract) (setup : OakValue)
+
 (* Since one operation is the possibility to deploy a new contract,
 this represents an instance of a contract. Note that the act of deploying
 a contract has to be a separate thing to the contract deployment a contract
@@ -145,75 +178,143 @@ where Address -> WeakContract would be some operation that the chain provides
 to allow access to contracts in deployments.
 *)
 with WeakContract :=
-     | build_weak_contract
-         (version : Version)
-         (init : ContractCallContext -> OakValue -> option OakValue)
-         (receive : ContractCallContext -> OakValue (* state *) ->
-                    option OakValue (* message *) ->
-                    option (OakValue * list ChainAction)).
+    | build_weak_contract
+        (version : Version)
+        (init : Chain ->
+             ContractCallContext ->
+             OakValue ->
+             option OakValue)
+        (init_proper :
+           Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
+        (receive :
+           Chain ->
+             ContractCallContext ->
+             OakValue (* state *) ->
+             option OakValue (* message *) ->
+             option (OakValue * list ActionBody))
+        (receive_proper :
+           Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
+
+Definition wc_version (wc : WeakContract) : Version :=
+  let (v, _, _, _, _) := wc in v.
+
+Definition wc_init (wc : WeakContract) :=
+  let (_, i, _, _, _) := wc in i.
+
+Definition wc_init_proper (wc : WeakContract) :=
+  match wc return
+        Proper (ChainEquiv ==> eq ==> eq ==> eq) (wc_init wc) with
+  | build_weak_contract _ _ ip _ _ => ip
+  end.
+
+Definition wc_receive (wc : WeakContract) :=
+  let (_, _, _, r, _) := wc in r.
+
+Definition wc_receive_proper (wc : WeakContract) :=
+  match wc return
+        Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) (wc_receive wc) with
+  | build_weak_contract _ _ _ _ rp => rp
+  end.
+
+Record Action :=
+  build_act {
+    act_from : Address;
+    act_body : ActionBody;
+  }.
 
 (* Represents a strongly-typed contract. This is what user's will primarily
 use and interact with when they want deployment. We keep the weak contract
 only "internally" for blockchains, while any strongly-typed contract can
 be converted to and from *)
 Record Contract
-       (setup_ty msg_ty state_ty : Type)
-       `{OakTypeEquivalence setup_ty}
-       `{OakTypeEquivalence msg_ty}
-       `{OakTypeEquivalence state_ty} :=
+      (setup_ty msg_ty state_ty : Type)
+      `{setup_eq : OakTypeEquivalence setup_ty}
+      `{msg_eq : OakTypeEquivalence msg_ty}
+      `{state_eq : OakTypeEquivalence state_ty} :=
   build_contract {
     version : Version;
-    init : ContractCallContext -> setup_ty -> option state_ty;
+    init :
+      Chain ->
+      ContractCallContext ->
+      setup_ty ->
+      option state_ty;
+    init_proper :
+      Proper (ChainEquiv ==> eq ==> eq ==> eq) init;
     receive :
-      ContractCallContext -> state_ty ->
-      option msg_ty -> option (state_ty * list ChainAction);
+      Chain ->
+      ContractCallContext ->
+      state_ty ->
+      option msg_ty ->
+      option (state_ty * list ActionBody);
+    receive_proper :
+      Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive;
   }.
 
-Arguments version {_ _ _ _ _ _} contract : rename.
-Arguments init {_ _ _ _ _ _} contract ctx setup : rename.
-Arguments receive {_ _ _ _ _ _} contract ctx state msg : rename.
+Arguments version {_ _ _ _ _ _}.
+Arguments init {_ _ _ _ _ _}.
+Arguments receive {_ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _}.
 
-Definition contract_to_weak_contract
-           {setup_ty msg_ty state_ty : Type}
-           `{OakTypeEquivalence setup_ty}
-           `{OakTypeEquivalence msg_ty}
-           `{OakTypeEquivalence state_ty}
-           (c : Contract setup_ty msg_ty state_ty) : WeakContract :=
-  let weak_init ctx oak_setup :=
-      do setup <- deserialize oak_setup;
-      do state <- c.(init) ctx setup;
-      Some (serialize state) in
-  let weak_recv ctx oak_state oak_msg_opt :=
-      do state <- deserialize oak_state;
-      match oak_msg_opt with
-      | Some oak_msg =>
-        do msg <- deserialize oak_msg;
-        do '(new_state, acts) <- c.(receive) ctx state (Some msg);
-        Some (serialize new_state, acts)
-      | None =>
-        do '(new_state, acts) <- c.(receive)  ctx state None;
-        Some (serialize new_state, acts)
-      end in
-  build_weak_contract c.(version) weak_init weak_recv.
+Program Definition contract_to_weak_contract
+          {setup_ty msg_ty state_ty : Type}
+          `{setup_eq : OakTypeEquivalence setup_ty}
+          `{msg_eq : OakTypeEquivalence msg_ty}
+          `{state_eq : OakTypeEquivalence state_ty}
+          (c : Contract setup_ty msg_ty state_ty) : WeakContract :=
+      let weak_init chain ctx oak_setup :=
+          do setup <- deserialize oak_setup;
+          do state <- c.(init) chain ctx setup;
+          Some (serialize state) in
+      let weak_recv chain ctx oak_state oak_msg_opt :=
+          do state <- deserialize oak_state;
+          match oak_msg_opt with
+          | Some oak_msg =>
+            do msg <- deserialize oak_msg;
+            do '(new_state, acts) <- c.(receive) chain ctx state (Some msg);
+            Some (serialize new_state, acts)
+          | None =>
+            do '(new_state, acts) <- c.(receive) chain ctx state None;
+            Some (serialize new_state, acts)
+          end in
+      build_weak_contract c.(version) weak_init _ weak_recv _.
+Next Obligation.
+  intros.
+  intros c1 c2 eq_chains ctx1 ctx2 eq_ctx setup1 setup2 eq_setups.
+  subst ctx2 setup2.
+  subst weak_init.
+  simpl.
+  destruct (deserialize setup1); auto; simpl.
+  now rewrite init_proper.
+Qed.
+Next Obligation.
+  intros.
+  intros c1 c2 eq_chains ctx1 ctx2 eq_ctx state1 state2 eq_states msg1 msg2 eq_msgs.
+  subst ctx2 state2 msg2.
+  subst weak_recv.
+  simpl.
+  destruct (deserialize state1); auto; simpl.
+  destruct msg1.
+  + destruct (deserialize o); auto; simpl.
+    now rewrite receive_proper.
+  + now rewrite receive_proper.
+Qed.
 
 Coercion contract_to_weak_contract : Contract >-> WeakContract.
 
 (* Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
-           {setup_ty msg_ty state_ty : Type}
-           `{OakTypeEquivalence setup_ty}
-           `{OakTypeEquivalence msg_ty}
-           `{OakTypeEquivalence state_ty}
-           (amount : Amount)
-           (contract : Contract setup_ty msg_ty state_ty)
-           (setup : setup_ty)
-  : ChainAction :=
+          {setup_ty msg_ty state_ty : Type}
+          `{OakTypeEquivalence setup_ty}
+          `{OakTypeEquivalence msg_ty}
+          `{OakTypeEquivalence state_ty}
+          (amount : Amount)
+          (contract : Contract setup_ty msg_ty state_ty)
+          (setup : setup_ty) : ActionBody :=
   act_deploy amount contract (serialize setup).
 
 (* The contract interface is the main mechanism allowing a deployed
 contract to interact with another deployed contract. This hides
-the ugly details everything being OakValue away from contracts. *)
+the ugly details of everything being OakValue away from contracts. *)
 Record ContractInterface {setup_ty msg_ty state_ty : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
@@ -225,22 +326,21 @@ Record ContractInterface {setup_ty msg_ty state_ty : Type} :=
     (* Obtain the state at some point of time *)
     get_state : Chain -> option state_ty;
     (* Make an action transferring money to the contract without
-       a message *)
-    transfer : Amount -> ChainAction;
+      a message *)
+    transfer : Amount -> ActionBody;
     (* Make an action calling the contract *)
-    call : Amount -> msg_ty -> ChainAction;
+    call : Amount -> msg_ty -> ActionBody;
   }.
 
 Arguments ContractInterface _ _ _ : clear implicits.
-Arguments build_contract_interface {_ _ _}.
 
 Definition get_contract_interface
-           (chain : Chain)
-           (addr : Address)
-           (setup_ty msg_ty state_ty : Type)
-           `{OakTypeEquivalence setup_ty}
-           `{OakTypeEquivalence msg_ty}
-           `{OakTypeEquivalence state_ty}
+          (chain : Chain)
+          (addr : Address)
+          (setup_ty msg_ty state_ty : Type)
+          `{OakTypeEquivalence setup_ty}
+          `{OakTypeEquivalence msg_ty}
+          `{OakTypeEquivalence state_ty}
   : option (ContractInterface setup_ty msg_ty state_ty) :=
   do 'build_contract_deployment ver ov_setup <- contract_deployment chain addr;
   do setup <- deserialize ov_setup;
@@ -254,88 +354,354 @@ Definition get_contract_interface
           transfer := ifc_transfer;
           call := ifc_call; |}.
 
-(* TODO: Is there a more organic way of doing this than duplicating the
-structures? Maybe by abstracting over the details or something? This is
-super ugly.*)
-Inductive FullTxBody :=
-  | ftx_empty
-  | ftx_deploy (contract : WeakContract) (setup : OakValue)
-  | ftx_call (message : OakValue).
+End Blockchain.
 
-Record FullTx :=
-  build_ftx {
-    ftx_from : Address;
-    ftx_to : Address;
-    ftx_amount : Amount;
-    ftx_body : FullTxBody;
-    ftx_is_internal : bool;
+Section Semantics.
+Context {BaseTypes : ChainBaseTypes}.
+
+Instance chain_settable : Settable _ :=
+  settable! build_chain
+  < block_header;
+    incoming_txs;
+    outgoing_txs;
+    blocks_baked;
+    contract_state >.
+
+Definition add_tx_to_map (addr : Address) (tx : Tx) (map : Address -> list Tx)
+  : Address -> list Tx :=
+  fun a => if address_eqb a addr
+           then tx :: map a
+           else map a.
+
+Definition set_chain_contract_state
+           (addr : Address) (state : OakValue) (map : Address -> option OakValue)
+  : Address -> option OakValue :=
+  fun a => if address_eqb a addr
+           then Some state
+           else map a.
+
+Record Environment :=
+  build_env {
+    env_chain :> Chain;
+    env_contracts : Address -> option WeakContract;
   }.
 
-Definition full_tx_to_tx (ftx : FullTx) : Tx :=
-  let (from, to, amount, fbody, _) := ftx in
-  let body :=
-      match fbody with
-      | ftx_empty => tx_empty
-      | ftx_deploy (build_weak_contract ver _ _) setup =>
-        tx_deploy (build_contract_deployment ver setup)
-      | ftx_call msg => tx_call msg
-      end in
-  build_tx from to amount body.
-
-Coercion full_tx_to_tx : FullTx >-> Tx.
-
-(* A ChainBuilder represents the additional state, operations and specifications
-that a concrete implementation of a block chain needs to support. In contrast
-to Chain and ChainInterface, this contains the _full_ blockchain information.
-Thus, a ChainBuilder should be convertible into a Chain but not vice-versa.
-As an example, the builder needs to contain information about all contracts
-(including their receive functions) to be able to properly call into contracts
-when receiving messages. The ChainBuilder is what supports the actual
-"progression of time" induced by new blocks being added. Such a ChainBuilder is
-what contracts will reason over when proving interesting temporal properties
-of their behavior. *)
-(* TODO: Naming of this is kind of bad. It is somewhat descriptive, but not really.
-   Maybe something like ChainEnvironment or ChainContext could be better. *)
-Record ChainBuilderInterface :=
-  build_chain_builder_interface {
-    cbi_chain_interface :> ChainInterface;
-    cbi_type : Type;
-    cbi_chain : cbi_type -> cbi_chain_interface.(ci_type);
-    cbi_initial : cbi_type;
-    cbi_add_block : cbi_type -> (* cur *)
-                    Address (* coinbase *) ->
-                    list (Address * ChainAction) (* actions *) ->
-                    option cbi_type;
-    (* List of transactions that have been executed on the chain, in order.
-That is, the head of the list corresponds to actions in the very first block.
-This includes "internal" transactions (txs resulting from contract execution) *)
-    cbi_all_txs : cbi_type -> list FullTx;
+Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
+  build_env_equiv {
+    chain_equiv :> ChainEquiv e1 e2;
+    contracts_eq : forall a, env_contracts e1 a = env_contracts e2 a;
   }.
 
-Record ChainBuilder :=
-  build_chain_builder {
-    chain_builder_cbi : ChainBuilderInterface;
-    chain_builder_val : chain_builder_cbi.(cbi_type);
+Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.
+Next Obligation.
+  intros x; apply build_env_equiv; reflexivity.
+Qed.
+Next Obligation.
+  intros x y []; apply build_env_equiv; now symmetry.
+Qed.
+Next Obligation.
+  intros x y z [] []; apply build_env_equiv; try congruence.
+  apply (@transitivity Chain _ _ _ y _); auto.
+Qed.
+
+Instance environment_equiv_contracts_proper (addr : Address) :
+  Proper (EnvironmentEquiv ==> eq ==> eq) env_contracts.
+Proof. repeat intro; subst; apply contracts_eq; assumption. Qed.
+
+Instance env_settable : Settable _ :=
+  settable! build_env <env_chain; env_contracts>.
+
+Definition update_chain (upd : Chain -> Chain) (e : Environment)
+  : Environment :=
+  let chain := env_chain e in
+  let chain := upd chain in
+  e <|env_chain := chain|>.
+
+Definition add_tx (tx : Tx) :=
+  update_chain (fun c =>
+                  c <|incoming_txs ::= add_tx_to_map (tx_to tx) tx|>
+                    <|outgoing_txs ::= add_tx_to_map (tx_from tx) tx|>).
+
+Definition add_contract (addr : Address) (contract : WeakContract) (e : Environment)
+  : Environment :=
+  e <| env_contracts ::=
+    fun f a =>
+      if address_eqb a addr
+      then Some contract
+      else f a |>.
+
+Definition set_contract_state (addr : Address) (state : OakValue) :=
+  update_chain
+    (fun c => c <|contract_state ::= set_chain_contract_state addr state|>).
+
+Section Step.
+Local Open Scope Z.
+(* Next we define a single step. It specifies how an external action
+changes an environment and which external actions to execute after it. *)
+(* todo: handle deploy/call failures. We should still transfer gas and allow this
+to be recorded. *)
+Inductive ChainStep :
+  Environment -> Action -> Tx ->
+  Environment -> list Action -> Prop :=
+  | step_empty :
+      forall {pre : Environment}
+             {act : Action}
+             {tx : Tx}
+             {new_env : Environment}
+             (from to : Address)
+             (amount : Amount),
+        amount <= account_balance pre from ->
+        env_contracts pre to = None ->
+        act = build_act from (act_transfer to amount) ->
+        tx = build_tx from to amount tx_empty ->
+        EnvironmentEquiv new_env (add_tx tx pre) ->
+        ChainStep pre act tx new_env []
+  | step_deploy :
+      forall {pre : Environment}
+             {act : Action}
+             {tx : Tx}
+             {new_env : Environment}
+             (from to : Address)
+             (amount : Amount)
+             (wc : WeakContract)
+             (setup : OakValue)
+             (state : OakValue),
+      amount <= account_balance pre from ->
+      env_contracts pre to = None ->
+      incoming_txs pre to = [] ->
+      act = build_act from (act_deploy amount wc setup) ->
+      tx = build_tx from to amount (tx_deploy (build_contract_deployment (wc_version wc) setup)) ->
+      wc.(wc_init)
+           (add_tx tx pre)
+           (build_ctx from to amount)
+           setup = Some state ->
+      EnvironmentEquiv
+        new_env
+        (set_contract_state to state (add_contract to wc (add_tx tx pre))) ->
+      ChainStep pre act tx new_env []
+  | step_call_empty :
+      forall {pre : Environment}
+             {act : Action}
+             {tx : Tx}
+             {new_env : Environment}
+             {new_acts : list Action}
+             (from to : Address)
+             (amount : Amount)
+             (wc : WeakContract)
+             (prev_state : OakValue)
+             (new_state : OakValue)
+             (resp_acts : list ActionBody),
+      amount <= account_balance pre from ->
+      env_contracts pre to = Some wc ->
+      contract_state pre to = Some prev_state ->
+      act = build_act from (act_transfer to amount) ->
+      tx = build_tx from to amount tx_empty ->
+      wc.(wc_receive)
+           (add_tx tx pre)
+           (build_ctx from to amount)
+           prev_state
+           None = Some (new_state, resp_acts) ->
+      new_acts = map (build_act to) resp_acts ->
+      EnvironmentEquiv
+        new_env
+        (set_contract_state to new_state (add_tx tx pre)) ->
+      ChainStep pre act tx new_env new_acts
+  | step_call_msg :
+      forall {pre : Environment}
+             {act : Action}
+             {tx : Tx}
+             {new_env : Environment}
+             {new_acts : list Action}
+             (from to : Address)
+             (amount : Amount)
+             (wc : WeakContract)
+             (msg : OakValue)
+             (prev_state : OakValue)
+             (new_state : OakValue)
+             (resp_acts : list ActionBody),
+      amount <= account_balance pre from ->
+      env_contracts pre to = Some wc ->
+      contract_state pre to = Some prev_state ->
+      act = build_act from (act_call to amount msg) ->
+      tx = build_tx from to amount (tx_call msg) ->
+      wc.(wc_receive)
+           (add_tx tx pre)
+           (build_ctx from to amount)
+           prev_state
+           (Some msg) = Some (new_state, resp_acts) ->
+      new_acts = map (build_act to) resp_acts ->
+      EnvironmentEquiv
+        new_env
+        (set_contract_state to new_state (add_tx tx pre)) ->
+      ChainStep pre act tx new_env new_acts.
+
+Context {pre : Environment} {act : Action} {tx : Tx}
+        {post : Environment} {new_acts : list Action}
+        (step : ChainStep pre act tx post new_acts).
+
+Lemma account_balance_post (addr : Address) :
+  (account_balance post addr =
+  account_balance pre addr
+  + (if (addr =? tx_to tx)%address then tx_amount tx else 0)
+  - (if (addr =? tx_from tx)%address then tx_amount tx else 0)).
+Proof.
+  unfold account_balance.
+  destruct step;
+    match goal with
+    | [H: EnvironmentEquiv _ _ |- _] => rewrite (H : ChainEquiv _ _)
+    end;
+    simpl; unfold add_tx_to_map; destruct_address_eq; simpl; lia.
+Qed.
+
+Lemma account_balance_post_to :
+  tx_from tx <> tx_to tx ->
+  account_balance post (tx_to tx) =
+  account_balance pre (tx_to tx) + tx_amount tx.
+Proof.
+  rewrite account_balance_post.
+  destruct_address_eq; prove.
+Qed.
+
+Lemma account_balance_post_from :
+  tx_from tx <> tx_to tx ->
+  account_balance post (tx_from tx) =
+  account_balance pre (tx_from tx) - tx_amount tx.
+Proof.
+  rewrite account_balance_post.
+  destruct_address_eq; prove.
+Qed.
+
+Lemma account_balance_post_irrelevant (addr : Address) :
+  addr <> tx_from tx ->
+  addr <> tx_to tx ->
+  account_balance post addr = account_balance pre addr.
+Proof.
+  rewrite account_balance_post.
+  destruct_address_eq; prove.
+Qed.
+
+Lemma block_header_post_step : block_header post = block_header pre.
+Proof.
+  destruct step;
+    match goal with
+    | [H: EnvironmentEquiv _ _ |- _] => now rewrite (chain_equiv _ _ H)
+    end.
+Qed.
+End Step.
+
+(* A block trace is essentially just the reflexive transitive closure of the steps.
+It captures execution within a single block. *)
+Inductive BlockTrace :
+  Environment -> list Action ->
+  Environment -> list Action -> Prop :=
+  | btrace_refl : forall {acts} {env : Environment},
+      BlockTrace env acts env acts
+  | btrace_step : forall {pre post} act tx mid new_acts acts final,
+      ChainStep pre act tx mid new_acts ->
+      BlockTrace mid (new_acts ++ acts) post final ->
+      BlockTrace pre (act :: acts) post final.
+
+Section BlockTraceTheories.
+Context {pre : Environment} {acts : list Action}
+        {post : Environment} {post_acts : list Action}
+        (trace : BlockTrace pre acts post post_acts).
+
+Lemma block_header_post_steps : block_header post = block_header pre.
+Proof.
+  induction trace as [|? ? ? ? ? ? ? ? step prev_trace IH]; auto.
+  rewrite <- (block_header_post_step step).
+  auto.
+Qed.
+End BlockTraceTheories.
+
+Definition add_new_block
+          (header : BlockHeader)
+          (baker : Address)
+          (env : Environment) : Environment :=
+let chain := env_chain env in
+let chain :=
+    {| block_header := header;
+       incoming_txs := incoming_txs chain;
+       outgoing_txs := outgoing_txs chain;
+       contract_state := contract_state chain;
+       blocks_baked a :=
+         if address_eqb a baker
+         then block_height header :: blocks_baked chain a
+         else blocks_baked chain a; |} in
+env <|env_chain := chain|>.
+
+Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
+  block_height new = S (block_height old) /\
+  slot_number new > slot_number old /\
+  finalized_height new >= finalized_height old /\
+  finalized_height new < block_height new.
+
+Inductive ChainTrace : Environment -> Environment -> Prop :=
+  | ctrace_refl : forall (env : Environment),
+      ChainTrace env env
+  | ctrace_block :
+      forall (prev_start prev_end : Environment)
+             (header : BlockHeader)
+             (baker : Address)
+             (acts : list Action)
+             (block_start new_end : Environment),
+        ChainTrace prev_start prev_end ->
+        IsValidNextBlock header (block_header prev_end) ->
+        BlockTrace block_start acts new_end [] ->
+        (* todo: probably unnecessary as we should have *)
+        (* BlockTrace a acts b acts' -> EnvironmentEquiv a a' -> *)
+        (* BlockTrace a' acts b acts' *)
+        EnvironmentEquiv
+          block_start
+          (add_new_block header baker prev_end) ->
+        ChainTrace prev_start new_end.
+
+Section ChainTraceTheories.
+Context {pre post : Environment} (trace : ChainTrace pre post).
+
+Lemma block_height_post_trace :
+  block_height (block_header pre) <= block_height (block_header post).
+Proof.
+  induction trace as [| ? ? ? ? ? ? ? ? ? valid block_trace eq]; auto.
+  apply le_trans with (block_height (block_header prev_end)); auto.
+  rewrite (block_header_post_steps block_trace).
+  rewrite (chain_equiv _ _ eq).
+  unfold IsValidNextBlock in valid.
+  simpl.
+  lia.
+Qed.
+End ChainTraceTheories.
+End Semantics.
+
+Section Blockchain.
+Context {BaseTypes : ChainBaseTypes}.
+
+Class ChainBuilderType :=
+  build_builder {
+    builder_type : Type;
+
+    builder_initial : builder_type;
+
+    builder_env : builder_type -> Environment;
+
+    builder_add_block
+      (b : builder_type)
+      (baker : Address)
+      (actions : list Action)
+      (slot_number : nat)
+      (finalized_height : nat) :
+      option builder_type;
+
+    builder_trace (b : builder_type) :
+      ChainTrace (builder_env builder_initial) (builder_env b);
   }.
 
-Definition chain_builder_chain (cb : ChainBuilder) : Chain :=
-  let (cbi, val) := cb in
-  build_chain cbi (cbi.(cbi_chain) val).
+Global Coercion builder_type : ChainBuilderType >-> Sortclass.
+End Blockchain.
 
-Coercion chain_builder_chain : ChainBuilder >-> Chain.
-
-Definition initial_chain_builder (cbi : ChainBuilderInterface) : ChainBuilder :=
-  build_chain_builder cbi cbi.(cbi_initial).
-
-Definition add_block
-           (cur : ChainBuilder)
-           (coinbase : Address)
-           (actions : list (Address * ChainAction))
-           : option ChainBuilder :=
-  let (ifc, val) := cur in
-  let new_val := ifc.(cbi_add_block) val coinbase actions in
-  option_map (build_chain_builder ifc) new_val.
-
-Definition all_txs (cb : ChainBuilder) :=
-  let (ifc, val) := cb in
-  ifc.(cbi_all_txs) val.
+Arguments version {_ _ _ _ _ _ _}.
+Arguments init {_ _ _ _ _ _ _}.
+Arguments receive {_ _ _ _ _ _ _}.
+Arguments build_contract {_ _ _ _ _ _ _}.
+Arguments ContractInterface {_} _ _ _.
+Arguments build_contract_interface {_ _ _ _}.

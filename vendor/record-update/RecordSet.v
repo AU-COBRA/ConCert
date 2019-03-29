@@ -18,29 +18,27 @@ Definition applicative_ap {E}
            (f: Reader E (fun e => forall (a:A e), B e a)) :
   forall (x: Reader E A), Reader E (fun e => B e (x e))  :=
   fun x => fun e => f e (x e).
-Module ApplicativeNotations.
-  Delimit Scope settable_scope with settable.
-  Infix "<*>" := (applicative_ap) (at level 11, left associativity) : settable_scope.
-End ApplicativeNotations.
 
 (** Settable is a way of accessing a constructor for a record of type T. The
 syntactic form of this definition is important: it must be an eta-expanded
 version of T's constructor, written generically over the field accessors of T.
-The best way to do this for a record X := mkX { A; B; C} is [pure mkX <*> A <*>
-B <*> C]. *)
+The best way to do this for a record X := mkX { A; B; C} is
+[settable! mkX <A; B; C>]. *)
 Class Settable T := { mkT: Reader T (fun _ => T);
                       mkT_ok: forall x, mkT x = x }.
 Arguments mkT T mk : clear implicits, rename.
 
-Local Ltac mkSettable e :=
-  refine {| mkT := e |};
-  (match goal with
-   | |- forall x, _ = _ => solve [ destruct x; cbv; f_equal ]
-   end).
+Local Ltac solve_mkT_ok :=
+  match goal with
+  | |- forall x, _ = _ => solve [ destruct x; cbv; f_equal ]
+  end.
 
-(** mkSettable creates an instance of Settable from an expression like [pure mkX
-<*> A <*> B <*> C] *)
-Notation mkSettable e := (ltac:(mkSettable e)) (only parsing).
+(** settable! creates an instance of Settable from a constructor and list of
+fields. *)
+Notation "'settable!' mk < f1 ; .. ; fn >" :=
+  (Build_Settable
+     (applicative_ap .. (applicative_ap (constructor mk) f1) .. fn)
+     ltac:(solve_mkT_ok)) (at level 0, mk at level 10, f1, fn at level 9, only parsing).
 
 (** [setter] creates a setter based on an eta-expanded record constructor and a
 particular field projection proj *)
@@ -67,31 +65,41 @@ Local Ltac get_setter T proj :=
 (* Setter provides a way to change a field given by a projection function, along
 with correctness conditions that require the projected field and only the
 projected field is modified. *)
-Class Setter {R T} (proj: R -> T) :=
-  { set: (T -> T) -> R -> R;
-    set_get: forall v r, proj (set v r) = v (proj r);
-    set_eq: forall r, set (fun x => x) r = r; }.
-
+Class Setter {R T} (proj: R -> T) := set : (T -> T) -> R -> R.
 Arguments set {R T} proj {Setter}.
 
-Ltac SetInstance_t :=
+Class SetterWf {R T} (proj: R -> T) :=
+  { set_wf :> Setter proj;
+    set_get: forall v r, proj (set proj v r) = v (proj r);
+    set_eq: forall r, set proj (fun x => x) r = r; }.
+
+Arguments set_wf {R T} proj {SetterWf}.
+
+Local Ltac SetterInstance_t :=
   match goal with
-  | |- @Setter ?T _ ?A => unshelve eapply Build_Setter;
-                        [ get_setter T A |
-                          let r := fresh in
-                          intros ? r; destruct r |
-                          let r := fresh in
-                          intros r; destruct r ];
-                        intros; reflexivity
+  | |- @Setter ?T _ ?A => get_setter T A
   end.
 
-Hint Extern 1 (Setter _) => SetInstance_t : typeclass_instances.
+Local Ltac SetterWfInstance_t :=
+  match goal with
+  | |- @SetterWf ?T _ ?A =>
+    unshelve notypeclasses refine (Build_SetterWf _ _ _);
+    [ get_setter T A |
+      let r := fresh in
+      intros ? r; destruct r |
+      let r := fresh in
+      intros r; destruct r ];
+    intros; reflexivity
+  end.
+
+Hint Extern 1 (Setter _) => SetterInstance_t : typeclass_instances.
+Hint Extern 1 (SetterWf _) => SetterWfInstance_t : typeclass_instances.
 
 Module RecordSetNotations.
   Delimit Scope record_set with rs.
   Open Scope rs.
-  Notation "x [[ proj  :=  v ]]" := (set proj (constructor v) x)
+  Notation "x <| proj  :=  v |>" := (set proj (constructor v) x)
                                     (at level 12, left associativity) : record_set.
-  Notation "x [[ proj  ::=  f ]]" := (set proj f x)
+  Notation "x <| proj  ::=  f |>" := (set proj f x)
                                      (at level 12, f at next level, left associativity) : record_set.
 End RecordSetNotations.

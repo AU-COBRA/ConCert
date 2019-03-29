@@ -1,23 +1,34 @@
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Blockchain.
-From SmartContracts Require LocalBlockchain.
+From SmartContracts Require Import LocalBlockchain.
 From SmartContracts Require Import Congress.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Containers.
+From SmartContracts Require Import BoundedN.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.
 
 Section LocalBlockchainTests.
   (* Addresses *)
-  Definition congress_1 := 1.
-  Definition baker := 10.
-  Definition person_1 := 11.
-  Definition person_2 := 12.
-  Definition person_3 := 13.
+  Definition congress_1 : Address :=
+    BoundedN.of_Z_const AddrSize 1.
 
-  Definition chain1 :=
-    initial_chain_builder LocalBlockchain.lc_builder_interface.
+  Definition baker : Address :=
+    BoundedN.of_Z_const AddrSize 10.
+
+  Definition person_1 : Address :=
+    BoundedN.of_Z_const AddrSize 11.
+
+  Definition person_2 : Address :=
+    BoundedN.of_Z_const AddrSize 12.
+
+  Definition person_3 : Address :=
+    BoundedN.of_Z_const AddrSize 13.
+
+  Definition ChainBuilder := builder_type.
+
+  Definition chain1 : ChainBuilder := builder_initial.
 
   Definition unpack_option {A : Type} (a : option A) :=
     match a return match a with
@@ -28,16 +39,25 @@ Section LocalBlockchainTests.
     | None => tt
     end.
 
+  Local Coercion to_env (cb : ChainBuilder) : Environment :=
+    builder_env cb.
+
+  Compute (block_header chain1).
+
   (* Baker mines an empty block (and gets some coins) *)
   Definition chain2 : ChainBuilder :=
-    unpack_option (chain1.(add_block) baker []).
+    unpack_option (chain1.(builder_add_block) baker [] 2 0).
 
   Compute (account_balance chain2 person_1).
   Compute (account_balance chain2 baker).
 
   (* Baker transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
-    unpack_option (chain2.(add_block) baker [(baker, act_transfer person_1 10)]).
+    unpack_option (
+        chain2.(builder_add_block)
+                 baker
+                 [build_act baker (act_transfer person_1 10)]
+                 3 0).
 
   Compute (account_balance chain3 person_1).
   Compute (account_balance chain3 baker).
@@ -50,25 +70,43 @@ Section LocalBlockchainTests.
 
   Definition setup := Congress.build_setup setup_rules.
 
-  Definition deploy_congress : ChainAction :=
+  Definition deploy_congress : ActionBody :=
     create_deployment 5 Congress.contract setup.
 
   Definition chain4 : ChainBuilder :=
-    unpack_option (chain3.(add_block) baker [(person_1, deploy_congress)]).
+    unpack_option (
+        chain3.(builder_add_block)
+                 baker
+                 [build_act person_1 deploy_congress]
+                 4 0).
 
   Compute (contract_deployment chain4 congress_1).
   Compute (account_balance chain4 person_1).
   Compute (account_balance chain4 baker).
   Compute (account_balance chain4 congress_1).
 
-  Definition congress_ifc :=
-    unpack_option
-      (get_contract_interface chain4 congress_1 Congress.Setup Congress.Msg Congress.State).
+  Definition congress_ifc
+    : ContractInterface Congress.Setup Congress.Msg Congress.State :=
+    match get_contract_interface
+            chain4 congress_1
+            Congress.Setup Congress.Msg Congress.State with
+    | Some x => x
+    (* Using unpack_option here is extremely slow *)
+    | None =>
+      build_contract_interface
+        baker
+        0
+        setup
+        (fun c => None)
+        (fun a => deploy_congress)
+        (fun a m => deploy_congress)
+    end.
 
   Definition congress_state chain : Congress.State :=
     match congress_ifc.(get_state) chain with
     | Some s => s
-    | None => {| owner := 0;
+    (* And also here *)
+    | None => {| owner := baker;
                  state_rules := setup_rules;
                  proposals := FMap.empty;
                  next_proposal_id := 0;
@@ -84,9 +122,10 @@ Section LocalBlockchainTests.
 
   Definition chain5 : ChainBuilder :=
     unpack_option
-      (chain4.(add_block)
+      (chain4.(builder_add_block)
                 baker
-                [(person_1, add_person person_1); (person_1, add_person person_2)]).
+                [build_act person_1 (add_person person_1); build_act person_1 (add_person person_2)]
+                5 0).
 
   Compute (FMap.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
@@ -97,7 +136,11 @@ Section LocalBlockchainTests.
     congress_ifc.(call) 0 (create_proposal [cact_transfer person_3 3]).
 
   Definition chain6 : ChainBuilder :=
-    unpack_option (chain5.(add_block) baker [(person_1, create_proposal_call)]).
+    unpack_option (
+        chain5.(builder_add_block)
+                 baker
+                 [build_act person_1 create_proposal_call]
+                 6 0).
 
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
@@ -106,8 +149,11 @@ Section LocalBlockchainTests.
     congress_ifc.(call) 0 (vote_for_proposal 1).
 
   Definition chain7 : ChainBuilder :=
-    unpack_option
-      (chain6.(add_block) baker [(person_1, vote_proposal); (person_2, vote_proposal)]).
+    unpack_option (
+        chain6.(builder_add_block)
+                 baker
+                 [build_act person_1 vote_proposal; build_act person_2 vote_proposal]
+                 7 0).
 
   Compute (FMap.elements (congress_state chain7).(proposals)).
 
@@ -116,7 +162,11 @@ Section LocalBlockchainTests.
     congress_ifc.(call) 0 (finish_proposal 1).
 
   Definition chain8 : ChainBuilder :=
-    unpack_option (chain7.(add_block) baker [(person_3, finish_proposal)]).
+    unpack_option (
+        chain7.(builder_add_block)
+                 baker
+                 [build_act person_3 finish_proposal]
+                 8 0).
 
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)

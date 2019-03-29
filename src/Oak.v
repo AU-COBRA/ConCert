@@ -1,6 +1,8 @@
 From Coq Require Import ZArith.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
+From SmartContracts Require Import Automation.
+From SmartContracts Require Import BoundedN.
 From Coq Require Import List.
 
 Import ListNotations.
@@ -16,15 +18,20 @@ Inductive OakType :=
   | oak_set : OakType -> OakType
   | oak_map : OakType -> OakType -> OakType.
 
-Definition eq_oak_type_dec (t1 t2 : OakType) : {t1 = t2} + {t1 <> t2}.
-Proof. decide equality. Defined.
+Module OakType.
+  Scheme Equality for OakType.
+  Definition eqb := OakType_beq.
+  Definition eq_dec := OakType_eq_dec.
 
-Proposition eq_oak_type_dec_refl (x : OakType) :
-  eq_oak_type_dec x x = left eq_refl.
-Proof.
-  induction x;
-    try simpl; try rewrite IHx; try rewrite IHx1; try rewrite IHx2; reflexivity.
-Qed.
+  Fixpoint eqb_spec (a b : OakType) :
+    Bool.reflect (a = b) (eqb a b).
+  Proof.
+    destruct a, b; simpl in *; try (left; congruence); try (right; congruence).
+    1, 2, 5: destruct (eqb_spec a1 b1), (eqb_spec a2 b2);
+      try (left; congruence); try (right; congruence).
+    1, 2: destruct (eqb_spec a b); try (left; congruence); try (right; congruence).
+  Qed.
+End OakType.
 
 Set Primitive Projections.
 Record OakInterpretation :=
@@ -74,7 +81,7 @@ Record OakValue :=
 Definition extract_oak_value (t : OakType) (value : OakValue) : option (interp_type t).
 Proof.
   destruct value as [ty val].
-  destruct (eq_oak_type_dec t ty).
+  destruct (OakType.eq_dec t ty).
   - subst. exact (Some val).
   - exact None.
 Defined.
@@ -87,8 +94,6 @@ Class OakTypeEquivalence (ty : Type) :=
     deserialize : OakValue -> option ty;
     deserialize_serialize : forall (x : ty), deserialize (serialize x) = Some x;
   }.
-
-
 
 Global Opaque serialize deserialize deserialize_serialize.
 
@@ -124,10 +129,29 @@ Next Obligation.
   reflexivity.
 Qed.
 
+Program Instance oak_positive_equivalence : OakTypeEquivalence positive :=
+  {| serialize p := serialize (Zpos p);
+     deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
+Next Obligation. prove. Qed.
+
 Program Instance oak_value_equivalence : OakTypeEquivalence OakValue :=
   {| serialize v := v;
      deserialize v := Some v; |}.
 Solve Obligations with reflexivity.
+
+Program Instance BoundedN_equivalence {bound : N}
+  : OakTypeEquivalence (BoundedN bound) :=
+  {| serialize bn := serialize (countable.encode bn);
+    deserialize v :=
+      do p <- (deserialize v : option positive);
+      countable.decode p |}.
+Next Obligation.
+  intros bound x.
+  simpl.
+  rewrite deserialize_serialize.
+  simpl.
+  now rewrite countable.decode_encode.
+Qed.
 
 (* Program Instance generates an insane amount of obligations for sums,
    so we define it by ourselves. *)

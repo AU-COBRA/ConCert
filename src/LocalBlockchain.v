@@ -1,306 +1,441 @@
-From Coq Require Import ZArith.
+From Coq Require Import Arith ZArith.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import Extras.
+From SmartContracts Require Import Automation.
+From SmartContracts Require Import BoundedN.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
+From Coq Require Import Psatz.
+From stdpp Require countable.
 
 Import RecordSetNotations.
 Import ListNotations.
 
-Record ChainUpdate :=
-  build_chain_update {
-    (* Contracts that had their states updated and the new state *)
-    upd_contracts : FMap Address OakValue;
-    (* All transactions caused by update, including internal txs
-       (due to contract execution) *)
-    upd_txs : list Tx;
-  }.
+Section LocalBlockchain.
+Local Open Scope bool.
 
-Instance eta_chain_update : Settable _ :=
-  mkSettable
-    ((constructor build_chain_update) <*> upd_contracts
-                                      <*> upd_txs)%settable.
+Definition AddrSize : N := 2^128.
 
-(* Contains information about the chain that contracts should have access
-   to. This does not contain definitions of contracts, for instance. *)
+Global Instance LocalChainBaseTypes : ChainBaseTypes :=
+  {| Address := BoundedN AddrSize;
+     address_eqb := BoundedN.eqb;
+     address_eqb_spec := BoundedN.eqb_spec;
+     compute_block_reward n := 50%Z;
+  |}.
+
+Compute LocalChainBaseTypes.
+
 Record LocalChain :=
   build_local_chain {
-    (* List of blocks and updates. Generally such lists have the
-       same length, except during contract execution, where lc_updates
-       is one ahead of lc_blocks (to facilitate tracking state within
-       the block) *)
-    lc_blocks : list Block;
-    lc_updates : list ChainUpdate;
+    lc_header : BlockHeader;
+    lc_incoming_txs : FMap Address (list Tx);
+    lc_outgoing_txs : FMap Address (list Tx);
+    lc_contract_state : FMap Address OakValue;
+    lc_blocks_baked : FMap Address (list nat);
+    lc_contracts : FMap Address WeakContract;
   }.
 
-Instance eta_local_chain : Settable _ :=
-  mkSettable
-    ((constructor build_local_chain) <*> lc_blocks
-                                     <*> lc_updates)%settable.
+Instance local_chain_settable : Settable _ :=
+  settable! build_local_chain
+  < lc_header; lc_incoming_txs; lc_outgoing_txs;
+    lc_contract_state; lc_blocks_baked; lc_contracts >.
 
-(* Contains full information about a chain, including contracts *)
+Definition lc_to_env (lc : LocalChain) : Environment :=
+  {| env_chain :=
+        {| block_header := lc_header lc;
+          incoming_txs a := with_default [] (FMap.find a (lc_incoming_txs lc));
+          outgoing_txs a := with_default [] (FMap.find a (lc_outgoing_txs lc));
+          contract_state a := FMap.find a (lc_contract_state lc);
+          blocks_baked a := with_default [] (FMap.find a (lc_blocks_baked lc)); |};
+      env_contracts a := FMap.find a (lc_contracts lc); |}.
+
+Global Coercion lc_to_env : LocalChain >-> Environment.
+
+Section ExecuteActions.
+  Local Open Scope Z.
+
+  Definition add_tx (tx : Tx) (lc : LocalChain) : LocalChain :=
+    let add_tx opt := Some (cons tx (with_default [] opt)) in
+    let lc := lc<|lc_incoming_txs ::= FMap.partial_alter add_tx (tx_to tx) |> in
+    let lc := lc<|lc_outgoing_txs ::= FMap.partial_alter add_tx (tx_from tx) |> in
+    lc.
+
+  Arguments add_tx : simpl never.
+
+  Definition count_contract_deployments (lc : LocalChain) : nat :=
+    FMap.size (lc_contracts lc).
+
+  Definition add_contract
+             (addr : Address)
+             (wc : WeakContract)
+             (lc : LocalChain) : LocalChain :=
+    lc<|lc_contracts ::= FMap.add addr wc|>.
+
+  Definition set_contract_state
+             (addr : Address)
+             (state : OakValue)
+             (lc : LocalChain) : LocalChain :=
+    lc<|lc_contract_state ::= FMap.add addr state|>.
+
+  Definition send_or_call
+             (from to : Address)
+             (amount : Amount)
+             (msg : option OakValue)
+             (lc : LocalChain) : option (list Action * LocalChain) :=
+    do if amount >? account_balance lc from then None else Some tt;
+    match FMap.find to lc.(lc_contracts) with
+    | None =>
+      (* Fail if sending a message to address without contract *)
+      match msg with
+        | None => Some ([], add_tx (build_tx from to amount tx_empty) lc)
+        | Some msg => None
+      end
+    | Some wc =>
+      let tx_body :=
+          match msg with
+          | None => tx_empty
+          | Some msg => tx_call msg
+          end in
+      do state <- contract_state lc to;
+      let lc := add_tx (build_tx from to amount tx_body) lc in
+      let ctx := build_ctx from to amount in
+      do '(new_state, new_actions) <- wc_receive wc  lc ctx state msg;
+      let lc := set_contract_state to new_state lc in
+      Some (map (build_act to) new_actions, lc)
+    end.
+
+  Definition deploy_contract
+             (from : Address)
+             (amount : Amount)
+             (wc : WeakContract)
+             (setup : OakValue)
+             (lc : LocalChain)
+    : option (list Action * LocalChain) :=
+    do if amount >? account_balance lc from then None else Some tt;
+    let num := (1 + count_contract_deployments lc)%nat in
+    do contract_addr <- BoundedN.of_nat num;
+    do match incoming_txs lc contract_addr with
+       | _ :: _ => None
+       | [] => Some tt
+       end;
+    do match FMap.find contract_addr (lc_contracts lc) with
+       | Some _ => None
+       | None => Some tt
+       end;
+    let body := tx_deploy (build_contract_deployment (wc_version wc) setup) in
+    let lc := add_tx (build_tx from contract_addr amount body) lc in
+    let ctx := build_ctx from contract_addr amount in
+    do state <- wc_init wc lc ctx setup;
+    let lc := add_contract contract_addr wc lc in
+    let lc := set_contract_state contract_addr state lc in
+    Some ([], lc).
+
+  Local Open Scope nat.
+
+  Definition execute_action (act : Action) (lc : LocalChain) :
+    option (list Action * LocalChain) :=
+    match act with
+    | build_act from (act_transfer to amount) =>
+      send_or_call from to amount None lc
+    | build_act from (act_deploy amount wc setup) =>
+      deploy_contract from amount wc setup lc
+    | build_act from (act_call to amount msg) =>
+      send_or_call from to amount (Some msg) lc
+    end.
+
+  Fixpoint execute_steps (gas : nat) (stack : list Action) (lc : LocalChain)
+    : option LocalChain :=
+    match gas, stack with
+    | _, [] => Some lc
+    | 0, _ => None
+    | S gas, act :: acts =>
+      do '(next_acts, lc) <- execute_action act lc;
+      execute_steps gas (next_acts ++ acts) lc
+    end.
+
+  Ltac remember_tx :=
+    match goal with
+    | [H: context[add_tx ?a _] |- _] => remember a as tx
+    end.
+
+  Lemma add_tx_equiv tx (lc : LocalChain) (env : Environment) :
+    EnvironmentEquiv lc env ->
+    EnvironmentEquiv (add_tx tx lc) (Blockchain.add_tx tx env).
+  Proof.
+    intros eq.
+    apply build_env_equiv; simpl in *; try apply eq.
+    apply build_chain_equiv; simpl in *; try apply eq.
+    - intros addr.
+      unfold add_tx_to_map.
+      destruct (address_eqb_spec addr (tx_to tx)) as [eq_to|neq_to].
+      + subst; rewrite FMap.find_partial_alter; simpl.
+        f_equal; apply eq.
+      + rewrite (FMap.find_partial_alter_ne _ _ _ _ (not_eq_sym neq_to)).
+        apply eq.
+    - intros addr.
+      unfold add_tx_to_map.
+      destruct (address_eqb_spec addr (tx_from tx)) as [eq_from|neq_from].
+      + subst; rewrite FMap.find_partial_alter; simpl.
+        f_equal; apply eq.
+      + rewrite (FMap.find_partial_alter_ne _ _ _ _ (not_eq_sym neq_from)).
+        apply eq.
+  Qed.
+
+  Lemma set_contract_state_equiv addr state (lc : LocalChain) (env : Environment) :
+    EnvironmentEquiv lc env ->
+    EnvironmentEquiv
+      (set_contract_state addr state lc)
+      (Blockchain.set_contract_state addr state env).
+  Proof.
+    intros eq.
+    apply build_env_equiv; simpl in *; try apply eq.
+    apply build_chain_equiv; simpl in *; try apply eq.
+    intros addr'.
+    unfold set_chain_contract_state.
+    destruct (address_eqb_spec addr' addr) as [eq_addrs|neq_addrs].
+    - subst; now rewrite FMap.find_add.
+    - rewrite FMap.find_add_ne; [apply eq|auto].
+  Qed.
+
+  Lemma add_contract_equiv addr wc (lc : LocalChain) (env : Environment) :
+    EnvironmentEquiv lc env ->
+    EnvironmentEquiv
+      (add_contract addr wc lc)
+      (Blockchain.add_contract addr wc env).
+  Proof.
+    intros eq.
+    apply build_env_equiv; simpl in *; try apply eq.
+    intros addr'.
+    destruct (address_eqb_spec addr' addr) as [eq_addrs|neq_addrs].
+    - subst; now rewrite FMap.find_add.
+    - rewrite FMap.find_add_ne; [apply eq|auto].
+  Qed.
+
+  Lemma send_or_call_step from to amount msg act lc_before new_acts lc_after :
+    send_or_call from to amount msg lc_before = Some (new_acts, lc_after) ->
+    act = build_act from (match msg with
+                          | None => act_transfer to amount
+                          | Some msg => act_call to amount msg
+                          end) ->
+    exists tx, ChainStep lc_before act tx lc_after new_acts.
+  Proof.
+    intros sent act_eq.
+    unfold send_or_call in sent.
+    destruct (Z.gtb_spec amount (account_balance lc_before from)); [simpl in *; congruence|].
+    destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
+    - (* there is a contract at destination, so do call *)
+      remember_tx.
+      exists tx.
+      destruct (contract_state _ _) as [prev_state|] eqn:prev_state_eq;
+        cbn in *; try congruence.
+      destruct (wc_receive _ _ _ _ _) eqn:receive; cbn in *; try congruence.
+      match goal with
+      | [p: OakValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
+      end.
+      (* We record the steps different depending on whether this *)
+      (* is a call with a message or without a message *)
+      destruct msg as [msg|].
+      1: apply (step_call_msg from to amount wc msg prev_state new_state resp_acts);
+        try solve [simpl in *; congruence].
+      3: apply (step_call_empty from to amount wc prev_state new_state resp_acts);
+        try solve [simpl in *; congruence].
+      1, 3:
+        rewrite <- receive; unfold constructor;
+        apply wc_receive_proper; auto;
+          symmetry; now apply add_tx_equiv.
+      1, 2:
+        inversion sent; subst;
+        now apply set_contract_state_equiv, add_tx_equiv.
+    - (* no contract at destination, so msg should be empty *)
+      destruct msg; simpl in *; try congruence.
+      assert (new_acts = []) by congruence; subst new_acts.
+      remember_tx.
+      exists tx.
+      apply (step_empty from to amount); auto.
+      inversion sent; subst; now apply add_tx_equiv.
+  Qed.
+
+  Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
+    deploy_contract from amount wc setup lc_before = Some (new_acts, lc_after) ->
+    act = build_act from (act_deploy amount wc setup) ->
+    exists tx, ChainStep lc_before act tx lc_after new_acts.
+  Proof.
+    intros dep act_eq.
+    unfold deploy_contract in dep.
+    destruct (Z.gtb_spec amount (account_balance lc_before from)); [cbn in *; congruence|].
+    destruct (BoundedN.of_nat _) as [contract_addr|]; [|cbn in *; congruence].
+    change (BoundedN AddrSize) with Address in *.
+    cbn -[incoming_txs] in dep.
+    remember_tx.
+    destruct (incoming_txs _ _) eqn:no_txs; [|cbn in *; congruence].
+    destruct (FMap.find _ _) eqn:no_contracts; [cbn in *; congruence|].
+    destruct (wc_init _ _ _ _) as [state|] eqn:recv; [|cbn in *; congruence].
+    cbn in dep.
+    exists tx.
+    assert (new_acts = []) by congruence; subst new_acts.
+    apply (step_deploy from contract_addr amount wc setup state);
+      try solve [cbn in *; congruence].
+    - rewrite <- recv.
+      apply wc_init_proper; auto.
+      now symmetry; apply add_tx_equiv.
+    - inversion dep; subst lc_after.
+      now apply set_contract_state_equiv, add_contract_equiv, add_tx_equiv.
+  Qed.
+
+  Lemma execute_action_step
+        (act : Action)
+        (new_acts : list Action)
+        (lc_before : LocalChain)
+        (lc_after : LocalChain) :
+    execute_action act lc_before = Some (new_acts, lc_after) ->
+    exists tx, ChainStep lc_before act tx lc_after new_acts.
+  Proof.
+    intros exec.
+    unfold execute_action in exec.
+    destruct act as [from body].
+    Hint Resolve send_or_call_step.
+    Hint Resolve deploy_contract_step.
+    destruct body as [to amount|to amount msg|amount wc setup]; eauto.
+  Qed.
+
+  Lemma execute_steps_trace gas acts lc lc_after :
+    execute_steps gas acts lc = Some lc_after ->
+    BlockTrace lc acts lc_after [].
+  Proof.
+    revert acts lc lc_after.
+    induction gas as [|gas IH]; intros acts lc lc_after exec.
+    - unfold execute_steps in exec.
+      destruct acts as [|x xs]; [|congruence].
+      Hint Constructors BlockTrace.
+      replace lc_after with lc by congruence; auto.
+    - destruct acts as [|x xs]; simpl in *.
+      + replace lc_after with lc by congruence; auto.
+      + destruct (execute_action x lc) as [[acts lc_after_act]|] eqn:exec_once;
+          simpl in *; [|congruence].
+        specialize (IH _ _ _ exec); clear exec.
+        destruct (execute_action_step _ _ _ _ exec_once) as [tx step]; clear exec_once.
+        eauto.
+  Qed.
+End ExecuteActions.
+
+Definition lc_initial : LocalChain :=
+  {| lc_header :=
+       {| block_height := 1;
+          slot_number := 1;
+          finalized_height := 0; |};
+     lc_incoming_txs := FMap.empty;
+     lc_outgoing_txs := FMap.empty;
+     lc_contract_state := FMap.empty;
+     (* zero address has mined two blocks *)
+     lc_blocks_baked := FMap.add (BoundedN.of_Z_const AddrSize 0) [0; 1] FMap.empty;
+     lc_contracts := FMap.empty; |}.
+
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_ftxs : list (BlockId * FullTx);
+    lcb_trace : ChainTrace lc_initial lcb_lc;
   }.
 
-Instance eta_local_chain_builder : Settable _ :=
-  mkSettable
-    ((constructor build_local_chain_builder) <*> lcb_lc
-                                             <*> lcb_ftxs)%settable.
+Definition lcb_initial : LocalChainBuilder :=
+  {| lcb_lc := lc_initial;
+     lcb_trace := ctrace_refl _ |}.
 
-Definition genesis_block : Block :=
-  {| block_header := {| block_number := 0; |};
-     block_txs := [] |}.
+Definition validate_header (new old : BlockHeader) : option unit :=
+  let (prev_block_height, prev_slot_number, prev_finalized_height) := old in
+  let (block_height, slot_number, finalized_height) := new in
+  if (block_height =? S prev_block_height)
+       && (prev_slot_number <? slot_number)
+       && (finalized_height <=? prev_block_height)
+       && (prev_finalized_height <=? finalized_height)
+  then Some tt
+  else None.
 
-Definition initial_chain_builder : LocalChainBuilder :=
-  {| lcb_lc := {| lc_blocks := [genesis_block];
-                  lc_updates :=
-                    [{| upd_contracts := FMap.empty;
-                        upd_txs := [] |}] |};
-     lcb_ftxs := [];
-  |}.
+Lemma validate_header_valid (new old : BlockHeader) :
+  validate_header new old = Some tt ->
+  IsValidNextBlock new old.
+Proof.
+  intros valid.
+  destruct new as [block_height slot_number fin_height];
+  destruct old as [prev_block_height prev_slot_number prev_fin_height].
+  unfold IsValidNextBlock.
+  simpl in *.
+  repeat
+    match goal with
+    | [H: context[Nat.eqb ?a ?b] |- _] => destruct (Nat.eqb_spec a b)
+    | [H: context[Nat.ltb ?a ?b] |- _] => destruct (Nat.ltb_spec a b)
+    | [H: context[Nat.leb ?a ?b] |- _] => destruct (Nat.leb_spec a b)
+    end; simpl in *; intuition.
+Qed.
 
-Definition lc_chain_at (lc : LocalChain) (bid : BlockId) : option LocalChain :=
-  let is_old '(b, u) := b.(block_header).(block_number) <=? bid in
-  let zipped := rev (combine (rev lc.(lc_blocks)) (rev lc.(lc_updates))) in
-  let zipped_at := filter is_old zipped in
-  let '(at_blocks, at_updates) := split zipped_at in
-  match at_blocks with
-  | hd :: _ => if hd.(block_header).(block_number) =? bid
-                then Some {| lc_blocks := at_blocks; lc_updates := at_updates; |}
-                else None
-  | [] => None
-  end.
-
-Definition lc_block_at (lc : LocalChain) (bid : BlockId) : option Block :=
-  let blocks := lc.(lc_blocks) in
-  find (fun b => b.(block_header).(block_number) =? bid) blocks.
-
-Definition lc_head_block (lc : LocalChain) : Block :=
-  match lc.(lc_blocks) with
-  | hd :: _ => hd
-  | [] => genesis_block
-  end.
-
-Definition lc_incoming_txs (lc : LocalChain) (addr : Address) : list Tx :=
-  let all_txs := flat_map (fun u => u.(upd_txs)) lc.(lc_updates) in
-  let is_inc tx := (tx.(tx_to) =? addr)%address in
-  filter is_inc all_txs.
-
-Definition lc_outgoing_txs (lc : LocalChain) (addr : Address) : list Tx :=
-  let all_txs := flat_map (fun u => u.(upd_txs)) lc.(lc_updates) in
-  let is_out tx := (tx.(tx_from) =? addr)%address in
-  filter is_out all_txs.
-
-Definition lc_contract_state (lc : LocalChain) (addr : Address)
-  : option OakValue :=
-  find_first (fun u => FMap.find addr u.(upd_contracts)) lc.(lc_updates).
-
-Definition lc_interface : ChainInterface :=
-  {| ci_type := LocalChain;
-     ci_chain_at := lc_chain_at;
-     ci_head_block := lc_head_block;
-     ci_incoming_txs := lc_incoming_txs;
-     ci_outgoing_txs := lc_outgoing_txs;
-     ci_contract_state := lc_contract_state;
-  |}.
-
-
-Section ExecuteActions.
-  Context (initial_lcb : LocalChainBuilder).
-
-  Record ExecutionContext :=
-    build_execution_context {
-      new_ftxs : list FullTx;
-      new_update : ChainUpdate;
-    }.
-
-  Instance eta_execution_context : Settable _ :=
-    mkSettable
-      ((constructor build_execution_context) <*> new_ftxs
-                                             <*> new_update)%settable.
-
-  Let make_acc_lcb (ec : ExecutionContext) : LocalChainBuilder :=
-    let new_lc := (initial_lcb.(lcb_lc))[[lc_updates ::= cons ec.(new_update)]] in
-    let new_bid := new_lc.(lc_head_block).(block_header).(block_number) + 1 in
-    let new_bftxs := map (fun t => (new_bid, t)) ec.(new_ftxs) in
-    {| lcb_lc := new_lc; lcb_ftxs := new_bftxs ++ initial_lcb.(lcb_ftxs) |}.
-
-  Let make_acc_c (lcb : LocalChainBuilder) : Chain :=
-    build_chain lc_interface lcb.(lcb_lc).
-
-  Let verify_amount (c : Chain) (addr : Address) (amt : Amount)
-    : option unit :=
-    if (amt <=? account_balance c addr)%nat
-    then Some tt
-    else None.
-
-  Let find_contract (addr : Address) (lcb : LocalChainBuilder)
-    : option WeakContract :=
-    let to_wc (t : BlockId * FullTx) : option WeakContract :=
-        let (bid, ft) := t in
-        if ft.(ftx_to) =? addr then
-          match ft.(ftx_body) with
-          | ftx_deploy wc _ => Some wc
-          | _ => None
-          end
-        else
-          None in
-    find_first to_wc lcb.(lcb_ftxs).
-
-  Let count_contract_deployments (lcb : LocalChainBuilder) : nat :=
-    let is_deployment (t : BlockId * FullTx) : bool :=
-        match (snd t).(ftx_body) with
-        | ftx_deploy _ _ => true
-        | _ => false
-        end in
-    length (filter is_deployment lcb.(lcb_ftxs)).
-
-  Let verify_no_txs (addr : Address) (lcb : LocalChainBuilder) : option unit :=
-    match incoming_txs (make_acc_c lcb) addr with
-    | _ :: _ => None
-    | [] => Some tt
-    end.
-
-  Fixpoint execute_action
-          (act : Address (*from*) * ChainAction)
-          (ec : ExecutionContext)
-          (gas : nat)
-          (is_internal : bool)
-          {struct gas}
-    : option ExecutionContext :=
-    match gas, act with
-    | 0, _ => None
-    | S gas, (from, act) =>
-      let acc_lcb := make_acc_lcb ec in
-      let acc_c := make_acc_c acc_lcb in
-      let deploy_contract amount (wc : WeakContract) setup :=
-          do verify_amount acc_c from amount;
-          let contract_addr := 1 + count_contract_deployments acc_lcb in (* todo *)
-          do verify_no_txs contract_addr acc_lcb;
-          let ctx := {| ctx_chain := acc_c;
-                        ctx_from := from;
-                        ctx_contract_address := contract_addr;
-                        ctx_amount := amount |} in
-          let (ver, init, recv) := wc in
-          do state <- init ctx setup;
-          let new_ftx := {| ftx_from := from;
-                            ftx_to := contract_addr;
-                            ftx_amount := amount;
-                            ftx_body := ftx_deploy wc setup;
-                            ftx_is_internal := is_internal; |} in
-          let new_cu :=
-              ec.(new_update)[[upd_contracts ::= FMap.add contract_addr state]]
-                             [[upd_txs ::= cons (new_ftx : Tx)]] in
-          let new_ec :=
-              ec[[new_update := new_cu]]
-                [[new_ftxs ::= cons new_ftx]] in
-          Some new_ec in
-
-      let send_or_call to amount msg_opt :=
-          do verify_amount acc_c from amount;
-          let new_ftx := {| ftx_from := from;
-                            ftx_to := to;
-                            ftx_amount := amount;
-                            ftx_body :=
-                              match msg_opt with
-                              | Some msg => ftx_call msg
-                              | None => ftx_empty
-                              end;
-                            ftx_is_internal := is_internal; |} in
-          let new_cu := ec.(new_update)[[upd_txs ::= cons (new_ftx : Tx)]] in
-          let new_ec := ec[[new_update := new_cu]][[new_ftxs ::= cons new_ftx]] in
-          match find_contract to acc_lcb with
-          | None => match msg_opt with
-                    | Some _ => None (* Sending message to non-contract *)
-                    | None => Some new_ec
-                    end
-          | Some wc =>
-            let acc_lcb := make_acc_lcb new_ec in
-            let acc_c := make_acc_c acc_lcb in
-            let contract_addr := to in
-            do state <- lc_contract_state acc_lcb.(lcb_lc) contract_addr;
-            let (ver, init, recv) := wc in
-            let ctx := {| ctx_chain := acc_c;
-                          ctx_from := from;
-                          ctx_contract_address := contract_addr;
-                          ctx_amount := amount |} in
-            do '(new_state, resp_actions) <- recv ctx state msg_opt;
-            let new_cu :=
-                ec.(new_update)[[upd_contracts ::= FMap.add to new_state]]
-                               [[upd_txs ::= cons (new_ftx : Tx)]] in
-            let new_ec := ec[[new_update := new_cu]][[new_ftxs ::= cons new_ftx]] in
-            let fix go acts cur_ec :=
-                match acts with
-                  | [] => Some cur_ec
-                  | hd :: tl =>
-                    do cur_ec <- execute_action (contract_addr, hd) cur_ec gas true;
-                    go tl cur_ec
-                end in
-            go resp_actions new_ec
-          end in
-
-      match act with
-      | act_deploy amount wc setup => deploy_contract amount wc setup
-      | act_transfer to amount => send_or_call to amount None
-      | act_call to amount msg => send_or_call to amount (Some msg)
-      end
-    end.
-
-  Definition execute_actions
-             (coinbase : FullTx)
-             (actions : list (Address * ChainAction))
-             (gas : nat)
-    : option LocalChainBuilder :=
-    let fix go acts ec :=
-        match acts with
-        | [] => Some ec
-        | hd :: tl =>
-          do ec <- execute_action hd ec gas false;
-          go tl ec
-        end in
-    let empty_ec := {| new_ftxs := [coinbase];
-                       new_update := {| upd_contracts := FMap.empty;
-                                        upd_txs := [coinbase : Tx] |}; |} in
-    do ec <- go actions empty_ec;
-    let new_lcb := make_acc_lcb ec in
-    let recorded_txs := map_option (fun ftx => if ftx.(ftx_is_internal) then
-                                                 Some (ftx : Tx)
-                                               else
-                                                 None) ec.(new_ftxs) in
-    let hdr := {| block_number := length (initial_lcb.(lcb_lc).(lc_blocks)) |} in
-    let block := build_block hdr recorded_txs in
-    (* make_acc_lcb will have done all updates except adding the actual block *)
-    let new_lcb := new_lcb[[lcb_lc := new_lcb.(lcb_lc)[[lc_blocks ::= cons block]]]] in
-    Some new_lcb.
-End ExecuteActions.
+Axiom b : False.
+Notation todo := (False_rect _ b).
 
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
 Definition add_block
            (lcb : LocalChainBuilder)
-           (coinbase : Address)
-           (actions : list (Address (*from*) * ChainAction))
-  : option LocalChainBuilder :=
-  let coinbase_ftx :=
-      {| ftx_from := 0;
-         ftx_to := coinbase;
-         ftx_amount := 50;
-         ftx_body := ftx_empty;
-         ftx_is_internal := false; |} in
-  execute_actions lcb coinbase_ftx actions 10.
+           (baker : Address)
+           (actions : list Action)
+           (slot_number : nat)
+           (finalized_height : nat)
+  : option LocalChainBuilder.
+Proof.
+  refine (
+      let lcopt :=
+         let lc := lcb_lc lcb in
+         let new_header :=
+             {| block_height := S (block_height (lc_header lc));
+                slot_number := slot_number;
+                finalized_height := finalized_height; |} in
+         do validate_header new_header (lc_header lc);
+         let lc := lc<|lc_header := new_header|> in
+         let add_block o :=
+             Some ((block_height new_header) :: (with_default [] o)) in
+         let lc := lc<|lc_blocks_baked ::= FMap.partial_alter add_block baker|> in
+         execute_steps 10 actions lc in
+      _).
 
-Definition lc_builder_interface : ChainBuilderInterface :=
-  {| cbi_chain_interface := lc_interface;
-     cbi_type := LocalChainBuilder;
-     cbi_chain lcb := lcb.(lcb_lc);
-     cbi_initial := initial_chain_builder;
-     cbi_add_block := add_block;
-     cbi_all_txs lcb := rev (map snd lcb.(lcb_ftxs))
-  |}.
+  destruct lcopt as [lc|] eqn:exec; [|exact None].
+  subst lcopt.
+  cbn -[execute_steps] in exec.
+  destruct (validate_header _) eqn:validate; [|simpl in *; congruence].
+  destruct_units.
+  match goal with
+  | [H: context[validate_header ?new _] |- _] => remember new as new_header
+  end.
+  unfold constructor in *.
+  cbn -[execute_steps] in exec.
+
+  destruct lcb as [prev_lc_end prev_lcb_trace].
+  refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
+  match goal with
+  | [H: context[execute_steps _ _ ?a] |- _] => remember a as lc_block_start
+  end.
+  Hint Resolve validate_header_valid execute_steps_trace.
+  apply (ctrace_block lc_initial prev_lc_end new_header baker actions lc_block_start lc);
+    eauto; clear validate.
+
+  subst lc_block_start.
+  simpl.
+  apply build_env_equiv; auto.
+  apply build_chain_equiv; auto.
+  intros addr.
+  simpl.
+  destruct (address_eqb_spec addr baker) as [addrs_eq|addrs_neq].
+  - subst.
+    now rewrite FMap.find_partial_alter.
+  - now rewrite FMap.find_partial_alter_ne; auto.
+Defined.
+
+Global Instance lcb_chain_builder_type : ChainBuilderType :=
+  {| builder_type := LocalChainBuilder;
+     builder_initial := lcb_initial;
+     builder_env lcb := lcb_lc lcb;
+     builder_add_block := add_block;
+     builder_trace := lcb_trace; |}.
+
+End LocalBlockchain.

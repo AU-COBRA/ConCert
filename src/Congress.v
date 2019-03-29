@@ -1,18 +1,22 @@
-From Coq Require Import String.
 From Coq Require Import ZArith.
 From Coq Require Import Program.Basics.
+From Coq Require Import Morphisms.
+
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
+From SmartContracts Require Import Automation.
 From RecordUpdate Require Import RecordUpdate.
-(* This is included last to default things to list rather than map/set *)
 From Coq Require Import List.
 
 Import ListNotations.
 Import RecordSetNotations.
 
-Open Scope Z.
+Section Congress.
+Context {BaseTypes : ChainBaseTypes}.
+
+Local Open Scope Z.
 Set Primitive Projections.
 
 Definition ProposalId := nat.
@@ -26,21 +30,17 @@ Record Proposal :=
     actions : list CongressAction;
     votes : FMap Address Z;
     vote_result : Z;
-    proposed_in : BlockId;
+    proposed_in : nat;
   }.
 
-Instance eta_proposal : Settable _ :=
-  mkSettable
-    ((constructor build_proposal) <*> actions
-                                  <*> votes
-                                  <*> vote_result
-                                  <*> proposed_in)%settable.
+Instance proposal_settable : Settable _ :=
+  settable! build_proposal <actions; votes; vote_result; proposed_in>.
 
 Record Rules :=
   build_rules {
     min_vote_count_permille : Z;
     margin_needed_permille : Z;
-    debating_period_in_blocks : Z;
+    debating_period_in_blocks : nat;
   }.
 
 Record Setup :=
@@ -68,13 +68,8 @@ Record State :=
     members : FMap Address unit;
   }.
 
-Instance eta_state : Settable _ :=
-  mkSettable
-    ((constructor build_state) <*> owner
-                               <*> state_rules
-                               <*> proposals
-                               <*> next_proposal_id
-                               <*> members)%settable.
+Instance state_settable : Settable _ :=
+  settable! build_state <owner; state_rules; proposals; next_proposal_id; members>.
 
 Definition version : Version := 1%nat.
 
@@ -83,9 +78,12 @@ Definition validate_rules (rules : Rules) : bool :=
         && (rules.(min_vote_count_permille) <=? 1000)
         && (rules.(margin_needed_permille) >=? 0)
         && (rules.(margin_needed_permille) <=? 1000)
-        && (rules.(debating_period_in_blocks) >=? 0).
+        && (0 <=? rules.(debating_period_in_blocks))%nat.
 
-Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
+Definition init
+           (chain : Chain)
+           (ctx : ContractCallContext)
+           (setup : Setup) : option State :=
   if validate_rules setup.(setup_rules) then
     Some {| owner := ctx.(ctx_from);
             state_rules := setup.(setup_rules);
@@ -97,13 +95,13 @@ Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
 
 Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
   let id := state.(next_proposal_id) in
-  let head_block := chain.(head_block) in
+  let slot_num := chain.(block_header).(slot_number) in
   let proposal := {| actions := actions;
                      votes := FMap.empty;
                      vote_result := 0;
-                     proposed_in := head_block.(block_header).(block_number) |} in
+                     proposed_in := slot_num |} in
   let new_proposals := FMap.add id proposal state.(proposals) in
-  state[[proposals := new_proposals]][[next_proposal_id := (id + 1)%nat]].
+  state<|proposals := new_proposals|><|next_proposal_id := (id + 1)%nat|>.
 
 Definition vote_on_proposal
            (voter : Address)
@@ -118,8 +116,9 @@ Definition vote_on_proposal
                  end in
   let new_votes := FMap.add voter vote proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote + vote in
-  let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
-  Some (state[[proposals ::= FMap.add pid new_proposal]]).
+  let new_proposal :=
+      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+  Some (state<|proposals ::= FMap.add pid new_proposal|>).
 
 Definition do_retract_vote
            (voter : Address)
@@ -130,10 +129,11 @@ Definition do_retract_vote
   do old_vote <- FMap.find voter proposal.(votes);
   let new_votes := FMap.remove voter proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote in
-  let new_proposal := proposal[[votes := new_votes]][[vote_result := new_vote_result]] in
-  Some (state[[proposals ::= FMap.add pid new_proposal]]).
+  let new_proposal :=
+      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+  Some (state<|proposals ::= FMap.add pid new_proposal|>).
 
-Definition congress_action_to_chain_action (act : CongressAction) : ChainAction :=
+Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
   match act with
   | cact_transfer to amt => act_transfer to amt
   | cact_call to amt msg => act_call to amt msg
@@ -143,15 +143,15 @@ Definition do_finish_proposal
            (pid : ProposalId)
            (state : State)
            (chain : Chain)
-  : option (State * list ChainAction) :=
+  : option (State * list ActionBody) :=
   do proposal <- FMap.find pid state.(proposals);
   let rules := state.(state_rules) in
-  let debate_end := (Z.of_nat proposal.(proposed_in)) + rules.(debating_period_in_blocks) in
-  let cur_block := chain.(head_block) in
-  if (Z.of_nat cur_block.(block_header).(block_number)) <? debate_end then
+  let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
+  let cur_slot := chain.(block_header).(slot_number) in
+  if (cur_slot <? debate_end)%nat then
     None
   else
-    let new_state := state[[proposals ::= FMap.remove pid]] in
+    let new_state := state<|proposals ::= FMap.remove pid|> in
     let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
     let total_members := Z.of_nat (FMap.size state.(members)) in
     let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
@@ -167,30 +167,30 @@ Definition do_finish_proposal
     Some (new_state, response_chain_acts).
 
 Definition receive
+           (chain : Chain)
            (ctx : ContractCallContext)
            (state : State)
            (maybe_msg : option Msg)
-  : option (State * list ChainAction) :=
-  let chain := ctx.(ctx_chain) in
+  : option (State * list ActionBody) :=
   let sender := ctx.(ctx_from) in
   let is_from_owner := (sender =? state.(owner))%address in
   let is_from_member := FMap.mem sender state.(members) in
   let without_actions := option_map (fun new_state => (new_state, [])) in
   match is_from_owner, is_from_member, maybe_msg with
   | true, _, Some (transfer_ownership new_owner) =>
-        Some (state[[owner := new_owner]], [])
+        Some (state<|owner := new_owner|>, [])
 
   | true, _, Some (change_rules new_rules) =>
         if validate_rules new_rules then
-            Some (state[[state_rules := new_rules]], [])
+            Some (state<|state_rules := new_rules|>, [])
         else
             None
 
   | true, _, Some (add_member new_member) =>
-        Some (state[[members ::= FMap.add new_member tt]], [])
+        Some (state<|members ::= FMap.add new_member tt|>, [])
 
   | true, _, Some (remove_member old_member) =>
-        Some (state[[members ::= FMap.remove old_member]], [])
+        Some (state<|members ::= FMap.remove old_member|>, [])
 
   | _, true, Some (create_proposal actions) =>
         Some (add_proposal actions chain state, [])
@@ -216,7 +216,7 @@ Definition deserialize_rules (v : OakValue) : option Rules :=
   do '((a, b), c) <- deserialize v;
   Some (build_rules a b c).
 
-Program Instance rules_equivalence : OakTypeEquivalence Rules :=
+Global Program Instance rules_equivalence : OakTypeEquivalence Rules :=
   {| serialize r := let (a, b, c) := r in serialize (a, b, c);
      (* Why does
      deserialize v :=
@@ -230,7 +230,7 @@ Next Obligation.
   reflexivity.
 Qed.
 
-Program Instance setup_equivalence : OakTypeEquivalence Setup :=
+Global Program Instance setup_equivalence : OakTypeEquivalence Setup :=
   {| serialize s := serialize s.(setup_rules);
      deserialize or :=
        do rules <- deserialize or;
@@ -249,7 +249,7 @@ Definition deserialize_congress_action (v : OakValue) : option CongressAction :=
   | inr (to, amount, msg) => cact_call to amount msg
   end).
 
-Program Instance congress_action_equivalence : OakTypeEquivalence CongressAction :=
+Global Program Instance congress_action_equivalence : OakTypeEquivalence CongressAction :=
   {| serialize ca :=
        serialize
          match ca with
@@ -268,7 +268,7 @@ Definition deserialize_proposal (v : OakValue) : option Proposal :=
   do '(a, b, c, d) <- deserialize v;
   Some (build_proposal a b c d).
 
-Program Instance proposal_equivalence : OakTypeEquivalence Proposal :=
+Global Program Instance proposal_equivalence : OakTypeEquivalence Proposal :=
   {| serialize p :=
        let (a, b, c, d) := p in
        serialize (a, b, c, d);
@@ -310,7 +310,7 @@ Definition deserialize_msg (v : OakValue) : option Msg :=
   | _ => None
   end.
 
-Program Instance msg_equivalence : OakTypeEquivalence Msg :=
+Global Program Instance msg_equivalence : OakTypeEquivalence Msg :=
   {| serialize := serialize_msg; deserialize := deserialize_msg; |}.
 Next Obligation.
   intros msg.
@@ -326,16 +326,41 @@ Definition deserialize_state (v : OakValue) : option State :=
   do '(a, b, c, d, e) <- deserialize v;
   Some (build_state a b c d e).
 
-Program Instance state_equivalence : OakTypeEquivalence State :=
+Global Program Instance state_equivalence : OakTypeEquivalence State :=
   {| serialize := serialize_state; deserialize := deserialize_state; |}.
 Next Obligation.
   unfold serialize_state, deserialize_state.
   destruct x; repeat (simpl; rewrite deserialize_serialize); reflexivity.
 Qed.
 
-Definition contract : Contract Setup Msg State :=
-  build_contract version init receive.
+Ltac solve_contract_proper :=
+  repeat
+    match goal with
+    | [|- ?x _  = ?x _] => unfold x
+    | [|- ?x _ _ = ?x _ _] => unfold x
+    | [|- ?x _ _ _ = ?x _ _ _] => unfold x
+    | [|- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
+    | [|- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
+    | [|- ?x _ _ _ _ _ = ?x _ _ _ _ _] => unfold x
+    | [|- Some _ = Some _] => f_equal
+    | [|- pair _ _ = pair _ _] => f_equal
+    | [|- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
+    | [|- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
+    | _ => prove
+    end.
 
+Lemma init_proper :
+  Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
+Proof. repeat intro; solve_contract_proper. Qed.
+
+Lemma receive_proper :
+  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
+Proof. repeat intro; solve_contract_proper. Qed.
+
+Definition contract : Contract Setup Msg State :=
+  build_contract version init init_proper receive receive_proper.
+
+End Congress.
 
 (*
 (* This first property states that the Congress will only send out actions
