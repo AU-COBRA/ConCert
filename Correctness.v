@@ -486,6 +486,39 @@ Proof.
     rewrite <- IHl0. rewrite mkApp_nested. reflexivity.
 Qed.
 
+Lemma app_inv1 {A} (l l1 l2 : list A) : l ++ l1 = l ++ l2 -> l1 = l2.
+Proof.
+  intros H. induction l.
+  + easy.
+  + simpl in *. inversion H. easy.
+Qed.
+
+Lemma mkApps_constr_inv ind l1 l2 n1 n2 u1 u2:
+  mkApps (tConstruct ind n1 u1) l1 = mkApps (tConstruct ind n2 u2) l2 ->
+  l1 = l2 /\ n1 = n2 /\ u1 = u2.
+Proof.
+  intros H.
+  destruct l1 eqn:Hl1;destruct l2 eqn:Hl2.
+  + inversion H. easy.
+  + simpl in *. destruct t;tryfalse.
+  + simpl in *. destruct t;tryfalse.
+  + simpl in *. destruct t;inversion H;  auto.
+Qed.
+
+Ltac inv_dummy :=
+  match goal with
+    [H : _ ;;; _ |- tDummy ⇓ _ |- _ ] => inversion H;inversion isdecl
+  end.
+
+Lemma nth_error_map_exists {A B} (f : A -> B) (l : list A) n p:
+  nth_error (map f l) n = Some p ->
+  exists p0 : A, p = f p0.
+Proof.
+  intros H.
+  revert dependent l.
+  induction n;simpl in *;intros l H;destruct l eqn:H1;inversion H;eauto.
+Qed.
+
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
@@ -774,14 +807,25 @@ Proof.
       destruct (resolve_constr Σ1 i0 n1) eqn:Hresolve;tryfalse.
       destruct (string_dec i i0) eqn:Hi;tryfalse.
       destruct (match_pat n1 l0 l) eqn:Hpat;tryfalse.
-      destruct p. subst. simpl in HT.
+      destruct p0. subst. simpl in HT.
       inversion HT. subst. clear HT.
       simpl in Hc. apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 HH].
       specialize (IHn _ _ _ _ _ Hρ_ok H5 He1 eq_refl Hce1) as IH.
       simpl in IH.
       rewrite map_map in H6. simpl in H6.
-      (* erewrite <- mkApps_vars_to_apps in IH;eauto. *)
-      admit.
+      erewrite <- mkApps_vars_to_apps in IH by eauto.
+      simpl in IH. apply mkApps_constr_inv in IH .
+      destruct IH as [? Htmp]. destruct Htmp. subst.
+      unfold iota_red in *. simpl in *.
+      apply mkApps_sound in H6.
+      rewrite <- nth_default_eq in *.
+      unfold nth_default in *.
+      destruct (nth_error _) eqn:Hnth.
+      remember ((fun (x : pat * expr) => _)) as f in Hnth.
+      * simpl in *. apply nth_error_map_exists in Hnth.
+        destruct Hnth as [p1 Hp1]. subst;simpl in *.
+        admit.
+      * inversion H6;subst;inv_dummy.
     + inversion He;subst;clear He.
       simpl in *.
       inversion HT.

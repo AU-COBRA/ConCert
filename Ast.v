@@ -7,6 +7,12 @@ Require Import String List.
 Import ListNotations.
 Open Scope string_scope.
 
+(* TODO: we use definition of monads from Template Coq,
+   but (as actually comment in the [monad_utils] says, we
+   should use a real monad library) *)
+Require Import Template.monad_utils.
+Import MonadNotation.
+
 (* Aliases *)
 Definition name := string.
 Definition inductive := string.
@@ -126,12 +132,19 @@ let fix find (i : nat) (l : list A) : option (nat * A) :=
   end in
 find 0 l.
 
+Definition resolve_inductive (Σ : global_env) (ind_name : ident)
+  : option (list (name * list type)) :=
+  match (lookup_global Σ ind_name) with
+  | Some (gdInd n cs) => Some cs
+  | None => None
+  end.
+
 (* Resolves the constructor name to a corresponding position in the list of constructors along
    with the constructor info *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ident)
   : option (nat * (string * list type)) :=
-  match (lookup_global Σ ind_name) with
-  | Some (gdInd n cs) => find_i (fun x => fst x =? constr_name) cs
+  match (resolve_inductive Σ ind_name) with
+  | Some cs => find_i (fun x => fst x =? constr_name) cs
   | None => None
   end.
 
@@ -190,6 +203,13 @@ Fixpoint pat_to_lam (tys : list (name * type)) (body : term) : term :=
   | (n,ty) :: tys' => tLambda (nNamed n) (type_to_term ty) (pat_to_lam tys' body)
   end.
 
+Fixpoint pat_to_elam (tys : list (name * type)) (body : expr) : expr :=
+  match tys with
+    [] => body
+  | (n,ty) :: tys' => eLambda n ty (pat_to_elam tys' body)
+  end.
+
+
 (* Resolves a pattern by looking up in the global environment
    and returns an index of the consrutor in the list of contrutors for the given iductive and
    a list of pairs mapping pattern variable names to the types of the constructor arguments *)
@@ -199,6 +219,24 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
   let o_ci := resolve_constr Σ ind_name p.(pName) in
   let (i, nm_tys) := from_option o_ci (0,("",[])) in
   (i, combine p.(pVars) (snd nm_tys)).
+
+(* Definition trans_branch (bs : list (pat * expr)) *)
+(*            (c : name * list type) := *)
+(*   let (nm, tys) := c in *)
+(*   let pt_e := from_option (find (fun '(p,e) => p.(pName) =? nm) bs) *)
+(*                           (pConstr "" [], eVar "error") in *)
+(*   let '(_,e) := pt_e in pat_to_elam tys e. *)
+
+Definition trans_branch (bs : list (pat * term))
+           (c : name * list type) :=
+  let (nm, tys) := c in
+  let pt_e := from_option (find (fun '(p,e) => p.(pName) =? nm) bs)
+                          (pConstr "" [], tVar "error") in
+  let '(pt,e) := pt_e in
+  let vars_tys := combine pt.(pVars) tys in
+  (length pt.(pVars), pat_to_lam vars_tys e).
+
+Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D := fun '(a,b) => (f a, g b).
 
 Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   fix expr_to_term e :=
@@ -219,9 +257,9 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
        Patterns must be in the same order as constructors in the definition *)
     let (nm,i) := nm_i in
     let typeInfo := tLambda nAnon (tInd (mkInd nm 0) []) (type_to_term ty) in
-    let tys n := snd (resolve_pat_arity Σ nm (fst n)) in
-    let branches :=
-        List.map (fun x => (length (fst x).(pVars), pat_to_lam (tys x) (expr_to_term (snd x)))) bs in
+    let cs := from_option (resolve_inductive Σ nm) [] in
+    let tbs := map (fun_prod id expr_to_term) bs in
+    let branches := map (trans_branch tbs) cs in
     tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
