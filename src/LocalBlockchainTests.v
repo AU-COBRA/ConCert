@@ -19,22 +19,25 @@ Section LocalBlockchainTests.
   Let chain1 :=
     initial_chain_builder LocalBlockchain.lc_builder_interface.
 
-  Let otry x :=
-    match x with
-    | Some y => y
-    | None => chain1
+  Definition unpack_option {A : Type} (a : option A) :=
+    match a return match a with
+                   | Some _ => A
+                   | None => unit
+                   end with
+    | Some x => x
+    | None => tt
     end.
 
   (* Baker mines an empty block (and gets some coins) *)
-  Let chain2 :=
-    otry (chain1.(add_block) baker []).
+  Let chain2 : ChainBuilder :=
+    unpack_option (chain1.(add_block) baker []).
 
   Compute (account_balance chain2 person_1).
   Compute (account_balance chain2 baker).
 
   (* Baker transfers 10 coins to person_1 *)
-  Let chain3 :=
-    otry (chain2.(add_block) baker [(baker, act_transfer person_1 10)]).
+  Let chain3 : ChainBuilder :=
+    unpack_option (chain2.(add_block) baker [(baker, act_transfer person_1 10)]).
 
   Compute (account_balance chain3 person_1).
   Compute (account_balance chain3 baker).
@@ -50,8 +53,8 @@ Section LocalBlockchainTests.
   Let deploy_congress : ChainAction :=
     create_deployment 5 Congress.contract setup.
 
-  Let chain4 :=
-    otry (chain3.(add_block) baker [(person_1, deploy_congress)]).
+  Let chain4 : ChainBuilder :=
+    unpack_option (chain3.(add_block) baker [(person_1, deploy_congress)]).
 
   Compute (contract_deployment chain4 congress_1).
   Compute (account_balance chain4 person_1).
@@ -59,21 +62,8 @@ Section LocalBlockchainTests.
   Compute (account_balance chain4 congress_1).
 
   Let congress_ifc :=
-    match get_contract_interface
-            chain4 congress_1
-            Congress.Setup Congress.Msg Congress.State with
-    | Some x => x
-    (* This stuff is just to make the test example easier
-       since we know it will not fail *)
-    | None =>
-      build_contract_interface
-        0
-        0
-        setup
-        (fun c => None)
-        (fun a => deploy_congress)
-        (fun a m => deploy_congress)
-    end.
+    unpack_option
+      (get_contract_interface chain4 congress_1 Congress.Setup Congress.Msg Congress.State).
 
   Let congress_state chain : Congress.State :=
     match congress_ifc.(get_state) chain with
@@ -92,8 +82,11 @@ Section LocalBlockchainTests.
   Let add_person p :=
     congress_ifc.(call) 0 (add_member p).
 
-  Let chain5 := otry (chain4.(add_block) baker [(person_1, add_person person_1);
-                                                (person_1, add_person person_2)]).
+  Let chain5 : ChainBuilder :=
+    unpack_option
+      (chain4.(add_block)
+                baker
+                [(person_1, add_person person_1); (person_1, add_person person_2)]).
 
   Compute (FMap.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
@@ -103,22 +96,28 @@ Section LocalBlockchainTests.
   Let create_proposal_call :=
     congress_ifc.(call) 0 (create_proposal [cact_transfer person_3 3]).
 
-  Let chain6 := otry (chain5.(add_block) baker [(person_1, create_proposal_call)]).
+  Let chain6 : ChainBuilder :=
+    unpack_option (chain5.(add_block) baker [(person_1, create_proposal_call)]).
+
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
   (* person_1 and person_2 vote for the proposal *)
-  Let vote_proposal  :=
+  Let vote_proposal :=
     congress_ifc.(call) 0 (vote_for_proposal 1).
 
-  Let chain7 := otry (chain6.(add_block) baker [(person_1, vote_proposal);
-                                                (person_2, vote_proposal)]).
+  Let chain7 : ChainBuilder :=
+    unpack_option
+      (chain6.(add_block) baker [(person_1, vote_proposal); (person_2, vote_proposal)]).
+
   Compute (FMap.elements (congress_state chain7).(proposals)).
 
   (* Person 3 finishes the proposal (anyone can finish it after voting) *)
   Let finish_proposal :=
     congress_ifc.(call) 0 (finish_proposal 1).
 
-  Let chain8 := otry (chain7.(add_block) baker [(person_3, finish_proposal)]).
+  Let chain8 : ChainBuilder :=
+    unpack_option (chain7.(add_block) baker [(person_3, finish_proposal)]).
+
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)
   Compute (account_balance chain7 congress_1).
