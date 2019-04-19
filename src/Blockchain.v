@@ -354,11 +354,7 @@ Definition get_contract_interface
           transfer := ifc_transfer;
           call := ifc_call; |}.
 
-End Blockchain.
-
 Section Semantics.
-Context {BaseTypes : ChainBaseTypes}.
-
 Instance chain_settable : Settable _ :=
   settable! build_chain
   < block_header;
@@ -672,9 +668,6 @@ Proof.
 Qed.
 End ChainTraceTheories.
 End Semantics.
-
-Section Blockchain.
-Context {BaseTypes : ChainBaseTypes}.
 
 Class ChainBuilderType :=
   build_builder {

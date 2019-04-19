@@ -6,6 +6,7 @@ From SmartContracts Require Import Containers.
 From SmartContracts Require Import Extras.
 From SmartContracts Require Import Automation.
 From SmartContracts Require Import BoundedN.
+From SmartContracts Require Import Circulation.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Psatz.
