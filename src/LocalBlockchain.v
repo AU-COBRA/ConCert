@@ -368,9 +368,6 @@ Proof.
     end; simpl in *; intuition.
 Qed.
 
-Axiom b : False.
-Notation todo := (False_rect _ b).
-
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
