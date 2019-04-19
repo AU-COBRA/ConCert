@@ -66,10 +66,11 @@ Module FMap.
   End Theories.
 End FMap.
 
-Hint Resolve FMap.find_union_None.
-Hint Resolve FMap.find_union_Some_l.
-Hint Resolve FMap.find_add.
-Hint Resolve FMap.find_add_ne.
+Hint Resolve
+     FMap.find_union_None
+     FMap.find_union_Some_l
+     FMap.find_add
+     FMap.find_add_ne : core.
 
 Instance empty_set_eq_dec : stdpp.base.EqDecision Empty_set.
 Proof. decidable.solve_decision. Defined.

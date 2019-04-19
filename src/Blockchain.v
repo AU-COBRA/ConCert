@@ -467,10 +467,11 @@ Inductive ChainStep :
       incoming_txs pre to = [] ->
       act = build_act from (act_deploy amount wc setup) ->
       tx = build_tx from to amount (tx_deploy (build_contract_deployment (wc_version wc) setup)) ->
-      wc.(wc_init)
-           (add_tx tx pre)
-           (build_ctx from to amount)
-           setup = Some state ->
+      wc_init
+        wc
+        (add_tx tx pre)
+        (build_ctx from to amount)
+        setup = Some state ->
       EnvironmentEquiv
         new_env
         (set_contract_state to state (add_contract to wc (add_tx tx pre))) ->
@@ -492,11 +493,12 @@ Inductive ChainStep :
       contract_state pre to = Some prev_state ->
       act = build_act from (act_transfer to amount) ->
       tx = build_tx from to amount tx_empty ->
-      wc.(wc_receive)
-           (add_tx tx pre)
-           (build_ctx from to amount)
-           prev_state
-           None = Some (new_state, resp_acts) ->
+      wc_receive
+        wc
+        (add_tx tx pre)
+        (build_ctx from to amount)
+        prev_state
+        None = Some (new_state, resp_acts) ->
       new_acts = map (build_act to) resp_acts ->
       EnvironmentEquiv
         new_env
@@ -520,11 +522,12 @@ Inductive ChainStep :
       contract_state pre to = Some prev_state ->
       act = build_act from (act_call to amount msg) ->
       tx = build_tx from to amount (tx_call msg) ->
-      wc.(wc_receive)
-           (add_tx tx pre)
-           (build_ctx from to amount)
-           prev_state
-           (Some msg) = Some (new_state, resp_acts) ->
+      wc_receive
+        wc
+        (add_tx tx pre)
+        (build_ctx from to amount)
+        prev_state
+        (Some msg) = Some (new_state, resp_acts) ->
       new_acts = map (build_act to) resp_acts ->
       EnvironmentEquiv
         new_env

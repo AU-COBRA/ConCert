@@ -12,4 +12,4 @@ Arguments elements _ {_}.
 Arguments elements_set _ {_}.
 Arguments elements_all _ {_}.
 
-Hint Resolve elements_set elements_all.
+Hint Resolve elements_set elements_all : core.

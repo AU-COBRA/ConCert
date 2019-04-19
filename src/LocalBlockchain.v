@@ -27,8 +27,6 @@ Global Instance LocalChainBaseTypes : ChainBaseTypes :=
      compute_block_reward n := 50%Z;
   |}.
 
-Compute LocalChainBaseTypes.
-
 Record LocalChain :=
   build_local_chain {
     lc_header : BlockHeader;
@@ -297,8 +295,7 @@ Section ExecuteActions.
     intros exec.
     unfold execute_action in exec.
     destruct act as [from body].
-    Hint Resolve send_or_call_step.
-    Hint Resolve deploy_contract_step.
+    Hint Resolve send_or_call_step deploy_contract_step : core.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Qed.
 
@@ -310,7 +307,7 @@ Section ExecuteActions.
     induction gas as [|gas IH]; intros acts lc lc_after exec.
     - unfold execute_steps in exec.
       destruct acts as [|x xs]; [|congruence].
-      Hint Constructors BlockTrace.
+      Hint Constructors BlockTrace : core.
       replace lc_after with lc by congruence; auto.
     - destruct acts as [|x xs]; simpl in *.
       + replace lc_after with lc by congruence; auto.
@@ -416,7 +413,7 @@ Proof.
   match goal with
   | [H: context[execute_steps _ _ ?a] |- _] => remember a as lc_block_start
   end.
-  Hint Resolve validate_header_valid execute_steps_trace.
+  Hint Resolve validate_header_valid execute_steps_trace : core.
   apply (ctrace_block lc_initial prev_lc_end new_header baker actions lc_block_start lc);
     eauto; clear validate.
 

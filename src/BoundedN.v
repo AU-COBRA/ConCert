@@ -70,7 +70,7 @@ Module BoundedN.
     decide equality.
   Qed.
 
-  Hint Resolve to_N_inj.
+  Hint Resolve to_N_inj : core.
 
   Lemma eqb_spec {bound : N} (a b : BoundedN bound) :
     Bool.reflect (a = b) (eqb a b).
@@ -229,39 +229,54 @@ Module BoundedN.
          decode_encode := decode_encode_bounded; |}.
   End Stdpp.
 
-  Global Instance BoundedN_finite {bound : N} : Finite (BoundedN bound) :=
-    {| elements := map_option of_nat (List.seq 0 (N.to_nat bound)) |}.
+  Definition bounded_elements (bound : N) : list (BoundedN bound) :=
+    map_option of_nat (List.seq 0 (N.to_nat bound)).
+
+  Lemma bounded_elements_set (bound : N) :
+    NoDup (bounded_elements bound).
   Proof.
-    - pose proof (seq_NoDup (N.to_nat bound) 0) as nodup.
-      pose proof (in_seq (N.to_nat bound) 0) as in_seq'.
-      pose proof (fun n => proj1 (in_seq' n)) as in_seq; clear in_seq'.
-      induction nodup; try constructor.
-      simpl.
-      pose proof (in_seq x) as x_bound.
-      specialize (x_bound (or_introl eq_refl)).
-      destruct x_bound as [useless x_bound]; clear useless.
-      simpl in x_bound.
-      destruct (of_nat x) eqn:ofnatx. all: cycle 1.
-        apply of_nat_none in ofnatx.
-        lia.
-      constructor.
-      + intros Hin.
-        apply in_map_of_nat in Hin.
-        apply of_nat_some in ofnatx.
-        rewrite <- ofnatx in H.
-        tauto.
-      + apply IHnodup.
-        intros n in_n_l.
-        apply (in_seq n (or_intror in_n_l)).
-    - intros t.
-      apply in_map_of_nat.
-      apply in_seq.
-      unfold to_nat.
-      destruct t as [t lt].
-      simpl.
-      change ((bound ?= t) = Gt) with (bound > t) in lt.
-      lia.
+    unfold bounded_elements.
+    pose proof (seq_NoDup (N.to_nat bound) 0) as nodup.
+    pose proof (in_seq (N.to_nat bound) 0) as in_seq'.
+    pose proof (fun n => proj1 (in_seq' n)) as in_seq; clear in_seq'.
+    induction nodup; try constructor.
+    simpl.
+    pose proof (in_seq x) as x_bound.
+    specialize (x_bound (or_introl eq_refl)).
+    destruct x_bound as [useless x_bound]; clear useless.
+    simpl in x_bound.
+    destruct (of_nat x) eqn:ofnatx. all: cycle 1.
+    apply of_nat_none in ofnatx.
+    lia.
+    constructor.
+    + intros Hin.
+      apply in_map_of_nat in Hin.
+      apply of_nat_some in ofnatx.
+      rewrite <- ofnatx in H.
+      tauto.
+    + apply IHnodup.
+      intros n in_n_l.
+      apply (in_seq n (or_intror in_n_l)).
   Qed.
+
+  Lemma bounded_elements_all (bound : N) :
+    forall a, In a (bounded_elements bound).
+  Proof.
+    unfold bounded_elements.
+    intros t.
+    apply in_map_of_nat.
+    apply in_seq.
+    unfold to_nat.
+    destruct t as [t lt].
+    simpl.
+    change ((bound ?= t) = Gt) with (bound > t) in lt.
+    lia.
+  Qed.
+
+  Global Instance BoundedN_finite {bound : N} : Finite (BoundedN bound) :=
+    {| elements := bounded_elements bound;
+       elements_set := bounded_elements_set bound;
+       elements_all := bounded_elements_all bound; |}.
 End BoundedN.
 
 Delimit Scope BoundedN_scope with BoundedN.

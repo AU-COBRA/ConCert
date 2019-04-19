@@ -50,7 +50,7 @@ Proof.
     lia.
 Qed.
 
-Hint Resolve step_from_to_same.
+Hint Resolve step_from_to_same : core.
 
 Lemma step_circulation_unchanged
       {pre : Environment}
@@ -82,7 +82,7 @@ Proof.
   induction suf as [| x xs IH]; prove.
 Qed.
 
-Hint Resolve step_circulation_unchanged.
+Hint Resolve step_circulation_unchanged : core.
 
 (* Finally, we get the result over block traces by a simple induction. *)
 Lemma block_trace_circulation_unchanged
@@ -98,7 +98,7 @@ Proof.
     end.
 Qed.
 
-Hint Resolve block_trace_circulation_unchanged.
+Hint Resolve block_trace_circulation_unchanged : core.
 
 Lemma circulation_equal (c1 c2 : Chain) :
   ChainEquiv c1 c2 -> circulation c1 = circulation c2.
