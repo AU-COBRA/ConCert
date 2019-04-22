@@ -400,9 +400,13 @@ Next Obligation.
   apply (@transitivity Chain _ _ _ y _); auto.
 Qed.
 
-Instance environment_equiv_contracts_proper (addr : Address) :
+Global Instance environment_equiv_contracts_proper :
   Proper (EnvironmentEquiv ==> eq ==> eq) env_contracts.
 Proof. repeat intro; subst; apply contracts_eq; assumption. Qed.
+
+Global Instance environment_equiv_chain_equiv_proper :
+  Proper (EnvironmentEquiv ==> ChainEquiv) env_chain.
+Proof. repeat intro; apply chain_equiv; assumption. Qed.
 
 Instance env_settable : Settable _ :=
   settable! build_env <env_chain; env_contracts>.
@@ -583,7 +587,7 @@ Lemma block_header_post_step : block_header post = block_header pre.
 Proof.
   destruct step;
     match goal with
-    | [H: EnvironmentEquiv _ _ |- _] => now rewrite (chain_equiv _ _ H)
+    | [H: EnvironmentEquiv _ _ |- _] => now rewrite H
     end.
 Qed.
 End Step.
@@ -664,7 +668,7 @@ Proof.
   induction trace as [| ? ? ? ? ? ? ? ? ? valid block_trace eq]; auto.
   apply le_trans with (block_height (block_header prev_end)); auto.
   rewrite (block_header_post_steps block_trace).
-  rewrite (chain_equiv _ _ eq).
+  rewrite eq.
   unfold IsValidNextBlock in valid.
   simpl.
   lia.

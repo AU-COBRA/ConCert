@@ -156,7 +156,7 @@ Proof.
     simpl. lia.
   - unfold IsValidNextBlock in valid.
     rewrite (block_header_post_steps block_trace).
-    rewrite (chain_equiv _ _ eq).
+    rewrite eq.
     simpl.
     rewrite (proj1 valid).
     unfold coins_created.
