@@ -671,6 +671,7 @@ Inductive ChainTrace : Environment -> Environment -> Prop :=
              (block_start new_end : Environment),
         ChainTrace prev_start prev_end ->
         IsValidNextBlock header (block_header prev_end) ->
+        Forall (fun act => address_is_contract (act_from act) = false) acts ->
         BlockTrace block_start acts new_end [] ->
         EnvironmentEquiv
           block_start
@@ -683,13 +684,14 @@ Context {pre post : Environment} (trace : ChainTrace pre post).
 Lemma block_height_post_trace :
   block_height (block_header pre) <= block_height (block_header post).
 Proof.
-  induction trace as [| ? ? ? ? ? ? ? ? ? ? block_trace eq]; auto.
-  apply le_trans with (block_height (block_header prev_end)); auto.
-  rewrite (block_header_post_steps block_trace).
-  rewrite eq.
+  induction trace; auto.
+  match goal with
+  | [H: BlockTrace _ _ _ _, H': EnvironmentEquiv _ _ |- _]
+    => rewrite (block_header_post_steps H), H'
+  end.
   unfold IsValidNextBlock in *.
   simpl.
-  lia.
+  intuition.
 Qed.
 End ChainTraceTheories.
 End Semantics.

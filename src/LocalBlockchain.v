@@ -400,6 +400,28 @@ Proof.
     end; simpl in *; intuition.
 Qed.
 
+Definition validate_actions (actions : list Action) : option unit :=
+  if existsb (fun act => address_is_contract (act_from act)) actions
+  then None
+  else Some tt.
+
+Lemma validate_actions_valid actions :
+  validate_actions actions = Some tt ->
+  Forall (fun act => address_is_contract (act_from act) = false) actions.
+Proof.
+  intros valid.
+  induction actions as [|x xs IH]; auto.
+  unfold validate_actions in valid.
+  cbn -[address_is_contract] in valid.
+  destruct (address_is_contract _) eqn:eq1; try (simpl in *; congruence).
+  destruct (existsb _) eqn:eq2; try (simpl in *; congruence).
+  clear valid.
+  unfold validate_actions in IH.
+  rewrite eq2 in IH.
+  auto.
+Qed.
+
+
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
@@ -420,6 +442,7 @@ Proof.
                 slot_number := slot_number;
                 finalized_height := finalized_height; |} in
          do validate_header new_header (lc_header lc);
+         do validate_actions actions;
          let lc := lc<|lc_header := new_header|> in
          let add_block o :=
              Some ((block_height new_header) :: (with_default [] o)) in
@@ -429,21 +452,23 @@ Proof.
 
   destruct lcopt as [lc|] eqn:exec; [|exact None].
   subst lcopt.
-  cbn -[execute_steps] in exec.
+  cbn -[execute_steps address_is_contract] in exec.
   destruct (validate_header _) eqn:validate; [|simpl in *; congruence].
+  destruct (validate_actions _) eqn:validate_actions; [|simpl in *; congruence].
   destruct_units.
   match goal with
   | [H: context[validate_header ?new _] |- _] => remember new as new_header
   end.
+
   unfold constructor in *.
-  cbn -[execute_steps] in exec.
+  cbn -[execute_steps address_is_contract] in exec.
 
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
   match goal with
   | [H: context[execute_steps _ _ ?a] |- _] => remember a as lc_block_start
   end.
-  Hint Resolve validate_header_valid execute_steps_trace : core.
+  Hint Resolve validate_header_valid validate_actions_valid execute_steps_trace : core.
   apply (ctrace_block lc_initial prev_lc_end new_header baker actions lc_block_start lc);
     eauto; clear validate.
 

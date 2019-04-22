@@ -145,7 +145,11 @@ Theorem chain_trace_circulation
 Proof.
   induction trace as
       [env eq|
-       prev_start prev_end header baker acts block_start new_end prev_trace IH valid block_trace eq].
+       prev_start prev_end
+       header baker acts
+       block_start new_end
+       prev_trace IH valid
+       from_accounts block_trace eq].
   - rewrite eq.
     unfold circulation.
     induction (elements Address); auto.
