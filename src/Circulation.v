@@ -2,7 +2,7 @@
 chain implementing a chain type. More specifically, we show that the circulation
 does not change during execution of blocks. This is proven under the (implicit)
 assumption that the address space is finite. *)
-From Coq Require Import List Permutation ZArith Psatz.
+From Coq Require Import List Permutation ZArith Psatz Morphisms.
 From SmartContracts Require Import Automation Blockchain Extras Finite.
 From RecordUpdate Require Import RecordSet.
 Import ListNotations.
@@ -13,9 +13,6 @@ Context `{Finite Address}.
 
 Definition circulation (chain : Chain) :=
   sumZ (account_balance chain) (elements Address).
-
-Definition coins_created (start_height end_height : nat) : Amount :=
-  sumZ compute_block_reward (seq (S start_height) (end_height - start_height)).
 
 (* We then prove that over any single step, the circulation is preserved.
 The idea behind this proof is that addrs contain from and to so
@@ -100,10 +97,10 @@ Qed.
 
 Hint Resolve block_trace_circulation_unchanged : core.
 
-Lemma circulation_equal (c1 c2 : Chain) :
-  ChainEquiv c1 c2 -> circulation c1 = circulation c2.
+Instance circulation_proper :
+  Proper (ChainEquiv ==> eq) circulation.
 Proof.
-  intros [].
+  intros x y [].
   unfold circulation, account_balance.
   induction (elements Address); prove.
 Qed.
@@ -144,35 +141,20 @@ Theorem chain_trace_circulation
       {env_start env_end : Environment}
       (trace : ChainTrace env_start env_end)
   : circulation env_end =
-    (circulation env_start +
-     coins_created
-       (block_height (block_header env_start))
-       (block_height (block_header env_end)))%Z.
+    sumZ compute_block_reward (seq 1 (block_height (block_header env_end))).
 Proof.
-  unfold coins_created.
   induction trace as
-      [|prev_start prev_end header baker acts block_start new_end prev_trace IH valid block_trace eq].
-  - rewrite Nat.sub_diag.
-    simpl. lia.
-  - unfold IsValidNextBlock in valid.
+      [env eq|
+       prev_start prev_end header baker acts block_start new_end prev_trace IH valid block_trace eq].
+  - rewrite eq.
+    unfold circulation.
+    induction (elements Address); auto.
+  - unfold IsValidNextBlock in *.
     rewrite (block_header_post_steps block_trace).
     rewrite eq.
     simpl.
-    rewrite (proj1 valid).
-    unfold coins_created.
-    pose proof (block_height_post_trace prev_trace) as height_le.
-    match goal with
-    | [|- context[S ?a - ?b]] => replace (S a - b) with (S (a - b)) by lia
-    end.
-    rewrite sumZ_seq_S.
-    unfold coins_created in IH.
-    rewrite Z.add_assoc, <- IH.
-    match goal with
-    | [|- context[S ?a + (?b - ?a)]] => replace (S a + (b - a)) with (S b) by lia
-    end.
-    rewrite (block_trace_circulation_unchanged block_trace).
-    rewrite (circulation_equal _ _ eq).
-    rewrite circulation_add_new_block.
+    rewrite (proj1 valid), sumZ_seq_S, <- IH.
+    rewrite (block_trace_circulation_unchanged block_trace), eq, circulation_add_new_block.
     now rewrite (proj1 valid).
 Qed.
 End Circulation.

@@ -20,12 +20,14 @@ Section LocalBlockchain.
 Local Open Scope bool.
 
 Definition AddrSize : N := 2^128.
+Definition ContractAddrBase : N := AddrSize / 2.
 
 Global Instance LocalChainBaseTypes : ChainBaseTypes :=
   {| Address := BoundedN AddrSize;
      address_eqb := BoundedN.eqb;
      address_eqb_spec := BoundedN.eqb_spec;
      compute_block_reward n := 50%Z;
+     address_is_contract a := (ContractAddrBase <=? BoundedN.to_N a)%N
   |}.
 
 Record LocalChain :=
@@ -65,8 +67,8 @@ Section ExecuteActions.
 
   Arguments add_tx : simpl never.
 
-  Definition count_contract_deployments (lc : LocalChain) : nat :=
-    FMap.size (lc_contracts lc).
+  Definition get_new_contract_addr (lc : LocalChain) : option Address :=
+    BoundedN.of_N (ContractAddrBase + N.of_nat (FMap.size (lc_contracts lc))).
 
   Definition add_contract
              (addr : Address)
@@ -89,6 +91,7 @@ Section ExecuteActions.
     match FMap.find to lc.(lc_contracts) with
     | None =>
       (* Fail if sending a message to address without contract *)
+      do if address_is_contract to then None else Some tt;
       match msg with
         | None => Some ([], add_tx (build_tx from to amount tx_empty) lc)
         | Some msg => None
@@ -115,8 +118,7 @@ Section ExecuteActions.
              (lc : LocalChain)
     : option (list Action * LocalChain) :=
     do if amount >? account_balance lc from then None else Some tt;
-    let num := (1 + count_contract_deployments lc)%nat in
-    do contract_addr <- BoundedN.of_nat num;
+    do contract_addr <- get_new_contract_addr lc;
     do match incoming_txs lc contract_addr with
        | _ :: _ => None
        | [] => Some tt
@@ -257,12 +259,27 @@ Section ExecuteActions.
         inversion sent; subst;
         now apply set_contract_state_equiv, add_tx_equiv.
     - (* no contract at destination, so msg should be empty *)
+      destruct (address_is_contract to) eqn:addr_format; simpl in *; try congruence.
       destruct msg; simpl in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
       remember_tx.
       exists tx.
       apply (step_empty from to amount); auto.
       inversion sent; subst; now apply add_tx_equiv.
+  Qed.
+
+  Lemma get_new_contract_addr_is_contract_addr lc addr :
+    get_new_contract_addr lc = Some addr ->
+    address_is_contract addr = true.
+  Proof.
+    intros get.
+    unfold get_new_contract_addr in get.
+    pose proof (BoundedN.of_N_some get) as eq.
+    destruct addr as [addr prf].
+    simpl in *; rewrite eq.
+    match goal with
+    | [|- context[N.leb ?a ?b = true]] => destruct (N.leb_spec a b); auto; lia
+    end.
   Qed.
 
   Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
@@ -273,8 +290,8 @@ Section ExecuteActions.
     intros dep act_eq.
     unfold deploy_contract in dep.
     destruct (Z.gtb_spec amount (account_balance lc_before from)); [cbn in *; congruence|].
-    destruct (BoundedN.of_nat _) as [contract_addr|]; [|cbn in *; congruence].
-    change (BoundedN AddrSize) with Address in *.
+    destruct (get_new_contract_addr lc_before) as [contract_addr|] eqn:new_contract_addr;
+      [|cbn in *; congruence].
     cbn -[incoming_txs] in dep.
     remember_tx.
     destruct (incoming_txs _ _) eqn:no_txs; [|cbn in *; congruence].
@@ -283,8 +300,8 @@ Section ExecuteActions.
     cbn in dep.
     exists tx.
     assert (new_acts = []) by congruence; subst new_acts.
-    apply (step_deploy from contract_addr amount wc setup state);
-      try solve [cbn in *; congruence].
+    Hint Resolve get_new_contract_addr_is_contract_addr : core.
+    apply (step_deploy from contract_addr amount wc setup state); eauto.
     - rewrite <- recv.
       apply wc_init_proper; auto.
       now symmetry; apply add_tx_equiv.
@@ -332,14 +349,13 @@ End ExecuteActions.
 
 Definition lc_initial : LocalChain :=
   {| lc_header :=
-       {| block_height := 1;
-          slot_number := 1;
+       {| block_height := 0;
+          slot_number := 0;
           finalized_height := 0; |};
      lc_incoming_txs := FMap.empty;
      lc_outgoing_txs := FMap.empty;
      lc_contract_state := FMap.empty;
-     (* zero address has mined two blocks *)
-     lc_blocks_baked := FMap.add (BoundedN.of_Z_const AddrSize 0) [0; 1] FMap.empty;
+     lc_blocks_baked := FMap.empty;
      lc_contracts := FMap.empty; |}.
 
 Record LocalChainBuilder :=
@@ -348,9 +364,14 @@ Record LocalChainBuilder :=
     lcb_trace : ChainTrace lc_initial lcb_lc;
   }.
 
-Definition lcb_initial : LocalChainBuilder :=
-  {| lcb_lc := lc_initial;
-     lcb_trace := ctrace_refl _ |}.
+Definition lcb_initial : LocalChainBuilder.
+Proof.
+  refine
+    {| lcb_lc := lc_initial; lcb_trace := _ |}.
+  apply ctrace_initial.
+  apply build_env_equiv; auto.
+  apply build_chain_equiv; auto.
+Defined.
 
 Definition validate_header (new old : BlockHeader) : option unit :=
   let (prev_block_height, prev_slot_number, prev_finalized_height) := old in

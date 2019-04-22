@@ -27,13 +27,13 @@ Class ChainBaseTypes :=
     address_eqdec :> stdpp.base.EqDecision Address;
     address_countable :> countable.Countable Address;
     address_ote :> OakTypeEquivalence Address;
+    address_is_contract : Address -> bool;
     compute_block_reward : nat -> Amount;
   }.
 
 Global Opaque Address address_eqb address_eqb_spec
        address_eqdec address_countable
-       address_ote
-       compute_block_reward.
+       address_ote compute_block_reward.
 
 Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
@@ -451,7 +451,7 @@ Inductive ChainStep :
              (from to : Address)
              (amount : Amount),
         amount <= account_balance pre from ->
-        env_contracts pre to = None ->
+        address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
         tx = build_tx from to amount tx_empty ->
         EnvironmentEquiv new_env (add_tx tx pre) ->
@@ -469,6 +469,7 @@ Inductive ChainStep :
       amount <= account_balance pre from ->
       env_contracts pre to = None ->
       incoming_txs pre to = [] ->
+      address_is_contract to = true ->
       act = build_act from (act_deploy amount wc setup) ->
       tx = build_tx from to amount (tx_deploy (build_contract_deployment (wc_version wc) setup)) ->
       wc_init
@@ -645,8 +646,22 @@ Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
   finalized_height new >= finalized_height old /\
   finalized_height new < block_height new.
 
+Definition initial_env :=
+  {| env_chain :=
+       {| block_header :=
+            {| block_height := 0;
+               slot_number := 0;
+               finalized_height := 0; |};
+          incoming_txs a := [];
+          outgoing_txs a := [];
+          blocks_baked a := [];
+          contract_state a := None; |};
+     env_contracts a := None; |}.
+
 Inductive ChainTrace : Environment -> Environment -> Prop :=
-  | ctrace_refl : forall (env : Environment),
+| ctrace_initial :
+    forall (env : Environment),
+      EnvironmentEquiv env initial_env ->
       ChainTrace env env
   | ctrace_block :
       forall (prev_start prev_end : Environment)
@@ -657,9 +672,6 @@ Inductive ChainTrace : Environment -> Environment -> Prop :=
         ChainTrace prev_start prev_end ->
         IsValidNextBlock header (block_header prev_end) ->
         BlockTrace block_start acts new_end [] ->
-        (* todo: probably unnecessary as we should have *)
-        (* BlockTrace a acts b acts' -> EnvironmentEquiv a a' -> *)
-        (* BlockTrace a' acts b acts' *)
         EnvironmentEquiv
           block_start
           (add_new_block header baker prev_end) ->
@@ -671,11 +683,11 @@ Context {pre post : Environment} (trace : ChainTrace pre post).
 Lemma block_height_post_trace :
   block_height (block_header pre) <= block_height (block_header post).
 Proof.
-  induction trace as [| ? ? ? ? ? ? ? ? ? valid block_trace eq]; auto.
+  induction trace as [| ? ? ? ? ? ? ? ? ? ? block_trace eq]; auto.
   apply le_trans with (block_height (block_header prev_end)); auto.
   rewrite (block_header_post_steps block_trace).
   rewrite eq.
-  unfold IsValidNextBlock in valid.
+  unfold IsValidNextBlock in *.
   simpl.
   lia.
 Qed.

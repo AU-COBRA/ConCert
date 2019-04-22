@@ -12,7 +12,7 @@ Import ListNotations.
 Section LocalBlockchainTests.
   (* Addresses *)
   Definition congress_1 : Address :=
-    BoundedN.of_Z_const AddrSize 1.
+    BoundedN.of_Z_const AddrSize (Z.of_N ContractAddrBase).
 
   Definition baker : Address :=
     BoundedN.of_Z_const AddrSize 10.
