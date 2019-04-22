@@ -11,9 +11,6 @@ Import ListNotations.
 
 Section LocalBlockchainTests.
   (* Addresses *)
-  Definition congress_1 : Address :=
-    BoundedN.of_Z_const AddrSize (Z.of_N ContractAddrBase).
-
   Definition baker : Address :=
     BoundedN.of_Z_const AddrSize 10.
 
@@ -79,6 +76,12 @@ Section LocalBlockchainTests.
                  baker
                  [build_act person_1 deploy_congress]
                  4 0).
+
+  Definition congress_1 : Address :=
+    match outgoing_txs chain4 person_1 with
+    | tx :: _ => tx_to tx
+    | _ => person_1
+    end.
 
   Compute (contract_deployment chain4 congress_1).
   Compute (account_balance chain4 person_1).
