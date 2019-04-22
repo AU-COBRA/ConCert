@@ -137,7 +137,7 @@ Local Ltac unassoc_right :=
     | [|- Permutation _ ((?l1 ++ ?l2) ++ ?l3)] => rewrite <- (app_assoc l1 l2 l3)
     end.
 
-Local Ltac simplify_perm_once :=
+Local Ltac perm_simplify_once :=
   let rec aux :=
       apply Permutation_app_middle ||
       tryif reassoc_right
@@ -146,7 +146,7 @@ Local Ltac simplify_perm_once :=
   repeat rewrite <- app_assoc;
   aux.
 
-Local Ltac simplify_perm_round :=
+Local Ltac perm_simplify_round :=
   simpl;
   repeat appify;
   (* Change into [] ++ l ++ [] *)
@@ -155,7 +155,7 @@ Local Ltac simplify_perm_round :=
                                 change l2 with ([] ++ l2);
                                 rewrite <- (app_nil_r l1), <- (app_nil_r l2)
   end;
-  repeat simplify_perm_once;
+  repeat perm_simplify_once;
   simpl;
   repeat rewrite <- app_assoc;
   repeat rewrite app_nil_r;
@@ -164,8 +164,8 @@ Local Ltac simplify_perm_round :=
     | [H: Permutation ?l1 ?l2|-_] => rewrite H
     end.
 
-Ltac simplify_perm :=
-  repeat simplify_perm_round;
+Ltac perm_simplify :=
+  repeat perm_simplify_round;
   simpl;
   try apply Permutation_refl.
 

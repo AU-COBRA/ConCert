@@ -102,7 +102,7 @@ Proof.
         destruct incl_xs as [in_pref | [in_x | in_suf]]; prove.
       * destruct (IH _ H2 H) as [suf' perm_suf'].
         exists suf'.
-        simplify_perm.
+        perm_simplify.
 Qed.
 
 Lemma in_NoDup_app {A : Type} (x : A) (l m : list A) :
