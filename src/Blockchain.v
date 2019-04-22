@@ -599,10 +599,14 @@ Inductive BlockTrace :
   Environment -> list Action -> Prop :=
   | btrace_refl : forall {acts} {env : Environment},
       BlockTrace env acts env acts
-  | btrace_step : forall {pre post} act tx mid new_acts acts final,
+  | btrace_step : forall {pre post} act tx mid new_acts suf final,
       ChainStep pre act tx mid new_acts ->
-      BlockTrace mid (new_acts ++ acts) post final ->
-      BlockTrace pre (act :: acts) post final.
+      BlockTrace mid (new_acts ++ suf) post final ->
+      BlockTrace pre (act :: suf) post final
+  | btrace_permute : forall pre post acts acts' final_acts,
+      Permutation acts acts' ->
+      BlockTrace pre acts post final_acts ->
+      BlockTrace pre acts' post final_acts.
 
 Section BlockTraceTheories.
 Context {pre : Environment} {acts : list Action}
@@ -611,8 +615,10 @@ Context {pre : Environment} {acts : list Action}
 
 Lemma block_header_post_steps : block_header post = block_header pre.
 Proof.
-  induction trace as [|? ? ? ? ? ? ? ? step prev_trace IH]; auto.
-  rewrite <- (block_header_post_step step).
+  induction trace; auto.
+  match goal with
+  | [H: ChainStep _ _ _ _ _ |- _] => rewrite <- (block_header_post_step H)
+  end.
   auto.
 Qed.
 End BlockTraceTheories.

@@ -1,4 +1,5 @@
 From Coq Require Import Arith ZArith.
+From Coq Require Import Permutation.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
@@ -145,14 +146,21 @@ Section ExecuteActions.
       send_or_call from to amount (Some msg) lc
     end.
 
-  Fixpoint execute_steps (gas : nat) (stack : list Action) (lc : LocalChain)
+  Fixpoint execute_steps
+           (gas : nat)
+           (acts : list Action)
+           (lc : LocalChain)
+           (depth_first : bool)
     : option LocalChain :=
-    match gas, stack with
+    match gas, acts with
     | _, [] => Some lc
     | 0, _ => None
     | S gas, act :: acts =>
       do '(next_acts, lc) <- execute_action act lc;
-      execute_steps gas (next_acts ++ acts) lc
+      let acts := if depth_first
+                  then next_acts ++ acts
+                  else acts ++ next_acts in
+      execute_steps gas acts lc depth_first
     end.
 
   Ltac remember_tx :=
@@ -299,8 +307,8 @@ Section ExecuteActions.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Qed.
 
-  Lemma execute_steps_trace gas acts lc lc_after :
-    execute_steps gas acts lc = Some lc_after ->
+  Lemma execute_steps_trace gas acts lc df lc_after :
+    execute_steps gas acts lc df = Some lc_after ->
     BlockTrace lc acts lc_after [].
   Proof.
     revert acts lc lc_after.
@@ -315,7 +323,10 @@ Section ExecuteActions.
           simpl in *; [|congruence].
         specialize (IH _ _ _ exec); clear exec.
         destruct (execute_action_step _ _ _ _ exec_once) as [tx step]; clear exec_once.
-        eauto.
+        (* For breadth first case our IH is xs ++ acts ->* [] and we need to show *)
+        (* x :: xs ->* [], so we will need to permute it first. *)
+        assert (Permutation (xs ++ acts) (acts ++ xs)) by perm_simplify.
+        destruct df; eauto.
   Qed.
 End ExecuteActions.
 
@@ -372,6 +383,7 @@ Qed.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
 Definition add_block
+           (depth_first : bool)
            (lcb : LocalChainBuilder)
            (baker : Address)
            (actions : list Action)
@@ -391,7 +403,7 @@ Proof.
          let add_block o :=
              Some ((block_height new_header) :: (with_default [] o)) in
          let lc := lc<|lc_blocks_baked ::= FMap.partial_alter add_block baker|> in
-         execute_steps 10 actions lc in
+         execute_steps 10 actions lc depth_first in
       _).
 
   destruct lcopt as [lc|] eqn:exec; [|exact None].
@@ -430,7 +442,14 @@ Global Instance lcb_chain_builder_type : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
-     builder_add_block := add_block;
+     builder_add_block := add_block true;
+     builder_trace := lcb_trace; |}.
+
+Definition lcb_chain_builder_type_breadth_first : ChainBuilderType :=
+  {| builder_type := LocalChainBuilder;
+     builder_initial := lcb_initial;
+     builder_env lcb := lcb_lc lcb;
+     builder_add_block := add_block false;
      builder_trace := lcb_trace; |}.
 
 End LocalBlockchain.
