@@ -456,7 +456,7 @@ Proof.
   destruct (address_eqb_spec addr baker) as [addrs_eq|addrs_neq].
   - subst.
     now rewrite FMap.find_partial_alter.
-  - now rewrite FMap.find_partial_alter_ne; auto.
+  - rewrite FMap.find_partial_alter_ne; auto.
 Defined.
 
 Global Instance lcb_chain_builder_type : ChainBuilderType :=
