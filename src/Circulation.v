@@ -81,22 +81,6 @@ Qed.
 
 Hint Resolve step_circulation_unchanged : core.
 
-(* Finally, we get the result over block traces by a simple induction. *)
-Lemma block_trace_circulation_unchanged
-      {bef : list Action}
-      {after : list Action}
-      {post pre : Environment}
-      (trace : BlockTrace pre bef post after)
-  : circulation post = circulation pre.
-Proof.
-  induction trace;
-    match goal with
-    | [IH: _ |- _] => try rewrite IH; eauto
-    end.
-Qed.
-
-Hint Resolve block_trace_circulation_unchanged : core.
-
 Instance circulation_proper :
   Proper (ChainEquiv ==> eq) circulation.
 Proof.
@@ -106,7 +90,7 @@ Proof.
 Qed.
 
 Lemma circulation_add_new_block header baker env :
-  circulation (add_new_block header baker env) =
+  circulation (add_new_block_header header baker env) =
   (circulation env + compute_block_reward (block_height header))%Z.
 Proof.
   assert (Hperm: exists suf, Permutation ([baker] ++ suf) (elements Address)).
@@ -137,28 +121,26 @@ Proof.
   lia.
 Qed.
 
-Theorem chain_trace_circulation
-      {env_start env_end : Environment}
-      (trace : ChainTrace env_start env_end)
-  : circulation env_end =
-    sumZ compute_block_reward (seq 1 (block_height (block_header env_end))).
+Theorem chain_trace_circulation {env : Environment} (trace : ChainTrace env [])
+  : circulation env =
+    sumZ compute_block_reward (seq 1 (block_height (block_header env))).
 Proof.
   induction trace as
       [env eq|
-       prev_start prev_end
-       header baker acts
-       block_start new_end
-       prev_trace IH valid
-       from_accounts block_trace eq].
-  - rewrite eq.
+       prev header baker acts new prev_trace IH valid from_accounts eq|
+       prev act acts tx new new_acts prev_trace IH|
+       env acts acts' prev_trace IH perm].
+  - (* Initial chain *)
+    rewrite eq.
     unfold circulation.
     induction (elements Address); auto.
-  - unfold IsValidNextBlock in *.
-    rewrite (block_header_post_steps block_trace).
-    rewrite eq.
-    simpl.
-    rewrite (proj1 valid), sumZ_seq_S, <- IH.
-    rewrite (block_trace_circulation_unchanged block_trace), eq, circulation_add_new_block.
-    now rewrite (proj1 valid).
+  - (* New block header. Generates new coins, so idea is to just split the sumZ. *)
+    rewrite eq, circulation_add_new_block.
+    cbn.
+    now rewrite (proj1 valid), sumZ_seq_S, IH.
+  - (* execute step *)
+    erewrite step_circulation_unchanged, block_header_post_step; eassumption.
+  - (* permute *)
+    auto.
 Qed.
 End Circulation.

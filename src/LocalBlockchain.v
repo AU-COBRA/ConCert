@@ -324,26 +324,21 @@ Section ExecuteActions.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Qed.
 
-  Lemma execute_steps_trace gas acts lc df lc_after :
-    execute_steps gas acts lc df = Some lc_after ->
-    BlockTrace lc acts lc_after [].
+  Lemma execute_steps_trace gas acts (lc lc_final : LocalChain) df :
+    ChainTrace lc acts ->
+    execute_steps gas acts lc df = Some lc_final ->
+    ChainTrace lc_final [].
   Proof.
-    revert acts lc lc_after.
-    induction gas as [|gas IH]; intros acts lc lc_after exec.
-    - unfold execute_steps in exec.
-      destruct acts as [|x xs]; [|congruence].
-      Hint Constructors BlockTrace : core.
-      replace lc_after with lc by congruence; auto.
-    - destruct acts as [|x xs]; simpl in *.
-      + replace lc_after with lc by congruence; auto.
-      + destruct (execute_action x lc) as [[acts lc_after_act]|] eqn:exec_once;
-          simpl in *; [|congruence].
-        specialize (IH _ _ _ exec); clear exec.
-        destruct (execute_action_step _ _ _ _ exec_once) as [tx step]; clear exec_once.
-        (* For breadth first case our IH is xs ++ acts ->* [] and we need to show *)
-        (* x :: xs ->* [], so we will need to permute it first. *)
-        assert (Permutation (xs ++ acts) (acts ++ xs)) by perm_simplify.
-        destruct df; eauto.
+    revert acts lc lc_final.
+    induction gas as [| gas IH]; intros acts lc lc_final trace exec; cbn in *.
+    - destruct acts; congruence.
+    - destruct acts as [|x xs]; try congruence.
+      destruct (execute_action x lc) as [[new_acts lc_after]|] eqn:exec_once;
+        cbn in *; try congruence.
+      destruct (execute_action_step _ _ _ _ exec_once) as [tx step].
+      Hint Constructors ChainTrace : core.
+      assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
+      destruct df; eauto.
   Qed.
 End ExecuteActions.
 
@@ -361,7 +356,7 @@ Definition lc_initial : LocalChain :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_trace : ChainTrace lc_initial lcb_lc;
+    lcb_trace : ChainTrace lcb_lc [];
   }.
 
 Definition lcb_initial : LocalChainBuilder.
@@ -469,8 +464,8 @@ Proof.
   | [H: context[execute_steps _ _ ?a] |- _] => remember a as lc_block_start
   end.
   Hint Resolve validate_header_valid validate_actions_valid execute_steps_trace : core.
-  apply (ctrace_block lc_initial prev_lc_end new_header baker actions lc_block_start lc);
-    eauto; clear validate.
+  enough (ChainTrace lc_block_start actions) by eauto.
+  eapply ctrace_block with (baker0 := baker); eauto.
 
   subst lc_block_start.
   simpl.
@@ -497,5 +492,4 @@ Definition lcb_chain_builder_type_breadth_first : ChainBuilderType :=
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block false;
      builder_trace := lcb_trace; |}.
-
 End LocalBlockchain.

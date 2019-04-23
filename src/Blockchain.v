@@ -593,38 +593,7 @@ Proof.
 Qed.
 End Step.
 
-(* A block trace is essentially just the reflexive transitive closure of the steps.
-It captures execution within a single block. *)
-Inductive BlockTrace :
-  Environment -> list Action ->
-  Environment -> list Action -> Prop :=
-  | btrace_refl : forall {acts} {env : Environment},
-      BlockTrace env acts env acts
-  | btrace_step : forall {pre post} act tx mid new_acts suf final,
-      ChainStep pre act tx mid new_acts ->
-      BlockTrace mid (new_acts ++ suf) post final ->
-      BlockTrace pre (act :: suf) post final
-  | btrace_permute : forall pre post acts acts' final_acts,
-      Permutation acts acts' ->
-      BlockTrace pre acts post final_acts ->
-      BlockTrace pre acts' post final_acts.
-
-Section BlockTraceTheories.
-Context {pre : Environment} {acts : list Action}
-        {post : Environment} {post_acts : list Action}
-        (trace : BlockTrace pre acts post post_acts).
-
-Lemma block_header_post_steps : block_header post = block_header pre.
-Proof.
-  induction trace; auto.
-  match goal with
-  | [H: ChainStep _ _ _ _ _ |- _] => rewrite <- (block_header_post_step H)
-  end.
-  auto.
-Qed.
-End BlockTraceTheories.
-
-Definition add_new_block
+Definition add_new_block_header
           (header : BlockHeader)
           (baker : Address)
           (env : Environment) : Environment :=
@@ -640,6 +609,8 @@ let chain :=
          else blocks_baked chain a; |} in
 env <|env_chain := chain|>.
 
+(* Todo: this should just be a computation. But I still do not *)
+(* know exactly what the best way of working with reflect is *)
 Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
   block_height new = S (block_height old) /\
   slot_number new > slot_number old /\
@@ -658,42 +629,44 @@ Definition initial_env :=
           contract_state a := None; |};
      env_contracts a := None; |}.
 
-Inductive ChainTrace : Environment -> Environment -> Prop :=
-| ctrace_initial :
-    forall (env : Environment),
-      EnvironmentEquiv env initial_env ->
-      ChainTrace env env
+(* The chain captures that an environment can be reached with some current actions. *)
+Inductive ChainTrace : Environment -> list Action -> Prop :=
+  | ctrace_initial :
+      forall (env : Environment),
+        EnvironmentEquiv env initial_env ->
+        ChainTrace env []
+  (* Add a new block to the trace *)
   | ctrace_block :
-      forall (prev_start prev_end : Environment)
+      forall (prev : Environment)
              (header : BlockHeader)
              (baker : Address)
              (acts : list Action)
-             (block_start new_end : Environment),
-        ChainTrace prev_start prev_end ->
-        IsValidNextBlock header (block_header prev_end) ->
+             (new : Environment),
+        ChainTrace prev [] ->
+        IsValidNextBlock header (block_header prev) ->
         Forall (fun act => address_is_contract (act_from act) = false) acts ->
-        BlockTrace block_start acts new_end [] ->
         EnvironmentEquiv
-          block_start
-          (add_new_block header baker prev_end) ->
-        ChainTrace prev_start new_end.
-
-Section ChainTraceTheories.
-Context {pre post : Environment} (trace : ChainTrace pre post).
-
-Lemma block_height_post_trace :
-  block_height (block_header pre) <= block_height (block_header post).
-Proof.
-  induction trace; auto.
-  match goal with
-  | [H: BlockTrace _ _ _ _, H': EnvironmentEquiv _ _ |- _]
-    => rewrite (block_header_post_steps H), H'
-  end.
-  unfold IsValidNextBlock in *.
-  simpl.
-  intuition.
-Qed.
-End ChainTraceTheories.
+          new
+          (add_new_block_header header baker prev) ->
+        ChainTrace new acts
+  (* Execute an action *)
+  | ctrace_step :
+      forall (prev : Environment)
+             (act : Action)
+             (acts : list Action)
+             (tx : Tx)
+             (new : Environment)
+             (new_acts : list Action),
+        ChainTrace prev (act :: acts) ->
+        ChainStep prev act tx new new_acts ->
+        ChainTrace new (new_acts ++ acts)
+  (* Reorder action order *)
+  | ctrace_permute :
+      forall (env : Environment)
+             (acts acts' : list Action),
+        ChainTrace env acts ->
+        Permutation acts acts' ->
+        ChainTrace env acts'.
 End Semantics.
 
 Class ChainBuilderType :=
@@ -713,7 +686,7 @@ Class ChainBuilderType :=
       option builder_type;
 
     builder_trace (b : builder_type) :
-      ChainTrace (builder_env builder_initial) (builder_env b);
+      ChainTrace (builder_env b) [];
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
