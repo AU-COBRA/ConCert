@@ -6,7 +6,6 @@ From SmartContracts Require Import Automation.
 From Coq Require Import Eqdep_dec.
 From Coq Require Import List.
 From Coq Require Import Psatz.
-From Coq Require Import JMeq.
 From stdpp Require countable.
 Import ListNotations.
 

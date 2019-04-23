@@ -1,5 +1,6 @@
-From Coq Require Import Arith ZArith.
+From Coq Require Import ZArith.
 From Coq Require Import Permutation.
+From Coq Require Import Morphisms.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
@@ -416,6 +417,36 @@ Proof.
   auto.
 Qed.
 
+Definition add_new_block_header
+           (header : BlockHeader)
+           (baker : Address)
+           (lc : LocalChain) : LocalChain :=
+  let add_block o :=
+      Some ((block_height header) :: (with_default [] o)) in
+  let lc := lc<|lc_blocks_baked ::= FMap.partial_alter add_block baker|> in
+  let lc := lc<|lc_header := header|> in
+  lc.
+
+Lemma add_new_block_header_equiv header baker (lc : LocalChain) (env : Environment) :
+  EnvironmentEquiv lc env ->
+  EnvironmentEquiv
+    (add_new_block_header header baker lc)
+    (Blockchain.add_new_block_header header baker env).
+Proof.
+  intros eq.
+  apply build_env_equiv; try apply eq.
+  apply build_chain_equiv; try apply eq; auto.
+  intros addr.
+  cbn.
+  destruct (address_eqb_spec addr baker) as [addrs_eq|addrs_neq].
+  - subst.
+    rewrite FMap.find_partial_alter.
+    cbn.
+    f_equal.
+    apply eq.
+  - rewrite FMap.find_partial_alter_ne; auto.
+    apply eq.
+Qed.
 
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
@@ -438,10 +469,7 @@ Proof.
                 finalized_height := finalized_height; |} in
          do validate_header new_header (lc_header lc);
          do validate_actions actions;
-         let lc := lc<|lc_header := new_header|> in
-         let add_block o :=
-             Some ((block_height new_header) :: (with_default [] o)) in
-         let lc := lc<|lc_blocks_baked ::= FMap.partial_alter add_block baker|> in
+         let lc := add_new_block_header new_header baker lc in
          execute_steps 10 actions lc depth_first in
       _).
 
@@ -451,32 +479,16 @@ Proof.
   destruct (validate_header _) eqn:validate; [|simpl in *; congruence].
   destruct (validate_actions _) eqn:validate_actions; [|simpl in *; congruence].
   destruct_units.
-  match goal with
-  | [H: context[validate_header ?new _] |- _] => remember new as new_header
-  end.
-
-  unfold constructor in *.
-  cbn -[execute_steps address_is_contract] in exec.
-
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
-  match goal with
-  | [H: context[execute_steps _ _ ?a] |- _] => remember a as lc_block_start
-  end.
-  Hint Resolve validate_header_valid validate_actions_valid execute_steps_trace : core.
-  enough (ChainTrace lc_block_start actions) by eauto.
-  eapply ctrace_block with (baker0 := baker); eauto.
-
-  subst lc_block_start.
-  simpl.
-  apply build_env_equiv; auto.
-  apply build_chain_equiv; auto.
-  intros addr.
-  simpl.
-  destruct (address_eqb_spec addr baker) as [addrs_eq|addrs_neq].
-  - subst.
-    now rewrite FMap.find_partial_alter.
-  - rewrite FMap.find_partial_alter_ne; auto.
+  Hint Resolve
+       validate_header_valid validate_actions_valid
+       execute_steps_trace add_new_block_header_equiv
+       ctrace_block
+    : core.
+  (* It is strange that this is necessary.. *)
+  Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity.
+  eauto 6.
 Defined.
 
 Global Instance lcb_chain_builder_type : ChainBuilderType :=
