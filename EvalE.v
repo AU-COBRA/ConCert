@@ -4,7 +4,7 @@
 Require Import Relations Morphisms.
 Require Import String.
 Require Import List.
-Require Import Ast.
+Require Import Ast MyEnv.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
@@ -54,8 +54,6 @@ Module InterpreterEnvList.
   Import Basics.
 
   Open Scope program_scope.
-
-  Definition env (A : Type) := list (name * A).
 
   (** A type of labels to distinguish closures corresponding to lambdas and fixpoints *)
   Inductive clos_mode : Type :=
@@ -131,34 +129,6 @@ Module InterpreterEnvList.
       inversion H;auto.
   Qed.
 
-  (** Lookup by variable name *)
-  Fixpoint lookup {A} (ρ : env A) (key : string) : option A :=
-    match ρ with
-    | [] => None
-    | (nm,a) :: ρ' =>
-      if (nm =? key) then Some a else lookup ρ' key
-    end.
-
-  (** Lookup by index (similar to [List.nth_error], but for environments *)
-  Fixpoint lookup_i {A} (ρ : env A) (i : nat) : option A :=
-    match ρ with
-    | [] => None
-    | (nm,a) :: ρ' =>
-      if (Nat.eqb i 0) then Some a else lookup_i ρ' (i-1)
-    end.
-
-  (** A value environment lookup: *)
-  Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
-  (** A value environment extension: *)
-  Notation "ρ # [ k ~> v ]" := ( (k,v) :: ρ) (at level 50).
-
-  Fixpoint remove_by_key  (key : name) (ρ : env val) : env val :=
-    match ρ with
-      | [] => []
-      | (nm,a) :: ρ' => if (nm =? key) then remove_by_key key ρ'
-                           else (nm,a) :: (remove_by_key key ρ')
-    end.
-
   (* This doesn't work for the same reason as for STLC: in the case
      for application we don't know if [b] is decreasing.
      Although, for the relational specification we can prove this using logical relations *)
@@ -202,7 +172,7 @@ Module InterpreterEnvList.
     | _ => None
     end.
 
-  Fixpoint match_pat {A} (constr_name : name) (constr_args : list A) (bs : list (pat * expr)) :=
+  Fixpoint match_pat' {A} (constr_name : name) (constr_args : list A) (bs : list (pat * expr)) :=
     match bs with
     | [] => None
     | (p, e) :: bs' => if (andb (p.(pName) =? constr_name))
@@ -210,8 +180,18 @@ Module InterpreterEnvList.
                      then
                        let assignments := combine p.(pVars) constr_args in
                        Some (assignments,e)
-                     else match_pat constr_name constr_args bs'
+                     else match_pat' constr_name constr_args bs'
     end.
+
+  Definition match_pat {A} (cn : name) (arity :list type)
+             (constr_args : list A) (bs : list (pat * expr)) :=
+    pe <- find (fun '(p,e) => p.(pName) =? cn) bs;;
+    let '(p,e) := pe in
+    if (andb (Nat.eqb (length constr_args) (length p.(pVars)))
+             (Nat.eqb (length constr_args) (length arity))) then
+      let assignments := combine p.(pVars) constr_args in
+      Some (assignments,e)
+    else None.
 
   Fixpoint expr_eval_general (fuel : nat) (named : bool) (Σ : global_env)
            (ρ : env val) (e : expr) : res val :=
@@ -225,8 +205,9 @@ Module InterpreterEnvList.
                     option_to_res (ρ # (nm)) (nm ++ " - var not found")
                   else EvalError (nm ++ " variable found, but named variables are not supported")
       | eLambda nm ty b =>
-        (* NOTE: we pass the same type as the codomain type here (because it's not needed for lambda).
-           Maybe separate costructors for lambda/fixpoint closures would be better? *)
+      (* NOTE: we pass the same type as the codomain type here
+        (because it's not needed for lambda).
+        Maybe separate costructors for lambda/fixpoint closures would be better? *)
         Ok (vClos ρ nm cmLam ty ty b)
       | eLetIn nm e1 ty e2 =>
         v <- expr_eval_general n named Σ ρ e1 ;;
@@ -258,17 +239,20 @@ Module InterpreterEnvList.
         match (expr_eval_general n named Σ ρ e) with
         | Ok (vConstr ind' c vs) =>
           match resolve_constr Σ ind' c with
-            | Some _ => if (string_dec ind ind') then
-                         match (match_pat c vs bs) with
-                         | Some (var_assign, v) =>
-                           expr_eval_general n named Σ (List.app var_assign ρ) v
-                         | None => EvalError "No such constructor"
-                         end
-                       else EvalError ("Expecting inductive " ++ ind ++
-                                                              " but found " ++ ind')
+          | Some (_,ci) =>
+            (* TODO : move cheking inductive names before
+               resolving the constructor *)
+            if (string_dec ind ind') then
+              match (match_pat c ci vs bs) with
+              | Some (var_assign, v) =>
+                expr_eval_general n named Σ (List.app var_assign ρ) v
+              | None => EvalError "No such constructor"
+              end
+            else EvalError ("Expecting inductive " ++ ind ++
+                            " but found " ++ ind')
             | None => EvalError "No constructor or inductive found in the global envirionment"
           end
-        | Ok _ => EvalError "Discriminee should evaluate to constructor"
+        | Ok _ => EvalError "Discriminee should evaluate to a constructor"
         | v => v
         end
       | eFix fixname vn ty1 ty2 b as e =>
@@ -279,9 +263,6 @@ Module InterpreterEnvList.
   Definition expr_eval_n n := expr_eval_general n true.
   Definition expr_eval_i n := expr_eval_general n false.
 
-  Definition lookup_list {A : Type} (ρ : list (name * A)) (key : string) : option A :=
-    option_map snd (List.find (fun '(key',v) => if (string_dec key key')
-                          then Coq.Init.Datatypes.true else Coq.Init.Datatypes.false) ρ).
 
   Fixpoint remove_by_key_list (key : name) (ρ : list (name * expr)) : list (name * expr) :=
     match ρ with
@@ -295,7 +276,7 @@ Module InterpreterEnvList.
  Fixpoint subst_env (ρ : list (name * expr)) (e : expr) : expr :=
   match e with
   | eRel i as e' => e'
-  | eVar nm  => match lookup_list ρ nm with
+  | eVar nm  => match lookup ρ nm with
                     | Some v => v
                     | None => e
                     end
@@ -405,24 +386,14 @@ Module InterpreterEnvList.
    Existing Instance val_equiv_symmetric.
    Existing Instance val_equiv_transitive.
 
-   Add Relation val val_equiv
-       reflexivity proved by val_equiv_reflexive
-       symmetry proved by val_equiv_symmetric
-       transitivity proved by val_equiv_transitive as val_equiv_rel.
-
    (* TODO:  Define these  *)
    Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
    Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
    Axiom list_val_equiv_transitive : Transitive list_val_equiv.
 
-   Existing Instance list_val_equiv_symmetric.
+   Existing Instance list_val_equiv_reflexive.
    Existing Instance list_val_equiv_symmetric.
    Existing Instance list_val_equiv_transitive.
-
-   Add Relation (list val) list_val_equiv
-       reflexivity proved by list_val_equiv_reflexive
-       symmetry proved by list_val_equiv_symmetric
-       transitivity proved by list_val_equiv_transitive as list_val_equiv_rel.
 
    Lemma list_val_compat v1 v2 vs1 vs2 :
      v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
@@ -565,16 +536,20 @@ Module InterpreterEnvFun.
         v <- (expr_eval n Σ ρ e);;
         match v with
         | vConstr ind' c vs =>
-          if (string_dec ind ind') then
-            (* The pattern-mathcing is the same for the both interpreters,
-               so we just reuse it *)
-            match (InterpreterEnvList.match_pat c vs bs) with
-            | Some (var_assign, v) =>
-              expr_eval n Σ (ext_env_list ρ var_assign) v
-            | None =>
-              EvalError ("No such constructor for inductive " ++ ind)
-            end
-          else EvalError ("Expecting inductive " ++ ind ++ " but found " ++ ind')
+          match resolve_constr Σ ind' c with
+          | Some (_,ci) =>
+            (* TODO : move cheking inductive names before
+               resolving the constructor *)
+            if (string_dec ind ind') then
+              match (InterpreterEnvList.match_pat c ci vs bs) with
+              | Some (var_assign, v) =>
+                expr_eval n Σ (ext_env_list ρ var_assign) v
+              | None => EvalError "No such constructor"
+              end
+            else EvalError ("Expecting inductive " ++ ind ++
+                            " but found " ++ ind')
+            | None => EvalError "No constructor or inductive found in the global envirionment"
+          end
         | _ => EvalError "Not a constructor"
         end
       | eFix fixname vn ty1 ty2 e =>

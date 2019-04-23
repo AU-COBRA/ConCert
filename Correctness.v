@@ -1,16 +1,17 @@
 (* Proof of correctness of the translation from core language expression to the Template Coq terms *)
-Require Import Program.Tactics.
-Require Import Ast EvalE Facts CustomTactics String.
 Require Template.WcbvEval.
 Require Import Template.LiftSubst.
 Require Import Template.All.
 
-Require Import List.
+Require Import String List.
+
+Require Import CustomTactics MyEnv Ast EvalE Facts.
 
 Import InterpreterEnvList.
 Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i n Σ ρ e) (at level 100).
 
 Import ListNotations.
+Open Scope list_scope.
 
 Import Lia.
 
@@ -42,7 +43,7 @@ Lemma lookup_i_form_val_env ρ n v :
 Proof.
   Admitted.
 
-Lemma inst_env_i_in ρ n :
+Lemma inst_env_i_in (ρ : env val) n :
   n < length ρ ->
   exists v, lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = from_val_i v.
 Proof.
@@ -291,7 +292,7 @@ Lemma eval_val_ok  n ρ Σ e v :
 Admitted.
 
 Lemma from_vConstr_not_lambda :
-  forall (Σ : global_env) (i : Ast.inductive) (n0 : Ast.name) (na : name) (t0 b : term) l,
+  forall (Σ : global_env) (i : Ast.inductive) (n0 : Ast.name) (na : Template.Ast.name) (t0 b : term) l,
     tLambda na t0 b = T⟦ from_val_i (vConstr i n0 l) ⟧ Σ -> False.
 Proof.
   intros Σ i n0 na t0 b l H.
@@ -405,6 +406,7 @@ Ltac destruct_ex_named := repeat (destruct_one_ex_named).
 (* Since [mkApps] a smart constructor, it should be semantically
    equivalent to the ordinary [tApp] *)
 Lemma mkApps_sound Σ Γ e l t :
+  l <> [] ->
   Σ ;;; Γ |- mkApps e l ⇓ t ->
   Σ ;;; Γ |- tApp e l ⇓ t.
 Proof.
@@ -470,13 +472,12 @@ Hint Resolve <- subst_env_iclosed_n closed_exprs_iff : hints.
 Hint Resolve -> subst_env_iclosed_n closed_exprs_iff : hints.
 
 Lemma mkApps_vars_to_apps:
-  forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : Ast.name) (l0 : list val)
-    (u : universe_instance) ci,
+  forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : Ast.name) (l0 : list val) ci,
     resolve_constr Σ1 i0 n1 = Some ci ->
     mkApps (tConstruct (mkInd i0 0) (fst ci) []) (map (fun x => T⟦from_val_i x⟧ Σ1) l0) =
     T⟦ vars_to_apps (eConstr i0 n1) (map from_val_i l0) ⟧ Σ1.
 Proof.
-  intros Σ1 i0 n1 l0 u ci Hci.
+  intros Σ1 i0 n1 l0 ci Hci.
   induction l0 using rev_ind.
   + simpl. rewrite Hci. reflexivity.
   + repeat rewrite map_app. simpl. rewrite vars_to_apps_unfold.
@@ -517,6 +518,96 @@ Proof.
   intros H.
   revert dependent l.
   induction n;simpl in *;intros l H;destruct l eqn:H1;inversion H;eauto.
+Qed.
+
+Section FindLookupProperties.
+
+  Context {A : Type}
+          {B : Type}
+          {p : A -> bool}.
+
+  Lemma lookup_ind_nth_error_False (ρ : env A) n m a key :
+    lookup_with_ind_rec (1+n+m) ρ key  = Some (n, a) -> False.
+  Proof.
+    revert dependent m.
+    revert dependent n.
+    induction ρ as [ |a0 ρ0];intros n m H;tryfalse.
+    simpl in *.
+    destruct a0;destruct (s =? key).
+    + inversion H;lia.
+    + replace (S (n + m)) with (n + S m)  in * by lia.
+      eauto.
+  Qed.
+
+  Lemma lookup_ind_nth_error_shift (ρ : env A) n i a key :
+    lookup_with_ind_rec (1+n) ρ key = Some (1+i, a) <->
+    lookup_with_ind_rec n ρ key = Some (i, a).
+  Proof.
+    split;revert dependent i;revert dependent n;
+    induction ρ;intros i1 n1 H;tryfalse;simpl in *;
+      destruct a0; destruct (s =? key); inversion H;eauto.
+  Qed.
+
+  Lemma lookup_ind_nth_error (ρ : env A) i a key :
+    lookup_with_ind ρ key = Some (i,a) -> nth_error ρ i = Some (key,a).
+  Proof.
+    revert dependent ρ.
+    induction i;simpl;intros ρ0 H.
+    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
+      destruct p0; destruct (s =? key) eqn:Heq; try rewrite eqb_eq in *;subst.
+      inversion H;eauto.
+      now apply (lookup_ind_nth_error_False _ 0 0) in H.
+    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
+      destruct p0; destruct (s =? key) eqn:Heq;
+        try rewrite eqb_eq in *;subst;tryfalse.
+      apply IHi. now apply lookup_ind_nth_error_shift.
+  Qed.
+
+  Lemma find_map p1 p2 a (f : A -> B) (l : list A) :
+    find p1 l = Some a -> (forall a, p1 a = p2 (f a)) -> find p2 (map f l) = Some (f a).
+  Proof.
+    intros Hfind Heq.
+    induction l;tryfalse.
+    simpl in *. rewrite <- Heq.
+    destruct (p1 a0);inversion Hfind;subst;auto.
+  Qed.
+
+  Lemma find_forallb_map {X Y} {xs : list X} {p0 : X -> bool} {p1 : Y -> bool} {f : X -> Y}:
+    forall x : X, find p0 xs = Some x -> forallb p1 (map f xs) = true -> p1 (f x) = true.
+  Proof.
+    induction xs;intros x Hfnd Hall.
+    + easy.
+    + simpl in *. destruct (p0 a).
+      * inversion Hfnd;subst. now destruct (p1 (f x));tryfalse.
+      * destruct (p1 (f a));tryfalse;auto.
+  Qed.
+
+  Lemma find_forallb {xs : list A} {p1 : A -> bool}:
+    forall x, find p xs = Some x -> forallb p1 xs = true -> p1 x = true.
+  Proof.
+    intros x Hfnd Hall.
+    replace xs with (map id xs) in Hall by apply map_id.
+    eapply @find_forallb_map with (f:=id);eauto.
+  Qed.
+
+End FindLookupProperties.
+
+
+Lemma pat_match_succeeds {A} cn arity vals brs e (assig : list (Ast.name * A)) :
+    match_pat cn arity vals brs = Some (assig, e) ->
+    exists p, find (fun '(p, _) => pName p =? cn) brs = Some (p,e)
+         /\ #|arity| = #|p.(pVars)| /\ #|vals| =  #|p.(pVars)|
+         /\ assig = combine p.(pVars) vals.
+Proof.
+  intros Hpm.
+  unfold match_pat in Hpm. simpl in Hpm.
+  destruct (find (fun '(p, _) => pName p =? cn) brs) eqn:Hfnd;tryfalse.
+  destruct p as [p' e0].
+  destruct (Nat.eqb #|vals| #|pVars p'|) eqn:Hlength;tryfalse.
+  destruct (Nat.eqb #|vals| #|arity|) eqn:Hlength';tryfalse.
+  simpl in *.
+  inversion Hpm. subst. clear Hpm.
+  exists p'. rewrite PeanoNat.Nat.eqb_eq in *. easy.
 Qed.
 
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
@@ -589,11 +680,12 @@ Proof.
         { try (destruct (expr_eval_general n false Σ1 ρ e1_2) eqn:He2);tryfalse. }
       change (T⟦(eApp e1_1 e1_2.[exprs ρ])⟧Σ1) with
              (mkApps (T⟦e1_1.[exprs ρ]⟧Σ1) [T⟦e1_2.[exprs ρ]⟧Σ1]) in HT.
-      specialize (mkApps_sound _ _ _ _ _ HT) as HT'. clear HT.
+      assert (Hneq: [T⟦e1_2.[exprs ρ]⟧Σ1] <> []) by (intros HH;tryfalse).
+      specialize (mkApps_sound _ _ _ _ _ Hneq HT) as HT'. clear HT.
       rewrite <- Henv in Hc.
       simpl in Hc.
       apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 Hce2].
-      assert (Hneq : [T⟦ inst_env_i ρ e1_2 ⟧ Σ1] <> []) by easy.
+      assert (Hneq1 : [T⟦ inst_env_i ρ e1_2 ⟧ Σ1] <> []) by easy.
       destruct_ex_named.
       (* apply Wcbv_app_inv in HT'. *)
       destruct v0;
@@ -801,32 +893,75 @@ Proof.
       inversion He.
     + (* eCase *)
       unfold expr_eval_i in He. destruct p.
+      (* FIXME: inductive types do not have parameters since
+         so far no polymorhism has been implemented *)
+      assert (n0=0). admit. subst.
+
+      (* dealing with the interpreter *)
       simpl in He.
       destruct (expr_eval_general n false Σ1 ρ e1) eqn:He1;tryfalse.
       destruct v0;tryfalse.
-      destruct (resolve_constr Σ1 i0 n1) eqn:Hresolve;tryfalse.
+      unfold resolve_constr in *.
+      destruct (resolve_inductive Σ1 i0) eqn:HresI;tryfalse.
+      destruct (lookup_with_ind l1 n0) eqn:Hfind_i;tryfalse.
+      assert (HresC: resolve_constr Σ1 i0 n0 = Some p).
+      { unfold resolve_constr. rewrite HresI. rewrite Hfind_i. reflexivity. }
+
       destruct (string_dec i i0) eqn:Hi;tryfalse.
-      destruct (match_pat n1 l0 l) eqn:Hpat;tryfalse.
-      destruct p0. subst. simpl in HT.
-      inversion HT. subst. clear HT.
+      destruct p as [? ci].
+      destruct (match_pat n0 ci l0 l) eqn:Hpat;tryfalse.
+      destruct p. subst.
+
+      (* dealing with the translation and the evaluation in MetaCoq *)
+      simpl in HT. inversion HT. subst. clear HT.
       simpl in Hc. apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 HH].
-      specialize (IHn _ _ _ _ _ Hρ_ok H5 He1 eq_refl Hce1) as IH.
+      specialize (IHn _ _ _ _ _ Hρ_ok H5 He1 eq_refl Hce1) as IH. clear H5.
       simpl in IH.
       rewrite map_map in H6. simpl in H6.
       erewrite <- mkApps_vars_to_apps in IH by eauto.
       simpl in IH. apply mkApps_constr_inv in IH .
       destruct IH as [? Htmp]. destruct Htmp. subst.
-      unfold iota_red in *. simpl in *.
-      apply mkApps_sound in H6.
-      rewrite <- nth_default_eq in *.
+      unfold iota_red in H6. simpl in H6.
+      rewrite <- nth_default_eq in H6.
       unfold nth_default in *.
-      destruct (nth_error _) eqn:Hnth.
-      remember ((fun (x : pat * expr) => _)) as f in Hnth.
-      * simpl in *. apply nth_error_map_exists in Hnth.
-        destruct Hnth as [p1 Hp1]. subst;simpl in *.
-        admit.
-      * inversion H6;subst;inv_dummy.
-    + inversion He;subst;clear He.
+      destruct (nth_error _) eqn:Hnth;remember ((fun (x : pat * expr) => _)) as f in Hnth.
+      * rewrite HresI in Hnth.
+        simpl in *.
+        destruct p as [i ci0].
+        simpl in *.
+        specialize (lookup_ind_nth_error _ _ _ _ Hfind_i) as Hnth_eq.
+        simpl in Hnth_eq.
+        erewrite map_nth_error in Hnth by eauto.
+        inversion Hnth as [H1]. clear Hnth.
+        (* Exploiting the fact that pattern-matching succeeds *)
+        apply pat_match_succeeds in Hpat.
+        destruct Hpat as [p Htmp].
+        destruct Htmp as [Hfnd Htmp]. destruct Htmp as [Hci Htmp]. destruct Htmp as [Hl0 Hl2].
+        assert (Hfind :find (fun '(p, _) => pName p =? n0) (map f l) = Some (f (p, e0))).
+        { apply find_map with (p1 := fun '(p, _) => pName p =? n0);auto.
+          intros a;destruct a. subst f. reflexivity. }
+        rewrite Hfind in H1.
+        subst f. unfold id in *. simpl in H1.
+        inversion H1;clear H1. clear Hfind.
+        subst. replace ((#|pVars p| + 0)) with (#|pVars p|) in * by lia.
+        destruct l0.
+        ** simpl in *. assert (Hpvars : pVars p = []) by now apply length_zero_iff_nil.
+           rewrite Hpvars in *. simpl in *.
+           pose (fun x : pat * expr => iclosed_n 0 (snd x)) as p1.
+           pose (f := (fun x : pat * expr => (fst x, snd x .[ exprs ρ] (#|pVars (fst x)| + 0)))).
+           assert (Hclosed : p1 (f (p, e0)) = true) by eapply (find_forallb_map  _ Hfnd HH).
+           subst p1. subst f. simpl in Hclosed.
+           replace ((#|pVars p| + 0)) with (#|pVars p|) in Hclosed by lia.
+           rewrite Hpvars in Hclosed. simpl in Hclosed.
+           eapply IHn;eauto.
+        ** admit.
+           (* apply mkApps_sound in H6. *)
+      * destruct l0.
+        ** simpl in *. inversion H6;subst;inv_dummy.
+        ** apply mkApps_sound in H6; simpl in *; inversion H6;subst;inv_dummy;easy.
+      * destruct p;tryfalse.
+    + (* this case requires an updtated verison of WcbvEval  *)
+      inversion He;subst;clear He.
       simpl in *.
       inversion HT.
 Admitted.

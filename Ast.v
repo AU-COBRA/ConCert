@@ -4,6 +4,8 @@ Require Import Template.Ast Template.AstUtils.
 Require Import Template.Typing.
 Require Import String List.
 
+Require Import MyEnv.
+
 Import ListNotations.
 Open Scope string_scope.
 
@@ -124,14 +126,6 @@ Fixpoint lookup_global ( Σ : global_env) key : option global_dec :=
   | gdInd key' v :: xs => if eq_string key' key then Some (gdInd key' v) else lookup_global xs key
   end.
 
-Definition find_i {A : Type} (f : A -> bool) (l : list A) :=
-let fix find (i : nat) (l : list A) : option (nat * A) :=
-  match l with
-  | [] => None
-  | x :: tl => if f x then Some (i,x) else find (1+i) tl
-  end in
-find 0 l.
-
 Definition resolve_inductive (Σ : global_env) (ind_name : ident)
   : option (list (name * list type)) :=
   match (lookup_global Σ ind_name) with
@@ -142,9 +136,9 @@ Definition resolve_inductive (Σ : global_env) (ind_name : ident)
 (* Resolves the constructor name to a corresponding position in the list of constructors along
    with the constructor info *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ident)
-  : option (nat * (string * list type)) :=
+  : option (nat * list type)  :=
   match (resolve_inductive Σ ind_name) with
-  | Some cs => find_i (fun x => fst x =? constr_name) cs
+  | Some cs => lookup_with_ind cs constr_name
   | None => None
   end.
 
@@ -217,15 +211,8 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
   (* NOTE: in lookup failed we return a dummy value [(0,("",[]))]
      to make the function total *)
   let o_ci := resolve_constr Σ ind_name p.(pName) in
-  let (i, nm_tys) := from_option o_ci (0,("",[])) in
-  (i, combine p.(pVars) (snd nm_tys)).
-
-(* Definition trans_branch (bs : list (pat * expr)) *)
-(*            (c : name * list type) := *)
-(*   let (nm, tys) := c in *)
-(*   let pt_e := from_option (find (fun '(p,e) => p.(pName) =? nm) bs) *)
-(*                           (pConstr "" [], eVar "error") in *)
-(*   let '(_,e) := pt_e in pat_to_elam tys e. *)
+  let (i, nm_tys) := from_option o_ci (0,[]) in
+  (i, combine p.(pVars) nm_tys).
 
 Definition trans_branch (bs : list (pat * term))
            (c : name * list type) :=
@@ -253,8 +240,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty e bs =>
-    (* this interpretation is not complete, no translation for polymorphic types.
-       Patterns must be in the same order as constructors in the definition *)
+    (* this interpretation is not complete, no translation for polymorphic types. *)
     let (nm,i) := nm_i in
     let typeInfo := tLambda nAnon (tInd (mkInd nm 0) []) (type_to_term ty) in
     let cs := from_option (resolve_inductive Σ nm) [] in
@@ -270,12 +256,11 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   end.
 
 Module BaseTypes.
-  Definition Nat := "Coq.Init.Datatypes.nat".
-  (* Definition Nat := tyInd Nat_name. *)
-  Definition Bool := "Coq.Init.Datatypes.bool".
-  (* Definition Bool := tyInd Bool_name. *)
-  (* Definition true := eConstr Bool_name 0. *)
-  (* Definition false := eConstr Bool_name 1. *)
+  Definition Nat_name := "Coq.Init.Datatypes.nat".
+  Definition Nat := Nat_name.
+
+  Definition Bool_name := "Coq.Init.Datatypes.bool".
+  Definition Bool := Bool_name.
 End BaseTypes.
 
 Import BaseTypes.
@@ -364,11 +349,13 @@ Module StdLib.
                     (in custom pat at level 0,
                         x constr at level 4).
 
-  Notation "'true'" := (pConstr "true" []) (in custom pat at level 0).
-  Notation "'false'" := (pConstr "false" []) ( in custom pat at level 0).
+  Definition true_name := "true".
+  Definition false_name := "false".
+  Notation "'true'" := (pConstr true_name []) (in custom pat at level 0).
+  Notation "'false'" := (pConstr false_name []) ( in custom pat at level 0).
 
-  Notation "'true'" := (eConstr Bool "true") (in custom expr at level 0).
-  Notation "'false'" := (eConstr Bool "false") ( in custom expr at level 0).
+  Notation "'true'" := (eConstr Bool true_name) (in custom expr at level 0).
+  Notation "'false'" := (eConstr Bool false_name) ( in custom expr at level 0).
 
   Definition Σ : global_env :=
     [gdInd Bool [("true", []); ("false", [])];

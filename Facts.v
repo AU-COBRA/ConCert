@@ -1,13 +1,11 @@
 (* Various auxillary facts usefull for proving correctness of the translation and the interpreter *)
 
-Require Import CustomTactics.
-Require Import Ast.
-Require Import EvalE.
 Require Import String List.
-
 Require Import Morphisms Setoid.
 
 Require Import Template.monad_utils.
+
+Require Import CustomTactics MyEnv Ast EvalE.
 
 Import Basics.
 Open Scope program_scope.
