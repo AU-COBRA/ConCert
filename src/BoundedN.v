@@ -1,3 +1,5 @@
+(* This file formalizes a bounded natural number type which is
+efficient to compute with. *)
 From Coq Require Import NArith ZArith.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Finite.
@@ -11,8 +13,14 @@ Import ListNotations.
 
 Local Open Scope N.
 
+(* The shape of the proof is carefully chosen so that we have unicity
+of identity proofs. This is similar to CompCert's formalization of
+machine integers. Additionally, we choose to put bound first in the
+comparison so that Coq does not partially reduce the comparison, which
+results in a term with a match containing 'bound' cases. This was
+suggested as a solution by Gaëtan Gilbert in Gitter. *)
 Inductive BoundedN (bound : N) :=
-  | bounded (n : N) (_ : (bound ?= n) = Gt).
+  bounded (n : N) (_ : (bound ?= n) = Gt).
 
 Arguments bounded {_}.
 

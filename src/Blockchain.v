@@ -91,6 +91,9 @@ Record Chain :=
     contract_state : Address -> option OakValue;
   }.
 
+(* Two chains are said to be equivalent if they are extensionally equal.
+We will later require that all deployed contracts respect this relation.
+This equivalence is equality if univalence is assumed. *)
 Record ChainEquiv (c1 c2 : Chain) : Prop :=
   build_chain_equiv {
     header_eq : block_header c1 = block_header c2;
@@ -102,15 +105,13 @@ Record ChainEquiv (c1 c2 : Chain) : Prop :=
 
 Global Program Instance chain_equiv_equivalence : Equivalence ChainEquiv.
 Next Obligation.
-  intros x; apply build_chain_equiv; reflexivity.
+  repeat intro; apply build_chain_equiv; reflexivity.
 Qed.
 Next Obligation.
-  intros x y eq.
-  destruct eq; apply build_chain_equiv; congruence.
+  intros x y []; apply build_chain_equiv; congruence.
 Qed.
 Next Obligation.
-  intros x y z eq_xy eq_yz.
-  destruct eq_xy, eq_yz; apply build_chain_equiv; congruence.
+  intros x y z [] []; apply build_chain_equiv; congruence.
 Qed.
 
 Global Instance chain_equiv_header_proper :
@@ -132,8 +133,7 @@ Proof. intros x y eq a b eq'; subst; apply contract_state_eq; assumption. Qed.
 Section Accessors.
 Local Open Scope Z.
 
-Definition account_balance (chain : Chain) (addr : Address)
-  : Amount :=
+Definition account_balance (chain : Chain) (addr : Address) : Amount :=
   let sum_amounts txs := sumZ tx_amount txs in
   sum_amounts (incoming_txs chain addr) - sum_amounts (outgoing_txs chain addr) +
   sumZ compute_block_reward (blocks_baked chain addr).
@@ -184,6 +184,7 @@ with WeakContract :=
              ContractCallContext ->
              OakValue ->
              option OakValue)
+        (* Init respects chain equivalence *)
         (init_proper :
            Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
         (receive :
@@ -192,6 +193,7 @@ with WeakContract :=
              OakValue (* state *) ->
              option OakValue (* message *) ->
              option (OakValue * list ActionBody))
+        (* And so does receive *)
         (receive_proper :
            Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
 
@@ -382,6 +384,7 @@ Record Environment :=
     env_contracts : Address -> option WeakContract;
   }.
 
+(* Furthermore we define extensional equality for such environments. *)
 Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
   build_env_equiv {
     chain_equiv :> ChainEquiv e1 e2;
