@@ -657,17 +657,6 @@ Proof.
     end.
 Qed.
 End Single.
-
-Lemma chain_step_respects_equiv e1 e2 act tx e1' e2' new_acts :
-  EnvironmentEquiv e1 e2 ->
-  EnvironmentEquiv e1' e2' ->
-  ChainStep e1 act tx e1' new_acts ->
-  ChainStep e2 act tx e2' new_acts.
-Proof.
-  Hint Constructors ChainStep : core.
-  intros eq eq' step.
-  destruct step; rewrite eq, eq' in *; eauto.
-Qed.
 End Theories.
 End Step.
 
@@ -708,25 +697,23 @@ Definition empty_env : Environment :=
           contract_state a := None; |};
      env_contracts a := None; |}.
 
-(* The ChainTrace captures there is a valid execution where, starting
-from one environment and queue of actions, we end up in a different
-environment and queue of actions. *)
+(* The ChainTrace captures that there is a valid execution where,
+starting from one environment and queue of actions, we end up in a
+different environment and queue of actions. *)
 Inductive ChainTrace :
   Environment -> list Action ->
   Environment -> list Action -> Prop :=
   | ctrace_refl :
-      forall (env env' : Environment) (l : list Action),
-        EnvironmentEquiv env env' ->
-        ChainTrace env l env' l
+      forall {env l}, ChainTrace env l env l
   (* Add a new block to the trace *)
   | ctrace_block :
-      forall (from : Environment)
-             (from_queue : list Action)
-             (prev_to : Environment)
-             (header : BlockHeader)
-             (baker : Address)
-             (to : Environment)
-             (queue : list Action),
+      forall {from : Environment}
+             {from_queue : list Action}
+             {prev_to : Environment}
+             {header : BlockHeader}
+             {baker : Address}
+             {to : Environment}
+             {queue : list Action},
         ChainTrace from from_queue prev_to [] ->
         IsValidNextBlock header (block_header prev_to) ->
         Forall (fun act => address_is_contract (act_from act) = false) queue ->
@@ -736,47 +723,49 @@ Inductive ChainTrace :
         ChainTrace from from_queue to queue
   (* Execute an action *)
   | ctrace_step :
-      forall (from : Environment)
-             (from_queue : list Action)
-             (prev_to : Environment)
-             (act : Action)
-             (acts : list Action)
-             (tx : Tx)
-             (new : Environment)
-             (new_acts : list Action),
+      forall {from : Environment}
+             {from_queue : list Action}
+             {prev_to : Environment}
+             {act : Action}
+             {acts : list Action}
+             {tx : Tx}
+             {new : Environment}
+             {new_acts : list Action},
         ChainTrace from from_queue prev_to (act :: acts) ->
         ChainStep prev_to act tx new new_acts ->
         ChainTrace from from_queue new (new_acts ++ acts)
   (* Reorder action order *)
   | ctrace_permute :
-      forall (from : Environment)
-             (from_queue : list Action)
-             (to : Environment)
-             (to_queue to_queue' : list Action),
+      forall {from : Environment}
+             {from_queue : list Action}
+             {to : Environment}
+             {to_queue to_queue' : list Action},
         ChainTrace from from_queue to to_queue ->
         Permutation to_queue to_queue' ->
         ChainTrace from from_queue to to_queue'.
 
-Section Theories.
-Lemma chain_trace_respects_equiv from from' to to' from_queue to_queue :
-  EnvironmentEquiv from from' ->
-  EnvironmentEquiv to to' ->
-  ChainTrace from from_queue to to_queue ->
-  ChainTrace from' from_queue to' to_queue.
-Proof.
-  Hint Resolve ctrace_refl ctrace_block ctrace_step : core.
-  Hint Resolve chain_step_respects_equiv.
-  Hint Extern 1 (ChainTrace _ _ _ _) =>
-  match goal with
-  | [H: Permutation ?a ?b |- _] => apply (ctrace_permute _ _ _ a b)
-  end.
-  Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity.
+Fixpoint trace_app
+           {from mid to : Environment}
+           {from_queue mid_queue to_queue : list Action}
+           (c1 : ChainTrace from from_queue mid mid_queue)
+           (c2 : ChainTrace mid mid_queue to to_queue)
+  : ChainTrace from from_queue to to_queue :=
+  match c2 with
+  | ctrace_refl => fun c1 => c1
+  | ctrace_block pref valid from_accs eq =>
+    fun c1 => ctrace_block (trace_app c1 pref) valid from_accs eq
+  | ctrace_step pref step =>
+    fun c1 => ctrace_step (trace_app c1 pref) step
+  | ctrace_permute pref perm =>
+    fun c1 => ctrace_permute (trace_app c1 pref) perm
+  end c1.
 
-  intros eq_from eq_to trace.
-  revert to' eq_to.
-  induction trace; intros to' eq_to; eauto; rewrite eq_from, eq_to in *; eauto.
-Qed.
-End Theories.
+Definition trace_prefix
+           {from mid to : Environment}
+           {from_queue mid_queue to_queue : list Action}
+           (pref : ChainTrace from from_queue mid mid_queue)
+           (full : ChainTrace from from_queue to to_queue) : Prop :=
+  exists extension, trace_app pref extension = full.
 End Trace.
 End Semantics.
 
