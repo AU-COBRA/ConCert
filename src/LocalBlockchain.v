@@ -484,10 +484,9 @@ Proof.
   Hint Resolve
        validate_header_valid validate_actions_valid
        execute_steps_trace add_new_block_header_equiv
-       ctrace_block
-    : core.
-  (* It is strange that this is necessary.. *)
-  Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity.
+       ctrace_block : core.
+  (* auto does not pick up reflexivity for reflexive relations. *)
+  Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity : core.
   eauto 6.
 Defined.
 

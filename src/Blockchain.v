@@ -114,22 +114,6 @@ Next Obligation.
   intros x y z [] []; apply build_chain_equiv; congruence.
 Qed.
 
-Global Instance chain_equiv_header_proper :
-  Proper (ChainEquiv ==> eq) block_header.
-Proof. intros x y. apply header_eq. Qed.
-Global Instance chain_equiv_incoming_txs_proper :
-  Proper (ChainEquiv ==> eq ==> eq) incoming_txs.
-Proof. intros x y eq a b eq'; subst; apply incoming_txs_eq; assumption. Qed.
-Global Instance chain_equiv_outgoing_txs_proper :
-  Proper (ChainEquiv ==> eq ==> eq) outgoing_txs.
-Proof. intros x y eq a b eq'; subst; apply outgoing_txs_eq; assumption. Qed.
-Global Instance chain_equiv_blocks_backes_proper :
-  Proper (ChainEquiv ==> eq ==> eq) blocks_baked.
-Proof. intros x y eq a b eq'; subst; apply blocks_baked_eq; assumption. Qed.
-Global Instance chain_equiv_contract_state_proper :
-  Proper (ChainEquiv ==> eq ==> eq) contract_state.
-Proof. intros x y eq a b eq'; subst; apply contract_state_eq; assumption. Qed.
-
 Section Accessors.
 Local Open Scope Z.
 
@@ -146,6 +130,35 @@ Definition contract_deployment (chain : Chain) (addr : Address)
                   end in
   find_first to_dep (incoming_txs chain addr).
 End Accessors.
+
+Section Theories.
+Ltac rewrite_chain_equiv :=
+  match goal with
+  | [H: ChainEquiv _ _ |- _] => rewrite H
+  end.
+
+Global Instance chain_equiv_header_proper :
+  Proper (ChainEquiv ==> eq) block_header.
+Proof. repeat intro; auto using header_eq. Qed.
+Global Instance chain_equiv_incoming_txs_proper :
+  Proper (ChainEquiv ==> eq ==> eq) incoming_txs.
+Proof. repeat intro; subst; auto using incoming_txs_eq. Qed.
+Global Instance chain_equiv_outgoing_txs_proper :
+  Proper (ChainEquiv ==> eq ==> eq) outgoing_txs.
+Proof. repeat intro; subst; auto using outgoing_txs_eq. Qed.
+Global Instance chain_equiv_blocks_backes_proper :
+  Proper (ChainEquiv ==> eq ==> eq) blocks_baked.
+Proof. repeat intro; subst; auto using blocks_baked_eq. Qed.
+Global Instance chain_equiv_contract_state_proper :
+  Proper (ChainEquiv ==> eq ==> eq) contract_state.
+Proof. repeat intro; subst; auto using contract_state_eq. Qed.
+Global Instance chain_equiv_account_balance_proper :
+  Proper (ChainEquiv ==> eq ==> eq) account_balance.
+Proof. repeat intro; subst; unfold account_balance; now rewrite_chain_equiv. Qed.
+Global Instance chain_equiv_contract_deployment :
+  Proper (ChainEquiv ==> eq ==> eq) contract_deployment.
+Proof. repeat intro; subst; unfold contract_deployment; now rewrite_chain_equiv. Qed.
+End Theories.
 
 Record ContractCallContext :=
   build_ctx {
@@ -203,20 +216,30 @@ Definition wc_version (wc : WeakContract) : Version :=
 Definition wc_init (wc : WeakContract) :=
   let (_, i, _, _, _) := wc in i.
 
-Definition wc_init_proper (wc : WeakContract) :=
-  match wc return
-        Proper (ChainEquiv ==> eq ==> eq ==> eq) (wc_init wc) with
-  | build_weak_contract _ _ ip _ _ => ip
-  end.
+Global Instance wc_init_proper :
+  Proper (eq ==> ChainEquiv ==> eq ==> eq ==> eq) wc_init.
+Proof.
+  intros wc wc' eq; subst wc'.
+  exact (
+      match wc return
+            Proper (ChainEquiv ==> eq ==> eq ==> eq) (wc_init wc) with
+      | build_weak_contract _ _ ip _ _ => ip
+      end).
+Qed.
 
 Definition wc_receive (wc : WeakContract) :=
   let (_, _, _, r, _) := wc in r.
 
-Definition wc_receive_proper (wc : WeakContract) :=
-  match wc return
-        Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) (wc_receive wc) with
-  | build_weak_contract _ _ _ _ rp => rp
-  end.
+Global Instance wc_receive_proper :
+  Proper (eq ==> ChainEquiv ==> eq ==> eq ==> eq ==> eq) wc_receive.
+Proof.
+  intros wc wc' eq; subst wc'.
+  exact (
+      match wc return
+            Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) (wc_receive wc) with
+      | build_weak_contract _ _ _ _ rp => rp
+      end).
+Qed.
 
 Record Action :=
   build_act {
@@ -437,6 +460,42 @@ Definition set_contract_state (addr : Address) (state : OakValue) :=
   update_chain
     (fun c => c <|contract_state ::= set_chain_contract_state addr state|>).
 
+Section Theories.
+Ltac solve_proper :=
+  apply build_env_equiv;
+  [apply build_chain_equiv|];
+  cbn;
+  repeat intro;
+  repeat
+    match goal with
+    | [H: EnvironmentEquiv _ _|- _] => rewrite H
+    end;
+  auto.
+
+Global Instance add_tx_proper :
+  Proper (eq ==> EnvironmentEquiv ==> EnvironmentEquiv) add_tx.
+Proof.
+  repeat intro; subst.
+  unfold add_tx, add_tx_to_map.
+  solve_proper.
+Qed.
+
+Global Instance add_contract_proper :
+  Proper (eq ==> eq ==> EnvironmentEquiv ==> EnvironmentEquiv) add_contract.
+Proof.
+  repeat intro; subst.
+  unfold add_contract.
+  solve_proper.
+Qed.
+
+Global Instance set_contract_state_proper :
+  Proper (eq ==> eq ==> EnvironmentEquiv ==> EnvironmentEquiv) set_contract_state.
+Proof.
+  repeat intro; subst.
+  unfold set_contract_state, update_chain, set_chain_contract_state.
+  solve_proper.
+Qed.
+
 Section Step.
 Local Open Scope Z.
 (* Next we define a single step. It specifies how an external action
@@ -632,7 +691,8 @@ Definition initial_env :=
           contract_state a := None; |};
      env_contracts a := None; |}.
 
-(* The chain captures that an environment can be reached with some current actions. *)
+(* The chain captures that an environment can be reached
+with some current actions queued. *)
 Inductive ChainTrace : Environment -> list Action -> Prop :=
   | ctrace_initial :
       forall (env : Environment),
@@ -670,6 +730,34 @@ Inductive ChainTrace : Environment -> list Action -> Prop :=
         ChainTrace env acts ->
         Permutation acts acts' ->
         ChainTrace env acts'.
+
+Lemma chain_step_respects_equiv e1 e2 act tx e1' e2' new_acts :
+  EnvironmentEquiv e1 e2 ->
+  EnvironmentEquiv e1' e2' ->
+  ChainStep e1 act tx e1' new_acts ->
+  ChainStep e2 act tx e2' new_acts.
+Proof.
+  Hint Constructors ChainStep : core.
+  intros eq eq' step.
+  destruct step; rewrite eq, eq' in *; eauto.
+Qed.
+
+Lemma chain_trace_respects_equiv e1 e2 l :
+  EnvironmentEquiv e1 e2 ->
+  ChainTrace e1 l ->
+  ChainTrace e2 l.
+Proof.
+  intros eq trace.
+  Hint Resolve ctrace_initial ctrace_block ctrace_step : core.
+  Hint Resolve chain_step_respects_equiv.
+  Hint Extern 1 (ChainTrace ?env _) =>
+  match goal with
+  | [H: Permutation ?a ?b |- _] => apply (ctrace_permute env a b)
+  end.
+  Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity.
+  induction trace; eauto; rewrite eq in *; eauto.
+Qed.
+End Theories.
 End Semantics.
 
 Class ChainBuilderType :=
