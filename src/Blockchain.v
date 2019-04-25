@@ -603,6 +603,7 @@ Inductive ChainStep :
       ChainStep pre act tx new_env new_acts.
 
 Section Theories.
+Section Single.
 Context {pre : Environment} {act : Action} {tx : Tx}
         {post : Environment} {new_acts : list Action}
         (step : ChainStep pre act tx post new_acts).
@@ -655,9 +656,8 @@ Proof.
     | [H: EnvironmentEquiv _ _ |- _] => now rewrite H
     end.
 Qed.
-End Theories.
+End Single.
 
-Section Theories.
 Lemma chain_step_respects_equiv e1 e2 act tx e1' e2' new_acts :
   EnvironmentEquiv e1 e2 ->
   EnvironmentEquiv e1' e2' ->
