@@ -410,7 +410,7 @@ Record Environment :=
 (* Furthermore we define extensional equality for such environments. *)
 Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
   build_env_equiv {
-    chain_equiv :> ChainEquiv e1 e2;
+    chain_equiv : ChainEquiv e1 e2;
     contracts_eq : forall a, env_contracts e1 a = env_contracts e2 a;
   }.
 
@@ -614,7 +614,7 @@ Proof.
   unfold account_balance.
   destruct step;
     match goal with
-    | [H: EnvironmentEquiv _ _ |- _] => rewrite (H : ChainEquiv _ _)
+    | [H: EnvironmentEquiv _ _ |- _] => rewrite H
     end;
     simpl; unfold add_tx_to_map; destruct_address_eq; simpl; lia.
 Qed.
@@ -655,6 +655,17 @@ Proof.
 Qed.
 End Step.
 
+Lemma chain_step_respects_equiv e1 e2 act tx e1' e2' new_acts :
+  EnvironmentEquiv e1 e2 ->
+  EnvironmentEquiv e1' e2' ->
+  ChainStep e1 act tx e1' new_acts ->
+  ChainStep e2 act tx e2' new_acts.
+Proof.
+  Hint Constructors ChainStep : core.
+  intros eq eq' step.
+  destruct step; rewrite eq, eq' in *; eauto.
+Qed.
+
 Definition add_new_block_header
           (header : BlockHeader)
           (baker : Address)
@@ -679,7 +690,7 @@ Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
   finalized_height new >= finalized_height old /\
   finalized_height new < block_height new.
 
-Definition initial_env :=
+Definition empty_env : Environment :=
   {| env_chain :=
        {| block_header :=
             {| block_height := 0;
@@ -691,71 +702,72 @@ Definition initial_env :=
           contract_state a := None; |};
      env_contracts a := None; |}.
 
-(* The chain captures that an environment can be reached
-with some current actions queued. *)
-Inductive ChainTrace : Environment -> list Action -> Prop :=
-  | ctrace_initial :
-      forall (env : Environment),
-        EnvironmentEquiv env initial_env ->
-        ChainTrace env []
+(* The ChainTrace captures there is a valid execution where, starting
+from one environment and queue of actions, we end up in a different
+environment and queue of actions. *)
+Inductive ChainTrace :
+  Environment -> list Action ->
+  Environment -> list Action -> Prop :=
+  | ctrace_refl :
+      forall (env env' : Environment) (l : list Action),
+        EnvironmentEquiv env env' ->
+        ChainTrace env l env' l
   (* Add a new block to the trace *)
   | ctrace_block :
-      forall (prev : Environment)
+      forall (from : Environment)
+             (from_queue : list Action)
+             (prev_to : Environment)
              (header : BlockHeader)
              (baker : Address)
-             (acts : list Action)
-             (new : Environment),
-        ChainTrace prev [] ->
-        IsValidNextBlock header (block_header prev) ->
-        Forall (fun act => address_is_contract (act_from act) = false) acts ->
+             (to : Environment)
+             (queue : list Action),
+        ChainTrace from from_queue prev_to [] ->
+        IsValidNextBlock header (block_header prev_to) ->
+        Forall (fun act => address_is_contract (act_from act) = false) queue ->
         EnvironmentEquiv
-          new
-          (add_new_block_header header baker prev) ->
-        ChainTrace new acts
+          to
+          (add_new_block_header header baker prev_to) ->
+        ChainTrace from from_queue to queue
   (* Execute an action *)
   | ctrace_step :
-      forall (prev : Environment)
+      forall (from : Environment)
+             (from_queue : list Action)
+             (prev_to : Environment)
              (act : Action)
              (acts : list Action)
              (tx : Tx)
              (new : Environment)
              (new_acts : list Action),
-        ChainTrace prev (act :: acts) ->
-        ChainStep prev act tx new new_acts ->
-        ChainTrace new (new_acts ++ acts)
+        ChainTrace from from_queue prev_to (act :: acts) ->
+        ChainStep prev_to act tx new new_acts ->
+        ChainTrace from from_queue new (new_acts ++ acts)
   (* Reorder action order *)
   | ctrace_permute :
-      forall (env : Environment)
-             (acts acts' : list Action),
-        ChainTrace env acts ->
-        Permutation acts acts' ->
-        ChainTrace env acts'.
+      forall (from : Environment)
+             (from_queue : list Action)
+             (to : Environment)
+             (to_queue to_queue' : list Action),
+        ChainTrace from from_queue to to_queue ->
+        Permutation to_queue to_queue' ->
+        ChainTrace from from_queue to to_queue'.
 
-Lemma chain_step_respects_equiv e1 e2 act tx e1' e2' new_acts :
-  EnvironmentEquiv e1 e2 ->
-  EnvironmentEquiv e1' e2' ->
-  ChainStep e1 act tx e1' new_acts ->
-  ChainStep e2 act tx e2' new_acts.
+Lemma chain_trace_respects_equiv from from' to to' from_queue to_queue :
+  EnvironmentEquiv from from' ->
+  EnvironmentEquiv to to' ->
+  ChainTrace from from_queue to to_queue ->
+  ChainTrace from' from_queue to' to_queue.
 Proof.
-  Hint Constructors ChainStep : core.
-  intros eq eq' step.
-  destruct step; rewrite eq, eq' in *; eauto.
-Qed.
-
-Lemma chain_trace_respects_equiv e1 e2 l :
-  EnvironmentEquiv e1 e2 ->
-  ChainTrace e1 l ->
-  ChainTrace e2 l.
-Proof.
-  intros eq trace.
-  Hint Resolve ctrace_initial ctrace_block ctrace_step : core.
+  Hint Resolve ctrace_refl ctrace_block ctrace_step : core.
   Hint Resolve chain_step_respects_equiv.
-  Hint Extern 1 (ChainTrace ?env _) =>
+  Hint Extern 1 (ChainTrace _ _ _ _) =>
   match goal with
-  | [H: Permutation ?a ?b |- _] => apply (ctrace_permute env a b)
+  | [H: Permutation ?a ?b |- _] => apply (ctrace_permute _ _ _ a b)
   end.
   Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity.
-  induction trace; eauto; rewrite eq in *; eauto.
+
+  intros eq_from eq_to trace.
+  revert to' eq_to.
+  induction trace; intros to' eq_to; eauto; rewrite eq_from, eq_to in *; eauto.
 Qed.
 End Theories.
 End Semantics.
@@ -777,7 +789,7 @@ Class ChainBuilderType :=
       option builder_type;
 
     builder_trace (b : builder_type) :
-      ChainTrace (builder_env b) [];
+      ChainTrace empty_env [] (builder_env b) [];
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.

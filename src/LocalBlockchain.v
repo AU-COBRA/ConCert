@@ -326,9 +326,9 @@ Section ExecuteActions.
   Qed.
 
   Lemma execute_steps_trace gas acts (lc lc_final : LocalChain) df :
-    ChainTrace lc acts ->
+    ChainTrace empty_env [] lc acts ->
     execute_steps gas acts lc df = Some lc_final ->
-    ChainTrace lc_final [].
+    ChainTrace empty_env [] lc_final [].
   Proof.
     revert acts lc lc_final.
     induction gas as [| gas IH]; intros acts lc lc_final trace exec; cbn in *.
@@ -357,16 +357,15 @@ Definition lc_initial : LocalChain :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_trace : ChainTrace lcb_lc [];
+    lcb_trace : ChainTrace empty_env [] lcb_lc [];
   }.
 
 Definition lcb_initial : LocalChainBuilder.
 Proof.
   refine
     {| lcb_lc := lc_initial; lcb_trace := _ |}.
-  apply ctrace_initial.
-  apply build_env_equiv; auto.
-  apply build_chain_equiv; auto.
+  Hint Resolve ctrace_refl build_env_equiv build_chain_equiv : core.
+  auto.
 Defined.
 
 Definition validate_header (new old : BlockHeader) : option unit :=

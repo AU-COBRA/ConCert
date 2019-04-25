@@ -121,26 +121,29 @@ Proof.
   lia.
 Qed.
 
-Theorem chain_trace_circulation {env : Environment} (trace : ChainTrace env [])
+Theorem chain_trace_circulation
+        {env : Environment}
+        (trace : ChainTrace empty_env [] env [])
   : circulation env =
     sumZ compute_block_reward (seq 1 (block_height (block_header env))).
 Proof.
-  induction trace as
-      [env eq|
-       prev header baker acts new prev_trace IH valid from_accounts eq|
-       prev act acts tx new new_acts prev_trace IH|
-       env acts acts' prev_trace IH perm].
+  remember empty_env as from eqn:eq.
+  induction trace; rewrite eq in *; clear eq;
+    repeat
+      match goal with
+      | [H: EnvironmentEquiv empty_env _ |- _] => rewrite <- H in *; clear H
+      | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *; clear H
+      end.
   - (* Initial chain *)
-    rewrite eq.
     unfold circulation.
     induction (elements Address); auto.
   - (* New block header. Generates new coins, so idea is to just split the sumZ. *)
-    rewrite eq, circulation_add_new_block.
+    rewrite circulation_add_new_block.
     cbn.
-    now rewrite (proj1 valid), sumZ_seq_S, IH.
-  - (* execute step *)
-    erewrite step_circulation_unchanged, block_header_post_step; eassumption.
-  - (* permute *)
-    auto.
+    match goal with
+    | [H: IsValidNextBlock _ _, IH: _ |- _] => now rewrite (proj1 H), sumZ_seq_S, IH
+    end.
+  - erewrite step_circulation_unchanged, block_header_post_step; eauto.
+  - auto.
 Qed.
 End Circulation.
