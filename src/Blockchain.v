@@ -671,6 +671,7 @@ Qed.
 End Theories.
 End Step.
 
+Section Trace.
 Definition add_new_block_header
           (header : BlockHeader)
           (baker : Address)
@@ -776,6 +777,7 @@ Proof.
   induction trace; intros to' eq_to; eauto; rewrite eq_from, eq_to in *; eauto.
 Qed.
 End Theories.
+End Trace.
 End Semantics.
 
 Class ChainBuilderType :=
