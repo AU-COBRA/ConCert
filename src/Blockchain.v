@@ -495,6 +495,7 @@ Proof.
   unfold set_contract_state, update_chain, set_chain_contract_state.
   solve_proper.
 Qed.
+End Theories.
 
 Section Step.
 Local Open Scope Z.
@@ -601,6 +602,7 @@ Inductive ChainStep :
         (set_contract_state to new_state (add_tx tx pre)) ->
       ChainStep pre act tx new_env new_acts.
 
+Section Theories.
 Context {pre : Environment} {act : Action} {tx : Tx}
         {post : Environment} {new_acts : list Action}
         (step : ChainStep pre act tx post new_acts).
@@ -653,8 +655,9 @@ Proof.
     | [H: EnvironmentEquiv _ _ |- _] => now rewrite H
     end.
 Qed.
-End Step.
+End Theories.
 
+Section Theories.
 Lemma chain_step_respects_equiv e1 e2 act tx e1' e2' new_acts :
   EnvironmentEquiv e1 e2 ->
   EnvironmentEquiv e1' e2' ->
@@ -665,6 +668,8 @@ Proof.
   intros eq eq' step.
   destruct step; rewrite eq, eq' in *; eauto.
 Qed.
+End Theories.
+End Step.
 
 Definition add_new_block_header
           (header : BlockHeader)
@@ -751,6 +756,7 @@ Inductive ChainTrace :
         Permutation to_queue to_queue' ->
         ChainTrace from from_queue to to_queue'.
 
+Section Theories.
 Lemma chain_trace_respects_equiv from from' to to' from_queue to_queue :
   EnvironmentEquiv from from' ->
   EnvironmentEquiv to to' ->
