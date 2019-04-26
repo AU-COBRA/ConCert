@@ -42,7 +42,8 @@ Infix "=?" := address_eqb (at level 70) : address_scope.
 Global Ltac destruct_address_eq :=
   repeat
     match goal with
-    | [|- context[(?a =? ?b)%address]] => destruct (address_eqb_spec a b)
+    | [H: context[address_eqb ?a ?b] |- _] => destruct (address_eqb_spec a b)
+    | [|- context[address_eqb ?a ?b]] => destruct (address_eqb_spec a b)
     end.
 
 Section Blockchain.
@@ -819,6 +820,33 @@ Proof.
     | [IH: _ |- _] => now rewrite IH
     end.
 Qed.
+
+Ltac rewrite_environment_equiv :=
+  match goal with
+  | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
+  end.
+
+Ltac destruct_step :=
+  match goal with
+  | [H: ChainStep _ _ _ _ _ |- _] => destruct H
+  end.
+
+Lemma contract_addr_format
+      {to to_queue}
+      (trace : ChainTrace empty_env [] to to_queue)
+      (addr : Address) (wc : WeakContract) :
+  env_contracts to addr = Some wc ->
+  address_is_contract addr = true.
+Proof.
+  intros contract_at_addr.
+  remember empty_env eqn:eq.
+  induction trace; rewrite eq in *; clear eq;
+    try rewrite_environment_equiv; cbn in *; auto.
+  - congruence.
+  - destruct_step; rewrite_environment_equiv; cbn in *; auto.
+    destruct_address_eq; subst; auto.
+Qed.
+
 End Theories.
 End Trace.
 End Semantics.

@@ -42,7 +42,7 @@ Proof.
   unfold circulation.
   induction (elements Address) as [| x xs IH].
   - reflexivity.
-  - simpl in *.
+  - cbn in *.
     rewrite IH, (account_balance_post step), from_eq_to.
     lia.
 Qed.
@@ -100,21 +100,20 @@ Proof.
   pose proof (Permutation_NoDup perm (elements_set Address)) as perm_set.
   unfold circulation.
   rewrite perm.
-  simpl.
+  cbn.
   unfold constructor, set, account_balance.
-  simpl.
+  cbn.
   destruct (address_eqb_spec baker baker); try congruence.
-  simpl.
-  pose proof (in_NoDup_app baker [baker] suf ltac:(prove) perm_set) as not_in_suf.
-  repeat rewrite <- Z.add_assoc.
-  f_equal.
-  rewrite <- Z.add_comm.
-  repeat rewrite <- Z.add_assoc.
-  f_equal.
+  cbn.
+  match goal with
+  | [|- ((?a - ?b + (?c + ?d)) + ?e = (?a - ?b + ?d + ?f + ?c))%Z] =>
+    enough (e = f) by lia
+  end.
 
+  pose proof (in_NoDup_app baker [baker] suf ltac:(prove) perm_set) as not_in_suf.
   clear perm perm_set e.
   induction suf as [| x xs IH]; auto.
-  simpl in *.
+  cbn in *.
   apply Decidable.not_or in not_in_suf.
   destruct (address_eqb_spec x baker); try tauto.
   specialize (IH (proj2 not_in_suf)).
