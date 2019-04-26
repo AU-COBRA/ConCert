@@ -764,15 +764,25 @@ Delimit Scope trace_scope with trace.
 Bind Scope trace_scope with ChainTrace.
 Infix "++" := trace_app (right associativity, at level 60) : trace_scope.
 
+Local Open Scope trace.
 Definition trace_prefix
            {from mid to : Environment}
            {from_queue mid_queue to_queue : list Action}
            (pref : ChainTrace from from_queue mid mid_queue)
            (full : ChainTrace from from_queue to to_queue) : Prop :=
-  exists extension, trace_app pref extension = full.
+  exists suffix, full = pref ++ suffix.
+
+Definition trace_suffix
+           {from mid to : Environment}
+           {from_queue mid_queue to_queue : list Action}
+           (suf : ChainTrace mid mid_queue to to_queue)
+           (full : ChainTrace from from_queue to to_queue) : Prop :=
+  exists prefix, full = prefix ++ suf.
+
+Infix "`prefix_of`" := trace_prefix (at level 70) : trace_scope.
+Infix "`suffix_of`" := trace_suffix (at level 70) : trace_scope.
 
 Section Theories.
-Open Scope trace.
 Fixpoint trace_app_refl_l
       {from to from_queue to_queue}
       (trace : ChainTrace from from_queue to to_queue) :
