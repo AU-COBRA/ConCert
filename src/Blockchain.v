@@ -760,12 +760,43 @@ Fixpoint trace_app
     fun c1 => ctrace_permute (trace_app c1 pref) perm
   end c1.
 
+Delimit Scope trace_scope with trace.
+Bind Scope trace_scope with ChainTrace.
+Infix "++" := trace_app (right associativity, at level 60) : trace_scope.
+
 Definition trace_prefix
            {from mid to : Environment}
            {from_queue mid_queue to_queue : list Action}
            (pref : ChainTrace from from_queue mid mid_queue)
            (full : ChainTrace from from_queue to to_queue) : Prop :=
   exists extension, trace_app pref extension = full.
+
+Section Theories.
+Open Scope trace.
+Fixpoint trace_app_refl_l
+      {from to from_queue to_queue}
+      (trace : ChainTrace from from_queue to to_queue) :
+  ctrace_refl ++ trace = trace.
+Proof.
+  destruct trace; try reflexivity; cbn;
+    match goal with
+    | [|- context[ctrace_refl ++ ?a]] => now rewrite (trace_app_refl_l _ _ _ _ a)
+    end.
+Qed.
+
+Fixpoint trace_app_assoc
+      {env1 env2 env3 env4 queue1 queue2 queue3 queue4}
+      (c1 : ChainTrace env1 queue1 env2 queue2)
+      (c2 : ChainTrace env2 queue2 env3 queue3)
+      (c3 : ChainTrace env3 queue3 env4 queue4) :
+  c1 ++ c2 ++ c3 = (c1 ++ c2) ++ c3.
+Proof.
+  destruct c3; try reflexivity; cbn;
+    match goal with
+    | [|- context[?a ++ ?b ++ ?c]] => now rewrite (trace_app_assoc _ _ _ _ _ _ _ _ a b c)
+    end.
+Qed.
+End Theories.
 End Trace.
 End Semantics.
 
