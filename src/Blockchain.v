@@ -700,6 +700,7 @@ Definition empty_env : Environment :=
 (* The ChainTrace captures that there is a valid execution where,
 starting from one environment and queue of actions, we end up in a
 different environment and queue of actions. *)
+Unset Elimination Schemes.
 Inductive ChainTrace :
   Environment -> list Action ->
   Environment -> list Action -> Prop :=
@@ -744,12 +745,23 @@ Inductive ChainTrace :
         Permutation to_queue to_queue' ->
         ChainTrace from from_queue to to_queue'.
 
+(* The normal induction principle generated for propositions does not
+allow the picked proposition to depend on the inhabitant of the
+proposition. However, for our traces, we will often want to prove
+properties that rely on the specific inhabitant. For instance when we
+need to reason about prefixes or suffixes. Thus we derive a normal
+principle instead. As an example, rhis is necessary for the proofs
+about trace_app below. This difference between inductives in Prop and
+Type, and the solution was highlighted to me by Danil Annenkov. *)
+Scheme ChainTrace_ind := Induction for ChainTrace Sort Prop.
+Set Elimination Schemes.
+
 Fixpoint trace_app
-           {from mid to : Environment}
-           {from_queue mid_queue to_queue : list Action}
-           (c1 : ChainTrace from from_queue mid mid_queue)
-           (c2 : ChainTrace mid mid_queue to to_queue)
-  : ChainTrace from from_queue to to_queue :=
+            {from mid to : Environment}
+            {from_queue mid_queue to_queue : list Action}
+            (c1 : ChainTrace from from_queue mid mid_queue)
+            (c2 : ChainTrace mid mid_queue to to_queue)
+   : ChainTrace from from_queue to to_queue :=
   match c2 with
   | ctrace_refl => fun c1 => c1
   | ctrace_block pref valid from_accs eq =>
@@ -783,27 +795,28 @@ Infix "`prefix_of`" := trace_prefix (at level 70) : trace_scope.
 Infix "`suffix_of`" := trace_suffix (at level 70) : trace_scope.
 
 Section Theories.
-Fixpoint trace_app_refl_l
+Lemma trace_app_refl_l
       {from to from_queue to_queue}
       (trace : ChainTrace from from_queue to to_queue) :
   ctrace_refl ++ trace = trace.
 Proof.
-  destruct trace; try reflexivity; cbn;
+  induction trace; cbn; auto;
     match goal with
-    | [|- context[ctrace_refl ++ ?a]] => now rewrite (trace_app_refl_l _ _ _ _ a)
+    | [IH: _ |- _] => now rewrite IH
     end.
 Qed.
 
-Fixpoint trace_app_assoc
+Lemma trace_app_assoc
       {env1 env2 env3 env4 queue1 queue2 queue3 queue4}
       (c1 : ChainTrace env1 queue1 env2 queue2)
       (c2 : ChainTrace env2 queue2 env3 queue3)
       (c3 : ChainTrace env3 queue3 env4 queue4) :
   c1 ++ c2 ++ c3 = (c1 ++ c2) ++ c3.
 Proof.
-  destruct c3; try reflexivity; cbn;
+  revert env1 env2 queue1 queue2 c1 c2.
+  induction c3; intros env1 env2 queue1 queue2 c1 c2; cbn; auto;
     match goal with
-    | [|- context[?a ++ ?b ++ ?c]] => now rewrite (trace_app_assoc _ _ _ _ _ _ _ _ a b c)
+    | [IH: _ |- _] => now rewrite IH
     end.
 Qed.
 End Theories.
