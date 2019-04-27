@@ -773,11 +773,8 @@ Fixpoint trace_app
     fun c1 => ctrace_permute (trace_app c1 pref) perm
   end c1.
 
-Delimit Scope trace_scope with trace.
-Bind Scope trace_scope with ChainTrace.
-Infix "++" := trace_app (right associativity, at level 60) : trace_scope.
+Infix "++" := trace_app (right associativity, at level 60).
 
-Local Open Scope trace.
 Definition trace_prefix
            {from mid to : Environment}
            {from_queue mid_queue to_queue : list Action}
@@ -791,9 +788,6 @@ Definition trace_suffix
            (suf : ChainTrace mid mid_queue to to_queue)
            (full : ChainTrace from from_queue to to_queue) : Prop :=
   exists prefix, full = prefix ++ suf.
-
-Infix "`prefix_of`" := trace_prefix (at level 70) : trace_scope.
-Infix "`suffix_of`" := trace_suffix (at level 70) : trace_scope.
 
 Section Theories.
 Lemma trace_app_refl_l
@@ -873,6 +867,12 @@ Class ChainBuilderType :=
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
 End Blockchain.
+
+Delimit Scope trace_scope with trace.
+Bind Scope trace_scope with ChainTrace.
+Infix "++" := trace_app (right associativity, at level 60) : trace_scope.
+Infix "`prefix_of`" := trace_prefix (at level 70) : trace_scope.
+Infix "`suffix_of`" := trace_suffix (at level 70) : trace_scope.
 
 Arguments version {_ _ _ _ _ _ _}.
 Arguments init {_ _ _ _ _ _ _}.
