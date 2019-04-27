@@ -31,11 +31,10 @@ Qed.
 Lemma step_from_to_same
       {pre : Environment}
       {act : Action}
-      {tx : Tx}
       {post : Environment}
       {new_acts : list Action}
-      (step : ChainStep pre act tx post new_acts) :
-  tx_from tx = tx_to tx ->
+      (step : ChainStep pre act post new_acts) :
+  step_from step = step_to step ->
   circulation post = circulation pre.
 Proof.
   intros from_eq_to.
@@ -52,13 +51,12 @@ Hint Resolve step_from_to_same : core.
 Lemma step_circulation_unchanged
       {pre : Environment}
       {act : Action}
-      {tx : Tx}
       {post : Environment}
       {new_acts : list Action}
-      (step : ChainStep pre act tx post new_acts) :
+      (step : ChainStep pre act post new_acts) :
   circulation post = circulation pre.
 Proof.
-  destruct (address_eqb_spec (tx_from tx) (tx_to tx))
+  destruct (address_eqb_spec (step_from step) (step_to step))
     as [from_eq_to | from_neq_to]; eauto.
   destruct (address_reorganize from_neq_to) as [suf perm].
   apply Permutation_sym in perm.
@@ -69,10 +67,10 @@ Proof.
   enough (sumZ (account_balance pre) suf = sumZ (account_balance post) suf) by prove.
 
   pose proof (Permutation_NoDup perm) as perm_set.
-  assert (from_not_in_suf: ~In (tx_from tx) suf).
-  { apply (in_NoDup_app _ [tx_from tx; tx_to tx] _); prove. }
-  assert (to_not_in_suf: ~In (tx_to tx) suf).
-  { apply (in_NoDup_app _ [tx_from tx; tx_to tx] _); prove. }
+  assert (from_not_in_suf: ~In (step_from step) suf).
+  { apply (in_NoDup_app _ [step_from step; step_to step] _); prove. }
+  assert (to_not_in_suf: ~In (step_to step) suf).
+  { apply (in_NoDup_app _ [step_from step; step_to step] _); prove. }
 
   clear perm perm_set.
   pose proof (account_balance_post_irrelevant step).

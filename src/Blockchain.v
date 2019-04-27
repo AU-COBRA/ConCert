@@ -505,25 +505,23 @@ changes an environment and which external actions to execute after it. *)
 (* todo: handle deploy/call failures. We should still transfer gas and allow this
 to be recorded. *)
 Inductive ChainStep :
-  Environment -> Action -> Tx ->
-  Environment -> list Action -> Prop :=
+  Environment -> Action ->
+  Environment -> list Action -> Type :=
   | step_empty :
       forall {pre : Environment}
              {act : Action}
-             {tx : Tx}
              {new_env : Environment}
              (from to : Address)
              (amount : Amount),
         amount <= account_balance pre from ->
         address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
-        tx = build_tx from to amount tx_empty ->
+        let tx := build_tx from to amount tx_empty in
         EnvironmentEquiv new_env (add_tx tx pre) ->
-        ChainStep pre act tx new_env []
+        ChainStep pre act new_env []
   | step_deploy :
       forall {pre : Environment}
              {act : Action}
-             {tx : Tx}
              {new_env : Environment}
              (from to : Address)
              (amount : Amount)
@@ -535,7 +533,9 @@ Inductive ChainStep :
       incoming_txs pre to = [] ->
       address_is_contract to = true ->
       act = build_act from (act_deploy amount wc setup) ->
-      tx = build_tx from to amount (tx_deploy (build_contract_deployment (wc_version wc) setup)) ->
+      let tx := build_tx
+                  from to amount
+                  (tx_deploy (build_contract_deployment (wc_version wc) setup)) in
       wc_init
         wc
         (add_tx tx pre)
@@ -544,11 +544,10 @@ Inductive ChainStep :
       EnvironmentEquiv
         new_env
         (set_contract_state to state (add_contract to wc (add_tx tx pre))) ->
-      ChainStep pre act tx new_env []
+      ChainStep pre act new_env []
   | step_call_empty :
       forall {pre : Environment}
              {act : Action}
-             {tx : Tx}
              {new_env : Environment}
              {new_acts : list Action}
              (from to : Address)
@@ -561,7 +560,7 @@ Inductive ChainStep :
       env_contracts pre to = Some wc ->
       contract_state pre to = Some prev_state ->
       act = build_act from (act_transfer to amount) ->
-      tx = build_tx from to amount tx_empty ->
+      let tx := build_tx from to amount tx_empty in
       wc_receive
         wc
         (add_tx tx pre)
@@ -572,11 +571,10 @@ Inductive ChainStep :
       EnvironmentEquiv
         new_env
         (set_contract_state to new_state (add_tx tx pre)) ->
-      ChainStep pre act tx new_env new_acts
+      ChainStep pre act new_env new_acts
   | step_call_msg :
       forall {pre : Environment}
              {act : Action}
-             {tx : Tx}
              {new_env : Environment}
              {new_acts : list Action}
              (from to : Address)
@@ -590,7 +588,7 @@ Inductive ChainStep :
       env_contracts pre to = Some wc ->
       contract_state pre to = Some prev_state ->
       act = build_act from (act_call to amount msg) ->
-      tx = build_tx from to amount (tx_call msg) ->
+      let tx := build_tx from to amount (tx_call msg) in
       wc_receive
         wc
         (add_tx tx pre)
@@ -601,49 +599,78 @@ Inductive ChainStep :
       EnvironmentEquiv
         new_env
         (set_contract_state to new_state (add_tx tx pre)) ->
-      ChainStep pre act tx new_env new_acts.
+      ChainStep pre act new_env new_acts.
+
+Section Accessors.
+Context {pre : Environment} {act : Action}
+        {post : Environment} {new_acts : list Action}
+        (step : ChainStep pre act post new_acts).
+
+Definition step_from : Address :=
+  match step with
+  | step_empty from _ _ _ _ _ _ _
+  | step_deploy from _ _ _ _ _ _ _ _ _ _ _ _ _
+  | step_call_empty from _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  | step_call_msg from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
+  end.
+
+Definition step_to : Address :=
+  match step with
+  | step_empty _ to _ _ _ _ _ _
+  | step_deploy _ to _ _ _ _ _ _ _ _ _ _ _ _
+  | step_call_empty _ to _ _ _ _ _ _ _ _ _ _ _ _ _
+  | step_call_msg _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
+  end.
+
+Definition step_amount : Amount :=
+  match step with
+  | step_empty _ _ amount _ _ _ _ _
+  | step_deploy _ _ amount _ _ _ _ _ _ _ _ _ _ _
+  | step_call_empty _ _ amount _ _ _ _ _ _ _ _ _ _ _ _
+  | step_call_msg _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
+  end.
+End Accessors.
 
 Section Theories.
-Section Single.
-Context {pre : Environment} {act : Action} {tx : Tx}
+Context {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        (step : ChainStep pre act tx post new_acts).
+        (step : ChainStep pre act post new_acts).
 
 Lemma account_balance_post (addr : Address) :
-  (account_balance post addr =
+  account_balance post addr =
   account_balance pre addr
-  + (if (addr =? tx_to tx)%address then tx_amount tx else 0)
-  - (if (addr =? tx_from tx)%address then tx_amount tx else 0)).
+  + (if (addr =? step_to step)%address then step_amount step else 0)
+  - (if (addr =? step_from step)%address then step_amount step else 0).
 Proof.
   unfold account_balance.
-  destruct step;
+  destruct step; subst; cbn;
     match goal with
     | [H: EnvironmentEquiv _ _ |- _] => rewrite H
     end;
-    simpl; unfold add_tx_to_map; destruct_address_eq; simpl; lia.
+    cbn; unfold add_tx_to_map; destruct_address_eq; cbn; lia.
 Qed.
 
 Lemma account_balance_post_to :
-  tx_from tx <> tx_to tx ->
-  account_balance post (tx_to tx) =
-  account_balance pre (tx_to tx) + tx_amount tx.
+  step_from step <> step_to step ->
+  account_balance post (step_to step) =
+  account_balance pre (step_to step) + step_amount step.
 Proof.
   rewrite account_balance_post.
   destruct_address_eq; prove.
 Qed.
 
 Lemma account_balance_post_from :
-  tx_from tx <> tx_to tx ->
-  account_balance post (tx_from tx) =
-  account_balance pre (tx_from tx) - tx_amount tx.
+  step_from step <> step_to step ->
+  account_balance post (step_from step) =
+  account_balance pre (step_from step) - step_amount step.
 Proof.
   rewrite account_balance_post.
   destruct_address_eq; prove.
 Qed.
 
 Lemma account_balance_post_irrelevant (addr : Address) :
-  addr <> tx_from tx ->
-  addr <> tx_to tx ->
+  addr <> step_from step ->
+  addr <> step_to step ->
   account_balance post addr = account_balance pre addr.
 Proof.
   rewrite account_balance_post.
@@ -657,7 +684,6 @@ Proof.
     | [H: EnvironmentEquiv _ _ |- _] => now rewrite H
     end.
 Qed.
-End Single.
 End Theories.
 End Step.
 
@@ -701,10 +727,9 @@ Definition empty_env : Environment :=
 (* The ChainTrace captures that there is a valid execution where,
 starting from one environment and queue of actions, we end up in a
 different environment and queue of actions. *)
-Unset Elimination Schemes.
 Inductive ChainTrace :
   Environment -> list Action ->
-  Environment -> list Action -> Prop :=
+  Environment -> list Action -> Type :=
   | ctrace_refl :
       forall {env l}, ChainTrace env l env l
   (* Add a new block to the trace *)
@@ -730,11 +755,10 @@ Inductive ChainTrace :
              {prev_to : Environment}
              {act : Action}
              {acts : list Action}
-             {tx : Tx}
              {new : Environment}
              {new_acts : list Action},
         ChainTrace from from_queue prev_to (act :: acts) ->
-        ChainStep prev_to act tx new new_acts ->
+        ChainStep prev_to act new new_acts ->
         ChainTrace from from_queue new (new_acts ++ acts)
   (* Reorder action order *)
   | ctrace_permute :
@@ -745,17 +769,6 @@ Inductive ChainTrace :
         ChainTrace from from_queue to to_queue ->
         Permutation to_queue to_queue' ->
         ChainTrace from from_queue to to_queue'.
-
-(* The normal induction principle generated for propositions does not
-allow the picked proposition to depend on the inhabitant of the
-proposition. However, for our traces, we will often want to prove
-properties that rely on the specific inhabitant. For instance when we
-need to reason about prefixes or suffixes. Thus we derive a normal
-principle instead. As an example, rhis is necessary for the proofs
-about trace_app below. This difference between inductives in Prop and
-Type, and the solution was highlighted to me by Danil Annenkov. *)
-Scheme ChainTrace_ind := Induction for ChainTrace Sort Prop.
-Set Elimination Schemes.
 
 Fixpoint trace_app
             {from mid to : Environment}
@@ -822,7 +835,7 @@ Ltac rewrite_environment_equiv :=
 
 Ltac destruct_step :=
   match goal with
-  | [H: ChainStep _ _ _ _ _ |- _] => destruct H
+  | [H: ChainStep _ _ _ _ |- _] => destruct H
   end.
 
 Lemma contract_addr_format
@@ -862,7 +875,7 @@ Class ChainBuilderType :=
       option builder_type;
 
     builder_trace (b : builder_type) :
-      ChainTrace empty_env [] (builder_env b) [];
+      inhabited (ChainTrace empty_env [] (builder_env b) []);
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.

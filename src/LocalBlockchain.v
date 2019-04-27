@@ -230,15 +230,13 @@ Section ExecuteActions.
                           | None => act_transfer to amount
                           | Some msg => act_call to amount msg
                           end) ->
-    exists tx, ChainStep lc_before act tx lc_after new_acts.
+    inhabited (ChainStep lc_before act lc_after new_acts).
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
     destruct (Z.gtb_spec amount (account_balance lc_before from)); [simpl in *; congruence|].
     destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
     - (* there is a contract at destination, so do call *)
-      remember_tx.
-      exists tx.
       destruct (contract_state _ _) as [prev_state|] eqn:prev_state_eq;
         cbn in *; try congruence.
       destruct (wc_receive _ _ _ _ _) eqn:receive; cbn in *; try congruence.
@@ -247,6 +245,7 @@ Section ExecuteActions.
       end.
       (* We record the steps different depending on whether this *)
       (* is a call with a message or without a message *)
+      constructor.
       destruct msg as [msg|].
       1: apply (step_call_msg from to amount wc msg prev_state new_state resp_acts);
         try solve [simpl in *; congruence].
@@ -263,8 +262,7 @@ Section ExecuteActions.
       destruct (address_is_contract to) eqn:addr_format; simpl in *; try congruence.
       destruct msg; simpl in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
-      remember_tx.
-      exists tx.
+      constructor.
       apply (step_empty from to amount); auto.
       inversion sent; subst; now apply add_tx_equiv.
   Qed.
@@ -286,7 +284,7 @@ Section ExecuteActions.
   Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
     deploy_contract from amount wc setup lc_before = Some (new_acts, lc_after) ->
     act = build_act from (act_deploy amount wc setup) ->
-    exists tx, ChainStep lc_before act tx lc_after new_acts.
+    inhabited (ChainStep lc_before act lc_after new_acts).
   Proof.
     intros dep act_eq.
     unfold deploy_contract in dep.
@@ -294,14 +292,13 @@ Section ExecuteActions.
     destruct (get_new_contract_addr lc_before) as [contract_addr|] eqn:new_contract_addr;
       [|cbn in *; congruence].
     cbn -[incoming_txs] in dep.
-    remember_tx.
     destruct (incoming_txs _ _) eqn:no_txs; [|cbn in *; congruence].
     destruct (FMap.find _ _) eqn:no_contracts; [cbn in *; congruence|].
     destruct (wc_init _ _ _ _) as [state|] eqn:recv; [|cbn in *; congruence].
     cbn in dep.
-    exists tx.
     assert (new_acts = []) by congruence; subst new_acts.
     Hint Resolve get_new_contract_addr_is_contract_addr : core.
+    constructor.
     apply (step_deploy from contract_addr amount wc setup state); eauto.
     - rewrite <- recv.
       apply wc_init_proper; auto.
@@ -316,7 +313,7 @@ Section ExecuteActions.
         (lc_before : LocalChain)
         (lc_after : LocalChain) :
     execute_action act lc_before = Some (new_acts, lc_after) ->
-    exists tx, ChainStep lc_before act tx lc_after new_acts.
+    inhabited (ChainStep lc_before act lc_after new_acts).
   Proof.
     intros exec.
     unfold execute_action in exec.
@@ -326,9 +323,9 @@ Section ExecuteActions.
   Qed.
 
   Lemma execute_steps_trace gas acts (lc lc_final : LocalChain) df :
-    ChainTrace empty_env [] lc acts ->
+    inhabited (ChainTrace empty_env [] lc acts) ->
     execute_steps gas acts lc df = Some lc_final ->
-    ChainTrace empty_env [] lc_final [].
+    inhabited (ChainTrace empty_env [] lc_final []).
   Proof.
     revert acts lc lc_final.
     induction gas as [| gas IH]; intros acts lc lc_final trace exec; cbn in *.
@@ -336,7 +333,8 @@ Section ExecuteActions.
     - destruct acts as [|x xs]; try congruence.
       destruct (execute_action x lc) as [[new_acts lc_after]|] eqn:exec_once;
         cbn in *; try congruence.
-      destruct (execute_action_step _ _ _ _ exec_once) as [tx step].
+      destruct (execute_action_step _ _ _ _ exec_once) as [step].
+      destruct trace as [trace].
       Hint Constructors ChainTrace : core.
       assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
       destruct df; eauto.
@@ -357,7 +355,7 @@ Definition lc_initial : LocalChain :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_trace : ChainTrace empty_env [] lcb_lc [];
+    lcb_trace : inhabited (ChainTrace empty_env [] lcb_lc []);
   }.
 
 Definition lcb_initial : LocalChainBuilder.
@@ -486,7 +484,8 @@ Proof.
        ctrace_block : core.
   (* auto does not pick up reflexivity for reflexive relations. *)
   Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity : core.
-  eauto 6.
+  destruct prev_lcb_trace as [prev_lcb_trace].
+  eauto 7.
 Defined.
 
 Global Instance lcb_chain_builder_type : ChainBuilderType :=
