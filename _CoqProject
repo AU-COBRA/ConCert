@@ -5,6 +5,7 @@ src/BoundedN.v
 src/Circulation.v
 src/Congress.v
 src/Containers.v
+src/CursorList.v
 src/Extras.v
 src/Finite.v
 src/LocalBlockchain.v
