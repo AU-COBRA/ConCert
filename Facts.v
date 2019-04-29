@@ -66,7 +66,12 @@ Section Values.
   Proof.
     induction e; intros n1 m1 H;try inversion H;auto.
     simpl in *.
-    Admitted.
+  Admitted.
+
+  Lemma iclosed_n_0 e : forall n, iclosed_n 0 e = true -> iclosed_n n e = true.
+  Proof.
+    apply iclosed_m_n.
+  Qed.
 
   Lemma iclosed_n_lookup :
     forall (e1 e2 : expr) (ρ : env expr)  (n : nat),

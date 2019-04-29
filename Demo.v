@@ -283,3 +283,13 @@ Definition is_zero (n : nat) :=
 Quote Definition q_stupid_case := Eval compute in stupid_case.
 (* Nested patters are transformed into the nested "case" expressions *)
 Quote Definition q_stupid_case' := Eval compute in stupid_case'.
+
+Inductive Bazz :=
+  cBazz : nat -> nat -> nat -> Bazz.
+
+Definition Bazz_match b :=
+  match b with
+    cBazz n m k => n
+  end.
+
+Quote Definition q_Bazz_match := Eval compute in Bazz_match.

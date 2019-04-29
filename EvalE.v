@@ -245,7 +245,7 @@ Module InterpreterEnvList.
             if (string_dec ind ind') then
               match (match_pat c ci vs bs) with
               | Some (var_assign, v) =>
-                expr_eval_general n named Σ (List.app var_assign ρ) v
+                expr_eval_general n named Σ (List.app (rev var_assign) ρ) v
               | None => EvalError "No such constructor"
               end
             else EvalError ("Expecting inductive " ++ ind ++
@@ -272,7 +272,7 @@ Module InterpreterEnvList.
     end.
 
 
- (* NOTE: assumes, that [e] is a closed expression! *)
+ (* NOTE: assumes, that expression in [ρ] are closed! *)
  Fixpoint subst_env (ρ : list (name * expr)) (e : expr) : expr :=
   match e with
   | eRel i as e' => e'
@@ -291,6 +291,7 @@ Module InterpreterEnvList.
   | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key_list v ρ) b)
   end.
 
+  (* NOTE: assumes, that expression in [ρ] are closed! *)
  Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
   match e with
   | eRel i => if Nat.leb k i then
