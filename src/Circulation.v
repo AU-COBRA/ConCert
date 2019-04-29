@@ -3,7 +3,7 @@ chain implementing a chain type. More specifically, we show that the circulation
 does not change during execution of blocks. This is proven under the (implicit)
 assumption that the address space is finite. *)
 From Coq Require Import List Permutation ZArith Psatz Morphisms.
-From SmartContracts Require Import Automation Blockchain Extras Finite.
+From SmartContracts Require Import Automation Blockchain Extras Finite CursorList.
 From RecordUpdate Require Import RecordSet.
 Import ListNotations.
 
@@ -118,29 +118,44 @@ Proof.
   lia.
 Qed.
 
-Theorem chain_trace_circulation
-        {env : Environment}
-        (trace : ChainTrace empty_env [] env [])
-  : circulation env =
-    sumZ compute_block_reward (seq 1 (block_height (block_header env))).
+Lemma event_circulation {prev next} (evt : ChainEvent prev next) :
+  circulation next =
+  match evt with
+  | evt_block _ _ _ _ =>
+    circulation prev + compute_block_reward (block_height (block_header next))
+  | _ => circulation prev
+  end%Z.
 Proof.
-  remember empty_env as from eqn:eq.
-  induction trace; rewrite eq in *; clear eq;
+  destruct evt;
     repeat
       match goal with
-      | [H: EnvironmentEquiv empty_env _ |- _] => rewrite <- H in *; clear H
       | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *; clear H
       end.
-  - (* Initial chain *)
-    unfold circulation.
+  - (* New block *)
+    now rewrite circulation_add_new_block.
+  - (* New step *)
+    erewrite step_circulation_unchanged; eauto.
+  - (* Permute queue *)
+    intuition.
+Qed.
+
+Theorem chain_trace_circulation
+        {state : ChainState}
+        (trace : ChainTrace empty_state state)
+  : circulation state =
+    sumZ compute_block_reward (seq 1 (block_height (block_header state))).
+Proof.
+  remember empty_state as from eqn:eq.
+  induction trace as [| from mid to xs IH x]; rewrite eq in *; clear eq.
+  - unfold circulation.
     induction (elements Address); auto.
-  - (* New block header. Generates new coins, so idea is to just split the sumZ. *)
-    rewrite circulation_add_new_block.
-    cbn.
-    match goal with
-    | [H: IsValidNextBlock _ _, IH: _ |- _] => now rewrite (proj1 H), sumZ_seq_S, IH
-    end.
-  - erewrite step_circulation_unchanged, block_header_post_step; eauto.
-  - auto.
+  - rewrite (event_circulation x).
+    destruct x.
+    + match goal with
+      | [H: EnvironmentEquiv _ _, H': IsValidNextBlock _ _ |- _] =>
+        now rewrite H in *; cbn; rewrite (proj1 H'), sumZ_seq_S, IH
+      end.
+    + erewrite block_header_post_step; eauto.
+    + intuition.
 Qed.
 End Circulation.

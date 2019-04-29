@@ -180,3 +180,8 @@ Ltac destruct_units :=
     match goal with
     | [u: unit |- _] => destruct u
     end.
+
+Ltac solve_by_rewrite :=
+  match goal with
+  | [H: _ |- _] => now rewrite H
+  end.

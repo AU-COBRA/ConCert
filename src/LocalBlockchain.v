@@ -9,6 +9,7 @@ From SmartContracts Require Import Extras.
 From SmartContracts Require Import Automation.
 From SmartContracts Require Import BoundedN.
 From SmartContracts Require Import Circulation.
+From SmartContracts Require Import CursorList.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Psatz.
@@ -323,9 +324,9 @@ Section ExecuteActions.
   Qed.
 
   Lemma execute_steps_trace gas acts (lc lc_final : LocalChain) df :
-    inhabited (ChainTrace empty_env [] lc acts) ->
+    inhabited (ChainTrace empty_state (build_chain_state lc acts)) ->
     execute_steps gas acts lc df = Some lc_final ->
-    inhabited (ChainTrace empty_env [] lc_final []).
+    inhabited (ChainTrace empty_state (build_chain_state lc_final [])).
   Proof.
     revert acts lc lc_final.
     induction gas as [| gas IH]; intros acts lc lc_final trace exec; cbn in *.
@@ -335,9 +336,15 @@ Section ExecuteActions.
         cbn in *; try congruence.
       destruct (execute_action_step _ _ _ _ exec_once) as [step].
       destruct trace as [trace].
-      Hint Constructors ChainTrace : core.
+      Hint Constructors ChainEvent : core.
+      Hint Constructors CursorList.
+      Hint Unfold ChainTrace.
+      destruct df; eapply IH; try eassumption; eauto.
+      (* BF case, where we need to permute *)
       assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
-      destruct df; eauto.
+      cut (ChainTrace
+             empty_state
+             (build_chain_state lc_after (new_acts ++ xs))); eauto.
   Qed.
 End ExecuteActions.
 
@@ -355,15 +362,15 @@ Definition lc_initial : LocalChain :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_trace : inhabited (ChainTrace empty_env [] lcb_lc []);
+    lcb_trace : inhabited (ChainTrace empty_state (build_chain_state lcb_lc []));
   }.
 
 Definition lcb_initial : LocalChainBuilder.
 Proof.
   refine
     {| lcb_lc := lc_initial; lcb_trace := _ |}.
-  Hint Resolve ctrace_refl build_env_equiv build_chain_equiv : core.
-  auto.
+  constructor.
+  apply CursorList.nil.
 Defined.
 
 Definition validate_header (new old : BlockHeader) : option unit :=
@@ -478,14 +485,16 @@ Proof.
   destruct_units.
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
-  Hint Resolve
-       validate_header_valid validate_actions_valid
-       execute_steps_trace add_new_block_header_equiv
-       ctrace_block : core.
-  (* auto does not pick up reflexivity for reflexive relations. *)
-  Hint Extern 1 (EnvironmentEquiv _ _) => reflexivity : core.
+  cbn -[execute_steps] in exec.
   destruct prev_lcb_trace as [prev_lcb_trace].
-  eauto 7.
+
+  refine (execute_steps_trace _ _ _ _ _ _ exec).
+  constructor.
+  refine (snoc prev_lcb_trace _).
+  Hint Resolve validate_header_valid validate_actions_valid.
+  eapply evt_block; eauto.
+  apply add_new_block_header_equiv.
+  reflexivity.
 Defined.
 
 Global Instance lcb_chain_builder_type : ChainBuilderType :=

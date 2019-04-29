@@ -8,6 +8,7 @@ From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Extras.
 From SmartContracts Require Import Automation.
+From SmartContracts Require Import CursorList.
 From RecordUpdate Require Import RecordUpdate.
 From stdpp Require countable.
 
@@ -712,125 +713,71 @@ Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
   finalized_height new >= finalized_height old /\
   finalized_height new < block_height new.
 
-Definition empty_env : Environment :=
-  {| env_chain :=
-       {| block_header :=
-            {| block_height := 0;
-               slot_number := 0;
-               finalized_height := 0; |};
-          incoming_txs a := [];
-          outgoing_txs a := [];
-          blocks_baked a := [];
-          contract_state a := None; |};
-     env_contracts a := None; |}.
+Record ChainState :=
+  build_chain_state {
+    chain_state_env :> Environment;
+    chain_state_queue : list Action;
+  }.
+
+Inductive ChainEvent : ChainState -> ChainState -> Type :=
+  | evt_block :
+      forall {prev : ChainState}
+             {header : BlockHeader}
+             {baker : Address}
+             {next : ChainState},
+        chain_state_queue prev = [] ->
+        IsValidNextBlock header (block_header prev) ->
+        Forall
+          (fun act => address_is_contract (act_from act) = false)
+          (chain_state_queue next) ->
+        EnvironmentEquiv
+          next
+          (add_new_block_header header baker prev) ->
+        ChainEvent prev next
+  | evt_step :
+      forall {prev : ChainState}
+             {act : Action}
+             {acts : list Action}
+             {next : ChainState}
+             {new_acts : list Action},
+        chain_state_queue prev = act :: acts ->
+        ChainStep prev act next new_acts ->
+        chain_state_queue next = new_acts ++ acts ->
+        ChainEvent prev next
+  | evt_permute :
+      forall {prev new : ChainState},
+        chain_state_env prev = chain_state_env new ->
+        Permutation (chain_state_queue prev) (chain_state_queue new) ->
+        ChainEvent prev new.
+
+Definition empty_state : ChainState :=
+  {| chain_state_env :=
+       {| env_chain :=
+            {| block_header :=
+                 {| block_height := 0;
+                    slot_number := 0;
+                    finalized_height := 0; |};
+               incoming_txs a := [];
+               outgoing_txs a := [];
+               blocks_baked a := [];
+               contract_state a := None; |};
+          env_contracts a := None; |};
+     chain_state_queue := [] |}.
 
 (* The ChainTrace captures that there is a valid execution where,
 starting from one environment and queue of actions, we end up in a
 different environment and queue of actions. *)
-Inductive ChainTrace :
-  Environment -> list Action ->
-  Environment -> list Action -> Type :=
-  | ctrace_refl :
-      forall {env l}, ChainTrace env l env l
-  (* Add a new block to the trace *)
-  | ctrace_block :
-      forall {from : Environment}
-             {from_queue : list Action}
-             {prev_to : Environment}
-             {header : BlockHeader}
-             {baker : Address}
-             {to : Environment}
-             {queue : list Action},
-        ChainTrace from from_queue prev_to [] ->
-        IsValidNextBlock header (block_header prev_to) ->
-        Forall (fun act => address_is_contract (act_from act) = false) queue ->
-        EnvironmentEquiv
-          to
-          (add_new_block_header header baker prev_to) ->
-        ChainTrace from from_queue to queue
-  (* Execute an action *)
-  | ctrace_step :
-      forall {from : Environment}
-             {from_queue : list Action}
-             {prev_to : Environment}
-             {act : Action}
-             {acts : list Action}
-             {new : Environment}
-             {new_acts : list Action},
-        ChainTrace from from_queue prev_to (act :: acts) ->
-        ChainStep prev_to act new new_acts ->
-        ChainTrace from from_queue new (new_acts ++ acts)
-  (* Reorder action order *)
-  | ctrace_permute :
-      forall {from : Environment}
-             {from_queue : list Action}
-             {to : Environment}
-             {to_queue to_queue' : list Action},
-        ChainTrace from from_queue to to_queue ->
-        Permutation to_queue to_queue' ->
-        ChainTrace from from_queue to to_queue'.
-
-Fixpoint trace_app
-            {from mid to : Environment}
-            {from_queue mid_queue to_queue : list Action}
-            (c1 : ChainTrace from from_queue mid mid_queue)
-            (c2 : ChainTrace mid mid_queue to to_queue)
-   : ChainTrace from from_queue to to_queue :=
-  match c2 with
-  | ctrace_refl => fun c1 => c1
-  | ctrace_block pref valid from_accs eq =>
-    fun c1 => ctrace_block (trace_app c1 pref) valid from_accs eq
-  | ctrace_step pref step =>
-    fun c1 => ctrace_step (trace_app c1 pref) step
-  | ctrace_permute pref perm =>
-    fun c1 => ctrace_permute (trace_app c1 pref) perm
-  end c1.
-
-Infix "++" := trace_app (right associativity, at level 60).
-
-Definition trace_prefix
-           {from mid to : Environment}
-           {from_queue mid_queue to_queue : list Action}
-           (pref : ChainTrace from from_queue mid mid_queue)
-           (full : ChainTrace from from_queue to to_queue) : Prop :=
-  exists suffix, full = pref ++ suffix.
-
-Definition trace_suffix
-           {from mid to : Environment}
-           {from_queue mid_queue to_queue : list Action}
-           (suf : ChainTrace mid mid_queue to to_queue)
-           (full : ChainTrace from from_queue to to_queue) : Prop :=
-  exists prefix, full = prefix ++ suf.
+Definition ChainTrace := CursorList ChainState ChainEvent.
 
 Section Theories.
-Lemma trace_app_refl_l
-      {from to from_queue to_queue}
-      (trace : ChainTrace from from_queue to to_queue) :
-  ctrace_refl ++ trace = trace.
-Proof.
-  induction trace; cbn; auto;
-    match goal with
-    | [IH: _ |- _] => now rewrite IH
-    end.
-Qed.
-
-Lemma trace_app_assoc
-      {env1 env2 env3 env4 queue1 queue2 queue3 queue4}
-      (c1 : ChainTrace env1 queue1 env2 queue2)
-      (c2 : ChainTrace env2 queue2 env3 queue3)
-      (c3 : ChainTrace env3 queue3 env4 queue4) :
-  c1 ++ c2 ++ c3 = (c1 ++ c2) ++ c3.
-Proof.
-  revert env1 env2 queue1 queue2 c1 c2.
-  induction c3; intros env1 env2 queue1 queue2 c1 c2; cbn; auto;
-    match goal with
-    | [IH: _ |- _] => now rewrite IH
-    end.
-Qed.
-
 Ltac rewrite_environment_equiv :=
   match goal with
   | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
+  end.
+
+Ltac destruct_event :=
+  match goal with
+  | [H: ChainEvent _ _ |- _] => destruct H
   end.
 
 Ltac destruct_step :=
@@ -839,19 +786,20 @@ Ltac destruct_step :=
   end.
 
 Lemma contract_addr_format
-      {to to_queue}
-      (trace : ChainTrace empty_env [] to to_queue)
+      {to}
+      (trace : ChainTrace empty_state to)
       (addr : Address) (wc : WeakContract) :
   env_contracts to addr = Some wc ->
   address_is_contract addr = true.
 Proof.
   intros contract_at_addr.
-  remember empty_env eqn:eq.
-  induction trace; rewrite eq in *; clear eq;
-    try rewrite_environment_equiv; cbn in *; auto.
-  - congruence.
-  - destruct_step; rewrite_environment_equiv; cbn in *; auto.
-    destruct_address_eq; subst; auto.
+  remember empty_state eqn:eq.
+  induction trace; rewrite eq in *; clear eq.
+  - cbn in *; congruence.
+  - destruct_event.
+    + rewrite_environment_equiv; cbn in *; auto.
+    + destruct_step; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
+    + intuition.
 Qed.
 
 End Theories.
@@ -875,17 +823,11 @@ Class ChainBuilderType :=
       option builder_type;
 
     builder_trace (b : builder_type) :
-      inhabited (ChainTrace empty_env [] (builder_env b) []);
+      inhabited (ChainTrace empty_state (build_chain_state (builder_env b) []));
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
 End Blockchain.
-
-Delimit Scope trace_scope with trace.
-Bind Scope trace_scope with ChainTrace.
-Infix "++" := trace_app (right associativity, at level 60) : trace_scope.
-Infix "`prefix_of`" := trace_prefix (at level 70) : trace_scope.
-Infix "`suffix_of`" := trace_suffix (at level 70) : trace_scope.
 
 Arguments version {_ _ _ _ _ _ _}.
 Arguments init {_ _ _ _ _ _ _}.
