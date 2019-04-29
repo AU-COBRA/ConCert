@@ -502,4 +502,10 @@ Module Psubst.
   end
   where "e .[ σ ]" := (apply_subst σ e).
 
+  Fixpoint lsubst (l : list expr) : psubst :=
+    match l with
+    | [] => ids
+    | e :: l' => e ⋅ (lsubst l')
+    end.
+
 End Psubst.

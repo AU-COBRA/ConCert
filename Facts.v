@@ -62,16 +62,63 @@ Section Values.
   Proof.
   Admitted.
 
+  (* TODO : move to misc *)
+  Lemma forallb_Forall_iff {A} (p : A -> bool) (l : list A):
+    Forall (fun x => p x = true) l <-> forallb p l = true.
+  Proof.
+    split.
+    + induction l;intros H.
+      * reflexivity.
+      * simpl. inversion H as [H1 | a1 l1 Heq]. subst. rewrite Heq. easy.
+    + induction l;intros H.
+      * constructor.
+      * simpl in *. rewrite Bool.andb_true_iff in *. destruct H. easy.
+  Qed.
+
+  (* TODO : move to misc *)
+  Lemma Forall_impl_inner {A} (P Q : A -> Prop) l :
+    Forall P l -> Forall (fun x => P x -> Q x) l ->
+    Forall Q l.
+  Proof.
+    intros HP. induction HP;intros HQ.
+    + constructor.
+    + constructor.
+      pose proof (Forall_inv HQ);easy.
+      pose proof (Forall_inv_tail HQ);easy.
+  Qed.
+
+
   Lemma iclosed_m_n e : forall n m, iclosed_n n e = true -> iclosed_n (n+m) e = true.
   Proof.
-    induction e; intros n1 m1 H;try inversion H;auto.
-    simpl in *.
-  Admitted.
+    intros n m.
+    revert n.
+    induction e using expr_ind_case; intros n1 H1;try inversion H1;auto.
+    + simpl in *. rewrite H1.
+      rewrite PeanoNat.Nat.ltb_lt in *. lia.
+    + simpl in *. rewrite H1. replace (S (n1 + m)) with (S n1 + m) by lia.
+      easy.
+    + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 He2].
+      rewrite He1, He2. simpl.
+      replace (S (n1 + m)) with (S n1 + m) by lia.
+      now rewrite IHe1,IHe2.
+    + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 He2].
+      rewrite He1, He2. simpl.
+      replace (S (n1 + m)) with (S n1 + m) by lia.
+      now rewrite IHe1,IHe2.
+    + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 Hforall].
+      rewrite IHe by assumption. rewrite He1. simpl. rewrite Hforall.
+      apply forallb_Forall_iff.
+      rewrite <- forallb_Forall_iff in Hforall.
+      apply Forall_impl_inner with (P:= fun x => iclosed_n n1 (snd x) = true).
+      assumption.
+      eapply Forall_impl. 2: apply H. intros. easy.
+    + simpl in *. rewrite H1.
+      replace (S (S (n1 + m))) with (S (S n1) + m) by lia.
+      now eapply IHe.
+  Qed.
 
   Lemma iclosed_n_0 e : forall n, iclosed_n 0 e = true -> iclosed_n n e = true.
-  Proof.
-    apply iclosed_m_n.
-  Qed.
+  Proof. apply iclosed_m_n. Qed.
 
   Lemma iclosed_n_lookup :
     forall (e1 e2 : expr) (ρ : env expr)  (n : nat),
@@ -128,17 +175,6 @@ Section Values.
       + (* eLambda *)
         simpl in *.
   Admitted.
-
-  Lemma Forall_impl_inner {A} (P Q : A -> Prop) l :
-    Forall P l -> Forall (fun x => P x -> Q x) l ->
-    Forall Q l.
-  Proof.
-    intros HP. induction HP;intros HQ.
-    + constructor.
-    + constructor.
-      pose proof (Forall_inv HQ);easy.
-      pose proof (Forall_inv_tail HQ);easy.
-  Qed.
 
   Lemma from_value_closed v n :
     val_ok v  (* this ensures that closures contain closed expressions *) ->
