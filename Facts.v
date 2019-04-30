@@ -120,18 +120,6 @@ Section Values.
   Lemma iclosed_n_0 e : forall n, iclosed_n 0 e = true -> iclosed_n n e = true.
   Proof. apply iclosed_m_n. Qed.
 
-  Lemma iclosed_n_lookup :
-    forall (e1 e2 : expr) (ρ : env expr)  (n : nat),
-      iclosed_n 0 (subst_env_i_aux 0 ρ e1) = true ->
-      lookup_i ρ n = Some e2 ->
-      iclosed_n 0 e2 = true.
-  Proof.
-    intros e1.
-    induction e1;intros e2 ρ n1 Hc Hl.
-    + simpl in *. replace (n-0) with n in * by lia.
-      destruct (lookup_i ρ n);tryfalse. simpl in *.
-  Admitted.
-
   Lemma iclosed_Sn_subst_env:
     forall (ρ : env expr) (e : expr),
       iclosed_n 0 (subst_env_i_aux 0 ρ e) = true ->
@@ -185,6 +173,7 @@ Section Values.
     + simpl. apply vars_to_apps_iclosed_n. inversion Hv;subst.
       eapply Forall_impl_inner;easy.
     + inversion Hv;subst.
+      * simpl.
   Admitted.
 
 

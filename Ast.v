@@ -246,7 +246,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     let cs := from_option (resolve_inductive Σ nm) [] in
     let tbs := map (fun_prod id expr_to_term) bs in
     let branches := map (trans_branch tbs) cs in
-    tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
+    tCase (mkInd nm 0, 0) typeInfo (expr_to_term e) branches
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
     let tty2 := type_to_term ty2 in

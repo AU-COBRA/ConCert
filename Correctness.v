@@ -766,13 +766,12 @@ Proof.
   + destruct a. simpl in *.
     destruct args as [ | a0 args0];tryfalse. inversion Heq. clear Heq.
     simpl in *. replace (#|l| - 0) with (#|l|) by lia.
-    inversion He; inversion H3;subst.
+    inversion He; try inversion H3;subst;tryfalse.
     rewrite subst_pat_to_lam in *.
     replace (#|l| + 0) with (#|l|) in * by lia.
     inversion Hval. subst. clear Hval.
     assert (a0=a') by now eapply Wcbv_eval_value_determ.
-    subst.
-    now apply IHl.
+    subst. now apply IHl.
 Qed.
 
 Section CombineProp.
@@ -856,14 +855,14 @@ Proof.
       destruct n0; tryfalse.
     + (* eLambda *)
       autounfold with facts in *. simpl in HT. simpl in He.
-      inversion He. rewrite <- Henv in HT. simpl. inversion HT. subst.
+      inversion He. rewrite <- Henv in HT. simpl. inversion HT;simpl;tryfalse. subst.
       reflexivity.
     + (* eLetIn *)
       cbn in He.
       destruct (expr_eval_general n false Σ1 ρ e1_1) eqn:He1;tryfalse.
       rewrite <- Henv in HT.
       unfold inst_env_i,subst_env_i in Henv. simpl in Henv.
-      simpl in *. inversion_clear HT.
+      simpl in *. inversion_clear HT;simpl;tryfalse.
       rewrite <- Henv in Hc.
       simpl in Hc.
       apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 Hce2].
@@ -900,10 +899,10 @@ Proof.
         inversion_clear He.
         (* there are four possibilities for the application with Wcbv
            of MetaCoq and only one of these should be possible *)
-        inversion HT';subst.
-        ** exfalso; now eapply from_vConstr_not_lambda.
-        ** exfalso;symmetry in H; now eapply fix_not_constr.
-        ** exfalso;now eapply expr_to_term_not_ind.
+        inversion HT';subst;simpl;tryfalse.
+        ** exfalso; eapply from_vConstr_not_lambda;eauto.
+        ** exfalso;symmetry in H; eapply fix_not_constr;eauto.
+        ** exfalso;eapply expr_to_term_not_ind;eauto.
         ** (* the only "real" case *)
            specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH.
            simpl in IH.
@@ -913,7 +912,7 @@ Proof.
              simpl_vars_to_apps in IH.
              destruct (T⟦ vars_to_apps _ _ ⟧ _);tryfalse. }
            subst.
-           assert (H : y = T⟦ from_val_i v0 ⟧ Σ1) by easy. subst.
+           assert (H : y = T⟦ from_val_i v0 ⟧ Σ1) by eauto. subst.
            rewrite IH. simpl.
            destruct (resolve_constr Σ1 i n0); reflexivity.
       * (* application evaluates to a closure *)
@@ -924,7 +923,7 @@ Proof.
           inversion He;subst.
           (* there are four possibilities for the application with Wcbv
            of MetaCoq and only one of these should be possible *)
-          inversion HT';subst.
+          inversion HT';subst;simpl;tryfalse.
           *** (* the only "real" case *)
               specialize (IHn _ _ _ _ _ Hρ_ok H4 He2 eq_refl Hce2) as IH.
               simpl in H5.
@@ -956,7 +955,7 @@ Proof.
           simpl in *. rename e into ρ'.
           destruct (expr_eval_general n false Σ1 (((n1, vClos ρ' n0 (cmFix n1) t0 t1 e0) :: ρ') # [n0 ~> v0]) e0) eqn:Hee1;tryfalse.
           inversion He;subst.
-          inversion HT';subst.
+          inversion HT';subst;simpl;tryfalse.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
           *** (* the only "real" case *)
             symmetry in H.
@@ -973,7 +972,7 @@ Proof.
                  inversion H6. subst. clear H6.
                  specialize (IHn _ _ _ _ _ Hρ_ok H1 He2 eq_refl Hce2) as IH.
                  subst.
-                 (* Now we have lambda applied to the translation of the argument, so we do inversion
+                 (* Now we have a lambda applied to the translation of the argument, so we do inversion
                     on this application *)
                  inversion H5. subst. clear H5.
                  simpl in H8.
@@ -1003,11 +1002,11 @@ Proof.
                  assert (env_ok (ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0]
                                    # [n0 ~> v0]))
                    by (constructor;cbv;eauto with hints).
-                 rewrite subst_term_subst_env_rec with (nm:=n1) in H8;
-                   eauto.
+                 rewrite subst_term_subst_env_rec with (nm:=n1) in H8;eauto.
                  rewrite Ha' in H8.
                  rewrite subst_term_subst_env_rec with (nm:=n0) in H8;eauto.
-                 eapply IHn with (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);eauto.
+                 eapply IHn with (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);
+                   eauto. all: tryfalse.
                  rewrite <- subst_env_compose_1 by eauto with hints.
                  rewrite <- subst_env_compose_2 by eauto with hints.
                  reflexivity.
@@ -1016,9 +1015,8 @@ Proof.
                  apply subst_env_iclosed_n; unfold snd;eauto with hints.
                  apply subst_env_iclosed_n; unfold snd;eauto with hints.
                  eauto with hints.
-
-                 exfalso;now eapply expr_to_term_not_ind.
-                 exfalso;now eapply from_vConstr_not_lambda.
+                 exfalso;easy.
+                 exfalso;easy.
             ****
               (* TODO: we have a huge code duplication here, the previous
                  case is pretty much the same *)
@@ -1082,12 +1080,13 @@ Proof.
                  eapply IHn with
                  (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);
                    try apply subst_env_iclosed_n; simpl;unfold snd;eauto with hints.
+                 all : tryfalse.
                  rewrite <- subst_env_compose_1 by (unfold snd;eauto with hints).
                  rewrite <- subst_env_compose_2 by eauto with hints.
                  reflexivity.
-                 exfalso;eapply expr_to_term_not_ind;easy.
-                 exfalso;now eapply from_vConstr_not_lambda.
-          *** exfalso;now eapply expr_to_term_not_ind.
+                 exfalso;easy.
+                 exfalso;easy.
+          *** exfalso;eapply expr_to_term_not_ind;eauto.
           *** exfalso;specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH;inversion IH.
       * destruct c;tryfalse.
       * destruct c;tryfalse.
@@ -1101,9 +1100,6 @@ Proof.
       inversion He.
     + (* eCase *)
       unfold expr_eval_i in He. destruct p.
-      (* FIXME: inductive types do not have parameters since
-         so far no polymorhism has been implemented *)
-      assert (n0=0). admit. subst.
 
       (* dealing with the interpreter *)
       simpl in He.
@@ -1111,17 +1107,17 @@ Proof.
       destruct v0;tryfalse.
       unfold resolve_constr in *.
       destruct (resolve_inductive Σ1 i0) eqn:HresI;tryfalse.
-      destruct (lookup_with_ind l1 n0) eqn:Hfind_i;tryfalse.
-      assert (HresC: resolve_constr Σ1 i0 n0 = Some p).
+      destruct (lookup_with_ind l1 n1) eqn:Hfind_i;tryfalse.
+      assert (HresC: resolve_constr Σ1 i0 n1 = Some p).
       { unfold resolve_constr. rewrite HresI. rewrite Hfind_i. reflexivity. }
 
-      destruct (string_dec i i0) eqn:Hi;tryfalse.
       destruct p as [? ci].
-      destruct (match_pat n0 ci l0 l) eqn:Hpat;tryfalse.
+      destruct (string_dec i i0) eqn:Hi;tryfalse.
+      destruct (match_pat n1 ci l0 l) eqn:Hpat;tryfalse.
       destruct p. subst.
 
       (* dealing with the translation and the evaluation in MetaCoq *)
-      simpl in HT. inversion HT. subst. clear HT.
+      simpl in HT. inversion HT;simpl;tryfalse. subst. clear HT.
       simpl in Hc. apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 HH].
       specialize (IHn _ _ _ _ _ Hρ_ok H5 He1 eq_refl Hce1) as IH. clear H5.
       simpl in IH.
@@ -1145,8 +1141,8 @@ Proof.
         apply pat_match_succeeds in Hpat.
         destruct Hpat as [p Htmp].
         destruct Htmp as [Hfnd Htmp]. destruct Htmp as [Hci Htmp]. destruct Htmp as [Hl0 Hl2].
-        assert (Hfind :find (fun '(p, _) => pName p =? n0) (map f l) = Some (f (p, e0))).
-        { apply find_map with (p1 := fun '(p, _) => pName p =? n0);auto.
+        assert (Hfind :find (fun '(p, _) => pName p =? n1) (map f l) = Some (f (p, e0))).
+        { apply find_map with (p1 := fun '(p, _) => pName p =? n1);auto.
           intros a;destruct a. subst f. reflexivity. }
         specialize (find_forallb_map _ Hfnd HH) as Hce1'. simpl in Hce1'.
         rewrite Hfind in H1.
@@ -1163,7 +1159,7 @@ Proof.
         assert (Hcomb_ci : #|combine (pVars p) ci| = #|combine (pVars p) (map from_val_i l0)|).
         { repeat rewrite combine_length. rewrite map_length. easy. }
         rewrite Hcomb_ci in H6.
-        assert (Hok_constr: val_ok (vConstr i0 n0 l0)) by eauto with hints.
+        assert (Hok_constr: val_ok (vConstr i0 n1 l0)) by eauto with hints.
         inversion Hok_constr. subst.
         assert (val_ok v) by
             (eapply eval_val_ok with (ρ := rev (combine (pVars p) l0) ++ ρ);eauto with hints).
@@ -1189,17 +1185,15 @@ Proof.
         now apply iclosed_n_0.
         rewrite <- map_combine_snd_funprod;auto with hints.
 
-        assert (Hok_constr: val_ok (vConstr i0 n0 l0)) by eauto with hints.
+        assert (Hok_constr: val_ok (vConstr i0 n1 l0)) by eauto with hints.
         inversion Hok_constr. subst.
         apply Forall_map.  unfold compose; simpl.
         apply Forall_impl_inner with (P:=val_ok). apply H0.
         apply forall_Forall;intros;apply Wcbv_from_value_value;auto with hints.
       * destruct l0.
-        ** simpl in *. inversion H6;subst;inv_dummy.
-        ** apply mkApps_sound in H6; simpl in *; inversion H6;subst;inv_dummy;easy.
-      * destruct p;tryfalse.
-    + (* this case requires an updtated verison of WcbvEval  *)
-      inversion He;subst;clear He.
+        ** simpl in *. inversion H6;subst;try inv_dummy;simpl;tryfalse.
+        ** apply mkApps_sound in H6; simpl in *; inversion H6;subst;try inv_dummy;simpl;tryfalse.
+    + inversion He;subst;clear He.
       simpl in *.
-      inversion HT.
-Admitted.
+      inversion HT;simpl;tryfalse;easy.
+Qed.
