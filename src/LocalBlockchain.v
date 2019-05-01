@@ -235,36 +235,45 @@ Section ExecuteActions.
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
-    destruct (Z.gtb_spec amount (account_balance lc_before from)); [simpl in *; congruence|].
+    (* Make goals a little more manageable by factoring intermediate envs *)
+    repeat
+    match goal with
+    | [H: context[add_tx ?tx ?env] |- _] =>
+      match type of H with
+      | _ = add_tx tx env => fail 1
+      | _ =>
+        let name := fresh "with_tx" in
+        remember (add_tx tx env) as name
+      end
+    end.
+    destruct (Z.gtb_spec amount (account_balance lc_before from));
+      [cbn in *; congruence|].
     destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
     - (* there is a contract at destination, so do call *)
       destruct (contract_state _ _) as [prev_state|] eqn:prev_state_eq;
-        cbn in *; try congruence.
-      destruct (wc_receive _ _ _ _ _) eqn:receive; cbn in *; try congruence.
+        [|cbn in *; congruence].
+      cbn -[lc_to_env] in *.
+      destruct (wc_receive wc _ _ _ _) eqn:receive;
+        [|cbn in *; congruence].
       match goal with
       | [p: OakValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
       end.
-      (* We record the steps different depending on whether this *)
-      (* is a call with a message or without a message *)
       constructor.
-      destruct msg as [msg|].
-      1: apply (step_call_msg from to amount wc msg prev_state new_state resp_acts);
-        try solve [simpl in *; congruence].
-      3: apply (step_call_empty from to amount wc prev_state new_state resp_acts);
-        try solve [simpl in *; congruence].
-      1, 3:
-        rewrite <- receive; unfold constructor;
-        apply wc_receive_proper; auto;
-          symmetry; now apply add_tx_equiv.
-      1, 2:
-        inversion sent; subst;
-        now apply set_contract_state_equiv, add_tx_equiv.
+      apply (step_call from to amount wc msg prev_state new_state resp_acts);
+        try solve [cbn in *; congruence].
+      + rewrite <- receive.
+        apply wc_receive_proper; auto.
+        subst with_tx.
+        symmetry.
+        now apply add_tx_equiv.
+      + inversion sent; subst;
+          now apply set_contract_state_equiv, add_tx_equiv.
     - (* no contract at destination, so msg should be empty *)
       destruct (address_is_contract to) eqn:addr_format; simpl in *; try congruence.
       destruct msg; simpl in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
       constructor.
-      apply (step_empty from to amount); auto.
+      apply (step_transfer from to amount); auto.
       inversion sent; subst; now apply add_tx_equiv.
   Qed.
 

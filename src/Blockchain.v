@@ -508,7 +508,7 @@ to be recorded. *)
 Inductive ChainStep :
   Environment -> Action ->
   Environment -> list Action -> Type :=
-  | step_empty :
+  | step_transfer :
       forall {pre : Environment}
              {act : Action}
              {new_env : Environment}
@@ -546,7 +546,7 @@ Inductive ChainStep :
         new_env
         (set_contract_state to state (add_contract to wc (add_tx tx pre))) ->
       ChainStep pre act new_env []
-  | step_call_empty :
+  | step_call :
       forall {pre : Environment}
              {act : Action}
              {new_env : Environment}
@@ -554,48 +554,27 @@ Inductive ChainStep :
              (from to : Address)
              (amount : Amount)
              (wc : WeakContract)
+             (msg : option OakValue)
              (prev_state : OakValue)
              (new_state : OakValue)
              (resp_acts : list ActionBody),
       amount <= account_balance pre from ->
       env_contracts pre to = Some wc ->
       contract_state pre to = Some prev_state ->
-      act = build_act from (act_transfer to amount) ->
-      let tx := build_tx from to amount tx_empty in
+      act = build_act from (match msg with
+                            | None => act_transfer to amount
+                            | Some msg => act_call to amount msg
+                            end) ->
+      let tx := build_tx from to amount (match msg with
+                                         | None => tx_empty
+                                         | Some msg => tx_call msg
+                                         end) in
       wc_receive
         wc
         (add_tx tx pre)
         (build_ctx from to amount)
         prev_state
-        None = Some (new_state, resp_acts) ->
-      new_acts = map (build_act to) resp_acts ->
-      EnvironmentEquiv
-        new_env
-        (set_contract_state to new_state (add_tx tx pre)) ->
-      ChainStep pre act new_env new_acts
-  | step_call_msg :
-      forall {pre : Environment}
-             {act : Action}
-             {new_env : Environment}
-             {new_acts : list Action}
-             (from to : Address)
-             (amount : Amount)
-             (wc : WeakContract)
-             (msg : OakValue)
-             (prev_state : OakValue)
-             (new_state : OakValue)
-             (resp_acts : list ActionBody),
-      amount <= account_balance pre from ->
-      env_contracts pre to = Some wc ->
-      contract_state pre to = Some prev_state ->
-      act = build_act from (act_call to amount msg) ->
-      let tx := build_tx from to amount (tx_call msg) in
-      wc_receive
-        wc
-        (add_tx tx pre)
-        (build_ctx from to amount)
-        prev_state
-        (Some msg) = Some (new_state, resp_acts) ->
+        msg = Some (new_state, resp_acts) ->
       new_acts = map (build_act to) resp_acts ->
       EnvironmentEquiv
         new_env
@@ -609,26 +588,23 @@ Context {pre : Environment} {act : Action}
 
 Definition step_from : Address :=
   match step with
-  | step_empty from _ _ _ _ _ _ _
+  | step_transfer from _ _ _ _ _ _ _
   | step_deploy from _ _ _ _ _ _ _ _ _ _ _ _ _
-  | step_call_empty from _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  | step_call_msg from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
+  | step_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
 Definition step_to : Address :=
   match step with
-  | step_empty _ to _ _ _ _ _ _
+  | step_transfer _ to _ _ _ _ _ _
   | step_deploy _ to _ _ _ _ _ _ _ _ _ _ _ _
-  | step_call_empty _ to _ _ _ _ _ _ _ _ _ _ _ _ _
-  | step_call_msg _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
+  | step_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
 Definition step_amount : Amount :=
   match step with
-  | step_empty _ _ amount _ _ _ _ _
+  | step_transfer _ _ amount _ _ _ _ _
   | step_deploy _ _ amount _ _ _ _ _ _ _ _ _ _ _
-  | step_call_empty _ _ amount _ _ _ _ _ _ _ _ _ _ _ _
-  | step_call_msg _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
+  | step_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
 
