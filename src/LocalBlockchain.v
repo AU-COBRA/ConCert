@@ -416,14 +416,14 @@ Definition validate_actions (actions : list Action) : option unit :=
 
 Lemma validate_actions_valid actions :
   validate_actions actions = Some tt ->
-  Forall (fun act => address_is_contract (act_from act) = false) actions.
+  Forall ActIsFromAccount actions.
 Proof.
   intros valid.
   induction actions as [|x xs IH]; auto.
   unfold validate_actions in valid.
   cbn -[address_is_contract] in valid.
-  destruct (address_is_contract _) eqn:eq1; try (simpl in *; congruence).
-  destruct (existsb _) eqn:eq2; try (simpl in *; congruence).
+  destruct (address_is_contract _) eqn:eq1; try (cbn in *; congruence).
+  destruct (existsb _) eqn:eq2; try (cbn in *; congruence).
   clear valid.
   unfold validate_actions in IH.
   rewrite eq2 in IH.

@@ -689,6 +689,9 @@ Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
   finalized_height new >= finalized_height old /\
   finalized_height new < block_height new.
 
+Definition ActIsFromAccount (act : Action) : Prop :=
+  address_is_contract (act_from act) = false.
+
 Record ChainState :=
   build_chain_state {
     chain_state_env :> Environment;
@@ -703,9 +706,7 @@ Inductive ChainEvent : ChainState -> ChainState -> Type :=
              {next : ChainState},
         chain_state_queue prev = [] ->
         IsValidNextBlock header (block_header prev) ->
-        Forall
-          (fun act => address_is_contract (act_from act) = false)
-          (chain_state_queue next) ->
+        Forall ActIsFromAccount (chain_state_queue next) ->
         EnvironmentEquiv
           next
           (add_new_block_header header baker prev) ->
