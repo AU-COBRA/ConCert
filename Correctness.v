@@ -180,7 +180,6 @@ Hint Resolve
 Hint Resolve
      -> PeanoNat.Nat.leb_le : facts.
 
-
 Compute ((tRel 1) {0:=tVar "a"}).
 Compute ((tLambda (nNamed"x") (tInd (mkInd "nat" 0) []) (tApp (tRel 1) [tRel 2])) {0:=tRel 0}).
 Compute ( (tApp (tApp (tApp (tApp (tRel 1) [tRel 1]) [tRel 1]) [tRel 1]) [tRel 2]) {0:=tVar "blah"}).
@@ -355,7 +354,7 @@ Eval simpl in nsubst [a0;a1;a2] 2 t.
 Lemma subst_term_subst_env_rec_n :
   forall v Σ (l : env expr) e,
   val_ok v ->
-  iclosed_n 0 e = true ->
+  iclosed_n #|l| e = true ->
   Forall (fun x : string * expr => iclosed_n 0 (snd x) = true) l ->
   nsubst (map (fun x => expr_to_term Σ (snd x)) l) (#|l| - 1) (T⟦e⟧ Σ) = (T⟦e.[rev l]⟧ Σ).
 Proof.
@@ -369,7 +368,7 @@ Proof.
     inversion H1. subst. clear H1.
     (* rewrite subst_env_compose_1 by assumption. *)
     unfold subst_env_i.
-    rewrite subst_term_subst_env_rec with (nm:=nm);eauto. simpl.
+    rewrite subst_term_subst_env_rec with (e:=e)(nm:=nm);eauto. simpl.
     replace ((#|l| - 0 - 1)) with (#|l| - 1) by lia.
     erewrite IHl;eauto. f_equal.
     replace (#|l| - 0) with (#|l|) by lia.
@@ -377,8 +376,10 @@ Proof.
     eapply subst_env_swap_app;eauto.
     now apply Forall_rev.
     replace (#|l| - 0) with (#|l|) by lia.
-    simpl in *. now rewrite subst_env_i_closed_eq by assumption.
-    now apply iclosed_n_0.
+    simpl in *. apply subst_env_iclosed_n;simpl;auto.
+    replace (#|l| + 1) with (S (#|l|)) by lia. assumption.
+    replace (#|l| - 0) with (#|l|) by lia.
+    assumption.
 Qed.
 
 Import Basics.
@@ -999,22 +1000,19 @@ Proof.
                    eapply Forall_impl with (P := fun v => val_ok (snd v)).
                    { intros a ?;destruct a;cbv;eauto with hints. }
                    assumption. }
+                 simpl in Hce1.
+                 assert (Hlen_ρ' : #|ρ'| = #|exprs ρ'|) by (symmetry;apply map_length).
                  assert (env_ok (ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0]
-                                   # [n0 ~> v0]))
-                   by (constructor;cbv;eauto with hints).
-                 rewrite subst_term_subst_env_rec with (nm:=n1) in H8;eauto.
+                                   # [n0 ~> v0])) by (constructor;cbv;eauto with hints).
+                 rewrite subst_term_subst_env_rec with (nm:=n1) in H8 by eauto.
                  rewrite Ha' in H8.
-                 rewrite subst_term_subst_env_rec with (nm:=n0) in H8;eauto.
+                 rewrite subst_term_subst_env_rec with (nm:=n0) in H8 by eauto with hints.
                  eapply IHn with (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);
-                   eauto. all: tryfalse.
+                   (try apply subst_env_iclosed_n;unfold snd);eauto with hints.
+                 all: tryfalse.
                  rewrite <- subst_env_compose_1 by eauto with hints.
                  rewrite <- subst_env_compose_2 by eauto with hints.
                  reflexivity.
-                 (* we could do better here, by [auto] does not simplify expresions, and
-                    [snd] gets on the way. Maybe we should chnage the definition of [ForallEnv]? *)
-                 apply subst_env_iclosed_n; unfold snd;eauto with hints.
-                 apply subst_env_iclosed_n; unfold snd;eauto with hints.
-                 eauto with hints.
                  exfalso;easy.
                  exfalso;easy.
             ****
@@ -1068,20 +1066,20 @@ Proof.
                  inversion H8. subst. clear H8.
 
                  assert (Hce0 : iclosed_n 2 (e0 .[ exprs ρ'] 2) = true) by
-                     (inversion Hclos_ok;auto with hints).
+                     (inversion Hclos_ok; apply subst_env_iclosed_n; auto with hints).
 
                  rewrite subst_term_subst_env_rec with (nm:=n1) in *
                    by eauto with hints.
-                 rewrite subst_term_subst_env_rec with (nm:=n0) in *
-                   by eauto with hints.
+                 rewrite subst_term_subst_env_rec with (nm:=n0) in * by
+                     (try apply subst_env_iclosed_n;simpl;auto with hints).
 
                  (* we could do better here, but [auto] does not simplify expresions, and
                     [snd] gets on the way. Maybe we should chnage the definition of [ForallEnv]? *)
                  eapply IHn with
                  (ρ:= ρ' # [n1 ~> vClos ρ' n0 (cmFix n1) t0 t1 e0] # [n0 ~> v0]);
-                   try apply subst_env_iclosed_n; simpl;unfold snd;eauto with hints.
+                   simpl;(try apply subst_env_iclosed_n;unfold snd);eauto with hints.
                  all : tryfalse.
-                 rewrite <- subst_env_compose_1 by (unfold snd;eauto with hints).
+                 rewrite <- subst_env_compose_1 by eauto with hints.
                  rewrite <- subst_env_compose_2 by eauto with hints.
                  reflexivity.
                  exfalso;easy.
@@ -1152,44 +1150,42 @@ Proof.
         assert (Hcomb :
                   #|combine (pVars p) ci| = #|map (fun x : val => T⟦ from_val_i x ⟧ Σ1) l0|).
         { rewrite map_length. rewrite Hl0. rewrite combine_length. rewrite Hci. lia. }
-        apply pat_to_lam_app in H6;auto.
+        assert (Hok_constr: val_ok (vConstr i0 n1 l0)) by eauto with hints.
+        inversion Hok_constr. subst.
+        apply pat_to_lam_app in H6;auto with hints.
         rewrite <- map_map in H6.
         rewrite map_combine_snd with (l1:=p.(pVars)) in H6 by (now rewrite map_length).
         rewrite map_map in H6.
         assert (Hcomb_ci : #|combine (pVars p) ci| = #|combine (pVars p) (map from_val_i l0)|).
         { repeat rewrite combine_length. rewrite map_length. easy. }
         rewrite Hcomb_ci in H6.
-        assert (Hok_constr: val_ok (vConstr i0 n1 l0)) by eauto with hints.
-        inversion Hok_constr. subst.
         assert (val_ok v) by
             (eapply eval_val_ok with (ρ := rev (combine (pVars p) l0) ++ ρ);eauto with hints).
-        rewrite subst_term_subst_env_rec_n with (v:=v) in H6;auto.
-        eapply IHn with (ρ:=(rev (combine (pVars p) l0) ++ ρ));eauto with hints.
+        assert (Hlen : #|pVars p| = #|combine (pVars p) (map from_val_i l0)|).
+        { rewrite combine_length. rewrite map_length. lia. }
+         rewrite  Hlen in H6. rewrite Hlen in Hce1'.
+        rewrite subst_term_subst_env_rec_n with (v:=v) in H6;eauto with hints.
+        eapply IHn with (ρ:=(rev (combine (pVars p) l0) ++ ρ)); eauto with hints.
         rewrite map_app.
-        assert (Hlen : #|pVars p| = #|exprs (rev (combine (pVars p) l0))|).
-        { rewrite map_length in Hcomb. rewrite map_length. rewrite rev_length.
-          rewrite combine_length. lia. }
-        rewrite Hlen.
-        symmetry. rewrite <- map_combine_snd_funprod.
+        symmetry.
+        rewrite <- map_combine_snd_funprod.
         rewrite <- map_rev.
+        assert (Hlen' : #|map (fun_prod id from_val_i) (combine (pVars p) l0)| =
+                #|exprs (rev (combine (pVars p) l0))|).
+        { repeat rewrite map_length. rewrite rev_length. reflexivity. }
+        rewrite Hlen'.
         apply subst_env_swap_app;auto with hints.
         apply subst_env_iclosed_n. rewrite <- map_combine_snd_funprod.
         rewrite <- map_rev. auto with hints.
-        simpl.
-        assert (Hlen : #|pVars p| = #|rev (combine (pVars p) (map from_val_i l0))|).
-        { rewrite rev_length. rewrite combine_length. rewrite map_length. lia. }
-        rewrite Hlen.
-        apply subst_env_iclosed_n;auto with hints.
-        rewrite <- Hlen.
-        apply subst_env_iclosed_n;auto with hints.
-        now apply iclosed_n_0.
-        rewrite <- map_combine_snd_funprod;auto with hints.
-
-        assert (Hok_constr: val_ok (vConstr i0 n1 l0)) by eauto with hints.
-        inversion Hok_constr. subst.
-        apply Forall_map.  unfold compose; simpl.
-        apply Forall_impl_inner with (P:=val_ok). apply H0.
-        apply forall_Forall;intros;apply Wcbv_from_value_value;auto with hints.
+        simpl. rewrite rev_length. auto with hints.
+        rewrite <- map_combine_snd_funprod.
+        apply Forall_map. unfold compose; simpl.
+        eapply Forall_impl_inner with (P:=val_ok ∘ snd). now apply Forall_env_ok.
+        apply Forall_forall. intros x Hin Hx. cbv in Hx.
+        destruct x;simpl. auto with hints.
+        apply Forall_map. apply Forall_forall. intros a Hin.
+        assert (val_ok a). apply -> Forall_forall;eauto.
+        apply Wcbv_from_value_value;auto with hints.
       * destruct l0.
         ** simpl in *. inversion H6;subst;try inv_dummy;simpl;tryfalse.
         ** apply mkApps_sound in H6; simpl in *; inversion H6;subst;try inv_dummy;simpl;tryfalse.

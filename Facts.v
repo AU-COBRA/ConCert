@@ -1,9 +1,7 @@
 (* Various auxillary facts usefull for proving correctness of the translation and the interpreter *)
-
+Require Import Template.monad_utils Template.All.
 Require Import String List.
 Require Import Morphisms Setoid.
-
-Require Import Template.monad_utils.
 
 Require Import CustomTactics MyEnv Ast EvalE.
 
@@ -18,6 +16,20 @@ Import Nat.
 Import InterpreterEnvList.
 
 Hint Unfold expr_eval_n expr_eval_i : facts.
+
+Ltac inv_andb H := rewrite Bool.andb_true_iff in *;destruct H.
+Ltac leb_ltb_to_prop :=
+  try rewrite PeanoNat.Nat.ltb_lt in *;
+  try rewrite PeanoNat.Nat.leb_le in *;
+  try rewrite PeanoNat.Nat.leb_gt in *;
+  try rewrite PeanoNat.Nat.ltb_ge in *.
+
+Ltac prop_to_leb_ltb :=
+  try rewrite <- PeanoNat.Nat.ltb_lt in *;
+  try rewrite <-PeanoNat.Nat.leb_le in *;
+  try rewrite <- PeanoNat.Nat.leb_gt in *;
+  try rewrite <- PeanoNat.Nat.ltb_ge in *.
+
 
 Section Values.
 
@@ -60,7 +72,25 @@ Section Values.
   Lemma lookup_i_length {A} (ρ : env A) n :
     (n <? length ρ) = true -> exists e, lookup_i ρ n = Some e.
   Proof.
-  Admitted.
+    intros H. revert dependent n.
+    induction ρ;intros;leb_ltb_to_prop;simpl in *;try lia.
+    destruct a. destruct n.
+    + simpl;eauto.
+    + simpl. assert (n < #|ρ|) by lia. replace (n-0) with n by lia.
+      prop_to_leb_ltb. now apply IHρ.
+  Qed.
+
+  Lemma lookup_i_length_false {A} (ρ : env A) n :
+    (n <? length ρ) = false -> lookup_i ρ n = None.
+  Proof.
+    intros H. revert dependent n.
+    induction ρ;intros;leb_ltb_to_prop;simpl in *;auto.
+    destruct a. destruct n.
+    + simpl;eauto. inversion H.
+    + simpl. assert (#|ρ| <= n) by lia. replace (n-0) with n by lia.
+      rewrite <- PeanoNat.Nat.ltb_ge in *.
+      now apply IHρ.
+  Qed.
 
   (* TODO : move to misc *)
   Lemma forallb_Forall_iff {A} (p : A -> bool) (l : list A):
@@ -94,7 +124,7 @@ Section Values.
     revert n.
     induction e using expr_ind_case; intros n1 H1;try inversion H1;auto.
     + simpl in *. rewrite H1.
-      rewrite PeanoNat.Nat.ltb_lt in *. lia.
+      leb_ltb_to_prop;lia.
     + simpl in *. rewrite H1. replace (S (n1 + m)) with (S n1 + m) by lia.
       easy.
     + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 He2].
@@ -109,9 +139,10 @@ Section Values.
       rewrite IHe by assumption. rewrite He1. simpl. rewrite Hforall.
       apply forallb_Forall_iff.
       rewrite <- forallb_Forall_iff in Hforall.
-      apply Forall_impl_inner with (P:= fun x => iclosed_n n1 (snd x) = true).
+      apply Forall_impl_inner with (P:= fun x => iclosed_n (#|pVars (fst x)|+n1) (snd x) = true).
       assumption.
-      eapply Forall_impl. 2: apply H. intros. easy.
+      eapply Forall_impl. 2: apply H. intros. simpl in *.
+      replace ((#| pVars (fst a) |) + (n1 + m)) with (#| pVars (fst a) | + n1 + m) by lia. easy.
     + simpl in *. rewrite H1.
       replace (S (S (n1 + m))) with (S (S n1) + m) by lia.
       now eapply IHe.
@@ -120,49 +151,63 @@ Section Values.
   Lemma iclosed_n_0 e : forall n, iclosed_n 0 e = true -> iclosed_n n e = true.
   Proof. apply iclosed_m_n. Qed.
 
-  Lemma iclosed_Sn_subst_env:
-    forall (ρ : env expr) (e : expr),
-      iclosed_n 0 (subst_env_i_aux 0 ρ e) = true ->
-      iclosed_n 1 (subst_env_i_aux 1 ρ e) = true.
-  Proof.
-    intros ρ e0 Hc.
-    induction e0 using expr_ind_case;auto.
-    + simpl in *. destruct n.
-      * reflexivity.
-      * replace (S n - 1) with n in * by lia. simpl in *.
-        destruct (lookup_i ρ (S n)) eqn:Hl;tryfalse. simpl in *.
-  Admitted.
-
-  Lemma subst_env_iclosed_n :
-    forall n (ρ : env expr) (e : expr),
+  Lemma subst_env_iclosed_n (e : expr) :
+    forall n (ρ : env expr),
       Forall (fun e => iclosed_n 0 (snd e) = true) ρ ->
-      iclosed_n (n + length ρ) e = true <-> iclosed_n n (e.[ρ]n) = true.
+      iclosed_n (n + #|ρ|) e = true <-> iclosed_n n (e.[ρ]n) = true.
   Proof.
-    intros n ρ e H.
-    split.
-    - (* -> *)
-      revert dependent ρ.
-      induction e using expr_ind_case;intros ρ Hc Hec;simpl;tryfalse;auto.
+    intros n ρ Hc.
+    split;revert dependent ρ;revert dependent n.
+    - induction e using expr_ind_case;intros n1 ρ Hc Hec;
+        simpl in *;try (inv_andb Hec;auto);tryfalse;auto.
       + (* eRel *)
         unfold subst_env_i. simpl.
         simpl in *.
-        destruct (n <=? n0) eqn:Hnle.
-        * rewrite PeanoNat.Nat.ltb_lt in *.
-          rewrite PeanoNat.Nat.leb_le in *.
-          assert (Hc' : n0-n < length ρ) by lia.
+        destruct (n1 <=? n) eqn:Hnle.
+        * leb_ltb_to_prop.
+          assert (Hc' : n-n1 < length ρ) by lia.
           rewrite <- PeanoNat.Nat.ltb_lt in *.
-          destruct (lookup_i_length _ (n0-n) Hc') as [e0 He0].
+          destruct (lookup_i_length _ (n-n1) Hc') as [e0 He0].
           rewrite He0. simpl.
-          eapply Forall_lookup_i with (ρ0 := ρ) (P:=fun e1 => iclosed_n n e1 = true);eauto.
+          eapply Forall_lookup_i with (ρ0 := ρ) (P:=fun e1 => iclosed_n n1 e1 = true);eauto.
           apply Forall_impl with (P:=fun e1 => iclosed_n 0 (snd e1) = true);eauto.
-          intros a H. unfold compose. change (iclosed_n (0+n) (snd a) = true); now apply iclosed_m_n.
-        * simpl in *.
-          rewrite PeanoNat.Nat.ltb_lt in *.
-          rewrite Compare_dec.leb_iff_conv in *.
-          assumption.
-      + (* eLambda *)
-        simpl in *.
-  Admitted.
+          intros a H. unfold compose. change (iclosed_n (0+n1) (snd a) = true); now apply iclosed_m_n.
+        * simpl in *. leb_ltb_to_prop. assumption.
+      + split. easy.
+        apply utils.forallb_Forall. apply utils.Forall_map. unfold compose. simpl.
+        eapply Forall_forall. intros a Hin.
+        rewrite Forall_forall in H.
+        assert ( H2 : Forall (fun x : pat * expr =>
+                                is_true (iclosed_n ((#| pVars (fst x) |) + (n1 + (#| ρ |))) (snd x))) l)
+          by now apply utils.forallb_Forall.
+        rewrite Forall_forall in H2.
+        apply H;auto. rewrite <- PeanoNat.Nat.add_assoc. now apply H2.
+    - induction e using expr_ind_case;intros k ρ Hc Hec;
+      simpl in *;try (inv_andb Hec;auto);
+        try repeat rewrite <- PeanoNat.Nat.add_succ_l;tryfalse;auto.
+    + (* eRel *)
+      unfold subst_env_i. simpl.
+      simpl in *.
+      destruct (k <=? n) eqn:Hnle.
+      * destruct (n <? k + #|ρ|) eqn:Hn;auto.
+        leb_ltb_to_prop.
+        assert (Hnk : #|ρ| <= n - k) by lia.
+        rewrite <- PeanoNat.Nat.ltb_ge in *.
+        specialize (lookup_i_length_false _ _  Hnk) as HH.
+        rewrite HH in Hec;simpl in *;tryfalse.
+      * simpl in *. leb_ltb_to_prop. lia.
+    + split. easy.
+      apply utils.forallb_Forall.
+      eapply Forall_forall. intros a Hin.
+      rewrite forallb_map in H1. unfold compose in H1;simpl in H1.
+      rewrite Forall_forall in H.
+      rewrite PeanoNat.Nat.add_assoc.
+      assert ( H2 : Forall (fun x : pat * expr =>
+       is_true (iclosed_n (#|pVars (fst x)| + k) (snd x .[ ρ] (#|pVars (fst x)| + k)))) l) by
+          now apply utils.forallb_Forall.
+      rewrite Forall_forall in H2.
+      apply H;auto. now apply H2.
+  Qed.
 
   Lemma from_value_closed v n :
     val_ok v  (* this ensures that closures contain closed expressions *) ->

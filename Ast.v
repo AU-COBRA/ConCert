@@ -94,8 +94,8 @@ Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
   | eConstr x x0 => true
   | eConst x => true
   | eCase ii ty e bs =>
-    let bs' := List.forallb (fun x => iclosed_n n (snd x)) bs in
-    iclosed_n n e && bs'
+    let bs'' := List.forallb (fun x => iclosed_n (length ((fst x).(pVars)) + n) (snd x)) bs in
+    iclosed_n n e && bs''
   | eFix fixname nm ty1 ty2 e => iclosed_n (2+n) e
   end.
 
