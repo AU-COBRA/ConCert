@@ -506,14 +506,14 @@ Proof.
   reflexivity.
 Defined.
 
-Global Instance lcb_chain_builder_type : ChainBuilderType :=
+Global Instance LocalChainBuilderDepthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block true;
      builder_trace := lcb_trace; |}.
 
-Definition lcb_chain_builder_type_breadth_first : ChainBuilderType :=
+Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;

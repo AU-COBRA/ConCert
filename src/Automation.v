@@ -185,3 +185,14 @@ Ltac solve_by_rewrite :=
   match goal with
   | [H: _ |- _] => now rewrite H
   end.
+
+Ltac solve_by_inversion :=
+  match goal with
+  | [H: _ |- _] => solve [inversion H]
+  end.
+
+Ltac specialize_hypotheses :=
+  repeat
+    match goal with
+    | [H: _ -> _ |- _] => specialize (H ltac:(auto))
+    end.

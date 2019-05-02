@@ -1,8 +1,10 @@
 From Coq Require Import List.
 From Coq Require Import ZArith.
+From Coq Require Import Permutation.
 From stdpp Require gmap.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import BoundedN.
+From SmartContracts Require Import Automation.
 Import ListNotations.
 
 Notation FMap := gmap.gmap.
@@ -25,6 +27,9 @@ Module FMap.
   Notation union := stdpp.base.union.
   Notation alter := stdpp.base.alter.
   Notation partial_alter := stdpp.base.partial_alter.
+
+  Definition values {K V : Type} `{countable.Countable K} (m : FMap K V) : list V :=
+    map snd (elements m).
 
   Section Theories.
     Context {K V : Type} `{countable.Countable K}.
@@ -63,6 +68,45 @@ Module FMap.
       k <> k' ->
       find k' (partial_alter f k m) = find k' m.
     Proof. apply fin_maps.lookup_partial_alter_ne. Qed.
+
+    Lemma find_empty k :
+      FMap.find k (FMap.empty : FMap K V) = None.
+    Proof. apply fin_maps.lookup_empty. Qed.
+
+    Lemma elements_add (m : FMap K V) k v :
+      find k m = None ->
+      Permutation (elements (add k v m)) ((k, v) :: elements m).
+    Proof. apply fin_maps.map_to_list_insert. Qed.
+
+    Lemma elements_empty : (elements empty : list (K * V)) = [].
+    Proof. now rewrite fin_maps.map_to_list_empty. Qed.
+
+    Lemma elements_add_empty (k : K) (v : V) :
+      FMap.elements (FMap.add k v FMap.empty) = [(k, v)].
+    Proof. now rewrite fin_maps.insert_empty, fin_maps.map_to_list_singleton. Qed.
+
+    Lemma add_remove (m : FMap K V) k v :
+      add k v (remove k m) = add k v m.
+    Proof. apply fin_maps.insert_delete. Qed.
+
+    Lemma remove_add (m : FMap K V) k v :
+      find k m = None ->
+      remove k (add k v m) = m.
+    Proof. apply fin_maps.delete_insert. Qed.
+
+    Lemma find_remove (m : FMap K V) k :
+      find k (remove k m) = None.
+    Proof. apply fin_maps.lookup_delete. Qed.
+
+    Lemma add_commute (m : FMap K V) (k k' : K) (v v' : V) :
+      k <> k' ->
+      FMap.add k v (FMap.add k' v' m) = FMap.add k' v' (FMap.add k v m).
+    Proof. apply fin_maps.insert_commute. Qed.
+
+    Lemma add_id (m : FMap K V) k v :
+      find k m = Some v ->
+      add k v m = m.
+    Proof. apply fin_maps.insert_id. Qed.
   End Theories.
 End FMap.
 

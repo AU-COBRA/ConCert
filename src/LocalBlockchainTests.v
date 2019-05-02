@@ -23,7 +23,7 @@ Section LocalBlockchainTests.
   Definition person_3 : Address :=
     BoundedN.of_Z_const AddrSize 13.
 
-  Definition ChainBuilder := builder_type.
+  Definition ChainBuilder := LocalChainBuilderDepthFirst.
 
   Definition chain1 : ChainBuilder := builder_initial.
 
@@ -35,9 +35,6 @@ Section LocalBlockchainTests.
     | Some x => x
     | None => tt
     end.
-
-  Local Coercion to_env (cb : ChainBuilder) : Environment :=
-    builder_env cb.
 
   Compute (block_header chain1).
 
@@ -180,3 +177,21 @@ Section LocalBlockchainTests.
   Compute (account_balance chain8 person_3).
   Print Assumptions chain8.
 End LocalBlockchainTests.
+
+Hint Resolve congress_txs_after_block.
+(* The congress satisfies a property specialized to the local blockchain DFS: *)
+Lemma congress_txs_after_local_chain_block
+          (prev new : LocalChainBuilderDepthFirst) baker acts slot finalization_height :
+  builder_add_block prev baker acts slot finalization_height = Some new ->
+  forall addr,
+    env_contracts new addr = Some (Congress.contract : WeakContract) ->
+    length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
+Proof. eauto. Qed.
+(* And of course, it is satisfied for the breadth first chain as well. *)
+Lemma congress_txs_after_local_chain_bf_block
+      (prev new : LocalChainBuilderBreadthFirst) baker acts slot finalization_height :
+  builder_add_block prev baker acts slot finalization_height = Some new ->
+  forall addr,
+    env_contracts new addr = Some (Congress.contract : WeakContract) ->
+    length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
+Proof. eauto. Qed.

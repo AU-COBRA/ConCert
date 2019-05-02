@@ -33,18 +33,44 @@ Definition with_default {A : Type} (a : A) (o : option A) : A :=
   | None => a
   end.
 
-
 Fixpoint sumZ {A : Type} (f : A -> Z) (xs : list A) : Z :=
   match xs with
   | [] => 0
   | x :: xs' => f x + sumZ f xs'
   end.
 
+Fixpoint sumnat {A : Type} (f : A -> nat) (xs : list A) : nat :=
+  match xs with
+  | [] => 0
+  | x :: xs' => f x + sumnat f xs'
+  end.
+
+Lemma sumnat_app
+      {A : Type} {f : A -> nat} {xs ys : list A} :
+  sumnat f (xs ++ ys) = sumnat f xs + sumnat f ys.
+Proof.
+  revert ys.
+  induction xs as [| x xs IH]; intros ys; auto.
+  simpl.
+  rewrite IH.
+  lia.
+Qed.
+
+Lemma sumnat_permutation
+      {A : Type} {f : A -> nat} {xs ys : list A}
+      (perm_eq : Permutation xs ys) :
+  sumnat f xs = sumnat f ys.
+Proof. induction perm_eq; perm_simplify; lia. Qed.
+
+Instance sumnat_perm_proper {A : Type} {f : A -> nat} :
+  Proper (Permutation (A:=A) ==> eq) (sumnat f).
+Proof. intros x y perm. now apply sumnat_permutation. Qed.
+
 Lemma sumZ_permutation
       {A : Type} {f : A -> Z} {xs ys : list A}
       (perm_eq : Permutation xs ys) :
   sumZ f xs = sumZ f ys.
-Proof. induction perm_eq; prove. Qed.
+Proof. induction perm_eq; perm_simplify; lia. Qed.
 
 Instance sumZ_perm_proper {A : Type} {f : A -> Z} :
   Proper (Permutation (A:=A) ==> eq) (sumZ f).
@@ -137,4 +163,23 @@ Proof.
   rewrite sumZ_app.
   simpl.
   lia.
+Qed.
+
+Lemma forall_respects_permutation {A} (xs ys : list A) P :
+  Permutation xs ys -> Forall P xs -> Forall P ys.
+Proof.
+  intros perm all.
+  apply Forall_forall.
+  intros y y_in.
+  pose proof (proj1 (Forall_forall P xs) all).
+  apply H.
+  apply Permutation_in with ys; symmetry in perm; auto.
+Qed.
+
+Instance Forall_Permutation_proper {A} :
+  Proper (eq ==> @Permutation A ==> iff) (@Forall A).
+Proof.
+  intros f f' ? xs ys perm.
+  subst f'.
+  split; apply forall_respects_permutation; auto; symmetry; auto.
 Qed.

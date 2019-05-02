@@ -1,12 +1,14 @@
 From Coq Require Import ZArith.
-From Coq Require Import Program.Basics.
 From Coq Require Import Morphisms.
-
+From Coq Require Import Psatz.
+From Coq Require Import Program.
+From Coq Require Import Permutation.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import Automation.
+From SmartContracts Require Import Extras.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 
@@ -176,35 +178,35 @@ Definition receive
   let is_from_owner := (sender =? state.(owner))%address in
   let is_from_member := FMap.mem sender state.(members) in
   let without_actions := option_map (fun new_state => (new_state, [])) in
-  match is_from_owner, is_from_member, maybe_msg with
-  | true, _, Some (transfer_ownership new_owner) =>
+  match maybe_msg, is_from_owner, is_from_member with
+  | Some (transfer_ownership new_owner), true, _ =>
         Some (state<|owner := new_owner|>, [])
 
-  | true, _, Some (change_rules new_rules) =>
+  | Some (change_rules new_rules), true, _ =>
         if validate_rules new_rules then
             Some (state<|state_rules := new_rules|>, [])
         else
             None
 
-  | true, _, Some (add_member new_member) =>
+  | Some (add_member new_member), true, _ =>
         Some (state<|members ::= FMap.add new_member tt|>, [])
 
-  | true, _, Some (remove_member old_member) =>
+  | Some (remove_member old_member), true, _ =>
         Some (state<|members ::= FMap.remove old_member|>, [])
 
-  | _, true, Some (create_proposal actions) =>
+  | Some (create_proposal actions), _, true =>
         Some (add_proposal actions chain state, [])
 
-  | _, true, Some (vote_for_proposal pid) =>
+  | Some (vote_for_proposal pid), _, true =>
         without_actions (vote_on_proposal sender pid 1 state)
 
-  | _, true, Some (vote_against_proposal pid) =>
+  | Some (vote_against_proposal pid), _, true =>
         without_actions (vote_on_proposal sender pid (-1) state)
 
-  | _, true, Some (retract_vote pid) =>
+  | Some (retract_vote pid), _, true =>
         without_actions (do_retract_vote sender pid state)
 
-  | _, _, Some (finish_proposal pid) =>
+  | Some (finish_proposal pid), _, _ =>
         do_finish_proposal pid state chain
 
   | _, _, _ =>
@@ -359,15 +361,518 @@ Proof. repeat intro; solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract version init init_proper receive receive_proper.
+Section Theories.
+Local Open Scope nat.
+(* cacts = congress actions here *)
+Definition num_acts_created_in_proposals chain address :=
+  let extract tx :=
+      match tx_body tx with
+      | tx_call msg =>
+        match deserialize msg with
+        | Some (create_proposal acts) => length acts
+        | _ => 0
+        end
+      | _ => 0
+      end in
+  sumnat extract (incoming_txs chain address).
 
+Definition num_cacts_in_raw_state state :=
+  sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
+
+Definition num_cacts_in_state chain address :=
+  match contract_state chain address >>= deserialize with
+  | Some state => num_cacts_in_raw_state state
+  | None => 0
+  end.
+
+Definition num_outgoing_acts l address :=
+  let extract a :=
+      if address_eqb (act_from a) address
+      then 1
+      else 0 in
+  sumnat extract l.
+
+Instance num_acts_created_in_proposals_proper :
+  Proper (ChainEquiv ==> eq ==> eq) num_acts_created_in_proposals.
+Proof.
+  now repeat intro; subst; unfold num_acts_created_in_proposals;
+    match goal with
+    | [H: ChainEquiv _ _ |- _] => rewrite H
+    end.
+Qed.
+
+Instance num_cacts_in_state_proper :
+  Proper (ChainEquiv ==> eq ==> eq) num_cacts_in_state.
+Proof.
+  now repeat intro; subst; unfold num_cacts_in_state;
+    match goal with
+    | [H: ChainEquiv _ _ |- _] => rewrite H
+    end.
+Qed.
+
+Lemma num_outgoing_acts_app q1 q2 address :
+  num_outgoing_acts (q1 ++ q2) address =
+  num_outgoing_acts q1 address +
+  num_outgoing_acts q2 address.
+Proof.
+  unfold num_outgoing_acts.
+  now rewrite sumnat_app.
+Qed.
+
+Lemma num_outgoing_acts_block l contract :
+  address_is_contract contract = true ->
+  Forall ActIsFromAccount l ->
+  num_outgoing_acts l contract = 0.
+Proof.
+  intros is_contract all.
+  induction all; auto.
+  cbn in *.
+  destruct_address_eq; try congruence.
+  fold (num_outgoing_acts l contract); auto.
+Qed.
+
+Lemma num_outgoing_acts_call l contract :
+  num_outgoing_acts (map (build_act contract) l) contract = length l.
+Proof.
+  induction l; auto.
+  cbn.
+  destruct_address_eq; auto; congruence.
+Qed.
+
+Lemma num_outgoing_acts_call_ne to l contract :
+  to <> contract ->
+  num_outgoing_acts (map (build_act to) l) contract = 0.
+Proof.
+  intros neq.
+  induction l; auto.
+  cbn.
+  destruct_address_eq; auto; congruence.
+Qed.
+
+Lemma num_cacts_in_state_deployment (init_env : Environment) ctx setup state contract :
+  wc_init Congress.contract init_env ctx setup = Some state ->
+  num_cacts_in_state
+    (set_contract_state
+       contract state
+       (add_contract
+          contract Congress.contract init_env)) contract = 0.
+Proof.
+  intros init.
+  unfold num_cacts_in_state.
+  cbn.
+  unfold set_chain_contract_state.
+  destruct_address_eq; try congruence.
+  cbn in *.
+  destruct (deserialize setup); cbn in *; try congruence.
+  destruct (Congress.init _ _ _) eqn:congress_init; cbn in *; try congruence.
+  inversion init.
+  rewrite deserialize_serialize.
+  unfold Congress.init in congress_init.
+  destruct (validate_rules _); try congruence.
+  now inversion congress_init.
+Qed.
+
+Ltac remember_new_proposal :=
+  match goal with
+  | [|- context[FMap.add _ ?p]] => remember p as new_proposal
+  end.
+
+Lemma add_proposal_cacts cacts chain state :
+  num_cacts_in_raw_state (add_proposal cacts chain state) <=
+  num_cacts_in_raw_state state + length cacts.
+Proof.
+  unfold add_proposal, num_cacts_in_raw_state, constructor.
+  cbn.
+  destruct (FMap.find (next_proposal_id state) (proposals state)) as [proposal|] eqn:find.
+  - remember_new_proposal.
+    rewrite <- (FMap.add_remove _ (next_proposal_id state) new_proposal).
+    Hint Resolve FMap.find_remove.
+    rewrite <- (FMap.add_id _ _ _ find) at 2.
+    rewrite <- (FMap.add_remove _ (next_proposal_id state) proposal).
+    repeat rewrite FMap.elements_add; auto.
+    subst.
+    cbn.
+    lia.
+  - rewrite FMap.elements_add; auto.
+    cbn.
+    lia.
+Qed.
+
+Lemma vote_on_proposal_cacts_preserved addr pid vote_val state new_state :
+  vote_on_proposal addr pid vote_val state = Some new_state ->
+  num_cacts_in_raw_state new_state = num_cacts_in_raw_state state.
+Proof.
+  intros vote.
+  unfold vote_on_proposal in vote.
+  destruct (FMap.find _ _) eqn:found; cbn in *; try congruence.
+  inversion vote.
+  unfold num_cacts_in_raw_state.
+  cbn.
+  remember_new_proposal.
+  rewrite <- (FMap.add_id (proposals state) pid p) at 2; auto.
+  rewrite <- (FMap.add_remove _ pid p).
+  rewrite <- (FMap.add_remove _ pid new_proposal).
+  repeat rewrite FMap.elements_add; try apply FMap.find_remove.
+  subst; reflexivity.
+Qed.
+
+Lemma do_retract_vote_cacts_preserved addr pid state new_state :
+  do_retract_vote addr pid state = Some new_state ->
+  num_cacts_in_raw_state new_state = num_cacts_in_raw_state state.
+Proof.
+  intros retract.
+  unfold do_retract_vote in retract.
+  destruct (FMap.find _ _) eqn:found; cbn in *; try congruence.
+  destruct (FMap.find addr _); cbn in *; try congruence.
+  inversion retract.
+  unfold num_cacts_in_raw_state.
+  cbn.
+  remember_new_proposal.
+  rewrite <- (FMap.add_id (proposals state) pid p) at 2; auto.
+  rewrite <- (FMap.add_remove _ pid p).
+  rewrite <- (FMap.add_remove _ pid new_proposal).
+  Hint Resolve FMap.find_remove.
+  repeat rewrite FMap.elements_add; auto.
+  subst; reflexivity.
+Qed.
+
+Lemma remove_proposal_cacts pid state proposal :
+  FMap.find pid (proposals state) = Some proposal ->
+  num_cacts_in_raw_state (state <| proposals ::= FMap.remove pid |>) +
+  length (actions proposal) = num_cacts_in_raw_state state.
+Proof.
+  intros find.
+  unfold num_cacts_in_raw_state.
+  cbn.
+  rewrite <- (FMap.add_id (proposals state) pid proposal) at 2; auto.
+  rewrite <- FMap.add_remove.
+  rewrite FMap.elements_add; auto.
+  cbn.
+  lia.
+Qed.
+
+(* The next lemma shows that when we send out transactions, the
+state change will make up for number of outgoing actions queued. *)
+Lemma receive_state_well_behaved
+      chain ctx state msg new_state resp_acts :
+  receive chain ctx state msg = Some (new_state, resp_acts) ->
+  num_cacts_in_raw_state new_state + length resp_acts <=
+  num_cacts_in_raw_state state +
+  match msg with
+  | Some (create_proposal ls) => length ls
+  | _ => 0
+  end.
+Proof.
+  intros receive.
+  destruct msg as [msg|]; cbn in *; try congruence.
+  destruct msg; cbn in *; try congruence.
+  - (* transfer_ownership *)
+    destruct_address_eq; try congruence.
+    inversion receive; auto.
+  - (* change_rules *)
+    destruct_address_eq; cbn in *; destruct (validate_rules r); inversion receive; auto.
+  - (* add_member *)
+    destruct_address_eq; cbn in *; inversion receive; auto.
+  - (* remove_member *)
+    destruct_address_eq; cbn in *; inversion receive; auto.
+  - (* create_proposal *)
+    destruct (FMap.mem _ _); inversion receive.
+    cbn.
+    rewrite <- plus_n_O.
+    apply add_proposal_cacts.
+  - (* vote_for_proposal *)
+    destruct (FMap.mem _ _); try congruence.
+    destruct (vote_on_proposal _ _ _ _) eqn:vote; cbn in *; try congruence.
+    inversion receive; subst.
+    erewrite vote_on_proposal_cacts_preserved; eauto.
+  - (* vote_against_proposal *)
+    destruct (FMap.mem _ _); try congruence.
+    destruct (vote_on_proposal _ _ _ _) eqn:vote; cbn in *; try congruence.
+    inversion receive; subst.
+    erewrite vote_on_proposal_cacts_preserved; eauto.
+  - (* retract_vote *)
+    destruct (FMap.mem _ _); try congruence.
+    destruct (do_retract_vote _ _ _) eqn:retract; cbn in *; try congruence.
+    inversion receive; subst.
+    erewrite do_retract_vote_cacts_preserved; eauto.
+  - (* finish_proposal *)
+    unfold do_finish_proposal in receive.
+    destruct (FMap.find _ _) eqn:found; cbn in *; try congruence.
+    match goal with
+    | [H: (if ?a then _ else _) = Some _ |- _] => destruct a
+    end; cbn in *; try congruence.
+    inversion receive.
+    rewrite <- (remove_proposal_cacts _ _ _ found), map_length.
+    match goal with
+    | [|- context[if ?large_annoying_expression_i_should_refactor then _ else _]] =>
+      destruct large_annoying_expression_i_should_refactor
+    end; cbn.
+    + (* I wonder why these asserts are necessary... *)
+      assert (forall a b, a + b <= a + b + 0) by (intros; lia); auto.
+    + assert (forall a b, a + 0 <= a + b + 0) by (intros; lia); auto.
+Qed.
+
+(* This is the bookkeeping that does the serialization/deserialization
+for wc_receive. We should abstract this away. *)
+Lemma wc_receive_state_well_behaved
+      prev tx from contract amount msg ctx state new_state resp_acts :
+  let with_tx := add_tx tx prev in
+  tx = build_tx from contract amount (match msg with
+                                        | Some msg => tx_call msg
+                                        | None => tx_empty
+                                      end) ->
+  contract_state prev contract = Some state ->
+  wc_receive
+    Congress.contract
+    with_tx
+    ctx state msg = Some (new_state, resp_acts) ->
+  num_cacts_in_state
+    (set_contract_state contract new_state with_tx)
+    contract +
+  length resp_acts +
+  num_acts_created_in_proposals prev contract <=
+  num_cacts_in_state with_tx contract +
+  num_acts_created_in_proposals with_tx contract.
+Proof.
+  cbn zeta.
+  intros tx_eq prev_state_eq receive.
+  cbn -[Congress.receive add_tx] in receive.
+  destruct (deserialize state) eqn:deserialize_state; [|cbn in *; congruence].
+  destruct msg as [msg|]; [|cbn in *; congruence].
+  destruct (deserialize msg) eqn:deserialize_msg; [|cbn in *; congruence].
+  cbn -[Congress.receive add_tx] in receive.
+  destruct (Congress.receive _ _ _ _)
+    as [[new_state' resp_acts']|] eqn:congress_receive;
+    [|cbn in *; congruence].
+  cbn in receive.
+  inversion receive; subst new_state resp_acts.
+  unfold num_cacts_in_state.
+  cbn -[add_tx].
+  unfold set_chain_contract_state.
+  destruct_address_eq; try congruence.
+  cbn -[add_tx].
+  replace (contract_state (add_tx tx prev) contract) with (Some state) by auto.
+  cbn -[add_tx].
+  rewrite deserialize_state, deserialize_serialize.
+  unfold num_acts_created_in_proposals at 2.
+  cbn.
+  unfold add_tx_to_map.
+  destruct_address_eq; [|subst; cbn in *; congruence].
+  cbn.
+  fold (num_acts_created_in_proposals prev contract).
+  replace (tx_body tx) with (tx_call msg) by (subst; auto).
+  rewrite deserialize_msg.
+  pose proof (receive_state_well_behaved _ _ _ _ _ _ congress_receive).
+  lia.
+Qed.
+
+Lemma undeployed_contract_no_out_queue_count contract (state : ChainState) :
+  inhabited (ChainTrace empty_state state) ->
+  address_is_contract contract = true ->
+  env_contracts state contract = None ->
+  num_outgoing_acts (chain_state_queue state) contract = 0.
+Proof.
+  intros [trace] is_contract undeployed.
+  pose proof undeployed_contract_no_out_queue as all; specialize_hypotheses.
+  induction all; auto.
+  cbn.
+  match goal with
+  | [H: _ |- _] => now rewrite H; auto
+  end.
+Qed.
+
+Lemma undeployed_contract_not_from_self contract (state : ChainState) act acts :
+  inhabited (ChainTrace empty_state state) ->
+  address_is_contract contract = true ->
+  env_contracts state contract = None ->
+  chain_state_queue state = act :: acts ->
+  act_from act <> contract.
+Proof.
+  intros trace is_contract no_contract_prev queue_eq.
+  pose proof (
+         undeployed_contract_no_out_queue
+           _ _ trace is_contract no_contract_prev) as all.
+  rewrite queue_eq in *.
+  inversion all.
+  cbn in *.
+  destruct_address_eq; congruence.
+Qed.
+Hint Resolve undeployed_contract_no_out_queue_count : core.
+
+Arguments num_acts_created_in_proposals : simpl never.
+Arguments num_cacts_in_raw_state : simpl never.
+Arguments num_cacts_in_state : simpl never.
+Arguments num_outgoing_acts !l.
+
+Local Ltac rewrite_queues :=
+  repeat
+    match goal with
+    | [H: chain_state_queue _ = _ |- _] => rewrite H in *
+    end.
+
+Local Ltac solve_single :=
+  solve [
+      subst; auto;
+      cbn in *;
+      unfold add_tx_to_map, num_cacts_in_state, num_acts_created_in_proposals, num_outgoing_acts;
+      unfold set_chain_contract_state;
+      cbn in *;
+      subst; auto;
+      destruct_address_eq;
+      subst; auto;
+      cbn in *;
+      congruence].
+
+Local Ltac simpl_goal_invariant :=
+  repeat
+    match goal with
+    | [|- context G[outgoing_txs (env_chain (add_tx ?tx ?env)) ?addr]] =>
+      let new_goal := context G[tx :: outgoing_txs env addr] in
+      replace _ with new_goal by solve_single
+    | [|- context G[add_new_block_header _ _ ?env]] =>
+      let new_goal := context G[env] in
+      replace _ with new_goal by solve_single
+    | [|- context G[add_tx _ ?env]] =>
+      let new_goal := context G[env] in
+      replace _ with new_goal by solve_single
+    | [|- context G[set_contract_state _ _ ?env]] =>
+      let new_goal := context G[env] in
+      replace _ with new_goal by solve_single
+    | [|- context G[add_contract _ _ ?env]] =>
+      let new_goal := context G[env] in
+      replace _ with new_goal by solve_single
+    | [|- context G[num_outgoing_acts (?a ++ ?b) _]] =>
+      rewrite num_outgoing_acts_app
+    end.
+
+Local Ltac simpl_hyp_invariant :=
+  repeat
+    match goal with
+    | [IH: context[num_outgoing_acts (?act :: ?acts) ?addr] |- _] =>
+      replace (num_outgoing_acts (act :: acts) addr)
+        with (S (num_outgoing_acts acts addr))
+        in IH
+        by solve_single
+    | [IH: context[num_outgoing_acts (?act :: ?acts) ?addr] |- _] =>
+      replace (num_outgoing_acts (act :: acts) addr)
+        with (num_outgoing_acts acts addr)
+        in IH
+        by solve_single
+    end.
+
+Theorem congress_txs_well_behaved to contract :
+  inhabited (ChainTrace empty_state to) ->
+  env_contracts to contract = Some (Congress.contract : WeakContract) ->
+  num_cacts_in_state to contract + length (outgoing_txs to contract) +
+  num_outgoing_acts (chain_state_queue to) contract <=
+  num_acts_created_in_proposals to contract.
+Proof.
+  intros [trace] congress_deployed.
+  Hint Resolve contract_addr_format.
+  assert (address_is_contract contract = true) as addr_format by eauto.
+  remember empty_state eqn:eq.
+  (* Contract cannot have been deployed in empty trace so we solve that immediately. *)
+  induction trace as [|? ? ? evts IH evt]; subst; try solve_by_inversion.
+  destruct_chain_event; [|invert_chain_step|];
+    rewrite_queues;
+    repeat
+      match goal with
+      | [x := ?a : _ |- _] => pose proof (eq_refl : x = a); clearbody x
+      end.
+  - (* New block added, does not change any of the values *)
+    (* so basically just use IH directly. *)
+    rewrite_environment_equiv.
+    specialize_hypotheses.
+    simpl_goal_invariant.
+    rewrite num_outgoing_acts_block; auto.
+  - (* Transfer step: cannot be to contract, but can come from contract. *)
+    rewrite_environment_equiv.
+    specialize_hypotheses.
+    subst new_acts.
+    (* Handle from contract and not from contract separately. *)
+    destruct (address_eqb_spec (tx_from tx) contract);
+      simpl_goal_invariant;
+      simpl_hyp_invariant;
+      cbn in *; lia.
+  - (* Deployment. Can be deployment of contract, in which case we need to *)
+    (* establish invariant. *)
+    rewrite_environment_equiv.
+    subst new_acts.
+    cbn in congress_deployed.
+    destruct (address_eqb_spec contract to); cycle 1.
+    + (* Deployment of different contract. Holds both if from us or not. *)
+      specialize_hypotheses.
+      destruct (address_eqb_spec (tx_from tx) contract);
+        simpl_goal_invariant;
+        simpl_hyp_invariant;
+        cbn; lia.
+    + (* This is deployment of this contract *)
+      subst to.
+      replace wc with (Congress.contract : WeakContract) in * by congruence.
+      (* State starts at 0 *)
+      erewrite num_cacts_in_state_deployment; [|eassumption].
+      (* Outgoing actions in queue is 0 *)
+      assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
+        as out_acts by eauto;
+        rewrite_queues.
+      simpl_hyp_invariant.
+      (* Outgoing transactions is 0 *)
+      assert (act_from act <> contract)
+        by (eapply undeployed_contract_not_from_self; eauto).
+      simpl_goal_invariant.
+      rewrite undeployed_contract_no_out_txs; auto.
+      cbn; lia.
+  - (* Call. *)
+    rewrite_environment_equiv.
+    specialize_hypotheses.
+    subst new_acts.
+    destruct (address_eqb_spec contract to); cycle 1.
+    + (* Not to contract. Essentially same thing as transfer case above. *)
+      simpl_goal_invariant.
+      rewrite num_outgoing_acts_call_ne; auto.
+      destruct (address_eqb_spec contract from);
+        simpl_goal_invariant;
+        simpl_hyp_invariant;
+        cbn; lia.
+    + (* To contract. This will run code. *)
+      cbn in congress_deployed.
+      replace wc with (Congress.contract : WeakContract) in * by congruence.
+      subst to.
+      match goal with
+      | [H1: wc_receive _ _ _ _ _ = Some _,
+         H2: contract_state _ _ = Some _,
+         H3: tx = build_tx _ _ _ _ |- _] =>
+        generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ _ H3 H2 H1)
+      end.
+      destruct (address_eqb_spec contract from);
+        simpl_goal_invariant;
+        simpl_hyp_invariant;
+        intros;
+        rewrite num_outgoing_acts_call;
+        cbn -[add_tx set_contract_state];
+        lia.
+  - match goal with
+    | [H: chain_state_env prev = chain_state_env new |- _] =>
+      rewrite <- H in *
+    end.
+    unfold num_outgoing_acts.
+    match goal with
+    | [Hperm: Permutation _ _ |- _] => rewrite <- Hperm
+    end; auto.
+Qed.
+
+Corollary congress_txs_after_block
+          {ChainBuilder : ChainBuilderType}
+          prev baker acts slot finalization_height new :
+  builder_add_block prev baker acts slot finalization_height = Some new ->
+  forall addr,
+    env_contracts (builder_env new) addr = Some (Congress.contract : WeakContract) ->
+    length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
+Proof.
+  intros add_block contract congress_at_addr.
+  pose proof (congress_txs_well_behaved _ _ (builder_trace new) congress_at_addr).
+  cbn in *.
+  lia.
+Qed.
+End Theories.
 End Congress.
-
-(*
-(* This first property states that the Congress will only send out actions
-   to be performed if there is a matching CreateProposal somewhere in the
-   past. That is, no CreateProposal can lead to two batches of actions being
-   sent out, and the actions correspond to the ones passed in CreateProposal. *)
-Theorem congress_no_unmatched_actions
-        (chain : Chain)
-        (
-*)

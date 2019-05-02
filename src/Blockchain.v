@@ -661,6 +661,18 @@ Proof.
     | [H: EnvironmentEquiv _ _ |- _] => now rewrite H
     end.
 Qed.
+
+Lemma contracts_post_pre_none contract :
+  env_contracts post contract = None ->
+  env_contracts pre contract = None.
+Proof.
+  intros H.
+  destruct step;
+    match goal with
+    | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
+    end; cbn in *; auto.
+  destruct_address_eq; congruence.
+Qed.
 End Theories.
 End Step.
 
@@ -778,6 +790,132 @@ Proof.
     + destruct_step; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
     + intuition.
 Qed.
+Lemma new_acts_no_out_queue addr1 addr2 new_acts resp_acts :
+  addr1 <> addr2 ->
+  new_acts = map (build_act addr2) resp_acts ->
+  Forall (fun a => (act_from a =? addr1)%address = false) new_acts.
+Proof.
+  intros neq ?; subst.
+  induction resp_acts; cbn; auto.
+  constructor; destruct_address_eq; cbn in *; congruence.
+Qed.
+
+Ltac destruct_chain_event :=
+  match goal with
+  | [evt: ChainEvent _ _ |- _] => destruct evt
+  end.
+
+Ltac destruct_chain_step :=
+  match goal with
+  | [step: ChainStep _ _ _ _ |- _] => destruct step
+  end.
+
+Local Open Scope address.
+(* This next lemma shows that any for a full chain trace,
+the ending state will not have any queued actions from
+undeployed contracts. *)
+Lemma undeployed_contract_no_out_queue contract (state : ChainState) :
+  inhabited (ChainTrace empty_state state) ->
+  address_is_contract contract = true ->
+  env_contracts state contract = None ->
+  Forall (fun act => (act_from act =? contract) = false) (chain_state_queue state).
+Proof.
+  intros [trace] is_contract.
+  remember empty_state eqn:eq.
+  induction trace;
+    intros undeployed; rewrite eq in *; clear eq; cbn; auto.
+  destruct_chain_event; [|destruct_chain_step|];
+    try rewrite_environment_equiv;
+    repeat
+      match goal with
+      | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
+      end;
+    cbn in *.
+  - (* New block *)
+    match goal with
+    | [H: Forall _ _ |- _] => induction H
+    end; constructor; auto.
+    destruct_address_eq; congruence.
+  - (* Transfer step, just use IH *)
+    eapply list.Forall_cons; eauto.
+  - (* Deploy step. First show that it is not to contract and then use IH. *)
+    destruct_address_eq; try congruence.
+    eapply list.Forall_cons; eauto.
+  - (* Call. Show that it holds for new actions as it is from *)
+    (* another contract, and use IH for remaining. *)
+    apply list.Forall_app.
+    assert (contract <> to) by congruence.
+    split; [eapply new_acts_no_out_queue|eapply list.Forall_cons]; eauto.
+  - (* Permutation *)
+    subst.
+    specialize_hypotheses.
+    match goal with
+    | [prev_eq_new: _ = _, perm: Permutation _ _ |- _] =>
+      now rewrite prev_eq_new in *; rewrite <- perm; auto
+    end.
+Qed.
+
+(* With this lemma proven, we can show that the (perhaps seemingly stronger)
+fact, that an undeployed contract has no outgoing txs, holds. *)
+Lemma undeployed_contract_no_out_txs contract (state : ChainState) :
+  inhabited (ChainTrace empty_state state) ->
+  address_is_contract contract = true ->
+  env_contracts state contract = None ->
+  outgoing_txs state contract = [].
+Proof.
+  intros [trace] is_contract.
+  remember empty_state eqn:eq.
+  induction trace;
+    intros undeployed; rewrite eq in *; clear eq; cbn; auto.
+  destruct_chain_event.
+  - (* New block *)
+    rewrite_environment_equiv; auto.
+  - (* In these steps we will use that the queue did not contain txs to the contract. *)
+    Hint Resolve contracts_post_pre_none : core.
+    pose proof
+         (undeployed_contract_no_out_queue
+            contract prev
+            ltac:(auto) ltac:(auto) ltac:(eauto)) as Hqueue.
+    destruct_chain_step; rewrite_environment_equiv;
+      repeat
+        match goal with
+        | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
+        end;
+      subst;
+      subst tx;
+      inversion Hqueue;
+      cbn in *;
+      unfold add_tx_to_map;
+      inversion Hqueue;
+      subst;
+      cbn in *;
+      destruct_address_eq;
+      subst; try tauto; congruence.
+  - match goal with
+    | [H: _ = _ |- _] => rewrite H in *; auto
+    end.
+Qed.
+
+Lemma undeployed_contract_no_in_txs contract (state : ChainState) :
+  inhabited (ChainTrace empty_state state) ->
+  address_is_contract contract = true ->
+  env_contracts state contract = None ->
+  incoming_txs state contract = [].
+Proof.
+  intros [trace] is_contract.
+  remember empty_state eqn:eq.
+  induction trace; intros undeployed; rewrite eq in *; clear eq; cbn; auto.
+  destruct_chain_event.
+  - (* New block *)
+    rewrite_environment_equiv; auto.
+  - destruct_chain_step; rewrite_environment_equiv;
+      cbn in *;
+      unfold add_tx_to_map;
+      destruct_address_eq; auto; subst; congruence.
+  - match goal with
+    | [H: _ = _ |- _] => rewrite H in *; auto
+    end.
+Qed.
 
 End Theories.
 End Trace.
@@ -804,6 +942,7 @@ Class ChainBuilderType :=
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
+Global Coercion builder_env : builder_type >-> Environment.
 End Blockchain.
 
 Arguments version {_ _ _ _ _ _ _}.
@@ -812,3 +951,23 @@ Arguments receive {_ _ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _ _}.
 Arguments ContractInterface {_} _ _ _.
 Arguments build_contract_interface {_ _ _ _}.
+
+Ltac destruct_chain_event :=
+  match goal with
+  | [evt: ChainEvent _ _ |- _] => destruct evt
+  end.
+
+Ltac destruct_chain_step :=
+  match goal with
+  | [step: ChainStep _ _ _ _ |- _] => destruct step
+  end.
+
+Ltac invert_chain_step :=
+  match goal with
+  | [step: ChainStep _ _ _ _ |- _] => inversion step
+  end.
+
+Ltac rewrite_environment_equiv :=
+  match goal with
+  | [eq: EnvironmentEquiv _ _ |- _] => rewrite eq in *
+  end.
