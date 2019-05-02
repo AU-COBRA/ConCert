@@ -363,7 +363,7 @@ Definition contract : Contract Setup Msg State :=
   build_contract version init init_proper receive receive_proper.
 Section Theories.
 Local Open Scope nat.
-(* cacts = congress actions here *)
+
 Definition num_acts_created_in_proposals chain address :=
   let extract tx :=
       match tx_body tx with
@@ -851,7 +851,8 @@ Proof.
         rewrite num_outgoing_acts_call;
         cbn -[add_tx set_contract_state];
         lia.
-  - match goal with
+  - (* Permute queue *)
+    match goal with
     | [H: chain_state_env prev = chain_state_env new |- _] =>
       rewrite <- H in *
     end.
