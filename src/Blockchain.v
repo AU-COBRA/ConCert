@@ -50,6 +50,19 @@ Global Ltac destruct_address_eq :=
 Section Blockchain.
 Context {BaseTypes : ChainBaseTypes}.
 
+Lemma address_eq_refl x :
+  address_eqb x x = true.
+Proof. destruct_address_eq; auto; congruence. Qed.
+
+Lemma address_eq_sym x y :
+  address_eqb x y = address_eqb y x.
+Proof. destruct_address_eq; auto; congruence. Qed.
+
+Lemma address_eq_ne x y :
+  x <> y ->
+  address_eqb x y = false.
+Proof. destruct_address_eq; auto; congruence. Qed.
+
 Record ContractDeployment :=
   build_contract_deployment {
     deployment_version : Version;

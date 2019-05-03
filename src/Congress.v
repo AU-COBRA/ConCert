@@ -712,37 +712,47 @@ Local Ltac rewrite_queues :=
 
 Local Ltac solve_single :=
   solve [
-      subst; auto;
-      cbn in *;
+      repeat (progress subst; cbn in *; auto);
       unfold add_tx_to_map, num_cacts_in_state, num_acts_created_in_proposals, num_outgoing_acts;
       unfold set_chain_contract_state;
-      cbn in *;
-      subst; auto;
-      destruct_address_eq;
-      subst; auto;
-      cbn in *;
-      congruence].
+      cbn;
+      try rewrite address_eq_refl;
+      repeat rewrite address_eq_ne by auto;
+      cbn;
+      destruct_address_eq; congruence].
+
+Local Ltac simpl_exp_invariant exp :=
+  match exp with
+  | context G[outgoing_txs (env_chain (add_tx ?tx ?env)) ?addr] =>
+    let newexp := context G[tx :: outgoing_txs env addr] in
+    replace exp with newexp by solve_single
+  | context G[add_new_block_header _ _ ?env] =>
+    let newexp := context G[env] in
+    replace exp with newexp by solve_single
+  | context G[add_tx _ ?env] =>
+    let newexp := context G[env] in
+    replace exp with newexp by solve_single
+  | context G[set_contract_state _ _ ?env] =>
+    let newexp := context G[env] in
+    replace exp with newexp by solve_single
+  | context G[add_contract _ _ ?env] =>
+    let newexp := context G[env] in
+    replace exp with newexp by solve_single
+  | context G[num_outgoing_acts (?a ++ ?b) _] =>
+    rewrite num_outgoing_acts_app
+  end.
 
 Local Ltac simpl_goal_invariant :=
   repeat
     match goal with
-    | [|- context G[outgoing_txs (env_chain (add_tx ?tx ?env)) ?addr]] =>
-      let new_goal := context G[tx :: outgoing_txs env addr] in
-      replace _ with new_goal by solve_single
-    | [|- context G[add_new_block_header _ _ ?env]] =>
-      let new_goal := context G[env] in
-      replace _ with new_goal by solve_single
-    | [|- context G[add_tx _ ?env]] =>
-      let new_goal := context G[env] in
-      replace _ with new_goal by solve_single
-    | [|- context G[set_contract_state _ _ ?env]] =>
-      let new_goal := context G[env] in
-      replace _ with new_goal by solve_single
-    | [|- context G[add_contract _ _ ?env]] =>
-      let new_goal := context G[env] in
-      replace _ with new_goal by solve_single
-    | [|- context G[num_outgoing_acts (?a ++ ?b) _]] =>
-      rewrite num_outgoing_acts_app
+    | [|- context[num_cacts_in_state ?env ?addr]] =>
+      simpl_exp_invariant constr:(num_cacts_in_state env addr)
+    | [|- context[outgoing_txs ?env ?addr]] =>
+      simpl_exp_invariant constr:(outgoing_txs env addr)
+    | [|- context[num_outgoing_acts ?q ?addr]] =>
+      simpl_exp_invariant constr:(num_outgoing_acts q addr)
+    | [|- context[num_acts_created_in_proposals ?env ?addr]] =>
+      simpl_exp_invariant constr:(num_acts_created_in_proposals env addr)
     end.
 
 Local Ltac simpl_hyp_invariant :=
@@ -763,7 +773,8 @@ Local Ltac simpl_hyp_invariant :=
 Theorem congress_txs_well_behaved to contract :
   inhabited (ChainTrace empty_state to) ->
   env_contracts to contract = Some (Congress.contract : WeakContract) ->
-  num_cacts_in_state to contract + length (outgoing_txs to contract) +
+  num_cacts_in_state to contract +
+  length (outgoing_txs to contract) +
   num_outgoing_acts (chain_state_queue to) contract <=
   num_acts_created_in_proposals to contract.
 Proof.
@@ -793,7 +804,7 @@ Proof.
     destruct (address_eqb_spec (tx_from tx) contract);
       simpl_goal_invariant;
       simpl_hyp_invariant;
-      cbn in *; lia.
+      cbn; lia.
   - (* Deployment. Can be deployment of contract, in which case we need to *)
     (* establish invariant. *)
     rewrite_environment_equiv.
@@ -815,10 +826,10 @@ Proof.
       assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
         as out_acts by eauto;
         rewrite_queues.
-      simpl_hyp_invariant.
-      (* Outgoing transactions is 0 *)
       assert (act_from act <> contract)
         by (eapply undeployed_contract_not_from_self; eauto).
+      simpl_hyp_invariant.
+      (* Outgoing transactions is 0 *)
       simpl_goal_invariant.
       rewrite undeployed_contract_no_out_txs; auto.
       cbn; lia.
@@ -844,11 +855,13 @@ Proof.
          H3: tx = build_tx _ _ _ _ |- _] =>
         generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ _ H3 H2 H1)
       end.
+      simpl_goal_invariant.
+      rewrite num_outgoing_acts_call.
+
       destruct (address_eqb_spec contract from);
         simpl_goal_invariant;
         simpl_hyp_invariant;
         intros;
-        rewrite num_outgoing_acts_call;
         cbn -[add_tx set_contract_state];
         lia.
   - (* Permute queue *)
