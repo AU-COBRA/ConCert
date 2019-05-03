@@ -742,6 +742,10 @@ Local Ltac simpl_exp_invariant exp :=
     rewrite num_outgoing_acts_app
   end.
 
+(* This tactic performs various simplifications on the goal involving
+expressions establishing the invariant. For instance, it tries to rewrite
+num_cacts_in_state (add_tx tx env) -> num_cacts_in_state env using some
+common tactics. *)
 Local Ltac simpl_goal_invariant :=
   repeat
     match goal with
