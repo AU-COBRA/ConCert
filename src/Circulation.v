@@ -3,7 +3,7 @@ chain implementing a chain type. More specifically, we show that the circulation
 does not change during execution of blocks. This is proven under the (implicit)
 assumption that the address space is finite. *)
 From Coq Require Import List Permutation ZArith Psatz Morphisms.
-From SmartContracts Require Import Automation Blockchain Extras Finite CursorList.
+From SmartContracts Require Import Automation Blockchain Extras Finite ChainedList.
 From RecordUpdate Require Import RecordSet.
 Import ListNotations.
 

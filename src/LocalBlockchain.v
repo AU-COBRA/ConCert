@@ -9,7 +9,7 @@ From SmartContracts Require Import Extras.
 From SmartContracts Require Import Automation.
 From SmartContracts Require Import BoundedN.
 From SmartContracts Require Import Circulation.
-From SmartContracts Require Import CursorList.
+From SmartContracts Require Import ChainedList.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Psatz.
@@ -346,7 +346,7 @@ Section ExecuteActions.
       destruct (execute_action_step _ _ _ _ exec_once) as [step].
       destruct trace as [trace].
       Hint Constructors ChainEvent : core.
-      Hint Constructors CursorList.
+      Hint Constructors ChainedList.
       Hint Unfold ChainTrace.
       destruct df; eapply IH; try eassumption; eauto.
       (* BF case, where we need to permute *)
@@ -379,7 +379,7 @@ Proof.
   refine
     {| lcb_lc := lc_initial; lcb_trace := _ |}.
   constructor.
-  apply CursorList.nil.
+  exact clnil.
 Defined.
 
 Definition validate_header (new old : BlockHeader) : option unit :=

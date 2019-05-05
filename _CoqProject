@@ -2,10 +2,10 @@
 src/Automation.v
 src/Blockchain.v
 src/BoundedN.v
+src/ChainedList.v
 src/Circulation.v
 src/Congress.v
 src/Containers.v
-src/CursorList.v
 src/Extras.v
 src/Finite.v
 src/LocalBlockchain.v

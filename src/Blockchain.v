@@ -8,7 +8,7 @@ From SmartContracts Require Import Oak.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Extras.
 From SmartContracts Require Import Automation.
-From SmartContracts Require Import CursorList.
+From SmartContracts Require Import ChainedList.
 From RecordUpdate Require Import RecordUpdate.
 From stdpp Require countable.
 
@@ -767,7 +767,7 @@ Definition empty_state : ChainState :=
 (* The ChainTrace captures that there is a valid execution where,
 starting from one environment and queue of actions, we end up in a
 different environment and queue of actions. *)
-Definition ChainTrace := CursorList ChainState ChainEvent.
+Definition ChainTrace := ChainedList ChainState ChainEvent.
 
 Section Theories.
 Ltac destruct_chain_event :=
