@@ -429,6 +429,11 @@ Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
     contracts_eq : forall a, env_contracts e1 a = env_contracts e2 a;
   }.
 
+Ltac rewrite_environment_equiv :=
+  match goal with
+  | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
+  end.
+
 Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.
 Next Obligation.
   intros x; apply build_env_equiv; reflexivity.
@@ -481,10 +486,7 @@ Ltac solve_proper :=
   [apply build_chain_equiv|];
   cbn;
   repeat intro;
-  repeat
-    match goal with
-    | [H: EnvironmentEquiv _ _|- _] => rewrite H
-    end;
+  repeat rewrite_environment_equiv;
   auto.
 
 Global Instance add_tx_proper :
@@ -633,10 +635,7 @@ Lemma account_balance_post (addr : Address) :
   - (if (addr =? step_from step)%address then step_amount step else 0).
 Proof.
   unfold account_balance.
-  destruct step; subst; cbn;
-    match goal with
-    | [H: EnvironmentEquiv _ _ |- _] => rewrite H
-    end;
+  destruct step; subst; cbn; rewrite_environment_equiv;
     cbn; unfold add_tx_to_map; destruct_address_eq; cbn; lia.
 Qed.
 
@@ -645,8 +644,10 @@ Lemma account_balance_post_to :
   account_balance post (step_to step) =
   account_balance pre (step_to step) + step_amount step.
 Proof.
+  intros neq.
   rewrite account_balance_post.
-  destruct_address_eq; prove.
+  rewrite address_eq_refl, address_eq_ne by auto.
+  lia.
 Qed.
 
 Lemma account_balance_post_from :
@@ -654,8 +655,10 @@ Lemma account_balance_post_from :
   account_balance post (step_from step) =
   account_balance pre (step_from step) - step_amount step.
 Proof.
+  intros neq.
   rewrite account_balance_post.
-  destruct_address_eq; prove.
+  rewrite address_eq_refl, address_eq_ne by auto.
+  lia.
 Qed.
 
 Lemma account_balance_post_irrelevant (addr : Address) :
@@ -663,27 +666,22 @@ Lemma account_balance_post_irrelevant (addr : Address) :
   addr <> step_to step ->
   account_balance post addr = account_balance pre addr.
 Proof.
+  intros neq_from neq_to.
   rewrite account_balance_post.
-  destruct_address_eq; prove.
+  repeat rewrite address_eq_ne by auto.
+  lia.
 Qed.
 
 Lemma block_header_post_step : block_header post = block_header pre.
-Proof.
-  destruct step;
-    match goal with
-    | [H: EnvironmentEquiv _ _ |- _] => now rewrite H
-    end.
-Qed.
+Proof. destruct step; rewrite_environment_equiv; auto. Qed.
 
 Lemma contracts_post_pre_none contract :
   env_contracts post contract = None ->
   env_contracts pre contract = None.
 Proof.
   intros H.
-  destruct step;
-    match goal with
-    | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
-    end; cbn in *; auto.
+  destruct step; rewrite_environment_equiv; auto.
+  cbn in *.
   destruct_address_eq; congruence.
 Qed.
 End Theories.
@@ -772,19 +770,14 @@ different environment and queue of actions. *)
 Definition ChainTrace := CursorList ChainState ChainEvent.
 
 Section Theories.
-Ltac rewrite_environment_equiv :=
+Ltac destruct_chain_event :=
   match goal with
-  | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
+  | [evt: ChainEvent _ _ |- _] => destruct evt
   end.
 
-Ltac destruct_event :=
+Ltac destruct_chain_step :=
   match goal with
-  | [H: ChainEvent _ _ |- _] => destruct H
-  end.
-
-Ltac destruct_step :=
-  match goal with
-  | [H: ChainStep _ _ _ _ |- _] => destruct H
+  | [step: ChainStep _ _ _ _ |- _] => destruct step
   end.
 
 Lemma contract_addr_format
@@ -798,11 +791,12 @@ Proof.
   remember empty_state eqn:eq.
   induction trace; rewrite eq in *; clear eq.
   - cbn in *; congruence.
-  - destruct_event.
+  - destruct_chain_event.
     + rewrite_environment_equiv; cbn in *; auto.
-    + destruct_step; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
+    + destruct_chain_step; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
     + intuition.
 Qed.
+
 Lemma new_acts_no_out_queue addr1 addr2 new_acts resp_acts :
   addr1 <> addr2 ->
   new_acts = map (build_act addr2) resp_acts ->
@@ -812,16 +806,6 @@ Proof.
   induction resp_acts; cbn; auto.
   constructor; destruct_address_eq; cbn in *; congruence.
 Qed.
-
-Ltac destruct_chain_event :=
-  match goal with
-  | [evt: ChainEvent _ _ |- _] => destruct evt
-  end.
-
-Ltac destruct_chain_step :=
-  match goal with
-  | [step: ChainStep _ _ _ _ |- _] => destruct step
-  end.
 
 Local Open Scope address.
 (* This next lemma shows that any for a full chain trace,
@@ -887,21 +871,20 @@ Proof.
     Hint Resolve contracts_post_pre_none : core.
     pose proof
          (undeployed_contract_no_out_queue
+
+
             contract prev
             ltac:(auto) ltac:(auto) ltac:(eauto)) as Hqueue.
+    repeat
+      match goal with
+      | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
+      end.
+    inversion_clear Hqueue.
     destruct_chain_step; rewrite_environment_equiv;
-      repeat
-        match goal with
-        | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
-        end;
       subst;
       subst tx;
-      inversion Hqueue;
       cbn in *;
       unfold add_tx_to_map;
-      inversion Hqueue;
-      subst;
-      cbn in *;
       destruct_address_eq;
       subst; try tauto; congruence.
   - match goal with

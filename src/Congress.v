@@ -348,7 +348,8 @@ Ltac solve_contract_proper :=
     | [|- pair _ _ = pair _ _] => f_equal
     | [|- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
     | [|- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
-    | _ => prove
+    | [H: ChainEquiv _ _ |- _] => rewrite H in *
+    | _ => subst; auto
     end.
 
 Lemma init_proper :

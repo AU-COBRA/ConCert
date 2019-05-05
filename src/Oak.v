@@ -132,7 +132,7 @@ Qed.
 Program Instance oak_positive_equivalence : OakTypeEquivalence positive :=
   {| serialize p := serialize (Zpos p);
      deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
-Next Obligation. prove. Qed.
+Next Obligation. auto. Qed.
 
 Program Instance oak_value_equivalence : OakTypeEquivalence OakValue :=
   {| serialize v := v;

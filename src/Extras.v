@@ -96,12 +96,18 @@ Proof.
   intros x_neq_y x_in.
   apply in_or_app.
   apply in_app_or in x_in.
-  prove.
+  destruct x_in as [?|x_in]; auto.
+  destruct x_in; auto; congruence.
 Qed.
 
 Lemma incl_split {A : Type} (l m n : list A) :
   incl (l ++ m) n -> incl l n /\ incl m n.
-Proof. unfold incl; generalize in_or_app; prove. Qed.
+Proof.
+  intros H.
+  unfold incl in *.
+  Hint Resolve in_or_app : core.
+  auto.
+Qed.
 
 Lemma NoDup_incl_reorganize
       {A : Type}
@@ -125,7 +131,8 @@ Proof.
         intuition.
         specialize (incl_xs a a_in).
         apply in_app_or in incl_xs.
-        destruct incl_xs as [in_pref | [in_x | in_suf]]; prove.
+        destruct incl_xs as [in_pref | [in_x | in_suf]]; auto.
+        congruence.
       * destruct (IH _ H2 H) as [suf' perm_suf'].
         exists suf'.
         perm_simplify.
@@ -136,11 +143,13 @@ Lemma in_NoDup_app {A : Type} (x : A) (l m : list A) :
 Proof.
   intros in_x_l nodup_l_app_m in_x_m.
   destruct (in_split _ _ in_x_l) as [l1 [l2 eq]]; subst.
-  replace ((l1 ++ x :: l2) ++ m) with (l1 ++ x :: (l2 ++ m)) in nodup_l_app_m;
-    [|prove].
-  apply (NoDup_remove_2 _ _ _) in nodup_l_app_m.
-  rewrite app_assoc in nodup_l_app_m.
-  generalize in_or_app; prove.
+  replace ((l1 ++ x :: l2) ++ m) with (l1 ++ x :: (l2 ++ m)) in nodup_l_app_m.
+  - apply (NoDup_remove_2 _ _ _) in nodup_l_app_m.
+    rewrite app_assoc in nodup_l_app_m.
+    auto.
+  - rewrite app_comm_cons.
+    appify.
+    now rewrite app_assoc.
 Qed.
 
 Lemma seq_app start len1 len2 :

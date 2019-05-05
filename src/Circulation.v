@@ -25,7 +25,10 @@ Lemma address_reorganize {a b : Address} :
 Proof.
   intros a_neq_b.
   apply (NoDup_incl_reorganize _ [a; b]);
-    repeat constructor; unfold incl; prove.
+    repeat constructor; unfold incl; auto.
+  intros Hin.
+  cbn in *.
+  intuition.
 Qed.
 
 Lemma step_from_to_same
@@ -61,20 +64,23 @@ Proof.
   destruct (address_reorganize from_neq_to) as [suf perm].
   apply Permutation_sym in perm.
   unfold circulation.
-  rewrite 2!(sumZ_permutation perm); prove.
+  rewrite 2!(sumZ_permutation perm).
+  cbn.
   rewrite (account_balance_post_to step from_neq_to).
   rewrite (account_balance_post_from step from_neq_to).
-  enough (sumZ (account_balance pre) suf = sumZ (account_balance post) suf) by prove.
+  enough (sumZ (account_balance pre) suf = sumZ (account_balance post) suf) by lia.
 
   pose proof (Permutation_NoDup perm) as perm_set.
   assert (from_not_in_suf: ~In (step_from step) suf).
-  { apply (in_NoDup_app _ [step_from step; step_to step] _); prove. }
+  { apply (in_NoDup_app _ [step_from step; step_to step] _); intuition. }
   assert (to_not_in_suf: ~In (step_to step) suf).
-  { apply (in_NoDup_app _ [step_from step; step_to step] _); prove. }
+  { apply (in_NoDup_app _ [step_from step; step_to step] _); intuition. }
 
   clear perm perm_set.
-  pose proof (account_balance_post_irrelevant step).
-  induction suf as [| x xs IH]; prove.
+  pose proof (account_balance_post_irrelevant step) as balance_irrel.
+  induction suf as [| x xs IH]; auto.
+  cbn in *.
+  rewrite IH, balance_irrel; auto.
 Qed.
 
 Hint Resolve step_circulation_unchanged : core.
@@ -84,7 +90,13 @@ Instance circulation_proper :
 Proof.
   intros x y [].
   unfold circulation, account_balance.
-  induction (elements Address); prove.
+  induction (elements Address) as [|z zs IH]; auto.
+  cbn.
+  now
+    repeat
+    match goal with
+    | [H: _ |- _] => rewrite H
+  end.
 Qed.
 
 Lemma circulation_add_new_block header baker env :
@@ -92,7 +104,7 @@ Lemma circulation_add_new_block header baker env :
   (circulation env + compute_block_reward (block_height header))%Z.
 Proof.
   assert (Hperm: exists suf, Permutation ([baker] ++ suf) (elements Address)).
-  { apply NoDup_incl_reorganize; repeat constructor; unfold incl; prove. }
+  { apply NoDup_incl_reorganize; repeat constructor; unfold incl; auto. }
   destruct Hperm as [suf perm].
   symmetry in perm.
   pose proof (Permutation_NoDup perm (elements_set Address)) as perm_set.
@@ -108,7 +120,7 @@ Proof.
     enough (e = f) by lia
   end.
 
-  pose proof (in_NoDup_app baker [baker] suf ltac:(prove) perm_set) as not_in_suf.
+  pose proof (in_NoDup_app baker [baker] suf ltac:(intuition) perm_set) as not_in_suf.
   clear perm perm_set e.
   induction suf as [| x xs IH]; auto.
   cbn in *.

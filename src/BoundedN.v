@@ -195,13 +195,13 @@ Module BoundedN.
         * tauto.
       + destruct H as [eq | Hin].
         * left.
-          rewrite eq in of_nat_x.
-          rewrite of_to_nat in of_nat_x; prove.
-        * prove.
+          rewrite eq, of_to_nat in of_nat_x.
+          congruence.
+        * cbn. tauto.
       + tauto.
       + destruct H as [eq | Hin].
         * rewrite eq, of_to_nat in of_nat_x; inversion of_nat_x.
-        * prove.
+        * tauto.
   Qed.
 
   Module Stdpp.
