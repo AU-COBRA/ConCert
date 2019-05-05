@@ -28,10 +28,6 @@ Tactic Notation "simpl_vars_to_apps" :=
 
 Notation exprs := (map (fun '(nm,v) => (nm, from_val_i v))).
 
-Lemma expr_closed_term_closed e n Σ:
-  iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
-Admitted.
-
 Lemma from_option_indep {A} (o : option A) d  d' v :
   o = Some v -> from_option o d = from_option o d'.
 Proof.
@@ -151,23 +147,99 @@ Lemma type_to_term_subst ty n t : (type_to_term ty) {n:=t} = type_to_term ty.
 Proof.
 Admitted.
 
-Lemma closed_mkApps n t1 t2 :
-  closedn n (mkApps t1 [t2]) = true ->
-  closedn n t1 = true /\ closedn n t2 = true.
+Hint Resolve -> length_zero_iff_nil : hints.
+Hint Resolve <- length_zero_iff_nil : hints.
+Hint Resolve type_to_term_subst : hints.
+Hint Resolve type_to_term_closed : hints.
+
+Lemma closedn_pat_to_lam vs e0 n:
+  closedn (#|vs| + n) e0 ->
+  closedn n (pat_to_lam vs e0).
 Proof.
-  intros Hc.
-  simpl in Hc. destruct t1;simpl in Hc;
-  try (apply Bool.andb_true_iff in Hc; destruct Hc as [Hct1 HH]);
-  try (apply Bool.andb_true_iff in HH; destruct HH as [Hct2 ?]);split;auto.
-  rewrite forallb_app in HH.
-  apply Bool.andb_true_iff in HH; destruct HH as [Hct2 ?]. simpl in H.
-  apply Bool.andb_true_iff in H; destruct H as [H' ?].
-  simpl. rewrite Hct1. rewrite Hct2. reflexivity.
-  rewrite forallb_app in HH.
-  apply Bool.andb_true_iff in HH; destruct HH as [Hct2 ?]. simpl in H.
-  apply Bool.andb_true_iff in H; destruct H as [H' ?]. assumption.
+  revert n.
+  induction vs;intros n H.
+  + easy.
+  + simpl. destruct a. simpl in *.
+    apply Bool.andb_true_iff.  split; auto with hints.
+    replace (S (#|vs| + n)) with (#|vs| + S n) in * by lia.
+    now apply IHvs.
 Qed.
 
+Lemma closed_mkApps n t1 t2 :
+  closedn n (mkApps t1 [t2]) = true <->
+  closedn n t1 = true /\ closedn n t2 = true.
+Proof.
+  split.
+  + intros Hc.
+    simpl in Hc. destruct t1;simpl in Hc;
+                   try (apply Bool.andb_true_iff in Hc; destruct Hc as [Hct1 HH]);
+                   try (apply Bool.andb_true_iff in HH; destruct HH as [Hct2 ?]);split;auto.
+    rewrite forallb_app in HH.
+    apply Bool.andb_true_iff in HH; destruct HH as [Hct2 ?]. simpl in H.
+    apply Bool.andb_true_iff in H; destruct H as [H' ?].
+    simpl. rewrite Hct1. rewrite Hct2. reflexivity.
+    rewrite forallb_app in HH.
+    apply Bool.andb_true_iff in HH; destruct HH as [Hct2 ?]. simpl in H.
+    apply Bool.andb_true_iff in H; destruct H as [H' ?]. assumption.
+  + intros Hc.
+    destruct Hc as [Hct1 Hct2].
+    destruct t1;simpl in *;repeat rewrite Bool.andb_true_iff in *;auto.
+    destruct Hct1. rewrite forallb_app. simpl.
+    repeat rewrite Bool.andb_true_iff in *. auto.
+Qed.
+
+Hint Resolve <- closed_mkApps : hints.
+Hint Resolve -> closed_mkApps : hints.
+
+Lemma expr_closed_term_closed e n Σ:
+  iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
+Proof.
+  revert n.
+  induction e using expr_ind_case;intros n1 Hc;auto.
+  + (* eLambda*)
+    simpl in *. rewrite Bool.andb_true_iff.
+    auto with hints.
+  + (* eLetIn *)
+    simpl in *. repeat rewrite Bool.andb_true_iff in *.
+    destruct Hc. auto with hints.
+  + (* eApp *)
+    simpl in Hc. repeat rewrite Bool.andb_true_iff in *.
+    cbn -[mkApps]. eauto with hints. apply <- closed_mkApps. destruct Hc. easy.
+  + (* eConstr *)
+    simpl in *. destruct (resolve_constr Σ i n); auto.
+  + (* eCase *)
+    destruct p. simpl in *. repeat rewrite Bool.andb_true_iff in *.
+    destruct Hc.
+    repeat split;auto with hints.
+    destruct (resolve_inductive Σ i) eqn:Hres;auto.
+    simpl. rewrite forallb_map. unfold Basics.compose,test_snd,trans_branch.
+    apply forallb_Forall. apply Forall_forall. intros x Hin.
+    destruct x as [nm tys]. unfold fun_prod,id in *. simpl.
+    destruct (find (fun '(p, _) => _)) as [ p | ] eqn:Hnm;simpl;auto.
+    * destruct p as [pt e0]. simpl.
+      destruct (Nat.eqb #|pVars pt| #|tys|) eqn:Hlen;auto.
+      apply find_some in Hnm. destruct Hnm as [Hin' Heqs].
+      rewrite Forall_forall in H.
+      change
+      (forallb (fun x : pat * expr => iclosed_n (#|pVars (fst x)| + n1) (snd x)) l = true)
+      with (is_true (forallb (fun x : pat * expr => iclosed_n (#|pVars (fst x)| + n1) (snd x)) l)) in H1.
+    rewrite <- forallb_Forall in H1.
+    rewrite Forall_forall in H1.
+    rewrite in_map_iff in Hin'.
+    destruct Hin' as [x Htmp]. destruct x as [pt1 e1].
+    destruct Htmp as [He1 Hin'']. inversion He1;subst;clear He1.
+
+    apply closedn_pat_to_lam. change e1 with (snd (pt, e1)).
+    apply H;auto.
+    specialize (H1 (pt,e1) Hin''). simpl in *.
+    rewrite combine_length.
+    rewrite PeanoNat.Nat.eqb_eq in *.
+    replace (#|tys|) with (#|pVars pt|) by assumption.
+    rewrite PeanoNat.Nat.min_id. easy.
+    * destruct (#|tys|);auto.
+  + simpl. unfold test_def.  simpl.
+    repeat rewrite Bool.andb_true_iff. repeat split;auto with hints.
+Qed.
 
 Hint Resolve
      PeanoNat.Nat.compare_eq
@@ -739,11 +811,6 @@ Proof.
   exists p'. rewrite PeanoNat.Nat.eqb_eq in *. easy.
 Qed.
 
-Hint Resolve -> length_zero_iff_nil : hints.
-Hint Resolve <- length_zero_iff_nil : hints.
-Hint Resolve type_to_term_subst : hints.
-Hint Resolve type_to_term_closed : hints.
-
 Lemma subst_pat_to_lam l t u n:
   (pat_to_lam l t) {n:=u} = pat_to_lam l (t {#|l|+n := u}).
 Proof.
@@ -1067,7 +1134,6 @@ Proof.
 
                  assert (Hce0 : iclosed_n 2 (e0 .[ exprs ρ'] 2) = true) by
                      (inversion Hclos_ok; apply subst_env_iclosed_n; auto with hints).
-
                  rewrite subst_term_subst_env_rec with (nm:=n1) in *
                    by eauto with hints.
                  rewrite subst_term_subst_env_rec with (nm:=n0) in * by
@@ -1139,12 +1205,14 @@ Proof.
         apply pat_match_succeeds in Hpat.
         destruct Hpat as [p Htmp].
         destruct Htmp as [Hfnd Htmp]. destruct Htmp as [Hci Htmp]. destruct Htmp as [Hl0 Hl2].
-        assert (Hfind :find (fun '(p, _) => pName p =? n1) (map f l) = Some (f (p, e0))).
-        { apply find_map with (p1 := fun '(p, _) => pName p =? n1);auto.
-          intros a;destruct a. subst f. reflexivity. }
+        assert (Hfind :
+        find (fun '(p, _) => pName p =? n1) (map f l) = Some (f (p, e0))).
+        { apply find_map with (p1 := fun '(p, _) => (pName p =? n1));auto.
+          intros a;destruct a. subst f. cbn. reflexivity. }
         specialize (find_forallb_map _ Hfnd HH) as Hce1'. simpl in Hce1'.
         rewrite Hfind in H1.
         subst f. unfold id in *. simpl in H1.
+        rewrite Hci in H1. rewrite PeanoNat.Nat.eqb_refl in H1.
         inversion H1;clear H1. clear Hfind.
         subst. replace ((#|pVars p| + 0)) with (#|pVars p|) in * by lia.
         assert (Hcomb :

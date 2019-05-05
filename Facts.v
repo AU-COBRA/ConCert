@@ -175,13 +175,13 @@ Section Values.
         * simpl in *. leb_ltb_to_prop. assumption.
       + split. easy.
         apply utils.forallb_Forall. apply utils.Forall_map. unfold compose. simpl.
-        eapply Forall_forall. intros a Hin.
-        rewrite Forall_forall in H.
         assert ( H2 : Forall (fun x : pat * expr =>
                                 is_true (iclosed_n ((#| pVars (fst x) |) + (n1 + (#| ρ |))) (snd x))) l)
           by now apply utils.forallb_Forall.
-        rewrite Forall_forall in H2.
-        apply H;auto. rewrite <- PeanoNat.Nat.add_assoc. now apply H2.
+        rewrite Forall_forall in *.
+        intros x Hx.
+        apply H;auto. rewrite Forall_forall in *. intros;eauto.
+        rewrite <- PeanoNat.Nat.add_assoc. now apply H2.
     - induction e using expr_ind_case;intros k ρ Hc Hec;
       simpl in *;try (inv_andb Hec;auto);
         try repeat rewrite <- PeanoNat.Nat.add_succ_l;tryfalse;auto.
@@ -214,12 +214,43 @@ Section Values.
     iclosed_n n ( from_val_i v ) = true.
   Proof.
     intros Hv.
-    induction v using val_ind_full.
-    + simpl. apply vars_to_apps_iclosed_n. inversion Hv;subst.
-      eapply Forall_impl_inner;easy.
-    + inversion Hv;subst.
-      * simpl.
-  Admitted.
+    revert n.
+    induction v using val_ind_full;intros n1.
+    + simpl. apply vars_to_apps_iclosed_n.
+      rewrite Forall_forall in *.
+      intros v Hin. inversion Hv;subst.
+      assert (val_ok v)
+        by (apply -> Forall_forall;eauto).
+      now apply H.
+    + simpl in *. destruct cm.
+      * simpl in *. inversion Hv. subst. clear Hv.
+        eapply iclosed_m_n with (n:=1).
+        apply -> subst_env_iclosed_n.
+        ** now rewrite map_length.
+        ** apply Forall_map.
+           unfold ForallEnv in H.  unfold compose,snd,fun_prod in *.
+           rewrite Forall_forall in *.
+           intros x Hx.
+           destruct x as [s v]. simpl.
+           unfold ForallEnv in H2. rewrite Forall_forall in H2.
+           assert (val_ok v) by now apply (H2 (s,v)).
+           specialize (H (s,v)). simpl in H.
+           now apply H.
+      * unfold subst_env_i. simpl in *.
+        inversion Hv. subst.
+        eapply iclosed_m_n with (n:=2).
+        apply -> subst_env_iclosed_n.
+        ** now rewrite map_length.
+        ** apply Forall_map. unfold compose in *.
+           unfold ForallEnv in H.
+           rewrite Forall_forall in *.
+           intros x Hx.
+           destruct x as [s v]. simpl.
+           unfold ForallEnv in H2. rewrite Forall_forall in H2.
+           assert (val_ok v) by now apply (H2 (s,v)).
+           specialize (H (s,v)). simpl in H.
+           now apply H.
+Qed.
 
 
   Lemma subst_env_empty :

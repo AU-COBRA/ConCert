@@ -1,5 +1,6 @@
 Require Template.All.
 
+Require Import Bool.
 Require Import Template.Ast Template.AstUtils.
 Require Import Template.Typing.
 Require Import String List.
@@ -94,7 +95,8 @@ Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
   | eConstr x x0 => true
   | eConst x => true
   | eCase ii ty e bs =>
-    let bs'' := List.forallb (fun x => iclosed_n (length ((fst x).(pVars)) + n) (snd x)) bs in
+    let bs'' := List.forallb
+                  (fun x => iclosed_n (length ((fst x).(pVars)) + n) (snd x)) bs in
     iclosed_n n e && bs''
   | eFix fixname nm ty1 ty2 e => iclosed_n (2+n) e
   end.
@@ -216,10 +218,11 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
 
 Definition trans_branch (bs : list (pat * term))
            (c : name * list type) :=
+  let dummy := (pConstr "" [], tVar "error") in
   let (nm, tys) := c in
-  let pt_e := from_option (find (fun '(p,e) => p.(pName) =? nm) bs)
-                          (pConstr "" [], tVar "error") in
-  let '(pt,e) := pt_e in
+  let pt_e := from_option
+                (find (fun '(p,e) =>p.(pName) =? nm) bs) dummy in
+  let '(pt,e) := if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then pt_e else dummy in
   let vars_tys := combine pt.(pVars) tys in
   (length pt.(pVars), pat_to_lam vars_tys e).
 
@@ -235,17 +238,16 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eApp e1 e2 => mkApps (expr_to_term e1) [expr_to_term e2]
   | eConstr t i => match (resolve_constr Σ t i) with
                      | Some c => tConstruct (mkInd t 0) (fst c) []
-                     (* FIXME: a hack to make the function total *)
                      | None => tVar ("No declaration found: " ++ t)
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty e bs =>
-    (* this interpretation is not complete, no translation for polymorphic types. *)
     let (nm,i) := nm_i in
     let typeInfo := tLambda nAnon (tInd (mkInd nm 0) []) (type_to_term ty) in
     let cs := from_option (resolve_inductive Σ nm) [] in
     let tbs := map (fun_prod id expr_to_term) bs in
     let branches := map (trans_branch tbs) cs in
+    (* TODO: no translation for polymorphic types, number of parameters is zero *)
     tCase (mkInd nm 0, 0) typeInfo (expr_to_term e) branches
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
