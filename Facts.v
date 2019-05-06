@@ -209,8 +209,16 @@ Section Values.
       apply H;auto. now apply H2.
   Qed.
 
-  Lemma from_value_closed v n :
-    val_ok v  (* this ensures that closures contain closed expressions *) ->
+  Lemma subst_env_iclosed_0 (e : expr) :
+    forall (ρ : env expr),
+      Forall (fun e => iclosed_n 0 (snd e) = true) ρ ->
+      iclosed_n #|ρ| e = true <-> iclosed_n 0 (e.[ρ]) = true.
+  Proof.
+    apply subst_env_iclosed_n with (n:=0).
+  Qed.
+
+  Lemma from_value_closed Σ v n :
+    val_ok Σ v  (* this ensures that closures contain closed expressions *) ->
     iclosed_n n ( from_val_i v ) = true.
   Proof.
     intros Hv.
@@ -219,7 +227,7 @@ Section Values.
     + simpl. apply vars_to_apps_iclosed_n.
       rewrite Forall_forall in *.
       intros v Hin. inversion Hv;subst.
-      assert (val_ok v)
+      assert (val_ok Σ v)
         by (apply -> Forall_forall;eauto).
       now apply H.
     + simpl in *. destruct cm.
@@ -233,7 +241,7 @@ Section Values.
            intros x Hx.
            destruct x as [s v]. simpl.
            unfold ForallEnv in H2. rewrite Forall_forall in H2.
-           assert (val_ok v) by now apply (H2 (s,v)).
+           assert (val_ok Σ v) by now apply (H2 (s,v)).
            specialize (H (s,v)). simpl in H.
            now apply H.
       * unfold subst_env_i. simpl in *.
@@ -247,7 +255,7 @@ Section Values.
            intros x Hx.
            destruct x as [s v]. simpl.
            unfold ForallEnv in H2. rewrite Forall_forall in H2.
-           assert (val_ok v) by now apply (H2 (s,v)).
+           assert (val_ok Σ v) by now apply (H2 (s,v)).
            specialize (H (s,v)). simpl in H.
            now apply H.
 Qed.

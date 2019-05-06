@@ -69,20 +69,21 @@ Module InterpreterEnvList.
 
   Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
 
-  Inductive val_ok : val -> Prop :=
+  Inductive val_ok Σ : val -> Prop :=
   | vokClosLam : forall e nm ρ ty1 ty2,
-      ForallEnv val_ok ρ ->
+      ForallEnv (val_ok Σ) ρ ->
       iclosed_n (1 + length ρ) e = true ->
-      val_ok (vClos ρ nm cmLam ty1 ty2 e)
+      val_ok Σ (vClos ρ nm cmLam ty1 ty2 e)
   | vokClosFix : forall e nm fixname ρ ty1 ty2,
-      ForallEnv val_ok ρ ->
+      ForallEnv (val_ok Σ) ρ ->
       iclosed_n (2 + length ρ) e = true ->
-      val_ok (vClos ρ nm (cmFix fixname) ty1 ty2 e)
-  | vokContr : forall i nm vs ,
-      Forall val_ok vs ->
-      val_ok (vConstr i nm vs).
+      val_ok Σ (vClos ρ nm (cmFix fixname) ty1 ty2 e)
+  | vokContr : forall i nm vs ci,
+      Forall (val_ok Σ) vs ->
+      resolve_constr Σ i nm = Some ci ->
+      val_ok Σ (vConstr i nm vs).
 
-  Definition env_ok (ρ : env val) := ForallEnv val_ok ρ.
+  Definition env_ok Σ (ρ : env val) := ForallEnv (val_ok Σ) ρ.
 
   (* An induction principle that takes into account nested occurences of elements of [val]
      in the list of arguments of [vConstr] and in the environment of [vClos] *)

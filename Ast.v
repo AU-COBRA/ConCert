@@ -237,8 +237,9 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) (expr_to_term e1) (type_to_term ty) (expr_to_term e2)
   | eApp e1 e2 => mkApps (expr_to_term e1) [expr_to_term e2]
   | eConstr t i => match (resolve_constr Σ t i) with
-                     | Some c => tConstruct (mkInd t 0) (fst c) []
-                     | None => tVar ("No declaration found: " ++ t)
+                  | Some c => tConstruct (mkInd t 0) (fst c) []
+                  (* FIXME: a hack to make the function total *)
+                  | None => tConstruct (mkInd (t ++ ": no declaration found.") 0) 0 []
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty e bs =>
