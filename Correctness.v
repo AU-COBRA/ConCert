@@ -137,7 +137,7 @@ Fixpoint ge_val_ok Σ v : bool:=
                   | _ => false
         end
     in res && forallb (ge_val_ok Σ) args
-  | vClos x x0 x1 x2 x3 x4 => true
+  | vClos ρ x0 x1 x2 x3 e => forallb (ge_val_ok Σ ∘ snd) ρ
   end.
 
 
@@ -534,20 +534,6 @@ Qed.
 Import Basics.
 Open Scope program_scope.
 
-Lemma eval_ge_val_ok n ρ Σ e v :
-  expr_eval_i n Σ ρ e = Ok v ->
-  ge_val_ok Σ v.
-Proof.
-  Admitted.
-
-Lemma env_ok_concat Σ ρ1 ρ2 : env_ok Σ ρ1 -> env_ok Σ ρ2 -> env_ok Σ (ρ1 ++ ρ2).
-Proof.
-Admitted.
-
-Lemma rev_env_ok ρ Σ : env_ok Σ ρ -> env_ok Σ (rev ρ).
-Proof.
-Admitted.
-
 Lemma pat_match_succeeds {A} cn arity vals brs e (assig : list (Ast.name * A)) :
     match_pat cn arity vals brs = Some (assig, e) ->
     exists p, find (fun '(p, _) => pName p =? cn) brs = Some (p,e)
@@ -565,14 +551,87 @@ Proof.
   exists p'. rewrite PeanoNat.Nat.eqb_eq in *. easy.
 Qed.
 
+Lemma Forall_snd_combine {A B} (l1 : list A) (l2 : list B)
+      (p : B -> Prop) : Forall p l2 -> Forall (p ∘ snd) (combine l1 l2).
+Proof.
+  revert l1.
+  induction l2; intros ns H.
+  + destruct ns;simpl;constructor.
+  + inversion H. subst. destruct ns;unfold compose;simpl. constructor.
+    constructor; unfold compose;simpl;auto.
+Qed.
+
 Lemma Forall_env_ok (ρ : env val) (l : list val) (ns : list name) Σ :
   Forall (val_ok Σ) l -> env_ok Σ (combine ns l).
 Proof.
-  revert ns.
-  induction l; intros ns H.
-  + destruct ns;simpl;constructor.
-  + inversion H. subst. destruct ns;unfold compose;simpl. constructor.
-    constructor; unfold compose;simpl;auto. now apply IHl.
+  apply Forall_snd_combine.
+Qed.
+
+
+Lemma eval_ge_val_ok n ρ Σ e v :
+  ForallEnv (ge_val_ok Σ) ρ ->
+  expr_eval_i n Σ ρ e = Ok v ->
+  ge_val_ok Σ v.
+Proof.
+  revert dependent ρ. revert dependent v. revert dependent e.
+  induction n;intros e v ρ Hok He;tryfalse.
+  destruct e;unfold expr_eval_i in *;simpl in *;inversion He;tryfalse.
+  + destruct (lookup_i ρ n0) eqn:Hlook;simpl in *;inversion He;subst.
+    now eapply Forall_lookup_i with (e:=v).
+  + simpl in *. now apply forallb_Forall.
+  + destruct (expr_eval_general n _) eqn:He1;tryfalse.
+    assert (ge_val_ok Σ v0) by now eapply IHn.
+    eapply IHn with (e:=e2) (ρ:=(n0, v0) :: ρ);eauto with hints.
+  + destruct (expr_eval_general n false Σ ρ e1) eqn:He1;tryfalse.
+      2 : { try (destruct (expr_eval_general n false Σ ρ e2) eqn:He2);tryfalse. }
+    destruct v0;try destruct c;
+        destruct (expr_eval_general n false Σ ρ e2) eqn:He2;tryfalse.
+    * inversion He;subst;clear He. simpl.
+      assert (ge_val_ok Σ (vConstr i n0 l)) by eauto.
+      assert (ge_val_ok Σ v0) by eauto.
+      simpl in *. destruct (resolve_constr Σ i n0);eauto.
+      simpl in *. rewrite forallb_app. split_andb;try split_andb;eauto.
+    * destruct (expr_eval_general n _ _ _ e0) eqn:He0;tryfalse.
+      inversion He;subst.
+      assert (ge_val_ok Σ (vClos e n0 cmLam t0 t1 e0)) by eauto.
+      assert (ge_val_ok Σ v0) by eauto.
+      simpl in *.
+      eapply IHn with (ρ:=(n0, v0) :: e);eauto with hints.
+      apply forallb_Forall. simpl. now split_andb.
+    * destruct (expr_eval_general n _ _ _ e0) eqn:He0;tryfalse.
+      inversion He;subst. eapply IHn with (e:=e0); try eapply He0.
+      assert (Hok_fix : ge_val_ok Σ (vClos e n0 (cmFix n1) t0 t1 e0)) by eauto.
+      assert (ge_val_ok Σ v0) by eauto.
+      simpl in Hok_fix. apply forallb_Forall in Hok_fix.
+      unfold ForallEnv,compose. eauto with hints.
+  + destruct (resolve_constr Σ i n0) eqn:Hres;tryfalse. inversion He.
+    simpl. now rewrite Hres.
+  +     destruct p as [ind e1]. destruct (expr_eval_general n false Σ ρ e) eqn:He';tryfalse.
+    destruct v0;tryfalse. destruct (resolve_constr Σ i n0) eqn:Hres;tryfalse.
+    destruct p as [n1 tys]. destruct (string_dec ind i);tryfalse;subst.
+    destruct (match_pat n0 tys l0 l) eqn:Hpm;tryfalse. destruct p as [assign e2].
+    apply pat_match_succeeds in Hpm. destruct Hpm as [pt Htmp].
+    destructs Htmp. subst.
+    assert (Hok_constr : ge_val_ok Σ (vConstr i n0 l0)) by now eapply IHn with (e:=e).
+    simpl in Hok_constr. destruct (resolve_constr Σ i n0) eqn:Hres';tryfalse.
+    assert (Hok_l2 : ForallEnv (fun x => ge_val_ok Σ x = true) (rev (combine (pVars pt) l0))).
+    { apply Forall_rev. simpl in Hok_constr. apply forallb_Forall in Hok_constr. simpl in *.
+      now apply Forall_snd_combine. }
+    eapply IHn with (ρ := (rev (combine (pVars pt) l0) ++ ρ));eauto.
+    now apply Forall_app.
+  + simpl. now apply forallb_Forall.
+Qed.
+
+
+Lemma env_ok_concat Σ ρ1 ρ2 : env_ok Σ ρ1 -> env_ok Σ ρ2 -> env_ok Σ (ρ1 ++ ρ2).
+Proof.
+  intros Hok1 Hok2.
+  apply Forall_app;split;auto.
+Qed.
+
+Lemma rev_env_ok ρ Σ : env_ok Σ ρ -> env_ok Σ (rev ρ).
+Proof.
+  intros Hok. now apply Forall_rev.
 Qed.
 
 
@@ -584,6 +643,29 @@ Ltac apply_eq H n :=
   | 3 => eapply equates_3;[eapply H | | ]
   | 4 => eapply equates_4;[eapply H | | ]
   end.
+
+Lemma val_ok_ge_val_ok Σ v:
+  val_ok Σ v -> ge_val_ok Σ v.
+Proof.
+  induction v using val_ind_full;intros Hok.
+  + simpl. inversion Hok as [H1 | H2 | nm1 ];subst;clear Hok.
+    destruct (resolve_constr Σ i n) eqn:Hres;tryfalse.
+    inversion H1;subst. simpl in *.
+    apply forallb_Forall. eapply Forall_impl_inner;eauto.
+  + simpl. apply forallb_Forall.
+    inversion Hok;subst;clear Hok; eapply Forall_impl_inner;eauto.
+Qed.
+
+Lemma env_ok_ForallEnv_ge_val_ok ρ Σ :
+  env_ok Σ ρ -> ForallEnv (ge_val_ok Σ) ρ.
+Proof.
+  induction ρ.
+  + intros. constructor.
+  + intros Hok. inversion Hok;subst.
+    constructor.
+    * now apply val_ok_ge_val_ok.
+    * now eapply IHρ.
+Qed.
 
 Lemma eval_val_ok n ρ Σ e v :
   env_ok Σ ρ ->
@@ -614,7 +696,8 @@ Proof.
     destruct v0;try destruct c;
         destruct (expr_eval_general n false Σ ρ e2) eqn:He2;tryfalse.
     * inversion_clear He.
-      assert (Hge_ok : ge_val_ok Σ (vConstr i n0 l)) by now eapply eval_ge_val_ok.
+      assert (Hge_ok : ge_val_ok Σ (vConstr i n0 l)) by
+          (eapply eval_ge_val_ok;[now apply env_ok_ForallEnv_ge_val_ok | eauto]).
       assert (Hok_constr : val_ok Σ (vConstr i n0 l)) by now eapply IHn with (e:=e1).
       simpl in Hge_ok. destruct (resolve_constr Σ i n0) eqn:Hres;tryfalse.
       inversion Hok_constr. subst. clear Hok_constr.
@@ -1027,10 +1110,6 @@ Parameter a b c d e : val.
 Definition blah := vConstr "blah" "Bar" [a;b;c;d;e].
 
 Eval simpl in (T⟦from_val blah⟧  Σ').
-
-Lemma val_ok_ge_val_ok Σ v:
-  val_ok Σ v -> ge_val_ok Σ v.
-Admitted.
 
 Lemma from_val_closed_0 e ρ :
   Forall (fun e0 : string * expr => iclosed_n 0 (snd e0) = true) (exprs ρ) ->
