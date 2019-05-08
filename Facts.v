@@ -17,7 +17,8 @@ Import InterpreterEnvList.
 
 Hint Unfold expr_eval_n expr_eval_i : facts.
 
-Ltac inv_andb H := rewrite Bool.andb_true_iff in *;destruct H.
+Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
+Ltac split_andb := apply Bool.andb_true_iff;split.
 Ltac leb_ltb_to_prop :=
   try rewrite PeanoNat.Nat.ltb_lt in *;
   try rewrite PeanoNat.Nat.leb_le in *;
@@ -159,7 +160,7 @@ Section Values.
     intros n ρ Hc.
     split;revert dependent ρ;revert dependent n.
     - induction e using expr_ind_case;intros n1 ρ Hc Hec;
-        simpl in *;try (inv_andb Hec;auto);tryfalse;auto.
+        simpl in *;try (inv_andb Hec;split_andb;auto);tryfalse;auto.
       + (* eRel *)
         unfold subst_env_i. simpl.
         simpl in *.
@@ -173,8 +174,7 @@ Section Values.
           apply Forall_impl with (P:=fun e1 => iclosed_n 0 (snd e1) = true);eauto.
           intros a H. unfold compose. change (iclosed_n (0+n1) (snd a) = true); now apply iclosed_m_n.
         * simpl in *. leb_ltb_to_prop. assumption.
-      + split. easy.
-        apply utils.forallb_Forall. apply utils.Forall_map. unfold compose. simpl.
+      + apply utils.forallb_Forall. apply utils.Forall_map. unfold compose. simpl.
         assert ( H2 : Forall (fun x : pat * expr =>
                                 is_true (iclosed_n ((#| pVars (fst x) |) + (n1 + (#| ρ |))) (snd x))) l)
           by now apply utils.forallb_Forall.
@@ -183,30 +183,29 @@ Section Values.
         apply H;auto. rewrite Forall_forall in *. intros;eauto.
         rewrite <- PeanoNat.Nat.add_assoc. now apply H2.
     - induction e using expr_ind_case;intros k ρ Hc Hec;
-      simpl in *;try (inv_andb Hec;auto);
+      simpl in *;try (inv_andb Hec;split_andb;auto);
         try repeat rewrite <- PeanoNat.Nat.add_succ_l;tryfalse;auto.
-    + (* eRel *)
-      unfold subst_env_i. simpl.
-      simpl in *.
-      destruct (k <=? n) eqn:Hnle.
-      * destruct (n <? k + #|ρ|) eqn:Hn;auto.
-        leb_ltb_to_prop.
-        assert (Hnk : #|ρ| <= n - k) by lia.
-        rewrite <- PeanoNat.Nat.ltb_ge in *.
-        specialize (lookup_i_length_false _ _  Hnk) as HH.
-        rewrite HH in Hec;simpl in *;tryfalse.
-      * simpl in *. leb_ltb_to_prop. lia.
-    + split. easy.
-      apply utils.forallb_Forall.
-      eapply Forall_forall. intros a Hin.
-      rewrite forallb_map in H1. unfold compose in H1;simpl in H1.
-      rewrite Forall_forall in H.
-      rewrite PeanoNat.Nat.add_assoc.
-      assert ( H2 : Forall (fun x : pat * expr =>
-       is_true (iclosed_n (#|pVars (fst x)| + k) (snd x .[ ρ] (#|pVars (fst x)| + k)))) l) by
-          now apply utils.forallb_Forall.
-      rewrite Forall_forall in H2.
-      apply H;auto. now apply H2.
+      + (* eRel *)
+        unfold subst_env_i. simpl.
+        simpl in *.
+        destruct (k <=? n) eqn:Hnle.
+        * destruct (n <? k + #|ρ|) eqn:Hn;auto.
+          leb_ltb_to_prop.
+          assert (Hnk : #|ρ| <= n - k) by lia.
+          rewrite <- PeanoNat.Nat.ltb_ge in *.
+          specialize (lookup_i_length_false _ _  Hnk) as HH.
+          rewrite HH in Hec;simpl in *;tryfalse.
+        * simpl in *. leb_ltb_to_prop. lia.
+      + apply utils.forallb_Forall.
+        eapply Forall_forall. intros a Hin.
+        rewrite forallb_map in H1. unfold compose in H1;simpl in H1.
+        rewrite Forall_forall in H.
+        rewrite PeanoNat.Nat.add_assoc.
+        assert ( H2 : Forall (fun x : pat * expr =>
+           is_true (iclosed_n (#|pVars (fst x)| + k) (snd x .[ ρ] (#|pVars (fst x)| + k)))) l) by
+           now apply utils.forallb_Forall.
+        rewrite Forall_forall in H2.
+        apply H;auto. now apply H2.
   Qed.
 
   Lemma subst_env_iclosed_0 (e : expr) :
@@ -309,7 +308,8 @@ Qed.
     expr_eval_general n mode Σ ρ (eConstr i nm) = Ok v ->
     v = vConstr i nm [].
   Proof.
-    destruct mode;  intros H; destruct n;inversion H;reflexivity.
+    destruct mode; intros H; destruct n;simpl in *;
+      destruct (resolve_constr Σ i nm);tryfalse;inversion H;reflexivity.
   Qed.
 
   Import InterpreterEnvList.Equivalence.
@@ -333,7 +333,7 @@ Qed.
     induction v1 using val_ind_full;intros v2 n0 H1.
     + destruct n0;tryfalse.
       inversion Hav;subst.
-      * simpl in H1. inversion H1. reflexivity.
+      * cbn in H1. destruct (resolve_constr Σ i n);tryfalse. inversion H1. reflexivity.
       * autounfold with facts in *. simpl in H1.
         remember (expr_eval_general n0 false Σ [] (eConstr i n)) as cv.
         remember (expr_eval_general n0 false Σ [] (from_val_i v)) as fv.

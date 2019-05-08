@@ -241,7 +241,7 @@ Definition fun_app := [| (\x : Nat -> \y : Nat -> y + x) Z |].
 Compute (expr_eval_n 10 [] [] fun_app).
 
 Example fun_app_from_val :
-  exists v, (expr_eval_n 10 [] [] (indexify [] fun_app)) = Ok v /\
+  exists v, (expr_eval_n 10 Σ' [] (indexify [] fun_app)) = Ok v /\
        from_val_i v = (indexify [] [|\y : Nat -> y + Z |]).
 Proof.
   eexists. split. compute. reflexivity.

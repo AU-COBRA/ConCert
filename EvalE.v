@@ -233,8 +233,11 @@ Module InterpreterEnvList.
         | _, EvalError msg => EvalError msg
         | NotEnoughFuel,_ | _, NotEnoughFuel => NotEnoughFuel
         end
-      | eConstr t i =>
-        Ok (vConstr t i [])
+      | eConstr ind ctor =>
+        match (resolve_constr Σ ind ctor) with
+        | Some _ => Ok (vConstr ind ctor [])
+        | _ => EvalError "No constructor or inductive found"
+        end
       | eConst nm => todo
       | eCase (ind,i) ty e bs =>
         match (expr_eval_general n named Σ ρ e) with
