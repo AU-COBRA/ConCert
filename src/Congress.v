@@ -668,13 +668,14 @@ Proof.
 Qed.
 
 Lemma undeployed_contract_no_out_queue_count contract (state : ChainState) :
-  inhabited (ChainTrace empty_state state) ->
+  reachable state ->
   address_is_contract contract = true ->
   env_contracts state contract = None ->
   num_outgoing_acts (chain_state_queue state) contract = 0.
 Proof.
   intros [trace] is_contract undeployed.
   pose proof undeployed_contract_no_out_queue as all; specialize_hypotheses.
+  Hint Unfold reachable : core.
   induction all; auto.
   cbn.
   match goal with
@@ -683,7 +684,7 @@ Proof.
 Qed.
 
 Lemma undeployed_contract_not_from_self contract (state : ChainState) act acts :
-  inhabited (ChainTrace empty_state state) ->
+  reachable state ->
   address_is_contract contract = true ->
   env_contracts state contract = None ->
   chain_state_queue state = act :: acts ->
@@ -776,7 +777,7 @@ Local Ltac simpl_hyp_invariant :=
     end.
 
 Theorem congress_txs_well_behaved to contract :
-  inhabited (ChainTrace empty_state to) ->
+  reachable to ->
   env_contracts to contract = Some (Congress.contract : WeakContract) ->
   num_cacts_in_state to contract +
   length (outgoing_txs to contract) +

@@ -769,6 +769,10 @@ starting from one environment and queue of actions, we end up in a
 different environment and queue of actions. *)
 Definition ChainTrace := ChainedList ChainState ChainEvent.
 
+(* Additionally, a state is reachable if there is a trace ending in this trace. *)
+Definition reachable (state : ChainState) : Prop :=
+  inhabited (ChainTrace empty_state state).
+
 Section Theories.
 Ltac destruct_chain_event :=
   match goal with
@@ -812,7 +816,7 @@ Local Open Scope address.
 the ending state will not have any queued actions from
 undeployed contracts. *)
 Lemma undeployed_contract_no_out_queue contract (state : ChainState) :
-  inhabited (ChainTrace empty_state state) ->
+  reachable state ->
   address_is_contract contract = true ->
   env_contracts state contract = None ->
   Forall (fun act => (act_from act =? contract) = false) (chain_state_queue state).
@@ -855,7 +859,7 @@ Qed.
 (* With this lemma proven, we can show that the (perhaps seemingly stronger)
 fact, that an undeployed contract has no outgoing txs, holds. *)
 Lemma undeployed_contract_no_out_txs contract (state : ChainState) :
-  inhabited (ChainTrace empty_state state) ->
+  reachable state ->
   address_is_contract contract = true ->
   env_contracts state contract = None ->
   outgoing_txs state contract = [].
@@ -869,10 +873,9 @@ Proof.
     rewrite_environment_equiv; auto.
   - (* In these steps we will use that the queue did not contain txs to the contract. *)
     Hint Resolve contracts_post_pre_none : core.
+    Hint Unfold reachable : core.
     pose proof
          (undeployed_contract_no_out_queue
-
-
             contract prev
             ltac:(auto) ltac:(auto) ltac:(eauto)) as Hqueue.
     repeat
@@ -893,7 +896,7 @@ Proof.
 Qed.
 
 Lemma undeployed_contract_no_in_txs contract (state : ChainState) :
-  inhabited (ChainTrace empty_state state) ->
+  reachable state ->
   address_is_contract contract = true ->
   env_contracts state contract = None ->
   incoming_txs state contract = [].
@@ -934,7 +937,7 @@ Class ChainBuilderType :=
       option builder_type;
 
     builder_trace (b : builder_type) :
-      inhabited (ChainTrace empty_state (build_chain_state (builder_env b) []));
+      reachable (build_chain_state (builder_env b) []);
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.

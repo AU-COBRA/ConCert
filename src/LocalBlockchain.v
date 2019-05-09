@@ -371,7 +371,7 @@ Definition lc_initial : LocalChain :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_trace : inhabited (ChainTrace empty_state (build_chain_state lcb_lc []));
+    lcb_trace : reachable (build_chain_state lcb_lc []);
   }.
 
 Definition lcb_initial : LocalChainBuilder.

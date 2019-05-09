@@ -152,11 +152,12 @@ Proof.
 Qed.
 
 Theorem chain_trace_circulation
-        {state : ChainState}
-        (trace : ChainTrace empty_state state)
-  : circulation state =
-    sumZ compute_block_reward (seq 1 (block_height (block_header state))).
+        {state : ChainState} :
+  reachable state ->
+  circulation state =
+  sumZ compute_block_reward (seq 1 (block_height (block_header state))).
 Proof.
+  intros [trace].
   remember empty_state as from eqn:eq.
   induction trace as [| from mid to xs IH x]; rewrite eq in *; clear eq.
   - unfold circulation.
