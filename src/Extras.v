@@ -62,9 +62,9 @@ Lemma sumnat_permutation
   sumnat f xs = sumnat f ys.
 Proof. induction perm_eq; perm_simplify; lia. Qed.
 
-Instance sumnat_perm_proper {A : Type} {f : A -> nat} :
-  Proper (Permutation (A:=A) ==> eq) (sumnat f).
-Proof. intros x y perm. now apply sumnat_permutation. Qed.
+Instance sumnat_perm_proper {A : Type} :
+  Proper (eq ==> Permutation (A:=A) ==> eq) sumnat.
+Proof. repeat intro. subst. now apply sumnat_permutation. Qed.
 
 Lemma sumZ_permutation
       {A : Type} {f : A -> Z} {xs ys : list A}
@@ -72,9 +72,9 @@ Lemma sumZ_permutation
   sumZ f xs = sumZ f ys.
 Proof. induction perm_eq; perm_simplify; lia. Qed.
 
-Instance sumZ_perm_proper {A : Type} {f : A -> Z} :
-  Proper (Permutation (A:=A) ==> eq) (sumZ f).
-Proof. intros x y perm. now apply sumZ_permutation. Qed.
+Instance sumZ_perm_proper {A : Type} :
+  Proper (eq ==> Permutation (A:=A) ==> eq) sumZ.
+Proof. repeat intro. subst. now apply sumZ_permutation. Qed.
 
 Local Open Scope Z.
 Lemma sumZ_app
