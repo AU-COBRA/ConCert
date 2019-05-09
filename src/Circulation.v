@@ -55,10 +55,11 @@ Lemma step_circulation_unchanged
       {pre : Environment}
       {act : Action}
       {post : Environment}
-      {new_acts : list Action}
-      (step : ChainStep pre act post new_acts) :
+      {new_acts : list Action} :
+  ChainStep pre act post new_acts ->
   circulation post = circulation pre.
 Proof.
+  intros step.
   destruct (address_eqb_spec (step_from step) (step_to step))
     as [from_eq_to | from_neq_to]; eauto.
   destruct (address_reorganize from_neq_to) as [suf perm].

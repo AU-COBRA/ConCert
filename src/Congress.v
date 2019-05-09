@@ -366,7 +366,7 @@ Section Theories.
 Local Open Scope nat.
 
 Definition num_acts_created_in_proposals chain address :=
-  let extract tx :=
+  let count tx :=
       match tx_body tx with
       | tx_call msg =>
         match deserialize msg with
@@ -375,7 +375,7 @@ Definition num_acts_created_in_proposals chain address :=
         end
       | _ => 0
       end in
-  sumnat extract (incoming_txs chain address).
+  sumnat count (incoming_txs chain address).
 
 Definition num_cacts_in_raw_state state :=
   sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
@@ -886,7 +886,7 @@ Corollary congress_txs_after_block
           prev baker acts slot finalization_height new :
   builder_add_block prev baker acts slot finalization_height = Some new ->
   forall addr,
-    env_contracts (builder_env new) addr = Some (Congress.contract : WeakContract) ->
+    env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
 Proof.
   intros add_block contract congress_at_addr.
