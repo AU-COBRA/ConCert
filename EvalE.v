@@ -186,7 +186,7 @@ Module InterpreterEnvList.
 
   Definition match_pat {A} (cn : name) (arity :list type)
              (constr_args : list A) (bs : list (pat * expr)) :=
-    pe <- find (fun '(p,e) => p.(pName) =? cn) bs;;
+    pe <- find (fun x => (fst x).(pName) =? cn) bs;;
     let '(p,e) := pe in
     if (andb (Nat.eqb (length constr_args) (length p.(pVars)))
              (Nat.eqb (length constr_args) (length arity))) then
@@ -332,11 +332,11 @@ Module InterpreterEnvList.
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                  end
-      in subst_env (map (fun '(nm,v) => (nm, from_val v)) ρ) res
+      in subst_env (map (fun x => (fst x, from_val (snd x))) ρ) res
     end.
 
   Definition inst_env (ρ : env val) (e : expr) : expr :=
-    subst_env (map (fun '(nm,v) => (nm, from_val v)) ρ) e.
+    subst_env (map (fun x => (fst x, from_val (snd x))) ρ) e.
 
   Fixpoint from_val_i (v : val) : expr :=
     match v with
@@ -346,14 +346,14 @@ Module InterpreterEnvList.
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
-     in subst_env_i (map (fun '(nm,v) => (nm, from_val_i v)) ρ) res
+     in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
    end.
 
   (* The similar notation will be used when we change to a parallel substitution *)
   Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
 
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
-   subst_env_i (map (fun '(nm,v) => (nm, from_val_i v)) ρ) e.
+   subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
  Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
 
  Module Equivalence.

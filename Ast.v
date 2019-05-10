@@ -218,15 +218,19 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
 
 Definition trans_branch (bs : list (pat * term))
            (c : name * list type) :=
-  let dummy := (pConstr "" [], tVar "error") in
+  let dummy := (0, tVar "error") in
   let (nm, tys) := c in
-  let pt_e := from_option
-                (find (fun '(p,e) =>p.(pName) =? nm) bs) dummy in
-  let '(pt,e) := if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then pt_e else dummy in
-  let vars_tys := combine pt.(pVars) tys in
-  (length pt.(pVars), pat_to_lam vars_tys e).
+  let o_pt_e := find (fun x =>(fst x).(pName) =? nm) bs in
+  match o_pt_e with
+    | Some pt_e => if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
+                    let vars_tys := combine (fst pt_e).(pVars) tys in
+                    (length (fst pt_e).(pVars), pat_to_lam vars_tys (snd pt_e))
+                  else dummy
+    | None => dummy
+  end.
 
-Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D := fun '(a,b) => (f a, g b).
+Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D :=
+  fun x => (f (fst x), g (snd x)).
 
 Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   fix expr_to_term e :=
@@ -248,7 +252,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     let cs := from_option (resolve_inductive Σ nm) [] in
     let tbs := map (fun_prod id expr_to_term) bs in
     let branches := map (trans_branch tbs) cs in
-    (* TODO: no translation for polymorphic types, number of parameters is zero *)
+    (* TODO: no translation for polymorphic types, the number of parameters is zero *)
     tCase (mkInd nm 0, 0) typeInfo (expr_to_term e) branches
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in

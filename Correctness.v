@@ -26,7 +26,7 @@ Tactic Notation "simpl_vars_to_apps" :=
   simpl;try rewrite map_app; simpl; rewrite vars_to_apps_unfold;simpl.
 
 
-Notation exprs := (map (fun '(nm,v) => (nm, from_val_i v))).
+Notation exprs := (map (fun x => (fst x, from_val_i (snd x)))).
 
 Lemma from_option_indep {A} (o : option A) d  d' v :
   o = Some v -> from_option o d = from_option o d'.
@@ -239,6 +239,52 @@ Proof.
     now apply IHvs.
 Qed.
 
+Lemma subst_pat_to_lam l t u n:
+  (pat_to_lam l t) {n:=u} = pat_to_lam l (t {#|l|+n := u}).
+Proof.
+  revert dependent n.
+  induction l;intros n.
+  + simpl. reflexivity.
+  + destruct a; simpl. f_equal. auto with hints.
+    replace (S (#|l| + n)) with (#|l|+S n) by lia.
+    apply IHl.
+Qed.
+
+Fixpoint nsubst (ts : list term) (n : nat) (t :term) :=
+  match ts with
+  | [] => t
+  | t0 :: ts0 => nsubst ts0 (n-1) (subst t0 n t)
+  end.
+
+Parameter a0 : term.
+Parameter a1 : term.
+Parameter a2 : term.
+Parameter t : term.
+
+Eval simpl in nsubst [a0;a1;a2] 2 t.
+
+
+Lemma pat_to_lam_app l args t v Σ Γ :
+  Forall WcbvEval.value args ->
+  #|l| = #|args| ->
+  Σ ;;; Γ |- mkApps (pat_to_lam l t) args ⇓ v ->
+  Σ ;;; Γ |- nsubst args (#|l| - 1) t ⇓ v.
+Proof.
+  revert args. revert t.
+  induction l; intros t0 args Hval Heq He.
+  + simpl in *. destruct args;tryfalse. simpl in *. easy.
+  + destruct a. simpl in *.
+    destruct args as [ | a0 args0];tryfalse. inversion Heq. clear Heq.
+    simpl in *. replace (#|l| - 0) with (#|l|) by lia.
+    inversion He; try inversion H3;subst;tryfalse.
+    rewrite subst_pat_to_lam in *.
+    replace (#|l| + 0) with (#|l|) in * by lia.
+    inversion Hval. subst. clear Hval.
+    assert (a0=a') by now eapply Wcbv_eval_value_determ.
+    subst. now apply IHl.
+Qed.
+
+
 Lemma closed_mkApps n t1 t2 :
   closedn n (mkApps t1 [t2]) = true <->
   closedn n t1 = true /\ closedn n t2 = true.
@@ -289,12 +335,12 @@ Proof.
     simpl. rewrite forallb_map. unfold Basics.compose,test_snd,trans_branch.
     apply forallb_Forall. apply Forall_forall. intros x Hin.
     destruct x as [nm tys]. unfold fun_prod,id in *. simpl.
-    destruct (find (fun '(p, _) => _)) as [ p | ] eqn:Hnm;simpl;auto.
-    * destruct p as [pt e0]. simpl.
-      destruct (Nat.eqb #|pVars pt| #|tys|) eqn:Hlen;auto.
-      apply find_some in Hnm. destruct Hnm as [Hin' Heqs].
-      rewrite Forall_forall in H.
-      change
+    destruct (find (fun x => _)) as [ p | ] eqn:Hnm;simpl;auto.
+    destruct p as [pt e0]. simpl.
+    destruct (Nat.eqb #|pVars pt| #|tys|) eqn:Hlen;auto.
+    apply find_some in Hnm. destruct Hnm as [Hin' Heqs].
+    rewrite Forall_forall in H.
+    change
       (forallb (fun x : pat * expr => iclosed_n (#|pVars (fst x)| + n1) (snd x)) l = true)
       with (is_true (forallb (fun x : pat * expr => iclosed_n (#|pVars (fst x)| + n1) (snd x)) l)) in H1.
     rewrite <- forallb_Forall in H1.
@@ -310,7 +356,6 @@ Proof.
     rewrite PeanoNat.Nat.eqb_eq in *.
     replace (#|tys|) with (#|pVars pt|) by assumption.
     rewrite PeanoNat.Nat.min_id. easy.
-    * destruct (#|tys|);auto.
   + simpl. unfold test_def.  simpl.
     repeat rewrite Bool.andb_true_iff. repeat split;auto with hints.
 Qed.
@@ -334,11 +379,128 @@ Compute ((tLambda (nNamed"x") (tInd (mkInd "nat" 0) []) (tApp (tRel 1) [tRel 2])
 Compute ( (tApp (tApp (tApp (tApp (tRel 1) [tRel 1]) [tRel 1]) [tRel 1]) [tRel 2]) {0:=tVar "blah"}).
 Compute ( T⟦(eApp (eApp (eApp (eApp (eRel 1) (eRel 1)) (eRel 1)) (eRel 1)) (eRel 2))⟧ []).
 
+Section FindLookupProperties.
+
+  Context {A : Type}
+          {B : Type}
+          {C : Type}
+          {p : A -> bool}.
+
+  Lemma lookup_ind_nth_error_False (ρ : env A) n m a key :
+    lookup_with_ind_rec (1+n+m) ρ key  = Some (n, a) -> False.
+  Proof.
+    revert dependent m.
+    revert dependent n.
+    induction ρ as [ |a0 ρ0];intros n m H;tryfalse.
+    simpl in *.
+    destruct a0;destruct (s =? key).
+    + inversion H;lia.
+    + replace (S (n + m)) with (n + S m)  in * by lia.
+      eauto.
+  Qed.
+
+  Lemma lookup_ind_nth_error_shift (ρ : env A) n i a key :
+    lookup_with_ind_rec (1+n) ρ key = Some (1+i, a) <->
+    lookup_with_ind_rec n ρ key = Some (i, a).
+  Proof.
+    split;revert dependent i;revert dependent n;
+    induction ρ;intros i1 n1 H;tryfalse;simpl in *;
+      destruct a3; destruct ( s =? key); inversion H;eauto.
+  Qed.
+
+  Lemma lookup_ind_nth_error (ρ : env A) i a key :
+    lookup_with_ind ρ key = Some (i,a) -> nth_error ρ i = Some (key,a).
+  Proof.
+    revert dependent ρ.
+    induction i;simpl;intros ρ0 H.
+    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
+      destruct p0; destruct (s =? key) eqn:Heq; try rewrite eqb_eq in *;subst.
+      inversion H;eauto.
+      now apply (lookup_ind_nth_error_False _ 0 0) in H.
+    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
+      destruct p0; destruct (s =? key) eqn:Heq;
+        try rewrite eqb_eq in *;subst;tryfalse.
+      apply IHi. now apply lookup_ind_nth_error_shift.
+  Qed.
+
+
+  Lemma find_map_eq p1 p2 a (f g : A -> B) (l : list A) :
+    find p1 l = Some a -> (forall a, f a = g a) ->
+    (forall a, p1 a = p2 (f a)) -> find p2 (map f l) = Some (g a).
+  Proof.
+    intros Hfind Hfeq Heq.
+    induction l as [ | a' l'];tryfalse.
+    simpl in *. rewrite <- Heq.
+    destruct (p1 a');inversion Hfind;subst;auto.
+    now rewrite Hfeq.
+  Qed.
+
+  Lemma find_map p1 p2 a (f : A -> B) (l : list A) :
+    find p1 l = Some a -> (forall a, p1 a = p2 (f a)) -> find p2 (map f l) = Some (f a).
+  Proof.
+    intros Hfind Heq. now eapply find_map_eq.
+  Qed.
+
+  Lemma find_forallb_map {X Y} {xs : list X} {p0 : X -> bool} {p1 : Y -> bool} {f : X -> Y}:
+    forall x : X, find p0 xs = Some x -> forallb p1 (map f xs) = true -> p1 (f x) = true.
+  Proof.
+    induction xs;intros x Hfnd Hall.
+    + easy.
+    + simpl in *. destruct (p0 a).
+      * inversion Hfnd;subst. now destruct (p1 (f x));tryfalse.
+      * destruct (p1 (f a));tryfalse;auto.
+  Qed.
+
+  Lemma find_forallb {xs : list A} {p1 : A -> bool}:
+    forall x, find p xs = Some x -> forallb p1 xs = true -> p1 x = true.
+  Proof.
+    intros x Hfnd Hall.
+    replace xs with (map id xs) in Hall by apply map_id.
+    eapply @find_forallb_map with (f:=id);eauto.
+  Qed.
+
+  Lemma find_none_fst (l1 l2 : list (A * B)) :
+    map fst l1 = map fst l2 ->
+    find (p ∘ fst) l1 = None -> find (p ∘ fst) l2 = None.
+  Proof.
+    revert dependent l2.
+    induction l1 as [ | ab l1'];intros l2 Hmap Hfnd.
+    + destruct l2;simpl in *;easy.
+    + destruct l2;simpl in *;tryfalse.
+      unfold compose,id in *;simpl in *.
+      destruct ab as [a b];simpl in *.
+      inversion Hmap;subst.
+    destruct (p (fst p0));simpl in *;eauto;tryfalse.
+  Qed.
+
+End FindLookupProperties.
+
+
 Lemma option_to_res_ok {A} (o : option A) s v:
   option_to_res o s = Ok v ->
   o = Some v.
 Proof.
   intros H. destruct o. inversion H;auto. tryfalse.
+Qed.
+
+Lemma forall_map_spec' :
+forall (A B : Type) (P : A -> Prop) (l : list A) (f g : A -> B),
+  Forall P l -> (forall x : A, In x l -> P x -> f x = g x) -> map f l = map g l.
+Proof.
+  induction l;intros f g Hfa Heq;simpl;auto.
+  inversion Hfa;subst;clear Hfa.
+  f_equal.
+  + apply Heq;simpl;auto.
+  + eapply IHl;intros;try apply Heq;simpl;auto.
+Qed.
+
+
+Lemma forallb_In_snd {A B} (l : list (A * B)) (p : B -> bool) (a : A * B) :
+  forallb (fun x => p (snd x)) l = true -> In a l -> p (snd a) = true.
+Proof.
+  intros H Hin.
+  induction l;tryfalse;simpl in *.
+  inv_andb H. destruct Hin;subst;auto.
 Qed.
 
 Lemma subst_term_subst_env_rec e e0:
@@ -398,15 +560,39 @@ Proof.
     * rewrite type_to_term_subst. reflexivity.
     * eapply IHe; eauto.
     * rewrite_all map_map. simpl.
-      (* we need something similar to [map_ext], but involving [Forall] coming from IH *)
+      destruct (resolve_inductive Σ i) eqn:Hres;auto.
+      simpl. unfold on_snd.
       apply map_ext.
-      intros a. destruct a.
-      simpl. unfold on_snd. simpl. f_equal.
-      admit.
+      intros a. destruct a. unfold on_snd.
+      simpl. destruct (find _ _) eqn:Hfnd;simpl.
+      ** eapply find_map with
+             (p2 := (fun x => pName (fst x) =? n0))
+             (f:= fun x => ((fst x), (snd x){#|pVars (fst x)|+n1 := T⟦ e0 ⟧ Σ})) in Hfnd.
+         rewrite map_map in Hfnd. simpl in Hfnd. unfold fun_prod,id. simpl.
+         assert ( Hmap :
+                    (map (fun x => (id (fst x), (T⟦snd x⟧ Σ) {#|pVars (fst x)|+n1 := T⟦e0⟧ Σ})) l) =
+                    (map (fun x => (fst x, T⟦snd x .[[(nm,e0)]](#|pVars (fst x)| + n1) ⟧ Σ)) l)).
+         { eapply forall_map_spec'. apply H. intros a Hin Ha. f_equal.
+           assert (iclosed_n (#|pVars (fst a)| + S n1) (snd a) = true) by
+               now eapply forallb_forall with (x:=a) in Hce2.
+           apply Ha.
+           replace (S (#|pVars (fst a)| + n1)) with
+               (#|pVars (fst a)| + S n1) by lia.
+           assumption. assumption. }
+         rewrite <- Hmap. unfold id in *. rewrite Hfnd. simpl.
+         destruct (Nat.eqb #|pVars (fst p)| #|l1|) eqn:Hlen;simpl;auto.
+         f_equal. unfold id.  rewrite subst_pat_to_lam.
+         repeat f_equal. rewrite PeanoNat.Nat.eqb_eq in Hlen.
+         rewrite combine_length. rewrite Hlen. apply PeanoNat.Nat.min_id.
+         intros. destruct a;easy.
+      ** change (fun x : pat * term => pName (fst x) =? n0) with
+                                ((fun x : pat => pName x =? n0) ∘ fst (B:=term)) in *.
+         erewrite find_none_fst with (l2:=(map (fun_prod id (expr_to_term Σ)) l));eauto.
+         now repeat rewrite map_map.
   + (* eFix *)
     simpl. unfold map_def. simpl. repeat f_equal;try apply type_to_term_subst.
     easy.
-Admitted.
+Qed.
 
 Lemma subst_term_subst_env e :
   forall v Σ nm,
@@ -428,10 +614,6 @@ Proof.
   intros e n ρ Hc.
 Admitted.
 
-
-(* TODO: This lemma should be generalized.
-   At least for [subst_env_i_aux n].
-   we will restate this in terms of parallel substitutions *)
 Lemma subst_env_compose_1 k :
   forall (nm : Ast.name) (e e1: expr) (ρ : env expr),
     Forall (fun x => iclosed_n 0 (snd x) = true) ρ ->
@@ -487,19 +669,6 @@ Proof.
 Qed.
 
 
-Fixpoint nsubst (ts : list term) (n : nat) (t :term) :=
-  match ts with
-  | [] => t
-  | t0 :: ts0 => nsubst ts0 (n-1) (subst t0 n t)
-  end.
-
-Parameter a0 : term.
-Parameter a1 : term.
-Parameter a2 : term.
-Parameter t : term.
-
-Eval simpl in nsubst [a0;a1;a2] 2 t.
-
 Lemma subst_term_subst_env_rec_n :
   forall v Σ (l : env expr) e,
   val_ok Σ v ->
@@ -536,13 +705,13 @@ Open Scope program_scope.
 
 Lemma pat_match_succeeds {A} cn arity vals brs e (assig : list (Ast.name * A)) :
     match_pat cn arity vals brs = Some (assig, e) ->
-    exists p, find (fun '(p, _) => pName p =? cn) brs = Some (p,e)
+    exists p, find (fun x => pName (fst x) =? cn) brs = Some (p,e)
          /\ #|arity| = #|p.(pVars)| /\ #|vals| =  #|p.(pVars)|
          /\ assig = combine p.(pVars) vals.
 Proof.
   intros Hpm.
   unfold match_pat in Hpm. simpl in Hpm.
-  destruct (find (fun '(p, _) => pName p =? cn) brs) eqn:Hfnd;tryfalse.
+  destruct (find (fun x => pName (fst x) =? cn) brs) eqn:Hfnd;tryfalse.
   destruct p as [p' e0].
   destruct (Nat.eqb #|vals| #|pVars p'|) eqn:Hlength;tryfalse.
   destruct (Nat.eqb #|vals| #|arity|) eqn:Hlength';tryfalse.
@@ -971,109 +1140,6 @@ Proof.
   induction n;simpl in *;intros l H;destruct l eqn:H1;inversion H;eauto.
 Qed.
 
-Section FindLookupProperties.
-
-  Context {A : Type}
-          {B : Type}
-          {p : A -> bool}.
-
-  Lemma lookup_ind_nth_error_False (ρ : env A) n m a key :
-    lookup_with_ind_rec (1+n+m) ρ key  = Some (n, a) -> False.
-  Proof.
-    revert dependent m.
-    revert dependent n.
-    induction ρ as [ |a0 ρ0];intros n m H;tryfalse.
-    simpl in *.
-    destruct a0;destruct (s =? key).
-    + inversion H;lia.
-    + replace (S (n + m)) with (n + S m)  in * by lia.
-      eauto.
-  Qed.
-
-  Lemma lookup_ind_nth_error_shift (ρ : env A) n i a key :
-    lookup_with_ind_rec (1+n) ρ key = Some (1+i, a) <->
-    lookup_with_ind_rec n ρ key = Some (i, a).
-  Proof.
-    split;revert dependent i;revert dependent n;
-    induction ρ;intros i1 n1 H;tryfalse;simpl in *;
-      destruct a3; destruct ( s =? key); inversion H;eauto.
-  Qed.
-
-  Lemma lookup_ind_nth_error (ρ : env A) i a key :
-    lookup_with_ind ρ key = Some (i,a) -> nth_error ρ i = Some (key,a).
-  Proof.
-    revert dependent ρ.
-    induction i;simpl;intros ρ0 H.
-    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
-      destruct p0; destruct (s =? key) eqn:Heq; try rewrite eqb_eq in *;subst.
-      inversion H;eauto.
-      now apply (lookup_ind_nth_error_False _ 0 0) in H.
-    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
-      destruct p0; destruct (s =? key) eqn:Heq;
-        try rewrite eqb_eq in *;subst;tryfalse.
-      apply IHi. now apply lookup_ind_nth_error_shift.
-  Qed.
-
-  Lemma find_map p1 p2 a (f : A -> B) (l : list A) :
-    find p1 l = Some a -> (forall a, p1 a = p2 (f a)) -> find p2 (map f l) = Some (f a).
-  Proof.
-    intros Hfind Heq.
-    induction l;tryfalse.
-    simpl in *. rewrite <- Heq.
-    destruct (p1 a3);inversion Hfind;subst;auto.
-  Qed.
-
-  Lemma find_forallb_map {X Y} {xs : list X} {p0 : X -> bool} {p1 : Y -> bool} {f : X -> Y}:
-    forall x : X, find p0 xs = Some x -> forallb p1 (map f xs) = true -> p1 (f x) = true.
-  Proof.
-    induction xs;intros x Hfnd Hall.
-    + easy.
-    + simpl in *. destruct (p0 a).
-      * inversion Hfnd;subst. now destruct (p1 (f x));tryfalse.
-      * destruct (p1 (f a));tryfalse;auto.
-  Qed.
-
-  Lemma find_forallb {xs : list A} {p1 : A -> bool}:
-    forall x, find p xs = Some x -> forallb p1 xs = true -> p1 x = true.
-  Proof.
-    intros x Hfnd Hall.
-    replace xs with (map id xs) in Hall by apply map_id.
-    eapply @find_forallb_map with (f:=id);eauto.
-  Qed.
-
-End FindLookupProperties.
-
-Lemma subst_pat_to_lam l t u n:
-  (pat_to_lam l t) {n:=u} = pat_to_lam l (t {#|l|+n := u}).
-Proof.
-  revert dependent n.
-  induction l;intros n.
-  + simpl. reflexivity.
-  + destruct a; simpl. f_equal. auto with hints.
-    replace (S (#|l| + n)) with (#|l|+S n) by lia.
-    apply IHl.
-Qed.
-
-Lemma pat_to_lam_app l args t v Σ Γ :
-  Forall WcbvEval.value args ->
-  #|l| = #|args| ->
-  Σ ;;; Γ |- mkApps (pat_to_lam l t) args ⇓ v ->
-  Σ ;;; Γ |- nsubst args (#|l| - 1) t ⇓ v.
-Proof.
-  revert args. revert t.
-  induction l; intros t0 args Hval Heq He.
-  + simpl in *. destruct args;tryfalse. simpl in *. easy.
-  + destruct a. simpl in *.
-    destruct args as [ | a0 args0];tryfalse. inversion Heq. clear Heq.
-    simpl in *. replace (#|l| - 0) with (#|l|) by lia.
-    inversion He; try inversion H3;subst;tryfalse.
-    rewrite subst_pat_to_lam in *.
-    replace (#|l| + 0) with (#|l|) in * by lia.
-    inversion Hval. subst. clear Hval.
-    assert (a0=a') by now eapply Wcbv_eval_value_determ.
-    subst. now apply IHl.
-Qed.
-
 Section CombineProp.
 
 Lemma map_combine_snd : forall A B C (f : B -> C) (l2 : list B) (l1 : list A),
@@ -1445,8 +1511,8 @@ Proof.
         destruct Hpat as [p Htmp].
         destruct Htmp as [Hfnd Htmp]. destruct Htmp as [Hci Htmp]. destruct Htmp as [Hl0 Hl2].
         assert (Hfind :
-        find (fun '(p, _) => pName p =? n1) (map f l) = Some (f (p, e3))).
-        { apply find_map with (p1 := fun '(p, _) => (pName p =? n1));auto.
+        find (fun x => (pName (fst x) =? n1)) (map f l) = Some (f (p, e3))).
+        { apply find_map with (p1 := fun x => (pName (fst x) =? n1));auto.
           intros a;destruct a. subst f. cbn. reflexivity. }
         specialize (find_forallb_map _ Hfnd HH) as Hce1'. simpl in Hce1'.
         rewrite Hfind in H1.
