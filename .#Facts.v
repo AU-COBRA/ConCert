@@ -1,1 +1,0 @@
-danil@danil-ThinkPad-T450s.2423:1557343178
