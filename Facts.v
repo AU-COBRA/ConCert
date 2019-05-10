@@ -176,7 +176,7 @@ Section Values.
         * simpl in *. leb_ltb_to_prop. assumption.
       + apply utils.forallb_Forall. apply utils.Forall_map. unfold compose. simpl.
         assert ( H2 : Forall (fun x : pat * expr =>
-                                is_true (iclosed_n ((#| pVars (fst x) |) + (n1 + (#| ρ |))) (snd x))) l)
+                                is_true (iclosed_n ((#|pVars (fst x)|) + (n1 + #|ρ|)) (snd x))) l)
           by now apply utils.forallb_Forall.
         rewrite Forall_forall in *.
         intros x Hx.
@@ -357,7 +357,7 @@ Qed.
         inversion_clear H1.
         constructor.
         unfold inst_env_i,subst_env_i;simpl.
-           rewrite <- subst_env_i_empty.
+        rewrite <- subst_env_i_empty.
         reflexivity.
       * destruct n0;tryfalse. simpl in H1.
         inversion_clear H1.

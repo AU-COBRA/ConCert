@@ -614,25 +614,53 @@ Proof.
   intros e n ρ Hc.
 Admitted.
 
-Lemma subst_env_compose_1 k :
-  forall (nm : Ast.name) (e e1: expr) (ρ : env expr),
+Lemma subst_env_compose_1 :
+  forall (nm : Ast.name) (e e1: expr) k (ρ : env expr),
     Forall (fun x => iclosed_n 0 (snd x) = true) ρ ->
     iclosed_n 0 e1 = true ->
     e.[ρ # [nm ~> e1]]k =
     (e.[ρ](1+k)).[nil # [nm ~> e1]]k.
 Proof.
-  intros nm e e1 ρ.
+  intros nm.
   unfold inst_env_i,subst_env_i in *. simpl in *.
-  induction e using expr_ind_case;intros Hfc.
+  induction e using expr_ind_case;intros e' k ρ Hfc Hc;simpl;auto.
   + simpl. destruct n.
     * reflexivity.
-    * simpl. destruct k. simpl. replace (n-0) with n by lia.
-      destruct (lookup_i ρ n) eqn:Hl;auto.
-      simpl. assert (iclosed_n 0 e = true) by
-          (eapply Forall_lookup_i with
-               (P:=fun x : expr => iclosed_n 0 x = true);eauto).
-      symmetry. apply subst_env_i_closed_eq. assumption.
-Admitted.
+    * destruct (Nat.leb k n) eqn:Hkn.
+      ** leb_ltb_to_prop.
+         assert (k <= S n) by lia.
+         prop_to_leb_ltb. rewrite H.
+         leb_ltb_to_prop.
+         assert (Hneq : S n - k <> 0) by lia.
+         rewrite <- PeanoNat.Nat.eqb_neq in Hneq. rewrite Hneq.
+         replace (S n - k - 1) with (n - k) by lia.
+         replace (S n - S k) with (n - k) by lia.
+         destruct (lookup_i ρ (n-k)) eqn:Hl.
+         *** simpl. symmetry. apply subst_env_i_closed_eq.
+             eapply (Forall_lookup_i _ _ _ (fun x => iclosed_n 0 x) Hfc Hl).
+         *** remember (S n) as m. simpl.
+             prop_to_leb_ltb. rewrite H. now rewrite Hneq.
+      ** leb_ltb_to_prop.
+         assert (HkSn :  S n <= k) by lia.
+         case HkSn.
+         *** rewrite PeanoNat.Nat.leb_refl. simpl.
+             replace (n-n) with 0 by lia. simpl.
+             now rewrite PeanoNat.Nat.leb_refl.
+         *** intros m Hm. assert (H : S n < S m) by lia.
+             rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
+             remember (S n) as n'. remember (S m) as m'. simpl.
+             prop_to_leb_ltb. now rewrite H.
+  + f_equal. eapply IHe;eauto.
+  + f_equal. eapply IHe1;eauto. eapply IHe2;eauto.
+  + f_equal. eapply IHe1;eauto. eapply IHe2;eauto.
+  + f_equal. apply IHe;auto.
+    rewrite map_map. simpl.
+    eapply forall_map_spec;eauto.
+    intros a Ha. simpl in *. f_equal.
+    replace (#|pVars (fst a)| + S k) with (S (#|pVars (fst a)| + k)) by lia.
+    now apply Ha.
+  + f_equal. eapply IHe;eauto.
+Qed.
 
 Lemma subst_env_swap_app :
   forall (e: expr) (ρ1 ρ2 : env expr) n,
