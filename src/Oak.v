@@ -8,15 +8,11 @@ From Coq Require Import List.
 Import ListNotations.
 
 Inductive OakType :=
-  | oak_empty : OakType
   | oak_unit : OakType
   | oak_int : OakType
   | oak_bool : OakType
   | oak_pair : OakType -> OakType -> OakType
-  | oak_sum : OakType -> OakType -> OakType
-  | oak_list : OakType -> OakType
-  | oak_set : OakType -> OakType
-  | oak_map : OakType -> OakType -> OakType.
+  | oak_list : OakType -> OakType.
 
 Module OakType.
   Scheme Equality for OakType.
@@ -27,56 +23,28 @@ Module OakType.
     Bool.reflect (a = b) (eqb a b).
   Proof.
     destruct a, b; simpl in *; try (left; congruence); try (right; congruence).
-    1, 2, 5: destruct (eqb_spec a1 b1), (eqb_spec a2 b2);
-      try (left; congruence); try (right; congruence).
-    1, 2: destruct (eqb_spec a b); try (left; congruence); try (right; congruence).
+    - destruct (eqb_spec a1 b1), (eqb_spec a2 b2);
+        try (left; congruence); try (right; congruence).
+    - destruct (eqb_spec a b); try (left; congruence); try (right; congruence).
   Qed.
 End OakType.
 
-Set Primitive Projections.
-Record OakInterpretation :=
-  build_interpretation {
-    oi_ty : Type;
-    oi_eqdec : stdpp.base.EqDecision oi_ty;
-    oi_countable : countable.Countable oi_ty;
-  }.
-
-Arguments build_interpretation _ {_ _}.
-
-Local Fixpoint interp_type_with_ordering (t : OakType) : OakInterpretation :=
+Fixpoint interp_type (t : OakType) : Type :=
   match t with
-  | oak_empty => build_interpretation Empty_set
-  | oak_unit => build_interpretation unit
-  | oak_int => build_interpretation Z
-  | oak_bool => build_interpretation bool
-  | oak_sum a b =>
-    let (aT, _, _) := interp_type_with_ordering a in
-    let (bT, _, _) := interp_type_with_ordering b in
-    build_interpretation (aT + bT)%type
-  | oak_pair a b =>
-    let (aT, _, _) := interp_type_with_ordering a in
-    let (bT, _, _) := interp_type_with_ordering b in
-    build_interpretation (aT * bT)%type
-  | oak_list a =>
-    let (aT, _, _) := interp_type_with_ordering a in
-    build_interpretation (list aT)
-  | oak_set a =>
-    let (aT, _, _) := interp_type_with_ordering a in
-    build_interpretation (FMap aT unit)
-  | oak_map a b =>
-    let (aT, _, _) := interp_type_with_ordering a in
-    let (bT, _, _) := interp_type_with_ordering b in
-    build_interpretation (FMap aT bT)
+  | oak_unit => unit
+  | oak_int => Z
+  | oak_bool => bool
+  | oak_pair a b => interp_type a * interp_type b
+  | oak_list a => list (interp_type a)
   end.
 
-Definition interp_type (t : OakType) : Type :=
-  oi_ty (interp_type_with_ordering t).
-
+Set Primitive Projections.
 Record OakValue :=
   build_oak_value {
     oak_value_type : OakType;
     oak_value : interp_type oak_value_type;
   }.
+Unset Primitive Projections.
 
 Definition extract_oak_value (t : OakType) (value : OakValue) : option (interp_type t).
 Proof.
@@ -96,11 +64,6 @@ Class OakTypeEquivalence (ty : Type) :=
   }.
 
 Global Opaque serialize deserialize deserialize_serialize.
-
-Program Instance oak_empty_equivalence : OakTypeEquivalence Empty_set :=
-  {| serialize e := ltac:(contradiction);
-     deserialize v := None; |}.
-Solve Obligations with contradiction.
 
 Program Instance oak_unit_equivalence : OakTypeEquivalence unit :=
   {| serialize u := build_oak_value oak_unit u;
@@ -122,9 +85,9 @@ Program Instance oak_nat_equivalence : OakTypeEquivalence nat :=
      deserialize z := do z' <- deserialize z; Some (Z.to_nat z'); |}.
 Next Obligation.
   intros x.
-  simpl.
+  cbn.
   rewrite deserialize_serialize.
-  simpl.
+  cbn.
   rewrite Nat2Z.id.
   reflexivity.
 Qed.
@@ -214,7 +177,7 @@ Section Product.
         : deserialize_product (serialize_product p) = Some p.
   Proof.
     unfold serialize_product, deserialize_product.
-    destruct p as [a b].
+    destruct p.
     repeat rewrite deserialize_serialize.
     reflexivity.
   Qed.
@@ -254,7 +217,7 @@ Section List.
     unfold serialize_list, deserialize_list.
     induction l as [| hd tl IHl].
     - reflexivity.
-    - simpl in *.
+    - cbn in *.
       rewrite IHl; clear IHl.
       rewrite deserialize_serialize.
       reflexivity.
@@ -300,40 +263,3 @@ Next Obligation.
   rewrite FMap.of_elements_eq.
   reflexivity.
 Qed.
-
-(*
-Examples:
-Definition test_bool : OakValue := build_oak_value oak_bool true.
-Definition test_int : OakValue := build_oak_value oak_int 5%Z.
-Definition test_set : OakValue :=
-  build_oak_value
-    (oak_set oak_int)
-    (FSet.of_list [5; 6]%Z).
-Definition test_fmap : FMap Z Z :=
-  (FMap.of_list [(5, 10); (6, 10); (5, 15)])%Z.
-
-Definition test_map : OakValue :=
-  build_oak_value
-    (oak_map oak_int oak_int)
-    test_fmap.
-
-Definition test_map2 : OakValue :=
-  build_oak_value
-    (oak_map (oak_map oak_int oak_int) oak_int)
-    (FMap.of_list [(test_fmap, 15)])%Z.
-
-Compute (extract_oak_value oak_bool test_bool) : option bool.
-Compute (extract_oak_value oak_int test_bool) : option Z.
-Compute (extract_oak_value oak_bool test_int) : option bool.
-Compute (extract_oak_value oak_int test_int) : option Z.
-Compute (extract_oak_value (oak_set oak_int) test_set) : option (FSet Z).
-Compute
-  (extract_oak_value
-     (oak_map
-        (oak_map oak_int oak_int)
-        oak_int)
-     test_map2)
-  : option (FMap (FMap Z Z) Z).
-Compute (option_map FSet.elements (extract_oak_value (oak_set oak_int) test_set)).
-Compute (option_map FMap.elements (extract_oak_value (oak_map oak_int oak_int) test_map)).
-*)
