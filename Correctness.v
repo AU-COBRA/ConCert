@@ -170,43 +170,58 @@ Proof.
 Lemma closedn_n_m n m t: closedn n t = true -> closedn (m+n) t = true.
 Proof.
   revert n. revert m.
-  induction t;intros n0 m0 H;auto.
+  induction t using Induction.term_forall_list_ind;intros n0 m0 H0;auto.
   + simpl in *. rewrite PeanoNat.Nat.ltb_lt in *;lia.
   + simpl in *. induction l;simpl in *;auto.
-    rewrite Bool.andb_true_iff in *. destruct H.
-    (* TODO: we need a better induction principle for [term]
-       capturing nested lists of terms *) admit.
-  + simpl in *. rewrite Bool.andb_true_iff in *. destruct H.
+    rewrite Bool.andb_true_iff in *. destruct H0.
+    inversion H. subst. auto.
+  + simpl in *. rewrite Bool.andb_true_iff in *. destruct H0.
     split;easy.
   + simpl in *.
-    rewrite Bool.andb_true_iff in *. destruct H.
+    rewrite Bool.andb_true_iff in *. destruct H0.
     rewrite IHt1 by assumption. replace (S (n0 + m0)) with (n0 + S m0) by lia.
     rewrite IHt2 by assumption. auto.
   + simpl in *.
-    rewrite Bool.andb_true_iff in *. destruct H.
+    rewrite Bool.andb_true_iff in *. destruct H0.
     rewrite IHt1 by assumption. replace (S (n0 + m0)) with (n0 + S m0) by lia.
     rewrite IHt2 by assumption. auto.
   + simpl in *.
-    repeat rewrite Bool.andb_true_iff in *. destruct H as [Htmp H]. destruct Htmp.
+    repeat rewrite Bool.andb_true_iff in *. destruct H0 as [Htmp H]. destruct Htmp.
     rewrite IHt1 by assumption. replace (S (n0 + m0)) with (n0 + S m0) by lia.
     rewrite IHt2 by assumption. rewrite IHt3 by assumption.
     auto.
   + simpl in *. rewrite Bool.andb_true_iff in *.
-    destruct H. rewrite IHt by assumption.
-    (* we need a better induction principle for [term]
-       capturing nested lists of terms *) admit.
+    destruct H0.
+    rewrite forallb_forall in *.
+    rewrite Forall_forall in *.
+    auto.
   + simpl in *.
-    repeat rewrite Bool.andb_true_iff in *. destruct H as [Htmp H]. destruct Htmp.
+    repeat rewrite Bool.andb_true_iff in *. destruct H0 as [Htmp H0]. destruct Htmp.
     rewrite IHt1 by assumption. replace (S (n0 + m0)) with (n0 + S m0) by lia.
-    rewrite IHt2 by assumption.
-    (* we need a better induction principle for [term]
-       capturing nested lists of terms *) admit.
+    rewrite IHt2 by assumption. unfold tCaseBrsProp in H.
+    split;auto. apply forallb_Forall_iff.
+    rewrite <- forallb_Forall_iff in H0.
+    unfold test_snd in *.
+    rewrite Forall_forall in *.
+    intros. easy.
   + simpl in *. easy.
-  + simpl in *. (* again, list of fixpoints needs to be considered in IH *)
-    admit.
-  + simpl in *. (* again, list of fixpoints needs to be considered in IH *)
-    admit.
-Admitted.
+  + simpl in *.
+    unfold tFixProp in *.
+    rewrite <- forallb_Forall_iff in *.
+    unfold test_def in *.
+    rewrite Forall_forall in *.
+    intros x Hx.
+    specialize (H _ Hx). destruct H as [H1 H2].
+    specialize (H0 _ Hx). inv_andb H0.
+    split_andb; replace (#|m| + (n0 + m0)) with (n0+ (#|m| + m0)) by lia; easy.
+  + simpl in *. unfold test_def,tFixProp in *.
+    rewrite forallb_forall in *.
+    rewrite Forall_forall in *.
+    intros x Hx.
+    specialize (H _ Hx). destruct H as [H1 H2].
+    specialize (H0 _ Hx). inv_andb H0.
+    split_andb; replace (#|m| + (n0 + m0)) with (n0+ (#|m| + m0)) by lia; easy.
+Qed.
 
 Lemma type_to_term_closed ty n : closedn n (type_to_term ty) = true.
 Proof.
