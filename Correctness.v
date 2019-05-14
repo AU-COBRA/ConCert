@@ -159,13 +159,67 @@ Proof.
   + destruct cm;constructor;simpl;auto.
 Qed.
 
+(* Since [mkApps] a smart constructor, it should be semantically
+   equivalent to the ordinary [tApp] *)
+Lemma mkApps_sound Σ Γ e l t :
+  l <> [] ->
+  Σ ;;; Γ |- mkApps e l ⇓ t ->
+  Σ ;;; Γ |- tApp e l ⇓ t.
+Proof.
+Admitted.
+
+
+Lemma All_eq {A} (l1 l2 : list A) : All2 (fun t1 t2 => t1 = t2) l1 l2 -> l1 = l2.
+Proof.
+  intros H.
+  induction H;f_equal;auto.
+Qed.
+
+Lemma All_All2_impl {A} (l1 l2 : list A) P :
+  All (fun t1 => forall t2, P t1 t2 -> t1 = t2) l1 ->
+  All2 P l1 l2 ->
+  All2 (fun t1 t2 => t1 = t2) l1 l2.
+Proof.
+  intros Hall Hall2.
+  induction Hall2;auto.
+  inversion Hall as [a | ty ll HH3 HH4];subst;clear Hall.
+  constructor;auto.
+Qed.
+
 (* This should from the fact that ⇓ is deterministic and
    the fact that value evaluates to itself, but the fact that
    ⇓ is deterministic is not yet proved in Template Coq *)
-Lemma Wcbv_eval_value_determ Σ Γ t1 t2 :
-  WcbvEval.value t1 -> Σ ;;; Γ |- t1 ⇓ t2 -> t1 = t2.
+Lemma Wcbv_eval_value_determ Σ t1 t2 :
+  WcbvEval.value t1 -> Σ ;;; [] |- t1 ⇓ t2 -> t1 = t2.
 Proof.
-  Admitted.
+  intros Hv.
+  revert t2.
+  induction Hv using WcbvEval.value_values_ind;intros t2 He.
+  + inversion He;auto. inversion isdecl.
+  + simpl in *. inversion He;auto.
+  + simpl in *. inversion He;auto.
+  + simpl in *. inversion He;auto.
+  + simpl in *.
+    destruct l.
+    * simpl in *. inversion He;auto.
+    * simpl in He.
+      inversion He;subst;simpl in *;try inversion H4;subst;auto.
+      inversion H0. subst. clear H0.
+      f_equal.
+      apply All_eq. destruct l';inversion H6;subst;clear H6.
+      constructor;auto.
+      eapply All_All2_impl;eauto.
+  + destruct l.
+    * inversion He;subst;reflexivity.
+    * simpl in *.
+      inversion H0;subst;clear H0.
+      inversion He;subst;clear He;try inversion H5;subst;auto.
+      destruct l';inversion H7;subst.
+      repeat f_equal. easy.
+      apply All_eq.
+      eapply All_All2_impl;eauto.
+  + destruct t;tryfalse;inversion He;subst;auto.
+Qed.
 
 Lemma closedn_n_m n m t: closedn n t = true -> closedn (m+n) t = true.
 Proof.
@@ -279,7 +333,7 @@ Parameter t : term.
 Eval simpl in nsubst [a0;a1;a2] 2 t.
 
 
-Lemma pat_to_lam_app l args t v Σ Γ :
+Lemma pat_to_lam_app l args t v Σ (Γ:=[]) :
   Forall WcbvEval.value args ->
   #|l| = #|args| ->
   Σ ;;; Γ |- mkApps (pat_to_lam l t) args ⇓ v ->
@@ -375,6 +429,16 @@ Proof.
     repeat rewrite Bool.andb_true_iff. repeat split;auto with hints.
 Qed.
 
+Lemma closed_exprs_len_iff e n (ρ : env val) :
+  iclosed_n (n + #|exprs ρ|) e = true <->
+  iclosed_n (n + #|ρ|) e = true.
+Proof.
+  split.
+  intros H. rewrite map_length in H. assumption.
+  intros H. rewrite map_length. assumption.
+Qed.
+
+
 Hint Resolve
      PeanoNat.Nat.compare_eq
      Compare_dec.nat_compare_Lt_lt
@@ -388,6 +452,14 @@ Hint Resolve
 
 Hint Constructors val_ok Forall : hints.
 Hint Unfold snd env_ok ForallEnv compose : hints.
+
+
+Hint Resolve <- subst_env_iclosed_0 subst_env_iclosed_n
+                closed_exprs_len_iff : hints.
+Hint Resolve -> subst_env_iclosed_0 subst_env_iclosed_n
+                                   closed_exprs_len_iff : hints.
+Hint Resolve iclosed_n_0 : hints.
+
 
 Compute ((tRel 1) {0:=tVar "a"}).
 Compute ((tLambda (nNamed"x") (tInd (mkInd "nat" 0) []) (tApp (tRel 1) [tRel 2])) {0:=tRel 0}).
@@ -621,13 +693,37 @@ Proof.
   now apply subst_term_subst_env_rec.
 Qed.
 
+Lemma subst_env_i_closed_n_eq :
+  forall (e : expr) (n m : nat) (ρ : env expr),
+    iclosed_n n e = true ->
+    e.[ρ](m+n) = e.
+Proof.
+  intros e.
+  induction e using expr_ind_case;intros n1 m1 ρ Hc;simpl;auto.
+  + simpl in *. destruct (Nat.leb (m1 + n1)) eqn:Hmn1; leb_ltb_to_prop;try lia;easy.
+  + simpl in *. f_equal. replace (S (m1 + n1)) with (m1 + S n1) by lia. easy.
+  + simpl in *. inv_andb Hc. f_equal;replace (S (m1 + n1)) with (m1 + S n1) by lia;easy.
+  + simpl in *. inv_andb Hc. f_equal;replace (S (m1 + n1)) with (m1 + S n1) by lia;easy.
+  + simpl in *. inv_andb Hc. f_equal. easy.
+    transitivity (map id l).
+    eapply forall_map_spec';eauto.
+    simpl. intros x Hin Hx. destruct x. unfold id. f_equal. simpl in *.
+    replace (#|pVars p0| + (m1 + n1)) with (m1 + (#|pVars p0| + n1)) by lia.
+    apply Hx. rewrite forallb_forall in *.
+    rewrite Forall_forall in *.
+    change e0 with (snd (p0,e0)).
+    change p0 with (fst (p0,e0)). easy.
+    apply map_id.
+  + simpl in *. f_equal. replace (S (S (m1 + n1))) with (m1 + S (S n1)) by lia. easy.
+Qed.
+
 Lemma subst_env_i_closed_eq :
   forall (e : expr) (n : nat) (ρ : env expr),
     iclosed_n 0 e = true ->
     e.[ρ]n = e.
 Proof.
-  intros e n ρ Hc.
-Admitted.
+  intros;eapply subst_env_i_closed_n_eq with (m:=0);eauto with hints.
+Qed.
 
 Lemma subst_env_compose_1 :
   forall (nm : Ast.name) (e e1: expr) k (ρ : env expr),
@@ -1065,15 +1161,6 @@ Ltac destruct_one_ex_named' Hex :=
 
 Ltac destruct_ex_named := repeat (destruct_one_ex_named).
 
-(* Since [mkApps] a smart constructor, it should be semantically
-   equivalent to the ordinary [tApp] *)
-Lemma mkApps_sound Σ Γ e l t :
-  l <> [] ->
-  Σ ;;; Γ |- mkApps e l ⇓ t ->
-  Σ ;;; Γ |- tApp e l ⇓ t.
-Proof.
-Admitted.
-
 Lemma fix_not_constr {e ρ Σ mf n m i nm vs} :
   T⟦ e.[exprs ρ] ⟧ Σ = tFix mf m ->
   eval(n,Σ,ρ,e) = Ok (vConstr i nm vs) -> False.
@@ -1117,22 +1204,7 @@ Proof.
   induction l;constructor;auto.
 Qed.
 
-Lemma closed_exprs_len_iff e n (ρ : env val) :
-  iclosed_n (n + #|exprs ρ|) e = true <->
-  iclosed_n (n + #|ρ|) e = true.
-Proof.
-  split.
-  intros H. rewrite map_length in H. assumption.
-  intros H. rewrite map_length. assumption.
-Qed.
-
 Hint Resolve eval_val_ok from_value_closed : hints.
-
-Hint Resolve <- subst_env_iclosed_0 subst_env_iclosed_n
-                closed_exprs_len_iff : hints.
-Hint Resolve -> subst_env_iclosed_0 subst_env_iclosed_n
-                closed_exprs_len_iff : hints.
-
 
 Lemma closed_exprs n (ρ : env val) Σ :
   env_ok Σ ρ ->
