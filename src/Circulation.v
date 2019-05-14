@@ -8,7 +8,7 @@ From RecordUpdate Require Import RecordSet.
 Import ListNotations.
 
 Section Circulation.
-Context {ChainBaseTypes : ChainBaseTypes}.
+Context {ChainBase : ChainBase}.
 Context `{Finite Address}.
 
 Definition circulation (chain : Chain) :=

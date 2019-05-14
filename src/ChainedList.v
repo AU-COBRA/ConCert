@@ -6,12 +6,12 @@ also a snoc list. Note that this is not unlike fhlist from CPDT,
 except we place further restrictions on it. *)
 From SmartContracts Require Import Automation.
 Section ChainedList.
-Context {point : Type} {link : point -> point -> Type}.
+Context {Point : Type} {Link : Point -> Point -> Type}.
 
-Inductive ChainedList : point -> point -> Type :=
-  | clnil : forall {elm}, ChainedList elm elm
+Inductive ChainedList : Point -> Point -> Type :=
+  | clnil : forall {p}, ChainedList p p
   | snoc : forall {from mid to},
-      ChainedList from mid -> link mid to -> ChainedList from to.
+      ChainedList from mid -> Link mid to -> ChainedList from to.
 
 Fixpoint clist_app
            {from mid to}

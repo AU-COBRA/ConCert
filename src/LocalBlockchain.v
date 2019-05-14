@@ -24,7 +24,7 @@ Local Open Scope bool.
 Definition AddrSize : N := 2^128.
 Definition ContractAddrBase : N := AddrSize / 2.
 
-Global Instance LocalChainBaseTypes : ChainBaseTypes :=
+Global Instance LocalChainBase : ChainBase :=
   {| Address := BoundedN AddrSize;
      address_eqb := BoundedN.eqb;
      address_eqb_spec := BoundedN.eqb_spec;
@@ -511,12 +511,12 @@ Global Instance LocalChainBuilderDepthFirst : ChainBuilderType :=
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block true;
-     builder_trace := lcb_trace; |}.
+     builder_reachable := lcb_trace; |}.
 
 Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block false;
-     builder_trace := lcb_trace; |}.
+     builder_reachable := lcb_trace; |}.
 End LocalBlockchain.

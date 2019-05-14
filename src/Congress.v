@@ -16,7 +16,7 @@ Import ListNotations.
 Import RecordSetNotations.
 
 Section Congress.
-Context {BaseTypes : ChainBaseTypes}.
+Context {BaseTypes : ChainBase}.
 
 Local Open Scope Z.
 Set Primitive Projections.
@@ -890,7 +890,7 @@ Corollary congress_txs_after_block
     length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
 Proof.
   intros add_block contract congress_at_addr.
-  pose proof (congress_txs_well_behaved _ _ (builder_trace new) congress_at_addr).
+  pose proof (congress_txs_well_behaved _ _ (builder_reachable new) congress_at_addr).
   cbn in *.
   lia.
 Qed.

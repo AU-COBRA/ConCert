@@ -20,11 +20,12 @@ Definition Amount := Z.
 
 Bind Scope Z_scope with Amount.
 
-Class ChainBaseTypes :=
-  build_chain_base_types {
+Class ChainBase :=
+  build_chain_base {
     Address : Type;
     address_eqb : Address -> Address -> bool;
-    address_eqb_spec : forall (a b : Address), Bool.reflect (a = b) (address_eqb a b);
+    address_eqb_spec :
+      forall (a b : Address), Bool.reflect (a = b) (address_eqb a b);
     address_eqdec :> stdpp.base.EqDecision Address;
     address_countable :> countable.Countable Address;
     address_ote :> OakTypeEquivalence Address;
@@ -48,7 +49,7 @@ Global Ltac destruct_address_eq :=
     end.
 
 Section Blockchain.
-Context {BaseTypes : ChainBaseTypes}.
+Context {BaseTypes : ChainBase}.
 
 Lemma address_eq_refl x :
   address_eqb x x = true.
@@ -66,12 +67,6 @@ Proof. destruct_address_eq; auto; congruence. Qed.
 Record ContractDeployment :=
   build_contract_deployment {
     deployment_version : Version;
-    (* todo: model any type/constraints so we can have this. Right now the
-problem is that Congress messages can contain _any_ oak value (for
-the congress to send out), so there is no bijection from its message type
-to oak type.
-    deployment_msg_ty : OakType;
-    deployment_state_ty : OakType; *)
     deployment_setup : OakValue;
   }.
 
@@ -108,7 +103,7 @@ Record Chain :=
 
 (* Two chains are said to be equivalent if they are extensionally equal.
 We will later require that all deployed contracts respect this relation.
-This equivalence is equality if univalence is assumed. *)
+This equivalence is equality if funext is assumed. *)
 Record ChainEquiv (c1 c2 : Chain) : Prop :=
   build_chain_equiv {
     header_eq : block_header c1 = block_header c2;
@@ -206,24 +201,25 @@ where Address -> WeakContract would be some operation that the chain provides
 to allow access to contracts in deployments.
 *)
 with WeakContract :=
-    | build_weak_contract
-        (version : Version)
-        (init : Chain ->
-             ContractCallContext ->
-             OakValue ->
-             option OakValue)
-        (* Init respects chain equivalence *)
-        (init_proper :
-           Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
-        (receive :
-           Chain ->
-             ContractCallContext ->
-             OakValue (* state *) ->
-             option OakValue (* message *) ->
-             option (OakValue * list ActionBody))
-        (* And so does receive *)
-        (receive_proper :
-           Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
+     | build_weak_contract
+         (version : Version)
+         (init :
+            Chain ->
+            ContractCallContext ->
+            OakValue (* setup *) ->
+            option OakValue)
+         (* Init respects chain equivalence *)
+         (init_proper :
+            Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
+         (receive :
+            Chain ->
+            ContractCallContext ->
+            OakValue (* state *) ->
+            option OakValue (* message *) ->
+            option (OakValue * list ActionBody))
+         (* And so does receive *)
+         (receive_proper :
+            Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
 
 Definition wc_version (wc : WeakContract) : Version :=
   let (v, _, _, _, _) := wc in v.
@@ -267,25 +263,25 @@ use and interact with when they want deployment. We keep the weak contract
 only "internally" for blockchains, while any strongly-typed contract can
 be converted to and from *)
 Record Contract
-      (setup_ty msg_ty state_ty : Type)
-      `{setup_eq : OakTypeEquivalence setup_ty}
-      `{msg_eq : OakTypeEquivalence msg_ty}
-      `{state_eq : OakTypeEquivalence state_ty} :=
+      (Setup Msg State : Type)
+      `{OakTypeEquivalence Setup}
+      `{OakTypeEquivalence Msg}
+      `{OakTypeEquivalence State} :=
   build_contract {
     version : Version;
     init :
       Chain ->
       ContractCallContext ->
-      setup_ty ->
-      option state_ty;
+      Setup ->
+      option State;
     init_proper :
       Proper (ChainEquiv ==> eq ==> eq ==> eq) init;
     receive :
       Chain ->
       ContractCallContext ->
-      state_ty ->
-      option msg_ty ->
-      option (state_ty * list ActionBody);
+      State ->
+      option Msg ->
+      option (State * list ActionBody);
     receive_proper :
       Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive;
   }.
@@ -296,11 +292,11 @@ Arguments receive {_ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _}.
 
 Program Definition contract_to_weak_contract
-          {setup_ty msg_ty state_ty : Type}
-          `{setup_eq : OakTypeEquivalence setup_ty}
-          `{msg_eq : OakTypeEquivalence msg_ty}
-          `{state_eq : OakTypeEquivalence state_ty}
-          (c : Contract setup_ty msg_ty state_ty) : WeakContract :=
+          {Setup Msg State : Type}
+          `{OakTypeEquivalence Setup}
+          `{OakTypeEquivalence Msg}
+          `{OakTypeEquivalence State}
+          (c : Contract Setup Msg State) : WeakContract :=
       let weak_init chain ctx oak_setup :=
           do setup <- deserialize oak_setup;
           do state <- c.(init) chain ctx setup;
@@ -343,33 +339,33 @@ Coercion contract_to_weak_contract : Contract >-> WeakContract.
 
 (* Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
-          {setup_ty msg_ty state_ty : Type}
-          `{OakTypeEquivalence setup_ty}
-          `{OakTypeEquivalence msg_ty}
-          `{OakTypeEquivalence state_ty}
+          {Setup Msg State : Type}
+          `{OakTypeEquivalence Setup}
+          `{OakTypeEquivalence Msg}
+          `{OakTypeEquivalence State}
           (amount : Amount)
-          (contract : Contract setup_ty msg_ty state_ty)
-          (setup : setup_ty) : ActionBody :=
+          (contract : Contract Setup Msg State)
+          (setup : Setup) : ActionBody :=
   act_deploy amount contract (serialize setup).
 
 (* The contract interface is the main mechanism allowing a deployed
 contract to interact with another deployed contract. This hides
 the ugly details of everything being OakValue away from contracts. *)
-Record ContractInterface {setup_ty msg_ty state_ty : Type} :=
+Record ContractInterface {Setup Msg State : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
     contract_address : Address;
     (* Version of the contract *)
     contract_version : Version;
     (* The setup that was passed when the contract was deployed *)
-    contract_setup : setup_ty;
+    contract_setup : Setup;
     (* Obtain the state at some point of time *)
-    get_state : Chain -> option state_ty;
+    get_state : Chain -> option State;
     (* Make an action transferring money to the contract without
       a message *)
     transfer : Amount -> ActionBody;
     (* Make an action calling the contract *)
-    call : Amount -> msg_ty -> ActionBody;
+    call : Amount -> Msg -> ActionBody;
   }.
 
 Arguments ContractInterface _ _ _ : clear implicits.
@@ -377,14 +373,14 @@ Arguments ContractInterface _ _ _ : clear implicits.
 Definition get_contract_interface
           (chain : Chain)
           (addr : Address)
-          (setup_ty msg_ty state_ty : Type)
-          `{OakTypeEquivalence setup_ty}
-          `{OakTypeEquivalence msg_ty}
-          `{OakTypeEquivalence state_ty}
-  : option (ContractInterface setup_ty msg_ty state_ty) :=
+          (Setup Msg State : Type)
+          `{OakTypeEquivalence Setup}
+          `{OakTypeEquivalence Msg}
+          `{OakTypeEquivalence State}
+  : option (ContractInterface Setup Msg State) :=
   do 'build_contract_deployment ver ov_setup <- contract_deployment chain addr;
   do setup <- deserialize ov_setup;
-  let ifc_get_state chain := deserialize =<< (contract_state chain addr) in
+  let ifc_get_state chain := contract_state chain addr >>= deserialize in
   let ifc_transfer := act_transfer addr in
   let ifc_call amount msg := act_call addr amount (serialize msg) in
   Some {| contract_address := addr;
@@ -722,28 +718,28 @@ Record ChainState :=
   }.
 
 Inductive ChainEvent : ChainState -> ChainState -> Type :=
-  | evt_block :
-      forall {prev : ChainState}
-             {header : BlockHeader}
-             {baker : Address}
-             {next : ChainState},
-        chain_state_queue prev = [] ->
-        IsValidNextBlock header (block_header prev) ->
-        Forall ActIsFromAccount (chain_state_queue next) ->
-        EnvironmentEquiv
-          next
-          (add_new_block_header header baker prev) ->
-        ChainEvent prev next
-  | evt_step :
-      forall {prev : ChainState}
-             {act : Action}
-             {acts : list Action}
-             {next : ChainState}
-             {new_acts : list Action},
-        chain_state_queue prev = act :: acts ->
-        ChainStep prev act next new_acts ->
-        chain_state_queue next = new_acts ++ acts ->
-        ChainEvent prev next
+| evt_block :
+    forall {prev : ChainState}
+           {header : BlockHeader}
+           {baker : Address}
+           {next : ChainState},
+      chain_state_queue prev = [] ->
+      IsValidNextBlock header (block_header prev) ->
+      Forall ActIsFromAccount (chain_state_queue next) ->
+      EnvironmentEquiv
+        next
+        (add_new_block_header header baker prev) ->
+      ChainEvent prev next
+| evt_step :
+    forall {prev : ChainState}
+           {act : Action}
+           {acts : list Action}
+           {next : ChainState}
+           {new_acts : list Action},
+      chain_state_queue prev = act :: acts ->
+      ChainStep prev act next new_acts ->
+      chain_state_queue next = new_acts ++ acts ->
+      ChainEvent prev next
   | evt_permute :
       forall {prev new : ChainState},
         chain_state_env prev = chain_state_env new ->
@@ -936,7 +932,7 @@ Class ChainBuilderType :=
       (finalized_height : nat) :
       option builder_type;
 
-    builder_trace (b : builder_type) :
+    builder_reachable (b : builder_type) :
       reachable (build_chain_state (builder_env b) []);
   }.
 
