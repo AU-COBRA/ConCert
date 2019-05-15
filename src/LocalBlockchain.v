@@ -150,21 +150,21 @@ Section ExecuteActions.
       send_or_call from to amount (Some msg) lc
     end.
 
-  Fixpoint execute_steps
-           (gas : nat)
+  Fixpoint execute_actions
+           (count : nat)
            (acts : list Action)
            (lc : LocalChain)
            (depth_first : bool)
     : option LocalChain :=
-    match gas, acts with
+    match count, acts with
     | _, [] => Some lc
     | 0, _ => None
-    | S gas, act :: acts =>
+    | S count, act :: acts =>
       do '(next_acts, lc) <- execute_action act lc;
       let acts := if depth_first
                   then next_acts ++ acts
                   else acts ++ next_acts in
-      execute_steps gas acts lc depth_first
+      execute_actions count acts lc depth_first
     end.
 
   Ltac remember_tx :=
@@ -332,13 +332,14 @@ Section ExecuteActions.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Qed.
 
-  Lemma execute_steps_trace gas acts (lc lc_final : LocalChain) df :
-    inhabited (ChainTrace empty_state (build_chain_state lc acts)) ->
-    execute_steps gas acts lc df = Some lc_final ->
-    inhabited (ChainTrace empty_state (build_chain_state lc_final [])).
+  Lemma execute_actions_reachable count acts (lc lc_final : LocalChain) df :
+    reachable (build_chain_state lc acts) ->
+    execute_actions count acts lc df = Some lc_final ->
+    reachable (build_chain_state lc_final []).
   Proof.
+    unfold reachable.
     revert acts lc lc_final.
-    induction gas as [| gas IH]; intros acts lc lc_final trace exec; cbn in *.
+    induction count as [| count IH]; intros acts lc lc_final trace exec; cbn in *.
     - destruct acts; congruence.
     - destruct acts as [|x xs]; try congruence.
       destruct (execute_action x lc) as [[new_acts lc_after]|] eqn:exec_once;
@@ -346,14 +347,17 @@ Section ExecuteActions.
       destruct (execute_action_step _ _ _ _ exec_once) as [step].
       destruct trace as [trace].
       Hint Constructors ChainEvent : core.
-      Hint Constructors ChainedList.
+      Hint Constructors ChainedList : core.
       Hint Unfold ChainTrace.
-      destruct df; eapply IH; try eassumption; eauto.
-      (* BF case, where we need to permute *)
-      assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
-      cut (ChainTrace
-             empty_state
-             (build_chain_state lc_after (new_acts ++ xs))); eauto.
+      destruct df.
+      + (* depth-first case *)
+        eapply IH; try eassumption; eauto.
+      + (* breadth-first case. Insert permute event. *)
+        eapply IH; try eassumption.
+        assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
+        cut (ChainTrace
+              empty_state
+              (build_chain_state lc_after (new_acts ++ xs))); eauto.
   Qed.
 End ExecuteActions.
 
@@ -371,13 +375,13 @@ Definition lc_initial : LocalChain :=
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_trace : reachable (build_chain_state lcb_lc []);
+    lcb_reachable : reachable (build_chain_state lcb_lc []);
   }.
 
 Definition lcb_initial : LocalChainBuilder.
 Proof.
   refine
-    {| lcb_lc := lc_initial; lcb_trace := _ |}.
+    {| lcb_lc := lc_initial; lcb_reachable := _ |}.
   constructor.
   exact clnil.
 Defined.
@@ -483,21 +487,21 @@ Proof.
          do validate_header new_header (lc_header lc);
          do validate_actions actions;
          let lc := add_new_block_header new_header baker lc in
-         execute_steps 10 actions lc depth_first in
+         execute_actions 1000 actions lc depth_first in
       _).
 
   destruct lcopt as [lc|] eqn:exec; [|exact None].
   subst lcopt.
-  cbn -[execute_steps address_is_contract] in exec.
+  cbn -[execute_actions address_is_contract] in exec.
   destruct (validate_header _) eqn:validate; [|simpl in *; congruence].
   destruct (validate_actions _) eqn:validate_actions; [|simpl in *; congruence].
   destruct_units.
   destruct lcb as [prev_lc_end prev_lcb_trace].
-  refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
-  cbn -[execute_steps] in exec.
+  refine (Some {| lcb_lc := lc; lcb_reachable := _ |}).
+  cbn -[execute_actions] in exec.
   destruct prev_lcb_trace as [prev_lcb_trace].
 
-  refine (execute_steps_trace _ _ _ _ _ _ exec).
+  refine (execute_actions_reachable _ _ _ _ _ _ exec).
   constructor.
   refine (snoc prev_lcb_trace _).
   Hint Resolve validate_header_valid validate_actions_valid.
@@ -511,12 +515,12 @@ Global Instance LocalChainBuilderDepthFirst : ChainBuilderType :=
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block true;
-     builder_reachable := lcb_trace; |}.
+     builder_reachable := lcb_reachable; |}.
 
 Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block false;
-     builder_reachable := lcb_trace; |}.
+     builder_reachable := lcb_reachable; |}.
 End LocalBlockchain.
