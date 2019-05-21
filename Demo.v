@@ -159,6 +159,15 @@ Definition one_plus_one :=
 Compute (expr_eval_n 10 Σ [] [| {plus_syn} 1 1 |]).
 (* = Ok (vConstr "nat" "Suc" [vConstr "nat" "Suc" [vConstr "nat" "Z" []]])*)
 
+Definition two_arg_fun_syn := [| \x : Nat -> \y : Bool -> x |].
+
+Make Definition two_arg_fun_app :=
+  Eval compute in (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 true |])).
+
+Parameter bbb: bool.
+
+Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
+
 Example one_plus_one_two : expr_eval_n 10 Σ [] one_plus_one = Ok two.
 Proof. reflexivity. Qed.
 
