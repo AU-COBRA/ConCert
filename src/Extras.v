@@ -33,6 +33,15 @@ Definition with_default {A : Type} (a : A) (o : option A) : A :=
   | None => a
   end.
 
+Definition unpack_option {A : Type} (a : option A) :=
+  match a return match a with
+                  | Some _ => A
+                  | None => unit
+                  end with
+  | Some x => x
+  | None => tt
+  end.
+
 Fixpoint sumZ {A : Type} (f : A -> Z) (xs : list A) : Z :=
   match xs with
   | [] => 0
