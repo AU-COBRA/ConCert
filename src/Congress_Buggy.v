@@ -476,8 +476,8 @@ Section Theories.
     do chain <- builder_add_block chain baker acts (next_num chain) 0;
     Some (congress, chain).
 
-  Definition final : Address * LocalChainBuilderDepthFirst :=
-    unpack_option exploit_example.
+  Definition final :=
+    (unpack_option exploit_example) <: (@Address LocalChainBase) * LocalChainBuilderDepthFirst.
 
   (* Now we prove that this version of the contract is buggy, i.e. it does not satisfy the
      property we proved for the other version of the Congress. We filter out transactions
@@ -496,5 +496,5 @@ Section Theories.
     - reflexivity.
     - vm_compute.
       lia.
-Qed.
+  Qed.
 End Theories.

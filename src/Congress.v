@@ -73,146 +73,7 @@ Record State :=
 Instance state_settable : Settable _ :=
   settable! build_state <owner; state_rules; proposals; next_proposal_id; members>.
 
-Definition version : Version := 1%nat.
-
-Definition validate_rules (rules : Rules) : bool :=
-    (rules.(min_vote_count_permille) >=? 0)
-        && (rules.(min_vote_count_permille) <=? 1000)
-        && (rules.(margin_needed_permille) >=? 0)
-        && (rules.(margin_needed_permille) <=? 1000)
-        && (0 <=? rules.(debating_period_in_blocks))%nat.
-
-Definition init
-           (chain : Chain)
-           (ctx : ContractCallContext)
-           (setup : Setup) : option State :=
-  if validate_rules setup.(setup_rules) then
-    Some {| owner := ctx.(ctx_from);
-            state_rules := setup.(setup_rules);
-            proposals := FMap.empty;
-            next_proposal_id := 1%nat;
-            members := FMap.empty |}
-  else
-    None.
-
-Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
-  let id := state.(next_proposal_id) in
-  let slot_num := chain.(block_header).(slot_number) in
-  let proposal := {| actions := actions;
-                     votes := FMap.empty;
-                     vote_result := 0;
-                     proposed_in := slot_num |} in
-  let new_proposals := FMap.add id proposal state.(proposals) in
-  state<|proposals := new_proposals|><|next_proposal_id := (id + 1)%nat|>.
-
-Definition vote_on_proposal
-           (voter : Address)
-           (pid : ProposalId)
-           (vote : Z)
-           (state : State)
-  : option State :=
-  do proposal <- FMap.find pid state.(proposals);
-  let old_vote := match FMap.find voter proposal.(votes) with
-                 | Some old => old
-                 | None => 0
-                 end in
-  let new_votes := FMap.add voter vote proposal.(votes) in
-  let new_vote_result := proposal.(vote_result) - old_vote + vote in
-  let new_proposal :=
-      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
-  Some (state<|proposals ::= FMap.add pid new_proposal|>).
-
-Definition do_retract_vote
-           (voter : Address)
-           (pid : ProposalId)
-           (state : State)
-  : option State :=
-  do proposal <- FMap.find pid state.(proposals);
-  do old_vote <- FMap.find voter proposal.(votes);
-  let new_votes := FMap.remove voter proposal.(votes) in
-  let new_vote_result := proposal.(vote_result) - old_vote in
-  let new_proposal :=
-      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
-  Some (state<|proposals ::= FMap.add pid new_proposal|>).
-
-Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
-  match act with
-  | cact_transfer to amt => act_transfer to amt
-  | cact_call to amt msg => act_call to amt msg
-  end.
-
-Definition do_finish_proposal
-           (pid : ProposalId)
-           (state : State)
-           (chain : Chain)
-  : option (State * list ActionBody) :=
-  do proposal <- FMap.find pid state.(proposals);
-  let rules := state.(state_rules) in
-  let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
-  let cur_slot := chain.(block_header).(slot_number) in
-  if (cur_slot <? debate_end)%nat then
-    None
-  else
-    let new_state := state<|proposals ::= FMap.remove pid|> in
-    let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
-    let total_members := Z.of_nat (FMap.size state.(members)) in
-    let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
-    let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
-    let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
-    let enough_voters := vote_count_permille >=? rules.(min_vote_count_permille) in
-    let enough_ayes := aye_permille >=? rules.(margin_needed_permille) in
-    let response_acts :=
-        if (enough_voters && enough_ayes)%bool
-        then proposal.(actions)
-        else [] in
-    let response_chain_acts := map congress_action_to_chain_action response_acts in
-    Some (new_state, response_chain_acts).
-
-Definition receive
-           (chain : Chain)
-           (ctx : ContractCallContext)
-           (state : State)
-           (maybe_msg : option Msg)
-  : option (State * list ActionBody) :=
-  let sender := ctx.(ctx_from) in
-  let is_from_owner := (sender =? state.(owner))%address in
-  let is_from_member := FMap.mem sender state.(members) in
-  let without_actions := option_map (fun new_state => (new_state, [])) in
-  match maybe_msg, is_from_owner, is_from_member with
-  | Some (transfer_ownership new_owner), true, _ =>
-        Some (state<|owner := new_owner|>, [])
-
-  | Some (change_rules new_rules), true, _ =>
-        if validate_rules new_rules then
-            Some (state<|state_rules := new_rules|>, [])
-        else
-            None
-
-  | Some (add_member new_member), true, _ =>
-        Some (state<|members ::= FMap.add new_member tt|>, [])
-
-  | Some (remove_member old_member), true, _ =>
-        Some (state<|members ::= FMap.remove old_member|>, [])
-
-  | Some (create_proposal actions), _, true =>
-        Some (add_proposal actions chain state, [])
-
-  | Some (vote_for_proposal pid), _, true =>
-        without_actions (vote_on_proposal sender pid 1 state)
-
-  | Some (vote_against_proposal pid), _, true =>
-        without_actions (vote_on_proposal sender pid (-1) state)
-
-  | Some (retract_vote pid), _, true =>
-        without_actions (do_retract_vote sender pid state)
-
-  | Some (finish_proposal pid), _, _ =>
-        do_finish_proposal pid state chain
-
-  | _, _, _ =>
-        None
-
-  end.
+Section Equivalences.
 
 Definition deserialize_rules (v : OakValue) : option Rules :=
   do '((a, b), c) <- deserialize v;
@@ -334,6 +195,153 @@ Next Obligation.
   unfold serialize_state, deserialize_state.
   destruct x; repeat (simpl; rewrite deserialize_serialize); reflexivity.
 Qed.
+
+End Equivalences.
+
+Definition version : Version := 1%nat.
+
+Definition validate_rules (rules : Rules) : bool :=
+    (rules.(min_vote_count_permille) >=? 0)
+        && (rules.(min_vote_count_permille) <=? 1000)
+        && (rules.(margin_needed_permille) >=? 0)
+        && (rules.(margin_needed_permille) <=? 1000)
+        && (0 <=? rules.(debating_period_in_blocks))%nat.
+
+Definition init
+           (chain : Chain)
+           (ctx : ContractCallContext)
+           (setup : Setup) : option State :=
+  if validate_rules setup.(setup_rules) then
+    Some {| owner := ctx.(ctx_from);
+            state_rules := setup.(setup_rules);
+            proposals := FMap.empty;
+            next_proposal_id := 1%nat;
+            members := FMap.empty |}
+  else
+    None.
+
+Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
+  let id := state.(next_proposal_id) in
+  let slot_num := chain.(block_header).(slot_number) in
+  let proposal := {| actions := actions;
+                     votes := FMap.empty;
+                     vote_result := 0;
+                     proposed_in := slot_num |} in
+  let new_proposals := FMap.add id proposal state.(proposals) in
+  state<|proposals := new_proposals|><|next_proposal_id := (id + 1)%nat|>.
+
+Definition vote_on_proposal
+           (voter : Address)
+           (pid : ProposalId)
+           (vote : Z)
+           (state : State)
+  : option State :=
+  do proposal <- FMap.find pid state.(proposals);
+  let old_vote := match FMap.find voter proposal.(votes) with
+                 | Some old => old
+                 | None => 0
+                 end in
+  let new_votes := FMap.add voter vote proposal.(votes) in
+  let new_vote_result := proposal.(vote_result) - old_vote + vote in
+  let new_proposal :=
+      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+  Some (state<|proposals ::= FMap.add pid new_proposal|>).
+
+Definition do_retract_vote
+           (voter : Address)
+           (pid : ProposalId)
+           (state : State)
+  : option State :=
+  do proposal <- FMap.find pid state.(proposals);
+  do old_vote <- FMap.find voter proposal.(votes);
+  let new_votes := FMap.remove voter proposal.(votes) in
+  let new_vote_result := proposal.(vote_result) - old_vote in
+  let new_proposal :=
+      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+  Some (state<|proposals ::= FMap.add pid new_proposal|>).
+
+Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
+  match act with
+  | cact_transfer to amt => act_transfer to amt
+  | cact_call to amt msg => act_call to amt msg
+  end.
+
+Definition proposal_passed (proposal : Proposal) (state : State) : bool :=
+  let rules := state.(state_rules) in
+  let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
+  let total_members := Z.of_nat (FMap.size state.(members)) in
+  let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
+  let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
+  let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
+  let enough_voters := vote_count_permille >=? rules.(min_vote_count_permille) in
+  let enough_ayes := aye_permille >=? rules.(margin_needed_permille) in
+  enough_voters && enough_ayes.
+
+Definition do_finish_proposal
+           (pid : ProposalId)
+           (state : State)
+           (chain : Chain)
+  : option (State * list ActionBody) :=
+  do proposal <- FMap.find pid state.(proposals);
+  let rules := state.(state_rules) in
+  let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
+  let cur_slot := chain.(block_header).(slot_number) in
+  if (cur_slot <? debate_end)%nat then
+    None
+  else
+    let response_acts :=
+        if proposal_passed proposal state
+        then proposal.(actions)
+        else [] in
+    let response_chain_acts := map congress_action_to_chain_action response_acts in
+    let new_state := state<|proposals ::= FMap.remove pid|> in
+    Some (new_state, response_chain_acts).
+
+Definition receive
+           (chain : Chain)
+           (ctx : ContractCallContext)
+           (state : State)
+           (maybe_msg : option Msg)
+  : option (State * list ActionBody) :=
+  let sender := ctx.(ctx_from) in
+  let is_from_owner := (sender =? state.(owner))%address in
+  let is_from_member := FMap.mem sender state.(members) in
+  let without_actions := option_map (fun new_state => (new_state, [])) in
+  match maybe_msg, is_from_owner, is_from_member with
+  | Some (transfer_ownership new_owner), true, _ =>
+    Some (state<|owner := new_owner|>, [])
+
+  | Some (change_rules new_rules), true, _ =>
+    if validate_rules new_rules then
+      Some (state<|state_rules := new_rules|>, [])
+    else
+      None
+
+  | Some (add_member new_member), true, _ =>
+    Some (state<|members ::= FMap.add new_member tt|>, [])
+
+  | Some (remove_member old_member), true, _ =>
+    Some (state<|members ::= FMap.remove old_member|>, [])
+
+  | Some (create_proposal actions), _, true =>
+    Some (add_proposal actions chain state, [])
+
+  | Some (vote_for_proposal pid), _, true =>
+    without_actions (vote_on_proposal sender pid 1 state)
+
+  | Some (vote_against_proposal pid), _, true =>
+    without_actions (vote_on_proposal sender pid (-1) state)
+
+  | Some (retract_vote pid), _, true =>
+    without_actions (do_retract_vote sender pid state)
+
+  | Some (finish_proposal pid), _, _ =>
+    do_finish_proposal pid state chain
+
+  | _, _, _ =>
+        None
+
+  end.
 
 Ltac solve_contract_proper :=
   repeat
