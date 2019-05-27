@@ -495,7 +495,7 @@ Proof.
   destruct (FMap.find (next_proposal_id state) (proposals state)) as [proposal|] eqn:find.
   - remember_new_proposal.
     rewrite <- (FMap.add_remove _ (next_proposal_id state) new_proposal).
-    Hint Resolve FMap.find_remove.
+    Hint Resolve FMap.find_remove : core.
     rewrite <- (FMap.add_id _ _ _ find) at 2.
     rewrite <- (FMap.add_remove _ (next_proposal_id state) proposal).
     repeat rewrite FMap.elements_add; auto.
@@ -540,7 +540,7 @@ Proof.
   rewrite <- (FMap.add_id (proposals state) pid p) at 2; auto.
   rewrite <- (FMap.add_remove _ pid p).
   rewrite <- (FMap.add_remove _ pid new_proposal).
-  Hint Resolve FMap.find_remove.
+  Hint Resolve FMap.find_remove : core.
   repeat rewrite FMap.elements_add; auto.
   subst; reflexivity.
 Qed.
@@ -793,7 +793,7 @@ Theorem congress_txs_well_behaved to contract :
   num_acts_created_in_proposals to contract.
 Proof.
   intros [trace] congress_deployed.
-  Hint Resolve contract_addr_format.
+  Hint Resolve contract_addr_format : core.
   assert (address_is_contract contract = true) as addr_format by eauto.
   remember empty_state eqn:eq.
   (* Contract cannot have been deployed in empty trace so we solve that immediately. *)

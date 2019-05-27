@@ -348,7 +348,7 @@ Section ExecuteActions.
       destruct trace as [trace].
       Hint Constructors ChainEvent : core.
       Hint Constructors ChainedList : core.
-      Hint Unfold ChainTrace.
+      Hint Unfold ChainTrace : core.
       destruct df.
       + (* depth-first case *)
         eapply IH; try eassumption; eauto.
@@ -504,7 +504,7 @@ Proof.
   refine (execute_actions_reachable _ _ _ _ _ _ exec).
   constructor.
   refine (snoc prev_lcb_trace _).
-  Hint Resolve validate_header_valid validate_actions_valid.
+  Hint Resolve validate_header_valid validate_actions_valid : core.
   eapply evt_block; eauto.
   apply add_new_block_header_equiv.
   reflexivity.

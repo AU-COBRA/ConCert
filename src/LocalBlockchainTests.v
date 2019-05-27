@@ -178,7 +178,7 @@ Section LocalBlockchainTests.
   Print Assumptions chain8.
 End LocalBlockchainTests.
 
-Hint Resolve congress_txs_after_block.
+Hint Resolve congress_txs_after_block : core.
 (* The congress satisfies a property specialized to the local blockchain DFS: *)
 Lemma congress_txs_after_local_chain_block
           (prev new : LocalChainBuilderDepthFirst) baker acts slot finalization_height :
