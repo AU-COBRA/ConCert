@@ -1603,8 +1603,9 @@ Proof.
         ** (* the only "real" case *)
           rewrite <- mkApps_vars_to_apps. f_equal.
           change (tConstruct i0 k u = T⟦ from_val_i (vConstr i n0 []) ⟧ Σ1).
-          eapply IHn;eauto.
-          (*  specialize (IHn _ _ _ _ _ Hρ_ok HT1 He1 eq_refl Hce1) as IH. *)
+          destruct a3. simpl in H. subst.
+          (* eapply IHn;eauto. *)
+           specialize (IHn _ _ _ _ _ Hρ_ok HT1 He1 eq_refl Hce1) as IH.
           (*  simpl in IH. *)
           (*  inversion H4;subst. inversion H6;subst. inversion H4;subst. *)
           (*  assert (l = []). *)
