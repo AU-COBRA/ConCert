@@ -1,18 +1,18 @@
--R src SmartContracts
-src/Automation.v
-src/Blockchain.v
-src/BoundedN.v
-src/ChainedList.v
-src/Circulation.v
-src/Congress.v
-src/Congress_Buggy.v
-src/Containers.v
-src/Extras.v
-src/Finite.v
-src/LocalBlockchain.v
-src/LocalBlockchainTests.v
-src/Monads.v
-src/Oak.v
+-R theories SmartContracts
+theories/Automation.v
+theories/Blockchain.v
+theories/BoundedN.v
+theories/ChainedList.v
+theories/Circulation.v
+theories/Congress.v
+theories/Congress_Buggy.v
+theories/Containers.v
+theories/Extras.v
+theories/Finite.v
+theories/LocalBlockchain.v
+theories/LocalBlockchainTests.v
+theories/Monads.v
+theories/Oak.v
 -R vendor/record-update RecordUpdate
 vendor/record-update/RecordSet.v
 vendor/record-update/RecordUpdate.v
