@@ -1,6 +1,5 @@
 Require Import String.
-Require Import Ast.
-Require Import EvalE.
+Require Import Ast EvalE TCTranslate.
 Require Import List.
 Import ListNotations.
 From Template Require Ast.
@@ -11,6 +10,12 @@ From Template Require Import monad_utils.
 Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
+
+
+Definition x := "x".
+Definition y := "y".
+Definition z := "z".
+
 
 Definition negb_app_true :=
     [|

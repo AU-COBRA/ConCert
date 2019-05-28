@@ -380,7 +380,7 @@ Module InterpreterEnvList.
    Proof.
      intros v. induction v using val_ind_full.
      + constructor.
-       induction l;constructor; inversion H; easy.
+       induction l. constructor. inversion H;constructor;eauto.
      + destruct cm;constructor;reflexivity.
    Defined.
 
@@ -594,6 +594,11 @@ End InterpreterEnvFun.
 Module Examples.
   Import BaseTypes.
   Import StdLib.
+
+  Definition x := "x".
+  Definition y := "y".
+  Definition z := "z".
+
 
   Definition prog1 :=
     [|

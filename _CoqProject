@@ -1,7 +1,10 @@
 ./CustomTactics.v
 ./MyEnv.v
 ./Ast.v
+./TCTranslate.v
 ./EvalE.v
 ./Demo.v
-./Facts.v
-./Correctness.v
+./PCUICTranslate.v
+./PCUICFacts.v
+# ./Facts.v
+# ./Correctness.v

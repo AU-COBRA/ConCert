@@ -1,10 +1,16 @@
 Require Import String List.
-Require Import Ast EvalE.
+Require Import Ast EvalE TCTranslate.
 
 Import ListNotations.
 
 Import BaseTypes.
 Import StdLib.
+
+
+  Definition x := "x".
+  Definition y := "y".
+  Definition z := "z".
+
 
 Definition negb_app_true :=
     [| (\x : Bool ->
