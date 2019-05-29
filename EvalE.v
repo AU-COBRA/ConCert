@@ -216,18 +216,12 @@ Module InterpreterEnvList.
       | eApp e1 e2 =>
         match (expr_eval_general n named Σ ρ e1), (expr_eval_general n named Σ ρ e2) with
         | Ok (vClos ρ' nm cmLam _ _ b), Ok v =>
-          match (expr_eval_general n named Σ (ρ' # [nm ~> v]) b) with
-          | Ok v' => Ok v'
-          | err => err
-          end
+          res <- (expr_eval_general n named Σ (ρ' # [nm ~> v]) b);;
+          ret res
         | Ok (vClos ρ' nm (cmFix fixname) ty1 ty2 b), Ok v =>
           let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
-          let res := expr_eval_general n named Σ
-                                       (ρ' # [fixname ~> v_fix] # [nm ~> v]) b in
-          match res with
-          | Ok v' => Ok v'
-          | err => err
-          end
+          res <- expr_eval_general n named Σ (ρ' # [fixname ~> v_fix] # [nm ~> v]) b;;
+          ret res
         | Ok (vConstr ind n vs), Ok v => Ok (vConstr ind n (List.app vs [v]))
         | EvalError msg, _ => EvalError msg
         | _, EvalError msg => EvalError msg
