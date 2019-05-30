@@ -310,19 +310,41 @@ Admitted.
 
 Hint Constructors WcbvEval.eval : hints.
 
-Lemma app2 t t1 t2 v Σ Γ :
-  isApp t <> true ->
+Lemma app2 t t1 t2 v Σ (Γ := []):
   Σ ;;; Γ |- tApp t [t1;t2] ⇓ v ->
   Σ ;;; Γ |- tApp (tApp t [t1]) [t2] ⇓ t.
 Proof.
-  intros Happ H.
-  eapply WcbvEval.eval_beta;eauto.
+  intros H.
+  eapply WcbvEval.eval_beta.
   * inversion H;subst;tryfalse.
-
+    ** destruct (b {0 := a'}) eqn:Hb;simpl;tryfalse.
   (* revert t1 t2 v. *)
   (* induction t using Induction.term_forall_list_ind;intros t1' t2' v He. *)
   (* + inversion He;subst. *)
 Admitted.
+
+Quote Definition nested_app := ((fun x y => y) 0 0).
+
+Definition TCNat :=
+  (tInd (mkInd "Coq.Init.Datatypes.nat" 0 ) []).
+
+Definition TCZero := tConstruct (mkInd "Coq.Init.Datatypes.nat" 0 ) 0 [].
+
+Definition nested_app' :=
+  tApp (tApp (tLambda (nNamed "x") TCNat (tLambda (nNamed "y") TCNat (tRel 0)))
+             [TCZero]) [TCZero].
+
+Lemma derive_nested_app Σ Γ :
+  Σ ;;; Γ |- nested_app' ⇓ TCZero.
+Proof.
+  eapply WcbvEval.eval_beta;eauto.
+  + eapply WcbvEval.eval_beta.
+    * repeat constructor.
+    * repeat constructor.
+    * simpl. repeat constructor.
+  + repeat constructor.
+  + simpl. constructor. reflexivity.
+Qed.
 
 (* Since [mkApps] a smart constructor, it should be semantically
    equivalent to the ordinary [tApp] *)
@@ -331,13 +353,13 @@ Lemma mkApps_sound Σ Γ e l t a:
   Σ ;;; Γ |- tApp e (a :: l) ⇓ t.
 Proof.
   revert a t l.
-  induction e using Induction.term_forall_list_ind;intros a t l1 He;auto.
-  econstructor. simpl in He.
+  (* induction e using Induction.term_forall_list_ind;intros a t l1 He;auto. *)
+  (* econstructor. simpl in He. *)
 
-  (* induction l;intros e t Hneq He;simpl in *;tryfalse;auto. *)
-  (* destruct e;simpl in *;auto. *)
-  (* inversion He;tryfalse;subst. *)
-  (* + eapply WcbvEval.eval_beta;eauto. *)
+  induction l;intros;simpl in *;tryfalse;auto.
+  destruct e;simpl in *;auto.
+  inversion H;tryfalse;subst.
+  + eapply WcbvEval.eval_beta;eauto.
 Admitted.
 
 
