@@ -541,9 +541,8 @@ Inductive ChainStep :
              (setup : OakValue)
              (state : OakValue),
       amount <= account_balance pre from ->
-      env_contracts pre to = None ->
-      incoming_txs pre to = [] ->
       address_is_contract to = true ->
+      env_contracts pre to = None ->
       act = build_act from (act_deploy amount wc setup) ->
       let tx := build_tx
                   from to amount
@@ -600,21 +599,21 @@ Context {pre : Environment} {act : Action}
 Definition step_from : Address :=
   match step with
   | step_transfer from _ _ _ _ _ _ _
-  | step_deploy from _ _ _ _ _ _ _ _ _ _ _ _ _
+  | step_deploy from _ _ _ _ _ _ _ _ _ _ _ _
   | step_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
 Definition step_to : Address :=
   match step with
   | step_transfer _ to _ _ _ _ _ _
-  | step_deploy _ to _ _ _ _ _ _ _ _ _ _ _ _
+  | step_deploy _ to _ _ _ _ _ _ _ _ _ _ _
   | step_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
 Definition step_amount : Amount :=
   match step with
   | step_transfer _ _ amount _ _ _ _ _
-  | step_deploy _ _ amount _ _ _ _ _ _ _ _ _ _ _
+  | step_deploy _ _ amount _ _ _ _ _ _ _ _ _ _
   | step_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
