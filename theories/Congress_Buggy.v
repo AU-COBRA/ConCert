@@ -476,8 +476,8 @@ Section Theories.
     do chain <- builder_add_block chain baker acts (next_num chain) 0;
     Some (congress, chain).
 
-  Definition final :=
-    (unpack_option exploit_example) <: (@Address LocalChainBase) * LocalChainBuilderDepthFirst.
+  Definition unpacked_exploit_example : Address * LocalChainBuilderDepthFirst :=
+    unpack_option exploit_example.
 
   (* Now we prove that this version of the contract is buggy, i.e. it does not satisfy the
      property we proved for the other version of the Congress. We filter out transactions
@@ -489,10 +489,10 @@ Section Theories.
       length (filter (fun tx => negb (tx_to tx =? addr)%address) (outgoing_txs state addr)) >
       num_acts_created_in_proposals state addr.
   Proof.
-    exists (build_chain_state (snd final) []).
-    exists (fst final).
+    exists (build_chain_state (snd unpacked_exploit_example) []).
+    exists (fst unpacked_exploit_example).
     split; [|split].
-    - destruct (snd final); auto.
+    - destruct (snd unpacked_exploit_example); auto.
     - reflexivity.
     - vm_compute.
       lia.
