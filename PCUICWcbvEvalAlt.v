@@ -28,11 +28,34 @@ Existing Instance default_checker_flags.
   | vpRel : nat -> value
   | vpEvar : nat -> list term -> value
   | vpLambda : name -> term -> term -> value
+  | vpFix : mfixpoint term -> nat -> value
   | vpProd : name -> term -> term -> value
-  | vpInd : inductive -> universe_instance -> value
+  | vpInd : inductive -> universe_instance -> list value -> value
   | vpConstruct : inductive -> nat -> universe_instance -> list value -> value.
 
+
+  Fixpoint value_to_term (v : value): term :=
+    match v with
+    | vpRel i => tRel i
+    | vpEvar x x0 => tEvar x x0
+    | vpLambda x x0 x1 => tLambda x x0 x1
+    | vpFix mfix n => tFix mfix n
+    | vpProd x x0 x1 => tProd x x0 x1
+    | vpInd ind u vs => mkApps (tInd ind u) (map value_to_term vs)
+    | vpConstruct ind n u vs => mkApps (tConstruct ind n u) (map value_to_term vs)
+    end.
+
+  Notation "'terms' ts" := (map value_to_term ts) (at level 50).
+
+  Definition is_vcontructor (v : value):=
+    match v with
+    | vpConstruct _ _ _ _ => true
+    | _ => false
+    end.
+
 Section Wcbv.
+
+  Open Scope list.
   Context (Σ : global_declarations) (Γ : context).
   (* The local context is fixed: we are only doing weak reductions *)
 
@@ -42,13 +65,13 @@ Section Wcbv.
   | eval_beta f na t b a a' res :
       eval f (vpLambda na t b) ->
       eval a a' ->
-      eval (subst10 a' b) res ->
+      eval (subst10 (value_to_term a') b) res ->
       eval (tApp f a) res
 
   (** Let *)
   | eval_zeta na b0 b0' t b1 res :
       eval b0 b0' ->
-      eval (subst10 b0' b1) res ->
+      eval (subst10 (value_to_term b0') b1) res ->
       eval (tLetIn na b0 t b1) res
 
   (** Local variables: defined or undefined *)
@@ -59,21 +82,23 @@ Section Wcbv.
 
   | eval_rel_undef i (isdecl : i < List.length Γ) :
       (safe_nth Γ (exist _ i isdecl)).(decl_body) = None ->
-      eval (tRel i) (tRel i)
+      eval (tRel i) (vpRel i)
 
   (** Case *)
   | eval_iota ind pars discr c u args p brs res :
-      eval discr (mkApps (tConstruct ind c u) args) ->
-      eval (iota_red pars c args brs) res ->
+      eval discr (vpConstruct ind c u args) ->
+      eval (iota_red pars c (terms args) brs) res ->
       eval (tCase (ind, pars) p discr brs) res
-
   (** Fix unfolding, with guard *)
-  | eval_fix mfix idx args args' narg fn res :
-      unfold_fix mfix idx = Some (narg, fn) ->
-      Forall2 eval args args' -> (* FIXME should we reduce the args after the recursive arg here? *)
-      is_constructor narg args' = true ->
-      eval (mkApps fn args') res ->
-      eval (mkApps (tFix mfix idx) args) res
+  (* assuming that the fixpoint is defined by recursion of the first arg *)
+
+  | eval_fix idx mfix f fn b a v res :
+      eval f (vpFix mfix idx) ->
+      unfold_fix mfix idx = Some (0, fn) ->
+      eval a v ->
+      is_vcontructor v = true ->
+      eval (subst10 (value_to_term v) b) res ->
+      eval (tApp f a) res
 
   (** Constant unfolding *)
   | eval_delta c decl body (isdecl : declared_constant Σ c decl) u res :
@@ -82,23 +107,26 @@ Section Wcbv.
       eval (tConst c u) res
 
   (** Proj *)
-  | eval_proj i pars arg discr args k u res :
-      eval discr (mkApps (tConstruct i k u) args) ->
-      eval (List.nth (pars + arg) args tDummy) res ->
-      eval (tProj (i, pars, arg) discr) res
+  (* Not sure about this *)
+  (* | eval_proj i pars arg discr args k u res : *)
+  (*     eval discr (vpConstruct i k u args) -> *)
+  (*     eval (List.nth (pars + arg) args tDummy) res -> *)
+  (*     eval (tProj (i, pars, arg) discr) res *)
 
   (* TODO CoFix *)
-  | eval_abs na M N : eval (tLambda na M N) (tLambda na M N)
+  | eval_abs na M N : eval (tLambda na M N) (vpLambda na M N)
 
-  | eval_prod na b t b' t' :
-      eval b b' -> eval t t' -> eval (tProd na b t) (tProd na b' t')
+  | eval_prod na b t :
+      eval (tProd na b t) (vpProd na b t)
 
-  | eval_app_ind t i u a a' :
-      eval t (tInd i u) ->
-      Forall2 eval a a' ->
-      eval (mkApps t a) (mkApps (tInd i u) a')
+  | eval_app_ind t i u a v l :
+      eval t (vpInd i u l) ->
+      eval a v ->
+      eval (tApp t a) (vpInd i u (l ++ [v]))
 
-  | eval_app_constr f i k u a a' :
-      eval f (tConstruct i k u) ->
-      Forall2 eval a a' ->
-      eval (mkApps f a) (mkApps (tConstruct i k u) a').
+  | eval_app_constr t i k u a v l :
+      eval t (vpConstruct i u k l) ->
+      eval a v ->
+      eval (tApp t a) (vpConstruct i u k (l ++ [v])).
+
+End Wcbv.

@@ -347,7 +347,7 @@ Module InterpreterEnvList.
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
      in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
-   end.
+    end.
 
   (* The similar notation will be used when we change to a parallel substitution *)
   Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
