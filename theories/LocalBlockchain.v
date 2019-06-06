@@ -35,25 +35,20 @@ Global Instance LocalChainBase : ChainBase :=
 Record LocalChain :=
   build_local_chain {
     lc_header : BlockHeader;
-    lc_incoming_txs : FMap Address (list Tx);
-    lc_outgoing_txs : FMap Address (list Tx);
+    lc_account_balances : FMap Address Amount;
     lc_contract_state : FMap Address OakValue;
-    lc_blocks_baked : FMap Address (list nat);
     lc_contracts : FMap Address WeakContract;
   }.
 
 Instance local_chain_settable : Settable _ :=
   settable! build_local_chain
-  < lc_header; lc_incoming_txs; lc_outgoing_txs;
-    lc_contract_state; lc_blocks_baked; lc_contracts >.
+  <lc_header; lc_account_balances; lc_contract_state; lc_contracts>.
 
 Definition lc_to_env (lc : LocalChain) : Environment :=
   {| env_chain :=
         {| block_header := lc_header lc;
-          incoming_txs a := with_default [] (FMap.find a (lc_incoming_txs lc));
-          outgoing_txs a := with_default [] (FMap.find a (lc_outgoing_txs lc));
-          contract_state a := FMap.find a (lc_contract_state lc);
-          blocks_baked a := with_default [] (FMap.find a (lc_blocks_baked lc)); |};
+           account_balance a := with_default 0%Z (FMap.find a (lc_account_balances lc));
+           contract_state a := FMap.find a (lc_contract_state lc); |};
       env_contracts a := FMap.find a (lc_contracts lc); |}.
 
 Global Coercion lc_to_env : LocalChain >-> Environment.
@@ -61,13 +56,14 @@ Global Coercion lc_to_env : LocalChain >-> Environment.
 Section ExecuteActions.
   Local Open Scope Z.
 
-  Definition add_tx (tx : Tx) (lc : LocalChain) : LocalChain :=
-    let add_tx opt := Some (cons tx (with_default [] opt)) in
-    let lc := lc<|lc_incoming_txs ::= FMap.partial_alter add_tx (tx_to tx) |> in
-    let lc := lc<|lc_outgoing_txs ::= FMap.partial_alter add_tx (tx_from tx) |> in
+  Definition add_balance (addr : Address) (amt : Amount) (lc : LocalChain) : LocalChain :=
+    let update opt := Some (amt + with_default 0 opt) in
+    let lc := lc<|lc_account_balances ::= FMap.partial_alter update addr|> in
     lc.
 
-  Arguments add_tx : simpl never.
+  Definition transfer_balance
+            (from to : Address) (amount : Amount) (lc : LocalChain) : LocalChain :=
+    add_balance to amount (add_balance from (-amount) lc).
 
   Definition get_new_contract_addr (lc : LocalChain) : option Address :=
     BoundedN.of_N (ContractAddrBase + N.of_nat (FMap.size (lc_contracts lc))).
@@ -95,17 +91,12 @@ Section ExecuteActions.
       (* Fail if sending a message to address without contract *)
       do if address_is_contract to then None else Some tt;
       match msg with
-        | None => Some ([], add_tx (build_tx from to amount tx_empty) lc)
+        | None => Some ([], transfer_balance from to amount lc)
         | Some msg => None
       end
     | Some wc =>
-      let tx_body :=
-          match msg with
-          | None => tx_empty
-          | Some msg => tx_call msg
-          end in
       do state <- contract_state lc to;
-      let lc := add_tx (build_tx from to amount tx_body) lc in
+      let lc := transfer_balance from to amount lc in
       let ctx := build_ctx from to amount in
       do '(new_state, new_actions) <- wc_receive wc  lc ctx state msg;
       let lc := set_contract_state to new_state lc in
@@ -121,16 +112,11 @@ Section ExecuteActions.
     : option (list Action * LocalChain) :=
     do if amount >? account_balance lc from then None else Some tt;
     do contract_addr <- get_new_contract_addr lc;
-    do match incoming_txs lc contract_addr with
-       | _ :: _ => None
-       | [] => Some tt
-       end;
     do match FMap.find contract_addr (lc_contracts lc) with
        | Some _ => None
        | None => Some tt
        end;
-    let body := tx_deploy (build_contract_deployment (wc_version wc) setup) in
-    let lc := add_tx (build_tx from contract_addr amount body) lc in
+    let lc := transfer_balance from contract_addr amount lc in
     let ctx := build_ctx from contract_addr amount in
     do state <- wc_init wc lc ctx setup;
     let lc := add_contract contract_addr wc lc in
@@ -167,32 +153,24 @@ Section ExecuteActions.
       execute_actions count acts lc depth_first
     end.
 
-  Ltac remember_tx :=
-    match goal with
-    | [H: context[add_tx ?a _] |- _] => remember a as tx
-    end.
-
-  Lemma add_tx_equiv tx (lc : LocalChain) (env : Environment) :
+  Lemma transfer_balance_equiv from to amount (lc : LocalChain) (env : Environment) :
     EnvironmentEquiv lc env ->
-    EnvironmentEquiv (add_tx tx lc) (Blockchain.add_tx tx env).
+    EnvironmentEquiv
+      (transfer_balance from to amount lc)
+      (Blockchain.transfer_balance from to amount env).
   Proof.
-    intros eq.
-    apply build_env_equiv; simpl in *; try apply eq.
-    apply build_chain_equiv; simpl in *; try apply eq.
-    - intros addr.
-      unfold add_tx_to_map.
-      destruct (address_eqb_spec addr (tx_to tx)) as [eq_to|neq_to].
-      + subst; rewrite FMap.find_partial_alter; simpl.
-        f_equal; apply eq.
-      + rewrite (FMap.find_partial_alter_ne _ _ _ _ (not_eq_sym neq_to)).
-        apply eq.
-    - intros addr.
-      unfold add_tx_to_map.
-      destruct (address_eqb_spec addr (tx_from tx)) as [eq_from|neq_from].
-      + subst; rewrite FMap.find_partial_alter; simpl.
-        f_equal; apply eq.
-      + rewrite (FMap.find_partial_alter_ne _ _ _ _ (not_eq_sym neq_from)).
-        apply eq.
+    intros <-.
+    apply build_env_equiv; auto.
+    apply build_chain_equiv; auto.
+    cbn.
+    unfold Blockchain.add_balance.
+    intros addr.
+    unfold Amount in *.
+    destruct_address_eq; subst;
+      repeat
+        (try rewrite FMap.find_partial_alter;
+         try rewrite FMap.find_partial_alter_ne by auto;
+         cbn); lia.
   Qed.
 
   Lemma set_contract_state_equiv addr state (lc : LocalChain) (env : Environment) :
@@ -201,14 +179,15 @@ Section ExecuteActions.
       (set_contract_state addr state lc)
       (Blockchain.set_contract_state addr state env).
   Proof.
-    intros eq.
-    apply build_env_equiv; simpl in *; try apply eq.
-    apply build_chain_equiv; simpl in *; try apply eq.
+    intros <-.
+    apply build_env_equiv; auto.
+    apply build_chain_equiv; auto.
     intros addr'.
+    cbn.
     unfold set_chain_contract_state.
-    destruct (address_eqb_spec addr' addr) as [eq_addrs|neq_addrs].
-    - subst; now rewrite FMap.find_add.
-    - rewrite FMap.find_add_ne; [apply eq|auto].
+    destruct_address_eq.
+    - subst. now rewrite FMap.find_add.
+    - rewrite FMap.find_add_ne; auto.
   Qed.
 
   Lemma add_contract_equiv addr wc (lc : LocalChain) (env : Environment) :
@@ -217,12 +196,25 @@ Section ExecuteActions.
       (add_contract addr wc lc)
       (Blockchain.add_contract addr wc env).
   Proof.
-    intros eq.
-    apply build_env_equiv; simpl in *; try apply eq.
-    intros addr'.
-    destruct (address_eqb_spec addr' addr) as [eq_addrs|neq_addrs].
-    - subst; now rewrite FMap.find_add.
-    - rewrite FMap.find_add_ne; [apply eq|auto].
+    intros <-.
+    apply build_env_equiv; auto.
+    - apply build_chain_equiv; auto.
+    - intros addr'.
+      cbn.
+      destruct_address_eq.
+      + subst. now rewrite FMap.find_add.
+      + rewrite FMap.find_add_ne; auto.
+  Qed.
+
+  Local Open Scope Z.
+  Lemma gtb_le x y :
+    x >? y = false ->
+    x <= y.
+  Proof.
+    intros H.
+    rewrite Z.gtb_ltb in H.
+    apply Z.ltb_ge.
+    auto.
   Qed.
 
   Lemma send_or_call_step from to amount msg act lc_before new_acts lc_after :
@@ -231,22 +223,11 @@ Section ExecuteActions.
                           | None => act_transfer to amount
                           | Some msg => act_call to amount msg
                           end) ->
-    inhabited (ChainStep lc_before act lc_after new_acts).
+    ChainStep lc_before act lc_after new_acts.
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
-    (* Make goals a little more manageable by factoring intermediate envs *)
-    repeat
-    match goal with
-    | [H: context[add_tx ?tx ?env] |- _] =>
-      match type of H with
-      | _ = add_tx tx env => fail 1
-      | _ =>
-        let name := fresh "with_tx" in
-        remember (add_tx tx env) as name
-      end
-    end.
-    destruct (Z.gtb_spec amount (account_balance lc_before from));
+    destruct (Z.gtb amount (account_balance lc_before from)) eqn:balance_enough;
       [cbn in *; congruence|].
     destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
     - (* there is a contract at destination, so do call *)
@@ -258,24 +239,22 @@ Section ExecuteActions.
       match goal with
       | [p: OakValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
       end.
-      constructor.
+      Hint Resolve gtb_le : core.
       apply (step_call from to amount wc msg prev_state new_state resp_acts);
-        try solve [cbn in *; congruence].
+        try solve [cbn in *; auto; congruence].
       + rewrite <- receive.
         apply wc_receive_proper; auto.
-        subst with_tx.
         symmetry.
-        now apply add_tx_equiv.
+        now apply transfer_balance_equiv.
       + inversion sent; subst;
-          now apply set_contract_state_equiv, add_tx_equiv.
+          now apply set_contract_state_equiv, transfer_balance_equiv.
     - (* no contract at destination, so msg should be empty *)
       destruct (address_is_contract to) eqn:addr_format; simpl in *; try congruence.
       destruct msg; simpl in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
-      constructor.
       apply (step_transfer from to amount); auto.
-      inversion sent; subst; now apply add_tx_equiv.
-  Qed.
+      inversion sent; subst; now apply transfer_balance_equiv.
+  Defined.
 
   Lemma get_new_contract_addr_is_contract_addr lc addr :
     get_new_contract_addr lc = Some addr ->
@@ -285,7 +264,7 @@ Section ExecuteActions.
     unfold get_new_contract_addr in get.
     pose proof (BoundedN.of_N_some get) as eq.
     destruct addr as [addr prf].
-    simpl in *; rewrite eq.
+    cbn in *; rewrite eq.
     match goal with
     | [|- context[N.leb ?a ?b = true]] => destruct (N.leb_spec a b); auto; lia
     end.
@@ -294,28 +273,27 @@ Section ExecuteActions.
   Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
     deploy_contract from amount wc setup lc_before = Some (new_acts, lc_after) ->
     act = build_act from (act_deploy amount wc setup) ->
-    inhabited (ChainStep lc_before act lc_after new_acts).
+    ChainStep lc_before act lc_after new_acts.
   Proof.
     intros dep act_eq.
     unfold deploy_contract in dep.
-    destruct (Z.gtb_spec amount (account_balance lc_before from)); [cbn in *; congruence|].
+    destruct (Z.gtb amount (account_balance lc_before from)) eqn:balance_enough;
+      [cbn in *; congruence|].
     destruct (get_new_contract_addr lc_before) as [contract_addr|] eqn:new_contract_addr;
       [|cbn in *; congruence].
     cbn -[incoming_txs] in dep.
-    destruct (incoming_txs _ _) eqn:no_txs; [|cbn in *; congruence].
     destruct (FMap.find _ _) eqn:no_contracts; [cbn in *; congruence|].
     destruct (wc_init _ _ _ _) as [state|] eqn:recv; [|cbn in *; congruence].
     cbn in dep.
     assert (new_acts = []) by congruence; subst new_acts.
     Hint Resolve get_new_contract_addr_is_contract_addr : core.
-    constructor.
     apply (step_deploy from contract_addr amount wc setup state); eauto.
     - rewrite <- recv.
       apply wc_init_proper; auto.
-      now symmetry; apply add_tx_equiv.
+      now symmetry; apply transfer_balance_equiv.
     - inversion dep; subst lc_after.
-      now apply set_contract_state_equiv, add_contract_equiv, add_tx_equiv.
-  Qed.
+      now apply set_contract_state_equiv, add_contract_equiv, transfer_balance_equiv.
+  Defined.
 
   Lemma execute_action_step
         (act : Action)
@@ -323,42 +301,40 @@ Section ExecuteActions.
         (lc_before : LocalChain)
         (lc_after : LocalChain) :
     execute_action act lc_before = Some (new_acts, lc_after) ->
-    inhabited (ChainStep lc_before act lc_after new_acts).
+    ChainStep lc_before act lc_after new_acts.
   Proof.
     intros exec.
     unfold execute_action in exec.
     destruct act as [from body].
     Hint Resolve send_or_call_step deploy_contract_step : core.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
-  Qed.
+  Defined.
 
-  Lemma execute_actions_reachable count acts (lc lc_final : LocalChain) df :
-    reachable (build_chain_state lc acts) ->
+  Lemma execute_actions_trace count acts (lc lc_final : LocalChain) df
+        (trace : ChainTrace empty_state (build_chain_state lc acts)) :
     execute_actions count acts lc df = Some lc_final ->
-    reachable (build_chain_state lc_final []).
+    ChainTrace empty_state (build_chain_state lc_final []).
   Proof.
-    unfold reachable.
-    revert acts lc lc_final.
+    revert acts lc lc_final trace.
     induction count as [| count IH]; intros acts lc lc_final trace exec; cbn in *.
     - destruct acts; congruence.
     - destruct acts as [|x xs]; try congruence.
       destruct (execute_action x lc) as [[new_acts lc_after]|] eqn:exec_once;
         cbn in *; try congruence.
-      destruct (execute_action_step _ _ _ _ exec_once) as [step].
-      destruct trace as [trace].
+      set (step := execute_action_step _ _ _ _ exec_once).
       Hint Constructors ChainEvent : core.
       Hint Constructors ChainedList : core.
       Hint Unfold ChainTrace : core.
+      refine (IH _ _ _ _ exec).
       destruct df.
       + (* depth-first case *)
-        eapply IH; try eassumption; eauto.
+        eauto.
       + (* breadth-first case. Insert permute event. *)
-        eapply IH; try eassumption.
         assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
         cut (ChainTrace
               empty_state
               (build_chain_state lc_after (new_acts ++ xs))); eauto.
-  Qed.
+  Defined.
 End ExecuteActions.
 
 Definition lc_initial : LocalChain :=
@@ -366,25 +342,18 @@ Definition lc_initial : LocalChain :=
        {| block_height := 0;
           slot_number := 0;
           finalized_height := 0; |};
-     lc_incoming_txs := FMap.empty;
-     lc_outgoing_txs := FMap.empty;
+     lc_account_balances := FMap.empty;
      lc_contract_state := FMap.empty;
-     lc_blocks_baked := FMap.empty;
      lc_contracts := FMap.empty; |}.
 
 Record LocalChainBuilder :=
   build_local_chain_builder {
     lcb_lc : LocalChain;
-    lcb_reachable : reachable (build_chain_state lcb_lc []);
+    lcb_trace : ChainTrace empty_state (build_chain_state lcb_lc []);
   }.
 
-Definition lcb_initial : LocalChainBuilder.
-Proof.
-  refine
-    {| lcb_lc := lc_initial; lcb_reachable := _ |}.
-  constructor.
-  exact clnil.
-Defined.
+Definition lcb_initial : LocalChainBuilder :=
+  {| lcb_lc := lc_initial; lcb_trace := clnil |}.
 
 Definition validate_header (new old : BlockHeader) : option unit :=
   let (prev_block_height, prev_slot_number, prev_finalized_height) := old in
@@ -434,30 +403,28 @@ Proof.
   auto.
 Qed.
 
-Definition add_new_block_header
+Definition add_new_block
            (header : BlockHeader)
            (baker : Address)
            (lc : LocalChain) : LocalChain :=
-  let add_block o :=
-      Some ((block_height header) :: (with_default [] o)) in
-  let lc := lc<|lc_blocks_baked ::= FMap.partial_alter add_block baker|> in
+  let lc := add_balance baker (compute_block_reward (block_height header)) lc in
   let lc := lc<|lc_header := header|> in
   lc.
 
-Lemma add_new_block_header_equiv header baker (lc : LocalChain) (env : Environment) :
+Lemma add_new_block_equiv header baker (lc : LocalChain) (env : Environment) :
   EnvironmentEquiv lc env ->
   EnvironmentEquiv
-    (add_new_block_header header baker lc)
-    (Blockchain.add_new_block_header header baker env).
+    (add_new_block header baker lc)
+    (Blockchain.add_new_block header baker env).
 Proof.
   intros eq.
   apply build_env_equiv; try apply eq.
   apply build_chain_equiv; try apply eq; auto.
   intros addr.
   cbn.
-  destruct (address_eqb_spec addr baker) as [addrs_eq|addrs_neq].
-  - subst.
-    rewrite FMap.find_partial_alter.
+  unfold Blockchain.add_balance.
+  destruct_address_eq.
+  - subst. rewrite FMap.find_partial_alter.
     cbn.
     f_equal.
     apply eq.
@@ -486,7 +453,7 @@ Proof.
                 finalized_height := finalized_height; |} in
          do validate_header new_header (lc_header lc);
          do validate_actions actions;
-         let lc := add_new_block_header new_header baker lc in
+         let lc := add_new_block new_header baker lc in
          execute_actions 1000 actions lc depth_first in
       _).
 
@@ -497,16 +464,14 @@ Proof.
   destruct (validate_actions _) eqn:validate_actions; [|simpl in *; congruence].
   destruct_units.
   destruct lcb as [prev_lc_end prev_lcb_trace].
-  refine (Some {| lcb_lc := lc; lcb_reachable := _ |}).
+  refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
   cbn -[execute_actions] in exec.
-  destruct prev_lcb_trace as [prev_lcb_trace].
 
-  refine (execute_actions_reachable _ _ _ _ _ _ exec).
-  constructor.
+  refine (execute_actions_trace _ _ _ _ _ _ exec).
   refine (snoc prev_lcb_trace _).
   Hint Resolve validate_header_valid validate_actions_valid : core.
   eapply evt_block; eauto.
-  apply add_new_block_header_equiv.
+  apply add_new_block_equiv.
   reflexivity.
 Defined.
 
@@ -515,12 +480,12 @@ Global Instance LocalChainBuilderDepthFirst : ChainBuilderType :=
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block true;
-     builder_reachable := lcb_reachable; |}.
+     builder_trace := lcb_trace; |}.
 
 Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block false;
-     builder_reachable := lcb_reachable; |}.
+     builder_trace := lcb_trace; |}.
 End LocalBlockchain.

@@ -64,25 +64,6 @@ Lemma address_eq_ne x y :
   address_eqb x y = false.
 Proof. destruct_address_eq; auto; congruence. Qed.
 
-Record ContractDeployment :=
-  build_contract_deployment {
-    deployment_version : Version;
-    deployment_setup : OakValue;
-  }.
-
-Inductive TxBody :=
-  | tx_empty
-  | tx_deploy (deployment : ContractDeployment)
-  | tx_call (message : OakValue).
-
-Record Tx :=
-  build_tx {
-    tx_from : Address;
-    tx_to : Address;
-    tx_amount : Amount;
-    tx_body : TxBody;
-  }.
-
 Record BlockHeader :=
   build_block_header {
     block_height : nat;
@@ -95,9 +76,7 @@ can access and interact with. *)
 Record Chain :=
   build_chain {
     block_header : BlockHeader;
-    incoming_txs : Address -> list Tx;
-    outgoing_txs : Address -> list Tx;
-    blocks_baked : Address -> list nat;
+    account_balance : Address -> Amount;
     contract_state : Address -> option OakValue;
   }.
 
@@ -107,68 +86,24 @@ This equivalence is equality if funext is assumed. *)
 Record ChainEquiv (c1 c2 : Chain) : Prop :=
   build_chain_equiv {
     header_eq : block_header c1 = block_header c2;
-    incoming_txs_eq : forall addr, incoming_txs c1 addr = incoming_txs c2 addr;
-    outgoing_txs_eq : forall addr, outgoing_txs c1 addr = outgoing_txs c2 addr;
-    blocks_baked_eq : forall addr, blocks_baked c1 addr = blocks_baked c2 addr;
+    account_balance_eq : forall addr, account_balance c1 addr = account_balance c2 addr;
     contract_state_eq : forall addr, contract_state c1 addr = contract_state c2 addr;
   }.
 
 Global Program Instance chain_equiv_equivalence : Equivalence ChainEquiv.
-Next Obligation.
-  repeat intro; apply build_chain_equiv; reflexivity.
-Qed.
-Next Obligation.
-  intros x y []; apply build_chain_equiv; congruence.
-Qed.
-Next Obligation.
-  intros x y z [] []; apply build_chain_equiv; congruence.
-Qed.
-
-Section Accessors.
-Local Open Scope Z.
-
-Definition account_balance (chain : Chain) (addr : Address) : Amount :=
-  let sum_amounts txs := sumZ tx_amount txs in
-  sum_amounts (incoming_txs chain addr) - sum_amounts (outgoing_txs chain addr) +
-  sumZ compute_block_reward (blocks_baked chain addr).
-
-Definition contract_deployment (chain : Chain) (addr : Address)
-  : option ContractDeployment :=
-  let to_dep tx := match tx.(tx_body) with
-                  | tx_deploy dep => Some dep
-                  | _ => None
-                  end in
-  find_first to_dep (incoming_txs chain addr).
-End Accessors.
-
-Section Theories.
-Ltac rewrite_chain_equiv :=
-  match goal with
-  | [H: ChainEquiv _ _ |- _] => rewrite H
-  end.
+Next Obligation. repeat intro; apply build_chain_equiv; reflexivity. Qed.
+Next Obligation. intros x y []; apply build_chain_equiv; congruence. Qed.
+Next Obligation. intros x y z [] []; apply build_chain_equiv; congruence. Qed.
 
 Global Instance chain_equiv_header_proper :
   Proper (ChainEquiv ==> eq) block_header.
 Proof. repeat intro; auto using header_eq. Qed.
-Global Instance chain_equiv_incoming_txs_proper :
-  Proper (ChainEquiv ==> eq ==> eq) incoming_txs.
-Proof. repeat intro; subst; auto using incoming_txs_eq. Qed.
-Global Instance chain_equiv_outgoing_txs_proper :
-  Proper (ChainEquiv ==> eq ==> eq) outgoing_txs.
-Proof. repeat intro; subst; auto using outgoing_txs_eq. Qed.
-Global Instance chain_equiv_blocks_backes_proper :
-  Proper (ChainEquiv ==> eq ==> eq) blocks_baked.
-Proof. repeat intro; subst; auto using blocks_baked_eq. Qed.
+Global Instance chain_equiv_account_balance_proper :
+  Proper (ChainEquiv ==> eq ==> eq) account_balance.
+Proof. repeat intro; subst; auto using account_balance_eq. Qed.
 Global Instance chain_equiv_contract_state_proper :
   Proper (ChainEquiv ==> eq ==> eq) contract_state.
 Proof. repeat intro; subst; auto using contract_state_eq. Qed.
-Global Instance chain_equiv_account_balance_proper :
-  Proper (ChainEquiv ==> eq ==> eq) account_balance.
-Proof. repeat intro; subst; unfold account_balance; now rewrite_chain_equiv. Qed.
-Global Instance chain_equiv_contract_deployment :
-  Proper (ChainEquiv ==> eq ==> eq) contract_deployment.
-Proof. repeat intro; subst; unfold contract_deployment; now rewrite_chain_equiv. Qed.
-End Theories.
 
 Record ContractCallContext :=
   build_ctx {
@@ -351,58 +286,41 @@ Definition create_deployment
 (* The contract interface is the main mechanism allowing a deployed
 contract to interact with another deployed contract. This hides
 the ugly details of everything being OakValue away from contracts. *)
-Record ContractInterface {Setup Msg State : Type} :=
+Record ContractInterface {Msg State : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
     contract_address : Address;
-    (* Version of the contract *)
-    contract_version : Version;
-    (* The setup that was passed when the contract was deployed *)
-    contract_setup : Setup;
     (* Obtain the state at some point of time *)
     get_state : Chain -> option State;
-    (* Make an action transferring money to the contract without
-      a message *)
-    transfer : Amount -> ActionBody;
-    (* Make an action calling the contract *)
-    call : Amount -> Msg -> ActionBody;
+    (* Make an action sending money and optionally a message to the contract *)
+    send : Amount -> option Msg -> ActionBody;
   }.
 
-Arguments ContractInterface _ _ _ : clear implicits.
+Arguments ContractInterface _ _ : clear implicits.
 
 Definition get_contract_interface
           (chain : Chain)
           (addr : Address)
-          (Setup Msg State : Type)
-          `{OakTypeEquivalence Setup}
+          (Msg State : Type)
           `{OakTypeEquivalence Msg}
           `{OakTypeEquivalence State}
-  : option (ContractInterface Setup Msg State) :=
-  do 'build_contract_deployment ver ov_setup <- contract_deployment chain addr;
-  do setup <- deserialize ov_setup;
+  : option (ContractInterface Msg State) :=
   let ifc_get_state chain := contract_state chain addr >>= deserialize in
-  let ifc_transfer := act_transfer addr in
-  let ifc_call amount msg := act_call addr amount (serialize msg) in
-  Some {| contract_address := addr;
-          contract_version := ver;
-          contract_setup := setup;
-          get_state := ifc_get_state;
-          transfer := ifc_transfer;
-          call := ifc_call; |}.
+  let ifc_send amount msg :=
+      match msg with
+      | None => act_transfer addr amount
+      | Some msg => act_call addr amount (serialize msg)
+      end in
+  Some {| contract_address := addr; get_state := ifc_get_state; send := ifc_send; |}.
 
 Section Semantics.
 Instance chain_settable : Settable _ :=
-  settable! build_chain
-  < block_header;
-    incoming_txs;
-    outgoing_txs;
-    blocks_baked;
-    contract_state >.
+  settable! build_chain <block_header; account_balance; contract_state>.
 
-Definition add_tx_to_map (addr : Address) (tx : Tx) (map : Address -> list Tx)
-  : Address -> list Tx :=
-  fun a => if address_eqb a addr
-           then tx :: map a
+Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amount) :
+  Address -> Amount :=
+  fun a => if (a =? addr)%address
+           then (amount + map a)%Z
            else map a.
 
 Definition set_chain_contract_state
@@ -424,11 +342,6 @@ Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
     chain_equiv : ChainEquiv e1 e2;
     contracts_eq : forall a, env_contracts e1 a = env_contracts e2 a;
   }.
-
-Ltac rewrite_environment_equiv :=
-  match goal with
-  | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
-  end.
 
 Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.
 Next Obligation.
@@ -459,16 +372,15 @@ Definition update_chain (upd : Chain -> Chain) (e : Environment)
   let chain := upd chain in
   e <|env_chain := chain|>.
 
-Definition add_tx (tx : Tx) :=
-  update_chain (fun c =>
-                  c <|incoming_txs ::= add_tx_to_map (tx_to tx) tx|>
-                    <|outgoing_txs ::= add_tx_to_map (tx_from tx) tx|>).
+Definition transfer_balance (from to : Address) (amount : Amount) :=
+  update_chain (fun c => c<|account_balance ::= add_balance to amount|>
+                          <|account_balance ::= add_balance from (-amount)|>).
 
 Definition add_contract (addr : Address) (contract : WeakContract) (e : Environment)
   : Environment :=
   e <| env_contracts ::=
     fun f a =>
-      if address_eqb a addr
+      if (a =? addr)%address
       then Some contract
       else f a |>.
 
@@ -476,7 +388,11 @@ Definition set_contract_state (addr : Address) (state : OakValue) :=
   update_chain
     (fun c => c <|contract_state ::= set_chain_contract_state addr state|>).
 
-Section Theories.
+Ltac rewrite_environment_equiv :=
+  match goal with
+  | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
+  end.
+
 Ltac solve_proper :=
   apply build_env_equiv;
   [apply build_chain_equiv|];
@@ -485,11 +401,11 @@ Ltac solve_proper :=
   repeat rewrite_environment_equiv;
   auto.
 
-Global Instance add_tx_proper :
-  Proper (eq ==> EnvironmentEquiv ==> EnvironmentEquiv) add_tx.
+Global Instance transfer_balance_proper :
+  Proper (eq ==> eq ==> eq ==> EnvironmentEquiv ==> EnvironmentEquiv) transfer_balance.
 Proof.
   repeat intro; subst.
-  unfold add_tx, add_tx_to_map.
+  unfold transfer_balance, add_balance.
   solve_proper.
 Qed.
 
@@ -508,7 +424,6 @@ Proof.
   unfold set_contract_state, update_chain, set_chain_contract_state.
   solve_proper.
 Qed.
-End Theories.
 
 Section Step.
 Local Open Scope Z.
@@ -528,8 +443,7 @@ Inductive ChainStep :
         amount <= account_balance pre from ->
         address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
-        let tx := build_tx from to amount tx_empty in
-        EnvironmentEquiv new_env (add_tx tx pre) ->
+        EnvironmentEquiv new_env (transfer_balance from to amount pre) ->
         ChainStep pre act new_env []
   | step_deploy :
       forall {pre : Environment}
@@ -544,17 +458,14 @@ Inductive ChainStep :
       address_is_contract to = true ->
       env_contracts pre to = None ->
       act = build_act from (act_deploy amount wc setup) ->
-      let tx := build_tx
-                  from to amount
-                  (tx_deploy (build_contract_deployment (wc_version wc) setup)) in
       wc_init
         wc
-        (add_tx tx pre)
+        (transfer_balance from to amount pre)
         (build_ctx from to amount)
         setup = Some state ->
       EnvironmentEquiv
         new_env
-        (set_contract_state to state (add_contract to wc (add_tx tx pre))) ->
+        (set_contract_state to state (add_contract to wc (transfer_balance from to amount pre))) ->
       ChainStep pre act new_env []
   | step_call :
       forall {pre : Environment}
@@ -575,20 +486,16 @@ Inductive ChainStep :
                             | None => act_transfer to amount
                             | Some msg => act_call to amount msg
                             end) ->
-      let tx := build_tx from to amount (match msg with
-                                         | None => tx_empty
-                                         | Some msg => tx_call msg
-                                         end) in
       wc_receive
         wc
-        (add_tx tx pre)
+        (transfer_balance from to amount pre)
         (build_ctx from to amount)
         prev_state
         msg = Some (new_state, resp_acts) ->
       new_acts = map (build_act to) resp_acts ->
       EnvironmentEquiv
         new_env
-        (set_contract_state to new_state (add_tx tx pre)) ->
+        (set_contract_state to new_state (transfer_balance from to amount pre)) ->
       ChainStep pre act new_env new_acts.
 
 Section Accessors.
@@ -598,23 +505,23 @@ Context {pre : Environment} {act : Action}
 
 Definition step_from : Address :=
   match step with
-  | step_transfer from _ _ _ _ _ _ _
-  | step_deploy from _ _ _ _ _ _ _ _ _ _ _ _
-  | step_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
+  | step_transfer from _ _ _ _ _ _
+  | step_deploy from _ _ _ _ _ _ _ _ _ _ _
+  | step_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
 Definition step_to : Address :=
   match step with
-  | step_transfer _ to _ _ _ _ _ _
-  | step_deploy _ to _ _ _ _ _ _ _ _ _ _ _
-  | step_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
+  | step_transfer _ to _ _ _ _ _
+  | step_deploy _ to _ _ _ _ _ _ _ _ _ _
+  | step_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
 Definition step_amount : Amount :=
   match step with
-  | step_transfer _ _ amount _ _ _ _ _
-  | step_deploy _ _ amount _ _ _ _ _ _ _ _ _ _
-  | step_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
+  | step_transfer _ _ amount _ _ _ _
+  | step_deploy _ _ amount _ _ _ _ _ _ _ _ _
+  | step_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
 
@@ -629,9 +536,8 @@ Lemma account_balance_post (addr : Address) :
   + (if (addr =? step_to step)%address then step_amount step else 0)
   - (if (addr =? step_from step)%address then step_amount step else 0).
 Proof.
-  unfold account_balance.
-  destruct step; subst; cbn; rewrite_environment_equiv;
-    cbn; unfold add_tx_to_map; destruct_address_eq; cbn; lia.
+  destruct step; cbn; rewrite_environment_equiv; cbn;
+    unfold add_balance; destruct_address_eq; lia.
 Qed.
 
 Lemma account_balance_post_to :
@@ -683,21 +589,15 @@ End Theories.
 End Step.
 
 Section Trace.
-Definition add_new_block_header
+Definition add_new_block
           (header : BlockHeader)
           (baker : Address)
           (env : Environment) : Environment :=
-let chain := env_chain env in
-let chain :=
-    {| block_header := header;
-       incoming_txs := incoming_txs chain;
-       outgoing_txs := outgoing_txs chain;
-       contract_state := contract_state chain;
-       blocks_baked a :=
-         if address_eqb a baker
-         then block_height header :: blocks_baked chain a
-         else blocks_baked chain a; |} in
-env <|env_chain := chain|>.
+  let chain := env_chain env in
+  let chain := chain<|block_header := header|> in
+  let reward := compute_block_reward (block_height header) in
+  let chain := chain<|account_balance ::= add_balance baker reward|> in
+  env<|env_chain := chain|>.
 
 (* Todo: this should just be a computation. But I still do not *)
 (* know exactly what the best way of working with reflect is *)
@@ -727,7 +627,7 @@ Inductive ChainEvent : ChainState -> ChainState -> Type :=
       Forall ActIsFromAccount (chain_state_queue next) ->
       EnvironmentEquiv
         next
-        (add_new_block_header header baker prev) ->
+        (add_new_block header baker prev) ->
       ChainEvent prev next
 | evt_step :
     forall {prev : ChainState}
@@ -752,9 +652,7 @@ Definition empty_state : ChainState :=
                  {| block_height := 0;
                     slot_number := 0;
                     finalized_height := 0; |};
-               incoming_txs a := [];
-               outgoing_txs a := [];
-               blocks_baked a := [];
+               account_balance a := 0%Z;
                contract_state a := None; |};
           env_contracts a := None; |};
      chain_state_queue := [] |}.
@@ -768,6 +666,58 @@ Definition ChainTrace := ChainedList ChainState ChainEvent.
 Definition reachable (state : ChainState) : Prop :=
   inhabited (ChainTrace empty_state state).
 
+(* We define a transaction as a "fully specified" action, recording all info. For
+example, a transaction contains the contract address that was created when a contract
+is deployed. This is more about bridging the gap between our definitions and what
+a normal blockchain is. Each step corresponds to a transaction and we can go from a
+trace to a list of transactions. *)
+Inductive TxBody :=
+  | tx_empty
+  | tx_deploy (wc : WeakContract) (setup : OakValue)
+  | tx_call (msg : option OakValue).
+
+Record Tx :=
+  build_tx {
+      tx_from : Address;
+      tx_to : Address;
+      tx_amount : Amount;
+      tx_body : TxBody;
+  }.
+
+Definition step_tx {pre : Environment} {act : Action}
+                   {post : Environment} {new_acts : list Action}
+                   (step : ChainStep pre act post new_acts) : Tx :=
+  match step with
+  | step_transfer from to amount _ _ _ _ =>
+    build_tx from to amount tx_empty
+  | step_deploy from to amount wc setup _ _ _ _ _ _ _ =>
+    build_tx from to amount (tx_deploy wc setup)
+  | step_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ =>
+    build_tx from to amount (tx_call msg)
+  end.
+
+Fixpoint trace_txs {from to : ChainState} (trace : ChainTrace from to) : list Tx :=
+  match trace with
+  | snoc trace' evt =>
+    match evt with
+    | evt_step _ step _ => step_tx step :: trace_txs trace'
+    | _ => trace_txs trace'
+    end
+  | _ => []
+  end.
+
+Definition incoming_txs
+           {from to : ChainState}
+           (trace : ChainTrace from to)
+           (addr : Address) : list Tx :=
+  filter (fun tx => (tx_to tx =? addr)%address) (trace_txs trace).
+
+Definition outgoing_txs
+           {from to : ChainState}
+           (trace : ChainTrace from to)
+           (addr : Address) : list Tx :=
+  filter (fun tx => (tx_from tx =? addr)%address) (trace_txs trace).
+
 Section Theories.
 Ltac destruct_chain_event :=
   match goal with
@@ -779,14 +729,12 @@ Ltac destruct_chain_step :=
   | [step: ChainStep _ _ _ _ |- _] => destruct step
   end.
 
-Lemma contract_addr_format
-      {to}
-      (trace : ChainTrace empty_state to)
-      (addr : Address) (wc : WeakContract) :
+Lemma contract_addr_format {to} (addr : Address) (wc : WeakContract) :
+  reachable to ->
   env_contracts to addr = Some wc ->
   address_is_contract addr = true.
 Proof.
-  intros contract_at_addr.
+  intros [trace] contract_at_addr.
   remember empty_state eqn:eq.
   induction trace; rewrite eq in *; clear eq.
   - cbn in *; congruence.
@@ -810,7 +758,7 @@ Local Open Scope address.
 (* This next lemma shows that any for a full chain trace,
 the ending state will not have any queued actions from
 undeployed contracts. *)
-Lemma undeployed_contract_no_out_queue contract (state : ChainState) :
+Lemma undeployed_contract_no_out_queue contract state :
   reachable state ->
   address_is_contract contract = true ->
   env_contracts state contract = None ->
@@ -853,22 +801,23 @@ Qed.
 
 (* With this lemma proven, we can show that the (perhaps seemingly stronger)
 fact, that an undeployed contract has no outgoing txs, holds. *)
-Lemma undeployed_contract_no_out_txs contract (state : ChainState) :
-  reachable state ->
+Lemma undeployed_contract_no_out_txs
+      contract state (trace : ChainTrace empty_state state) :
   address_is_contract contract = true ->
   env_contracts state contract = None ->
-  outgoing_txs state contract = [].
+  outgoing_txs trace contract = [].
 Proof.
-  intros [trace] is_contract.
+  intros is_contract undeployed.
   remember empty_state eqn:eq.
-  induction trace;
-    intros undeployed; rewrite eq in *; clear eq; cbn; auto.
+  induction trace; cbn; auto.
   destruct_chain_event.
   - (* New block *)
     rewrite_environment_equiv; auto.
   - (* In these steps we will use that the queue did not contain txs to the contract. *)
     Hint Resolve contracts_post_pre_none : core.
     Hint Unfold reachable : core.
+    subst.
+    cbn.
     pose proof
          (undeployed_contract_no_out_queue
             contract prev
@@ -880,9 +829,7 @@ Proof.
     inversion_clear Hqueue.
     destruct_chain_step; rewrite_environment_equiv;
       subst;
-      subst tx;
       cbn in *;
-      unfold add_tx_to_map;
       destruct_address_eq;
       subst; try tauto; congruence.
   - match goal with
@@ -890,21 +837,20 @@ Proof.
     end.
 Qed.
 
-Lemma undeployed_contract_no_in_txs contract (state : ChainState) :
-  reachable state ->
+Lemma undeployed_contract_no_in_txs
+      contract state (trace : ChainTrace empty_state state) :
   address_is_contract contract = true ->
   env_contracts state contract = None ->
-  incoming_txs state contract = [].
+  incoming_txs trace contract = [].
 Proof.
-  intros [trace] is_contract.
+  intros is_contract undeployed.
   remember empty_state eqn:eq.
-  induction trace; intros undeployed; rewrite eq in *; clear eq; cbn; auto.
+  induction trace; cbn; auto.
   destruct_chain_event.
   - (* New block *)
     rewrite_environment_equiv; auto.
   - destruct_chain_step; rewrite_environment_equiv;
       cbn in *;
-      unfold add_tx_to_map;
       destruct_address_eq; auto; subst; congruence.
   - match goal with
     | [H: _ = _ |- _] => rewrite H in *; auto
@@ -931,8 +877,8 @@ Class ChainBuilderType :=
       (finalized_height : nat) :
       option builder_type;
 
-    builder_reachable (b : builder_type) :
-      reachable (build_chain_state (builder_env b) []);
+    builder_trace (b : builder_type) :
+      ChainTrace empty_state (build_chain_state (builder_env b) []);
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
@@ -943,7 +889,7 @@ Arguments version {_ _ _ _ _ _ _}.
 Arguments init {_ _ _ _ _ _ _}.
 Arguments receive {_ _ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _ _}.
-Arguments ContractInterface {_} _ _ _.
+Arguments ContractInterface {_} _ _.
 Arguments build_contract_interface {_ _ _ _}.
 
 Ltac destruct_chain_event :=

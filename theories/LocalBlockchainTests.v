@@ -75,30 +75,27 @@ Section LocalBlockchainTests.
                  4 0).
 
   Definition congress_1 : Address :=
-    match outgoing_txs chain4 person_1 with
+    match outgoing_txs (builder_trace chain4) person_1 with
     | tx :: _ => tx_to tx
     | _ => person_1
     end.
 
-  Compute (contract_deployment chain4 congress_1).
   Compute (account_balance chain4 person_1).
   Compute (account_balance chain4 baker).
   Compute (account_balance chain4 congress_1).
 
   Definition congress_ifc
-    : ContractInterface Congress.Setup Congress.Msg Congress.State :=
+    : ContractInterface Congress.Msg Congress.State :=
     match get_contract_interface
             chain4 congress_1
-            Congress.Setup Congress.Msg Congress.State with
+            Congress.Msg Congress.State with
     | Some x => x
     (* Using unpack_option here is extremely slow *)
     | None =>
-      build_contract_interface
+      @build_contract_interface
+        _ _ _
         baker
-        0
-        setup
         (fun c => None)
-        (fun a => deploy_congress)
         (fun a m => deploy_congress)
     end.
 
@@ -118,7 +115,7 @@ Section LocalBlockchainTests.
 
   (* person_1 adds person_1 and person_2 as members of congress *)
   Definition add_person p :=
-    congress_ifc.(call) 0 (add_member p).
+    congress_ifc.(send) 0 (Some (add_member p)).
 
   Definition chain5 : ChainBuilder :=
     unpack_option
@@ -133,7 +130,7 @@ Section LocalBlockchainTests.
   (* person_1 creates a proposal to send 3 coins to person_3 using funds
      of the contract *)
   Definition create_proposal_call :=
-    congress_ifc.(call) 0 (create_proposal [cact_transfer person_3 3]).
+    congress_ifc.(send) 0 (Some (create_proposal [cact_transfer person_3 3])).
 
   Definition chain6 : ChainBuilder :=
     unpack_option (
@@ -146,7 +143,7 @@ Section LocalBlockchainTests.
 
   (* person_1 and person_2 vote for the proposal *)
   Definition vote_proposal :=
-    congress_ifc.(call) 0 (vote_for_proposal 1).
+    congress_ifc.(send) 0 (Some (vote_for_proposal 1)).
 
   Definition chain7 : ChainBuilder :=
     unpack_option (
@@ -159,7 +156,7 @@ Section LocalBlockchainTests.
 
   (* Person 3 finishes the proposal (anyone can finish it after voting) *)
   Definition finish_proposal :=
-    congress_ifc.(call) 0 (finish_proposal 1).
+    congress_ifc.(send) 0 (Some (finish_proposal 1)).
 
   Definition chain8 : ChainBuilder :=
     unpack_option (
@@ -185,7 +182,8 @@ Lemma congress_txs_after_local_chain_block
   builder_add_block prev baker acts slot finalization_height = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
-    length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
+    length (outgoing_txs (builder_trace new) addr) <=
+    num_acts_created_in_proposals (incoming_txs (builder_trace new) addr).
 Proof. eauto. Qed.
 (* And of course, it is satisfied for the breadth first chain as well. *)
 Lemma congress_txs_after_local_chain_bf_block
@@ -193,5 +191,6 @@ Lemma congress_txs_after_local_chain_bf_block
   builder_add_block prev baker acts slot finalization_height = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
-    length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
+    length (outgoing_txs (builder_trace new) addr) <=
+    num_acts_created_in_proposals (incoming_txs (builder_trace new) addr).
 Proof. eauto. Qed.

@@ -1,7 +1,6 @@
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-From Coq Require Import Program.
 From Coq Require Import Permutation.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
@@ -9,6 +8,7 @@ From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import Automation.
 From SmartContracts Require Import Extras.
+From SmartContracts Require Import ChainedList.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 
@@ -373,17 +373,17 @@ Definition contract : Contract Setup Msg State :=
 Section Theories.
 Local Open Scope nat.
 
-Definition num_acts_created_in_proposals chain address :=
+Definition num_acts_created_in_proposals (txs : list Tx) :=
   let count tx :=
       match tx_body tx with
-      | tx_call msg =>
+      | tx_call (Some msg) =>
         match deserialize msg with
         | Some (create_proposal acts) => length acts
         | _ => 0
         end
       | _ => 0
       end in
-  sumnat count (incoming_txs chain address).
+  sumnat count txs.
 
 Definition num_cacts_in_raw_state state :=
   sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
@@ -400,15 +400,6 @@ Definition num_outgoing_acts l address :=
       then 1
       else 0 in
   sumnat extract l.
-
-Instance num_acts_created_in_proposals_proper :
-  Proper (ChainEquiv ==> eq ==> eq) num_acts_created_in_proposals.
-Proof.
-  now repeat intro; subst; unfold num_acts_created_in_proposals;
-    match goal with
-    | [H: ChainEquiv _ _ |- _] => rewrite H
-    end.
-Qed.
 
 Instance num_cacts_in_state_proper :
   Proper (ChainEquiv ==> eq ==> eq) num_cacts_in_state.
@@ -621,15 +612,10 @@ Proof.
     + assert (forall a b, a + 0 <= a + b + 0) by (intros; lia); auto.
 Qed.
 
-(* This is the bookkeeping that does the serialization/deserialization
-for wc_receive. We should abstract this away. *)
 Lemma wc_receive_state_well_behaved
-      prev tx from contract amount msg ctx state new_state resp_acts :
-  let with_tx := add_tx tx prev in
-  tx = build_tx from contract amount (match msg with
-                                        | Some msg => tx_call msg
-                                        | None => tx_empty
-                                      end) ->
+      from contract amount prev state ctx msg new_state resp_acts
+      (trace : ChainTrace empty_state prev) :
+  let with_tx := transfer_balance from contract amount prev in
   contract_state prev contract = Some state ->
   wc_receive
     Congress.contract
@@ -639,37 +625,31 @@ Lemma wc_receive_state_well_behaved
     (set_contract_state contract new_state with_tx)
     contract +
   length resp_acts +
-  num_acts_created_in_proposals prev contract <=
+  num_acts_created_in_proposals (incoming_txs trace contract) <=
   num_cacts_in_state with_tx contract +
-  num_acts_created_in_proposals with_tx contract.
+  num_acts_created_in_proposals
+    (build_tx from contract amount (tx_call msg) :: incoming_txs trace contract).
 Proof.
   cbn zeta.
-  intros tx_eq prev_state_eq receive.
-  cbn -[Congress.receive add_tx] in receive.
+  intros prev_state_eq receive.
+  cbn -[Congress.receive transfer_balance] in receive.
   destruct (deserialize state) eqn:deserialize_state; [|cbn in *; congruence].
   destruct msg as [msg|]; [|cbn in *; congruence].
   destruct (deserialize msg) eqn:deserialize_msg; [|cbn in *; congruence].
-  cbn -[Congress.receive add_tx] in receive.
+  cbn -[Congress.receive transfer_balance] in receive.
   destruct (Congress.receive _ _ _ _)
     as [[new_state' resp_acts']|] eqn:congress_receive;
     [|cbn in *; congruence].
   cbn in receive.
   inversion receive; subst new_state resp_acts.
   unfold num_cacts_in_state.
-  cbn -[add_tx].
+  cbn.
   unfold set_chain_contract_state.
-  destruct_address_eq; try congruence.
-  cbn -[add_tx].
-  replace (contract_state (add_tx tx prev) contract) with (Some state) by auto.
-  cbn -[add_tx].
+  rewrite address_eq_refl.
+  replace (contract_state _ contract) with (Some state) by auto.
+  cbn.
   rewrite deserialize_state, deserialize_serialize.
-  unfold num_acts_created_in_proposals at 2.
-  cbn.
-  unfold add_tx_to_map.
-  destruct_address_eq; [|subst; cbn in *; congruence].
-  cbn.
-  fold (num_acts_created_in_proposals prev contract).
-  replace (tx_body tx) with (tx_call msg) by (subst; auto).
+  fold (num_acts_created_in_proposals (incoming_txs trace contract)).
   rewrite deserialize_msg.
   pose proof (receive_state_well_behaved _ _ _ _ _ _ congress_receive).
   lia.
@@ -723,7 +703,7 @@ Local Ltac rewrite_queues :=
 Local Ltac solve_single :=
   solve [
       repeat (progress subst; cbn in *; auto);
-      unfold add_tx_to_map, num_cacts_in_state, num_acts_created_in_proposals, num_outgoing_acts;
+      unfold add_balance, num_cacts_in_state, num_acts_created_in_proposals, num_outgoing_acts;
       unfold set_chain_contract_state;
       cbn;
       try rewrite address_eq_refl;
@@ -733,13 +713,16 @@ Local Ltac solve_single :=
 
 Local Ltac simpl_exp_invariant exp :=
   match exp with
-  | context G[outgoing_txs (env_chain (add_tx ?tx ?env)) ?addr] =>
-    let newexp := context G[tx :: outgoing_txs env addr] in
+  | context G[length (filter ?f (?hd :: ?tl))] =>
+    let newexp := context G[S (length (filter f tl))] in
     replace exp with newexp by solve_single
-  | context G[add_new_block_header _ _ ?env] =>
+  | context G[filter ?f (?hd :: ?tl)] =>
+    let newexp := context G[filter f tl] in
+    replace exp with newexp by solve_single
+  | context G[add_new_block _ _ ?env] =>
     let newexp := context G[env] in
     replace exp with newexp by solve_single
-  | context G[add_tx _ ?env] =>
+  | context G[transfer_balance _ _ _ ?env] =>
     let newexp := context G[env] in
     replace exp with newexp by solve_single
   | context G[set_contract_state _ _ ?env] =>
@@ -761,12 +744,12 @@ Local Ltac simpl_goal_invariant :=
     match goal with
     | [|- context[num_cacts_in_state ?env ?addr]] =>
       simpl_exp_invariant constr:(num_cacts_in_state env addr)
-    | [|- context[outgoing_txs ?env ?addr]] =>
-      simpl_exp_invariant constr:(outgoing_txs env addr)
+    | [|- context[length ?txs]] =>
+      simpl_exp_invariant constr:(length txs)
     | [|- context[num_outgoing_acts ?q ?addr]] =>
       simpl_exp_invariant constr:(num_outgoing_acts q addr)
-    | [|- context[num_acts_created_in_proposals ?env ?addr]] =>
-      simpl_exp_invariant constr:(num_acts_created_in_proposals env addr)
+    | [|- context[num_acts_created_in_proposals ?txs]] =>
+      simpl_exp_invariant constr:(num_acts_created_in_proposals txs)
     end.
 
 Local Ltac simpl_hyp_invariant :=
@@ -784,108 +767,109 @@ Local Ltac simpl_hyp_invariant :=
         by solve_single
     end.
 
-Theorem congress_txs_well_behaved to contract :
-  reachable to ->
+Theorem congress_txs_well_behaved to contract (trace : ChainTrace empty_state to) :
   env_contracts to contract = Some (Congress.contract : WeakContract) ->
   num_cacts_in_state to contract +
-  length (outgoing_txs to contract) +
+  length (outgoing_txs trace contract) +
   num_outgoing_acts (chain_state_queue to) contract <=
-  num_acts_created_in_proposals to contract.
+  num_acts_created_in_proposals (incoming_txs trace contract).
 Proof.
-  intros [trace] congress_deployed.
+  intros congress_deployed.
   Hint Resolve contract_addr_format : core.
   assert (address_is_contract contract = true) as addr_format by eauto.
   remember empty_state eqn:eq.
   (* Contract cannot have been deployed in empty trace so we solve that immediately. *)
   induction trace as [|? ? ? evts IH evt]; subst; try solve_by_inversion.
-  destruct_chain_event; [|invert_chain_step|];
-    rewrite_queues;
-    repeat
-      match goal with
-      | [x := ?a : _ |- _] => pose proof (eq_refl : x = a); clearbody x
-      end.
+  destruct_chain_event; rewrite_queues.
   - (* New block added, does not change any of the values *)
     (* so basically just use IH directly. *)
     rewrite_environment_equiv.
     specialize_hypotheses.
     simpl_goal_invariant.
     rewrite num_outgoing_acts_block; auto.
-  - (* Transfer step: cannot be to contract, but can come from contract. *)
-    rewrite_environment_equiv.
-    specialize_hypotheses.
-    subst new_acts.
-    (* Handle from contract and not from contract separately. *)
-    destruct (address_eqb_spec (tx_from tx) contract);
-      simpl_goal_invariant;
-      simpl_hyp_invariant;
-      cbn; lia.
-  - (* Deployment. Can be deployment of contract, in which case we need to *)
-    (* establish invariant. *)
-    rewrite_environment_equiv.
-    subst new_acts.
-    cbn in congress_deployed.
-    destruct (address_eqb_spec contract to); cycle 1.
-    + (* Deployment of different contract. Holds both if from us or not. *)
+  - (* Step *)
+    unfold outgoing_txs, incoming_txs in *.
+    cbn [trace_txs].
+    rewrite_queues.
+    remember (chain_state_env prev).
+    destruct_chain_step; subst pre; cbn [step_tx].
+    + (* Transfer step: cannot be to contract, but can come from contract. *)
+      rewrite_environment_equiv.
       specialize_hypotheses.
-      destruct (address_eqb_spec (tx_from tx) contract);
+      (* Handle from contract and not from contract separately. *)
+      destruct (address_eqb_spec from contract);
         simpl_goal_invariant;
         simpl_hyp_invariant;
         cbn; lia.
-    + (* This is deployment of this contract *)
-      subst to.
-      replace wc with (Congress.contract : WeakContract) in * by congruence.
-      (* State starts at 0 *)
-      erewrite num_cacts_in_state_deployment; [|eassumption].
-      (* Outgoing actions in queue is 0 *)
-      assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
-        as out_acts by eauto;
-        rewrite_queues.
-      assert (act_from act <> contract)
-        by (eapply undeployed_contract_not_from_self; eauto).
-      simpl_hyp_invariant.
-      (* Outgoing transactions is 0 *)
-      simpl_goal_invariant.
-      rewrite undeployed_contract_no_out_txs; auto.
-      cbn; lia.
-  - (* Call. *)
-    rewrite_environment_equiv.
-    specialize_hypotheses.
-    subst new_acts.
-    destruct (address_eqb_spec contract to); cycle 1.
-    + (* Not to contract. Essentially same thing as transfer case above. *)
-      simpl_goal_invariant.
-      rewrite num_outgoing_acts_call_ne; auto.
-      destruct (address_eqb_spec contract from);
-        simpl_goal_invariant;
-        simpl_hyp_invariant;
-        cbn; lia.
-    + (* To contract. This will run code. *)
+    + (* Deployment. Can be deployment of contract, in which case we need to *)
+      (* establish invariant. *)
+      rewrite_environment_equiv.
       cbn in congress_deployed.
-      replace wc with (Congress.contract : WeakContract) in * by congruence.
-      subst to.
-      match goal with
-      | [H1: wc_receive _ _ _ _ _ = Some _,
-         H2: contract_state _ _ = Some _,
-         H3: tx = build_tx _ _ _ _ |- _] =>
-        generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ _ H3 H2 H1)
-      end.
-      simpl_goal_invariant.
-      rewrite num_outgoing_acts_call.
+      destruct (address_eqb_spec contract to) as [<-|]; cycle 1.
+      * (* Deployment of different contract. Holds both if from us or not. *)
+        specialize_hypotheses.
+        destruct (address_eqb_spec from contract);
+          simpl_goal_invariant;
+          simpl_hyp_invariant;
+        cbn; lia.
+      * (* This is deployment of this contract *)
+        replace wc with (Congress.contract : WeakContract) in * by congruence.
+        (* State starts at 0 *)
+        erewrite num_cacts_in_state_deployment by eassumption.
+        (* Outgoing actions in queue is 0 *)
+        assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
+          as out_acts by eauto.
+        rewrite_queues.
+        assert (act_from act <> contract)
+          by (eapply undeployed_contract_not_from_self; eauto).
+        simpl_hyp_invariant.
+        simpl_goal_invariant.
+        (* Outgoing transactions is 0 *)
+        fold (outgoing_txs evts contract).
+        rewrite undeployed_contract_no_out_txs; auto.
+        cbn. lia.
+    + (* Call. *)
+      rewrite_environment_equiv.
+      specialize_hypotheses.
+      subst new_acts.
+      destruct (address_eqb_spec contract to); cycle 1.
+      * (* Not to contract. Essentially same thing as transfer case above. *)
+        simpl_goal_invariant.
+        rewrite num_outgoing_acts_call_ne; auto.
+        destruct (address_eqb_spec contract from);
+          simpl_goal_invariant;
+          simpl_hyp_invariant;
+          cbn; lia.
+      * (* To contract. This will run code. *)
+        cbn in congress_deployed.
+        replace wc with (Congress.contract : WeakContract) in * by congruence.
+        subst to.
+        match goal with
+        | [H1: wc_receive _ _ _ _ _ = Some _,
+           H2: contract_state _ _ = Some _ |- _] =>
+          generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ evts e2 e4)
+        end.
+        simpl_goal_invariant.
+        rewrite num_outgoing_acts_call.
 
-      destruct (address_eqb_spec contract from);
-        simpl_goal_invariant;
-        simpl_hyp_invariant;
-        intros;
-        cbn -[add_tx set_contract_state];
-        lia.
+        intros.
+        cbn -[set_contract_state].
+        fold (incoming_txs evts contract) in *.
+        fold (outgoing_txs evts contract) in *.
+        rewrite address_eq_refl.
+        destruct (address_eqb_spec from contract);
+          simpl_hyp_invariant;
+          cbn -[set_contract_state];
+          lia.
   - (* Permute queue *)
-    match goal with
-    | [H: chain_state_env prev = chain_state_env new |- _] =>
-      rewrite <- H in *
-    end.
     unfold num_outgoing_acts.
     match goal with
     | [Hperm: Permutation _ _ |- _] => rewrite <- Hperm
+    end.
+    cbn.
+    match goal with
+    | [H: chain_state_env prev = chain_state_env new |- _] =>
+      rewrite <- H in *
     end; auto.
 Qed.
 
@@ -895,10 +879,11 @@ Corollary congress_txs_after_block
   builder_add_block prev baker acts slot finalization_height = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
-    length (outgoing_txs new addr) <= num_acts_created_in_proposals new addr.
+    length (outgoing_txs (builder_trace new) addr) <=
+    num_acts_created_in_proposals (incoming_txs (builder_trace new) addr).
 Proof.
   intros add_block contract congress_at_addr.
-  pose proof (congress_txs_well_behaved _ _ (builder_reachable new) congress_at_addr).
+  pose proof (congress_txs_well_behaved _ _ (builder_trace new) congress_at_addr).
   cbn in *.
   lia.
 Qed.

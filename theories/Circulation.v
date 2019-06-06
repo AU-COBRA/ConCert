@@ -11,6 +11,7 @@ Section Circulation.
 Context {ChainBase : ChainBase}.
 Context `{Finite Address}.
 
+Local Open Scope Z.
 Definition circulation (chain : Chain) :=
   sumZ (account_balance chain) (elements Address).
 
@@ -101,7 +102,7 @@ Proof.
 Qed.
 
 Lemma circulation_add_new_block header baker env :
-  circulation (add_new_block_header header baker env) =
+  circulation (add_new_block header baker env) =
   (circulation env + compute_block_reward (block_height header))%Z.
 Proof.
   assert (Hperm: exists suf, Permutation ([baker] ++ suf) (elements Address)).
@@ -112,17 +113,14 @@ Proof.
   unfold circulation.
   rewrite perm.
   cbn.
-  unfold constructor, set, account_balance.
-  cbn.
-  destruct (address_eqb_spec baker baker); try congruence.
-  cbn.
+  unfold add_balance.
+  rewrite address_eq_refl.
   match goal with
-  | [|- ((?a - ?b + (?c + ?d)) + ?e = (?a - ?b + ?d + ?f + ?c))%Z] =>
-    enough (e = f) by lia
+  | [|- ?a + ?b + ?c = ?b + ?d + ?a] => enough (c = d) by lia
   end.
 
   pose proof (in_NoDup_app baker [baker] suf ltac:(intuition) perm_set) as not_in_suf.
-  clear perm perm_set e.
+  clear perm perm_set.
   induction suf as [| x xs IH]; auto.
   cbn in *.
   apply Decidable.not_or in not_in_suf.
@@ -165,9 +163,12 @@ Proof.
     induction (elements Address); auto.
   - rewrite (event_circulation x).
     destruct x.
-    + match goal with
-      | [H: EnvironmentEquiv _ _, H': IsValidNextBlock _ _ |- _] =>
-        now rewrite H in *; cbn; rewrite (proj1 H'), sumZ_seq_S, IH
+    + rewrite_environment_equiv.
+      cbn.
+      unfold constructor.
+      match goal with
+      | [H: IsValidNextBlock _ _ |- _] =>
+        rewrite (proj1 H), IH, sumZ_seq_S; auto
       end.
     + erewrite block_header_post_step; eauto.
     + intuition.

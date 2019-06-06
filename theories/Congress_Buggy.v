@@ -433,17 +433,17 @@ Section Theories.
   Import LocalBlockchain.
 
   Open Scope nat.
-  Definition num_acts_created_in_proposals chain address :=
-    let count tx :=
-        match tx_body tx with
-        | tx_call msg =>
-          match deserialize msg : option Msg with
-          | Some (create_proposal acts) => length acts
-          | _ => 0
-          end
+  Definition num_acts_created_in_proposals (txs : list Tx) :=
+  let count tx :=
+      match tx_body tx with
+      | tx_call (Some msg) =>
+        match deserialize msg with
+        | Some (create_proposal acts) => length acts
         | _ => 0
-        end in
-    sumnat count (incoming_txs chain address).
+        end
+      | _ => 0
+      end in
+  sumnat count txs.
 
   Definition exploit_example : option (Address * LocalChainBuilderDepthFirst) :=
     let chain := builder_initial in
@@ -461,9 +461,9 @@ Section Theories.
     do chain <-
        builder_add_block
          chain baker (map (build_act baker) [dep_congress; dep_exploit]) (next_num chain) 0;
-    let baker_to_addrs := map tx_to (outgoing_txs chain baker) in
-    let exploit := nth 0 baker_to_addrs baker in
-    let congress := nth 1 baker_to_addrs baker in
+    let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
+    let exploit := nth 0 contracts baker in
+    let congress := nth 1 contracts baker in
     (* Add baker to congress, create a proposal to transfer *)
     (* some money to exploit contract, vote for the proposal, and execute the proposal *)
     let add_baker := add_member baker in
@@ -483,16 +483,15 @@ Section Theories.
      property we proved for the other version of the Congress. We filter out transactions
      from the congress to the congress as we have those now (due to self calls). *)
   Theorem congress_is_buggy :
-    exists state addr,
-      reachable state /\
+    exists state addr (trace : ChainTrace empty_state state),
       env_contracts state addr = Some (contract : WeakContract) /\
-      length (filter (fun tx => negb (tx_to tx =? addr)%address) (outgoing_txs state addr)) >
-      num_acts_created_in_proposals state addr.
+      length (filter (fun tx => negb (tx_to tx =? addr)%address) (outgoing_txs trace addr)) >
+      num_acts_created_in_proposals (incoming_txs trace addr).
   Proof.
     exists (build_chain_state (snd unpacked_exploit_example) []).
     exists (fst unpacked_exploit_example).
-    split; [|split].
-    - destruct (snd unpacked_exploit_example); auto.
+    exists (builder_trace (snd unpacked_exploit_example)).
+    split.
     - reflexivity.
     - vm_compute.
       lia.
