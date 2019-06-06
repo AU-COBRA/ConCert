@@ -437,7 +437,7 @@ Section Theories.
   let count tx :=
       match tx_body tx with
       | tx_call (Some msg) =>
-        match deserialize msg with
+        match deserialize msg : option Msg with
         | Some (create_proposal acts) => length acts
         | _ => 0
         end
