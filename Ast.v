@@ -174,13 +174,14 @@ Fixpoint indexify (l : list (name * nat)) (e : expr) : expr :=
   | eLambda nm ty b =>
     eLambda nm ty (indexify ((nm,0 ):: bump_indices l 1) b)
   | eLetIn nm e1 ty e2 =>
-    eLetIn nm e1 ty (indexify ((nm, 0) :: bump_indices l 1) e2)
+    eLetIn nm (indexify l e1) ty (indexify ((nm, 0) :: bump_indices l 1) e2)
   | eApp e1 e2 => eApp (indexify l e1) (indexify l e2)
   | eConstr t i as e => e
   | eConst nm as e => e
   | eCase nm_i ty e bs =>
     eCase nm_i ty (indexify l e)
-          (map (fun p => (fst p, indexify (number_vars (fst p).(pVars) ++ bump_indices l (length (fst p).(pVars))) (snd p))) bs)
+          (map (fun p => (fst p, indexify (number_vars (fst p).(pVars) ++
+                               bump_indices l (length (fst p).(pVars))) (snd p))) bs)
   | eFix nm vn ty1 ty2 b =>
     (* name of the fixpoint becomes an index as well *)
     eFix nm vn ty1 ty2 (indexify ((nm,1) :: (vn,0) :: bump_indices l 2) b)
@@ -218,9 +219,9 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
 
 Definition trans_branch (bs : list (pat * term))
            (c : name * list type) :=
-  let dummy := (0, tVar "error") in
   let (nm, tys) := c in
   let o_pt_e := find (fun x =>(fst x).(pName) =? nm) bs in
+    let dummy := (0, tVar (nm ++ ": not found")) in
   match o_pt_e with
     | Some pt_e => if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
                     let vars_tys := combine (fst pt_e).(pVars) tys in
@@ -240,16 +241,16 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eLambda nm ty b => tLambda (nNamed nm) (type_to_term ty) (expr_to_term b)
   | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) (expr_to_term e1) (type_to_term ty) (expr_to_term e2)
   | eApp e1 e2 => mkApps (expr_to_term e1) [expr_to_term e2]
-  | eConstr t i => match (resolve_constr Σ t i) with
-                  | Some c => tConstruct (mkInd t 0) (fst c) []
+  | eConstr i t => match (resolve_constr Σ i t) with
+                  | Some c => tConstruct (mkInd i 0) (fst c) []
                   (* FIXME: a hack to make the function total *)
-                  | None => tConstruct (mkInd (t ++ ": no declaration found.") 0) 0 []
+                  | None => tConstruct (mkInd (i ++ ": no declaration found.") 0) 0 []
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty e bs =>
     let (nm,i) := nm_i in
     let typeInfo := tLambda nAnon (tInd (mkInd nm 0) []) (type_to_term ty) in
-    let cs := from_option (resolve_inductive Σ nm) [] in
+    let cs := from_option (resolve_inductive Σ nm) [(nm ++ "not found",[])] in
     let tbs := map (fun_prod id expr_to_term) bs in
     let branches := map (trans_branch tbs) cs in
     (* TODO: no translation for polymorphic types, the number of parameters is zero *)
@@ -268,6 +269,9 @@ Module BaseTypes.
 
   Definition Bool_name := "Coq.Init.Datatypes.bool".
   Definition Bool := Bool_name.
+
+  Definition Unit := "Coq.Init.Datatypes.unit".
+
 End BaseTypes.
 
 Import BaseTypes.
@@ -282,7 +286,7 @@ Notation "ty1 -> ty2" := (tyArr ty1 ty2)
 
 Notation "[| e |]" := e (e custom expr at level 2).
 Notation "^ i " := (eRel i) (in custom expr at level 3, i constr at level 4).
-Notation "x" := (eVar x) (in custom expr at level 0, x constr at level 4).
+
 Notation "\ x : ty -> b" := (eLambda x ty b)
                               (in custom expr at level 1,
                                   ty custom type at level 2,
@@ -291,6 +295,8 @@ Notation "\ x : ty -> b" := (eLambda x ty b)
 Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
                                            (in custom expr at level 1,
                                                ty custom type at level 2,
+                                               e1 custom expr at level 4,
+                                               e2 custom expr at level 4,
                                                x constr at level 4).
 
 (* Notation "C x .. y" := (pConstr C (cons x .. (cons y nil) .. )) *)
@@ -326,6 +332,7 @@ Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
         ty1 constr at level 4,
         ty2 custom type at level 4).
 
+Notation "x" := (eVar x) (in custom expr at level 0, x constr at level 4).
 
 Notation "t1 t2" := (eApp t1 t2) (in custom expr at level 4, left associativity).
 
@@ -343,6 +350,8 @@ Module StdLib.
   Notation "a + b" := [| {eConst "Coq.Init.Nat.add"} {a} {b} |]
                         (in custom expr at level 0).
   Notation "a * b" := [| {eConst "Coq.Init.Nat.mul"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a == b" := [| {eConst "Coq.Init.Nat.eqb"} {a} {b} |]
                         (in custom expr at level 0).
   Notation "'Z'" := (eConstr Nat "Z") ( in custom expr at level 0).
   Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
@@ -364,8 +373,14 @@ Module StdLib.
   Notation "'true'" := (eConstr Bool true_name) (in custom expr at level 0).
   Notation "'false'" := (eConstr Bool false_name) ( in custom expr at level 0).
 
+  Notation "'star'" :=
+    (eConstr Unit "Coq.Init.Datatypes.tt")
+      (in custom expr at level 0).
+
+
   Definition Σ : global_env :=
-    [gdInd Bool [("true", []); ("false", [])];
+    [gdInd Unit [("Coq.Init.Datatypes.tt", [])];
+      gdInd Bool [("true", []); ("false", [])];
      gdInd Nat  [("Z", []); ("Suc", [tyInd Nat])]].
 End StdLib.
 
