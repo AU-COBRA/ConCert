@@ -124,9 +124,15 @@ Section Wcbv.
       eval a v ->
       eval (tApp t a) (vpInd i u (l ++ [v]))
 
+  | eval_tind i u :
+      eval (tInd i u) (vpInd i u [])
+
   | eval_app_constr t i k u a v l :
       eval t (vpConstruct i u k l) ->
       eval a v ->
-      eval (tApp t a) (vpConstruct i u k (l ++ [v])).
+      eval (tApp t a) (vpConstruct i u k (l ++ [v]))
+
+  | eval_constr i u k:
+      eval (tConstruct i u k) (vpConstruct i u k []).
 
 End Wcbv.
