@@ -430,16 +430,16 @@ Proof.
   solve_proper.
 Qed.
 
-Section Step.
 Local Open Scope Z.
-(* Next we define a single step. It specifies how an external action
-changes an environment and which external actions to execute after it. *)
-(* todo: handle deploy/call failures. We should still transfer gas and allow this
-to be recorded. *)
-Inductive ChainStep :
+(* Next we define how actions are executed. It specifies how an action
+changes an environment and which external actions to execute after it.
+Note that there can be multiple ways to execute an action. For example, if
+the action says to deploy a contract, the implementation is responsible for
+selecting which address the new contract should get. *)
+Inductive ActionEvaluation :
   Environment -> Action ->
   Environment -> list Action -> Type :=
-  | step_transfer :
+  | eval_transfer :
       forall {pre : Environment}
              {act : Action}
              {new_env : Environment}
@@ -449,8 +449,8 @@ Inductive ChainStep :
         address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
         EnvironmentEquiv new_env (transfer_balance from to amount pre) ->
-        ChainStep pre act new_env []
-  | step_deploy :
+        ActionEvaluation pre act new_env []
+  | eval_deploy :
       forall {pre : Environment}
              {act : Action}
              {new_env : Environment}
@@ -471,8 +471,8 @@ Inductive ChainStep :
       EnvironmentEquiv
         new_env
         (set_contract_state to state (add_contract to wc (transfer_balance from to amount pre))) ->
-      ChainStep pre act new_env []
-  | step_call :
+      ActionEvaluation pre act new_env []
+  | eval_call :
       forall {pre : Environment}
              {act : Action}
              {new_env : Environment}
@@ -501,54 +501,54 @@ Inductive ChainStep :
       EnvironmentEquiv
         new_env
         (set_contract_state to new_state (transfer_balance from to amount pre)) ->
-      ChainStep pre act new_env new_acts.
+      ActionEvaluation pre act new_env new_acts.
 
 Section Accessors.
 Context {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        (step : ChainStep pre act post new_acts).
+        (eval : ActionEvaluation pre act post new_acts).
 
-Definition step_from : Address :=
-  match step with
-  | step_transfer from _ _ _ _ _ _
-  | step_deploy from _ _ _ _ _ _ _ _ _ _ _
-  | step_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
+Definition eval_from : Address :=
+  match eval with
+  | eval_transfer from _ _ _ _ _ _
+  | eval_deploy from _ _ _ _ _ _ _ _ _ _ _
+  | eval_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
-Definition step_to : Address :=
-  match step with
-  | step_transfer _ to _ _ _ _ _
-  | step_deploy _ to _ _ _ _ _ _ _ _ _ _
-  | step_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ => to
+Definition eval_to : Address :=
+  match eval with
+  | eval_transfer _ to _ _ _ _ _
+  | eval_deploy _ to _ _ _ _ _ _ _ _ _ _
+  | eval_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
-Definition step_amount : Amount :=
-  match step with
-  | step_transfer _ _ amount _ _ _ _
-  | step_deploy _ _ amount _ _ _ _ _ _ _ _ _
-  | step_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ => amount
+Definition eval_amount : Amount :=
+  match eval with
+  | eval_transfer _ _ amount _ _ _ _
+  | eval_deploy _ _ amount _ _ _ _ _ _ _ _ _
+  | eval_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
 
 Section Theories.
 Context {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        (step : ChainStep pre act post new_acts).
+        (eval : ActionEvaluation pre act post new_acts).
 
 Lemma account_balance_post (addr : Address) :
   account_balance post addr =
   account_balance pre addr
-  + (if (addr =? step_to step)%address then step_amount step else 0)
-  - (if (addr =? step_from step)%address then step_amount step else 0).
+  + (if (addr =? eval_to eval)%address then eval_amount eval else 0)
+  - (if (addr =? eval_from eval)%address then eval_amount eval else 0).
 Proof.
-  destruct step; cbn; rewrite_environment_equiv; cbn;
+  destruct eval; cbn; rewrite_environment_equiv; cbn;
     unfold add_balance; destruct_address_eq; lia.
 Qed.
 
 Lemma account_balance_post_to :
-  step_from step <> step_to step ->
-  account_balance post (step_to step) =
-  account_balance pre (step_to step) + step_amount step.
+  eval_from eval <> eval_to eval ->
+  account_balance post (eval_to eval) =
+  account_balance pre (eval_to eval) + eval_amount eval.
 Proof.
   intros neq.
   rewrite account_balance_post.
@@ -557,9 +557,9 @@ Proof.
 Qed.
 
 Lemma account_balance_post_from :
-  step_from step <> step_to step ->
-  account_balance post (step_from step) =
-  account_balance pre (step_from step) - step_amount step.
+  eval_from eval <> eval_to eval ->
+  account_balance post (eval_from eval) =
+  account_balance pre (eval_from eval) - eval_amount eval.
 Proof.
   intros neq.
   rewrite account_balance_post.
@@ -568,8 +568,8 @@ Proof.
 Qed.
 
 Lemma account_balance_post_irrelevant (addr : Address) :
-  addr <> step_from step ->
-  addr <> step_to step ->
+  addr <> eval_from eval ->
+  addr <> eval_to eval ->
   account_balance post addr = account_balance pre addr.
 Proof.
   intros neq_from neq_to.
@@ -578,20 +578,19 @@ Proof.
   lia.
 Qed.
 
-Lemma block_header_post_step : block_header post = block_header pre.
-Proof. destruct step; rewrite_environment_equiv; auto. Qed.
+Lemma block_header_post_action : block_header post = block_header pre.
+Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
 
 Lemma contracts_post_pre_none contract :
   env_contracts post contract = None ->
   env_contracts pre contract = None.
 Proof.
   intros H.
-  destruct step; rewrite_environment_equiv; auto.
+  destruct eval; rewrite_environment_equiv; auto.
   cbn in *.
   destruct_address_eq; congruence.
 Qed.
 End Theories.
-End Step.
 
 Section Trace.
 Definition add_new_block
@@ -606,6 +605,7 @@ Definition add_new_block
 
 (* Todo: this should just be a computation. But I still do not *)
 (* know exactly what the best way of working with reflect is *)
+Local Open Scope nat.
 Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
   block_height new = S (block_height old) /\
   slot_number new > slot_number old /\
@@ -621,8 +621,8 @@ Record ChainState :=
     chain_state_queue : list Action;
   }.
 
-Inductive ChainEvent : ChainState -> ChainState -> Type :=
-| evt_block :
+Inductive ChainStep : ChainState -> ChainState -> Type :=
+| step_block :
     forall {prev : ChainState}
            {header : BlockHeader}
            {baker : Address}
@@ -633,22 +633,22 @@ Inductive ChainEvent : ChainState -> ChainState -> Type :=
       EnvironmentEquiv
         next
         (add_new_block header baker prev) ->
-      ChainEvent prev next
-| evt_step :
+      ChainStep prev next
+| step_action :
     forall {prev : ChainState}
            {act : Action}
            {acts : list Action}
            {next : ChainState}
            {new_acts : list Action},
       chain_state_queue prev = act :: acts ->
-      ChainStep prev act next new_acts ->
+      ActionEvaluation prev act next new_acts ->
       chain_state_queue next = new_acts ++ acts ->
-      ChainEvent prev next
-  | evt_permute :
-      forall {prev new : ChainState},
-        chain_state_env prev = chain_state_env new ->
-        Permutation (chain_state_queue prev) (chain_state_queue new) ->
-        ChainEvent prev new.
+      ChainStep prev next
+| step_permute :
+    forall {prev new : ChainState},
+      chain_state_env prev = chain_state_env new ->
+      Permutation (chain_state_queue prev) (chain_state_queue new) ->
+      ChainStep prev new.
 
 Definition empty_state : ChainState :=
   {| chain_state_env :=
@@ -665,7 +665,7 @@ Definition empty_state : ChainState :=
 (* The ChainTrace captures that there is a valid execution where,
 starting from one environment and queue of actions, we end up in a
 different environment and queue of actions. *)
-Definition ChainTrace := ChainedList ChainState ChainEvent.
+Definition ChainTrace := ChainedList ChainState ChainStep.
 
 (* Additionally, a state is reachable if there is a trace ending in this trace. *)
 Definition reachable (state : ChainState) : Prop :=
@@ -674,8 +674,8 @@ Definition reachable (state : ChainState) : Prop :=
 (* We define a transaction as a "fully specified" action, recording all info. For
 example, a transaction contains the contract address that was created when a contract
 is deployed. This is more about bridging the gap between our definitions and what
-a normal blockchain is. Each step corresponds to a transaction and we can go from a
-trace to a list of transactions. *)
+a normal blockchain is. Each evaluation of an action in the blockchain corresponds to
+a transaction, so we can go from a trace to a list of transactions. *)
 Inductive TxBody :=
   | tx_empty
   | tx_deploy (wc : WeakContract) (setup : OakValue)
@@ -689,23 +689,23 @@ Record Tx :=
       tx_body : TxBody;
   }.
 
-Definition step_tx {pre : Environment} {act : Action}
+Definition eval_tx {pre : Environment} {act : Action}
                    {post : Environment} {new_acts : list Action}
-                   (step : ChainStep pre act post new_acts) : Tx :=
+                   (step : ActionEvaluation pre act post new_acts) : Tx :=
   match step with
-  | step_transfer from to amount _ _ _ _ =>
+  | eval_transfer from to amount _ _ _ _ =>
     build_tx from to amount tx_empty
-  | step_deploy from to amount wc setup _ _ _ _ _ _ _ =>
+  | eval_deploy from to amount wc setup _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_deploy wc setup)
-  | step_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ =>
+  | eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_call msg)
   end.
 
 Fixpoint trace_txs {from to : ChainState} (trace : ChainTrace from to) : list Tx :=
   match trace with
-  | snoc trace' evt =>
-    match evt with
-    | evt_step _ step _ => step_tx step :: trace_txs trace'
+  | snoc trace' step =>
+    match step with
+    | step_action _ eval _ => eval_tx eval :: trace_txs trace'
     | _ => trace_txs trace'
     end
   | _ => []
@@ -726,9 +726,9 @@ Definition outgoing_txs
 Fixpoint blocks_baked {from to : ChainState}
          (trace : ChainTrace from to) (addr : Address) : list nat :=
   match trace with
-  | snoc trace' evt =>
-    match evt with
-    | @evt_block _ header baker _ _ _ _ _ =>
+  | snoc trace' step =>
+    match step with
+    | @step_block _ header baker _ _ _ _ _ =>
       if (baker =? addr)%address
       then block_height header :: blocks_baked trace' addr
       else blocks_baked trace' addr
@@ -738,18 +738,18 @@ Fixpoint blocks_baked {from to : ChainState}
   end.
 
 Section Theories.
-Ltac destruct_chain_event :=
+Ltac destruct_chain_step :=
   match goal with
-  | [evt: ChainEvent _ _ |- _] =>
-    destruct evt as
+  | [step: ChainStep _ _ |- _] =>
+    destruct step as
         [prev header baker next queue_prev valid_header acts_from_accs env_eq|
          prev act acts next new_acts queue_prev step queue_new|
          prev new prev_new perm]
   end.
 
-Ltac destruct_chain_step :=
+Ltac destruct_action_eval :=
   match goal with
-  | [step: ChainStep _ _ _ _ |- _] => destruct step
+  | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
   end.
 
 Lemma contract_addr_format {to} (addr : Address) (wc : WeakContract) :
@@ -761,9 +761,9 @@ Proof.
   remember empty_state eqn:eq.
   induction trace; rewrite eq in *; clear eq.
   - cbn in *; congruence.
-  - destruct_chain_event.
+  - destruct_chain_step.
     + rewrite_environment_equiv; cbn in *; auto.
-    + destruct_chain_step; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
+    + destruct_action_eval; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
     + intuition.
 Qed.
 
@@ -791,7 +791,7 @@ Proof.
   remember empty_state eqn:eq.
   induction trace;
     intros undeployed; rewrite eq in *; clear eq; cbn; auto.
-  destruct_chain_event; [|destruct_chain_step|];
+  destruct_chain_step; [|destruct_action_eval|];
     try rewrite_environment_equiv;
     repeat
       match goal with
@@ -833,7 +833,7 @@ Proof.
   intros is_contract undeployed.
   remember empty_state eqn:eq.
   induction trace; cbn; auto.
-  destruct_chain_event.
+  destruct_chain_step.
   - (* New block *)
     rewrite_environment_equiv; auto.
   - (* In these steps we will use that the queue did not contain txs to the contract. *)
@@ -850,7 +850,7 @@ Proof.
       | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
       end.
     inversion_clear Hqueue.
-    destruct_chain_step; rewrite_environment_equiv;
+    destruct_action_eval; rewrite_environment_equiv;
       subst;
       cbn in *;
       destruct_address_eq;
@@ -869,10 +869,10 @@ Proof.
   intros is_contract undeployed.
   remember empty_state eqn:eq.
   induction trace; cbn; auto.
-  destruct_chain_event.
+  destruct_chain_step.
   - (* New block *)
     rewrite_environment_equiv; auto.
-  - destruct_chain_step; rewrite_environment_equiv;
+  - destruct_action_eval; rewrite_environment_equiv;
       cbn in *;
       destruct_address_eq; auto; subst; congruence.
   - match goal with
@@ -889,7 +889,7 @@ Lemma account_balance_trace state (trace : ChainTrace empty_state state) addr :
 Proof.
   unfold incoming_txs, outgoing_txs.
   remember empty_state as from_state.
-  induction trace; [|destruct_chain_event].
+  induction trace; [|destruct_chain_step].
   - subst. cbn. lia.
   - (* Block *)
     rewrite_environment_equiv.
@@ -899,7 +899,7 @@ Proof.
     destruct_address_eq; subst; cbn; lia.
   - (* Step *)
     cbn.
-    destruct_chain_step; cbn; rewrite_environment_equiv; cbn.
+    destruct_action_eval; cbn; rewrite_environment_equiv; cbn.
     all: unfold add_balance; rewrite IHtrace by auto.
     all: destruct_address_eq; cbn; lia.
   - cbn.
@@ -942,23 +942,18 @@ Arguments build_contract {_ _ _ _ _ _ _}.
 Arguments ContractInterface {_} _ _.
 Arguments build_contract_interface {_ _ _ _}.
 
-Ltac destruct_chain_event :=
+Ltac destruct_chain_step :=
   match goal with
-  | [evt: ChainEvent _ _ |- _] =>
-    destruct evt as
+  | [step: ChainStep _ _ |- _] =>
+    destruct step as
         [prev header baker next queue_prev valid_header acts_from_accs env_eq|
          prev act acts next new_acts queue_prev step queue_new|
          prev new prev_new perm]
   end.
 
-Ltac destruct_chain_step :=
+Ltac destruct_action_eval :=
   match goal with
-  | [step: ChainStep _ _ _ _ |- _] => destruct step
-  end.
-
-Ltac invert_chain_step :=
-  match goal with
-  | [step: ChainStep _ _ _ _ |- _] => inversion step
+  | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
   end.
 
 Ltac rewrite_environment_equiv :=

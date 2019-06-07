@@ -223,7 +223,7 @@ Section ExecuteActions.
                           | None => act_transfer to amount
                           | Some msg => act_call to amount msg
                           end) ->
-    ChainStep lc_before act lc_after new_acts.
+    ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
@@ -240,7 +240,7 @@ Section ExecuteActions.
       | [p: OakValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
       end.
       Hint Resolve gtb_le : core.
-      apply (step_call from to amount wc msg prev_state new_state resp_acts);
+      apply (eval_call from to amount wc msg prev_state new_state resp_acts);
         try solve [cbn in *; auto; congruence].
       + rewrite <- receive.
         apply wc_receive_proper; auto.
@@ -252,7 +252,7 @@ Section ExecuteActions.
       destruct (address_is_contract to) eqn:addr_format; simpl in *; try congruence.
       destruct msg; simpl in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
-      apply (step_transfer from to amount); auto.
+      apply (eval_transfer from to amount); auto.
       inversion sent; subst; now apply transfer_balance_equiv.
   Defined.
 
@@ -273,7 +273,7 @@ Section ExecuteActions.
   Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
     deploy_contract from amount wc setup lc_before = Some (new_acts, lc_after) ->
     act = build_act from (act_deploy amount wc setup) ->
-    ChainStep lc_before act lc_after new_acts.
+    ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros dep act_eq.
     unfold deploy_contract in dep.
@@ -287,7 +287,7 @@ Section ExecuteActions.
     cbn in dep.
     assert (new_acts = []) by congruence; subst new_acts.
     Hint Resolve get_new_contract_addr_is_contract_addr : core.
-    apply (step_deploy from contract_addr amount wc setup state); eauto.
+    apply (eval_deploy from contract_addr amount wc setup state); eauto.
     - rewrite <- recv.
       apply wc_init_proper; auto.
       now symmetry; apply transfer_balance_equiv.
@@ -301,7 +301,7 @@ Section ExecuteActions.
         (lc_before : LocalChain)
         (lc_after : LocalChain) :
     execute_action act lc_before = Some (new_acts, lc_after) ->
-    ChainStep lc_before act lc_after new_acts.
+    ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros exec.
     unfold execute_action in exec.
@@ -322,14 +322,14 @@ Section ExecuteActions.
       destruct (execute_action x lc) as [[new_acts lc_after]|] eqn:exec_once;
         cbn in *; try congruence.
       set (step := execute_action_step _ _ _ _ exec_once).
-      Hint Constructors ChainEvent : core.
+      Hint Constructors ChainStep : core.
       Hint Constructors ChainedList : core.
       Hint Unfold ChainTrace : core.
       refine (IH _ _ _ _ exec).
       destruct df.
       + (* depth-first case *)
         eauto.
-      + (* breadth-first case. Insert permute event. *)
+      + (* breadth-first case. Insert permute step. *)
         assert (Permutation (new_acts ++ xs) (xs ++ new_acts)) by perm_simplify.
         cut (ChainTrace
               empty_state
@@ -468,7 +468,7 @@ Proof.
   refine (execute_actions_trace _ _ _ _ _ _ exec).
   refine (snoc prev_lcb_trace _).
   Hint Resolve validate_header_valid validate_actions_valid : core.
-  eapply evt_block; eauto.
+  eapply step_block; eauto.
   apply add_new_block_equiv.
   reflexivity.
 Defined.

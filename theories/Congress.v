@@ -773,8 +773,8 @@ Proof.
   assert (address_is_contract contract = true) as addr_format by eauto.
   remember empty_state eqn:eq.
   (* Contract cannot have been deployed in empty trace so we solve that immediately. *)
-  induction trace as [|? ? ? evts IH evt]; subst; try solve_by_inversion.
-  destruct_chain_event.
+  induction trace as [|? ? ? steps IH step]; subst; try solve_by_inversion.
+  destruct_chain_step.
   - (* New block added, does not change any of the values *)
     (* so basically just use IH directly. *)
     rewrite queue_prev in *.
@@ -787,7 +787,7 @@ Proof.
     cbn [trace_txs].
     rewrite queue_prev, queue_new in *.
     remember (chain_state_env prev).
-    destruct_chain_step; subst pre; cbn [step_tx].
+    destruct_action_eval; subst pre; cbn [eval_tx].
     + (* Transfer step: cannot be to contract, but can come from contract. *)
       rewrite_environment_equiv.
       specialize_hypotheses.
@@ -820,7 +820,7 @@ Proof.
         simpl_hyp_invariant.
         simpl_goal_invariant.
         (* Outgoing transactions is 0 *)
-        fold (outgoing_txs evts contract).
+        fold (outgoing_txs steps contract).
         rewrite undeployed_contract_no_out_txs; auto.
         cbn. lia.
     + (* Call. *)
@@ -842,15 +842,15 @@ Proof.
         match goal with
         | [H1: wc_receive _ _ _ _ _ = Some _,
            H2: contract_state _ _ = Some _ |- _] =>
-          generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ evts H2 H1)
+          generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ steps H2 H1)
         end.
         simpl_goal_invariant.
         rewrite num_outgoing_acts_call.
 
         intros.
         cbn -[set_contract_state].
-        fold (incoming_txs evts contract) in *.
-        fold (outgoing_txs evts contract) in *.
+        fold (incoming_txs steps contract) in *.
+        fold (outgoing_txs steps contract) in *.
         rewrite address_eq_refl.
         destruct (address_eqb_spec from contract);
           simpl_hyp_invariant;

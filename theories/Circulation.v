@@ -15,7 +15,7 @@ Local Open Scope Z.
 Definition circulation (chain : Chain) :=
   sumZ (account_balance chain) (elements Address).
 
-(* We then prove that over any single step, the circulation is preserved.
+(* We then prove that over any single action, the circulation is preserved.
 The idea behind this proof is that addrs contain from and to so
 we can move them to the beginning of the sum and it easily follows that
 the sum of their balances is the same as before. For the rest of the
@@ -32,13 +32,13 @@ Proof.
   intuition.
 Qed.
 
-Lemma step_from_to_same
+Lemma eval_action_from_to_same
       {pre : Environment}
       {act : Action}
       {post : Environment}
       {new_acts : list Action}
-      (step : ChainStep pre act post new_acts) :
-  step_from step = step_to step ->
+      (eval : ActionEvaluation pre act post new_acts) :
+  eval_from eval = eval_to eval ->
   circulation post = circulation pre.
 Proof.
   intros from_eq_to.
@@ -46,46 +46,46 @@ Proof.
   induction (elements Address) as [| x xs IH].
   - reflexivity.
   - cbn in *.
-    rewrite IH, (account_balance_post step), from_eq_to.
+    rewrite IH, (account_balance_post eval), from_eq_to.
     lia.
 Qed.
 
-Hint Resolve step_from_to_same : core.
+Hint Resolve eval_action_from_to_same : core.
 
-Lemma step_circulation_unchanged
+Lemma eval_action_circulation_unchanged
       {pre : Environment}
       {act : Action}
       {post : Environment}
       {new_acts : list Action} :
-  ChainStep pre act post new_acts ->
+  ActionEvaluation pre act post new_acts ->
   circulation post = circulation pre.
 Proof.
-  intros step.
-  destruct (address_eqb_spec (step_from step) (step_to step))
+  intros eval.
+  destruct (address_eqb_spec (eval_from eval) (eval_to eval))
     as [from_eq_to | from_neq_to]; eauto.
   destruct (address_reorganize from_neq_to) as [suf perm].
   apply Permutation_sym in perm.
   unfold circulation.
   rewrite 2!(sumZ_permutation perm).
   cbn.
-  rewrite (account_balance_post_to step from_neq_to).
-  rewrite (account_balance_post_from step from_neq_to).
+  rewrite (account_balance_post_to eval from_neq_to).
+  rewrite (account_balance_post_from eval from_neq_to).
   enough (sumZ (account_balance pre) suf = sumZ (account_balance post) suf) by lia.
 
   pose proof (Permutation_NoDup perm) as perm_set.
-  assert (from_not_in_suf: ~In (step_from step) suf).
-  { apply (in_NoDup_app _ [step_from step; step_to step] _); intuition. }
-  assert (to_not_in_suf: ~In (step_to step) suf).
-  { apply (in_NoDup_app _ [step_from step; step_to step] _); intuition. }
+  assert (from_not_in_suf: ~In (eval_from eval) suf).
+  { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); intuition. }
+  assert (to_not_in_suf: ~In (eval_to eval) suf).
+  { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); intuition. }
 
   clear perm perm_set.
-  pose proof (account_balance_post_irrelevant step) as balance_irrel.
+  pose proof (account_balance_post_irrelevant eval) as balance_irrel.
   induction suf as [| x xs IH]; auto.
   cbn in *.
   rewrite IH, balance_irrel; auto.
 Qed.
 
-Hint Resolve step_circulation_unchanged : core.
+Hint Resolve eval_action_circulation_unchanged : core.
 
 Instance circulation_proper :
   Proper (ChainEquiv ==> eq) circulation.
@@ -129,23 +129,23 @@ Proof.
   lia.
 Qed.
 
-Lemma event_circulation {prev next} (evt : ChainEvent prev next) :
+Lemma step_circulation {prev next} (step : ChainStep prev next) :
   circulation next =
-  match evt with
-  | evt_block _ _ _ _ =>
+  match step with
+  | step_block _ _ _ _ =>
     circulation prev + compute_block_reward (block_height (block_header next))
   | _ => circulation prev
   end%Z.
 Proof.
-  destruct evt;
+  destruct step;
     repeat
       match goal with
       | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *; clear H
       end.
   - (* New block *)
     now rewrite circulation_add_new_block.
-  - (* New step *)
-    erewrite step_circulation_unchanged; eauto.
+  - (* New action *)
+    erewrite eval_action_circulation_unchanged; eauto.
   - (* Permute queue *)
     intuition.
 Qed.
@@ -161,7 +161,7 @@ Proof.
   induction trace as [| from mid to xs IH x]; rewrite eq in *; clear eq.
   - unfold circulation.
     induction (elements Address); auto.
-  - rewrite (event_circulation x).
+  - rewrite (step_circulation x).
     destruct x.
     + rewrite_environment_equiv.
       cbn.
@@ -170,7 +170,7 @@ Proof.
       | [H: IsValidNextBlock _ _ |- _] =>
         rewrite (proj1 H), IH, sumZ_seq_S; auto
       end.
-    + erewrite block_header_post_step; eauto.
+    + erewrite block_header_post_action; eauto.
     + intuition.
 Qed.
 End Circulation.
