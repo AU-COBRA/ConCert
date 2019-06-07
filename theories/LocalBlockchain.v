@@ -444,8 +444,7 @@ Definition add_block
            (finalized_height : nat)
   : option LocalChainBuilder.
 Proof.
-  refine (
-      let lcopt :=
+  set (lcopt :=
          let lc := lcb_lc lcb in
          let new_header :=
              {| block_height := S (block_height (lc_header lc));
@@ -454,12 +453,11 @@ Proof.
          do validate_header new_header (lc_header lc);
          do validate_actions actions;
          let lc := add_new_block new_header baker lc in
-         execute_actions 1000 actions lc depth_first in
-      _).
+         execute_actions 1000 actions lc depth_first).
 
   destruct lcopt as [lc|] eqn:exec; [|exact None].
   subst lcopt.
-  cbn -[execute_actions address_is_contract] in exec.
+  cbn -[execute_actions] in exec.
   destruct (validate_header _) eqn:validate; [|simpl in *; congruence].
   destruct (validate_actions _) eqn:validate_actions; [|simpl in *; congruence].
   destruct_units.

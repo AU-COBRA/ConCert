@@ -17,7 +17,6 @@ Import ListNotations.
 Definition Version := nat.
 
 Definition Amount := Z.
-
 Bind Scope Z_scope with Amount.
 
 Class ChainBase :=
@@ -41,28 +40,34 @@ Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
 Infix "=?" := address_eqb (at level 70) : address_scope.
 
+Lemma address_eq_refl `{ChainBase} x :
+  address_eqb x x = true.
+Proof. destruct (address_eqb_spec x x); auto; congruence. Qed.
+
+Lemma address_eq_ne `{ChainBase} x y :
+  x <> y ->
+  address_eqb x y = false.
+Proof. destruct (address_eqb_spec x y) as [->|]; tauto. Qed.
+
+Lemma address_eq_sym `{ChainBase} x y :
+  address_eqb x y = address_eqb y x.
+Proof.
+  destruct (address_eqb_spec x y) as [->|].
+  - now rewrite address_eq_refl.
+  - rewrite address_eq_ne; auto.
+Qed.
+
 Global Ltac destruct_address_eq :=
   repeat
     match goal with
-    | [H: context[address_eqb ?a ?b] |- _] => destruct (address_eqb_spec a b)
-    | [|- context[address_eqb ?a ?b]] => destruct (address_eqb_spec a b)
+    | [H: context[address_eqb ?a ?b] |- _] =>
+      try rewrite (address_eq_sym b a) in *; destruct (address_eqb_spec a b)
+    | [|- context[address_eqb ?a ?b]] =>
+      try rewrite (address_eq_sym b a) in *; destruct (address_eqb_spec a b)
     end.
 
 Section Blockchain.
 Context {BaseTypes : ChainBase}.
-
-Lemma address_eq_refl x :
-  address_eqb x x = true.
-Proof. destruct_address_eq; auto; congruence. Qed.
-
-Lemma address_eq_sym x y :
-  address_eqb x y = address_eqb y x.
-Proof. destruct_address_eq; auto; congruence. Qed.
-
-Lemma address_eq_ne x y :
-  x <> y ->
-  address_eqb x y = false.
-Proof. destruct_address_eq; auto; congruence. Qed.
 
 Record BlockHeader :=
   build_block_header {
@@ -326,7 +331,7 @@ Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amou
 Definition set_chain_contract_state
            (addr : Address) (state : OakValue) (map : Address -> option OakValue)
   : Address -> option OakValue :=
-  fun a => if address_eqb a addr
+  fun a => if (a =? addr)%address
            then Some state
            else map a.
 
@@ -718,10 +723,28 @@ Definition outgoing_txs
            (addr : Address) : list Tx :=
   filter (fun tx => (tx_from tx =? addr)%address) (trace_txs trace).
 
+Fixpoint blocks_baked {from to : ChainState}
+         (trace : ChainTrace from to) (addr : Address) : list nat :=
+  match trace with
+  | snoc trace' evt =>
+    match evt with
+    | @evt_block _ header baker _ _ _ _ _ =>
+      if (baker =? addr)%address
+      then block_height header :: blocks_baked trace' addr
+      else blocks_baked trace' addr
+    | _ => blocks_baked trace' addr
+    end
+  | clnil => []
+  end.
+
 Section Theories.
 Ltac destruct_chain_event :=
   match goal with
-  | [evt: ChainEvent _ _ |- _] => destruct evt
+  | [evt: ChainEvent _ _ |- _] =>
+    destruct evt as
+        [prev header baker next queue_prev valid_header acts_from_accs env_eq|
+         prev act acts next new_acts queue_prev step queue_new|
+         prev new prev_new perm]
   end.
 
 Ltac destruct_chain_step :=
@@ -857,6 +880,33 @@ Proof.
     end.
 Qed.
 
+Local Open Scope Z.
+Lemma account_balance_trace state (trace : ChainTrace empty_state state) addr :
+  account_balance state addr =
+  sumZ tx_amount (incoming_txs trace addr) +
+  sumZ compute_block_reward (blocks_baked trace addr) -
+  sumZ tx_amount (outgoing_txs trace addr).
+Proof.
+  unfold incoming_txs, outgoing_txs.
+  remember empty_state as from_state.
+  induction trace; [|destruct_chain_event].
+  - subst. cbn. lia.
+  - (* Block *)
+    rewrite_environment_equiv.
+    cbn.
+    unfold add_balance.
+    rewrite IHtrace by auto.
+    destruct_address_eq; subst; cbn; lia.
+  - (* Step *)
+    cbn.
+    destruct_chain_step; cbn; rewrite_environment_equiv; cbn.
+    all: unfold add_balance; rewrite IHtrace by auto.
+    all: destruct_address_eq; cbn; lia.
+  - cbn.
+    rewrite <- prev_new.
+    auto.
+Qed.
+
 End Theories.
 End Trace.
 End Semantics.
@@ -894,7 +944,11 @@ Arguments build_contract_interface {_ _ _ _}.
 
 Ltac destruct_chain_event :=
   match goal with
-  | [evt: ChainEvent _ _ |- _] => destruct evt
+  | [evt: ChainEvent _ _ |- _] =>
+    destruct evt as
+        [prev header baker next queue_prev valid_header acts_from_accs env_eq|
+         prev act acts next new_acts queue_prev step queue_new|
+         prev new prev_new perm]
   end.
 
 Ltac destruct_chain_step :=

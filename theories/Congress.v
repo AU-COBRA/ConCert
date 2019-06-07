@@ -694,12 +694,6 @@ Arguments num_cacts_in_raw_state : simpl never.
 Arguments num_cacts_in_state : simpl never.
 Arguments num_outgoing_acts !l.
 
-Local Ltac rewrite_queues :=
-  repeat
-    match goal with
-    | [H: chain_state_queue _ = _ |- _] => rewrite H in *
-    end.
-
 Local Ltac solve_single :=
   solve [
       repeat (progress subst; cbn in *; auto);
@@ -780,9 +774,10 @@ Proof.
   remember empty_state eqn:eq.
   (* Contract cannot have been deployed in empty trace so we solve that immediately. *)
   induction trace as [|? ? ? evts IH evt]; subst; try solve_by_inversion.
-  destruct_chain_event; rewrite_queues.
+  destruct_chain_event.
   - (* New block added, does not change any of the values *)
     (* so basically just use IH directly. *)
+    rewrite queue_prev in *.
     rewrite_environment_equiv.
     specialize_hypotheses.
     simpl_goal_invariant.
@@ -790,7 +785,7 @@ Proof.
   - (* Step *)
     unfold outgoing_txs, incoming_txs in *.
     cbn [trace_txs].
-    rewrite_queues.
+    rewrite queue_prev, queue_new in *.
     remember (chain_state_env prev).
     destruct_chain_step; subst pre; cbn [step_tx].
     + (* Transfer step: cannot be to contract, but can come from contract. *)
@@ -819,7 +814,7 @@ Proof.
         (* Outgoing actions in queue is 0 *)
         assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
           as out_acts by eauto.
-        rewrite_queues.
+        rewrite queue_prev in out_acts.
         assert (act_from act <> contract)
           by (eapply undeployed_contract_not_from_self; eauto).
         simpl_hyp_invariant.
@@ -847,7 +842,7 @@ Proof.
         match goal with
         | [H1: wc_receive _ _ _ _ _ = Some _,
            H2: contract_state _ _ = Some _ |- _] =>
-          generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ evts e2 e4)
+          generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ evts H2 H1)
         end.
         simpl_goal_invariant.
         rewrite num_outgoing_acts_call.
@@ -867,10 +862,7 @@ Proof.
     | [Hperm: Permutation _ _ |- _] => rewrite <- Hperm
     end.
     cbn.
-    match goal with
-    | [H: chain_state_env prev = chain_state_env new |- _] =>
-      rewrite <- H in *
-    end; auto.
+    rewrite <- prev_new in *; auto.
 Qed.
 
 Corollary congress_txs_after_block
