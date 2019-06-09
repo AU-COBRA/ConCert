@@ -16,6 +16,8 @@ Open Scope string_scope.
 Require Import Template.monad_utils.
 Import MonadNotation.
 
+Module TC := Template.Ast.
+
 (* Aliases *)
 Definition name := string.
 Definition inductive := string.
@@ -24,6 +26,12 @@ Definition inductive := string.
 Inductive type : Set :=
 | tyInd : inductive -> type
 | tyArr : type -> type -> type.
+
+Fixpoint ctor_type_to_list_anon (ty : type) : list (TC.name * type) :=
+  match ty with
+  | tyInd i => [(nAnon,tyInd i)]
+  | tyArr ty1 ty2 => ctor_type_to_list_anon ty1 ++ ctor_type_to_list_anon ty2
+  end.
 
 Record pat := pConstr {pName : name; pVars : list name}.
 
@@ -104,11 +112,14 @@ Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
 Definition vars_to_apps acc vs :=
   fold_left eApp vs acc.
 
-Definition constr := (name * list type)%type.
+Definition constr := (string * list (TC.name * type))%type.
 
 (* Could be extended to handle declaration of constant, e.g. function definitions *)
 Inductive global_dec :=
-| gdInd : name -> list constr -> global_dec.
+| gdInd : name -> list constr
+          -> bool (* set to [true] if it's a record *)
+          -> global_dec.
+
 
 Definition global_env := list global_dec.
 
@@ -125,22 +136,24 @@ Fixpoint lookup {A} (l : list (string * A)) key : option A :=
 Fixpoint lookup_global ( Σ : global_env) key : option global_dec :=
   match Σ with
   | [] => None
-  | gdInd key' v :: xs => if eq_string key' key then Some (gdInd key' v) else lookup_global xs key
+  | gdInd key' v r :: xs => if eq_string key' key then Some (gdInd key' v r) else lookup_global xs key
   end.
 
 Definition resolve_inductive (Σ : global_env) (ind_name : ident)
-  : option (list (name * list type)) :=
+  : option (list constr) :=
   match (lookup_global Σ ind_name) with
-  | Some (gdInd n cs) => Some cs
+  | Some (gdInd n cs _) => Some cs
   | None => None
   end.
+
+Definition remove_proj (c : constr) := map snd (snd c).
 
 (* Resolves the constructor name to a corresponding position in the list of constructors along
    with the constructor info *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ident)
   : option (nat * list type)  :=
   match (resolve_inductive Σ ind_name) with
-  | Some cs => lookup_with_ind cs constr_name
+  | Some cs => lookup_with_ind (map (fun c => (fst c, remove_proj c)) cs) constr_name
   | None => None
   end.
 
@@ -218,15 +231,16 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
   (i, combine p.(pVars) nm_tys).
 
 Definition trans_branch (bs : list (pat * term))
-           (c : name * list type) :=
-  let (nm, tys) := c in
+           (c : constr) :=
+  let nm  := fst c in
+  let tys := remove_proj c in
   let o_pt_e := find (fun x =>(fst x).(pName) =? nm) bs in
     let dummy := (0, tVar (nm ++ ": not found")) in
   match o_pt_e with
     | Some pt_e => if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
                     let vars_tys := combine (fst pt_e).(pVars) tys in
                     (length (fst pt_e).(pVars), pat_to_lam vars_tys (snd pt_e))
-                  else dummy
+                  else (0, tVar (nm ++ ": arity does not match"))
     | None => dummy
   end.
 
@@ -263,6 +277,46 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   end.
 
+Definition mkArrows_rec (ind_name : name)  :=
+  fix rec (n : nat) (proj_tys : list (Template.Ast.name * type)) :=
+  match proj_tys with
+  | [] => tRel n
+  | (proj, ty) :: tys' => let res :=
+                         match ty with
+                          | tyInd nm => if eqb nm ind_name then
+                                         tRel n else type_to_term ty
+                          | _ => type_to_term ty
+                                   end in tProd proj res (rec (1+n) tys')
+  end.
+
+Definition mkArrows indn := mkArrows_rec indn 0.
+
+Compute mkArrows "Nat"
+        ([(nAnon, tyInd "Nat"); (nAnon,tyInd "Bool"); (nAnon,tyInd "Nat")]).
+
+Definition trans_one_constr (ind_name : name) (c : constr) : term :=
+  let (ctor_name, tys) := c in mkArrows ind_name tys.
+
+(** Translating global declaration, e.g. inductives *)
+Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
+  match gd with
+  | gdInd nm cs r =>
+    let oie := {|
+          mind_entry_typename := nm;
+          mind_entry_arity := tSort Universe.type0;
+          mind_entry_template := false;
+          mind_entry_consnames := map fst cs;
+          mind_entry_lc := map (trans_one_constr nm) cs |}
+    in
+   {| mind_entry_record := if r then (Some (Some [nm])) else None;
+      mind_entry_finite := if r then BiFinite else Finite;
+      mind_entry_params := [];
+      mind_entry_inds := [oie];
+      mind_entry_universes := Monomorphic_ctx ([], ConstraintSet.empty);
+      mind_entry_private := None;|}
+  end.
+
+
 Module BaseTypes.
   Definition Nat_name := "Coq.Init.Datatypes.nat".
   Definition Nat := Nat_name.
@@ -276,13 +330,153 @@ End BaseTypes.
 
 Import BaseTypes.
 
+Open Scope list.
+
+Declare Custom Entry ctor.
+Declare Custom Entry global_dec.
 Declare Custom Entry expr.
 Declare Custom Entry pat.
 Declare Custom Entry type.
+Declare Custom Entry name_type.
+
 
 Notation "ty" := (tyInd ty) (in custom type at level 2, ty constr at level 3).
 Notation "ty1 -> ty2" := (tyArr ty1 ty2)
-                          (in custom type at level 4).
+                           (in custom type at level 4, right associativity).
+
+
+Notation " ctor : ty " := (ctor, removelast (ctor_type_to_list_anon ty))
+                          (in custom ctor at level 2,
+                              ctor constr at level 4,
+                              ty custom type at level 4).
+
+(* NOTE: couldn't make this work with the recursive notation *)
+(* Notation "'data' ty_nm ':=' c1 | .. | cn ;;" := *)
+(*   (gdInd ty_nm (cons c1 .. (cons cn nil) ..)) *)
+(*     (in custom global_dec at level 1, *)
+(*         ty_nm constr at level 4, *)
+(*         c1 custom ctor at level 4, *)
+(*         cn custom ctor at level 4). *)
+
+
+Notation "[\ gd \]" := gd (gd custom global_dec at level 2).
+
+Definition simpl_constr c_nm ty_nm : constr := (c_nm, [(nAnon, tyInd ty_nm)]).
+
+Notation "'data' ty_nm ':=' c1 ;" :=
+  (gdInd ty_nm [c1] false)
+    (in custom global_dec at level 1,
+        ty_nm constr at level 4,
+        c1 custom ctor at level 4).
+
+Notation "'data' ty_nm ':=' c1 | c2 ;" :=
+  (gdInd ty_nm [c1;c2] false)
+    (in custom global_dec at level 1,
+        ty_nm constr at level 4,
+        c1 custom ctor at level 4,
+        c2 custom ctor at level 4).
+
+Notation "'data' ty_nm ':=' c1 | c2 | c3 ;" :=
+  (gdInd ty_nm [c1;c2;c3] false)
+    (in custom global_dec at level 1,
+        ty_nm constr at level 4,
+        c1 custom ctor at level 4,
+        c2 custom ctor at level 4,
+        c3 custom ctor at level 4).
+
+Notation "'data' ty_nm ':=' c1 | c2 | c3 | c4 ;" :=
+  (gdInd ty_nm [c1;c2;c3;c4] false)
+    (in custom global_dec at level 1,
+        ty_nm constr at level 4,
+        c1 custom ctor at level 4,
+        c2 custom ctor at level 4,
+        c3 custom ctor at level 4,
+        c4 custom ctor at level 4).
+
+Notation "'data' ty_nm ':=' c1 | c2 | c3 | c4 | c5 ;" :=
+  (gdInd ty_nm [c1;c2;c3;c4;c5] false)
+    (in custom global_dec at level 1,
+        ty_nm constr at level 4,
+        c1 custom ctor at level 4,
+        c2 custom ctor at level 4,
+        c3 custom ctor at level 4,
+        c4 custom ctor at level 4,
+        c5 custom ctor at level 4).
+(* Works, but overlaps with the previous notations *)
+(* Notation "'data' ty_nm ':=' c1 | .. | cn ;" := *)
+(*   (gdInd ty_nm (cons (simpl_constr c1 ty_nm) .. (cons (simpl_constr cn ty_nm) nil) ..)) *)
+(*          (in custom global_dec at level 1, *)
+(*              ty_nm constr at level 4, *)
+(*              c1 constr at level 4, *)
+(*              cn constr at level 4). *)
+
+
+Definition rec_constr (rec_nm :name) (proj_tys : list (TC.name * type)) :=
+  (("mk"++ rec_nm)%string, proj_tys).
+
+Definition rec_constrs rec_nm := map (rec_constr rec_nm).
+
+Notation "'record' rec_nm := { pr1 : ty1 }" :=
+  (gdInd rec_nm [ rec_constr rec_nm [(nNamed pr1,ty1)]] true)
+    (in custom global_dec at level 1,
+        pr1 constr at level 4,
+        rec_nm constr at level 4,
+        ty1 custom type at level 4).
+
+Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 }" :=
+  (gdInd rec_nm [ rec_constr rec_nm [(nNamed pr1,ty1);(nNamed pr2,ty2)]] true)
+    (in custom global_dec at level 1,
+        rec_nm constr at level 4,
+        pr1 constr at level 4,
+        pr2 constr at level 4,
+        ty1 custom type at level 4,
+        ty2 custom type at level 4).
+
+Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 }" :=
+  (gdInd rec_nm
+         [ rec_constr rec_nm [(nNamed pr1,ty1);(nNamed pr2,ty2);(nNamed pr3,ty3)]] true)
+    (in custom global_dec at level 1,
+        rec_nm constr at level 4,
+        pr1 constr at level 4,
+        pr2 constr at level 4,
+        pr3 constr at level 4,
+        ty1 custom type at level 4,
+        ty2 custom type at level 4,
+        ty3 custom type at level 4).
+
+Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" :=
+  (gdInd rec_nm
+         [ rec_constr rec_nm [(nNamed pr1,ty1);(nNamed pr2,ty2);
+                                (nNamed pr3,ty3);(nNamed pr4,ty4)]] true)
+    (in custom global_dec at level 1,
+        rec_nm constr at level 4,
+        pr1 constr at level 4,
+        pr2 constr at level 4,
+        pr3 constr at level 4,
+        pr4 constr at level 4,
+        ty1 custom type at level 4,
+        ty2 custom type at level 4,
+        ty3 custom type at level 4,
+        ty4 custom type at level 4).
+
+Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 }" :=
+  (gdInd rec_nm
+         [ rec_constr rec_nm [(nNamed pr1,ty1);(nNamed pr2,ty2);
+                                (nNamed pr3,ty3);(nNamed pr4,ty4);
+                                  (nNamed pr5,ty5)]] true)
+    (in custom global_dec at level 1,
+        rec_nm constr at level 4,
+        pr1 constr at level 4,
+        pr2 constr at level 4,
+        pr3 constr at level 4,
+        pr4 constr at level 4,
+        pr5 constr at level 4,
+        ty1 custom type at level 4,
+        ty2 custom type at level 4,
+        ty3 custom type at level 4,
+        ty4 custom type at level 4,
+        ty5 custom type at level 4).
+
 
 Notation "[| e |]" := e (e custom expr at level 2).
 Notation "^ i " := (eRel i) (in custom expr at level 3, i constr at level 4).
@@ -314,6 +508,14 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
 (*         bn custom expr at level 4, *)
 (*         ty constr at level 4). *)
 
+Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
+  (eCase (ty1,0) ty2 x [(p1,b1)])
+    (in custom expr at level 1,
+        p1 custom pat at level 4,
+        b1 custom expr at level 4,
+        ty1 constr at level 4,
+        ty2 custom type at level 4).
+
 Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
   (eCase (ty1,0) ty2 x [(p1,b1);(pn,bn)])
     (in custom expr at level 1,
@@ -324,13 +526,20 @@ Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
         ty1 constr at level 4,
         ty2 custom type at level 4).
 
-Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
-  (eCase (ty1,0) ty2 x [(p1,b1)])
+
+Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
+  (eCase (ty1,0) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
     (in custom expr at level 1,
         p1 custom pat at level 4,
+        p2 custom pat at level 4,
+        p3 custom pat at level 4,
         b1 custom expr at level 4,
+        b2 custom expr at level 4,
+        b3 custom expr at level 4,
         ty1 constr at level 4,
         ty2 custom type at level 4).
+
+
 
 Notation "x" := (eVar x) (in custom expr at level 0, x constr at level 4).
 
@@ -347,11 +556,22 @@ Notation "( x )" := x (in custom expr, x at level 2).
 Notation "{ x }" := x (in custom expr, x constr).
 
 Module StdLib.
+    Definition Σ : global_env :=
+    [gdInd Unit [("Coq.Init.Datatypes.tt", [])] false;
+      gdInd Bool [("true", []); ("false", [])] false;
+     gdInd Nat  [("Z", []); ("Suc", [(nAnon,tyInd Nat)])] false].
+
   Notation "a + b" := [| {eConst "Coq.Init.Nat.add"} {a} {b} |]
                         (in custom expr at level 0).
   Notation "a * b" := [| {eConst "Coq.Init.Nat.mul"} {a} {b} |]
                         (in custom expr at level 0).
-  Notation "a == b" := [| {eConst "Coq.Init.Nat.eqb"} {a} {b} |]
+  Notation "a - b" := [| {eConst "Coq.Init.Nat.sub"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a == b" := [| {eConst "PeanoNat.Nat.eqb"} {a} {b} |]
+                         (in custom expr at level 0).
+  Notation "a < b" := [| {eConst "PeanoNat.Nat.ltb"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a <= b" := [| {eConst "PeanoNat.Nat.leb"} {a} {b} |]
                         (in custom expr at level 0).
   Notation "'Z'" := (eConstr Nat "Z") ( in custom expr at level 0).
   Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
@@ -365,23 +585,22 @@ Module StdLib.
                     (in custom pat at level 0,
                         x constr at level 4).
 
+  Notation "a && b" := [| {eConst "andb"} {a} {b} |]
+                        (in custom expr at level 0).
+
   Definition true_name := "true".
   Definition false_name := "false".
-  Notation "'true'" := (pConstr true_name []) (in custom pat at level 0).
-  Notation "'false'" := (pConstr false_name []) ( in custom pat at level 0).
+  Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
+  Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
 
-  Notation "'true'" := (eConstr Bool true_name) (in custom expr at level 0).
-  Notation "'false'" := (eConstr Bool false_name) ( in custom expr at level 0).
+  Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
+  Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
 
   Notation "'star'" :=
     (eConstr Unit "Coq.Init.Datatypes.tt")
       (in custom expr at level 0).
 
 
-  Definition Σ : global_env :=
-    [gdInd Unit [("Coq.Init.Datatypes.tt", [])];
-      gdInd Bool [("true", []); ("false", [])];
-     gdInd Nat  [("Z", []); ("Suc", [tyInd Nat])]].
 End StdLib.
 
 
@@ -431,8 +650,8 @@ Section Examples.
     [|
      \x : Bool ->
             case x : Bool return Bool of
-            | true -> false
-            | false -> true
+            | True -> False
+            | False -> True
     |].
 
   Make Definition negb' := Eval compute in (expr_to_term Σ (indexify [] negb_syn)).

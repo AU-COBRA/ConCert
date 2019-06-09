@@ -593,8 +593,8 @@ Module Examples.
     [|
      (\x : Bool ->
            case x : Bool return Bool of
-           | true -> false
-           | false -> true) true
+           | True -> False
+           | False -> True) True
      |].
 
   Example eval_prog1_named :

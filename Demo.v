@@ -3,10 +3,12 @@ Require Import Ast.
 Require Import EvalE.
 Require Import List.
 Import ListNotations.
-From Template Require Ast.
+From Template Require Ast AstUtils.
+Require Import Template.Typing.
 From Template Require Import TemplateMonad.
 From Template Require Import monad_utils.
 
+Module TC := Template.Ast.
 
 Import MonadNotation.
 Import BaseTypes.
@@ -16,8 +18,8 @@ Definition negb_app_true :=
     [|
      (\x : Bool ->
            case x : Bool return Bool of
-           | true -> false
-           | false -> true) true
+           | True -> False
+           | False -> True) True
      |].
 
 Print negb_app_true.
@@ -43,8 +45,8 @@ Print coq_negb_app_true.
 
 Definition my_negb_syn :=
   [| \x : Bool -> case x : Bool return Bool of
-                   | true -> false
-                   | false -> true  |].
+                   | True -> False
+                   | False -> True  |].
 
 Make Definition my_negb :=
   Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
@@ -84,8 +86,8 @@ Definition is_zero_syn :=
 
       \x : Nat ->
            case x : Nat return Bool of
-           | Z -> true
-           | Suc y -> false
+           | Z -> True
+           | Suc y -> False
 
   |].
 
@@ -113,15 +115,15 @@ Inductive blah :=
 | Baz : blah.
 
 Definition Σ' : global_env :=
-  [gdInd "blah" [("Bar", [tyInd "blah"; tyInd "blah"]); ("Baz", [])];
-     gdInd Nat  [("Z", []); ("Suc", [tyInd Nat])]].
+  [gdInd "blah" [("Bar", [(TC.nAnon,tyInd "blah"); (TC.nAnon,tyInd "blah")]); ("Baz", [])] false;
+     gdInd Nat  [("Z", []); ("Suc", [(TC.nAnon,tyInd Nat)])] false].
 
 Notation "'Bar'" := (eConstr "blah" "Bar") (in custom expr).
 Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
-Compute (expr_eval_n 5 Σ [] prog3).
+Compute (expr_eval_n 5 Σ' [] prog3).
 
 (* Examples of a fixpoint *)
 
@@ -162,7 +164,7 @@ Compute (expr_eval_n 10 Σ [] [| {plus_syn} 1 1 |]).
 Definition two_arg_fun_syn := [| \x : Nat -> \y : Bool -> x |].
 
 Make Definition two_arg_fun_app :=
-  Eval compute in (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 true |])).
+  Eval compute in (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
 
 Parameter bbb: bool.
 
@@ -302,3 +304,24 @@ Definition Bazz_match b :=
   end.
 
 Quote Definition q_Bazz_match := Eval compute in Bazz_match.
+
+
+(** Translation inductives *)
+
+Definition Nat_syn :=
+  [\ data "Nat" := "Z" : "Nat" | "Suc" : "Nat" -> "Nat" ; \].
+
+Make Inductive (trans_global_dec Nat_syn).
+
+
+(** Records *)
+
+Import Template.Ast.
+
+Definition State_syn :=
+  [\ record "State" := { "balance" : "Nat" ; "day" : "Nat" }  \].
+
+Make Inductive (trans_global_dec State_syn).
+
+Check balance.
+Check day.
