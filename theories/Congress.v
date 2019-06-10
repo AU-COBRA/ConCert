@@ -198,8 +198,6 @@ Qed.
 
 End Equivalences.
 
-Definition version : Version := 1%nat.
-
 Definition validate_rules (rules : Rules) : bool :=
     (rules.(min_vote_count_permille) >=? 0)
         && (rules.(min_vote_count_permille) <=? 1000)
@@ -369,7 +367,7 @@ Lemma receive_proper :
 Proof. repeat intro; solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
-  build_contract version init init_proper receive receive_proper.
+  build_contract init init_proper receive receive_proper.
 Section Theories.
 Local Open Scope nat.
 

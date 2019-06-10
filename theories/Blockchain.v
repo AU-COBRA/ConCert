@@ -14,8 +14,6 @@ From stdpp Require countable.
 
 Import ListNotations.
 
-Definition Version := nat.
-
 Definition Amount := Z.
 Bind Scope Z_scope with Amount.
 
@@ -126,23 +124,8 @@ Inductive ActionBody :=
   | act_transfer (to : Address) (amount : Amount)
   | act_call (to : Address) (amount : Amount) (msg : OakValue)
   | act_deploy (amount : Amount) (c : WeakContract) (setup : OakValue)
-
-(* Since one operation is the possibility to deploy a new contract,
-this represents an instance of a contract. Note that the act of deploying
-a contract has to be a separate thing to the contract deployment a contract
-can access during its execution due to positivity constraints. That is,
-we would like to allow contracts to obtain information about what another
-contract was deployed with (its setup, version and amount transferred). An obvious
-way to model this would be to simply store a WeakContract in the chain.
-But this is already a non-strict positive occurence, since we dumbed down then
-end up with
-Record WeakContract := { receive : (Address -> WeakContract) -> State -> State }.
-where Address -> WeakContract would be some operation that the chain provides
-to allow access to contracts in deployments.
-*)
 with WeakContract :=
      | build_weak_contract
-         (version : Version)
          (init :
             Chain ->
             ContractCallContext ->
@@ -161,11 +144,8 @@ with WeakContract :=
          (receive_proper :
             Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
 
-Definition wc_version (wc : WeakContract) : Version :=
-  let (v, _, _, _, _) := wc in v.
-
 Definition wc_init (wc : WeakContract) :=
-  let (_, i, _, _, _) := wc in i.
+  let (i, _, _, _) := wc in i.
 
 Global Instance wc_init_proper :
   Proper (eq ==> ChainEquiv ==> eq ==> eq ==> eq) wc_init.
@@ -174,12 +154,12 @@ Proof.
   exact (
       match wc return
             Proper (ChainEquiv ==> eq ==> eq ==> eq) (wc_init wc) with
-      | build_weak_contract _ _ ip _ _ => ip
+      | build_weak_contract _ ip _ _ => ip
       end).
 Qed.
 
 Definition wc_receive (wc : WeakContract) :=
-  let (_, _, _, r, _) := wc in r.
+  let (_, _, r, _) := wc in r.
 
 Global Instance wc_receive_proper :
   Proper (eq ==> ChainEquiv ==> eq ==> eq ==> eq ==> eq) wc_receive.
@@ -188,7 +168,7 @@ Proof.
   exact (
       match wc return
             Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) (wc_receive wc) with
-      | build_weak_contract _ _ _ _ rp => rp
+      | build_weak_contract _ _ _ rp => rp
       end).
 Qed.
 
@@ -208,7 +188,6 @@ Record Contract
       `{OakTypeEquivalence Msg}
       `{OakTypeEquivalence State} :=
   build_contract {
-    version : Version;
     init :
       Chain ->
       ContractCallContext ->
@@ -226,7 +205,6 @@ Record Contract
       Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive;
   }.
 
-Arguments version {_ _ _ _ _ _}.
 Arguments init {_ _ _ _ _ _}.
 Arguments receive {_ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _}.
@@ -252,7 +230,7 @@ Program Definition contract_to_weak_contract
             do '(new_state, acts) <- c.(receive) chain ctx state None;
             Some (serialize new_state, acts)
           end in
-      build_weak_contract c.(version) weak_init _ weak_recv _.
+      build_weak_contract weak_init _ weak_recv _.
 Next Obligation.
   intros.
   intros c1 c2 eq_chains ctx1 ctx2 eq_ctx setup1 setup2 eq_setups.
@@ -935,7 +913,6 @@ Global Coercion builder_type : ChainBuilderType >-> Sortclass.
 Global Coercion builder_env : builder_type >-> Environment.
 End Blockchain.
 
-Arguments version {_ _ _ _ _ _ _}.
 Arguments init {_ _ _ _ _ _ _}.
 Arguments receive {_ _ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _ _}.
