@@ -36,9 +36,9 @@ Section Maps.
    | mcons k' y l => if Nat.eqb k k' then mcons k x l else mcons k' y (add_map k x l)
   end.
 
-  Definition inmap_map k m := match lookup_map k m with
-                          | Just_map _ => true
-                          | Nothing => false
+  Definition inmap_map k m := match lookup_map m k with
+                              | Just_map _ => true
+                              | Nothing => false
                               end.
 
   Lemma lookup_map_add k v m : lookup_map (add_map k v m) k = Just_map v.
@@ -53,6 +53,7 @@ Section Maps.
 End Maps.
 
 Notation "a ∈ m" := (inmap_map a m = true) (at level 50).
+Notation "a ∉ m" := (inmap_map a m = false) (at level 50).
 
 Fixpoint mkNames (ns : list string) (postfix : string) :=
   match ns with
@@ -249,7 +250,7 @@ Module BalanceContract.
              if (own == sender) && (deadline s < now) && (goal s <= bal)  then
                Res (mkState 0 accs own (deadline s) (goal s)) (Transfer bal sender)
              else Error : Result
-           | Donate ->
+           | Donate -> if now <= deadline s then
              (case (mfind accs sender) : Maybe return Result of
                | Just v ->
                  let newmap : Map := madd sender (v + tx_amount) accs in
@@ -257,6 +258,7 @@ Module BalanceContract.
                | Nothing ->
                  let newmap : Map := madd sender tx_amount accs in
                  Res (mkState (tx_amount + bal) newmap own (deadline s) (goal s)) Empty)
+               else Error : Result
            | Claim ->
              if (deadline s < now) && (bal < goal s) then
              (case (mfind accs sender) : Maybe return Result of
@@ -272,6 +274,10 @@ Module BalanceContract.
 
   Ltac split_andb := apply Bool.andb_true_iff;split.
 
+
+  Open Scope nat.
+  Open Scope bool.
+
   Lemma get_money_back_guarantee (init_state final_state: State_coq)
         CallCtx  msg sender out_tx v :
     (* pre-condition *)
@@ -283,10 +289,10 @@ Module BalanceContract.
     -> entry CallCtx init_state msg = Res_coq final_state out_tx
 
     (* post-condition *)
-    -> out_tx = Transfer_coq v sender (*the money are sent back *)
-      /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of a sender put to zero *)
+    -> out_tx = Transfer_coq v sender (* the money are sent back *)
+      /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of the sender put to zero *)
   Proof.
-    intros Hmsg Hsender Hgoal Hlook Hdl Hcall.
+    intros Hsender Hmsg  Hgoal Hlook Hdl Hcall.
     subst;simpl in *.  rewrite <- Nat.ltb_lt in *.
     (* direct rewriting with [Hlook] or [Hgoal] cannot unify terms
        in Hcall for some reason, but destruct with uderscores works *)
@@ -297,6 +303,50 @@ Module BalanceContract.
     * inversion Hcall. subst. simpl.
       now rewrite lookup_map_add.
   Qed.
+
+  Lemma new_donation_correct (init_state final_state: State_coq)
+        CallCtx  msg sender out_tx donation :
+    (* pre-condition *)
+    sender = CallCtx.(_ctx_from) -> msg = Donate_coq
+    -> CallCtx.(_amount) = donation  (* a sender donates [donation] *)
+    -> sender ∉ init_state.(donations_coq) (* the sender have not donated before *)
+    -> CallCtx.(_cur_time) <= init_state.(deadline_coq) (* deadline have not passed *)
+
+    -> entry CallCtx init_state msg = Res_coq final_state out_tx
+
+    (* post-condition *)
+    -> out_tx = Empty_coq (* nothing gets transferred *)
+      /\ lookup_map final_state.(donations_coq) sender = Just_map donation. (* donation has been accepted *)
+  Proof.
+    intros Hsender Hmsg Hamount Hnew_sender Hdl Hcall.
+    subst;simpl in *. rewrite <- Nat.leb_le in *.
+    destruct (_ <=? _);tryfalse.
+    unfold inmap_map in *.
+    destruct (lookup_map _ _);tryfalse. inversion Hcall;subst;clear Hcall.
+    split;auto. simpl. now rewrite lookup_map_add.
+  Qed.
+
+  Lemma existing_donation_correct (init_state final_state: State_coq)
+        CallCtx  msg sender out_tx old_don new_don :
+    (* pre-condition *)
+    sender = CallCtx.(_ctx_from) -> msg = Donate_coq
+    -> CallCtx.(_amount) = new_don  (* a sender donates [new_don] *)
+    -> lookup_map init_state.(donations_coq) sender = Just_map old_don (* the sender has already donated before *)
+    -> CallCtx.(_cur_time) <= init_state.(deadline_coq) (* deadline have not passed *)
+
+    -> entry CallCtx init_state msg = Res_coq final_state out_tx
+
+    (* post-condition *)
+    -> out_tx = Empty_coq (* nothing gets transferred *)
+      /\ lookup_map final_state.(donations_coq) sender = Just_map (new_don + old_don). (* donation has been added *)
+  Proof.
+    intros Hsender Hmsg Hamount Hold Hdl Hcall.
+    subst;simpl in *. rewrite <- Nat.leb_le in *.
+    destruct (_ <=? _);tryfalse.
+    destruct (lookup_map _ _);tryfalse. inversion Hcall;subst;clear Hcall.
+    split;auto. simpl. inversion Hold. subst. now rewrite lookup_map_add.
+  Qed.
+
 
   (* Lemma GetFunds_correct (init_state final_state: State_coq) CallCtx *)
   (*       msg out_tx OwnerAddr: *)
