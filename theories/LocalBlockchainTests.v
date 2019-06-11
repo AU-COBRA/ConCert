@@ -5,6 +5,8 @@ From SmartContracts Require Import Congress.
 From SmartContracts Require Import Oak.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import BoundedN.
+From SmartContracts Require Import Extras.
+From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.
@@ -27,31 +29,23 @@ Section LocalBlockchainTests.
 
   Definition chain1 : ChainBuilder := builder_initial.
 
-  Definition unpack_option {A : Type} (a : option A) :=
-    match a return match a with
-                   | Some _ => A
-                   | None => unit
-                   end with
-    | Some x => x
-    | None => tt
-    end.
-
   Compute (block_header chain1).
+
+  Definition add_block (chain : ChainBuilder) acts : option ChainBuilder :=
+    let header :=
+        (block_header chain)<|block_height ::= S|><|slot_number ::= S|> in
+    builder_add_block chain baker header acts.
 
   (* Baker mines an empty block (and gets some coins) *)
   Definition chain2 : ChainBuilder :=
-    unpack_option (chain1.(builder_add_block) baker [] 2 0).
+    unpack_option (add_block chain1 []).
 
   Compute (account_balance chain2 person_1).
   Compute (account_balance chain2 baker).
 
   (* Baker transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
-    unpack_option (
-        chain2.(builder_add_block)
-                 baker
-                 [build_act baker (act_transfer person_1 10)]
-                 3 0).
+    unpack_option (add_block chain2 [build_act baker (act_transfer person_1 10)]).
 
   Compute (account_balance chain3 person_1).
   Compute (account_balance chain3 baker).
@@ -68,11 +62,7 @@ Section LocalBlockchainTests.
     create_deployment 5 Congress.contract setup.
 
   Definition chain4 : ChainBuilder :=
-    unpack_option (
-        chain3.(builder_add_block)
-                 baker
-                 [build_act person_1 deploy_congress]
-                 4 0).
+    unpack_option (add_block chain3 [build_act person_1 deploy_congress]).
 
   Definition congress_1 : Address :=
     match outgoing_txs (builder_trace chain4) person_1 with
@@ -118,11 +108,9 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (add_member p)).
 
   Definition chain5 : ChainBuilder :=
-    unpack_option
-      (chain4.(builder_add_block)
-                baker
-                [build_act person_1 (add_person person_1); build_act person_1 (add_person person_2)]
-                5 0).
+    let acts := [build_act person_1 (add_person person_1);
+                 build_act person_1 (add_person person_2)] in
+    unpack_option (add_block chain4 acts).
 
   Compute (FMap.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
@@ -133,11 +121,7 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (create_proposal [cact_transfer person_3 3])).
 
   Definition chain6 : ChainBuilder :=
-    unpack_option (
-        chain5.(builder_add_block)
-                 baker
-                 [build_act person_1 create_proposal_call]
-                 6 0).
+    unpack_option (add_block chain5 [build_act person_1 create_proposal_call]).
 
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
@@ -146,11 +130,8 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (vote_for_proposal 1)).
 
   Definition chain7 : ChainBuilder :=
-    unpack_option (
-        chain6.(builder_add_block)
-                 baker
-                 [build_act person_1 vote_proposal; build_act person_2 vote_proposal]
-                 7 0).
+    let acts := [build_act person_1 vote_proposal; build_act person_2 vote_proposal] in
+    unpack_option (add_block chain6 acts).
 
   Compute (FMap.elements (congress_state chain7).(proposals)).
 
@@ -159,11 +140,7 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (finish_proposal 1)).
 
   Definition chain8 : ChainBuilder :=
-    unpack_option (
-        chain7.(builder_add_block)
-                 baker
-                 [build_act person_3 finish_proposal]
-                 8 0).
+    unpack_option (add_block chain7 [build_act person_3 finish_proposal]).
 
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)
@@ -178,8 +155,8 @@ End LocalBlockchainTests.
 Hint Resolve congress_txs_after_block : core.
 (* The congress satisfies a property specialized to the local blockchain DFS: *)
 Lemma congress_txs_after_local_chain_block
-          (prev new : LocalChainBuilderDepthFirst) baker acts slot finalization_height :
-  builder_add_block prev baker acts slot finalization_height = Some new ->
+          (prev new : LocalChainBuilderDepthFirst) baker header acts :
+  builder_add_block prev baker header acts = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs (builder_trace new) addr) <=
@@ -187,8 +164,8 @@ Lemma congress_txs_after_local_chain_block
 Proof. eauto. Qed.
 (* And of course, it is satisfied for the breadth first chain as well. *)
 Lemma congress_txs_after_local_chain_bf_block
-      (prev new : LocalChainBuilderBreadthFirst) baker acts slot finalization_height :
-  builder_add_block prev baker acts slot finalization_height = Some new ->
+      (prev new : LocalChainBuilderBreadthFirst) baker header acts :
+  builder_add_block prev baker header acts = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs (builder_trace new) addr) <=

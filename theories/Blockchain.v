@@ -74,6 +74,9 @@ Record BlockHeader :=
     finalized_height : nat;
   }.
 
+Global Instance block_header_settable : Settable _ :=
+  settable! build_block_header <block_height; slot_number; finalized_height>.
+
 (* This represents the view of the blockchain that a contract
 can access and interact with. *)
 Record Chain :=
@@ -898,15 +901,14 @@ Class ChainBuilderType :=
     builder_env : builder_type -> Environment;
 
     builder_add_block
-      (b : builder_type)
+      (builder : builder_type)
       (baker : Address)
-      (actions : list Action)
-      (slot_number : nat)
-      (finalized_height : nat) :
+      (header : BlockHeader)
+      (actions : list Action) :
       option builder_type;
 
-    builder_trace (b : builder_type) :
-      ChainTrace empty_state (build_chain_state (builder_env b) []);
+    builder_trace (builder : builder_type) :
+      ChainTrace empty_state (build_chain_state (builder_env builder) []);
   }.
 
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.

@@ -439,20 +439,14 @@ Definition add_block
            (depth_first : bool)
            (lcb : LocalChainBuilder)
            (baker : Address)
-           (actions : list Action)
-           (slot_number : nat)
-           (finalized_height : nat)
-  : option LocalChainBuilder.
+           (header : BlockHeader)
+           (actions : list Action) : option LocalChainBuilder.
 Proof.
   set (lcopt :=
          let lc := lcb_lc lcb in
-         let new_header :=
-             {| block_height := S (block_height (lc_header lc));
-                slot_number := slot_number;
-                finalized_height := finalized_height; |} in
-         do validate_header new_header (lc_header lc);
+         do validate_header header (lc_header lc);
          do validate_actions actions;
-         let lc := add_new_block new_header baker lc in
+         let lc := add_new_block header baker lc in
          execute_actions 1000 actions lc depth_first).
 
   destruct lcopt as [lc|] eqn:exec; [|exact None].

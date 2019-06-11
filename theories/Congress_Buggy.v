@@ -446,9 +446,13 @@ Section Theories.
   Definition exploit_example : option (Address * LocalChainBuilderDepthFirst) :=
     let chain := builder_initial in
     let baker := BoundedN.of_Z_const AddrSize 10 in
-    let next_num chain := S (block_height (block_header chain)) in
+    let add_block (chain : LocalChainBuilderDepthFirst) act_bodies :=
+        let next_header :=
+            (block_header chain)<|block_height ::= S|><|slot_number ::= S|> in
+        let acts := map (build_act baker) act_bodies in
+        builder_add_block chain baker next_header acts in
     (* Get some money on the baker *)
-    do chain <- builder_add_block chain baker [] (next_num chain) 0;
+    do chain <- add_block chain [];
     (* Deploy congress and exploit contracts *)
     let rules :=
         {| min_vote_count_permille := 200;
@@ -456,9 +460,7 @@ Section Theories.
            debating_period_in_blocks := 0; |} in
     let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
     let dep_exploit := create_deployment 0 exploit_contract () in
-    do chain <-
-       builder_add_block
-         chain baker (map (build_act baker) [dep_congress; dep_exploit]) (next_num chain) 0;
+    do chain <- add_block chain [dep_congress; dep_exploit];
     let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
     let exploit := nth 0 contracts baker in
     let congress := nth 1 contracts baker in
@@ -468,10 +470,10 @@ Section Theories.
     let create_proposal := create_proposal [cact_transfer exploit 1] in
     let vote_proposal := vote_for_proposal 1 in
     let exec_proposal := finish_proposal 1 in
-    let acts :=
-        map (fun msg => build_act baker (act_call congress 0 (serialize msg)))
+    let act_bodies :=
+        map (fun m => act_call congress 0 (serialize m))
             [add_baker; create_proposal; vote_proposal; exec_proposal] in
-    do chain <- builder_add_block chain baker acts (next_num chain) 0;
+    do chain <- add_block chain act_bodies;
     Some (congress, chain).
 
   Definition unpacked_exploit_example : Address * LocalChainBuilderDepthFirst :=

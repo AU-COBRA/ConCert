@@ -601,10 +601,7 @@ Proof.
     end; cbn in *; try congruence.
     inversion receive.
     rewrite <- (remove_proposal_cacts _ _ _ found), map_length.
-    match goal with
-    | [|- context[if ?large_annoying_expression_i_should_refactor then _ else _]] =>
-      destruct large_annoying_expression_i_should_refactor
-    end; cbn.
+    destruct (proposal_passed _ _); cbn.
     + (* I wonder why these asserts are necessary... *)
       assert (forall a b, a + b <= a + b + 0) by (intros; lia); auto.
     + assert (forall a b, a + 0 <= a + b + 0) by (intros; lia); auto.
@@ -682,7 +679,6 @@ Proof.
            _ _ trace is_contract no_contract_prev) as all.
   rewrite queue_eq in *.
   inversion all.
-  cbn in *.
   destruct_address_eq; congruence.
 Qed.
 Hint Resolve undeployed_contract_no_out_queue_count : core.
@@ -856,17 +852,14 @@ Proof.
           lia.
   - (* Permute queue *)
     unfold num_outgoing_acts.
-    match goal with
-    | [Hperm: Permutation _ _ |- _] => rewrite <- Hperm
-    end.
     cbn.
-    rewrite <- prev_new in *; auto.
+    rewrite <- perm, prev_new in *; auto.
 Qed.
 
 Corollary congress_txs_after_block
           {ChainBuilder : ChainBuilderType}
-          prev baker acts slot finalization_height new :
-  builder_add_block prev baker acts slot finalization_height = Some new ->
+          prev baker header acts new :
+  builder_add_block prev baker header acts = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs (builder_trace new) addr) <=
