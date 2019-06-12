@@ -210,9 +210,9 @@ Module BalanceContract.
 
 
     Definition Σ' :=
-      Σ ++ [gdInd Ctx [("ExampleContracts.mkctx",
+      Σ ++ [gdInd Ctx 0 [("ExampleContracts.mkctx",
                         [(nAnon,tyInd Address); (nAnon,tyInd Address)])] false;
-              gdInd Maybe [("Just", [(nAnon,tyInd Nat)]);
+              gdInd Maybe 0 [("Just", [(nAnon,tyInd Nat)]);
                              ("Nothing", [])] false;
             state_syn;
             result_syn;
@@ -272,19 +272,27 @@ Module BalanceContract.
   Make Definition entry :=
     Eval compute in (expr_to_term Σ' (indexify nil contract)).
 
+  Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
   Ltac split_andb := apply Bool.andb_true_iff;split.
 
 
   Open Scope nat.
   Open Scope bool.
 
+
+  Definition deadline_passed now (s : State_coq) := s.(deadline_coq) <? now.
+
+  Definition goal_reached (s : State_coq) := s.(goal_coq) <=? s.(balance_coq).
+
+  Definition funded now (s : State_coq) :=
+    deadline_passed now s && goal_reached s.
+
   Lemma get_money_back_guarantee (init_state final_state: State_coq)
         CallCtx  msg sender out_tx v :
     (* pre-condition *)
-    sender = CallCtx.(_ctx_from) -> msg = Claim_coq -> (* a sender claims the money*)
-    init_state.(balance_coq) < init_state.(goal_coq)  (* the goal is not reached *)
+    sender = CallCtx.(_ctx_from) -> msg = Claim_coq (* a sender claims the money*)
+    -> funded CallCtx.(_cur_time) init_state = true
     -> lookup_map init_state.(donations_coq) sender = Just_map v (* the sender donated [v] *)
-    -> init_state.(deadline_coq) < CallCtx.(_cur_time) (* deadline have passed *)
 
     -> entry CallCtx init_state msg = Res_coq final_state out_tx
 
@@ -292,8 +300,9 @@ Module BalanceContract.
     -> out_tx = Transfer_coq v sender (* the money are sent back *)
       /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of the sender put to zero *)
   Proof.
-    intros Hsender Hmsg  Hgoal Hlook Hdl Hcall.
-    subst;simpl in *.  rewrite <- Nat.ltb_lt in *.
+    simpl.
+    intros Hsender Hmsg Hfunded Hlook Hcall.
+    subst;simpl in *.  inv_andb Hfunded.
     (* direct rewriting with [Hlook] or [Hgoal] cannot unify terms
        in Hcall for some reason, but destruct with uderscores works *)
     destruct (_ && _)%bool;tryfalse.
@@ -304,6 +313,8 @@ Module BalanceContract.
       now rewrite lookup_map_add.
   Qed.
 
+
+  (* TODO: rewrite in terms of [funded]*)
   Lemma new_donation_correct (init_state final_state: State_coq)
         CallCtx  msg sender out_tx donation :
     (* pre-condition *)
@@ -347,6 +358,32 @@ Module BalanceContract.
     split;auto. simpl. inversion Hold. subst. now rewrite lookup_map_add.
   Qed.
 
+  Fixpoint sum_map  (m : addr_map) :=
+    match m with
+    | mnil => 0
+    | mcons _ v m' => v + sum_map m'
+    end.
+
+  Lemma contract_baked
+    (init_state final_state: State_coq)
+        CallCtx msg out_tx :
+    (* pre-condition *)
+      deadline_passed CallCtx.(_cur_time) init_state = false ->
+
+      sum_map init_state.(donations_coq) = init_state.(balance_coq)
+
+    -> entry CallCtx init_state msg = Res_coq final_state out_tx
+
+    (* post-condition *)
+    ->  sum_map final_state.(donations_coq) = final_state.(balance_coq).
+  Proof.
+    intros Hdl Hsum Hcall.
+    destruct msg.
+    + simpl in *. unfold deadline_passed in *.
+      destruct (_ <=? _);tryfalse.
+      destruct (lookup_map _ _).
+      * inversion Hcall;subst;clear Hcall. simpl.
+  Admitted.
 
   (* Lemma GetFunds_correct (init_state final_state: State_coq) CallCtx *)
   (*       msg out_tx OwnerAddr: *)

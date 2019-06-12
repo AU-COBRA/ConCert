@@ -115,8 +115,8 @@ Inductive blah :=
 | Baz : blah.
 
 Definition Σ' : global_env :=
-  [gdInd "blah" [("Bar", [(TC.nAnon,tyInd "blah"); (TC.nAnon,tyInd "blah")]); ("Baz", [])] false;
-     gdInd Nat  [("Z", []); ("Suc", [(TC.nAnon,tyInd Nat)])] false].
+  [gdInd "blah" 0 [("Bar", [(TC.nAnon,tyInd "blah"); (TC.nAnon,tyInd "blah")]); ("Baz", [])] false;
+     gdInd Nat  0 [("Z", []); ("Suc", [(TC.nAnon,tyInd Nat)])] false].
 
 Notation "'Bar'" := (eConstr "blah" "Bar") (in custom expr).
 Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
