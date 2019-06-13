@@ -226,7 +226,8 @@ Definition add_proposal (actions : list CongressAction) (chain : Chain) (state :
                      vote_result := 0;
                      proposed_in := slot_num |} in
   let new_proposals := FMap.add id proposal state.(proposals) in
-  state<|proposals := new_proposals|><|next_proposal_id := (id + 1)%nat|>.
+  state<|proposals ::= FMap.add id proposal|>
+       <|next_proposal_id ::= S|>.
 
 Definition vote_on_proposal
            (voter : Address)
@@ -242,7 +243,8 @@ Definition vote_on_proposal
   let new_votes := FMap.add voter vote proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote + vote in
   let new_proposal :=
-      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+      proposal<|votes := new_votes|>
+              <|vote_result := new_vote_result|> in
   Some (state<|proposals ::= FMap.add pid new_proposal|>).
 
 Definition do_retract_vote
@@ -255,7 +257,8 @@ Definition do_retract_vote
   let new_votes := FMap.remove voter proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote in
   let new_proposal :=
-      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+      proposal<|votes := new_votes|>
+              <|vote_result := new_vote_result|> in
   Some (state<|proposals ::= FMap.add pid new_proposal|>).
 
 Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
@@ -479,7 +482,7 @@ Lemma add_proposal_cacts cacts chain state :
   num_cacts_in_raw_state (add_proposal cacts chain state) <=
   num_cacts_in_raw_state state + length cacts.
 Proof.
-  unfold add_proposal, num_cacts_in_raw_state, constructor.
+  unfold add_proposal, num_cacts_in_raw_state.
   cbn.
   destruct (FMap.find (next_proposal_id state) (proposals state)) as [proposal|] eqn:find.
   - remember_new_proposal.
@@ -536,7 +539,7 @@ Qed.
 
 Lemma remove_proposal_cacts pid state proposal :
   FMap.find pid (proposals state) = Some proposal ->
-  num_cacts_in_raw_state (state <| proposals ::= FMap.remove pid |>) +
+  num_cacts_in_raw_state (state <|proposals ::= FMap.remove pid|>) +
   length (actions proposal) = num_cacts_in_raw_state state.
 Proof.
   intros find.

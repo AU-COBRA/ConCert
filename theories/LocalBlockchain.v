@@ -58,8 +58,7 @@ Section ExecuteActions.
 
   Definition add_balance (addr : Address) (amt : Amount) (lc : LocalChain) : LocalChain :=
     let update opt := Some (amt + with_default 0 opt) in
-    let lc := lc<|lc_account_balances ::= FMap.partial_alter update addr|> in
-    lc.
+    lc<|lc_account_balances ::= FMap.partial_alter update addr|>.
 
   Definition transfer_balance
             (from to : Address) (amount : Amount) (lc : LocalChain) : LocalChain :=

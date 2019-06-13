@@ -352,27 +352,20 @@ Proof. repeat intro; apply chain_equiv; assumption. Qed.
 Instance env_settable : Settable _ :=
   settable! build_env <env_chain; env_contracts>.
 
-Definition update_chain (upd : Chain -> Chain) (e : Environment)
-  : Environment :=
-  let chain := env_chain e in
-  let chain := upd chain in
-  e <|env_chain := chain|>.
+Definition transfer_balance (from to : Address) (amount : Amount) (env : Environment) :=
+  env<|env_chain; account_balance ::= add_balance to amount|>
+     <|env_chain; account_balance ::= add_balance from (-amount)|>.
 
-Definition transfer_balance (from to : Address) (amount : Amount) :=
-  update_chain (fun c => c<|account_balance ::= add_balance to amount|>
-                          <|account_balance ::= add_balance from (-amount)|>).
-
-Definition add_contract (addr : Address) (contract : WeakContract) (e : Environment)
+Definition add_contract (addr : Address) (contract : WeakContract) (env : Environment)
   : Environment :=
-  e <| env_contracts ::=
+  env<|env_contracts ::=
     fun f a =>
       if (a =? addr)%address
       then Some contract
-      else f a |>.
+      else f a|>.
 
-Definition set_contract_state (addr : Address) (state : OakValue) :=
-  update_chain
-    (fun c => c <|contract_state ::= set_chain_contract_state addr state|>).
+Definition set_contract_state (addr : Address) (state : OakValue) (env : Environment) :=
+  env<|env_chain; contract_state ::= set_chain_contract_state addr state|>.
 
 Ltac rewrite_environment_equiv :=
   match goal with
@@ -407,7 +400,7 @@ Global Instance set_contract_state_proper :
   Proper (eq ==> eq ==> EnvironmentEquiv ==> EnvironmentEquiv) set_contract_state.
 Proof.
   repeat intro; subst.
-  unfold set_contract_state, update_chain, set_chain_contract_state.
+  unfold set_contract_state, set_chain_contract_state.
   solve_proper.
 Qed.
 
@@ -578,11 +571,9 @@ Definition add_new_block
           (header : BlockHeader)
           (baker : Address)
           (env : Environment) : Environment :=
-  let chain := env_chain env in
-  let chain := chain<|block_header := header|> in
   let reward := compute_block_reward (block_height header) in
-  let chain := chain<|account_balance ::= add_balance baker reward|> in
-  env<|env_chain := chain|>.
+  env<|env_chain; block_header := header|>
+     <|env_chain; account_balance ::= add_balance baker reward|>.
 
 (* Todo: this should just be a computation. But I still do not *)
 (* know exactly what the best way of working with reflect is *)
@@ -601,6 +592,9 @@ Record ChainState :=
     chain_state_env :> Environment;
     chain_state_queue : list Action;
   }.
+
+Global Instance chain_state_settable : Settable _ :=
+  settable! build_chain_state <chain_state_env; chain_state_queue>.
 
 Inductive ChainStep : ChainState -> ChainState -> Type :=
 | step_block :

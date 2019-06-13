@@ -162,14 +162,10 @@ Proof.
   - unfold circulation.
     induction (elements Address); auto.
   - rewrite (step_circulation x).
-    destruct x.
+    destruct_chain_step.
     + rewrite_environment_equiv.
       cbn.
-      unfold constructor.
-      match goal with
-      | [H: IsValidNextBlock _ _ |- _] =>
-        rewrite (proj1 H), IH, sumZ_seq_S; auto
-      end.
+      rewrite (proj1 valid_header), IH, sumZ_seq_S; auto.
     + erewrite block_header_post_action; eauto.
     + intuition.
 Qed.
