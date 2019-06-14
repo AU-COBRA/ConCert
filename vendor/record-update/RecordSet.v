@@ -8,6 +8,9 @@ Arguments Reader : clear implicits.
 (* pure/return *)
 Definition constructor {E T} (x:T) : Reader E (fun _ => T) := fun _ => x.
 
+(* Always unfold constructor when applied with with a "final" argument. *)
+Arguments constructor {_ _} _ _ /.
+
 (* Applicative's (<*>) (written as `ap`).
 
 This has an awkwardly long name since it's intended to be used infix with
@@ -98,12 +101,12 @@ Hint Extern 1 (SetterWf _) => SetterWfInstance_t : typeclass_instances.
 Module RecordSetNotations.
   Delimit Scope record_set with rs.
   Open Scope rs.
-  Notation "x <| proj  :=  v |>" := (set proj (fun _ => v) x)
+  Notation "x <| proj  :=  v |>" := (set proj (constructor v) x)
                                     (at level 12, left associativity) : record_set.
   Notation "x <| proj  ::=  f |>" := (set proj f x)
                                      (at level 12, f at next level, left associativity) : record_set.
   Notation "x <| proj1 ; proj2 ; .. ; projn := v |>" :=
-    (set proj1 (set proj2 .. (set projn (fun _ => v)) ..) x)
+    (set proj1 (set proj2 .. (set projn (constructor v)) ..) x)
     (at level 12, left associativity).
   Notation "x <| proj1 ; proj2 ; .. ; projn ::= f |>" :=
     (set proj1 (set proj2 .. (set projn f) ..) x)
