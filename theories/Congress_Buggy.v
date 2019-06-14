@@ -1,7 +1,6 @@
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-From Coq Require Import Program.
 From Coq Require Import Permutation.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import Oak.
@@ -229,8 +228,8 @@ Definition add_proposal (actions : list CongressAction) (chain : Chain) (state :
                      votes := FMap.empty;
                      vote_result := 0;
                      proposed_in := slot_num |} in
-  let new_proposals := FMap.add id proposal state.(proposals) in
-  state<|proposals := new_proposals|><|next_proposal_id := (id + 1)%nat|>.
+  state<|proposals ::= FMap.add id proposal|>
+       <|next_proposal_id ::= S|>.
 
 Definition vote_on_proposal
            (voter : Address)
@@ -246,7 +245,8 @@ Definition vote_on_proposal
   let new_votes := FMap.add voter vote proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote + vote in
   let new_proposal :=
-      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+      proposal<|votes := new_votes|>
+              <|vote_result := new_vote_result|> in
   Some (state<|proposals ::= FMap.add pid new_proposal|>).
 
 Definition do_retract_vote
@@ -259,7 +259,8 @@ Definition do_retract_vote
   let new_votes := FMap.remove voter proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote in
   let new_proposal :=
-      proposal<|votes := new_votes|><|vote_result := new_vote_result|> in
+      proposal<|votes := new_votes|>
+              <|vote_result := new_vote_result|> in
   Some (state<|proposals ::= FMap.add pid new_proposal|>).
 
 Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
@@ -459,7 +460,7 @@ Section Theories.
            margin_needed_permille := 501;
            debating_period_in_blocks := 0; |} in
     let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
-    let dep_exploit := create_deployment 0 exploit_contract () in
+    let dep_exploit := create_deployment 0 exploit_contract tt in
     do chain <- add_block chain [dep_congress; dep_exploit];
     let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
     let exploit := nth 0 contracts baker in

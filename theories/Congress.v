@@ -225,7 +225,6 @@ Definition add_proposal (actions : list CongressAction) (chain : Chain) (state :
                      votes := FMap.empty;
                      vote_result := 0;
                      proposed_in := slot_num |} in
-  let new_proposals := FMap.add id proposal state.(proposals) in
   state<|proposals ::= FMap.add id proposal|>
        <|next_proposal_id ::= S|>.
 
