@@ -1498,7 +1498,10 @@ Hint Constructors Pcbv.value : hints.
 (*     inversion eq. reflexivity. *)
 
 
-Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
+Open Scope string.
+
+Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
+        (e1 e2 : expr) (t : term) (v : val) :
   env_ok Σ1 ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
   eval(n, Σ1, ρ, e1) = Ok v ->
@@ -1601,14 +1604,11 @@ Proof.
         ** exfalso;eapply expr_to_term_not_ind;eauto.
            admit.
         ** (* the only "real" case *)
-          rewrite <- mkApps_vars_to_apps. f_equal.
-          change (tConstruct i0 k u = T⟦ from_val_i (vConstr i n0 []) ⟧ Σ1).
+          (* rewrite <- mkApps_vars_to_apps. f_equal. *)
+          (* change (tConstruct i0 k u = T⟦ from_val_i (vConstr i n0 []) ⟧ Σ1). *)
           (* destruct a3. simpl in H. subst. *)
-          assert (f = T⟦ e1_1 .[ exprs ρ] ⟧ Σ1). admit.
-          assert (a3 = [T⟦ e1_2 .[ exprs ρ] ⟧ Σ1]). admit.
-          subst.
-          eapply IHn;eauto.
-           specialize (IHn _ _ _ _ _ Hρ_ok HT1 He1 eq_refl Hce1) as IH.
+          (* eapply IHn;eauto. *)
+           (* specialize (IHn _ _ _ _ _ Hρ_ok HT1 He1 eq_refl Hce1) as IH. *)
           (*  simpl in IH. *)
           (*  inversion H4;subst. inversion H6;subst. inversion H4;subst. *)
           (*  assert (l = []). *)
@@ -1618,7 +1618,8 @@ Proof.
           (*  subst. *)
           (*  assert (H : y = T⟦ from_val_i v0 ⟧ Σ1) by eauto. subst. *)
           (*  rewrite IH. simpl. *)
-           destruct (resolve_constr Σ1 i n0). simpl. f_equal. reflexivity.
+      (* destruct (resolve_constr Σ1 i n0). simpl. f_equal. reflexivity. *)
+          admit.
       * (* application evaluates to a closure *)
         destruct c0.
         ** (* the closure corresponds to lambda *)
@@ -1627,17 +1628,16 @@ Proof.
           inversion He;subst.
           (* there are four possibilities for the application with Wcbv
            of MetaCoq and only one of these should be possible *)
-          inversion HT';subst;simpl;tryfalse.
+          inversion HT1;subst;simpl;tryfalse.
           *** (* the only "real" case *)
-              specialize (IHn _ _ _ _ _ Hρ_ok H4 He2 eq_refl Hce2) as IH.
-              simpl in H5.
-              rewrite IH in H5.
+            specialize (IHn _ _ _ _ _ Hρ_ok H2 He2 eq_refl Hce2) as IH.
+            subst.
               assert (Hv0_ok : val_ok Σ1 v0) by eauto with hints.
               assert (Hlam_ok : val_ok Σ1 (vClos e0 n0 cmLam t0 t1 e1))
                 by eauto with hints.
               inversion Hlam_ok;subst.
               assert (He_ok1 : env_ok Σ1 (e0 # [n0 ~> v0])) by now constructor.
-              specialize (IHn _ _ _ _ _ Hρ_ok H2 He1 eq_refl Hce1) as IH'.
+              specialize (IHn _ _ _ _ _ Hρ_ok H1 He1 eq_refl Hce1) as IH'.
               inversion IH'; subst. clear IH'.
               assert
                 (ForallEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e0)).
@@ -1649,7 +1649,7 @@ Proof.
                 by eauto with hints.
 
               (* This is an important bit about substitutions again, similarly to the LetIn case *)
-              rewrite subst_term_subst_env with (nm:=n0) in H5 by auto.
+              assert (Σ2;;; Γ |- T⟦ (e1 .[ exprs e0] 1) .[ [(n0, from_val_i v0)]] ⟧ Σ1 ⇓ t) by (rewrite <- subst_term_subst_env with (nm:=n0)  by  auto; assumption).
               eapply IHn;eauto.
               apply subst_env_compose_1;auto with hints.
               eauto with hints.
