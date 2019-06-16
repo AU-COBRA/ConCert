@@ -8,7 +8,6 @@ Require Import String List.
 Require Import MyEnv.
 
 Import ListNotations.
-Open Scope string_scope.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
@@ -237,12 +236,12 @@ Definition trans_branch (bs : list (pat * term))
   let nm  := fst c in
   let tys := remove_proj c in
   let o_pt_e := find (fun x =>(fst x).(pName) =? nm) bs in
-    let dummy := (0, tVar (nm ++ ": not found")) in
+    let dummy := (0, tVar (nm ++ ": not found")%string) in
   match o_pt_e with
     | Some pt_e => if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
                     let vars_tys := combine (fst pt_e).(pVars) tys in
                     (length (fst pt_e).(pVars), pat_to_lam vars_tys (snd pt_e))
-                  else (0, tVar (nm ++ ": arity does not match"))
+                  else (0, tVar (nm ++ ": arity does not match")%string)
     | None => dummy
   end.
 
@@ -266,7 +265,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eCase nm_i ty e bs =>
     let (nm,i) := nm_i in
     let typeInfo := tLambda nAnon (tInd (mkInd nm 0) []) (type_to_term ty) in
-    let cs := from_option (resolve_inductive Σ nm) [(nm ++ "not found",[])] in
+    let cs := from_option (resolve_inductive Σ nm) [(nm ++ "not found",[])%string] in
     let tbs := map (fun_prod id expr_to_term) bs in
     let branches := map (trans_branch tbs) cs in
     (* TODO: no translation for polymorphic types, the number of parameters is zero *)
@@ -296,13 +295,64 @@ Definition mkArrows indn := mkArrows_rec indn 0.
 Compute mkArrows "Nat"
         ([(nAnon, tyInd "Nat"); (nAnon,tyInd "Bool"); (nAnon,tyInd "Nat")]).
 
+Inductive blahh (A B : Set) :=
+| bctor : A -> A -> blahh A B.
+
+
+Quote Recursively Definition nat_syn := nat.
+Quote Recursively Definition list_syn := list.
+Quote Recursively Definition b_syn := blahh.
+
+Compute mind_body_to_entry (
+    {|
+    TC.ind_npars := 2;
+    TC.ind_params := [{|
+                      TC.decl_name := nNamed "B";
+                      TC.decl_body := None;
+                      TC.decl_type := tSort ([] # [Level.lSet ~> false]) |};
+                     {|
+                     TC.decl_name := nNamed "A";
+                     TC.decl_body := None;
+                     TC.decl_type := tSort ([] # [Level.lSet ~> false]) |}];
+    TC.ind_bodies := [{|
+                      TC.ind_name := "blahh";
+                      TC.ind_type := tProd (nNamed "A")
+                                       (tSort ([] # [Level.lSet ~> false]))
+                                       (tProd (nNamed "B")
+                                          (tSort ([] # [Level.lSet ~> false]))
+                                          (tSort ([] # [Level.lSet ~> false])));
+                      TC.ind_kelim := [InProp; InSet; InType];
+                      TC.ind_ctors := [("bctor",
+                                       tProd (nNamed "A")
+                                         (tSort ([] # [Level.lSet ~> false]))
+                                         (tProd (nNamed "B")
+                                            (tSort ([] # [Level.lSet ~> false]))
+                                            (tProd nAnon
+                                               (tRel 1)
+                                               (tProd nAnon
+                                                  (tRel 2)
+                                                  (tApp (tRel 4) [tRel 3; tRel 2])))),
+                                       2)];
+                      TC.ind_projs := [] |}];
+    TC.ind_universes := Monomorphic_ctx (UContext.make [] ConstraintSet.empty) |}).
+
+SearchPattern (nat -> string).
+
 Definition trans_one_constr (ind_name : name) (c : constr) : term :=
   let (ctor_name, tys) := c in mkArrows ind_name tys.
+
+Fixpoint gen_params n := match n with
+                         | O => []
+                         | S n' => gen_params n' ++ [mkdecl
+                                  (nNamed ("A" ++ utils.string_of_nat n)%string)
+                                  None
+                                  (tSort Universe.type0)]
+                         end.
 
 (** Translating global declaration, e.g. inductives *)
 Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
   match gd with
-  | gdInd nm n cs r =>
+  | gdInd nm nparam cs r =>
     let oie := {|
           mind_entry_typename := nm;
           mind_entry_arity := tSort Universe.type0;
@@ -312,7 +362,7 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
     in
    {| mind_entry_record := if r then (Some (Some [nm])) else None;
       mind_entry_finite := if r then BiFinite else Finite;
-      mind_entry_params := [];
+      mind_entry_params := gen_params nparam;
       mind_entry_inds := [oie];
       mind_entry_universes := Monomorphic_ctx ([], ConstraintSet.empty);
       mind_entry_private := None;|}

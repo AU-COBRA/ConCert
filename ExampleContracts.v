@@ -237,7 +237,7 @@ Module BalanceContract.
           b1 custom expr at level 4,
           b2 custom expr at level 4).
 
-  Definition contract : expr :=
+  Definition crowdfunding : expr :=
     [| \c : Ctx -> \s : State ->  \m : Msg ->
          let bal : Money := balance s in
          let now : Nat := cur_time c in
@@ -270,7 +270,7 @@ Module BalanceContract.
     |].
 
   Make Definition entry :=
-    Eval compute in (expr_to_term Σ' (indexify nil contract)).
+    Eval compute in (expr_to_term Σ' (indexify nil crowdfunding)).
 
   Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
   Ltac split_andb := apply Bool.andb_true_iff;split.

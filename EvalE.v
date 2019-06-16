@@ -173,6 +173,8 @@ Module InterpreterEnvList.
     | _ => None
     end.
 
+  Open Scope string.
+
   Fixpoint match_pat' {A} (constr_name : name) (constr_args : list A) (bs : list (pat * expr)) :=
     match bs with
     | [] => None
@@ -588,6 +590,8 @@ End InterpreterEnvFun.
 Module Examples.
   Import BaseTypes.
   Import StdLib.
+
+  Open Scope string.
 
   Definition prog1 :=
     [|
