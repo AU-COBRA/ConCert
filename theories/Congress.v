@@ -76,7 +76,7 @@ Instance state_settable : Settable _ :=
 Section Equivalences.
 
 Definition deserialize_rules (v : OakValue) : option Rules :=
-  do '((a, b), c) <- deserialize v;
+  do '(a, b, c) <- deserialize v;
   Some (build_rules a b c).
 
 Global Program Instance rules_equivalence : OakTypeEquivalence Rules :=
