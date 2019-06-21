@@ -27,12 +27,10 @@ Class ChainBase :=
     address_countable :> countable.Countable Address;
     address_ote :> OakTypeEquivalence Address;
     address_is_contract : Address -> bool;
-    compute_block_reward : nat -> Amount;
   }.
 
 Global Opaque Address address_eqb address_eqb_spec
-       address_eqdec address_countable
-       address_ote compute_block_reward.
+       address_eqdec address_countable address_ote.
 
 Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
@@ -67,21 +65,13 @@ Global Ltac destruct_address_eq :=
 Section Blockchain.
 Context {BaseTypes : ChainBase}.
 
-Record BlockHeader :=
-  build_block_header {
-    block_height : nat;
-    slot_number : nat;
-    finalized_height : nat;
-  }.
-
-Global Instance block_header_settable : Settable _ :=
-  settable! build_block_header <block_height; slot_number; finalized_height>.
-
 (* This represents the view of the blockchain that a contract
 can access and interact with. *)
 Record Chain :=
   build_chain {
-    block_header : BlockHeader;
+    chain_height : nat;
+    current_slot : nat;
+    finalized_height : nat;
     account_balance : Address -> Amount;
     contract_state : Address -> option OakValue;
   }.
@@ -91,7 +81,9 @@ We will later require that all deployed contracts respect this relation.
 This equivalence is equality if funext is assumed. *)
 Record ChainEquiv (c1 c2 : Chain) : Prop :=
   build_chain_equiv {
-    header_eq : block_header c1 = block_header c2;
+    chain_height_eq : chain_height c1 = chain_height c2;
+    current_slot_eq : current_slot c1 = current_slot c2;
+    finalized_height_eq : finalized_height c1 = finalized_height c2;
     account_balance_eq : forall addr, account_balance c1 addr = account_balance c2 addr;
     contract_state_eq : forall addr, contract_state c1 addr = contract_state c2 addr;
   }.
@@ -101,9 +93,15 @@ Next Obligation. repeat intro; apply build_chain_equiv; reflexivity. Qed.
 Next Obligation. intros x y []; apply build_chain_equiv; congruence. Qed.
 Next Obligation. intros x y z [] []; apply build_chain_equiv; congruence. Qed.
 
-Global Instance chain_equiv_header_proper :
-  Proper (ChainEquiv ==> eq) block_header.
-Proof. repeat intro; auto using header_eq. Qed.
+Global Instance chain_equiv_chain_height :
+  Proper (ChainEquiv ==> eq) chain_height.
+Proof. repeat intro; auto using chain_height_eq. Qed.
+Global Instance chain_equiv_current_slot :
+  Proper (ChainEquiv ==> eq) current_slot.
+Proof. repeat intro; auto using current_slot_eq. Qed.
+Global Instance chain_equiv_finalized_height :
+  Proper (ChainEquiv ==> eq) finalized_height.
+Proof. repeat intro; auto using finalized_height_eq. Qed.
 Global Instance chain_equiv_account_balance_proper :
   Proper (ChainEquiv ==> eq ==> eq) account_balance.
 Proof. repeat intro; subst; auto using account_balance_eq. Qed.
@@ -301,7 +299,8 @@ Definition get_contract_interface
 
 Section Semantics.
 Instance chain_settable : Settable _ :=
-  settable! build_chain <block_header; account_balance; contract_state>.
+  settable! build_chain <chain_height; current_slot; finalized_height;
+                         account_balance; contract_state>.
 
 Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amount) :
   Address -> Amount :=
@@ -422,7 +421,9 @@ Inductive ActionEvaluation :
         amount <= account_balance pre from ->
         address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
-        EnvironmentEquiv new_env (transfer_balance from to amount pre) ->
+        EnvironmentEquiv
+          new_env
+          (transfer_balance from to amount pre) ->
         ActionEvaluation pre act new_env []
   | eval_deploy :
       forall {pre : Environment}
@@ -552,7 +553,13 @@ Proof.
   lia.
 Qed.
 
-Lemma block_header_post_action : block_header post = block_header pre.
+Lemma chain_height_post_action : chain_height post = chain_height pre.
+Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
+
+Lemma current_slot_post_action : current_slot post = current_slot pre.
+Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
+
+Lemma finalized_height_post_action : finalized_height post = finalized_height pre.
 Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
 
 Lemma contracts_post_pre_none contract :
@@ -567,25 +574,40 @@ Qed.
 End Theories.
 
 Section Trace.
-Definition add_new_block
-          (header : BlockHeader)
-          (baker : Address)
-          (env : Environment) : Environment :=
-  let reward := compute_block_reward (block_height header) in
-  env<|env_chain; block_header := header|>
-     <|env_chain; account_balance ::= add_balance baker reward|>.
+
+Record BlockHeader :=
+  build_block_Header {
+    block_height : nat;
+    block_slot : nat;
+    block_finalized_height : nat;
+    block_reward : Amount;
+    block_creator : Address;
+  }.
+
+Definition add_new_block_to_env
+           (header : BlockHeader) (env : Environment) : Environment :=
+  env<|env_chain; chain_height := block_height header|>
+     <|env_chain; current_slot := block_slot header|>
+     <|env_chain; finalized_height := block_finalized_height header|>
+     <|env_chain; account_balance ::=
+         add_balance (block_creator header) (block_reward header)|>.
 
 (* Todo: this should just be a computation. But I still do not *)
 (* know exactly what the best way of working with reflect is *)
 Local Open Scope nat.
-Definition IsValidNextBlock (new old : BlockHeader) : Prop :=
-  block_height new = S (block_height old) /\
-  slot_number new > slot_number old /\
-  finalized_height new >= finalized_height old /\
-  finalized_height new < block_height new.
-
-Definition ActIsFromAccount (act : Action) : Prop :=
+Definition act_is_from_account (act : Action) : Prop :=
   address_is_contract (act_from act) = false.
+
+Record IsValidNextBlock (header : BlockHeader) (chain : Chain) : Prop :=
+  build_is_valid_next_block {
+    valid_height : block_height header = S (chain_height chain);
+    valid_slot : block_slot header > current_slot chain;
+    valid_finalized_height :
+      block_finalized_height header >= finalized_height chain /\
+      block_finalized_height header < block_height header;
+    valid_creator : address_is_contract (block_creator header) = false;
+    valid_reward : (block_reward header >= 0)%Z;
+  }.
 
 Record ChainState :=
   build_chain_state {
@@ -598,40 +620,36 @@ Global Instance chain_state_settable : Settable _ :=
 
 Inductive ChainStep : ChainState -> ChainState -> Type :=
 | step_block :
-    forall {prev : ChainState}
-           {header : BlockHeader}
-           {baker : Address}
-           {next : ChainState},
+    forall {prev next : ChainState}
+           (header : BlockHeader),
       chain_state_queue prev = [] ->
-      IsValidNextBlock header (block_header prev) ->
-      Forall ActIsFromAccount (chain_state_queue next) ->
+      IsValidNextBlock header prev ->
+      Forall act_is_from_account (chain_state_queue next) ->
       EnvironmentEquiv
         next
-        (add_new_block header baker prev) ->
+        (add_new_block_to_env header prev) ->
       ChainStep prev next
 | step_action :
-    forall {prev : ChainState}
-           {act : Action}
-           {acts : list Action}
-           {next : ChainState}
-           {new_acts : list Action},
+    forall {prev next : ChainState}
+           (act : Action)
+           (acts : list Action)
+           (new_acts : list Action),
       chain_state_queue prev = act :: acts ->
       ActionEvaluation prev act next new_acts ->
       chain_state_queue next = new_acts ++ acts ->
       ChainStep prev next
 | step_permute :
-    forall {prev new : ChainState},
-      chain_state_env prev = chain_state_env new ->
-      Permutation (chain_state_queue prev) (chain_state_queue new) ->
-      ChainStep prev new.
+    forall {prev next : ChainState},
+      chain_state_env prev = chain_state_env next ->
+      Permutation (chain_state_queue prev) (chain_state_queue next) ->
+      ChainStep prev next.
 
 Definition empty_state : ChainState :=
   {| chain_state_env :=
        {| env_chain :=
-            {| block_header :=
-                 {| block_height := 0;
-                    slot_number := 0;
-                    finalized_height := 0; |};
+            {| chain_height := 0;
+               current_slot := 0;
+               finalized_height := 0;
                account_balance a := 0%Z;
                contract_state a := None; |};
           env_contracts a := None; |};
@@ -680,7 +698,7 @@ Fixpoint trace_txs {from to : ChainState} (trace : ChainTrace from to) : list Tx
   match trace with
   | snoc trace' step =>
     match step with
-    | step_action _ eval _ => eval_tx eval :: trace_txs trace'
+    | step_action _ _ _ _ eval _ => eval_tx eval :: trace_txs trace'
     | _ => trace_txs trace'
     end
   | _ => []
@@ -698,28 +716,32 @@ Definition outgoing_txs
            (addr : Address) : list Tx :=
   filter (fun tx => (tx_from tx =? addr)%address) (trace_txs trace).
 
-Fixpoint blocks_baked {from to : ChainState}
-         (trace : ChainTrace from to) (addr : Address) : list nat :=
+Fixpoint trace_blocks {from to : ChainState}
+         (trace : ChainTrace from to) : list BlockHeader :=
   match trace with
   | snoc trace' step =>
     match step with
-    | @step_block _ header baker _ _ _ _ _ =>
-      if (baker =? addr)%address
-      then block_height header :: blocks_baked trace' addr
-      else blocks_baked trace' addr
-    | _ => blocks_baked trace' addr
+    | step_block header _ _ _ _ =>
+      header :: trace_blocks trace'
+    | _ => trace_blocks trace'
     end
   | clnil => []
   end.
+
+Definition created_blocks
+           {from to : ChainState} (trace : ChainTrace from to)
+           (creator : Address) : list BlockHeader :=
+  filter (fun b => (block_creator b =? creator)%address)
+         (trace_blocks trace).
 
 Section Theories.
 Ltac destruct_chain_step :=
   match goal with
   | [step: ChainStep _ _ |- _] =>
     destruct step as
-        [prev header baker next queue_prev valid_header acts_from_accs env_eq|
-         prev act acts next new_acts queue_prev step queue_new|
-         prev new prev_new perm]
+        [prev next header queue_prev valid_header acts_from_accs env_eq|
+         prev next act acts new_acts queue_prev eval queue_new|
+         prev next prev_next perm]
   end.
 
 Ltac destruct_action_eval :=
@@ -859,7 +881,7 @@ Local Open Scope Z.
 Lemma account_balance_trace state (trace : ChainTrace empty_state state) addr :
   account_balance state addr =
   sumZ tx_amount (incoming_txs trace addr) +
-  sumZ compute_block_reward (blocks_baked trace addr) -
+  sumZ block_reward (created_blocks trace addr) -
   sumZ tx_amount (outgoing_txs trace addr).
 Proof.
   unfold incoming_txs, outgoing_txs.
@@ -869,16 +891,17 @@ Proof.
   - (* Block *)
     rewrite_environment_equiv.
     cbn.
+    fold (created_blocks trace addr).
     unfold add_balance.
     rewrite IHtrace by auto.
     destruct_address_eq; subst; cbn; lia.
   - (* Step *)
     cbn.
     destruct_action_eval; cbn; rewrite_environment_equiv; cbn.
-    all: unfold add_balance; rewrite IHtrace by auto.
+    all: fold (created_blocks trace addr); unfold add_balance; rewrite IHtrace by auto.
     all: destruct_address_eq; cbn; lia.
   - cbn.
-    rewrite <- prev_new.
+    rewrite <- prev_next.
     auto.
 Qed.
 
@@ -896,7 +919,6 @@ Class ChainBuilderType :=
 
     builder_add_block
       (builder : builder_type)
-      (baker : Address)
       (header : BlockHeader)
       (actions : list Action) :
       option builder_type;
@@ -919,9 +941,9 @@ Ltac destruct_chain_step :=
   match goal with
   | [step: ChainStep _ _ |- _] =>
     destruct step as
-        [prev header baker next queue_prev valid_header acts_from_accs env_eq|
-         prev act acts next new_acts queue_prev step queue_new|
-         prev new prev_new perm]
+        [prev next header queue_prev valid_header acts_from_accs env_eq|
+         prev next act acts new_acts queue_prev eval queue_new|
+         prev next prev_next perm]
   end.
 
 Ltac destruct_action_eval :=

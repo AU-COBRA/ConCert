@@ -223,7 +223,7 @@ Definition init
 
 Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
   let id := state.(next_proposal_id) in
-  let slot_num := chain.(block_header).(slot_number) in
+  let slot_num := chain.(current_slot) in
   let proposal := {| actions := actions;
                      votes := FMap.empty;
                      vote_result := 0;
@@ -289,7 +289,7 @@ Definition do_finish_proposal
   do proposal <- FMap.find pid state.(proposals);
   let rules := state.(state_rules) in
   let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
-  let cur_slot := chain.(block_header).(slot_number) in
+  let cur_slot := chain.(current_slot) in
   if (cur_slot <? debate_end)%nat then
     None
   else
@@ -355,8 +355,9 @@ Definition receive
   end.
 
 Ltac solve_contract_proper :=
-  repeat
     match goal with
+    | _ => progress subst
+    | _ => solve [auto]
     | [|- ?x _  = ?x _] => unfold x
     | [|- ?x _ _ = ?x _ _] => unfold x
     | [|- ?x _ _ _ = ?x _ _ _] => unfold x
@@ -368,16 +369,15 @@ Ltac solve_contract_proper :=
     | [|- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
     | [|- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
     | [H: ChainEquiv _ _ |- _] => rewrite H in *
-    | _ => subst; auto
     end.
 
 Lemma init_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; solve_contract_proper. Qed.
+Proof. repeat intro; repeat solve_contract_proper. Qed.
 
 Lemma receive_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof. repeat intro; solve_contract_proper. Qed.
+Proof. repeat intro; repeat solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
@@ -445,14 +445,18 @@ Section Theories.
   sumnat count txs.
 
   Definition exploit_example : option (Address * LocalChainBuilderDepthFirst) :=
-    let chain := builder_initial in
-    let baker := BoundedN.of_Z_const AddrSize 10 in
+    let chain := @builder_initial _ LocalChainBuilderDepthFirst in
+    let creator := BoundedN.of_Z_const AddrSize 10 in
     let add_block (chain : LocalChainBuilderDepthFirst) act_bodies :=
         let next_header :=
-            (block_header chain)<|block_height ::= S|><|slot_number ::= S|> in
-        let acts := map (build_act baker) act_bodies in
-        builder_add_block chain baker next_header acts in
-    (* Get some money on the baker *)
+            {| block_height := S (chain_height chain);
+               block_slot := S (current_slot chain);
+               block_finalized_height := finalized_height chain;
+               block_creator := creator;
+               block_reward := 50; |} in
+        let acts := map (build_act creator) act_bodies in
+        builder_add_block chain next_header acts in
+    (* Get some money on the creator *)
     do chain <- add_block chain [];
     (* Deploy congress and exploit contracts *)
     let rules :=
@@ -463,17 +467,17 @@ Section Theories.
     let dep_exploit := create_deployment 0 exploit_contract tt in
     do chain <- add_block chain [dep_congress; dep_exploit];
     let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
-    let exploit := nth 0 contracts baker in
-    let congress := nth 1 contracts baker in
-    (* Add baker to congress, create a proposal to transfer *)
+    let exploit := nth 0 contracts creator in
+    let congress := nth 1 contracts creator in
+    (* Add creator to congress, create a proposal to transfer *)
     (* some money to exploit contract, vote for the proposal, and execute the proposal *)
-    let add_baker := add_member baker in
+    let add_creator := add_member creator in
     let create_proposal := create_proposal [cact_transfer exploit 1] in
     let vote_proposal := vote_for_proposal 1 in
     let exec_proposal := finish_proposal 1 in
     let act_bodies :=
         map (fun m => act_call congress 0 (serialize m))
-            [add_baker; create_proposal; vote_proposal; exec_proposal] in
+            [add_creator; create_proposal; vote_proposal; exec_proposal] in
     do chain <- add_block chain act_bodies;
     Some (congress, chain).
 

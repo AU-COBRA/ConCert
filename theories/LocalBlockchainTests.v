@@ -13,7 +13,7 @@ Import ListNotations.
 
 Section LocalBlockchainTests.
   (* Addresses *)
-  Definition baker : Address :=
+  Definition creator : Address :=
     BoundedN.of_Z_const AddrSize 10.
 
   Definition person_1 : Address :=
@@ -29,26 +29,28 @@ Section LocalBlockchainTests.
 
   Definition chain1 : ChainBuilder := builder_initial.
 
-  Compute (block_header chain1).
-
   Definition add_block (chain : ChainBuilder) acts : option ChainBuilder :=
     let header :=
-        (block_header chain)<|block_height ::= S|><|slot_number ::= S|> in
-    builder_add_block chain baker header acts.
+        {| block_height := S (chain_height chain);
+           block_slot := S (current_slot chain);
+           block_finalized_height := finalized_height chain;
+           block_creator := creator;
+           block_reward := 50; |} in
+    builder_add_block chain header acts.
 
-  (* Baker mines an empty block (and gets some coins) *)
+  (* Creator created an empty block (and gets some coins) *)
   Definition chain2 : ChainBuilder :=
     unpack_option (add_block chain1 []).
 
   Compute (account_balance chain2 person_1).
-  Compute (account_balance chain2 baker).
+  Compute (account_balance chain2 creator).
 
-  (* Baker transfers 10 coins to person_1 *)
+  (* Creator transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
-    unpack_option (add_block chain2 [build_act baker (act_transfer person_1 10)]).
+    unpack_option (add_block chain2 [build_act creator (act_transfer person_1 10)]).
 
   Compute (account_balance chain3 person_1).
-  Compute (account_balance chain3 baker).
+  Compute (account_balance chain3 creator).
 
   (* person_1 deploys a Congress contract *)
   Definition setup_rules :=
@@ -71,7 +73,7 @@ Section LocalBlockchainTests.
     end.
 
   Compute (account_balance chain4 person_1).
-  Compute (account_balance chain4 baker).
+  Compute (account_balance chain4 creator).
   Compute (account_balance chain4 congress_1).
 
   Definition congress_ifc
@@ -84,7 +86,7 @@ Section LocalBlockchainTests.
     | None =>
       @build_contract_interface
         _ _ _
-        baker
+        creator
         (fun c => None)
         (fun a m => deploy_congress)
     end.
@@ -93,7 +95,7 @@ Section LocalBlockchainTests.
     match congress_ifc.(get_state) chain with
     | Some s => s
     (* And also here *)
-    | None => {| owner := baker;
+    | None => {| owner := creator;
                  state_rules := setup_rules;
                  proposals := FMap.empty;
                  next_proposal_id := 0;
@@ -155,8 +157,8 @@ End LocalBlockchainTests.
 Hint Resolve congress_txs_after_block : core.
 (* The congress satisfies a property specialized to the local blockchain DFS: *)
 Lemma congress_txs_after_local_chain_block
-          (prev new : LocalChainBuilderDepthFirst) baker header acts :
-  builder_add_block prev baker header acts = Some new ->
+          (prev new : LocalChainBuilderDepthFirst) header acts :
+  builder_add_block prev header acts = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs (builder_trace new) addr) <=
@@ -164,8 +166,8 @@ Lemma congress_txs_after_local_chain_block
 Proof. eauto. Qed.
 (* And of course, it is satisfied for the breadth first chain as well. *)
 Lemma congress_txs_after_local_chain_bf_block
-      (prev new : LocalChainBuilderBreadthFirst) baker header acts :
-  builder_add_block prev baker header acts = Some new ->
+      (prev new : LocalChainBuilderBreadthFirst) header acts :
+  builder_add_block prev header acts = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs (builder_trace new) addr) <=

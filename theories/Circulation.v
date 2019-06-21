@@ -101,11 +101,11 @@ Proof.
   end.
 Qed.
 
-Lemma circulation_add_new_block header baker env :
-  circulation (add_new_block header baker env) =
-  (circulation env + compute_block_reward (block_height header))%Z.
+Lemma circulation_add_new_block header env :
+  circulation (add_new_block_to_env header env) =
+  (circulation env + block_reward header)%Z.
 Proof.
-  assert (Hperm: exists suf, Permutation ([baker] ++ suf) (elements Address)).
+  assert (Hperm: exists suf, Permutation ([block_creator header] ++ suf) (elements Address)).
   { apply NoDup_incl_reorganize; repeat constructor; unfold incl; auto. }
   destruct Hperm as [suf perm].
   symmetry in perm.
@@ -119,12 +119,14 @@ Proof.
   | [|- ?a + ?b + ?c = ?b + ?d + ?a] => enough (c = d) by lia
   end.
 
-  pose proof (in_NoDup_app baker [baker] suf ltac:(intuition) perm_set) as not_in_suf.
+  pose proof (in_NoDup_app
+                (block_creator header)
+                [block_creator header] suf ltac:(intuition) perm_set) as not_in_suf.
   clear perm perm_set.
   induction suf as [| x xs IH]; auto.
   cbn in *.
   apply Decidable.not_or in not_in_suf.
-  destruct (address_eqb_spec x baker); try tauto.
+  destruct (address_eqb_spec x (block_creator header)); try tauto.
   specialize (IH (proj2 not_in_suf)).
   lia.
 Qed.
@@ -132,16 +134,12 @@ Qed.
 Lemma step_circulation {prev next} (step : ChainStep prev next) :
   circulation next =
   match step with
-  | step_block _ _ _ _ =>
-    circulation prev + compute_block_reward (block_height (block_header next))
+  | step_block header _ _ _ _ =>
+    circulation prev + block_reward header
   | _ => circulation prev
   end%Z.
 Proof.
-  destruct step;
-    repeat
-      match goal with
-      | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *; clear H
-      end.
+  destruct_chain_step; try rewrite_environment_equiv.
   - (* New block *)
     now rewrite circulation_add_new_block.
   - (* New action *)
@@ -151,22 +149,19 @@ Proof.
 Qed.
 
 Theorem chain_trace_circulation
-        {state : ChainState} :
-  reachable state ->
-  circulation state =
-  sumZ compute_block_reward (seq 1 (block_height (block_header state))).
+        {state : ChainState}
+        (trace : ChainTrace empty_state state) :
+  circulation state = sumZ block_reward (trace_blocks trace).
 Proof.
-  intros [trace].
   remember empty_state as from eqn:eq.
-  induction trace as [| from mid to xs IH x]; rewrite eq in *; clear eq.
+  induction trace as [| from mid to xs IH x]; subst.
   - unfold circulation.
     induction (elements Address); auto.
   - rewrite (step_circulation x).
-    destruct_chain_step.
-    + rewrite_environment_equiv.
-      cbn.
-      rewrite (proj1 valid_header), IH, sumZ_seq_S; auto.
-    + erewrite block_header_post_action; eauto.
-    + intuition.
+    cbn.
+    destruct_chain_step; auto.
+    cbn.
+    rewrite <- IH by auto.
+    lia.
 Qed.
 End Circulation.

@@ -220,7 +220,7 @@ Definition init
 
 Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
   let id := state.(next_proposal_id) in
-  let slot_num := chain.(block_header).(slot_number) in
+  let slot_num := chain.(current_slot) in
   let proposal := {| actions := actions;
                      votes := FMap.empty;
                      vote_result := 0;
@@ -285,7 +285,7 @@ Definition do_finish_proposal
   do proposal <- FMap.find pid state.(proposals);
   let rules := state.(state_rules) in
   let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
-  let cur_slot := chain.(block_header).(slot_number) in
+  let cur_slot := chain.(current_slot) in
   if (cur_slot <? debate_end)%nat then
     None
   else
@@ -421,7 +421,7 @@ Qed.
 
 Lemma num_outgoing_acts_block l contract :
   address_is_contract contract = true ->
-  Forall ActIsFromAccount l ->
+  Forall act_is_from_account l ->
   num_outgoing_acts l contract = 0.
 Proof.
   intros is_contract all.
@@ -709,7 +709,7 @@ Local Ltac simpl_exp_invariant exp :=
   | context G[filter ?f (?hd :: ?tl)] =>
     let newexp := context G[filter f tl] in
     replace exp with newexp by solve_single
-  | context G[add_new_block _ _ ?env] =>
+  | context G[add_new_block_to_env _ ?env] =>
     let newexp := context G[env] in
     replace exp with newexp by solve_single
   | context G[transfer_balance _ _ _ ?env] =>
@@ -855,13 +855,13 @@ Proof.
   - (* Permute queue *)
     unfold num_outgoing_acts.
     cbn.
-    rewrite <- perm, prev_new in *; auto.
+    rewrite <- perm, prev_next in *; auto.
 Qed.
 
 Corollary congress_txs_after_block
           {ChainBuilder : ChainBuilderType}
-          prev baker header acts new :
-  builder_add_block prev baker header acts = Some new ->
+          prev new header acts :
+  builder_add_block prev header acts = Some new ->
   forall addr,
     env_contracts new addr = Some (Congress.contract : WeakContract) ->
     length (outgoing_txs (builder_trace new) addr) <=

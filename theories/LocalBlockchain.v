@@ -28,13 +28,14 @@ Global Instance LocalChainBase : ChainBase :=
   {| Address := BoundedN AddrSize;
      address_eqb := BoundedN.eqb;
      address_eqb_spec := BoundedN.eqb_spec;
-     compute_block_reward n := 50%Z;
      address_is_contract a := (ContractAddrBase <=? BoundedN.to_N a)%N
   |}.
 
 Record LocalChain :=
   build_local_chain {
-    lc_header : BlockHeader;
+    lc_height : nat;
+    lc_slot : nat;
+    lc_fin_height : nat;
     lc_account_balances : FMap Address Amount;
     lc_contract_state : FMap Address OakValue;
     lc_contracts : FMap Address WeakContract;
@@ -42,11 +43,14 @@ Record LocalChain :=
 
 Instance local_chain_settable : Settable _ :=
   settable! build_local_chain
-  <lc_header; lc_account_balances; lc_contract_state; lc_contracts>.
+  <lc_height; lc_slot; lc_fin_height;
+   lc_account_balances; lc_contract_state; lc_contracts>.
 
 Definition lc_to_env (lc : LocalChain) : Environment :=
   {| env_chain :=
-        {| block_header := lc_header lc;
+        {| chain_height := lc_height lc;
+           current_slot := lc_slot lc;
+           finalized_height := lc_fin_height lc;
            account_balance a := with_default 0%Z (FMap.find a (lc_account_balances lc));
            contract_state a := FMap.find a (lc_contract_state lc); |};
       env_contracts a := FMap.find a (lc_contracts lc); |}.
@@ -337,10 +341,9 @@ Section ExecuteActions.
 End ExecuteActions.
 
 Definition lc_initial : LocalChain :=
-  {| lc_header :=
-       {| block_height := 0;
-          slot_number := 0;
-          finalized_height := 0; |};
+  {| lc_height := 0;
+     lc_slot := 0;
+     lc_fin_height := 0;
      lc_account_balances := FMap.empty;
      lc_contract_state := FMap.empty;
      lc_contracts := FMap.empty; |}.
@@ -354,31 +357,32 @@ Record LocalChainBuilder :=
 Definition lcb_initial : LocalChainBuilder :=
   {| lcb_lc := lc_initial; lcb_trace := clnil |}.
 
-Definition validate_header (new old : BlockHeader) : option unit :=
-  let (prev_block_height, prev_slot_number, prev_finalized_height) := old in
-  let (block_height, slot_number, finalized_height) := new in
-  if (block_height =? S prev_block_height)
-       && (prev_slot_number <? slot_number)
-       && (finalized_height <=? prev_block_height)
-       && (prev_finalized_height <=? finalized_height)
+Definition validate_header (header : BlockHeader) (chain : Chain) : option unit :=
+  if (block_height header =? S (chain_height chain))
+       && (current_slot chain <? block_slot header)
+       && (finalized_height chain <=? block_finalized_height header)
+       && (block_finalized_height header <? block_height header)
+       && (Bool.eqb (address_is_contract (block_creator header)) false)
+       && (block_reward header >=? 0)%Z
   then Some tt
   else None.
 
-Lemma validate_header_valid (new old : BlockHeader) :
-  validate_header new old = Some tt ->
-  IsValidNextBlock new old.
+Lemma validate_header_valid header chain :
+  validate_header header chain = Some tt ->
+  IsValidNextBlock header chain.
 Proof.
   intros valid.
-  destruct new as [block_height slot_number fin_height];
-  destruct old as [prev_block_height prev_slot_number prev_fin_height].
-  unfold IsValidNextBlock.
-  simpl in *.
+  unfold validate_header in valid.
   repeat
-    match goal with
+    (match goal with
     | [H: context[Nat.eqb ?a ?b] |- _] => destruct (Nat.eqb_spec a b)
     | [H: context[Nat.ltb ?a ?b] |- _] => destruct (Nat.ltb_spec a b)
     | [H: context[Nat.leb ?a ?b] |- _] => destruct (Nat.leb_spec a b)
-    end; simpl in *; intuition.
+    | [H: context[Bool.eqb ?a ?b] |- _] => destruct (Bool.eqb_spec a b)
+    | [H: context[Z.geb ?a ?b] |- _] => destruct (Z.geb_spec a b)
+    end; [|repeat rewrite Bool.andb_false_r in valid; cbn in valid; congruence]).
+  apply build_is_valid_next_block; cbn; auto.
+  lia.
 Qed.
 
 Definition validate_actions (actions : list Action) : option unit :=
@@ -388,7 +392,7 @@ Definition validate_actions (actions : list Action) : option unit :=
 
 Lemma validate_actions_valid actions :
   validate_actions actions = Some tt ->
-  Forall ActIsFromAccount actions.
+  Forall act_is_from_account actions.
 Proof.
   intros valid.
   induction actions as [|x xs IH]; auto.
@@ -402,19 +406,17 @@ Proof.
   auto.
 Qed.
 
-Definition add_new_block
-           (header : BlockHeader)
-           (baker : Address)
-           (lc : LocalChain) : LocalChain :=
-  let lc := add_balance baker (compute_block_reward (block_height header)) lc in
-  let lc := lc<|lc_header := header|> in
-  lc.
+Definition add_new_block (header : BlockHeader) (lc : LocalChain) : LocalChain :=
+  let lc := add_balance (block_creator header) (block_reward header) lc in
+  lc<|lc_height := block_height header|>
+    <|lc_slot := block_slot header|>
+    <|lc_fin_height := block_finalized_height header|>.
 
-Lemma add_new_block_equiv header baker (lc : LocalChain) (env : Environment) :
+Lemma add_new_block_equiv header (lc : LocalChain) (env : Environment) :
   EnvironmentEquiv lc env ->
   EnvironmentEquiv
-    (add_new_block header baker lc)
-    (Blockchain.add_new_block header baker env).
+    (add_new_block header lc)
+    (Blockchain.add_new_block_to_env header env).
 Proof.
   intros eq.
   apply build_env_equiv; try apply eq.
@@ -437,15 +439,14 @@ Qed.
 Definition add_block
            (depth_first : bool)
            (lcb : LocalChainBuilder)
-           (baker : Address)
            (header : BlockHeader)
            (actions : list Action) : option LocalChainBuilder.
 Proof.
   set (lcopt :=
          let lc := lcb_lc lcb in
-         do validate_header header (lc_header lc);
+         do validate_header header lc;
          do validate_actions actions;
-         let lc := add_new_block header baker lc in
+         let lc := add_new_block header lc in
          execute_actions 1000 actions lc depth_first).
 
   destruct lcopt as [lc|] eqn:exec; [|exact None].
