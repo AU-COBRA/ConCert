@@ -17,6 +17,7 @@ stages:
   script:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
     - make -j
+    - coqwc theories/*.v
 
 coq:8.8:
   extends: .build
