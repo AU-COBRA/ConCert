@@ -101,7 +101,7 @@ Global Program Instance setup_serializable : Serializable Setup :=
        Some (build_setup rules); |}.
 Next Obligation.
   intros x.
-  simpl.
+  cbn.
   rewrite deserialize_serialize.
   reflexivity.
 Qed.
@@ -181,7 +181,7 @@ Global Program Instance msg_serializable : Serializable Msg :=
 Next Obligation.
   intros msg.
   unfold serialize_msg, deserialize_msg.
-  destruct msg; repeat (simpl; rewrite deserialize_serialize); reflexivity.
+  destruct msg; repeat (cbn; rewrite deserialize_serialize); reflexivity.
 Qed.
 
 Definition serialize_state (s : State) : SerializedValue :=
@@ -196,7 +196,7 @@ Global Program Instance state_serializable : Serializable State :=
   {| serialize := serialize_state; deserialize := deserialize_state; |}.
 Next Obligation.
   unfold serialize_state, deserialize_state.
-  destruct x; repeat (simpl; rewrite deserialize_serialize); reflexivity.
+  destruct x; repeat (cbn; rewrite deserialize_serialize); reflexivity.
 Qed.
 
 End Serialization.

@@ -252,8 +252,8 @@ Section ExecuteActions.
       + inversion sent; subst;
           now apply set_contract_state_equiv, transfer_balance_equiv.
     - (* no contract at destination, so msg should be empty *)
-      destruct (address_is_contract to) eqn:addr_format; simpl in *; try congruence.
-      destruct msg; simpl in *; try congruence.
+      destruct (address_is_contract to) eqn:addr_format; cbn in *; try congruence.
+      destruct msg; cbn in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
       apply (eval_transfer from to amount); auto.
       inversion sent; subst; now apply transfer_balance_equiv.
@@ -454,8 +454,8 @@ Proof.
   destruct lcopt as [lc|] eqn:exec; [|exact None].
   subst lcopt.
   cbn -[execute_actions] in exec.
-  destruct (validate_header _) eqn:validate; [|simpl in *; congruence].
-  destruct (validate_actions _) eqn:validate_actions; [|simpl in *; congruence].
+  destruct (validate_header _) eqn:validate; [|cbn in *; congruence].
+  destruct (validate_actions _) eqn:validate_actions; [|cbn in *; congruence].
   destruct_units.
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Some {| lcb_lc := lc; lcb_trace := _ |}).

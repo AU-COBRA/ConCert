@@ -60,7 +60,7 @@ Lemma sumnat_app
 Proof.
   revert ys.
   induction xs as [| x xs IH]; intros ys; auto.
-  simpl.
+  cbn.
   rewrite IH.
   lia.
 Qed.
@@ -92,7 +92,7 @@ Lemma sumZ_app
 Proof.
   revert ys.
   induction xs as [| x xs IH]; intros ys; auto.
-  simpl.
+  cbn.
   rewrite IH.
   lia.
 Qed.
@@ -167,7 +167,7 @@ Proof.
   revert start.
   induction len1 as [| len1 IH]; intros start.
   - now rewrite Nat.add_0_r.
-  - simpl.
+  - cbn.
     rewrite IH.
     f_equal; f_equal; f_equal.
     lia.
@@ -179,7 +179,7 @@ Proof.
   replace (S len) with (len + 1)%nat by lia.
   rewrite (seq_app start len 1).
   rewrite sumZ_app.
-  simpl.
+  cbn.
   lia.
 Qed.
 

@@ -56,21 +56,14 @@ Module BoundedN.
     if (z <? 0)%Z then None else of_N (Z.to_N z).
 
   Definition of_Z_const (bound : N) (z : Z) :=
-    let ofz := @of_Z bound z in
-    match ofz return (match ofz with
-                      | Some _ => BoundedN bound
-                      | None => unit
-                      end) with
-    | Some x => x
-    | None => tt
-    end.
+    unpack_option (@of_Z bound z).
 
   Lemma to_N_inj {bound : N} {a b : BoundedN bound} :
     to_N a = to_N b -> a = b.
   Proof.
     intros eq.
     destruct a, b.
-    simpl in *.
+    cbn in *.
     subst.
     f_equal.
     apply UIP_dec.
@@ -115,7 +108,7 @@ Module BoundedN.
   Lemma of_to_N {bound : N} (n : BoundedN bound) :
     of_N (to_N n) = Some n.
   Proof.
-    destruct n as [n prf]; simpl.
+    destruct n as [n prf]; cbn.
     unfold of_N.
     replace (of_N_compare n) with (Some prf); auto.
     unfold of_N_compare.
@@ -185,7 +178,7 @@ Module BoundedN.
   Proof.
     induction xs as [|x xs IH].
     - split; intros H; inversion H.
-    - simpl.
+    - cbn.
       destruct (of_nat x) eqn:of_nat_x; split; intros H.
       + destruct H.
         * subst.
@@ -226,7 +219,7 @@ Module BoundedN.
     Proof.
       unfold decode_bounded, encode_bounded.
       rewrite decode_encode.
-      simpl.
+      cbn.
       apply of_to_N.
     Qed.
 
@@ -247,11 +240,11 @@ Module BoundedN.
     pose proof (in_seq (N.to_nat bound) 0) as in_seq'.
     pose proof (fun n => proj1 (in_seq' n)) as in_seq; clear in_seq'.
     induction nodup; try constructor.
-    simpl.
+    cbn.
     pose proof (in_seq x) as x_bound.
     specialize (x_bound (or_introl eq_refl)).
     destruct x_bound as [useless x_bound]; clear useless.
-    simpl in x_bound.
+    cbn in x_bound.
     destruct (of_nat x) eqn:ofnatx. all: cycle 1.
     apply of_nat_none in ofnatx.
     lia.
@@ -275,7 +268,7 @@ Module BoundedN.
     apply in_seq.
     unfold to_nat.
     destruct t as [t lt].
-    simpl.
+    cbn.
     change ((bound ?= t) = Gt) with (bound > t) in lt.
     lia.
   Qed.

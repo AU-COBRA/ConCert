@@ -48,7 +48,7 @@ Local Ltac perm_simplify_once :=
   aux.
 
 Local Ltac perm_simplify_round :=
-  simpl;
+  cbn;
   repeat appify;
   (* Change into [] ++ l ++ [] *)
   match goal with
@@ -57,7 +57,7 @@ Local Ltac perm_simplify_round :=
                                 rewrite <- (app_nil_r l1), <- (app_nil_r l2)
   end;
   repeat perm_simplify_once;
-  simpl;
+  cbn;
   repeat rewrite <- app_assoc;
   repeat rewrite app_nil_r;
   repeat
@@ -67,7 +67,7 @@ Local Ltac perm_simplify_round :=
 
 Ltac perm_simplify :=
   repeat perm_simplify_round;
-  simpl;
+  cbn;
   try apply Permutation_refl.
 
 Ltac destruct_match :=
