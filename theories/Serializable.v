@@ -22,7 +22,7 @@ Module SerializedType.
   Fixpoint eqb_spec (a b : SerializedType) :
     Bool.reflect (a = b) (eqb a b).
   Proof.
-    destruct a, b; simpl in *; try (left; congruence); try (right; congruence).
+    destruct a, b; cbn in *; try (left; congruence); try (right; congruence).
     - destruct (eqb_spec a1 b1), (eqb_spec a2 b2);
         try (left; congruence); try (right; congruence).
     - destruct (eqb_spec a b); try (left; congruence); try (right; congruence).
@@ -60,7 +60,7 @@ Class Serializable (ty : Type) :=
   {
     serialize : ty -> SerializedValue;
     deserialize : SerializedValue -> option ty;
-    deserialize_serialize : forall (x : ty), deserialize (serialize x) = Some x;
+    deserialize_serialize x : deserialize (serialize x) = Some x;
   }.
 
 Global Opaque serialize deserialize deserialize_serialize.
@@ -109,9 +109,9 @@ Program Instance BoundedN_equivalence {bound : N} : Serializable (BoundedN bound
       countable.decode p |}.
 Next Obligation.
   intros bound x.
-  simpl.
+  cbn.
   rewrite deserialize_serialize.
-  simpl.
+  cbn.
   now rewrite countable.decode_encode.
 Qed.
 
@@ -128,16 +128,14 @@ Section Sum.
         end in
     build_ser_value (ser_pair ser_bool ser.(ser_value_type)) (is_left, ser.(ser_value)).
 
-  Definition deserialize_sum
-            `{Serializable A} `{Serializable B}
-            (os : SerializedValue) :=
-    match os with
-    | build_ser_value (ser_pair ser_bool v) (b, val) =>
-      if b then
-        do a <- @deserialize A _ (build_ser_value v val);
+  Definition deserialize_sum (val : SerializedValue) : option (A + B) :=
+    match val with
+    | build_ser_value (ser_pair ser_bool v) (is_left, val) =>
+      if is_left then
+        do a <- deserialize (build_ser_value v val) : option A;
         Some (inl a)
       else
-        do b <- @deserialize B _ (build_ser_value v val);
+        do b <- deserialize (build_ser_value v val) : option B;
         Some (inr b)
     | _ => None
     end.
@@ -146,10 +144,10 @@ Section Sum.
     : deserialize_sum (serialize_sum s) = Some s.
   Proof.
     unfold serialize_sum, deserialize_sum.
-    destruct s as [a | b]; simpl; rewrite deserialize_serialize; reflexivity.
+    destruct s as [a | b]; cbn; rewrite deserialize_serialize; reflexivity.
   Qed.
 
-  Global Instance sum_serializable : Serializable (A + B)%type :=
+  Global Instance sum_serializable : Serializable (A + B) :=
     {| serialize := serialize_sum;
        deserialize := deserialize_sum;
        deserialize_serialize := deserialize_serialize_sum; |}.
@@ -158,16 +156,17 @@ End Sum.
 Section Product.
   Context `{Serializable A} `{Serializable B}.
 
-  Definition serialize_product '(a, b) :=
-    let 'build_ser_value a_ty a_val := @serialize A _ a in
-    let 'build_ser_value b_ty b_val := @serialize B _ b in
+  Definition serialize_product (pair : A * B) : SerializedValue :=
+    let (a, b) := pair in
+    let (a_ty, a_val) := serialize a in
+    let (b_ty, b_val) := serialize b in
     build_ser_value (ser_pair a_ty b_ty) (a_val, b_val).
 
-  Definition deserialize_product op :=
-    match op with
+  Definition deserialize_product (val : SerializedValue) : option (A * B) :=
+    match val with
     | build_ser_value (ser_pair a_ty b_ty) (a_val, b_val) =>
-      do a <- @deserialize A _ (build_ser_value a_ty a_val);
-      do b <- @deserialize B _ (build_ser_value b_ty b_val);
+      do a <- deserialize (build_ser_value a_ty a_val) : option A;
+      do b <- deserialize (build_ser_value b_ty b_val) : option B;
       Some (a, b)
     | _ => None
     end.
@@ -190,14 +189,14 @@ End Product.
 Section List.
   Context `{Serializable A}.
 
-  Definition serialize_list (l : list A) :=
-    let go a acc :=
-        let 'build_ser_value a_ty a_val := serialize a in
-        let 'build_ser_value acc_ty acc_val := acc in
+  Definition serialize_list (l : list A) : SerializedValue :=
+    let go a (acc : SerializedValue) :=
+        let (a_ty, a_val) := serialize a in
+        let (acc_ty, acc_val) := acc in
         build_ser_value (ser_pair a_ty acc_ty) (a_val, acc_val) in
     fold_right go (build_ser_value ser_unit tt) l.
 
-  Definition deserialize_list (val : SerializedValue) :=
+  Definition deserialize_list (val : SerializedValue) : option (list A) :=
     let fix aux (ty : SerializedType) (val : interp_type ty) : option (list A) :=
         match ty, val with
         | ser_pair hd_ty tl_ty, (hd_val, tl_val) =>
@@ -207,7 +206,7 @@ Section List.
         | ser_unit, _ => Some []
         | _, _ => None
         end in
-    let 'build_ser_value ty uval := val in
+    let (ty, uval) := val in
     aux ty uval.
 
   Lemma deserialize_serialize_list (l : list A)
@@ -235,13 +234,13 @@ Program Instance map_serializable
   : Serializable (FMap A B) :=
   {| serialize m := serialize (@FMap.elements A B _ _ m);
      deserialize val :=
-       do elems <- @deserialize (list (A * B)) _ val;
-     Some (FMap.of_list elems); |}.
+       do elems <- deserialize val : option (list (A * B));
+       Some (FMap.of_list elems); |}.
 Next Obligation.
   intros.
-  simpl.
+  cbn.
   rewrite deserialize_serialize.
-  simpl.
+  cbn.
   rewrite FMap.of_elements_eq.
   reflexivity.
 Qed.
@@ -252,13 +251,13 @@ Program Instance set_serializable
   : Serializable (FMap A unit) :=
   {| serialize s := serialize (@FMap.elements A unit _ _ s);
      deserialize val :=
-       do elems <- @deserialize (list (A * unit)) _ val;
+       do elems <- deserialize val : option (list (A * unit));
        Some (FMap.of_list elems); |}.
 Next Obligation.
   intros.
-  simpl.
+  cbn.
   rewrite deserialize_serialize.
-  simpl.
+  cbn.
   rewrite FMap.of_elements_eq.
   reflexivity.
 Qed.
