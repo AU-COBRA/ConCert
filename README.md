@@ -1,6 +1,5 @@
 # Smart Contracts
-This repo is a playground for various experiments with embedding Oak contracts
-into Coq and verifying them.
+This repo is a formalization of execution layers of modern blockchains in Coq.
 
 ## Building/Developing
 This repo uses the std++ library. This must be installed first and can be
