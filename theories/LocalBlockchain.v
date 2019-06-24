@@ -51,9 +51,9 @@ Definition lc_to_env (lc : LocalChain) : Environment :=
         {| chain_height := lc_height lc;
            current_slot := lc_slot lc;
            finalized_height := lc_fin_height lc;
-           account_balance a := with_default 0%Z (FMap.find a (lc_account_balances lc));
-           contract_state a := FMap.find a (lc_contract_state lc); |};
-      env_contracts a := FMap.find a (lc_contracts lc); |}.
+           account_balance a := with_default 0%Z (FMap.find a (lc_account_balances lc)); |};
+     env_contract_states a := FMap.find a (lc_contract_state lc);
+     env_contracts a := FMap.find a (lc_contracts lc); |}.
 
 Global Coercion lc_to_env : LocalChain >-> Environment.
 
@@ -98,7 +98,7 @@ Section ExecuteActions.
         | Some msg => None
       end
     | Some wc =>
-      do state <- contract_state lc to;
+      do state <- env_contract_states lc to;
       let lc := transfer_balance from to amount lc in
       let ctx := build_ctx from to amount in
       do '(new_state, new_actions) <- wc_receive wc  lc ctx state msg;
@@ -234,7 +234,7 @@ Section ExecuteActions.
       [cbn in *; congruence|].
     destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
     - (* there is a contract at destination, so do call *)
-      destruct (contract_state _ _) as [prev_state|] eqn:prev_state_eq;
+      destruct (env_contract_states _ _) as [prev_state|] eqn:prev_state_eq;
         [|cbn in *; congruence].
       cbn -[lc_to_env] in *.
       destruct (wc_receive wc _ _ _ _) eqn:receive;

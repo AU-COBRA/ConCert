@@ -5,6 +5,7 @@ From SmartContracts Require Import Congress.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import BoundedN.
 From SmartContracts Require Import Extras.
+From SmartContracts Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import ZArith.
@@ -75,23 +76,19 @@ Section LocalBlockchainTests.
   Compute (account_balance chain4 creator).
   Compute (account_balance chain4 congress_1).
 
-  Definition congress_ifc
-    : ContractInterface Congress.Msg Congress.State :=
-    match get_contract_interface
-            chain4 congress_1
-            Congress.Msg Congress.State with
+  Definition congress_ifc : ContractInterface Congress.Msg :=
+    match get_contract_interface chain4 congress_1 Congress.Msg with
     | Some x => x
     (* Using unpack_option here is extremely slow *)
     | None =>
       @build_contract_interface
-        _ _ _
+        _ _
         creator
-        (fun c => None)
         (fun a m => deploy_congress)
     end.
 
-  Definition congress_state chain : Congress.State :=
-    match congress_ifc.(get_state) chain with
+  Definition congress_state lc : Congress.State :=
+    match env_contract_states lc congress_1 >>= deserialize with
     | Some s => s
     (* And also here *)
     | None => {| owner := creator;
@@ -101,7 +98,7 @@ Section LocalBlockchainTests.
                  members := FMap.empty |}
     end.
 
-  Compute (congress_ifc.(get_state) chain4).
+  Compute (congress_state chain4).
   Compute (FMap.elements (congress_state chain4).(members)).
 
   (* person_1 adds person_1 and person_2 as members of congress *)

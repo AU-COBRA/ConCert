@@ -388,8 +388,8 @@ Definition num_acts_created_in_proposals (txs : list Tx) :=
 Definition num_cacts_in_raw_state state :=
   sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
 
-Definition num_cacts_in_state chain address :=
-  match contract_state chain address >>= deserialize with
+Definition num_cacts_in_state env address :=
+  match env_contract_states env address >>= deserialize with
   | Some state => num_cacts_in_raw_state state
   | None => 0
   end.
@@ -402,12 +402,10 @@ Definition num_outgoing_acts l address :=
   sumnat extract l.
 
 Instance num_cacts_in_state_proper :
-  Proper (ChainEquiv ==> eq ==> eq) num_cacts_in_state.
+  Proper (EnvironmentEquiv ==> eq ==> eq) num_cacts_in_state.
 Proof.
   now repeat intro; subst; unfold num_cacts_in_state;
-    match goal with
-    | [H: ChainEquiv _ _ |- _] => rewrite H
-    end.
+    rewrite_environment_equiv.
 Qed.
 
 Lemma num_outgoing_acts_app q1 q2 address :
@@ -613,7 +611,7 @@ Lemma wc_receive_state_well_behaved
       from contract amount prev state ctx msg new_state resp_acts
       (trace : ChainTrace empty_state prev) :
   let with_tx := transfer_balance from contract amount prev in
-  contract_state prev contract = Some state ->
+  env_contract_states prev contract = Some state ->
   wc_receive
     Congress.contract
     with_tx
@@ -643,7 +641,7 @@ Proof.
   cbn.
   unfold set_chain_contract_state.
   rewrite address_eq_refl.
-  replace (contract_state _ contract) with (Some state) by auto.
+  replace (env_contract_states _ contract) with (Some state) by auto.
   cbn.
   rewrite deserialize_state, deserialize_serialize.
   fold (num_acts_created_in_proposals (incoming_txs trace contract)).
@@ -694,6 +692,7 @@ Local Ltac solve_single :=
   solve [
       repeat (progress subst; cbn in *; auto);
       unfold add_balance, num_cacts_in_state, num_acts_created_in_proposals, num_outgoing_acts;
+      cbn;
       unfold set_chain_contract_state;
       cbn;
       try rewrite address_eq_refl;
@@ -802,7 +801,7 @@ Proof.
         destruct (address_eqb_spec from contract);
           simpl_goal_invariant;
           simpl_hyp_invariant;
-        cbn; lia.
+          cbn; lia.
       * (* This is deployment of this contract *)
         replace wc with (Congress.contract : WeakContract) in * by congruence.
         (* State starts at 0 *)
@@ -837,7 +836,7 @@ Proof.
         subst to.
         match goal with
         | [H1: wc_receive _ _ _ _ _ = Some _,
-           H2: contract_state _ _ = Some _ |- _] =>
+           H2: env_contract_states _ _ = Some _ |- _] =>
           generalize (wc_receive_state_well_behaved _ _ _ _ _ _ _ _ _ steps H2 H1)
         end.
         simpl_goal_invariant.

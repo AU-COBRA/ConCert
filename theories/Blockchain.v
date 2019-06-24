@@ -73,7 +73,6 @@ Record Chain :=
     current_slot : nat;
     finalized_height : nat;
     account_balance : Address -> Amount;
-    contract_state : Address -> option SerializedValue;
   }.
 
 (* Two chains are said to be equivalent if they are extensionally equal.
@@ -85,7 +84,6 @@ Record ChainEquiv (c1 c2 : Chain) : Prop :=
     current_slot_eq : current_slot c1 = current_slot c2;
     finalized_height_eq : finalized_height c1 = finalized_height c2;
     account_balance_eq : forall addr, account_balance c1 addr = account_balance c2 addr;
-    contract_state_eq : forall addr, contract_state c1 addr = contract_state c2 addr;
   }.
 
 Global Program Instance chain_equiv_equivalence : Equivalence ChainEquiv.
@@ -105,9 +103,6 @@ Proof. repeat intro; auto using finalized_height_eq. Qed.
 Global Instance chain_equiv_account_balance_proper :
   Proper (ChainEquiv ==> eq ==> eq) account_balance.
 Proof. repeat intro; subst; auto using account_balance_eq. Qed.
-Global Instance chain_equiv_contract_state_proper :
-  Proper (ChainEquiv ==> eq ==> eq) contract_state.
-Proof. repeat intro; subst; auto using contract_state_eq. Qed.
 
 Record ContractCallContext :=
   build_ctx {
@@ -270,37 +265,31 @@ Definition create_deployment
 (* The contract interface is the main mechanism allowing a deployed
 contract to interact with another deployed contract. This hides
 the ugly details of everything being SerializedValue away from contracts. *)
-Record ContractInterface {Msg State : Type} :=
+Record ContractInterface {Msg : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
     contract_address : Address;
-    (* Obtain the state at some point of time *)
-    get_state : Chain -> option State;
     (* Make an action sending money and optionally a message to the contract *)
     send : Amount -> option Msg -> ActionBody;
   }.
 
-Arguments ContractInterface _ _ : clear implicits.
+Arguments ContractInterface _ : clear implicits.
 
 Definition get_contract_interface
-          (chain : Chain)
-          (addr : Address)
-          (Msg State : Type)
-          `{Serializable Msg}
-          `{Serializable State}
-  : option (ContractInterface Msg State) :=
-  let ifc_get_state chain := contract_state chain addr >>= deserialize in
+          (chain : Chain) (addr : Address)
+          (Msg : Type) `{Serializable Msg}
+  : option (ContractInterface Msg) :=
   let ifc_send amount msg :=
       match msg with
       | None => act_transfer addr amount
       | Some msg => act_call addr amount (serialize msg)
       end in
-  Some {| contract_address := addr; get_state := ifc_get_state; send := ifc_send; |}.
+  Some {| contract_address := addr; send := ifc_send; |}.
 
 Section Semantics.
 Instance chain_settable : Settable _ :=
-  settable! build_chain <chain_height; current_slot; finalized_height;
-                         account_balance; contract_state>.
+  settable! build_chain
+  <chain_height; current_slot; finalized_height; account_balance>.
 
 Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amount) :
   Address -> Amount :=
@@ -320,6 +309,7 @@ Record Environment :=
   build_env {
     env_chain :> Chain;
     env_contracts : Address -> option WeakContract;
+    env_contract_states : Address -> option SerializedValue;
   }.
 
 (* Furthermore we define extensional equality for such environments. *)
@@ -327,6 +317,7 @@ Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
   build_env_equiv {
     chain_equiv : ChainEquiv e1 e2;
     contracts_eq : forall a, env_contracts e1 a = env_contracts e2 a;
+    contract_states_eq : forall addr, env_contract_states e1 addr = env_contract_states e2 addr;
   }.
 
 Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.
@@ -345,12 +336,16 @@ Global Instance environment_equiv_contracts_proper :
   Proper (EnvironmentEquiv ==> eq ==> eq) env_contracts.
 Proof. repeat intro; subst; apply contracts_eq; assumption. Qed.
 
+Global Instance environment_equiv_contract_states_proper :
+  Proper (EnvironmentEquiv ==> eq ==> eq) env_contract_states.
+Proof. repeat intro; subst; apply contract_states_eq; assumption. Qed.
+
 Global Instance environment_equiv_chain_equiv_proper :
   Proper (EnvironmentEquiv ==> ChainEquiv) env_chain.
 Proof. repeat intro; apply chain_equiv; assumption. Qed.
 
 Instance env_settable : Settable _ :=
-  settable! build_env <env_chain; env_contracts>.
+  settable! build_env <env_chain; env_contracts; env_contract_states>.
 
 Definition transfer_balance (from to : Address) (amount : Amount) (env : Environment) :=
   env<|env_chain; account_balance ::= add_balance to amount|>
@@ -366,7 +361,7 @@ Definition add_contract (addr : Address) (contract : WeakContract) (env : Enviro
 
 Definition set_contract_state
            (addr : Address) (state : SerializedValue) (env : Environment) :=
-  env<|env_chain; contract_state ::= set_chain_contract_state addr state|>.
+  env<|env_contract_states ::= set_chain_contract_state addr state|>.
 
 Ltac rewrite_environment_equiv :=
   match goal with
@@ -375,7 +370,7 @@ Ltac rewrite_environment_equiv :=
 
 Ltac solve_proper :=
   apply build_env_equiv;
-  [apply build_chain_equiv|];
+  [apply build_chain_equiv| |];
   cbn;
   repeat intro;
   repeat rewrite_environment_equiv;
@@ -463,7 +458,7 @@ Inductive ActionEvaluation :
              (resp_acts : list ActionBody),
       amount <= account_balance pre from ->
       env_contracts pre to = Some wc ->
-      contract_state pre to = Some prev_state ->
+      env_contract_states pre to = Some prev_state ->
       act = build_act from (match msg with
                             | None => act_transfer to amount
                             | Some msg => act_call to amount msg
@@ -652,8 +647,8 @@ Definition empty_state : ChainState :=
             {| chain_height := 0;
                current_slot := 0;
                finalized_height := 0;
-               account_balance a := 0%Z;
-               contract_state a := None; |};
+               account_balance a := 0%Z; |};
+          env_contract_states a := None;
           env_contracts a := None; |};
      chain_state_queue := [] |}.
 
@@ -936,7 +931,7 @@ End Blockchain.
 Arguments init {_ _ _ _ _ _ _}.
 Arguments receive {_ _ _ _ _ _ _}.
 Arguments build_contract {_ _ _ _ _ _ _}.
-Arguments ContractInterface {_} _ _.
+Arguments ContractInterface {_} _.
 Arguments build_contract_interface {_ _ _ _}.
 
 Ltac destruct_chain_step :=
