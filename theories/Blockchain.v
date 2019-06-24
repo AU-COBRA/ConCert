@@ -228,25 +228,26 @@ Program Definition contract_to_weak_contract
           end in
       build_weak_contract weak_init _ weak_recv _.
 Next Obligation.
-  intros.
-  intros c1 c2 eq_chains ctx1 ctx2 eq_ctx setup1 setup2 eq_setups.
-  subst ctx2 setup2.
+  repeat intro.
+  subst.
   subst weak_init.
-  simpl.
-  destruct (deserialize setup1); auto; simpl.
+  cbn.
+  destruct (deserialize _); auto.
+  cbn.
   now rewrite init_proper.
 Qed.
 Next Obligation.
-  intros.
-  intros c1 c2 eq_chains ctx1 ctx2 eq_ctx state1 state2 eq_states msg1 msg2 eq_msgs.
-  subst ctx2 state2 msg2.
+  repeat intro.
+  subst.
   subst weak_recv.
-  simpl.
-  destruct (deserialize state1); auto; simpl.
-  destruct msg1.
-  + destruct (deserialize _); auto; simpl.
+  cbn.
+  destruct (deserialize _); auto.
+  cbn.
+  destruct_match.
+  - destruct (deserialize _); auto.
+    cbn.
     now rewrite receive_proper.
-  + now rewrite receive_proper.
+  - now rewrite receive_proper.
 Qed.
 
 Coercion contract_to_weak_contract : Contract >-> WeakContract.

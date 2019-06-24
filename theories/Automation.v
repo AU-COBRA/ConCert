@@ -70,10 +70,10 @@ Ltac perm_simplify :=
   simpl;
   try apply Permutation_refl.
 
-Ltac case_match :=
+Ltac destruct_match :=
   match goal with
-  | [H: context [ match ?x with _ => _ end ] |- _] => destruct x eqn:?
   | [|- context [ match ?x with _ => _ end ]] => destruct x eqn:?
+  | [H: context [ match ?x with _ => _ end ] |- _] => destruct x eqn:?
   end.
 
 Ltac destruct_units :=
