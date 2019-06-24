@@ -4,7 +4,7 @@ From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
 From Coq Require Import Setoid.
-From SmartContracts Require Import Oak.
+From SmartContracts Require Import Serializable.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Extras.
 From SmartContracts Require Import Automation.
@@ -25,12 +25,12 @@ Class ChainBase :=
       forall (a b : Address), Bool.reflect (a = b) (address_eqb a b);
     address_eqdec :> stdpp.base.EqDecision Address;
     address_countable :> countable.Countable Address;
-    address_ote :> OakTypeEquivalence Address;
+    address_serializable :> Serializable Address;
     address_is_contract : Address -> bool;
   }.
 
 Global Opaque Address address_eqb address_eqb_spec
-       address_eqdec address_countable address_ote.
+       address_eqdec address_countable address_serializable.
 
 Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
@@ -73,7 +73,7 @@ Record Chain :=
     current_slot : nat;
     finalized_height : nat;
     account_balance : Address -> Amount;
-    contract_state : Address -> option OakValue;
+    contract_state : Address -> option SerializedValue;
   }.
 
 (* Two chains are said to be equivalent if they are extensionally equal.
@@ -123,24 +123,24 @@ Record ContractCallContext :=
 to interact with a chain. *)
 Inductive ActionBody :=
   | act_transfer (to : Address) (amount : Amount)
-  | act_call (to : Address) (amount : Amount) (msg : OakValue)
-  | act_deploy (amount : Amount) (c : WeakContract) (setup : OakValue)
+  | act_call (to : Address) (amount : Amount) (msg : SerializedValue)
+  | act_deploy (amount : Amount) (c : WeakContract) (setup : SerializedValue)
 with WeakContract :=
      | build_weak_contract
          (init :
             Chain ->
             ContractCallContext ->
-            OakValue (* setup *) ->
-            option OakValue)
+            SerializedValue (* setup *) ->
+            option SerializedValue)
          (* Init respects chain equivalence *)
          (init_proper :
             Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
          (receive :
             Chain ->
             ContractCallContext ->
-            OakValue (* state *) ->
-            option OakValue (* message *) ->
-            option (OakValue * list ActionBody))
+            SerializedValue (* state *) ->
+            option SerializedValue (* message *) ->
+            option (SerializedValue * list ActionBody))
          (* And so does receive *)
          (receive_proper :
             Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
@@ -185,9 +185,9 @@ only "internally" for blockchains, while any strongly-typed contract can
 be converted to and from *)
 Record Contract
       (Setup Msg State : Type)
-      `{OakTypeEquivalence Setup}
-      `{OakTypeEquivalence Msg}
-      `{OakTypeEquivalence State} :=
+      `{Serializable Setup}
+      `{Serializable Msg}
+      `{Serializable State} :=
   build_contract {
     init :
       Chain ->
@@ -212,19 +212,19 @@ Arguments build_contract {_ _ _ _ _ _}.
 
 Program Definition contract_to_weak_contract
           {Setup Msg State : Type}
-          `{OakTypeEquivalence Setup}
-          `{OakTypeEquivalence Msg}
-          `{OakTypeEquivalence State}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
           (c : Contract Setup Msg State) : WeakContract :=
-      let weak_init chain ctx oak_setup :=
-          do setup <- deserialize oak_setup;
+      let weak_init chain ctx ser_setup :=
+          do setup <- deserialize ser_setup;
           do state <- c.(init) chain ctx setup;
           Some (serialize state) in
-      let weak_recv chain ctx oak_state oak_msg_opt :=
-          do state <- deserialize oak_state;
-          match oak_msg_opt with
-          | Some oak_msg =>
-            do msg <- deserialize oak_msg;
+      let weak_recv chain ctx ser_state ser_msg_opt :=
+          do state <- deserialize ser_state;
+          match ser_msg_opt with
+          | Some ser_msg =>
+            do msg <- deserialize ser_msg;
             do '(new_state, acts) <- c.(receive) chain ctx state (Some msg);
             Some (serialize new_state, acts)
           | None =>
@@ -249,7 +249,7 @@ Next Obligation.
   simpl.
   destruct (deserialize state1); auto; simpl.
   destruct msg1.
-  + destruct (deserialize o); auto; simpl.
+  + destruct (deserialize _); auto; simpl.
     now rewrite receive_proper.
   + now rewrite receive_proper.
 Qed.
@@ -259,9 +259,9 @@ Coercion contract_to_weak_contract : Contract >-> WeakContract.
 (* Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
           {Setup Msg State : Type}
-          `{OakTypeEquivalence Setup}
-          `{OakTypeEquivalence Msg}
-          `{OakTypeEquivalence State}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
           (amount : Amount)
           (contract : Contract Setup Msg State)
           (setup : Setup) : ActionBody :=
@@ -269,7 +269,7 @@ Definition create_deployment
 
 (* The contract interface is the main mechanism allowing a deployed
 contract to interact with another deployed contract. This hides
-the ugly details of everything being OakValue away from contracts. *)
+the ugly details of everything being SerializedValue away from contracts. *)
 Record ContractInterface {Msg State : Type} :=
   build_contract_interface {
     (* The address of the contract being interfaced with *)
@@ -286,8 +286,8 @@ Definition get_contract_interface
           (chain : Chain)
           (addr : Address)
           (Msg State : Type)
-          `{OakTypeEquivalence Msg}
-          `{OakTypeEquivalence State}
+          `{Serializable Msg}
+          `{Serializable State}
   : option (ContractInterface Msg State) :=
   let ifc_get_state chain := contract_state chain addr >>= deserialize in
   let ifc_send amount msg :=
@@ -309,8 +309,9 @@ Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amou
            else map a.
 
 Definition set_chain_contract_state
-           (addr : Address) (state : OakValue) (map : Address -> option OakValue)
-  : Address -> option OakValue :=
+           (addr : Address) (state : SerializedValue)
+           (map : Address -> option SerializedValue)
+  : Address -> option SerializedValue :=
   fun a => if (a =? addr)%address
            then Some state
            else map a.
@@ -363,7 +364,8 @@ Definition add_contract (addr : Address) (contract : WeakContract) (env : Enviro
       then Some contract
       else f a|>.
 
-Definition set_contract_state (addr : Address) (state : OakValue) (env : Environment) :=
+Definition set_contract_state
+           (addr : Address) (state : SerializedValue) (env : Environment) :=
   env<|env_chain; contract_state ::= set_chain_contract_state addr state|>.
 
 Ltac rewrite_environment_equiv :=
@@ -432,8 +434,8 @@ Inductive ActionEvaluation :
              (from to : Address)
              (amount : Amount)
              (wc : WeakContract)
-             (setup : OakValue)
-             (state : OakValue),
+             (setup : SerializedValue)
+             (state : SerializedValue),
       amount <= account_balance pre from ->
       address_is_contract to = true ->
       env_contracts pre to = None ->
@@ -455,9 +457,9 @@ Inductive ActionEvaluation :
              (from to : Address)
              (amount : Amount)
              (wc : WeakContract)
-             (msg : option OakValue)
-             (prev_state : OakValue)
-             (new_state : OakValue)
+             (msg : option SerializedValue)
+             (prev_state : SerializedValue)
+             (new_state : SerializedValue)
              (resp_acts : list ActionBody),
       amount <= account_balance pre from ->
       env_contracts pre to = Some wc ->
@@ -671,8 +673,8 @@ a normal blockchain is. Each evaluation of an action in the blockchain correspon
 a transaction, so we can go from a trace to a list of transactions. *)
 Inductive TxBody :=
   | tx_empty
-  | tx_deploy (wc : WeakContract) (setup : OakValue)
-  | tx_call (msg : option OakValue).
+  | tx_deploy (wc : WeakContract) (setup : SerializedValue)
+  | tx_call (msg : option SerializedValue).
 
 Record Tx :=
   build_tx {

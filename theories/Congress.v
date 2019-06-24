@@ -3,7 +3,7 @@ From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From SmartContracts Require Import Blockchain.
-From SmartContracts Require Import Oak.
+From SmartContracts Require Import Serializable.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import Automation.
@@ -25,7 +25,7 @@ Definition ProposalId := nat.
 
 Inductive CongressAction :=
   | cact_transfer (to : Address) (amount : Amount)
-  | cact_call (to : Address) (amount : Amount) (msg : OakValue).
+  | cact_call (to : Address) (amount : Amount) (msg : SerializedValue).
 
 Record Proposal :=
   build_proposal {
@@ -73,13 +73,13 @@ Record State :=
 Instance state_settable : Settable _ :=
   settable! build_state <owner; state_rules; proposals; next_proposal_id; members>.
 
-Section Equivalences.
+Section Serialization.
 
-Definition deserialize_rules (v : OakValue) : option Rules :=
+Definition deserialize_rules (v : SerializedValue) : option Rules :=
   do '(a, b, c) <- deserialize v;
   Some (build_rules a b c).
 
-Global Program Instance rules_equivalence : OakTypeEquivalence Rules :=
+Global Program Instance rules_serializable : Serializable Rules :=
   {| serialize r := let (a, b, c) := r in serialize (a, b, c);
      (* Why does
      deserialize v :=
@@ -93,7 +93,7 @@ Next Obligation.
   reflexivity.
 Qed.
 
-Global Program Instance setup_equivalence : OakTypeEquivalence Setup :=
+Global Program Instance setup_serializable : Serializable Setup :=
   {| serialize s := serialize s.(setup_rules);
      deserialize or :=
        do rules <- deserialize or;
@@ -105,14 +105,14 @@ Next Obligation.
   reflexivity.
 Qed.
 
-Definition deserialize_congress_action (v : OakValue) : option CongressAction :=
+Definition deserialize_congress_action (v : SerializedValue) : option CongressAction :=
   do val <- deserialize v;
   Some (match val with
   | inl (to, amount) => cact_transfer to amount
   | inr (to, amount, msg) => cact_call to amount msg
   end).
 
-Global Program Instance congress_action_equivalence : OakTypeEquivalence CongressAction :=
+Global Program Instance congress_action_serializable : Serializable CongressAction :=
   {| serialize ca :=
        serialize
          match ca with
@@ -127,11 +127,11 @@ Next Obligation.
   destruct ca; reflexivity.
 Qed.
 
-Definition deserialize_proposal (v : OakValue) : option Proposal :=
+Definition deserialize_proposal (v : SerializedValue) : option Proposal :=
   do '(a, b, c, d) <- deserialize v;
   Some (build_proposal a b c d).
 
-Global Program Instance proposal_equivalence : OakTypeEquivalence Proposal :=
+Global Program Instance proposal_serializable : Serializable Proposal :=
   {| serialize p :=
        let (a, b, c, d) := p in
        serialize (a, b, c, d);
@@ -144,7 +144,7 @@ Next Obligation.
   destruct p; reflexivity.
 Qed.
 
-Definition serialize_msg (m : Msg) : OakValue :=
+Definition serialize_msg (m : Msg) : SerializedValue :=
   serialize
     match m with
     | transfer_ownership a => (0, serialize a)
@@ -158,7 +158,7 @@ Definition serialize_msg (m : Msg) : OakValue :=
     | finish_proposal pid => (8, serialize pid)
     end.
 
-Definition deserialize_msg (v : OakValue) : option Msg :=
+Definition deserialize_msg (v : SerializedValue) : option Msg :=
   do '(tag, v) <- deserialize v;
   match tag with
   | 0 => option_map transfer_ownership (deserialize v)
@@ -173,7 +173,7 @@ Definition deserialize_msg (v : OakValue) : option Msg :=
   | _ => None
   end.
 
-Global Program Instance msg_equivalence : OakTypeEquivalence Msg :=
+Global Program Instance msg_serializable : Serializable Msg :=
   {| serialize := serialize_msg; deserialize := deserialize_msg; |}.
 Next Obligation.
   intros msg.
@@ -181,22 +181,22 @@ Next Obligation.
   destruct msg; repeat (simpl; rewrite deserialize_serialize); reflexivity.
 Qed.
 
-Definition serialize_state (s : State) : OakValue :=
+Definition serialize_state (s : State) : SerializedValue :=
   let (a, b, c, d, e) := s in
   serialize (a, b, c, d, e).
 
-Definition deserialize_state (v : OakValue) : option State :=
+Definition deserialize_state (v : SerializedValue) : option State :=
   do '(a, b, c, d, e) <- deserialize v;
   Some (build_state a b c d e).
 
-Global Program Instance state_equivalence : OakTypeEquivalence State :=
+Global Program Instance state_serializable : Serializable State :=
   {| serialize := serialize_state; deserialize := deserialize_state; |}.
 Next Obligation.
   unfold serialize_state, deserialize_state.
   destruct x; repeat (simpl; rewrite deserialize_serialize); reflexivity.
 Qed.
 
-End Equivalences.
+End Serialization.
 
 Definition validate_rules (rules : Rules) : bool :=
     (rules.(min_vote_count_permille) >=? 0)

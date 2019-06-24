@@ -2,7 +2,6 @@ From SmartContracts Require Import Monads.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import LocalBlockchain.
 From SmartContracts Require Import Congress.
-From SmartContracts Require Import Oak.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import BoundedN.
 From SmartContracts Require Import Extras.

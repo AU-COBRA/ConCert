@@ -2,7 +2,7 @@ From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
 From SmartContracts Require Import Blockchain.
-From SmartContracts Require Import Oak.
+From SmartContracts Require Import Serializable.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.
 From SmartContracts Require Import Extras.
@@ -37,7 +37,7 @@ Record LocalChain :=
     lc_slot : nat;
     lc_fin_height : nat;
     lc_account_balances : FMap Address Amount;
-    lc_contract_state : FMap Address OakValue;
+    lc_contract_state : FMap Address SerializedValue;
     lc_contracts : FMap Address WeakContract;
   }.
 
@@ -79,14 +79,14 @@ Section ExecuteActions.
 
   Definition set_contract_state
              (addr : Address)
-             (state : OakValue)
+             (state : SerializedValue)
              (lc : LocalChain) : LocalChain :=
     lc<|lc_contract_state ::= FMap.add addr state|>.
 
   Definition send_or_call
              (from to : Address)
              (amount : Amount)
-             (msg : option OakValue)
+             (msg : option SerializedValue)
              (lc : LocalChain) : option (list Action * LocalChain) :=
     do if amount >? account_balance lc from then None else Some tt;
     match FMap.find to lc.(lc_contracts) with
@@ -110,7 +110,7 @@ Section ExecuteActions.
              (from : Address)
              (amount : Amount)
              (wc : WeakContract)
-             (setup : OakValue)
+             (setup : SerializedValue)
              (lc : LocalChain)
     : option (list Action * LocalChain) :=
     do if amount >? account_balance lc from then None else Some tt;
@@ -240,7 +240,7 @@ Section ExecuteActions.
       destruct (wc_receive wc _ _ _ _) eqn:receive;
         [|cbn in *; congruence].
       match goal with
-      | [p: OakValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
+      | [p: SerializedValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
       end.
       Hint Resolve gtb_le : core.
       apply (eval_call from to amount wc msg prev_state new_state resp_acts);

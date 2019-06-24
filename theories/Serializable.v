@@ -7,19 +7,19 @@ From Coq Require Import List.
 
 Import ListNotations.
 
-Inductive OakType :=
-  | oak_unit : OakType
-  | oak_int : OakType
-  | oak_bool : OakType
-  | oak_pair : OakType -> OakType -> OakType
-  | oak_list : OakType -> OakType.
+Inductive SerializedType :=
+  | ser_unit : SerializedType
+  | ser_int : SerializedType
+  | ser_bool : SerializedType
+  | ser_pair : SerializedType -> SerializedType -> SerializedType
+  | ser_list : SerializedType -> SerializedType.
 
-Module OakType.
-  Scheme Equality for OakType.
-  Definition eqb := OakType_beq.
-  Definition eq_dec := OakType_eq_dec.
+Module SerializedType.
+  Scheme Equality for SerializedType.
+  Definition eqb := SerializedType_beq.
+  Definition eq_dec := SerializedType_eq_dec.
 
-  Fixpoint eqb_spec (a b : OakType) :
+  Fixpoint eqb_spec (a b : SerializedType) :
     Bool.reflect (a = b) (eqb a b).
   Proof.
     destruct a, b; simpl in *; try (left; congruence); try (right; congruence).
@@ -27,60 +27,60 @@ Module OakType.
         try (left; congruence); try (right; congruence).
     - destruct (eqb_spec a b); try (left; congruence); try (right; congruence).
   Qed.
-End OakType.
+End SerializedType.
 
-Fixpoint interp_type (t : OakType) : Type :=
+Fixpoint interp_type (t : SerializedType) : Type :=
   match t with
-  | oak_unit => unit
-  | oak_int => Z
-  | oak_bool => bool
-  | oak_pair a b => interp_type a * interp_type b
-  | oak_list a => list (interp_type a)
+  | ser_unit => unit
+  | ser_int => Z
+  | ser_bool => bool
+  | ser_pair a b => interp_type a * interp_type b
+  | ser_list a => list (interp_type a)
   end.
 
 Set Primitive Projections.
-Record OakValue :=
-  build_oak_value {
-    oak_value_type : OakType;
-    oak_value : interp_type oak_value_type;
+Record SerializedValue :=
+  build_ser_value {
+    ser_value_type : SerializedType;
+    ser_value : interp_type ser_value_type;
   }.
 Unset Primitive Projections.
 
-Definition extract_oak_value (t : OakType) (value : OakValue) : option (interp_type t).
+Definition extract_ser_value (t : SerializedType) (value : SerializedValue) : option (interp_type t).
 Proof.
   destruct value as [ty val].
-  destruct (OakType.eq_dec t ty).
+  destruct (SerializedType.eq_dec t ty).
   - subst. exact (Some val).
   - exact None.
 Defined.
 
-(* Defines that a type can be serialized into OakValue and deserialized from it,
-   and that these are inverses *)
-Class OakTypeEquivalence (ty : Type) :=
+(* Defines that a type can be serialized into SerializedValue and deserialized from it,
+   and that deserializing is a left inverse of serialziing. *)
+Class Serializable (ty : Type) :=
   {
-    serialize : ty -> OakValue;
-    deserialize : OakValue -> option ty;
+    serialize : ty -> SerializedValue;
+    deserialize : SerializedValue -> option ty;
     deserialize_serialize : forall (x : ty), deserialize (serialize x) = Some x;
   }.
 
 Global Opaque serialize deserialize deserialize_serialize.
 
-Program Instance oak_unit_equivalence : OakTypeEquivalence unit :=
-  {| serialize u := build_oak_value oak_unit u;
-     deserialize := extract_oak_value oak_unit; |}.
+Program Instance unit_serializable : Serializable unit :=
+  {| serialize u := build_ser_value ser_unit u;
+     deserialize := extract_ser_value ser_unit; |}.
 Solve Obligations with reflexivity.
 
-Program Instance oak_int_equivalence : OakTypeEquivalence Z :=
-  {| serialize i := build_oak_value oak_int i;
-     deserialize := extract_oak_value oak_int; |}.
+Program Instance int_serializable : Serializable Z :=
+  {| serialize i := build_ser_value ser_int i;
+     deserialize := extract_ser_value ser_int; |}.
 Solve Obligations with reflexivity.
 
-Program Instance oak_bool_equivalence : OakTypeEquivalence bool :=
-  {| serialize b := build_oak_value oak_bool b;
-     deserialize := extract_oak_value oak_bool; |}.
+Program Instance bool_serializable : Serializable bool :=
+  {| serialize b := build_ser_value ser_bool b;
+     deserialize := extract_ser_value ser_bool; |}.
 Solve Obligations with reflexivity.
 
-Program Instance oak_nat_equivalence : OakTypeEquivalence nat :=
+Program Instance nat_serializable : Serializable nat :=
   {| serialize n := serialize (Z.of_nat n);
      deserialize z := do z' <- deserialize z; Some (Z.to_nat z'); |}.
 Next Obligation.
@@ -92,18 +92,17 @@ Next Obligation.
   reflexivity.
 Qed.
 
-Program Instance oak_positive_equivalence : OakTypeEquivalence positive :=
+Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
      deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
 Next Obligation. auto. Qed.
 
-Program Instance oak_value_equivalence : OakTypeEquivalence OakValue :=
+Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;
      deserialize v := Some v; |}.
 Solve Obligations with reflexivity.
 
-Program Instance BoundedN_equivalence {bound : N}
-  : OakTypeEquivalence (BoundedN bound) :=
+Program Instance BoundedN_equivalence {bound : N} : Serializable (BoundedN bound) :=
   {| serialize bn := serialize (countable.encode bn);
     deserialize v :=
       do p <- (deserialize v : option positive);
@@ -119,26 +118,26 @@ Qed.
 (* Program Instance generates an insane amount of obligations for sums,
    so we define it by ourselves. *)
 Section Sum.
-  Context `{OakTypeEquivalence A} `{OakTypeEquivalence B}.
+  Context `{Serializable A} `{Serializable B}.
 
   Definition serialize_sum (v : A + B) :=
-    let (is_left, ov) :=
+    let (is_left, ser) :=
         match v with
         | inl l => (true, serialize l)
         | inr r => (false, serialize r)
         end in
-    build_oak_value (oak_pair oak_bool ov.(oak_value_type)) (is_left, ov.(oak_value)).
+    build_ser_value (ser_pair ser_bool ser.(ser_value_type)) (is_left, ser.(ser_value)).
 
   Definition deserialize_sum
-            `{OakTypeEquivalence A} `{OakTypeEquivalence B}
-            (os : OakValue) :=
+            `{Serializable A} `{Serializable B}
+            (os : SerializedValue) :=
     match os with
-    | build_oak_value (oak_pair oak_bool v) (b, val) =>
+    | build_ser_value (ser_pair ser_bool v) (b, val) =>
       if b then
-        do a <- @deserialize A _ (build_oak_value v val);
+        do a <- @deserialize A _ (build_ser_value v val);
         Some (inl a)
       else
-        do b <- @deserialize B _ (build_oak_value v val);
+        do b <- @deserialize B _ (build_ser_value v val);
         Some (inr b)
     | _ => None
     end.
@@ -150,25 +149,25 @@ Section Sum.
     destruct s as [a | b]; simpl; rewrite deserialize_serialize; reflexivity.
   Qed.
 
-  Global Instance oak_sum_equivalence : OakTypeEquivalence (A + B)%type :=
+  Global Instance sum_serializable : Serializable (A + B)%type :=
     {| serialize := serialize_sum;
        deserialize := deserialize_sum;
        deserialize_serialize := deserialize_serialize_sum; |}.
 End Sum.
 
 Section Product.
-  Context `{OakTypeEquivalence A} `{OakTypeEquivalence B}.
+  Context `{Serializable A} `{Serializable B}.
 
   Definition serialize_product '(a, b) :=
-    let 'build_oak_value a_oty a_val := @serialize A _ a in
-    let 'build_oak_value b_oty b_val := @serialize B _ b in
-    build_oak_value (oak_pair a_oty b_oty) (a_val, b_val).
+    let 'build_ser_value a_ty a_val := @serialize A _ a in
+    let 'build_ser_value b_ty b_val := @serialize B _ b in
+    build_ser_value (ser_pair a_ty b_ty) (a_val, b_val).
 
   Definition deserialize_product op :=
     match op with
-    | build_oak_value (oak_pair a_ty b_ty) (a_val, b_val) =>
-      do a <- @deserialize A _ (build_oak_value a_ty a_val);
-      do b <- @deserialize B _ (build_oak_value b_ty b_val);
+    | build_ser_value (ser_pair a_ty b_ty) (a_val, b_val) =>
+      do a <- @deserialize A _ (build_ser_value a_ty a_val);
+      do b <- @deserialize B _ (build_ser_value b_ty b_val);
       Some (a, b)
     | _ => None
     end.
@@ -182,34 +181,34 @@ Section Product.
     reflexivity.
   Qed.
 
-  Global Instance oak_product_equivalence : OakTypeEquivalence (A * B) :=
+  Global Instance product_serializable : Serializable (A * B) :=
     {| serialize := serialize_product;
        deserialize := deserialize_product;
        deserialize_serialize := deserialize_serialize_product; |}.
 End Product.
 
 Section List.
-  Context `{OakTypeEquivalence A}.
+  Context `{Serializable A}.
 
   Definition serialize_list (l : list A) :=
     let go a acc :=
-        let 'build_oak_value a_oty a_val := serialize a in
-        let 'build_oak_value acc_oty acc_val := acc in
-        build_oak_value (oak_pair a_oty acc_oty) (a_val, acc_val) in
-    fold_right go (build_oak_value oak_unit tt) l.
+        let 'build_ser_value a_ty a_val := serialize a in
+        let 'build_ser_value acc_ty acc_val := acc in
+        build_ser_value (ser_pair a_ty acc_ty) (a_val, acc_val) in
+    fold_right go (build_ser_value ser_unit tt) l.
 
-  Definition deserialize_list (ol : OakValue) :=
-    let fix aux (ty : OakType) (val : interp_type ty) : option (list A) :=
+  Definition deserialize_list (val : SerializedValue) :=
+    let fix aux (ty : SerializedType) (val : interp_type ty) : option (list A) :=
         match ty, val with
-        | oak_pair hd_ty tl_ty, (hd_val, tl_val) =>
-          do hd <- deserialize (build_oak_value hd_ty hd_val);
+        | ser_pair hd_ty tl_ty, (hd_val, tl_val) =>
+          do hd <- deserialize (build_ser_value hd_ty hd_val);
           do tl <- aux tl_ty tl_val;
           Some (hd :: tl)
-        | oak_unit, _ => Some []
+        | ser_unit, _ => Some []
         | _, _ => None
         end in
-    let 'build_oak_value ol_ty ol_val := ol in
-    aux ol_ty ol_val.
+    let 'build_ser_value ty uval := val in
+    aux ty uval.
 
   Lemma deserialize_serialize_list (l : list A)
         : deserialize_list (serialize_list l) = Some l.
@@ -223,23 +222,23 @@ Section List.
       reflexivity.
   Qed.
 
-  Global Instance oak_list_equivalence : OakTypeEquivalence (list A) :=
+  Global Instance list_serializable : Serializable (list A) :=
     {| serialize := serialize_list;
        deserialize := deserialize_list;
        deserialize_serialize := deserialize_serialize_list; |}.
 End List.
 
-Program Instance oak_map_equivalence
-        `{OakTypeEquivalence A}
+Program Instance map_serializable
+        `{Serializable A}
         `{countable.Countable A}
-        `{OakTypeEquivalence B}
-  : OakTypeEquivalence (FMap A B) :=
+        `{Serializable B}
+  : Serializable (FMap A B) :=
   {| serialize m := serialize (@FMap.elements A B _ _ m);
-     deserialize om :=
-       do elems <- @deserialize (list (A * B)) _ om;
+     deserialize val :=
+       do elems <- @deserialize (list (A * B)) _ val;
      Some (FMap.of_list elems); |}.
 Next Obligation.
-  intros A OTE_A Eq_A C_A B OTE_B m.
+  intros.
   simpl.
   rewrite deserialize_serialize.
   simpl.
@@ -247,16 +246,16 @@ Next Obligation.
   reflexivity.
 Qed.
 
-Program Instance oak_set_equivalence
-        `{OakTypeEquivalence A}
+Program Instance set_serializable
+        `{Serializable A}
         `{countable.Countable A}
-  : OakTypeEquivalence (FMap A unit) :=
+  : Serializable (FMap A unit) :=
   {| serialize s := serialize (@FMap.elements A unit _ _ s);
-     deserialize os :=
-       do elems <- @deserialize (list (A * unit)) _ os;
+     deserialize val :=
+       do elems <- @deserialize (list (A * unit)) _ val;
        Some (FMap.of_list elems); |}.
 Next Obligation.
-  intros A OTE_A Eq_A C_A m.
+  intros.
   simpl.
   rewrite deserialize_serialize.
   simpl.

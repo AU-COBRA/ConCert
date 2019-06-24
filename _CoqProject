@@ -12,7 +12,7 @@ theories/Finite.v
 theories/LocalBlockchain.v
 theories/LocalBlockchainTests.v
 theories/Monads.v
-theories/Oak.v
+theories/Serializable.v
 -R vendor/record-update RecordUpdate
 vendor/record-update/RecordSet.v
 vendor/record-update/RecordUpdate.v
