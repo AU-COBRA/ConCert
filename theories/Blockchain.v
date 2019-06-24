@@ -115,7 +115,7 @@ Record ContractCallContext :=
     ctx_from : Address;
     (* Address of the contract being called *)
     ctx_contract_address : Address;
-    (* Amount of GTU passed in call *)
+    (* Amount of currency passed in call *)
     ctx_amount : Amount;
   }.
 
