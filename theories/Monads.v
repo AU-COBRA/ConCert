@@ -1,3 +1,5 @@
+(* This file defines some helpful notations for the option monad. *)
+
 Definition option_bind {A B : Type} (v : option A) (f : A -> option B) : option B :=
   match v with
   | Some val => f val

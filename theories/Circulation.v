@@ -1,7 +1,5 @@
-(* In this file we prove various results about the circulation of coins in any
-chain implementing a chain type. More specifically, we show that the circulation
-does not change during execution of blocks. This is proven under the (implicit)
-assumption that the address space is finite. *)
+(* In this file we prove that the circulation of any blockchain implementing our
+semantics is as expected: the sum of all rewards paid out in blocks. *)
 From Coq Require Import List Permutation ZArith Psatz Morphisms.
 From SmartContracts Require Import Automation Blockchain Extras Finite ChainedList.
 From RecordUpdate Require Import RecordSet.
@@ -15,11 +13,12 @@ Local Open Scope Z.
 Definition circulation (chain : Chain) :=
   sumZ (account_balance chain) (elements Address).
 
-(* We then prove that over any single action, the circulation is preserved.
+(* We prove first that over any single action, the circulation is preserved.
 The idea behind this proof is that addrs contain from and to so
 we can move them to the beginning of the sum and it easily follows that
 the sum of their balances is the same as before. For the rest of the
 list the total balance will then not be affected which follows by induction. *)
+
 Lemma address_reorganize {a b : Address} :
   a <> b ->
   exists suf, Permutation ([a; b] ++ suf) (elements Address).
@@ -101,6 +100,8 @@ Proof.
   end.
 Qed.
 
+(* Now we prove that adding a block _does_ increase the circulation
+by what we would expect. *)
 Lemma circulation_add_new_block header env :
   circulation (add_new_block_to_env header env) =
   (circulation env + block_reward header)%Z.
@@ -131,6 +132,7 @@ Proof.
   lia.
 Qed.
 
+(* We then get a lemma over steps *)
 Lemma step_circulation {prev next} (step : ChainStep prev next) :
   circulation next =
   match step with
@@ -148,6 +150,7 @@ Proof.
     intuition.
 Qed.
 
+(* And combining these gives the final result. *)
 Theorem chain_trace_circulation
         {state : ChainState}
         (trace : ChainTrace empty_state state) :

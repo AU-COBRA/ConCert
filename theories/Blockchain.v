@@ -1,3 +1,63 @@
+(* This file defines blockchains, both a contract's view (which is
+more computational) and the semantics of executing smart contracts
+in a blockchain.
+
+The most important types are:
+
+* The ChainBase type, describing basic assumptions made of any blockchain.
+In most cases we will abstract over this type.
+
+* The Chain type, describing a smart contract's view of the blockchain.
+This is the the data that can be accessed by smart contracts.
+
+* The Action type, describing how smart contracts (and external users)
+interact with the blockchain. We allow transfers, calls and deployment
+of contracts.
+
+* The WeakContract type, describing a "weak" or "stringly" typed
+version of smart contracts. Contracts are just two functions init and
+receive to respectively initialize state on deployment and to update
+state when receiving messages. The weak version of contracts means that
+the state/message/setup types, which would normally vary with contracts,
+are stored in a serialized format.
+
+* The Contract type, describing a more strongly typed version of a contract.
+This is the same as the above except we abstract over the appropriate types.
+Users of the framework will mostly need to deal with this.
+
+The next types deal with semantics.
+
+* The Environment type. This augments the Chain type with more information.
+Environment can be thought of as the information that a realistic blockchain
+implementation would need to keep track of to implement operations. For instance,
+it is reasonable to assume that an implementation needs to access the state of
+contracts, but not to assume that it needs to store the full transaction history
+of all addresses.
+
+* The ActionEvaluation type. This specifies how to evaluate actions returned by
+contracts or input in blocks. This related an environment and action to a new
+environment and list of new actions to execute.
+
+* The ChainState type. This augments the Environment type with a queue of
+"outstanding" actions that need to be executed. For instance, when a block is
+added, its actions are put into this queue.
+
+* The ChainStep type. This specifies how the blockchain should execute smart
+contracts, and how new blocks are added. It relates a ChainState to a new ChainState.
+There are steps to allow adding blocks, evaluating actions in the queue and to
+permute the queue (allowing to model any execution order).
+
+* The ChainTrace type. This just represents a sequence of steps. If a trace ends
+in a state it means that state is reachable and there is a "semantically correct"
+way of executing to get to this state. This type records the full history of a
+blockchain's execution and it would thus be unrealistic to extract.
+
+* The ChainBuilderType type. This is a typeclass for implementations of blockchains,
+where these implementations need to prove that they satisfy our semantics.
+
+*)
+
+
 From Coq Require Import Arith ZArith.
 From Coq Require Import List.
 From Coq Require Import Psatz.

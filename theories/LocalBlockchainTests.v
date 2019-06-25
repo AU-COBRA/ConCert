@@ -1,3 +1,8 @@
+(* This file computes with the Congress and an actual blockchain
+implementation, showing that everything computes from within Coq. It
+also contains specializations of the results proven in Congress.v to
+our particular implementations of blockchains. *)
+
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Blockchain.
 From SmartContracts Require Import LocalBlockchain.

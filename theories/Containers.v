@@ -1,3 +1,5 @@
+(* This file provides an interface for std++'s finite maps *)
+
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.

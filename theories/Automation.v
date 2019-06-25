@@ -1,3 +1,5 @@
+(* This file implements various helper tactics *)
+
 From Coq Require Import Eqdep List Omega Permutation.
 Import ListNotations.
 
@@ -65,6 +67,7 @@ Local Ltac perm_simplify_round :=
     | [H: Permutation ?l1 ?l2|-_] => rewrite H
     end.
 
+(* Automatically tries to solve obvious "Permutation x y" goals. *)
 Ltac perm_simplify :=
   repeat perm_simplify_round;
   cbn;

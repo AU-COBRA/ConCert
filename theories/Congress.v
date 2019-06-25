@@ -1,3 +1,9 @@
+(* In this file we implement a Congress and prove it correct up to a
+specification. The Congress is a simplified version of the DAO in
+which members vote on proposals. We implement the contract in Gallina
+and then show that it does not send out more transactions than
+expected from the number of created proposals. *)
+
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.

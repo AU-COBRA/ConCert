@@ -1,3 +1,10 @@
+(* In this file we introduce a reentrancy problem in the Congress
+contract described in Congress.v. We then use one of our blockchain
+implementations (the depth first local block chain) to prove that this
+version can send out too many transactions. This is done by
+constructing a contract that actually exploits this version of the
+Congress and then just asking Coq to compute. *)
+
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.

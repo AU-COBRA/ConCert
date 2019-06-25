@@ -1,3 +1,9 @@
+(* This file gives two different implementations of the blockchain
+execution layer defined in Blockchain.v. Both versions are execution
+layers using std++'s finite maps and are thus relatively
+efficient. They differ in execution order: one uses a depth-first
+execution order, while the other uses a breadth-first execution order. *)
+
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.

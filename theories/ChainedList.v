@@ -1,9 +1,7 @@
-(* This file implements a chained list. This is a list for which
-each element is a link between a from and to element of a provided
-"link" type. That is, each link (element) has a "from" point that
-must match the previous element's "to" point. For that reason this is
-also a snoc list. Note that this is not unlike fhlist from CPDT,
-except we place further restrictions on it. *)
+(* This file implements a 'chained list'. This can essentially be
+thought of as the proof-relevant transitive reflexive closure of
+a relation. That is, each link (element) has a "from" point that
+must match the previous element's "to" point. *)
 From SmartContracts Require Import Automation.
 Section ChainedList.
 Context {Point : Type} {Link : Point -> Point -> Type}.

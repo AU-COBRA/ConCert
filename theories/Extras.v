@@ -1,3 +1,5 @@
+(* This file implements various helper functions and proofs *)
+
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Permutation.

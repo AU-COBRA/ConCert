@@ -1,3 +1,8 @@
+(* This file defines a common storage format for countable types.
+This format, SerializedValue, is either a unit/int/bool or a pair/list
+of these. We also define Serializable as a type class capturing that a
+type can be converted from and to this format. *)
+
 From Coq Require Import ZArith.
 From SmartContracts Require Import Monads.
 From SmartContracts Require Import Containers.

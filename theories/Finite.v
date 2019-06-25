@@ -1,3 +1,5 @@
+(* This file captures what it means for a type to be finite *)
+
 From Coq Require Import List.
 Import ListNotations.
 
