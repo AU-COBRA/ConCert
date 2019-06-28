@@ -1,5 +1,5 @@
 Require Import String.
-Require Import Ast EvalE CustomTactics.
+Require Import Ast CustomTactics.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.
@@ -26,7 +26,7 @@ Section Maps.
     match m with
     | mnil => Nothing_map
     | mcons k v m' =>
-      if (Nat.eqb k key) then Just_map v else lookup_map m' key
+      if (Nat.eqb key k) then Just_map v else lookup_map m' key
     end.
 
   (* Ported from FMapWeaklist of StdLib *)
@@ -47,7 +47,7 @@ Section Maps.
     + simpl. now rewrite PeanoNat.Nat.eqb_refl.
     + simpl. destruct (k =? n) eqn:Heq.
       * simpl. now rewrite PeanoNat.Nat.eqb_refl.
-      * simpl. rewrite Nat.eqb_sym. now rewrite Heq.
+      * simpl. now rewrite Heq.
   Qed.
 
 End Maps.
@@ -116,7 +116,7 @@ Module BalanceContract.
 
   Import ListNotations.
 
-  Definition state_syn :=
+  Definition state_syn : global_dec :=
     [\ record State :=
        { balance : Money ;
          donations : Map;
@@ -126,10 +126,18 @@ Module BalanceContract.
 
   Make Inductive (trans_global_dec state_syn).
 
+  (* Unset Printing Notations. *)
   Definition action_syn :=
     [\ data Action :=
          Transfer : Address -> Money -> Action
-         | Empty : Action; \].
+    | Empty : Action; \].
+
+  Definition act_syn_alt :=
+    gdInd Action 0 [("Transfer", [(nAnon, tyInd "Nat"); (nAnon, tyInd "Nat")]); ("Empty", [])] false.
+
+  Eval simpl in [\ data Action :=
+         Transfer : Address -> Money -> Action
+    | Empty : Action; \].
 
   Make Inductive (trans_global_dec action_syn).
 
@@ -229,16 +237,17 @@ Module BalanceContract.
                                 "accs"; "now";
                                 "newstate"; "newmap"; "cond"] "").
   Notation "'if' cond 'then' b1 'else' b2 : ty" :=
-    (eCase (Bool,0) (tyInd ty) cond
+    (eCase (tyInd Bool,0) (tyInd ty) cond
            [(pConstr true_name [],b1);(pConstr false_name [],b2)])
-      (in custom expr at level 0,
+      (in custom expr at level 2,
           cond custom expr at level 4,
           ty constr at level 4,
           b1 custom expr at level 4,
           b2 custom expr at level 4).
 
+
   Definition crowdfunding : expr :=
-    [| \c : Ctx -> \s : State ->  \m : Msg ->
+    [| \c : Ctx => \s : State =>  \m : Msg =>
          let bal : Money := balance s in
          let now : Nat := cur_time c in
          let tx_amount : Money := amount c in
@@ -358,11 +367,41 @@ Module BalanceContract.
     split;auto. simpl. inversion Hold. subst. now rewrite lookup_map_add.
   Qed.
 
+  Import Lia.
+
   Fixpoint sum_map  (m : addr_map) :=
     match m with
     | mnil => 0
     | mcons _ v m' => v + sum_map m'
     end.
+
+  Lemma sum_map_add_in m : forall n0 v' v k,
+      lookup_map m k = Just_map n0 ->
+      sum_map m = v ->
+      sum_map (add_map k (n0+v') m) = v' + v.
+  Proof.
+    intros;subst.
+    revert dependent n0. revert v' k.
+    induction m;intros;subst.
+    + inversion H.
+    + simpl in *. destruct (k =? n) eqn:Hkn.
+      * simpl in *. inversion H. subst. lia.
+      * simpl in *. rewrite IHm;auto. lia.
+  Qed.
+
+  Lemma sum_map_add_not_in m : forall v' v k,
+      lookup_map m k = Nothing_map ->
+      sum_map m = v ->
+      sum_map (add_map k v' m) = v' + v.
+  Proof.
+    intros;subst.
+    revert dependent k. revert v'.
+    induction m;intros;subst.
+    + reflexivity.
+    + simpl in *. destruct (k =? n) eqn:Hkn.
+      * inversion H.
+      * simpl in *. rewrite IHm;auto. lia.
+  Qed.
 
   Lemma contract_baked
     (init_state final_state: State_coq)
@@ -379,28 +418,38 @@ Module BalanceContract.
   Proof.
     intros Hdl Hsum Hcall.
     destruct msg.
-    + simpl in *. unfold deadline_passed in *.
+    + (* Donate *)
+      simpl in *. unfold deadline_passed in *.
       destruct (_ <=? _);tryfalse.
-      destruct (lookup_map _ _).
+      destruct (lookup_map _ _) eqn:Hlook.
       * inversion Hcall;subst;clear Hcall. simpl.
-  Admitted.
+        now apply sum_map_add_in.
+      * inversion Hcall;subst;clear Hcall. simpl. now apply sum_map_add_not_in.
+    + (* GetFunds - it is not possible to get funds before the deadline *)
+      simpl in *.
+      unfold deadline_passed in *. destruct (_ <? _);tryfalse.
+      destruct ( _ =? _);tryfalse.
+    + (* Claim - it is not possible to claim a donation back before the deadline *)
+      simpl in *. unfold deadline_passed in *.
+      destruct (_ <? _);tryfalse.
+  Qed.
 
-  (* Lemma GetFunds_correct (init_state final_state: State_coq) CallCtx *)
-  (*       msg out_tx OwnerAddr: *)
-  (*   CallCtx.(_ctx_from) = OwnerAddr -> *)
-  (*   (* pre-condition *) *)
-  (*   init_state.(balance_coq) > 0 -> *)
-  (*   init_state.(owner_coq) = OwnerAddr -> *)
-  (*   msg = GetFunds_coq -> *)
+  Lemma GetFunds_correct (init_state final_state: State_coq) CallCtx
+        msg out_tx OwnerAddr:
+    CallCtx.(_ctx_from) = OwnerAddr ->
+    (* pre-condition *)
+    funded CallCtx.(_cur_time) init_state = true ->
+    msg = GetFunds_coq ->
 
-  (*   entry CallCtx init_state msg = Res_coq final_state out_tx -> *)
+    entry CallCtx init_state msg = Res_coq final_state out_tx ->
 
-  (*   (* post-condition (TODO: add a post-condition about the outgoing transaction) *) *)
-  (*   final_state.(balance_coq) = 0. *)
-  (* Proof. *)
-  (*   intros Hown Hb Hi Hmsg Hcall. subst. simpl in *. *)
-  (*   rewrite <- Hi in Hcall. rewrite PeanoNat.Nat.eqb_refl in Hcall. *)
-  (*   inversion Hcall. easy. *)
-  (* Qed. *)
+    (* post-condition (TODO: add a post-condition about the outgoing transaction) *)
+    final_state.(balance_coq) = 0.
+  Proof.
+    intros Hown Hfund Hmsg Hcall. unfold funded,deadline_passed in *. subst. simpl in *.
+    destruct (_ <? _);tryfalse. destruct ( _ =? _);tryfalse. simpl in *.
+    destruct (_ <=? _);tryfalse.
+    inversion Hcall. easy.
+  Qed.
 
 End BalanceContract.

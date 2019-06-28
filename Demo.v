@@ -16,7 +16,7 @@ Import StdLib.
 
 Definition negb_app_true :=
     [|
-     (\x : Bool ->
+     (\x : Bool =>
            case x : Bool return Bool of
            | True -> False
            | False -> True) True
@@ -44,7 +44,7 @@ Make Definition coq_negb_app_true :=
 Print coq_negb_app_true.
 
 Definition my_negb_syn :=
-  [| \x : Bool -> case x : Bool return Bool of
+  [| \x : Bool => case x : Bool return Bool of
                    | True -> False
                    | False -> True  |].
 
@@ -61,30 +61,10 @@ Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_
 
 Import MonadNotation.
 
-Run TemplateProgram
-    (
-      t <- tmEval lazy (expr_eval_n 3 Σ [] my_negb_syn);;
-        match t with
-          Ok v =>
-          t' <- tmEval lazy (expr_to_term Σ (indexify [] (InterpreterEnvList.from_val v))) ;;
-          def <- tmUnquoteTyped (bool -> bool) t' ;;
-          tmDefinition "eval_my_negb" def ;;
-             print_nf "Done."
-        | EvalError msg => print_nf msg
-        | NotEnoughFuel => print_nf "Not enough fuel"
-        end
-    ).
-
-
-Lemma my_negb_adequate : forall b, coq_my_negb b = eval_my_negb b.
-Proof.
-  intros [];auto.
-Qed.
-
 Definition is_zero_syn :=
   [|
 
-      \x : Nat ->
+      \x : Nat =>
            case x : Nat return Bool of
            | Z -> True
            | Suc y -> False
@@ -97,7 +77,7 @@ Make Definition is_zero' := Eval compute in (expr_to_term Σ (indexify nil is_ze
 Definition pred_syn :=
   [|
 
-      \x : Nat ->
+      \x : Nat =>
            case x : Nat return Nat of
            | Z -> x
            | Suc y -> y
@@ -141,8 +121,8 @@ Make Definition factorial :=
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
            case x : Nat return Nat -> Nat of
-           | Z -> \y : Nat -> y
-           | Suc y -> \z : Nat -> Suc ("plus" y z) |].
+           | Z -> \y : Nat => y
+           | Suc y -> \z : Nat => Suc ("plus" y z) |].
 
 Make Definition my_plus := Eval compute in (expr_to_term Σ (indexify [] plus_syn)).
 
@@ -161,7 +141,7 @@ Definition one_plus_one :=
 Compute (expr_eval_n 10 Σ [] [| {plus_syn} 1 1 |]).
 (* = Ok (vConstr "nat" "Suc" [vConstr "nat" "Suc" [vConstr "nat" "Z" []]])*)
 
-Definition two_arg_fun_syn := [| \x : Nat -> \y : Bool -> x |].
+Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
 
 Make Definition two_arg_fun_app :=
   Eval compute in (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
@@ -174,7 +154,7 @@ Example one_plus_one_two : expr_eval_n 10 Σ [] one_plus_one = Ok two.
 Proof. reflexivity. Qed.
 
 Definition plus_syn' :=
-  [| \x : Nat ->
+  [| \x : Nat =>
           (fix "plus" (y : Nat) : Nat :=
            case y : Nat return Nat of
            | Z -> x
@@ -232,41 +212,15 @@ Example plus_named_and_indexed :
   expr_eval_i 20 Σ [] (indexify [] [| ({plus_syn} {two}) {three} |]).
 Proof. reflexivity. Qed.
 
-Compute ( v <- (expr_eval_i 10 Σ [] (indexify [] [| {one_plus_one} |]));;
-          ret (from_val v)).
-
 Compute (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn} 1 |])).
 
-Compute ( v <- (expr_eval_n 10 Σ [] [| {plus_syn} 1 |]);;
-          ret (from_val v)).
-
 Compute (indexify [] [| {plus_syn}|]).
-
-Compute ( v <- (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn} |]));;
-          ret (from_val v)).
-
 Compute (expr_eval_n 10 Σ [] [| {plus_syn} 0 |]).
 
-Definition fun_app := [| (\x : Nat -> \y : Nat -> y + x) Z |].
+Definition fun_app := [| (\x : Nat => \y : Nat => y + x) Z |].
 
-Compute (expr_eval_n 10 [] [] fun_app).
+Compute (expr_eval_n 10  Σ' [] fun_app).
 
-Example fun_app_from_val :
-  exists v, (expr_eval_n 10 Σ' [] (indexify [] fun_app)) = Ok v /\
-       from_val_i v = (indexify [] [|\y : Nat -> y + Z |]).
-Proof.
-  eexists. split. compute. reflexivity.
-  simpl. compute. reflexivity.
-Qed.
-
-
-Example plus_syn_partial_app :
-  exists v, (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn'} 0 |])) = Ok v /\
-       from_val_i v = indexify [] id_rec.
-Proof.
-  eexists. split. compute. reflexivity.
-  compute. reflexivity.
-Qed.
 
 Inductive mybool :=
 | mfalse

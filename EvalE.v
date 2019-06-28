@@ -65,10 +65,13 @@ Module InterpreterEnvList.
               clos_mode ->
               type ->(* type of the domain *)
               type ->(* type of the codomain *)
-              expr -> val.
+              expr -> val
+  | vTyClos : env val -> name -> expr -> val
+  | vTy : type -> val.
 
   Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
 
+  (* TODO: Extend this to handle type lambdas and nat literals *)
   Inductive val_ok Σ : val -> Prop :=
   | vokClosLam : forall e nm ρ ty1 ty2,
       ForallEnv (val_ok Σ) ρ ->
@@ -91,7 +94,10 @@ Module InterpreterEnvList.
      (P : val -> Prop)
      (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
      (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
-          ForallEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0)) :
+         ForallEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0))
+     (Htyclos : forall (ρ : env val) (n : name) (e0 : expr),
+         ForallEnv P ρ -> P (vTyClos ρ n e0))
+     (Hty : forall (t : type),  P (vTy t)) :
     forall v : val, P v.
     refine (fix val_ind_fix (v : val) := _).
     destruct v.
@@ -101,6 +107,11 @@ Module InterpreterEnvList.
       induction e.
       * constructor.
       * constructor. apply val_ind_fix. apply IHe.
+    + apply Htyclos.
+      induction e.
+      * constructor.
+      * constructor. apply val_ind_fix. apply IHe.
+    + apply Hty.
   Defined.
 
   (* For some reason, this is not a part of the standard lib *)
@@ -186,15 +197,89 @@ Module InterpreterEnvList.
                      else match_pat' constr_name constr_args bs'
     end.
 
-  Definition match_pat {A} (cn : name) (arity :list type)
+  Definition match_pat {A} (cn : name) (nparam : nat) (arity :list type)
              (constr_args : list A) (bs : list (pat * expr)) :=
-    pe <- find (fun x => (fst x).(pName) =? cn) bs;;
+    pe <- option_to_res (find (fun x => (fst x).(pName) =? cn) bs) (cn ++ ": not found");;
     let '(p,e) := pe in
-    if (andb (Nat.eqb (length constr_args) (length p.(pVars)))
-             (Nat.eqb (length constr_args) (length arity))) then
-      let assignments := combine p.(pVars) constr_args in
-      Some (assignments,e)
-    else None.
+    let ctr_len := length constr_args in
+    let pt_len := nparam + length p.(pVars) in
+    let arity_len := nparam + (length arity) in
+    if (Nat.eqb ctr_len pt_len) then
+      if (Nat.eqb ctr_len arity_len) then
+        (* first [nparam] elements in the [constr_args] are types, so we don't match them *)
+        let args := skipn nparam constr_args in
+        let assignments := combine p.(pVars) args in
+        Ok (assignments,e)
+      else EvalError (cn ++ ": constructor arity does not match")
+    else EvalError (cn ++ ": pattern arity does not match (constructor: "
+                       ++ utils.string_of_nat ctr_len ++ ",
+                    pattern: "  ++ utils.string_of_nat pt_len ++ ")").
+
+  Fixpoint inductive_name (ty : type) : option name :=
+    match ty with
+    | tyInd nm => Some nm
+    | tyApp ty1 ty2 => inductive_name ty1
+    | _ => None
+    end.
+
+  Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
+    match ty with
+    | tyInd x => Some ty
+    | tyForall x ty => ty' <- (eval_type_i (1+k) ρ ty);;
+                       ret (tyForall x ty')
+    | tyApp ty1 ty2 =>
+      ty2' <- eval_type_i k ρ ty2;;
+      ty1' <- eval_type_i k ρ ty1;;
+      ret (tyApp ty1' ty2')
+    | tyVar nm => Some ty
+    | tyRel i => if Nat.leb k i then
+                  match (lookup_i ρ i) with
+                  | Some (vTy ty) => Some ty
+                  | None => Some (tyRel i)
+                  | _ => None
+                  end
+                else Some ty
+    | tyArr ty1 ty2 =>
+      (* NOTE: we pass [1+k] for the ty2 evaluation
+         due to the [indexify] function (see comments there) *)
+      ty2' <- eval_type_i (1+k) ρ ty2;;
+      ty1' <- eval_type_i k ρ ty1;;
+      Some (tyArr ty1' ty2')
+    end.
+
+  (* Fixpoint eval_type_n (ρ : env val) (ty : type) : option type := *)
+  (*   match ty with *)
+  (*   | tyInd x => Some ty *)
+  (*   | tyForall x ty => ty' <- (eval_type_i ρ ty);; *)
+  (*                      ret (tyForall x ty') *)
+  (*   | tyApp ty1 ty2 => *)
+  (*     ty2' <- eval_type_i ρ ty2;; *)
+  (*     ty1' <- eval_type_i ρ ty1;; *)
+  (*     ret (tyApp ty1' ty2') *)
+  (*   | tyVar nm => Some ty *)
+  (*   | tyRel i => match (lookup_i ρ i) with *)
+  (*               | None => Some (tyRel i) *)
+  (*               | Some (vTy ty) => Some ty *)
+  (*               | _ => None *)
+  (*               end *)
+  (*   | tyArr ty1 ty2 => *)
+  (*     ty2' <- eval_type_i ρ ty2;; *)
+  (*     ty1' <- eval_type_i ρ ty1;; *)
+  (*     Some (tyArr ty1' ty2') *)
+  (*   end. *)
+
+
+  Fixpoint print_type (ty : type) : string :=
+    match ty with
+    | tyInd x => x
+    | tyForall x x0 => "forall " ++ x ++ "," ++ print_type x0
+    | tyApp x x0 => "(" ++ print_type x ++ " " ++ print_type x0 ++ ")"
+    | tyVar x => x
+    | tyRel x => "^" ++ utils.string_of_nat x
+    | tyArr x x0 => print_type x ++ "->" ++ print_type x0
+    end.
+
+
 
   Fixpoint expr_eval_general (fuel : nat) (named : bool) (Σ : global_env)
            (ρ : env val) (e : expr) : res val :=
@@ -216,18 +301,21 @@ Module InterpreterEnvList.
         v <- expr_eval_general n named Σ ρ e1 ;;
         expr_eval_general n named Σ (ρ # [nm ~> v]) e2
       | eApp e1 e2 =>
-        match (expr_eval_general n named Σ ρ e1), (expr_eval_general n named Σ ρ e2) with
-        | Ok (vClos ρ' nm cmLam _ _ b), Ok v =>
+        v2 <- expr_eval_general n named Σ ρ e2;;
+        v1 <- expr_eval_general n named Σ ρ e1;;
+        match v1,v2 with
+        | vClos ρ' nm cmLam _ _ b, v =>
           res <- (expr_eval_general n named Σ (ρ' # [nm ~> v]) b);;
           ret res
-        | Ok (vClos ρ' nm (cmFix fixname) ty1 ty2 b), Ok v =>
+        | vClos ρ' nm (cmFix fixname) ty1 ty2 b, v =>
           let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
           res <- expr_eval_general n named Σ (ρ' # [fixname ~> v_fix] # [nm ~> v]) b;;
           ret res
-        | Ok (vConstr ind n vs), Ok v => Ok (vConstr ind n (List.app vs [v]))
-        | EvalError msg, _ => EvalError msg
-        | _, EvalError msg => EvalError msg
-        | NotEnoughFuel,_ | _, NotEnoughFuel => NotEnoughFuel
+        | vTyClos ρ' nm b, v =>
+            res <- (expr_eval_general n named Σ (ρ' # [nm ~> v]) b);;
+            ret res
+        | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
+        | _, _ => EvalError "eApp : not a constructor or closure"
         end
       | eConstr ind ctor =>
         match (resolve_constr Σ ind ctor) with
@@ -242,350 +330,30 @@ Module InterpreterEnvList.
           | Some (_,ci) =>
             (* TODO : move cheking inductive names before
                resolving the constructor *)
-            if (string_dec ind ind') then
-              match (match_pat c ci vs bs) with
-              | Some (var_assign, v) =>
+            ind_nm <- option_to_res (inductive_name ind) "not inductive";;
+            if (string_dec ind_nm ind') then
+              pm_res <- match_pat c i ci vs bs;;
+              let '(var_assign, v) := pm_res in
                 expr_eval_general n named Σ (List.app (rev var_assign) ρ) v
-              | None => EvalError "No such constructor"
-              end
-            else EvalError ("Expecting inductive " ++ ind ++
+            else EvalError ("Expecting inductive " ++ ind_nm ++
                             " but found " ++ ind')
             | None => EvalError "No constructor or inductive found in the global envirionment"
           end
+        | Ok (vTy ty) => EvalError ("Discriminee cannot be a type : " ++ print_type ty)
         | Ok _ => EvalError "Discriminee should evaluate to a constructor"
         | v => v
         end
       | eFix fixname vn ty1 ty2 b as e =>
         Ok (vClos ρ vn (cmFix fixname) ty1 ty2 b)
+      | eTyLam nm e => Ok (vTyClos ρ nm e)
+      | eTy ty => ty' <- option_to_res (eval_type_i 0 ρ ty)
+                     ("Error while evaluating type: " ++ print_type ty);;
+                  ret (vTy ty')
       end
     end.
 
   Definition expr_eval_n n := expr_eval_general n true.
   Definition expr_eval_i n := expr_eval_general n false.
-
-
-  Fixpoint remove_by_key_list (key : name) (ρ : list (name * expr)) : list (name * expr) :=
-    match ρ with
-      | [] => []
-      | (nm,a) :: ρ' => if (nm =? key) then remove_by_key_list key ρ'
-                           else (nm, a) :: (remove_by_key_list key ρ')
-    end.
-
-
- (* NOTE: assumes, that expression in [ρ] are closed! *)
- Fixpoint subst_env (ρ : list (name * expr)) (e : expr) : expr :=
-  match e with
-  | eRel i as e' => e'
-  | eVar nm  => match lookup ρ nm with
-                    | Some v => v
-                    | None => e
-                    end
-  | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key_list nm ρ) b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key_list nm ρ) e2)
-  | eApp e1 e2 => eApp (subst_env ρ e1) (subst_env ρ e2)
-  | eConstr t i as e' => e'
-  | eConst nm => eConst nm
-  | eCase nm_i ty e bs =>
-    (* TODO: this case is not complete! We ignore variables bound by patterns *)
-    eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key_list v ρ) b)
-  end.
-
-  (* NOTE: assumes, that expression in [ρ] are closed! *)
- Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
-  match e with
-  | eRel i => if Nat.leb k i then
-               from_option (lookup_i ρ (i-k)) (eRel i) else eRel i
-  | eVar nm  => eVar nm
-  | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
-  | eApp e1 e2 => eApp (subst_env_i_aux k ρ e1) (subst_env_i_aux k ρ e2)
-  | eConstr t i as e' => e'
-  | eConst nm => eConst nm
-  | eCase nm_i ty e bs =>
-    eCase nm_i ty (subst_env_i_aux k ρ e)
-          (map (fun x => (fst x, subst_env_i_aux (length (fst x).(pVars) + k) ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env_i_aux (2+k) ρ b)
-  end.
-
- Definition subst_env_i := subst_env_i_aux 0.
-
-  (* Converting from values back to expression.
-     This will be used to compare results of the evaluation with different semantics, or
-     for stating soundness theorem for the translation to a different language, e.g.
-     to Template Coq terms.
-
-     The most non-trivial part is to convert closures, for which we have to perform some form
-     of substitution of values from the value environment (see [subst_env])
-     Inspired by the implementation of
-     "A Certified Implementation of ML with Structural Polymorphism" by Jacques Garrigue.
-   *)
-  Fixpoint from_val (v : val) : expr :=
-    match v with
-    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
-    | vClos ρ nm cm ty1 ty2 e =>
-      let res := match cm with
-                 | cmLam => eLambda nm ty1 e
-                 | cmFix fixname => eFix fixname nm ty1 ty2 e
-                 end
-      in subst_env (map (fun x => (fst x, from_val (snd x))) ρ) res
-    end.
-
-  Definition inst_env (ρ : env val) (e : expr) : expr :=
-    subst_env (map (fun x => (fst x, from_val (snd x))) ρ) e.
-
-  Fixpoint from_val_i (v : val) : expr :=
-    match v with
-    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val_i vs)
-    | vClos ρ nm cm ty1 ty2 e =>
-      let res := match cm with
-                 | cmLam => eLambda nm ty1 e
-                 | cmFix fixname => eFix fixname nm ty1 ty2 e
-                end
-     in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
-   end.
-
-  (* The similar notation will be used when we change to a parallel substitution *)
-  Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
-
- Definition inst_env_i (ρ : env val) (e : expr) : expr :=
-   subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
- Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
-
- Module Equivalence.
-   Reserved Notation "v1 ≈ v2" (at level 50).
-
-   Inductive val_equiv : relation val :=
-   | veqConstr i n (vs1 vs2 : list val) :
-       Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2 -> vConstr i n vs1 ≈ vConstr i n vs2
-   | veqClosLam ρ1 ρ2 nm ty1 e1 e2 :
-       inst_env_i ρ1 (eLambda nm ty1 e1) = inst_env_i ρ2 (eLambda nm ty1 e2) ->
-       (* ty2 used only by a fixpoint, so it doesn't matter here *)
-       forall ty2 ty2', vClos ρ1 nm cmLam ty1 ty2 e1 ≈ vClos ρ2 nm cmLam ty1 ty2' e2
-   | veqClosFix ρ1 ρ2 n ty1 ty2 e1 e2 :
-       (forall fixname ty2 , inst_env_i ρ1 (eFix fixname n ty1 ty2 e1) =
-       inst_env_i ρ2 (eFix fixname n ty1 ty2 e2)) ->
-       (forall fixname, vClos ρ1 n (cmFix fixname) ty1 ty2 e1 ≈ vClos ρ2 n (cmFix fixname) ty1 ty2 e2)
-   where
-   "v1 ≈ v2" := (val_equiv v1 v2).
-
-   Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
-   Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
-
-   Instance val_equiv_reflexive : Reflexive val_equiv.
-   Proof.
-     intros v. induction v using val_ind_full.
-     + constructor.
-       induction l;constructor; inversion H; easy.
-     + destruct cm;constructor;reflexivity.
-   Defined.
-
-   (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)
-   Axiom val_equiv_symmetric : Symmetric val_equiv.
-   Axiom val_equiv_transitive : Transitive val_equiv.
-
-   Existing Instance val_equiv_symmetric.
-   Existing Instance val_equiv_transitive.
-
-   (* TODO:  Define these  *)
-   Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
-   Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
-   Axiom list_val_equiv_transitive : Transitive list_val_equiv.
-
-   Existing Instance list_val_equiv_reflexive.
-   Existing Instance list_val_equiv_symmetric.
-   Existing Instance list_val_equiv_transitive.
-
-   Lemma list_val_compat v1 v2 vs1 vs2 :
-     v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
-   Proof.
-     intros Heq Heql.
-     constructor;easy.
-   Qed.
-
-   Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
-   Proof.
-      cbv;intros;apply list_val_compat;assumption.
-    Defined.
-
-    Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : name) :
-      vs1 ≈ₗ vs2 -> (vConstr i nm vs1) ≈ (vConstr i nm vs2).
-    Proof.
-      intros Heql.
-      constructor.
-      induction Heql.
-      + constructor.
-      + constructor; assumption.
-    Defined.
-
-    Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
-    Proof.
-      cbv;intros;apply constr_cons_compat;assumption.
-    Defined.
-
-  End Equivalence.
-
-End InterpreterEnvList.
-
-Module InterpreterEnvFun.
-
-  (* An interpreter that uses functions to represent environments.
-     Moreover, we need partial environments, because recursive environment extension
-     might not terminate *)
-  Definition env A := name -> res A.
-  Definition default_fun_env {A : Type}: env A :=
-    fun k => EvalError ("Undefined var :" ++ k).
-  Definition in_env {A} k (ρ : env A) := exists v, ρ k = Ok v.
-
-  Definition remove_by_key {A : Type} (key : string) (ρ : InterpreterEnvFun.env A)
-  : InterpreterEnvFun.env A :=
-  fun key' => if (eqb key key') then (default_fun_env key)
-           else ρ key.
-
-  Lemma remove_spec {A} k (ρ : env A) : ~ in_env k (remove_by_key k ρ).
-  Proof.
-    intros H. unfold in_env,remove_by_key in H.
-    destruct H.
-    rewrite eqb_refl in H.
-    inversion H.
-  Qed.
-
-
-  Inductive val : Type :=
-  | vConstr : inductive -> name -> list val -> val
-  | vClos   : env val -> name ->
-               type (* types are used to convert closures back to lambdas *) ->
-               expr -> val.
-
-  Definition ext_env (ρ : env val) (k : name) v :=
-    fun k' => if (string_dec k k') then v else ρ k'.
-
-  (* Notation "ρ # '(' k ')'" := (ρ k) (at level 10). *)
-  (** A value environment extension: *)
-  Notation "ρ # [ k ~> v ]" := (ext_env ρ k v) (at level 50).
-
-  Fixpoint ext_env_list (ρ : env val) (kvs : list (name * val)) :=
-    match kvs with
-    | [] => ρ
-    | (k,v) :: kvs' => ext_env (ext_env_list ρ kvs' ) k (Ok v)
-    end.
-
-  Definition ext_env_rec (fixname : name) (var : name) (ty : type) (e : expr)
-             (ρ : env val) :=
-    fix rec_enc fuel : res (env val) :=
-        match fuel with
-        | O => NotEnoughFuel
-        | S n => Ok (fun k =>
-                      if (eqb fixname k) then
-                        match rec_enc n with
-                        | Ok ρ' => Ok (vClos ρ' var ty e)
-                        | EvalError msg => EvalError msg
-                        | NotEnoughFuel => NotEnoughFuel
-                        end
-                      else ρ k)
-        end.
-
-  (* This is a simple fact, but it shows that we have two sources of partiality:
-     possible non-termination of the recursive context extension and a corresponding
-     lookup operation (here it is just a function application, but it returns a
-     value of type [res fvar] instead of a plain [fvar] ) *)
-  Lemma ext_env_rec_extend_lookup : forall n nm vn ty e ρ ρ',
-      ext_env_rec nm vn ty e ρ n = Ok ρ ->
-      ρ nm = Ok ρ' ->
-    exists ρ'', ρ' = vClos ρ'' vn ty e.
-  Proof.
-    intros n nm nv ty e ρ ρ' H1 H2. destruct n.
-    + inversion H1.
-    + destruct n.
-      * inversion H1 as [H3]. rewrite <- H3 in H2. rewrite eqb_refl in H2.
-        inversion H2.
-      * inversion H1 as [H3]. simpl in *.
-        rewrite <- H3 in H2.
-        rewrite eqb_refl in H2.
-        inversion H2. subst.
-        eexists.
-        inversion_clear H2. f_equal. reflexivity.
-  Qed.
-
-  Import Basics.
-
-  Open Scope program_scope.
-
-  Fixpoint expr_eval (fuel : nat) (Σ : global_env) (ρ : env val) (e : expr) : res val :=
-    match fuel with
-    | O => NotEnoughFuel
-    | S n =>
-      match e with
-      | eRel i => EvalError "Indices as variables are not supported"
-      | eVar nm => ρ nm
-      | eLambda nm ty b => ret (vClos ρ nm ty b)
-      | eLetIn nm e1 ty e2 =>
-        expr_eval n Σ (ρ # [nm ~> (expr_eval n Σ ρ e1)]) e2
-      | eApp e1 e2 =>
-        v1 <- expr_eval n Σ ρ e1 ;;
-        v2 <- expr_eval n Σ ρ e2 ;;
-        match v1 with
-        | vClos ρ' nm _ b =>
-          expr_eval n Σ (ρ' # [nm ~> ret v2]) b
-        | vConstr ind n vs => ret (vConstr ind n (List.app vs [v2]))
-        end
-      | eConstr t i =>
-        Ok (vConstr t i [])
-      | eConst nm => todo
-        (* option_to_res (lookup_global Σ nm) ("Constant " ++ nm ++ " not found") *)
-      | eCase (ind,i) ty e bs =>
-        v <- (expr_eval n Σ ρ e);;
-        match v with
-        | vConstr ind' c vs =>
-          match resolve_constr Σ ind' c with
-          | Some (_,ci) =>
-            (* TODO : move cheking inductive names before
-               resolving the constructor *)
-            if (string_dec ind ind') then
-              match (InterpreterEnvList.match_pat c ci vs bs) with
-              | Some (var_assign, v) =>
-                expr_eval n Σ (ext_env_list ρ var_assign) v
-              | None => EvalError "No such constructor"
-              end
-            else EvalError ("Expecting inductive " ++ ind ++
-                            " but found " ++ ind')
-            | None => EvalError "No constructor or inductive found in the global envirionment"
-          end
-        | _ => EvalError "Not a constructor"
-        end
-      | eFix fixname vn ty1 ty2 e =>
-        ρ' <- ext_env_rec fixname vn ty1 e ρ n ;;
-        expr_eval n Σ ρ' (eLambda vn ty1 e)
-      end
-    end.
-
-  Fixpoint subst_env (ρ : InterpreterEnvFun.env expr) (e : expr) : expr :=
-  match e with
-  | eRel i as e' => e'
-  | eVar nm  => match ρ nm with
-                    | Ok v => v
-                    | _ => e
-                    end
-  | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key nm ρ) b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key nm ρ) e2)
-  | eApp e1 e2 => eApp (subst_env ρ e1) (subst_env ρ e2)
-  | eConstr t i as e' => e'
-  | eConst nm => eConst nm
-  | eCase nm_i ty e bs =>
-    (* TODO: this case is not complete! We ignore variables bound by patterns *)
-    eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key v ρ) b)
-  end.
-
-
-  (* Cannot make Coq to recognize this as a valid fixpoint *)
-  Fail Fixpoint from_val (v : val) {struct v} : expr :=
-    match v with
-    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
-    | vClos ρ nm ty e =>
-      subst_env (fun k => v <- ρ k ;; ret (from_val v)) (eLambda nm ty e)
-    end.
-End InterpreterEnvFun.
 
 Module Examples.
   Import BaseTypes.
@@ -595,7 +363,7 @@ Module Examples.
 
   Definition prog1 :=
     [|
-     (\x : Bool ->
+     (\x : Bool =>
            case x : Bool return Bool of
            | True -> False
            | False -> True) True
@@ -609,7 +377,5 @@ Module Examples.
     InterpreterEnvList.expr_eval_i 3 Σ [] (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
-  Example eval_prog1' :
-    InterpreterEnvFun.expr_eval 3 Σ InterpreterEnvFun.default_fun_env  prog1 = Ok (InterpreterEnvFun.vConstr "Coq.Init.Datatypes.bool" "false" []).
-  Proof. simpl. reflexivity. Qed.
-End Examples.
+  End Examples.
+End InterpreterEnvList.
