@@ -30,40 +30,43 @@ Fixpoint mkNames (ns : list string) (postfix : string) :=
 (** ** Data structures for finite maps *)
 
 (** Eventually, these data structures will be just translations from Oak. *)
-(** Similar to [option] of Coq and [Maybe] of Haskell. *)
-Inductive AMaybe (A : Set) :=
-| ANothing | AJust : A -> AMaybe A.
+
+(** We generate names for inductives and constructors *)
+Run TemplateProgram
+      (mkNames ["Maybe";"Nothing";"Just"; "Map"; "MNil"; "MCons" ] "Oak").
+
+(** [AMaybe] is similar to [option] of Coq and [Maybe] of Haskell. *)
+
+Definition maybe_syn :=
+  gdInd Maybe 1 [(Nothing, []);  (Just, [(nAnon,tyRel 0)])] false.
+
+Make Inductive (trans_global_dec maybe_syn).
 
 (** A finite map is basically a list of pairs *)
-Inductive AMap (A B : Set) :=
-| ANil : AMap A B | ACons : A -> B -> AMap A B -> AMap A B.
+Definition map_syn :=
+  gdInd Map 2
+        [(MNil, []);
+        (MCons, [(nAnon,tyRel 1);(nAnon,tyRel 0);
+                  (nAnon,(tyApp (tyApp (tyInd Map) (tyRel 1)) (tyRel 0)))])] false.
+
+Make Inductive (trans_global_dec map_syn).
 
 Definition Σ' :=
-  Σ ++
-    [gdInd "AMaybe" 2 [("ANothing", []);  ("AJust", [(nAnon,tyRel 0)])] false;
-       gdInd "AMap" 2 [("ANil", []);  ("ACons", [(nAnon,tyRel 1);(nAnon,tyRel 0);
-                                                   (nAnon,(tyApp (tyApp (tyInd "AMap") (tyRel 1)) (tyRel 0)))])] false ].
+  Σ ++ [ maybe_syn; map_syn ].
 
-
-Definition Maybe := "AMaybe".
-Definition Map := "AMap".
-Definition MNil := "ANil".
-Definition MCons := "ACons".
-
-
-(** Here we generate string constants for variable names to make our examples look nicer *)
+(** We generate string constants for variable names to make our examples look nicer *)
 Run TemplateProgram
       (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "lookup"; "add" ] "_coq").
 
 (** A bit of additional notations required for patterns and constructors *)
 
-Notation "'Nothing'" := (pConstr "ANothing" [])
+Notation "'Nothing'" := (pConstr Nothing [])
                       (in custom pat at level 0).
 
-Notation "'Nothing'" := (eConstr "AMaybe" "ANothing")
+Notation "'Nothing'" := (eConstr Maybe "NothingOak")
                       (in custom expr at level 0).
 
-Notation "'Just'" := (eConstr "AMaybe" "AJust")
+Notation "'Just'" := (eConstr Maybe Just)
                       (in custom expr at level 0).
 
 
@@ -76,10 +79,10 @@ Notation "'MCons' x y z" := (pConstr MCons [x;y;z])
                         y constr at level 4,
                         z constr at level 4).
 
-Notation "'MNil'" := (eConstr "AMap" "ANil")
+Notation "'MNil'" := (eConstr Map "MNilOak")
                       (in custom expr at level 0).
 
-Notation "'MCons'" := (eConstr "AMap" "ACons")
+Notation "'MCons'" := (eConstr Map "MConsOak")
                         (in custom expr at level 0).
 
 Notation " ' x " := (eTy (tyVar x))
@@ -126,6 +129,8 @@ Definition add_map_syn :=
                        MCons 'A 'B k v z
                      else MCons 'A 'B x y (add z) : Map 'A 'B |].
 
+Compute (expr_to_term Σ' (indexify [] add_map_syn)).
+
 Make Definition add_map := Eval compute in (expr_to_term Σ' (indexify [] add_map_syn)).
 
 (** ** Correctness *)
@@ -136,10 +141,10 @@ Make Definition add_map := Eval compute in (expr_to_term Σ' (indexify [] add_ma
 Module NatMap := FMapWeakList.Make Nat_as_OT.
 
 (** Conversion fucntion from our type of finite maps to the one in the standard library *)
-Fixpoint from_amap {A} (m : AMap nat A) : NatMap.Raw.t A :=
+Fixpoint from_amap {A} (m : MapOak nat A) : NatMap.Raw.t A :=
   match m with
-  | ANil _ _ => []
-  | ACons _ _ k v m' => (k,v) :: from_amap m'
+  | MNilOak _ _ => []
+  | MConsOak _ _ k v m' => (k,v) :: from_amap m'
   end.
 
 Import PeanoNat.Nat.
@@ -208,7 +213,7 @@ Section MapEval.
   Example compute_lookup_named :
     (expr_eval_n 20 Σ' []
                  [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |]) =
-  Ok (vConstr Maybe "AJust" [vTy (tyInd Nat); vConstr Nat "Z" []]).
+  Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
   Proof. reflexivity. Qed.
 
 
@@ -217,7 +222,7 @@ Section MapEval.
     (expr_eval_i 20 Σ' []
                  (indexify []
                            [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])) =
-  Ok (vConstr Maybe "AJust" [vTy (tyInd Nat); vConstr Nat "Z" []]).
+  Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
   Proof. reflexivity. Qed.
 
   End MapEval.

@@ -351,22 +351,39 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
 
 (** Note that there is no support for parameterised inductives so far. *)
 
-Definition mkArrows_rec (ind_name : name)  :=
+Import Basics.
+
+
+(** Translation of constructors of parameterised inductive types requires
+    non-trivial manipulation of De Bruijn indices. *)
+Definition mkArrows_rec (ind_name : name) (nparam : nat)  :=
   fix rec (n : nat) (proj_tys : list (Template.Ast.name * type)) :=
   match proj_tys with
-  | [] => tRel n
-  | (proj, ty) :: tys' => let res :=
-                         match ty with
-                          | tyInd nm => if eqb nm ind_name then
-                                         tRel n else type_to_term ty
-                          | _ => type_to_term ty
-                                   end in tProd proj res (rec (1+n) tys')
+  | [] => (* this is a return type of the constructor *)
+    mkApps (tRel (n + nparam)) (map tRel (rev (seq n nparam)))
+  | (proj, ty) :: tys' =>
+    let res :=
+        match ty with
+        | tyInd nm => if eqb nm ind_name then
+                       tRel n else type_to_term ty
+        | tyApp ty1 ty2 =>
+          match (decompose_inductive ty1) with
+          | Some (nm, tys) =>
+            if eqb nm ind_name then
+              tApp (tRel (n+nparam)) (map (compose (lift0 n) type_to_term)
+                                 (tys ++ [ty2])) else type_to_term ty
+          | None => type_to_term ty
+          end
+        | tyRel i => tRel (i+n)
+        | _ => type_to_term ty (* TODO: check how it works for other
+          type constructors applied to parameters of inductive *)
+        end in tProd proj res (rec (1+n) tys')
   end.
 
-Definition mkArrows indn := mkArrows_rec indn 0.
+Definition mkArrows indn nparam := mkArrows_rec indn nparam 0.
 
-Definition trans_one_constr (ind_name : name) (c : constr) : term :=
-  let (ctor_name, tys) := c in mkArrows ind_name tys.
+Definition trans_one_constr (ind_name : name) (nparam : nat) (c : constr) : term :=
+  let (ctor_name, tys) := c in mkArrows ind_name nparam tys.
 
 Fixpoint gen_params n := match n with
                          | O => []
@@ -384,7 +401,7 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
           mind_entry_arity := tSort Universe.type0;
           mind_entry_template := false;
           mind_entry_consnames := map fst cs;
-          mind_entry_lc := map (trans_one_constr nm) cs |}
+          mind_entry_lc := map (trans_one_constr nm nparam) cs |}
     in
    {| mind_entry_record := if r then (Some (Some [nm])) else None;
       mind_entry_finite := if r then BiFinite else Finite;
@@ -394,6 +411,12 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
       mind_entry_private := None;|}
   end.
 
+Definition map_syn :=
+  gdInd "AMap" 2 [("ANil", []);
+                    ("ACons", [(nAnon,tyRel 1);(nAnon,tyRel 0);
+                                 (nAnon,(tyApp (tyApp (tyInd "AMap") (tyRel 1)) (tyRel 0)))])] false.
+
+Make Inductive (trans_global_dec map_syn).
 
 (** A "library" of data types available by default *)
 
@@ -410,8 +433,7 @@ End BaseTypes.
 
 Import BaseTypes.
 
-(** ** Notations for the deep embeding *)
-
+(** * Notations for the deep embeding *)
 
 (** Here we use "custom entries" - a new feature of Coq allowing to define autonomous grammars *)
 
