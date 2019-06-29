@@ -1,6 +1,4 @@
-(** * Interpreters for the core langage *)
-(** Contains two implementations of interpreters with
-    different value envirionment representations *)
+(** * Interpreter for the monomorphic fragment of the Oak langage *)
 Require Import Relations Morphisms.
 Require Import String.
 Require Import List.
@@ -49,8 +47,6 @@ Definition todo {A} := EvalError (A:=A) "Not implemented".
 
 Module InterpreterEnvList.
 
-  (* An interpreter that uses lists to represent environments *)
-
   Import Basics.
 
   Open Scope program_scope.
@@ -59,6 +55,7 @@ Module InterpreterEnvList.
   Inductive clos_mode : Type :=
     cmLam | cmFix : name -> clos_mode.
 
+  (** Values *)
   Inductive val : Type :=
   | vConstr : inductive -> name -> list val -> val
   | vClos   : env val -> name ->
@@ -69,6 +66,7 @@ Module InterpreterEnvList.
 
   Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
 
+  (** Value is well-formed if expressions in closures are appropriately closed *)
   Inductive val_ok Σ : val -> Prop :=
   | vokClosLam : forall e nm ρ ty1 ty2,
       ForallEnv (val_ok Σ) ρ ->
@@ -85,8 +83,7 @@ Module InterpreterEnvList.
 
   Definition env_ok Σ (ρ : env val) := ForallEnv (val_ok Σ) ρ.
 
-  (* An induction principle that takes into account nested occurences of elements of [val]
-     in the list of arguments of [vConstr] and in the environment of [vClos] *)
+  (** An induction principle that takes into account nested occurrences of elements of [val] in the list of arguments of [vConstr] and in the environment of [vClos] *)
   Definition val_ind_full
      (P : val -> Prop)
      (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
@@ -103,7 +100,7 @@ Module InterpreterEnvList.
       * constructor. apply val_ind_fix. apply IHe.
   Defined.
 
-  (* For some reason, this is not a part of the standard lib *)
+  (** For some reason, this is not a part of the standard lib *)
   Lemma Forall_app {A} (l1 l2 : list A) P :
     Forall P (l1 ++ l2) <-> Forall P l1 /\ Forall P l2.
   Proof.
@@ -130,60 +127,13 @@ Module InterpreterEnvList.
       inversion H;auto.
   Qed.
 
-  (* This doesn't work for the same reason as for STLC: in the case
-     for application we don't know if [b] is decreasing.
-     Although, for the relational specification we can prove this using logical relations *)
-  Fail Fixpoint expr_eval (ρ : env val) (e : expr) {struct e} : option val :=
-      match e with
-      | eRel i => None
-      | eVar nm => ρ # (nm)
-      | eLambda nm ty b =>
-        Some (vClos ρ nm ty b)
-      | eLetIn nm e1 ty e2 => None
-      | eApp e1 e2 =>
-        match (expr_eval ρ e1), (expr_eval ρ e2) with
-        | Some (vClos ρ' nm _ b), Some v =>
-          match (expr_eval (ρ' # [nm ~> v]) b) with
-          | Some v' => Some v'
-          | None => None
-          end
-        | Some (vConstr ind n vs), Some v => Some (vConstr ind n (v :: vs))
-        | _,_ => None
-        end
-      | eConstruct t i =>
-        Some (vConstr t i [])
-      | eConst nm => None
-      | eCase (ind,i) ty e bs =>
-        match (expr_eval ρ e) with
-        | Some (vConstr ind' i _) => if (string_dec ind ind') then
-                                        match (List.nth_error bs i) with
-                                        | Some v =>  expr_eval ρ (snd v)
-                                        | _ => None
-                                        end
-                                     else None
-        | _ => None
-        end
-      | eFix nm ty b => None
-      end.
-
-
   Definition ind_name (v : val) :=
     match v with
     | vConstr ind_name _ _ => Some ind_name
     | _ => None
     end.
 
-  Fixpoint match_pat' {A} (constr_name : name) (constr_args : list A) (bs : list (pat * expr)) :=
-    match bs with
-    | [] => None
-    | (p, e) :: bs' => if (andb (p.(pName) =? constr_name))
-                          (Nat.eqb (length constr_args) (length p.(pVars)))
-                     then
-                       let assignments := combine p.(pVars) constr_args in
-                       Some (assignments,e)
-                     else match_pat' constr_name constr_args bs'
-    end.
-
+  (** Very simple implementation of pattern-matching *)
   Definition match_pat {A} (cn : name) (arity :list type)
              (constr_args : list A) (bs : list (pat * expr)) :=
     pe <- find (fun x => (fst x).(pName) =? cn) bs;;
@@ -194,6 +144,9 @@ Module InterpreterEnvList.
       Some (assignments,e)
     else None.
 
+  (** ** The interpreter *)
+
+  (** The interpreter works for both named and nameless representation of Oak expressions, depending on a parameter [named]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). *)
   Fixpoint expr_eval_general (fuel : nat) (named : bool) (Σ : global_env)
            (ρ : env val) (e : expr) : res val :=
     match fuel with
@@ -208,7 +161,7 @@ Module InterpreterEnvList.
       | eLambda nm ty b =>
       (* NOTE: we pass the same type as the codomain type here
         (because it's not needed for lambda).
-        Maybe separate costructors for lambda/fixpoint closures would be better? *)
+        Maybe separate constructors for lambda/fixpoint closures would be better? *)
         Ok (vClos ρ nm cmLam ty ty b)
       | eLetIn nm e1 ty e2 =>
         v <- expr_eval_general n named Σ ρ e1 ;;
@@ -261,16 +214,12 @@ Module InterpreterEnvList.
   Definition expr_eval_n n := expr_eval_general n true.
   Definition expr_eval_i n := expr_eval_general n false.
 
-
-  Fixpoint remove_by_key_list (key : name) (ρ : list (name * expr)) : list (name * expr) :=
-    match ρ with
-      | [] => []
-      | (nm,a) :: ρ' => if (nm =? key) then remove_by_key_list key ρ'
-                           else (nm, a) :: (remove_by_key_list key ρ')
-    end.
+  (** * Converting values to expressions *)
+  (** Proving soundness of the embedding requires comparing of values to the MetaCoq terms. In order to accomplish this we need some way of first instantiating all closures with the values contained in the environments for a given closure *)
 
 
- (* NOTE: assumes, that expression in [ρ] are closed! *)
+  (** Substitution of an environment to an expression. NOTE: assumes, that expression in [ρ] are closed! *)
+
  Fixpoint subst_env (ρ : list (name * expr)) (e : expr) : expr :=
   match e with
   | eRel i as e' => e'
@@ -278,15 +227,15 @@ Module InterpreterEnvList.
                     | Some v => v
                     | None => e
                     end
-  | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key_list nm ρ) b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key_list nm ρ) e2)
+  | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key nm ρ) b)
+  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key nm ρ) e2)
   | eApp e1 e2 => eApp (subst_env ρ e1) (subst_env ρ e2)
   | eConstr t i as e' => e'
   | eConst nm => eConst nm
   | eCase nm_i ty e bs =>
     (* TODO: this case is not complete! We ignore variables bound by patterns *)
     eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key_list v ρ) b)
+  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key v ρ) b)
   end.
 
   (* NOTE: assumes, that expression in [ρ] are closed! *)
@@ -308,16 +257,8 @@ Module InterpreterEnvList.
 
  Definition subst_env_i := subst_env_i_aux 0.
 
-  (* Converting from values back to expression.
-     This will be used to compare results of the evaluation with different semantics, or
-     for stating soundness theorem for the translation to a different language, e.g.
-     to Template Coq terms.
-
-     The most non-trivial part is to convert closures, for which we have to perform some form
-     of substitution of values from the value environment (see [subst_env])
-     Inspired by the implementation of
-     "A Certified Implementation of ML with Structural Polymorphism" by Jacques Garrigue.
-   *)
+  (** Converting from values back to expression. The most non-trivial part is to convert closures, for which we have to perform some form
+     of substitution of values from the value environment (see [subst_env], [subst_env_i]). Inspired by the implementation of "A Certified Implementation of ML with Structural Polymorphism" by Jacques Garrigue. *)
   Fixpoint from_val (v : val) : expr :=
     match v with
     | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
@@ -341,15 +282,16 @@ Module InterpreterEnvList.
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
      in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
-   end.
+    end.
 
-  (* The similar notation will be used when we change to a parallel substitution *)
   Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
 
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
    subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
  Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
 
+
+ (** Values are equivalent up to subsitution of corresponding environments in closures *)
  Module Equivalence.
    Reserved Notation "v1 ≈ v2" (at level 50).
 
@@ -445,4 +387,4 @@ Module Examples.
     InterpreterEnvList.expr_eval_i 3 Σ [] (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
-End Examples.
+  End Examples.

@@ -1,4 +1,5 @@
-(* Proof of correctness of the translation from core language expression to the Template Coq terms *)
+(** * Proof of correctness (WIP) *)
+(** We stated a soundness theorem for the translation from Oak to MetaCoq terms and working on a proof. We proved many required pieces of the proof, e.g. how our environment substitution commutes with the translation. One difficulty remains: MetaCoq uses a special "smart constructor" [mkApps] that flattens the nested applications (in MetaCoq, application is n-ary). This significantly complicates the proof and we currently looking for a solution. *)
 Require Template.WcbvEval.
 Require Import Template.LiftSubst.
 Require Import Template.All.
@@ -346,8 +347,9 @@ Proof.
   + simpl. constructor. reflexivity.
 Qed.
 
-(* Since [mkApps] a smart constructor, it should be semantically
-   equivalent to the ordinary [tApp] *)
+(** ** The issue with mkApps *)
+
+(** Since [mkApps] a smart constructor, it should be semantically equivalent to the ordinary [tApp]. Unfortunatelly, it is not clear how to show this. It might even require to go through a different evaluation relation first. *)
 Lemma mkApps_sound Σ Γ e l t a:
   Σ ;;; Γ |- mkApps e (a :: l) ⇓ t ->
   Σ ;;; Γ |- tApp e (a :: l) ⇓ t.
@@ -677,6 +679,9 @@ Proof.
   inv_andb H. destruct Hin;subst;auto.
 Qed.
 
+(** * Environment substitution and MetaCoq *)
+
+(** This is a crucial lemma for proving cases involving substitution (on the MetaCoq side): let-binding and application *)
 Lemma subst_term_subst_env_rec e e0:
   forall Σ n nm,
   iclosed_n (1+n) e = true ->
@@ -880,8 +885,6 @@ Proof.
     replace (n + S #|ρ2|) with (S n + #|ρ2|) by lia. reflexivity.
 Qed.
 
-(* TODO: this should be an instance of a more general lemma, and
-   we will restate this in terms of parallel substitutions *)
 Lemma subst_env_compose_2 :
   forall (nm1 nm2 : Ast.name) (e e1 e2: expr) (ρ : env expr),
     Forall (fun x => iclosed_n 0 (snd x) = true) ρ ->
@@ -1505,6 +1508,7 @@ Proof.
 Admitted.
 
 
+(** ** The soundness theorem *)
 
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[]) (e1 e2 : expr) (t : term) (v : val) :
   env_ok Σ1 ρ ->
@@ -1717,8 +1721,8 @@ Proof.
                  exfalso;easy.
                  exfalso;easy.
             ****
-              (* TODO: we have a huge code duplication here, the previous
-                 case is pretty much the same *)
+              (* TODO: we have a code duplication here, the previous
+                       case is pretty much the same *)
               destruct_ex_named. destruct H0. subst. destruct n;tryfalse. simpl in He1.
                  apply option_to_res_ok in He1.
                  assert (Hclos_ok : val_ok Σ1 (vClos ρ' n0 (cmFix n1) t0 t1 e1))

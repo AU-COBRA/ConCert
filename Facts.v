@@ -1,4 +1,6 @@
-(* Various auxillary facts usefull for proving correctness of the translation and the interpreter *)
+(** Various auxillary facts *)
+
+(** Facts usefull for proving correctness of the translation and the interpreter *)
 Require Import Template.monad_utils Template.All.
 Require Import String List.
 Require Import Morphisms Setoid.
@@ -264,8 +266,7 @@ Qed.
     forall e : expr, e = subst_env [] e.
   Proof.
     intros e.
-    induction e using expr_ind_case; simpl; try easy; try congruence.
-    f_equal;auto.
+    induction e using expr_ind_case; simpl; try easy;  f_equal;auto.
     rewrite <- map_id at 1.
     eapply @Induction.forall_map_spec.
     eapply H.
