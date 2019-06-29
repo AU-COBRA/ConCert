@@ -1,5 +1,5 @@
 (** * Convertion from values back to expressions through the environment substitution *)
-Require Import List.
+Require Import List Relations Morphisms.
 
 Require Import Ast.
 Require Import EvalE.
@@ -41,6 +41,7 @@ Import InterpreterEnvList.
                from_option (lookup_i ρ (i-k)) (eRel i) else eRel i
   | eVar nm  => eVar nm
   | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
+  | eTyLam nm b => eTyLam nm (subst_env_i_aux (1+k) ρ b)
   | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
   | eApp e1 e2 => eApp (subst_env_i_aux k ρ e1) (subst_env_i_aux k ρ e2)
   | eConstr t i as e' => e'
@@ -49,6 +50,7 @@ Import InterpreterEnvList.
     eCase nm_i ty (subst_env_i_aux k ρ e)
           (map (fun x => (fst x, subst_env_i_aux (length (fst x).(pVars) + k) ρ (snd x))) bs)
   | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env_i_aux (2+k) ρ b)
+  | eTy _ => e
   end.
 
  Definition subst_env_i := subst_env_i_aux 0.
@@ -72,6 +74,9 @@ Import InterpreterEnvList.
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                  end
       in subst_env (map (fun x => (fst x, from_val (snd x))) ρ) res
+    | vTyClos ρ nm e => subst_env (map (fun x => (fst x, from_val (snd x))) ρ)
+                                 (eTyLam nm e)
+    | vTy ty => eTy ty
     end.
 
   Definition inst_env (ρ : env val) (e : expr) : expr :=
@@ -85,7 +90,11 @@ Import InterpreterEnvList.
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
-     in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
+      in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
+    | vTyClos ρ nm e => subst_env_i (map (fun x => (fst x, from_val (snd x))) ρ)
+                                 (eTyLam nm e)
+    | vTy ty => eTy ty
+
    end.
 
   (* The similar notation will be used when we change to a parallel substitution *)
@@ -109,6 +118,12 @@ Import InterpreterEnvList.
        (forall fixname ty2 , inst_env_i ρ1 (eFix fixname n ty1 ty2 e1) =
        inst_env_i ρ2 (eFix fixname n ty1 ty2 e2)) ->
        (forall fixname, vClos ρ1 n (cmFix fixname) ty1 ty2 e1 ≈ vClos ρ2 n (cmFix fixname) ty1 ty2 e2)
+   | veqClosTyLam ρ1 ρ2 nm e1 e2 :
+       inst_env_i ρ1 (eTyLam nm e1) = inst_env_i ρ2 (eTyLam nm e2) ->
+       (* ty2 used only by a fixpoint, so it doesn't matter here *)
+       vTyClos ρ1 nm e1 ≈ vTyClos ρ2 nm e2
+   | veqTy ty :
+       vTy ty ≈ vTy ty
    where
    "v1 ≈ v2" := (val_equiv v1 v2).
 
@@ -121,6 +136,8 @@ Import InterpreterEnvList.
      + constructor.
        induction l;constructor; inversion H; easy.
      + destruct cm;constructor;reflexivity.
+     + constructor. reflexivity.
+     + constructor.
    Defined.
 
    (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)

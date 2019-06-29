@@ -2,7 +2,7 @@
 ./MyEnv.v
 ./Ast.v
 ./EvalE.v
-# ./EnvSubst.v
+./EnvSubst.v
 ./Demo.v
 ./ExampleContracts.v
 ./AcornMap.v

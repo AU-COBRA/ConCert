@@ -1,3 +1,4 @@
+(** * Examples  *)
 Require Import String.
 Require Import Ast CustomTactics.
 Require Import List.
@@ -10,10 +11,11 @@ Import BaseTypes.
 Import StdLib.
 Open Scope list.
 
+(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contarct developer. *)
+
 Section Maps.
   Open Scope nat.
 
-  (* Our approximation for maps *)
   Inductive addr_map : Set :=
   | mnil | mcons : nat -> nat -> addr_map -> addr_map.
 
@@ -55,6 +57,7 @@ End Maps.
 Notation "a ∈ m" := (inmap_map a m = true) (at level 50).
 Notation "a ∉ m" := (inmap_map a m = false) (at level 50).
 
+(** Generation of string constants using MetaCoq *)
 Fixpoint mkNames (ns : list string) (postfix : string) :=
   match ns with
   | [] => tmPrint "Done."
@@ -63,6 +66,8 @@ Fixpoint mkNames (ns : list string) (postfix : string) :=
                   tmMkDefinition n str;;
                   mkNames ns' postfix
   end.
+
+(** Notations for functions on finite maps *)
 
 Definition Map := "addr_map".
 
@@ -82,13 +87,15 @@ Notation "'mem' a b" :=  [| {eConst "inmap_map"} {a} {b} |]
             a custom expr at level 1,
             b custom expr at level 1).
 
+(** * Contract execution context  *)
+
+(** The contract execution context is a part of the blockchain infrastructure, not specific to this particular example. We assume that these structures reflect the actual implementation.  *)
+
 Record ctx := mkctx { _ctx_from : nat;
                       _ctx_contract_address : nat ;
                       _amount : nat;
                       _cur_time : nat}.
 
-
-(** Contract execution context  *)
 Definition ctx_from_name := "ExampleContracts._ctx_from".
 Definition Ctx := "ExampleContracts.ctx".
 Notation "'ctx_from' a" := [| {eConst ctx_from_name} {a} |]
@@ -101,13 +108,19 @@ Notation "'amount' a" := [| {eConst "_amount"} {a} |]
 Notation "'cur_time' a" := [| {eConst "_cur_time"} {a} |]
                              (in custom expr at level 0).
 
+(** ** The crowdfunding contract *)
 
-Module BalanceContract.
+Module CrowdfundingContract.
 
+  (** Note that we define the deep embedidng of the data structures an  programs (AST) using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. The idea is that the corresponding ASTs will be produced from the real Oak programs by means of printing the fully annotated syntax in terms of the constructors of the inductive type [Ast.expr] *)
+
+  (** Brackets like [\ \] delimit the scope of global definitions and like [| |] the scope of programs *)
+
+  (** We model types of addresses and currency by [nat] type of Coq *)
   Notation Address := Nat.
   Definition Money := Nat.
 
-  (* Generating names for the data structures  *)
+  (** Generating names for the data structures  *)
   Run TemplateProgram
       (mkNames ["State" ; "balance" ; "donations" ; "owner"; "deadline"; "goal";
                 "Result" ; "Res" ; "Error";
@@ -116,6 +129,9 @@ Module BalanceContract.
 
   Import ListNotations.
 
+  (** *** Definitions of data structures for the contract *)
+
+  (** The internal state of the contract *)
   Definition state_syn : global_dec :=
     [\ record State :=
        { balance : Money ;
@@ -124,23 +140,39 @@ Module BalanceContract.
          deadline : Nat;
          goal : Money } \].
 
+  (** We can print actual AST by swithing off the notations *)
+
+  Unset Printing Notations.
+
+  Print state_syn.
+  (* state_syn =
+      gdInd State O
+        (cons
+           (rec_constr State
+              (cons (pair (nNamed balance) (tyInd Money))
+                 (cons (pair (nNamed donations) (tyInd Map))
+                    (cons (pair (nNamed owner) (tyInd Money))
+                       (cons (pair (nNamed deadline) (tyInd Nat))
+                          (cons (pair (nNamed goal) (tyInd Money)) nil)))))) nil) true
+           : global_dec *)
+
+  Set Printing Notations.
+
+  (** Unquoting the definition of a record *)
   Make Inductive (trans_global_dec state_syn).
 
-  (* Unset Printing Notations. *)
+  (** As a result, we get a new Coq record [State_coq] *)
+  Print State_coq.
+
+  (** AST of action that our contract can produce *)
   Definition action_syn :=
     [\ data Action :=
          Transfer : Address -> Money -> Action
     | Empty : Action; \].
 
-  Definition act_syn_alt :=
-    gdInd Action 0 [("Transfer", [(nAnon, tyInd "Nat"); (nAnon, tyInd "Nat")]); ("Empty", [])] false.
-
-  Eval simpl in [\ data Action :=
-         Transfer : Address -> Money -> Action
-    | Empty : Action; \].
-
   Make Inductive (trans_global_dec action_syn).
 
+  (** AST for the type of results *)
   Definition result_syn :=
     [\ data Result :=
          Res : State -> Action -> Result
@@ -156,8 +188,10 @@ Module BalanceContract.
 
   Make Inductive (trans_global_dec msg_syn).
 
+  (** Custom notations for patterns, projections and constructors *)
   Module Notations.
 
+    (** Patterns *)
     Notation "'Donate'" :=
       (pConstr Donate []) (in custom pat at level 0).
     Notation "'GetFunds'" :=
@@ -172,7 +206,7 @@ Module BalanceContract.
     Notation "'Nothing'" := (pConstr "Nothing" [])
                               (in custom pat at level 0).
 
-    (* Notations for projections *)
+    (** Projections *)
     Notation "'balance' a" :=
       [| {eConst balance} {a} |]
         (in custom expr at level 0).
@@ -189,6 +223,8 @@ Module BalanceContract.
       [| {eConst goal} {a} |]
         (in custom expr at level 0).
 
+
+    (** Constructors *)
     Notation "'Res' a b" :=
       [| {eConstr Result Res} {a} {b} |]
         (in custom expr at level 0,
@@ -213,8 +249,7 @@ Module BalanceContract.
     Notation "'Empty'" := (eConstr Action Empty)
                         (in custom expr at level 0).
 
-    (* New global context with the constants defined above (in addition to the ones defined in
-       "StdLib") *)
+    (** New global context with the constants defined above (in addition to the ones defined in the Oak's "StdLib") *)
 
 
     Definition Σ' :=
@@ -232,10 +267,14 @@ Module BalanceContract.
 
   Import Notations.
 
+
+  (** Generating string constants for varable names *)
+
   Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";
                                 "tx_amount"; "bal"; "sender"; "own";
                                 "accs"; "now";
-                                "newstate"; "newmap"; "cond"] "").
+                                  "newstate"; "newmap"; "cond"] "").
+  (** A shortcut for [if .. then .. else ..]  *)
   Notation "'if' cond 'then' b1 'else' b2 : ty" :=
     (eCase (tyInd Bool,0) (tyInd ty) cond
            [(pConstr true_name [],b1);(pConstr false_name [],b2)])
@@ -245,7 +284,7 @@ Module BalanceContract.
           b1 custom expr at level 4,
           b2 custom expr at level 4).
 
-
+  (** *** The AST of a crowdfunding contract *)
   Definition crowdfunding : expr :=
     [| \c : Ctx => \s : State =>  \m : Msg =>
          let bal : Money := balance s in
@@ -296,6 +335,11 @@ Module BalanceContract.
   Definition funded now (s : State_coq) :=
     deadline_passed now s && goal_reached s.
 
+  (** ** Properties of the crowdfunding contract *)
+
+  (** The donations can be paid back to the backers if the goal is not
+reached within a deadline *)
+
   Lemma get_money_back_guarantee (init_state final_state: State_coq)
         CallCtx  msg sender out_tx v :
     (* pre-condition *)
@@ -313,7 +357,7 @@ Module BalanceContract.
     intros Hsender Hmsg Hfunded Hlook Hcall.
     subst;simpl in *.  inv_andb Hfunded.
     (* direct rewriting with [Hlook] or [Hgoal] cannot unify terms
-       in Hcall for some reason, but destruct with uderscores works *)
+       in Hcall for some reason, but destruct with underscores works *)
     destruct (_ && _)%bool;tryfalse.
     destruct (lookup_map _ _);tryfalse; inversion Hlook;subst;clear Hlook.
     split.
@@ -323,7 +367,8 @@ Module BalanceContract.
   Qed.
 
 
-  (* TODO: rewrite in terms of [funded]*)
+  (** New donations are recorded correctly in the contract's state *)
+
   Lemma new_donation_correct (init_state final_state: State_coq)
         CallCtx  msg sender out_tx donation :
     (* pre-condition *)
@@ -345,6 +390,9 @@ Module BalanceContract.
     destruct (lookup_map _ _);tryfalse. inversion Hcall;subst;clear Hcall.
     split;auto. simpl. now rewrite lookup_map_add.
   Qed.
+
+
+  (** Existing donations are updated correctly in the contract's state *)
 
   Lemma existing_donation_correct (init_state final_state: State_coq)
         CallCtx  msg sender out_tx old_don new_don :
@@ -403,6 +451,8 @@ Module BalanceContract.
       * simpl in *. rewrite IHm;auto. lia.
   Qed.
 
+  (** The contract does no leak funds: the oveall balance before the deadline is always equal to the sum of individual donations *)
+
   Lemma contract_baked
     (init_state final_state: State_coq)
         CallCtx msg out_tx :
@@ -434,6 +484,9 @@ Module BalanceContract.
       destruct (_ <? _);tryfalse.
   Qed.
 
+
+  (** The owner gets the money after the deadline, if the goal is reached *)
+
   Lemma GetFunds_correct (init_state final_state: State_coq) CallCtx
         msg out_tx OwnerAddr:
     CallCtx.(_ctx_from) = OwnerAddr ->
@@ -443,7 +496,8 @@ Module BalanceContract.
 
     entry CallCtx init_state msg = Res_coq final_state out_tx ->
 
-    (* post-condition (TODO: add a post-condition about the outgoing transaction) *)
+    (* post-condition *)
+    out_tx = Transfer_coq init_state.(balance_coq) OwnerAddr (* the money are sent back *) /\
     final_state.(balance_coq) = 0.
   Proof.
     intros Hown Hfund Hmsg Hcall. unfold funded,deadline_passed in *. subst. simpl in *.
@@ -452,4 +506,4 @@ Module BalanceContract.
     inversion Hcall. easy.
   Qed.
 
-End BalanceContract.
+End CrowdfundingContract.

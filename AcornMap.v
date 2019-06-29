@@ -1,4 +1,4 @@
-(* Implementing a simple finite map using our embedding *)
+(** * Implementing a simple finite map using our embedding *)
 Require Import FMaps FMapWeakList.
 Require Import String.
 Require Import List.
@@ -14,8 +14,9 @@ Import BaseTypes.
 Import StdLib.
 Open Scope list.
 
-
 Open Scope nat.
+
+(** Generation of string constants using MetaCoq *)
 
 Fixpoint mkNames (ns : list string) (postfix : string) :=
   match ns with
@@ -26,10 +27,14 @@ Fixpoint mkNames (ns : list string) (postfix : string) :=
                   mkNames ns' postfix
   end.
 
+(** ** Data structures for finite maps *)
 
+(** Eventually, these data structures will be just translations from Oak. *)
+(** Similar to [option] of Coq and [Maybe] of Haskell. *)
 Inductive AMaybe (A : Set) :=
 | ANothing | AJust : A -> AMaybe A.
 
+(** A finite map is basically a list of pairs *)
 Inductive AMap (A B : Set) :=
 | ANil : AMap A B | ACons : A -> B -> AMap A B -> AMap A B.
 
@@ -45,8 +50,12 @@ Definition Map := "AMap".
 Definition MNil := "ANil".
 Definition MCons := "ACons".
 
+
+(** Here we generate string constants for variable names to make our examples look nicer *)
 Run TemplateProgram
-      (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "lookup"; "add" ] "_coq").
+      (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "lookup"; "add" ] "_coq").
+
+(** A bit of additional notations required for patterns and constructors *)
 
 Notation "'Nothing'" := (pConstr "ANothing" [])
                       (in custom pat at level 0).
@@ -77,6 +86,7 @@ Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,
                         x constr at level 2).
 
+(** [if .. then .. else] is just a shortcut for [case] of a boolean expression *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
     (eCase (tyInd Bool,0) ty cond
            [(pConstr true_name [],b1);(pConstr false_name [],b2)])
@@ -86,7 +96,9 @@ Notation "'if' cond 'then' b1 'else' b2 : ty" :=
           b1 custom expr at level 4,
           b2 custom expr at level 4).
 
+(** ** Functions on finite maps *)
 
+(** AST for lookup function *)
 Definition lookup_syn :=
   [| \\A => \\B =>
      \f : 'A -> 'A -> Bool =>
@@ -98,22 +110,10 @@ Definition lookup_syn :=
                        Just 'B y
                        else lookup z : Maybe 'B |].
 
-Definition lookup_syn' :=
-  [| \\A => \\B =>
-     \f : 'A -> 'A -> Bool =>
-     \k : 'A =>
-     \v : 'B =>
-     fix lookup (m : Map 'A 'B) : Maybe 'B :=
-     case (MNil 'A 'B) : Map 'A 'B # 2 return Maybe 'B of
-     | MNil -> Nothing 'B
-     | MCons x y z -> if (f k x) then
-                       Just 'B y
-                       else lookup z : Maybe 'B |].
-
-
+(** Unquoting the [lookup_syn] to produce a Coq function *)
 Make Definition lookup_map := Eval compute in (expr_to_term Σ' (indexify [] lookup_syn)).
 
-
+(** AST for a function that adds an element to a map *)
 Definition add_map_syn :=
     [| \\A => \\B =>
      \f : 'A -> 'A -> Bool =>
@@ -128,8 +128,14 @@ Definition add_map_syn :=
 
 Make Definition add_map := Eval compute in (expr_to_term Σ' (indexify [] add_map_syn)).
 
+(** ** Correctness *)
+
+(** We can prove correctness of "library" definitions like finite maps by comparing the to Coq's standard library definitions *)
+
+(** Since Coq's [FMap] is a module, we fix the type of keys to be [nat] *)
 Module NatMap := FMapWeakList.Make Nat_as_OT.
 
+(** Conversion fucntion from our type of finite maps to the one in the standard library *)
 Fixpoint from_amap {A} (m : AMap nat A) : NatMap.Raw.t A :=
   match m with
   | ANil _ _ => []
@@ -138,8 +144,7 @@ Fixpoint from_amap {A} (m : AMap nat A) : NatMap.Raw.t A :=
 
 Import PeanoNat.Nat.
 
-(* Showing that Acorn maps are the same as one of the Stdlib implementations
-   (we fix keys to be natural numbers) *)
+(** Showing that Oak finite maps are the same as one of the Stdlib implementations (up to converting the results) *)
 Lemma add_map_eq_stdlib {A : Set} k v m :
   NatMap.Raw.add k v (from_amap m) = from_amap (add_map _ A PeanoNat.Nat.eqb k v m).
 Proof.
@@ -151,28 +156,16 @@ Proof.
     simpl. now f_equal.
 Qed.
 
+(** * Computing with the interpreter *)
 
-Module MapEval.
-
-  (* Computing with the interpreter *)
+Section MapEval.
 
   Import InterpreterEnvList.
 
   Definition tyNat := eTy (tyInd Nat).
 
-  (* A simple example first *)
-
-  Definition case_ex1 :=
-    [| \\y  => \"w" : 'y => \x : 'y =>  \z : "list" 'y =>
-           case z : "list" 'y # 1 return "prod" 'y 'y of
-           | Nil -> {eConstr "prod" "Pair"} {eTy (tyVar y)} {eTy (tyVar y)} x "w"
-           | Cons "hd" "tl" -> {eConstr "prod" "Pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
-
-  Make Definition case_ex_def1 := Eval compute in (expr_to_term Σ' (indexify [] case_ex1)).
-
-  Compute (expr_eval_n 20 Σ' [] ([| {case_ex1} {tyNat} 0 1 ({eConstr "list" "Nil"} {tyNat}) |])).
-
-  Definition eqb_syn :=
+  (** Boolean equality of two natural numbers in Oak *)
+  Definition eqb_syn : expr :=
     [| (fix "eqb" (n : Nat) : Nat ->  Bool :=
            case n : Nat return Nat -> Bool of
            | Z -> \m : Nat => (case m : Nat return Bool of
@@ -185,34 +178,46 @@ Module MapEval.
                    | Suc b -> "eqb" a b))
      |].
 
-  Make Definition nat_eqb := Eval compute in (expr_to_term Σ' (indexify [] eqb_syn)).
+  Make Definition nat_eqb :=
+    Eval compute in (expr_to_term Σ' (indexify [] eqb_syn)).
 
+  (** Showing that Oak boolean equality is in fact the same as [Nat.eqb] *)
   Lemma nat_eqb_correct n m : nat_eqb n m = Nat.eqb n m.
   Proof.
     revert m.
     induction n;intros m; now destruct m.
   Qed.
 
-  Definition aMap := [| MCons {tyNat} {tyNat} 1 1 (MCons {tyNat} {tyNat} 0 0 (MNil {tyNat} {tyNat})) |].
+  (** The syntactic representation of the follwing map [1 ~> 1; 0 ~> 0] *)
+  Definition aMap :=
+    [| MCons {tyNat} {tyNat} 1 1 (MCons {tyNat} {tyNat} 0 0 (MNil {tyNat} {tyNat})) |].
 
-  Compute resolve_constr Σ' "AMap" "ACons".
-  Compute (expr_eval_i 20 Σ' []
-                       (indexify [] [|  {eqb_syn} 1 1 |])).
-  Compute (expr_eval_i 20 Σ' []
-                       (indexify [] [|  {aMap} |])).
+  (** Computing boolean equality with the interpreter *)
+  Example compute_eqb_true :
+    (expr_eval_i 20 Σ' [] (indexify [] [|{eqb_syn} 1 1 |])) =
+    Ok (vConstr Bool true_name []).
+  Proof. reflexivity. Qed.
 
-  Compute (expr_eval_n 20 Σ' [] ([| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])).
+  Example compute_eqb_false :
+    (expr_eval_i 20 Σ' [] (indexify [] [|{eqb_syn} 1 0 |])) =
+    Ok (vConstr Bool false_name []).
+  Proof. reflexivity. Qed.
 
-  Compute (expr_eval_i 20 Σ' [] (indexify [] [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])).
 
-  Compute (expr_eval_i 20 Σ' []
-                       (indexify [] [| {add_map_syn} {tyNat} {tyNat} {eqb_syn} 0 1 (MNil {tyNat} {tyNat}) |])).
+  (** Computing lookup with using the interpreter for the named representation of variables *)
+  Example compute_lookup_named :
+    (expr_eval_n 20 Σ' []
+                 [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |]) =
+  Ok (vConstr Maybe "AJust" [vTy (tyInd Nat); vConstr Nat "Z" []]).
+  Proof. reflexivity. Qed.
 
-  Definition zzz := [| \\A => \x : ∀ B, 'B -> 'A => x |].
 
-  Make Definition zzzzz := Eval compute in (expr_to_term Σ' (indexify [] zzz)).
-
-  Compute (expr_eval_i 20 Σ' []
-                       (indexify [] [| {zzz} {tyNat} (\\B => \x :'B => 0)|])).
+  (** Computing lookup with using the interpreter for variables represented with De Bruijn indices *)
+  Example compute_lookup_debruijn :
+    (expr_eval_i 20 Σ' []
+                 (indexify []
+                           [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])) =
+  Ok (vConstr Maybe "AJust" [vTy (tyInd Nat); vConstr Nat "Z" []]).
+  Proof. reflexivity. Qed.
 
   End MapEval.

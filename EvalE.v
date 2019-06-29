@@ -1,7 +1,6 @@
 (** * Interpreters for the core langage *)
 (** Contains two implementations of interpreters with
     different value envirionment representations *)
-Require Import Relations Morphisms.
 Require Import String.
 Require Import List.
 Require Import Ast MyEnv.
@@ -231,11 +230,10 @@ Module InterpreterEnvList.
       ty2' <- eval_type_i k ρ ty2;;
       ty1' <- eval_type_i k ρ ty1;;
       ret (tyApp ty1' ty2')
-    | tyVar nm => Some ty
+    | tyVar nm => None
     | tyRel i => if Nat.leb k i then
                   match (lookup_i ρ i) with
                   | Some (vTy ty) => Some ty
-                  | None => Some (tyRel i)
                   | _ => None
                   end
                 else Some ty
@@ -247,26 +245,25 @@ Module InterpreterEnvList.
       Some (tyArr ty1' ty2')
     end.
 
-  (* Fixpoint eval_type_n (ρ : env val) (ty : type) : option type := *)
-  (*   match ty with *)
-  (*   | tyInd x => Some ty *)
-  (*   | tyForall x ty => ty' <- (eval_type_i ρ ty);; *)
-  (*                      ret (tyForall x ty') *)
-  (*   | tyApp ty1 ty2 => *)
-  (*     ty2' <- eval_type_i ρ ty2;; *)
-  (*     ty1' <- eval_type_i ρ ty1;; *)
-  (*     ret (tyApp ty1' ty2') *)
-  (*   | tyVar nm => Some ty *)
-  (*   | tyRel i => match (lookup_i ρ i) with *)
-  (*               | None => Some (tyRel i) *)
-  (*               | Some (vTy ty) => Some ty *)
-  (*               | _ => None *)
-  (*               end *)
-  (*   | tyArr ty1 ty2 => *)
-  (*     ty2' <- eval_type_i ρ ty2;; *)
-  (*     ty1' <- eval_type_i ρ ty1;; *)
-  (*     Some (tyArr ty1' ty2') *)
-  (*   end. *)
+  Fixpoint eval_type_n (ρ : env val) (ty : type) : option type :=
+    match ty with
+    | tyInd x => Some ty
+    | tyForall x ty => ty' <- eval_type_n (remove_by_key x ρ) ty;;
+                       ret (tyForall x ty')
+    | tyApp ty1 ty2 =>
+      ty2' <- eval_type_n ρ ty2;;
+      ty1' <- eval_type_n ρ ty1;;
+      ret (tyApp ty1' ty2')
+    | tyVar nm => match lookup ρ nm with
+                    | Some (vTy ty) => Some ty
+                    | _ => None
+                    end
+    | tyRel i => None
+    | tyArr ty1 ty2 =>
+      ty2' <- eval_type_n ρ ty2;;
+      ty1' <- eval_type_n ρ ty1;;
+      Some (tyArr ty1' ty2')
+    end.
 
 
   Fixpoint print_type (ty : type) : string :=
@@ -346,9 +343,12 @@ Module InterpreterEnvList.
       | eFix fixname vn ty1 ty2 b as e =>
         Ok (vClos ρ vn (cmFix fixname) ty1 ty2 b)
       | eTyLam nm e => Ok (vTyClos ρ nm e)
-      | eTy ty => ty' <- option_to_res (eval_type_i 0 ρ ty)
-                     ("Error while evaluating type: " ++ print_type ty);;
-                  ret (vTy ty')
+      | eTy ty =>
+        let error := "Error while evaluating type: " ++ print_type ty in
+        let res := if named then
+                     option_to_res (eval_type_n ρ ty) error
+                     else option_to_res (eval_type_i 0 ρ ty) error in
+        ty' <- res;; ret (vTy ty')
       end
     end.
 
