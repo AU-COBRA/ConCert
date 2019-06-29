@@ -1,6 +1,6 @@
-(** * Interpreters for the core langage *)
-(** Contains two implementations of interpreters with
-    different value envirionment representations *)
+(** * Interpreter for the Oak langage *)
+
+(** This version of the interpreter supports polymorhic types *)
 Require Import String.
 Require Import List.
 Require Import Ast MyEnv.
@@ -48,8 +48,6 @@ Definition todo {A} := EvalError (A:=A) "Not implemented".
 
 Module InterpreterEnvList.
 
-  (* An interpreter that uses lists to represent environments *)
-
   Import Basics.
 
   Open Scope program_scope.
@@ -58,6 +56,7 @@ Module InterpreterEnvList.
   Inductive clos_mode : Type :=
     cmLam | cmFix : name -> clos_mode.
 
+  (** Values *)
   Inductive val : Type :=
   | vConstr : inductive -> name -> list val -> val
   | vClos   : env val -> name ->
@@ -70,7 +69,7 @@ Module InterpreterEnvList.
 
   Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
 
-  (* TODO: Extend this to handle type lambdas and nat literals *)
+  (* TODO: Extend this to handle type lambdas and types *)
   Inductive val_ok Σ : val -> Prop :=
   | vokClosLam : forall e nm ρ ty1 ty2,
       ForallEnv (val_ok Σ) ρ ->
@@ -87,8 +86,7 @@ Module InterpreterEnvList.
 
   Definition env_ok Σ (ρ : env val) := ForallEnv (val_ok Σ) ρ.
 
-  (* An induction principle that takes into account nested occurences of elements of [val]
-     in the list of arguments of [vConstr] and in the environment of [vClos] *)
+  (** An induction principle that takes into account nested occurences of elements of [val] in the list of arguments of [vConstr] and in the environment of [vClos] *)
   Definition val_ind_full
      (P : val -> Prop)
      (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
@@ -113,7 +111,7 @@ Module InterpreterEnvList.
     + apply Hty.
   Defined.
 
-  (* For some reason, this is not a part of the standard lib *)
+  (** For some reason, this is not a part of the standard lib *)
   Lemma Forall_app {A} (l1 l2 : list A) P :
     Forall P (l1 ++ l2) <-> Forall P l1 /\ Forall P l2.
   Proof.
@@ -140,43 +138,6 @@ Module InterpreterEnvList.
       inversion H;auto.
   Qed.
 
-  (* This doesn't work for the same reason as for STLC: in the case
-     for application we don't know if [b] is decreasing.
-     Although, for the relational specification we can prove this using logical relations *)
-  Fail Fixpoint expr_eval (ρ : env val) (e : expr) {struct e} : option val :=
-      match e with
-      | eRel i => None
-      | eVar nm => ρ # (nm)
-      | eLambda nm ty b =>
-        Some (vClos ρ nm ty b)
-      | eLetIn nm e1 ty e2 => None
-      | eApp e1 e2 =>
-        match (expr_eval ρ e1), (expr_eval ρ e2) with
-        | Some (vClos ρ' nm _ b), Some v =>
-          match (expr_eval (ρ' # [nm ~> v]) b) with
-          | Some v' => Some v'
-          | None => None
-          end
-        | Some (vConstr ind n vs), Some v => Some (vConstr ind n (v :: vs))
-        | _,_ => None
-        end
-      | eConstruct t i =>
-        Some (vConstr t i [])
-      | eConst nm => None
-      | eCase (ind,i) ty e bs =>
-        match (expr_eval ρ e) with
-        | Some (vConstr ind' i _) => if (string_dec ind ind') then
-                                        match (List.nth_error bs i) with
-                                        | Some v =>  expr_eval ρ (snd v)
-                                        | _ => None
-                                        end
-                                     else None
-        | _ => None
-        end
-      | eFix nm ty b => None
-      end.
-
-
   Definition ind_name (v : val) :=
     match v with
     | vConstr ind_name _ _ => Some ind_name
@@ -185,17 +146,7 @@ Module InterpreterEnvList.
 
   Open Scope string.
 
-  Fixpoint match_pat' {A} (constr_name : name) (constr_args : list A) (bs : list (pat * expr)) :=
-    match bs with
-    | [] => None
-    | (p, e) :: bs' => if (andb (p.(pName) =? constr_name))
-                          (Nat.eqb (length constr_args) (length p.(pVars)))
-                     then
-                       let assignments := combine p.(pVars) constr_args in
-                       Some (assignments,e)
-                     else match_pat' constr_name constr_args bs'
-    end.
-
+  (** Very simple implementation of pattern-matching. Note that we do not match on parameters of constructors coming from parameterised inductives *)
   Definition match_pat {A} (cn : name) (nparam : nat) (arity :list type)
              (constr_args : list A) (bs : list (pat * expr)) :=
     pe <- option_to_res (find (fun x => (fst x).(pName) =? cn) bs) (cn ++ ": not found");;
@@ -205,7 +156,7 @@ Module InterpreterEnvList.
     let arity_len := nparam + (length arity) in
     if (Nat.eqb ctr_len pt_len) then
       if (Nat.eqb ctr_len arity_len) then
-        (* first [nparam] elements in the [constr_args] are types, so we don't match them *)
+        (* NOTE: first [nparam] elements in the [constr_args] are types, so we don't match them *)
         let args := skipn nparam constr_args in
         let assignments := combine p.(pVars) args in
         Ok (assignments,e)
@@ -221,6 +172,7 @@ Module InterpreterEnvList.
     | _ => None
     end.
 
+  (** Some machinery to substitute type during the evaluation. Although we don't care about the type during evaluation, we need the types later. *)
   Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
     match ty with
     | tyInd x => Some ty
@@ -245,6 +197,7 @@ Module InterpreterEnvList.
       Some (tyArr ty1' ty2')
     end.
 
+  (** The same as [eval_type_i] but for named variables *)
   Fixpoint eval_type_n (ρ : env val) (ty : type) : option type :=
     match ty with
     | tyInd x => Some ty
@@ -277,6 +230,7 @@ Module InterpreterEnvList.
     end.
 
 
+  (** The interpreter works for both named and nameless representation of Oak expressions, depending on a parameter [named]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). We keep types in during evaluation, because for the soundness theorem we would have to translate values back to expression and then further to MetaCoq terms. This requires us to keep all types in place. In addition to this interpreter, we plan to implement another one which computes on terms after erasure of typing information. *)
 
   Fixpoint expr_eval_general (fuel : nat) (named : bool) (Σ : global_env)
            (ρ : env val) (e : expr) : res val :=

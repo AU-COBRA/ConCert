@@ -11,7 +11,7 @@ Import BaseTypes.
 Import StdLib.
 Open Scope list.
 
-(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contarct developer. *)
+(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
 Section Maps.
   Open Scope nat.
@@ -112,7 +112,7 @@ Notation "'cur_time' a" := [| {eConst "_cur_time"} {a} |]
 
 Module CrowdfundingContract.
 
-  (** Note that we define the deep embedidng of the data structures an  programs (AST) using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. The idea is that the corresponding ASTs will be produced from the real Oak programs by means of printing the fully annotated syntax in terms of the constructors of the inductive type [Ast.expr] *)
+  (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. The idea is that the corresponding ASTs will be produced from the real Oak programs by means of printing the fully annotated abstract syntax trees build from constructors of the inductive type [Ast.expr] *)
 
   (** Brackets like [\ \] delimit the scope of global definitions and like [| |] the scope of programs *)
 

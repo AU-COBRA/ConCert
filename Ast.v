@@ -1,3 +1,4 @@
+(** * AST and translation of Oak to MetaCoq supporting polymorphism *)
 Require Template.All.
 
 Require Import Bool.
@@ -17,7 +18,7 @@ Import MonadNotation.
 
 Module TC := Template.Ast.
 
-(* Aliases *)
+(** Aliases *)
 Definition name := string.
 Definition inductive := string.
 
@@ -39,16 +40,11 @@ Fixpoint ctor_type_to_list_anon (ty : type) : list (TC.name * type) :=
 
 Record pat := pConstr {pName : name; pVars : list name}.
 
-(** Type of language expressions. Corresponds to "core" Oak AST *)
+(** ** Oak AST *)
 
-(* NOTE: we have both named variables and de Bruijn indices.
-   Translation to Template Coq requires indices, while named representation
-   is what we get from real Oak programs.
-   We can define relations on type of expressions ensuring that either
-   names are used, or indices, but not both at the same time.
+(** We have both named variables and de Bruijn indices.  Translation to Meta Coq requires indices, while named representation is what we might get from the integration API. We can define relations on type of expressions ensuring that either names are used, or indices, but not both at the same time. *)
 
-   Type annotations are required for the translation to Template Coq.
- *)
+(** Note also that AST must be explicitly annotated with types. This is required for the translation to Meta Coq. *)
 Inductive expr : Set :=
 | eRel       : nat -> expr (*de Bruijn index *)
 | eVar       : name -> expr (* named variables *)
@@ -58,7 +54,7 @@ Inductive expr : Set :=
 | eApp       : expr -> expr -> expr
 | eConstr    : inductive -> name -> expr
 | eConst     : name -> expr
-| eCase      : (type * nat) (* # of parameters *) ->
+| eCase      : (type * nat) (* type of discriminee and number of parameters *) ->
                type ->
                expr (* discriminee *) ->
                list (pat * expr) (* branches *) ->
@@ -67,7 +63,7 @@ Inductive expr : Set :=
                type (* of the arg *) -> type (* return type *) -> expr (* body *) -> expr
 | eTy        : type -> expr.
 
-(* An induction principle that takes into account nested occurrences of expressions
+(** An induction principle that takes into account nested occurrences of expressions
    in the list of branches for [eCase] *)
 Definition expr_ind_case (P : expr -> Prop)
            (Hrel    : forall n : nat, P (eRel n))
@@ -126,7 +122,7 @@ Definition vars_to_apps acc vs :=
 
 Definition constr := (string * list (TC.name * type))%type.
 
-(* Could be extended to handle declaration of constant, e.g. function definitions *)
+(** Global declarations. Will be extended to handle declaration of constant, e.g. function definitions *)
 Inductive global_dec :=
 | gdInd : name
           -> nat (* num of params *)
@@ -136,10 +132,6 @@ Inductive global_dec :=
 
 
 Definition global_env := list global_dec.
-
-(* Associates names of types and constants of our language to the corresponding names in Coq *)
-Definition translation_table := list (name * name).
-
 
 Fixpoint lookup {A} (l : list (string * A)) key : option A :=
   match l with
@@ -153,6 +145,7 @@ Fixpoint lookup_global ( Σ : global_env) key : option global_dec :=
   | gdInd key' n v r :: xs => if eq_string key' key then Some (gdInd key' n v r) else lookup_global xs key
   end.
 
+(** Looks up for the given inductive by name and if succeeds, returns a list of constructors with corresponding arities *)
 Definition resolve_inductive (Σ : global_env) (ind_name : ident)
   : option (nat * list constr) :=
   match (lookup_global Σ ind_name) with
@@ -162,8 +155,7 @@ Definition resolve_inductive (Σ : global_env) (ind_name : ident)
 
 Definition remove_proj (c : constr) := map snd (snd c).
 
-(* Resolves the constructor name to a corresponding position in the list of constructors along
-   with the constructor info *)
+(** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor arity *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ident)
   : option (nat * list type)  :=
   match (resolve_inductive Σ ind_name) with
@@ -180,8 +172,7 @@ Definition from_option {A : Type} ( o : option A) (default : A) :=
 Definition bump_indices (l : list (name * nat)) (n : nat) :=
   map (fun '(x,y) => (x, n+y)) l.
 
-(* For a list of vars returns a list of pairs (var,number)
-where the number is a position of the var counted from the end of the list.
+(** For a list of vars returns a list of pairs (var,number) where the number is a position of the var counted from the end of the list.
  E.g. number_vars ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)] *)
 Definition number_vars (i : nat) (ns : list name) : list (name * nat) :=
   combine ns (rev (seq i (length ns + i))).
@@ -189,6 +180,7 @@ Definition number_vars (i : nat) (ns : list name) : list (name * nat) :=
 Example number_vars_xyz : number_vars 0 ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)].
 Proof. reflexivity. Qed.
 
+(** Converting variable names to De Bruijn indices in types *)
 Fixpoint indexify_type (l : list (name * nat)) (ty : type) : type :=
   match ty with
   | tyInd i => tyInd i
@@ -208,12 +200,13 @@ Fixpoint indexify_type (l : list (name * nat)) (ty : type) : type :=
     tyArr (indexify_type l ty1) (indexify_type (bump_indices l 1) ty2)
   end.
 
+(** Converting variable names to De Bruijn indices *)
 Fixpoint indexify (l : list (name * nat)) (e : expr) : expr :=
   match e with
   | eRel i => eRel i
   | eVar nm =>
     match (lookup l nm) with
-    | None => (* FIXME: a hack to make the function total *)
+    | None => (* NOTE: a workaround to make the function total *)
       eVar ("not a closed term")
     | Some v => eRel v
     end
@@ -236,12 +229,13 @@ Fixpoint indexify (l : list (name * nat)) (e : expr) : expr :=
     let l' := ((nm,1) :: (vn,0) :: bump_indices l 2) in
     (* NOTE: indexifying types is not a very good abstraction anymore.
        [ty2] is needed in the translation in 2 places with different indices,
-       so we have to lift the indices in the translation again*)
+       so we have to lift the indices in the translation again *)
     let l'' := bump_indices l 1 in
     eFix nm vn (indexify_type l ty1) (indexify_type l'' ty2) (indexify l' b)
-  | eTy ty => eTy (indexify_type l ty) (* TODO : do we want to convert to the nameless repr here? *)
+  | eTy ty => eTy (indexify_type l ty)
   end.
 
+(** Translation of types to MetaCoq terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd i 0) []
@@ -276,9 +270,7 @@ Fixpoint pat_to_elam (tys : list (name * type)) (body : expr) : expr :=
   | (n,ty) :: tys' => eLambda n ty (pat_to_elam tys' body)
   end.
 
-(* Resolves a pattern by looking up in the global environment
-   and returns an index of the consrutor in the list of contrutors for the given iductive and
-   a list of pairs mapping pattern variable names to the types of the constructor arguments *)
+(** Resolves a pattern by looking up in the global environment and returns an index of the constructor in the list of constructors for the given inductive and a list of pairs mapping pattern variable names to the types of the constructor arguments *)
 Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat * list (name * type) :=
   (* NOTE: in lookup failed we return a dummy value [(0,("",[]))]
      to make the function total *)
@@ -286,6 +278,7 @@ Definition resolve_pat_arity (Σ : global_env) (ind_name : name) (p : pat) : nat
   let (i, nm_tys) := from_option o_ci (0,[]) in
   (i, combine p.(pVars) nm_tys).
 
+(** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
 Definition trans_branch (params : list type)(bs : list (pat * term))
            (c : constr) :=
   let nm  := fst c in
@@ -317,6 +310,7 @@ Fixpoint decompose_inductive (ty : type) : option (name * list type) :=
   end.
 
 
+(** ** Translation of Oak to MetaCoq *)
 
 Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   fix expr_to_term e :=
@@ -352,6 +346,11 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eTy ty => type_to_term ty
   end.
 
+
+(** * Translating inductives *)
+
+(** Note that there is no support for parameterised inductives so far. *)
+
 Definition mkArrows_rec (ind_name : name)  :=
   fix rec (n : nat) (proj_tys : list (Template.Ast.name * type)) :=
   match proj_tys with
@@ -366,17 +365,6 @@ Definition mkArrows_rec (ind_name : name)  :=
 
 Definition mkArrows indn := mkArrows_rec indn 0.
 
-Compute mkArrows "Nat"
-        ([(nAnon, tyInd "Nat"); (nAnon,tyInd "Bool"); (nAnon,tyInd "Nat")]).
-
-Inductive blahh (A B : Set) :=
-| bctor : A -> A -> blahh A B.
-
-
-Quote Recursively Definition nat_syn := nat.
-Quote Recursively Definition list_syn := list.
-Quote Recursively Definition b_syn := blahh.
-
 Definition trans_one_constr (ind_name : name) (c : constr) : term :=
   let (ctor_name, tys) := c in mkArrows ind_name tys.
 
@@ -388,7 +376,6 @@ Fixpoint gen_params n := match n with
                                   (tSort Universe.type0)]
                          end.
 
-(** Translating global declaration, e.g. inductives *)
 Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
   match gd with
   | gdInd nm nparam cs r =>
@@ -408,6 +395,8 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
   end.
 
 
+(** A "library" of data types available by default *)
+
 Module BaseTypes.
   Definition Nat_name := "Coq.Init.Datatypes.nat".
   Definition Nat := Nat_name.
@@ -420,6 +409,11 @@ Module BaseTypes.
 End BaseTypes.
 
 Import BaseTypes.
+
+(** ** Notations for the deep embeding *)
+
+
+(** Here we use "custom entries" - a new feature of Coq allowing to define autonomous grammars *)
 
 Open Scope list.
 
@@ -469,6 +463,7 @@ Notation " ctor : ty " := (ctor, removelast (ctor_type_to_list_anon ty))
                               ctor constr at level 4,
                               ty custom type at level 4).
 
+(** Unfortunately there are some problems with recursive notations (might go away after the next stable release - 8.10.). So,there are several variants of [data], [record], [case] for different number of cases below *)
 
 
 (* NOTE: couldn't make this work with the recursive notation *)
@@ -624,9 +619,6 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
 (*                          (in custom pat at level 1, *)
 (*                              x constr at level 4, *)
 (*                              y constr at level 4). *)
-
-(* Could not make recursive notation work, so below, there are several variants
-   of [case] for different number of cases *)
 
 (* Notation "'case' x : ty 'of'  b1 | .. | bn " := *)
 (*   (eCase (ty,0) (tyInd "") x (cons b1 .. (cons bn nil) ..)) *)
@@ -846,90 +838,3 @@ Section Examples.
 
 
 End Examples.
-
-
-Module Psubst.
-  Definition psubst {A} := nat -> A.
-
-  Definition id_subst : psubst := fun i => eRel i.
-  Definition subst_cons {A} (e : A) (σ : psubst) : psubst :=
-    fun i => if Nat.eqb i 0 then e else σ (i-1).
-
-  Notation ids := id_subst.
-  Notation "↑" := plus.
-  Notation "e ⋅ σ" := (subst_cons e σ) (at level 50).
-
-  Import Basics.
-  Open Scope program_scope.
-
-  Fixpoint erename (r : nat -> nat) (e : expr) : expr :=
-    match e with
-    | eRel i => eRel (r i)
-    | eVar nm  => eVar nm
-    | eLambda nm ty b => eLambda nm ty (erename (↑1 ∘ r) b)
-    | eTyLam nm b => eTyLam nm (erename (↑1 ∘ r) b)
-    | eLetIn nm e1 ty e2 => eLetIn nm (erename r e1) ty (erename r e2)
-    | eApp e1 e2 => eApp (erename r e1) (erename r e2)
-    | eConstr t i as e' => e'
-    | eConst nm => eConst nm
-    | eCase nm_i ty e bs =>
-      eCase nm_i ty (erename r e)
-            (map (fun x =>
-                    let k := length (fst x).(pVars) in
-                    (fst x, erename (↑k ∘ r) (snd x))) bs)
-    | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (erename (↑2 ∘ r) b)
-    | eTy _ => e (* should we do something here? *)
-    end.
-
-  Definition up (σ : psubst) := ids 0 ⋅ (erename (↑1) ∘ σ).
-
-  Fixpoint up_k (k : nat) (σ : psubst) :=
-    match k with
-    | O => σ
-    | S k' => up (up_k k' σ)
-    end.
-
-  Import FunctionalExtensionality.
-  Import Lia.
-
-  Lemma up_k_eq_id k σ :
-    forall i,
-    i < k ->
-    up_k k σ i = ids i.
-  Proof.
-    induction k;intros i H.
-    + inversion H.
-    + simpl.
-      destruct i. reflexivity.
-      unfold up,subst_cons,compose. simpl.
-      replace (i-0) with i by lia.
-      rewrite IHk by lia. reflexivity.
-  Qed.
-
-  Reserved Notation "e .[ σ ]" (at level 0).
-
-  Fixpoint apply_subst (σ : psubst) (e : expr) : expr :=
-    match e with
-    | eRel i => σ i
-    | eVar nm  => eVar nm
-    | eLambda nm ty b => eLambda nm ty (b .[up σ])
-    | eTyLam nm b => eTyLam nm (b .[up σ])
-    | eLetIn nm e1 ty e2 => eLetIn nm (e1 .[σ]) ty (e2 .[up σ])
-    | eApp e1 e2 => eApp (e1 .[σ]) (e2 .[σ])
-    | eConstr t i as e' => e'
-    | eConst nm => eConst nm
-    | eCase nm_i ty e bs =>
-      eCase nm_i ty (e .[σ])
-            (map (fun x => (fst x, (snd x) .[up_k (length (fst x).(pVars)) σ])) bs)
-    | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (b .[up_k 2 σ])
-    | eTy ty => eTy ty
-  end
-  where "e .[ σ ]" := (apply_subst σ e).
-
-  Fixpoint lsubst (l : list expr) : psubst :=
-    match l with
-    | [] => ids
-    | e :: l' => e ⋅ (lsubst l')
-    end.
-
-End Psubst.
