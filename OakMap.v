@@ -27,9 +27,9 @@ Fixpoint mkNames (ns : list string) (postfix : string) :=
                   mkNames ns' postfix
   end.
 
-(** ** Data structures for finite maps *)
+(** ** The deep embedding of data structures for finite maps *)
 
-(** Eventually, these data structures will be just translations from Oak. *)
+(** Eventually, the ASTs for these data structures will be produced directly from the standard library of Oak. *)
 
 (** We generate names for inductives and constructors *)
 Run TemplateProgram
@@ -140,7 +140,7 @@ Make Definition add_map := Eval compute in (expr_to_term Σ' (indexify [] add_ma
 (** Since Coq's [FMap] is a module, we fix the type of keys to be [nat] *)
 Module NatMap := FMapWeakList.Make Nat_as_OT.
 
-(** Conversion fucntion from our type of finite maps to the one in the standard library *)
+(** Conversion function from our type of finite maps to the one in the standard library *)
 Fixpoint from_amap {A} (m : MapOak nat A) : NatMap.Raw.t A :=
   match m with
   | MNilOak _ _ => []
@@ -193,7 +193,7 @@ Section MapEval.
     induction n;intros m; now destruct m.
   Qed.
 
-  (** The syntactic representation of the follwing map [1 ~> 1; 0 ~> 0] *)
+  (** The syntactic representation of the following map [1 ~> 1; 0 ~> 0] *)
   Definition aMap :=
     [| MCons {tyNat} {tyNat} 1 1 (MCons {tyNat} {tyNat} 0 0 (MNil {tyNat} {tyNat})) |].
 
