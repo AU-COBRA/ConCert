@@ -317,14 +317,16 @@ Lemma app2 t t1 t2 v Σ (Γ := []):
 Proof.
   intros H.
   eapply WcbvEval.eval_beta.
-  * inversion H;subst;tryfalse.
-    ** destruct (b {0 := a'}) eqn:Hb;simpl;tryfalse.
+  + inversion H;subst;tryfalse.
+    * destruct (isApp (b {0 := a'})) eqn:Hb.
+      ** admit.
+      ** rewrite mkApps_tApp in H6.
+         inversion H6;subst;clear H6.
+         *** admit.
   (* revert t1 t2 v. *)
   (* induction t using Induction.term_forall_list_ind;intros t1' t2' v He. *)
   (* + inversion He;subst. *)
 Admitted.
-
-Quote Definition nested_app := ((fun x y => y) 0 0).
 
 Definition TCNat :=
   (tInd (mkInd "Coq.Init.Datatypes.nat" 0 ) []).
@@ -346,6 +348,23 @@ Proof.
   + repeat constructor.
   + simpl. constructor. reflexivity.
 Qed.
+
+Inductive OneConstr :=
+  TwoArgs : nat -> nat -> OneConstr.
+
+Definition nested_app_constr :=
+  tApp (tApp (tConstruct (mkInd "OneConstr" 0) 0 []) [TCZero]) [TCZero].
+
+Lemma derive_nested_constr_app Σ Γ :
+  Σ ;;; Γ |- nested_app_constr ⇓ (tApp (tConstruct (mkInd "OneConstr" 0) 0 []) [TCZero;TCZero]).
+Proof.
+  eapply WcbvEval.eval_app_constr with (l' := [TCZero;TCZero]).
+  + intros H;easy.
+  + (* eapply WcbvEval.eval_app_constr. *)
+    (* it's not possible to build a derivation for the nested constructor application,
+       since the [WcbvEval.eval_app_constr] rule expects that there are no nested applications *)
+Abort.
+
 
 (** ** The issue with mkApps *)
 
