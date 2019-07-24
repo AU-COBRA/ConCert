@@ -6,6 +6,7 @@ Require Import PeanoNat.
 Require PCUIC.PCUICWcbvEval.
 From PCUIC Require Import PCUICAst PCUICLiftSubst PCUICTyping PCUICClosed
      PCUICLiftSubst.
+Require PCUICWcbvEvalAlt.
 
 Require Import String List Basics.
 
@@ -23,9 +24,43 @@ Import Lia.
 
 Module P := PCUICAst.
 Module Pcbv := PCUICWcbvEval.
+Module PcbvAlt := PCUICWcbvEvalAlt.
 
 Notation "Σ ;;; Γ |- t1 ⇓ t2 " := (Pcbv.eval Σ Γ t1 t2) (at level 50).
+Notation "Σ ;;; Γ |- t1 ⟱ t2 " := (PcbvAlt.eval Σ Γ t1 t2) (at level 50).
 Notation "T⟦ e ⟧ Σ " := (expr_to_pcuic Σ e) (at level 49).
+
+Inductive blah :=
+  Blah : nat -> nat -> blah.
+
+Compute ((fun x : nat => Blah x) 0 0).
+
+Definition ty_blah := BasicAst.mkInd "blah" 0.
+
+Definition Zero := tConstruct (BasicAst.mkInd "nat" 0) 0 [].
+
+Example PCUICWcbvEval_app Σ Γ :
+  Σ ;;; Γ |-
+mkApps (tLambda (BasicAst.nNamed "x") (tInd ty_blah []) (tApp (tConstruct ty_blah 0 []) (tRel 0))) [Zero;Zero] ⇓ mkApps (tConstruct ty_blah 0 []) [Zero;Zero].
+Proof.
+  eapply Pcbv.eval_app_constr.
+  (* stuck! *)
+Abort.
+
+Definition VZero := PcbvAlt.vpConstruct (BasicAst.mkInd "nat" 0) 0 [] [].
+
+Example PCUICWcbvEval_app Σ Γ :
+  Σ ;;; Γ |-
+mkApps (tLambda (BasicAst.nNamed "x") (tInd ty_blah []) (tApp (tConstruct ty_blah 0 []) (tRel 0))) [Zero;Zero] ⟱ PcbvAlt.vpConstruct ty_blah 0 [] [VZero;VZero].
+Proof.
+  change [VZero;VZero] with ([VZero] ++ [VZero]).
+  eapply PcbvAlt.eval_app_constr.
+  + eapply PcbvAlt.eval_beta. econstructor.
+    econstructor. cbn.
+    change [VZero] with ([] ++ [VZero]).
+    eapply PcbvAlt.eval_app_constr;econstructor.
+  + econstructor.
+Qed.
 
 Tactic Notation "simpl_vars_to_apps" "in" ident(H) :=
   simpl in H;try rewrite map_app in H; simpl in H;
