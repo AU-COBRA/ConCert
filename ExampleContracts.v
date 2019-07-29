@@ -1,4 +1,7 @@
-(** * Examples  *)
+(** * Contract examples  *)
+
+(** We develop some blockchain infrastructure relevant for the contract execution (a fragment of the standard library and an execution context). With that, we develop a deep embedding of a crowdfunding contract and prove some of its properties using the corresponding shallow embedding *)
+
 Require Import String.
 Require Import Ast CustomTactics.
 Require Import List.
@@ -114,7 +117,7 @@ Module CrowdfundingContract.
 
   (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. The idea is that the corresponding ASTs will be produced from the real Oak programs by means of printing the fully annotated abstract syntax trees build from constructors of the inductive type [Ast.expr] *)
 
-  (** Brackets like [\ \] delimit the scope of global definitions and like [| |] the scope of programs *)
+   (** Brackets like [[\ \]] delimit the scope of global definitions and like [[| |]] the scope of programs *)
 
   (** We model types of addresses and currency by [nat] type of Coq *)
   Notation Address := Nat.
@@ -141,7 +144,7 @@ Module CrowdfundingContract.
          done : Bool;
          goal : Money } \].
 
-  (** We can print actual AST by swithing off the notations *)
+  (** We can print actual AST by switching off the notations *)
 
   Unset Printing Notations.
 
@@ -272,7 +275,7 @@ Module CrowdfundingContract.
   Import Notations.
 
 
-  (** Generating string constants for varable names *)
+  (** Generating string constants for variable names *)
 
   Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";
                                 "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
@@ -361,8 +364,6 @@ reached within a deadline *)
     simpl.
     intros Hsender Hmsg Hfunded Hlook Hcall.
     subst;simpl in *.  inv_andb Hfunded.
-    (* direct rewriting with [Hlook] or [Hgoal] cannot unify terms
-       in Hcall for some reason, but destruct with underscores works *)
     destruct (_ && _)%bool;tryfalse.
     destruct (lookup_map _ _);tryfalse; inversion Hlook;subst;clear Hlook.
     split.
@@ -456,9 +457,9 @@ reached within a deadline *)
       * simpl in *. rewrite IHm;auto. lia.
   Qed.
 
-  (** The contract does no leak funds: the oveall balance before the deadline is always equal to the sum of individual donations *)
+  (** The contract does no leak funds: the overall balance before the deadline is always equal to the sum of individual donations *)
 
-  Lemma contract_baked
+  Lemma contract_backed
     (init_state final_state: State_coq)
         CallCtx msg out_tx :
     (* pre-condition *)
@@ -503,8 +504,8 @@ reached within a deadline *)
 
     (* post-condition *)
     out_tx = Transfer_coq init_state.(balance_coq) OwnerAddr (* the money are sent back *) /\
-    final_state.(balance_coq) = 0 /\
-    final_state.(done_coq) = true.
+    final_state.(balance_coq) = 0 (* set balance to 0 after withdrawing by the owner *) /\
+    final_state.(done_coq) = true (* set the "done" flag *).
   Proof.
     intros Hown Hfund Hmsg Hcall. unfold funded,deadline_passed in *. subst. simpl in *.
     destruct (_ <? _);tryfalse. destruct ( _ =? _);tryfalse. simpl in *.
@@ -512,6 +513,27 @@ reached within a deadline *)
     inversion Hcall. easy.
   Qed.
 
+  (** Backers cannot claim their money if the campaign have succeed (but owner haven't claimed the money yet) *)
+  Lemma no_claim_if_succeeded (init_state final_state: State_coq) CallCtx
+        msg :
+    (* pre-condition *)
+    funded CallCtx.(_cur_time) init_state = true ->
+    init_state.(done_coq) = false ->
+    msg = Claim_coq ->
+
+    entry CallCtx init_state msg = Error_coq.
+  Proof.
+    intros Hfunded Hdone Hmsg.
+    destruct init_state as [i_balance i_dons i_own i_dl i_done i_goal].
+    destruct CallCtx as [from c_addr am now]. simpl in *.
+    unfold funded,deadline_passed,goal_reached in *. subst. simpl in *.
+    destruct (_ <? _);tryfalse. destruct (_ <=? _) eqn:Hleb;tryfalse.
+    replace (i_balance <? i_goal) with false by
+        (symmetry;rewrite Nat.ltb_ge in *; rewrite Nat.leb_le in *;lia).
+    now simpl.
+  Qed.
+
+  (** Backers cannot claim their money if the contract is marked as "done" *)
   Lemma no_claim_after_done (init_state final_state: State_coq) CallCtx
         msg :
     (* pre-condition *)
