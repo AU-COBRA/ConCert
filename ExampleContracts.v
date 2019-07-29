@@ -122,7 +122,7 @@ Module CrowdfundingContract.
 
   (** Generating names for the data structures  *)
   Run TemplateProgram
-      (mkNames ["State" ; "balance" ; "donations" ; "owner"; "deadline"; "goal";
+      (mkNames ["State" ; "balance" ; "donations" ; "owner"; "deadline"; "goal"; "done";
                 "Result" ; "Res" ; "Error";
                 "Msg"; "Donate"; "GetFunds"; "Claim";
                 "Action"; "Transfer"; "Empty" ] "_coq").
@@ -138,6 +138,7 @@ Module CrowdfundingContract.
          donations : Map;
          owner : Money;
          deadline : Nat;
+         done : Bool;
          goal : Money } \].
 
   (** We can print actual AST by swithing off the notations *)
@@ -222,6 +223,9 @@ Module CrowdfundingContract.
     Notation "'goal' a" :=
       [| {eConst goal} {a} |]
         (in custom expr at level 0).
+    Notation "'done' a" :=
+      [| {eConst done} {a} |]
+        (in custom expr at level 0).
 
 
     (** Constructors *)
@@ -271,9 +275,9 @@ Module CrowdfundingContract.
   (** Generating string constants for varable names *)
 
   Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";
-                                "tx_amount"; "bal"; "sender"; "own";
+                                "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                                 "accs"; "now";
-                                  "newstate"; "newmap"; "cond"] "").
+                                 "newstate"; "newmap"; "cond"] "").
   (** A shortcut for [if .. then .. else ..]  *)
   Notation "'if' cond 'then' b1 'else' b2 : ty" :=
     (eCase (tyInd Bool,0) (tyInd ty) cond
@@ -296,22 +300,23 @@ Module CrowdfundingContract.
          case m : Msg return Result of
             | GetFunds ->
              if (own == sender) && (deadline s < now) && (goal s <= bal)  then
-               Res (mkState 0 accs own (deadline s) (goal s)) (Transfer bal sender)
+               Res (mkState 0 accs own (deadline s) True (goal s))
+                   (Transfer bal sender)
              else Error : Result
            | Donate -> if now <= deadline s then
              (case (mfind accs sender) : Maybe return Result of
                | Just v ->
                  let newmap : Map := madd sender (v + tx_amount) accs in
-                 Res (mkState (tx_amount + bal) newmap own (deadline s) (goal s)) Empty
+                 Res (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s)) Empty
                | Nothing ->
                  let newmap : Map := madd sender tx_amount accs in
-                 Res (mkState (tx_amount + bal) newmap own (deadline s) (goal s)) Empty)
+                 Res (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s)) Empty)
                else Error : Result
            | Claim ->
-             if (deadline s < now) && (bal < goal s) then
+             if (deadline s < now) && (bal < goal s) && (~ done s) then
              (case (mfind accs sender) : Maybe return Result of
               | Just v -> let newmap : Map := madd sender 0 accs in
-                  Res (mkState (bal-v) newmap own (deadline s) (goal s))
+                  Res (mkState (bal-v) newmap own (deadline s) (done s) (goal s))
                       (Transfer v sender)
                | Nothing -> Error)
               else Error : Result
@@ -498,7 +503,8 @@ reached within a deadline *)
 
     (* post-condition *)
     out_tx = Transfer_coq init_state.(balance_coq) OwnerAddr (* the money are sent back *) /\
-    final_state.(balance_coq) = 0.
+    final_state.(balance_coq) = 0 /\
+    final_state.(done_coq) = true.
   Proof.
     intros Hown Hfund Hmsg Hcall. unfold funded,deadline_passed in *. subst. simpl in *.
     destruct (_ <? _);tryfalse. destruct ( _ =? _);tryfalse. simpl in *.
@@ -506,4 +512,15 @@ reached within a deadline *)
     inversion Hcall. easy.
   Qed.
 
+  Lemma no_claim_after_done (init_state final_state: State_coq) CallCtx
+        msg :
+    (* pre-condition *)
+    init_state.(done_coq) = true ->
+    msg = Claim_coq ->
+
+    entry CallCtx init_state msg = Error_coq.
+  Proof.
+    intros Hdone Hmsg. subst. simpl in *. destruct (done_coq _);tryfalse. simpl in *.
+    now rewrite Bool.andb_false_r.
+  Qed.
 End CrowdfundingContract.

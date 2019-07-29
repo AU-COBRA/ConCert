@@ -75,11 +75,11 @@ Generation of string constants using MetaCoq
 </div>
 
 <div class="doc">
-<a name="lab22"></a><h2 class="section">Data structures for finite maps</h2>
+<a name="lab22"></a><h2 class="section">The deep embedding of data structures for finite maps</h2>
 
 <div class="paragraph"> </div>
 
- Eventually, these data structures will be just translations from Oak. 
+ Eventually, the ASTs for these data structures will be produced directly from the standard library of Oak. 
 <div class="paragraph"> </div>
 
  We generate names for inductives and constructors 
@@ -269,7 +269,7 @@ AST for a function that adds an element to a map
 </div>
 
 <div class="doc">
-Conversion fucntion from our type of finite maps to the one in the standard library 
+Conversion function from our type of finite maps to the one in the standard library 
 </div>
 <div class="code">
 <span class="id" title="keyword">Fixpoint</span> <a name="from_amap"><span class="id" title="definition">from_amap</span></a> {<span class="id" title="var">A</span>} (<span class="id" title="var">m</span> : <a class="idref" href="OakMap.html#MapOak"><span class="id" title="inductive">MapOak</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.10+alpha/stdlib//Coq.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="OakMap.html#A"><span class="id" title="variable">A</span></a>) : <a class="idref" href="OakMap.html#t"><span class="id" title="definition">NatMap.Raw.t</span></a> <a class="idref" href="OakMap.html#A"><span class="id" title="variable">A</span></a> :=<br/>
@@ -358,7 +358,7 @@ Showing that Oak boolean equality is in fact the same as <span class="inlinecode
 </div>
 
 <div class="doc">
-The syntactic representation of the follwing map <span class="inlinecode">1</span> <span class="inlinecode">~&gt;</span> <span class="inlinecode">1;</span> <span class="inlinecode">0</span> <span class="inlinecode">~&gt;</span> <span class="inlinecode">0</span> 
+The syntactic representation of the following map <span class="inlinecode">1</span> <span class="inlinecode">~&gt;</span> <span class="inlinecode">1;</span> <span class="inlinecode">0</span> <span class="inlinecode">~&gt;</span> <span class="inlinecode">0</span> 
 </div>
 <div class="code">
 &nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a name="aMap"><span class="id" title="definition">aMap</span></a> :=<br/>

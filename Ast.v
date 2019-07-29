@@ -615,6 +615,26 @@ Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; p
         ty4 custom type at level 4,
         ty5 custom type at level 4).
 
+Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 ; pr6 : ty6 }" :=
+  (gdInd rec_nm 0
+         [ rec_constr rec_nm [(nNamed pr1,ty1);(nNamed pr2,ty2);
+                                (nNamed pr3,ty3);(nNamed pr4,ty4);
+                                  (nNamed pr5,ty5);(nNamed pr6,ty6)]] true)
+    (in custom global_dec at level 1,
+        rec_nm constr at level 4,
+        pr1 constr at level 4,
+        pr2 constr at level 4,
+        pr3 constr at level 4,
+        pr4 constr at level 4,
+        pr5 constr at level 4,
+        pr6 constr at level 4,
+        ty1 custom type at level 4,
+        ty2 custom type at level 4,
+        ty3 custom type at level 4,
+        ty4 custom type at level 4,
+        ty5 custom type at level 4,
+        ty6 custom type at level 4).
+
 
 Notation "[| e |]" := e (e custom expr at level 2).
 Notation "^ i " := (eRel i) (in custom expr at level 3, i constr at level 4).
@@ -741,6 +761,8 @@ Module StdLib.
                         x constr at level 4).
 
   Notation "a && b" := [| {eConst "andb"} {a} {b} |]
+                         (in custom expr at level 0).
+  Notation "~ a" := [| {eConst "negb"} {a} |]
                         (in custom expr at level 0).
 
   Definition true_name := "true".
