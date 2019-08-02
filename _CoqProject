@@ -6,5 +6,6 @@
 ./Demo.v
 ./ExampleContracts.v
 ./OakMap.v
+./AcornExamples.v
 # ./Facts.v
 # ./Correctness.v
