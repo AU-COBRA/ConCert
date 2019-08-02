@@ -358,7 +358,7 @@ reached within a deadline *)
     -> entry CallCtx init_state msg = Res_coq final_state out_tx
 
     (* post-condition *)
-    -> out_tx = Transfer_coq v sender (* the money are sent back *)
+    -> out_tx = Transfer_coq v sender (* sending the corresponding amount back *)
       /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of the sender put to zero *)
   Proof.
     simpl.
