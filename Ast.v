@@ -235,6 +235,52 @@ Fixpoint indexify (l : list (name * nat)) (e : expr) : expr :=
   | eTy ty => eTy (indexify_type l ty)
   end.
 
+Fixpoint lift_type_vars (n k : nat) (ty : type) : type :=
+  match ty with
+  | tyInd nm => tyInd nm
+  | tyForall nm ty => tyForall nm (lift_type_vars n (1+k) ty)
+  | tyVar nm => tyVar nm
+  | tyRel i => if Nat.leb k i then tyRel (n + i) else tyRel i
+  | tyApp ty1 ty2 =>
+    tyApp (lift_type_vars n k ty1) (lift_type_vars n k ty2)
+  | tyArr ty1 ty2 =>
+    (* NOTE: we have to increment indices for the codomain,
+       since in Coq arrow also introduces a binder in a MetaCoq term.
+       So, this is purely an artifact of the translation to MetaCoq *)
+    tyArr (lift_type_vars n k ty1) (lift_type_vars n (1+k) ty2)
+  end.
+
+(** Merging De Bruijn indices of type variables corresponding to type abstractions with lambda abstractions. We assume that the expressions are in the prenex form, so type abstractions can only occur at outermost position: [\\A => \\ B=> ... \x => \y => t] *)
+Fixpoint reindexify (n : nat) (e : expr) : expr :=
+  match e with
+  | eRel i => eRel i
+  | eVar nm => eVar ("Named variables are not supported")
+  | eLambda nm ty b =>
+    eLambda nm (lift_type_vars n 0 ty) (reindexify (1+n) b)
+  | eTyLam nm b =>
+    (* we do not increment [n] since we assume prenex form *)
+    eTyLam nm (reindexify n b)
+  | eLetIn nm e1 ty e2 =>
+    eLetIn nm (reindexify n e1) (lift_type_vars n 0 ty) (reindexify (1+n) e2)
+  | eApp e1 e2 => eApp (reindexify n e1) (reindexify n e2)
+  | eConstr t i as e => e
+  | eConst nm as e => e
+  | eCase nm_i ty2 e bs =>
+    let (ty1,i) := nm_i in
+    eCase (lift_type_vars n 0 ty1,i)
+          (lift_type_vars (1+n) 0 ty2) (reindexify n e)
+          (map (fun p => (fst p, reindexify (length (fst p).(pVars) + n) (snd p))) bs)
+  | eFix nm vn ty1 ty2 b =>
+    (* NOTE: name of the fixpoint becomes an index as well *)
+    (* NOTE: indexifying types is not a very good abstraction anymore.
+       [ty2] is needed in the translation in 2 places with different indices,
+       so we have to lift the indices in the translation again *)
+    eFix nm vn (lift_type_vars n 0 ty1) (lift_type_vars (2+n) 0 ty2) (reindexify (1+n) b)
+  | eTy ty => eTy (lift_type_vars n 0 ty)
+  end.
+
+
+
 (** Translation of types to MetaCoq terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
