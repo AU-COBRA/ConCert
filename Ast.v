@@ -197,7 +197,8 @@ Fixpoint indexify_type (l : list (name * nat)) (ty : type) : type :=
     (* NOTE: we have to bump indices for the codomain,
        since in Coq arrow also introduces a binder in a MetaCoq term.
        So, this is purely an artifact of the translation to MetaCoq *)
-    tyArr (indexify_type l ty1) (indexify_type (bump_indices l 1) ty2)
+    (* tyArr (indexify_type l ty1) (indexify_type (bump_indices l 1) ty2) *)
+    tyArr (indexify_type l ty1) (indexify_type l ty2)
   end.
 
 (** Converting variable names to De Bruijn indices *)
@@ -244,13 +245,10 @@ Fixpoint lift_type_vars (n k : nat) (ty : type) : type :=
   | tyApp ty1 ty2 =>
     tyApp (lift_type_vars n k ty1) (lift_type_vars n k ty2)
   | tyArr ty1 ty2 =>
-    (* NOTE: we have to increment indices for the codomain,
-       since in Coq arrow also introduces a binder in a MetaCoq term.
-       So, this is purely an artifact of the translation to MetaCoq *)
-    tyArr (lift_type_vars n k ty1) (lift_type_vars n (1+k) ty2)
+    tyArr (lift_type_vars n k ty1) (lift_type_vars n k ty2)
   end.
 
-(** Merging De Bruijn indices of type variables corresponding to type abstractions with lambda abstractions. We assume that the expressions are in the prenex form, so type abstractions can only occur at outermost position: [\\A => \\ B=> ... \x => \y => t] *)
+(** Merging De Bruijn indices of type variables corresponding to type abstractions with lambda abstractions. We assume that the expressions are in the prenex form, so type abstractions can only occur at the outermost positions: [\\A => \\ B => ... \x => \y => t] *)
 Fixpoint reindexify (n : nat) (e : expr) : expr :=
   match e with
   | eRel i => eRel i
@@ -271,11 +269,7 @@ Fixpoint reindexify (n : nat) (e : expr) : expr :=
           (lift_type_vars (1+n) 0 ty2) (reindexify n e)
           (map (fun p => (fst p, reindexify (length (fst p).(pVars) + n) (snd p))) bs)
   | eFix nm vn ty1 ty2 b =>
-    (* NOTE: name of the fixpoint becomes an index as well *)
-    (* NOTE: indexifying types is not a very good abstraction anymore.
-       [ty2] is needed in the translation in 2 places with different indices,
-       so we have to lift the indices in the translation again *)
-    eFix nm vn (lift_type_vars n 0 ty1) (lift_type_vars (2+n) 0 ty2) (reindexify (1+n) b)
+    eFix nm vn (lift_type_vars n 0 ty1) (lift_type_vars (1+n) 0 ty2) (reindexify (2+n) b)
   | eTy ty => eTy (lift_type_vars n 0 ty)
   end.
 
@@ -288,7 +282,10 @@ Fixpoint type_to_term (ty : type) : term :=
   | tyForall nm ty => tProd (nNamed nm) (tSort Universe.type0) (type_to_term ty)
   | tyVar nm => tVar nm
   | tyApp ty1 ty2 => mkApps (type_to_term ty1) [type_to_term  ty2]
-  | tyArr ty1 ty2 => tProd nAnon (type_to_term ty1) (type_to_term ty2)
+  | tyArr ty1 ty2 =>
+    (* NOTE: we have to lift indices for the codomain,
+       since in Coq arrows are Pi types and introduce an binder *)
+    tProd nAnon (type_to_term ty1) (lift0 1 (type_to_term ty2))
   | tyRel i => tRel i
   end.
 
@@ -386,7 +383,7 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
     let tty1 := type_to_term ty1 in
     let tty2 := type_to_term ty2 in
     let ty := tProd nAnon tty1 tty2 in
-    (* NOTE: we have to lift the indices in [tty2] again, see comments in [indexify]  *)
+    (* NOTE: we have to lift the indices in [tty1] *)
     let body := tLambda (nNamed nv) (lift0 1 tty1) (expr_to_term b) in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   | eTy ty => type_to_term ty

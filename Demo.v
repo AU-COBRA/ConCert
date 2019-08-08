@@ -120,9 +120,10 @@ Make Definition factorial :=
 
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
-           case x : Nat return Nat -> Nat of
-           | Z -> \y : Nat => y
-           | Suc y -> \z : Nat => Suc ("plus" y z) |].
+       \y : Nat =>
+           case x : Nat return Nat of
+           | Z -> y
+           | Suc z -> Suc ("plus" z y) |].
 
 Make Definition my_plus := Eval compute in (expr_to_term Σ (indexify [] plus_syn)).
 
