@@ -1,5 +1,7 @@
 (* A place for various tactic used for the development*)
 
+Require Import Lia.
+
 (** * Tactics taken from the Software Foundations' LibTactics.v *)
 
 Set Implicit Arguments.
@@ -285,3 +287,18 @@ Proof. intros. subst. auto. Qed.
 (*   end. *)
 
 End equatesLemma.
+
+(** Lia hints - pretty much as for Lia *)
+Hint Extern 10 (_ = _ :>nat) => abstract lia: zarith.
+Hint Extern 10 (_ <= _) => abstract lia: zarith.
+Hint Extern 10 (_ < _) => abstract lia: zarith.
+Hint Extern 10 (_ >= _) => abstract lia: zarith.
+Hint Extern 10 (_ > _) => abstract lia: zarith.
+
+Hint Extern 10 (_ <> _ :>nat) => abstract lia: zarith.
+Hint Extern 10 (~ _ <= _) => abstract lia: zarith.
+Hint Extern 10 (~ _ < _) => abstract lia: zarith.
+Hint Extern 10 (~ _ >= _) => abstract lia: zarith.
+Hint Extern 10 (~ _ > _) => abstract lia: zarith.
+
+Hint Extern 10 False => abstract lia: zarith.

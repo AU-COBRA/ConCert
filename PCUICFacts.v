@@ -118,35 +118,39 @@ Section Values.
       pose proof (Forall_inv_tail HQ);easy.
   Qed.
 
-
-  Lemma iclosed_m_n e : forall n m, iclosed_n n e = true -> iclosed_n (n+m) e = true.
+  Lemma iclosed_n_geq e : forall n m, m >= n -> iclosed_n n e = true -> iclosed_n m e = true.
   Proof.
     intros n m.
-    revert n.
-    induction e using expr_ind_case; intros n1 H1;try inversion H1;auto.
+    revert n m.
+    induction e using expr_ind_case; intros n1 m1 Hgeq H1;try inversion H1;auto.
     + simpl in *. rewrite H1.
       leb_ltb_to_prop;lia.
-    + simpl in *. rewrite H1. replace (S (n1 + m)) with (S n1 + m) by lia.
-      easy.
+    + simpl in *. rewrite H1. eapply IHe with (n:=S n1);auto; lia.
     + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 He2].
       rewrite He1, He2. simpl.
-      replace (S (n1 + m)) with (S n1 + m) by lia.
-      now rewrite IHe1,IHe2.
+      split_andb.
+      eapply IHe1;eauto. eapply IHe2 with (n:= S n1);eauto;lia.
     + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 He2].
       rewrite He1, He2. simpl.
-      replace (S (n1 + m)) with (S n1 + m) by lia.
-      now rewrite IHe1,IHe2.
+      split_andb;eauto.
     + simpl in *. rewrite Bool.andb_true_iff in *. destruct H1 as [He1 Hforall].
-      rewrite IHe by assumption. rewrite He1. simpl. rewrite Hforall.
+      f_equal;auto.
+      erewrite IHe;eauto.
+      rewrite Hforall.
       apply forallb_Forall_iff.
       rewrite <- forallb_Forall_iff in Hforall.
       apply Forall_impl_inner with (P:= fun x => iclosed_n (#|pVars (fst x)|+n1) (snd x) = true).
       assumption.
-      eapply Forall_impl. 2: apply H. intros. simpl in *.
-      replace ((#| pVars (fst a) |) + (n1 + m)) with (#| pVars (fst a) | + n1 + m) by lia. easy.
-    + simpl in *. rewrite H1.
-      replace (S (S (n1 + m))) with (S (S n1) + m) by lia.
-      now eapply IHe.
+      eapply Forall_impl. 2: apply H.
+      intros. simpl in *.
+      eapply H0 with (n:=#|pVars (fst a)| + n1). lia. easy.
+    + simpl in *. rewrite H1. eapply IHe with (n:=S (S n1));eauto;lia.
+  Qed.
+
+  Lemma iclosed_m_n e : forall n m, iclosed_n n e = true -> iclosed_n (n+m) e = true.
+  Proof.
+    intros n m H.
+    eapply iclosed_n_geq with (n := n);eauto. lia.
   Qed.
 
   Lemma iclosed_n_0 e : forall n, iclosed_n 0 e = true -> iclosed_n n e = true.
