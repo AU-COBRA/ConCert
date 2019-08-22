@@ -276,6 +276,11 @@ Section Wcbv.
   (* NOTE : proved in the actual development *)
   Lemma value_final e : value e -> eval e e.
   Proof.
+  Admitted.
+
+  (* NOTE : WIP in the actual development *)
+  Lemma eval_deterministic {t v v'} : eval t v -> eval t v' -> v = v'.
+  Proof.
     Admitted.
 
   End Wcbv.
