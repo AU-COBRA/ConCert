@@ -220,14 +220,10 @@ Module InterpreterEnvList.
           | Ok v' => Ok v'
           | err => err
           end
-        | Ok (vClos ρ' nm (cmFix fixname) ty1 ty2 b), Ok v =>
+        | Ok (vClos ρ' nm (cmFix fixname) ty1 ty2 b), Ok (vConstr ind ctor vs) =>
           let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
-          let res := expr_eval_general n named Σ
-                                       (ρ' # [fixname ~> v_fix] # [nm ~> v]) b in
-          match res with
-          | Ok v' => Ok v'
-          | err => err
-          end
+          expr_eval_general n named Σ (ρ' # [fixname ~> v_fix] # [nm ~> vConstr ind ctor vs]) b
+        | Ok (vClos _ _ (cmFix _) _ _ _), Ok _ => EvalError "Fix should be applied to an inductive"
         | Ok (vConstr ind n vs), Ok v => Ok (vConstr ind n (List.app vs [v]))
         | EvalError msg, _ => EvalError msg
         | _, EvalError msg => EvalError msg
@@ -242,20 +238,17 @@ Module InterpreterEnvList.
       | eCase (ind,i) ty e bs =>
         match (expr_eval_general n named Σ ρ e) with
         | Ok (vConstr ind' c vs) =>
-          match resolve_constr Σ ind' c with
-          | Some (_,ci) =>
-            (* TODO : move cheking inductive names before
-               resolving the constructor *)
-            if (string_dec ind ind') then
+          if (string_dec ind ind') then
+            match resolve_constr Σ ind' c with
+            | Some (_,ci) =>
               match (match_pat c ci vs bs) with
               | Some (var_assign, v) =>
                 expr_eval_general n named Σ (List.app (rev var_assign) ρ) v
               | None => EvalError "No such constructor"
               end
-            else EvalError ("Expecting inductive " ++ ind ++
-                            " but found " ++ ind')
             | None => EvalError "No constructor or inductive found in the global envirionment"
-          end
+            end
+          else EvalError ("Expecting inductive " ++ ind ++ " but found " ++ ind')
         | Ok _ => EvalError "Discriminee should evaluate to a constructor"
         | v => v
         end

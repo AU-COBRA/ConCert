@@ -273,4 +273,9 @@ Section Wcbv.
   (*     constructor. now eapply value_values_ind. now apply aux. *)
   (* Defined. *)
 
+  (* NOTE : proved in the actual development *)
+  Lemma value_final e : value e -> eval e e.
+  Proof.
+    Admitted.
+
   End Wcbv.
