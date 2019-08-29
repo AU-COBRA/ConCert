@@ -32,9 +32,9 @@ Set Printing Notations.
 Import InterpreterEnvList.
 
 (* Execute the program using the interpreter *)
-Compute (expr_eval_n 3 Σ [] negb_app_true).
+Compute (expr_eval_n Σ 3 [] negb_app_true).
 
-Compute (expr_eval_i 3 Σ [] (indexify [] negb_app_true)).
+Compute (expr_eval_i Σ 3 [] (indexify [] negb_app_true)).
 
 
 (* Make a Coq function from the AST of the program *)
@@ -55,7 +55,7 @@ Lemma my_negb_coq_negb b :
   my_negb b = negb b.
 Proof. reflexivity. Qed.
 
-Compute (expr_eval_n 3 Σ [] my_negb_syn).
+Compute (expr_eval_n Σ 3 [] my_negb_syn).
 
 Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
 
@@ -88,7 +88,7 @@ Make Definition pred' := Eval compute in (expr_to_term Σ (indexify nil pred_syn
 
 Definition prog2 := [| Suc (Suc Z) |].
 
-Compute (expr_eval_n 3 Σ [] prog2).
+Compute (expr_eval_n Σ 3 [] prog2).
 
 Inductive blah :=
   Bar : blah -> blah -> blah
@@ -103,7 +103,7 @@ Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
-Compute (expr_eval_n 5 Σ' [] prog3).
+Compute (expr_eval_n Σ' 5 [] prog3).
 
 (* Examples of a fixpoint *)
 
@@ -139,7 +139,7 @@ Definition two :=
 Definition one_plus_one :=
   [| {plus_syn} 1 1 |].
 
-Compute (expr_eval_n 10 Σ [] [| {plus_syn} 1 1 |]).
+Compute (expr_eval_n Σ 10 [] [| {plus_syn} 1 1 |]).
 (* = Ok (vConstr "nat" "Suc" [vConstr "nat" "Suc" [vConstr "nat" "Z" []]])*)
 
 Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
@@ -151,7 +151,7 @@ Parameter bbb: bool.
 
 Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
 
-Example one_plus_one_two : expr_eval_n 10 Σ [] one_plus_one = Ok two.
+Example one_plus_one_two : expr_eval_n Σ 10 [] one_plus_one = Ok two.
 Proof. reflexivity. Qed.
 
 Definition plus_syn' :=
@@ -197,30 +197,30 @@ Definition id_rec :=
            | Suc z -> Suc ("plus" z))
    |].
 
-Compute (expr_eval_n 20 Σ [] [| {id_rec} (Suc (Suc (Suc 1))) |]).
-Compute (expr_eval_i 20 Σ [] (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |])).
+Compute (expr_eval_n Σ 20 [] [| {id_rec} (Suc (Suc (Suc 1))) |]).
+Compute (expr_eval_i Σ 20 [] (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |])).
 
 Example id_rec_named_and_indexed :
   let arg := [| Suc (Suc (Suc 1)) |] in
-  expr_eval_n 20 Σ [] [| {id_rec} {arg} |] =
-  expr_eval_i 20 Σ [] (indexify [] [| {id_rec} {arg} |]).
+  expr_eval_n Σ 20 [] [| {id_rec} {arg} |] =
+  expr_eval_i Σ 20 [] (indexify [] [| {id_rec} {arg} |]).
 Proof. reflexivity. Qed.
 
 Example plus_named_and_indexed :
   let two := [| (Suc 1)|] in
   let three := [| Suc {two} |] in
-  expr_eval_n 20 Σ [] [| ({plus_syn} {two}) {three} |] =
-  expr_eval_i 20 Σ [] (indexify [] [| ({plus_syn} {two}) {three} |]).
+  expr_eval_n Σ 20 [] [| ({plus_syn} {two}) {three} |] =
+  expr_eval_i Σ 20 [] (indexify [] [| ({plus_syn} {two}) {three} |]).
 Proof. reflexivity. Qed.
 
-Compute (expr_eval_i 10 Σ [] (indexify [] [| {plus_syn} 1 |])).
+Compute (expr_eval_i Σ 10 [] (indexify [] [| {plus_syn} 1 |])).
 
 Compute (indexify [] [| {plus_syn}|]).
-Compute (expr_eval_n 10 Σ [] [| {plus_syn} 0 |]).
+Compute (expr_eval_n Σ 10 [] [| {plus_syn} 0 |]).
 
 Definition fun_app := [| (\x : Nat => \y : Nat => y + x) Z |].
 
-Compute (expr_eval_n 10  Σ' [] fun_app).
+Compute (expr_eval_n Σ' 10 [] fun_app).
 
 
 Inductive mybool :=

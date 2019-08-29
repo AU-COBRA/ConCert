@@ -6,6 +6,8 @@ Require Import String.
 Require Import Ast CustomTactics.
 Require Import List.
 Require Import PeanoNat.
+Require Import Coq.ssr.ssrbool.
+
 Import ListNotations.
 From Template Require Import All.
 
@@ -13,6 +15,7 @@ Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
 Open Scope list.
+
 
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
@@ -335,6 +338,7 @@ Module CrowdfundingContract.
   Open Scope nat.
   Open Scope bool.
 
+  Import Lia.
 
   Definition deadline_passed now (s : State_coq) := s.(deadline_coq) <? now.
 
@@ -348,28 +352,69 @@ Module CrowdfundingContract.
   (** The donations can be paid back to the backers if the goal is not
 reached within a deadline *)
 
-  Lemma get_money_back_guarantee (init_state final_state: State_coq)
-        CallCtx  msg sender out_tx v :
+  Definition assertion (pre : State_coq -> Prop)
+             (entry : State_coq -> Msg_coq -> Result_coq )
+             (post : State_coq -> Action_coq -> Prop) :=
+    forall init, pre init -> exists fin out msg, entry init msg = Res_coq fin out /\ post fin out.
+
+    Notation "{{ P }} c {{ Q }}" := (assertion P c Q)( at level 50).
+
+    Lemma get_money_back_guarantee CallCtx (sender := CallCtx.(_ctx_from)) v:
+      (* pre-condition *)
+      {{ fun init =>
+         deadline_passed CallCtx.(_cur_time) init
+       /\ ~~ (goal_reached init)
+       /\ ~~ init.(done_coq)
+       /\ lookup_map init.(donations_coq) sender = Just_map v }}
+
+        (* contract call *)
+       (fun init m => entry CallCtx init m)
+
+       (* post-condition *)
+       {{fun fin out => lookup_map fin.(donations_coq) sender = Just_map 0
+         /\ out = Transfer_coq v sender}}.
+  Proof.
+    unfold assertion. intros init H. simpl.
+    destruct H as [Hdl [Hgoal [Hndone Hlook]]].
+    unfold deadline_passed,goal_reached in *;simpl in *.
+    eexists. eexists. exists Claim_coq. simpl.
+    assert (balance_coq init <? goal_coq init = true).
+    { unfold Nat.ltb in *.
+      unfold is_true in *. rewrite Bool.negb_true_iff in *.
+      rewrite Nat.leb_gt in *. rewrite Nat.leb_le in *. lia. }
+    repeat destruct (_ <? _);tryfalse.
+    destruct (~~ done_coq _)%bool;tryfalse.
+    destruct (lookup_map _ _);tryfalse;inversion Hlook;subst;clear Hlook.
+    repeat split;cbn. apply lookup_map_add.
+  Qed.
+
+  Lemma get_money_back_guarantee (init_state : State_coq)
+        CallCtx sender v :
     (* pre-condition *)
-    sender = CallCtx.(_ctx_from) -> msg = Claim_coq (* a sender claims the money*)
-    -> funded CallCtx.(_cur_time) init_state = true
+    sender = CallCtx.(_ctx_from)
+    -> deadline_passed CallCtx.(_cur_time) init_state
+    -> ~~ (goal_reached init_state)
+    -> ~~ init_state.(done_coq)
     -> lookup_map init_state.(donations_coq) sender = Just_map v (* the sender donated [v] *)
 
-    -> entry CallCtx init_state msg = Res_coq final_state out_tx
-
-    (* post-condition *)
-    -> out_tx = Transfer_coq v sender (* sending the corresponding amount back *)
-      /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of the sender put to zero *)
+    -> exists final_state msg,
+        entry CallCtx init_state msg =
+          Res_coq final_state (Transfer_coq v sender)
+        (* sending the corresponding amount back *)
+        /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of the sender put to zero *)
   Proof.
     simpl.
-    intros Hsender Hmsg Hfunded Hlook Hcall.
-    subst;simpl in *.  inv_andb Hfunded.
-    destruct (_ && _)%bool;tryfalse.
-    destruct (lookup_map _ _);tryfalse; inversion Hlook;subst;clear Hlook.
-    split.
-    * inversion Hcall. reflexivity.
-    * inversion Hcall. subst. simpl.
-      now rewrite lookup_map_add.
+    intros Hsender Hmsg Hdl Hgoal Hndone Hlook.
+    subst;simpl in *. unfold deadline_passed,goal_reached in *.
+    assert (balance_coq init_state <? goal_coq init_state = true).
+    { unfold Nat.ltb in *.
+      unfold is_true in *. rewrite Bool.negb_true_iff in *.
+      rewrite Nat.leb_gt in *. rewrite Nat.leb_le in *. lia. }
+    repeat destruct (_ <? _);tryfalse.
+    destruct (~~ done_coq _)%bool;tryfalse.
+    cbn. eexists.
+    destruct (lookup_map _ _);tryfalse;inversion Hlook;subst;clear Hlook.
+    repeat split;cbn. apply lookup_map_add.
   Qed.
 
 

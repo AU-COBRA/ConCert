@@ -232,82 +232,77 @@ Module InterpreterEnvList.
 
   (** The interpreter works for both named and nameless representation of Oak expressions, depending on a parameter [named]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). We keep types in during evaluation, because for the soundness theorem we would have to translate values back to expression and then further to MetaCoq terms. This requires us to keep all types in place. In addition to this interpreter, we plan to implement another one which computes on terms after erasure of typing information. *)
 
-  Fixpoint expr_eval_general (fuel : nat) (named : bool) (Σ : global_env)
-           (ρ : env val) (e : expr) : res val :=
-    match fuel with
-    | O => NotEnoughFuel
-    | S n =>
-      match e with
-      | eRel i => if named then EvalError "Indices as variables are not supported"
-                  else option_to_res (lookup_i ρ i) ("var not found")
-      | eVar nm => if named then
-                    option_to_res (ρ # (nm)) (nm ++ " - var not found")
-                  else EvalError (nm ++ " variable found, but named variables are not supported")
-      | eLambda nm ty b =>
-      (* NOTE: we pass the same type as the codomain type here
-        (because it's not needed for lambda).
-        Maybe separate costructors for lambda/fixpoint closures would be better? *)
-        Ok (vClos ρ nm cmLam ty ty b)
-      | eLetIn nm e1 ty e2 =>
-        v <- expr_eval_general n named Σ ρ e1 ;;
-        expr_eval_general n named Σ (ρ # [nm ~> v]) e2
-      | eApp e1 e2 =>
-        v2 <- expr_eval_general n named Σ ρ e2;;
-        v1 <- expr_eval_general n named Σ ρ e1;;
-        match v1,v2 with
-        | vClos ρ' nm cmLam _ _ b, v =>
-          res <- (expr_eval_general n named Σ (ρ' # [nm ~> v]) b);;
-          ret res
-        | vClos ρ' nm (cmFix fixname) ty1 ty2 b, v =>
-          let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
-          res <- expr_eval_general n named Σ (ρ' # [fixname ~> v_fix] # [nm ~> v]) b;;
-          ret res
-        | vTyClos ρ' nm b, v =>
-            res <- (expr_eval_general n named Σ (ρ' # [nm ~> v]) b);;
-            ret res
-        | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
-        | _, _ => EvalError "eApp : not a constructor or closure"
-        end
-      | eConstr ind ctor =>
-        match (resolve_constr Σ ind ctor) with
-        | Some _ => Ok (vConstr ind ctor [])
-        | _ => EvalError "No constructor or inductive found"
-        end
-      | eConst nm => todo
-      | eCase (ind,i) ty e bs =>
-        match (expr_eval_general n named Σ ρ e) with
-        | Ok (vConstr ind' c vs) =>
-          match resolve_constr Σ ind' c with
-          | Some (_,ci) =>
-            (* TODO : move cheking inductive names before
-               resolving the constructor *)
+  Definition expr_eval_general : bool ->global_env -> nat -> env val -> expr -> res val :=
+    fun named Σ =>
+      fix eval fuel ρ e :=
+      match fuel with
+      | O => NotEnoughFuel
+      | S n =>
+        match e with
+        | eRel i => if named then EvalError "Indices as variables are not supported"
+                   else option_to_res (lookup_i ρ i) ("var not found")
+        | eVar nm => if named then
+                      option_to_res (ρ # (nm)) (nm ++ " - var not found")
+                    else EvalError (nm ++ " variable found, but named variables are not supported")
+        | eLambda nm ty b =>
+          (* NOTE: we pass the same type as the codomain type here
+            (because it's not needed for lambda).
+            Maybe separate costructors for lambda/fixpoint closures would be better? *)
+          Ok (vClos ρ nm cmLam ty ty b)
+        | eLetIn nm e1 ty e2 =>
+            v <- eval n ρ e1 ;;
+            eval n (ρ # [nm ~> v]) e2
+        | eApp e1 e2 =>
+             v2 <- eval n ρ e2;;
+             v1 <- eval n ρ e1;;
+            match v1,v2 with
+            | vClos ρ' nm cmLam _ _ b, v =>
+              eval n (ρ' # [nm ~> v]) b
+            | vClos ρ' nm (cmFix fixname) ty1 ty2 b, v =>
+              let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
+              eval n (ρ' # [fixname ~> v_fix] # [nm ~> v]) b
+            | vTyClos ρ' nm b, v =>
+                eval n (ρ' # [nm ~> v]) b
+            | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
+            | _, _ => EvalError "eApp : not a constructor or closure"
+            end
+        | eConstr ind ctor =>
+            match (resolve_constr Σ ind ctor) with
+            | Some _ => Ok (vConstr ind ctor [])
+            | _ => EvalError "No constructor or inductive found"
+            end
+        | eConst nm => todo
+        | eCase (ind,i) ty e bs =>
+          match eval n ρ e with
+          | Ok (vConstr ind' c vs) =>
             ind_nm <- option_to_res (inductive_name ind) "not inductive";;
             if (string_dec ind_nm ind') then
-              pm_res <- match_pat c i ci vs bs;;
-              let '(var_assign, v) := pm_res in
-                expr_eval_general n named Σ (List.app (rev var_assign) ρ) v
-            else EvalError ("Expecting inductive " ++ ind_nm ++
-                            " but found " ++ ind')
+              match resolve_constr Σ ind' c with
+              | Some (_,ci) =>
+                pm_res <- match_pat c i ci vs bs;;
+                let '(var_assign, v) := pm_res in
+                eval n (List.app (rev var_assign) ρ) v
             | None => EvalError "No constructor or inductive found in the global envirionment"
-          end
-        | Ok (vTy ty) => EvalError ("Discriminee cannot be a type : " ++ print_type ty)
-        | Ok _ => EvalError "Discriminee should evaluate to a constructor"
-        | v => v
-        end
-      | eFix fixname vn ty1 ty2 b as e =>
-        Ok (vClos ρ vn (cmFix fixname) ty1 ty2 b)
-      | eTyLam nm e => Ok (vTyClos ρ nm e)
-      | eTy ty =>
-        let error := "Error while evaluating type: " ++ print_type ty in
-        let res := if named then
-                     option_to_res (eval_type_n ρ ty) error
+              end
+            else EvalError ("Expecting inductive " ++ ind_nm ++ " but found " ++ ind')
+          | Ok (vTy ty) => EvalError ("Discriminee cannot be a type : " ++ print_type ty)
+          | Ok _ => EvalError "Discriminee should evaluate to a constructor"
+          | v => v
+            end
+        | eFix fixname vn ty1 ty2 b as e =>
+          Ok (vClos ρ vn (cmFix fixname) ty1 ty2 b)
+        | eTyLam nm e => Ok (vTyClos ρ nm e)
+        | eTy ty =>
+          let error := "Error while evaluating type: " ++ print_type ty in
+          let res := if named then
+                       option_to_res (eval_type_n ρ ty) error
                      else option_to_res (eval_type_i 0 ρ ty) error in
-        ty' <- res;; ret (vTy ty')
-      end
-    end.
+          ty' <- res;; ret (vTy ty')
+        end
+      end.
 
-  Definition expr_eval_n n := expr_eval_general n true.
-  Definition expr_eval_i n := expr_eval_general n false.
+  Definition expr_eval_n := expr_eval_general true.
+  Definition expr_eval_i := expr_eval_general false.
 
 Module Examples.
   Import BaseTypes.
@@ -324,11 +319,11 @@ Module Examples.
      |].
 
   Example eval_prog1_named :
-    InterpreterEnvList.expr_eval_n 3 Σ [] prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
+    InterpreterEnvList.expr_eval_n Σ 3 [] prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
   Example eval_prog1_indexed :
-    InterpreterEnvList.expr_eval_i 3 Σ [] (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
+    InterpreterEnvList.expr_eval_i Σ 3 [] (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
   Proof. simpl. reflexivity. Qed.
 
   End Examples.

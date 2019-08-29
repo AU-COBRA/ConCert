@@ -124,6 +124,68 @@ Module AcornListBase.
 
   Print foldr.
   Print zipWith.
+
+  Definition OakList := List.
+
+  Fixpoint from_oak {A : Set} (oakL : OakList A) : list A :=
+    match oakL with
+    | Cons_coq _ hd tl => hd :: from_oak tl
+    | Nil_coq _ => []
+    end.
+
+  Fixpoint to_oak {A : Set} (coqL : list A) : OakList A :=
+    match coqL with
+    | hd :: tl => Cons_coq _ hd (to_oak tl)
+    | nil => Nil_coq _
+    end.
+
+  Lemma to_from_oak (A : Set) (l : OakList A) : to_oak (from_oak l) = l.
+  Proof.
+    induction l;simpl;congruence.
+  Qed.
+
+  Lemma from_to_oak (A : Set) (l : list A) : from_oak (to_oak l) = l.
+  Proof.
+    induction l;simpl;congruence.
+  Qed.
+
+  Lemma oak_foldr_coq_fold_right (A B : Set) (l : OakList A) (f : A -> B -> B) a :
+    foldr _ _  f a l = fold_right f a (from_oak l).
+  Proof.
+    induction l;simpl;auto.
+    f_equal. congruence.
+  Qed.
+
+  Open Scope list.
+
+  Lemma concat_app (A : Set) (l1 l2 : OakList A) :
+  concat _ l1 l2 = to_oak (from_oak l1 ++ from_oak l2).
+  Proof.
+    revert l2.
+    induction l1;intros l2;destruct l2;simpl;try rewrite to_from_oak;auto.
+    f_equal. rewrite app_nil_r. rewrite to_from_oak.
+    clear IHl1; induction l1;simpl. congruence. now f_equal.
+    change (a0 :: from_oak l2) with (from_oak (Cons_coq _ a0 l2)).
+    now f_equal.
+  Qed.
+
+  Hint Rewrite oak_foldr_coq_fold_right concat_app from_to_oak : hints.
+
+  Lemma concat_assoc :
+    forall (A : Set) (l m n : OakList A), concat _ l (concat _ m n) = concat _ (concat _ l m) n.
+  Proof.
+    intros. autorewrite with hints. f_equal.
+    apply app_assoc.
+  Qed.
+
+  Lemma foldr_concat :
+    forall (A B : Set) (f : A -> B -> B) (l l' : OakList A) (i : B),
+      foldr _ _ f i (concat _ l l') = foldr _ _ f (foldr _ _ f i l') l.
+  Proof.
+    intros. autorewrite with hints.
+    apply fold_right_app.
+  Qed.
+
 End AcornListBase.
 
 Module AcornBlochain.

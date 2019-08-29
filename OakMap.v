@@ -199,19 +199,19 @@ Section MapEval.
 
   (** Computing boolean equality with the interpreter *)
   Example compute_eqb_true :
-    (expr_eval_i 20 Σ' [] (indexify [] [|{eqb_syn} 1 1 |])) =
+    (expr_eval_i Σ' 10 [] (indexify [] [|{eqb_syn} 1 1 |])) =
     Ok (vConstr Bool true_name []).
   Proof. reflexivity. Qed.
 
   Example compute_eqb_false :
-    (expr_eval_i 20 Σ' [] (indexify [] [|{eqb_syn} 1 0 |])) =
+    (expr_eval_i Σ' 10 [] (indexify [] [|{eqb_syn} 1 0 |])) =
     Ok (vConstr Bool false_name []).
   Proof. reflexivity. Qed.
 
 
   (** Computing lookup with using the interpreter for the named representation of variables *)
   Example compute_lookup_named :
-    (expr_eval_n 20 Σ' []
+    (expr_eval_n Σ' 10 []
                  [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |]) =
   Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
   Proof. reflexivity. Qed.
@@ -219,7 +219,7 @@ Section MapEval.
 
   (** Computing lookup with using the interpreter for variables represented with De Bruijn indices *)
   Example compute_lookup_debruijn :
-    (expr_eval_i 20 Σ' []
+    (expr_eval_i Σ' 10 []
                  (indexify []
                            [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])) =
   Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
