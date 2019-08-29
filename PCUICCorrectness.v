@@ -1824,7 +1824,7 @@ Remove Hints iclosed_n_geq: hints.
 Remove Hints Bool.absurd_eq_true.
 
 
-Theorem expr_to_term_exists (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
+Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
         (e1 e2 : expr) (v : val) :
   env_ok Σ1 ρ ->
   eval(n, Σ1, ρ, e1) = Ok v ->
@@ -2122,12 +2122,21 @@ Proof.
       simpl in *. eauto with hints.
 Qed.
 
+Corollary expr_to_term_sound_empty_env (n : nat) Σ1 Σ2 (Γ:=[])
+          (e : expr) (v : val) :
+  eval(n, Σ1, [], e) = Ok v ->
+  iclosed_n 0 e = true ->
+  Σ2 ;;; Γ |- T⟦e⟧Σ1 ⇓ T⟦from_val_i v⟧Σ1.
+Proof.
+  intros.
+  eapply expr_to_term_sound;eauto with hints.
+  simpl. symmetry. eapply subst_env_i_empty.
+Qed.
 
-Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
+Theorem expr_to_term_eval (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
         (e1 e2 : expr) (t : term) (v : val) :
   env_ok Σ1 ρ ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
-  (* not_stuck t -> *)
   eval(n, Σ1, ρ, e1) = Ok v ->
   e1.[exprs ρ] = e2 ->
   iclosed_n 0 e2 = true ->
@@ -2135,6 +2144,6 @@ Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
 Proof.
   intros.
   assert (Hcbv1 : Σ2 ;;; Γ |- T⟦ e2 ⟧Σ1 ⇓ T⟦ from_val_i v ⟧ Σ1)
-    by (eapply expr_to_term_exists;eauto).
+    by (eapply expr_to_term_sound;eauto).
   now eapply PcbvCurr.eval_deterministic.
 Qed.
