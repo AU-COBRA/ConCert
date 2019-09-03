@@ -16,6 +16,7 @@ Import BaseTypes.
 Import StdLib.
 Open Scope list.
 
+Set Primitive Projections.
 
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
@@ -296,7 +297,7 @@ Module CrowdfundingContract.
 
   (** *** The AST of a crowdfunding contract *)
   Definition crowdfunding : expr :=
-    [| \c : Ctx => \s : State =>  \m : Msg =>
+    [| \c : Ctx => \m : Msg => \s : State =>
          let bal : Money := balance s in
          let now : Nat := cur_time c in
          let tx_amount : Money := amount c in
@@ -347,19 +348,45 @@ Module CrowdfundingContract.
   Definition funded now (s : State_coq) :=
     deadline_passed now s && goal_reached s.
 
+  Lemma not_leb n m : ~~ (n <=? m) -> m <? n.
+  Proof.
+   intros.
+   unfold Nat.ltb in *.
+   unfold is_true in *. rewrite Bool.negb_true_iff in *.
+   rewrite Nat.leb_gt in *. rewrite Nat.leb_le in *. lia.
+  Qed.
+
+  Lemma not_ltb n m : ~~ (n <? m) -> m <=? n.
+  Proof.
+   intros.
+   unfold Nat.ltb in *.
+   unfold is_true in *. rewrite Bool.negb_true_iff in *.
+   rewrite Nat.leb_gt in *. rewrite Nat.leb_le in *. lia.
+  Qed.
+
   (** ** Properties of the crowdfunding contract *)
+
+  (** This function is a simplistic execution environment that performs one step of execution *)
+  Definition run (entry : State_coq -> Result_coq ) (init : State_coq)
+    : State_coq * Action_coq :=
+    match entry init with
+    | Res_coq fin out => (fin, out)
+    | Error_coq => (init, Empty_coq) (* if an error occurs, the state remains the same *)
+    end.
+
+  (** A wrapper for the assertions about the contract execution *)
+  Definition assertion (pre : State_coq -> Prop)
+             (entry : State_coq -> Result_coq )
+             (post : State_coq -> Action_coq -> Prop) :=
+    forall init, pre init -> exists fin out, run entry init = (fin, out) /\ post fin out.
+
+  Notation "{{ P }} c {{ Q }}" := (assertion P c Q)( at level 50).
+
 
   (** The donations can be paid back to the backers if the goal is not
 reached within a deadline *)
 
-  Definition assertion (pre : State_coq -> Prop)
-             (entry : State_coq -> Msg_coq -> Result_coq )
-             (post : State_coq -> Action_coq -> Prop) :=
-    forall init, pre init -> exists fin out msg, entry init msg = Res_coq fin out /\ post fin out.
-
-    Notation "{{ P }} c {{ Q }}" := (assertion P c Q)( at level 50).
-
-    Lemma get_money_back_guarantee CallCtx (sender := CallCtx.(_ctx_from)) v:
+  Lemma get_money_back_guarantee CallCtx (sender := CallCtx.(_ctx_from)) v :
       (* pre-condition *)
       {{ fun init =>
          deadline_passed CallCtx.(_cur_time) init
@@ -368,7 +395,7 @@ reached within a deadline *)
        /\ lookup_map init.(donations_coq) sender = Just_map v }}
 
         (* contract call *)
-       (fun init m => entry CallCtx init m)
+       entry CallCtx Claim_coq
 
        (* post-condition *)
        {{fun fin out => lookup_map fin.(donations_coq) sender = Just_map 0
@@ -377,96 +404,74 @@ reached within a deadline *)
     unfold assertion. intros init H. simpl.
     destruct H as [Hdl [Hgoal [Hndone Hlook]]].
     unfold deadline_passed,goal_reached in *;simpl in *.
-    eexists. eexists. exists Claim_coq. simpl.
-    assert (balance_coq init <? goal_coq init = true).
-    { unfold Nat.ltb in *.
-      unfold is_true in *. rewrite Bool.negb_true_iff in *.
-      rewrite Nat.leb_gt in *. rewrite Nat.leb_le in *. lia. }
+    repeat eexists. unfold run. simpl.
+    assert (balance_coq init <? goal_coq init = true) by now apply not_leb.
     repeat destruct (_ <? _);tryfalse.
     destruct (~~ done_coq _)%bool;tryfalse.
     destruct (lookup_map _ _);tryfalse;inversion Hlook;subst;clear Hlook.
     repeat split;cbn. apply lookup_map_add.
   Qed.
-
-  Lemma get_money_back_guarantee (init_state : State_coq)
-        CallCtx sender v :
-    (* pre-condition *)
-    sender = CallCtx.(_ctx_from)
-    -> deadline_passed CallCtx.(_cur_time) init_state
-    -> ~~ (goal_reached init_state)
-    -> ~~ init_state.(done_coq)
-    -> lookup_map init_state.(donations_coq) sender = Just_map v (* the sender donated [v] *)
-
-    -> exists final_state msg,
-        entry CallCtx init_state msg =
-          Res_coq final_state (Transfer_coq v sender)
-        (* sending the corresponding amount back *)
-        /\ lookup_map final_state.(donations_coq) sender = Just_map 0. (* balance of the sender put to zero *)
-  Proof.
-    simpl.
-    intros Hsender Hmsg Hdl Hgoal Hndone Hlook.
-    subst;simpl in *. unfold deadline_passed,goal_reached in *.
-    assert (balance_coq init_state <? goal_coq init_state = true).
-    { unfold Nat.ltb in *.
-      unfold is_true in *. rewrite Bool.negb_true_iff in *.
-      rewrite Nat.leb_gt in *. rewrite Nat.leb_le in *. lia. }
-    repeat destruct (_ <? _);tryfalse.
-    destruct (~~ done_coq _)%bool;tryfalse.
-    cbn. eexists.
-    destruct (lookup_map _ _);tryfalse;inversion Hlook;subst;clear Hlook.
-    repeat split;cbn. apply lookup_map_add.
-  Qed.
-
 
   (** New donations are recorded correctly in the contract's state *)
 
-  Lemma new_donation_correct (init_state final_state: State_coq)
-        CallCtx  msg sender out_tx donation :
-    (* pre-condition *)
-    sender = CallCtx.(_ctx_from) -> msg = Donate_coq
-    -> CallCtx.(_amount) = donation  (* a sender donates [donation] *)
-    -> sender ∉ init_state.(donations_coq) (* the sender have not donated before *)
-    -> CallCtx.(_cur_time) <= init_state.(deadline_coq) (* deadline have not passed *)
+  Lemma new_donation_correct CallCtx (sender := CallCtx.(_ctx_from))
+        (donation := CallCtx.(_amount)) :
 
-    -> entry CallCtx init_state msg = Res_coq final_state out_tx
+    {{ fun init =>
+          sender ∉ init.(donations_coq) (* the sender have not donated before *)
+       /\ ~~ deadline_passed CallCtx.(_cur_time) init }}
 
-    (* post-condition *)
-    -> out_tx = Empty_coq (* nothing gets transferred *)
-      /\ lookup_map final_state.(donations_coq) sender = Just_map donation. (* donation has been accepted *)
+      (* contract call *)
+    entry CallCtx Donate_coq
+
+    {{ fun fin out =>
+         (* nothing gets transferred *)
+         out = Empty_coq
+         (* donation has been accepted *)
+         /\ lookup_map fin.(donations_coq) sender = Just_map donation  }}.
   Proof.
-    intros Hsender Hmsg Hamount Hnew_sender Hdl Hcall.
-    subst;simpl in *. rewrite <- Nat.leb_le in *.
+    unfold assertion. intros init H. simpl.
+    destruct H as [Hnew_sender Hdl].
+    unfold deadline_passed in *;simpl in *.
+    unfold run.
+    repeat eexists.
+    simpl in *. apply not_ltb in Hdl.
     destruct (_ <=? _);tryfalse.
     unfold inmap_map in *.
-    destruct (lookup_map _ _);tryfalse. inversion Hcall;subst;clear Hcall.
-    split;auto. simpl. now rewrite lookup_map_add.
+    destruct (lookup_map _ _);tryfalse.
+    repeat split;eauto. simpl. now rewrite lookup_map_add.
   Qed.
 
 
   (** Existing donations are updated correctly in the contract's state *)
 
-  Lemma existing_donation_correct (init_state final_state: State_coq)
-        CallCtx  msg sender out_tx old_don new_don :
-    (* pre-condition *)
-    sender = CallCtx.(_ctx_from) -> msg = Donate_coq
-    -> CallCtx.(_amount) = new_don  (* a sender donates [new_don] *)
-    -> lookup_map init_state.(donations_coq) sender = Just_map old_don (* the sender has already donated before *)
-    -> CallCtx.(_cur_time) <= init_state.(deadline_coq) (* deadline have not passed *)
+  Lemma existing_donation_correct CallCtx (sender := CallCtx.(_ctx_from))
+        (new_don := CallCtx.(_amount)) old_don :
+    {{ fun init =>
+         (* the sender has already donated before *)
+         lookup_map init.(donations_coq) sender = Just_map old_don
 
-    -> entry CallCtx init_state msg = Res_coq final_state out_tx
+       /\ ~~ deadline_passed CallCtx.(_cur_time) init }}
 
-    (* post-condition *)
-    -> out_tx = Empty_coq (* nothing gets transferred *)
-      /\ lookup_map final_state.(donations_coq) sender = Just_map (new_don + old_don). (* donation has been added *)
+     entry CallCtx Donate_coq
+
+    {{ fun fin out =>
+         (* nothing gets transferred *)
+         out = Empty_coq
+         (* donation has been added *)
+       /\ lookup_map fin.(donations_coq) sender = Just_map (new_don + old_don) }}.
   Proof.
-    intros Hsender Hmsg Hamount Hold Hdl Hcall.
-    subst;simpl in *. rewrite <- Nat.leb_le in *.
+    unfold assertion. intros init H. simpl.
+    destruct H as [Hsender Hdl].
+    unfold deadline_passed in *;simpl in *.
+    subst;simpl in *.
+    eexists. eexists.
+    unfold run. simpl in *. apply not_ltb in Hdl.
     destruct (_ <=? _);tryfalse.
-    destruct (lookup_map _ _);tryfalse. inversion Hcall;subst;clear Hcall.
-    split;auto. simpl. inversion Hold. subst. now rewrite lookup_map_add.
+    destruct (lookup_map _ _);tryfalse.
+    inversion Hsender;subst.
+    repeat split;simpl;eauto. now rewrite lookup_map_add.
   Qed.
-
-  Import Lia.
 
   Fixpoint sum_map  (m : addr_map) :=
     match m with
@@ -504,74 +509,90 @@ reached within a deadline *)
 
   (** The contract does no leak funds: the overall balance before the deadline is always equal to the sum of individual donations *)
 
-  Lemma contract_backed
-    (init_state final_state: State_coq)
-        CallCtx msg out_tx :
-    (* pre-condition *)
-      deadline_passed CallCtx.(_cur_time) init_state = false ->
+  Definition consistent_balance ctx state :=
+    ~~ deadline_passed ctx.(_cur_time) state /\
+    sum_map state.(donations_coq) = state.(balance_coq).
 
-      sum_map init_state.(donations_coq) = init_state.(balance_coq)
+  (** This lemma holds for any message  *)
+  Lemma contract_backed CallCtx msg :
 
-    -> entry CallCtx init_state msg = Res_coq final_state out_tx
+    {{ consistent_balance CallCtx }}
 
-    (* post-condition *)
-    ->  sum_map final_state.(donations_coq) = final_state.(balance_coq).
+      entry CallCtx msg
+
+    {{ fun fin _ => consistent_balance CallCtx fin }}.
   Proof.
-    intros Hdl Hsum Hcall.
+    intros init H.
+    destruct H as [Hdl Hsum].
     destruct msg.
     + (* Donate *)
-      simpl in *. unfold deadline_passed in *.
+      simpl in *.
+      specialize Hdl as Hdl'.
+      unfold deadline_passed in Hdl. unfold run,consistent_balance.
+      apply not_ltb in Hdl.  simpl.
       destruct (_ <=? _);tryfalse.
       destruct (lookup_map _ _) eqn:Hlook.
-      * inversion Hcall;subst;clear Hcall. simpl.
-        now apply sum_map_add_in.
-      * inversion Hcall;subst;clear Hcall. simpl. now apply sum_map_add_not_in.
-    + (* GetFunds - it is not possible to get funds before the deadline *)
-      simpl in *.
-      unfold deadline_passed in *. destruct (_ <? _);tryfalse.
-      destruct ( _ =? _);tryfalse.
-    + (* Claim - it is not possible to claim a donation back before the deadline *)
-      simpl in *. unfold deadline_passed in *.
-      destruct (_ <? _);tryfalse.
+      * repeat eexists;eauto. now apply sum_map_add_in.
+      * repeat eexists;eauto. now apply sum_map_add_not_in.
+    + (* GetFunds - it is not possible to get funds before the deadline, so the state is not modified *)
+      unfold consistent_balance in *.
+      unfold deadline_passed in *.
+      exists init. exists Empty_coq. unfold run. simpl.
+      destruct (_ <? _);tryfalse. rewrite Bool.andb_false_r. simpl.
+      split;eauto.
+    + (* Claim - it is not possible to claim a donation back before the deadline, so the state is not modified *)
+      unfold consistent_balance in *.
+      unfold deadline_passed in *.
+      exists init. exists Empty_coq. unfold run. simpl.
+      destruct (_ <? _);tryfalse. simpl.
+      split;eauto.
   Qed.
-
 
   (** The owner gets the money after the deadline, if the goal is reached *)
 
-  Lemma GetFunds_correct (init_state final_state: State_coq) CallCtx
-        msg out_tx OwnerAddr:
-    CallCtx.(_ctx_from) = OwnerAddr ->
-    (* pre-condition *)
-    funded CallCtx.(_cur_time) init_state = true ->
-    msg = GetFunds_coq ->
+  Lemma GetFunds_correct CallCtx (OwnerAddr := CallCtx.(_ctx_from)) funds :
+    {{ fun init => funded CallCtx.(_cur_time) init
+       /\ init.(owner_coq) =? OwnerAddr
+       /\ balance_coq init = funds }}
 
-    entry CallCtx init_state msg = Res_coq final_state out_tx ->
+    entry CallCtx GetFunds_coq
 
-    (* post-condition *)
-    out_tx = Transfer_coq init_state.(balance_coq) OwnerAddr (* the money are sent back *) /\
-    final_state.(balance_coq) = 0 (* set balance to 0 after withdrawing by the owner *) /\
-    final_state.(done_coq) = true (* set the "done" flag *).
+    {{ fun fin out =>
+       (* the money are sent back *)
+       out = Transfer_coq funds OwnerAddr
+       (* set balance to 0 after withdrawing by the owner *)
+       /\  fin.(balance_coq) = 0
+       (* set the "done" flag *)
+       /\ fin.(done_coq) = true}}.
   Proof.
-    intros Hown Hfund Hmsg Hcall. unfold funded,deadline_passed in *. subst. simpl in *.
+    unfold assertion. intros init H. simpl.
+    destruct H as [Hfunded [Hown Hbalance]]. unfold funded,goal_reached,deadline_passed in *.
+    subst. simpl in *.
+    unfold run. simpl in *. subst OwnerAddr. eexists. eexists.
     destruct (_ <? _);tryfalse. destruct ( _ =? _);tryfalse. simpl in *.
-    destruct (_ <=? _);tryfalse.
-    inversion Hcall. easy.
+    destruct (_ <=? _);tryfalse. split;eauto.
   Qed.
 
-  (** Backers cannot claim their money if the campaign have succeed (but owner haven't claimed the money yet) *)
-  Lemma no_claim_if_succeeded (init_state final_state: State_coq) CallCtx
-        msg :
-    (* pre-condition *)
-    funded CallCtx.(_cur_time) init_state = true ->
-    init_state.(done_coq) = false ->
-    msg = Claim_coq ->
+  (** Backers cannot claim their money if the campaign have succeed (but owner haven't claimed the money yet, so the "done" flag is not set to [true]) *)
+  Lemma no_claim_if_succeeded CallCtx the_state:
+    {{ fun init =>
+         funded CallCtx.(_cur_time) init
+         /\ ~~ init.(done_coq)
+         /\ init = the_state }}
 
-    entry CallCtx init_state msg = Error_coq.
+      entry CallCtx Claim_coq
+
+    (* Nothing happens - the stated stays the same and no outgoing transfers *)
+    {{ fun fin out => fin = the_state /\ out = Empty_coq }}.
   Proof.
-    intros Hfunded Hdone Hmsg.
-    destruct init_state as [i_balance i_dons i_own i_dl i_done i_goal].
-    destruct CallCtx as [from c_addr am now]. simpl in *.
+    unfold assertion. intros init H. simpl.
     unfold funded,deadline_passed,goal_reached in *. subst. simpl in *.
+    destruct H as [Hdl [Hgoal Hst]].
+    inv_andb Hdl. subst. unfold run. simpl.
+    exists the_state. eexists.
+    destruct the_state as [i_balance i_dons i_own i_dl i_done i_goal].
+    destruct CallCtx as [from c_addr am now]. simpl in *.
+
     destruct (_ <? _);tryfalse. destruct (_ <=? _) eqn:Hleb;tryfalse.
     replace (i_balance <? i_goal) with false by
         (symmetry;rewrite Nat.ltb_ge in *; rewrite Nat.leb_le in *;lia).
@@ -579,15 +600,17 @@ reached within a deadline *)
   Qed.
 
   (** Backers cannot claim their money if the contract is marked as "done" *)
-  Lemma no_claim_after_done (init_state final_state: State_coq) CallCtx
-        msg :
-    (* pre-condition *)
-    init_state.(done_coq) = true ->
-    msg = Claim_coq ->
+  Lemma no_claim_after_done CallCtx the_state :
+    {{ fun init => init.(done_coq) /\ init = the_state }}
 
-    entry CallCtx init_state msg = Error_coq.
+     entry CallCtx Claim_coq
+    (* Nothing happens - the stated stays the same and no outgoing transfers *)
+    {{ fun fin out => fin = the_state /\ out = Empty_coq }}.
   Proof.
-    intros Hdone Hmsg. subst. simpl in *. destruct (done_coq _);tryfalse. simpl in *.
+    unfold assertion. intros init H. simpl. destruct H. subst.
+    unfold funded,deadline_passed,goal_reached in *. subst. simpl in *.
+    exists the_state. eexists.
+    unfold run. simpl in *. destruct (done_coq _);tryfalse. simpl in *.
     now rewrite Bool.andb_false_r.
   Qed.
 End CrowdfundingContract.
