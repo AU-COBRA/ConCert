@@ -16,8 +16,6 @@ Import BaseTypes.
 Import StdLib.
 Open Scope list.
 
-Set Primitive Projections.
-
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
 Section Maps.
