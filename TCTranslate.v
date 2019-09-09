@@ -1,6 +1,6 @@
 Require Import Bool.
-Require Import Template.All.
-Require Import Template.Typing.
+Require Import MetaCoq.Template.All.
+(* Require Import MetaCoq.Template.Typing.*)
 Require Import String List.
 
 Require Import MyEnv Ast.
@@ -98,13 +98,13 @@ Section Examples.
 
   Definition id_f_syn :=  [| (\x : Nat -> ^0) 1 |].
 
-  Make Definition id_f_one := Eval compute in (expr_to_term Σ id_f_syn).
+  Make Definition id_f_one := (expr_to_term Σ id_f_syn).
   Example id_f_eq : id_f_one = 1. Proof. reflexivity. Qed.
 
   (* The same as [id_f_syn], but with named vars *)
   Definition id_f_with_vars := [| (\x : Nat -> x) 1 |].
 
-  Make Definition id_f_one' := Eval compute in (expr_to_term Σ (indexify [] id_f_with_vars)).
+  Make Definition id_f_one' := (expr_to_term Σ (indexify [] id_f_with_vars)).
   Example id_f_eq' : id_f_one' = 1. Proof. reflexivity. Qed.
 
   Definition simple_let_syn :=
@@ -113,7 +113,7 @@ Section Examples.
        let y : Nat := 1 in ^0
      |].
 
-  Make Definition simple_let := Eval compute in (expr_to_term Σ simple_let_syn).
+  Make Definition simple_let := (expr_to_term Σ simple_let_syn).
   Example simple_let_eq : simple_let 1 = 1. Proof. reflexivity. Qed.
 
   Definition simple_let_with_vars_syn :=
@@ -122,7 +122,7 @@ Section Examples.
        let y : Nat := 1 in y
      |].
 
-  Make Definition simple_let' := Eval compute in (expr_to_term Σ (indexify [] simple_let_with_vars_syn)).
+  Make Definition simple_let' := (expr_to_term Σ (indexify [] simple_let_with_vars_syn)).
   Example simple_let_eq' : simple_let' 0 = 1. Proof. reflexivity. Qed.
 
 
@@ -134,7 +134,7 @@ Section Examples.
             | false -> true
     |].
 
-  Make Definition negb' := Eval compute in (expr_to_term Σ (indexify [] negb_syn)).
+  Make Definition negb' := (expr_to_term Σ (indexify [] negb_syn)).
 
   Example negb'_correct : forall b, negb' b = negb b.
   Proof.
@@ -144,7 +144,7 @@ Section Examples.
   Definition myplus_syn :=
     [| \x : Nat -> \y : Nat -> x + y |].
 
-  Make Definition myplus := Eval compute in (expr_to_term Σ (indexify [] myplus_syn)).
+  Make Definition myplus := (expr_to_term Σ (indexify [] myplus_syn)).
 
 End Examples.
 

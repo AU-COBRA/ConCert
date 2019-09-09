@@ -4,9 +4,9 @@ actual version from MetaCoq after making it compatible with Coq 8.10 *)
 Set Warnings "-notation-overridden".
 
 From Coq Require Import Bool String List Program BinPos Compare_dec Lia CRelationClasses.
-From Template Require Import config utils AstUtils.
-Import Template.BasicAst.
-From PCUIC Require Import PCUICAst PCUICAstUtils PCUICInduction PCUICLiftSubst PCUICUnivSubst PCUICTyping.
+From MetaCoq.Template Require Import config utils AstUtils.
+Import MetaCoq.Template.BasicAst.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICInduction PCUICLiftSubst PCUICUnivSubst PCUICTyping.
 Require Import String.
 Local Open Scope string_scope.
 Set Asymmetric Patterns.

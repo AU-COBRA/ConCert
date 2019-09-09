@@ -9,8 +9,8 @@ Require Import Ast MyEnv.
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
-Require Import Template.monad_utils.
-
+Require Import MetaCoq.Template.monad_utils.
+Require Import MetaCoq.Template.utils.
 
 Import ListNotations.
 Import MonadNotation.
@@ -68,22 +68,23 @@ Module InterpreterEnvList.
               expr -> val.
 
   Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
+  Definition AllEnv {A} (P: A -> Type) : env A -> Type := All (P ∘ snd).
 
-  Inductive val_ok Σ : val -> Prop :=
+  Inductive val_ok Σ : val -> Type :=
   | vokClosLam : forall e nm ρ ty1 ty2,
-      ForallEnv (val_ok Σ) ρ ->
+      AllEnv (val_ok Σ) ρ ->
       iclosed_n (1 + length ρ) e = true ->
       val_ok Σ (vClos ρ nm cmLam ty1 ty2 e)
   | vokClosFix : forall e nm fixname ρ ty1 ty2,
-      ForallEnv (val_ok Σ) ρ ->
+      AllEnv (val_ok Σ) ρ ->
       iclosed_n (2 + length ρ) e = true ->
       val_ok Σ (vClos ρ nm (cmFix fixname) ty1 ty2 e)
   | vokContr : forall i nm vs ci,
-      Forall (val_ok Σ) vs ->
+      All (val_ok Σ) vs ->
       resolve_constr Σ i nm = Some ci ->
       val_ok Σ (vConstr i nm vs).
 
-  Definition env_ok Σ (ρ : env val) := ForallEnv (val_ok Σ) ρ.
+  Definition env_ok Σ (ρ : env val) := AllEnv (val_ok Σ) ρ.
 
   (* An induction principle that takes into account nested occurences of elements of [val]
      in the list of arguments of [vConstr] and in the environment of [vClos] *)
@@ -92,6 +93,24 @@ Module InterpreterEnvList.
      (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
      (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
           ForallEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0)) :
+    forall v : val, P v.
+    refine (fix val_ind_fix (v : val) := _).
+    destruct v.
+    + apply Hconstr.
+      induction l. constructor. constructor. apply val_ind_fix. apply IHl.
+    + apply Hclos.
+      induction e.
+      * constructor.
+      * constructor. apply val_ind_fix. apply IHe.
+  Defined.
+
+  (* An elimination principle (on a predicate to [Type]) that takes into account nested occurences of elements of [val]
+     in the list of arguments of [vConstr] and in the environment of [vClos] *)
+  Definition val_elim_full
+     (P : val -> Type)
+     (Hconstr : forall (i : inductive) (n : name) (l : list val), All P l -> P (vConstr i n l))
+     (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
+          AllEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0)) :
     forall v : val, P v.
     refine (fix val_ind_fix (v : val) := _).
     destruct v.
@@ -121,12 +140,12 @@ Module InterpreterEnvList.
         constructor;inversion H1;auto.
   Qed.
 
-  Lemma Forall_rev {A} {l : list A} P : Forall P l -> Forall P (rev l).
+  Lemma Forall_rev {A} {l : list A} P : Forall P l -> Forall P (List.rev l).
   Proof.
     intros H.
     induction l.
     + constructor.
-    + simpl. apply Forall_app.
+    + simpl.  apply Forall_app.
       inversion H;auto.
   Qed.
 
@@ -243,7 +262,7 @@ Module InterpreterEnvList.
             | Some (_,ci) =>
               match (match_pat c ci vs bs) with
               | Some (var_assign, v) =>
-                expr_eval_general n named Σ (List.app (rev var_assign) ρ) v
+                expr_eval_general n named Σ (List.app (List.rev var_assign) ρ) v
               | None => EvalError "No such constructor"
               end
             | None => EvalError "No constructor or inductive found in the global envirionment"
@@ -343,11 +362,11 @@ Module InterpreterEnvList.
     end.
 
   (* The similar notation will be used when we change to a parallel substitution *)
-  Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
+  Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 6).
 
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
    subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
- Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
+ Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 6).
 
  Module Equivalence.
    Reserved Notation "v1 ≈ v2" (at level 50).

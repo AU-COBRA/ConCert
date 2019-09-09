@@ -4,7 +4,7 @@
 ./TCTranslate.v
 ./EvalE.v
 ./Demo.v
-./PCUICWcbvEvalCurrent.v
+# ./PCUICWcbvEvalCurrent.v
 ./PCUICTranslate.v
 ./PCUICFacts.v
 ./PCUICCorrectness.v

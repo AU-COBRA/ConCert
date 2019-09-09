@@ -1,5 +1,5 @@
 (* Various auxillary facts usefull for proving correctness of the translation and the interpreter *)
-Require Import Template.monad_utils Template.All.
+Require Import MetaCoq.Template.monad_utils MetaCoq.Template.All.
 Require Import String List.
 Require Import Morphisms Setoid.
 
@@ -32,6 +32,39 @@ Ltac prop_to_leb_ltb :=
   try rewrite <- PeanoNat.Nat.ltb_ge in *.
 
 
+(* An elimination principle that takes into account nested occurrences of expressions
+   in the list of branches for [eCase] *)
+Definition expr_elim_case (P : expr -> Type)
+           (Hrel    : forall n : nat, P (eRel n))
+           (Hvar    : forall n : name, P (eVar n))
+           (Hlam    :forall (n : name) (t : type) (e : expr), P e -> P (eLambda n t e))
+           (Hletin  : forall (n : name) (e : expr),
+               P e -> forall (t : type) (e0 : expr), P e0 -> P (eLetIn n e t e0))
+           (Happ    :forall e : expr, P e -> forall e0 : expr, P e0 -> P (eApp e e0))
+           (Hconstr :forall (i : inductive) (n : name), P (eConstr i n))
+           (Hconst  :forall n : name, P (eConst n))
+           (Hcase   : forall (p : inductive * nat) (t : type) (e : expr),
+               P e -> forall l : list (pat * expr), All (fun x => P (snd x)) l ->P (eCase p t e l))
+           (Hfix    :forall (n n0 : name) (t t0 : type) (e : expr), P e -> P (eFix n n0 t t0 e)) :
+  forall e : expr, P e.
+Proof.
+  refine (fix ind (e : expr) := _ ).
+  destruct e.
+  + apply Hrel.
+  + apply Hvar.
+  + apply Hlam. apply ind.
+  + apply Hletin; apply ind.
+  + apply Happ;apply ind.
+  + apply Hconstr.
+  + apply Hconst.
+  + apply Hcase. apply ind.
+    induction l.
+    * constructor.
+    * constructor. apply ind. apply IHl.
+  + apply Hfix. apply ind.
+Defined.
+
+
 Section Values.
 
   Lemma vars_to_apps_unfold vs : forall acc v,
@@ -47,16 +80,17 @@ Section Values.
 
   Lemma vars_to_apps_iclosed_n :
         forall (i : inductive) (n0 : name) (l : list val) (n : nat),
-          Forall (fun v : val => iclosed_n n (from_val_i v) = true) l ->
+          All (fun v : val => iclosed_n n (from_val_i v) = true) l ->
           iclosed_n n (vars_to_apps (eConstr i n0) (map from_val_i l)) = true.
   Proof.
     intros i n0 l n H.
     induction l using rev_ind.
     + reflexivity.
     + rewrite map_app. simpl. rewrite vars_to_apps_unfold.
-      simpl. rewrite Forall_app in H. destruct H as [H1 H2].
-      apply Forall_inv in H2. rewrite H2. rewrite IHl by assumption.
-      reflexivity.
+      simpl. apply All_app in H. destruct H as [H1 H2].
+      split_andb.
+      * now apply IHl.
+      * now inversion H2.
   Qed.
 
   Lemma Forall_lookup_i {A} ρ n e (P : A -> Prop) :
@@ -69,12 +103,23 @@ Section Values.
     + simpl in *. destruct x; destruct (Nat.eqb n 0);inversion Hl;subst;eauto.
   Qed.
 
+  Lemma All_lookup_i {A} ρ n e (P : A -> Type) :
+    AllEnv P ρ -> lookup_i ρ n = Some e -> P e.
+  Proof.
+    intros Hfe Hl.
+    revert dependent n.
+    induction Hfe;intros n Hl.
+    + inversion Hl.
+    + simpl in *. destruct x; destruct (Nat.eqb n 0);inversion Hl;subst;eauto.
+  Qed.
+
 
   Lemma lookup_i_length {A} (ρ : env A) n :
-    (n <? length ρ) = true -> exists e, lookup_i ρ n = Some e.
+    (n <? length ρ) = true -> {e | lookup_i ρ n = Some e}.
   Proof.
     intros H. revert dependent n.
-    induction ρ;intros;leb_ltb_to_prop;simpl in *;try lia.
+    induction ρ;intros;leb_ltb_to_prop;simpl in *.
+    elimtype False. lia.
     destruct a. destruct n.
     + simpl;eauto.
     + simpl. assert (n < #|ρ|) by lia. replace (n-0) with n by lia.
@@ -113,16 +158,24 @@ Section Values.
   Proof.
     intros HP. induction HP;intros HQ.
     + constructor.
+    + constructor;inversion HQ;easy.
+  Qed.
+
+  (* TODO : move to misc *)
+  Lemma All_impl_inner {A} (P Q : A -> Type) l :
+    All P l -> All (fun x => P x -> Q x) l ->
+    All Q l.
+  Proof.
+    intros HP. induction HP;intros HQ.
     + constructor.
-      pose proof (Forall_inv HQ);easy.
-      pose proof (Forall_inv_tail HQ);easy.
+    + constructor;inversion HQ;easy.
   Qed.
 
   Lemma iclosed_n_geq e : forall n m, m >= n -> iclosed_n n e = true -> iclosed_n m e = true.
   Proof.
     intros n m.
     revert n m.
-    induction e using expr_ind_case; intros n1 m1 Hgeq H1;try inversion H1;auto.
+    induction e using expr_elim_case; intros n1 m1 Hgeq H1;try inversion H1;auto.
     + simpl in *. rewrite H1.
       leb_ltb_to_prop;lia.
     + simpl in *. rewrite H1. eapply IHe with (n:=S n1);auto; lia.
@@ -137,13 +190,13 @@ Section Values.
       f_equal;auto.
       erewrite IHe;eauto.
       rewrite Hforall.
-      apply forallb_Forall_iff.
-      rewrite <- forallb_Forall_iff in Hforall.
-      apply Forall_impl_inner with (P:= fun x => iclosed_n (#|pVars (fst x)|+n1) (snd x) = true).
+      apply All_forallb.
+      apply forallb_All in Hforall.
+      apply All_impl_inner with (P:= fun x => iclosed_n (#|pVars (fst x)|+n1) (snd x) = true).
       assumption.
-      eapply Forall_impl. 2: apply H.
+      eapply All_impl. apply H.
       intros. simpl in *.
-      eapply H0 with (n:=#|pVars (fst a)| + n1). lia. easy.
+      eapply H0 with (n:=#|pVars x.1| + n1). lia. easy.
     + simpl in *. rewrite H1. eapply IHe with (n:=S (S n1));eauto;lia.
   Qed.
 
@@ -158,12 +211,12 @@ Section Values.
 
   Lemma subst_env_iclosed_n (e : expr) :
     forall n (ρ : env expr),
-      Forall (fun e => iclosed_n 0 (snd e) = true) ρ ->
-      iclosed_n (n + #|ρ|) e = true <-> iclosed_n n (e.[ρ]n) = true.
+      All (fun e => iclosed_n 0 (snd e) = true) ρ ->
+      iclosed_n (n + #|ρ|) e = true -> iclosed_n n (e.[ρ]n) = true.
   Proof.
     intros n ρ Hc.
-    split;revert dependent ρ;revert dependent n.
-    - induction e using expr_ind_case;intros n1 ρ Hc Hec;
+    revert dependent ρ;revert dependent n.
+    induction e using expr_elim_case;intros n1 ρ Hc Hec;
         simpl in *;try (inv_andb Hec;split_andb;auto);tryfalse;auto.
       + (* eRel *)
         unfold subst_env_i. simpl.
@@ -174,39 +227,47 @@ Section Values.
           rewrite <- PeanoNat.Nat.ltb_lt in *.
           destruct (lookup_i_length _ (n-n1) Hc') as [e0 He0].
           rewrite He0. simpl.
-          eapply Forall_lookup_i with (ρ0 := ρ) (P:=fun e1 => iclosed_n n1 e1 = true);eauto.
-          apply Forall_impl with (P:=fun e1 => iclosed_n 0 (snd e1) = true);eauto.
+          eapply All_lookup_i with (ρ0 := ρ) (P:=fun e1 => iclosed_n n1 e1 = true);eauto.
+          apply (All_impl (P:=fun e1 => iclosed_n 0 (snd e1) = true));eauto.
           intros a H. unfold compose. change (iclosed_n (0+n1) (snd a) = true); now apply iclosed_m_n.
         * simpl in *. leb_ltb_to_prop. assumption.
-      + apply utils.forallb_Forall. apply utils.Forall_map. unfold compose. simpl.
-        assert ( H2 : Forall (fun x : pat * expr =>
+      + apply utils.All_forallb. apply utils.All_map. unfold compose. simpl.
+        assert ( H2 : All (fun x : pat * expr =>
                                 is_true (iclosed_n ((#|pVars (fst x)|) + (n1 + #|ρ|)) (snd x))) l)
-          by now apply utils.forallb_Forall.
-        rewrite Forall_forall in *.
-        intros x Hx.
-        apply H;auto. rewrite Forall_forall in *. intros;eauto.
-        rewrite <- PeanoNat.Nat.add_assoc. now apply H2.
-    - induction e using expr_ind_case;intros k ρ Hc Hec;
+          by now apply utils.forallb_All.
+        eapply All_impl_inner. apply H2. simpl in *.
+        eapply All_impl. apply H. intros. simpl in *.
+        rewrite PeanoNat.Nat.add_assoc in H4.
+        eapply H3;eauto.
+  Qed.
+
+  Lemma subst_env_iclosed_n_inv (e : expr) :
+    forall n (ρ : env expr),
+      All (fun e => iclosed_n 0 (snd e) = true) ρ ->
+      iclosed_n n (e.[ρ]n) = true -> iclosed_n (n + #|ρ|) e = true.
+  Proof.
+    induction e using expr_ind_case;intros k ρ Hc Hec;
       simpl in *;try (inv_andb Hec;split_andb;auto);
         try repeat rewrite <- PeanoNat.Nat.add_succ_l;tryfalse;auto.
-      + (* eRel *)
-        unfold subst_env_i. simpl.
-        simpl in *.
-        destruct (k <=? n) eqn:Hnle.
-        * destruct (n <? k + #|ρ|) eqn:Hn;auto.
-          leb_ltb_to_prop.
-          assert (Hnk : #|ρ| <= n - k) by lia.
-          rewrite <- PeanoNat.Nat.ltb_ge in *.
-          specialize (lookup_i_length_false _ _  Hnk) as HH.
-          rewrite HH in Hec;simpl in *;tryfalse.
-        * simpl in *. leb_ltb_to_prop. lia.
-      + apply utils.forallb_Forall.
-        eapply Forall_forall. intros a Hin.
-        rewrite forallb_map in H1. unfold compose in H1;simpl in H1.
-        rewrite Forall_forall in H.
-        rewrite PeanoNat.Nat.add_assoc.
-        assert ( H2 : Forall (fun x : pat * expr =>
-           is_true (iclosed_n (#|pVars (fst x)| + k) (snd x .[ ρ] (#|pVars (fst x)| + k)))) l) by
+    + (* eRel *)
+      unfold subst_env_i. simpl.
+      simpl in *.
+      destruct (k <=? n) eqn:Hnle.
+      * destruct (n <? k + #|ρ|) eqn:Hn;auto.
+        leb_ltb_to_prop.
+        assert (Hnk : #|ρ| <= n - k) by lia.
+        rewrite <- PeanoNat.Nat.ltb_ge in *.
+        specialize (lookup_i_length_false _ _  Hnk) as HH.
+        rewrite HH in Hec;simpl in *;tryfalse.
+      * simpl in *. leb_ltb_to_prop. lia.
+    + apply utils.forallb_Forall.
+      eapply Forall_forall. intros a Hin.
+      rewrite forallb_map in H1. unfold compose in H1;simpl in H1.
+      rewrite Forall_forall in H.
+      rewrite PeanoNat.Nat.add_assoc.
+      assert ( H2 : Forall (fun x : pat * expr =>
+                              is_true (iclosed_n (#|pVars (fst x)| + k)
+                                      ((snd x).[ ρ] (#|pVars (fst x)| + k)))) l) by
            now apply utils.forallb_Forall.
         rewrite Forall_forall in H2.
         apply H;auto. now apply H2.
@@ -214,53 +275,47 @@ Section Values.
 
   Lemma subst_env_iclosed_0 (e : expr) :
     forall (ρ : env expr),
-      Forall (fun e => iclosed_n 0 (snd e) = true) ρ ->
-      iclosed_n #|ρ| e = true <-> iclosed_n 0 (e.[ρ]) = true.
+      All (fun e => iclosed_n 0 (snd e) = true) ρ ->
+      iclosed_n #|ρ| e = true -> iclosed_n 0 (e.[ρ]) = true.
   Proof.
-    apply subst_env_iclosed_n with (n:=0).
+    intros;apply subst_env_iclosed_n with (n:=0);eauto.
+  Qed.
+
+  Lemma subst_env_iclosed_0_inv (e : expr) :
+    forall (ρ : env expr),
+      All (fun e => iclosed_n 0 (snd e) = true) ρ ->
+      iclosed_n 0 (e.[ρ]) = true -> iclosed_n #|ρ| e = true.
+  Proof.
+    intros;apply subst_env_iclosed_n_inv with (n:=0);eauto.
   Qed.
 
   Lemma from_value_closed Σ v n :
     val_ok Σ v  (* this ensures that closures contain closed expressions *) ->
     iclosed_n n ( from_val_i v ) = true.
   Proof.
-    intros Hv.
     revert n.
-    induction v using val_ind_full;intros n1.
+    induction v using val_elim_full;intros n1 Hv.
     + simpl. apply vars_to_apps_iclosed_n.
-      rewrite Forall_forall in *.
-      intros v Hin. inversion Hv;subst.
-      assert (val_ok Σ v)
-        by (apply -> Forall_forall;eauto).
-      now apply H.
+      inversion Hv;subst;clear Hv.
+      eapply All_impl_inner. apply X0.
+      now eapply (All_impl X).
     + simpl in *. destruct cm.
       * simpl in *. inversion Hv. subst. clear Hv.
         eapply iclosed_m_n with (n:=1).
-        apply -> subst_env_iclosed_n.
+        apply subst_env_iclosed_n.
+        ** apply All_map.
+           unfold AllEnv,compose,fun_prod in *.
+           eapply All_impl_inner. apply X0.
+           now eapply (All_impl X).
         ** now rewrite map_length.
-        ** apply Forall_map.
-           unfold ForallEnv in H.  unfold compose,snd,fun_prod in *.
-           rewrite Forall_forall in *.
-           intros x Hx.
-           destruct x as [s v]. simpl.
-           unfold ForallEnv in H2. rewrite Forall_forall in H2.
-           assert (val_ok Σ v) by now apply (H2 (s,v)).
-           specialize (H (s,v)). simpl in H.
-           now apply H.
       * unfold subst_env_i. simpl in *.
         inversion Hv. subst.
         eapply iclosed_m_n with (n:=2).
-        apply -> subst_env_iclosed_n.
+        apply subst_env_iclosed_n.
+        ** apply All_map. unfold compose in *.
+           eapply All_impl_inner. apply X0.
+           now eapply (All_impl X).
         ** now rewrite map_length.
-        ** apply Forall_map. unfold compose in *.
-           unfold ForallEnv in H.
-           rewrite Forall_forall in *.
-           intros x Hx.
-           destruct x as [s v]. simpl.
-           unfold ForallEnv in H2. rewrite Forall_forall in H2.
-           assert (val_ok Σ v) by now apply (H2 (s,v)).
-           specialize (H (s,v)). simpl in H.
-           now apply H.
 Qed.
 
 

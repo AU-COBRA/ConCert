@@ -1,7 +1,7 @@
 (* Proof of correctness of the translation from core language expression to the Template Coq terms *)
-Require Template.WcbvEval.
-Require Import Template.LiftSubst.
-Require Import Template.All.
+Require MetaCoq.Template.WcbvEval.
+Require Import MetaCoq.Template.LiftSubst.
+Require Import MetaCoq.Template.All.
 
 Require Import String List Basics.
 

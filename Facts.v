@@ -1,5 +1,5 @@
 (* Various auxillary facts usefull for proving correctness of the translation and the interpreter *)
-Require Import Template.monad_utils Template.All.
+Require Import MetaCoq.Template.monad_utils MetaCoq.Template.All.
 Require Import String List.
 Require Import Morphisms Setoid.
 

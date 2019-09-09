@@ -1,6 +1,6 @@
 Require Import String List.
-From PCUIC Require Import PCUICAst.
-From Template Require Import BasicAst utils.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.Template Require Import BasicAst utils.
 Require Import Ast.
 
 Import ListNotations.

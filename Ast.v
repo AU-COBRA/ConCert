@@ -9,7 +9,7 @@ Open Scope string_scope.
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
-Require Import Template.monad_utils.
+Require Import MetaCoq.Template.monad_utils.
 Import MonadNotation.
 
 (* Aliases *)
