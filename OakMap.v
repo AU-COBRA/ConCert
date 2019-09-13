@@ -4,10 +4,9 @@ Require Import String.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.
-From Template Require Import All.
+From MetaCoq.Template Require Import All.
 
-Require Import Ast CustomTactics.
-Require Import EvalE.
+Require Import Ast CustomTactics TCTranslate EvalE.
 
 Import MonadNotation.
 Import BaseTypes.
@@ -38,7 +37,7 @@ Run TemplateProgram
 (** [AMaybe] is similar to [option] of Coq and [Maybe] of Haskell. *)
 
 Definition maybe_syn :=
-  gdInd Maybe 1 [(Nothing, []);  (Just, [(nAnon,tyRel 0)])] false.
+  gdInd Maybe 1 [(Nothing, []);  (Just, [(None,tyRel 0)])] false.
 
 Make Inductive (trans_global_dec maybe_syn).
 
@@ -46,8 +45,8 @@ Make Inductive (trans_global_dec maybe_syn).
 Definition map_syn :=
   gdInd Map 2
         [(MNil, []);
-        (MCons, [(nAnon,tyRel 1);(nAnon,tyRel 0);
-                  (nAnon,(tyApp (tyApp (tyInd Map) (tyRel 1)) (tyRel 0)))])] false.
+        (MCons, [(None,tyRel 1);(None,tyRel 0);
+                  (None,(tyApp (tyApp (tyInd Map) (tyRel 1)) (tyRel 0)))])] false.
 
 Make Inductive (trans_global_dec map_syn).
 
@@ -113,8 +112,9 @@ Definition lookup_syn :=
                        Just 'B y
                        else lookup z : Maybe 'B |].
 
+
 (** Unquoting the [lookup_syn] to produce a Coq function *)
-Make Definition lookup_map := Eval compute in (expr_to_term Σ' (indexify [] lookup_syn)).
+Make Definition lookup_map := (expr_to_term Σ' (indexify [] lookup_syn)).
 
 (** AST for a function that adds an element to a map *)
 Definition add_map_syn :=
@@ -131,7 +131,7 @@ Definition add_map_syn :=
 
 Compute (expr_to_term Σ' (indexify [] add_map_syn)).
 
-Make Definition add_map := Eval compute in (expr_to_term Σ' (indexify [] add_map_syn)).
+Make Definition add_map := (expr_to_term Σ' (indexify [] add_map_syn)).
 
 (** ** Correctness *)
 
@@ -143,8 +143,8 @@ Module NatMap := FMapWeakList.Make Nat_as_OT.
 (** Conversion function from our type of finite maps to the one in the standard library *)
 Fixpoint from_amap {A} (m : MapOak nat A) : NatMap.Raw.t A :=
   match m with
-  | MNilOak _ _ => []
-  | MConsOak _ _ k v m' => (k,v) :: from_amap m'
+  | MNilOak  => []
+  | MConsOak k v m' => (k,v) :: from_amap m'
   end.
 
 Import PeanoNat.Nat.
@@ -184,7 +184,7 @@ Section MapEval.
      |].
 
   Make Definition nat_eqb :=
-    Eval compute in (expr_to_term Σ' (indexify [] eqb_syn)).
+    (expr_to_term Σ' (indexify [] eqb_syn)).
 
   (** Showing that Oak boolean equality is in fact the same as [Nat.eqb] *)
   Lemma nat_eqb_correct n m : nat_eqb n m = Nat.eqb n m.

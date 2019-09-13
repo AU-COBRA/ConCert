@@ -1,18 +1,23 @@
 Require Import String.
-Require Import Ast.
-Require Import EvalE.
 Require Import List.
-Import ListNotations.
-From Template Require Ast AstUtils.
-Require Import Template.Typing.
-From Template Require Import TemplateMonad.
-From Template Require Import monad_utils.
+Require Import Ast EvalE TCTranslate.
 
-Module TC := Template.Ast.
+From MetaCoq.Template Require Ast.
+From MetaCoq.Template Require Import TemplateMonad.
+From MetaCoq.Template Require Import monad_utils.
+
+Import ListNotations.
+Module TC := Template.BasicAst.
 
 Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
+
+
+Definition x := "x".
+Definition y := "y".
+Definition z := "z".
+
 
 Definition negb_app_true :=
     [|
@@ -39,7 +44,7 @@ Compute (expr_eval_i Σ 3 [] (indexify [] negb_app_true)).
 
 (* Make a Coq function from the AST of the program *)
 Make Definition coq_negb_app_true :=
-  Eval compute in (expr_to_term Σ (indexify nil negb_app_true)).
+  (expr_to_term Σ (indexify nil negb_app_true)).
 
 Print coq_negb_app_true.
 
@@ -49,7 +54,7 @@ Definition my_negb_syn :=
                    | False -> True  |].
 
 Make Definition my_negb :=
-  Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
+  (expr_to_term Σ (indexify [] my_negb_syn)).
 
 Lemma my_negb_coq_negb b :
   my_negb b = negb b.
@@ -57,7 +62,7 @@ Proof. reflexivity. Qed.
 
 Compute (expr_eval_n Σ 3 [] my_negb_syn).
 
-Make Definition coq_my_negb := Eval compute in (expr_to_term Σ (indexify [] my_negb_syn)).
+Make Definition coq_my_negb := (expr_to_term Σ (indexify [] my_negb_syn)).
 
 Import MonadNotation.
 
@@ -71,7 +76,7 @@ Definition is_zero_syn :=
 
   |].
 
-Make Definition is_zero' := Eval compute in (expr_to_term Σ (indexify nil is_zero_syn)).
+Make Definition is_zero' := (expr_to_term Σ (indexify nil is_zero_syn)).
 
 
 Definition pred_syn :=
@@ -84,7 +89,7 @@ Definition pred_syn :=
 
   |].
 
-Make Definition pred' := Eval compute in (expr_to_term Σ (indexify nil pred_syn)).
+Make Definition pred' := (expr_to_term Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Z) |].
 
@@ -95,8 +100,8 @@ Inductive blah :=
 | Baz : blah.
 
 Definition Σ' : global_env :=
-  [gdInd "blah" 0 [("Bar", [(TC.nAnon,tyInd "blah"); (TC.nAnon,tyInd "blah")]); ("Baz", [])] false;
-     gdInd Nat  0 [("Z", []); ("Suc", [(TC.nAnon,tyInd Nat)])] false].
+  [gdInd "blah" 0 [("Bar", [(None,tyInd "blah"); (None,tyInd "blah")]); ("Baz", [])] false;
+     gdInd Nat  0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false].
 
 Notation "'Bar'" := (eConstr "blah" "Bar") (in custom expr).
 Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
@@ -116,7 +121,7 @@ Definition factorial_syn :=
   |].
 
 Make Definition factorial :=
-  Eval compute in ((expr_to_term Σ (indexify [] factorial_syn))).
+  (expr_to_term Σ (indexify [] factorial_syn)).
 
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
@@ -125,7 +130,7 @@ Definition plus_syn : expr :=
            | Z -> y
            | Suc z -> Suc ("plus" z y) |].
 
-Make Definition my_plus := Eval compute in (expr_to_term Σ (indexify [] plus_syn)).
+Make Definition my_plus := (expr_to_term Σ (indexify [] plus_syn)).
 
 Lemma my_plus_correct n m :
   my_plus n m = n + m.
@@ -145,7 +150,7 @@ Compute (expr_eval_n Σ 10 [] [| {plus_syn} 1 1 |]).
 Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
 
 Make Definition two_arg_fun_app :=
-  Eval compute in (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
+  (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
 
 Parameter bbb: bool.
 
@@ -163,7 +168,7 @@ Definition plus_syn' :=
   |].
 
 Make Definition my_plus' :=
-  Eval compute in ((expr_to_term Σ (indexify [] plus_syn'))).
+  (expr_to_term Σ (indexify [] plus_syn')).
 
 Lemma my_plus'_0 : forall n, my_plus' 0 n = n.
 Proof.

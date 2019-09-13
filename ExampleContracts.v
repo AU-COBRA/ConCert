@@ -3,13 +3,13 @@
 (** We develop some blockchain infrastructure relevant for the contract execution (a fragment of the standard library and an execution context). With that, we develop a deep embedding of a crowdfunding contract and prove some of its properties using the corresponding shallow embedding *)
 
 Require Import String.
-Require Import Ast CustomTactics.
+Require Import Ast CustomTactics TCTranslate.
 Require Import List.
 Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
 
 Import ListNotations.
-From Template Require Import All.
+From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
 Import BaseTypes.
@@ -37,7 +37,7 @@ Section Maps.
     end.
 
   (* Ported from FMapWeaklist of StdLib *)
-  Function add_map (k : nat) (x : nat) (s : addr_map) : addr_map :=
+  Fixpoint add_map (k : nat) (x : nat) (s : addr_map) : addr_map :=
   match s with
    | mnil => mcons k x mnil
    | mcons k' y l => if Nat.eqb k k' then mcons k x l else mcons k' y (add_map k x l)
@@ -101,12 +101,12 @@ Record ctx := mkctx { _ctx_from : nat;
                       _amount : nat;
                       _cur_time : nat}.
 
-Definition ctx_from_name := "ExampleContracts._ctx_from".
-Definition Ctx := "ExampleContracts.ctx".
+Definition ctx_from_name := "_ctx_from".
+Definition Ctx := "ctx".
 Notation "'ctx_from' a" := [| {eConst ctx_from_name} {a} |]
                              (in custom expr at level 0).
 Notation "'ctx_contract_address' a" :=
-  [| {eConst "ExampleContracts._ctx_contract_address"} {a} |]
+  [| {eConst "_ctx_contract_address"} {a} |]
     (in custom expr at level 0).
 Notation "'amount' a" := [| {eConst "_amount"} {a} |]
                              (in custom expr at level 0).
@@ -263,8 +263,8 @@ Module CrowdfundingContract.
 
     Definition Σ' :=
       Σ ++ [gdInd Ctx 0 [("ExampleContracts.mkctx",
-                        [(nAnon,tyInd Address); (nAnon,tyInd Address)])] false;
-              gdInd Maybe 0 [("Just", [(nAnon,tyInd Nat)]);
+                        [(None,tyInd Address); (None,tyInd Address)])] false;
+              gdInd Maybe 0 [("Just", [(None,tyInd Nat)]);
                              ("Nothing", [])] false;
             state_syn;
             result_syn;
@@ -328,7 +328,7 @@ Module CrowdfundingContract.
     |].
 
   Make Definition entry :=
-    Eval compute in (expr_to_term Σ' (indexify nil crowdfunding)).
+    (expr_to_term Σ' (indexify nil crowdfunding)).
 
   Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
   Ltac split_andb := apply Bool.andb_true_iff;split.

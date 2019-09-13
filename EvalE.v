@@ -1,14 +1,18 @@
 (** * Interpreter for the Oak langage *)
 
 (** This version of the interpreter supports polymorhic types *)
-Require Import String.
-Require Import List.
-Require Import Ast MyEnv.
+Require Import String List Bool
+.
+
+Require Import Ast MyEnv TCTranslate.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
-Require Import Template.monad_utils.
+Require Import MetaCoq.Template.monad_utils.
+
+(* We need some definitions like [All] from utils *)
+Require Import MetaCoq.Template.utils.
 
 
 Import ListNotations.
@@ -54,46 +58,29 @@ Module InterpreterEnvList.
 
   (** A type of labels to distinguish closures corresponding to lambdas and fixpoints *)
   Inductive clos_mode : Type :=
-    cmLam | cmFix : name -> clos_mode.
+    cmLam | cmFix : ename -> clos_mode.
 
   (** Values *)
   Inductive val : Type :=
-  | vConstr : inductive -> name -> list val -> val
-  | vClos   : env val -> name ->
+  | vConstr : inductive -> ename -> list val -> val
+  | vClos   : env val -> ename ->
               clos_mode ->
               type ->(* type of the domain *)
               type ->(* type of the codomain *)
               expr -> val
-  | vTyClos : env val -> name -> expr -> val
+  | vTyClos : env val -> ename -> expr -> val
   | vTy : type -> val.
 
-  Definition ForallEnv {A} (P: A -> Prop) : env A -> Prop := Forall (P ∘ snd).
-
-  (* TODO: Extend this to handle type lambdas and types *)
-  Inductive val_ok Σ : val -> Prop :=
-  | vokClosLam : forall e nm ρ ty1 ty2,
-      ForallEnv (val_ok Σ) ρ ->
-      iclosed_n (1 + length ρ) e = true ->
-      val_ok Σ (vClos ρ nm cmLam ty1 ty2 e)
-  | vokClosFix : forall e nm fixname ρ ty1 ty2,
-      ForallEnv (val_ok Σ) ρ ->
-      iclosed_n (2 + length ρ) e = true ->
-      val_ok Σ (vClos ρ nm (cmFix fixname) ty1 ty2 e)
-  | vokContr : forall i nm vs ci,
-      Forall (val_ok Σ) vs ->
-      resolve_constr Σ i nm = Some ci ->
-      val_ok Σ (vConstr i nm vs).
-
-  Definition env_ok Σ (ρ : env val) := ForallEnv (val_ok Σ) ρ.
+  Definition AllEnv {A} (P: A -> Type) : env A -> Type := All (P ∘ snd).
 
   (** An induction principle that takes into account nested occurences of elements of [val] in the list of arguments of [vConstr] and in the environment of [vClos] *)
   Definition val_ind_full
      (P : val -> Prop)
-     (Hconstr : forall (i : inductive) (n : name) (l : list val), Forall P l -> P (vConstr i n l))
-     (Hclos : forall (ρ : env val) (n : name) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
-         ForallEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0))
-     (Htyclos : forall (ρ : env val) (n : name) (e0 : expr),
-         ForallEnv P ρ -> P (vTyClos ρ n e0))
+     (Hconstr : forall (i : inductive) (n : ename) (l : list val), Forall P l -> P (vConstr i n l))
+     (Hclos : forall (ρ : env val) (n : ename) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
+         AllEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0))
+     (Htyclos : forall (ρ : env val) (n : ename) (e0 : expr),
+         AllEnv P ρ -> P (vTyClos ρ n e0))
      (Hty : forall (t : type),  P (vTy t)) :
     forall v : val, P v.
     refine (fix val_ind_fix (v : val) := _).
@@ -111,43 +98,42 @@ Module InterpreterEnvList.
     + apply Hty.
   Defined.
 
-  (** For some reason, this is not a part of the standard lib *)
-  Lemma Forall_app {A} (l1 l2 : list A) P :
-    Forall P (l1 ++ l2) <-> Forall P l1 /\ Forall P l2.
-  Proof.
-    split.
-    - intros H. induction l1.
-      + simpl in *. easy.
-      + simpl in *. inversion H. subst.
-        split.
-        * constructor. assumption.
-          destruct (IHl1 H3). assumption.
-        * destruct (IHl1 H3). assumption.
-    - intros H. induction l1.
-      + simpl in *. easy.
-      + simpl in *. destruct H as [H1 H2].
-        constructor;inversion H1;auto.
-  Qed.
-
-  Lemma Forall_rev {A} {l : list A} P : Forall P l -> Forall P (rev l).
-  Proof.
-    intros H.
-    induction l.
-    + constructor.
-    + simpl. apply Forall_app.
-      inversion H;auto.
-  Qed.
+  (** An elimination principle (on a predicate to [Type]) that takes into account nested occurences of elements of [val]
+     in the list of arguments of [vConstr] and in the environment of [vClos] *)
+  Definition val_elim_full
+     (P : val -> Type)
+     (Hconstr : forall (i : inductive) (n : ename) (l : list val), All P l -> P (vConstr i n l))
+     (Hclos : forall (ρ : env val) (n : ename) (cm : clos_mode) (ty1 ty2 : type) (e0 : expr),
+         AllEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0))
+    (Htyclos : forall (ρ : env val) (n : ename) (e0 : expr),
+         AllEnv P ρ -> P (vTyClos ρ n e0))
+     (Hty : forall (t : type),  P (vTy t)) :
+    forall v : val, P v.
+     refine (fix val_ind_fix (v : val) := _).
+    destruct v.
+    + apply Hconstr.
+      induction l. constructor. constructor. apply val_ind_fix. apply IHl.
+    + apply Hclos.
+      induction e.
+      * constructor.
+      * constructor. apply val_ind_fix. apply IHe.
+    + apply Htyclos.
+      induction e.
+      * constructor.
+      * constructor. apply val_ind_fix. apply IHe.
+    + apply Hty.
+  Defined.
 
   Definition ind_name (v : val) :=
     match v with
-    | vConstr ind_name _ _ => Some ind_name
+    | vConstr ind_ename _ _ => Some ind_ename
     | _ => None
     end.
 
   Open Scope string.
 
   (** Very simple implementation of pattern-matching. Note that we do not match on parameters of constructors coming from parameterised inductives *)
-  Definition match_pat {A} (cn : name) (nparam : nat) (arity :list type)
+  Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
              (constr_args : list A) (bs : list (pat * expr)) :=
     pe <- option_to_res (find (fun x => (fst x).(pName) =? cn) bs) (cn ++ ": not found");;
     let '(p,e) := pe in
@@ -165,14 +151,14 @@ Module InterpreterEnvList.
                        ++ utils.string_of_nat ctr_len ++ ",
                     pattern: "  ++ utils.string_of_nat pt_len ++ ")").
 
-  Fixpoint inductive_name (ty : type) : option name :=
+  Fixpoint inductive_name (ty : type) : option ename :=
     match ty with
     | tyInd nm => Some nm
     | tyApp ty1 ty2 => inductive_name ty1
     | _ => None
     end.
 
-  (** Some machinery to substitute type during the evaluation. Although we don't care about the type during evaluation, we need the types later. *)
+  (** Some machinery to substitute types during the evaluation. Although we don't care about the types the during evaluation, we need the types later. *)
   Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
     match ty with
     | tyInd x => Some ty
@@ -190,9 +176,7 @@ Module InterpreterEnvList.
                   end
                 else Some ty
     | tyArr ty1 ty2 =>
-      (* NOTE: we pass [1+k] for the ty2 evaluation
-         due to the [indexify] function (see comments there) *)
-      ty2' <- eval_type_i (1+k) ρ ty2;;
+      ty2' <- eval_type_i k ρ ty2;;
       ty1' <- eval_type_i k ρ ty1;;
       Some (tyArr ty1' ty2')
     end.
@@ -218,6 +202,10 @@ Module InterpreterEnvList.
       Some (tyArr ty1' ty2')
     end.
 
+  Definition eval_ty (enamed : bool) ρ ty err :=
+    if enamed then
+      option_to_res (eval_type_n ρ ty) err
+    else option_to_res (eval_type_i 0 ρ ty) err.
 
   Fixpoint print_type (ty : type) : string :=
     match ty with
@@ -230,25 +218,26 @@ Module InterpreterEnvList.
     end.
 
 
-  (** The interpreter works for both named and nameless representation of Oak expressions, depending on a parameter [named]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). We keep types in during evaluation, because for the soundness theorem we would have to translate values back to expression and then further to MetaCoq terms. This requires us to keep all types in place. In addition to this interpreter, we plan to implement another one which computes on terms after erasure of typing information. *)
+  (** The interpreter works for both enamed and enameless representation of Oak expressions, depending on a parameter [enamed]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). We keep types in during evaluation, because for the soundness theorem we would have to translate values back to expression and then further to MetaCoq terms. This requires us to keep all types in place. In addition to this interpreter, we plan to implement another one which computes on terms after erasure of typing information. *)
 
   Definition expr_eval_general : bool ->global_env -> nat -> env val -> expr -> res val :=
-    fun named Σ =>
+    fun enamed Σ =>
       fix eval fuel ρ e :=
       match fuel with
       | O => NotEnoughFuel
       | S n =>
         match e with
-        | eRel i => if named then EvalError "Indices as variables are not supported"
+        | eRel i => if enamed then EvalError "Indices as variables are not supported"
                    else option_to_res (lookup_i ρ i) ("var not found")
-        | eVar nm => if named then
+        | eVar nm => if enamed then
                       option_to_res (ρ # (nm)) (nm ++ " - var not found")
-                    else EvalError (nm ++ " variable found, but named variables are not supported")
+                    else EvalError (nm ++ " variable found, but enamed variables are not supported")
         | eLambda nm ty b =>
           (* NOTE: we pass the same type as the codomain type here
             (because it's not needed for lambda).
-            Maybe separate costructors for lambda/fixpoint closures would be better? *)
-          Ok (vClos ρ nm cmLam ty ty b)
+            Maybe separate constructors for lambda/fixpoint closures would be better? *)
+          ty_v <- eval_ty enamed ρ ty "Type error";;
+          Ok (vClos ρ nm cmLam ty_v ty_v b)
         | eLetIn nm e1 ty e2 =>
             v <- eval n ρ e1 ;;
             eval n (ρ # [nm ~> v]) e2
@@ -258,9 +247,9 @@ Module InterpreterEnvList.
             match v1,v2 with
             | vClos ρ' nm cmLam _ _ b, v =>
               eval n (ρ' # [nm ~> v]) b
-            | vClos ρ' nm (cmFix fixname) ty1 ty2 b, v =>
-              let v_fix := (vClos ρ' nm (cmFix fixname) ty1 ty2 b) in
-              eval n (ρ' # [fixname ~> v_fix] # [nm ~> v]) b
+            | vClos ρ' nm (cmFix fixename) ty1 ty2 b, v =>
+              let v_fix := (vClos ρ' nm (cmFix fixename) ty1 ty2 b) in
+              eval n (ρ' # [fixename ~> v_fix] # [nm ~> v]) b
             | vTyClos ρ' nm b, v =>
                 eval n (ρ' # [nm ~> v]) b
             | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
@@ -289,15 +278,14 @@ Module InterpreterEnvList.
           | Ok _ => EvalError "Discriminee should evaluate to a constructor"
           | v => v
             end
-        | eFix fixname vn ty1 ty2 b as e =>
-          Ok (vClos ρ vn (cmFix fixname) ty1 ty2 b)
+        | eFix fixename vn ty1 ty2 b as e =>
+          ty_v1 <- eval_ty enamed ρ ty1 "Type error";;
+          ty_v2 <- eval_ty enamed ρ ty2 "Type error";;
+          Ok (vClos ρ vn (cmFix fixename) ty_v1 ty_v2 b)
         | eTyLam nm e => Ok (vTyClos ρ nm e)
         | eTy ty =>
           let error := "Error while evaluating type: " ++ print_type ty in
-          let res := if named then
-                       option_to_res (eval_type_n ρ ty) error
-                     else option_to_res (eval_type_i 0 ρ ty) error in
-          ty' <- res;; ret (vTy ty')
+          ty' <- eval_ty enamed ρ ty error;; ret (vTy ty')
         end
       end.
 

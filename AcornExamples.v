@@ -1,11 +1,11 @@
 (** * Examples of library code and contracts originating from the actual Acorn implementation  *)
 Require Import ZArith.
 Require Import String.
-Require Import Ast CustomTactics.
+Require Import Ast CustomTactics TCTranslate.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.
-From Template Require Import All.
+From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
 
@@ -56,7 +56,7 @@ End AcornBool.
 Module AcornMaybe.
   Import AcornBool.
 
-  Definition AM_data :=  [gdInd "Maybe" 1 [("Nothing_coq", []);("Just_coq", [(TC.nAnon, tyRel 0)])] false].
+  Definition AM_data :=  [gdInd "Maybe" 1 [("Nothing_coq", []);("Just_coq", [(None, tyRel 0)])] false].
   (*---------------------*)
   Definition AM_functions := [("isJust", eTyLam "A" (eLambda "x" ((tyApp (tyInd "Maybe") (tyRel 0))) (eCase ((tyApp (tyInd "Maybe") (tyRel 0)), 0) ((tyInd "Bool")) (eRel 0) [(pConstr "Nothing_coq" [], eConstr "Bool" "False_coq");(pConstr "Just_coq" ["x0"], eConstr "Bool" "True_coq")])))].
 
@@ -72,7 +72,7 @@ Print isJust.
 
 Module AcornProd.
 
-  Definition AP_data := [gdInd "Pair" 2 [("Pair_coq", [(TC.nAnon, tyRel 1);(TC.nAnon, tyRel 0)])] false].
+  Definition AP_data := [gdInd "Pair" 2 [("Pair_coq", [(None, tyRel 1);(None, tyRel 0)])] false].
   (*---------------------*)
 
   Definition AP_functions :=
@@ -88,7 +88,7 @@ Module AcornListBase.
   Import AcornMaybe.
   Import AcornProd.
 
-  Definition ALB_data :=  [gdInd "List" 1 [("Nil_coq", []);("Cons_coq", [(TC.nAnon, tyRel 0);(TC.nAnon, (tyApp (tyInd "List") (tyRel 0)))])] false].
+  Definition ALB_data :=  [gdInd "List" 1 [("Nil_coq", []);("Cons_coq", [(None, tyRel 0);(None, (tyApp (tyInd "List") (tyRel 0)))])] false].
 
   (*---------------------*)
 
@@ -129,8 +129,8 @@ Module AcornListBase.
 
   Fixpoint from_oak {A : Set} (oakL : OakList A) : list A :=
     match oakL with
-    | Cons_coq _ hd tl => hd :: from_oak tl
-    | Nil_coq _ => []
+    | Cons_coq hd tl => hd :: from_oak tl
+    | Nil_coq => []
     end.
 
   Fixpoint to_oak {A : Set} (coqL : list A) : OakList A :=
@@ -189,7 +189,7 @@ End AcornListBase.
 
 Module AcornBlochain.
 
-  Definition ABl_data :=  [gdInd "Caller" 0 [("CallerContract_coq", [(TC.nAnon, tyInd "nat")]);("CallerAccount_coq", [(TC.nAnon, tyInd "string")])] false;gdInd "ChainContext" 0 [("ChainContext_coq", [(TC.nAnon, tyInd "nat");(TC.nAnon, tyInd "nat");(TC.nAnon, tyInd "nat")])] false;gdInd "InitContext" 0 [("InitContext_coq", [(TC.nAnon, (tyInd "ChainContext"));(TC.nAnon, tyInd "string")])] false;gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(TC.nAnon, (tyInd "ChainContext"));(TC.nAnon, tyInd "string");(TC.nAnon, tyInd "nat")])] false].
+  Definition ABl_data :=  [gdInd "Caller" 0 [("CallerContract_coq", [(None, tyInd "nat")]);("CallerAccount_coq", [(None, tyInd "string")])] false;gdInd "ChainContext" 0 [("ChainContext_coq", [(None, tyInd "nat");(None, tyInd "nat");(None, tyInd "nat")])] false;gdInd "InitContext" 0 [("InitContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string")])] false;gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string");(None, tyInd "nat")])] false].
 
   (*---------------------*)
 
@@ -242,7 +242,7 @@ End Prim.
 
 (** Data type definitions corresponding representation of the module [CoqExamples] above *)
 Definition acorn_datatypes :=
-[gdInd "Msg" 0 [("Inc_coq", [(TC.nAnon, tyInd "Z")]);("Dec_coq", [(TC.nAnon, tyInd "Z")])] false;gdInd "CState" 0 [("CState_coq", [(TC.nAnon, tyInd "Z");(TC.nAnon, tyInd "string")])] false].
+[gdInd "Msg" 0 [("Inc_coq", [(None, tyInd "Z")]);("Dec_coq", [(None, tyInd "Z")])] false;gdInd "CState" 0 [("CState_coq", [(None, tyInd "Z");(None, tyInd "string")])] false].
 
 Run TemplateProgram (translateData acorn_datatypes).
 
@@ -303,7 +303,7 @@ End ForPeresentation.
 
 Module Recursion.
 
-  Definition R_data := [gdInd "Nat" 0 [("Zero_coq", []);("Suc_coq", [(TC.nAnon, (tyInd "Nat"))])] false].
+  Definition R_data := [gdInd "Nat" 0 [("Zero_coq", []);("Suc_coq", [(None, (tyInd "Nat"))])] false].
 (*---------------------*)
 
   Open Scope nat.
@@ -365,4 +365,4 @@ Compute (expr_to_term StdLib.Σ (reindexify 0 id_forall)).
 
 (** Application [id id] fails, since [A] must be [Set], but type of
  [id] is [forall A, A -> A], which lives in [Type]  *)
-Fail Make Definition id_id := Eval compute in (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)).
+Fail Make Definition id_id := (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)).

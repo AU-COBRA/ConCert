@@ -1,5 +1,6 @@
 (** * Convertion from values back to expressions through the environment substitution *)
-Require Import List Relations Morphisms.
+Require Import List Bool Relations Morphisms ssrbool.
+Require Import MetaCoq.Template.utils.
 
 Require Import Ast.
 Require Import EvalE.
@@ -7,11 +8,9 @@ Require Import MyEnv.
 
 Import InterpreterEnvList.
 
-(* TODO: add support for polymorphism *)
-
-(* Substitution for the named representation *)
-(* NOTE: assumes, that expression in [ρ] are closed! *)
- Fixpoint subst_env (ρ : list (name * expr)) (e : expr) : expr :=
+(** Substitution for the named representation *)
+(** NOTE: assumes, that expression in [ρ] are closed! *)
+ Fixpoint subst_env (ρ : list (ename * expr)) (e : expr) : expr :=
   match e with
   | eRel i as e' => e'
   | eVar nm  => match lookup ρ nm with
@@ -32,25 +31,58 @@ Import InterpreterEnvList.
   end.
 
 
- (* Substitution for the nameless representation *)
+ (** Substitution for the nameless representation *)
 
-  (* NOTE: assumes, that expression in [ρ] are closed! *)
+ Definition expr_to_ty (e : expr) : option type :=
+   match e with
+   | eTy ty => Some ty
+   | _ => None
+   end.
+
+ Definition lookup_ty (ρ : env expr) (i : nat) : option type :=
+   match lookup_i ρ i with
+   | Some e => expr_to_ty e
+   | None => None
+   end.
+
+ Fixpoint subst_env_i_ty (k : nat) (ρ : env expr) (ty : type) : type :=
+    match ty with
+    | tyInd x => ty
+    | tyForall x ty => tyForall x (subst_env_i_ty (1+k) ρ ty)
+    | tyApp ty1 ty2 =>
+      let ty2' := subst_env_i_ty k ρ ty2 in
+      let ty1' := subst_env_i_ty k ρ ty1 in
+      tyApp ty1' ty2'
+    | tyVar nm => ty
+    | tyRel i => if Nat.leb k i then
+                  from_option (lookup_ty ρ (i-k)) (tyRel i) else tyRel i
+    | tyArr ty1 ty2 =>
+      let ty2' := subst_env_i_ty k ρ ty2 in
+      let ty1' := subst_env_i_ty k ρ ty1 in
+      tyArr ty1' ty2'
+    end.
+
+
+  (** NOTE: assumes, that expression in [ρ] are closed! *)
  Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
   match e with
   | eRel i => if Nat.leb k i then
                from_option (lookup_i ρ (i-k)) (eRel i) else eRel i
   | eVar nm  => eVar nm
-  | eLambda nm ty b => eLambda nm ty (subst_env_i_aux (1+k) ρ b)
+  | eLambda nm ty b => eLambda nm (subst_env_i_ty k ρ ty) (subst_env_i_aux (1+k) ρ b)
   | eTyLam nm b => eTyLam nm (subst_env_i_aux (1+k) ρ b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) ty (subst_env_i_aux (1+k) ρ e2)
+  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) (subst_env_i_ty k ρ ty)
+                                (subst_env_i_aux (1+k) ρ e2)
   | eApp e1 e2 => eApp (subst_env_i_aux k ρ e1) (subst_env_i_aux k ρ e2)
   | eConstr t i as e' => e'
   | eConst nm => eConst nm
   | eCase nm_i ty e bs =>
-    eCase nm_i ty (subst_env_i_aux k ρ e)
+    let (ind, i) := nm_i in
+    eCase (subst_env_i_ty k ρ ind,i) (subst_env_i_ty k ρ ty) (subst_env_i_aux k ρ e)
           (map (fun x => (fst x, subst_env_i_aux (length (fst x).(pVars) + k) ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env_i_aux (2+k) ρ b)
-  | eTy _ => e
+  | eFix nm v ty1 ty2 b => eFix nm v (subst_env_i_ty k ρ ty1) (subst_env_i_ty k ρ ty2)
+                               (subst_env_i_aux (2+k) ρ b)
+  | eTy ty => eTy (subst_env_i_ty k ρ ty)
   end.
 
  Definition subst_env_i := subst_env_i_aux 0.
@@ -91,18 +123,87 @@ Import InterpreterEnvList.
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
       in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
-    | vTyClos ρ nm e => subst_env_i (map (fun x => (fst x, from_val (snd x))) ρ)
+    | vTyClos ρ nm e => subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ)
                                  (eTyLam nm e)
     | vTy ty => eTy ty
 
-   end.
+    end.
+
+  Notation exprs := (map (fun x => (fst x, from_val_i (snd x)))).
 
   (* The similar notation will be used when we change to a parallel substitution *)
-  Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 50).
+  Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 6).
 
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
    subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
- Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 50).
+ Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 6).
+
+  Definition ty_in_env (ρ : env expr) (i : nat) : bool :=
+    match lookup_i ρ i with
+    | Some e => match e with
+               | eTy ty => true
+               | _ => false
+               end
+    | None => false
+    end.
+
+  Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type): bool :=
+    match ty with
+    | tyInd x => true
+    | tyForall v ty0 => ty_env_ok (S n) ρ ty0
+    | tyApp ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
+    | tyVar _ => false
+    | tyRel i => if Nat.leb n i then ty_in_env ρ (i-n) else true
+    | tyArr ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
+    end.
+
+  Definition ty_expr_env_ok (ρ : env expr) : nat -> expr -> bool:=
+    fix rec n e :=
+      match e with
+      | eRel i => true
+      | eVar nm  => false
+      | eLambda nm ty b => ty_env_ok n ρ ty && rec (1+n) b
+      | eTyLam nm b => rec (1+n) b
+      | eLetIn nm e1 ty e2 => rec n e1 && ty_env_ok n ρ ty && rec (1+n) e2
+      | eApp e1 e2 => rec n e1 && rec n e2
+      | eConstr t i as e' => true
+      | eConst nm => true
+      | eCase nm_i ty e bs =>
+        let bs'' := List.forallb
+                      (fun x => rec (length (pVars (fst x)) + n) (snd x)) bs in
+        ty_env_ok n ρ (fst nm_i) && ty_env_ok n ρ ty && rec n e && bs''
+      | eFix nm v ty1 ty2 b => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2 && rec (2+n) b
+      | eTy ty => ty_env_ok n ρ ty
+      end.
+
+
+ Inductive val_ok Σ : val -> Type :=
+  | vokClosLam : forall e nm ρ ty1 ty2,
+      AllEnv (val_ok Σ) ρ ->
+      ty_expr_env_ok (exprs ρ) 1 e ->
+      iclosed_n (1 + length ρ) e ->
+      iclosed_ty 0 ty1 ->
+      iclosed_ty 0 ty2 ->
+      val_ok Σ (vClos ρ nm cmLam ty1 ty2 e)
+  | vokClosFix : forall e nm fixename ρ ty1 ty2,
+      AllEnv (val_ok Σ) ρ ->
+      ty_expr_env_ok (exprs ρ) 2 e ->
+      iclosed_n (2 + length ρ) e ->
+      iclosed_ty 0 ty1 ->
+      iclosed_ty 0 ty2 ->
+      val_ok Σ (vClos ρ nm (cmFix fixename) ty1 ty2 e)
+  | vokTyClos : forall e nm ρ,
+      AllEnv (val_ok Σ) ρ ->
+      ty_expr_env_ok (exprs ρ) 1 e ->
+      iclosed_n (1 + length ρ) e ->
+      val_ok Σ (vTyClos ρ nm e)
+  | vokContr : forall i nm vs ci,
+      All (val_ok Σ) vs ->
+      resolve_constr Σ i nm = Some ci ->
+      val_ok Σ (vConstr i nm vs).
+
+  Definition env_ok Σ (ρ : env val) := AllEnv (val_ok Σ) ρ.
+
 
  Module Equivalence.
    Reserved Notation "v1 ≈ v2" (at level 50).
@@ -168,7 +269,7 @@ Import InterpreterEnvList.
       cbv;intros;apply list_val_compat;assumption.
     Defined.
 
-    Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : name) :
+    Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : ename) :
       vs1 ≈ₗ vs2 -> (vConstr i nm vs1) ≈ (vConstr i nm vs2).
     Proof.
       intros Heql.

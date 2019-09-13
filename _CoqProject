@@ -1,11 +1,17 @@
+-R . Contraver
+
 ./CustomTactics.v
 ./MyEnv.v
 ./Ast.v
+./TCTranslate.v
 ./EvalE.v
 ./EnvSubst.v
 ./Demo.v
 ./ExampleContracts.v
 ./OakMap.v
 ./AcornExamples.v
+./pcuic/PCUICTranslate.v
+./pcuic/PCUICFacts.v
+./pcuic/PCUICCorrectness.v
 # ./Facts.v
 # ./Correctness.v
