@@ -26,18 +26,6 @@ Fixpoint type_to_term (ty : type) : term :=
   | tyRel i => tRel i
   end.
 
-Definition pat_to_lam_aux (params : list term)
-           (body : term)
-          :  list term -> list (BasicTC.ident * term) -> term :=
-  (fix rec ty_params tys :=
-    match tys with
-      [] => body
-    | (n,ty) :: tys' =>
-      (* NOTE: we need to substitute the parameters into the type of each lambda representing a pattern binder. Since each lambda introduces a binder, we need also to lift free variables in [params] *)
-      let lam_type := subst ty_params 0 ty in
-      tLambda (BasicTC.nNamed n) lam_type (rec (map (lift0 1) ty_params) tys')
-    end).
-
 Definition pat_to_lam (body : term)
           :  list term -> list (BasicTC.ident * term) -> term :=
   (fix rec ty_params tys :=
@@ -106,7 +94,7 @@ Fixpoint decompose_inductive (ty : type) : option (ename * list type) :=
 (** ** Translation of Oak to MetaCoq *)
 
 Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
-  fix expr_to_term e :=
+fix expr_to_term e :=
   match e with
   | eRel i => tRel i
   | eVar nm => tVar nm
@@ -122,17 +110,25 @@ Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
   | eConst nm => tConst nm []
   | eCase nm_i ty2 e bs =>
     let (ty1,i) := nm_i in
-    let (nm, tys) := from_option (decompose_inductive ty1) ("Case : not inductive", [tyVar ""]) in
     let typeInfo := tLambda nAnon (type_to_term ty1)
-                            (type_to_term ty2) in
-    let (_,cs) := from_option (resolve_inductive Σ nm) (0,[(nm ++ "not found",[])%string]) in
-    let tbs := map (fun_prod id expr_to_term) bs in
-    let branches := map (trans_branch tys tbs) cs in
-    tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
+                            (lift0 1 (type_to_term ty2)) in
+    match decompose_inductive ty1 with
+    | Some nm_tys =>
+      let (nm, tys) := nm_tys in
+      match (resolve_inductive Σ nm) with
+      | Some v =>
+        let cs := snd v in
+        let tbs := map (fun_prod id expr_to_term) bs in
+        let branches := map (trans_branch tys tbs) cs in
+        tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
+      | None => tVar (nm ++ "not found")%string
+      end
+    | None => tVar ("Case : not inductive")%string
+    end
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
     let tty2 := type_to_term ty2 in
-    let ty := tProd nAnon tty1 tty2 in
+    let ty := tProd nAnon tty1 (lift0 1 tty2) in
     (* NOTE: we have to lift the indices in [tty1] *)
     let body := tLambda (nNamed nv) (lift0 1 tty1) (expr_to_term b) in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
@@ -682,5 +678,14 @@ Section Examples.
 
   Make Definition case_ex_def1 :=  (expr_to_term Σ (indexify [] case_ex1)).
 
+  Definition case_ex2 :=
+    [| \\y => case ({eConstr "list" "Nil"} "y") : "list" 'y return "list" 'y of
+              | Nil -> {eConstr "list" "Nil"} "y"
+              | Cons "hd" "tl" -> {eConstr "list" "Nil"} "y" |].
+
+  Compute indexify [] case_ex2.
+  Compute (expr_to_term Σ (indexify [] case_ex2)).
+
+  Make Definition case_ex_def2 :=  (expr_to_term Σ (indexify [] case_ex2)).
 
 End Examples.

@@ -170,7 +170,7 @@ Module InterpreterEnvList.
       ret (tyApp ty1' ty2')
     | tyVar nm => None
     | tyRel i => if Nat.leb k i then
-                  match (lookup_i ρ i) with
+                  match (lookup_i ρ (i-k)) with
                   | Some (vTy ty) => Some ty
                   | _ => None
                   end
@@ -260,7 +260,7 @@ Module InterpreterEnvList.
             | Some _ => Ok (vConstr ind ctor [])
             | _ => EvalError "No constructor or inductive found"
             end
-        | eConst nm => todo
+        | eConst nm => todo (* we assume that all external references were resolved *)
         | eCase (ind,i) ty e bs =>
           match eval n ρ e with
           | Ok (vConstr ind' c vs) =>
@@ -270,7 +270,7 @@ Module InterpreterEnvList.
               | Some (_,ci) =>
                 pm_res <- match_pat c i ci vs bs;;
                 let '(var_assign, v) := pm_res in
-                eval n (List.app (rev var_assign) ρ) v
+                eval n (List.app (List.rev var_assign) ρ) v
             | None => EvalError "No constructor or inductive found in the global envirionment"
               end
             else EvalError ("Expecting inductive " ++ ind_nm ++ " but found " ++ ind')

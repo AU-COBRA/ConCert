@@ -138,14 +138,11 @@ Import InterpreterEnvList.
    subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
  Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 6).
 
-  Definition ty_in_env (ρ : env expr) (i : nat) : bool :=
-    match lookup_i ρ i with
-    | Some e => match e with
-               | eTy ty => true
-               | _ => false
-               end
-    | None => false
-    end.
+ Definition is_type e : bool :=
+   match expr_to_ty e with
+   | Some _ => true
+   | _ => false
+  end.
 
   Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type): bool :=
     match ty with
@@ -153,7 +150,12 @@ Import InterpreterEnvList.
     | tyForall v ty0 => ty_env_ok (S n) ρ ty0
     | tyApp ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
     | tyVar _ => false
-    | tyRel i => if Nat.leb n i then ty_in_env ρ (i-n) else true
+    | tyRel i => if Nat.leb n i then
+                  match lookup_i ρ (i-n) with
+                  | Some e => is_type e (* if there is somethig in [ρ], it must be a type *)
+                  | None => true (* if nothing there, that's ok *)
+                  end
+                else true
     | tyArr ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
     end.
 

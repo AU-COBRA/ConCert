@@ -223,7 +223,11 @@ Section Values.
       eapply All_impl. apply H.
       intros. simpl in *.
       eapply H0 with (n:=#|pVars x.1| + n1). lia. easy.
-    + simpl in *. rewrite H1. eapply IHe with (n:=S (S n1));eauto;lia.
+    + simpl in *. rewrite H1. repeat rewrite Bool.andb_true_iff in *. intuition.
+      repeat split_andb;eauto with facts.
+      eapply iclosed_ty_geq with (n:=n1);eauto.
+      eapply iclosed_ty_geq with (n:=n1);eauto.
+      eapply IHe with (n:=S (S n1));eauto;lia.
     + simpl. rewrite H0. apply iclosed_ty_geq with (n:=n1);auto;lia.
   Qed.
 
@@ -265,7 +269,7 @@ Section Values.
         assert (Hc' : n-n1 < length ρ) by lia.
         rewrite <- PeanoNat.Nat.ltb_lt in *. unfold lookup_ty.
         destruct (lookup_i_length _ (n-n1) Hc') as [e0 He0].
-        rewrite He0. simpl. unfold ty_in_env in *. rewrite He0 in *. destruct e0;tryfalse.
+        rewrite He0 in *. simpl. destruct e0;tryfalse.
         simpl in *. assert (H : iclosed_n 0 (eTy t)) by (eapply (All_lookup_i _ _ _ _ Henv);eauto).
         simpl in *. eauto with facts.
       * simpl in *. leb_ltb_to_prop. assumption.
@@ -329,6 +333,8 @@ Section Values.
         eapply All_impl. apply H. intros. simpl in *.
         rewrite PeanoNat.Nat.add_assoc in *.
         eapply H8;intuition;auto with facts.
+      + inv_andb H. inv_andb H1. split_andb.
+        eapply subst_env_i_ty_closed;eauto with facts. intuition.
   Qed.
 
   Lemma subst_env_iclosed_n_inv (e : expr) :
@@ -362,7 +368,8 @@ Section Values.
                               is_true (iclosed_n (#|pVars (fst x)| + k)
                                       ((snd x).[ ρ] (#|pVars (fst x)| + k)))) l) by
            now apply utils.forallb_Forall.
-        rewrite Forall_forall in HH. intuition.
+      rewrite Forall_forall in HH. intuition.
+    + inv_andb H. split_andb;auto with facts.
   Qed.
 
   Lemma subst_env_iclosed_0 (e : expr) :
@@ -394,7 +401,9 @@ Section Values.
       now eapply (All_impl X).
     + simpl in *. destruct cm.
       * simpl in *. inversion Hv. subst. clear Hv.
-        split_andb. eapply iclosed_ty_0. eapply subst_env_i_ty_closed;auto with facts.
+        split_andb. eapply iclosed_ty_0.
+        eapply subst_env_i_ty_closed;
+          auto with facts.
         eapply All_map. eapply (All_impl_inner _ _ _ X0). eapply (All_impl X);eauto.
         eapply iclosed_m_n with (n:=1).
         apply subst_env_iclosed_n.
@@ -405,14 +414,25 @@ Section Values.
            now eapply (All_impl X).
         ** now rewrite map_length.
       * unfold subst_env_i. simpl in *.
-        inversion Hv. subst.
-        eapply iclosed_m_n with (n:=2).
-        apply subst_env_iclosed_n.
-        ** easy.
-        ** apply All_map. unfold compose in *.
-           eapply All_impl_inner. apply X0.
-           now eapply (All_impl X).
-        ** now rewrite map_length.
+        inversion Hv. subst. repeat split_andb.
+        ** eapply iclosed_ty_0.
+           eapply subst_env_i_ty_closed;
+             auto with facts.
+           eapply All_map. eapply (All_impl_inner _ _ _ X0).
+           eapply (All_impl X);eauto.
+        ** eapply iclosed_ty_0.
+           eapply subst_env_i_ty_closed;
+             auto with facts.
+           eapply All_map. eapply (All_impl_inner _ _ _ X0).
+           eapply (All_impl X);eauto.
+        ** eapply iclosed_m_n with (n:=2).
+           eapply subst_env_iclosed_n.
+           *** easy.
+           *** apply All_map.
+               unfold AllEnv,compose,fun_prod in *.
+               eapply All_impl_inner. apply X0.
+               now eapply (All_impl X).
+           *** now rewrite map_length.
     + simpl. simpl in *.
       inversion Hv. subst. clear Hv.
         eapply iclosed_m_n with (n:=1).

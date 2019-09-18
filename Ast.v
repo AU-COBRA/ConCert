@@ -111,7 +111,7 @@ Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
     let bs'' := List.forallb
                   (fun x => iclosed_n (length ((fst x).(pVars)) + n) (snd x)) bs in
     iclosed_ty n (fst ii) && iclosed_ty n ty && iclosed_n n e && bs''
-  | eFix fixname nm ty1 ty2 e => iclosed_n (2+n) e
+  | eFix fixname nm ty1 ty2 e =>  iclosed_ty n ty1 &&  iclosed_ty n ty2 && iclosed_n (2+n) e
   | eTy ty => iclosed_ty n ty
   end.
 
@@ -222,17 +222,14 @@ Fixpoint indexify (l : list (ename * nat)) (e : expr) : expr :=
   | eCase nm_i ty2 e bs =>
     let (ty1,i) := nm_i in
     eCase (indexify_type l ty1,i)
-          (indexify_type (bump_indices l 1) ty2) (indexify l e)
+          (indexify_type l ty2) (indexify l e)
           (map (fun p => (fst p, indexify (number_vars 0 (fst p).(pVars) ++
                                bump_indices l (length (fst p).(pVars))) (snd p))) bs)
   | eFix nm vn ty1 ty2 b =>
     (* NOTE: name of the fixpoint becomes an index as well *)
-    let l' := ((nm,1) :: (vn,0) :: bump_indices l 2) in
-    (* NOTE: indexifying types is not a very good abstraction anymore.
-       [ty2] is needed in the translation in 2 places with different indices,
-       so we have to lift the indices in the translation again *)
-    let l'' := bump_indices l 1 in
-    eFix nm vn (indexify_type l ty1) (indexify_type l'' ty2) (indexify l' b)
+    let l' := bump_indices l 2 in
+    let l'' := ((nm,1) :: (vn,0) :: l') in
+    eFix nm vn (indexify_type l ty1) (indexify_type l ty2) (indexify l'' b)
   | eTy ty => eTy (indexify_type l ty)
   end.
 
@@ -266,9 +263,9 @@ Fixpoint reindexify (n : nat) (e : expr) : expr :=
   | eCase nm_i ty2 e bs =>
     let (ty1,i) := nm_i in
     eCase (lift_type_vars n 0 ty1,i)
-          (lift_type_vars (1+n) 0 ty2) (reindexify n e)
+          (lift_type_vars n 0 ty2) (reindexify n e)
           (map (fun p => (fst p, reindexify (length (fst p).(pVars) + n) (snd p))) bs)
   | eFix nm vn ty1 ty2 b =>
-    eFix nm vn (lift_type_vars n 0 ty1) (lift_type_vars (1+n) 0 ty2) (reindexify (2+n) b)
+    eFix nm vn (lift_type_vars n 0 ty1) (lift_type_vars n 0 ty2) (reindexify (2+n) b)
   | eTy ty => eTy (lift_type_vars n 0 ty)
   end.

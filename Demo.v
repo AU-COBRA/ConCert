@@ -266,7 +266,7 @@ Definition Bazz_match b :=
 Quote Definition q_Bazz_match := Eval compute in Bazz_match.
 
 
-(** Translation inductives *)
+(** Translation of inductives *)
 
 Definition Nat_syn :=
   [\ data "Nat" := "Z" : "Nat" | "Suc" : "Nat" -> "Nat" ; \].
