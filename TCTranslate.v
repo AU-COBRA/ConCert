@@ -129,7 +129,7 @@ fix expr_to_term e :=
     let tty1 := type_to_term ty1 in
     let tty2 := type_to_term ty2 in
     let ty := tProd nAnon tty1 (lift0 1 tty2) in
-    (* NOTE: we have to lift the indices in [tty1] *)
+    (* NOTE: we have to lift the indices in [tty1] because [tRel 0] corresponds to the recursive call *)
     let body := tLambda (nNamed nv) (lift0 1 tty1) (expr_to_term b) in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   | eTy ty => type_to_term ty

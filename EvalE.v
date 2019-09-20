@@ -217,11 +217,62 @@ Module InterpreterEnvList.
     | tyArr x x0 => print_type x ++ "->" ++ print_type x0
     end.
 
+  Definition is_type_val (v : val) : bool :=
+   match v with
+   | vTy ty  => true
+   | _ => false
+  end.
+
+  Fixpoint valid_ty_env (n : nat) (ρ : env val) (ty : type): bool :=
+    match ty with
+    | tyInd x => true
+    | tyForall v ty0 => valid_ty_env (S n) ρ ty0
+    | tyApp ty1 ty2 => valid_ty_env n ρ ty1 && valid_ty_env n ρ ty2
+    | tyVar _ => false
+    | tyRel i => if Nat.leb n i then
+                  match lookup_i ρ (i-n) with
+                  | Some e => is_type_val e (* if there is somethig in [ρ], it must be a type *)
+                  | None => true (* if nothing there, that's ok *)
+                  end
+                else true
+    | tyArr ty1 ty2 => valid_ty_env n ρ ty1 && valid_ty_env n ρ ty2
+    end.
+
+  Definition valid_env (ρ : env val) : nat -> expr -> bool:=
+    fix rec n e :=
+      match e with
+      | eRel i => true
+      | eVar nm  => false
+      | eLambda nm ty b => valid_ty_env n ρ ty && rec (1+n) b
+      | eTyLam nm b => rec (1+n) b
+      | eLetIn nm e1 ty e2 => rec n e1 && valid_ty_env n ρ ty && rec (1+n) e2
+      | eApp e1 e2 => rec n e1 && rec n e2
+      | eConstr t i as e' => true
+      | eConst nm => true
+      | eCase nm_i ty e bs =>
+        let bs'' := List.forallb
+                      (fun x => rec (length (pVars (fst x)) + n) (snd x)) bs in
+        valid_ty_env n ρ (fst nm_i) && valid_ty_env n ρ ty && rec n e && bs''
+      | eFix nm v ty1 ty2 b => valid_ty_env n ρ ty1 && valid_ty_env n ρ ty2 && rec (2+n) b
+      | eTy ty => valid_ty_env n ρ ty
+      end.
+
+  Definition validate (enamed : bool) (ρ : env val) (n : nat) (e : expr) : res unit :=
+    if enamed then Ok tt (* we validate only for the "indexed" mode *)
+    else
+      if valid_env ρ n e then Ok tt else EvalError "Invalid environment".
+
+  Definition validate_branches (enamed : bool) (ρ : env val) (es : list (pat * expr)) : res unit :=
+    if enamed then
+      Ok tt (* we validate only for the "indexed" mode *)
+    else
+      if forallb (fun x => valid_env ρ #|(fst x).(pVars)| (snd x)) es then Ok tt else EvalError "Invalid environment".
+
 
   (** The interpreter works for both enamed and enameless representation of Oak expressions, depending on a parameter [enamed]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). We keep types in during evaluation, because for the soundness theorem we would have to translate values back to expression and then further to MetaCoq terms. This requires us to keep all types in place. In addition to this interpreter, we plan to implement another one which computes on terms after erasure of typing information. *)
 
-  Definition expr_eval_general : bool ->global_env -> nat -> env val -> expr -> res val :=
-    fun enamed Σ =>
+  Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> res val :=
+    fun (enamed : bool) (Σ : global_env) =>
       fix eval fuel ρ e :=
       match fuel with
       | O => NotEnoughFuel
@@ -237,10 +288,12 @@ Module InterpreterEnvList.
             (because it's not needed for lambda).
             Maybe separate constructors for lambda/fixpoint closures would be better? *)
           ty_v <- eval_ty enamed ρ ty "Type error";;
+          validate enamed ρ 1 b;;
           Ok (vClos ρ nm cmLam ty_v ty_v b)
         | eLetIn nm e1 ty e2 =>
-            v <- eval n ρ e1 ;;
-            eval n (ρ # [nm ~> v]) e2
+          v <- eval n ρ e1 ;;
+          ty <- eval_ty enamed ρ ty "Type error";;
+          eval n (ρ # [nm ~> v]) e2
         | eApp e1 e2 =>
              v2 <- eval n ρ e2;;
              v1 <- eval n ρ e1;;
@@ -248,8 +301,12 @@ Module InterpreterEnvList.
             | vClos ρ' nm cmLam _ _ b, v =>
               eval n (ρ' # [nm ~> v]) b
             | vClos ρ' nm (cmFix fixename) ty1 ty2 b, v =>
-              let v_fix := (vClos ρ' nm (cmFix fixename) ty1 ty2 b) in
-              eval n (ρ' # [fixename ~> v_fix] # [nm ~> v]) b
+              match v with
+              | vConstr ind ctor vs =>
+                let v_fix := (vClos ρ' nm (cmFix fixename) ty1 ty2 b) in
+                eval n (ρ' # [fixename ~> v_fix] # [nm ~> v]) b
+              | _ => EvalError "Fix should be applied to an inductive"
+              end
             | vTyClos ρ' nm b, v =>
                 eval n (ρ' # [nm ~> v]) b
             | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
@@ -262,16 +319,19 @@ Module InterpreterEnvList.
             end
         | eConst nm => todo (* we assume that all external references were resolved *)
         | eCase (ind,i) ty e bs =>
+          validate_branches enamed ρ bs;;
+          ty_v <- eval_ty enamed ρ ty "Type Error";;
+          ind'' <- eval_ty enamed ρ ind "Type Error";;
           match eval n ρ e with
           | Ok (vConstr ind' c vs) =>
-            ind_nm <- option_to_res (inductive_name ind) "not inductive";;
+            ind_nm <- option_to_res (inductive_name ind'') "not inductive";;
             if (string_dec ind_nm ind') then
               match resolve_constr Σ ind' c with
               | Some (_,ci) =>
                 pm_res <- match_pat c i ci vs bs;;
                 let '(var_assign, v) := pm_res in
                 eval n (List.app (List.rev var_assign) ρ) v
-            | None => EvalError "No constructor or inductive found in the global envirionment"
+            | None => EvalError "No constructor or inductive found in the global environment"
               end
             else EvalError ("Expecting inductive " ++ ind_nm ++ " but found " ++ ind')
           | Ok (vTy ty) => EvalError ("Discriminee cannot be a type : " ++ print_type ty)
@@ -279,10 +339,13 @@ Module InterpreterEnvList.
           | v => v
             end
         | eFix fixename vn ty1 ty2 b as e =>
+          validate enamed ρ 2 b;;
           ty_v1 <- eval_ty enamed ρ ty1 "Type error";;
           ty_v2 <- eval_ty enamed ρ ty2 "Type error";;
           Ok (vClos ρ vn (cmFix fixename) ty_v1 ty_v2 b)
-        | eTyLam nm e => Ok (vTyClos ρ nm e)
+        | eTyLam nm e =>
+          validate enamed ρ 1 e;;
+          Ok (vTyClos ρ nm e)
         | eTy ty =>
           let error := "Error while evaluating type: " ++ print_type ty in
           ty' <- eval_ty enamed ρ ty error;; ret (vTy ty')
@@ -308,7 +371,7 @@ Module Examples.
 
   Example eval_prog1_named :
     InterpreterEnvList.expr_eval_n Σ 3 [] prog1 = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).
-  Proof. simpl. reflexivity. Qed.
+  Proof. reflexivity. Qed.
 
   Example eval_prog1_indexed :
     InterpreterEnvList.expr_eval_i Σ 3 [] (indexify [] prog1) = Ok (InterpreterEnvList.vConstr "Coq.Init.Datatypes.bool" "false" []).

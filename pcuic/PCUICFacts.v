@@ -562,7 +562,141 @@ Qed.
   (*     now inversion H1. *)
   (* Qed. *)
 Admitted.
-End Values.
+  End Values.
+
+  Section FindLookupProperties.
+
+  Context {A : Type}
+          {B : Type}
+          {C : Type}.
+
+  Lemma lookup_ind_nth_error_False (ρ : env A) n m a key :
+    lookup_with_ind_rec (1+n+m) ρ key  = Some (n, a) -> False.
+  Proof.
+    revert dependent m.
+    revert dependent n.
+    induction ρ as [ |a0 ρ0];intros n m H;tryfalse.
+    simpl in *.
+    destruct a0;destruct (s =? key).
+    + inversion H;lia.
+    + replace (S (n + m)) with (n + S m)  in * by lia.
+      eauto.
+  Qed.
+
+  Lemma lookup_ind_nth_error_shift (ρ : env A) n i a key :
+    lookup_with_ind_rec (1+n) ρ key = Some (1+i, a) <->
+    lookup_with_ind_rec n ρ key = Some (i, a).
+  Proof.
+    split;revert dependent i;revert dependent n;
+    induction ρ;intros i1 n1 H;tryfalse;simpl in *;
+      destruct a0; destruct ( s =? key); inversion H;eauto.
+  Qed.
+
+  Lemma lookup_ind_nth_error (ρ : env A) i a key :
+    lookup_with_ind ρ key = Some (i,a) -> nth_error ρ i = Some (key,a).
+  Proof.
+    revert dependent ρ.
+    induction i;simpl;intros ρ0 H.
+    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
+      destruct p as (nm,a0); destruct (nm =? key) eqn:Heq; try rewrite String.eqb_eq in *;subst.
+      inversion H;subst;eauto.
+      now apply (lookup_ind_nth_error_False _ 0 0) in H.
+    + destruct ρ0;tryfalse. unfold lookup_with_ind in H. simpl in *.
+      destruct p as (nm,a0); destruct (nm =? key) eqn:Heq;
+        try rewrite String.eqb_eq in *;subst;tryfalse.
+      apply IHi. now apply lookup_ind_nth_error_shift.
+  Qed.
+
+  Lemma lookup_i_nth_error (ρ : env A) i :
+    lookup_i ρ i = option_map snd (nth_error ρ i).
+  Proof.
+    revert i.
+    induction ρ;intros.
+    + simpl. now rewrite nth_error_nil.
+    + simpl. destruct a. simpl in *.
+      destruct i;simpl;auto. now replace (i-0) with i by lia.
+  Qed.
+
+  Lemma find_map_eq p1 p2 a (f g : A -> B) (l : list A) :
+    find p1 l = Some a -> (forall a, f a = g a) ->
+    (forall a, p1 a = p2 (f a)) -> find p2 (map f l) = Some (g a).
+  Proof.
+    intros Hfind Hfeq Heq.
+    induction l as [ | a' l'];tryfalse.
+    simpl in *. rewrite <- Heq.
+    destruct (p1 a');inversion Hfind;subst;auto.
+    now rewrite Hfeq.
+  Qed.
+
+  Lemma find_map p1 p2 a (f : A -> B) (l : list A) :
+    find p1 l = Some a -> (forall a, p1 a = p2 (f a)) -> find p2 (map f l) = Some (f a).
+  Proof.
+    intros Hfind Heq. now eapply find_map_eq.
+  Qed.
+
+  Lemma find_forallb_map {X Y} {xs : list X} {p0 : X -> bool} {p1 : Y -> bool} {f : X -> Y}:
+    forall x : X, find p0 xs = Some x -> forallb p1 (map f xs) = true -> p1 (f x) = true.
+  Proof.
+    induction xs;intros x Hfnd Hall.
+    + easy.
+    + simpl in *. destruct (p0 a).
+      * inversion Hfnd;subst. now destruct (p1 (f x));tryfalse.
+      * destruct (p1 (f a));tryfalse;auto.
+  Qed.
+
+  Lemma find_forallb {xs : list A} {p1 : A -> bool} {p}:
+    forall x, find p xs = Some x -> forallb p1 xs = true -> p1 x = true.
+  Proof.
+    intros x Hfnd Hall.
+    replace xs with (map id xs) in Hall by apply map_id.
+    eapply @find_forallb_map with (f:=id);eauto.
+  Qed.
+
+  Lemma find_none_fst {p} (l1 l2 : list (A * B)) :
+    map fst l1 = map fst l2 ->
+    find (p ∘ fst) l1 = None -> find (p ∘ fst) l2 = None.
+  Proof.
+    revert dependent l2.
+    induction l1 as [ | ab l1'];intros l2 Hmap Hfnd.
+    + destruct l2;simpl in *;easy.
+    + destruct l2;simpl in *;tryfalse.
+      unfold compose,id in *;simpl in *.
+      destruct ab as [a b];simpl in *.
+      inversion Hmap;subst.
+    destruct (p (fst p0));simpl in *;eauto;tryfalse.
+  Qed.
+
+End FindLookupProperties.
+
+
+Section Validate.
+
+  Lemma valid_ty_env_ty_env_ok ρ n ty:
+    valid_ty_env n ρ ty -> ty_env_ok n (exprs ρ) ty.
+  Proof.
+    revert n ρ.
+    induction ty;intros;simpl in *;unfold is_true in *;
+      repeat rewrite Bool.andb_true_iff in *;intuition;eauto.
+    rewrite lookup_i_nth_error. rewrite lookup_i_nth_error in H.
+    destruct (n0 <=? n);auto.
+    rewrite nth_error_map. destruct (nth_error ρ (n - n0));simpl in *;auto.
+    destruct p.2;simpl;auto.
+  Qed.
+
+  Hint Resolve valid_ty_env_ty_env_ok : facts.
+
+  Lemma valid_env_ty_expr_env_ok ρ n e:
+    valid_env ρ n e -> ty_expr_env_ok (exprs ρ) n e.
+  Proof.
+    revert n ρ.
+    induction e using expr_elim_case;intros;
+      simpl in *;unfold is_true in *;repeat rewrite Bool.andb_true_iff in *;intuition;
+        try eapply valid_ty_env_ty_env_ok;eauto.
+    apply All_forallb. apply forallb_All in H2.
+    eapply All_impl_inner. apply H2. simpl.
+    eapply (All_impl H);eauto.
+  Qed.
+End Validate.
 
 Section Indexify.
 
