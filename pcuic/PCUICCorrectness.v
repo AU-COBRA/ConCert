@@ -19,6 +19,7 @@ Notation "M { j := N }" := (subst (N :: nil) j M) (at level 10, right associativ
 
 Import ListNotations.
 Open Scope list_scope.
+Import ssrbool.
 
 Import Lia.
 
@@ -38,142 +39,6 @@ Tactic Notation "simpl_vars_to_apps" "in" ident(H) :=
 Tactic Notation "simpl_vars_to_apps" :=
   simpl;try rewrite map_app; simpl; rewrite vars_to_apps_unfold;simpl.
 
-
-Lemma from_option_indep {A} (o : option A) d  d' v :
-  o = Some v -> from_option o d = from_option o d'.
-Proof.
-  intros;subst;easy.
-Qed.
-
-Lemma lookup_i_from_val_env ρ n v :
-  lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (from_val_i v).
-Proof.
-  revert dependent n.
-  induction ρ;intros n0 Hρ.
-  + easy.
-  + destruct a;simpl in *.
-    destruct n0.
-    * simpl in *. inversion Hρ. subst. reflexivity.
-    * simpl in *. replace (n0 - 0) with n0 in * by lia. easy.
-Qed.
-
-Lemma inst_env_i_in (ρ : env val) n :
-  n <? length ρ ->
-  {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = from_val_i v}.
-Proof.
-  intros Hlt.
-  revert dependent n.
-  induction ρ;intros n1 Hlt.
-  + easy.
-  + destruct (Nat.eqb n1 0) eqn:Hn1.
-    * destruct a. eexists. split.
-      ** simpl. rewrite Hn1.
-         reflexivity.
-      ** simpl in *. unfold inst_env_i,subst_env_i. simpl.
-         assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
-         subst. simpl. reflexivity.
-    * destruct a.
-      assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
-      destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
-      subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
-      apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.
-      specialize (IHρ _ Hlt). destruct IHρ as [v1 HH]. destruct HH as [H1 H2].
-      exists v1. split.
-      ** simpl in *. replace (n2 - 0) with n2 by lia. assumption.
-      ** specialize (lookup_i_length _ _ Hlt) as Hlookup.
-         destruct Hlookup.
-         simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
-         rewrite <- H2. replace (n2 - 0) with n2 by lia.
-         apply lookup_i_from_val_env in H1.
-         now eapply from_option_indep.
-Qed.
-
-Definition is_app (e : expr) : bool :=
-  match e with
-  | eApp _ _ => true
-  | _ => false
-  end.
-
-
-Lemma mkApps_vars_to_apps l: forall (Σ : global_env) e,
-    P.mkApps (T⟦e⟧Σ) (map (expr_to_term Σ) l) =
-    T⟦ vars_to_apps e l ⟧ Σ.
-Proof.
-  induction l;intros.
-  + reflexivity.
-  + simpl. now rewrite <- IHl.
-Qed.
-
-
-Lemma mkApps_vars_to_apps_constr :
-  forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : BasicAst.ident) (l0 : list val) ci,
-    resolve_constr Σ1 i0 n1 = Some ci ->
-    mkApps (tConstruct (BasicAst.mkInd i0 0) (fst ci) []) (map (fun x => T⟦from_val_i x⟧ Σ1) l0) =
-    T⟦ vars_to_apps (eConstr i0 n1) (map from_val_i l0) ⟧ Σ1.
-Proof.
-  intros Σ1 i0 n1 l0 ci Hci.
-  rewrite <- mkApps_vars_to_apps.
-  simpl. rewrite Hci. f_equal. rewrite map_map. reflexivity.
-Qed.
-
-Lemma Wcbv_value_vars_to_apps Σ1 Σ2 Γ :
-  forall (i : inductive) n (l : list val) ci,
-    resolve_constr Σ1 i n = Some ci ->
-    All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ from_val_i v ⟧ Σ1)) l ->
-    PcbvCurr.value Σ2 Γ (T⟦ vars_to_apps (eConstr i n) (map from_val_i l) ⟧ Σ1).
-Proof.
-  intros i n l ci Hres Hfa.
-  erewrite <- mkApps_vars_to_apps_constr;eauto.
-  eapply PcbvCurr.value_app;auto. now apply All_map.
-Qed.
-
-Open Scope bool.
-
-Fixpoint ge_val_ok Σ v : bool:=
-  match v with
-  | vConstr ind ctor args =>
-    let res :=
-        match (resolve_constr Σ ind ctor) with
-                  | Some _ => true
-                  | _ => false
-        end
-    in res && forallb (ge_val_ok Σ) args
-  | vClos ρ x0 x1 x2 x3 e => forallb (ge_val_ok Σ ∘ snd) ρ
-  | vTyClos ρ nm e => forallb (ge_val_ok Σ ∘ snd) ρ
-  | vTy ty => true
-  end.
-
-Hint Constructors PcbvCurr.value : hints.
-
-Lemma value_head_type_to_term Σ2 Γ t :
-  PcbvCurr.value_head Σ2 Γ (type_to_term t).
-Proof.
-  Admitted.
-
-Lemma Wcbv_from_value_value v Σ1 Σ2 Γ :
-  ge_val_ok Σ1 v ->
-  PcbvCurr.value Σ2 Γ (T⟦ from_val_i v⟧Σ1).
-Proof.
-  intros Hok.
-  induction v using val_elim_full.
-  + simpl in *.
-    destruct (resolve_constr Σ1 i n) eqn:Hres;tryfalse.
-    unfold is_true in *.
-    inv_andb Hok.
-    assert (All (fun v => ge_val_ok Σ1 v = true) l) by
-        now apply  forallb_All.
-    eapply Wcbv_value_vars_to_apps;eauto.
-    now eapply All_impl_inner.
-  + destruct cm. constructor;auto.
-    simpl. now constructor.
-  + simpl in *. constructor;auto.
-  + simpl in *. induction t; eauto with hints.
-    * simpl. admit. (* it seems Wcbv.value of PCUIC is missing [tInd] cases*)
-    * simpl.
-      change (tApp (type_to_term t1) (type_to_term t2)) with
-                                (mkApps (type_to_term t1) [type_to_term t2]).
-      eapply PcbvCurr.value_app;simpl;eauto.
-Admitted.
 
 Section WcbvEvalProp.
 
@@ -319,6 +184,285 @@ Admitted.
 
 End WcbvEvalProp.
 
+
+Lemma from_option_indep {A} (o : option A) d  d' v :
+  o = Some v -> from_option o d = from_option o d'.
+Proof.
+  intros;subst;easy.
+Qed.
+
+Lemma lookup_i_from_val_env ρ n v :
+  lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (from_val_i v).
+Proof.
+  revert dependent n.
+  induction ρ;intros n0 Hρ.
+  + easy.
+  + destruct a;simpl in *.
+    destruct n0.
+    * simpl in *. inversion Hρ. subst. reflexivity.
+    * simpl in *. replace (n0 - 0) with n0 in * by lia. easy.
+Qed.
+
+Lemma inst_env_i_in (ρ : env val) n :
+  n <? length ρ ->
+  {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = from_val_i v}.
+Proof.
+  intros Hlt.
+  revert dependent n.
+  induction ρ;intros n1 Hlt.
+  + easy.
+  + destruct (Nat.eqb n1 0) eqn:Hn1.
+    * destruct a. eexists. split.
+      ** simpl. rewrite Hn1.
+         reflexivity.
+      ** simpl in *. unfold inst_env_i,subst_env_i. simpl.
+         assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
+         subst. simpl. reflexivity.
+    * destruct a.
+      assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
+      destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
+      subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
+      apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.
+      specialize (IHρ _ Hlt). destruct IHρ as [v1 HH]. destruct HH as [H1 H2].
+      exists v1. split.
+      ** simpl in *. replace (n2 - 0) with n2 by lia. assumption.
+      ** specialize (lookup_i_length _ _ Hlt) as Hlookup.
+         destruct Hlookup.
+         simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
+         rewrite <- H2. replace (n2 - 0) with n2 by lia.
+         apply lookup_i_from_val_env in H1.
+         now eapply from_option_indep.
+Qed.
+
+Definition is_app (e : expr) : bool :=
+  match e with
+  | eApp _ _ => true
+  | _ => false
+  end.
+
+
+Lemma mkApps_vars_to_apps l: forall (Σ : global_env) e,
+    P.mkApps (T⟦e⟧Σ) (map (expr_to_term Σ) l) =
+    T⟦ vars_to_apps e l ⟧ Σ.
+Proof.
+  induction l;intros.
+  + reflexivity.
+  + simpl. now rewrite <- IHl.
+Qed.
+
+
+Lemma mkApps_vars_to_apps_constr :
+  forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : BasicAst.ident) (l0 : list val) ci,
+    resolve_constr Σ1 i0 n1 = Some ci ->
+    mkApps (tConstruct (BasicAst.mkInd i0 0) (fst ci) []) (map (fun x => T⟦from_val_i x⟧ Σ1) l0) =
+    T⟦ vars_to_apps (eConstr i0 n1) (map from_val_i l0) ⟧ Σ1.
+Proof.
+  intros Σ1 i0 n1 l0 ci Hci.
+  rewrite <- mkApps_vars_to_apps.
+  simpl. rewrite Hci. f_equal. rewrite map_map. reflexivity.
+Qed.
+
+Lemma Wcbv_value_vars_to_apps Σ1 Σ2 Γ :
+  forall (i : inductive) n (l : list val) ci,
+    resolve_constr Σ1 i n = Some ci ->
+    All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ from_val_i v ⟧ Σ1)) l ->
+    PcbvCurr.value Σ2 Γ (T⟦ vars_to_apps (eConstr i n) (map from_val_i l) ⟧ Σ1).
+Proof.
+  intros i n l ci Hres Hfa.
+  erewrite <- mkApps_vars_to_apps_constr;eauto.
+  eapply PcbvCurr.value_app;auto. now apply All_map.
+Qed.
+
+Open Scope bool.
+
+Fixpoint ge_val_ok Σ v : bool:=
+  match v with
+  | vConstr ind ctor args =>
+    let res :=
+        match (resolve_constr Σ ind ctor) with
+                  | Some _ => true
+                  | _ => false
+        end
+    in res && forallb (ge_val_ok Σ) args
+  | vClos ρ x0 x1 x2 x3 e => forallb (ge_val_ok Σ ∘ snd) ρ
+  | vTyClos ρ nm e => forallb (ge_val_ok Σ ∘ snd) ρ
+  | vTy ty => true
+  end.
+
+Hint Constructors PcbvCurr.value : hints.
+
+Lemma value_head_type_to_term Σ2 Γ t :
+  PcbvCurr.value_head Σ2 Γ (type_to_term t).
+Proof.
+  Admitted.
+
+Lemma decompose_inductive_decompose_app {ty ind args args0} :
+  decompose_inductive ty = Some (ind, args) ->
+  exists args', decompose_app_rec (type_to_term ty) (map type_to_term args0) = (tInd (mkInd ind 0) [], args').
+Proof.
+  revert args args0 ind.
+  induction ty;intros args args0 ind Hdi;inversion Hdi;subst.
+  + eexists;easy.
+  + simpl in *. destruct (decompose_inductive ty1) eqn:Heq;tryfalse.
+    destruct p. inversion Hdi. subst.
+    destruct (IHty1 _ (ty2 :: args0) _ eq_refl) as [args' H]. exists args'. cbn in *.
+    now rewrite H.
+Qed.
+
+Lemma decompose_inductive_mkApps ty ind args :
+  decompose_inductive ty = Some (ind, args) ->
+  type_to_term ty = mkApps (tInd (mkInd ind 0) []) (map type_to_term args).
+Proof.
+  revert args ind.
+  induction ty;intros args ind Hdi;inversion Hdi;subst.
+  + easy.
+  + simpl in *. destruct (decompose_inductive ty1) eqn:Heq;tryfalse.
+    destruct p. inversion Hdi. subst.
+    rewrite map_app.
+    rewrite mkApps_unfold. now f_equal.
+Qed.
+
+Lemma decompose_inductive_value:
+  forall (Σ : PCUICAst.global_env) (Γ : list context_decl) (t1 : type) (args : list type) ind,
+    PcbvCurr.value Σ Γ (type_to_term t1) ->
+    decompose_inductive t1 = Some (ind, args) ->
+    All (PcbvCurr.value Σ Γ) (map type_to_term args).
+Proof.
+  intros Σ Γ t1.
+  induction t1;intros args ind Hv Hdi;tryfalse.
+  + inversion Hdi;subst. constructor.
+  + simpl in *.
+    destruct (decompose_inductive t1_1) eqn:HH;tryfalse.
+    destruct p as [ind' tys]. inversion Hdi. subst.
+    erewrite decompose_inductive_mkApps in Hv by eauto.
+    rewrite <- mkApps_unfold in Hv.
+    remember (tInd _ _) as tind.
+    assert (Hna : ~~ isApp tind) by (subst;auto).
+    specialize (PcbvCurr.value_mkApps_inv _ _ _ _ Hna Hv).
+    intros W. destruct W.
+    * destruct s.
+      ** destruct p as [H1 ?]. destruct tys;simpl;tryfalse.
+      ** destruct p as [H1 H2]. now rewrite map_app.
+    * destruct p as [H1 H2]. subst;inversion H1.
+Qed.
+
+Lemma type_value_term_value Σ Γ ty :
+  iclosed_ty 0 ty ->
+  ty_val ty ->
+  PcbvCurr.value Σ Γ (type_to_term ty).
+Proof.
+  intros Hc Hty. induction Hty.
+  + simpl. constructor. admit. (* TODO : tInd should be an atom *)
+  + simpl. now constructor.
+  + simpl. now constructor.
+  + simpl in *. inv_andb Hc.
+    erewrite decompose_inductive_mkApps by eauto.
+    rewrite <- mkApps_unfold.
+    eapply PcbvCurr.value_app.
+    * admit. (* TODO : tInd should be an atom *)
+    * apply All_app_inv;eauto.
+      eapply decompose_inductive_value with (t1:=ty1);eauto.
+  + constructor;eauto.
+Admitted.
+
+Hint Constructors ty_val : hints.
+
+Lemma env_ok_lookup_ty_val ty i Σ ρ :
+  env_ok Σ ρ ->
+  lookup_i ρ i = Some (vTy ty) ->
+  ty_val ty.
+Proof.
+  intros.
+  assert (Hok : val_ok Σ (vTy ty)) by now eapply All_lookup_i.
+  inversion Hok;subst;easy.
+Qed.
+
+Lemma eval_ty_closed e ty ρ :
+  eval_type_i 0 ρ e = Some ty -> iclosed_ty 0 ty.
+Proof.
+  Admitted.
+
+Lemma type_eval_value Σ ρ ty ty_v n :
+  env_ok Σ ρ ->
+  eval_type_i n ρ ty = Some ty_v ->
+  ty_val ty_v.
+Proof.
+  intros Hok He.
+  revert dependent ty_v. revert n.
+  induction ty;intros.
+  + simpl in *. inversion He;eauto with hints.
+  + simpl in *.
+    destruct (eval_type_i (S n) _ _) eqn:Hty;tryfalse.
+    inversion He;subst. now constructor.
+  + simpl in *.
+    simpl in *.
+    destruct (eval_type_i _ _ ty2) eqn:Hty2;tryfalse.
+    destruct (eval_type_i _ _ ty1) eqn:Hty1;tryfalse.
+    destruct (decompose_inductive _) eqn:Hind;tryfalse.
+    inversion He;subst;clear He. simpl.
+    destruct p as [ind0 args].
+    econstructor;eauto.
+  + tryfalse.
+  + simpl in *. destruct (n0 <=? n).
+    * destruct (lookup_i ρ (n - n0)) eqn:Hlook;tryfalse. destruct v;tryfalse.
+      inversion He. subst. now eapply env_ok_lookup_ty_val.
+    * inversion He. constructor.
+  + simpl in *.
+    destruct (eval_type_i _ _ ty2) eqn:Hty2;tryfalse.
+    destruct (eval_type_i _ _ ty1) eqn:Hty1;tryfalse.
+    inversion He;subst. now constructor.
+Qed.
+
+
+Lemma type_to_term_eval_value :
+  forall Σ1 Σ2 (Γ : list context_decl) (ty ty_v : type) ρ,
+    env_ok Σ2 ρ  ->
+    eval_type_i 0 ρ ty = Some ty_v ->
+    PcbvCurr.value Σ1 Γ (type_to_term ty_v).
+Proof.
+  intros.
+  eapply type_value_term_value;eauto with hints.
+  eapply eval_ty_closed;eauto.
+  eapply type_eval_value;eauto.
+Qed.
+
+Lemma Wcvb_type_to_term_eval :
+  forall (Σ1 : PCUICAst.global_env) Σ2 (Γ : list context_decl) (ty ty_v : type) ρ,
+    env_ok Σ2 ρ ->
+    AllEnv (iclosed_n 0) (exprs ρ)  ->
+    eval_type_i 0 ρ ty = Some ty_v ->
+    Σ1;;; Γ |- type_to_term ty_v ⇓ type_to_term ty_v.
+Proof.
+  intros.
+  eapply PcbvCurr.value_final.
+  eapply type_to_term_eval_value;eauto.
+Qed.
+
+Lemma Wcbv_from_value_value v Σ1 Σ2 Γ :
+  ge_val_ok Σ1 v ->
+  PcbvCurr.value Σ2 Γ (T⟦ from_val_i v⟧Σ1).
+Proof.
+  intros Hok.
+  induction v using val_elim_full.
+  + simpl in *.
+    destruct (resolve_constr Σ1 i n) eqn:Hres;tryfalse.
+    unfold is_true in *.
+    inv_andb Hok.
+    assert (All (fun v => ge_val_ok Σ1 v = true) l) by
+        now apply  forallb_All.
+    eapply Wcbv_value_vars_to_apps;eauto.
+    now eapply All_impl_inner.
+  + destruct cm. constructor;auto.
+    simpl. now constructor.
+  + simpl in *. constructor;auto.
+  + simpl in *. induction t; eauto with hints.
+    * simpl. admit. (* it seems Wcbv.value of PCUIC is missing [tInd] cases*)
+    * simpl.
+      change (tApp (type_to_term t1) (type_to_term t2)) with
+                                (mkApps (type_to_term t1) [type_to_term t2]).
+      eapply PcbvCurr.value_app;simpl;eauto.
+Admitted.
+
 Lemma lift_1_closed n t :
   closedn n t ->
   closedn (S n) ((lift0 1) t) = true.
@@ -375,6 +519,7 @@ Proof.
     simpl. f_equal;eauto.
   + destruct (eval_type_i _ _ ty2) eqn:Heq2;tryfalse.
     destruct (eval_type_i _ _ ty1) eqn:Heq1;tryfalse.
+    destruct (decompose_inductive t0) eqn:Hde;tryfalse.
     inversion H1;subst;clear H1. inv_andb Hc.
     simpl. f_equal;eauto.
   + destruct (k <=? n) eqn:Hkn.
@@ -838,41 +983,8 @@ Proof.
   eapply IHts;eauto.
 Qed.
 
-Lemma subst_env_decompose_inductive_some ty ind args n ρ :
-  decompose_inductive ty = Some (ind, args) ->
-  decompose_inductive (subst_env_i_ty n ρ ty) = Some (ind, map (subst_env_i_ty n ρ)args).
-Proof.
-  (* TODO: get rid of [decompose_inductive] *)
-Admitted.
 
-Lemma subst_env_decompose_inductive_none ty n ρ :
-  ty_env_ok n ρ ty ->
-  iclosed_ty (1+n) ty ->
-  decompose_inductive ty = None ->
-  decompose_inductive (subst_env_i_ty n ρ ty) = None.
-Proof.
-  (* TODO: this does not hold! Get rid of [decompose_inductive] *)
-Admitted.
-
-
-Lemma decompose_inductive_ty_env_ok ty ind args n ρ:
-  ty_env_ok n ρ ty ->
-  decompose_inductive ty = Some (ind, args) ->
-  forallb (ty_env_ok n ρ) args.
-Proof.
-Admitted.
-
-
-Lemma decompose_inductive_closed ty ind args n :
-  iclosed_ty n ty ->
-  decompose_inductive ty = Some (ind, args) ->
-  forallb (iclosed_ty n) args.
-Proof.
-Admitted.
-
-
-
-Hint Resolve decompose_inductive_closed decompose_inductive_ty_env_ok forallb_type_to_term_closed.
+Hint Resolve forallb_type_to_term_closed.
 
 Lemma expr_closed_term_closed e n Σ:
   iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
@@ -896,16 +1008,17 @@ Proof.
     simpl in *. destruct (resolve_constr Σ i n); auto.
   + (* eCase *)
     destruct p. simpl in *. repeat rewrite Bool.andb_true_iff in *.
-    destruct Hc as [[[? ?] ?] ?]. destruct (decompose_inductive t1) eqn:Ht1;auto.
-    * simpl. destruct p.
-      destruct (resolve_inductive Σ e0) eqn:Hres;auto.
-      simpl. destruct p as [i ctors]. simpl.
+    destruct Hc as [[[? ?] ?] ?].
+    simpl.
+      destruct (resolve_inductive Σ i) eqn:Hres;auto.
+      simpl.
       repeat split_andb;eauto with hints.
-      rewrite forallb_map. unfold Basics.compose,test_snd,trans_branch.
+      * eapply closedn_mkApps;eauto.
+      * rewrite forallb_map. unfold Basics.compose,test_snd,trans_branch.
       apply forallb_Forall. apply Forall_forall. intros x Hin.
       destruct x as [nm tys]. unfold fun_prod,id in *. simpl.
-      destruct (find (fun x => _)) as [ p | ] eqn:Hnm;simpl;auto.
-      destruct p as [pt e1]. cbn. rewrite map_length.
+      destruct (find (fun x => _)) as [ p0 | ] eqn:Hnm;simpl;auto.
+      destruct p0 as [pt e1]. cbn. rewrite map_length.
       destruct (Nat.eqb #|pVars pt| #|tys|) eqn:Hlen;auto.
       apply find_some in Hnm. destruct Hnm as [Hin' Heqs].
       rewrite in_map_iff in Hin'.
@@ -1078,24 +1191,23 @@ Proof.
   + (* eConst *)
     reflexivity.
   + (* eCase *)
-    cbn in *. destruct p as [ty1 i]. unfold is_true in *;simpl in *.
+    cbn in *. destruct p as [ind tys]. unfold is_true in *;simpl in *.
     repeat rewrite Bool.andb_true_iff in *. destruct Hc as [Hce1 Hce2].
-    destruct (decompose_inductive ty1) eqn:Hdec.
-    * destruct p as [ind args].
-      erewrite subst_env_decompose_inductive_some by eauto.
-      destruct (resolve_inductive Σ ind) eqn:Hres;auto.
+    destruct (resolve_inductive Σ ind) eqn:Hres;auto.
       cbn.
       repeat f_equal.
-      ** eapply type_to_term_subst;intuition.
-      ** erewrite <- type_to_term_subst with (Σ := Σ) by intuition.
+    * rewrite map_map.
+       erewrite <- type_to_term_map with (Σ := Σ) by intuition.
+       rewrite subst_mkApps. now rewrite map_map.
+    * erewrite <- type_to_term_subst with (Σ := Σ) by intuition.
          apply commut_lift_subst.
-      ** eapply IHe; intuition.
-      ** rewrite_all map_map. simpl.
-         unfold on_snd.
-         apply map_ext.
-         intros ctor. destruct ctor as [s l0] eqn:Hconsr. unfold on_snd,trans_branch.
-         unfold fun_prod,id. cbn. destruct (find _ _) eqn:Hfnd;simpl.
-         *** eapply find_map with
+    * eapply IHe; intuition.
+    * rewrite_all map_map. simpl.
+      unfold on_snd.
+      apply map_ext.
+      intros ctor. destruct ctor as [s l0] eqn:Hconsr. unfold on_snd,trans_branch.
+      unfold fun_prod,id. cbn. destruct (find _ _) eqn:Hfnd;simpl.
+      ** eapply find_map with
              (p2 := (fun x => pName (fst x) =? s))
              (f:= fun x => ((fst x), (snd x){#|pVars (fst x)|+n1 := T⟦ e0 ⟧ Σ})) in Hfnd.
          rewrite map_map in Hfnd. simpl in Hfnd. unfold fun_prod,id. simpl.
@@ -1117,24 +1229,23 @@ Proof.
          destruct (Nat.eqb #|pVars (fst p0)| #|l0|) eqn:Hlen;simpl;auto.
          f_equal. unfold id.  rewrite subst_pat_to_lam.
          repeat f_equal.
-             **** rewrite PeanoNat.Nat.eqb_eq in Hlen.
-                  rewrite combine_length. repeat rewrite map_length.
-                  rewrite Hlen. apply PeanoNat.Nat.min_id.
-             **** rewrite map_rev. repeat rewrite map_map.
-                  destruct Hok as [[[? ?] ?] Hty_ok].
-                  destruct Hce1 as [[? ?] ?].
-                  f_equal. eapply type_to_term_map; eauto with hints.
-             **** remember (combine _ _) as ls. rewrite rev_length, map_length.
-                  assert (forallb (iclosed_ty (#|args| + n1)) (map snd l0)).
+         *** rewrite PeanoNat.Nat.eqb_eq in Hlen.
+             rewrite combine_length. repeat rewrite map_length.
+             rewrite Hlen. apply PeanoNat.Nat.min_id.
+         *** rewrite map_rev. repeat rewrite map_map.
+             destruct Hok as [[[? ?] ?] Hty_ok].
+             destruct Hce1 as [[? ?] ?].
+             f_equal. eapply type_to_term_map; eauto with hints.
+         *** remember (combine _ _) as ls. rewrite rev_length, map_length.
+                  assert (forallb (iclosed_ty (#|tys| + n1)) (map snd l0)).
                   { (* should follow from the well-formedness condition on Σ *) admit. }
                   eapply inc_subst_closed. subst.
                   rewrite forallb_map. eapply forallb_snd;eauto with hints.
-             **** intros. destruct a;easy.
-         *** change (fun x : pat * term => pName (fst x) =? s) with
+         *** intros. destruct a;easy.
+      ** change (fun x : pat * term => pName (fst x) =? s) with
                                 ((fun x : pat => pName x =? s) ∘ fst (B:=term)) in *.
-             erewrite find_none_fst with (l1:=(map (fun x : pat × expr => (x.1, T⟦ x.2 ⟧ Σ)) l));eauto.
-             now repeat rewrite map_map.
-    * cbn. rewrite subst_env_decompose_inductive_none;intuition;eauto.
+         erewrite find_none_fst with (l1:=(map (fun x : pat × expr => (x.1, T⟦ x.2 ⟧ Σ)) l));eauto.
+         now repeat rewrite map_map.
   + (* eFix *)
     cbn in *. unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
     unfold PCUICAstUtils.map_def. simpl. repeat f_equal;intuition.
@@ -1168,6 +1279,14 @@ Qed.
 
 Hint Resolve subst_env_ty_closed_n_eq : hints.
 
+Lemma map_subst_env_ty_closed n m ρ l0 :
+  forallb (iclosed_ty n) l0 ->
+  map (subst_env_i_ty (m + n) ρ) l0 = l0.
+Proof.
+  intros H. revert dependent n. revert m ρ. induction l0;intros m ρ n Hc;simpl;auto.
+  simpl in *. inv_andb Hc. f_equal; eauto with hints.
+Qed.
+
 Lemma subst_env_i_closed_n_eq :
   forall (e : expr) (n m : nat) (ρ : env expr),
     iclosed_n n e = true ->
@@ -1188,12 +1307,13 @@ Proof.
       eapply forall_map_spec';eauto.
       simpl. intros x Hin Hx. destruct x. unfold id. f_equal. simpl in *.
       replace (#|pVars p| + (m1 + n1)) with (m1 + (#|pVars p| + n1)) by lia.
-      apply Hx. rewrite forallb_forall in *.
+      apply Hx. intuition. rewrite forallb_forall in *.
       rewrite Forall_forall in *.
       change e0 with (snd (p,e0)).
       change p with (fst (p,e0)). easy.
       apply map_id. }
-    f_equal;intuition;eauto with hints.
+    assert (map (subst_env_i_ty (m1 + n1) ρ) l0 = l0) by now eapply map_subst_env_ty_closed.
+    repeat f_equal;intuition;eauto with hints.
   + simpl in *. f_equal;intuition. now replace (S (S (m1 + n1))) with (m1 + S (S n1)) by lia.
   + f_equal;auto with hints.
 Qed.
@@ -1252,8 +1372,8 @@ Proof.
              rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
              remember (S n) as n'. remember (S m) as m'. simpl.
              prop_to_leb_ltb. now rewrite H.
-  + destruct p. simpl;f_equal;eauto.
-    f_equal;eapply subst_env_ty_compose_1.
+  + destruct p. simpl. rewrite map_map. f_equal;eauto. f_equal.
+    eapply map_ext. intros;eapply subst_env_ty_compose_1.
     rewrite map_map. simpl.
     eapply forall_map_spec;eauto.
     eapply Forall_impl;eauto.
@@ -1359,7 +1479,8 @@ Proof.
     now replace (S (n0 + #|ρ1|)) with (S n0 + #|ρ1|) by lia.
   + intuition.
   + intuition.
-    now apply ty_env_ok_app_rec. now apply ty_env_ok_app_rec.
+    eapply forallb_impl_inner;intros;eauto; now apply ty_env_ok_app_rec.
+    now apply ty_env_ok_app_rec.
     cbn. apply forallb_Forall. apply forallb_Forall in H1.
     eapply Forall_impl_inner. apply H. simpl in *.
     eapply Forall_impl. 2 : { apply H1. } intros.
@@ -1599,26 +1720,25 @@ Proof.
     simpl. now rewrite Hres.
   + destruct p as [ind e1].
     destruct (forallb _ l);tryfalse.
-    destruct (eval_type_i _ _ t0);tryfalse.
-    destruct (eval_type_i _ _ ind);tryfalse;simpl in *.
+    destruct (eval_type_i _ _ t0);tryfalse;simpl in *.
+    destruct (monad_utils.monad_map) eqn:Hmm;tryfalse.
     destruct (expr_eval_general _ _ _ _ e) eqn:He';tryfalse.
     destruct v0;tryfalse.
-    destruct (inductive_name _);tryfalse;simpl in *.
-    destruct (string_dec e2 i);tryfalse;subst.
+    destruct (string_dec _ _);tryfalse;subst.
     destruct (resolve_constr Σ i e0) eqn:Hres;tryfalse.
     destruct p as [n1 tys].
-    destruct (match_pat e0 e1 tys l0 l) eqn:Hpm;tryfalse.
+    destruct (match_pat e0 _ tys _ _) eqn:Hpm;tryfalse.
     destruct p as [assign e2].
     apply pat_match_succeeds in Hpm. destruct Hpm as [pt Htmp].
     destructs Htmp. subst.
-    assert (Hok_constr : ge_val_ok Σ (vConstr i _ l0))
+    assert (Hok_constr : ge_val_ok Σ (vConstr i _ l1))
       by now eapply IHn with (e:=e).
     simpl in Hok_constr. destruct (resolve_constr Σ i e0) eqn:Hres';tryfalse.
     assert (Hok_l2 :
-              AllEnv (fun x => ge_val_ok Σ x = true) (rev (combine (pVars pt) (skipn e1 l0)))).
+              AllEnv (fun x => ge_val_ok Σ x = true) (rev (combine (pVars pt) (skipn #|e1| l1)))).
     { apply All_rev. simpl in Hok_constr. apply forallb_Forall in Hok_constr. simpl in *.
       apply All_snd_combine. apply Forall_All. now apply Forall_skipn. }
-    eapply IHn with (ρ := (rev (combine (pVars pt) ((skipn e1 l0))) ++ ρ)%list);eauto.
+    eapply IHn with (ρ := (rev (combine (pVars pt) ((skipn _ l1))) ++ ρ)%list);eauto.
     now apply All_app_inv.
   + destruct (valid_env _ _ _);tryfalse.
     destruct (eval_type_i 0 ρ t0);tryfalse;simpl in *.
@@ -1665,7 +1785,7 @@ Proof.
     eapply All_forallb. eapply All_impl_inner. apply X0. unfold compose.
     eapply All_impl. apply X.
     intros;unfold compose in *;cbn in *. easy.
-  + inversion Hok.
+  + now inversion Hok;subst.
 Qed.
 
 Lemma env_ok_ForallEnv_ge_val_ok ρ Σ :
@@ -1679,12 +1799,7 @@ Proof.
     * now eapply IHρ.
 Qed.
 
-Lemma eval_ty_closed e ty ρ :
-  eval_type_i 0 ρ e = Some ty -> iclosed_ty 0 ty.
-Proof.
-  Admitted.
-
-Hint Resolve eval_ty_closed.
+Hint Resolve eval_ty_closed type_eval_value.
 
 Lemma eval_val_ok n ρ Σ e v :
   ty_expr_env_ok (exprs ρ) 0 e ->
@@ -1706,7 +1821,7 @@ Proof.
     destruct (valid_env ρ 1 e0);tryfalse.
     inversion He.
     inv_andb Hc. inv_andb Hty_ok.
-    constructor;eauto with hints.
+    constructor;eauto with hints;subst.
   + unfold expr_eval_i in *. simpl. simpl in He,Hc.
 (*     destruct (expr_eval_general n false Σ ρ e1) eqn:He1;tryfalse. *)
 (*     unfold is_true in *;inv_andb Hc. *)
@@ -1788,27 +1903,26 @@ Qed.
 (*   destruct t0;tryfalse. *)
 (* Qed. *)
 
-Lemma expr_to_term_not_cofix Σ e xs mfix n:
-  mkApps (tCoFix mfix n) xs = T⟦e⟧Σ -> False.
-Proof.
-  revert e.
-  destruct xs using utils.rev_ind;intros e.
-  + induction e using expr_ind_case;intros Heq;simpl in Heq;tryfalse.
-    destruct (resolve_constr Σ i n0);tryfalse.
-    destruct p as [ty1 i1];tryfalse.
-    destruct (decompose_inductive ty1);tryfalse.
-    destruct p. destruct (resolve_inductive Σ e0);tryfalse.
-    destruct t0;tryfalse.
-  + rewrite mkApps_unfold. intros. destruct e;tryfalse.
-    simpl in *. inversion H. subst. easy.
-    simpl in *.
-    destruct (resolve_constr Σ i _);tryfalse. simpl in *.
-    destruct p as [ty1 i1];tryfalse.
-    destruct (decompose_inductive ty1);tryfalse.
-    destruct p. destruct (resolve_inductive Σ e0);tryfalse.
-    cbn in *.
-    destruct t0;tryfalse;cbn in *.
-Admitted.
+(* Lemma expr_to_term_not_cofix Σ e xs mfix n: *)
+(*   mkApps (tCoFix mfix n) xs = T⟦e⟧Σ -> False. *)
+(* Proof. *)
+(*   revert e. *)
+(*   destruct xs using utils.rev_ind;intros e. *)
+(*   + induction e using expr_ind_case;intros Heq;simpl in Heq;tryfalse. *)
+(*     destruct (resolve_constr Σ i n0);tryfalse. *)
+(*     destruct p as [ty1 i1];tryfalse. *)
+(*     destruct (resolve_inductive Σ _);tryfalse. *)
+(*     destruct t0;tryfalse. *)
+(*   + rewrite mkApps_unfold. intros. destruct e;tryfalse. *)
+(*     simpl in *. inversion H. subst. easy. *)
+(*     simpl in *. *)
+(*     destruct (resolve_constr Σ i _);tryfalse. simpl in *. *)
+(*     destruct p as [ty1 i1];tryfalse. *)
+(*     destruct (decompose_inductive ty1);tryfalse. *)
+(*     destruct p. destruct (resolve_inductive Σ e0);tryfalse. *)
+(*     cbn in *. *)
+(*     destruct t0;tryfalse;cbn in *. *)
+(* Admitted. *)
 
 
 (* Lemma Wcbv_app_inv Σ Γ e t l : *)
@@ -1829,8 +1943,7 @@ Proof.
   destruct e;intros H1;try easy.
   + simpl in *. now destruct (resolve_constr Σ i _).
   + simpl in *. destruct p as [ty1 i1];tryfalse.
-    destruct (decompose_inductive ty1);tryfalse.
-    destruct p. destruct (resolve_inductive Σ e0);tryfalse.
+    destruct (resolve_inductive Σ _);tryfalse.
   + simpl in *. inversion H1. repeat eexists;eauto.
   + simpl in *. inversion H1. destruct t0;tryfalse.
 Qed.
@@ -2107,8 +2220,6 @@ Hint Constructors PcbvCurr.eval : hints.
 
 Hint Resolve PcbvCurr.value_final Wcbv_from_value_value : hints.
 
-Import ssrbool.
-
 Lemma vars_to_apps_constr_not_lambda ind cn l Σ:
   ~~ isLambda (T⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
@@ -2187,14 +2298,6 @@ Lemma eval_type_i_subst_env n ρ ty ty_v :
 Proof.
 Admitted.
 
-Lemma forallb_impl_inner {A} {p q} {l : list A} :
-  forallb p l -> (forall x, p x = true -> q x = true) -> forallb q l.
-Proof.
-  revert p q.
-  induction l;simpl;intros p q Hfa H;auto.
-  inv_andb Hfa. split_andb;try eapply IHl;eauto.
-Qed.
-
 Lemma eval_ty_env_ok :
   forall (ty : type) (ρ : env val) (n : nat) (ty_v : type),
     eval_type_i n ρ ty = Some ty_v -> ty_env_ok n (exprs ρ) ty = true.
@@ -2221,6 +2324,16 @@ Proof.
 Qed.
 
 Open Scope list.
+
+Lemma Forall_monad_map_some {A B} {f} {xs : list A} {ys : list B} :
+  monad_utils.monad_map f xs = Ok ys -> Forall (fun x => exists v, f x = Ok v) xs.
+Proof.
+  revert ys.
+  induction xs;intros;simpl in *;auto.
+  destruct (f _) eqn:Hf;tryfalse. destruct (monad_utils.monad_map _ _) eqn:Hmm;tryfalse.
+  constructor;eauto.
+Qed.
+
 
 Lemma eval_ty_expr_env_ok:
   forall (n : nat) (Σ : global_env) (e : expr) (ρ : env val) (v0 : val),
@@ -2253,19 +2366,20 @@ Proof.
     * simpl in *.
       destruct p.
       destruct (forallb (fun x : pat × expr => valid_env ρ #|pVars x.1| x.2) l) eqn:Hl;tryfalse.
-      destruct (eval_type_i _ _ t0) eqn:Ht0;tryfalse.
-      destruct (eval_type_i _ _ t1) eqn:Hind;tryfalse;simpl in *.
+      destruct (eval_type_i _ _ t0) eqn:Ht0;tryfalse;simpl in *.
+      destruct (monad_utils.monad_map _ _) eqn:Hind;tryfalse.
       unfold is_true in *;
         repeat rewrite  Bool.andb_true_iff in *.
       destruct (eval (n, Σ, ρ, e)) eqn:He';tryfalse.
       destruct v;tryfalse.
-      destruct (inductive_name _);tryfalse;simpl in *.
-      destruct (string_dec e1 i);tryfalse.
-      destruct (resolve_constr Σ i e0);tryfalse.
+      destruct (string_dec _ _);tryfalse.
+      destruct (resolve_constr Σ _ _);tryfalse.
       destruct p.
-      destruct (match_pat e0 n0 l1 l0 l) eqn:Hp;tryfalse.
+      destruct (match_pat e0 _ _ _ _) eqn:Hp;tryfalse.
       destruct p. repeat split.
-      ** now eapply eval_ty_env_ok.
+      ** eapply Forall_forallb;eauto. eapply (Forall_monad_map_some Hind);eauto.
+         intros x H;simpl in *. destruct H. apply option_to_res_ok in H.
+         now eapply eval_ty_env_ok.
       ** now eapply eval_ty_env_ok.
       ** eapply IHn;intuition;eauto.
       ** intuition.
@@ -2286,13 +2400,6 @@ Proof.
       now eapply eval_ty_env_ok.
 Qed.
 
-
-(* Lemma ty_expr_env_ok_cons n0 v0 e1 ρ : *)
-(*   ty_expr_env_ok ρ 1 e1 -> *)
-(*   ty_expr_env_ok ((n0, from_val_i v0) :: ρ) 0 e1. *)
-(* Proof. *)
-(*   intros. *)
-(*   eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(n0, from_val_i v0)]). *)
 
 
 Lemma subst_env_i_ty_closed_eq n ρ ty :
@@ -2329,7 +2436,7 @@ Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
   env_ok Σ1 ρ ->
   eval(n, Σ1, ρ, e1) = Ok v ->
   e1.[exprs ρ] = e2 ->
-  iclosed_n #|ρ| e1 = true ->
+  iclosed_n 0 e2 = true ->
   Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ T⟦from_val_i v⟧Σ1.
 Proof.
   revert dependent v.
@@ -2369,19 +2476,20 @@ Proof.
       destruct (eval_type_i 0 ρ t0) eqn:Ht0;tryfalse. inversion He;subst;clear He.
       assert (He11 : Σ2;;; Γ |- T⟦ e1_1 .[ exprs ρ] ⟧ Σ1 ⇓  T⟦ from_val_i v0 ⟧ Σ1)
         by (eauto with hints).
-      assert (ty_expr_env_ok (exprs ρ) 0 e1_1) by now eapply eval_ty_expr_env_ok.
+      assert (ty_expr_env_ok (exprs ρ) 0 e1_1) by (eapply eval_ty_expr_env_ok;eauto with hints).
 
       assert (iclosed_n #|exprs ρ # [e ~> from_val_i v0]| e1_2 = true).
-      { change (exprs ρ # [e ~> from_val_i v0]) with (exprs (ρ # [e ~> v0])).
-        now rewrite map_length. }
+      { simpl. eapply subst_env_iclosed_n_inv with (n:=1);eauto with hints. }
 
       assert (ty_expr_env_ok (exprs ρ # [e ~> from_val_i v0]) 0 e1_2).
       { change (exprs ρ # [e ~> from_val_i v0]) with (exprs (ρ # [e ~> v0])).
-        now eapply eval_ty_expr_env_ok. }
+        eapply eval_ty_expr_env_ok;eauto with hints. simpl.
+        replace #|ρ| with (#|exprs ρ|) by apply map_length.
+        eapply subst_env_iclosed_n_inv with (n:=1);eauto with hints. }
 
       assert (val_ok Σ1 v0) by (eapply eval_val_ok;eauto with hints).
       assert (He12 : Σ2;;; Γ |- T⟦ e1_2 .[exprs ((e, v0) :: ρ)] ⟧ Σ1 ⇓ T⟦ from_val_i v ⟧ Σ1).
-      { eapply IHn with (ρ:=((e, v0) :: ρ));simpl;eauto with hints. }
+      { eapply IHn with (ρ:=((e, v0) :: ρ));simpl;eauto 6 with hints. }
       simpl in *. unfold subst_env_i in *.
       econstructor;eauto. unfold subst1.
       erewrite <- subst_term_subst_env_par_rec in He12 by eauto with hints.
@@ -2389,7 +2497,7 @@ Proof.
       now rewrite <- subst_app_simpl.
       now eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(e,from_val_i v0)]).
     + (* eApp *)
-      autounfold with facts in *. cbn in *.
+      autounfold with facts in *. subst; cbn in *.
       destruct (expr_eval_general _ _ _ _ e1_2) eqn:He2;tryfalse.
       destruct (expr_eval_general _ _ _ _ e1_1) eqn:He1;tryfalse.
       apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 Hce2].
@@ -2410,9 +2518,9 @@ Proof.
           simpl in *.
           assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ from_val_i v0 ⟧ Σ1)
             by eauto.
-          assert (Hv0_ok : val_ok Σ1 v0) by eauto with hints.
-          assert (Hlam_ok : val_ok Σ1 (vClos e n0 cmLam t0 t1 e1))
-            by eauto with hints.
+          assert (Hv0_ok : val_ok Σ1 v0) by (eapply eval_val_ok;eauto with hints).
+          assert (Hlam_ok : val_ok Σ1 (vClos e n0 cmLam t0 t1 e1)) by
+             (eapply eval_val_ok with(e:=e1_1);eauto with hints).
           inversion Hlam_ok;subst.
           assert (He_ok1 : env_ok Σ1 (e # [n0 ~> v0])) by now constructor.
           assert
@@ -2431,7 +2539,7 @@ Proof.
              eapply eval_ty_expr_env_ok;eauto. }
 
            assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦from_val_i v0⟧Σ1} ⇓ T⟦from_val_i v⟧ Σ1).
-           { rewrite subst_term_subst_env with (nm:=n0); eauto with hints. }
+           { rewrite subst_term_subst_env with (nm:=n0); eauto 8 with hints. }
 
            simpl in *.
            eapply PcbvCurr.eval_beta;eauto.
@@ -2448,8 +2556,8 @@ Proof.
 
           change (tApp tm1 tm2) with (mkApps tm1 [tm2]).
           simpl in Hfix.
-          assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by eauto with hints.
-          inversion Hok_ctor as [ | | | ?????  HresC];subst;clear Hok_ctor;eauto.
+          assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by eauto 8 with hints.
+          inversion Hok_ctor as [ | | | ?????  HresC |];subst;clear Hok_ctor;eauto.
           assert (Hconstr : is_constructor 0 [T⟦ from_val_i (vConstr i e l) ⟧ Σ1]).
           { simpl. rewrite <- mkApps_vars_to_apps. cbn.
             unfold isConstruct_app.
@@ -2457,8 +2565,8 @@ Proof.
           eapply PcbvCurr.eval_fix with (args':=[T⟦ from_val_i (vConstr i e l) ⟧ Σ1]);
             subst;eauto with hints;try reflexivity.
           cbn. remember (tFix _ _) as tfix. rewrite simpl_subst_k by auto.
-          assert (Hok_fix : val_ok Σ1 ((vClos ρ' n0 (cmFix _) t0 t1 e1))) by eauto with hints.
-          assert (tfix = T⟦eFix e3 n0 t0 t1 (e1.[exprs ρ']2)⟧ Σ1).
+          assert (Hok_fix : val_ok Σ1 ((vClos ρ' n0 (cmFix _) t0 t1 e1))) by eauto 8 with hints.
+          assert (tfix = T⟦eFix e2 n0 t0 t1 (e1.[exprs ρ']2)⟧ Σ1).
           { simpl. inversion Hok_fix;subst. subst. repeat f_equal;eauto with hints.  }
           clear Heqtfix. subst tfix.
           inversion Hok_fix;subst;clear Hok_fix.
@@ -2479,35 +2587,38 @@ Proof.
             eapply from_value_closed;eauto with hints. }
 
           remember (vars_to_apps _ _) as args.
-          assert (ty_expr_env_ok (nil # [e3 ~> efix] # [n0 ~> args]) 0 (e1.[ exprs ρ']2)).
+          assert (ty_expr_env_ok (nil # [e2 ~> efix] # [n0 ~> args]) 0 (e1.[ exprs ρ']2)).
           { subst.
             eapply ty_expr_env_ok_subst_env.
-            assert (H : ty_expr_env_ok (exprs ((n0, vConstr i e l) :: (e3, vClos ρ' n0 (cmFix e3) t0 t1 e1) :: ρ'))  0 e1) by (eapply eval_ty_expr_env_ok;eauto).
+            assert (H : ty_expr_env_ok (exprs ((n0, vConstr i e l) :: (e2, vClos ρ' n0 (cmFix e2) t0 t1 e1) :: ρ'))  0 e1) by (eapply eval_ty_expr_env_ok;eauto).
             cbn in H. repeat rewrite subst_env_i_ty_closed_0_eq in H by auto. easy.
             now eapply closed_exprs. }
 
-          assert (AllEnv (iclosed_n 0) [(n0, args); (e3, efix)]).
+          assert (AllEnv (iclosed_n 0) [(n0, args); (e2, efix)]).
           { subst;repeat constructor;unfold compose;simpl.
             now eapply vars_to_apps_iclosed_n. repeat split_andb;eauto with hints. }
 
           unfold subst1. rewrite <- subst_app_simpl. simpl.
 
-          erewrite subst_term_subst_env_2 with (nm1:=n0) (nm2:=e3) by eauto with hints.
+          erewrite subst_term_subst_env_2 with (nm1:=n0) (nm2:=e2) by eauto with hints.
 
-          remember ((n0,_) :: (e3,_) :: ρ') as ρ''.
+          remember ((n0,_) :: (e2,_) :: ρ') as ρ''.
+
+          assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by eauto 8 with hints.
+          assert (Hok_fix : val_ok Σ1 ((vClos ρ' n0 (cmFix e2) t0 t1 e1))) by eauto 8 with hints.
 
           eapply IHn with (ρ:=ρ''); subst;eauto with hints.
-          constructor; eauto with hints. cbn.
           rewrite <- subst_env_compose_2;
             (simpl; eauto using vars_to_apps_iclosed_n with hints).
+          cbn.
           now repeat rewrite subst_env_i_ty_closed_0_eq by auto.
           repeat split_andb;eauto with hints.
       * rename e0 into n0.
         assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ from_val_i v0 ⟧ Σ1)
-          by eauto.
-        assert (Hv0_ok : val_ok Σ1 v0) by eauto with hints.
-        assert (Hlam_ok : val_ok Σ1 (vTyClos e n0 e1))
           by eauto with hints.
+        assert (Hv0_ok : val_ok Σ1 v0) by eauto 8 with hints.
+        assert (Hlam_ok : val_ok Σ1 (vTyClos e n0 e1))
+          by eauto 8 with hints.
         inversion Hlam_ok;subst.
         assert (He_ok1 : env_ok Σ1 (e # [n0 ~> v0])) by now constructor.
         assert
@@ -2526,7 +2637,7 @@ Proof.
            eapply eval_ty_expr_env_ok;eauto. }
 
          assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦from_val_i v0⟧Σ1} ⇓ T⟦from_val_i v⟧ Σ1).
-         { rewrite subst_term_subst_env with (nm:=n0); eauto with hints. }
+         { rewrite subst_term_subst_env with (nm:=n0); eauto 8 with hints. }
 
          simpl in *.
          eapply PcbvCurr.eval_beta;eauto.
@@ -2542,31 +2653,28 @@ Proof.
       unfold expr_eval_i in He. destruct p.
       (* dealing with the interpreter *)
       simpl in He.
-      destruct (forallb (fun x : pat × expr => valid_env ρ #|pVars x.1| x.2) l) eqn:Hl;tryfalse.
-      destruct (eval_type_i _ _ t0) eqn:Ht0;tryfalse.
-      destruct (eval_type_i _ _ t1) eqn:Hind;tryfalse;simpl in *.
-      unfold is_true in *;repeat rewrite  Bool.andb_true_iff in *.
+      destruct (forallb _ l) eqn:Hl;tryfalse.
+      destruct (eval_type_i _ _ t0) eqn:Ht0;tryfalse;simpl in *.
+      destruct (monad_utils.monad_map) eqn:Hmm;tryfalse.
+      unfold is_true in Hc;subst;simpl in Hc;repeat rewrite  Bool.andb_true_iff in *.
       destruct (expr_eval_general _ _ _ _ e1) eqn:He1;tryfalse.
       destruct v0;tryfalse.
-      unfold resolve_constr in *.
-      destruct (inductive_name t3);tryfalse;simpl in *.
       destruct (string_dec _ _) eqn:Hi;tryfalse;subst.
+      unfold resolve_constr in *.
       simpl.
       destruct (resolve_inductive _ _) eqn:HresI;tryfalse.
       destruct (lookup_with_ind _ _) eqn:Hfind_i;tryfalse.
-      assert (HresC: resolve_constr Σ1 i e = Some p0).
+      assert (HresC: resolve_constr Σ1 i0 e = Some p0).
       { unfold resolve_constr. rewrite HresI. rewrite Hfind_i. reflexivity. }
       destruct p0 as [? ci].
 
       destruct (match_pat _ _ _ _) eqn:Hpat;tryfalse.
-      destruct p0.
 
       (* dealing with the translation and the evaluation in PCUIC *)
-      * destruct Hc as [[[Hce1 ?] ?] ?].
-        assert (IH' : Σ2;;; Γ |- T⟦ e1 .[ exprs ρ] ⟧ Σ1 ⇓ T⟦ from_val_i (vConstr i e l0) ⟧ Σ1) by eauto.
+      * destruct Hc as [[[Hce1 ?] ?] HH].
+        assert (IH' : Σ2;;; Γ |- T⟦ e1 .[ exprs ρ] ⟧ Σ1 ⇓ T⟦ from_val_i (vConstr i0 e l2) ⟧ Σ1) by
+            eauto with hints.
         simpl in IH'.
-        destruct (decompose_inductive (subst_env_i_ty 0 (exprs ρ) t1)) eqn:Hdec.
-        2 : { (* TODO: get rid of decompose_inductive *) admit.  }
         destruct p0 as [nm tys].
         rewrite map_map.
         erewrite <- mkApps_vars_to_apps_constr in IH' by eauto.
@@ -2577,107 +2685,181 @@ Proof.
         unfold iota_red in *. simpl in *.
         rewrite <- nth_default_eq in *.
         unfold nth_default in *.
+        rewrite map_map.
         destruct (nth_error _) eqn:Hnth;remember ((fun (x : pat * expr) => _)) as f in Hnth.
-        ** rewrite HresI in Hnth.
-           simpl in *.
+        ** (* rewrite HresI in Hnth. *)
+           (* simpl in *. *)
            destruct p as [i ci0];simpl in *.
-           (* specialize (lookup_ind_nth_error _ _ _ _ Hfind_i) as Hnth_eq. *)
-           simpl in Hnth_eq.
+           specialize (lookup_ind_nth_error _ _ _ _ Hfind_i) as Hnth_eq.
+           rewrite nth_error_map in Hnth_eq. destruct (nth_error ci0 n0) eqn:Nci0;tryfalse.
+           2 : { rewrite Nci0 in *;tryfalse. }
            erewrite map_nth_error in Hnth by eauto.
-           inversion Hnth as [H1]. clear Hnth.
+           inversion Hnth as [H1']. clear Hnth.
+           rewrite Nci0 in Hnth_eq. simpl in Hnth_eq. inversion Hnth_eq. subst e.
+
+           unfold trans_branch.
+
            (* Exploiting the fact that pattern-matching succeeds *)
            apply pat_match_succeeds in Hpat.
            destruct Hpat as [p [Hfnd [Hci [Hl0 Hl2]]]].
-           assert (Hfind :
-           find (fun x => (pName (fst x) =? n1)) (map f l) = Some (f (p, e3))).
-           { apply find_map with (p1 := fun x => (pName (fst x) =? n1));auto.
+           assert (
+               Hfind : find (fun x => (pName (fst x) =? c.1)) (map f l) =
+                     Some (f (p, tys))).
+           { eapply find_map with (p1 := fun x => (pName (fst x) =? c.1));auto.
              intros a;destruct a. subst f. cbn. reflexivity. }
            specialize (find_forallb_map _ Hfnd HH) as Hce1'. simpl in Hce1'.
-           rewrite Hfind in H1. subst f. cbn in *.
-           rewrite Hci in H1. rewrite PeanoNat.Nat.eqb_refl in H1.
-           inversion H1;clear H1. clear Hfind.
+           rewrite Hfind. subst f. cbn in *.
+           assert (Hci' : #|ci| = #|pVars p|) by lia.
+           rewrite H3. rewrite Hci'. rewrite PeanoNat.Nat.eqb_refl.
+           (* inversion H1';clear H1'. *)
+           clear Hfind.
+
            subst. replace ((#|pVars p| + 0)) with (#|pVars p|) in * by lia.
-           assert (Hcomb :
-                     #|rev (combine (pVars p) ci)| = #|map (fun x : val => T⟦ from_val_i x ⟧ Σ1) l0|).
-           { rewrite rev_length;rewrite map_length. rewrite Hl0. rewrite combine_length. rewrite Hci. lia. }
-           assert (Hok_constr: val_ok Σ1 (vConstr i0 n1 l0)) by eauto with hints.
-           inversion Hok_constr. subst.
+           (* assert (Hcomb : *)
+           (*           #|rev (combine (pVars p) ci)| = #|map (fun x : val => T⟦ from_val_i x ⟧ Σ1) l0|). *)
+           (* { rewrite rev_length;rewrite map_length. rewrite Hl0. rewrite combine_length. rewrite Hci. lia. } *)
+           assert (Hok_constr: val_ok Σ1 (vConstr i0 c.1 l2)) by eauto 8 with hints.
+           inversion Hok_constr;subst;clear Hok_constr.
            rewrite pat_to_lam_rev.
-           apply pat_to_lam_app_par;eauto.
-           *** apply All_map.
+           apply pat_to_lam_app_par;eauto with hints.
+           *** apply All_skipn.
+               apply All_map.
                now eapply All_value_from_val.
            *** apply All_forallb;eauto.
+               apply All_skipn.
                apply All_map.
                now eapply All_term_closed_from_val.
-           *** assert (Hlen_pl0 :
-                         #|pVars p| = #|combine (rev (pVars p)) (rev l0)|)
-               by (rewrite combine_length;repeat rewrite rev_length;lia).
+           *** rewrite rev_length. rewrite combine_length.
+               rewrite map_length. rewrite Hci'.
+               assert (#|l0| = i). admit. (* TODO: add wellformedness condition on global env. *)
+               rewrite skipn_length. rewrite map_length.
+               lia.
+               rewrite map_length. rewrite Hl0.  lia.
+           *** assert (#|l0| = i). admit. (* TODO: add wellformedness condition on global env. *)
+               assert (Hlen_pl0 :
+                         #|pVars p| = #|combine (rev (pVars p)) (rev l2)|)
+                 by (rewrite combine_length; repeat rewrite rev_length; lia).
 
+               assert (#|pVars p| = #|skipn i l2|) by (rewrite skipn_length;lia).
+               rewrite <- map_skipn.
                rewrite <- map_rev.
                remember (fun x : val => T⟦ _ ⟧ _) as f.
                remember (fun x : string * expr => T⟦ snd x ⟧ Σ1) as g.
-               remember (T⟦ e3 .[_] _⟧ _) as te3.
-               assert (Hmap : map f (rev l0) =
-                       map g (map (fun_prod id from_val_i)(rev (combine (pVars p) l0)))).
+               remember (T⟦ tys .[_] _⟧ _) as te3.
+               assert (Hmap : map f (rev (skipn i l2)) =
+                       map g (map (fun_prod id from_val_i)(rev (combine (pVars p) (skipn i l2))))).
                { rewrite map_map.
                  subst g;simpl.
                  rewrite <- combine_rev by auto.
                  change (fun x : name * val => T⟦ from_val_i (snd x) ⟧ Σ1) with
                   (fun x : name * val => ((expr_to_pcuic Σ1) ∘ from_val_i) (snd x)).
-                 rewrite <- map_map with (g:=(expr_to_pcuic Σ1) ∘ from_val_i)
+                 rewrite <- map_map with (g:=(expr_to_term Σ1) ∘ from_val_i)
                                         (f:=snd).
                  rewrite map_combine_snd. now subst.
-                 now repeat rewrite rev_length.
-               }
+                 now repeat rewrite rev_length. }
                rewrite Hmap. subst g te3.
-               rewrite subst_term_subst_env_par with (v:=v);eauto with hints.
-               eapply IHn with (ρ:=(rev (combine (pVars p) l0) ++ ρ)%list);
+               rewrite subst_term_subst_env_par;eauto with hints.
+               eapply IHn with (ρ:=(rev (combine (pVars p) (skipn #|l0| l2)) ++ ρ)%list);
                  eauto with hints.
-               rewrite <- combine_rev by auto.
-               unfold fun_prod,id.
-               rewrite map_app.
-               replace #|pVars p| with
-                       #|exprs (combine (rev (pVars p)) (rev l0))| by
-                   now rewrite map_length.
-               (* remember (exprs (combine _ _)) as ex. *)
-               symmetry. eapply subst_env_swap_app with (n:=0);eauto with hints.
-               apply All_map. rewrite combine_rev by auto.
-               apply All_rev. unfold compose. simpl.
-               apply All_snd_combine with (p0:=(iclosed_n 0) ∘ from_val_i).
-               unfold compose.
-               now eapply All_expr_iclosed_from_val.
+               ****  eapply All_app_inv;eauto. apply All_rev.
+                     eapply All_env_ok;eauto with hints. now apply All_skipn.
+               ****
+                     (* rewrite <- combine_rev by (subst;auto). *)
+                     unfold fun_prod,id.
+                     rewrite map_app. subst i.
+                     remember (rev (combine (pVars p) (skipn #|l0| l2))) as l_rev.
+                     assert (Hlrev : #|pVars p| = #|exprs l_rev|).
+                     { subst. rewrite map_length.
+                       rewrite rev_length. rewrite combine_length.
+                       rewrite skipn_length;lia. }
+                     rewrite Hlrev.
+                     symmetry. eapply subst_env_swap_app with (n:=0);
+                                 eauto with hints.
+                     apply All_map. subst.
+                     apply All_rev. unfold compose. simpl.
+                     apply All_snd_combine with (p0:=(iclosed_n 0) ∘ from_val_i).
+                     unfold compose.
+                     eapply All_expr_iclosed_from_val;try apply All_skipn;eauto.
+               **** rewrite <- combine_rev by auto.
+                    rewrite map_combine_snd_funprod.
+                    eapply subst_env_iclosed_0;eauto with hints.
+                    remember ((combine (rev (pVars p)) (map from_val_i (rev (skipn i l2))))) as l_comb.
+                    assert (Hlen : #|l_comb| = #|pVars p|).
+                    { subst. rewrite combine_length. rewrite map_length.
+                      repeat rewrite rev_length. rewrite skipn_length;lia.  }
+                    rewrite <- Hlen.
+                    eapply ty_expr_env_ok_subst_env with (k:=0).
+                    assert (Hcomb : exprs (rev (combine (pVars p) (skipn i l2))) = l_comb).
+                    { subst. repeat rewrite map_rev.  rewrite combine_rev.
+                      f_equal. now rewrite  map_combine_snd_funprod.
+                      rewrite map_length. rewrite skipn_length;lia. }
+                    rewrite <- Hcomb. rewrite <- map_app.
+                    subst i. eapply eval_ty_expr_env_ok;eauto with hints.
+                    rewrite app_length.
+                    replace (#|rev (combine (pVars p) (skipn #|l0| l2))|) with #|pVars p| by
+                        (rewrite rev_length, combine_length, skipn_length;lia).
+                    replace #|ρ| with #|exprs ρ| by apply map_length. eauto with hints.
 
-               rewrite <- combine_rev by auto.
-               rewrite map_combine_snd_funprod.
-               eapply subst_env_iclosed_0;eauto with hints.
-               eapply All_snd_combine with (p0:=iclosed_n 0);eauto with hints.
-               apply All_map. apply All_rev.
-               now eapply All_expr_iclosed_from_val.
-               rewrite combine_length. rewrite map_length.
-               repeat rewrite rev_length.
-               replace (min #|pVars p| #|l0|) with #|pVars p| by lia.
-               eauto with hints.
-               eapply eval_val_ok with (e:=e3)(ρ:=(rev (combine (pVars p) l0) ++ ρ)%list);
-                 eauto with hints.
-               rewrite app_length. rewrite rev_length.
-               rewrite combine_length.
-               replace #|ρ| with #|exprs ρ| by apply map_length.
-               replace (min #|pVars p| #|l0|) with #|pVars p| by lia.
-               eapply subst_env_iclosed_n_inv;eauto with hints.
-               rewrite map_length. rewrite rev_length. rewrite combine_length.
-               replace (min #|pVars p| #|l0|) with #|pVars p| by lia.
-               eauto with hints.
-        ** simpl. cbn in Hnth. unfold from_option in *.
-           rewrite HresI in Hnth.
-           rewrite nth_error_None in Hnth. rewrite map_length in Hnth.
-           assert (nth_error l1 n2 = Some (n1, ci))
-             by (eapply lookup_ind_nth_error;eauto with hints) .
-           assert (n2 < #|l1|) by (apply nth_error_Some;intros Hneq;tryfalse).
-           elimtype False;lia.
+                    eapply closed_exprs;eauto.
+
+                    eapply All_snd_combine with (p0:=iclosed_n 0);eauto with hints.
+                    apply All_map. apply All_rev.
+                    eapply All_expr_iclosed_from_val;eauto using All_skipn.
+
+                    rewrite combine_length. rewrite map_length.
+                    repeat rewrite rev_length. rewrite skipn_length by lia.
+                    replace (min #|pVars p| (#|l2| - i)) with #|pVars p| by lia.
+                    eauto with hints.
+
+               **** rewrite <- combine_rev by auto.
+                    rewrite map_combine_snd_funprod.
+                    remember ((combine (rev (pVars p)) (map from_val_i (rev (skipn i l2))))) as l_comb.
+                    assert (Hlen : #|l_comb| = #|pVars p|).
+                    { subst. rewrite combine_length. rewrite map_length.
+                      repeat rewrite rev_length. rewrite skipn_length;lia.  }
+                    rewrite <- Hlen.
+                    eapply ty_expr_env_ok_subst_env with (k:=0).
+                    assert (Hcomb : exprs (rev (combine (pVars p) (skipn i l2))) = l_comb).
+                    { subst. repeat rewrite map_rev.  rewrite combine_rev.
+                      f_equal. now rewrite  map_combine_snd_funprod.
+                      rewrite map_length. rewrite skipn_length;lia. }
+                    rewrite <- Hcomb. rewrite <- map_app.
+                    subst i. eapply eval_ty_expr_env_ok;eauto with hints.
+                    rewrite app_length.
+                    replace (#|rev (combine (pVars p) (skipn #|l0| l2))|) with #|pVars p| by
+                        (rewrite rev_length, combine_length, skipn_length;lia).
+                    replace #|ρ| with #|exprs ρ| by apply map_length. eauto with hints.
+                    eapply closed_exprs;eauto.
+               **** rewrite map_length. subst i.
+                    replace (#|rev (combine (pVars p) (skipn #|l0| l2))|) with #|pVars p| by
+                        (rewrite rev_length, combine_length, skipn_length;lia).
+                    eauto with hints.
+               ****  apply All_map. subst.
+                     apply All_rev. unfold compose. simpl.
+                     apply All_snd_combine with (p0:=(iclosed_n 0) ∘ from_val_i).
+                     unfold compose.
+                     eapply All_expr_iclosed_from_val;try apply All_skipn;eauto.
+        ** specialize (lookup_ind_nth_error _ _ _ _ Hfind_i) as Hnth_eq.
+           rewrite nth_error_map in Hnth_eq.
+           rewrite nth_error_map in Hnth.
+           destruct (nth_error p.2 n0) eqn:Nci0;tryfalse. simpl in *.
+           rewrite Nci0 in Hnth_eq;tryfalse.
     + (* eFix *)
-      inversion He;subst;clear He.
-      simpl in *. eauto with hints.
-Qed.
+      simpl in *.
+      destruct (valid_env _ _ _);tryfalse.
+      destruct (eval_type_i 0 ρ t0) eqn:Ht0;tryfalse.
+      destruct (eval_type_i 0 ρ t1) eqn:Ht1;tryfalse.
+      cbn in *. inversion He.
+      subst;simpl. repeat erewrite eval_type_i_subst_env by eauto.
+      repeat rewrite subst_env_i_ty_closed_eq by eauto with hints. constructor;auto.
+    + (* eTy *)
+      simpl in *.
+      destruct (eval_type_i 0 ρ t0) eqn:Ht0;tryfalse;simpl in *.
+      inversion He;subst;clear He. simpl.
+      erewrite eval_type_i_subst_env by eauto.
+      eapply Wcvb_type_to_term_eval;eauto with hints.
+      eapply closed_exprs;eauto.
+Admitted.
 
 Corollary expr_to_term_sound_empty_env (n : nat) Σ1 Σ2 (Γ:=[])
           (e : expr) (v : val) :

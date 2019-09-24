@@ -90,7 +90,7 @@ Notation " ' x " := (eTy (tyVar x))
 
 (** [if .. then .. else] is just a shortcut for [case] of a boolean expression *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
-    (eCase (tyInd Bool,0) ty cond
+    (eCase (Bool,[]) ty cond
            [(pConstr true_name [],b1);(pConstr false_name [],b2)])
       (in custom expr at level 2,
           cond custom expr at level 4,
@@ -106,7 +106,7 @@ Definition lookup_syn :=
      \f : 'A -> 'A -> Bool =>
      \k : 'A =>
      fix lookup (m : Map 'A 'B) : Maybe 'B :=
-     case m : Map 'A 'B # 2 return Maybe 'B of
+     case m : (Map, [tyVar A; tyVar B]) return Maybe 'B of
      | MNil -> Nothing 'B
      | MCons x y z -> if (f k x) then
                        Just 'B y
@@ -123,7 +123,7 @@ Definition add_map_syn :=
      \k : 'A =>
      \v : 'B =>
      fix add (m : Map 'A 'B) : Map 'A 'B :=
-     case m : Map 'A 'B # 2 return Map 'A 'B of
+     case m : (Map, [tyVar A; tyVar B]) return Map 'A 'B of
      | MNil -> MCons 'A 'B k v (MNil 'A 'B)
      | MCons x y z -> if (f k x) then
                        MCons 'A 'B k v z
@@ -172,13 +172,13 @@ Section MapEval.
   (** Boolean equality of two natural numbers in Oak *)
   Definition eqb_syn : expr :=
     [| (fix "eqb" (n : Nat) : Nat ->  Bool :=
-           case n : Nat return Nat -> Bool of
-           | Z -> \m : Nat => (case m : Nat return Bool of
+           case n : (Nat,[]) return Nat -> Bool of
+           | Z -> \m : Nat => (case m : (Nat,[]) return Bool of
                    | Z -> True
                    | Suc z -> False)
            | Suc a ->
              \m : Nat =>
-             (case m : Nat return Bool of
+             (case m : (Nat,[]) return Bool of
                    | Z -> False
                    | Suc b -> "eqb" a b))
      |].
@@ -214,7 +214,7 @@ Section MapEval.
     (expr_eval_n Σ' 10 []
                  [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |]) =
   Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
-  Proof. reflexivity. Qed.
+  Proof. compute. reflexivity. Qed.
 
 
   (** Computing lookup with using the interpreter for variables represented with De Bruijn indices *)
@@ -223,6 +223,6 @@ Section MapEval.
                  (indexify []
                            [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])) =
   Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
-  Proof. reflexivity. Qed.
+  Proof. compute. reflexivity. Qed.
 
   End MapEval.

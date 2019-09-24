@@ -77,8 +77,8 @@ Import InterpreterEnvList.
   | eConstr t i as e' => e'
   | eConst nm => eConst nm
   | eCase nm_i ty e bs =>
-    let (ind, i) := nm_i in
-    eCase (subst_env_i_ty k ρ ind,i) (subst_env_i_ty k ρ ty) (subst_env_i_aux k ρ e)
+    let (nm, tys) := nm_i in
+    eCase (nm,map (subst_env_i_ty k ρ) tys) (subst_env_i_ty k ρ ty) (subst_env_i_aux k ρ e)
           (map (fun x => (fst x, subst_env_i_aux (length (fst x).(pVars) + k) ρ (snd x))) bs)
   | eFix nm v ty1 ty2 b => eFix nm v (subst_env_i_ty k ρ ty1) (subst_env_i_ty k ρ ty2)
                                (subst_env_i_aux (2+k) ρ b)
@@ -173,10 +173,25 @@ Import InterpreterEnvList.
       | eCase nm_i ty e bs =>
         let bs'' := List.forallb
                       (fun x => rec (length (pVars (fst x)) + n) (snd x)) bs in
-        ty_env_ok n ρ (fst nm_i) && ty_env_ok n ρ ty && rec n e && bs''
+        forallb (ty_env_ok n ρ) (snd nm_i) && ty_env_ok n ρ ty && rec n e && bs''
       | eFix nm v ty1 ty2 b => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2 && rec (2+n) b
       | eTy ty => ty_env_ok n ρ ty
       end.
+
+
+  Inductive ty_val : type -> Type :=
+  | vtyInd : forall ind, ty_val (tyInd ind)
+  | vtyRel : forall i, ty_val (tyRel i)
+  | vtyForall : forall nm ty , ty_val ty -> ty_val (tyForall nm ty)
+  | vtyApp : forall ty1 ty2 ind tys,
+      decompose_inductive ty1 = Some (ind, tys) ->
+      ty_val ty1 ->
+      ty_val ty2 ->
+      ty_val (tyApp ty1 ty2)
+  | vtyArr : forall ty1 ty2,
+      ty_val ty1 ->
+      ty_val ty2 ->
+      ty_val (tyArr ty1 ty2).
 
 
  Inductive val_ok Σ : val -> Type :=
@@ -186,6 +201,8 @@ Import InterpreterEnvList.
       iclosed_n (1 + length ρ) e ->
       iclosed_ty 0 ty1 ->
       iclosed_ty 0 ty2 ->
+      ty_val ty1 ->
+      ty_val ty2 ->
       val_ok Σ (vClos ρ nm cmLam ty1 ty2 e)
   | vokClosFix : forall e nm fixename ρ ty1 ty2,
       AllEnv (val_ok Σ) ρ ->
@@ -193,6 +210,8 @@ Import InterpreterEnvList.
       iclosed_n (2 + length ρ) e ->
       iclosed_ty 0 ty1 ->
       iclosed_ty 0 ty2 ->
+      ty_val ty1 ->
+      ty_val ty2 ->
       val_ok Σ (vClos ρ nm (cmFix fixename) ty1 ty2 e)
   | vokTyClos : forall e nm ρ,
       AllEnv (val_ok Σ) ρ ->
@@ -202,7 +221,11 @@ Import InterpreterEnvList.
   | vokContr : forall i nm vs ci,
       All (val_ok Σ) vs ->
       resolve_constr Σ i nm = Some ci ->
-      val_ok Σ (vConstr i nm vs).
+      val_ok Σ (vConstr i nm vs)
+  | vokTy : forall ty,
+      iclosed_ty 0 ty ->
+      ty_val ty ->
+      val_ok Σ (vTy ty).
 
   Definition env_ok Σ (ρ : env val) := AllEnv (val_ok Σ) ρ.
 

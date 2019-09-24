@@ -139,7 +139,7 @@ Module InterpreterEnvList.
     let '(p,e) := pe in
     let ctr_len := length constr_args in
     let pt_len := nparam + length p.(pVars) in
-    let arity_len := nparam + (length arity) in
+    let arity_len := nparam + length arity in
     if (Nat.eqb ctr_len pt_len) then
       if (Nat.eqb ctr_len arity_len) then
         (* NOTE: first [nparam] elements in the [constr_args] are types, so we don't match them *)
@@ -158,6 +158,7 @@ Module InterpreterEnvList.
     | _ => None
     end.
 
+
   (** Some machinery to substitute types during the evaluation. Although we don't care about the types the during evaluation, we need the types later. *)
   Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
     match ty with
@@ -167,7 +168,10 @@ Module InterpreterEnvList.
     | tyApp ty1 ty2 =>
       ty2' <- eval_type_i k ρ ty2;;
       ty1' <- eval_type_i k ρ ty1;;
-      ret (tyApp ty1' ty2')
+      match decompose_inductive ty1' with
+      | Some _  => ret (tyApp ty1' ty2')
+      | _ => None
+      end
     | tyVar nm => None
     | tyRel i => if Nat.leb k i then
                   match (lookup_i ρ (i-k)) with
@@ -190,7 +194,10 @@ Module InterpreterEnvList.
     | tyApp ty1 ty2 =>
       ty2' <- eval_type_n ρ ty2;;
       ty1' <- eval_type_n ρ ty1;;
-      ret (tyApp ty1' ty2')
+      match decompose_inductive ty1' with
+      | Some _  => ret (tyApp ty1' ty2')
+      | _ => None
+      end
     | tyVar nm => match lookup ρ nm with
                     | Some (vTy ty) => Some ty
                     | _ => None
@@ -252,7 +259,7 @@ Module InterpreterEnvList.
       | eCase nm_i ty e bs =>
         let bs'' := List.forallb
                       (fun x => rec (length (pVars (fst x)) + n) (snd x)) bs in
-        valid_ty_env n ρ (fst nm_i) && valid_ty_env n ρ ty && rec n e && bs''
+        forallb (valid_ty_env n ρ) (snd nm_i) && valid_ty_env n ρ ty && rec n e && bs''
       | eFix nm v ty1 ty2 b => valid_ty_env n ρ ty1 && valid_ty_env n ρ ty2 && rec (2+n) b
       | eTy ty => valid_ty_env n ρ ty
       end.
@@ -318,22 +325,23 @@ Module InterpreterEnvList.
             | _ => EvalError "No constructor or inductive found"
             end
         | eConst nm => todo (* we assume that all external references were resolved *)
-        | eCase (ind,i) ty e bs =>
+        | eCase (ind,params) ty e bs =>
           validate_branches enamed ρ bs;;
           ty_v <- eval_ty enamed ρ ty "Type Error";;
-          ind'' <- eval_ty enamed ρ ind "Type Error";;
+          _ <- monad_map (fun x => eval_ty enamed ρ x "Type Error") params;;
           match eval n ρ e with
           | Ok (vConstr ind' c vs) =>
-            ind_nm <- option_to_res (inductive_name ind'') "not inductive";;
-            if (string_dec ind_nm ind') then
+            if (string_dec ind ind') then
               match resolve_constr Σ ind' c with
               | Some (_,ci) =>
-                pm_res <- match_pat c i ci vs bs;;
+                (* TODO: change #|params| to the value rosolved from the global
+                   environment *)
+                pm_res <- match_pat c #|params| ci vs bs;;
                 let '(var_assign, v) := pm_res in
                 eval n (List.app (List.rev var_assign) ρ) v
             | None => EvalError "No constructor or inductive found in the global environment"
               end
-            else EvalError ("Expecting inductive " ++ ind_nm ++ " but found " ++ ind')
+            else EvalError ("Expecting inductive " ++ ind ++ " but found " ++ ind')
           | Ok (vTy ty) => EvalError ("Discriminee cannot be a type : " ++ print_type ty)
           | Ok _ => EvalError "Discriminee should evaluate to a constructor"
           | v => v
@@ -364,7 +372,7 @@ Module Examples.
   Definition prog1 :=
     [|
      (\x : Bool =>
-           case x : Bool return Bool of
+           case x : (Bool,[]) return Bool of
            | True -> False
            | False -> True) True
      |].

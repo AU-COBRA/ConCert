@@ -62,19 +62,6 @@ Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D :=
 
 Open Scope list.
 
-Fixpoint decompose_inductive (ty : type) : option (ename * list type) :=
-  match ty with
-  | tyInd x => Some (x,[])
-  | tyForall nm ty => None
-  | tyApp ty1 ty2 => res <- decompose_inductive ty1;;
-                     let '(ind, tys) := res in
-                     Some (ind, tys++[ty2])
-  | tyVar x => None
-  | tyRel x => None
-  | tyArr x x0 => None
-  end.
-
-
 (** ** Translation of Oak to MetaCoq *)
 
 Definition expr_to_term (Σ : global_env) : expr -> term :=
@@ -93,27 +80,22 @@ fix expr_to_term e :=
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty2 e bs =>
-    let (ty1,i) := nm_i in
-    let typeInfo := tLambda nAnon (type_to_term ty1)
+    let (nm, tys) := nm_i in
+    let typeInfo := tLambda nAnon (mkApps (tInd (mkInd nm 0) []) (map type_to_term tys))
                             (lift0 1 (type_to_term ty2)) in
-    match decompose_inductive ty1 with
-    | Some nm_tys =>
-      let (nm, tys) := nm_tys in
-      match (resolve_inductive Σ nm) with
-      | Some v =>
-        let cs := snd v in
-        let tbs := map (fun_prod id expr_to_term) bs in
-        let branches := map (trans_branch tys tbs) cs in
-        tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
-      | None => tVar (nm ++ "not found")%string
-      end
-    | None => tVar ("Case : not inductive")%string
+    match (resolve_inductive Σ nm) with
+    | Some v =>
+      let cs := snd v in
+      let tbs := map (fun_prod id expr_to_term) bs in
+      let branches := map (trans_branch tys tbs) cs in
+      tCase (mkInd nm 0, fst v) typeInfo (expr_to_term e) branches
+    | None => tVar (nm ++ "not found")%string
     end
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
     let tty2 := type_to_term ty2 in
     let ty := tProd nAnon tty1 (lift0 1 tty2) in
-    (* NOTE: we have to lift the indices in [tty1] *)
+    (* NOTE: we have to lift the indices in [tty1] because [tRel 0] corresponds to the recursive call *)
     let body := tLambda (nNamed nv) (lift0 1 tty1) (expr_to_term b) in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   | eTy ty => type_to_term ty

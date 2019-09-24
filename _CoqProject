@@ -9,7 +9,7 @@
 ./Demo.v
 ./ExampleContracts.v
 ./OakMap.v
-./AcornExamples.v
+# ./AcornExamples.v
 ./pcuic/PCUICTranslate.v
 ./pcuic/PCUICFacts.v
 ./pcuic/PCUICCorrectness.v

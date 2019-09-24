@@ -78,19 +78,6 @@ Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D :=
 
 Open Scope list.
 
-Fixpoint decompose_inductive (ty : type) : option (ename * list type) :=
-  match ty with
-  | tyInd x => Some (x,[])
-  | tyForall nm ty => None
-  | tyApp ty1 ty2 => res <- decompose_inductive ty1;;
-                     let '(ind, tys) := res in
-                     Some (ind, tys++[ty2])
-  | tyVar x => None
-  | tyRel x => None
-  | tyArr x x0 => None
-  end.
-
-
 (** ** Translation of Oak to MetaCoq *)
 
 Definition expr_to_term (Σ : global_env) : expr -> Ast.term :=
@@ -109,21 +96,16 @@ fix expr_to_term e :=
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty2 e bs =>
-    let (ty1,i) := nm_i in
-    let typeInfo := tLambda nAnon (type_to_term ty1)
+    let (nm, tys) := nm_i in
+    let typeInfo := tLambda nAnon (mkApps (tInd (mkInd nm 0) []) (map type_to_term tys))
                             (lift0 1 (type_to_term ty2)) in
-    match decompose_inductive ty1 with
-    | Some nm_tys =>
-      let (nm, tys) := nm_tys in
-      match (resolve_inductive Σ nm) with
-      | Some v =>
-        let cs := snd v in
-        let tbs := map (fun_prod id expr_to_term) bs in
-        let branches := map (trans_branch tys tbs) cs in
-        tCase (mkInd nm 0, i) typeInfo (expr_to_term e) branches
-      | None => tVar (nm ++ "not found")%string
-      end
-    | None => tVar ("Case : not inductive")%string
+    match (resolve_inductive Σ nm) with
+    | Some v =>
+      let cs := snd v in
+      let tbs := map (fun_prod id expr_to_term) bs in
+      let branches := map (trans_branch tys tbs) cs in
+      tCase (mkInd nm 0, fst v) typeInfo (expr_to_term e) branches
+    | None => tVar (nm ++ "not found")%string
     end
   | eFix nm nv ty1 ty2 b =>
     let tty1 := type_to_term ty1 in
@@ -467,12 +449,13 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
 (*         bn custom expr at level 4, *)
 (*         ty constr at level 4). *)
 
-Notation "'case' x : ty1 'return' ty2 'of' p1 -> b1 " :=
-  (eCase (ty1,0) ty2 x [(p1,b1)])
+Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' p1 -> b1 " :=
+  (eCase (ind_nm,params) ty2 x [(p1,b1)])
     (in custom expr at level 1,
         p1 custom pat at level 4,
         b1 custom expr at level 4,
-        ty1 custom type at level 4,
+        ind_nm constr at level 4,
+        params constr at level 4,
         ty2 custom type at level 4).
 
 Notation "'case' x : ty1 # n 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
@@ -486,8 +469,8 @@ Notation "'case' x : ty1 # n 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
         ty1 custom type at level 4,
         ty2 custom type at level 4).
 
-Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
-  (eCase (ty1,0) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
+Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
+  (eCase (ind_nm,params) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
     (in custom expr at level 1,
         p1 custom pat at level 4,
         p2 custom pat at level 4,
@@ -495,17 +478,19 @@ Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
         b1 custom expr at level 4,
         b2 custom expr at level 4,
         b3 custom expr at level 4,
-        ty1 custom type at level 4,
+        ind_nm constr at level 4,
+        params constr at level 4,
         ty2 custom type at level 4).
 
-Notation "'case' x : ty1 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
-  (eCase (ty1,0) ty2 x [(p1,b1);(pn,bn)])
+Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
+  (eCase (ind_nm,params) ty2 x [(p1,b1);(pn,bn)])
     (in custom expr at level 1,
         p1 custom pat at level 4,
         pn custom pat at level 4,
         b1 custom expr at level 4,
         bn custom expr at level 4,
-        ty1 custom type at level 4,
+        ind_nm constr at level 4,
+        params constr at level 4,
         ty2 custom type at level 4).
 
 
@@ -630,7 +615,7 @@ Section Examples.
   Definition negb_syn :=
     [|
      \x : Bool =>
-            case x : Bool #0 return Bool of
+            case x : (Bool,[]) return Bool of
             | True -> False
             | False -> True
     |].
@@ -660,7 +645,7 @@ Section Examples.
 
   Definition case_ex :=
     [| \\y  => \x : 'y =>  \z : "list" 'y =>
-           case z : "list" 'y # 1 return 'y of
+           case z : ("list", [tyVar "y"]) return 'y of
            | Nil -> x
            | Cons "hd" "tl" -> x |].
 
@@ -670,7 +655,7 @@ Section Examples.
 
   Definition case_ex1 :=
     [| \\y  => \"w" : 'y => \x : 'y =>  \z : "list" 'y =>
-           case z : "list" 'y # 1 return "prod" 'y 'y of
+           case z : ("list", [tyVar "y"]) return "prod" 'y 'y of
            | Nil -> {eConstr "prod" "Pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
            | Cons "hd" "tl" -> {eConstr "prod" "Pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
 
@@ -679,7 +664,7 @@ Section Examples.
   Make Definition case_ex_def1 :=  (expr_to_term Σ (indexify [] case_ex1)).
 
   Definition case_ex2 :=
-    [| \\y => case ({eConstr "list" "Nil"} "y") : "list" 'y return "list" 'y of
+    [| \\y => case ({eConstr "list" "Nil"} "y") : ("list", [tyVar "y"]) return "list" 'y of
               | Nil -> {eConstr "list" "Nil"} "y"
               | Cons "hd" "tl" -> {eConstr "list" "Nil"} "y" |].
 

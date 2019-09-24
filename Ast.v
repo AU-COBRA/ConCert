@@ -33,7 +33,7 @@ Record pat := pConstr {pName : ename; pVars : list ename}.
 
 (** Note also that AST must be explicitly annotated with types. This is required for the translation to Meta Coq. *)
 Inductive expr : Set :=
-| eRel       : nat -> expr (*de Bruijn index *)
+| eRel       : nat -> expr (* de Bruijn index *)
 | eVar       : ename -> expr (* named variables *)
 | eLambda    : ename -> type -> expr -> expr
 | eTyLam     : ename -> expr -> expr (* abstraction for types *)
@@ -41,7 +41,7 @@ Inductive expr : Set :=
 | eApp       : expr -> expr -> expr
 | eConstr    : inductive -> ename -> expr
 | eConst     : ename -> expr
-| eCase      : (type * nat) (* type of discriminee and number of parameters *) ->
+| eCase      : (inductive * list type) (* type of discriminee and a list of parameters *) ->
                type ->
                expr (* discriminee *) ->
                list (pat * expr) (* branches *) ->
@@ -62,7 +62,7 @@ Definition expr_ind_case (P : expr -> Prop)
            (Happ    :forall e : expr, P e -> forall e0 : expr, P e0 -> P (eApp e e0))
            (Hconstr :forall (i : inductive) (n : ename), P (eConstr i n))
            (Hconst  :forall n : ename, P (eConst n))
-           (Hcase   : forall (p : type * nat) (t : type) (e : expr),
+           (Hcase   : forall (p : inductive * list type) (t : type) (e : expr),
                P e -> forall l : list (pat * expr), Forall (fun x => P (snd x)) l ->P (eCase p t e l))
            (Hfix    :forall (n n0 : ename) (t t0 : type) (e : expr), P e -> P (eFix n n0 t t0 e))
            (Hty : forall t : type, P (eTy t)) :
@@ -110,7 +110,7 @@ Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
   | eCase ii ty e bs =>
     let bs'' := List.forallb
                   (fun x => iclosed_n (length ((fst x).(pVars)) + n) (snd x)) bs in
-    iclosed_ty n (fst ii) && iclosed_ty n ty && iclosed_n n e && bs''
+    forallb (iclosed_ty n) (snd ii) && iclosed_ty n ty && iclosed_n n e && bs''
   | eFix fixname nm ty1 ty2 e =>  iclosed_ty n ty1 &&  iclosed_ty n ty2 && iclosed_n (2+n) e
   | eTy ty => iclosed_ty n ty
   end.
@@ -153,11 +153,12 @@ Definition resolve_inductive (Σ : global_env) (ind_name : BasicTC.ident)
 
 Definition remove_proj (c : constr) := map snd (snd c).
 
-(** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor arity *)
+(** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor's arity *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : BasicTC.ident)
   : option (nat * list type)  :=
   match (resolve_inductive Σ ind_name) with
-  | Some n_cs => lookup_with_ind (map (fun c => (fst c, remove_proj c)) (snd n_cs)) constr_name
+  | Some n_cs =>
+    lookup_with_ind (map (fun c => (fst c, remove_proj c)) (snd n_cs)) constr_name
   | None => None
   end.
 
@@ -220,8 +221,8 @@ Fixpoint indexify (l : list (ename * nat)) (e : expr) : expr :=
   | eConstr t i as e => e
   | eConst nm as e => e
   | eCase nm_i ty2 e bs =>
-    let (ty1,i) := nm_i in
-    eCase (indexify_type l ty1,i)
+    let (nm,tys) := nm_i in
+    eCase (nm,map (indexify_type l) tys)
           (indexify_type l ty2) (indexify l e)
           (map (fun p => (fst p, indexify (number_vars 0 (fst p).(pVars) ++
                                bump_indices l (length (fst p).(pVars))) (snd p))) bs)
@@ -261,11 +262,24 @@ Fixpoint reindexify (n : nat) (e : expr) : expr :=
   | eConstr t i as e => e
   | eConst nm as e => e
   | eCase nm_i ty2 e bs =>
-    let (ty1,i) := nm_i in
-    eCase (lift_type_vars n 0 ty1,i)
+    let (nm, tys) := nm_i in
+    eCase (nm, map (lift_type_vars n 0) tys)
           (lift_type_vars n 0 ty2) (reindexify n e)
           (map (fun p => (fst p, reindexify (length (fst p).(pVars) + n) (snd p))) bs)
   | eFix nm vn ty1 ty2 b =>
     eFix nm vn (lift_type_vars n 0 ty1) (lift_type_vars n 0 ty2) (reindexify (2+n) b)
   | eTy ty => eTy (lift_type_vars n 0 ty)
+  end.
+
+Fixpoint decompose_inductive (ty : type) : option (ename * list type) :=
+  match ty with
+  | tyInd x => Some (x,[])
+  | tyForall nm ty => None
+  | tyApp ty1 ty2 => match decompose_inductive ty1 with
+                    | Some res =>let '(ind, tys) := res in Some (ind, (tys++[ty2])%list)
+                    | _ => None
+                    end
+  | tyVar x => None
+  | tyRel x => None
+  | tyArr x x0 => None
   end.
