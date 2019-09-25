@@ -227,8 +227,17 @@ Import InterpreterEnvList.
       ty_val ty ->
       val_ok Σ (vTy ty).
 
-  Definition env_ok Σ (ρ : env val) := AllEnv (val_ok Σ) ρ.
+ Definition env_ok Σ (ρ : env val) := AllEnv (val_ok Σ) ρ.
 
+ Definition constr_ok (nparam : nat) (c : constr) : bool :=
+   forallb (iclosed_ty nparam) (map snd c.2).
+
+ Definition global_dec_ok (gd : global_dec) : bool :=
+   match gd with
+   | gdInd _ nparam cs _ => forallb (constr_ok nparam) cs
+   end.
+
+ Definition genv_ok Σ := forallb global_dec_ok Σ.
 
  Module Equivalence.
    Reserved Notation "v1 ≈ v2" (at level 50).

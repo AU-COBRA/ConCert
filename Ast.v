@@ -155,10 +155,13 @@ Definition remove_proj (c : constr) := map snd (snd c).
 
 (** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor's arity *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : BasicTC.ident)
-  : option (nat * list type)  :=
+  : option (nat * nat * list type)  :=
   match (resolve_inductive Σ ind_name) with
   | Some n_cs =>
-    lookup_with_ind (map (fun c => (fst c, remove_proj c)) (snd n_cs)) constr_name
+    match lookup_with_ind (map (fun c => (fst c, remove_proj c)) (snd n_cs)) constr_name with
+    | Some v => Some (fst n_cs, fst v, snd v)
+    | None => None
+    end
   | None => None
   end.
 

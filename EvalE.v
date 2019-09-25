@@ -333,12 +333,12 @@ Module InterpreterEnvList.
           | Ok (vConstr ind' c vs) =>
             if (string_dec ind ind') then
               match resolve_constr Σ ind' c with
-              | Some (_,ci) =>
-                (* TODO: change #|params| to the value rosolved from the global
-                   environment *)
-                pm_res <- match_pat c #|params| ci vs bs;;
-                let '(var_assign, v) := pm_res in
-                eval n (List.app (List.rev var_assign) ρ) v
+              | Some ((nparams,_),ci) =>
+                if Nat.eqb nparams #|params| then
+                  pm_res <- match_pat c nparams ci vs bs;;
+                  let '(var_assign, v) := pm_res in
+                  eval n (List.app (List.rev var_assign) ρ) v
+                else EvalError "Case: number of params doesn't match with the definition"
             | None => EvalError "No constructor or inductive found in the global environment"
               end
             else EvalError ("Expecting inductive " ++ ind ++ " but found " ++ ind')

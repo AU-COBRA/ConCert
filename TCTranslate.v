@@ -47,16 +47,6 @@ Definition lpat_to_lam : term -> list term -> list (BasicTC.ident * term) -> ter
          rec (tLambda (BasicTC.nNamed n) lam_type body) ty_params tys'
        end.
 
-
-(** Resolves a pattern by looking up in the global environment and returns an index of the constructor in the list of constructors for the given inductive and a list of pairs mapping pattern variable names to the types of the constructor arguments *)
-Definition resolve_pat_arity (Σ : global_env) (ind_name : ename) (p : pat)
-  : nat * list (ename * type) :=
-  (* NOTE: if lookup fails, we return a dummy value [(0,("",[]))]
-     to make the function total *)
-  let o_ci := resolve_constr Σ ind_name p.(pName) in
-  let (i, nm_tys) := from_option o_ci (0,[]) in
-  (i, combine p.(pVars) nm_tys).
-
 (** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
 Definition trans_branch (params : list type)(bs : list (pat * term))
            (c : constr) :=
@@ -90,21 +80,24 @@ fix expr_to_term e :=
   | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) (expr_to_term e1) (type_to_term ty) (expr_to_term e2)
   | eApp e1 e2 => mkApps (expr_to_term e1) [expr_to_term e2]
   | eConstr i t => match (resolve_constr Σ i t) with
-                  | Some c => tConstruct (mkInd i 0) (fst c) []
+                  | Some c => tConstruct (mkInd i 0) (c.1.2) []
                   (* NOTE: a workaround to make the function total *)
                   | None => tConstruct (mkInd (i ++ ": no declaration found.") 0) 0 []
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty2 e bs =>
-    let (nm, tys) := nm_i in
-    let typeInfo := tLambda nAnon (mkApps (tInd (mkInd nm 0) []) (map type_to_term tys))
+    let (nm, params) := nm_i in
+    let typeInfo := tLambda nAnon (mkApps (tInd (mkInd nm 0) [])
+                                          (map type_to_term params))
                             (lift0 1 (type_to_term ty2)) in
     match (resolve_inductive Σ nm) with
     | Some v =>
-      let cs := snd v in
-      let tbs := map (fun_prod id expr_to_term) bs in
-      let branches := map (trans_branch tys tbs) cs in
-      tCase (mkInd nm 0, fst v) typeInfo (expr_to_term e) branches
+      if Nat.eqb (fst v) #|params| then
+        let cs := snd v in
+        let tbs := map (fun_prod id expr_to_term) bs in
+        let branches := map (trans_branch params tbs) cs in
+        tCase (mkInd nm 0, fst v) typeInfo (expr_to_term e) branches
+      else tVar "Case: number of params doesn't match with the definition"
     | None => tVar (nm ++ "not found")%string
     end
   | eFix nm nv ty1 ty2 b =>
@@ -116,7 +109,6 @@ fix expr_to_term e :=
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
   | eTy ty => type_to_term ty
   end.
-
 
 (** * Translating inductives *)
 
