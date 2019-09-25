@@ -178,14 +178,14 @@ Module InterpreterEnvList.
                   | Some (vTy ty) => Some ty
                   | _ => None
                   end
-                else Some ty
+                else None
     | tyArr ty1 ty2 =>
       ty2' <- eval_type_i k ρ ty2;;
       ty1' <- eval_type_i k ρ ty1;;
       Some (tyArr ty1' ty2')
     end.
 
-  (** The same as [eval_type_i] but for named variables *)
+  (** The same as [eval_type_i] but for named variables. NOTE: not up-to-date wrt. eval_type_i *)
   Fixpoint eval_type_n (ρ : env val) (ty : type) : option type :=
     match ty with
     | tyInd x => Some ty
