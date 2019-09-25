@@ -9,6 +9,7 @@
 ./Demo.v
 ./ExampleContracts.v
 ./OakMap.v
+./pcuic/PCUICWcbvEvalLocal.v
 # ./AcornExamples.v
 ./pcuic/PCUICTranslate.v
 ./pcuic/PCUICFacts.v

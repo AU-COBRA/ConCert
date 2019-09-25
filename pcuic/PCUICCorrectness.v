@@ -3,7 +3,7 @@ From MetaCoq.Template Require Import utils.
 
 Require Import PeanoNat.
 
-Require MetaCoq.PCUIC.PCUICWcbvEval.
+Require PCUICWcbvEvalLocal.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyping PCUICClosed  PCUICLiftSubst.
 
 Require Import String List Basics.
@@ -27,7 +27,7 @@ Import Lia.
 Remove Hints Bool.trans_eq_bool.
 
 Module P := PCUICAst.
-Module PcbvCurr := PCUICWcbvEval.
+Module PcbvCurr := PCUICWcbvEvalLocal.
 
 Notation "Σ ;;; Γ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ Γ t1 t2) (at level 50).
 Notation "T⟦ e ⟧ Σ " := (expr_to_term Σ e) (at level 49).
@@ -44,13 +44,11 @@ Section WcbvEvalProp.
 
   Lemma tInd_atom ind i u :
     PcbvCurr.atom (tInd (mkInd ind i) u).
-  Proof.
-    Admitted. (* TODO : tInd should be an atom, finish after updating MetaCoq *)
+  Proof. reflexivity. Qed.
 
   Lemma tInd_value_head Σ Γ ind i u :
     PcbvCurr.value_head Σ Γ (tInd (mkInd ind i) u).
-  Proof.
-    Admitted. (* TODO : tInd should be a value head finish after updating MetaCoq *)
+  Proof. reflexivity. Qed.
 
   Lemma All_eq {A} (l1 l2 : list A) : All2 (fun t1 t2 => t1 = t2) l1 l2 -> l1 = l2.
   Proof.
