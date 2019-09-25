@@ -372,29 +372,21 @@ Proof.
 Qed.
 
 Lemma Wcbv_from_value_value v Σ1 Σ2 Γ :
-  ge_val_ok Σ1 v ->
+  val_ok Σ1 v ->
   PcbvCurr.value Σ2 Γ (T⟦ from_val_i v⟧Σ1).
 Proof.
   intros Hok.
   induction v using val_elim_full.
   + simpl in *.
-    destruct (resolve_constr Σ1 i n) eqn:Hres;tryfalse.
-    unfold is_true in *.
-    inv_andb Hok.
-    assert (All (fun v => ge_val_ok Σ1 v = true) l) by
-        now apply  forallb_All.
+    inversion Hok;subst.
     eapply Wcbv_value_vars_to_apps;eauto.
     now eapply All_impl_inner.
   + destruct cm. constructor;auto.
     simpl. now constructor.
   + simpl in *. constructor;auto.
-  + simpl in *. induction t; eauto with hints.
-    * simpl. admit. (* it seems Wcbv.value of PCUIC is missing [tInd] cases*)
-    * simpl.
-      change (tApp (type_to_term t1) (type_to_term t2)) with
-                                (mkApps (type_to_term t1) [type_to_term t2]).
-      eapply PcbvCurr.value_app;simpl;eauto.
-Admitted.
+  + simpl in *.
+    inversion Hok;subst. now eapply type_value_term_value.
+Qed.
 
 Lemma lift_1_closed n t :
   closedn n t ->
@@ -659,11 +651,11 @@ Ltac destr_args args := let args0 := fresh "args0" in
                         destruct args as [ | ? args0];
                         tryfalse;try destruct args0;tryfalse.
 
-Lemma type_to_term_subst_par ty n l :
-    subst l n (type_to_term ty) = type_to_term ty.
-Proof.
-  intros.
-  Admitted.
+(* Lemma type_to_term_subst_par ty n l : *)
+(*     subst l n (type_to_term ty) = type_to_term ty. *)
+(* Proof. *)
+(*   intros. *)
+(*   Admitted. *)
 
 SearchPattern (Type -> Type -> Type).
 
@@ -1321,9 +1313,48 @@ Proof.
 Qed.
 
 Lemma subst_env_ty_compose_1 k ρ nm e' ty :
+  All (fun x => iclosed_n 0 (snd x) = true) ρ ->
+  iclosed_n 0 e' = true ->
   subst_env_i_ty k (ρ # [nm ~> e']) ty = subst_env_i_ty k [(nm, e')] (subst_env_i_ty (S k) ρ ty).
 Proof.
-Admitted.
+  revert k ρ nm e'.
+  induction ty;intros ? ? ? ? Hfa Hc;simpl;try now f_equal.
+  destruct n.
+  * reflexivity.
+  * destruct (k <=? n) eqn:Hkn.
+    ** unfold lookup_ty. simpl. leb_ltb_to_prop. assert (k <= S n) by lia.
+       prop_to_leb_ltb. rewrite H.
+       leb_ltb_to_prop.
+       assert (Hneq : S n - k <> 0) by lia.
+       rewrite <- PeanoNat.Nat.eqb_neq in Hneq. rewrite Hneq.
+       replace (S n - k - 1) with (n - k) by lia.
+       replace (S n - S k) with (n - k) by lia.
+       destruct (lookup_i ρ (n-k)) eqn:Hl.
+       *** simpl.
+           assert (iclosed_n 0 e).
+           { eapply (All_lookup_i _ _ _ (fun x => iclosed_n 0 x) Hfa Hl). }
+           destruct (expr_to_ty e) eqn:He.
+           **** assert (iclosed_ty 0 t0).
+                { destruct e;tryfalse. now inversion He;subst. }
+                symmetry. eapply subst_env_ty_closed_n_eq with (m:=0). now eapply iclosed_ty_0.
+           **** simpl. unfold lookup_ty in *. simpl. prop_to_leb_ltb. rewrite H.
+                destruct k;auto;tryfalse.
+                rewrite Nat.eqb_neq in *. assert (n-k<>0) by lia.
+                destruct (n - k =? 0)%nat eqn:HH;tryfalse;auto. rewrite Nat.eqb_eq in *.
+                leb_ltb_to_prop. lia.
+       *** remember (S n) as m. simpl.
+           prop_to_leb_ltb. rewrite H. unfold lookup_ty in *. simpl. now rewrite Hneq.
+    ** leb_ltb_to_prop.
+         assert (HkSn :  S n <= k) by lia.
+         case HkSn.
+         *** rewrite PeanoNat.Nat.leb_refl. simpl.
+             replace (n-n) with 0 by lia. simpl.
+             now rewrite PeanoNat.Nat.leb_refl.
+         *** intros m Hm. assert (H : S n < S m) by lia.
+             rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
+             remember (S n) as n'. remember (S m) as m'. simpl.
+             prop_to_leb_ltb. now rewrite H.
+Qed.
 
 Hint Resolve subst_env_ty_compose_1.
 
@@ -2297,7 +2328,7 @@ Definition not_stuck : term -> bool :=
 
 Hint Constructors PcbvCurr.eval : hints.
 
-Hint Resolve PcbvCurr.value_final Wcbv_from_value_value : hints.
+Hint Resolve PcbvCurr.value_final : hints.
 
 Lemma vars_to_apps_constr_not_lambda ind cn l Σ:
   ~~ isLambda (T⟦vars_to_apps (eConstr ind cn) l⟧Σ).
@@ -2452,6 +2483,7 @@ Proof.
         assert (ge_val_ok Σ1 v2) by (apply val_ok_ge_val_ok;eapply All_lookup_i;eauto).
         rewrite H2.
         eapply PcbvCurr.value_final; eapply Wcbv_from_value_value; eauto with hints.
+        eapply All_lookup_i;eauto.
       * specialize (lookup_i_length_false _ _ Hn0) as Hnone;tryfalse.
     + (* eVar *) simpl;tryfalse.
     + (* eLambda *)
