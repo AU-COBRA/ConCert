@@ -489,8 +489,10 @@ Qed.
   Lemma subst_env_i_ty_empty k t : t = subst_env_i_ty k [] t.
   Proof.
     revert k.
-    induction t;eauto.
-  Admitted.
+    induction t;intros;simpl;try f_equal;eauto.
+    destruct (k <=? n);auto.
+  Qed.
+
 
   Hint Resolve subst_env_i_ty_empty.
 
