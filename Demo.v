@@ -13,6 +13,28 @@ Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
 
+Module MC:=MetaCoq.Template.Ast.
+Import BasicAst.
+
+
+(** MetaCoq demo *)
+
+(* Quote *)
+Quote Definition id_nat_syn := (fun x : nat => x).
+Print id_nat_syn.
+(* Ast.tLambda (nNamed "x")
+   (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
+      []) (Ast.tRel 0) : Ast.term *)
+
+(* Unquote *)
+Make Definition plus_one :=
+  (MC.tLambda (nNamed "x") (MC.tInd (mkInd "nat"  0 ) [])
+              (MC.tApp (MC.tConstruct (mkInd "nat" 0) 1 [])
+                       [MC.tRel 0])).
+
+Print plus_one.
+(* fun x : nat => S x : nat -> nat *)
+
 
 Definition x := "x".
 Definition y := "y".

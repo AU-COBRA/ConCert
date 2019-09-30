@@ -48,6 +48,7 @@ Definition map_syn :=
         (MCons, [(None,tyRel 1);(None,tyRel 0);
                   (None,(tyApp (tyApp (tyInd Map) (tyRel 1)) (tyRel 0)))])] false.
 
+Compute trans_global_dec map_syn.
 Make Inductive (trans_global_dec map_syn).
 
 Definition Σ' :=

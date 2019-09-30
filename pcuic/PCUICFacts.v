@@ -84,8 +84,8 @@ Section Values.
 
   Lemma vars_to_apps_iclosed_n :
         forall (i : inductive) (n0 : ename) (l : list val) (n : nat),
-          All (fun v : val => iclosed_n n (from_val_i v) = true) l ->
-          iclosed_n n (vars_to_apps (eConstr i n0) (map from_val_i l)) = true.
+          All (fun v : val => iclosed_n n (of_val_i v) = true) l ->
+          iclosed_n n (vars_to_apps (eConstr i n0) (map of_val_i l)) = true.
   Proof.
     intros i n0 l n H.
     induction l using rev_ind.
@@ -413,9 +413,9 @@ Qed.
     intros;apply subst_env_iclosed_n_inv with (n:=0);eauto.
   Qed.
 
-  Lemma from_value_closed Σ v n :
+  Lemma of_value_closed Σ v n :
     val_ok Σ v  (* this ensures that closures contain closed expressions *) ->
-    iclosed_n n (from_val_i v ) = true.
+    iclosed_n n (of_val_i v ) = true.
   Proof.
     revert n.
     induction v using val_elim_full;intros n1 Hv.
@@ -527,15 +527,15 @@ Qed.
 
   (** Correctness of the value-back-to-expression transformation *)
   (* A creterion of correctness we consider the property that
-     if we start with a value [v1], the output of [from_val v1] after evaluation,
+     if we start with a value [v1], the output of [of_val v1] after evaluation,
      should give as some [v2] equivalent to [v1].
      Note that we cannot ask [v1] and [v2] to be equal,
      instead we ask for equivalence. This is due to substitutions of the
      values in the environment while converting closures back to expressions *)
 
-  Lemma from_val_debruijn_correct n Σ v1 v2 :
+  Lemma of_val_debruijn_correct n Σ v1 v2 :
     accepted_val v1 ->
-    expr_eval_i Σ n [] (from_val_i v1) = Ok v2 ->
+    expr_eval_i Σ n [] (of_val_i v1) = Ok v2 ->
     v1 ≈ v2.
   Proof.
     intros Hav He.
@@ -547,7 +547,7 @@ Qed.
       * cbn in H1. destruct (resolve_constr Σ i n);tryfalse. inversion H1. reflexivity.
       * autounfold with facts in *. simpl in H1.
         remember (expr_eval_general false Σ n0 [] (eConstr i n)) as cv.
-        remember (expr_eval_general false Σ n0 [] (from_val_i v)) as fv.
+        remember (expr_eval_general false Σ n0 [] (of_val_i v)) as fv.
         destruct cv as [cv0 | | ]; try destruct cv0;try destruct c;destruct fv;tryfalse.
         ** inversion H1 as [H1'].
            symmetry in Heqfv.

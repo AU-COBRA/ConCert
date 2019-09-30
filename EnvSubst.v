@@ -87,7 +87,7 @@ Import InterpreterEnvList.
 
  Definition subst_env_i := subst_env_i_aux 0.
 
-  (* Converting from values back to expression.
+  (** Converting from values back to expressions.
      This will be used to compare results of the evaluation with different semantics, or
      for stating soundness theorem for the translation to a different language, e.g.
      to Template Coq terms.
@@ -97,45 +97,46 @@ Import InterpreterEnvList.
      Inspired by the implementation of
      "A Certified Implementation of ML with Structural Polymorphism" by Jacques Garrigue.
    *)
-  Fixpoint from_val (v : val) : expr :=
+  Fixpoint of_val (v : val) : expr :=
     match v with
-    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val vs)
+    | vConstr x i vs => vars_to_apps (eConstr x i) (map of_val vs)
     | vClos ρ nm cm ty1 ty2 e =>
       let res := match cm with
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                  end
-      in subst_env (map (fun x => (fst x, from_val (snd x))) ρ) res
-    | vTyClos ρ nm e => subst_env (map (fun x => (fst x, from_val (snd x))) ρ)
+      in subst_env (map (fun x => (fst x, of_val (snd x))) ρ) res
+    | vTyClos ρ nm e => subst_env (map (fun x => (fst x, of_val (snd x))) ρ)
                                  (eTyLam nm e)
     | vTy ty => eTy ty
     end.
 
   Definition inst_env (ρ : env val) (e : expr) : expr :=
-    subst_env (map (fun x => (fst x, from_val (snd x))) ρ) e.
+    subst_env (map (fun x => (fst x, of_val (snd x))) ρ) e.
 
-  Fixpoint from_val_i (v : val) : expr :=
+  Notation apps := vars_to_apps.
+
+  Fixpoint of_val_i (v : val) : expr :=
     match v with
-    | vConstr x i vs => vars_to_apps (eConstr x i) (map from_val_i vs)
+    | vConstr c i vs => apps (eConstr c i) (map of_val_i vs)
     | vClos ρ nm cm ty1 ty2 e =>
       let res := match cm with
                  | cmLam => eLambda nm ty1 e
                  | cmFix fixname => eFix fixname nm ty1 ty2 e
                 end
-      in subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) res
-    | vTyClos ρ nm e => subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ)
+      in subst_env_i (map (fun x => (fst x, of_val_i (snd x))) ρ) res
+    | vTyClos ρ nm e => subst_env_i (map (fun x => (fst x, of_val_i (snd x))) ρ)
                                  (eTyLam nm e)
     | vTy ty => eTy ty
 
     end.
 
-  Notation exprs := (map (fun x => (fst x, from_val_i (snd x)))).
+  Notation exprs := (map (fun x => (fst x, of_val_i (snd x)))).
 
-  (* The similar notation will be used when we change to a parallel substitution *)
   Notation "e .[ ρ ] n " := (subst_env_i_aux n ρ e) (at level 6).
 
  Definition inst_env_i (ρ : env val) (e : expr) : expr :=
-   subst_env_i (map (fun x => (fst x, from_val_i (snd x))) ρ) e.
+   subst_env_i (map (fun x => (fst x, of_val_i (snd x))) ρ) e.
  Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 6).
 
  Definition is_type e : bool :=

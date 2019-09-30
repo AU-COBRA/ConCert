@@ -128,7 +128,7 @@ Definition mkArrows_rec (ind_name : ename) (nparam : nat)  :=
           end
         | tyRel i => tRel (i+n)
         | _ => type_to_term ty (* TODO: check how it works for other
-          type constructors applied to parameters of inductive *)
+          type constructors applied to parameters of the inductive *)
         end in tProd (of_ename proj) res (rec (1+n) tys')
   end.
 

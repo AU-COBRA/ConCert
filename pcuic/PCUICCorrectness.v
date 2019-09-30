@@ -102,8 +102,8 @@ Proof.
   intros;subst;easy.
 Qed.
 
-Lemma lookup_i_from_val_env ρ n v :
-  lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (from_val_i v).
+Lemma lookup_i_of_val_env ρ n v :
+  lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (of_val_i v).
 Proof.
   revert dependent n.
   induction ρ;intros n0 Hρ.
@@ -116,7 +116,7 @@ Qed.
 
 Lemma inst_env_i_in (ρ : env val) n :
   n <? length ρ ->
-  {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = from_val_i v}.
+  {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = of_val_i v}.
 Proof.
   intros Hlt.
   revert dependent n.
@@ -141,7 +141,7 @@ Proof.
          destruct Hlookup.
          simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
          rewrite <- H2. replace (n2 - 0) with n2 by lia.
-         apply lookup_i_from_val_env in H1.
+         apply lookup_i_of_val_env in H1.
          now eapply from_option_indep.
 Qed.
 
@@ -165,8 +165,8 @@ Qed.
 Lemma mkApps_vars_to_apps_constr :
   forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : BasicAst.ident) (l0 : list val) ci,
     resolve_constr Σ1 i0 n1 = Some ci ->
-    mkApps (tConstruct (BasicAst.mkInd i0 0) (ci.1.2) []) (map (fun x => T⟦from_val_i x⟧ Σ1) l0) =
-    T⟦ vars_to_apps (eConstr i0 n1) (map from_val_i l0) ⟧ Σ1.
+    mkApps (tConstruct (BasicAst.mkInd i0 0) (ci.1.2) []) (map (fun x => T⟦of_val_i x⟧ Σ1) l0) =
+    T⟦ vars_to_apps (eConstr i0 n1) (map of_val_i l0) ⟧ Σ1.
 Proof.
   intros Σ1 i0 n1 l0 ci Hci.
   rewrite <- mkApps_vars_to_apps.
@@ -176,8 +176,8 @@ Qed.
 Lemma Wcbv_value_vars_to_apps Σ1 Σ2 Γ :
   forall (i : inductive) n (l : list val) ci,
     resolve_constr Σ1 i n = Some ci ->
-    All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ from_val_i v ⟧ Σ1)) l ->
-    PcbvCurr.value Σ2 Γ (T⟦ vars_to_apps (eConstr i n) (map from_val_i l) ⟧ Σ1).
+    All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ of_val_i v ⟧ Σ1)) l ->
+    PcbvCurr.value Σ2 Γ (T⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
 Proof.
   intros i n l ci Hres Hfa.
   erewrite <- mkApps_vars_to_apps_constr;eauto.
@@ -379,9 +379,9 @@ Proof.
   eapply type_to_term_eval_value;eauto.
 Qed.
 
-Lemma Wcbv_from_value_value v Σ1 Σ2 Γ :
+Lemma Wcbv_of_value_value v Σ1 Σ2 Γ :
   val_ok Σ1 v ->
-  PcbvCurr.value Σ2 Γ (T⟦ from_val_i v⟧Σ1).
+  PcbvCurr.value Σ2 Γ (T⟦ of_val_i v⟧Σ1).
 Proof.
   intros Hok.
   induction v using val_elim_full.
@@ -442,7 +442,7 @@ Qed.
 Lemma type_to_term_eval Σ ty k e (nm : string) v:
   iclosed_ty k ty ->
   eval_type_i k ([(nm,e)]) ty = Some v ->
-  (type_to_term ty) {k:=T⟦from_val e⟧Σ} = type_to_term v.
+  (type_to_term ty) {k:=T⟦of_val e⟧Σ} = type_to_term v.
 Proof.
   revert k e v. induction ty;intros k e0 v Hc H;simpl in *;inversion H;subst;auto;clear H.
   + destruct (eval_type_i _ _ _) eqn:Heq;tryfalse. inversion H1;subst.
@@ -1113,16 +1113,16 @@ Qed.
 
 Lemma subst_term_subst_env e :
   forall v Σ nm,
-    let ρ := nil # [nm ~> from_val_i v] in
+    let ρ := nil # [nm ~> of_val_i v] in
     genv_ok Σ ->
     ty_expr_env_ok ρ 0 e ->
     val_ok Σ v ->
     iclosed_n 1 e = true ->
-    (T⟦e⟧ Σ) {0:=T⟦ from_val_i v ⟧ Σ} =
+    (T⟦e⟧ Σ) {0:=T⟦ of_val_i v ⟧ Σ} =
     (T⟦e.[ρ]⟧ Σ).
 Proof.
   simpl;intros.
-  assert (iclosed_n 0 (from_val_i v) = true) by now eapply from_value_closed.
+  assert (iclosed_n 0 (of_val_i v) = true) by now eapply of_value_closed.
   now apply subst_term_subst_env_rec.
 Qed.
 
@@ -1800,7 +1800,7 @@ Proof.
       simpl in H.
       repeat split;intuition;eauto.
       eapply eval_ty_env_ok;eauto.
-      now eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(e1,from_val_i v)]).
+      now eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(e1,of_val_i v)]).
     * simpl in *. inv_andb Hc.
       destruct (eval (n, Σ, ρ, e2)) eqn:He2;tryfalse.
       destruct (eval (n, Σ, ρ, e1)) eqn:He1;tryfalse.
@@ -1951,13 +1951,13 @@ Qed.
 
 Lemma from_vConstr_not_lambda :
   forall (Σ : global_env) (i : Ast.inductive) (n0 : ename) (na : BasicAst.name) (t0 b : term) l,
-    tLambda na t0 b = T⟦ from_val_i (vConstr i n0 l) ⟧ Σ -> False.
+    tLambda na t0 b = T⟦ of_val_i (vConstr i n0 l) ⟧ Σ -> False.
 Proof.
   intros Σ i n0 na t0 b l H.
   induction l using utils.rev_ind.
   + simpl in H. destruct (resolve_constr Σ i n0);tryfalse.
   + simpl_vars_to_apps in H.
-    destruct (T⟦ vars_to_apps (eConstr i n0) (map from_val_i l) ⟧ Σ);tryfalse.
+    destruct (T⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ);tryfalse.
 Qed.
 
 
@@ -1992,8 +1992,8 @@ Qed.
 (*   left;repeat eexists; eauto. *)
 (* Qed. *)
 
-(* Lemma from_val_fix fixname var ty1 ty2 b v : *)
-(*   from_val_i v = eFix fixname var ty1 ty2 b -> *)
+(* Lemma of_val_fix fixname var ty1 ty2 b v : *)
+(*   of_val_i v = eFix fixname var ty1 ty2 b -> *)
 (*   exists ρ b1, v = vClos ρ var (cmFix fixname) ty1 ty2 b1. *)
 (* Proof. *)
 (*   intros H. induction v. *)
@@ -2033,12 +2033,12 @@ Ltac destruct_ex_named := repeat (destruct_one_ex_named).
 (*   + destruct_ex_named. destruct H as [Heq HH];subst. *)
 (*     destruct n;tryfalse. simpl in He. *)
 (*     apply option_to_res_ok in He. *)
-(*     apply lookup_i_from_val_env in He. simpl in *. *)
+(*     apply lookup_i_of_val_env in He. simpl in *. *)
 (*     destruct vs using utils.rev_ind;simpl in He;try simpl_vars_to_apps in He;tryfalse. *)
 (* Qed. *)
 
-Lemma fix_not_constr_from_val {Σ mf m i nm vs} :
-  tFix mf m = T⟦from_val_i (vConstr i nm vs)⟧Σ -> False.
+Lemma fix_not_constr_of_val {Σ mf m i nm vs} :
+  tFix mf m = T⟦of_val_i (vConstr i nm vs)⟧Σ -> False.
 Proof.
   intros H.
   simpl in *.
@@ -2062,17 +2062,17 @@ Qed.
 (*   + destruct_ex_named. destruct H as [Heq HH];subst. *)
 (*     destruct n;tryfalse. simpl in He. *)
 (*     apply option_to_res_ok in He. *)
-(*     apply lookup_i_from_val_env in He;simpl in *. rewrite HH in He. inversion He. *)
+(*     apply lookup_i_of_val_env in He;simpl in *. rewrite HH in He. inversion He. *)
 (* Qed. *)
 
-Lemma fix_not_lambda_from_val {e e1 ty1 ty2 Σ mf n idx} :
-  tFix mf idx = T⟦ from_val_i (vClos e n cmLam ty1 ty2 e1) ⟧ Σ -> False.
+Lemma fix_not_lambda_of_val {e e1 ty1 ty2 Σ mf n idx} :
+  tFix mf idx = T⟦ of_val_i (vClos e n cmLam ty1 ty2 e1) ⟧ Σ -> False.
 Proof.
   intros H. simpl in *. inversion H.
 Qed.
 
-Lemma lambda_not_fix_from_val {e e1 ty ty1 ty2 Σ nm nm0 nm1 b } :
-  tLambda nm ty b = T⟦ from_val_i (vClos e nm0 (cmFix nm1) ty1 ty2 e1) ⟧ Σ -> False.
+Lemma lambda_not_fix_of_val {e e1 ty ty1 ty2 Σ nm nm0 nm1 b } :
+  tLambda nm ty b = T⟦ of_val_i (vClos e nm0 (cmFix nm1) ty1 ty2 e1) ⟧ Σ -> False.
 Proof.
   intros H. simpl in *. inversion H.
 Qed.
@@ -2084,7 +2084,7 @@ Proof.
   induction l;constructor;auto.
 Qed.
 
-Hint Resolve eval_val_ok from_value_closed : hints.
+Hint Resolve eval_val_ok of_value_closed : hints.
 
 Lemma closed_exprs n (ρ : env val) Σ :
   env_ok Σ ρ ->
@@ -2166,7 +2166,7 @@ Qed.
 
 Hint Resolve env_ok_concat All_env_ok rev_env_ok : hints.
 
-Lemma from_val_closed_0 e ρ :
+Lemma of_val_closed_0 e ρ :
   All (fun e0 : string * expr => iclosed_n 0 (snd e0) = true) (exprs ρ) ->
   iclosed_n 0 (e.[exprs ρ]) = true -> iclosed_n #|ρ| e.
 Proof.
@@ -2175,7 +2175,7 @@ Proof.
   eauto with hints.
 Qed.
 
-Hint Resolve map_length from_val_closed_0 val_ok_ge_val_ok rev_length
+Hint Resolve map_length of_val_closed_0 val_ok_ge_val_ok rev_length
   subst_env_compose_1 subst_env_compose_2 : hints.
 
 (* Lemma not_is_app_isApp e Σ : *)
@@ -2285,29 +2285,29 @@ Hint Resolve negb_and_to_orb : hints.
 
 Hint Constructors All2 : hints.
 
-Lemma All_value_from_val:
+Lemma All_value_of_val:
   forall (Σ1 : global_env) (Σ2 : PCUICAst.global_env) (Γ : list context_decl)
     (l : list val),
-    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ from_val_i v ⟧ Σ1)) l.
+    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ of_val_i v ⟧ Σ1)) l.
 Proof.
   intros Σ1 Σ2 Γ l X.
   eapply All_impl. apply X.
-  intros. eapply Wcbv_from_value_value;eauto with hints.
+  intros. eapply Wcbv_of_value_value;eauto with hints.
 Qed.
 
-Lemma All_expr_iclosed_from_val:
+Lemma All_expr_iclosed_of_val:
   forall (Σ1 : global_env) (l0 : list val),
-    All (val_ok Σ1) l0 -> All (fun x : val => iclosed_n 0 (from_val_i x)) l0.
+    All (val_ok Σ1) l0 -> All (fun x : val => iclosed_n 0 (of_val_i x)) l0.
 Proof.
   intros Σ1 l0 X.
   eapply All_impl. apply X. eauto with hints.
 Qed.
 
 
-Lemma All_term_closed_from_val:
+Lemma All_term_closed_of_val:
   forall (Σ1 : global_env) (l0 : list val),
     genv_ok Σ1 ->
-    All (val_ok Σ1) l0 -> All (fun x : val => closed (T⟦ from_val_i x ⟧ Σ1)) l0.
+    All (val_ok Σ1) l0 -> All (fun x : val => closed (T⟦ of_val_i x ⟧ Σ1)) l0.
 Proof.
   intros Σ1 l0 Hgeok X.
   eapply All_impl. apply X.
@@ -2387,7 +2387,7 @@ Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
   eval(n, Σ1, ρ, e1) = Ok v ->
   e1.[exprs ρ] = e2 ->
   iclosed_n 0 e2 = true ->
-  Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ T⟦from_val_i v⟧Σ1.
+  Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ T⟦of_val_i v⟧Σ1.
 Proof.
   revert dependent v.
   revert dependent ρ.
@@ -2404,7 +2404,7 @@ Proof.
         assert (v = v2) by congruence. subst.
         assert (ge_val_ok Σ1 v2) by (apply val_ok_ge_val_ok;eapply All_lookup_i;eauto).
         rewrite H2.
-        eapply PcbvCurr.value_final; eapply Wcbv_from_value_value; eauto with hints.
+        eapply PcbvCurr.value_final; eapply Wcbv_of_value_value; eauto with hints.
         eapply All_lookup_i;eauto.
       * specialize (lookup_i_length_false _ _ Hn0) as Hnone;tryfalse.
     + (* eVar *) simpl;tryfalse.
@@ -2425,28 +2425,28 @@ Proof.
       destruct Hc as [[? ?] ?].
       destruct (eval (n, Σ1, ρ, e1_1)) eqn:He1;tryfalse.
       destruct (eval_type_i 0 ρ t0) eqn:Ht0;tryfalse. inversion He;subst;clear He.
-      assert (He11 : Σ2;;; Γ |- T⟦ e1_1 .[ exprs ρ] ⟧ Σ1 ⇓  T⟦ from_val_i v0 ⟧ Σ1)
+      assert (He11 : Σ2;;; Γ |- T⟦ e1_1 .[ exprs ρ] ⟧ Σ1 ⇓  T⟦ of_val_i v0 ⟧ Σ1)
         by (eauto with hints).
       assert (ty_expr_env_ok (exprs ρ) 0 e1_1) by (eapply eval_ty_expr_env_ok;eauto with hints).
 
-      assert (iclosed_n #|exprs ρ # [e ~> from_val_i v0]| e1_2 = true).
+      assert (iclosed_n #|exprs ρ # [e ~> of_val_i v0]| e1_2 = true).
       { simpl. eapply subst_env_iclosed_n_inv with (n:=1);eauto with hints. }
 
-      assert (ty_expr_env_ok (exprs ρ # [e ~> from_val_i v0]) 0 e1_2).
-      { change (exprs ρ # [e ~> from_val_i v0]) with (exprs (ρ # [e ~> v0])).
+      assert (ty_expr_env_ok (exprs ρ # [e ~> of_val_i v0]) 0 e1_2).
+      { change (exprs ρ # [e ~> of_val_i v0]) with (exprs (ρ # [e ~> v0])).
         eapply eval_ty_expr_env_ok;eauto with hints. simpl.
         replace #|ρ| with (#|exprs ρ|) by apply map_length.
         eapply subst_env_iclosed_n_inv with (n:=1);eauto with hints. }
 
       assert (val_ok Σ1 v0) by (eapply eval_val_ok;eauto with hints).
-      assert (He12 : Σ2;;; Γ |- T⟦ e1_2 .[exprs ((e, v0) :: ρ)] ⟧ Σ1 ⇓ T⟦ from_val_i v ⟧ Σ1).
+      assert (He12 : Σ2;;; Γ |- T⟦ e1_2 .[exprs ((e, v0) :: ρ)] ⟧ Σ1 ⇓ T⟦ of_val_i v ⟧ Σ1).
       { eapply IHn with (ρ:=((e, v0) :: ρ));simpl;eauto 6 with hints. }
       simpl in *. unfold subst_env_i in *.
       econstructor;eauto. unfold subst1.
       erewrite <- subst_term_subst_env_par_rec in He12 by eauto with hints.
       erewrite <- subst_term_subst_env_par_rec;eauto with hints.
       now rewrite <- subst_app_simpl.
-      now eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(e,from_val_i v0)]).
+      now eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(e,of_val_i v0)]).
     + (* eApp *)
       autounfold with facts in *. subst; cbn in *.
       destruct (expr_eval_general _ _ _ _ e1_2) eqn:He2;tryfalse.
@@ -2457,17 +2457,17 @@ Proof.
       * (* application evaluates to a constructor *)
         inversion_clear He. simpl_vars_to_apps. subst. simpl in *.
         rename e into n0.
-        change (tApp (T⟦ vars_to_apps (eConstr i n0) (map from_val_i l) ⟧ Σ1) (T⟦ from_val_i v0 ⟧ Σ1))
-          with (mkApps (T⟦ vars_to_apps (eConstr i n0) (map from_val_i l) ⟧ Σ1) [T⟦ from_val_i v0 ⟧ Σ1]).
+        change (tApp (T⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) (T⟦ of_val_i v0 ⟧ Σ1))
+          with (mkApps (T⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) [T⟦ of_val_i v0 ⟧ Σ1]).
 
         eapply PcbvCurr.eval_app_cong;eauto;intuition.
-        change (vars_to_apps (eConstr i n0) (map from_val_i l)) with (from_val_i (vConstr i n0 l)).
+        change (vars_to_apps (eConstr i n0) (map of_val_i l)) with (of_val_i (vConstr i n0 l)).
         eapply IHn;eauto with hints.
       * destruct c.
         ** (* the closure corresponds to lambda *)
           simpl in *. rename e0 into n0.
           simpl in *.
-          assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ from_val_i v0 ⟧ Σ1)
+          assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i v0 ⟧ Σ1)
             by eauto.
           assert (Hv0_ok : val_ok Σ1 v0) by (eapply eval_val_ok;eauto with hints).
           assert (Hlam_ok : val_ok Σ1 (vClos e n0 cmLam t0 t1 e1)) by
@@ -2475,7 +2475,7 @@ Proof.
           inversion Hlam_ok;subst.
           assert (He_ok1 : env_ok Σ1 (e # [n0 ~> v0])) by now constructor.
           assert
-           (Hlam : Σ2;;; Γ |- T⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ from_val_i (vClos e n0 cmLam t0 t1 e1) ⟧ Σ1) by
+           (Hlam : Σ2;;; Γ |- T⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i (vClos e n0 cmLam t0 t1 e1) ⟧ Σ1) by
               (eapply IHn with (ρ:=ρ);eauto).
           assert (AllEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e)).
            { inversion He_ok1. subst.
@@ -2484,12 +2484,12 @@ Proof.
              intros a ?; destruct a; simpl;eauto with hints. }
            assert (iclosed_n 1 (e1 .[ exprs e] 1) = true)
             by eauto with hints.
-           assert (ty_expr_env_ok [(n0, from_val_i v0)] 0 (e1.[exprs e]1)).
+           assert (ty_expr_env_ok [(n0, of_val_i v0)] 0 (e1.[exprs e]1)).
            { eapply ty_expr_env_ok_subst_env;eauto;simpl.
-             change (exprs e # [n0 ~> from_val_i v0]) with (exprs (e # [n0 ~> v0])).
+             change (exprs e # [n0 ~> of_val_i v0]) with (exprs (e # [n0 ~> v0])).
              eapply eval_ty_expr_env_ok;eauto. }
 
-           assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦from_val_i v0⟧Σ1} ⇓ T⟦from_val_i v⟧ Σ1).
+           assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦of_val_i v0⟧Σ1} ⇓ T⟦of_val_i v⟧ Σ1).
            { rewrite subst_term_subst_env with (nm:=n0); eauto 8 with hints. }
 
            simpl in *.
@@ -2502,18 +2502,18 @@ Proof.
           simpl in *.
           remember (T⟦e1_1.[exprs ρ] ⟧ Σ1) as tm1.
           remember (T⟦ e1_2.[exprs ρ] ⟧ Σ1) as tm2.
-          assert (Hfix : Σ2;;; Γ |- tm1 ⇓ T⟦ from_val_i (vClos ρ' n0 (cmFix _) t0 t1 e1) ⟧ Σ1)
+          assert (Hfix : Σ2;;; Γ |- tm1 ⇓ T⟦ of_val_i (vClos ρ' n0 (cmFix _) t0 t1 e1) ⟧ Σ1)
             by (subst;eauto with hints).
 
           change (tApp tm1 tm2) with (mkApps tm1 [tm2]).
           simpl in Hfix.
           assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by eauto 8 with hints.
           inversion Hok_ctor as [ | | | ?????  HresC |];subst;clear Hok_ctor;eauto.
-          assert (Hconstr : is_constructor 0 [T⟦ from_val_i (vConstr i e l) ⟧ Σ1]).
+          assert (Hconstr : is_constructor 0 [T⟦ of_val_i (vConstr i e l) ⟧ Σ1]).
           { simpl. rewrite <- mkApps_vars_to_apps. cbn.
             unfold isConstruct_app.
             rewrite decompose_app_mkApps; now rewrite HresC. }
-          eapply PcbvCurr.eval_fix with (args':=[T⟦ from_val_i (vConstr i e l) ⟧ Σ1]);
+          eapply PcbvCurr.eval_fix with (args':=[T⟦ of_val_i (vConstr i e l) ⟧ Σ1]);
             subst;eauto with hints;try reflexivity.
           cbn. remember (tFix _ _) as tfix. rewrite simpl_subst_k by auto.
           assert (Hok_fix : val_ok Σ1 ((vClos ρ' n0 (cmFix _) t0 t1 e1))) by eauto 8 with hints.
@@ -2532,10 +2532,10 @@ Proof.
           eapply PcbvCurr.eval_beta;eauto with hints.
           eapply PcbvCurr.value_final.
           eapply Wcbv_value_vars_to_apps;eauto with hints.
-          now eapply All_value_from_val.
-          assert (All (fun v0 : val => iclosed_n 0 (from_val_i v0) = true) l).
+          now eapply All_value_of_val.
+          assert (All (fun v0 : val => iclosed_n 0 (of_val_i v0) = true) l).
           { eapply All_impl. apply X. intros.
-            eapply from_value_closed;eauto with hints. }
+            eapply of_value_closed;eauto with hints. }
 
           remember (vars_to_apps _ _) as args.
           assert (ty_expr_env_ok (nil # [e2 ~> efix] # [n0 ~> args]) 0 (e1.[ exprs ρ']2)).
@@ -2565,7 +2565,7 @@ Proof.
           now repeat rewrite subst_env_i_ty_closed_0_eq by auto.
           repeat split_andb;eauto with hints.
       * rename e0 into n0.
-        assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ from_val_i v0 ⟧ Σ1)
+        assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i v0 ⟧ Σ1)
           by eauto with hints.
         assert (Hv0_ok : val_ok Σ1 v0) by eauto 8 with hints.
         assert (Hlam_ok : val_ok Σ1 (vTyClos e n0 e1))
@@ -2573,7 +2573,7 @@ Proof.
         inversion Hlam_ok;subst.
         assert (He_ok1 : env_ok Σ1 (e # [n0 ~> v0])) by now constructor.
         assert
-         (Hlam : Σ2;;; Γ |- T⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ from_val_i (vTyClos e n0 e1) ⟧ Σ1) by
+         (Hlam : Σ2;;; Γ |- T⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i (vTyClos e n0 e1) ⟧ Σ1) by
             (eapply IHn with (ρ:=ρ);eauto).
         assert (AllEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e)).
          { inversion He_ok1. subst.
@@ -2582,12 +2582,12 @@ Proof.
            intros a ?; destruct a; simpl;eauto with hints. }
          assert (iclosed_n 1 (e1 .[ exprs e] 1) = true)
           by eauto with hints.
-         assert (ty_expr_env_ok [(n0, from_val_i v0)] 0 (e1.[exprs e]1)).
+         assert (ty_expr_env_ok [(n0, of_val_i v0)] 0 (e1.[exprs e]1)).
          { eapply ty_expr_env_ok_subst_env;eauto;simpl.
-           change (exprs e # [n0 ~> from_val_i v0]) with (exprs (e # [n0 ~> v0])).
+           change (exprs e # [n0 ~> of_val_i v0]) with (exprs (e # [n0 ~> v0])).
            eapply eval_ty_expr_env_ok;eauto. }
 
-         assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦from_val_i v0⟧Σ1} ⇓ T⟦from_val_i v⟧ Σ1).
+         assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦of_val_i v0⟧Σ1} ⇓ T⟦of_val_i v⟧ Σ1).
          { rewrite subst_term_subst_env with (nm:=n0); eauto 8 with hints. }
 
          simpl in *.
@@ -2624,7 +2624,7 @@ Proof.
       destruct (match_pat _ _ _ _) eqn:Hpat;tryfalse.
 
       (* dealing with the translation and the evaluation in PCUIC *)
-      *  assert (IH' : Σ2;;; Γ |- T⟦ e1 .[ exprs ρ] ⟧ Σ1 ⇓ T⟦ from_val_i (vConstr i0 e l2) ⟧ Σ1) by
+      *  assert (IH' : Σ2;;; Γ |- T⟦ e1 .[ exprs ρ] ⟧ Σ1 ⇓ T⟦ of_val_i (vConstr i0 e l2) ⟧ Σ1) by
             eauto with hints.
         simpl in IH'.
         destruct p as [nm tys].
@@ -2664,7 +2664,7 @@ Proof.
 
            subst. replace ((#|pVars pt| + 0)) with (#|pVars pt|) in * by lia.
            (* assert (Hcomb : *)
-           (*           #|rev (combine (pVars p) ci)| = #|map (fun x : val => T⟦ from_val_i x ⟧ Σ1) l0|). *)
+           (*           #|rev (combine (pVars p) ci)| = #|map (fun x : val => T⟦ of_val_i x ⟧ Σ1) l0|). *)
            (* { rewrite rev_length;rewrite map_length. rewrite Hl0. rewrite combine_length. rewrite Hci. lia. } *)
            assert (Hok_constr: val_ok Σ1 (vConstr i0 c.1 l2)) by eauto 8 with hints.
            inversion Hok_constr;subst;clear Hok_constr.
@@ -2672,11 +2672,11 @@ Proof.
            apply pat_to_lam_app_par;eauto with hints.
            *** apply All_skipn.
                apply All_map.
-               now eapply All_value_from_val.
+               now eapply All_value_of_val.
            *** apply All_forallb;eauto.
                apply All_skipn.
                apply All_map.
-               now eapply All_term_closed_from_val.
+               now eapply All_term_closed_of_val.
            *** rewrite rev_length. rewrite combine_length.
                rewrite map_length. rewrite Hci'.
                rewrite Nat.eqb_eq in Hnparams.
@@ -2695,13 +2695,13 @@ Proof.
                remember (fun x : string * expr => T⟦ snd x ⟧ Σ1) as g.
                remember (T⟦ tys .[_] _⟧ _) as te3.
                assert (Hmap : map f (rev (skipn nparams l2)) =
-                       map g (map (fun_prod id from_val_i)(rev (combine (pVars pt) (skipn nparams l2))))).
+                       map g (map (fun_prod id of_val_i)(rev (combine (pVars pt) (skipn nparams l2))))).
                { rewrite map_map.
                  subst g;simpl.
                  rewrite <- combine_rev by auto.
-                 change (fun x : name * val => T⟦ from_val_i (snd x) ⟧ Σ1) with
-                  (fun x : name * val => ((expr_to_pcuic Σ1) ∘ from_val_i) (snd x)).
-                 rewrite <- map_map with (g:=(expr_to_term Σ1) ∘ from_val_i)
+                 change (fun x : name * val => T⟦ of_val_i (snd x) ⟧ Σ1) with
+                  (fun x : name * val => ((expr_to_pcuic Σ1) ∘ of_val_i) (snd x)).
+                 rewrite <- map_map with (g:=(expr_to_term Σ1) ∘ of_val_i)
                                         (f:=snd).
                  rewrite map_combine_snd. now subst.
                  now repeat rewrite rev_length. }
@@ -2725,13 +2725,13 @@ Proof.
                                  eauto with hints.
                      apply All_map. subst.
                      apply All_rev. unfold compose. simpl.
-                     apply All_snd_combine with (p:=(iclosed_n 0) ∘ from_val_i).
+                     apply All_snd_combine with (p:=(iclosed_n 0) ∘ of_val_i).
                      unfold compose.
-                     eapply All_expr_iclosed_from_val;try apply All_skipn;eauto.
+                     eapply All_expr_iclosed_of_val;try apply All_skipn;eauto.
                **** rewrite <- combine_rev by auto.
                     rewrite map_combine_snd_funprod.
                     eapply subst_env_iclosed_0;eauto with hints.
-                    remember ((combine (rev (pVars pt)) (map from_val_i (rev (skipn _ l2))))) as l_comb.
+                    remember ((combine (rev (pVars pt)) (map of_val_i (rev (skipn _ l2))))) as l_comb.
                     assert (Hlen : #|l_comb| = #|pVars pt|).
                     { subst. rewrite combine_length. rewrite map_length.
                       repeat rewrite rev_length. rewrite skipn_length;lia.  }
@@ -2752,7 +2752,7 @@ Proof.
 
                     eapply All_snd_combine with (p:=iclosed_n 0);eauto with hints.
                     apply All_map. apply All_rev.
-                    eapply All_expr_iclosed_from_val;eauto using All_skipn.
+                    eapply All_expr_iclosed_of_val;eauto using All_skipn.
 
                     rewrite combine_length. rewrite map_length.
                     repeat rewrite rev_length. rewrite skipn_length by lia.
@@ -2761,7 +2761,7 @@ Proof.
 
                **** rewrite <- combine_rev by auto.
                     rewrite map_combine_snd_funprod.
-                    remember ((combine (rev (pVars pt)) (map from_val_i (rev (skipn _ l2))))) as l_comb.
+                    remember ((combine (rev (pVars pt)) (map of_val_i (rev (skipn _ l2))))) as l_comb.
                     assert (Hlen : #|l_comb| = #|pVars pt|).
                     { subst. rewrite combine_length. rewrite map_length.
                       repeat rewrite rev_length. rewrite skipn_length;lia.  }
@@ -2784,9 +2784,9 @@ Proof.
                     eauto with hints.
                ****  apply All_map. subst.
                      apply All_rev. unfold compose. simpl.
-                     apply All_snd_combine with (p:=(iclosed_n 0) ∘ from_val_i).
+                     apply All_snd_combine with (p:=(iclosed_n 0) ∘ of_val_i).
                      unfold compose.
-                     eapply All_expr_iclosed_from_val;try apply All_skipn;eauto.
+                     eapply All_expr_iclosed_of_val;try apply All_skipn;eauto.
         ** specialize (lookup_ind_nth_error _ _ _ _ Hfind_i) as Hnth_eq.
            rewrite nth_error_map in Hnth_eq.
            rewrite nth_error_map in Hnth.
@@ -2813,7 +2813,7 @@ Corollary expr_to_term_sound_empty_env (n : nat) Σ1 Σ2 (Γ:=[])
   genv_ok Σ1 ->
   eval(n, Σ1, [], e) = Ok v ->
   iclosed_n 0 e = true ->
-  Σ2 ;;; Γ |- T⟦e⟧Σ1 ⇓ T⟦from_val_i v⟧Σ1.
+  Σ2 ;;; Γ |- T⟦e⟧Σ1 ⇓ T⟦of_val_i v⟧Σ1.
 Proof.
   intros.
   eapply expr_to_term_sound;eauto with hints.
@@ -2828,10 +2828,10 @@ Theorem expr_to_term_eval (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
   eval(n, Σ1, ρ, e1) = Ok v ->
   e1.[exprs ρ] = e2 ->
   iclosed_n 0 e2 = true ->
-  t = T⟦from_val_i v⟧Σ1.
+  t = T⟦of_val_i v⟧Σ1.
 Proof.
   intros.
-  assert (Hcbv1 : Σ2 ;;; Γ |- T⟦ e2 ⟧Σ1 ⇓ T⟦ from_val_i v ⟧ Σ1)
+  assert (Hcbv1 : Σ2 ;;; Γ |- T⟦ e2 ⟧Σ1 ⇓ T⟦ of_val_i v ⟧ Σ1)
     by (eapply expr_to_term_sound;eauto).
   now eapply PcbvCurr.eval_deterministic.
 Qed.
