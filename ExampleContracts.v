@@ -127,7 +127,7 @@ Module CrowdfundingContract.
 
   (** Generating names for the data structures  *)
   Run TemplateProgram
-      (mkNames ["State" ; "balance" ; "donations" ; "owner"; "deadline"; "goal"; "done";
+      (mkNames ["State" ; "mkState"; "balance" ; "donations" ; "owner"; "deadline"; "goal"; "done";
                 "Result" ; "Res" ; "Error";
                 "Msg"; "Donate"; "GetFunds"; "Claim";
                 "Action"; "Transfer"; "Empty" ] "_coq").
@@ -139,12 +139,12 @@ Module CrowdfundingContract.
   (** The internal state of the contract *)
   Definition state_syn : global_dec :=
     [\ record State :=
-       { balance : Money ;
-         donations : Map;
-         owner : Money;
-         deadline : Nat;
-         done : Bool;
-         goal : Money } \].
+        mkState { balance : Money ;
+                  donations : Map;
+                  owner : Money;
+                  deadline : Nat;
+                  done : Bool;
+                  goal : Money } \].
 
   (** We can print actual AST by switching off the notations *)
 

@@ -82,7 +82,7 @@ fix expr_to_term e :=
   | eConstr i t => match (resolve_constr Σ i t) with
                   | Some c => tConstruct (mkInd i 0) (c.1.2) []
                   (* NOTE: a workaround to make the function total *)
-                  | None => tConstruct (mkInd (i ++ ": no declaration found.") 0) 0 []
+                  | None => tConstruct (mkInd (i ++" or " ++ t ++ " : no declaration found.") 0) 0 []
                      end
   | eConst nm => tConst nm []
   | eCase nm_i ty2 e bs =>
@@ -216,7 +216,9 @@ Notation "[! ty !]" := ty (ty custom type at level 2).
 Notation "ty" := (tyInd ty) (in custom type at level 2, ty constr at level 3).
 
 Notation "ty1 ty2" := (tyApp ty1 ty2)
-                        (in custom type at level 4, left associativity).
+                        (in custom type at level 4, left associativity,
+                            ty1 custom type,
+                            ty2 custom type).
 
 
 Notation "ty1 -> ty2" := (tyArr ty1 ty2)
@@ -234,8 +236,8 @@ Notation " ' x " := (tyVar x)
                     (in custom type at level 1,
                         x constr at level 2).
 
-Notation "( x )" := x (in custom type, x custom type at level 2).
-Notation "{ x }" := x (in custom type, x constr).
+Notation "( x )" := x (in custom type, x at level 2).
+Notation "< x >" := x (in custom type, x constr).
 
 
 Definition ex_type := [! ∀ "A", ∀ "B", "prod" '"A" '"B" !].
@@ -320,9 +322,9 @@ Notation "'data' ty_nm ':=' c1 | c2 | c3 | c4 | c5 ;" :=
 (*              cn constr at level 4). *)
 
 
-Definition rec_constr (rec_nm : ename) (proj_tys : list (option ename * type))
+Definition rec_constr (rec_ctor : ename) (proj_tys : list (option ename * type))
   : string * list (option ename * type) :=
-  (("mk"++ rec_nm)%string, proj_tys).
+  (rec_ctor, proj_tys).
 
 Definition rec_constrs rec_nm := map (rec_constr rec_nm).
 
@@ -333,20 +335,22 @@ Notation "'record' rec_nm := { pr1 : ty1 }" :=
         rec_nm constr at level 4,
         ty1 custom type at level 4).
 
-Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 }" :=
-  (gdInd rec_nm 0 [ rec_constr rec_nm [(Some pr1,ty1);(Some pr2,ty2)]] true)
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 }" :=
+  (gdInd rec_nm 0 [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
+        rec_ctor constr at level 4,
         pr1 constr at level 4,
         pr2 constr at level 4,
         ty1 custom type at level 4,
         ty2 custom type at level 4).
 
-Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 }" :=
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 }" :=
   (gdInd rec_nm 0
-         [ rec_constr rec_nm [(Some pr1,ty1);(Some pr2,ty2);(Some pr3,ty3)]] true)
+         [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2);(Some pr3,ty3)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
+        rec_ctor constr at level 4,
         pr1 constr at level 4,
         pr2 constr at level 4,
         pr3 constr at level 4,
@@ -354,12 +358,14 @@ Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 }" :=
         ty2 custom type at level 4,
         ty3 custom type at level 4).
 
-Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" :=
-  (gdInd rec_nm 0
-         [ rec_constr rec_nm [(Some  pr1,ty1);(Some  pr2,ty2);
+Notation "'record' rec_nm # n := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" :=
+  (gdInd rec_nm n
+         [ rec_constr rec_ctor [(Some  pr1,ty1);(Some  pr2,ty2);
                                 (Some pr3,ty3);(Some pr4,ty4)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
+        rec_ctor constr at level 4,
+        n constr at level 4,
         pr1 constr at level 4,
         pr2 constr at level 4,
         pr3 constr at level 4,
@@ -369,13 +375,31 @@ Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" 
         ty3 custom type at level 4,
         ty4 custom type at level 4).
 
-Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 }" :=
+
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" :=
+  (gdInd rec_nm 0
+         [ rec_constr rec_ctor [(Some  pr1,ty1);(Some  pr2,ty2);
+                                (Some pr3,ty3);(Some pr4,ty4)]] true)
+    (in custom global_dec at level 1,
+        rec_nm constr at level 4,
+        rec_ctor constr at level 4,
+        pr1 constr at level 4,
+        pr2 constr at level 4,
+        pr3 constr at level 4,
+        pr4 constr at level 4,
+        ty1 custom type at level 4,
+        ty2 custom type at level 4,
+        ty3 custom type at level 4,
+        ty4 custom type at level 4).
+
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 }" :=
   (gdInd rec_nm 0
          [ rec_constr rec_nm [(Some pr1,ty1);(Some pr2,ty2);
                                 (Some pr3,ty3);(Some pr4,ty4);
                                   (Some pr5,ty5)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
+        rec_ctor constr at level 4,
         pr1 constr at level 4,
         pr2 constr at level 4,
         pr3 constr at level 4,
@@ -387,13 +411,14 @@ Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; p
         ty4 custom type at level 4,
         ty5 custom type at level 4).
 
-Notation "'record' rec_nm := { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 ; pr6 : ty6 }" :=
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 ; pr6 : ty6 }" :=
   (gdInd rec_nm 0
-         [ rec_constr rec_nm [(Some pr1,ty1);(Some pr2,ty2);
+         [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2);
                                 (Some pr3,ty3);(Some pr4,ty4);
                                   (Some pr5,ty5);(Some pr6,ty6)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
+        rec_ctor constr at level 4,
         pr1 constr at level 4,
         pr2 constr at level 4,
         pr3 constr at level 4,
@@ -474,6 +499,20 @@ Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | p2 -> b2
         params constr at level 4,
         ty2 custom type at level 4).
 
+Notation "'case' x : ( ind_nm , params ) 'return' < ty2 > 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
+  (eCase (ind_nm,params) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
+    (in custom expr at level 1,
+        p1 custom pat at level 4,
+        p2 custom pat at level 4,
+        p3 custom pat at level 4,
+        b1 custom expr at level 4,
+        b2 custom expr at level 4,
+        b3 custom expr at level 4,
+        ind_nm constr at level 4,
+        params constr at level 4,
+        ty2 constr at level 4).
+
+
 Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
   (eCase (ind_nm,params) ty2 x [(p1,b1);(pn,bn)])
     (in custom expr at level 1,
@@ -484,6 +523,17 @@ Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | pn -> bn
         ind_nm constr at level 4,
         params constr at level 4,
         ty2 custom type at level 4).
+
+Notation "'case' x : ( ind_nm , params ) 'return' < ty2 > 'of' | p1 -> b1 | pn -> bn" :=
+  (eCase (ind_nm,params) ty2 x [(p1,b1);(pn,bn)])
+    (in custom expr at level 1,
+        p1 custom pat at level 4,
+        pn custom pat at level 4,
+        b1 custom expr at level 4,
+        bn custom expr at level 4,
+        ind_nm constr at level 4,
+        params constr at level 4,
+        ty2 constr at level 4).
 
 
 
@@ -507,9 +557,9 @@ Module StdLib.
     [gdInd Unit 0 [("Coq.Init.Datatypes.tt", [])] false;
       gdInd Bool 0 [("true", []); ("false", [])] false;
       gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
-      gdInd "list" 1 [("Nil", []); ("Cons", [(None,tyRel 0);
+      gdInd "list" 1 [("nil", []); ("cons", [(None,tyRel 0);
                                                (None,tyApp (tyInd "list") (tyRel 0))])] false;
-      gdInd "prod" 2 [("Pair", [(None,tyRel 1);(None,tyRel 0)])] false].
+      gdInd "prod" 2 [("pair", [(None,tyRel 1);(None,tyRel 0)])] false].
 
   Notation "a + b" := [| {eConst "Coq.Init.Nat.add"} {a} {b} |]
                         (in custom expr at level 0).
@@ -523,12 +573,12 @@ Module StdLib.
                         (in custom expr at level 0).
   Notation "a <= b" := [| {eConst "PeanoNat.Nat.leb"} {a} {b} |]
                         (in custom expr at level 0).
-  Notation "'Z'" := (eConstr Nat "Z") ( in custom expr at level 0).
+  Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
   Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
-  Notation "0" := [| Z |] ( in custom expr at level 0).
-  Notation "1" := [| Suc Z |] ( in custom expr at level 0).
+  Notation "0" := [| Zero |] ( in custom expr at level 0).
+  Notation "1" := [| Suc Zero |] ( in custom expr at level 0).
 
-  Notation "'Z'" := (pConstr "Z" [])
+  Notation "'Zero'" := (pConstr "Z" [])
                   (in custom pat at level 0).
 
   Notation "'Suc' x" := (pConstr "Suc" [x])
@@ -545,8 +595,8 @@ Module StdLib.
   Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
   Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
 
-  Notation "'Nil'" := (pConstr "Nil" []) (in custom pat at level 0).
-  Notation "'Cons' y z" := (pConstr "Cons" [y;z])
+  Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
+  Notation "'Cons' y z" := (pConstr "cons" [y;z])
                              (in custom pat at level 0,
                                  y constr at level 4,
                                  z constr at level 4).
@@ -648,17 +698,17 @@ Section Examples.
   Definition case_ex1 :=
     [| \\y  => \"w" : 'y => \x : 'y =>  \z : "list" 'y =>
            case z : ("list", [tyVar "y"]) return "prod" 'y 'y of
-           | Nil -> {eConstr "prod" "Pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
-           | Cons "hd" "tl" -> {eConstr "prod" "Pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
+           | Nil -> {eConstr "prod" "pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
+           | Cons "hd" "tl" -> {eConstr "prod" "pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
 
   Compute (expr_to_term Σ (indexify [] case_ex1)).
 
   Make Definition case_ex_def1 :=  (expr_to_term Σ (indexify [] case_ex1)).
 
   Definition case_ex2 :=
-    [| \\y => case ({eConstr "list" "Nil"} "y") : ("list", [tyVar "y"]) return "list" 'y of
-              | Nil -> {eConstr "list" "Nil"} "y"
-              | Cons "hd" "tl" -> {eConstr "list" "Nil"} "y" |].
+    [| \\y => case ({eConstr "list" "nil"} "y") : ("list", [tyVar "y"]) return "list" 'y of
+              | Nil -> {eConstr "list" "nil"} "y"
+              | Cons "hd" "tl" -> {eConstr "list" "nil"} "y" |].
 
   Compute indexify [] case_ex2.
   Compute (expr_to_term Σ (indexify [] case_ex2)).

@@ -93,7 +93,7 @@ Definition is_zero_syn :=
 
       \x : Nat =>
            case x : (Nat,[]) return Bool of
-           | Z -> True
+           | Zero -> True
            | Suc y -> False
 
   |].
@@ -106,14 +106,14 @@ Definition pred_syn :=
 
       \x : Nat =>
            case x : (Nat,[]) return Nat of
-           | Z -> x
+           | Zero -> x
            | Suc y -> y
 
   |].
 
 Make Definition pred' := (expr_to_term Σ (indexify nil pred_syn)).
 
-Definition prog2 := [| Suc (Suc Z) |].
+Definition prog2 := [| Suc (Suc Zero) |].
 
 Compute (expr_eval_n Σ 3 [] prog2).
 
@@ -138,7 +138,7 @@ Definition factorial_syn :=
   [|
    fix "factorial" (x : Nat) : Nat :=
        case x : (Nat,[]) return Nat of
-       | Z -> 1
+       | Zero -> 1
        | Suc y -> x * ("factorial" y)
   |].
 
@@ -149,7 +149,7 @@ Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
        \y : Nat =>
            case x : (Nat,[]) return Nat of
-           | Z -> y
+           | Zero -> y
            | Suc z -> Suc ("plus" z y) |].
 
 Make Definition my_plus := (expr_to_term Σ (indexify [] plus_syn)).
@@ -185,7 +185,7 @@ Definition plus_syn' :=
   [| \x : Nat =>
           (fix "plus" (y : Nat) : Nat :=
            case y : (Nat,[]) return Nat of
-           | Z -> x
+           | Zero -> x
            | Suc z -> Suc ("plus" z))
   |].
 
@@ -220,7 +220,7 @@ Qed.
 Definition id_rec :=
   [| (fix "plus" (y : Nat) : Nat :=
            case y : (Nat,[]) return Nat of
-           | Z -> 0
+           | Zero -> 0
            | Suc z -> Suc ("plus" z))
    |].
 
@@ -245,7 +245,7 @@ Compute (expr_eval_i Σ 10 [] (indexify [] [| {plus_syn} 1 |])).
 Compute (indexify [] [| {plus_syn}|]).
 Compute (expr_eval_n Σ 10 [] [| {plus_syn} 0 |]).
 
-Definition fun_app := [| (\x : Nat => \y : Nat => y + x) Z |].
+Definition fun_app := [| (\x : Nat => \y : Nat => y + x) Zero |].
 
 Compute (expr_eval_n Σ' 10 [] fun_app).
 
@@ -301,7 +301,7 @@ Make Inductive (trans_global_dec Nat_syn).
 Import Template.Ast.
 
 Definition State_syn :=
-  [\ record "State" := { "balance" : "Nat" ; "day" : "Nat" }  \].
+  [\ record "State" := "mkState" { "balance" : "Nat" ; "day" : "Nat" }  \].
 
 Make Inductive (trans_global_dec State_syn).
 

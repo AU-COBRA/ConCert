@@ -174,13 +174,13 @@ Section MapEval.
   Definition eqb_syn : expr :=
     [| (fix "eqb" (n : Nat) : Nat ->  Bool :=
            case n : (Nat,[]) return Nat -> Bool of
-           | Z -> \m : Nat => (case m : (Nat,[]) return Bool of
-                   | Z -> True
+           | Zero -> \m : Nat => (case m : (Nat,[]) return Bool of
+                   | Zero -> True
                    | Suc z -> False)
            | Suc a ->
              \m : Nat =>
              (case m : (Nat,[]) return Bool of
-                   | Z -> False
+                   | Zero -> False
                    | Suc b -> "eqb" a b))
      |].
 

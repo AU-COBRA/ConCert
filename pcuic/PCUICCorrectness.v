@@ -491,8 +491,6 @@ Proof.
       ** now replace (#|tys| + S n) with (S #|tys| + n) by lia.
 Qed.
 
-Import FunctionalExtensionality.
-
 Fixpoint inc_subst (ts : list (ident * term)) n (u : term) : list (ident * term) :=
   match ts with
   | [] => []
@@ -514,12 +512,13 @@ Proof.
       replace (#|params|) with #|params'| by (subst;apply map_length).
       replace (S (#|tys| + n)) with (#|tys|+S n) by lia.
       rewrite IHtys. f_equal.
-      subst; repeat rewrite map_map. f_equal.
-      ** apply functional_extensionality.
-         intros t1. rewrite commut_lift_subst_rec.
+      subst; repeat rewrite map_map. eapply map_ext.
+      ** intros t1. rewrite commut_lift_subst_rec.
          now replace (S n) with (n+1) by lia. lia.
       ** subst. f_equal. lia.
 Qed.
+
+Print Assumptions subst_pat_to_lam.
 
 Fixpoint nsubst (ts : list term) (n : nat) (t :term) :=
   match ts with
@@ -587,10 +586,6 @@ Proof.
   + simpl.
     now rewrite map_lift0.
   + destruct a; simpl in *.
-    (* rewrite map_map. *)
-    (* rewrite simpl_lift_map. *)
-    (* rewrite app_length. simpl. *)
-    (* replace (#|tys| + 1 + i) with (#|tys| + S i) by lia. *)
     rewrite <- IHtys.
     rewrite map_map. rewrite simpl_lift_map. rewrite app_length.
     reflexivity.
@@ -1512,7 +1507,6 @@ Proof.
     eapply IHl;eauto with hints.
     eapply ty_expr_env_ok_subst_env;eauto with hints.
 Qed.
-
 
 Lemma subst_term_subst_env_par :
   forall Σ (l : env expr) e,
