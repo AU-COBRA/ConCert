@@ -7,8 +7,10 @@ Require Import Ast CustomTactics TCTranslate.
 Require Import List.
 Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
+Require Import Morphisms.
 
 Require Import SmartContracts.Blockchain.
+From SmartContracts Require Import Congress.
 
 Import ListNotations.
 From MetaCoq.Template Require Import All.
@@ -18,6 +20,8 @@ Import BaseTypes.
 Open Scope list.
 
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
+
+Import Serializable.
 
 Section Maps.
   Open Scope nat.
@@ -54,6 +58,35 @@ Section Maps.
       * simpl. now rewrite PeanoNat.Nat.eqb_refl.
       * simpl. now rewrite Heq.
   Qed.
+
+  Fixpoint to_list (m : addr_map) : list (nat * Z)%type:=
+    match m with
+    | mnil => nil
+    | mcons k v tl => cons (k,v) (to_list tl)
+    end.
+
+  Fixpoint of_list (l : list (nat * Z)) : addr_map :=
+    match l with
+    | nil => mnil
+    | cons (k,v) tl => mcons k v (of_list tl)
+    end.
+
+  Lemma of_list_to_list m: of_list (to_list m) = m.
+  Proof. induction m;simpl;congruence. Qed.
+
+  Lemma to_list_of_list l: to_list (of_list l) = l.
+  Proof. induction l as [ | x l'];simpl;auto.
+         destruct x. simpl;congruence. Qed.
+
+  Hint Rewrite to_list_of_list of_list_to_list : hints.
+
+  Global Program Instance addr_map_serialize : Serializable addr_map :=
+    {| serialize m := serialize (to_list m);
+       deserialize l := option_map of_list (deserialize l); |}.
+  Next Obligation.
+    intros. cbn. rewrite deserialize_serialize. cbn.
+    now autorewrite with hints.
+  Defined.
 
 End Maps.
 
@@ -407,35 +440,75 @@ Module CrowdfundingContract.
 
   Notation "'Ctx'" := "SimpleContractCallContext".
 
-  Definition CB : ChainBase.
-    refine (build_chain_base nat _ _ _ _ _ _).
-    intros. eapply NPeano.Nat.eqb_spec.
-    (* Odd addresses are addresses of contracts :) *)
-    apply Nat.odd.
+  Global Program Instance CB : ChainBase :=
+    build_chain_base nat Nat.eqb _ _ _ _ Nat.odd. (* Odd addresses are addresses of contracts :) *)
+  Next Obligation.
+    eapply NPeano.Nat.eqb_spec.
   Defined.
 
-  Definition to_chain (sc : SimpleChain) : Chain (BaseTypes:=CB).
-    refine (let '(Build_chain h s fh ab) := sc in build_chain h s fh _).
-    apply ab. Defined.
+  Definition to_chain (sc : SimpleChain) : Chain :=
+    let '(Build_chain h s fh ab) := sc in build_chain h s fh ab.
 
-  Definition of_chain (c : Chain (BaseTypes:=CB)) : SimpleChain.
-    refine (let '(build_chain h s fh ab) := c in Build_chain h s fh _).
-    apply ab. Defined.
+  Definition of_chain (c : Chain) : SimpleChain :=
+    let '(build_chain h s fh ab) := c in Build_chain h s fh ab.
 
-  Definition to_action_body (sab : SimpleActionBody) : ActionBody (BaseTypes:=CB).
-    refine (match sab with
-            | Act_transfer addr x => act_transfer _ x
-            end). apply addr. Defined.
+  Definition to_action_body (sab : SimpleActionBody) : ActionBody :=
+    match sab with
+    | Act_transfer addr x => act_transfer addr x
+    end.
 
-  Definition to_contract_call_context (scc : SimpleContractCallContext) :
-    ContractCallContext (BaseTypes:=CB).
-    refine (let '(Build_ctx from contr_addr am) := scc in build_ctx _ _ am).
-    apply from. apply contr_addr. Defined.
+  Definition to_contract_call_context (scc : SimpleContractCallContext) : ContractCallContext :=
+    let '(Build_ctx from contr_addr am) := scc in build_ctx from contr_addr am.
 
-  Definition of_contract_call_context (cc : ContractCallContext (BaseTypes:=CB)) :
-    SimpleContractCallContext.
-    refine (let '(build_ctx from contr_addr am) := cc in Build_ctx _ _ am).
-    apply from. apply contr_addr. Defined.
+  Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext :=
+    let '(build_ctx from contr_addr am) := cc in Build_ctx from contr_addr am.
+
+  Definition of_state (st : State_coq) : Z * addr_map * nat * nat * bool * Z :=
+    let '(mkState_coq b d o dl d' g):= st in (b,d,o,dl,d',g).
+
+  Definition to_state (p : Z * addr_map * nat * nat * bool * Z) :=
+    let '(b,d,o,dl,d',g) := p in mkState_coq b d o dl d' g.
+
+  Lemma of_state_to_state p : of_state (to_state p) = p.
+  Proof. now destruct p. Qed.
+
+  Lemma to_state_of_state st : to_state (of_state st) = st.
+  Proof. now destruct st. Qed.
+
+  Global Program Instance State_serializable : Serializable State_coq :=
+    {| serialize st := serialize (of_state st);
+       deserialize p := option_map to_state (deserialize p); |}.
+  Next Obligation.
+    intros. cbn. rewrite deserialize_serialize. now destruct x.
+  Defined.
+
+  Definition of_msg (msg : Msg_coq) : unit + (unit + unit) :=
+    match msg with
+    | Donate_coq => inl tt
+    | GetFunds_coq => inr (inl tt)
+    | Claim_coq => (inr (inr tt))
+    end.
+
+  Definition to_msg (s : unit + (unit + unit)) : Msg_coq :=
+    match s with
+    | inl _ => Donate_coq
+    | inr (inl _) => GetFunds_coq
+    | inr (inr _) => Claim_coq
+    end.
+
+  Lemma of_msg_to_msg s : of_msg (to_msg s) = s.
+  Proof. destruct s as [ | s'];try destruct s';destruct u;simpl;easy. Qed.
+
+  Lemma to_msg_of_msg msg : to_msg (of_msg msg) = msg.
+  Proof. destruct msg;easy. Qed.
+
+  Global Program Instance Msg_serializable : Serializable Msg_coq :=
+    {| serialize msg := serialize (of_msg msg);
+       deserialize s := option_map to_msg (deserialize s); |}.
+  Next Obligation.
+    intros. cbn. rewrite deserialize_serialize. now destruct x.
+  Defined.
+
 
   Module Init.
     Definition crowdfunding_init : expr :=
@@ -448,12 +521,14 @@ Module CrowdfundingContract.
 
     Check init.
 
-    Definition init_wrapper (f : SimpleContractCallContext -> nat -> Z -> State_coq):
-      Chain (BaseTypes:=CB) -> ContractCallContext (BaseTypes:=CB) -> nat -> Z -> State_coq
-      := fun c cc => f (of_contract_call_context cc).
+    Definition Setup := (nat * Z)%type.
 
-    Definition wraped_init
-      : Chain -> ContractCallContext -> nat -> Z -> State_coq
+    Definition init_wrapper (f : SimpleContractCallContext -> nat -> Z -> State_coq):
+      Chain (BaseTypes:=CB) -> ContractCallContext (BaseTypes:=CB) -> Setup -> option State_coq
+      := fun c cc setup => Some (f (of_contract_call_context cc) setup.1 setup.2).
+
+    Definition wrapped_init
+      : Chain -> ContractCallContext -> Setup -> option State_coq
       := init_wrapper init.
 
  End Init.
@@ -462,11 +537,9 @@ Module CrowdfundingContract.
   Module Receive.
     Import Prelude.
 
-
-
   (** *** The AST of a crowdfunding contract *)
   Definition crowdfunding : expr :=
-    [| \ch : "SimpleChain" => \c : Ctx => \m : Msg => \s : State =>
+    [| \ch : "SimpleChain" =>  \c : Ctx => \m : Msg => \s : State =>
          let bal : Money := balance s in
          let now : Nat := cur_time ch in
          let tx_amount : Money := amount c in
@@ -506,16 +579,69 @@ Module CrowdfundingContract.
   Definition receive_wrapper
              (f : SimpleChain ->
                   SimpleContractCallContext ->
-                  Msg_coq ->
-                  State_coq -> option (State_coq × list SimpleActionBody)) :
+                   Msg_coq -> State_coq -> option (State_coq × list SimpleActionBody)) :
     Chain -> ContractCallContext ->
-    Msg_coq -> State_coq -> option (State_coq × list ActionBody) :=
-    fun ch cc msg st => option_map (fun '(st0,acts) => (st0, map to_action_body acts)) (f (of_chain ch) (of_contract_call_context cc) msg st).
+    State_coq -> option Msg_coq -> option (State_coq × list ActionBody) :=
+    fun ch cc st msg => match msg with
+                       Some msg' => option_map (fun '(st0,acts) => (st0, map to_action_body acts)) (f (of_chain ch) (of_contract_call_context cc) msg' st)
+                     | None => None
+                     end.
 
   Definition wrapped_receive
-    : Chain -> ContractCallContext -> Msg_coq -> State_coq -> option (State_coq × list ActionBody)
+    : Chain -> ContractCallContext -> State_coq -> option Msg_coq -> option (State_coq × list ActionBody)
     := receive_wrapper receive.
 End Receive.
+
+
+(* Taken from [Congress], because otherwise it is not visible after import *)
+Ltac solve_contract_proper :=
+  repeat
+    match goal with
+    | [ |- ?x _  = ?x _] => unfold x
+    | [ |- ?x _ _ = ?x _ _] => unfold x
+    | [ |- ?x _ _ _ = ?x _ _ _] => unfold x
+    | [ |- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
+    | [ |- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
+    | [ |- ?x _ _ _ _ _ = ?x _ _ _ _ _] => unfold x
+    | [ |- Some _ = Some _] => f_equal
+    | [ |- pair _ _ = pair _ _] => f_equal
+    | [ |- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
+    | [ |- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
+    | [H: ChainEquiv _ _ |- _] => rewrite H in *
+    | _ => subst; auto
+    end.
+
+Import FunctionalExtensionality.
+
+Lemma init_proper :
+  Proper (ChainEquiv ==> eq ==> eq ==> eq) Init.wrapped_init.
+Proof. repeat intro; solve_contract_proper. Qed.
+
+Lemma of_chain_proper :
+  Proper (ChainEquiv ==> eq) of_chain.
+Proof. repeat intro. unfold of_chain. destruct x,y;cbn in *. inversion H.
+       cbn in *;subst. f_equal. now apply functional_extensionality.
+Qed.
+
+Lemma receive_proper :
+  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) Receive.wrapped_receive.
+Proof.
+  repeat intro. unfold Receive.wrapped_receive,Receive.receive_wrapper.
+  subst. destruct y2;auto.
+  f_equal.
+  (* TODO : chnage this to avoid funext *)
+  (* unfold Receive.receive. repeat solve_contract_proper. *)
+  f_equal. destruct x,y;solve_contract_proper;cbn.
+  inversion H.
+  cbn in *;subst. solve_contract_proper. solve_contract_proper. f_equal.
+  now apply functional_extensionality.
+Qed.
+
+Print Instances Serializable.Serializable.
+
+
+Definition contract : Contract Init.Setup Msg_coq State_coq :=
+  build_contract Init.wrapped_init init_proper Receive.wrapped_receive receive_proper.
 
 
   Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
