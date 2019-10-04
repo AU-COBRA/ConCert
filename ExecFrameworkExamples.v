@@ -9,9 +9,6 @@ Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
 Require Import Morphisms.
 
-Require Import SmartContracts.Blockchain.
-From SmartContracts Require Import Congress.
-
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
@@ -19,9 +16,9 @@ Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 
-(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
+Set Primitive Projections.
 
-Import Serializable.
+(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
 Section Maps.
   Open Scope nat.
@@ -77,16 +74,6 @@ Section Maps.
   Lemma to_list_of_list l: to_list (of_list l) = l.
   Proof. induction l as [ | x l'];simpl;auto.
          destruct x. simpl;congruence. Qed.
-
-  Hint Rewrite to_list_of_list of_list_to_list : hints.
-
-  Global Program Instance addr_map_serialize : Serializable addr_map :=
-    {| serialize m := serialize (to_list m);
-       deserialize l := option_map of_list (deserialize l); |}.
-  Next Obligation.
-    intros. cbn. rewrite deserialize_serialize. cbn.
-    now autorewrite with hints.
-  Defined.
 
 End Maps.
 
@@ -440,74 +427,6 @@ Module CrowdfundingContract.
 
   Notation "'Ctx'" := "SimpleContractCallContext".
 
-  Global Program Instance CB : ChainBase :=
-    build_chain_base nat Nat.eqb _ _ _ _ Nat.odd. (* Odd addresses are addresses of contracts :) *)
-  Next Obligation.
-    eapply NPeano.Nat.eqb_spec.
-  Defined.
-
-  Definition to_chain (sc : SimpleChain) : Chain :=
-    let '(Build_chain h s fh ab) := sc in build_chain h s fh ab.
-
-  Definition of_chain (c : Chain) : SimpleChain :=
-    let '(build_chain h s fh ab) := c in Build_chain h s fh ab.
-
-  Definition to_action_body (sab : SimpleActionBody) : ActionBody :=
-    match sab with
-    | Act_transfer addr x => act_transfer addr x
-    end.
-
-  Definition to_contract_call_context (scc : SimpleContractCallContext) : ContractCallContext :=
-    let '(Build_ctx from contr_addr am) := scc in build_ctx from contr_addr am.
-
-  Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext :=
-    let '(build_ctx from contr_addr am) := cc in Build_ctx from contr_addr am.
-
-  Definition of_state (st : State_coq) : Z * addr_map * nat * nat * bool * Z :=
-    let '(mkState_coq b d o dl d' g):= st in (b,d,o,dl,d',g).
-
-  Definition to_state (p : Z * addr_map * nat * nat * bool * Z) :=
-    let '(b,d,o,dl,d',g) := p in mkState_coq b d o dl d' g.
-
-  Lemma of_state_to_state p : of_state (to_state p) = p.
-  Proof. now destruct p. Qed.
-
-  Lemma to_state_of_state st : to_state (of_state st) = st.
-  Proof. now destruct st. Qed.
-
-  Global Program Instance State_serializable : Serializable State_coq :=
-    {| serialize st := serialize (of_state st);
-       deserialize p := option_map to_state (deserialize p); |}.
-  Next Obligation.
-    intros. cbn. rewrite deserialize_serialize. now destruct x.
-  Defined.
-
-  Definition of_msg (msg : Msg_coq) : unit + (unit + unit) :=
-    match msg with
-    | Donate_coq => inl tt
-    | GetFunds_coq => inr (inl tt)
-    | Claim_coq => (inr (inr tt))
-    end.
-
-  Definition to_msg (s : unit + (unit + unit)) : Msg_coq :=
-    match s with
-    | inl _ => Donate_coq
-    | inr (inl _) => GetFunds_coq
-    | inr (inr _) => Claim_coq
-    end.
-
-  Lemma of_msg_to_msg s : of_msg (to_msg s) = s.
-  Proof. destruct s as [ | s'];try destruct s';destruct u;simpl;easy. Qed.
-
-  Lemma to_msg_of_msg msg : to_msg (of_msg msg) = msg.
-  Proof. destruct msg;easy. Qed.
-
-  Global Program Instance Msg_serializable : Serializable Msg_coq :=
-    {| serialize msg := serialize (of_msg msg);
-       deserialize s := option_map to_msg (deserialize s); |}.
-  Next Obligation.
-    intros. cbn. rewrite deserialize_serialize. now destruct x.
-  Defined.
 
 
   Module Init.
@@ -520,25 +439,14 @@ Module CrowdfundingContract.
       (expr_to_term Σ' (indexify nil crowdfunding_init)).
 
     Check init.
-
-    Definition Setup := (nat * Z)%type.
-
-    Definition init_wrapper (f : SimpleContractCallContext -> nat -> Z -> State_coq):
-      Chain (BaseTypes:=CB) -> ContractCallContext (BaseTypes:=CB) -> Setup -> option State_coq
-      := fun c cc setup => Some (f (of_contract_call_context cc) setup.1 setup.2).
-
-    Definition wrapped_init
-      : Chain -> ContractCallContext -> Setup -> option State_coq
-      := init_wrapper init.
-
  End Init.
 
 
-  Module Receive.
-    Import Prelude.
+ Module Receive.
+   Import Prelude.
 
-  (** *** The AST of a crowdfunding contract *)
-  Definition crowdfunding : expr :=
+   (** *** The AST of a crowdfunding contract *)
+   Definition crowdfunding : expr :=
     [| \ch : "SimpleChain" =>  \c : Ctx => \m : Msg => \s : State =>
          let bal : Money := balance s in
          let now : Nat := cur_time ch in
@@ -576,73 +484,7 @@ Module CrowdfundingContract.
   Make Definition receive :=
     (expr_to_term Σ' (indexify nil crowdfunding)).
 
-  Definition receive_wrapper
-             (f : SimpleChain ->
-                  SimpleContractCallContext ->
-                   Msg_coq -> State_coq -> option (State_coq × list SimpleActionBody)) :
-    Chain -> ContractCallContext ->
-    State_coq -> option Msg_coq -> option (State_coq × list ActionBody) :=
-    fun ch cc st msg => match msg with
-                       Some msg' => option_map (fun '(st0,acts) => (st0, map to_action_body acts)) (f (of_chain ch) (of_contract_call_context cc) msg' st)
-                     | None => None
-                     end.
-
-  Definition wrapped_receive
-    : Chain -> ContractCallContext -> State_coq -> option Msg_coq -> option (State_coq × list ActionBody)
-    := receive_wrapper receive.
-End Receive.
-
-
-(* Taken from [Congress], because otherwise it is not visible after import *)
-Ltac solve_contract_proper :=
-  repeat
-    match goal with
-    | [ |- ?x _  = ?x _] => unfold x
-    | [ |- ?x _ _ = ?x _ _] => unfold x
-    | [ |- ?x _ _ _ = ?x _ _ _] => unfold x
-    | [ |- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
-    | [ |- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
-    | [ |- ?x _ _ _ _ _ = ?x _ _ _ _ _] => unfold x
-    | [ |- Some _ = Some _] => f_equal
-    | [ |- pair _ _ = pair _ _] => f_equal
-    | [ |- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
-    | [ |- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
-    | [H: ChainEquiv _ _ |- _] => rewrite H in *
-    | _ => subst; auto
-    end.
-
-Import FunctionalExtensionality.
-
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) Init.wrapped_init.
-Proof. repeat intro; solve_contract_proper. Qed.
-
-Lemma of_chain_proper :
-  Proper (ChainEquiv ==> eq) of_chain.
-Proof. repeat intro. unfold of_chain. destruct x,y;cbn in *. inversion H.
-       cbn in *;subst. f_equal. now apply functional_extensionality.
-Qed.
-
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) Receive.wrapped_receive.
-Proof.
-  repeat intro. unfold Receive.wrapped_receive,Receive.receive_wrapper.
-  subst. destruct y2;auto.
-  f_equal.
-  (* TODO : chnage this to avoid funext *)
-  (* unfold Receive.receive. repeat solve_contract_proper. *)
-  f_equal. destruct x,y;solve_contract_proper;cbn.
-  inversion H.
-  cbn in *;subst. solve_contract_proper. solve_contract_proper. f_equal.
-  now apply functional_extensionality.
-Qed.
-
-Print Instances Serializable.Serializable.
-
-
-Definition contract : Contract Init.Setup Msg_coq State_coq :=
-  build_contract Init.wrapped_init init_proper Receive.wrapped_receive receive_proper.
-
+  End Receive.
 
   Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
   Ltac split_andb := apply Bool.andb_true_iff;split.
@@ -692,6 +534,18 @@ Definition contract : Contract Init.Setup Msg_coq State_coq :=
   Qed.
 
   (** ** Properties of the crowdfunding contract *)
+
+  (** This lemma states that the obly relevat part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
+  Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :
+    Receive.receive (Build_chain height1 cur_slot fheight1 bal1) ctx msg st  =
+    Receive.receive (Build_chain height2 cur_slot fheight2 bal2) ctx msg st.
+  Proof.
+    destruct msg;
+      simpl;
+      (match goal with
+       | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+       end);eauto.
+  Qed.
 
   (** This function is a simplistic execution environment that performs one step of execution *)
   Definition run (receive : State_coq -> option (State_coq * list SimpleActionBody) ) (init : State_coq)
@@ -835,45 +689,125 @@ reached within a deadline *)
       * simpl in *. rewrite IHm;auto. lia.
   Qed.
 
+  Lemma sum_map_sub_in m k z v :
+    lookup_map m k = Some z ->
+    sum_map m = v ->
+    sum_map (add_map k 0 m) = (v - z)%Z.
+  Proof.
+    intros;subst.
+    revert dependent k. revert z.
+    induction m;intros;subst;tryfalse.
+    simpl in *. destruct (k =? n) eqn:Hkn.
+    + inversion H;subst.
+      simpl in *. lia.
+    + simpl. now erewrite IHm;eauto.
+  Qed.
+
   (** The contract does no leak funds: the overall balance before the deadline is always equal to the sum of individual donations *)
 
-  Definition consistent_balance BC state :=
-    ~~ deadline_passed BC.(Current_slot) state /\
-    sum_map state.(donations_coq) = state.(balance_coq).
+  Definition consistent_balance current_slot state :=
+    ~~ deadline_passed current_slot state ->
+  sum_map (donations_coq state) = balance_coq state.
+
 
   (** This lemma holds for any message  *)
   Lemma contract_backed BC CallCtx msg :
 
-    {{ consistent_balance BC }}
+    {{ consistent_balance (Current_slot BC) }}
 
       Receive.receive BC CallCtx msg
 
-    {{ fun fin _ => consistent_balance BC fin }}.
+    {{ fun fin _ => consistent_balance (Current_slot BC) fin }}.
   Proof.
     intros init H.
-    destruct H as [Hdl Hsum].
+    (* destruct H as [Hdl Hsum]. *)
     destruct msg.
     + (* Donate *)
       simpl in *.
-      specialize Hdl as Hdl'.
-      unfold deadline_passed in Hdl. unfold run,consistent_balance.
-      apply not_ltb in Hdl.  simpl.
+      (* specialize Hdl as Hdl'. *)
+      unfold consistent_balance,deadline_passed in H.
+      unfold run,consistent_balance.
+      (* apply not_ltb in Hdl.  simpl. *)
+      simpl.
       destruct (_ <=? _);tryfalse.
-      destruct (lookup_map _ _) eqn:Hlook.
-      * repeat eexists;eauto. now apply sum_map_add_in.
-      * repeat eexists;eauto. now apply sum_map_add_not_in.
-    + (* GetFunds - it is not possible to get funds before the deadline, so the state is not modified *)
+      * destruct (lookup_map _ _) eqn:Hlook.
+        ** repeat eexists;intro Hdl;eauto. now apply sum_map_add_in.
+        ** repeat eexists;intro Hdl;eauto. now apply sum_map_add_not_in.
+      * repeat eexists;intro Hdl;eauto.
+    + (* GetFunds *)
       unfold consistent_balance in *.
       unfold deadline_passed in *.
-      exists init. exists []. unfold run. simpl.
-      destruct (_ <? _);tryfalse. rewrite Bool.andb_false_r. simpl.
-      split;eauto.
-    + (* Claim - it is not possible to claim a donation back before the deadline, so the state is not modified *)
+      unfold run. simpl.
+      destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
+      **  (* it is not possible to get funds before the deadline, so the state is not modified *)
+         (match goal with
+          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          end);eauto; repeat eexists; simpl in *; intros;
+           destruct (_ <? _);tryfalse.
+      ** destruct (_ <? _);tryfalse. rewrite Bool.andb_false_r. simpl.
+         repeat eexists;eauto.
+    + (* Claim *)
       unfold consistent_balance in *.
       unfold deadline_passed in *.
-      exists init. exists []. unfold run. simpl.
-      destruct (_ <? _);tryfalse. simpl.
-      split;eauto.
+      unfold run. simpl.
+      destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
+      **  (* it is not possible to get funds before the deadline, so the state is not modified *)
+         (match goal with
+          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          end);
+          simpl in *;try destruct (lookup_map _ _);repeat eexists;eauto; intros;destruct (_ <? _);tryfalse.
+      ** destruct (_ <? _);tryfalse. rewrite Bool.andb_false_l. simpl.
+         repeat eexists;eauto.
+  Qed.
+
+  Definition consistent_balance_done state :=
+    ~~ state.(done_coq) ->
+  sum_map (donations_coq state) = balance_coq state.
+
+
+  (** This lemma holds for any message  *)
+  Lemma contract_state_consistent BC CallCtx msg :
+
+    {{ consistent_balance_done }}
+
+      Receive.receive BC CallCtx msg
+
+    {{ fun fin _ => consistent_balance_done fin }}.
+  Proof.
+        intros init H.
+    (* destruct H as [Hdl Hsum]. *)
+    destruct msg.
+    + (* Donate *)
+      simpl in *.
+      (* specialize Hdl as Hdl'. *)
+      unfold consistent_balance,deadline_passed in H.
+      unfold run,consistent_balance.
+      (* apply not_ltb in Hdl.  simpl. *)
+      simpl.
+      destruct (_ <=? _);tryfalse.
+      * destruct (lookup_map _ _) eqn:Hlook.
+        ** repeat eexists;intro Hdl;eauto. now apply sum_map_add_in.
+        ** repeat eexists;intro Hdl;eauto. now apply sum_map_add_not_in.
+      * repeat eexists;intro Hdl;eauto.
+    + (* GetFunds *)
+      unfold consistent_balance_done in *.
+      unfold run. simpl.
+         (match goal with
+          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          end);eauto; repeat eexists; simpl in *; intros;
+           destruct (_ <? _);tryfalse.
+    + (* Claim *)
+      unfold consistent_balance_done in *.
+      unfold deadline_passed in *.
+      unfold run. simpl.
+      destruct (done_coq _) eqn:Hdone.
+      * rewrite Bool.andb_false_r. repeat eexists;eauto.
+        intros. destruct (done_coq _);tryfalse.
+      * (match goal with
+         | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+         end);
+          simpl in *;try destruct (lookup_map _ _) eqn:Hlook;repeat eexists;eauto; intros;destruct (_ <? _);tryfalse.
+        cbn.  now apply sum_map_sub_in.
   Qed.
 
   (** The owner gets the money after the deadline, if the goal is reached *)
@@ -920,7 +854,7 @@ reached within a deadline *)
     inv_andb Hdl. subst. unfold run. simpl.
     exists the_state. eexists.
     destruct the_state as [i_balance i_dons i_own i_dl i_done i_goal].
-    destruct CallCtx as [from c_addr am now]. simpl in *.
+    destruct CallCtx. simpl in *.
 
     destruct (_ <? _);tryfalse.
     replace (i_balance <? i_goal)%Z with false by

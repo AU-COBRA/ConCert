@@ -302,3 +302,17 @@ Hint Extern 10 (~ _ >= _) => abstract lia: zarith.
 Hint Extern 10 (~ _ > _) => abstract lia: zarith.
 
 Hint Extern 10 False => abstract lia: zarith.
+
+Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
+Ltac split_andb := apply Bool.andb_true_iff;split.
+Ltac leb_ltb_to_prop :=
+  try rewrite PeanoNat.Nat.ltb_lt in *;
+  try rewrite PeanoNat.Nat.leb_le in *;
+  try rewrite PeanoNat.Nat.leb_gt in *;
+  try rewrite PeanoNat.Nat.ltb_ge in *.
+
+Ltac prop_to_leb_ltb :=
+  try rewrite <- PeanoNat.Nat.ltb_lt in *;
+  try rewrite <-PeanoNat.Nat.leb_le in *;
+  try rewrite <- PeanoNat.Nat.leb_gt in *;
+  try rewrite <- PeanoNat.Nat.ltb_ge in *.
