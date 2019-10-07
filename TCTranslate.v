@@ -213,7 +213,7 @@ Declare Custom Entry name_type.
 
 
 Notation "[! ty !]" := ty (ty custom type at level 2).
-Notation "ty" := (tyInd ty) (in custom type at level 2, ty constr at level 3).
+Notation "ty" := (tyInd ty) (in custom type at level 0, ty constr at level 2).
 
 Notation "ty1 ty2" := (tyApp ty1 ty2)
                         (in custom type at level 4, left associativity,
@@ -237,7 +237,7 @@ Notation " ' x " := (tyVar x)
                         x constr at level 2).
 
 Notation "( x )" := x (in custom type, x at level 2).
-Notation "< x >" := x (in custom type, x constr).
+Notation "{ x }" := x (in custom type, x constr).
 
 
 Definition ex_type := [! ∀ "A", ∀ "B", "prod" '"A" '"B" !].
@@ -466,6 +466,29 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
 (*         bn custom expr at level 4, *)
 (*         ty constr at level 4). *)
 
+Definition to_ind (inds : list ename) := map tyInd inds.
+
+Inductive case_info :=
+| ciParamInd : ename -> list type -> case_info.
+
+Declare Custom Entry case_info.
+
+Notation "ind" := (ciParamInd ind []) (in custom case_info at level 1, ind constr at level 4).
+
+Notation "ind ty" := (ciParamInd ind [ty]) (in custom case_info at level 1,
+                                               ind constr at level 4,
+                                               ty custom type at level 4).
+
+Notation "ind ty1 ty2" := (ciParamInd ind [ty1;ty2]) (in custom case_info at level 1,
+                                                         ind constr at level 4,
+                                                         ty1 custom type at level 4,
+                                                         ty2 custom type at level 4).
+
+Definition ci_to_types (ci : case_info ) :=
+  match ci with
+  | ciParamInd ind tys => (ind, tys)
+  end.
+
 Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' p1 -> b1 " :=
   (eCase (ind_nm,params) ty2 x [(p1,b1)])
     (in custom expr at level 1,
@@ -475,66 +498,32 @@ Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' p1 -> b1 " :=
         params constr at level 4,
         ty2 custom type at level 4).
 
-Notation "'case' x : ty1 # n 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
-  (eCase (ty1,n) ty2 x [(p1,b1);(pn,bn)])
-    (in custom expr at level 1,
-        p1 custom pat at level 4,
-        pn custom pat at level 4,
-        b1 custom expr at level 4,
-        bn custom expr at level 4,
-        n constr at level 4,
-        ty1 custom type at level 4,
-        ty2 custom type at level 4).
-
-Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
-  (eCase (ind_nm,params) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
-    (in custom expr at level 1,
+Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
+  (eCase (ci_to_types ci) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
+    (in custom expr at level 2,
         p1 custom pat at level 4,
         p2 custom pat at level 4,
         p3 custom pat at level 4,
         b1 custom expr at level 4,
         b2 custom expr at level 4,
         b3 custom expr at level 4,
-        ind_nm constr at level 4,
-        params constr at level 4,
+        (* ind_nm constr at level 4, *)
+        (* params constr at level 4, *)
+        ci custom case_info at level 4,
         ty2 custom type at level 4).
 
-Notation "'case' x : ( ind_nm , params ) 'return' < ty2 > 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
-  (eCase (ind_nm,params) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
-    (in custom expr at level 1,
-        p1 custom pat at level 4,
-        p2 custom pat at level 4,
-        p3 custom pat at level 4,
-        b1 custom expr at level 4,
-        b2 custom expr at level 4,
-        b3 custom expr at level 4,
-        ind_nm constr at level 4,
-        params constr at level 4,
-        ty2 constr at level 4).
 
-
-Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
-  (eCase (ind_nm,params) ty2 x [(p1,b1);(pn,bn)])
-    (in custom expr at level 1,
+Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
+  (eCase (ci_to_types ci) ty2 x [(p1,b1);(pn,bn)])
+    (in custom expr at level 2,
         p1 custom pat at level 4,
         pn custom pat at level 4,
         b1 custom expr at level 4,
         bn custom expr at level 4,
-        ind_nm constr at level 4,
-        params constr at level 4,
+        (* ind_nm constr at level 4, *)
+        (* params constr at level 4, *)
+        ci custom case_info at level 4,
         ty2 custom type at level 4).
-
-Notation "'case' x : ( ind_nm , params ) 'return' < ty2 > 'of' | p1 -> b1 | pn -> bn" :=
-  (eCase (ind_nm,params) ty2 x [(p1,b1);(pn,bn)])
-    (in custom expr at level 1,
-        p1 custom pat at level 4,
-        pn custom pat at level 4,
-        b1 custom expr at level 4,
-        bn custom expr at level 4,
-        ind_nm constr at level 4,
-        params constr at level 4,
-        ty2 constr at level 4).
-
 
 
 Notation "x" := (eVar x) (in custom expr at level 0, x constr at level 4).
@@ -657,7 +646,7 @@ Section Examples.
   Definition negb_syn :=
     [|
      \x : Bool =>
-            case x : (Bool,[]) return Bool of
+            case x : Bool return Bool of
             | True -> False
             | False -> True
     |].
@@ -687,7 +676,7 @@ Section Examples.
 
   Definition case_ex :=
     [| \\y  => \x : 'y =>  \z : "list" 'y =>
-           case z : ("list", [tyVar "y"]) return 'y of
+           case z : "list" 'y return 'y of
            | Nil -> x
            | Cons "hd" "tl" -> x |].
 
@@ -697,7 +686,7 @@ Section Examples.
 
   Definition case_ex1 :=
     [| \\y  => \"w" : 'y => \x : 'y =>  \z : "list" 'y =>
-           case z : ("list", [tyVar "y"]) return "prod" 'y 'y of
+           case z : "list" 'y return "prod" 'y 'y of
            | Nil -> {eConstr "prod" "pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
            | Cons "hd" "tl" -> {eConstr "prod" "pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
 
@@ -706,7 +695,7 @@ Section Examples.
   Make Definition case_ex_def1 :=  (expr_to_term Σ (indexify [] case_ex1)).
 
   Definition case_ex2 :=
-    [| \\y => case ({eConstr "list" "nil"} "y") : ("list", [tyVar "y"]) return "list" 'y of
+    [| \\y => case ({eConstr "list" "nil"} "y") : "list" 'y return "list" 'y of
               | Nil -> {eConstr "list" "nil"} "y"
               | Cons "hd" "tl" -> {eConstr "list" "nil"} "y" |].
 

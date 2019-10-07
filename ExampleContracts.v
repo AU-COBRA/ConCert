@@ -302,14 +302,14 @@ Module CrowdfundingContract.
          let sender : Address := ctx_from c in
          let own : Address := owner s in
          let accs : Map := donations s in
-         case m : (Msg,[]) return Result of
+         case m : Msg return Result of
             | GetFunds ->
              if (own == sender) && (deadline s < now) && (goal s <= bal)  then
                Res (mkState 0 accs own (deadline s) True (goal s))
                    (Transfer bal sender)
              else Error : Result
            | Donate -> if now <= deadline s then
-             (case (mfind accs sender) : (Maybe,[]) return Result of
+             (case (mfind accs sender) : Maybe return Result of
                | Just v ->
                  let newmap : Map := madd sender (v + tx_amount) accs in
                  Res (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s)) Empty
@@ -319,7 +319,7 @@ Module CrowdfundingContract.
                else Error : Result
            | Claim ->
              if (deadline s < now) && (bal < goal s) && (~ done s) then
-             (case (mfind accs sender) : (Maybe,[]) return Result of
+             (case (mfind accs sender) : Maybe return Result of
               | Just v -> let newmap : Map := madd sender 0 accs in
                   Res (mkState (bal-v) newmap own (deadline s) (done s) (goal s))
                       (Transfer v sender)

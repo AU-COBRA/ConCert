@@ -364,3 +364,73 @@ Proof.
   + (* Permute queue *)
     now rewrite prev_next in *.
 Qed.
+
+Fixpoint sum_trans (addr : Blockchain.Address) (acts : list Blockchain.Action) : Z :=
+  match acts with
+  | nil => 0
+  | cons a acts' => let '(build_act from abody) := a in
+                   if (addr =? from)%address then
+                     match abody with
+                     | act_transfer to v => (v + sum_trans addr acts')%Z
+                     | _ => 0
+                     end
+                   else 0
+  end.
+
+Lemma act_is_from_account_sum_trans_0 queue caddr :
+  address_is_contract caddr ->
+  Forall act_is_from_account queue -> sum_trans caddr queue = 0%Z.
+Proof.
+  intros Hcontr Hfa.
+  induction Hfa.
+  + easy.
+  + destruct x;simpl in *. inversion H.
+    destruct ((caddr =? act_from)%address) eqn:Heq;destruct act_body;auto.
+    rewrite Nat.eqb_eq in *;subst;tryfalse.
+Qed.
+
+Theorem crowdfunding_backed gstate cf_addr lstate:
+  let acts := chain_state_queue gstate in
+  reachable gstate ->
+  env_contracts gstate cf_addr = Some (cf_contract : WeakContract) ->
+  cf_state gstate cf_addr = Some lstate ->
+  (balance_coq lstate - sum_trans cf_addr acts <= account_balance (env_chain gstate) cf_addr)%Z.
+Proof.
+  cbn in *.
+  intros Hr Hc Hst.
+  assert (address_is_contract cf_addr = true) as addr_format by now eapply contract_addr_format.
+  unfold reachable in *. destruct Hr as [tr].
+  remember empty_state eqn:eq.
+  revert dependent lstate. revert dependent cf_addr.
+  induction tr as [ |? ? ? steps IH step];intros contract Hc Ha state Hst; subst;try solve_by_inversion.
+  destruct_chain_step.
+  + (* add new block *)
+    cbn in *. intro H. unfold cf_state in *. rewrite env_eq in Hst. cbn in Hst.
+    rewrite_environment_equiv.
+    inversion valid_header. rewrite Z.compare_nle_iff in *. rewrite queue_prev in *.
+    assert (Hsum : sum_trans contract (chain_state_queue next) = 0%Z) by
+        now apply act_is_from_account_sum_trans_0.
+    rewrite Hsum in H.
+    eapply IH;simpl;eauto. rewrite Z.compare_nle_iff in *. cbn in *.
+    unfold add_balance in *.
+    destruct ((contract =? block_creator header)%address) eqn:Heq;lia.
+  + (* Step *)
+    remember (chain_state_env prev).
+    destruct_action_eval; subst pre; cbn [eval_tx].
+    * (* Transfer step *)
+      rewrite_environment_equiv.
+      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *.
+      intro H. eapply IH;eauto. rewrite Z.compare_nle_iff in *. cbn in *. unfold add_balance in *.
+      rewrite queue_prev. simpl.
+      destruct act. inversion e1;subst.
+      destruct ((contract =? from)%address) eqn:Heq;destruct ((contract =? to)%address) eqn:Heq1.
+      ** rewrite Nat.eqb_eq in *;subst;tryfalse.
+      ** rewrite Nat.eqb_eq in *;subst.
+
+
+    * (* Deployment *)
+      simpl in *.
+      rewrite_environment_equiv.
+      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *. unfold set_chain_contract_state in Hst.

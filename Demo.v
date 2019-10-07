@@ -44,7 +44,7 @@ Definition z := "z".
 Definition negb_app_true :=
     [|
      (\x : Bool =>
-           case x : (Bool,[]) return Bool of
+           case x : Bool return Bool of
            | True -> False
            | False -> True) True
      |].
@@ -71,7 +71,7 @@ Make Definition coq_negb_app_true :=
 Print coq_negb_app_true.
 
 Definition my_negb_syn :=
-  [| \x : Bool => case x : (Bool,[]) return Bool of
+  [| \x : Bool => case x : Bool return Bool of
                    | True -> False
                    | False -> True  |].
 
@@ -92,7 +92,7 @@ Definition is_zero_syn :=
   [|
 
       \x : Nat =>
-           case x : (Nat,[]) return Bool of
+           case x : Nat return Bool of
            | Zero -> True
            | Suc y -> False
 
@@ -105,7 +105,7 @@ Definition pred_syn :=
   [|
 
       \x : Nat =>
-           case x : (Nat,[]) return Nat of
+           case x : Nat return Nat of
            | Zero -> x
            | Suc y -> y
 
@@ -137,7 +137,7 @@ Compute (expr_eval_n Σ' 5 [] prog3).
 Definition factorial_syn :=
   [|
    fix "factorial" (x : Nat) : Nat :=
-       case x : (Nat,[]) return Nat of
+       case x : Nat return Nat of
        | Zero -> 1
        | Suc y -> x * ("factorial" y)
   |].
@@ -148,7 +148,7 @@ Make Definition factorial :=
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
        \y : Nat =>
-           case x : (Nat,[]) return Nat of
+           case x : Nat return Nat of
            | Zero -> y
            | Suc z -> Suc ("plus" z y) |].
 
@@ -184,7 +184,7 @@ Proof.  reflexivity. Qed.
 Definition plus_syn' :=
   [| \x : Nat =>
           (fix "plus" (y : Nat) : Nat :=
-           case y : (Nat,[]) return Nat of
+           case y : Nat return Nat of
            | Zero -> x
            | Suc z -> Suc ("plus" z))
   |].
@@ -219,7 +219,7 @@ Qed.
 
 Definition id_rec :=
   [| (fix "plus" (y : Nat) : Nat :=
-           case y : (Nat,[]) return Nat of
+           case y : Nat return Nat of
            | Zero -> 0
            | Suc z -> Suc ("plus" z))
    |].

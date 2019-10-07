@@ -181,7 +181,9 @@ Module Prelude.
 
   Notation List := "list".
 
-  Definition AcornOption : global_dec :=
+  Definition Maybe := "option".
+  Definition Just := "Some".
+  Definition AcornMaybe : global_dec :=
     gdInd "option" 1 [("Some", [(None, tyRel 0)]);("None", [])] false.
 
   Definition AcornProd : global_dec :=
@@ -361,18 +363,31 @@ Module CrowdfundingContract.
 
     Definition actions_ty := [! "list" "SimpleActionBody" !].
 
-    Definition Result := tyApp (tyApp (tyInd "prod") (tyInd State)) actions_ty.
-    Definition OResult := tyApp (tyInd "option") Result.
+    Notation "'Result'" := [!"prod" State ("list" "SimpleActionBody") !]
+                             (in custom type at level 2).
 
-    Definition mk_res a b := [| {eConstr "option" "Some"} {eTy Result}
+    Notation "'Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
+                             (in custom expr at level 0,
+                                 a custom expr at level 1).
+
+    Notation "'Pair' a b" := [| {eConstr "prod" "pair"}
+                                 {eTy (tyInd State)}
+                                 {eTy actions_ty} {a} {b} |]
+                             (in custom expr at level 0,
+                                 a custom expr at level 1,
+                                 b custom expr at level 1).
+
+
+    Definition mk_res a b := [| {eConstr "option" "Some"}
+                                  {eTy [! Result !]}
                                    ({eConstr "prod" "pair"} {eTy (tyInd State)}
-                                   {eTy actions_ty}  {a} {b}) |].
+                                   {eTy actions_ty} {a} {b}) |].
     Notation "'Res' a b" := (mk_res a b)
-        (in custom expr at level 0,
-            a custom expr at level 1,
-            b custom expr at level 1).
+        (in custom expr at level 2,
+            a custom expr at level 4,
+            b custom expr at level 4).
 
-    Notation "'Error'" := (eApp (eConstr "option" "None") (eTy Result))
+    Notation "'Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
                         (in custom expr at level 0).
 
     Notation "'mkState' a b" :=
@@ -393,7 +408,7 @@ Module CrowdfundingContract.
     (** New global context with the constants defined above (in addition to the ones defined in the Oak's "StdLib") *)
 
     Definition Σ' :=
-      Prelude.Σ ++ [ Prelude.AcornOption;
+      Prelude.Σ ++ [ Prelude.AcornMaybe;
              state_syn;
              msg_syn;
              addr_map_acorn;
@@ -404,14 +419,14 @@ Module CrowdfundingContract.
                             ("Zneg", [(None,tyInd "positive")])] false].
 
 
-    Notation "'ZeroZ'" := (eConstr "Z" "Z0") (in custom expr at level 0).
+    Notation "0 'z'" := (eConstr "Z" "Z0") (in custom expr at level 0).
     End Notations.
 
   Import Notations.
   Import Prelude.
   (** Generating string constants for variable names *)
 
-  Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "ch";
+  Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
                                 "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                                 "accs"; "now";
                                  "newstate"; "newmap"; "cond"] "").
@@ -419,21 +434,19 @@ Module CrowdfundingContract.
   Notation "'if' cond 'then' b1 'else' b2 : ty" :=
     (eCase (Bool,[]) ty cond
            [(pConstr true_name [],b1);(pConstr false_name [],b2)])
-      (in custom expr at level 2,
+      (in custom expr at level 4,
           cond custom expr at level 4,
-          ty constr at level 4,
+          ty custom type at level 4,
           b1 custom expr at level 4,
           b2 custom expr at level 4).
 
-  Notation "'Ctx'" := "SimpleContractCallContext".
+  Notation SCtx := "SimpleContractCallContext".
 
 
 
   Module Init.
     Definition crowdfunding_init : expr :=
-      [| \c : Ctx => \dl : Nat => \g : "Z" => mkState ZeroZ MNil dl (ctx_from c) False g |].
-
-    Compute (expr_to_term Σ' (indexify nil crowdfunding_init)).
+      [| \c : SCtx => \dl : Nat => \g : Money => mkState 0z MNil dl (ctx_from c) False g |].
 
     Make Definition init :=
       (expr_to_term Σ' (indexify nil crowdfunding_init)).
@@ -445,38 +458,42 @@ Module CrowdfundingContract.
  Module Receive.
    Import Prelude.
 
+   Notation SCtx := "SimpleContractCallContext".
+   Notation SChain := "SimpleChain".
    (** *** The AST of a crowdfunding contract *)
    Definition crowdfunding : expr :=
-    [| \ch : "SimpleChain" =>  \c : Ctx => \m : Msg => \s : State =>
+    [| \chain : SChain =>  \c : SCtx => \m : Msg => \s : State =>
          let bal : Money := balance s in
-         let now : Nat := cur_time ch in
+         let now : Nat := cur_time chain in
          let tx_amount : Money := amount c in
          let sender : Address := ctx_from c in
          let own : Address := owner s in
          let accs : Map := donations s in
-         case m : (Msg,[]) return < OResult > of
+         case m : Msg return Maybe Result of
             | GetFunds ->
              if (own == sender) && (deadline s <n now) && (goal s <= bal)  then
-               Res (mkState ZeroZ accs own (deadline s) True (goal s))
-                   ([Transfer bal sender])
-             else Error : OResult
+               Just (Pair (mkState 0z accs own (deadline s) True (goal s))
+                          [Transfer bal sender])
+             else Nothing : Maybe Result
            | Donate -> if now <=n deadline s then
-             (case (mfind accs sender) : ("option",[tyInd Money]) return <OResult> of
+             (case (mfind accs sender) : Maybe Money return Maybe Result of
                | Just v ->
                  let newmap : Map := madd sender (v + tx_amount) accs in
-                 Res (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s)) Nil
+                 Just (Pair (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s))
+                            Nil)
                | Nothing ->
                  let newmap : Map := madd sender tx_amount accs in
-                 Res (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s)) Nil)
-               else Error : OResult
+                 Just (Pair (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s))
+                            Nil))
+               else Nothing : Maybe Result
            | Claim ->
              if (deadline s <n now) && (bal < goal s) && (~ done s) then
-             (case (mfind accs sender) : ("option",[tyInd Money]) return <OResult> of
-              | Just v -> let newmap : Map := madd sender ZeroZ accs in
-                  Res (mkState (bal-v) newmap own (deadline s) (done s) (goal s))
-                      ([Transfer v sender])
-               | Nothing -> Error)
-              else Error : OResult
+             (case (mfind accs sender) : Maybe Money return Maybe Result of
+              | Just v -> let newmap : Map := madd sender 0z accs in
+                  Just (Pair (mkState (bal-v) newmap own (deadline s) (done s) (goal s))
+                       [Transfer v sender])
+               | Nothing -> Nothing)
+              else Nothing : Maybe Result
     |].
 
   Compute (expr_to_term Σ' (indexify nil crowdfunding)).

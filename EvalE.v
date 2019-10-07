@@ -372,7 +372,7 @@ Module Examples.
   Definition prog1 :=
     [|
      (\x : Bool =>
-           case x : (Bool,[]) return Bool of
+           case x : Bool return Bool of
            | True -> False
            | False -> True) True
      |].
