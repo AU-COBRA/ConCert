@@ -2,8 +2,8 @@
 
 (** We develop some blockchain infrastructure relevant for the contract execution (a fragment of the standard library and an execution context). With that, we develop a deep embedding of a crowdfunding contract and prove some of its properties using the corresponding shallow embedding *)
 
-Require Import String ZArith.
-Require Import Ast CustomTactics TCTranslate.
+Require Import String ZArith Basics.
+Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
 Require Import List.
 Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
@@ -16,7 +16,9 @@ Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 
-Set Primitive Projections.
+Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
+Definition type_to_tc := compose trans type_to_term.
+Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
@@ -26,7 +28,7 @@ Section Maps.
   Definition addr_map_acorn :=
     [\ data "addr_map" := "mnil" : "addr_map" | "mcons" : Nat -> "Z" -> "addr_map" -> "addr_map"; \].
 
-  Make Inductive (trans_global_dec addr_map_acorn).
+  Make Inductive (global_to_tc addr_map_acorn).
 
   Fixpoint lookup_map (m : addr_map) (key : nat) : option Z :=
     match m with
@@ -213,7 +215,7 @@ the actual definitions of [SmartContracts.Blockchain] which are paremeterised wi
   Notation "'cur_time' a" := [| {eConst "Current_slot"} {a} |]
                                (in custom expr at level 0).
 
-  Make Inductive (trans_global_dec SimpleChainAcorn).
+  Make Inductive (global_to_tc SimpleChainAcorn).
 
   Definition SimpleContractCallContextAcorn : global_dec :=
     [\ record "SimpleContractCallContext" :=
@@ -233,13 +235,13 @@ the actual definitions of [SmartContracts.Blockchain] which are paremeterised wi
   Notation "'amount' a" := [| {eConst "Ctx_amount"} {a} |]
                                (in custom expr at level 0).
 
-  Make Inductive (trans_global_dec SimpleContractCallContextAcorn).
+  Make Inductive (global_to_tc SimpleContractCallContextAcorn).
 
   Definition SimpleActionBodyAcorn : global_dec :=
     [\ data "SimpleActionBody" :=
           "Act_transfer" : Address -> Money -> "ActionBody"; \].
 
-  Make Inductive (trans_global_dec SimpleActionBodyAcorn).
+  Make Inductive (global_to_tc SimpleActionBodyAcorn).
 
   Notation SActionBody := "SimpleActionBody".
 
@@ -296,7 +298,7 @@ Module CrowdfundingContract.
   Set Printing Notations.
 
   (** Unquoting the definition of a record *)
-  Make Inductive (trans_global_dec state_syn).
+  Make Inductive (global_to_tc state_syn).
 
   (** As a result, we get a new Coq record [State_coq] *)
   Print State_coq.
@@ -307,7 +309,7 @@ Module CrowdfundingContract.
        | GetFunds : Msg
        | Claim : Msg; \].
 
-  Make Inductive (trans_global_dec msg_syn).
+  Make Inductive (global_to_tc msg_syn).
 
   (** Custom notations for patterns, projections and constructors *)
   Module Notations.
@@ -449,7 +451,7 @@ Module CrowdfundingContract.
       [| \c : SCtx => \dl : Nat => \g : Money => mkState 0z MNil dl (ctx_from c) False g |].
 
     Make Definition init :=
-      (expr_to_term Σ' (indexify nil crowdfunding_init)).
+      (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
     Check init.
  End Init.
@@ -496,10 +498,10 @@ Module CrowdfundingContract.
               else Nothing : Maybe Result
     |].
 
-  Compute (expr_to_term Σ' (indexify nil crowdfunding)).
+  Compute (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   Make Definition receive :=
-    (expr_to_term Σ' (indexify nil crowdfunding)).
+    (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   End Receive.
 
@@ -722,7 +724,7 @@ reached within a deadline *)
 
   (** The contract does no leak funds: the overall balance before the deadline is always equal to the sum of individual donations *)
 
-  Definition consistent_balance current_slot state :=
+  Definition consistent_balance_deadline current_slot state :=
     ~~ deadline_passed current_slot state ->
   sum_map (donations_coq state) = balance_coq state.
 
@@ -730,11 +732,11 @@ reached within a deadline *)
   (** This lemma holds for any message  *)
   Lemma contract_backed BC CallCtx msg :
 
-    {{ consistent_balance (Current_slot BC) }}
+    {{ consistent_balance_deadline (Current_slot BC) }}
 
       Receive.receive BC CallCtx msg
 
-    {{ fun fin _ => consistent_balance (Current_slot BC) fin }}.
+    {{ fun fin _ => consistent_balance_deadline (Current_slot BC) fin }}.
   Proof.
     intros init H.
     (* destruct H as [Hdl Hsum]. *)
@@ -742,8 +744,8 @@ reached within a deadline *)
     + (* Donate *)
       simpl in *.
       (* specialize Hdl as Hdl'. *)
-      unfold consistent_balance,deadline_passed in H.
-      unfold run,consistent_balance.
+      unfold consistent_balance_deadline,deadline_passed in H.
+      unfold run,consistent_balance_deadline.
       (* apply not_ltb in Hdl.  simpl. *)
       simpl.
       destruct (_ <=? _);tryfalse.
@@ -752,7 +754,7 @@ reached within a deadline *)
         ** repeat eexists;intro Hdl;eauto. now apply sum_map_add_not_in.
       * repeat eexists;intro Hdl;eauto.
     + (* GetFunds *)
-      unfold consistent_balance in *.
+      unfold consistent_balance_deadline in *.
       unfold deadline_passed in *.
       unfold run. simpl.
       destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
@@ -764,7 +766,7 @@ reached within a deadline *)
       ** destruct (_ <? _);tryfalse. rewrite Bool.andb_false_r. simpl.
          repeat eexists;eauto.
     + (* Claim *)
-      unfold consistent_balance in *.
+      unfold consistent_balance_deadline in *.
       unfold deadline_passed in *.
       unfold run. simpl.
       destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
@@ -777,7 +779,7 @@ reached within a deadline *)
          repeat eexists;eauto.
   Qed.
 
-  Definition consistent_balance_done state :=
+  Definition consistent_balance state :=
     ~~ state.(done_coq) ->
   sum_map (donations_coq state) = balance_coq state.
 
@@ -785,11 +787,11 @@ reached within a deadline *)
   (** This lemma holds for any message  *)
   Lemma contract_state_consistent BC CallCtx msg :
 
-    {{ consistent_balance_done }}
+    {{ consistent_balance }}
 
       Receive.receive BC CallCtx msg
 
-    {{ fun fin _ => consistent_balance_done fin }}.
+    {{ fun fin _ => consistent_balance fin }}.
   Proof.
         intros init H.
     (* destruct H as [Hdl Hsum]. *)
@@ -807,14 +809,14 @@ reached within a deadline *)
         ** repeat eexists;intro Hdl;eauto. now apply sum_map_add_not_in.
       * repeat eexists;intro Hdl;eauto.
     + (* GetFunds *)
-      unfold consistent_balance_done in *.
+      unfold consistent_balance in *.
       unfold run. simpl.
          (match goal with
           | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
           end);eauto; repeat eexists; simpl in *; intros;
            destruct (_ <? _);tryfalse.
     + (* Claim *)
-      unfold consistent_balance_done in *.
+      unfold consistent_balance in *.
       unfold deadline_passed in *.
       unfold run. simpl.
       destruct (done_coq _) eqn:Hdone.

@@ -2,8 +2,8 @@
 
 (** We develop some blockchain infrastructure relevant for the contract execution (a fragment of the standard library and an execution context). With that, we develop a deep embedding of a crowdfunding contract and prove some of its properties using the corresponding shallow embedding *)
 
-Require Import String.
-Require Import Ast CustomTactics TCTranslate.
+Require Import String Basics.
+Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
 Require Import List.
 Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
@@ -15,6 +15,11 @@ Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
 Open Scope list.
+
+Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
+Definition type_to_tc := compose trans type_to_term.
+Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
+
 
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 
@@ -165,7 +170,7 @@ Module CrowdfundingContract.
   Set Printing Notations.
 
   (** Unquoting the definition of a record *)
-  Make Inductive (trans_global_dec state_syn).
+  Make Inductive (global_to_tc state_syn).
 
   (** As a result, we get a new Coq record [State_coq] *)
   Print State_coq.
@@ -176,7 +181,7 @@ Module CrowdfundingContract.
          Transfer : Address -> Money -> Action
     | Empty : Action; \].
 
-  Make Inductive (trans_global_dec action_syn).
+  Make Inductive (global_to_tc action_syn).
 
   (** AST for the type of results *)
   Definition result_syn :=
@@ -184,7 +189,7 @@ Module CrowdfundingContract.
          Res : State -> Action -> Result
        | Error : Result; \].
 
-  Make Inductive (trans_global_dec result_syn).
+  Make Inductive (global_to_tc result_syn).
 
   Definition msg_syn :=
     [\ data Msg :=
@@ -192,7 +197,7 @@ Module CrowdfundingContract.
        | GetFunds : Msg
        | Claim : Msg; \].
 
-  Make Inductive (trans_global_dec msg_syn).
+  Make Inductive (global_to_tc msg_syn).
 
   (** Custom notations for patterns, projections and constructors *)
   Module Notations.
@@ -328,7 +333,7 @@ Module CrowdfundingContract.
     |].
 
   Make Definition entry :=
-    (expr_to_term Σ' (indexify nil crowdfunding)).
+    (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
   Ltac split_andb := apply Bool.andb_true_iff;split.

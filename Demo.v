@@ -1,10 +1,14 @@
-Require Import String.
+Require Import String Basics.
 Require Import List.
-Require Import Ast EvalE TCTranslate.
+Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.
 
 From MetaCoq.Template Require Ast.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq.Template Require Import monad_utils.
+
+Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
+Definition type_to_tc := compose trans type_to_term.
+Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
 Import ListNotations.
 Module TC := Template.BasicAst.
@@ -66,7 +70,7 @@ Compute (expr_eval_i Σ 3 [] (indexify [] negb_app_true)).
 
 (* Make a Coq function from the AST of the program *)
 Make Definition coq_negb_app_true :=
-  (expr_to_term Σ (indexify nil negb_app_true)).
+  (expr_to_tc Σ (indexify nil negb_app_true)).
 
 Print coq_negb_app_true.
 
@@ -76,7 +80,7 @@ Definition my_negb_syn :=
                    | False -> True  |].
 
 Make Definition my_negb :=
-  (expr_to_term Σ (indexify [] my_negb_syn)).
+  (expr_to_tc Σ (indexify [] my_negb_syn)).
 
 Lemma my_negb_coq_negb b :
   my_negb b = negb b.
@@ -84,7 +88,7 @@ Proof. reflexivity. Qed.
 
 Compute (expr_eval_n Σ 3 [] my_negb_syn).
 
-Make Definition coq_my_negb := (expr_to_term Σ (indexify [] my_negb_syn)).
+Make Definition coq_my_negb := (expr_to_tc Σ (indexify [] my_negb_syn)).
 
 Import MonadNotation.
 
@@ -98,7 +102,7 @@ Definition is_zero_syn :=
 
   |].
 
-Make Definition is_zero' := (expr_to_term Σ (indexify nil is_zero_syn)).
+Make Definition is_zero' := (expr_to_tc Σ (indexify nil is_zero_syn)).
 
 
 Definition pred_syn :=
@@ -111,7 +115,7 @@ Definition pred_syn :=
 
   |].
 
-Make Definition pred' := (expr_to_term Σ (indexify nil pred_syn)).
+Make Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Zero) |].
 
@@ -143,7 +147,7 @@ Definition factorial_syn :=
   |].
 
 Make Definition factorial :=
-  (expr_to_term Σ (indexify [] factorial_syn)).
+  (expr_to_tc Σ (indexify [] factorial_syn)).
 
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
@@ -152,7 +156,7 @@ Definition plus_syn : expr :=
            | Zero -> y
            | Suc z -> Suc ("plus" z y) |].
 
-Make Definition my_plus := (expr_to_term Σ (indexify [] plus_syn)).
+Make Definition my_plus := (expr_to_tc Σ (indexify [] plus_syn)).
 
 Lemma my_plus_correct n m :
   my_plus n m = n + m.
@@ -172,7 +176,7 @@ Compute (expr_eval_n Σ 10 [] [| {plus_syn} 1 1 |]).
 Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
 
 Make Definition two_arg_fun_app :=
-  (expr_to_term Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
+  (expr_to_tc Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
 
 Parameter bbb: bool.
 
@@ -190,7 +194,7 @@ Definition plus_syn' :=
   |].
 
 Make Definition my_plus' :=
-  (expr_to_term Σ (indexify [] plus_syn')).
+  (expr_to_tc Σ (indexify [] plus_syn')).
 
 Lemma my_plus'_0 : forall n, my_plus' 0 n = n.
 Proof.
@@ -293,7 +297,7 @@ Quote Definition q_Bazz_match := Eval compute in Bazz_match.
 Definition Nat_syn :=
   [\ data "Nat" := "Z" : "Nat" | "Suc" : "Nat" -> "Nat" ; \].
 
-Make Inductive (trans_global_dec Nat_syn).
+Make Inductive (global_to_tc Nat_syn).
 
 
 (** Records *)
@@ -303,7 +307,7 @@ Import Template.Ast.
 Definition State_syn :=
   [\ record "State" := "mkState" { "balance" : "Nat" ; "day" : "Nat" }  \].
 
-Make Inductive (trans_global_dec State_syn).
+Make Inductive (global_to_tc State_syn).
 
 Check balance.
 Check day.

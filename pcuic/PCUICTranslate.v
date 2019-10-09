@@ -1,7 +1,7 @@
 Require Import String List.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
 From MetaCoq.Template Require Import BasicAst utils monad_utils.
-Require Import ConCert.Ast.
+From ConCert Require Import Ast Notations.
 
 Module P := PCUICAst.
 Import MonadNotation.
@@ -161,3 +161,77 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
       mind_entry_universes := Monomorphic_ctx ContextSet.empty;
       mind_entry_private := None;|}
   end.
+
+(** A "library" of data types available by default *)
+
+Module BaseTypes.
+  Definition Nat_name := "Coq.Init.Datatypes.nat".
+  Definition Nat := Nat_name.
+
+  Definition Bool_name := "Coq.Init.Datatypes.bool".
+  Definition Bool := Bool_name.
+
+  Definition Unit := "Coq.Init.Datatypes.unit".
+
+End BaseTypes.
+
+Module StdLib.
+  Import BaseTypes.
+
+  Definition Σ : global_env :=
+    [gdInd Unit 0 [("Coq.Init.Datatypes.tt", [])] false;
+      gdInd Bool 0 [("true", []); ("false", [])] false;
+      gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
+      gdInd "list" 1 [("nil", []); ("cons", [(None,tyRel 0);
+                                               (None,tyApp (tyInd "list") (tyRel 0))])] false;
+      gdInd "prod" 2 [("pair", [(None,tyRel 1);(None,tyRel 0)])] false].
+
+  Notation "a + b" := [| {eConst "Coq.Init.Nat.add"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a * b" := [| {eConst "Coq.Init.Nat.mul"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a - b" := [| {eConst "Coq.Init.Nat.sub"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a == b" := [| {eConst "PeanoNat.Nat.eqb"} {a} {b} |]
+                         (in custom expr at level 0).
+  Notation "a < b" := [| {eConst "PeanoNat.Nat.ltb"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "a <= b" := [| {eConst "PeanoNat.Nat.leb"} {a} {b} |]
+                        (in custom expr at level 0).
+  Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
+  Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
+  Notation "0" := [| Zero |] ( in custom expr at level 0).
+  Notation "1" := [| Suc Zero |] ( in custom expr at level 0).
+
+  Notation "'Zero'" := (pConstr "Z" [])
+                  (in custom pat at level 0).
+
+  Notation "'Suc' x" := (pConstr "Suc" [x])
+                    (in custom pat at level 0,
+                        x constr at level 4).
+
+  Notation "a && b" := [| {eConst "andb"} {a} {b} |]
+                         (in custom expr at level 0).
+  Notation "~ a" := [| {eConst "negb"} {a} |]
+                        (in custom expr at level 0).
+
+  Definition true_name := "true".
+  Definition false_name := "false".
+  Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
+  Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
+
+  Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
+  Notation "'Cons' y z" := (pConstr "cons" [y;z])
+                             (in custom pat at level 0,
+                                 y constr at level 4,
+                                 z constr at level 4).
+
+
+  Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
+  Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
+
+  Notation "'star'" :=
+    (eConstr Unit "Coq.Init.Datatypes.tt")
+      (in custom expr at level 0).
+
+End StdLib.

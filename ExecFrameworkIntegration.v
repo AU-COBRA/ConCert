@@ -1,16 +1,20 @@
-Require Import String ZArith.
-From ConCert Require Import TCTranslate ExecFrameworkExamples CustomTactics.
+Require Import String Basics ZArith.
+From ConCert Require Import Notations PCUICtoTemplate PCUICTranslate ExecFrameworkExamples CustomTactics.
 Require Import List.
 Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
 Require Import Morphisms.
 
 From SmartContracts Require Import Blockchain Congress Automation.
-(* From RecordUpdate Require Import RecordUpdate. *)
+
 Import ListNotations.
 Open Scope list.
 
 Import AcornBlockchain CrowdfundingContract.
+
+Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
+Definition type_to_tc := compose trans type_to_term.
+Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
 Global Program Instance CB : ChainBase :=
   build_chain_base nat Nat.eqb _ _ _ _ Nat.odd. (* Odd addresses are addresses of contracts :) *)
@@ -186,11 +190,11 @@ Proof.
   now destruct ch.
 Qed.
 
-Theorem crowdfunding_balance_consistent to contract state:
+Theorem crowdfunding_balance_consistent_deadline to contract state:
   reachable to ->
   env_contracts to contract = Some (cf_contract : WeakContract) ->
   cf_state to contract = Some state ->
-  consistent_balance (Current_slot (of_chain to)) state.
+  consistent_balance_deadline (Current_slot (of_chain to)) state.
 Proof.
   intros Hr Hc Hst.
   cbn in *.
@@ -254,9 +258,9 @@ Proof.
         destruct p. inversion Hopt. subst. clear Hopt.
         unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
         cbn in *. unfold set_chain_contract_state in Hst.
-        rewrite Nat.eqb_refl in Hst.
+        replace (to =? to)%address with true in * by (symmetry;apply Nat.eqb_refl).
         rewrite deserialize_serialize in Hst. inversion Hst. subst.
-        assert (Hprev_consistent: consistent_balance (Current_slot (of_chain prev)) p_local_state) by
+        assert (Hprev_consistent: consistent_balance_deadline (Current_slot (of_chain prev)) p_local_state) by
             (eapply IH;eauto;now rewrite e1).
         remember (Build_ctx from to _) as ctx.
 
@@ -283,18 +287,18 @@ Proof.
     now rewrite prev_next in *.
 Qed.
 
-Theorem crowdfunding_balance_consistent_done to contract state:
-  reachable to ->
-  env_contracts to contract = Some (cf_contract : WeakContract) ->
-  cf_state to contract = Some state ->
-  consistent_balance_done state.
+Lemma crowdfunding_balance_consistent bstate cf_addr lstate :
+  reachable bstate ->
+  env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->
+  cf_state bstate cf_addr = Some lstate ->
+  consistent_balance lstate.
 Proof.
   intros Hr Hc Hst.
   cbn in *.
-  assert (address_is_contract contract = true) as addr_format by now eapply contract_addr_format.
+  assert (address_is_contract cf_addr = true) as addr_format by now eapply contract_addr_format.
   unfold reachable in *. destruct Hr as [tr].
   remember empty_state eqn:eq.
-  revert dependent state. revert dependent contract.
+  revert dependent lstate. revert dependent cf_addr.
   induction tr as [ |? ? ? steps IH step];intros contract Hc Ha state Hst; subst;try solve_by_inversion.
   destruct_chain_step.
   + (* add new block *)
@@ -344,9 +348,9 @@ Proof.
         destruct p. inversion Hopt. subst. clear Hopt.
         unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
         cbn in *. unfold set_chain_contract_state in Hst.
-        rewrite Nat.eqb_refl in Hst.
+        replace (to =? to)%address with true in * by (symmetry;apply Nat.eqb_refl).
         rewrite deserialize_serialize in Hst. inversion Hst. subst.
-        assert (Hprev_consistent: consistent_balance_done p_local_state) by
+        assert (Hprev_consistent: consistent_balance p_local_state) by
             (eapply IH;eauto;now rewrite e1).
         remember (Build_ctx from to _) as ctx.
         remember (Build_chain _ _ _ _) as ch.
@@ -427,10 +431,4 @@ Proof.
       destruct ((contract =? from)%address) eqn:Heq;destruct ((contract =? to)%address) eqn:Heq1.
       ** rewrite Nat.eqb_eq in *;subst;tryfalse.
       ** rewrite Nat.eqb_eq in *;subst.
-
-
-    * (* Deployment *)
-      simpl in *.
-      rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
-      cbn in *. unfold set_chain_contract_state in Hst.
+Admitted.

@@ -3,7 +3,9 @@
 ./CustomTactics.v
 ./MyEnv.v
 ./Ast.v
-./TCTranslate.v
+./Notations.v
+./pcuic/PCUICtoTemplate.v
+./Tests.v
 ./EvalE.v
 ./EnvSubst.v
 ./Demo.v
@@ -12,9 +14,7 @@
 ./ExecFrameworkIntegration.v
 ./OakMap.v
 ./pcuic/PCUICWcbvEvalLocal.v
-# ./AcornExamples.v
+./AcornExamples.v
 ./pcuic/PCUICTranslate.v
 ./pcuic/PCUICFacts.v
 ./pcuic/PCUICCorrectness.v
-# ./Facts.v
-# ./Correctness.v

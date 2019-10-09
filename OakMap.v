@@ -107,13 +107,13 @@ Definition lookup_syn :=
      \f : 'A -> 'A -> Bool =>
      \k : 'A =>
      fix lookup (m : Map 'A 'B) : Maybe 'B :=
-     case m : (Map, [tyVar A; tyVar B]) return Maybe 'B of
+     case m : Map 'A ,'B return Maybe 'B of
      | MNil -> Nothing 'B
      | MCons x y z -> if (f k x) then
                        Just 'B y
                        else lookup z : Maybe 'B |].
 
-
+Compute (indexify [] lookup_syn).
 (** Unquoting the [lookup_syn] to produce a Coq function *)
 Make Definition lookup_map := (expr_to_term Σ' (indexify [] lookup_syn)).
 
@@ -124,7 +124,7 @@ Definition add_map_syn :=
      \k : 'A =>
      \v : 'B =>
      fix add (m : Map 'A 'B) : Map 'A 'B :=
-     case m : (Map, [tyVar A; tyVar B]) return Map 'A 'B of
+     case m : Map 'A , 'B return Map 'A 'B of
      | MNil -> MCons 'A 'B k v (MNil 'A 'B)
      | MCons x y z -> if (f k x) then
                        MCons 'A 'B k v z
@@ -173,13 +173,13 @@ Section MapEval.
   (** Boolean equality of two natural numbers in Oak *)
   Definition eqb_syn : expr :=
     [| (fix "eqb" (n : Nat) : Nat ->  Bool :=
-           case n : (Nat,[]) return Nat -> Bool of
-           | Zero -> \m : Nat => (case m : (Nat,[]) return Bool of
+           case n : Nat return Nat -> Bool of
+           | Zero -> \m : Nat => (case m : Nat return Bool of
                    | Zero -> True
                    | Suc z -> False)
            | Suc a ->
              \m : Nat =>
-             (case m : (Nat,[]) return Bool of
+             (case m : Nat return Bool of
                    | Zero -> False
                    | Suc b -> "eqb" a b))
      |].

@@ -1,7 +1,7 @@
 (** * Examples of library code and contracts originating from the actual Acorn implementation  *)
-Require Import ZArith.
+Require Import ZArith Basics.
 Require Import String.
-Require Import Ast CustomTactics TCTranslate.
+Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.
@@ -13,11 +13,15 @@ Import ListNotations.
 
 Open Scope string.
 
+Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
+Definition type_to_tc := compose trans type_to_term.
+Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
+
 Fixpoint translateData (es : list global_dec) :=
   match es with
   | [] => tmPrint "Done."
   | e :: es' =>
-    coq_data <- tmEval all (trans_global_dec e) ;;
+    coq_data <- tmEval all (global_to_tc e) ;;
     tmMkInductive coq_data;;
     translateData es'
   end.
@@ -26,7 +30,7 @@ Fixpoint translateDefs Σ (es : list (string * expr)) :=
   match es with
   | [] => tmPrint "Done."
   | (name, e) :: es' =>
-    coq_expr <- tmEval all (expr_to_term Σ (reindexify 0 e)) ;;
+    coq_expr <- tmEval all (expr_to_tc Σ (reindexify 0 e)) ;;
     (* tm <- tmUnquote coq_expr ;; *)
     (* def_txt <- tmEval all ("Definition " ++ name ++ " :=");; *)
     (* def_ty <- tmEval all (my_projT1 tm);; *)
@@ -195,14 +199,14 @@ Module AcornBlochain.
 
   (*---------------------*)
 
-  Definition ABl_functions := [("slotNumber", eLambda "x" ((tyInd "ChainContext")) (eCase ((tyInd "ChainContext"), 0) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 2)]))
-;("blockHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ((tyInd "ChainContext"), 0) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 1)]))
-;("finalizedHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ((tyInd "ChainContext"), 0) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 0)]))
-;("initOrigin", eLambda "x" ((tyInd "InitContext")) (eCase ((tyInd "InitContext"), 0) (tyInd "string") (eRel 0) [(pConstr "InitContext_coq" ["x0";"x1"], eRel 0)]))
-;("initChain", eLambda "x" ((tyInd "InitContext")) (eCase ((tyInd "InitContext"), 0) ((tyInd "ChainContext")) (eRel 0) [(pConstr "InitContext_coq" ["x0";"x1"], eRel 1)]))
-;("receiveChain", eLambda "x" ((tyInd "ReceiveContext")) (eCase ((tyInd "ReceiveContext"), 0) ((tyInd "ChainContext")) (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 2)]))
-;("receiveOrigin", eLambda "x" ((tyInd "ReceiveContext")) (eCase ((tyInd "ReceiveContext"), 0) (tyInd "string") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 1)]))
-;("receiveSelfAddress", eLambda "x" ((tyInd "ReceiveContext")) (eCase ((tyInd "ReceiveContext"), 0) (tyInd "nat") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 0)]))].
+  Definition ABl_functions := [("slotNumber", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 2)]))
+;("blockHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 1)]))
+;("finalizedHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 0)]))
+;("initOrigin", eLambda "x" ((tyInd "InitContext")) (eCase ("InitContext", []) (tyInd "string") (eRel 0) [(pConstr "InitContext_coq" ["x0";"x1"], eRel 0)]))
+;("initChain", eLambda "x" ((tyInd "InitContext")) (eCase ("InitContext", []) ((tyInd "ChainContext")) (eRel 0) [(pConstr "InitContext_coq" ["x0";"x1"], eRel 1)]))
+;("receiveChain", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) ((tyInd "ChainContext")) (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 2)]))
+;("receiveOrigin", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "string") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 1)]))
+;("receiveSelfAddress", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "nat") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 0)]))].
 
   Run TemplateProgram (translateData ABl_data).
   Run TemplateProgram (translateDefs (StdLib.Σ ++ ABl_data)%list ABl_functions).
@@ -254,11 +258,11 @@ Definition Σ' :=
 Import Prim.
 
 (** Function definitions corresponding representation of the module [CoqExamples] above *)
-Definition acorn_module : list (string * expr) := [("owner", eLambda "x" (tyInd "CState") (eCase (tyInd "CState", 0) (tyInd "string") (eRel 0) [(pConstr "CState_coq" ["x0"
+Definition acorn_module : list (string * expr) := [("owner", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "string") (eRel 0) [(pConstr "CState_coq" ["x0"
 ;"x1"], eRel 0)]))
-;("balance", eLambda "x" (tyInd "CState") (eCase (tyInd "CState", 0) (tyInd "Z") (eRel 0) [(pConstr "CState_coq" ["x0"
+;("balance", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "Z") (eRel 0) [(pConstr "CState_coq" ["x0"
 ;"x1"], eRel 1)]))
-;("count", eLambda "x" (tyInd "CState") (eLambda "x" (tyInd "Msg") (eCase (tyInd "Msg", 0) (tyInd "CState") (eRel 0) [(pConstr "Inc_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "plusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))
+;("count", eLambda "x" (tyInd "CState") (eLambda "x" (tyInd "Msg") (eCase ("Msg", []) (tyInd "CState") (eRel 0) [(pConstr "Inc_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "plusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))
 ;(pConstr "Dec_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "minusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))])))].
 
 Run TemplateProgram (translateDefs Σ' acorn_module).
@@ -310,7 +314,7 @@ Module Recursion.
 
   Open Scope nat.
 
-  Definition R_functions := [("add", eLetIn "f" (eFix "rec" "x" ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat")) (eLambda "x" ((tyInd "Nat")) (eCase ((tyInd "Nat"), 0) ((tyInd "Nat")) (eRel 1) [(pConstr "Zero_coq" [], eRel 0);(pConstr "Suc_coq" ["x0"], eApp (eConstr "Nat" "Suc_coq") (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))]))) (tyArr ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat"))) (eRel 0))].
+  Definition R_functions := [("add", eLetIn "f" (eFix "rec" "x" ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat")) (eLambda "x" ((tyInd "Nat")) (eCase ("Nat", []) ((tyInd "Nat")) (eRel 1) [(pConstr "Zero_coq" [], eRel 0);(pConstr "Suc_coq" ["x0"], eApp (eConstr "Nat" "Suc_coq") (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))]))) (tyArr ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat"))) (eRel 0))].
 
   Run TemplateProgram (translateData R_data).
 
@@ -367,4 +371,4 @@ Compute (expr_to_term StdLib.Σ (reindexify 0 id_forall)).
 
 (** Application [id id] fails, since [A] must be [Set], but type of
  [id] is [forall A, A -> A], which lives in [Type]  *)
-Fail Make Definition id_id := (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)).
+Fail Make Definition id_id := (expr_to_tc StdLib.Σ (reindexify 0 id_id_syn)).

@@ -2814,18 +2814,16 @@ Proof.
   simpl. symmetry. eapply subst_env_i_empty.
 Qed.
 
-Theorem expr_to_term_eval (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
-        (e1 e2 : expr) (t : term) (v : val) :
+Theorem adequacy_terminating (n : nat) Σ1 Σ2 (Γ:=[])
+        (e : expr) (t : term) (v : val) :
   genv_ok Σ1 ->
-  env_ok Σ1 ρ ->
-  Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ t ->
-  eval(n, Σ1, ρ, e1) = Ok v ->
-  e1.[exprs ρ] = e2 ->
-  iclosed_n 0 e2 = true ->
+  eval(n, Σ1, [], e) = Ok v (* evaluation terminates *) ->
+  Σ2 ;;; Γ |- T⟦e⟧Σ1 ⇓ t ->
+  iclosed_n 0 e = true ->
   t = T⟦of_val_i v⟧Σ1.
 Proof.
   intros.
-  assert (Hcbv1 : Σ2 ;;; Γ |- T⟦ e2 ⟧Σ1 ⇓ T⟦ of_val_i v ⟧ Σ1)
-    by (eapply expr_to_term_sound;eauto).
-  now eapply PcbvCurr.eval_deterministic.
+  assert (Hcbv1 : Σ2 ;;; Γ |- T⟦ e ⟧Σ1 ⇓ T⟦ of_val_i v ⟧ Σ1)
+    by (eapply expr_to_term_sound_empty_env;eauto).
+  eapply PcbvCurr.eval_deterministic;eauto.
 Qed.
