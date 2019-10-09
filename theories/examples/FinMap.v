@@ -1,19 +1,23 @@
 (** * Implementing a simple finite map using our embedding *)
 Require Import FMaps FMapWeakList.
-Require Import String.
+Require Import String Basics.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
-Require Import Ast CustomTactics TCTranslate EvalE.
+From ConCert Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate EvalE.
 
 Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
 Open Scope list.
-
 Open Scope nat.
+
+Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
+Definition type_to_tc := compose trans type_to_term.
+Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
+
 
 (** Generation of string constants using MetaCoq *)
 
@@ -28,8 +32,6 @@ Fixpoint mkNames (ns : list string) (postfix : string) :=
 
 (** ** The deep embedding of data structures for finite maps *)
 
-(** Eventually, the ASTs for these data structures will be produced directly from the standard library of Oak. *)
-
 (** We generate names for inductives and constructors *)
 Run TemplateProgram
       (mkNames ["Maybe";"Nothing";"Just"; "Map"; "MNil"; "MCons" ] "Oak").
@@ -39,7 +41,7 @@ Run TemplateProgram
 Definition maybe_syn :=
   gdInd Maybe 1 [(Nothing, []);  (Just, [(None,tyRel 0)])] false.
 
-Make Inductive (trans_global_dec maybe_syn).
+Make Inductive (global_to_tc maybe_syn).
 
 (** A finite map is basically a list of pairs *)
 Definition map_syn :=
@@ -48,15 +50,14 @@ Definition map_syn :=
         (MCons, [(None,tyRel 1);(None,tyRel 0);
                   (None,(tyApp (tyApp (tyInd Map) (tyRel 1)) (tyRel 0)))])] false.
 
-Compute trans_global_dec map_syn.
-Make Inductive (trans_global_dec map_syn).
+Make Inductive (global_to_tc map_syn).
 
 Definition Σ' :=
   Σ ++ [ maybe_syn; map_syn ].
 
 (** We generate string constants for variable names to make our examples look nicer *)
 Run TemplateProgram
-      (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "lookup"; "add" ] "_coq").
+      (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "x"; "y"; "z"; "lookup"; "add" ] "_coq").
 
 (** A bit of additional notations required for patterns and constructors *)
 
@@ -115,7 +116,7 @@ Definition lookup_syn :=
 
 Compute (indexify [] lookup_syn).
 (** Unquoting the [lookup_syn] to produce a Coq function *)
-Make Definition lookup_map := (expr_to_term Σ' (indexify [] lookup_syn)).
+Make Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
 
 (** AST for a function that adds an element to a map *)
 Definition add_map_syn :=
@@ -132,7 +133,7 @@ Definition add_map_syn :=
 
 Compute (expr_to_term Σ' (indexify [] add_map_syn)).
 
-Make Definition add_map := (expr_to_term Σ' (indexify [] add_map_syn)).
+Make Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn)).
 
 (** ** Correctness *)
 
@@ -185,7 +186,7 @@ Section MapEval.
      |].
 
   Make Definition nat_eqb :=
-    (expr_to_term Σ' (indexify [] eqb_syn)).
+    (expr_to_tc Σ' (indexify [] eqb_syn)).
 
   (** Showing that Oak boolean equality is in fact the same as [Nat.eqb] *)
   Lemma nat_eqb_correct n m : nat_eqb n m = Nat.eqb n m.

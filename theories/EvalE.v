@@ -1,10 +1,9 @@
 (** * Interpreter for the Oak langage *)
 
 (** This version of the interpreter supports polymorhic types *)
-Require Import String List Bool
-.
+Require Import String List Bool.
 
-Require Import Ast MyEnv TCTranslate.
+Require Import Ast MyEnv Notations PCUICTranslate.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
@@ -368,6 +367,7 @@ Module Examples.
   Import StdLib.
 
   Open Scope string.
+  Definition x :="x".
 
   Definition prog1 :=
     [|

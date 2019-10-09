@@ -1,20 +1,21 @@
--R . ConCert
+-R theories ConCert
 
-./CustomTactics.v
-./MyEnv.v
-./Ast.v
-./Notations.v
-./pcuic/PCUICtoTemplate.v
-./Tests.v
-./EvalE.v
-./EnvSubst.v
-./Demo.v
-./ExampleContracts.v
-./ExecFrameworkExamples.v
-./ExecFrameworkIntegration.v
-./OakMap.v
-./pcuic/PCUICWcbvEvalLocal.v
-./AcornExamples.v
-./pcuic/PCUICTranslate.v
-./pcuic/PCUICFacts.v
-./pcuic/PCUICCorrectness.v
+./theories/CustomTactics.v
+./theories/MyEnv.v
+./theories/Ast.v
+./theories/Notations.v
+./theories/pcuic/PCUICtoTemplate.v
+./theories/Tests.v
+./theories/EvalE.v
+./theories/EnvSubst.v
+./theories/pcuic/PCUICWcbvEvalLocal.v
+./theories/pcuic/PCUICTranslate.v
+./theories/pcuic/PCUICFacts.v
+./theories/pcuic/PCUICCorrectness.v
+
+./theories/examples/Demo.v
+./theories/examples/AcornExamples.v
+./theories/examples/ExampleContracts.v
+./theories/examples/ExecFrameworkExamples.v
+./theories/examples/ExecFrameworkIntegration.v
+./theories/examples/FinMap.v
