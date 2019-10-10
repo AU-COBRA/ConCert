@@ -476,6 +476,7 @@ Inductive ActionEvaluation :
              {new_env : Environment}
              (from to : Address)
              (amount : Amount),
+        amount >= 0 ->
         amount <= account_balance pre from ->
         address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
@@ -492,6 +493,7 @@ Inductive ActionEvaluation :
              (wc : WeakContract)
              (setup : SerializedValue)
              (state : SerializedValue),
+      amount >= 0 ->
       amount <= account_balance pre from ->
       address_is_contract to = true ->
       env_contracts pre to = None ->
@@ -517,6 +519,7 @@ Inductive ActionEvaluation :
              (prev_state : SerializedValue)
              (new_state : SerializedValue)
              (resp_acts : list ActionBody),
+      amount >= 0 ->
       amount <= account_balance pre from ->
       env_contracts pre to = Some wc ->
       env_contract_states pre to = Some prev_state ->
@@ -543,23 +546,23 @@ Context {pre : Environment} {act : Action}
 
 Definition eval_from : Address :=
   match eval with
-  | eval_transfer from _ _ _ _ _ _
-  | eval_deploy from _ _ _ _ _ _ _ _ _ _ _
-  | eval_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
+  | eval_transfer from _ _ _ _ _ _ _
+  | eval_deploy from _ _ _ _ _ _ _ _ _ _ _ _
+  | eval_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
 Definition eval_to : Address :=
   match eval with
-  | eval_transfer _ to _ _ _ _ _
-  | eval_deploy _ to _ _ _ _ _ _ _ _ _ _
-  | eval_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ => to
+  | eval_transfer _ to _ _ _ _ _ _
+  | eval_deploy _ to _ _ _ _ _ _ _ _ _ _ _
+  | eval_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
 Definition eval_amount : Amount :=
   match eval with
-  | eval_transfer _ _ amount _ _ _ _
-  | eval_deploy _ _ amount _ _ _ _ _ _ _ _ _
-  | eval_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ => amount
+  | eval_transfer _ _ amount _ _ _ _ _
+  | eval_deploy _ _ amount _ _ _ _ _ _ _ _ _ _
+  | eval_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
 
@@ -744,11 +747,11 @@ Definition eval_tx {pre : Environment} {act : Action}
                    {post : Environment} {new_acts : list Action}
                    (step : ActionEvaluation pre act post new_acts) : Tx :=
   match step with
-  | eval_transfer from to amount _ _ _ _ =>
+  | eval_transfer from to amount _ _ _ _ _ =>
     build_tx from to amount tx_empty
-  | eval_deploy from to amount wc setup _ _ _ _ _ _ _ =>
+  | eval_deploy from to amount wc setup _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_deploy wc setup)
-  | eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ =>
+  | eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_call msg)
   end.
 

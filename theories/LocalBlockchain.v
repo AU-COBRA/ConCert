@@ -94,6 +94,7 @@ Section ExecuteActions.
              (amount : Amount)
              (msg : option SerializedValue)
              (lc : LocalChain) : option (list Action * LocalChain) :=
+    do if amount <? 0 then None else Some tt;
     do if amount >? account_balance lc from then None else Some tt;
     match FMap.find to lc.(lc_contracts) with
     | None =>
@@ -119,6 +120,7 @@ Section ExecuteActions.
              (setup : SerializedValue)
              (lc : LocalChain)
     : option (list Action * LocalChain) :=
+    do if amount <? 0 then None else Some tt;
     do if amount >? account_balance lc from then None else Some tt;
     do contract_addr <- get_new_contract_addr lc;
     do match FMap.find contract_addr (lc_contracts lc) with
@@ -226,6 +228,15 @@ Section ExecuteActions.
     auto.
   Qed.
 
+  Lemma ltb_ge x y :
+    x <? y = false ->
+    x >= y.
+  Proof.
+    intros H.
+    apply Z.ltb_ge in H.
+    lia.
+  Qed.
+
   Lemma send_or_call_step from to amount msg act lc_before new_acts lc_after :
     send_or_call from to amount msg lc_before = Some (new_acts, lc_after) ->
     act = build_act from (match msg with
@@ -236,6 +247,8 @@ Section ExecuteActions.
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
+    destruct (Z.ltb amount 0) eqn:amount_nonnegative;
+      [cbn in *; congruence|].
     destruct (Z.gtb amount (account_balance lc_before from)) eqn:balance_enough;
       [cbn in *; congruence|].
     destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
@@ -248,7 +261,7 @@ Section ExecuteActions.
       match goal with
       | [p: SerializedValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
       end.
-      Hint Resolve gtb_le : core.
+      Hint Resolve gtb_le ltb_ge : core.
       apply (eval_call from to amount wc msg prev_state new_state resp_acts);
         try solve [cbn in *; auto; congruence].
       + rewrite <- receive.
@@ -286,6 +299,8 @@ Section ExecuteActions.
   Proof.
     intros dep act_eq.
     unfold deploy_contract in dep.
+    destruct (Z.ltb amount 0) eqn:amount_nonnegative;
+      [cbn in *; congruence|].
     destruct (Z.gtb amount (account_balance lc_before from)) eqn:balance_enough;
       [cbn in *; congruence|].
     destruct (get_new_contract_addr lc_before) as [contract_addr|] eqn:new_contract_addr;
