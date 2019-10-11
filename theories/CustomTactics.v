@@ -1,6 +1,6 @@
 (* A place for various tactic used for the development*)
 
-Require Import Lia.
+Require Import Lia ZArith List.
 
 (** * Tactics taken from the Software Foundations' LibTactics.v *)
 
@@ -23,10 +23,6 @@ Inductive Boxer : Type :=
     parsed either as a natural number or as a relative number.
     In order for tactics to convert their arguments into natural numbers,
     we provide a conversion tactic. *)
-
-Require BinPos Coq.ZArith.BinInt List.
-
-Require Coq.Numbers.BinNums Coq.ZArith.BinInt.
 
 Import List.ListNotations.
 
@@ -316,3 +312,15 @@ Ltac prop_to_leb_ltb :=
   try rewrite <-PeanoNat.Nat.leb_le in *;
   try rewrite <- PeanoNat.Nat.leb_gt in *;
   try rewrite <- PeanoNat.Nat.ltb_ge in *.
+
+Ltac Zleb_ltb_to_prop :=
+  try rewrite Z.ltb_ge in *;
+  try rewrite Z.ltb_lt in *;
+  try rewrite Z.leb_le in *;
+  try rewrite Z.leb_gt in *.
+
+Ltac Zprop_to_leb_ltb :=
+  try rewrite <- Z.ltb_ge in *;
+  try rewrite <- Z.ltb_lt in *;
+  try rewrite <- Z.leb_le in *;
+  try rewrite <- Z.leb_gt in *.

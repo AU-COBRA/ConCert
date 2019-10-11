@@ -77,6 +77,24 @@ Section Maps.
   Proof. induction l as [ | x l'];simpl;auto.
          destruct x. simpl;congruence. Qed.
 
+  Fixpoint map_forallb (p : Z -> bool)(m : addr_map) : bool:=
+    match m with
+    | mnil => true
+    | mcons k v m' => p v && map_forallb p m'
+    end.
+
+  Lemma map_forallb_lookup_map p m k v :
+    map_forallb p m = true ->
+    lookup_map m k = Some v ->
+    p v = true.
+  Proof.
+    revert k v p.
+    induction m;intros;tryfalse;simpl in *.
+    inv_andb H. destruct (_ =? _);auto.
+    * now inversion H0;subst.
+    * easy.
+  Qed.
+
 End Maps.
 
 Notation "a ∈ m" := (inmap_map a m = true) (at level 50).
@@ -683,6 +701,17 @@ reached within a deadline *)
     | mcons _ v m' => v + sum_map m'
     end.
 
+  Lemma all_non_neg_sum_map m :
+    map_forallb (Z.leb 0) m ->
+    (sum_map m >= 0)%Z.
+  Proof.
+    intros H.
+    induction m.
+    + simpl;lia.
+    + simpl in *. inv_andb H.
+      specialize (IHm H0). Zleb_ltb_to_prop. lia.
+  Qed.
+
   Lemma sum_map_add_in m : forall n0 (v' v : Z) k,
       lookup_map m k = Some n0 ->
       sum_map m = v ->
@@ -831,6 +860,110 @@ reached within a deadline *)
           simpl in *;try destruct (lookup_map _ _) eqn:Hlook;repeat eexists;eauto; intros;destruct (_ <? _);tryfalse.
         cbn.  now apply sum_map_sub_in.
   Qed.
+
+  Definition donations_non_neg init := map_forallb (Z.leb 0%Z) init.(donations_coq) = true.
+
+  Lemma non_neg_add_in m : forall n0 (v' : Z) k,
+      (0 <= v')%Z ->
+      lookup_map m k = Some n0 ->
+      map_forallb (Z.leb 0%Z) m ->
+      map_forallb (Z.leb 0%Z) (add_map k (n0+v') m).
+  Proof.
+    intros;subst.
+    revert dependent n0. revert k.
+    induction m;intros k n0 Hlook;subst.
+    + inversion Hlook.
+    + simpl in *. destruct (k =? n) eqn:Hkn.
+      * simpl in *. inversion Hlook.
+        inv_andb H1. rewrite Nat.eqb_eq in *;subst.
+        subst;split_andb;auto.
+        Zleb_ltb_to_prop;lia.
+      * simpl in *.
+        inv_andb H1. Zleb_ltb_to_prop.
+        split_andb;auto. now Zleb_ltb_to_prop.
+        rewrite IHm;auto.
+  Qed.
+
+  Lemma non_neg_add_not_in m : forall (v' : Z) k,
+      (0 <= v')%Z ->
+      lookup_map m k = None ->
+      map_forallb (Z.leb 0%Z) m ->
+      map_forallb (Z.leb 0%Z) (add_map k v' m).
+  Proof.
+    induction m;intros ? ? Hnneg Hlook H;subst.
+    + simpl in *. split_andb;now Zleb_ltb_to_prop.
+    + simpl in *. destruct (k =? n) eqn:Hkn.
+      * simpl in *.
+        inv_andb H. rewrite Nat.eqb_eq in *;subst.
+        subst;split_andb;auto.
+        Zleb_ltb_to_prop;lia.
+      * simpl in *.
+        inv_andb H. Zleb_ltb_to_prop.
+        split_andb;auto. now Zleb_ltb_to_prop.
+        rewrite IHm;auto.
+  Qed.
+
+  Lemma non_neg_add_0 m k :
+    map_forallb (Z.leb 0%Z) m ->
+    map_forallb (Z.leb 0%Z) (add_map k 0 m).
+  Proof.
+    induction m;intros.
+    + easy.
+    + simpl in *. destruct (k =? n) eqn:Hkn.
+      * simpl in *.
+        now inv_andb H.
+      * simpl in *.
+        inv_andb H. Zleb_ltb_to_prop.
+        split_andb;auto. now Zleb_ltb_to_prop.
+        rewrite IHm;auto.
+  Qed.
+
+  (** All the entries in the table of contributions contain non-negative amounts  *)
+  Lemma contract_state_donation_non_neg BC CallCtx msg :
+    (0 <= CallCtx.(Ctx_amount))%Z ->
+
+    {{ donations_non_neg }}
+
+      Receive.receive BC CallCtx msg
+
+    {{ fun fin _ => donations_non_neg fin }}.
+  Proof.
+    intros Hamount init H.
+    destruct msg.
+    + (* Donate *)
+      simpl in *.
+      (* specialize Hdl as Hdl'. *)
+      unfold consistent_balance,deadline_passed in H.
+      unfold run,consistent_balance.
+      (* apply not_ltb in Hdl.  simpl. *)
+      simpl.
+      destruct (_ <=? _);tryfalse.
+      * destruct (lookup_map _ _) eqn:Hlook.
+        ** repeat eexists;eauto.
+           assert (0 <=? z)%Z by now eapply map_forallb_lookup_map.
+           unfold donations_non_neg. cbn.
+           eapply non_neg_add_in;eauto.
+        ** repeat eexists;eauto.
+           unfold donations_non_neg. cbn.
+           eapply non_neg_add_not_in;eauto.
+      * repeat eexists;eauto.
+    + (* GetFunds *)
+      unfold donations_non_neg in *.
+      unfold run. simpl.
+         (match goal with
+          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          end);eauto; repeat eexists; simpl in *; intros;
+           destruct (_ <? _);tryfalse.
+    + (* Claim *)
+      unfold donations_non_neg in *.
+      unfold run. simpl.
+      (match goal with
+         | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+       end);
+        simpl in *;try destruct (lookup_map _ _) eqn:Hlook;repeat eexists;eauto.
+      simpl. now apply non_neg_add_0.
+  Qed.
+
 
   (** The owner gets the money after the deadline, if the goal is reached *)
 
