@@ -1,6 +1,7 @@
 -R theories ConCert
 
 ./theories/CustomTactics.v
+./theories/Misc.v
 ./theories/MyEnv.v
 ./theories/Ast.v
 ./theories/Notations.v

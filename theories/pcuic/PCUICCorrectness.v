@@ -8,10 +8,9 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyp
 
 Require Import String List Basics.
 
-Require Import EvalE EnvSubst.
-Import InterpreterEnvList.
+Require Import CustomTactics Misc MyEnv EnvSubst Ast EvalE PCUICFacts PCUICTranslate.
 
-Require Import CustomTactics MyEnv Ast EvalE PCUICFacts PCUICTranslate.
+Import InterpreterEnvList.
 
 Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i Σ n ρ e) (at level 100).
 

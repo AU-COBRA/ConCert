@@ -227,14 +227,6 @@ the actual definitions of [SmartContracts.Blockchain] which are paremeterised wi
            (* Amount of currency passed in call *)
            "Ctx_amount" : Money} \].
 
-  Notation "'ctx_from' a" := [| {eConst "Ctx_from"} {a} |]
-                               (in custom expr at level 0).
-  Notation "'ctx_contract_address' a" :=
-    [| {eConst "Ctx_contract_address"} {a} |]
-      (in custom expr at level 0).
-  Notation "'amount' a" := [| {eConst "Ctx_amount"} {a} |]
-                               (in custom expr at level 0).
-
   Make Inductive (global_to_tc SimpleContractCallContextAcorn).
 
   Definition SimpleActionBodyAcorn : global_dec :=
@@ -313,6 +305,15 @@ Module CrowdfundingContract.
 
   (** Custom notations for patterns, projections and constructors *)
   Module Notations.
+
+    Notation "'ctx_from' a" := [| {eConst "Ctx_from"} {a} |]
+                               (in custom expr at level 0).
+    Notation "'ctx_contract_address' a" :=
+      [| {eConst "Ctx_contract_address"} {a} |]
+        (in custom expr at level 0).
+    Notation "'amount' a" := [| {eConst "Ctx_amount"} {a} |]
+                               (in custom expr at level 0).
+
 
     (** Patterns *)
     Notation "'Donate'" :=
@@ -424,7 +425,7 @@ Module CrowdfundingContract.
     Notation "0 'z'" := (eConstr "Z" "Z0") (in custom expr at level 0).
     End Notations.
 
-  Import Notations.
+
   Import Prelude.
   (** Generating string constants for variable names *)
 
@@ -447,6 +448,7 @@ Module CrowdfundingContract.
 
 
   Module Init.
+    Import Notations.
     Definition crowdfunding_init : expr :=
       [| \c : SCtx => \dl : Nat => \g : Money => mkState 0z MNil dl (ctx_from c) False g |].
 
@@ -458,6 +460,7 @@ Module CrowdfundingContract.
 
 
  Module Receive.
+   Import Notations.
    Import Prelude.
 
    Notation SCtx := "SimpleContractCallContext".
@@ -554,7 +557,7 @@ Module CrowdfundingContract.
 
   (** ** Properties of the crowdfunding contract *)
 
-  (** This lemma states that the obly relevat part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
+  (** This lemma states that the only relevat part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :
     Receive.receive (Build_chain height1 cur_slot fheight1 bal1) ctx msg st  =
     Receive.receive (Build_chain height2 cur_slot fheight2 bal2) ctx msg st.

@@ -3,7 +3,7 @@ Require Import MetaCoq.Template.monad_utils MetaCoq.Template.All.
 Require Import String List.
 Require Import Morphisms Setoid Bool.
 
-Require Import CustomTactics MyEnv Ast EvalE PCUICTranslate EnvSubst.
+Require Import CustomTactics Misc MyEnv Ast EvalE PCUICTranslate EnvSubst.
 
 Import Basics.
 Open Scope program_scope.
@@ -126,49 +126,6 @@ Section Values.
       rewrite <- PeanoNat.Nat.ltb_ge in *.
       now apply IHρ.
   Qed.
-
-  (* TODO : move to misc *)
-  Lemma forallb_Forall_iff {A} (p : A -> bool) (l : list A):
-    Forall (fun x => p x = true) l <-> forallb p l = true.
-  Proof.
-    split.
-    + induction l;intros H.
-      * reflexivity.
-      * simpl. inversion H as [H1 | a1 l1 Heq]. subst. rewrite Heq. easy.
-    + induction l;intros H.
-      * constructor.
-      * simpl in *. rewrite Bool.andb_true_iff in *. destruct H. easy.
-  Qed.
-
-  (* TODO : move to misc *)
-  Lemma Forall_impl_inner {A} (P Q : A -> Prop) l :
-    Forall P l -> Forall (fun x => P x -> Q x) l ->
-    Forall Q l.
-  Proof.
-    intros HP. induction HP;intros HQ.
-    + constructor.
-    + constructor;inversion HQ;easy.
-  Qed.
-
-  (* TODO : move to misc *)
-  Lemma All_impl_inner {A} (P Q : A -> Type) l :
-    All P l -> All (fun x => P x -> Q x) l ->
-    All Q l.
-  Proof.
-    intros HP. induction HP;intros HQ.
-    + constructor.
-    + constructor;inversion HQ;easy.
-  Qed.
-
-  (* TODO : move to misc *)
-  Lemma forallb_impl_inner {A} {p q} {l : list A} :
-  forallb p l -> (forall x, p x = true -> q x = true) -> forallb q l.
-Proof.
-  revert p q.
-  induction l;simpl;intros p q Hfa H;auto.
-  inv_andb Hfa. split_andb;try eapply IHl;eauto.
-Qed.
-
 
   Lemma iclosed_ty_geq ty : forall n m, m >= n -> iclosed_ty n ty = true -> iclosed_ty m ty = true.
   Proof.
