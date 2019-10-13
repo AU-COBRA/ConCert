@@ -632,6 +632,14 @@ Proof.
   cbn in *.
   destruct_address_eq; congruence.
 Qed.
+
+Lemma eval_amount_nonnegative : eval_amount eval >= 0.
+Proof. now destruct eval. Qed.
+
+Lemma eval_amount_le_account_balance :
+  eval_amount eval <= account_balance pre (eval_from eval).
+Proof. now destruct eval. Qed.
+
 End Theories.
 
 Section Trace.
@@ -991,6 +999,29 @@ Proof.
   rewrite (account_balance_trace _ trace); auto.
   rewrite undeployed_contract_no_out_txs, undeployed_contract_no_in_txs,
           contract_no_created_blocks; auto.
+Qed.
+
+Lemma account_balance_nonnegative state addr :
+  reachable state ->
+  account_balance state addr >= 0.
+Proof.
+  intros [trace].
+  remember empty_state eqn:eq.
+  induction trace; subst; cbn; try lia.
+  specialize (IHtrace eq_refl).
+  destruct_chain_step.
+  - (* New block *)
+    rewrite_environment_equiv.
+    cbn.
+    unfold add_balance.
+    inversion valid_header.
+    destruct_address_eq; lia.
+  - (* Action evaluation *)
+    rewrite (account_balance_post eval addr).
+    pose proof (eval_amount_nonnegative eval).
+    pose proof (eval_amount_le_account_balance eval).
+    destruct_address_eq; subst; cbn in *; lia.
+  - now rewrite <- prev_next.
 Qed.
 
 End Theories.
