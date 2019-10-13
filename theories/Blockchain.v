@@ -966,6 +966,33 @@ Proof.
     auto.
 Qed.
 
+Lemma contract_no_created_blocks state (trace : ChainTrace empty_state state) addr :
+  address_is_contract addr = true ->
+  created_blocks trace addr = [].
+Proof.
+  intros is_contract.
+  remember empty_state eqn:eq.
+  induction trace; auto.
+  destruct_chain_step; auto.
+  cbn.
+  subst.
+  inversion valid_header.
+  destruct (address_eqb_spec (block_creator header) addr); auto.
+  congruence.
+Qed.
+
+Lemma undeployed_contract_balance_0 state addr :
+  reachable state ->
+  address_is_contract addr = true ->
+  env_contracts state addr = None ->
+  account_balance state addr = 0.
+Proof.
+  intros [trace] is_contract no_contract.
+  rewrite (account_balance_trace _ trace); auto.
+  rewrite undeployed_contract_no_out_txs, undeployed_contract_no_in_txs,
+          contract_no_created_blocks; auto.
+Qed.
+
 End Theories.
 End Trace.
 End Semantics.
