@@ -1,5 +1,7 @@
 (* A place for various tactic used for the development*)
 
+Require Import Lia ZArith List.
+
 (** * Tactics taken from the Software Foundations' LibTactics.v *)
 
 Set Implicit Arguments.
@@ -21,10 +23,6 @@ Inductive Boxer : Type :=
     parsed either as a natural number or as a relative number.
     In order for tactics to convert their arguments into natural numbers,
     we provide a conversion tactic. *)
-
-Require BinPos Coq.ZArith.BinInt List.
-
-Require Coq.Numbers.BinNums Coq.ZArith.BinInt.
 
 Import List.ListNotations.
 
@@ -285,3 +283,44 @@ Proof. intros. subst. auto. Qed.
 (*   end. *)
 
 End equatesLemma.
+
+(** Lia hints - pretty much as for Lia *)
+Hint Extern 10 (_ = _ :>nat) => abstract lia: zarith.
+Hint Extern 10 (_ <= _) => abstract lia: zarith.
+Hint Extern 10 (_ < _) => abstract lia: zarith.
+Hint Extern 10 (_ >= _) => abstract lia: zarith.
+Hint Extern 10 (_ > _) => abstract lia: zarith.
+
+Hint Extern 10 (_ <> _ :>nat) => abstract lia: zarith.
+Hint Extern 10 (~ _ <= _) => abstract lia: zarith.
+Hint Extern 10 (~ _ < _) => abstract lia: zarith.
+Hint Extern 10 (~ _ >= _) => abstract lia: zarith.
+Hint Extern 10 (~ _ > _) => abstract lia: zarith.
+
+Hint Extern 10 False => abstract lia: zarith.
+
+Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
+Ltac split_andb := apply Bool.andb_true_iff;split.
+Ltac leb_ltb_to_prop :=
+  try rewrite PeanoNat.Nat.ltb_lt in *;
+  try rewrite PeanoNat.Nat.leb_le in *;
+  try rewrite PeanoNat.Nat.leb_gt in *;
+  try rewrite PeanoNat.Nat.ltb_ge in *.
+
+Ltac prop_to_leb_ltb :=
+  try rewrite <- PeanoNat.Nat.ltb_lt in *;
+  try rewrite <-PeanoNat.Nat.leb_le in *;
+  try rewrite <- PeanoNat.Nat.leb_gt in *;
+  try rewrite <- PeanoNat.Nat.ltb_ge in *.
+
+Ltac Zleb_ltb_to_prop :=
+  try rewrite Z.ltb_ge in *;
+  try rewrite Z.ltb_lt in *;
+  try rewrite Z.leb_le in *;
+  try rewrite Z.leb_gt in *.
+
+Ltac Zprop_to_leb_ltb :=
+  try rewrite <- Z.ltb_ge in *;
+  try rewrite <- Z.ltb_lt in *;
+  try rewrite <- Z.leb_le in *;
+  try rewrite <- Z.leb_gt in *.
