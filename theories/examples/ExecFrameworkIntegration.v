@@ -180,7 +180,7 @@ Proof.
   now destruct ch.
 Qed.
 
-Theorem crowdfunding_balance_consistent_deadline to contract state:
+Theorem cf_balance_consistent_deadline to contract state:
   reachable to ->
   env_contracts to contract = Some (cf_contract : WeakContract) ->
   cf_state to contract = Some state ->
@@ -277,7 +277,7 @@ Proof.
     now rewrite prev_next in *.
 Qed.
 
-Lemma crowdfunding_balance_consistent bstate cf_addr lstate :
+Lemma cf_balance_consistent bstate cf_addr lstate :
   reachable bstate ->
   env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->
   cf_state bstate cf_addr = Some lstate ->
@@ -473,7 +473,7 @@ Definition is_call (ac : ActionBody) : bool :=
   | act_deploy amount c setup => false
   end.
 
-Lemma crowdfunding_not_sending_deploy_or_call (bstate : ChainState) addr :
+Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
   reachable bstate ->
   address_is_contract addr = true ->
   env_contracts bstate addr = Some (cf_contract : WeakContract) ->
@@ -675,7 +675,7 @@ Proof.
     now rewrite prev_next in *.
 Qed.
 
-Lemma crowdfunding_transfer_cases {sch sctx msg init fin acts}:
+Lemma cf_transfer_cases {sch sctx msg init fin acts}:
   map_forallb (Z.leb 0) (donations_coq init) ->
   consistent_balance init ->
   Receive.receive sch sctx msg init = Some (fin, acts) ->
@@ -707,12 +707,12 @@ Proof.
     right. right. eexists;split;eauto.
 Qed.
 
-Theorem crowdfunding_backed gstate cf_addr lstate:
-  let acts := chain_state_queue gstate in
-  reachable gstate ->
-  env_contracts gstate cf_addr = Some (cf_contract : WeakContract) ->
-  cf_state gstate cf_addr = Some lstate ->
-  (account_balance (env_chain gstate) cf_addr >= balance_coq lstate + sum_trans cf_addr acts)%Z.
+Theorem cf_backed bstate cf_addr lstate:
+  let acts := chain_state_queue bstate in
+  reachable bstate ->
+  env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->
+  cf_state bstate cf_addr = Some lstate ->
+  (account_balance (env_chain bstate) cf_addr >= balance_coq lstate + sum_trans cf_addr acts)%Z.
 Proof.
   cbn in *.
   intros Hr Hc Hst.
@@ -770,7 +770,7 @@ Proof.
              (symmetry;eapply undeployed_balance_0;try constructor;eauto).
          lia.
       ** assert (H : Forall (fun act : Blockchain.Action => ~~ (act_from act =? contract)%address || ~~ (is_deploy (act_body act) || is_call (act_body act))) (chain_state_queue prev)) by
-         (eapply crowdfunding_not_sending_deploy_or_call;try constructor;eauto).
+         (eapply cf_not_sending_deploy_or_call;try constructor;eauto).
          rewrite queue_prev in H. inversion H as [ | ? ? Hdeploy];subst;clear H.
          cbn in Hdeploy. rewrite address_eq_refl in Hdeploy;tryfalse.
       ** rewrite queue_prev in *. subst.
@@ -805,13 +805,13 @@ Proof.
          rewrite deserialize_serialize in Hst. inversion Hst. subst.
 
          assert (Hconsistent : consistent_balance p_local_state).
-         { (eapply crowdfunding_balance_consistent;eauto).
+         { (eapply cf_balance_consistent;eauto).
            constructor. auto. unfold cf_state. now rewrite e1.  }
 
          assert (Hpos : map_forallb (Z.leb 0) (donations_coq p_local_state)).
          { eapply crowfunding_donations_non_negative;eauto.
            constructor. auto. unfold cf_state. now rewrite e1. }
-         specialize (crowdfunding_transfer_cases Hpos Hconsistent Hreceive) as cf_cases.
+         specialize (cf_transfer_cases Hpos Hconsistent Hreceive) as cf_cases.
          destruct cf_cases as [H | [H | H]].
          *** (* donate *)
              destruct H as [H1 H2]. subst. simpl in *. unfold add_balance.
@@ -822,7 +822,7 @@ Proof.
              destruct (address_eqb_spec to from).
              **** rewrite <- H1. subst.
                   assert (H : Forall (fun act : Blockchain.Action => ~~ (act_from act =? from)%address || ~~ (is_deploy (act_body act) || is_call (act_body act))) (chain_state_queue prev)) by
-                      (eapply crowdfunding_not_sending_deploy_or_call;try constructor;eauto).
+                      (eapply cf_not_sending_deploy_or_call;try constructor;eauto).
                   rewrite queue_prev in H. inversion H;subst;cbn in *.
                   rewrite address_eq_refl in H3;tryfalse.
              **** subst;lia.
@@ -862,6 +862,44 @@ Proof.
     rewrite prev_next in *.
     specialize_hypotheses.
     erewrite <- sum_trans_permute;eauto.
+Qed.
+
+
+Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}
+          prev hd acts new cf_addr lstate :
+  builder_add_block prev hd acts = Some new ->
+  env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
+  cf_state new cf_addr = Some lstate ->
+  (account_balance (env_chain new) cf_addr >= balance_coq lstate)%Z.
+Proof.
+  intros Hnew Hcf Hst.
+  destruct ChainBuilder;cbn in *.
+  pose (builder_trace new) as tr.
+  cbn in *.
+  assert (Hr : reachable {| chain_state_env := builder_env new; chain_state_queue := [] |}) by
+      (constructor;eauto).
+  specialize (cf_backed _ _ _ Hr Hcf Hst) as Hbacked.
+  cbn in *. lia.
+Qed.
+
+Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
+          prev hd acts new cf_addr lstate :
+  builder_add_block prev hd acts = Some new ->
+  env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
+  cf_state new cf_addr = Some lstate ->
+  ~~ lstate.(done_coq) ->
+  (account_balance (env_chain new) cf_addr >= sum_map (lstate.(donations_coq)))%Z.
+Proof.
+  intros Hnew Hcf Hst Hdone.
+  destruct ChainBuilder;cbn in *.
+  pose (builder_trace new) as tr.
+  cbn in *.
+  assert (Hr : reachable {| chain_state_env := builder_env new; chain_state_queue := [] |}) by
+      (constructor;eauto).
+  specialize (cf_balance_consistent _ _ _ Hr Hcf Hst Hdone) as Hconsistent.
+  rewrite Hconsistent.
+  specialize (cf_backed _ _ _ Hr Hcf Hst) as Hbacked.
+  cbn in *. lia.
 Qed.
 
 
