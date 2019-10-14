@@ -3,8 +3,7 @@ From MetaCoq.Template Require Import utils.
 
 Require Import PeanoNat.
 
-Require PCUICWcbvEvalLocal.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyping PCUICClosed  PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyping PCUICClosed  PCUICLiftSubst PCUICWcbvEval.
 
 Require Import String List Basics.
 
@@ -26,7 +25,7 @@ Import Lia.
 Remove Hints Bool.trans_eq_bool.
 
 Module P := PCUICAst.
-Module PcbvCurr := PCUICWcbvEvalLocal.
+Module PcbvCurr := PCUICWcbvEval.
 
 Notation "Σ ;;; Γ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ Γ t1 t2) (at level 50).
 Notation "T⟦ e ⟧ Σ " := (expr_to_term Σ e) (at level 49).
