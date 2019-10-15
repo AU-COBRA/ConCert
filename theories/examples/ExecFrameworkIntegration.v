@@ -475,13 +475,13 @@ Definition is_call (ac : ActionBody) : bool :=
 
 Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
   reachable bstate ->
-  address_is_contract addr = true ->
   env_contracts bstate addr = Some (cf_contract : WeakContract) ->
   Forall (fun act : Blockchain.Action => (~~ (act_from act =? addr)%address ||
           ~~ (is_deploy (act_body act) || is_call (act_body act))%address))
          (chain_state_queue bstate).
 Proof.
-  intros Hr Haddr Hc.
+  intros Hr Hc.
+  assert (Haddr: address_is_contract addr = true) by eauto using contract_addr_format.
   unfold reachable in *. destruct Hr as [tr].
   remember empty_state eqn:eq.
   revert dependent addr.
@@ -800,8 +800,7 @@ Proof.
          destruct p. inversion Hopt. subst. clear Hopt.
          unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
          cbn in *. unfold set_chain_contract_state in Hst.
-         replace (to =? to)%address with true in *
-           by (symmetry;apply Nat.eqb_refl).
+         rewrite (address_eq_refl to) in *.
          rewrite deserialize_serialize in Hst. inversion Hst. subst.
 
          assert (Hconsistent : consistent_balance p_local_state).
