@@ -442,13 +442,14 @@ Qed.
     forall (e : expr) (k : nat), e = subst_env_i_aux k [] e.
   Proof.
     intros e.
-    induction e using expr_ind_case;intuition.
+    induction e using expr_ind_case;simpl in *;intuition.
     + simpl. destruct (Nat.leb k n);eauto.
-    + simpl. f_equal;try f_equal;eauto with facts.
+    + simpl.
+      apply f_equal4;eauto with facts.
       rewrite map_id_f;eauto.
       rewrite <- map_id at 1.
       eapply forall_map_spec.
-      eapply Forall_impl;eauto;intuition.
+      eapply Forall_impl;eauto. intros p Hp;cbn in *. destruct p; rewrite <-Hp;eauto.
   Qed.
 
   (* For simplicity, we consider only constructors of arity 0 and 1 *)
