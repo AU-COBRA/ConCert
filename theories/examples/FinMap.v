@@ -1,4 +1,5 @@
-(** * Implementing a simple finite map using our embedding *)
+(** * Finite maps  *)
+
 Require Import FMaps FMapWeakList.
 Require Import String Basics.
 Require Import List.
@@ -18,25 +19,33 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
+(** Implementing a simple finite map data type using our embedding. We pick a simple representation of finite maps which is isomorphic to lists of key-value pairs *)
 
-(** Generation of string constants using MetaCoq *)
+(** Generation of string constants using MetaCoq. We use these string constants to make the embedding more readable. *)
 
-Fixpoint mkNames (ns : list string) (postfix : string) :=
+Fixpoint mkNames (ns : list string) (suffix : string) :=
   match ns with
   | [] => tmPrint "Done."
-  | n :: ns' => n' <- tmEval all (n ++ postfix)%string ;;
+  | n :: ns' => n' <- tmEval all (n ++ suffix)%string ;;
                   str <- tmQuote n';;
                   tmMkDefinition n str;;
-                  mkNames ns' postfix
+                  mkNames ns' suffix
   end.
 
 (** ** The deep embedding of data structures for finite maps *)
 
 (** We generate names for inductives and constructors *)
 Run TemplateProgram
-      (mkNames ["Maybe";"Nothing";"Just"; "Map"; "MNil"; "MCons" ] "Oak").
+      (mkNames ["Maybe";"Nothing";"Just"; "Map"; "MNil"; "MCons" ] "Acorn").
 
-(** [AMaybe] is similar to [option] of Coq and [Maybe] of Haskell. *)
+(** Now we can use [Maybe] as a name for a data type in our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
+
+Print Maybe.
+(* Maybe = "MaybeAcorn" *)
+(*      : string *)
+
+
+(** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type. [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell. *)
 
 Definition maybe_syn :=
   gdInd Maybe 1 [(Nothing, []);  (Just, [(None,tyRel 0)])] false.
@@ -55,7 +64,7 @@ Make Inductive (global_to_tc map_syn).
 Definition Σ' :=
   Σ ++ [ maybe_syn; map_syn ].
 
-(** We generate string constants for variable names to make our examples look nicer *)
+(** We generate string constants for variable names as well to make our examples look nicer *)
 Run TemplateProgram
       (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "x"; "y"; "z"; "lookup"; "add" ] "_coq").
 
@@ -64,7 +73,7 @@ Run TemplateProgram
 Notation "'Nothing'" := (pConstr Nothing [])
                       (in custom pat at level 0).
 
-Notation "'Nothing'" := (eConstr Maybe "NothingOak")
+Notation "'Nothing'" := (eConstr Maybe "NothingAcorn")
                       (in custom expr at level 0).
 
 Notation "'Just'" := (eConstr Maybe Just)
@@ -80,10 +89,10 @@ Notation "'MCons' x y z" := (pConstr MCons [x;y;z])
                         y constr at level 4,
                         z constr at level 4).
 
-Notation "'MNil'" := (eConstr Map "MNilOak")
+Notation "'MNil'" := (eConstr Map "MNilAcorn")
                       (in custom expr at level 0).
 
-Notation "'MCons'" := (eConstr Map "MConsOak")
+Notation "'MCons'" := (eConstr Map "MConsAcorn")
                         (in custom expr at level 0).
 
 Notation " ' x " := (eTy (tyVar x))
@@ -143,15 +152,15 @@ Make Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn)).
 Module NatMap := FMapWeakList.Make Nat_as_OT.
 
 (** Conversion function from our type of finite maps to the one in the standard library *)
-Fixpoint from_amap {A} (m : MapOak nat A) : NatMap.Raw.t A :=
+Fixpoint from_amap {A} (m : MapAcorn nat A) : NatMap.Raw.t A :=
   match m with
-  | MNilOak  => []
-  | MConsOak k v m' => (k,v) :: from_amap m'
+  | MNilAcorn  => []
+  | MConsAcorn k v m' => (k,v) :: from_amap m'
   end.
 
 Import PeanoNat.Nat.
 
-(** Showing that Oak finite maps are the same as one of the Stdlib implementations (up to converting the results) *)
+(** Showing that [add] function on Acorn finite maps are behaves the same way as one of the Coq's Stdlib implementations (up to converting the results) *)
 Lemma add_map_eq_stdlib {A : Set} k v m :
   NatMap.Raw.add k v (from_amap m) = from_amap (add_map _ A PeanoNat.Nat.eqb k v m).
 Proof.
@@ -169,7 +178,7 @@ Section MapEval.
 
   Definition tyNat := eTy (tyInd Nat).
 
-  (** Boolean equality of two natural numbers in Oak *)
+  (** Boolean equality of two natural numbers in Acorn *)
   Definition eqb_syn : expr :=
     [| (fix "eqb" (n : Nat) : Nat ->  Bool :=
            case n : Nat return Nat -> Bool of
@@ -186,7 +195,7 @@ Section MapEval.
   Make Definition nat_eqb :=
     (expr_to_tc Σ' (indexify [] eqb_syn)).
 
-  (** Showing that Oak boolean equality is in fact the same as [Nat.eqb] *)
+  (** Showing that Acorn boolean equality is in fact the same as [Nat.eqb] *)
   Lemma nat_eqb_correct n m : nat_eqb n m = Nat.eqb n m.
   Proof.
     revert m.
@@ -213,7 +222,7 @@ Section MapEval.
   Example compute_lookup_named :
     (expr_eval_n Σ' 10 []
                  [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |]) =
-  Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
+  Ok (vConstr Maybe "JustAcorn" [vTy (tyInd Nat); vConstr Nat "Z" []]).
   Proof. compute. reflexivity. Qed.
 
 
@@ -222,7 +231,7 @@ Section MapEval.
     (expr_eval_i Σ' 10 []
                  (indexify []
                            [| {lookup_syn} {tyNat} {tyNat} {eqb_syn} 0 {aMap} |])) =
-  Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
+  Ok (vConstr Maybe "JustAcorn" [vTy (tyInd Nat); vConstr Nat "Z" []]).
   Proof. compute. reflexivity. Qed.
 
 End MapEval.
