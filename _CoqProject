@@ -11,6 +11,7 @@
 ./theories/EnvSubst.v
 ./theories/pcuic/PCUICTranslate.v
 ./theories/pcuic/PCUICFacts.v
+./theories/pcuic/PCUICCorrectnessAux.v
 ./theories/pcuic/PCUICCorrectness.v
 
 ./theories/examples/Demo.v

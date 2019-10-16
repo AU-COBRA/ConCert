@@ -1,4 +1,5 @@
-(* Various auxillary facts usefull for proving correctness of the translation and the interpreter *)
+(** * Lemmas about the environment substitutions, closedness, etc. on expressions *)
+
 Require Import MetaCoq.Template.monad_utils MetaCoq.Template.All.
 Require Import String List.
 Require Import Morphisms Setoid Bool.
@@ -13,11 +14,11 @@ Import ListNotations.
 Import Lia.
 Import Nat.
 
-Import InterpreterEnvList.
+Import NamelessSubst.
 
 Hint Unfold expr_eval_n expr_eval_i : facts.
 
-(* An elimination principle that takes into account nested occurrences of expressions
+(** An elimination principle that takes into account nested occurrences of expressions
    in the list of branches for [eCase] *)
 Definition expr_elim_case (P : expr -> Type)
            (Hrel    : forall n : nat, P (eRel n))
@@ -414,20 +415,6 @@ Section Values.
 Qed.
 
 
-  (* Lemma subst_env_empty : *)
-  (*   forall e : expr, e = subst_env [] e. *)
-  (* Proof. *)
-  (*   intros e. *)
-  (*   induction e using expr_elim_case; simpl; try easy; try congruence. *)
-  (*   f_equal;auto. now rewrite <- IHe. *)
-  (*   rewrite <- IHe1. rewrite <- IHe2. easy. *)
-  (*   rewrite <- map_id at 1. *)
-  (*   f_equal;auto. *)
-  (*   eapply forall_map_spec. *)
-  (*   eapply Forall_impl;eauto. intros a f; destruct a;simpl in *. *)
-  (*   rewrite IHe. easy. *)
-  (* Qed. *)
-
   Lemma subst_env_i_ty_empty k t : t = subst_env_i_ty k [] t.
   Proof.
     revert k.
@@ -476,7 +463,7 @@ Qed.
      instead we ask for equivalence. This is due to substitutions of the
      values in the environment while converting closures back to expressions *)
 
-  Lemma of_val_debruijn_correct n Σ v1 v2 :
+  Lemma of_val_i_correct n Σ v1 v2 :
     accepted_val v1 ->
     expr_eval_i Σ n [] (of_val_i v1) = Ok v2 ->
     v1 ≈ v2.
@@ -673,13 +660,6 @@ Section Validate.
 End Validate.
 
 Section Indexify.
-
-  (* Inductive index_env_ok : list (name * nat) -> env val -> Type := *)
-  (* | iecEmpty : index_env_ok [] enEmpty *)
-  (* | iecCons : forall nm a ρ en, *)
-  (*     index_env_ok en ρ -> *)
-  (*     index_env_ok (nm :: en) (enCons nm a ρ) *)
-  (* | iecRec *)
 
   Lemma indexify_correct n Σ ρ ne v1 v2 e :
     expr_eval_n n Σ ρ e = Ok v1 ->

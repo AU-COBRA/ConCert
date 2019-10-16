@@ -167,8 +167,6 @@ Qed.
 
 Section MapEval.
 
-  Import InterpreterEnvList.
-
   Definition tyNat := eTy (tyInd Nat).
 
   (** Boolean equality of two natural numbers in Oak *)
@@ -227,4 +225,4 @@ Section MapEval.
   Ok (vConstr Maybe "JustOak" [vTy (tyInd Nat); vConstr Nat "Z" []]).
   Proof. compute. reflexivity. Qed.
 
-  End MapEval.
+End MapEval.

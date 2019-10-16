@@ -60,8 +60,6 @@ Print negb_app_true.
 
 Set Printing Notations.
 
-Import InterpreterEnvList.
-
 (* Execute the program using the interpreter *)
 Compute (expr_eval_n Σ 3 [] negb_app_true).
 
