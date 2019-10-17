@@ -1,8 +1,8 @@
 (** * Convertion from values back to expressions through the environment substitution *)
-Require Import List Bool Relations Morphisms ssrbool.
+Require Import List Bool Relations Morphisms ssrbool PeanoNat.
 Require Import MetaCoq.Template.utils.
 
-Require Import Ast.
+Require Import Ast CustomTactics Misc.
 Require Import EvalE.
 Require Import MyEnv.
 
@@ -101,115 +101,51 @@ Module NamelessSubst.
     subst_env_i (map (fun x => (fst x, of_val_i (snd x))) ρ) e.
   Notation "e .[ ρ ]" := (subst_env_i ρ e) (at level 6).
 
-  Definition is_type e : bool :=
-    match expr_to_ty e with
-    | Some _ => true
-    | _ => false
-    end.
+  Import Lia.
 
-  (** *** Well-formedness conditions  *)
-
-  (** Well-formed constructor in the definition of an inductive *)
-  Definition constr_ok (nparam : nat) (c : constr) : bool :=
-    forallb (iclosed_ty nparam) (map snd c.2).
-
-  (** Well-formed global geclaration *)
-  Definition global_dec_ok (gd : global_dec) : bool :=
-    match gd with
-    | gdInd _ nparam cs _ => forallb (constr_ok nparam) cs
-    end.
-
-  (** Well-formed global environment *)
-  Definition genv_ok Σ := forallb global_dec_ok Σ.
+  Lemma lookup_i_of_val_env ρ n v :
+    lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (of_val_i v).
+  Proof.
+    revert dependent n.
+    induction ρ;intros n0 Hρ.
+    + easy.
+    + destruct a;simpl in *.
+      destruct n0.
+      * simpl in *. inversion Hρ. subst. reflexivity.
+      * simpl in *. replace (n0 - 0) with n0 in * by lia. easy.
+  Qed.
 
 
-  (** Well-formedness condition in evaluation environments wrt. a type: [ρ] is well-formed wrt. a type [ty] when for any type variables mentioned in [ty], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
-  Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type): bool :=
-    match ty with
-    | tyInd x => true
-    | tyForall v ty0 => ty_env_ok (S n) ρ ty0
-    | tyApp ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
-    | tyVar _ => false
-    | tyRel i => if Nat.leb n i then
-                  match lookup_i ρ (i-n) with
-                  | Some e => is_type e (* if there is somethig in [ρ], it must be a type *)
-                  | None => true (* if nothing there, that's ok *)
-                  end
-                else true
-    | tyArr ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
-    end.
-
-  (** Well-formedness condition in evaluation environments wrt. an expression ((WF.i) in the paper): [ρ] is well-formed wrt. an expression [e] when for any type variables mentioned in [e], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
-  Definition ty_expr_env_ok (ρ : env expr) : nat -> expr -> bool:=
-    fix rec n e :=
-      match e with
-      | eRel i => true
-      | eVar nm  => false
-      | eLambda nm ty b => ty_env_ok n ρ ty && rec (1+n) b
-      | eTyLam nm b => rec (1+n) b
-      | eLetIn nm e1 ty e2 => rec n e1 && ty_env_ok n ρ ty && rec (1+n) e2
-      | eApp e1 e2 => rec n e1 && rec n e2
-      | eConstr t i as e' => true
-      | eConst nm => true
-      | eCase nm_i ty e bs =>
-        let bs'' := List.forallb
-                      (fun x => rec (length (pVars (fst x)) + n) (snd x)) bs in
-        forallb (ty_env_ok n ρ) (snd nm_i) && ty_env_ok n ρ ty && rec n e && bs''
-      | eFix nm v ty1 ty2 b => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2 && rec (2+n) b
-      | eTy ty => ty_env_ok n ρ ty
-      end.
-
-  (** This predicate defines a subset of types which are values *)
-  Inductive ty_val : type -> Type :=
-  | vtyInd : forall ind, ty_val (tyInd ind)
-  | vtyRel : forall i, ty_val (tyRel i)
-  | vtyForall : forall nm ty , ty_val ty -> ty_val (tyForall nm ty)
-  | vtyApp : forall ty1 ty2 ind tys,
-      decompose_inductive ty1 = Some (ind, tys) ->
-      ty_val ty1 ->
-      ty_val ty2 ->
-      ty_val (tyApp ty1 ty2)
-  | vtyArr : forall ty1 ty2,
-      ty_val ty1 ->
-      ty_val ty2 ->
-      ty_val (tyArr ty1 ty2).
-
- (** Well-formed value ((WF.iii) in the paper) *)
- Inductive val_ok Σ : val -> Type :=
-  | vokClosLam : forall e nm ρ ty1 ty2,
-      AllEnv (val_ok Σ) ρ ->
-      ty_expr_env_ok (exprs ρ) 1 e ->
-      iclosed_n (1 + length ρ) e ->
-      iclosed_ty 0 ty1 ->
-      iclosed_ty 0 ty2 ->
-      ty_val ty1 ->
-      ty_val ty2 ->
-      val_ok Σ (vClos ρ nm cmLam ty1 ty2 e)
-  | vokClosFix : forall e nm fixename ρ ty1 ty2,
-      AllEnv (val_ok Σ) ρ ->
-      ty_expr_env_ok (exprs ρ) 2 e ->
-      iclosed_n (2 + length ρ) e ->
-      iclosed_ty 0 ty1 ->
-      iclosed_ty 0 ty2 ->
-      ty_val ty1 ->
-      ty_val ty2 ->
-      val_ok Σ (vClos ρ nm (cmFix fixename) ty1 ty2 e)
-  | vokTyClos : forall e nm ρ,
-      AllEnv (val_ok Σ) ρ ->
-      ty_expr_env_ok (exprs ρ) 1 e ->
-      iclosed_n (1 + length ρ) e ->
-      val_ok Σ (vTyClos ρ nm e)
-  | vokContr : forall i nm vs ci,
-      All (val_ok Σ) vs ->
-      resolve_constr Σ i nm = Some ci ->
-      val_ok Σ (vConstr i nm vs)
-  | vokTy : forall ty,
-      iclosed_ty 0 ty ->
-      ty_val ty ->
-      val_ok Σ (vTy ty).
-
- (** Well-formed evaluation environment contains well-formed values *)
- Definition env_ok Σ (ρ : env val) := AllEnv (val_ok Σ) ρ.
+  Lemma inst_env_i_in (ρ : env val) n :
+    n <? length ρ ->
+    {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = of_val_i v}.
+  Proof.
+    intros Hlt.
+    revert dependent n.
+    induction ρ;intros n1 Hlt.
+    + easy.
+    + destruct (Nat.eqb n1 0) eqn:Hn1.
+      * destruct a. eexists. split.
+        ** simpl. rewrite Hn1.
+           reflexivity.
+        ** simpl in *. unfold inst_env_i,subst_env_i. simpl.
+           assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
+           subst. simpl. reflexivity.
+      * destruct a.
+        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
+        destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
+        subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
+        apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.
+        specialize (IHρ _ Hlt). destruct IHρ as [v1 HH]. destruct HH as [H1 H2].
+        exists v1. split.
+        ** simpl in *. replace (n2 - 0) with n2 by lia. assumption.
+        ** specialize (lookup_i_length _ _ Hlt) as Hlookup.
+           destruct Hlookup.
+           simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
+           rewrite <- H2. replace (n2 - 0) with n2 by lia.
+           apply lookup_i_of_val_env in H1.
+           now eapply from_option_indep.
+  Qed.
 
 End NamelessSubst.
 

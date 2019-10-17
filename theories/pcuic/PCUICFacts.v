@@ -4,7 +4,8 @@ Require Import MetaCoq.Template.monad_utils MetaCoq.Template.All.
 Require Import String List.
 Require Import Morphisms Setoid Bool.
 
-Require Import CustomTactics Misc MyEnv Ast EvalE PCUICTranslate EnvSubst.
+From ConCert Require Import CustomTactics Misc MyEnv Ast
+     EvalE PCUICTranslate EnvSubst Wf.
 
 Import Basics.
 Open Scope program_scope.
@@ -103,30 +104,6 @@ Section Values.
     + simpl in *. destruct x; destruct (Nat.eqb n 0);inversion Hl;subst;eauto.
   Qed.
 
-
-  Lemma lookup_i_length {A} (ρ : env A) n :
-    (n <? length ρ) = true -> {e | lookup_i ρ n = Some e}.
-  Proof.
-    intros H. revert dependent n.
-    induction ρ;intros;leb_ltb_to_prop;simpl in *.
-    elimtype False. lia.
-    destruct a. destruct n.
-    + simpl;eauto.
-    + simpl. assert (n < #|ρ|) by lia. replace (n-0) with n by lia.
-      prop_to_leb_ltb. now apply IHρ.
-  Qed.
-
-  Lemma lookup_i_length_false {A} (ρ : env A) n :
-    (n <? length ρ) = false -> lookup_i ρ n = None.
-  Proof.
-    intros H. revert dependent n.
-    induction ρ;intros;leb_ltb_to_prop;simpl in *;auto.
-    destruct a. destruct n.
-    + simpl;eauto. inversion H.
-    + simpl. assert (#|ρ| <= n) by lia. replace (n-0) with n by lia.
-      rewrite <- PeanoNat.Nat.ltb_ge in *.
-      now apply IHρ.
-  Qed.
 
   Lemma iclosed_ty_geq ty : forall n m, m >= n -> iclosed_ty n ty = true -> iclosed_ty m ty = true.
   Proof.
@@ -658,21 +635,3 @@ Section Validate.
       eapply (All_impl H);eauto.
   Qed.
 End Validate.
-
-Section Indexify.
-
-  Lemma indexify_correct n Σ ρ ne v1 v2 e :
-    expr_eval_n n Σ ρ e = Ok v1 ->
-    expr_eval_i n Σ ρ (indexify ne e) = Ok v2 ->
-    v1 = v2.
-  Proof.
-    intros Hn Hi.
-    induction e using expr_ind_case;autounfold with facts in *.
-    + (* This will be proved trivially if we add an assuption that
-         there are no indices in [e] *)
-      admit.
-    + destruct n;tryfalse. simpl in *.
-      destruct (Ast.lookup ne n0) eqn:Heq;tryfalse.
-      Admitted.
-
-End Indexify.

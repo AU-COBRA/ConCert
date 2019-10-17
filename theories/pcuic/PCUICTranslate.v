@@ -1,13 +1,16 @@
+(** * Translation from λsmart expressions to PCUIC terms *)
 Require Import String List.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
 From MetaCoq.Template Require Import BasicAst utils monad_utils.
-From ConCert Require Import Ast Notations.
+From ConCert Require Import Ast Notations Misc.
 
 Module P := PCUICAst.
 Import MonadNotation.
 Import ListNotations.
 
-(** Translation of types to MetaCoq terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
+(** ** Translation of types *)
+
+(** Translation of types to PCUIC terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd i 0) []
@@ -48,12 +51,9 @@ Definition trans_branch (params : list type)(bs : list (pat * term))
     | None => dummy
   end.
 
-Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D :=
-  fun x => (f (fst x), g (snd x)).
-
 Open Scope list.
 
-(** ** Translation of Oak to MetaCoq *)
+(** ** Translation of expressions *)
 
 Definition expr_to_term (Σ : global_env) : expr -> term :=
 fix expr_to_term e :=
@@ -96,7 +96,7 @@ fix expr_to_term e :=
   end.
 
 
-(** * Translating inductives *)
+(** * Translation of inductives *)
 
 Import Basics.
 

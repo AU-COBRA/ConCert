@@ -1,3 +1,4 @@
+(** * Integration with the execution framework, properties in crowdfunding *)
 Require Import String Basics ZArith.
 From ConCert Require Import Misc Notations PCUICtoTemplate
      PCUICTranslate CustomTactics.
@@ -106,6 +107,7 @@ Section Serialize.
 
 End Serialize.
 
+(** ** Wrappers *)
 Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
@@ -281,6 +283,7 @@ Proof.
     now rewrite prev_next in *.
 Qed.
 
+(** ** Contract balance consistent with the sum of individual contributions *)
 Lemma cf_balance_consistent bstate cf_addr lstate :
   reachable bstate ->
   env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->
@@ -711,6 +714,7 @@ Proof.
     right. right. eexists;split;eauto.
 Qed.
 
+(** ** The actual contract balance is consistent with the local state *)
 Theorem cf_backed bstate cf_addr lstate:
   let acts := chain_state_queue bstate in
   reachable bstate ->
@@ -885,6 +889,7 @@ Proof.
   cbn in *. lia.
 Qed.
 
+(** ** The actual contract balance is consistent the sum of individual contributions *)
 Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
           prev hd acts new cf_addr lstate :
   builder_add_block prev hd acts = Some new ->

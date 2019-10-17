@@ -1,4 +1,4 @@
-(** * Interpreter for the Oak langage *)
+(** * Interpreter for the λsmart langage *)
 
 (** This version of the interpreter supports polymorhic types *)
 Require Import String List Bool.

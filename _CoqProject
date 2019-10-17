@@ -9,6 +9,7 @@
 ./theories/Tests.v
 ./theories/EvalE.v
 ./theories/EnvSubst.v
+./theories/Wf.v
 ./theories/pcuic/PCUICTranslate.v
 ./theories/pcuic/PCUICFacts.v
 ./theories/pcuic/PCUICCorrectnessAux.v
@@ -16,7 +17,6 @@
 
 ./theories/examples/Demo.v
 ./theories/examples/AcornExamples.v
-./theories/examples/ExampleContracts.v
 ./theories/examples/crowdfunding/Prelude.v
 ./theories/examples/crowdfunding/SimpleBlockchain.v
 ./theories/examples/crowdfunding/CrowdfundingData.v

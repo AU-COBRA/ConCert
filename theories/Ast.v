@@ -1,4 +1,4 @@
-(** * AST and translation of Oak to MetaCoq supporting polymorphism *)
+(** * λsmart language definition  *)
 Require MetaCoq.Template.All.
 Require Import MetaCoq.Template.LiftSubst MetaCoq.Template.utils.
 
@@ -27,7 +27,7 @@ Inductive type : Set :=
 
 Record pat := pConstr {pName : ename; pVars : list ename}.
 
-(** ** Oak AST *)
+(** ** λsmart AST *)
 
 (** We have both named variables and de Bruijn indices.  Translation to Meta Coq requires indices, while named representation is what we might get from the integration API. We can define relations on type of expressions ensuring that either names are used, or indices, but not both at the same time. *)
 
@@ -184,6 +184,8 @@ Open Scope string.
 Example number_vars_xyz : number_vars 0 ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)].
 Proof. reflexivity. Qed.
 
+(** ** Convertion from named representation to De Bruijn indices *)
+
 (** Converting variable names to De Bruijn indices in types *)
 Fixpoint indexify_type (l : list (ename * nat)) (ty : type) : type :=
   match ty with
@@ -237,6 +239,7 @@ Fixpoint indexify (l : list (ename * nat)) (e : expr) : expr :=
   | eTy ty => eTy (indexify_type l ty)
   end.
 
+(** Lifting indices of type variables in types *)
 Fixpoint lift_type_vars (n k : nat) (ty : type) : type :=
   match ty with
   | tyInd nm => tyInd nm
@@ -248,6 +251,8 @@ Fixpoint lift_type_vars (n k : nat) (ty : type) : type :=
   | tyArr ty1 ty2 =>
     tyArr (lift_type_vars n k ty1) (lift_type_vars n k ty2)
   end.
+
+(** ** Merging type and term De Bruijn indices *)
 
 (** Merging De Bruijn indices of type variables corresponding to type abstractions with lambda abstractions. We assume that the expressions are in the prenex form, so type abstractions can only occur at the outermost positions: [\\A => \\ B => ... \x => \y => t] *)
 Fixpoint reindexify (n : nat) (e : expr) : expr :=

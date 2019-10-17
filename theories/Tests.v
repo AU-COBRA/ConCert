@@ -1,3 +1,5 @@
+(** * Various examples of using notations and conversion to the shallow embedding *)
+
 From ConCert Require Import Ast Notations PCUICTranslate PCUICtoTemplate.
 From Coq Require Import Basics String List.
 

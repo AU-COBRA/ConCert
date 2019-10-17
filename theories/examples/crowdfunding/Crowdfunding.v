@@ -90,8 +90,15 @@ Module CrowdfundingContract.
     (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   End Receive.
+End CrowdfundingContract.
 
-  Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
+Import CrowdfundingContract.
+
+(** ** Properties of the crowdfunding contract *)
+
+Module CrowdfundingProperties.
+  Import AcornBlockchain.
+    Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
   Ltac split_andb := apply Bool.andb_true_iff;split.
 
 
@@ -137,14 +144,6 @@ Module CrowdfundingContract.
    unfold is_true in *. rewrite Bool.negb_true_iff in *.
    rewrite Z.ltb_nlt in *. rewrite Z.leb_le in *. lia.
   Qed.
-End CrowdfundingContract.
-
-Import CrowdfundingContract.
-
-(** ** Properties of the crowdfunding contract *)
-
-Module CrowdfundingProperties.
-  Import AcornBlockchain.
 
   (** This lemma states that the only relevat part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :

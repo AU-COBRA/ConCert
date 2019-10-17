@@ -7,7 +7,7 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyp
 
 Require Import String List Basics.
 
-Require Import CustomTactics Misc MyEnv EnvSubst Ast EvalE PCUICFacts PCUICTranslate.
+Require Import CustomTactics Misc MyEnv EnvSubst Ast EvalE PCUICFacts PCUICTranslate Wf.
 
 
 Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i Σ n ρ e) (at level 100).
@@ -91,55 +91,6 @@ Section WcbvEvalProp.
 
 End WcbvEvalProp.
 
-
-Lemma from_option_indep {A} (o : option A) d  d' v :
-  o = Some v -> from_option o d = from_option o d'.
-Proof.
-  intros;subst;easy.
-Qed.
-
-Lemma lookup_i_of_val_env ρ n v :
-  lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (of_val_i v).
-Proof.
-  revert dependent n.
-  induction ρ;intros n0 Hρ.
-  + easy.
-  + destruct a;simpl in *.
-    destruct n0.
-    * simpl in *. inversion Hρ. subst. reflexivity.
-    * simpl in *. replace (n0 - 0) with n0 in * by lia. easy.
-Qed.
-
-Lemma inst_env_i_in (ρ : env val) n :
-  n <? length ρ ->
-  {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = of_val_i v}.
-Proof.
-  intros Hlt.
-  revert dependent n.
-  induction ρ;intros n1 Hlt.
-  + easy.
-  + destruct (Nat.eqb n1 0) eqn:Hn1.
-    * destruct a. eexists. split.
-      ** simpl. rewrite Hn1.
-         reflexivity.
-      ** simpl in *. unfold inst_env_i,subst_env_i. simpl.
-         assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
-         subst. simpl. reflexivity.
-    * destruct a.
-      assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
-      destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
-      subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
-      apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.
-      specialize (IHρ _ Hlt). destruct IHρ as [v1 HH]. destruct HH as [H1 H2].
-      exists v1. split.
-      ** simpl in *. replace (n2 - 0) with n2 by lia. assumption.
-      ** specialize (lookup_i_length _ _ Hlt) as Hlookup.
-         destruct Hlookup.
-         simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
-         rewrite <- H2. replace (n2 - 0) with n2 by lia.
-         apply lookup_i_of_val_env in H1.
-         now eapply from_option_indep.
-Qed.
 
 Definition is_app (e : expr) : bool :=
   match e with
@@ -544,18 +495,14 @@ Definition lpat_to_lam : term -> list term -> list (BasicTC.ident * term) -> ter
        match tys with
          [] => body
        | (n,ty) :: tys' =>
-         (* NOTE: we need to substitute the parameters into the type of each lambda representing a pattern binder. Since each lambda introduces a binder, we need also to lift free variables in [ty_params] *)
+         (* NOTE: we need to substitute the parameters into the type
+         of each lambda representing a pattern binder. Since each
+         lambda introduces a binder, we need also to lift free
+         variables in [ty_params] *)
          let lam_type := subst (map (lift0 #|tys'|) ty_params) 0 ty in
          rec (tLambda (BasicTC.nNamed n) lam_type body) ty_params tys'
        end.
 
-
-(* Fixpoint lpat_to_lam (tys : list (name * type)) (body : term) {struct tys} : term := *)
-(*   match tys with *)
-(*   | [] => body *)
-(*   | (n, ty) :: tys' => *)
-(*     lpat_to_lam tys' (tLambda n (type_to_term ty) body) *)
-(*   end. *)
 
 Lemma map_lift0 xs : map (lift0 0) xs = xs.
 Proof.
@@ -648,8 +595,6 @@ Ltac destr_args args := let args0 := fresh "args0" in
                         destruct args as [ | ? args0];
                         tryfalse;try destruct args0;tryfalse.
 
-SearchPattern (Type -> Type -> Type).
-
 Notation "P <--> Q" := (Logic.BiImpl P Q) (at level 100).
 
 (* NOTE: this solves the "evaluation in one go" issue in [eCase]*)
@@ -699,66 +644,6 @@ Qed.
 Hint Resolve <- closed_mkApps : hints.
 Hint Resolve -> closed_mkApps : hints.
 
-Section CombineProp.
-
-  Lemma combine_app : forall A B (l2 l2': list B) (l1 l1' : list A),
-    #|l1| = #|l2| ->
-    combine (l1 ++ l1') (l2 ++ l2') = combine l1 l2 ++ combine l1' l2'.
-  Proof.
-    induction l2.
-    + simpl. intros l2' l1 l1' Heq. destruct l1;tryfalse;reflexivity.
-    + simpl. intros l2' l1 l1' Heq. destruct l1;cbn. inversion Heq.
-      simpl. f_equal. easy.
-  Qed.
-
-  Lemma combine_rev : forall A B (l2 : list B) (l1 : list A),
-    #|l1| = #|l2| ->
-    combine (rev l1) (rev l2) = rev (combine l1 l2).
-  Proof.
-    intros A B.
-    induction l2 using utils.rev_ind.
-    + simpl. intros l1 Heq. destruct l1;eauto.
-      simpl;destruct (rev l1 ++ [a]);reflexivity.
-    + simpl. intros l1 Heq. destruct l1 using utils.rev_ind;auto.
-      repeat rewrite app_length in Heq;simpl in *.
-      assert (#|l1| = #|l2|) by lia.
-      repeat rewrite rev_unit. simpl.
-      rewrite IHl2 by auto.
-      rewrite combine_app by auto.
-      simpl. now rewrite rev_unit.
-  Qed.
-
-  Lemma map_combine_snd : forall A B (l2 : list B) (l1 : list A),
-    #|l1| = #|l2| ->
-   map snd (combine l1 l2) = l2.
-  Proof.
-    induction l2.
-    + simpl. intros l1 Heq. destruct l1;reflexivity.
-    + simpl. intros l1 Heq. destruct l1;cbn. inversion Heq.
-      simpl. f_equal. easy.
-  Qed.
-
-
-  Lemma map_map_combine_snd : forall A B C (f : B -> C) (l2 : list B) (l1 : list A),
-      #|l1| = #|l2| ->
-      (map f l2) = map f (map snd (combine l1 l2)).
-  Proof.
-    intros; now rewrite map_combine_snd.
-  Qed.
-
-  Lemma map_combine_snd_funprod :
-    forall A B C (f : B -> C) (l1 : list A) (l2 : list B),
-      map (fun_prod id f) (combine l1 l2) = combine l1 (map f l2).
-  Proof.
-    induction l1;intros.
-    + reflexivity.
-    + destruct l2.
-      * reflexivity.
-      * cbn. f_equal. apply IHl1.
-  Qed.
-
-End CombineProp.
-
 Lemma genv_ok_constrs_ok Σ ind cs nparam:
   genv_ok Σ ->
   resolve_inductive Σ ind = Some (nparam, cs) ->
@@ -771,27 +656,6 @@ Proof.
   induction Σ;intros;tryfalse.
   cbn in *. destruct a. cbn in *.
   destruct (e0 =? ind);now inv_andb Hgeok.
-Qed.
-
-Lemma Forall_In {A} x (xs : list A) P :
-  In x xs ->
-  Forall P xs ->
-  P x.
-Proof.
-  revert x.
-  induction xs;intros x Hin Hfa;auto.
-  * inversion Hin.
-  * simpl in *. destruct Hin;subst; inversion Hfa;eauto.
-Qed.
-
-Lemma forallb_In {A} x (xs : list A) p :
-  In x xs ->
-  forallb p xs ->
-  p x.
-Proof.
-  revert x.
-  induction xs;intros x Hin Hfa;auto.
-  simpl in *. inv_andb Hfa;intuition;subst;auto.
 Qed.
 
 Lemma constrs_ok_in s c (cs : list constr) nparam :
@@ -1472,6 +1336,7 @@ Qed.
 
 Hint Resolve ty_expr_env_ok_app_rec : hints.
 
+(** ** Environment substitution commutes with PCUIC substitution (In the paper: Translation soundness. Lemma 1.) *)
 Lemma subst_term_subst_env_par_rec :
   forall Σ (l : env expr) e k,
   genv_ok Σ ->
@@ -1801,6 +1666,7 @@ Qed.
 
 Hint Resolve eval_ty_expr_env_ok eval_ty_env_ok : hints.
 
+(** ** Evaluation gives well-formed values (In the paper: Translation soundness. Lemma 2) *)
 Lemma eval_val_ok n ρ Σ e v :
   ty_expr_env_ok (exprs ρ) 0 e ->
   env_ok Σ ρ ->

@@ -1,3 +1,4 @@
+(** * Almost one-to-one tranlsation of PCUIC to Template Coq kernel AST *)
 From Coq Require Import Bool String List Program BinPos Compare_dec Omega.
 From MetaCoq.Template Require Import config utils AstUtils BasicAst Ast.
 From MetaCoq.Checker Require Import WfInv Typing Weakening TypingWf.

@@ -1,4 +1,8 @@
-Require Import List String.
+(** * Evaluation environments *)
+
+Require Import String List PeanoNat Coq.micromega.Lia.
+
+From ConCert Require Import CustomTactics.
 
 Import ListNotations.
 
@@ -43,3 +47,27 @@ Fixpoint remove_by_key {A} (key : string) (ρ : env A) : env A :=
   | (nm,a) :: ρ' => if (eqb nm key) then remove_by_key key ρ'
                   else (nm,a) :: (remove_by_key key ρ')
   end.
+
+Lemma lookup_i_length {A} (ρ : env A) n :
+  (n <? length ρ) = true -> {e | lookup_i ρ n = Some e}.
+Proof.
+  intros H. revert dependent n.
+  induction ρ;intros;leb_ltb_to_prop;simpl in *.
+  elimtype False. lia.
+  destruct a. destruct n.
+  + simpl;eauto.
+  + simpl. assert (n < length ρ) by lia. replace (n-0) with n by lia.
+    prop_to_leb_ltb. now apply IHρ.
+Qed.
+
+Lemma lookup_i_length_false {A} (ρ : env A) n :
+  (n <? length ρ) = false -> lookup_i ρ n = None.
+Proof.
+  intros H. revert dependent n.
+  induction ρ;intros;leb_ltb_to_prop;simpl in *;auto.
+  destruct a. destruct n.
+  + simpl;eauto. inversion H.
+  + simpl. assert (length ρ <= n) by lia. replace (n-0) with n by lia.
+    rewrite <- PeanoNat.Nat.ltb_ge in *.
+    now apply IHρ.
+Qed.

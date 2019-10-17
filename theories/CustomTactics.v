@@ -1,13 +1,13 @@
-(* A place for various tactic used for the development*)
+(** * A place for various tactic used for the development*)
 
 Require Import Lia ZArith List.
 
-(** * Tactics taken from the Software Foundations' LibTactics.v *)
+(** ** Tactics taken from the Software Foundations' LibTactics.v *)
 
 Set Implicit Arguments.
 
 (* ================================================================= *)
-(** ** Untyped Arguments for Tactics *)
+(** Untyped Arguments for Tactics *)
 
 (** Any Coq value can be boxed into the type [Boxer]. This is
     useful to use Coq computations for implementing tactics. *)
@@ -17,7 +17,7 @@ Inductive Boxer : Type :=
 
 
 (* ================================================================= *)
-(** ** Numbers as Arguments *)
+(** Numbers as Arguments *)
 
 (** When tactic takes a natural number as argument, it may be
     parsed either as a natural number or as a relative number.
@@ -41,7 +41,7 @@ Ltac number_to_nat N :=
 
 
 (* ================================================================= *)
-(** ** Absurd Goals *)
+(** Absurd Goals *)
 
 (** [false_goal] replaces any goal by the goal [False].
     Contrary to the tactic [false] (below), it does not try to do
@@ -76,7 +76,7 @@ Ltac some_inv := repeat (match goal with
                          end).
 
 (* ================================================================= *)
-(** ** Deconstructing Terms *)
+(** Deconstructing Terms *)
 
 (** [get_head E] is a tactic that returns the head constant of the
     term [E], ie, when applied to a term of the form [P x1 ... xN]
@@ -103,7 +103,7 @@ Ltac get_head E :=
 
 
 (* ================================================================= *)
-(** ** Unfolding *)
+(** Unfolding *)
 
 (** [unfolds] unfolds the head definition in the goal, i.e. if the
     goal has form [P x1 ... xN] then it calls [unfold P].
@@ -152,7 +152,7 @@ Tactic Notation "unfolds" "in" hyp(H1) hyp(H2) hyp(H3) hyp(H4) hyp(H5) :=
 
 
 (* ################################################################# *)
-(** * N-ary Conjunctions and Disjunctions *)
+(** N-ary Conjunctions and Disjunctions *)
 
 (** N-ary Conjunctions Splitting in Goals *)
 
@@ -298,6 +298,8 @@ Hint Extern 10 (~ _ >= _) => abstract lia: zarith.
 Hint Extern 10 (~ _ > _) => abstract lia: zarith.
 
 Hint Extern 10 False => abstract lia: zarith.
+
+(** ** Converting between bool and Prop *)
 
 Ltac inv_andb H := apply Bool.andb_true_iff in H;destruct H.
 Ltac split_andb := apply Bool.andb_true_iff;split.
