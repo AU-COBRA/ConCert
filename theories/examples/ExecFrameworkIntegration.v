@@ -1,4 +1,4 @@
-(** * Integration with the execution framework, properties in crowdfunding *)
+(** * Integration with the execution framework, properties of [crowdfunding] *)
 Require Import String Basics ZArith.
 From ConCert Require Import Misc Notations PCUICtoTemplate
      PCUICTranslate CustomTactics.
@@ -283,7 +283,7 @@ Proof.
     now rewrite prev_next in *.
 Qed.
 
-(** ** Contract balance consistent with the sum of individual contributions *)
+(** ** Contract balance in the local state consistent with the sum of individual contributions *)
 Lemma cf_balance_consistent bstate cf_addr lstate :
   reachable bstate ->
   env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->

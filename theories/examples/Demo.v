@@ -1,3 +1,4 @@
+(** * Simple examples on how to use our framework  **)
 Require Import String Basics.
 Require Import List.
 Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.

@@ -1,5 +1,3 @@
-(** * Contract examples  *)
-
 (**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
 Require Import String ZArith Basics.
@@ -24,13 +22,13 @@ Import Lia.
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
 
-(** ** The crowdfunding contract *)
+(** * The crowdfunding contract *)
 
 Module CrowdfundingContract.
 
   Import AcornBlockchain.
 
-  (** *** AST of the [init] function *)
+  (** ** AST of the [init] function *)
   Module Init.
     Import Notations.
     Definition crowdfunding_init : expr :=
@@ -42,7 +40,7 @@ Module CrowdfundingContract.
     Check init.
  End Init.
 
- (** *** AST of the [receive] function *)
+ (** ** AST of the [receive] function *)
  Module Receive.
    Import Notations.
    Import Prelude.
@@ -94,7 +92,7 @@ End CrowdfundingContract.
 
 Import CrowdfundingContract.
 
-(** ** Properties of the crowdfunding contract *)
+(** * Properties of the crowdfunding contract *)
 
 Module CrowdfundingProperties.
   Import AcornBlockchain.

@@ -1,6 +1,6 @@
-(** * Prelude *)
+(** * Prelude -- definitions of basic of data types*)
 
-(** Basic definition of data types required for the crowdfunding contract along with notations for developing contract using the deep embedding *)
+(** Definitions of basic of data types required for the crowdfunding contract along with notations for developing contract using the deep embedding *)
 
 Require Import String ZArith Basics.
 From ConCert Require Import Ast CustomTactics Notations

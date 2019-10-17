@@ -17,6 +17,7 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
+(** We TemplateMonad to translate and unquote a list of data type declarations *)
 Fixpoint translateData (es : list global_dec) :=
   match es with
   | [] => tmPrint "Done."
@@ -26,29 +27,26 @@ Fixpoint translateData (es : list global_dec) :=
     translateData es'
   end.
 
+(** This function translates and unquotes a list of function definitions *)
 Fixpoint translateDefs Σ (es : list (string * expr)) :=
   match es with
   | [] => tmPrint "Done."
   | (name, e) :: es' =>
     coq_expr <- tmEval all (expr_to_tc Σ (reindexify 0 e)) ;;
-    (* tm <- tmUnquote coq_expr ;; *)
-    (* def_txt <- tmEval all ("Definition " ++ name ++ " :=");; *)
-    (* def_ty <- tmEval all (my_projT1 tm);; *)
-    (* def <- tmEval cbn (my_projT2 tm);; *)
-    (* tmDefinition name def;; *)
     print_nf ("Unquoted: " ++ name);;
-    (* print_nf coq_expr;; *)
     tmMkDefinition name coq_expr;;
-    (* tmPrint def_txt;; *)
-    (* tmPrint def_ty;; *)
-    (* tmPrint def;; *)
     translateDefs Σ es'
   end.
 
 Open Scope list.
 
-(** The [Bool] module from the standard library of Acorn *)
+(** All ASTs below were produced by a printing function implemented in Haskell and operating on Haskell representation of Acorn terms. We collecter the outputs of our printing procedure for several modules in this Coq file. For the [ListBase] example, we give also a corresponding Acorn source code *)
+
+(** ** [Bool] module from the standard library of Acorn *)
 Module AcornBool.
+
+
+
   Definition Data := [gdInd "Bool" 0 [("True_coq", []);("False_coq", [])] false].
   (*---------------------*)
   Definition Functions := [("not", eLambda "x" ((tyInd "Bool")) (eCase ("Bool", []) ((tyInd "Bool")) (eRel 0) [(pConstr "True_coq" [], eConstr "Bool" "False_coq");(pConstr "False_coq" [], eConstr "Bool" "True_coq")]))].
@@ -57,7 +55,7 @@ Module AcornBool.
   Run TemplateProgram (translateDefs (StdLib.Σ ++ Data) Functions).
 End AcornBool.
 
-(** The [Maybe] module from the standard library of Acorn *)
+(** ** [Maybe] module from the standard library of Acorn *)
 
 Module AcornMaybe.
   Import AcornBool.
@@ -74,8 +72,7 @@ End AcornMaybe.
 
 Import AcornMaybe.
 
-Print isJust.
-
+(** ** Acorn pairs  *)
 Module AcornProd.
 
   Definition Data := [gdInd "Pair" 2 [("Pair_coq", [(None, tyRel 1);(None, tyRel 0)])] false].
@@ -89,40 +86,86 @@ Module AcornProd.
   Run TemplateProgram (translateDefs (StdLib.Σ ++ Data) Functions).
 End AcornProd.
 
+(** ** Acorn [List] module *)
+
+(** We consider the example of verifying certain functions on Acorn lists in in the paper. We provide a full source code for the Acorn [ListBase] we translated *)
+
+(*
+module ListBase where
+
+import Prod
+import Bool
+
+data List a = Nil [] | Cons [a, (List a)]
+
+definition singleton a (x :: a) = Cons [a] x (Nil [a])
+
+definition foldr a b (f :: a -> b -> b) (initVal :: b) =
+  letrec go (xs :: List a) :: b =
+         case xs of
+            Nil -> initVal
+            Cons x xs' -> f x (go xs')
+  in go
+
+
+definition map a b (f :: a -> b) =
+    foldr [a] [List b] (fun (x :: a) = Cons [b] (f x)) (Nil [b])
+
+
+-- This definition corresponds to fold_left from the Coq's StdLib.
+-- Recursion is on the first argument. This is the only case handled by Acorn -> Coq translation.
+definition foldl_alt a b (f :: b -> a -> b) =
+  letrec go (xs :: List a) (acc :: b) :: b =
+     case xs of
+       Nil -> acc
+       Cons x xs' -> go xs' (f acc x)
+  in go
+
+definition foldl a b (f :: b -> a -> b) (x :: b) (xs :: List a) = foldl_alt [a] [b] f xs x
+
+definition concat a (xs :: List a) (ys :: List a) =
+   foldr [a] [List a] (Cons [a]) ys xs
+
+definition zipWith a b c (f :: a -> b -> c) =
+  letrec go (xs :: List a) :: (List b -> List c) =
+    fun (ys :: List b) = case xs of
+                           Nil -> Nil [c]
+                           Cons x xs' -> case ys of
+                                           Nil -> Nil [c]
+                                           Cons y ys' -> Cons [c] (f x y) (go xs' ys')
+  in go
+
+definition reverse a =
+   foldl [a] [List a] (fun (xs :: List a) (x :: a) = Cons [a] x xs) (Nil [a])
+
+definition zip a b = zipWith [a] [b] [Prod.Pair a b] (Prod.Pair [a] [b])
+
+definition filter a (p :: a -> Bool.Bool) =
+  foldr [a] [List a] (fun (x :: a) (xs :: List a) =
+      case p x of
+        Bool.True -> Cons [a] x xs
+        Bool.False -> xs) (Nil [a])
+*)
 Module AcornListBase.
   Import AcornBool.
   Import AcornProd.
 
-  Definition Data :=  [gdInd "List" 1 [("Nil_coq", []);("Cons_coq", [(None, tyRel 0);(None, (tyApp (tyInd "List") (tyRel 0)))])] false].
-
-  (*---------------------*)
-
-  Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))
-  ;
-("foldr", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyArr (tyRel 0) (tyRel 0))) (eLambda "x" (tyRel 0) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 0) [(pConstr "Nil_coq" [], eRel 2);(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eRel 5) (eRel 1)) (eApp (eRel 3) (eRel 0)))])) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0)) (eRel 0))))))
- ;
-  ("map", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyRel 0)) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 1))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 1) (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eApp (eRel 1) (eRel 0))))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)))))))
- ;
-
-("foldl_alt", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyArr (tyRel 0) (tyRel 0)) (eLambda "x" (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 1) [(pConstr "Nil_coq" [], eRel 0);(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eRel 4) (eRel 0)) (eApp (eApp (eRel 5) (eRel 2)) (eRel 1)))]))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyArr (tyRel 0) (tyRel 0))) (eRel 0)))))
+Definition Data := [gdInd "List" 1 [("Nil_coq", []);("Cons_coq", [(None, tyRel 0);(None, (tyApp (tyInd "List") (tyRel 0)))])] false].
+(*---------------------*)
+Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))
+;("foldr", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyArr (tyRel 0) (tyRel 0))) (eLambda "x" (tyRel 0) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 0) [(pConstr "Nil_coq" [], eRel 2);(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eRel 5) (eRel 1)) (eApp (eRel 3) (eRel 0)))])) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0)) (eRel 0))))))
+;("map", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyRel 0)) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 1))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 1) (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eApp (eRel 1) (eRel 0))))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)))))))
+;("foldl_alt", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyArr (tyRel 0) (tyRel 0)) (eLambda "x" (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 1) [(pConstr "Nil_coq" [], eRel 0);(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eRel 4) (eRel 0)) (eApp (eApp (eRel 5) (eRel 2)) (eRel 1)))]))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyArr (tyRel 0) (tyRel 0))) (eRel 0)))))
 ;("foldl", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0))) (eLambda "x" (tyRel 0) (eLambda "x" ((tyApp (tyInd "List") (tyRel 1))) (eApp (eApp (eApp (eApp (eApp (eConst "foldl_alt") (eTy (tyRel 1))) (eTy (tyRel 0))) (eRel 2)) (eRel 0)) (eRel 1)))))))
- ;
- ("concat", eTyLam "A" (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eApp (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0)))) (eRel 0)) (eRel 1)))))
-;
- ("zipWith", eTyLam "A" (eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 2) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 2))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) ((tyApp (tyInd "List") (tyRel 0)))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 1))) (eCase ("List", [tyRel 2]) ((tyApp (tyInd "List") (tyRel 0))) (eRel 1) [(pConstr "Nil_coq" [], eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));(pConstr "Cons_coq" ["x0";"x1"], eCase ("List", [tyRel 1]) ((tyApp (tyInd "List") (tyRel 0))) (eRel 2) [(pConstr "Nil_coq" [], eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eApp (eApp (eRel 7) (eRel 3)) (eRel 1))) (eApp (eApp (eRel 6) (eRel 2)) (eRel 0)))])]))) (tyArr ((tyApp (tyInd "List") (tyRel 2))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) ((tyApp (tyInd "List") (tyRel 0))))) (eRel 0))))));
-("reverse", eTyLam "A" (eApp (eApp (eApp (eApp (eConst "foldl") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eRel 1))))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)))))
+;("concat", eTyLam "A" (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eApp (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0)))) (eRel 0)) (eRel 1)))))
+;("zipWith", eTyLam "A" (eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 2) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 2))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) ((tyApp (tyInd "List") (tyRel 0)))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 1))) (eCase ("List", [tyRel 2]) ((tyApp (tyInd "List") (tyRel 0))) (eRel 1) [(pConstr "Nil_coq" [], eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));(pConstr "Cons_coq" ["x0";"x1"], eCase ("List", [tyRel 1]) ((tyApp (tyInd "List") (tyRel 0))) (eRel 2) [(pConstr "Nil_coq" [], eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eApp (eApp (eRel 7) (eRel 3)) (eRel 1))) (eApp (eApp (eRel 6) (eRel 2)) (eRel 0)))])]))) (tyArr ((tyApp (tyInd "List") (tyRel 2))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) ((tyApp (tyInd "List") (tyRel 0))))) (eRel 0))))))
+;("reverse", eTyLam "A" (eApp (eApp (eApp (eApp (eConst "foldl") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eRel 1))))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)))))
 ;("zip", eTyLam "A" (eTyLam "A" (eApp (eApp (eApp (eApp (eConst "zipWith") (eTy (tyRel 1))) (eTy (tyRel 0))) (eTy ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))))) (eApp (eApp (eConstr "Pair" "Pair_coq") (eTy (tyRel 1))) (eTy (tyRel 0))))))
-;("filter", eTyLam "A" (eLambda "x" (tyArr (tyRel 0) ((tyInd "Bool"))) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 0) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eCase ("Bool", []) ((tyApp (tyInd "List") (tyRel 0))) (eApp (eRel 2) (eRel 1)) [(pConstr "True_coq" [], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 1)) (eRel 0));(pConstr "False_coq" [], eRel 0)])))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))
-].
+;("filter", eTyLam "A" (eLambda "x" (tyArr (tyRel 0) ((tyInd "Bool"))) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 0) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eCase ("Bool", []) ((tyApp (tyInd "List") (tyRel 0))) (eApp (eRel 2) (eRel 1)) [(pConstr "True_coq" [], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 1)) (eRel 0));(pConstr "False_coq" [], eRel 0)])))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))].
 
   Run TemplateProgram (translateData Data).
 
   Definition gEnv := (StdLib.Σ ++ Data ++ AcornBool.Data ++ AcornProd.Data)%list.
-
-  Definition foldl_syn := eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" (tyRel 0) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0)) (eLambda "x" ((tyApp (tyInd "List") (tyRel 1))) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 0) [(pConstr "Nil_coq" [], eRel 1);(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eRel 4) (eApp (eApp (eRel 5) (eRel 3)) (eRel 1))) (eRel 0))]))) (tyArr (tyRel 0) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0))) (eRel 0)))).
-
-  Compute (expr_to_term gEnv (reindexify 0 foldl_syn)).
-
 
   Run TemplateProgram
       (translateDefs gEnv Functions).
@@ -131,26 +174,26 @@ Module AcornListBase.
   Print foldr.
   Print zipWith.
 
-  Definition OakList := List.
+  Definition AcornList := List.
 
-  Fixpoint from_oak {A : Set} (oakL : OakList A) : list A :=
-    match oakL with
-    | Cons_coq hd tl => hd :: from_oak tl
+  Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A :=
+    match acornL with
+    | Cons_coq hd tl => hd :: from_acorn tl
     | Nil_coq => []
     end.
 
-  Fixpoint to_oak {A : Set} (coqL : list A) : OakList A :=
+  Fixpoint to_acorn {A : Set} (coqL : list A) : AcornList A :=
     match coqL with
-    | hd :: tl => Cons_coq _ hd (to_oak tl)
+    | hd :: tl => Cons_coq _ hd (to_acorn tl)
     | nil => Nil_coq _
     end.
 
-  Lemma to_from_oak (A : Set) (l : OakList A) : to_oak (from_oak l) = l.
+  Lemma to_from_acorn (A : Set) (l : AcornList A) : to_acorn (from_acorn l) = l.
   Proof.
     induction l;simpl;congruence.
   Qed.
 
-  Lemma from_to_oak (A : Set) (l : list A) : from_oak (to_oak l) = l.
+  Lemma from_to_acorn (A : Set) (l : list A) : from_acorn (to_acorn l) = l.
   Proof.
     induction l;simpl;congruence.
   Qed.
@@ -158,8 +201,8 @@ Module AcornListBase.
   Arguments foldr {_ _}.
   Arguments concat {_}.
 
-  Lemma oak_foldr_coq_fold_right (A B : Set) (l : OakList A) (f : A -> B -> B) a :
-    foldr f a l = fold_right f a (from_oak l).
+  Lemma acorn_foldr_coq_fold_right (A B : Set) (l : AcornList A) (f : A -> B -> B) a :
+    foldr f a l = fold_right f a (from_acorn l).
   Proof.
     induction l;simpl;auto.
     f_equal. congruence.
@@ -167,32 +210,33 @@ Module AcornListBase.
 
   Open Scope list.
 
-  Lemma concat_app (A : Set) (l1 l2 : OakList A) :
-  concat l1 l2 = to_oak (from_oak l1 ++ from_oak l2).
+  Lemma concat_app (A : Set) (l1 l2 : AcornList A) :
+  concat l1 l2 = to_acorn (from_acorn l1 ++ from_acorn l2).
   Proof.
     revert l2.
-    induction l1;intros l2;destruct l2;simpl;try rewrite to_from_oak;auto.
-    f_equal. rewrite app_nil_r. rewrite to_from_oak.
+    induction l1;intros l2;destruct l2;simpl;try rewrite to_from_acorn;auto.
+    f_equal. rewrite app_nil_r. rewrite to_from_acorn.
     clear IHl1; induction l1;simpl. congruence. now f_equal.
-    change (a0 :: from_oak l2) with (from_oak (Cons_coq _ a0 l2)).
+    change (a0 :: from_acorn l2) with (from_acorn (Cons_coq _ a0 l2)).
     now f_equal.
   Qed.
 
-  Hint Rewrite oak_foldr_coq_fold_right concat_app from_to_oak : hints.
+  Hint Rewrite acorn_foldr_coq_fold_right concat_app from_to_acorn : hints.
 
   Lemma concat_assoc :
-    forall (A : Set) (l m n : OakList A), concat l (concat m n) = concat (concat l m) n.
+    forall (A : Set) (l m n : AcornList A), concat l (concat m n) = concat (concat l m) n.
   Proof.
     intros. autorewrite with hints. f_equal.
     apply app_assoc.
   Qed.
 
-  Lemma foldr_concat (A B : Set) (f : A -> B -> B) (l l' : OakList A) (i : B) :
+  Lemma foldr_concat (A B : Set) (f : A -> B -> B) (l l' : AcornList A) (i : B) :
       foldr f i (concat l l') = foldr f (foldr f i l') l.
   Proof. autorewrite with hints;apply fold_right_app. Qed.
 
 End AcornListBase.
 
+(** ** Acorn blockchain-related data types *)
 Module AcornBlochain.
 
   Definition ABl_data :=  [gdInd "Caller" 0 [("CallerContract_coq", [(None, tyInd "nat")]);("CallerAccount_coq", [(None, tyInd "string")])] false;gdInd "ChainContext" 0 [("ChainContext_coq", [(None, tyInd "nat");(None, tyInd "nat");(None, tyInd "nat")])] false;gdInd "InitContext" 0 [("InitContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string")])] false;gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string");(None, tyInd "nat")])] false].
@@ -211,6 +255,8 @@ Module AcornBlochain.
   Run TemplateProgram (translateData ABl_data).
   Run TemplateProgram (translateDefs (StdLib.Σ ++ ABl_data)%list ABl_functions).
 End AcornBlochain.
+
+(** ** A simple [Counter] contract *)
 
 (** Concrete syntax *)
 
@@ -284,6 +330,8 @@ Qed.
 
 
 Module ForPeresentation.
+
+  (** This is how functions would look like, if we defined them by hand *)
 
 Definition owner : CState -> string := fun x =>
   match x with
