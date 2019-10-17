@@ -32,8 +32,8 @@ panel. Open `docs/toc.html` to start browsing the documentation.
 
 ## Some highlights
 
-* `theories/Ast.v` contains definition of the ``λsmart`` language.
-* `theories/EvalE.v` contains an interpreter for ``λsmart`` language.
-* `theories/pcuic/` contains translation from ``λsmart`` expression to PCUIC terms, proof of soundness and various auxiliary lemmas for that proof.
-* `theories/examples/` contains examples of smart contract verification: the crowdfunding contract, verification of ``Acorn`` list functions, integration with the execution framework.
-* see `theories/examples/Demo.v` for demonstration of how to use our framework to write definitions using the deep embedding, convert them to Coq functions, compute with the interpreter and prove simple properties using the swallow embedding.
+* [theories/Ast.v](/theories/Ast.v) contains definition of the ``λsmart`` language.
+* [theories/EvalE.v](/theories/EvalE.v) contains an interpreter for ``λsmart`` language.
+* [theories/pcuic/](/theories/pcuic/) contains translation from ``λsmart`` expression to PCUIC terms, proof of soundness and various auxiliary lemmas for that proof.
+* [theories/examples/](/theories/examples/) contains examples of smart contract verification: the crowdfunding contract, verification of ``Acorn`` list functions, integration with the execution framework.
+* see [theories/examples/Demo.v](theories/examples/Demo.v) for demonstration of how to use our framework to write definitions using the deep embedding, convert them to Coq functions, compute with the interpreter and prove simple properties using the swallow embedding.
