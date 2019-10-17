@@ -1,0 +1,116 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<link href="coqdocjs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="config.js"></script>
+<script type="text/javascript" src="coqdocjs.js"></script>
+</head>
+
+<body onload="document.getElementById('content').focus()">
+  <div id="header">
+    <span class="left">
+      <span class="modulename"> <script> document.write(document.title) </script> </span>
+    </span>
+
+    <span class="button" id="toggle-proofs"></span>
+
+    <span class="right">
+      <a href="https://github.com/annenkov/ConCert" target="_balnk">Project Page</a>
+    </span>
+</div>
+    <div id="content" tabindex="-1" onblur="document.getElementById('content').focus()">
+    <div id="main">
+<h1 class="libtitle">ConCert.examples.crowdfunding.SimpleBlockchain</h1>
+
+<div class="code">
+</div>
+
+<div class="doc">
+<a name="lab38"></a><h1 class="section">A simply-typed version of the blockchain execution environment</h1>
+
+</div>
+<div class="code">
+<span class="comment">(*&nbsp;We&nbsp;develop&nbsp;some&nbsp;blockchain&nbsp;infrastructure&nbsp;relevant&nbsp;for&nbsp;the&nbsp;contract&nbsp;execution.&nbsp;*)</span><br/>
+<span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Strings.String.html#"><span class="id" title="library">String</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.ZArith.ZArith.html#"><span class="id" title="library">ZArith</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Program.Basics.html#"><span class="id" title="library">Basics</span></a>.<br/>
+<span class="id" title="var">From</span> <span class="id" title="var">ConCert</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="ConCert.Ast.html#"><span class="id" title="library">Ast</span></a> <a class="idref" href="ConCert.Notations.html#"><span class="id" title="library">Notations</span></a> <a class="idref" href="ConCert.examples.crowdfunding.Prelude.html#"><span class="id" title="library">Prelude</span></a> <a class="idref" href="ConCert.pcuic.PCUICTranslate.html#"><span class="id" title="library">PCUICTranslate</span></a>.<br/>
+<span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Lists.List.html#"><span class="id" title="library">List</span></a>.<br/>
+
+<br/>
+<span class="id" title="var">From</span> <span class="id" title="var">MetaCoq.Template</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">All</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="var">MonadNotation</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="var">ListNotations</span>.<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="var">BaseTypes</span>.<br/>
+<span class="id" title="keyword">Open</span> <span class="id" title="keyword">Scope</span> <span class="id" title="var">list</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+We create a simply-typed records and data types corresponding for
+the actual definitions of <span class="inlinecode"><span class="id" title="library">SmartContracts.Blockchain</span></span> which are parameterised with <span class="inlinecode"><a class="idref" href="ConCert.pcuic.PCUICTranslate.html#BaseTypes"><span class="id" title="module">BaseTypes</span></a></span> 
+</div>
+<div class="code">
+
+<br/>
+<span class="id" title="keyword">Module</span> <a name="AcornBlockchain"><span class="id" title="module">AcornBlockchain</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a name="AcornBlockchain.Address"><span class="id" title="definition">Address</span></a> := <a class="idref" href="ConCert.pcuic.PCUICTranslate.html#BaseTypes.Nat"><span class="id" title="definition">Nat</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a name="AcornBlockchain.Money"><span class="id" title="definition">Money</span></a> := "Coq.Numbers.BinNums.Z".<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a name="AcornBlockchain.SimpleChainAcorn"><span class="id" title="definition">SimpleChainAcorn</span></a> : <a class="idref" href="ConCert.Ast.html#global_dec"><span class="id" title="inductive">global_dec</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="ConCert.Notations.html#fe8473dd9402cdf9a6648d9eb80cf296"><span class="id" title="notation">[\</span></a> <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">record</span></a> "SimpleChain" <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">:=</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Build_chain" <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">{</span></a> "Chain_height" <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">:</span></a> "nat"<a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Current_slot" <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">:</span></a> "nat"<a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Finalized_height" <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">:</span></a> "nat"<a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Account_balance" <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">:</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Address"><span class="id" title="definition">Address</span></a> <a class="idref" href="ConCert.Notations.html#26b5b7884c8556dc1a44ae242fcf1a6d"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Money"><span class="id" title="definition">Money</span></a> <a class="idref" href="ConCert.Notations.html#594a51d755bafded47321caf8e794197"><span class="id" title="notation">}</span></a> <a class="idref" href="ConCert.Notations.html#fe8473dd9402cdf9a6648d9eb80cf296"><span class="id" title="notation">\]</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a name="3145d7c87821aa2d172af58ac88dc29a"><span class="id" title="notation">&quot;</span></a>'cur_time' a" := <a class="idref" href="ConCert.Notations.html#143c2b826a30d37e0d680ea16616e805"><span class="id" title="notation">[|</span></a> <a class="idref" href="ConCert.Notations.html#9bb18901484762033c8f1fa6120fb5d4"><span class="id" title="notation">{</span></a><a class="idref" href="ConCert.Ast.html#eConst"><span class="id" title="constructor">eConst</span></a> "Current_slot"<a class="idref" href="ConCert.Notations.html#9bb18901484762033c8f1fa6120fb5d4"><span class="id" title="notation">}</span></a> <a class="idref" href="ConCert.Notations.html#9bb18901484762033c8f1fa6120fb5d4"><span class="id" title="notation">{</span></a><span class="id" title="var">a</span><a class="idref" href="ConCert.Notations.html#9bb18901484762033c8f1fa6120fb5d4"><span class="id" title="notation">}</span></a> <a class="idref" href="ConCert.Notations.html#143c2b826a30d37e0d680ea16616e805"><span class="id" title="notation">|]</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="tactic">in</span> <span class="id" title="var">custom</span> <span class="id" title="var">expr</span> <span class="id" title="tactic">at</span> <span class="id" title="keyword">level</span> 0).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="var">Make</span> <span class="id" title="keyword">Inductive</span> (<a class="idref" href="ConCert.examples.crowdfunding.Prelude.html#global_to_tc"><span class="id" title="definition">global_to_tc</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.SimpleChainAcorn"><span class="id" title="definition">SimpleChainAcorn</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a name="AcornBlockchain.SimpleContractCallContextAcorn"><span class="id" title="definition">SimpleContractCallContextAcorn</span></a> : <a class="idref" href="ConCert.Ast.html#global_dec"><span class="id" title="inductive">global_dec</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="ConCert.Notations.html#fe8473dd9402cdf9a6648d9eb80cf296"><span class="id" title="notation">[\</span></a> <a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">record</span></a> "SimpleContractCallContext" <a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">:=</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Build_ctx" <a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">{</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">(*&nbsp;Address&nbsp;sending&nbsp;the&nbsp;funds&nbsp;*)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Ctx_from" <a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">:</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Address"><span class="id" title="definition">Address</span></a><a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">(*&nbsp;Address&nbsp;of&nbsp;the&nbsp;contract&nbsp;being&nbsp;called&nbsp;*)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Ctx_contract_address" <a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">:</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Address"><span class="id" title="definition">Address</span></a><a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">(*&nbsp;Amount&nbsp;of&nbsp;currency&nbsp;passed&nbsp;in&nbsp;call&nbsp;*)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Ctx_amount" <a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">:</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Money"><span class="id" title="definition">Money</span></a><a class="idref" href="ConCert.Notations.html#4b228147ccbf594364861cda638969df"><span class="id" title="notation">}</span></a> <a class="idref" href="ConCert.Notations.html#fe8473dd9402cdf9a6648d9eb80cf296"><span class="id" title="notation">\]</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="var">Make</span> <span class="id" title="keyword">Inductive</span> (<a class="idref" href="ConCert.examples.crowdfunding.Prelude.html#global_to_tc"><span class="id" title="definition">global_to_tc</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.SimpleContractCallContextAcorn"><span class="id" title="definition">SimpleContractCallContextAcorn</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a name="AcornBlockchain.SimpleActionBodyAcorn"><span class="id" title="definition">SimpleActionBodyAcorn</span></a> : <a class="idref" href="ConCert.Ast.html#global_dec"><span class="id" title="inductive">global_dec</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="ConCert.Notations.html#fe8473dd9402cdf9a6648d9eb80cf296"><span class="id" title="notation">[\</span></a> <a class="idref" href="ConCert.Notations.html#807c817618883fbac1d0f37a8155359e"><span class="id" title="notation">data</span></a> "SimpleActionBody" <a class="idref" href="ConCert.Notations.html#807c817618883fbac1d0f37a8155359e"><span class="id" title="notation">=</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Act_transfer" <a class="idref" href="ConCert.Notations.html#ebb8c269f26fdf46621f04e85ed4d72b"><span class="id" title="notation">[</span></a><a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Address"><span class="id" title="definition">Address</span></a><a class="idref" href="ConCert.Notations.html#8a1a1396a6fb40da8f616b6c388ba74a"><span class="id" title="notation">,</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.Money"><span class="id" title="definition">Money</span></a><a class="idref" href="ConCert.Notations.html#8a1a1396a6fb40da8f616b6c388ba74a"><span class="id" title="notation">,</span></a><a class="idref" href="ConCert.Notations.html#d1f919dcbe5f7c185b6eb6839268db63"><span class="id" title="notation">_</span></a><a class="idref" href="ConCert.Notations.html#ebb8c269f26fdf46621f04e85ed4d72b"><span class="id" title="notation">]</span></a> <a class="idref" href="ConCert.Notations.html#fe8473dd9402cdf9a6648d9eb80cf296"><span class="id" title="notation">\]</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="var">Make</span> <span class="id" title="keyword">Inductive</span> (<a class="idref" href="ConCert.examples.crowdfunding.Prelude.html#global_to_tc"><span class="id" title="definition">global_to_tc</span></a> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain.SimpleActionBodyAcorn"><span class="id" title="definition">SimpleActionBodyAcorn</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a name="AcornBlockchain.SActionBody"><span class="id" title="abbreviation">SActionBody</span></a> := "SimpleActionBody".<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="ConCert.examples.crowdfunding.SimpleBlockchain.html#AcornBlockchain"><span class="id" title="module">AcornBlockchain</span></a>.<br/>
+</div>
+</div>
+<div id="footer">
+  Generated by <a href="http://coq.inria.fr/">coqdoc</a> and improved with <a href="https://github.com/tebbi/coqdocjs">CoqdocJS</a>
+</div>
+</div>
+</body>
+
+</html>

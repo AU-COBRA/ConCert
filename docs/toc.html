@@ -1,0 +1,289 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<link href="coqdocjs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="config.js"></script>
+<script type="text/javascript" src="coqdocjs.js"></script>
+</head>
+
+<body onload="document.getElementById('content').focus()">
+  <div id="header">
+    <span class="left">
+      <span class="modulename"> <script> document.write(document.title) </script> </span>
+    </span>
+
+    <span class="button" id="toggle-proofs"></span>
+
+    <span class="right">
+      <a href="https://github.com/annenkov/ConCert" target="_balnk">Project Page</a>
+    </span>
+</div>
+    <div id="content" tabindex="-1" onblur="document.getElementById('content').focus()">
+    <div id="main">
+<div id="toc">
+<a href="ConCert.CustomTactics.html"><h2>ConCert.CustomTactics</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.CustomTactics.html#lab1">A place for various tactic used for the development</a>
+<ul class="doclist">
+<li><a href="ConCert.CustomTactics.html#lab2">Tactics taken from the Software Foundations' LibTactics.v</a>
+
+</li>
+<li><a href="ConCert.CustomTactics.html#lab3">Converting between bool and Prop</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.Misc.html"><h2>ConCert.Misc</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.Misc.html#lab4">Some facts not found in the standard library</a>
+
+</li>
+</ul>
+<a href="ConCert.MyEnv.html"><h2>ConCert.MyEnv</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.MyEnv.html#lab5">Evaluation environments</a>
+
+</li>
+</ul>
+<a href="ConCert.Ast.html"><h2>ConCert.Ast</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.Ast.html#lab6">λsmart language definition</a>
+<ul class="doclist">
+<li><a href="ConCert.Ast.html#lab7">λsmart AST</a>
+
+</li>
+<li><a href="ConCert.Ast.html#lab8">Convertion from named representation to De Bruijn indices</a>
+
+</li>
+<li><a href="ConCert.Ast.html#lab9">Merging type and term De Bruijn indices</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.Notations.html"><h2>ConCert.Notations</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.Notations.html#lab10">Notations for the deep embeding</a>
+
+</li>
+</ul>
+<a href="ConCert.pcuic.PCUICtoTemplate.html"><h2>ConCert.pcuic.PCUICtoTemplate</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICtoTemplate.html#lab11">Almost one-to-one tranlsation of PCUIC to Template Coq kernel AST</a>
+
+</li>
+</ul>
+<a href="ConCert.Tests.html"><h2>ConCert.Tests</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.Tests.html#lab12">Various examples of using notations and conversion to the shallow embedding</a>
+
+</li>
+</ul>
+<a href="ConCert.EvalE.html"><h2>ConCert.EvalE</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.EvalE.html#lab13">Interpreter for the λsmart langage</a>
+
+</li>
+</ul>
+<a href="ConCert.EnvSubst.html"><h2>ConCert.EnvSubst</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.EnvSubst.html#lab14">Convertion from values back to expressions through the environment substitution</a>
+<ul class="doclist">
+<li><a href="ConCert.EnvSubst.html#lab15">Substitution for the nameless representation</a>
+<ul class="doclist">
+<li><a href="ConCert.EnvSubst.html#lab16">Notations for the environment substitution</a>
+
+</li>
+</ul>
+
+</li>
+<li><a href="ConCert.EnvSubst.html#lab17">Substitution for the named representation</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.Wf.html"><h2>ConCert.Wf</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.Wf.html#lab18">Well-formedness conditions</a>
+
+</li>
+</ul>
+<a href="ConCert.pcuic.PCUICTranslate.html"><h2>ConCert.pcuic.PCUICTranslate</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICTranslate.html#lab19">Translation from λsmart expressions to PCUIC terms</a>
+<ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICTranslate.html#lab20">Translation of types</a>
+
+</li>
+<li><a href="ConCert.pcuic.PCUICTranslate.html#lab21">Translation of expressions</a>
+
+</li>
+</ul>
+
+</li>
+<li><a href="ConCert.pcuic.PCUICTranslate.html#lab22">Translation of inductives</a>
+
+</li>
+</ul>
+<a href="ConCert.pcuic.PCUICFacts.html"><h2>ConCert.pcuic.PCUICFacts</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICFacts.html#lab23">Lemmas about the environment substitutions, closedness, etc. on expressions</a>
+
+</li>
+</ul>
+<a href="ConCert.pcuic.PCUICCorrectnessAux.html"><h2>ConCert.pcuic.PCUICCorrectnessAux</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICCorrectnessAux.html#lab24">Auxillary lemmas for the soundness proof.</a>
+<ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICCorrectnessAux.html#lab25">Environment substitution commutes with PCUIC substitution (In the paper: Translation soundness. Lemma 1.)</a>
+
+</li>
+<li><a href="ConCert.pcuic.PCUICCorrectnessAux.html#lab26">Evaluation gives well-formed values (In the paper: Translation soundness. Lemma 2)</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.pcuic.PCUICCorrectness.html"><h2>ConCert.pcuic.PCUICCorrectness</h2></a>
+<ul class="doclist">
+<li><ul class="doclist">
+<li><a href="ConCert.pcuic.PCUICCorrectness.html#lab27">Soundness for closed epxressions (In the paper: Translation soundness. Corollary 2)</a>
+
+</li>
+<li><a href="ConCert.pcuic.PCUICCorrectness.html#lab28">Adequacy for terminating programs (In the paper: Translation soundness. Theorem 3)</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.examples.Demo.html"><h2>ConCert.examples.Demo</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.Demo.html#lab29">Simple examples on how to use our framework</a>
+
+</li>
+</ul>
+<a href="ConCert.examples.AcornExamples.html"><h2>ConCert.examples.AcornExamples</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.AcornExamples.html#lab30">Examples of library code and contracts originating from the actual Acorn implementation</a>
+<ul class="doclist">
+<li><a href="ConCert.examples.AcornExamples.html#lab31"><span class="inlinecode"><span class="id" title="var">Bool</span></span> module from the standard library of Acorn</a>
+
+</li>
+<li><a href="ConCert.examples.AcornExamples.html#lab32"><span class="inlinecode"><span class="id" title="var">Maybe</span></span> module from the standard library of Acorn</a>
+
+</li>
+<li><a href="ConCert.examples.AcornExamples.html#lab33">Acorn pairs</a>
+
+</li>
+<li><a href="ConCert.examples.AcornExamples.html#lab34">Acorn <span class="inlinecode"><span class="id" title="var">List</span></span> module</a>
+
+</li>
+<li><a href="ConCert.examples.AcornExamples.html#lab35">Acorn blockchain-related data types</a>
+
+</li>
+<li><a href="ConCert.examples.AcornExamples.html#lab36">A simple <span class="inlinecode"><span class="id" title="var">Counter</span></span> contract</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.examples.crowdfunding.Prelude.html"><h2>ConCert.examples.crowdfunding.Prelude</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.crowdfunding.Prelude.html#lab37">Prelude -- definitions of basic of data types</a>
+
+</li>
+</ul>
+<a href="ConCert.examples.crowdfunding.SimpleBlockchain.html"><h2>ConCert.examples.crowdfunding.SimpleBlockchain</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.crowdfunding.SimpleBlockchain.html#lab38">A simply-typed version of the blockchain execution environment</a>
+
+</li>
+</ul>
+<a href="ConCert.examples.crowdfunding.CrowdfundingData.html"><h2>ConCert.examples.crowdfunding.CrowdfundingData</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.crowdfunding.CrowdfundingData.html#lab39">Data types for the crowdfunding contract</a>
+<ul class="doclist">
+<li><a href="ConCert.examples.crowdfunding.CrowdfundingData.html#lab40">Definitions of data structures for the contract</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.examples.crowdfunding.Crowdfunding.html"><h2>ConCert.examples.crowdfunding.Crowdfunding</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.crowdfunding.Crowdfunding.html#lab41">The crowdfunding contract</a>
+<ul class="doclist">
+<li><a href="ConCert.examples.crowdfunding.Crowdfunding.html#lab42">AST of the <span class="inlinecode"><span class="id" title="var">init</span></span> function</a>
+
+</li>
+<li><a href="ConCert.examples.crowdfunding.Crowdfunding.html#lab43">AST of the <span class="inlinecode"><span class="id" title="var">receive</span></span> function</a>
+
+</li>
+</ul>
+
+</li>
+<li><a href="ConCert.examples.crowdfunding.Crowdfunding.html#lab44">Properties of the crowdfunding contract</a>
+
+</li>
+</ul>
+<a href="ConCert.examples.ExecFrameworkIntegration.html"><h2>ConCert.examples.ExecFrameworkIntegration</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.ExecFrameworkIntegration.html#lab45">Integration with the execution framework, properties of <span class="inlinecode"><span class="id" title="var">crowdfunding</span></span></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.ExecFrameworkIntegration.html#lab46">Wrappers</a>
+
+</li>
+<li><a href="ConCert.examples.ExecFrameworkIntegration.html#lab47">Contract balance in the local state consistent with the sum of individual contributions</a>
+
+</li>
+<li><a href="ConCert.examples.ExecFrameworkIntegration.html#lab48">The actual contract balance is consistent with the local state</a>
+
+</li>
+<li><a href="ConCert.examples.ExecFrameworkIntegration.html#lab49">The actual contract balance is consistent the sum of individual contributions</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<a href="ConCert.examples.FinMap.html"><h2>ConCert.examples.FinMap</h2></a>
+<ul class="doclist">
+<li><a href="ConCert.examples.FinMap.html#lab50">Finite maps</a>
+<ul class="doclist">
+<li><a href="ConCert.examples.FinMap.html#lab51">The deep embedding of data structures for finite maps</a>
+
+</li>
+<li><a href="ConCert.examples.FinMap.html#lab52">Functions on finite maps</a>
+
+</li>
+<li><a href="ConCert.examples.FinMap.html#lab53">Correctness</a>
+
+</li>
+</ul>
+
+</li>
+<li><a href="ConCert.examples.FinMap.html#lab54">Computing with the interpreter</a>
+
+</li>
+</ul>
+</div>
+</div>
+<div id="footer">
+  Generated by <a href="http://coq.inria.fr/">coqdoc</a> and improved with <a href="https://github.com/tebbi/coqdocjs">CoqdocJS</a>
+</div>
+</div>
+</body>
+
+</html>
