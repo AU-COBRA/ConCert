@@ -1,13 +1,14 @@
 (** * Contract examples  *)
 
-(** We develop some blockchain infrastructure relevant for the contract execution (a fragment of the standard library and an execution context). With that, we develop a deep embedding of a crowdfunding contract and prove some of its properties using the corresponding shallow embedding *)
+(**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
 Require Import String ZArith Basics.
-Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
-Require Import List.
-Require Import PeanoNat.
-Require Import Coq.ssr.ssrbool.
-Require Import Morphisms.
+From ConCert Require Import Ast Notations CustomTactics
+     PCUICTranslate PCUICtoTemplate.
+
+From ConCert Require Import Prelude SimpleBlockchain CrowdfundingData.
+
+Require Import List PeanoNat ssrbool.
 
 Import ListNotations.
 From MetaCoq.Template Require Import All.
@@ -16,248 +17,11 @@ Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 
-Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
-Definition type_to_tc := compose trans type_to_term.
-Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
+Import Lia.
 
-(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
+(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
 
-Section Maps.
-  Open Scope nat.
-
-  Definition addr_map_acorn :=
-    [\ data "addr_map" =
-          "mnil" [_]
-        | "mcons" [Nat, "Z", "addr_map",_] \].
-
-  Make Inductive (global_to_tc addr_map_acorn).
-
-  Fixpoint lookup_map (m : addr_map) (key : nat) : option Z :=
-    match m with
-    | mnil => None
-    | mcons k v m' =>
-      if (Nat.eqb key k) then Some v else lookup_map m' key
-    end.
-
-  (* Ported from FMapWeaklist of StdLib *)
-  Fixpoint add_map (k : nat) (x : Z) (s : addr_map) : addr_map :=
-  match s with
-   | mnil => mcons k x mnil
-   | mcons k' y l => if Nat.eqb k k' then mcons k x l else mcons k' y (add_map k x l)
-  end.
-
-  Definition inmap_map k m := match lookup_map m k with
-                              | Some _ => true
-                              | None => false
-                              end.
-
-  Lemma lookup_map_add k v m : lookup_map (add_map k v m) k = Some v.
-  Proof.
-    induction m.
-    + simpl. now rewrite PeanoNat.Nat.eqb_refl.
-    + simpl. destruct (k =? n) eqn:Heq.
-      * simpl. now rewrite PeanoNat.Nat.eqb_refl.
-      * simpl. now rewrite Heq.
-  Qed.
-
-  Fixpoint to_list (m : addr_map) : list (nat * Z)%type:=
-    match m with
-    | mnil => nil
-    | mcons k v tl => cons (k,v) (to_list tl)
-    end.
-
-  Fixpoint of_list (l : list (nat * Z)) : addr_map :=
-    match l with
-    | nil => mnil
-    | cons (k,v) tl => mcons k v (of_list tl)
-    end.
-
-  Lemma of_list_to_list m: of_list (to_list m) = m.
-  Proof. induction m;simpl;congruence. Qed.
-
-  Lemma to_list_of_list l: to_list (of_list l) = l.
-  Proof. induction l as [ | x l'];simpl;auto.
-         destruct x. simpl;congruence. Qed.
-
-  Fixpoint map_forallb (p : Z -> bool)(m : addr_map) : bool:=
-    match m with
-    | mnil => true
-    | mcons k v m' => p v && map_forallb p m'
-    end.
-
-  Lemma map_forallb_lookup_map p m k v :
-    map_forallb p m = true ->
-    lookup_map m k = Some v ->
-    p v = true.
-  Proof.
-    revert k v p.
-    induction m;intros;tryfalse;simpl in *.
-    inv_andb H. destruct (_ =? _);auto.
-    * now inversion H0;subst.
-    * easy.
-  Qed.
-
-End Maps.
-
-Notation "a ∈ m" := (inmap_map a m = true) (at level 50).
-Notation "a ∉ m" := (inmap_map a m = false) (at level 50).
-
-(** Generation of string constants using MetaCoq *)
-Fixpoint mkNames (ns : list string) (postfix : string) :=
-  match ns with
-  | [] => tmPrint "Done."
-  | n :: ns' => n' <- tmEval all (n ++ postfix)%string ;;
-                  str <- tmQuote n';;
-                  tmMkDefinition n str;;
-                  mkNames ns' postfix
-  end.
-
-(** Notations for functions on finite maps *)
-
-Definition Map := "addr_map".
-
-Notation "'MNil'" := [| {eConstr "addr_map" "mnil"} |]
-                       (in custom expr at level 0).
-
-Notation "'mfind' a b" :=  [| {eConst "lookup_map"} {a} {b} |]
-        (in custom expr at level 0,
-            a custom expr at level 1,
-            b custom expr at level 1).
-
-Notation "'madd' a b c" :=  [| {eConst "add_map"} {a} {b} {c} |]
-        (in custom expr at level 0,
-            a custom expr at level 1,
-            b custom expr at level 1,
-            c custom expr at level 1).
-
-Notation "'mem' a b" :=  [| {eConst "inmap_map"} {a} {b} |]
-        (in custom expr at level 0,
-            a custom expr at level 1,
-            b custom expr at level 1).
-
-Module Prelude.
-
-  Definition Σ : list global_dec :=
-    [gdInd Unit 0 [("Coq.Init.Datatypes.tt", [])] false;
-       gdInd Bool 0 [("true", []); ("false", [])] false;
-       gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
-       gdInd "list" 1 [("nil", []); ("cons", [(None,tyRel 0);
-                                                (None,tyApp (tyInd "list") (tyRel 0))])] false;
-       gdInd "prod" 2 [("pair", [(None,tyRel 1);(None,tyRel 0)])] false].
-
-  Notation "a + b" := [| {eConst "Coq.ZArith.BinInt.Z.add"} {a} {b} |]
-                        (in custom expr at level 0).
-  Notation "a * b" := [| {eConst "Coq.ZArith.BinInt.Z.mul"} {a} {b} |]
-                        (in custom expr at level 0).
-  Notation "a - b" := [| {eConst "Coq.ZArith.BinInt.Z.sub"} {a} {b} |]
-                        (in custom expr at level 0).
-  Notation "a == b" := [| {eConst "PeanoNat.Nat.eqb"} {a} {b} |]
-                          (in custom expr at level 0).
-  Notation "a < b" := [| {eConst "Coq.ZArith.BinInt.Z.ltb"} {a} {b} |]
-                        (in custom expr at level 0).
-  Notation "a <= b" := [| {eConst "Coq.ZArith.BinInt.Z.leb"} {a} {b} |]
-                         (in custom expr at level 0).
-  Notation "a <n b" := [| {eConst "PeanoNat.Nat.ltb"} {a} {b} |]
-                        (in custom expr at level 0).
-  Notation "a <=n b" := [| {eConst "PeanoNat.Nat.leb"} {a} {b} |]
-                        (in custom expr at level 0).
-
-  Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
-  Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
-  Notation "0" := [| Zero |] ( in custom expr at level 0).
-  Notation "1" := [| Suc Zero |] ( in custom expr at level 0).
-
-  Notation "'Zero'" := (pConstr "Z" [])
-                  (in custom pat at level 0).
-
-  Notation "'Suc' x" := (pConstr "Suc" [x])
-                    (in custom pat at level 0,
-                        x constr at level 4).
-
-  Notation "a && b" := [| {eConst "andb"} {a} {b} |]
-                         (in custom expr at level 0).
-  Notation "~ a" := [| {eConst "negb"} {a} |]
-                        (in custom expr at level 0).
-
-  Definition true_name := "true".
-  Definition false_name := "false".
-  Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
-  Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
-
-  Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
-  Notation "'Cons' y z" := (pConstr "cons" [y;z])
-                             (in custom pat at level 0,
-                                 y constr at level 4,
-                                 z constr at level 4).
-
-
-  Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
-  Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
-
-  Notation "'star'" :=
-    (eConstr Unit "Coq.Init.Datatypes.tt")
-      (in custom expr at level 0).
-
-  Definition AcornList : global_dec :=
-    gdInd "list" 1 [("nil", []);("cons", [(None, tyRel 0);(None, (tyApp (tyInd "list") (tyRel 0)))])] false.
-
-  Notation List := "list".
-
-  Definition Maybe := "option".
-  Definition Just := "Some".
-  Definition AcornMaybe : global_dec :=
-    gdInd "option" 1 [("Some", [(None, tyRel 0)]);("None", [])] false.
-
-  Definition AcornProd : global_dec :=
-    gdInd "prod" 2 [("pair", [(None, tyRel 1); (None, tyRel 0)])] false.
-
-End Prelude.
-
-
-(** * Contract execution context  *)
-
-Module AcornBlockchain.
-
-(** We create a simply-typed records and data types corresponding for
-the actual definitions of [SmartContracts.Blockchain] which are paremeterised with [BaseTypes] *)
-
-  Definition Address := Nat.
-  Definition Money := "Coq.Numbers.BinNums.Z".
-
-
-  Definition SimpleChainAcorn : global_dec :=
-    [\ record "SimpleChain" :=
-       "Build_chain" { "Chain_height" : "nat";
-         "Current_slot" : "nat";
-         "Finalized_height" : "nat";
-         "Account_balance" : Address -> Money } \].
-
-  Notation "'cur_time' a" := [| {eConst "Current_slot"} {a} |]
-                               (in custom expr at level 0).
-
-  Make Inductive (global_to_tc SimpleChainAcorn).
-
-  Definition SimpleContractCallContextAcorn : global_dec :=
-    [\ record "SimpleContractCallContext" :=
-       "Build_ctx" {
-           (* Address sending the funds *)
-           "Ctx_from" : Address;
-           (* Address of the contract being called *)
-           "Ctx_contract_address" : Address;
-           (* Amount of currency passed in call *)
-           "Ctx_amount" : Money} \].
-
-  Make Inductive (global_to_tc SimpleContractCallContextAcorn).
-
-  Definition SimpleActionBodyAcorn : global_dec :=
-    [\ data "SimpleActionBody" =
-          "Act_transfer" [Address, Money,_] \].
-
-  Make Inductive (global_to_tc SimpleActionBodyAcorn).
-
-  Notation SActionBody := "SimpleActionBody".
-
-End AcornBlockchain.
+(** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
 
 (** ** The crowdfunding contract *)
@@ -266,207 +30,7 @@ Module CrowdfundingContract.
 
   Import AcornBlockchain.
 
-  (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. The idea is that the corresponding ASTs will be produced from the real Oak programs by means of printing the fully annotated abstract syntax trees build from constructors of the inductive type [Ast.expr] *)
-
-   (** Brackets like [[\ \]] delimit the scope of global definitions and like [[| |]] the scope of programs *)
-
-  (** Generating names for the data structures  *)
-  Run TemplateProgram
-      (mkNames ["State" ; "mkState"; "balance" ; "donations" ; "owner"; "deadline"; "goal"; "done";
-                "Res" ; "Error";
-                "Msg"; "Donate"; "GetFunds"; "Claim";
-                "Action"; "Transfer"; "Empty" ] "_coq").
-
-  Import ListNotations.
-
-  (** *** Definitions of data structures for the contract *)
-
-  (** The internal state of the contract *)
-  Definition state_syn : global_dec :=
-    [\ record State :=
-       mkState { balance : Money ;
-         donations : Map;
-         owner : Address;
-         deadline : Nat;
-         done : Bool;
-         goal : Money } \].
-
-  (** We can print actual AST by switching off the notations *)
-
-  Unset Printing Notations.
-
-  Print state_syn.
-  (* state_syn =
-      gdInd State O
-        (cons
-           (rec_constr State
-              (cons (pair (nNamed balance) (tyInd Money))
-                 (cons (pair (nNamed donations) (tyInd Map))
-                    (cons (pair (nNamed owner) (tyInd Money))
-                       (cons (pair (nNamed deadline) (tyInd Nat))
-                          (cons (pair (nNamed goal) (tyInd Money)) nil)))))) nil) true
-           : global_dec *)
-
-  Set Printing Notations.
-
-  (** Unquoting the definition of a record *)
-  Make Inductive (global_to_tc state_syn).
-
-  (** As a result, we get a new Coq record [State_coq] *)
-  Print State_coq.
-
-  Definition msg_syn :=
-    [\ data Msg =
-         Donate [_]
-       | GetFunds [_]
-       | Claim [_] \].
-
-  Make Inductive (global_to_tc msg_syn).
-
-  (** Custom notations for patterns, projections and constructors *)
-  Module Notations.
-
-    Notation "'ctx_from' a" := [| {eConst "Ctx_from"} {a} |]
-                               (in custom expr at level 0).
-    Notation "'ctx_contract_address' a" :=
-      [| {eConst "Ctx_contract_address"} {a} |]
-        (in custom expr at level 0).
-    Notation "'amount' a" := [| {eConst "Ctx_amount"} {a} |]
-                               (in custom expr at level 0).
-
-
-    (** Patterns *)
-    Notation "'Donate'" :=
-      (pConstr Donate []) (in custom pat at level 0).
-    Notation "'GetFunds'" :=
-      (pConstr GetFunds []) ( in custom pat at level 0).
-
-    Notation "'Claim'" :=
-      (pConstr Claim []) ( in custom pat at level 0).
-
-    Notation "'Just' x" :=
-      (pConstr "Some" [x]) (in custom pat at level 0,
-                               x constr at level 4).
-    Notation "'Nothing'" := (pConstr "None" [])
-                              (in custom pat at level 0).
-
-    (** Projections *)
-    Notation "'balance' a" :=
-      [| {eConst balance} {a} |]
-        (in custom expr at level 0).
-    Notation "'donations' a" :=
-      [| {eConst donations} {a} |]
-        (in custom expr at level 0).
-    Notation "'owner' a" :=
-      [| {eConst owner} {a} |]
-        (in custom expr at level 0).
-    Notation "'deadline' a" :=
-      [| {eConst deadline} {a} |]
-        (in custom expr at level 0).
-    Notation "'goal' a" :=
-      [| {eConst goal} {a} |]
-        (in custom expr at level 0).
-    Notation "'done' a" :=
-      [| {eConst done} {a} |]
-        (in custom expr at level 0).
-
-
-    Notation "'Nil'" := [| {eConstr "list" "nil"} {eTy (tyInd SActionBody)} |]
-                        (in custom expr at level 0).
-
-    Notation " x ::: xs" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} {xs} |]
-                              ( in custom expr at level 0).
-
-    Notation "[ x ]" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} Nil |]
-                          ( in custom expr at level 0,
-                            x custom expr at level 1).
-    (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
-
-
-
-    Definition actions_ty := [! "list" "SimpleActionBody" !].
-
-    Notation "'Result'" := [!"prod" State ("list" "SimpleActionBody") !]
-                             (in custom type at level 2).
-
-    Notation "'Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
-                             (in custom expr at level 0,
-                                 a custom expr at level 1).
-
-    Notation "'Pair' a b" := [| {eConstr "prod" "pair"}
-                                 {eTy (tyInd State)}
-                                 {eTy actions_ty} {a} {b} |]
-                             (in custom expr at level 0,
-                                 a custom expr at level 1,
-                                 b custom expr at level 1).
-
-
-    Definition mk_res a b := [| {eConstr "option" "Some"}
-                                  {eTy [! Result !]}
-                                   ({eConstr "prod" "pair"} {eTy (tyInd State)}
-                                   {eTy actions_ty} {a} {b}) |].
-    Notation "'Res' a b" := (mk_res a b)
-        (in custom expr at level 2,
-            a custom expr at level 4,
-            b custom expr at level 4).
-
-    Notation "'Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
-                        (in custom expr at level 0).
-
-    Notation "'mkState' a b" :=
-      [| {eConstr State "mkState_coq"} {a} {b} |]
-        (in custom expr at level 0,
-            a custom expr at level 1,
-            b custom expr at level 1).
-
-    Notation "'Transfer' a b" :=
-      [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
-        (in custom expr at level 0,
-            a custom expr at level 1,
-            b custom expr at level 1).
-
-    Notation "'Empty'" := (eConstr Action Empty)
-                        (in custom expr at level 0).
-
-    (** New global context with the constants defined above (in addition to the ones defined in the Oak's "StdLib") *)
-
-    Definition Σ' :=
-      Prelude.Σ ++ [ Prelude.AcornMaybe;
-             state_syn;
-             msg_syn;
-             addr_map_acorn;
-             AcornBlockchain.SimpleChainAcorn;
-             AcornBlockchain.SimpleContractCallContextAcorn;
-             AcornBlockchain.SimpleActionBodyAcorn;
-             gdInd "Z" 0 [("Z0", []); ("Zpos", [(None,tyInd "positive")]);
-                            ("Zneg", [(None,tyInd "positive")])] false].
-
-
-    Notation "0 'z'" := (eConstr "Z" "Z0") (in custom expr at level 0).
-    End Notations.
-
-
-  Import Prelude.
-  (** Generating string constants for variable names *)
-
-  Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
-                                "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
-                                "accs"; "now";
-                                 "newstate"; "newmap"; "cond"] "").
-  (** A shortcut for [if .. then .. else ..]  *)
-  Notation "'if' cond 'then' b1 'else' b2 : ty" :=
-    (eCase (Bool,[]) ty cond
-           [(pConstr true_name [],b1);(pConstr false_name [],b2)])
-      (in custom expr at level 4,
-          cond custom expr at level 4,
-          ty custom type at level 4,
-          b1 custom expr at level 4,
-          b2 custom expr at level 4).
-
-  Notation SCtx := "SimpleContractCallContext".
-
-
-
+  (** *** AST of the [init] function *)
   Module Init.
     Import Notations.
     Definition crowdfunding_init : expr :=
@@ -478,14 +42,13 @@ Module CrowdfundingContract.
     Check init.
  End Init.
 
-
+ (** *** AST of the [receive] function *)
  Module Receive.
    Import Notations.
    Import Prelude.
 
    Notation SCtx := "SimpleContractCallContext".
    Notation SChain := "SimpleChain".
-   (** *** The AST of a crowdfunding contract *)
    Definition crowdfunding : expr :=
     [| \chain : SChain =>  \c : SCtx => \m : Msg => \s : State =>
          let bal : Money := balance s in
@@ -574,8 +137,14 @@ Module CrowdfundingContract.
    unfold is_true in *. rewrite Bool.negb_true_iff in *.
    rewrite Z.ltb_nlt in *. rewrite Z.leb_le in *. lia.
   Qed.
+End CrowdfundingContract.
 
-  (** ** Properties of the crowdfunding contract *)
+Import CrowdfundingContract.
+
+(** ** Properties of the crowdfunding contract *)
+
+Module CrowdfundingProperties.
+  Import AcornBlockchain.
 
   (** This lemma states that the only relevat part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :
@@ -1032,4 +601,5 @@ reached within a deadline *)
     unfold run. simpl in *. destruct (done_coq _);tryfalse. simpl in *.
     now rewrite Bool.andb_false_r.
   Qed.
-End CrowdfundingContract.
+
+End CrowdfundingProperties.

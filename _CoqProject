@@ -17,6 +17,9 @@
 ./theories/examples/Demo.v
 ./theories/examples/AcornExamples.v
 ./theories/examples/ExampleContracts.v
-./theories/examples/ExecFrameworkExamples.v
+./theories/examples/crowdfunding/Prelude.v
+./theories/examples/crowdfunding/SimpleBlockchain.v
+./theories/examples/crowdfunding/CrowdfundingData.v
+./theories/examples/crowdfunding/Crowdfunding.v
 ./theories/examples/ExecFrameworkIntegration.v
 ./theories/examples/FinMap.v
