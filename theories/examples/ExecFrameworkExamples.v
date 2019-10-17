@@ -26,7 +26,9 @@ Section Maps.
   Open Scope nat.
 
   Definition addr_map_acorn :=
-    [\ data "addr_map" := "mnil" : "addr_map" | "mcons" : Nat -> "Z" -> "addr_map" -> "addr_map"; \].
+    [\ data "addr_map" =
+          "mnil" [_]
+        | "mcons" [Nat, "Z", "addr_map",_] \].
 
   Make Inductive (global_to_tc addr_map_acorn).
 
@@ -248,8 +250,8 @@ the actual definitions of [SmartContracts.Blockchain] which are paremeterised wi
   Make Inductive (global_to_tc SimpleContractCallContextAcorn).
 
   Definition SimpleActionBodyAcorn : global_dec :=
-    [\ data "SimpleActionBody" :=
-          "Act_transfer" : Address -> Money -> "ActionBody"; \].
+    [\ data "SimpleActionBody" =
+          "Act_transfer" [Address, Money,_] \].
 
   Make Inductive (global_to_tc SimpleActionBodyAcorn).
 
@@ -314,10 +316,10 @@ Module CrowdfundingContract.
   Print State_coq.
 
   Definition msg_syn :=
-    [\ data Msg :=
-         Donate : Msg
-       | GetFunds : Msg
-       | Claim : Msg; \].
+    [\ data Msg =
+         Donate [_]
+       | GetFunds [_]
+       | Claim [_] \].
 
   Make Inductive (global_to_tc msg_syn).
 
@@ -818,7 +820,6 @@ reached within a deadline *)
 
   (** This lemma holds for any message  *)
   Lemma contract_state_consistent BC CallCtx msg :
-
     {{ consistent_balance }}
 
       Receive.receive BC CallCtx msg

@@ -41,11 +41,16 @@ Notation " ' x " := (tyVar x)
                     (in custom type at level 1,
                         x constr at level 2).
 
+Notation " ^ x " := (tyRel x)
+                    (in custom type at level 1,
+                        x constr at level 2).
+
 Notation "( x )" := x (in custom type, x at level 2).
 Notation "{ x }" := x (in custom type, x constr).
 
 
-Definition ex_type := [! ∀ "A", ∀ "B", "prod" '"A" '"B" !].
+Definition example_type := [! ∀ "A", ∀ "B", "prod" '"A" '"B" !].
+Definition example_arr := [! "A" -> "B" -> ^0 !].
 
 Fixpoint ctor_type_to_list_anon (ty : type) : list (option ename * type) :=
   match ty with
@@ -54,15 +59,32 @@ Fixpoint ctor_type_to_list_anon (ty : type) : list (option ename * type) :=
   | _ => [(None ,ty)] (* TODO : figure out what to do here *)
   end.
 
-Notation " ctor : ty " := (ctor, removelast (ctor_type_to_list_anon ty))
-                          (in custom ctor at level 2,
-                              ctor constr at level 4,
-                              ty custom type at level 4).
+Definition unnamed_constr (c : string * list type) : constr :=
+  let '(cn, tys) := c in (cn, map (fun ty => (None,ty)) tys).
 
-(** Unfortunately there are some problems with recursive notations (might go away after the next stable release - 8.10.). So,there are several variants of [data], [record], [case] for different number of cases below *)
+Declare Custom Entry ctor_args.
+
+(** Some workarounds required for declaring recursive notations (see comments below) *)
+
+Notation "ty" := (ty) (in custom ctor_args at level 1, ty custom type at level 2).
+
+Notation "ty1 , tys" :=
+  (ty1 :: tys)
+    (in custom ctor_args at level 2, right associativity,
+        ty1 custom type,
+        tys custom ctor_args at level 4).
+
+Notation "'_'" := (nil) (in custom ctor_args at level 2).
+
+Notation " ctr [ tys ]" :=
+  (ctr, tys)
+    (in custom ctor at level 1,
+        ctr constr at level 2,
+        tys custom ctor_args at level 2).
 
 
-(* NOTE: couldn't make this work with the recursive notation *)
+(** Unfortunately there are some problems with recursive notations (might go away after the next stable release - 8.10.). So,there are several variants of [data], [record], [case] for different number of cases below. The first argument in the recursive pattern is parsed correctly, but the second and the next ones are not considered as declared [custom], so no custom rules apply *)
+
 (* Notation "'data' ty_nm ':=' c1 | .. | cn ;;" := *)
 (*   (gdInd ty_nm (cons c1 .. (cons cn nil) ..)) *)
 (*     (in custom global_dec at level 1, *)
@@ -73,54 +95,58 @@ Notation " ctor : ty " := (ctor, removelast (ctor_type_to_list_anon ty))
 
 Notation "[\ gd \]" := gd (gd custom global_dec at level 2).
 
-Definition simpl_constr c_nm ty_nm : constr := (c_nm, [(None, tyInd ty_nm)]).
+Declare Custom Entry data_name.
 
-Notation "'data' ty_nm ':=' c1 ;" :=
-  (gdInd ty_nm 0 [c1] false)
-    (in custom global_dec at level 1,
-        ty_nm constr at level 4,
-        c1 custom ctor at level 4).
+Notation "dn" := (dn,0) (in custom data_name at level 2, dn constr at level 4).
+Notation "dn # n" := (dn,n) (in custom data_name at level 2,
+                                n constr at level 4,
+                                dn constr at level 4).
 
-Notation "'data' ty_nm ':=' c1 | c2 ;" :=
-  (gdInd ty_nm 0 [c1;c2] false)
+Notation "'data' ty_nm '=' c1" :=
+  (let (nm, nparams) := ty_nm in
+   gdInd nm nparams [unnamed_constr c1] false)
     (in custom global_dec at level 1,
-        ty_nm constr at level 4,
-        c1 custom ctor at level 4,
-        c2 custom ctor at level 4).
+        ty_nm custom data_name at level 2,
+        c1 custom ctor at level 2).
 
-Notation "'data' ty_nm ':=' c1 | c2 | c3 ;" :=
-  (gdInd ty_nm 0 [c1;c2;c3] false)
-    (in custom global_dec at level 1,
-        ty_nm constr at level 4,
-        c1 custom ctor at level 4,
-        c2 custom ctor at level 4,
-        c3 custom ctor at level 4).
 
-Notation "'data' ty_nm ':=' c1 | c2 | c3 | c4 ;" :=
-  (gdInd ty_nm 0 [c1;c2;c3;c4] false)
+Notation "'data' ty_nm '=' c1 | c2" :=
+  (let (nm, nparams) := ty_nm in
+   gdInd nm nparams (map unnamed_constr (c1 :: c2 :: nil)) false)
     (in custom global_dec at level 1,
-        ty_nm constr at level 4,
-        c1 custom ctor at level 4,
-        c2 custom ctor at level 4,
-        c3 custom ctor at level 4,
-        c4 custom ctor at level 4).
+        ty_nm custom data_name at level 2,
+        c1 custom ctor at level 2,
+        c2 custom ctor at level 2).
 
-Notation "'data' ty_nm ':=' c1 | c2 | c3 | c4 | c5 ;" :=
-  (gdInd ty_nm 0 [c1;c2;c3;c4;c5] false)
+Notation "'data' ty_nm '=' c1 | c2 | c3" :=
+  (let (nm, nparams) := ty_nm in
+   gdInd nm nparams (map unnamed_constr [c1;c2;c3]) false)
     (in custom global_dec at level 1,
-        ty_nm constr at level 4,
-        c1 custom ctor at level 4,
-        c2 custom ctor at level 4,
-        c3 custom ctor at level 4,
-        c4 custom ctor at level 4,
-        c5 custom ctor at level 4).
-(* Works, but overlaps with the previous notations *)
-(* Notation "'data' ty_nm ':=' c1 | .. | cn ;" := *)
-(*   (gdInd ty_nm (cons (simpl_constr c1 ty_nm) .. (cons (simpl_constr cn ty_nm) nil) ..)) *)
-(*          (in custom global_dec at level 1, *)
-(*              ty_nm constr at level 4, *)
-(*              c1 constr at level 4, *)
-(*              cn constr at level 4). *)
+        ty_nm custom data_name at level 2,
+        c1 custom ctor at level 2,
+        c2 custom ctor at level 2,
+        c3 custom ctor at level 2).
+
+Notation "'data' ty_nm '=' c1 | c2 | c3 | c4" :=
+  (let (nm, nparams) := ty_nm in
+   gdInd nm nparams (map unnamed_constr [c1;c2;c3;c4]) false)
+    (in custom global_dec at level 1,
+        ty_nm custom data_name at level 2,
+        c1 custom ctor at level 2,
+        c2 custom ctor at level 2,
+        c3 custom ctor at level 2,
+        c4 custom ctor at level 2).
+
+Notation "'data' ty_nm '=' c1 | c2 | c3 | c4 | c5" :=
+  (let (nm, nparams) := ty_nm in
+   gdInd nm 0 (map unnamed_constr [c1;c2;c3;c4;c5]) false)
+    (in custom global_dec at level 1,
+        ty_nm custom data_name at level 2,
+        c1 custom ctor at level 2,
+        c2 custom ctor at level 2,
+        c3 custom ctor at level 2,
+        c4 custom ctor at level 2,
+        c5 custom ctor at level 2).
 
 
 Definition rec_constr (rec_ctor : ename) (proj_tys : list (option ename * type))

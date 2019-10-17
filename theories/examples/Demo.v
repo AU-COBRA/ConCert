@@ -10,7 +10,7 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
-Import ListNotations.
+(* Import ListNotations. *)
 Module TC := Template.BasicAst.
 
 Import MonadNotation.
@@ -32,9 +32,9 @@ Print id_nat_syn.
 
 (* Unquote *)
 Make Definition plus_one :=
-  (MC.tLambda (nNamed "x") (MC.tInd (mkInd "nat"  0 ) [])
-              (MC.tApp (MC.tConstruct (mkInd "nat" 0) 1 [])
-                       [MC.tRel 0])).
+  (MC.tLambda (nNamed "x") (MC.tInd (mkInd "nat"  0 ) nil)
+              (MC.tApp (MC.tConstruct (mkInd "nat" 0) 1 nil)
+                       (MC.tRel 0 :: nil))).
 
 Print plus_one.
 (* fun x : nat => S x : nat -> nat *)
@@ -61,9 +61,9 @@ Print negb_app_true.
 Set Printing Notations.
 
 (* Execute the program using the interpreter *)
-Compute (expr_eval_n Σ 3 [] negb_app_true).
+Compute (expr_eval_n Σ 3 nil negb_app_true).
 
-Compute (expr_eval_i Σ 3 [] (indexify [] negb_app_true)).
+Compute (expr_eval_i Σ 3 nil (indexify nil negb_app_true)).
 
 
 (* Make a Coq function from the AST of the program *)
@@ -78,15 +78,15 @@ Definition my_negb_syn :=
                    | False -> True  |].
 
 Make Definition my_negb :=
-  (expr_to_tc Σ (indexify [] my_negb_syn)).
+  (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 Lemma my_negb_coq_negb b :
   my_negb b = negb b.
 Proof. reflexivity. Qed.
 
-Compute (expr_eval_n Σ 3 [] my_negb_syn).
+Compute (expr_eval_n Σ 3 nil my_negb_syn).
 
-Make Definition coq_my_negb := (expr_to_tc Σ (indexify [] my_negb_syn)).
+Make Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 Import MonadNotation.
 
@@ -117,11 +117,13 @@ Make Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Zero) |].
 
-Compute (expr_eval_n Σ 3 [] prog2).
+Compute (expr_eval_n Σ 3 nil prog2).
 
 Inductive blah :=
   Bar : blah -> blah -> blah
 | Baz : blah.
+
+Import ListNotations.
 
 Definition Σ' : global_env :=
   [gdInd "blah" 0 [("Bar", [(None,tyInd "blah"); (None,tyInd "blah")]); ("Baz", [])] false;
@@ -289,11 +291,11 @@ Definition Bazz_match b :=
 
 Quote Definition q_Bazz_match := Eval compute in Bazz_match.
 
-
-(** Translation of inductives *)
-
+(** Inductives *)
 Definition Nat_syn :=
-  [\ data "Nat" := "Z" : "Nat" | "Suc" : "Nat" -> "Nat" ; \].
+  [\ data "Nat" =
+       "Z" [_]
+     | "Suc" ["Nat", _] \].
 
 Make Inductive (global_to_tc Nat_syn).
 

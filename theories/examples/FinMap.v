@@ -45,19 +45,18 @@ Print Maybe.
 (*      : string *)
 
 
-(** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type. [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell. *)
+(** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type. [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell. First, we define a new datatype without using notations *)
 
 Definition maybe_syn :=
   gdInd Maybe 1 [(Nothing, []);  (Just, [(None,tyRel 0)])] false.
 
 Make Inductive (global_to_tc maybe_syn).
 
-(** A finite map is basically a list of pairs *)
+(** Now, we define a type of finite maps using notations based on Custom Entries *)
 Definition map_syn :=
-  gdInd Map 2
-        [(MNil, []);
-        (MCons, [(None,tyRel 1);(None,tyRel 0);
-                  (None,(tyApp (tyApp (tyInd Map) (tyRel 1)) (tyRel 0)))])] false.
+  [\ data Map # 2 =
+       MNil [_]
+     | MCons [^1, ^0, (Map ^1 ^0), _]  \].
 
 Make Inductive (global_to_tc map_syn).
 

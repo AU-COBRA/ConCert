@@ -177,25 +177,25 @@ Module CrowdfundingContract.
 
   (** AST of action that our contract can produce *)
   Definition action_syn :=
-    [\ data Action :=
-         Transfer : Address -> Money -> Action
-    | Empty : Action; \].
+    [\ data Action =
+         Transfer [Address, Money, _]
+         | Empty [_] \].
 
   Make Inductive (global_to_tc action_syn).
 
   (** AST for the type of results *)
   Definition result_syn :=
-    [\ data Result :=
-         Res : State -> Action -> Result
-       | Error : Result; \].
+    [\ data Result =
+         Res [State, Action, _]
+       | Error [_] \].
 
   Make Inductive (global_to_tc result_syn).
 
   Definition msg_syn :=
-    [\ data Msg :=
-       Donate : Msg
-       | GetFunds : Msg
-       | Claim : Msg; \].
+    [\ data Msg =
+         Donate [_]
+       | GetFunds [_]
+       | Claim  [_] \].
 
   Make Inductive (global_to_tc msg_syn).
 

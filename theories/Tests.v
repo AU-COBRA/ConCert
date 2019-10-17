@@ -109,7 +109,7 @@ Compute (expr_to_tc Σ (indexify [] case_ex2)).
 
 Make Definition case_ex_def2 :=  (expr_to_tc Σ (indexify [] case_ex2)).
 
-Make Definition ex_type_def := (type_to_tc (indexify_type [] ex_type)).
+Make Definition ex_type_def := (type_to_tc (indexify_type [] example_type)).
 
 Definition map_syn :=
 gdInd "AMap" 2 [("ANil", []);
