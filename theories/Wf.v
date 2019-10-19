@@ -1,4 +1,4 @@
-(** * Well-formedness conditions  *)
+(** * Well-formedness conditions *)
 
 Require Import List Bool Relations Morphisms ssrbool.
 Require Import MetaCoq.Template.utils.
@@ -15,6 +15,8 @@ Definition is_type e : bool :=
   | _ => false
   end.
 
+(** ** Well-formed global environment (In the paper: (WF.i)) *)
+
 (** Well-formed constructor in the definition of an inductive *)
 Definition constr_ok (nparam : nat) (c : constr) : bool :=
   forallb (iclosed_ty nparam) (map snd c.2).
@@ -29,7 +31,7 @@ Definition global_dec_ok (gd : global_dec) : bool :=
 Definition genv_ok Σ := forallb global_dec_ok Σ.
 
 
-(** Well-formedness condition in evaluation environments wrt. a type: [ρ] is well-formed wrt. a type [ty] when for any type variables mentioned in [ty], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
+(** Well-formedness condition on evaluation environments wrt. a type: [ρ] is well-formed wrt. a type [ty] when for any type variables mentioned in [ty], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
   Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type): bool :=
     match ty with
     | tyInd x => true
@@ -45,7 +47,10 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
     | tyArr ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
     end.
 
-  (** Well-formedness condition in evaluation environments wrt. an expression ((WF.i) in the paper): [ρ] is well-formed wrt. an expression [e] when for any type variables mentioned in [e], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
+  (** ** Well-formedness condition on evaluation environments wrt. an expression (In the paper : (WF.ii) ) *)
+
+  (** [ρ] is well-formed wrt. an expression [e] when for any type variables mentioned in [e], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
+
   Definition ty_expr_env_ok (ρ : env expr) : nat -> expr -> bool:=
     fix rec n e :=
       match e with
@@ -80,7 +85,7 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
       ty_val ty2 ->
       ty_val (tyArr ty1 ty2).
 
- (** Well-formed value ((WF.iii) in the paper) *)
+ (** Well-formed value (In the paper: (WF.iii) ) *)
  Inductive val_ok Σ : val -> Type :=
   | vokClosLam : forall e nm ρ ty1 ty2,
       AllEnv (val_ok Σ) ρ ->

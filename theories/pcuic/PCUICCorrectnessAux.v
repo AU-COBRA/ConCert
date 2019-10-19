@@ -26,7 +26,6 @@ Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.
 
 Notation "Σ ;;; Γ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ Γ t1 t2) (at level 50).
-Notation "T⟦ e ⟧ Σ " := (expr_to_term Σ e) (at level 49).
 
 Tactic Notation "simpl_vars_to_apps" "in" ident(H) :=
   simpl in H;try rewrite map_app in H; simpl in H;
@@ -100,8 +99,8 @@ Definition is_app (e : expr) : bool :=
 
 
 Lemma mkApps_vars_to_apps l: forall (Σ : global_env) e,
-    P.mkApps (T⟦e⟧Σ) (map (expr_to_term Σ) l) =
-    T⟦ vars_to_apps e l ⟧ Σ.
+    P.mkApps (t⟦e⟧Σ) (map (expr_to_term Σ) l) =
+    t⟦ vars_to_apps e l ⟧ Σ.
 Proof.
   induction l;intros.
   + reflexivity.
@@ -112,8 +111,8 @@ Qed.
 Lemma mkApps_vars_to_apps_constr :
   forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : BasicAst.ident) (l0 : list val) ci,
     resolve_constr Σ1 i0 n1 = Some ci ->
-    mkApps (tConstruct (BasicAst.mkInd i0 0) (ci.1.2) []) (map (fun x => T⟦of_val_i x⟧ Σ1) l0) =
-    T⟦ vars_to_apps (eConstr i0 n1) (map of_val_i l0) ⟧ Σ1.
+    mkApps (tConstruct (BasicAst.mkInd i0 0) (ci.1.2) []) (map (fun x => t⟦of_val_i x⟧ Σ1) l0) =
+    t⟦ vars_to_apps (eConstr i0 n1) (map of_val_i l0) ⟧ Σ1.
 Proof.
   intros Σ1 i0 n1 l0 ci Hci.
   rewrite <- mkApps_vars_to_apps.
@@ -123,8 +122,8 @@ Qed.
 Lemma Wcbv_value_vars_to_apps Σ1 Σ2 Γ :
   forall (i : inductive) n (l : list val) ci,
     resolve_constr Σ1 i n = Some ci ->
-    All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ of_val_i v ⟧ Σ1)) l ->
-    PcbvCurr.value Σ2 Γ (T⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
+    All (fun v : val => PcbvCurr.value Σ2 Γ (t⟦ of_val_i v ⟧ Σ1)) l ->
+    PcbvCurr.value Σ2 Γ (t⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
 Proof.
   intros i n l ci Hres Hfa.
   erewrite <- mkApps_vars_to_apps_constr;eauto.
@@ -328,7 +327,7 @@ Qed.
 
 Lemma Wcbv_of_value_value v Σ1 Σ2 Γ :
   val_ok Σ1 v ->
-  PcbvCurr.value Σ2 Γ (T⟦ of_val_i v⟧Σ1).
+  PcbvCurr.value Σ2 Γ (t⟦ of_val_i v⟧Σ1).
 Proof.
   intros Hok.
   induction v using val_elim_full.
@@ -370,7 +369,7 @@ Lemma type_to_term_subst Σ ty k e (nm : string) :
   ty_env_ok k [(nm,e)] ty ->
   iclosed_n 0 e ->
   iclosed_ty (1+k) ty ->
-  (type_to_term ty) {k:=T⟦e⟧Σ} = type_to_term (subst_env_i_ty k ([(nm,e)]) ty).
+  (type_to_term ty) {k:=t⟦e⟧Σ} = type_to_term (subst_env_i_ty k ([(nm,e)]) ty).
 Proof.
   revert k e.
   induction ty;intros k e0 Hok Hce Hct;simpl in *;try inv_andb Hct; try inv_andb Hok;
@@ -389,7 +388,7 @@ Qed.
 Lemma type_to_term_eval Σ ty k e (nm : string) v:
   iclosed_ty k ty ->
   eval_type_i k ([(nm,e)]) ty = Some v ->
-  (type_to_term ty) {k:=T⟦of_val_i e⟧Σ} = type_to_term v.
+  (type_to_term ty) {k:=t⟦of_val_i e⟧Σ} = type_to_term v.
 Proof.
   revert k e v. induction ty;intros k e0 v Hc H;simpl in *;inversion H;subst;auto;clear H.
   + destruct (eval_type_i _ _ _) eqn:Heq;tryfalse. inversion H1;subst.
@@ -683,7 +682,7 @@ Hint Resolve forallb_type_to_term_closed.
 
 Lemma expr_closed_term_closed e n Σ:
   genv_ok Σ ->
-  iclosed_n n e = true -> closedn n (T⟦e⟧Σ) = true.
+  iclosed_n n e = true -> closedn n (t⟦e⟧Σ) = true.
 Proof.
   revert n.
   induction e using expr_ind_case;intros n1 Hgeok Hc;auto.
@@ -831,7 +830,7 @@ Lemma type_to_term_map :
     iclosed_n 0 e0 ->
     forallb (iclosed_ty (1+n)) args ->
     forallb (ty_env_ok n [(nm, e0)]) args ->
-    map (fun x : type => (type_to_term x) {n := T⟦ e0 ⟧ Σ}) args =
+    map (fun x : type => (type_to_term x) {n := t⟦ e0 ⟧ Σ}) args =
     map (fun x : type => type_to_term (subst_env_i_ty n [(nm, e0)] x)) args.
 Proof.
   intros e0 Σ n1 nm args Hc Hca Hok.
@@ -848,8 +847,8 @@ Lemma subst_term_subst_env_rec e e0:
   ty_expr_env_ok (nil # [nm ~> e0]) n e ->
   iclosed_n (1+n) e = true ->
   iclosed_n 0 e0 = true ->
-  (T⟦e⟧ Σ) {n:=T⟦e0⟧ Σ} =
-  (T⟦e.[nil # [nm ~> e0]]n⟧ Σ).
+  (t⟦e⟧ Σ) {n:=t⟦e0⟧ Σ} =
+  (t⟦e.[nil # [nm ~> e0]]n⟧ Σ).
 Proof.
   induction e using expr_ind_case;intros Σ n1 nm Hgeok Hok Hc Hce0.
   + (* eRel *)
@@ -859,7 +858,7 @@ Proof.
       subst. simpl in *.
       assert (Hn0: Nat.leb n n = true) by auto with facts.
       rewrite Hn0. replace (n - n) with 0 by lia. simpl.
-      assert (closed (T⟦ e0 ⟧ Σ) = true) by now apply expr_closed_term_closed.
+      assert (closed (t⟦ e0 ⟧ Σ) = true) by now apply expr_closed_term_closed.
       rewrite lift_closed by assumption.
       reflexivity.
     * simpl in *.
@@ -885,10 +884,13 @@ Proof.
     unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
     rewrite type_to_term_subst with (nm:=nm);intuition;eauto with hints.
   + (* eApp *)
-    change ((T⟦ eApp e1 e2 ⟧ Σ)) with ((mkApps (T⟦e1⟧Σ) [T⟦e2⟧Σ])) in *.
+    change ((t⟦ eApp e1 e2 ⟧ Σ)) with ((mkApps (t⟦e1⟧Σ) [t⟦e2⟧Σ])) in *.
     cbn -[mkApps] in *. unfold is_true in *.
     repeat rewrite  Bool.andb_true_iff in *. destruct Hc as [Hce1 Hce2].
-    rewrite subst_mkApps. f_equal.
+    rewrite subst_mkApps.
+    change (tApp t⟦e1.[[(nm, e0)]] n1⟧Σ t⟦e2.[[(nm, e0)]] n1⟧ Σ) with
+        (mkApps t⟦e1.[[(nm, e0)]] n1⟧Σ [t⟦e2.[[(nm, e0)]] n1⟧ Σ]).
+    f_equal.
     eapply IHe1;intuition.
     simpl;f_equal;eapply IHe2;intuition.
   + (* eConstr *)
@@ -915,11 +917,11 @@ Proof.
       unfold fun_prod,id. cbn. destruct (find _ _) eqn:Hfnd;simpl.
       ** eapply find_map with
              (p2 := (fun x => pName (fst x) =? s))
-             (f:= fun x => ((fst x), (snd x){#|pVars (fst x)|+n1 := T⟦ e0 ⟧ Σ})) in Hfnd.
+             (f:= fun x => ((fst x), (snd x){#|pVars (fst x)|+n1 := t⟦ e0 ⟧ Σ})) in Hfnd.
          rewrite map_map in Hfnd. simpl in Hfnd. unfold fun_prod,id. simpl.
          assert ( Hmap :
-                    (map (fun x => (id (fst x), (T⟦snd x⟧ Σ) {#|pVars (fst x)|+n1 := T⟦e0⟧ Σ})) l) =
-                    (map (fun x => (fst x, T⟦(snd x) .[[(nm,e0)]](#|pVars (fst x)| + n1) ⟧ Σ)) l)).
+                    (map (fun x => (id (fst x), (t⟦snd x⟧ Σ) {#|pVars (fst x)|+n1 := t⟦e0⟧ Σ})) l) =
+                    (map (fun x => (fst x, t⟦(snd x) .[[(nm,e0)]](#|pVars (fst x)| + n1) ⟧ Σ)) l)).
          { eapply forall_map_spec'. apply H. intros a Hin' Ha. f_equal.
            destruct Hok as [[[? ?] ?] Hty_ok].
            assert (iclosed_n (#|pVars (fst a)| + S n1) (snd a) = true) by
@@ -953,7 +955,7 @@ Proof.
          *** intros. destruct a;easy.
       ** change (fun x : pat * term => pName (fst x) =? s) with
                                 ((fun x : pat => pName x =? s) ∘ fst (B:=term)) in *.
-         erewrite find_none_fst with (l1:=(map (fun x : pat × expr => (x.1, T⟦ x.2 ⟧ Σ)) l));eauto.
+         erewrite find_none_fst with (l1:=(map (fun x : pat × expr => (x.1, t⟦ x.2 ⟧ Σ)) l));eauto.
          now repeat rewrite map_map.
     * reflexivity.
   + (* eFix *)
@@ -970,8 +972,8 @@ Lemma subst_term_subst_env e :
     ty_expr_env_ok ρ 0 e ->
     val_ok Σ v ->
     iclosed_n 1 e = true ->
-    (T⟦e⟧ Σ) {0:=T⟦ of_val_i v ⟧ Σ} =
-    (T⟦e.[ρ]⟧ Σ).
+    (t⟦e⟧ Σ) {0:=t⟦ of_val_i v ⟧ Σ} =
+    (t⟦e.[ρ]⟧ Σ).
 Proof.
   simpl;intros.
   assert (iclosed_n 0 (of_val_i v) = true) by now eapply of_value_closed.
@@ -1343,7 +1345,7 @@ Lemma subst_term_subst_env_par_rec :
   ty_expr_env_ok l k e ->
   iclosed_n (k+#|l|) e = true ->
   All (fun x : string * expr => iclosed_n 0 (snd x) = true) l ->
-  subst (map (fun x => expr_to_term Σ (snd x)) l) k (T⟦e⟧ Σ) = (T⟦e.[l]k⟧ Σ).
+  subst (map (fun x => expr_to_term Σ (snd x)) l) k (t⟦e⟧ Σ) = (t⟦e.[l]k⟧ Σ).
 Proof.
   intros until l.
   induction l using utils.rev_ind;intros e k Hgeok Hok Hc Hall.
@@ -1370,7 +1372,7 @@ Lemma subst_term_subst_env_par :
   ty_expr_env_ok l 0 e ->
   iclosed_n #|l| e = true ->
   All (fun x : string * expr => iclosed_n 0 (snd x) = true) l ->
-  subst (map (fun x => expr_to_term Σ (snd x)) l) 0 (T⟦e⟧ Σ) = (T⟦e.[l]⟧ Σ).
+  subst (map (fun x => expr_to_term Σ (snd x)) l) 0 (t⟦e⟧ Σ) = (t⟦e.[l]⟧ Σ).
 Proof.
   intros. eapply subst_term_subst_env_par_rec;eauto.
 Qed.
@@ -1778,18 +1780,18 @@ Qed.
 
 Lemma from_vConstr_not_lambda :
   forall (Σ : global_env) (i : Ast.inductive) (n0 : ename) (na : BasicAst.name) (t0 b : term) l,
-    tLambda na t0 b = T⟦ of_val_i (vConstr i n0 l) ⟧ Σ -> False.
+    tLambda na t0 b = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ -> False.
 Proof.
   intros Σ i n0 na t0 b l H.
   induction l using utils.rev_ind.
   + simpl in H. destruct (resolve_constr Σ i n0);tryfalse.
   + simpl_vars_to_apps in H.
-    destruct (T⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ);tryfalse.
+    destruct (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ);tryfalse.
 Qed.
 
 
 Lemma tFix_eq_inv f l Σ e :
-  T⟦e⟧Σ = tFix f l -> exists fixname var ty1 ty2 b, e = eFix fixname var ty1 ty2 b.
+  t⟦e⟧Σ = tFix f l -> exists fixname var ty1 ty2 b, e = eFix fixname var ty1 ty2 b.
 Proof.
   destruct e;intros H1;try easy.
   + simpl in *. now destruct (resolve_constr Σ i _).
@@ -1817,7 +1819,7 @@ Ltac destruct_one_ex_named' Hex :=
 Ltac destruct_ex_named := repeat (destruct_one_ex_named).
 
 Lemma fix_not_constr_of_val {Σ mf m i nm vs} :
-  tFix mf m = T⟦of_val_i (vConstr i nm vs)⟧Σ -> False.
+  tFix mf m = t⟦of_val_i (vConstr i nm vs)⟧Σ -> False.
 Proof.
   intros H.
   simpl in *.
@@ -1827,13 +1829,13 @@ Proof.
 Qed.
 
 Lemma fix_not_lambda_of_val {e e1 ty1 ty2 Σ mf n idx} :
-  tFix mf idx = T⟦ of_val_i (vClos e n cmLam ty1 ty2 e1) ⟧ Σ -> False.
+  tFix mf idx = t⟦ of_val_i (vClos e n cmLam ty1 ty2 e1) ⟧ Σ -> False.
 Proof.
   intros H. simpl in *. inversion H.
 Qed.
 
 Lemma lambda_not_fix_of_val {e e1 ty ty1 ty2 Σ nm nm0 nm1 b } :
-  tLambda nm ty b = T⟦ of_val_i (vClos e nm0 (cmFix nm1) ty1 ty2 e1) ⟧ Σ -> False.
+  tLambda nm ty b = t⟦ of_val_i (vClos e nm0 (cmFix nm1) ty1 ty2 e1) ⟧ Σ -> False.
 Proof.
   intros H. simpl in *. inversion H.
 Qed.
@@ -1973,7 +1975,7 @@ Hint Constructors PcbvCurr.eval : hints.
 Hint Resolve PcbvCurr.value_final : hints.
 
 Lemma vars_to_apps_constr_not_lambda ind cn l Σ:
-  ~~ isLambda (T⟦vars_to_apps (eConstr ind cn) l⟧Σ).
+  ~~ isLambda (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
   destruct l using utils.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
@@ -1981,7 +1983,7 @@ Proof.
 Qed.
 
 Lemma vars_to_apps_constr_not_fix_app ind cn l Σ:
-  ~~ PcbvCurr.isFixApp (T⟦vars_to_apps (eConstr ind cn) l⟧Σ).
+  ~~ PcbvCurr.isFixApp (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
   destruct l using utils.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
@@ -1991,7 +1993,7 @@ Proof.
 Qed.
 
 Lemma vars_to_apps_constr_not_arity ind cn l Σ:
-  ~~ PcbvCurr.isArityHead (T⟦vars_to_apps (eConstr ind cn) l⟧Σ).
+  ~~ PcbvCurr.isArityHead (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
   destruct l using utils.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
@@ -2015,7 +2017,7 @@ Hint Constructors All2 : hints.
 Lemma All_value_of_val:
   forall (Σ1 : global_env) (Σ2 : PCUICAst.global_env) (Γ : list context_decl)
     (l : list val),
-    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 Γ (T⟦ of_val_i v ⟧ Σ1)) l.
+    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 Γ (t⟦ of_val_i v ⟧ Σ1)) l.
 Proof.
   intros Σ1 Σ2 Γ l X.
   eapply All_impl. apply X.
@@ -2034,7 +2036,7 @@ Qed.
 Lemma All_term_closed_of_val:
   forall (Σ1 : global_env) (l0 : list val),
     genv_ok Σ1 ->
-    All (val_ok Σ1) l0 -> All (fun x : val => closed (T⟦ of_val_i x ⟧ Σ1)) l0.
+    All (val_ok Σ1) l0 -> All (fun x : val => closed (t⟦ of_val_i x ⟧ Σ1)) l0.
 Proof.
   intros Σ1 l0 Hgeok X.
   eapply All_impl. apply X.
@@ -2100,9 +2102,9 @@ Lemma subst_term_subst_env_2 :
     ty_expr_env_ok l 0 e ->
     iclosed_n #|l| e = true ->
     All (fun x : string × expr => iclosed_n 0 x.2 = true) l ->
-    subst0 ([T⟦e1⟧Σ;T⟦e2⟧Σ]) (T⟦e⟧Σ) = T⟦e.[l]⟧ Σ.
+    subst0 ([t⟦e1⟧Σ;t⟦e2⟧Σ]) (t⟦e⟧Σ) = t⟦e.[l]⟧ Σ.
 Proof.
   intros.
-  change ([T⟦ e1 ⟧Σ; T⟦ e2 ⟧Σ]) with (map (fun x => T⟦ x.2 ⟧Σ) [(nm1,e1); (nm2,e2)]).
+  change ([t⟦ e1 ⟧Σ; t⟦ e2 ⟧Σ]) with (map (fun x => t⟦ x.2 ⟧Σ) [(nm1,e1); (nm2,e2)]).
   eapply subst_term_subst_env_par;eauto.
 Qed.

@@ -10,27 +10,34 @@ Import ListNotations.
 
 (** ** Translation of types *)
 
+Reserved Notation "T⟦ ty ⟧ " (at level 5).
+
 (** Translation of types to PCUIC terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd i 0) []
-  | tyForall nm ty => tProd (nNamed nm) (tSort Universe.type0) (type_to_term ty)
+  | tyForall nm ty => tProd (nNamed nm) (tSort Universe.type0) T⟦ty⟧
   | tyVar nm => tVar nm
-  | tyApp ty1 ty2 => mkApps (type_to_term ty1) [type_to_term  ty2]
+  | tyApp ty1 ty2 => tApp T⟦ty1⟧ T⟦ty2⟧
   | tyArr ty1 ty2 =>
     (* NOTE: we have to lift indices for the codomain,
        since in Coq arrows are Pi types and introduce an binder *)
-    tProd nAnon (type_to_term ty1) (lift0 1 (type_to_term ty2))
+    tProd nAnon T⟦ty1⟧ (lift0 1 T⟦ty2⟧)
   | tyRel i => tRel i
-  end.
+  end
+where "T⟦ ty ⟧ " := (type_to_term ty).
 
+(** Translating patterns to iterated lambdas *)
 Definition pat_to_lam (body : term)
           :  list term -> list (BasicTC.ident * term) -> term :=
   (fix rec ty_params tys :=
     match tys with
       [] => body
     | (n,ty) :: tys' =>
-      (* NOTE: we need to substitute the parameters into the type of each lambda representing a pattern binder. Since each lambda introduces a binder, we need also to lift free variables in [ty_params] *)
+      (* NOTE: we need to substitute the parameters into the type of
+      each lambda representing a pattern binder. Since each lambda
+      introduces a binder, we need also to lift free variables in
+      [ty_params] *)
       let lam_type := subst ty_params 0 ty in
       tLambda (BasicTC.nNamed n) lam_type (rec (map (lift0 1) ty_params) tys')
     end).
@@ -53,22 +60,24 @@ Definition trans_branch (params : list type)(bs : list (pat * term))
 
 Open Scope list.
 
+
 (** ** Translation of expressions *)
 
-Definition expr_to_term (Σ : global_env) : expr -> term :=
-fix expr_to_term e :=
+Reserved Notation "t⟦ e ⟧ Σ" (at level 5).
+
+Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
   match e with
   | eRel i => tRel i
   | eVar nm => tVar nm
-  | eLambda nm ty b => tLambda (nNamed nm) (type_to_term ty) (expr_to_term b)
-  | eTyLam nm b => tLambda (nNamed nm) (tSort Universe.type0) (expr_to_term b)
-  | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) (expr_to_term e1) (type_to_term ty) (expr_to_term e2)
-  | eApp e1 e2 => mkApps (expr_to_term e1) [expr_to_term e2]
-  | eConstr i t => match (resolve_constr Σ i t) with
-                  | Some c => tConstruct (mkInd i 0) (c.1.2) []
-                  (* NOTE: a workaround to make the function total *)
-                  | None => tConstruct (mkInd (i ++ ": no declaration found.") 0) 0 []
-                     end
+  | eLambda nm ty b => tLambda (nNamed nm) T⟦ty⟧ t⟦b⟧Σ
+  | eTyLam nm b => tLambda (nNamed nm) (tSort Universe.type0) t⟦b⟧Σ
+  | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) t⟦e1⟧Σ T⟦ty⟧ t⟦e2⟧Σ
+  | eApp e1 e2 => tApp t⟦e1⟧Σ t⟦e2⟧Σ
+  | eConstr i t =>
+    match (resolve_constr Σ i t) with
+    | Some c => tConstruct (mkInd i 0) (c.1.2) []
+    | None => tConstruct (mkInd (i ++ ": no declaration found.") 0) 0 []
+    end
   | eConst nm => tConst nm []
   | eCase nm_i ty2 e bs =>
     let (nm, params) := nm_i in
@@ -79,21 +88,23 @@ fix expr_to_term e :=
     | Some v =>
       if Nat.eqb (fst v) #|params| then
         let cs := snd v in
-        let tbs := map (fun_prod id expr_to_term) bs in
+        let tbs := map (fun_prod id (expr_to_term Σ)) bs in
         let branches := map (trans_branch params tbs) cs in
-        tCase (mkInd nm 0, fst v) typeInfo (expr_to_term e) branches
+        tCase (mkInd nm 0, fst v) typeInfo t⟦e⟧Σ branches
       else tVar "Case: number of params doesn't match with the definition"
     | None => tVar (nm ++ "not found")%string
     end
   | eFix nm nv ty1 ty2 b =>
-    let tty1 := type_to_term ty1 in
-    let tty2 := type_to_term ty2 in
+    let tty1 := T⟦ty1⟧ in
+    let tty2 := T⟦ty2⟧ in
     let ty := tProd nAnon tty1 (lift0 1 tty2) in
-    (* NOTE: we have to lift the indices in [tty1] because [tRel 0] corresponds to the recursive call *)
-    let body := tLambda (nNamed nv) (lift0 1 tty1) (expr_to_term b) in
+    (* NOTE: we have to lift the indices in [tty1] because [tRel 0]
+             corresponds to the recursive call *)
+    let body := tLambda (nNamed nv) (lift0 1 tty1) t⟦b⟧Σ in
     tFix [(mkdef _ (nNamed nm) ty body 0)] 0
-  | eTy ty => type_to_term ty
-  end.
+  | eTy ty => T⟦ty⟧
+  end
+where "t⟦ e ⟧ Σ":= (expr_to_term Σ e).
 
 
 (** * Translation of inductives *)

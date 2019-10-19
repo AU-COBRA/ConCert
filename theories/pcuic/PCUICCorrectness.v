@@ -22,7 +22,7 @@ Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
   eval(n, Σ1, ρ, e1) = Ok v ->
   e1.[exprs ρ] = e2 ->
   iclosed_n 0 e2 = true ->
-  Σ2 ;;; Γ |- T⟦e2⟧Σ1 ⇓ T⟦of_val_i v⟧Σ1.
+  Σ2 ;;; Γ |- t⟦e2⟧Σ1 ⇓ t⟦of_val_i v⟧Σ1.
 Proof.
   revert dependent v.
   revert dependent ρ.
@@ -60,7 +60,7 @@ Proof.
       destruct Hc as [[? ?] ?].
       destruct (eval (n, Σ1, ρ, e1_1)) eqn:He1;tryfalse.
       destruct (eval_type_i 0 ρ t) eqn:Ht0;tryfalse. inversion He;subst;clear He.
-      assert (He11 : Σ2;;; Γ |- T⟦ e1_1 .[ exprs ρ] ⟧ Σ1 ⇓  T⟦ of_val_i v0 ⟧ Σ1)
+      assert (He11 : Σ2;;; Γ |- t⟦ e1_1 .[ exprs ρ] ⟧ Σ1 ⇓  t⟦ of_val_i v0 ⟧ Σ1)
         by (eauto with hints).
       assert (ty_expr_env_ok (exprs ρ) 0 e1_1) by (eapply eval_ty_expr_env_ok;eauto with hints).
 
@@ -74,7 +74,7 @@ Proof.
         eapply subst_env_iclosed_n_inv with (n:=1);eauto with hints. }
 
       assert (val_ok Σ1 v0) by (eapply eval_val_ok;eauto with hints).
-      assert (He12 : Σ2;;; Γ |- T⟦ e1_2 .[exprs ((e, v0) :: ρ)] ⟧ Σ1 ⇓ T⟦ of_val_i v ⟧ Σ1).
+      assert (He12 : Σ2;;; Γ |- t⟦ e1_2 .[exprs ((e, v0) :: ρ)] ⟧ Σ1 ⇓ t⟦ of_val_i v ⟧ Σ1).
       { eapply IHn with (ρ:=((e, v0) :: ρ));simpl;eauto 6 with hints. }
       simpl in *. unfold subst_env_i in *.
       econstructor;eauto. unfold subst1.
@@ -87,13 +87,13 @@ Proof.
       destruct (expr_eval_general _ _ _ _ e1_2) eqn:He2;tryfalse.
       destruct (expr_eval_general _ _ _ _ e1_1) eqn:He1;tryfalse.
       apply Bool.andb_true_iff in Hc. destruct Hc as [Hce1 Hce2].
-      assert (Hneq1 : [T⟦ inst_env_i ρ e1_2 ⟧ Σ1] <> []) by easy.
+      assert (Hneq1 : [t⟦ inst_env_i ρ e1_2 ⟧ Σ1] <> []) by easy.
       destruct v1;tryfalse.
       * (* application evaluates to a constructor *)
         inversion_clear He. simpl_vars_to_apps. subst. simpl in *.
         rename e into n0.
-        change (tApp (T⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) (T⟦ of_val_i v0 ⟧ Σ1))
-          with (mkApps (T⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) [T⟦ of_val_i v0 ⟧ Σ1]).
+        change (tApp (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) (t⟦ of_val_i v0 ⟧ Σ1))
+          with (mkApps (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) [t⟦ of_val_i v0 ⟧ Σ1]).
 
         eapply PcbvCurr.eval_app_cong;eauto with hints.
         change (vars_to_apps (eConstr i n0) (map of_val_i l)) with (of_val_i (vConstr i n0 l)).
@@ -102,7 +102,7 @@ Proof.
         ** (* the closure corresponds to lambda *)
           simpl in *. rename e0 into n0.
           simpl in *.
-          assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i v0 ⟧ Σ1)
+          assert (Hv0 : Σ2;;; Γ |- t⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ t⟦ of_val_i v0 ⟧ Σ1)
             by eauto.
           assert (Hv0_ok : val_ok Σ1 v0) by (eapply eval_val_ok;eauto with hints).
           assert (Hlam_ok : val_ok Σ1 (vClos e n0 cmLam t t0 e1)) by
@@ -110,7 +110,7 @@ Proof.
           inversion Hlam_ok;subst.
           assert (He_ok1 : env_ok Σ1 (e # [n0 ~> v0])) by now constructor.
           assert
-           (Hlam : Σ2;;; Γ |- T⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i (vClos e n0 cmLam t t0 e1) ⟧ Σ1) by
+           (Hlam : Σ2;;; Γ |- t⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ t⟦ of_val_i (vClos e n0 cmLam t t0 e1) ⟧ Σ1) by
               (eapply IHn with (ρ:=ρ);eauto).
           assert (AllEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e)).
            { inversion He_ok1. subst.
@@ -124,7 +124,7 @@ Proof.
              change (exprs e # [n0 ~> of_val_i v0]) with (exprs (e # [n0 ~> v0])).
              eapply eval_ty_expr_env_ok;eauto. }
 
-           assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦of_val_i v0⟧Σ1} ⇓ T⟦of_val_i v⟧ Σ1).
+           assert (Hsubst : Σ2;;;Γ |- (t⟦e1.[exprs e]1⟧Σ1){0 := t⟦of_val_i v0⟧Σ1} ⇓ t⟦of_val_i v⟧ Σ1).
            { rewrite subst_term_subst_env with (nm:=n0); eauto 8 with hints. }
 
            simpl in *.
@@ -135,9 +135,9 @@ Proof.
           (* destruct (expr_eval_general _ _ _ _ e1) eqn:Hee1;tryfalse. *)
           (* inversion He;subst. *)
           simpl in *.
-          remember (T⟦e1_1.[exprs ρ] ⟧ Σ1) as tm1.
-          remember (T⟦ e1_2.[exprs ρ] ⟧ Σ1) as tm2.
-          assert (Hfix : Σ2;;; Γ |- tm1 ⇓ T⟦ of_val_i (vClos ρ' n0 (cmFix _) t t0 e1) ⟧ Σ1)
+          remember (t⟦e1_1.[exprs ρ] ⟧ Σ1) as tm1.
+          remember (t⟦ e1_2.[exprs ρ] ⟧ Σ1) as tm2.
+          assert (Hfix : Σ2;;; Γ |- tm1 ⇓ t⟦ of_val_i (vClos ρ' n0 (cmFix _) t t0 e1) ⟧ Σ1)
             by (subst;eauto with hints).
 
           change (tApp tm1 tm2) with (mkApps tm1 [tm2]).
@@ -145,16 +145,16 @@ Proof.
           assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by
               (eapply eval_val_ok with (e:=e1_2);eauto 8 with hints).
           inversion Hok_ctor as [ | | | ?????  HresC |];subst;clear Hok_ctor;eauto.
-          assert (Hconstr : is_constructor 0 [T⟦ of_val_i (vConstr i e l) ⟧ Σ1]).
+          assert (Hconstr : is_constructor 0 [t⟦ of_val_i (vConstr i e l) ⟧ Σ1]).
           { simpl. rewrite <- mkApps_vars_to_apps. cbn.
             unfold isConstruct_app.
             rewrite decompose_app_mkApps; now rewrite HresC. }
-          eapply PcbvCurr.eval_fix with (args':=[T⟦ of_val_i (vConstr i e l) ⟧ Σ1]);
+          eapply PcbvCurr.eval_fix with (args':=[t⟦ of_val_i (vConstr i e l) ⟧ Σ1]);
             subst;eauto with hints;try reflexivity.
           cbn. remember (tFix _ _) as tfix. rewrite simpl_subst_k by auto.
           assert (Hok_fix : val_ok Σ1 ((vClos ρ' n0 (cmFix _) t t0 e1)))
             by (eapply eval_val_ok with (e:=e1_1);eauto with hints).
-          assert (tfix = T⟦eFix e2 n0 t t0 (e1.[exprs ρ']2)⟧ Σ1).
+          assert (tfix = t⟦eFix e2 n0 t t0 (e1.[exprs ρ']2)⟧ Σ1).
           { simpl. inversion Hok_fix;subst. subst.
             repeat rewrite subst_env_i_ty_closed_eq;eauto with hints. }
           clear Heqtfix. subst tfix.
@@ -204,7 +204,7 @@ Proof.
           now repeat rewrite subst_env_i_ty_closed_0_eq by auto.
           repeat split_andb;eauto with hints.
       * rename e0 into n0.
-        assert (Hv0 : Σ2;;; Γ |- T⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i v0 ⟧ Σ1)
+        assert (Hv0 : Σ2;;; Γ |- t⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ t⟦ of_val_i v0 ⟧ Σ1)
           by eauto with hints.
         assert (Hv0_ok : val_ok Σ1 v0) by eauto 8 with hints.
         assert (Hlam_ok : val_ok Σ1 (vTyClos e n0 e1))
@@ -212,7 +212,7 @@ Proof.
         inversion Hlam_ok;subst.
         assert (He_ok1 : env_ok Σ1 (e # [n0 ~> v0])) by now constructor.
         assert
-         (Hlam : Σ2;;; Γ |- T⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ T⟦ of_val_i (vTyClos e n0 e1) ⟧ Σ1) by
+         (Hlam : Σ2;;; Γ |- t⟦e1_1 .[ exprs ρ]⟧ Σ1 ⇓ t⟦ of_val_i (vTyClos e n0 e1) ⟧ Σ1) by
             (eapply IHn with (ρ:=ρ);eauto).
         assert (AllEnv (fun e1 : expr => iclosed_n 0 e1 = true) (exprs e)).
          { inversion He_ok1. subst.
@@ -226,7 +226,7 @@ Proof.
            change (exprs e # [n0 ~> of_val_i v0]) with (exprs (e # [n0 ~> v0])).
            eapply eval_ty_expr_env_ok;eauto. }
 
-         assert (Hsubst : Σ2;;;Γ |- (T⟦e1.[exprs e]1⟧Σ1){0 := T⟦of_val_i v0⟧Σ1} ⇓ T⟦of_val_i v⟧ Σ1).
+         assert (Hsubst : Σ2;;;Γ |- (t⟦e1.[exprs e]1⟧Σ1){0 := t⟦of_val_i v0⟧Σ1} ⇓ t⟦of_val_i v⟧ Σ1).
          { rewrite subst_term_subst_env with (nm:=n0); eauto 8 with hints. }
 
          simpl in *.
@@ -263,7 +263,7 @@ Proof.
       destruct (match_pat _ _ _ _) eqn:Hpat;tryfalse.
 
       (* dealing with the translation and the evaluation in PCUIC *)
-      *  assert (IH' : Σ2;;; Γ |- T⟦ e1 .[ exprs ρ] ⟧ Σ1 ⇓ T⟦ of_val_i (vConstr i0 e l2) ⟧ Σ1) by
+      *  assert (IH' : Σ2;;; Γ |- t⟦ e1 .[ exprs ρ] ⟧ Σ1 ⇓ t⟦ of_val_i (vConstr i0 e l2) ⟧ Σ1) by
             eauto with hints.
         simpl in IH'.
         destruct p as [nm tys].
@@ -303,7 +303,7 @@ Proof.
 
            subst. replace ((#|pVars pt| + 0)) with (#|pVars pt|) in * by lia.
            (* assert (Hcomb : *)
-           (*           #|rev (combine (pVars p) ci)| = #|map (fun x : val => T⟦ of_val_i x ⟧ Σ1) l0|). *)
+           (*           #|rev (combine (pVars p) ci)| = #|map (fun x : val => t⟦ of_val_i x ⟧ Σ1) l0|). *)
            (* { rewrite rev_length;rewrite map_length. rewrite Hl0. rewrite combine_length. rewrite Hci. lia. } *)
            assert (Hok_constr: val_ok Σ1 (vConstr i0 c.1 l2)) by eauto 8 with hints.
            inversion Hok_constr;subst;clear Hok_constr.
@@ -330,15 +330,15 @@ Proof.
                assert (#|pVars pt| = #|skipn nparams l2|) by (rewrite skipn_length;lia).
                rewrite <- map_skipn.
                rewrite <- map_rev.
-               remember (fun x : val => T⟦ _ ⟧ _) as f.
-               remember (fun x : string * expr => T⟦ snd x ⟧ Σ1) as g.
-               remember (T⟦ tys .[_] _⟧ _) as te3.
+               remember (fun x : val => t⟦ _ ⟧ _) as f.
+               remember (fun x : string * expr => t⟦ snd x ⟧ Σ1) as g.
+               remember (t⟦ tys .[_] _⟧ _) as te3.
                assert (Hmap : map f (rev (skipn nparams l2)) =
                        map g (map (fun_prod id of_val_i)(rev (combine (pVars pt) (skipn nparams l2))))).
                { rewrite map_map.
                  subst g;simpl.
                  rewrite <- combine_rev by auto.
-                 change (fun x : name * val => T⟦ of_val_i (snd x) ⟧ Σ1) with
+                 change (fun x : name * val => t⟦ of_val_i (snd x) ⟧ Σ1) with
                   (fun x : name * val => ((expr_to_pcuic Σ1) ∘ of_val_i) (snd x)).
                  rewrite <- map_map with (g:=(expr_to_term Σ1) ∘ of_val_i)
                                         (f:=snd).
@@ -454,7 +454,7 @@ Corollary expr_to_term_sound_closed (n : nat) Σ1 Σ2 (Γ:=[])
   genv_ok Σ1 ->
   eval(n, Σ1, [], e) = Ok v ->
   iclosed_n 0 e = true ->
-  Σ2 ;;; Γ |- T⟦e⟧Σ1 ⇓ T⟦of_val_i v⟧Σ1.
+  Σ2 ;;; Γ |- t⟦e⟧Σ1 ⇓ t⟦of_val_i v⟧Σ1.
 Proof.
   intros.
   eapply expr_to_term_sound;eauto with hints.
@@ -466,12 +466,12 @@ Theorem adequacy_terminating (n : nat) Σ1 Σ2 (Γ:=[])
         (e : expr) (t : term) (v : val) :
   genv_ok Σ1 ->
   eval(n, Σ1, [], e) = Ok v (* evaluation terminates *) ->
-  Σ2 ;;; Γ |- T⟦e⟧Σ1 ⇓ t ->
+  Σ2 ;;; Γ |- t⟦e⟧Σ1 ⇓ t ->
   iclosed_n 0 e = true ->
-  t = T⟦of_val_i v⟧Σ1.
+  t = t⟦of_val_i v⟧Σ1.
 Proof.
   intros.
-  assert (Hcbv1 : Σ2 ;;; Γ |- T⟦ e ⟧Σ1 ⇓ T⟦ of_val_i v ⟧ Σ1)
+  assert (Hcbv1 : Σ2 ;;; Γ |- t⟦ e ⟧Σ1 ⇓ t⟦ of_val_i v ⟧ Σ1)
     by (eapply expr_to_term_sound_closed;eauto).
   eapply PcbvCurr.eval_deterministic;eauto.
 Qed.
