@@ -57,7 +57,11 @@
 </div>
 
 <div class="doc">
-Well-formed constructor in the definition of an inductive 
+<a name="lab19"></a><h2 class="section">Well-formed global environment (In the paper: (WF.i))</h2>
+
+<div class="paragraph"> </div>
+
+ Well-formed constructor in the definition of an inductive 
 </div>
 <div class="code">
 <span class="id" title="keyword">Definition</span> <a name="constr_ok"><span class="id" title="definition">constr_ok</span></a> (<span class="id" title="var">nparam</span> : <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<span class="id" title="var">c</span> : <a class="idref" href="ConCert.Ast.html#constr"><span class="id" title="definition">constr</span></a>) : <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
@@ -79,8 +83,7 @@ Well-formed global geclarations
 </div>
 
 <div class="doc">
-<a name="lab19"></a><h2 class="section">Well-formed global environment (In the paper: (WF.i))</h2>
-
+Well-formed global environment 
 </div>
 <div class="code">
 <span class="id" title="keyword">Definition</span> <a name="genv_ok"><span class="id" title="definition">genv_ok</span></a> <span class="id" title="var">Σ</span> := <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Lists.List.html#forallb"><span class="id" title="definition">forallb</span></a> <a class="idref" href="ConCert.Wf.html#global_dec_ok"><span class="id" title="definition">global_dec_ok</span></a> <a class="idref" href="ConCert.Wf.html#e15c0eb40e61adefe95778c26e7840f6"><span class="id" title="variable">Σ</span></a>.<br/>
