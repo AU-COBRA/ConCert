@@ -277,7 +277,7 @@ AST for a function that adds an element to a map
  We can prove correctness of "library" definitions like finite maps by comparing the to Coq's standard library definitions 
 <div class="paragraph"> </div>
 
- Since Coq's <span class="inlinecode"><span class="id" title="var">FMap</span></span> is a module, we fix the type of keys to be <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a></span> 
+ Since Coq's <span class="inlinecode"><a class="idref" href="SmartContracts.Containers.html#FMap"><span class="id" title="module">FMap</span></a></span> is a module, we fix the type of keys to be <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a></span> 
 </div>
 <div class="code">
 <span class="id" title="keyword">Module</span> <a name="NatMap"><span class="id" title="module">NatMap</span></a> := <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.FSets.FMapWeakList.html#Make"><span class="id" title="module">FMapWeakList.Make</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Structures.OrderedTypeEx.html#Nat_as_OT"><span class="id" title="module">Nat_as_OT</span></a>.<br/>
@@ -302,7 +302,7 @@ Conversion function from our type of finite maps to the one in the standard libr
 </div>
 
 <div class="doc">
-Showing that <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.ZArith.BinInt.html#Z.add"><span class="id" title="definition">add</span></a></span> function on Acorn finite maps are behaves the same way as one of the Coq's Stdlib implementations (up to converting the results) 
+Showing that <span class="inlinecode"><a class="idref" href="SmartContracts.Containers.html#FMap.add"><span class="id" title="abbreviation">add</span></a></span> function on Acorn finite maps are behaves the same way as one of the Coq's Stdlib implementations (up to converting the results) 
 </div>
 <div class="code">
 <span class="id" title="keyword">Lemma</span> <a name="add_map_eq_stdlib"><span class="id" title="lemma">add_map_eq_stdlib</span></a> {<span class="id" title="var">A</span> : <span class="id" title="keyword">Set</span>} <span class="id" title="var">k</span> <span class="id" title="var">v</span> <span class="id" title="var">m</span> :<br/>

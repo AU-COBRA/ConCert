@@ -172,9 +172,9 @@ Absurd Goals
 Deconstructing Terms 
 <div class="paragraph"> </div>
 
- <span class="inlinecode"><span class="id" title="var">get_head</span></span> <span class="inlinecode"><span class="id" title="var">E</span></span> is a tactic that returns the head constant of the
-    term <span class="inlinecode"><span class="id" title="var">E</span></span>, ie, when applied to a term of the form <span class="inlinecode"><a class="idref" href="ConCert.pcuic.PCUICCorrectnessAux.html#P"><span class="id" title="module">P</span></a></span> <span class="inlinecode"><a class="idref" href="ConCert.CustomTactics.html#x1"><span class="id" title="variable">x1</span></a></span> <span class="inlinecode">...</span> <span class="inlinecode"><span class="id" title="var">xN</span></span>
-    it returns <span class="inlinecode"><a class="idref" href="ConCert.pcuic.PCUICCorrectnessAux.html#P"><span class="id" title="module">P</span></a></span>. If <span class="inlinecode"><span class="id" title="var">E</span></span> is not an application, it returns <span class="inlinecode"><span class="id" title="var">E</span></span>.
+ <span class="inlinecode"><span class="id" title="var">get_head</span></span> <span class="inlinecode"><a class="idref" href="RecordUpdate.RecordSet.html#E"><span class="id" title="variable">E</span></a></span> is a tactic that returns the head constant of the
+    term <span class="inlinecode"><a class="idref" href="RecordUpdate.RecordSet.html#E"><span class="id" title="variable">E</span></a></span>, ie, when applied to a term of the form <span class="inlinecode"><a class="idref" href="ConCert.pcuic.PCUICCorrectnessAux.html#P"><span class="id" title="module">P</span></a></span> <span class="inlinecode"><a class="idref" href="ConCert.CustomTactics.html#x1"><span class="id" title="variable">x1</span></a></span> <span class="inlinecode">...</span> <span class="inlinecode"><span class="id" title="var">xN</span></span>
+    it returns <span class="inlinecode"><a class="idref" href="ConCert.pcuic.PCUICCorrectnessAux.html#P"><span class="id" title="module">P</span></a></span>. If <span class="inlinecode"><a class="idref" href="RecordUpdate.RecordSet.html#E"><span class="id" title="variable">E</span></a></span> is not an application, it returns <span class="inlinecode"><a class="idref" href="RecordUpdate.RecordSet.html#E"><span class="id" title="variable">E</span></a></span>.
     Warning: the tactic seems to loop in some cases when the goal is
     a product and one uses the result of this function. 
 </div>
@@ -330,7 +330,7 @@ N-ary Conjunctions and Disjunctions
 
 <div class="doc">
 <span class="inlinecode"><span class="id" title="var">splits</span></span> applies to a goal of the form <span class="inlinecode">(<span class="id" title="var">T1</span></span> <span class="inlinecode">/\</span> <span class="inlinecode">..</span> <span class="inlinecode">/\</span> <span class="inlinecode"><span class="id" title="var">TN</span>)</span> and
-    destruct it into <span class="inlinecode"><span class="id" title="var">N</span></span> subgoals <span class="inlinecode"><span class="id" title="var">T1</span></span> .. <span class="inlinecode"><span class="id" title="var">TN</span></span>. If the goal is not a
+    destruct it into <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a></span> subgoals <span class="inlinecode"><span class="id" title="var">T1</span></span> .. <span class="inlinecode"><span class="id" title="var">TN</span></span>. If the goal is not a
     conjunction, then it unfolds the head definition. 
 </div>
 <div class="code">
@@ -345,8 +345,8 @@ N-ary Conjunctions and Disjunctions
 </div>
 
 <div class="doc">
-<span class="inlinecode"><span class="id" title="var">splits</span></span> <span class="inlinecode"><span class="id" title="var">N</span></span> is similar to <span class="inlinecode"><span class="id" title="var">splits</span></span>, except that it will unfold as many
-    definitions as necessary to obtain an <span class="inlinecode"><span class="id" title="var">N</span></span>-ary conjunction. 
+<span class="inlinecode"><span class="id" title="var">splits</span></span> <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a></span> is similar to <span class="inlinecode"><span class="id" title="var">splits</span></span>, except that it will unfold as many
+    definitions as necessary to obtain an <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a></span>-ary conjunction. 
 </div>
 <div class="code">
 
@@ -381,8 +381,8 @@ N-ary Conjunctions Deconstruction
 </div>
 
 <div class="doc">
-<span class="inlinecode"><span class="id" title="var">destructs</span></span> <span class="inlinecode"><span class="id" title="var">T</span></span> allows destructing a term <span class="inlinecode"><span class="id" title="var">T</span></span> which is a N-ary
-    conjunction. It is equivalent to <span class="inlinecode"><span class="id" title="tactic">destruct</span></span> <span class="inlinecode"><span class="id" title="var">T</span></span> <span class="inlinecode"><span class="id" title="keyword">as</span></span> <span class="inlinecode">(<span class="id" title="var">H1</span></span> <span class="inlinecode">..</span> <span class="inlinecode"><span class="id" title="var">HN</span>)</span>,
+<span class="inlinecode"><span class="id" title="var">destructs</span></span> <span class="inlinecode"><a class="idref" href="SmartContracts.Finite.html#T"><span class="id" title="variable">T</span></a></span> allows destructing a term <span class="inlinecode"><a class="idref" href="SmartContracts.Finite.html#T"><span class="id" title="variable">T</span></a></span> which is a N-ary
+    conjunction. It is equivalent to <span class="inlinecode"><span class="id" title="tactic">destruct</span></span> <span class="inlinecode"><a class="idref" href="SmartContracts.Finite.html#T"><span class="id" title="variable">T</span></a></span> <span class="inlinecode"><span class="id" title="keyword">as</span></span> <span class="inlinecode">(<span class="id" title="var">H1</span></span> <span class="inlinecode">..</span> <span class="inlinecode"><span class="id" title="var">HN</span>)</span>,
     except that it does not require to manually specify N different
     names. 
 </div>
@@ -398,7 +398,7 @@ N-ary Conjunctions Deconstruction
 </div>
 
 <div class="doc">
-<span class="inlinecode"><span class="id" title="var">destructs</span></span> <span class="inlinecode"><span class="id" title="var">N</span></span> <span class="inlinecode"><span class="id" title="var">T</span></span> is equivalent to <span class="inlinecode"><span class="id" title="tactic">destruct</span></span> <span class="inlinecode"><span class="id" title="var">T</span></span> <span class="inlinecode"><span class="id" title="keyword">as</span></span> <span class="inlinecode">(<span class="id" title="var">H1</span></span> <span class="inlinecode">..</span> <span class="inlinecode"><span class="id" title="var">HN</span>)</span>,
+<span class="inlinecode"><span class="id" title="var">destructs</span></span> <span class="inlinecode"><a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a></span> <span class="inlinecode"><a class="idref" href="SmartContracts.Finite.html#T"><span class="id" title="variable">T</span></a></span> is equivalent to <span class="inlinecode"><span class="id" title="tactic">destruct</span></span> <span class="inlinecode"><a class="idref" href="SmartContracts.Finite.html#T"><span class="id" title="variable">T</span></a></span> <span class="inlinecode"><span class="id" title="keyword">as</span></span> <span class="inlinecode">(<span class="id" title="var">H1</span></span> <span class="inlinecode">..</span> <span class="inlinecode"><span class="id" title="var">HN</span>)</span>,
     except that it does not require to manually specify N different
     names. Remark that it is not restricted to N-ary conjunctions. 
 </div>

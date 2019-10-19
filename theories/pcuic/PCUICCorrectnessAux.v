@@ -1336,7 +1336,7 @@ Qed.
 
 Hint Resolve ty_expr_env_ok_app_rec : hints.
 
-(** ** Environment substitution commutes with PCUIC substitution (In the paper: Translation soundness. Lemma 1.) *)
+(** ** Environment substitution commutes with PCUIC substitution (In the paper: Lemma 1.) *)
 Lemma subst_term_subst_env_par_rec :
   forall Σ (l : env expr) e k,
   genv_ok Σ ->
@@ -1666,7 +1666,7 @@ Qed.
 
 Hint Resolve eval_ty_expr_env_ok eval_ty_env_ok : hints.
 
-(** ** Evaluation gives well-formed values (In the paper: Translation soundness. Lemma 2) *)
+(** ** Evaluation gives well-formed values (In the paper: Lemma 2) *)
 Lemma eval_val_ok n ρ Σ e v :
   ty_expr_env_ok (exprs ρ) 0 e ->
   env_ok Σ ρ ->

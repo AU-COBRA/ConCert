@@ -14,7 +14,7 @@ From Coq Require Import String List.
 Import ListNotations ssrbool Basics Lia.
 Import NamelessSubst.
 
-(** Soundness (In the paper: Translation soundness. Theorem 1) *)
+(** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
         (e1 e2 : expr) (v : val) :
   genv_ok Σ1 ->
@@ -448,7 +448,7 @@ Proof.
       eapply closed_exprs;eauto.
 Qed.
 
-(** ** Soundness for closed epxressions (In the paper: Translation soundness. Corollary 2)*)
+(** ** Soundness for closed epxressions (In the paper: Corollary 2)*)
 Corollary expr_to_term_sound_closed (n : nat) Σ1 Σ2 (Γ:=[])
           (e : expr) (v : val) :
   genv_ok Σ1 ->
@@ -461,7 +461,7 @@ Proof.
   simpl. symmetry. eapply subst_env_i_empty.
 Qed.
 
-(** ** Adequacy for terminating programs (In the paper: Translation soundness. Theorem 3) *)
+(** ** Adequacy for terminating programs (In the paper: Theorem 3) *)
 Theorem adequacy_terminating (n : nat) Σ1 Σ2 (Γ:=[])
         (e : expr) (t : term) (v : val) :
   genv_ok Σ1 ->

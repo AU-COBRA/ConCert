@@ -1,3 +1,23 @@
+-R smart-contract-interactions/theories SmartContracts
+smart-contract-interactions/theories/Automation.v
+smart-contract-interactions/theories/Blockchain.v
+smart-contract-interactions/theories/BoundedN.v
+smart-contract-interactions/theories/ChainedList.v
+smart-contract-interactions/theories/Circulation.v
+smart-contract-interactions/theories/Congress.v
+smart-contract-interactions/theories/Congress_Buggy.v
+smart-contract-interactions/theories/Containers.v
+smart-contract-interactions/theories/Extras.v
+smart-contract-interactions/theories/Finite.v
+smart-contract-interactions/theories/LocalBlockchain.v
+smart-contract-interactions/theories/LocalBlockchainTests.v
+smart-contract-interactions/theories/Monads.v
+smart-contract-interactions/theories/Serializable.v
+
+-R smart-contract-interactions/vendor/record-update RecordUpdate
+smart-contract-interactions/vendor/record-update/RecordSet.v
+smart-contract-interactions/vendor/record-update/RecordUpdate.v
+
 -R theories ConCert
 
 ./theories/CustomTactics.v

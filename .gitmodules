@@ -1,0 +1,3 @@
+[submodule "smart-contract-interactions"]
+	path = smart-contract-interactions
+	url = https://gitlab.au.dk/concordium/smart-contract-interactions.git
