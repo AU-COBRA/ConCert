@@ -4,10 +4,13 @@ A framework for smart contract verification in Coq
 
 ## How to build
 
-Our development works with Coq 8.9.1. and depends on MetaCoq
-1.0~alpha. Both can be installed through `opam`.
 
-First, install Coq:
+Our development works with Coq 8.9.1. and depends on MetaCoq
+1.0~alpha. Both can be installed through `opam`. Also, there is a git
+submodule `smart-contract-interactions` which corresponds to the smart contract execution framework.
+To clone the project with the submodule, use `git clone --recursive`.
+
+Install Coq:
 
 ```
 opam install coq.8.9.1
