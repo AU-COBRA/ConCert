@@ -237,13 +237,13 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
 End AcornListBase.
 
 (** ** Acorn blockchain-related data types *)
-Module AcornBlochain.
+Module AcornBlockchain.
 
-  Definition ABl_data :=  [gdInd "Caller" 0 [("CallerContract_coq", [(None, tyInd "nat")]);("CallerAccount_coq", [(None, tyInd "string")])] false;gdInd "ChainContext" 0 [("ChainContext_coq", [(None, tyInd "nat");(None, tyInd "nat");(None, tyInd "nat")])] false;gdInd "InitContext" 0 [("InitContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string")])] false;gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string");(None, tyInd "nat")])] false].
+  Definition Data :=  [gdInd "Caller" 0 [("CallerContract_coq", [(None, tyInd "nat")]);("CallerAccount_coq", [(None, tyInd "string")])] false;gdInd "ChainContext" 0 [("ChainContext_coq", [(None, tyInd "nat");(None, tyInd "nat");(None, tyInd "nat")])] false;gdInd "InitContext" 0 [("InitContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string")])] false;gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string");(None, tyInd "nat")])] false].
 
   (*---------------------*)
 
-  Definition ABl_functions := [("slotNumber", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 2)]))
+  Definition Functions := [("slotNumber", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 2)]))
 ;("blockHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 1)]))
 ;("finalizedHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 0)]))
 ;("initOrigin", eLambda "x" ((tyInd "InitContext")) (eCase ("InitContext", []) (tyInd "string") (eRel 0) [(pConstr "InitContext_coq" ["x0";"x1"], eRel 0)]))
@@ -252,108 +252,131 @@ Module AcornBlochain.
 ;("receiveOrigin", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "string") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 1)]))
 ;("receiveSelfAddress", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "nat") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 0)]))].
 
-  Run TemplateProgram (translateData ABl_data).
-  Run TemplateProgram (translateDefs (StdLib.Σ ++ ABl_data)%list ABl_functions).
-End AcornBlochain.
+  Run TemplateProgram (translateData Data).
+  Run TemplateProgram (translateDefs (StdLib.Σ ++ Data)%list Functions).
+End AcornBlockchain.
 
 (** ** A simple [Counter] contract *)
 
-(** Concrete syntax *)
+Module Counter.
+  (** Concrete syntax in Acorn *)
 
-(*
-module CoqExamples where
+  (*
+  module CoqExamples where
 
-import Prim
+  import Prim
 
-data Msg = Inc [Int64] | Dec [Int64]
+  data Msg = Inc [Int64] | Dec [Int64]
 
-data CState = CState [Int64, {address}]
+  data CState = CState [Int64, {address}]
 
-definition owner (s :: CState) =
-   case s of
-     CState _ d -> d
+  definition owner (s :: CState) =
+     case s of
+       CState _ d -> d
 
-definition balance (s :: CState) =
-   case s of
-     CState x _ -> x
+  definition balance (s :: CState) =
+     case s of
+       CState x _ -> x
 
-definition count (s :: CState) (msg :: Msg) =
-  case msg of
-    Inc a ->
-      CState (Prim.plusInt64 (balance s) a) (owner s)
-    Dec a ->
-      CState (Prim.minusInt64 (balance s) a) (owner s)
- *)
+  definition count (s :: CState) (msg :: Msg) =
+    case msg of
+      Inc a ->
+        CState (Prim.plusInt64 (balance s) a) (owner s)
+      Dec a ->
+        CState (Prim.minusInt64 (balance s) a) (owner s)
+   *)
 
-(** For now, we assume that data types are already translated *)
+  (** AST of Data type definitions and functions corresponding to the module [CoqExamples] above *)
+  Definition CounterData := [gdInd "Msg" 0 [("Inc_coq", [(None, tyInd "Z")]);("Dec_coq", [(None, tyInd "Z")])] false;gdInd "CState" 0 [("CState_coq", [(None, tyInd "Z");(None, tyInd "string")])] false].
+  (*---------------------*)
+  Definition CounterFunctions := [("owner", eLambda "x" ((tyInd "CState")) (eCase ("CState", []) (tyInd "string") (eRel 0) [(pConstr "CState_coq" ["x0";"x1"], eRel 0)])) ;("balance", eLambda "x" ((tyInd "CState")) (eCase ("CState", []) (tyInd "Z") (eRel 0) [(pConstr "CState_coq" ["x0";"x1"], eRel 1)])); ("count", eLambda "x" ((tyInd "ReceiveContext")) (eLambda "x" ((tyInd "CState")) (eLambda "x" ((tyInd "Caller")) (eLambda "x" (tyInd "nat") (eLambda "x" ((tyApp (tyInd "Maybe") ((tyInd "Msg")))) (eCase ("Maybe", [(tyInd "Msg")]) ((tyApp (tyApp (tyInd "Pair") ((tyInd "CState"))) ((tyInd "Transaction")))) (eRel 0) [(pConstr "Nothing_coq" [], eApp (eApp (eApp (eApp (eConstr "Pair" "Pair_coq") (eTy ((tyInd "CState")))) (eTy ((tyInd "Transaction")))) (eRel 3)) (eConst "TxNone")); (pConstr "Just_coq" ["x0"], eCase ("Msg", []) ((tyApp (tyApp (tyInd "Pair") ((tyInd "CState"))) ((tyInd "Transaction")))) (eRel 0) [(pConstr "Inc_coq" ["x0"], eLetIn "x" (eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "plusInt64") (eApp (eConst "balance") (eRel 5))) (eRel 0))) (eApp (eConst "owner") (eRel 5))) ((tyInd "CState")) (eApp (eApp (eApp (eApp (eConstr "Pair" "Pair_coq") (eTy ((tyInd "CState")))) (eTy ((tyInd "Transaction")))) (eRel 0)) (eConst "TxNone"))); (pConstr "Dec_coq" ["x0"], eLetIn "x" (eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "minusInt64") (eApp (eConst "balance") (eRel 5))) (eRel 0))) (eApp (eConst "owner") (eRel 5))) ((tyInd "CState")) (eApp (eApp (eApp (eApp (eConstr "Pair" "Pair_coq") (eTy ((tyInd "CState")))) (eTy ((tyInd "Transaction")))) (eRel 0)) (eConst "TxNone")))])]))))))].
 
-Module Prim.
-  Definition plusInt64 := Z.add.
-  Definition minusInt64 := Z.sub.
-End Prim.
+  (** We assume that primitive data types are available *)
+  Module Prim.
+    Inductive Transaction := txNone.
+    Definition plusInt64 := Z.add.
+    Definition minusInt64 := Z.sub.
+    Definition TxNone := txNone.
+  End Prim.
 
-(** Data type definitions corresponding representation of the module [CoqExamples] above *)
-Definition acorn_datatypes :=
-[gdInd "Msg" 0 [("Inc_coq", [(None, tyInd "Z")]);("Dec_coq", [(None, tyInd "Z")])] false;gdInd "CState" 0 [("CState_coq", [(None, tyInd "Z");(None, tyInd "string")])] false].
+  (** We import Acorn "standard library" definitions before unquoting. These definitions were also produced by the same printing procedure.  *)
+  Import Prim.
+  Import AcornProd.
+  Import AcornMaybe.
+  Import AcornBlockchain.
 
-Run TemplateProgram (translateData acorn_datatypes).
+  (** Now, we add all data types, required for the translation of the [counter] to the global environment *)
+  Definition gEnv := ((StdLib.Σ ++ AcornMaybe.Data ++ AcornBlockchain.Data ++ AcornProd.Data ++ CounterData)%list).
 
-Definition Σ' :=
-  (StdLib.Σ ++ acorn_datatypes)%list.
+  (** We translate data types and the [counter] contract to MetaCoq and unquote them using the template moand *)
+  Run TemplateProgram (translateData CounterData).
+  Run TemplateProgram (translateDefs gEnv CounterFunctions).
 
-Import Prim.
+  (** After that, we can interact with the shallow embedding in a usual way *)
+  Print Msg.
+  (* Inductive Msg : Set :=  Inc_coq : Z -> Msg | Dec_coq : Z -> Msg *)
 
-(** Function definitions corresponding representation of the module [CoqExamples] above *)
-Definition acorn_module : list (string * expr) := [("owner", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "string") (eRel 0) [(pConstr "CState_coq" ["x0"
-;"x1"], eRel 0)]))
-;("balance", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "Z") (eRel 0) [(pConstr "CState_coq" ["x0"
-;"x1"], eRel 1)]))
-;("count", eLambda "x" (tyInd "CState") (eLambda "x" (tyInd "Msg") (eCase ("Msg", []) (tyInd "CState") (eRel 0) [(pConstr "Inc_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "plusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))
-;(pConstr "Dec_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "minusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))])))].
+  Print count.
+(* count =
+  fun _ x0 _ _ x3 =>
+  match x3 with
+   | @Nothing_coq _ => Pair_coq CState Transaction x0 TxNone
+   | @Just_coq _ (Inc_coq x5) =>
+      Pair_coq CState Transaction
+       (CState_coq (plusInt64 (balance x0) x5) (owner x0)) TxNone
+   | @Just_coq _ (Dec_coq x5) =>
+      Pair_coq CState Transaction
+       (CState_coq (minusInt64 (balance x0) x5) (owner x0)) TxNone
+  end
+     : ReceiveContext -> CState -> Caller
+       -> nat -> Maybe Msg -> Pair CState Transaction *)
 
-Run TemplateProgram (translateDefs Σ' acorn_module).
+  Open Scope Z_scope.
 
-Open Scope Z_scope.
+  (** Using the shallow embedding, we can show a simple functional correctness property *)
+  Lemma inc_correct init n i fin tx ctx amount caller :
+    (* precondition *)
+    balance init = n ->
 
-Lemma inc_correct init_state n i final_state :
-  (* precondition *)
-  balance init_state = n ->
+    (* sending "increment" *)
+    count ctx init caller amount (Just_coq _ (Inc_coq i)) = Pair_coq _ _ fin tx ->
 
-  (* sending "increment" *)
-  count init_state (Inc_coq i) = final_state ->
-
-  (* result *)
-  balance final_state = n + i.
-Proof.
-  intros Hinit Hrun. subst. reflexivity.
-Qed.
+    (* result *)
+    balance fin = n + i.
+  Proof.
+    intros Hinit Hrun. inversion Hrun. subst. reflexivity.
+  Qed.
 
 
-Module ForPeresentation.
+  Module ForPeresentation.
 
-  (** This is how functions would look like, if we defined them by hand *)
+    (** This is how functions would look like, if we defined them by hand *)
 
-Definition owner : CState -> string := fun x =>
-  match x with
-  | CState_coq _ x1 => x1
+  Definition owner : CState -> string := fun x =>
+    match x with
+    | CState_coq _ x1 => x1
+    end.
+
+  Definition balance : CState -> Z := fun x =>
+    match x with
+    | CState_coq x0 _ => x0
+    end.
+
+  Definition count
+    : ReceiveContext -> CState -> Caller
+       -> nat -> Maybe Msg -> Pair CState Transaction :=
+   fun _ x0 _ _ x3 =>
+  match x3 with
+   | Nothing_coq => Pair_coq CState Transaction x0 TxNone
+   | Just_coq (Inc_coq x5) =>
+      Pair_coq CState Transaction
+       (CState_coq (plusInt64 (balance x0) x5) (owner x0)) TxNone
+   | Just_coq (Dec_coq x5) =>
+      Pair_coq CState Transaction
+       (CState_coq (minusInt64 (balance x0) x5) (owner x0)) TxNone
   end.
-
-Definition balance : CState -> Z := fun x =>
-  match x with
-  | CState_coq x0 _ => x0
-  end.
-
-Definition count
-  : CState -> Msg -> CState := fun x x0 =>
- match x0 with
- | Inc_coq x1 =>
-     CState_coq (plusInt64 (balance x) x1)
-                (owner x)
- | Dec_coq x1 =>
-   CState_coq (minusInt64 (balance x) x1)
-              (owner x)
- end.
-End ForPeresentation.
+  End ForPeresentation.
+End Counter.
 
 Module Recursion.
 
