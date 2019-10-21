@@ -1,0 +1,5 @@
+.gitignore export-ignore
+.gitmodules export-ignore
+smart-contract-interactions/.gitignore export-ignore
+smart-contract-interactions/.editorconfig export-ignore
+smart-contract-interactions/.gitlab-ci.yml export-ignore

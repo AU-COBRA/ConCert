@@ -10,7 +10,7 @@ COQ_PROJ:=_CoqProject
 
 all: html
 
-code: Makefile.coq
+code: $(COQMAKEFILE)
 	$(MAKE) -f Makefile.coq
 
 clean: $(COQMAKEFILE)

@@ -23,3 +23,6 @@ Makefile.coq.conf
 *.d
 *.lia.cache
 doc/
+
+# artefact
+cpp20-artefact.zip
