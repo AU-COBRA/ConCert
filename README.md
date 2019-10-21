@@ -26,7 +26,7 @@ And std++:
 
 ```bash
 opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-opam install coq-stdpp
+opam install coq-stdpp.1.2.1
 ```
 
 After completing the procedures above, `cd` into the artifact directory and run
