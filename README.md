@@ -6,7 +6,9 @@ A framework for smart contract verification in Coq
 
 
 Our development works with Coq 8.9.1. and depends on MetaCoq 1.0~alpha and the
-std++ library. These dependencies can be installed through `opam`.
+std++ library. These dependencies can be installed through `opam` (see
+https://coq.inria.fr/opam-using.html for detailed instructions on how to manage
+multiple Coq installations using opam).
 
 First, install Coq:
 
