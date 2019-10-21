@@ -5,23 +5,30 @@ A framework for smart contract verification in Coq
 ## How to build
 
 
-Our development works with Coq 8.9.1. and depends on MetaCoq
-1.0~alpha. Both can be installed through `opam`.
+Our development works with Coq 8.9.1. and depends on MetaCoq 1.0~alpha and the
+std++ library. These dependencies can be installed through `opam`.
 
 First, install Coq:
 
-```
+```bash
 opam install coq.8.9.1
 ```
 
 Then MetaCoq:
 
-```
+```bash
+opam repo add coq-released https://coq.inria.fr/opam/released
 opam install coq-metacoq
 ```
+And std++:
 
-After completing the procedures above, run `make`. By default, `make`
-will build all the development and the documentation.
+```bash
+opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
+opam install coq-stdpp
+```
+
+After completing the procedures above, `cd` into the artifact directory and run
+`make`. By default, `make` will build all the development and the documentation.
 
 ## Documentation
 
