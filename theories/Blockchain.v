@@ -1056,6 +1056,11 @@ Arguments build_contract {_ _ _ _ _ _ _}.
 Arguments ContractInterface {_} _.
 Arguments build_contract_interface {_ _ _ _}.
 
+(* set_chain_contract_state updates a map (function) by returning a
+   new map (function).  If this function is immediately applied to a
+   key, then unfold it. *)
+Arguments set_chain_contract_state {_} _ _ _ /.
+
 Ltac destruct_chain_step :=
   match goal with
   | [step: ChainStep _ _ |- _] =>
