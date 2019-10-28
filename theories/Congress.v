@@ -788,7 +788,7 @@ Proof.
     cbn [trace_txs].
     rewrite queue_prev, queue_new in *.
     remember (chain_state_env prev).
-    destruct_action_eval; subst pre; cbn [eval_tx].
+    destruct_action_eval; subst; cbn [eval_tx].
     + (* Transfer step: cannot be to contract, but can come from contract. *)
       rewrite_environment_equiv.
       specialize_hypotheses.
@@ -816,6 +816,7 @@ Proof.
         assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
           as out_acts by eauto.
         rewrite queue_prev in out_acts.
+        remember (build_act from _) as act.
         assert (act_from act <> contract)
           by (eapply undeployed_contract_not_from_self; eauto).
         simpl_hyp_invariant.
@@ -827,7 +828,6 @@ Proof.
     + (* Call. *)
       rewrite_environment_equiv.
       specialize_hypotheses.
-      subst new_acts.
       destruct (address_eqb_spec contract to); cycle 1.
       * (* Not to contract. Essentially same thing as transfer case above. *)
         simpl_goal_invariant.

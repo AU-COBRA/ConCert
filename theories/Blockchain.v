@@ -261,9 +261,9 @@ Record Contract
       Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive;
   }.
 
-Arguments init {_ _ _ _ _ _}.
-Arguments receive {_ _ _ _ _ _}.
-Arguments build_contract {_ _ _ _ _ _}.
+Global Arguments init {_ _ _ _ _ _}.
+Global Arguments receive {_ _ _ _ _ _}.
+Global Arguments build_contract {_ _ _ _ _ _}.
 
 Program Definition contract_to_weak_contract
           {Setup Msg State : Type}
@@ -334,7 +334,7 @@ Record ContractInterface {Msg : Type} :=
     send : Amount -> option Msg -> ActionBody;
   }.
 
-Arguments ContractInterface _ : clear implicits.
+Global Arguments ContractInterface _ : clear implicits.
 
 Definition get_contract_interface
           (chain : Chain) (addr : Address)
@@ -424,6 +424,11 @@ Definition set_contract_state
            (addr : Address) (state : SerializedValue) (env : Environment) :=
   env<|env_contract_states ::= set_chain_contract_state addr state|>.
 
+(* set_chain_contract_state updates a map (function) by returning a
+   new map (function).  If this function is immediately applied to a
+   key, then unfold it. *)
+Global Arguments set_chain_contract_state _ _ _ /.
+
 Ltac rewrite_environment_equiv :=
   match goal with
   | [H: EnvironmentEquiv _ _ |- _] => rewrite H in *
@@ -467,52 +472,44 @@ changes an environment and which external actions to execute after it.
 Note that there can be multiple ways to execute an action. For example, if
 the action says to deploy a contract, the implementation is responsible for
 selecting which address the new contract should get. *)
-Inductive ActionEvaluation :
-  Environment -> Action ->
-  Environment -> list Action -> Type :=
+Inductive ActionEvaluation
+          (prev_env : Environment) (act : Action)
+          (new_env : Environment) (new_acts : list Action) : Type :=
   | eval_transfer :
-      forall {pre : Environment}
-             {act : Action}
-             {new_env : Environment}
-             (from to : Address)
+      forall (from to : Address)
              (amount : Amount),
         amount >= 0 ->
-        amount <= account_balance pre from ->
+        amount <= account_balance prev_env from ->
         address_is_contract to = false ->
         act = build_act from (act_transfer to amount) ->
         EnvironmentEquiv
           new_env
-          (transfer_balance from to amount pre) ->
-        ActionEvaluation pre act new_env []
+          (transfer_balance from to amount prev_env) ->
+        new_acts = [] ->
+        ActionEvaluation prev_env act new_env new_acts
   | eval_deploy :
-      forall {pre : Environment}
-             {act : Action}
-             {new_env : Environment}
-             (from to : Address)
+      forall (from to : Address)
              (amount : Amount)
              (wc : WeakContract)
              (setup : SerializedValue)
              (state : SerializedValue),
       amount >= 0 ->
-      amount <= account_balance pre from ->
+      amount <= account_balance prev_env from ->
       address_is_contract to = true ->
-      env_contracts pre to = None ->
+      env_contracts prev_env to = None ->
       act = build_act from (act_deploy amount wc setup) ->
       wc_init
         wc
-        (transfer_balance from to amount pre)
+        (transfer_balance from to amount prev_env)
         (build_ctx from to amount)
         setup = Some state ->
       EnvironmentEquiv
         new_env
-        (set_contract_state to state (add_contract to wc (transfer_balance from to amount pre))) ->
-      ActionEvaluation pre act new_env []
+        (set_contract_state to state (add_contract to wc (transfer_balance from to amount prev_env))) ->
+      new_acts = [] ->
+      ActionEvaluation prev_env act new_env new_acts
   | eval_call :
-      forall {pre : Environment}
-             {act : Action}
-             {new_env : Environment}
-             {new_acts : list Action}
-             (from to : Address)
+      forall (from to : Address)
              (amount : Amount)
              (wc : WeakContract)
              (msg : option SerializedValue)
@@ -520,24 +517,28 @@ Inductive ActionEvaluation :
              (new_state : SerializedValue)
              (resp_acts : list ActionBody),
       amount >= 0 ->
-      amount <= account_balance pre from ->
-      env_contracts pre to = Some wc ->
-      env_contract_states pre to = Some prev_state ->
+      amount <= account_balance prev_env from ->
+      env_contracts prev_env to = Some wc ->
+      env_contract_states prev_env to = Some prev_state ->
       act = build_act from (match msg with
                             | None => act_transfer to amount
                             | Some msg => act_call to amount msg
                             end) ->
       wc_receive
         wc
-        (transfer_balance from to amount pre)
+        (transfer_balance from to amount prev_env)
         (build_ctx from to amount)
         prev_state
         msg = Some (new_state, resp_acts) ->
       new_acts = map (build_act to) resp_acts ->
       EnvironmentEquiv
         new_env
-        (set_contract_state to new_state (transfer_balance from to amount pre)) ->
-      ActionEvaluation pre act new_env new_acts.
+        (set_contract_state to new_state (transfer_balance from to amount prev_env)) ->
+      ActionEvaluation prev_env act new_env new_acts.
+
+Global Arguments eval_transfer {_ _ _ _}.
+Global Arguments eval_deploy {_ _ _ _}.
+Global Arguments eval_call {_ _ _ _}.
 
 Section Accessors.
 Context {pre : Environment} {act : Action}
@@ -546,22 +547,22 @@ Context {pre : Environment} {act : Action}
 
 Definition eval_from : Address :=
   match eval with
-  | eval_transfer from _ _ _ _ _ _ _
-  | eval_deploy from _ _ _ _ _ _ _ _ _ _ _ _
+  | eval_transfer from _ _ _ _ _ _ _ _
+  | eval_deploy from _ _ _ _ _ _ _ _ _ _ _ _ _
   | eval_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
 Definition eval_to : Address :=
   match eval with
-  | eval_transfer _ to _ _ _ _ _ _
-  | eval_deploy _ to _ _ _ _ _ _ _ _ _ _ _
+  | eval_transfer _ to _ _ _ _ _ _ _
+  | eval_deploy _ to _ _ _ _ _ _ _ _ _ _ _ _
   | eval_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
 Definition eval_amount : Amount :=
   match eval with
-  | eval_transfer _ _ amount _ _ _ _ _
-  | eval_deploy _ _ amount _ _ _ _ _ _ _ _ _ _
+  | eval_transfer _ _ amount _ _ _ _ _ _
+  | eval_deploy _ _ amount _ _ _ _ _ _ _ _ _ _ _
   | eval_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
@@ -755,9 +756,9 @@ Definition eval_tx {pre : Environment} {act : Action}
                    {post : Environment} {new_acts : list Action}
                    (step : ActionEvaluation pre act post new_acts) : Tx :=
   match step with
-  | eval_transfer from to amount _ _ _ _ _ =>
+  | eval_transfer from to amount _ _ _ _ _ _ =>
     build_tx from to amount tx_empty
-  | eval_deploy from to amount wc setup _ _ _ _ _ _ _ _ =>
+  | eval_deploy from to amount wc setup _ _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_deploy wc setup)
   | eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_call msg)
@@ -863,6 +864,7 @@ Proof.
       match goal with
       | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
       end;
+    subst;
     cbn in *.
   - (* New block *)
     match goal with
@@ -880,7 +882,6 @@ Proof.
     assert (contract <> to) by congruence.
     split; [eapply new_acts_no_out_queue|eapply list.Forall_cons]; eauto.
   - (* Permutation *)
-    subst.
     specialize_hypotheses.
     match goal with
     | [prev_eq_new: _ = _, perm: Permutation _ _ |- _] =>
@@ -1049,17 +1050,6 @@ Class ChainBuilderType :=
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
 Global Coercion builder_env : builder_type >-> Environment.
 End Blockchain.
-
-Arguments init {_ _ _ _ _ _ _}.
-Arguments receive {_ _ _ _ _ _ _}.
-Arguments build_contract {_ _ _ _ _ _ _}.
-Arguments ContractInterface {_} _.
-Arguments build_contract_interface {_ _ _ _}.
-
-(* set_chain_contract_state updates a map (function) by returning a
-   new map (function).  If this function is immediately applied to a
-   key, then unfold it. *)
-Arguments set_chain_contract_state {_} _ _ _ /.
 
 Ltac destruct_chain_step :=
   match goal with
