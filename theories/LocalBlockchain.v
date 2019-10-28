@@ -256,11 +256,8 @@ Section ExecuteActions.
       destruct (env_contract_states _ _) as [prev_state|] eqn:prev_state_eq;
         [|cbn in *; congruence].
       cbn -[lc_to_env] in *.
-      destruct (wc_receive wc _ _ _ _) eqn:receive;
+      destruct (wc_receive wc _ _ _ _) as [[new_state resp_acts]|] eqn:receive;
         [|cbn in *; congruence].
-      match goal with
-      | [p: SerializedValue * list ActionBody |- _] => destruct p as [new_state resp_acts]
-      end.
       Hint Resolve gtb_le ltb_ge : core.
       apply (eval_call from to amount wc msg prev_state new_state resp_acts);
         try solve [cbn in *; auto; congruence].

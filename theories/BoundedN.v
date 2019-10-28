@@ -245,7 +245,7 @@ Module BoundedN.
     specialize (x_bound (or_introl eq_refl)).
     destruct x_bound as [useless x_bound]; clear useless.
     cbn in x_bound.
-    destruct (of_nat x) eqn:ofnatx. all: cycle 1.
+    destruct (of_nat x) eqn:ofnatx; cycle 1.
     apply of_nat_none in ofnatx.
     lia.
     constructor.
