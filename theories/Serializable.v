@@ -70,6 +70,16 @@ Class Serializable (ty : Type) :=
 
 Global Opaque serialize deserialize deserialize_serialize.
 
+Lemma serialize_injective {T : Type} `{Serializable T} x y :
+  serialize x = serialize y ->
+  x = y.
+Proof.
+  intros eq.
+  enough (Some x = Some y) by congruence.
+  rewrite <- 2!deserialize_serialize.
+  now rewrite eq.
+Qed.
+
 Program Instance unit_serializable : Serializable unit :=
   {| serialize u := build_ser_value ser_unit u;
      deserialize := extract_ser_value ser_unit; |}.
