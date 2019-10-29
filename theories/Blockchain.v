@@ -348,7 +348,7 @@ Definition get_contract_interface
   Some {| contract_address := addr; send := ifc_send; |}.
 
 Section Semantics.
-Instance chain_settable : Settable _ :=
+Global Instance chain_settable : Settable _ :=
   settable! build_chain
   <chain_height; current_slot; finalized_height; account_balance>.
 
@@ -381,6 +381,12 @@ Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
     contract_states_eq : forall addr, env_contract_states e1 addr = env_contract_states e2 addr;
   }.
 
+(* Strongly typed version of contract state *)
+Definition contract_state
+           {A : Type} `{Serializable A}
+           (env : Environment) (addr : Address) : option A :=
+  env_contract_states env addr >>= deserialize.
+
 Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.
 Next Obligation.
   intros x; apply build_env_equiv; reflexivity.
@@ -393,17 +399,27 @@ Next Obligation.
   apply (@transitivity Chain _ _ _ y _); auto.
 Qed.
 
-Global Instance environment_equiv_contracts_proper :
+Global Instance environment_equiv_env_contracts_proper :
   Proper (EnvironmentEquiv ==> eq ==> eq) env_contracts.
 Proof. repeat intro; subst; apply contracts_eq; assumption. Qed.
 
-Global Instance environment_equiv_contract_states_proper :
+Global Instance environment_equiv_env_contract_states_proper :
   Proper (EnvironmentEquiv ==> eq ==> eq) env_contract_states.
 Proof. repeat intro; subst; apply contract_states_eq; assumption. Qed.
 
-Global Instance environment_equiv_chain_equiv_proper :
+Global Instance environment_equiv_env_chain_equiv_proper :
   Proper (EnvironmentEquiv ==> ChainEquiv) env_chain.
 Proof. repeat intro; apply chain_equiv; assumption. Qed.
+
+Global Instance environment_equiv_contract_state_proper
+  {A : Type} `{Serializable A} :
+  Proper (EnvironmentEquiv ==> eq ==> (@eq (option A))) contract_state.
+Proof.
+  intros ? ? env_eq ? ? ?.
+  subst.
+  unfold contract_state.
+  now rewrite env_eq.
+Qed.
 
 Instance env_settable : Settable _ :=
   settable! build_env <env_chain; env_contracts; env_contract_states>.
@@ -1023,6 +1039,111 @@ Proof.
     pose proof (eval_amount_le_account_balance eval).
     destruct_address_eq; subst; cbn in *; lia.
   - now rewrite <- prev_next.
+Qed.
+
+Lemma wc_init_strong {Setup Msg State : Type}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
+          {contract : Contract Setup Msg State}
+          {chain ctx setup result} :
+  wc_init (contract : WeakContract) chain ctx setup = Some result ->
+  exists setup_strong result_strong,
+    deserialize setup = Some setup_strong /\
+    serialize result_strong = result /\
+    Blockchain.init contract chain ctx setup_strong = Some result_strong.
+Proof.
+  intros init.
+  cbn in *.
+  destruct (deserialize setup) as [setup_strong|] eqn:deser_setup;
+    cbn in *; try congruence.
+  exists setup_strong.
+  destruct (Blockchain.init _ _ _ _) as [result_strong|] eqn:result_eq;
+    cbn in *; try congruence.
+  exists result_strong.
+  repeat split; auto with congruence.
+Qed.
+
+Lemma wc_receive_strong {Setup Msg State : Type}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
+          {contract : Contract Setup Msg State}
+          {chain ctx prev_state msg new_state new_acts} :
+  wc_receive (contract : WeakContract) chain ctx prev_state msg =
+  Some (new_state, new_acts) ->
+  exists prev_state_strong msg_strong new_state_strong,
+    deserialize prev_state = Some prev_state_strong /\
+    match msg_strong with
+    | Some msg_strong => msg >>= deserialize = Some msg_strong
+    | None => msg = None
+    end /\
+    serialize new_state_strong = new_state /\
+    Blockchain.receive contract chain ctx prev_state_strong msg_strong =
+    Some (new_state_strong, new_acts).
+Proof.
+  intros receive.
+  cbn in *.
+  destruct (deserialize prev_state) as [prev_state_strong|] eqn:deser_state;
+    cbn in *; try congruence.
+  exists prev_state_strong.
+  exists (msg >>= deserialize).
+  destruct msg as [msg|]; cbn in *.
+  1: destruct (deserialize msg) as [msg_strong|];
+    cbn in *; try congruence.
+  all: destruct (Blockchain.receive _ _ _ _ _)
+    as [[resp_state_strong resp_acts_strong]|] eqn:result_eq;
+    cbn in *; try congruence.
+  all: exists resp_state_strong.
+  all: inversion_clear receive; auto.
+Qed.
+
+Lemma deployed_contract_state_typed
+          {Setup Msg State : Type}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
+          {contract : Contract Setup Msg State}
+          {bstate : ChainState}
+          {caddr} :
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  reachable bstate ->
+  exists (cstate : State),
+    contract_state bstate caddr = Some cstate.
+Proof.
+  intros contract_deployed [trace].
+  destruct (contract_state bstate caddr) as [cstate|] eqn:eq;
+    [exists cstate; auto|].
+  unfold contract_state in *.
+  (* Show that eq is a contradiction. *)
+  remember empty_state; induction trace; subst; cbn in *; try congruence.
+  destruct_chain_step.
+  - (* New block, use IH *)
+    rewrite_environment_equiv; auto.
+  - (* Action evaluation *)
+    destruct_action_eval; subst; rewrite_environment_equiv; cbn in *.
+    (*destruct_action_eval; rewrite_environment_equiv; cbn in *.*)
+    + (* Transfer, use IH *)
+      auto.
+    + (* Deployment *)
+      destruct_address_eq; subst; auto.
+      (* To this contract, show that deserialization would not fail. *)
+      replace wc with (contract : WeakContract) in * by congruence.
+      destruct (wc_init_strong ltac:(eassumption))
+        as [setup_strong [result_strong [? [<- init]]]].
+      cbn in eq.
+      rewrite deserialize_serialize in eq; congruence.
+    + (* Call *)
+      destruct_address_eq; subst; auto.
+      (* To this contract, show that deserialization would not fail. *)
+      replace wc with (contract : WeakContract) in * by congruence.
+      destruct (wc_receive_strong ltac:(eassumption))
+        as [state_strong [msg_strong [resp_state_strong [? [? [<- receive]]]]]].
+      cbn in eq.
+      rewrite deserialize_serialize in eq; congruence.
+  - (* Permutation *)
+    rewrite prev_next in *.
+    auto.
 Qed.
 
 End Theories.
