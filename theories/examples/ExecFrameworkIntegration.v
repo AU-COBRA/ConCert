@@ -210,54 +210,52 @@ Proof.
     rewrite Bool.negb_true_iff in *. leb_ltb_to_prop. cbn in *. lia.
   + (* Step *)
     remember (chain_state_env prev).
-    destruct_action_eval; subst pre; cbn [eval_tx].
+    destruct_action_eval; subst.
     * (* Transfer step *)
       rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
-      cbn in *.
+      unfold cf_state in *. cbn in *.
       intro H. eapply IH;eauto. rewrite Current_slot_of_chain_eq in *.
-      inversion e1. erewrite current_slot_eq in H by eauto. easy.
+      inversion e2. erewrite current_slot_eq in H by eauto. easy.
     * (* Deployment *)
       simpl in *.
       rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *. unfold cf_state in *.
       cbn in *. unfold set_chain_contract_state in Hst.
       intro H. destruct ((contract =? to)%address) eqn:Heq.
       ** (* Executing the init method *)
          replace wc with (cf_contract : WeakContract) in * by congruence.
-         cbn in e2. unfold Init.init in *. cbn in e2.
+         cbn in e3. unfold Init.init in *. cbn in e3.
          unfold Monads.option_bind in *.
-         destruct (deserialize setup);tryfalse. inversion e2;subst;clear e2.
+         destruct (deserialize setup);tryfalse. inversion e3;subst;clear e3.
          rewrite deserialize_serialize in Hst. inversion Hst. subst.
          easy.
       ** rewrite Current_slot_of_chain_eq in *.
-         inversion e3. erewrite current_slot_eq in H by eauto.
+         inversion e4. erewrite current_slot_eq in H by eauto.
          cbn in H.
          eapply IH;eauto.
     * (* Call *)
       rewrite_environment_equiv.
-      subst new_acts.
       destruct (address_eqb_spec contract to).
       ** (* To our contract, runs the [receive] function *)
         subst. cbn in *.
         replace wc with (cf_contract : WeakContract) in * by congruence.
-        cbn in e2.
-        unfold Monads.option_bind in e2.
+        cbn in e3.
+        unfold Monads.option_bind in e3.
         destruct (deserialize prev_state) as [p_local_state | ] eqn:Hps;tryfalse.
         destruct msg as [serialized_msg | ];tryfalse.
         destruct (deserialize serialized_msg) as [msg | ];tryfalse.
         destruct (option_map _ _) eqn:Hopt;tryfalse.
         destruct p as [local_state actions].
-        inversion e2;subst;clear e2.
+        inversion e3;subst;clear e3.
         unfold option_map in Hopt.
         destruct (Receive.receive _ _ _ _) eqn:Hreceive;tryfalse.
         destruct p. inversion Hopt. subst. clear Hopt.
-        unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+        unfold cf_state in *.
         cbn in *. unfold set_chain_contract_state in Hst.
         replace (to =? to)%address with true in * by (symmetry;apply Nat.eqb_refl).
         rewrite deserialize_serialize in Hst. inversion Hst. subst.
         assert (Hprev_consistent: consistent_balance_deadline (Current_slot (of_chain prev)) p_local_state) by
-            (eapply IH;eauto;now rewrite e0).
+            (eapply IH;eauto;now rewrite e1).
         remember (Build_ctx from to _) as ctx.
 
         (* we use one of the functional correctness properties here *)
@@ -272,11 +270,11 @@ Proof.
         rewrite Current_slot_of_chain_eq in *.
         now rewrite_environment_equiv.
       ** (* Not to our contract *)
-        cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+        cbn in *. unfold cf_state in *.
         cbn in *. unfold set_chain_contract_state in Hst.
         replace ((contract =? to)%address) with false in Hst by (symmetry;now apply Nat.eqb_neq).
         rewrite Current_slot_of_chain_eq in *.
-        inversion e4. erewrite current_slot_eq by eauto.
+        inversion e5. erewrite current_slot_eq by eauto.
         cbn in *.
         eapply IH;eauto.
   + (* Permute queue *)
@@ -290,81 +288,33 @@ Lemma cf_balance_consistent bstate cf_addr lstate :
   cf_state bstate cf_addr = Some lstate ->
   consistent_balance lstate.
 Proof.
-  intros Hr Hc Hst.
-  cbn in *.
-  assert (address_is_contract cf_addr = true) as addr_format by now eapply contract_addr_format.
-  unfold reachable in *. destruct Hr as [tr].
-  remember empty_state eqn:eq.
-  revert dependent lstate. revert dependent cf_addr.
-  induction tr as [ |? ? ? steps IH step];intros contract Hc Ha state Hst; subst;try solve_by_inversion.
-  destruct_chain_step.
-  + (* add new block *)
-    cbn in *. intro H. unfold cf_state in *. rewrite env_eq in Hst. cbn in Hst.
-    rewrite_environment_equiv.
-    inversion valid_header.
-    eapply IH;eauto.
-  + (* Step *)
-    remember (chain_state_env prev).
-    destruct_action_eval; subst pre; cbn [eval_tx].
-    * (* Transfer step *)
-      rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
-      cbn in *.
-      intro H. eapply IH;eauto.
-    * (* Deployment *)
-      simpl in *.
-      rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
-      cbn in *. unfold set_chain_contract_state in Hst.
-      intro H.
-      destruct_address_eq.
-      ** (* Executing the init method *)
-         replace wc with (cf_contract : WeakContract) in * by congruence.
-         cbn in e2. unfold Init.init in *. cbn in e2.
-         unfold Monads.option_bind in e2.
-         destruct (deserialize setup);tryfalse. inversion e2;subst;clear e2.
-         rewrite deserialize_serialize in Hst. inversion Hst. subst.
-         reflexivity.
-      ** eapply IH;eauto.
-    * (* Call *)
-      rewrite_environment_equiv.
-      subst new_acts.
-      destruct (address_eqb_spec contract to).
-      ** (* To our contract, runs the [receive] function *)
-        subst. cbn in *.
-        replace wc with (cf_contract : WeakContract) in * by congruence.
-        cbn in e2.
-        unfold Monads.option_bind in e2.
-        destruct (deserialize prev_state) as [p_local_state | ] eqn:Hps;tryfalse.
-        destruct msg as [serialized_msg | ];tryfalse.
-        destruct (deserialize serialized_msg) as [msg | ];tryfalse.
-        destruct (option_map _ _) eqn:Hopt;tryfalse.
-        destruct p as [local_state actions].
-        inversion e2;subst;clear e2.
-        unfold option_map in Hopt.
-        destruct (Receive.receive _ _ _ _) eqn:Hreceive;tryfalse.
-        destruct p. inversion Hopt. subst. clear Hopt.
-        unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
-        cbn in *. unfold set_chain_contract_state in Hst.
-        replace (to =? to)%address with true in * by (symmetry;apply Nat.eqb_refl).
-        rewrite deserialize_serialize in Hst. inversion Hst. subst.
-        assert (Hprev_consistent: consistent_balance p_local_state) by
-            (eapply IH;eauto;now rewrite e0).
-        remember (Build_ctx from to _) as ctx.
-        remember (Build_chain _ _ _ _) as ch.
-
-        (* we use one of the functional correctness properties here *)
-        specialize (contract_state_consistent ch ctx msg _ Hprev_consistent) as Hnew_consistent.
-        destruct Hnew_consistent as [fin [out [Hrun Hcon]]].
-        unfold run in Hrun.
-        rewrite Hreceive in Hrun. now inversion Hrun;subst.
-      ** (* Not to our contract *)
-        cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
-        cbn in *. unfold set_chain_contract_state in Hst.
-        replace ((contract =? to)%address) with false in Hst by (symmetry;now apply Nat.eqb_neq).
-        eapply IH;eauto.
-  + (* Permute queue *)
-    now rewrite prev_next in *.
+  intros reachable deployed state_eq.
+  enough (H: exists lstate',
+             cf_state bstate cf_addr = Some lstate' /\
+             consistent_balance lstate').
+  { destruct H as [lstate' [lstate'_eq lstate'_consistent]].
+    now replace lstate with lstate' by congruence. }
+  clear state_eq lstate.
+  revert reachable deployed.
+  apply lift_functional_correctness with (DeployFacts := fun _ _ => Coq.Init.Logic.True)
+                                         (CallFacts := fun _ _ => Coq.Init.Logic.True).
+  - intros chain ctx setup result _ init H.
+    cbn in *.
+    inversion init.
+    reflexivity.
+  - intros chain ctx prev_state msg new_state new_acts _ prev_consistent receive.
+    destruct msg as [msg| ]; cbn in *; try congruence.
+    remember (of_chain _) as simple_chain.
+    remember (of_contract_call_context _) as simple_ctx.
+    destruct (contract_state_consistent simple_chain simple_ctx
+                                          msg prev_state prev_consistent)
+      as [fin [out [Hrun Hcon]]].
+    unfold run in Hrun.
+    destruct (Receive.receive _ _ _ _)
+      as [[resp_state resp_acts]| ] eqn:Hreceive;tryfalse.
+    cbn in *.
+    now replace new_state with fin by congruence.
+  - now intros; destruct eval.
 Qed.
 
 Fixpoint sum_trans (addr : Blockchain.Address) (acts : list Blockchain.Action) : Z :=
@@ -502,7 +452,7 @@ Proof.
     destruct_address_eq;subst; simpl in *;tryfalse;auto.
   + (* Step *)
     remember (chain_state_env prev).
-    destruct_action_eval; subst pre; cbn [eval_tx].
+    destruct_action_eval; subst.
     * (* Transfer step *)
       rewrite_environment_equiv. cbn in *.
       specialize_hypotheses.
@@ -523,19 +473,19 @@ Proof.
          inversion IH;easy.
     * (* Call *)
        rewrite_environment_equiv.
-       subst new_acts.
+       subst.
        destruct (address_eqb_spec addr to).
       ** (* To our contract, runs the [receive] function *)
         subst. cbn in *.
         replace wc with (cf_contract : WeakContract) in * by congruence.
-        cbn in e2.
-        unfold Monads.option_bind in e2.
+        cbn in e3.
+        unfold Monads.option_bind in e3.
         destruct (deserialize prev_state) as [p_local_state | ] eqn:Hps;tryfalse.
         destruct msg as [serialized_msg | ];tryfalse.
         destruct (deserialize serialized_msg) as [msg | ];tryfalse.
         destruct (option_map _ _) eqn:Hopt;tryfalse.
         destruct p as [local_state actions].
-        inversion e2;subst;clear e2.
+        inversion e3;subst;clear e3.
         unfold option_map in Hopt.
         destruct (Receive.receive _ _ _ _) eqn:Hreceive;tryfalse.
         destruct p. inversion Hopt. subst. clear Hopt.
@@ -619,50 +569,50 @@ Proof.
     eapply IH;eauto.
   + (* Step *)
     remember (chain_state_env prev).
-    destruct_action_eval; subst pre; cbn [eval_tx].
+    destruct_action_eval; subst.
     * (* Transfer step *)
       rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *. unfold cf_state in *.
       cbn in *. eapply IH;eauto.
     * (* Deployment *)
       simpl in *.
       rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *. unfold cf_state in *.
       cbn in *. unfold set_chain_contract_state in Hst.
       destruct_address_eq.
       ** (* Executing the init method *)
          replace wc with (cf_contract : WeakContract) in * by congruence.
-         cbn in e2. unfold Init.init in *. cbn in e2.
-         unfold Monads.option_bind in e2.
-         destruct (deserialize setup);tryfalse. inversion e2;subst;clear e2.
+         cbn in e3. unfold Init.init in *. cbn in e3.
+         unfold Monads.option_bind in e3.
+         destruct (deserialize setup);tryfalse. inversion e3;subst;clear e3.
          rewrite deserialize_serialize in Hst. inversion Hst. subst.
          reflexivity.
       ** eapply IH;eauto.
     * (* Call *)
       rewrite_environment_equiv.
-      subst new_acts.
+      subst.
       destruct (address_eqb_spec contract to).
       ** (* To our contract, runs the [receive] function *)
         subst. cbn in *.
         replace wc with (cf_contract : WeakContract) in * by congruence.
-        cbn in e2.
-        unfold Monads.option_bind in e2.
+        cbn in e3.
+        unfold Monads.option_bind in e3.
         destruct (deserialize prev_state) as [p_local_state | ] eqn:Hps;tryfalse.
         destruct msg as [serialized_msg | ];tryfalse.
         destruct (deserialize serialized_msg) as [msg | ];tryfalse.
         destruct (option_map _ _) eqn:Hopt;tryfalse.
         destruct p as [local_state actions].
-        inversion e2;subst;clear e2.
+        inversion e3;subst;clear e3.
         unfold option_map in Hopt.
         destruct (Receive.receive _ _ _ _) eqn:Hreceive;tryfalse.
         destruct p. inversion Hopt. subst. clear Hopt.
-        unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+        unfold cf_state in *.
         cbn in *. unfold set_chain_contract_state in Hst.
         replace (to =? to)%address with true in * by (symmetry;apply Nat.eqb_refl).
         rewrite deserialize_serialize in Hst. inversion Hst. subst.
         assert (Hprev_nneg:
                   map_forallb (Z.leb 0) (donations_coq p_local_state)) by
-            (eapply IH;eauto;now rewrite e0).
+            (eapply IH;eauto;now rewrite e1).
         remember (Build_ctx from to _) as ctx.
         remember (Build_chain _ _ _ _) as ch.
         assert (Ham : (0 <= Ctx_amount ctx)%Z) by (subst ctx;simpl;lia).
@@ -674,7 +624,7 @@ Proof.
         unfold run in Hrun.
         rewrite Hreceive in Hrun. now inversion Hrun;subst.
       ** (* Not to our contract *)
-        cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+        cbn in *. unfold cf_state in *.
         cbn in *. unfold set_chain_contract_state in Hst.
         replace ((contract =? to)%address) with false in Hst by (symmetry;now apply Nat.eqb_neq).
         eapply IH;eauto.
@@ -742,31 +692,32 @@ Proof.
     destruct ((contract =? block_creator header)%address) eqn:Heq;lia.
   + (* Step *)
     remember (chain_state_env prev).
-    destruct_action_eval; subst pre; cbn [eval_tx].
+    destruct_action_eval; subst.
     * (* Transfer step *)
       rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *. unfold cf_state in *.
       cbn in *.
       intro H. eapply IH;eauto. rewrite Z.compare_lt_iff in *. cbn in *. unfold add_balance in *.
       rewrite queue_prev. simpl.
-      destruct act. inversion e0;subst.
+      inversion e2;subst.
       destruct_address_eq;tryfalse;lia.
     * (* Deployment *)
       simpl in *.
       rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+      cbn in *. unfold cf_state in *.
       cbn in *. unfold set_chain_contract_state in Hst.
       unfold add_balance in *.
       destruct_address_eq.
       ** subst to.
+         remember (build_act _ _) as act.
          assert (act_from act <> contract) by
              (eapply undeployed_contract_not_from_self;try constructor;eauto).
          subst;cbn in *;tryfalse.
       ** (* Executing the init method *)
          replace wc with (cf_contract : WeakContract) in * by congruence.
-         cbn in e2; unfold Init.init in *. cbn in e2.
-         unfold Monads.option_bind in e2.
-         destruct (deserialize setup);tryfalse. inversion e2;subst;clear e2.
+         cbn in e3; unfold Init.init in *. cbn in e3.
+         unfold Monads.option_bind in e3.
+         destruct (deserialize setup);tryfalse. inversion e3;subst;clear e3.
          rewrite deserialize_serialize in Hst. inversion Hst. subst.
          cbn in *.
          assert (Htrans : sum_trans to (chain_state_queue prev)%Z = 0%Z).
@@ -787,7 +738,7 @@ Proof.
          now destruct_address_eq.
     * (* Call *)
       rewrite_environment_equiv.
-      subst new_acts. simpl in *.
+      subst. simpl in *.
       unfold add_balance.
       destruct (address_eqb_spec contract to).
       ** (* To our contract, runs the [receive] function *)
@@ -795,36 +746,36 @@ Proof.
         (* here goes a lot of boilerplate code *)
          subst. cbn in *.
          replace wc with (cf_contract : WeakContract) in * by congruence.
-         cbn in e2.
-         unfold Monads.option_bind in e2.
+         cbn in e3.
+         unfold Monads.option_bind in e3.
          destruct (deserialize prev_state) as [p_local_state | ] eqn:Hps;tryfalse.
          destruct msg as [serialized_msg | ];tryfalse.
          destruct (deserialize serialized_msg) as [msg | ];tryfalse.
          destruct (option_map _ _) eqn:Hopt;tryfalse.
          destruct p as [local_state actions].
-         inversion e2;subst;clear e2.
+         inversion e3;subst;clear e3.
          unfold option_map in Hopt.
          destruct (Receive.receive _ _ _ _) eqn:Hreceive;tryfalse.
          destruct p. inversion Hopt. subst. clear Hopt.
-         unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+         unfold cf_state in *.
          cbn in *. unfold set_chain_contract_state in Hst.
          rewrite (address_eq_refl to) in *.
          rewrite deserialize_serialize in Hst. inversion Hst. subst.
 
          assert (Hconsistent : consistent_balance p_local_state).
          { (eapply cf_balance_consistent;eauto).
-           constructor. auto. unfold cf_state. now rewrite e0.  }
+           constructor. auto. unfold cf_state. now rewrite e1.  }
 
          assert (Hpos : map_forallb (Z.leb 0) (donations_coq p_local_state)).
          { eapply crowfunding_donations_non_negative;eauto.
-           constructor. auto. unfold cf_state. now rewrite e0. }
+           constructor. auto. unfold cf_state. now rewrite e1. }
          specialize (cf_transfer_cases Hpos Hconsistent Hreceive) as cf_cases.
          destruct cf_cases as [H | [H | H]].
          *** (* donate *)
              destruct H as [H1 H2]. subst. simpl in *. unfold add_balance.
              rewrite queue_new. cbn.
-             specialize (IH eq_refl to e Ha p_local_state).
-             rewrite e0 in IH. specialize_hypotheses.
+             specialize (IH eq_refl to ltac:(auto) Ha p_local_state).
+             rewrite e1 in IH. specialize_hypotheses.
              rewrite queue_prev in IH. cbn in IH.
              destruct (address_eqb_spec to from).
              **** rewrite <- H1. subst.
@@ -838,8 +789,8 @@ Proof.
              simpl in *. unfold add_balance.
              rewrite queue_new. cbn.
              rewrite address_eq_refl.
-             specialize (IH eq_refl to e Ha p_local_state).
-             rewrite e0 in IH. specialize_hypotheses.
+             specialize (IH eq_refl to ltac:(auto) Ha p_local_state).
+             rewrite e1 in IH. specialize_hypotheses.
              rewrite queue_prev in IH. cbn in IH.
              destruct (address_eqb_spec to from);subst;lia.
          *** (* claim *)
@@ -847,16 +798,16 @@ Proof.
              simpl in *. unfold add_balance.
              rewrite queue_new. cbn.
              rewrite address_eq_refl.
-             specialize (IH eq_refl to e Ha p_local_state).
-             rewrite e0 in IH. specialize_hypotheses.
+             specialize (IH eq_refl to ltac:(auto) Ha p_local_state).
+             rewrite e1 in IH. specialize_hypotheses.
              rewrite queue_prev in IH. cbn in IH.
              destruct (address_eqb_spec to from);subst;lia.
       ** (* not to our contract *)
-        cbn in *. unfold cf_state in *. erewrite contract_states_eq in Hst by eauto.
+        cbn in *. unfold cf_state in *.
         cbn in *. unfold set_chain_contract_state in Hst.
         replace ((contract =? to)%address) with false in Hst by (symmetry;now apply Nat.eqb_neq).
         specialize_hypotheses.
-        rewrite queue_prev in IH. subst act. cbn in IH.
+        rewrite queue_prev in IH. cbn in IH.
         rewrite queue_new. cbn.
         assert (Forall (fun a : Blockchain.Action => (act_from a =? contract)%address = false) (map (build_act to) resp_acts)) by now eapply new_acts_no_out_queue with (addr2:=to).
         assert (Hsum0 : sum_trans contract (map (build_act to) resp_acts) = 0%Z) by now eapply not_in_queue_sum_trans_0.
