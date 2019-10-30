@@ -379,6 +379,50 @@ Definition contract : Contract Setup Msg State :=
 Section Theories.
 Local Open Scope nat.
 
+(* The rules stored in the blockchain's state are always valid *)
+Lemma rules_valid bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (Congress.contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+    validate_rules cstate.(state_rules) = true.
+Proof.
+  apply lift_functional_correctness with (DeployFacts := fun _ _ => True)
+                                         (CallFacts := fun _ _ => True).
+  - intros chain ctx setup result _ init.
+    cbn in *.
+    unfold Congress.init in init.
+    destruct_if; try congruence.
+    now inversion_clear init.
+  - intros chain ctx prev_state msg new_state new_acts _ prev_valid receive.
+    cbn in *.
+    destruct msg as [[]|]; cbn in *;
+      try solve [
+            repeat
+              match goal with
+              | [H: Some ?x = Some ?y |- _] => inversion_clear H; auto
+              | _ => try congruence; destruct_if
+              end].
+    + destruct_if; try congruence.
+      unfold vote_on_proposal in receive.
+      destruct (FMap.find _ _); cbn in *; try congruence.
+      now inversion_clear receive.
+    + destruct_if; try congruence.
+      unfold vote_on_proposal in receive.
+      destruct (FMap.find _ _); cbn in *; try congruence.
+      now inversion_clear receive.
+    + destruct_if; try congruence.
+      unfold do_retract_vote in receive.
+      destruct (FMap.find _ _); cbn in *; try congruence.
+      destruct (FMap.find _ _); cbn in *; try congruence.
+      now inversion_clear receive.
+    + unfold do_finish_proposal in receive.
+      destruct (FMap.find _ _); cbn in *; try congruence.
+      destruct_if; cbn in *; try congruence.
+      now inversion_clear receive.
+  - now destruct eval.
+Qed.
+
 Definition num_acts_created_in_proposals (txs : list Tx) :=
   let count tx :=
       match tx_body tx with

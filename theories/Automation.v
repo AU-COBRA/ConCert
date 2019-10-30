@@ -79,6 +79,12 @@ Ltac destruct_match :=
   | [H: context [ match ?x with _ => _ end ] |- _] => destruct x eqn:?
   end.
 
+Ltac destruct_if :=
+  match goal with
+  | [|- context [ if ?x then _ else _ ]] => destruct x eqn:?
+  | [H: context [ if ?x then _ else _ ] |- _] => destruct x eqn:?
+  end.
+
 Ltac destruct_units :=
   repeat
     match goal with

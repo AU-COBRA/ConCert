@@ -1146,6 +1146,86 @@ Proof.
     auto.
 Qed.
 
+Lemma lift_functional_correctness
+      {Setup Msg State : Type}
+      `{Serializable Setup}
+      `{Serializable Msg}
+      `{Serializable State}
+      (contract : Contract Setup Msg State)
+      (DeployFacts : Chain -> ContractCallContext -> Prop)
+      (CallFacts : Chain -> ContractCallContext -> Prop)
+      (P : State -> Prop) :
+  (forall chain ctx setup result,
+    DeployFacts chain ctx ->
+    init contract chain ctx setup = Some result ->
+    P result) ->
+  (forall chain ctx prev_state msg new_state new_acts,
+      CallFacts chain ctx ->
+      P prev_state ->
+      receive contract chain ctx prev_state msg = Some (new_state, new_acts) ->
+      P new_state) ->
+  (forall (prev_bstate : ChainState) act new_env new_acts
+          (eval : ActionEvaluation prev_bstate act new_env new_acts),
+      reachable prev_bstate ->
+      match eval with
+      | eval_deploy from to amount _ _ _ _ _ _ _ _ _ _ _ =>
+        DeployFacts (transfer_balance from to amount prev_bstate)
+                    (build_ctx from to amount)
+      | eval_call from to amount _ _ _ _ _ _ _ _ _ _ _ _ _ =>
+        CallFacts (transfer_balance from to amount prev_bstate)
+                  (build_ctx from to amount)
+      | _ => True
+      end) ->
+  forall bstate caddr,
+    reachable bstate ->
+    env_contracts bstate caddr = Some (contract : WeakContract) ->
+    exists cstate,
+      contract_state bstate caddr = Some cstate /\
+      P cstate.
+Proof.
+  intros init_case call_case establish_facts
+         bstate caddr [trace] contract_deployed.
+  destruct (deployed_contract_state_typed contract_deployed ltac:(auto))
+    as [cstate cstate_stored].
+  exists cstate; split; auto.
+  revert cstate cstate_stored.
+  unfold contract_state in *.
+  remember empty_state; induction trace as [|? ? ? ? IH];
+    intros; subst; cbn in *; try congruence.
+  destruct_chain_step.
+  - (* New block *)
+    rewrite_environment_equiv; auto.
+  - (* Evaluation *)
+    specialize (establish_facts _ _ _ _ eval).
+    destruct_action_eval; subst; rewrite_environment_equiv; cbn in *.
+    + (* Transfer, just use IH directly. *)
+      auto.
+    + (* Deployment *)
+      destruct_address_eq; subst; auto.
+      (* Of this contract. *)
+      replace wc with (contract : WeakContract) in * by congruence.
+      destruct (wc_init_strong ltac:(eassumption))
+        as [setup_strong [result_strong [? [<- init]]]].
+      cbn in *.
+      rewrite deserialize_serialize in cstate_stored.
+      replace result_strong with cstate in * by congruence.
+      eauto using init_case.
+    + (* Call *)
+      destruct_address_eq; subst; auto.
+      replace wc with (contract : WeakContract) in * by congruence.
+      destruct (wc_receive_strong ltac:(eassumption))
+        as [prev_state_strong [msg_strong [resp_state_strong [? [? [<- receive]]]]]].
+      cbn in *.
+      rewrite deserialize_serialize in cstate_stored.
+      replace resp_state_strong with cstate in * by congruence.
+      specialize (IH eq_refl ltac:(auto) prev_state_strong).
+      replace (env_contract_states prev to) with (Some prev_state) in * by auto.
+      cbn in *.
+      specialize (IH ltac:(auto)).
+      eauto using call_case.
+  - (* Permutation *)
+    rewrite prev_next in *; auto.
+Qed.
 End Theories.
 End Trace.
 End Semantics.
