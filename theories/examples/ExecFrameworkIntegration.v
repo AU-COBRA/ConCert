@@ -288,81 +288,33 @@ Lemma cf_balance_consistent bstate cf_addr lstate :
   cf_state bstate cf_addr = Some lstate ->
   consistent_balance lstate.
 Proof.
-  intros Hr Hc Hst.
-  cbn in *.
-  assert (address_is_contract cf_addr = true) as addr_format by now eapply contract_addr_format.
-  unfold reachable in *. destruct Hr as [tr].
-  remember empty_state eqn:eq.
-  revert dependent lstate. revert dependent cf_addr.
-  induction tr as [ |? ? ? steps IH step];intros contract Hc Ha state Hst; subst;try solve_by_inversion.
-  destruct_chain_step.
-  + (* add new block *)
-    cbn in *. intro H. unfold cf_state in *. rewrite env_eq in Hst. cbn in Hst.
-    rewrite_environment_equiv.
-    inversion valid_header.
-    eapply IH;eauto.
-  + (* Step *)
-    remember (chain_state_env prev).
-    destruct_action_eval; subst.
-    * (* Transfer step *)
-      rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *.
-      cbn in *.
-      intro H. eapply IH;eauto.
-    * (* Deployment *)
-      simpl in *.
-      rewrite_environment_equiv.
-      cbn in *. unfold cf_state in *.
-      cbn in *. unfold set_chain_contract_state in Hst.
-      intro H.
-      destruct_address_eq.
-      ** (* Executing the init method *)
-         replace wc with (cf_contract : WeakContract) in * by congruence.
-         cbn in e3. unfold Init.init in *. cbn in e3.
-         unfold Monads.option_bind in e3.
-         destruct (deserialize setup);tryfalse. inversion e3;subst;clear e3.
-         rewrite deserialize_serialize in Hst. inversion Hst. subst.
-         reflexivity.
-      ** eapply IH;eauto.
-    * (* Call *)
-      rewrite_environment_equiv.
-      subst.
-      destruct (address_eqb_spec contract to).
-      ** (* To our contract, runs the [receive] function *)
-        subst. cbn in *.
-        replace wc with (cf_contract : WeakContract) in * by congruence.
-        cbn in e3.
-        unfold Monads.option_bind in e3.
-        destruct (deserialize prev_state) as [p_local_state | ] eqn:Hps;tryfalse.
-        destruct msg as [serialized_msg | ];tryfalse.
-        destruct (deserialize serialized_msg) as [msg | ];tryfalse.
-        destruct (option_map _ _) eqn:Hopt;tryfalse.
-        destruct p as [local_state actions].
-        inversion e3;subst;clear e3.
-        unfold option_map in Hopt.
-        destruct (Receive.receive _ _ _ _) eqn:Hreceive;tryfalse.
-        destruct p. inversion Hopt. subst. clear Hopt.
-        unfold cf_state in *.
-        cbn in *. unfold set_chain_contract_state in Hst.
-        replace (to =? to)%address with true in * by (symmetry;apply Nat.eqb_refl).
-        rewrite deserialize_serialize in Hst. inversion Hst. subst.
-        assert (Hprev_consistent: consistent_balance p_local_state) by
-            (eapply IH;eauto;now rewrite e1).
-        remember (Build_ctx from to _) as ctx.
-        remember (Build_chain _ _ _ _) as ch.
-
-        (* we use one of the functional correctness properties here *)
-        specialize (contract_state_consistent ch ctx msg _ Hprev_consistent) as Hnew_consistent.
-        destruct Hnew_consistent as [fin [out [Hrun Hcon]]].
-        unfold run in Hrun.
-        rewrite Hreceive in Hrun. now inversion Hrun;subst.
-      ** (* Not to our contract *)
-        cbn in *. unfold cf_state in *.
-        cbn in *. unfold set_chain_contract_state in Hst.
-        replace ((contract =? to)%address) with false in Hst by (symmetry;now apply Nat.eqb_neq).
-        eapply IH;eauto.
-  + (* Permute queue *)
-    now rewrite prev_next in *.
+  intros reachable deployed state_eq.
+  enough (H: exists lstate',
+             cf_state bstate cf_addr = Some lstate' /\
+             consistent_balance lstate').
+  { destruct H as [lstate' [lstate'_eq lstate'_consistent]].
+    now replace lstate with lstate' by congruence. }
+  clear state_eq lstate.
+  revert reachable deployed.
+  apply lift_functional_correctness with (DeployFacts := fun _ _ => Coq.Init.Logic.True)
+                                         (CallFacts := fun _ _ => Coq.Init.Logic.True).
+  - intros chain ctx setup result _ init H.
+    cbn in *.
+    inversion init.
+    reflexivity.
+  - intros chain ctx prev_state msg new_state new_acts _ prev_consistent receive.
+    destruct msg as [msg| ]; cbn in *; try congruence.
+    remember (of_chain _) as simple_chain.
+    remember (of_contract_call_context _) as simple_ctx.
+    destruct (contract_state_consistent simple_chain simple_ctx
+                                          msg prev_state prev_consistent)
+      as [fin [out [Hrun Hcon]]].
+    unfold run in Hrun.
+    destruct (Receive.receive _ _ _ _)
+      as [[resp_state resp_acts]| ] eqn:Hreceive;tryfalse.
+    cbn in *.
+    now replace new_state with fin by congruence.
+  - now intros; destruct eval.
 Qed.
 
 Fixpoint sum_trans (addr : Blockchain.Address) (acts : list Blockchain.Action) : Z :=
