@@ -389,21 +389,6 @@ Proof.
   now eapply not_in_queue_sum_trans_0.
 Qed.
 
-Lemma contract_no_created_blocks state (trace : ChainTrace empty_state state) addr :
-  address_is_contract addr = true ->
-  created_blocks trace addr = [].
-Proof.
-  intros is_contract.
-  remember empty_state eqn:eq.
-  induction trace; auto.
-  destruct_chain_step; auto.
-  cbn.
-  subst.
-  inversion valid_header.
-  destruct (address_eqb_spec (block_creator header) addr); auto.
-  congruence.
-Qed.
-
 Lemma undeployed_balance_0 (bstate : ChainState) addr :
   reachable bstate ->
   address_is_contract addr = true ->
