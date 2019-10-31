@@ -389,6 +389,7 @@ Lemma rules_valid bstate caddr :
 Proof.
   apply lift_functional_correctness with (DeployFacts := fun _ _ => True)
                                          (CallFacts := fun _ _ => True).
+  - now destruct eval.
   - intros chain ctx setup result _ init.
     cbn in *.
     unfold Congress.init in init.
@@ -420,7 +421,6 @@ Proof.
       destruct (FMap.find _ _); cbn in *; try congruence.
       destruct_if; cbn in *; try congruence.
       now inversion_clear receive.
-  - now destruct eval.
 Qed.
 
 Definition num_acts_created_in_proposals (txs : list Tx) :=

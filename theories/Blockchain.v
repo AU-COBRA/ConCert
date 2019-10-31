@@ -1155,15 +1155,6 @@ Lemma lift_functional_correctness
       (DeployFacts : Chain -> ContractCallContext -> Prop)
       (CallFacts : Chain -> ContractCallContext -> Prop)
       (P : State -> Prop) :
-  (forall chain ctx setup result,
-    DeployFacts chain ctx ->
-    init contract chain ctx setup = Some result ->
-    P result) ->
-  (forall chain ctx prev_state msg new_state new_acts,
-      CallFacts chain ctx ->
-      P prev_state ->
-      receive contract chain ctx prev_state msg = Some (new_state, new_acts) ->
-      P new_state) ->
   (forall (prev_bstate : ChainState) act new_env new_acts
           (eval : ActionEvaluation prev_bstate act new_env new_acts),
       reachable prev_bstate ->
@@ -1176,6 +1167,15 @@ Lemma lift_functional_correctness
                   (build_ctx from to amount)
       | _ => True
       end) ->
+  (forall chain ctx setup result,
+    DeployFacts chain ctx ->
+    init contract chain ctx setup = Some result ->
+    P result) ->
+  (forall chain ctx prev_state msg new_state new_acts,
+      CallFacts chain ctx ->
+      P prev_state ->
+      receive contract chain ctx prev_state msg = Some (new_state, new_acts) ->
+      P new_state) ->
   forall bstate caddr,
     reachable bstate ->
     env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -1183,7 +1183,7 @@ Lemma lift_functional_correctness
       contract_state bstate caddr = Some cstate /\
       P cstate.
 Proof.
-  intros init_case call_case establish_facts
+  intros establish_facts init_case call_case
          bstate caddr [trace] contract_deployed.
   destruct (deployed_contract_state_typed contract_deployed ltac:(auto))
     as [cstate cstate_stored].
