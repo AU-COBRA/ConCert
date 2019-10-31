@@ -298,6 +298,7 @@ Proof.
   revert reachable deployed.
   apply lift_functional_correctness with (DeployFacts := fun _ _ => Coq.Init.Logic.True)
                                          (CallFacts := fun _ _ => Coq.Init.Logic.True).
+  - now intros; destruct eval.
   - intros chain ctx setup result _ init H.
     cbn in *.
     inversion init.
@@ -314,7 +315,6 @@ Proof.
       as [[resp_state resp_acts]| ] eqn:Hreceive;tryfalse.
     cbn in *.
     now replace new_state with fin by congruence.
-  - now intros; destruct eval.
 Qed.
 
 Fixpoint sum_trans (addr : Blockchain.Address) (acts : list Blockchain.Action) : Z :=
