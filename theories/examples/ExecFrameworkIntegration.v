@@ -45,18 +45,6 @@ Definition to_contract_call_context (scc : SimpleContractCallContext) : Contract
 Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext :=
   let '(build_ctx from contr_addr am) := cc in Build_ctx from contr_addr am.
 
-Definition of_state (st : State_coq) : Z * addr_map * nat * nat * bool * Z :=
-  let '(mkState_coq b d o dl d' g):= st in (b,d,o,dl,d',g).
-
-Definition to_state (p : Z * addr_map * nat * nat * bool * Z) :=
-  let '(b,d,o,dl,d',g) := p in mkState_coq b d o dl d' g.
-
-Lemma of_state_to_state p : of_state (to_state p) = p.
-Proof. now destruct p. Qed.
-
-Lemma to_state_of_state st : to_state (of_state st) = st.
-Proof. now destruct st. Qed.
-
 Import Serializable.
 
 Section Serialize.
@@ -70,40 +58,11 @@ Section Serialize.
     now autorewrite with hints.
   Defined.
 
-    Global Program Instance State_serializable : Serializable State_coq :=
-    {| serialize st := serialize (of_state st);
-       deserialize p := option_map to_state (deserialize p); |}.
-  Next Obligation.
-    intros. cbn. rewrite deserialize_serialize. now destruct x.
-  Defined.
-
-  Definition of_msg (msg : Msg_coq) : unit + (unit + unit) :=
-    match msg with
-    | Donate_coq => inl tt
-    | GetFunds_coq => inr (inl tt)
-    | Claim_coq => (inr (inr tt))
-    end.
-
-  Definition to_msg (s : unit + (unit + unit)) : Msg_coq :=
-    match s with
-    | inl _ => Donate_coq
-    | inr (inl _) => GetFunds_coq
-    | inr (inr _) => Claim_coq
-    end.
-
-  Lemma of_msg_to_msg s : of_msg (to_msg s) = s.
-  Proof. destruct s as [ | s'];try destruct s';destruct u;simpl;easy. Qed.
-
-  Lemma to_msg_of_msg msg : to_msg (of_msg msg) = msg.
-  Proof. destruct msg;easy. Qed.
-
-  Global Program Instance Msg_serializable : Serializable Msg_coq :=
-    {| serialize msg := serialize (of_msg msg);
-       deserialize s := option_map to_msg (deserialize s); |}.
-  Next Obligation.
-    intros. cbn. rewrite deserialize_serialize. now destruct x.
-  Defined.
-
+  Global Instance State_serializable : Serializable State_coq :=
+    Derive Serializable State_coq_rect<mkState_coq>.
+  
+  Global Instance Msg_serializable : Serializable Msg_coq :=
+    Derive Serializable Msg_coq_rect<Donate_coq, GetFunds_coq, Claim_coq>.
 
 End Serialize.
 

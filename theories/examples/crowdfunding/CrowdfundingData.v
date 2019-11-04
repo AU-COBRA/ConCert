@@ -59,6 +59,7 @@ Print state_syn.
 Set Printing Notations.
 
 (** Unquoting the definition of a record *)
+Set Nonrecursive Elimination Schemes.
 Make Inductive (global_to_tc state_syn).
 
 (** As a result, we get a new Coq record [State_coq] *)
