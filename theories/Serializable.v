@@ -357,33 +357,12 @@ Ltac make_serializable eliminator ctors :=
 
 Notation "'Derive' 'Serializable' rect" :=
   ltac:(make_serializable rect tt) (at level 0, rect at level 10, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 >" :=
-  ltac:(make_serializable rect (c0, tt))
-    (at level 0, rect at level 10, c0 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 >" :=
-  ltac:(make_serializable rect (c0, (c1, tt)))
-    (at level 0, rect at level 10, c0, c1 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, tt))))
-    (at level 0, rect at level 10, c0, c1, c2 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, tt))))
-    (at level 0, rect at level 10, c0, c1, c2, c3 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 , c4 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, (c3, (c4, tt))))))
-    (at level 0, rect at level 10, c0, c1, c2, c3, c4 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 , c4 , c5 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, (c3, (c4, (c5, tt)))))))
-    (at level 0, rect at level 10, c0, c1, c2, c3, c4, c5 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 , c4 , c5 , c6 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, (c3, (c4, (c5, (c6, tt))))))))
-    (at level 0, rect at level 10, c0, c1, c2, c3, c4, c5, c6 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 , c4 , c5 , c6 , c7 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, (c3, (c4, (c5, (c6, (c7, tt)))))))))
-    (at level 0, rect at level 10, c0, c1, c2, c3, c4, c5, c6, c7 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 , c4 , c5 , c6 , c7 , c8 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, (c3, (c4, (c5, (c6, (c7, (c8, tt))))))))))
-    (at level 0, rect at level 10, c0, c1, c2, c3, c4, c5, c6, c7, c8 at level 9, only parsing).
-Notation "'Derive' 'Serializable' rect < c0 , c1 , c2 , c3 , c4 , c5 , c6 , c7 , c8 , c9 >" :=
-  ltac:(make_serializable rect (c0, (c1, (c2, (c3, (c4, (c5, (c6, (c7, (c8, (c9, tt)))))))))))
-    (at level 0, rect at level 10, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9 at level 9, only parsing).
+
+Notation "'Derive' 'Serializable' rect < c0 , .. , cn >" :=
+  (let pairs := pair c0 .. (pair cn tt) .. in
+   ltac:(
+     (* This matches last-to-first so it always finds 'pairs' *)
+     match goal with
+     | [pairs := ?x |- _] => make_serializable rect x
+     end))
+    (at level 0, rect at level 10, c0, cn at level 9, only parsing).
