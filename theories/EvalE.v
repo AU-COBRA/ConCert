@@ -3,7 +3,7 @@
 (** This version of the interpreter supports polymorhic types *)
 Require Import String List Bool.
 
-Require Import Ast MyEnv Notations PCUICTranslate.
+Require Import Ast MyEnv Notations.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
@@ -359,28 +359,3 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
 
 Definition expr_eval_n := expr_eval_general true.
 Definition expr_eval_i := expr_eval_general false.
-
-Module Examples.
-  Import BaseTypes.
-  Import StdLib.
-
-  Open Scope string.
-  Definition x :="x".
-
-  Definition prog1 :=
-    [|
-     (\x : Bool =>
-           case x : Bool return Bool of
-           | True -> False
-           | False -> True) True
-     |].
-
-  Example eval_prog1_named :
-    expr_eval_n Σ 3 [] prog1 = Ok (vConstr "Coq.Init.Datatypes.bool" "false" []).
-  Proof. reflexivity. Qed.
-
-  Example eval_prog1_indexed :
-    expr_eval_i Σ 3 [] (indexify [] prog1) = Ok (vConstr "Coq.Init.Datatypes.bool" "false" []).
-  Proof. simpl. reflexivity. Qed.
-
-  End Examples.

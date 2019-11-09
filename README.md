@@ -4,13 +4,14 @@ A framework for smart contract verification in Coq
 
 ## How to build
 
+Our development works with Coq 8.9.1. and depends on MetaCoq 1.0~alpha+8.9 and
+the std++ library v.1.2.1. These dependencies can be installed through
+`opam`. Also, there is a git submodule `smart-contract-interactions` which
+corresponds to the smart contract execution framework.  To clone the project
+with the submodule, use `git clone --recursive`.
 
-Our development works with Coq 8.9.1. and depends on MetaCoq 1.0~alpha+8.9 and the
-std++ library. These dependencies can be installed through `opam` (see
-https://coq.inria.fr/opam-using.html for detailed instructions on how to manage
-multiple Coq installations using opam).
-
-First, install Coq:
+Install Coq (see https://coq.inria.fr/opam-using.html for detailed instructions on how to manage
+multiple Coq installations using opam).:
 
 ```bash
 opam install coq.8.9.1

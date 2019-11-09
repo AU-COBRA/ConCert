@@ -2,7 +2,7 @@
 
 Require Import String ZArith Basics.
 From ConCert Require Import Ast Notations PCUICTranslate.
-From ConCert Require Import Prelude SimpleBlockchain.
+From ConCert Require Import Utils Prelude SimpleBlockchain.
 Require Import List PeanoNat ssrbool.
 
 Import ListNotations.
@@ -59,6 +59,7 @@ Print state_syn.
 Set Printing Notations.
 
 (** Unquoting the definition of a record *)
+Set Nonrecursive Elimination Schemes.
 Make Inductive (global_to_tc state_syn).
 
 (** As a result, we get a new Coq record [State_coq] *)

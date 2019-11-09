@@ -101,16 +101,6 @@ End Maps.
 Notation "a ∈ m" := (inmap_map a m = true) (at level 50).
 Notation "a ∉ m" := (inmap_map a m = false) (at level 50).
 
-(** Generation of string constants using MetaCoq *)
-Fixpoint mkNames (ns : list string) (postfix : string) :=
-  match ns with
-  | [] => tmPrint "Done."
-  | n :: ns' => n' <- tmEval all (n ++ postfix)%string ;;
-                  str <- tmQuote n';;
-                  tmMkDefinition n str;;
-                  mkNames ns' postfix
-  end.
-
 (** Notations for functions on finite maps *)
 
 Definition Map := "addr_map".
