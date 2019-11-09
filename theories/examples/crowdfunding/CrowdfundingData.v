@@ -2,7 +2,7 @@
 
 Require Import String ZArith Basics.
 From ConCert Require Import Ast Notations PCUICTranslate.
-From ConCert Require Import Prelude SimpleBlockchain.
+From ConCert Require Import Utils Prelude SimpleBlockchain.
 Require Import List PeanoNat ssrbool.
 
 Import ListNotations.
