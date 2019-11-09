@@ -29,7 +29,7 @@
 </div>
 
 <div class="doc">
-<a name="lab18"></a><h1 class="section">Well-formedness conditions</h1>
+<a name="lab17"></a><h1 class="section">Well-formedness conditions</h1>
 
 </div>
 <div class="code">
@@ -57,7 +57,7 @@
 </div>
 
 <div class="doc">
-<a name="lab19"></a><h2 class="section">Well-formed global environment (In the paper: (WF.i))</h2>
+<a name="lab18"></a><h2 class="section">Well-formed global environment (In the paper: (WF.i))</h2>
 
 <div class="paragraph"> </div>
 
@@ -92,7 +92,7 @@ Well-formed global environment
 </div>
 
 <div class="doc">
-Well-formedness condition on evaluation environments wrt. a type: <span class="inlinecode">ρ</span> is well-formed wrt. a type <span class="inlinecode"><a class="idref" href="SmartContracts.Serializable.html#ty"><span class="id" title="variable">ty</span></a></span> when for any type variables mentioned in <span class="inlinecode"><a class="idref" href="SmartContracts.Serializable.html#ty"><span class="id" title="variable">ty</span></a></span>, if there is a corresponding expression in ρ (starting from the index <span class="inlinecode"><a class="idref" href="SmartContracts.BoundedN.html#n"><span class="id" title="variable">n</span></a></span>) it corresponds to a type. 
+Well-formedness condition on evaluation environments wrt. a type: <span class="inlinecode">ρ</span> is well-formed wrt. a type <span class="inlinecode"><a class="idref" href="SmartContracts.Serializable.html#ty"><span class="id" title="variable">ty</span></a></span> when for any type variables mentioned in <span class="inlinecode"><a class="idref" href="SmartContracts.Serializable.html#ty"><span class="id" title="variable">ty</span></a></span>, if there is a corresponding expression in ρ (starting from the index <span class="inlinecode"><a class="idref" href="SmartContracts.Extras.html#n"><span class="id" title="variable">n</span></a></span>) it corresponds to a type. 
 </div>
 <div class="code">
 &nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a name="ty_env_ok"><span class="id" title="definition">ty_env_ok</span></a> (<span class="id" title="var">n</span> : <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (ρ : <a class="idref" href="ConCert.MyEnv.html#env"><span class="id" title="definition">env</span></a> <a class="idref" href="ConCert.Ast.html#expr"><span class="id" title="inductive">expr</span></a>) (<span class="id" title="var">ty</span> : <a class="idref" href="ConCert.Ast.html#type"><span class="id" title="inductive">type</span></a>): <a class="idref" href="http://coq.inria.fr/distrib/V8.9.1/stdlib//Coq.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
@@ -114,11 +114,11 @@ Well-formedness condition on evaluation environments wrt. a type: <span class="i
 </div>
 
 <div class="doc">
-<a name="lab20"></a><h2 class="section">Well-formedness condition on evaluation environments wrt. an expression (In the paper : (WF.ii) )</h2>
+<a name="lab19"></a><h2 class="section">Well-formedness condition on evaluation environments wrt. an expression (In the paper : (WF.ii) )</h2>
 
 <div class="paragraph"> </div>
 
- <span class="inlinecode">ρ</span> is well-formed wrt. an expression <span class="inlinecode"><a class="idref" href="SmartContracts.Congress.html#e"><span class="id" title="variable">e</span></a></span> when for any type variables mentioned in <span class="inlinecode"><a class="idref" href="SmartContracts.Congress.html#e"><span class="id" title="variable">e</span></a></span>, if there is a corresponding expression in ρ (starting from the index <span class="inlinecode"><a class="idref" href="SmartContracts.BoundedN.html#n"><span class="id" title="variable">n</span></a></span>) it corresponds to a type. 
+ <span class="inlinecode">ρ</span> is well-formed wrt. an expression <span class="inlinecode"><a class="idref" href="SmartContracts.Congress_Buggy.html#e"><span class="id" title="variable">e</span></a></span> when for any type variables mentioned in <span class="inlinecode"><a class="idref" href="SmartContracts.Congress_Buggy.html#e"><span class="id" title="variable">e</span></a></span>, if there is a corresponding expression in ρ (starting from the index <span class="inlinecode"><a class="idref" href="SmartContracts.Extras.html#n"><span class="id" title="variable">n</span></a></span>) it corresponds to a type. 
 </div>
 <div class="code">
 
