@@ -678,13 +678,13 @@ Proof.
     unfold outgoing_txs, incoming_txs in *.
     cbn [trace_txs].
     rewrite queue_prev, queue_new in *.
-    remember (chain_state_env prev).
+    remember (chain_state_env mid).
     destruct_action_eval; subst; cbn [eval_tx].
     + (* Transfer step: cannot be to contract, but can come from contract. *)
       rewrite_environment_equiv.
       specialize_hypotheses.
       (* Handle from contract and not from contract separately. *)
-      destruct (address_eqb_spec from contract);
+      destruct (address_eqb_spec from_addr contract);
         simpl_goal_invariant;
         simpl_hyp_invariant;
         cbn; lia.
@@ -693,10 +693,10 @@ Proof.
       rewrite_environment_equiv.
       unfold contract_state in state_eq.
       cbn in state_eq, congress_deployed.
-      destruct (address_eqb_spec contract to) as [<-|]; cycle 1.
+      destruct (address_eqb_spec contract to_addr) as [<-|]; cycle 1.
       * (* Deployment of different contract. Holds both if from us or not. *)
         specialize_hypotheses.
-        destruct (address_eqb_spec from contract);
+        destruct (address_eqb_spec from_addr contract);
           simpl_goal_invariant;
           simpl_hyp_invariant;
           cbn; lia.
@@ -710,10 +710,10 @@ Proof.
         erewrite num_cacts_in_state_deployment by eassumption.
         (* Outgoing actions in queue is 0 *)
         Hint Resolve undeployed_contract_no_out_queue_count : core.
-        assert (num_outgoing_acts (chain_state_queue prev) contract = 0)
+        assert (num_outgoing_acts (chain_state_queue mid) contract = 0)
           as out_acts by auto.
         rewrite queue_prev in out_acts.
-        remember (build_act from _) as act.
+        remember (build_act from_addr _) as act.
         assert (act_from act <> contract)
           by (eapply undeployed_contract_not_from_self; eauto).
         simpl_hyp_invariant.
@@ -726,12 +726,12 @@ Proof.
       rewrite_environment_equiv.
       unfold contract_state in state_eq.
       cbn in state_eq.
-      destruct (address_eqb_spec contract to) as [<-|]; cycle 1.
+      destruct (address_eqb_spec contract to_addr) as [<-|]; cycle 1.
       * (* Not to contract. Essentially same thing as transfer case above. *)
         simpl_goal_invariant.
         specialize_hypotheses.
         rewrite num_outgoing_acts_call_ne; auto.
-        destruct (address_eqb_spec contract from);
+        destruct (address_eqb_spec contract from_addr);
           simpl_goal_invariant;
           simpl_hyp_invariant;
           cbn; lia.
@@ -758,7 +758,7 @@ Proof.
         destruct msg; [|cbn in *; congruence].
         cbn in msg_eq.
         rewrite msg_eq.
-        destruct (address_eqb_spec from contract);
+        destruct (address_eqb_spec from_addr contract);
           simpl_hyp_invariant;
           cbn; lia.
   - (* Permute queue *)

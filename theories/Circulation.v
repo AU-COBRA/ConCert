@@ -136,7 +136,7 @@ Qed.
 Lemma step_circulation {prev next} (step : ChainStep prev next) :
   circulation next =
   match step with
-  | step_block header _ _ _ _ =>
+  | step_block _ _ header _ _ _ _ =>
     circulation prev + block_reward header
   | _ => circulation prev
   end%Z.
