@@ -337,18 +337,6 @@ Section Theories.
   Import LocalBlockchain.
 
   Open Scope nat.
-  Definition num_acts_created_in_proposals (txs : list Tx) :=
-  let count tx :=
-      match tx_body tx with
-      | tx_call (Some msg) =>
-        match deserialize msg : option Msg with
-        | Some (create_proposal acts) => length acts
-        | _ => 0
-        end
-      | _ => 0
-      end in
-  sumnat count txs.
-
   Definition exploit_example : option (Address * LocalChainBuilderDepthFirst) :=
     let chain := @builder_initial _ LocalChainBuilderDepthFirst in
     let creator := BoundedN.of_Z_const AddrSize 10 in
@@ -388,6 +376,18 @@ Section Theories.
 
   Definition unpacked_exploit_example : Address * LocalChainBuilderDepthFirst :=
     unpack_option exploit_example.
+
+  Definition num_acts_created_in_proposals (txs : list Tx) :=
+    let count tx :=
+        match tx_body tx with
+        | tx_call (Some msg) =>
+          match deserialize msg : option Msg with
+          | Some (create_proposal acts) => length acts
+          | _ => 0
+          end
+        | _ => 0
+        end in
+    sumnat count txs.
 
   (* Now we prove that this version of the contract is buggy, i.e. it does not satisfy the
      property we proved for the other version of the Congress. We filter out transactions
