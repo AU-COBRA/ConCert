@@ -377,33 +377,40 @@ Section Theories.
   Definition unpacked_exploit_example : Address * LocalChainBuilderDepthFirst :=
     unpack_option exploit_example.
 
-  Definition num_acts_created_in_proposals (txs : list Tx) :=
-    let count tx :=
-        match tx_body tx with
-        | tx_call (Some msg) =>
-          match deserialize msg : option Msg with
-          | Some (create_proposal acts) => length acts
-          | _ => 0
-          end
+  Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Msg)) :=
+    let count call :=
+        match call_msg call with
+        | Some (create_proposal acts) => length acts
         | _ => 0
         end in
-    sumnat count txs.
+    sumnat count calls.
 
   (* Now we prove that this version of the contract is buggy, i.e. it does not satisfy the
      property we proved for the other version of the Congress. We filter out transactions
      from the congress to the congress as we have those now (due to self calls). *)
   Theorem congress_is_buggy :
-    exists state addr (trace : ChainTrace empty_state state),
-      env_contracts state addr = Some (contract : WeakContract) /\
-      length (filter (fun tx => negb (tx_to tx =? addr)%address) (outgoing_txs trace addr)) >
-      num_acts_created_in_proposals (incoming_txs trace addr).
+    exists bstate caddr (trace : ChainTrace empty_state bstate)
+           (inc_calls : list (ContractCallInfo Msg)),
+      env_contracts bstate caddr = Some (contract : WeakContract) /\
+      incoming_calls trace caddr = Some inc_calls /\
+      length (filter (fun tx => negb (tx_to tx =? caddr)%address)
+                     (outgoing_txs trace caddr)) >
+      num_acts_created_in_proposals inc_calls.
   Proof.
     exists (build_chain_state (snd unpacked_exploit_example) []).
     exists (fst unpacked_exploit_example).
     exists (builder_trace (snd unpacked_exploit_example)).
-    split.
+    set (inc_calls := unpack_option
+                        (incoming_calls (Msg := Msg)
+                                        (builder_trace (snd unpacked_exploit_example))
+                                        (fst unpacked_exploit_example))).
+    vm_compute in inc_calls.
+    exists inc_calls.
+    split; [|split].
+    - reflexivity.
     - reflexivity.
     - vm_compute.
+      clear inc_calls.
       lia.
   Qed.
 End Theories.

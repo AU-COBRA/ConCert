@@ -106,3 +106,10 @@ Ltac specialize_hypotheses :=
     match goal with
     | [H: _ -> _ |- _] => specialize (H ltac:(auto))
     end.
+
+Ltac unset_all :=
+  repeat
+    match goal with
+    | [var := ?body : ?T |- _] =>
+      pose proof (eq_refl : var = body); clearbody var
+    end.

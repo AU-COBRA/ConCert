@@ -160,17 +160,21 @@ Hint Resolve congress_txs_after_block : core.
 Lemma congress_txs_after_local_chain_block
           (prev new : LocalChainBuilderDepthFirst) header acts :
   builder_add_block prev header acts = Some new ->
-  forall addr,
-    env_contracts new addr = Some (Congress.contract : WeakContract) ->
-    length (outgoing_txs (builder_trace new) addr) <=
-    num_acts_created_in_proposals (incoming_txs (builder_trace new) addr).
+  forall caddr,
+    env_contracts new caddr = Some (Congress.contract : WeakContract) ->
+    exists inc_calls,
+      incoming_calls (builder_trace new) caddr = Some inc_calls /\
+      length (outgoing_txs (builder_trace new) caddr) <=
+      num_acts_created_in_proposals inc_calls.
 Proof. eauto. Qed.
 (* And of course, it is satisfied for the breadth first chain as well. *)
 Lemma congress_txs_after_local_chain_bf_block
       (prev new : LocalChainBuilderBreadthFirst) header acts :
   builder_add_block prev header acts = Some new ->
-  forall addr,
-    env_contracts new addr = Some (Congress.contract : WeakContract) ->
-    length (outgoing_txs (builder_trace new) addr) <=
-    num_acts_created_in_proposals (incoming_txs (builder_trace new) addr).
+  forall caddr,
+    env_contracts new caddr = Some (Congress.contract : WeakContract) ->
+    exists inc_calls,
+      incoming_calls (builder_trace new) caddr = Some inc_calls /\
+      length (outgoing_txs (builder_trace new) caddr) <=
+      num_acts_created_in_proposals inc_calls.
 Proof. eauto. Qed.

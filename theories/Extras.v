@@ -203,3 +203,59 @@ Proof.
   subst f'.
   split; apply forall_respects_permutation; auto; symmetry; auto.
 Qed.
+
+Lemma Forall_false_filter_nil {A : Type} (pred : A -> bool) (l : list A) :
+  Forall (fun a => pred a = false) l -> filter pred l = [].
+Proof.
+  intros all.
+  induction l as [|hd tl IH]; auto.
+  inversion_clear all as [|? ? head_false tail_false].
+  cbn.
+  now rewrite head_false, IH.
+Qed.
+
+Lemma filter_app {A} (pred : A -> bool) (l l' : list A) :
+  filter pred (l ++ l') = filter pred l ++ filter pred l'.
+Proof.
+  induction l as [|hd tl IH]; auto.
+  cbn.
+  rewrite IH.
+  destruct (pred hd); auto.
+Qed.
+
+Lemma filter_map {A B : Type} (f : A -> B) (pred : B -> bool) (l : list A) :
+  filter pred (map f l) =
+  map f (filter (fun a => pred (f a)) l).
+Proof.
+  induction l as [|hd tl IH]; auto.
+  cbn.
+  rewrite IH.
+  destruct (pred (f hd)); auto.
+Qed.
+
+Lemma filter_false {A : Type} (l : list A) :
+  filter (fun _ => false) l = [].
+Proof. induction l; auto. Qed.
+
+Lemma filter_true {A : Type} (l : list A) :
+  filter (fun _ => true) l = l.
+Proof.
+  induction l as [|? ? IH]; auto.
+  cbn.
+  now rewrite IH.
+Qed.
+
+
+Lemma Permutation_filter {A : Type} (pred : A -> bool) (l l' : list A) :
+  Permutation l l' ->
+  Permutation (filter pred l) (filter pred l').
+Proof.
+  intros perm.
+  induction perm; auto.
+  - cbn.
+    destruct (pred x); auto.
+  - cbn.
+    destruct (pred x), (pred y); auto.
+    constructor.
+  - rewrite IHperm1; auto.
+Qed.

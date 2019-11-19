@@ -200,6 +200,13 @@ with WeakContract :=
          (receive_proper :
             Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive).
 
+Definition act_body_amount (ab : ActionBody) : Z :=
+  match ab with
+  | act_transfer _ amount
+  | act_call _ amount _
+  | act_deploy amount _ _ => amount
+  end.
+
 Definition wc_init (wc : WeakContract) :=
   let (i, _, _, _) := wc in i.
 
@@ -233,6 +240,8 @@ Record Action :=
     act_from : Address;
     act_body : ActionBody;
   }.
+
+Definition act_amount (a : Action) := act_body_amount (act_body a).
 
 (* Represents a strongly-typed contract. This is what user's will primarily
 use and interact with when they want deployment. We keep the weak contract
@@ -357,6 +366,8 @@ Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amou
   fun a => if (a =? addr)%address
            then (amount + map a)%Z
            else map a.
+
+Global Arguments add_balance _ _ _ /.
 
 Definition set_chain_contract_state
            (addr : Address) (state : SerializedValue)
@@ -598,7 +609,7 @@ Lemma account_balance_post (addr : Address) :
   - (if (addr =? eval_from eval)%address then eval_amount eval else 0).
 Proof.
   destruct eval; cbn; rewrite_environment_equiv; cbn;
-    unfold add_balance; destruct_address_eq; lia.
+    destruct_address_eq; lia.
 Qed.
 
 Lemma account_balance_post_to :
@@ -750,6 +761,10 @@ Definition ChainTrace := ChainedList ChainState ChainStep.
 Definition reachable (state : ChainState) : Prop :=
   inhabited (ChainTrace empty_state state).
 
+Definition outgoing_acts (state : ChainState) (addr : Address) : list ActionBody :=
+  map act_body
+      (filter (fun act => (act_from act =? addr)%address) (chain_state_queue state)).
+
 (* We define a transaction as a "fully specified" action, recording all info. For
 example, a transaction contains the contract address that was created when a contract
 is deployed. This is more about bridging the gap between our definitions and what
@@ -801,6 +816,80 @@ Definition outgoing_txs
            (trace : ChainTrace from to)
            (addr : Address) : list Tx :=
   filter (fun tx => (tx_from tx =? addr)%address) (trace_txs trace).
+
+Record ContractCallInfo (Msg : Type) :=
+  build_call_info
+  {
+    call_from : Address;
+    call_amount : Amount;
+    call_msg : option Msg;
+  }.
+
+Global Arguments build_call_info {_}.
+Global Arguments call_from {_}.
+Global Arguments call_amount {_}.
+Global Arguments call_msg {_}.
+
+Fixpoint incoming_calls
+           {Msg : Type} `{Serializable Msg}
+           {from to : ChainState}
+           (trace : ChainTrace from to)
+           (caddr : Address) : option (list (ContractCallInfo Msg)) :=
+  match trace with
+  | snoc trace' step =>
+    match step with
+    | step_action _ _ _ _ _ _ (eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ _) _ =>
+      if (to =? caddr)%address then
+        (* If there is a message it should deserialize correctly,
+           otherwise the entire operation returns None. *)
+        do hd_msg <- match msg with
+                     | Some msg =>
+                       match deserialize msg with
+                       | Some msg => Some (Some msg)
+                       | None => None
+                       end
+                     | None => Some None
+                     end;
+        do tl <- incoming_calls trace' caddr;
+        Some (build_call_info from amount hd_msg :: tl)
+      else
+        incoming_calls trace' caddr
+    | _ => incoming_calls trace' caddr
+    end
+  | _ => Some []
+  end.
+
+Record DeploymentInfo (Setup : Type) :=
+  build_deployment_info
+  {
+    deployment_from : Address;
+    deployment_amount : Amount;
+    deployment_setup : Setup;
+  }.
+
+Global Arguments build_deployment_info {_}.
+Global Arguments deployment_from {_}.
+Global Arguments deployment_amount {_}.
+Global Arguments deployment_setup {_}.
+
+Fixpoint deployment_info
+           {Setup : Type} `{Serializable Setup}
+           {from to : ChainState}
+           (trace : ChainTrace from to)
+           (caddr : Address) : option (DeploymentInfo Setup) :=
+  match trace with
+  | snoc trace' step =>
+    match step with
+    | step_action _ _ _ _ _ _ (eval_deploy from to amount _ setup _ _ _ _ _ _ _ _ _) _ =>
+      if (to =? caddr)%address then
+        do setup <- deserialize setup;
+        Some (build_deployment_info from amount setup)
+      else
+        deployment_info trace' caddr
+    | _ => deployment_info trace' caddr
+    end
+  | clnil => None
+  end.
 
 Fixpoint trace_blocks {from to : ChainState}
          (trace : ChainTrace from to) : list BlockHeader :=
@@ -858,6 +947,34 @@ Proof.
   intros neq ?; subst.
   induction resp_acts; cbn; auto.
   constructor; destruct_address_eq; cbn in *; congruence.
+Qed.
+
+Lemma outgoing_acts_after_block_nil bstate addr :
+  Forall act_is_from_account (chain_state_queue bstate) ->
+  address_is_contract addr = true ->
+  outgoing_acts bstate addr = [].
+Proof.
+  intros all is_contract.
+  unfold outgoing_acts.
+  induction (chain_state_queue bstate); auto.
+  cbn.
+  inversion_clear all.
+  destruct_address_eq; subst; auto.
+  unfold act_is_from_account in *.
+  congruence.
+Qed.
+
+Lemma outgoing_acts_after_deploy_nil bstate addr :
+  Forall (fun act => (act_from act =? addr)%address = false) (chain_state_queue bstate) ->
+  outgoing_acts bstate addr = [].
+Proof.
+  intros all.
+  unfold outgoing_acts.
+  induction (chain_state_queue bstate) as [|hd tl IH]; auto.
+  cbn in *.
+  inversion_clear all.
+  rewrite H.
+  auto.
 Qed.
 
 Local Open Scope address.
@@ -959,6 +1076,24 @@ Proof.
   - rewrite prev_next in *; auto.
 Qed.
 
+Lemma undeployed_contract_no_in_calls
+      {Msg} `{Serializable Msg}
+      contract state (trace : ChainTrace empty_state state) :
+  address_is_contract contract = true ->
+  env_contracts state contract = None ->
+  incoming_calls trace contract = Some (@nil (ContractCallInfo Msg)).
+Proof.
+  intros is_contract undeployed.
+  remember empty_state; induction trace; subst; cbn; auto.
+  destruct_chain_step.
+  - (* New block *)
+    rewrite_environment_equiv; auto.
+  - destruct_action_eval; rewrite_environment_equiv;
+      cbn in *;
+      destruct_address_eq; auto; subst; congruence.
+  - rewrite prev_next in *; auto.
+Qed.
+
 Local Open Scope Z.
 Lemma account_balance_trace state (trace : ChainTrace empty_state state) addr :
   account_balance state addr =
@@ -974,13 +1109,12 @@ Proof.
     rewrite_environment_equiv.
     cbn.
     fold (created_blocks trace addr).
-    unfold add_balance.
     rewrite IHtrace by auto.
     destruct_address_eq; subst; cbn; lia.
   - (* Step *)
     cbn.
     destruct_action_eval; cbn; rewrite_environment_equiv; cbn.
-    all: fold (created_blocks trace addr); unfold add_balance; rewrite IHtrace by auto.
+    all: fold (created_blocks trace addr); rewrite IHtrace by auto.
     all: destruct_address_eq; cbn; lia.
   - cbn.
     rewrite <- prev_next.
@@ -1026,7 +1160,6 @@ Proof.
   - (* New block *)
     rewrite_environment_equiv.
     cbn.
-    unfold add_balance.
     inversion valid_header.
     destruct_address_eq; lia.
   - (* Action evaluation *)
@@ -1142,86 +1275,393 @@ Proof.
     auto.
 Qed.
 
-Lemma lift_functional_correctness
+Lemma contract_centric
       {Setup Msg State : Type}
       `{Serializable Setup}
       `{Serializable Msg}
       `{Serializable State}
       (contract : Contract Setup Msg State)
+      (AddBlockFacts : nat -> nat -> nat -> nat -> nat -> nat -> Prop)
       (DeployFacts : Chain -> ContractCallContext -> Prop)
       (CallFacts : Chain -> ContractCallContext -> Prop)
-      (P : State -> Prop) :
-  (forall (prev_bstate : ChainState) act new_env new_acts
-          (eval : ActionEvaluation prev_bstate act new_env new_acts),
-      reachable prev_bstate ->
-      match eval with
-      | eval_deploy from to amount _ _ _ _ _ _ _ _ _ _ _ =>
-        DeployFacts (transfer_balance from to amount prev_bstate)
+      (P : nat (* Chain height *)
+           -> nat (* Current slot *)
+           -> nat (* Finalized height *)
+           -> DeploymentInfo Setup (* Deployment info *)
+           -> State (* Contract state *)
+           -> Z (* Contract balance *)
+           -> list ActionBody (* Outgoing queue *)
+           -> list (ContractCallInfo Msg) (* Incoming calls *)
+           -> list Tx (* Outgoing transactions *)
+           -> Prop) :
+  (forall (bstate_from bstate_to : ChainState) (step : ChainStep bstate_from bstate_to),
+      reachable bstate_from ->
+      match step with
+      | step_block _ _ header _ _ _ _ =>
+        AddBlockFacts (chain_height bstate_from)
+                      (current_slot bstate_from)
+                      (finalized_height bstate_from)
+                      (block_height header)
+                      (block_slot header)
+                      (block_finalized_height header)
+      | step_action _ _ _ _ _ _ (eval_deploy from to amount _ _ _ _ _ _ _ _ _ _ _) _ =>
+        DeployFacts (transfer_balance from to amount bstate_from)
                     (build_ctx from to amount)
-      | eval_call from to amount _ _ _ _ _ _ _ _ _ _ _ _ _ =>
-        CallFacts (transfer_balance from to amount prev_bstate)
+      | step_action _ _ _ _ _ _ (eval_call from to amount _ _ _ _ _ _ _ _ _ _ _ _ _) _ =>
+        CallFacts (transfer_balance from to amount bstate_from)
                   (build_ctx from to amount)
       | _ => True
       end) ->
-  (forall chain ctx setup result,
-    DeployFacts chain ctx ->
-    init contract chain ctx setup = Some result ->
-    P result) ->
-  (forall chain ctx prev_state msg new_state new_acts,
-      CallFacts chain ctx ->
-      P prev_state ->
-      receive contract chain ctx prev_state msg = Some (new_state, new_acts) ->
-      P new_state) ->
-  forall bstate caddr,
-    reachable bstate ->
+  (forall old_chain_height old_cur_slot old_fin_height
+          new_chain_height new_cur_slot new_fin_height
+          dep_info state balance inc_calls out_txs
+          (facts : AddBlockFacts old_chain_height old_cur_slot old_fin_height
+                                 new_chain_height new_cur_slot new_fin_height)
+          (IH : P old_chain_height old_cur_slot old_fin_height
+                  dep_info state balance [] inc_calls out_txs),
+      P new_chain_height new_cur_slot new_fin_height
+        dep_info state balance [] inc_calls out_txs) ->
+
+  (* Deploy contract *)
+  (forall chain ctx setup result
+          (facts : DeployFacts chain ctx)
+          (init_some : init contract chain ctx setup = Some result),
+      P (chain_height chain)
+        (current_slot chain)
+        (finalized_height chain)
+        (build_deployment_info (ctx_from ctx) (ctx_amount ctx) setup)
+        result
+        (ctx_amount ctx)
+        []
+        []
+        []) ->
+
+  (* Transfer/call/deploy to someone else *)
+  (forall height slot fin_height dep_info cstate
+          balance out_act out_acts inc_calls prev_out_txs tx
+          (IH : P height slot fin_height dep_info cstate balance
+                  (out_act :: out_acts) inc_calls prev_out_txs)
+          (tx_amount_eq : tx_amount tx = act_body_amount out_act),
+      P height slot fin_height dep_info cstate (balance - act_body_amount out_act)
+        out_acts inc_calls (tx :: prev_out_txs)) ->
+
+  (* Non-recursive call *)
+  (forall chain ctx dep_info prev_state msg
+          prev_out_queue prev_inc_calls prev_out_txs
+          new_state new_acts
+          (from_other : ctx_from ctx <> ctx_contract_address ctx)
+          (facts : CallFacts chain ctx)
+          (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
+                  dep_info prev_state
+                  (account_balance chain (ctx_contract_address ctx) - ctx_amount ctx)
+                  prev_out_queue prev_inc_calls prev_out_txs)
+          (receive_some : receive contract chain ctx prev_state msg =
+                          Some (new_state, new_acts)),
+      P (chain_height chain)
+        (current_slot chain)
+        (finalized_height chain)
+        dep_info
+        new_state
+        (account_balance chain (ctx_contract_address ctx))
+        (new_acts ++ prev_out_queue)
+        (build_call_info (ctx_from ctx) (ctx_amount ctx) msg :: prev_inc_calls)
+        prev_out_txs) ->
+
+  (* Recursive call *)
+  (forall chain ctx dep_info prev_state msg
+          head prev_out_queue prev_inc_calls prev_out_txs
+          new_state new_acts
+          (from_self : ctx_from ctx = ctx_contract_address ctx)
+          (facts : CallFacts chain ctx)
+          (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
+                  dep_info prev_state
+                  (account_balance chain (ctx_contract_address ctx))
+                  (head :: prev_out_queue) prev_inc_calls prev_out_txs)
+          (action_facts :
+             match head with
+             | act_transfer to amount => to = ctx_contract_address ctx /\
+                                         amount = ctx_amount ctx /\
+                                         msg = None
+             | act_call to amount msg_ser => to = ctx_contract_address ctx /\
+                                             amount = ctx_amount ctx /\
+                                             msg <> None /\
+                                             deserialize msg_ser = msg
+             | _ => False
+             end)
+          (receive_some : receive contract chain ctx prev_state msg =
+                          Some (new_state, new_acts)),
+      P (chain_height chain)
+        (current_slot chain)
+        (finalized_height chain)
+        dep_info
+        new_state
+        (account_balance chain (ctx_contract_address ctx))
+        (new_acts ++ prev_out_queue)
+        (build_call_info (ctx_from ctx) (ctx_amount ctx) msg :: prev_inc_calls)
+        (build_tx (ctx_from ctx)
+                  (ctx_contract_address ctx)
+                  (ctx_amount ctx)
+                  (tx_call (match head with
+                            | act_call _ _ msg => Some msg
+                            | _ => None
+                            end)) :: prev_out_txs)) ->
+  (forall height slot fin_height
+          dep_info cstate balance
+          out_queue inc_calls out_txs
+          out_queue'
+          (IH : P height slot fin_height dep_info cstate balance
+                  out_queue inc_calls out_txs)
+          (perm : Permutation out_queue out_queue'),
+      P height slot fin_height dep_info cstate balance out_queue' inc_calls out_txs) ->
+  forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
-    exists cstate,
+    exists dep cstate inc_calls,
+      deployment_info trace caddr = Some dep /\
       contract_state bstate caddr = Some cstate /\
-      P cstate.
+      incoming_calls trace caddr = Some inc_calls /\
+      P (chain_height bstate)
+        (current_slot bstate)
+        (finalized_height bstate)
+        dep
+        cstate
+        (account_balance bstate caddr)
+        (outgoing_acts bstate caddr)
+        inc_calls
+        (outgoing_txs trace caddr).
 Proof.
-  intros establish_facts init_case call_case
-         bstate caddr [trace] contract_deployed.
-  destruct (deployed_contract_state_typed contract_deployed ltac:(auto))
-    as [cstate cstate_stored].
-  exists cstate; split; auto.
-  revert cstate cstate_stored.
+  intros establish_facts
+         add_block_case
+         init_case
+         transfer_case
+         nonrecursive_call_case
+         recursive_call_case
+         permute_queue_case
+         bstate caddr trace contract_deployed.
+  assert (address_is_contract caddr = true) as addr_format
+      by (eapply contract_addr_format; eauto).
   unfold contract_state in *.
   remember empty_state; induction trace as [|? ? ? ? IH];
-    intros; subst; cbn in *; try congruence.
-  destruct_chain_step.
+    intros; subst; try solve [cbn in *; congruence].
+  specialize (establish_facts mid to ltac:(auto) ltac:(auto)).
+  destruct_chain_step;
+    [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv; cbn in *|].
   - (* New block *)
-    rewrite_environment_equiv; auto.
-  - (* Evaluation *)
-    specialize (establish_facts _ _ _ _ eval).
-    destruct_action_eval; subst; rewrite_environment_equiv; cbn in *.
-    + (* Transfer, just use IH directly. *)
+    clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
+    rewrite_environment_equiv.
+    cbn in *.
+    specialize_hypotheses.
+    destruct IH as [depinfo' [cstate' [inc_calls' [-> [? [-> ?]]]]]].
+    exists depinfo', cstate', inc_calls'.
+    rewrite_environment_equiv.
+    repeat split; auto.
+    inversion valid_header.
+    cbn in *.
+    destruct_address_eq; try congruence.
+    rewrite outgoing_acts_after_block_nil by auto.
+    unfold outgoing_acts in *; rewrite queue_prev in *; cbn in *.
+    eapply add_block_case.
+    apply establish_facts.
+    assumption.
+  - (* Evaluation: transfer *)
+    clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
+    specialize_hypotheses.
+    destruct IH as [depinfo' [cstate' [inc_calls' [-> [? [-> ?]]]]]].
+    exists depinfo', cstate', inc_calls'.
+    rewrite_environment_equiv.
+    repeat split; auto.
+    rewrite (address_eq_sym from_addr) in *.
+    cbn in *.
+    (* Transfer cannot be to contract as that would be a
+    call. Resolve this now. *)
+    destruct (address_eqb_spec caddr to_addr) as [->|];
+      cbn in *; try congruence.
+
+    unfold outgoing_acts in *.
+    rewrite queue_prev, queue_new in *.
+    subst.
+    cbn in *.
+    rewrite (address_eq_sym from_addr) in *.
+    destruct (address_eqb_spec caddr from_addr) as [<-|];
+      cbn in *.
+    + (* Transfer from contract *)
+      remember (act_transfer _ _) as out_act.
+      replace (-amount + account_balance mid caddr) with
+          (account_balance mid caddr - act_body_amount out_act) by
+          (subst; cbn; lia).
+      subst.
+      apply transfer_case; auto.
+    + (* Irrelevant transfer *)
       auto.
-    + (* Deployment *)
-      destruct_address_eq; subst; auto.
-      (* Of this contract. *)
+  - (* Evaluation: Deploy *)
+    clear recursive_call_case nonrecursive_call_case permute_queue_case.
+    rewrite (address_eq_sym to_addr caddr) in *.
+    destruct (address_eqb_spec caddr to_addr) as [->|]; cbn in *.
+    + (* Deployment of this contract *)
       replace wc with (contract : WeakContract) in * by congruence.
       destruct (wc_init_strong ltac:(eassumption))
-        as [setup_strong [result_strong [? [<- init]]]].
+        as [setup_strong [result_strong [deser_setup_eq [<- init]]]].
+      rewrite deser_setup_eq in *.
       cbn in *.
-      rewrite deserialize_serialize in cstate_stored.
-      replace result_strong with cstate in * by congruence.
-      eauto using init_case.
-    + (* Call *)
-      destruct_address_eq; subst; auto.
+      exists (build_deployment_info from_addr amount setup_strong),
+             result_strong,
+             [].
+      rewrite_environment_equiv; cbn.
+      rewrite address_eq_refl.
+      cbn.
+      rewrite deserialize_serialize.
+      assert (incoming_calls trace to_addr = Some (@nil (ContractCallInfo Msg)))
+        by (apply undeployed_contract_no_in_calls; auto).
+      repeat split; cbn in *; subst; auto.
+      unfold outgoing_acts.
+      rewrite queue_new.
+      cbn.
+      rewrite (address_eq_sym to_addr) in *.
+      fold (outgoing_txs trace to_addr).
+      pose proof (undeployed_contract_no_out_queue
+                    to_addr mid ltac:(auto) ltac:(auto) ltac:(auto)) as queue_ne_to.
+      rewrite queue_prev in queue_ne_to.
+      inversion_clear queue_ne_to as [|? ? from_ne_to rest_ne_to].
+      cbn in from_ne_to.
+      rewrite (address_eq_ne from_addr to_addr) by (destruct_address_eq; auto).
+      rewrite Forall_false_filter_nil by assumption.
+      rewrite undeployed_contract_no_out_txs, undeployed_contract_balance_0 by auto.
+      remember (build_ctx _ _ _) as ctx.
+      replace from_addr with (ctx_from ctx) by (subst; auto).
+      replace amount with (ctx_amount ctx) by (subst; auto).
+      replace (ctx_amount ctx + 0) with (ctx_amount ctx) by lia.
+      pose proof
+           (init_case (mid <| account_balance ::= add_balance to_addr amount |>
+                           <| account_balance ::= add_balance from_addr (- amount) |>)).
+      cbn in *.
+      auto.
+    + (* Deployment of other contract, might be by this contract. *)
+      specialize_hypotheses.
+      destruct IH as [depinfo [cstate [inc_calls [-> [? [-> ?]]]]]].
+      exists depinfo, cstate, inc_calls.
+      rewrite_environment_equiv; cbn.
+      rewrite address_eq_ne by auto.
+      repeat split; auto.
+      rewrite (address_eq_sym caddr).
+      unfold outgoing_acts in *.
+      rewrite queue_prev, queue_new in *.
+      replace new_acts with ([] : list Action) by assumption.
+      subst act.
+      cbn in *.
+      fold (outgoing_txs trace caddr).
+      destruct_address_eq; subst; cbn in *; auto.
+      (* This contract deploys other contract *)
+      remember (act_deploy _ _ _) as abody.
+      replace (-amount + account_balance mid caddr)
+        with (account_balance mid caddr - act_body_amount abody)
+        by (subst; cbn; lia).
+      subst.
+      apply transfer_case; auto.
+  - (* Evaluation: Call *)
+    clear init_case permute_queue_case.
+    specialize_hypotheses.
+    subst act new_acts.
+    destruct IH as [depinfo [cstate [inc_calls [-> [? [-> IH]]]]]].
+    unfold outgoing_acts in *.
+    rewrite queue_prev, queue_new in *.
+    cbn in *.
+    rewrite filter_app, filter_map, map_app, map_map; cbn in *.
+    destruct (address_eqb_spec to_addr caddr) as [->|].
+    + (* Call to contract *)
       replace wc with (contract : WeakContract) in * by congruence.
       destruct (wc_receive_strong ltac:(eassumption))
-        as [prev_state_strong [msg_strong [resp_state_strong [? [? [<- receive]]]]]].
+        as [prev_state_strong [msg_strong [resp_state_strong
+                                             [deser_state [deser_msg [<- receive]]]]]].
+      replace (env_contract_states mid caddr) with (Some prev_state) in * by auto.
       cbn in *.
-      rewrite deserialize_serialize in cstate_stored.
-      replace resp_state_strong with cstate in * by congruence.
-      specialize (IH eq_refl ltac:(auto) prev_state_strong).
-      replace (env_contract_states mid to_addr) with (Some prev_state) in * by auto.
-      cbn in *.
-      specialize (IH ltac:(auto)).
-      eauto using call_case.
+      replace prev_state_strong with cstate in * by congruence; clear prev_state_strong.
+      exists depinfo, resp_state_strong.
+      exists (build_call_info from_addr amount msg_strong :: inc_calls).
+      rewrite_environment_equiv.
+      cbn.
+      rewrite address_eq_refl.
+      cbn.
+      rewrite deserialize_serialize.
+      repeat split; auto.
+      {
+        destruct msg_strong as [msg_strong|], msg as [msg|];
+          try solve [cbn in *; congruence].
+        now replace (deserialize msg) with (Some msg_strong) by auto.
+      }
+
+      rewrite (address_eq_sym caddr), filter_true, map_id.
+
+      destruct (address_eqb_spec from_addr caddr) as [->|?]; cbn in *.
+      * (* Recursive call *)
+        remember (build_ctx _ _ _) as ctx.
+        pose proof
+            (recursive_call_case
+               (transfer_balance caddr caddr amount mid)
+               ctx depinfo cstate msg_strong
+               (match msg with
+                | Some msg => act_call caddr amount msg
+                | None => act_transfer caddr amount
+                end)) as case.
+        subst ctx.
+        cbn in case.
+        rewrite address_eq_refl in case.
+        replace (-amount + (amount + account_balance mid caddr))
+          with (account_balance mid caddr)
+          in * by lia.
+        destruct msg_strong as [msg_strong|], msg as [msg|];
+          cbn in *; try congruence; auto.
+      * (* Someone else calls contract *)
+        remember (build_ctx _ _ _) as ctx.
+        pose proof
+            (nonrecursive_call_case
+               (transfer_balance from_addr caddr amount mid)
+               ctx depinfo cstate msg_strong) as case.
+        subst ctx.
+        cbn in case.
+        rewrite address_eq_ne in case by (subst; auto).
+        rewrite address_eq_refl in case.
+        replace (amount + account_balance mid caddr - amount)
+          with (account_balance mid caddr) in case
+          by lia.
+        fold (outgoing_txs trace caddr).
+        apply case; auto.
+    + (* Call to other contract *)
+      exists depinfo, cstate, inc_calls.
+      rewrite_environment_equiv.
+      rewrite filter_false.
+      cbn.
+      rewrite address_eq_ne by auto.
+      rewrite (address_eq_sym caddr).
+      destruct (address_eqb_spec from_addr caddr) as [->|?].
+      * (* Call from us to other contract *)
+        repeat split; auto.
+        fold (outgoing_txs trace caddr).
+        cbn in *.
+        destruct msg as [msg|].
+        1: remember (act_call _ _ _) as abody.
+        2: remember (act_transfer _ _) as abody.
+        1, 2: replace (-amount + account_balance mid caddr)
+          with (account_balance mid caddr - act_body_amount abody)
+          by (subst; cbn; lia).
+        1, 2: subst; apply transfer_case; auto.
+      * (* Irrelevant call. *)
+        fold (outgoing_txs trace caddr).
+        auto.
   - (* Permutation *)
-    rewrite prev_next in *; auto.
+    rewrite prev_next in *.
+    specialize_hypotheses.
+    destruct IH as [depinfo [cstate [inc_calls [? [? [? IH]]]]]].
+    exists depinfo, cstate, inc_calls.
+    cbn.
+    repeat split; auto.
+    unfold outgoing_acts in *.
+    fold (outgoing_txs trace caddr).
+    apply permute_queue_case with
+        (out_queue := map act_body
+                          (filter (fun a => (act_from a =? caddr)%address)
+                                  (chain_state_queue mid))); auto.
+    now apply Permutation_map, Permutation_filter.
 Qed.
+
 End Theories.
 End Trace.
 End Semantics.
@@ -1265,4 +1705,82 @@ Ltac destruct_action_eval :=
 Ltac rewrite_environment_equiv :=
   match goal with
   | [eq: EnvironmentEquiv _ _ |- _] => rewrite eq in *
+  end.
+
+Local Ltac generalize_contract_lemma_aux bstate caddr trace is_deployed Setup Msg State :=
+  let P := fresh "P" in
+  evar (P : nat (* Chain height *)
+            -> nat (* Current slot *)
+            -> nat (* Finalized height *)
+            -> DeploymentInfo Setup (* Deployment info *)
+            -> State (* Contract state *)
+            -> Amount (* Contract balance *)
+            -> list ActionBody (* Outgoing queue *)
+            -> list (ContractCallInfo Msg) (* Incoming calls *)
+            -> list Tx (* Outgoing transactions *)
+            -> Prop);
+  let H := fresh "H" in
+  enough (H: exists (dep : DeploymentInfo Setup)
+                    (cstate : State)
+                    (inc_calls : list (ContractCallInfo Msg)),
+             deployment_info trace caddr = Some dep /\
+             contract_state bstate caddr = Some cstate /\
+             incoming_calls trace caddr = Some inc_calls /\
+             P (chain_height bstate)
+               (current_slot bstate)
+               (finalized_height bstate)
+               dep cstate
+               (account_balance bstate caddr)
+               (outgoing_acts bstate caddr)
+               inc_calls (outgoing_txs trace caddr));
+  [let depinfo := fresh "depinfo" in
+   let cstate := fresh "cstate" in
+   let inc_calls := fresh "inc_calls" in
+   let depinfo_strong := fresh "depinfo_strong" in
+   let cstate_strong := fresh "cstate_strong" in
+   let inc_calls_strong := fresh "inc_calls_strong" in
+   let provenP := fresh "provenP" in
+   destruct H as
+       [depinfo [cstate [inc_calls
+                           [depinfo_strong [cstate_strong [inc_calls_strong provenP]]]]]];
+   repeat
+     match goal with
+     | [|- exists _ : DeploymentInfo Setup, _] => exists depinfo
+     | [|- exists _ : State, _] => exists cstate
+     | [|- exists _ : list (ContractCallInfo Msg), _] => exists inc_calls
+     | [|- ?a /\ ?b] => refine (conj depinfo_strong _)
+     | [|- ?a /\ ?b] => refine (conj _ depinfo_strong)
+     | [|- ?a /\ ?b] => refine (conj cstate_strong _)
+     | [|- ?a /\ ?b] => refine (conj _ cstate_strong)
+     | [|- ?a /\ ?b] => refine (conj inc_calls_strong _)
+     | [|- ?a /\ ?b] => refine (conj _ inc_calls_strong)
+     end;
+   pattern (chain_height bstate), (current_slot bstate), (finalized_height bstate),
+   depinfo, cstate, (account_balance bstate caddr),
+   (outgoing_acts bstate caddr), inc_calls, (outgoing_txs trace caddr);
+   match goal with
+   | [|- ?f _ _ _ _ _ _ _ _ _] => instantiate (P := f); exact provenP
+   end
+  |].
+
+Ltac generalize_contract_lemma :=
+  intros;
+  match goal with
+  | [bstate : ChainState, caddr : Address |- _] =>
+    try
+      match goal with
+      | [is_reachable : reachable bstate |- _] =>
+        let trace := fresh "trace" in
+        destruct is_reachable as [trace]
+      end;
+    match goal with
+      [trace : ChainTrace empty_state bstate,
+               is_deployed : env_contracts (_ bstate) caddr =
+                             Some (contract_to_weak_contract ?c) |- _] =>
+      match type of c with
+      | Contract ?Setup ?Msg ?State =>
+        generalize_contract_lemma_aux bstate caddr trace is_deployed Setup Msg State;
+        revert is_deployed
+      end
+    end
   end.
