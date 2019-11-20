@@ -320,20 +320,18 @@ Proof.
       now inversion_clear receive.
   }
 
-  generalize_contract_lemma.
-  apply contract_centric with (AddBlockFacts := fun _ _ _ _ _ _ => True)
-                              (DeployFacts := fun _ _ => True)
-                              (CallFacts := fun _ _ => True);
-    subst P; cbn in *; auto.
-  - intros.
-    destruct step; auto.
-    destruct a; auto.
-  - intros.
-    unfold Congress.init in init_some.
+  contract_induction; intros; cbn in *; auto.
+  - unfold Congress.init in init_some.
     destruct_if; try congruence.
     now inversion_clear init_some.
   - eauto.
   - eauto.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
 Qed.
 
 Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Congress.Msg)) :=
@@ -506,35 +504,31 @@ Theorem congress_txs_well_behaved bstate caddr (trace : ChainTrace empty_state b
     length (outgoing_acts bstate caddr) <=
     num_acts_created_in_proposals inc_calls.
 Proof.
-  generalize_contract_lemma.
-  apply contract_centric with
-      (AddBlockFacts := fun _ _ _ _ _ _ => True)
-      (DeployFacts := fun _ _ => True)
-      (CallFacts := fun _ _ => True);
-    subst P; cbn in *; auto; try solve [intros; lia].
-  - intros; destruct step; auto.
-    destruct a; auto.
+  contract_induction; intros; cbn in *; auto; try lia.
+  - erewrite num_cacts_in_state_deployment by eassumption.
+    lia.
+  - pose proof (receive_state_well_behaved _ _ _ _ _ _ receive_some) as fcorrect.
+    destruct fcorrect; destruct msg as [msg|]; try congruence.
+    unfold num_acts_created_in_proposals.
+    cbn.
+    fold (num_acts_created_in_proposals prev_inc_calls).
+    rewrite app_length.
+    lia.
+  - pose proof (receive_state_well_behaved _ _ _ _ _ _ receive_some) as fcorrect.
+    destruct fcorrect; destruct msg as [msg|]; try congruence.
+    unfold num_acts_created_in_proposals.
+    cbn.
+    fold (num_acts_created_in_proposals prev_inc_calls).
+    rewrite app_length.
+    lia.
   - intros.
-    erewrite num_cacts_in_state_deployment by eassumption.
-    lia.
-  - intros ? ? ? ? ? ? ? ? ? ? ? _ ? receive.
-    pose proof (receive_state_well_behaved _ _ _ _ _ _ receive) as fcorrect.
-    destruct fcorrect; destruct msg as [msg|]; try congruence.
-    unfold num_acts_created_in_proposals.
-    cbn.
-    fold (num_acts_created_in_proposals prev_inc_calls).
-    rewrite app_length.
-    lia.
-  - intros ? ? ? ? ? ? ? ? ? ? ? ? _ prev _ receive.
-    pose proof (receive_state_well_behaved _ _ _ _ _ _ receive) as fcorrect.
-    destruct fcorrect; destruct msg as [msg|]; try congruence.
-    unfold num_acts_created_in_proposals.
-    cbn.
-    fold (num_acts_created_in_proposals prev_inc_calls).
-    rewrite app_length.
-    lia.
-  - intros ? ? ? ? ? ? ? ? ? ? ? perm.
     now rewrite <- perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
 Qed.
 
 Corollary congress_txs_after_block

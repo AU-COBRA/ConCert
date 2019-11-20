@@ -1281,19 +1281,25 @@ Lemma contract_centric
       `{Serializable Msg}
       `{Serializable State}
       (contract : Contract Setup Msg State)
-      (AddBlockFacts : nat -> nat -> nat -> nat -> nat -> nat -> Prop)
-      (DeployFacts : Chain -> ContractCallContext -> Prop)
-      (CallFacts : Chain -> ContractCallContext -> Prop)
-      (P : nat (* Chain height *)
-           -> nat (* Current slot *)
-           -> nat (* Finalized height *)
-           -> DeploymentInfo Setup (* Deployment info *)
-           -> State (* Contract state *)
-           -> Z (* Contract balance *)
-           -> list ActionBody (* Outgoing queue *)
-           -> list (ContractCallInfo Msg) (* Incoming calls *)
-           -> list Tx (* Outgoing transactions *)
-           -> Prop) :
+      (AddBlockFacts :
+         forall (chain_height : nat) (current_slot : nat) (finalized_height : nat)
+                (new_height : nat) (new_slot : nat) (new_finalized_height : nat), Prop)
+      (DeployFacts : forall (chain : Chain) (ctx : ContractCallContext), Prop)
+      (CallFacts :
+         forall (chain : Chain)
+                (ctx : ContractCallContext)
+                (cstate : State), Prop)
+      (P : forall (chain_height : nat)
+                  (current_slot : nat)
+                  (finalized_height : nat)
+                  (deployment_info : DeploymentInfo Setup)
+                  (cstate : State)
+                  (balance : Amount)
+                  (outgoing_actions_queued : list ActionBody)
+                  (incoming_calls_seen : list (ContractCallInfo Msg))
+                  (outgoing_txs_seen : list Tx), Prop) :
+
+  (* Facts *)
   (forall (bstate_from bstate_to : ChainState) (step : ChainStep bstate_from bstate_to),
       reachable bstate_from ->
       match step with
@@ -1308,10 +1314,16 @@ Lemma contract_centric
         DeployFacts (transfer_balance from to amount bstate_from)
                     (build_ctx from to amount)
       | step_action _ _ _ _ _ _ (eval_call from to amount _ _ _ _ _ _ _ _ _ _ _ _ _) _ =>
-        CallFacts (transfer_balance from to amount bstate_from)
-                  (build_ctx from to amount)
-      | _ => True
+        forall (cstate : State),
+          env_contracts bstate_from to = Some (contract : WeakContract) ->
+          contract_state bstate_from to = Some cstate ->
+          CallFacts (transfer_balance from to amount bstate_from)
+                    (build_ctx from to amount)
+                    cstate
+      | _ => Logic.True
       end) ->
+
+  (* Add block *)
   (forall old_chain_height old_cur_slot old_fin_height
           new_chain_height new_cur_slot new_fin_height
           dep_info state balance inc_calls out_txs
@@ -1350,7 +1362,7 @@ Lemma contract_centric
           prev_out_queue prev_inc_calls prev_out_txs
           new_state new_acts
           (from_other : ctx_from ctx <> ctx_contract_address ctx)
-          (facts : CallFacts chain ctx)
+          (facts : CallFacts chain ctx prev_state)
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
                   dep_info prev_state
                   (account_balance chain (ctx_contract_address ctx) - ctx_amount ctx)
@@ -1372,7 +1384,7 @@ Lemma contract_centric
           head prev_out_queue prev_inc_calls prev_out_txs
           new_state new_acts
           (from_self : ctx_from ctx = ctx_contract_address ctx)
-          (facts : CallFacts chain ctx)
+          (facts : CallFacts chain ctx prev_state)
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
                   dep_info prev_state
                   (account_balance chain (ctx_contract_address ctx))
@@ -1405,6 +1417,8 @@ Lemma contract_centric
                             | act_call _ _ msg => Some msg
                             | _ => None
                             end)) :: prev_out_txs)) ->
+
+  (* Queue permutation *)
   (forall height slot fin_height
           dep_info cstate balance
           out_queue inc_calls out_txs
@@ -1413,6 +1427,7 @@ Lemma contract_centric
                   out_queue inc_calls out_txs)
           (perm : Permutation out_queue out_queue'),
       P height slot fin_height dep_info cstate balance out_queue' inc_calls out_txs) ->
+
   forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
     exists dep cstate inc_calls,
@@ -1707,18 +1722,15 @@ Ltac rewrite_environment_equiv :=
   | [eq: EnvironmentEquiv _ _ |- _] => rewrite eq in *
   end.
 
-Local Ltac generalize_contract_lemma_aux bstate caddr trace is_deployed Setup Msg State :=
+Local Ltac generalize_contract_statement_aux
+      bstate caddr trace is_deployed Setup Msg State post :=
   let P := fresh "P" in
-  evar (P : nat (* Chain height *)
-            -> nat (* Current slot *)
-            -> nat (* Finalized height *)
-            -> DeploymentInfo Setup (* Deployment info *)
-            -> State (* Contract state *)
-            -> Amount (* Contract balance *)
-            -> list ActionBody (* Outgoing queue *)
-            -> list (ContractCallInfo Msg) (* Incoming calls *)
-            -> list Tx (* Outgoing transactions *)
-            -> Prop);
+  evar (P : forall (chain_height : nat) (current_slot : nat) (finalized_height : nat)
+                   (deployment_info : DeploymentInfo Setup) (cstate : State)
+                  (balance : Amount) (outgoing_actions_queued : list ActionBody)
+                  (incoming_calls_seen : list (ContractCallInfo Msg))
+                  (outgoing_txs_seen : list Tx),
+           Prop);
   let H := fresh "H" in
   enough (H: exists (dep : DeploymentInfo Setup)
                     (cstate : State)
@@ -1749,21 +1761,18 @@ Local Ltac generalize_contract_lemma_aux bstate caddr trace is_deployed Setup Ms
      | [|- exists _ : State, _] => exists cstate
      | [|- exists _ : list (ContractCallInfo Msg), _] => exists inc_calls
      | [|- ?a /\ ?b] => refine (conj depinfo_strong _)
-     | [|- ?a /\ ?b] => refine (conj _ depinfo_strong)
      | [|- ?a /\ ?b] => refine (conj cstate_strong _)
-     | [|- ?a /\ ?b] => refine (conj _ cstate_strong)
      | [|- ?a /\ ?b] => refine (conj inc_calls_strong _)
-     | [|- ?a /\ ?b] => refine (conj _ inc_calls_strong)
      end;
    pattern (chain_height bstate), (current_slot bstate), (finalized_height bstate),
-   depinfo, cstate, (account_balance bstate caddr),
-   (outgoing_acts bstate caddr), inc_calls, (outgoing_txs trace caddr);
+           depinfo, cstate, (account_balance bstate caddr),
+           (outgoing_acts bstate caddr), inc_calls, (outgoing_txs trace caddr);
    match goal with
    | [|- ?f _ _ _ _ _ _ _ _ _] => instantiate (P := f); exact provenP
    end
-  |].
+  | post bstate caddr trace is_deployed Setup Msg State P ].
 
-Ltac generalize_contract_lemma :=
+Local Ltac generalize_contract_statement_with_post post :=
   intros;
   match goal with
   | [bstate : ChainState, caddr : Address |- _] =>
@@ -1779,8 +1788,30 @@ Ltac generalize_contract_lemma :=
                              Some (contract_to_weak_contract ?c) |- _] =>
       match type of c with
       | Contract ?Setup ?Msg ?State =>
-        generalize_contract_lemma_aux bstate caddr trace is_deployed Setup Msg State;
-        revert is_deployed
+        generalize_contract_statement_aux bstate caddr trace
+                                          is_deployed Setup Msg State post
       end
     end
   end.
+
+Ltac generalize_contract_statement :=
+  generalize_contract_statement_with_post
+    ltac:(fun _ _ _ is_deployed _ _ _ _ => revert is_deployed).
+
+Ltac contract_induction :=
+  generalize_contract_statement_with_post
+    ltac:(fun _ _ _ is_deployed Setup Msg State P =>
+       revert is_deployed;
+       let AddBlockFacts := fresh "AddBlockFacts" in
+       let DeployFacts := fresh "DeployFacts" in
+       let CallFacts := fresh "CallFacts" in
+       evar (AddBlockFacts :
+               forall (chain_height : nat) (current_slot : nat)
+                      (finalized_height : nat) (new_height : nat)
+                      (new_slot : nat) (new_finalized_height : nat), Prop);
+       evar (DeployFacts : forall (chain : Chain)
+                                  (ctx : ContractCallContext), Prop);
+       evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
+                                (cstate : State), Prop);
+       apply (contract_centric _ AddBlockFacts DeployFacts CallFacts);
+       subst P; cbn in *; cycle 1).
