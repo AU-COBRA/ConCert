@@ -1,4 +1,4 @@
-EXTRA_DIR:=extra
+EXTRA_DIR:=../extra
 DOCS_DIR:=docs
 COQDOCFLAGS:= \
   --html --interpolate \

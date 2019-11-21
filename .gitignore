@@ -7,8 +7,10 @@
 *.glob
 *.v.d
 *~
-Makefile.coq
-Makefile.coq.conf
+CoqMakefile
+CoqMakefile.conf
+execution/CoqMakefile
+execution/CoqMakefile.conf
 *.a
 *.cma
 *.cmi
@@ -23,3 +25,4 @@ Makefile.coq.conf
 *.d
 *.lia.cache
 doc/
+_opam/
