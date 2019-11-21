@@ -31,7 +31,7 @@ opam install coq-stdpp.1.2.1
 
 After completing the procedures above, run `make` to build the development, and
 `make html` to build the documentation. The documentation will be located in the
-docs folder after `make htmk`.
+docs folder after `make html`.
 
 ## Structure of the project
 

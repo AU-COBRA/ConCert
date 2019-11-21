@@ -25,4 +25,5 @@ execution/CoqMakefile.conf
 *.d
 *.lia.cache
 doc/
+docs/
 _opam/
