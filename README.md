@@ -30,21 +30,11 @@ opam install coq-stdpp.1.2.1
 ```
 
 After completing the procedures above, run `make` to build the development, and
-`make html` to build the documentation.
-
-## Documentation
-
-The `docs` folder contains the `coqdoc`
-documentation. We use `CoqdocJS` by Tobias Tebbi
-(https://github.com/tebbi/coqdocjs) for better usability and syntax
-highlighting. One can show/hide proof using the button on the top
-panel. Open [docs/toc.html](/docs/toc.html) to start browsing the documentation.
+`make html` to build the documentation. The documentation will be located in the
+docs folder after `make htmk`.
 
 ## Structure of the project
 
-The [embedding/](embedding/) folder contains the development of the embedding.
-See [embedding/README.md](embedding/README.md) for more information.
-
-The [execution/](execution/) folder contains the formalization of the smart
+The [embedding](embedding/) folder contains the development of the embedding.
+The [execution](execution/) folder contains the formalization of the smart
 contract execution layer, which allows reasoning about interacting contracts.
-See [execution/README.md](execution/README.md) for more information.
