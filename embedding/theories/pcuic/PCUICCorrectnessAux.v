@@ -171,6 +171,7 @@ Proof.
   + simpl in *. destruct (decompose_inductive ty1) eqn:Heq;tryfalse.
     destruct p. inversion Hdi. subst.
     rewrite map_app.
+    cbn.
     rewrite mkApps_unfold. now f_equal.
 Qed.
 
