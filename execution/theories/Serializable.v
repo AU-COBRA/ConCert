@@ -287,6 +287,8 @@ Ltac make_serializer_case ty :=
     constr:(fun (f : SerializedValue -> SerializedValue) => f (serialize tt))
   end.
 
+this is a syntax error
+
 Ltac make_serializer_aux term tag :=
   match type of term with
   | ?T1 -> (?T2 -> ?T3) =>
