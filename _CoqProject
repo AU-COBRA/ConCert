@@ -1,47 +1,46 @@
--R smart-contract-interactions/theories SmartContracts
-smart-contract-interactions/theories/Automation.v
-smart-contract-interactions/theories/Extras.v
-smart-contract-interactions/theories/Finite.v
-smart-contract-interactions/theories/Monads.v
-smart-contract-interactions/theories/BoundedN.v
-smart-contract-interactions/theories/Containers.v
-smart-contract-interactions/theories/Serializable.v
-smart-contract-interactions/theories/ChainedList.v
-smart-contract-interactions/theories/Blockchain.v
-smart-contract-interactions/theories/Circulation.v
-smart-contract-interactions/theories/Congress.v
-smart-contract-interactions/theories/LocalBlockchain.v
-smart-contract-interactions/theories/LocalBlockchainTests.v
-smart-contract-interactions/theories/Congress_Buggy.v
+-R vendor/record-update RecordUpdate
+vendor/record-update/RecordSet.v
+vendor/record-update/RecordUpdate.v
 
--R smart-contract-interactions/vendor/record-update RecordUpdate
-smart-contract-interactions/vendor/record-update/RecordSet.v
-smart-contract-interactions/vendor/record-update/RecordUpdate.v
+-R execution/theories ConCert.Execution
+execution/theories/Automation.v
+execution/theories/Extras.v
+execution/theories/Finite.v
+execution/theories/Monads.v
+execution/theories/BoundedN.v
+execution/theories/Containers.v
+execution/theories/Serializable.v
+execution/theories/ChainedList.v
+execution/theories/Blockchain.v
+execution/theories/Circulation.v
+execution/theories/Congress.v
+execution/theories/LocalBlockchain.v
+execution/theories/LocalBlockchainTests.v
+execution/theories/Congress_Buggy.v
 
--R theories ConCert
+-R embedding/theories ConCert.Embedding
+embedding/theories/CustomTactics.v
+embedding/theories/Misc.v
+embedding/theories/MyEnv.v
+embedding/theories/Ast.v
+embedding/theories/Notations.v
+embedding/theories/pcuic/PCUICtoTemplate.v
+embedding/theories/EvalE.v
+embedding/theories/EnvSubst.v
+embedding/theories/Wf.v
+embedding/theories/pcuic/PCUICTranslate.v
 
-./theories/CustomTactics.v
-./theories/Misc.v
-./theories/MyEnv.v
-./theories/Ast.v
-./theories/Notations.v
-./theories/pcuic/PCUICtoTemplate.v
-./theories/EvalE.v
-./theories/EnvSubst.v
-./theories/Wf.v
-./theories/pcuic/PCUICTranslate.v
+embedding/theories/examples/Utils.v
+embedding/theories/examples/Demo.v
+embedding/theories/examples/AcornExamples.v
+embedding/theories/examples/crowdfunding/Prelude.v
+embedding/theories/examples/crowdfunding/SimpleBlockchain.v
+embedding/theories/examples/crowdfunding/CrowdfundingData.v
+embedding/theories/examples/crowdfunding/Crowdfunding.v
+embedding/theories/examples/ExecFrameworkIntegration.v
+embedding/theories/examples/FinMap.v
+embedding/theories/Tests.v
 
-./theories/examples/Utils.v
-./theories/examples/Demo.v
-./theories/examples/AcornExamples.v
-./theories/examples/crowdfunding/Prelude.v
-./theories/examples/crowdfunding/SimpleBlockchain.v
-./theories/examples/crowdfunding/CrowdfundingData.v
-./theories/examples/crowdfunding/Crowdfunding.v
-./theories/examples/ExecFrameworkIntegration.v
-./theories/examples/FinMap.v
-./theories/Tests.v
-
-./theories/pcuic/PCUICFacts.v
-./theories/pcuic/PCUICCorrectnessAux.v
-./theories/pcuic/PCUICCorrectness.v
+embedding/theories/pcuic/PCUICFacts.v
+embedding/theories/pcuic/PCUICCorrectnessAux.v
+embedding/theories/pcuic/PCUICCorrectness.v
