@@ -1275,7 +1275,7 @@ Proof.
     auto.
 Qed.
 
-Lemma contract_centric
+Lemma contract_induction
       {Setup Msg State : Type}
       `{Serializable Setup}
       `{Serializable Msg}
@@ -1813,5 +1813,5 @@ Ltac contract_induction :=
                                   (ctx : ContractCallContext), Prop);
        evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
                                 (cstate : State), Prop);
-       apply (contract_centric _ AddBlockFacts DeployFacts CallFacts);
+       apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
        subst P; cbn in *; cycle 1).
