@@ -14,6 +14,8 @@ From Coq Require Import String List.
 Import ListNotations ssrbool Basics Lia.
 Import NamelessSubst.
 
+Local Set Keyed Unification.
+
 (** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2 (Γ:=[])
         (e1 e2 : expr) (v : val) :

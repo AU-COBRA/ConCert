@@ -9,6 +9,7 @@ Require Import String List Basics.
 
 Require Import CustomTactics Misc MyEnv EnvSubst Ast EvalE PCUICFacts PCUICTranslate Wf.
 
+Local Set Keyed Unification.
 
 Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i Σ n ρ e) (at level 100).
 
