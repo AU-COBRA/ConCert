@@ -19,6 +19,8 @@ Open Scope list_scope.
 
 Import NamelessSubst.
 
+Local Set Keyed Unification.
+
 (* [Bool.trans_eq_bool] kills performance, so we remove it *)
 Remove Hints Bool.trans_eq_bool.
 
