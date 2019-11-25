@@ -1292,6 +1292,7 @@ Lemma contract_induction
       (P : forall (chain_height : nat)
                   (current_slot : nat)
                   (finalized_height : nat)
+                  (caddr : Address)
                   (deployment_info : DeploymentInfo Setup)
                   (cstate : State)
                   (balance : Amount)
@@ -1326,13 +1327,13 @@ Lemma contract_induction
   (* Add block *)
   (forall old_chain_height old_cur_slot old_fin_height
           new_chain_height new_cur_slot new_fin_height
-          dep_info state balance inc_calls out_txs
+          caddr dep_info state balance inc_calls out_txs
           (facts : AddBlockFacts old_chain_height old_cur_slot old_fin_height
                                  new_chain_height new_cur_slot new_fin_height)
           (IH : P old_chain_height old_cur_slot old_fin_height
-                  dep_info state balance [] inc_calls out_txs),
+                  caddr dep_info state balance [] inc_calls out_txs),
       P new_chain_height new_cur_slot new_fin_height
-        dep_info state balance [] inc_calls out_txs) ->
+        caddr dep_info state balance [] inc_calls out_txs) ->
 
   (* Deploy contract *)
   (forall chain ctx setup result
@@ -1341,6 +1342,7 @@ Lemma contract_induction
       P (chain_height chain)
         (current_slot chain)
         (finalized_height chain)
+        (ctx_contract_address ctx)
         (build_deployment_info (ctx_from ctx) (ctx_amount ctx) setup)
         result
         (ctx_amount ctx)
@@ -1349,12 +1351,12 @@ Lemma contract_induction
         []) ->
 
   (* Transfer/call/deploy to someone else *)
-  (forall height slot fin_height dep_info cstate
+  (forall height slot fin_height caddr dep_info cstate
           balance out_act out_acts inc_calls prev_out_txs tx
-          (IH : P height slot fin_height dep_info cstate balance
+          (IH : P height slot fin_height caddr dep_info cstate balance
                   (out_act :: out_acts) inc_calls prev_out_txs)
           (tx_amount_eq : tx_amount tx = act_body_amount out_act),
-      P height slot fin_height dep_info cstate (balance - act_body_amount out_act)
+      P height slot fin_height caddr dep_info cstate (balance - act_body_amount out_act)
         out_acts inc_calls (tx :: prev_out_txs)) ->
 
   (* Non-recursive call *)
@@ -1364,7 +1366,7 @@ Lemma contract_induction
           (from_other : ctx_from ctx <> ctx_contract_address ctx)
           (facts : CallFacts chain ctx prev_state)
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
-                  dep_info prev_state
+                  (ctx_contract_address ctx) dep_info prev_state
                   (account_balance chain (ctx_contract_address ctx) - ctx_amount ctx)
                   prev_out_queue prev_inc_calls prev_out_txs)
           (receive_some : receive contract chain ctx prev_state msg =
@@ -1372,6 +1374,7 @@ Lemma contract_induction
       P (chain_height chain)
         (current_slot chain)
         (finalized_height chain)
+        (ctx_contract_address ctx)
         dep_info
         new_state
         (account_balance chain (ctx_contract_address ctx))
@@ -1386,7 +1389,7 @@ Lemma contract_induction
           (from_self : ctx_from ctx = ctx_contract_address ctx)
           (facts : CallFacts chain ctx prev_state)
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
-                  dep_info prev_state
+                  (ctx_contract_address ctx) dep_info prev_state
                   (account_balance chain (ctx_contract_address ctx))
                   (head :: prev_out_queue) prev_inc_calls prev_out_txs)
           (action_facts :
@@ -1405,6 +1408,7 @@ Lemma contract_induction
       P (chain_height chain)
         (current_slot chain)
         (finalized_height chain)
+        (ctx_contract_address ctx)
         dep_info
         new_state
         (account_balance chain (ctx_contract_address ctx))
@@ -1420,13 +1424,14 @@ Lemma contract_induction
 
   (* Queue permutation *)
   (forall height slot fin_height
-          dep_info cstate balance
+          caddr dep_info cstate balance
           out_queue inc_calls out_txs
           out_queue'
-          (IH : P height slot fin_height dep_info cstate balance
+          (IH : P height slot fin_height caddr dep_info cstate balance
                   out_queue inc_calls out_txs)
           (perm : Permutation out_queue out_queue'),
-      P height slot fin_height dep_info cstate balance out_queue' inc_calls out_txs) ->
+      P height slot fin_height
+        caddr dep_info cstate balance out_queue' inc_calls out_txs) ->
 
   forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -1437,6 +1442,7 @@ Lemma contract_induction
       P (chain_height bstate)
         (current_slot bstate)
         (finalized_height bstate)
+        caddr
         dep
         cstate
         (account_balance bstate caddr)
@@ -1542,6 +1548,7 @@ Proof.
       rewrite undeployed_contract_no_out_txs, undeployed_contract_balance_0 by auto.
       remember (build_ctx _ _ _) as ctx.
       replace from_addr with (ctx_from ctx) by (subst; auto).
+      replace to_addr with (ctx_contract_address ctx) by (subst; auto).
       replace amount with (ctx_amount ctx) by (subst; auto).
       replace (ctx_amount ctx + 0) with (ctx_amount ctx) by lia.
       pose proof
@@ -1726,10 +1733,11 @@ Local Ltac generalize_contract_statement_aux
       bstate caddr trace is_deployed Setup Msg State post :=
   let P := fresh "P" in
   evar (P : forall (chain_height : nat) (current_slot : nat) (finalized_height : nat)
-                   (deployment_info : DeploymentInfo Setup) (cstate : State)
-                  (balance : Amount) (outgoing_actions_queued : list ActionBody)
-                  (incoming_calls_seen : list (ContractCallInfo Msg))
-                  (outgoing_txs_seen : list Tx),
+                   (caddr : Address) (deployment_info : DeploymentInfo Setup)
+                   (cstate : State) (balance : Amount)
+                   (outgoing_actions_queued : list ActionBody)
+                   (incoming_calls_seen : list (ContractCallInfo Msg))
+                   (outgoing_txs_seen : list Tx),
            Prop);
   let H := fresh "H" in
   enough (H: exists (dep : DeploymentInfo Setup)
@@ -1741,7 +1749,7 @@ Local Ltac generalize_contract_statement_aux
              P (chain_height bstate)
                (current_slot bstate)
                (finalized_height bstate)
-               dep cstate
+               caddr dep cstate
                (account_balance bstate caddr)
                (outgoing_acts bstate caddr)
                inc_calls (outgoing_txs trace caddr));
@@ -1765,10 +1773,10 @@ Local Ltac generalize_contract_statement_aux
      | [|- ?a /\ ?b] => refine (conj inc_calls_strong _)
      end;
    pattern (chain_height bstate), (current_slot bstate), (finalized_height bstate),
-           depinfo, cstate, (account_balance bstate caddr),
+           caddr, depinfo, cstate, (account_balance bstate caddr),
            (outgoing_acts bstate caddr), inc_calls, (outgoing_txs trace caddr);
    match goal with
-   | [|- ?f _ _ _ _ _ _ _ _ _] => instantiate (P := f); exact provenP
+   | [|- ?f _ _ _ _ _ _ _ _ _ _] => instantiate (P := f); exact provenP
    end
   | post bstate caddr trace is_deployed Setup Msg State P ].
 

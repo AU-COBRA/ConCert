@@ -299,30 +299,30 @@ Proof.
             repeat
               match goal with
               | [H: Some ?x = Some ?y |- _] => inversion_clear H; auto
-              | _ => try congruence; destruct_if
+              | _ => try congruence; let H := fresh in destruct_match eqn:H in *
               end].
-    + destruct_if; try congruence.
+    + destruct_match in receive; try congruence.
       unfold vote_on_proposal in receive.
       destruct (FMap.find _ _); cbn in *; try congruence.
       now inversion_clear receive.
-    + destruct_if; try congruence.
+    + destruct_match in receive; try congruence.
       unfold vote_on_proposal in receive.
       destruct (FMap.find _ _); cbn in *; try congruence.
       now inversion_clear receive.
-    + destruct_if; try congruence.
+    + destruct_match in receive; try congruence.
       unfold do_retract_vote in receive.
       destruct (FMap.find _ _); cbn in *; try congruence.
       destruct (FMap.find _ _); cbn in *; try congruence.
       now inversion_clear receive.
     + unfold do_finish_proposal in receive.
       destruct (FMap.find _ _); cbn in *; try congruence.
-      destruct_if; cbn in *; try congruence.
+      destruct_match in receive; cbn in *; try congruence.
       now inversion_clear receive.
   }
 
   contract_induction; intros; cbn in *; auto.
   - unfold Congress.init in init_some.
-    destruct_if; try congruence.
+    destruct_match eqn:validate_succeeds in init_some; try congruence.
     now inversion_clear init_some.
   - eauto.
   - eauto.

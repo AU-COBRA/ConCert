@@ -276,31 +276,6 @@ Definition is_call (ac : ActionBody) : bool :=
   | act_deploy amount c setup => false
   end.
 
-Lemma Forall_app {A : Type} (P : A -> Prop) (l l' : list A) :
-  Forall P l /\ Forall P l' <-> Forall P (l ++ l').
-Proof.
-  revert l'.
-  induction l as [ |hd tl IH].
-  - cbn.
-    split; intros; auto.
-    tauto.
-  - intros l'.
-    split.
-    + intros [all1 all2].
-      inversion_clear all1.
-      cbn.
-      constructor; auto.
-      apply -> IH.
-      tauto.
-    + intros all.
-      cbn in all.
-      inversion_clear all as [ | ? ? P_phd all_rest].
-      enough (P hd /\ Forall P tl /\ Forall P l') by
-          (split; try constructor; tauto).
-      split; auto.
-      now apply IH.
-Qed.
-
 Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
   reachable bstate ->
   env_contracts bstate addr = Some (cf_contract : WeakContract) ->
@@ -318,18 +293,18 @@ Proof.
     destruct msg.
     + (* donate *)
       cbn in *.
-      destruct_if; tryfalse.
-      destruct_match; inversion_clear Hreceive; cbn; easy.
+      destruct_match in Hreceive; tryfalse.
+      destruct_match in Hreceive; inversion_clear Hreceive; cbn; easy.
     + (* get_funds *)
       cbn in *.
-      destruct_if; tryfalse.
+      destruct_match in Hreceive; tryfalse.
       inversion_clear Hreceive.
       cbn.
       auto.
     + (* claim *)
       cbn in *.
-      destruct_match; tryfalse.
-      destruct_match; tryfalse.
+      destruct_match in Hreceive; tryfalse.
+      destruct_match in Hreceive; tryfalse.
       inversion_clear Hreceive.
       cbn.
       auto.

@@ -214,6 +214,31 @@ Proof.
   now rewrite head_false, IH.
 Qed.
 
+Lemma Forall_app {A : Type} (P : A -> Prop) (l l' : list A) :
+  Forall P l /\ Forall P l' <-> Forall P (l ++ l').
+Proof.
+  revert l'.
+  induction l as [ |hd tl IH].
+  - cbn.
+    split; intros; auto.
+    tauto.
+  - intros l'.
+    split.
+    + intros [all1 all2].
+      inversion_clear all1.
+      cbn.
+      constructor; auto.
+      apply -> IH.
+      tauto.
+    + intros all.
+      cbn in all.
+      inversion_clear all as [ | ? ? P_phd all_rest].
+      enough (P hd /\ Forall P tl /\ Forall P l') by
+          (split; try constructor; tauto).
+      split; auto.
+      now apply IH.
+Qed.
+
 Lemma filter_app {A} (pred : A -> bool) (l l' : list A) :
   filter pred (l ++ l') = filter pred l ++ filter pred l'.
 Proof.
