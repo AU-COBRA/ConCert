@@ -498,7 +498,7 @@ Theorem congress_txs_well_behaved bstate caddr (trace : ChainTrace empty_state b
   env_contracts bstate caddr = Some (Congress.contract : WeakContract) ->
   exists (cstate : Congress.State) (inc_calls : list (ContractCallInfo Congress.Msg)),
     contract_state bstate caddr = Some cstate /\
-    incoming_calls trace caddr = Some inc_calls /\
+    incoming_calls Msg trace caddr = Some inc_calls /\
     num_cacts_in_state cstate +
     length (outgoing_txs trace caddr) +
     length (outgoing_acts bstate caddr) <=
@@ -538,7 +538,7 @@ Corollary congress_txs_after_block
   forall caddr,
     env_contracts new caddr = Some (Congress.contract : WeakContract) ->
     exists inc_calls,
-      incoming_calls (builder_trace new) caddr = Some inc_calls /\
+      incoming_calls Msg (builder_trace new) caddr = Some inc_calls /\
       length (outgoing_txs (builder_trace new) caddr) <=
       num_acts_created_in_proposals inc_calls.
 Proof.

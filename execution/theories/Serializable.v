@@ -277,6 +277,25 @@ Next Obligation.
   reflexivity.
 Qed.
 
+Program Instance option_serializable `{Serializable A} : Serializable (option A) :=
+  {| serialize s := serialize
+                      match s with
+                      | None => inl tt
+                      | Some s => inr s
+                      end;
+     deserialize s := do s <- deserialize s;
+                      match s : unit + A with
+                      | inl _ => Some None
+                      | inr s => Some (Some s)
+                      end; |}.
+Next Obligation.
+  intros.
+  cbn.
+  rewrite deserialize_serialize.
+  cbn.
+  destruct x; auto.
+Qed.
+
 Ltac make_serializer_case ty :=
   match ty with
   | ?T1 -> ?T2 =>

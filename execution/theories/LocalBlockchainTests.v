@@ -163,7 +163,7 @@ Lemma congress_txs_after_local_chain_block
   forall caddr,
     env_contracts new caddr = Some (Congress.contract : WeakContract) ->
     exists inc_calls,
-      incoming_calls (builder_trace new) caddr = Some inc_calls /\
+      incoming_calls Congress.Msg (builder_trace new) caddr = Some inc_calls /\
       length (outgoing_txs (builder_trace new) caddr) <=
       num_acts_created_in_proposals inc_calls.
 Proof. eauto. Qed.
@@ -174,7 +174,7 @@ Lemma congress_txs_after_local_chain_bf_block
   forall caddr,
     env_contracts new caddr = Some (Congress.contract : WeakContract) ->
     exists inc_calls,
-      incoming_calls (builder_trace new) caddr = Some inc_calls /\
+      incoming_calls Congress.Msg (builder_trace new) caddr = Some inc_calls /\
       length (outgoing_txs (builder_trace new) caddr) <=
       num_acts_created_in_proposals inc_calls.
 Proof. eauto. Qed.

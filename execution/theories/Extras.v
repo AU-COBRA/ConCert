@@ -99,6 +99,26 @@ Proof.
   lia.
 Qed.
 
+Lemma sumZ_map {A B : Type} (f : A -> B) (g : B -> Z) (xs : list A) :
+  sumZ g (map f xs) =
+  sumZ (fun a => g (f a)) xs.
+Proof.
+  induction xs as [|hd tl IH]; auto.
+  cbn.
+  now rewrite IH.
+Qed.
+
+Lemma sumZ_filter {A : Type} (f : A -> Z) (pred : A -> bool) (xs : list A) :
+  sumZ f (filter pred xs) =
+  sumZ (fun a => if pred a then f a else 0) xs.
+Proof.
+  induction xs as [|hd tl IH]; auto.
+  cbn.
+  destruct (pred hd); auto.
+  cbn.
+  now rewrite IH.
+Qed.
+
 Lemma in_app_cons_or {A : Type} (x y : A) (xs ys : list A) :
   x <> y ->
   In x (xs ++ y :: ys) ->
@@ -204,6 +224,26 @@ Proof.
   split; apply forall_respects_permutation; auto; symmetry; auto.
 Qed.
 
+Instance forallb_Permutation_proper {A} :
+  Proper (eq ==> @Permutation A ==> eq) (@forallb A).
+Proof.
+  assert (H: forall f (xs ys : list A),
+             Permutation xs ys -> forallb f xs = true -> forallb f ys = true).
+  {
+    intros f xs ys perm all.
+    apply forallb_forall.
+    intros x x_in.
+    pose proof (proj1 (forallb_forall f xs) all).
+    apply H.
+    now rewrite perm.
+  }
+
+  intros ? f -> xs ys perm.
+  destruct (forallb f xs) eqn:forall1, (forallb f ys) eqn:forall2; auto.
+  - pose proof (H _ _ _ perm forall1); congruence.
+  - pose proof (H _ _ _ (Permutation_sym perm) forall2); congruence.
+Qed.
+
 Lemma Forall_false_filter_nil {A : Type} (pred : A -> bool) (l : list A) :
   Forall (fun a => pred a = false) l -> filter pred l = [].
 Proof.
@@ -248,6 +288,16 @@ Proof.
   destruct (pred hd); auto.
 Qed.
 
+Lemma filter_filter {A : Type} (f g : A -> bool) (l : list A) :
+  filter f (filter g l) = filter (fun a => (f a && g a)%bool) l.
+Proof.
+  induction l as [|? ? IH]; auto.
+  cbn.
+  destruct (f a) eqn:fa, (g a); auto.
+  - cbn. now rewrite IH, fa.
+  - cbn. now rewrite IH, fa.
+Qed.
+
 Lemma filter_map {A B : Type} (f : A -> B) (pred : B -> bool) (l : list A) :
   filter pred (map f l) =
   map f (filter (fun a => pred (f a)) l).
@@ -269,7 +319,6 @@ Proof.
   cbn.
   now rewrite IH.
 Qed.
-
 
 Lemma Permutation_filter {A : Type} (pred : A -> bool) (l l' : list A) :
   Permutation l l' ->

@@ -392,7 +392,7 @@ Section Theories.
     exists bstate caddr (trace : ChainTrace empty_state bstate)
            (inc_calls : list (ContractCallInfo Msg)),
       env_contracts bstate caddr = Some (contract : WeakContract) /\
-      incoming_calls trace caddr = Some inc_calls /\
+      incoming_calls Msg trace caddr = Some inc_calls /\
       length (filter (fun tx => negb (tx_to tx =? caddr)%address)
                      (outgoing_txs trace caddr)) >
       num_acts_created_in_proposals inc_calls.
@@ -401,7 +401,7 @@ Section Theories.
     exists (fst unpacked_exploit_example).
     exists (builder_trace (snd unpacked_exploit_example)).
     set (inc_calls := unpack_option
-                        (incoming_calls (Msg := Msg)
+                        (incoming_calls Msg
                                         (builder_trace (snd unpacked_exploit_example))
                                         (fst unpacked_exploit_example))).
     vm_compute in inc_calls.

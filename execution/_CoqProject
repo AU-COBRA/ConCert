@@ -4,16 +4,17 @@
 
 -R theories ConCert.Execution
 theories/Automation.v
-theories/Extras.v
-theories/Finite.v
-theories/Monads.v
-theories/BoundedN.v
-theories/Containers.v
-theories/Serializable.v
-theories/ChainedList.v
 theories/Blockchain.v
+theories/BoundedN.v
+theories/ChainedList.v
 theories/Circulation.v
 theories/Congress.v
+theories/Congress_Buggy.v
+theories/Containers.v
+theories/Escrow.v
+theories/Extras.v
+theories/Finite.v
 theories/LocalBlockchain.v
 theories/LocalBlockchainTests.v
-theories/Congress_Buggy.v
+theories/Monads.v
+theories/Serializable.v

@@ -831,7 +831,7 @@ Global Arguments call_amount {_}.
 Global Arguments call_msg {_}.
 
 Fixpoint incoming_calls
-           {Msg : Type} `{Serializable Msg}
+           (Msg : Type) `{Serializable Msg}
            {from to : ChainState}
            (trace : ChainTrace from to)
            (caddr : Address) : option (list (ContractCallInfo Msg)) :=
@@ -850,11 +850,11 @@ Fixpoint incoming_calls
                        end
                      | None => Some None
                      end;
-        do tl <- incoming_calls trace' caddr;
+        do tl <- incoming_calls Msg trace' caddr;
         Some (build_call_info from amount hd_msg :: tl)
       else
-        incoming_calls trace' caddr
-    | _ => incoming_calls trace' caddr
+        incoming_calls Msg trace' caddr
+    | _ => incoming_calls Msg trace' caddr
     end
   | _ => Some []
   end.
@@ -873,7 +873,7 @@ Global Arguments deployment_amount {_}.
 Global Arguments deployment_setup {_}.
 
 Fixpoint deployment_info
-           {Setup : Type} `{Serializable Setup}
+           (Setup : Type) `{Serializable Setup}
            {from to : ChainState}
            (trace : ChainTrace from to)
            (caddr : Address) : option (DeploymentInfo Setup) :=
@@ -885,8 +885,8 @@ Fixpoint deployment_info
         do setup <- deserialize setup;
         Some (build_deployment_info from amount setup)
       else
-        deployment_info trace' caddr
-    | _ => deployment_info trace' caddr
+        deployment_info Setup trace' caddr
+    | _ => deployment_info Setup trace' caddr
     end
   | clnil => None
   end.
@@ -1076,15 +1076,156 @@ Proof.
   - rewrite prev_next in *; auto.
 Qed.
 
+Lemma deployment_info_some
+      Setup `{Serializable Setup}
+      {to} (trace : ChainTrace empty_state to) caddr :
+  deployment_info Setup trace caddr <> None ->
+  env_contracts to caddr <> None.
+Proof.
+  remember empty_state; induction trace as [|? ? ? ? IH]; subst; cbn in *; try tauto.
+  destruct_chain_step.
+  - rewrite_environment_equiv.
+    auto.
+  - destruct_action_eval; rewrite_environment_equiv; auto.
+    (* Deploy *)
+    cbn in *.
+    rewrite (address_eq_sym caddr).
+    destruct_address_eq; try discriminate.
+    auto.
+  - rewrite <- prev_next; auto.
+Qed.
+
+Lemma deployment_info_addr_format
+      Setup `{Serializable Setup} {to}
+      (trace : ChainTrace empty_state to)
+      caddr :
+  deployment_info Setup trace caddr <> None ->
+  address_is_contract caddr = true.
+Proof.
+  intros has_deployment_info.
+  pose proof (deployment_info_some _ _ _ has_deployment_info).
+  destruct (env_contracts to caddr) as [wc|] eqn:?; try congruence.
+  eapply contract_addr_format; eauto.
+Qed.
+
+Lemma incoming_txs_contract
+      caddr bstate (trace : ChainTrace empty_state bstate)
+      Setup `{Serializable Setup} (depinfo : DeploymentInfo Setup)
+      Msg `{Serializable Msg} (msgs : list (ContractCallInfo Msg)) :
+  deployment_info Setup trace caddr = Some depinfo ->
+  incoming_calls Msg trace caddr = Some msgs ->
+  map (fun tx => (tx_from tx, tx_to tx, tx_amount tx)) (incoming_txs trace caddr) =
+  map (fun call => (call_from call, caddr, call_amount call)) msgs ++
+       [(deployment_from depinfo, caddr, deployment_amount depinfo)].
+Proof.
+  intros depinfo_eq calls_eq.
+  enough ((env_contracts bstate caddr = None ->
+           incoming_txs trace caddr = [] /\
+           deployment_info Setup trace caddr = None /\
+           incoming_calls Msg trace caddr = Some []) /\
+          (env_contracts bstate caddr <> None ->
+           deployment_info Setup trace caddr <> None ->
+           incoming_calls Msg trace caddr <> None ->
+           exists (depinfo : DeploymentInfo Setup)
+                  (inc_calls : list (ContractCallInfo Msg))
+                  (call_txs : list Tx) (dep_tx : Tx),
+             deployment_info Setup trace caddr = Some depinfo /\
+             incoming_calls Msg trace caddr = Some inc_calls /\
+             incoming_txs trace caddr = call_txs ++ [dep_tx] /\
+             map (fun tx => (tx_from tx, tx_to tx, tx_amount tx)) call_txs =
+             map (fun call => (call_from call, caddr, call_amount call)) inc_calls /\
+             (tx_from dep_tx, tx_to dep_tx, tx_amount dep_tx) =
+             (deployment_from depinfo, caddr, deployment_amount depinfo))) as generalized.
+  {
+    rewrite depinfo_eq, calls_eq in *.
+    destruct (env_contracts bstate caddr).
+    - destruct generalized as [_ generalized].
+      specialize (generalized ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+      destruct generalized as [? [? [? [? [? [? [-> [? ?]]]]]]]].
+      rewrite map_app.
+      cbn.
+      congruence.
+    - destruct generalized as [generalized _].
+      specialize (generalized eq_refl).
+      destruct generalized as [_ [? _]]; congruence.
+  }
+
+  assert (is_contract: address_is_contract caddr = true).
+  { assert (deployment_info Setup trace caddr <> None) by congruence.
+    eapply (deployment_info_addr_format Setup); eassumption. }
+
+  clear depinfo_eq calls_eq depinfo msgs.
+
+  remember empty_state; induction trace as [|? ? ? ? IH]; subst; cbn in *;
+    try tauto.
+  destruct_chain_step; cbn in *.
+  - (* Add new block *)
+    rewrite_environment_equiv.
+    auto.
+  - (* Evaluation *)
+    destruct_action_eval; cbn in *; rewrite_environment_equiv.
+    + (* Transfer *)
+      destruct_address_eq; auto.
+      subst.
+      cbn.
+      congruence.
+    + (* Deploy *)
+      cbn in *.
+      rewrite (address_eq_sym caddr) in *.
+      destruct_address_eq; auto.
+      split; try discriminate.
+      intros _ depinfo_ne_none calls_ne_none.
+      subst.
+      cbn in *.
+      destruct (deserialize setup); cbn in *; try congruence.
+      remember (build_deployment_info _ _ _) as depinfo.
+      remember (build_tx _ _ _ _) as deptx.
+      destruct IH as [IH _]; auto.
+      specialize (IH ltac:(auto)).
+      fold (incoming_txs trace caddr).
+      destruct IH as [-> [? ->]].
+      exists depinfo, [], [], deptx; subst; cbn in *.
+      tauto.
+    + (* Call *)
+      destruct_address_eq; subst; auto.
+      cbn in *.
+      split; [intros; congruence|].
+      destruct IH as [_ IH]; auto.
+      intros _ deploy_info calls.
+      destruct (match msg with | Some _ => _ | _ => Some None end);
+        cbn in *; try congruence.
+      destruct (incoming_calls _ _) as [inc_calls|]; cbn in *; try congruence.
+      unshelve epose proof (IH _ _ _) as IH; auto; try congruence.
+      destruct IH as
+          [depinfo [prev_calls
+                      [prev_call_txs [dep_tx
+                                        [depinfo_eq [inc_calls_eq
+                                                       [inc_txs_eq [map_eq ?]]]]]]]].
+      remember (build_tx _ _ _ _) as new_tx.
+      remember (build_call_info _ _ _) as new_call.
+      exists depinfo, (new_call :: inc_calls), (new_tx :: prev_call_txs), dep_tx.
+      split; auto.
+      split; auto.
+      fold (incoming_txs trace caddr).
+      rewrite inc_txs_eq.
+      split; [now rewrite app_comm_cons|].
+      inversion_clear inc_calls_eq.
+      cbn.
+      rewrite map_eq.
+      subst; tauto.
+  - (* Permutation *)
+    rewrite <- prev_next; auto.
+Qed.
+
 Lemma undeployed_contract_no_in_calls
       {Msg} `{Serializable Msg}
       contract state (trace : ChainTrace empty_state state) :
-  address_is_contract contract = true ->
   env_contracts state contract = None ->
-  incoming_calls trace contract = Some (@nil (ContractCallInfo Msg)).
+  incoming_calls Msg trace contract = Some [].
 Proof.
-  intros is_contract undeployed.
-  remember empty_state; induction trace; subst; cbn; auto.
+  unfold incoming_calls.
+  intros undeployed.
+  remember empty_state; induction trace; subst; cbn in *; auto.
   destruct_chain_step.
   - (* New block *)
     rewrite_environment_equiv; auto.
@@ -1355,7 +1496,18 @@ Lemma contract_induction
           balance out_act out_acts inc_calls prev_out_txs tx
           (IH : P height slot fin_height caddr dep_info cstate balance
                   (out_act :: out_acts) inc_calls prev_out_txs)
-          (tx_amount_eq : tx_amount tx = act_body_amount out_act),
+          (tx_from_caddr : tx_from tx = caddr)
+          (tx_amount_eq : tx_amount tx = act_body_amount out_act)
+          (tx_act_match :
+             match out_act with
+             | act_transfer to amount =>
+               tx_to tx = to /\ tx_amount tx = amount /\
+               (tx_body tx = tx_empty \/ tx_body tx = tx_call None)
+             | act_deploy amount wc setup =>
+               tx_amount tx = amount /\ tx_body tx = tx_deploy wc setup
+             | act_call to amount msg =>
+               tx_to tx = to /\ tx_amount tx = amount /\ tx_body tx = tx_call (Some msg)
+             end),
       P height slot fin_height caddr dep_info cstate (balance - act_body_amount out_act)
         out_acts inc_calls (tx :: prev_out_txs)) ->
 
@@ -1436,9 +1588,9 @@ Lemma contract_induction
   forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
     exists dep cstate inc_calls,
-      deployment_info trace caddr = Some dep /\
+      deployment_info Setup trace caddr = Some dep /\
       contract_state bstate caddr = Some cstate /\
-      incoming_calls trace caddr = Some inc_calls /\
+      incoming_calls Msg trace caddr = Some inc_calls /\
       P (chain_height bstate)
         (current_slot bstate)
         (finalized_height bstate)
@@ -1458,7 +1610,7 @@ Proof.
          recursive_call_case
          permute_queue_case
          bstate caddr trace contract_deployed.
-  assert (address_is_contract caddr = true) as addr_format
+  assert (address_is_contract caddr = true) as is_contract
       by (eapply contract_addr_format; eauto).
   unfold contract_state in *.
   remember empty_state; induction trace as [|? ? ? ? IH];
@@ -1530,8 +1682,9 @@ Proof.
       rewrite address_eq_refl.
       cbn.
       rewrite deserialize_serialize.
-      assert (incoming_calls trace to_addr = Some (@nil (ContractCallInfo Msg)))
+      assert (incoming_calls Msg trace to_addr = Some [])
         by (apply undeployed_contract_no_in_calls; auto).
+      unfold incoming_calls in *; rewrite is_contract in *.
       repeat split; cbn in *; subst; auto.
       unfold outgoing_acts.
       rewrite queue_new.
@@ -1743,9 +1896,9 @@ Local Ltac generalize_contract_statement_aux
   enough (H: exists (dep : DeploymentInfo Setup)
                     (cstate : State)
                     (inc_calls : list (ContractCallInfo Msg)),
-             deployment_info trace caddr = Some dep /\
+             deployment_info Setup trace caddr = Some dep /\
              contract_state bstate caddr = Some cstate /\
-             incoming_calls trace caddr = Some inc_calls /\
+             incoming_calls Msg trace caddr = Some inc_calls /\
              P (chain_height bstate)
                (current_slot bstate)
                (finalized_height bstate)
@@ -1822,4 +1975,4 @@ Ltac contract_induction :=
        evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
                                 (cstate : State), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
-       subst P; cbn in *; cycle 1).
+       cbv [P]; clear P; cycle 1).
