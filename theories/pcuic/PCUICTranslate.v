@@ -176,13 +176,13 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
 (** A "library" of data types available by default *)
 
 Module BaseTypes.
-  Definition Nat_name := "Coq.Init.Datatypes.nat".
+  Definition Nat_name := "nat".
   Definition Nat := Nat_name.
 
-  Definition Bool_name := "Coq.Init.Datatypes.bool".
+  Definition Bool_name := "bool".
   Definition Bool := Bool_name.
 
-  Definition Unit := "Coq.Init.Datatypes.unit".
+  Definition Unit := "unit".
 
 End BaseTypes.
 

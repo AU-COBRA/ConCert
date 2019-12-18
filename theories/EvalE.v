@@ -307,8 +307,7 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
           | vClos ρ' nm (cmFix fixename) ty1 ty2 b, v =>
             match v with
             | vConstr ind ctor vs =>
-              let v_fix := (vClos ρ' nm (cmFix fixename) ty1 ty2 b) in
-              eval n (ρ' # [fixename ~> v_fix] # [nm ~> v]) b
+              eval n (ρ' # [fixename ~> v1] # [nm ~> v2]) b
             | _ => EvalError "Fix should be applied to an inductive"
             end
           | vTyClos ρ' nm b, v =>
