@@ -534,7 +534,7 @@ Proof.
   cbn in *. lia.
 Qed.
 
-(** ** The actual contract balance is consistent the sum of individual contributions *)
+(** ** The actual contract balance is consistent with the sum of individual contributions *)
 Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
           prev hd acts new cf_addr lstate :
   builder_add_block prev hd acts = Some new ->
