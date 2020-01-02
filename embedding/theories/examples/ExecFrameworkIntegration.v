@@ -10,7 +10,7 @@ Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
 Require Import Morphisms.
 Require Import Permutation.
-Require Import Tactics.
+Require Import Program.Tactics.
 
 From ConCert.Execution Require Import Blockchain Congress Automation Extras.
 
