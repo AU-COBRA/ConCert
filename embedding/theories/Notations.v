@@ -316,15 +316,6 @@ Definition ci_to_types (ci : case_info ) :=
   | ciParamInd ind tys => (ind, tys)
   end.
 
-Notation "'case' x : ( ind_nm , params ) 'return' ty2 'of' p1 -> b1 " :=
-  (eCase (ind_nm,params) ty2 x [(p1,b1)])
-    (in custom expr at level 1,
-        p1 custom pat at level 4,
-        b1 custom expr at level 4,
-        ind_nm constr at level 4,
-        params constr at level 4,
-        ty2 custom type at level 4).
-
 Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
   (eCase (ci_to_types ci) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
     (in custom expr at level 2,
@@ -334,8 +325,6 @@ Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
         b1 custom expr at level 4,
         b2 custom expr at level 4,
         b3 custom expr at level 4,
-        (* ind_nm constr at level 4, *)
-        (* params constr at level 4, *)
         ci custom case_info at level 4,
         ty2 custom type at level 4).
 
@@ -347,11 +336,16 @@ Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
         pn custom pat at level 4,
         b1 custom expr at level 4,
         bn custom expr at level 4,
-        (* ind_nm constr at level 4, *)
-        (* params constr at level 4, *)
         ci custom case_info at level 4,
         ty2 custom type at level 4).
 
+Notation "'case' x : ci 'return' ty2 'of' p1 -> b1 " :=
+  (eCase (ci_to_types ci) ty2 x [(p1,b1)])
+    (in custom expr at level 2,
+        p1 custom pat at level 4,
+        b1 custom expr at level 4,
+        ci custom case_info at level 4,
+        ty2 custom type at level 4).
 
 Notation "x" := (eVar x) (in custom expr at level 0, x constr at level 4).
 
