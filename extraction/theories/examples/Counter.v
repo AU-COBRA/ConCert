@@ -1,5 +1,6 @@
 From Coq Require Import List String ZArith.
-From ConCert Require Import Utils Notations Liquidity SimpleBlockchain Prelude Ast MyEnv.
+From ConCert.Embedding Require Import Utils Notations SimpleBlockchain Prelude Ast MyEnv.
+From ConCert.Extraction Require Import Liquidity.
 
 Import ListNotations.
 

@@ -41,8 +41,9 @@ embedding/theories/examples/ExecFrameworkIntegration.v
 embedding/theories/examples/FinMap.v
 embedding/theories/Tests.v
 
-embedding/theories/extraction/Liquidity.v
-embedding/theories/extraction/Counter.v
+-R extraction/theories ConCert.Extraction
+extraction/theories/Liquidity.v
+extraction/theories/examples/Counter.v
 
 embedding/theories/pcuic/PCUICFacts.v
 embedding/theories/pcuic/PCUICCorrectnessAux.v
