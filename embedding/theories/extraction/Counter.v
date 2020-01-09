@@ -85,7 +85,7 @@ Definition TTty : env string :=
 
 (** A translation table for privitive binary operations *)
 Definition TT : env string :=
-  [("Coq.ZArith.BinInt.Z.add", "+")].
+  [("Coq.ZArith.BinInt.Z.add", "addTez")].
 
 Compute liquidify TT TTty
         ([| {eConstr "prod" "pair"} {eTy (tyInd "A")} {eTy (tyInd "B")} "b" "o" |]).
@@ -101,13 +101,17 @@ Extraction Language OCaml.
 Extract Inductive list => "list" [ "[]" "(::)" ].
 Extract Inductive prod => "(*)"  [ "(,)" ].
 Extract Inductive Z => "tez" ["0DUN" "id" "negate"].
-Extract Inlined Constant Z.leb => "(<=)".
-Extract Inlined Constant Z.ltb => "(<)".
-Extract Inlined Constant Z.add => "(+)".
-Extract Inlined Constant Z.sub => "(-)".
-Extract Inlined Constant Z.mul => "(*)".
+Extract Inlined Constant Z.add => "addTez".
 
-(** This does not typecheck in Liquidify, because [+] is overloaded and thus requires type annotations *)
+(** In Liquidify, [+] is overloaded and thus requires type annotations. We can overcome this issue by un-uverloading the operations and providing specialised versions (not infix anymore). *)
+
+(** Essentially, we need to prepend the follwing "prelude" before our contracts: *)
+(** let[@inline] fst (p : 'a * 'b) : 'a = p.(0)
+    let[@inline] snd (p : 'a * 'b) : 'b = p.(1)
+    let[@inline] addN (n : nat) (m : nat) = n + m
+    let[@inline] addTez (n : tez) (m : tez) = n + m *)
+
+(** It seems there are some syntactic and semantic differences from OCaml. E.g. it's not possible to pattern-match on tuples in Liquidity, a special form of [let] or projections must be used instead. That's why our "prelude" features the [fst] and [snd] functions. We use them explicitly instead of destructing pairs. *)
+
 Extraction Counter._update_balance.
-
-(** Also, it seems there are some syntactic and semantic differences from OCaml. E.g. it's not possible to pattern-match on tuples in Liquidity, a special form of [let] or projections must be used instead. *)
+Extraction Counter.counter.

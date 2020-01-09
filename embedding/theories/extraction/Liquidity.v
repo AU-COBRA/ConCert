@@ -113,8 +113,8 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
   match e with
   | eRel _ => "Error : indices are not supported"
   | eVar v => v
-  | eLambda x ty b => "fun " ++ inParens (x ++ " : " ++ liquidifyTy TTty ty ) ++
-                            " -> " ++ newLine ++ go b
+  (* we ignore typing annotations *)
+  | eLambda x _ b => inParens ("fun " ++ x ++ " -> " ++ newLine ++ go b)
   | eTyLam x b => go b
   | eLetIn x e1 _ e2 => "let " ++ x ++ " = " ++ go e1 ++ " in " ++ go e2
   | eApp e1 e2 =>
@@ -122,23 +122,19 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
     (* is it a pair ? *)
     | eApp (eConstr _ ctor) e1' =>
       if String.eqb ctor "pair" then inParens (go e1' ++ ", " ++ go e2)
-      else match e1 with
-           (* is is a binary operation? *)
-           | eApp (eConst cst) e1' =>
-             match look TT cst with
-             | Some op => inParens (go e1' ++ op ++ go e2)
-             | _ => inParens (go e1 ++ " " ++ go e2)
-             end
-           | _ => inParens (go e1 ++ " " ++ go e2)
-           end
-    | _ => inParens (go e1 ++ " " ++ go e2)
+      else go e1 ++ " " ++ inParens (go e2)
+    | _ => go e1 ++ " " ++ inParens (go e2)
     end
   | eConstr _ ctor =>
     (* is is list constructor [nil]? *)
     (* TODO: add [cons] *)
     if String.eqb "nil" ctor then "[]"
     else ctor
-  | eConst cst => cst
+  | eConst cst =>
+    match look TT cst with
+    | Some op => op
+    | _ => cst
+    end
   | eCase _ _ d bs =>
     let sbs := map (fun '(p,e) => (printPat p, go e)) bs in
     "match " ++ go d ++ " with " ++ printBranches sbs
@@ -147,8 +143,13 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
   end.
 
 Definition LiquidityPrelude :=
-  "let fst (p : 'a * 'b) : 'a = p.(0)" ++ newLine ++
-  "let snd (p : 'a * 'b) : 'b = p.(1)".
+       "let[@inline] fst (p : 'a * 'b) : 'a = p.(0)"
+    ++ newLine
+    ++ "let[@inline] snd (p : 'a * 'b) : 'b = p.(1)"
+    ++ newLine
+    ++ "let[@inline] addN (n : nat) (m : nat) = n + m"
+    ++ newLine
+    ++ "let[@inline] addTez (n : tez) (m : tez) = n + m".
 
 Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type) (contract : string): string :=
   let mainDomainType :=
