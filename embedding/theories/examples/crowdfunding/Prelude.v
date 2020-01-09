@@ -186,13 +186,68 @@ Notation "'star'" :=
   (eConstr Unit "Coq.Init.Datatypes.tt")
     (in custom expr at level 0).
 
+Notation "A * B" := (tyApp (tyApp (tyInd "prod") A) B)
+                        (in custom type at level 1,
+                            A custom type,
+                            B custom type at level 2).
+
+Notation "'Pair' b o" :=
+    (pConstr "pair" [b;o]) (in custom pat at level 0,
+                                b constr at level 4,
+                                o constr at level 4).
+
+Notation "'Pair' A B b o" :=
+    [| {eConstr "prod" "pair"} {eTy A} {eTy B} {b} {o} |]
+      (in custom expr at level 0,
+          A custom type at level 1,
+          B custom type at level 1,
+          b custom expr at level 1,
+          o custom expr at level 1).
+
+Notation "'first' A B p" := [| {eConst "fst"} {eTy A} {eTy B} {p} |]
+                              (in custom expr at level 0,
+                                  A custom type at level 1,
+                                  B custom type at level 1,
+                                  p custom expr at level 1).
+
+Notation "'second' A B p" := [| {eConst "snd"} {eTy A} {eTy B} {p} |]
+                              (in custom expr at level 0,
+                                  A custom type at level 1,
+                                  B custom type at level 1,
+                                  p custom expr at level 1).
+
+Notation "'Nothing' A" :=
+  [| {eConstr "option" "None"} {eTy A}|]
+    (in custom expr at level 0,
+        A custom type at level 1).
+
+Notation "'Just' A a" :=
+  [| {eConstr "option" "Some"}  {eTy A} {a}|]
+    (in custom expr at level 0,
+        A custom type at level 1,
+        a custom expr at level 1).
+
+
 Definition AcornList : global_dec :=
   gdInd "list" 1 [("nil", []);("cons", [(None, tyRel 0);(None, (tyApp (tyInd "list") (tyRel 0)))])] false.
 
 Notation List := "list".
 
+Notation "'Nil' A" :=
+  [| {eConstr List "nil"} {eTy A}|]
+    (in custom expr at level 0,
+        A custom type at level 1).
+
+Notation "'Cons' A x xs" :=
+  [| {eConstr List "cons"} {eTy A} {x} {xs}|]
+    (in custom expr at level 0,
+        A custom type at level 1,
+        x custom expr at level 1,
+        xs custom expr at level 1).
+
+
 Definition Maybe := "option".
-Definition Just := "Some".
+
 Definition AcornMaybe : global_dec :=
   gdInd "option" 1 [("Some", [(None, tyRel 0)]);("None", [])] false.
 
