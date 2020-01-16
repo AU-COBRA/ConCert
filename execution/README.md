@@ -48,7 +48,7 @@ In [Escrow.v](theories/Escrow.v) we verify functional correctness of an escrow
 contract based on the
 [safe remote purchase](https://solidity.readthedocs.io/en/v0.6.1/solidity-by-example.html#safe-remote-purchase)
 example in the Solidity documentation. This contract works by financially
-incentivising the participants to follow the protocol correctly, so it assumes
+incentivizing the participants to follow the protocol correctly, so it assumes
 they are economically rational. This is done by requiring both the buyer and
 seller to commit money to the contract that they will get back after the escrow
 is done. The formal statement is:

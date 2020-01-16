@@ -1,19 +1,18 @@
-(* This file defines a simple escrow contr based on the "safe
-remote purchase" example in Solidity's docs. This contract allows a
-seller to sell an item in a trustless setting assuming rational
-actors. With the premise that the seller wants to sell an item for 1
-ETH, the contract works in the following way:
+(* This file defines a simple escrow contract based on the "safe remote
+purchase" example in Solidity's docs. This contract allows a seller to sell an
+item in a trustless setting assuming economically rational actors. With the
+premise that the seller wants to sell an item for 1 ETH, the contract works in
+the following way:
 
 1. The seller deploys the contract and commits 2 ETH.
 2. The buyer commits 2 ETH before the deadline.
-3. The seller hands over the item (around the smart contract).
+3. The seller hands over the item (outside of the smart contract).
 4. The buyer confirms he has received the item. He gets 1 ETH back
 while the seller gets 3 ETH back.
 
-If the buyer does not commit the funds, the seller gets his money back
-after the deadline. Due to the expectation that the buyer is rational
-we can also assume that the seller will confirm he has received the
-item to get his own funds back. *)
+If the buyer does not commit the funds, the seller gets his money back after the
+deadline. The economic rationality shows up in our assumption that the seller
+will confirm he has received the item to get his own funds back. *)
 
 From Coq Require Import List.
 From Coq Require Import Morphisms.
@@ -572,12 +571,16 @@ Section Theories.
     sumZ tx_amount (txs_to addr (outgoing_txs trace caddr))
     - sumZ tx_amount (txs_from addr (incoming_txs trace caddr)).
 
+  (* Our main assumption is that the escrow will always finish due to
+  economically rational actors. We do not formalize this. *)
   Definition is_escrow_finished cstate :=
     match next_step cstate with
     | none => true
     | _ => false
     end.
 
+  (* The functional correctness of the Escrow, under the assumption that the
+  escrow finishes due to rational actors. *)
   Corollary escrow_correct
             {ChainBuilder : ChainBuilderType}
             prev new header acts :
