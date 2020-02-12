@@ -8,15 +8,15 @@ From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
-Require Import Blockchain.
-Require Import Serializable.
 Require Import Monads.
-Require Import Containers.
-Require Import Automation.
 Require Import Extras.
 Require Import ChainedList.
+Require Import Containers.
+Require Import Automation.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
+Require Import Serializable.
+Require Import Blockchain.
 
 Import ListNotations.
 Import RecordSetNotations.
@@ -276,7 +276,9 @@ Proof. repeat intro; solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
-Section Theories.
+
+
+  Section Theories.
 Local Open Scope nat.
 
 (* The rules stored in the blockchain's state are always valid *)

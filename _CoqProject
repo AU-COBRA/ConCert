@@ -41,6 +41,9 @@ embedding/theories/examples/crowdfunding/Crowdfunding.v
 embedding/theories/examples/crowdfunding/CrowdfundingData.v
 embedding/theories/examples/crowdfunding/Prelude.v
 embedding/theories/examples/crowdfunding/SimpleBlockchain.v
+embedding/theories/examples/counter/CounterBlockchain.v
+embedding/theories/examples/counter/CounterData.v
+embedding/theories/examples/counter/Counter.v
 
 -R extraction/theories ConCert.Extraction
 extraction/theories/Liquidity.v

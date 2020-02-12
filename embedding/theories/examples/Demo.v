@@ -150,6 +150,12 @@ Definition factorial_syn :=
 Make Definition factorial :=
   (expr_to_tc Σ (indexify [] factorial_syn)).
 
+  
+(* 
+Buffer Overflow:
+Compute (factorial 10).
+ *)
+ 
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
        \y : Nat =>
