@@ -27,7 +27,8 @@ Import ListNotations.
 Section LocalBlockchain.
 Local Open Scope bool.
 
-Definition AddrSize : N := 2^128.
+(* Definition AddrSize : N := 2^128. *)
+Definition AddrSize : N := 2^8. (* QuickChick doesn't like very large numbers (especially when we convert to nats' unary representation.) *)
 Definition ContractAddrBase : N := AddrSize / 2.
 
 Global Instance LocalChainBase : ChainBase :=
