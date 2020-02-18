@@ -4,47 +4,48 @@ vendor/record-update/RecordUpdate.v
 
 -R execution/theories ConCert.Execution
 execution/theories/Automation.v
-execution/theories/Extras.v
-execution/theories/Finite.v
-execution/theories/Monads.v
-execution/theories/BoundedN.v
-execution/theories/Containers.v
-execution/theories/Serializable.v
-execution/theories/ChainedList.v
 execution/theories/Blockchain.v
+execution/theories/BoundedN.v
+execution/theories/ChainedList.v
 execution/theories/Circulation.v
 execution/theories/Congress.v
+execution/theories/Congress_Buggy.v
+execution/theories/Containers.v
+execution/theories/Escrow.v
+execution/theories/Extras.v
+execution/theories/Finite.v
 execution/theories/LocalBlockchain.v
 execution/theories/LocalBlockchainTests.v
-execution/theories/Congress_Buggy.v
+execution/theories/Monads.v
+execution/theories/Serializable.v
 
 -R embedding/theories ConCert.Embedding
+embedding/theories/Ast.v
 embedding/theories/CustomTactics.v
+embedding/theories/EnvSubst.v
+embedding/theories/EvalE.v
 embedding/theories/Misc.v
 embedding/theories/MyEnv.v
-embedding/theories/Ast.v
 embedding/theories/Notations.v
-embedding/theories/pcuic/PCUICtoTemplate.v
-embedding/theories/EvalE.v
-embedding/theories/EnvSubst.v
 embedding/theories/Wf.v
 embedding/theories/pcuic/PCUICTranslate.v
+embedding/theories/pcuic/PCUICtoTemplate.v
 
-embedding/theories/examples/Utils.v
-embedding/theories/examples/Demo.v
+embedding/theories/Tests.v
 embedding/theories/examples/AcornExamples.v
-embedding/theories/examples/crowdfunding/Prelude.v
-embedding/theories/examples/crowdfunding/SimpleBlockchain.v
-embedding/theories/examples/crowdfunding/CrowdfundingData.v
-embedding/theories/examples/crowdfunding/Crowdfunding.v
+embedding/theories/examples/Demo.v
 embedding/theories/examples/ExecFrameworkIntegration.v
 embedding/theories/examples/FinMap.v
-embedding/theories/Tests.v
+embedding/theories/examples/Utils.v
+embedding/theories/examples/crowdfunding/Crowdfunding.v
+embedding/theories/examples/crowdfunding/CrowdfundingData.v
+embedding/theories/examples/crowdfunding/Prelude.v
+embedding/theories/examples/crowdfunding/SimpleBlockchain.v
 
 -R extraction/theories ConCert.Extraction
 extraction/theories/Liquidity.v
 extraction/theories/examples/Counter.v
 
-embedding/theories/pcuic/PCUICFacts.v
-embedding/theories/pcuic/PCUICCorrectnessAux.v
 embedding/theories/pcuic/PCUICCorrectness.v
+embedding/theories/pcuic/PCUICCorrectnessAux.v
+embedding/theories/pcuic/PCUICFacts.v

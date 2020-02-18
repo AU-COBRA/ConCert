@@ -17,6 +17,10 @@ From Coq Require Import ZArith.
 Import ListNotations.
 
 Section LocalBlockchainTests.
+  Let AddrSize := (2^128)%N.
+  Instance Base : ChainBase := LocalChainBase AddrSize.
+  Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+
   (* Addresses *)
   Definition creator : Address :=
     BoundedN.of_Z_const AddrSize 10.
@@ -29,8 +33,6 @@ Section LocalBlockchainTests.
 
   Definition person_3 : Address :=
     BoundedN.of_Z_const AddrSize 13.
-
-  Definition ChainBuilder := LocalChainBuilderDepthFirst.
 
   Definition chain1 : ChainBuilder := builder_initial.
 
@@ -153,28 +155,30 @@ Section LocalBlockchainTests.
   Compute (account_balance chain8 congress_1).
   Compute (account_balance chain8 person_3).
   Print Assumptions chain8.
-End LocalBlockchainTests.
 
-Hint Resolve congress_txs_after_block : core.
-(* The congress satisfies a property specialized to the local blockchain DFS: *)
-Lemma congress_txs_after_local_chain_block
-          (prev new : LocalChainBuilderDepthFirst) header acts :
-  builder_add_block prev header acts = Some new ->
-  forall caddr,
-    env_contracts new caddr = Some (Congress.contract : WeakContract) ->
-    exists inc_calls,
-      incoming_calls Congress.Msg (builder_trace new) caddr = Some inc_calls /\
-      length (outgoing_txs (builder_trace new) caddr) <=
-      num_acts_created_in_proposals inc_calls.
-Proof. eauto. Qed.
-(* And of course, it is satisfied for the breadth first chain as well. *)
-Lemma congress_txs_after_local_chain_bf_block
-      (prev new : LocalChainBuilderBreadthFirst) header acts :
-  builder_add_block prev header acts = Some new ->
-  forall caddr,
-    env_contracts new caddr = Some (Congress.contract : WeakContract) ->
-    exists inc_calls,
-      incoming_calls Congress.Msg (builder_trace new) caddr = Some inc_calls /\
-      length (outgoing_txs (builder_trace new) caddr) <=
-      num_acts_created_in_proposals inc_calls.
-Proof. eauto. Qed.
+  Hint Resolve congress_txs_after_block : core.
+  Definition BuilderDF := LocalChainBuilderDepthFirst AddrSize.
+  (* The congress satisfies a property specialized to the local blockchain DFS: *)
+  Lemma congress_txs_after_local_chain_block
+        (prev new : BuilderDF) header acts :
+    builder_add_block prev header acts = Some new ->
+    forall caddr,
+      env_contracts new caddr = Some (Congress.contract : WeakContract) ->
+      exists inc_calls,
+        incoming_calls Congress.Msg (builder_trace new) caddr = Some inc_calls /\
+        length (outgoing_txs (builder_trace new) caddr) <=
+        num_acts_created_in_proposals inc_calls.
+  Proof. eauto. Qed.
+  (* And of course, it is satisfied for the breadth first chain as well. *)
+  Definition BuilderBF := LocalChainBuilderBreadthFirst AddrSize.
+  Lemma congress_txs_after_local_chain_bf_block
+        (prev new : BuilderBF) header acts :
+    builder_add_block prev header acts = Some new ->
+    forall caddr,
+      env_contracts new caddr = Some (Congress.contract : WeakContract) ->
+      exists inc_calls,
+        incoming_calls Congress.Msg (builder_trace new) caddr = Some inc_calls /\
+        length (outgoing_txs (builder_trace new) caddr) <=
+        num_acts_created_in_proposals inc_calls.
+  Proof. eauto. Qed.
+End LocalBlockchainTests.

@@ -38,11 +38,58 @@ proposals up to this point. This is an approximation of the fact that any
 outgoing transaction should correspond to some proposal created and discussed in
 the past.
 
-In [Congress_Buggy.v](theories/Congress_Buggy.v) we try something different: we
-take the same contract as above, but introduce a reentrancy issue into it. We
-then formally prove that this version of the Congress does _not_ satisfy the
-property proven for the other version. This is proven by using one of our
-implementations of our semantics and just asking Coq to compute.
+In [Congress_Buggy.v](theories/Congress_Buggy.v) we try the opposite: we take
+the same contract as above, but introduce a reentrancy issue into it. We then
+formally prove that this version of the Congress does _not_ satisfy the property
+proven for the other version. This is proven by using one of our implementations
+of our semantics and just asking Coq to compute.
+
+In [Escrow.v](theories/Escrow.v) we verify functional correctness of an escrow
+contract based on the
+[safe remote purchase](https://solidity.readthedocs.io/en/v0.6.1/solidity-by-example.html#safe-remote-purchase)
+example in the Solidity documentation. This contract works by financially
+incentivizing the participants to follow the protocol correctly, so it assumes
+they are economically rational. This is done by requiring both the buyer and
+seller to commit money to the contract that they will get back after the escrow
+is done. The formal statement is:
+
+```coq
+Corollary escrow_correct
+          {ChainBuilder : ChainBuilderType}
+          prev new header acts :
+  builder_add_block prev header acts = Some new ->
+  let trace := builder_trace new in
+  forall caddr,
+    env_contracts new caddr = Some (Escrow.contract : WeakContract) ->
+    exists (depinfo : DeploymentInfo Setup)
+           (cstate : State)
+           (inc_calls : list (ContractCallInfo Msg)),
+      deployment_info Setup trace caddr = Some depinfo /\
+      contract_state new caddr = Some cstate /\
+      incoming_calls Msg trace caddr = Some inc_calls /\
+      let item_worth := deployment_amount depinfo / 2 in
+      let seller := deployment_from depinfo in
+      let buyer := setup_buyer (deployment_setup depinfo) in
+      is_escrow_finished cstate = true ->
+      (buyer_confirmed inc_calls buyer = true /\
+       net_balance_effect trace caddr seller = item_worth /\
+       net_balance_effect trace caddr buyer = -item_worth \/
+
+       buyer_confirmed inc_calls buyer = false /\
+       net_balance_effect trace caddr seller = 0 /\
+       net_balance_effect trace caddr buyer = 0).
+```
+
+The most important parts are the last lines which say that once the escrow is
+finished (`is_escrow_finished`) then either
+1. the buyer confirmed receiving the goods, in which case the seller has
+   profited the item's worth and the buyer has lost the same, or
+2. the buyer did not confirm receiving the goods, in which case neither party is
+   affected.
+
+Note that the second point above is for the case where the buyer never commits
+any money to the escrow, in which case the seller is allowed to withdraw his own
+commitment after a deadline.
 
 In [Circulation.v](theories/Circulation.v) we prove a small sanity check for our
 semantics. Specifically we prove that the total sum of the money in the system
