@@ -14,11 +14,6 @@ From Coq Require Import List.
 From Coq Require Import Strings.BinaryString.
 Import ListNotations.
 
-(* Declare Instance genAmountSized : GenSized Amount.
-Declare Instance showAmount : Show Amount.
-Declare Instance shrinkAmount : Shrink Amount. *)
-
-
 Record BaseGens (BaseTypes : ChainBase) := 
   mkBaseGens {
     (* Address          : Type; *)
@@ -37,33 +32,14 @@ Instance showBaseGens {BaseTypes : ChainBase} : Show (BaseGens BaseTypes)  :=
     show bg := "BaseGens{...}"
   |}.
 
-(* Instance showAmount : Show Amount :=
-  {|
-    show := @show Z showZ
-  |}. *)
-
-
-(* Instance genAmountSized : GenSized Amount :=
-  {|
-    arbitrarySized := @arbitrarySized Z _ 
-  |}.
-
-Instance genAmount : Gen Amount :=
-  {|
-    arbitrary := @arbitrary Z _ 
-  |}. *)
-
 
 Instance shrinkAmount : Shrink Amount := 
   {|
     shrink := @shrink Z _
   |}.
 
-  
-(* dummy implementations for now *)
 Definition empty_str : string := "".
 Definition sep : string := ", ".
-
 
 Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
   {|
@@ -71,23 +47,19 @@ Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
       let height := show (chain_height c) in
       let slot := show (current_slot c) in
       let fin_height := show (finalized_height c) in
-        "Chain{" ++ "height: " ++ height ++ sep 
-                 ++ "current slot: " ++ slot ++ sep 
-                 ++ "final height: " ++ fin_height 
-                 ++ "}"
+        "Chain{" ++ "height: "       ++ height     ++ sep 
+                 ++ "current slot: " ++ slot       ++ sep 
+                 ++ "final height: " ++ fin_height ++ "}"
   |}.
-
 
 Instance showEnvironment (BaseTypes : ChainBase) `{Show Chain}: Show Environment :=
   {|
     show env := "Environment{" 
                 ++ "chain: " ++ show (env_chain env) ++ sep 
-                ++ "contract states: ..."
-                ++ "}"
+                ++ "contract states:..."             ++ "}"
   |}.
 
 Close Scope string_scope.
-
 Open Scope list_scope.
 
 Fixpoint mkMapFromList {A B : Type}
@@ -103,31 +75,25 @@ Fixpoint mkMapFromList {A B : Type}
   | (_,_) => fun x => default
   end.
 
-
 (* Makes a generator for BlockChains, given generators for the necessary types: Address, Setup, Msg, State, SerializedValue. 
    Ensures that all address usages are consistent with the generated address mapping. *)
 Definition mkChainGen (BaseTypes : ChainBase) (baseGens : BaseGens BaseTypes) (n : nat)
                       : G Chain  := 
-  (* First construct context of Contract Addresses. *)
     ch_height  <- arbitrarySized n ;;
     cur_slot   <- arbitrarySized ch_height ;; (* We make sure current slot is <= chain height *)
-    (* gmp         <- liftM (mkMapFromList addr_eqb (arbitrarySized n)) addr_list_gen ;; 
-    mp <- gmp ;; *)
     let acc_bal := init_account_balances BaseTypes baseGens in
     returnGen (build_chain ch_height cur_slot n acc_bal).
     
-Close Scope list_scope.
-
-  (* For now, shrinking does nothing *)
+(* For now, shrinking does nothing *)
 Instance shrinkChain (BaseTypes : ChainBase) : Shrink (@Chain BaseTypes) :=
   {|
     shrink c := cons c nil
   |}.
 
+
 Derive Arbitrary for SerializedType.
 Derive Show for SerializedType.
 Import SerializedType.
-Open Scope list_scope.
 Open Scope string_scope.
 
 Fixpoint string_of_interp_type (st : SerializedType) :  (interp_type st) -> string :=
@@ -196,7 +162,6 @@ Instance showN : Show N :=
     show n := show (N.to_nat n)   
   |}.
 
-
 (* We dont show the bound because it may be a very large number which, when converted to nat and then to string, gives a memory overflow. *)
 Instance showBoundedN {bound : N} `{Show N} : Show (BoundedN.BoundedN bound) :=
   {|
@@ -225,10 +190,6 @@ Instance showLocalChain : Show LocalChain :=
 
 
 Close Scope string_scope.
-
-(* Generators *)
-Definition genZ : G Z := arbitrary.	
-
 
 Derive Show for positive.
 Derive Arbitrary for positive.
@@ -293,7 +254,6 @@ Definition gLocalBaseGens (n : nat) : G (BaseGens LocalChainBase) :=
   let default : Amount := Z0 in
   amounts    <- vectorOf n arbitrary ;;
   addrs      <- vectorOf n arbitrary ;;
-  (* let acc_bal := fun x => default in *)
   let acc_bal := mkMapFromList addr_eqb default addrs amounts in
   returnGen (mkBaseGens LocalChainBase arbitrary acc_bal gValidContractAddr').
 
@@ -325,7 +285,44 @@ Definition testGChain : G Chain := arbitrary.
 
 
 Sample (gLocalChainSized 4).
+(* Sample (@arbitrarySized Chain _ 2). *)
 Sample (gLocalBaseGens 10).
-Sample (@arbitrarySized Chain _ 2).
 Sample (gEnvFromLocalChain lc_initial).
 
+Open Scope string_scope.
+(* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
+Instance showBlockHeader (BaseTypes : ChainBase) `{Show (@Address BaseTypes)} : Show (@BlockHeader BaseTypes) :=
+  {|
+    show bh := 
+      "BlockHeader{" ++ "bheight: "     ++ show (block_height bh)           ++ sep
+                     ++ "bslot: "       ++ show (block_slot bh)             ++ sep 
+                     ++ "bfin_height: " ++ show (block_finalized_height bh) ++ sep
+                     ++ "breward: "     ++ show (block_reward bh)           ++ sep
+                     ++ "bcreator: "    ++ show (block_creator bh)          ++ "}" 
+  |}.
+
+
+Close Scope string_scope.
+
+
+Definition mkBlockHeaderGenSized (BaseTypes : ChainBase) (baseGens : BaseGens BaseTypes) (n : nat)
+                            : G (@BlockHeader BaseTypes) :=
+  height  <- arbitrarySized n ;;
+  slot    <- arbitrarySized height ;;
+  reward  <- arbitrary ;;
+  creator <- gAddress BaseTypes baseGens ;;
+  returnGen (build_block_Header height slot n reward creator).
+
+Definition gLocalBCBlockHeaderSized : nat -> G (@BlockHeader LocalChainBase) := 
+  fun n => baseGens <- gLocalBaseGens n ;; mkBlockHeaderGenSized LocalChainBase baseGens n.
+
+Instance genLocalBCBlockHeaderSized : GenSized (@BlockHeader LocalChainBase) :=
+  {|
+    arbitrarySized := gLocalBCBlockHeaderSized
+  |}.
+
+Sample (@arbitrary (@BlockHeader LocalChainBase) _).
+
+Definition validate_header_P := forAll (arbitrarySized 2) (fun header => match validate_header header lc_initial with Some _ => true | None => false end).
+
+QuickChick validate_header_P.
