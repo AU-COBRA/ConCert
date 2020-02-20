@@ -27,8 +27,8 @@ Import ListNotations.
 Section LocalBlockchain.
 Local Open Scope bool.
 
-(* Definition AddrSize : N := 2^128. *)
-Definition AddrSize : N := 2^8. (* QuickChick doesn't like very large numbers (especially when we convert to nats' unary representation.) *)
+Context {AddrSize : N}.
+
 Definition ContractAddrBase : N := AddrSize / 2.
 
 Global Instance LocalChainBase : ChainBase :=
@@ -488,7 +488,7 @@ Proof.
   reflexivity.
 Defined.
 
-Global Instance LocalChainBuilderDepthFirst : ChainBuilderType :=
+Definition LocalChainBuilderDepthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
@@ -501,4 +501,15 @@ Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block false;
      builder_trace := lcb_trace; |}.
+
 End LocalBlockchain.
+
+Arguments LocalChainBase : clear implicits.
+Arguments LocalChainBuilder : clear implicits.
+Arguments LocalChainBuilderDepthFirst : clear implicits.
+Arguments LocalChainBuilderBreadthFirst : clear implicits.
+Arguments lcb_initial : clear implicits.
+
+Definition LocalChainBase128 := LocalChainBase (2^128).
+Definition LocalChainBuilder128DepthFirst : ChainBuilderType
+  := LocalChainBuilderDepthFirst (2^128).

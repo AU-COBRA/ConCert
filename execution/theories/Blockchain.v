@@ -1416,6 +1416,18 @@ Proof.
     auto.
 Qed.
 
+Inductive TagFacts := tag_facts.
+Inductive TagAddBlock := tag_add_block.
+Inductive TagDeployment := tag_deployment.
+Inductive TagOutgoingAct := tag_outgoing_act.
+Inductive TagNonrecursiveCall := tag_nonrecursive_call.
+Inductive TagRecursiveCall := tag_recursive_call.
+Inductive TagPermuteQueue := tag_permute_queue.
+
+Hint Constructors
+     TagFacts TagAddBlock TagDeployment TagOutgoingAct
+     TagNonrecursiveCall TagRecursiveCall TagPermuteQueue : core.
+
 Lemma contract_induction
       {Setup Msg State : Type}
       `{Serializable Setup}
@@ -1442,8 +1454,9 @@ Lemma contract_induction
                   (outgoing_txs_seen : list Tx), Prop) :
 
   (* Facts *)
-  (forall (bstate_from bstate_to : ChainState) (step : ChainStep bstate_from bstate_to),
-      reachable bstate_from ->
+  (forall (bstate_from bstate_to : ChainState) (step : ChainStep bstate_from bstate_to)
+          (from_reachable : reachable bstate_from)
+          (tag : TagFacts),
       match step with
       | step_block _ _ header _ _ _ _ =>
         AddBlockFacts (chain_height bstate_from)
@@ -1472,14 +1485,16 @@ Lemma contract_induction
           (facts : AddBlockFacts old_chain_height old_cur_slot old_fin_height
                                  new_chain_height new_cur_slot new_fin_height)
           (IH : P old_chain_height old_cur_slot old_fin_height
-                  caddr dep_info state balance [] inc_calls out_txs),
+                  caddr dep_info state balance [] inc_calls out_txs)
+          (tag : TagAddBlock),
       P new_chain_height new_cur_slot new_fin_height
         caddr dep_info state balance [] inc_calls out_txs) ->
 
   (* Deploy contract *)
   (forall chain ctx setup result
           (facts : DeployFacts chain ctx)
-          (init_some : init contract chain ctx setup = Some result),
+          (init_some : init contract chain ctx setup = Some result)
+          (tag : TagDeployment),
       P (chain_height chain)
         (current_slot chain)
         (finalized_height chain)
@@ -1507,7 +1522,8 @@ Lemma contract_induction
                tx_amount tx = amount /\ tx_body tx = tx_deploy wc setup
              | act_call to amount msg =>
                tx_to tx = to /\ tx_amount tx = amount /\ tx_body tx = tx_call (Some msg)
-             end),
+             end)
+          (tag : TagOutgoingAct),
       P height slot fin_height caddr dep_info cstate (balance - act_body_amount out_act)
         out_acts inc_calls (tx :: prev_out_txs)) ->
 
@@ -1522,7 +1538,8 @@ Lemma contract_induction
                   (account_balance chain (ctx_contract_address ctx) - ctx_amount ctx)
                   prev_out_queue prev_inc_calls prev_out_txs)
           (receive_some : receive contract chain ctx prev_state msg =
-                          Some (new_state, new_acts)),
+                          Some (new_state, new_acts))
+          (tag : TagNonrecursiveCall),
       P (chain_height chain)
         (current_slot chain)
         (finalized_height chain)
@@ -1556,7 +1573,8 @@ Lemma contract_induction
              | _ => False
              end)
           (receive_some : receive contract chain ctx prev_state msg =
-                          Some (new_state, new_acts)),
+                          Some (new_state, new_acts))
+          (tag : TagRecursiveCall),
       P (chain_height chain)
         (current_slot chain)
         (finalized_height chain)
@@ -1581,7 +1599,8 @@ Lemma contract_induction
           out_queue'
           (IH : P height slot fin_height caddr dep_info cstate balance
                   out_queue inc_calls out_txs)
-          (perm : Permutation out_queue out_queue'),
+          (perm : Permutation out_queue out_queue')
+          (tag : TagPermuteQueue),
       P height slot fin_height
         caddr dep_info cstate balance out_queue' inc_calls out_txs) ->
 
@@ -1615,7 +1634,7 @@ Proof.
   unfold contract_state in *.
   remember empty_state; induction trace as [|? ? ? ? IH];
     intros; subst; try solve [cbn in *; congruence].
-  specialize (establish_facts mid to ltac:(auto) ltac:(auto)).
+  specialize (establish_facts mid to ltac:(auto) ltac:(auto) tag_facts).
   destruct_chain_step;
     [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv; cbn in *|].
   - (* New block *)
@@ -1632,9 +1651,9 @@ Proof.
     destruct_address_eq; try congruence.
     rewrite outgoing_acts_after_block_nil by auto.
     unfold outgoing_acts in *; rewrite queue_prev in *; cbn in *.
-    eapply add_block_case.
-    apply establish_facts.
-    assumption.
+    eapply add_block_case; try constructor.
+    + apply establish_facts.
+    + assumption.
   - (* Evaluation: transfer *)
     clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
     specialize_hypotheses.
@@ -1976,3 +1995,18 @@ Ltac contract_induction :=
                                 (cstate : State), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
        cbv [P]; clear P; cycle 1).
+
+Global Notation "'Please' 'prove' 'your' 'facts'" := TagFacts (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'addition' 'of' 'a' 'block'"
+  := TagAddBlock (at level 100, only printing).
+Global Notation "'Please' 'establish' 'the' 'invariant' 'after' 'deployment' 'of' 'the' 'contract'"
+  := TagDeployment (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'an' 'outgoing' 'action'"
+  := TagOutgoingAct (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'nonrecursive' 'call'"
+  := TagNonrecursiveCall (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'recursive' 'call'"
+  := TagRecursiveCall (at level 100, only printing).
+Global Notation
+       "'Please' 'reestablish' 'the' 'invariant' 'after' 'permutation' 'of' 'the' 'action' 'queue'"
+  := TagPermuteQueue (at level 100, only printing).

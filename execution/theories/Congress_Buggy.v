@@ -336,11 +336,15 @@ Require LocalBlockchain.
 Section Theories.
   Import LocalBlockchain.
 
+  Let AddrSize := (2^128)%N.
+  Instance Base : ChainBase := LocalChainBase AddrSize.
+  Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+
   Open Scope nat.
-  Definition exploit_example : option (Address * LocalChainBuilderDepthFirst) :=
-    let chain := @builder_initial _ LocalChainBuilderDepthFirst in
+  Definition exploit_example : option (Address * Builder) :=
+    let chain := builder_initial in
     let creator := BoundedN.of_Z_const AddrSize 10 in
-    let add_block (chain : LocalChainBuilderDepthFirst) act_bodies :=
+    let add_block (chain : Builder) act_bodies :=
         let next_header :=
             {| block_height := S (chain_height chain);
                block_slot := S (current_slot chain);
@@ -374,7 +378,7 @@ Section Theories.
     do chain <- add_block chain act_bodies;
     Some (congress, chain).
 
-  Definition unpacked_exploit_example : Address * LocalChainBuilderDepthFirst :=
+  Definition unpacked_exploit_example : Address * Builder :=
     unpack_option exploit_example.
 
   Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Msg)) :=

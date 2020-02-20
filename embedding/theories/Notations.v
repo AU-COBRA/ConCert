@@ -10,6 +10,7 @@ Import ListNotations.
 Open Scope list.
 
 Declare Custom Entry ctor.
+
 Declare Custom Entry global_dec.
 Declare Custom Entry expr.
 Declare Custom Entry pat.
@@ -155,10 +156,11 @@ Definition rec_constr (rec_ctor : ename) (proj_tys : list (option ename * type))
 
 Definition rec_constrs rec_nm := map (rec_constr rec_nm).
 
-Notation "'record' rec_nm := { pr1 : ty1 }" :=
-  (gdInd rec_nm 0 [ rec_constr rec_nm [(Some pr1,ty1)]] true)
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 }" :=
+  (gdInd rec_nm 0 [ rec_constr rec_ctor [(Some pr1,ty1)]] true)
     (in custom global_dec at level 1,
         pr1 constr at level 4,
+        rec_ctor constr at level 4,
         rec_nm constr at level 4,
         ty1 custom type at level 4).
 
