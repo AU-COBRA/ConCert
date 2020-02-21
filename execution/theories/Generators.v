@@ -13,9 +13,18 @@ Export MonadNotation. Open Scope monad_scope.
 From Coq Require Import List.
 From Coq Require Import Strings.BinaryString.
 From Coq Require Import Morphisms.
+Import BoundedN.Stdpp.
 
+Import LocalBlockchain.
 Import ListNotations.
 Close Scope address_scope.
+
+Definition AddrSize := (2^8)%N.
+Print ContractAddrBase.
+(* Let ContractAddrBase : N := @ContractAddrBase AddrSize. *)
+Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
+Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+
 
 Record ChainContext (BaseTypes : ChainBase) := 
   mkBaseGens {
@@ -27,11 +36,11 @@ Record ChainContext (BaseTypes : ChainBase) :=
   }.
   
 Open Scope string_scope.
+
 Instance showBaseGens {BaseTypes : ChainBase} : Show (ChainContext BaseTypes)  :=
   {|
     show bg := "ChainContext{...}"
   |}.
-
 
 Instance shrinkAmount : Shrink Amount := 
   {|
@@ -82,7 +91,9 @@ Definition gIntervalNat (low : nat) (high : nat) : G nat :=
 
 (* Makes a generator for BlockChains, given generators for the necessary types: Address, Setup, Msg, State, SerializedValue. 
    Ensures that all address usages are consistent with the generated address mapping. *)
-Definition mkChainGen (BaseTypes : ChainBase) (ctx : ChainContext BaseTypes) (n : nat)
+Definition mkChainGen (BaseTypes : ChainBase) 
+                      (ctx : ChainContext BaseTypes) 
+                      (n : nat)
                       : G Chain  := 
     fin_height  <- arbitrarySized n ;;
     cur_slot   <- arbitrarySized fin_height ;; (* We make sure current slot is <= finalized height *)
@@ -96,9 +107,11 @@ Instance shrinkChain (BaseTypes : ChainBase) : Shrink (@Chain BaseTypes) :=
     shrink c := cons c nil
   |}.
 
-Definition mkChainStateGen (env : Environment)
+Definition mkChainStateGen (BaseTypes : ChainBase)
+                           (env : Environment)
                            (actionList : list Action)
-                           : G ChainState := returnGen (build_chain_state env actionList).
+                           : G ChainState 
+  := returnGen (@build_chain_state BaseTypes env actionList).
 
 
 Derive Arbitrary for SerializedType.
@@ -173,27 +186,29 @@ Definition mkContractGen (Setup Msg State : Type)
                         `{Serializable Setup}
                         `{Serializable Msg}
                         `{Serializable State}
-                        (init :
-                          Chain ->
-                          ContractCallContext ->
-                          Setup ->
-                          option State)
-                        (init_proper :
-                          Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
-                        (receive :
-                          Chain ->
-                          ContractCallContext ->
+                         (BaseTypes : ChainBase)
+                         (init :
+                            Chain ->
+                            ContractCallContext ->
+                            Setup ->
+                            option State)
+                         (init_proper :
+                            Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
+                         (receive :
+                            Chain ->
+                            ContractCallContext ->
                           State ->
-                          option Msg ->
-                          option (State * list ActionBody))
-                        (receive_proper :
-                          Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive)
-                        : G (Contract Setup Msg State) := returnGen (build_contract init init_proper receive receive_proper).
+                            option Msg ->
+                            option (State * list ActionBody))
+                         (receive_proper :
+                            Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive)
+                         : G (Contract Setup Msg State) := returnGen (build_contract init init_proper receive receive_proper).
 
 Definition gWeakContractFromContract {Setup Msg State : Type}
                                     `{Serializable Setup}
                                     `{Serializable Msg}
                                     `{Serializable State}
+                                     (BaseTypes : ChainBase)
                                      : (Contract Setup Msg State) -> WeakContract 
                                      := contract_to_weak_contract.
 
@@ -261,20 +276,11 @@ Definition gActionFromContract  {Setup Msg State : Type}
                                 returnGen (build_act addr actionbody).
                                 (* TODO: what kind of address should we be generating here? *)
 
-
-Import BoundedN.Stdpp.
-Import LocalBlockchain.
-Definition zero_address : Address := BoundedN.of_Z_const AddrSize 10.
+Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 Definition b9 : option (BoundedN.BoundedN AddrSize) := @BoundedN.of_nat AddrSize 9.
-
 
 (* Show instances *)
 Open Scope string_scope.
-(* For a more memory efficient method, use BinaryString.of_N instead (but this prints numbers in binary notation, ie. eg. 0b0010) *)
-Instance showN : Show N :=
-  {|
-    show n := show (N.to_nat n)   
-  |}.
 
 (* We dont show the bound because it may be a very large number which, when converted to nat and then to string, gives a memory overflow. *)
 Instance showBoundedN {bound : N} `{Show N} : Show (BoundedN.BoundedN bound) :=
@@ -290,10 +296,12 @@ Instance showBoundedNAddrSize : Show (BoundedN.BoundedN AddrSize) :=
 
 Instance showAddress : Show (@Address LocalChainBase) :=
   {|
-    show := @show (BoundedN.BoundedN AddrSize) showBoundedN
+    show := @show (BoundedN.BoundedN AddrSize) showBoundedNAddrSize
   |}.
 
-Instance showLocalChain : Show LocalChain := 
+Compute (show zero_address).
+
+Instance showLocalChain : Show (@LocalChain AddrSize) := 
   {|
     show lc := "LocalChain{" 
                 ++ show (lc_height lc) ++ sep 
@@ -343,12 +351,12 @@ Instance genAddress : Gen (@Address LocalChainBase) :=
 
 
 
-Definition gDummyLocalChain : G LocalChain :=
+Definition gDummyLocalChain : G (@LocalChain AddrSize) :=
   returnGen lc_initial.
 
 (* always generates the initial local chain builder, which contains the initial local chain, and initial, empty trace *)
 Definition gDummyLocalChainBuilder : G LocalChainBuilder :=
-  returnGen lcb_initial.
+  returnGen (lcb_initial AddrSize).
 
 Definition gEnvFromLocalChain (lc : LocalChain) : G Environment := returnGen (lc_to_env lc) .
 
@@ -356,19 +364,19 @@ Definition gEnvFromLocalChain (lc : LocalChain) : G Environment := returnGen (lc
   {| 
     arbitrary := gEnvFromLocalChain lc
   |}. *)
-
 Definition gValidContractAddr' : G (@Address LocalChainBase) :=
-  n <- arbitrarySized (N.to_nat ContractAddrBase) ;; (* generates a value between 0 and ContractAddrBase (= AddrSize/2*)
-  let nn : nat := n + (N.to_nat ContractAddrBase) in (* ContractAddrBase <= nn <= AddrSize*)
+  let baseAddr := (N.to_nat (@ContractAddrBase AddrSize)) in
+  n <- arbitrarySized baseAddr  ;; (* generates a value between 0 and ContractAddrBase (= AddrSize/2*)
+  let nn : nat := n + baseAddr in (* ContractAddrBase <= nn <= AddrSize*)
   let bound_opt : option (BoundedN.BoundedN AddrSize):= @decode_bounded AddrSize (Pos.of_nat nn) in
   match bound_opt with
   | Some b => returnGen b
-  | None => returnGen (BoundedN.of_Z_const AddrSize (Z.of_N ContractAddrBase)) 
+  | None => returnGen (BoundedN.of_Z_const AddrSize (Z.of_N (@ContractAddrBase AddrSize))) 
   end.
 
 (* a generator which makes values n such that 0 <= n < ContractAddrBase*)
 Definition gInvalidValidContractAddr' : G (@Address LocalChainBase) :=
-  n <- arbitrarySized ((N.to_nat ContractAddrBase) - 1) ;; 
+  n <- arbitrarySized ((N.to_nat (@ContractAddrBase AddrSize)) - 1) ;; 
   let bound_opt : option (BoundedN.BoundedN AddrSize):= @decode_bounded AddrSize (Pos.of_nat n) in
   match bound_opt with
   | Some b => returnGen b
@@ -383,10 +391,10 @@ Definition gLocalChainContext (n : nat) : G (ChainContext LocalChainBase) :=
   amounts    <- vectorOf n arbitrary ;;
   contracts      <- vectorOf n gValidContractAddr' ;;
   accounts      <- vectorOf n gInvalidValidContractAddr' ;;
-  let contractBaseAddr := BoundedN.of_Z_const AddrSize (Z.of_N ContractAddrBase) in
-  let gContractAddr := elems_ contractBaseAddr contracts in
+  let contractAddrBase := BoundedN.of_Z_const AddrSize (Z.of_N (@ContractAddrBase AddrSize)) in
+  let gContractAddr := elems_ contractAddrBase contracts in
   let gAccountAddr := elems_ zero_address accounts in
-  returnGen (mkBaseGens LocalChainBase gAddr accounts contracts gValidContractAddr' gInvalidValidContractAddr').
+  returnGen (mkBaseGens LocalChainBase gAddr accounts contracts gContractAddr gAccountAddr).
 
 Instance genLocalBaseGens : GenSized (ChainContext LocalChainBase) :=
   {|
@@ -414,10 +422,10 @@ Open Scope list_scope.
 Definition acc_bal := mkMapFromLists (fun x y => x =? y) 42 [10;20;30;40] [1;2;3;4].
 Definition testGChain : G Chain := arbitrary.
 
+Sample (gLocalChainContext 10).
 
 Sample (gLocalChainSized 4).
 (* Sample (@arbitrarySized Chain _ 2). *)
-Sample (gLocalChainContext 10).
 Sample (bh <- gLocalChainContext 2 ;; @gAddress LocalChainBase bh). (* IMPORTANT NOTE: if we omit the explicit types, it will not work *)
 Sample (gEnvFromLocalChain lc_initial).
 
