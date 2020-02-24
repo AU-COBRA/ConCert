@@ -14,6 +14,7 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 (* Import ListNotations. *)
 Module TC := Template.BasicAst.
 
+Import ListNotations.
 Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
@@ -66,7 +67,6 @@ Compute (expr_eval_n Σ 3 nil negb_app_true).
 
 Compute (expr_eval_i Σ 3 nil (indexify nil negb_app_true)).
 
-
 (* Make a Coq function from the AST of the program *)
 Make Definition coq_negb_app_true :=
   (expr_to_tc Σ (indexify nil negb_app_true)).
@@ -86,6 +86,10 @@ Lemma my_negb_coq_negb b :
 Proof. reflexivity. Qed.
 
 Compute (expr_eval_n Σ 3 nil my_negb_syn).
+
+Example eval_my_negb_true :
+  expr_eval_i Σ 4 nil (indexify nil [| {my_negb_syn} True |]) = Ok (vConstr Bool "false" nil).
+Proof. reflexivity. Qed.
 
 Make Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
@@ -118,13 +122,23 @@ Make Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Zero) |].
 
-Compute (expr_eval_n Σ 3 nil prog2).
+Example value_eval : expr_eval_n Σ 3 nil prog2 = Ok (vConstr Nat "Suc"
+                                                             [vConstr Nat "Suc"
+                                                                      [vConstr Nat "Z" []]]).
+Proof. reflexivity. Qed.
+
+Example eval_is_zero_true :
+  expr_eval_i Σ 4 nil (indexify nil [|{is_zero_syn} Zero |]) = Ok (vConstr Bool "true" []).
+Proof. reflexivity. Qed.
+
+Example eval_is_zero_false :
+  expr_eval_i Σ 4 nil (indexify nil [|{is_zero_syn} {prog2} |]) = Ok (vConstr Bool "false" []).
+Proof. reflexivity. Qed.
 
 Inductive blah :=
   Bar : blah -> blah -> blah
 | Baz : blah.
 
-Import ListNotations.
 
 Definition Σ' : global_env :=
   [gdInd "blah" 0 [("Bar", [(None,tyInd "blah"); (None,tyInd "blah")]); ("Baz", [])] false;
@@ -191,6 +205,10 @@ Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb)
 
 Example one_plus_one_two : expr_eval_n Σ 10 [] one_plus_one = Ok two.
 Proof.  reflexivity. Qed.
+
+Example one_plus_one_two_i : expr_eval_i Σ 10 [] (indexify [] one_plus_one) = Ok two.
+Proof.  reflexivity. Qed.
+
 
 Definition plus_syn' :=
   [| \x : Nat =>
