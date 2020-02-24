@@ -145,7 +145,7 @@ Close Scope list_scope.
 Instance showSerializedValue : Show SerializedValue := 
   {|
     show v := "SerializedValue{" 
-              ++ show (ser_value_type v) ++ sep
+              (* ++ show (ser_value_type v) ++ sep *)
               ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}" 
   |}.
 Close Scope string_scope.

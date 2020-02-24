@@ -11,6 +11,7 @@ From Coq Require Import List.
 From Coq Require Import Strings.BinaryString.
 From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
+Require Import Containers.
 Import ListNotations.
 Notation "f 'o' g" := (compose f g) (at level 50).
 (* Generators for the types defined in the Congress contract *)
@@ -29,24 +30,51 @@ Instance showRules : Show Rules :=
       ++ "}"
   |}.
 
-Instance showCongressAction `{Show SerializedValue} : Show CongressAction :=
+Definition deserialize_to_string (s : SerializedValue) : string := 
+  match deserialize s with
+  | Some v => show v
+  | None => "?"
+  end.
+
+
+(* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
+Instance showCongressAction : Show CongressAction :=
   {|
     show ca :=
       match ca with
       | cact_transfer to amount => "(transfer: " ++ show to ++ sep ++ show amount ++ ")"
-      | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++ show msg ++ ")" 
+      | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++  show msg ++ ")" 
       end
   |}.
+
+Definition string_of_FMap {A B : Type}
+                         `{countable.Countable A}
+                         `{base.EqDecision A}
+                          (showA : A -> string) 
+                          (showB : B -> string) 
+                          (m : FMap A B) : string :=
+  show (map (fun p => showA (fst p) ++ "-->" ++ showB (snd p)) (FMap.elements m)).
+
+Instance showFMap {A B : Type}
+                 `{countable.Countable A}
+                 `{base.EqDecision A}
+                 `{Show A} 
+                 `{Show B}
+                  : Show (FMap A B) :=
+{|
+  show := string_of_FMap show show
+|}.
+
 
 Instance showProposal : Show Proposal :=
   {|
     show p :=
       "Proposal{"
-      ++ "actions: " ++ show (actions p)
-      ++ "votes: " ++ "..." (*show (votes p)*)
-      ++ "vote_result: " ++ show (vote_result p) 
-      ++ "proposed_in: " ++ show (proposed_in p) 
-      ++ "}"
+      ++ "actions: " ++ show (actions p) ++ sep
+      ++ "votes: " ++ show (votes p) ++ sep
+      ++ "vote_result: " ++ show (vote_result p) ++ sep
+      ++ "proposed_in: " ++ show (proposed_in p) ++ sep
+      ++ "}" ++ newline
   |}.
 
 Instance showSetup : Show Setup :=
@@ -54,24 +82,26 @@ Instance showSetup : Show Setup :=
     show := show o setup_rules
   |}.
 
-Definition string_of_Msg `{Show SerializedValue} (m : @Msg LocalChainBase) : string :=
+
+Definition string_of_Msg (m : Msg) : string :=
   match m with
     | transfer_ownership addr => "(transfer_ownership " ++  show addr ++ ")"
     | change_rules rules => "(change_rules " ++ show rules ++ ")"
     | add_member addr => "(add_member " ++ show addr ++ ")"
     | remove_member addr => "(remove_member " ++ show addr ++ ")"
     | create_proposal actions => "(create_proposal " ++ show actions ++ ")"
+    (* | create_proposal actions => "(create_proposal " ++  String.concat "; " (map (@show _ (@showCongressAction showSer) ) actions) ++ ")" *)
     | vote_for_proposal proposalId => "(vote_for_proposal " ++ show proposalId ++ ")"
     | vote_against_proposal proposalId => "(vote_against_proposal " ++ show proposalId ++ ")"
     | retract_vote proposalId => "(retract_vote " ++ show proposalId ++ ")"
     | finish_proposal proposalId => "(finish_proposal " ++ show proposalId ++ ")"
   end.
 
-Instance showMsg `{Show SerializedValue} : Show (@Msg LocalChainBase) :=
+Instance showMsg : Show Msg :=
 {|
   show := string_of_Msg
-|}.
-
+  
+  |}.
 
 (* Generators *)
 
@@ -107,6 +137,50 @@ Instance genSetupSized : GenSized Setup :=
 
 
 
+(* Helper generator and show instance for arbitrary FMaps *)
+
+Fixpoint gFMapSized {A B : Type} 
+                    {gA : G A} 
+                    {gB : G B}
+                    `{countable.Countable A}
+                    `{base.EqDecision A}
+                     (n : nat) : G (FMap A B) :=
+  match n with
+  | 0 => returnGen FMap.empty
+  | S n' =>
+    a <- gA ;;
+    b <- gB ;;
+    m <- @gFMapSized _ _ gA gB _ _ _ n' ;;
+    returnGen (FMap.add a b m)  
+  end.
+
+Fixpoint gFMapFromInput {A B : Type}
+                       `{countable.Countable A}
+                       `{base.EqDecision A}     
+                        (l1 : list A)
+                        (l2 : list B)
+                        : G (FMap A B) :=
+  match (l1, l2) with
+  | (a::l1', b::l2') => liftM (FMap.add a b) (gFMapFromInput l1' l2')
+  | (_, _) => returnGen FMap.empty
+  end.
+
+Instance genFMapSized {A B : Type} 
+                     `{Gen A} 
+                     `{Gen B}
+                     `{countable.Countable A}
+                     `{base.EqDecision A}
+                      : GenSized (FMap A B) :=
+{|
+  arbitrarySized := @gFMapSized A B arbitrary arbitrary _ _ _
+|}.
+
+
+Sample (@gFMapSized nat nat arbitrary arbitrary _ _ _ 2).
+
+
+
+
 Definition gCongressAction' {ctx : ChainContext LocalChainBase}
                            (gMsg : G SerializedValue) 
                            : G CongressAction :=
@@ -115,6 +189,7 @@ Definition gCongressAction' {ctx : ChainContext LocalChainBase}
     (1, liftM2 cact_transfer (ctx_gAccountAddr ctx) gZPositive);
     (1, liftM3 cact_call (ctx_gContractAddr ctx) gZPositive gMsg)
   ].
+
 Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; @gCongressAction' ctx arbitrary).
 
 
@@ -136,7 +211,8 @@ Definition gMsg' : G Msg :=
 Sample gMsg'.
 
 
-Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; @gInvalidContractAddr LocalChainBase ctx).
+Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; 
+        @gInvalidContractAddr LocalChainBase ctx).
 
 
 Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
@@ -149,19 +225,91 @@ Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
         (* This makes it possible to create proposals about proposals about proposals etc... *)
         congressActions <- listOf (@gCongressAction' ctx (liftM serialize (gMsgSized ctx n'))) ;;
         returnGen (create_proposal congressActions)) ;
-        (1, gMsgSimple ctx)
+        (7, gMsgSimple ctx)
       ]
   end.
 
 Sample (ctx <- arbitrary ;; @gMsgSized ctx 4).
 
+Example ex_simple_msg : Msg := create_proposal [cact_call zero_address 1%Z (serialize 123)].
+Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize ex_simple_msg)].
+Compute ((show o deserialize o serialize) ex_simple_msg).
+Compute (show ex_msg). 
+
+
+
 Definition gCongressActionSized {ctx : ChainContext LocalChainBase}
                                 (n : nat)
-                                : G CongressAction := @gCongressAction' ctx (liftM serialize (@gMsgSized ctx n)).
+                                : G CongressAction 
+                                := @gCongressAction' ctx (liftM serialize (@gMsgSized ctx n)).
 
 
 Sample (ctx <- arbitrary ;; gMsgSized ctx 3).
 
-Example ex_call_congress_action := ctx <- arbitrary ;; liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 3) ).
+Example ex_call_congress_action := ctx <- arbitrary ;; 
+                                   liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 3) ).
 Sample ex_call_congress_action.
+
+Definition gProposalSized {ctx : ChainContext LocalChainBase} 
+                          (n : nat)
+                          : G Proposal :=
+  bound <- arbitrarySized n ;;
+  actions <- vectorOf bound (@gCongressActionSized ctx n) ;;
+  let nr_votes := length (ctx_accounts ctx) in
+  vote_vals <- vectorOf nr_votes arbitrary ;;
+  votes <- gFMapFromInput (ctx_accounts ctx) vote_vals ;;
+  vote_result <- gZPositive ;;
+  proposed_in <- arbitrary ;;
+  returnGen (build_proposal actions votes vote_result proposed_in).
+
+Sample (ctx <- arbitrary ;; @gProposalSized ctx 1).
+
+
+
+Fixpoint vectorOfCount {A : Type}
+                      `{countable.Countable A} 
+                       (default : A)
+                       (n : nat) : G (list A) := 
+  match n with
+  | 0    => returnGen []
+  | S n' => 
+    match (countable.decode o Pos.of_nat) n with
+    | Some a => liftM (cons a) (vectorOfCount default n')
+    | None => liftM (cons default) (vectorOfCount default n')
+    end
+  end.
+
+
+
+Definition gStateSized {ctx : ChainContext LocalChainBase} 
+                       (n : nat) 
+                       : G Congress.State :=
+  let nr_accounts := length (ctx_accounts ctx) in
+  default_addr <- (ctx_gAccountAddr ctx) ;;
+  owner <- elems_ default_addr (ctx_accounts ctx) ;;
+  rules <- arbitrarySized nr_accounts ;;
+  proposalIds <- vectorOfCount 0 n ;;
+  proposals <- vectorOf n (@gProposalSized ctx n) ;;
+  proposals_map <- gFMapFromInput proposalIds proposals ;;
+  next_proposal_id <- arbitrary ;; (* TODO: ensure valid proposal Id*)
+  unit_list <- (vectorOf nr_accounts (returnGen tt)) ;;
+  members <- gFMapFromInput (ctx_accounts ctx) unit_list ;;
+  returnGen (build_state owner rules proposals_map next_proposal_id members).
+
+Derive Show for unit.
+(* Instance showUnit : Show unit := {| show u := "()" |}. *)
+
+Instance showState : Show Congress.State :=
+{|
+  show s := "State{" 
+            ++ "owner: " ++ show (owner s) ++ sep
+            ++ "rules: " ++ show (state_rules s) ++ sep
+            ++ "proposals: " ++ show (proposals s) ++ sep
+            ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
+            ++ "members: " ++ show (members s) ++ "}"
+|}.
+
+Sample (ctx <- arbitrary ;; @gStateSized ctx 3).
+
+
 Close Scope string_scope.
