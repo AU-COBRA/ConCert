@@ -105,17 +105,6 @@ Instance showMsg : Show Msg :=
 
 (* Generators *)
 
-(* Helpers for ChainContext *)
-Definition ctx_gAccountAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
-  @gInvalidContractAddr LocalChainBase ctx.
-Definition ctx_gContractAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
-  @gValidContractAddr LocalChainBase ctx.
-Definition ctx_gAnyAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
-  @gAddress LocalChainBase ctx.
-Definition ctx_accounts (ctx : ChainContext LocalChainBase) : list Address := 
-  @accounts LocalChainBase ctx.
-Definition ctx_contracts (ctx : ChainContext LocalChainBase) : list Address := 
-  @contracts LocalChainBase ctx.
 
 Definition gZPositive := liftM Z.of_nat arbitrary.
 Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
@@ -310,6 +299,28 @@ Instance showState : Show Congress.State :=
 |}.
 
 Sample (ctx <- arbitrary ;; @gStateSized ctx 3).
+
+
+Definition init_is_valid p := 
+  let ctx := fst p in
+  let chain := (fst o snd) p in
+  let setup := (snd o snd) p in
+  match @Congress.init LocalChainBase chain ctx setup with
+  | Some _ => true
+  | None => false
+  end.
+
+(* QuickChick (forAll (
+  ctx <- gLocalChainContext 2 ;;
+  cctx <- @gContractCallContext LocalChainBase ctx ;;
+  chain <- gLocalChainSized 2 ctx ;;
+  setup <- @arbitrary Setup _ ;;
+  returnGen (cctx, (chain, setup)))
+  init_is_valid). *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+
+
 
 
 Close Scope string_scope.
