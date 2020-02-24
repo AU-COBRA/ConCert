@@ -31,10 +31,22 @@ Record ChainContext (BaseTypes : ChainBase) :=
     gAddress              : G (@Address BaseTypes);
     accounts              : list (@Address BaseTypes);
     contracts             : list (@Address BaseTypes);
-    gValidContractAddr    : G (@Address BaseTypes);
-    gInvalidContractAddr  : G (@Address BaseTypes);    
+    gContractAddr         : G (@Address BaseTypes);
+    gAccountAddr          : G (@Address BaseTypes);    
   }.
   
+(* Helpers for ChainContext *)
+Definition ctx_gAccountAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
+  @gAccountAddr LocalChainBase ctx.
+Definition ctx_gContractAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
+  @gContractAddr LocalChainBase ctx.
+Definition ctx_gAnyAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
+  @gAddress LocalChainBase ctx.
+Definition ctx_accounts (ctx : ChainContext LocalChainBase) : list Address := 
+  @accounts LocalChainBase ctx.
+Definition ctx_contracts (ctx : ChainContext LocalChainBase) : list Address := 
+  @contracts LocalChainBase ctx.
+
 Open Scope string_scope.
 
 Instance showBaseGens {BaseTypes : ChainBase} : Show (ChainContext BaseTypes)  :=
@@ -94,7 +106,7 @@ Definition gIntervalNat (low : nat) (high : nat) : G nat :=
 Definition mkChainGen (BaseTypes : ChainBase) 
                       (ctx : ChainContext BaseTypes) 
                       (n : nat)
-                      : G Chain  := 
+                      : G (@Chain BaseTypes)  := 
     fin_height  <- arbitrarySized n ;;
     cur_slot   <- arbitrarySized fin_height ;; (* We make sure current slot is <= finalized height *)
     amounts <- vectorOf (length (@accounts BaseTypes ctx)) arbitrary ;;
@@ -177,7 +189,9 @@ Instance genSerializedValueSized : GenSized SerializedValue :=
 Definition gContractCallContext {BaseTypes : ChainBase} 
                                 (ctx : ChainContext BaseTypes) 
                                 : G ContractCallContext :=
-  liftM3 build_ctx (gAddress _ ctx) (gValidContractAddr _ ctx) arbitrary.
+  let gAccountAddr := @gAccountAddr BaseTypes ctx in
+  let gContractAddr := @gContractAddr BaseTypes ctx in
+  liftM3 build_ctx gAccountAddr gContractAddr arbitrary.
   (* TODO: what kind of address is the first argument? should it be a contract address, or a non-contract address?
      also, maybe replace the '_' with 'BaseTypes' if we get bugs *)
 
@@ -218,7 +232,7 @@ Definition gContractInterfaceFromSendAction {Msg : Type}
                                             (ctx : ChainContext BaseTypes)
                                             (send : Amount -> option Msg -> ActionBody) 
                                             : G (ContractInterface Msg) := 
-  addr <- (gValidContractAddr _ ctx) ;;
+  addr <- (gContractAddr _ ctx) ;;
   returnGen (build_contract_interface Msg addr send).
 
 Definition gDeploymentAction
@@ -235,7 +249,7 @@ Definition gDeploymentAction
 Definition gTransferAction {BaseTypes : ChainBase} 
                            (ctx : ChainContext BaseTypes) 
                            : G ActionBody 
-                           := liftM2 act_transfer (gInvalidContractAddr _ ctx) arbitrary.
+                           := liftM2 act_transfer (gAccountAddr _ ctx) arbitrary.
 
 Definition gCallAction {Msg : Type}
                       `{Serializable Msg}
@@ -243,7 +257,7 @@ Definition gCallAction {Msg : Type}
                        (ctx : ChainContext BaseTypes)
                        (gMsg : G Msg) 
                        : G ActionBody 
-                       := liftM3 act_call (gInvalidContractAddr _ ctx) arbitrary (liftM serialize gMsg).
+                       := liftM3 act_call (gAccountAddr _ ctx) arbitrary (liftM serialize gMsg).
 
 Definition gActionBodyFromContract {Setup Msg State : Type}
                                   `{Serializable Setup}
@@ -272,7 +286,7 @@ Definition gActionFromContract  {Setup Msg State : Type}
                                 (c : @Contract BaseTypes Setup Msg State _ _ _) 
                                 : G Action := 
                                 actionbody <- gActionBodyFromContract ctx gSetup gMsg c ;;
-                                addr <- (@gInvalidContractAddr BaseTypes ctx) ;;
+                                addr <- (@gAccountAddr BaseTypes ctx) ;;
                                 returnGen (build_act addr actionbody).
                                 (* TODO: what kind of address should we be generating here? *)
 
@@ -310,6 +324,13 @@ Instance showLocalChain : Show (@LocalChain AddrSize) :=
                 ++ sep ++ "... }"
   |}.
 
+Instance showLocalContractCallContext : Show (@ContractCallContext LocalChainBase) :=
+{|
+  show cctx := "ContractCallContext{"
+               ++ "ctx_from: " ++ show (@ctx_from LocalChainBase cctx) ++ sep
+               ++ "ctx_contract_addr: " ++ show (@ctx_contract_address LocalChainBase cctx) ++ sep
+               ++ "ctx_amount: " ++ show (@ctx_amount LocalChainBase cctx) ++ "}"
+|}.
 
 Close Scope string_scope.
 
@@ -349,8 +370,6 @@ Instance genAddress : Gen (@Address LocalChainBase) :=
 (* Definition genDummyChainedList : G (ChainTrace empty_state (build_chain_state lcb_lc [])) :=
   returnGen clnil. *)
 
-
-
 Definition gDummyLocalChain : G (@LocalChain AddrSize) :=
   returnGen lc_initial.
 
@@ -364,7 +383,7 @@ Definition gEnvFromLocalChain (lc : LocalChain) : G Environment := returnGen (lc
   {| 
     arbitrary := gEnvFromLocalChain lc
   |}. *)
-Definition gValidContractAddr' : G (@Address LocalChainBase) :=
+Definition gContractAddr' : G (@Address LocalChainBase) :=
   let baseAddr := (N.to_nat (@ContractAddrBase AddrSize)) in
   n <- arbitrarySized baseAddr  ;; (* generates a value between 0 and ContractAddrBase (= AddrSize/2*)
   let nn : nat := n + baseAddr in (* ContractAddrBase <= nn <= AddrSize*)
@@ -389,7 +408,7 @@ Definition gLocalChainContext (n : nat) : G (ChainContext LocalChainBase) :=
   let default : Amount := Z0 in
   let gAddr := (@arbitrary (@Address LocalChainBase) _) in
   amounts    <- vectorOf n arbitrary ;;
-  contracts      <- vectorOf n gValidContractAddr' ;;
+  contracts      <- vectorOf n gContractAddr' ;;
   accounts      <- vectorOf n gInvalidValidContractAddr' ;;
   let contractAddrBase := BoundedN.of_Z_const AddrSize (Z.of_N (@ContractAddrBase AddrSize)) in
   let gContractAddr := elems_ contractAddrBase contracts in
@@ -401,18 +420,12 @@ Instance genLocalBaseGens : GenSized (ChainContext LocalChainBase) :=
     arbitrarySized := gLocalChainContext
   |}.
 
-Definition gLocalChainSized : nat -> G (@Chain LocalChainBase) := 
-  fun n => lb <- gLocalChainContext n ;; mkChainGen LocalChainBase lb n.
 
-  
-Instance genLocalChainSized : GenSized (@Chain LocalChainBase) :=
-{|
-  arbitrarySized := gLocalChainSized
-|}.
-
+Definition gLocalChainSized : nat -> (ChainContext LocalChainBase) -> G (@Chain LocalChainBase) := 
+  fun n ctx => mkChainGen LocalChainBase ctx n.
 
 Open Scope N_scope.
-Definition validcontractaddr_valid := (forAll gValidContractAddr' (fun a => (BoundedN.to_N a) <=? AddrSize)).
+Definition validcontractaddr_valid := (forAll gContractAddr' (fun a => (BoundedN.to_N a) <=? AddrSize)).
 (* QuickChick validcontractaddr_valid. *)
 (* Passed 10000 tests (0 discards) *)
 Close Scope N_scope.
@@ -420,11 +433,10 @@ Close Scope N_scope.
 
 Open Scope list_scope.
 Definition acc_bal := mkMapFromLists (fun x y => x =? y) 42 [10;20;30;40] [1;2;3;4].
-Definition testGChain : G Chain := arbitrary.
+Definition testGChain : G Chain := ctx <- arbitrary ;; gLocalChainSized 2 ctx.
 
 Sample (gLocalChainContext 10).
 
-Sample (gLocalChainSized 4).
 (* Sample (@arbitrarySized Chain _ 2). *)
 Sample (bh <- gLocalChainContext 2 ;; @gAddress LocalChainBase bh). (* IMPORTANT NOTE: if we omit the explicit types, it will not work *)
 Sample (gEnvFromLocalChain lc_initial).
@@ -451,41 +463,41 @@ Definition mkBlockHeaderGenSized (BaseTypes : ChainBase)
                                  (c : @Chain BaseTypes) 
                                  (n : nat)
                                  : G (@BlockHeader BaseTypes) :=
-  let gAddr : G (@Address BaseTypes) := @gInvalidContractAddr BaseTypes ctx in
+  let gAccountAddr := @gAccountAddr BaseTypes ctx in
   slot_offset    <- arbitrarySized n ;;
   reward  <- liftM Z.of_nat arbitrary  ;;
-  creator <- gAddr ;;
+  creator <- gAccountAddr ;;
   let height := 1 + chain_height c in
   let slot := slot_offset + current_slot c + 1 in
   fin_height <- gIntervalNat (finalized_height c) (height - 1) ;; (*fin_height c <= fin_height < block_height*)
   returnGen (@build_block_Header BaseTypes height slot fin_height reward creator).
 
-Definition gLocalBCBlockHeaderSizedFromChain : nat -> (@Chain LocalChainBase) -> G (@BlockHeader LocalChainBase) := 
-  fun n c => ctx <- gLocalChainContext n ;; mkBlockHeaderGenSized LocalChainBase ctx c n.
+Definition gLocalBCBlockHeaderSizedFromChainAndContext : nat -> 
+                                                         (@Chain LocalChainBase) -> 
+                                                         (ChainContext LocalChainBase) -> 
+                                                         G (@BlockHeader LocalChainBase) := 
+  fun n c ctx => mkBlockHeaderGenSized LocalChainBase ctx c n.
 
-Definition gLocalBCBlockHeaderSized : nat -> G (@BlockHeader LocalChainBase) := 
-  fun n => c <- arbitrarySized n ;; gLocalBCBlockHeaderSizedFromChain n c.
+(* Definition gLocalBCBlockHeaderSized : nat -> G (@BlockHeader LocalChainBase) := 
+  fun n => c <- arbitrarySized n ;; gLocalBCBlockHeaderSizedFromChain n c. *)
 
-Instance genLocalBCBlockHeaderSized : GenSized (@BlockHeader LocalChainBase) :=
-  {|
-    arbitrarySized := gLocalBCBlockHeaderSized
-  |}.
 
 Definition blockHeader_ex : (@BlockHeader LocalChainBase) := build_block_Header 0 0 0 0 zero_address.
 Definition gbh_dummy := returnGen blockHeader_ex.
 
 Compute (show blockHeader_ex).
 Sample gbh_dummy.
+Sample (ctx <- arbitrary ;; @gContractCallContext LocalChainBase ctx).
 
-Sample (gLocalBCBlockHeaderSized 2).
+Sample (ctx <- arbitrary ;; c <- gLocalChainSized 2 ctx ;; gLocalBCBlockHeaderSizedFromChainAndContext 2 c ctx).
 
-Open Scope core_scope.
 Definition validate_header_P : BlockHeader * Chain -> bool :=  fun p => match validate_header (fst p) (snd p) with Some _ => true | None => false end.
 
 (* QuickChick (forAll 
-  (c <- arbitrary ;; 
+  (ctx <- arbitrary ;;
+  c <- arbitrary ;; 
   n <- arbitrary ;;
-  header <- gLocalBCBlockHeaderSizedFromChain n c ;;
+  header <- gLocalBCBlockHeaderSizedFromChainAndContext n c ctx ;;
   returnGen (header, c)) 
   validate_header_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
