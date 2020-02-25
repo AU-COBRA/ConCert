@@ -201,7 +201,7 @@ Sample gMsg'.
 
 
 Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; 
-        @gInvalidContractAddr LocalChainBase ctx).
+        ctx_gAccountAddr ctx).
 
 
 Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
@@ -319,8 +319,55 @@ Definition init_is_valid p :=
   init_is_valid). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
+Definition num_cacts_in_state_deployment_P chain ctx setup (state : Congress.State) :=
+  match init chain ctx setup with
+  | Some state => (Congress.num_cacts_in_state state = 0)?
+  | None => true
+  end.
 
+(* QuickChick (
+  forAll
+    (gLocalChainContext 2)
+    (fun ctx => 
+  forAll
+    (gLocalChainSized 2 ctx)
+    (fun chain =>
+  forAll
+    (@arbitrary Setup _)
+    (fun setup => 
+  forAll
+    (@gStateSized ctx 4)
+    (fun state => 
+  forAll
+    (@gContractCallContext LocalChainBase ctx) 
+    (fun cctx => num_cacts_in_state_deployment_P chain cctx setup state)))))
+  ). *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
+(* What this says is that the number of actions to be performed by the congress never increases 
+   more than the actions that are added in proposals, ie. actions can't appear out of nowhere. *)
+(* If we replace '<=' with '<' QC finds a counterexample - a proposal can contain an empty list of actions, so they are equal before/after add_proposal *)
+Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
+  num_cacts_in_state (add_proposal cacts chain state) <=?
+  num_cacts_in_state state + length cacts.
 
+Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
+  (listOf (@gCongressActionSized ctx 2)).
 
+QuickChick (
+  forAll
+    (gLocalChainContext 2)
+    (fun ctx => 
+  forAll
+    (gLocalChainSized 2 ctx)
+    (fun chain => 
+  forAll
+    (@gStateSized ctx 2)
+    (fun state => 
+  forAll
+    (gChainActionsFromCongressActions ctx)
+    (fun cacts => add_proposal_cacts_P cacts chain state
+    ))))
+).
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
