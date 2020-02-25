@@ -46,3 +46,5 @@ Lemma my_negb_correct b :
 Proof.
   destruct b; exists 3;eexists;simpl;eauto.
 Qed.
+
+(** One can prove similar results any non-recursive definition. Proofs in this case would require just case analysis and computation. For recursive definitions proofs would require induction and some additional lemmas *)
