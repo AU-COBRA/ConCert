@@ -1,23 +1,26 @@
-From ConCert Require Import Generators Blockchain LocalBlockchain Congress.
+From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinting.
+
 Require Import ZArith Strings.Ascii Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 Require Export ExtLib.Structures.Monads.
 Export MonadNotation. Open Scope monad_scope.
-From Coq Require Import List.
+From Coq Require Import List. Import ListNotations.
 From Coq Require Import Strings.BinaryString.
 From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
-Import ListNotations.
+
 Notation "f 'o' g" := (compose f g) (at level 50).
-(* Generators for the types defined in the Congress contract *)
-Definition LocalChainBase : ChainBase := Generators.LocalChainBase.
-(* Let LocalBaseTypes := LocalChainBase AddrSize. *)
-Example ca : @CongressAction LocalChainBase := cact_transfer zero_address 0%Z.
+
+(* ChainGens for the types defined in the Congress contract *)
+
+Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+
 Open Scope string_scope.
 
 Instance showRules : Show Rules :=
@@ -30,12 +33,6 @@ Instance showRules : Show Rules :=
       ++ "}"
   |}.
 
-Definition deserialize_to_string (s : SerializedValue) : string := 
-  match deserialize s with
-  | Some v => show v
-  | None => "?"
-  end.
-
 
 (* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
 Instance showCongressAction : Show CongressAction :=
@@ -46,25 +43,6 @@ Instance showCongressAction : Show CongressAction :=
       | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++  show msg ++ ")" 
       end
   |}.
-
-Definition string_of_FMap {A B : Type}
-                         `{countable.Countable A}
-                         `{base.EqDecision A}
-                          (showA : A -> string) 
-                          (showB : B -> string) 
-                          (m : FMap A B) : string :=
-  show (map (fun p => showA (fst p) ++ "-->" ++ showB (snd p)) (FMap.elements m)).
-
-Instance showFMap {A B : Type}
-                 `{countable.Countable A}
-                 `{base.EqDecision A}
-                 `{Show A} 
-                 `{Show B}
-                  : Show (FMap A B) :=
-{|
-  show := string_of_FMap show show
-|}.
-
 
 Instance showProposal : Show Proposal :=
   {|
@@ -103,11 +81,7 @@ Instance showMsg : Show Msg :=
   
   |}.
 
-(* Generators *)
-
-
-Definition gZPositive := liftM Z.of_nat arbitrary.
-Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
+(* ChainGens *)
 
 Definition gRulesSized (n : nat) : G Rules :=
   vote_count <- gZPositiveSized n ;;
@@ -123,52 +97,6 @@ Instance genSetupSized : GenSized Setup :=
 {|
   arbitrarySized n := liftM build_setup (arbitrarySized n)
 |}.
-
-
-
-(* Helper generator and show instance for arbitrary FMaps *)
-
-Fixpoint gFMapSized {A B : Type} 
-                    {gA : G A} 
-                    {gB : G B}
-                    `{countable.Countable A}
-                    `{base.EqDecision A}
-                     (n : nat) : G (FMap A B) :=
-  match n with
-  | 0 => returnGen FMap.empty
-  | S n' =>
-    a <- gA ;;
-    b <- gB ;;
-    m <- @gFMapSized _ _ gA gB _ _ _ n' ;;
-    returnGen (FMap.add a b m)  
-  end.
-
-Fixpoint gFMapFromInput {A B : Type}
-                       `{countable.Countable A}
-                       `{base.EqDecision A}     
-                        (l1 : list A)
-                        (l2 : list B)
-                        : G (FMap A B) :=
-  match (l1, l2) with
-  | (a::l1', b::l2') => liftM (FMap.add a b) (gFMapFromInput l1' l2')
-  | (_, _) => returnGen FMap.empty
-  end.
-
-Instance genFMapSized {A B : Type} 
-                     `{Gen A} 
-                     `{Gen B}
-                     `{countable.Countable A}
-                     `{base.EqDecision A}
-                      : GenSized (FMap A B) :=
-{|
-  arbitrarySized := @gFMapSized A B arbitrary arbitrary _ _ _
-|}.
-
-
-Sample (@gFMapSized nat nat arbitrary arbitrary _ _ _ 2).
-
-
-
 
 Definition gCongressAction' {ctx : ChainContext LocalChainBase}
                            (gMsg : G SerializedValue) 
@@ -218,7 +146,7 @@ Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
       ]
   end.
 
-Sample (ctx <- arbitrary ;; @gMsgSized ctx 4).
+Sample (ctx <- arbitrary ;; @gMsgSized ctx 1).
 
 Example ex_simple_msg : Msg := create_proposal [cact_call zero_address 1%Z (serialize 123)].
 Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize ex_simple_msg)].
@@ -233,10 +161,10 @@ Definition gCongressActionSized {ctx : ChainContext LocalChainBase}
                                 := @gCongressAction' ctx (liftM serialize (@gMsgSized ctx n)).
 
 
-Sample (ctx <- arbitrary ;; gMsgSized ctx 3).
+Sample (ctx <- arbitrary ;; gMsgSized ctx 2).
 
 Example ex_call_congress_action := ctx <- arbitrary ;; 
-                                   liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 3) ).
+                                   liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 2) ).
 Sample ex_call_congress_action.
 
 Definition gProposalSized {ctx : ChainContext LocalChainBase} 
@@ -254,22 +182,6 @@ Definition gProposalSized {ctx : ChainContext LocalChainBase}
 Sample (ctx <- arbitrary ;; @gProposalSized ctx 1).
 
 
-
-Fixpoint vectorOfCount {A : Type}
-                      `{countable.Countable A} 
-                       (default : A)
-                       (n : nat) : G (list A) := 
-  match n with
-  | 0    => returnGen []
-  | S n' => 
-    match (countable.decode o Pos.of_nat) n with
-    | Some a => liftM (cons a) (vectorOfCount default n')
-    | None => liftM (cons default) (vectorOfCount default n')
-    end
-  end.
-
-
-
 Definition gStateSized {ctx : ChainContext LocalChainBase} 
                        (n : nat) 
                        : G Congress.State :=
@@ -285,8 +197,6 @@ Definition gStateSized {ctx : ChainContext LocalChainBase}
   members <- gFMapFromInput (ctx_accounts ctx) unit_list ;;
   returnGen (build_state owner rules proposals_map next_proposal_id members).
 
-Derive Show for unit.
-(* Instance showUnit : Show unit := {| show u := "()" |}. *)
 
 Instance showState : Show Congress.State :=
 {|
@@ -297,8 +207,6 @@ Instance showState : Show Congress.State :=
             ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
             ++ "members: " ++ show (members s) ++ "}"
 |}.
-
-Sample (ctx <- arbitrary ;; @gStateSized ctx 3).
 
 
 Definition init_is_valid p := 
@@ -354,7 +262,9 @@ Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
 Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
   (listOf (@gCongressActionSized ctx 2)).
 
-QuickChick (
+(* Compute (show (sample (gLocalChainContext 2))). *)
+
+(* QuickChick (
   forAll
     (gLocalChainContext 2)
     (fun ctx => 
@@ -368,6 +278,7 @@ QuickChick (
     (gChainActionsFromCongressActions ctx)
     (fun cacts => add_proposal_cacts_P cacts chain state
     ))))
-).
+). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
+

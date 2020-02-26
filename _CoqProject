@@ -14,11 +14,17 @@ execution/theories/Containers.v
 execution/theories/Escrow.v
 execution/theories/Extras.v
 execution/theories/Finite.v
-execution/theories/LocalBlockchain.v
-execution/theories/LocalBlockchainTests.v
 execution/theories/Monads.v
 execution/theories/Serializable.v
-execution/theories/Generators.v
+execution/theories/LocalBlockchain.v
+execution/theories/LocalBlockchainTests.v
+
+-R execution/tests ConCert.Execution.QCTests
+execution/tests/TestUtils.v
+execution/tests/ChainPrinting.v
+execution/tests/ChainGens.v
+execution/tests/CongressTests.v
+
 
 -R embedding/theories ConCert.Embedding
 embedding/theories/Ast.v
@@ -53,3 +59,5 @@ extraction/theories/examples/Counter.v
 embedding/theories/pcuic/PCUICCorrectness.v
 embedding/theories/pcuic/PCUICCorrectnessAux.v
 embedding/theories/pcuic/PCUICFacts.v
+
+
