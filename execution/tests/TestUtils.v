@@ -157,4 +157,122 @@ Fixpoint vectorOfCount {A : Type}
 
 (* Utils for QuickChick *)
 
-Close Scope list_scope.
+
+(* Helper functions when we want to state a property forAll x y z ... (someProp x y z ...) in QuickChick *)
+(* Where the generator for y depends on x, the generator for z depends on y, etc. *)
+(* Example: In vanilla QC, we have: *)
+(* QuickChick (
+  forAll
+    (gLocalChainContext 2)
+    (fun ctx => 
+  forAll
+    (gLocalChainSized 2 ctx)
+    (fun chain => 
+  forAll
+    (@gStateSized ctx 2)
+    (fun state => 
+  forAll
+    (gChainActionsFromCongressActions ctx)
+    (fun cacts => add_proposal_cacts_P cacts chain state
+    ))))
+). *)
+(* Which is of course very clunky. With forAll4 we get: *)
+(* QuickChick (
+  forAll4
+    (gLocalChainContext 2)
+    (fun ctx => gLocalChainSized 2 ctx)
+    (fun ctx _ => @gStateSized ctx 2)
+    (fun ctx _ _ => gChainActionsFromCongressActions ctx)
+    (fun ctx chain state cacts => add_proposal_cacts_P cacts chain state)
+). *)
+(* Which is better, although not optimal. *)
+Definition forAll2 {A B prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A} 
+                  `{Show B} 
+                   (genA : G A)
+                   (fgenB : A -> G B)
+                   (pf : A -> B -> prop) :=
+  forAll genA (fun a => forAll (fgenB a) (fun b => pf a b)).
+
+Definition forAll3 {A B C prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A} 
+                  `{Show B} 
+                  `{Show C} 
+                   (genA : G A)
+                   (fgenB : A -> G B)
+                   (fgenC : A -> B -> G C)
+                   (pf : A -> B -> C -> prop) :=
+  forAll 
+    genA 
+    (fun a => 
+  forAll 
+    (fgenB a) 
+  (fun b =>
+  forAll
+    (fgenC a b)
+  (fun c => pf a b c))).
+
+Definition forAll4 {A B C D prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A} 
+                  `{Show B} 
+                  `{Show C} 
+                  `{Show D} 
+                   (genA : G A)
+                   (fgenB : A -> G B)
+                   (fgenC : A -> B -> G C)
+                   (fgenD : A -> B -> C -> G D)
+                   (pf : A -> B -> C -> D -> prop) :=
+  forAll3 genA fgenB fgenC
+    (fun a b c => 
+    (forAll
+      (fgenD a b c)
+      (fun d => pf a b c d))).
+
+(* Similar to above, but where the "quantified" variables are not dependent on each other.
+   This easens the syntactic form. *)
+
+Definition indepForAll2 {A B prop : Type} 
+                       `{Checkable prop} 
+                       `{Show A} 
+                       `{Show B} 
+                        (genA : G A)
+                        (genB : G B)
+                        (pf : A -> B -> prop) 
+                        := forAll2 genA (fun _ => genB) pf.
+
+
+Definition indepForAll3 {A B C prop : Type} 
+                       `{Checkable prop} 
+                       `{Show A} 
+                       `{Show B} 
+                       `{Show C} 
+                        (genA : G A)
+                        (genB : G B)
+                        (genC : G C)
+                        (pf : A -> B -> C -> prop) 
+                        := forAll3 
+                            genA 
+                            (fun _ => genB) 
+                            (fun _ _ => genC)
+                            pf.
+
+Definition indepForAll4 {A B C D prop : Type} 
+                       `{Checkable prop} 
+                       `{Show A} 
+                       `{Show B} 
+                       `{Show C} 
+                       `{Show D} 
+                        (genA : G A)
+                        (genB : G B)
+                        (genC : G C)
+                        (genD : G D)
+                        (pf : A -> B -> C -> D -> prop) 
+                        := forAll4 
+                            genA 
+                            (fun _ => genB) 
+                            (fun _ _ => genC)
+                            (fun _ _ _ => genD)
+                            pf.

@@ -7,7 +7,7 @@ From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
 
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinting.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
 
 (* For monad notations *)
 Require Export ExtLib.Structures.Monads.
@@ -132,14 +132,13 @@ Definition gContractInterfaceFromSendAction {Msg : Type}
   addr <- (gContractAddr _ ctx) ;;
   returnGen (build_contract_interface Msg addr send).
 
-Definition gDeploymentAction
-  {Setup Msg State : Type}
- `{Serializable Setup}
- `{Serializable Msg}
- `{Serializable State}
-  {BaseTypes : ChainBase} 
-  (contract : @Contract BaseTypes Setup Msg State _ _ _)
-  (setup : Setup) : G ActionBody :=
+Definition gDeploymentAction {Setup Msg State : Type}
+                            `{Serializable Setup}
+                            `{Serializable Msg}
+                            `{Serializable State}
+                             {BaseTypes : ChainBase} 
+                             (contract : @Contract BaseTypes Setup Msg State _ _ _)
+                             (setup : Setup) : G ActionBody :=
   amount <- arbitrary ;;
   returnGen (act_deploy amount contract (serialize setup)).
 
@@ -172,23 +171,22 @@ Definition gActionBodyFromContract {Setup Msg State : Type}
     (1, gTransferAction ctx)
   ].
 
-Definition gActionFromContract  {Setup Msg State : Type}
-                               `{Serializable Setup}
-                               `{Serializable Msg}
-                               `{Serializable State}
-                                {BaseTypes : ChainBase} 
-                                (ctx : ChainContext BaseTypes)
-                                (gSetup : G Setup)
-                                (gMsg : G Msg)
-                                (c : @Contract BaseTypes Setup Msg State _ _ _) 
-                                : G Action := 
-                                actionbody <- gActionBodyFromContract ctx gSetup gMsg c ;;
-                                addr <- (@gAccountAddr BaseTypes ctx) ;;
-                                returnGen (build_act addr actionbody).
-                                (* TODO: what kind of address should we be generating here? *)
+Definition gActionFromContract {Setup Msg State : Type}
+                              `{Serializable Setup}
+                              `{Serializable Msg}
+                              `{Serializable State}
+                               {BaseTypes : ChainBase} 
+                               (ctx : ChainContext BaseTypes)
+                               (gSetup : G Setup)
+                               (gMsg : G Msg)
+                               (c : @Contract BaseTypes Setup Msg State _ _ _) 
+                               : G Action := 
+  actionbody <- gActionBodyFromContract ctx gSetup gMsg c ;;
+  addr <- (@gAccountAddr BaseTypes ctx) ;;
+  returnGen (build_act addr actionbody).
+  (* TODO: what kind of address should we be generating here? *)
 
 Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
-Definition b9 : option (BoundedN.BoundedN AddrSize) := @BoundedN.of_nat AddrSize 9.
 
 Derive Arbitrary for SerializedType.
 Derive Arbitrary for positive.

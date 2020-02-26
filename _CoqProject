@@ -21,8 +21,10 @@ execution/theories/LocalBlockchainTests.v
 
 -R execution/tests ConCert.Execution.QCTests
 execution/tests/TestUtils.v
-execution/tests/ChainPrinting.v
+execution/tests/ChainPrinters.v
 execution/tests/ChainGens.v
+execution/tests/CongressGens.v
+execution/tests/CongressPrinters.v
 execution/tests/CongressTests.v
 
 

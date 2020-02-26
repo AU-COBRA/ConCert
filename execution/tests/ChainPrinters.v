@@ -2,8 +2,7 @@ Require Import ZArith Strings.Ascii Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 
-From ConCert Require Import Blockchain.
-From ConCert Require Import LocalBlockchain.
+From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList.
 
@@ -135,7 +134,6 @@ show cctx := "ContractCallContext{"
              ++ "ctx_contract_addr: " ++ show (@ctx_contract_address LocalChainBase cctx) ++ sep
              ++ "ctx_amount: " ++ show (@ctx_amount LocalChainBase cctx) ++ "}"
 |}.
-
 
 Close Scope string_scope.
 Close Scope list_scope.

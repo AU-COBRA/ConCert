@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinting.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressGens CongressPrinters.
 
 Require Import ZArith Strings.Ascii Strings.String.
 
@@ -21,192 +21,9 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 
-Open Scope string_scope.
-
-Instance showRules : Show Rules :=
-  {|
-    show r := 
-      "Rules{"
-      ++ "min_vote_count_permille: " ++ show (min_vote_count_permille r) ++ sep
-      ++ "margin_needed_permille: " ++ show (margin_needed_permille r) ++ sep
-      ++ "debating_period_in_blocks: " ++ show (debating_period_in_blocks r) 
-      ++ "}"
-  |}.
-
-
-(* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
-Instance showCongressAction : Show CongressAction :=
-  {|
-    show ca :=
-      match ca with
-      | cact_transfer to amount => "(transfer: " ++ show to ++ sep ++ show amount ++ ")"
-      | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++  show msg ++ ")" 
-      end
-  |}.
-
-Instance showProposal : Show Proposal :=
-  {|
-    show p :=
-      "Proposal{"
-      ++ "actions: " ++ show (actions p) ++ sep
-      ++ "votes: " ++ show (votes p) ++ sep
-      ++ "vote_result: " ++ show (vote_result p) ++ sep
-      ++ "proposed_in: " ++ show (proposed_in p) ++ sep
-      ++ "}" ++ newline
-  |}.
-
-Instance showSetup : Show Setup :=
-  {|
-    show := show o setup_rules
-  |}.
-
-
-Definition string_of_Msg (m : Msg) : string :=
-  match m with
-    | transfer_ownership addr => "(transfer_ownership " ++  show addr ++ ")"
-    | change_rules rules => "(change_rules " ++ show rules ++ ")"
-    | add_member addr => "(add_member " ++ show addr ++ ")"
-    | remove_member addr => "(remove_member " ++ show addr ++ ")"
-    | create_proposal actions => "(create_proposal " ++ show actions ++ ")"
-    (* | create_proposal actions => "(create_proposal " ++  String.concat "; " (map (@show _ (@showCongressAction showSer) ) actions) ++ ")" *)
-    | vote_for_proposal proposalId => "(vote_for_proposal " ++ show proposalId ++ ")"
-    | vote_against_proposal proposalId => "(vote_against_proposal " ++ show proposalId ++ ")"
-    | retract_vote proposalId => "(retract_vote " ++ show proposalId ++ ")"
-    | finish_proposal proposalId => "(finish_proposal " ++ show proposalId ++ ")"
-  end.
-
-Instance showMsg : Show Msg :=
-{|
-  show := string_of_Msg
-  
-  |}.
-
 (* ChainGens *)
 
-Definition gRulesSized (n : nat) : G Rules :=
-  vote_count <- gZPositiveSized n ;;
-  margin <- liftM Z.of_nat (gIntervalNat n (2 * n)) ;;
-  liftM (build_rules vote_count margin) arbitrary.  
 
-Instance genRulesSized : GenSized Rules :=
-  {|
-    arbitrarySized := gRulesSized
-  |}.
-
-Instance genSetupSized : GenSized Setup := 
-{|
-  arbitrarySized n := liftM build_setup (arbitrarySized n)
-|}.
-
-Definition gCongressAction' {ctx : ChainContext LocalChainBase}
-                           (gMsg : G SerializedValue) 
-                           : G CongressAction :=
-  (* We only want to generate positive amounts for now, but could be worth looking into *)
-  freq [
-    (1, liftM2 cact_transfer (ctx_gAccountAddr ctx) gZPositive);
-    (1, liftM3 cact_call (ctx_gContractAddr ctx) gZPositive gMsg)
-  ].
-
-Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; @gCongressAction' ctx arbitrary).
-
-
-
-Definition gMsgSimple (ctx : ChainContext LocalChainBase) : G Msg := 
-  freq [
-    (1, liftM transfer_ownership (ctx_gAccountAddr ctx)) ;
-    (1, liftM change_rules arbitrary) ;
-    (2, liftM add_member (ctx_gAccountAddr ctx)) ;
-    (2, liftM remove_member (ctx_gAccountAddr ctx)) ;
-    (2, liftM vote_for_proposal arbitrary) ;
-    (2, liftM vote_against_proposal arbitrary) ;
-    (2, liftM retract_vote arbitrary) ;
-    (2, liftM finish_proposal arbitrary)
-  ].
-Definition gMsg' : G Msg := 
-  ctx <- arbitrary ;; gMsgSimple ctx.
-
-Sample gMsg'.
-
-
-Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; 
-        ctx_gAccountAddr ctx).
-
-
-Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
-  let default := liftM transfer_ownership (ctx_gAccountAddr ctx) in
-  match n with
-    | 0 => gMsgSimple ctx
-    | S n' => freq [
-        (1, (* TODO: fix weight. should be roughly 1:8*)
-        (* recurse. Msg is converted to a SerializedType using 'serialize' *)
-        (* This makes it possible to create proposals about proposals about proposals etc... *)
-        congressActions <- listOf (@gCongressAction' ctx (liftM serialize (gMsgSized ctx n'))) ;;
-        returnGen (create_proposal congressActions)) ;
-        (7, gMsgSimple ctx)
-      ]
-  end.
-
-Sample (ctx <- arbitrary ;; @gMsgSized ctx 1).
-
-Example ex_simple_msg : Msg := create_proposal [cact_call zero_address 1%Z (serialize 123)].
-Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize ex_simple_msg)].
-Compute ((show o deserialize o serialize) ex_simple_msg).
-Compute (show ex_msg). 
-
-
-
-Definition gCongressActionSized {ctx : ChainContext LocalChainBase}
-                                (n : nat)
-                                : G CongressAction 
-                                := @gCongressAction' ctx (liftM serialize (@gMsgSized ctx n)).
-
-
-Sample (ctx <- arbitrary ;; gMsgSized ctx 2).
-
-Example ex_call_congress_action := ctx <- arbitrary ;; 
-                                   liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 2) ).
-Sample ex_call_congress_action.
-
-Definition gProposalSized {ctx : ChainContext LocalChainBase} 
-                          (n : nat)
-                          : G Proposal :=
-  bound <- arbitrarySized n ;;
-  actions <- vectorOf bound (@gCongressActionSized ctx n) ;;
-  let nr_votes := length (ctx_accounts ctx) in
-  vote_vals <- vectorOf nr_votes arbitrary ;;
-  votes <- gFMapFromInput (ctx_accounts ctx) vote_vals ;;
-  vote_result <- gZPositive ;;
-  proposed_in <- arbitrary ;;
-  returnGen (build_proposal actions votes vote_result proposed_in).
-
-Sample (ctx <- arbitrary ;; @gProposalSized ctx 1).
-
-
-Definition gStateSized {ctx : ChainContext LocalChainBase} 
-                       (n : nat) 
-                       : G Congress.State :=
-  let nr_accounts := length (ctx_accounts ctx) in
-  default_addr <- (ctx_gAccountAddr ctx) ;;
-  owner <- elems_ default_addr (ctx_accounts ctx) ;;
-  rules <- arbitrarySized nr_accounts ;;
-  proposalIds <- vectorOfCount 0 n ;;
-  proposals <- vectorOf n (@gProposalSized ctx n) ;;
-  proposals_map <- gFMapFromInput proposalIds proposals ;;
-  next_proposal_id <- arbitrary ;; (* TODO: ensure valid proposal Id*)
-  unit_list <- (vectorOf nr_accounts (returnGen tt)) ;;
-  members <- gFMapFromInput (ctx_accounts ctx) unit_list ;;
-  returnGen (build_state owner rules proposals_map next_proposal_id members).
-
-
-Instance showState : Show Congress.State :=
-{|
-  show s := "State{" 
-            ++ "owner: " ++ show (owner s) ++ sep
-            ++ "rules: " ++ show (state_rules s) ++ sep
-            ++ "proposals: " ++ show (proposals s) ++ sep
-            ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
-            ++ "members: " ++ show (members s) ++ "}"
-|}.
 
 
 Definition init_is_valid p := 
@@ -264,21 +81,16 @@ Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
 
 (* Compute (show (sample (gLocalChainContext 2))). *)
 
-(* QuickChick (
-  forAll
+Definition test1 := forAll (gLocalChainContext 1).
+
+QuickChick (
+  forAll4
     (gLocalChainContext 2)
-    (fun ctx => 
-  forAll
-    (gLocalChainSized 2 ctx)
-    (fun chain => 
-  forAll
-    (@gStateSized ctx 2)
-    (fun state => 
-  forAll
-    (gChainActionsFromCongressActions ctx)
-    (fun cacts => add_proposal_cacts_P cacts chain state
-    ))))
-). *)
+    (fun ctx => gLocalChainSized 2 ctx)
+    (fun ctx _ => @gStateSized ctx 2)
+    (fun ctx _ _ => gChainActionsFromCongressActions ctx)
+    (fun ctx chain state cacts => add_proposal_cacts_P cacts chain state)
+).
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
 
