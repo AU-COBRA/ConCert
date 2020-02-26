@@ -83,14 +83,14 @@ Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
 
 Definition test1 := forAll (gLocalChainContext 1).
 
-QuickChick (
+(* QuickChick (
   forAll4
     (gLocalChainContext 2)
     (fun ctx => gLocalChainSized 2 ctx)
     (fun ctx _ => @gStateSized ctx 2)
     (fun ctx _ _ => gChainActionsFromCongressActions ctx)
     (fun ctx chain state cacts => add_proposal_cacts_P cacts chain state)
-).
+). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
 

@@ -46,7 +46,7 @@ Definition gCongressAction' {ctx : ChainContext LocalChainBase}
     (1, liftM3 cact_call (ctx_gContractAddr ctx) gZPositive gMsg)
   ].
 
-Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; @gCongressAction' ctx arbitrary).
+Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; @gCongressAction' ctx arbitrary).
 
 
 
@@ -67,7 +67,7 @@ Definition gMsg' : G Msg :=
 Sample gMsg'.
 
 
-Sample (ctx <- @arbitrarySized _ genLocalBaseGens 1 ;; 
+Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; 
         ctx_gAccountAddr ctx).
 
 
@@ -89,8 +89,9 @@ Sample (ctx <- arbitrary ;; @gMsgSized ctx 1).
 
 Example ex_simple_msg : Msg := create_proposal [cact_call zero_address 1%Z (serialize 123)].
 Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize ex_simple_msg)].
-Compute ((show o deserialize o serialize) ex_simple_msg).
-Compute (show ex_msg). 
+(* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
+(* Compute ((show o deserialize o serialize) ex_simple_msg). *)
+(* Compute (show ex_msg).  *)
 
 
 
@@ -135,4 +136,11 @@ Definition gStateSized {ctx : ChainContext LocalChainBase}
   unit_list <- (vectorOf nr_accounts (returnGen tt)) ;;
   members <- gFMapFromInput (ctx_accounts ctx) unit_list ;;
   returnGen (build_state owner rules proposals_map next_proposal_id members).
+
+
+
+Definition gCongressContract : G (Contract Setup Msg Congress.State) :=
+  returnGen Congress.contract.
+  
+Sample gCongressContract.
 

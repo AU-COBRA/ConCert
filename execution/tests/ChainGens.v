@@ -57,29 +57,6 @@ Definition mkChainStateGen (BaseTypes : ChainBase)
                            : G ChainState 
   := returnGen (@build_chain_state BaseTypes env actionList).
 
-Fixpoint gInterp_type (t : SerializedType) : G (interp_type t) := 
-  match t with
-  | ser_unit => returnGen tt
-  | ser_int => @arbitrary Z _
-  | ser_bool => arbitrary
-  | ser_pair a b => liftM2 pair (gInterp_type a) (gInterp_type b) 
-  | ser_list a => listOf (gInterp_type a)
-  end.
-
-Derive Arbitrary for SerializedType.
-
-Definition gSerializedValueSized (n : nat): G SerializedValue :=
-  t <- arbitrarySized n ;;
-  liftM (build_ser_value t) (gInterp_type t).
-
-Instance genSerializedValueSized : GenSized SerializedValue :=
-  {|
-    arbitrarySized := gSerializedValueSized 
-  |}.
-
-  
-(* Sample (@arbitrarySized SerializedType _ 3). *)
-(* Sample (@arbitrarySized SerializedValue _ 3). *)
 
 (* The Contract, WeakContract, and ContractCallContext types *)
 
@@ -92,36 +69,14 @@ Definition gContractCallContext {BaseTypes : ChainBase}
   (* TODO: what kind of address is the first argument? should it be a contract address, or a non-contract address?
      also, maybe replace the '_' with 'BaseTypes' if we get bugs *)
 
-
-Definition mkContractGen (Setup Msg State : Type)
-                        `{Serializable Setup}
-                        `{Serializable Msg}
-                        `{Serializable State}
-                         (BaseTypes : ChainBase)
-                         (init :
-                            Chain ->
-                            ContractCallContext ->
-                            Setup ->
-                            option State)
-                         (init_proper :
-                            Proper (ChainEquiv ==> eq ==> eq ==> eq) init)
-                         (receive :
-                            Chain ->
-                            ContractCallContext ->
-                          State ->
-                            option Msg ->
-                            option (State * list ActionBody))
-                         (receive_proper :
-                            Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive)
-                         : G (Contract Setup Msg State) := returnGen (build_contract init init_proper receive receive_proper).
-
 Definition gWeakContractFromContract {Setup Msg State : Type}
                                     `{Serializable Setup}
                                     `{Serializable Msg}
                                     `{Serializable State}
                                      (BaseTypes : ChainBase)
-                                     : (Contract Setup Msg State) -> WeakContract 
-                                     := contract_to_weak_contract.
+                                     (c : Contract Setup Msg State)
+                                     : @WeakContract BaseTypes 
+                                     := contract_to_weak_contract c.
 
 
 Definition gContractInterfaceFromSendAction {Msg : Type} 
@@ -151,9 +106,9 @@ Definition gCallAction {Msg : Type}
                       `{Serializable Msg}
                        {BaseTypes : ChainBase} 
                        (ctx : ChainContext BaseTypes)
-                       (gMsg : G Msg) 
+                       (msg : Msg) 
                        : G ActionBody 
-                       := liftM3 act_call (gAccountAddr _ ctx) arbitrary (liftM serialize gMsg).
+                       := liftM3 act_call (gAccountAddr _ ctx) arbitrary (returnGen (serialize msg)).
 
 Definition gActionBodyFromContract {Setup Msg State : Type}
                                   `{Serializable Setup}
@@ -161,13 +116,13 @@ Definition gActionBodyFromContract {Setup Msg State : Type}
                                   `{Serializable State}
                                    {BaseTypes : ChainBase} 
                                    (ctx : ChainContext BaseTypes)
-                                   (gSetup : G Setup)
-                                   (gMsg : G Msg)
+                                   (setup : Setup)
+                                   (msg : Msg)
                                    (c : @Contract BaseTypes Setup Msg State _ _ _) 
                                    : G ActionBody 
   := freq [
-    (1, gCallAction ctx gMsg);
-    (1, setup <- gSetup ;; (gDeploymentAction c setup));
+    (1, gCallAction ctx msg);
+    (1, gDeploymentAction c setup);
     (1, gTransferAction ctx)
   ].
 
@@ -177,14 +132,14 @@ Definition gActionFromContract {Setup Msg State : Type}
                               `{Serializable State}
                                {BaseTypes : ChainBase} 
                                (ctx : ChainContext BaseTypes)
-                               (gSetup : G Setup)
-                               (gMsg : G Msg)
+                               (setup : Setup)
+                               (msg : Msg)
                                (c : @Contract BaseTypes Setup Msg State _ _ _) 
                                : G Action := 
-  actionbody <- gActionBodyFromContract ctx gSetup gMsg c ;;
+  actionbody <- gActionBodyFromContract ctx setup msg c ;;
+  (* TODO: what kind of address should we be generating here? *)
   addr <- (@gAccountAddr BaseTypes ctx) ;;
   returnGen (build_act addr actionbody).
-  (* TODO: what kind of address should we be generating here? *)
 
 Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 
@@ -192,7 +147,8 @@ Derive Arbitrary for SerializedType.
 Derive Arbitrary for positive.
 Derive GenSized for positive.
 
-(* Although the type is G (option ...) it will never generate None values *)
+(* Although the type is G (option ...) it will never generate None values. 
+   Perhaps this is where we should use generators with property proof relevance? Future work... *)
 Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
   n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
   returnGen (@decode_bounded bound (Pos.of_nat n)).
@@ -224,19 +180,15 @@ Instance genAddress : Gen (@Address LocalChainBase) :=
 (* Definition genDummyChainedList : G (ChainTrace empty_state (build_chain_state lcb_lc [])) :=
   returnGen clnil. *)
 
-Definition gDummyLocalChain : G (@LocalChain AddrSize) :=
+Definition gInitialLocalChain : G (@LocalChain AddrSize) :=
   returnGen lc_initial.
 
 (* always generates the initial local chain builder, which contains the initial local chain, and initial, empty trace *)
-Definition gDummyLocalChainBuilder : G LocalChainBuilder :=
+Definition gInitialLocalChainBuilder : G LocalChainBuilder :=
   returnGen (lcb_initial AddrSize).
 
 Definition gEnvFromLocalChain (lc : LocalChain) : G Environment := returnGen (lc_to_env lc) .
 
-(* Instance genEnvFromLocalChain (lc : LocalChain) : Gen Environment :=
-  {| 
-    arbitrary := gEnvFromLocalChain lc
-  |}. *)
 Definition gContractAddr' : G (@Address LocalChainBase) :=
   let baseAddr := (N.to_nat (@ContractAddrBase AddrSize)) in
   n <- arbitrarySized baseAddr  ;; (* generates a value between 0 and ContractAddrBase (= AddrSize/2*)
@@ -256,7 +208,8 @@ Definition gInvalidValidContractAddr' : G (@Address LocalChainBase) :=
   | None => returnGen (BoundedN.of_Z_const AddrSize (Z.of_N 0)) 
   end.
 
-
+(* TODO: currently the contracts & accounts lists are not generated with unique values
+   which they should, since they act as identifiers! *)
 Definition gLocalChainContext (n : nat) : G (ChainContext LocalChainBase) := 
   let addr_eqb := @address_eqb LocalChainBase in 
   let default : Amount := Z0 in
@@ -269,10 +222,10 @@ Definition gLocalChainContext (n : nat) : G (ChainContext LocalChainBase) :=
   let gAccountAddr := elems_ zero_address accounts in
   returnGen (mkBaseGens LocalChainBase gAddr accounts contracts gContractAddr gAccountAddr).
 
-Instance genLocalBaseGens : GenSized (ChainContext LocalChainBase) :=
-  {|
-    arbitrarySized := gLocalChainContext
-  |}.
+Instance genLocalChainContext : GenSized (ChainContext LocalChainBase) :=
+{|
+  arbitrarySized := gLocalChainContext
+|}.
 
 
 Definition gLocalChainSized : nat -> (ChainContext LocalChainBase) -> G (@Chain LocalChainBase) := 

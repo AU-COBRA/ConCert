@@ -155,6 +155,28 @@ Fixpoint vectorOfCount {A : Type}
   end.
 
 
+
+Fixpoint gInterp_type (t : SerializedType) : G (interp_type t) := 
+  match t with
+  | ser_unit => returnGen tt
+  | ser_int => @arbitrary Z _
+  | ser_bool => arbitrary
+  | ser_pair a b => liftM2 pair (gInterp_type a) (gInterp_type b) 
+  | ser_list a => listOf (gInterp_type a)
+  end.
+
+Derive Arbitrary for SerializedType.
+
+Definition gSerializedValueSized (n : nat): G SerializedValue :=
+  t <- arbitrarySized n ;;
+  liftM (build_ser_value t) (gInterp_type t).
+
+Instance genSerializedValueSized : GenSized SerializedValue :=
+{|
+  arbitrarySized := gSerializedValueSized 
+|}.
+
+
 (* Utils for QuickChick *)
 
 

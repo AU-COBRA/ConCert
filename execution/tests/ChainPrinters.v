@@ -41,23 +41,32 @@ Instance shrinkAmount : Shrink Amount :=
     shrink := @shrink Z _
   |}.
 
-  Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
-  {|
-    show c := 
-      let height := show (chain_height c) in
-      let slot := show (current_slot c) in
-      let fin_height := show (finalized_height c) in
-        "Chain{" ++ "height: "       ++ height     ++ sep 
-                 ++ "current slot: " ++ slot       ++ sep 
-                 ++ "final height: " ++ fin_height ++ "}"
-  |}.
+Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
+{|
+  show c := 
+    let height := show (chain_height c) in
+    let slot := show (current_slot c) in
+    let fin_height := show (finalized_height c) in
+      "Chain{" ++ "height: "       ++ height     ++ sep 
+                ++ "current slot: " ++ slot       ++ sep 
+                ++ "final height: " ++ fin_height ++ "}"
+|}.
+
+Instance showContract {Setup Msg State : Type}
+                     `{Serializable Setup}
+                     `{Serializable Msg}
+                     `{Serializable State} 
+                      : Show (Contract Setup Msg State) :=
+{|
+  show c := "Contract{...}"
+|}.
 
 Instance showEnvironment (BaseTypes : ChainBase) `{Show Chain}: Show Environment :=
-  {|
-    show env := "Environment{" 
-                ++ "chain: " ++ show (env_chain env) ++ sep 
-                ++ "contract states:..."             ++ "}"
-  |}.
+{|
+  show env := "Environment{" 
+              ++ "chain: " ++ show (env_chain env) ++ sep 
+              ++ "contract states:..."             ++ "}"
+|}.
 
 
 Fixpoint string_of_interp_type (st : SerializedType) :  (interp_type st) -> string :=
