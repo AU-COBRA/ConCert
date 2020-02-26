@@ -49,12 +49,12 @@ Module CounterContract.
         case m : Msg return Maybe Result of
           Incr -> Just (Pair (mkState (Suc n) b) Nil) |].
 
-  Compute (expr_to_tc Σ' (indexify nil increment)).
+  (* Compute (expr_to_tc Σ' (indexify nil increment)). *)
 
   Make Definition receive :=
     (expr_to_tc Σ' (indexify nil increment)).
   End Receive.
-  Print Receive.receive.
+  (* Print Receive.receive. *)
 End CounterContract.
 
 Import CounterContract.

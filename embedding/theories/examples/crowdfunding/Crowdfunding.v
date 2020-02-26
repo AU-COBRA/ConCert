@@ -82,7 +82,7 @@ Module CrowdfundingContract.
               else Nothing : Maybe Result
     |].
 
-  Compute (expr_to_tc Σ' (indexify nil crowdfunding)).
+  (* Compute (expr_to_tc Σ' (indexify nil crowdfunding)). *)
 
   Make Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).

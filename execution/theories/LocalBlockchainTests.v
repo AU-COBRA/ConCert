@@ -154,7 +154,7 @@ Section LocalBlockchainTests.
   (* Balances after: *)
   Compute (account_balance chain8 congress_1).
   Compute (account_balance chain8 person_3).
-  Print Assumptions chain8.
+(*   Print Assumptions chain8. *)
 
   Hint Resolve congress_txs_after_block : core.
   Definition BuilderDF := LocalChainBuilderDepthFirst AddrSize.
