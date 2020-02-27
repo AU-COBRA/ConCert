@@ -107,37 +107,60 @@ Example ex_call_congress_action := ctx <- arbitrary ;;
                                    liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 2) ).
 Sample ex_call_congress_action.
 
+Open Scope Z_scope.
+
 Definition gProposalSized {ctx : ChainContext LocalChainBase} 
+                          (proposed_in : nat) (* obtained from the Chain *)
+                          (nr_votes : nat)
                           (n : nat)
-                          : G Proposal :=
+                                   : G Proposal :=
   bound <- arbitrarySized n ;;
   actions <- vectorOf bound (@gCongressActionSized ctx n) ;;
-  let nr_votes := length (ctx_accounts ctx) in
-  vote_vals <- vectorOf nr_votes arbitrary ;;
+  vote_vals <- vectorOf nr_votes (elems [-1%Z; 1%Z]) ;; (* -1 = vote against, 1 = vote for*) 
   votes <- gFMapFromInput (ctx_accounts ctx) vote_vals ;;
-  vote_result <- gZPositive ;;
-  proposed_in <- arbitrary ;;
+  vote_result <- arbitrary ;;
+  (* vote_result <- choose (-(Z.of_nat nr_votes), Z.of_nat nr_votes);; *)
   returnGen (build_proposal actions votes vote_result proposed_in).
 
-Sample (ctx <- arbitrary ;; @gProposalSized ctx 1).
+Sample (ctx <- arbitrary ;; @gProposalSized ctx 0 10 1).
 
+
+Close Scope Z_scope.
 
 Definition gStateSized {ctx : ChainContext LocalChainBase} 
+                       (proposed_in : nat)
                        (n : nat) 
                        : G Congress.State :=
   let nr_accounts := length (ctx_accounts ctx) in
   default_addr <- (ctx_gAccountAddr ctx) ;;
   owner <- elems_ default_addr (ctx_accounts ctx) ;;
-  rules <- arbitrarySized nr_accounts ;;
+  rules <- arbitrarySized n ;;
   proposalIds <- vectorOfCount 0 n ;;
-  proposals <- vectorOf n (@gProposalSized ctx n) ;;
+  nr_votes <- choose (1, nr_accounts) ;;
+  proposals <- vectorOf n (@gProposalSized ctx proposed_in nr_votes  (n/2)) ;;
   proposals_map <- gFMapFromInput proposalIds proposals ;;
-  next_proposal_id <- arbitrary ;; (* TODO: ensure valid proposal Id*)
+  next_proposal_id <- arbitrary ;; (* TODO: maybe just let it be 0*)
   unit_list <- (vectorOf nr_accounts (returnGen tt)) ;;
   members <- gFMapFromInput (ctx_accounts ctx) unit_list ;;
   returnGen (build_state owner rules proposals_map next_proposal_id members).
 
+Definition gProposalIdFromState (state : Congress.State) : G ProposalId := 
+  let pelems := FMap.elements (proposals state) in
+  let pids := map fst pelems in
+  (* Choose one proposal id at random. If empty, choose an arbitrary one. *)
+  default_pid <- arbitrary ;; elems_ default_pid  pids.
 
+Definition gProposalFromState {ctx : ChainContext LocalChainBase} 
+                              (state : Congress.State)
+                              (proposed_in : nat) 
+                              : G Proposal := 
+  let pelems := FMap.elements (proposals state) in
+  let pids := map snd pelems in
+  let max_nr_votes : nat := (length o FMap.elements) (members state) in
+  (* Choose one proposal id at random. If empty, choose an arbitrary one. *)
+  nr_votes <- arbitrarySized max_nr_votes ;;
+  default_proposal <- @gProposalSized ctx proposed_in nr_votes 3 ;; 
+  elems_ default_proposal pids.
 
 Definition gCongressContract : G (Contract Setup Msg Congress.State) :=
   returnGen Congress.contract.
