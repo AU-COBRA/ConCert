@@ -253,6 +253,25 @@ Definition forAll4 {A B C D prop : Type}
       (fgenD a b c)
       (fun d => pf a b c d))).
 
+Definition forAll5 {A B C D E prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A} 
+                  `{Show B} 
+                  `{Show C} 
+                  `{Show D} 
+                  `{Show E} 
+                   (genA : G A)
+                   (fgenB : A -> G B)
+                   (fgenC : A -> B -> G C)
+                   (fgenD : A -> B -> C -> G D)
+                   (fgenE : A -> B -> C -> D -> G E)
+                   (pf : A -> B -> C -> D -> E -> prop) :=
+  forAll4 genA fgenB fgenC fgenD
+    (fun a b c d => 
+    (forAll
+      (fgenE a b c d)
+      (fun e => pf a b c d e))).
+
 (* Similar to above, but where the "quantified" variables are not dependent on each other.
    This easens the syntactic form. *)
 
