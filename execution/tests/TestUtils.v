@@ -317,3 +317,10 @@ Definition indepForAll4 {A B C D prop : Type}
                             (fun _ _ => genC)
                             (fun _ _ _ => genD)
                             pf.
+
+(* Little helper to avoid having to write out matches with "false ==> true" in None case all the time *)
+Definition isSomeCheck {A B : Type} `{Checkable B} (a : option A) (f : A -> B) : Checker := 
+  match a with
+  | Some v => checker (f v)
+  | None => false ==> true
+end.
