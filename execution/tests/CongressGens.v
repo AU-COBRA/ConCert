@@ -128,7 +128,7 @@ Sample (ctx <- arbitrary ;; @gProposalSized ctx 0 10 1).
 Close Scope Z_scope.
 
 Definition gStateSized {ctx : ChainContext LocalChainBase} 
-                       (proposed_in : nat)
+                       (current_slot : nat) (* used to ensure that the generated proposals are never proposed at a later date *)
                        (n : nat) 
                        : G Congress.State :=
   let nr_accounts := length (ctx_accounts ctx) in
@@ -137,7 +137,7 @@ Definition gStateSized {ctx : ChainContext LocalChainBase}
   rules <- arbitrarySized n ;;
   proposalIds <- vectorOfCount 0 n ;;
   nr_votes <- choose (1, nr_accounts) ;;
-  proposals <- vectorOf n (@gProposalSized ctx proposed_in nr_votes  (n/2)) ;;
+  proposals <- vectorOf n (slot <- (arbitrarySized current_slot) ;; @gProposalSized ctx slot nr_votes  (n/2)) ;;
   proposals_map <- gFMapFromInput proposalIds proposals ;;
   next_proposal_id <- arbitrary ;; (* TODO: maybe just let it be 0*)
   unit_list <- (vectorOf nr_accounts (returnGen tt)) ;;

@@ -85,10 +85,9 @@ Close Scope string_scope.
 
 
 Definition vote_on_proposal_cacts_preserved_P addr pid vote_val state :=
-  match vote_on_proposal addr pid vote_val state with
-  | Some new_state => checker (num_cacts_in_state new_state =? num_cacts_in_state state)
-  | None => false ==> true
-  end.
+  isSomeCheck 
+    (vote_on_proposal addr pid vote_val state) 
+    (fun new_state => num_cacts_in_state new_state =? num_cacts_in_state state).
 
 Definition check_vote_on_proposal_cacts_preserved := 
   forAll5
@@ -98,9 +97,6 @@ Definition check_vote_on_proposal_cacts_preserved :=
   (fun _ _ _ => arbitrary)
   (fun _ _ state _ => gProposalIdFromState state) 
   (fun _ addr state vote_val pid => vote_on_proposal_cacts_preserved_P addr pid vote_val state).
-
-Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
-Definition isSome {A : Type} (a : option A) := negb (isNone a).
 
 
 Definition do_retract_vote_cacts_preserved_P addr pid state :=
@@ -119,7 +115,7 @@ Definition check_do_retract_vote_cacts_preserved_P :=
   (fun _ _ state => gProposalIdFromState state) 
   (fun _ addr state pid => do_retract_vote_cacts_preserved_P addr pid state).
 
-QuickChick check_do_retract_vote_cacts_preserved_P.
+(* QuickChick check_do_retract_vote_cacts_preserved_P. *)
 (* coqtop-stdout:+++ Passed 10000 tests (5888 discards) *)
 
 
@@ -128,19 +124,21 @@ QuickChick check_do_retract_vote_cacts_preserved_P.
 (* QuickChick (check_vote_on_proposal_cacts_preserved). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Open Scope bool_scope.
+
 Definition receive_state_well_behaved_P
       chain ctx state msg :=
-  match receive chain ctx state msg with
-  | Some (new_state, resp_acts) => 
+  isSomeCheck 
+    (receive chain ctx state msg)
+    (fun p => 
+    let new_state := fst p in
+    let resp_acts := snd p in  
     let cond : bool := (isSome msg) && (num_cacts_in_state new_state + length resp_acts <=?
                                   (num_cacts_in_state state +
                                   match msg with
                                   | Some (create_proposal ls) => length ls
                                   | _ => 0
                                   end)) 
-    in checker cond
-  | None => false ==> true
-  end.
+    in checker cond).
 
 (* fix: receive does not return Some... in most cases *)
 Definition check_receive_state_well_behaved :=
@@ -152,6 +150,22 @@ Definition check_receive_state_well_behaved :=
     (fun ctx _ _ _ => n <- arbitrary ;; liftM Some (gMsgSized ctx n))
     (fun _ chain state cctx msg => receive_state_well_behaved_P chain cctx state msg).
 
-QuickChick check_receive_state_well_behaved.
+(* QuickChick check_receive_state_well_behaved. *)
 (* coqtop-stdout:*** Gave up! Passed only 8351 tests
 Discarded: 20000 *)
+
+(* A property about the way States are generated. *)
+(* It says that a State generated at some time slot cannot contain proposals later than this time slot.½ *)
+Definition state_proposals_proposed_in_valid_P (time_slot : nat) (state : Congress.State) := 
+  let proposals := map snd (FMap.elements (proposals state)) in
+    forallb (fun p => proposed_in p <=? time_slot) proposals.
+
+Definition check_state_proposals_proposed_in_valid := 
+  forAll3
+  (gLocalChainContext 4)
+  (fun _ => arbitrary) (* time slot *)
+  (fun ctx time_slot => @gStateSized ctx time_slot 2)
+  (fun _ time_slot state => state_proposals_proposed_in_valid_P time_slot state).
+
+(* QuickChick check_state_proposals_proposed_in_valid. *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)

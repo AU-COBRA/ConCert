@@ -26,6 +26,9 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 Open Scope list_scope.
 Open Scope string_scope.
 
+Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
+Definition isSome {A : Type} (a : option A) := negb (isNone a).
+
 Fixpoint mkMapFromLists {A B : Type}
                        (a_eqb : A -> A -> bool)
                        (default : B)
