@@ -1,7 +1,7 @@
 (** * Simple examples on how to use our framework  **)
 Require Import String Basics.
 Require Import List.
-Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.
+From ConCert.Embedding Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.
 
 From MetaCoq.Template Require Ast.
 From MetaCoq.Template Require Import TemplateMonad.

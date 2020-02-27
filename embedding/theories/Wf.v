@@ -3,9 +3,7 @@
 Require Import List Bool Relations Morphisms ssrbool.
 Require Import MetaCoq.Template.utils.
 
-Require Import Ast EnvSubst.
-Require Import EvalE.
-Require Import MyEnv.
+From ConCert.Embedding Require Import Ast EnvSubst EvalE MyEnv.
 
 Import NamelessSubst.
 
