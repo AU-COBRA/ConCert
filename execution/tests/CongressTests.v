@@ -17,13 +17,7 @@ Require Import Containers.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 
-(* ChainGens for the types defined in the Congress contract *)
-
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
-
-(* ChainGens *)
-
-
 
 
 Definition init_is_valid p := 
@@ -78,14 +72,14 @@ Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
 (* Compute (show (sample (gLocalChainContext 2))). *)
 
 
-(* QuickChick (
+QuickChick (
   forAll4
     (gLocalChainContext 2)
     (fun ctx => gLocalChainSized 2 ctx)
-    (fun ctx _ => @gStateSized ctx 2)
+    (fun ctx chain => @gStateSized ctx (current_slot chain) 2)
     (fun ctx _ _ => gChainActionsFromCongressActions ctx)
     (fun ctx chain state cacts => add_proposal_cacts_P cacts chain state)
-). *)
+).
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
 
@@ -96,18 +90,68 @@ Definition vote_on_proposal_cacts_preserved_P addr pid vote_val state :=
   | None => false ==> true
   end.
 
-(* Maybe all the discards are due to proposal ids not being generated validly? *)
-(* Note to self: Look at implementation of 'vote_on_proposal' to get an idea of where it can go wrong *)
-(* QuickChick (
+Definition check_vote_on_proposal_cacts_preserved := 
   forAll5
   (gLocalChainContext 4)
   (fun ctx => ctx_gAccountAddr ctx)
-  (fun ctx _ => @gStateSized ctx 2)
+  (fun ctx _ => @gStateSized ctx 0 2)
   (fun _ _ _ => arbitrary)
-  (fun _ _ state _ => returnGen (next_proposal_id state))
-  (fun _ addr state vote_val pid => vote_on_proposal_cacts_preserved_P addr pid vote_val state)
-). *)
-(* coqtop-stdout:
-  *** Gave up! Passed only 6827 tests
-  Discarded: 20000 
-*)
+  (fun _ _ state _ => gProposalIdFromState state) 
+  (fun _ addr state vote_val pid => vote_on_proposal_cacts_preserved_P addr pid vote_val state).
+
+Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
+Definition isSome {A : Type} (a : option A) := negb (isNone a).
+
+
+Definition do_retract_vote_cacts_preserved_P addr pid state :=
+  isSomeCheck
+    (do_retract_vote addr pid state)
+    (* Case where the above is 'Some new_state'  *)
+    (fun new_state => num_cacts_in_state new_state =? num_cacts_in_state state).
+
+
+(* TODO: look into what causes discards *)
+Definition check_do_retract_vote_cacts_preserved_P :=
+  forAll4
+  (gLocalChainContext 4)
+  (fun ctx => ctx_gAccountAddr ctx)
+  (fun ctx _ => @gStateSized ctx 0 2)
+  (fun _ _ state => gProposalIdFromState state) 
+  (fun _ addr state pid => do_retract_vote_cacts_preserved_P addr pid state).
+
+QuickChick check_do_retract_vote_cacts_preserved_P.
+(* coqtop-stdout:+++ Passed 10000 tests (5888 discards) *)
+
+
+(* Note to self: Look at implementation of 'vote_on_proposal' to get an idea of which implicit 
+   requirements must met on the generated data *)
+(* QuickChick (check_vote_on_proposal_cacts_preserved). *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+Open Scope bool_scope.
+Definition receive_state_well_behaved_P
+      chain ctx state msg :=
+  match receive chain ctx state msg with
+  | Some (new_state, resp_acts) => 
+    let cond : bool := (isSome msg) && (num_cacts_in_state new_state + length resp_acts <=?
+                                  (num_cacts_in_state state +
+                                  match msg with
+                                  | Some (create_proposal ls) => length ls
+                                  | _ => 0
+                                  end)) 
+    in checker cond
+  | None => false ==> true
+  end.
+
+(* fix: receive does not return Some... in most cases *)
+Definition check_receive_state_well_behaved :=
+  forAll5
+    (gLocalChainContext 4)
+    (fun ctx => gLocalChainSized 2 ctx)
+    (fun ctx chain => @gStateSized ctx (current_slot chain) 2)
+    (fun ctx _ _ => @gContractCallContext LocalChainBase ctx)
+    (fun ctx _ _ _ => n <- arbitrary ;; liftM Some (gMsgSized ctx n))
+    (fun _ chain state cctx msg => receive_state_well_behaved_P chain cctx state msg).
+
+QuickChick check_receive_state_well_behaved.
+(* coqtop-stdout:*** Gave up! Passed only 8351 tests
+Discarded: 20000 *)
