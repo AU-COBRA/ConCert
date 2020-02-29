@@ -368,10 +368,10 @@ Proof.
   cbn.
   destruct (FMap.find (next_proposal_id state) (proposals state)) as [proposal|] eqn:find.
   - remember_new_proposal.
-    rewrite <- (FMap.add_remove _ (next_proposal_id state) new_proposal).
+    rewrite <- (FMap.add_remove (next_proposal_id state) new_proposal).
     Hint Resolve FMap.find_remove : core.
     rewrite <- (FMap.add_id _ _ _ find) at 2.
-    rewrite <- (FMap.add_remove _ (next_proposal_id state) proposal).
+    rewrite <- (FMap.add_remove (next_proposal_id state) proposal).
     repeat rewrite FMap.elements_add; auto.
     subst.
     cbn.
@@ -392,9 +392,9 @@ Proof.
   unfold num_cacts_in_state.
   cbn.
   remember_new_proposal.
-  rewrite <- (FMap.add_id (proposals state) pid p) at 2; auto.
-  rewrite <- (FMap.add_remove _ pid p).
-  rewrite <- (FMap.add_remove _ pid new_proposal).
+  rewrite <- (FMap.add_id pid p (proposals state)) at 2; auto.
+  rewrite <- (FMap.add_remove pid p).
+  rewrite <- (FMap.add_remove pid new_proposal).
   repeat rewrite FMap.elements_add; try apply FMap.find_remove.
   subst; reflexivity.
 Qed.
@@ -411,9 +411,9 @@ Proof.
   unfold num_cacts_in_state.
   cbn.
   remember_new_proposal.
-  rewrite <- (FMap.add_id (proposals state) pid p) at 2; auto.
-  rewrite <- (FMap.add_remove _ pid p).
-  rewrite <- (FMap.add_remove _ pid new_proposal).
+  rewrite <- (FMap.add_id pid p (proposals state)) at 2; auto.
+  rewrite <- (FMap.add_remove pid p).
+  rewrite <- (FMap.add_remove pid new_proposal).
   Hint Resolve FMap.find_remove : core.
   repeat rewrite FMap.elements_add; auto.
   subst; reflexivity.
@@ -427,7 +427,7 @@ Proof.
   intros find.
   unfold num_cacts_in_state.
   cbn.
-  rewrite <- (FMap.add_id (proposals state) pid proposal) at 2; auto.
+  rewrite <- (FMap.add_id pid proposal (proposals state)) at 2; auto.
   rewrite <- FMap.add_remove.
   rewrite FMap.elements_add; auto.
   cbn.

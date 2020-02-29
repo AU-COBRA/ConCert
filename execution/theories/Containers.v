@@ -40,7 +40,7 @@ Module FMap.
       of_list (elements m) = m.
     Proof. apply fin_maps.list_to_map_to_list. Qed.
 
-    Lemma find_union_None (m1 m2 : FMap K V) (k : K) :
+    Lemma find_union_None k (m1 m2 : FMap K V) :
       find k m1 = None ->
       find k m2 = None ->
       find k (union m1 m2) = None.
@@ -49,24 +49,24 @@ Module FMap.
       apply fin_maps.lookup_union_None; auto.
     Qed.
 
-    Lemma find_union_Some_l (m1 m2 : FMap K V) (k : K) (v : V) :
+    Lemma find_union_Some_l k v (m1 m2 : FMap K V) :
       find k m1 = Some v ->
       find k (union m1 m2) = Some v.
     Proof. apply fin_maps.lookup_union_Some_l. Qed.
 
-    Lemma find_add (m : FMap K V) (k : K) (v : V) :
+    Lemma find_add (k : K) (v : V) (m : FMap K V) :
       find k (add k v m) = Some v.
     Proof. apply fin_maps.lookup_insert. Qed.
 
-    Lemma find_add_ne (m : FMap K V) (k k' : K) (v : V) :
+    Lemma find_add_ne (k k' : K) (v : V) (m : FMap K V) :
       k <> k' -> find k' (add k v m) = find k' m.
     Proof. apply fin_maps.lookup_insert_ne. Qed.
 
-    Lemma find_partial_alter (m : FMap K V) f k :
+    Lemma find_partial_alter f k (m : FMap K V) :
       find k (partial_alter f k m) = f (find k m).
     Proof. apply fin_maps.lookup_partial_alter. Qed.
 
-    Lemma find_partial_alter_ne (m : FMap K V) f k k' :
+    Lemma find_partial_alter_ne f k k' (m : FMap K V) :
       k <> k' ->
       find k' (partial_alter f k m) = find k' m.
     Proof. apply fin_maps.lookup_partial_alter_ne. Qed.
@@ -75,7 +75,7 @@ Module FMap.
       FMap.find k (FMap.empty : FMap K V) = None.
     Proof. apply fin_maps.lookup_empty. Qed.
 
-    Lemma elements_add (m : FMap K V) k v :
+    Lemma elements_add k v (m : FMap K V) :
       find k m = None ->
       Permutation (elements (add k v m)) ((k, v) :: elements m).
     Proof. apply fin_maps.map_to_list_insert. Qed.
@@ -87,25 +87,25 @@ Module FMap.
       FMap.elements (FMap.add k v FMap.empty) = [(k, v)].
     Proof. now rewrite fin_maps.insert_empty, fin_maps.map_to_list_singleton. Qed.
 
-    Lemma add_remove (m : FMap K V) k v :
+    Lemma add_remove k v (m : FMap K V) :
       add k v (remove k m) = add k v m.
     Proof. apply fin_maps.insert_delete. Qed.
 
-    Lemma remove_add (m : FMap K V) k v :
+    Lemma remove_add k v (m : FMap K V) :
       find k m = None ->
       remove k (add k v m) = m.
     Proof. apply fin_maps.delete_insert. Qed.
 
-    Lemma find_remove (m : FMap K V) k :
+    Lemma find_remove k (m : FMap K V) :
       find k (remove k m) = None.
     Proof. apply fin_maps.lookup_delete. Qed.
 
-    Lemma add_commute (m : FMap K V) (k k' : K) (v v' : V) :
+    Lemma add_commute (k k' : K) (v v' : V) (m : FMap K V) :
       k <> k' ->
       FMap.add k v (FMap.add k' v' m) = FMap.add k' v' (FMap.add k v m).
     Proof. apply fin_maps.insert_commute. Qed.
 
-    Lemma add_id (m : FMap K V) k v :
+    Lemma add_id k v (m : FMap K V) :
       find k m = Some v ->
       add k v m = m.
     Proof. apply fin_maps.insert_id. Qed.
