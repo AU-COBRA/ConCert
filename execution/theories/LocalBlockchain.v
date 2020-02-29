@@ -509,7 +509,3 @@ Arguments LocalChainBuilder : clear implicits.
 Arguments LocalChainBuilderDepthFirst : clear implicits.
 Arguments LocalChainBuilderBreadthFirst : clear implicits.
 Arguments lcb_initial : clear implicits.
-
-Definition LocalChainBase128 := LocalChainBase (2^128).
-Definition LocalChainBuilder128DepthFirst : ChainBuilderType
-  := LocalChainBuilderDepthFirst (2^128).
