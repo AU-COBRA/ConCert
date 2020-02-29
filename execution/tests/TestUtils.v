@@ -275,6 +275,26 @@ Definition forAll5 {A B C D E prop : Type}
       (fgenE a b c d)
       (fun e => pf a b c d e))).
 
+Definition forAll6 {A B C D E prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A} 
+                  `{Show B} 
+                  `{Show C} 
+                  `{Show D} 
+                  `{Show E} 
+                  `{Show F} 
+                   (genA : G A)
+                   (fgenB : A -> G B)
+                   (fgenC : A -> B -> G C)
+                   (fgenD : A -> B -> C -> G D)
+                   (fgenE : A -> B -> C -> D -> G E)
+                   (fgenF : A -> B -> C -> D -> E -> G F)
+                   (pf : A -> B -> C -> D -> E -> F -> prop) :=
+  forAll5 genA fgenB fgenC fgenD fgenE
+    (fun a b c d e => 
+    (forAll
+      (fgenF a b c d e)
+      (fun f => pf a b c d e f))).
 (* Similar to above, but where the "quantified" variables are not dependent on each other.
    This easens the syntactic form. *)
 
@@ -322,8 +342,22 @@ Definition indepForAll4 {A B C D prop : Type}
                             pf.
 
 (* Little helper to avoid having to write out matches with "false ==> true" in None case all the time *)
-Definition isSomeCheck {A B : Type} `{Checkable B} (a : option A) (f : A -> B) : Checker := 
-  match a with
+Definition isSomeCheck {A : Type} (a : option A) (f : A -> Checker) : Checker := 
+match a with 
   | Some v => checker (f v)
   | None => false ==> true
 end.
+
+(* A shallow way of embedding 'exists' in QC. Currently not very general, since we cant properly nest existPs
+   because the predicate function returns a bool, and not a Checker. Need to review if this is even possible. *)
+Definition existsP {A prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A} 
+                   (g : G A) 
+                   (p : A -> bool) := expectFailure (forAll g (fun a => negb (p a))).
+
+QuickChick (
+  existsP arbitrary (fun a => a <=? a)
+).
+
+

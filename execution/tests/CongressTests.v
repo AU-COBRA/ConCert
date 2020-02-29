@@ -87,7 +87,8 @@ Close Scope string_scope.
 Definition vote_on_proposal_cacts_preserved_P addr pid vote_val state :=
   isSomeCheck 
     (vote_on_proposal addr pid vote_val state) 
-    (fun new_state => num_cacts_in_state new_state =? num_cacts_in_state state).
+    (fun new_state => checker 
+      (num_cacts_in_state new_state =? num_cacts_in_state state)).
 
 Definition check_vote_on_proposal_cacts_preserved := 
   forAll5
@@ -103,7 +104,8 @@ Definition do_retract_vote_cacts_preserved_P addr pid state :=
   isSomeCheck
     (do_retract_vote addr pid state)
     (* Case where the above is 'Some new_state'  *)
-    (fun new_state => num_cacts_in_state new_state =? num_cacts_in_state state).
+    (fun new_state => checker
+      (num_cacts_in_state new_state =? num_cacts_in_state state)).
 
 
 (* TODO: look into what causes discards *)
@@ -146,13 +148,16 @@ Definition check_receive_state_well_behaved :=
     (gLocalChainContext 4)
     (fun ctx => gLocalChainSized 2 ctx)
     (fun ctx chain => @gStateSized ctx (current_slot chain) 2)
-    (fun ctx _ _ => @gContractCallContext LocalChainBase ctx)
-    (fun ctx _ _ _ => n <- arbitrary ;; liftM Some (gMsgSized ctx n))
-    (fun _ chain state cctx msg => receive_state_well_behaved_P chain cctx state msg).
+    (fun ctx _ _ => n <- arbitrary ;; liftM Some (gMsgSized ctx n))
+    (fun ctx _ state  maybe_msg => match maybe_msg with 
+                                   | Some msg =>  @gValidContractCallContext ctx (owner state) msg 
+                                   | None => gContractCallContext ctx
+                                   end)
+    (fun _ chain state msg cctx => receive_state_well_behaved_P chain cctx state msg).
 
 (* QuickChick check_receive_state_well_behaved. *)
-(* coqtop-stdout:*** Gave up! Passed only 8351 tests
-Discarded: 20000 *)
+(* coqtop-stdout:+++ Passed 10000 tests (7327 discards) *)
+
 
 (* A property about the way States are generated. *)
 (* It says that a State generated at some time slot cannot contain proposals later than this time slot.½ *)
@@ -169,3 +174,60 @@ Definition check_state_proposals_proposed_in_valid :=
 
 (* QuickChick check_state_proposals_proposed_in_valid. *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+
+
+(* There are many issues with the property below
+   Firstly: its incredibly hard to generate semantically well-formed data
+   Secondly: its hard to avoid really sparse data w.r.t the property to be tested, ie. the 'isSomeCheck' will
+      fail most of the time. This effect is amplified when they are nested
+   Thirdly, its hard to interpret...
+   Conclusion: this is perhaps abive the limit of 'functional' properties that we can test. This is probably due to the
+      fact that there are so many quantified variables, many conditions in the property which have to be met
+      and the fact that we quantify over *traces*.
+      When dealing with traces, we should perhaps adopt a most constructive approach, and verify temporal-like properties instead. *)
+(* Definition check_congress_txs_well_behaved_P :=
+  forAll5
+  (gLocalChainContext 4)
+  (fun ctx => gLocalChainSized 4 ctx)
+  (fun ctx ch => 
+    let env _= ??????????????? in
+    actions <- listOf (gActionOfCongress ctx 2) ;;
+    mkChainStateGen LocalChainBase env  actions
+  )
+  (fun ctx ch bstate => ctx_gContractAddr ctx)
+  (fun ctx ch bstate caddr => @gStateSized ctx 0 2)
+  (fun ctx ch bstate caddr cstate => 
+    let env := chain_state_env bstate in 
+    isSome
+      (env_contracts env caddr)
+      (* (fun contract => checker true
+        (* isSomeCheck
+          (contract_state env caddr)
+          (fun cstate =>
+            isSomeCheck
+             (@incoming_calls _ Msg _ bstate _ clnil caddr)
+             (fun inc_calls => checker (
+                num_cacts_in_state cstate +
+                length (@outgoing_txs _ bstate _ clnil caddr) +
+                length (outgoing_acts bstate caddr) <=?
+                num_acts_created_in_proposals inc_calls))) *)
+      )). *)
+  ). *)
+
+(* QuickChick check_congress_txs_well_behaved_P. *)
+(* coqtop-stdout:*** Gave up! Passed only 0 tests
+Discarded: 20000 *)
+
+      (* (fun contract => 
+        existsP 
+          (
+            state <- @gStateSized ctx 0 2 ;;
+            infos <- listOf gContractCallInfo ;;
+            returnGen (state, infos)
+          ) 
+        (fun state_infos_pair =>
+            match (contract_state cstate caddr) with
+            | Some cstate' => SerializedType.eqb (serialize cstate') (serialize (fst state_infos_pair))
+            | None => false
+          end) *)

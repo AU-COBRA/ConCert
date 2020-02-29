@@ -51,6 +51,14 @@ Instance shrinkChain (BaseTypes : ChainBase) : Shrink (@Chain BaseTypes) :=
     shrink c := cons c nil
   |}.
 
+(* gEnvFromChain (BaseTypes : ChainBase)
+              (ctx : ChainContext BaseTypes)
+              (c : @Chain BaseTypes)
+              : G Environment :=
+  contracts <- mkMapFromLists 
+  build_env c  *)
+
+
 Definition mkChainStateGen (BaseTypes : ChainBase)
                            (env : Environment)
                            (actionList : list Action)
@@ -60,14 +68,18 @@ Definition mkChainStateGen (BaseTypes : ChainBase)
 
 (* The Contract, WeakContract, and ContractCallContext types *)
 
+Definition gContractCallContextWithOwner {BaseTypes : ChainBase} 
+                                (ctx : ChainContext BaseTypes)
+                                (owner_addr : @Address BaseTypes) 
+                                : G ContractCallContext :=
+  let gContractAddr := @gContractAddr BaseTypes ctx in
+  liftM2 (build_ctx owner_addr) gContractAddr arbitrary.
+
 Definition gContractCallContext {BaseTypes : ChainBase} 
                                 (ctx : ChainContext BaseTypes) 
                                 : G ContractCallContext :=
   let gAccountAddr := @gAccountAddr BaseTypes ctx in
-  let gContractAddr := @gContractAddr BaseTypes ctx in
-  liftM3 build_ctx gAccountAddr gContractAddr arbitrary.
-  (* TODO: what kind of address is the first argument? should it be a contract address, or a non-contract address?
-     also, maybe replace the '_' with 'BaseTypes' if we get bugs *)
+  owner_addr <- gAccountAddr ;; gContractCallContextWithOwner ctx owner_addr.
 
 Definition gWeakContractFromContract {Setup Msg State : Type}
                                     `{Serializable Setup}
@@ -285,9 +297,10 @@ Definition validate_header_P : BlockHeader * Chain -> bool :=  fun p => match va
 
 (* QuickChick (forAll 
   (ctx <- arbitrary ;;
-  c <- arbitrary ;; 
+  c <- gLocalChainSized 4 ctx ;; 
   n <- arbitrary ;;
   header <- gLocalBCBlockHeaderSizedFromChainAndContext n c ctx ;;
   returnGen (header, c)) 
   validate_header_P). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+  (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)

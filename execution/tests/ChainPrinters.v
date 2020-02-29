@@ -144,5 +144,23 @@ show cctx := "ContractCallContext{"
              ++ "ctx_amount: " ++ show (@ctx_amount LocalChainBase cctx) ++ "}"
 |}.
 
+Instance showLocalAction : Show (@Action LocalChainBase) :=
+{|
+  show a := "Action{" ++ "}"
+|}. 
+
+Instance showChainState : Show (@ChainState LocalChainBase) :=
+{|
+  show a := "ChainState{" ++ "}"
+|}.
+
+Instance showContractCallInfo {Msg : Type} `{Show Msg} : Show (ContractCallInfo Msg) :=
+{|
+  show info := "ContractCallInfo{" 
+                ++ "call_from: " ++ show (call_from info) ++ sep
+                ++ "call_amount: " ++ show (call_amount info) ++ sep
+                ++ "call_msg: " ++ show (call_msg info) ++ sep ++ "}"
+|}.
+
 Close Scope string_scope.
 Close Scope list_scope.
