@@ -5,6 +5,7 @@ Require Export ExtLib.Structures.Monads.
 Export MonadNotation. Open Scope monad_scope.
 
 From ConCert Require Import Blockchain.
+From ConCert Require Import Congress.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList.
@@ -51,6 +52,27 @@ Definition string_of_FMap {A B : Type}
   show (map (fun p => showA (fst p) ++ "-->" ++ showB (snd p)) (FMap.elements m)).
 
 
+Definition filter_FMap {A B : Type}
+                      `{countable.Countable A}
+                      `{base.EqDecision A}
+                       (f : B -> bool)
+                       (m : FMap A B)
+                       : FMap A B := 
+  let l := FMap.elements m in
+  let filtered_l := List.filter (fun p => f (snd p)) l in
+  FMap.of_list filtered_l.
+
+Definition map_values_FMap {A B C: Type}
+                      `{countable.Countable A}
+                      `{base.EqDecision A}
+                       (f : B -> C)
+                       (m : FMap A B)
+                       : FMap A C := 
+  let l := FMap.elements m in
+  let mapped_l := List.map (fun p => (fst p, f (snd p))) l in
+  FMap.of_list mapped_l.
+
+
 (* Utils for Show instances *)
 
 Definition empty_str : string := "".
@@ -76,7 +98,55 @@ Instance showFMap {A B : Type}
 Close Scope string_scope.
 
 
+Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSize lc)).
+Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
+
+Definition lc_contract_state_deserialized lc : FMap Address Congress.State :=
+  let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
+  FMap.of_list (List.fold_left 
+                (fun acc p => 
+                  match deserialize (snd p) with
+                  | Some state => (fst p, state) :: acc
+                  | None => acc
+                  end)  
+                els_list []).
+
 (* Utils for Generators *)
+
+Definition sampleFMapOpt {A B : Type}                           
+                        `{countable.Countable A}
+                        `{base.EqDecision A}
+                         (m : FMap A B) 
+                         : G (option (A * B)) :=
+  let els := FMap.elements m in
+  match els with
+  | e :: _ => liftM Some (elems_ e els)
+  | [] => returnGen None
+  end.
+
+ 
+Definition gContractFromLocalChain lc : G (option (Address * WeakContract)) :=
+  sampleFMapOpt (@lc_contracts AddrSize lc).
+
+Definition gAccountAddrFromLocalChain lc : G (option Address) :=
+  p <- sampleFMapOpt (@lc_account_balances AddrSize lc) ;;
+  returnGen match p with
+  | Some (addr, _) => Some addr
+  | None => None
+  end. 
+
+Definition gContractAddrFromLocalChain lc : G (option Address) :=
+  p <- sampleFMapOpt (@lc_contracts AddrSize lc) ;;
+  returnGen match p with
+  | Some (addr, _) => Some addr
+  | None => None
+  end. 
+
+Definition gAccountBalanceFromLocalChain lc : G (option (Address * Amount)) :=
+  sampleFMapOpt (@lc_account_balances AddrSize lc).
+
+Definition gContractSateFromLocalChain lc : G (option (Address * SerializedValue)) :=
+  sampleFMapOpt (@lc_contract_state AddrSize lc).
 
 
 Record ChainContext (BaseTypes : ChainBase) := 

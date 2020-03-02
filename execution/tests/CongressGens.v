@@ -40,7 +40,6 @@ Instance genSetupSized : GenSized Setup :=
 Definition gCongressAction' {ctx : ChainContext LocalChainBase}
                            (gMsg : G SerializedValue) 
                            : G CongressAction :=
-  (* We only want to generate positive amounts for now, but could be worth looking into *)
   freq [
     (1, liftM2 cact_transfer (ctx_gAccountAddr ctx) gZPositive);
     (1, liftM3 cact_call (ctx_gContractAddr ctx) gZPositive gMsg)
@@ -237,3 +236,107 @@ Definition gActionOfCongress ctx n : G Action :=
 Definition gContractCallInfo := liftM3 build_call_info arbitrary arbitrary arbitrary.
   
 Sample gContractCallInfo.
+
+
+
+(* ------------------------------------------------------ *)
+(* generators of actions from the LocalChain context type *)
+
+
+Definition gCongressActionFromLC' (lc : LocalChain)
+                           (gMsg : G SerializedValue) 
+                           : G (option CongressAction) :=
+  freq [
+    (1, bindGenOpt 
+      (gAccountBalanceFromLocalChain lc)
+      (fun p =>
+      let addr := fst p in
+      let balance := snd p in
+      amount <- arbitrarySized (Z.to_nat balance) ;;
+      returnGen (Some (cact_transfer addr amount))));
+
+    (1, bindGenOpt
+      (gContractAddrFromLocalChain lc)
+      (fun addr =>
+        amount <- gZPositive ;;
+        msg <- gMsg ;;
+        returnGen (Some (cact_call addr amount msg)))) 
+  ].
+
+
+(* Sample (lc <- arbitrary ;; @gCongressActionFromLC' lc arbitrary). *)
+Print LocalChain.
+  
+Definition allProposalsOfLC lc : FMap ProposalId Proposal := 
+  let all_states := FMap.values (lc_contract_state_deserialized lc) in
+  let proposals_list : list (ProposalId * Proposal):= fold_left (fun acc s => FMap.elements (proposals s) ++ acc ) all_states [] in
+  FMap.of_list proposals_list.
+
+
+Definition allProposalsWithVotes lc : FMap ProposalId Proposal :=
+ filter_FMap (fun p => 0 <? FMap.size (votes p)) (allProposalsOfLC lc).
+
+Definition gMsgSimpleFromLC (lc : LocalChain) : G (option Msg) :=
+  let proposals_map := allProposalsOfLC lc in
+  let proposals_with_votes := allProposalsWithVotes lc in
+  let acc_weight := if FMap.size (lc_account_balances lc) =? 0 then 0 else 2 in
+  let retract_vote_weight := if FMap.size proposals_with_votes =? 0 then 0 else 2 in
+  let vote_proposal_weight := if FMap.size proposals_map =? 0 then 0 else 2 in
+  (* The weights help ensure that we do not generate 'None' data. *)
+  freq [
+    (acc_weight/2, liftM transfer_ownership (gAccountAddrFromLocalChain lc)) ;
+    (1, liftM change_rules arbitrary) ;
+    (acc_weight, liftM add_member (gAccountAddrFromLocalChain lc)) ;
+    (acc_weight, liftM remove_member (gAccountAddrFromLocalChain lc)) ;
+    (* Q: How to ensure valid proposalIds? *)
+    (* A: use lc's contract_states (deserialize to Congress.State)*)
+    (vote_proposal_weight, liftM vote_for_proposal     (liftM fst (sampleFMapOpt proposals_map))) ;
+    (vote_proposal_weight, liftM vote_against_proposal (liftM fst (sampleFMapOpt proposals_map))) ;
+    (vote_proposal_weight, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ;
+    (retract_vote_weight,  liftM retract_vote          (liftM fst (sampleFMapOpt proposals_with_votes)))
+  ].
+
+Sample (@gMsgSimpleFromLC lc_initial).
+
+Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
+  fun g =>
+  l <- listOf g ;;
+  let l' := fold_left (fun acc aopt => match aopt with
+                          | Some a => a :: acc
+                          | None => acc
+                          end) l []
+  in returnGen l'.
+
+
+Fixpoint gMsgSizedFromLocalChain (lc : LocalChain) (n : nat) : G (option Msg) :=
+  match n with
+    | 0 => gMsgSimpleFromLC lc
+    | S n' => freq [
+        let weight := if FMap.size (allProposalsOfLC lc) =? 0 then 0 else 1 in
+        (weight,
+        (* recurse. Msg is converted to a SerializedType using 'serialize' *)
+        (* This makes it possible to create proposals about proposals about proposals etc... *)
+        congressActions <- optToList (@gCongressActionFromLC' lc (liftM serialize (gMsgSizedFromLocalChain lc n'))) ;;
+        returnGen match congressActions with
+        | [] => None
+        | _ =>  Some (create_proposal congressActions)
+        end) ;
+        (7, gMsgSimpleFromLC lc)
+      ]
+  end.
+
+Sample (@gMsgSizedFromLocalChain lc_initial 4).
+
+(* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
+(* Compute ((show o deserialize o serialize) ex_simple_msg). *)
+(* Compute (show ex_msg).  *)
+
+(* Generates semantically valid/well-formed messages *)
+(* Examples of validity requirements: 
+   - retract_vote can only be called on a proposal if it there exists a vote on this proposal 
+*)
+
+Definition gCongressActionSizedFromLC (lc : LocalChain)
+                                (n : nat)
+                                : G (option CongressAction) 
+                                := @gCongressActionFromLC' lc (liftM serialize (@gMsgSizedFromLocalChain lc n)).

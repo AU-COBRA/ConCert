@@ -15,6 +15,7 @@ Module FMap.
   Generalizable All Variables.
   Notation empty := stdpp.base.empty.
   Notation add := stdpp.base.insert.
+  Notation lookup := stdpp.base.lookup.
   Notation find := stdpp.base.lookup.
   Definition mem `{base.Lookup K V M} (i : K) (m : M) :=
     match base.lookup i m with
