@@ -67,33 +67,6 @@ Definition Σ' :=
 Run TemplateProgram
       (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "x"; "y"; "z"; "lookup"; "add" ] "_coq").
 
-(** A bit of additional notations required for patterns and constructors *)
-
-Notation "'Nothing'" := (pConstr Nothing [])
-                      (in custom pat at level 0).
-
-Notation "'Nothing'" := (eConstr Maybe "NothingAcorn")
-                      (in custom expr at level 0).
-
-Notation "'Just'" := (eConstr Maybe Just)
-                      (in custom expr at level 0).
-
-
-Notation "'MNil'" := (pConstr MNil [])
-                      (in custom pat at level 0).
-
-Notation "'MCons' x y z" := (pConstr MCons [x;y;z])
-                    (in custom pat at level 0,
-                        x constr at level 4,
-                        y constr at level 4,
-                        z constr at level 4).
-
-Notation "'MNil'" := (eConstr Map "MNilAcorn")
-                      (in custom expr at level 0).
-
-Notation "'MCons'" := (eConstr Map "MConsAcorn")
-                        (in custom expr at level 0).
-
 Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,
                         x constr at level 2).
@@ -117,12 +90,13 @@ Definition lookup_syn :=
      \k : 'A =>
      fix lookup (m : Map 'A 'B) : Maybe 'B :=
      case m : Map 'A ,'B return Maybe 'B of
-     | MNil -> Nothing 'B
+     | MNil -> $Nothing$Maybe 'B
      | MCons x y z -> if (f k x) then
-                       Just 'B y
+                       $Just$Maybe 'B y
                        else lookup z : Maybe 'B |].
 
 (* Compute (indexify [] lookup_syn). *)
+
 (** Unquoting the [lookup_syn] to produce a Coq function *)
 Make Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
 
@@ -134,10 +108,10 @@ Definition add_map_syn :=
      \v : 'B =>
      fix add (m : Map 'A 'B) : Map 'A 'B :=
      case m : Map 'A , 'B return Map 'A 'B of
-     | MNil -> MCons 'A 'B k v (MNil 'A 'B)
+     | MNil -> $MCons$Map 'A 'B k v ($MNil$Map 'A 'B)
      | MCons x y z -> if (f k x) then
-                       MCons 'A 'B k v z
-                     else MCons 'A 'B x y (add z) : Map 'A 'B |].
+                       $MCons$Map 'A 'B k v z
+                     else $MCons$Map 'A 'B x y (add z) : Map 'A 'B |].
 
 (* Compute (expr_to_term Σ' (indexify [] add_map_syn)). *)
 
@@ -203,7 +177,7 @@ Section MapEval.
 
   (** The syntactic representation of the following map [1 ~> 1; 0 ~> 0] *)
   Definition aMap :=
-    [| MCons {tyNat} {tyNat} 1 1 (MCons {tyNat} {tyNat} 0 0 (MNil {tyNat} {tyNat})) |].
+    [| $MCons$Map {tyNat} {tyNat} 1 1 ($MCons$Map {tyNat} {tyNat} 0 0 ($MNil$Map {tyNat} {tyNat})) |].
 
   (** Computing boolean equality with the interpreter *)
   Example compute_eqb_true :
@@ -215,7 +189,6 @@ Section MapEval.
     (expr_eval_i Σ' 10 [] (indexify [] [|{eqb_syn} 1 0 |])) =
     Ok (vConstr Bool false_name []).
   Proof. reflexivity. Qed.
-
 
   (** Computing lookup with using the interpreter for the named representation of variables *)
   Example compute_lookup_named :

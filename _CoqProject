@@ -36,6 +36,7 @@ embedding/theories/EvalE.v
 embedding/theories/Misc.v
 embedding/theories/MyEnv.v
 embedding/theories/Notations.v
+embedding/theories/Certifying.v
 embedding/theories/Wf.v
 embedding/theories/pcuic/PCUICTranslate.v
 embedding/theories/pcuic/PCUICtoTemplate.v

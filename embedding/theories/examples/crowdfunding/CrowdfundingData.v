@@ -85,21 +85,6 @@ Module Notations.
                              (in custom expr at level 0).
 
 
-  (** Patterns *)
-  Notation "'Donate'" :=
-    (pConstr Donate []) (in custom pat at level 0).
-  Notation "'GetFunds'" :=
-    (pConstr GetFunds []) ( in custom pat at level 0).
-
-  Notation "'Claim'" :=
-    (pConstr Claim []) ( in custom pat at level 0).
-
-  Notation "'Just' x" :=
-    (pConstr "Some" [x]) (in custom pat at level 0,
-                             x constr at level 4).
-  Notation "'Nothing'" := (pConstr "None" [])
-                            (in custom pat at level 0).
-
   (** Projections *)
   Notation "'balance' a" :=
     [| {eConst balance} {a} |]
@@ -139,17 +124,6 @@ Module Notations.
   Notation "'Result'" := [!"prod" State ("list" "SimpleActionBody") !]
                            (in custom type at level 2).
 
-  Notation "'Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
-                           (in custom expr at level 0,
-                               a custom expr at level 1).
-
-  Notation "'Pair' a b" := [| {eConstr "prod" "pair"}
-                               {eTy (tyInd State)}
-                               {eTy actions_ty} {a} {b} |]
-                           (in custom expr at level 0,
-                               a custom expr at level 1,
-                               b custom expr at level 1).
-
 
   Definition mk_res a b := [| {eConstr "option" "Some"}
                                 {eTy [! Result !]}
@@ -159,9 +133,6 @@ Module Notations.
       (in custom expr at level 2,
           a custom expr at level 4,
           b custom expr at level 4).
-
-  Notation "'Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
-                      (in custom expr at level 0).
 
   Notation "'mkState' a b" :=
     [| {eConstr State "mkState_coq"} {a} {b} |]

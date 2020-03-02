@@ -14,7 +14,7 @@ Module Counter.
 
   (** The contract's state. We use the product type directly, because records are not yet supported by extraction *)
   (* TODO: make address a separate data type (say, a wrapper around nat) to be able to recognise it in the extraction *)
-  Notation "'CounterState'" := [! Money * Address !] (in custom type).
+  Notation "'CounterState'" := [! Money × Address !] (in custom type).
 
   Notation "'balance' a" :=
     [| first Money Address {a} |]
@@ -25,7 +25,7 @@ Module Counter.
       (in custom expr at level 0).
 
   Definition update_balance_syn :=
-    [| \st : Money * Address => \new_balance : Money =>
+    [| \st : Money × Address => \new_balance : Money =>
        Pair Money Address (balance st + new_balance) (owner st) |].
 
   Notation "'update_balance' a b" :=
@@ -41,22 +41,15 @@ Module Counter.
        Inc [Money,_]
      | Dec [Money,_] \].
 
-  Notation "'Inc' n" :=
-    (pConstr Inc [n]) (in custom pat at level 0,
-                          n constr at level 4).
-  Notation "'Dec' n" :=
-    (pConstr Dec [n]) (in custom pat at level 0,
-                          n constr at level 4).
-
   (** The main functionality *)
   Definition counter_syn :=
     [| \msg : msg => \st : CounterState =>
-       case msg : msg return Maybe (List "SimpleActionBody") * CounterState of
-         | Inc n -> Just ((List "SimpleActionBody") * CounterState)
+       case msg : msg return Maybe ((List "SimpleActionBody") ×  CounterState) of
+         | Inc n -> $Just$Maybe [: List "SimpleActionBody" × CounterState]
                         (Pair (List "SimpleActionBody") CounterState
                               (Nil "SimpleActionBody")
                               (update_balance st n))
-         | Dec n -> Nothing (List "SimpleActionBody") * CounterState |].
+         | Dec n -> $Nothing$Maybe [: List "SimpleActionBody" × CounterState] |].
 
   (** Packing together the data type definitions and functions *)
   Definition CounterModule : LiquidityModule :=
