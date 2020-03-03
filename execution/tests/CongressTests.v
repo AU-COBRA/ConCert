@@ -191,7 +191,7 @@ Definition check_state_proposals_proposed_in_valid :=
   (gLocalChainContext 4)
   (fun ctx => gLocalChainSized 4 ctx)
   (fun ctx ch => 
-    let env _= ??????????????? in
+    env <- arbitrary ;; (* no generator for environments yet *)
     actions <- listOf (gActionOfCongress ctx 2) ;;
     mkChainStateGen LocalChainBase env  actions
   )
@@ -218,16 +218,3 @@ Definition check_state_proposals_proposed_in_valid :=
 (* QuickChick check_congress_txs_well_behaved_P. *)
 (* coqtop-stdout:*** Gave up! Passed only 0 tests
 Discarded: 20000 *)
-
-      (* (fun contract => 
-        existsP 
-          (
-            state <- @gStateSized ctx 0 2 ;;
-            infos <- listOf gContractCallInfo ;;
-            returnGen (state, infos)
-          ) 
-        (fun state_infos_pair =>
-            match (contract_state cstate caddr) with
-            | Some cstate' => SerializedType.eqb (serialize cstate') (serialize (fst state_infos_pair))
-            | None => false
-          end) *)

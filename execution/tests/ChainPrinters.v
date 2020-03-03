@@ -31,6 +31,17 @@ Open Scope string_scope.
 Derive Show for positive.
 Derive Show for SerializedType.
 
+Instance showLCB : Show LocalChainBuilder :=
+  {| show a := "LocalChainBuilder{...}" |}.
+
+
+Instance showLocalChainBuilderDepthFirst {n : N} : Show (LocalChainBuilderDepthFirst n) :=
+  {| show a := "LocalChainBuilderDepthFirst{...}" |}.
+
+Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
+  {| show a := "ChainBuilderType{...}" |}.
+
+
 Instance showBaseGens {BaseTypes : ChainBase} : Show (ChainContext BaseTypes)  :=
   {|
     show bg := "ChainContext{...}"
@@ -93,9 +104,9 @@ Definition ex_val := ([[true;false];[true;true];[false];[]], 2%Z).
 
 Instance showSerializedValue : Show SerializedValue := 
 {|
-  show v := "SerializedValue{" 
+  show v := "SerializedValue{ ... }" 
   (* ++ show (ser_value_type v) ++ sep *)
-  ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}" 
+  (* ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}"  *)
 |}.
 
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
@@ -144,9 +155,25 @@ show cctx := "ContractCallContext{"
              ++ "ctx_amount: " ++ show (@ctx_amount LocalChainBase cctx) ++ "}"
 |}.
 
-Instance showLocalAction : Show (@Action LocalChainBase) :=
+
+Instance showActionBody  : Show ActionBody :=
 {|
-  show a := "Action{" ++ "}"
+  show a := match a with
+    | act_transfer addr amount => 
+      "(act_transfer " ++ show addr ++ sep ++ " " ++ show amount ++ ")" 
+    | act_call addr amount ser_value => 
+      "(act_call " ++ show addr ++ sep ++ " " ++ show amount ++ sep ++ " " ++ show ser_value ++ ")"
+    | act_deploy amount contract ser_value =>
+      "(act_deploy " ++ show amount ++ sep ++ " " ++ show ser_value ++ ")"
+    end
+|}. 
+
+
+Instance showLocalAction `{Show ActionBody} : Show (@Action LocalChainBase) :=
+{|
+  show a := "Action{"
+            ++ "act_from: " ++ show (act_from a) ++ sep
+            ++ "act_body: " ++ show (act_body a) ++ "}"
 |}. 
 
 Instance showChainState : Show (@ChainState LocalChainBase) :=

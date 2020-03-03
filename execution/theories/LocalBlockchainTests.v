@@ -17,7 +17,7 @@ From Coq Require Import ZArith.
 Import ListNotations.
 
 Section LocalBlockchainTests.
-  Let AddrSize := (2^128)%N.
+  Let AddrSize := (2^8)%N.
   Instance Base : ChainBase := LocalChainBase AddrSize.
   Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
 
@@ -78,6 +78,8 @@ Section LocalBlockchainTests.
     | tx :: _ => tx_to tx
     | _ => person_1
     end.
+
+  Compute (add_block chain4 []).
 
   Compute (account_balance chain4 person_1).
   Compute (account_balance chain4 creator).

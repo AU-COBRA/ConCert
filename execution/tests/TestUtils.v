@@ -135,8 +135,35 @@ Definition gAccountAddrFromLocalChain lc : G (option Address) :=
   | None => None
   end. 
 
+Fixpoint remove_multipe_FMap {A B : Type}                           
+                            `{countable.Countable A}
+                            `{base.EqDecision A}
+                             (m : FMap A B)
+                             (ids_to_remove : list A)
+                             : FMap A B :=
+  match ids_to_remove with
+  | id::ids => remove_multipe_FMap (FMap.remove id m) ids
+  | [] => m
+  end.
+
+Definition gAccountAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
+  let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
+  p <- sampleFMapOpt acc_bals_sub ;;
+  returnGen match p with
+  | Some (addr, _) => Some addr
+  | None => None
+  end. 
+
 Definition gContractAddrFromLocalChain lc : G (option Address) :=
   p <- sampleFMapOpt (@lc_contracts AddrSize lc) ;;
+  returnGen match p with
+  | Some (addr, _) => Some addr
+  | None => None
+  end. 
+
+Definition gContractAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
+  let contracts_sub := remove_multipe_FMap (@lc_contracts AddrSize lc) addrs in
+  p <- sampleFMapOpt contracts_sub ;;
   returnGen match p with
   | Some (addr, _) => Some addr
   | None => None
@@ -145,8 +172,16 @@ Definition gContractAddrFromLocalChain lc : G (option Address) :=
 Definition gAccountBalanceFromLocalChain lc : G (option (Address * Amount)) :=
   sampleFMapOpt (@lc_account_balances AddrSize lc).
 
+Definition gAccountBalanceFromLCWithoutAddrs lc addrs : G (option (Address * Amount)) :=
+  let bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
+  sampleFMapOpt bals_sub.
+
 Definition gContractSateFromLocalChain lc : G (option (Address * SerializedValue)) :=
   sampleFMapOpt (@lc_contract_state AddrSize lc).
+
+Definition gContractSateFromLCWithoutAddrs lc addrs : G (option (Address * SerializedValue)) :=
+  let states_sub := remove_multipe_FMap (@lc_contract_state AddrSize lc) addrs in
+  sampleFMapOpt states_sub.
 
 
 Record ChainContext (BaseTypes : ChainBase) := 
