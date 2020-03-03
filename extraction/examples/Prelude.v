@@ -4,7 +4,7 @@
 
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast CustomTactics Notations
-     PCUICTranslate PCUICtoTemplate.
+     PCUICTranslate PCUICtoTemplate Utils.
 Require Import List.
 
 From MetaCoq.Template Require Import All.
@@ -20,6 +20,46 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
+(** ** Wrappers for some primitive types *)
+
+Run TemplateProgram
+      (mkNames ["address"; "time"; "ContractAddr"; "UserAddr"; "Time" ; "Money" ] "_coq").
+
+
+Definition address_ty :=
+  [\ data address =
+      ContractAddr [Nat,_]
+    | UserAddr [Nat, _] \].
+
+Make Inductive (global_to_tc address_ty).
+
+Definition time_ty :=
+  [\ data time = Time [Nat,_] \].
+
+Make Inductive (global_to_tc time_ty).
+
+Definition money := "Coq.Numbers.BinNums.Z".
+
+
+(** Comparison for addresses and time *)
+
+Definition ltb_time (t1 t2 : time_coq) :=
+  let '(Time_coq n1) := t1 in
+    let '(Time_coq n2) := t2 in
+    n1 <? n2.
+
+Definition leb_time (t1 t2 : time_coq) :=
+  let '(Time_coq n1) := t1 in
+  let '(Time_coq n2) := t2 in
+  n1 <=? n2.
+
+Definition eqb_addr (a1 a2 : address_coq) :=
+  match a1,a2 with
+  | ContractAddr_coq n1, ContractAddr_coq n2 => Nat.eqb n1 n2
+  | UserAddr_coq n1, UserAddr_coq n2 => Nat.eqb n1 n2
+  | _, _ => false
+  end.
+
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 Section Maps.
   Open Scope nat.
@@ -27,22 +67,22 @@ Section Maps.
   Definition addr_map_acorn :=
     [\ data "addr_map" =
           "mnil" [_]
-        | "mcons" [Nat, "Z", "addr_map",_] \].
+        | "mcons" [address, money, "addr_map",_] \].
 
   Make Inductive (global_to_tc addr_map_acorn).
 
-  Fixpoint lookup_map (m : addr_map) (key : nat) : option Z :=
+  Fixpoint lookup_map (m : addr_map) (key : address_coq) : option Z :=
     match m with
     | mnil => None
     | mcons k v m' =>
-      if (Nat.eqb key k) then Some v else lookup_map m' key
+      if (eqb_addr key k) then Some v else lookup_map m' key
     end.
 
   (* Ported from FMapWeaklist of StdLib *)
-  Fixpoint add_map (k : nat) (x : Z) (s : addr_map) : addr_map :=
+  Fixpoint add_map (k : address_coq) (x : Z) (s : addr_map) : addr_map :=
   match s with
    | mnil => mcons k x mnil
-   | mcons k' y l => if Nat.eqb k k' then mcons k x l else mcons k' y (add_map k x l)
+   | mcons k' y l => if eqb_addr k k' then mcons k x l else mcons k' y (add_map k x l)
   end.
 
   Definition inmap_map k m := match lookup_map m k with
@@ -53,19 +93,19 @@ Section Maps.
   Lemma lookup_map_add k v m : lookup_map (add_map k v m) k = Some v.
   Proof.
     induction m.
-    + simpl. now rewrite PeanoNat.Nat.eqb_refl.
-    + simpl. destruct (k =? n) eqn:Heq.
-      * simpl. now rewrite PeanoNat.Nat.eqb_refl.
+    + simpl. destruct k;simpl; now rewrite PeanoNat.Nat.eqb_refl.
+    + simpl. destruct (eqb_addr k a) eqn:Heq.
+      * destruct k;simpl;now rewrite PeanoNat.Nat.eqb_refl.
       * simpl. now rewrite Heq.
   Qed.
 
-  Fixpoint to_list (m : addr_map) : list (nat * Z)%type:=
+  Fixpoint to_list (m : addr_map) : list (address_coq * Z)%type:=
     match m with
     | mnil => nil
     | mcons k v tl => cons (k,v) (to_list tl)
     end.
 
-  Fixpoint of_list (l : list (nat * Z)) : addr_map :=
+  Fixpoint of_list (l : list (address_coq * Z)) : addr_map :=
     match l with
     | nil => mnil
     | cons (k,v) tl => mcons k v (of_list tl)
@@ -91,7 +131,7 @@ Section Maps.
   Proof.
     revert k v p.
     induction m;intros;tryfalse;simpl in *.
-    inv_andb H. destruct (_ =? _);auto.
+    inv_andb H. destruct (eqb_addr _ _);auto.
     * now inversion H0;subst.
     * easy.
   Qed.
@@ -148,7 +188,12 @@ Notation "a <= b" := [| {eConst "Coq.ZArith.BinInt.Z.leb"} {a} {b} |]
 Notation "a <n b" := [| {eConst "PeanoNat.Nat.ltb"} {a} {b} |]
                       (in custom expr at level 0).
 Notation "a <=n b" := [| {eConst "PeanoNat.Nat.leb"} {a} {b} |]
+                        (in custom expr at level 0).
+Notation "a <t b" := [| {eConst "ltb_time"} {a} {b} |]
                       (in custom expr at level 0).
+Notation "a <=t b" := [| {eConst "leb_time"} {a} {b} |]
+                      (in custom expr at level 0).
+
 
 Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
 Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
@@ -169,16 +214,6 @@ Notation "~ a" := [| {eConst "negb"} {a} |]
 
 Definition true_name := "true".
 Definition false_name := "false".
-Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
-Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
-
-Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
-Notation "'Cons' y z" := (pConstr "cons" [y;z])
-                           (in custom pat at level 0,
-                               y constr at level 4,
-                               z constr at level 4).
-
-
 Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
 Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
 

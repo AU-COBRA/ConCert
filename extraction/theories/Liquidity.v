@@ -1,4 +1,4 @@
-From Coq Require Import List String Basics ZArith.
+From Coq Require Import List String Basics ZArith Bool.
 From ConCert Require Import Ast
      Notations Utils Prelude SimpleBlockchain MyEnv.
 
@@ -6,14 +6,25 @@ Import ListNotations.
 
 Open Scope string.
 
+(* Names for two mandatory argument for the main function. Used when generating code for [wrapper] and for the entry point *)
+Definition MSG_ARG := "msg".
+Definition STORAGE_ARG := "st".
+
 Record LiquidityModule :=
   { datatypes : list global_dec ;
     storage : type ;
     message : type ;
     functions : list (string * expr) ;
+    (* the [init] function must return [storage]  *)
+    init : expr;
     (* the [main] function must be of type
        message * storage -> option (list SimpleActionBody * storage) *)
-    main: string ;}.
+    main: string;
+    (* extra arguments to the main function for using in the wrapper;
+       note that two two mandatory arguments (MSG_ARG : message) and (STORAGE_ARG : storage)
+       should not be the list *)
+    main_extra_args : list string;
+  }.
 
 Definition newLine := String (Ascii.Ascii false true false true false false false false) EmptyString.
 Definition inParens s := "(" ++ s ++ ")".
@@ -30,7 +41,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   | tyForall x b => "forall " ++ "'" ++ x ++ liquidifyTy TT b
   (* is it a product? *)
   | tyApp (tyApp (tyInd "prod") A) B =>
-    liquidifyTy TT A ++ " * " ++ liquidifyTy TT B
+    inParens (liquidifyTy TT A ++ " * " ++ liquidifyTy TT B)
   | tyApp ty1 ty2 =>
     inParens (liquidifyTy TT ty1 ++ " " ++ liquidifyTy TT ty2)
   | tyVar x => x
@@ -43,8 +54,15 @@ Definition printRecord (TT : env string) (c : constr) :=
   let tmp := map (fun '(nm, ty) => ofType (from_option nm "") (liquidifyTy TT ty)) args in
   inCurly (sep " ; " tmp).
 
+Definition is_nil {A} (l : list A) : bool :=
+  match l with
+  | nil => true
+  | cons _ _ => false
+  end.
+
 Definition printCtorTy (TT : env string) (args : list (option ename * type)) :=
-  sep " * " (map (compose (liquidifyTy TT) snd) args).
+  if is_nil args then ""
+  else " of " ++ sep " * " (map (compose (liquidifyTy TT) snd) args).
 
 Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
   match gd with
@@ -54,14 +72,16 @@ Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
       from_option (head (map (printRecord TT) ctors)) "Not a Record!"
     else
       fold_right
-        (fun '(nm, ctor_info) s => "| " ++ nm ++ " of "
-                                     ++ printCtorTy TT ctor_info ++ newLine ++ s) "" ctors
+        (fun '(nm, ctor_info) s => "| " ++ nm  ++ printCtorTy TT ctor_info ++ newLine ++ s) "" ctors
   end.
 
 Definition printPat (p : pat) :=
   (* pairs don't need a constructor name *)
   let name := if String.eqb (pName p) "pair" then "" else pName p in
-  name ++ " " ++ inParens (sep "," (pVars p)).
+  match (pVars p) with
+  | [] => name
+  | _ :: _ => name ++ " " ++ inParens (sep "," (pVars p))
+  end.
 
 Definition printBranches (bs : list (string * string)) :=
   fold_right (fun '(p,e) s => "|" ++ p ++ " -> " ++ e ++ newLine ++ s) "" bs.
@@ -106,6 +126,13 @@ Fixpoint erase (e : expr) : expr :=
   | eTy x => e
   end.
 
+
+Definition isTruePat (p : pat) :=
+  let '(pConstr nm v) := p in nm =? "true".
+
+Definition isFalsePat (p : pat) :=
+  let '(pConstr nm v) := p in nm =? "false".
+
 (** We assume that before printing the Liquidity code [erase] has been applied to the expression *)
 
 Definition liquidify (TT TTty : env string ) : expr -> string :=
@@ -118,64 +145,145 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
   | eTyLam x b => go b
   | eLetIn x e1 _ e2 => "let " ++ x ++ " = " ++ go e1 ++ " in " ++ go e2
   | eApp e1 e2 =>
+    let default_app := go e1 ++ " " ++ inParens (go e2) in
     match e1 with
-    (* is it a pair ? *)
     | eApp (eConstr _ ctor) e1' =>
-      if String.eqb ctor "pair" then inParens (go e1' ++ ", " ++ go e2)
-      else go e1 ++ " " ++ inParens (go e2)
-    | _ => go e1 ++ " " ++ inParens (go e2)
+      (* is it a pair? *)
+      if ctor =? "pair" then inParens (go e1' ++ ", " ++ go e2)
+      else
+      (* is it a transfer? *)
+        if String.eqb "Act_transfer" ctor
+        then "Contract.call " ++ go e1' ++ " " ++ go e2 ++ " "
+                              ++ "default" ++ " ()"
+        else default_app
+    | eConst cst =>
+      (* is it a first projection? *)
+      if cst =? "fst" then go e2 ++ "." ++ inParens ("0")
+      else
+        (* is it a second projection? *)
+        if cst =? "snd" then go e2 ++  "." ++ inParens ("1")
+      else default_app
+    | _ => default_app
     end
   | eConstr _ ctor =>
-    (* is is list constructor [nil]? *)
+    (* is it a list constructor [nil]? *)
     (* TODO: add [cons] *)
     if String.eqb "nil" ctor then "[]"
-    else ctor
+    else (* is it an ampty map? *)
+      if String.eqb "mnil" ctor then "Map []"
+      else
+        (* Is it zero amount? *)
+        if String.eqb "Z0" ctor then "0DUN" else
+          ctor
   | eConst cst =>
     match look TT cst with
     | Some op => op
     | _ => cst
     end
+      (* Handling if-then-else *)
+  | eCase ("bool", _) _ d (b1 :: b2 :: []) =>
+    if (isTruePat (fst b1)) && (isFalsePat (fst b2)) then
+      "if " ++ inParens (go d)
+            ++ " then " ++ (go (snd b1))
+            ++ " else " ++ (go (snd b2))
+    else if (isTruePat (fst b2)) && (isFalsePat (fst b1)) then
+        "if " ++ inParens (go d)
+              ++ " then " ++ (go (snd b2))
+              ++ " else " ++ (go (snd b1))
+         else "ERROR: wrong mathing on bool"
   | eCase _ _ d bs =>
     let sbs := map (fun '(p,e) => (printPat p, go e)) bs in
-    "match " ++ go d ++ " with " ++ printBranches sbs
+    "match " ++ go d ++ " with " ++ newLine ++ printBranches sbs
   | eFix f x _ _ b => "let rec " ++ f ++ " " ++ x ++ " = " ++ go b
   | eTy x => ""
   end.
 
+Fixpoint to_glob_def (e : expr) : list (ename * type) * expr :=
+  match e with
+  | eRel _ => ([],e)
+  | eVar _ => ([],e)
+  | eLambda x ty b => let (vars, e') := to_glob_def b in
+                     ((x,ty) :: vars, e')
+  | eTyLam _ _ => ([],e)
+  | eLetIn x x0 x1 x2 => ([],e)
+  | eApp x x0 => ([],e)
+  | eConstr x x0 => ([],e)
+  | eConst x => ([],e)
+  | eCase x x0 x1 x2 => ([],e)
+  | eFix x x0 x1 x2 x3 => ([],e)
+  | eTy x => ([],e)
+  end.
+
 Definition LiquidityPrelude :=
-       "let[@inline] fst (p : 'a * 'b) : 'a = p.(0)"
+       "let[@inline] addN (n : nat) (m : nat) = n + m"
     ++ newLine
-    ++ "let[@inline] snd (p : 'a * 'b) : 'b = p.(1)"
+    ++ "let[@inline] addTez (n : tez) (m : tez) = n + m"
     ++ newLine
-    ++ "let[@inline] addN (n : nat) (m : nat) = n + m"
+    ++ "let[@inline] andb (a : bool ) (b : bool ) = a & b"
     ++ newLine
-    ++ "let[@inline] addTez (n : tez) (m : tez) = n + m".
+    ++ "let[@inline] lebN (a : nat ) (b : nat ) = a <= b"
+    ++ newLine
+    ++ "let[@inline] ltbN (a : nat ) (b : nat ) = a < b"
+    ++ newLine
+    ++ "let[@inline] lebTez (a : tez ) (b : tez ) = a<=b"
+    ++ newLine
+    ++ "let[@inline] ltbTez (a : tez ) (b : tez ) = a<b"
+    ++ newLine
+    ++ "let[@inline] eqN (a : nat ) (b : nat ) = a = b"
+    ++ newLine
+    ++ "let[@inline] eqb_addr (a1 : address) (a2 : address) = a1 = a2"
+    ++ newLine
+    ++ "let[@inline] eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2"
+    ++ newLine
+    ++ "let[@inline] leb_time (a1 : timestamp) (a2 : timestamp) = a1 <= a2"
+    ++ newLine
+    ++ "let[@inline] ltb_time (a1 : timestamp) (a2 : timestamp) = a1 < a2"
+    ++ newLine
+    ++ "let[@inline] cons x xs = x :: xs".
 
-Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type) (contract : string): string :=
+Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type)
+           (extra_args : list string) (contract : string): string :=
   let mainDomainType :=
-      inParens (ofType "param" (liquidifyTy TTty msgTy))
+      inParens (ofType MSG_ARG (liquidifyTy TTty msgTy))
                ++ inParens (ofType "st" (liquidifyTy TTty storageTy)) in
+  let _extra_args := sep " " extra_args in
   "let wrapper "
-        ++ mainDomainType
-        ++ " = "
-        ++ "match " ++ contract ++ " param st" ++ " with"
-        ++ "| Some v -> v"
-        ++ "| None -> failwith ()".
+    ++ mainDomainType
+    ++ " = "
+    ++ "match " ++ contract ++ " " ++ _extra_args ++ " " ++ sep " " [MSG_ARG;STORAGE_ARG] ++ " with"
+    ++ "| Some v -> v"
+    ++ "| None -> failwith ()".
 
-Definition eraseLiq (TT TTty: env string) := compose (liquidify TT TTty) erase.
+(* NOTE: Polimoprhic definitions might not behave well in Liquidity *)
+Definition print_glob TT TTty (def_clause : string) (def_name : string) (gd : (list (ename * type)) * expr) : string :=
+  def_clause ++ " " ++ def_name ++ " "
+             ++ sep " " (map (fun p => inParens (ofType (fst p) (liquidifyTy TTty (snd p)))) (fst gd))
+             ++" = " ++ liquidify TT TTty (snd gd).
+
+
+Definition print_glob_def TT TTty := print_glob TT TTty "let".
+Definition print_glob_init TT TTty := print_glob TT TTty "let%init".
+
+Definition printLiqDef (TT TTty: env string) (def_name : string) (e : expr) :=
+  print_glob_def TT TTty def_name (to_glob_def (erase e)).
+
+Definition printLiqInit (TT TTty: env string) (def_name : string) (e : expr) :=
+  print_glob_init TT TTty def_name (to_glob_def (erase e)).
 
 Definition liquidifyModule (TT TTty: env string) (module : LiquidityModule) :=
   let dt := sep newLine (map (liquidifyInductive TTty) module.(datatypes)) in
   let st := liquidifyTy TTty module.(storage) in
-  let fs := sep newLine (map (fun '(defName, body) => "let " ++ defName ++ " = " ++ eraseLiq TT TTty body) module.(functions)) in
-  let mainDomainType := inParens (ofType "param" (liquidifyTy TTty module.(message)))
-        ++ inParens (ofType "st" (liquidifyTy TTty module.(storage))) in
-  let wrapper := printWrapper TTty module.(message) module.(storage) module.(main) in
-  let main := "let%entry main " ++ mainDomainType ++ " = wrapper param st" in
+  let fs := sep (newLine ++ newLine) (map (fun '(defName, body) => printLiqDef TT TTty defName body) module.(functions)) in
+  let mainDomainType := inParens (ofType MSG_ARG (liquidifyTy TTty module.(message)))
+        ++ inParens (ofType STORAGE_ARG (liquidifyTy TTty module.(storage))) in
+  let wrapper := printWrapper TTty module.(message) module.(storage) module.(main_extra_args) module.(main) in
+  let init := printLiqInit TT TTty "storage" module.(init) in
+  let main := "let%entry main " ++ mainDomainType ++ " = wrapper " ++ sep " " [MSG_ARG;STORAGE_ARG] in
   newLine
     ++ LiquidityPrelude ++ newLine
     ++ dt ++ newLine
     ++ "type storage = " ++ st ++ newLine
+    ++ init ++ newLine
     ++ fs ++ newLine
     ++ wrapper ++ newLine
     ++ main.
