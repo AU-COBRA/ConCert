@@ -79,8 +79,6 @@ Section LocalBlockchainTests.
     | _ => person_1
     end.
 
-  Compute (add_block chain4 []).
-
   Compute (account_balance chain4 person_1).
   Compute (account_balance chain4 creator).
   Compute (account_balance chain4 congress_1).
