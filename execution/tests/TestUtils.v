@@ -22,6 +22,10 @@ Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst Add
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 
+Arguments SerializedValue : clear implicits.
+Arguments deserialize : clear implicits.
+Arguments serialize : clear implicits.
+
 
 (* Misc utility functions *)
 Open Scope list_scope.
@@ -79,8 +83,11 @@ Definition empty_str : string := "".
 Definition sep : string := ", ".
 Derive Show for unit.
 
-Definition deserialize_to_string (s : SerializedValue) : string := 
-  match deserialize s with
+Definition deserialize_to_string {ty : Type} 
+                                `{Serializable ty}
+                                `{Show ty} 
+                                 (s : SerializedValue) : string := 
+  match deserialize ty _ s with
   | Some v => show v
   | None => "?"
   end.
@@ -100,16 +107,21 @@ Close Scope string_scope.
 
 Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSize lc)).
 Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
+Definition lc_account_balance lc addr : option Amount := (FMap.find addr (@lc_account_balances AddrSize lc)).
 
 Definition lc_contract_state_deserialized lc : FMap Address Congress.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left 
                 (fun acc p => 
-                  match deserialize (snd p) with
+                  match deserialize Congress.State _ (snd p) with
                   | Some state => (fst p, state) :: acc
                   | None => acc
                   end)  
                 els_list []).
+
+
+Definition lc_contract_owners : LocalChain -> FMap Address Address := 
+  (map_values_FMap owner) o lc_contract_state_deserialized.
 
 (* Utils for Generators *)
 
@@ -124,12 +136,23 @@ Definition sampleFMapOpt {A B : Type}
   | [] => returnGen None
   end.
 
+Definition sampleFMapOpt_filter {A B : Type}                           
+                        `{countable.Countable A}
+                        `{base.EqDecision A}
+                         (m : FMap A B)
+                         (f : (A * B) -> bool) 
+                         : G (option (A * B)) :=
+  let els := FMap.elements m in
+  match els with
+  | e :: _ => liftM Some (elems_ e (List.filter f els))
+  | [] => returnGen None
+  end.
  
 Definition gContractFromLocalChain lc : G (option (Address * WeakContract)) :=
   sampleFMapOpt (@lc_contracts AddrSize lc).
 
 Definition gAccountAddrFromLocalChain lc : G (option Address) :=
-  p <- sampleFMapOpt (@lc_account_balances AddrSize lc) ;;
+  p <- sampleFMapOpt_filter (@lc_account_balances AddrSize lc) (fun p => negb (address_is_contract (fst p))) ;;
   returnGen match p with
   | Some (addr, _) => Some addr
   | None => None
@@ -146,9 +169,17 @@ Fixpoint remove_multipe_FMap {A B : Type}
   | [] => m
   end.
 
-Definition gAccountAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
+Definition gAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
   let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
   p <- sampleFMapOpt acc_bals_sub ;;
+  returnGen match p with
+  | Some (addr, _) => Some addr
+  | None => None
+  end. 
+
+Definition gAccountAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
+  let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
+  p <- sampleFMapOpt_filter acc_bals_sub (fun p => negb (address_is_contract (fst p)));;
   returnGen match p with
   | Some (addr, _) => Some addr
   | None => None
@@ -262,7 +293,14 @@ Fixpoint vectorOfCount {A : Type}
     end
   end.
 
-
+Fixpoint shrinkListTo {A : Type} maxSize (l : list A) : list A:=
+  match l with
+  | [] => []
+  | x::xs => match maxSize with
+            | 0 => []
+            | S maxSize' => x :: (shrinkListTo maxSize' xs)
+            end
+  end.
 
 Fixpoint gInterp_type (t : SerializedType) : G (interp_type t) := 
   match t with

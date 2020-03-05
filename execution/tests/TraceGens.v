@@ -16,9 +16,10 @@ From ExtLib.Structures Require Import Functor Applicative.
 
 From ConCert Require Import Blockchain.
 From ConCert Require Import LocalBlockchain.
-From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import LocalBlockchainTests.
+From ConCert Require Import Containers.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters CongressGens.
@@ -90,18 +91,26 @@ Definition c2 := unpack_option
                       (next_header_lc c1) 
                     [build_act creator (act_transfer person_1 10)]).
 Definition c3 :=  unpack_option (add_block_exec true c2 (next_header_lc c2) [build_act person_1 deploy_congress]).
-Compute (show c3).
+Compute (show (lc_account_balances c1)).
+Compute (show (lc_account_balances c2)).
+Compute (show (lc_account_balances c3)).
+Compute (show (map fst (FMap.elements (lc_contracts c3)))).
+Compute (show (lc_contract_owners c3)).
+Compute (show (lc_contract_state c3)).
 
 Definition my_add_block c acts := (add_block_exec true c (next_header_lc c) acts).
 
+Extract Constant defNumTests => "5000".
+
+Open Scope bool_scope.
+
 QuickChick (forAll 
-  (optToVector 10 (gActionOfCongressFromLC c1 3))
-  (fun actions => isSome (my_add_block c1 actions))).
+  (optToVector 5 (gActionOfCongressFromLC c3 3))
+  (fun actions => isSome (my_add_block c1 actions) && (0 <? length actions))).
 (* woop woop - it works!:
     coqtop-stdout:+++ Passed 10000 tests (0 discards)
 *)
 
-Open Scope bool_scope.
 Definition add_block_actions_succeeds_P c_opt actions_opt :=
   isSomeCheck c_opt
   (fun c => 
@@ -134,6 +143,48 @@ Section Trees.
    | node : V -> tree -> tree -> tree.
   Definition empty_tree : tree := leaf.
 End Trees.
+Arguments leaf {V}.
+Arguments node {V} _ _ _.
+
+Fixpoint allPaths_fix {V : Type} (t : tree V) (acc : list (list V)) : list (list V) :=
+let call_rec n v := match acc with
+  | [] => allPaths_fix n [[v]]
+  | _ => allPaths_fix n (map (fun l => l ++ [v]) acc) 
+  end in
+match t with
+| leaf => acc
+| node v 
+       (node _ _ _ as l) 
+       leaf => call_rec l v
+| node v 
+       leaf 
+       (node _ _ _ as r) => call_rec r v
+| node v 
+       (node _ _ _ as l) 
+       (node _ _ _ as r) => call_rec l v ++ call_rec r v
+| node v leaf leaf => (map (fun l => l ++ [v]) acc) 
+end.
+
+Definition allPaths {V : Type} (t : tree V) : list (list V):= allPaths_fix t [[]].
+
+Example ex_tree : tree nat := node 1 (node 2 leaf leaf) (node 3 (node 4 leaf leaf) (node 5 leaf leaf)).
+Compute (show (allPaths ex_tree)).
+Derive Arbitrary for tree.
+Open Scope string_scope.
+Instance showTree {A} `{_ : Show A} : Show (tree A) :=
+  {| show t := let fix aux (indent : string) t :=
+       match t with
+         | leaf => "leaf"
+         | node x l r =>
+                      "(node" ++ nl 
+                      ++ indent ++ "(" ++ show x ++ ")" ++ nl
+                      ++ indent ++ aux (indent ++ "  ") l ++ nl 
+                      ++ indent ++  aux (indent ++ "  ") r ++ ")"
+       end
+     in nl ++ "Begin Tree:" ++ nl ++ (aux "  " t) ++ nl ++ "End Tree."
+  |}.
+Close Scope string_scope.
+Sample (t <- @arbitrarySized (tree nat) _ 4  ;; returnGen (t, allPaths t)).
 
 Inductive LocalChainStep {AddrSize : N} : Type :=
 | step_add_block : forall (prev_chain : @LocalChain AddrSize) 
@@ -160,20 +211,27 @@ Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) :=
   | None => None
   end.
 
-Arguments leaf {V}.
-Arguments node {V} _ _ _.
 (* Example t : tree LocalChainStep := node (mk_basic_step_add_block lc_initial) 
               (node (mk_basic_step_action c1 []) leaf leaf)
               leaf. *)
-
 Open Scope string_scope.
-Instance showLocalChainStep : Show LocalChainStep :=
+Instance showLocalChainStepVerbose : Show LocalChainStep :=
 {|
   show step := match step with
   | step_add_block prev header next => 
     "step_add_block{ prev_lc: " ++ show prev ++ sep ++ "header: " ++ show header ++ sep ++ "next_lc:" ++ show next ++ "}"  
   | step_action prev header next acts =>
     "step_action{ prev_lc: " ++ show prev ++ sep ++ "header: " ++ show header ++ sep ++ "next_lc:" ++ show next ++ sep ++ "acts: " ++ show acts ++ "}"
+  end
+|}.
+
+Instance showLocalChainStep {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
+{|
+  show step := match step with
+  | step_add_block prev header next => 
+    "step_add_block{ ... }"  
+  | step_action prev header next acts =>
+    "step_action{" ++ show acts ++ "}"
   end
 |}.
 
@@ -189,41 +247,57 @@ Instance showLocalChainStepWithOnlyName {AddrSize : N} : Show (@LocalChainStep A
 
 Definition lctracetree := tree (@LocalChainStep AddrSize).
 
-Instance showTree {A} `{_ : Show A} : Show (tree A) :=
-  {| show t := let fix aux (indent : string) t :=
-       match t with
-         | leaf => "Leaf"
-         | node x l r =>
-                      "(Node" ++ nl 
-                      ++ indent ++ "(" ++ show x ++ ")" ++ nl
-                      ++ indent ++ aux (indent ++ "  ") l ++ nl 
-                      ++ indent ++  aux (indent ++ "  ") r ++ ")"
-       end
-     in nl ++ "Tree:" ++ nl ++ (aux "  " t)
-  |}.
-
 Instance showLctracetree : Show lctracetree :=
 {|
   show t := @show _ (@showTree _ showLocalChainStep) t 
 |}.
 
-Fixpoint glctracetree_fix (prev_lc : LocalChain) (height : nat) : G lctracetree :=
+
+Fixpoint glctracetree_fix (prev_lc : LocalChain)
+                          (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
+                          (height : nat) : G lctracetree :=
   match height with
   | 0 | 1 => returnGen leaf
   | S height => 
-    lc_opt <- freq [
-      (1, liftM (mk_basic_step_action prev_lc) (optToVector 2 (gActionOfCongressFromLC prev_lc 2))) ;
-      (1, returnGen (mk_basic_step_add_block prev_lc)) 
+    lc_opt <- backtrack [
+      (10, acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;;
+          match acts with
+          | [] => returnGen None
+          | _ => returnGen (mk_basic_step_action prev_lc acts)
+          end)
+      (* (1, returnGen (mk_basic_step_add_block prev_lc)) ; *)
+      (* (3, liftM (mk_basic_step_action prev_lc ) (optToVector 1 (gDeployCongressActionFromLC prev_lc)))  *)
       ] ;;
     match lc_opt with
-          | Some (lc, step) => liftM2 (node step) (glctracetree_fix lc height) (glctracetree_fix lc height) 
+          | Some (lc, step) => 
+            liftM2 (node step) 
+                   (glctracetree_fix lc gActOptFromLCSized height) 
+                   (glctracetree_fix lc gActOptFromLCSized height) 
           | None => returnGen leaf
-         end
+    end
   end.
 
-Definition glctracetree (height : nat) := glctracetree_fix lc_initial height.
+Definition glctracetree (height : nat) := glctracetree_fix lc_initial gActionOfCongressFromLC height.
+Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gActionOfCongressFromLC height.
 
-Sample (glctracetree 3).
+QuickChick (forAll
+  (gActionOfCongressFromLC c3 1)
+  (fun act_opt => isSomeCheck act_opt
+  (fun act => whenFail 
+    (show (lc_account_balances c3) ++ sep ++ nl
+    ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
+    ++ "congress members: " ++ show (congressContractsMembers c3) ++ nl)
+    (* ++ "valid header: " ++ (show o isSome) (validate_header (next_header_lc c3) c3)) *)
+    (isSome (mk_basic_step_action c3 [act]))))    
+).
+
+
+Sample (gActionOfCongressFromLC c3 3).
+Sample (bindGenOpt (gActionOfCongressFromLC c3 3) (fun act => if isSome (mk_basic_step_action c3 [act]) 
+                                                              then returnGen ( Some ("success", act)) 
+                                                              else returnGen (Some ("fail", act)))).
+
+Sample (glctracetreeFromLC c3 6).
 
 Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
   match state with
@@ -253,3 +327,4 @@ Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) :=
 
 (* QuickChick (forAll (glctracetree 4) next_lc_eq_child_prev_lc_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+

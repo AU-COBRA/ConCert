@@ -69,6 +69,7 @@ Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
 Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
   (listOf (@gCongressActionSized ctx 2)).
 
+Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx).
 (* Compute (show (sample (gLocalChainContext 2))). *)
 
 

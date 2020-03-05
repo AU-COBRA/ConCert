@@ -28,6 +28,11 @@ Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst Add
 Open Scope list_scope.
 Open Scope string_scope.
 
+Arguments SerializedValue : clear implicits.
+Arguments deserialize : clear implicits.
+Arguments serialize : clear implicits.
+
+
 Derive Show for positive.
 Derive Show for SerializedType.
 
@@ -102,12 +107,15 @@ Definition ex_serialized_type := ser_pair (ser_list (ser_list ser_bool)) ser_int
 Definition ex_val := ([[true;false];[true;true];[false];[]], 2%Z).
 (* Compute (string_of_interp_type ex_serialized_type ex_val). *)
 
-Instance showSerializedValue : Show SerializedValue := 
+(* Print Serializable.
+Instance showSerializable {ty : Type} `{Show ty} : Show (Serializable ty) :=
 {|
-  show v := "SerializedValue{ ... }" 
-  (* ++ show (ser_value_type v) ++ sep *)
-  (* ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}"  *)
-|}.
+  show s := match deserialize s with
+            | Some v => ""
+            | None => "<FAILED DESERIALIZATION>"
+            end 
+|}. *)
+
 
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
 Instance showBlockHeader (BaseTypes : ChainBase) `{Show (@Address BaseTypes)} : Show (@BlockHeader BaseTypes) :=
@@ -156,7 +164,7 @@ show cctx := "ContractCallContext{"
 |}.
 
 
-Instance showActionBody  : Show ActionBody :=
+Instance showActionBody `{Show SerializedValue} : Show ActionBody :=
 {|
   show a := match a with
     | act_transfer addr amount => 

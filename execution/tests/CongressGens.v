@@ -15,6 +15,14 @@ From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
 
+Arguments SerializedValue : clear implicits.
+Arguments deserialize : clear implicits.
+Arguments serialize : clear implicits.
+
+
+Definition serializeMsg := serialize Msg _.
+
+
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 (* ChainGens for the types defined in the Congress contract *)
@@ -23,8 +31,8 @@ Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 
 
 Definition gRulesSized (n : nat) : G Rules :=
-  vote_count <- gZPositiveSized n ;;
-  margin <- liftM Z.of_nat (gIntervalNat n (2 * n)) ;;
+  vote_count <- choose(1%Z, 1000%Z) ;;
+  margin <- choose(1%Z, 1000%Z) ;;
   liftM (build_rules vote_count margin) arbitrary.  
 
 Instance genRulesSized : GenSized Rules :=
@@ -45,7 +53,6 @@ Definition gCongressAction' {ctx : ChainContext LocalChainBase}
     (1, liftM3 cact_call (ctx_gContractAddr ctx) gZPositive gMsg)
   ].
 
-Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; @gCongressAction' ctx arbitrary).
 
 
 
@@ -64,6 +71,7 @@ Definition gMsg' : G Msg :=
   ctx <- arbitrary ;; gMsgSimple ctx.
 
 Sample gMsg'.
+Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; @gCongressAction' ctx (liftM serializeMsg (gMsgSimple ctx))).
 
 
 Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; 
@@ -78,7 +86,7 @@ Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
         (1,
         (* recurse. Msg is converted to a SerializedType using 'serialize' *)
         (* This makes it possible to create proposals about proposals about proposals etc... *)
-        congressActions <- listOf (@gCongressAction' ctx (liftM serialize (gMsgSized ctx n'))) ;;
+        congressActions <- listOf (@gCongressAction' ctx (liftM serializeMsg (gMsgSized ctx n'))) ;;
         returnGen (create_proposal congressActions)) ;
         (7, gMsgSimple ctx)
       ]
@@ -86,11 +94,10 @@ Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
 
 Sample (ctx <- arbitrary ;; @gMsgSized ctx 1).
 
-Example ex_simple_msg : Msg := create_proposal [cact_call zero_address 1%Z (serialize 123)].
-Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize ex_simple_msg)].
-(* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
-(* Compute ((show o deserialize o serialize) ex_simple_msg). *)
-(* Compute (show ex_msg).  *)
+Example ex_simple_msg : Msg := create_proposal [cact_transfer zero_address 1%Z ].
+Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize Msg _ ex_simple_msg)].
+Compute ((show o (deserialize Msg _) o serializeMsg) ex_simple_msg).
+Compute (show ex_msg). 
 
 (* Generates semantically valid/well-formed messages *)
 (* Examples of validity requirements: 
@@ -122,13 +129,13 @@ Definition gValidSimpleMsg (ctx : ChainContext LocalChainBase)
 Definition gCongressActionSized {ctx : ChainContext LocalChainBase}
                                 (n : nat)
                                 : G CongressAction 
-                                := @gCongressAction' ctx (liftM serialize (@gMsgSized ctx n)).
+                                := @gCongressAction' ctx (liftM serializeMsg (@gMsgSized ctx n)).
 
 
 Sample (ctx <- arbitrary ;; gMsgSized ctx 2).
 
 Example ex_call_congress_action := ctx <- arbitrary ;; 
-                                   liftM (cact_call zero_address 0%Z) (liftM serialize (gMsgSized ctx 2) ).
+                                   liftM (cact_call zero_address 0%Z) (liftM serializeMsg (gMsgSized ctx 2) ).
 Sample ex_call_congress_action.
 
 Open Scope Z_scope.
@@ -160,7 +167,7 @@ Definition gStateSized {ctx : ChainContext LocalChainBase}
   owner <- elems_ default_addr (ctx_accounts ctx) ;; (* owner is a member *)
   rules <- arbitrarySized n ;;
   proposalIds <- vectorOfCount 0 n ;;
-  nr_votes <- choose (1, nr_accounts) ;;
+  nr_votes <- choose (1, if nr_accounts =? 0 then 1 else nr_accounts) ;;
   proposals <- vectorOf n (slot <- (arbitrarySized current_slot) ;; @gProposalSized ctx slot nr_votes  (n/2)) ;;
   proposals_map <- gFMapFromInput proposalIds proposals ;;
   next_proposal_id <- arbitrary ;; (* TODO: maybe just let it be 0*)
@@ -242,64 +249,118 @@ Definition gContractCallInfo := liftM3 build_call_info arbitrary arbitrary arbit
 
 (* ------------------------------------------------------ *)
 (* generators of actions from the LocalChain context type *)
-Sample (freq [(0, returnGen 1); (0, returnGen 2)]).
 
 Definition gCongressActionFromLC' (lc : LocalChain)
                                   (calling_addr : Address)
-                                  (gMsg : G SerializedValue) 
+                                  (gMsg : Address -> G (option Msg)) 
                                   : G (option CongressAction) :=
-  p_opt <- (gAccountBalanceFromLCWithoutAddrs lc [calling_addr]) ;;
-  let transfer_weight := if isSome p_opt then 1 else 0 in
-  freq [
-    (transfer_weight,
-      match p_opt with
-      | Some p => 
-        let addr := fst p in
-        let balance := snd p in
-        amount <- gZPositiveSized (Z.to_nat balance) ;;
+  addr_opt <- (gAccountAddrFromLCWithoutAddrs lc [calling_addr]) ;; (* TODO: should we also allow transfers to contract addresses? *)
+  backtrack [
+    (1,
+      match (addr_opt, lc_account_balance lc calling_addr) with
+      | (Some addr, Some caller_balance) =>
+        if Z.eqb (caller_balance) 0%Z then returnGen None else
+        amount <- choose (1%Z, caller_balance) ;;
         returnGen (Some (cact_transfer addr amount))
-      | None => returnGen None
+      | _ => returnGen None
       end
       );
 
     (1, bindGenOpt
-      (gContractAddrFromLocalChain lc)
-      (fun addr =>
-        amount <- gZPositive ;;
-        msg <- gMsg ;;
-        returnGen (Some (cact_call addr amount msg)))) 
+    (gContractAddrFromLocalChain lc)
+    (fun contract_addr =>
+      amount <- match lc_account_balance lc calling_addr with
+                | Some caller_balance => choose (0%Z, 0%Z)
+                | None => returnGen 0%Z
+                end ;;
+      bindGenOpt (gMsg contract_addr)
+      (fun msg => 
+      returnGen (Some (cact_call contract_addr amount (serializeMsg msg))))))
   ].
 
 
-(* Sample (lc <- arbitrary ;; @gCongressActionFromLC' lc arbitrary). *)
-  
+(* Sample (bindGenOpt (gAccountAddrFromLocalChain lc_initial) (fun addr => @gCongressActionFromLC' lc_initial addr arbitrary)). *)
+(* coqtop-stdout:[None; None; None; None; None; None; None; None; None; None; None] *)
+
 Definition allProposalsOfLC lc : FMap ProposalId Proposal := 
   let all_states := FMap.values (lc_contract_state_deserialized lc) in
   let proposals_list : list (ProposalId * Proposal):= fold_left (fun acc s => FMap.elements (proposals s) ++ acc ) all_states [] in
   FMap.of_list proposals_list.
 
-
 Definition allProposalsWithVotes lc : FMap ProposalId Proposal :=
  filter_FMap (fun p => 0 <? FMap.size (votes p)) (allProposalsOfLC lc).
 
-Definition gMsgSimpleFromLC (lc : LocalChain) : G (option Msg) :=
+Definition congressContractsMembers lc : FMap Address (list Address) := 
+ map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized lc).
+
+Definition gMemberToRemoveFromCongress (lc : LocalChain) 
+                                       (calling_addr : Address) 
+                                       (contract_addr : Address) 
+                                       : G (option Address) := 
+  let members_map := (congressContractsMembers lc) in
+  bindGenOpt (returnGen (FMap.find contract_addr members_map))
+  (fun members => 
+    let members_without_caller := List.remove address_eqdec calling_addr members in
+    match members_without_caller with
+    | [] => returnGen None
+    | m::ms => liftM Some (elems_ m members_without_caller)
+    end).
+
+
+Fixpoint try_newCongressMember_fix (members : list Address) nr_attempts curr_nr : option Address  :=
+  let fix aux nr_attempts curr_nr :=
+  match nr_attempts with
+  | 0 => None
+  | S n' => match @BoundedN.of_nat AddrSize curr_nr with
+            | Some addr_attempt => if List.existsb (address_eqb addr_attempt) members
+                                   then aux n' (S curr_nr)
+                                   else Some addr_attempt
+            | None => None
+            end
+  end in aux nr_attempts curr_nr.
+
+  
+Definition try_newCongressMember (lc : LocalChain)
+                                 (congress_addr : Address) 
+                                 (nr_attempts : nat) : option Address := 
+  let current_members_opt := FMap.find congress_addr (congressContractsMembers lc) in
+  match current_members_opt with
+  | Some current_members => try_newCongressMember_fix current_members nr_attempts 0
+  | None => None
+  end.
+
+Definition bindCallerIsOwnerOpt {A : Type} 
+                                (lc : LocalChain) 
+                                (calling_addr : Address)
+                                (contract_addr : Address)
+                                (g : G (option A)) : G (option A) := 
+  let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
+  match owner_opt with
+  | None => returnGen None
+  | Some owner => if address_eqb owner calling_addr
+                  then g
+                  else returnGen None
+  end.
+
+Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):= 
+  bindCallerIsOwnerOpt lc calling_addr contract_addr (gMemberToRemoveFromCongress lc calling_addr contract_addr).
+
+  
+Definition gMsgSimpleFromLC (lc : LocalChain) (calling_addr : Address) (contract_addr : Address) : G (option Msg) :=
   let proposals_map := allProposalsOfLC lc in
   let proposals_with_votes := allProposalsWithVotes lc in
-  let acc_weight := if FMap.size (lc_account_balances lc) =? 0 then 0 else 2 in
-  let retract_vote_weight := if FMap.size proposals_with_votes =? 0 then 0 else 2 in
-  let vote_proposal_weight := if FMap.size proposals_map =? 0 then 0 else 2 in
-  (* The weights help ensure that we do not generate 'None' data. *)
-  freq [
-    (acc_weight/2, liftM transfer_ownership (gAccountAddrFromLocalChain lc)) ;
-    (1, liftM change_rules arbitrary) ;
-    (acc_weight, liftM add_member (gAccountAddrFromLocalChain lc)) ;
-    (acc_weight, liftM remove_member (gAccountAddrFromLocalChain lc)) ;
+  let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in
+  backtrack [
+    (1, liftM transfer_ownership (try_gNewOwner lc calling_addr contract_addr)) ; 
+    (1, liftM change_rules (bindCallerIsOwner (liftM Some (gRulesSized 4)))) ;
+    (2, liftM add_member (bindCallerIsOwner (returnGen (try_newCongressMember lc contract_addr 10)))) ;
+    (2, liftM remove_member (bindCallerIsOwner (gMemberToRemoveFromCongress lc calling_addr contract_addr))) ;
     (* Q: How to ensure valid proposalIds? *)
     (* A: use lc's contract_states (deserialize to Congress.State)*)
-    (vote_proposal_weight, liftM vote_for_proposal     (liftM fst (sampleFMapOpt proposals_map))) ;
-    (vote_proposal_weight, liftM vote_against_proposal (liftM fst (sampleFMapOpt proposals_map))) ;
-    (vote_proposal_weight, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ;
-    (retract_vote_weight,  liftM retract_vote          (liftM fst (sampleFMapOpt proposals_with_votes)))
+    (2, liftM vote_for_proposal     (liftM fst (sampleFMapOpt proposals_map))) ;
+    (2, liftM vote_against_proposal (liftM fst (sampleFMapOpt proposals_map))) ;
+    (2, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ;
+    (2, liftM retract_vote          (liftM fst (sampleFMapOpt proposals_with_votes)))
   ].
 
 (* Sample (@gMsgSimpleFromLC lc_initial). *)
@@ -314,25 +375,24 @@ Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
   in returnGen l'.
 
 
-Fixpoint gMsgSizedFromLocalChain (lc : LocalChain) (calling_addr : Address) (n : nat) : G (option Msg) :=
+Fixpoint gMsgSizedFromLocalChain (lc : LocalChain) (calling_addr : Address) (n : nat) : Address ->  G (option Msg) :=
   match n with
-    | 0 => gMsgSimpleFromLC lc
-    | S n' => freq [
-        let weight := if FMap.size (allProposalsOfLC lc) =? 0 then 0 else 1 in
-        (weight,
+    | 0 => (fun contract_addr => gMsgSimpleFromLC lc calling_addr contract_addr)
+    | S n' => fun contract_addr => backtrack [
+        (1,
         (* recurse. Msg is converted to a SerializedType using 'serialize' *)
         (* This makes it possible to create proposals about proposals about proposals etc... *)
-        congressActions <- 
-          optToList (@gCongressActionFromLC' lc calling_addr (liftM serialize (gMsgSizedFromLocalChain lc calling_addr n'))) ;;
-        returnGen match congressActions with
-        | [] => None
-        | _ =>  Some (create_proposal congressActions)
-        end) ;
-        (7, gMsgSimpleFromLC lc)
+        let contract_to_msg := (gMsgSizedFromLocalChain lc calling_addr n') in 
+          congressActions <- liftM (shrinkListTo 1) (optToList (gCongressActionFromLC' lc contract_addr contract_to_msg)) ;;
+          match congressActions with
+          | [] => returnGen None
+          | _ =>  returnGen (Some (create_proposal congressActions))
+          end) ;
+        (4, gMsgSimpleFromLC lc calling_addr contract_addr)
       ]
   end.
 
-Sample (@gMsgSizedFromLocalChain lc_initial zero_address 1).
+Sample (@gMsgSizedFromLocalChain lc_initial zero_address 1 zero_address).
 
 (* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
 (* Compute ((show o deserialize o serialize) ex_simple_msg). *)
@@ -347,10 +407,22 @@ Definition gCongressActionSizedFromLC (lc : LocalChain)
                                       (calling_addr : Address)
                                       (n : nat)
                                       : G (option CongressAction) 
-                                      := @gCongressActionFromLC' lc calling_addr (liftM serialize (@gMsgSizedFromLocalChain lc calling_addr n)).
+                                      := 
+  let gMsg := (@gMsgSizedFromLocalChain lc calling_addr n) in
+  gCongressActionFromLC' lc calling_addr gMsg
+.
 
-Sample (gCongressActionSizedFromLC lc_initial zero_address 1).
-
+(* Sample (gCongressActionSizedFromLC lc_initial zero_address 1). *)
+(* coqtop-stdout:[None; None; None; None; None; None; None; None; None; None; None] *)
 Definition gActionOfCongressFromLC lc n : G (option Action) := 
   calling_addr <- gAccountAddrFromLocalChain lc ;;
   liftM (@build_act LocalChainBase calling_addr) (liftM congress_action_to_chain_action (@gCongressActionSizedFromLC lc calling_addr n)).
+  
+Definition gDeployCongressActionFromLC lc : G (option Action) := 
+  calling_addr_opt <- gAccountAddrFromLocalChain lc ;;
+  setup <- arbitrary ;;
+  deploy_act <- (gDeploymentAction Congress.contract setup) ;;
+  match calling_addr_opt with
+  | Some calling_addr => liftM Some (returnGen (@build_act LocalChainBase calling_addr deploy_act))
+  | None => returnGen None
+  end.

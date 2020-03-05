@@ -18,6 +18,10 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 Open Scope string_scope.
 
+Arguments SerializedValue : clear implicits.
+Arguments deserialize : clear implicits.
+Arguments serialize : clear implicits.
+
 
 Instance showRules : Show Rules :=
 {|
@@ -30,52 +34,61 @@ Instance showRules : Show Rules :=
 |}.
 
 
-(* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
-Instance showCongressAction : Show CongressAction :=
-{|
-  show ca :=
-    match ca with
-    | cact_transfer to amount => "(transfer: " ++ show to ++ sep ++ show amount ++ ")"
-    | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++  show msg ++ ")" 
-    end
-|}.
+Definition string_of_ca str_of_msg ca := 
+match ca with
+| cact_transfer to amount => "(transfer: " ++ show to ++ sep ++ show amount ++ ")"
+| cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++ 
+    match @deserialize Msg _ msg with
+    | Some msg => str_of_msg msg
+    | None =>  "<FAILED DESERIALIZATION>"
+    end ++ ")" 
+end.
 
-Instance showProposal : Show Proposal :=
-{|
-  show p :=
-    "Proposal{"
-    ++ "actions: " ++ show (actions p) ++ sep
-    ++ "votes: " ++ show (votes p) ++ sep
-    ++ "vote_result: " ++ show (vote_result p) ++ sep
-    ++ "proposed_in: " ++ show (proposed_in p) ++ sep
-    ++ "}" ++ newline
-|}.
 
 Instance showSetup : Show Setup :=
 {|
   show := show o setup_rules
 |}.
 
-
-Definition string_of_Msg (m : Msg) : string :=
+(* Ugly fuel hack :/ *)
+Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string := 
+  let show_acts actions := match fuel with
+    | 0 => String.concat "; " (map (fun _ => "Msg{...}") actions)
+    | S fuel => String.concat "; " (map (string_of_ca (string_of_Msg fuel)) actions) 
+    end in
   match m with
-    | transfer_ownership addr => "(transfer_ownership " ++  show addr ++ ")"
-    | change_rules rules => "(change_rules " ++ show rules ++ ")"
-    | add_member addr => "(add_member " ++ show addr ++ ")"
-    | remove_member addr => "(remove_member " ++ show addr ++ ")"
-    | create_proposal actions => "(create_proposal " ++ show actions ++ ")"
-    (* | create_proposal actions => "(create_proposal " ++  String.concat "; " (map (@show _ (@showCongressAction showSer) ) actions) ++ ")" *)
-    | vote_for_proposal proposalId => "(vote_for_proposal " ++ show proposalId ++ ")"
-    | vote_against_proposal proposalId => "(vote_against_proposal " ++ show proposalId ++ ")"
-    | retract_vote proposalId => "(retract_vote " ++ show proposalId ++ ")"
-    | finish_proposal proposalId => "(finish_proposal " ++ show proposalId ++ ")"
+    | transfer_ownership addr => "transfer_ownership { " ++  show addr ++ "}"
+    | change_rules rules => "change_rules { " ++ show rules ++ "}"
+    | add_member addr => "add_member { " ++ show addr ++ "}"
+    | remove_member addr => "remove_member { " ++ show addr ++ "}"
+    | create_proposal actions => "create_proposal {" ++ show_acts actions ++ "}"
+    | vote_for_proposal proposalId => "vote_for_proposal { " ++ show proposalId ++ "}"
+    | vote_against_proposal proposalId => "vote_against_proposal {" ++ show proposalId ++ "}"
+    | retract_vote proposalId => "retract_vote {" ++ show proposalId ++ "}"
+    | finish_proposal proposalId => "finish_proposal {" ++ show proposalId ++ "}"
   end.
 
 Instance showMsg : Show Msg :=
 {|
-  show := string_of_Msg
+  show:= string_of_Msg 20
 |}.
 
+(* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
+Instance showCongressAction : Show CongressAction :=
+{|
+  show := string_of_ca (string_of_Msg 20)
+|}.
+
+Instance showProposal : Show Proposal :=
+{|
+  show p :=
+    "Proposal{"
+    ++ "actions: " ++  show (actions p) ++ sep
+    ++ "votes: " ++ show (votes p) ++ sep
+    ++ "vote_result: " ++ show (vote_result p) ++ sep
+    ++ "proposed_in: " ++ show (proposed_in p) ++ sep
+    ++ "}" ++ newline
+|}.
 
 Instance showState : Show Congress.State :=
 {|
@@ -85,6 +98,18 @@ Instance showState : Show Congress.State :=
             ++ "proposals: " ++ show (proposals s) ++ sep
             ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
             ++ "members: " ++ show (members s) ++ "}"
+|}.
+
+(* Currently we hack it to always deserialize to Msg types - only works for Congress! TODO: fix *)
+Instance showSerializedValue {ty : Type} `{Serializable ty} `{Show ty} : Show SerializedValue := 
+{|
+  show v := "SerializedValue{" ++
+    match @deserialize Msg _ v with
+    | Some v => show v
+    | None => "<FAILED DESERIALIZATION>"
+    end ++ "}" 
+  (* ++ show (ser_value_type v) ++ sep *)
+  (* ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}"  *)
 |}.
 
 Close Scope string_scope.

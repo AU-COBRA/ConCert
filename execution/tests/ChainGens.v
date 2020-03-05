@@ -25,6 +25,10 @@ Close Scope address_scope.
 Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
 
+Arguments SerializedValue : clear implicits.
+Arguments deserialize : clear implicits.
+Arguments serialize : clear implicits.
+
 
 Open Scope list_scope.
 
@@ -107,7 +111,7 @@ Definition gDeploymentAction {Setup Msg State : Type}
                              (contract : @Contract BaseTypes Setup Msg State _ _ _)
                              (setup : Setup) : G ActionBody :=
   amount <- arbitrary ;;
-  returnGen (act_deploy amount contract (serialize setup)).
+  returnGen (act_deploy amount contract (serialize Setup _ setup)).
 
 Definition gTransferAction {BaseTypes : ChainBase} 
                            (ctx : ChainContext BaseTypes) 
@@ -120,7 +124,7 @@ Definition gCallAction {Msg : Type}
                        (ctx : ChainContext BaseTypes)
                        (msg : Msg) 
                        : G ActionBody 
-                       := liftM3 act_call (gAccountAddr _ ctx) arbitrary (returnGen (serialize msg)).
+                       := liftM3 act_call (gAccountAddr _ ctx) arbitrary (returnGen (serialize Msg _ msg)).
 
 Definition gActionBodyFromContract {Setup Msg State : Type}
                                   `{Serializable Setup}
