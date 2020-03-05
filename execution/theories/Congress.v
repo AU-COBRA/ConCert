@@ -244,6 +244,9 @@ Definition receive
   | Some (finish_proposal pid), _, _ =>
     do_finish_proposal pid state chain
 
+  (* Always allow people to donate money for the Congress to spend *)
+  | None, _, _ => Some (state, [])
+
   | _, _, _ =>
         None
 
@@ -318,6 +321,7 @@ Proof.
       destruct (FMap.find _ _); cbn in *; try congruence.
       destruct_match in receive; cbn in *; try congruence.
       now inversion_clear receive.
+    + now inversion receive; subst.
   }
 
   contract_induction; intros; cbn in *; auto.
@@ -439,7 +443,6 @@ state change will make up for number of outgoing actions queued. *)
 Lemma receive_state_well_behaved
       chain ctx state msg new_state resp_acts :
   receive chain ctx state msg = Some (new_state, resp_acts) ->
-  msg <> None /\
   num_cacts_in_state new_state + length resp_acts <=
   num_cacts_in_state state +
   match msg with
@@ -463,7 +466,6 @@ Proof.
     destruct (FMap.mem _ _); inversion receive.
     cbn.
     rewrite <- plus_n_O.
-    split; auto.
     apply add_proposal_cacts.
   - (* vote_for_proposal *)
     destruct (FMap.mem _ _); try congruence.
@@ -492,6 +494,7 @@ Proof.
     + (* I wonder why these asserts are necessary... *)
       assert (forall a b, a + b <= a + b + 0) by (intros; lia); auto.
     + assert (forall a b, a + 0 <= a + b + 0) by (intros; lia); auto.
+  - inversion receive; subst; cbn; lia.
 Qed.
 
 Theorem congress_txs_well_behaved bstate caddr (trace : ChainTrace empty_state bstate) :
@@ -508,16 +511,10 @@ Proof.
   - erewrite num_cacts_in_state_deployment by eassumption.
     lia.
   - pose proof (receive_state_well_behaved _ _ _ _ _ _ receive_some) as fcorrect.
-    destruct fcorrect; destruct msg as [msg|]; try congruence.
-    unfold num_acts_created_in_proposals.
-    cbn.
     fold (num_acts_created_in_proposals prev_inc_calls).
     rewrite app_length.
     lia.
   - pose proof (receive_state_well_behaved _ _ _ _ _ _ receive_some) as fcorrect.
-    destruct fcorrect; destruct msg as [msg|]; try congruence.
-    unfold num_acts_created_in_proposals.
-    cbn.
     fold (num_acts_created_in_proposals prev_inc_calls).
     rewrite app_length.
     lia.
