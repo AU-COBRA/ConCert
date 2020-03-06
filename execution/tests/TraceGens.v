@@ -100,7 +100,7 @@ Compute (show (lc_contract_state c3)).
 
 Definition my_add_block c acts := (add_block_exec true c (next_header_lc c) acts).
 
-Extract Constant defNumTests => "5000".
+(* Extract Constant defNumTests => "5000". *)
 
 Open Scope bool_scope.
 
@@ -260,11 +260,15 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
   | 0 | 1 => returnGen leaf
   | S height => 
     lc_opt <- backtrack [
-      (10, acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;;
-          match acts with
+      (10, 
+          (* acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;; *)
+          bindGenOpt (gActOptFromLCSized prev_lc 2)
+          (fun act => returnGen (mk_basic_step_action prev_lc [act]))
+      )
+          (* match acts with
           | [] => returnGen None
           | _ => returnGen (mk_basic_step_action prev_lc acts)
-          end)
+          end) *)
       (* (1, returnGen (mk_basic_step_add_block prev_lc)) ; *)
       (* (3, liftM (mk_basic_step_action prev_lc ) (optToVector 1 (gDeployCongressActionFromLC prev_lc)))  *)
       ] ;;
@@ -277,27 +281,39 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
     end
   end.
 
-Definition glctracetree (height : nat) := glctracetree_fix lc_initial gActionOfCongressFromLC height.
-Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gActionOfCongressFromLC height.
+Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressActionNew height.
+Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongressActionNew height.
+
+Definition c4 : LocalChain :=
+let acts := [build_act person_1 (add_person person_1);
+             build_act person_1 (add_person person_2)] in
+    unpack_option (add_block_exec true c3 (next_header_lc c3) acts).
+
+
+Compute (show (lc_account_balances c4)).
+Compute (show (map fst (FMap.elements (lc_contracts c4)))).
+Compute (show (lc_contract_owners c4)).
+Compute (show (congressContractsMembers c4)).
+Compute (show (congressContractsMembers_nonempty_nonowners c4)).
 
 QuickChick (forAll
-  (gActionOfCongressFromLC c3 1)
+  (gCongressActionNew c4 1)
   (fun act_opt => isSomeCheck act_opt
   (fun act => whenFail 
-    (show (lc_account_balances c3) ++ sep ++ nl
+    (show (lc_account_balances c4) ++ sep ++ nl
     ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
-    ++ "congress members: " ++ show (congressContractsMembers c3) ++ nl)
-    (* ++ "valid header: " ++ (show o isSome) (validate_header (next_header_lc c3) c3)) *)
-    (isSome (mk_basic_step_action c3 [act]))))    
+    ++ "congress members: " ++ show (congressContractsMembers c4) ++ nl)
+    (* ++ "valid header: " ++ (show o isSome) (validate_header (next_header_lc c4) c4)) *)
+    (isSome (mk_basic_step_action c4 [act]))))    
 ).
 
 
-Sample (gActionOfCongressFromLC c3 3).
-Sample (bindGenOpt (gActionOfCongressFromLC c3 3) (fun act => if isSome (mk_basic_step_action c3 [act]) 
+(* Sample (bindGenOpt (gCongressActionNew c4 3) (fun act => if isSome (mk_basic_step_action c4 [act]) 
                                                               then returnGen ( Some ("success", act)) 
-                                                              else returnGen (Some ("fail", act)))).
+                                                              else returnGen (Some ("fail", act)))). *)
 
-Sample (glctracetreeFromLC c3 6).
+
+Sample (glctracetreeFromLC c4 1).
 
 Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
   match state with

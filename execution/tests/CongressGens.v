@@ -288,15 +288,30 @@ Definition allProposalsOfLC lc : FMap ProposalId Proposal :=
   FMap.of_list proposals_list.
 
 Definition allProposalsWithVotes lc : FMap ProposalId Proposal :=
- filter_FMap (fun p => 0 <? FMap.size (votes p)) (allProposalsOfLC lc).
+ filter_FMap (fun p => 0 <? FMap.size (votes (snd p))) (allProposalsOfLC lc).
 
 Definition congressContractsMembers lc : FMap Address (list Address) := 
  map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized lc).
 
-Definition gMemberToRemoveFromCongress (lc : LocalChain) 
-                                       (calling_addr : Address) 
-                                       (contract_addr : Address) 
-                                       : G (option Address) := 
+ Definition congressContractsMembers_nonempty lc : FMap Address (list Address) := 
+ let members_map := 
+  map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized lc) in
+  filter_FMap (fun p => 0 <? length (snd p)) members_map. 
+
+Definition congressContractsMembers_nonempty_nonowners lc : FMap Address (list Address) :=   
+  map_filter_FMap (fun p =>
+    let contract_addr := fst p in
+    let state := snd p in
+    let members := (map fst o FMap.elements) (members state) in
+    let non_owner_members := filter (fun member => negb (address_eqb member (owner state))) members in
+    if 0 <? length non_owner_members then Some non_owner_members else None
+  ) (lc_contract_state_deserialized lc).
+
+
+Definition gCongressMember (lc : LocalChain) 
+                           (calling_addr : Address) 
+                           (contract_addr : Address) 
+                           : G (option Address) := 
   let members_map := (congressContractsMembers lc) in
   bindGenOpt (returnGen (FMap.find contract_addr members_map))
   (fun members => 
@@ -334,7 +349,9 @@ Definition bindCallerIsOwnerOpt {A : Type}
                                 (calling_addr : Address)
                                 (contract_addr : Address)
                                 (g : G (option A)) : G (option A) := 
-  let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
+  if address_eqb calling_addr contract_addr 
+  then g 
+  else let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
   match owner_opt with
   | None => returnGen None
   | Some owner => if address_eqb owner calling_addr
@@ -343,7 +360,7 @@ Definition bindCallerIsOwnerOpt {A : Type}
   end.
 
 Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):= 
-  bindCallerIsOwnerOpt lc calling_addr contract_addr (gMemberToRemoveFromCongress lc calling_addr contract_addr).
+  bindCallerIsOwnerOpt lc calling_addr contract_addr (gCongressMember lc calling_addr contract_addr).
 
   
 Definition gMsgSimpleFromLC (lc : LocalChain) (calling_addr : Address) (contract_addr : Address) : G (option Msg) :=
@@ -354,9 +371,7 @@ Definition gMsgSimpleFromLC (lc : LocalChain) (calling_addr : Address) (contract
     (1, liftM transfer_ownership (try_gNewOwner lc calling_addr contract_addr)) ; 
     (1, liftM change_rules (bindCallerIsOwner (liftM Some (gRulesSized 4)))) ;
     (2, liftM add_member (bindCallerIsOwner (returnGen (try_newCongressMember lc contract_addr 10)))) ;
-    (2, liftM remove_member (bindCallerIsOwner (gMemberToRemoveFromCongress lc calling_addr contract_addr))) ;
-    (* Q: How to ensure valid proposalIds? *)
-    (* A: use lc's contract_states (deserialize to Congress.State)*)
+    (2, liftM remove_member (bindCallerIsOwner (gCongressMember lc calling_addr contract_addr))) ;
     (2, liftM vote_for_proposal     (liftM fst (sampleFMapOpt proposals_map))) ;
     (2, liftM vote_against_proposal (liftM fst (sampleFMapOpt proposals_map))) ;
     (2, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ;
@@ -394,6 +409,100 @@ Fixpoint gMsgSizedFromLocalChain (lc : LocalChain) (calling_addr : Address) (n :
 
 Sample (@gMsgSizedFromLocalChain lc_initial zero_address 1 zero_address).
 
+
+Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
+  match fuel with
+  | 0 => 
+    let proposals_map := allProposalsOfLC lc in
+    let proposals_with_votes := allProposalsWithVotes lc in
+    (* let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in *)
+    let mk_call contract_addr caller_addr msg := 
+      amount <- match lc_account_balance lc caller_addr with
+                | Some caller_balance => choose (0%Z, caller_balance)
+                | None => returnGen 0%Z
+                end ;;
+      returnGen (Some (build_act caller_addr 
+        (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg))))) in
+    backtrack [
+      (* transfer_ownership *)
+      (1, bindGenOpt (sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc))
+          (fun contract_members_pair => 
+          let contract_addr := fst contract_members_pair in
+          let members := snd contract_members_pair in
+          let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
+          match owner_opt with
+          | Some owner_addr =>
+              bindGenOpt (try_gNewOwner lc owner_addr contract_addr) 
+                (fun new_owner => mk_call contract_addr owner_addr (transfer_ownership new_owner))        
+          | None => returnGen None
+          end)
+      ) ; 
+      (* change_rules *)
+      (1, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
+          (fun p =>
+          let contract_addr := fst p in
+          let owner_addr := snd p in
+          rules <- (gRulesSized 4) ;;
+          (mk_call contract_addr owner_addr (change_rules rules)) 
+          )
+      ) ;
+      (* add_member *)
+      (1, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
+          (fun p =>
+          let contract_addr := fst p in
+          let owner_addr := snd p in
+          match (try_newCongressMember lc contract_addr 10) with
+          | Some addr => mk_call contract_addr owner_addr (add_member addr)
+          | None => returnGen None
+          end)
+      ) ;
+      (* remove_member *)
+      (2, bindGenOpt (sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc))
+          (fun contract_members_pair => 
+          let contract_addr := fst contract_members_pair in
+          let members := snd contract_members_pair in
+          member <- elems_ contract_addr members ;;
+          let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
+          match owner_opt with
+          | Some owner_addr =>
+            mk_call contract_addr owner_addr (remove_member member)        
+          | None => returnGen None
+          end)
+      ) ;
+      (* vote_for_proposal *)
+      (2, bindGenOpt (sampleFMapOpt (lc_contract_members_and_proposals lc))
+          (fun p =>
+          let contract_addr := fst p in
+          let members := fst (snd p) in
+          let proposalIds := snd (snd p) in
+          match (members, proposalIds) with
+          | (m::_, pid::_) =>
+            member <- elems_ m members ;;
+            pid <- elems_ pid proposalIds ;;
+            mk_call contract_addr member (vote_for_proposal pid)
+          | _ => returnGen None
+          end
+          )
+      ) ;
+      (2, bindGenOpt (sampleFMapOpt (lc_contract_members_and_proposals_with_votes lc))
+          (fun p =>
+          let contract_addr := fst p in
+          let members := fst (snd p) in
+          let proposalIds := snd (snd p) in
+          match (members, proposalIds) with
+          | (m::_, pid::_) =>
+            member <- elems_ m members ;;
+            pid <- elems_ pid proposalIds ;;
+            mk_call contract_addr member (vote_against_proposal pid)
+          | _ => returnGen None
+          end
+          )
+      )
+      (* (2, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ; *)
+      (* (2, liftM retract_vote          (liftM fst (sampleFMapOpt proposals_with_votes))) *)
+    ]
+  | S fuel' => gCongressActionNew lc fuel'
+  end.
 (* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
 (* Compute ((show o deserialize o serialize) ex_simple_msg). *)
 (* Compute (show ex_msg).  *)

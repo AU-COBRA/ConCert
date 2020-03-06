@@ -59,11 +59,11 @@ Definition string_of_FMap {A B : Type}
 Definition filter_FMap {A B : Type}
                       `{countable.Countable A}
                       `{base.EqDecision A}
-                       (f : B -> bool)
+                       (f : (A * B) -> bool)
                        (m : FMap A B)
                        : FMap A B := 
   let l := FMap.elements m in
-  let filtered_l := List.filter (fun p => f (snd p)) l in
+  let filtered_l := List.filter (fun p => f p) l in
   FMap.of_list filtered_l.
 
 Definition map_values_FMap {A B C: Type}
@@ -75,6 +75,20 @@ Definition map_values_FMap {A B C: Type}
   let l := FMap.elements m in
   let mapped_l := List.map (fun p => (fst p, f (snd p))) l in
   FMap.of_list mapped_l.
+
+Definition map_filter_FMap {A B C: Type}
+                      `{countable.Countable A}
+                      `{base.EqDecision A}
+                       (f : (A * B) -> option C)
+                       (m : FMap A B)
+                       : FMap A C := 
+  let l := FMap.elements m in
+  let mapped_l := List.fold_left (fun acc p => match f p with
+                                               | Some c => ((fst p), c) :: acc
+                                               | None => acc
+                                               end  ) l [] in
+  FMap.of_list mapped_l.
+
 
 
 (* Utils for Show instances *)
@@ -122,6 +136,33 @@ Definition lc_contract_state_deserialized lc : FMap Address Congress.State :=
 
 Definition lc_contract_owners : LocalChain -> FMap Address Address := 
   (map_values_FMap owner) o lc_contract_state_deserialized.
+
+Open Scope bool_scope.
+
+Definition lc_contract_members_and_proposals (lc : LocalChain) : FMap Address (list Address * list ProposalId) := 
+  map_filter_FMap (fun p => 
+    let contract_addr := fst p in
+    let state := snd p in
+    let members := (map fst o FMap.elements) (members state) in
+    let proposals := (map fst o FMap.elements) (proposals state) in
+    if (0 <? length members) && (0 <? length proposals)
+    then Some (members, proposals)
+    else None
+  ) (lc_contract_state_deserialized lc) 
+.
+
+Definition lc_contract_members_and_proposals_with_votes (lc : LocalChain) 
+                                                        : FMap Address (list Address * list ProposalId) := 
+  map_filter_FMap (fun p => 
+    let contract_addr := fst p in
+    let state := snd p in
+    let members := (map fst o FMap.elements) (members state) in
+    let proposals_map : FMap nat Proposal := filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
+    if (0 <? length members) && (0 =? (FMap.size proposals_map))
+    then Some (members, (map fst o FMap.elements) proposals_map)
+    else None
+  ) (lc_contract_state_deserialized lc) 
+.
 
 (* Utils for Generators *)
 
