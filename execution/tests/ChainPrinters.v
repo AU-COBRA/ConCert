@@ -168,11 +168,11 @@ Instance showActionBody `{Show SerializedValue} : Show ActionBody :=
 {|
   show a := match a with
     | act_transfer addr amount => 
-      "(act_transfer " ++ show addr ++ sep ++ " " ++ show amount ++ ")" 
+      "(act_transfer " ++ show addr ++ sep ++ show amount ++ ")" 
     | act_call addr amount ser_value => 
-      "(act_call " ++ show addr ++ sep ++ " " ++ show amount ++ sep ++ " " ++ show ser_value ++ ")"
+      "(act_call " ++ show addr ++ sep ++ show amount ++ sep ++ show ser_value ++ ")"
     | act_deploy amount contract ser_value =>
-      "(act_deploy " ++ show amount ++ sep ++ " " ++ show ser_value ++ ")"
+      "(act_deploy " ++ show amount ++ sep ++ show ser_value ++ ")"
     end
 |}. 
 

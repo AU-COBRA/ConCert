@@ -409,6 +409,24 @@ Fixpoint gMsgSizedFromLocalChain (lc : LocalChain) (calling_addr : Address) (n :
 
 Sample (@gMsgSizedFromLocalChain lc_initial zero_address 1 zero_address).
 
+Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Address (list ProposalId))) 
+                         (mk_call : Address -> Address -> Msg -> G (option Action))
+                         (vote : ProposalId -> Msg):= 
+  bindGenOpt (sampleFMapOpt contract_members_and_proposals)
+  (fun p =>
+    let contract_addr := fst p in
+    let members_and_proposals := snd p in
+    bindGenOpt (sampleFMapOpt members_and_proposals)
+    (fun p' =>
+      let member := fst p' in
+      let pids := snd p' in
+      match pids with
+      | (pid::_) => 
+        pid <- elems_ pid pids ;;
+        mk_call contract_addr member (vote pid)
+      | _ => returnGen None
+      end)).
+
 
 Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
   match fuel with
@@ -447,7 +465,7 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
           )
       ) ;
       (* add_member *)
-      (1, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
+      (2, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
           (fun p =>
           let contract_addr := fst p in
           let owner_addr := snd p in
@@ -457,7 +475,7 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
           end)
       ) ;
       (* remove_member *)
-      (2, bindGenOpt (sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc))
+      (1, bindGenOpt (sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc))
           (fun contract_members_pair => 
           let contract_addr := fst contract_members_pair in
           let members := snd contract_members_pair in
@@ -470,36 +488,28 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
           end)
       ) ;
       (* vote_for_proposal *)
-      (2, bindGenOpt (sampleFMapOpt (lc_contract_members_and_proposals lc))
-          (fun p =>
+      (* Requirements:
+         - contract with a proposal and members must exist
+         - only members which have not already voted can vote again *)
+      (2, vote_proposal (lc_contract_members_and_proposals_new_voters lc) 
+                        mk_call vote_for_proposal ) ;
+      (* vote_against_proposal *)
+      (2, vote_proposal (lc_contract_members_and_proposals_new_voters lc) 
+                        mk_call vote_against_proposal ) ;
+      (* retract_vote *)
+      (2, vote_proposal (lc_contract_members_and_proposals_with_votes lc) 
+                        mk_call retract_vote) ;
+      (* finish_proposal *)
+      (2, bindGenOpt (sampleFMapOpt (lc_proposals lc)) 
+          (fun p => 
           let contract_addr := fst p in
-          let members := fst (snd p) in
-          let proposalIds := snd (snd p) in
-          match (members, proposalIds) with
-          | (m::_, pid::_) =>
-            member <- elems_ m members ;;
-            pid <- elems_ pid proposalIds ;;
-            mk_call contract_addr member (vote_for_proposal pid)
-          | _ => returnGen None
-          end
+          match FMap.find contract_addr (lc_contract_owners lc) with
+          | Some owner_addr => bindGenOpt (sampleFMapOpt (snd p)) (fun p' =>
+            let pid := fst p' in
+            mk_call contract_addr owner_addr (finish_proposal pid)
           )
-      ) ;
-      (2, bindGenOpt (sampleFMapOpt (lc_contract_members_and_proposals_with_votes lc))
-          (fun p =>
-          let contract_addr := fst p in
-          let members := fst (snd p) in
-          let proposalIds := snd (snd p) in
-          match (members, proposalIds) with
-          | (m::_, pid::_) =>
-            member <- elems_ m members ;;
-            pid <- elems_ pid proposalIds ;;
-            mk_call contract_addr member (vote_against_proposal pid)
-          | _ => returnGen None
-          end
-          )
-      )
-      (* (2, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ; *)
-      (* (2, liftM retract_vote          (liftM fst (sampleFMapOpt proposals_with_votes))) *)
+          | None => returnGen None
+          end))
     ]
   | S fuel' => gCongressActionNew lc fuel'
   end.

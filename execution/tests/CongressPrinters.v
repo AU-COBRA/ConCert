@@ -57,15 +57,15 @@ Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
     | S fuel => String.concat "; " (map (string_of_ca (string_of_Msg fuel)) actions) 
     end in
   match m with
-    | transfer_ownership addr => "transfer_ownership { " ++  show addr ++ "}"
-    | change_rules rules => "change_rules { " ++ show rules ++ "}"
-    | add_member addr => "add_member { " ++ show addr ++ "}"
-    | remove_member addr => "remove_member { " ++ show addr ++ "}"
-    | create_proposal actions => "create_proposal {" ++ show_acts actions ++ "}"
-    | vote_for_proposal proposalId => "vote_for_proposal { " ++ show proposalId ++ "}"
-    | vote_against_proposal proposalId => "vote_against_proposal {" ++ show proposalId ++ "}"
-    | retract_vote proposalId => "retract_vote {" ++ show proposalId ++ "}"
-    | finish_proposal proposalId => "finish_proposal {" ++ show proposalId ++ "}"
+    | transfer_ownership addr => "transfer_ownership " ++ show addr 
+    | change_rules rules => "change_rules " ++ show rules
+    | add_member addr => "add_member " ++ show addr 
+    | remove_member addr => "remove_member " ++ show addr
+    | create_proposal actions => "create_proposal " ++ show_acts actions
+    | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
+    | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
+    | retract_vote proposalId => "retract_vote " ++ show proposalId 
+    | finish_proposal proposalId => "finish_proposal " ++ show proposalId
   end.
 
 Instance showMsg : Show Msg :=
@@ -103,11 +103,11 @@ Instance showState : Show Congress.State :=
 (* Currently we hack it to always deserialize to Msg types - only works for Congress! TODO: fix *)
 Instance showSerializedValue {ty : Type} `{Serializable ty} `{Show ty} : Show SerializedValue := 
 {|
-  show v := "SerializedValue{" ++
+  show v :=
     match @deserialize Msg _ v with
     | Some v => show v
     | None => "<FAILED DESERIALIZATION>"
-    end ++ "}" 
+    end 
   (* ++ show (ser_value_type v) ++ sep *)
   (* ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}"  *)
 |}.
