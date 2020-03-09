@@ -142,19 +142,7 @@ Open Scope bool_scope.
 Definition lc_proposals (lc : LocalChain) : FMap Address (FMap ProposalId Proposal) :=
   map_values_FMap proposals (lc_contract_state_deserialized lc).
 
-
-Definition lc_contract_members_and_proposals (lc : LocalChain) : FMap Address (list Address * list ProposalId) := 
-  map_filter_FMap (fun p => 
-    let contract_addr := fst p in
-    let state := snd p in
-    let members := (map fst o FMap.elements) (members state) in
-    let proposals := (map fst o FMap.elements) (proposals state) in
-    if (0 <? length members) && (0 <? length proposals)
-    then Some (members, proposals)
-    else None
-  ) (lc_contract_state_deserialized lc) 
-.
-
+  
 Definition lc_contract_members_and_proposals_new_voters (lc : LocalChain) : FMap Address (FMap Address (list ProposalId)) := 
   map_filter_FMap (fun p => 
     let contract_addr := fst p in

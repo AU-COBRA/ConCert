@@ -307,8 +307,19 @@ Definition congressContractsMembers_nonempty_nonowners lc : FMap Address (list A
     if 0 <? length non_owner_members then Some non_owner_members else None
   ) (lc_contract_state_deserialized lc).
 
-
 Definition gCongressMember (lc : LocalChain) 
+                           (contract_addr : Address) 
+                           : G (option Address) := 
+  let members_map := (congressContractsMembers lc) in
+  bindGenOpt (returnGen (FMap.find contract_addr members_map))
+  (fun members => 
+    match members with
+    | [] => returnGen None
+    | m::ms => liftM Some (elems_ m members)
+    end).
+
+
+Definition gCongressMember_without_caller (lc : LocalChain) 
                            (calling_addr : Address) 
                            (contract_addr : Address) 
                            : G (option Address) := 
@@ -360,7 +371,7 @@ Definition bindCallerIsOwnerOpt {A : Type}
   end.
 
 Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):= 
-  bindCallerIsOwnerOpt lc calling_addr contract_addr (gCongressMember lc calling_addr contract_addr).
+  bindCallerIsOwnerOpt lc calling_addr contract_addr (gCongressMember_without_caller lc calling_addr contract_addr).
 
   
 Definition gMsgSimpleFromLC (lc : LocalChain) (calling_addr : Address) (contract_addr : Address) : G (option Msg) :=
@@ -371,7 +382,7 @@ Definition gMsgSimpleFromLC (lc : LocalChain) (calling_addr : Address) (contract
     (1, liftM transfer_ownership (try_gNewOwner lc calling_addr contract_addr)) ; 
     (1, liftM change_rules (bindCallerIsOwner (liftM Some (gRulesSized 4)))) ;
     (2, liftM add_member (bindCallerIsOwner (returnGen (try_newCongressMember lc contract_addr 10)))) ;
-    (2, liftM remove_member (bindCallerIsOwner (gCongressMember lc calling_addr contract_addr))) ;
+    (2, liftM remove_member (bindCallerIsOwner (gCongressMember_without_caller lc calling_addr contract_addr))) ;
     (2, liftM vote_for_proposal     (liftM fst (sampleFMapOpt proposals_map))) ;
     (2, liftM vote_against_proposal (liftM fst (sampleFMapOpt proposals_map))) ;
     (2, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ;
@@ -429,18 +440,18 @@ Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Ad
 
 
 Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
+  let mk_call contract_addr caller_addr msg := 
+    amount <- match lc_account_balance lc caller_addr with
+              | Some caller_balance => choose (0%Z, caller_balance)
+              | None => returnGen 0%Z
+              end ;;
+    returnGen (Some (build_act caller_addr 
+      (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg))))) in
   match fuel with
   | 0 => 
     let proposals_map := allProposalsOfLC lc in
     let proposals_with_votes := allProposalsWithVotes lc in
     (* let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in *)
-    let mk_call contract_addr caller_addr msg := 
-      amount <- match lc_account_balance lc caller_addr with
-                | Some caller_balance => choose (0%Z, caller_balance)
-                | None => returnGen 0%Z
-                end ;;
-      returnGen (Some (build_act caller_addr 
-        (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg))))) in
     backtrack [
       (* transfer_ownership *)
       (1, bindGenOpt (sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc))
@@ -511,7 +522,28 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
           | None => returnGen None
           end))
     ]
-  | S fuel' => gCongressActionNew lc fuel'
+  | S fuel' => backtrack [
+    (7, gCongressActionNew lc fuel') ;
+    (* add_proposal *)
+    (1, 
+      (* recurse. Msg is converted to a SerializedType using 'serialize' *)
+      (* This makes it possible to create proposals about proposals about proposals etc... *)
+      (* TODO: currently we don't support having multiple actions in a proposal *)
+      (* TODO: the way we recurse may be too restrictive - we fix a contract_addr, which may cause gCongressMember
+               to return None even though it could have succeeded for another contract_addr.
+               Maybe this is not a big issue, though. *)
+      bindGenOpt (gCongressActionNew lc fuel')
+      (fun act => 
+        let caller_addr := act.(act_from) in
+        match act.(act_body) with
+        | act_call contract_addr amount msg => bindGenOpt (gCongressMember lc contract_addr)
+          (fun member =>
+          let ca := cact_call contract_addr amount msg in  
+          mk_call contract_addr member (create_proposal [ca]))
+        | _ => returnGen (Some act)
+        end 
+      ))
+  ] 
   end.
 (* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
 (* Compute ((show o deserialize o serialize) ex_simple_msg). *)
