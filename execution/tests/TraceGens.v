@@ -235,7 +235,7 @@ Instance showLocalChainStep {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
   end
 |}.
 
-Instance showLocalChainStepWithOnlyName {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
+(* Instance showLocalChainStepWithOnlyName {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
 {|
   show step := match step with
   | step_add_block prev header next => 
@@ -243,7 +243,7 @@ Instance showLocalChainStepWithOnlyName {AddrSize : N} : Show (@LocalChainStep A
   | step_action prev header next acts =>
     "step_action"
   end
-|}.
+|}. *)
 
 Definition lctracetree := tree (@LocalChainStep AddrSize).
 
@@ -286,15 +286,16 @@ Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongress
 
 Definition c4 : LocalChain :=
 let acts := [build_act person_1 (add_person person_1);
-             build_act person_1 (add_person person_2)] in
+             build_act person_1 (add_person person_2);
+             build_act person_1 create_proposal_call] in
     unpack_option (add_block_exec true c3 (next_header_lc c3) acts).
-
 
 Compute (show (lc_account_balances c4)).
 Compute (show (map fst (FMap.elements (lc_contracts c4)))).
 Compute (show (lc_contract_owners c4)).
 Compute (show (congressContractsMembers c4)).
 Compute (show (congressContractsMembers_nonempty_nonowners c4)).
+Compute (show (lc_proposals c4)).
 
 QuickChick (forAll
   (gCongressActionNew c4 1)
@@ -313,7 +314,7 @@ QuickChick (forAll
                                                               else returnGen (Some ("fail", act)))). *)
 
 
-Sample (glctracetreeFromLC c4 1).
+Sample (liftM allPaths (glctracetreeFromLC c4 3)).
 
 Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
   match state with
@@ -341,6 +342,43 @@ Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) :=
   | _ => true 
   end.
 
-(* QuickChick (forAll (glctracetree 4) next_lc_eq_child_prev_lc_P). *)
+(* QuickChick (forAll (glctracetree 7) next_lc_eq_child_prev_lc_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
+
+Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
+                              (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
+                              (length : nat) : G (list LocalChainStep) :=
+  match length with
+  | 0 => returnGen []
+  | S length => 
+    lc_opt <- backtrack [
+      (10, 
+          (* acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;; *)
+          bindGenOpt (gActOptFromLCSized prev_lc 2)
+          (fun act => returnGen (mk_basic_step_action prev_lc [act]))
+      )
+          (* match acts with
+          | [] => returnGen None
+          | _ => returnGen (mk_basic_step_action prev_lc acts)
+          end) *)
+      (* (1, returnGen (mk_basic_step_add_block prev_lc)) ; *)
+      (* (3, liftM (mk_basic_step_action prev_lc ) (optToVector 1 (gDeployCongressActionFromLC prev_lc)))  *)
+      ] ;;
+    match lc_opt with
+          | Some (lc, step) => 
+            liftM (cons step) 
+                   (gLocalChainTraceList_fix lc gActOptFromLCSized length) 
+          | None => returnGen []
+    end
+  end.
+
+
+Definition gLocalChainTraceList lc length := gLocalChainTraceList_fix lc gCongressActionNew length.
+Open Scope string_scope.
+Instance showLocalChainList {AddrSize : N}: Show (list (@LocalChainStep AddrSize)) :=
+{|
+  show l := nl ++ "Begin Trace: " ++ nl ++ String.concat (";;" ++ nl) (map show l) ++ nl ++ "End Trace"
+|}.
+
+Sample (gLocalChainTraceList c4 15).
