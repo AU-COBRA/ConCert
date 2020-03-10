@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters SerializablePrinters.
 
 Require Import ZArith Strings.Ascii Strings.String.
 
@@ -439,7 +439,7 @@ Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Ad
       end)).
 
 
-Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action):=
+Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :=
   let mk_call contract_addr caller_addr msg := 
     amount <- match lc_account_balance lc caller_addr with
               | Some caller_balance => choose (0%Z, caller_balance)

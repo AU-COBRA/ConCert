@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressGens CongressPrinters.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters.
 
 Require Import ZArith Strings.Ascii Strings.String.
 

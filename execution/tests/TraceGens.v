@@ -22,7 +22,7 @@ From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Containers.
 Require Import Extras.
 
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters CongressGens.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters CongressGens SerializablePrinters EIP20TokenPrinters EIP20TokenGens.
 
 (* For monad notations *)
 Require Export ExtLib.Structures.Monads.
@@ -45,12 +45,6 @@ Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 Definition Base : ChainBase := LocalBlockchainTests.Base.
 Definition c_init : ChainBuilder := builder_initial.
 
-
-Definition deploy_congress : @ActionBody Base := create_deployment 5 Congress.contract setup.
-(* Definition chain4 : ChainBuilder :=
-  unpack_option (add_block chain3 [build_act person_1 deploy_congress]). *)
-(* Compute (show chain4). *)
-(* Sample (gCongressActionSizedFromLC chain1.(builder_env) 4). *)
 Definition next_header (chain : ChainBuilder) :=
     {| block_height := S (chain_height chain);
        block_slot := S (current_slot chain);
@@ -75,14 +69,6 @@ Definition optToVector {A : Type} (n : nat): (G (option A)) -> G (list A) :=
   in returnGen l'.
 
 
-
-Sample (gCongressActionSizedFromLC (lcb_lc chain4) zero_address 0).
-
-(* does not compute because computing the normal form of the entire chain is too complex. 
-   Instead compute a projection of the chain, like the state *)
-(* Compute (lcb_lc chain4). *)
-(* Compute (add_block_exec true (lcb_lc chain4) (next_header chain4) []). *)
-
 Definition c1 := unpack_option (add_block_exec true lc_initial (next_header_lc lc_initial) []).
 Compute (show c1).
 Definition c2 := unpack_option 
@@ -103,35 +89,6 @@ Definition my_add_block c acts := (add_block_exec true c (next_header_lc c) acts
 (* Extract Constant defNumTests => "5000". *)
 
 Open Scope bool_scope.
-
-QuickChick (forAll 
-  (optToVector 5 (gActionOfCongressFromLC c3 3))
-  (fun actions => isSome (my_add_block c1 actions) && (0 <? length actions))).
-(* woop woop - it works!:
-    coqtop-stdout:+++ Passed 10000 tests (0 discards)
-*)
-
-Definition add_block_actions_succeeds_P c_opt actions_opt :=
-  isSomeCheck c_opt
-  (fun c => 
-    whenFail (show (lc_account_balances c)) 
-      (match actions_opt with
-      | Some actions => (0 <? length actions) && isSome (my_add_block c actions)
-      | None => false
-      end)
-  ).
-
-Definition check_add_two_blocks_succeeds := 
-  (forAll3 
-    (optToVector 3 (gActionOfCongressFromLC c1 2))
-    (fun actions => returnGen (my_add_block c1 actions))
-    (fun _ c_opt => 
-      match c_opt with
-      | Some c => acts <- (optToVector 3 (gActionOfCongressFromLC c 2)) ;; returnGen (Some acts) 
-      | None => returnGen None
-      end)
-    (fun _ c_opt actions_opt => add_block_actions_succeeds_P c_opt actions_opt)
-  ).
 
 
 Section Trees.
@@ -184,7 +141,6 @@ Instance showTree {A} `{_ : Show A} : Show (tree A) :=
      in nl ++ "Begin Tree:" ++ nl ++ (aux "  " t) ++ nl ++ "End Tree."
   |}.
 Close Scope string_scope.
-Sample (t <- @arbitrarySized (tree nat) _ 4  ;; returnGen (t, allPaths t)).
 
 Inductive LocalChainStep {AddrSize : N} : Type :=
 | step_add_block : forall (prev_chain : @LocalChain AddrSize) 
@@ -281,40 +237,7 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
     end
   end.
 
-Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressActionNew height.
-Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongressActionNew height.
 
-Definition c4 : LocalChain :=
-let acts := [build_act person_1 (add_person person_1);
-             build_act person_1 (add_person person_2);
-             build_act person_1 create_proposal_call] in
-    unpack_option (add_block_exec true c3 (next_header_lc c3) acts).
-
-Compute (show (lc_account_balances c4)).
-Compute (show (map fst (FMap.elements (lc_contracts c4)))).
-Compute (show (lc_contract_owners c4)).
-Compute (show (congressContractsMembers c4)).
-Compute (show (congressContractsMembers_nonempty_nonowners c4)).
-Compute (show (lc_proposals c4)).
-
-QuickChick (forAll
-  (gCongressActionNew c4 1)
-  (fun act_opt => isSomeCheck act_opt
-  (fun act => whenFail 
-    (show (lc_account_balances c4) ++ sep ++ nl
-    ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
-    ++ "congress members: " ++ show (congressContractsMembers c4) ++ nl)
-    (* ++ "valid header: " ++ (show o isSome) (validate_header (next_header_lc c4) c4)) *)
-    (isSome (mk_basic_step_action c4 [act]))))    
-).
-
-
-(* Sample (bindGenOpt (gCongressActionNew c4 3) (fun act => if isSome (mk_basic_step_action c4 [act]) 
-                                                              then returnGen ( Some ("success", act)) 
-                                                              else returnGen (Some ("fail", act)))). *)
-
-
-Sample (liftM allPaths (glctracetreeFromLC c4 3)).
 
 Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
   match state with
@@ -373,12 +296,31 @@ Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
     end
   end.
 
-
-Definition gLocalChainTraceList lc length := gLocalChainTraceList_fix lc gCongressActionNew length.
 Open Scope string_scope.
 Instance showLocalChainList {AddrSize : N}: Show (list (@LocalChainStep AddrSize)) :=
 {|
   show l := nl ++ "Begin Trace: " ++ nl ++ String.concat (";;" ++ nl) (map show l) ++ nl ++ "End Trace"
 |}.
+Close Scope string_scope.  
 
-Sample (gLocalChainTraceList c4 15).
+(* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
+Definition token_setup := EIP20Token.build_setup person_1 20.
+Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
+
+Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
+
+Definition chain_with_token_deployed :=  unpack_option (add_block_exec true c2 (next_header_lc c2) [build_act person_1 deploy_eip20token]).
+
+Definition gEIP20TokenChainTraceList lc length := 
+  gLocalChainTraceList_fix lc (fun lc _ => 
+    gEIP20TokenAction lc contract_base_addr) length.
+
+Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
+(* Compute (show (lc_contract_state chain_with_token_deployed)). *)
+
+
+(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
+(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
+QuickChick (forAll 
+  (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
+  (fun act_opt => isSomeCheck act_opt (fun act => (checker o isSome) (my_add_block c1 [act])))).

@@ -100,16 +100,3 @@ Instance showState : Show Congress.State :=
             ++ "members: " ++ show (members s) ++ "}"
 |}.
 
-(* Currently we hack it to always deserialize to Msg types - only works for Congress! TODO: fix *)
-Instance showSerializedValue {ty : Type} `{Serializable ty} `{Show ty} : Show SerializedValue := 
-{|
-  show v :=
-    match @deserialize Msg _ v with
-    | Some v => show v
-    | None => "<FAILED DESERIALIZATION>"
-    end 
-  (* ++ show (ser_value_type v) ++ sep *)
-  (* ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}"  *)
-|}.
-
-Close Scope string_scope.

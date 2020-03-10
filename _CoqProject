@@ -18,14 +18,19 @@ execution/theories/Monads.v
 execution/theories/Serializable.v
 execution/theories/LocalBlockchain.v
 execution/theories/LocalBlockchainTests.v
+execution/theories/EIP20Token.v
 
 -R execution/tests ConCert.Execution.QCTests
 execution/tests/TestUtils.v
+execution/tests/EIP20TokenPrinters.v
 execution/tests/ChainPrinters.v
 execution/tests/ChainGens.v
 execution/tests/CongressGens.v
 execution/tests/CongressPrinters.v
 execution/tests/CongressTests.v
+execution/tests/EIP20TokenGens.v
+execution/tests/TraceGens.v
+execution/tests/SerializablePrinters.v
 
 
 -R embedding/theories ConCert.Embedding
