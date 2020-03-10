@@ -111,16 +111,22 @@ Definition try_transfer (from : Address)
 												(amount : TokenValue) 
 												(state : State) : option State := 
 	(* TODO *)
-	do from_balance <- FMap.find from state.(balances) ;
-	if from_balance <? amount 
-	then None 
-	else 
-		let new_balances := FMap.add from (from_balance - amount)  
-			(match FMap.find to state.(balances) with
-			| Some balance => FMap.add to (balance + amount) state.(balances)
-			| None => FMap.add to amount state.(balances)
-			end) in
-		Some (state<|balances := new_balances|>).
+	match FMap.find from state.(balances) with
+	| Some from_balance =>
+		if from_balance <? amount 
+		then None 
+		else 
+			let new_balances := FMap.add from (from_balance - amount)  
+				(match FMap.find to state.(balances) with
+				| Some balance => FMap.add to (balance + amount) state.(balances)
+				| None => FMap.add to amount state.(balances)
+				end) in
+			Some (state<|balances := new_balances|>)
+	| None => if amount =? 0 
+						(* TODO: maybe also check if 'to' has a balance, and if not, make one with value 0. *)
+						then Some (state<|balances ::= FMap.add from 0|>)
+						else None
+	end.
 
 (* The delegate tries to transfer <amount> tokens from <from> to <to>.
 	 Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf.
@@ -133,15 +139,21 @@ Definition try_transfer_from (delegate : Address)
 														 (state : State) : option State :=
 	do from_allowances_map <- FMap.find from state.(allowances) ;
 	do delegate_allowance <- FMap.find delegate from_allowances_map ;
-	do balance_from <- FMap.find from state.(balances) ;
-	if (delegate_allowance <? amount) || (balance_from <? amount)
-	then None
-	else let new_balances := FMap.add from (balance_from - amount) 
-					(match FMap.find to state.(balances) with
-					| Some balance => FMap.add to (amount + balance) state.(balances)
-					| None => FMap.add to amount state.(balances)
-					end) in
-				Some (state<|balances := new_balances|>).
+	match FMap.find from state.(balances) with
+	| Some balance_from =>
+		if (delegate_allowance <? amount) || (balance_from <? amount)
+		then None
+		else let new_balances := FMap.add from (balance_from - amount) 
+						(match FMap.find to state.(balances) with
+						| Some balance => FMap.add to (amount + balance) state.(balances)
+						| None => FMap.add to amount state.(balances)
+						end) in
+					Some (state<|balances := new_balances|>)
+	| None => if amount =? 0 
+						(* TODO: maybe also check if 'to' has a balance, and if not, make one with value 0. *)
+						then Some (state<|balances ::= FMap.add from 0|>)
+						else None
+	end.
 
 (* The caller approves the delegate to transfer up to <amount> tokens on behalf of the caller *)
 Definition try_approve (caller : Address) 

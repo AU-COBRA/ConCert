@@ -277,9 +277,16 @@ Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
   | S length => 
     lc_opt <- backtrack [
       (10, 
-          (* acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;; *)
-          bindGenOpt (gActOptFromLCSized prev_lc 2)
-          (fun act => returnGen (mk_basic_step_action prev_lc [act]))
+          (* What we're essentially doing here trying twice and then discarding one - to increase robustness.  *)
+          let gAct_try_twice := backtrack [
+            (1, (gActOptFromLCSized prev_lc 2));
+            (1, (gActOptFromLCSized prev_lc 2))
+          ] in
+          bindGenOpt gAct_try_twice (fun act => returnGen (mk_basic_step_action prev_lc [act]))
+          (* acts <- liftM (shrinkListTo 1) (optToVector nr_retries ) ;; *)
+          (* returnGen (mk_basic_step_action prev_lc acts) *)
+          (* bindGenOpt (gActOptFromLCSized prev_lc 2) *)
+          (* (fun act => returnGen (mk_basic_step_action prev_lc [act])) *)
       )
           (* match acts with
           | [] => returnGen None
@@ -317,10 +324,25 @@ Definition gEIP20TokenChainTraceList lc length :=
 
 Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
 (* Compute (show (lc_contract_state chain_with_token_deployed)). *)
+Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
 
 
-(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
 QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
-  (fun act_opt => isSomeCheck act_opt (fun act => (checker o isSome) (my_add_block c1 [act])))).
+  (fun act_opt => isSomeCheck act_opt (fun act => 
+    (isSomeCheck (my_add_block c1 [act]) (fun _ => checker true))
+  ))).
+(* coqtop-stdout:*** Gave up! Passed only 0 tests
+  Discarded: 20000 *)
+
+(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
+Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
+QuickChick (forAll 
+  (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
+  (fun act_opt => isSomeCheck act_opt (fun act => 
+    whenFail 
+			("lc balances: " ++ show (lc_account_balances chain_with_token_deployed) ++ sep ++ nl
+      ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
+      ++ "token state: " ++ show (lc_token_contracts_states_deserialized chain_with_token_deployed) ++ sep ++ nl 
+      )  
+    ((checker o isSome) (my_add_block c1 [act]))))).
