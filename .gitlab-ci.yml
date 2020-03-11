@@ -7,12 +7,14 @@ stages:
     - au
   before_script:
     - cd execution
+    - opam repo add coq-released https://coq.inria.fr/opam/released
     - opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
     - opam update -y
     - opam config list
     - opam repo list
     - opam list
     - opam install -y coq-stdpp
+    - opam install -y coq-bignums
   script:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
     - make -j
@@ -30,6 +32,10 @@ execution:coq:8.10:
   extends: .build-execution
   image: coqorg/coq:8.10
 
+execution:coq:8.11:
+  extends: .build-execution
+  image: coqorg/coq:8.11
+
 execution:coq:dev:
   extends: .build-execution
   image: coqorg/coq:dev
@@ -39,6 +45,13 @@ full:coq:8.9.1:
   image: aucobra/concert:coq-8.9.1-with-metacoq
   tags:
     - au
+  before_script:
+    - opam repo add coq-released https://coq.inria.fr/opam/released
+    - opam update -y
+    - opam config list
+    - opam repo list
+    - opam list
+    - opam install -y coq-bignums
   script:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
     - make -j
