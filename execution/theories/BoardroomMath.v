@@ -909,8 +909,8 @@ Module Zp.
         rewrite Z.pow_mul_l.
         rewrite <- Z.pow_add_r by (auto with zarith).
         rewrite Zred_factor1.
-        f_equal.
-        lia.
+        cbn.
+        f_equal; lia.
       + cbn -[Z.pow_pos].
         rewrite IHx.
         rewrite <- Zmult_mod_idemp_r.
