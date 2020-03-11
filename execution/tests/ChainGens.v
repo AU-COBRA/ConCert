@@ -29,6 +29,7 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
+Global Set Warnings "-extraction-logical-axiom".
 
 Open Scope list_scope.
 
