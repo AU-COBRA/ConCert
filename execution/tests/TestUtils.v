@@ -53,8 +53,9 @@ Definition string_of_FMap {A B : Type}
                           (showA : A -> string) 
                           (showB : B -> string) 
                           (m : FMap A B) : string :=
-  show (map (fun p => showA (fst p) ++ "-->" ++ showB (snd p)) (FMap.elements m)).
-
+  "[" ++
+    String.concat "; " (map (fun p => showA (fst p) ++ "-->" ++ showB (snd p)) (FMap.elements m))
+  ++ "]".
 
 Definition filter_FMap {A B : Type}
                       `{countable.Countable A}
@@ -89,7 +90,16 @@ Definition map_filter_FMap {A B C: Type}
                                                end  ) l [] in
   FMap.of_list mapped_l.
 
-
+Definition FMap_find_ {A B : Type}                           
+										`{countable.Countable A}
+										`{base.EqDecision A}
+										 (k : A)
+										 (m : FMap A B)
+										 (default : B)  := 
+	match FMap.find k m with 
+	| Some v => v 
+	| None => default 
+	end.
 
 (* Utils for Show instances *)
 
@@ -207,7 +217,21 @@ Definition sampleFMapOpt_filter {A B : Type}
   | e :: _ => liftM Some (elems_ e (List.filter f els))
   | [] => returnGen None
   end.
- 
+
+Definition sample2UniqueFMapOpt
+												 {A B : Type}                           
+                        `{countable.Countable A}
+                        `{base.EqDecision A}
+                         (m : FMap A B) 
+												 : G (option ((A * B) * (A * B))) :=
+	bindGenOpt (sampleFMapOpt m) (fun p1 =>
+		let key1 := fst p1 in
+		let val1 := snd p1 in
+		bindGenOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
+			returnGen (Some (p1, p2))
+		)
+	).
+
 Definition gContractFromLocalChain lc : G (option (Address * WeakContract)) :=
   sampleFMapOpt (@lc_contracts AddrSize lc).
 
@@ -337,8 +361,7 @@ Instance genFMapSized {A B : Type}
   arbitrarySized := @gFMapSized A B arbitrary arbitrary _ _ _
 |}.
 
-Sample (@gFMapSized nat nat arbitrary arbitrary _ _ _ 1).
-
+(* Sample (@gFMapSized nat nat arbitrary arbitrary _ _ _ 1). *)
 
 Fixpoint vectorOfCount {A : Type}
                       `{countable.Countable A} 
@@ -352,6 +375,15 @@ Fixpoint vectorOfCount {A : Type}
     | None => liftM (cons default) (vectorOfCount default n')
     end
   end.
+
+Definition optToVector {A : Type} (n : nat): (G (option A)) -> G (list A) :=
+  fun g =>
+  l <- vectorOf n g ;;
+  let l' := fold_left (fun acc aopt => match aopt with
+                          | Some a => a :: acc
+                          | None => acc
+                          end) l []
+  in returnGen l'.
 
 Fixpoint shrinkListTo {A : Type} maxSize (l : list A) : list A:=
   match l with
@@ -559,8 +591,8 @@ Definition existsP {A prop : Type}
                    (g : G A) 
                    (p : A -> bool) := expectFailure (forAll g (fun a => negb (p a))).
 
-QuickChick (
+(* QuickChick (
   existsP arbitrary (fun a => a <=? a)
-).
+). *)
 
 

@@ -47,6 +47,7 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 	let randomize_mk_gen g := (* the probability of sampling fresh accounts grows smaller over time *)
 		freq [
 			(weight_1, returnGen g) ;
+			(* TODO: only generate non_contract addresses *)
 			(0, from_addr <- arbitrary ;; (* TODO: temporarily set to 0 *)
 					to_addr <- arbitrary ;;
 					returnGen (from_addr, transfer to_addr 0))
@@ -55,31 +56,17 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 	match sample with
 	| Some (addr, balance) =>
 		transfer_amount <- choose (0, balance) ;;
-		sample' <- sampleFMapOpt lc.(lc_account_balances) ;;
-		match sample' with
-		| Some (account, _) => randomize_mk_gen (addr, transfer account transfer_amount) 
+		account_opt <- gAccountAddrFromLocalChain lc ;; (* ensures no contract addresses are generated *)
+		match account_opt with
+		| Some account => randomize_mk_gen (addr, transfer account transfer_amount) 
 		| None => to_addr <- arbitrary ;; randomize_mk_gen (addr, transfer to_addr transfer_amount)
 		end	
 	(* if the contract state contains no accounts, just transfer 0 tokens between two arbitrary accounts *)
+	(* TODO: only generate non_contract addresses *)
 	| None => from_addr <- arbitrary ;;
 						to_addr <- arbitrary ;;
 						returnGen (from_addr, transfer to_addr 0)
 	end.
-
-Definition sample2UniqueFMapOpt
-												 {A B : Type}                           
-                        `{countable.Countable A}
-                        `{base.EqDecision A}
-                         (m : FMap A B) 
-												 : G (option ((A * B) * (A * B))) :=
-	bindGenOpt (sampleFMapOpt m) (fun p1 =>
-		let key1 := fst p1 in
-		let val1 := snd p1 in
-		bindGenOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
-			returnGen (Some (p1, p2))
-		)
-	).
-
 
 (* TODO: not super good implementation. Should filter on balances map instead of first sampling and then filtering *)
 Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) := 
@@ -95,13 +82,29 @@ Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) :=
 		else returnGen None
 	).
 
-
+Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)) :=
+	bindGenOpt (sampleFMapOpt state.(allowances)) (fun p =>
+	let allower := fst p in
+	let allowance_map := snd p in
+	bindGenOpt (sampleFMapOpt allowance_map) (fun p' =>
+		let delegate := fst p' in
+		let allowance := snd p' in
+		bindGenOpt (sampleFMapOpt state.(balances)) (fun p'' =>
+			let receiver := fst p'' in
+			let allower_balance := (FMap_find_ allower state.(balances) 0) in
+			amount <- (if allower_balance =? 0 
+								then returnGen 0 
+								else choose (0, min allowance allower_balance)) ;; 
+			returnGen (Some (delegate, transfer_from allower receiver  amount))
+		)
+	)).
 
 (* Main generator *)
 Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (option Action) := 
   let mk_call contract_addr caller_addr msg := 
     amount <- match lc_account_balance lc caller_addr with
-              | Some caller_balance => choose (0%Z, caller_balance)
+							| Some caller_balance => returnGen 0%Z
+					(* | Some caller_balance => choose (0%Z, caller_balance) *)
               | None => returnGen 0%Z
               end ;;
     returnGen (Some (build_act caller_addr 
@@ -117,7 +120,15 @@ Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (op
 				) 		
 		) ;
 		(* transfer_from *)
-		(0, returnGen None) ;
+		(1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
+				(fun c_state_pair =>
+				let contract_addr' := fst c_state_pair in
+				let state := snd c_state_pair in
+				bindGenOpt (gTransfer_from state)
+				(fun caller_msg_pair =>
+				mk_call contract_addr' (fst caller_msg_pair) (snd caller_msg_pair)
+				))
+		);
 		(* approve *)
 		(1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
 				(fun c_state_pair =>

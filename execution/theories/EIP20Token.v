@@ -116,11 +116,11 @@ Definition try_transfer (from : Address)
 		if from_balance <? amount 
 		then None 
 		else 
-			let new_balances := FMap.add from (from_balance - amount)  
-				(match FMap.find to state.(balances) with
-				| Some balance => FMap.add to (balance + amount) state.(balances)
-				| None => FMap.add to amount state.(balances)
-				end) in
+			let new_balances' := FMap.add from (from_balance - amount) state.(balances) in
+			let new_balances := match FMap.find to new_balances' with
+													| Some balance => FMap.add to (balance + amount) new_balances'
+													| None => FMap.add to amount new_balances'
+													end in
 			Some (state<|balances := new_balances|>)
 	| None => if amount =? 0 
 						(* TODO: maybe also check if 'to' has a balance, and if not, make one with value 0. *)
@@ -143,11 +143,11 @@ Definition try_transfer_from (delegate : Address)
 	| Some balance_from =>
 		if (delegate_allowance <? amount) || (balance_from <? amount)
 		then None
-		else let new_balances := FMap.add from (balance_from - amount) 
-						(match FMap.find to state.(balances) with
-						| Some balance => FMap.add to (amount + balance) state.(balances)
-						| None => FMap.add to amount state.(balances)
-						end) in
+		else let new_balances' := FMap.add from (balance_from - amount) state.(balances) in
+				let new_balances := match FMap.find to new_balances' with
+														| Some balance => FMap.add to (balance + amount) new_balances'
+														| None => FMap.add to amount new_balances'
+														end in
 					Some (state<|balances := new_balances|>)
 	| None => if amount =? 0 
 						(* TODO: maybe also check if 'to' has a balance, and if not, make one with value 0. *)
@@ -179,7 +179,9 @@ Definition receive
 	| Some (transfer to amount) => without_actions (try_transfer sender to amount state)
 	| Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
 	| Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-	| _ => None
+	(* Always allow people to donate money for the Congress to spend *)
+  | None => Some (state, [])
+
 	end.
 
 

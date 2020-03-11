@@ -20,6 +20,7 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
 From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Containers.
+From ConCert Require Import EIP20Token.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters CongressGens SerializablePrinters EIP20TokenPrinters EIP20TokenGens.
@@ -59,14 +60,6 @@ Definition next_header_lc (chain : @LocalChain AddrSize) :=
        block_creator := creator;
        block_reward := 50; |}.
 
-Definition optToVector {A : Type} (n : nat): (G (option A)) -> G (list A) :=
-  fun g =>
-  l <- vectorOf n g ;;
-  let l' := fold_left (fun acc aopt => match aopt with
-                          | Some a => a :: acc
-                          | None => acc
-                          end) l []
-  in returnGen l'.
 
 
 Definition c1 := unpack_option (add_block_exec true lc_initial (next_header_lc lc_initial) []).
@@ -85,8 +78,6 @@ Compute (show (lc_contract_owners c3)).
 Compute (show (lc_contract_state c3)).
 
 Definition my_add_block c acts := (add_block_exec true c (next_header_lc c) acts).
-
-(* Extract Constant defNumTests => "5000". *)
 
 Open Scope bool_scope.
 
@@ -125,9 +116,12 @@ end.
 Definition allPaths {V : Type} (t : tree V) : list (list V):= allPaths_fix t [[]].
 
 Example ex_tree : tree nat := node 1 (node 2 leaf leaf) (node 3 (node 4 leaf leaf) (node 5 leaf leaf)).
-Compute (show (allPaths ex_tree)).
+(* Compute (show (allPaths ex_tree)). *)
+
 Derive Arbitrary for tree.
+
 Open Scope string_scope.
+
 Instance showTree {A} `{_ : Show A} : Show (tree A) :=
   {| show t := let fix aux (indent : string) t :=
        match t with
@@ -310,39 +304,135 @@ Instance showLocalChainList {AddrSize : N}: Show (list (@LocalChainStep AddrSize
 |}.
 Close Scope string_scope.  
 
+Fixpoint all_suffices_fix {A : Type} (l : list A) (acc : list (list A)) : list (list A) := 
+  match l with
+  | [] => acc
+  | x::xs => match acc with
+             | [] => all_suffices_fix xs [[x]]
+             | _ => all_suffices_fix xs ([x] :: (map (fun l => app l [x]) acc)) 
+             end
+  end.
+
+(* TODO: pretty ugly solution. Maybe fix. *)
+Definition all_prefixes {A : Type} (l : list A) := map (fun l => rev' l) (all_suffices_fix (rev' l) []).
+Compute (all_prefixes [1;2;3;4]).
+
+Instance shrinkLocalChainTraceList {AddrSize : N}: Shrink (list (@LocalChainStep AddrSize)) :=
+{|
+  shrink := all_prefixes
+|}.
+
+(* Checks that a property holds on all states in all traces from a given trace generator *)
+Definition forAllTraces {prop : Type}
+                       `{Checkable prop}
+                        {AddrSize : N}
+                        (maxLength : nat)
+                        (init_lc : @LocalChain AddrSize)
+                        (gTrace : LocalChain -> nat -> G (list LocalChainStep))
+                        (pf : LocalChain -> prop)
+                        : Checker :=
+  forAllShrink (gTrace init_lc maxLength) shrink
+  (fun trace => conjoin (map (checker o pf o next_lc_of_lcstep) trace))
+.
+
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
-Definition token_setup := EIP20Token.build_setup person_1 20.
+Definition token_setup := EIP20Token.build_setup creator 100.
 Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
-Definition chain_with_token_deployed :=  unpack_option (add_block_exec true c2 (next_header_lc c2) [build_act person_1 deploy_eip20token]).
+Definition chain_with_token_deployed :=  
+  unpack_option (my_add_block lc_initial 
+  [
+    build_act creator (act_transfer person_1 10);
+    build_act creator (act_transfer person_2 10);
+    build_act creator (act_transfer person_3 10);
+    build_act creator deploy_eip20token
+  ]).
 
 Definition gEIP20TokenChainTraceList lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => 
     gEIP20TokenAction lc contract_base_addr) length.
 
 Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
-(* Compute (show (lc_contract_state chain_with_token_deployed)). *)
-Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
+Compute (show (lc_token_contracts_states_deserialized chain_with_token_deployed)).
+Compute (show (lc_account_balances chain_with_token_deployed)).
+(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
+Open Scope string_scope.
+Definition debug_gEIP20Checker lc (act : option Action) :=
+  let print_valid_actions := match act with
+                            | Some act => "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
+                            | None => ""
+                            end in
+  whenFail 
+    ("lc balances: " ++ show (lc_account_balances lc) ++ sep ++ nl
+    ++ print_valid_actions
+    ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl 
+    ).
 
 
 QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
-    (isSomeCheck (my_add_block c1 [act]) (fun _ => checker true))
+    (isSomeCheck (my_add_block chain_with_token_deployed [act]) (fun _ => checker true))
   ))).
-(* coqtop-stdout:*** Gave up! Passed only 0 tests
-  Discarded: 20000 *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
-QuickChick (forAll 
+(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
+(* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
-    whenFail 
-			("lc balances: " ++ show (lc_account_balances chain_with_token_deployed) ++ sep ++ nl
-      ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
-      ++ "token state: " ++ show (lc_token_contracts_states_deserialized chain_with_token_deployed) ++ sep ++ nl 
-      )  
-    ((checker o isSome) (my_add_block c1 [act]))))).
+    (debug_gEIP20Checker chain_with_token_deployed (Some act))  
+      ((checker o isSome) (my_add_block chain_with_token_deployed [act]))))). *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_with_token_deployed.
+
+
+(* Generate a trace, and then execute an action on the last state of the trace. Check that this always succeeds *)
+QuickChick (forAll2 
+  (gEIP20TokenChainTraceList chain_with_token_deployed 5) 
+  (fun trace => 
+    gEIP20TokenAction (last_state trace) 
+                      contract_base_addr)
+  (fun trace act_opt => isSomeCheck act_opt (fun act => 
+    (debug_gEIP20Checker (last_state trace) (Some act))  
+      ((checker o isSome) (my_add_block (last_state trace) [act]))))).
+
+
+Open Scope nat_scope.
+(* One key property: the sum of the balances is always equal to the initial supply *)
+Definition sum_balances_eq_init_supply_P maxLength := 
+  forAllTraces maxLength chain_with_token_deployed gEIP20TokenChainTraceList
+    (fun (lc : LocalChain) =>
+      debug_gEIP20Checker lc None
+      (checker match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
+      | Some state => 
+        let balances_list := (map snd o FMap.elements) state.(balances) in
+        let balances_sum : nat := fold_left plus balances_list 0 in
+        balances_sum =? state.(total_supply)
+      | None => false
+      end)).
+
+(* QuickChick (sum_balances_eq_init_supply_P 7). *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+(* INVALID PROPERTY: accounts may allow multiple other accounts to transfer tokens, but the actual transfer ensures that
+   no more tokens are sent than the balance of the sender. *)
+Definition sum_allowances_le_init_supply_P maxLength :=
+  forAllTraces maxLength chain_with_token_deployed gEIP20TokenChainTraceList
+    (fun (lc : LocalChain) =>
+      debug_gEIP20Checker lc None
+      (checker match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
+      | Some state => 
+        let allowances := map_values_FMap 
+          (fun allowance_map => fold_left plus ((map snd o FMap.elements) allowance_map) 0)
+          state.(allowances) in
+        let allowances_list := (map snd o FMap.elements) allowances in
+        let allowances_sum := fold_left plus allowances_list 0 in 
+        allowances_sum <=? state.(total_supply)
+      | None => false
+      end)).
+    
+(* QuickChick (sum_allowances_le_init_supply_P 5). *)
