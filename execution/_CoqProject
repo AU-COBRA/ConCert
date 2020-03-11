@@ -6,7 +6,11 @@
 
 -R theories ConCert.Execution
 theories/Automation.v
+theories/BignumsSerializable.v
 theories/Blockchain.v
+theories/BoardroomMath.v
+theories/BoardroomVoting.v
+theories/BoardroomVotingTest.v
 theories/BoundedN.v
 theories/ChainedList.v
 theories/Circulation.v
@@ -14,7 +18,9 @@ theories/Congress.v
 theories/Congress_Buggy.v
 theories/Containers.v
 theories/ContractMonads.v
+theories/Egcd.v
 theories/Escrow.v
+theories/Euler.v
 theories/Extras.v
 theories/Finite.v
 theories/LocalBlockchain.v

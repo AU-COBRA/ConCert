@@ -6,7 +6,11 @@ vendor/record-update/RecordUpdate.v
 
 -R execution/theories ConCert.Execution
 execution/theories/Automation.v
+execution/theories/BignumsSerializable.v
 execution/theories/Blockchain.v
+execution/theories/BoardroomMath.v
+execution/theories/BoardroomVoting.v
+execution/theories/BoardroomVotingTest.v
 execution/theories/BoundedN.v
 execution/theories/ChainedList.v
 execution/theories/Circulation.v
@@ -14,7 +18,9 @@ execution/theories/Congress.v
 execution/theories/Congress_Buggy.v
 execution/theories/Containers.v
 execution/theories/ContractMonads.v
+execution/theories/Egcd.v
 execution/theories/Escrow.v
+execution/theories/Euler.v
 execution/theories/Extras.v
 execution/theories/Finite.v
 execution/theories/LocalBlockchain.v
