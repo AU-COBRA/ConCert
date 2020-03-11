@@ -89,8 +89,11 @@ Fixpoint prod (l : list Z) : Z :=
 Instance prod_perm_proper : Proper (@Permutation Z ==> eq) prod.
 Proof.
   intros l l' perm.
-  induction perm; cbn; try lia.
-  now rewrite IHperm.
+  induction perm; cbn.
+  - easy.
+  - now rewrite IHperm.
+  - lia.
+  - lia.
 Qed.
 
 Lemma rel_prime_prod l n :
@@ -215,9 +218,11 @@ Proof.
   apply Z.eqb_eq, Zgcd_1_rel_prime, rel_prime_le_prime; auto.
   apply in_seq in ain.
   split; [lia|].
-  apply Z2Nat.inj_lt; try lia.
-  rewrite Nat2Z.id.
-  lia.
+  apply Z2Nat.inj_lt.
+  - lia.
+  - lia.
+  - rewrite Nat2Z.id.
+    lia.
 Qed.
 
 Lemma prime_totient p :

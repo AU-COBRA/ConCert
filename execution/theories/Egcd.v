@@ -116,10 +116,15 @@ Proof.
                             (S (Z.to_nat (Z.log2 (Z.abs m) + Z.log2 (Z.abs n))))
                             (Z.abs n) 1 0
                             (Z.abs m) 0 1
-                            _ _ _ _ _ _); try lia.
+                            _ _ _ _ _ _).
     + rewrite Nat2Z.inj_succ.
       rewrite Z2Nat.id by lia.
       lia.
+    + lia.
+    + lia.
+    + lia.
+    + lia.
+    + lia.
     + destruct (egcd_aux _ _ _ _ _ _ _).
       rewrite !Z.mul_assoc.
       rewrite Z.gcd_abs_l, Z.gcd_comm, Z.gcd_abs_l in H2.
@@ -130,10 +135,15 @@ Proof.
                             (S (Z.to_nat (Z.log2 (Z.abs m) + Z.log2 (Z.abs n))))
                             (Z.abs m) 1 0
                             (Z.abs n) 0 1
-                            _ _ _ _ _ _); try lia.
+                            _ _ _ _ _ _).
     + rewrite Nat2Z.inj_succ.
       rewrite Z2Nat.id by lia.
       lia.
+    + lia.
+    + lia.
+    + lia.
+    + lia.
+    + lia.
     + destruct (egcd_aux _ _ _ _ _ _ _).
       rewrite !Z.mul_assoc.
       rewrite Z.gcd_abs_l, Z.gcd_comm, Z.gcd_abs_l, Z.gcd_comm in H2.
