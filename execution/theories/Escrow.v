@@ -144,6 +144,7 @@ Definition receive
 Ltac solve_contract_proper :=
   repeat
     match goal with
+    | [|- @bind _ ?m _ _ _ _ = @bind _ ?m _ _ _ _] => unfold bind, m
     | [|- ?x _  = ?x _] => unfold x
     | [|- ?x _ _ = ?x _ _] => unfold x
     | [|- ?x _ _ _ = ?x _ _ _] => unfold x
@@ -195,16 +196,12 @@ Section Theories.
           constructor; try constructor.
           apply address_eq_ne; auto.
         * destruct_match in receive_some; cbn in *; try congruence.
-          destruct_match in receive_some; cbn in *.
-          -- destruct_match in receive_some; cbn in *; try congruence.
-             inversion_clear receive_some.
-             constructor; try constructor.
-             apply address_eq_ne; auto.
-          -- destruct_match in receive_some; cbn in *; try congruence.
-             destruct_match in receive_some; cbn in *; try congruence.
-             inversion_clear receive_some.
-             constructor; try constructor.
-             apply address_eq_ne; auto.
+          destruct_match in receive_some; cbn in *; try congruence.
+          destruct_match in receive_some.
+          destruct_match in receive_some; cbn in *; try congruence.
+          inversion_clear receive_some.
+          constructor; try constructor.
+          apply address_eq_ne; auto.
     - inversion_clear IH as [|? ? head_not_me tail_not_me].
       apply Forall_app; split; auto; clear tail_not_me.
       destruct head; try contradiction.
@@ -340,8 +337,8 @@ Section Theories.
       unfold Escrow.init in *.
       destruct (address_eqb_spec (setup_buyer setup) (ctx_from ctx));
         cbn in *; try congruence.
-      destruct_match eqn:amount_some in init_some; cbn in *; try congruence.
-      destruct_match eqn:amount_even in init_some; cbn in *; try congruence.
+      destruct (ctx_amount ctx =? 0) eqn:amount_some; cbn in *; try congruence.
+      destruct (Z.even (ctx_amount ctx)) eqn:amount_even; cbn in *; try congruence.
       inversion init_some; subst; clear init_some.
       cbn.
       assert (2 * (ctx_amount ctx / 2) > 0 -> ctx_amount ctx / 2 > 0) by lia.
@@ -394,7 +391,8 @@ Section Theories.
         destruct (next_step prev_state); try congruence.
         destruct (address_eqb_spec (ctx_from ctx) (buyer prev_state)) as [->|];
           cbn in *; try congruence.
-        destruct_match eqn:proper_amount in receive_some; cbn in *; try congruence.
+        destruct (ctx_amount ctx =? _) eqn:proper_amount in receive_some;
+          cbn in *; try congruence.
         inversion_clear receive_some.
         cbn.
         do 4 (split; try tauto).
@@ -411,7 +409,8 @@ Section Theories.
         destruct_match in receive_some; cbn in *; try congruence.
         destruct (address_eqb_spec (ctx_from ctx) (buyer prev_state)) as [->|];
           cbn in *; try congruence.
-        destruct_match eqn:zero_amount in receive_some; cbn in *; try congruence.
+        destruct (ctx_amount ctx =? 0) eqn:zero_amount in receive_some;
+          cbn in *; try congruence.
         inversion_clear receive_some.
         cbn.
         do 4 (split; try tauto).
@@ -433,7 +432,7 @@ Section Theories.
           cbn -[Nat.ltb] in *; try congruence.
         * (* next_step was commit_money, so seller is withdrawing money
           because buyer did not commit anything. *)
-          destruct_match eqn:zero_amount in receive_some;
+          destruct (ctx_amount ctx =? 0) eqn:zero_amount in receive_some;
             cbn -[Nat.ltb] in *; try congruence.
           apply Z.eqb_eq in zero_amount.
           rewrite zero_amount in *.
@@ -452,7 +451,7 @@ Section Theories.
           split; auto; lia.
         * (* next_step was withdrawals, so either seller or buyer is withdrawing money.
              This might put us into next_step = none. *)
-          destruct_match eqn:zero_amount in receive_some;
+          destruct (ctx_amount ctx =? 0) eqn:zero_amount in receive_some;
             cbn -[Nat.ltb] in *; try congruence.
           apply Z.eqb_eq in zero_amount.
           rewrite zero_amount in *.
@@ -481,7 +480,7 @@ Section Theories.
               lia.
             ++ (* Seller still has more to withdraw, next_step is still withdrawals *)
               replace (match seller_withdrawable prev_state with _ => _ end)
-                with (prev_state <| buyer_withdrawable ::= constructor 0 |>)
+                with (prev_state <| buyer_withdrawable := 0 |>)
                 by (destruct_match; cbn in *; try congruence).
               cbn.
               rewrite prev_next_step.
@@ -516,7 +515,7 @@ Section Theories.
               lia.
             ++ (* Buyer still has more to withdraw, next_step is still withdrawals *)
               replace (match buyer_withdrawable prev_state with _ => _ end)
-                with (prev_state <| seller_withdrawable ::= constructor 0 |>)
+                with (prev_state <| seller_withdrawable := 0 |>)
                 by (destruct_match; cbn in *; try congruence).
               cbn.
               rewrite prev_next_step.

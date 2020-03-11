@@ -255,6 +255,7 @@ Definition receive
 Ltac solve_contract_proper :=
   repeat
     match goal with
+    | [|- @bind _ ?m _ _ _ _ = @bind _ ?m _ _ _ _] => unfold bind, m
     | [|- ?x _  = ?x _] => unfold x
     | [|- ?x _ _ = ?x _ _] => unfold x
     | [|- ?x _ _ _ = ?x _ _ _] => unfold x
@@ -316,10 +317,6 @@ Proof.
       unfold do_retract_vote in receive.
       destruct (FMap.find _ _); cbn in *; try congruence.
       destruct (FMap.find _ _); cbn in *; try congruence.
-      now inversion_clear receive.
-    + unfold do_finish_proposal in receive.
-      destruct (FMap.find _ _); cbn in *; try congruence.
-      destruct_match in receive; cbn in *; try congruence.
       now inversion_clear receive.
     + now inversion receive; subst.
   }
@@ -451,8 +448,8 @@ Lemma receive_state_well_behaved
   end.
 Proof.
   intros receive.
-  destruct msg as [msg|]; cbn in *; try congruence.
-  destruct msg; cbn in *; try congruence.
+  destruct msg as [[]|];
+    cbn -[vote_on_proposal do_retract_vote do_finish_proposal] in *.
   - (* transfer_ownership *)
     destruct_address_eq; try congruence.
     inversion receive; auto.
@@ -469,17 +466,17 @@ Proof.
     apply add_proposal_cacts.
   - (* vote_for_proposal *)
     destruct (FMap.mem _ _); try congruence.
-    destruct (vote_on_proposal _ _ _ _) eqn:vote; cbn in *; try congruence.
+    destruct (vote_on_proposal _ _ _ _) eqn:vote; cbn -[vote_on_proposal] in *; try congruence.
     inversion receive; subst.
     erewrite vote_on_proposal_cacts_preserved; eauto.
   - (* vote_against_proposal *)
     destruct (FMap.mem _ _); try congruence.
-    destruct (vote_on_proposal _ _ _ _) eqn:vote; cbn in *; try congruence.
+    destruct (vote_on_proposal _ _ _ _) eqn:vote; cbn -[vote_on_proposal] in *; try congruence.
     inversion receive; subst.
     erewrite vote_on_proposal_cacts_preserved; eauto.
   - (* retract_vote *)
     destruct (FMap.mem _ _); try congruence.
-    destruct (do_retract_vote _ _ _) eqn:retract; cbn in *; try congruence.
+    destruct (do_retract_vote _ _ _) eqn:retract; cbn -[do_retract_vote] in *; try congruence.
     inversion receive; subst.
     erewrite do_retract_vote_cacts_preserved; eauto.
   - (* finish_proposal *)
