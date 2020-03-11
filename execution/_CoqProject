@@ -1,3 +1,5 @@
+-arg -w -arg -undeclared-scope
+
 -R ../vendor/record-update RecordUpdate
 ../vendor/record-update/RecordSet.v
 ../vendor/record-update/RecordUpdate.v
@@ -11,6 +13,7 @@ theories/Circulation.v
 theories/Congress.v
 theories/Congress_Buggy.v
 theories/Containers.v
+theories/ContractMonads.v
 theories/Escrow.v
 theories/Extras.v
 theories/Finite.v

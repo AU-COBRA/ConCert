@@ -260,9 +260,9 @@ Definition receive
   end.
 
 Ltac solve_contract_proper :=
+  repeat
     match goal with
-    | _ => progress subst
-    | _ => solve [auto]
+    | [|- @bind _ ?m _ _ _ _ = @bind _ ?m _ _ _ _] => unfold bind, m
     | [|- ?x _  = ?x _] => unfold x
     | [|- ?x _ _ = ?x _ _] => unfold x
     | [|- ?x _ _ _ = ?x _ _ _] => unfold x
@@ -274,15 +274,16 @@ Ltac solve_contract_proper :=
     | [|- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
     | [|- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
     | [H: ChainEquiv _ _ |- _] => rewrite H in *
+    | _ => subst; auto
     end.
 
 Lemma init_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; repeat solve_contract_proper. Qed.
+Proof. repeat intro; solve_contract_proper. Qed.
 
 Lemma receive_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof. repeat intro; repeat solve_contract_proper. Qed.
+Proof. repeat intro; solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
