@@ -373,6 +373,28 @@ Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Ad
       | _ => returnGen None
       end)).
 
+(* Returns a mapping to proposals which have been discussed long enough, according to the
+   current rules in the given LocalChain *)
+Definition finishable_proposals (lc : LocalChain) 
+                                : FMap Address (FMap ProposalId Proposal) := 
+  let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_contract_state_deserialized lc) in
+  map_filter_FMap (fun p =>
+    let caddr := fst p in
+    let pids_map := snd p in
+    match FMap.find caddr contracts_rules with
+    | Some rules =>
+      let pids_map_filtered := filter_FMap (fun p =>
+        (snd p).(proposed_in) + rules.(debating_period_in_blocks) <=? lc.(lc_slot)  
+      ) pids_map in
+      if 0 <? FMap.size pids_map_filtered
+      then Some pids_map_filtered
+      else None
+    | None => None
+    end
+  ) (lc_proposals lc)
+.
+
+
 
 Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :=
   let mk_call contract_addr caller_addr msg := 
@@ -446,7 +468,10 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :
       (2, vote_proposal (lc_contract_members_and_proposals_with_votes lc) 
                         mk_call retract_vote) ;
       (* finish_proposal *)
-      (2, bindGenOpt (sampleFMapOpt (lc_proposals lc)) 
+      (* Requirements:
+         - only contract owner can finish proposals
+         - the debating period must have passed *)
+      (2, bindGenOpt (sampleFMapOpt (finishable_proposals lc)) 
           (fun p => 
           let contract_addr := fst p in
           match FMap.find contract_addr (lc_contract_owners lc) with

@@ -278,6 +278,8 @@ Definition check_add_two_blocks_succeeds :=
   ).
 
 QuickChick check_add_two_blocks_succeeds.
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
 
 Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressActionNew height.
 Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongressActionNew height.
