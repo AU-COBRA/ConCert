@@ -10,6 +10,8 @@
   to generate data from the given functions, and see what result we get. 
 *)
 
+Global Set Warnings "-extraction-logical-axiom".
+
 Require Import ZArith Strings.Ascii Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
@@ -335,7 +337,47 @@ Definition forAllTraces {prop : Type}
   (fun trace => conjoin (map (checker o pf o next_lc_of_lcstep) trace))
 .
 
+
+Definition reachableFromSized {AddrSize : N}
+                         (maxLength : nat) 
+                         (init_lc : (@LocalChain AddrSize))
+                         (gTrace : LocalChain -> nat -> G (list LocalChainStep))
+                         (pf : LocalChain -> bool)
+                         : Checker := 
+  existsPShrink (gTrace init_lc maxLength) (fun trace => existsb pf (map (next_lc_of_lcstep) trace)).
+
+Definition reachableFrom {AddrSize : N} init_lc gTrace pf : Checker := 
+  sized (fun n => @reachableFromSized AddrSize n init_lc gTrace pf).
+
+(* represents: if there is a state x, satisfying pf1, reachable from init_lc,
+               then there is a state y, satisfyring pf2, reachable from state x. *)
+(* TODO: currently "shrink" kinda saves us from a bug, which is that we only do existsb on the
+   outermost call, whereas it should be the last element satisfying pf1. *)
+Definition reachableFrom_implies_reachableSized
+                         (maxLength : nat) 
+                         (init_lc : (@LocalChain AddrSize))
+                         (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
+                         (pf1 : LocalChain -> bool)
+                         (pf2 : LocalChain -> bool)
+                         : Checker := 
+  expectFailure (forAllShrink (gTrace init_lc maxLength) shrink 
+    (fun trace =>
+      if (existsb pf1 (map next_lc_of_lcstep trace))
+      then let new_init_lc : LocalChain := (List.last (map next_lc_of_lcstep trace) init_lc) in 
+        expectFailure (forAllShrink (gTrace new_init_lc maxLength) shrink
+        (fun new_trace => whenFail ("Success - found witness satisfying the predicate!" )
+          ((checker o negb) (existsb pf2 (map (next_lc_of_lcstep) new_trace)))
+        )
+      )
+      else checker true
+    )).
+
+Definition reachableFrom_implies_reachable init_lc gTrace pf1 pf2 := 
+  sized (fun n => reachableFrom_implies_reachableSized n init_lc gTrace pf1 pf2).
+
+
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
+
 Definition token_setup := EIP20Token.build_setup creator 100.
 Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
 
@@ -354,6 +396,13 @@ Definition gEIP20TokenChainTraceList lc length :=
   gLocalChainTraceList_fix lc (fun lc _ => 
     gEIP20TokenAction lc contract_base_addr) length.
 
+
+Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
+  @reachableFrom AddrSize lc gEIP20TokenChainTraceList pf.
+
+Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
+  reachableFrom_implies_reachable lc gEIP20TokenChainTraceList pf1 pf2.
+
 Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
 Compute (show (lc_token_contracts_states_deserialized chain_with_token_deployed)).
 Compute (show (lc_account_balances chain_with_token_deployed)).
@@ -371,11 +420,11 @@ Definition debug_gEIP20Checker lc (act : option Action) :=
     ).
 
 
-QuickChick (forAll 
+(* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
     (isSomeCheck (my_add_block chain_with_token_deployed [act]) (fun _ => checker true))
-  ))).
+  ))). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
@@ -391,14 +440,14 @@ Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_wit
 
 
 (* Generate a trace, and then execute an action on the last state of the trace. Check that this always succeeds *)
-QuickChick (forAll2 
+(* QuickChick (forAll2 
   (gEIP20TokenChainTraceList chain_with_token_deployed 5) 
   (fun trace => 
     gEIP20TokenAction (last_state trace) 
                       contract_base_addr)
   (fun trace act_opt => isSomeCheck act_opt (fun act => 
     (debug_gEIP20Checker (last_state trace) (Some act))  
-      ((checker o isSome) (my_add_block (last_state trace) [act]))))).
+      ((checker o isSome) (my_add_block (last_state trace) [act]))))). *)
 
 
 Open Scope nat_scope.
@@ -436,3 +485,30 @@ Definition sum_allowances_le_init_supply_P maxLength :=
       end)).
     
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
+
+Definition person_has_tokens person (n : nat) := 
+  fun lc =>
+    match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
+    | Some state => n =? (FMap_find_ person state.(balances) 0)  
+    | None => false
+    end.
+
+Notation "lc '~~>' pf" :=
+  (token_reachableFrom lc pf)
+  (at level 45, no associativity).
+
+
+
+(* QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12). *)
+(* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
+
+QuickChick (token_reachableFrom_implies_reachable 
+  chain_with_token_deployed
+  (person_has_tokens creator 10)
+  (person_has_tokens creator 0)        
+).
+
+(* Notation "lc '~~>' pf1 '~~>' pf2" :=
+  (token_reachableFrom_implies_reachable lc pf1 pf2)   
+  (at level 99).
+QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0 ~~> person_has_tokens creator 10 ). *)

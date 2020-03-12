@@ -585,14 +585,45 @@ end.
 
 (* A shallow way of embedding 'exists' in QC. Currently not very general, since we cant properly nest existPs
    because the predicate function returns a bool, and not a Checker. Need to review if this is even possible. *)
+Local Open Scope string_scope.
 Definition existsP {A prop : Type} 
                   `{Checkable prop} 
                   `{Show A} 
                    (g : G A) 
-                   (p : A -> bool) := expectFailure (forAll g (fun a => negb (p a))).
+                   (p : A -> bool) := 
+  expectFailure (forAll g 
+  (fun a => whenFail ("Success - found witness satisfying the predicate!" ) 
+    (negb (p a)))).
+
+Definition existsPShrink 
+                   {A prop : Type} 
+                  `{Checkable prop} 
+                  `{Show A}
+                  `{Shrink A}
+                   (g : G A) 
+                   (p : A -> bool) := 
+  expectFailure (forAllShrink g shrink 
+  (fun a => whenFail ("Success - found witness satisfying the predicate!" ) 
+    (negb (p a)))).
+
 
 (* QuickChick (
   existsP arbitrary (fun a => a <=? a)
 ). *)
 
-
+(* the shrinking variant may be more useful in some cases: *)
+(* QuickChick (
+  existsP arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0 )
+). *)
+(* coqtop-stdout:[1; 2; 5; 0; 3]
+Success - found witness satisfying the predicate!
++++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
+   *)
+(* QuickChick (
+  existsPShrink arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0 )
+). *)
+(* 
+coqtop-stdout:[4; 2]
+Success - found witness satisfying the predicate!
++++ Failed (as expected) after 5 tests and 3 shrinks. (0 discards)
+ *)
