@@ -428,7 +428,7 @@ Definition debug_gEIP20Checker lc (act : option Action) :=
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
+Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
