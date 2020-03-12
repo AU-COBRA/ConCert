@@ -45,8 +45,6 @@ Close Scope address_scope.
 Definition AddrSize := (2^8)%N.
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
-Definition Base : ChainBase := LocalBlockchainTests.Base.
-Definition c_init : ChainBuilder := builder_initial.
 
 Definition next_header (chain : ChainBuilder) :=
     {| block_height := S (chain_height chain);
@@ -62,27 +60,9 @@ Definition next_header_lc (chain : @LocalChain AddrSize) :=
        block_creator := creator;
        block_reward := 50; |}.
 
-
-
-Definition c1 := unpack_option (add_block_exec true lc_initial (next_header_lc lc_initial) []).
-Compute (show c1).
-Definition c2 := unpack_option 
-                  (add_block_exec true 
-                    c1 
-                      (next_header_lc c1) 
-                    [build_act creator (act_transfer person_1 10)]).
-Definition c3 :=  unpack_option (add_block_exec true c2 (next_header_lc c2) [build_act person_1 deploy_congress]).
-Compute (show (lc_account_balances c1)).
-Compute (show (lc_account_balances c2)).
-Compute (show (lc_account_balances c3)).
-Compute (show (map fst (FMap.elements (lc_contracts c3)))).
-Compute (show (lc_contract_owners c3)).
-Compute (show (lc_contract_state c3)).
-
 Definition my_add_block c acts := (add_block_exec true c (next_header_lc c) acts).
 
 Open Scope bool_scope.
-
 
 Section Trees.
   Variable V : Type.
@@ -146,6 +126,25 @@ Inductive LocalChainStep {AddrSize : N} : Type :=
                        (header : BlockHeader) 
                        (next_chain : @LocalChain AddrSize) 
                        (acts : list Action), LocalChainStep.
+                       
+                       
+Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
+  match state with
+  | step_add_block prev _ _ => prev
+  | step_action prev _ _ _ => prev
+  end.
+
+Definition next_lc_of_lcstep (state : @LocalChainStep AddrSize) : LocalChain :=
+  match state with
+  | step_add_block _ _ next => next
+  | step_action _ _ next _ => next
+  end.
+Close Scope string_scope.
+Definition lc_shallow_eqb lc1 lc2 : bool := 
+  (lc_height lc1 =? lc_height lc2) 
+  && (lc_slot lc1 =? lc_slot lc2) 
+  && (@lc_fin_height AddrSize lc1 =? @lc_fin_height AddrSize lc2).
+
 
 Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
@@ -197,7 +196,20 @@ Instance showLocalChainStep {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
   end
 |}. *)
 
+
+(* ---------------------- Trace Tree on LocalChain ---------------------- *)
+
 Definition lctracetree := tree (@LocalChainStep AddrSize).
+
+
+Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) := 
+  match t with
+  | leaf => true
+  | node step (node step_lchild lcl lcr) (node step_rchild rcl rcr) =>
+    (lc_shallow_eqb (next_lc_of_lcstep step) (prev_lc_of_lcstep step_lchild))
+    && (lc_shallow_eqb (next_lc_of_lcstep step) (prev_lc_of_lcstep step_rchild))
+  | _ => true 
+  end.
 
 Instance showLctracetree : Show lctracetree :=
 {|
@@ -233,33 +245,6 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
     end
   end.
 
-
-
-Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
-  match state with
-  | step_add_block prev _ _ => prev
-  | step_action prev _ _ _ => prev
-  end.
-
-Definition next_lc_of_lcstep (state : @LocalChainStep AddrSize) : LocalChain :=
-  match state with
-  | step_add_block _ _ next => next
-  | step_action _ _ next _ => next
-  end.
-Close Scope string_scope.
-Definition lc_shallow_eqb lc1 lc2 : bool := 
-  (lc_height lc1 =? lc_height lc2) 
-  && (lc_slot lc1 =? lc_slot lc2) 
-  && (@lc_fin_height AddrSize lc1 =? @lc_fin_height AddrSize lc2).
-
-Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) := 
-  match t with
-  | leaf => true
-  | node step (node step_lchild lcl lcr) (node step_rchild rcl rcr) =>
-    (lc_shallow_eqb (next_lc_of_lcstep step) (prev_lc_of_lcstep step_lchild))
-    && (lc_shallow_eqb (next_lc_of_lcstep step) (prev_lc_of_lcstep step_rchild))
-  | _ => true 
-  end.
 
 (* QuickChick (forAll (glctracetree 7) next_lc_eq_child_prev_lc_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
@@ -324,6 +309,9 @@ Instance shrinkLocalChainTraceList {AddrSize : N}: Shrink (list (@LocalChainStep
   shrink := all_prefixes
 |}.
 
+
+(* -------------------- Checker combinators on traces --------------------  *)
+
 (* Checks that a property holds on all states in all traces from a given trace generator *)
 Definition forAllTraces {prop : Type}
                        `{Checkable prop}
@@ -375,140 +363,3 @@ Definition reachableFrom_implies_reachableSized
 Definition reachableFrom_implies_reachable init_lc gTrace pf1 pf2 := 
   sized (fun n => reachableFrom_implies_reachableSized n init_lc gTrace pf1 pf2).
 
-
-(* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
-
-Definition token_setup := EIP20Token.build_setup creator 100.
-Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
-
-Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
-
-Definition chain_with_token_deployed :=  
-  unpack_option (my_add_block lc_initial 
-  [
-    build_act creator (act_transfer person_1 10);
-    build_act creator (act_transfer person_2 10);
-    build_act creator (act_transfer person_3 10);
-    build_act creator deploy_eip20token
-  ]).
-
-Definition gEIP20TokenChainTraceList lc length := 
-  gLocalChainTraceList_fix lc (fun lc _ => 
-    gEIP20TokenAction lc contract_base_addr) length.
-
-
-Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
-  @reachableFrom AddrSize lc gEIP20TokenChainTraceList pf.
-
-Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
-  reachableFrom_implies_reachable lc gEIP20TokenChainTraceList pf1 pf2.
-
-Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
-Compute (show (lc_token_contracts_states_deserialized chain_with_token_deployed)).
-Compute (show (lc_account_balances chain_with_token_deployed)).
-(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
-Open Scope string_scope.
-Definition debug_gEIP20Checker lc (act : option Action) :=
-  let print_valid_actions := match act with
-                            | Some act => "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
-                            | None => ""
-                            end in
-  whenFail 
-    ("lc balances: " ++ show (lc_account_balances lc) ++ sep ++ nl
-    ++ print_valid_actions
-    ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl 
-    ).
-
-
-(* QuickChick (forAll 
-  (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
-  (fun act_opt => isSomeCheck act_opt (fun act => 
-    (isSomeCheck (my_add_block chain_with_token_deployed [act]) (fun _ => checker true))
-  ))). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
-(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
-(* QuickChick (forAll 
-  (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
-  (fun act_opt => isSomeCheck act_opt (fun act => 
-    (debug_gEIP20Checker chain_with_token_deployed (Some act))  
-      ((checker o isSome) (my_add_block chain_with_token_deployed [act]))))). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
-Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_with_token_deployed.
-
-
-(* Generate a trace, and then execute an action on the last state of the trace. Check that this always succeeds *)
-(* QuickChick (forAll2 
-  (gEIP20TokenChainTraceList chain_with_token_deployed 5) 
-  (fun trace => 
-    gEIP20TokenAction (last_state trace) 
-                      contract_base_addr)
-  (fun trace act_opt => isSomeCheck act_opt (fun act => 
-    (debug_gEIP20Checker (last_state trace) (Some act))  
-      ((checker o isSome) (my_add_block (last_state trace) [act]))))). *)
-
-
-Open Scope nat_scope.
-(* One key property: the sum of the balances is always equal to the initial supply *)
-Definition sum_balances_eq_init_supply_P maxLength := 
-  forAllTraces maxLength chain_with_token_deployed gEIP20TokenChainTraceList
-    (fun (lc : LocalChain) =>
-      debug_gEIP20Checker lc None
-      (checker match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-      | Some state => 
-        let balances_list := (map snd o FMap.elements) state.(balances) in
-        let balances_sum : nat := fold_left plus balances_list 0 in
-        balances_sum =? state.(total_supply)
-      | None => false
-      end)).
-
-(* QuickChick (sum_balances_eq_init_supply_P 7). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
-(* INVALID PROPERTY: accounts may allow multiple other accounts to transfer tokens, but the actual transfer ensures that
-   no more tokens are sent than the balance of the sender. *)
-Definition sum_allowances_le_init_supply_P maxLength :=
-  forAllTraces maxLength chain_with_token_deployed gEIP20TokenChainTraceList
-    (fun (lc : LocalChain) =>
-      debug_gEIP20Checker lc None
-      (checker match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-      | Some state => 
-        let allowances := map_values_FMap 
-          (fun allowance_map => fold_left plus ((map snd o FMap.elements) allowance_map) 0)
-          state.(allowances) in
-        let allowances_list := (map snd o FMap.elements) allowances in
-        let allowances_sum := fold_left plus allowances_list 0 in 
-        allowances_sum <=? state.(total_supply)
-      | None => false
-      end)).
-    
-(* QuickChick (sum_allowances_le_init_supply_P 5). *)
-
-Definition person_has_tokens person (n : nat) := 
-  fun lc =>
-    match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-    | Some state => n =? (FMap_find_ person state.(balances) 0)  
-    | None => false
-    end.
-
-Notation "lc '~~>' pf" :=
-  (token_reachableFrom lc pf)
-  (at level 45, no associativity).
-
-
-
-(* QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12). *)
-(* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
-
-QuickChick (token_reachableFrom_implies_reachable 
-  chain_with_token_deployed
-  (person_has_tokens creator 10)
-  (person_has_tokens creator 0)        
-).
-
-(* Notation "lc '~~>' pf1 '~~>' pf2" :=
-  (token_reachableFrom_implies_reachable lc pf1 pf2)   
-  (at level 99).
-QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0 ~~> person_has_tokens creator 10 ). *)

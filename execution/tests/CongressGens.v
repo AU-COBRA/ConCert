@@ -250,38 +250,6 @@ Definition gContractCallInfo := liftM3 build_call_info arbitrary arbitrary arbit
 (* ------------------------------------------------------ *)
 (* generators of actions from the LocalChain context type *)
 
-Definition gCongressActionFromLC' (lc : LocalChain)
-                                  (calling_addr : Address)
-                                  (gMsg : Address -> G (option Msg)) 
-                                  : G (option CongressAction) :=
-  addr_opt <- (gAccountAddrFromLCWithoutAddrs lc [calling_addr]) ;; (* TODO: should we also allow transfers to contract addresses? *)
-  backtrack [
-    (1,
-      match (addr_opt, lc_account_balance lc calling_addr) with
-      | (Some addr, Some caller_balance) =>
-        if Z.eqb (caller_balance) 0%Z then returnGen None else
-        amount <- choose (1%Z, caller_balance) ;;
-        returnGen (Some (cact_transfer addr amount))
-      | _ => returnGen None
-      end
-      );
-
-    (1, bindGenOpt
-    (gContractAddrFromLocalChain lc)
-    (fun contract_addr =>
-      amount <- match lc_account_balance lc calling_addr with
-                | Some caller_balance => choose (0%Z, 0%Z)
-                | None => returnGen 0%Z
-                end ;;
-      bindGenOpt (gMsg contract_addr)
-      (fun msg => 
-      returnGen (Some (cact_call contract_addr amount (serializeMsg msg))))))
-  ].
-
-
-(* Sample (bindGenOpt (gAccountAddrFromLocalChain lc_initial) (fun addr => @gCongressActionFromLC' lc_initial addr arbitrary)). *)
-(* coqtop-stdout:[None; None; None; None; None; None; None; None; None; None; None] *)
-
 Definition allProposalsOfLC lc : FMap ProposalId Proposal := 
   let all_states := FMap.values (lc_contract_state_deserialized lc) in
   let proposals_list : list (ProposalId * Proposal):= fold_left (fun acc s => FMap.elements (proposals s) ++ acc ) all_states [] in
@@ -373,24 +341,9 @@ Definition bindCallerIsOwnerOpt {A : Type}
 Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):= 
   bindCallerIsOwnerOpt lc calling_addr contract_addr (gCongressMember_without_caller lc calling_addr contract_addr).
 
-  
-Definition gMsgSimpleFromLC (lc : LocalChain) (calling_addr : Address) (contract_addr : Address) : G (option Msg) :=
-  let proposals_map := allProposalsOfLC lc in
-  let proposals_with_votes := allProposalsWithVotes lc in
-  let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in
-  backtrack [
-    (1, liftM transfer_ownership (try_gNewOwner lc calling_addr contract_addr)) ; 
-    (1, liftM change_rules (bindCallerIsOwner (liftM Some (gRulesSized 4)))) ;
-    (2, liftM add_member (bindCallerIsOwner (returnGen (try_newCongressMember lc contract_addr 10)))) ;
-    (2, liftM remove_member (bindCallerIsOwner (gCongressMember_without_caller lc calling_addr contract_addr))) ;
-    (2, liftM vote_for_proposal     (liftM fst (sampleFMapOpt proposals_map))) ;
-    (2, liftM vote_against_proposal (liftM fst (sampleFMapOpt proposals_map))) ;
-    (2, liftM finish_proposal       (liftM fst (sampleFMapOpt proposals_map))) ;
-    (2, liftM retract_vote          (liftM fst (sampleFMapOpt proposals_with_votes)))
-  ].
 
 (* Sample (@gMsgSimpleFromLC lc_initial). *)
-
+(* 
 Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
   fun g =>
   l <- listOf g ;;
@@ -398,27 +351,9 @@ Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
                           | Some a => a :: acc
                           | None => acc
                           end) l []
-  in returnGen l'.
+  in returnGen l'. *)
 
 
-Fixpoint gMsgSizedFromLocalChain (lc : LocalChain) (calling_addr : Address) (n : nat) : Address ->  G (option Msg) :=
-  match n with
-    | 0 => (fun contract_addr => gMsgSimpleFromLC lc calling_addr contract_addr)
-    | S n' => fun contract_addr => backtrack [
-        (1,
-        (* recurse. Msg is converted to a SerializedType using 'serialize' *)
-        (* This makes it possible to create proposals about proposals about proposals etc... *)
-        let contract_to_msg := (gMsgSizedFromLocalChain lc calling_addr n') in 
-          congressActions <- liftM (shrinkListTo 1) (optToList (gCongressActionFromLC' lc contract_addr contract_to_msg)) ;;
-          match congressActions with
-          | [] => returnGen None
-          | _ =>  returnGen (Some (create_proposal congressActions))
-          end) ;
-        (4, gMsgSimpleFromLC lc calling_addr contract_addr)
-      ]
-  end.
-
-Sample (@gMsgSizedFromLocalChain lc_initial zero_address 1 zero_address).
 
 Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Address (list ProposalId))) 
                          (mk_call : Address -> Address -> Msg -> G (option Action))
@@ -545,30 +480,7 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :
       ))
   ] 
   end.
-(* Currently kinda buggy: nested messages (with create_proposal) dont properly show the inner, serialized messages *)
-(* Compute ((show o deserialize o serialize) ex_simple_msg). *)
-(* Compute (show ex_msg).  *)
 
-(* Generates semantically valid/well-formed messages *)
-(* Examples of validity requirements: 
-   - retract_vote can only be called on a proposal if it there exists a vote on this proposal 
-*)
-
-Definition gCongressActionSizedFromLC (lc : LocalChain)
-                                      (calling_addr : Address)
-                                      (n : nat)
-                                      : G (option CongressAction) 
-                                      := 
-  let gMsg := (@gMsgSizedFromLocalChain lc calling_addr n) in
-  gCongressActionFromLC' lc calling_addr gMsg
-.
-
-(* Sample (gCongressActionSizedFromLC lc_initial zero_address 1). *)
-(* coqtop-stdout:[None; None; None; None; None; None; None; None; None; None; None] *)
-Definition gActionOfCongressFromLC lc n : G (option Action) := 
-  calling_addr <- gAccountAddrFromLocalChain lc ;;
-  liftM (@build_act LocalChainBase calling_addr) (liftM congress_action_to_chain_action (@gCongressActionSizedFromLC lc calling_addr n)).
-  
 Definition gDeployCongressActionFromLC lc : G (option Action) := 
   calling_addr_opt <- gAccountAddrFromLocalChain lc ;;
   setup <- arbitrary ;;

@@ -1,7 +1,11 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable.
+From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters.
+Require Import Extras.
+
+From ConCert.Execution.QCTests Require Import 
+  ChainGens TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters TraceGens.
 
 Require Import ZArith Strings.Ascii Strings.String.
 
@@ -19,6 +23,17 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 
+Definition chain_with_congress_deployed : LocalChain := lcb_lc chain6. (* chain6 is from LocalBlockchainTests.v *)
+Definition congress_chain := chain_with_congress_deployed.
+
+Compute (show (lc_account_balances congress_chain)).
+Compute (show (map fst (FMap.elements (lc_contracts congress_chain)))).
+Compute (show (lc_contract_owners congress_chain)).
+Compute (show (congressContractsMembers congress_chain)).
+Compute (show (congressContractsMembers_nonempty_nonowners congress_chain)).
+Compute (show (lc_proposals congress_chain)).
+
+
 
 Definition init_is_valid p := 
   let ctx := fst p in
@@ -29,13 +44,13 @@ Definition init_is_valid p :=
   | None => false ==> true (* so we can see discards in QC output... *)
   end.
 
-QuickChick (forAll (
+(* QuickChick (forAll (
   ctx <- gLocalChainContext 2 ;;
   cctx <- @gContractCallContext LocalChainBase ctx ;;
   chain <- gLocalChainSized 2 ctx ;;
   setup <- @arbitrary Setup _ ;;
   returnGen (cctx, (chain, setup)))
-  init_is_valid).
+  init_is_valid). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 
@@ -45,8 +60,6 @@ match init chain ctx setup with
   | Some state => checker ((Congress.num_cacts_in_state state = 0)?)
   | None => (false ==> true) (* so we can see discards in QC output... *)
   end.
-
-
 
 
 (* QuickChick (
@@ -69,7 +82,7 @@ Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
 Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
   (listOf (@gCongressActionSized ctx 2)).
 
-Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx).
+(* Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx). *)
 (* Compute (show (sample (gLocalChainContext 2))). *)
 
 
@@ -219,3 +232,78 @@ Definition check_state_proposals_proposed_in_valid :=
 (* QuickChick check_congress_txs_well_behaved_P. *)
 (* coqtop-stdout:*** Gave up! Passed only 0 tests
 Discarded: 20000 *)
+
+
+(* ------------------ Tests on traces ------------------  *)
+Open Scope string_scope.
+Definition debug_congress (lc : LocalChain) (acts_opt : option (list Action)) : Checker -> Checker := 
+  whenFail (
+    "LocalChain: " ++ show lc ++ nl ++
+    "members: " ++ show (congressContractsMembers lc) ++ nl ++
+    "active proposals: " ++ show (lc_proposals lc) ++ nl ++
+    "contract owners: " ++ show (lc_contract_owners lc)
+  ).
+Close Scope string_scope.
+
+
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+Definition add_block_actions_succeeds_P c_opt actions_opt :=
+  isSomeCheck c_opt
+  (fun c => 
+    (debug_congress c actions_opt) 
+      (checker match actions_opt with
+      | Some actions => (0 <? length actions) && isSome (my_add_block c actions)
+      | None => false
+      end)
+  ).
+
+Instance shrinkAction : Shrink Action := {| shrink a := [a] |}.
+
+QuickChick (forAllShrink 
+  (optToVector 1 (gCongressActionNew chain_with_congress_deployed 3))
+  shrink
+  (fun actions => add_block_actions_succeeds_P (Some chain_with_congress_deployed) (Some actions))).
+
+Definition check_add_two_blocks_succeeds := 
+  (forAll3 
+    (optToVector 1 (gCongressActionNew chain_with_congress_deployed 2))
+    (fun actions => returnGen (my_add_block chain_with_congress_deployed actions))
+    (fun _ c_opt => 
+      match c_opt with
+      | Some c => acts <- (optToVector 1 (gCongressActionNew c 2)) ;; returnGen (Some acts) 
+      | None => returnGen None
+      end)
+    (fun _ c_opt actions_opt => add_block_actions_succeeds_P c_opt actions_opt)
+  ).
+
+QuickChick check_add_two_blocks_succeeds.
+
+Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressActionNew height.
+Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongressActionNew height.
+
+
+(* QuickChick (forAll
+  (gCongressActionNew congress_chain 1)
+  (fun act_opt => isSomeCheck act_opt
+  (fun act => whenFail 
+    (show (lc_account_balances congress_chain) ++ sep ++ nl
+    ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
+    ++ "congress members: " ++ show (congressContractsMembers congress_chain) ++ nl)
+    (* ++ "valid header: " ++ (show o isSome) (validate_header (next_header_lc congress_chain) congress_chain)) *)
+    (isSome (mk_basic_step_action congress_chain [act]))))    
+). *)
+(* Wow!:
+  coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+(* Sample (bindGenOpt (gCongressActionNew congress_chain 3) (fun act => if isSome (mk_basic_step_action congress_chain [act]) 
+                                                              then returnGen ( Some ("success", act)) 
+                                                              else returnGen (Some ("fail", act)))). *)
+
+Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCongressActionNew length.
+
+
+
+(* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
+
+Sample (gCongressChainTraceList congress_chain 15).
