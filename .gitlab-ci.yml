@@ -18,10 +18,6 @@ stages:
     - make -j
     - coqwc theories/*.v
 
-execution:coq:8.8:
-  extends: .build-execution
-  image: coqorg/coq:8.8
-
 execution:coq:8.9:
   extends: .build-execution
   image: coqorg/coq:8.9
@@ -29,6 +25,10 @@ execution:coq:8.9:
 execution:coq:8.10:
   extends: .build-execution
   image: coqorg/coq:8.10
+
+execution:coq:8.11:
+  extends: .build-execution
+  image: coqorg/coq:8.11
 
 execution:coq:dev:
   extends: .build-execution

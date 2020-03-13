@@ -214,3 +214,22 @@ Ltac unset_all :=
     | [var := ?body : ?T |- _] =>
       pose proof (eq_refl : var = body); clearbody var
     end.
+
+Ltac destruct_hyps :=
+  repeat
+    match goal with
+    | [H: _ /\ _ |- _] => destruct H
+    | [H: exists _, _ |- _] => destruct H
+    | [H: _ * _ |- _] => destruct H
+    | [H: { x : _ & _ } |- _] => destruct H
+    end.
+
+Ltac destruct_and_split :=
+  repeat
+    match goal with
+    | [H: _ /\ _ |- _] => destruct H
+    | [H: exists _, _ |- _] => destruct H
+    | [H: _ * _ |- _] => destruct H
+    | [H: { x : _ & _ } |- _] => destruct H
+    | [|- _ /\ _] => split
+    end.
