@@ -229,11 +229,10 @@ Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address *
   | _ => false
   end.
 
-Definition forAnyStateInTrace n trace c := 
+(* Definition forAnyStateInTrace n trace c := 
   let trace' := map prev_lc_of_lcstep trace in
   forAll (elems_ chain_with_token_deployed trace') (fun lc =>
-  forAllTraces_traceProp n lc (gEIP20TokenChainTraceList 2) c).
-
+  forAllTraces_traceProp n lc (gEIP20TokenChainTraceList 2) c). *)
 
 
 Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
@@ -249,8 +248,6 @@ Definition delegate_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) 
   | _ => None 
   end.
 
-
-
 Definition approve_amount (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
   match (snd approve_act_p) with
   | (approve _ amount ) => amount
@@ -263,19 +260,15 @@ Definition transfer_from_amount (transferFrom_act_p : (Address * Address * EIP20
   | _ => 0
   end.
 
-Definition allower_reapproves_delegate_step allower delegate first_approval_amount step := 
+Definition allower_reapproves_delegate_step allower delegate step := 
   let acts := acts_of_lcstep step in
   match find isSome (map get_approve_act acts) with
   | Some (Some (caddr, caller, (approve delegate' amount)) as act)  =>  
-    if address_eqb caller allower && address_eqb delegate delegate' && (amount <? first_approval_amount)
-    then true
-    else false
-  | _ => false
+    if address_eqb caller allower && address_eqb delegate delegate'
+    then Some amount
+    else None
+  | _ => None
   end.
-Definition allower_reapproves_delegate_trace allower delegate first_approval_amount trace  : option (list LocalChainStep):= 
-  cut_at_first_satisfying_ (allower_reapproves_delegate_step allower delegate first_approval_amount) trace.
-
-Definition SomeSome_unfold {A : Type} (x : option (option A)) := match x with (Some (Some x)) => Some x | _ => None end.
 
 
 Definition delegate_transferFrom_sum_of_approver approver delegate trace := 
@@ -297,63 +290,40 @@ Definition delegate_transferFrom_sum_of_approver approver delegate trace :=
     step_sum + acc
   ) trace 0.
 
-(* QuickChick ( 
-  (reachableFrom_implies_tracePropSized_new 4 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
-  state_has_some_approve_act
-  (fun approve_act_p pre_trace post_trace =>
-    whenFail ("Failed with the approve action: " ++ nl ++ show approve_act_p)
-    (isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
-      isSomeCheck (Some (allower_addr approve_act_p)) (fun approver =>
-            whenFail (
-                 show (app pre_trace (app post_trace post_trace))
-              ++ show (delegate_transferFrom_sum_of_approver approver delegate post_trace) ++ nl
-              ++ show (approve_amount approve_act_p))
-            (* For now we just look for an example where the delegator called transfor_from *)
-            (0 =? delegate_transferFrom_sum_of_approver approver delegate post_trace)
-            (* delegate_transferFrom_sum_of_approver approver delegate trace <=? approve_amount approve_act_p   *)
-          )
-      (* (allower_reapproves_delegate_trace (allower_addr approve_act_p) delegate post_trace)
-      ==> isSome (delegate_addr approve_act_p)
-        (* isSomeCheck (delegate_addr approve_act_p) (fun approver =>
-        delegate_transferFrom_sum_of_approver approver delegate trace <=? approve_amount approve_act_p *)
-          *)
-      ) 
-    )
-  )
-). *)
 
-(* TODO: we need to also assert that no approves are called in the trace generated in line 333 *)
-QuickChick ( 
+Extract Constant defNumDiscards => "(3 * defNumTests)".
+
+
+Definition allower_reapproves_transferFrom_correct start_lc allower delegate first_approval_amount := 
+  reachableFrom_implies_tracePropSized_new 4 start_lc (gEIP20TokenChainTraceList 2)
+  (allower_reapproves_delegate_step allower delegate)
+  (fun new_approval_amount pre_trace _ =>
+    (new_approval_amount <? first_approval_amount) ==>
+    whenFail (show delegate ++ " spent "
+      ++ show (delegate_transferFrom_sum_of_approver allower delegate pre_trace)
+      ++ " on behalf of " ++ show allower
+      ++ " when they were only allowed to spend at most "
+      ++ show new_approval_amount ++ nl
+      ++ "trace after first approval:" ++ nl ++ show pre_trace)
+    (delegate_transferFrom_sum_of_approver allower delegate pre_trace <=? new_approval_amount)
+  
+  )   
+.
+
+Definition reapprove_transfer_from_safe_P := 
   (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
   state_has_some_approve_act
   (fun approve_act_p pre_trace post_trace =>
-    whenFail ("Failed with the approve action: " ++ nl ++ show approve_act_p)
     (delegate_made_no_transferFroms approve_act_p post_trace  
     ==> isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
-      forAllTraces_traceProp 2 (List.last (map prev_lc_of_lcstep post_trace) chain_with_token_deployed) (gEIP20TokenChainTraceList 2)
-        (fun trace =>
-          isSomeCheck (allower_reapproves_delegate_trace (allower_addr approve_act_p) delegate (approve_amount approve_act_p) trace)
-            (fun trace_ =>
-            isSomeCheck (Some (allower_addr approve_act_p)) (fun approver =>
-            whenFail (
-                 show (pre_trace) ++ nl
-              ++ show (trace_)
-              ++ show (delegate_transferFrom_sum_of_approver approver delegate trace_) ++ nl
-              ++ show (approve_amount approve_act_p))
-            (delegate_transferFrom_sum_of_approver approver delegate trace_ <=? approve_amount approve_act_p)  
-          )
-          )
-        )
-      (* (allower_reapproves_delegate_trace (allower_addr approve_act_p) delegate post_trace)
-      ==> isSome (delegate_addr approve_act_p)
-        (* isSomeCheck (delegate_addr approve_act_p) (fun approver =>
-        delegate_transferFrom_sum_of_approver approver delegate trace <=? approve_amount approve_act_p *)
-          *)
+      allower_reapproves_transferFrom_correct (List.last (map prev_lc_of_lcstep post_trace) chain_with_token_deployed)
+                                              (allower_addr approve_act_p)
+                                              delegate
+                                              (approve_amount approve_act_p)     
       ) 
     )
-  )
-).
+  ).
 
+QuickChick reapprove_transfer_from_safe_P.
 
-
-Definition transfer_from_reduces_balance_correctly_P := .
+(* Definition transfer_from_reduces_balance_correctly_P := . *)
