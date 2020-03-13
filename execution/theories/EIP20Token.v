@@ -143,12 +143,13 @@ Definition try_transfer_from (delegate : Address)
 	| Some balance_from =>
 		if (delegate_allowance <? amount) || (balance_from <? amount)
 		then None
-		else let new_balances' := FMap.add from (balance_from - amount) state.(balances) in
-				let new_balances := match FMap.find to new_balances' with
+		else let new_allowances := (FMap.add delegate (delegate_allowance - amount) from_allowances_map) in 
+				 let new_balances' := FMap.add from (balance_from - amount) state.(balances) in
+				 let new_balances := match FMap.find to new_balances' with
 														| Some balance => FMap.add to (balance + amount) new_balances'
 														| None => FMap.add to amount new_balances'
 														end in
-					Some (state<|balances := new_balances|>)
+					Some (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>)
 	| None => if amount =? 0 
 						(* TODO: maybe also check if 'to' has a balance, and if not, make one with value 0. *)
 						then Some (state<|balances ::= FMap.add from 0|>)
