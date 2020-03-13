@@ -49,23 +49,27 @@ Definition chain_with_token_deployed :=
     build_act creator deploy_eip20token
   ]).
 
-Definition gEIP20TokenChainTraceList lc length := 
+Definition gEIP20TokenChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => 
-    gEIP20TokenAction lc contract_base_addr) length.
+    gEIP20TokenAction lc contract_base_addr) length max_acts_per_block.
 
 
 Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
-  @reachableFrom AddrSize lc gEIP20TokenChainTraceList pf.
+  @reachableFrom AddrSize lc (gEIP20TokenChainTraceList 1) pf.
 
 Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
-  reachableFrom_implies_reachable lc gEIP20TokenChainTraceList pf1 pf2.
+  reachableFrom_implies_reachable lc (gEIP20TokenChainTraceList 1) pf1 pf2.
 
 Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
 Compute (show (lc_token_contracts_states_deserialized chain_with_token_deployed)).
 Compute (show (lc_account_balances chain_with_token_deployed)).
 (* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
 Open Scope string_scope.
-Definition debug_gEIP20Checker lc (act : option Action) :=
+Definition debug_gEIP20Checker {A : Type}
+                              `{Checkable A}
+                               lc 
+                               (act : option Action)
+                               : A -> Checker :=
   let print_valid_actions := match act with
                             | Some act => "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
                             | None => ""
@@ -85,7 +89,7 @@ Definition debug_gEIP20Checker lc (act : option Action) :=
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10).
+Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 10).
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
@@ -110,10 +114,10 @@ Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_wit
 Open Scope nat_scope.
 (* One key property: the sum of the balances is always equal to the initial supply *)
 Definition sum_balances_eq_init_supply_P maxLength := 
-  forAllTraces maxLength chain_with_token_deployed gEIP20TokenChainTraceList
+  forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
     (fun (lc : LocalChain) =>
       debug_gEIP20Checker lc None
-      (checker match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
+      ( match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let balances_list := (map snd o FMap.elements) state.(balances) in
         let balances_sum : nat := fold_left plus balances_list 0 in
@@ -127,10 +131,10 @@ Definition sum_balances_eq_init_supply_P maxLength :=
 (* INVALID PROPERTY: accounts may allow multiple other accounts to transfer tokens, but the actual transfer ensures that
    no more tokens are sent than the balance of the sender. *)
 Definition sum_allowances_le_init_supply_P maxLength :=
-  forAllTraces maxLength chain_with_token_deployed gEIP20TokenChainTraceList
+  forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
     (fun (lc : LocalChain) =>
       debug_gEIP20Checker lc None
-      (checker match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
+      (match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let allowances := map_values_FMap 
           (fun allowance_map => fold_left plus ((map snd o FMap.elements) allowance_map) 0)
@@ -144,7 +148,8 @@ Definition sum_allowances_le_init_supply_P maxLength :=
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
 
 Definition person_has_tokens person (n : nat) := 
-  fun lc =>
+  fun step =>
+    let lc := next_lc_of_lcstep step in
     match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
     | Some state => n =? (FMap_find_ person state.(balances) 0)  
     | None => false
@@ -156,16 +161,199 @@ Notation "lc '~~>' pf" :=
 
 
 
-(* QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12). *)
+QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12).
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
 
-QuickChick (token_reachableFrom_implies_reachable 
+(* QuickChick (token_reachableFrom_implies_reachable 
   chain_with_token_deployed
   (person_has_tokens creator 10)
   (person_has_tokens creator 0)        
-).
+). *)
 
 (* Notation "lc '~~>' pf1 '~~>' pf2" :=
   (token_reachableFrom_implies_reachable lc pf1 pf2)   
   (at level 99).
 QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0 ~~> person_has_tokens creator 10 ). *)
+
+Definition get_approve_act (act : Action) : option (Address * Address * EIP20Token.Msg) := 
+  match act.(act_body) with
+  | act_call caddr _ ser_msg =>
+    match deserialize EIP20Token.Msg _ ser_msg with
+    | Some (approve _ _ as msg) => Some (caddr, act.(act_from), msg)
+    | _ => None
+    end
+  | _ => None
+  end.
+
+
+Definition get_transferFrom_act (act : Action) : option (Address * Address * EIP20Token.Msg) := 
+  match act.(act_body) with
+  | act_call caddr _ ser_msg =>
+    match deserialize EIP20Token.Msg _ ser_msg with
+    | Some (transfer_from _ _ _ as msg) => Some (caddr, act.(act_from), msg)
+    | _ => None
+    end
+  | _ => None
+  end.
+
+
+Definition state_has_some_approve_act {AddrSize : N} (step : @LocalChainStep AddrSize) := 
+  match step with
+  | step_action prev_lc header next_lc acts =>
+    match find (isSome o get_approve_act) acts with
+    | Some x => get_approve_act x
+    | None => None
+    end
+  | _ => None
+  end
+.
+
+Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address * EIP20Token.Msg)) 
+                                          (trace : list LocalChainStep) := 
+  let caddr := fst (fst approve_act_p) in
+  let approver := snd (fst approve_act_p) in
+  match (snd approve_act_p) with
+  | approve delegate amount =>
+    forallb (fun step =>
+      let acts := acts_of_lcstep step in
+      let act_not_transferFrom_delegate act :=
+        match get_transferFrom_act act with
+        | Some (caddr', caller, (transfer_from from to _)) =>
+          if (address_eqb caddr' caddr) 
+          then negb ((address_eqb caller delegate) || (address_eqb from approver))
+          else true
+        | _ => true
+        end in
+      forallb act_not_transferFrom_delegate acts  
+    ) trace
+  | _ => false
+  end.
+
+Definition forAnyStateInTrace n trace c := 
+  let trace' := map prev_lc_of_lcstep trace in
+  forAll (elems_ chain_with_token_deployed trace') (fun lc =>
+  forAllTraces_traceProp n lc (gEIP20TokenChainTraceList 2) c).
+
+
+
+Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
+  match snd approve_act_p with
+  | (approve _ _ ) => snd (fst approve_act_p)
+  | (transfer_from allower _ _) => allower
+  | _ => zero_address
+  end.
+Definition delegate_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
+  match (snd approve_act_p) with
+  | (approve delegate _ ) => Some delegate
+  | (transfer_from _ _ _) => Some (snd (fst approve_act_p))
+  | _ => None 
+  end.
+
+
+
+Definition approve_amount (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
+  match (snd approve_act_p) with
+  | (approve _ amount ) => amount
+  | _ => 0
+  end.
+
+Definition transfer_from_amount (transferFrom_act_p : (Address * Address * EIP20Token.Msg)) := 
+  match (snd transferFrom_act_p) with
+  | (transfer_from _ _ amount ) => amount
+  | _ => 0
+  end.
+
+Definition allower_reapproves_delegate_step allower delegate first_approval_amount step := 
+  let acts := acts_of_lcstep step in
+  match find isSome (map get_approve_act acts) with
+  | Some (Some (caddr, caller, (approve delegate' amount)) as act)  =>  
+    if address_eqb caller allower && address_eqb delegate delegate' && (amount <? first_approval_amount)
+    then true
+    else false
+  | _ => false
+  end.
+Definition allower_reapproves_delegate_trace allower delegate first_approval_amount trace  : option (list LocalChainStep):= 
+  cut_at_first_satisfying_ (allower_reapproves_delegate_step allower delegate first_approval_amount) trace.
+
+Definition SomeSome_unfold {A : Type} (x : option (option A)) := match x with (Some (Some x)) => Some x | _ => None end.
+
+
+Definition delegate_transferFrom_sum_of_approver approver delegate trace := 
+  fold_left (fun acc step =>
+    let transfer_from_acts := fold_left (fun acc act =>
+      match get_transferFrom_act act with
+      | Some x => x :: acc
+      | None => acc
+      end 
+    ) (acts_of_lcstep step) [] in
+    let filter_p p := if address_eqb (allower_addr p) approver
+                      then match delegate_addr p with
+                           | Some delegate' => address_eqb delegate delegate'
+                           | None => false
+                           end 
+                      else false in
+    let relevant_transfer_from_acts := filter filter_p transfer_from_acts in
+    let step_sum := fold_left (fun acc p => (transfer_from_amount p) + acc) relevant_transfer_from_acts 0 in
+    step_sum + acc
+  ) trace 0.
+
+(* QuickChick ( 
+  (reachableFrom_implies_tracePropSized_new 4 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
+  state_has_some_approve_act
+  (fun approve_act_p pre_trace post_trace =>
+    whenFail ("Failed with the approve action: " ++ nl ++ show approve_act_p)
+    (isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
+      isSomeCheck (Some (allower_addr approve_act_p)) (fun approver =>
+            whenFail (
+                 show (app pre_trace (app post_trace post_trace))
+              ++ show (delegate_transferFrom_sum_of_approver approver delegate post_trace) ++ nl
+              ++ show (approve_amount approve_act_p))
+            (* For now we just look for an example where the delegator called transfor_from *)
+            (0 =? delegate_transferFrom_sum_of_approver approver delegate post_trace)
+            (* delegate_transferFrom_sum_of_approver approver delegate trace <=? approve_amount approve_act_p   *)
+          )
+      (* (allower_reapproves_delegate_trace (allower_addr approve_act_p) delegate post_trace)
+      ==> isSome (delegate_addr approve_act_p)
+        (* isSomeCheck (delegate_addr approve_act_p) (fun approver =>
+        delegate_transferFrom_sum_of_approver approver delegate trace <=? approve_amount approve_act_p *)
+          *)
+      ) 
+    )
+  )
+). *)
+
+(* TODO: we need to also assert that no approves are called in the trace generated in line 333 *)
+QuickChick ( 
+  (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
+  state_has_some_approve_act
+  (fun approve_act_p pre_trace post_trace =>
+    whenFail ("Failed with the approve action: " ++ nl ++ show approve_act_p)
+    (delegate_made_no_transferFroms approve_act_p post_trace  
+    ==> isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
+      forAllTraces_traceProp 2 (List.last (map prev_lc_of_lcstep post_trace) chain_with_token_deployed) (gEIP20TokenChainTraceList 2)
+        (fun trace =>
+          isSomeCheck (allower_reapproves_delegate_trace (allower_addr approve_act_p) delegate (approve_amount approve_act_p) trace)
+            (fun trace_ =>
+            isSomeCheck (Some (allower_addr approve_act_p)) (fun approver =>
+            whenFail (
+                 show (pre_trace) ++ nl
+              ++ show (trace_)
+              ++ show (delegate_transferFrom_sum_of_approver approver delegate trace_) ++ nl
+              ++ show (approve_amount approve_act_p))
+            (delegate_transferFrom_sum_of_approver approver delegate trace_ <=? approve_amount approve_act_p)  
+          )
+          )
+        )
+      (* (allower_reapproves_delegate_trace (allower_addr approve_act_p) delegate post_trace)
+      ==> isSome (delegate_addr approve_act_p)
+        (* isSomeCheck (delegate_addr approve_act_p) (fun approver =>
+        delegate_transferFrom_sum_of_approver approver delegate trace <=? approve_amount approve_act_p *)
+          *)
+      ) 
+    )
+  )
+).
+
+
+
+Definition transfer_from_reduces_balance_correctly_P := .

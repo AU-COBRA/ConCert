@@ -234,9 +234,15 @@ Definition check_state_proposals_proposed_in_valid :=
 Discarded: 20000 *)
 
 
-(* ------------------ Tests on traces ------------------  *)
+(* ---------------------- Tests on traces ----------------------  *)
+
+
 Open Scope string_scope.
-Definition debug_congress (lc : LocalChain) (acts_opt : option (list Action)) : Checker -> Checker := 
+Definition debug_congress {A : Type} 
+                         `{Checkable A} 
+                          (lc : LocalChain) 
+                          (acts_opt : option (list Action)) 
+                          : A -> Checker := 
   whenFail (
     "LocalChain: " ++ show lc ++ nl ++
     "members: " ++ show (congressContractsMembers lc) ++ nl ++
@@ -252,7 +258,7 @@ Definition add_block_actions_succeeds_P c_opt actions_opt :=
   isSomeCheck c_opt
   (fun c => 
     (debug_congress c actions_opt) 
-      (checker match actions_opt with
+      (match actions_opt with
       | Some actions => (0 <? length actions) && isSome (my_add_block c actions)
       | None => false
       end)
@@ -260,24 +266,24 @@ Definition add_block_actions_succeeds_P c_opt actions_opt :=
 
 Instance shrinkAction : Shrink Action := {| shrink a := [a] |}.
 
-QuickChick (forAllShrink 
+(* QuickChick (forAllShrink 
   (optToVector 1 (gCongressActionNew chain_with_congress_deployed 3))
   shrink
-  (fun actions => add_block_actions_succeeds_P (Some chain_with_congress_deployed) (Some actions))).
+  (fun actions => add_block_actions_succeeds_P (Some chain_with_congress_deployed) (Some actions))). *)
 
 Definition check_add_two_blocks_succeeds := 
   (forAll3 
     (optToVector 1 (gCongressActionNew chain_with_congress_deployed 2))
     (fun actions => returnGen (my_add_block chain_with_congress_deployed actions))
     (fun _ c_opt => 
-      match c_opt with
-      | Some c => acts <- (optToVector 1 (gCongressActionNew c 2)) ;; returnGen (Some acts) 
-      | None => returnGen None
-      end)
+      bindGenOpt (returnGen c_opt) 
+      (fun c =>
+        acts <- (optToVector 1 (gCongressActionNew c 2)) ;; 
+        returnGen (Some acts)))
     (fun _ c_opt actions_opt => add_block_actions_succeeds_P c_opt actions_opt)
   ).
 
-QuickChick check_add_two_blocks_succeeds.
+(* QuickChick check_add_two_blocks_succeeds. *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 
@@ -285,16 +291,14 @@ Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressA
 Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongressActionNew height.
 
 
-(* QuickChick (forAll
+(* QuickChick (forAllShrink
   (gCongressActionNew congress_chain 1)
+  shrink
   (fun act_opt => isSomeCheck act_opt
-  (fun act => whenFail 
-    (show (lc_account_balances congress_chain) ++ sep ++ nl
-    ++ "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
-    ++ "congress members: " ++ show (congressContractsMembers congress_chain) ++ nl)
-    (* ++ "valid header: " ++ (show o isSome) (validate_header (next_header_lc congress_chain) congress_chain)) *)
-    (isSome (mk_basic_step_action congress_chain [act]))))    
-). *)
+    (fun act => 
+      (debug_congress congress_chain (Some [act]) 
+      (isSome (mk_basic_step_action congress_chain [act]))))    
+)). *)
 (* Wow!:
   coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
@@ -308,4 +312,4 @@ Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCon
 
 (* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
 
-Sample (gCongressChainTraceList congress_chain 15).
+(* Sample (gCongressChainTraceList congress_chain 15). *)
