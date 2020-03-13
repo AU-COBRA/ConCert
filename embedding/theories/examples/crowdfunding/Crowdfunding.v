@@ -45,8 +45,25 @@ Module CrowdfundingContract.
    Import Notations.
    Import Prelude.
 
+   (** We specialise some polymorphic constructors to avoid writing types all the time *)
+   Notation "'#Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
+                           (in custom expr at level 0,
+                               a custom expr at level 1).
+
+   Notation "'#Pair' a b" := [| {eConstr "prod" "pair"}
+                               {eTy (tyInd State)}
+                               {eTy actions_ty} {a} {b} |]
+                           (in custom expr at level 0,
+                               a custom expr at level 1,
+                               b custom expr at level 1).
+
+   Notation "'#Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
+                             (in custom expr at level 0).
+
+
    Notation SCtx := "SimpleContractCallContext".
    Notation SChain := "SimpleChain".
+
    Definition crowdfunding : expr :=
     [| \chain : SChain =>  \c : SCtx => \m : Msg => \s : State =>
          let bal : Money := balance s in
@@ -58,28 +75,28 @@ Module CrowdfundingContract.
          case m : Msg return Maybe Result of
             | GetFunds ->
              if (own == sender) && (deadline s <n now) && (goal s <= bal)  then
-               Just (Pair (mkState 0z accs own (deadline s) True (goal s))
+               #Just (#Pair (mkState 0z accs own (deadline s) True (goal s))
                           [Transfer bal sender])
-             else Nothing : Maybe Result
+             else #Nothing : Maybe Result
            | Donate -> if now <=n deadline s then
              (case (mfind accs sender) : Maybe Money return Maybe Result of
                | Just v ->
                  let newmap : Map := madd sender (v + tx_amount) accs in
-                 Just (Pair (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s))
+                 #Just (#Pair (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s))
                             Nil)
                | Nothing ->
                  let newmap : Map := madd sender tx_amount accs in
-                 Just (Pair (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s))
+                 #Just (#Pair (mkState (tx_amount + bal) newmap own (deadline s) (done s) (goal s))
                             Nil))
-               else Nothing : Maybe Result
+               else #Nothing : Maybe Result
            | Claim ->
              if (deadline s <n now) && (bal < goal s) && (~ done s) then
              (case (mfind accs sender) : Maybe Money return Maybe Result of
               | Just v -> let newmap : Map := madd sender 0z accs in
-                  Just (Pair (mkState (bal-v) newmap own (deadline s) (done s) (goal s))
+                  #Just (#Pair (mkState (bal-v) newmap own (deadline s) (done s) (goal s))
                        [Transfer v sender])
-               | Nothing -> Nothing)
-              else Nothing : Maybe Result
+               | Nothing -> #Nothing)
+              else #Nothing : Maybe Result
     |].
 
   Compute (expr_to_tc Σ' (indexify nil crowdfunding)).
@@ -143,7 +160,7 @@ Module CrowdfundingProperties.
    rewrite Z.ltb_nlt in *. rewrite Z.leb_le in *. lia.
   Qed.
 
-  (** This lemma states that the only relevat part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
+  (** This lemma states that the only relevant part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :
     Receive.receive (Build_chain height1 cur_slot fheight1 bal1) ctx msg st  =
     Receive.receive (Build_chain height2 cur_slot fheight2 bal2) ctx msg st.

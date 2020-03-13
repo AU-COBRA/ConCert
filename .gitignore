@@ -4,11 +4,15 @@
 
 ##Coq
 *.vo
+*.vok
+*.vos
 *.glob
 *.v.d
 *~
 CoqMakefile
 CoqMakefile.conf
+Makefile.coq
+Makefile.coq.conf
 execution/CoqMakefile
 execution/CoqMakefile.conf
 *.a

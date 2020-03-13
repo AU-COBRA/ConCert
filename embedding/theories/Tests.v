@@ -119,3 +119,8 @@ gdInd "AMap" 2 [("ANil", []);
                                (None,(tyApp (tyApp (tyInd "AMap") (tyRel 1)) (tyRel 0)))])] false.
 
 Make Inductive (global_to_tc map_syn).
+
+Definition single_field_record_syn :=
+  [\ record "sfrec" := "mkRec" {"fld" : Nat } \].
+
+Make Inductive (global_to_tc single_field_record_syn).

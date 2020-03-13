@@ -10,6 +10,7 @@ Import ListNotations.
 Open Scope list.
 
 Declare Custom Entry ctor.
+
 Declare Custom Entry global_dec.
 Declare Custom Entry expr.
 Declare Custom Entry pat.
@@ -155,10 +156,11 @@ Definition rec_constr (rec_ctor : ename) (proj_tys : list (option ename * type))
 
 Definition rec_constrs rec_nm := map (rec_constr rec_nm).
 
-Notation "'record' rec_nm := { pr1 : ty1 }" :=
-  (gdInd rec_nm 0 [ rec_constr rec_nm [(Some pr1,ty1)]] true)
+Notation "'record' rec_nm := rec_ctor { pr1 : ty1 }" :=
+  (gdInd rec_nm 0 [ rec_constr rec_ctor [(Some pr1,ty1)]] true)
     (in custom global_dec at level 1,
         pr1 constr at level 4,
+        rec_ctor constr at level 4,
         rec_nm constr at level 4,
         ty1 custom type at level 4).
 
@@ -281,10 +283,19 @@ Notation "'let' x : ty := e1 'in' e2" := (eLetIn x e1 ty e2)
                                                e2 custom expr at level 4,
                                                x constr at level 4).
 
-(* Notation "C x .. y" := (pConstr C (cons x .. (cons y nil) .. )) *)
-(*                          (in custom pat at level 1, *)
-(*                              x constr at level 4, *)
-(*                              y constr at level 4). *)
+Notation "$ Ctor $ ty" := (eConstr ty Ctor) (in custom expr at level 2,
+                                              Ctor constr at level 4,
+                                              ty constr at level 4).
+
+Notation "C x .. y " := (pConstr C (cons x .. (cons y nil) .. ))
+                           (in custom pat at level 0,
+                               C constr at level 4,
+                               x constr at level 4,
+                               y constr at level 4).
+
+Notation "C" := (pConstr C [])
+                  (in custom pat at level 0,
+                      C constr at level 4).
 
 (* Notation "'case' x : ty 'of'  b1 | .. | bn " := *)
 (*   (eCase (ty,0) (tyInd "") x (cons b1 .. (cons bn nil) ..)) *)
@@ -310,6 +321,7 @@ Notation "ind ty1 , ty2" := (ciParamInd ind [ty1;ty2]) (in custom case_info at l
                                                          ind constr at level 4,
                                                          ty1 custom type at level 4,
                                                          ty2 custom type at level 4).
+
 
 Definition ci_to_types (ci : case_info ) :=
   match ci with
@@ -358,5 +370,9 @@ Notation "'fix' fixname ( v : ty1 ) : ty2 := b" := (eFix fixname v ty1 ty2 b)
                                       b custom expr at level 4,
                                       ty1 custom type at level 4,
                                       ty2 custom type at level 4).
+
+Notation "[: ty ]" := (eTy ty) (in custom expr at level 1,
+                                    ty custom type).
+
 Notation "( x )" := x (in custom expr, x at level 2).
 Notation "{ x }" := x (in custom expr, x constr).

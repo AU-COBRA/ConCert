@@ -186,10 +186,11 @@ Notation "'star'" :=
   (eConstr Unit "Coq.Init.Datatypes.tt")
     (in custom expr at level 0).
 
-Notation "A * B" := (tyApp (tyApp (tyInd "prod") A) B)
-                        (in custom type at level 1,
+Notation "A × B" := (tyApp (tyApp (tyInd "prod") A) B)
+                        (in custom type at level 6,
                             A custom type,
-                            B custom type at level 2).
+                            B custom type at level 8).
+
 
 Notation "'Pair' b o" :=
     (pConstr "pair" [b;o]) (in custom pat at level 0,
@@ -216,16 +217,19 @@ Notation "'second' A B p" := [| {eConst "snd"} {eTy A} {eTy B} {p} |]
                                   B custom type at level 1,
                                   p custom expr at level 1).
 
-Notation "'Nothing' A" :=
-  [| {eConstr "option" "None"} {eTy A}|]
-    (in custom expr at level 0,
-        A custom type at level 1).
+Definition Just := "Some".
+Definition Nothing := "None".
 
-Notation "'Just' A a" :=
-  [| {eConstr "option" "Some"}  {eTy A} {a}|]
-    (in custom expr at level 0,
-        A custom type at level 1,
-        a custom expr at level 1).
+(* Notation "'Nothing' A" := *)
+(*   [| {eConstr "option" "None"} {eTy A}|] *)
+(*     (in custom expr at level 0, *)
+(*         A custom type at level 1). *)
+
+(* Notation "'Just' A a" := *)
+(*   [| {eConstr "option" "Some"}  {eTy A} {a}|] *)
+(*     (in custom expr at level 0, *)
+(*         A custom type at level 1, *)
+(*         a custom expr at level 1). *)
 
 
 Definition AcornList : global_dec :=

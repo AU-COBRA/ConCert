@@ -27,7 +27,8 @@ Import ListNotations.
 Section LocalBlockchain.
 Local Open Scope bool.
 
-Definition AddrSize : N := 2^128.
+Context {AddrSize : N}.
+
 Definition ContractAddrBase : N := AddrSize / 2.
 
 Global Instance LocalChainBase : ChainBase :=
@@ -453,6 +454,17 @@ Proof.
     apply eq.
 Qed.
 
+(* The computational bits of adding a block *)
+Definition add_block_exec
+           (depth_first : bool)
+           (lc : LocalChain)
+           (header : BlockHeader)
+           (actions : list Action) : option LocalChain :=
+  do validate_header header lc;
+  do validate_actions actions;
+  let lc := add_new_block header lc in
+  execute_actions 1000 actions lc depth_first.
+
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
@@ -462,13 +474,8 @@ Definition add_block
            (header : BlockHeader)
            (actions : list Action) : option LocalChainBuilder.
 Proof.
-  set (lcopt :=
-         let lc := lcb_lc lcb in
-         do validate_header header lc;
-         do validate_actions actions;
-         let lc := add_new_block header lc in
-         execute_actions 1000 actions lc depth_first).
-
+  set (lcopt := add_block_exec depth_first (lcb_lc lcb) header actions).
+  unfold add_block_exec in lcopt.
   destruct lcopt as [lc|] eqn:exec; [|exact None].
   subst lcopt.
   cbn -[execute_actions] in exec.
@@ -487,7 +494,7 @@ Proof.
   reflexivity.
 Defined.
 
-Global Instance LocalChainBuilderDepthFirst : ChainBuilderType :=
+Definition LocalChainBuilderDepthFirst : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
@@ -500,4 +507,11 @@ Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
      builder_env lcb := lcb_lc lcb;
      builder_add_block := add_block false;
      builder_trace := lcb_trace; |}.
+
 End LocalBlockchain.
+
+Arguments LocalChainBase : clear implicits.
+Arguments LocalChainBuilder : clear implicits.
+Arguments LocalChainBuilderDepthFirst : clear implicits.
+Arguments LocalChainBuilderBreadthFirst : clear implicits.
+Arguments lcb_initial : clear implicits.
