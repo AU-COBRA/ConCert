@@ -112,6 +112,18 @@ Program Instance ser_positive_equivalence : Serializable positive :=
      deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
 Next Obligation. auto. Qed.
 
+Program Instance N_serializable : Serializable N :=
+  {| serialize bn := serialize (countable.encode bn);
+    deserialize v :=
+      do p <- (deserialize v : option positive);
+      countable.decode p |}.
+Next Obligation.
+  intros x.
+  cbn.
+  rewrite deserialize_serialize.
+  now rewrite countable.decode_encode.
+Qed.
+
 Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;
      deserialize v := Some v; |}.
