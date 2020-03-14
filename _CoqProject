@@ -27,6 +27,7 @@ execution/theories/LocalBlockchain.v
 execution/theories/LocalBlockchainTests.v
 execution/theories/Monads.v
 execution/theories/Serializable.v
+execution/theories/EIP20Token.v
 
 -R embedding/theories ConCert.Embedding
 embedding/theories/Ast.v
