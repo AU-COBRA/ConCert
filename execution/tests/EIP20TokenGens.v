@@ -36,7 +36,6 @@ Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Addre
                   end)  
                 els_list []).
 
-
 (* TODO: for some reason in the 'fresh' case the blockchain execution rejects the transfer - why? Does it only allow existing accounts? *)
 (* Will try to generate a transfer between existing accounts in the token contract's state.
 	 Otherwise tries to use accounts in the Blockchain state.
@@ -50,12 +49,12 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 			(* TODO: only generate non_contract addresses *)
 			(0, from_addr <- arbitrary ;; (* TODO: temporarily set to 0 *)
 					to_addr <- arbitrary ;;
-					returnGen (from_addr, transfer to_addr 0))
+					returnGen (from_addr, transfer to_addr 0%N))
 		] in
 	sample <- sampleFMapOpt state.(balances) ;;
 	match sample with
 	| Some (addr, balance) =>
-		transfer_amount <- choose (0, balance) ;;
+		transfer_amount <- choose (0%N, balance) ;;
 		account_opt <- gAccountAddrFromLocalChain lc ;; (* ensures no contract addresses are generated *)
 		match account_opt with
 		| Some account => randomize_mk_gen (addr, transfer account transfer_amount) 
@@ -65,9 +64,9 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 	(* TODO: only generate non_contract addresses *)
 	| None => from_addr <- arbitrary ;;
 						to_addr <- arbitrary ;;
-						returnGen (from_addr, transfer to_addr 0)
+						returnGen (from_addr, transfer to_addr 0%N)
 	end.
-
+Local Open Scope N_scope.
 (* TODO: not super good implementation. Should filter on balances map instead of first sampling and then filtering *)
 Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) := 
 	bindGenOpt (sample2UniqueFMapOpt state.(balances)) (fun p =>
@@ -94,11 +93,11 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
 			let allower_balance := (FMap_find_ allower state.(balances) 0) in
 			amount <- (if allower_balance =? 0 
 								then returnGen 0 
-								else choose (0, min allowance allower_balance)) ;; 
+								else choose (0, N.min allowance allower_balance)) ;; 
 			returnGen (Some (delegate, transfer_from allower receiver  amount))
 		)
 	)).
-
+Local Close Scope N_scope.
 (* Main generator *)
 Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (option Action) := 
   let mk_call contract_addr caller_addr msg := 

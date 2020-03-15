@@ -27,7 +27,7 @@ Context {BaseTypes : ChainBase}.
 Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 (* Definition MaxValue : N := 2^8%N. *)
-Definition TokenValue := nat.
+Definition TokenValue := N.
 
 
 Inductive EIP20TokenAction :=
@@ -89,22 +89,15 @@ Definition eip20token_action_to_chain_action (act : EIP20TokenAction) : ActionBo
   | eip_act_call to amt msg => act_call to amt msg
   end.
 
-Definition validate_setup (setup : Setup) : bool := 
-	0 <=? setup.(init_amount).
-
-
 Definition init (chain : Chain)
 								(ctx : ContractCallContext)
 								(setup : Setup) : option State := 
-	if validate_setup setup
-	then Some 
-	{|
+	Some {|
 		total_supply := setup.(init_amount);
 		balances := FMap.add setup.(owner) setup.(init_amount) FMap.empty;
 		allowances := FMap.empty;
-	|}
-	else None.
-
+	|}.
+Local Open Scope N_scope.
 (* Transfers <amount> tokens, if <from> has enough tokens to transfer *)
 Definition try_transfer (from : Address) 
 												(to : Address) 
@@ -215,6 +208,6 @@ Proof. repeat intro; solve_contract_proper. Qed.
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
 
-
+Local Close Scope N_scope.
 Close Scope bool_scope.
 End EIP20Token.

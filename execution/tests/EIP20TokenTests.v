@@ -35,7 +35,7 @@ Close Scope address_scope.
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
-Definition token_setup := EIP20Token.build_setup creator 100.
+Definition token_setup := EIP20Token.build_setup creator (100%N).
 Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -110,8 +110,7 @@ Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_wit
     (debug_gEIP20Checker (last_state trace) (Some act))  
       ((checker o isSome) (my_add_block (last_state trace) [act]))))). *)
 
-
-Open Scope nat_scope.
+Local Open Scope N_scope.
 (* One key property: the sum of the balances is always equal to the initial supply *)
 Definition sum_balances_eq_init_supply_P maxLength := 
   forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
@@ -120,7 +119,7 @@ Definition sum_balances_eq_init_supply_P maxLength :=
       ( match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let balances_list := (map snd o FMap.elements) state.(balances) in
-        let balances_sum : nat := fold_left plus balances_list 0 in
+        let balances_sum : N := fold_left N.add balances_list 0%N in
         balances_sum =? state.(total_supply)
       | None => false
       end)).
@@ -137,17 +136,17 @@ Definition sum_allowances_le_init_supply_P maxLength :=
       (match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let allowances := map_values_FMap 
-          (fun allowance_map => fold_left plus ((map snd o FMap.elements) allowance_map) 0)
+          (fun allowance_map => fold_left N.add ((map snd o FMap.elements) allowance_map) 0)
           state.(allowances) in
         let allowances_list := (map snd o FMap.elements) allowances in
-        let allowances_sum := fold_left plus allowances_list 0 in 
+        let allowances_sum := fold_left N.add allowances_list 0%N in 
         allowances_sum <=? state.(total_supply)
       | None => false
       end)).
     
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
 
-Definition person_has_tokens person (n : nat) := 
+Definition person_has_tokens person (n : N) := 
   fun step =>
     let lc := next_lc_of_lcstep step in
     match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
@@ -293,22 +292,30 @@ Definition delegate_transferFrom_sum_of_approver approver delegate trace :=
 
 Extract Constant defNumDiscards => "(3 * defNumTests)".
 
+Fixpoint last_opt {A : Type} (l : list A) : option A :=
+  match l with
+  | [] => None
+  | x::[] => Some x
+  | x::xs => last_opt xs
+  end.
 
-Definition allower_reapproves_transferFrom_correct start_lc allower delegate first_approval_amount := 
-  reachableFrom_implies_tracePropSized_new 4 start_lc (gEIP20TokenChainTraceList 2)
-  (allower_reapproves_delegate_step allower delegate)
-  (fun new_approval_amount pre_trace _ =>
-    (new_approval_amount <? first_approval_amount) ==>
-    whenFail (show delegate ++ " spent "
-      ++ show (delegate_transferFrom_sum_of_approver allower delegate pre_trace)
-      ++ " on behalf of " ++ show allower
-      ++ " when they were only allowed to spend at most "
-      ++ show new_approval_amount ++ nl
-      ++ "trace after first approval:" ++ nl ++ show pre_trace)
-    (delegate_transferFrom_sum_of_approver allower delegate pre_trace <=? new_approval_amount)
-  
-  )   
-.
+Definition allower_reapproves_transferFrom_correct trace allower delegate first_approval_amount :=
+  match last_opt trace with
+  | None => false ==> true
+  | Some start_step =>
+    let start_lc := prev_lc_of_lcstep start_step in
+    reachableFrom_implies_tracePropSized_new 2 start_lc (gEIP20TokenChainTraceList 2)
+    (allower_reapproves_delegate_step allower delegate)
+    (fun new_approval_amount pre_trace _ =>
+      (new_approval_amount <? first_approval_amount) ==>
+      whenFail (show delegate ++ " spent "
+        ++ show (delegate_transferFrom_sum_of_approver allower delegate pre_trace)
+        ++ " on behalf of " ++ show allower
+        ++ " when they were only allowed to spend at most "
+        ++ show new_approval_amount ++ nl)
+      (delegate_transferFrom_sum_of_approver allower delegate pre_trace <=? new_approval_amount) 
+    )
+  end.
 
 Definition reapprove_transfer_from_safe_P := 
   (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
@@ -316,7 +323,7 @@ Definition reapprove_transfer_from_safe_P :=
   (fun approve_act_p pre_trace post_trace =>
     (delegate_made_no_transferFroms approve_act_p post_trace  
     ==> isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
-      allower_reapproves_transferFrom_correct (List.last (map prev_lc_of_lcstep post_trace) chain_with_token_deployed)
+      allower_reapproves_transferFrom_correct post_trace
                                               (allower_addr approve_act_p)
                                               delegate
                                               (approve_amount approve_act_p)     

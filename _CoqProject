@@ -29,6 +29,7 @@ execution/tests/CongressGens.v
 execution/tests/CongressPrinters.v
 execution/tests/CongressTests.v
 execution/tests/EIP20TokenGens.v
+execution/tests/EIP20TokenTests.v
 execution/tests/TraceGens.v
 execution/tests/SerializablePrinters.v
 
