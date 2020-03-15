@@ -1,6 +1,8 @@
 # ConCert
 
-A framework for smart contract verification in Coq
+Fork of the ConCert framework - A framework for smart contract verification in Coq.
+
+The work on this fork is aimed at building infrastructure for random property testing of the Smart Contracts (and the execution environment) using QuickChick.
 
 ## How to build
 

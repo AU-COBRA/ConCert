@@ -2,7 +2,7 @@
 
 Require Import String ZArith Basics.
 From ConCert Require Import Ast Notations PCUICTranslate.
-From ConCert Require Import Utils Prelude SimpleBlockchain.
+From ConCert Require Import Utils Prelude CounterBlockchain.
 Require Import List PeanoNat ssrbool.
 
 Import ListNotations.
@@ -13,48 +13,33 @@ Import BaseTypes.
 Open Scope list.
 
 
-Import AcornBlockchain.
+Import CounterBlockchain.
 
 (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
-(** Generating names for the data structures  *)
 Run TemplateProgram
-      (mkNames ["State" ; "mkState"; "balance" ; "donations" ; "owner"; "deadline"; "goal"; "done";
+      (mkNames ["State" ; "mkState";
+                "counter"; "blob";
                 "Res" ; "Error";
-                "Msg"; "Donate"; "GetFunds"; "Claim";
+                "Msg"; "Incr";
                 "Action"; "Transfer"; "Empty" ] "_coq").
-
 Import ListNotations.
+
 
 (** ** Definitions of data structures for the contract *)
 
 (** The internal state of the contract *)
 Definition state_syn : global_dec :=
   [\ record State :=
-     mkState { balance : Money ;
-       donations : Map;
-       owner : Address;
-       deadline : Nat;
-       done : Bool;
-       goal : Money } \].
+     mkState {counter : CounterValue; blob: CounterValue} \].
 
 (** We can print actual AST by switching off the notations *)
 
 Unset Printing Notations.
 
 (* Print state_syn. *)
-(* state_syn =
-    gdInd State O
-      (cons
-         (rec_constr State
-            (cons (pair (nNamed balance) (tyInd Money))
-               (cons (pair (nNamed donations) (tyInd Map))
-                  (cons (pair (nNamed owner) (tyInd Money))
-                     (cons (pair (nNamed deadline) (tyInd Nat))
-                        (cons (pair (nNamed goal) (tyInd Money)) nil)))))) nil) true
-         : global_dec *)
 
 Set Printing Notations.
 
@@ -67,9 +52,8 @@ Make Inductive (global_to_tc state_syn).
 
 Definition msg_syn :=
   [\ data Msg =
-       Donate [_]
-     | GetFunds [_]
-     | Claim [_] \].
+       Incr [_]
+      \].
 
 Make Inductive (global_to_tc msg_syn).
 
@@ -85,44 +69,53 @@ Module Notations.
                              (in custom expr at level 0).
 
 
+  (** Patterns *)
+  Notation "'Incr'" :=
+    (pConstr Incr []) (in custom pat at level 0).
+  
+  Notation "'Just' x" :=
+    (pConstr "Some" [x]) (in custom pat at level 0,
+                             x constr at level 4).
+  Notation "'Nothing'" := (pConstr "None" [])
+                            (in custom pat at level 0).
+
   (** Projections *)
-  Notation "'balance' a" :=
-    [| {eConst balance} {a} |]
+  Notation "'counter' a" :=
+    [| {eConst counter} {a} |]
       (in custom expr at level 0).
-  Notation "'donations' a" :=
-    [| {eConst donations} {a} |]
-      (in custom expr at level 0).
-  Notation "'owner' a" :=
-    [| {eConst owner} {a} |]
-      (in custom expr at level 0).
-  Notation "'deadline' a" :=
-    [| {eConst deadline} {a} |]
-      (in custom expr at level 0).
-  Notation "'goal' a" :=
-    [| {eConst goal} {a} |]
-      (in custom expr at level 0).
-  Notation "'done' a" :=
-    [| {eConst done} {a} |]
+  Notation "'blob' a" :=
+    [| {eConst blob} {a} |]
       (in custom expr at level 0).
 
 
-  Notation "'Nil'" := [| {eConstr "list" "nil"} {eTy (tyInd SActionBody)} |]
+  Notation "'Nil'" := [| {eConstr "list" "nil"} {eTy (tyInd CActionBody)} |]
                       (in custom expr at level 0).
 
-  Notation " x ::: xs" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} {xs} |]
+  Notation " x ::: xs" := [| {eConstr "list" "cons"} {eTy (tyInd CActionBody)} {x} {xs} |]
                             ( in custom expr at level 0).
 
-  Notation "[ x ]" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} Nil |]
+  Notation "[ x ]" := [| {eConstr "list" "cons"} {eTy (tyInd CActionBody)} {x} Nil |]
                         ( in custom expr at level 0,
                           x custom expr at level 1).
   (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
 
 
-  Definition actions_ty := [! "list" "SimpleActionBody" !].
+  Definition actions_ty := [! "list" "CounterActionBody" !].
 
-  Notation "'Result'" := [!"prod" State ("list" "SimpleActionBody") !]
+  Notation "'Result'" := [!"prod" State ("list" "CounterActionBody") !]
                            (in custom type at level 2).
+
+  Notation "'Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
+                           (in custom expr at level 0,
+                               a custom expr at level 1).
+
+  Notation "'Pair' a b" := [| {eConstr "prod" "pair"}
+                               {eTy (tyInd State)}
+                               {eTy actions_ty} {a} {b} |]
+                           (in custom expr at level 0,
+                               a custom expr at level 1,
+                               b custom expr at level 1).
 
 
   Definition mk_res a b := [| {eConstr "option" "Some"}
@@ -134,20 +127,15 @@ Module Notations.
           a custom expr at level 4,
           b custom expr at level 4).
 
+  Notation "'Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
+                      (in custom expr at level 0).
+
   Notation "'mkState' a b" :=
     [| {eConstr State "mkState_coq"} {a} {b} |]
       (in custom expr at level 0,
           a custom expr at level 1,
           b custom expr at level 1).
 
-  Notation "'Transfer' a b" :=
-    [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
-      (in custom expr at level 0,
-          a custom expr at level 1,
-          b custom expr at level 1).
-
-  Notation "'Empty'" := (eConstr Action Empty)
-                      (in custom expr at level 0).
 
   (** New global context with the constants defined above (in addition to the ones defined in the Oak's "StdLib") *)
 
@@ -156,21 +144,22 @@ Module Notations.
            state_syn;
            msg_syn;
            addr_map_acorn;
-           AcornBlockchain.SimpleChainAcorn;
-           AcornBlockchain.SimpleContractCallContextAcorn;
-           AcornBlockchain.SimpleActionBodyAcorn;
+           CounterBlockchain.CounterChainAcorn;
+           CounterBlockchain.CounterContractCallContextAcorn;
+           CounterBlockchain.CounterActionBodyAcorn;
            gdInd "Z" 0 [("Z0", []); ("Zpos", [(None,tyInd "positive")]);
                           ("Zneg", [(None,tyInd "positive")])] false].
 
 
   Notation "0 'z'" := (eConstr "Z" "Z0") (in custom expr at level 0).
-  End Notations.
+
+End Notations.
 
 
 Import Prelude.
 (** Generating string constants for variable names *)
 
-Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain"; "n"; "b";
+Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "b"; "chain"; "n";
                               "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                               "accs"; "now";
                                "newstate"; "newmap"; "cond"] "").
@@ -184,4 +173,4 @@ Notation "'if' cond 'then' b1 'else' b2 : ty" :=
         b1 custom expr at level 4,
         b2 custom expr at level 4).
 
-Notation SCtx := "SimpleContractCallContext".
+Notation SCtx := "CounterContractCallContext".
