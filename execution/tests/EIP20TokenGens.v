@@ -25,7 +25,6 @@ Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 
 Definition serializeMsg := @serialize EIP20Token.Msg _.
 
-
 Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Address EIP20Token.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left 

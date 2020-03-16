@@ -11,8 +11,6 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-
-
 (* Currently we hack it to always deserialize to Msg types - only works for Congress! TODO: fix *)
 Instance showSerializedValue {ty : Type} `{Serializable ty} `{Show ty} : Show SerializedValue := 
 {|
@@ -25,8 +23,6 @@ Instance showSerializedValue {ty : Type} `{Serializable ty} `{Show ty} : Show Se
 		| None => "<FAILED DESERIALIZATION>" 
 		end
 		end
-  (* ++ show (ser_value_type v) ++ sep *)
-  (* ++ string_of_interp_type (ser_value_type v) (ser_value v) ++ "}"  *)
 |}.
 
 Close Scope string_scope.

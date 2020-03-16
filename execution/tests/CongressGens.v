@@ -19,16 +19,13 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-
 Definition serializeMsg := serialize Msg _.
-
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 (* ChainGens for the types defined in the Congress contract *)
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
-
 
 Definition gRulesSized (n : nat) : G Rules :=
   vote_count <- choose(1%Z, 1000%Z) ;;
@@ -53,9 +50,6 @@ Definition gCongressAction' {ctx : ChainContext LocalChainBase}
     (1, liftM3 cact_call (ctx_gContractAddr ctx) gZPositive gMsg)
   ].
 
-
-
-
 Definition gMsgSimple (ctx : ChainContext LocalChainBase) : G Msg := 
   freq [
     (1, liftM transfer_ownership (ctx_gAccountAddr ctx)) ;
@@ -73,10 +67,8 @@ Definition gMsg' : G Msg :=
 Sample gMsg'.
 Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; @gCongressAction' ctx (liftM serializeMsg (gMsgSimple ctx))).
 
-
 Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; 
         ctx_gAccountAddr ctx).
-
 
 Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
   let default := liftM add_member (ctx_gAccountAddr ctx) in
@@ -131,7 +123,6 @@ Definition gCongressActionSized {ctx : ChainContext LocalChainBase}
                                 : G CongressAction 
                                 := @gCongressAction' ctx (liftM serializeMsg (@gMsgSized ctx n)).
 
-
 Sample (ctx <- arbitrary ;; gMsgSized ctx 2).
 
 Example ex_call_congress_action := ctx <- arbitrary ;; 
@@ -154,7 +145,6 @@ Definition gProposalSized {ctx : ChainContext LocalChainBase}
   returnGen (build_proposal actions votes vote_result proposed_in).
 
 Sample (ctx <- arbitrary ;; @gProposalSized ctx 0 10 1).
-
 
 Close Scope Z_scope.
 
@@ -225,7 +215,6 @@ Definition check_receive_is_some_P :=
     (fun ctx _ state msg => @gValidContractCallContext ctx (owner state) msg)
     (fun _ chain state msg cctx => receive_is_some_P chain cctx state msg).
 
-
 (* We expect to get fail this test at this point*)
 (* QuickChick check_receive_is_some_P. *)
 (* coqtop-stdout:ChainContext{...}
@@ -236,16 +225,12 @@ ContractCallContext{ctx_from: 121%256, ctx_contract_addr: 143%256, ctx_amount: 5
 *** Failed after 13 tests and 0 shrinks. (0 discards) 
 *)
 
-
 Definition gActionOfCongress ctx n : G Action := 
   liftM2 (@build_act LocalChainBase) (ctx_gAccountAddr ctx) (liftM congress_action_to_chain_action (@gCongressActionSized ctx n)).
-
 
 Definition gContractCallInfo := liftM3 build_call_info arbitrary arbitrary arbitrary.
   
 (* Sample gContractCallInfo. *)
-
-
 
 (* ------------------------------------------------------ *)
 (* generators of actions from the LocalChain context type *)
@@ -286,7 +271,6 @@ Definition gCongressMember (lc : LocalChain)
     | m::ms => liftM Some (elems_ m members)
     end).
 
-
 Definition gCongressMember_without_caller (lc : LocalChain) 
                            (calling_addr : Address) 
                            (contract_addr : Address) 
@@ -299,7 +283,6 @@ Definition gCongressMember_without_caller (lc : LocalChain)
     | [] => returnGen None
     | m::ms => liftM Some (elems_ m members_without_caller)
     end).
-
 
 Fixpoint try_newCongressMember_fix (members : list Address) nr_attempts curr_nr : option Address  :=
   let fix aux nr_attempts curr_nr :=
@@ -341,7 +324,6 @@ Definition bindCallerIsOwnerOpt {A : Type}
 Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):= 
   bindCallerIsOwnerOpt lc calling_addr contract_addr (gCongressMember_without_caller lc calling_addr contract_addr).
 
-
 (* Sample (@gMsgSimpleFromLC lc_initial). *)
 (* 
 Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
@@ -352,8 +334,6 @@ Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
                           | None => acc
                           end) l []
   in returnGen l'. *)
-
-
 
 Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Address (list ProposalId))) 
                          (mk_call : Address -> Address -> Msg -> G (option Action))
@@ -393,8 +373,6 @@ Definition finishable_proposals (lc : LocalChain)
     end
   ) (lc_proposals lc)
 .
-
-
 
 Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :=
   let mk_call contract_addr caller_addr msg := 

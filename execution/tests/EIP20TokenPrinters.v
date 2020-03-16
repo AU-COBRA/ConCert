@@ -22,7 +22,6 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-
 Let AddrSize := (2^8)%N.
 Instance BaseTypes : ChainBase := LocalChainBase.
 
@@ -54,5 +53,3 @@ Instance showTokenState : Show EIP20Token.State :=
 							 ++ "balances: " ++ show s.(balances) ++ sep
 							 ++ "allowances: " ++ show s.(allowances) ++ "}"
 |}.
-
-

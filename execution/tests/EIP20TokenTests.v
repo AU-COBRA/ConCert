@@ -32,7 +32,6 @@ Import LocalBlockchain.
 Import ListNotations.
 Close Scope address_scope.
 
-
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
 Definition token_setup := EIP20Token.build_setup creator (100%N).
@@ -52,7 +51,6 @@ Definition chain_with_token_deployed :=
 Definition gEIP20TokenChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => 
     gEIP20TokenAction lc contract_base_addr) length max_acts_per_block.
-
 
 Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
   @reachableFrom AddrSize lc (gEIP20TokenChainTraceList 1) pf.
@@ -80,7 +78,6 @@ Definition debug_gEIP20Checker {A : Type}
     ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl 
     ).
 
-
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
@@ -98,7 +95,6 @@ Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 10).
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_with_token_deployed.
-
 
 (* Generate a trace, and then execute an action on the last state of the trace. Check that this always succeeds *)
 (* QuickChick (forAll2 
@@ -158,8 +154,6 @@ Notation "lc '~~>' pf" :=
   (token_reachableFrom lc pf)
   (at level 45, no associativity).
 
-
-
 QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12).
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
 
@@ -184,7 +178,6 @@ Definition get_approve_act (act : Action) : option (Address * Address * EIP20Tok
   | _ => None
   end.
 
-
 Definition get_transferFrom_act (act : Action) : option (Address * Address * EIP20Token.Msg) := 
   match act.(act_body) with
   | act_call caddr _ ser_msg =>
@@ -194,7 +187,6 @@ Definition get_transferFrom_act (act : Action) : option (Address * Address * EIP
     end
   | _ => None
   end.
-
 
 Definition state_has_some_approve_act {AddrSize : N} (step : @LocalChainStep AddrSize) := 
   match step with
@@ -233,7 +225,6 @@ Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address *
   forAll (elems_ chain_with_token_deployed trace') (fun lc =>
   forAllTraces_traceProp n lc (gEIP20TokenChainTraceList 2) c). *)
 
-
 Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
   match snd approve_act_p with
   | (approve _ _ ) => snd (fst approve_act_p)
@@ -269,7 +260,6 @@ Definition allower_reapproves_delegate_step allower delegate step :=
   | _ => None
   end.
 
-
 Definition delegate_transferFrom_sum_of_approver approver delegate trace := 
   fold_left (fun acc step =>
     let transfer_from_acts := fold_left (fun acc act =>
@@ -288,7 +278,6 @@ Definition delegate_transferFrom_sum_of_approver approver delegate trace :=
     let step_sum := fold_left (fun acc p => (transfer_from_amount p) + acc) relevant_transfer_from_acts 0 in
     step_sum + acc
   ) trace 0.
-
 
 Extract Constant defNumDiscards => "(3 * defNumTests)".
 
