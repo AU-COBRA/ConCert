@@ -43,16 +43,6 @@ Instance showMsg : Show Msg :=
 						end
 |}.
 
-Instance showTokenAction `{Show SerializedValue} : Show EIP20TokenAction :=
-{|
-	show act := match act with
-							| eip_act_transfer to amount => 
-								"EIP20_transfer: " ++ show to ++ " " ++ show amount
-							| eip_act_call to amount msg => 
-								"EIP20_call: " ++ show to ++ " " ++ show amount ++ " " ++ show msg 
-							end
-|}.
-
 Instance showTokenSetup : Show Setup :=
 {|
 	show setup := "Setup{owner: " ++ show setup.(owner) ++ sep ++ "init_amount: " ++ show setup.(init_amount) ++ "}"

@@ -82,7 +82,7 @@ Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
 Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
   (listOf (@gCongressActionSized ctx 2)).
 
-(* Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx). *)
+Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx).
 (* Compute (show (sample (gLocalChainContext 2))). *)
 
 
@@ -283,7 +283,7 @@ Definition check_add_two_blocks_succeeds :=
     (fun _ c_opt actions_opt => add_block_actions_succeeds_P c_opt actions_opt)
   ).
 
-(* QuickChick check_add_two_blocks_succeeds. *)
+QuickChick check_add_two_blocks_succeeds.
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 
@@ -312,4 +312,4 @@ Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCon
 
 (* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
 
-(* Sample (gCongressChainTraceList congress_chain 15). *)
+Sample (gCongressChainTraceList congress_chain 15 2).
