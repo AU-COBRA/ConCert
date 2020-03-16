@@ -28,4 +28,3 @@ theories/Finite.v
 theories/LocalBlockchain.v
 theories/Monads.v
 theories/Serializable.v
-theories/EIP20Token.v
