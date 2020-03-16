@@ -6,28 +6,28 @@ vendor/record-update/RecordUpdate.v
 
 -R execution/theories ConCert.Execution
 execution/theories/Automation.v
-execution/theories/BignumsSerializable.v
 execution/theories/Blockchain.v
-execution/theories/BoardroomMath.v
-execution/theories/BoardroomVoting.v
-execution/theories/BoardroomVotingTest.v
 execution/theories/BoundedN.v
 execution/theories/ChainedList.v
 execution/theories/Circulation.v
-execution/theories/Congress.v
-execution/theories/Congress_Buggy.v
 execution/theories/Containers.v
 execution/theories/ContractMonads.v
-execution/theories/Egcd.v
-execution/theories/Escrow.v
-execution/theories/Euler.v
+execution/theories/Examples/BignumsSerializable.v
+execution/theories/Examples/BoardroomMath.v
+execution/theories/Examples/BoardroomVoting.v
+execution/theories/Examples/BoardroomVotingTest.v
+execution/theories/Examples/Congress.v
+execution/theories/Examples/Congress_Buggy.v
+execution/theories/Examples/Egcd.v
+execution/theories/Examples/EIP20Token.v
+execution/theories/Examples/Escrow.v
+execution/theories/Examples/Euler.v
+execution/theories/Examples/LocalBlockchainTests.v
 execution/theories/Extras.v
 execution/theories/Finite.v
 execution/theories/LocalBlockchain.v
-execution/theories/LocalBlockchainTests.v
 execution/theories/Monads.v
 execution/theories/Serializable.v
-execution/theories/EIP20Token.v
 
 -R embedding/theories ConCert.Embedding
 embedding/theories/Ast.v
