@@ -4,6 +4,8 @@
 
 ##Coq
 *.vo
+*.vok
+*.vos
 *.glob
 *.v.d
 *~

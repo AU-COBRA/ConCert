@@ -7,9 +7,9 @@ The work on this fork is aimed at building infrastructure for random property te
 ## How to build
 
 
-Our development works with Coq 8.9.1. and depends on MetaCoq 1.0~alpha+8.9 and
-the std++ library v.1.2.1. These dependencies can be installed through
-`opam`.
+Our development works with Coq 8.9.1. and depends on MetaCoq 1.0~alpha+8.9,
+std++ library v.1.2.1 and coq-bignums. These dependencies can be installed
+through `opam`.
 
 Install Coq (see https://coq.inria.fr/opam-using.html for detailed instructions on how to manage
 multiple Coq installations using opam).:
@@ -18,11 +18,12 @@ multiple Coq installations using opam).:
 opam install coq.8.9.1
 ```
 
-Then MetaCoq:
+Then MetaCoq and bignums:
 
 ```bash
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install coq-metacoq.1.0~alpha+8.9
+opam install coq-bignums
 ```
 And std++:
 
