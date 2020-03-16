@@ -113,16 +113,51 @@ Module CrowdfundingContract.
    Notation SCtx := "SimpleContractCallContext".
    Notation SChain := "SimpleChain".
 
+   Definition maybe_bind_syn :=
+     [| \\"A" => \\"B" => \"o" : Maybe '"A" => \"f" : '"A" -> Maybe '"B" =>
+        case "o" : Maybe '"A" return Maybe '"B" of
+        | Just "x" -> "f" "x"
+        | Nothing -> $Nothing$Maybe [: '"B" ]  |].
+
+   Make Definition maybe_bind :=
+     (expr_to_tc Σ' (indexify nil maybe_bind_syn)).
+
+   Notation "a >>= b : A , B" :=
+     [| {eConst "maybe_bind"} A B a b |]
+       (in custom expr at level 0,
+           A custom type,
+           B custom type,
+           a custom expr,
+           b custom expr).
+
+   Notation "a >> b : A , B" :=
+     [| {eConst "maybe_bind"} [: {A} ] [: {B} ] {a} (\"x" : {A} => {b})|]
+       (in custom expr at level 0,
+           A custom type at level 1,
+           B custom type at level 1,
+           a custom expr,
+           b custom expr).
+
+   Definition validate_syn :=
+     [| \tx_amount : money =>
+        if 0z < tx_amount then $Just$Maybe [: Unit] star
+        else $Nothing$Maybe [: Unit] : Maybe Unit |].
+
+   Make Definition validate :=
+     (expr_to_tc Σ' (indexify nil validate_syn)).
+
+
+   Notation "'VALIDATE' amt" := [| {eConst "validate"} {amt} |] (in custom expr at level 0).
+
    Definition crowdfunding : expr :=
      [| \sender : address => \bal : money => \tx_amount : money =>
         \now : time => \m : msg => \s : {full_state_ty} =>
-
          let own : address := owner s in
          let accs : Map := contribs s in
          case m : msg return Maybe Result of
             | GetFunds ->
               if (own ==a sender) && (deadline s <t now) && (goal s <= bal) then
-                #Just (#Pair [Transfer bal sender] (DONE s))
+                (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s))) : Unit, Result
              else #Nothing : Maybe Result
             | Donate ->
               if now <=t deadline s then
@@ -145,6 +180,8 @@ Module CrowdfundingContract.
 
   Make Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).
+
+  Eval simpl in receive.
 
   End Receive.
 End CrowdfundingContract.

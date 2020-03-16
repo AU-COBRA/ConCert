@@ -218,7 +218,7 @@ Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
 Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
 
 Notation "'star'" :=
-  (eConstr Unit "Coq.Init.Datatypes.tt")
+  (eConstr Unit "tt")
     (in custom expr at level 0).
 
 Notation "A × B" := (tyApp (tyApp (tyInd "prod") A) B)
