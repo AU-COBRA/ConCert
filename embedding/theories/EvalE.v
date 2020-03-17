@@ -3,12 +3,12 @@
 (** This version of the interpreter supports polymorhic types *)
 Require Import String List Bool.
 
-Require Import Ast MyEnv Notations.
+From ConCert.Embedding Require Import Ast MyEnv Notations.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
-Require Import MetaCoq.Template.monad_utils.
+From MetaCoq Require Import Template.monad_utils MCString.
 
 (* We need some definitions like [All] from utils *)
 Require Import MetaCoq.Template.utils.
@@ -145,8 +145,8 @@ Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
       Ok (assignments,e)
     else EvalError (cn ++ ": constructor arity does not match")
   else EvalError (cn ++ ": pattern arity does not match (constructor: "
-                     ++ utils.string_of_nat ctr_len ++ ",
-                  pattern: "  ++ utils.string_of_nat pt_len ++ ")").
+                     ++ string_of_nat ctr_len ++ ",
+                  pattern: "  ++ string_of_nat pt_len ++ ")").
 
 Fixpoint inductive_name (ty : type) : option ename :=
   match ty with
@@ -217,7 +217,7 @@ Fixpoint print_type (ty : type) : string :=
   | tyForall x x0 => "forall " ++ x ++ "," ++ print_type x0
   | tyApp x x0 => "(" ++ print_type x ++ " " ++ print_type x0 ++ ")"
   | tyVar x => x
-  | tyRel x => "^" ++ utils.string_of_nat x
+  | tyRel x => "^" ++ string_of_nat x
   | tyArr x x0 => print_type x ++ "->" ++ print_type x0
   end.
 
