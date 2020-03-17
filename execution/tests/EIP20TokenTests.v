@@ -32,10 +32,9 @@ Import LocalBlockchain.
 Import ListNotations.
 Close Scope address_scope.
 
-
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
-Definition token_setup := EIP20Token.build_setup creator 100.
+Definition token_setup := EIP20Token.build_setup creator (100%N).
 Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -52,7 +51,6 @@ Definition chain_with_token_deployed :=
 Definition gEIP20TokenChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => 
     gEIP20TokenAction lc contract_base_addr) length max_acts_per_block.
-
 
 Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
   @reachableFrom AddrSize lc (gEIP20TokenChainTraceList 1) pf.
@@ -80,7 +78,6 @@ Definition debug_gEIP20Checker {A : Type}
     ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl 
     ).
 
-
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
@@ -99,7 +96,6 @@ Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 10).
 
 Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_with_token_deployed.
 
-
 (* Generate a trace, and then execute an action on the last state of the trace. Check that this always succeeds *)
 (* QuickChick (forAll2 
   (gEIP20TokenChainTraceList chain_with_token_deployed 5) 
@@ -110,8 +106,7 @@ Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_wit
     (debug_gEIP20Checker (last_state trace) (Some act))  
       ((checker o isSome) (my_add_block (last_state trace) [act]))))). *)
 
-
-Open Scope nat_scope.
+Local Open Scope N_scope.
 (* One key property: the sum of the balances is always equal to the initial supply *)
 Definition sum_balances_eq_init_supply_P maxLength := 
   forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
@@ -120,7 +115,7 @@ Definition sum_balances_eq_init_supply_P maxLength :=
       ( match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let balances_list := (map snd o FMap.elements) state.(balances) in
-        let balances_sum : nat := fold_left plus balances_list 0 in
+        let balances_sum : N := fold_left N.add balances_list 0%N in
         balances_sum =? state.(total_supply)
       | None => false
       end)).
@@ -137,17 +132,17 @@ Definition sum_allowances_le_init_supply_P maxLength :=
       (match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let allowances := map_values_FMap 
-          (fun allowance_map => fold_left plus ((map snd o FMap.elements) allowance_map) 0)
+          (fun allowance_map => fold_left N.add ((map snd o FMap.elements) allowance_map) 0)
           state.(allowances) in
         let allowances_list := (map snd o FMap.elements) allowances in
-        let allowances_sum := fold_left plus allowances_list 0 in 
+        let allowances_sum := fold_left N.add allowances_list 0%N in 
         allowances_sum <=? state.(total_supply)
       | None => false
       end)).
     
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
 
-Definition person_has_tokens person (n : nat) := 
+Definition person_has_tokens person (n : N) := 
   fun step =>
     let lc := next_lc_of_lcstep step in
     match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
@@ -158,8 +153,6 @@ Definition person_has_tokens person (n : nat) :=
 Notation "lc '~~>' pf" :=
   (token_reachableFrom lc pf)
   (at level 45, no associativity).
-
-
 
 QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12).
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
@@ -185,7 +178,6 @@ Definition get_approve_act (act : Action) : option (Address * Address * EIP20Tok
   | _ => None
   end.
 
-
 Definition get_transferFrom_act (act : Action) : option (Address * Address * EIP20Token.Msg) := 
   match act.(act_body) with
   | act_call caddr _ ser_msg =>
@@ -195,7 +187,6 @@ Definition get_transferFrom_act (act : Action) : option (Address * Address * EIP
     end
   | _ => None
   end.
-
 
 Definition state_has_some_approve_act {AddrSize : N} (step : @LocalChainStep AddrSize) := 
   match step with
@@ -234,7 +225,6 @@ Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address *
   forAll (elems_ chain_with_token_deployed trace') (fun lc =>
   forAllTraces_traceProp n lc (gEIP20TokenChainTraceList 2) c). *)
 
-
 Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) := 
   match snd approve_act_p with
   | (approve _ _ ) => snd (fst approve_act_p)
@@ -270,7 +260,6 @@ Definition allower_reapproves_delegate_step allower delegate step :=
   | _ => None
   end.
 
-
 Definition delegate_transferFrom_sum_of_approver approver delegate trace := 
   fold_left (fun acc step =>
     let transfer_from_acts := fold_left (fun acc act =>
@@ -290,38 +279,50 @@ Definition delegate_transferFrom_sum_of_approver approver delegate trace :=
     step_sum + acc
   ) trace 0.
 
-
 Extract Constant defNumDiscards => "(3 * defNumTests)".
 
+Fixpoint last_opt {A : Type} (l : list A) : option A :=
+  match l with
+  | [] => None
+  | x::[] => Some x
+  | x::xs => last_opt xs
+  end.
 
-Definition allower_reapproves_transferFrom_correct start_lc allower delegate first_approval_amount := 
-  reachableFrom_implies_tracePropSized_new 4 start_lc (gEIP20TokenChainTraceList 2)
-  (allower_reapproves_delegate_step allower delegate)
-  (fun new_approval_amount pre_trace _ =>
-    (new_approval_amount <? first_approval_amount) ==>
-    whenFail (show delegate ++ " spent "
-      ++ show (delegate_transferFrom_sum_of_approver allower delegate pre_trace)
-      ++ " on behalf of " ++ show allower
-      ++ " when they were only allowed to spend at most "
-      ++ show new_approval_amount ++ nl
-      ++ "trace after first approval:" ++ nl ++ show pre_trace)
-    (delegate_transferFrom_sum_of_approver allower delegate pre_trace <=? new_approval_amount)
-  
-  )   
-.
+Definition allower_reapproves_transferFrom_correct trace allower delegate (first_approval_amount : N) :=
+  match last_opt trace with
+  | None => false ==> true
+  | Some start_step =>
+    let start_lc := next_lc_of_lcstep start_step in
+    reachableFrom_implies_tracePropSized_new 2 start_lc (gEIP20TokenChainTraceList 2)
+    (allower_reapproves_delegate_step allower delegate)
+    (fun new_approval_amount pre_trace _ =>
+      let trace_until_reapproval := app trace (removelast pre_trace) in
+      let delegate_spent_until_reapproval := delegate_transferFrom_sum_of_approver allower delegate trace_until_reapproval in 
+      let delegate_spent_incl_reapproval_act := 
+        delegate_transferFrom_sum_of_approver allower delegate (trace ++ pre_trace) in 
+      let total_allowed := delegate_spent_until_reapproval + new_approval_amount in
+      (new_approval_amount <? first_approval_amount) ==>
+      whenFail (show delegate ++ " spent "
+        ++ show delegate_spent_incl_reapproval_act
+        ++ " on behalf of " ++ show allower
+        ++ " when they were only allowed to spend at most "
+        ++ show total_allowed  ++ nl)
+      (delegate_spent_incl_reapproval_act <=? total_allowed) 
+    )
+  end.
 
 Definition reapprove_transfer_from_safe_P := 
   (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
   state_has_some_approve_act
   (fun approve_act_p pre_trace post_trace =>
-    (delegate_made_no_transferFroms approve_act_p post_trace  
-    ==> isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
-      allower_reapproves_transferFrom_correct (List.last (map prev_lc_of_lcstep post_trace) chain_with_token_deployed)
+    (* (delegate_made_no_transferFroms approve_act_p post_trace   *)
+    isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
+      allower_reapproves_transferFrom_correct post_trace
                                               (allower_addr approve_act_p)
                                               delegate
                                               (approve_amount approve_act_p)     
       ) 
-    )
+    (* ) *)
   ).
 
 QuickChick reapprove_transfer_from_safe_P.

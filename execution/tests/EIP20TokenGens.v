@@ -63,7 +63,6 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 						to_addr <- arbitrary ;;
 						returnGen (from_addr, transfer to_addr 0%N)
 	end.
-
 Local Open Scope N_scope.
 (* TODO: not super good implementation. Should filter on balances map instead of first sampling and then filtering *)
 Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) := 
@@ -97,15 +96,14 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
 	)).
 Local Close Scope N_scope.
 
+Local Close Scope N_scope.
 (* Main generator *)
 Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (option Action) := 
-  let mk_call contract_addr caller_addr msg := 
-    returnGen 
-			(Some {| 
-				act_from := caller_addr; 
-				act_body := act_call contract_addr 0%Z (serializeMsg msg); 
-			|}) in
-			(* (build_act (eip_act_call contract_addr amount (serializeMsg msg))))) in  *)
+  let mk_call contract_addr caller_addr msg :=
+		returnGen (Some {|
+			act_from := caller_addr;
+			act_body := act_call contract_addr 0%Z (serializeMsg msg) 
+		|}) in 
 	backtrack [
 		(* transfer *)
 		(1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))

@@ -1,7 +1,7 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
 Require Import String List.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
-From MetaCoq.Template Require Import BasicAst utils monad_utils.
+From MetaCoq.Template Require Import BasicAst utils monad_utils MCString.
 From ConCert Require Import Ast Notations Misc.
 
 Module P := PCUICAst.
@@ -150,7 +150,7 @@ Definition trans_one_constr (ind_name : ename) (nparam : nat) (c : constr) : ter
 
 Fixpoint gen_params n := match n with
                          | O => []
-                         | S n' => let nm := ("A" ++ utils.string_of_nat n)%string in
+                         | S n' => let nm := ("A" ++ string_of_nat n)%string in
                                   let decl := LocalAssum (tSort Universe.type0) in
                                   gen_params n' ++ [(nm,decl)]
                          end.

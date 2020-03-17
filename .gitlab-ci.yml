@@ -34,13 +34,14 @@ execution:coq:dev:
   extends: .build-execution
   image: coqorg/coq:dev
 
-full:coq:8.9.1:
+full:coq:8.11:
   stage: build
-  image: aucobra/concert:coq-8.9.1-with-metacoq
+  image: aucobra/concert:deps-coq-8.11
   tags:
     - au
   script:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
+    - eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
     - make -j
     - make html
   artifacts:

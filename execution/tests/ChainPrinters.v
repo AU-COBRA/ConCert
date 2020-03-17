@@ -32,20 +32,17 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-
 Derive Show for positive.
 Derive Show for SerializedType.
 
 Instance showLCB : Show LocalChainBuilder :=
   {| show a := "LocalChainBuilder{...}" |}.
 
-
 Instance showLocalChainBuilderDepthFirst {n : N} : Show (LocalChainBuilderDepthFirst n) :=
   {| show a := "LocalChainBuilderDepthFirst{...}" |}.
 
 Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
   {| show a := "ChainBuilderType{...}" |}.
-
 
 Instance showBaseGens {BaseTypes : ChainBase} : Show (ChainContext BaseTypes)  :=
   {|
@@ -84,7 +81,6 @@ Instance showEnvironment (BaseTypes : ChainBase) `{Show Chain}: Show Environment
               ++ "contract states:..."             ++ "}"
 |}.
 
-
 Fixpoint string_of_interp_type (st : SerializedType) :  (interp_type st) -> string :=
 match st as st0 return interp_type st0 -> string with
   | ser_unit => fun _ => "()"
@@ -116,7 +112,6 @@ Instance showSerializable {ty : Type} `{Show ty} : Show (Serializable ty) :=
             end 
 |}. *)
 
-
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
 Instance showBlockHeader (BaseTypes : ChainBase) `{Show (@Address BaseTypes)} : Show (@BlockHeader BaseTypes) :=
   {|
@@ -134,7 +129,6 @@ Instance showBoundedN {bound : N} `{Show N} : Show (BoundedN.BoundedN bound) :=
   show bn := match bn with | BoundedN.bounded n _ => show n ++ "%" ++ show bound end  
 |}.
 
-
 Instance showBoundedNAddrSize : Show (BoundedN.BoundedN AddrSize) :=
 {|
   show := @show (BoundedN.BoundedN AddrSize) showBoundedN
@@ -144,7 +138,6 @@ Instance showAddress : Show (@Address LocalChainBase) :=
 {|
   show := @show (BoundedN.BoundedN AddrSize) showBoundedNAddrSize
 |}.
-
 
 Instance showLocalChain : Show (@LocalChain AddrSize) := 
 {|
@@ -163,7 +156,6 @@ show cctx := "ContractCallContext{"
              ++ "ctx_amount: " ++ show (@ctx_amount LocalChainBase cctx) ++ "}"
 |}.
 
-
 Instance showActionBody `{Show SerializedValue} : Show ActionBody :=
 {|
   show a := match a with
@@ -175,7 +167,6 @@ Instance showActionBody `{Show SerializedValue} : Show ActionBody :=
       "(act_deploy " ++ show amount ++ sep ++ show ser_value ++ ")"
     end
 |}. 
-
 
 Instance showLocalAction `{Show ActionBody} : Show (@Action LocalChainBase) :=
 {|

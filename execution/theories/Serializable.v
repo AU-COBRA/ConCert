@@ -107,22 +107,22 @@ Next Obligation.
   reflexivity.
 Qed.
 
-Program Instance ser_positive_equivalence : Serializable positive :=
-  {| serialize p := serialize (Zpos p);
-     deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
-Next Obligation. auto. Qed.
-
 Program Instance N_serializable : Serializable N :=
-  {| serialize bn := serialize (countable.encode bn);
-    deserialize v :=
-      do p <- (deserialize v : option positive);
-      countable.decode p |}.
+  {| serialize n := serialize (Z.of_N n);
+     deserialize z := do z' <- deserialize z; Some (Z.to_N z'); |}.
 Next Obligation.
   intros x.
   cbn.
   rewrite deserialize_serialize.
-  now rewrite countable.decode_encode.
+  cbn.
+  rewrite N2Z.id.
+  reflexivity.
 Qed.
+
+Program Instance ser_positive_equivalence : Serializable positive :=
+  {| serialize p := serialize (Zpos p);
+     deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
+Next Obligation. auto. Qed.
 
 Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;

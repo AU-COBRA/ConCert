@@ -22,7 +22,6 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-
 Instance showRules : Show Rules :=
 {|
   show r := 
@@ -33,7 +32,6 @@ Instance showRules : Show Rules :=
     ++ "}"
 |}.
 
-
 Definition string_of_ca str_of_msg ca := 
 match ca with
 | cact_transfer to amount => "(transfer: " ++ show to ++ sep ++ show amount ++ ")"
@@ -43,7 +41,6 @@ match ca with
     | None =>  "<FAILED DESERIALIZATION>"
     end ++ ")" 
 end.
-
 
 Instance showSetup : Show Setup :=
 {|
@@ -99,4 +96,3 @@ Instance showState : Show Congress.State :=
             ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
             ++ "members: " ++ show (members s) ++ "}"
 |}.
-

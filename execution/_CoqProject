@@ -6,25 +6,25 @@
 
 -R theories ConCert.Execution
 theories/Automation.v
-theories/BignumsSerializable.v
 theories/Blockchain.v
-theories/BoardroomMath.v
-theories/BoardroomVoting.v
-theories/BoardroomVotingTest.v
 theories/BoundedN.v
 theories/ChainedList.v
 theories/Circulation.v
-theories/Congress.v
-theories/Congress_Buggy.v
 theories/Containers.v
 theories/ContractMonads.v
-theories/Egcd.v
-theories/Escrow.v
-theories/Euler.v
+theories/Examples/BignumsSerializable.v
+theories/Examples/BoardroomMath.v
+theories/Examples/BoardroomVoting.v
+theories/Examples/BoardroomVotingTest.v
+theories/Examples/Congress.v
+theories/Examples/Congress_Buggy.v
+theories/Examples/Egcd.v
+theories/Examples/EIP20Token.v
+theories/Examples/Escrow.v
+theories/Examples/Euler.v
+theories/Examples/LocalBlockchainTests.v
 theories/Extras.v
 theories/Finite.v
 theories/LocalBlockchain.v
-theories/LocalBlockchainTests.v
 theories/Monads.v
 theories/Serializable.v
-theories/EIP20Token.v

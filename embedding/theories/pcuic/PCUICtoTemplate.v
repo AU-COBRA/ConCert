@@ -1,9 +1,8 @@
 (** * Almost one-to-one tranlsation of PCUIC to Template Coq kernel AST *)
 From Coq Require Import Bool String List Program BinPos Compare_dec Omega.
-From MetaCoq.Template Require Import config utils AstUtils BasicAst Ast.
-From MetaCoq.Checker Require Import WfInv Typing Weakening TypingWf.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICInduction PCUICLiftSubst
-     PCUICUnivSubst PCUICTyping PCUICGeneration.
+From MetaCoq.Template Require Import All.
+     (* config utils AstUtils BasicAst Ast. *)
+From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICInduction PCUICLiftSubst PCUICUnivSubst PCUICTyping PCUICGeneration.
 Require Import String.
 Local Open Scope string_scope.
 Set Asymmetric Patterns.
@@ -37,7 +36,7 @@ Fixpoint trans (t : P.term) : TC.term :=
   end.
 
 Definition trans_decl (d : P.context_decl) :=
-  let 'P.Build_context_decl na b t := d in
+  let 'P.mkdecl na b t := d in
   {| TC.decl_name := na;
      TC.decl_body := option_map trans b;
      TC.decl_type := trans t |}.
@@ -51,10 +50,17 @@ Definition trans_one_ind_body (d : P.one_inductive_body) :=
      TC.ind_ctors := List.map (fun '(x, y, z) => (x, trans y, z)) d.(P.ind_ctors);
      TC.ind_projs := List.map (fun '(x, y) => (x, trans y)) d.(P.ind_projs) |}.
 
-Definition trans_local_entry (le : P.local_entry) :=
+Definition trans_local_entry (nle : ident * P.local_entry) : TC.context_decl :=
+  let (nm, le) := nle in
   match le with
-  | P.LocalDef ld => TC.LocalDef (trans ld)
-  | P.LocalAssum la => TC.LocalAssum (trans la)
+  | P.LocalDef ld =>
+    (* NOTE: it doesn't seem meaningful to have declarations with
+       bodies as parameters, so we produce a dummy value here.
+       To produce an actual decalaration with a body we need its type,
+       and it's not available it this point*)
+    TC.mkdecl (nNamed nm) None (TC.tVar "not supported")
+  | P.LocalAssum la =>
+    TC.mkdecl (nNamed nm) None (trans la)
   end.
 
 Definition trans_one_ind_entry (d : P.one_inductive_entry) : TC.one_inductive_entry :=
@@ -64,12 +70,19 @@ Definition trans_one_ind_entry (d : P.one_inductive_entry) : TC.one_inductive_en
      TC.mind_entry_consnames := d.(P.mind_entry_consnames);
      TC.mind_entry_lc := map trans d.(P.mind_entry_lc) |}.
 
+Definition trans_universes_decl (ud : universes_decl) : universes_entry :=
+  match ud with
+  | Monomorphic_ctx ctx => Monomorphic_entry ctx
+  | Polymorphic_ctx (ln, cst) => Polymorphic_entry ln (AUContext.repr (ln,cst))
+  end.
+
 Definition trans_minductive_entry (e : P.mutual_inductive_entry) :  TC.mutual_inductive_entry :=
   {| TC.mind_entry_record := e.(P.mind_entry_record);
      TC.mind_entry_finite := e.(P.mind_entry_finite);
-     TC.mind_entry_params := List.map (fun '(x, y) => (x, trans_local_entry y)) e.(P.mind_entry_params);
+     TC.mind_entry_params := List.map trans_local_entry  e.(P.mind_entry_params);
      TC.mind_entry_inds := List.map trans_one_ind_entry e.(P.mind_entry_inds);
-     TC.mind_entry_universes := e.(P.mind_entry_universes);
+     TC.mind_entry_universes := trans_universes_decl e.(P.mind_entry_universes);
+     TC.mind_entry_variance := None;
      TC.mind_entry_private := e.(P.mind_entry_private) |}.
 
 Definition trans_constant_body (bd : P.constant_body) : TC.constant_body :=
@@ -82,16 +95,17 @@ Definition trans_minductive_body md :=
      TC.ind_npars := md.(P.ind_npars);
      TC.ind_params := trans_local md.(P.ind_params);
      TC.ind_bodies := map trans_one_ind_body md.(P.ind_bodies);
+     TC.ind_variance := md.(ind_variance);
      TC.ind_universes := md.(P.ind_universes) |}.
 
 Definition trans_global_decl (d : P.global_decl) : TC.global_decl :=
   match d with
-  | P.ConstantDecl kn bd => TC.ConstantDecl kn (trans_constant_body bd)
-  | P.InductiveDecl kn bd => TC.InductiveDecl kn (trans_minductive_body bd)
+  | P.ConstantDecl bd => TC.ConstantDecl (trans_constant_body bd)
+  | P.InductiveDecl bd => TC.InductiveDecl (trans_minductive_body bd)
   end.
 
-Definition trans_global_decls d :=
-  List.map trans_global_decl d.
+Definition trans_global_env (d : P.global_env) :=
+  List.map (on_snd trans_global_decl) d.
 
-Definition trans_global (Σ : P.global_env_ext) :=
-  (trans_global_decls (fst Σ), snd Σ).
+Definition trans_global (Σ : P.global_env_ext) : TC.global_env_ext :=
+  (trans_global_env (fst Σ), snd Σ).

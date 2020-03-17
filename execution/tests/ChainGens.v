@@ -56,20 +56,11 @@ Instance shrinkChain (BaseTypes : ChainBase) : Shrink (@Chain BaseTypes) :=
     shrink c := cons c nil
   |}.
 
-(* gEnvFromChain (BaseTypes : ChainBase)
-              (ctx : ChainContext BaseTypes)
-              (c : @Chain BaseTypes)
-              : G Environment :=
-  contracts <- mkMapFromLists 
-  build_env c  *)
-
-
 Definition mkChainStateGen (BaseTypes : ChainBase)
                            (env : Environment)
                            (actionList : list Action)
                            : G ChainState 
   := returnGen (@build_chain_state BaseTypes env actionList).
-
 
 (* The Contract, WeakContract, and ContractCallContext types *)
 
@@ -94,7 +85,6 @@ Definition gWeakContractFromContract {Setup Msg State : Type}
                                      (c : Contract Setup Msg State)
                                      : @WeakContract BaseTypes 
                                      := contract_to_weak_contract c.
-
 
 Definition gContractInterfaceFromSendAction {Msg : Type} 
                                             {BaseTypes : ChainBase} 
@@ -170,7 +160,6 @@ Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
   n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
   returnGen (@decode_bounded bound (Pos.of_nat n)).
 
-
 Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
   bn <- gBoundedNOpt AddrSize ;;
   returnGen match bn with
@@ -185,7 +174,6 @@ Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
     arbitrary := gBoundedN
   |}.
 
-
 Instance genAddress : Gen (@Address LocalChainBase) :=
   {|
     (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
@@ -196,13 +184,6 @@ Instance genAddress : Gen (@Address LocalChainBase) :=
 
 (* Definition genDummyChainedList : G (ChainTrace empty_state (build_chain_state lcb_lc [])) :=
   returnGen clnil. *)
-
-Definition gInitialLocalChain : G (@LocalChain AddrSize) :=
-  returnGen lc_initial.
-
-(* always generates the initial local chain builder, which contains the initial local chain, and initial, empty trace *)
-Definition gInitialLocalChainBuilder : G LocalChainBuilder :=
-  returnGen (lcb_initial AddrSize).
 
 Definition gEnvFromLocalChain (lc : LocalChain) : G Environment := returnGen (lc_to_env lc) .
 
@@ -244,7 +225,6 @@ Instance genLocalChainContext : GenSized (ChainContext LocalChainBase) :=
   arbitrarySized := gLocalChainContext
 |}.
 
-
 Definition gLocalChainSized : nat -> (ChainContext LocalChainBase) -> G (@Chain LocalChainBase) := 
   fun n ctx => mkChainGen LocalChainBase ctx n.
 
@@ -254,7 +234,6 @@ Definition validcontractaddr_valid := (forAll gContractAddr' (fun a => (BoundedN
 (* Passed 10000 tests (0 discards) *)
 Close Scope N_scope.
 
-
 Open Scope list_scope.
 Definition acc_bal := mkMapFromLists (fun x y => x =? y) 42 [10;20;30;40] [1;2;3;4].
 Definition testGChain : G Chain := ctx <- arbitrary ;; gLocalChainSized 2 ctx.
@@ -262,7 +241,6 @@ Definition testGChain : G Chain := ctx <- arbitrary ;; gLocalChainSized 2 ctx.
 (* Sample (@arbitrarySized Chain _ 2). *)
 Sample (bh <- gLocalChainContext 1 ;; @gAddress LocalChainBase bh). (* IMPORTANT NOTE: if we omit the explicit types, it will not work *)
 Sample (gEnvFromLocalChain lc_initial).
-
 
 (* make a generator for a BlockHeader from a given chain.
    Should satisfy the IsValidNextBlock predicate. *)
@@ -288,7 +266,6 @@ Definition gLocalBCBlockHeaderSizedFromChainAndContext : nat ->
 
 (* Definition gLocalBCBlockHeaderSized : nat -> G (@BlockHeader LocalChainBase) := 
   fun n => c <- arbitrarySized n ;; gLocalBCBlockHeaderSizedFromChain n c. *)
-
 
 Definition blockHeader_ex : (@BlockHeader LocalChainBase) := build_block_Header 0 0 0 0 zero_address.
 Definition gbh_dummy := returnGen blockHeader_ex.

@@ -1,5 +1,5 @@
 (** * Auxillary lemmas for the soundness proof. *)
-From MetaCoq.Template Require Import utils.
+From MetaCoq.Template Require Import MCList utils.
 
 Require Import PeanoNat.
 
@@ -434,7 +434,7 @@ Proof.
       ** now apply All_forallb.
       ** easy.
     * eapply IHtys;eauto.
-      ** eapply (All_impl H2). intros. cbn. rewrite map_length. unfold compose in *.
+      ** eapply (All_impl X). intros. cbn. rewrite map_length. unfold compose in *.
          eapply (closed_upwards (k:=(n + #|params|)));eauto.
       ** eapply All_map. eapply (All_impl Hty_params);auto with hints.
       ** now replace (#|tys| + S n) with (S #|tys| + n) by lia.
@@ -613,7 +613,7 @@ Proof.
       now rewrite subst_empty in *.
       (* now repeat rewrite app_nil_r in *. *)
     + destruct a;simpl in *.
-      destruct args as [ | a1 args1] using utils.rev_ind;tryfalse;clear IHargs1.
+      destruct args as [ | a1 args1] using MCList.rev_ind;tryfalse;clear IHargs1.
       apply All_app in Hval. destruct Hval as [Hargs Ha].
       inversion Ha;subst;clear Ha.
       rewrite forallb_app in Hc. inv_andb Hc. simpl in *.
@@ -1052,7 +1052,7 @@ Proof.
   induction ty;intros ? ? ? ? Hfa Hc;simpl;try now f_equal.
   destruct n.
   * reflexivity.
-  * destruct (k <=? n) eqn:Hkn.
+  * simpl. destruct (k <=? n) eqn:Hkn.
     ** unfold lookup_ty. simpl. leb_ltb_to_prop. assert (k <= S n) by lia.
        prop_to_leb_ltb. rewrite H.
        leb_ltb_to_prop.
@@ -1102,7 +1102,7 @@ Proof.
     simpl in *; repeat rewrite Bool.andb_true_iff in *;try f_equal;auto with hints.
   + simpl. destruct n.
     * reflexivity.
-    * destruct (Nat.leb k n) eqn:Hkn.
+    * simpl;destruct (Nat.leb k n) eqn:Hkn.
       ** leb_ltb_to_prop.
          assert (k <= S n) by lia.
          prop_to_leb_ltb. rewrite H.
@@ -1351,7 +1351,7 @@ Lemma subst_term_subst_env_par_rec :
   subst (map (fun x => expr_to_term Σ (snd x)) l) k (t⟦e⟧ Σ) = (t⟦e.[l]k⟧ Σ).
 Proof.
   intros until l.
-  induction l using utils.rev_ind;intros e k Hgeok Hok Hc Hall.
+  induction l using MCList.rev_ind;intros e k Hgeok Hok Hc Hall.
   + simpl in *. unfold subst_env_i.
     rewrite <- subst_env_i_empty. rewrite subst_empty.
     reflexivity.
@@ -1763,7 +1763,7 @@ Proof.
     assert (iclosed_n #|rev (combine (pVars pt) (skipn n1 l1)) ++ ρ| e2 = true).
     { rewrite app_length. rewrite rev_length,combine_length,skipn_length.
       replace (min #|pVars pt| (#|l1| - n1)) with #|pVars pt| by lia.
-      now specialize (find_forallb _ H H5) as Hc. lia. }
+      now specialize (find_forallb _ H H5) as Hc. }
     eapply IHn with (ρ := (rev (combine (pVars pt) (skipn n1 l1)) ++ ρ));eauto.
     eapply eval_ty_expr_env_ok with (ρ := (rev (combine (pVars pt) (skipn n1 l1)) ++ ρ));eauto.
     apply env_ok_concat;auto.
@@ -1786,7 +1786,7 @@ Lemma from_vConstr_not_lambda :
     tLambda na t0 b = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ -> False.
 Proof.
   intros Σ i n0 na t0 b l H.
-  induction l using utils.rev_ind.
+  induction l using MCList.rev_ind.
   + simpl in H. destruct (resolve_constr Σ i n0);tryfalse.
   + simpl_vars_to_apps in H.
     destruct (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ);tryfalse.
@@ -1826,7 +1826,7 @@ Lemma fix_not_constr_of_val {Σ mf m i nm vs} :
 Proof.
   intros H.
   simpl in *.
-  induction vs using utils.rev_ind.
+  induction vs using MCList.rev_ind.
   + simpl in *. destruct (resolve_constr Σ i nm);tryfalse.
   + simpl in *. simpl_vars_to_apps in H; tryfalse.
 Qed.
@@ -1898,7 +1898,7 @@ Proof.
   revert dependent t1.
   revert dependent t2.
   revert dependent l2.
-  induction l1 using utils.rev_ind;intros;destruct l2 using utils.rev_ind.
+  induction l1 using MCList.rev_ind;intros;destruct l2 using MCList.rev_ind.
   + inversion Hmk. easy.
   + simpl in *. subst. rewrite mkApps_unfold in *;tryfalse.
   + simpl in *. subst. rewrite mkApps_unfold in *;tryfalse.
@@ -1953,7 +1953,7 @@ Lemma mkApps_nonempty_neq args t f :
   mkApps f args = t -> False.
 Proof.
   intros Hargs Hatom.
-  destruct args using utils.rev_ind.
+  destruct args using MCList.rev_ind.
   + simpl in *;lia.
   + rewrite mkApps_unfold. now destruct t.
 Qed.
@@ -1980,7 +1980,7 @@ Hint Resolve PcbvCurr.value_final : hints.
 Lemma vars_to_apps_constr_not_lambda ind cn l Σ:
   ~~ isLambda (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
-  destruct l using utils.rev_ind.
+  destruct l using MCList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. now simpl_vars_to_apps.
 Qed.
@@ -1988,7 +1988,7 @@ Qed.
 Lemma vars_to_apps_constr_not_fix_app ind cn l Σ:
   ~~ PcbvCurr.isFixApp (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
-  destruct l using utils.rev_ind.
+  destruct l using MCList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. rewrite <- mkApps_vars_to_apps.
     unfold PcbvCurr.isFixApp.
@@ -1998,7 +1998,7 @@ Qed.
 Lemma vars_to_apps_constr_not_arity ind cn l Σ:
   ~~ PcbvCurr.isArityHead (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
-  destruct l using utils.rev_ind.
+  destruct l using MCList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. now simpl_vars_to_apps.
 Qed.

@@ -150,7 +150,6 @@ Definition lc_shallow_eqb lc1 lc2 : bool :=
   && (lc_slot lc1 =? lc_slot lc2) 
   && (@lc_fin_height AddrSize lc1 =? @lc_fin_height AddrSize lc2).
 
-
 Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
   let c_next_opt := add_block_exec false c header [] in
@@ -170,6 +169,7 @@ Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) :=
 (* Example t : tree LocalChainStep := node (mk_basic_step_add_block lc_initial) 
               (node (mk_basic_step_action c1 []) leaf leaf)
               leaf. *)
+
 Open Scope string_scope.
 Instance showLocalChainStepVerbose : Show LocalChainStep :=
 {|
@@ -201,11 +201,9 @@ Instance showLocalChainStep {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
   end
 |}. *)
 
-
 (* ---------------------- Trace Tree on LocalChain ---------------------- *)
 
 Definition lctracetree := tree (@LocalChainStep AddrSize).
-
 
 Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) := 
   match t with
@@ -220,7 +218,6 @@ Instance showLctracetree : Show lctracetree :=
 {|
   show t := @show _ (@showTree _ showLocalChainStep) t 
 |}.
-
 
 Fixpoint glctracetree_fix (prev_lc : LocalChain)
                           (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
@@ -250,10 +247,8 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
     end
   end.
 
-
 (* QuickChick (forAll (glctracetree 7) next_lc_eq_child_prev_lc_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
 
 Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
                               (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
@@ -307,10 +302,9 @@ Fixpoint all_suffices_fix {A : Type} (l : list A) (acc : list (list A)) : list (
              end
   end.
 
-(* TODO: pretty ugly solution. Maybe fix. *)
+(* working solution, but not very pretty, or the most efficient. Maybe fix later. *)
 Definition all_prefixes {A : Type} (l : list A) := map (fun l => rev' l) (all_suffices_fix (rev' l) []).
 Compute (all_prefixes [1;2;3;4]).
-
 
 (* -------------------- Checker combinators on traces --------------------  *)
 
@@ -338,7 +332,6 @@ Definition forAllTraces_traceProp {prop : Type}
                         : Checker :=
   forAll (gTrace init_lc maxLength)  pf.
 
-
 Definition reachableFromSized {AddrSize : N}
                          (maxLength : nat) 
                          (init_lc : (@LocalChain AddrSize))
@@ -350,7 +343,6 @@ Definition reachableFromSized {AddrSize : N}
 Definition reachableFrom {AddrSize : N} init_lc gTrace pf : Checker := 
   sized (fun n => @reachableFromSized AddrSize n init_lc gTrace pf).
 
-
 (* A variant where instead of having an initial state, we just have an initial predicate on a state *)
 Definition reachableFrom_propSized {AddrSize : N}
                                    (maxLength : nat) 
@@ -361,8 +353,6 @@ Definition reachableFrom_propSized {AddrSize : N}
   existsP 
     (gTrace init_lc maxLength) 
     (fun trace => existsb pf (map (next_lc_of_lcstep) trace)).
-
-
 
 Fixpoint cut_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A) :=
   match l with
@@ -403,9 +393,6 @@ Definition reachableFrom_implies_reachableSized
 Definition reachableFrom_implies_reachable init_lc gTrace pf1 pf2 : Checker := 
   sized (fun n => reachableFrom_implies_reachableSized n init_lc gTrace pf1 pf2).
 
-
-
-
 (* If a state satisfying pf1 is reachable from init_lc, then any trace from this state satisfies pf_trace  *)
 Definition reachableFrom_implies_tracePropSized
                          {A prop : Type}
@@ -440,7 +427,6 @@ Definition reachableFrom_implies_traceProp {A : Type}
                                            (pf_trace : A -> list LocalChainStep -> bool)
                                            : Checker := 
   sized (fun n => reachableFrom_implies_tracePropSized n init_lc gTrace pf1 pf_trace).
-
 
 Fixpoint split_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A * list A) :=
   match l with

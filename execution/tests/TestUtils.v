@@ -10,8 +10,6 @@ From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList.
 
-
-
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
 Require Import Containers.
@@ -25,7 +23,6 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
-
 
 (* Misc utility functions *)
 Open Scope list_scope.
@@ -128,7 +125,6 @@ Instance showFMap {A B : Type}
 
 Close Scope string_scope.
 
-
 Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSize lc)).
 Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
 Definition lc_account_balance lc addr : option Amount := (FMap.find addr (@lc_account_balances AddrSize lc)).
@@ -142,7 +138,6 @@ Definition lc_contract_state_deserialized lc : FMap Address Congress.State :=
                   | None => acc
                   end)  
                 els_list []).
-
 
 Definition lc_contract_owners : LocalChain -> FMap Address Address := 
   (map_values_FMap owner) o lc_contract_state_deserialized.
@@ -298,7 +293,6 @@ Definition gContractSateFromLCWithoutAddrs lc addrs : G (option (Address * Seria
   let states_sub := remove_multipe_FMap (@lc_contract_state AddrSize lc) addrs in
   sampleFMapOpt states_sub.
 
-
 Record ChainContext (BaseTypes : ChainBase) := 
   mkBaseGens {
     gAddress              : G (@Address BaseTypes);
@@ -414,9 +408,7 @@ Instance genSerializedValueSized : GenSized SerializedValue :=
   arbitrarySized := gSerializedValueSized 
 |}.
 
-
 (* Utils for QuickChick *)
-
 
 (* Helper functions when we want to state a property forAll x y z ... (someProp x y z ...) in QuickChick *)
 (* Where the generator for y depends on x, the generator for z depends on y, etc. *)
@@ -542,7 +534,6 @@ Definition indepForAll2 {A B prop : Type}
                         (pf : A -> B -> prop) 
                         := forAll2 genA (fun _ => genB) pf.
 
-
 Definition indepForAll3 {A B C prop : Type} 
                        `{Checkable prop} 
                        `{Show A} 
@@ -605,7 +596,6 @@ Definition existsPShrink
   expectFailure (forAllShrink g shrink 
   (fun a => whenFail ("Success - found witness satisfying the predicate!" ) 
     (negb (p a)))).
-
 
 (* QuickChick (
   existsP arbitrary (fun a => a <=? a)

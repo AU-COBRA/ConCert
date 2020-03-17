@@ -6,28 +6,28 @@ vendor/record-update/RecordUpdate.v
 
 -R execution/theories ConCert.Execution
 execution/theories/Automation.v
-execution/theories/BignumsSerializable.v
 execution/theories/Blockchain.v
-execution/theories/BoardroomMath.v
-execution/theories/BoardroomVoting.v
-execution/theories/BoardroomVotingTest.v
 execution/theories/BoundedN.v
 execution/theories/ChainedList.v
 execution/theories/Circulation.v
-execution/theories/Congress.v
-execution/theories/Congress_Buggy.v
 execution/theories/Containers.v
 execution/theories/ContractMonads.v
-execution/theories/Egcd.v
-execution/theories/Escrow.v
-execution/theories/Euler.v
+execution/theories/Examples/BignumsSerializable.v
+execution/theories/Examples/BoardroomMath.v
+execution/theories/Examples/BoardroomVoting.v
+execution/theories/Examples/BoardroomVotingTest.v
+execution/theories/Examples/Congress.v
+execution/theories/Examples/Congress_Buggy.v
+execution/theories/Examples/Egcd.v
+execution/theories/Examples/EIP20Token.v
+execution/theories/Examples/Escrow.v
+execution/theories/Examples/Euler.v
+execution/theories/Examples/LocalBlockchainTests.v
 execution/theories/Extras.v
 execution/theories/Finite.v
+execution/theories/LocalBlockchain.v
 execution/theories/Monads.v
 execution/theories/Serializable.v
-execution/theories/LocalBlockchain.v
-execution/theories/LocalBlockchainTests.v
-execution/theories/EIP20Token.v
 
 -R execution/tests ConCert.Execution.QCTests
 execution/tests/TestUtils.v
@@ -38,9 +38,9 @@ execution/tests/CongressGens.v
 execution/tests/CongressPrinters.v
 execution/tests/CongressTests.v
 execution/tests/EIP20TokenGens.v
+execution/tests/EIP20TokenTests.v
 execution/tests/TraceGens.v
 execution/tests/SerializablePrinters.v
-
 
 -R embedding/theories ConCert.Embedding
 embedding/theories/Ast.v
@@ -65,9 +65,6 @@ embedding/theories/examples/crowdfunding/Crowdfunding.v
 embedding/theories/examples/crowdfunding/CrowdfundingData.v
 embedding/theories/examples/crowdfunding/Prelude.v
 embedding/theories/examples/crowdfunding/SimpleBlockchain.v
-embedding/theories/examples/counter/CounterBlockchain.v
-embedding/theories/examples/counter/CounterData.v
-embedding/theories/examples/counter/Counter.v
 
 -R extraction/theories ConCert.Extraction
 extraction/theories/Liquidity.v
@@ -76,5 +73,3 @@ extraction/theories/examples/Counter.v
 embedding/theories/pcuic/PCUICCorrectness.v
 embedding/theories/pcuic/PCUICCorrectnessAux.v
 embedding/theories/pcuic/PCUICFacts.v
-
-

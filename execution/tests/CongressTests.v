@@ -33,8 +33,6 @@ Compute (show (congressContractsMembers congress_chain)).
 Compute (show (congressContractsMembers_nonempty_nonowners congress_chain)).
 Compute (show (lc_proposals congress_chain)).
 
-
-
 Definition init_is_valid p := 
   let ctx := fst p in
   let chain := (fst o snd) p in
@@ -53,14 +51,11 @@ Definition init_is_valid p :=
   init_is_valid). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
-
-
 Definition num_cacts_in_state_deployment_P chain ctx setup :=
 match init chain ctx setup with
   | Some state => checker ((Congress.num_cacts_in_state state = 0)?)
   | None => (false ==> true) (* so we can see discards in QC output... *)
   end.
-
 
 (* QuickChick (
   forAll4
@@ -82,9 +77,8 @@ Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
 Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
   (listOf (@gCongressActionSized ctx 2)).
 
-(* Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx). *)
+Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx).
 (* Compute (show (sample (gLocalChainContext 2))). *)
-
 
 QuickChick (
   forAll4
@@ -96,7 +90,6 @@ QuickChick (
 ).
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
-
 
 Definition vote_on_proposal_cacts_preserved_P addr pid vote_val state :=
   isSomeCheck 
@@ -113,14 +106,12 @@ Definition check_vote_on_proposal_cacts_preserved :=
   (fun _ _ state _ => gProposalIdFromState state) 
   (fun _ addr state vote_val pid => vote_on_proposal_cacts_preserved_P addr pid vote_val state).
 
-
 Definition do_retract_vote_cacts_preserved_P addr pid state :=
   isSomeCheck
     (do_retract_vote addr pid state)
     (* Case where the above is 'Some new_state'  *)
     (fun new_state => checker
       (num_cacts_in_state new_state =? num_cacts_in_state state)).
-
 
 (* TODO: look into what causes discards *)
 Definition check_do_retract_vote_cacts_preserved_P :=
@@ -133,7 +124,6 @@ Definition check_do_retract_vote_cacts_preserved_P :=
 
 (* QuickChick check_do_retract_vote_cacts_preserved_P. *)
 (* coqtop-stdout:+++ Passed 10000 tests (5888 discards) *)
-
 
 (* Note to self: Look at implementation of 'vote_on_proposal' to get an idea of which implicit 
    requirements must met on the generated data *)
@@ -172,7 +162,6 @@ Definition check_receive_state_well_behaved :=
 (* QuickChick check_receive_state_well_behaved. *)
 (* coqtop-stdout:+++ Passed 10000 tests (7327 discards) *)
 
-
 (* A property about the way States are generated. *)
 (* It says that a State generated at some time slot cannot contain proposals later than this time slot.½ *)
 Definition state_proposals_proposed_in_valid_P (time_slot : nat) (state : Congress.State) := 
@@ -188,8 +177,6 @@ Definition check_state_proposals_proposed_in_valid :=
 
 (* QuickChick check_state_proposals_proposed_in_valid. *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
-
 
 (* There are many issues with the property below
    Firstly: its incredibly hard to generate semantically well-formed data
@@ -233,9 +220,7 @@ Definition check_state_proposals_proposed_in_valid :=
 (* coqtop-stdout:*** Gave up! Passed only 0 tests
 Discarded: 20000 *)
 
-
 (* ---------------------- Tests on traces ----------------------  *)
-
 
 Open Scope string_scope.
 Definition debug_congress {A : Type} 
@@ -250,7 +235,6 @@ Definition debug_congress {A : Type}
     "contract owners: " ++ show (lc_contract_owners lc)
   ).
 Close Scope string_scope.
-
 
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
@@ -283,13 +267,11 @@ Definition check_add_two_blocks_succeeds :=
     (fun _ c_opt actions_opt => add_block_actions_succeeds_P c_opt actions_opt)
   ).
 
-(* QuickChick check_add_two_blocks_succeeds. *)
+QuickChick check_add_two_blocks_succeeds.
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
 
 Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressActionNew height.
 Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongressActionNew height.
-
 
 (* QuickChick (forAllShrink
   (gCongressActionNew congress_chain 1)
@@ -308,8 +290,6 @@ Definition glctracetreeFromLC lc (height : nat) := glctracetree_fix lc gCongress
 
 Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCongressActionNew length.
 
-
-
 (* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
 
-(* Sample (gCongressChainTraceList congress_chain 15). *)
+Sample (gCongressChainTraceList congress_chain 1 2).
