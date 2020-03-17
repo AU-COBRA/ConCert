@@ -292,4 +292,4 @@ Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCon
 
 (* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
 
-Sample (gCongressChainTraceList congress_chain 15 2).
+Sample (gCongressChainTraceList congress_chain 1 2).
