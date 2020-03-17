@@ -288,21 +288,26 @@ Fixpoint last_opt {A : Type} (l : list A) : option A :=
   | x::xs => last_opt xs
   end.
 
-Definition allower_reapproves_transferFrom_correct trace allower delegate first_approval_amount :=
+Definition allower_reapproves_transferFrom_correct trace allower delegate (first_approval_amount : N) :=
   match last_opt trace with
   | None => false ==> true
   | Some start_step =>
-    let start_lc := prev_lc_of_lcstep start_step in
+    let start_lc := next_lc_of_lcstep start_step in
     reachableFrom_implies_tracePropSized_new 2 start_lc (gEIP20TokenChainTraceList 2)
     (allower_reapproves_delegate_step allower delegate)
     (fun new_approval_amount pre_trace _ =>
+      let trace_until_reapproval := app trace (removelast pre_trace) in
+      let delegate_spent_until_reapproval := delegate_transferFrom_sum_of_approver allower delegate trace_until_reapproval in 
+      let delegate_spent_incl_reapproval_act := 
+        delegate_transferFrom_sum_of_approver allower delegate (trace ++ pre_trace) in 
+      let total_allowed := delegate_spent_until_reapproval + new_approval_amount in
       (new_approval_amount <? first_approval_amount) ==>
       whenFail (show delegate ++ " spent "
-        ++ show (delegate_transferFrom_sum_of_approver allower delegate pre_trace)
+        ++ show delegate_spent_incl_reapproval_act
         ++ " on behalf of " ++ show allower
         ++ " when they were only allowed to spend at most "
-        ++ show new_approval_amount ++ nl)
-      (delegate_transferFrom_sum_of_approver allower delegate pre_trace <=? new_approval_amount) 
+        ++ show total_allowed  ++ nl)
+      (delegate_spent_incl_reapproval_act <=? total_allowed) 
     )
   end.
 
@@ -310,14 +315,14 @@ Definition reapprove_transfer_from_safe_P :=
   (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
   state_has_some_approve_act
   (fun approve_act_p pre_trace post_trace =>
-    (delegate_made_no_transferFroms approve_act_p post_trace  
-    ==> isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
+    (* (delegate_made_no_transferFroms approve_act_p post_trace   *)
+    isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
       allower_reapproves_transferFrom_correct post_trace
                                               (allower_addr approve_act_p)
                                               delegate
                                               (approve_amount approve_act_p)     
       ) 
-    )
+    (* ) *)
   ).
 
 QuickChick reapprove_transfer_from_safe_P.
