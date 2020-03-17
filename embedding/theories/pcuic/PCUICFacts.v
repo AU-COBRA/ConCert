@@ -1,6 +1,6 @@
 (** * Lemmas about the environment substitutions, closedness, etc. on expressions *)
 
-Require Import MetaCoq.Template.monad_utils MetaCoq.Template.All.
+From MetaCoq.Template Require Import All.
 Require Import String List.
 Require Import Morphisms Setoid Bool.
 
@@ -256,19 +256,19 @@ Section Values.
       + inv_andb H1. inv_andb H. split_andb;auto with facts.
       + repeat inv_andb H0. repeat inv_andb H2.
         destruct p as [ind tys]. simpl in *.
-        apply utils.forallb_All in H3 as Hall3.
-        apply utils.forallb_All in H1 as Hall1.
-        apply utils.forallb_All in H0 as Hall0.
-        apply utils.forallb_All in H2 as Hall2.
+        apply forallb_All in H3 as Hall3.
+        apply forallb_All in H1 as Hall1.
+        apply forallb_All in H0 as Hall0.
+        apply forallb_All in H2 as Hall2.
         specialize (All_mix Hall0 Hall2) as Hall'. simpl in *.
         specialize (All_mix Hall3 Hall1) as Hall. simpl in *.
         repeat split_andb;eauto with facts.
-        apply utils.All_forallb. apply utils.All_map. unfold compose. simpl.
+        apply All_forallb. apply All_map. unfold compose. simpl.
         eapply All_impl_inner. apply Hall'. simpl in *.
         apply Forall_All.
         eapply Forall_forall;
           intros;eapply subst_env_i_ty_closed;intuition.
-        apply utils.All_forallb. apply utils.All_map. unfold compose. simpl.
+        apply All_forallb. apply All_map. unfold compose. simpl.
         eapply All_impl_inner. apply Hall. simpl in *.
         eapply All_impl. apply H. intros. simpl in *.
         rewrite PeanoNat.Nat.add_assoc in *.
@@ -303,7 +303,7 @@ Section Values.
       eapply forallb_impl_inner. eapply H0. intros;simpl.
       eapply subst_env_i_ty_closed_inv;eauto.
     + destruct p;simpl in *. inv_andb Hec. repeat inv_andb H0.
-      apply utils.forallb_Forall.
+      apply forallb_Forall.
       eapply Forall_forall. intros a Hin.
       rewrite forallb_map in H1. unfold compose in H1;simpl in H1.
       rewrite Forall_forall in H.
@@ -311,7 +311,7 @@ Section Values.
       assert ( HH : Forall (fun x : pat * expr =>
                               is_true (iclosed_n (#|pVars (fst x)| + k)
                                       ((snd x).[ ρ] (#|pVars (fst x)| + k)))) l) by
-           now apply utils.forallb_Forall.
+           now apply forallb_Forall.
       rewrite Forall_forall in HH. intuition.
     + inv_andb H. split_andb;auto with facts.
   Qed.

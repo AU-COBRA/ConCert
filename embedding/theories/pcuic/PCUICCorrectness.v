@@ -323,7 +323,6 @@ Proof.
                rewrite PeanoNat.Nat.eqb_eq in Hnparams.
                rewrite skipn_length. rewrite map_length.
                lia.
-               rewrite map_length. rewrite Hl0.  lia.
            *** rewrite PeanoNat.Nat.eqb_eq in Hnparams.
                assert (Hlen_pl0 :
                          #|pVars pt| = #|combine (rev (pVars pt)) (rev l2)|)

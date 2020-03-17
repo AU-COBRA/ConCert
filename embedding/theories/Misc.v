@@ -103,10 +103,10 @@ Section CombineProp.
     combine (rev l1) (rev l2) = rev (combine l1 l2).
   Proof.
     intros A B.
-    induction l2 using utils.rev_ind.
+    induction l2 using rev_ind.
     + simpl. intros l1 Heq. destruct l1;eauto.
       simpl;destruct (rev l1 ++ [a]);reflexivity.
-    + simpl. intros l1 Heq. destruct l1 using utils.rev_ind;auto.
+    + simpl. intros l1 Heq. destruct l1 using rev_ind;auto.
       repeat rewrite app_length in Heq;simpl in *.
       assert (#|l1| = #|l2|) by lia.
       repeat rewrite rev_unit. simpl.
