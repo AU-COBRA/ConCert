@@ -22,7 +22,6 @@ Arguments serialize : clear implicits.
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
-
 Definition serializeMsg := @serialize EIP20Token.Msg _.
 
 Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Address EIP20Token.State :=
@@ -35,7 +34,6 @@ Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Addre
                   end)  
                 els_list []).
 
-(* TODO: for some reason in the 'fresh' case the blockchain execution rejects the transfer - why? Does it only allow existing accounts? *)
 (* Will try to generate a transfer between existing accounts in the token contract's state.
 	 Otherwise tries to use accounts in the Blockchain state.
 	 Has a small chance to transfer between "fresh" accounts. *)
@@ -96,6 +94,7 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
 			returnGen (Some (delegate, transfer_from allower receiver  amount))
 		)
 	)).
+Local Close Scope N_scope.
 
 Local Close Scope N_scope.
 (* Main generator *)
@@ -136,3 +135,4 @@ Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (op
 				))
 		)
 	].
+
