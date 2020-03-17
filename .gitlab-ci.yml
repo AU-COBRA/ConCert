@@ -41,6 +41,7 @@ full:coq:8.11:
     - au
   script:
     - sudo chown -R coq:coq "$CI_PROJECT_DIR"
+    - eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
     - make -j
     - make html
   artifacts:
