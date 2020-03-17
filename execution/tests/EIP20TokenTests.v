@@ -196,8 +196,7 @@ Definition state_has_some_approve_act {AddrSize : N} (step : @LocalChainStep Add
     | None => None
     end
   | _ => None
-  end
-.
+  end.
 
 Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address * EIP20Token.Msg)) 
                                           (trace : list LocalChainStep) := 

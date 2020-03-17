@@ -343,17 +343,6 @@ Definition reachableFromSized {AddrSize : N}
 Definition reachableFrom {AddrSize : N} init_lc gTrace pf : Checker := 
   sized (fun n => @reachableFromSized AddrSize n init_lc gTrace pf).
 
-(* A variant where instead of having an initial state, we just have an initial predicate on a state *)
-Definition reachableFrom_propSized {AddrSize : N}
-                                   (maxLength : nat) 
-                                   (init_lc : (@LocalChain AddrSize))
-                                   (gTrace : LocalChain -> nat -> G (list LocalChainStep))
-                                   (pf : LocalChain -> bool)
-                                   : Checker := 
-  existsP 
-    (gTrace init_lc maxLength) 
-    (fun trace => existsb pf (map (next_lc_of_lcstep) trace)).
-
 Fixpoint cut_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A) :=
   match l with
   | [] => None

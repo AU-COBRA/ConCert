@@ -25,6 +25,9 @@ Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 
 Definition chain_with_congress_deployed : LocalChain := lcb_lc chain6. (* chain6 is from LocalBlockchainTests.v *)
 Definition congress_chain := chain_with_congress_deployed.
+Definition congress_contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
+
+
 
 Compute (show (lc_account_balances congress_chain)).
 Compute (show (map fst (FMap.elements (lc_contracts congress_chain)))).
@@ -293,3 +296,30 @@ Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCon
 (* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
 
 Sample (gCongressChainTraceList congress_chain 1 2).
+
+Definition reachableFrom_congress (lc : LocalChain) pf : Checker := 
+  @reachableFrom AddrSize lc (fun lc length => gCongressChainTraceList lc length 1) pf.
+
+Notation "lc '~~>' pf" :=
+  (reachableFrom_congress lc pf)
+  (at level 88, left associativity).
+
+Definition congress_has_votes_on_some_proposal lc := 
+  0 <? FMap.size (lc_contract_members_and_proposals_with_votes lc).
+
+(* QuickChick (congress_chain ~~> congress_has_votes_on_some_proposal o next_lc_of_lcstep). *)
+
+(* This assumes that in a previous block, there was an active proposal *)
+Definition congress_finished_a_vote (lc_step : @LocalChainStep AddrSize) :=
+  match lc_step with
+  | step_add_block _ _ _ => false
+  | step_action _ _ _ acts => 
+    let act_is_finish_vote (act : Action) := match act.(act_body) with 
+                                             | act_call _ _ msg => match deserialize Congress.Msg _ msg with 
+                                                                   | Some (Congress.finish_proposal _) => true 
+                                                                   | _ => false end  
+                                             | _ => false end in
+    existsb act_is_finish_vote acts
+  end.
+
+QuickChick (congress_chain ~~> congress_finished_a_vote).
