@@ -1,8 +1,8 @@
 Require Import ZArith Strings.Ascii Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
-Require Export ExtLib.Structures.Monads.
-Export MonadNotation. Open Scope monad_scope.
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
 
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
@@ -43,7 +43,6 @@ Fixpoint mkMapFromLists {A B : Type}
     fun (x : A) => if a_eqb x a then b else (mkMapFromLists a_eqb default l' lb') x 
   | (_,_) => fun x => default
   end.
-
 Definition string_of_FMap {A B : Type}
                          `{countable.Countable A}
                          `{base.EqDecision A}

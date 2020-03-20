@@ -17,8 +17,8 @@ From ConCert.Execution.QCTests Require Import
 	ChainGens TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
 
 (* For monad notations *)
-Require Export ExtLib.Structures.Monads.
-Export MonadNotation. Open Scope monad_scope.
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import List Int BinInt FunInd.
 From Coq Require Import Strings.BinaryString.

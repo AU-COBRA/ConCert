@@ -12,30 +12,24 @@
 
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith Strings.Ascii Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 
 From ConCert Require Import Blockchain.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import BoundedN.
 From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Containers.
-From ConCert Require Import EIP20Token.
 Require Import Extras.
 
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters CongressGens SerializablePrinters EIP20TokenPrinters EIP20TokenGens.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters SerializablePrinters .
 
-(* For monad notations *)
-Require Export ExtLib.Structures.Monads.
-Export MonadNotation. Open Scope monad_scope.
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
 
+From Coq Require Import ZArith Strings.String.
 From Coq Require Import List Int BinInt FunInd.
-From Coq Require Import Strings.BinaryString.
-From Coq Require Import Morphisms.
-From Coq Require Import MSets.MSetGenTree.
-From Coq Require Import Permutation.
 
 Import BoundedN.Stdpp.
 
@@ -250,11 +244,14 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
 (* QuickChick (forAll (glctracetree 7) next_lc_eq_child_prev_lc_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
+Definition LocalChainTraceList {AddrSize : N} := list (@LocalChainStep AddrSize).
+
+
 Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
                               (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
                               (length : nat)
                               (max_nr_acts_per_block : nat) 
-                              : G (list LocalChainStep) :=
+                              : G LocalChainTraceList :=
   match length with
   | 0 => returnGen []
   | S length => 
@@ -314,7 +311,7 @@ Definition forAllTraces {prop : Type}
                         {AddrSize : N}
                         (maxLength : nat)
                         (init_lc : @LocalChain AddrSize)
-                        (gTrace : LocalChain -> nat -> G (list LocalChainStep))
+                        (gTrace : LocalChain -> nat -> G LocalChainTraceList)
                         (pf : LocalChain -> prop)
                         : Checker :=
   forAll (gTrace init_lc maxLength) 
@@ -328,14 +325,14 @@ Definition forAllTraces_traceProp {prop : Type}
                         (maxLength : nat)
                         (init_lc : LocalChain)
                         (gTrace : (@LocalChain AddrSize) -> nat -> G (list (@LocalChainStep AddrSize)))
-                        (pf : list LocalChainStep -> prop)
+                        (pf : LocalChainTraceList -> prop)
                         : Checker :=
   forAll (gTrace init_lc maxLength)  pf.
 
 Definition reachableFromSized {AddrSize : N}
                          (maxLength : nat) 
                          (init_lc : (@LocalChain AddrSize))
-                         (gTrace : LocalChain -> nat -> G (list LocalChainStep))
+                         (gTrace : LocalChain -> nat -> G LocalChainTraceList)
                          (pf : @LocalChainStep AddrSize -> bool)
                          : Checker := 
   existsP (gTrace init_lc maxLength) (fun trace => existsb pf trace).
@@ -390,7 +387,7 @@ Definition reachableFrom_implies_tracePropSized
                          (init_lc : (@LocalChain AddrSize))
                          (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
                          (pf1 : LocalChainStep -> option A)
-                         (pf_trace : A -> list LocalChainStep -> prop)
+                         (pf_trace : A -> LocalChainTraceList -> prop)
                          : Checker := 
   forAll (gTrace init_lc maxLength)  
   (fun trace =>
@@ -413,7 +410,7 @@ Definition reachableFrom_implies_traceProp {A : Type}
                                            (init_lc : (@LocalChain AddrSize))
                                            (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
                                            (pf1 : LocalChainStep -> option A)
-                                           (pf_trace : A -> list LocalChainStep -> bool)
+                                           (pf_trace : A -> LocalChainTraceList -> bool)
                                            : Checker := 
   sized (fun n => reachableFrom_implies_tracePropSized n init_lc gTrace pf1 pf_trace).
 
@@ -428,7 +425,7 @@ Fixpoint split_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (
 Definition split_at_first_satisfying {A : Type} (p : A -> bool) (l : list A) : option (list A * list A) :=
   split_at_first_satisfying_fix p l [].
 
-Compute (split_at_first_satisfying (fun x => x =? 2) [1;3;2;4;5]).
+(* Compute (split_at_first_satisfying (fun x => x =? 2) [1;3;2;4;5]). *)
 
 Definition reachableFrom_implies_tracePropSized_new
                          {A prop : Type}
@@ -437,7 +434,7 @@ Definition reachableFrom_implies_tracePropSized_new
                          (init_lc : (@LocalChain AddrSize))
                          (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
                          (pf1 : LocalChainStep -> option A)
-                         (pf_trace : A -> list LocalChainStep -> list LocalChainStep -> prop)
+                         (pf_trace : A -> LocalChainTraceList -> LocalChainTraceList -> prop)
                          : Checker := 
   forAll (gTrace init_lc maxLength) 
   (fun trace =>

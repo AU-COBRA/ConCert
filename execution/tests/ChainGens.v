@@ -10,8 +10,8 @@ From ConCert Require Import BoundedN ChainedList.
 From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
 
 (* For monad notations *)
-Require Export ExtLib.Structures.Monads.
-Export MonadNotation. Open Scope monad_scope.
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import List.
 From Coq Require Import Strings.BinaryString.

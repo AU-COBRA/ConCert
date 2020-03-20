@@ -6,11 +6,10 @@ From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters 
 Require Import ZArith Strings.Ascii Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-(* From ExtLib.Structures Require Import Functor Applicative.
-Require Export ExtLib.Structures.Monads.
-Export MonadNotation. Open Scope monad_scope. *)
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
+
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Strings.BinaryString.
 From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
@@ -180,7 +179,7 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
     (* let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in *)
     backtrack [
       (* add_member *)
-      (2, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
+      (* (2, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
           (fun p =>
           let contract_addr := fst p in
           let owner_addr := snd p in
@@ -188,7 +187,7 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
           | Some addr => mk_call contract_addr owner_addr (add_member addr)
           | None => returnGen None
           end)
-      ) ;
+      ) ; *)
       (* vote_for_proposal *)
       (* Requirements:
          - contract with a proposal and members must exist

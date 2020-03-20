@@ -7,8 +7,8 @@ Require Import ZArith Strings.Ascii Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
-Require Export ExtLib.Structures.Monads.
-Export MonadNotation. Open Scope monad_scope.
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Strings.BinaryString.
 From Coq Require Import Morphisms.
