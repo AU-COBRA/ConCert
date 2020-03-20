@@ -617,3 +617,39 @@ coqtop-stdout:[4; 2]
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 5 tests and 3 shrinks. (0 discards)
  *)
+
+
+(* Repeats a generator for each element in the given list *)
+Fixpoint repeatWith {A prop : Type}
+                   `{Checkable prop} 
+                    (l : list A)
+                    (c : A -> prop)
+                    := conjoin (map (checker o c) l).
+
+(* Repeats a generator n times *)
+Definition repeatn (n : nat) (c : Checker) := repeatWith (seq 0 n) (fun _ => c).
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
