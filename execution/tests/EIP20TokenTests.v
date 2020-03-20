@@ -143,18 +143,19 @@ Definition sum_allowances_le_init_supply_P maxLength :=
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
 
 Definition person_has_tokens person (n : N) := 
-  fun step =>
-    let lc := next_lc_of_lcstep step in
+  fun lc =>
     match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-    | Some state => n =? (FMap_find_ person state.(balances) 0)  
-    | None => false
+    | Some state => if n =? (FMap_find_ person state.(balances) 0)
+                    then Some n
+                    else None  
+    | None => None
     end.
 
-Notation "lc '~~>' pf" :=
+(* Notation "lc '~~>' pf" :=
   (token_reachableFrom lc pf)
-  (at level 45, no associativity).
+  (at level 45, no associativity). *)
 
-QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12).
+(* QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12). *)
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
 
 (* QuickChick (token_reachableFrom_implies_reachable 
@@ -163,10 +164,20 @@ QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12).
   (person_has_tokens creator 0)        
 ). *)
 
-(* Notation "lc '~~>' pf1 '~~>' pf2" :=
-  (token_reachableFrom_implies_reachable lc pf1 pf2)   
-  (at level 99).
-QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0 ~~> person_has_tokens creator 10 ). *)
+Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
+  (reachableFrom_implies_tracePropSized_new 3 lc (gEIP20TokenChainTraceList 1) pf1 pf2)   
+  (at level 90, left associativity).
+
+(* This (false) property says that from the initial chain where the token contract has been deployed,
+   if there is a reachable state where the creator has 5 tokens, then any trace afterwards
+   will satisfy that the creator has 10 tokens. This is obviously not true, and QC will give us a counterexample. *)
+QuickChick (
+  {
+    chain_with_token_deployed 
+    ~~> (person_has_tokens creator 5 o next_lc_of_lcstep) 
+    ===> (fun _ _ post_trace => isSome (person_has_tokens creator 10 (last_state post_trace)))
+  }
+).
 
 Definition get_approve_act (act : Action) : option (Address * Address * EIP20Token.Msg) := 
   match act.(act_body) with
