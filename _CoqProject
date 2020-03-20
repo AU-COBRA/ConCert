@@ -61,6 +61,10 @@ embedding/examples/SimpleBlockchain.v
 
 -Q extraction/theories ConCert.Extraction
 extraction/theories/Liquidity.v
+extraction/theories/LPretty.v
+extraction/theories/Certified.v
+# extraction/theories/Extraction.v
+
 
 -Q extraction/examples ConCert.Extraction.Examples
 extraction/examples/Prelude.v
@@ -68,6 +72,7 @@ extraction/examples/Counter.v
 extraction/examples/SimpleBlockchain.v
 extraction/examples/crowdfunding_extract/CrowdfundingData.v
 extraction/examples/crowdfunding_extract/Crowdfunding.v
+extraction/examples/CounterCertifiedExtraction.v
 
 
 embedding/theories/pcuic/PCUICCorrectness.v

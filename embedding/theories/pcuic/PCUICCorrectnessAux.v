@@ -67,7 +67,7 @@ Section WcbvEvalProp.
   Lemma mkApps_unfold t1 ts t2 :
     mkApps t1 (ts ++ [t2]) = tApp (mkApps t1 ts) t2.
   Proof.
-    now rewrite <- PCUICAstUtils.mkApps_nested.
+    now rewrite <- mkApps_nested.
   Qed.
 
   Lemma mkApps_eq_false t1 t2 args :
@@ -744,7 +744,7 @@ Proof.
         specialize (Forall_In _ _ _ Hin'' H) as Hfa'. simpl in Hfa'. easy.
       * trivial.
   + simpl in *.
-    rewrite Bool.andb_true_r in *. unfold PCUICAstUtils.test_def. simpl.
+    rewrite Bool.andb_true_r in *. unfold test_def. simpl.
     repeat rewrite Bool.andb_true_iff in *.
     repeat split;eauto with hints;
       try apply type_to_term_closed;intuition.
@@ -963,7 +963,7 @@ Proof.
     * reflexivity.
   + (* eFix *)
     cbn in *. unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
-    unfold PCUICAstUtils.map_def. simpl. repeat f_equal;intuition.
+    unfold map_def. simpl. repeat f_equal;intuition.
     rewrite commut_lift_subst. intuition. rewrite commut_lift_subst. intuition.
   + (* eTy *) simpl in *. eauto with hints.
 Qed.
