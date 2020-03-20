@@ -37,6 +37,9 @@ execution/tests/ChainGens.v
 execution/tests/CongressGens.v
 execution/tests/CongressPrinters.v
 execution/tests/CongressTests.v
+execution/tests/Congress_BuggyGens.v
+execution/tests/Congress_BuggyPrinters.v
+execution/tests/Congress_BuggyTests.v
 execution/tests/EIP20TokenGens.v
 execution/tests/EIP20TokenTests.v
 execution/tests/TraceGens.v
