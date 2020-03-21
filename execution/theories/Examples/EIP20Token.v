@@ -21,8 +21,8 @@ Require Import Blockchain.
 Import ListNotations.
 Import RecordSetNotations.
 
-Section EIP20Token.
 Context {BaseTypes : ChainBase}.
+Section EIP20Token.
 Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 
@@ -165,3 +165,30 @@ Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
 
 End EIP20Token.
+
+
+Section ERC20TokenInterface.
+
+Class ERC20Token {BaseTypes : ChainBase} :=
+{
+	erc20_tokenvalue : Type;
+	erc20_transfer : Address -> TokenValue -> ActionBody;
+	(* First address is 'from', second is 'to' *)
+	erc20_transfer_from : Address -> Address -> TokenValue -> ActionBody;
+	(* Caller approves <Address>  to spend <TokenValue> on their behalf *)
+	erc20_approve : Address -> TokenValue -> ActionBody;
+}.
+
+
+(* EIP20 instance of ERC20 Typeclass *)
+Let call (token_caddr : Address ) := act_call token_caddr 0%Z.
+Let serialize_token := @serialize EIP20Token.Msg _.
+Instance eip20_erc20_instance (token_caddr : Address) : ERC20Token := {
+	erc20_tokenvalue := N;
+	erc20_transfer to amount := call token_caddr (serialize_token (EIP20Token.transfer to amount)); 
+	erc20_transfer_from from to amount := call token_caddr (serialize_token (EIP20Token.transfer_from from to amount));
+	erc20_approve delegate amount := call token_caddr (serialize_token (EIP20Token.approve delegate amount));
+}.
+
+End ERC20TokenInterface.
+
