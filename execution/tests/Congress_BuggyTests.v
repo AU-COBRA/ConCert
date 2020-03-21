@@ -36,10 +36,11 @@ Definition AddrSize := (2^8)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
 Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
 
+Let creator := BoundedN.of_Z_const AddrSize 10.
+
 Open Scope nat.
 Definition exploit_example : option (Address * Builder) :=
   let chain := builder_initial in
-  let creator := BoundedN.of_Z_const AddrSize 10 in
   let add_block (chain : Builder) act_bodies :=
       let next_header :=
           {| block_height := S (chain_height chain);
@@ -65,9 +66,9 @@ Definition exploit_example : option (Address * Builder) :=
   (* Add creator to congress, create a proposal to transfer *)
   (* some money to exploit contract, vote for the proposal, and execute the proposal *)
   let add_creator := add_member creator in
-  (* let create_proposal := create_proposal [cact_transfer exploit 1] in *)
-  (* let vote_proposal := vote_for_proposal 1 in *)
-  (* let exec_proposal := finish_proposal 1 in *)
+  let create_proposal := create_proposal [cact_transfer exploit 1] in
+  let vote_proposal := vote_for_proposal 1 in
+  let exec_proposal := finish_proposal 1 in
   let act_bodies :=
       map (fun m => act_call congress 0 (serialize _ _ m))
           [add_creator] in
@@ -81,7 +82,82 @@ Definition total_outgoing_acts_of_trace (trace : LocalChainTraceList) :=
   let acts_per_step := map (length o acts_of_lcstep) trace in
   fold_left Nat.add acts_per_step 0.
 
+Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Msg)) :=
+  let count call :=
+      match call_msg call with
+      | Some (create_proposal acts) => length acts
+      | _ => 0
+      end in
+  sumnat count calls.
+
 Local Open Scope monad_scope.
+Definition gBuggyCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCongressActionBuggy length 1.
+Sample (gCongressActionBuggy (lcb_lc (snd unpacked_exploit_example)) 1).
+Sample (gBuggyCongressChainTraceList (lcb_lc (snd unpacked_exploit_example)) 3).
+
+Local Open Scope Z_scope.
+Local Open Scope string_scope.
+Definition exploit_contract_balance_le_1 (chain : @LocalChain AddrSize) := 
+  let contracts := map fst (FMap.elements (lc_contracts chain)) in
+  let exploit_caddr : Address := nth 0 contracts creator in
+  let congress_caddr : Address := nth 1 contracts creator in
+  match FMap.find exploit_caddr chain.(lc_account_balances) with
+  | Some balance => 
+    whenFail (nl ++ "balance:" ++ show balance)
+    (balance <=? 1)
+  | None => 
+    whenFail ("couldn't find exploit for some reason...")
+    false
+  end.
+
+Definition congress_no_reentry_on_finish_proposal := 
+  let chain := (lcb_lc (snd unpacked_exploit_example)) in
+  forAllTraces 3 chain gBuggyCongressChainTraceList 
+    exploit_contract_balance_le_1.
+Open Scope nat_scope.
+
+Definition congress_has_proposals := 
+  let chain := (lcb_lc (snd unpacked_exploit_example)) in
+  let contracts := map fst (FMap.elements (lc_contracts chain)) in
+  let exploit_caddr : Address := nth 0 contracts creator in
+  let congress_caddr : Address := nth 1 contracts creator in
+  match FMap.find congress_caddr (Congress_BuggyGens.lc_proposals' chain) with
+  | Some proposals => 
+    whenFail ("proposals: " ++ show proposals)
+    (0 <? (FMap.size proposals)) 
+  | None => checker false
+  end.
+
+Definition can_apply_finish_proposal_action := 
+  let chain := (lcb_lc (snd unpacked_exploit_example)) in
+  let contracts := map fst (FMap.elements (lc_contracts chain)) in
+  let exploit_caddr : Address := nth 0 contracts creator in
+  let congress_caddr : Address := nth 1 contracts creator in
+  forAll (gCongressActionBuggy (lcb_lc (snd unpacked_exploit_example)) 1)
+    (fun act =>
+      isSomeCheck act (fun act => 
+        whenFail ("act: " ++ show act)
+        ((isSome) (mk_basic_step_action chain [act])))
+    ).
+
+
+Definition can_apply_finish_proposal_action_1 := 
+  let chain := (lcb_lc (snd unpacked_exploit_example)) in
+  let contracts := map fst (FMap.elements (lc_contracts chain)) in
+  let exploit_caddr : Address := nth 0 contracts creator in
+  let congress_caddr : Address := nth 1 contracts creator in
+  forAll (gBuggyCongressChainTraceList chain 3)
+    (fun trace => 0 <? length trace
+      (* isSomeCheck acts_of_ (fun act =>
+        isSome (my_add_block chain [act]) *)
+      
+    ).
+
+(* QuickChick can_apply_finish_proposal_action.
+QuickChick can_apply_finish_proposal_action_1.
+QuickChick congress_has_proposals. *)
+QuickCheck congress_no_reentry_on_finish_proposal.
+
 
 
 

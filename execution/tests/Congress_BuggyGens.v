@@ -46,7 +46,7 @@ Instance genSetupSized : GenSized Setup :=
 
 (* helpers *)
 
-Definition lc_contract_state_deserialized lc : FMap Address Congress_Buggy.State :=
+Definition lc_congress_buggy_state_deserialized lc : FMap Address Congress_Buggy.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left 
                 (fun acc p => 
@@ -57,7 +57,7 @@ Definition lc_contract_state_deserialized lc : FMap Address Congress_Buggy.State
                 els_list []).
 
 Definition congressContractsMembers lc : FMap Address (list Address) := 
- map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized lc).
+ map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_congress_buggy_state_deserialized lc).
 
 Definition gCongressMember (lc : LocalChain) 
                            (contract_addr : Address) 
@@ -105,6 +105,9 @@ Definition try_newCongressMember (lc : LocalChain)
   | None => None
   end.
 
+Definition lc_contract_owners : LocalChain -> FMap Address Address := 
+  (map_values_FMap owner) o lc_congress_buggy_state_deserialized.
+
 Definition bindCallerIsOwnerOpt {A : Type} 
                                 (lc : LocalChain) 
                                 (calling_addr : Address)
@@ -141,15 +144,15 @@ Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Ad
       | _ => returnGen None
       end)).
 
-Definition lc_proposals (lc : LocalChain) : FMap Address (FMap ProposalId Proposal) :=
-  map_values_FMap proposals (lc_contract_state_deserialized lc).
+Definition lc_proposals' (lc : LocalChain) : FMap Address (FMap ProposalId Proposal) :=
+  map_values_FMap proposals (lc_congress_buggy_state_deserialized lc).
 
 
 (* Returns a mapping to proposals which have been discussed long enough, according to the
    current rules in the given LocalChain *)
 Definition finishable_proposals (lc : LocalChain) 
                                 : FMap Address (FMap ProposalId Proposal) := 
-  let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_contract_state_deserialized lc) in
+  let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_congress_buggy_state_deserialized lc) in
   map_filter_FMap (fun p =>
     let caddr := fst p in
     let pids_map := snd p in
@@ -163,17 +166,15 @@ Definition finishable_proposals (lc : LocalChain)
       else None
     | None => None
     end
-  ) (lc_proposals lc)
+  ) (lc_proposals' lc)
 .
+
+
 
 Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action) :=
   let mk_call contract_addr caller_addr msg := 
-    amount <- match lc_account_balance lc caller_addr with
-              | Some caller_balance => choose (0%Z, caller_balance)
-              | None => returnGen 0%Z
-              end ;;
     returnGen (Some (build_act caller_addr 
-      (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg))))) in
+      (congress_action_to_chain_action (cact_call contract_addr 0%Z (serializeMsg msg))))) in
   match fuel with
   | 0 => 
     (* let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in *)
@@ -204,7 +205,7 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
       (* Requirements:
          - only contract owner can finish proposals
          - the debating period must have passed *)
-      (2, bindGenOpt (sampleFMapOpt (finishable_proposals lc)) 
+      (2, bindGenOpt (sampleFMapOpt (lc_proposals' lc)) 
           (fun p => 
           let contract_addr := fst p in
           match FMap.find contract_addr (lc_contract_owners lc) with
@@ -216,8 +217,19 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
           end))
     ]
   | S fuel' => backtrack [
-    (7, gCongressActionBuggy lc fuel') ;
-    (* add_proposal *)
+    (6, gCongressActionBuggy lc fuel') ;
+    (* add_proposal which contains a congress action (like create vote actions, create proposals, etc.) *)
+    (1, bindGenOpt (sampleFMapOpt (lc_contract_owners lc))
+        (fun p =>
+          let contract_addr := fst p in
+          let owner := snd p in
+          bindGenOpt (sampleFMapOpt lc.(lc_account_balances))
+          (fun p =>
+            let transfer_act := cact_transfer (fst p) 1%Z in
+            mk_call contract_addr owner (create_proposal [transfer_act])
+          )
+        )    
+    ) ;
     (1, 
       (* recurse. Msg is converted to a SerializedType using 'serialize' *)
       (* This makes it possible to create proposals about proposals about proposals etc... *)
@@ -231,8 +243,9 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
         match act.(act_body) with
         | act_call contract_addr amount msg => bindGenOpt (gCongressMember lc contract_addr)
           (fun member =>
-          let ca := cact_call contract_addr amount msg in  
-          mk_call contract_addr member (create_proposal [ca]))
+            let ca := cact_call contract_addr amount msg in
+            mk_call contract_addr member (create_proposal [ca])
+          )
         | _ => returnGen (Some act)
         end 
       ))

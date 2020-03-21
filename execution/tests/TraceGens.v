@@ -146,7 +146,7 @@ Definition lc_shallow_eqb lc1 lc2 : bool :=
 
 Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
-  let c_next_opt := add_block_exec false c header [] in
+  let c_next_opt := add_block_exec true c header [] in
   match c_next_opt with
   | None => None
   | Some c_next => Some (c_next, step_add_block c header c_next)
@@ -154,7 +154,7 @@ Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) :=
 
 Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
-  let c_next_opt := add_block_exec false c header acts in
+  let c_next_opt := add_block_exec true c header acts in
   match c_next_opt with
   | Some c_next => Some (c_next, step_action c header c_next acts)
   | None => None
@@ -165,7 +165,7 @@ Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) :=
               leaf. *)
 
 Open Scope string_scope.
-Instance showLocalChainStepVerbose : Show LocalChainStep :=
+Instance showLocalChainStepVerbose {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show (@LocalChainStep AddrSize) :=
 {|
   show step := match step with
   | step_add_block prev header next => 
@@ -175,7 +175,7 @@ Instance showLocalChainStepVerbose : Show LocalChainStep :=
   end
 |}.
 
-Instance showLocalChainStep {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
+Instance showLocalChainStep {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show (@LocalChainStep AddrSize) :=
 {|
   show step := match step with
   | step_add_block prev header next => 
@@ -210,7 +210,7 @@ Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) :=
 
 Instance showLctracetree : Show lctracetree :=
 {|
-  show t := @show _ (@showTree _ showLocalChainStep) t 
+  show t := @show _ (@showTree _ showLocalChainStepVerbose) t 
 |}.
 
 Fixpoint glctracetree_fix (prev_lc : LocalChain)
@@ -222,7 +222,7 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
     lc_opt <- backtrack [
       (10, 
           (* acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;; *)
-          bindGenOpt (gActOptFromLCSized prev_lc 2)
+          bindGenOpt (gActOptFromLCSized prev_lc 1)
           (fun act => returnGen (mk_basic_step_action prev_lc [act]))
       )
           (* match acts with
@@ -245,8 +245,7 @@ Fixpoint glctracetree_fix (prev_lc : LocalChain)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition LocalChainTraceList {AddrSize : N} := list (@LocalChainStep AddrSize).
-
-
+(* TODO: optimize by making an inner fixpoint, and keeping gActOptFromLCSized and max_nr_acts_per_block fixed *)
 Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
                               (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
                               (length : nat)
@@ -261,7 +260,9 @@ Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
           let try_twice g := backtrack [(1, g);(1, g)] in
           try_twice (
             acts <- optToVector max_nr_acts_per_block (gActOptFromLCSized prev_lc 2) ;;
-            returnGen (mk_basic_step_action prev_lc acts)
+            if 0 <? (List.length acts)
+            then returnGen (mk_basic_step_action prev_lc acts)
+            else returnGen None
           )
           (* acts <- liftM (shrinkListTo 1) (optToVector nr_retries ) ;; *)
           (* returnGen (mk_basic_step_action prev_lc acts) *)
@@ -277,14 +278,17 @@ Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
       ] ;;
     match lc_opt with
           | Some (lc, step) => 
-            liftM (cons step) 
-                   (gLocalChainTraceList_fix lc gActOptFromLCSized length max_nr_acts_per_block) 
+            trace <- (gLocalChainTraceList_fix lc gActOptFromLCSized length max_nr_acts_per_block) ;;
+            match trace with
+            | [] => returnGen [step]
+            | _ =>  returnGen (cons step trace)
+            end
           | None => returnGen []
     end
   end.
 
 Open Scope string_scope.
-Instance showLocalChainList {AddrSize : N}: Show (list (@LocalChainStep AddrSize)) :=
+Instance showLocalChainList : Show LocalChainTraceList :=
 {|
   show l := nl ++ "Begin Trace: " ++ nl ++ String.concat (";;" ++ nl) (map show l) ++ nl ++ "End Trace"
 |}.
@@ -315,8 +319,10 @@ Definition forAllTraces {prop : Type}
                         (pf : LocalChain -> prop)
                         : Checker :=
   forAll (gTrace init_lc maxLength) 
-  (fun trace => conjoin (map (checker o pf o next_lc_of_lcstep) trace))
-.
+  (fun trace => match trace with
+                | [] => false ==> true
+                | _ => conjoin (map (checker o pf o next_lc_of_lcstep) trace)
+                end).   
 
 (* A variant where the property is over the whole trace *)
 Definition forAllTraces_traceProp {prop : Type}
@@ -324,16 +330,16 @@ Definition forAllTraces_traceProp {prop : Type}
                         {AddrSize : N}
                         (maxLength : nat)
                         (init_lc : LocalChain)
-                        (gTrace : (@LocalChain AddrSize) -> nat -> G (list (@LocalChainStep AddrSize)))
+                        (gTrace : (@LocalChain AddrSize) -> nat -> G LocalChainTraceList)
                         (pf : LocalChainTraceList -> prop)
                         : Checker :=
   forAll (gTrace init_lc maxLength)  pf.
 
 Definition reachableFromSized {AddrSize : N}
                          (maxLength : nat) 
-                         (init_lc : (@LocalChain AddrSize))
-                         (gTrace : LocalChain -> nat -> G LocalChainTraceList)
-                         (pf : @LocalChainStep AddrSize -> bool)
+                         (init_lc : LocalChain)
+                         (gTrace : (@LocalChain AddrSize) -> nat -> G LocalChainTraceList)
+                         (pf : LocalChainStep -> bool)
                          : Checker := 
   existsP (gTrace init_lc maxLength) (fun trace => existsb pf trace).
 
