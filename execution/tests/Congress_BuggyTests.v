@@ -63,12 +63,8 @@ Definition exploit_example : option (Address * Builder) :=
   let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
   let exploit := nth 0 contracts creator in
   let congress := nth 1 contracts creator in
-  (* Add creator to congress, create a proposal to transfer *)
-  (* some money to exploit contract, vote for the proposal, and execute the proposal *)
+  (* Add creator to congress *)
   let add_creator := add_member creator in
-  let create_proposal := create_proposal [cact_transfer exploit 1] in
-  let vote_proposal := vote_for_proposal 1 in
-  let exec_proposal := finish_proposal 1 in
   let act_bodies :=
       map (fun m => act_call congress 0 (serialize _ _ m))
           [add_creator] in
