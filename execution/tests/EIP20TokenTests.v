@@ -1,13 +1,13 @@
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 
 From ConCert Require Import Blockchain.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import BoundedN.
 From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Containers.
 From ConCert Require Import EIP20Token.
@@ -19,15 +19,8 @@ From ConCert.Execution.QCTests Require Import
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
-
-From Coq Require Import List Int BinInt FunInd.
-From Coq Require Import Strings.BinaryString.
-From Coq Require Import Morphisms.
-From Coq Require Import MSets.MSetGenTree.
-From Coq Require Import Permutation.
-
+From Coq Require Import List Int.
 Import BoundedN.Stdpp.
-
 Import LocalBlockchain.
 Import ListNotations.
 Close Scope address_scope.
