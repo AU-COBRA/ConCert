@@ -40,3 +40,7 @@ docs folder after `make html`.
 The [embedding](embedding/) folder contains the development of the embedding.
 The [execution](execution/) folder contains the formalization of the smart
 contract execution layer, which allows reasoning about interacting contracts.
+
+## Notes for developers
+
+The [execution](execution/) subproject can be built independently via running `make` in the `execution` folder. This also means that the `_CoqProject` file inside the `execution` folder musdt be manually kept in sync with the main `_CoqProject` in the root.
