@@ -6,11 +6,8 @@
 
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
-From Coq Require Import Psatz.
-From Coq Require Import Permutation.
 Require Import Monads.
 Require Import Extras.
-Require Import ChainedList.
 Require Import Containers.
 Require Import Automation.
 From RecordUpdate Require Import RecordUpdate.
