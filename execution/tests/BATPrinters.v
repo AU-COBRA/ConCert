@@ -6,7 +6,7 @@ From QuickChick Require Import QuickChick.
 
 Local Open Scope string_scope.
 
-Instance showBATMsg : Show Msg :=
+Instance showBATMsg : Show BAT.Msg :=
 {|
   show m := match m with
             | tokenMsg msg => show msg
@@ -16,7 +16,7 @@ Instance showBATMsg : Show Msg :=
             end
 |}.
 
-Instance showBATSetup : Show Setup :=
+Instance showBATSetup : Show BAT.Setup :=
 {|
   show s := "BATSetup{"
             ++ "batFund: " ++ show s.(_batFund) ++ sep
