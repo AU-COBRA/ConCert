@@ -11,18 +11,18 @@ Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
 Require Import Containers.
 
-Arguments SerializedValue : clear implicits.
+(* Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
-Arguments serialize : clear implicits.
+Arguments serialize : clear implicits. *)
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
-Definition serializeMsg := serialize BAT.Msg _ .
+(* Definition serializeMsg := serialize BAT.Msg _ . *)
 
 Definition lc_bat_contracts_states_deserialized (lc : LocalChain) : FMap Address BAT.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left 
                 (fun acc p => 
-                  match deserialize BAT.State _ (snd p) with
+                  match @deserialize BAT.State _ (snd p) with
                   | Some state => (fst p, state) :: acc
                   | None => acc
                   end)  
@@ -38,11 +38,16 @@ Definition gBATAction (lc : LocalChain) (contract_addr : Address) : G (option Ac
   | Some state =>
     let token_state := state.(token_state) in
     backtrack [
-      (* generate an EIP20 transfer action *)
-      (1, transfer_pair <- gTransfer lc token_state ;;
-          let caller_addr := fst transfer_pair in
-          let transfer_msg := EIP20TokenGens.serializeMsg (snd transfer_pair) in
-          mk_call contract_addr caller_addr 0%Z transfer_msg
+      (* generate an EIP20 action; transfer, transfer_from, or approve *)
+      (1, let token_act_gen := backtrack [(1, liftM Some (gTransfer lc token_state)) ; 
+                                          (1, gTransfer_from token_state) ; 
+                                          (1, gApprove token_state)] in
+          bindGenOpt token_act_gen (fun token_act_pair =>
+            let caller_addr := fst token_act_pair in
+            let token_msg := (snd token_act_pair) in
+            let msg := @serialize BAT.Msg _ (tokenMsg token_msg) in
+            mk_call contract_addr caller_addr 0%Z msg
+          ) 
       )
     ]
   | None => returnGen None
