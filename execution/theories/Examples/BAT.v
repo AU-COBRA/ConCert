@@ -108,10 +108,13 @@ Definition init (chain : Chain)
 Definition returnIf (cond : bool) := if cond then None else Some tt.
 Definition total_supply (state : State) := state.(token_state).(EIP20Token.total_supply).
 Definition balances (state : State) := state.(token_state).(EIP20Token.balances).
+Definition allowances (state : State) := state.(token_state).(EIP20Token.allowances).
 
 Definition try_create_tokens sender (sender_payload : Amount) current_slot state :=
  (* early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
-	do _ <- returnIf (state.(isFinalized) || (Nat.ltb current_slot state.(fundingStart)) || (Nat.ltb state.(fundingEnd) current_slot)) ;
+	do _ <- returnIf (state.(isFinalized) 
+					|| (Nat.ltb current_slot state.(fundingStart)) 
+					|| (Nat.ltb state.(fundingEnd) current_slot)) ;
 	(* here we deviate slightly from the reference implementation. They only check for = 0, 
 	   but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
 	do _ <- returnIf (Z.leb sender_payload 0) ; 
@@ -119,12 +122,18 @@ Definition try_create_tokens sender (sender_payload : Amount) current_slot state
 	let tokens := (Z.to_N sender_payload) * state.(tokenExchangeRate) in
 	let checkedSupply := (total_supply state) + tokens in
 	do _ <- returnIf (state.(tokenCreationCap) <? checkedSupply) ;
-	Some (state<|total_supply := checkedSupply|>
-						 <|balances    ::= FMap.add sender tokens|>).
+	let new_token_state : EIP20Token.State := {|
+		EIP20Token.total_supply := checkedSupply;
+		EIP20Token.balances := FMap.add sender tokens (balances state);
+		EIP20Token.allowances := allowances state;
+	|} in
+	Some (state<|token_state := new_token_state|>).
 
 Definition try_refund sender current_slot state := 
 	(* early return if funding is finalized, or funding period is NOT over, or if total supply exceeds or is equal to the minimum fund tokens. *)
-	do _ <- returnIf (state.(isFinalized) || (Nat.leb current_slot state.(fundingEnd)) || (state.(tokenCreationMin) <=? (total_supply state))) ;
+	do _ <- returnIf (state.(isFinalized) 
+					|| (Nat.leb current_slot state.(fundingEnd)) 
+					|| (state.(tokenCreationMin) <=? (total_supply state))) ;
 	(* Don't allow the the batFundDeposit account to refund *)
 	do _ <- returnIf (address_eqb sender state.(batFundDeposit)) ;
 	do sender_bats <- FMap.find sender (balances state) ;
@@ -132,8 +141,12 @@ Definition try_refund sender current_slot state :=
 	let new_total_supply := (total_supply) state - sender_bats in
 	(* convert tokens back to the currency of the blockchain, to be sent back to the sender address *)
 	let amount_to_send := Z.of_N (sender_bats / state.(tokenExchangeRate)) in
-	let new_state := state<|total_supply := new_total_supply|>
-												<|balances    ::= FMap.add sender 0|> in
+	let new_token_state : EIP20Token.State := {|
+		EIP20Token.total_supply := new_total_supply;
+		EIP20Token.balances := FMap.add sender 0 (balances state);
+		EIP20Token.allowances := allowances state;
+	|} in
+	let new_state := state<|token_state := new_token_state|> in
 	let send_act := act_transfer sender amount_to_send in 
 		Some (new_state, [send_act]).
 
