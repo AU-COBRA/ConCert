@@ -175,7 +175,7 @@ Section print_term.
 
   Fixpoint print_term (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
   match t with
-  | tBox => "Error (Box found!)"
+  | tBox => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n =>
     match nth_error Γ n with
     | Some {| decl_name := na |} =>
@@ -216,9 +216,10 @@ Section print_term.
     if mind =? "Coq.Init.Datatypes.bool" then
       match brs with
       | [b1;b2] =>
-        "if " ++ print_term TT Γ true false t
-              ++ " then " ++ print_term TT Γ true false (snd b1)
-              ++ " else " ++ print_term TT Γ true false (snd b2)
+        parens top
+                ("if " ++ print_term TT Γ true false t
+                       ++ " then " ++ print_term TT Γ true false (snd b1)
+                       ++ " else " ++ print_term TT Γ true false (snd b2))
       | _ => "Error (Malformed pattern-mathing on bool: given "
                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
       end
@@ -227,13 +228,13 @@ Section print_term.
     | Some oib =>
       let fix print_branch Γ arity br {struct br} :=
           match arity with
-            | 0 => "-> " ++ print_term TT Γ true false br
+            | 0 => "-> " ++ print_term TT Γ false false br
             | S n =>
               match br with
               | tLambda na B =>
                 let na' := fresh_name Γ na br in
                 string_of_name na' ++ "  " ++ print_branch (vass na' :: Γ) n B
-              | t => "-> " ++ print_term TT Γ true false br
+              | t => "-> " ++ print_term TT Γ false false br
               end
             end
         in
@@ -242,7 +243,8 @@ Section print_term.
         let brs := combine brs oib.(ind_ctors) in
         parens top ("match " ++ print_term TT Γ true false t ++
                     " with " ++ nl ++
-                    print_list (fun '(b, (na, _, _)) => na ++ " " ++ b)
+                    print_list (fun '(b, (na, _, _)) =>
+                                  from_option (look TT na) na ++ " " ++ b)
                     (nl ++ " | ") brs)
     | None =>
       "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","

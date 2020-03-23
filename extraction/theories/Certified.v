@@ -94,6 +94,14 @@ Definition toDefWithEnv {A} (p : A)  :=
   cbody <- opt_to_template cbody_o.(cst_body) ;;
   ret (mkLiqDef nm cbody_o.(cst_type) cbody, t.1).
 
+Definition toLiquidityWithBoxes {A} (TT : env string) (p : A) :=
+  d_e <- toDefWithEnv p ;;
+  let '(liq_def, env) := d_e in
+  liq_prog <- tmEval all (erase_print TT (env,liq_def.(ld_body))) ;;
+  let liq_def_string := "let " ++ unqual_name liq_def.(ld_name) ++ " = " ++ liq_prog in
+  ret liq_def_string.
+
+
 Definition toLiquidity {A} (TT : env string) (p : A) :=
   d_e <- toDefWithEnv p ;;
   let '(liq_def, env) := d_e in
