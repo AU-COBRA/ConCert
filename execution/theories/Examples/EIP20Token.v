@@ -121,7 +121,7 @@ Definition receive (chain : Chain)
 					         : option (State * list ActionBody) :=
   let sender := ctx.(ctx_from) in
 	let without_actions := option_map (fun new_state => (new_state, [])) in
-	(* Only allow calls to this contract with no payload *)
+	(* Only allow calls with no money attached *)
 	if ctx.(ctx_amount) >? 0
 	then None
 	else match maybe_msg with
