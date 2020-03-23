@@ -107,6 +107,18 @@ Next Obligation.
   reflexivity.
 Qed.
 
+Program Instance N_serializable : Serializable N :=
+  {| serialize n := serialize (Z.of_N n);
+     deserialize z := do z' <- deserialize z; Some (Z.to_N z'); |}.
+Next Obligation.
+  intros x.
+  cbn.
+  rewrite deserialize_serialize.
+  cbn.
+  rewrite N2Z.id.
+  reflexivity.
+Qed.
+
 Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
      deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
