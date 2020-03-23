@@ -89,7 +89,6 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
 			returnGen (Some (delegate, transfer_from allower receiver  amount))
 		)
 	)).
-Local Close Scope N_scope.
 
 Local Close Scope N_scope.
 (* Main generator *)
