@@ -1,33 +1,19 @@
-
-Require Import ZArith Strings.Ascii Strings.String.
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
-
-From ConCert Require Import Blockchain.
-From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
-From ConCert Require Import LocalBlockchainTests.
-From ConCert Require Import Containers.
-Require Import Extras.
-
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters CongressPrinters CongressGens SerializablePrinters TraceGens.
-
-(* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
-
-From Coq Require Import List Int BinInt FunInd.
-From Coq Require Import Strings.BinaryString.
-From Coq Require Import Morphisms.
-From Coq Require Import MSets.MSetGenTree.
-From Coq Require Import Permutation.
-
-Import BoundedN.Stdpp.
-
-Import LocalBlockchain.
-Import ListNotations.
-Close Scope address_scope.
+(* Remove Hints BoundedN_equivalence. *)
+Set Typeclasses Debug Verbosity 1.
+(* Existing Instance ser_value_equivalence | 0. *)
+(* Check deserialize. *)
+(* Print All Dependencies Serializable. *)
+(* Transparent deserialize. *)
 
 
-	
+Check deserialize.
+Typeclasses eauto := debug.
+
+Example ex2 : SerializedValue := serialize 2.
+Existing Instance nat_serializable | 0.
+Existing Instance bool_serializable | 0.
+Example ex3 := deserialize ex2.
+Compute ex3.
+Compute (deserialize ex2).
+Check (deserialize ex2).

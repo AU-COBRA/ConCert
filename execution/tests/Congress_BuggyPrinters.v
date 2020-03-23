@@ -18,10 +18,6 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 Open Scope string_scope.
 
-Arguments SerializedValue : clear implicits.
-Arguments deserialize : clear implicits.
-Arguments serialize : clear implicits.
-
 Instance showRules : Show Rules :=
 {|
   show r := 
@@ -38,7 +34,7 @@ match ca with
 | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++ 
     match @deserialize Msg _ msg with
     | Some msg => str_of_msg msg
-    | None =>  "<FAILED DESERIALIZATION>"
+    | None =>  "<FAILED DESERIALIZATION OF CONGRESS MSG>"
     end ++ ")" 
 end.
 

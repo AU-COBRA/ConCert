@@ -1,29 +1,26 @@
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 
 From ConCert Require Import Blockchain.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import BoundedN.
 
 From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
-
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import List.
-From Coq Require Import Strings.BinaryString.
-From Coq Require Import Morphisms.
 Import BoundedN.Stdpp.
 
 Import LocalBlockchain.
 Import ListNotations.
 Close Scope address_scope.
 
-Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
-Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Instance LocalChainBase : ChainBase := TestUtils.LocalChainBase.
+Instance LocalChainBuilder : ChainBuilderType := TestUtils.LocalChainBuilder.
 
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.

@@ -1,13 +1,13 @@
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
+From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
 From ConCert Require Import LocalBlockchain.
-From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList.
 
 From Coq Require Import List. Import ListNotations.
@@ -15,14 +15,11 @@ From Coq Require Import Program.Basics.
 Require Import Containers.
 
 Global Definition AddrSize := (2^8)%N.
+
 Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
-
-Arguments SerializedValue : clear implicits.
-Arguments deserialize : clear implicits.
-Arguments serialize : clear implicits.
 
 (* Misc utility functions *)
 Open Scope list_scope.
@@ -107,7 +104,7 @@ Definition deserialize_to_string {ty : Type}
                                 `{Serializable ty}
                                 `{Show ty} 
                                  (s : SerializedValue) : string := 
-  match deserialize ty _ s with
+  match @deserialize ty _ s with
   | Some v => show v
   | None => "?"
   end.
@@ -132,7 +129,7 @@ Definition lc_contract_state_deserialized lc : FMap Address Congress.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left 
                 (fun acc p => 
-                  match deserialize Congress.State _ (snd p) with
+                  match @deserialize Congress.State _ (snd p) with
                   | Some state => (fst p, state) :: acc
                   | None => acc
                   end)  
@@ -627,28 +624,3 @@ Fixpoint repeatWith {A prop : Type}
 
 (* Repeats a generator n times *)
 Definition repeatn (n : nat) (c : Checker) := repeatWith (seq 0 n) (fun _ => c).
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 

@@ -1,19 +1,18 @@
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 
-From ConCert Require Import Blockchain LocalBlockchain Congress.
+From ConCert Require Import Blockchain LocalBlockchain EIP20Token Congress BAT TestUtils.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList.
 
-From ConCert.Execution.QCTests Require Import TestUtils.
+(* From ConCert.Execution.QCTests Require Import SerializablePrinters. *)
 
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import List.
-From Coq Require Import Strings.BinaryString.
 From Coq Require Import Morphisms.
 Import BoundedN.Stdpp.
 
@@ -22,15 +21,11 @@ Import ListNotations.
 Close Scope address_scope.
 
 Definition AddrSize := (2^8)%N.
-Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
-Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Instance LocalChainBase : ChainBase := TestUtils.LocalChainBase.
+Instance LocalChainBuilder : ChainBuilderType := TestUtils.LocalChainBuilder.
 
 Open Scope list_scope.
 Open Scope string_scope.
-
-Arguments SerializedValue : clear implicits.
-Arguments deserialize : clear implicits.
-Arguments serialize : clear implicits.
 
 Derive Show for positive.
 Derive Show for SerializedType.
@@ -102,15 +97,6 @@ Definition ex_serialized_type := ser_pair (ser_list (ser_list ser_bool)) ser_int
 (* Compute (interp_type ex_serialized_type). *)
 Definition ex_val := ([[true;false];[true;true];[false];[]], 2%Z).
 (* Compute (string_of_interp_type ex_serialized_type ex_val). *)
-
-(* Print Serializable.
-Instance showSerializable {ty : Type} `{Show ty} : Show (Serializable ty) :=
-{|
-  show s := match deserialize s with
-            | Some v => ""
-            | None => "<FAILED DESERIALIZATION>"
-            end 
-|}. *)
 
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
 Instance showBlockHeader (BaseTypes : ChainBase) `{Show (@Address BaseTypes)} : Show (@BlockHeader BaseTypes) :=
