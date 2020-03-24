@@ -179,7 +179,7 @@ Notation "a * b" := [| {eConst "Coq.ZArith.BinInt.Z.mul"} {a} {b} |]
                       (in custom expr at level 0).
 Notation "a - b" := [| {eConst "Coq.ZArith.BinInt.Z.sub"} {a} {b} |]
                       (in custom expr at level 0).
-Notation "a == b" := [| {eConst "PeanoNat.Nat.eqb"} {a} {b} |]
+Notation "a == b" := [| {eConst "Coq.ZArith.BinInt.Z.eqb"} {a} {b} |]
                         (in custom expr at level 0).
 Notation "a < b" := [| {eConst "Coq.ZArith.BinInt.Z.ltb"} {a} {b} |]
                       (in custom expr at level 0).
@@ -188,7 +188,7 @@ Notation "a <= b" := [| {eConst "Coq.ZArith.BinInt.Z.leb"} {a} {b} |]
 Notation "a <n b" := [| {eConst "PeanoNat.Nat.ltb"} {a} {b} |]
                       (in custom expr at level 0).
 Notation "a <=n b" := [| {eConst "PeanoNat.Nat.leb"} {a} {b} |]
-                        (in custom expr at level 0).
+                       (in custom expr at level 0).
 Notation "a <t b" := [| {eConst "ltb_time"} {a} {b} |]
                       (in custom expr at level 0).
 Notation "a <=t b" := [| {eConst "leb_time"} {a} {b} |]
@@ -214,6 +214,7 @@ Notation "~ a" := [| {eConst "negb"} {a} |]
 
 Definition true_name := "true".
 Definition false_name := "false".
+
 Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
 Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
 
@@ -251,6 +252,42 @@ Notation "'second' A B p" := [| {eConst "snd"} {eTy A} {eTy B} {p} |]
                                   A custom type at level 1,
                                   B custom type at level 1,
                                   p custom expr at level 1).
+
+(** A simplified representation of a call context.
+    Contains: current time, sender, transaction amount, contract's balance *)
+Notation "'CallCtx'" := [! time × (address × (money × money)) !] (in custom type at level 0).
+
+Notation "'current_time' st" :=
+  [| first time (address × (money × money)) {st} |]
+    (in custom expr at level 0).
+
+Notation "'sender_addr' st" :=
+  [| first address (money × money) (second time (address × (money × money)) {st}) |]
+    (in custom expr at level 0).
+
+Notation "'sent_amount' st" :=
+  [| first money money (second address (money × money) (second time (address × (money × money)) {st})) |]
+    (in custom expr at level 0).
+
+Notation "'acc_balance' st" :=
+  [| second money money (second address (money × money) (second time (address × (money × money)) {st})) |]
+    (in custom expr at level 0).
+
+Notation "'mkCallCtx' now sender sent_am bal " :=
+  [| Pair time (address × (money × money)) {now}
+          (Pair address (money × money) {sender}
+                (Pair money money {sent_am} {bal} )) |]
+    (in custom expr at level 0).
+
+(** We use this abbreviation to state lemmas *)
+Definition SimpleCallCtx : Set:= time_coq × (address_coq × (Z × Z)).
+
+(** These projections correspont to the notations above *)
+Definition sc_current_time (ctx : SimpleCallCtx) : time_coq := ctx.1.
+Definition sc_sender_addr (ctx : SimpleCallCtx) : address_coq := ctx.2.1.
+Definition sc_sent_amount (ctx : SimpleCallCtx) : Z := ctx.2.2.1.
+Definition sc_acc_balance (ctx : SimpleCallCtx) : Z := ctx.2.2.2.
+
 
 Definition Just := "Some".
 Definition Nothing := "None".

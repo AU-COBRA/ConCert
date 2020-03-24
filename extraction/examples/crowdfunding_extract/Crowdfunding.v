@@ -31,29 +31,82 @@ Module CrowdfundingContract.
 
   (** Generating string constants for variable names *)
 
-  Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
-                                  "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
-                                    "accs"; "now"; "newstate"; "newmap"; "cond" ] "").
+  Run TemplateProgram
+      (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain"; "ctx"; "setup";
+               "tx_amount"; "bal"; "sender"; "sent_by"; "own"; "isdone" ;
+               "accs"; "now"; "newstate"; "newmap"; "cond" ] "").
 
+
+  (** ** AST of the validation function *)
+  Module Validate.
+    Import Notations.
+
+     Definition maybe_bind_unit_syn :=
+     [| \\"B" => \"o" : Maybe Unit => \"b" : Maybe '"B" =>
+        case "o" : Maybe Unit return Maybe '"B" of
+        | Just "_" -> "b"
+        | Nothing -> $Nothing$Maybe [: '"B" ]  |].
+
+   Make Definition maybe_bind_unit :=
+     (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
+
+   Notation "a >> b : B" :=
+     [| {eConst "maybe_bind_unit"} [: {B} ] {a} {b}|]
+       (in custom expr at level 0,
+           B custom type at level 1,
+           a custom expr,
+           b custom expr).
+
+   (** We check if the amount is zero and then let this check pass, otherwise return Nothing, meaning failure *)
+   Definition validate_syn :=
+     [| \tx_amount : money =>
+        if 0z == tx_amount then $Just$Maybe [: Unit] star
+        else $Nothing$Maybe [: Unit] : Maybe Unit |].
+
+   Make Definition validate :=
+     (expr_to_tc Σ' (indexify nil validate_syn)).
+
+
+   Notation "'VALIDATE' amt" := [| {eConst "validate"} {amt} |] (in custom expr at level 0).
+
+   End Validate.
 
   (** ** AST of the [init] function *)
   Module Init.
     Import Notations.
+    Import Validate.
+
+    (** The last argument of the [init] function must be a [CallCtx]. The init function returns an options type. The [init] function in Liquidity cannot refer to global definitions, so we have to inline validation *)
     Definition crowdfunding_init : expr :=
-      [| \own : address => \dl : time => \g : money =>
-         mkFullState (mkParams dl g own) (mkState MNil False) |].
+      [| \setup : {params_ty}  => \ctx : CallCtx =>
+         (if sent_amount ctx == 0z then
+            $Just$Maybe [:{full_state_ty}]
+             (mkFullState setup (mkState MNil False))
+          else $Nothing$Maybe [: {full_state_ty}] : Maybe  {full_state_ty})|].
 
     Make Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
-    Check init.
+    (** We prove that the initialisation fails if we send money on contact deployment. *)
+    Lemma init_validated setup call_ctx :
+      (sc_sent_amount call_ctx <> 0)%Z ->
+      init setup call_ctx = None.
+    Proof.
+      intros H. destruct call_ctx as [curr_time [sender [tx_amount total_bal]]].
+      unfold init,maybe_bind_unit. destruct ?;auto.
+      cbn in *. unfold validate in *.
+      rewrite Z.eqb_eq in *. lia.
+    Qed.
+
  End Init.
 
  (** ** AST of the [receive] function *)
  Module Receive.
 
    Import CrowdfundingData.Notations.
-     (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
+   Import Validate.
+
+(** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
   Definition actions_ty := [! "list" "SimpleActionBody" !].
 
@@ -97,7 +150,6 @@ Module CrowdfundingContract.
                           x custom expr at level 1).
 
 
-
    Notation "'DONE'" := (eConst "set_done")
                           (in custom expr at level 0).
    Notation "'UPDATE_CONTRIBS'" := (eConst "update_contribs")
@@ -110,54 +162,18 @@ Module CrowdfundingContract.
             a custom expr at level 1,
             b custom expr at level 1).
 
-   Notation SCtx := "SimpleContractCallContext".
-   Notation SChain := "SimpleChain".
-
-   Definition maybe_bind_syn :=
-     [| \\"A" => \\"B" => \"o" : Maybe '"A" => \"f" : '"A" -> Maybe '"B" =>
-        case "o" : Maybe '"A" return Maybe '"B" of
-        | Just "x" -> "f" "x"
-        | Nothing -> $Nothing$Maybe [: '"B" ]  |].
-
-   Make Definition maybe_bind :=
-     (expr_to_tc Σ' (indexify nil maybe_bind_syn)).
-
-   Notation "a >>= b : A , B" :=
-     [| {eConst "maybe_bind"} A B a b |]
-       (in custom expr at level 0,
-           A custom type,
-           B custom type,
-           a custom expr,
-           b custom expr).
-
-   Notation "a >> b : A , B" :=
-     [| {eConst "maybe_bind"} [: {A} ] [: {B} ] {a} (\"x" : {A} => {b})|]
-       (in custom expr at level 0,
-           A custom type at level 1,
-           B custom type at level 1,
-           a custom expr,
-           b custom expr).
-
-   Definition validate_syn :=
-     [| \tx_amount : money =>
-        if 0z < tx_amount then $Just$Maybe [: Unit] star
-        else $Nothing$Maybe [: Unit] : Maybe Unit |].
-
-   Make Definition validate :=
-     (expr_to_tc Σ' (indexify nil validate_syn)).
-
-
-   Notation "'VALIDATE' amt" := [| {eConst "validate"} {amt} |] (in custom expr at level 0).
-
    Definition crowdfunding : expr :=
-     [| \sender : address => \bal : money => \tx_amount : money =>
-        \now : time => \m : msg => \s : {full_state_ty} =>
+     [|  \m : msg => \s : {full_state_ty}  => \ctx : CallCtx =>
+         let sender : address := sender_addr ctx in
+         let bal : money := acc_balance ctx in
+         let tx_amount : money := sent_amount ctx in
+         let now : time := current_time ctx in
          let own : address := owner s in
          let accs : Map := contribs s in
          case m : msg return Maybe Result of
             | GetFunds ->
               if (own ==a sender) && (deadline s <t now) && (goal s <= bal) then
-                (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s))) : Unit, Result
+                (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s))) : Result
              else #Nothing : Maybe Result
             | Donate ->
               if now <=t deadline s then
@@ -173,7 +189,7 @@ Module CrowdfundingContract.
              if (deadline s <t now) && (bal < goal s) && (~ done s) then
              (case (findm sender accs) : Maybe money return Maybe Result of
               | Just v -> let newmap : Map := madd sender 0z accs in
-                 #Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap))
+                 (VALIDATE tx_amount) >> (#Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap))) :  Result
               | Nothing -> #Nothing)
              else #Nothing : Maybe Result
     |].
@@ -181,7 +197,28 @@ Module CrowdfundingContract.
   Make Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).
 
-  Eval simpl in receive.
+  (** We prove that the call to the [receive] fails (returns [None]) if the contract was called with non-zero amount and this is not the "donate" case*)
+  Lemma receive_validated  message state
+        (call_ctx :  SimpleCallCtx) :
+    (sc_sent_amount call_ctx <> 0)%Z -> message <> Donate_coq ->
+    receive message state call_ctx = None.
+  Proof.
+    intros Hneq Hmsg.
+    destruct call_ctx as [curr_time [sender [tx_amount total_bal]]].
+    cbn in *.
+    destruct message;tryfalse.
+    + simpl. destruct ?;auto.
+      unfold maybe_bind_unit. destruct ?;auto.
+      simpl in *. unfold validate in *.
+      destruct ?;tryfalse.
+      rewrite Z.eqb_eq in *. lia.
+    + simpl. destruct ?;auto.
+      destruct ?;auto.
+      unfold maybe_bind_unit. destruct ?;auto.
+      simpl in *. unfold validate in *.
+      destruct ?;tryfalse.
+      rewrite Z.eqb_eq in *. lia.
+  Qed.
 
   End Receive.
 End CrowdfundingContract.
@@ -195,15 +232,15 @@ Definition CFModule : LiquidityModule :=
      message := [! msg !];
      init := Init.crowdfunding_init;
      functions := [("update_contribs", update_contribs_syn);
-                     ("set_done", set_done_syn);
-                     ("receive", Receive.crowdfunding)
+                   ("maybe_bind_unit", Validate.maybe_bind_unit_syn);
+                   ("validate", Validate.validate_syn);
+                   ("set_done", set_done_syn);
+                   ("receive", Receive.crowdfunding)
                   ];
      main := "receive";
-     main_extra_args:=
-       ["(Current.sender ())";
-          "(Current.balance ())";
-          "(Current.amount ())";
-          "(Current.time())"] |}.
+     (* The last argument is a tuple corresponding to [SimpleCallCtx]*)
+     main_extra_args :=
+       [simpleCallCtx] |}.
 
 
 (** A translation table for types *)
@@ -217,9 +254,7 @@ Definition TTty : env string :=
 (** A translation table for primitive binary operations *)
 Definition TT : env string :=
   [("Coq.ZArith.BinInt.Z.add", "addTez");
-     ("PeanoNat.Nat.ltb", "ltbN");
-     ("PeanoNat.Nat.leb", "lebN");
-     ("PeanoNat.Nat.eqb", "eqN");
+     ("Coq.ZArith.BinInt.Z.eqb", "eqTez");
      ("Coq.ZArith.BinInt.Z.leb", "lebTez");
      ("Coq.ZArith.BinInt.Z.ltb", "ltbTez");
      ("negb", "not");
