@@ -5,7 +5,7 @@ Require Import MetaCoq.Template.LiftSubst MetaCoq.Template.utils.
 Require Import Bool.
 Require Import String List.
 
-Require Import MyEnv.
+From ConCert.Embedding Require Import MyEnv.
 
 Import ListNotations.
 

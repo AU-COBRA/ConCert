@@ -1,6 +1,7 @@
 From Coq Require Import List String ZArith.
-From ConCert.Embedding Require Import Utils Notations SimpleBlockchain Prelude Ast MyEnv.
+From ConCert.Embedding Require Import Utils Notations Ast MyEnv.
 From ConCert.Extraction Require Import Liquidity.
+From ConCert.Extraction Require Import SimpleBlockchain Prelude.
 
 Import ListNotations.
 
@@ -8,25 +9,25 @@ Module Counter.
   Import AcornBlockchain.
   (** Generating names for the data structures  *)
   Run TemplateProgram
-       (mkNames ["n"; "money" ; "own"; "st" ; "new_st" ; "new_balance" ; "state" ; "MkState" ; "owner" ; "msg" ; "Inc" ; "Dec" ] "_coq").
+       (mkNames ["n"; "own"; "st" ; "new_st" ; "new_balance" ; "state" ; "MkState" ; "owner" ; "msg" ; "Inc" ; "Dec"; "addr" ] "_coq").
 
   (** ** Definitions of data structures for the contract *)
 
   (** The contract's state. We use the product type directly, because records are not yet supported by extraction *)
   (* TODO: make address a separate data type (say, a wrapper around nat) to be able to recognise it in the extraction *)
-  Notation "'CounterState'" := [! Money × Address !] (in custom type).
+  Notation "'CounterState'" := [! money × address !] (in custom type).
 
   Notation "'balance' a" :=
-    [| first Money Address {a} |]
+    [| first money address {a} |]
       (in custom expr at level 0).
 
   Notation "'owner' a" :=
-    [| second Money Address {a} |]
+    [| second money address {a} |]
       (in custom expr at level 0).
 
   Definition update_balance_syn :=
-    [| \st : Money × Address => \new_balance : Money =>
-       Pair Money Address (balance st + new_balance) (owner st) |].
+    [| \st : money × address => \new_balance : money =>
+       Pair money address (balance st + new_balance) (owner st) |].
 
   Notation "'update_balance' a b" :=
     [| {eConst "_update_balance"} {a} {b} |]
@@ -38,8 +39,8 @@ Module Counter.
   (** Messages *)
   Definition msg_syn :=
   [\ data msg =
-       Inc [Money,_]
-     | Dec [Money,_] \].
+       Inc [money,_]
+     | Dec [money,_] \].
 
   (** The main functionality *)
   Definition counter_syn :=
@@ -55,10 +56,12 @@ Module Counter.
   Definition CounterModule : LiquidityModule :=
     {| datatypes := [msg_syn];
        storage := [! CounterState !];
+       init := [| \n : money => \addr : address => Pair money address n addr  |];
        message := [! msg !];
        functions := [("_update_balance", update_balance_syn);
                        ("counter", counter_syn)];
-      main := "counter" |}.
+       main := "counter";
+       main_extra_args := []|}.
 
   Definition Σ' :=
     (Prelude.Σ ++ [ Prelude.AcornMaybe; msg_syn])%list.
@@ -75,9 +78,11 @@ End Counter.
 
 (** A translation table for types*)
 Definition TTty : env string :=
-  [("Coq.Numbers.BinNums.Z", "tez"); ("Coq.Init.Datatypes.nat", "nat")].
+  [("address_coq", "address");
+     ("Coq.Numbers.BinNums.Z", "tez");
+     ("Coq.Init.Datatypes.nat", "nat")].
 
-(** A translation table for privitive binary operations *)
+(** A translation table for primitive binary operations *)
 Definition TT : env string :=
   [("Coq.ZArith.BinInt.Z.add", "addTez")].
 
@@ -86,7 +91,6 @@ Compute liquidify TT TTty
 
 (** The output has been tested in the online Liquidity editor: https://www.liquidity-lang.org/edit/ *)
 Compute liquidifyModule TT TTty Counter.CounterModule.
-
 
 (** An attempt of extraction from the shallow embedding using the "native" Coq extraction mechanism *)
 
@@ -97,7 +101,7 @@ Extract Inductive prod => "(*)"  [ "(,)" ].
 Extract Inductive Z => "tez" ["0DUN" "id" "negate"].
 Extract Inlined Constant Z.add => "addTez".
 
-(** In Liquidify, [+] is overloaded and thus requires type annotations. We can overcome this issue by un-uverloading the operations and providing specialised versions (not infix anymore). *)
+(** In Liquidify, [+] is overloaded and thus requires type annotations. We can overcome this issue by un-overloading the operations and providing specialised versions (not infix anymore). *)
 
 (** Essentially, we need to prepend the follwing "prelude" before our contracts: *)
 (** let[@inline] fst (p : 'a * 'b) : 'a = p.(0)

@@ -2,9 +2,7 @@
 Require Import List Bool Relations Morphisms ssrbool PeanoNat.
 Require Import MetaCoq.Template.utils.
 
-Require Import Ast CustomTactics Misc.
-Require Import EvalE.
-Require Import MyEnv.
+From ConCert.Embedding Require Import EvalE Ast CustomTactics Misc MyEnv.
 
 (** ** Substitution for the nameless representation *)
 Module NamelessSubst.
