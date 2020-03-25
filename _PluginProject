@@ -62,8 +62,6 @@ extraction/src/liftSubst.ml
 extraction/src/liftSubst.mli
 extraction/src/list0.ml
 extraction/src/list0.mli
-extraction/src/main.ml
-extraction/src/main.mli
 extraction/src/mCCompare.ml
 extraction/src/mCCompare.mli
 extraction/src/mCList.ml
@@ -163,6 +161,8 @@ extraction/src/utils.mli
 extraction/src/wGraph.ml
 extraction/src/wGraph.mli
 
+extraction/src/main.ml
+extraction/src/main.mli
 extraction/src/g_concert_extract.mlg
 extraction/src/concert_extract_plugin.mlpack
 
