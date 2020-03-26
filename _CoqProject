@@ -43,9 +43,6 @@ execution/tests/Congress_BuggyTests.v
 execution/tests/EIP20TokenPrinters.v
 execution/tests/EIP20TokenGens.v
 execution/tests/EIP20TokenTests.v
-execution/tests/BATPrinters.v
-execution/tests/BATGens.v
-execution/tests/BATTests.v
 execution/tests/TraceGens.v
 execution/tests/SerializablePrinters.v
 
