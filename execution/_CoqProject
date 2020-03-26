@@ -21,6 +21,8 @@ theories/Examples/Congress_Buggy.v
 theories/Examples/Egcd.v
 theories/Examples/EIP20Token.v
 theories/Examples/BAT.v
+theories/Examples/FA2Interface.v
+theories/Examples/FA2Token.v
 theories/Examples/Escrow.v
 theories/Examples/Euler.v
 theories/Examples/LocalBlockchainTests.v
