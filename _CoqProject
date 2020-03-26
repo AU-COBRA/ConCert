@@ -21,6 +21,8 @@ execution/theories/Examples/Congress_Buggy.v
 execution/theories/Examples/Egcd.v
 execution/theories/Examples/EIP20Token.v
 execution/theories/Examples/BAT.v
+execution/theories/Examples/FA2Interface.v
+execution/theories/Examples/FA2Token.v
 execution/theories/Examples/Escrow.v
 execution/theories/Examples/Euler.v
 execution/theories/Examples/LocalBlockchainTests.v
