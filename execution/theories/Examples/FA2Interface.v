@@ -2,6 +2,7 @@ From Coq Require Import ZArith.
 From Coq Require Import List.
 Require Import Serializable.
 Require Import Blockchain.
+Require Import Monads.
 
 Import ListNotations.
 Require Import Extras.
@@ -13,7 +14,14 @@ Context {BaseTypes : ChainBase}.
 Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 Section FA2Types.
+
 Definition token_id := N.
+
+Record callback (A : Type) := {
+  callback_addr : Address;
+  body : A;
+}.
+
 
 Record transfer :=
   build_transfer {
@@ -35,7 +43,7 @@ Record balance_of_response := {
 
 Record balance_of_param := {
   bal_requests : list balance_of_request;
-  bal_callback : (list balance_of_response); (*TODO : what type here? *)
+  bal_callback : callback (list balance_of_response); (*TODO : what type here? *)
 }.
 
 Record total_supply_response := {
@@ -45,7 +53,7 @@ Record total_supply_response := {
 
 Record total_supply_param := {
   supply_param_token_ids : list token_id;
-  supply_param_callback : (list total_supply_response); (*TODO : what type here? *)
+  supply_param_callback : callback (list total_supply_response); (*TODO : what type here? *)
 }.
 
 Record token_metadata := {
@@ -58,7 +66,7 @@ Record token_metadata := {
 
 Record token_metadata_param := {
   metadata_token_ids : list token_id;
-  metadata_callback : (list token_metadata); (*TODO : what type here? *)
+  metadata_callback : callback (list token_metadata); (*TODO : what type here? *)
 }.
 
 Inductive operator_tokens :=
@@ -82,7 +90,7 @@ Record is_operator_response := {
 
 Record is_operator_param := {
   is_operator_operator : operator_param;
-  is_operator_callback : (is_operator_response); (* TODO *)
+  is_operator_callback : callback (is_operator_response); (* TODO *)
 }.
 
 (* permission policy definition *)
@@ -144,6 +152,9 @@ Inductive fa2_token_sender :=
 End FA2Types.
 Section Setters.
 
+Instance callback_settable {A : Type} : Settable (callback A) :=
+  settable! (Build_callback A) <(callback_addr A); (body A)>.
+  
 Instance transfer_settable : Settable transfer :=
   settable! build_transfer <from_; to_; transfer_token_id; amount>.
 
@@ -196,6 +207,17 @@ Instance transfer_descriptor_param_settable : Settable transfer_descriptor_param
 End Setters.
 
 Section Serialization.
+
+(* Global Program Instance callback_serializable {A : Type} `{Serializable A} : Serializable (callback A) :=
+  {| serialize c := let addr := c.(callback_addr A) in
+                    let body := c.(body A) in
+                    serialize (addr, body);
+     deserialize p := 
+     do prod <- @deserialize_product Address _ A _ p ;
+     Some (Build_callback A (fst prod) (snd prod)) ;
+  |}.
+Next Obligation. *)
+
 Global Instance transfer_serializable : Serializable transfer :=
   Derive Serializable transfer_rect <build_transfer>.
 
@@ -205,17 +227,26 @@ Global Instance balance_of_request_serializable : Serializable balance_of_reques
 Global Instance balance_of_response_serializable : Serializable balance_of_response :=
   Derive Serializable balance_of_response_rect <Build_balance_of_response>.
 
+Instance bal_of_param_callback_serializable : Serializable (callback (list balance_of_response)) :=
+  Derive Serializable (callback_rect (list balance_of_response)) <(Build_callback (list balance_of_response))>.
+
 Global Instance balance_of_param_serializable : Serializable balance_of_param :=
   Derive Serializable balance_of_param_rect <Build_balance_of_param>.
 
 Global Instance total_supply_response_serializable : Serializable total_supply_response :=
   Derive Serializable total_supply_response_rect <Build_total_supply_response>.
 
+Instance supply_param_callback_serializable : Serializable (callback (list total_supply_response)) :=
+  Derive Serializable (callback_rect (list total_supply_response)) <(Build_callback (list total_supply_response))>.
+
 Global Instance total_supply_param_serializable : Serializable total_supply_param :=
   Derive Serializable total_supply_param_rect <Build_total_supply_param>.
 
 Global Instance token_metadata_serializable : Serializable token_metadata :=
   Derive Serializable token_metadata_rect <Build_token_metadata>.
+
+Instance metadata_callback_serializable : Serializable (callback (list token_metadata)) :=
+  Derive Serializable (callback_rect (list token_metadata)) <(Build_callback (list token_metadata))>.
 
 Global Instance token_metadata_param_serializable : Serializable token_metadata_param :=
   Derive Serializable token_metadata_param_rect <Build_token_metadata_param>.
@@ -231,6 +262,9 @@ Global Instance update_operator_serializable : Serializable update_operator :=
 
 Global Instance is_operator_response_serializable : Serializable is_operator_response :=
   Derive Serializable is_operator_response_rect <Build_is_operator_response>.
+
+Instance is_operator_param_callback_serializable : Serializable (callback is_operator_response) :=
+  Derive Serializable (callback_rect is_operator_response) <(Build_callback is_operator_response)>.
 
 Global Instance is_operator_param_serializable : Serializable is_operator_param :=
   Derive Serializable is_operator_param_rect <Build_is_operator_param>.
@@ -261,4 +295,5 @@ Global Instance fa2_token_receiver_serializable : Serializable fa2_token_receive
 
 Global Instance fa2_token_sender_serializable : Serializable fa2_token_sender :=
   Derive Serializable fa2_token_sender_rect <tokens_sent>.
+
 End Serialization.
