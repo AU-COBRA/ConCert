@@ -40,9 +40,21 @@ Module FMap.
   Section Theories.
     Context {K V : Type} `{countable.Countable K}.
 
-    Proposition of_elements_eq (m : FMap K V) :
+    Lemma of_elements_eq (m : FMap K V) :
       of_list (elements m) = m.
     Proof. apply fin_maps.list_to_map_to_list. Qed.
+
+    Lemma of_list_elements (m : FMap K V) :
+      of_list (elements m) = m.
+    Proof. apply fin_maps.list_to_map_to_list. Qed.
+
+    Lemma elements_of_list (l : list (K * V)) :
+      NoDup (map fst l) ->
+      Permutation (elements (of_list l)) l.
+    Proof.
+      rewrite <- base.NoDup_ListNoDup.
+      apply fin_maps.map_to_list_to_map.
+    Qed.
 
     Lemma find_add (k : K) (v : V) (m : FMap K V) :
       find k (add k v m) = Some v.
@@ -207,6 +219,33 @@ Module FMap.
       rewrite <- add_remove.
       rewrite elements_add; auto.
       apply find_remove.
+    Qed.
+
+    Lemma not_In_elements k (m : FMap K V) :
+      (forall v, ~ In (k, v) (elements m)) <-> find k m = None.
+    Proof.
+      split.
+      - intros all.
+        destruct (find k m) eqn:find; [|easy].
+        pose proof (proj2 (In_elements _ _ _) find).
+        specialize (all v); congruence.
+      - intros find v is_in.
+        pose proof (proj1 (In_elements _ _ _) is_in).
+        congruence.
+    Qed.
+
+    Lemma NoDup_elements (m : FMap K V) :
+      NoDup (elements m).
+    Proof.
+      apply base.NoDup_ListNoDup.
+      apply fin_maps.NoDup_map_to_list.
+    Qed.
+
+    Lemma NoDup_keys (m : FMap K V) :
+      NoDup (keys m).
+    Proof.
+      apply base.NoDup_ListNoDup.
+      apply fin_maps.NoDup_fst_map_to_list.
     Qed.
   End Theories.
 End FMap.
