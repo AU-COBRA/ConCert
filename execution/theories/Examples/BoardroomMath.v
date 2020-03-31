@@ -87,24 +87,19 @@ Class BoardroomAxioms {A : Type} :=
 
 Arguments BoardroomAxioms : clear implicits.
 
-Delimit Scope broom_scope with broom.
+Delimit Scope ffield_scope with ffield.
 
-Module BoardroomMathNotations.
-  Infix "==" := elmeq (at level 70) : broom.
-  Infix "=?" := elmeqb (at level 70) : broom.
-  Notation "a !== b" := (~(elmeq a b)) (at level 70) : broom.
-  Notation "0" := zero : broom.
-  Notation "1" := one : broom.
-  Infix "+" := add : broom.
-  Infix "*" := mul : broom.
-  Infix "^" := pow : broom.
-  Notation "a 'exp=' b" := (expeq a b) (at level 70) : broom.
-  Notation "a 'exp<>' b" := (~(expeq a b)) (at level 70) : broom.
-End BoardroomMathNotations.
+Infix "==" := elmeq (at level 70) : ffield.
+Notation "a !== b" := (~(elmeq a b)) (at level 70) : ffield.
+Notation "0" := zero : ffield.
+Notation "1" := one : ffield.
+Infix "+" := add : ffield.
+Infix "*" := mul : ffield.
+Infix "^" := pow : ffield.
+Notation "a 'exp=' b" := (expeq a b) (at level 70) : ffield.
+Notation "a 'exp<>' b" := (~(expeq a b)) (at level 70) : ffield.
 
-Import BoardroomMathNotations.
-Local Open Scope broom.
-
+Local Open Scope ffield.
 Global Instance oeq_equivalence {A : Type} (field : BoardroomAxioms A) : Equivalence expeq.
 Proof.
   unfold expeq.
@@ -116,7 +111,7 @@ Qed.
 
 Definition BoardroomAxioms_field_theory {A : Type} (field : BoardroomAxioms A) :
   field_theory
-    0 1
+    zero one
     add mul
     (fun x y => x + (opp y)) opp
     (fun x y => x * inv y) inv
@@ -170,42 +165,17 @@ Section WithBoardroomAxioms.
   Context {gen : Generator field}.
   Context {disc_log : DiscreteLog field gen}.
 
+  Add Field ff : (BoardroomAxioms_field_theory field).
+
+  Local Open Scope ffield.
+
+  Hint Resolve one_neq_zero pow_nonzero generator_nonzero inv_nonzero : core.
+
   Fixpoint prod (l : list A) : A :=
     match l with
     | [] => one
     | x :: xs => x * prod xs
     end.
-
-  Definition compute_public_key (sk : Z) : A :=
-    generator ^ sk.
-
-  Definition reconstructed_key (pks : list A) (n : nat) : A :=
-    let lprod := prod (firstn n pks) in
-    let rprod := inv (prod (skipn (S n) pks)) in
-    lprod * rprod.
-
-  Definition compute_public_vote (rk : A) (sk : Z) (sv : bool) : A :=
-    rk ^ sk * if sv then generator else 1.
-
-  Fixpoint bruteforce_tally_aux
-           (n : nat)
-           (votes_product : A) : option nat :=
-    if generator ^ (Z.of_nat n) =? votes_product then
-      Some n
-    else
-      match n with
-      | 0 => None
-      | S n => bruteforce_tally_aux n votes_product
-      end%nat.
-
-  Definition bruteforce_tally (votes : list A) : option nat :=
-    bruteforce_tally_aux (length votes) (prod votes).
-
-  Add Field ff : (BoardroomAxioms_field_theory field).
-
-  Local Open Scope broom.
-
-  Hint Resolve one_neq_zero pow_nonzero generator_nonzero inv_nonzero : core.
 
   Instance plus_expeq_proper : Proper (expeq ==> expeq ==> expeq) Z.add.
   Proof.
@@ -328,6 +298,31 @@ Section WithBoardroomAxioms.
 
   Hint Resolve -> prod_units : core.
   Hint Resolve <- prod_units : core.
+
+  Definition compute_public_key (sk : Z) : A :=
+    generator ^ sk.
+
+  Definition reconstructed_key (pks : list A) (n : nat) : A :=
+    let lprod := prod (firstn n pks) in
+    let rprod := inv (prod (skipn (S n) pks)) in
+    lprod * rprod.
+
+  Definition compute_public_vote (rk : A) (sk : Z) (sv : bool) : A :=
+    rk ^ sk * if sv then generator else 1.
+
+  Fixpoint bruteforce_tally_aux
+           (n : nat)
+           (votes_product : A) : option nat :=
+    if elmeqb (generator ^ (Z.of_nat n)) votes_product then
+      Some n
+    else
+      match n with
+      | 0 => None
+      | S n => bruteforce_tally_aux n votes_product
+      end%nat.
+
+  Definition bruteforce_tally (votes : list A) : option nat :=
+    bruteforce_tally_aux (length votes) (prod votes).
 
   Lemma compute_public_key_unit sk :
     compute_public_key sk !== 0.
@@ -465,7 +460,7 @@ Section WithBoardroomAxioms.
     destruct (i <? j)%nat; lia.
   Qed.
 
-  Local Open Scope broom.
+  Local Open Scope ffield.
   Lemma mul_public_votes
         (sks : list Z)
         (votes : nat -> bool) :
