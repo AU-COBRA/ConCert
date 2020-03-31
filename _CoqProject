@@ -12,7 +12,6 @@ execution/theories/ChainedList.v
 execution/theories/Circulation.v
 execution/theories/Containers.v
 execution/theories/ContractMonads.v
-execution/theories/Examples/BignumsSerializable.v
 execution/theories/Examples/BoardroomMath.v
 execution/theories/Examples/BoardroomVoting.v
 execution/theories/Examples/BoardroomVotingTest.v
