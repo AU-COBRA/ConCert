@@ -41,10 +41,6 @@ Module Counter.
              (p : (0 <=? new_balance) = true) :=
     (st.1 -  new_balance, st.2).
 
-  Definition geb_non_neg : forall i, (0 <=? i) = true -> non_neg.
-    intros i H. apply Z.leb_le in H. exists i. exact H.
-  Qed.
-
   Definition my_bool_dec := Eval compute in bool_dec.
 
   Definition counter (msg : msg) (st : storage)
@@ -57,7 +53,7 @@ Module Counter.
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], inc_balance st i h)
+      | left h => Some ([], dec_balance st i h)
       | right _ => None
       end
     end.
@@ -92,8 +88,9 @@ Run TemplateProgram
      ind <- tmQuoteInductive "msg" ;;
      ind_liq <- get_one_ind_body TT ind.(ind_bodies);;
      t1 <- toLiquidity TT inc_balance ;;
-     t2 <- toLiquidity TT my_bool_dec ;;
-     t3 <- toLiquidity TT counter ;;
+     t2 <- toLiquidity TT dec_balance ;;
+     t3 <- toLiquidity TT my_bool_dec ;;
+     t4 <- toLiquidity TT counter ;;
      res <- tmEval lazy
                   (prod_ops ++ nl ++ int_ops
                      ++ nl ++ nl
@@ -106,6 +103,8 @@ Run TemplateProgram
                      ++ t2
                      ++ nl ++ nl
                      ++ t3
+                     ++ nl ++ nl
+                     ++ t4
                      ++ nl ++ nl
                      ++ printWrapper "counter"
                      ++ nl ++ nl
