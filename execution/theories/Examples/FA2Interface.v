@@ -156,6 +156,14 @@ Record set_hook_param := {
   hook_permissions_descriptor : permissions_descriptor;
 }.
 
+Inductive FA2ReceiverMsg {Msg : Type} :=
+  | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
+  | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
+  | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
+  | receive_is_operator : is_operator_response  -> FA2ReceiverMsg
+  | transfer_hook : transfer_descriptor_param -> FA2ReceiverMsg
+  | other_msg : Msg -> FA2ReceiverMsg.
+
 
 End FA2Types.
 
@@ -280,7 +288,8 @@ Global Instance update_operator_serializable : Serializable update_operator :=
 Global Instance is_operator_response_serializable : Serializable is_operator_response :=
   Derive Serializable is_operator_response_rect <Build_is_operator_response>.
 
-(* Instance is_operator_param_callback_serializable : Serializable (callback is_operator_response) :=
+ 
+  (* Instance is_operator_param_callback_serializable : Serializable (callback is_operator_response) :=
   Derive Serializable (callback_rect is_operator_response) <(Build_callback is_operator_response)>. *)
 
 Global Instance is_operator_param_serializable : Serializable is_operator_param :=
