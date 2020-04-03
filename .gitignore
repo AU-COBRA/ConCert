@@ -31,3 +31,7 @@ execution/CoqMakefile.conf
 doc/
 docs/
 _opam/
+
+## extraction output
+*.liq
+*.out

@@ -175,7 +175,7 @@ Section print_term.
 
   Fixpoint print_term (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
   match t with
-  | tBox => "()" (* boxes become the contructor of the [unit] type *)
+  | tBox _ => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n =>
     match nth_error Γ n with
     | Some {| decl_name := na |} =>
@@ -280,41 +280,64 @@ Local Open Scope string_scope.
 
 
 (** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. This part must be included to all the contracts. *)
-Definition LiquidityPrelude :=
+
+Definition prod_ops :=
        "let[@inline] fst (p : 'a * 'b) : 'a = p.(0)"
     ++ nl
-    ++ "let[@inline] snd (p : 'a * 'b) : 'b = p.(1)"
+    ++ "let[@inline] snd (p : 'a * 'b) : 'b = p.(1)".
+
+Definition int_ops :=
+       "let[@inline] addInt (i : int) (j : int) = i + j"
     ++ nl
-    ++ "let[@inline] addN (n : nat) (m : nat) = n + m"
+    ++ "let[@inline] subInt (i : int) (j : int) = i - j"
     ++ nl
-    ++ "let[@inline] addTez (n : tez) (m : tez) = n + m"
+    ++ "let[@inline] leInt (i : int) (j : int) = i <= j"
+    ++ nl
+    ++ "let[@inline] ltInt (i : int) (j : int) = i < j"
+    ++ nl
+    ++ "let[@inline] eqInt (i : int) (j : int) = i = j".
+
+Definition tez_ops :=
+       "let[@inline] addTez (n : tez) (m : tez) = n + m"
     ++ nl
     ++ "let[@inline] subTez (n : tez) (m : tez) = n - m"
     ++ nl
-    ++ "let[@inline] andb (a : bool ) (b : bool ) = a & b"
+    ++ "let[@inline] leTez (a : tez ) (b : tez ) = a <= b"
+    ++ nl
+    ++ "let[@inline] ltTez (a : tez ) (b : tez ) =  a < b"
+    ++ nl
+    ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b".
+
+Definition nat_ops :=
+       "let[@inline] eqN (a : nat ) (b : nat ) = a = b"
     ++ nl
     ++ "let[@inline] lebN (a : nat ) (b : nat ) = a <= b"
     ++ nl
-    ++ "let[@inline] ltbN (a : nat ) (b : nat ) = a < b"
-    ++ nl
-    ++ "let[@inline] lebTez (a : tez ) (b : tez ) = a<=b"
-    ++ nl
-    ++ "let[@inline] ltbTez (a : tez ) (b : tez ) = a<b"
-    ++ nl
-    ++ "let[@inline] eqN (a : nat ) (b : nat ) = a = b"
-    ++ nl
-    ++ "let[@inline] eqb_addr (a1 : address) (a2 : address) = a1 = a2"
-    ++ nl
-    ++ "let[@inline] eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2"
+    ++ "let[@inline] ltbN (a : nat ) (b : nat ) = a < b".
+
+Definition bool_ops :=
+  "let[@inline] andb (a : bool ) (b : bool ) = a & b".
+
+Definition time_ops :=
+       "let[@inline] eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2"
     ++ nl
     ++ "let[@inline] leb_time (a1 : timestamp) (a2 : timestamp) = a1 <= a2"
     ++ nl
     ++ "let[@inline] ltb_time (a1 : timestamp) (a2 : timestamp) = a1 < a2".
 
+Definition address_ops :=
+  "let[@inline] eq_addr (a1 : address) (a2 : address) = a1 = a2".
+
+
+Definition LiquidityPrelude :=
+  print_list id (nl ++ nl)
+             [prod_ops; int_ops; tez_ops; nat_ops;
+             bool_ops; time_ops; address_ops].
+
 Definition printWrapper (contract : string): string :=
-  "let wrapper param st"
+  "let wrapper param (st : storage)"
         ++ " = "
-        ++ "match " ++ contract ++ " param (st : storage)" ++ " with"
+        ++ "match " ++ contract ++ " param st" ++ " with"
         ++ "| Some v -> v"
         ++ "| None -> failwith ()".
 
