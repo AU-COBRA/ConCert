@@ -26,8 +26,6 @@ Module Counter.
 
   Definition storage := Z × nat.
 
-  Definition non_neg := {z : Z | 0 <= z}.
-
   Inductive msg :=
   | Inc (_ : Z)
   | Dec (_ : Z).
