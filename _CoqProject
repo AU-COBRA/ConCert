@@ -46,6 +46,7 @@ execution/tests/EIP20TokenPrinters.v
 execution/tests/EIP20TokenGens.v
 execution/tests/EIP20TokenTests.v
 execution/tests/TraceGens.v
+execution/tests/FA2Printers.v
 execution/tests/SerializablePrinters.v
 
 -R embedding/theories ConCert.Embedding
