@@ -110,17 +110,18 @@ Inductive owner_transfer_policy :=
   | optional_owner_hook : owner_transfer_policy
   | required_owner_hook : owner_transfer_policy.
   
-Record custom_permission_policy := {
+(* Inlined the address instead *)
+(* Record custom_permission_policy := {
   (* custom_policy_tag : string; *)
   custom_policy_config_api: option Address;
-}.
+}. *)
 
 Record permissions_descriptor := {
   descr_self : self_transfer_policy;
   descr_operator : operator_transfer_policy;
   descr_receiver : owner_transfer_policy;
   descr_sender : owner_transfer_policy;
-  descr_custom : option custom_permission_policy;
+  descr_custom : option Address;
 }.
 
 (* Inductive fa2_entry_points :=
@@ -133,8 +134,8 @@ Record permissions_descriptor := {
   | Is_operator : is_operator_param -> fa2_entry_points. *)
 
 Record transfer_descriptor := {
-  transfer_descr_from_ : option Address;
-  transfer_descr_to_ : option Address;
+  transfer_descr_from_ : Address;
+  transfer_descr_to_ : Address;
   transfer_descr_token_id : token_id;
   transfer_descr_amount : N;
 }.
@@ -155,16 +156,6 @@ Record set_hook_param := {
   hook_addr : Address;
   hook_permissions_descriptor : permissions_descriptor;
 }.
-
-Inductive FA2ReceiverMsg {Msg : Type} `{Serializable Msg} :=
-  | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
-  | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
-  | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
-  | receive_is_operator : is_operator_response  -> FA2ReceiverMsg
-  | receive_permissions_descriptor : permissions_descriptor -> FA2ReceiverMsg
-  | transfer_hook : transfer_descriptor_param -> FA2ReceiverMsg
-  | other_msg : Msg -> FA2ReceiverMsg.
-
 
 End FA2Types.
 
@@ -206,8 +197,8 @@ Instance is_operator_response_settable : Settable is_operator_response :=
 Instance is_operator_param_settable : Settable is_operator_param :=
   settable! Build_is_operator_param <is_operator_operator; is_operator_callback>.
 
-Instance custom_permission_policy_settable : Settable custom_permission_policy :=
-  settable! Build_custom_permission_policy <custom_policy_config_api>.
+(* Instance custom_permission_policy_settable : Settable custom_permission_policy :=
+  settable! Build_custom_permission_policy <custom_policy_config_api>. *)
 
 Instance permissions_descriptor_settable : Settable permissions_descriptor :=
   settable! Build_permissions_descriptor <descr_self; descr_operator; descr_receiver; descr_sender; descr_custom>.
@@ -305,8 +296,8 @@ Global Instance operator_transfer_policy_serializable : Serializable operator_tr
 Global Instance owner_transfer_policy_serializable : Serializable owner_transfer_policy :=
   Derive Serializable owner_transfer_policy_rect <owner_no_op , optional_owner_hook, required_owner_hook>.
 
-Global Instance custom_permission_policy_serializable : Serializable custom_permission_policy :=
-  Derive Serializable custom_permission_policy_rect <Build_custom_permission_policy>.
+(* Global Instance custom_permission_policy_serializable : Serializable custom_permission_policy :=
+  Derive Serializable custom_permission_policy_rect <Build_custom_permission_policy>. *)
 
 Global Instance permissions_descriptor_serializable : Serializable permissions_descriptor :=
   Derive Serializable permissions_descriptor_rect <Build_permissions_descriptor>.
@@ -328,16 +319,6 @@ Global Instance fa2_token_sender_serializable : Serializable fa2_token_sender :=
 
 Global Instance set_hook_param_serializable : Serializable set_hook_param :=
   Derive Serializable set_hook_param_rect <Build_set_hook_param>.
-
-Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2ReceiverMsg Msg serMsg) :=
-Derive Serializable (@FA2ReceiverMsg_rect Msg serMsg) <
-  (@receive_balance_of_param Msg serMsg), 
-  (@receive_total_supply_param Msg serMsg), 
-  (@receive_metadata_callback Msg serMsg), 
-  (@receive_is_operator Msg serMsg), 
-  (@receive_permissions_descriptor Msg serMsg), 
-  (@transfer_hook  Msg serMsg), 
-  (@other_msg Msg serMsg)>.
 
 End Serialization.
 

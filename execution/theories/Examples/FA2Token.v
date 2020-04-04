@@ -21,10 +21,22 @@ Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
 
+Inductive FA2ReceiverMsg {Msg : Type} `{Serializable Msg} :=
+  | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
+  | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
+  | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
+  | receive_is_operator : is_operator_response  -> FA2ReceiverMsg
+  | receive_permissions_descriptor : permissions_descriptor -> FA2ReceiverMsg
+  | other_msg : Msg -> FA2ReceiverMsg.
+
+Inductive FA2TransferHook {Msg : Type} `{Serializable Msg} :=
+  | transfer_hook : transfer_descriptor_param -> FA2TransferHook
+  | hook_other_msg : Msg -> FA2TransferHook.
 
 Inductive Msg := 
   | msg_transfer : list transfer -> Msg
   | msg_set_transfer_hook : set_hook_param -> Msg
+  | msg_receive_hook_transfer : transfer_descriptor_param -> Msg
   | msg_balance_of : balance_of_param -> Msg
   | msg_total_supply : total_supply_param -> Msg
   | msg_token_metadata : token_metadata_param -> Msg
@@ -45,14 +57,13 @@ Record State :=
     operators          : FMap Address (FMap Address operator_tokens);
     permission_policy  : permissions_descriptor;
     tokens             : FMap token_id token_metadata;
-    transfer_hook_addr : Address; 
+    transfer_hook_addr : option Address;
   }.
 
 Record Setup :=
   build_setup {
     setup_total_supply        : list (token_id * N); (* is this necessary? *)
     setup_tokens              : FMap token_id token_metadata;
-    initial_transfer_hook     : Address;
     initial_permission_policy : permissions_descriptor;
   }.
 
@@ -61,15 +72,29 @@ Instance token_ledger_settable : Settable _ :=
 Instance state_settable : Settable _ :=
   settable! build_state <fa2_owner; assets; operators; permission_policy; tokens; transfer_hook_addr>.
 Instance setup_settable : Settable _ :=
-  settable! build_setup <setup_total_supply; setup_tokens; initial_transfer_hook; initial_permission_policy>.
+  settable! build_setup <setup_total_supply; setup_tokens; initial_permission_policy>.
 
 Section Serialization.
 
 Global Instance setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect <build_setup>.
 
+Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2ReceiverMsg Msg serMsg) :=
+  Derive Serializable (@FA2ReceiverMsg_rect Msg serMsg) <
+    (@receive_balance_of_param Msg serMsg), 
+    (@receive_total_supply_param Msg serMsg), 
+    (@receive_metadata_callback Msg serMsg), 
+    (@receive_is_operator Msg serMsg), 
+    (@receive_permissions_descriptor Msg serMsg), 
+    (@other_msg Msg serMsg)>.
+
+Global Instance FA2TransferHook_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2TransferHook Msg serMsg) :=
+  Derive Serializable (@FA2TransferHook_rect Msg serMsg) <
+    (@transfer_hook  Msg serMsg), 
+    (@hook_other_msg Msg serMsg)>.  
+
 Global Instance msg_serializable : Serializable Msg :=
-  Derive Serializable Msg_rect <msg_transfer, msg_set_transfer_hook, msg_balance_of, msg_total_supply, msg_token_metadata, msg_permissions_descriptor, msg_update_operators, msg_is_operator>.
+  Derive Serializable Msg_rect <msg_transfer, msg_set_transfer_hook, msg_receive_hook_transfer, msg_balance_of, msg_total_supply, msg_token_metadata, msg_permissions_descriptor, msg_update_operators, msg_is_operator>.
 
 Global Instance TokenLedger_serializable : Serializable TokenLedger :=
   Derive Serializable TokenLedger_rect <build_token_ledger>.
@@ -81,22 +106,6 @@ End Serialization.
 
 Definition returnIf (cond : bool) := if cond then None else Some tt.
 
-Definition address_has_sufficient_asset_balance (token_id : token_id) 
-                                                (owner : Address) 
-                                                (transaction_amount : N) 
-                                                (state : State) 
-                                                : option unit :=
-  do ledger <- FMap.find token_id state.(assets) ;
-  do owner_balance <- FMap.find owner ledger.(balances) ;
-  if transaction_amount <=? owner_balance
-  then Some tt
-  else None. 
-
-(* TODO: dummy implementation for now - only owner has permission to transfer token*)
-Definition address_has_transfer_permission (caller owner : Address) : option unit := 
-  if address_eqb caller owner then Some tt else None.
-
-
 Definition address_balance (token_id : token_id)
                            (addr : Address)
                            (state : State) : N := 
@@ -105,12 +114,21 @@ Definition address_balance (token_id : token_id)
   | None => 0%N
   end.
 
+Definition address_has_sufficient_asset_balance (token_id : token_id) 
+                                                (owner : Address) 
+                                                (transaction_amount : N) 
+                                                (state : State) 
+                                                : option unit :=
+  
+  if transaction_amount <=? address_balance token_id owner state
+  then Some tt
+  else None. 
+
 Definition policy_disallow_operator_transfer (state : State) : bool := 
   match state.(permission_policy).(descr_operator) with
   | operator_transfer_permitted => false 
   | operator_transfer_denied => true
   end .
-
 
 Definition get_owner_operator_tokens (owner operator : Address) 
                                      (state : State)
@@ -122,11 +140,6 @@ Definition try_single_transfer (caller : Address)
                                (params : transfer)
                                (state : State)
                                : option State :=
-  (* do _ <- address_has_sufficient_asset_balance transfer_params.(transfer_token_id) transfer_params.(from_) transfer_params.(amount) ; *)
-  (* only allow transfers of known token_ids *)
-  do _ <- FMap.find params.(transfer_token_id) state.(tokens) ;
-  (* check for sufficient permissions *)
-  do _ <- address_has_transfer_permission caller params.(from_) ;
   do ledger <- FMap.find params.(transfer_token_id) state.(assets) ;
   let current_owner_balance := address_balance params.(transfer_token_id) params.(from_) state in
   let new_balances := FMap.add params.(from_) (current_owner_balance - params.(amount)) ledger.(balances) in
@@ -139,16 +152,23 @@ Definition transfer_check_permissions (caller : Address)
                                       (policy : permissions_descriptor)
                                       (state : State)
                                       : option unit := 
+  (* check for sufficient permissions *)
+  do _ <- address_has_sufficient_asset_balance params.(transfer_token_id) params.(from_) params.(amount) state ;
+  (* only allow transfers of known token_ids *)
+  do _ <- FMap.find params.(transfer_token_id) state.(tokens) ;  
   (* if caller is owner of transfer, then check policy if self_transfer is allowed *)
   if (address_eqb caller params.(from_))
   then 
     returnIf match policy.(descr_self) with
-             | self_transfer_permitted => false
              | self_transfer_denied => true
+             | self_transfer_permitted => false
              end
   else 
+    (* check if policy allows operator transfer *)
+    do _ <- returnIf (policy_disallow_operator_transfer state) ;
     do operators_map <- FMap.find params.(from_) state.(operators) ;
     do op_tokens <- FMap.find caller operators_map ;
+    (* check if operator has permission to transfer the given token_id type *)
     match op_tokens with
     | all_tokens => Some tt
     | some_tokens token_ids => if (existsb (fun id => id =? params.(transfer_token_id)) token_ids)
@@ -156,26 +176,54 @@ Definition transfer_check_permissions (caller : Address)
                                else None
     end.
 
-(* Definition call_transfer_hook (caller : Address)
-                              (transfers : list transfer)
-                              (state : State)
-                              : list ActionBody :=
- *)
-
 Definition try_transfer (caller : Address)
                         (transfers : list transfer)
                         (state : State)
-                        : option TokenLedger :=
+                        : option State :=
   let check_transfer_iterator state_opt params :=
     do state <- state_opt ;
     do _ <- transfer_check_permissions caller params state.(permission_policy) state;
     try_single_transfer caller params state in   
   (* returns the new state if all transfers *can* succeed, otherwise returns None *)
-  do state_opt <- fold_left check_transfer_iterator transfers (Some state) ;
-  (* TODO: create callback actions *)
+  fold_left check_transfer_iterator transfers (Some state).
 
-  None.
-  
+(* Forwards the transfer to the hook to approve/reject *)
+Definition call_transfer_hook (caller : Address)
+                              (caddr : Address)
+                              (transfer_hook_addr : Address)
+                              (transfers : list transfer)
+                              (state : State)
+                              : ActionBody :=
+  let mk_transfer_descr tr := {|
+    transfer_descr_from_ := (tr.(from_));
+    transfer_descr_to_ := (tr.(to_));
+    transfer_descr_token_id := tr.(transfer_token_id);
+    transfer_descr_amount := tr.(amount);
+    |} in
+  let transfer_decr_param := {|
+    transfer_descr_fa2 := caddr;
+    transfer_descr_batch := map mk_transfer_descr transfers;
+    transfer_descr_operator := caller;
+    |} in
+  act_call transfer_hook_addr 0%Z (serialize (transfer_hook transfer_decr_param)).
+
+(* Handles incoming transfers:
+   - if the contract has a transfer_hook, then it uses the hook
+   - otherwise it checks & performs the transfers now *)
+Definition handle_transfer (caller : Address)
+                           (caddr : Address)
+                           (transfers : list transfer)
+                           (state : State)
+                           : option (State * list ActionBody) :=
+  match state.(transfer_hook_addr) with
+  (* send call transfer hook (approved transfers will be received in the msg_receive_hook_transfer endpoint) *)
+  | Some transfer_hook_addr => 
+    let call_hook_act := call_transfer_hook caller caddr transfer_hook_addr transfers state in 
+    Some (state, [call_hook_act])
+  (* perform transfers locally, now *)
+  | None => option_map (fun new_state => (new_state, [])) (try_transfer caller transfers state)
+  end.
+
 Definition get_balance_of_callback (caller : Address)
                                      (param : balance_of_param)
                                      (state : State)
@@ -266,7 +314,7 @@ Definition try_set_transfer_hook (caller : Address)
                                  : option State :=
   (* only owner can set transfer hook *)
   do _ <- returnIf (negb (address_eqb caller state.(fa2_owner))) ;
-  Some (state<| transfer_hook_addr :=  params.(hook_addr)|>
+  Some (state<| transfer_hook_addr :=  Some params.(hook_addr)|>
              <| permission_policy  := params.(hook_permissions_descriptor) |>).
 
 
@@ -297,7 +345,9 @@ Definition receive (chain : Chain)
 	(* Only allow calls to this contract with no payload *)
 	if ctx.(ctx_amount) >? 0
 	then None
-	else match maybe_msg with
+  else match maybe_msg with
+  | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state 
+  | Some (msg_receive_hook_transfer param) => None (* TODO *)
   | Some (msg_is_operator params) => get_is_operator_response_callback sender params state 
   | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
   | Some (msg_total_supply params) => without_statechange [get_total_supply_callback sender params state]
@@ -307,14 +357,13 @@ Definition receive (chain : Chain)
   | Some (msg_set_transfer_hook params) => without_actions (try_set_transfer_hook sender params state)
   | _ => None
   end.  
-  
 
 Definition init (chain : Chain)
 								(ctx : ContractCallContext)
 								(setup : Setup) : option State := 
   Some {| permission_policy := setup.(initial_permission_policy);
           fa2_owner := ctx.(ctx_from);
-          transfer_hook_addr := setup.(initial_transfer_hook);
+          transfer_hook_addr := None;
           assets := FMap.empty;
           operators := FMap.empty;
           tokens := setup.(setup_tokens) |}.
