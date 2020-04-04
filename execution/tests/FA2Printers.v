@@ -1,5 +1,6 @@
 From ConCert Require Import Blockchain LocalBlockchain.
 From ConCert Require Import FA2Interface FA2Token.
+From ConCert Require Import Serializable.
 From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters.
 Require Import Strings.String.
 From QuickChick Require Import QuickChick.
@@ -206,13 +207,17 @@ Instance showFA2Interfaceset_hook_param : Show FA2Interface.set_hook_param :=
             ++ "}"
 |}.
 
-Instance showFA2ReceiverMsg {Msg : Type} `{Show Msg} : Show (@FA2ReceiverMsg _ Msg) :=
+Instance showFA2ReceiverMsg {Msg : Type} 
+                           `{serMsg : Serializable Msg} 
+                           `{Show Msg} 
+                           : Show (@FA2ReceiverMsg _ Msg serMsg) :=
 {|
 	show m := match m with
 						| receive_balance_of_param param => "receive_balance_of_param " ++ show param 
 						| receive_total_supply_param param => "receive_total_supply_param " ++ show param 
 						| receive_metadata_callback param => "receive_metadata_callback " ++ show param 
 						| receive_is_operator param => "receive_is_operator " ++ show param 
+						| receive_permissions_descriptor param => "receive_permissions_descriptor " ++ show param 
 						| transfer_hook param => "transfer_hook " ++ show param 
 						| other_msg msg => show msg 
 						end
@@ -245,6 +250,7 @@ Instance showFA2State : Show FA2Token.State :=
   show t := "FA2TokenState{" 
             ++ "assets: " ++ show t.(assets) ++ sep 
             ++ "operators: " ++ show t.(operators) ++ sep 
+            ++ "tokens_metadata: " ++ show t.(tokens) ++ sep 
             ++ "permission_policy: " ++ show t.(permission_policy) 
             ++ "}"
 |}.
@@ -253,6 +259,7 @@ Instance showFA2Setup : Show FA2Token.Setup :=
 {|
   show t := "FA2TokenSetup{" 
             ++ "setup_total_supply: " ++ show t.(setup_total_supply) ++ sep 
+            ++ "tokens_metadata: " ++ show t.(setup_tokens) ++ sep 
             ++ "permission_policy: " ++ show t.(permission_policy_) 
             ++ "}"
 |}.
