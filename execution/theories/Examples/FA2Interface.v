@@ -156,11 +156,12 @@ Record set_hook_param := {
   hook_permissions_descriptor : permissions_descriptor;
 }.
 
-Inductive FA2ReceiverMsg {Msg : Type} :=
+Inductive FA2ReceiverMsg {Msg : Type} `{Serializable Msg} :=
   | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
   | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
   | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
   | receive_is_operator : is_operator_response  -> FA2ReceiverMsg
+  | receive_permissions_descriptor : permissions_descriptor -> FA2ReceiverMsg
   | transfer_hook : transfer_descriptor_param -> FA2ReceiverMsg
   | other_msg : Msg -> FA2ReceiverMsg.
 
@@ -327,6 +328,16 @@ Global Instance fa2_token_sender_serializable : Serializable fa2_token_sender :=
 
 Global Instance set_hook_param_serializable : Serializable set_hook_param :=
   Derive Serializable set_hook_param_rect <Build_set_hook_param>.
+
+Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2ReceiverMsg Msg serMsg) :=
+Derive Serializable (@FA2ReceiverMsg_rect Msg serMsg) <
+  (@receive_balance_of_param Msg serMsg), 
+  (@receive_total_supply_param Msg serMsg), 
+  (@receive_metadata_callback Msg serMsg), 
+  (@receive_is_operator Msg serMsg), 
+  (@receive_permissions_descriptor Msg serMsg), 
+  (@transfer_hook  Msg serMsg), 
+  (@other_msg Msg serMsg)>.
 
 End Serialization.
 
