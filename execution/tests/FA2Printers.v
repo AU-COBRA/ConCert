@@ -202,7 +202,7 @@ Instance showfa2_token_sender : Show fa2_token_sender :=
 Instance showFA2Interfaceset_hook_param : Show FA2Interface.set_hook_param :=
 {|
   show t := "set_hook_param{" 
-            ++ "hook: " ++ show t.(hook) ++ sep 
+            ++ "hook_addr: " ++ show t.(hook_addr) ++ sep 
             ++ "hook_permissions_descriptor: " ++ show t.(hook_permissions_descriptor) 
             ++ "}"
 |}.
@@ -248,9 +248,11 @@ Instance showFA2TokenLedger : Show FA2Token.TokenLedger :=
 Instance showFA2State : Show FA2Token.State :=
 {|
   show t := "FA2TokenState{" 
+            ++ "fa2_owner: " ++ show t.(fa2_owner) ++ sep 
             ++ "assets: " ++ show t.(assets) ++ sep 
             ++ "operators: " ++ show t.(operators) ++ sep 
             ++ "tokens_metadata: " ++ show t.(tokens) ++ sep 
+            ++ "transfer_hook: " ++ show t.(transfer_hook_addr) ++ sep 
             ++ "permission_policy: " ++ show t.(permission_policy) 
             ++ "}"
 |}.
@@ -260,6 +262,7 @@ Instance showFA2Setup : Show FA2Token.Setup :=
   show t := "FA2TokenSetup{" 
             ++ "setup_total_supply: " ++ show t.(setup_total_supply) ++ sep 
             ++ "tokens_metadata: " ++ show t.(setup_tokens) ++ sep 
-            ++ "permission_policy: " ++ show t.(permission_policy_) 
+            ++ "transfer_hook: " ++ show t.(initial_transfer_hook) ++ sep 
+            ++ "permission_policy: " ++ show t.(initial_permission_policy) 
             ++ "}"
 |}.

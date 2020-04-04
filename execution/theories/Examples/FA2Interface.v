@@ -152,7 +152,7 @@ Inductive fa2_token_sender :=
   | tokens_sent : transfer_descriptor_param -> fa2_token_sender.
 
 Record set_hook_param := {
-  hook : callback transfer_descriptor_param;
+  hook_addr : Address;
   hook_permissions_descriptor : permissions_descriptor;
 }.
 
@@ -223,7 +223,7 @@ Instance transfer_descriptor_param_settable : Settable transfer_descriptor_param
   settable! Build_transfer_descriptor_param <transfer_descr_fa2; transfer_descr_batch; transfer_descr_operator>.
 
 Instance set_hook_param_settable : Settable set_hook_param :=
-  settable! Build_set_hook_param <hook; hook_permissions_descriptor>.
+  settable! Build_set_hook_param <hook_addr; hook_permissions_descriptor>.
 
 End Setters.
 

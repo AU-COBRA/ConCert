@@ -40,25 +40,28 @@ Record TokenLedger :=
 
 Record State :=
   build_state {
-    assets            : FMap token_id TokenLedger; 
-    operators         : FMap Address (FMap Address operator_tokens);
-    permission_policy : permissions_descriptor;
-    tokens            : FMap token_id token_metadata;
+    fa2_owner          : Address;
+    assets             : FMap token_id TokenLedger; 
+    operators          : FMap Address (FMap Address operator_tokens);
+    permission_policy  : permissions_descriptor;
+    tokens             : FMap token_id token_metadata;
+    transfer_hook_addr : Address; 
   }.
 
 Record Setup :=
   build_setup {
-    setup_total_supply : list (token_id * N); (* is this necessary? *)
-    permission_policy_ : permissions_descriptor;
-    setup_tokens       : FMap token_id token_metadata;
+    setup_total_supply        : list (token_id * N); (* is this necessary? *)
+    setup_tokens              : FMap token_id token_metadata;
+    initial_transfer_hook     : Address;
+    initial_permission_policy : permissions_descriptor;
   }.
 
 Instance token_ledger_settable : Settable _ :=
   settable! build_token_ledger <fungible; balances>.
 Instance state_settable : Settable _ :=
-  settable! build_state <assets; operators; permission_policy; tokens>.
+  settable! build_state <fa2_owner; assets; operators; permission_policy; tokens; transfer_hook_addr>.
 Instance setup_settable : Settable _ :=
-  settable! build_setup <setup_total_supply; permission_policy_; setup_tokens>.
+  settable! build_setup <setup_total_supply; setup_tokens; initial_transfer_hook; initial_permission_policy>.
 
 Section Serialization.
 
@@ -113,6 +116,9 @@ Definition try_single_transfer (caller : Address)
                                (state : State)
                                : option State :=
   (* do _ <- address_has_sufficient_asset_balance transfer_params.(transfer_token_id) transfer_params.(from_) transfer_params.(amount) ; *)
+  (* only allow transfers of known token_ids *)
+  do _ <- FMap.find params.(transfer_token_id) state.(tokens) ;
+  (* check for sufficient permissions *)
   do _ <- address_has_transfer_permission caller params.(from_) ;
   do ledger <- FMap.find params.(transfer_token_id) state.(assets) ;
   let current_owner_balance := address_balance params.(transfer_token_id) params.(from_) state in
@@ -142,7 +148,12 @@ Definition transfer_check_permissions (caller : Address)
                                then Some tt
                                else None
     end.
-    (* check if operator has the necessary permissions *)
+
+(* Definition call_transfer_hook (caller : Address)
+                              (transfers : list transfer)
+                              (state : State)
+                              : list ActionBody :=
+ *)
 
 Definition try_transfer (caller : Address)
                         (transfers : list transfer)
@@ -150,11 +161,12 @@ Definition try_transfer (caller : Address)
                         : option TokenLedger :=
   let check_transfer_iterator state_opt params :=
     do state <- state_opt ;
-    do _ <- transfer_check_permissions caller params  state.(permission_policy) state;
+    do _ <- transfer_check_permissions caller params state.(permission_policy) state;
     try_single_transfer caller params state in   
   (* returns the new state if all transfers *can* succeed, otherwise returns None *)
   do state_opt <- fold_left check_transfer_iterator transfers (Some state) ;
   (* TODO: create callback actions *)
+
   None.
   
 Definition get_balance_of_callback (caller : Address)
@@ -235,6 +247,16 @@ Definition get_permissions_descriptor_callback (caller : Address) (state : State
   let response := serialize (receive_permissions_descriptor state.(permission_policy)) in
   act_call caller 0%Z response.
 
+Definition try_set_transfer_hook (caller : Address)
+                                 (params : set_hook_param)
+                                 (state : State)
+                                 : option State :=
+  (* only owner can set transfer hook *)
+  do _ <- returnIf (negb (address_eqb caller state.(fa2_owner))) ;
+  Some (state<| transfer_hook_addr :=  params.(hook_addr)|>
+             <| permission_policy  := params.(hook_permissions_descriptor) |>).
+
+
 Definition get_token_metadata_callback (caller : Address) 
                                        (token_ids : list token_id) 
                                        (state : State)
@@ -269,6 +291,7 @@ Definition receive (chain : Chain)
   | Some (msg_permissions_descriptor _) => without_statechange [get_permissions_descriptor_callback sender state]
   | Some (msg_token_metadata param) => without_statechange [get_token_metadata_callback sender param.(metadata_token_ids) state]
   | Some (msg_update_operators updates) => without_actions (Some (update_operators sender updates state))
+  | Some (msg_set_transfer_hook params) => without_actions (try_set_transfer_hook sender params state)
   | _ => None
   end.  
   
@@ -276,7 +299,9 @@ Definition receive (chain : Chain)
 Definition init (chain : Chain)
 								(ctx : ContractCallContext)
 								(setup : Setup) : option State := 
-  Some {| permission_policy := setup.(permission_policy_);
+  Some {| permission_policy := setup.(initial_permission_policy);
+          fa2_owner := ctx.(ctx_from);
+          transfer_hook_addr := setup.(initial_transfer_hook);
           assets := FMap.empty;
           operators := FMap.empty;
           tokens := setup.(setup_tokens) |}.
