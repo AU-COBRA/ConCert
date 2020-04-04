@@ -43,20 +43,22 @@ Record State :=
     assets            : FMap token_id TokenLedger; 
     operators         : FMap Address (FMap Address operator_tokens);
     permission_policy : permissions_descriptor;
+    tokens            : FMap token_id token_metadata;
   }.
 
 Record Setup :=
   build_setup {
     setup_total_supply : list (token_id * N); (* is this necessary? *)
     permission_policy_ : permissions_descriptor;
+    setup_tokens       : FMap token_id token_metadata;
   }.
 
 Instance token_ledger_settable : Settable _ :=
   settable! build_token_ledger <fungible; balances>.
 Instance state_settable : Settable _ :=
-  settable! build_state <assets; operators; permission_policy>.
+  settable! build_state <assets; operators; permission_policy; tokens>.
 Instance setup_settable : Settable _ :=
-  settable! build_setup <setup_total_supply; permission_policy_>.
+  settable! build_setup <setup_total_supply; permission_policy_; setup_tokens>.
 
 Section Serialization.
 
@@ -73,14 +75,6 @@ Global Instance state_serializable : Serializable State :=
 	Derive Serializable State_rect <build_state>.
 	
 End Serialization.
-
-(* Definition build_callback_act {A : Type} 
-                             `{Serializable A}
-                             `{Serializable (callback A)}
-                              (contract_addr : Address)
-                              (cb : callback A)
-                              : Action :=
-  build_act contract_addr (act_call cb.(callback_addr A) 0%Z (@serialize A _ cb.(body A))). *)
 
 Definition returnIf (cond : bool) := if cond then None else Some tt.
 
@@ -150,7 +144,6 @@ Definition transfer_check_permissions (caller : Address)
     end.
     (* check if operator has the necessary permissions *)
 
-
 Definition try_transfer (caller : Address)
                         (transfers : list transfer)
                         (state : State)
@@ -172,20 +165,22 @@ Definition get_balance_of_callback (caller : Address)
     let owner_bal := address_balance bal_req.(bal_req_token_id) bal_req.(owner) state in 
     Build_balance_of_response bal_req owner_bal in
   let responses := map bal_req_iterator param.(bal_requests) in
-  act_call caller 0%Z (@serialize (list balance_of_response) _ responses).
+  let response_msg := serialize (receive_balance_of_param responses) in
+  act_call caller 0%Z response_msg .
 
-Definition get_total_supply_callback (caddr : Address)
-                                     (caller : Address)
+Definition get_total_supply_callback (caller : Address)
                                      (param : total_supply_param)
                                      (state : State)
-                                     : list total_supply_response :=
+                                     : ActionBody :=
   let token_id_balance (token_id : token_id) : N :=
     match FMap.find token_id state.(assets) with
     | Some ledger => fold_left N.add (FMap.values ledger.(balances)) 0%N
     | None => 0%N
     end in
   let mk_response (token_id : token_id) : total_supply_response := Build_total_supply_response token_id (token_id_balance token_id) in 
-  map mk_response param.(supply_param_token_ids).
+  let responses := map mk_response param.(supply_param_token_ids) in
+  let response_msg := serialize (receive_total_supply_param responses) in
+  act_call caller 0%Z response_msg.
   
 
 Definition update_operators (caller : Address)
@@ -222,10 +217,10 @@ Definition operator_tokens_eqb (a b : operator_tokens) : bool :=
   | _ => false
   end.
 
-Definition get_is_operator_response (caller : Address)
-                                    (params : is_operator_param)
-                                    (state : State)
-                                    : ActionBody := 
+Definition get_is_operator_response_callback (caller : Address)
+                                             (params : is_operator_param)
+                                             (state : State)
+                                             : ActionBody := 
   let operator_params := params.(is_operator_operator) in
   let operator_tokens_opt := get_owner_operator_tokens operator_params.(op_param_owner) operator_params.(op_param_operator) in
   let is_operator_result := match operator_tokens_opt state with
@@ -234,7 +229,25 @@ Definition get_is_operator_response (caller : Address)
                             | None => false
                             end in
   let response : is_operator_response := {| operator := operator_params; is_operator := is_operator_result |} in
-  act_call caller 0%Z (serialize response).
+  act_call caller 0%Z (serialize (receive_is_operator response)).
+
+Definition get_permissions_descriptor_callback (caller : Address) (state : State) : ActionBody := 
+  let response := serialize (receive_permissions_descriptor state.(permission_policy)) in
+  act_call caller 0%Z response.
+
+Definition get_token_metadata_callback (caller : Address) 
+                                       (token_ids : list token_id) 
+                                       (state : State)
+                                       : ActionBody :=
+  let state_tokens := state.(tokens) in
+  let metadata_list : list token_metadata := fold_right (fun id acc => 
+      match FMap.find id state_tokens with
+      | Some metadata => metadata :: acc
+      | None => acc
+      end
+    ) [] token_ids in
+  let response := serialize (receive_metadata_callback metadata_list) in
+  act_call caller 0%Z response.
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
@@ -244,12 +257,18 @@ Definition receive (chain : Chain)
 					         : option (State * list ActionBody) :=
   let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
-	(* let without_actions := option_map (fun new_state => (new_state, [])) in *)
+	let without_actions := option_map (fun new_state => (new_state, [])) in
+	let without_statechange acts := Some (state, acts) in
 	(* Only allow calls to this contract with no payload *)
 	if ctx.(ctx_amount) >? 0
 	then None
 	else match maybe_msg with
-	| Some (msg_is_operator params) => Some (state, [get_is_operator_response sender params state]) 
+  | Some (msg_is_operator params) => without_statechange [get_is_operator_response_callback sender params state] 
+  | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
+  | Some (msg_total_supply params) => without_statechange [get_total_supply_callback sender params state]
+  | Some (msg_permissions_descriptor _) => without_statechange [get_permissions_descriptor_callback sender state]
+  | Some (msg_token_metadata param) => without_statechange [get_token_metadata_callback sender param.(metadata_token_ids) state]
+  | Some (msg_update_operators updates) => without_actions (Some (update_operators sender updates state))
   | _ => None
   end.  
   
@@ -259,7 +278,8 @@ Definition init (chain : Chain)
 								(setup : Setup) : option State := 
   Some {| permission_policy := setup.(permission_policy_);
           assets := FMap.empty;
-          operators := FMap.empty |}.
+          operators := FMap.empty;
+          tokens := setup.(setup_tokens) |}.
 
 Ltac solve_contract_proper :=
   repeat
