@@ -105,6 +105,13 @@ Definition address_balance (token_id : token_id)
   | None => 0%N
   end.
 
+Definition policy_disallow_operator_transfer (state : State) : bool := 
+  match state.(permission_policy).(descr_operator) with
+  | operator_transfer_permitted => false 
+  | operator_transfer_denied => true
+  end .
+
+
 Definition get_owner_operator_tokens (owner operator : Address) 
                                      (state : State)
                                      : option operator_tokens := 
@@ -198,21 +205,24 @@ Definition get_total_supply_callback (caller : Address)
 Definition update_operators (caller : Address)
                             (updates : list update_operator)
                             (state : State)
-                            : State := 
-  let exec_add params (state_ : State) : State :=
+                            : option State := 
+  (* If policy doesn't allow operator transfer, then this operation fails *)
+  do _ <- returnIf (policy_disallow_operator_transfer state) ;
+  let exec_add params (state_opt : option State) : option State :=
+    do state_ <- state_opt ;
     (* only the owner of the token is allowed to update their operators *)
     if (negb (address_eqb caller params.(op_param_owner)))
-    then state_
+    then None
     else 
       let operator_tokens : FMap Address operator_tokens := with_default FMap.empty (FMap.find caller state_.(operators)) in
       (* Add new operator *)
       let operator_tokens := FMap.add params.(op_param_operator) params.(op_param_tokens) operator_tokens in
-      state_<| operators ::= FMap.add caller operator_tokens |> in
+      Some (state_<| operators ::= FMap.add caller operator_tokens |>) in
   let exec_update state_ op := match op with
                                | add_operator params => exec_add params state_
                                | remove_operator params => exec_add params state_
                                end in 
-  fold_left exec_update updates state.
+  (fold_left exec_update updates (Some state)).
 
 Definition operator_tokens_eqb (a b : operator_tokens) : bool := 
   match (a, b) with
@@ -232,7 +242,9 @@ Definition operator_tokens_eqb (a b : operator_tokens) : bool :=
 Definition get_is_operator_response_callback (caller : Address)
                                              (params : is_operator_param)
                                              (state : State)
-                                             : ActionBody := 
+                                             : option (State * list ActionBody) :=
+  (* if policy doesn't allow operator transfers, then this operation will fail *)
+  do _ <- returnIf (policy_disallow_operator_transfer state) ;
   let operator_params := params.(is_operator_operator) in
   let operator_tokens_opt := get_owner_operator_tokens operator_params.(op_param_owner) operator_params.(op_param_operator) in
   let is_operator_result := match operator_tokens_opt state with
@@ -241,7 +253,8 @@ Definition get_is_operator_response_callback (caller : Address)
                             | None => false
                             end in
   let response : is_operator_response := {| operator := operator_params; is_operator := is_operator_result |} in
-  act_call caller 0%Z (serialize (receive_is_operator response)).
+  let act := act_call caller 0%Z (serialize (receive_is_operator response)) in
+  Some (state, [act]).
 
 Definition get_permissions_descriptor_callback (caller : Address) (state : State) : ActionBody := 
   let response := serialize (receive_permissions_descriptor state.(permission_policy)) in
@@ -285,12 +298,12 @@ Definition receive (chain : Chain)
 	if ctx.(ctx_amount) >? 0
 	then None
 	else match maybe_msg with
-  | Some (msg_is_operator params) => without_statechange [get_is_operator_response_callback sender params state] 
+  | Some (msg_is_operator params) => get_is_operator_response_callback sender params state 
   | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
   | Some (msg_total_supply params) => without_statechange [get_total_supply_callback sender params state]
   | Some (msg_permissions_descriptor _) => without_statechange [get_permissions_descriptor_callback sender state]
   | Some (msg_token_metadata param) => without_statechange [get_token_metadata_callback sender param.(metadata_token_ids) state]
-  | Some (msg_update_operators updates) => without_actions (Some (update_operators sender updates state))
+  | Some (msg_update_operators updates) => without_actions (update_operators sender updates state)
   | Some (msg_set_transfer_hook params) => without_actions (try_set_transfer_hook sender params state)
   | _ => None
   end.  
