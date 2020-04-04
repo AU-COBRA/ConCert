@@ -32,7 +32,9 @@ Open Scope N_scope.
 Inductive FA2ClientMsg :=
   | Call_fa2_is_operator : is_operator_param -> FA2ClientMsg. 
 
-Definition Msg := @FA2ReceiverMsg BaseTypes FA2ClientMsg.
+Global Instance FA2ClientMsg_serializable : Serializable FA2ClientMsg :=
+  Derive Serializable FA2ClientMsg_rect <Call_fa2_is_operator>.
+Definition Msg := @FA2ReceiverMsg BaseTypes FA2ClientMsg _.
 
 Record State := 
   build_state {
@@ -51,22 +53,21 @@ Instance setup_settable : Settable _ :=
   settable! build_setup <fa2_caddr_>.
 
 Section Serialization.
-Global Instance FA2ClientMsg_serializable : Serializable FA2ClientMsg :=
-  Derive Serializable FA2ClientMsg_rect <Call_fa2_is_operator>.
+
 
 Global Instance setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect <build_setup>.
 
-Global Instance Msg_serializable' : Serializable (@FA2ReceiverMsg BaseTypes FA2ClientMsg) :=
+(* Global Instance Msg_serializable' : Serializable (@FA2ReceiverMsg BaseTypes FA2ClientMsg) :=
 Derive Serializable (@FA2ReceiverMsg_rect BaseTypes FA2ClientMsg) <
   (@receive_balance_of_param BaseTypes FA2ClientMsg), 
   (@receive_total_supply_param BaseTypes FA2ClientMsg), 
   (@receive_metadata_callback BaseTypes FA2ClientMsg), 
   (@receive_is_operator BaseTypes FA2ClientMsg), 
   (@transfer_hook  BaseTypes FA2ClientMsg), 
-  (@other_msg BaseTypes FA2ClientMsg)>.
+  (@other_msg BaseTypes FA2ClientMsg)>. *)
 
-Global Instance Msg_serializable : Serializable FA2Client.Msg := Msg_serializable'.
+(* Global Instance Msg_serializable : Serializable FA2Client.Msg :=  @FA2Interface.FA2ReceiverMsg_serializable. *)
 (* Import Serializable.
 Ltac make_serializable eliminator ctors :=
   let ser := make_serializer eliminator in
@@ -105,8 +106,9 @@ Definition receive (chain : Chain)
 									 (maybe_msg : option FA2Client.Msg)
 									 : option (State * list ActionBody) :=
 	match maybe_msg with
-  | Some (receive_is_operator is_op_response) => Some (state<| bit:= 1|>, [])
-  | Some (other_msg (Call_fa2_is_operator is_op_param)) => Some (state<| bit := 2|>, [])
+  | Some (receive_is_operator is_op_response) => Some (state<| bit:= 42|>, [])
+  | Some (other_msg (Call_fa2_is_operator is_op_param)) => 
+      Some (state<| bit := 2|>, [act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (FA2Token.msg_is_operator is_op_param))])
   | _ => None 
 	end.
 
@@ -255,19 +257,24 @@ Definition call_client_is_op_act :=
   let msg := other_msg (FA2ClientContract.Call_fa2_is_operator params) in
   act_call client_contract_addr 0%Z (serialize FA2ClientContract.Msg _ msg).
 
-Definition chain_1 : LocalChain :=
+Definition chain1 : LocalChain :=
   unpack_option (my_add_block chain_with_token_deployed 
   [
     build_act person_1 call_client_is_op_act
   ]).
 
-Definition asd := 
-  match (FMap.find client_contract_addr chain_1.(lc_contract_state)) with
+Definition client_state lc := 
+  match (FMap.find client_contract_addr lc.(lc_contract_state)) with
   | Some state => deserialize FA2ClientContract.State _ state
   | None => None
   end.
-
-Compute asd.
+Definition token_state lc := 
+  match (FMap.find token_contract_base_addr lc.(lc_contract_state)) with
+  | Some state => deserialize FA2Token.State _ state
+  | None => None
+  end.
+Compute (client_state chain1).
+Compute (show (token_state chain1)).
 
 Definition gClientMsg : G FA2ClientContract.Msg := 
   let params := Build_is_operator_param 
