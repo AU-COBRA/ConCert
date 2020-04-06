@@ -21,13 +21,13 @@ Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
 
-Inductive FA2ReceiverMsg {Msg : Type} `{Serializable Msg} :=
+Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
   | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
   | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
   | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
   | receive_is_operator : is_operator_response  -> FA2ReceiverMsg
   | receive_permissions_descriptor : permissions_descriptor -> FA2ReceiverMsg
-  | other_msg : Msg -> FA2ReceiverMsg.
+  | other_msg : Msg' -> FA2ReceiverMsg.
 
 Inductive FA2TransferHook {Msg : Type} `{Serializable Msg} :=
   | transfer_hook : transfer_descriptor_param -> FA2TransferHook
@@ -124,10 +124,16 @@ Definition address_has_sufficient_asset_balance (token_id : token_id)
   then Some tt
   else None. 
 
-Definition policy_disallow_operator_transfer (state : State) : bool := 
-  match state.(permission_policy).(descr_operator) with
+Definition policy_disallows_operator_transfer (policy : permissions_descriptor) : bool := 
+  match policy.(descr_operator) with
   | operator_transfer_permitted => false 
   | operator_transfer_denied => true
+  end.
+
+Definition policy_disallows_self_transfer (policy : permissions_descriptor) : bool := 
+  match policy.(descr_self) with
+  | self_transfer_permitted => false 
+  | self_transfer_denied => true
   end .
 
 Definition get_owner_operator_tokens (owner operator : Address) 
@@ -159,13 +165,10 @@ Definition transfer_check_permissions (caller : Address)
   (* if caller is owner of transfer, then check policy if self_transfer is allowed *)
   if (address_eqb caller params.(from_))
   then 
-    returnIf match policy.(descr_self) with
-             | self_transfer_denied => true
-             | self_transfer_permitted => false
-             end
+    returnIf (policy_disallows_self_transfer policy)
   else 
     (* check if policy allows operator transfer *)
-    do _ <- returnIf (policy_disallow_operator_transfer state) ;
+    do _ <- returnIf (policy_disallows_operator_transfer policy) ;
     do operators_map <- FMap.find params.(from_) state.(operators) ;
     do op_tokens <- FMap.find caller operators_map ;
     (* check if operator has permission to transfer the given token_id type *)
@@ -272,7 +275,7 @@ Definition update_operators (caller : Address)
                             (state : State)
                             : option State := 
   (* If policy doesn't allow operator transfer, then this operation fails *)
-  do _ <- returnIf (policy_disallow_operator_transfer state) ;
+  do _ <- returnIf (policy_disallows_operator_transfer state.(permission_policy)) ;
   let exec_add params (state_opt : option State) : option State :=
     do state_ <- state_opt ;
     (* only the owner of the token is allowed to update their operators *)
@@ -309,7 +312,7 @@ Definition get_is_operator_response_callback (caller : Address)
                                              (state : State)
                                              : option (State * list ActionBody) :=
   (* if policy doesn't allow operator transfers, then this operation will fail *)
-  do _ <- returnIf (policy_disallow_operator_transfer state) ;
+  do _ <- returnIf (policy_disallows_operator_transfer state.(permission_policy)) ;
   let operator_params := params.(is_operator_operator) in
   let operator_tokens_opt := get_owner_operator_tokens operator_params.(op_param_owner) operator_params.(op_param_operator) in
   let is_operator_result := match operator_tokens_opt state with

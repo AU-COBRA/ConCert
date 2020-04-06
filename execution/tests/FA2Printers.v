@@ -222,6 +222,17 @@ Instance showFA2ReceiverMsg {Msg : Type}
 						end
 |}.
 
+Instance showFA2TransferHook {Msg : Type} 
+                            `{serMsg : Serializable Msg} 
+                            `{Show Msg} 
+                             : Show (@FA2TransferHook _ Msg serMsg) :=
+{|
+	show m := match m with
+						| transfer_hook param => "transferhook " ++ show param 
+						| hook_other_msg msg => show msg 
+						end
+|}.
+
 Instance showFA2TokenMsg : Show FA2Token.Msg :=
 {|
 	show m := match m with

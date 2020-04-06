@@ -1,8 +1,8 @@
 From ConCert Require Import Blockchain LocalBlockchain. 
-From ConCert Require BAT Congress Congress_Buggy EIP20Token.
+From ConCert Require BAT Congress Congress_Buggy EIP20Token FA2Token.
 From ConCert Require Import Serializable.
 From QuickChick Require Import QuickChick.
-From ConCert.Execution.QCTests Require Import CongressPrinters EIP20TokenPrinters.
+From ConCert.Execution.QCTests Require Import CongressPrinters EIP20TokenPrinters FA2Printers.
 
 (* Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase. *)
 
@@ -20,13 +20,17 @@ Local Open Scope string_scope.
 
 Instance showSerializedValue : Show SerializedValue := 
 {|
-  show v := match @deserialize EIP20Token.Msg _ v with
+  show v := match @deserialize FA2Token.Msg _ v with
+    | Some v => show v
+    | None => 
+    match @deserialize EIP20Token.Msg _ v with
     | Some v => show v
 		| None =>
 		match @deserialize Congress.Msg _ v with
 		| Some v => show v
 		| None => "<FAILED DESERIALIZATION>" 
 		end
+    end
     end
 |}.
 
