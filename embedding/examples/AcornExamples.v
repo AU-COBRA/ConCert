@@ -1,7 +1,7 @@
 (** * Examples of library code and contracts originating from the actual Acorn implementation  *)
 Require Import ZArith Basics.
 Require Import String.
-Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
+From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.

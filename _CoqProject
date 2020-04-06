@@ -12,7 +12,6 @@ execution/theories/ChainedList.v
 execution/theories/Circulation.v
 execution/theories/Containers.v
 execution/theories/ContractMonads.v
-execution/theories/Examples/BignumsSerializable.v
 execution/theories/Examples/BoardroomMath.v
 execution/theories/Examples/BoardroomVoting.v
 execution/theories/Examples/BoardroomVotingTest.v
@@ -32,7 +31,7 @@ execution/theories/LocalBlockchain.v
 execution/theories/Monads.v
 execution/theories/Serializable.v
 
--R execution/tests ConCert.Execution.QCTests
+-Q execution/tests ConCert.Execution.QCTests
 execution/tests/TestUtils.v
 execution/tests/ChainPrinters.v
 execution/tests/ChainGens.v
@@ -51,7 +50,7 @@ execution/tests/FA2Tests/FA2Printers.v
 execution/tests/FA2Tests/FA2TokenTests.v
 execution/tests/SerializablePrinters.v
 
--R embedding/theories ConCert.Embedding
+-Q embedding/theories ConCert.Embedding
 embedding/theories/Ast.v
 embedding/theories/CustomTactics.v
 embedding/theories/EnvSubst.v
@@ -65,19 +64,28 @@ embedding/theories/pcuic/PCUICTranslate.v
 embedding/theories/pcuic/PCUICtoTemplate.v
 
 embedding/theories/Tests.v
-embedding/theories/examples/AcornExamples.v
-embedding/theories/examples/Demo.v
-embedding/theories/examples/ExecFrameworkIntegration.v
-embedding/theories/examples/FinMap.v
-embedding/theories/examples/Utils.v
-embedding/theories/examples/crowdfunding/Crowdfunding.v
-embedding/theories/examples/crowdfunding/CrowdfundingData.v
-embedding/theories/examples/crowdfunding/Prelude.v
-embedding/theories/examples/crowdfunding/SimpleBlockchain.v
 
--R extraction/theories ConCert.Extraction
+-Q embedding/examples ConCert.Embedding.Examples
+embedding/examples/AcornExamples.v
+embedding/examples/Demo.v
+embedding/examples/ExecFrameworkIntegration.v
+embedding/examples/FinMap.v
+embedding/examples/Utils.v
+embedding/examples/crowdfunding/Crowdfunding.v
+embedding/examples/crowdfunding/CrowdfundingData.v
+embedding/examples/Prelude.v
+embedding/examples/SimpleBlockchain.v
+
+-Q extraction/theories ConCert.Extraction
 extraction/theories/Liquidity.v
-extraction/theories/examples/Counter.v
+
+-Q extraction/examples ConCert.Extraction.Examples
+extraction/examples/Prelude.v
+extraction/examples/Counter.v
+extraction/examples/SimpleBlockchain.v
+extraction/examples/crowdfunding_extract/CrowdfundingData.v
+extraction/examples/crowdfunding_extract/Crowdfunding.v
+
 
 embedding/theories/pcuic/PCUICCorrectness.v
 embedding/theories/pcuic/PCUICCorrectnessAux.v

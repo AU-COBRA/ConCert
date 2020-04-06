@@ -1,7 +1,7 @@
 (** * Simple examples on how to use our framework  **)
 Require Import String Basics.
 Require Import List.
-Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.
+From ConCert.Embedding Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate Prelude.
 
 From MetaCoq.Template Require Ast.
 From MetaCoq.Template Require Import TemplateMonad.
@@ -153,23 +153,19 @@ Compute (expr_eval_n Σ' 5 [] prog3).
 
 (* Examples of a fixpoint *)
 
+Definition fact := "fact".
+
 Definition factorial_syn :=
   [|
-   fix "factorial" (x : Nat) : Nat :=
+   fix fact (x : Nat) : Nat :=
        case x : Nat return Nat of
        | Zero -> 1
-       | Suc y -> x * ("factorial" y)
+       | Suc y -> x * (fact y)
   |].
 
 Make Definition factorial :=
   (expr_to_tc Σ (indexify [] factorial_syn)).
 
-  
-(* 
-Buffer Overflow:
-Compute (factorial 10).
- *)
- 
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=
        \y : Nat =>

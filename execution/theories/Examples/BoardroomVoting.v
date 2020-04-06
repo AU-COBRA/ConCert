@@ -21,18 +21,17 @@ Require Import Serializable.
 
 Import ListNotations.
 Import RecordSetNotations.
+Import BoardroomMathNotations.
 
 Section BoardroomVoting.
 Context `{Base : ChainBase}.
 
 Context {A : Type}.
-Context `(H : A -> Z).
+Context (H : list positive -> positive).
 Context {ser : Serializable A}.
 Context {axioms : BoardroomAxioms A}.
-Context {generator : Generator axioms}.
-Context {discr_log : DiscreteLog axioms generator}.
-
-Local Open Scope ffield.
+Context {gen : Generator _}.
+Context {discr_log : DiscreteLog _ _}.
 
 (* Allow us to automatically derive Serializable instances *)
 Set Nonrecursive Elimination Schemes.
@@ -50,7 +49,7 @@ Record Setup :=
 Record VoterInfo :=
   build_voter_info {
     voter_index : nat;
-    vote_hash : Z;
+    vote_hash : positive;
     public_vote : A;
 }.
 
@@ -64,8 +63,8 @@ Record State :=
   }.
 
 Inductive Msg :=
-| signup (pk : A)
-| commit_to_vote (hash : Z)
+| signup (pk : A) (proof : A * Z)
+| commit_to_vote (hash : positive)
 | submit_vote (v : A) (proof : Z)
 | tally_votes.
 
@@ -102,9 +101,37 @@ Class VoteProofScheme :=
 
 Context `{VoteProofScheme}.
 
-Local Open Scope Z.
-
 Import ContractMonads.
+
+Local Open Scope broom.
+
+Definition hash_sk_data (gv pk : A) (i : nat) : positive :=
+  H [countable.encode (generator : A); countable.encode gv; countable.encode pk; countable.encode i].
+
+(* This follows the original open vote protocol paper. It is a schnorr signature
+     with the fiat-shamir heuristic applied. *)
+Definition secret_key_proof (sk : Z) (v : Z) (i : nat) : A * Z :=
+  let gv : A := generator^v in
+  let pk := compute_public_key sk in
+  let z := Zpos (hash_sk_data gv pk i) in
+  let r := (v - sk * z)%Z in
+  (gv, r).
+
+Definition verify_secret_key_proof (pk : A) (i : nat) (proof : A * Z) : bool :=
+  let (gv, r) := proof in
+  let z := Zpos (hash_sk_data gv pk i) in
+  elmeqb gv (generator^r * (pk^z)).
+
+Definition make_signup_msg (sk : Z) (v : Z) (i : nat) : Msg :=
+  signup (compute_public_key sk) (secret_key_proof sk v i).
+
+Definition make_commit_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) : Msg :=
+  let pv := compute_public_vote (reconstructed_key pks my_index) sk sv in
+  commit_to_vote (H [countable.encode pv]).
+
+Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) : Msg :=
+  submit_vote (compute_public_vote (reconstructed_key pks my_index) sk sv)
+              (make_vote_proof pks my_index sk sv).
 
 Definition init : ContractIniter Setup State :=
   do owner <- lift caller_addr;
@@ -123,16 +150,17 @@ Definition receive : ContractReceiver State Msg State :=
   do cur_slot <- lift current_slot;
   do msg <- call_msg >>= lift;
   match msg with
-  | signup pk =>
+  | signup pk prf =>
     do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
     do lift (if FMap.find caller (eligible_voters (setup state)) then Some tt else None);
     do lift (if FMap.find caller (registered_voters state) then None else Some tt);
     do amt <- lift call_amount;
-    do lift (if amt =? (registration_deposit (setup state)) then Some tt else None);
+    do lift (if (amt =? (registration_deposit (setup state)))%Z then Some tt else None);
     do lift (if Z.of_nat (length (public_keys state)) <? order - 2 then Some tt else None);
     let index := length (public_keys state) in
+    do lift (if verify_secret_key_proof pk index prf then Some tt else None);
     let inf := {| voter_index := index;
-                  vote_hash := 0;
+                  vote_hash := 1%positive;
                   public_vote := zero; |} in
     let new_state := state<|registered_voters ::= FMap.add caller inf|>
                           <|public_keys ::= fun l => l ++ [pk]|> in
@@ -149,7 +177,7 @@ Definition receive : ContractReceiver State Msg State :=
     do lift (if finish_vote_by (setup state) <? cur_slot then None else Some tt)%nat;
     do inf <- lift (FMap.find caller (registered_voters state));
     do lift (if finish_commit_by (setup state) then
-               if H v =? vote_hash inf then Some tt else None
+               if (H [countable.encode v] =? vote_hash inf)%positive then Some tt else None
              else
                Some tt);
     do lift (if verify_vote (public_keys state) (voter_index inf) v proof then Some tt else None);
@@ -184,6 +212,7 @@ Proof with cbn -[Nat.ltb].
       destruct (FMap.find _ _); auto.
       destruct (_ =? _)%Z; auto.
       destruct (_ <? _); auto.
+      destruct (verify_secret_key_proof _ _ _); auto.
     + destruct (finish_commit_by _); auto.
       rewrite <- ceq.
       destruct (_ <? _)%nat; auto.
@@ -191,7 +220,7 @@ Proof with cbn -[Nat.ltb].
     + rewrite <- ceq.
       destruct (_ <? _)%nat; auto.
       destruct (FMap.find _ _); auto.
-      destruct (finish_commit_by _); [destruct (_ =? _); auto|].
+      destruct (finish_commit_by _); [destruct (_ =? _)%positive; auto|].
       all: destruct (verify_vote _ _ _ _); auto.
     + rewrite <- ceq.
       destruct (_ <? _)%nat; auto.
@@ -199,16 +228,6 @@ Proof with cbn -[Nat.ltb].
       destruct (existsb _ _); auto.
       destruct (bruteforce_tally _); auto.
 Defined.
-
-Definition make_signup_msg (sk : Z) : Msg :=
-  signup (compute_public_key sk).
-
-Definition make_commit_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) : Msg :=
-  commit_to_vote (H (compute_public_vote (reconstructed_key pks my_index) sk sv)).
-
-Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) : Msg :=
-  submit_vote (compute_public_vote (reconstructed_key pks my_index) sk sv)
-              (make_vote_proof pks my_index sk sv).
 
 Section Theories.
 
@@ -219,24 +238,27 @@ Fixpoint MsgAssumption
          (pks : list A)
          (index : Address -> nat)
          (sks : Address -> Z)
+         (chosen_randomness : Address -> Z)
          (svs : Address -> bool)
          (calls : list (ContractCallInfo Msg)) : Prop :=
   match calls with
   | call :: calls =>
     let caller := Blockchain.call_from call in
     match Blockchain.call_msg call with
-    | Some (signup pk as m) => m = make_signup_msg (sks caller)
+    | Some (signup pk prf as m) => m = make_signup_msg (sks caller)
+                                                       (chosen_randomness caller)
+                                                       (index caller)
     | Some (submit_vote _ _ as m) =>
       m = make_vote_msg pks (index caller) (sks caller) (svs caller)
     | _ => True
-    end /\ MsgAssumption pks index sks svs calls
+    end /\ MsgAssumption pks index sks chosen_randomness svs calls
   | [] => True
   end.
 
 Definition signups (calls : list (ContractCallInfo Msg)) : list (Address * A) :=
   (* reverse the signups since the calls will have the last one at the head *)
   rev (map_option (fun call => match Blockchain.call_msg call with
-                               | Some (signup pk) => Some (Blockchain.call_from call, pk)
+                               | Some (signup pk prf) => Some (Blockchain.call_from call, pk)
                                | _ => None
                                end) calls).
 
@@ -285,6 +307,7 @@ Proof.
       destruct (FMap.find _ _); cbn in *; try congruence.
       destruct (_ =? _)%Z; cbn in *; try congruence.
       destruct (_ <? _)%Z; cbn in *; try congruence.
+      destruct (verify_secret_key_proof _ _ _); cbn in *; try congruence.
       now inversion_clear receive_some.
     + destruct (finish_commit_by _); cbn -[Nat.ltb] in *; try congruence.
       destruct (_ <? _); cbn in *; try congruence.
@@ -292,9 +315,7 @@ Proof.
       now inversion_clear receive_some.
     + destruct (_ <? _); cbn in *; try congruence.
       destruct (FMap.find _ _); cbn in *; try congruence.
-      destruct (if finish_commit_by (setup prev_state)
-                      then if (H v =? vote_hash v0)%Z then Some tt else None
-                      else Some tt); cbn in *; try congruence.
+      destruct (if finish_commit_by _ then _ else _); cbn in *; try congruence.
       destruct (verify_vote _ _ _ _); cbn in *; try congruence.
       now inversion_clear receive_some.
     + destruct (_ <? _); cbn in *; try congruence.
@@ -362,6 +383,42 @@ Proof.
     destruct H0; lia.
 Qed.
 
+Local Open Scope broom.
+Lemma elmeqb_eq (a a' : A) :
+  (a =? a') = true <-> a == a'.
+Proof.
+  destruct (elmeqb_spec a a'); [tauto|].
+  split; congruence.
+Qed.
+
+Hint Resolve
+     pow_nonzero generator_nonzero int_domain generator_nonzero compute_public_key_unit
+  : broom.
+Lemma verify_secret_key_proof_spec sk v i :
+  verify_secret_key_proof (compute_public_key sk) i (secret_key_proof sk v i) = true.
+Proof with auto with broom.
+  cbn.
+  apply elmeqb_eq.
+  apply log_both...
+  rewrite log_pow...
+  rewrite log_mul...
+  unfold "exp=".
+  assert (order - 1 <> 0)%Z by (pose proof order_ge_2; lia).
+  rewrite Z.add_mod...
+  rewrite !log_pow...
+  rewrite log_generator.
+  rewrite !Z.mul_1_r.
+  unfold compute_public_key.
+  rewrite <- Z.mul_mod_idemp_r...
+  rewrite log_pow...
+  rewrite log_generator.
+  rewrite Z.mul_1_r.
+  rewrite Z.mul_mod_idemp_r...
+  rewrite <- Z.add_mod...
+  f_equal.
+  lia.
+Qed.
+
 Definition has_tallied (calls : list (ContractCallInfo Msg)) : bool :=
   existsb (fun c => match Blockchain.call_msg c with
                     | Some tally_votes => true
@@ -370,7 +427,7 @@ Definition has_tallied (calls : list (ContractCallInfo Msg)) : bool :=
 
 Theorem boardroom_voting_correct_strong
         bstate caddr (trace : ChainTrace empty_state bstate)
-        pks index sks svs :
+        pks index sks chosen_randomness svs :
     env_contracts bstate caddr = Some (boardroom_voting : WeakContract) ->
     exists (cstate : State)
            (depinfo : DeploymentInfo Setup)
@@ -389,7 +446,7 @@ Theorem boardroom_voting_correct_strong
 
       (Z.of_nat (length (public_keys cstate)) < order - 1)%Z /\
 
-      (MsgAssumption pks index sks svs inc_calls ->
+      (MsgAssumption pks index sks chosen_randomness svs inc_calls ->
        SignupOrderAssumption pks index inc_calls ->
        (finish_registration_by (setup cstate) < Blockchain.current_slot bstate ->
         length pks = length (signups inc_calls)) ->
@@ -450,6 +507,8 @@ Proof.
       destruct (FMap.find _ _) eqn:new in receive_some; cbn in *; [congruence|].
       destruct (_ =? _)%Z in receive_some; cbn in *; [|congruence].
       destruct (_ <? _)%Z eqn:lt in receive_some; cbn in *; [|congruence].
+      destruct (verify_secret_key_proof _ _ _) eqn:verify_zkp in receive_some;
+        cbn in *; [|congruence].
       inversion_clear receive_some.
       cbn.
       split; [lia|].
@@ -668,6 +727,9 @@ Theorem boardroom_voting_correct
         (index : Address -> nat)
         (* function mapping a party to his secret key *)
         (sks : Address -> Z)
+        (* function mapping a party to his chosen randomness in the
+           secret key zero-knowledge proof *)
+        (chosen_randomness : Address -> Z)
         (* function mapping a party to his vote *)
         (svs : Address -> bool) :
     env_contracts bstate caddr = Some (boardroom_voting : WeakContract) ->
@@ -680,7 +742,7 @@ Theorem boardroom_voting_correct
 
       (* assuming that the message sent were created with the
           functions provided by this smart contract *)
-      MsgAssumption pks index sks svs inc_calls ->
+      MsgAssumption pks index sks chosen_randomness svs inc_calls ->
 
       (* ..and that people signed up in the order given by 'index'
           and 'pks' *)
@@ -698,7 +760,8 @@ Theorem boardroom_voting_correct
                                      (FMap.keys (registered_voters cstate))))).
 Proof.
   intros deployed.
-  destruct (boardroom_voting_correct_strong bstate caddr trace pks index sks svs deployed)
+  destruct (boardroom_voting_correct_strong
+              bstate caddr trace pks index sks chosen_randomness svs deployed)
     as [cstate [depinfo [inc_calls P]]].
   exists cstate, depinfo, inc_calls.
   tauto.

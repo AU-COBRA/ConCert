@@ -1,10 +1,10 @@
 (**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
 Require Import String ZArith Basics.
-From ConCert Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate.
+From ConCert.Embedding Require Import Ast Notations CustomTactics
+     PCUICTranslate PCUICtoTemplate Utils.
 
-From ConCert Require Import Utils Prelude SimpleBlockchain CrowdfundingData.
+From ConCert.Embedding.Examples Require Import Prelude SimpleBlockchain CrowdfundingData.
 
 Require Import List PeanoNat ssrbool.
 
@@ -43,7 +43,6 @@ Module CrowdfundingContract.
  (** ** AST of the [receive] function *)
  Module Receive.
    Import Notations.
-   Import Prelude.
 
    (** We specialise some polymorphic constructors to avoid writing types all the time *)
    Notation "'#Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
