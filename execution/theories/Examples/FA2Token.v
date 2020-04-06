@@ -224,6 +224,23 @@ Definition handle_transfer (caller : Address)
   | None => option_map (fun new_state => (new_state, [])) (try_transfer caller transfers state)
   end.
 
+Definition handle_transfer_hook_receive (caller : Address)
+                                        (param : transfer_descriptor_param)
+                                        (state : State)
+                                        : option State :=
+  (* check if caller is current hook - only hook is allowed to call this endpoint *)
+  do hook_addr <- state.(transfer_hook_addr);
+  do _ <- returnIf (negb (address_eqb caller hook_addr)) ;
+  let mk_transfer_from_decr descr := 
+    {|
+      from_ := descr.(transfer_descr_from_);
+      to_ := descr.(transfer_descr_to_);
+      transfer_token_id := descr.(transfer_descr_token_id);
+      amount := descr.(transfer_descr_amount);     
+    |} in
+  let transfers := map mk_transfer_from_decr param.(transfer_descr_batch) in
+  try_transfer param.(transfer_descr_operator) transfers state.
+
 Definition get_balance_of_callback (caller : Address)
                                      (param : balance_of_param)
                                      (state : State)
@@ -347,7 +364,7 @@ Definition receive (chain : Chain)
 	then None
   else match maybe_msg with
   | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state 
-  | Some (msg_receive_hook_transfer param) => None (* TODO *)
+  | Some (msg_receive_hook_transfer param) => without_actions (handle_transfer_hook_receive sender param state)
   | Some (msg_is_operator params) => get_is_operator_response_callback sender params state 
   | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
   | Some (msg_total_supply params) => without_statechange [get_total_supply_callback sender params state]

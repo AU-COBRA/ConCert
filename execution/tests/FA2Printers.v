@@ -148,12 +148,12 @@ Instance showowner_transfer_policy : Show owner_transfer_policy :=
 						end
 |}.
 
-Instance showFA2Interfacecustom_permission_policy : Show FA2Interface.custom_permission_policy :=
+(* Instance showFA2Interfacecustom_permission_policy : Show FA2Interface.custom_permission_policy :=
 {|
   show t := "custom_permission_policy{" 
             ++ "custom_policy_config_api: " ++ show t.(custom_policy_config_api) 
             ++ "}"
-|}.
+|}. *)
 
 Instance showFA2Interfacepermissions_descriptor : Show FA2Interface.permissions_descriptor :=
 {|
@@ -218,7 +218,6 @@ Instance showFA2ReceiverMsg {Msg : Type}
 						| receive_metadata_callback param => "receive_metadata_callback " ++ show param 
 						| receive_is_operator param => "receive_is_operator " ++ show param 
 						| receive_permissions_descriptor param => "receive_permissions_descriptor " ++ show param 
-						| transfer_hook param => "transfer_hook " ++ show param 
 						| other_msg msg => show msg 
 						end
 |}.
@@ -226,14 +225,15 @@ Instance showFA2ReceiverMsg {Msg : Type}
 Instance showFA2TokenMsg : Show FA2Token.Msg :=
 {|
 	show m := match m with
-						| msg_transfer param => "msg_transfer " ++ show param 
-						| msg_set_transfer_hook param => "msg_set_transfer_hook " ++ show param 
-						| msg_balance_of param => "msg_balance_of " ++ show param 
-						| msg_total_supply param => "msg_total_supply " ++ show param 
-						| msg_token_metadata param => "msg_token_metadata " ++ show param 
-						| msg_permissions_descriptor param => "msg_permissions_descriptor " ++ show param 
-						| msg_update_operators param => "msg_update_operators " ++ show param 
-						| msg_is_operator param => "msg_is_operator " ++ show param 
+						| msg_transfer param => "transfer " ++ show param 
+						| msg_set_transfer_hook param => "set_transfer_hook " ++ show param 
+						| msg_balance_of param => "balance_of " ++ show param 
+						| msg_total_supply param => "total_supply " ++ show param 
+						| msg_token_metadata param => "token_metadata " ++ show param 
+						| msg_permissions_descriptor param => "permissions_descriptor " ++ show param 
+						| msg_update_operators param => "update_operators " ++ show param 
+						| msg_is_operator param => "is_operator " ++ show param 
+						| msg_receive_hook_transfer param => "receive_hook_transfer " ++ show param 
 						end
 |}.
 
@@ -262,7 +262,6 @@ Instance showFA2Setup : Show FA2Token.Setup :=
   show t := "FA2TokenSetup{" 
             ++ "setup_total_supply: " ++ show t.(setup_total_supply) ++ sep 
             ++ "tokens_metadata: " ++ show t.(setup_tokens) ++ sep 
-            ++ "transfer_hook: " ++ show t.(initial_transfer_hook) ++ sep 
             ++ "permission_policy: " ++ show t.(initial_permission_policy) 
             ++ "}"
 |}.
