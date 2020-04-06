@@ -200,10 +200,10 @@ Definition gClientMsg' :=
   returnGen all_tokens.
 
 Sample gClientMsg'.
-Sample (
+(* Sample (
   msg <- gClientMsg' ;;
   returnGen msg
-).
+). *)
 
 Definition gClientAction := liftM (fun msg => 
   Some (
@@ -223,13 +223,13 @@ Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Che
   reachableFrom_implies_reachable lc (gFA2ChainTraceList 1) pf1 pf2.
 
 Sample gClientMsg.
-Sample (
+(* Sample (
         msg <- gClientMsg;;
         returnGen msg
         ).
 Sample gClientAction.
 
-Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4).
+Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4). *)
 
 
 
