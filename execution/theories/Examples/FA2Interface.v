@@ -20,9 +20,9 @@ Definition token_id := N.
 
 (* Definition callback (A : Type) := A -> ActionBody.  *)
 
-
 Record callback (A : Type) := {
   (* callback_addr : Address; *)
+  blob : option A;
 }.
 
 Record transfer :=
@@ -32,7 +32,6 @@ Record transfer :=
     transfer_token_id : token_id;
     amount : N;
 }.
-
 Record balance_of_request := {
   owner : Address;
   bal_req_token_id : token_id;  
@@ -45,7 +44,7 @@ Record balance_of_response := {
 
 Record balance_of_param := {
   bal_requests : list balance_of_request;
-  bal_callback : callback (list balance_of_response); (*TODO : what type here? *)
+  bal_callback : callback (list balance_of_response); (* TODO : what type here? *)
 }.
 
 Record total_supply_response := {
@@ -71,7 +70,7 @@ Record token_metadata_param := {
   metadata_callback : callback (list token_metadata); (*TODO : what type here? *)
 }.
 
-Inductive operator_tokens :=
+Inductive operator_tokens  :=
   | all_tokens : operator_tokens
   | some_tokens : list token_id -> operator_tokens (* TODO: maybe set instead of list?*) .
 
@@ -219,8 +218,10 @@ Instance set_hook_param_settable : Settable set_hook_param :=
 End Setters.
 
 Section Serialization.
+Instance callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) :=
+Derive Serializable (callback_rect A) <(Build_callback A)>.
 
-Global Program Instance callback_serializable {A : Type} : Serializable (callback A) :=
+(* Global Program Instance callback_serializable {A : Type} : Serializable (callback A) :=
   {| serialize c := @serialize unit _ tt;
      deserialize p := 
      do tt <- @deserialize unit _ p ;
@@ -232,7 +233,7 @@ cbn.
 rewrite deserialize_serialize. 
 destruct x.
 reflexivity. 
-Qed.
+Qed. *)
 
 
 Global Instance transfer_serializable : Serializable transfer :=
@@ -244,8 +245,8 @@ Global Instance balance_of_request_serializable : Serializable balance_of_reques
 Global Instance balance_of_response_serializable : Serializable balance_of_response :=
   Derive Serializable balance_of_response_rect <Build_balance_of_response>.
 
-(* Instance bal_of_param_callback_serializable : Serializable (callback (list balance_of_response)) :=
-  Derive Serializable (callback_rect (list balance_of_response)) <(Build_callback (list balance_of_response))>. *)
+Instance bal_of_param_callback_serializable : Serializable (callback (list balance_of_response)) :=
+  Derive Serializable (callback_rect (list balance_of_response)) <(Build_callback (list balance_of_response))>.
 
 Global Instance balance_of_param_serializable : Serializable balance_of_param :=
   Derive Serializable balance_of_param_rect <Build_balance_of_param>.
@@ -253,8 +254,8 @@ Global Instance balance_of_param_serializable : Serializable balance_of_param :=
 Global Instance total_supply_response_serializable : Serializable total_supply_response :=
   Derive Serializable total_supply_response_rect <Build_total_supply_response>.
 
-(* Instance supply_param_callback_serializable : Serializable (callback (list total_supply_response)) :=
-  Derive Serializable (callback_rect (list total_supply_response)) <(Build_callback (list total_supply_response))>. *)
+Instance supply_param_callback_serializable : Serializable (callback (list total_supply_response)) :=
+  Derive Serializable (callback_rect (list total_supply_response)) <(Build_callback (list total_supply_response))>.
 
 Global Instance total_supply_param_serializable : Serializable total_supply_param :=
   Derive Serializable total_supply_param_rect <Build_total_supply_param>.
@@ -262,8 +263,8 @@ Global Instance total_supply_param_serializable : Serializable total_supply_para
 Global Instance token_metadata_serializable : Serializable token_metadata :=
   Derive Serializable token_metadata_rect <Build_token_metadata>.
 
-(* Instance metadata_callback_serializable : Serializable (callback (list token_metadata)) :=
-  Derive Serializable (callback_rect (list token_metadata)) <(Build_callback (list token_metadata))>. *)
+Instance metadata_callback_serializable : Serializable (callback (list token_metadata)) :=
+  Derive Serializable (callback_rect (list token_metadata)) <(Build_callback (list token_metadata))>.
 
 Global Instance token_metadata_param_serializable : Serializable token_metadata_param :=
   Derive Serializable token_metadata_param_rect <Build_token_metadata_param>.
@@ -280,9 +281,8 @@ Global Instance update_operator_serializable : Serializable update_operator :=
 Global Instance is_operator_response_serializable : Serializable is_operator_response :=
   Derive Serializable is_operator_response_rect <Build_is_operator_response>.
 
- 
-  (* Instance is_operator_param_callback_serializable : Serializable (callback is_operator_response) :=
-  Derive Serializable (callback_rect is_operator_response) <(Build_callback is_operator_response)>. *)
+Instance is_operator_param_callback_serializable : Serializable (callback is_operator_response) :=
+  Derive Serializable (callback_rect is_operator_response) <(Build_callback is_operator_response)>.
 
 Global Instance is_operator_param_serializable : Serializable is_operator_param :=
   Derive Serializable is_operator_param_rect <Build_is_operator_param>.
@@ -295,9 +295,6 @@ Global Instance operator_transfer_policy_serializable : Serializable operator_tr
 
 Global Instance owner_transfer_policy_serializable : Serializable owner_transfer_policy :=
   Derive Serializable owner_transfer_policy_rect <owner_no_op , optional_owner_hook, required_owner_hook>.
-
-(* Global Instance custom_permission_policy_serializable : Serializable custom_permission_policy :=
-  Derive Serializable custom_permission_policy_rect <Build_custom_permission_policy>. *)
 
 Global Instance permissions_descriptor_serializable : Serializable permissions_descriptor :=
   Derive Serializable permissions_descriptor_rect <Build_permissions_descriptor>.
@@ -314,8 +311,8 @@ Global Instance fa2_token_receiver_serializable : Serializable fa2_token_receive
 Global Instance fa2_token_sender_serializable : Serializable fa2_token_sender :=
   Derive Serializable fa2_token_sender_rect <tokens_sent>.
 
-(* Instance transfer_descriptor_param_callback_serializable : Serializable (callback transfer_descriptor_param) :=
-  Derive Serializable (callback_rect transfer_descriptor_param) <(Build_callback transfer_descriptor_param)>. *)
+Instance transfer_descriptor_param_callback_serializable : Serializable (callback transfer_descriptor_param) :=
+  Derive Serializable (callback_rect transfer_descriptor_param) <(Build_callback transfer_descriptor_param)>.
 
 Global Instance set_hook_param_serializable : Serializable set_hook_param :=
   Derive Serializable set_hook_param_rect <Build_set_hook_param>.

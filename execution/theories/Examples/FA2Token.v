@@ -93,6 +93,8 @@ Global Instance FA2TransferHook_serializable {Msg : Type} `{serMsg : Serializabl
     (@transfer_hook  Msg serMsg), 
     (@hook_other_msg Msg serMsg)>.  
 
+Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) := callback_serializable.
+
 Global Instance msg_serializable : Serializable Msg :=
   Derive Serializable Msg_rect <msg_transfer, msg_set_transfer_hook, msg_receive_hook_transfer, msg_balance_of, msg_total_supply, msg_token_metadata, msg_permissions_descriptor, msg_update_operators, msg_is_operator>.
 
