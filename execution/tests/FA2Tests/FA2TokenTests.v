@@ -24,68 +24,6 @@ Close Scope address_scope.
 
 Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
 
-(* Section Printers. *)
-Local Open Scope string_scope.
-
-Instance showFA2ClientMsg : Show FA2ClientMsg :=
-{|
-	show m := match m with
-            | Call_fa2_is_operator param => "Call_fa2_is_operator " ++ show param 
-            | Call_fa2_balance_of_param param => "Call_fa2_balance_of_param " ++ show param 
-            | Call_fa2_total_supply_param param => "Call_fa2_total_supply_param param " ++ show param
-            | Call_fa2_metadata_callback param => "Call_fa2_metadata_callback param " ++ show param
-            | Call_fa2_permissions_descriptor param => "Call_fa2_permissions_descriptor param " ++ show param
-						end
-|}.
-
-Instance showFA2ClientContractMsg : Show ClientMsg :=
-{|
-	show m := show m
-|}.
-
-Instance showFA2ClientState : Show ClientState :=
-{|
-  show t := "FA2ClientState{" 
-            ++ "fa2_caddr: " ++ show t.(fa2_caddr) ++ sep 
-            ++ "bit: " ++ show t.(bit) 
-            ++ "}"
-|}.
-
-Instance showFA2Setup : Show ClientSetup :=
-{|
-  show t := "FA2ClientSetup{" 
-            ++ "fa2_caddr_: " ++ show t.(fa2_caddr_) 
-            ++ "}"
-|}.
-
-Instance showFA2TransferHookMsg : Show FA2TransferHookMsg :=
-{|
-	show m := match m with
-            | set_permission_policy param => "set_permission_policy " ++ show param 
-						end
-|}.
-
-Instance showFA2TransferHookContractState : Show HookState :=
-{|
-  show t := "FA2TransferHookState{" 
-            ++ "fa2_caddr: " ++ show t.(hook_fa2_caddr) ++ sep 
-            ++ "policy: " ++ show t.(policy) ++ sep 
-            ++ "owner: " ++ show t.(owner) 
-            ++ "}"
-|}.
-
-Instance showFA2TransferHookContractSetup : Show HookSetup :=
-{|
-  show t := "FA2TransferHookSetup{" 
-            ++ "fa2_caddr_: " ++ show t.(hook_fa2_caddr_) ++ sep 
-            ++ "policy_: " ++ show t.(policy_) ++ sep 
-            ++ "}"
-|}.
-
-Close Scope string_scope.
-(* End Printers. *)
-
-
 (** example policies *)
 
 (* the policy which allows only token owners to transfer their own tokens. *)
@@ -143,7 +81,7 @@ Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
 
 Definition fa2hook_setup : HookSetup := {|
   hook_fa2_caddr_ := token_contract_base_addr;
-  policy_ := policy_self_only; 
+  hook_policy_ := policy_self_only; 
 |}.
 Definition deploy_fa2hook := create_deployment 0 hook_contract fa2hook_setup.
 Definition fa2hook_contract_addr : Address := BoundedN.of_Z_const AddrSize 130%Z.
@@ -193,24 +131,14 @@ Definition gClientMsg : G ClientMsg :=
     (Build_callback is_operator_response None) in
   returnGen (client_other_msg (Call_fa2_is_operator params)).
 
-Definition gClientMsg' := 
-  (* let params := all_tokens in *)
-    (* (Build_operator_param zero_address zero_address all_tokens) in *)
-    (* (Build_callback is_operator_response None) in *)
-  returnGen all_tokens.
-
-Sample gClientMsg'.
-(* Sample (
-  msg <- gClientMsg' ;;
-  returnGen msg
-). *)
-
-Definition gClientAction := liftM (fun msg => 
-  Some (
+Definition gClientAction := 
+  msg <- gClientMsg ;;
+  returnGen (Some (
     build_act person_1 (
-      act_call token_contract_base_addr 0%Z (serialize ClientMsg _ msg)
+      call_client_is_op_act
+      (* act_call token_contract_base_addr 0%Z (serialize ClientMsg _ msg) *)
     )
-  )) gClientMsg.
+  )).
 
 Definition gFA2ChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun _ _=> 
@@ -222,14 +150,9 @@ Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
 Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
   reachableFrom_implies_reachable lc (gFA2ChainTraceList 1) pf1 pf2.
 
-Sample gClientMsg.
-(* Sample (
-        msg <- gClientMsg;;
-        returnGen msg
-        ).
 Sample gClientAction.
 
-Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4). *)
+Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4).
 
 
 

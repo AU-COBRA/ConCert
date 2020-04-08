@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain.
 From ConCert Require Import FA2Interface FA2Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters.
+From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters TestContracts.
 Require Import Strings.String.
 From QuickChick Require Import QuickChick.
 Local Open Scope string_scope.
@@ -274,5 +274,61 @@ Instance showFA2Setup : Show FA2Token.Setup :=
             ++ "setup_total_supply: " ++ show t.(setup_total_supply) ++ sep 
             ++ "tokens_metadata: " ++ show t.(setup_tokens) ++ sep 
             ++ "permission_policy: " ++ show t.(initial_permission_policy) 
+            ++ "}"
+|}.
+
+(* Printers for Test Contracts *)
+Instance showFA2ClientMsg : Show FA2ClientMsg :=
+{|
+	show m := match m with
+            | Call_fa2_is_operator param => "Call_fa2_is_operator " ++ show param 
+            | Call_fa2_balance_of_param param => "Call_fa2_balance_of_param " ++ show param 
+            | Call_fa2_total_supply_param param => "Call_fa2_total_supply_param param " ++ show param
+            | Call_fa2_metadata_callback param => "Call_fa2_metadata_callback param " ++ show param
+            | Call_fa2_permissions_descriptor param => "Call_fa2_permissions_descriptor param " ++ show param
+						end
+|}.
+
+Instance showFA2ClientContractMsg : Show ClientMsg :=
+{|
+	show m := show m
+|}.
+
+Instance showFA2ClientState : Show ClientState :=
+{|
+  show t := "FA2ClientState{" 
+            ++ "fa2_caddr: " ++ show t.(fa2_caddr) ++ sep 
+            ++ "bit: " ++ show t.(bit) 
+            ++ "}"
+|}.
+
+Instance showFA2ClientSetup : Show ClientSetup :=
+{|
+  show t := "FA2ClientSetup{" 
+            ++ "fa2_caddr_: " ++ show t.(fa2_caddr_) 
+            ++ "}"
+|}.
+
+Instance showFA2TransferHookMsg : Show FA2TransferHookMsg :=
+{|
+	show m := match m with
+            | set_permission_policy param => "set_permission_policy " ++ show param 
+						end
+|}.
+
+Instance showFA2TransferHookContractState : Show HookState :=
+{|
+  show t := "FA2TransferHookState{" 
+            ++ "fa2_caddr: " ++ show t.(hook_fa2_caddr) ++ sep 
+            ++ "policy: " ++ show t.(hook_policy) ++ sep 
+            ++ "owner: " ++ show t.(hook_owner) 
+            ++ "}"
+|}.
+
+Instance showFA2TransferHookContractSetup : Show HookSetup :=
+{|
+  show t := "FA2TransferHookSetup{" 
+            ++ "fa2_caddr_: " ++ show t.(hook_fa2_caddr_) ++ sep 
+            ++ "policy_: " ++ show t.(hook_policy_) ++ sep 
             ++ "}"
 |}.
