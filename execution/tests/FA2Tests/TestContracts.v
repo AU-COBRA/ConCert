@@ -133,21 +133,21 @@ Definition TransferHookMsg := @FA2TransferHook BaseTypes FA2TransferHookMsg _.
 
 Record HookState := 
   build_hookstate {
-    owner : Address;
+    hook_owner : Address;
     hook_fa2_caddr : Address;
-    policy : permissions_descriptor;
+    hook_policy : permissions_descriptor;
 }.
 
 Record HookSetup := 
   build_hooksetup {
     hook_fa2_caddr_ : Address;
-    policy_ : permissions_descriptor;
+    hook_policy_ : permissions_descriptor;
 }.
 
 Instance hookstate_settable : Settable _ :=
-  settable! build_hookstate <owner; hook_fa2_caddr; policy>.
+  settable! build_hookstate <hook_owner; hook_fa2_caddr; hook_policy>.
 Instance hooksetup_settable : Settable _ :=
-  settable! build_hooksetup <hook_fa2_caddr_; policy_>.
+  settable! build_hooksetup <hook_fa2_caddr_; hook_policy_>.
 
 Section Serialization.
 
@@ -163,9 +163,9 @@ Definition hook_init (chain : Chain)
 								(ctx : ContractCallContext)
 								(setup : HookSetup) : option HookState := 
   Some {|
-    owner := ctx.(ctx_from);
+    hook_owner := ctx.(ctx_from);
     hook_fa2_caddr := setup.(hook_fa2_caddr_);
-    policy := setup.(policy_);
+    hook_policy := setup.(hook_policy_);
 	|}.
 
 Definition returnIf (cond : bool) := if cond then None else Some tt.
@@ -175,10 +175,10 @@ Definition check_transfer_permissions (tr : transfer_descriptor)
                                       (state : HookState) 
                                       : option unit :=
   if (address_eqb tr.(transfer_descr_from_) operator)
-  then if (FA2Token.policy_disallows_self_transfer state.(policy))
+  then if (FA2Token.policy_disallows_self_transfer state.(hook_policy))
     then None 
     else Some tt
-  else if (FA2Token.policy_disallows_operator_transfer state.(policy))
+  else if (FA2Token.policy_disallows_operator_transfer state.(hook_policy))
     then None
     else Some tt.
 
@@ -205,8 +205,8 @@ Definition try_update_permission_policy (caller : Address)
                                     (new_policy : permissions_descriptor)
                                     (state : HookState)
                                     : (option HookState) :=
-  do _ <- returnIf (negb (address_eqb caller state.(owner))) ;
-  Some (state<| policy := new_policy |>).
+  do _ <- returnIf (negb (address_eqb caller state.(hook_owner))) ;
+  Some (state<| hook_policy := new_policy |>).
 
 Definition hook_receive (chain : Chain)
 						 			 (ctx : ContractCallContext)
