@@ -236,7 +236,7 @@ Definition gContractCallInfo := liftM3 build_call_info arbitrary arbitrary arbit
 (* generators of actions from the LocalChain context type *)
 
 Definition allProposalsOfLC lc : FMap ProposalId Proposal := 
-  let all_states := FMap.values (lc_contract_state_deserialized lc) in
+  let all_states := FMap.values (lc_contract_state_deserialized Congress.State lc) in
   let proposals_list : list (ProposalId * Proposal):= fold_left (fun acc s => FMap.elements (proposals s) ++ acc ) all_states [] in
   FMap.of_list proposals_list.
 
@@ -244,11 +244,11 @@ Definition allProposalsWithVotes lc : FMap ProposalId Proposal :=
  filter_FMap (fun p => 0 <? FMap.size (votes (snd p))) (allProposalsOfLC lc).
 
 Definition congressContractsMembers lc : FMap Address (list Address) := 
- map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized lc).
+ map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized Congress.State lc).
 
  Definition congressContractsMembers_nonempty lc : FMap Address (list Address) := 
  let members_map := 
-  map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized lc) in
+  map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized Congress.State lc) in
   filter_FMap (fun p => 0 <? length (snd p)) members_map. 
 
 Definition congressContractsMembers_nonempty_nonowners lc : FMap Address (list Address) :=   
@@ -258,7 +258,7 @@ Definition congressContractsMembers_nonempty_nonowners lc : FMap Address (list A
     let members := (map fst o FMap.elements) (members state) in
     let non_owner_members := filter (fun member => negb (address_eqb member (owner state))) members in
     if 0 <? length non_owner_members then Some non_owner_members else None
-  ) (lc_contract_state_deserialized lc).
+  ) (lc_contract_state_deserialized Congress.State lc).
 
 Definition gCongressMember (lc : LocalChain) 
                            (contract_addr : Address) 
@@ -357,7 +357,7 @@ Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Ad
    current rules in the given LocalChain *)
 Definition finishable_proposals (lc : LocalChain) 
                                 : FMap Address (FMap ProposalId Proposal) := 
-  let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_contract_state_deserialized lc) in
+  let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_contract_state_deserialized Congress.State lc) in
   map_filter_FMap (fun p =>
     let caddr := fst p in
     let pids_map := snd p in

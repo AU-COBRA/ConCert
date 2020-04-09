@@ -125,23 +125,23 @@ Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSiz
 Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
 Definition lc_account_balance lc addr : option Amount := (FMap.find addr (@lc_account_balances AddrSize lc)).
 
-Definition lc_contract_state_deserialized lc : FMap Address Congress.State :=
+Definition lc_contract_state_deserialized (state : Type) `{Serializable state} lc : FMap Address state :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left 
                 (fun acc p => 
-                  match @deserialize Congress.State _ (snd p) with
+                  match @deserialize state _ (snd p) with
                   | Some state => (fst p, state) :: acc
                   | None => acc
                   end)  
                 els_list []).
 
 Definition lc_contract_owners : LocalChain -> FMap Address Address := 
-  (map_values_FMap owner) o lc_contract_state_deserialized.
+  (map_values_FMap owner) o (lc_contract_state_deserialized Congress.State).
 
 Open Scope bool_scope.
 
 Definition lc_proposals (lc : LocalChain) : FMap Address (FMap ProposalId Proposal) :=
-  map_values_FMap proposals (lc_contract_state_deserialized lc).
+  map_values_FMap proposals (lc_contract_state_deserialized Congress.State lc).
 
   
 Definition lc_contract_members_and_proposals_new_voters (lc : LocalChain) : FMap Address (FMap Address (list ProposalId)) := 
@@ -165,7 +165,7 @@ Definition lc_contract_members_and_proposals_new_voters (lc : LocalChain) : FMap
       ) candidate_members FMap.empty in
       Some voters_to_proposals
     else None
-  ) (lc_contract_state_deserialized lc) 
+  ) (lc_contract_state_deserialized Congress.State lc) 
 .
 
 Definition lc_contract_members_and_proposals_with_votes (lc : LocalChain) 
@@ -181,7 +181,7 @@ Definition lc_contract_members_and_proposals_with_votes (lc : LocalChain)
       fold_left (fun acc m => FMap.add m propIds acc) members FMap.empty
     )
     else None
-  ) (lc_contract_state_deserialized lc) 
+  ) (lc_contract_state_deserialized Congress.State lc) 
 .
 
 (* Utils for Generators *)
