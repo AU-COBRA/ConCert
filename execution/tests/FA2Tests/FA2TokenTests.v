@@ -125,24 +125,18 @@ Definition token_state lc :=
 Compute (client_state chain1).
 (* Compute (show (token_state chain1)). *)
 
-Definition gClientMsg : G ClientMsg := 
-  let params := Build_is_operator_param 
-    (Build_operator_param zero_address zero_address all_tokens)
-    (Build_callback is_operator_response None) in
-  returnGen (client_other_msg (Call_fa2_is_operator params)).
+From ConCert.Execution.QCTests Require Import FA2Gens.
 
-Definition gClientAction := 
-  msg <- gClientMsg ;;
-  returnGen (Some (
-    build_act person_1 (
-      call_client_is_op_act
-      (* act_call token_contract_base_addr 0%Z (serialize ClientMsg _ msg) *)
-    )
-  )).
+Module TestInfo <: FA2TestsInfo.
+  Definition fa2_contract_addr := token_contract_base_addr.
+  Definition fa2_client_addr := client_contract_addr.
+  Definition fa2_hook_addr := fa2hook_contract_addr.
+End TestInfo.
+Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
 Definition gFA2ChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun _ _=> 
-    gClientAction) length max_acts_per_block.
+    gFA2TokenAction lc) length max_acts_per_block.
 
 Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
   @reachableFrom AddrSize lc (gFA2ChainTraceList 1) pf.
@@ -150,8 +144,21 @@ Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
 Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
   reachableFrom_implies_reachable lc (gFA2ChainTraceList 1) pf1 pf2.
 
-Sample gClientAction.
+Definition chain1_token_state : FA2Token.State := unpack_option (token_state chain1).
 
+Inductive valid_transfer : transfer -> Prop :=
+| valid : forall trx, 
+  (valid_transfer_prop chain1_token_state trx) = true -> valid_transfer trx.
+(* Derive ArbitrarySizedSuchThat for (fun trx => valid_transfer trx). *)
+
+Instance asd : GenSuchThat transfer valid_transfer  := {|
+  arbitraryST := gValidTransfer chain1_token_state  
+|}.
+
+Sample (genST valid_transfer).
+Sample (bindGenOpt (returnGen (token_state chain1)) gValidTransfer).
+Sample (gFA2TokenAction chain1).
+(* Sample gClientAction. *)
 Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4).
 
 

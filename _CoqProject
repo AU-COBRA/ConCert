@@ -47,6 +47,7 @@ execution/tests/EIP20TokenTests.v
 execution/tests/TraceGens.v
 execution/tests/FA2Tests/TestContracts.v
 execution/tests/FA2Tests/FA2Printers.v
+execution/tests/FA2Tests/FA2Gens.v
 execution/tests/FA2Tests/FA2TokenTests.v
 execution/tests/SerializablePrinters.v
 
