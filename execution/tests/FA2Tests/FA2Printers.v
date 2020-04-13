@@ -245,6 +245,7 @@ Instance showFA2TokenMsg : Show FA2Token.Msg :=
 						| msg_update_operators param => "update_operators " ++ show param 
 						| msg_is_operator param => "is_operator " ++ show param 
 						| msg_receive_hook_transfer param => "receive_hook_transfer " ++ show param 
+						| msg_create_tokens tokenid => "create_tokens " ++ show tokenid 
 						end
 |}.
 

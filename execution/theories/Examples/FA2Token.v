@@ -42,7 +42,8 @@ Inductive Msg :=
   | msg_token_metadata : token_metadata_param -> Msg
   | msg_permissions_descriptor : callback permissions_descriptor -> Msg (* TODO fix callback type *)
   | msg_update_operators : list update_operator -> Msg
-  | msg_is_operator : is_operator_param -> Msg.
+  | msg_is_operator : is_operator_param -> Msg
+  | msg_create_tokens : token_id -> Msg.
 
 Record TokenLedger := 
   build_token_ledger {
@@ -96,7 +97,17 @@ Global Instance FA2TransferHook_serializable {Msg : Type} `{serMsg : Serializabl
 Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) := callback_serializable.
 
 Global Instance msg_serializable : Serializable Msg :=
-  Derive Serializable Msg_rect <msg_transfer, msg_set_transfer_hook, msg_receive_hook_transfer, msg_balance_of, msg_total_supply, msg_token_metadata, msg_permissions_descriptor, msg_update_operators, msg_is_operator>.
+  Derive Serializable Msg_rect <
+    msg_transfer, 
+    msg_set_transfer_hook,
+    msg_receive_hook_transfer, 
+    msg_balance_of, 
+    msg_total_supply, 
+    msg_token_metadata, 
+    msg_permissions_descriptor, 
+    msg_update_operators, 
+    msg_is_operator,
+    msg_create_tokens>.
 
 Global Instance TokenLedger_serializable : Serializable TokenLedger :=
   Derive Serializable TokenLedger_rect <build_token_ledger>.
@@ -339,7 +350,6 @@ Definition try_set_transfer_hook (caller : Address)
   Some (state<| transfer_hook_addr :=  Some params.(hook_addr)|>
              <| permission_policy  := params.(hook_permissions_descriptor) |>).
 
-
 Definition get_token_metadata_callback (caller : Address) 
                                        (token_ids : list token_id) 
                                        (state : State)
@@ -354,6 +364,21 @@ Definition get_token_metadata_callback (caller : Address)
   let response := serialize (receive_metadata_callback metadata_list) in
   act_call caller 0%Z response.
 
+Definition try_create_tokens (caller : Address)
+                             (amount : Amount)
+                             (tokenid : token_id)
+                             (state : State)
+                             : option State :=
+  do ledger <- FMap.find tokenid state.(assets) ;
+  (* only allow amounts > 0 *)
+  do _ <- returnIf (Z.leb amount 0%Z) ;
+  let amount := Z.to_N amount in
+  let caller_bal := with_default 0 (FMap.find caller ledger.(balances)) in
+  let new_balances := FMap.add caller (caller_bal + amount) ledger.(balances) in
+  let new_ledger := ledger<| balances := new_balances |> in
+  Some (state<| assets ::=  FMap.add tokenid new_ledger |>).
+
+
 Open Scope Z_scope.
 Definition receive (chain : Chain)
 						 			 (ctx : ContractCallContext)
@@ -364,9 +389,12 @@ Definition receive (chain : Chain)
   let caddr := ctx.(ctx_contract_address) in
 	let without_actions := option_map (fun new_state => (new_state, [])) in
 	let without_statechange acts := Some (state, acts) in
-	(* Only allow calls to this contract with no payload *)
+	(* Only 'create_token' messages are allowed to carry money *)
 	if ctx.(ctx_amount) >? 0
-	then None
+  then match maybe_msg with
+  | Some (msg_create_tokens tokenid) => without_actions (try_create_tokens sender ctx.(ctx_amount) tokenid state)
+  | _ => None
+  end
   else match maybe_msg with
   | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state 
   | Some (msg_receive_hook_transfer param) => without_actions (handle_transfer_hook_receive sender param state)
