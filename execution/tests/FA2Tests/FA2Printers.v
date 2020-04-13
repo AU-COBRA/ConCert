@@ -18,11 +18,11 @@ Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
 
 Instance showFA2InterfaceTransfer : Show FA2Interface.transfer :=
 {|
-  show t := "Transfer{" 
+  show t := "{" 
             ++ "from_: " ++ show t.(from_) ++ sep 
-            ++ "to_: " ++ show t.(to_) 
-            ++ "transfer_token_id: " ++ show t.(transfer_token_id) 
-            ++ "amount: " ++ show t.(amount) 
+            ++ "to_: " ++ show t.(to_) ++ sep
+            ++ "transfer_token_id: " ++ show t.(transfer_token_id) ++ sep 
+            ++ "amount: " ++ show t.(amount)
             ++ "}"
 |}.
 
