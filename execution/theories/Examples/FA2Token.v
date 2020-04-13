@@ -408,13 +408,27 @@ Definition receive (chain : Chain)
   | _ => None
   end.  
 
+Definition map_values_FMap {A B C: Type}
+                      `{countable.Countable A}
+                      `{base.EqDecision A}
+                       (f : B -> C)
+                       (m : FMap A B)
+                       : FMap A C := 
+  let l := FMap.elements m in
+  let mapped_l := List.map (fun p => (fst p, f (snd p))) l in
+  FMap.of_list mapped_l.
+
 Definition init (chain : Chain)
 								(ctx : ContractCallContext)
-								(setup : Setup) : option State := 
+                (setup : Setup) : option State :=
+  (* setup ledgers with empty balance for each initial token id *)
+  let assets' := map_values_FMap (fun _ => 
+    build_token_ledger false FMap.empty
+  ) setup.(setup_tokens) in
   Some {| permission_policy := setup.(initial_permission_policy);
           fa2_owner := ctx.(ctx_from);
           transfer_hook_addr := None;
-          assets := FMap.empty;
+          assets := assets';
           operators := FMap.empty;
           tokens := setup.(setup_tokens) |}.
 
