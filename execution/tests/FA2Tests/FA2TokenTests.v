@@ -122,6 +122,7 @@ Definition token_state lc :=
   | Some state => deserialize FA2Token.State _ state
   | None => None
   end.
+
 Compute (client_state chain1).
 (* Compute (show (token_state chain1)). *)
 
