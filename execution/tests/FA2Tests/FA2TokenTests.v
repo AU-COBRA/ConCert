@@ -109,7 +109,8 @@ Definition call_client_is_op_act :=
 Definition chain1 : LocalChain :=
   unpack_option (my_add_block chain_with_token_deployed 
   [
-    build_act person_1 call_client_is_op_act
+    build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
   ]).
 
 Definition client_state lc := 
@@ -124,7 +125,7 @@ Definition token_state lc :=
   end.
 
 Compute (client_state chain1).
-(* Compute (show (token_state chain1)). *)
+Compute (show (token_state chain1)).
 
 From ConCert.Execution.QCTests Require Import FA2Gens.
 
@@ -135,19 +136,9 @@ Module TestInfo <: FA2TestsInfo.
 End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
-Definition gFA2ChainTraceList max_acts_per_block lc length := 
-  gLocalChainTraceList_fix lc (fun _ _=> 
-    gFA2TokenAction lc) length max_acts_per_block.
-
-Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
-  @reachableFrom AddrSize lc (gFA2ChainTraceList 1) pf.
-
-Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
-  reachableFrom_implies_reachable lc (gFA2ChainTraceList 1) pf1 pf2.
-
 Definition chain1_token_state : FA2Token.State := unpack_option (token_state chain1).
 
-Inductive valid_transfer : transfer -> Prop :=
+(* Inductive valid_transfer : transfer -> Prop :=
 | valid : forall trx, 
   (valid_transfer_prop chain1_token_state trx) = true -> valid_transfer trx.
 (* Derive ArbitrarySizedSuchThat for (fun trx => valid_transfer trx). *)
@@ -157,10 +148,58 @@ Instance asd : GenSuchThat transfer valid_transfer  := {|
 |}.
 
 Sample (genST valid_transfer).
-Sample (bindGenOpt (returnGen (token_state chain1)) gValidTransfer).
+Sample (bindGenOpt (returnGen (token_state chain1)) gValidTransfer). *)
+Definition gFA2ChainTraceList max_acts_per_block lc length := 
+  gLocalChainTraceList_fix lc (fun lc _ => gFA2TokenAction lc) length max_acts_per_block.
+
+Definition gFA2ClientChainTraceList max_acts_per_block lc length := 
+  gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
+
 Sample (gFA2TokenAction chain1).
 (* Sample gClientAction. *)
 Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4).
+(* Sanity Check that the trace generator never fails early *)
+QuickChick (forAll 
+  (choose (1, 10))
+  (fun size => forAll 
+    (gFA2ChainTraceList 1 chain_with_token_deployed size)
+    (fun trace => 
+      whenFail 
+        ("failed with trace of length: " ++ show (List.length trace)) 
+        (size =? List.length trace))
+  )).
+
+(* Sanity check that generating two actions in a row will always succeed *)
+(* QuickChick (
+  forAll2 (gFA2TokenAction chain_with_token_deployed)
+  (fun act_opt =>
+  match act_opt with
+  | Some act =>
+    match (my_add_block chain_with_token_deployed [act]) with
+    | Some c => gFA2TokenAction c 
+    | None => returnGen None
+    end
+  | None => returnGen None
+  end)
+  (fun act1_opt act2_opt => 
+    match (act1_opt, act2_opt) with
+    | (Some act1, Some act2) => 
+      whenFail 
+        ("execution failed:" ++ nl
+        ++ show (my_add_block chain_with_token_deployed [act1])) 
+        (
+          let c_opt := my_add_block chain_with_token_deployed [act1] in 
+          match c_opt with
+          | Some c => checker (isSome (my_add_block c [act2]))
+          | None => whenFail "empty chain" false
+          end
+        )
+    | _ => whenFail "empty act" false
+    end) 
+). *)
+
+Sample (gFA2ClientChainTraceList 1 chain_with_token_deployed 4).
+
 
 
 
