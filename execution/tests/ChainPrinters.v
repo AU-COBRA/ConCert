@@ -161,6 +161,17 @@ Instance showLocalAction `{Show ActionBody} : Show (@Action LocalChainBase) :=
             ++ "act_body: " ++ show (act_body a) ++ "}"
 |}. 
 
+Instance showLocalActionList `{Show (@Action LocalChainBase)}: Show (list (@Action LocalChainBase)) :=
+{|
+  show a := String.concat (";" ++ nl) (map show a)
+|}. 
+Existing Instance showLocalActionList | 0.
+Instance showOptLocalActionList `{Show (option (@Action LocalChainBase))}: Show (list (option (@Action LocalChainBase))) :=
+{|
+  show a := String.concat (";" ++ nl) (map show a)
+|}. 
+Existing Instance showOptLocalActionList | 0.
+
 Instance showChainState : Show (@ChainState LocalChainBase) :=
 {|
   show a := "ChainState{" ++ "}"
