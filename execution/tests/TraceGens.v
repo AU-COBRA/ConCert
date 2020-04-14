@@ -324,6 +324,21 @@ Definition forAllTraces {prop : Type}
                 | _ => conjoin (map (checker o pf o next_lc_of_lcstep) trace)
                 end).   
 
+(* A variant where the property is over the step *)
+Definition forAllTraces_stepProp {prop : Type}
+                       `{Checkable prop}
+                        {AddrSize : N}
+                        (maxLength : nat)
+                        (init_lc : @LocalChain AddrSize)
+                        (gTrace : LocalChain -> nat -> G LocalChainTraceList)
+                        (pf : LocalChainStep -> prop)
+                        : Checker :=
+  forAll (gTrace init_lc maxLength) 
+  (fun trace => match trace with
+                | [] => false ==> true
+                | _ => conjoin (map (checker o pf) trace)
+                end).  
+
 (* A variant where the property is over the whole trace *)
 Definition forAllTraces_traceProp {prop : Type}
                        `{Checkable prop}

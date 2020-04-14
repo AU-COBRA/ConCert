@@ -259,6 +259,7 @@ Definition gFA2TokenAction (lc : LocalChain) : G (option Action) :=
           let msg := snd p in
           mk_call caller amount msg 
       ) ;
+      (* update operators *)
       (2, caller <- gAccountAddrFromLocalChain lc ;;
           upd <- gUpdateOperators lc fa2_state 2 ;;
           mk_call caller 0%Z upd
@@ -322,6 +323,7 @@ Definition gFA2Actions (lc : LocalChain) (size : nat) : G (option Action) :=
 
 Definition gFA2ChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc gFA2Actions length max_acts_per_block.
+
 
 (* the '1' fixes nr of actions per block to 1 *)
 Definition token_reachableFrom (lc : LocalChain) pf : Checker := 

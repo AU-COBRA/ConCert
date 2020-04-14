@@ -149,17 +149,57 @@ Instance asd : GenSuchThat transfer valid_transfer  := {|
 
 Sample (genST valid_transfer).
 Sample (bindGenOpt (returnGen (token_state chain1)) gValidTransfer). *)
-Definition gFA2ChainTraceList max_acts_per_block lc length := 
+Definition gFA2TokenActionChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gFA2TokenAction lc) length max_acts_per_block.
-
 Definition gFA2ClientChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
 
+Sample (gFA2TokenActionChainTraceList 1 chain1 10).
+
+Definition forAllFA2Traces := forAllTraces_stepProp 5 chain1 (gFA2TokenActionChainTraceList 1).
+Extract Constant defNumDiscards => "(4 * defNumTests)".
+Open Scope N_scope.
+
+
+Definition transfer_state_update_correct prev_state next_state transfers := 
+  let transfer_update_correct trx := 
+    let from_balance_before := address_balance trx.(transfer_token_id) trx.(from_) prev_state in
+    let to_balance_before := address_balance trx.(transfer_token_id) trx.(to_) prev_state in
+    let from_balance_after := address_balance trx.(transfer_token_id) trx.(from_) next_state in
+    let to_balance_after := address_balance trx.(transfer_token_id) trx.(to_) next_state in
+    (from_balance_before - trx.(amount) =? from_balance_after) &&
+    (to_balance_before + trx.(amount) =? to_balance_after) in
+  forallb transfer_update_correct transfers.
+
+Definition transfer_balances_correct (step : @LocalChainStep AddrSize) := 
+  match step with
+  | step_add_block _ _ _ => false ==> true
+  | step_action prev_lc _ next_lc [act] =>
+    match act.(act_body) with
+    | act_call _ _ msg =>
+      match deserialize FA2Token.Msg _ msg with
+      | Some (msg_transfer transfers) => 
+        (* check that next_lc is updated correctly from prev_lc according to the transfers *)
+        let prev_state := token_state prev_lc in
+        let next_state := token_state next_lc in
+        match (prev_state, next_state) with
+        | (Some prev_state, Some next_state) => checker (transfer_state_update_correct prev_state next_state transfers)
+        | _ => false ==> true
+        end
+      | _ => false ==> true
+      end 
+    | _ => false ==> true
+    end
+  | _ => false ==> true
+  end.
+
+(* QuickChick (forAllFA2Traces transfer_balances_correct). *)
+
 Sample (gFA2TokenAction chain1).
 (* Sample gClientAction. *)
-Sample (gFA2ChainTraceList 1 chain_with_token_deployed 4).
+Sample (gFA2ChainTraceList 1 chain1 4).
 (* Sanity Check that the trace generator never fails early *)
-QuickChick (forAll 
+(* QuickChick (forAll 
   (choose (1, 10))
   (fun size => forAll 
     (gFA2ChainTraceList 1 chain_with_token_deployed size)
@@ -167,7 +207,7 @@ QuickChick (forAll
       whenFail 
         ("failed with trace of length: " ++ show (List.length trace)) 
         (size =? List.length trace))
-  )).
+  )). *)
 
 (* Sanity check that generating two actions in a row will always succeed *)
 (* QuickChick (
