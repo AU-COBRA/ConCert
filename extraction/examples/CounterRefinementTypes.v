@@ -1,5 +1,9 @@
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
+Require Import Io.All.
+Require Import Io.System.All.
+Require Import ListString.All.
+
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import Loader.
 
@@ -22,22 +26,22 @@ Open Scope Z.
 
 Import Lia.
 
-Module Counter.
+Module CounterRefinmentTypes.
 
   Definition storage := Z × nat.
+
+  Definition non_neg := {z : Z | 0 <=? z}.
 
   Inductive msg :=
   | Inc (_ : Z)
   | Dec (_ : Z).
 
-  Definition inc_balance (st :  Z × nat) (new_balance : Z)
-               (p : (0 <=? new_balance) = true) :=
-    (st.1 + new_balance, st.2).
+  Definition inc_balance (st : storage) (new_balance : non_neg) :=
+    (st.1 + proj1_sig new_balance, st.2).
 
 
-  Definition dec_balance (st : storage) (new_balance : Z)
-             (p : (0 <=? new_balance) = true) :=
-    (st.1 -  new_balance, st.2).
+  Definition dec_balance (st : storage) (new_balance :  non_neg) :=
+    (st.1 - proj1_sig new_balance, st.2).
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
@@ -46,28 +50,28 @@ Module Counter.
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h =>
-        Some ([], inc_balance st i h)
+      | left h => Some ([], inc_balance st (exist i h))
       | right _ => None
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
+      | left h => Some ([], inc_balance st (exist i h))
       | right _ => None
       end
     end.
 
-End Counter.
+End CounterRefinmentTypes.
 
-Import Counter.
+Import CounterRefinmentTypes.
 
 (** A translation table for various constants we want to rename *)
-Definition TT : env string :=
+Definition TT_rt : env string :=
   [  remap <% Z.add %> "addInt"
      ; remap <% Z.sub %> "subInt"
      ; remap <% Z.leb %> "leInt"
      ; remap <% Z %> "int"
      ; remap <% nat %> "address"
+     ; remap <% proj1_sig %> "fst"
      ; ("left", "Left")
      ; ("right", "Right")
      ; ("Z0" ,"0")
@@ -75,43 +79,25 @@ Definition TT : env string :=
      ; local <% @fst %>
      ; local <% @snd %>
      ; local <% inc_balance %>
-     ; local <% dec_balance %>
      ; local <% my_bool_dec %>
   ].
 
-Quote Recursively Definition ex_partially_applied_syn :=
-  ((fun msg : msg => fun st => match msg with
-    | Inc i =>
-      match (my_bool_dec (0 <=? i) true) with
-      | left h =>
-        let f := inc_balance st i in
-        Some ([], f h)
-      | right _ => None
-      end
-    | Dec i =>
-      match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
-      | right _ => None
-      end
-    end) : msg -> storage -> option (list SimpleActionBody * storage)).
+MetaCoq Erase Annotate (unfolded counter).
 
-Compute (check_applied ex_partially_applied_syn).
-(* returns [false], as expected *)
-
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. Even though the de-boxing is not certified yet, before removing boxes we check if constant is applied to all logical argument (i.e. proofs or types) and constructors are fully applied. In this case, it is safe to remove these applications. *)
+(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that remove redundant type abstractions and application of boxes *)
 Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
      ind <- tmQuoteInductive "msg" ;;
-     ind_liq <- get_one_ind_body TT ind.(ind_bodies);;
-     t1 <- toLiquidity TT inc_balance ;;
-     t2 <- toLiquidity TT dec_balance ;;
-     t3 <- toLiquidity TT my_bool_dec ;;
-     t4 <- toLiquidity TT counter ;;
+     ind_liq <- get_one_ind_body TT_rt ind.(ind_bodies);;
+     t1 <- toLiquidity TT_rt CounterRefinmentTypes.inc_balance ;;
+     t2 <- toLiquidity TT_rt CounterRefinmentTypes.dec_balance ;;
+     t3 <- toLiquidity TT_rt CounterRefinmentTypes.my_bool_dec ;;
+     t4 <- toLiquidity TT_rt CounterRefinmentTypes.counter ;;
      res <- tmEval lazy
-                  (prod_ops ++ nl ++ int_ops
+                  (prod_ops ++ nl ++ int_ops ++ nl ++ "let exist a b = (a,b)"
                      ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type TT storage_body
+                     ++ "type storage = " ++ print_liq_type TT_rt storage_body
                      ++ nl ++ nl
                      ++ ind_liq
                      ++ nl ++ nl
@@ -126,6 +112,19 @@ Run TemplateProgram
                      ++ printWrapper "counter"
                      ++ nl ++ nl
                      ++ printMain) ;;
-    tmDefinition "counter_extracted" res).
+    tmDefinition "counter_extracted_refinment_types" res).
 
-Print counter_extracted.
+Print counter_extracted_refinment_types.
+
+Import C.Notations.
+Definition main (argv : list LString.t) :=
+  let fname := "CounterExtractedRefinmentTypes.liq" in
+  let! is_success :=
+     System.write_file
+       (LString.s fname) (LString.s counter_extracted_refinment_types) in
+  if is_success then log (LString.s ("Extracted to " ++ fname))
+  else log (LString.s "Failed to write file").
+
+Open Scope nat.
+
+Compute Extraction.launch hello_world.

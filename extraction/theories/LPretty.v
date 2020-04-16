@@ -4,7 +4,7 @@ From Coq Require Import List Program String Ascii.
 From ConCert Require Import MyEnv Ast.
 From MetaCoq.Template Require Import utils Loader Environment.
 From MetaCoq.Template Require Pretty.
-From MetaCoq.Erasure Require Import EAst EAstUtils ETyping.
+From MetaCoq.Erasure Require Import Debox EAst EAstUtils ETyping.
 
 (** Pretty printing *)
 
@@ -58,6 +58,10 @@ Section print_term.
     | Some nm => nm
     | None => ind.(inductive_mind)
     end
+  | Ast.tApp (Ast.tInd ind i) [t1] =>
+    if (Ast.from_option (to_name <% list %>) "" =? ind.(inductive_mind))%string then
+      print_liq_type TT t1 ++ " " ++ "list"
+    else error
   | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
       if (Ast.from_option (to_name <% prod %>) "" =? ind.(inductive_mind))%string then
         print_liq_type TT t1 ++ " * " ++ print_liq_type TT t2
@@ -90,13 +94,24 @@ Section print_term.
     "type " ++ oib.(Ast.ind_name) ++ " = "
                               ++ nl ++ concat "| " (map (fun p => print_ctor TT p.1 ++ nl) oib.(Ast.ind_ctors)).
 
-    Definition print_def {A : Set} (f : A -> string) (def : def A) :=
-    string_of_name (dname def) ++ " { struct " ++ string_of_nat (rarg def) ++ " }"
-                   ++ " := " ++ nl ++ f (dbody def).
+  (* This is more fixpoint friendly defintion, using [Edecompose_lam] doesn't work well with print_def calls, bacuse we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
+  Fixpoint lam_body (t : E.term) : E.term :=
+    match t with
+    | E.tLambda n b => lam_body b
+    | _ => t
+    end.
 
-    Definition print_defs (print_term : context -> bool -> bool -> term -> string) Γ (defs : mfixpoint term) :=
-    let ctx' := List.map (fun d => {| decl_name := dname d; decl_body := None |}) defs in
-    print_list (print_def (print_term (ctx' ++ Γ)%list true false)) (nl ++ " with ") defs.
+  Definition print_def (f : context -> term -> string) (def : def term) :=
+    let (args, _) := Edecompose_lam (dbody def) in
+    let ctx := rev (map (vass ∘ binder_name) args) in
+    let sargs := concat " ," (map (fun x => string_of_name x.(binder_name)) args) in
+    string_of_name (dname def) ++ parens false sargs  ++ " = "
+                   ++ nl ++ f ctx (lam_body (dbody def)).
+
+    Definition print_defs (print_term : list string -> context -> bool -> bool -> term -> string) (FT : list string) (Γ : context) (defs : mfixpoint term) :=
+      let ctx' := List.map (fun d => {| decl_name := dname d; decl_body := None |}) defs in
+      let fix_names := List.map (string_of_name ∘ dname) defs in
+    print_list (print_def (fun Γ' => print_term (fix_names ++ FT)%list (Γ' ++ ctx' ++ Γ)%list true false)) (nl ++ " with ") defs.
 
   Definition lookup_ind_decl ind i :=
     match lookup_env Σ ind with
@@ -173,7 +188,69 @@ Section print_term.
       "UnboundConstruct(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ ")"
     end.
 
-  Fixpoint print_term (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
+
+  Definition is_pair_constr (ind : inductive) :=
+    String.eqb ind.(inductive_mind) "Coq.Init.Datatypes.prod".
+
+  Definition print_pair (f : term -> string) (t1 : term) (t2 : term) :=
+    parens false ((f t1) ++ " ," ++ (f t2)).
+
+  Definition is_list_cons (ind : inductive) (ctor_num : nat):=
+    andb (String.eqb ind.(inductive_mind) "Coq.Init.Datatypes.list")
+         (Nat.eqb ctor_num 1).
+
+  Definition print_list_cons (f : term -> string) (t1 : term) (t2 : term) :=
+    (f t1) ++ " :: " ++ (f t2).
+
+
+  Definition app_args {A} (f : E.term -> A) :=
+    fix go (t : E.term) := match t with
+    | E.tApp t1 t2 => f t2 :: go t1
+    | _ => []
+    end.
+
+  Fixpoint in_list {A} (eq_dec : forall x y : A, {x = y} + {x <> y})
+           (l : list A) (a : A) : bool :=
+    match l with
+    | [] => false
+    | hd :: tl => if eq_dec hd a then true
+                else in_list eq_dec tl a
+    end.
+
+  Definition get_fix_rel_applied (FT : list string) (Γ : context) (t : E.term) :=
+    let (b,_) := decompose_app t in
+    match b with
+    | E.tRel i => match nth_error Γ i with
+                 | Some d =>
+                   let nm := (string_of_name d.(decl_name)) in
+                   if in_list String.string_dec FT nm then Some nm
+                   else None
+                 | None => None
+                 end
+    | _ => None
+    end.
+
+  (* Builds a context for the branch *)
+  Definition get_ctx_from_branch (Γ : context) : nat -> E.term -> context :=
+    let fix go (ctx : context) (arity: nat) (branch : E.term) :=
+    match arity with
+    | 0 => []
+    | S n =>
+      match branch with
+      | tLambda na B =>
+        let na' := fresh_name Γ na branch in
+        go (vass na' :: ctx) n B
+      | t => []
+      end
+    end
+    in go [].
+
+  (* Definition print_branch (f : context -> E.term -> string) (branch : nat × E.term ) : string := *)
+  (*   let (arity, br) = branch in *)
+  (*   get_ctx_from_branch *)
+
+
+  Fixpoint print_term (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
   match t with
   | tBox _ => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n =>
@@ -190,20 +267,28 @@ Section print_term.
   | tLambda na body =>
     let na' := fresh_name Γ na t in
     parens top ("fun " ++ string_of_name na'
-                                ++ " -> " ++ print_term TT (vass na' :: Γ) true false body)
+                                ++ " -> " ++ print_term FT TT (vass na' :: Γ) true false body)
   | tLetIn na def body =>
     let na' := fresh_name Γ na t in
     parens top ("let " ++ string_of_name na' ++
-                      " = " ++ print_term TT Γ true false def ++ " in " ++ nl ++
-                      print_term TT (vdef na' def :: Γ) true false body)
+                      " = " ++ print_term FT TT Γ true false def ++ " in " ++ nl ++
+                      print_term FT TT (vdef na' def :: Γ) true false body)
   | tApp f l =>
-    match f with
-    (* is it a pair ? *)
-    | tApp (tConstruct ind _) e1' =>
-      if String.eqb ind.(inductive_mind) "Coq.Init.Datatypes.prod"
-      then parens false (print_term TT Γ true false e1' ++ ", " ++ print_term TT Γ true false l)
-      else parens (top || inapp) (print_term TT Γ false true f ++ " " ++ print_term TT Γ false false l)
-    | _ => parens (top || inapp) (print_term TT Γ false true f ++ " " ++ print_term TT Γ false false l)
+    match get_fix_rel_applied FT Γ f with
+    | Some nm =>
+      let apps := rev (app_args (print_term FT TT Γ true false) t) in
+      nm ++ " " ++ parens false (concat ", " apps)
+    | None =>
+      match f with
+      | tApp (tConstruct ind i) e1' =>
+      (* is it a pair ? *)
+        if is_pair_constr ind then print_pair (print_term FT TT Γ true false) e1' l
+        else
+          (* is it a cons ? *)
+          if is_list_cons ind i then print_list_cons (print_term FT TT Γ true false) e1' l
+          else  parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
+      | _ => parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
+      end
     end
   | tConst c =>
     match look TT c with
@@ -217,35 +302,54 @@ Section print_term.
       match brs with
       | [b1;b2] =>
         parens top
-                ("if " ++ print_term TT Γ true false t
-                       ++ " then " ++ print_term TT Γ true false (snd b1)
-                       ++ " else " ++ print_term TT Γ true false (snd b2))
+                ("if " ++ print_term FT TT Γ true false t
+                       ++ " then " ++ print_term FT TT Γ true false (snd b1)
+                       ++ " else " ++ print_term FT TT Γ true false (snd b2))
       | _ => "Error (Malformed pattern-mathing on bool: given "
                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
       end
     else
+      (* [list is a special case] is a special case *)
+      if mind =? "Coq.Init.Datatypes.list" then
+        match brs with
+        | [b1;b2] =>
+          let nil_case := "[] -> " ++ print_term FT TT Γ false false b1.2 in
+          let (cons_args, _) := Edecompose_lam b2.2 in
+          let cons_body := lam_body b2.2 in
+          let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x.(binder_name) b2.2)) cons_args) in
+          let cons_ctx := rev (map (vass ∘ binder_name) cons_args) in
+          let cons_case := cons_pat ++ " -> " ++ print_term FT TT (cons_ctx ++ Γ)%list false false cons_body in
+          parens top
+             ("match " ++ print_term FT TT Γ true false t
+                       ++ " with " ++ nl
+                       ++ concat (nl ++ " | ") [nil_case;cons_case])
+        | _ => "Error (Malformed pattern-mathing on bool: given "
+                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
+        end
+      else
     match lookup_ind_decl mind i with
     | Some oib =>
-      let fix print_branch Γ arity br {struct br} :=
+      let fix print_branch Γ sep arity br {struct br} :=
           match arity with
-            | 0 => "-> " ++ print_term TT Γ false false br
+            | 0 => "-> " ++ print_term FT TT Γ false false br
             | S n =>
               match br with
               | tLambda na B =>
                 let na' := fresh_name Γ na br in
-                string_of_name na' ++ "  " ++ print_branch (vass na' :: Γ) n B
-              | t => "-> " ++ print_term TT Γ false false br
+                string_of_name na' ++ sep ++ print_branch (vass na' :: Γ) sep n B
+              | t => "-> " ++ print_term FT TT Γ false false br
               end
             end
-        in
-        let brs := map (fun '(arity, br) =>
-                          print_branch Γ arity br) brs in
-        let brs := combine brs oib.(ind_ctors) in
-        parens top ("match " ++ print_term TT Γ true false t ++
-                    " with " ++ nl ++
-                    print_list (fun '(b, (na, _, _)) =>
-                                  from_option (look TT na) na ++ " " ++ b)
-                    (nl ++ " | ") brs)
+      in
+      let brs := map (fun '(arity, br) =>
+                        print_branch Γ "  " arity br) brs in
+      let brs := combine brs oib.(ind_ctors) in
+      parens top
+             ("match " ++ print_term FT TT Γ true false t
+                       ++ " with " ++ nl
+                       ++ print_list (fun '(b, (na, _, _)) =>
+                                        from_option (look TT na) na ++ " " ++ b)
+                       (nl ++ " | ") brs)
     | None =>
       "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
               ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
@@ -254,24 +358,19 @@ Section print_term.
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ind_projs) k with
-      | Some (na, _) => print_term TT Γ false false c ++ ".(" ++ na ++ ")"
+      | Some (na, _) => print_term FT TT Γ false false c ++ ".(" ++ na ++ ")"
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                       ++ print_term TT Γ true false c ++ ")"
+                       ++ print_term FT TT Γ true false c ++ ")"
       end
     | None =>
       "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                     ++ print_term TT Γ true false c ++ ")"
+                     ++ print_term FT TT Γ true false c ++ ")"
     end
-
-
-    (** TODO: implement fix printing properly. Currently it prints in the same ways as in the erasure *)
   | tFix l n =>
-    parens top ("let fix " ++ print_defs (print_term TT) Γ l ++ nl ++
+    parens top ("let rec " ++ print_defs (fun ft => print_term ft TT) FT Γ l ++ nl ++
                           " in " ++ List.nth_default (string_of_nat n) (map (string_of_name ∘ dname) l) n)
-  | tCoFix l n =>
-    parens top ("let cofix " ++ print_defs (print_term TT) Γ l ++ nl ++
-                              " in " ++ List.nth_default (string_of_nat n) (map (string_of_name ∘ dname) l) n)
+  | tCoFix l n => "NotSupportedCoFix"
   end.
 
 End print_term.
