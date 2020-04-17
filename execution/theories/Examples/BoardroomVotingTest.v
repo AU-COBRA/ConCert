@@ -39,10 +39,6 @@ Instance generator_instance : Generator axioms :=
      BoardroomMath.generator_nonzero := generator_nonzero;
      generator_generates := generator_is_generator; |}.
 
-Instance id_scheme : @VoteProofScheme Z :=
-  {| make_vote_proof l n z b := 0%Z;
-     verify_vote l n a z := true; |}.
-
 Definition num_parties : nat := 7.
 Definition votes_for : nat := 4.
 
@@ -64,8 +60,13 @@ Definition svs : list bool :=
 Definition pks : list Z :=
   Eval native_compute in map compute_public_key sks.
 
+Definition rks : list Z :=
+  Eval native_compute in map (reconstructed_key pks) (seq 0 (length pks)).
+
+(* In this example we just use xor for the hash function, which is
+   obviously not cryptographically secure. *)
 Definition hash_func (l : list positive) : positive :=
-  countable.encode l.
+  N.succ_pos (fold_right (fun p a => N.lxor (Npos p) a) 1%N l).
 
 (* Compute the signup messages that would be sent by each party.
    We just use the public key as the chosen randomness here. *)
@@ -75,10 +76,11 @@ Definition signups : list Msg :=
 
 (* Compute the submit_vote messages that would be sent by each party *)
 (* Our functional correctness proof assumes that the votes were computed
-   using the make_vote_msg function provided by the contract *)
+   using the make_vote_msg function provided by the contract.
+   In this example we just use the secret key as the random parameters. *)
 Definition votes : list Msg :=
-  Eval native_compute in map (fun '(i, sk, sv) => make_vote_msg pks i sk sv)
-                             (zip (zip (seq 0 (length pks)) sks) svs).
+  Eval native_compute in map (fun '(i, sk, sv, rk) => make_vote_msg hash_func sk rk sv i sk sk sk)
+                             (zip (zip (zip (seq 0 (length pks)) sks) svs) rks).
 
 Definition AddrSize := (2^128)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
