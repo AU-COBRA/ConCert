@@ -103,7 +103,7 @@ Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
      ind <- tmQuoteInductive "msg" ;;
-     ind_liq <- get_one_ind_body TT ind.(ind_bodies);;
+     ind_liq <- print_one_ind_body TT ind.(ind_bodies);;
      t1 <- toLiquidity TT inc_balance ;;
      t2 <- toLiquidity TT dec_balance ;;
      t3 <- toLiquidity TT my_bool_dec ;;

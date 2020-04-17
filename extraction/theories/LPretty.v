@@ -1,12 +1,23 @@
-(** Adapted from [EPretty] of MetaCoq.Erasure *)
+(** * Pretty-printing Liquidity code *)
+(** Adapted from [EPretty] of MetaCoq.Erasure. *)
+
+(** ** Features/limitations *)
+
+(** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of Liquidity, or some times, lack of proper support.
+
+Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. Currently, this transformation is "local": it only changes applications of the recursive call in the body of the function and does not transform application sites of recursive functions in other definitions.
+
+Another issue (mostly solved): constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage.
+
+Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
+
+Records are currently not supported. Should be represented as iterated products. *)
 
 From Coq Require Import List Program String Ascii.
 From ConCert Require Import MyEnv Ast.
 From MetaCoq.Template Require Import utils Loader Environment.
 From MetaCoq.Template Require Pretty.
 From MetaCoq.Erasure Require Import Debox EAst EAstUtils ETyping.
-
-(** Pretty printing *)
 
 Section print_term.
   Context (Σ : global_context).
@@ -49,6 +60,9 @@ Section print_term.
   for "Coq.ZArith.BinInt.Z.add" returns "add" *)
   Definition unqual_name nm := last (tokenize "." nm) ("Error (Malformed_qualified_name)").
 
+  Definition print_uncurried (s : string) (args : list string) :=
+    let print_parens := (Nat.ltb 1 (List.length args)) in
+    s ++ " " ++ parens ((negb print_parens)) (concat ", " args).
 
   Fixpoint print_liq_type (TT : env string) (t : Ast.term) :=
   let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
@@ -58,14 +72,21 @@ Section print_term.
     | Some nm => nm
     | None => ind.(inductive_mind)
     end
-  | Ast.tApp (Ast.tInd ind i) [t1] =>
-    if (Ast.from_option (to_name <% list %>) "" =? ind.(inductive_mind))%string then
-      print_liq_type TT t1 ++ " " ++ "list"
-    else error
   | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
+    (* a special case of products - infix *)
       if (Ast.from_option (to_name <% prod %>) "" =? ind.(inductive_mind))%string then
         print_liq_type TT t1 ++ " * " ++ print_liq_type TT t2
       else error
+  | Ast.tApp (Ast.tInd ind i) args =>
+    (* the usual - postfix - case of an applied type constructor *)
+    let nm := from_option (look TT ind.(inductive_mind)) ind.(inductive_mind) in
+    let printed_args := map (print_liq_type TT) args in
+    (print_uncurried "" printed_args) ++ " " ++ nm
+  | Ast.tApp (Ast.tConst nm _) args =>
+    (* similarly we do for constants to enable remapping of aliases to types *)
+    let nm := from_option (look TT nm) nm in
+    let printed_args := map (print_liq_type TT) args in
+    (print_uncurried "" printed_args) ++ " " ++ nm
   | _ => "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")"
   end.
 
@@ -94,7 +115,7 @@ Section print_term.
     "type " ++ oib.(Ast.ind_name) ++ " = "
                               ++ nl ++ concat "| " (map (fun p => print_ctor TT p.1 ++ nl) oib.(Ast.ind_ctors)).
 
-  (* This is more fixpoint friendly defintion, using [Edecompose_lam] doesn't work well with print_def calls, bacuse we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
+  (* This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : E.term) : E.term :=
     match t with
     | E.tLambda n b => lam_body b
@@ -172,7 +193,7 @@ Section print_term.
     if is_fresh Γ id then nNamed id
     else nNamed (fresh_id_from Γ 10 id).
 
-  Fixpoint print_constr (TT : env string) (ind : inductive) (i : nat) :=
+  Definition print_constr (TT : env string) (ind : inductive) (i : nat) :=
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     | Some oib =>
       match nth_error oib.(ind_ctors) i with
@@ -217,7 +238,9 @@ Section print_term.
                 else in_list eq_dec tl a
     end.
 
-  Definition get_fix_rel_applied (FT : list string) (Γ : context) (t : E.term) :=
+  (** Returns a printed symbol that needs to be applied "uncurried", meaning that the arguments mush be packed into a tuple.
+   Currently, we uncurry fixpoints and constructor applications *)
+  Definition needs_uncurry (FT : list string) (TT : env string) (Γ : context) (t : E.term) :=
     let (b,_) := decompose_app t in
     match b with
     | E.tRel i => match nth_error Γ i with
@@ -225,8 +248,9 @@ Section print_term.
                    let nm := (string_of_name d.(decl_name)) in
                    if in_list String.string_dec FT nm then Some nm
                    else None
-                 | None => None
+                 | None => Some ("UnboundRel(" ++ string_of_nat i ++ ")")
                  end
+    | E.tConstruct ind i => Some (print_constr TT ind i)
     | _ => None
     end.
 
@@ -245,11 +269,23 @@ Section print_term.
     end
     in go [].
 
-  (* Definition print_branch (f : context -> E.term -> string) (branch : nat × E.term ) : string := *)
-  (*   let (arity, br) = branch in *)
-  (*   get_ctx_from_branch *)
+  Definition print_pat (TT : env string) (ctor : string) (pt : list string * string) :=
+    let ctor_nm := from_option (look TT ctor) ctor in
+    let print_parens := (Nat.ltb 1 (List.length pt.1)) in
+    print_uncurried ctor_nm (rev pt.1) ++ " -> " ++ pt.2.
 
+  (** ** The pretty-printer *)
 
+  (** [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call).
+
+      [TT] - translation table allowing for remapping constants and constructors to Liquidity primitives, if required.
+
+      [Γ] - context that gets updated when we go under lambda, let, pattern or fixpoint.
+
+      [top,inapp] - flags used to determine how to print parenthesis.
+
+      [t] - term to be printed.
+   *)
   Fixpoint print_term (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
   match t with
   | tBox _ => "()" (* boxes become the contructor of the [unit] type *)
@@ -274,21 +310,17 @@ Section print_term.
                       " = " ++ print_term FT TT Γ true false def ++ " in " ++ nl ++
                       print_term FT TT (vdef na' def :: Γ) true false body)
   | tApp f l =>
-    match get_fix_rel_applied FT Γ f with
+    match needs_uncurry FT TT Γ f with
     | Some nm =>
-      let apps := rev (app_args (print_term FT TT Γ true false) t) in
-      nm ++ " " ++ parens false (concat ", " apps)
-    | None =>
-      match f with
-      | tApp (tConstruct ind i) e1' =>
+      let apps := rev (app_args (print_term FT TT Γ top false) t) in
       (* is it a pair ? *)
-        if is_pair_constr ind then print_pair (print_term FT TT Γ true false) e1' l
-        else
-          (* is it a cons ? *)
-          if is_list_cons ind i then print_list_cons (print_term FT TT Γ true false) e1' l
-          else  parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
-      | _ => parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
-      end
+      if (nm =? "pair") then print_uncurried "" apps
+      else
+        (* is it a cons ? *)
+        if (nm =? "cons") then
+          parens top (concat " :: " apps)
+        else parens top (print_uncurried nm apps)
+    | None =>  parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
     end
   | tConst c =>
     match look TT c with
@@ -329,26 +361,27 @@ Section print_term.
       else
     match lookup_ind_decl mind i with
     | Some oib =>
-      let fix print_branch Γ sep arity br {struct br} :=
+      (* TODO: use [print_branch] to cover the special case of lists*)
+      let fix print_branch Γ arity params br {struct br} :=
           match arity with
-            | 0 => "-> " ++ print_term FT TT Γ false false br
+            | 0 => (params , print_term FT TT Γ false false br)
             | S n =>
               match br with
               | tLambda na B =>
                 let na' := fresh_name Γ na br in
-                string_of_name na' ++ sep ++ print_branch (vass na' :: Γ) sep n B
-              | t => "-> " ++ print_term FT TT Γ false false br
+                let (ps, b) := print_branch (vass na' :: Γ) n params B in
+                (ps ++ [string_of_name na'], b)%list
+              | t => (params , print_term FT TT Γ false false br)
               end
-            end
-      in
+            end in
       let brs := map (fun '(arity, br) =>
-                        print_branch Γ "  " arity br) brs in
+                        print_branch Γ arity [] br) brs in
       let brs := combine brs oib.(ind_ctors) in
       parens top
              ("match " ++ print_term FT TT Γ true false t
                        ++ " with " ++ nl
                        ++ print_list (fun '(b, (na, _, _)) =>
-                                        from_option (look TT na) na ++ " " ++ b)
+                                        print_pat TT na b)
                        (nl ++ " | ") brs)
     | None =>
       "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
