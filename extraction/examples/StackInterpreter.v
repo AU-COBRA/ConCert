@@ -126,7 +126,7 @@ Definition TT : env string :=
      ; local <% op %>
   ].
 
-(** We translate required definitions and print them into a single string containing a whole program. *)
+(** We translate required definitions and print them into a single string containing the whole program. *)
 Time Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
@@ -162,5 +162,9 @@ Time Run TemplateProgram
                      ++ main) ;;
     tmDefinition "interp_extracted" res).
 
-(** *)
+(** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
 Print interp_extracted.
+
+(** or redirected to a file, creating "interp.liq.out".
+ The contents require further post-processing to be compiled with the Liquidity compiler.*)
+Redirect "interp.liq" Compute interp_extracted. (* creates "interp.liq.out"*)
