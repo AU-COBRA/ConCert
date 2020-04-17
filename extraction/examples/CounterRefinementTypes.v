@@ -1,7 +1,5 @@
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
-Require Import Io.All.
-Require Import Io.System.All.
 Require Import ListString.All.
 
 From MetaCoq.Template Require Import Loader.
@@ -71,7 +69,7 @@ Definition TT_rt : env string :=
      ; remap <% Z.leb %> "leInt"
      ; remap <% Z %> "int"
      ; remap <% nat %> "address"
-     ; remap <% proj1_sig %> "fst"
+     ; remap <% proj1_sig %> "(fun x -> x)"
      ; ("left", "Left")
      ; ("right", "Right")
      ; ("Z0" ,"0")
@@ -82,20 +80,21 @@ Definition TT_rt : env string :=
      ; local <% my_bool_dec %>
   ].
 
-MetaCoq Erase Annotate (unfolded counter).
+(** exists becomes just a wrapper *)
+Definition exists_def := "let exist a = a".
 
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that remove redundant type abstractions and application of boxes *)
-Run TemplateProgram
+Time Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
      ind <- tmQuoteInductive "msg" ;;
-     ind_liq <- get_one_ind_body TT_rt ind.(ind_bodies);;
+     ind_liq <- print_one_ind_body TT_rt ind.(ind_bodies);;
      t1 <- toLiquidity TT_rt CounterRefinmentTypes.inc_balance ;;
      t2 <- toLiquidity TT_rt CounterRefinmentTypes.dec_balance ;;
      t3 <- toLiquidity TT_rt CounterRefinmentTypes.my_bool_dec ;;
      t4 <- toLiquidity TT_rt CounterRefinmentTypes.counter ;;
      res <- tmEval lazy
-                  (prod_ops ++ nl ++ int_ops ++ nl ++ "let exist a b = (a,b)"
+                  (prod_ops ++ nl ++ int_ops ++ nl ++ exists_def
                      ++ nl ++ nl
                      ++ "type storage = " ++ print_liq_type TT_rt storage_body
                      ++ nl ++ nl
@@ -115,16 +114,3 @@ Run TemplateProgram
     tmDefinition "counter_extracted_refinment_types" res).
 
 Print counter_extracted_refinment_types.
-
-Import C.Notations.
-Definition main (argv : list LString.t) :=
-  let fname := "CounterExtractedRefinmentTypes.liq" in
-  let! is_success :=
-     System.write_file
-       (LString.s fname) (LString.s counter_extracted_refinment_types) in
-  if is_success then log (LString.s ("Extracted to " ++ fname))
-  else log (LString.s "Failed to write file").
-
-Open Scope nat.
-
-Compute Extraction.launch hello_world.

@@ -183,7 +183,7 @@ Definition toLiquidity {A} (TT : env string) (p : A) :=
   let liq_def_string := "let " ++ unqual_name liq_def.(ld_name) ++ " = " ++ liq_prog in
   ret liq_def_string.
 
-Definition get_one_ind_body (TT : env string) (oibs : list one_inductive_body) :=
+Definition print_one_ind_body (TT : env string) (oibs : list one_inductive_body) :=
   match oibs with
   | [oib] => ret (print_inductive TT oib)
   | _ => tmFail "Only non-mutual inductives supported"
