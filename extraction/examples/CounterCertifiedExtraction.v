@@ -91,6 +91,8 @@ Definition TT : env string :=
      ; ("nil", "[]")
      ; local <% @fst %>
      ; local <% @snd %>
+     ; local <% storage %>
+     ; local <% msg %>
      ; local <% inc_balance %>
      ; local <% dec_balance %>
   ].

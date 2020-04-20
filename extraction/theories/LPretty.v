@@ -11,7 +11,9 @@ Another issue (mostly solved): constructors accept only one argument, so we have
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
 
-Records are currently not supported. Should be represented as iterated products. *)
+Records are currently not supported. Should be represented as iterated products.
+
+Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
 
 From Coq Require Import List Program String Ascii.
 From ConCert Require Import MyEnv Ast.
@@ -68,14 +70,11 @@ Section print_term.
   let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
   match t with
   | Ast.tInd ind _ =>
-    match look TT ind.(inductive_mind) with
-    | Some nm => nm
-    | None => ind.(inductive_mind)
-    end
+    from_option (look TT ind.(inductive_mind)) ind.(inductive_mind)
   | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
     (* a special case of products - infix *)
       if (Ast.from_option (to_name <% prod %>) "" =? ind.(inductive_mind))%string then
-        print_liq_type TT t1 ++ " * " ++ print_liq_type TT t2
+        parens false (print_liq_type TT t1 ++ " * " ++ print_liq_type TT t2)
       else error
   | Ast.tApp (Ast.tInd ind i) args =>
     (* the usual - postfix - case of an applied type constructor *)
@@ -87,6 +86,7 @@ Section print_term.
     let nm := from_option (look TT nm) nm in
     let printed_args := map (print_liq_type TT) args in
     (print_uncurried "" printed_args) ++ " " ++ nm
+  | Ast.tConst nm _ => from_option (look TT nm) nm
   | _ => "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")"
   end.
 
@@ -125,8 +125,8 @@ Section print_term.
   Definition print_def (f : context -> term -> string) (def : def term) :=
     let (args, _) := Edecompose_lam (dbody def) in
     let ctx := rev (map (vass ∘ binder_name) args) in
-    let sargs := concat " ," (map (fun x => string_of_name x.(binder_name)) args) in
-    string_of_name (dname def) ++ parens false sargs  ++ " = "
+    let sargs := print_uncurried "" (map (fun x => string_of_name x.(binder_name)) args) in
+    string_of_name (dname def) ++ " " ++ sargs  ++ " = "
                    ++ nl ++ f ctx (lam_body (dbody def)).
 
     Definition print_defs (print_term : list string -> context -> bool -> bool -> term -> string) (FT : list string) (Γ : context) (defs : mfixpoint term) :=
@@ -274,6 +274,15 @@ Section print_term.
     let print_parens := (Nat.ltb 1 (List.length pt.1)) in
     print_uncurried ctor_nm (rev pt.1) ++ " -> " ++ pt.2.
 
+
+  Definition print_transfer (args : list string) :=
+    match args with
+    | [] => "MalformedTransfer()"
+    | [a1;a2] => "Contract.call " ++ a1 ++ " " ++ a2 ++ " "
+                                 ++ "default" ++ " ()"
+    | _ => "MalformedTransfer(" ++ concat "," args ++ ")"
+    end.
+
   (** ** The pretty-printer *)
 
   (** [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call).
@@ -316,10 +325,13 @@ Section print_term.
       (* is it a pair ? *)
       if (nm =? "pair") then print_uncurried "" apps
       else
-        (* is it a cons ? *)
+      (* is it a cons ? *)
         if (nm =? "cons") then
           parens top (concat " :: " apps)
-        else parens top (print_uncurried nm apps)
+        else
+      (* is it a transfer *)
+          if (nm =? "Act_transfer") then print_transfer apps
+          else  parens top (print_uncurried nm apps)
     | None =>  parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
     end
   | tConst c =>

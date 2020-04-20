@@ -44,17 +44,23 @@ Program Definition erase_and_print_template_program {cf : checker_flags}
     inr ("Type error: " ++ PCUICSafeChecker.string_of_type_error Σ' e ++ ", while checking " ++ id)
   end.
 
-Definition print_template_program (TT : env string)
-           (checked_t : EnvCheck (EAst.global_context × EAst.term))
+Definition print_EnvCheck {A}
+           (f : E.global_context -> A -> string)
+           (checked_t : EnvCheck (E.global_context * A))
   : string + string :=
   match checked_t return string + string with
   | CorrectDecl (Σ', t) =>
-    inl (LPretty.print_term Σ' [] TT [] true false t)
+    inl (f Σ' t)
   | EnvError Σ' (AlreadyDeclared id) =>
     inr ("Already declared: " ++ id)
   | EnvError Σ' (IllFormedDecl id e) =>
     inr ("Type error: " ++ PCUICSafeChecker.string_of_type_error Σ' e ++ ", while checking " ++ id)
   end.
+
+Definition print_template_program (TT : env string)
+           (checked_t : EnvCheck (EAst.global_context × EAst.term))
+  : string + string :=
+  print_EnvCheck (fun Σ t => LPretty.print_term Σ [] TT [] true false t) checked_t.
 
 Program Definition check_applied (p : Ast.program)
   : EnvCheck bool :=
@@ -111,8 +117,8 @@ Definition erase_print_deboxed_all_applied (TT : env string) (p : Ast.program) :
   print_sum (print_template_program TT deboxed).
 
 
-Program Definition erase_check_debox_all_print (TT : env string) (p : Ast.program)
-  : string :=
+Program Definition erase_check_debox_all (TT : env string) (p : Ast.program)
+ : EnvCheck (EAst.global_context × (list E.aname * E.term))  :=
   let p := fix_program_universes p in
   let res : EnvCheck ((EAst.global_context × bool) × EAst.term):=
       '(Σ,t) <- erase_template_program p ;;
@@ -124,11 +130,33 @@ Program Definition erase_check_debox_all_print (TT : env string) (p : Ast.progra
     let '(Σ,is_ok, t) := g in
     if is_ok : bool then
       let deboxed := debox_top_level (debox_all t) in
-      print_sum (print_template_program TT (CorrectDecl (Σ, deboxed)))
-    else "Not all constructors or constants are appropriately applied"
-  | EnvError Σ' err => print_sum (print_template_program TT (EnvError Σ' err))
+      CorrectDecl (Σ, Edecompose_lam deboxed)
+    else
+      let err_msg := "Not all constructors or constants are appropriately applied" in
+      EnvError (P.empty_ext [])
+                  (IllFormedDecl err_msg (Msg err_msg))
+  | EnvError Σ' err => EnvError Σ' err
   end.
 
+
+Definition print_decl (decl_name : string) (TT : env string) (tys : list Ast.term)
+           (Σ : E.global_context) (decl_body : list E.aname * E.term) : string :=
+  let (args,body) := decl_body in
+  (* FIXME: this will produce wrong type annotations if the logical argument
+     appears between the normal arguments! We need to switch to erased types and filter  out the boxes in types *)
+  let targs := combine args tys in
+  let printed_targs :=
+      map (fun '(x,ty) => parens false (string_of_name x.(E.binder_name) ++ " : " ++ print_liq_type TT ty)) targs in
+  let decl := decl_name ++ " " ++ concat " " printed_targs in
+  let ctx := map (fun x => E.Build_context_decl x.(E.binder_name) None) (rev args) in
+  "let " ++ decl ++ " = " ++  LPretty.print_term Σ [] TT ctx true false body.
+
+Program Definition erase_check_debox_all_print (TT : env string) (decl_name : string)
+        (tys : list Ast.term) (p : Ast.program)
+  : string :=
+  let p := fix_program_universes p in
+  let deboxed := erase_check_debox_all TT p in
+  print_sum (print_EnvCheck (print_decl decl_name TT tys) deboxed).
 
 Notation "'unfolded' d" :=
   ltac:(let y := eval unfold d in d in exact y) (at level 100, only parsing).
@@ -168,6 +196,15 @@ Definition toDefWithEnv {A} (p : A)  :=
   cbody <- opt_to_template cbody_o.(cst_body) ;;
   ret (mkLiqDef nm cbody_o.(cst_type) cbody, t.1).
 
+
+
+Definition toDef {A} (p : A)  :=
+  t <- tmQuote p ;;
+  nm <- opt_to_template (to_name t) ;;
+  cbody_o <- tmQuoteConstant nm false ;;
+  cbody <- opt_to_template cbody_o.(cst_body) ;;
+  ret (mkLiqDef nm cbody_o.(cst_type) cbody).
+
 Definition toLiquidityWithBoxes {A} (TT : env string) (p : A) :=
   d_e <- toDefWithEnv p ;;
   let '(liq_def, env) := d_e in
@@ -175,13 +212,25 @@ Definition toLiquidityWithBoxes {A} (TT : env string) (p : A) :=
   let liq_def_string := "let " ++ unqual_name liq_def.(ld_name) ++ " = " ++ liq_prog in
   ret liq_def_string.
 
+About decompose_prod.
 
 Definition toLiquidity {A} (TT : env string) (p : A) :=
   d_e <- toDefWithEnv p ;;
   let '(liq_def, env) := d_e in
-  liq_prog <- tmEval lazy (erase_check_debox_all_print TT (env,liq_def.(ld_body))) ;;
-  let liq_def_string := "let " ++ unqual_name liq_def.(ld_name) ++ " = " ++ liq_prog in
-  ret liq_def_string.
+  let decl_name := unqual_name liq_def.(ld_name) in
+  (* FIXME: we should use erasure for types here *)
+  let '(_,tys,_) := decompose_prod liq_def.(ld_type) in
+  tmEval lazy
+         (erase_check_debox_all_print TT decl_name tys (env,liq_def.(ld_body))).
+
+Definition toLiquidityEnv {A} (TT : env string) (Σ : TemplateEnvironment.global_env)(p : A) :=
+  d <- toDef p ;;
+  let decl_name := unqual_name d.(ld_name) in
+  (* FIXME: we should use erasure for types here *)
+  let '(_,tys,_) := decompose_prod d.(ld_type) in
+  tmEval lazy
+         (erase_check_debox_all_print TT decl_name tys (Σ,d.(ld_body))).
+
 
 Definition print_one_ind_body (TT : env string) (oibs : list one_inductive_body) :=
   match oibs with
