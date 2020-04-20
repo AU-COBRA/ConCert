@@ -244,7 +244,7 @@ Definition gFA2TokenAction (lc : LocalChain) : G (option Action) :=
   | Some fa2_state => 
     backtrack [
       (* transfer tokens *)
-      (4, p <- gTransfer lc fa2_state 1 ;; 
+      (4, p <- gTransfer lc fa2_state 4 ;; 
           let caller := fst p in
           let trx := snd p in
           mk_call caller 0%Z trx
