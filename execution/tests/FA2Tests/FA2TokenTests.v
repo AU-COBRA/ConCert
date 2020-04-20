@@ -156,7 +156,7 @@ Definition gFA2ClientChainTraceList max_acts_per_block lc length :=
 
 Sample (gFA2TokenActionChainTraceList 1 chain1 10).
 
-Definition forAllFA2Traces := forAllTraces_stepProp 5 chain1 (gFA2TokenActionChainTraceList 1).
+Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
 Extract Constant defNumDiscards => "(4 * defNumTests)".
 Open Scope N_scope.
 
@@ -195,9 +195,128 @@ Definition transfer_balances_correct (step : @LocalChainStep AddrSize) :=
 
 (* QuickChick (forAllFA2Traces transfer_balances_correct). *)
 
+
+Definition transfer_satisfies_policy sender trx state : Checker := 
+  (* check if sender is an operator, and permission to transfer the specified token_id *)
+  let policy := state.(permission_policy) in
+  let is_valid_operator_transfer : Checker := 
+    match FMap.find trx.(from_) state.(operators) with
+    | Some ops_map => 
+      match FMap.find sender ops_map with
+      | Some all_tokens => checker true
+      | Some (some_tokens token_ids) => 
+        whenFail "operator didn't have sufficient token_id permissions"
+        (checker (existsb (N.eqb trx.(transfer_token_id)) token_ids))
+      | None => checker false
+      end
+    | None => checker false
+    end in
+  whenFail
+  ("failed with sender: " ++ show sender ++ nl)
+  match (policy.(descr_self), policy.(descr_operator)) with
+    (* no transfers allowed *)
+    | (self_transfer_denied, operator_transfer_denied) => checker false
+    (* only self transfer allowed - check sender is equal to 'from' *)
+    | (self_transfer_permitted, operator_transfer_denied) => 
+      whenFail "operator transfer was denied, but sender != from"
+      (address_eqb sender trx.(from_))
+    | (self_transfer_denied, operator_transfer_permitted) =>
+      if address_eqb sender trx.(from_)
+      then whenFail "self transfer was denied but got transfer with sender = from" false
+      else is_valid_operator_transfer
+    | (self_transfer_permitted, operator_transfer_permitted) =>
+    if address_eqb sender trx.(from_) 
+    then checker true
+    else is_valid_operator_transfer 
+  end
+.
+
+Definition get_transfers (acts : list Action) : list (Address * list FA2Interface.transfer) := 
+  fold_left (fun trxs act => 
+    match act.(act_body) with
+    | act_call _ _ msg =>
+      match deserialize FA2Token.Msg _ msg with
+      | Some (msg_transfer transfers) => (act.(act_from), transfers) :: trxs
+      | _ => trxs
+      end 
+    | _ => trxs
+    end) acts []
+.
+
+Definition transfer_satisfies_policy_P (step : @LocalChainStep AddrSize) : Checker :=
+  let acts := acts_of_lcstep step in
+  let lc := prev_lc_of_lcstep step in
+  let transfers := get_transfers acts in
+  let conjoin_map {A : Type} (f : A -> Checker) (l : list A) := conjoin (map f l) in
+  match token_state lc with
+  | Some state =>
+      conjoin_map (fun sender_trxs_pair =>
+        conjoin_map (fun trx =>
+          transfer_satisfies_policy (fst sender_trxs_pair) trx state 
+          ) (snd sender_trxs_pair)
+      ) transfers
+  | None => checker false
+  end.
+
+Definition showStateWhenFail (step : @LocalChainStep AddrSize) := 
+  let prev_lc := prev_lc_of_lcstep step in
+  let next_lc := next_lc_of_lcstep step in
+  whenFail 
+  ("Failed on step: " ++ nl ++ show step ++ nl ++
+  match (token_state prev_lc, token_state next_lc) with
+  | (Some prev_state, Some next_state) =>
+    "state before execution: " ++ nl ++ show prev_state ++ nl ++
+    "state after execution: " ++ nl ++ show next_state ++ nl
+  | (Some prev_state, None) =>
+    "state before execution: " ++ nl ++ show prev_state ++ nl
+  | _ => ""
+  end).
+
+(* QuickChick (forAllFA2Traces 7 transfer_satisfies_policy_P). *)
+(* coqtop-stdout:+++ Passed 10000 tests (628 discards) *)
+
+
+(* Fixpoint groupBy {A B : Type} 
+                    `{countable.Countable A}
+                    `{base.EqDecision A}
+                     (p : )
+                     (l : list (A * B)) 
+                     : FMap A (list B) :=
+  match l with
+  | [] => FMap.empty
+  | (a,b)::xs => let res := groupBy_fix xs in 
+                 match FMap.find a res with
+                 | Some bs => FMap.add a (b :: bs) res 
+                 | None => FMap.add a [b] FMap.empty
+                 end
+  end. *)
+(* This property asserts that if an update_operator action contains multiple updates for the same operator, 
+   the LAST operation in the list must take effect *)
+Definition last_update_operator_occurrence_takes_effect (update_ops : list update_operator) : FMap (Address * Address) (list operator_param) :=
+  (* group updates by same owner and operator *)
+  let grouped_ops_map := fold_left (fun acc update_op =>
+    let param := match update_op with
+      | add_operator param => param
+      | remove_operator param => param
+      end in
+    match FMap.find (param.(op_param_owner), param.(op_param_operator)) acc with
+    | Some existing_ops => FMap.add (param.(op_param_owner), param.(op_param_operator))
+                                    (update_op :: existing_ops)
+                                    acc
+    | None => FMap.add (param.(op_param_owner), param.(op_param_operator))
+                       [update_op] 
+                       acc
+    end
+  ) update_ops FMap.empty in
+  (* get a list of lists of update_operator with the same owner and operator *)
+  let grouped_multiple_ops := filter (fun l => Nat.leb 1%nat (length l)) (FMap.values grouped_ops_map) in
+  FMap.empty
+.
+
+
 Sample (gFA2TokenAction chain1).
 (* Sample gClientAction. *)
-Sample (gFA2ChainTraceList 1 chain1 4).
+Sample (gFA2ChainTraceList 1 chain1 6).
 (* Sanity Check that the trace generator never fails early *)
 (* QuickChick (forAll 
   (choose (1, 10))
