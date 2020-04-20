@@ -67,6 +67,7 @@ Definition TT : env string :=
      ; remap <% Z.sub %> "subInt"
      ; remap <% Z.leb %> "leInt"
      ; remap <% Z %> "int"
+     ; remap <% bool %> "bool"
      ; remap <% nat %> "address"
      ; ("left", "Left")
      ; ("right", "Right")
@@ -74,6 +75,8 @@ Definition TT : env string :=
      ; ("nil", "[]")
      ; local <% @fst %>
      ; local <% @snd %>
+     ; local <% storage %>
+     ; local <% msg %>
      ; local <% inc_balance %>
      ; local <% dec_balance %>
      ; local <% my_bool_dec %>

@@ -69,6 +69,7 @@ extraction/examples/SimpleBlockchain.v
 extraction/examples/crowdfunding_extract/CrowdfundingData.v
 extraction/examples/crowdfunding_extract/Crowdfunding.v
 extraction/examples/CounterCertifiedExtraction.v
+extraction/examples/CrowdfundingCertifiedExtraction.v
 extraction/examples/CounterDepCertifiedExtraction.v
 extraction/examples/CounterRefinementTypes.v
 extraction/examples/StackInterpreter.v

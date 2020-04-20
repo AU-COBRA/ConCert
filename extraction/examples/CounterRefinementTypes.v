@@ -69,13 +69,17 @@ Definition TT_rt : env string :=
      ; remap <% Z.leb %> "leInt"
      ; remap <% Z %> "int"
      ; remap <% nat %> "address"
-     ; remap <% proj1_sig %> "(fun x -> x)"
+     ; remap <% bool %> "bool"
+     ; remap <% proj1_sig %> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
+     ; remap <% non_neg %> "int" (* this is again an ad-hoc optimisation *)
      ; ("left", "Left")
      ; ("right", "Right")
      ; ("Z0" ,"0")
      ; ("nil", "[]")
      ; local <% @fst %>
      ; local <% @snd %>
+     ; local <% storage %>
+     ; local <% msg %>
      ; local <% inc_balance %>
      ; local <% my_bool_dec %>
   ].

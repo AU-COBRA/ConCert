@@ -36,24 +36,26 @@ Module CrowdfundingContract.
                "tx_amount"; "bal"; "sender"; "sent_by"; "own"; "isdone" ;
                "accs"; "now"; "newstate"; "newmap"; "cond" ] "").
 
+  Notation "'Result'" := [!"prod"  ("list" "SimpleActionBody") {full_state_ty} !]
+                           (in custom type at level 2).
+
 
   (** ** AST of the validation function *)
   Module Validate.
     Import Notations.
 
      Definition maybe_bind_unit_syn :=
-     [| \\"B" => \"o" : Maybe Unit => \"b" : Maybe '"B" =>
-        case "o" : Maybe Unit return Maybe '"B" of
+     [| \"o" : Maybe Unit => \"b" : Maybe Result =>
+        case "o" : Maybe Unit return Maybe Result of
         | Just "_" -> "b"
-        | Nothing -> $Nothing$Maybe [: '"B" ]  |].
+        | Nothing -> $Nothing$Maybe [:  Result ]  |].
 
    Make Definition maybe_bind_unit :=
      (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
 
-   Notation "a >> b : B" :=
-     [| {eConst "maybe_bind_unit"} [: {B} ] {a} {b}|]
+   Notation "a >> b" :=
+     [| {eConst "maybe_bind_unit"} {a} {b}|]
        (in custom expr at level 0,
-           B custom type at level 1,
            a custom expr,
            b custom expr).
 
@@ -109,9 +111,6 @@ Module CrowdfundingContract.
 (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
   Definition actions_ty := [! "list" "SimpleActionBody" !].
-
-  Notation "'Result'" := [!"prod"  ("list" "SimpleActionBody") {full_state_ty} !]
-                           (in custom type at level 2).
 
   Notation "'Transfer' a b" :=
     [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
@@ -173,7 +172,7 @@ Module CrowdfundingContract.
          case m : msg return Maybe Result of
             | GetFunds ->
               if (own ==a sender) && (deadline s <t now) && (goal s <= bal) then
-                (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s))) : Result
+                (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s)))
              else #Nothing : Maybe Result
             | Donate ->
               if now <=t deadline s then
@@ -189,7 +188,7 @@ Module CrowdfundingContract.
              if (deadline s <t now) && (bal < goal s) && (~ done s) then
              (case (findm sender accs) : Maybe money return Maybe Result of
               | Just v -> let newmap : Map := madd sender 0z accs in
-                 (VALIDATE tx_amount) >> (#Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap))) :  Result
+                 (VALIDATE tx_amount) >> (#Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap)))
               | Nothing -> #Nothing)
              else #Nothing : Maybe Result
     |].
@@ -246,10 +245,11 @@ Definition CFModule : LiquidityModule :=
 (** A translation table for types *)
 Definition TTty : env string :=
   [("Coq.Numbers.BinNums.Z", "tez");
-     ("time_coq", "timestamp");
-     ("address_coq", "address");
-     ("addr_map", "(address,tez) map");
-     ("Coq.Init.Datatypes.nat", "nat")].
+   ("time_coq", "timestamp");
+   ("address_coq", "address");
+   ("addr_map", "(address,tez) map");
+   ("Coq.Init.Datatypes.nat", "nat");
+   ("SimpleActionBody", "operation")].
 
 (** A translation table for primitive binary operations *)
 Definition TT : env string :=

@@ -20,6 +20,16 @@ Import MonadNotation.
 
 Definition my_lookup (m : FMap string Z) (k : string) := FMap.find k m.
 
+Quote Definition yy := (stdpp.gmap.gmap).
+Quote Recursively Definition z := (FMap.find).
+
+Run TemplateProgram
+    (let ind_name := "stdpp.gmap.gmap" in
+      gmap_ <- tmQuoteInductive ind_name ;;
+     t <- toLiquidityEnv [] ((ind_name, InductiveDecl gmap_) :: z.1) my_lookup;;
+     code <- tmEval lazy t;;
+    tmPrint code).
+
 (* Quoting this runs forever *)
 (* Quote Recursively Definition zz := (my_lookup). *)
 
@@ -122,6 +132,7 @@ Definition TT : env string :=
      ; local <% andb %>
 
      (* local types *)
+     ; local <% storage %>
      ; local <% value %>
      ; local <% op %>
   ].
