@@ -18,21 +18,11 @@ From MetaCoq.Template Require Import All.
 Import ListNotations.
 Import MonadNotation.
 
+(** Quoting this runs forever, because of many dependencies *)
 Definition my_lookup (m : FMap string Z) (k : string) := FMap.find k m.
-
-Quote Definition yy := (stdpp.gmap.gmap).
-Quote Recursively Definition z := (FMap.find).
-
-Run TemplateProgram
-    (let ind_name := "stdpp.gmap.gmap" in
-      gmap_ <- tmQuoteInductive ind_name ;;
-     t <- toLiquidityEnv [] ((ind_name, InductiveDecl gmap_) :: z.1) my_lookup;;
-     code <- tmEval lazy t;;
-    tmPrint code).
-
-(* Quoting this runs forever *)
 (* Quote Recursively Definition zz := (my_lookup). *)
 
+(** To overcome the dependency issue, we parameterise the development with a module of the following type *)
 Module Type FiniteMap.
   Parameter FM : Type -> Type.
   Parameter lookup : forall {V}, (string * Z) -> FM V -> option V.
@@ -101,6 +91,7 @@ Definition main (param_type : string):=
 
 End Interpreter.
 
+(** Now, we create a module of  [FiniteMap] type using the [FMap] functionality *)
 Module MyFinMap : FiniteMap.
   Definition FM := FMap (string * Z).
   Definition lookup {V} : (string * Z) -> FM V -> option V :=
