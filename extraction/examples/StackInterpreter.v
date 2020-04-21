@@ -33,7 +33,12 @@ Run TemplateProgram
 (* Quoting this runs forever *)
 (* Quote Recursively Definition zz := (my_lookup). *)
 
-Module Interpreter.
+Module Type FiniteMap.
+  Parameter FM : Type -> Type.
+  Parameter lookup : forall {V}, (string * Z) -> FM V -> option V.
+End FiniteMap.
+
+Module Interpreter (FinMap : FiniteMap).
 
   Inductive op : Set := Add | And | Equal.
 
@@ -45,9 +50,7 @@ Module Interpreter.
 
   Inductive value : Set := BVal : bool -> value | ZVal : Z -> value.
 
-  (** We will use this approximation of finite maps, because using FMap causes quoting recursively to run forever. It seems it's trying to fetch all the dependencies, and there are many of these. *)
-  Definition fmap (K V : Type) := list (K * V).
-  Definition ext_map := fmap (string * Z) value.
+  Definition ext_map := FinMap.FM value.
 
   Definition storage := list value.
 
@@ -56,13 +59,6 @@ Module Interpreter.
   Definition key_eq (k1 : string * Z) (k2 : string * Z)
     := (k1.1 =? k2.1) && (k1.2 =? k2.2)%Z.
 
-  Fixpoint lookup_map (key : (string * Z)) (m : ext_map ) : option value :=
-    match m with
-    | [] => None
-    | (k,v) :: m' =>
-      if (key_eq key k) then Some v else lookup_map key m'
-    end.
-
   Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) :=
     match insts with
     | [] => Some s
@@ -70,7 +66,7 @@ Module Interpreter.
       match hd with
       | IPushZ i => interp ext inst' (ZVal i :: s)
       | IPushB b => interp ext inst' (BVal b :: s)
-      | IObs l i => match lookup_map (l,i) ext with
+      | IObs l i => match FinMap.lookup (l,i) ext with
                    | Some v => Some (v :: s)
                    | None => None
                    end
@@ -92,8 +88,8 @@ Module Interpreter.
     end.
 
 (** A wrapper for calling the main functionality. It is important to be explicit about types for all the parameters of entry points *)
-Definition main :=
-       "let%entry main (prog : (instruction list) * ext_map) s ="
+Definition main (param_type : string):=
+       "let%entry main (prog : " ++ param_type ++ ")" ++ " s ="
     ++ nl
     ++ "let s = interp (prog.(1), prog.(0) ,[]) in"
     ++ nl
@@ -105,7 +101,15 @@ Definition main :=
 
 End Interpreter.
 
-Import Interpreter.
+Module MyFinMap : FiniteMap.
+  Definition FM := FMap (string * Z).
+  Definition lookup {V} : (string * Z) -> FM V -> option V :=
+    FMap.find.
+End MyFinMap.
+
+Module Interp := Interpreter MyFinMap.
+
+Import Interp.
 
 (** A translation table for various constants we want to rename *)
 Definition TT : env string :=
@@ -115,12 +119,12 @@ Definition TT : env string :=
      ; remap <% nat %> "address"
      ; remap <% list %> "list"
      ; remap <% string %> "string"
-     ; remap <% fmap %> "map"
+     ; remap <% ext_map %> "((string*int),value) map"
 
      (* remapping operations *)
      ; remap <% Z.add %> "addInt"
      ; remap <% Z.eqb %> "eqInt"
-     ; remap <% lookup_map %> "Map.find"
+     ; remap <% @MyFinMap.lookup %> "Map.find"
 
      (* remapping constructors *)
      ; ("Z0" ,"0")
@@ -141,8 +145,8 @@ Definition TT : env string :=
 Time Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
-     ext_map_def <- tmQuoteConstant "ext_map" false ;;
-     ext_map_body <- opt_to_template ext_map_def.(cst_body) ;;
+     (* ext_map_def <- tmQuoteConstant "ext_map" false ;; *)
+     (* ext_map_body <- opt_to_template ext_map_def.(cst_body) ;; *)
      ind1 <- tmQuoteInductive "op" ;;
      ind_liq1 <- print_one_ind_body TT ind1.(ind_bodies);;
      ind2 <- tmQuoteInductive "instruction" ;;
@@ -162,15 +166,13 @@ Time Run TemplateProgram
                      ++ nl ++ nl
                      ++ "type storage = " ++ print_liq_type TT storage_body
                      ++ nl ++ nl
-                     ++ "type ext_map = " ++ print_liq_type TT ext_map_body
-                     ++ nl ++ nl
                      ++ "let%init storage = []"
                      ++ nl ++ nl
                      ++ t0
                      ++ nl ++ nl
                      ++ t1
                      ++ nl ++ nl
-                     ++ main) ;;
+                     ++ main "(instruction list) * ((string * int,value) map)") ;;
     tmDefinition "interp_extracted" res).
 
 (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)

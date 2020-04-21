@@ -55,7 +55,7 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
   Qed.
 
   Program Definition inc_balance (st : storage) (new_balance : positive) :
-    {new_st : storage | st.1 <? new_st.1}:=
+    {new_st : storage | st.1 <? new_st.1} :=
     exist (st.1 + proj1_sig new_balance, st.2) _.
   Next Obligation.
     destruct new_balance.
