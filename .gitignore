@@ -11,6 +11,8 @@
 *~
 CoqMakefile
 CoqMakefile.conf
+CoqMakefile.plugin
+CoqMakefile.plugin.conf
 Makefile.coq
 Makefile.coq.conf
 execution/CoqMakefile
