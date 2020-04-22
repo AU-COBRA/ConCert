@@ -1,7 +1,5 @@
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
-Require Import ListString.All.
-
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import Loader.
 
@@ -31,7 +29,7 @@ End ZTheorems.
 (** We use parameterised modules (functors) to isolate proof terms from the extracted parts. Otherwise type cheking and erasing is taking too long *)
 Module CounterRefinmentTypes (ZT : ZTheorems).
 
-  Definition storage := Z × nat.
+  Definition storage := Z.
 
   Definition positive := {z : Z | 0 <? z}.
 
@@ -54,17 +52,18 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
       * inversion H.
   Qed.
 
-  Program Definition inc_balance (st : storage) (new_balance : positive) :
-    {new_st : storage | st.1 <? new_st.1} :=
-    exist (st.1 + proj1_sig new_balance, st.2) _.
+
+  Program Definition inc_counter (st : storage) (new_balance : positive) :
+    {new_st : storage | st <? new_st} :=
+    exist (st + proj1_sig new_balance) _.
   Next Obligation.
     destruct new_balance.
     unfold is_true in *. simpl.
     Zleb_ltb_to_prop. apply ZT.lt_add_pos_r. exact i.
   Qed.
 
-  Definition dec_balance (st : storage) (new_balance : positive) :=
-    (st.1 - proj1_sig new_balance, st.2).
+  Definition dec_counter (st : storage) (new_balance : positive) :=
+    st - proj1_sig new_balance.
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
@@ -73,12 +72,12 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], proj1_sig (inc_balance st (exist i h)))
+      | left h => Some ([], proj1_sig (inc_counter st (exist i h)))
       | right _ => None
       end
     | Dec i =>
       match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], dec_balance st (exist i h))
+      | left h => Some ([], dec_counter st (exist i h))
       | right _ => None
       end
     end.
@@ -112,8 +111,8 @@ Definition TT_rt : env string :=
      ; local <% @snd %>
      ; local <% storage %>
      ; local <% msg %>
-     ; local <% inc_balance %>
-     ; local <% dec_balance %>
+     ; local <% inc_counter %>
+     ; local <% dec_counter %>
      ; local <% my_bool_dec %>
   ].
 
@@ -128,8 +127,8 @@ Time Run TemplateProgram
      storage_body <- opt_to_template storage_def.(cst_body) ;;
      ind <- tmQuoteInductive "msg" ;;
      ind_liq <- print_one_ind_body TT_rt ind.(ind_bodies);;
-     t1 <- toLiquidityEnv TT_rt (Counter.1) inc_balance ;;
-     t2 <- toLiquidityEnv TT_rt (Counter.1) dec_balance ;;
+     t1 <- toLiquidityEnv TT_rt (Counter.1) inc_counter ;;
+     t2 <- toLiquidityEnv TT_rt (Counter.1) dec_counter ;;
      t3 <- toLiquidityEnv TT_rt (Counter.1) my_bool_dec ;;
      t4 <- toLiquidityEnv TT_rt (Counter.1) counter ;;
      res <- tmEval lazy
