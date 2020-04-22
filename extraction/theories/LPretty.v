@@ -63,7 +63,7 @@ Section print_term.
   Definition unqual_name nm := last (tokenize "." nm) ("Error (Malformed_qualified_name)").
 
   Definition print_uncurried (s : string) (args : list string) :=
-    let print_parens := (Nat.ltb 1 (List.length args)) in
+    let print_parens := (Nat.ltb 0 (List.length args)) in
     s ++ " " ++ parens ((negb print_parens)) (concat ", " args).
 
   Fixpoint print_liq_type (TT : env string) (t : Ast.term) :=
