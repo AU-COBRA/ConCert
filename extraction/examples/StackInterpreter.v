@@ -1,7 +1,8 @@
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
 From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
+From MetaCoq.Erasure Require Import Loader SafeTemplateErasure.
+From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
@@ -60,20 +61,18 @@ Module Interpreter (FinMap : FiniteMap).
                    | Some v => Some (v :: s)
                    | None => None
                    end
-      | IOp op => match op with
-                   | Add => match s with
-                            | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i+j) :: s')%Z
-                            | _ => None
-                            end
-                   | And => match s with
-                            | BVal i :: BVal j :: s' => interp ext inst' (BVal (i && j) :: s')%Z
-                            | _ => None
-                           end
-                   | Equal => match s with
-                            | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i =? j) :: s')%Z
-                            | _ => None
-                             end
-                 end
+      | IOp Add => match s with
+                   | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i+j) :: s')%Z
+                   | _ => None
+                   end
+      | IOp And => match s with
+                   | BVal i :: BVal j :: s' => interp ext inst' (BVal (i && j) :: s')%Z
+                   | _ => None
+                   end
+      | IOp Equal => match s with
+                     | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i =? j) :: s')%Z
+                     | _ => None
+                     end
       end
     end.
 
@@ -132,6 +131,19 @@ Definition TT : env string :=
      ; local <% op %>
   ].
 
+MetaCoq Erase (@map nat nat S [1; 2; 3]).
+
+Definition test : TemplateMonad unit :=
+  p <- tmQuoteRec (@map nat nat) ;;
+  x <- tmEval lazy (erase_template_program p) ;;
+  tmPrint x;;
+  ret tt.
+  (*tmMsg (erase_check_debox_all_print TT "foo" [] p).*)
+
+Run TemplateProgram test.
+
+
+
 (** We translate required definitions and print them into a single string containing the whole program. *)
 Time Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
@@ -165,6 +177,8 @@ Time Run TemplateProgram
                      ++ nl ++ nl
                      ++ main "(instruction list) * ((string * int,value) map)") ;;
     tmDefinition "interp_extracted" res).
+
+Definition my_lookup' (m : FMap string Z) (k : string) := FMap.find k m.
 
 (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
 Print interp_extracted.
