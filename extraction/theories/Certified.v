@@ -62,22 +62,27 @@ Definition print_template_program (TT : env string)
   : string + string :=
   print_EnvCheck (fun Σ t => LPretty.print_term Σ [] TT [] true false t) checked_t.
 
-Program Definition check_applied (p : Ast.program)
-  : EnvCheck bool :=
+Program Definition check_applied
+        (Σ : P.global_env)
+        (et : E.term)
+        (wf : ∥PCUICTyping.wf Σ∥) : EnvCheck bool :=
+  is_const_applied <- wrap_error (P.empty_ext Σ) "during checking applied constant"
+                                 (check_consts_applied (P.empty_ext Σ) _ [] et) ;;
+  let is_constr_applied := check_ctors_applied Σ [] et in
+  ret (Monad:=envcheck_monad) (andb is_const_applied is_constr_applied).
+Next Obligation.
+  destruct wf as [wf].
+  constructor.
+  split; [assumption| ].
+  todo "on_udecl on empty universe context".
+Qed.
+
+Definition erase_and_check_applied (p : Ast.program) : EnvCheck bool :=
   let p := fix_program_universes p in
   let Σ := List.rev (trans_global (Ast.empty_ext p.1)).1 in
   G <- check_wf_env_only_univs Σ ;;
   et <- erase_template_program p ;;
-  is_const_applied <- wrap_error (P.empty_ext Σ) "during cheking applied constant"
-                                (check_consts_applied (P.empty_ext Σ) _ [] et.2) ;;
-  let is_constr_applied := check_ctors_applied Σ [] et.2 in
-  ret (Monad:=envcheck_monad) (andb is_const_applied is_constr_applied).
-Next Obligation.
-  unfold trans_global.
-  simpl. unfold wf_ext, empty_ext. simpl.
-  unfold on_global_env_ext. destruct H0. constructor.
-  split; auto. simpl. todo "on_udecl on empty universe context".
-Qed.
+  check_applied Σ et.2 (proj2 (projT2 G)).
 
 Definition print_sum (s : string + string) :=
   match s with
@@ -122,7 +127,7 @@ Program Definition erase_check_debox_all (TT : env string) (p : Ast.program)
   let p := fix_program_universes p in
   let res : EnvCheck ((EAst.global_context × bool) × EAst.term):=
       '(Σ,t) <- erase_template_program p ;;
-      is_ok <- check_applied p ;;
+      is_ok <- erase_and_check_applied p ;;
       ret (Monad:=envcheck_monad) (Σ,is_ok,t)
   in
   match res with

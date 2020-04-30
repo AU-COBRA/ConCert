@@ -98,7 +98,7 @@ Quote Recursively Definition ex_partially_applied_syn :=
       end
     end) : msg -> storage -> option (list SimpleActionBody * storage)).
 
-Compute (check_applied ex_partially_applied_syn).
+Compute (erase_and_check_applied ex_partially_applied_syn).
 (* returns [false], as expected *)
 
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. Even though the de-boxing is not certified yet, before removing boxes we check if constant is applied to all logical argument (i.e. proofs or types) and constructors are fully applied. In this case, it is safe to remove these applications. *)
