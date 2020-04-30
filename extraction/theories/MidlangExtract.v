@@ -162,10 +162,22 @@ Definition to_upper (c : ascii) : ascii :=
     Ascii b0 b1 b2 b3 b4 false b6 b7
   end.
 
+Definition to_lower (c : ascii) : ascii :=
+  match c with
+  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
+    Ascii b0 b1 b2 b3 b4 true b6 b7
+  end.
+
 Definition capitalize (s : string) : string :=
   match s with
   | EmptyString => EmptyString
   | String c s => String (to_upper c) s
+  end.
+
+Definition uncapitalize (s : string) : string :=
+  match s with
+  | EmptyString => EmptyString
+  | String c s => String (to_lower c) s
   end.
 
 Definition printable_kername (name : kername) : string :=
@@ -188,11 +200,20 @@ Section FixExEnv.
 
 Context (Σ : Ex.global_env).
 
+Definition get_ty_name (name : kername) : string :=
+  capitalize (printable_kername name).
+
 Definition print_ty_name (name : kername) : PrettyPrinter unit :=
-  append (capitalize (printable_kername name)).
+  append (get_ty_name name).
 
 Definition print_ctor_name (name : ident) : PrettyPrinter unit :=
   append (capitalize name).
+
+Definition get_ty_arg_name (name : ident) : ident :=
+  uncapitalize name.
+
+Definition print_type_arg_name (name : ident) : PrettyPrinter unit :=
+  append (get_ty_arg_name name).
 
 Definition lookup_mind (name : kername) : option P.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
@@ -282,22 +303,12 @@ Definition fresh_name (name : name) (Γ : list ident) : PrettyPrinter ident :=
   | nNamed name => ret (fresh name (Γ ++ used_names))
   end.
 
-(*
-Definition blah :=
-  fix f x :=
-    match x with
-    | S x => (g x + f x)%nat
-    | 0 => 0
-    end
- with g x :=
-      match x with
-      | S x => (g x + f x)%nat
-      | 0 => 0
-      end
-for f.
-
-Quote Recursively Definition foo := blah.
-*)
+Definition fresh_ty_arg_name (name : name) (Γ : list ident) : PrettyPrinter ident :=
+  used_names <- get_used_names;;
+  match name with
+  | nAnon => ret (fresh "a" (Γ ++ used_names))
+  | nNamed name => ret (fresh (get_ty_arg_name name) (Γ ++ used_names))
+  end.
 
 Import P.
 Definition parenthesize_prod_domain (t : term) : bool :=
@@ -306,13 +317,42 @@ Definition parenthesize_prod_domain (t : term) : bool :=
   | _ => false
   end.
 
-Fixpoint print_type (t : term) : PrettyPrinter unit :=
+Definition parenthesize_ty_app_arg (t : term) : bool :=
   match t with
+  | tApp _ _ => true
+  | _ => false
+  end.
+
+Quote Recursively Definition asdawd := fold_left.
+
+Fixpoint print_type (Γ : list (option ident)) (t : term) : PrettyPrinter unit :=
+  match t with
+  | tRel n =>
+    match nth_error Γ n with
+    | Some (Some name) => append name
+    | Some None =>
+      printer_fail ("cannot print type with dependencies:" ++ nl ++ PCUICAstUtils.string_of_term t)
+    | None =>
+      printer_fail ("unbound tRel " ++ string_of_nat n)
+    end
   | tInd ind _ => print_ty_name (inductive_mind ind)
+  | tProd name (tSort _) cod =>
+    (* Midlang is implicitly generalized over type args *)
+    let or_empty o :=
+        match o with
+        | Some n => n
+        | None => ""
+        end in
+    name <- fresh_ty_arg_name name (map or_empty Γ);;
+    print_type (Some name :: Γ) cod
   | tProd _ dom cod =>
-    print_parenthesized (parenthesize_prod_domain dom) (print_type dom);;
+    print_parenthesized (parenthesize_prod_domain dom) (print_type Γ dom);;
     append " -> ";;
-    print_type cod
+    print_type (None :: Γ) cod
+  | tApp head arg =>
+    print_type Γ head;;
+    append " ";;
+    print_parenthesized (parenthesize_ty_app_arg arg) (print_type Γ arg)
   | _ => printer_fail ("cannot print following as type" ++ nl ++ PCUICAstUtils.string_of_term t)
   end.
 
@@ -320,7 +360,7 @@ Import E.
 (* Print something of the form
    foo =
      a b c
-inlining lambdas (and fix points). For example, for
+inlining lambdas and fix points. For example, for
    foo = \x \y \z -> z
 instead print
    foo x y z = z
@@ -534,7 +574,7 @@ Definition print_constant_body (name : kername) (cst : Ex.constant_body) : Prett
 
   append (printable_kername name);;
   append " : ";;
-  print_type type;;
+  print_type [] type;;
 
   match body with
   | None => ret tt
@@ -547,52 +587,59 @@ Definition print_constant_body (name : kername) (cst : Ex.constant_body) : Prett
 
   pop_indent.
 
-Quote Recursively Definition foo := (5+5)%nat.
+Quote Recursively Definition foo := (None : option nat)%nat.
 
-Fixpoint decompose_ind_ctor (arity : nat) (ty : P.term) : PrettyPrinter (list P.term) :=
-  match arity with
-  | 0 => ret []
-  | S arity =>
-    match ty with
-    | P.tProd _ dom cod =>
-      tl <- decompose_ind_ctor arity cod;;
-      ret (dom :: tl)
-    | _ =>
-      printer_fail ("unexpected type of ctor: " ++ PCUICAstUtils.string_of_term ty)
-    end
-  end.
+Definition decompose_ind_ctor
+         (nparams : nat)
+         (arity : nat)
+         (t : P.term) : PrettyPrinter (list P.term) :=
+  (* First get rid of parameters. The constructor will always start with those *)
+  t <- (fix f n t :=
+           match n, t with
+           | 0, _ => ret t
+           | S n, tProd _ (tSort _) t => f n t
+           | _, _ => printer_fail ("unexpected type of ctor: " ++ PCUICAstUtils.string_of_term t)
+           end) nparams t;;
+
+  (fix f n t :=
+     match n with
+     | 0 => ret []
+     | S n =>
+       match t with
+       | P.tProd _ dom cod =>
+         tl <- f n cod;;
+         ret (dom :: tl)
+       | _ =>
+         printer_fail ("unexpected type of ctor: " ++ PCUICAstUtils.string_of_term t)
+       end
+     end) arity t.
 
 Import P.
 Definition parenthesize_ind_ctor_ty (ty : term) : bool :=
   match ty with
   | tInd _ _
-  | tVar _ => false
+  | tVar _
+  | tRel _ => false
   | _ => true
   end.
 
 Definition print_ind_ctor_definition
-           (ind_name : string)
+           (Γ : list (option ident))
            (name : ident)
            (ty : P.term)
+           (nparams : nat)
            (arity : nat) : PrettyPrinter unit :=
   print_ctor_name name;;
-  tys <- decompose_ind_ctor arity ty;;
+  tys <- decompose_ind_ctor nparams arity ty;;
 
-  (fix f (tys : list P.term) (depth : nat) :=
+  (fix f (Γ : list (option ident)) (tys : list P.term) :=
      match tys with
      | [] => ret tt
      | ty :: tys =>
        append " ";;
-       match ty with
-       | tRel n =>
-         if (n =? depth)%nat then
-           print_ty_name ind_name
-          else
-            printer_fail ("cannot handle " ++ PCUICAstUtils.string_of_term ty ++ " in inductive")
-       | _ => print_parenthesized (parenthesize_ind_ctor_ty ty) (print_type ty)
-       end;;
-       f tys (S depth)
-     end) tys 0.
+       print_parenthesized (parenthesize_ind_ctor_ty ty) (print_type Γ ty);;
+       f (None :: Γ) tys
+     end) Γ tys.
 
 Local Open Scope string.
 Definition print_mutual_inductive_body
@@ -603,7 +650,27 @@ Definition print_mutual_inductive_body
 
   let qualifier := kername_qualifier name in
 
-  (fix print_ind_bodies (l : list P.one_inductive_body) (first : bool) :=
+  (* make context that has mutual inductive bodies *)
+  let Γ := rev_map (fun oib => get_ty_name (ind_name oib)) (ind_bodies mib) in
+  (* add parameters *)
+  Γ <- monad_fold_left
+         (fun Γ d =>
+            match decl_body d with
+            | None => ret tt
+            | Some _ => printer_fail "cannot handle inductive parameter with body"
+            end;;
+            match decl_type d with
+            | tSort _ => ret tt
+            | t => printer_fail "can only handle parameters of type sort"
+            end;;
+            name <- fresh_ty_arg_name (decl_name d) Γ;;
+            ret (name :: Γ)) (ind_params mib) Γ;;
+
+  let ty_arg_names := rev (firstn (List.length (ind_params mib)) Γ) in
+
+  (fix print_ind_bodies
+       (l : list P.one_inductive_body)
+       (first : bool) :=
      match l with
      | [] => ret tt
      | oib :: l =>
@@ -614,6 +681,9 @@ Definition print_mutual_inductive_body
        let ind_name := qualifier ++ "." ++ P.ind_name oib in
        print_ty_name ind_name;;
 
+       (* Print type args *)
+       monad_fold_left (fun _ name => append (" " ++ name)) ty_arg_names tt;;
+
        push_indent (col + indent_size);;
 
        (fix print_ind_ctors (ctors : list (ident * P.term * nat)) prefix :=
@@ -622,7 +692,7 @@ Definition print_mutual_inductive_body
           | (name, ty, arity) :: ctors =>
             append_nl_and_indent;;
             append (prefix ++ " ");;
-            print_ind_ctor_definition ind_name name ty arity;;
+            print_ind_ctor_definition (map Some Γ) name ty (ind_npars mib) arity;;
 
             print_ind_ctors ctors "|"
           end) (ind_ctors oib) "=";;
@@ -726,6 +796,23 @@ Definition erase_and_debox_single
 
 (* Extract the specified environment to Midlang, creating definitions for all symbols. *)
 Definition extract_env (Σ : T.global_env) : PrettyPrinter unit :=
+  let remove_universe_constraints (decl : T.global_decl) :=
+      match decl with
+      | T.ConstantDecl body =>
+        let (type, body, _) := body in
+        T.ConstantDecl {| T.cst_type := type;
+                          T.cst_body := body;
+                          T.cst_universes := Monomorphic_ctx ContextSet.empty |}
+      | T.InductiveDecl mib =>
+        let (finite, npars, params, bodies, _, variance) := mib in
+        T.InductiveDecl {| T.ind_finite := finite;
+                           T.ind_npars := npars;
+                           T.ind_params := params;
+                           T.ind_bodies := bodies;
+                           T.ind_universes := Monomorphic_ctx ContextSet.empty;
+                           T.ind_variance := variance |}
+      end in
+  let Σ := map (fun '(name, d) => (name, remove_universe_constraints d)) Σ in
   let Σ := fix_global_env_universes Σ in
   let Σ := (T2P.trans_global (T.empty_ext Σ)).1 in
   G <- wrap_EnvCheck (check_wf_env_only_univs Σ);;
@@ -740,18 +827,15 @@ Definition extract_env (Σ : T.global_env) : PrettyPrinter unit :=
 Local Open Scope nat.
 
 Inductive Msg :=
-| increment
+| increment (nums : list nat)
 | decrement.
 
-(*
-Quote Recursively Definition test :=
-  (fun (state : nat) (maybe_msg : option Msg) =>
-    match maybe_msg with
-    | Some increment => Some (state + 1)
-    | Some decrement => Some (state - 1)
-    | _ => None
-    end).
-*)
+Definition recv (state : nat) (maybe_msg : option Msg) :=
+  match maybe_msg with
+  | Some (increment nums) => Some (state + fold_left Nat.add (nums ++ nums) 0 - fold_right Nat.mul 0 nums)
+  | Some decrement => Some (state - 1)
+  | _ => None
+  end.
 
 Definition app (f : nat -> nat) (n : nat) : nat :=
   f n.
@@ -784,7 +868,8 @@ Definition test' : bool :=
   let x := let y := true in y in
   let y := x in y.
 
-Quote Recursively Definition test_program := test.
+(*Quote Recursively Definition test_program := test.*)
+Quote Recursively Definition test_program := recv.
 
 Local Open Scope string.
 Definition test3 :=
