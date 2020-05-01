@@ -12,7 +12,6 @@ theories/ChainedList.v
 theories/Circulation.v
 theories/Containers.v
 theories/ContractMonads.v
-theories/Examples/BignumsSerializable.v
 theories/Examples/BoardroomMath.v
 theories/Examples/BoardroomVoting.v
 theories/Examples/BoardroomVotingTest.v

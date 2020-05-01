@@ -42,6 +42,7 @@ Class BoardroomAxioms {A : Type} :=
     mul_proper :> Proper (elmeq ==> elmeq ==> elmeq) mul;
     opp_proper :> Proper (elmeq ==> elmeq) opp;
     inv_proper :> Proper (elmeq ==> elmeq) inv;
+    pow_base_proper :> Proper (elmeq ==> eq ==> elmeq) pow;
     pow_exp_proper a :
       ~(elmeq a zero) -> Proper (expeq ==> elmeq) (pow a);
 
@@ -76,6 +77,11 @@ Class BoardroomAxioms {A : Type} :=
       ~(elmeq a zero) ->
       elmeq (pow a (e + e')) (mul (pow a e) (pow a e'));
 
+    pow_pow a b e :
+      ~(elmeq a zero) ->
+      elmeq (pow (pow a b) e)
+            (pow a (b * e)%Z);
+
     pow_nonzero a e :
       ~(elmeq a zero) ->
       ~(elmeq (pow a e) zero);
@@ -87,19 +93,24 @@ Class BoardroomAxioms {A : Type} :=
 
 Arguments BoardroomAxioms : clear implicits.
 
-Delimit Scope ffield_scope with ffield.
+Delimit Scope broom_scope with broom.
 
-Infix "==" := elmeq (at level 70) : ffield.
-Notation "a !== b" := (~(elmeq a b)) (at level 70) : ffield.
-Notation "0" := zero : ffield.
-Notation "1" := one : ffield.
-Infix "+" := add : ffield.
-Infix "*" := mul : ffield.
-Infix "^" := pow : ffield.
-Notation "a 'exp=' b" := (expeq a b) (at level 70) : ffield.
-Notation "a 'exp<>' b" := (~(expeq a b)) (at level 70) : ffield.
+Module BoardroomMathNotations.
+  Infix "==" := elmeq (at level 70) : broom.
+  Infix "=?" := elmeqb (at level 70) : broom.
+  Notation "a !== b" := (~(elmeq a b)) (at level 70) : broom.
+  Notation "0" := zero : broom.
+  Notation "1" := one : broom.
+  Infix "+" := add : broom.
+  Infix "*" := mul : broom.
+  Infix "^" := pow : broom.
+  Notation "a 'exp=' b" := (expeq a b) (at level 70) : broom.
+  Notation "a 'exp<>' b" := (~(expeq a b)) (at level 70) : broom.
+End BoardroomMathNotations.
 
-Local Open Scope ffield.
+Import BoardroomMathNotations.
+Local Open Scope broom.
+
 Global Instance oeq_equivalence {A : Type} (field : BoardroomAxioms A) : Equivalence expeq.
 Proof.
   unfold expeq.
@@ -111,7 +122,7 @@ Qed.
 
 Definition BoardroomAxioms_field_theory {A : Type} (field : BoardroomAxioms A) :
   field_theory
-    zero one
+    0 1
     add mul
     (fun x y => x + (opp y)) opp
     (fun x y => x * inv y) inv
@@ -165,17 +176,42 @@ Section WithBoardroomAxioms.
   Context {gen : Generator field}.
   Context {disc_log : DiscreteLog field gen}.
 
-  Add Field ff : (BoardroomAxioms_field_theory field).
-
-  Local Open Scope ffield.
-
-  Hint Resolve one_neq_zero pow_nonzero generator_nonzero inv_nonzero : core.
-
   Fixpoint prod (l : list A) : A :=
     match l with
     | [] => one
     | x :: xs => x * prod xs
     end.
+
+  Definition compute_public_key (sk : Z) : A :=
+    generator ^ sk.
+
+  Definition reconstructed_key (pks : list A) (n : nat) : A :=
+    let lprod := prod (firstn n pks) in
+    let rprod := inv (prod (skipn (S n) pks)) in
+    lprod * rprod.
+
+  Definition compute_public_vote (rk : A) (sk : Z) (sv : bool) : A :=
+    rk ^ sk * if sv then generator else 1.
+
+  Fixpoint bruteforce_tally_aux
+           (n : nat)
+           (votes_product : A) : option nat :=
+    if generator ^ (Z.of_nat n) =? votes_product then
+      Some n
+    else
+      match n with
+      | 0 => None
+      | S n => bruteforce_tally_aux n votes_product
+      end%nat.
+
+  Definition bruteforce_tally (votes : list A) : option nat :=
+    bruteforce_tally_aux (length votes) (prod votes).
+
+  Add Field ff : (BoardroomAxioms_field_theory field).
+
+  Local Open Scope broom.
+
+  Hint Resolve one_neq_zero pow_nonzero generator_nonzero inv_nonzero : core.
 
   Instance plus_expeq_proper : Proper (expeq ==> expeq ==> expeq) Z.add.
   Proof.
@@ -298,31 +334,6 @@ Section WithBoardroomAxioms.
 
   Hint Resolve -> prod_units : core.
   Hint Resolve <- prod_units : core.
-
-  Definition compute_public_key (sk : Z) : A :=
-    generator ^ sk.
-
-  Definition reconstructed_key (pks : list A) (n : nat) : A :=
-    let lprod := prod (firstn n pks) in
-    let rprod := inv (prod (skipn (S n) pks)) in
-    lprod * rprod.
-
-  Definition compute_public_vote (rk : A) (sk : Z) (sv : bool) : A :=
-    rk ^ sk * if sv then generator else 1.
-
-  Fixpoint bruteforce_tally_aux
-           (n : nat)
-           (votes_product : A) : option nat :=
-    if elmeqb (generator ^ (Z.of_nat n)) votes_product then
-      Some n
-    else
-      match n with
-      | 0 => None
-      | S n => bruteforce_tally_aux n votes_product
-      end%nat.
-
-  Definition bruteforce_tally (votes : list A) : option nat :=
-    bruteforce_tally_aux (length votes) (prod votes).
 
   Lemma compute_public_key_unit sk :
     compute_public_key sk !== 0.
@@ -460,7 +471,7 @@ Section WithBoardroomAxioms.
     destruct (i <? j)%nat; lia.
   Qed.
 
-  Local Open Scope ffield.
+  Local Open Scope broom.
   Lemma mul_public_votes
         (sks : list Z)
         (votes : nat -> bool) :
@@ -559,6 +570,25 @@ Section WithBoardroomAxioms.
     now intros ? ? <-.
   Qed.
 
+  Global Instance elmeqb_elmeq_proper :
+    Proper (elmeq ==> elmeq ==> eq) elmeqb.
+  Proof.
+    intros x x' xeq y y' yeq.
+    destruct (elmeqb_spec x y), (elmeqb_spec x' y'); auto.
+    - contradiction n.
+      now rewrite <- xeq, <- yeq.
+    - contradiction n.
+      now rewrite xeq, yeq.
+  Qed.
+
+  Lemma elmeqb_refl a :
+    a =? a = true.
+  Proof.
+    destruct (elmeqb_spec a a); [easy|].
+    contradiction n.
+    reflexivity.
+  Qed.
+
   Lemma bruteforce_tally_aux_correct result max :
     Z.of_nat max < order - 1 ->
     (result <= max)%nat ->
@@ -568,13 +598,10 @@ Section WithBoardroomAxioms.
     induction max as [|max IH].
     - replace result with 0%nat by lia.
       cbn.
-      destruct (elmeqb_spec (generator^0) (generator^0)); auto.
-      contradiction n; reflexivity.
+      now rewrite elmeqb_refl.
     - destruct (Nat.eq_dec result (S max)) as [->|?].
       + cbn.
-        destruct (elmeqb_spec (generator ^ Z.pos (Pos.of_succ_nat max))
-                              (generator ^ Z.pos (Pos.of_succ_nat max))); auto.
-        contradiction n; reflexivity.
+        now rewrite elmeqb_refl.
       + cbn -[Z.of_nat].
         destruct (elmeqb_spec (generator ^ Z.of_nat (S max))
                               (generator ^ Z.of_nat result)) as [eq|?]; auto.
@@ -956,6 +983,16 @@ Module Zp.
   Lemma mod_pow_pos_mod_idemp a x p :
     mod_pow_pos (a mod p) x p = mod_pow_pos a x p.
   Proof. apply mod_pow_pos_aux_mod_idemp. Qed.
+
+  Lemma mod_pow_mod_idemp a e p :
+    mod_pow (a mod p) e p = mod_pow a e p.
+  Proof.
+    unfold mod_pow.
+    destruct e.
+    - now rewrite Z_pow_mod_idemp.
+    - now rewrite mod_pow_pos_mod_idemp.
+    - now rewrite mod_pow_pos_mod_idemp.
+  Qed.
 
   Lemma mod_pow_pos_aux_mod a x p r :
     mod_pow_pos_aux a x p r mod p = mod_pow_pos_aux a x p r.
@@ -1482,6 +1519,8 @@ Module Zp.
     - intros a a' aeq.
       cbn.
       now rewrite <- mod_inv_mod_idemp, aeq, mod_inv_mod_idemp by auto.
+    - intros a a' aeq e ? <-.
+      now rewrite <- mod_pow_mod_idemp, aeq, mod_pow_mod_idemp.
     - intros a anp e e' eeq.
       rewrite <- (mod_pow_exp_mod _ e), <- (mod_pow_exp_mod _ e') by auto.
       now rewrite eeq.
@@ -1528,6 +1567,8 @@ Module Zp.
       now rewrite mod_inv_mod_idemp.
     - intros a e e' ap0.
       now rewrite mod_pow_exp_plus by auto.
+    - intros a b e anz.
+      now rewrite mod_pow_exp_mul.
     - auto.
     - auto.
   Defined.
@@ -1669,24 +1710,25 @@ Module BigZp.
 
   Hint Rewrite BigZ.spec_modulo : zsimpl.
 
-  Definition boardroom_axioms (p : bigZ) :
-    prime [p] -> BoardroomAxioms bigZ.
+  Local Open Scope Z.
+  Definition boardroom_axioms (p : Z) :
+    prime p -> BoardroomAxioms Z.
   Proof.
     intros isprime.
     pose proof (prime_ge_2 _ isprime).
     refine
-      {| elmeq a b := a mod p == b mod p;
+      {| elmeq a b := a mod p = b mod p;
          elmeqb a b := a mod p =? b mod p;
          zero := 0;
          one := 1;
          add a a' := (a + a') mod p;
          mul a a' := (a * a') mod p;
          opp a := p - a;
-         inv a := mod_inv a p;
-         pow a e := mod_pow a e p;
-         order := BigZ.to_Z p;
-      |}; unfold "==".
-    - intros x y; apply BigZ.eqb_spec.
+         inv a := [mod_inv (BigZ.of_Z a) (BigZ.of_Z p)];
+         pow a e := [mod_pow (BigZ.of_Z a) e (BigZ.of_Z p)];
+         order := p;
+      |}.
+    - intros x y; apply Z.eqb_spec.
     - lia.
     - constructor; auto.
       now intros a a' a'' -> ->.
@@ -1702,6 +1744,9 @@ Module BigZp.
     - intros a a' aeq.
       autorewrite with zsimpl in *.
       now rewrite <- Zp.mod_inv_mod_idemp, aeq, Zp.mod_inv_mod_idemp.
+    - intros a a' aeq e ? <-.
+      autorewrite with zsimpl in *.
+      now rewrite <- Zp.mod_pow_mod_idemp, aeq, Zp.mod_pow_mod_idemp.
     - intros a anp e e' eeq.
       autorewrite with zsimpl in *.
       rewrite <- (Zp.mod_pow_exp_mod _ e), <- (Zp.mod_pow_exp_mod _ e') by auto.
@@ -1736,7 +1781,7 @@ Module BigZp.
     - intros a.
       autorewrite with zsimpl in *.
       rewrite Z.mod_mod by lia.
-      replace ([p] - [a] + [a])%Z with [p] by lia.
+      replace (p - a + a)%Z with p by lia.
       rewrite Z.mod_same, Z.mod_0_l; lia.
     - intros a anp.
       autorewrite with zsimpl in *.
@@ -1764,6 +1809,9 @@ Module BigZp.
     - intros a e e' ap0.
       autorewrite with zsimpl in *.
       now rewrite Zp.mod_pow_exp_plus by auto.
+    - intros a b e ap0.
+      autorewrite with zsimpl in *.
+      now rewrite Zp.mod_pow_exp_mul.
     - intros a e ap0.
       autorewrite with zsimpl in *.
       auto.
