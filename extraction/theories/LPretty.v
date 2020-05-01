@@ -353,7 +353,7 @@ Section print_term.
                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
       end
     else
-      (* [list is a special case] is a special case *)
+      (* [list] is a special case *)
       if mind =? "Coq.Init.Datatypes.list" then
         match brs with
         | [b1;b2] =>
@@ -423,7 +423,7 @@ End print_term.
 Local Open Scope string_scope.
 
 
-(** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. This part must be included to all the contracts. *)
+(** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)
 
 Definition prod_ops :=
        "let[@inline] fst (p : 'a * 'b) : 'a = p.(0)"
