@@ -36,8 +36,10 @@ docs folder after `make html`.
 ## Structure of the project
 
 The [embedding](embedding/) folder contains the development of the embedding.
+
 The [execution](execution/) folder contains the formalization of the smart
 contract execution layer, which allows reasoning about interacting contracts.
+
 The [extraction](extraction/) folder contains a printing procedure for the deep embedding into the Liquidity syntax. For extraction using MetaCoq's **certified erasure** see the [extract-cert](https://github.com/AU-COBRA/ConCert/tree/extract-cert) branch (requires [MetaCoq's fork](https://github.com/annenkov/template-coq) to compile).
 
 
