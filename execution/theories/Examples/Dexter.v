@@ -33,10 +33,10 @@ Global Instance exchange_paramserializable : Serializable exchange_param :=
   Derive Serializable exchange_param_rect <build_exchange_param>.
 
 Inductive DexterMsg :=
-  | token_to_asset : exchange_param -> DexterMsg.
+  | tokens_to_asset : exchange_param -> DexterMsg.
 
 Global Instance DexterMsg_serializable : Serializable DexterMsg :=
-  Derive Serializable DexterMsg_rect <token_to_asset>.
+  Derive Serializable DexterMsg_rect <tokens_to_asset>.
 
 Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg _.
 
@@ -152,7 +152,7 @@ Definition receive (chain : Chain)
   let dexter_balance := chain.(account_balance) caddr in
   match maybe_msg with
   | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
-  | Some (other_msg (token_to_asset params)) => begin_exchange_tokens_to_assets sender params caddr state
+  | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets sender params caddr state
   | _ => None
   end.  
 

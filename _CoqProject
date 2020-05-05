@@ -50,6 +50,9 @@ execution/tests/FA2Tests/TestContracts.v
 execution/tests/FA2Tests/FA2Printers.v
 execution/tests/FA2Tests/FA2Gens.v
 execution/tests/FA2Tests/FA2TokenTests.v
+execution/tests/DexterTests/DexterPrinters.v
+execution/tests/DexterTests/DexterGens.v
+execution/tests/DexterTests/DexterTests.v
 execution/tests/SerializablePrinters.v
 
 -Q embedding/theories ConCert.Embedding
