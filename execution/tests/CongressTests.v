@@ -78,17 +78,17 @@ Definition add_proposal_cacts_P cacts chain (state : Congress.State) :=
 Definition gChainActionsFromCongressActions ctx : G (list CongressAction) :=
   (listOf (@gCongressActionSized ctx 2)).
 
-Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx).
+(* Sample (ctx <- arbitrary ;; gChainActionsFromCongressActions ctx). *)
 (* Compute (show (sample (gLocalChainContext 2))). *)
 
-QuickChick (
+(* QuickChick (
   forAll4
     (gLocalChainContext 2)
     (fun ctx => gLocalChainSized 2 ctx)
     (fun ctx chain => @gStateSized ctx (current_slot chain) 2)
     (fun ctx _ _ => gChainActionsFromCongressActions ctx)
     (fun ctx chain state cacts => add_proposal_cacts_P cacts chain state)
-).
+). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 Close Scope string_scope.
 

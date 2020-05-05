@@ -64,11 +64,11 @@ Definition gMsgSimple (ctx : ChainContext LocalChainBase) : G Msg :=
 Definition gMsg' : G Msg := 
   ctx <- arbitrary ;; gMsgSimple ctx.
 
-Sample gMsg'.
+(* Sample gMsg'.
 Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; @gCongressAction' ctx (liftM serializeMsg (gMsgSimple ctx))).
 
 Sample (ctx <- @arbitrarySized _ genLocalChainContext 1 ;; 
-        ctx_gAccountAddr ctx).
+        ctx_gAccountAddr ctx). *)
 
 Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
   let default := liftM add_member (ctx_gAccountAddr ctx) in
@@ -84,7 +84,7 @@ Fixpoint gMsgSized (ctx : ChainContext LocalChainBase) (n : nat) : G Msg :=
       ]
   end.
 
-Sample (ctx <- arbitrary ;; @gMsgSized ctx 1).
+(* Sample (ctx <- arbitrary ;; @gMsgSized ctx 1). *)
 
 Example ex_simple_msg : Msg := create_proposal [cact_transfer zero_address 1%Z ].
 Example ex_msg : Msg := create_proposal [cact_call zero_address 0%Z (serialize Msg _ ex_simple_msg)].
@@ -123,11 +123,11 @@ Definition gCongressActionSized {ctx : ChainContext LocalChainBase}
                                 : G CongressAction 
                                 := @gCongressAction' ctx (liftM serializeMsg (@gMsgSized ctx n)).
 
-Sample (ctx <- arbitrary ;; gMsgSized ctx 2).
+(* Sample (ctx <- arbitrary ;; gMsgSized ctx 2). *)
 
 Example ex_call_congress_action := ctx <- arbitrary ;; 
                                    liftM (cact_call zero_address 0%Z) (liftM serializeMsg (gMsgSized ctx 2) ).
-Sample ex_call_congress_action.
+(* Sample ex_call_congress_action. *)
 
 Open Scope Z_scope.
 
@@ -144,7 +144,7 @@ Definition gProposalSized {ctx : ChainContext LocalChainBase}
   (* vote_result <- choose (-(Z.of_nat nr_votes), Z.of_nat nr_votes);; *)
   returnGen (build_proposal actions votes vote_result proposed_in).
 
-Sample (ctx <- arbitrary ;; @gProposalSized ctx 0 10 1).
+(* Sample (ctx <- arbitrary ;; @gProposalSized ctx 0 10 1). *)
 
 Close Scope Z_scope.
 
@@ -186,7 +186,7 @@ Definition gProposalFromState {ctx : ChainContext LocalChainBase}
 Definition gCongressContract : G (Contract Setup Msg Congress.State) :=
   returnGen Congress.contract.
   
-Sample gCongressContract.
+(* Sample gCongressContract. *)
 
 Definition gValidContractCallContext {ctx : ChainContext LocalChainBase}
                                             (owner_addr : Address) 
