@@ -154,7 +154,7 @@ Definition gFA2TokenActionChainTraceList max_acts_per_block lc length :=
 Definition gFA2ClientChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
 
-Sample (gFA2TokenActionChainTraceList 1 chain1 10).
+(* Sample (gFA2TokenActionChainTraceList 1 chain1 10). *)
 
 Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
 Extract Constant defNumDiscards => "(4 * defNumTests)".
@@ -314,9 +314,9 @@ Definition last_update_operator_occurrence_takes_effect (update_ops : list updat
 .
 
 
-Sample (gFA2TokenAction chain1).
+(* Sample (gFA2TokenAction chain1). *)
 (* Sample gClientAction. *)
-Sample (gFA2ChainTraceList 1 chain1 6).
+(* Sample (gFA2ChainTraceList 1 chain1 6). *)
 (* Sanity Check that the trace generator never fails early *)
 (* QuickChick (forAll 
   (choose (1, 10))
@@ -357,7 +357,7 @@ Sample (gFA2ChainTraceList 1 chain1 6).
     end) 
 ). *)
 
-Sample (gFA2ClientChainTraceList 1 chain_with_token_deployed 4).
+(* Sample (gFA2ClientChainTraceList 1 chain_with_token_deployed 4). *)
 
 
 

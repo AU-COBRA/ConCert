@@ -51,9 +51,9 @@ Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
 Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
   reachableFrom_implies_reachable lc (gEIP20TokenChainTraceList 1) pf1 pf2.
 
-Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
+(* Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
 Compute (show (lc_token_contracts_states_deserialized chain_with_token_deployed)).
-Compute (show (lc_account_balances chain_with_token_deployed)).
+Compute (show (lc_account_balances chain_with_token_deployed)). *)
 (* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
 Open Scope string_scope.
 Definition debug_gEIP20Checker {A : Type}
@@ -79,7 +79,7 @@ Definition debug_gEIP20Checker {A : Type}
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 10).
+(* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 10). *)
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
@@ -164,13 +164,13 @@ Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
 (* This (false) property says that from the initial chain where the token contract has been deployed,
    if there is a reachable state where the creator has 5 tokens, then any trace afterwards
    will satisfy that the creator has 10 tokens. This is obviously not true, and QC will give us a counterexample. *)
-QuickChick (
+(* QuickChick (
   {
     chain_with_token_deployed 
     ~~> (person_has_tokens creator 5 o next_lc_of_lcstep) 
     ===> (fun _ _ post_trace => isSome (person_has_tokens creator 10 (last_state post_trace)))
   }
-).
+). *)
 
 Definition get_approve_act (act : Action) : option (Address * Address * EIP20Token.Msg) := 
   match act.(act_body) with
@@ -328,6 +328,6 @@ Definition reapprove_transfer_from_safe_P :=
     (* ) *)
   ).
 
-QuickChick reapprove_transfer_from_safe_P.
+(* QuickChick reapprove_transfer_from_safe_P. *)
 
 (* Definition transfer_from_reduces_balance_correctly_P := . *)

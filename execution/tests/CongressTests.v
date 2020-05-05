@@ -27,14 +27,12 @@ Definition chain_with_congress_deployed : LocalChain := lcb_lc chain6. (* chain6
 Definition congress_chain := chain_with_congress_deployed.
 Definition congress_contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
-
-
-Compute (show (lc_account_balances congress_chain)).
+(* Compute (show (lc_account_balances congress_chain)).
 Compute (show (map fst (FMap.elements (lc_contracts congress_chain)))).
 Compute (show (lc_contract_owners congress_chain)).
 Compute (show (congressContractsMembers congress_chain)).
 Compute (show (congressContractsMembers_nonempty_nonowners congress_chain)).
-Compute (show (lc_proposals congress_chain)).
+Compute (show (lc_proposals congress_chain)). *)
 
 Definition init_is_valid p := 
   let ctx := fst p in
@@ -270,7 +268,7 @@ Definition check_add_two_blocks_succeeds :=
     (fun _ c_opt actions_opt => add_block_actions_succeeds_P c_opt actions_opt)
   ).
 
-QuickChick check_add_two_blocks_succeeds.
+(* QuickChick check_add_two_blocks_succeeds. *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition glctracetree (height : nat) := glctracetree_fix lc_initial gCongressActionNew height.
@@ -295,7 +293,7 @@ Definition gCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCon
 
 (* Sample (liftM allPaths (glctracetreeFromLC congress_chain 3)). *)
 
-Sample (gCongressChainTraceList congress_chain 1 2).
+(* Sample (gCongressChainTraceList congress_chain 1 2). *)
 
 Definition reachableFrom_congress (lc : LocalChain) pf : Checker := 
   @reachableFrom AddrSize lc (fun lc length => gCongressChainTraceList lc length 1) pf.
@@ -322,4 +320,4 @@ Definition congress_finished_a_vote (lc_step : @LocalChainStep AddrSize) :=
     existsb act_is_finish_vote acts
   end.
 
-QuickChick (congress_chain ~~> congress_finished_a_vote).
+(* QuickChick (congress_chain ~~> congress_finished_a_vote). *)
