@@ -136,7 +136,7 @@ Definition receive_balance_response (responses : list balance_of_response)
     transfer_token_id := related_exchange.(exchange_token_id);
     amount := related_exchange.(tokens_sold)
   |}] in
-  let token_transfer_msg := act_call state.(fa2_caddr) 0%Z (@serialize _ _ (token_transfer_param)) in  
+  let token_transfer_msg := act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (token_transfer_param)) in  
   (* remove exchange from ongoing exchanges in state *)
   let state := state<| ongoing_exchanges := removelast state.(ongoing_exchanges) |> in
   Some (state, [asset_transfer_msg; token_transfer_msg]).

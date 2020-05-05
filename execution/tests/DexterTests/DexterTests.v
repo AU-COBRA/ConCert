@@ -55,23 +55,25 @@ Definition dexter_setup : Dexter.Setup := {|
 Definition deploy_dexter : @ActionBody Base := create_deployment 30 Dexter.contract dexter_setup.
 Definition dexter_caddr : Address := BoundedN.of_Z_const AddrSize 129%Z.
 
-Definition chain_with_token_deployed : LocalChain :=  
+Definition dexter_other_msg := @other_msg _ DexterMsg _.
+
+Definition add_operator_all owner operator := {|
+  op_param_owner := owner;
+  op_param_operator := operator;
+  op_param_tokens := all_tokens;
+|}.
+
+Definition chain1 : LocalChain :=  
   unpack_option (my_add_block lc_initial 
   [
     build_act creator (act_transfer person_1 10);
     build_act creator (act_transfer person_2 10);
     build_act creator deploy_fa2token;
-    build_act creator deploy_dexter
-  ]).
-
-Definition dexter_other_msg := @other_msg _ DexterMsg _.
-
-
-Definition chain1 : LocalChain :=
-  unpack_option (my_add_block chain_with_token_deployed 
-  [
+    build_act creator deploy_dexter;
     build_act person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+    build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ; 
+    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 dexter_caddr)]))) ;
+    build_act person_2 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_2 dexter_caddr)])))
   ]).
 
 Definition dexter_state lc := 
@@ -96,3 +98,5 @@ Module TestInfo <: DexterTestsInfo.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
+Sample (gDexterAction chain1).
+Sample (gDexterChainTraceList 1 chain1 10).
