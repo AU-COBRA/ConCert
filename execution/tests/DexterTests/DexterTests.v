@@ -14,6 +14,8 @@ From ConCert.Execution.QCTests Require Import
 	ChainGens TestUtils ChainPrinters SerializablePrinters TraceGens DexterGens.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
+From Coq Require Import Morphisms.
+
 Import ListNotations.
 Import RecordSetNotations.
 (* For monad notations *)
@@ -55,6 +57,52 @@ Definition dexter_setup : Dexter.Setup := {|
 Definition deploy_dexter : @ActionBody Base := create_deployment 30 Dexter.contract dexter_setup.
 Definition dexter_caddr : Address := BoundedN.of_Z_const AddrSize 129%Z.
 
+Section ExplotContract.
+Definition ExploitContractMsg := fa2_token_sender.
+Definition ExploitContractState := nat.
+Definition ExplotContractSetup := unit.
+Definition exploit_init
+            (chain : Chain)
+            (ctx : ContractCallContext)
+            (setup : ExplotContractSetup) : option ExploitContractState :=
+  Some 0.
+Definition exploit_receive (chain : Chain)
+						 			 (ctx : ContractCallContext)
+									 (state : ExploitContractState)
+									 (maybe_msg : option ExploitContractMsg)
+					         : option (ExploitContractState * list ActionBody) :=
+  let sender := ctx.(ctx_from) in
+  let caddr := ctx.(ctx_contract_address) in
+  let dexter_balance := chain.(account_balance) caddr in
+  match maybe_msg with
+  | Some (tokens_sent param) => if 10 <? state
+                                then Some (state, [])
+                                else 
+                                  let token_exchange_msg := tokens_to_asset {|
+                                    exchange_owner := person_1;
+                                    exchange_token_id := 0%N;
+                                    tokens_sold := 1%N;
+                                  |} in
+                                  Some (S state, [act_call dexter_caddr 0%Z (serialize _ _ token_exchange_msg)])
+  | _ => None
+  end.
+
+Instance exploit_init_proper :
+Proper (ChainEquiv ==> eq ==> eq ==> eq) exploit_init.
+Proof. now subst. Qed.
+
+Instance exploit_receive_proper :
+Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) exploit_receive.
+Proof. now subst. Qed.
+
+Definition exploit_contract : Contract ExplotContractSetup ExploitContractMsg ExploitContractState :=
+build_contract exploit_init exploit_init_proper exploit_receive exploit_receive_proper.
+
+End ExplotContract.
+
+Definition deploy_exploit : @ActionBody Base := create_deployment 10 exploit_contract tt.
+Definition exploit_caddr : Address := BoundedN.of_Z_const AddrSize 130%Z.
+
 Definition dexter_other_msg := @other_msg _ DexterMsg _.
 
 Definition add_operator_all owner operator := {|
@@ -67,13 +115,16 @@ Definition chain1 : LocalChain :=
   unpack_option (my_add_block lc_initial 
   [
     build_act creator (act_transfer person_1 10);
-    build_act creator (act_transfer person_2 10);
+    (* build_act creator (act_transfer person_2 10); *)
     build_act creator deploy_fa2token;
     build_act creator deploy_dexter;
+    build_act creator deploy_exploit;
     build_act person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ; 
-    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 dexter_caddr)]))) ;
-    build_act person_2 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_2 dexter_caddr)])))
+    (* build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;  *)
+    (* build_act exploit_caddr (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;  *)
+    (* build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all exploit_caddr dexter_caddr)])))  *)
+    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 dexter_caddr)])))
+    (* build_act person_2 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_2 dexter_caddr)]))) *)
   ]).
 
 Definition dexter_state lc := 
@@ -90,6 +141,7 @@ Definition token_state lc :=
 Compute (dexter_state chain1).
 Compute (show (token_state chain1)).
 
+
 From ConCert.Execution.QCTests Require Import DexterGens.
 
 Module TestInfo <: DexterTestsInfo.
@@ -100,3 +152,6 @@ Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
 Sample (gDexterAction chain1).
 Sample (gDexterChainTraceList 1 chain1 10).
+
+QuickChick (forAll (gDexterChainTraceList 1 chain1 10)
+  (fun trace =>))

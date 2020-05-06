@@ -79,7 +79,7 @@ Definition begin_exchange_tokens_to_assets (caller : Address)
                                            (dexter_caddr : Address)
                                            (state : State)
                                            : option (State * (list ActionBody)) :=
-  do _ <- returnIf (address_not_eqb caller params.(exchange_owner)) ;
+  (* do _ <- returnIf (address_not_eqb caller params.(exchange_owner)) ; *)
   (* send out callbacks to check owner token balance, and dexter contract token balance
      to determine if:
      1. owner has sufficient tokens to exchange

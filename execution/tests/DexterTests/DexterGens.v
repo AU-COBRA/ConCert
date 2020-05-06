@@ -72,8 +72,9 @@ Definition gDexterAction (lc : LocalChain) : G (option Action) :=
 			act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg) 
     |} in
   match FMap.find fa2_contract_addr (lc_contract_state_deserialized FA2Token.State lc) with
-  | Some fa2_state => p <- gTokenExchange fa2_state ;;
-                      mk_call (fst p) 0%Z (snd p) 
+  | Some fa2_state => caller <- gContractAddrFromLCWithoutAddrs lc [fa2_contract_addr; dexter_contract_addr] ;;
+                      p <- gTokenExchange fa2_state ;;
+                      mk_call caller 0%Z (snd p) 
   | None => returnGen None
   end.
 
