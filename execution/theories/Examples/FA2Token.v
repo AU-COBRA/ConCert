@@ -249,8 +249,8 @@ Definition handle_transfer (caller : Address)
   (* if no hook is attached, send transfer message to self, and notify senders of transfer *)
   | None =>
     let mk_transfer_descr tr := {|
-      transfer_descr_from_ := (tr.(from_));
-      transfer_descr_to_ := (tr.(to_));
+      transfer_descr_from_ := tr.(from_);
+      transfer_descr_to_ := tr.(to_);
       transfer_descr_token_id := tr.(transfer_token_id);
       transfer_descr_amount := tr.(amount);
     |} in
@@ -261,13 +261,17 @@ Definition handle_transfer (caller : Address)
     |} in
     let transfer_decr_param := mk_transfer_decr_param (map mk_transfer_descr transfers) in
     let is_from_contract descriptors := existsb (fun descr => address_is_contract descr.(transfer_descr_from_)) descriptors in
-    let trx_descriptors_grouped := filter is_from_contract (group_transfer_descriptors (map mk_transfer_descr transfers)) in
+    let trx_descriptors_grouped := (group_transfer_descriptors (map mk_transfer_descr transfers)) in
     let self_transfer_act := act_call caddr 0%Z (serialize (msg_receive_hook_transfer transfer_decr_param)) in
     
-    let mk_sender_hook_act descr_param := act_call caller 0%Z (serialize (tokens_sent descr_param)) in
-    let sender_hook_acts := map mk_sender_hook_act (map mk_transfer_decr_param trx_descriptors_grouped) in
+    (* let mk_sender_hook_act descr_param := act_call descr_param.(transfer_descr_operator) 0%Z (@serialize _ _ (tokens_sent descr_param)) in *)
+    let mk_sender_hook_act trx := 
+      let descr := mk_transfer_decr_param [mk_transfer_descr trx] in
+      act_call trx.(sender_callback_addr) 0%Z (@serialize fa2_token_sender _ (tokens_sent descr)) in
+    let sender_hook_acts := map mk_sender_hook_act transfers in
     
     (* Notice that sender hooks are invoked before the transfer *)
+    (* [self_transfer_act] *)
     sender_hook_acts ++ [self_transfer_act]
   end.
 
@@ -289,7 +293,8 @@ Definition handle_transfer_hook_receive (caller : Address)
       from_ := descr.(transfer_descr_from_);
       to_ := descr.(transfer_descr_to_);
       transfer_token_id := descr.(transfer_descr_token_id);
-      amount := descr.(transfer_descr_amount);     
+      amount := descr.(transfer_descr_amount);    
+      sender_callback_addr := param.(transfer_descr_operator) 
     |} in
   let transfers := map mk_transfer_from_decr param.(transfer_descr_batch) in
   try_transfer param.(transfer_descr_operator) transfers state.

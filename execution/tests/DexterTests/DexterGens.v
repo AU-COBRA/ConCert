@@ -23,6 +23,7 @@ Import MonadNotation. Open Scope monad_scope.
 Module Type DexterTestsInfo.
   Parameter fa2_contract_addr : Address.
   Parameter dexter_contract_addr : Address.
+  Parameter exploit_contract_addr : Address.
 End DexterTestsInfo.
 
 Module DexterGens (Info : DexterTestsInfo).
@@ -61,6 +62,7 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
     exchange_owner := addr;
     exchange_token_id := tokenid;
     tokens_sold := tokens_to_exchange;
+    callback_addr := exploit_contract_addr;
   |} in
   returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg))
 .
@@ -96,5 +98,6 @@ End DexterGens.
 Module DummyTestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := zero_address.
   Definition dexter_contract_addr := zero_address.
+  Definition exploit_contract_addr := zero_address.
 End DummyTestInfo.
 Module MG := DexterGens.DexterGens DummyTestInfo. Import MG.

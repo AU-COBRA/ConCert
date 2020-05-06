@@ -75,16 +75,17 @@ Definition exploit_receive (chain : Chain)
   let caddr := ctx.(ctx_contract_address) in
   let dexter_balance := chain.(account_balance) caddr in
   match maybe_msg with
-  | Some (tokens_sent param) => if 10 <? state
+  | Some (tokens_sent param) => if 1 <? state
                                 then Some (state, [])
                                 else 
                                   let token_exchange_msg := tokens_to_asset {|
                                     exchange_owner := person_1;
                                     exchange_token_id := 0%N;
                                     tokens_sold := 1%N;
+                                    callback_addr := caddr;
                                   |} in
                                   Some (S state, [act_call dexter_caddr 0%Z (serialize _ _ token_exchange_msg)])
-  | _ => None
+  | _ => Some (state, [])
   end.
 
 Instance exploit_init_proper :
@@ -119,10 +120,10 @@ Definition chain1 : LocalChain :=
     build_act creator deploy_fa2token;
     build_act creator deploy_dexter;
     build_act creator deploy_exploit;
+
     build_act person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
     (* build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;  *)
-    (* build_act exploit_caddr (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;  *)
-    (* build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all exploit_caddr dexter_caddr)])))  *)
+    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr)]))) ;
     build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 dexter_caddr)])))
     (* build_act person_2 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_2 dexter_caddr)]))) *)
   ]).
@@ -137,6 +138,11 @@ Definition token_state lc :=
   | Some state => deserialize FA2Token.State _ state
   | None => None
   end.
+Definition exploit_state lc := 
+  match (FMap.find exploit_caddr lc.(lc_contract_state)) with
+  | Some state => deserialize ExploitContractState _ state
+  | None => None
+  end.
 
 Compute (dexter_state chain1).
 Compute (show (token_state chain1)).
@@ -147,11 +153,16 @@ From ConCert.Execution.QCTests Require Import DexterGens.
 Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
+  Definition exploit_contract_addr := exploit_caddr.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
 Sample (gDexterAction chain1).
 Sample (gDexterChainTraceList 1 chain1 10).
 
-QuickChick (forAll (gDexterChainTraceList 1 chain1 10)
-  (fun trace =>))
+QuickChick (forAllTraces 5 chain1 (gDexterChainTraceList 1)
+ (fun lc => whenFail 
+  (show (token_state lc) ++ nl 
+  ++ show (dexter_state lc) ++ nl
+  ++ show (lc.(account_balance) person_1)) 
+  (checker false))).

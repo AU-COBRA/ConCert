@@ -27,6 +27,7 @@ Record exchange_param :=
     exchange_owner : Address;
     exchange_token_id : token_id;
     tokens_sold : N;
+    callback_addr : Address;
   }.
 
 Global Instance exchange_paramserializable : Serializable exchange_param :=
@@ -86,7 +87,7 @@ Definition begin_exchange_tokens_to_assets (caller : Address)
      2. exchange rate (based off this contract's token balance) 
   *)
   let owner_balance_param := {|
-    owner := caller;
+    owner := params.(exchange_owner);
     bal_req_token_id := params.(exchange_token_id);
   |} in
   let dexter_balance_param := {|
@@ -134,7 +135,8 @@ Definition receive_balance_response (responses : list balance_of_response)
     from_ := related_exchange.(exchange_owner);
     to_ := dexter_caddr;
     transfer_token_id := related_exchange.(exchange_token_id);
-    amount := related_exchange.(tokens_sold)
+    amount := related_exchange.(tokens_sold);
+    sender_callback_addr := related_exchange.(callback_addr);
   |}] in
   let token_transfer_msg := act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (token_transfer_param)) in  
   (* remove exchange from ongoing exchanges in state *)
@@ -153,7 +155,7 @@ Definition receive (chain : Chain)
   match maybe_msg with
   | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
   | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets sender params caddr state
-  | _ => None
+  | _ => Some (state, [])
   end.  
 
 Definition init (chain : Chain)

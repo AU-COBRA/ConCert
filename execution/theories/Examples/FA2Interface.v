@@ -31,6 +31,7 @@ Record transfer :=
     to_ : Address;
     transfer_token_id : token_id;
     amount : N;
+    sender_callback_addr : Address;
 }.
 Record balance_of_request := {
   owner : Address;
@@ -164,7 +165,7 @@ Section Setters.
   settable! (Build_callback A) <(callback_addr A); (body A)>. *)
   
 Instance transfer_settable : Settable transfer :=
-  settable! build_transfer <from_; to_; transfer_token_id; amount>.
+  settable! build_transfer <from_; to_; transfer_token_id; amount; sender_callback_addr>.
 
 Instance balance_of_request_settable : Settable balance_of_request :=
   settable! Build_balance_of_request <owner; bal_req_token_id>.
