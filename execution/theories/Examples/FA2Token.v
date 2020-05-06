@@ -223,6 +223,16 @@ Definition call_transfer_hook (caller : Address)
     |} in
   act_call transfer_hook_addr 0%Z (serialize (transfer_hook transfer_decr_param)).
 
+Definition group_transfer_descriptors (params : list transfer_descriptor)
+                    : list (list transfer_descriptor) := 
+  let trx_map := fold_right (fun trx trx_map =>
+  match FMap.find trx.(transfer_descr_from_) trx_map with
+  | Some trxs => FMap.add trx.(transfer_descr_from_) (trx :: trxs) trx_map
+  | None => FMap.add trx.(transfer_descr_from_) [trx] trx_map
+  end
+  ) FMap.empty params in
+  FMap.values trx_map.
+
 (* Handles incoming transfers:
    - if the contract has a transfer_hook, then it uses the hook
    - otherwise it checks & performs the transfers now *)
@@ -230,23 +240,50 @@ Definition handle_transfer (caller : Address)
                            (caddr : Address)
                            (transfers : list transfer)
                            (state : State)
-                           : option (State * list ActionBody) :=
+                           : list ActionBody :=
   match state.(transfer_hook_addr) with
   (* send call transfer hook (approved transfers will be received in the msg_receive_hook_transfer endpoint) *)
   | Some transfer_hook_addr => 
     let call_hook_act := call_transfer_hook caller caddr transfer_hook_addr transfers state in 
-    Some (state, [call_hook_act])
-  (* perform transfers locally, now *)
-  | None => option_map (fun new_state => (new_state, [])) (try_transfer caller transfers state)
+    [call_hook_act]
+  (* if no hook is attached, send transfer message to self, and notify senders of transfer *)
+  | None =>
+    let mk_transfer_descr tr := {|
+      transfer_descr_from_ := (tr.(from_));
+      transfer_descr_to_ := (tr.(to_));
+      transfer_descr_token_id := tr.(transfer_token_id);
+      transfer_descr_amount := tr.(amount);
+    |} in
+    let mk_transfer_decr_param batch := {|
+      transfer_descr_fa2 := caddr;
+      transfer_descr_batch := batch;
+      transfer_descr_operator := caller;
+    |} in
+    let transfer_decr_param := mk_transfer_decr_param (map mk_transfer_descr transfers) in
+    let is_from_contract descriptors := existsb (fun descr => address_is_contract descr.(transfer_descr_from_)) descriptors in
+    let trx_descriptors_grouped := filter is_from_contract (group_transfer_descriptors (map mk_transfer_descr transfers)) in
+    let self_transfer_act := act_call caddr 0%Z (serialize (msg_receive_hook_transfer transfer_decr_param)) in
+    
+    let mk_sender_hook_act descr_param := act_call caller 0%Z (serialize (tokens_sent descr_param)) in
+    let sender_hook_acts := map mk_sender_hook_act (map mk_transfer_decr_param trx_descriptors_grouped) in
+    
+    (* Notice that sender hooks are invoked before the transfer *)
+    sender_hook_acts ++ [self_transfer_act]
   end.
 
+Open Scope bool_scope.
 Definition handle_transfer_hook_receive (caller : Address)
                                         (param : transfer_descriptor_param)
+                                        (self_addr : Address)
                                         (state : State)
                                         : option State :=
-  (* check if caller is current hook - only hook is allowed to call this endpoint *)
-  do hook_addr <- state.(transfer_hook_addr);
-  do _ <- returnIf (negb (address_eqb caller hook_addr)) ;
+  (* check if caller is current hook or self - only hook or self is allowed to call this endpoint *)
+  do _ <- if (match state.(transfer_hook_addr) with
+          | Some hook_addr => ((address_eqb caller hook_addr) || (address_eqb caller self_addr))
+          | None => (address_eqb caller self_addr)
+          end)
+          then Some tt
+          else None  ;
   let mk_transfer_from_decr descr := 
     {|
       from_ := descr.(transfer_descr_from_);
@@ -256,11 +293,12 @@ Definition handle_transfer_hook_receive (caller : Address)
     |} in
   let transfers := map mk_transfer_from_decr param.(transfer_descr_batch) in
   try_transfer param.(transfer_descr_operator) transfers state.
+Close Scope bool_scope.
 
 Definition get_balance_of_callback (caller : Address)
-                                     (param : balance_of_param)
-                                     (state : State)
-                                     : ActionBody :=
+                                   (param : balance_of_param)
+                                   (state : State)
+                                   : ActionBody :=
   let bal_req_iterator (bal_req : balance_of_request) :=
     let owner_bal := address_balance bal_req.(bal_req_token_id) bal_req.(owner) state in 
     Build_balance_of_response bal_req owner_bal in
@@ -396,8 +434,8 @@ Definition receive (chain : Chain)
   | _ => None
   end
   else match maybe_msg with
-  | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state 
-  | Some (msg_receive_hook_transfer param) => without_actions (handle_transfer_hook_receive sender param state)
+  | Some (msg_transfer transfers) => without_statechange (handle_transfer sender caddr transfers state) 
+  | Some (msg_receive_hook_transfer param) => without_actions (handle_transfer_hook_receive sender param caddr state)
   | Some (msg_is_operator params) => get_is_operator_response_callback sender params state 
   | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
   | Some (msg_total_supply params) => without_statechange [get_total_supply_callback sender params state]
