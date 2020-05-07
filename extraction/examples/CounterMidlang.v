@@ -55,6 +55,7 @@ End Counter.
 
 Local Open Scope nat.
 
+(*
 Fixpoint erasable_program (name : qualid) : TemplateMonad program :=
   cst <- tmQuoteConstant name false;;
   let body := cst_body cst in
@@ -108,6 +109,7 @@ Definition erase_and_print p : TemplateMonad unit :=
   | inl s => tmMsg s
   | inr s => tmMsg s
   end.
+*)
 
 Axiom extraction_chain_base : ChainBase.
 
@@ -126,6 +128,10 @@ Definition toMidlang
            `{Serializable Msg}
            `{Serializable State}
            (contract : forall (cb : ChainBase), Contract Setup Msg State) : TemplateMonad unit :=
+  init <- tmEval cbn (Blockchain.init (contract extraction_chain_base));;
+  recv <- tmEval cbn (Blockchain.receive (contract extraction_chain_base));;
+  p <- tmQuoteRec (init, recv);;
+
   init_name <- extract_def_name (Blockchain.init (contract extraction_chain_base));;
   receive_name <- extract_def_name (Blockchain.receive (contract extraction_chain_base));;
   x <- erasable_program receive_name;;

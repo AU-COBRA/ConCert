@@ -2,6 +2,9 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Certified.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import StringExtra.
 
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
@@ -21,196 +24,18 @@ Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.SafeErasureFunction.
+Module Ex := Common.
 
+Import PrettyPrinterMonad.
 Import ListNotations.
 Import MonadNotation.
 
 Local Open Scope string.
-
-Module Ex.
-  Record constant_body :=
-    { cst_type : P.term;
-      cst_body : option E.term; }.
-
-  Inductive global_decl :=
-  | ConstantDecl : constant_body -> global_decl
-  | InductiveDecl : P.mutual_inductive_body -> E.mutual_inductive_body -> global_decl.
-
-  Definition global_env := list (kername * global_decl).
-
-  Fixpoint lookup_env (Σ : global_env) (id : ident) : option global_decl :=
-    match Σ with
-    | [] => None
-    | (name, decl) :: Σ => if ident_eq id name then Some decl else lookup_env Σ id
-    end.
-End Ex.
-
-Record PrettyPrinterState :=
-  {
-    indent_stack : list nat;
-    used_names : list ident;
-    output : string
-  }.
-
-Definition PrettyPrinter A := PrettyPrinterState -> (string + A * PrettyPrinterState).
-
-Instance Monad_PrettyPrinter : Monad PrettyPrinter :=
-  {| ret _ a pps := inr (a, pps);
-     bind _ _ m f pps :=
-       match m pps with
-       | inl err => inl err
-       | inr (a, pps) => f a pps
-       end |}.
-
-Definition printer_fail {A} (str : string) : PrettyPrinter A :=
-  fun pps => inl (str ++ nl ++ "failed after printing" ++ nl ++ (output pps)).
-
-Definition finish_print {A} (pp : PrettyPrinter A) : string + A * string :=
-  match pp {| indent_stack := [];
-              used_names := [];
-              output := "" |} with
-  | inl err => inl err
-  | inr (a, pps) => inr (a, output pps)
-  end.
-
-Definition get_indent : PrettyPrinter nat :=
-  fun pps => inr (hd 0 (indent_stack pps), pps).
-
-Definition update_indent (f : list nat -> list nat) : PrettyPrinter unit :=
-  fun pps => inr (tt, {| indent_stack := f (indent_stack pps);
-                         used_names := used_names pps;
-                         output := output pps |}).
-
-Definition push_indent (n : nat) : PrettyPrinter unit :=
-  update_indent (cons n).
-
-Definition pop_indent : PrettyPrinter unit :=
-  update_indent tl.
-
-Definition get_used_names : PrettyPrinter (list ident) :=
-  fun pps => inr (used_names pps, pps).
-
-Definition update_used_names (f : list ident -> list ident) : PrettyPrinter unit :=
-  fun pps => inr (tt, {| indent_stack := indent_stack pps;
-                         used_names := f (used_names pps);
-                         output := output pps |}).
-
-Definition push_use (n : ident) : PrettyPrinter unit :=
-  update_used_names (cons n).
-
-Definition pop_use : PrettyPrinter unit :=
-  update_used_names tl.
-
-Definition is_newline (c : ascii) : bool :=
-  match c with
-  | "010"%char => true
-  | _ => false
-  end.
-
-Definition last_line_length (s : string) : nat :=
-  (fix f (s : string) (result : nat) :=
-     match s with
-     | EmptyString => result
-     | String c s =>
-       if is_newline c then
-         f s 0
-       else
-         f s (S result)
-     end) s 0.
-
-Definition get_current_line_length : PrettyPrinter nat :=
-  fun pps => inr (last_line_length (output pps), pps).
-
-Definition update_output (f : string -> string) : PrettyPrinter unit :=
-  fun pps => inr (tt, {| indent_stack := indent_stack pps;
-                         used_names := used_names pps;
-                         output := f (output pps) |}).
-
-Definition append (s : string) : PrettyPrinter unit :=
-  update_output (fun o => o ++ s).
-
-Definition append_nl : PrettyPrinter unit := append nl.
-
-Definition append_indent : PrettyPrinter unit :=
-  indent <- get_indent;;
-  append (concat "" (repeat " " indent)).
-
-Definition append_nl_and_indent : PrettyPrinter unit :=
-  append_nl;; append_indent.
-
-Definition replace_char (orig : ascii) (new : ascii) : string -> string :=
-  fix f s :=
-    match s with
-    | EmptyString => EmptyString
-    | String c s => if (c =? orig)%char then
-                      String new (f s)
-                    else
-                      String c (f s)
-    end.
-
-Definition remove_char (c : ascii) : string -> string :=
-  fix f s :=
-    match s with
-    | EmptyString => EmptyString
-    | String c' s => if (c' =? c)%char then
-                       f s
-                     else
-                       String c' (f s)
-    end.
-
-Definition last_index_of (c : ascii) (s : string) : option nat :=
-  (fix f (s : string) (index : nat) (result : option nat) :=
-     match s with
-     | EmptyString => result
-     | String c' s =>
-       if (c' =? c)%char then
-         f s (S index) (Some index)
-       else
-         f s (S index) result
-     end) s 0 None.
-
-Definition to_upper (c : ascii) : ascii :=
-  match c with
-  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
-    Ascii b0 b1 b2 b3 b4 false b6 b7
-  end.
-
-Definition to_lower (c : ascii) : ascii :=
-  match c with
-  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
-    Ascii b0 b1 b2 b3 b4 true b6 b7
-  end.
-
-Definition capitalize (s : string) : string :=
-  match s with
-  | EmptyString => EmptyString
-  | String c s => String (to_upper c) s
-  end.
-
-Definition uncapitalize (s : string) : string :=
-  match s with
-  | EmptyString => EmptyString
-  | String c s => String (to_lower c) s
-  end.
-
-Definition unqual_kername (name : kername) : string :=
-  match last_index_of "." name with
-  | Some n => substring (S n) (length name) name
-  | None => name
-  end.
-
-Definition kername_qualifier (name : kername) : string :=
-  match last_index_of "." name with
-  | Some n => substring 0 n name
-  | None => ""
-  end.
-
 Local Open Scope list.
 
 Local Definition indent_size := 2.
 
 Section FixExEnv.
-
 Context (Σ : Ex.global_env).
 
 Definition get_fun_name (name : kername) : string :=
@@ -227,7 +52,7 @@ Definition get_ty_arg_name (name : ident) : ident :=
 
 Definition lookup_mind (name : kername) : option P.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
-  | Some (Ex.InductiveDecl mind _) => Some mind
+  | Some (Ex.InductiveDecl mib) => Some mib
   | _ => None
   end.
 
@@ -728,7 +553,7 @@ Definition print_global_decl
   match decl with
   | Ex.ConstantDecl cst => ml_name <- print_constant_body name cst;;
                            ret [(name, ml_name)]
-  | Ex.InductiveDecl mib _ => print_mutual_inductive_body name mib
+  | Ex.InductiveDecl mib => print_mutual_inductive_body name mib
   end.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=
@@ -750,101 +575,6 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
 
   ret names.
 End FixExEnv.
-
-Definition string_of_env_error Σ e :=
-  match e with
-  | IllFormedDecl s e =>
-    "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
-  | AlreadyDeclared s => "Alreadydeclared " ++ s
-  end%string.
-
-Definition wrap_EnvCheck {A} (ec : EnvCheck A) : PrettyPrinter A :=
-  match ec with
-  | CorrectDecl a => ret a
-  | EnvError Σ err =>
-    printer_fail ("EnvError: " ++ string_of_env_error Σ err)
-  end.
-
-Definition wrap_typing_result {A} (Σ : P.global_env) (tr : typing_result A) : PrettyPrinter A :=
-  match tr with
-  | Checked et => ret et
-  | TypeError te =>
-    printer_fail ("TypeError: " ++ string_of_type_error (P.empty_ext Σ) te)
-  end.
-
-Definition wrap_option {A} (o : option A) (err : string) : PrettyPrinter A :=
-  match o with
-  | Some a => ret a
-  | None => printer_fail err
-  end.
-
-(* Remove all generalization over ChainBase *)
-Fixpoint concretize_aux (cb_arg : nat) (t : E.term) : PrettyPrinter E.term :=
-    match t with
-    | E.tBox _ => ret t
-    | E.tRel n =>
-      if (n =? cb_arg)%nat then
-        printer_fail "term contains unhandled use of ChainBase"
-      else
-        ret t
-    | E.tVar _ => ret t
-    | E.tEvar n ts =>
-      ts <- monad_map (concretize_aux cb_arg) ts;;
-      ret (E.tEvar n ts)
-    | E.tLambda name t =>
-      t <- concretize_aux (S cb_arg) t;;
-      ret (E.tLambda name t)
-    | E.tLetIn name val body =>
-      val <- concretize_aux cb_arg val;;
-      body <- concretize_aux (S cb_arg) body;;
-      ret (E.tLetIn name val body)
-    | E.tApp (E.tConst _ as head) (E.tRel i) =>
-      if (i =? cb_arg)%nat then
-        ret head
-      else
-        ret t
-    | E.tApp head arg =>
-      head <- concretize_aux cb_arg head;;
-      arg <- concretize_aux cb_arg arg;;
-      ret (E.tApp head arg)
-    | E.tConst _ => ret t
-    | E.tConstruct _ _ => ret t
-    | E.tCase ind disc brs =>
-      disc <- concretize_aux cb_arg disc;;
-      brs <- monad_map (fun '(arity, body) => body <- concretize_aux cb_arg body;;
-                                              ret (arity, body)) brs;;
-      ret (E.tCase ind disc brs)
-    | E.tProj proj body =>
-      body <- concretize_aux cb_arg body;;
-      ret (E.tProj proj body)
-    | E.tFix defs i =>
-      let cb_arg := (List.length defs + cb_arg)%nat in
-      defs <- monad_map (fun d =>
-                           dbody <- concretize_aux cb_arg (dbody d);;
-                           ret {| dname := dname d;
-                                  dbody := dbody;
-                                  rarg := rarg d |}) defs;;
-      ret (E.tFix defs i)
-    | E.tCoFix defs i =>
-      let cb_arg := (List.length defs + cb_arg)%nat in
-      defs <- monad_map (fun d =>
-                           dbody <- concretize_aux cb_arg (dbody d);;
-                           ret {| dname := dname d;
-                                  dbody := dbody;
-                                  rarg := rarg d |}) defs;;
-      ret (E.tFix defs i)
-    end.
-
-Definition concretize (type : P.term) (body : E.term) : PrettyPrinter (P.term * E.term) :=
-  match type, body with
-  | P.tProd _ (P.tInd ind _) it, E.tLambda _ ib =>
-    if inductive_mind ind =? "ConCert.Execution.Blockchain.ChainBase" then
-      ib <- concretize_aux 0 ib;;
-      ret (it, ib)
-    else
-      ret (type, body)
-  | _, _ => ret (type, body)
-  end.
 
 Axiom assump : string -> forall {A}, A.
 
@@ -869,23 +599,18 @@ Definition erase_and_debox_single
       result <- wrap_EnvCheck (check_applied Σ.1 ebody (proj_wf wfΣ));;
       if result then
         let ebody := debox_top_level (debox_all ebody) in
-        '(type, ebody) <- concretize type ebody;;
         ret (Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := Some ebody |})
       else
         printer_fail "Not all constructors or constants are appropriately applied"
     end
   | P.InductiveDecl mib =>
-    emib <- wrap_typing_result
-              Σ.1
-              (EF.erase_mutual_inductive_body Σ wfΣ mib);;
-    ret (Ex.InductiveDecl mib emib)
+    ret (Ex.InductiveDecl mib)
   end.
 
 Definition ignored_concert_types :=
   ["ConCert.Execution.Blockchain.ChainBase";
    "ConCert.Execution.Blockchain.Chain";
-   "ConCert.Execution.Blockchain.ContractCallContext";
-   "ConCert.Extraction.MidlangExtract.extraction_chain_base"].
+   "ConCert.Execution.Blockchain.ContractCallContext"].
 
 Lemma wf_empty_ext (Σ : P.global_env) :
   ∥PT.wf Σ∥ -> ∥PT.wf_ext (P.empty_ext Σ)∥.
@@ -896,70 +621,23 @@ Proof.
   todo "on_udecl on empty_ext".
 Qed.
 
-Definition add_seen (n : kername) (seen : list kername) : list kername :=
-  if existsb (String.eqb n) seen then
-    seen
-  else
-    n :: seen.
-
-Fixpoint term_deps
-         (seen : list kername)
-         (t : term) : list kername :=
-  match t with
-  | tEvar _ ts => fold_left term_deps ts seen
-  | tLambda _ t => term_deps seen t
-  | tLetIn _ t1 t2
-  | tApp t1 t2 => term_deps (term_deps seen t1) t2
-  | tConst n => add_seen n seen
-  | tConstruct ind _ => add_seen (inductive_mind ind) seen
-  | tCase (ind, _) t brs =>
-    let seen := term_deps (add_seen (inductive_mind ind) seen) t in
-    fold_left (fun seen '(_, t) => term_deps seen t) brs seen
-  | tProj (ind, _, _) t => term_deps (add_seen (inductive_mind ind) seen) t
-  | tFix defs _
-  | tCoFix defs _ =>
-    fold_left (fun seen d => term_deps seen (dbody d)) defs seen
-  | _ => seen
-  end.
-
-Definition decl_deps (decl : Ex.global_decl) : list kername :=
+Definition preprocess_for_extraction
+           (name : kername)
+           (decl : Ex.global_decl) : PrettyPrinter Ex.global_decl :=
   match decl with
   | Ex.ConstantDecl body =>
-    match Ex.cst_body body with
-    | Some body => term_deps [] body
-    | None => []
+    let (ty, body) := body in
+    match body with
+    | None => ret (Ex.ConstantDecl {| Ex.cst_type := ty; Ex.cst_body := None |})
+    | Some body =>
+      if uses_account_balance body then
+        printer_fail ("'" ++ name ++ "' uses account_balance")
+      else
+        '(type, body) <- wrap_result (ungeneralize_ChainBase ty body) id;;
+        ret (Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := Some body |})
     end
-  | Ex.InductiveDecl _ emib =>
-    let one_inductive_body_deps seen oib :=
-        let seen := fold_left (fun seen '(_, t, _) => term_deps seen t) (ind_ctors oib) seen in
-        fold_left (fun seen '(_, t) => term_deps seen t) (ind_projs oib) seen in
-
-    fold_left one_inductive_body_deps (ind_bodies emib) []
+  | _ => ret decl
   end.
-
-(* Return all recursive dependencies in topological order of the specified seed declarations *)
-Definition decl_deps_recursive
-           (Σ : Ex.global_env)
-           (seeds : list kername)
-           (ignore : list kername) : option (list (kername * Ex.global_decl)) :=
-  let fix go n seen name :=
-      match n with
-      | 0 => None
-      | S n =>
-        if (existsb (String.eqb name) ignore ||
-            if Ex.lookup_env seen name then true else false)%bool then
-          ret seen
-        else
-          match Ex.lookup_env Σ name with
-          | Some decl =>
-            let seen := (name, decl) :: seen in
-            let deps := decl_deps decl in
-            monad_fold_left (go n) deps seen
-          | None =>
-            None
-          end
-      end in
-  monad_fold_left (go (N.to_nat 10000)) seeds [].
 
 (* Extract the specified environment to Midlang, creating definitions for all symbols. *)
 Definition extract_env (Σ : T.global_env) : PrettyPrinter unit :=
@@ -991,8 +669,10 @@ Definition extract_env (Σ : T.global_env) : PrettyPrinter unit :=
                       ret (name, decl)) Σ;;
   let seeds := ["ConCert.Extraction.MidlangExtract.init";
                 "ConCert.Extraction.MidlangExtract.receive"] in
-  to_extract <- wrap_option (decl_deps_recursive Σex seeds ignored_concert_types)
-                            "Ran out of fuel while fetching dependencies";;
+  to_extract <- wrap_result (decl_deps_recursive Σex seeds ignored_concert_types)
+                            id;;
+  to_extract <- monad_map (fun '(name, decl) => decl <- preprocess_for_extraction name decl;;
+                                                ret (name, decl)) to_extract;;
   (*monad_fold_left (fun _ '(name, _) => append name;; append_nl) to_extract tt;;*)
   print_env to_extract;;
   ret tt.
@@ -1103,14 +783,11 @@ Global Instance Serializable_Msg : Serializable Msg :=
   Derive Serializable Msg_rect<increment, decrement>.
 
 Local Open Scope Z.
-Definition t37 := 37%Z.
-Definition t237 := 237%Z.
-Definition test := (t37 + t237 =? 274)%Z.
 Definition init
            (chain : Chain)
            (ctx : ContractCallContext)
            (setup : unit) : option Z :=
-  Some (if test then 0 else 0)%Z.
+  Some 0%Z.
 
 Definition receive
            (chain : Chain)
@@ -1131,62 +808,6 @@ End Counter.
 
 Local Open Scope nat.
 
-(*
-Fixpoint erasable_program (name : qualid) : TemplateMonad program :=
-  cst <- tmQuoteConstant name false;;
-  let body := cst_body cst in
-  match body with
-  | None => tmFail ("cannot get body of constant " ++ name)
-  | Some body =>
-    (fix aux (tries : nat) (env : global_env) : TemplateMonad program :=
-    match tries with
-    | 0 => tmFail "out of fuel"
-    | S tries =>
-      let p := (env, body) in
-      result <- tmEval lazy (check_applied p);;
-      match result with
-      | CorrectDecl _ => ret p
-      | EnvError Σ (IllFormedDecl _ e)  =>
-        match e with
-        | UndeclaredConstant c =>
-          tmMsg ("need constant " ++ c);;
-          cst <- tmQuoteConstant c false;;
-          let cst := {| cst_type := cst_type cst;
-                        cst_body := None;
-                        cst_universes :=
-                          Monomorphic_ctx (LevelSetProp.of_list [], ConstraintSet.empty); |} in
-          let env := List.filter (fun '(n, _) => negb (n =? c)%string) env in
-          aux tries ((c, ConstantDecl cst) :: env)
-        | UndeclaredInductive c
-        | UndeclaredConstructor c _ =>
-          let name := inductive_mind c in
-          tmMsg ("need inductive " ++ name);;
-          ind <- tmQuoteInductive name;;
-          let ind := {| ind_finite := ind_finite ind;
-                        ind_npars := ind_npars ind;
-                        ind_params := ind_params ind;
-                        ind_bodies := ind_bodies ind;
-                        ind_universes :=
-                          Monomorphic_ctx (LevelSetProp.of_list [], ConstraintSet.empty);
-                        ind_variance := ind_variance ind |} in
-          let env := List.filter (fun '(n, _) => negb (n =? name)%string) env in
-          aux tries ((name, InductiveDecl ind) :: env)
-        | _ =>
-          tmFail (string_of_type_error Σ e)
-        end
-      | EnvError Σ (AlreadyDeclared id) =>
-        tmFail ("Already declared: " ++ id)
-      end
-    end) 1000 []
-  end.
-
-Definition erase_and_print p : TemplateMonad unit :=
-  match erase_and_print_template_program p with
-  | inl s => tmMsg s
-  | inr s => tmMsg s
-  end.
-*)
-
 Import T.
 Definition extract_def_name {A : Type} (a : A) : TemplateMonad qualid :=
   a <- tmEval cbn a;;
@@ -1197,12 +818,7 @@ Definition extract_def_name {A : Type} (a : A) : TemplateMonad qualid :=
   | _ => tmFail ("Expected constant at head, got " ++ TUtil.string_of_term head)
   end.
 
-(*Quote Recursively Definition test_program := (@contract extraction_chain_base).*)
-
 Quote Recursively Definition test_program := (init, receive).
-
-(*
-*)
 
 Definition extracted :=
   match finish_print (append_nl;; extract_env test_program.1) with
