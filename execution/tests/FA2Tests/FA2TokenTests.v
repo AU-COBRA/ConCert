@@ -106,7 +106,7 @@ Definition call_client_is_op_act :=
   let msg := client_other_msg (Call_fa2_is_operator params) in
   act_call client_contract_addr 0%Z (serialize ClientMsg _ msg).
 
-Definition chain1 : LocalChain :=
+Definition chain1 :=
   unpack_option (my_add_block chain_with_token_deployed 
   [
     build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
@@ -124,8 +124,8 @@ Definition token_state lc :=
   | None => None
   end.
 
-Compute (client_state chain1).
-Compute (show (token_state chain1)).
+(* Compute (client_state chain1). *)
+(* Compute (show (token_state chain1)). *)
 
 From ConCert.Execution.QCTests Require Import FA2Gens.
 
