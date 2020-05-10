@@ -26,4 +26,5 @@ theories/Extras.v
 theories/Finite.v
 theories/LocalBlockchain.v
 theories/Monads.v
+theories/ResultMonad.v
 theories/Serializable.v

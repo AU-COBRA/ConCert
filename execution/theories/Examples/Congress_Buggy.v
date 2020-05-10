@@ -9,13 +9,15 @@ From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
-Require Import Blockchain.
-Require Import Serializable.
-Require Import Monads.
-Require Import Containers.
 Require Import Automation.
-Require Import Extras.
+Require Import Blockchain.
 Require Import BoundedN.
+Require Import ChainedList.
+Require Import Containers.
+Require Import Extras.
+Require Import Monads.
+Require Import ResultMonad.
+Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 
@@ -353,7 +355,7 @@ Section Theories.
                block_creator := creator;
                block_reward := 50; |} in
         let acts := map (build_act creator) act_bodies in
-        builder_add_block chain next_header acts in
+        option_of_result (builder_add_block chain next_header acts) in
     (* Get some money on the creator *)
     do chain <- add_block chain [];
     (* Deploy congress and exploit contracts *)

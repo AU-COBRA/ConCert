@@ -64,11 +64,12 @@ From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
 From Coq Require Import Setoid.
-Require Import Serializable.
-Require Import Monads.
-Require Import Extras.
 Require Import Automation.
 Require Import ChainedList.
+Require Import Extras.
+Require Import Monads.
+Require Import ResultMonad.
+Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From stdpp Require countable.
 
@@ -1860,6 +1861,23 @@ End Theories.
 End Trace.
 End Semantics.
 
+Inductive ActionEvaluationError :=
+| amount_negative (* amount is negative *)
+| amount_too_high (* sender does not have enough money *)
+| no_such_contract (* there is not contract at that address *)
+| too_many_contracts (* cannot generate fresh address for new contract *)
+| init_failed (* contract init function failed *)
+| receive_failed (* contract receive function failed *)
+| internal_error. (* unexpected internal error *)
+
+Inductive AddBlockError :=
+| invalid_header (* header for next block is invalid *)
+| invalid_root_action (act : Action) (* a specified root action is invalid *)
+| action_evaluation_depth_exceeded (* out of fuel while evaluating actions recursively *)
+| action_evaluation_error (* error when evaluating single action *)
+    (act : Action)
+    (err : ActionEvaluationError).
+
 Class ChainBuilderType :=
   build_builder {
     builder_type : Type;
@@ -1872,7 +1890,7 @@ Class ChainBuilderType :=
       (builder : builder_type)
       (header : BlockHeader)
       (actions : list Action) :
-      option builder_type;
+      result builder_type AddBlockError;
 
     builder_trace (builder : builder_type) :
       ChainTrace empty_state (build_chain_state (builder_env builder) []);

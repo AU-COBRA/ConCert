@@ -8,13 +8,14 @@ From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
-Require Import Blockchain.
-Require Import Serializable.
-Require Import Monads.
-Require Import Containers.
 Require Import Automation.
-Require Import Extras.
+Require Import Blockchain.
 Require Import ChainedList.
+Require Import Containers.
+Require Import Extras.
+Require Import Monads.
+Require Import ResultMonad.
+Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 
@@ -528,7 +529,7 @@ Qed.
 Corollary congress_txs_after_block
           {ChainBuilder : ChainBuilderType}
           prev new header acts :
-  builder_add_block prev header acts = Some new ->
+  builder_add_block prev header acts = Ok new ->
   forall caddr,
     env_contracts new caddr = Some (Congress.contract : WeakContract) ->
     exists inc_calls,

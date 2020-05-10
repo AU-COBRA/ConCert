@@ -9,6 +9,7 @@ Require Import Containers.
 Require Import Extras.
 Require Import LocalBlockchain.
 Require Import Monads.
+Require Import ResultMonad.
 Require Import Serializable.
 
 Import ListNotations.
@@ -112,7 +113,7 @@ Definition deploy_setup :=
      registration_deposit := 0; |}.
 
 Local Open Scope list.
-Definition boardroom_example :=
+Definition boardroom_example : option nat :=
   let chain : ChainBuilder := builder_initial in
   let creator : Address := A 10 in
   let add_block (chain : ChainBuilder) (acts : list Action) :=
@@ -122,11 +123,11 @@ Definition boardroom_example :=
              block_finalized_height := finalized_height chain;
              block_creator := creator;
              block_reward := 50; |} in
-      builder_add_block chain next_header acts in
+      option_of_result (builder_add_block chain next_header acts) in
   do chain <- add_block chain [];
   let dep := build_act creator (create_deployment 0 (boardroom_voting hash_func) deploy_setup) in
   do chain <- add_block chain [dep];
-  do caddr <- hd None (map Some (FMap.keys (lc_contracts (lcb_lc chain))));
+  do caddr <- hd_error (FMap.keys (lc_contracts (lcb_lc chain)));
   let send addr m := build_act addr (act_call caddr 0 (serialize m)) in
   let calls := map (fun '(addr, m) => send addr m) (zip addrs signups) in
   do chain <- add_block chain calls;
@@ -135,6 +136,6 @@ Definition boardroom_example :=
   let tally := build_act creator (act_call caddr 0 (serialize tally_votes)) in
   do chain <- add_block chain [tally];
   do state <- @contract_state _ (@State _ Z) _ (lcb_lc chain) caddr;
-  result state.
+  BoardroomVoting.result state.
 
 Check (@eq_refl (option nat) (Some votes_for)) <<: boardroom_example = Some votes_for.
