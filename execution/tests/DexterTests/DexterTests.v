@@ -114,21 +114,19 @@ Definition add_operator_all owner operator := {|
   op_param_tokens := all_tokens;
 |}.
 
+(* Setup a chain with fa2 contract, dexter contract, and exploit contract deployed.
+   Also adds some tokens to person_1 and dexter contract, and adds some operators on the fa2 contract *)
 Definition chain1 :=  
   unpack_option (my_add_block lc_initial 
   [
     build_act creator (act_transfer person_1 10);
-    (* build_act creator (act_transfer person_2 10); *)
     build_act creator deploy_fa2token;
     build_act creator deploy_dexter;
     build_act creator deploy_exploit;
-
     build_act person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
     build_act creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
-    (* build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;  *)
     build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
                                                                                       add_operator (add_operator_all person_1 dexter_caddr)])))
-    (* build_act person_2 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_2 dexter_caddr)]))) *)
   ]).
 
 Definition dexter_state lc := 
@@ -147,18 +145,14 @@ Definition exploit_state lc :=
   | None => None
   end.
 
-Compute (dexter_state chain1).
-Compute (show (token_state chain1)).
-
-
-From ConCert.Execution.QCTests Require Import DexterGens.
+(* From ConCert.Execution.QCTests Require Import DexterGens.
 
 Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
   Definition exploit_contract_addr := exploit_caddr.
 End TestInfo.
-Module MG := DexterGens.DexterGens TestInfo. Import MG.
+Module MG := DexterGens.DexterGens TestInfo. Import MG. *)
 
 Definition call_dexter owner_addr := 
   let dummy_descriptor := {|
@@ -174,15 +168,7 @@ Definition gExploitAction : G (option Action) :=
 Definition gExploitChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun _ _ => gExploitAction) length max_acts_per_block.
 
-
-(* Definition chain2 : LocalChain :=  
-  unpack_option (my_add_block chain1 
-  [ call_dexter ]).
-
-Compute (dexter_state chain2).
-Compute (show (token_state chain2)). *)
-(* Compute (show chain1.(lc_account_balances)). *)
-Sample (gExploitAction).
+(* Sample (gExploitAction). *)
 (* Sample (gExploitChainTraceList 1 chain1 1). *)
 
 Definition person_1_initial_balance : Amount := 
@@ -196,13 +182,13 @@ Definition account_tokens (lc : LocalChain) (account : Address) : N :=
     do assets <- FMap.find 0%N state_fa2.(assets) ;
     FMap.find account assets.(balances)).
 
-Compute (account_tokens chain1 dexter_caddr).
+(* Compute (account_tokens chain1 dexter_caddr). *)
 (* 1000%N *)
-Compute (account_tokens chain1 person_1).
+(* Compute (account_tokens chain1 person_1). *)
 (* 1000%N *)
-Compute person_1_initial_balance.
+(* Compute person_1_initial_balance. *)
 (* 0%Z *)
-Compute dexter_liquidity.
+(* Compute dexter_liquidity. *)
 (* 30%Z *)
 
 (* This property asserts that the token reserve of the dexter contract is consistent 
@@ -240,43 +226,42 @@ Definition tokens_to_asset_correct_P lc :=
 Definition tokens_to_asset_correct := 
   forAllTraces 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
 
-Compute (getInputPrice 1000 1000 30).
 
-
-Compute (getInputPrice 200 1000 30).
+(* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
+   Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)
+(* Compute (getInputPrice 200 1000 30). *)
 (* 4 *)
-Compute (getInputPrice 200 1200 26).
+(* Compute (getInputPrice 200 1200 26). *)
 (* 3 *)
-Compute (getInputPrice 200 1400 23).
+(* Compute (getInputPrice 200 1400 23). *)
 (* 2 *)
-Compute (getInputPrice 200 1600 21).
+(* Compute (getInputPrice 200 1600 21). *)
 (* 2 *)
-Compute (getInputPrice 200 1800 19).
+(* Compute (getInputPrice 200 1800 19). *)
 (* 1 *)
 (* total = 12 *)
-Compute (getInputPrice 200 1000 30).
+
+(* Compute (getInputPrice 200 1000 30). *)
 (* 4 *)
-Compute (getInputPrice 200 1000 26).
+(* Compute (getInputPrice 200 1000 26). *)
 (* 4 *)
-Compute (getInputPrice 200 1000 22).
+(* Compute (getInputPrice 200 1000 22). *)
 (* 3 *)
-Compute (getInputPrice 200 1000 19).
+(* Compute (getInputPrice 200 1000 19). *)
 (* 3 *)
-Compute (getInputPrice 200 1000 16).
+(* Compute (getInputPrice 200 1000 16). *)
 (* 2 *)
 (* total = 16 *)
 
-QuickChick tokens_to_asset_correct.
-
-
-
-
-(* Sample (gDexterAction chain1). *)
-(* Sample (gDexterChainTraceList 1 chain1 10). *)
-
-QuickChick (forAllTraces 5 chain1 (gDexterChainTraceList 1)
- (fun lc => whenFail 
-  (show (token_state lc) ++ nl 
-  ++ show (dexter_state lc) ++ nl
-  ++ show (lc.(account_balance) person_1)) 
-  (checker false))).
+(* QuickChick tokens_to_asset_correct. *)
+(* 
+Begin Trace: 
+step_action{Action{act_from: 11%256, act_body: (act_call 130%256, 0, transferhook transfer_descriptor_param{transfer_descr_fa2: 128%256, transfer_descr_batch: [], transfer_descr_operator: 129%256})}}
+End Trace
+dexter balance was 14 while it was expected to be at least 16person_1 balance: 16
+person_1 tokens: 0
+dexter balance: 14
+dexter tokens: 2000
+history: [2; 3; 3; 4; 4]
+*** Failed after 1 tests and 0 shrinks. (0 discards)
+ *)
