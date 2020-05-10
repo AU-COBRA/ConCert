@@ -20,7 +20,8 @@ Instance showDexterExchangeParam : Show Dexter.exchange_param :=
 Instance showDexterMsg : Show Dexter.DexterMsg :=
 {|
 	show m := match m with
-						| tokens_to_asset param => "token_to_asset " ++ show param
+            | tokens_to_asset param => "token_to_asset " ++ show param
+            | add_to_tokens_reserve tokenid => "add_to_tokens_reserve (token_id=" ++ show tokenid ++ ")"
 						end
 |}.
 
