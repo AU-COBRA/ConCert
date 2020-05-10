@@ -412,10 +412,11 @@ Definition try_create_tokens (caller : Address)
                              (tokenid : token_id)
                              (state : State)
                              : option State :=
+  let exchange_rate := 100%Z in
   do ledger <- FMap.find tokenid state.(assets) ;
   (* only allow amounts > 0 *)
   do _ <- returnIf (Z.leb amount 0%Z) ;
-  let amount := Z.to_N amount in
+  let amount := Z.to_N (amount * exchange_rate) in
   let caller_bal := with_default 0 (FMap.find caller ledger.(balances)) in
   let new_balances := FMap.add caller (caller_bal + amount) ledger.(balances) in
   let new_ledger := ledger<| balances := new_balances |> in
