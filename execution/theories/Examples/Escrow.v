@@ -23,6 +23,7 @@ Require Import Automation.
 Require Import Blockchain.
 Require Import Extras.
 Require Import Monads.
+Require Import ResultMonad.
 Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 
@@ -583,7 +584,7 @@ Section Theories.
   Corollary escrow_correct
             {ChainBuilder : ChainBuilderType}
             prev new header acts :
-    builder_add_block prev header acts = Some new ->
+    builder_add_block prev header acts = Ok new ->
     let trace := builder_trace new in
     forall caddr,
       env_contracts new caddr = Some (Escrow.contract : WeakContract) ->

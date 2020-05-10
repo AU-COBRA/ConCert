@@ -10,6 +10,7 @@ Require Import Congress.
 Require Import Containers.
 Require Import BoundedN.
 Require Import Extras.
+Require Import ResultMonad.
 Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
@@ -36,7 +37,7 @@ Section LocalBlockchainTests.
 
   Definition chain1 : ChainBuilder := builder_initial.
 
-  Definition add_block (chain : ChainBuilder) acts : option ChainBuilder :=
+  Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
         {| block_height := S (chain_height chain);
            block_slot := S (current_slot chain);
@@ -45,16 +46,25 @@ Section LocalBlockchainTests.
            block_reward := 50; |} in
     builder_add_block chain header acts.
 
+  Definition unpack_result {T E} (r : result T E) :=
+    match r return match r with
+                   | Ok _ => T
+                   | Err _ => E
+                   end with
+    | Ok t => t
+    | Err e => e
+    end.
+
   (* Creator created an empty block (and gets some coins) *)
   Definition chain2 : ChainBuilder :=
-    unpack_option (add_block chain1 []).
+    unpack_result (add_block chain1 []).
 
   Compute (account_balance chain2 person_1).
   Compute (account_balance chain2 creator).
 
   (* Creator transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
-    unpack_option (add_block chain2 [build_act creator (act_transfer person_1 10)]).
+    unpack_result (add_block chain2 [build_act creator (act_transfer person_1 10)]).
 
   Compute (account_balance chain3 person_1).
   Compute (account_balance chain3 creator).
@@ -71,7 +81,7 @@ Section LocalBlockchainTests.
     create_deployment 5 Congress.contract setup.
 
   Definition chain4 : ChainBuilder :=
-    unpack_option (add_block chain3 [build_act person_1 deploy_congress]).
+    unpack_result (add_block chain3 [build_act person_1 deploy_congress]).
 
   Definition congress_1 : Address :=
     match outgoing_txs (builder_trace chain4) person_1 with
@@ -115,7 +125,7 @@ Section LocalBlockchainTests.
   Definition chain5 : ChainBuilder :=
     let acts := [build_act person_1 (add_person person_1);
                  build_act person_1 (add_person person_2)] in
-    unpack_option (add_block chain4 acts).
+    unpack_result (add_block chain4 acts).
 
   Compute (FMap.elements (congress_state chain5).(members)).
   Compute (account_balance chain5 congress_1).
@@ -126,7 +136,7 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (create_proposal [cact_transfer person_3 3])).
 
   Definition chain6 : ChainBuilder :=
-    unpack_option (add_block chain5 [build_act person_1 create_proposal_call]).
+    unpack_result (add_block chain5 [build_act person_1 create_proposal_call]).
 
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
@@ -136,7 +146,7 @@ Section LocalBlockchainTests.
 
   Definition chain7 : ChainBuilder :=
     let acts := [build_act person_1 vote_proposal; build_act person_2 vote_proposal] in
-    unpack_option (add_block chain6 acts).
+    unpack_result (add_block chain6 acts).
 
   Compute (FMap.elements (congress_state chain7).(proposals)).
 
@@ -145,7 +155,7 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (finish_proposal 1)).
 
   Definition chain8 : ChainBuilder :=
-    unpack_option (add_block chain7 [build_act person_3 finish_proposal]).
+    unpack_result (add_block chain7 [build_act person_3 finish_proposal]).
 
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)
@@ -161,7 +171,7 @@ Section LocalBlockchainTests.
   (* The congress satisfies a property specialized to the local blockchain DFS: *)
   Lemma congress_txs_after_local_chain_block
         (prev new : BuilderDF) header acts :
-    builder_add_block prev header acts = Some new ->
+    builder_add_block prev header acts = Ok new ->
     forall caddr,
       env_contracts new caddr = Some (Congress.contract : WeakContract) ->
       exists inc_calls,
@@ -173,7 +183,7 @@ Section LocalBlockchainTests.
   Definition BuilderBF := LocalChainBuilderBreadthFirst AddrSize.
   Lemma congress_txs_after_local_chain_bf_block
         (prev new : BuilderBF) header acts :
-    builder_add_block prev header acts = Some new ->
+    builder_add_block prev header acts = Ok new ->
     forall caddr,
       env_contracts new caddr = Some (Congress.contract : WeakContract) ->
       exists inc_calls,

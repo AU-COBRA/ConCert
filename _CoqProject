@@ -26,6 +26,7 @@ execution/theories/Extras.v
 execution/theories/Finite.v
 execution/theories/LocalBlockchain.v
 execution/theories/Monads.v
+execution/theories/ResultMonad.v
 execution/theories/Serializable.v
 
 -Q embedding/theories ConCert.Embedding
