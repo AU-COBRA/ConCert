@@ -1,3 +1,4 @@
+From Coq Require Import Arith.
 From Coq Require Import Ascii.
 From Coq Require Import List.
 From Coq Require Import NArith.
@@ -17,45 +18,40 @@ Definition str_rev (s : string) : string :=
 
 Local Open Scope positive.
 Definition hex_of_positive (p : positive) : string :=
-    (fix f p acc :=
-        match p with
-        | xH => String "1" acc
-        | xH~0 => String "2" acc
-        | xH~1 => String "3" acc
-        | xH~0~0 => String "4" acc
-        | xH~0~1 => String "5" acc
-        | xH~1~0 => String "6" acc
-        | xH~1~1 => String "7" acc
-        | xH~0~0~0 => String "8" acc
-        | xH~0~0~1 => String "9" acc
-        | xH~0~1~0 => String "a" acc
-        | xH~0~1~1 => String "b" acc
-        | xH~1~0~0 => String "c" acc
-        | xH~1~0~1 => String "d" acc
-        | xH~1~1~0 => String "e" acc
-        | xH~1~1~1 => String "f" acc
-        | p~0~0~0~0 => f p (String "0" acc)
-        | p~0~0~0~1 => f p (String "1" acc)
-        | p~0~0~1~0 => f p (String "2" acc)
-        | p~0~0~1~1 => f p (String "3" acc)
-        | p~0~1~0~0 => f p (String "4" acc)
-        | p~0~1~0~1 => f p (String "5" acc)
-        | p~0~1~1~0 => f p (String "6" acc)
-        | p~0~1~1~1 => f p (String "7" acc)
-        | p~1~0~0~0 => f p (String "8" acc)
-        | p~1~0~0~1 => f p (String "9" acc)
-        | p~1~0~1~0 => f p (String "a" acc)
-        | p~1~0~1~1 => f p (String "b" acc)
-        | p~1~1~0~0 => f p (String "c" acc)
-        | p~1~1~0~1 => f p (String "d" acc)
-        | p~1~1~1~0 => f p (String "e" acc)
-        | p~1~1~1~1 => f p (String "f" acc)
-        end) p EmptyString.
-
-Example hex_256 : hex_of_positive 256 = "100".
-Proof (eq_refl).
-Example hex_17 : hex_of_positive 17 = "11".
-Proof (eq_refl).
+  (fix f p acc :=
+     match p with
+     | xH => String "1" acc
+     | xH~0 => String "2" acc
+     | xH~1 => String "3" acc
+     | xH~0~0 => String "4" acc
+     | xH~0~1 => String "5" acc
+     | xH~1~0 => String "6" acc
+     | xH~1~1 => String "7" acc
+     | xH~0~0~0 => String "8" acc
+     | xH~0~0~1 => String "9" acc
+     | xH~0~1~0 => String "a" acc
+     | xH~0~1~1 => String "b" acc
+     | xH~1~0~0 => String "c" acc
+     | xH~1~0~1 => String "d" acc
+     | xH~1~1~0 => String "e" acc
+     | xH~1~1~1 => String "f" acc
+     | p~0~0~0~0 => f p (String "0" acc)
+     | p~0~0~0~1 => f p (String "1" acc)
+     | p~0~0~1~0 => f p (String "2" acc)
+     | p~0~0~1~1 => f p (String "3" acc)
+     | p~0~1~0~0 => f p (String "4" acc)
+     | p~0~1~0~1 => f p (String "5" acc)
+     | p~0~1~1~0 => f p (String "6" acc)
+     | p~0~1~1~1 => f p (String "7" acc)
+     | p~1~0~0~0 => f p (String "8" acc)
+     | p~1~0~0~1 => f p (String "9" acc)
+     | p~1~0~1~0 => f p (String "a" acc)
+     | p~1~0~1~1 => f p (String "b" acc)
+     | p~1~1~0~0 => f p (String "c" acc)
+     | p~1~1~0~1 => f p (String "d" acc)
+     | p~1~1~1~0 => f p (String "e" acc)
+     | p~1~1~1~1 => f p (String "f" acc)
+     end) p EmptyString.
 
 Definition hex_of_N (n : N) : string :=
   match n with
@@ -105,11 +101,6 @@ Definition string_of_N (n : N) : string :=
        | 0%nat => "unreachable"
        | S n => f n q acc
        end) (Nlog2up_nat n) n EmptyString.
-
-Example num_256 : string_of_N 256 = "256".
-Proof (eq_refl).
-Example num_0 : string_of_N 0 = "0".
-Proof (eq_refl).
 
 Definition string_of_positive (p : positive) : string :=
   string_of_N (Npos p).
@@ -208,17 +199,28 @@ Definition last_index_of (c : ascii) (s : string) : option nat :=
          f s (S index) result
      end) s 0%nat None.
 
+Definition is_letter (c : ascii) : bool :=
+  let n := N_of_ascii c in
+  (65 (* A *) <=? n) && (n <=? 90 (* Z *)) ||
+  (97 (* a *) <=? n) && (n <=? 122 (* z *))%bool%N.
+
 Definition char_to_upper (c : ascii) : ascii :=
-  match c with
-  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
-    Ascii b0 b1 b2 b3 b4 false b6 b7
-  end.
+  if is_letter c then
+    match c with
+    | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
+      Ascii b0 b1 b2 b3 b4 false b6 b7
+    end
+  else
+    c.
 
 Definition char_to_lower (c : ascii) : ascii :=
-  match c with
-  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
-    Ascii b0 b1 b2 b3 b4 true b6 b7
-  end.
+  if is_letter c then
+    match c with
+    | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
+      Ascii b0 b1 b2 b3 b4 true b6 b7
+    end
+  else
+    c.
 
 Definition to_upper : string -> string :=
   str_map char_to_upper.
