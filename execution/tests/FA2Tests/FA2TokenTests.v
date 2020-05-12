@@ -149,7 +149,8 @@ Definition gFA2ClientChainTraceList max_acts_per_block lc length :=
 (* Sample (gFA2TokenActionChainTraceList 1 chain1 10). *)
 
 Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
-Definition fa2_pre_post_assertion n := pre_post_assertion n chain1 (gFA2ChainTraceList 1) FA2Token.contract.
+Notation "{{ P }} c {{ Q }} traceGen" := (pre_post_assertion 10 chain1 traceGen c P Q)( at level 50).
+
 Extract Constant defNumDiscards => "(4 * defNumTests)".
 
 Local Open Scope Z_scope.
@@ -202,7 +203,11 @@ Definition post_transfer_correct old_state msg (result_opt : option (FA2Token.St
   | None => checker false
   end.
 
-(* QuickChick (fa2_pre_post_assertion 10 msg_is_transfer post_transfer_correct). *)
+(* QuickChick (
+  {{ msg_is_transfer }} 
+    FA2Token.contract 
+  {{ post_transfer_correct }}
+  (gFA2ChainTraceList 1)). *)
 (* coqtop-stdout:+++ Passed 10000 tests (16758 discards) *)
 
 Definition transfer_balances_correct (step : @LocalChainStep AddrSize) := 
