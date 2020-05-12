@@ -22,7 +22,8 @@ Instance showFA2InterfaceTransfer : Show FA2Interface.transfer :=
             ++ "from_: " ++ show t.(from_) ++ sep 
             ++ "to_: " ++ show t.(to_) ++ sep
             ++ "transfer_token_id: " ++ show t.(transfer_token_id) ++ sep 
-            ++ "amount: " ++ show t.(amount)
+            ++ "amount: " ++ show t.(amount) ++ sep
+            ++ "callback: " ++ show t.(sender_callback_addr)
             ++ "}"
 |}.
 
