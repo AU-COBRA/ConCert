@@ -467,3 +467,57 @@ Definition reachableFrom_implies_tracePropSized_new
         (fun a => (pf_trace a pre post))
     | _ => false ==> true
     end).
+
+(* if pre tests true, then post tests true, for all tested execution traces *)
+Definition pre_post_assertion {Setup Msg State prop : Type} 
+                             `{Checkable prop}
+                             `{Serializable Msg}
+                             `{Serializable State}
+                             `{Serializable Setup}
+                              {AddrSize : N}
+                              (maxLength : nat)
+                              (init_lc : @LocalChain AddrSize)
+                              (gTrace : LocalChain -> nat -> G LocalChainTraceList)
+                              (c : Contract Setup Msg State)
+                              (pre : State -> Msg -> bool)
+                              (post : State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
+    let ContractType := Contract Setup Msg State in
+    let contracts_of_step step : list (Address * State) :=
+      let lc := prev_lc_of_lcstep step in
+      FMap.elements (lc_contract_state_deserialized State lc) in
+    let messages_of_step step := fold_right (fun act acc =>
+        match act.(act_body) with
+        | act_call _ _ ser_msg =>
+          match @deserialize Msg _ ser_msg with
+          | Some msg => (act, msg) :: acc
+          | None => acc
+          end
+        | _ => acc
+        end
+      ) [] (acts_of_lcstep step) in
+    let stepProp step :=
+      let lc := prev_lc_of_lcstep step in
+      let msgs := messages_of_step step in
+      let contracts := contracts_of_step step in
+      let execute_receive chain caddr cstate act msg :=
+        let amount := 
+          match act.(act_body) with
+          | act_call _ amount _ => amount
+          | _ => 0%Z
+          end in 
+        let cctx := build_ctx act.(act_from) caddr amount in
+        c.(receive) chain cctx cstate (Some msg) in
+
+      conjoin (map (fun p =>
+        let caddr := fst p in
+        let cstate := snd p in
+        (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
+        conjoin (map (fun msg_act_pair =>
+          let msg := snd msg_act_pair in
+          let act := fst msg_act_pair in
+          let post_state := execute_receive lc caddr cstate act msg in  
+          pre cstate msg ==> post cstate msg post_state 
+        ) msgs)
+      ) contracts) in
+    (* combine it all with the forAllTraces checker combinator *)
+    forAllTraces_stepProp maxLength init_lc gTrace stepProp.
