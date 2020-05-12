@@ -137,39 +137,72 @@ End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
 Definition chain1_token_state : FA2Token.State := unpack_option (token_state chain1).
-
-(* Inductive valid_transfer : transfer -> Prop :=
-| valid : forall trx, 
-  (valid_transfer_prop chain1_token_state trx) = true -> valid_transfer trx.
-(* Derive ArbitrarySizedSuchThat for (fun trx => valid_transfer trx). *)
-
-Instance asd : GenSuchThat transfer valid_transfer  := {|
-  arbitraryST := gValidTransfer chain1_token_state  
-|}.
-
-Sample (genST valid_transfer).
-Sample (bindGenOpt (returnGen (token_state chain1)) gValidTransfer). *)
+Compute (show chain1_token_state).
 Definition gFA2TokenActionChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gFA2TokenAction lc) length max_acts_per_block.
 Definition gFA2ClientChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
 
-(* Sample (gFA2TokenActionChainTraceList 1 chain1 10). *)
+(* Sample (gFA2TokenAction chain1). *)
+Sample (gFA2TokenActionChainTraceList 1 chain1 10).
 
 Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
+Definition fa2_pre_post_assertion n := pre_post_assertion n chain1 (gFA2ChainTraceList 1) FA2Token.contract.
 Extract Constant defNumDiscards => "(4 * defNumTests)".
-Open Scope N_scope.
 
-
+Local Open Scope Z_scope.
 Definition transfer_state_update_correct prev_state next_state transfers := 
-  let transfer_update_correct trx := 
-    let from_balance_before := address_balance trx.(transfer_token_id) trx.(from_) prev_state in
-    let to_balance_before := address_balance trx.(transfer_token_id) trx.(to_) prev_state in
-    let from_balance_after := address_balance trx.(transfer_token_id) trx.(from_) next_state in
-    let to_balance_after := address_balance trx.(transfer_token_id) trx.(to_) next_state in
-    (from_balance_before - trx.(amount) =? from_balance_after) &&
-    (to_balance_before + trx.(amount) =? to_balance_after) in
-  forallb transfer_update_correct transfers.
+  let balance_diffs_map : FMap (Address * token_id) Z := fold_left (fun current_diff_map trx =>
+    (* subtract amount from sender *)
+    let m1 := 
+      let amount := Z.of_N (trx.(amount)) in
+      let from_key := (trx.(from_), trx.(transfer_token_id)) in
+      match FMap.find from_key current_diff_map with
+      | Some current_diff => FMap.add from_key (current_diff - amount) current_diff_map
+      | None => FMap.add from_key (-amount) current_diff_map 
+      end in
+    (* add amount to receiver *)
+    let m2 := 
+      let amount := Z.of_N (trx.(amount)) in
+      let to_key := (trx.(to_), trx.(transfer_token_id)) in
+      match FMap.find to_key m1 with
+      | Some current_diff => FMap.add to_key (current_diff + amount) m1
+      | None => FMap.add to_key amount m1
+      end in
+    m2
+  ) transfers FMap.empty in
+  let balance_update_correct p balance_diff :=
+    let addr := fst p in
+    let tokenid := snd p in
+    let balance_before := Z.of_N (address_balance tokenid addr prev_state) in
+    let balance_after := Z.of_N (address_balance tokenid addr next_state) in
+    (* check that balance_diff is equal to the difference in recorded balance *)
+    (balance_before + balance_diff) =? balance_after in
+  forEachMapEntry balance_diffs_map balance_update_correct. 
+Local Close Scope Z_scope.
+
+Definition transfer_correct_assertion :=
+  (* pre-condition is just the assertion that the incoming message is a transfer *)
+  let pre_condition cstate msg :=
+    match msg with
+    | msg_transfer _ => true
+    | _ => false
+    end in 
+  let post_condition old_state msg result_opt :=
+    match result_opt with
+    | Some (new_state, outgoing_acts) => 
+      let transfers := 
+        match msg with
+        | msg_transfer transfers => transfers
+        | _ => []
+        end in
+        whenFail (show (msg, result_opt))
+        (checker (transfer_state_update_correct old_state new_state transfers))
+    | None => checker false
+    end
+  in fa2_pre_post_assertion 10 pre_condition post_condition.
+
+(* QuickChick transfer_correct_assertion. *)
 
 Definition transfer_balances_correct (step : @LocalChainStep AddrSize) := 
   match step with
@@ -183,7 +216,9 @@ Definition transfer_balances_correct (step : @LocalChainStep AddrSize) :=
         let prev_state := token_state prev_lc in
         let next_state := token_state next_lc in
         match (prev_state, next_state) with
-        | (Some prev_state, Some next_state) => checker (transfer_state_update_correct prev_state next_state transfers)
+        | (Some prev_state, Some next_state) => 
+          whenFail (show prev_state ++ nl ++ show next_state)
+          (checker (transfer_state_update_correct prev_state next_state transfers))
         | _ => false ==> true
         end
       | _ => false ==> true
@@ -193,7 +228,7 @@ Definition transfer_balances_correct (step : @LocalChainStep AddrSize) :=
   | _ => false ==> true
   end.
 
-(* QuickChick (forAllFA2Traces transfer_balances_correct). *)
+(* QuickChick (forAllFA2Traces 1 transfer_balances_correct). *)
 
 
 Definition transfer_satisfies_policy sender trx state : Checker := 
@@ -247,7 +282,6 @@ Definition transfer_satisfies_policy_P (step : @LocalChainStep AddrSize) : Check
   let acts := acts_of_lcstep step in
   let lc := prev_lc_of_lcstep step in
   let transfers := get_transfers acts in
-  let conjoin_map {A : Type} (f : A -> Checker) (l : list A) := conjoin (map f l) in
   match token_state lc with
   | Some state =>
       conjoin_map (fun sender_trxs_pair =>
