@@ -614,6 +614,20 @@ Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 5 tests and 3 shrinks. (0 discards)
  *)
 
+Definition conjoin_map {A prop : Type}
+                      `{Checkable prop}
+                       (f : A -> prop) 
+                       (l : list A) := conjoin (map (checker o f) l).
+  
+Definition forEachMapEntry {A B prop : Type}
+                          `{countable.Countable A}
+                          `{base.EqDecision A}
+                          `{Checkable prop}
+                           (m : FMap A B)
+                           (pf : A -> B -> prop)
+                           : Checker :=
+  let pf_ p := pf (fst p) (snd p) in 
+  conjoin_map pf_ (FMap.elements m).
 
 (* Repeats a generator for each element in the given list *)
 Fixpoint repeatWith {A prop : Type}
