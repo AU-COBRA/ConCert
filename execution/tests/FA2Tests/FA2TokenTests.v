@@ -67,6 +67,8 @@ Definition token_metadata_0 : token_metadata := {|
   metadata_decimals := 8%N;
 |}.
 
+(* Contract setups and deployments *)
+
 Definition token_setup : FA2Token.Setup := {|
   setup_total_supply := [];
   setup_tokens := FMap.add 0%N token_metadata_0 FMap.empty; 
@@ -144,7 +146,7 @@ Definition gFA2ClientChainTraceList max_acts_per_block lc length :=
   gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
 
 (* Sample (gFA2TokenAction chain1). *)
-Sample (gFA2TokenActionChainTraceList 1 chain1 10).
+(* Sample (gFA2TokenActionChainTraceList 1 chain1 10). *)
 
 Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
 Definition fa2_pre_post_assertion n := pre_post_assertion n chain1 (gFA2ChainTraceList 1) FA2Token.contract.
@@ -181,28 +183,27 @@ Definition transfer_state_update_correct prev_state next_state transfers :=
   forEachMapEntry balance_diffs_map balance_update_correct. 
 Local Close Scope Z_scope.
 
-Definition transfer_correct_assertion :=
-  (* pre-condition is just the assertion that the incoming message is a transfer *)
-  let pre_condition cstate msg :=
-    match msg with
-    | msg_transfer _ => true
-    | _ => false
-    end in 
-  let post_condition old_state msg result_opt :=
-    match result_opt with
-    | Some (new_state, outgoing_acts) => 
-      let transfers := 
-        match msg with
-        | msg_transfer transfers => transfers
-        | _ => []
-        end in
-        whenFail (show (msg, result_opt))
-        (checker (transfer_state_update_correct old_state new_state transfers))
-    | None => checker false
-    end
-  in fa2_pre_post_assertion 10 pre_condition post_condition.
+Definition msg_is_transfer (cstate : FA2Token.State) (msg : FA2Token.Msg) :=
+  match msg with
+  | msg_transfer _ => true
+  | _ => false
+  end.
 
-(* QuickChick transfer_correct_assertion. *)
+Definition post_transfer_correct old_state msg (result_opt : option (FA2Token.State * list ActionBody)) :=
+  match result_opt with
+  | Some (new_state, _) => 
+    let transfers := 
+      match msg with
+      | msg_transfer transfers => transfers
+      | _ => []
+      end in
+      whenFail (show (msg, result_opt))
+      (checker (transfer_state_update_correct old_state new_state transfers))
+  | None => checker false
+  end.
+
+(* QuickChick (fa2_pre_post_assertion 10 msg_is_transfer post_transfer_correct). *)
+(* coqtop-stdout:+++ Passed 10000 tests (16758 discards) *)
 
 Definition transfer_balances_correct (step : @LocalChainStep AddrSize) := 
   match step with
@@ -263,8 +264,7 @@ Definition transfer_satisfies_policy sender trx state : Checker :=
     if address_eqb sender trx.(from_) 
     then checker true
     else is_valid_operator_transfer 
-  end
-.
+  end.
 
 Definition get_transfers (acts : list Action) : list (Address * list FA2Interface.transfer) := 
   fold_left (fun trxs act => 
@@ -275,8 +275,7 @@ Definition get_transfers (acts : list Action) : list (Address * list FA2Interfac
       | _ => trxs
       end 
     | _ => trxs
-    end) acts []
-.
+    end) acts [].
 
 Definition transfer_satisfies_policy_P (step : @LocalChainStep AddrSize) : Checker :=
   let acts := acts_of_lcstep step in
@@ -307,23 +306,9 @@ Definition showStateWhenFail (step : @LocalChainStep AddrSize) :=
   end).
 
 (* QuickChick (forAllFA2Traces 7 transfer_satisfies_policy_P). *)
-(* coqtop-stdout:+++ Passed 10000 tests (628 discards) *)
+(* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
 
 
-(* Fixpoint groupBy {A B : Type} 
-                    `{countable.Countable A}
-                    `{base.EqDecision A}
-                     (p : )
-                     (l : list (A * B)) 
-                     : FMap A (list B) :=
-  match l with
-  | [] => FMap.empty
-  | (a,b)::xs => let res := groupBy_fix xs in 
-                 match FMap.find a res with
-                 | Some bs => FMap.add a (b :: bs) res 
-                 | None => FMap.add a [b] FMap.empty
-                 end
-  end. *)
 (* This property asserts that if an update_operator action contains multiple updates for the same operator, 
    the LAST operation in the list must take effect *)
 Definition last_update_operator_occurrence_takes_effect (update_ops : list update_operator) : FMap (Address * Address) (list operator_param) :=
@@ -344,23 +329,8 @@ Definition last_update_operator_occurrence_takes_effect (update_ops : list updat
   ) update_ops FMap.empty in
   (* get a list of lists of update_operator with the same owner and operator *)
   let grouped_multiple_ops := filter (fun l => Nat.leb 1%nat (length l)) (FMap.values grouped_ops_map) in
-  FMap.empty
-.
+  FMap.empty.
 
-
-(* Sample (gFA2TokenAction chain1). *)
-(* Sample gClientAction. *)
-(* Sample (gFA2ChainTraceList 1 chain1 6). *)
-(* Sanity Check that the trace generator never fails early *)
-(* QuickChick (forAll 
-  (choose (1, 10))
-  (fun size => forAll 
-    (gFA2ChainTraceList 1 chain_with_token_deployed size)
-    (fun trace => 
-      whenFail 
-        ("failed with trace of length: " ++ show (List.length trace)) 
-        (size =? List.length trace))
-  )). *)
 
 (* Sanity check that generating two actions in a row will always succeed *)
 (* QuickChick (
@@ -390,12 +360,3 @@ Definition last_update_operator_occurrence_takes_effect (update_ops : list updat
     | _ => whenFail "empty act" false
     end) 
 ). *)
-
-(* Sample (gFA2ClientChainTraceList 1 chain_with_token_deployed 4). *)
-
-
-
-
-
-
-
