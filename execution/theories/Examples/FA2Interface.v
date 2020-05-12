@@ -31,7 +31,7 @@ Record transfer :=
     to_ : Address;
     transfer_token_id : token_id;
     amount : N;
-    sender_callback_addr : Address;
+    sender_callback_addr : option Address;
 }.
 Record balance_of_request := {
   owner : Address;

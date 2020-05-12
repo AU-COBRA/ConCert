@@ -240,12 +240,12 @@ Definition handle_transfer (caller : Address)
                            (caddr : Address)
                            (transfers : list transfer)
                            (state : State)
-                           : list ActionBody :=
+                           : option(State * list ActionBody) :=
   match state.(transfer_hook_addr) with
   (* send call transfer hook (approved transfers will be received in the msg_receive_hook_transfer endpoint) *)
   | Some transfer_hook_addr => 
     let call_hook_act := call_transfer_hook caller caddr transfer_hook_addr transfers state in 
-    [call_hook_act]
+    Some (state, [call_hook_act])
   (* if no hook is attached, send transfer message to self, and notify senders of transfer *)
   | None =>
     let mk_transfer_descr tr := {|
@@ -265,17 +265,39 @@ Definition handle_transfer (caller : Address)
     let self_transfer_act := act_call caddr 0%Z (serialize (msg_receive_hook_transfer transfer_decr_param)) in
     
     (* let mk_sender_hook_act descr_param := act_call descr_param.(transfer_descr_operator) 0%Z (@serialize _ _ (tokens_sent descr_param)) in *)
-    let mk_sender_hook_act trx := 
-      let descr := mk_transfer_decr_param [mk_transfer_descr trx] in
-      act_call trx.(sender_callback_addr) 0%Z (@serialize fa2_token_sender _ (tokens_sent descr)) in
-    let sender_hook_acts := map mk_sender_hook_act transfers in
-    
-    (* Notice that sender hooks are invoked before the transfer *)
-    (* [self_transfer_act] *)
-    sender_hook_acts ++ [self_transfer_act]
+    let mk_sender_hook_act trx :=
+      match trx.(sender_callback_addr) with
+      | Some callback_addr =>
+        let descr := mk_transfer_decr_param [mk_transfer_descr trx] in
+        Some (act_call callback_addr 0%Z (@serialize fa2_token_sender _ (tokens_sent descr)))
+      | None => None
+      end in 
+    let sender_hook_acts := fold_right (fun act_opt acc =>
+      match act_opt with
+      | Some act => act :: acc
+      | None => acc
+      end
+    ) [] (map mk_sender_hook_act transfers) in
+    (* If no sender callbacks need to be made, just perform transfers now *)
+    if Nat.eqb (length sender_hook_acts) 0%nat then 
+      option_map (fun new_state => (new_state, [])) (try_transfer caller transfers state)
+    else
+      (* Notice that sender hooks are invoked before the transfer *)
+      Some (state, sender_hook_acts ++ [self_transfer_act])
   end.
 
 Open Scope bool_scope.
+
+Definition mk_transfer_from_decr descr := 
+{|
+  from_ := descr.(transfer_descr_from_);
+  to_ := descr.(transfer_descr_to_);
+  transfer_token_id := descr.(transfer_descr_token_id);
+  amount := descr.(transfer_descr_amount);    
+  sender_callback_addr := None (* Some param.(transfer_descr_operator) *) 
+|}.
+
+
 Definition handle_transfer_hook_receive (caller : Address)
                                         (param : transfer_descriptor_param)
                                         (self_addr : Address)
@@ -288,14 +310,6 @@ Definition handle_transfer_hook_receive (caller : Address)
           end)
           then Some tt
           else None  ;
-  let mk_transfer_from_decr descr := 
-    {|
-      from_ := descr.(transfer_descr_from_);
-      to_ := descr.(transfer_descr_to_);
-      transfer_token_id := descr.(transfer_descr_token_id);
-      amount := descr.(transfer_descr_amount);    
-      sender_callback_addr := param.(transfer_descr_operator) 
-    |} in
   let transfers := map mk_transfer_from_decr param.(transfer_descr_batch) in
   try_transfer param.(transfer_descr_operator) transfers state.
 Close Scope bool_scope.
@@ -440,7 +454,7 @@ Definition receive (chain : Chain)
   | _ => None
   end
   else match maybe_msg with
-  | Some (msg_transfer transfers) => without_statechange (handle_transfer sender caddr transfers state) 
+  | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state 
   | Some (msg_receive_hook_transfer param) => without_actions (handle_transfer_hook_receive sender param caddr state)
   | Some (msg_is_operator params) => get_is_operator_response_callback sender params state 
   | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
