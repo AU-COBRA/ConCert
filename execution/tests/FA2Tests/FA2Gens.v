@@ -138,7 +138,7 @@ Definition gSingleTransfer (lc : LocalChain)
             to_ := to;
             transfer_token_id := tokenid;
             amount := amount;
-            sender_callback_addr := zero_address;
+            sender_callback_addr := None;
           |})
     )
   | None => returnGen None
