@@ -198,8 +198,7 @@ Definition post_transfer_correct old_state msg (result_opt : option (FA2Token.St
       | msg_transfer transfers => transfers
       | _ => []
       end in
-      whenFail (show (msg, result_opt))
-      (checker (transfer_state_update_correct old_state new_state transfers))
+    checker (transfer_state_update_correct old_state new_state transfers)
   | None => checker false
   end.
 
