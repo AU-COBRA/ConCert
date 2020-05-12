@@ -40,6 +40,11 @@ Module FMap.
   Section Theories.
     Context {K V : Type} `{countable.Countable K}.
 
+    Lemma ext_eq (m1 m2 : FMap K V) :
+      (forall k, FMap.find k m1 = FMap.find k m2) ->
+      m1 = m2.
+    Proof. apply fin_maps.map_eq. Qed.
+
     Lemma of_elements_eq (m : FMap K V) :
       of_list (elements m) = m.
     Proof. apply fin_maps.list_to_map_to_list. Qed.
