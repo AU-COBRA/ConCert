@@ -4,6 +4,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Certified.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
 
 From Coq Require Import Arith.
@@ -30,13 +31,15 @@ Import PrettyPrinterMonad.
 Import ListNotations.
 Import MonadNotation.
 
-Local Open Scope string.
 Local Open Scope list.
+Local Open Scope string.
 
 Local Definition indent_size := 2.
 
 Section FixExEnv.
 Context (Σ : Ex.global_env).
+
+Bind Scope string with kername ident.
 
 Definition get_fun_name (name : kername) : string :=
   uncapitalize (replace_char "." "_" name).
@@ -50,15 +53,15 @@ Definition get_ctor_name (name : ident) : string :=
 Definition get_ty_arg_name (name : ident) : ident :=
   uncapitalize name.
 
-Definition lookup_mind (name : kername) : option P.mutual_inductive_body :=
+Definition lookup_mind (name : kername) : option Ex.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
   | Some (Ex.InductiveDecl mib) => Some mib
   | _ => None
   end.
 
-Definition lookup_ind_decl (ind : inductive) : PrettyPrinter P.one_inductive_body :=
+Definition lookup_ind_decl (ind : inductive) : PrettyPrinter Ex.one_inductive_body :=
   match lookup_mind (inductive_mind ind) with
-  | Some {| P.ind_bodies := l |} =>
+  | Some {| Ex.ind_bodies := l |} =>
     match nth_error l (inductive_ind ind) with
     | Some body => ret body
     | None => printer_fail ("could not find inductive " ++
@@ -68,10 +71,15 @@ Definition lookup_ind_decl (ind : inductive) : PrettyPrinter P.one_inductive_bod
   | _ => printer_fail ("could not find " ++ inductive_mind ind ++ " in environment")
   end.
 
+Definition print_ind (ind : inductive) : PrettyPrinter unit :=
+  oib <- lookup_ind_decl ind;;
+  let qual := kername_qualifier (inductive_mind ind) in
+  append (get_ty_name (qual ++ "." ++ Ex.ind_name oib)).
+
 Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
   oib <- lookup_ind_decl ind;;
-  match nth_error (P.ind_ctors oib) i with
-  | Some (name, _, _) =>
+  match nth_error (Ex.ind_ctors oib) i with
+  | Some (name, _) =>
     append (get_ctor_name name)
     (*append (replace_char "." "_" (inductive_mind ind) ++ "_" ++ name)*)
   | None =>
@@ -122,7 +130,7 @@ Definition fresh (name : ident) (used : list ident) : ident :=
        match n with
        | 0 => "unreachable"
        | S n =>
-         let numbered_name := (name ++ string_of_nat i)%string in
+         let numbered_name := name ++ string_of_nat i in
          if existsb (String.eqb numbered_name) used then
            f n (S i)
          else
@@ -146,47 +154,38 @@ Definition fresh_ty_arg_name (name : name) (Γ : list ident) : PrettyPrinter ide
   end.
 
 Import P.
-Definition parenthesize_prod_domain (t : term) : bool :=
+Definition parenthesize_prod_domain (t : box_type) : bool :=
   match t with
-  | tProd _ _ _ => true
+  | TArr _ _ => true
   | _ => false
   end.
 
-Definition parenthesize_ty_app_arg (t : term) : bool :=
+Definition parenthesize_ty_app_arg (t : box_type) : bool :=
   match t with
-  | tApp _ _ => true
+  | TApp _ _ => true
   | _ => false
   end.
 
-Fixpoint print_type (Γ : list (option ident)) (t : term) : PrettyPrinter unit :=
+Fixpoint print_type (Γ : list ident) (t : box_type) : PrettyPrinter unit :=
   match t with
-  | tRel n =>
-    match nth_error Γ n with
-    | Some (Some name) => append name
-    | Some None =>
-      printer_fail ("cannot print type with dependencies:" ++ nl ++ PCUICAstUtils.string_of_term t)
-    | None =>
-      printer_fail ("unbound tRel " ++ string_of_nat n)
-    end
-  | tInd ind _ => append (get_ty_name (inductive_mind ind))
-  | tProd name (tSort _) cod =>
-    (* Midlang is implicitly generalized over type args *)
-    let or_empty o :=
-        match o with
-        | Some n => n
-        | None => ""
-        end in
-    name <- fresh_ty_arg_name name (map or_empty Γ);;
-    print_type (Some name :: Γ) cod
-  | tProd _ dom cod =>
-    print_parenthesized (parenthesize_prod_domain dom) (print_type Γ dom);;
+  | TBox _ => printer_fail "unexpected box in type"
+  | TArr dom cod =>
+    print_parenthesized
+      (parenthesize_prod_domain dom)
+      (print_type Γ dom);;
     append " -> ";;
-    print_type (None :: Γ) cod
-  | tApp head arg =>
+    print_type Γ cod
+  | TApp head arg =>
     print_type Γ head;;
     append " ";;
     print_parenthesized (parenthesize_ty_app_arg arg) (print_type Γ arg)
-  | _ => printer_fail ("cannot print following as type" ++ nl ++ PCUICAstUtils.string_of_term t)
+  | TRel n =>
+    match nth_error Γ n with
+    | Some name => append name
+    | None => printer_fail ("unbound TRel " ++ string_of_nat n)
+    end
+  | TInd ind => print_ind ind
+  | TConst _ => printer_fail "Cannot handle type aliases"
   end.
 
 Import E.
@@ -352,7 +351,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
          print_branches branches ctor_names
        | _, _ => printer_fail "wrong number of case branches compared to inductive"
-       end) branches (map (fun '(name, _, _) => name) (P.ind_ctors oib));;
+       end) branches (map fst (Ex.ind_ctors oib));;
 
     pop_indent
 
@@ -425,8 +424,6 @@ Definition print_constant_body
 
   ret ml_name.
 
-Quote Recursively Definition foo := (None : option nat)%nat.
-
 Definition decompose_ind_ctor
          (nparams : nat)
          (arity : nat)
@@ -453,43 +450,45 @@ Definition decompose_ind_ctor
      end) arity t.
 
 Import P.
-Definition parenthesize_ind_ctor_ty (ty : term) : bool :=
+Definition parenthesize_ind_ctor_ty (ty : box_type) : bool :=
   match ty with
-  | tInd _ _
-  | tVar _
-  | tRel _ => false
+  | TRel _
+  | TInd _
+  | TConst _ => false
   | _ => true
   end.
 
 Definition print_ind_ctor_definition
-           (Γ : list (option ident))
+           (Γ : list ident)
            (name : ident)
-           (ty : P.term)
-           (nparams : nat)
-           (arity : nat) : PrettyPrinter unit :=
+           (data : list box_type) : PrettyPrinter unit :=
   append (get_ctor_name name);;
-  tys <- decompose_ind_ctor nparams arity ty;;
 
-  (fix f (Γ : list (option ident)) (tys : list P.term) :=
-     match tys with
-     | [] => ret tt
-     | ty :: tys =>
-       append " ";;
-       print_parenthesized (parenthesize_ind_ctor_ty ty) (print_type Γ ty);;
-       f (None :: Γ) tys
-     end) Γ tys.
+  monad_fold_left (fun _ bty =>
+                     append " ";;
+                     print_parenthesized
+                       (parenthesize_ind_ctor_ty bty)
+                       (print_type Γ bty)) data tt.
 
 Local Open Scope string.
+Import Ex.
 Definition print_mutual_inductive_body
            (name : kername)
-           (mib : P.mutual_inductive_body) : PrettyPrinter (list (kername * string)) :=
+           (mib : mutual_inductive_body) : PrettyPrinter (list (kername * string)) :=
   col <- get_current_line_length;;
   push_indent col;;
 
   let qualifier := kername_qualifier name in
 
   (* make context that has mutual inductive bodies *)
-  let Γ := rev_map (fun oib => get_ty_name (qualifier ++ "." ++ ind_name oib)) (ind_bodies mib) in
+  let Γ := map (fun oib => get_ty_name (qualifier ++ "." ++ ind_name oib))
+               (ind_bodies mib) in
+
+  (*
+  Γ <- monad_fold_left
+         (fun Γ name =>
+            name <- fresh_ty_arg_name name;;
+            ret (name :: Γ)) (Ex.ind_type_parameters
   (* add parameters *)
   Γ <- monad_fold_left
          (fun Γ d =>
@@ -505,10 +504,11 @@ Definition print_mutual_inductive_body
             ret (name :: Γ)) (rev (ind_params mib)) Γ;;
 
   let ty_arg_names := rev (firstn (List.length (ind_params mib)) Γ) in
+*)
 
   names <-
   (fix print_ind_bodies
-       (l : list P.one_inductive_body)
+       (l : list one_inductive_body)
        (first : bool)
        (names : list (kername * string)) :=
      match l with
@@ -517,8 +517,19 @@ Definition print_mutual_inductive_body
 
        (if first then ret tt else append_nl_and_indent);;
 
+       (* Add type parameters. Note that since we are in prenex form,
+          our context will have last type parameter last, not first. *)
+       let length_before := List.length Γ in
+       Γ <- monad_fold_left
+              (fun Γ name =>
+                 name <- fresh_ty_arg_name name Γ;;
+                 ret (Γ ++ [name])%list) (ind_type_parameters oib) Γ;;
+
+       (* Get the fresh names we generated from the context *)
+       let ty_arg_names := skipn length_before Γ in
+
        append "type ";;
-       let ind_name := qualifier ++ "." ++ P.ind_name oib in
+       let ind_name := qualifier ++ "." ++ ind_name oib in
        let ind_ml_name := get_ty_name ind_name in
        append ind_ml_name;;
 
@@ -527,13 +538,13 @@ Definition print_mutual_inductive_body
 
        push_indent (col + indent_size);;
 
-       (fix print_ind_ctors (ctors : list (ident * P.term * nat)) prefix :=
+       (fix print_ind_ctors (ctors : list (ident * list D.box_type)) prefix :=
           match ctors with
           | [] => ret tt
-          | (name, ty, arity) :: ctors =>
+          | (name, data) :: ctors =>
             append_nl_and_indent;;
             append (prefix ++ " ");;
-            print_ind_ctor_definition (map Some Γ) name ty (ind_npars mib) arity;;
+            print_ind_ctor_definition Γ name data;;
 
             print_ind_ctors ctors "|"
           end) (ind_ctors oib) "=";;
@@ -576,201 +587,6 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
   ret names.
 End FixExEnv.
 
-Axiom assump : string -> forall {A}, A.
-
-Lemma proj_wf
-      {Σ : P.global_env_ext}
-      (wfΣ : ∥PT.wf_ext Σ∥) : ∥PT.wf Σ.1∥.
-Proof. firstorder. Qed.
-
-Definition erase_and_debox_single
-           (Σ : P.global_env_ext)
-           (wfΣ : ∥PT.wf_ext Σ∥)
-           (decl : P.global_decl) : PrettyPrinter Ex.global_decl :=
-  match decl with
-  | P.ConstantDecl cst =>
-    let (type, body, _) := cst in
-    match body with
-    | None => ret (Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := None |})
-    | Some body =>
-      ebody <- wrap_typing_result
-                 Σ.1
-                 (EF.erase Σ wfΣ [] body (assump "assuming well-typedness"));;
-      result <- wrap_EnvCheck (check_applied Σ.1 ebody (proj_wf wfΣ));;
-      if result then
-        let ebody := debox_top_level (debox_all ebody) in
-        ret (Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := Some ebody |})
-      else
-        printer_fail "Not all constructors or constants are appropriately applied"
-    end
-  | P.InductiveDecl mib =>
-    ret (Ex.InductiveDecl mib)
-  end.
-
-Definition ignored_concert_types :=
-  ["ConCert.Execution.Blockchain.ChainBase";
-   "ConCert.Execution.Blockchain.Chain";
-   "ConCert.Execution.Blockchain.ContractCallContext"].
-
-Lemma wf_empty_ext (Σ : P.global_env) :
-  ∥PT.wf Σ∥ -> ∥PT.wf_ext (P.empty_ext Σ)∥.
-Proof.
-  intros [wfΣ].
-  constructor.
-  split; [assumption|].
-  todo "on_udecl on empty_ext".
-Qed.
-
-Definition preprocess_for_extraction
-           (name : kername)
-           (decl : Ex.global_decl) : PrettyPrinter Ex.global_decl :=
-  match decl with
-  | Ex.ConstantDecl body =>
-    let (ty, body) := body in
-    match body with
-    | None => ret (Ex.ConstantDecl {| Ex.cst_type := ty; Ex.cst_body := None |})
-    | Some body =>
-      if uses_account_balance body then
-        printer_fail ("'" ++ name ++ "' uses account_balance")
-      else
-        '(type, body) <- wrap_result (ungeneralize_ChainBase ty body) id;;
-        ret (Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := Some body |})
-    end
-  | _ => ret decl
-  end.
-
-(* Extract the specified environment to Midlang, creating definitions for all symbols. *)
-Definition extract_env (Σ : T.global_env) : PrettyPrinter unit :=
-  let remove_universe_constraints (decl : T.global_decl) :=
-      match decl with
-      | T.ConstantDecl body =>
-        let (type, body, _) := body in
-        T.ConstantDecl {| T.cst_type := type;
-                          T.cst_body := body;
-                          T.cst_universes := Monomorphic_ctx ContextSet.empty |}
-      | T.InductiveDecl mib =>
-        let (finite, npars, params, bodies, _, variance) := mib in
-        T.InductiveDecl {| T.ind_finite := finite;
-                           T.ind_npars := npars;
-                           T.ind_params := params;
-                           T.ind_bodies := bodies;
-                           T.ind_universes := Monomorphic_ctx ContextSet.empty;
-                           T.ind_variance := variance |}
-      end in
-  let Σ := map (fun '(name, d) => (name, remove_universe_constraints d)) Σ in
-  let Σ := fix_global_env_universes Σ in
-  let Σ := (T2P.trans_global (T.empty_ext Σ)).1 in
-  G <- wrap_EnvCheck (check_wf_env_only_univs Σ);;
-  let wfΣ := G.π2.p2 in
-  let Σext := P.empty_ext Σ in
-  let wfΣext : ∥PT.wf_ext Σext∥ := wf_empty_ext Σ wfΣ in
-  Σex <- monad_map (fun '(name, decl) =>
-                      decl <- erase_and_debox_single Σext wfΣext decl;;
-                      ret (name, decl)) Σ;;
-  let seeds := ["ConCert.Extraction.MidlangExtract.init";
-                "ConCert.Extraction.MidlangExtract.receive"] in
-  to_extract <- wrap_result (decl_deps_recursive Σex seeds ignored_concert_types)
-                            id;;
-  to_extract <- monad_map (fun '(name, decl) => decl <- preprocess_for_extraction name decl;;
-                                                ret (name, decl)) to_extract;;
-  (*monad_fold_left (fun _ '(name, _) => append name;; append_nl) to_extract tt;;*)
-  print_env to_extract;;
-  ret tt.
-
-(*
-Local Open Scope nat.
-
-Inductive Msg :=
-| increment (nums : list nat)
-| decrement.
-
-Definition recv (state : nat) (maybe_msg : option Msg) :=
-  match maybe_msg with
-  | Some (increment nums) => Some (state + fold_left Nat.add (nums ++ nums) 0 - fold_right Nat.mul 0 nums)
-  | Some decrement => Some (state - 1)
-  | _ => None
-  end.
-
-Definition app (f : nat -> nat) (n : nat) : nat :=
-  f n.
-
-Definition test : nat :=
-  let x := 5 in
-  let foo n := S n in
-  let even :=
-      fix even n :
-        match n with
-        | 0 => true
-        | S n => odd n
-        end
-     with odd n :=
-        match n with
-        | 0 => false
-        | S n => even n
-        end
-      for even in
-  let fix even n :=
-      match n with
-      | 0 => true
-      | 1 => false
-      | S (S n) => even n
-      end in
-  let y := 7 in
-  x + app (fun x => S x) (foo 3) + y + foo (foo x) + if even x then 2 else 0.
-
-Definition test' : bool :=
-  let x := let y := true in y in
-  let y := x in y.
-
-Definition list_debruijn := fold_right (fun b a => b) 0 [].
-  (*(fun (x : list nat) =>
-     match x with
-     | nil => nil
-     | y :: ys => x
-     end).*)
-
-Definition fun_fix {A} (f : nat -> A -> A) (a : A) :=
-  fix g (l : list nat) : A :=
-    match l with
-    | [] => a
-    | n :: l => f n (g l)
-    end.
-
-(*Quote Recursively Definition test_program := test.*)
-(*Quote Recursively Definition test_program := (init; recv).*)
-(*Quote Recursively Definition test_program := list_debruijn.*)
-(*Quote Recursively Definition test_program := fun_fix.*)
-
-Local Open Scope string.
-Definition test3 :=
-  match finish_print (append_nl;; extract_env test_program.1) with
-  | inl err => "Printer error: " ++ err
-  | inr (_, output) => output
-  end.
-
-Definition foo' := fun x => x = 5.
-
-Quote Recursively Definition aaa := (fun x => x = 5).
-
-Compute erase_template_program aaa.
-
-Compute erase_check_debox_all_print [] "foo" [] test_program.
-
-Definition test2 : string :=
-  match erase_check_debox_all [] test_program with
-  | CorrectDecl (Σ, (args, term)) =>
-    match finish_print (append_nl;; print_term Σ ["f"] term) with
-    | inl err => "Printer error: " ++ err
-    | inr (_, output) => output
-    end
-  | EnvError Σ (AlreadyDeclared id) => "Already declared: " ++ id
-  | EnvError Σ (IllFormedDecl id e) =>
-    "Type error: " ++ PCUICSafeChecker.string_of_type_error Σ e ++ ", while checking " ++ id
-  end.
-
-Compute test2.
-*)
-
 From Coq Require Import ZArith.
 
 Section Counter.
@@ -806,43 +622,28 @@ Program Definition contract : Contract unit Msg Z :=
 
 End Counter.
 
-Local Open Scope nat.
-
-Import T.
-Definition extract_def_name {A : Type} (a : A) : TemplateMonad qualid :=
-  a <- tmEval cbn a;;
-  quoted <- tmQuote a;;
-  let (head, args) := TUtil.decompose_app quoted in
-  match head with
-  | tConst name _ => ret name
-  | _ => tmFail ("Expected constant at head, got " ++ TUtil.string_of_term head)
+Definition foo : TemplateMonad unit :=
+  s <- get_contract_extraction_set (fun cb => @contract cb);;
+  result <- tmEval lazy (finish_print (print_env (env s)));;
+  match result with
+  | Ok (name_map, result) => tmMsg result
+  | Err s => tmFail s
   end.
 
-Quote Recursively Definition test_program := (init, receive).
+Run TemplateProgram foo.
 
-Definition extracted :=
-  match finish_print (append_nl;; extract_env test_program.1) with
-  | inl err => ("Printer error: " ++ err)%string
-  | inr (_, output) => output
-  end.
+Quote Recursively Definition ex6 := (forall (A : Type), A -> forall (B : Type), B -> nat).
+Compute erase_type_program ex6.
+Compute erase_and_print_type debox_box_type ex6.
 
-Compute extracted.
 
-Definition toMidlang
-           {Setup Msg State}
-           `{Serializable Setup}
-           `{Serializable Msg}
-           `{Serializable State}
-           (contract : forall (cb : ChainBase), Contract Setup Msg State) : TemplateMonad unit :=
-  init_name <- extract_def_name (Blockchain.init (contract extraction_chain_base));;
-  receive_name <- extract_def_name (Blockchain.receive (contract extraction_chain_base));;
-  x <- erasable_program receive_name;;
-  tmMsg (string_of_term x.2).
+Quote Recursively Definition test_program := (init).
 
-Run TemplateProgram (toMidlang (fun cb => @contract cb)).
+Definition ignored_concert_types :=
+  ["ConCert.Execution.Blockchain.ChainBase";
+   "ConCert.Execution.Blockchain.Chain";
+   "ConCert.Execution.Blockchain.ContractCallContext"].
 
-Definition test : TemplateProgram unit :=
-  tmEval
+Compute erase_and_debox_template_program test_program ignored_concert_types.
 
-Definition foo (m : FMap nat nat) : option nat :=
-  FMap.find 3 m.
+Run TemplateProgram foo.
