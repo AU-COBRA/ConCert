@@ -20,6 +20,9 @@ Import CrowdfundingContract.
 Import Validate.
 Import Receive.
 
+Definition PREFIX := "".
+
+Definition local_def := local PREFIX.
 
 (** A translation table for various constants we want to rename *)
 Definition TT : env string :=
@@ -31,6 +34,8 @@ Definition TT : env string :=
      ; remap <% bool %> "bool"
      ; remap <% unit %> "unit"
      ; remap <% list %> "list"
+     ; remap <% @fst %> "fst"
+     ; remap <% @snd %> "snd"
      ; remap <% option %> "option"
      ; remap <% addr_map %> "(address,tez) map"
      ; remap <% SimpleActionBody %> "operation"
@@ -51,15 +56,12 @@ Definition TT : env string :=
      ; ("nil", "[]")
      ; ("tt", "()")
 
-     ; local <% msg_coq %>
+     ; local_def <% msg_coq %>
 
-     ; local <% @fst %>
-     ; local <% @snd %>
-
-     ; local <% update_contribs %>
-     ; local <% maybe_bind_unit %>
-     ; local <% set_done %>
-     ; local <% validate %>
+     ; local_def <% update_contribs %>
+     ; local_def <% maybe_bind_unit %>
+     ; local_def <% set_done %>
+     ; local_def <% validate %>
 
   ].
 
@@ -74,12 +76,12 @@ Time Run TemplateProgram
      (* storage_def <- tmQuoteConstant "storage" false ;; *)
      (* storage_body <- opt_to_template storage_def.(cst_body) ;; *)
      ind <- tmQuoteInductive "msg_coq" ;;
-     ind_liq <- print_one_ind_body TT ind.(ind_bodies);;
-     t1 <- toLiquidity TT update_contribs ;;
-     t2 <- toLiquidity TT maybe_bind_unit ;;
-     t3 <- toLiquidity TT set_done ;;
-     t4 <- toLiquidity TT validate ;;
-     t5 <- toLiquidity TT receive ;;
+     ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
+     t1 <- toLiquidity PREFIX TT update_contribs ;;
+     t2 <- toLiquidity PREFIX TT maybe_bind_unit ;;
+     t3 <- toLiquidity PREFIX TT set_done ;;
+     t4 <- toLiquidity PREFIX TT validate ;;
+     t5 <- toLiquidity PREFIX TT receive ;;
      res <- tmEval lazy
                   (LiquidityPrelude
                      ++ nl ++ nl

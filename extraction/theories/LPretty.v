@@ -21,6 +21,20 @@ From MetaCoq.Template Require Import utils Loader Environment.
 From MetaCoq.Template Require Pretty.
 From MetaCoq.Erasure Require Import Debox EAst EAstUtils ETyping.
 
+(* TODO: taken form the Jakob's fork. Eventually, we should import [StringExtra] *)
+Definition char_to_upper (c : ascii) : ascii :=
+  match c with
+  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
+    Ascii b0 b1 b2 b3 b4 false b6 b7
+  end.
+
+Definition capitalize (s : string) : string :=
+  match s with
+  | EmptyString => EmptyString
+  | String c s => String (char_to_upper c) s
+  end.
+
+
 Section print_term.
   Context (Σ : global_context).
 
@@ -48,7 +62,7 @@ Section print_term.
 
   Definition tokenize := tokenize_aux EmptyString.
 
-  Eval simpl in (tokenize "." "Coq.ZArith.BinInt.Z.add").
+  Eval lazy in (tokenize "." "Coq.ZArith.BinInt.Z.add").
 
   (** Extracts a constant name, inductive name or returns None *)
   Definition to_name (t : Ast.term) : option string:=
@@ -66,54 +80,73 @@ Section print_term.
     let print_parens := (Nat.ltb 0 (List.length args)) in
     s ++ " " ++ parens ((negb print_parens)) (concat ", " args).
 
-  Fixpoint print_liq_type (TT : env string) (t : Ast.term) :=
+  Fixpoint print_liq_type (prefix : string) (TT : env string) (t : Ast.term) :=
   let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
   match t with
   | Ast.tInd ind _ =>
-    from_option (look TT ind.(inductive_mind)) ind.(inductive_mind)
+    let nm := ind.(inductive_mind) in
+    from_option (look TT nm) (prefix ++ nm)
   | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
     (* a special case of products - infix *)
       if (Ast.from_option (to_name <% prod %>) "" =? ind.(inductive_mind))%string then
-        parens false (print_liq_type TT t1 ++ " * " ++ print_liq_type TT t2)
+        parens false (print_liq_type prefix TT t1 ++ " * " ++ print_liq_type prefix TT t2)
       else error
   | Ast.tApp (Ast.tInd ind i) args =>
     (* the usual - postfix - case of an applied type constructor *)
-    let nm := from_option (look TT ind.(inductive_mind)) ind.(inductive_mind) in
-    let printed_args := map (print_liq_type TT) args in
-    (print_uncurried "" printed_args) ++ " " ++ nm
+    let nm := ind.(inductive_mind) in
+    let nm' := from_option (look TT nm) (prefix ++ nm) in
+    let printed_args := map (print_liq_type prefix TT) args in
+    (print_uncurried "" printed_args) ++ " " ++ nm'
   | Ast.tApp (Ast.tConst nm _) args =>
     (* similarly we do for constants to enable remapping of aliases to types *)
-    let nm := from_option (look TT nm) nm in
-    let printed_args := map (print_liq_type TT) args in
+    let nm := from_option (look TT nm) (prefix ++ nm) in
+    let printed_args := map (print_liq_type prefix TT) args in
     (print_uncurried "" printed_args) ++ " " ++ nm
-  | Ast.tConst nm _ => from_option (look TT nm) nm
-  | _ => "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")"
+  | Ast.tConst nm _ => from_option (look TT nm) (prefix ++ nm)
+  | _ => error
   end.
 
-  Fixpoint get_ctor_type (TT : env string) (ty : Ast.term) : list string:=
+  Definition is_sort (t : Ast.term) :=
+    match t with
+    | Ast.tSort _ => true
+    | _ => false
+    end.
+
+  Definition is_prod (t : Ast.term) :=
+    match t with
+    | Ast.tProd _ _ _ => true
+    | _ => false
+    end.
+
+  Open Scope bool.
+
+  Fixpoint get_ctor_type (prefix : string)(TT : env string) (ty : Ast.term) : list string:=
     match ty with
     | Ast.tProd _ dom codom =>
-      if negb (is_rel dom)
-      then print_liq_type TT dom :: get_ctor_type TT codom
-      else []
+      if negb (is_prod codom) then get_ctor_type prefix TT dom
+      else if is_sort dom || is_rel dom
+      (* FIXME: ignoring sorts and variables in an ad-hoc way *)
+           then get_ctor_type prefix TT codom
+           else print_liq_type prefix TT dom :: get_ctor_type prefix TT codom
+    | Ast.tInd ind _ => [print_liq_type prefix TT ty]
     | _ => if is_rel ty then [] else
              ["Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true ty ++ ")"]
   end.
 
-  Definition print_ctor_type (TT : env string) (ty : Ast.term) : string :=
-    concat " * " (get_ctor_type TT ty).
+  Definition print_ctor_type (prefix : string)(TT : env string) (ty : Ast.term) : string :=
+    concat " * " (get_ctor_type prefix TT ty).
 
-  Definition print_ctor (TT : env string) (nm_ty : ident * Ast.term) : string :=
+  Definition print_ctor (prefix : string) (TT : env string) (nm_ty : ident * Ast.term) : string :=
     let (nm,ty) := nm_ty in
-    let tys := get_ctor_type TT ty in
+    let tys := get_ctor_type prefix TT ty in
     match tys with
-    | [] => nm
-    | _ => nm ++ " of " ++ concat " * " (get_ctor_type TT ty)
+    | [] => prefix ++ nm
+    | _ => prefix ++ nm ++ " of " ++ concat " * " (get_ctor_type prefix TT ty)
     end.
 
-  Definition print_inductive (TT : env string) (oib : Ast.one_inductive_body) : string :=
-    "type " ++ oib.(Ast.ind_name) ++ " = "
-                              ++ nl ++ concat "| " (map (fun p => print_ctor TT p.1 ++ nl) oib.(Ast.ind_ctors)).
+  Definition print_inductive (prefix : string)(TT : env string) (oib : Ast.one_inductive_body) : string :=
+    "type " ++ prefix ++ oib.(Ast.ind_name) ++ " = "
+                              ++ nl ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p.1 ++ nl) oib.(Ast.ind_ctors)).
 
   (* This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : E.term) : E.term :=
@@ -193,15 +226,11 @@ Section print_term.
     if is_fresh Γ id then nNamed id
     else nNamed (fresh_id_from Γ 10 id).
 
-  Definition print_constr (TT : env string) (ind : inductive) (i : nat) :=
+  Definition get_constr_name (ind : inductive) (i : nat) :=
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     | Some oib =>
       match nth_error oib.(ind_ctors) i with
-      | Some (na, _, _) =>
-        match (look TT na) with
-        | Some c => c
-        | None => na
-        end
+      | Some (na, _, _) => na
       | None =>
         "UnboundConstruct(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ ")"
       end
@@ -240,19 +269,19 @@ Section print_term.
 
   (** Returns a printed symbol that needs to be applied "uncurried", meaning that the arguments mush be packed into a tuple.
    Currently, we uncurry fixpoints and constructor applications *)
-  Definition needs_uncurry (FT : list string) (TT : env string) (Γ : context) (t : E.term) :=
-    let (b,_) := decompose_app t in
-    match b with
-    | E.tRel i => match nth_error Γ i with
-                 | Some d =>
-                   let nm := (string_of_name d.(decl_name)) in
-                   if in_list String.string_dec FT nm then Some nm
-                   else None
-                 | None => Some ("UnboundRel(" ++ string_of_nat i ++ ")")
-                 end
-    | E.tConstruct ind i => Some (print_constr TT ind i)
-    | _ => None
-    end.
+  (* Definition needs_uncurry (prefix : string) (FT : list string) (TT : env string) (Γ : context) (t : E.term) := *)
+  (*   let (b,_) := decompose_app t in *)
+  (*   match b with *)
+  (*   | E.tRel i => match nth_error Γ i with *)
+  (*                | Some d => *)
+  (*                  let nm := (string_of_name d.(decl_name)) in *)
+  (*                  if in_list String.string_dec FT nm then Some nm *)
+  (*                  else None *)
+  (*                | None => Some ("UnboundRel(" ++ string_of_nat i ++ ")") *)
+  (*                end *)
+  (*   | E.tConstruct ind i => Some (print_constr (capitalize prefix) TT ind i) *)
+  (*   | _ => None *)
+  (*   end. *)
 
   (* Builds a context for the branch *)
   Definition get_ctx_from_branch (Γ : context) : nat -> E.term -> context :=
@@ -269,8 +298,8 @@ Section print_term.
     end
     in go [].
 
-  Definition print_pat (TT : env string) (ctor : string) (pt : list string * string) :=
-    let ctor_nm := from_option (look TT ctor) ctor in
+  Definition print_pat (prefix : string) (TT : env string) (ctor : string) (pt : list string * string) :=
+    let ctor_nm := from_option (look TT ctor) ((capitalize prefix) ++ ctor) in
     let print_parens := (Nat.ltb 1 (List.length pt.1)) in
     print_uncurried ctor_nm (rev pt.1) ++ " -> " ++ pt.2.
 
@@ -285,7 +314,8 @@ Section print_term.
 
   (** ** The pretty-printer *)
 
-  (** [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call).
+  (** [prefix] - a sting prepended to the constants' and constructos' names to avoid clashes
+      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call).
 
       [TT] - translation table allowing for remapping constants and constructors to Liquidity primitives, if required.
 
@@ -293,9 +323,9 @@ Section print_term.
 
       [top,inapp] - flags used to determine how to print parenthesis.
 
-      [t] - term to be printed.
+      [t] - a term to be printed.
    *)
-  Fixpoint print_term (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
+  Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : E.term) {struct t} :=
   match t with
   | tBox _ => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n =>
@@ -312,16 +342,27 @@ Section print_term.
   | tLambda na body =>
     let na' := fresh_name Γ na t in
     parens top ("fun " ++ string_of_name na'
-                                ++ " -> " ++ print_term FT TT (vass na' :: Γ) true false body)
+                                ++ " -> " ++ print_term prefix FT TT (vass na' :: Γ) true false body)
   | tLetIn na def body =>
     let na' := fresh_name Γ na t in
     parens top ("let " ++ string_of_name na' ++
-                      " = " ++ print_term FT TT Γ true false def ++ " in " ++ nl ++
-                      print_term FT TT (vdef na' def :: Γ) true false body)
+                      " = " ++ print_term prefix FT TT Γ true false def ++ " in " ++ nl ++
+                      print_term prefix FT TT (vdef na' def :: Γ) true false body)
   | tApp f l =>
-    match needs_uncurry FT TT Γ f with
-    | Some nm =>
-      let apps := rev (app_args (print_term FT TT Γ top false) t) in
+    let apps := rev (app_args (print_term prefix FT TT Γ top false) t) in
+    let (b,_) := decompose_app f in
+    match b with
+    | E.tRel i =>
+      match nth_error Γ i with
+      | Some d =>
+        let nm := (string_of_name d.(decl_name)) in
+        if in_list String.string_dec FT nm
+        then parens top (print_uncurried nm apps)
+        else parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
+      | None => "UnboundRel(" ++ string_of_nat i ++ ")"
+      end
+    | E.tConstruct ind i =>
+      let nm := get_constr_name ind i in
       (* is it a pair ? *)
       if (nm =? "pair") then print_uncurried "" apps
       else
@@ -331,24 +372,24 @@ Section print_term.
         else
       (* is it a transfer *)
           if (nm =? "Act_transfer") then print_transfer apps
-          else  parens top (print_uncurried nm apps)
-    | None =>  parens (top || inapp) (print_term FT TT Γ false true f ++ " " ++ print_term FT TT Γ false false l)
+          else
+            let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+            parens top (print_uncurried nm' apps)
+    | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
     end
-  | tConst c =>
-    match look TT c with
-    | Some op => op
-    | _ => c
-    end
-  | tConstruct ind l => print_constr TT ind l
+  | tConst c => from_option (look TT c) (prefix ++ c)
+  | tConstruct ind l =>
+    let nm := get_constr_name ind l in
+    from_option (look TT nm) ((capitalize prefix) ++ nm)
   | tCase (mkInd mind i as ind, pars) t brs =>
     (* [if-then-else] is a special case *)
     if mind =? "Coq.Init.Datatypes.bool" then
       match brs with
       | [b1;b2] =>
         parens top
-                ("if " ++ print_term FT TT Γ true false t
-                       ++ " then " ++ print_term FT TT Γ true false (snd b1)
-                       ++ " else " ++ print_term FT TT Γ true false (snd b2))
+                ("if " ++ print_term prefix FT TT Γ true false t
+                       ++ " then " ++ print_term prefix FT TT Γ true false (snd b1)
+                       ++ " else " ++ print_term prefix FT TT Γ true false (snd b2))
       | _ => "Error (Malformed pattern-mathing on bool: given "
                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
       end
@@ -357,14 +398,14 @@ Section print_term.
       if mind =? "Coq.Init.Datatypes.list" then
         match brs with
         | [b1;b2] =>
-          let nil_case := "[] -> " ++ print_term FT TT Γ false false b1.2 in
+          let nil_case := "[] -> " ++ print_term prefix FT TT Γ false false b1.2 in
           let (cons_args, _) := Edecompose_lam b2.2 in
           let cons_body := lam_body b2.2 in
           let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x.(binder_name) b2.2)) cons_args) in
           let cons_ctx := rev (map (vass ∘ binder_name) cons_args) in
-          let cons_case := cons_pat ++ " -> " ++ print_term FT TT (cons_ctx ++ Γ)%list false false cons_body in
+          let cons_case := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false cons_body in
           parens top
-             ("match " ++ print_term FT TT Γ true false t
+             ("match " ++ print_term prefix FT TT Γ true false t
                        ++ " with " ++ nl
                        ++ concat (nl ++ " | ") [nil_case;cons_case])
         | _ => "Error (Malformed pattern-mathing on bool: given "
@@ -373,27 +414,33 @@ Section print_term.
       else
     match lookup_ind_decl mind i with
     | Some oib =>
-      (* TODO: use [print_branch] to cover the special case of lists*)
+      (* TODO: use [print_branch] to cover the special case of lists *)
       let fix print_branch Γ arity params br {struct br} :=
           match arity with
-            | 0 => (params , print_term FT TT Γ false false br)
+            | 0 => (params , print_term prefix FT TT Γ false false br)
             | S n =>
               match br with
               | tLambda na B =>
-                let na' := fresh_name Γ na br in
-                let (ps, b) := print_branch (vass na' :: Γ) n params B in
-                (ps ++ [string_of_name na'], b)%list
-              | t => (params , print_term FT TT Γ false false br)
+                match na.(binder_erasure_reason) with
+                | Some _ =>
+                  let na' := fresh_name Γ na br in
+                  print_branch (vass na' :: Γ) n params B
+                | None =>
+                  let na' := fresh_name Γ na br in
+                  let (ps, b) := print_branch (vass na' :: Γ) n params B in
+                  (ps ++ [string_of_name na'], b)%list
+                end
+              | t => (params , print_term prefix FT TT Γ false false br)
               end
             end in
       let brs := map (fun '(arity, br) =>
                         print_branch Γ arity [] br) brs in
       let brs := combine brs oib.(ind_ctors) in
       parens top
-             ("match " ++ print_term FT TT Γ true false t
+             ("match " ++ print_term prefix FT TT Γ true false t
                        ++ " with " ++ nl
                        ++ print_list (fun '(b, (na, _, _)) =>
-                                        print_pat TT na b)
+                                        print_pat prefix TT na b)
                        (nl ++ " | ") brs)
     | None =>
       "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
@@ -403,17 +450,17 @@ Section print_term.
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ind_projs) k with
-      | Some (na, _) => print_term FT TT Γ false false c ++ ".(" ++ na ++ ")"
+      | Some (na, _) => print_term prefix FT TT Γ false false c ++ ".(" ++ na ++ ")"
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                       ++ print_term FT TT Γ true false c ++ ")"
+                       ++ print_term prefix FT TT Γ true false c ++ ")"
       end
     | None =>
       "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                     ++ print_term FT TT Γ true false c ++ ")"
+                     ++ print_term prefix FT TT Γ true false c ++ ")"
     end
   | tFix l n =>
-    parens top ("let rec " ++ print_defs (fun ft => print_term ft TT) FT Γ l ++ nl ++
+    parens top ("let rec " ++ print_defs (fun ft => print_term prefix ft TT) FT Γ l ++ nl ++
                           " in " ++ List.nth_default (string_of_nat n) (map (string_of_name ∘ dname) l) n)
   | tCoFix l n => "NotSupportedCoFix"
   end.

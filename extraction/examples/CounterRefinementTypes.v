@@ -22,6 +22,8 @@ Open Scope Z.
 
 Import Lia.
 
+Definition PREFIX := "coq_".
+
 Module Type ZTheorems.
   Axiom lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
 End ZTheorems.
@@ -36,22 +38,6 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
   Inductive msg :=
   | Inc (_ : Z)
   | Dec (_ : Z).
-
-  Lemma lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
-  Proof.
-    intros n m H.
-    induction m.
-    + destruct n;auto.
-    + destruct n;auto.
-      * inversion H.
-      * apply Pos.lt_add_r.
-      * inversion H.
-    + destruct n;auto.
-      * inversion H.
-      * todo "".
-      * inversion H.
-  Qed.
-
 
   Program Definition inc_counter (st : storage) (new_balance : positive) :
     {new_st : storage | st <? new_st} :=
@@ -92,6 +78,9 @@ End ZT.
 Module CRT := (CounterRefinmentTypes ZT).
 Import CRT.
 
+
+Definition local_def := local PREFIX.
+
 (** A translation table for various constants we want to rename *)
 Definition TT_rt : env string :=
   [  remap <% Z.add %> "addInt"
@@ -99,21 +88,26 @@ Definition TT_rt : env string :=
      ; remap <% Z.leb %> "leInt"
      ; remap <% Z.ltb %> "ltInt"
      ; remap <% Z %> "int"
-     ; remap <% nat %> "address"
      ; remap <% bool %> "bool"
+     ; remap <% nat %> "address"
+     ; remap <% option %> "option"
      ; remap <% proj1_sig %> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
      ; remap <% positive %> "int" (* this is again an ad-hoc optimisation *)
-     ; ("left", "Left")
-     ; ("right", "Right")
+     ; ("Some", "Some")
+     ; ("None", "None")
+     ; ("true", "true")
+     ; ("false", "false")
+     ; ("exist", "exist")
      ; ("Z0" ,"0")
      ; ("nil", "[]")
-     ; local <% @fst %>
-     ; local <% @snd %>
-     ; local <% storage %>
-     ; local <% msg %>
-     ; local <% inc_counter %>
-     ; local <% dec_counter %>
-     ; local <% my_bool_dec %>
+     ; remap <% @fst %> "fst"
+     ; remap <% @snd %> "snd"
+     ; remap <% storage %> "storage"
+     ; local_def <% storage %>
+     ; local_def <% msg %>
+     ; local_def <% my_bool_dec %>
+     ; local_def <% inc_counter %>
+     ; local_def <% dec_counter %>
   ].
 
 (** exists becomes just a wrapper *)
@@ -125,16 +119,20 @@ Quote Recursively Definition Counter := (counter).
 Time Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
+     sumbool_t <- tmQuoteInductive "sumbool" ;;
+     sumbool_liq <- print_one_ind_body PREFIX TT sumbool_t.(ind_bodies);;
      ind <- tmQuoteInductive "msg" ;;
-     ind_liq <- print_one_ind_body TT_rt ind.(ind_bodies);;
-     t1 <- toLiquidityEnv TT_rt (Counter.1) inc_counter ;;
-     t2 <- toLiquidityEnv TT_rt (Counter.1) dec_counter ;;
-     t3 <- toLiquidityEnv TT_rt (Counter.1) my_bool_dec ;;
-     t4 <- toLiquidityEnv TT_rt (Counter.1) counter ;;
+     ind_liq <- print_one_ind_body PREFIX TT_rt ind.(ind_bodies);;
+     t1 <- toLiquidityEnv PREFIX TT_rt (Counter.1) inc_counter ;;
+     t2 <- toLiquidityEnv PREFIX TT_rt (Counter.1) dec_counter ;;
+     t3 <- toLiquidityEnv PREFIX TT_rt (Counter.1) my_bool_dec ;;
+     t4 <- toLiquidityEnv PREFIX TT_rt (Counter.1) counter ;;
      res <- tmEval lazy
                   (prod_ops ++ nl ++ int_ops ++ nl ++ exists_def
                      ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type TT_rt storage_body
+                     ++ "type storage = " ++ print_liq_type PREFIX TT_rt storage_body
+                     ++ nl ++ nl
+                     ++ sumbool_liq
                      ++ nl ++ nl
                      ++ ind_liq
                      ++ nl ++ nl
@@ -146,7 +144,7 @@ Time Run TemplateProgram
                      ++ nl ++ nl
                      ++ t4
                      ++ nl ++ nl
-                     ++ printWrapper "counter"
+                     ++ printWrapper (PREFIX ++ "counter")
                      ++ nl ++ nl
                      ++ printMain) ;;
     tmDefinition "counter_extracted_refinment_types" res).

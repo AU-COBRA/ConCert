@@ -30,6 +30,7 @@ Import MonadNotation.
 (** Taken from [SafeTemplateErasure] and modified
     This uses the retyping-based erasure *)
 Program Definition erase_and_print_template_program {cf : checker_flags}
+        (prefix : string)
         (TT : env string)
         (afrer_erase : EAst.term -> EAst.term)
         (p : Ast.program)
@@ -37,7 +38,7 @@ Program Definition erase_and_print_template_program {cf : checker_flags}
   let p := fix_program_universes p in
   match erase_template_program p return string + string with
   | CorrectDecl (Σ', t) =>
-    inl (LPretty.print_term Σ' [] TT [] true false (afrer_erase t))
+    inl (LPretty.print_term Σ' prefix [] TT [] true false (afrer_erase t))
   | EnvError Σ' (AlreadyDeclared id) =>
     inr ("Already declared: " ++ id)
   | EnvError Σ' (IllFormedDecl id e) =>
@@ -57,10 +58,10 @@ Definition print_EnvCheck {A}
     inr ("Type error: " ++ PCUICSafeChecker.string_of_type_error Σ' e ++ ", while checking " ++ id)
   end.
 
-Definition print_template_program (TT : env string)
+Definition print_template_program (prefix : string) (TT : env string)
            (checked_t : EnvCheck (EAst.global_context × EAst.term))
   : string + string :=
-  print_EnvCheck (fun Σ t => LPretty.print_term Σ [] TT [] true false t) checked_t.
+  print_EnvCheck (fun Σ t => LPretty.print_term Σ prefix [] TT [] true false t) checked_t.
 
 Program Definition check_applied (p : Ast.program)
   : EnvCheck bool :=
@@ -85,10 +86,10 @@ Definition print_sum (s : string + string) :=
   | inr s' => s'
   end.
 
-Definition erase_print (TT : env string) (p : Ast.program) : string :=
+Definition erase_print (prefix : string) (TT : env string) (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let checked_t := erase_template_program p in
-  print_sum (print_template_program TT checked_t).
+  print_sum (print_template_program prefix TT checked_t).
 
 Definition liftM {M : Type -> Type} `{Monad M} {A B : Type}
            (f : A -> B) : M A -> M B :=
@@ -106,18 +107,18 @@ Definition erase_debox_all_applied (TT : env string) (p : Ast.program) :
   '(Σ,t) <- erase_template_program p ;;
   ret (Σ, debox_all t).
 
-Definition erase_print_deboxed (TT : env string) (p : Ast.program) : string :=
+Definition erase_print_deboxed (prefix : string) (TT : env string) (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let deboxed := erase_debox_types TT p in
-  print_sum (print_template_program TT deboxed).
+  print_sum (print_template_program prefix TT deboxed).
 
-Definition erase_print_deboxed_all_applied (TT : env string) (p : Ast.program) : string :=
+Definition erase_print_deboxed_all_applied (prefix : string) (TT : env string) (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let deboxed := erase_debox_all_applied TT p in
-  print_sum (print_template_program TT deboxed).
+  print_sum (print_template_program prefix TT deboxed).
 
 
-Program Definition erase_check_debox_all (TT : env string) (p : Ast.program)
+Program Definition erase_check_debox_all (prefix : string) (TT : env string) (p : Ast.program)
  : EnvCheck (EAst.global_context × (list E.aname * E.term))  :=
   let p := fix_program_universes p in
   let res : EnvCheck ((EAst.global_context × bool) × EAst.term):=
@@ -139,33 +140,33 @@ Program Definition erase_check_debox_all (TT : env string) (p : Ast.program)
   end.
 
 
-Definition print_decl (decl_name : string) (TT : env string) (tys : list Ast.term)
+Definition print_decl (prefix : string) (decl_name : string) (TT : env string) (tys : list Ast.term)
            (Σ : E.global_context) (decl_body : list E.aname * E.term) : string :=
   let (args,body) := decl_body in
   (* FIXME: this will produce wrong type annotations if the logical argument
      appears between the normal arguments! We need to switch to erased types and filter  out the boxes in types *)
   let targs := combine args tys in
   let printed_targs :=
-      map (fun '(x,ty) => parens false (string_of_name x.(E.binder_name) ++ " : " ++ print_liq_type TT ty)) targs in
-  let decl := decl_name ++ " " ++ concat " " printed_targs in
+      map (fun '(x,ty) => parens false (string_of_name x.(E.binder_name) ++ " : " ++ print_liq_type prefix TT ty)) targs in
+  let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
   let ctx := map (fun x => E.Build_context_decl x.(E.binder_name) None) (rev args) in
-  "let " ++ decl ++ " = " ++  LPretty.print_term Σ [] TT ctx true false body.
+  "let " ++ decl ++ " = " ++  LPretty.print_term Σ prefix [] TT ctx true false body.
 
-Program Definition erase_check_debox_all_print (TT : env string) (decl_name : string)
+Program Definition erase_check_debox_all_print (prefix : string) (TT : env string) (decl_name : string)
         (tys : list Ast.term) (p : Ast.program)
   : string :=
   let p := fix_program_universes p in
-  let deboxed := erase_check_debox_all TT p in
-  print_sum (print_EnvCheck (print_decl decl_name TT tys) deboxed).
+  let deboxed := erase_check_debox_all prefix TT p in
+  print_sum (print_EnvCheck (print_decl prefix decl_name TT tys) deboxed).
 
 Notation "'unfolded' d" :=
   ltac:(let y := eval unfold d in d in exact y) (at level 100, only parsing).
 
 (** Returns a pair of a fully qualified name and a short name to use in the extracted code.
  Used in the case if we need to refer to a previously extracted constant in the same file *)
-Definition local (t : Ast.term) : string * string :=
+Definition local (prefix : string) (t : Ast.term) : string * string :=
   let nm := Ast.from_option (to_name t) "Error (constant expected)" in
-  (nm, unqual_name nm).
+  (nm, prefix ++ unqual_name nm).
 
 (** Returns a pair of a fully qualified name (if [t] is a constant) and a new name.
  Used in a similar way as [Extract Inlined Constant] of the standard extraction *)
@@ -174,7 +175,7 @@ Definition remap (t : Ast.term) (new_name : string) :  string * string :=
   (nm, new_name).
 
 Record LiqDef :=
-  mkLiqDef {ld_name : string; ld_type: term; ld_body : Ast.term}.
+  mkLiqDef {ld_name : string; ld_type: term; ld_body : option Ast.term}.
 
 Definition opt_to_template {A} (o : option A) : TemplateMonad A:=
   match o with
@@ -186,54 +187,118 @@ Definition to_constant_decl (gd : option global_decl) :=
   match gd with
   | Some (ConstantDecl cst_body) => ret cst_body
   | Some (InductiveDecl cst_body) => tmFail "Error (constant expected, given inductive)"
-  | None => tmFail "Error (expected Some constant, given None)"
+  | None => tmFail "Error (expected constant with a body)"
   end.
 
 Definition toDefWithEnv {A} (p : A)  :=
-  t <- tmQuoteRec p ;;
+  t <- tmQuoteRec p  ;;
   nm <- opt_to_template (to_name t.2) ;;
   cbody_o <- to_constant_decl (lookup_env t.1 nm) ;;
   cbody <- opt_to_template cbody_o.(cst_body) ;;
-  ret (mkLiqDef nm cbody_o.(cst_type) cbody, t.1).
-
-
+  ret (mkLiqDef nm cbody_o.(cst_type) (Some cbody), t.1).
 
 Definition toDef {A} (p : A)  :=
-  t <- tmQuote p ;;
+  t <- tmQuote p  ;;
   nm <- opt_to_template (to_name t) ;;
   cbody_o <- tmQuoteConstant nm false ;;
   cbody <- opt_to_template cbody_o.(cst_body) ;;
-  ret (mkLiqDef nm cbody_o.(cst_type) cbody).
+  ret (mkLiqDef nm cbody_o.(cst_type) (Some cbody)).
 
-Definition toLiquidityWithBoxes {A} (TT : env string) (p : A) :=
-  d_e <- toDefWithEnv p ;;
-  let '(liq_def, env) := d_e in
-  liq_prog <- tmEval lazy (erase_print TT (env,liq_def.(ld_body))) ;;
-  let liq_def_string := "let " ++ unqual_name liq_def.(ld_name) ++ " = " ++ liq_prog in
-  ret liq_def_string.
-
-About decompose_prod.
-
-Definition toLiquidity {A} (TT : env string) (p : A) :=
+Definition toLiquidityWithBoxes {A} (prefix : string) (TT : env string) (p : A) :=
   d_e <- toDefWithEnv p ;;
   let '(liq_def, env) := d_e in
   let decl_name := unqual_name liq_def.(ld_name) in
-  (* FIXME: we should use erasure for types here *)
-  let '(_,tys,_) := decompose_prod liq_def.(ld_type) in
-  tmEval lazy
-         (erase_check_debox_all_print TT decl_name tys (env,liq_def.(ld_body))).
-
-Definition toLiquidityEnv {A} (TT : env string) (Σ : TemplateEnvironment.global_env)(p : A) :=
-  d <- toDef p ;;
-  let decl_name := unqual_name d.(ld_name) in
-  (* FIXME: we should use erasure for types here *)
-  let '(_,tys,_) := decompose_prod d.(ld_type) in
-  tmEval lazy
-         (erase_check_debox_all_print TT decl_name tys (Σ,d.(ld_body))).
-
-
-Definition print_one_ind_body (TT : env string) (oibs : list one_inductive_body) :=
-  match oibs with
-  | [oib] => ret (print_inductive TT oib)
-  | _ => tmFail "Only non-mutual inductives supported"
+  match liq_def.(ld_body) with
+  | Some b =>
+    liq_prog <- tmEval lazy (erase_print prefix TT (env,b)) ;;
+    let liq_def_string := "let " ++ decl_name ++ " = " ++ liq_prog in ret liq_def_string
+  | None =>
+    liq_type <- tmEval lazy (print_liq_type prefix TT liq_def.(ld_type)) ;;
+    let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
   end.
+
+Definition toLiquidity {A} (prefix : string) (TT : env string) (p : A) :=
+  d_e <- toDefWithEnv p ;;
+  let '(liq_def, env) := d_e in
+  let decl_name := unqual_name liq_def.(ld_name) in
+  match liq_def.(ld_body) with
+  | Some b =>
+    (* FIXME: we should use erasure for types here *)
+    let '(_,tys,_) := decompose_prod liq_def.(ld_type) in
+    tmEval lazy (erase_check_debox_all_print prefix TT decl_name tys (env,b))
+  | None => liq_type <- tmEval lazy (print_liq_type prefix TT liq_def.(ld_type)) ;;
+           let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
+  end.
+
+Definition toLiquidityEnv {A} (prefix : string) (TT : env string) (Σ : TemplateEnvironment.global_env)(p : A) :=
+  liq_def <- toDef p ;;
+  let decl_name := unqual_name liq_def.(ld_name) in
+  match liq_def.(ld_body) with
+  | Some b =>
+    (* FIXME: we should use erasure for types here *)
+    let '(_,tys,_) := decompose_prod liq_def.(ld_type) in
+    tmEval lazy (erase_check_debox_all_print prefix TT decl_name tys (Σ,b))
+  | None => liq_type <- tmEval lazy (print_liq_type prefix TT liq_def.(ld_type)) ;;
+           let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
+  end.
+
+
+Definition print_one_ind_body (prefix : string) (TT : env string) (oibs : list one_inductive_body) :=
+  match oibs with
+  | [oib] => ret (print_inductive prefix TT oib)
+  | _ => tmFail "Only non-mutual inductives are supported"
+  end.
+
+Definition toDefIdent (nm : ident)  :=
+  cbody_o <- tmQuoteConstant nm false ;;
+  cbody <- opt_to_template cbody_o.(cst_body) ;;
+  if is_sort cbody_o.(cst_type) then
+    ret (mkLiqDef nm cbody None)
+  else ret (mkLiqDef nm cbody_o.(cst_type) (Some cbody)).
+
+Definition toLiquidityDefs (prefix : string) (TT : env string) (Σ : TemplateEnvironment.global_env)(ids : list ident) :=
+  ds <- monad_map toDefIdent ids ;;
+  let liquidify d :=
+      let decl_name := unqual_name d.(ld_name) in
+      match d.(ld_body) with
+      | Some b =>
+        (* FIXME: we should use erasure for types here *)
+        let '(_,tys,_) := decompose_prod d.(ld_type) in
+        tmEval lazy (erase_check_debox_all_print prefix TT decl_name tys (Σ,b))
+      | None =>
+        liq_type <- tmEval lazy (print_liq_type prefix TT d.(ld_type)) ;;
+        let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
+      end in
+        ldefs <- monad_map liquidify ds ;;
+        tmEval lazy (concat (nl++nl) ldefs).
+
+Definition toLiquidityADTs (prefix : string) (TT : env string) (Σ : TemplateEnvironment.global_env)(ids : list ident) :=
+  let liquidify ind :=
+      ind_def <- tmQuoteInductive ind ;;
+      print_one_ind_body prefix TT ind_def.(ind_bodies) in
+  ldefs <- monad_map liquidify ids ;;
+  tmEval lazy (concat (nl++nl) ldefs).
+
+Record LiquidityModule :=
+  { lm_module_name : string ;
+    lm_prelude : string ;
+    lm_adts : list string ;
+    lm_functions : list string;
+    lm_entry_point : string ;
+    lm_init : string}.
+
+Definition printLiquidityModule (prefix : string) (Σ : global_env) (TT : env string)
+           (m : LiquidityModule) :=
+  adts <- toLiquidityADTs prefix TT Σ m.(lm_adts) ;;
+  defs <- toLiquidityDefs prefix TT Σ m.(lm_functions);;
+  res <- tmEval lazy
+               (m.(lm_prelude)
+                 ++ nl ++ nl
+                 ++ adts
+                 ++ nl ++ nl
+                 ++ defs
+                 ++ nl ++ nl
+                 ++ m.(lm_entry_point)) ;;
+  tmDefinition m.(lm_module_name) res ;;
+  msg <- tmEval lazy ("The module extracted successfully. The definition " ++ "[" ++ m.(lm_module_name) ++ "]" ++ " containing the Liquidity code has been added to the Coq environment. Use [Print] command to print the Liquidity code") ;;
+  tmPrint msg.

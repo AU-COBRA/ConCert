@@ -22,6 +22,8 @@ Open Scope Z.
 
 Import Lia.
 
+Definition PREFIX := "coq_".
+
 Module Counter.
 
   Definition storage := Z × nat.
@@ -61,6 +63,8 @@ End Counter.
 
 Import Counter.
 
+Definition local_def := local PREFIX.
+
 (** A translation table for various constants we want to rename *)
 Definition TT : env string :=
   [  remap <% Z.add %> "addInt"
@@ -69,17 +73,21 @@ Definition TT : env string :=
      ; remap <% Z %> "int"
      ; remap <% bool %> "bool"
      ; remap <% nat %> "address"
-     ; ("left", "Left")
-     ; ("right", "Right")
+     ; remap <% option %> "option"
+     ; ("Some", "Some")
+     ; ("None", "None")
+     ; ("true", "true")
+     ; ("false", "false")
      ; ("Z0" ,"0")
      ; ("nil", "[]")
-     ; local <% @fst %>
-     ; local <% @snd %>
-     ; local <% storage %>
-     ; local <% msg %>
-     ; local <% inc_balance %>
-     ; local <% dec_balance %>
-     ; local <% my_bool_dec %>
+     ; remap <% @fst %> "fst"
+     ; remap <% @snd %> "snd"
+     ; remap <% storage %> "storage"
+     ; local_def <% storage %>
+     ; local_def <% msg %>
+     ; local_def <% my_bool_dec %>
+     ; local_def <% inc_balance %>
+     ; local_def <% dec_balance %>
   ].
 
 Quote Recursively Definition ex_partially_applied_syn :=
@@ -105,16 +113,20 @@ Compute (check_applied ex_partially_applied_syn).
 Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
+     sumbool_t <- tmQuoteInductive "sumbool" ;;
+     sumbool_liq <- print_one_ind_body PREFIX TT sumbool_t.(ind_bodies);;
      ind <- tmQuoteInductive "msg" ;;
-     ind_liq <- print_one_ind_body TT ind.(ind_bodies);;
-     t1 <- toLiquidity TT inc_balance ;;
-     t2 <- toLiquidity TT dec_balance ;;
-     t3 <- toLiquidity TT my_bool_dec ;;
-     t4 <- toLiquidity TT counter ;;
+     ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
+     t1 <- toLiquidity PREFIX TT inc_balance ;;
+     t2 <- toLiquidity PREFIX TT dec_balance ;;
+     t3 <- toLiquidity PREFIX TT my_bool_dec ;;
+     t4 <- toLiquidity PREFIX TT counter ;;
      res <- tmEval lazy
                   (prod_ops ++ nl ++ int_ops
                      ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type TT storage_body
+                     ++ "type storage = " ++ print_liq_type PREFIX TT storage_body
+                     ++ nl ++ nl
+                     ++ sumbool_liq
                      ++ nl ++ nl
                      ++ ind_liq
                      ++ nl ++ nl
@@ -126,7 +138,7 @@ Run TemplateProgram
                      ++ nl ++ nl
                      ++ t4
                      ++ nl ++ nl
-                     ++ printWrapper "counter"
+                     ++ printWrapper (PREFIX ++ "counter")
                      ++ nl ++ nl
                      ++ printMain) ;;
     tmDefinition "counter_extracted" res).

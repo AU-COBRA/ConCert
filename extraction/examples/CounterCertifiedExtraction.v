@@ -19,6 +19,8 @@ Import MonadNotation.
 
 Open Scope Z.
 
+Definition PREFIX := "".
+
 Module Counter.
 
   Notation address := nat.
@@ -80,6 +82,8 @@ Qed.
 
 Import Counter.
 
+Definition local_def := local PREFIX.
+
 (** A translation table for various constants we want to rename *)
 Definition TT : env string :=
   [  remap <% Z.add %> "addInt"
@@ -87,34 +91,38 @@ Definition TT : env string :=
      ; remap <% Z.leb %> "leInt"
      ; remap <% Z %> "int"
      ; remap <% nat %> "address"
+     ; ("Some", "Some")
+     ; ("None", "None")
      ; ("Z0" ,"0")
      ; ("nil", "[]")
-     ; local <% @fst %>
-     ; local <% @snd %>
-     ; local <% storage %>
-     ; local <% msg %>
-     ; local <% inc_balance %>
-     ; local <% dec_balance %>
+     ; remap <% @fst %> "fst"
+     ; remap <% @snd %> "snd"
+     ; remap <% storage %> "storage"
+     ; local_def <% storage %>
+     ; local_def <% option %>
+     ; local_def <% msg %>
+     ; local_def <% inc_balance %>
+     ; local_def <% dec_balance %>
   ].
 
 Quote Recursively Definition counter_syn := (unfolded counter).
 
 Time Eval vm_compute in (check_applied counter_syn).
-Time Eval vm_compute in (erase_print_deboxed_all_applied TT counter_syn).
+Time Eval vm_compute in (erase_print_deboxed_all_applied PREFIX TT counter_syn).
 
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. Even though the de-boxing is not certified yet, before removing boxes we check if constant is applied to all logical argument (i.e. proofs or types) and constructors are fully applied. In this case, it is safe to remove these applications. *)
 Time Run TemplateProgram
     (storage_def <- tmQuoteConstant "storage" false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
      ind <- tmQuoteInductive "msg" ;;
-     ind_liq <- print_one_ind_body TT ind.(ind_bodies);;
-     t1 <- toLiquidity TT inc_balance ;;
-     t2 <- toLiquidity TT dec_balance ;;
-     t3 <- toLiquidity TT counter ;;
+     ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
+     t1 <- toLiquidity PREFIX TT inc_balance ;;
+     t2 <- toLiquidity PREFIX TT dec_balance ;;
+     t3 <- toLiquidity PREFIX TT counter ;;
      res <- tmEval lazy
                   (prod_ops ++ nl ++ int_ops
                      ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type TT storage_body
+                     ++ "type storage = " ++ print_liq_type PREFIX TT storage_body
                      ++ nl ++ nl
                      ++ ind_liq
                      ++ nl ++ nl
@@ -124,7 +132,7 @@ Time Run TemplateProgram
                      ++ nl ++ nl
                      ++ t3
                      ++ nl ++ nl
-                     ++ printWrapper "counter"
+                     ++ printWrapper (PREFIX ++ "counter")
                      ++ nl ++ nl
                      ++ printMain) ;;
     tmDefinition "counter_extracted" res).
