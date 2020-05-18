@@ -47,9 +47,6 @@ Module Interpreter.
 
   Definition obs0 s := IObs s 0.
 
-  Definition key_eq (k1 : string * Z) (k2 : string * Z)
-    := (k1.1 =? k2.1) && (k1.2 =? k2.2)%Z.
-
   Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) :=
     match insts with
     | [] => Some s
@@ -77,6 +74,8 @@ Module Interpreter.
                  end
       end
     end.
+
+  Definition receive (p : params) (s : list value) := interp p.2 p.1 s.
 
 End Interpreter.
 
@@ -116,39 +115,59 @@ Definition TT : env string :=
 
      (* local types *)
      ; local_def <% storage %>
+     ; local_def <% params %>
+     ; local_def <% interp %>
      ; local_def <% instruction %>
      ; local_def <% value %>
      ; local_def <% op %>
   ].
 
-(** A wrapper for calling the main functionality. It is important to be explicit about types for all the parameters of entry points *)
-Definition print_main (Σ : global_env) (param_type : term) : string :=
-  let param_liq_type := print_liq_type PREFIX TT param_type in
-  let func_name := PREFIX ++ "interp" in
-  "let%entry main (prog : " ++ param_liq_type ++ ")" ++ " s ="
+(** A wrapper for calling the main functionality [func_name]. It is important to be explicit about types for all the parameters of entry points *)
+Definition print_main (func_name : string): string :=
+  let func_name := PREFIX ++ func_name in
+  let params_name := PREFIX ++ "params" in
+  "let%entry main (p : " ++ params_name ++ ")" ++ " s ="
     ++ nl
-    ++ "let s = " ++ func_name ++ "(prog.(1), prog.(0) ,[]) in"
-    ++ nl
-    ++ "match s with"
+    ++ "match " ++ func_name ++ " p s"  ++ " with"
     ++ nl
     ++ "| Some res -> ( [], res ) "
     ++ nl
     ++ "| _ -> Current.failwith s".
 
-(** Adds a definition containing a "program" corresponding to the [interp] function. The "program" is a global environment containing all dependencies required for erasure and validation to go through and a quoted term*)
-Run TemplateProgram (t <- erasable_program "interp"  ;;
-                     tmDefinition "interp_quoted" t).
-
-
-Definition GE := interp_quoted.1.
+Fixpoint combine_global_envs (Σ Σ' : global_env) : global_env :=
+  match Σ' with
+  | [] => Σ
+  | (nm,d) :: Σ'' => match (lookup_env Σ nm) with
+                   | Some _ => (combine_global_envs Σ Σ'')%list
+                   | None => ((nm,d) :: combine_global_envs Σ Σ'')%list
+                   end
+  end.
 
 Definition INTERP_MODULE : LiquidityModule :=
-  {| lm_module_name := "liquidity_interp" ;
+  {| (* a name for the definition with the extracted code *)
+     lm_module_name := "liquidity_interp" ;
+
+     (* definitions of operations on ints, bools, pairs, ect. *)
      lm_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops;
+
+     (* inductives *)
      lm_adts := ["op";"instruction";"value"];
-     lm_functions := ["params"; "storage";"obs0";"interp"];
-     lm_entry_point := print_main GE <% unfolded params %>;
+
+     (* definitions: type abbreviations and functions *)
+     lm_defs := ["params"; "storage";"obs0";"interp";"receive"];
+
+     (* code for the entry point *)
+     lm_entry_point := print_main "receive";
+
+     (* initial storage *)
      lm_init := "[]" |}.
+
+(** Adds a definition containing a global environment containing all dependencies required for erasure *)
+
+Run TemplateProgram (ps <- monad_map erasable_program (List.rev INTERP_MODULE.(lm_defs)) ;;
+                     let env := fold_left combine_global_envs (map fst ps) [] in
+                     res <- tmEval all env ;;
+                     tmDefinition "GE" res).
 
 (** We translate required definitions and print them into a single string containing the whole program. The definition with the corresponding code is added to Coq's environment. *)
 Time Run TemplateProgram (printLiquidityModule PREFIX GE TT INTERP_MODULE).

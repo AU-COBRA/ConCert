@@ -5,7 +5,7 @@
 
 (** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of Liquidity, or some times, lack of proper support.
 
-Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. Currently, this transformation is "local": it only changes applications of the recursive call in the body of the function and does not transform application sites of recursive functions in other definitions.
+Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. Before calling a printing function, one needs to provide a list of strings that will be used to determine if the constant (or a variable corresponding to the recursive call) needs to be treated as uncurried when applied. This assumes that the names of fixpoints (even "local") do not clash with any constant names.
 
 Another issue (mostly solved): constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage.
 
@@ -162,10 +162,10 @@ Section print_term.
     string_of_name (dname def) ++ " " ++ sargs  ++ " = "
                    ++ nl ++ f ctx (lam_body (dbody def)).
 
-    Definition print_defs (print_term : list string -> context -> bool -> bool -> term -> string) (FT : list string) (Γ : context) (defs : mfixpoint term) :=
+    Definition print_defs (print_term : context -> bool -> bool -> term -> string) (Γ : context) (defs : mfixpoint term) :=
       let ctx' := List.map (fun d => {| decl_name := dname d; decl_body := None |}) defs in
       let fix_names := List.map (string_of_name ∘ dname) defs in
-    print_list (print_def (fun Γ' => print_term (fix_names ++ FT)%list (Γ' ++ ctx' ++ Γ)%list true false)) (nl ++ " with ") defs.
+    print_list (print_def (fun Γ' => print_term (Γ' ++ ctx' ++ Γ)%list true false)) (nl ++ " with ") defs.
 
   Definition lookup_ind_decl ind i :=
     match lookup_env Σ ind with
@@ -314,8 +314,8 @@ Section print_term.
 
   (** ** The pretty-printer *)
 
-  (** [prefix] - a sting prepended to the constants' and constructos' names to avoid clashes
-      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call).
+  (** [prefix] - a sting pre-pended to the constants' and constructors' names to avoid clashes
+      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call) or to an applied constant (if it corresponds to a recursive definition). We assume that the list of names to be uncurried is determined beforehand.
 
       [TT] - translation table allowing for remapping constants and constructors to Liquidity primitives, if required.
 
@@ -349,9 +349,10 @@ Section print_term.
                       " = " ++ print_term prefix FT TT Γ true false def ++ " in " ++ nl ++
                       print_term prefix FT TT (vdef na' def :: Γ) true false body)
   | tApp f l =>
-    let apps := rev (app_args (print_term prefix FT TT Γ top false) t) in
+    let apps := rev (app_args (print_term prefix FT TT Γ false false) t) in
     let (b,_) := decompose_app f in
     match b with
+      (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
     | E.tRel i =>
       match nth_error Γ i with
       | Some d =>
@@ -361,6 +362,14 @@ Section print_term.
         else parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
       | None => "UnboundRel(" ++ string_of_nat i ++ ")"
       end
+    | E.tConst c =>
+      let nm := from_option (look TT c) (prefix ++ c) in
+      (* checking if the constant corresponds to a recursive definition *)
+      if in_list String.string_dec FT (unqual_name c)
+      then (* packing the argument into a tuple *)
+        (print_uncurried nm apps)
+      else (* just a normal application of a constant *)
+        parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
     | E.tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
@@ -460,7 +469,7 @@ Section print_term.
                      ++ print_term prefix FT TT Γ true false c ++ ")"
     end
   | tFix l n =>
-    parens top ("let rec " ++ print_defs (fun ft => print_term prefix ft TT) FT Γ l ++ nl ++
+    parens top ("let rec " ++ print_defs (print_term prefix FT TT) Γ l ++ nl ++
                           " in " ++ List.nth_default (string_of_nat n) (map (string_of_name ∘ dname) l) n)
   | tCoFix l n => "NotSupportedCoFix"
   end.
@@ -534,3 +543,25 @@ Definition printWrapper (contract : string): string :=
 
 Definition printMain :=
   "let%entry main param st = wrapper param st".
+
+
+Fixpoint get_fix_names (t : Ast.term) : list name :=
+  match t with
+  | Ast.tRel _ => []
+  | Ast.tVar _ => []
+  | Ast.tSort _ => []
+  | Ast.tInd _ _ => []
+  | Ast.tCast _ _ t1 => get_fix_names t1
+  | Ast.tProd _ _ _ => []
+  | Ast.tEvar _ args => List.concat (map get_fix_names args)
+  | Ast.tLambda _ _ b => get_fix_names b
+  | Ast.tLetIn _ _ t1 t2 => get_fix_names t1 ++ get_fix_names t2
+  | Ast.tApp t1 t2 => get_fix_names t1 ++ List.concat (map get_fix_names t2)
+  | Ast.tConst _ _ => []
+  | Ast.tConstruct _ _ _ => []
+  | Ast.tCase _ _ t1 brs => get_fix_names t1
+                        ++ List.concat (map (get_fix_names ∘ snd) brs)
+  | Ast.tProj _ t1 => get_fix_names t1
+  | Ast.tFix mfix _ => map BasicAst.dname mfix ++ List.concat (map (get_fix_names ∘ BasicAst.dbody) mfix)
+  | Ast.tCoFix mfix _ => map BasicAst.dname mfix ++ List.concat (map (get_fix_names ∘ BasicAst.dbody) mfix)
+  end.

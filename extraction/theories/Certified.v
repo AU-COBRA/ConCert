@@ -31,14 +31,15 @@ Import MonadNotation.
     This uses the retyping-based erasure *)
 Program Definition erase_and_print_template_program {cf : checker_flags}
         (prefix : string)
-        (TT : env string)
-        (afrer_erase : EAst.term -> EAst.term)
+        (FT : list string) (* list of fixpoint names *)
+        (TT : env string) (* tranlation table *)
+        (after_erase : EAst.term -> EAst.term)
         (p : Ast.program)
   : string + string :=
   let p := fix_program_universes p in
   match erase_template_program p return string + string with
   | CorrectDecl (Σ', t) =>
-    inl (LPretty.print_term Σ' prefix [] TT [] true false (afrer_erase t))
+    inl (LPretty.print_term Σ' prefix FT TT [] true false (after_erase t))
   | EnvError Σ' (AlreadyDeclared id) =>
     inr ("Already declared: " ++ id)
   | EnvError Σ' (IllFormedDecl id e) =>
@@ -58,7 +59,9 @@ Definition print_EnvCheck {A}
     inr ("Type error: " ++ PCUICSafeChecker.string_of_type_error Σ' e ++ ", while checking " ++ id)
   end.
 
-Definition print_template_program (prefix : string) (TT : env string)
+Definition print_template_program (prefix : string)
+           (FT : list string) (* list of fixpoint names *)
+           (TT : env string) (* tranlation table *)
            (checked_t : EnvCheck (EAst.global_context × EAst.term))
   : string + string :=
   print_EnvCheck (fun Σ t => LPretty.print_term Σ prefix [] TT [] true false t) checked_t.
@@ -69,7 +72,7 @@ Program Definition check_applied (p : Ast.program)
   let Σ := List.rev (trans_global (Ast.empty_ext p.1)).1 in
   G <- check_wf_env_only_univs Σ ;;
   et <- erase_template_program p ;;
-  is_const_applied <- wrap_error (P.empty_ext Σ) "during cheking applied constant"
+  is_const_applied <- wrap_error (P.empty_ext Σ) "during checking applied constant"
                                 (check_consts_applied (P.empty_ext Σ) _ [] et.2) ;;
   let is_constr_applied := check_ctors_applied Σ [] et.2 in
   ret (Monad:=envcheck_monad) (andb is_const_applied is_constr_applied).
@@ -86,10 +89,13 @@ Definition print_sum (s : string + string) :=
   | inr s' => s'
   end.
 
-Definition erase_print (prefix : string) (TT : env string) (p : Ast.program) : string :=
+Definition erase_print (prefix : string)
+           (FT : list string) (* list of fixpoint names *)
+           (TT : env string) (* tranlation table *)
+           (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let checked_t := erase_template_program p in
-  print_sum (print_template_program prefix TT checked_t).
+  print_sum (print_template_program prefix FT TT checked_t).
 
 Definition liftM {M : Type -> Type} `{Monad M} {A B : Type}
            (f : A -> B) : M A -> M B :=
@@ -107,15 +113,21 @@ Definition erase_debox_all_applied (TT : env string) (p : Ast.program) :
   '(Σ,t) <- erase_template_program p ;;
   ret (Σ, debox_all t).
 
-Definition erase_print_deboxed (prefix : string) (TT : env string) (p : Ast.program) : string :=
+Definition erase_print_deboxed (prefix : string)
+           (FT : list string) (* list of fixpoint names *)
+           (TT : env string) (* tranlation table *)
+           (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let deboxed := erase_debox_types TT p in
-  print_sum (print_template_program prefix TT deboxed).
+  print_sum (print_template_program prefix FT TT deboxed).
 
-Definition erase_print_deboxed_all_applied (prefix : string) (TT : env string) (p : Ast.program) : string :=
+Definition erase_print_deboxed_all_applied (prefix : string)
+           (FT : list string) (* list of fixpoint names *)
+        (TT : env string) (* tranlation table *)
+        (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let deboxed := erase_debox_all_applied TT p in
-  print_sum (print_template_program prefix TT deboxed).
+  print_sum (print_template_program prefix FT TT deboxed).
 
 
 Program Definition erase_check_debox_all (prefix : string) (TT : env string) (p : Ast.program)
@@ -140,7 +152,10 @@ Program Definition erase_check_debox_all (prefix : string) (TT : env string) (p 
   end.
 
 
-Definition print_decl (prefix : string) (decl_name : string) (TT : env string) (tys : list Ast.term)
+Definition print_decl (prefix : string) (decl_name : string)
+           (FT : list string) (* list of fixpoint names *)
+           (TT : env string) (* tranlation table *)
+           (tys : list Ast.term)
            (Σ : E.global_context) (decl_body : list E.aname * E.term) : string :=
   let (args,body) := decl_body in
   (* FIXME: this will produce wrong type annotations if the logical argument
@@ -150,14 +165,17 @@ Definition print_decl (prefix : string) (decl_name : string) (TT : env string) (
       map (fun '(x,ty) => parens false (string_of_name x.(E.binder_name) ++ " : " ++ print_liq_type prefix TT ty)) targs in
   let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
   let ctx := map (fun x => E.Build_context_decl x.(E.binder_name) None) (rev args) in
-  "let " ++ decl ++ " = " ++  LPretty.print_term Σ prefix [] TT ctx true false body.
+  "let " ++ decl ++ " = " ++  LPretty.print_term Σ prefix FT TT ctx true false body.
 
-Program Definition erase_check_debox_all_print (prefix : string) (TT : env string) (decl_name : string)
+Program Definition erase_check_debox_all_print (prefix : string)
+        (FT : list string) (* list of fixpoint names *)
+        (TT : env string) (* tranlation table *)
+        (decl_name : string)
         (tys : list Ast.term) (p : Ast.program)
   : string :=
   let p := fix_program_universes p in
   let deboxed := erase_check_debox_all prefix TT p in
-  print_sum (print_EnvCheck (print_decl prefix decl_name TT tys) deboxed).
+  print_sum (print_EnvCheck (print_decl prefix decl_name FT TT tys) deboxed).
 
 Notation "'unfolded' d" :=
   ltac:(let y := eval unfold d in d in exact y) (at level 100, only parsing).
@@ -204,13 +222,16 @@ Definition toDef {A} (p : A)  :=
   cbody <- opt_to_template cbody_o.(cst_body) ;;
   ret (mkLiqDef nm cbody_o.(cst_type) (Some cbody)).
 
-Definition toLiquidityWithBoxes {A} (prefix : string) (TT : env string) (p : A) :=
+Definition toLiquidityWithBoxes {A} (prefix : string)
+           (FT : list string) (* list of fixpoint names *)
+           (TT : env string) (* tranlation table *)
+           (p : A) :=
   d_e <- toDefWithEnv p ;;
   let '(liq_def, env) := d_e in
   let decl_name := unqual_name liq_def.(ld_name) in
   match liq_def.(ld_body) with
   | Some b =>
-    liq_prog <- tmEval lazy (erase_print prefix TT (env,b)) ;;
+    liq_prog <- tmEval lazy (erase_print prefix FT TT (env,b)) ;;
     let liq_def_string := "let " ++ decl_name ++ " = " ++ liq_prog in ret liq_def_string
   | None =>
     liq_type <- tmEval lazy (print_liq_type prefix TT liq_def.(ld_type)) ;;
@@ -225,7 +246,8 @@ Definition toLiquidity {A} (prefix : string) (TT : env string) (p : A) :=
   | Some b =>
     (* FIXME: we should use erasure for types here *)
     let '(_,tys,_) := decompose_prod liq_def.(ld_type) in
-    tmEval lazy (erase_check_debox_all_print prefix TT decl_name tys (env,b))
+    let FT := map string_of_name (get_fix_names b) in
+    tmEval lazy (erase_check_debox_all_print prefix FT TT decl_name tys (env,b))
   | None => liq_type <- tmEval lazy (print_liq_type prefix TT liq_def.(ld_type)) ;;
            let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
   end.
@@ -237,7 +259,9 @@ Definition toLiquidityEnv {A} (prefix : string) (TT : env string) (Σ : Template
   | Some b =>
     (* FIXME: we should use erasure for types here *)
     let '(_,tys,_) := decompose_prod liq_def.(ld_type) in
-    tmEval lazy (erase_check_debox_all_print prefix TT decl_name tys (Σ,b))
+    (* NOTE: we assume that names of fixpoints are unique and do not clash with other global constants *)
+    let FT := map string_of_name (get_fix_names b) in
+    tmEval lazy (erase_check_debox_all_print prefix FT TT decl_name tys (Σ,b))
   | None => liq_type <- tmEval lazy (print_liq_type prefix TT liq_def.(ld_type)) ;;
            let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
   end.
@@ -258,13 +282,19 @@ Definition toDefIdent (nm : ident)  :=
 
 Definition toLiquidityDefs (prefix : string) (TT : env string) (Σ : TemplateEnvironment.global_env)(ids : list ident) :=
   ds <- monad_map toDefIdent ids ;;
+  (* NOTE: we assume that names of fixpoints are unique and do not clash with other global constants *)
+  let fix_names x := match x.(ld_body) with
+                       Some b => map string_of_name (get_fix_names b)
+                     | None => []
+                     end in
+  let FT := List.concat (map fix_names ds) in
   let liquidify d :=
       let decl_name := unqual_name d.(ld_name) in
       match d.(ld_body) with
       | Some b =>
         (* FIXME: we should use erasure for types here *)
         let '(_,tys,_) := decompose_prod d.(ld_type) in
-        tmEval lazy (erase_check_debox_all_print prefix TT decl_name tys (Σ,b))
+        tmEval lazy (erase_check_debox_all_print prefix FT TT decl_name tys (Σ,b))
       | None =>
         liq_type <- tmEval lazy (print_liq_type prefix TT d.(ld_type)) ;;
         let liq_def_string := "type " ++ decl_name ++ " = " ++ liq_type in ret liq_def_string
@@ -283,14 +313,14 @@ Record LiquidityModule :=
   { lm_module_name : string ;
     lm_prelude : string ;
     lm_adts : list string ;
-    lm_functions : list string;
+    lm_defs : list string;
     lm_entry_point : string ;
     lm_init : string}.
 
 Definition printLiquidityModule (prefix : string) (Σ : global_env) (TT : env string)
            (m : LiquidityModule) :=
   adts <- toLiquidityADTs prefix TT Σ m.(lm_adts) ;;
-  defs <- toLiquidityDefs prefix TT Σ m.(lm_functions);;
+  defs <- toLiquidityDefs prefix TT Σ m.(lm_defs);;
   res <- tmEval lazy
                (m.(lm_prelude)
                  ++ nl ++ nl

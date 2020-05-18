@@ -72,10 +72,7 @@ Definition printWrapperAndMain :=
 let%entry main (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = wrapper msg st".
 
 Time Run TemplateProgram
-     (
-     (* storage_def <- tmQuoteConstant "storage" false ;; *)
-     (* storage_body <- opt_to_template storage_def.(cst_body) ;; *)
-     ind <- tmQuoteInductive "msg_coq" ;;
+     (ind <- tmQuoteInductive "msg_coq" ;;
      ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
      t1 <- toLiquidity PREFIX TT update_contribs ;;
      t2 <- toLiquidity PREFIX TT maybe_bind_unit ;;

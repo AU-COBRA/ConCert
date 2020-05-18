@@ -27,7 +27,7 @@ Fixpoint mkNames (ns : list string) (suffix : string) :=
   match ns with
   | [] => tmPrint "Done."
   | n :: ns' => n' <- tmEval all (n ++ suffix)%string ;;
-                  str <- tmQuote n';;
+                  str <- tmQuote n' ;;
                   tmMkDefinition n str;;
                   mkNames ns' suffix
   end.
