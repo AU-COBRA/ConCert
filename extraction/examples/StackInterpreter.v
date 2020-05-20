@@ -47,7 +47,7 @@ Module Interpreter.
 
   Definition obs0 s := IObs s 0.
 
-  Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) :=
+ Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) :=
     match insts with
     | [] => Some s
     | hd :: inst' =>
@@ -55,7 +55,7 @@ Module Interpreter.
       | IPushZ i => interp ext inst' (ZVal i :: s)
       | IPushB b => interp ext inst' (BVal b :: s)
       | IObs l i => match lookup (l,i) ext with
-                   | Some v => Some (v :: s)
+                   | Some v => interp ext inst' (v :: s)
                    | None => None
                    end
       | IOp op => match op with
@@ -80,6 +80,13 @@ Module Interpreter.
 End Interpreter.
 
 Import Interpreter.
+(* Input for the interpreter in Liquidity:
+
+([IPushZ 0; IObs ("blah",0); IOp Add; IPushZ 1; IOp Equal], (Map [(("blah", 0), (ZVal 1))])) *)
+Example test_interp :
+  let env  := FMap.of_list [(("blah", 0%Z), (ZVal 1))] in
+  interp env [IPushZ 0; IObs "blah" 0; IOp Add; IPushZ 1; IOp Equal] [] = Some [BVal true].
+Proof. reflexivity. Qed.
 
 Definition local_def := local PREFIX.
 
@@ -150,10 +157,10 @@ Definition INTERP_MODULE : LiquidityModule :=
      (* definitions of operations on ints, bools, pairs, ect. *)
      lm_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops;
 
-     (* inductives *)
+     (* inductives -- in the order that respect dependency *)
      lm_adts := ["op";"instruction";"value"];
 
-     (* definitions: type abbreviations and functions *)
+     (* definitions: type abbreviations and functions -- in the order that respect dependency *)
      lm_defs := ["params"; "storage";"obs0";"interp";"receive"];
 
      (* code for the entry point *)
