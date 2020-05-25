@@ -262,20 +262,6 @@ Proof.
           contract_no_created_blocks; auto.
 Qed.
 
-Definition is_deploy (ac : ActionBody) : bool :=
-  match ac with
-  | act_transfer to amount => false
-  | act_call to amount msg => false
-  | act_deploy amount c setup => true
-  end.
-
-Definition is_call (ac : ActionBody) : bool :=
-  match ac with
-  | act_transfer to amount => false
-  | act_call to amount msg => true
-  | act_deploy amount c setup => false
-  end.
-
 Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
   reachable bstate ->
   env_contracts bstate addr = Some (cf_contract : WeakContract) ->

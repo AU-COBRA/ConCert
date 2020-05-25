@@ -912,23 +912,23 @@ Definition created_blocks
 
 Definition is_deploy (ac : ActionBody) : bool :=
   match ac with
-  | act_transfer to amount => false
-  | act_call to amount msg => false
-  | act_deploy amount c setup => true
+  | act_transfer _ _ => false
+  | act_call _ _ _ => false
+  | act_deploy _ _ _ => true
   end.
 
 Definition is_call (ac : ActionBody) : bool :=
   match ac with
-  | act_transfer to amount => false
-  | act_call to amount msg => true
-  | act_deploy amount c setup => false
+  | act_transfer _ _ => false
+  | act_call _ _ _ => true
+  | act_deploy _ _ _ => false
   end.
 
 Definition is_transfer (ac : ActionBody) : bool :=
   match ac with
-  | act_transfer to amount => true
-  | act_call to amount msg => false
-  | act_deploy amount c setup => false
+  | act_transfer _ _ => true
+  | act_call _ _ _ => false
+  | act_deploy _ _ _ => false
   end.
 
 Section Theories.
@@ -2088,7 +2088,7 @@ Qed.
 Lemma lift_outgoing_txs_prop {P : ActionBody -> Prop}
       (contract : Contract Setup Msg State ) (bstate : ChainState) (addr : Address) :
   reachable bstate ->
-  (forall chain ctx cstate msg new_cstate acts ,
+  (forall chain ctx cstate msg new_cstate acts,
       contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
       Forall P acts) ->
   env_contracts bstate addr = Some (contract : WeakContract) ->
