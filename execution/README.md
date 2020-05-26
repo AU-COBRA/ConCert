@@ -6,7 +6,11 @@ The best place to start exploring the project is in
 [Blockchain.v](theories/Blockchain.v). Here we define the basic types describing
 blockchains, smart contracts and the semantics of the execution layer of
 blockchains. We give proofs of some interesting general lemmata here as well,
-for instances that undeployed contracts cannot have sent out any transactions.
+for instance that undeployed contracts cannot have sent out any transactions.
+We also provide a custom induction principle for proving properties involving
+the executions layer. It helps to simplify proofs by reducing the boilerplate
+code. See applications of the induction principle in the [example
+contracts](examples).
 
 We also define a typeclass that captures what it means to satisfy our semantics.
 We exhibit two instances of this typeclass in
@@ -14,7 +18,23 @@ We exhibit two instances of this typeclass in
 implementations of execution layers of modern blockchains. One is implemented
 with depth-first execution and the other with breadth-first execution order.
 
-In [Congress.v](theories/Congress.v) we implement the _Congress_ contract, a
+In [Circulation.v](examples/Circulation.v) we prove a small sanity check for our
+semantics. Specifically we prove that the total sum of the money in the system
+is equal to the sum of the rewards handed out in blocks.
+
+### Smart contract implementations
+
+The [examples](examples) folder contains various smart contracts along with
+proofs of their properties.
+
+In [Counter.v](examples/Counter.v) we implement a simple counter contract that
+serves as a tutorial on how one can use ConCert to develop and verify smart
+contracts.
+
+In [EIP20Token.v](examples/EIP20Token.v) we implement the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
+EIP 20 is a standard interface for tokens - customizable assets for blockchains.
+
+In [Congress.v](examples/Congress.v) we implement the _Congress_ contract, a
 simplified version of the DAO, which does complex dynamic interactions with the
 blockchain and other contracts deployed on the blockchain. We specify and prove
 a property about this contract at the end of this file. This property is
@@ -38,13 +58,13 @@ proposals up to this point. This is an approximation of the fact that any
 outgoing transaction should correspond to some proposal created and discussed in
 the past.
 
-In [Congress_Buggy.v](theories/Congress_Buggy.v) we try the opposite: we take
+In [Congress_Buggy.v](examples/Congress_Buggy.v) we try the opposite: we take
 the same contract as above, but introduce a reentrancy issue into it. We then
 formally prove that this version of the Congress does _not_ satisfy the property
 proven for the other version. This is proven by using one of our implementations
 of our semantics and just asking Coq to compute.
 
-In [Escrow.v](theories/Escrow.v) we verify functional correctness of an escrow
+In [Escrow.v](examples/Escrow.v) we verify functional correctness of an escrow
 contract based on the
 [safe remote purchase](https://solidity.readthedocs.io/en/v0.6.1/solidity-by-example.html#safe-remote-purchase)
 example in the Solidity documentation. This contract works by financially
@@ -91,7 +111,7 @@ Note that the second point above is for the case where the buyer never commits
 any money to the escrow, in which case the seller is allowed to withdraw his own
 commitment after a deadline.
 
-In [BoardroomVoting.v](theories/BoardroomVoting.v) we verify functional
+In [BoardroomVoting.v](examples/BoardroomVoting.v) we verify functional
 correctness of a private boardroom voting contract based on [1] under some
 simplifying assumptions. In particular we do not verify anything about the
 zero-knowledge proofs required to make sure that everyone participates correctly
@@ -166,11 +186,7 @@ Here `make_signup_msg` and `make_vote_msg` are the functions provided by the
 smart contract and could potentially be extracted with the rest of the smart
 contract to have functionally verified boardroom voting contract with privacy.
 
-In [Circulation.v](theories/Circulation.v) we prove a small sanity check for our
-semantics. Specifically we prove that the total sum of the money in the system
-is equal to the sum of the rewards handed out in blocks.
-
-In [LocalBlockchainTests.v](theories/LocalBlockchainTests.v) we test that Coq is
+In [LocalBlockchainTests.v](examples/LocalBlockchainTests.v) we test that Coq is
 able to compute with the Congress by deploying it and interacting with it using
 one of our implementations of blockchains. We also specialize the proof shown
 about to our actual implementations of the execution layer described above.
