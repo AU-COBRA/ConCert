@@ -20,6 +20,7 @@ execution/theories/ResultMonad.v
 execution/theories/Serializable.v
 
 -R execution/examples ConCert.Execution.Examples
+execution/examples/Counter.v
 execution/examples/BoardroomMath.v
 execution/examples/BoardroomVoting.v
 execution/examples/BoardroomVotingTest.v
