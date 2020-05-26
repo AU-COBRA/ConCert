@@ -31,7 +31,7 @@ In [Counter.v](examples/Counter.v) we implement a simple counter contract that
 serves as a tutorial on how one can use ConCert to develop and verify smart
 contracts.
 
-In [EIP20token.v](examples/EIP20token.v) we implement the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
+In [EIP20Token.v](examples/EIP20Token.v) we implement the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
 EIP 20 is a standard interface for tokens - customizable assets for blockchains.
 
 In [Congress.v](examples/Congress.v) we implement the _Congress_ contract, a
