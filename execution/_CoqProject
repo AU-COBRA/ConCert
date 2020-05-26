@@ -4,30 +4,30 @@
 ../vendor/record-update/RecordSet.v
 ../vendor/record-update/RecordUpdate.v
 
--R execution/theories ConCert.Execution
-execution/theories/Automation.v
-execution/theories/Blockchain.v
-execution/theories/BoundedN.v
-execution/theories/ChainedList.v
-execution/theories/Circulation.v
-execution/theories/Containers.v
-execution/theories/ContractMonads.v
-execution/theories/Extras.v
-execution/theories/Finite.v
-execution/theories/LocalBlockchain.v
-execution/theories/Monads.v
-execution/theories/ResultMonad.v
-execution/theories/Serializable.v
+-R theories ConCert.Execution
+theories/Automation.v
+theories/Blockchain.v
+theories/BoundedN.v
+theories/ChainedList.v
+theories/Circulation.v
+theories/Containers.v
+theories/ContractMonads.v
+theories/Extras.v
+theories/Finite.v
+theories/LocalBlockchain.v
+theories/Monads.v
+theories/ResultMonad.v
+theories/Serializable.v
 
--R execution/examples ConCert.Execution.Examples
-execution/examples/Counter.v
-execution/examples/BoardroomMath.v
-execution/examples/BoardroomVoting.v
-execution/examples/BoardroomVotingTest.v
-execution/examples/Congress.v
-execution/examples/Congress_Buggy.v
-execution/examples/Egcd.v
-execution/examples/EIP20Token.v
-execution/examples/Escrow.v
-execution/examples/Euler.v
-execution/examples/LocalBlockchainTests.v
+-R examples ConCert.Execution.Examples
+examples/Counter.v
+examples/BoardroomMath.v
+examples/BoardroomVoting.v
+examples/BoardroomVotingTest.v
+examples/Congress.v
+examples/Congress_Buggy.v
+examples/Egcd.v
+examples/EIP20Token.v
+examples/Escrow.v
+examples/Euler.v
+examples/LocalBlockchainTests.v
