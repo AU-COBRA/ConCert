@@ -1,8 +1,10 @@
+From ConCert.Extraction Require Import StringExtra.
+From Coq Require Import Ascii.
 From Coq Require Import Bool.
 From Coq Require Import List.
+From Coq Require Import Psatz.
 From Coq Require Import String.
 From Coq Require VectorDef.
-From Coq Require Import Psatz.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EArities.
 From MetaCoq.Erasure Require Import Extract.
@@ -46,89 +48,6 @@ Let wfΣ : ∥wf Σ∥ := ltac:(now sq).
 Notation term_rel := (SafeErasureFunction.term_rel Σ).
 Instance WellFounded_term_rel : WellFounded term_rel :=
   (SafeErasureFunction.wf_reduction Σ wfΣ).
-
-Inductive term_sub_ctx : context * term -> context * term -> Prop :=
-| sub_prod_dom Γ na A B : term_sub_ctx (Γ, A) (Γ, tProd na A B)
-| sub_prod_cod Γ na A B : term_sub_ctx (Γ,, vass na A, B) (Γ, tProd na A B)
-| sub_app_arg Γ arg hd arg1 :
-    In arg (decompose_app (tApp hd arg1)).2 ->
-    term_sub_ctx (Γ, arg) (Γ, tApp hd arg1).
-
-(*
-Instance WellFounded_term_sub_ctx : WellFounded term_sub_ctx.
-Proof.
-  Admitted.
-  intros (Γl & tl).
-  revert Γl.
-  induction tl; intros Γl; constructor; intros (Γs & ts) sub; inversion sub; subst; auto.
-  cbn in *.
-  revert ts sub H0.
-  induction (decompose_app_rec tl1 [tl2]).2 eqn:eq using List.rev_ind; [easy|].
-  intros ts sub H0.
-  SearchAbout (In _ (_ ++ _)).
-  apply in_app_or in H0.
-  destruct H0.
-  - admit.
-  - cbn in H.
-    destruct H as [->|[]].
-    replace ts with tl2; [easy|].
-    clear -eq.
-    assert (forall (l : list term) a b, [a] = (l ++ [b])%list -> a = b).
-    { intros.
-      replace l0 with (@nil term) in *.
-      - cbn in *.
-        now inversion H.
-      - symmetry. apply length_zero_iff_nil.
-        assert (List.length (l0 ++ [b]) = 1) by (now rewrite <- H).
-        rewrite List.app_length in H0.
-        cbn in H0.
-        lia.
-    }
-    induction tl1; cbn in *; try solve [now apply H with l].
-    clear H.
-    destruct l; [inversion eq; auto|].
-    inversion eq.
-    inversion H1.
-  apply app_in in H0.
-  destruct H0.
-  - subst.
-    SearchAbout decompose_app_rec.
-  - inversion sub.
-*)
-
-(*
-Instance foo : WellFounded term_direct_sub_ctx.
-Proof.
-  intros tl.
-  induction tl; try solve [constructor; intros ? sub; inversion sub; auto].
-  - constructor.
-    intros y sub.
-    inversion sub; subst; clear sub; auto.
-  - constructor.
-    intros
-  constructor.
-  induction tl; intros ts sub; try solve [inversion sub].
-  - inversion sub; subst; clear sub.
-    +
-  -
-*)
-
-Definition erase_type_rel : Relation_Definitions.relation (∑ Γ t, ∥isType Σ Γ t∥) :=
-  fun '(Γs; ts; wfs) '(Γl; tl; wfl) =>
-    ∥∑r, red Σ Γl tl r × term_sub_ctx (Γs, ts) (Γl, r)∥.
-
-Instance WellFounded_erase_type_rel : WellFounded erase_type_rel.
-Proof.
-  Admitted.
-(*
-  intros (Γl & l & wf).
-  sq.
-  induction (normalisation' _ _ _ wfΣ wf) as [l _ IH].
-  induction (WellFounded_term_sub_ctx (Γl, l)) as [? _ IH_sub] in Γl, wf, IH.
-  constructor.
-  intros (Γs & s & wfs) [(m & redm & sub)].
-  inversion sub; subst; clear sub.
-*)
 
 Definition Is_conv_to_Sort Γ T : Prop :=
   exists univ, ∥red Σ Γ T (tSort univ)∥.
@@ -209,7 +128,7 @@ Lemma isTwf {Γ T} (isT : ∥isType Σ Γ T∥) : wellformed Σ Γ T.
 Proof. sq. now apply isType_wellformed. Qed.
 
 Opaque SafeErasureFunction.wf_reduction.
-Equations flag_of_type (Γ : context) (T : term) (isT : ∥isType Σ Γ T∥) : typing_result (type_flag Γ T)
+Equations(noeqns) flag_of_type (Γ : context) (T : term) (isT : ∥isType Σ Γ T∥) : typing_result (type_flag Γ T)
   by wf ((Γ;T; (isTwf isT)) : (∑ Γ t, wellformed Σ Γ t)) term_rel :=
 flag_of_type Γ T isT with inspect (hnf wfΣ Γ T (isTwf isT)) :=
   | exist T is_hnf with fot_viewc T := {
@@ -321,11 +240,11 @@ Next Obligation.
 Next Obligation.
   (* Like above, but we need to short that T is not converible to a sort. *)
   Admitted.
+Transparent SafeErasureFunction.wf_reduction.
 
 (** OCaml-like types with boxes *)
 Inductive box_type :=
 | TBox
-| TAny
 | TArr (dom : box_type) (codom : box_type)
 | TApp (_ : box_type) (_ : box_type)
 | TVar (_ : nat) (* Index of type variable *)
@@ -420,7 +339,6 @@ Definition check_tvars_empty (tvars : list name) (t : term) : typing_result unit
   | _ => TypeError (Msg ("Unsupported type " ++ string_of_term t))
   end.
 
-(*
 (* A check_isType that uses retyping *)
 Program Definition check_isType Γ t (wt : welltyped Σ Γ t) : typing_result (∥isType Σ Γ t∥) :=
   '(ty; typ) <- type_of Σ wfΣ _ Γ t wt;;
@@ -442,7 +360,24 @@ Next Obligation.
   eapply type_reduction; try easy.
   eapply typing_wf_local; easy.
 Qed.
-*)
+
+Inductive term_sub_ctx : context * term -> context * term -> Prop :=
+| sub_prod_dom Γ na A B : term_sub_ctx (Γ, A) (Γ, tProd na A B)
+| sub_prod_cod Γ na A B : term_sub_ctx (Γ,, vass na A, B) (Γ, tProd na A B)
+| sub_app_arg Γ arg hd arg1 :
+    In arg (decompose_app (tApp hd arg1)).2 ->
+    term_sub_ctx (Γ, arg) (Γ, tApp hd arg1).
+
+Definition erase_type_rel : Relation_Definitions.relation (∑ Γ t, ∥isType Σ Γ t∥) :=
+  fun '(Γs; ts; wfs) '(Γl; tl; wfl) =>
+    ∥∑r, red Σ Γl tl r × term_sub_ctx (Γs, ts) (Γl, r)∥.
+
+Lemma well_founded_erase_type_rel : well_founded erase_type_rel.
+Proof.
+  Admitted.
+
+Instance WellFounded_erase_type_rel : WellFounded erase_type_rel :=
+  Wf.Acc_intro_generator 1000 well_founded_erase_type_rel.
 
 Lemma reduce_term_sr {Γ t red wft s} :
   s = reduce_term red Σ wfΣ Γ t wft ->
@@ -516,15 +451,22 @@ Equations erase_type_viewc (t : term) : erase_type_view t := {
   | t := et_view_other t _
   }.
 
-Equations erase_type
+Equations typing_result_inspect
+          {A} (t : typing_result A) : typing_result { a : A | t = Checked a } :=
+typing_result_inspect (Checked a) := Checked (exist a _);
+typing_result_inspect (TypeError te) := TypeError te.
+
+Opaque WellFounded_erase_type_rel SafeErasureFunction.wf_reduction.
+(* Marked noeqns until we need to prove things about it to make its
+definition faster *)
+Equations(noeqns) erase_type
           (Γ : context)
           (t : term)
           (isT : ∥isType Σ Γ t∥)
-          (var_map : Vector.t nat (List.length Γ)) (* tRel to TVar map *)
+          (tvar_map : Vector.t (option nat) (List.length Γ)) (* tRel to type var index *)
   : typing_result (list name × box_type)
   by wf ((Γ; t; isT) : (∑ Γ t, ∥isType Σ Γ t∥)) erase_type_rel :=
 erase_type Γ t isT var_map with inspect (reduce_term redβιζ Σ wfΣ Γ t (isTwf isT)) :=
-  (* matching on flag_of_type directly causes issues for some reason *)
   | exist thnf eq_hnf with flag_of_type Γ thnf _ := {
     | TypeError te := TypeError te;
 
@@ -532,14 +474,18 @@ erase_type Γ t isT var_map with inspect (reduce_term redβιζ Σ wfΣ Γ t (is
 
     | Checked _ with erase_type_viewc thnf := {
 
-      | et_view_rel i := ret ([], TVar (@Vector.nth_order _ _ var_map i _));
+      | et_view_rel i with @Vector.nth_order _ _ tvar_map i _ := {
+        | Some n := ret ([], TVar n);
+        | None := ret ([], TAny) (* Term or a non-nullary type scheme *)
+        };
 
       | et_view_sort _ := ret ([], TBox);
 
       | et_view_prod na A B with erase_type Γ A _ var_map := {
         | TypeError te := TypeError te;
 
-        | Checked ([], dom) with erase_type (Γ,, vass na A) B _ (0 :: var_map)%vector := {
+        | Checked ([], dom) with erase_type (Γ,, vass na A) B _
+                                            (#|Γ| :: var_map)%vector := {
           | TypeError te := TypeError te;
           | Checked (tvars, cod) := ret (na :: tvars, TArr dom cod)
           };
@@ -548,17 +494,16 @@ erase_type Γ t isT var_map with inspect (reduce_term redβιζ Σ wfΣ Γ t (is
         };
 
       | et_view_app orig_hd orig_arg with inspect (decompose_app (tApp orig_hd orig_arg)) := {
-        | exist (hd, decomp_args) _ with erase_app_head hd := {
+        | exist (hd, decomp_args) eq_decomp with erase_app_head hd := {
           | TypeError te := TypeError te;
 
           | Checked hdbt :=
-
             let erase_arg (a : term) (i : In a decomp_args) : typing_result box_type :=
                 '(aT; typ) <- type_of Σ wfΣ _ Γ a _;;
-                ft <- flag_of_type Γ aT isTy;;
+                ft <- flag_of_type Γ aT _;;
                 match ft with
                 | {| is_logical := true |} => ret TBox
-                | {| is_sort := left _ |} =>
+                | {| is_sort := left conv_sort |} =>
                   '(tvars, bt) <- erase_type Γ a _ var_map;;
                   match tvars with
                   | [] => ret bt
@@ -570,30 +515,33 @@ erase_type Γ t isT var_map with inspect (reduce_term redβιζ Σ wfΣ Γ t (is
                                     ++ string_of_term a))
                 end in
 
-            (fix erase_args
+            let fix erase_args
                  (args : list term) (inc : incl args decomp_args)
                  (result : box_type) : typing_result (list name * box_type) :=
-               match args with
-               | [] => ret ([], result)
+               match args return incl args decomp_args -> typing_result (list name * box_type) with
+               | [] => fun _ => ret ([], result)
                | a :: args =>
+                 fun inc =>
                  abt <- erase_arg a _;;
                  erase_args args _ (TApp result abt)
-               end) decomp_args _ hdbt
+               end inc in
 
-          (* The code below gives a weird error *)
+            erase_args decomp_args _ hdbt
+
           (*
+          (* The code below gives a weird error *)
           where erase_args (args : list term) (inc : incl args decomp_args)
-                : typing_result (list box_type) :=
-          erase_args [] _ := ret [];
+                           (result : box_type)
+                : typing_result (list name * box_type) :=
+          erase_args [] _ r := ret ([], r);
           (* We will fail if the arg is not a type, but let's first check to see if
              it is a logical type scheme, in which case we can get away with boxing
              it. For instance: Say we are processing [sig A P] in
                A : Type, P : A -> Prop |- sig A P : Type.
              The P argument here is not strictly a type, but is rather a type scheme.
              So we get the flag of its type, and box it. *)
-          erase_args (a :: args) _ := abt <- erase_arg a _;;
-                                      argsbt <- erase_args args _;;
-                                      ret (abt :: argsbt)
+          erase_args (a :: args) _ r := abt <- erase_arg a _;;
+                                        erase_args args _ (TApp r abt)
 
           where erase_arg (a : term) (i : In a decomp_args) : typing_result box_type :=
           erase_arg a i with type_of Σ wfΣ _ Γ a _ := {
@@ -671,40 +619,153 @@ Next Obligation.
   now case wfextΣ; intros [[]].
 Qed.
 Next Obligation.
-  Admitted.
+  pose proof (reduce_term_sr eq_hnf isT) as [(univ & typ)].
+  unfold PCUICTypingDef.typing in typ.
+  replace (tApp orig_hd orig_arg) with (mkApps hd decomp_args) in typ; cycle 1.
+  { symmetry. apply decompose_app_inv.
+    now rewrite <- eq_decomp. }
+  destruct wfΣ as [wfΣu].
+  apply type_mkApps_inv in typ; [|easy].
+  destruct typ as (? & ? & (? & spine) & ?).
+  clear -spine i.
+  induction spine; [easy|].
+  destruct i.
+  - subst a.
+    econstructor; easy.
+  - easy.
+Qed.
 Next Obligation.
-  destruct typ as [typ].
-  apply validity_term in typ.
-  SearchAbout welltyped.
-  SearchAbout (tSort _).
-  SearchAbout validity.
-  SearchAbout Is_conv_to_Arity.
+  (* Strategy: Since the app is welltyped, the head must be a product with domain aT,
+     it follows that aT is a type. *)
+  pose proof (reduce_term_sr eq_hnf isT) as [(univ & typapp)].
+  unfold PCUICTypingDef.typing in typapp.
+  replace (tApp orig_hd orig_arg) with (mkApps hd decomp_args) in typapp; cycle 1.
+  { symmetry. apply decompose_app_inv.
+    now rewrite <- eq_decomp. }
+  destruct wfΣ as [wfΣu].
+  apply type_mkApps_inv in typapp; [|easy].
+  destruct typapp as (? & ? & (? & spine) & ?).
+  clear -spine i typ wfΣu.
+  induction spine; [easy|].
+  destruct i.
+  - subst a.
+    apply isWAT_tProd in i0; [|easy|now eapply typing_wf_local].
+    destruct i0 as ((univ & typA) & _).
+    destruct typ as [typ].
+    unfold PCUICTypingDef.typing in *.
+    assert (Σ;;; Γ |- aT <= A) by todo "type_of principality".
+    (* TODO: We should have aT <= A : PCUICTerm.tSort univ by using
+       type_of_principal. Does this give us aT : PCUICTerm.tSort u for some universe u? *)
+    todo "type_of".
+  - easy.
+Qed.
+Next Obligation.
+  destruct conv_sort as (univ & reduniv).
+  destruct wfΣ as [wfΣu].
+  sq.
+  exists univ.
+  eapply type_reduction.
+  - easy.
+  - now eapply typing_wf_local.
+  - exact typ.
+  - easy.
+Qed.
 Next Obligation.
   pose proof (reduce_term_sound redβιζ Σ wfΣ Γ t (isTwf isT)).
   sq.
-  exists (tApp hd0 arg).
-  split.
-  - now rewrite wildcard.
-  - constructor.
-    cbn.
-    rewrite decompose_app_rec_acc_app.
-    now apply in_or_app; right; constructor.
+  exists (tApp orig_hd orig_arg).
+  split; [rewrite eq_hnf; easy|].
+  constructor.
+  rewrite <- eq_decomp.
+  easy.
+Qed.
+Next Obligation.
+  now specialize (inc a (or_introl eq_refl)).
+Qed.
+Next Obligation.
+  now specialize (inc a0 (or_intror H)).
+Qed.
+Transparent WellFounded_erase_type_rel SafeErasureFunction.wf_reduction.
+End FixSigma.
+
+From MetaCoq Require Import TemplateToPCUIC SafeTemplateErasure SafeTemplateChecker.
+
+Program Definition erase_type_program (p : Ast.program)
+  : EnvCheck (EAst.global_context * (list name * box_type)) :=
+  let Σ := List.rev (trans_global (Ast.empty_ext p.1)).1 in
+  G <- check_wf_env_only_univs Σ ;;
+  Σ' <- wrap_error (empty_ext Σ) "erasure of the global context" (SafeErasureFunction.erase_global Σ _) ;;
+  t <- wrap_error
+         (empty_ext Σ)
+         ("During erasure of " ++ string_of_term (trans p.2))
+         (erase_type (empty_ext Σ) _ [] (trans p.2) _ (Vector.nil nat));;
+  ret (Σ', t).
+Next Obligation.
+  unfold trans_global.
+  simpl. unfold wf_ext, empty_ext. simpl.
+  unfold on_global_env_ext. destruct H0. constructor.
+  split; auto. simpl. todo "on_udecl on empty universe context".
+Qed.
+Next Obligation.
+  unfold trans_global.
+  simpl. unfold wf_ext, empty_ext. simpl.
+  unfold on_global_env_ext. destruct H0. todo "assuming well-typedness".
 Qed.
 
-    exist (tRel i) _ _ := Checked ([], TVar (@Vector.nth_order _ _ var_map i _));
-    erase
+Definition is_arr (t : box_type) : bool :=
+  match t with
+  | TArr _ _ => true
+  | _ => false
+  end.
 
-  | exist (tRel i) _ := Checked ([], TVar (@Vector.nth_order _ _ var_map i _));
-  | exist (tSort _) _ := Checked ([], TBox);
-  | exist (tProd na A B) _ with flag_of_type Γ A _ := {
-    | Checked {| is_logical := false; is_arity := right _ |}
-      (* Domain is a simple type (like [nat]), erase codomain first. *)
-      with erase_type (Γ,, vass na A) B _ (0 :: var_map)%vector) := {
-      | Checked (tvars, TBox) := Checked (tvars, TBox)
-  }.
+Definition kername_qualifier (name : kername) : string :=
+  match last_index_of "." name with
+  | Some n => substring_count n name
+  | None => ""
+  end.
 
+Fixpoint print_box_type (Σ : E.global_context) (bt : box_type) :=
+  match bt with
+  | TBox => "□"
+  | TArr dom codom => parens (negb (is_arr dom)) (print_box_type Σ dom) ++ " → " ++ print_box_type Σ codom
+  | TApp t1 t2 => parens false (print_box_type Σ t1 ++ " " ++ print_box_type Σ t2)
+  | TVar i => "'a" ++ string_of_nat i
+  | TInd s =>
+    match EPretty.lookup_ind_decl Σ s.(inductive_mind) s.(inductive_ind) with
+    | Some oib =>
+      kername_qualifier s.(inductive_mind) ++ "." ++ oib.(E.ind_name)
+    | None => "UndeclaredIductive(" ++ s.(inductive_mind)
+                                    ++ ","
+                                    ++ s.(inductive_mind)
+                                    ++ ")"
+    end
+  | TConst s => s
+  end.
 
+Definition erase_and_print_type {cf : checker_flags} (after_erasure : box_type -> box_type) (p : Ast.program)
+  : string + string :=
+  let p := fix_program_universes p in
+  match erase_type_program p with
+  | CorrectDecl (Σ', t) =>
+    let t' := after_erasure t.2 in
+    inl ("Environment is well-formed and " ++ Pretty.print_term (Ast.empty_ext p.1) [] true p.2 ++
+         " erases to: "
+         ++ nl ++ "type variables: " ++ String.concat " " (map (fun na => match na with
+                                                                          | nAnon => "_"
+                                                                          | nNamed i => i
+                                                                          end)
+                                                               t.1)
+         ++ nl ++ print_box_type Σ' t')
+  | EnvError Σ' (AlreadyDeclared id) =>
+    inr ("Already declared: " ++ id)
+  | EnvError Σ' (IllFormedDecl id e) =>
+    inr ("Type error: " ++ PCUICSafeChecker.string_of_type_error Σ' e ++ ", while checking " ++ id)
+  end.
 
+From MetaCoq.Template Require Import Loader.
+
+Quote Recursively Definition ex1 := (forall (A B : Type) (a : A * B) (C : Type), A * B * C).
+Compute erase_and_print_type id ex1.
 
 Equations eraset (input : eraset_input)
   : typing_result (list name × box_type)
