@@ -4,7 +4,6 @@ From Coq Require Import Arith.
 From Coq Require Import Ascii.
 From Coq Require Import Bool.
 From Coq Require Import List.
-From Coq Require Import Psatz.
 From Coq Require Import String.
 From Coq Require VectorDef.
 From Equations Require Import Equations.
@@ -33,19 +32,100 @@ From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
 
+Import PCUICEnvTyping.
+
 Local Open Scope string_scope.
 Import ListNotations.
 Import MonadNotation.
 Set Equations Transparent.
 
 Module P := PCUICAst.
+Module EF := MetaCoq.Erasure.SafeErasureFunction.
 
-Section FixSigma.
+Module Export EAst.
+  Export MetaCoq.Erasure.EAst.
+
+  Inductive box_type :=
+  | TBox
+  | TAny
+  | TArr (dom : box_type) (codom : box_type)
+  | TApp (_ : box_type) (_ : box_type)
+  | TVar (_ : nat) (* Index of type variable *)
+  | TInd (_ : inductive)
+  | TConst (_ : ident).
+
+  Fixpoint decompose_arr (bt : box_type) : list box_type × box_type :=
+    match bt with
+    | TApp dom cod => let (args, res) := decompose_arr cod in
+                      (dom :: args, res)
+    | _ => ([], bt)
+    end.
+
+  Record constant_body :=
+    { cst_type : list name * box_type;
+      cst_body : option E.term; }.
+
+  (* The arity of an inductive is an iterated product that we will
+     decompose into type vars. Each type var has information about its
+     type associated with it. Here are a couple of examples:
+
+     1. [sig : forall (A : Type), (A -> Prop) -> Type] returns [[a; b]] where
+
+          tvar_is_logical a = false,
+          tvar_is_arity a = true,
+          tvar_is_sort a = true,
+
+          tvar_is_logical b = true,
+          tvar_is_arity b = true,
+          tvar_is_sort b = false,
+
+     2. [Vector.t : Type -> nat -> Type] returns [[a; b]] where
+
+          tvar_is_logical a = false,
+          tvar_is_arity a = true,
+          tvar_is_sort a = true,
+
+          tvar_is_logical b = false,
+          tvar_is_arity b = false,
+          tvar_is_sort b = false *)
+  Record oib_type_var :=
+    { tvar_name : name;
+      tvar_is_logical : bool;
+      tvar_is_arity : bool;
+      tvar_is_sort : bool; }.
+
+  Record one_inductive_body :=
+    { ind_name : ident;
+      ind_type_vars : list oib_type_var;
+      ind_ctors : list (ident * list box_type);
+      ind_projs : list (ident * box_type); }.
+
+  Record mutual_inductive_body :=
+    { ind_bodies : list one_inductive_body }.
+
+  Inductive global_decl :=
+  | ConstantDecl : constant_body -> global_decl
+  | InductiveDecl : mutual_inductive_body -> global_decl.
+
+  Definition global_env := list (kername * global_decl).
+
+  Fixpoint lookup_env (Σ : global_env) (id : ident) : option global_decl :=
+    match Σ with
+    | [] => None
+    | (name, decl) :: Σ => if ident_eq id name then Some decl else lookup_env Σ id
+    end.
+End EAst.
+
+Import PCUICAst.
+
+Section FixSigmaExt.
 Local Existing Instance extraction_checker_flags.
 Context (Σ : global_env_ext).
 Context (wfextΣ : ∥wf_ext Σ∥).
 Let wfΣ : ∥wf Σ∥ := ltac:(now sq).
 
+Opaque SafeErasureFunction.wf_reduction.
+Opaque reduce_term.
 
 Notation term_rel := (SafeErasureFunction.term_rel Σ).
 Instance WellFounded_term_rel : WellFounded term_rel :=
@@ -147,7 +227,6 @@ fot_viewc t := fot_view_other t _.
 Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
 Proof. now apply wat_wellformed. Qed.
 
-Opaque SafeErasureFunction.wf_reduction.
 Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
   : typing_result (type_flag Γ T)
   by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) term_rel :=
@@ -260,17 +339,6 @@ Qed.
 Next Obligation.
   exact (todo "also needs discr like above").
 Qed.
-Transparent SafeErasureFunction.wf_reduction.
-
-(** OCaml-like types with boxes *)
-Inductive box_type :=
-| TBox
-| TAny
-| TArr (dom : box_type) (codom : box_type)
-| TApp (_ : box_type) (_ : box_type)
-| TVar (_ : nat) (* Index of type variable *)
-| TInd (_ : inductive)
-| TConst (_ : ident).
 
 Definition redβιζ : RedFlags.t :=
   {| RedFlags.beta := true;
@@ -297,6 +365,7 @@ Proof.
 
 Instance WellFounded_erase_type_rel : WellFounded erase_type_rel :=
   Wf.Acc_intro_generator 1000 well_founded_erase_type_rel.
+Opaque WellFounded_erase_type_rel.
 
 Lemma reduce_term_sr {Γ t red wft s} :
   s = reduce_term red Σ wfΣ Γ t wft ->
@@ -380,14 +449,6 @@ Qed.
 Import VectorDef.VectorNotations.
 Open Scope list.
 
-Definition erase_app_head (t : term) : typing_result box_type :=
-  match t with
-  | tConst nm _ => ret (TConst nm)
-  | tInd ind _ => ret (TInd ind)
-  | _ => TypeError (Msg ("Unsupported head in decomposed application "
-                           ++ string_of_term t))
-  end.
-
 Equations erase_type_discr (t : term) : Prop := {
   | tRel _ := False;
   | tSort _ := False;
@@ -419,27 +480,45 @@ Equations erase_type_viewc (t : term) : erase_type_view t := {
 
 Inductive tRel_kind :=
 (* tRel refers to type variable n in the list of type vars *)
-| rel_type_var (n : nat)
+| RelTypeVar (n : nat)
 (* tRel refers to an inductive type (used in constructors of inductives) *)
-| rel_inductive (ind : inductive)
-(* tRel refers to something logical *)
-| rel_logical
-(* tRel refers to something that is not a type (for example, a
-non-nullary type scheme or a value *)
-| rel_nontype.
+| RelInductive (ind : inductive)
+(* tRel refers to something else, for example something logical or a
+   non-nullary type scheme or a value *)
+| RelOther.
+
+Definition erase_app_head
+           (Γ : context) (Γer : Vector.t tRel_kind #|Γ|)
+           (t : term) : typing_result box_type :=
+  match t with
+  | tConst nm _ => ret (TConst nm)
+  | tInd ind _ => ret (TInd ind)
+  | _ => TypeError (Msg ("Unsupported head in decomposed application "
+                           ++ string_of_term t))
+  end.
 
 Inductive erase_type_error :=
 | NotPrenex
 | TypingError (te : type_error)
 | GeneralError (msg : string).
 
-Definition wrap_typing_result {A} (tr : typing_result A) : result A erase_type_error :=
-  match tr with
-  | Checked a => ret a
-  | TypeError te => Err (TypingError te)
+Definition string_of_erase_type_error (err : erase_type_error) : string :=
+  match err with
+  | NotPrenex => "Type is not in prenex form"
+  | TypingError te => string_of_type_error Σ te
+  | GeneralError err => err
   end.
 
-Opaque WellFounded_erase_type_rel SafeErasureFunction.wf_reduction.
+Definition wrap_typing_result
+           {T E}
+           (tr : typing_result T)
+           (f : type_error -> E)
+  : result T E :=
+  match tr with
+  | Checked a => ret a
+  | TypeError te => Err (f te)
+  end.
+
 (* Marked noeqns until we need to prove things about it to make its
 definition faster *)
 Equations(noeqns) erase_type
@@ -459,10 +538,9 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
     | Checked false with erase_type_viewc t := {
 
       | et_view_rel i with @Vector.nth_order _ _ erΓ i _ := {
-        | rel_type_var n := ret (tvars, TVar n);
-        | rel_inductive ind := ret (tvars, TInd ind);
-        | rel_logical := ret (tvars, TBox);
-        | rel_nontype := ret (tvars, TAny) (* unreachable *)
+        | RelTypeVar n := ret (tvars, TVar n);
+        | RelInductive ind := ret (tvars, TInd ind);
+        | RelOther := ret (tvars, TBox)
         };
 
       | et_view_sort _ := ret (tvars, TBox);
@@ -470,7 +548,7 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
       | et_view_prod na A B with flag_of_type Γ A _ := {
           (* For logical things just box and proceed *)
         | Checked {| is_logical := true |} :=
-          '(tvars, bt) <- erase_type (Γ,, vass na A) (rel_logical :: erΓ)%vector B _ tvars;;
+          '(tvars, bt) <- erase_type (Γ,, vass na A) (RelOther :: erΓ)%vector B _ tvars;;
           ret (tvars, TArr TBox bt);
 
           (* If the type isn't an arity now, then it's a "normal" type like nat. *)
@@ -485,13 +563,13 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
            else
              ret tt);;
 
-          '(tvars, cod) <- erase_type (Γ,, vass na A) (rel_nontype :: erΓ)%vector B _ tvars;;
+          '(tvars, cod) <- erase_type (Γ,, vass na A) (RelOther :: erΓ)%vector B _ tvars;;
           ret (tvars, TArr dom cod);
 
         (* Ok, so it is an arity. If it is a sort then add a type variable. *)
         | Checked {| is_sort := left _ |} :=
           '(tvars, cod) <- erase_type
-                             (Γ,, vass na A) (rel_type_var (List.length tvars) :: erΓ)%vector
+                             (Γ,, vass na A) (RelTypeVar (List.length tvars) :: erΓ)%vector
                              B _
                              (tvars ++ [na]);;
           ret (tvars, TArr TBox cod);
@@ -505,73 +583,50 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
         };
 
       | et_view_app orig_hd orig_arg with inspect (decompose_app (tApp orig_hd orig_arg)) := {
-        | exist (hd, decomp_args) eq_decomp with erase_app_head hd := {
-          | TypeError te := Err (TypingError te);
+        | exist (hd, decomp_args) eq_decomp :=
 
-          | Checked hdbt :=
-            let erase_arg (a : term) (i : In a decomp_args) : result box_type erase_type_error :=
-                '(aT; typ) <- wrap_typing_result (type_of Σ wfΣ _ Γ a _);;
-                ft <- wrap_typing_result (flag_of_type Γ aT _);;
-                match ft with
-                | {| is_logical := true |} => ret TBox
-                | {| is_sort := left conv_sort |} =>
-                  '(tvars_arg, bt) <- erase_type Γ erΓ a _ tvars;;
-                  if List.length tvars <? List.length tvars_arg then
-                    Err NotPrenex
-                  else
-                    ret bt
-                | _ => ret TAny (* Arity or value *)
-                end in
+          hdbt <- match hd as h return h = hd -> _ with
+                  | tRel i =>
+                    fun _ =>
+                      match @Vector.nth_order _ _ erΓ i _ with
+                      | RelInductive ind => ret (TInd ind)
+                      | _ => Err (GeneralError ("Unexpected tRel in application in type: "
+                                                  ++ string_of_term hd))
+                      end
+                  | tConst kn _ => fun _ => ret (TConst kn)
+                  | tInd ind _ => fun _ => ret (TInd ind)
+                  | hd => fun _ => Err (GeneralError ("Unexpected head of application in type: "
+                                                        ++ string_of_term hd))
+                  end eq_refl;;
 
-            let fix erase_args
-                 (args : list term) (inc : incl args decomp_args)
-                 (r : box_type) : result (list name * box_type) erase_type_error :=
-               match args return incl args decomp_args ->
-                                 result (list name * box_type) erase_type_error with
-               | [] => fun _ => ret (tvars, r)
-               | a :: args =>
-                 fun inc =>
-                 abt <- erase_arg a _;;
-                 erase_args args _ (TApp r abt)
-               end inc in
+          let erase_arg (a : term) (i : In a decomp_args) : result box_type erase_type_error :=
+              '(aT; typ) <- wrap_typing_result (type_of Σ wfΣ _ Γ a _) TypingError;;
+              ft <- wrap_typing_result (flag_of_type Γ aT _) TypingError;;
+              match ft with
+              | {| is_logical := true |} => ret TBox
+              | {| is_sort := left conv_sort |} =>
+                '(tvars_arg, bt) <- erase_type Γ erΓ a _ tvars;;
+                if List.length tvars <? List.length tvars_arg then
+                  Err NotPrenex
+                else
+                  ret bt
+              | _ => ret TAny (* Arity or value *)
+              end in
 
-            erase_args decomp_args _ hdbt
+          let fix erase_args
+                  (args : list term) (inc : incl args decomp_args)
+                  (r : box_type) : result (list name * box_type) erase_type_error :=
+              match args return incl args decomp_args ->
+                                result (list name * box_type) erase_type_error with
+              | [] => fun _ => ret (tvars, r)
+              | a :: args =>
+                fun inc =>
+                  abt <- erase_arg a _;;
+                  erase_args args _ (TApp r abt)
+              end inc in
 
-          (*
-          (* The code below gives a weird error *)
-          where erase_args (args : list term) (inc : incl args decomp_args)
-                           (result : box_type)
-                : typing_result (list name * box_type) :=
-          erase_args [] _ r := ret ([], r);
-          (* We will fail if the arg is not a type, but let's first check to see if
-             it is a logical type scheme, in which case we can get away with boxing
-             it. For instance: Say we are processing [sig A P] in
-               A : Type, P : A -> Prop |- sig A P : Type.
-             The P argument here is not strictly a type, but is rather a type scheme.
-             So we get the flag of its type, and box it. *)
-          erase_args (a :: args) _ r := abt <- erase_arg a _;;
-                                        erase_args args _ (TApp r abt)
+          erase_args decomp_args _ hdbt
 
-          where erase_arg (a : term) (i : In a decomp_args) : typing_result box_type :=
-          erase_arg a i with type_of Σ wfΣ _ Γ a _ := {
-            | TypeError te := TypeError te;
-            | Checked (aT; typ) with flag_of_type Γ aT _ := {
-              | TypeError te := TypeError te;
-              | Checked {| is_logical := true |} := ret TBox;
-              (* If aT is a sort, then a is a type, so continue erasing it *)
-              | Checked {| is_sort := left _ |} with erase_type Γ a _ var_map := {
-                | TypeError te := TypeError te;
-                | Checked ([], bt) := ret bt;
-                | Checked _ := TypeError (Msg ("Type is not in prenex form"))
-                };
-
-              | Checked _ := TypeError (Msg ("Cannot erase argument; "
-                                               ++ "it is not a type or logical type scheme "
-                                               ++ string_of_term a))
-              }
-            }
-          *)
-          }
         };
 
       | et_view_const kn _ := ret (tvars, TConst kn);
@@ -602,6 +657,9 @@ Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
 Next Obligation. now eapply rec_prod_dom. Qed.
 Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
 Next Obligation. now eapply rec_prod_cod. Qed.
+Next Obligation.
+  (* Todo: should follow simply since tRel i = orig_hd which is well typed *)
+  Admitted.
 Next Obligation. now case wfextΣ; intros [[]]. Qed.
 Next Obligation.
   pose proof (reduce_term_sr eq_hnf wat) as [[isar|(univ & typ)]].
@@ -656,8 +714,477 @@ Qed.
 Next Obligation.
   now specialize (inc a0 (or_intror H)).
 Qed.
-Transparent WellFounded_erase_type_rel SafeErasureFunction.wf_reduction.
-End FixSigma.
+
+Inductive erase_constant_decl_error :=
+| EraseTypeError (err : erase_type_error)
+| EraseBodyError (err : type_error).
+
+Definition string_of_erase_constant_decl_error (err : erase_constant_decl_error) : string :=
+  match err with
+  | EraseTypeError err => string_of_erase_type_error err
+  | EraseBodyError err => string_of_type_error Σ err
+  end.
+
+Import EAst.
+Program Definition erase_constant_decl
+          (cst : P.constant_body)
+          (wt : ∥on_constant_decl (lift_typing typing) Σ cst∥)
+          : result constant_body erase_constant_decl_error :=
+  et <- map_error (erase_type [] []%vector (P.cst_type cst) _ []) EraseTypeError;;
+  eb <- match P.cst_body cst with
+        | Some body =>
+          match EF.erase Σ wfextΣ [] body _ with
+          | TypeError te => Err (EraseBodyError te)
+          | Checked eb => ret (Some eb)
+          end
+        | None => ret None
+        end;;
+  ret {| cst_type := et; cst_body := eb |}.
+Next Obligation.
+  sq.
+  unfold on_constant_decl in wt.
+  destruct (P.cst_body cst).
+  - cbn in wt.
+    eapply validity_term; [easy| |exact wt].
+    constructor.
+  - cbn in wt.
+    destruct wt as (s & ?).
+    right.
+    now exists s.
+Qed.
+Next Obligation.
+  destruct wt as [wt].
+  unfold on_constant_decl in wt.
+  rewrite <- Heq_anonymous in wt.
+  cbn in *.
+  now eapply iswelltyped.
+Qed.
+
+Import P.
+
+Definition fot_to_oib_tvar (na : name) {Γ t} (f : type_flag Γ t) : oib_type_var :=
+  {| tvar_name := na;
+     tvar_is_logical := is_logical f;
+     tvar_is_arity := if is_arity f then true else false;
+     tvar_is_sort := if is_sort f then true else false; |}.
+
+Equations erase_ind_arity
+          (Γ : context)
+          (t : term)
+          (wat : ∥isWfArity_or_Type Σ Γ t∥)
+  : typing_result (list oib_type_var)
+  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
+erase_ind_arity Γ t wat with inspect (hnf wfΣ Γ t (watwf wat)) := {
+  | exist (tProd na A B) hnf_eq with flag_of_type Γ A _ := {
+    | TypeError te := TypeError te;
+    | Checked f with erase_ind_arity (Γ,, vass na A) B _ := {
+      | TypeError te := TypeError te;
+      | Checked tvars := ret (fot_to_oib_tvar na f :: tvars)
+      }
+    };
+  | exist _ _ := ret []
+  }.
+Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
+Next Obligation. now eapply rec_prod_cod. Qed.
+
+Inductive erase_ind_ctor_error :=
+| AdditionalTypeSchemes
+| CtorTypingError (te : type_error)
+| CtorErasureError (err : erase_type_error).
+
+Definition string_of_erase_ind_ctor_error (e : erase_ind_ctor_error) : string :=
+  match e with
+  | AdditionalTypeSchemes => "Ctor has additional type vars/schemes"
+  | CtorTypingError te => "Typing error: " ++ string_of_type_error Σ te
+  | CtorErasureError e => "Erasure error: " ++ string_of_erase_type_error e
+  end.
+
+Equations(noeqns) erase_ind_ctor_contents
+          (Γ : context)
+          (Γer : Vector.t tRel_kind #|Γ|)
+          (t : term)
+          (wat : ∥isWfArity_or_Type Σ Γ t∥)
+          (tvars : list name)
+  : result (list box_type) erase_ind_ctor_error
+  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
+erase_ind_ctor_contents Γ Γer t wat tvars with inspect (hnf wfΣ Γ t (watwf wat)) := {
+  | exist (tProd na A B) hnf_eq with flag_of_type Γ A _ := {
+    | TypeError te := Err (CtorTypingError te);
+
+    | Checked {| is_logical := false; is_arity := left _ |} :=
+      (* This is a non-logical type var or type scheme, which we cannot handle here. *)
+      Err AdditionalTypeSchemes;
+
+    (* This is logical or not an arity (i.e. normal data type) *)
+    | Checked f with erase_ind_ctor_contents (Γ,, vass na A) (RelOther :: Γer)%vector B _ tvars := {
+      | Err e := Err e;
+
+      | Ok bts with f := {
+        | {| is_logical := true |} := ret (TBox :: bts);
+        (* not an arity and not logical, so normal data type *)
+        | _ with erase_type Γ Γer A _ tvars := {
+          | Err e := Err (CtorErasureError e);
+          | Ok (tvars_dom, bt) :=
+            if List.length tvars <? List.length tvars_dom then
+              Err (CtorErasureError NotPrenex)
+            else
+              ret (bt :: bts)
+          }
+        }
+      }
+
+    };
+
+  | exist _ _ := ret []
+  }.
+Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
+Next Obligation. now eapply rec_prod_cod. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
+Next Obligation. now eapply rec_prod_cod. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
+
+Equations(noeqns) erase_ind_ctor
+          (Γ : context)
+          (Γer : Vector.t tRel_kind #|Γ|)
+          (t : term)
+          (wat : ∥isWfArity_or_Type Σ Γ t∥)
+          (num_params_left : nat)
+          (tvars : list name)
+  : result (list box_type) erase_ind_ctor_error
+  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
+erase_ind_ctor Γ Γer t wat 0 tvars := erase_ind_ctor_contents Γ Γer t wat tvars;
+erase_ind_ctor Γ Γer t wat (S np) tvars with inspect (hnf wfΣ Γ t (watwf wat)) := {
+  | exist (tProd na A B) hnf_eq with flag_of_type Γ A _ := {
+    | TypeError te := Err (CtorTypingError te);
+
+    | Checked {| is_logical := false; is_sort := left _ |} :=
+      erase_ind_ctor
+        (Γ,, vass na A) (RelTypeVar (List.length tvars) :: Γer)%vector
+        B _
+        np
+        (tvars ++ [na]);
+
+    | Checked _ :=
+      erase_ind_ctor
+        (Γ,, vass na A) (RelOther :: Γer)%vector
+        B _
+        np
+        tvars
+
+    };
+
+  | exist _ _ := ret []
+  }.
+Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
+Next Obligation. now eapply rec_prod_cod. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
+Next Obligation. now eapply rec_prod_cod. Qed.
+Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
+Next Obligation. now eapply rec_prod_cod. Qed.
+
+Definition arities_contexts
+         (mind : kername)
+         (oibs : list P.one_inductive_body) : ∑Γ, Vector.t tRel_kind #|Γ| :=
+  (fix f (oibs : list P.one_inductive_body)
+       (i : nat)
+       (Γ : context) (erΓ : Vector.t tRel_kind #|Γ|) :=
+    match oibs with
+    | [] => (Γ; erΓ)
+    | oib :: oibs =>
+      f oibs
+        (S i)
+        (Γ,, vass (nNamed (P.ind_name oib)) (P.ind_type oib))
+        (RelInductive {| inductive_mind := mind;
+                         inductive_ind := i |} :: erΓ)%vector
+    end) oibs 0 [] []%vector.
+
+Lemma arities_contexts_cons_1 mind oib oibs :
+  (arities_contexts mind (oib :: oibs)).π1 =
+  (arities_contexts mind oibs).π1 ++ [vass (nNamed (P.ind_name oib)) (P.ind_type oib)].
+Proof.
+  unfold arities_contexts.
+  match goal with
+  | |- (?f' _ _ _ _).π1 = _ => set (f := f')
+  end.
+  assert (H: forall oibs n Γ erΓ, (f oibs n Γ erΓ).π1 = (f oibs 0 [] []%vector).π1 ++ Γ).
+  { clear.
+    intros oibs.
+    induction oibs as [|oib oibs IH]; [easy|].
+    intros n Γ erΓ.
+    cbn.
+    rewrite IH; symmetry; rewrite IH.
+    now rewrite <- List.app_assoc. }
+  now rewrite H.
+Qed.
+
+Lemma arities_contexts_1 mind oibs :
+  (arities_contexts mind oibs).π1 = arities_context oibs.
+Proof.
+  induction oibs as [|oib oibs IH]; [easy|].
+  rewrite arities_contexts_cons_1.
+  unfold arities_context.
+  rewrite rev_map_cons.
+  f_equal.
+  apply IH.
+Qed.
+
+Import EAst.
+
+Inductive erase_ind_body_error :=
+| EraseArityError (err : type_error)
+| EraseCtorError (ctor : ident) (err : erase_ind_ctor_error).
+
+Definition string_of_erase_ind_body_error (e : erase_ind_body_error) : string :=
+  match e with
+  | EraseArityError e => "Error while erasing arity: " ++ string_of_type_error Σ e
+  | EraseCtorError ctor e => "Error while erasing ctor "
+                               ++ ctor ++ ": "
+                               ++ string_of_erase_ind_ctor_error e
+  end.
+
+Definition monad_map_in
+           {T : Type -> Type} {M : Monad T} {A B : Type}
+           (l : list A)
+           (f : forall (a : A), In a l -> T B) : T (list B) :=
+  let fix go (l' : list A) : incl l' l -> T (list B) :=
+      match l' return incl l' l -> T (list B) with
+      | [] => fun _ => ret []
+      | a :: l' =>
+        fun (inc : incl (a :: l') l) =>
+          b <- f a (inc _ (or_introl eq_refl));;
+          tl <- go l' (fun a' a'in => inc _ (or_intror a'in));;
+          ret (b :: tl)
+      end in
+  go l (fun a i => i).
+
+Program Definition erase_ind_body
+        (mind : kername)
+        (mib : P.mutual_inductive_body)
+        (oib : P.one_inductive_body)
+        (wt : ∥∑i, on_ind_body (lift_typing typing) Σ mind mib i oib∥)
+        : result one_inductive_body erase_ind_body_error :=
+  oib_tvars <- wrap_typing_result (erase_ind_arity [] (P.ind_type oib) _) EraseArityError;;
+
+  let '(Γ; erΓ) := arities_contexts mind (P.ind_bodies mib) in
+
+  ctors <- monad_map_in
+             (P.ind_ctors oib)
+             (fun '((name, t), _) is_in =>
+                bts <- map_error (erase_ind_ctor Γ erΓ t _ (P.ind_npars mib) [])
+                                 (EraseCtorError name);;
+                ret (name, bts));;
+
+  ret {| ind_name := P.ind_name oib;
+         ind_type_vars := oib_tvars;
+         ind_ctors := ctors;
+         ind_projs := [] (* todo *) |}.
+Next Obligation.
+  destruct wt as [wt].
+  sq.
+  right.
+  exact (onArity wt.π2).
+Qed.
+Next Obligation.
+  destruct wt as [[ind_index wt]].
+  pose proof (onConstructors wt) as on_ctors.
+  unfold on_constructors in *.
+  induction on_ctors; [easy|].
+  destruct is_in as [->|later]; [|easy].
+  unfold on_constructor in r.
+  cbn in *.
+  destruct r as ((s & typ) & (cs & ?)).
+  constructor.
+  right.
+  rewrite <- (arities_contexts_1 mind) in typ.
+  rewrite <- Heq_anonymous0 in typ.
+  now exists s.
+Qed.
+
+Inductive erase_ind_error :=
+| EraseIndErr (ind : ident) (err : erase_ind_body_error).
+
+Definition string_of_erase_ind_error (e : erase_ind_error) : string :=
+  match e with
+  | EraseIndErr ind e => "Error while erasing ind body "
+                           ++ ind ++ ": "
+                           ++ string_of_erase_ind_body_error e
+  end.
+
+Program Definition erase_ind
+        (kn : kername)
+        (mib : P.mutual_inductive_body)
+        (wt : ∥on_inductive (lift_typing typing) Σ kn mib∥)
+        : result mutual_inductive_body erase_ind_error :=
+  inds <- monad_map_in
+            (P.ind_bodies mib)
+            (fun oib is_in =>
+               map_error
+                 (erase_ind_body kn mib oib _)
+                 (EraseIndErr (P.ind_name oib)));;
+  ret {| ind_bodies := inds |}.
+Next Obligation.
+  apply In_nth_error in is_in.
+  destruct is_in as (i & nth_some).
+  destruct wt as [wt].
+  constructor.
+  exists i.
+  specialize (onInductives _ _ _ _ wt).
+  revert i nth_some.
+
+  enough (H: forall n i,
+             nth_error (P.ind_bodies mib) i = Some oib ->
+             Alli (on_ind_body (lift_typing typing) Σ kn mib) n (P.ind_bodies mib) ->
+             on_ind_body (lift_typing typing) Σ kn mib (n + i) oib).
+  { apply (H 0). }
+
+  induction (P.ind_bodies mib) as [|? oibs IH]; intros n i nth_some inds_wt.
+  - now rewrite nth_error_nil in nth_some.
+  - inversion inds_wt; subst; clear inds_wt.
+    destruct i; cbn in *.
+    + replace a with oib in * by congruence.
+      now rewrite Nat.add_0_r.
+    + specialize (IH (S n)).
+      now rewrite Nat.add_succ_r.
+Qed.
+
+End FixSigmaExt.
+
+Section EraseEnv.
+Local Existing Instance extraction_checker_flags.
+
+Import EAst.
+
+Inductive erase_global_decls_error :=
+| ErrConstant (kn : kername) (err : erase_constant_decl_error)
+| ErrInductive (kn : kername) (err : erase_ind_error).
+
+Definition string_of_erase_global_decls_error Σ (e : erase_global_decls_error) : string :=
+  match e with
+  | ErrConstant kn err => "Error while erasing constant "
+                            ++ kn ++ ": "
+                            ++ string_of_erase_constant_decl_error Σ err
+  | ErrInductive kn err => "Error while erasing inductive "
+                             ++ kn ++ ": "
+                             ++ string_of_erase_ind_error Σ err
+  end.
+
+Program Fixpoint erase_global_decls (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
+  : result (list (kername × global_decl)) erase_global_decls_error :=
+  match Σ with
+  | [] => ret []
+  | (kn, decl) :: Σ =>
+    decl <- match decl with
+            | P.ConstantDecl cst =>
+              cst <- map_error (erase_constant_decl (Σ, cst_universes cst) _ cst _)
+                               (ErrConstant kn);;
+              ret (ConstantDecl cst)
+            | P.InductiveDecl mib =>
+              ind <- map_error (erase_ind (Σ, ind_universes mib) _ kn mib _)
+                               (ErrInductive kn);;
+              ret (InductiveDecl ind)
+            end;;
+    Σer <- erase_global_decls Σ _;;
+    ret ((kn, decl) :: Σer)
+  end.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+
+Definition add_seen (n : kername) (seen : list kername) : list kername :=
+  if existsb (String.eqb n) seen then
+    seen
+  else
+    n :: seen.
+
+Fixpoint Eterm_deps (seen : list kername) (t : term) : list kername :=
+  match t with
+  | tBox _
+  | tRel _
+  | tVar _ => seen
+  | tEvar _ ts => fold_left Eterm_deps ts seen
+  | tLambda _ t => Eterm_deps seen t
+  | tLetIn _ t1 t2
+  | tApp t1 t2 => Eterm_deps (Eterm_deps seen t1) t2
+  | tConst n => add_seen n seen
+  | tConstruct ind _ => add_seen (inductive_mind ind) seen
+  | tCase (ind, _) t brs =>
+    let seen := Eterm_deps (add_seen (inductive_mind ind) seen) t in
+    fold_left (fun seen '(_, t) => Eterm_deps seen t) brs seen
+  | tProj (ind, _, _) t => Eterm_deps (add_seen (inductive_mind ind) seen) t
+  | tFix defs _
+  | tCoFix defs _ =>
+    fold_left (fun seen d => Eterm_deps seen (dbody d)) defs seen
+  end.
+
+Fixpoint box_type_deps (seen : list kername) (t : box_type) : list kername :=
+  match t with
+  | TBox
+  | TAny => seen
+  | TArr t1 t2
+  | TApp t1 t2 => fold_left box_type_deps [t1; t2] seen
+  | TVar _ => seen
+  | TInd ind => add_seen (inductive_mind ind) seen
+  | TConst n => add_seen n seen
+  end.
+
+Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :=
+  match decl with
+  | ConstantDecl body =>
+    let seen :=
+        match cst_body body with
+        | Some body => Eterm_deps seen body
+        | None => seen
+        end in
+    box_type_deps seen (cst_type body).2
+  | InductiveDecl mib =>
+    let one_inductive_body_deps seen oib :=
+        let seen := fold_left box_type_deps
+                              (flat_map snd (ind_ctors oib))
+                              seen in
+        fold_left box_type_deps (map snd (ind_projs oib)) seen in
+    fold_left one_inductive_body_deps (ind_bodies mib) seen
+  end.
+
+(* Erase the global declarations by the specified names and their
+   non-erased dependencies recursively. *)
+Program Fixpoint erase_global_decls_deps_recursive
+        (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
+        (include : list kername)
+  : result (list (kername × global_decl)) erase_global_decls_error :=
+  match Σ with
+  | [] => ret []
+  | (kn, decl) :: Σ =>
+    if existsb (String.eqb kn) include then
+      decl <- match decl with
+              | P.ConstantDecl cst =>
+                cst <- map_error (erase_constant_decl (Σ, cst_universes cst) _ cst _)
+                                 (ErrConstant kn);;
+                ret (ConstantDecl cst)
+              | P.InductiveDecl mib =>
+                ind <- map_error (erase_ind (Σ, ind_universes mib) _ kn mib _)
+                                 (ErrInductive kn);;
+                ret (InductiveDecl ind)
+              end;;
+
+      Σer <- erase_global_decls_deps_recursive Σ _ (decl_deps include decl);;
+      ret ((kn, decl) :: Σer)
+    else
+      erase_global_decls_deps_recursive Σ _ include
+  end.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+Next Obligation. now sq; inversion wfΣ. Qed.
+
+End EraseEnv.
 
 Global Arguments is_logical {_ _ _}.
 Global Arguments is_sort {_ _ _}.

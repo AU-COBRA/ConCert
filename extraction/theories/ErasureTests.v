@@ -100,7 +100,7 @@ Program Definition erase_type_program (p : Ast.program)
        | CorrectDecl a => ret a
        | _ => Err (GeneralError "Could not check_wf_env_only_univs")
        end;;
-  Σ' <- wrap_typing_result (SafeErasureFunction.erase_global Σ _);;
+  Σ' <- wrap_typing_result (SafeErasureFunction.erase_global Σ _) TypingError;;
   t <- erase_type (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _ [];;
   ret (Σ', t).
 Next Obligation.
@@ -268,3 +268,60 @@ Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex19)
                 Ok ("", "□").
 
 End erase_type_tests.
+
+Module erase_ind_arity_tests.
+Program Definition erase_arity_program (p : Ast.program)
+  : result (list oib_type_var) string :=
+  let Σ := List.rev (trans_global_decls p.1) in
+  G <- match check_wf_env_only_univs Σ with
+       | CorrectDecl a => ret a
+       | _ => Err "Could not check_wf_env_only_univs"
+       end;;
+  wrap_typing_result (erase_ind_arity (empty_ext Σ) _ [] (trans p.2) _)
+                     (string_of_type_error (empty_ext Σ)).
+Next Obligation.
+  Admitted.
+Next Obligation.
+  Admitted.
+
+Quote Recursively Definition ex1 := (forall (A : Type), A -> A -> Prop).
+Check eq_refl : ltac:(let x := eval vm_compute in (erase_arity_program ex1) in exact x) =
+                Ok
+                  [{| tvar_name := nNamed "A";
+                      tvar_is_logical := false;
+                      tvar_is_arity := true;
+                      tvar_is_sort := true |};
+                  {|
+                    tvar_name := nAnon;
+                    tvar_is_logical := false;
+                    tvar_is_arity := false;
+                    tvar_is_sort := false |};
+                  {|
+                    tvar_name := nAnon;
+                    tvar_is_logical := false;
+                    tvar_is_arity := false;
+                    tvar_is_sort := false |}].
+End erase_ind_arity_tests.
+
+Module erase_global_decls_tests.
+Program Definition erase_decls_program (p : Ast.program)
+  : result (list (kername × EAst.global_decl)) string :=
+  let Σ := List.rev (trans_global_decls p.1) in
+  G <- match check_wf_env_only_univs Σ with
+       | CorrectDecl a => ret a
+       | _ => Err "Could not check_wf_env_only_univs"
+       end;;
+  map_error (erase_global_decls Σ _)
+            (string_of_erase_global_decls_error (empty_ext Σ)).
+
+Quote Recursively Definition ex1 := nat.
+Compute erase_decls_program ex1.
+
+Quote Recursively Definition ex2 := { n : nat | n = 5 }.
+Compute erase_decls_program ex2.
+
+Quote Recursively Definition ex3 := (list nat).
+Compute erase_decls_program ex3.
+
+Quote Recursively Definition ex4 := (Vector.t nat 5).
+Compute erase_decls_program ex4.
