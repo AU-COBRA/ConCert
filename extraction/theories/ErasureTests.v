@@ -339,7 +339,6 @@ Definition print_one_inductive_body
 Definition print_inductive (Σ : global_env) (mib : EAst.mutual_inductive_body) : string :=
   concat nl (map (print_one_inductive_body Σ) (EAst.ind_bodies mib)).
 
-
 Program Definition erase_decls_program (p : Ast.program)
   : result (list (kername × EAst.global_decl)) string :=
   let Σ := List.rev (trans_global_decls p.1) in
