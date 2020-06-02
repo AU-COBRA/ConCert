@@ -659,8 +659,20 @@ Next Obligation. now eapply rec_prod_dom. Qed.
 Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
 Next Obligation. now eapply rec_prod_cod. Qed.
 Next Obligation.
-  (* Todo: should follow simply since tRel i = orig_hd which is well typed *)
-  Admitted.
+  pose proof (reduce_term_sr eq_hnf wat) as [[isar|(univ & typ)]].
+  - now destruct isar as (? & ? & ? & ?).
+  - unfold PCUICTypingDef.typing in typ.
+    replace (tApp orig_hd orig_arg) with (mkApps (tRel i) decomp_args) in typ; cycle 1.
+    { symmetry. apply decompose_app_inv.
+      now rewrite <- eq_decomp. }
+    destruct wfΣ as [wfΣu].
+    apply type_mkApps_inv in typ; [|easy].
+    destruct typ as (rel_type & _ & (rel_typed & _) & _).
+    apply inversion_Rel in rel_typed; [|easy].
+    apply nth_error_Some.
+    destruct rel_typed as (? & _ & ? & _).
+    congruence.
+Qed.
 Next Obligation. now case wfextΣ; intros [[]]. Qed.
 Next Obligation.
   pose proof (reduce_term_sr eq_hnf wat) as [[isar|(univ & typ)]].
