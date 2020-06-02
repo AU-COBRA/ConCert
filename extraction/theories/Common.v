@@ -8,7 +8,6 @@ From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import MCProd.
 From MetaCoq Require Import MCString.
 From MetaCoq Require Import MCSquash.
-From MetaCoq.Erasure Require Import Debox.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import SafeErasureFunction.
 From MetaCoq.Erasure Require Import SafeTemplateErasure.
@@ -30,7 +29,6 @@ From ConCert.Extraction Require Import StringExtra.
 Module T := MetaCoq.Template.Ast.
 Module P := MetaCoq.PCUIC.PCUICAst.
 Module E := MetaCoq.Erasure.EAst.
-Module D := MetaCoq.Erasure.Debox.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module PUtil := MetaCoq.PCUIC.PCUICAstUtils.
 Module PT := MetaCoq.PCUIC.PCUICTyping.

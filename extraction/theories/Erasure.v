@@ -57,7 +57,7 @@ Module Export EAst.
 
   Fixpoint decompose_arr (bt : box_type) : list box_type × box_type :=
     match bt with
-    | TApp dom cod => let (args, res) := decompose_arr cod in
+    | TArr dom cod => let (args, res) := decompose_arr cod in
                       (dom :: args, res)
     | _ => ([], bt)
     end.
@@ -789,104 +789,6 @@ Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
 Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
 Next Obligation. now eapply rec_prod_cod. Qed.
 
-Inductive erase_ind_ctor_error :=
-| AdditionalTypeSchemes
-| CtorTypingError (te : type_error)
-| CtorErasureError (err : erase_type_error).
-
-Definition string_of_erase_ind_ctor_error (e : erase_ind_ctor_error) : string :=
-  match e with
-  | AdditionalTypeSchemes => "Ctor has additional type vars/schemes"
-  | CtorTypingError te => "Typing error: " ++ string_of_type_error Σ te
-  | CtorErasureError e => "Erasure error: " ++ string_of_erase_type_error e
-  end.
-
-Equations(noeqns) erase_ind_ctor_contents
-          (Γ : context)
-          (Γer : Vector.t tRel_kind #|Γ|)
-          (t : term)
-          (wat : ∥isWfArity_or_Type Σ Γ t∥)
-          (tvars : list name)
-  : result (list box_type) erase_ind_ctor_error
-  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
-erase_ind_ctor_contents Γ Γer t wat tvars with inspect (hnf wfΣ Γ t (watwf wat)) := {
-  | exist (tProd na A B) hnf_eq with flag_of_type Γ A _ := {
-    | TypeError te := Err (CtorTypingError te);
-
-    | Checked {| is_logical := false; is_arity := left _ |} :=
-      (* This is a non-logical type var or type scheme, which we cannot handle here. *)
-      Err AdditionalTypeSchemes;
-
-    (* This is logical or not an arity (i.e. normal data type) *)
-    | Checked f with erase_ind_ctor_contents (Γ,, vass na A) (RelOther :: Γer)%vector B _ tvars := {
-      | Err e := Err e;
-
-      | Ok bts with f := {
-        | {| is_logical := true |} := ret (TBox :: bts);
-        (* not an arity and not logical, so normal data type *)
-        | _ with erase_type Γ Γer A _ tvars := {
-          | Err e := Err (CtorErasureError e);
-          | Ok (tvars_dom, bt) :=
-            if List.length tvars <? List.length tvars_dom then
-              Err (CtorErasureError NotPrenex)
-            else
-              ret (bt :: bts)
-          }
-        }
-      }
-
-    };
-
-  | exist _ _ := ret []
-  }.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-
-Equations(noeqns) erase_ind_ctor
-          (Γ : context)
-          (Γer : Vector.t tRel_kind #|Γ|)
-          (t : term)
-          (wat : ∥isWfArity_or_Type Σ Γ t∥)
-          (num_params_left : nat)
-          (tvars : list name)
-  : result (list box_type) erase_ind_ctor_error
-  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
-erase_ind_ctor Γ Γer t wat 0 tvars := erase_ind_ctor_contents Γ Γer t wat tvars;
-erase_ind_ctor Γ Γer t wat (S np) tvars with inspect (hnf wfΣ Γ t (watwf wat)) := {
-  | exist (tProd na A B) hnf_eq with flag_of_type Γ A _ := {
-    | TypeError te := Err (CtorTypingError te);
-
-    | Checked {| is_logical := false; is_sort := left _ |} :=
-      erase_ind_ctor
-        (Γ,, vass na A) (RelTypeVar (List.length tvars) :: Γer)%vector
-        B _
-        np
-        (tvars ++ [na]);
-
-    | Checked _ :=
-      erase_ind_ctor
-        (Γ,, vass na A) (RelOther :: Γer)%vector
-        B _
-        np
-        tvars
-
-    };
-
-  | exist _ _ := ret []
-  }.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-
 Definition arities_contexts
          (mind : kername)
          (oibs : list P.one_inductive_body) : ∑Γ, Vector.t tRel_kind #|Γ| :=
@@ -937,14 +839,16 @@ Import EAst.
 
 Inductive erase_ind_body_error :=
 | EraseArityError (err : type_error)
-| EraseCtorError (ctor : ident) (err : erase_ind_ctor_error).
+| EraseCtorError (ctor : ident) (err : erase_type_error)
+| CtorUnmappedTypeVariables (ctor : ident).
 
 Definition string_of_erase_ind_body_error (e : erase_ind_body_error) : string :=
   match e with
   | EraseArityError e => "Error while erasing arity: " ++ string_of_type_error Σ e
   | EraseCtorError ctor e => "Error while erasing ctor "
                                ++ ctor ++ ": "
-                               ++ string_of_erase_ind_ctor_error e
+                               ++ string_of_erase_type_error e
+  | CtorUnmappedTypeVariables ctor => "Ctor " ++ ctor ++ " has unmapped type variables"
   end.
 
 Definition monad_map_in
@@ -972,12 +876,28 @@ Program Definition erase_ind_body
 
   let '(Γ; erΓ) := arities_contexts mind (P.ind_bodies mib) in
 
-  ctors <- monad_map_in
-             (P.ind_ctors oib)
-             (fun '((name, t), _) is_in =>
-                bts <- map_error (EraseCtorError name)
-                                 (erase_ind_ctor Γ erΓ t _ (P.ind_npars mib) []);;
-                ret (name, bts));;
+  (* We map type vars in constructors to type vars in the inductive parameters.
+     Thus, we only allow the constructor this many type vars. *)
+  let num_tvars_in_params :=
+      List.length
+        (filter
+           (fun tvar => negb (tvar_is_logical tvar) && tvar_is_sort tvar)
+           (firstn (P.ind_npars mib) oib_tvars)) in
+
+  let erase_ind_ctor (p : (ident × P.term) × nat) (is_in : In p (P.ind_ctors oib)) :=
+      let '((name, t), _) := p in
+      '(ctor_tvars, bt) <- map_error (EraseCtorError name)
+                                     (erase_type Γ erΓ t _ []);;
+
+      (if (#|ctor_tvars| <=? num_tvars_in_params)%nat then
+         ret tt
+       else
+         Err (CtorUnmappedTypeVariables name));;
+
+      let '(ctor_args, _) := decompose_arr bt in
+      ret (name, ctor_args) in
+
+  ctors <- monad_map_in (P.ind_ctors oib) erase_ind_ctor;;
 
   ret {| ind_name := P.ind_name oib;
          ind_type_vars := oib_tvars;
@@ -1001,7 +921,7 @@ Next Obligation.
   constructor.
   right.
   rewrite <- (arities_contexts_1 mind) in typ.
-  rewrite <- Heq_anonymous0 in typ.
+  rewrite <- Heq_anonymous in typ.
   now exists s.
 Qed.
 

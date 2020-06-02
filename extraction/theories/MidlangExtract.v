@@ -389,16 +389,23 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     oib <- wrap_result (lookup_ind_decl ind) id;;
 
     (* Take care that this is structurally recursive... *)
-    (fix print_branches (branches : list (nat * term)) (ctor_names : list ident) :=
-       match branches, ctor_names with
+    (fix print_branches
+         (branches : list (nat * term))
+         (ctors : list (ident * list Ex.box_type)) :=
+       match branches, ctors with
        | [], [] => ret tt
-       | (arity, t) :: branches, ctor_name :: ctor_names =>
+       | (arity, t) :: branches, (ctor_name, data) :: ctors =>
          append_nl_and_indent;;
 
          ctor_indent <- get_indent;;
          push_indent (ctor_indent + indent_size);;
 
          append (get_ctor_name ctor_name);;
+
+         (* In Coq, parameters are not part of branches. But erasure
+            adds the parameters to each constructor, so we need to get those
+            out of the way first. These won't have any uses so we just print _. *)
+         append (concat "" (map (fun _ => " _") (seq 0 (List.length data - arity))));;
 
          (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
             match n with
@@ -420,9 +427,9 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
          pop_indent;;
 
-         print_branches branches ctor_names
+         print_branches branches ctors
        | _, _ => printer_fail "wrong number of case branches compared to inductive"
-       end) branches (map fst (Ex.ind_ctors oib));;
+       end) branches (Ex.ind_ctors oib);;
 
     pop_indent
 
