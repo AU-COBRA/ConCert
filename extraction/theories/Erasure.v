@@ -349,20 +349,58 @@ Definition redβιζ : RedFlags.t :=
      RedFlags.fix_ := true;
      RedFlags.cofix_ := true |}.
 
-Inductive term_sub_ctx : context * term -> context * term -> Type :=
+Inductive term_sub_ctx : context * term -> context * term -> Prop :=
 | sub_prod_dom Γ na A B : term_sub_ctx (Γ, A) (Γ, tProd na A B)
 | sub_prod_cod Γ na A B : term_sub_ctx (Γ,, vass na A, B) (Γ, tProd na A B)
 | sub_app_arg Γ arg hd arg1 :
     In arg (decompose_app (tApp hd arg1)).2 ->
     term_sub_ctx (Γ, arg) (Γ, tApp hd arg1).
 
+Lemma well_founded_term_sub_ctx : well_founded term_sub_ctx.
+Proof.
+  Admitted.
+
 Definition erase_type_rel : Relation_Definitions.relation (∑ Γ t, wellformed Σ Γ t) :=
   fun '(Γs; ts; wfs) '(Γl; tl; wfl) =>
-    ∥∑r, red Σ Γl tl r × term_sub_ctx (Γs, ts) (Γl, r)∥.
+    ∥∑m, red Σ Γl tl m × term_sub_ctx (Γs, ts) (Γl, m)∥.
 
 Lemma well_founded_erase_type_rel : well_founded erase_type_rel.
 Proof.
-  Admitted.
+  intros (Γl & l & wfl).
+  destruct wfΣ as [wfΣu].
+  induction (normalisation' Σ Γl l wfΣu wfl) as [l _ IH].
+  remember (Γl, l) as p.
+  revert wfl IH.
+  replace Γl with (fst p) by (now subst).
+  replace l with (snd p) by (now subst).
+  clear Γl l Heqp.
+  intros wfl IH.
+  induction (well_founded_term_sub_ctx p) as [p _ IH'] in p, wfl, IH |- *.
+  constructor.
+  intros (Γs & s & wfs) [(m & mred & msub)].
+  inversion msub; subst; clear msub.
+  - admit.
+  - inversion mred; subst.
+    + apply (IH' (p.1,, vass na A, s)).
+      * replace p with (p.1, tProd na A s) by (destruct p; cbn in *; congruence).
+        cbn.
+        constructor.
+      * intros y cored wfly.
+        cbn in *.
+        inversion cored; subst.
+        -- eapply IH.
+           ++ econstructor.
+              rewrite H0.
+              apply prod_red_r.
+              exact X.
+           ++ cbn.
+              sq.
+              exists (tProd na A y).
+              split; [easy|].
+              constructor.
+        -- eapply IH.
+           ++ eapply red_neq_cored; [exact mred|].
+        eapply IH.
 
 Instance WellFounded_erase_type_rel : WellFounded erase_type_rel :=
   Wf.Acc_intro_generator 1000 well_founded_erase_type_rel.
@@ -487,16 +525,6 @@ Inductive tRel_kind :=
 (* tRel refers to something else, for example something logical or a
    non-nullary type scheme or a value *)
 | RelOther.
-
-Definition erase_app_head
-           (Γ : context) (Γer : Vector.t tRel_kind #|Γ|)
-           (t : term) : typing_result box_type :=
-  match t with
-  | tConst nm _ => ret (TConst nm)
-  | tInd ind _ => ret (TInd ind)
-  | _ => TypeError (Msg ("Unsupported head in decomposed application "
-                           ++ string_of_term t))
-  end.
 
 Inductive erase_type_error :=
 | NotPrenex
