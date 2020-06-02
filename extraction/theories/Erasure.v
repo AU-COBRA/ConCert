@@ -33,6 +33,7 @@ From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
 
 Import PCUICEnvTyping.
+Import PCUICLookup.
 
 Local Open Scope string_scope.
 Import ListNotations.
@@ -730,7 +731,7 @@ Program Definition erase_constant_decl
           (cst : P.constant_body)
           (wt : ∥on_constant_decl (lift_typing typing) Σ cst∥)
           : result constant_body erase_constant_decl_error :=
-  et <- map_error (erase_type [] []%vector (P.cst_type cst) _ []) EraseTypeError;;
+  et <- map_error EraseTypeError (erase_type [] []%vector (P.cst_type cst) _ []);;
   eb <- match P.cst_body cst with
         | Some body =>
           match EF.erase Σ wfextΣ [] body _ with
@@ -974,8 +975,8 @@ Program Definition erase_ind_body
   ctors <- monad_map_in
              (P.ind_ctors oib)
              (fun '((name, t), _) is_in =>
-                bts <- map_error (erase_ind_ctor Γ erΓ t _ (P.ind_npars mib) [])
-                                 (EraseCtorError name);;
+                bts <- map_error (EraseCtorError name)
+                                 (erase_ind_ctor Γ erΓ t _ (P.ind_npars mib) []);;
                 ret (name, bts));;
 
   ret {| ind_name := P.ind_name oib;
@@ -1023,8 +1024,8 @@ Program Definition erase_ind
             (P.ind_bodies mib)
             (fun oib is_in =>
                map_error
-                 (erase_ind_body kn mib oib _)
-                 (EraseIndErr (P.ind_name oib)));;
+                 (EraseIndErr (P.ind_name oib))
+                 (erase_ind_body kn mib oib _));;
   ret {| ind_bodies := inds |}.
 Next Obligation.
   apply In_nth_error in is_in.
@@ -1055,43 +1056,58 @@ End FixSigmaExt.
 
 Section EraseEnv.
 Local Existing Instance extraction_checker_flags.
+Context (ignored : list kername).
 
 Import EAst.
 
-Inductive erase_global_decls_error :=
-| ErrConstant (kn : kername) (err : erase_constant_decl_error)
-| ErrInductive (kn : kername) (err : erase_ind_error).
+Inductive erase_global_decl_error :=
+| ErrConstant (Σ : global_env_ext) (kn : kername) (err : erase_constant_decl_error)
+| ErrInductive (Σ : global_env_ext) (kn : kername) (err : erase_ind_error).
 
-Definition string_of_erase_global_decls_error Σ (e : erase_global_decls_error) : string :=
+Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : string :=
   match e with
-  | ErrConstant kn err => "Error while erasing constant "
-                            ++ kn ++ ": "
-                            ++ string_of_erase_constant_decl_error Σ err
-  | ErrInductive kn err => "Error while erasing inductive "
-                             ++ kn ++ ": "
-                             ++ string_of_erase_ind_error Σ err
+  | ErrConstant Σ kn err => "Error while erasing constant "
+                              ++ kn ++ ": "
+                              ++ string_of_erase_constant_decl_error Σ err
+  | ErrInductive Σ kn err => "Error while erasing inductive "
+                               ++ kn ++ ": "
+                               ++ string_of_erase_ind_error Σ err
   end.
 
+Program Definition erase_global_decl
+        (Σext : P.global_env_ext) (wfΣext : ∥wf_ext Σext∥)
+        (kn : kername)
+        (decl : P.global_decl)
+        (wt : ∥on_global_decl (lift_typing typing) Σext kn decl∥)
+  : result global_decl erase_global_decl_error :=
+  match decl with
+  | P.ConstantDecl cst =>
+    cst <- map_error (ErrConstant Σext kn)
+                     (erase_constant_decl Σext _ cst _);;
+    ret (ConstantDecl cst)
+  | P.InductiveDecl mib =>
+    ind <- map_error (ErrInductive Σext kn)
+                     (erase_ind Σext _ kn mib _);;
+    ret (InductiveDecl ind)
+  end.
+
+Definition contains (kn : kername) :=
+  List.existsb (String.eqb kn).
+
+(* Erase all unignored global declarations *)
 Program Fixpoint erase_global_decls (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
-  : result (list (kername × global_decl)) erase_global_decls_error :=
+  : result (list (kername × global_decl)) erase_global_decl_error :=
   match Σ with
   | [] => ret []
   | (kn, decl) :: Σ =>
-    decl <- match decl with
-            | P.ConstantDecl cst =>
-              cst <- map_error (erase_constant_decl (Σ, cst_universes cst) _ cst _)
-                               (ErrConstant kn);;
-              ret (ConstantDecl cst)
-            | P.InductiveDecl mib =>
-              ind <- map_error (erase_ind (Σ, ind_universes mib) _ kn mib _)
-                               (ErrInductive kn);;
-              ret (InductiveDecl ind)
-            end;;
     Σer <- erase_global_decls Σ _;;
-    ret ((kn, decl) :: Σer)
+    if contains kn ignored then
+      ret Σer
+    else
+      let Σext := (Σ, universes_decl_of_decl decl) in
+      decl <- erase_global_decl Σext _ kn decl _;;
+      ret ((kn, decl) :: Σer)
   end.
-Next Obligation. now sq; inversion wfΣ. Qed.
-Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.
@@ -1151,34 +1167,23 @@ Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :
     fold_left one_inductive_body_deps (ind_bodies mib) seen
   end.
 
-(* Erase the global declarations by the specified names and their
-   non-erased dependencies recursively. *)
+(* Erase the unignored global declarations by the specified names and
+   their non-erased dependencies recursively. *)
 Program Fixpoint erase_global_decls_deps_recursive
         (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
         (include : list kername)
-  : result (list (kername × global_decl)) erase_global_decls_error :=
+  : result (list (kername × global_decl)) erase_global_decl_error :=
   match Σ with
   | [] => ret []
   | (kn, decl) :: Σ =>
-    if existsb (String.eqb kn) include then
-      decl <- match decl with
-              | P.ConstantDecl cst =>
-                cst <- map_error (erase_constant_decl (Σ, cst_universes cst) _ cst _)
-                                 (ErrConstant kn);;
-                ret (ConstantDecl cst)
-              | P.InductiveDecl mib =>
-                ind <- map_error (erase_ind (Σ, ind_universes mib) _ kn mib _)
-                                 (ErrInductive kn);;
-                ret (InductiveDecl ind)
-              end;;
-
+    if contains kn include && negb (contains kn ignored)  then
+      let Σext := (Σ, universes_decl_of_decl decl) in
+      decl <- erase_global_decl Σext _ kn decl _;;
       Σer <- erase_global_decls_deps_recursive Σ _ (decl_deps include decl);;
       ret ((kn, decl) :: Σer)
     else
       erase_global_decls_deps_recursive Σ _ include
   end.
-Next Obligation. now sq; inversion wfΣ. Qed.
-Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.

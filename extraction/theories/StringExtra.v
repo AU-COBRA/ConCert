@@ -91,16 +91,19 @@ Definition string_of_N (n : N) : string :=
          | 7 => "7"
          | 8 => "8"
          | 9 => "9"
-         | _ => "000" (* unreachable *)
+         | _ => "x" (* unreachable *)
          end%char in
      let acc := String char acc in
      if q =? 0 then
        acc
      else
        match n with
-       | 0%nat => "unreachable"
+       | 0%nat => "" (* unreachable *)
        | S n => f n q acc
        end) (Nlog2up_nat n) n EmptyString.
+
+Definition string_of_nat (n : nat) : string :=
+  string_of_N (N.of_nat n).
 
 Definition string_of_positive (p : positive) : string :=
   string_of_N (Npos p).

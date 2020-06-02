@@ -23,6 +23,7 @@ From MetaCoq.Template Require Import TemplateMonad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import Certified.
+From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
 
@@ -31,6 +32,7 @@ Module P := MetaCoq.PCUIC.PCUICAst.
 Module E := MetaCoq.Erasure.EAst.
 Module D := MetaCoq.Erasure.Debox.
 Module TUtil := MetaCoq.Template.AstUtils.
+Module PUtil := MetaCoq.PCUIC.PCUICAstUtils.
 Module PT := MetaCoq.PCUIC.PCUICTyping.
 Module EF := MetaCoq.Erasure.SafeErasureFunction.
 Module T2P := MetaCoq.PCUIC.TemplateToPCUIC.
@@ -38,33 +40,6 @@ Module T2P := MetaCoq.PCUIC.TemplateToPCUIC.
 Local Open Scope string.
 Import ListNotations.
 Import MonadNotation.
-
-Module Export Ex.
-  Record constant_body :=
-    { cst_type : P.term;
-      cst_body : option E.term; }.
-
-  Record one_inductive_body :=
-    { ind_name : ident;
-      ind_type_parameters : list name;
-      ind_ctors : list (ident * list D.box_type);
-      ind_projs : list (ident * D.box_type); }.
-
-  Record mutual_inductive_body :=
-    { ind_bodies : list one_inductive_body; }.
-
-  Inductive global_decl :=
-  | ConstantDecl : constant_body -> global_decl
-  | InductiveDecl : mutual_inductive_body -> global_decl.
-
-  Definition global_env := list (kername * global_decl).
-
-  Fixpoint lookup_env (Σ : global_env) (id : ident) : option global_decl :=
-    match Σ with
-    | [] => None
-    | (name, decl) :: Σ => if ident_eq id name then Some decl else lookup_env Σ id
-    end.
-End Ex.
 
 Definition kername_unqual (name : kername) : string :=
   match last_index_of "." name with
@@ -78,78 +53,6 @@ Definition kername_qualifier (name : kername) : string :=
   | None => ""
   end.
 
-Import E.
-Fixpoint ungeneralize_ChainBase_aux (cb_arg : nat) (t : term) : result term string :=
-    match t with
-    | tBox _ => ret t
-    | tRel n =>
-      if (n =? cb_arg)%nat then
-        Err "term contains unhandled use of ChainBase"
-      else
-        ret t
-    | tVar _ => ret t
-    | tEvar n ts =>
-      ts <- monad_map (ungeneralize_ChainBase_aux cb_arg) ts;;
-      ret (tEvar n ts)
-    | tLambda name t =>
-      t <- ungeneralize_ChainBase_aux (S cb_arg) t;;
-      ret (tLambda name t)
-    | tLetIn name val body =>
-      val <- ungeneralize_ChainBase_aux cb_arg val;;
-      body <- ungeneralize_ChainBase_aux (S cb_arg) body;;
-      ret (tLetIn name val body)
-    | tApp (tConst _ as head) (tRel i) =>
-      if (i =? cb_arg)%nat then
-        ret head
-      else
-        ret t
-    | tApp head arg =>
-      head <- ungeneralize_ChainBase_aux cb_arg head;;
-      arg <- ungeneralize_ChainBase_aux cb_arg arg;;
-      ret (tApp head arg)
-    | tConst _ => ret t
-    | tConstruct _ _ => ret t
-    | tCase ind disc brs =>
-      disc <- ungeneralize_ChainBase_aux cb_arg disc;;
-      brs <- monad_map (fun '(arity, body) => body <- ungeneralize_ChainBase_aux cb_arg body;;
-                                              ret (arity, body)) brs;;
-      ret (tCase ind disc brs)
-    | tProj proj body =>
-      body <- ungeneralize_ChainBase_aux cb_arg body;;
-      ret (tProj proj body)
-    | tFix defs i =>
-      let cb_arg := (List.length defs + cb_arg)%nat in
-      defs <- monad_map (fun (d : def term) =>
-                           dbody <- ungeneralize_ChainBase_aux cb_arg (dbody d);;
-                           ret {| dname := dname d;
-                                  dbody := dbody;
-                                  rarg := rarg d |}) defs;;
-      ret (tFix defs i)
-    | tCoFix defs i =>
-      let cb_arg := (List.length defs + cb_arg)%nat in
-      defs <- monad_map (fun (d : def term) =>
-                           dbody <- ungeneralize_ChainBase_aux cb_arg (dbody d);;
-                           ret {| dname := dname d;
-                                  dbody := dbody;
-                                  rarg := rarg d |}) defs;;
-      ret (tCoFix defs i)
-    end.
-
-(* Remove all generalization over ChainBase *)
-Definition ungeneralize_ChainBase
-           (type : P.term)
-           (body : E.term) : result (P.term * E.term) string :=
-  match type, body with
-  | P.tProd _ (P.tInd ind _) it, E.tLambda _ ib =>
-    if inductive_mind ind =? "ConCert.Execution.Blockchain.ChainBase" then
-      ib <- ungeneralize_ChainBase_aux 0 ib;;
-      ret (it, ib)
-    else
-      ret (type, body)
-  | _, _ => ret (type, body)
-  end.
-
-From ConCert.Execution Require Blockchain.
 (* This is here so that we get a typing error if Chain ever changes *)
 Check (fun _ => eq_refl) :
   forall chain,
@@ -215,212 +118,295 @@ Definition result_of_option {A} (o : option A) (err : string) : result A string 
   | None => Err err
   end.
 
-Axiom assump : string -> forall {A}, A.
+(* These next functions deal with specializing globals that might
+   refer to a ChainBase variable in the context. They work by
+   replacing uses of it with the specified term, and by removing it
+   from applications. For example:
+   Inductive Foo (cb : ChainBase) := ctor (addr : Address cb).
+   Definition a (cb : ChainBase) (n : nat) := n.
+   Definition b (cb : ChainBase) (addr : Foo cb) (n : N) :=
+     a cb (N.to_nat n).
 
-(* Change an inductive type from A -> B -> Type into A -> B -> unit
-   to allow us to use type erasure on it *)
-Fixpoint recast_into_unit (n : nat) (t : P.term) : option P.term :=
-  match n, t with
-  | 0, P.tSort _ => ret (P.tInd (mkInd "Coq.Init.Datatypes.unit" 0) [])
-  | S n, P.tProd name arg_ty body =>
-    t <- recast_into_unit n body;;
-    ret (P.tProd name arg_ty t)
-  | _, _ => None
-  end.
+   becomes
+   Inductive Foo := ctor (addr : Address replacement_term).
+   Definition a (n : nat) := n.
+   Definition b (addr : Foo) (n : N) :=
+     a (N.to_nat n).
 
-Import Ex.
-Definition erase_and_debox_ind_ctor
-           (Σ : P.global_env_ext)
-           (wfΣ : ∥PT.wf_ext Σ∥)
-           (Γ : P.context)
-           (npars : nat)
-           (p : ident * P.term * nat) : result (ident * list D.box_type) string :=
-  let '(name, ty, _) := p in
-  '(type_names, bty) <-
-  result_of_typing_result
-    Σ
-    (erase_type Σ wfΣ Γ
-                (map Some (seq 0 (List.length Γ)))
-                []
-                (List.length Γ)
-                false
-                ty
-                (assump "assuming well-typedness"));;
-  (if (List.length type_names =? npars)%nat then
-     ret tt
-   else
-     Err "inductive constructor is too general");;
-  let bty := debox_box_type bty in
-  let (btys, _) := decompose_arr bty in
-  ret (name, btys).
+   Note: Only specializes ChainBase when it is the very first abstraction.  *)
+Module ChainBaseSpecialization.
+  Import P.
+  Definition ChainBase_kername : kername :=
+    "ConCert.Execution.Blockchain.ChainBase".
 
-Definition erase_and_debox_one_inductive_body
-           (Σ : P.global_env_ext)
-           (wfΣ : ∥PT.wf_ext Σ∥)
-           (Γ : P.context)
-           (npars : nat)
-           (oib : P.one_inductive_body) : result one_inductive_body string :=
-  t <- result_of_option (recast_into_unit npars (P.ind_type oib))
-                        ("could not recast inductive type '"
-                           ++ P.ind_name oib ++ "' into unit"
-                           ++ nl ++ PCUICAstUtils.string_of_term (P.ind_type oib));;
-  '(type_names, _) <-
-  result_of_typing_result
-    Σ
-    (erase_type Σ wfΣ [] [] [] 0 false t (assump "assuming well-typedness"));;
-  ctors <- monad_map (erase_and_debox_ind_ctor Σ wfΣ Γ npars) (P.ind_ctors oib);;
-  (if 0 <? List.length (P.ind_projs oib) then Err "cannot handle projections yet" else Ok tt);;
-  ret {| ind_name := P.ind_name oib;
-         ind_type_parameters := type_names;
-         ind_ctors := ctors;
-         ind_projs := []; |}.
+  Section ChainBaseSpecialization.
+    Context (replacement_term : term).
 
-Lemma proj_wf
-      {Σ : P.global_env_ext}
-      (wfΣ : ∥PT.wf_ext Σ∥) : ∥PT.wf Σ.1∥.
-Proof. firstorder. Qed.
+    Definition contains (n : kername) : list kername -> bool :=
+      existsb (String.eqb n).
 
-Definition erase_and_debox_term
-           (Σ : P.global_env_ext)
-           (wfΣ : ∥PT.wf_ext Σ∥)
-           (t : P.term) : result E.term string :=
-  et <- result_of_typing_result
-          Σ
-          (EF.erase Σ wfΣ [] t (assump "assuming well-typedness"));;
-  result <- result_of_EnvCheck (check_applied Σ.1 et (proj_wf wfΣ));;
-  if result : bool then
-    ret (debox_all et)
-  else
-    Err "Not all constructors or constants are appropriately applied".
+    Inductive VarInfo :=
+    (* this var is a ChainBase that should be replaced by the replacement term *)
+    | replace
+    (* this var has type ChainBase -> ... and its first argument should be removed *)
+    | specialize
+    | none.
 
-Definition erase_and_debox_single
-           (Σ : P.global_env_ext)
-           (wfΣ : ∥PT.wf_ext Σ∥)
-           (decl : P.global_decl) : result global_decl string :=
-  match decl with
-  | P.ConstantDecl cst =>
-    let (type, body, _) := cst in
-    match body with
-    | None => ret (ConstantDecl {| cst_type := type; cst_body := None |})
-    | Some body =>
-      ebody <- erase_and_debox_term Σ wfΣ body;;
-      let ebody := debox_top_level ebody in
-      ret (ConstantDecl {| cst_type := type; cst_body := Some ebody |} )
-    end
-  | P.InductiveDecl mib =>
-    let Γ := P.arities_context (P.ind_bodies mib) in
-    bodies <- monad_map (erase_and_debox_one_inductive_body Σ wfΣ Γ (P.ind_npars mib))
-                        (P.ind_bodies mib);;
-    ret (InductiveDecl {| ind_bodies := bodies |})
-  end.
-
-Definition add_seen (n : kername) (seen : list kername) : list kername :=
-  if existsb (String.eqb n) seen then
-    seen
-  else
-    n :: seen.
-
-Module EDeps.
-Import E.
-Fixpoint term_deps (seen : list kername) (t : term) : list kername :=
-  match t with
-  | tBox _
-  | tRel _
-  | tVar _ => seen
-  | tEvar _ ts => fold_left term_deps ts seen
-  | tLambda _ t => term_deps seen t
-  | tLetIn _ t1 t2
-  | tApp t1 t2 => term_deps (term_deps seen t1) t2
-  | tConst n => add_seen n seen
-  | tConstruct ind _ => add_seen (inductive_mind ind) seen
-  | tCase (ind, _) t brs =>
-    let seen := term_deps (add_seen (inductive_mind ind) seen) t in
-    fold_left (fun seen '(_, t) => term_deps seen t) brs seen
-  | tProj (ind, _, _) t => term_deps (add_seen (inductive_mind ind) seen) t
-  | tFix defs _
-  | tCoFix defs _ =>
-    fold_left (fun seen d => term_deps seen (dbody d)) defs seen
-  end.
-End EDeps.
-
-Module DDeps.
-Import D.
-Fixpoint box_type_deps (seen : list kername) (t : box_type) : list kername :=
-  match t with
-  | TBox _ => seen
-  | TArr t1 t2
-  | TApp t1 t2 => fold_left box_type_deps [t1; t2] seen
-  | TRel _ => seen
-  | TInd ind => add_seen (inductive_mind ind) seen
-  | TConst n => add_seen n seen
-  end.
-End DDeps.
-
-Import Ex.
-Definition decl_deps (decl : global_decl) : list kername :=
-  match decl with
-  | ConstantDecl body =>
-    match cst_body body with
-    | Some body => EDeps.term_deps [] body
-    | None => []
-    end
-  | InductiveDecl mib =>
-    let one_inductive_body_deps seen oib :=
-        let seen := fold_left DDeps.box_type_deps
-                              (flat_map snd (ind_ctors oib))
-                              seen in
-        fold_left DDeps.box_type_deps (map snd (ind_projs oib)) seen in
-    fold_left one_inductive_body_deps (ind_bodies mib) []
-  end.
-
-(* Erase and debox the graph of unignored dependencies starting with
-   the specified seeds. Return a list of all required dependencies in
-   topological order. The global environment is assumed to type check *)
-Definition erase_and_debox_graph
-           (Σ : P.global_env_ext)
-           (wfΣ : ∥PT.wf_ext Σ∥)
-           (seeds : list kername)
-           (ignore : list kername) : result global_env string :=
-  let fix go n (p : list (kername * global_decl) * list kername) name :=
-      let (result, seen) := p in
-      match n with
-      | 0 => Err "out of fuel"
-      | S n =>
-        if existsb (String.eqb name) (ignore ++ seen) then
-          ret (result, seen)
-        else
-          match PT.lookup_env Σ.1 name with
-          | Some decl =>
-            (* Add this to the set of seen declarations immediately so we don't revisit.
-               However, we wait with adding it to the result set to make sure we add all
-               dependencies first. *)
-            let seen := name :: seen in
-            erased_decl <- match erase_and_debox_single Σ wfΣ decl with
-                           | Ok d => Ok d
-                           | Err s => Err ("Error while erasing and deboxing '"
-                                             ++ name ++ "'" ++ nl ++ s)
-                           end;;
-            '(result, seen) <- monad_fold_left (go n) (decl_deps erased_decl) (result, seen);;
-            ret ((name, erased_decl) :: result, seen)
-          | None => Err ("a seed recursively depends on '"
-                           ++ name ++ "' which could not be found in the environment")
+    Fixpoint specialize_term
+             (specialized : list kername) : list VarInfo -> term -> result term string :=
+      fix f Γ t :=
+        match t with
+        | tRel n =>
+          vi <- result_of_option (nth_error Γ n) "Unbound tRel";;
+          match vi with
+          | replace => ret replacement_term
+          | specialize => Err "Unapplied tRel that should be specialized appears in term"
+          | none => ret t
           end
-      end in
-  '(result, _) <- monad_fold_left (go (N.to_nat 10000)) seeds ([], []);;
-  ret (rev result).
+        | tVar _ => ret t
+        | tEvar n ts =>
+          ts <- monad_map (f Γ) ts;;
+          ret (tEvar n ts)
+        | tSort univ =>
+          ret t
+        | tProd name ty body =>
+          ty <- f Γ ty;;
+          body <- f (none :: Γ) body;;
+          ret (tProd name ty body)
+        | tLambda name ty body =>
+          ty <- f Γ ty;;
+          body <- f (none :: Γ) body;;
+          ret (tLambda name ty body)
+        | tLetIn name val val_ty body =>
+          val <- f Γ val;;
+          val_ty <- f (none :: Γ) val_ty;;
+          body <- f (none :: Γ) body;;
+          ret (tLetIn name val val_ty body)
+        | tApp (tConst name _ as head) arg
+        | tApp (tInd {| inductive_mind := name |} _ as head) arg
+        | tApp (tConstruct {| inductive_mind := name |} _ _ as head) arg =>
+          if contains name specialized then
+            ret head
+          else
+            arg <- f Γ arg;;
+            ret (tApp head arg)
+        | tApp (tRel i as head) arg =>
+          vi <- result_of_option (nth_error Γ i) "Unbound tRel";;
+          match vi with
+          | replace => Err "Unexpected application"
+          | specialize => ret (tRel (i - 1)) (* removed chain base inbetween, hacky *)
+          | none => arg <- f Γ arg;;
+                    ret (tApp head arg)
+          end
+        | tApp head arg =>
+          head <- f Γ head;;
+          arg <- f Γ arg;;
+          ret (tApp head arg)
+        | tConst name _
+        | tInd {| inductive_mind := name |} _
+        | tConstruct {| inductive_mind := name |} _ _ =>
+          if contains name specialized then
+            Err ("Unapplied '"
+                   ++ name
+                   ++ "' (or constructor) appears in term; this needs to be specialized")
+          else
+            ret t
+        | tCase ind ret_ty disc brs =>
+          ret_ty <- f Γ ret_ty;;
+          disc <- f Γ disc;;
+          brs <- monad_map (fun '(ar, t) => t <- f Γ t;; ret (ar, t)) brs;;
+          ret (tCase ind ret_ty disc brs)
+        | tProj proj body =>
+          body <- f Γ body;;
+          ret (tProj proj body)
+        | tFix defs i =>
+          let Γ := (repeat none (List.length defs) ++ Γ)%list in
+          defs <- monad_map (fun (d : def term) =>
+                               dtype <- f Γ (dtype d);;
+                               dbody <- f Γ (dbody d);;
+                               ret {| dname := dname d;
+                                      dtype := dtype;
+                                      dbody := dbody;
+                                      rarg := rarg d |}) defs;;
+          ret (tFix defs i)
+        | tCoFix defs i =>
+          let Γ := (repeat none (List.length defs) ++ Γ)%list in
+          defs <- monad_map (fun (d : def term) =>
+                               dtype <- f Γ (dtype d);;
+                               dbody <- f Γ (dbody d);;
+                               ret {| dname := dname d;
+                                      dtype := dtype;
+                                      dbody := dbody;
+                                      rarg := rarg d |}) defs;;
+          ret (tCoFix defs i)
+        end.
 
-Lemma wf_empty_ext (Σ : P.global_env) :
-  ∥PT.wf Σ∥ -> ∥PT.wf_ext (P.empty_ext Σ)∥.
-Proof.
-  intros [wfΣ].
-  constructor.
-  split; [assumption|].
-  exact (assump "on_udecl on empty_ext").
-Qed.
+    Definition specialize_body
+               (specialized : list kername)
+               (name : string)
+               (Γ : list VarInfo)
+               (remove : bool)
+               (t : term) : result term string :=
+      match remove, t with
+      | true, tLambda _ _ body =>
+        map_error (fun s => "While specializing body in " ++ name ++ ": " ++ s)
+                  (specialize_term specialized (replace :: Γ) body)
 
-Definition check_template_env_for_erasure
+      | true, _ => Err ("Expected lambda in " ++ name ++ ", got" ++ nl ++ PUtil.string_of_term t)
+      | false, _ => specialize_term specialized Γ t
+      end.
+
+    Definition specialize_type
+               (specialized : list kername)
+               (name : string)
+               (Γ : list VarInfo)
+               (remove : bool)
+               (t : term) : result term string :=
+      match remove, t with
+      | true, tProd _ _ body =>
+        map_error (fun s => "While specializing type in " ++ name ++ ": " ++ s)
+                  (specialize_term specialized (replace :: Γ) body)
+
+      | true, _ => Err ("Expected product in " ++ name ++ ", got" ++ nl ++ PUtil.string_of_term t)
+      | false, _ => specialize_term specialized Γ t
+      end.
+
+    Definition specialize_decl
+               (specialized : list kername)
+               (name : kername)
+               (decl : global_decl) : result (list kername * global_decl) string :=
+      match decl with
+      | ConstantDecl cst =>
+        let remove := match cst_type cst with
+                      | tProd _ (tInd ind _) _ =>
+                        inductive_mind ind =? ChainBase_kername
+                      | _ => false
+                      end in
+
+        type <- specialize_type specialized name [] remove (cst_type cst);;
+        body <- match cst_body cst with
+                | Some body => body <- specialize_body specialized name [] remove body;;
+                               ret (Some body)
+                | None => ret None
+                end;;
+
+        ret (if remove then name :: specialized else specialized,
+             ConstantDecl
+               {| cst_type := type;
+                  cst_body := body;
+                  cst_universes := cst_universes cst |})
+
+      | InductiveDecl mib =>
+        let params := rev (ind_params mib) in
+        let remove := match params with
+                      | {| decl_type := tInd ind _ |} :: _ =>
+                        inductive_mind ind =? ChainBase_kername
+                      | _ => false
+                      end in
+        let go '(params, Γ) cdecl :=
+            body <- match decl_body cdecl with
+                    | Some body =>
+                      body <- map_error (fun s => "While specializing param body of "
+                                                    ++ name ++ ": " ++ s)
+                                        (specialize_term specialized Γ body);;
+                      ret (Some body)
+                    | None => ret None
+                    end;;
+            type <- map_error (fun s => "While specializing param type of "
+                                          ++ name ++ ": " ++ s)
+                              (specialize_term specialized Γ (decl_type cdecl));;
+            let cdecl :=
+                {| decl_name := decl_name cdecl;
+                   decl_body := body;
+                   decl_type := type |} in
+            ret (params ++ [cdecl], none :: Γ)%list in
+        '(params, _) <- monad_fold_left
+                          go
+                          (if remove then tl params else params)
+                          ([], if remove then [replace] else []);;
+        let params := rev params in
+        let go oib :=
+            type <- specialize_type specialized (ind_name oib) [] remove (ind_type oib);;
+            (* Context with all mutually inductive types added,
+             specializing them if we removed an abstraction.
+             Ctors themselves will be abstracted over parameters. *)
+            let ctorΓ := repeat (if remove then specialize else none)
+                                (List.length (ind_bodies mib)) in
+            ctors <- monad_map
+                       (fun '(name, t, n) =>
+                          t <- specialize_type specialized name ctorΓ remove t;;
+                          ret (name, t, n))
+                       (ind_ctors oib);;
+            (* Projections are just the type of the data value and
+             checked in a context with parameters and the record value
+             itself *)
+            let projΓ := none :: repeat none (List.length params) in
+            projs <- monad_map
+                       (fun '(name, t) =>
+                          t <- map_error (fun s => "While specializing projection "
+                                                     ++ name ++ ": " ++ s)
+                                         (specialize_term specialized projΓ t);;
+                          ret (name, t))
+                       (ind_projs oib);;
+            ret
+              {| ind_name := ind_name oib;
+                 ind_type := type;
+                 ind_kelim := ind_kelim oib;
+                 ind_ctors := ctors;
+                 ind_projs := projs; |} in
+        bodies <- monad_map go (ind_bodies mib);;
+        ret (if remove then name :: specialized else specialized,
+             InductiveDecl
+               {| ind_finite := ind_finite mib;
+                  ind_npars := List.length params;
+                  ind_params := params;
+                  ind_bodies := bodies;
+                  ind_universes := ind_universes mib;
+                  ind_variance := ind_variance mib; |})
+      end.
+  End ChainBaseSpecialization.
+
+  Definition axiomatized_ChainBase_kername : kername :=
+    "ConCert.Extraction.Common.ChainBaseSpecialization.axiomatized_ChainBase".
+  Definition axiomatized_ChainBase_decl : global_decl :=
+    T2P.trans_global_decl
+      (Ast.ConstantDecl
+         {| T.cst_type :=
+              Ast.tInd
+                {| Ast.BasicTC.inductive_mind := "ConCert.Execution.Blockchain.ChainBase";
+                   Ast.BasicTC.inductive_ind := 0 |} [];
+            T.cst_body := None;
+            T.cst_universes := Monomorphic_ctx (LevelSetProp.of_list [], ConstraintSet.empty) |}).
+
+  (* Specialize ChainBase away in all definitions in an environment.
+     Note: this will also add an axiomatized chain base to the environment. *)
+  Fixpoint specialize_env_rev (Σ : global_env) : result global_env string :=
+    match Σ with
+    | [] => ret []
+    | (name, decl) :: Σ =>
+      if name =? ChainBase_kername then
+        let rep_term := tConst axiomatized_ChainBase_kername [] in
+        let go '(specialized, newΣ) '(name, decl) :=
+            '(specialized, decl) <- specialize_decl rep_term specialized name decl;;
+            ret (specialized, (name, decl) :: newΣ) in
+        '(_, newΣ_rev) <- monad_fold_left go Σ ([], []);;
+        ret ((name, decl)
+               :: (axiomatized_ChainBase_kername, axiomatized_ChainBase_decl)
+               :: rev newΣ_rev)
+      else
+        Σ <- specialize_env_rev Σ;;
+        ret ((name, decl) :: Σ)
+    end.
+
+  Definition specialize_env (Σ : global_env) : result global_env string :=
+    Σrev <- specialize_env_rev (List.rev Σ);;
+    ret (List.rev Σrev).
+End ChainBaseSpecialization.
+
+Definition specialize_ChainBase_and_check
            (Σ : T.global_env) :
-  result { Σ : P.global_env_ext & ∥PT.wf_ext Σ∥ } string :=
+  result { Σ : P.global_env & ∥PT.wf Σ∥ } string :=
+  (* TODO: Why should this be necessary? *)
   let remove_universe_constraints (decl : T.global_decl) :=
       match decl with
       | T.ConstantDecl body =>
@@ -439,41 +425,89 @@ Definition check_template_env_for_erasure
       end in
   let Σ := map (fun '(name, d) => (name, remove_universe_constraints d)) Σ in
   let Σ := fix_global_env_universes Σ in
-  let Σ := (T2P.trans_global (T.empty_ext Σ)).1 in
+  let Σ := T2P.trans_global_decls Σ in
+  Σ <- ChainBaseSpecialization.specialize_env Σ;;
   G <- result_of_EnvCheck (check_wf_env_only_univs Σ);;
-  let wfΣ := G.π2.p2 in
-  let Σext := P.empty_ext Σ in
-  let wfΣext := wf_empty_ext Σ wfΣ in
-  ret (existT Σext wfΣext).
+  Ok (Σ; G.π2.p2).
 
-(* Erase and debox the specified template environment. This will
-   recursively traverse all unignored dependencies of the specified
-   seeds, and erase and debox only those. It returns the result in
-   topological order. Assumption: the global environment type
-   checks. *)
-Definition erase_and_debox_template_env
+(* Specialize, erase and debox the specified template environment.
+   Generalization over ChainBase is first specialized away, turning
+   things like
+
+   Inductive Foo (cb : ChainBase) := ctor (addr : Address cb).
+   Definition a (cb : ChainBase) (n : nat) := n.
+   Definition b (cb : ChainBase) (addr : Foo cb) (n : N) :=
+     a cb (N.to_nat n).
+
+   into
+
+   Inductive Foo := ctor (addr : Address axiomatized_ChainBase).
+   Definition a (n : nat) := n.
+   Definition b (addr : Foo) (n : N) :=
+     a (N.to_nat n).
+
+   After the environment has been specialized the dependencies of the
+   specified seeds are recursively erased and deboxed, except for
+   names in the 'ignored' list, whose decls are ignored. The result is
+   returned in proper topological order. Assumption: the global
+   environment type checks. *)
+Definition specialize_erase_debox_template_env
            (Σ : T.global_env)
            (seeds : list kername)
-           (ignore : list kername) : result global_env string :=
-  '(existT Σext wfΣext) <- check_template_env_for_erasure Σ;;
-  env <- erase_and_debox_graph Σext wfΣext seeds ignore;;
-  ret env.
+           (ignored : list kername) : result global_env string :=
+  '(Σ; wfΣ) <- specialize_ChainBase_and_check Σ;;
+  map_error string_of_erase_global_decl_error
+            (erase_global_decls_deps_recursive ignored Σ wfΣ seeds).
 
-(* Like above, but get dependencies from the term of a template
-   program, and also erase and debox the template program. *)
-Definition erase_and_debox_template_program
+(*
+(* Like above, but get the dependencies from the term of a template
+   program. *)
+Definition specialize_erase_debox_template_program
            (p : T.program)
-           (ignore : list kername) : result (global_env * E.term) string :=
-  '(existT Σext wfΣext) <- check_template_env_for_erasure p.1;;
-  term <- erase_and_debox_term Σext wfΣext (T2P.trans p.2);;
-  let deps := EDeps.term_deps [] term in
-  env <- erase_and_debox_graph Σext wfΣext deps ignore;;
-  ret (env, term).
+           (ignored : list kername) : result global_env string :=
+  '(Σ; wfΣext) <- specialize_ChainBase_and_check p.1;;
+  let deps := PDeps.term_deps [] (T2P.trans p.2) in
+  env <- erase_and_debox_graph Σext wfΣext deps axioms;;
+  ret env.
+*)
+
+(*
+Section ExampleTypes.
+  Context `{ChainBase}.
+  Inductive Ind1 : nat -> Address -> nat -> Type :=
+  | ctor1 : forall x, Ind1 0 x 0
+  with Ind2 : Type :=
+  | ctor2 : forall x, Ind1 0 x 0 -> Ind2.
+
+  Record Rec1 : Type :=
+    { rec1_addr : Address;
+      rec1_rec2 : nat }
+    with Rec2 : Type :=
+      { rec2_addr : Address;
+        rec2_rec1 : nat }.
+
+  Set Primitive Projections.
+  Record Rec3 : Type := { rec3_addr : Address;
+                          rec3_addr2 : Address;
+                          rec3_eq : rec3_addr = rec3_addr2; }.
+End ExampleTypes.
+
+  Quote Recursively Definition example_program := (Rec1, Ind1, Rec3).
+  Definition pcuic_example_program := Eval compute in T2P.trans_global_decls example_program.1.
+  Definition foo : result P.global_env string :=
+    Eval compute in
+      ChainBaseSpecialization.specialize_env (P.tConst "ConCert.ExtractionChainBase" [])
+                                             (T2P.trans_global_decls example_program.1).
+*)
 
 Definition ignored_concert_types :=
-  ["ConCert.Execution.Blockchain.ChainBase";
+  ["ConCert.Execution.Blockchain.ActionBody";
+   "ConCert.Execution.Blockchain.Address";
+   "ConCert.Execution.Blockchain.Amount";
+   "ConCert.Execution.Blockchain.ChainBase";
    "ConCert.Execution.Blockchain.Chain";
-   "ConCert.Execution.Blockchain.ContractCallContext"].
+   "ConCert.Execution.Blockchain.ContractCallContext";
+   "ConCert.Execution.Serializable.SerializedValue"].
 
 Import T.
 Definition extract_def_name {A : Type} (a : A) : TemplateMonad qualid :=
@@ -485,43 +519,45 @@ Definition extract_def_name {A : Type} (a : A) : TemplateMonad qualid :=
   | _ => tmFail ("Expected constant at head, got " ++ TUtil.string_of_term head)
   end.
 
-Axiom extraction_chain_base : ChainBase.
-
 Record ContractExtractionSet :=
-  { env : Ex.global_env;
+  { env : EAst.global_env;
     init_name : kername;
     receive_name : kername; }.
 
-Definition preprocess_for_extraction '(name, decl) : result (kername * Ex.global_decl) string :=
+(*Definition preprocess_for_extraction '(name, decl) : result (kername * Ex.global_decl) string :=
   match decl with
   | Ex.ConstantDecl body =>
-    let (ty, body) := body in
+    let (ty_params, ty, body) := body in
     match body with
-    | None => ret (name, Ex.ConstantDecl {| Ex.cst_type := ty; Ex.cst_body := None |})
+    | None => ret (name, Ex.ConstantDecl
+                           {| Ex.cst_type_parameters := ty_params;
+                              Ex.cst_type := ty;
+                              Ex.cst_body := None |})
     | Some body =>
       if uses_account_balance body then
         Err ("'" ++ name ++ "' uses account_balance")
       else
         '(type, body) <- ungeneralize_ChainBase ty body;;
-        ret (name, Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := Some body |})
+        ret (name, Ex.ConstantDecl
+                     {| Ex.cst_type_parameters := ty_params;
+                        Ex.cst_type := type;
+                        Ex.cst_body := Some body |})
     end
   | _ => ret (name, decl)
-  end.
+  end.*)
 
 Definition get_contract_extraction_set
+           `{ChainBase}
            {Setup Msg State}
            `{Serializable Setup}
            `{Serializable Msg}
            `{Serializable State}
-           (contract : forall (cb : ChainBase), Contract Setup Msg State)
-  : TemplateMonad ContractExtractionSet :=
-  init_name <- extract_def_name (Blockchain.init (contract extraction_chain_base));;
-  receive_name <- extract_def_name (Blockchain.receive (contract extraction_chain_base));;
+           (contract : Contract Setup Msg State) : TemplateMonad ContractExtractionSet :=
+  init_name <- extract_def_name (Blockchain.init contract);;
+  receive_name <- extract_def_name (Blockchain.receive contract);;
   p <- tmQuoteRec contract;;
   let seeds := [init_name; receive_name] in
-  result <- tmEval lazy (erase_and_debox_template_env p.1 seeds ignored_concert_types
-                         >>= monad_map preprocess_for_extraction);;
-  match result with
+  match specialize_erase_debox_template_env p.1 seeds ignored_concert_types with
   | Ok Σ => ret {| env := Σ; init_name := init_name; receive_name := receive_name; |}
   | Err err => tmFail err
   end.

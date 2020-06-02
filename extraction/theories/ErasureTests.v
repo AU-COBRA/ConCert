@@ -311,8 +311,8 @@ Program Definition erase_decls_program (p : Ast.program)
        | CorrectDecl a => ret a
        | _ => Err "Could not check_wf_env_only_univs"
        end;;
-  map_error (erase_global_decls Σ _)
-            (string_of_erase_global_decls_error (empty_ext Σ)).
+  map_error string_of_erase_global_decl_error
+            (erase_global_decls [] Σ _).
 
 Quote Recursively Definition ex1 := nat.
 Compute erase_decls_program ex1.
