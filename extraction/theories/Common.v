@@ -5,6 +5,7 @@ From Coq Require Import NArith.
 From Coq Require Import String.
 
 From MetaCoq Require Import monad_utils.
+From MetaCoq Require Import MCPrelude.
 From MetaCoq Require Import MCProd.
 From MetaCoq Require Import MCString.
 From MetaCoq Require Import MCSquash.
@@ -21,7 +22,6 @@ From MetaCoq.Template Require Import TemplateMonad.
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Extraction Require Import Certified.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
@@ -39,18 +39,6 @@ Local Open Scope string.
 Import ListNotations.
 Import MonadNotation.
 
-Definition kername_unqual (name : kername) : string :=
-  match last_index_of "." name with
-  | Some n => substring_from (S n) name
-  | None => name
-  end.
-
-Definition kername_qualifier (name : kername) : string :=
-  match last_index_of "." name with
-  | Some n => substring_count n name
-  | None => ""
-  end.
-
 (* This is here so that we get a typing error if Chain ever changes *)
 Check (fun _ => eq_refl) :
   forall chain,
@@ -59,10 +47,18 @@ Local Open Scope bool.
 (* Check if term destructs 'Chain' anywhere and uses the
 account_balance field *)
 Import E.
+
+Definition kername_of_string (s : string) : kername :=
+  let l := rev (str_split "." s) in
+  (MPfile (tl l), hd "" l).
+
+Definition ConCertChain : kername :=
+  Eval compute in kername_of_string "ConCert.Execution.Blockchain.Chain".
+
 Definition uses_account_balance (t : term) : bool :=
   (fix f (t : term) (ab_funcs : list bool) :=
      match t with
-     | tBox _ => false
+     | tBox => false
      | tRel i => nth i ab_funcs false
      | tVar _ => false
      | tEvar _ ts => fold_left (fun b t => b || f t ab_funcs) ts false
@@ -73,7 +69,7 @@ Definition uses_account_balance (t : term) : bool :=
      | tConstruct _ _ => false
      | tCase (ind, _) disc brs =>
        f disc ab_funcs ||
-       if inductive_mind ind =? "ConCert.Execution.Blockchain.Chain" then
+       if eq_kername (inductive_mind ind) ConCertChain then
          match brs with
          | [(4, tLambda _ (tLambda _ (tLambda _ (tLambda _ t))))] =>
            f t (true :: false :: false :: false :: ab_funcs)
@@ -135,13 +131,13 @@ Definition result_of_option {A} (o : option A) (err : string) : result A string 
 Module ChainBaseSpecialization.
   Import P.
   Definition ChainBase_kername : kername :=
-    "ConCert.Execution.Blockchain.ChainBase".
+    Eval compute in kername_of_string "ConCert.Execution.Blockchain.ChainBase".
 
   Section ChainBaseSpecialization.
     Context (replacement_term : term).
 
     Definition contains (n : kername) : list kername -> bool :=
-      existsb (String.eqb n).
+      existsb (eq_kername n).
 
     Inductive VarInfo :=
     (* this var is a ChainBase that should be replaced by the replacement term *)
@@ -205,7 +201,7 @@ Module ChainBaseSpecialization.
         | tConstruct {| inductive_mind := name |} _ _ =>
           if contains name specialized then
             Err ("Unapplied '"
-                   ++ name
+                   ++ string_of_kername name
                    ++ "' (or constructor) appears in term; this needs to be specialized")
           else
             ret t
@@ -241,54 +237,54 @@ Module ChainBaseSpecialization.
 
     Definition specialize_body
                (specialized : list kername)
-               (name : string)
+               (name : kername)
                (Γ : list VarInfo)
                (remove : bool)
                (t : term) : result term string :=
       match remove, t with
       | true, tLambda _ _ body =>
-        map_error (fun s => "While specializing body in " ++ name ++ ": " ++ s)
+        map_error (fun s => "While specializing body in " ++ string_of_kername name ++ ": " ++ s)
                   (specialize_term specialized (replace :: Γ) body)
 
-      | true, _ => Err ("Expected lambda in " ++ name ++ ", got" ++ nl ++ PUtil.string_of_term t)
+      | true, _ => Err ("Expected lambda in " ++ string_of_kername name ++ ", got" ++ nl ++ PUtil.string_of_term t)
       | false, _ => specialize_term specialized Γ t
       end.
 
     Definition specialize_type
                (specialized : list kername)
-               (name : string)
+               (name : kername)
                (Γ : list VarInfo)
                (remove : bool)
                (t : term) : result term string :=
       match remove, t with
       | true, tProd _ _ body =>
-        map_error (fun s => "While specializing type in " ++ name ++ ": " ++ s)
+        map_error (fun s => "While specializing type in " ++ string_of_kername name ++ ": " ++ s)
                   (specialize_term specialized (replace :: Γ) body)
 
-      | true, _ => Err ("Expected product in " ++ name ++ ", got" ++ nl ++ PUtil.string_of_term t)
+      | true, _ => Err ("Expected product in " ++ string_of_kername name ++ ", got" ++ nl ++ PUtil.string_of_term t)
       | false, _ => specialize_term specialized Γ t
       end.
 
     Definition specialize_decl
                (specialized : list kername)
-               (name : kername)
+               (kn : kername)
                (decl : global_decl) : result (list kername * global_decl) string :=
       match decl with
       | ConstantDecl cst =>
         let remove := match cst_type cst with
                       | tProd _ (tInd ind _) _ =>
-                        inductive_mind ind =? ChainBase_kername
+                        eq_kername (inductive_mind ind) (ChainBase_kername)
                       | _ => false
                       end in
 
-        type <- specialize_type specialized name [] remove (cst_type cst);;
+        type <- specialize_type specialized kn [] remove (cst_type cst);;
         body <- match cst_body cst with
-                | Some body => body <- specialize_body specialized name [] remove body;;
+                | Some body => body <- specialize_body specialized kn [] remove body;;
                                ret (Some body)
                 | None => ret None
                 end;;
 
-        ret (if remove then name :: specialized else specialized,
+        ret (if remove then kn :: specialized else specialized,
              ConstantDecl
                {| cst_type := type;
                   cst_body := body;
@@ -298,20 +294,20 @@ Module ChainBaseSpecialization.
         let params := rev (ind_params mib) in
         let remove := match params with
                       | {| decl_type := tInd ind _ |} :: _ =>
-                        inductive_mind ind =? ChainBase_kername
+                        eq_kername (inductive_mind ind) ChainBase_kername
                       | _ => false
                       end in
         let go '(params, Γ) cdecl :=
             body <- match decl_body cdecl with
                     | Some body =>
                       body <- map_error (fun s => "While specializing param body of "
-                                                    ++ name ++ ": " ++ s)
+                                                    ++ string_of_kername kn ++ ": " ++ s)
                                         (specialize_term specialized Γ body);;
                       ret (Some body)
                     | None => ret None
                     end;;
             type <- map_error (fun s => "While specializing param type of "
-                                          ++ name ++ ": " ++ s)
+                                          ++ string_of_kername kn ++ ": " ++ s)
                               (specialize_term specialized Γ (decl_type cdecl));;
             let cdecl :=
                 {| decl_name := decl_name cdecl;
@@ -324,7 +320,7 @@ Module ChainBaseSpecialization.
                           ([], if remove then [replace] else []);;
         let params := rev params in
         let go oib :=
-            type <- specialize_type specialized (ind_name oib) [] remove (ind_type oib);;
+            type <- specialize_type specialized (kn.1, ind_name oib) [] remove (ind_type oib);;
             (* Context with all mutually inductive types added,
              specializing them if we removed an abstraction.
              Ctors themselves will be abstracted over parameters. *)
@@ -332,7 +328,7 @@ Module ChainBaseSpecialization.
                                 (List.length (ind_bodies mib)) in
             ctors <- monad_map
                        (fun '(name, t, n) =>
-                          t <- specialize_type specialized name ctorΓ remove t;;
+                          t <- specialize_type specialized (kn.1, name) ctorΓ remove t;;
                           ret (name, t, n))
                        (ind_ctors oib);;
             (* Projections are just the type of the data value and
@@ -353,7 +349,7 @@ Module ChainBaseSpecialization.
                  ind_ctors := ctors;
                  ind_projs := projs; |} in
         bodies <- monad_map go (ind_bodies mib);;
-        ret (if remove then name :: specialized else specialized,
+        ret (if remove then kn :: specialized else specialized,
              InductiveDecl
                {| ind_finite := ind_finite mib;
                   ind_npars := List.length params;
@@ -365,16 +361,17 @@ Module ChainBaseSpecialization.
   End ChainBaseSpecialization.
 
   Definition axiomatized_ChainBase_kername : kername :=
-    "ConCert.Extraction.Common.ChainBaseSpecialization.axiomatized_ChainBase".
+    Eval compute in kername_of_string "ConCert.Extraction.Common.axiomatized_ChainBase".
+
   Definition axiomatized_ChainBase_decl : global_decl :=
-    T2P.trans_global_decl
-      (Ast.ConstantDecl
-         {| T.cst_type :=
-              Ast.tInd
-                {| Ast.BasicTC.inductive_mind := "ConCert.Execution.Blockchain.ChainBase";
-                   Ast.BasicTC.inductive_ind := 0 |} [];
-            T.cst_body := None;
-            T.cst_universes := Monomorphic_ctx (LevelSetProp.of_list [], ConstraintSet.empty) |}).
+    ConstantDecl
+      {| cst_type :=
+           tInd
+             {| inductive_mind := ChainBase_kername;
+                inductive_ind := 0; |}
+             [];
+         cst_body := None;
+         cst_universes := Monomorphic_ctx ContextSet.empty |}.
 
   (* Specialize ChainBase away in all definitions in an environment.
      Note: this will also add an axiomatized chain base to the environment. *)
@@ -382,7 +379,7 @@ Module ChainBaseSpecialization.
     match Σ with
     | [] => ret []
     | (name, decl) :: Σ =>
-      if name =? ChainBase_kername then
+      if eq_kername name ChainBase_kername then
         let rep_term := tConst axiomatized_ChainBase_kername [] in
         let go '(specialized, newΣ) '(name, decl) :=
             '(specialized, decl) <- specialize_decl rep_term specialized name decl;;
@@ -396,6 +393,7 @@ Module ChainBaseSpecialization.
         ret ((name, decl) :: Σ)
     end.
 
+  (* TODO: There are many reverses here, we should improve this. *)
   Definition specialize_env (Σ : global_env) : result global_env string :=
     Σrev <- specialize_env_rev (List.rev Σ);;
     ret (List.rev Σrev).
@@ -405,6 +403,7 @@ Definition specialize_ChainBase_and_check
            (Σ : T.global_env) :
   result { Σ : P.global_env & ∥PT.wf Σ∥ } string :=
   (* TODO: Why should this be necessary? *)
+  (*
   let remove_universe_constraints (decl : T.global_decl) :=
       match decl with
       | T.ConstantDecl body =>
@@ -422,11 +421,12 @@ Definition specialize_ChainBase_and_check
                            T.ind_variance := variance |}
       end in
   let Σ := map (fun '(name, d) => (name, remove_universe_constraints d)) Σ in
+*)
   let Σ := fix_global_env_universes Σ in
   let Σ := T2P.trans_global_decls Σ in
   Σ <- ChainBaseSpecialization.specialize_env Σ;;
   G <- result_of_EnvCheck (check_wf_env_only_univs Σ);;
-  Ok (Σ; G.π2.p2).
+  ret (Σ; G.π2.p2).
 
 (* Specialize, erase and debox the specified template environment.
    Generalization over ChainBase is first specialized away, turning
@@ -499,16 +499,18 @@ End ExampleTypes.
 *)
 
 Definition ignored_concert_types :=
-  ["ConCert.Execution.Blockchain.ActionBody";
-   "ConCert.Execution.Blockchain.Address";
-   "ConCert.Execution.Blockchain.Amount";
-   "ConCert.Execution.Blockchain.ChainBase";
-   "ConCert.Execution.Blockchain.Chain";
-   "ConCert.Execution.Blockchain.ContractCallContext";
-   "ConCert.Execution.Serializable.SerializedValue"].
+  Eval compute in
+    map kername_of_string
+        ["ConCert.Execution.Blockchain.ActionBody";
+        "ConCert.Execution.Blockchain.Address";
+        "ConCert.Execution.Blockchain.Amount";
+        "ConCert.Execution.Blockchain.ChainBase";
+        "ConCert.Execution.Blockchain.Chain";
+        "ConCert.Execution.Blockchain.ContractCallContext";
+        "ConCert.Execution.Serializable.SerializedValue"].
 
 Import T.
-Definition extract_def_name {A : Type} (a : A) : TemplateMonad qualid :=
+Definition extract_def_name {A : Type} (a : A) : TemplateMonad kername :=
   a <- tmEval cbn a;;
   quoted <- tmQuote a;;
   let (head, args) := TUtil.decompose_app quoted in

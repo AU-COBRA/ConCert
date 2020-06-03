@@ -136,37 +136,45 @@ Definition remove_char (c : ascii) : string -> string :=
     end.
 
 Local Open Scope char.
-Fixpoint starts_with (with_str : string) (s : string) : bool :=
-  match with_str, s with
-  | EmptyString, _ => true
-  | String c with_str, String c' s =>
-    if c =? c' then
-      starts_with with_str s
-    else
-      false
-  | _, EmptyString => false
+(* Structurally recursive starts_with with continuation from
+   rest of string if it does start with *)
+Definition starts_with_cont
+         (with_char : ascii) (with_str : string)
+         {A}
+         (cont : string -> A) (s : string) : option A :=
+  (fix f s c ws :=
+     match s with
+     | EmptyString => None
+     | String sc s =>
+       if sc =? c then
+         match ws with
+         | EmptyString => Some (cont s)
+         | String wsc ws => f s wsc ws
+         end
+       else
+         None
+     end) s with_char with_str.
+
+Definition starts_with (with_str : string) (s : string) : bool :=
+  match with_str with
+  | EmptyString => true
+  | String wc ws => if starts_with_cont wc ws (fun _ => true) s then
+                      true
+                    else
+                      false
   end.
 
 Definition replace (orig : string) (new : string) : string -> string :=
   match orig with
   | EmptyString => fun s => s
-  | String orig_hd orig_tl =>
+  | String origc origs =>
     fix replace s :=
-    match s with
-    | EmptyString => EmptyString
-    | String hd tl =>
-      (* make this structurally recursive *)
-      (fix f with_hd with_tl s_hd s_tl {struct s_tl} :=
-         if with_hd =? s_hd then
-           match with_tl, s_tl with
-           | EmptyString, _ =>
-             (* found full string, do replacement *)
-             new ++ replace s_tl
-           | _, EmptyString => (* Ran out of chars *) String hd (replace tl)
-           | String with_hd with_tl, String s_hd s_tl => f with_hd with_tl s_hd s_tl
-           end
-         else
-           String hd (replace tl)) orig_hd orig_tl hd tl
+    match starts_with_cont origc origs replace s with
+    | Some s => new ++ s
+    | None => match s with
+              | EmptyString => EmptyString
+              | String c s => String c (replace s)
+              end
     end
   end.
 
@@ -241,4 +249,18 @@ Definition uncapitalize (s : string) : string :=
   match s with
   | EmptyString => EmptyString
   | String c s => String (char_to_lower c) s
+  end.
+
+Definition str_split (on : string) : string -> list string :=
+  match on with
+  | EmptyString => fun s => [s]
+  | String onc ons =>
+    (fix split cur s :=
+       match starts_with_cont onc ons (split EmptyString) s with
+       | Some l => str_rev cur :: l
+       | None => match s with
+                 | EmptyString => [str_rev cur]
+                 | String sc s => split (String sc cur) s
+                 end
+       end) EmptyString
   end.

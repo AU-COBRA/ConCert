@@ -1,7 +1,6 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
-From ConCert.Extraction Require Import Certified.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
@@ -61,19 +60,19 @@ Definition option_get {A} (o : option A) (default : A) : A :=
 Definition get_fun_name (name : kername) : string :=
   option_get
     (translate name)
-    (uncapitalize (replace_char "." "_" (kername_unqual name))).
+    (uncapitalize (replace_char "." "_" name.2)).
     (*(uncapitalize (replace_char "." "_" name)).*)
 
 Definition get_ty_name (name : kername) : string :=
   option_get
     (translate name)
-    (capitalize (replace_char "." "_" (kername_unqual name))).
+    (capitalize (replace_char "." "_" name.2)).
 
 Definition get_ctor_name (name : kername) : string :=
   option_get
     (translate name)
     ((*capitalize (replace "." "_" name) really long names, but no collisions *)
-     capitalize (kername_unqual name)).
+     capitalize name.2).
 
 Definition get_ident_name (name : ident) : string :=
   uncapitalize (remove_char "'" (replace_char "." "_" name)).
@@ -94,9 +93,10 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
     | Some body => ret body
     | None => Err ("Could not find inductive "
                      ++ string_of_nat (inductive_ind ind)
-                     ++ " in mutual inductive " ++ inductive_mind ind)
+                     ++ " in mutual inductive " ++ string_of_kername (inductive_mind ind))
     end
-  | _ => Err ("Could not find inductive " ++ inductive_mind ind ++ " in environment")
+  | _ => Err ("Could not find inductive "
+                ++ string_of_kername (inductive_mind ind) ++ " in environment")
   end.
 
 Definition names_lookup_ind_decl (ind : inductive) : option T.one_inductive_body :=
@@ -109,17 +109,15 @@ Definition names_lookup_ind_decl (ind : inductive) : option T.one_inductive_body
 Definition print_ind (ind : inductive) : PrettyPrinter unit :=
   match lookup_ind_decl ind with
   | Ok oib =>
-    let qual := kername_qualifier (inductive_mind ind) in
-    let kername := qual ++ "." ++ Ex.ind_name oib in
-    append (get_ty_name kername)
+    let kn := ((inductive_mind ind).1, Ex.ind_name oib) in
+    append (get_ty_name kn)
   | Err err =>
     (* Not found in extraction environment, lookup in names environment *)
     match names_lookup_ind_decl ind with
     | Some oib =>
-      let qual := kername_qualifier (inductive_mind ind) in
-      let kername := qual ++ "." ++ T.ind_name oib in
+      let kn := ((inductive_mind ind).1, T.ind_name oib) in
       (* We require this to be translated now *)
-      append =<< wrap_option (translate kername) ("No translation for " ++ kername)
+      append =<< wrap_option (translate kn) ("No translation for " ++ string_of_kername kn)
     | None => printer_fail err
     end
   end.
@@ -129,9 +127,8 @@ Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
   | Ok oib =>
     match nth_error (Ex.ind_ctors oib) i with
     | Some (name, _) =>
-      let qual := kername_qualifier (inductive_mind ind) in
-      let kername := qual ++ "." ++ name in
-      append (get_ctor_name kername)
+      let kn := ((inductive_mind ind).1, name) in
+      append (get_ctor_name kn)
     | None =>
       printer_fail (Ex.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
     end
@@ -140,9 +137,8 @@ Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
     | Some oib =>
       match nth_error (T.ind_ctors oib) i with
       | Some (name, _, _) =>
-        let qual := kername_qualifier (inductive_mind ind) in
-        let kername := qual ++ "." ++ name in
-        append =<< wrap_option (translate kername) ("No translation for " ++ kername)
+        let kn := ((inductive_mind ind).1, name) in
+        append =<< wrap_option (translate kn) ("No translation for " ++ string_of_kername kn)
       | None =>
         printer_fail (T.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
       end
@@ -291,7 +287,7 @@ Definition print_define_term
 
 Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   match t with
-  | tBox _ => append "□"
+  | tBox => append "□"
   | tRel n =>
     match nth_error Γ n with
     | Some name => append name
@@ -400,7 +396,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
          ctor_indent <- get_indent;;
          push_indent (ctor_indent + indent_size);;
 
-         append (get_ctor_name ctor_name);;
+         append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
 
          (* In Coq, parameters are not part of branches. But erasure
             adds the parameters to each constructor, so we need to get those
@@ -548,7 +544,7 @@ Definition parenthesize_ind_ctor_ty (ty : box_type) : bool :=
 
 Definition print_ind_ctor_definition
            (Γ : list ident)
-           (name : ident)
+           (name : kername)
            (data : list box_type) : PrettyPrinter unit :=
   append (get_ctor_name name);;
 
@@ -561,12 +557,10 @@ Definition print_ind_ctor_definition
 Local Open Scope string.
 Import Ex.
 Definition print_mutual_inductive_body
-           (name : kername)
+           (kn : kername)
            (mib : mutual_inductive_body) : PrettyPrinter (list (kername * string)) :=
   col <- get_current_line_length;;
   push_indent col;;
-
-  let qualifier := kername_qualifier name in
 
   names <-
   (fix print_ind_bodies
@@ -587,7 +581,7 @@ Definition print_mutual_inductive_body
                  ret (Γ ++ [name])%list) (ind_type_vars oib) [];;
 
        append "type ";;
-       let ind_name := qualifier ++ "." ++ ind_name oib in
+       let ind_name := (kn.1, ind_name oib) in
        let ind_ml_name := get_ty_name ind_name in
        append ind_ml_name;;
 
@@ -602,7 +596,7 @@ Definition print_mutual_inductive_body
           | (name, data) :: ctors =>
             append_nl_and_indent;;
             append (prefix ++ " ");;
-            print_ind_ctor_definition Γ name data;;
+            print_ind_ctor_definition Γ (kn.1, name) data;;
 
             print_ind_ctors ctors "|"
           end) (ind_ctors oib) "=";;
@@ -714,35 +708,39 @@ Quote Recursively Definition program := (escrow_init, escrow_receive).
 Definition init_name := "ConCert.Extraction.MidlangExtract.escrow_init".
 Definition receive_name := "ConCert.Extraction.MidlangExtract.escrow_receive".*)
 
-Quote Recursively Definition program := (init, receive).
-Definition init_name := "ConCert.Extraction.MidlangExtract.init".
-Definition receive_name := "ConCert.Extraction.MidlangExtract.receive".
+MetaCoq Quote Recursively Definition program := (init, receive).
+Definition init_name := kername_of_string "ConCert.Extraction.MidlangExtract.init".
+Definition receive_name := kername_of_string "ConCert.Extraction.MidlangExtract.receive".
 
 Definition midlang_translation_map :=
-  [("ConCert.Execution.Blockchain.current_slot", "current_slot");
-   ("ConCert.Execution.Blockchain.account_balance", "account_balance");
-   ("ConCert.Execution.Blockchain.address_eqb", "address_eq");
-   ("ConCert.Execution.Blockchain.ctx_amount", "amount");
-   ("ConCert.Execution.Blockchain.ctx_from", "from");
-   ("ConCert.Execution.Blockchain.Chain", "ConCertChain");
-   ("ConCert.Execution.Blockchain.ContractCallContext", "ConCertCallContext");
-   ("ConCert.Execution.Blockchain.ActionBody", "ConCertAction");
-   ("ConCert.Execution.Blockchain.ChainBase", "ChainBaseWTF");
-   ("ConCert.Execution.Blockchain.act_transfer", "transfer");
-   ("ConCert.Execution.Blockchain.ctx_contract_address", "contract_address")].
+  Eval compute in
+    map (fun '(s, t) => (kername_of_string s, t))
+        [("ConCert.Execution.Blockchain.current_slot", "current_slot");
+        ("ConCert.Execution.Blockchain.account_balance", "account_balance");
+        ("ConCert.Execution.Blockchain.address_eqb", "address_eq");
+        ("ConCert.Execution.Blockchain.ctx_amount", "amount");
+        ("ConCert.Execution.Blockchain.ctx_from", "from");
+        ("ConCert.Execution.Blockchain.Chain", "ConCertChain");
+        ("ConCert.Execution.Blockchain.ContractCallContext", "ConCertCallContext");
+        ("ConCert.Execution.Blockchain.ActionBody", "ConCertAction");
+        ("ConCert.Execution.Blockchain.ChainBase", "ChainBaseWTF");
+        ("ConCert.Execution.Blockchain.act_transfer", "transfer");
+        ("ConCert.Execution.Blockchain.ctx_contract_address", "contract_address")].
 Definition midlang_translate (name : kername) : option string :=
-  match find (fun '(key, _) => key =? name) midlang_translation_map with
+  match find (fun '(key, _) => eq_kername key name) midlang_translation_map with
   | Some (_, val) => Some val
   | None => None
   end.
 
 Definition extra_ignored :=
-  ["RecordUpdate.RecordSet.Reader";
-   "RecordUpdate.RecordSet.constructor"].
+  Eval compute in
+    map kername_of_string
+        ["RecordUpdate.RecordSet.Reader";
+        "RecordUpdate.RecordSet.constructor"].
 
 Definition test :=
     specialize_erase_debox_template_env
-      (List.rev program.1)
+      program.1
       [init_name; receive_name]
       (ignored_concert_types ++ extra_ignored ++ map fst midlang_translation_map).
 Time Compute
@@ -750,6 +748,7 @@ Time Compute
       '(_, s) <- finish_print (print_env env program.1 midlang_translate);;
       ret s).
 
+(*
 (*From ConCert.Execution Require Import Escrow.*)
 
 Axiom extraction_chain_base : ChainBase.
@@ -783,3 +782,5 @@ Definition ignored_concert_types :=
 Compute erase_and_debox_template_program test_program ignored_concert_types.
 
 Run TemplateProgram foo.
+
+*)

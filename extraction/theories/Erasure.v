@@ -14,6 +14,7 @@ From MetaCoq.Erasure Require SafeErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICConfluence.
+From MetaCoq.PCUIC Require Import PCUICConversion.
 From MetaCoq.PCUIC Require Import PCUICCumulativity.
 From MetaCoq.PCUIC Require Import PCUICElimination.
 From MetaCoq.PCUIC Require Import PCUICGeneration.
@@ -53,7 +54,7 @@ Module Export EAst.
   | TApp (_ : box_type) (_ : box_type)
   | TVar (_ : nat) (* Index of type variable *)
   | TInd (_ : inductive)
-  | TConst (_ : ident).
+  | TConst (_ : kername).
 
   Fixpoint decompose_arr (bt : box_type) : list box_type × box_type :=
     match bt with
@@ -110,10 +111,10 @@ Module Export EAst.
 
   Definition global_env := list (kername * global_decl).
 
-  Fixpoint lookup_env (Σ : global_env) (id : ident) : option global_decl :=
+  Fixpoint lookup_env (Σ : global_env) (id : kername) : option global_decl :=
     match Σ with
     | [] => None
-    | (name, decl) :: Σ => if ident_eq id name then Some decl else lookup_env Σ id
+    | (name, decl) :: Σ => if eq_kername id name then Some decl else lookup_env Σ id
     end.
 End EAst.
 
@@ -331,8 +332,7 @@ Next Obligation.
   apply wat_wellformed; [easy|].
   destruct wfΣ.
   sq.
-  eapply validity; [easy| |exact typK].
-  now eapply typing_wf_local.
+  eapply validity; [easy|exact typK].
 Qed.
 Next Obligation.
   exact (todo "also needs discr like above").
@@ -366,6 +366,8 @@ Definition erase_type_rel : Relation_Definitions.relation (∑ Γ t, wellformed 
 
 Lemma well_founded_erase_type_rel : well_founded erase_type_rel.
 Proof.
+  Admitted.
+(*
   intros (Γl & l & wfl).
   destruct wfΣ as [wfΣu].
   induction (normalisation' Σ Γl l wfΣu wfl) as [l _ IH].
@@ -401,6 +403,7 @@ Proof.
         -- eapply IH.
            ++ eapply red_neq_cored; [exact mred|].
         eapply IH.
+*)
 
 Instance WellFounded_erase_type_rel : WellFounded erase_type_rel :=
   Wf.Acc_intro_generator 1000 well_founded_erase_type_rel.
@@ -694,8 +697,8 @@ Next Obligation.
     { symmetry. apply decompose_app_inv.
       now rewrite <- eq_decomp. }
     destruct wfΣ as [wfΣu].
-    apply type_mkApps_inv in typ; [|easy].
-    destruct typ as (rel_type & _ & (rel_typed & _) & _).
+    apply inversion_mkApps in typ; [|easy].
+    destruct typ as (rel_type & rel_typed & spine).
     apply inversion_Rel in rel_typed; [|easy].
     apply nth_error_Some.
     destruct rel_typed as (? & _ & ? & _).
@@ -710,8 +713,8 @@ Next Obligation.
     { symmetry. apply decompose_app_inv.
       now rewrite <- eq_decomp. }
     destruct wfΣ as [wfΣu].
-    apply type_mkApps_inv in typ; [|easy].
-    destruct typ as (? & ? & (? & spine) & ?).
+    apply inversion_mkApps in typ; [|easy].
+    destruct typ as (? & ? & spine).
     clear -spine i.
     induction spine; [easy|].
     destruct i.
@@ -723,10 +726,7 @@ Next Obligation.
   destruct typ as [typ].
   destruct wfΣ.
   sq.
-  eapply validity_term.
-  - easy.
-  - now eapply typing_wf_local.
-  - exact typ.
+  eapply validity_term; [easy|exact typ].
 Qed.
 Next Obligation.
   destruct conv_sort as (univ & reduniv).
@@ -734,11 +734,7 @@ Next Obligation.
   sq.
   right.
   exists univ.
-  eapply type_reduction.
-  - easy.
-  - now eapply typing_wf_local.
-  - exact typ.
-  - easy.
+  eapply type_reduction; [easy|exact typ|easy].
 Qed.
 Next Obligation.
   pose proof (reduce_term_sound redβιζ Σ wfΣ Γ t (watwf wat)).
@@ -786,8 +782,7 @@ Next Obligation.
   unfold on_constant_decl in wt.
   destruct (P.cst_body cst).
   - cbn in wt.
-    eapply validity_term; [easy| |exact wt].
-    constructor.
+    eapply validity_term; [easy|exact wt].
   - cbn in wt.
     destruct wt as (s & ?).
     right.
@@ -955,11 +950,9 @@ Next Obligation.
   unfold on_constructors in *.
   induction on_ctors; [easy|].
   destruct is_in as [->|later]; [|easy].
-  unfold on_constructor in r.
-  cbn in *.
-  destruct r as ((s & typ) & (cs & ?)).
   constructor.
   right.
+  destruct (on_ctype r) as (s & typ).
   rewrite <- (arities_contexts_1 mind) in typ.
   rewrite <- Heq_anonymous in typ.
   now exists s.
@@ -1027,10 +1020,10 @@ Inductive erase_global_decl_error :=
 Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : string :=
   match e with
   | ErrConstant Σ kn err => "Error while erasing constant "
-                              ++ kn ++ ": "
+                              ++ string_of_kername kn ++ ": "
                               ++ string_of_erase_constant_decl_error Σ err
   | ErrInductive Σ kn err => "Error while erasing inductive "
-                               ++ kn ++ ": "
+                               ++ string_of_kername kn ++ ": "
                                ++ string_of_erase_ind_error Σ err
   end.
 
@@ -1052,7 +1045,7 @@ Program Definition erase_global_decl
   end.
 
 Definition contains (kn : kername) :=
-  List.existsb (String.eqb kn).
+  List.existsb (eq_kername kn).
 
 (* Erase all unignored global declarations *)
 Program Fixpoint erase_global_decls (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
@@ -1073,14 +1066,14 @@ Next Obligation. now sq; inversion wfΣ. Qed.
 Next Obligation. now sq; inversion wfΣ. Qed.
 
 Definition add_seen (n : kername) (seen : list kername) : list kername :=
-  if existsb (String.eqb n) seen then
+  if existsb (eq_kername n) seen then
     seen
   else
     n :: seen.
 
 Fixpoint Eterm_deps (seen : list kername) (t : term) : list kername :=
   match t with
-  | tBox _
+  | tBox
   | tRel _
   | tVar _ => seen
   | tEvar _ ts => fold_left Eterm_deps ts seen

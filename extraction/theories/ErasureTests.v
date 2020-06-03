@@ -31,7 +31,8 @@ Record type_flag_squashed := {
 
 Program Definition flag_of_type_program (p : Ast.program)
   : result type_flag_squashed string :=
-  let Σ := List.rev (trans_global (Ast.empty_ext p.1)).1 in
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
   G <- match check_wf_env_only_univs Σ with
        | CorrectDecl a => ret a
        | _ => Err "Could not check_wf_env_only_univs"
@@ -55,50 +56,60 @@ Next Obligation.
   unfold on_global_env_ext. destruct H0. todo "assuming well-typedness".
 Qed.
 
-Quote Recursively Definition ex1 := Type.
+MetaCoq Quote Recursively Definition ex1 := Type.
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex1) in exact x) =
                 Ok {| is_logical := false; is_sort := true; is_arity := true |}.
 
-Quote Recursively Definition ex2 := nat.
+MetaCoq Quote Recursively Definition ex2 := nat.
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex2) in exact x) =
                 Ok {| is_logical := false; is_sort := false; is_arity := false |}.
 
-Quote Recursively Definition ex3 := (nat -> nat).
+MetaCoq Quote Recursively Definition ex3 := (nat -> nat).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex3) in exact x) =
                 Ok {| is_logical := false; is_sort := false; is_arity := false |}.
 
-Quote Recursively Definition ex4 := (forall A, A).
+MetaCoq Quote Recursively Definition ex4 := (forall A, A).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex4) in exact x) =
                 Ok {| is_logical := false; is_sort := false; is_arity := false |}.
 
-Quote Recursively Definition ex5 := (Prop).
+MetaCoq Quote Recursively Definition ex5 := (Prop).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex5) in exact x) =
                 Ok {| is_logical := true; is_sort := true; is_arity := true |}.
 
-Quote Recursively Definition ex6 := (Prop -> Type).
+MetaCoq Quote Recursively Definition ex6 := (Prop -> Type).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex6) in exact x) =
                 Ok {| is_logical := false; is_sort := false; is_arity := true |}.
 
-Quote Recursively Definition ex7 := (Type -> Prop).
+MetaCoq Quote Recursively Definition ex7 := (Type -> Prop).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex7) in exact x) =
                 Ok {| is_logical := true; is_sort := false; is_arity := true |}.
 
-Quote Recursively Definition ex8 := (False).
+MetaCoq Quote Recursively Definition ex8 := (False).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex8) in exact x) =
                 Ok {| is_logical := true; is_sort := false; is_arity := false |}.
 
-Quote Recursively Definition ex9 := (Fin.t 0 -> False).
+MetaCoq Quote Recursively Definition ex9 := (Fin.t 0 -> False).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex9) in exact x) =
                 Ok {| is_logical := true; is_sort := false; is_arity := false |}.
 End flag_of_type_tests.
 
 Module erase_type_tests.
+Definition string_of_env_error Σ e :=
+  match e with
+  | IllFormedDecl s e =>
+    "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
+  | AlreadyDeclared s => "Alreadydeclared " ++ s
+  end%string.
+
 Program Definition erase_type_program (p : Ast.program)
   : result (P.global_env * (list name * box_type)) erase_type_error :=
-  let Σ := List.rev (trans_global (Ast.empty_ext p.1)).1 in
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
   G <- match check_wf_env_only_univs Σ with
        | CorrectDecl a => ret a
-       | _ => Err (GeneralError "Could not check_wf_env_only_univs")
+       | EnvError Σ err => Err (GeneralError
+                                  ("Could not check_wf_env_only_univs: "
+                                     ++ string_of_env_error Σ err))
        end;;
   t <- erase_type (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _ [];;
   ret (Σ, t).
@@ -121,10 +132,7 @@ Definition is_arr (t : box_type) : bool :=
   end.
 
 Definition kername_unqual (name : kername) : string :=
-  match last_index_of "." name with
-  | Some n => substring_from (S n) name
-  | None => ""
-  end.
+  snd name.
 
 Definition parenthesize_arg (a : box_type) : bool :=
   match a with
@@ -157,7 +165,8 @@ Definition print_box_type (Σ : P.global_env) (tvars : list name) :=
     match @lookup_ind_decl (empty_ext Σ) s with
     | Checked (decl; oib; _) => oib.(P.ind_name)
     | TypeError te => "UndeclaredInductive("
-                        ++ s.(inductive_mind) ++ "," ++ s.(inductive_mind) ++ ")"
+                        ++ string_of_kername s.(inductive_mind)
+                        ++ "," ++ string_of_nat s.(inductive_ind) ++ ")"
     end
   | TConst s => kername_unqual s
   end.
@@ -170,40 +179,39 @@ Definition erase_and_print_type
            (after_erasure : box_type -> box_type)
            (p : Ast.program)
   : result (string × string) erase_type_error :=
-  let p := fix_program_universes p in
   '(Σ, (tvars, bt)) <- erase_type_program p;;
   ret (print_type_vars tvars, print_box_type Σ tvars bt).
 
-Quote Recursively Definition ex1 := (forall (A B : Type) (a : A * B) (C : Type), A * B * C).
+MetaCoq Quote Recursively Definition ex1 := (forall (A B : Type) (a : A * B) (C : Type), A * B * C).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex1) in exact x) =
                 Ok ("A B C", "□ → □ → prod A B → □ → prod (prod A B) C").
 
-Quote Recursively Definition ex2 := (forall (A : Type) (P : A -> Prop), @sig A P).
+MetaCoq Quote Recursively Definition ex2 := (forall (A : Type) (P : A -> Prop), @sig A P).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex2) in exact x) =
                 Ok ("A", "□ → □ → sig A □").
 
-Quote Recursively Definition ex3 := (forall (A : Type) (P : A -> Prop), { a : A | P a }).
+MetaCoq Quote Recursively Definition ex3 := (forall (A : Type) (P : A -> Prop), { a : A | P a }).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex3) in exact x) =
                 Ok ("A", "□ → □ → sig A □").
 
-Quote Recursively Definition ex4 := (forall (A B : Type) (f : A -> B) (n : nat),
+MetaCoq Quote Recursively Definition ex4 := (forall (A B : Type) (f : A -> B) (n : nat),
                                         Vector.t A n -> Vector.t B n).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex4) in exact x) =
                 Ok ("A B", "□ → □ → (A → B) → nat → t A 𝕋 → t B 𝕋").
 
-Quote Recursively Definition ex5 :=
+MetaCoq Quote Recursively Definition ex5 :=
   (forall (A : Type),  list A -> list A -> 0 = 0 -> forall (B : Type), B -> A -> A).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex5) in exact x) =
                 Ok ("A B", "□ → list A → list A → □ → □ → B → A → A").
 
 (* Prenex form that we fail on *)
-Quote Recursively Definition ex6 :=
+MetaCoq Quote Recursively Definition ex6 :=
   (forall (A : Type), (forall A : Type, A -> A) -> A -> forall B : Type, B -> nat).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex6) in exact x) =
                 Err NotPrenex.
 
 (** Erasing and deboxing *)
-Quote Recursively Definition ex7 :=
+MetaCoq Quote Recursively Definition ex7 :=
   (forall (A : Type), A -> forall (B : Type) (C : Type), B -> C).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex7) in exact x) =
                 Ok ("A B C", "□ → A → □ → □ → B → C").
@@ -215,57 +223,57 @@ with forest (A : Set) : Set :=
     leaf : A -> forest A
   | cons : tree A -> forest A -> forest A.
 
-Quote Recursively Definition ex8 := (forall (A: Set), forest A -> tree A -> A).
+MetaCoq Quote Recursively Definition ex8 := (forall (A: Set), forest A -> tree A -> A).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex8) in exact x) =
                 Ok ("A", "□ → forest A → tree A → A").
 
 (* We cannot currently handle the following even though we may want to be able to.
    To handle this we would need to do deboxing simultaneously with erasure. *)
-Quote Recursively Definition ex9 := (forall (A : 0 = 0 -> Type) (B : Type), option (A eq_refl) -> B).
+MetaCoq Quote Recursively Definition ex9 := (forall (A : 0 = 0 -> Type) (B : Type), option (A eq_refl) -> B).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex9) in exact x) =
                 Err NotPrenex.
 
-Quote Recursively Definition ex10 :=
+MetaCoq Quote Recursively Definition ex10 :=
   (forall (A : Type), (forall (B : Type), B -> B) -> A).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex10) in exact x) =
                 Err NotPrenex.
 
-Quote Recursively Definition ex11 := (forall (A : Type), {n : nat | 0 < n} -> A).
+MetaCoq Quote Recursively Definition ex11 := (forall (A : Type), {n : nat | 0 < n} -> A).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex11) in exact x) =
                 Ok ("A", "□ → sig nat □ → A").
 
-Quote Recursively Definition ex12 := (forall (A : Type) (P : A -> Prop), unit).
+MetaCoq Quote Recursively Definition ex12 := (forall (A : Type) (P : A -> Prop), unit).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex12) in exact x) =
                 Ok ("A", "□ → □ → unit").
 
-Quote Recursively Definition ex13 := (let p := (nat, unit) in fst p × snd p).
+MetaCoq Quote Recursively Definition ex13 := (let p := (nat, unit) in fst p × snd p).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex13) in exact x) =
                 Ok ("", "prod (fst □ □ 𝕋) (snd □ □ 𝕋)").
 
-Quote Recursively Definition ex14 := (let t := nat in t).
+MetaCoq Quote Recursively Definition ex14 := (let t := nat in t).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex14) in exact x) =
                 Ok ("", "nat").
 
-Quote Recursively Definition ex15 := ((fix f n := match n with
+MetaCoq Quote Recursively Definition ex15 := ((fix f n := match n with
                                                   | 0 => nat
                                                   | S n => nat -> f n
                                                   end) 5).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex15) in exact x) =
                 Ok ("", "nat → nat → nat → nat → nat → nat").
 
-Quote Recursively Definition ex16 := (Type -> Type).
+MetaCoq Quote Recursively Definition ex16 := (Type -> Type).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex16) in exact x) =
                 Ok ("_", "□ → □").
 
-Quote Recursively Definition ex17 := (Type -> Prop).
+MetaCoq Quote Recursively Definition ex17 := (Type -> Prop).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex17) in exact x) =
                 Ok ("", "□").
 
-Quote Recursively Definition ex18 := (False).
+MetaCoq Quote Recursively Definition ex18 := (False).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex18) in exact x) =
                 Ok ("", "□").
 
-Quote Recursively Definition ex19 := (Fin.t 0 -> False).
+MetaCoq Quote Recursively Definition ex19 := (Fin.t 0 -> False).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex19) in exact x) =
                 Ok ("", "□").
 
@@ -274,7 +282,8 @@ End erase_type_tests.
 Module erase_ind_arity_tests.
 Program Definition erase_arity_program (p : Ast.program)
   : result (list oib_type_var) string :=
-  let Σ := List.rev (trans_global_decls p.1) in
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
   G <- match check_wf_env_only_univs Σ with
        | CorrectDecl a => ret a
        | _ => Err "Could not check_wf_env_only_univs"
@@ -286,7 +295,7 @@ Next Obligation.
 Next Obligation.
   Admitted.
 
-Quote Recursively Definition ex1 := (forall (A : Type), A -> A -> Prop).
+MetaCoq Quote Recursively Definition ex1 := (forall (A : Type), A -> A -> Prop).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_arity_program ex1) in exact x) =
                 Ok
                   [{| tvar_name := nNamed "A";
@@ -341,7 +350,8 @@ Definition print_inductive (Σ : global_env) (mib : EAst.mutual_inductive_body) 
 
 Program Definition erase_decls_program (p : Ast.program)
   : result (list (kername × EAst.global_decl)) string :=
-  let Σ := List.rev (trans_global_decls p.1) in
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
   G <- match check_wf_env_only_univs Σ with
        | CorrectDecl a => ret a
        | EnvError Σ ee => Err "Could not check_wf_env_only_univs"
@@ -355,7 +365,7 @@ Definition erase_and_print_ind_prog (p : Ast.program)
   Σer <- erase_decls_program p;;
   match trans p.2 with
   | P.tInd ind _ =>
-    match List.find (fun '(kn, _) => String.eqb kn (inductive_mind ind)) Σer with
+    match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σer with
     | Some (kn, EAst.InductiveDecl mib) =>
       ret (print_inductive Σ mib)
     | Some (kn, _) => Err "Not an inductive"
@@ -364,30 +374,30 @@ Definition erase_and_print_ind_prog (p : Ast.program)
   | _ => Err "Expected inductive"
   end.
 
-Quote Recursively Definition ex1 := nat.
+MetaCoq Quote Recursively Definition ex1 := nat.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex1) in exact x) =
                 Ok ("data nat" ++ nl ++
                     "| O" ++ nl ++
                     "| S nat").
 
-Quote Recursively Definition ex2 := sig.
+MetaCoq Quote Recursively Definition ex2 := sig.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex2) in exact x) =
                 Ok ("data sig A P" ++ nl ++
                     "| exist □ □ A □").
 
-Quote Recursively Definition ex3 := list.
+MetaCoq Quote Recursively Definition ex3 := list.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex3) in exact x) =
                 Ok ("data list A" ++ nl ++
                     "| nil □" ++ nl ++
                     "| cons □ A (list A)").
 
-Quote Recursively Definition ex4 := option.
+MetaCoq Quote Recursively Definition ex4 := option.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex4) in exact x) =
                 Ok ("data option A" ++ nl ++
                     "| Some □ A" ++ nl ++
                     "| None □").
 
-Quote Recursively Definition ex5 := Vector.t.
+MetaCoq Quote Recursively Definition ex5 := Vector.t.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex5) in exact x) =
                 Ok ("data t A _" ++ nl ++
                     "| nil □" ++ nl ++
@@ -398,7 +408,7 @@ Inductive tree (A : Set) : Set :=
 with forest (A : Set) : Set :=
     leaf : A -> forest A
   | cons : tree A -> forest A -> forest A.
-Quote Recursively Definition ex6 := tree.
+MetaCoq Quote Recursively Definition ex6 := tree.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex6) in exact x) =
                 Ok ("data tree A" ++ nl ++
                     "| node □ A (forest A)" ++ nl ++
@@ -417,7 +427,7 @@ with Mod :=
      | Ftor : Env -> MTy -> Mod
 with MTy :=
      | MSigma : Mod -> MTy.
-Quote Recursively Definition ex7 := Env.
+MetaCoq Quote Recursively Definition ex7 := Env.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex7) in exact x) =
                 Ok ("data Env" ++ nl ++
                     "| EnvCtr MEnv MTEnv" ++ nl ++
@@ -435,7 +445,7 @@ Inductive Weird (A : Type) : Type :=
 | Nil
 | Cons (a : A) (w : Weird (A * A)).
 
-Quote Recursively Definition ex8 := Weird.
+MetaCoq Quote Recursively Definition ex8 := Weird.
 Compute erase_and_print_ind_prog ex8.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex8) in exact x) =
                 Ok ("data Weird A" ++ nl ++
