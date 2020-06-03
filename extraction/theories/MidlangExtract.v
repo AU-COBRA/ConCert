@@ -61,7 +61,6 @@ Definition get_fun_name (name : kername) : string :=
   option_get
     (translate name)
     (uncapitalize (replace_char "." "_" name.2)).
-    (*(uncapitalize (replace_char "." "_" name)).*)
 
 Definition get_ty_name (name : kername) : string :=
   option_get
@@ -71,8 +70,7 @@ Definition get_ty_name (name : kername) : string :=
 Definition get_ctor_name (name : kername) : string :=
   option_get
     (translate name)
-    ((*capitalize (replace "." "_" name) really long names, but no collisions *)
-     capitalize name.2).
+    (capitalize name.2).
 
 Definition get_ident_name (name : ident) : string :=
   uncapitalize (remove_char "'" (replace_char "." "_" name)).

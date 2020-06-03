@@ -131,9 +131,6 @@ Definition is_arr (t : box_type) : bool :=
   | _ => false
   end.
 
-Definition kername_unqual (name : kername) : string :=
-  snd name.
-
 Definition parenthesize_arg (a : box_type) : bool :=
   match a with
   | TBox
@@ -168,7 +165,7 @@ Definition print_box_type (Σ : P.global_env) (tvars : list name) :=
                         ++ string_of_kername s.(inductive_mind)
                         ++ "," ++ string_of_nat s.(inductive_ind) ++ ")"
     end
-  | TConst s => kername_unqual s
+  | TConst s => s.2
   end.
 
 Definition print_type_vars (l : list name) :=
