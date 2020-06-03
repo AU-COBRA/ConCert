@@ -402,26 +402,6 @@ End ChainBaseSpecialization.
 Definition specialize_ChainBase_and_check
            (Σ : T.global_env) :
   result { Σ : P.global_env & ∥PT.wf Σ∥ } string :=
-  (* TODO: Why should this be necessary? *)
-  (*
-  let remove_universe_constraints (decl : T.global_decl) :=
-      match decl with
-      | T.ConstantDecl body =>
-        let (type, body, _) := body in
-        T.ConstantDecl {| T.cst_type := type;
-                          T.cst_body := body;
-                          T.cst_universes := Monomorphic_ctx ContextSet.empty |}
-      | T.InductiveDecl mib =>
-        let (finite, npars, params, bodies, _, variance) := mib in
-        T.InductiveDecl {| T.ind_finite := finite;
-                           T.ind_npars := npars;
-                           T.ind_params := params;
-                           T.ind_bodies := bodies;
-                           T.ind_universes := Monomorphic_ctx ContextSet.empty;
-                           T.ind_variance := variance |}
-      end in
-  let Σ := map (fun '(name, d) => (name, remove_universe_constraints d)) Σ in
-*)
   let Σ := fix_global_env_universes Σ in
   let Σ := T2P.trans_global_decls Σ in
   Σ <- ChainBaseSpecialization.specialize_env Σ;;
