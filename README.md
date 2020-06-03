@@ -19,7 +19,7 @@ Then MetaCoq and bignums:
 
 ```bash
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install coq-metacoq.1.0~alpha+8.11
+opam install coq-metacoq.1.0~alpha2+8.11
 opam install coq-bignums
 ```
 And std++:
