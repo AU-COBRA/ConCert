@@ -959,13 +959,13 @@ Next Obligation.
 Qed.
 
 Inductive erase_ind_error :=
-| EraseIndErr (ind : ident) (err : erase_ind_body_error).
+| EraseIndBodyError (ind : ident) (err : erase_ind_body_error).
 
 Definition string_of_erase_ind_error (e : erase_ind_error) : string :=
   match e with
-  | EraseIndErr ind e => "Error while erasing ind body "
-                           ++ ind ++ ": "
-                           ++ string_of_erase_ind_body_error e
+  | EraseIndBodyError ind e => "Error while erasing ind body "
+                                 ++ ind ++ ": "
+                                 ++ string_of_erase_ind_body_error e
   end.
 
 Program Definition erase_ind
@@ -977,7 +977,7 @@ Program Definition erase_ind
             (P.ind_bodies mib)
             (fun oib is_in =>
                map_error
-                 (EraseIndErr (P.ind_name oib))
+                 (EraseIndBodyError (P.ind_name oib))
                  (erase_ind_body kn mib oib _));;
   ret {| ind_bodies := inds |}.
 Next Obligation.

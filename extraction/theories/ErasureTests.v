@@ -311,7 +311,7 @@ Check eq_refl : ltac:(let x := eval vm_compute in (erase_arity_program ex1) in e
                     tvar_is_sort := false |}].
 End erase_ind_arity_tests.
 
-Module erase_global_decls_tests.
+Module erase_ind_tests.
 Definition print_box_type := erase_type_tests.print_box_type.
 Definition print_name := erase_type_tests.print_name.
 
@@ -345,30 +345,23 @@ Definition print_one_inductive_body
 Definition print_inductive (Σ : global_env) (mib : EAst.mutual_inductive_body) : string :=
   concat nl (map (print_one_inductive_body Σ) (EAst.ind_bodies mib)).
 
-Program Definition erase_decls_program (p : Ast.program)
-  : result (list (kername × EAst.global_decl)) string :=
+Axiom assume_wellformed : forall {X}, X.
+Axiom cannot_happen : forall {X}, X.
+Definition erase_and_print_ind_prog (p : Ast.program)
+           : result string erase_ind_error :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
-  G <- match check_wf_env_only_univs Σ with
-       | CorrectDecl a => ret a
-       | EnvError Σ ee => Err "Could not check_wf_env_only_univs"
-       end;;
-  map_error string_of_erase_global_decl_error
-            (erase_global_decls [] Σ _).
-
-Definition erase_and_print_ind_prog (p : Ast.program)
-           : result string string :=
-  let Σ := trans_global_decls p.1 in
-  Σer <- erase_decls_program p;;
   match trans p.2 with
   | P.tInd ind _ =>
-    match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σer with
-    | Some (kn, EAst.InductiveDecl mib) =>
-      ret (print_inductive Σ mib)
-    | Some (kn, _) => Err "Not an inductive"
-    | None => Err "Inductive not found"
+    match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
+    | Some (kn, P.InductiveDecl mib) =>
+      inder <- erase_ind
+                 (Σ, ind_universes mib) assume_wellformed
+                 (inductive_mind ind) mib assume_wellformed;;
+      ret (print_inductive Σ inder)
+    | _ => cannot_happen
     end
-  | _ => Err "Expected inductive"
+  | _ => cannot_happen
   end.
 
 MetaCoq Quote Recursively Definition ex1 := nat.
@@ -443,9 +436,23 @@ Inductive Weird (A : Type) : Type :=
 | Cons (a : A) (w : Weird (A * A)).
 
 MetaCoq Quote Recursively Definition ex8 := Weird.
-Compute erase_and_print_ind_prog ex8.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex8) in exact x) =
                 Ok ("data Weird A" ++ nl ++
                     "| Nil □" ++ nl ++
                     "| Cons □ A (Weird (prod A A))").
-End erase_global_decls_tests.
+
+Inductive IndexedList : Type -> Type :=
+| inil : forall T, IndexedList T
+| icons : forall T, T -> IndexedList T -> IndexedList T.
+
+MetaCoq Quote Recursively Definition ex9 := IndexedList.
+Compute erase_and_print_ind_prog ex9.
+Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex9) in exact x) =
+                Err (EraseIndBodyError "IndexedList" (CtorUnmappedTypeVariables "inil")).
+
+MetaCoq Quote Recursively Definition ex10 := Monad.
+Compute erase_and_print_ind_prog ex10.
+Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex10) in exact x) =
+                Err (EraseIndBodyError "Monad" (EraseCtorError "Build_Monad" NotPrenex)).
+
+End erase_ind_tests.
