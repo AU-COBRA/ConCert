@@ -1049,7 +1049,7 @@ Definition contains (kn : kername) :=
 
 (* Erase all unignored global declarations *)
 Program Fixpoint erase_global_decls (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
-  : result (list (kername × global_decl)) erase_global_decl_error :=
+  : result global_env erase_global_decl_error :=
   match Σ with
   | [] => ret []
   | (kn, decl) :: Σ =>
@@ -1125,7 +1125,7 @@ Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :
 Program Fixpoint erase_global_decls_deps_recursive
         (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
         (include : list kername)
-  : result (list (kername × global_decl)) erase_global_decl_error :=
+  : result global_env erase_global_decl_error :=
   match Σ with
   | [] => ret []
   | (kn, decl) :: Σ =>

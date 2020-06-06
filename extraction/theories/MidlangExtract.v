@@ -49,8 +49,6 @@ Context (Σ : Ex.global_env).
 Context (Σnames : T.global_env).
 Context (translate : kername -> option string).
 
-Bind Scope string with kername ident.
-
 Definition option_get {A} (o : option A) (default : A) : A :=
   match o with
   | Some a => a
