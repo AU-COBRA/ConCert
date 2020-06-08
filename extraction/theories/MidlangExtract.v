@@ -369,7 +369,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   | tConst name => append (get_fun_name name)
   | tConstruct ind i => print_ind_ctor ind i
 
-  | tCase (ind, _) discriminee branches =>
+  | tCase (ind, npars) discriminee branches =>
     case_col <- get_current_line_length;;
     append "case ";;
     print_parenthesized (parenthesize_case_discriminee discriminee)
@@ -397,7 +397,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
          (* In Coq, parameters are not part of branches. But erasure
             adds the parameters to each constructor, so we need to get those
             out of the way first. These won't have any uses so we just print _. *)
-         append (concat "" (map (fun _ => " _") (seq 0 (List.length data - arity))));;
+         append (concat "" (map (fun _ => " _") (seq 0 npars)));;
 
          (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
             match n with
