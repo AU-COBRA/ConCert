@@ -190,7 +190,7 @@ Definition msg_is_transfer (cstate : FA2Token.State) (msg : FA2Token.Msg) :=
   | _ => false
   end.
 
-Definition post_transfer_correct old_state msg (result_opt : option (FA2Token.State * list ActionBody)) :=
+Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (result_opt : option (FA2Token.State * list ActionBody)) :=
   match result_opt with
   | Some (new_state, _) => 
     let transfers := 
