@@ -480,7 +480,7 @@ Definition pre_post_assertion {Setup Msg State prop : Type}
                               (gTrace : LocalChain -> nat -> G LocalChainTraceList)
                               (c : Contract Setup Msg State)
                               (pre : State -> Msg -> bool)
-                              (post : State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
+                              (post : ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
     let ContractType := Contract Setup Msg State in
     let contracts_of_step step : list (Address * State) :=
       let lc := prev_lc_of_lcstep step in
@@ -506,7 +506,8 @@ Definition pre_post_assertion {Setup Msg State prop : Type}
           | _ => 0%Z
           end in 
         let cctx := build_ctx act.(act_from) caddr amount in
-        c.(receive) chain cctx cstate (Some msg) in
+        let new_state := c.(receive) chain cctx cstate (Some msg) in
+        (cctx, new_state) in
 
       conjoin (map (fun p =>
         let caddr := fst p in
@@ -515,8 +516,8 @@ Definition pre_post_assertion {Setup Msg State prop : Type}
         conjoin (map (fun msg_act_pair =>
           let msg := snd msg_act_pair in
           let act := fst msg_act_pair in
-          let post_state := execute_receive lc caddr cstate act msg in  
-          pre cstate msg ==> post cstate msg post_state 
+          let (cctx, post_state) := execute_receive lc caddr cstate act msg in 
+          pre cstate msg ==> post cctx cstate msg post_state 
         ) msgs)
       ) contracts) in
     (* combine it all with the forAllTraces checker combinator *)
