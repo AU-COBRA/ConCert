@@ -79,9 +79,10 @@ Definition try_transfer (from : Address)
 	let from_balance := with_default 0 (FMap.find from state.(balances)) in 
 	if from_balance <? amount 
 	then None 
-	else let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-		 let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in
-		 Some (state<|balances := new_balances|>).
+	else 
+		let new_balances := FMap.add from (from_balance - amount) state.(balances) in
+		let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in
+		Some (state<|balances := new_balances|>).
 
 (* The delegate tries to transfer <amount> tokens from <from> to <to>.
 	 Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
