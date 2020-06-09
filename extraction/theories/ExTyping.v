@@ -1,7 +1,12 @@
+From ConCert.Extraction Require Import ESubterm.
 From ConCert.Extraction Require Import ExAst.
+From Coq Require Import Arith.
 From Coq Require Import List.
+From Equations Require Import Equations.
 From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
+From MetaCoq.Erasure Require Import EInduction.
+From MetaCoq.Erasure Require Import ELiftSubst.
 
 Import MonadNotation.
 
@@ -84,6 +89,140 @@ Proof.
   unfold declared_constructor, lookup_constructor.
   now intros (->%lookup_inductive_declared & ?).
 Qed.
+
+Lemma wfe_term_mkApps hd args :
+  wfe_term hd ->
+  Forall wfe_term args ->
+  wfe_term (mkApps hd args).
+Proof.
+  intros wfhd wfall.
+  revert hd wfhd.
+  induction wfall; intros hd wfhd; [easy|].
+  cbn in *.
+  apply IHwfall.
+  now cbn.
+Qed.
+
+Lemma wfe_term_lift t n k :
+  wfe_term t ->
+  wfe_term (lift n k t).
+Proof.
+  intros wft.
+  revert n k.
+  induction t using term_forall_list_ind; intros ? ?; cbn in *; try easy.
+  - now destruct (_ <=? _).
+  - induction H; cbn in *; easy.
+  - destruct p.
+    split; [easy|].
+    split; [easy|].
+    destruct wft as (_ & (_ & allwf)).
+    unfold tCaseBrsProp in X.
+    induction X; cbn in *; easy.
+  - revert k.
+    induction H; intros k; [easy|].
+    cbn in *.
+    split; [easy|].
+    rewrite <- Nat.add_succ_r.
+    easy.
+  - revert k.
+    induction H; intros k; [easy|].
+    cbn in *.
+    split; [easy|].
+    rewrite <- Nat.add_succ_r.
+    easy.
+Qed.
+
+Lemma wfe_term_direct_subterm t t' :
+  term_direct_subterm t' t ->
+  wfe_term t ->
+  wfe_term t'.
+Proof.
+  intros sub wft.
+  destruct t; inversion sub; subst; clear sub; cbn in *; try easy.
+  - induction l; cbn in *; [easy|].
+    now destruct H1.
+  - now destruct p.
+  - destruct p.
+    destruct wft as (_ & _ & wft).
+    induction l; cbn in *; [easy|].
+    now destruct H1.
+  - induction m; cbn in *; [easy|].
+    now destruct H1.
+  - induction m; cbn in *; [easy|].
+    now destruct H1.
+Qed.
+
+Lemma wfe_term_subterm t t' :
+  term_subterm t' t ->
+  wfe_term t ->
+  wfe_term t'.
+Proof.
+  induction 1.
+  - now apply wfe_term_direct_subterm.
+  - tauto.
+Qed.
+
+Lemma map_subterms_sublist
+      {A B}
+      (p : B -> term)
+      (l : list A)
+      (f : forall a, In a l -> B) :
+  (forall a isin, wfe_term (p (f a isin))) ->
+  fold_right and True (map (fun a => wfe_term (p a)) (map_in l f)).
+Proof.
+  intros wff.
+  induction l; [easy|].
+  cbn.
+  split; [easy|].
+  now apply IHl.
+Qed.
+
+Lemma wfe_term_map_subterms t f :
+  wfe_term t ->
+  (forall t' sub, wfe_term t' -> wfe_term (f t' sub)) ->
+  wfe_term (map_subterms t f).
+Proof.
+  intros wft wff.
+  destruct t; try easy.
+  - cbn.
+    apply map_subterms_sublist.
+    intros.
+    apply wff.
+    eapply wfe_term_subterm; [|exact wft].
+    now do 2 constructor.
+  - now cbn in *.
+  - now cbn in *.
+  - now cbn in *.
+  - cbn in *.
+    destruct p as [ind c].
+    split; [easy|].
+    split; [easy|].
+    apply map_subterms_sublist.
+    intros [n' t'] isin.
+    apply wff.
+    apply (wfe_term_subterm (tCase (ind, c) t l)); [|easy].
+    constructor.
+    constructor.
+    clear -isin.
+    induction l; [easy|].
+    destruct isin as [->|?]; cbn; easy.
+  - now cbn in *.
+  - cbn.
+    apply map_subterms_sublist.
+    intros.
+    apply wff.
+    eapply wfe_term_subterm; [|eassumption].
+    do 2 constructor.
+    now apply in_map.
+  - cbn.
+    apply map_subterms_sublist.
+    intros.
+    apply wff.
+    eapply wfe_term_subterm; [|eassumption].
+    do 2 constructor.
+    now apply in_map.
+Qed.
+
 End wf.
 
 Fixpoint wfe (Σ : global_env) : Prop :=

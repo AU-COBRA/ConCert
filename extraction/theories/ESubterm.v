@@ -3,6 +3,7 @@ From Coq Require Import RelationClasses.
 From Coq Require Import Relation_Operators.
 From Coq Require Import Transitive_Closure.
 From Equations Require Import Equations.
+From MetaCoq Require Import All_Forall.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import EInduction.
@@ -61,12 +62,52 @@ Proof.
   destruct l as [|a l].
   - exact [].
   - refine (cons (f a (or_introl eq_refl)) _).
-    refine (map_in _ _ l _).
-    intros a' ina'.
+    refine (map_in _ _ l (fun a' ina' => _)).
     refine (f a' _).
-    right.
+    refine (or_intror _).
     exact ina'.
 Defined.
+
+(*
+Equations map_subterms (t : term) (f : forall t', term_direct_subterm t' t -> term) : term :=
+map_subterms (tEvar n ts) f := tEvar n (map_in ts (fun a isin => f a _));
+map_subterms (tLambda na body) f := tLambda na (f body _);
+map_subterms (tLetIn na val body) f := tLetIn na (f val _) (f body _);
+map_subterms (tApp hd arg) f := tApp (f hd _) (f arg _);
+map_subterms (tCase p disc brs) f :=
+  tCase p (f disc _) (map_in brs (fun '(n, t) isin => (n, f t _)));
+map_subterms (tProj p t) f := tProj p (f t _);
+map_subterms (tFix defs i) f := tFix (map_in defs (fun d isin => {| dname := dname d;
+                                                                  dbody := f (dbody d) _;
+                                                                  rarg := rarg d |})) i;
+map_subterms (tCoFix defs i) f := tCoFix (map_in defs (fun d isin => {| dname := dname d;
+                                                                        dbody := f (dbody d) _;
+                                                                        rarg := rarg d |})) i;
+map_subterms t f := t.
+Next Obligation. now constructor. Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation.
+  constructor.
+  apply in_map_iff.
+  now exists (n, t).
+Qed.
+Next Obligation. now constructor. Qed.
+Next Obligation.
+  constructor.
+  apply in_map_iff.
+  now exists d.
+Qed.
+Next Obligation.
+  constructor.
+  apply in_map_iff.
+  now exists d.
+Qed.
+*)
 
 Program Definition map_subterms (t : term) (f : forall t', term_direct_subterm t' t -> term) : term :=
   match t with
@@ -114,20 +155,43 @@ Next Obligation. easy. Qed.
 Next Obligation. easy. Qed.
 Next Obligation. easy. Qed.
 
-Lemma subterm_of_decompose_app_args hd args t t' :
+Lemma decompose_app_head_or_subterm hd args t :
+  (hd, args) = decompose_app t ->
+  hd = t \/ term_subterm hd t.
+Proof.
+  intros is_decomp.
+  symmetry in is_decomp.
+  apply decompose_app_inv in is_decomp.
+  subst.
+  revert hd.
+  induction args using List.rev_ind; [easy|]; intros hd.
+  right.
+  rewrite emkApps_snoc.
+  destruct (IHargs hd) as [?|].
+  - SearchAbout mkApps.
+    change hd with (mkApps hd []) in H.
+    apply mkApps_eq_right in H.
+    subst.
+    cbn.
+    do 2 constructor.
+  - transitivity (mkApps hd args); [easy|].
+    do 2 constructor.
+Qed.
+
+Lemma decompose_app_args_subterm hd args t t' :
   (hd, args) = decompose_app t ->
   In t' args ->
   term_subterm t' t.
 Proof.
-  intros is_decomp inargs.
+  intros is_decomp is_in.
   symmetry in is_decomp.
   apply decompose_app_inv in is_decomp.
   subst.
   revert hd.
   induction args using List.rev_ind; [easy|]; intros hd.
   rewrite emkApps_snoc.
-  apply in_app_iff in inargs.
-  destruct inargs.
+  apply in_app_iff in is_in.
+  destruct is_in.
   - transitivity (mkApps hd args); [easy|].
     do 2 constructor.
   - destruct H as [->|[]].

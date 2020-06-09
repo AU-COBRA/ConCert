@@ -107,84 +107,29 @@ eta_exp_viewc (tConst kn) := eta_exp_view_Const kn;
 eta_exp_viewc t := eta_exp_view_other t _.
 
 Opaque WellFounded_term_subterm.
-Equations eta_exp (t : term) : term by wf t term_subterm :=
-eta_exp t with inspect (decompose_app t) := {
+Equations? eta_expand (t : term) : term by wf t term_subterm :=
+eta_expand t with inspect (decompose_app t) := {
   | exist (t, args) _ with eta_exp_viewc t := {
-    | eta_exp_view_Construct ind c := eta_ctor ind c (map_in args (fun t isin => eta_exp t));
-    | eta_exp_view_Const kn := eta_const kn (map_in args (fun t isin => eta_exp t));
-    | eta_exp_view_other t discr :=
+    | eta_exp_view_Construct ind c :=
+      eta_ctor ind c (map_in args (fun t isin => eta_expand t));
+    | eta_exp_view_Const kn :=
+      eta_const kn (map_in args (fun t isin => eta_expand t));
+    | eta_exp_view_other t' discr :=
       mkApps
-        (map_subterms t (fun t sub => eta_exp t))
-        (map_in args (fun t isin => eta_exp t))
+        (map_subterms t' (fun t sub => eta_expand t))
+        (map_in args (fun t isin => eta_expand t))
     }
   }.
-Next Obligation. eapply subterm_of_decompose_app_args; eauto. Qed.
-Next Obligation. eapply subterm_of_decompose_app_args; eauto. Qed.
-Next Obligation. now constructor. Qed.
-Next Obligation. eapply subterm_of_decompose_app_args; eauto. Qed.
-
-Definition map_subterms (f : term -> term) (t : term) : term :=
-  match t with
-  | tEvar n ts => tEvar n (map f ts)
-  | tLambda na body => tLambda na (f body)
-  | tLetIn na val body => tLetIn na (f val) (f body)
-  | tApp hd arg => tApp (f hd) (f arg)
-  | tCase p disc brs =>
-    tCase p (f disc) (map (on_snd f) brs)
-  | tProj p t => tProj p (f t)
-  | tFix def i => tFix (map (map_def f) def) i
-  | tCoFix def i => tCoFix (map (map_def f) def) i
-  | t => t
-  end.
-
-Fixpoint eta_expand (args : list term) (t : term) : term :=
-  match t with
-  | tApp hd arg => eta_expand (eta_expand [] arg :: args) hd
-  | tConstruct ind c => eta_ctor ind c args
-  | tConst kn => eta_const kn args
-  | t => mkApps (map_subterms (eta_expand []) t) args
-  end.
-
-Lemma wfe_term_mkApps hd args :
-  wfe_term Σ hd ->
-  Forall (wfe_term Σ) args ->
-  wfe_term Σ (mkApps hd args).
 Proof.
-  intros wfhd wfall.
-  revert hd wfhd.
-  induction wfall; intros hd wfhd; [easy|].
-  cbn in *.
-  apply IHwfall.
-  now cbn.
-Qed.
-
-Lemma wfe_term_lift t n k :
-  wfe_term Σ t ->
-  wfe_term Σ (lift n k t).
-Proof.
-  intros wft.
-  revert n k.
-  induction t using term_forall_list_ind; intros ? ?; cbn in *; try easy.
-  - now destruct (_ <=? _).
-  - induction H; cbn in *; easy.
-  - destruct p.
-    split; [easy|].
-    split; [easy|].
-    destruct wft as (_ & (_ & allwf)).
-    unfold tCaseBrsProp in X.
-    induction X; cbn in *; easy.
-  - revert k.
-    induction H; intros k; [easy|].
-    cbn in *.
-    split; [easy|].
-    rewrite <- Nat.add_succ_r.
-    easy.
-  - revert k.
-    induction H; intros k; [easy|].
-    cbn in *.
-    split; [easy|].
-    rewrite <- Nat.add_succ_r.
-    easy.
+  - eapply decompose_app_args_subterm; eauto.
+  - eapply decompose_app_args_subterm; eauto.
+  - edestruct decompose_app_head_or_subterm; [eassumption| |].
+    + subst.
+      now constructor.
+    + transitivity t'.
+      * now constructor.
+      * easy.
+  - eapply decompose_app_args_subterm; eauto.
 Qed.
 
 Lemma wfe_term_eta_single t args n :
@@ -234,39 +179,52 @@ Proof.
   - now apply wfe_term_mkApps.
 Qed.
 
-Lemma wfe_term_eta_expand args t :
-  Forall (wfe_term Σ) args ->
+Lemma wfe_term_decompose_app_head hd args t :
+  (hd, args) = decompose_app t ->
   wfe_term Σ t ->
-  wfe_term Σ (eta_expand args t).
+  wfe_term Σ hd.
 Proof.
-  revert args.
-  induction t using term_forall_list_ind; intros args wfall wft; cbn in *; auto.
-  - now apply wfe_term_mkApps.
-  - now apply wfe_term_mkApps.
-  - now apply wfe_term_mkApps.
-  - apply wfe_term_mkApps; [|easy].
-    now induction H; cbn in *.
-  - now apply wfe_term_mkApps.
-  - apply wfe_term_mkApps; cbn; easy.
-  - apply IHt1; [|easy].
-    constructor; [|easy].
-    now apply IHt2.
-  - now apply wfe_term_eta_const.
-  - now apply wfe_term_eta_ctor.
-  - apply wfe_term_mkApps; [|easy].
-    cbn.
-    destruct p.
-    split; [easy|].
-    split; [easy|].
-    destruct wft as (_ & (_ & allwf)).
-    induction X; cbn in *; easy.
-  - now apply wfe_term_mkApps.
-  - apply wfe_term_mkApps; [|easy].
-    induction H; cbn in *; easy.
-  - apply wfe_term_mkApps; [|easy].
-    induction H; cbn in *; easy.
+  intros eq wft.
+  edestruct decompose_app_head_or_subterm; [eassumption| |].
+  - now subst.
+  - now eapply wfe_term_subterm.
 Qed.
 
+Lemma Forall_wfe_term_map_args hd args t :
+  (hd, args) = decompose_app t ->
+  wfe_term Σ t ->
+  (forall a, In a args -> wfe_term Σ a -> wfe_term Σ (eta_expand a)) ->
+  Forall (wfe_term Σ) (map_in args (fun t isin => eta_expand t)).
+Proof.
+  intros eq wft IH.
+  pose proof (fun t' => decompose_app_args_subterm hd args t t' eq).
+  revert H IH.
+  clear -wft.
+  induction args; intros sub IH; cbn in *; [easy|].
+  constructor; [|solve [auto]].
+  apply IH; [easy|].
+  specialize (sub a (or_introl eq_refl)).
+  now eapply wfe_term_subterm.
+Qed.
+
+Lemma wfe_term_eta_expand t :
+  wfe_term Σ t ->
+  wfe_term Σ (eta_expand t).
+Proof.
+  intros wft.
+  funelim (eta_expand t).
+  - apply wfe_term_eta_ctor.
+    + now eapply wfe_term_decompose_app_head.
+    + now eapply Forall_wfe_term_map_args.
+  - apply wfe_term_eta_const.
+    + now eapply wfe_term_decompose_app_head.
+    + now eapply Forall_wfe_term_map_args.
+  - apply wfe_term_mkApps; [|now eapply Forall_wfe_term_map_args].
+    apply wfe_term_map_subterms; [|easy].
+    now eapply wfe_term_decompose_app_head.
+Qed.
+
+(*
 Lemma decompose_app_rec_app t acc acc' :
   let (hd, args) := decompose_app_rec t acc in
   decompose_app_rec t (acc ++ acc') = (hd, args ++ acc').
@@ -312,16 +270,20 @@ Proof.
   destruct (decompose_app _).
   now rewrite app_nil_r.
 Qed.
+*)
 
 Notation "s ▷ t" := (eval mcΣ s t) (at level 50, t at next level) : type_scope.
 
-(*
 Lemma eta_pars_correct t tr :
   t ▷ tr ->
-  eta_expand [] t ▷ eta_expand [] tr.
+  eta_expand t ▷ eta_expand tr.
 Proof.
   induction 1 using eval_evals_ind.
-  - admit.
+  - funelim (eta_expand tBox).
+    simp eta_expand in IHeval1.
+    cbn in IHeval1.
+    SearchAbout eta_expand.
+    unfold eta_expand_unfold_clause_1.
   - admit.
   - cbn in *.
     admit.
@@ -336,7 +298,6 @@ Proof.
   - cbn in *.
     now constructor.
   - cbn in *.
-*)
 
 End eta.
 
