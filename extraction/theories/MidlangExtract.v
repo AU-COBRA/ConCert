@@ -30,7 +30,7 @@ Module T := MetaCoq.Template.Ast.
 Module TL := MetaCoq.Template.Typing.TemplateLookup.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.SafeErasureFunction.
-Module Ex := ConCert.Extraction.Erasure.EAst.
+Module Ex := ConCert.Extraction.Erasure.ExAst.
 
 Import PrettyPrinterMonad.
 Import ListNotations.

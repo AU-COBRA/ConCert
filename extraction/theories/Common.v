@@ -502,7 +502,7 @@ Definition extract_def_name {A : Type} (a : A) : TemplateMonad kername :=
   end.
 
 Record ContractExtractionSet :=
-  { env : EAst.global_env;
+  { env : ExAst.global_env;
     init_name : kername;
     receive_name : kername; }.
 
