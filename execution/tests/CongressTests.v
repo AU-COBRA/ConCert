@@ -28,10 +28,6 @@ Definition congress_chain := chain_with_congress_deployed.
 Definition congress_contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
 Extract Constant defNumDiscards => "(4 * defNumTests)".
-(* Definition gCongressChainTraceList lc length := 
-  let max_proposal_nesting := 2 in
-  (gLocalChainTraceList_fix lc gCongressActionNew) length max_proposal_nesting. *)
-(* Sample (gCongressChainTraceList congress_chain 10). *)
 
 Definition gCongressChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => 
@@ -158,7 +154,7 @@ Definition congress_has_votes_on_some_proposal lc :=
   | None => false
   end.
 
-QuickChick (congress_chain ~~> congress_has_votes_on_some_proposal o next_lc_of_lcstep).
+(* QuickChick (congress_chain ~~> congress_has_votes_on_some_proposal o next_lc_of_lcstep). *)
 (* coqtop-stdout:
 Begin Trace: 
 step_action{
@@ -187,7 +183,7 @@ Definition congress_finished_a_vote (lc_step : @LocalChainStep AddrSize) :=
     existsb act_is_finish_vote acts
   end.
 
-QuickChick (congress_chain ~~> congress_finished_a_vote).
+(* QuickChick (congress_chain ~~> congress_finished_a_vote). *)
 (* Begin Trace: 
 step_action{
   Action{
