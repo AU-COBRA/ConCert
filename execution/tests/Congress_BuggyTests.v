@@ -32,13 +32,17 @@ Close Scope address_scope.
 
 (* -------------------------- Tests of the Buggy Congress Implementation -------------------------- *)
 Definition AddrSize := (2^8)%N.
-(* Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase. *)
 Instance Base : ChainBase := LocalChainBase AddrSize.
 Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
 
 Let creator := BoundedN.of_Z_const AddrSize 10.
 
-Open Scope nat.
+Definition rules := {| 
+  min_vote_count_permille := 200;
+  margin_needed_permille := 501;
+  debating_period_in_blocks := 0;
+|}.
+
 Definition exploit_example : option (Address * Builder) :=
   let chain := builder_initial in
   let add_block (chain : Builder) act_bodies :=
@@ -53,10 +57,6 @@ Definition exploit_example : option (Address * Builder) :=
   (* Get some money on the creator *)
   (* Deploy congress and exploit contracts *)
   do chain <- add_block chain [];
-  let rules :=
-      {| min_vote_count_permille := 200;
-         margin_needed_permille := 501;
-         debating_period_in_blocks := 0; |} in
   let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
   let dep_exploit := create_deployment 0 exploit_contract tt in
   do chain <- add_block chain [dep_congress; dep_exploit];
@@ -74,82 +74,55 @@ Definition exploit_example : option (Address * Builder) :=
 Definition unpacked_exploit_example : Address * Builder :=
   unpack_option exploit_example.
 
-Definition total_outgoing_acts_of_trace (trace : LocalChainTraceList) := 
-  let acts_per_step := map (length o acts_of_lcstep) trace in
-  fold_left Nat.add acts_per_step 0.
+Definition gCongressChainTraceList max_acts_per_block lc length := 
+  gLocalChainTraceList_fix lc (fun lc _ => 
+  gCongressActionBuggy lc 2) length max_acts_per_block.
 
-Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Msg)) :=
-  let count call :=
-      match call_msg call with
-      | Some (create_proposal acts) => length acts
-      | _ => 0
-      end in
-  sumnat count calls.
+Definition forAllCongressTraces n := 
+  forAllTraces n (lcb_lc (snd unpacked_exploit_example)) (gCongressChainTraceList 1).
+Notation "{{ P }} c {{ Q }}" := 
+  (pre_post_assertion 2 (lcb_lc (snd unpacked_exploit_example)) (gCongressChainTraceList 1) c P Q)( at level 50).
+Local Close Scope Z_scope.
 
-Local Open Scope monad_scope.
-(* The '1' means we only allow nested proposal actions of level one (in particular, this generator
-   never generates proposals containing proposals). *)
-Definition gBuggyCongressChainTraceList lc length := gLocalChainTraceList_fix lc gCongressActionBuggy length 1.
-(* Sample (gCongressActionBuggy (lcb_lc (snd unpacked_exploit_example)) 1). *)
-(* Sample (gBuggyCongressChainTraceList (lcb_lc (snd unpacked_exploit_example)) 3). *)
+Definition num_cacts_in_state state :=
+  sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
 
-Local Open Scope Z_scope.
-Local Open Scope string_scope.
-(* Asserts that the balance of the exploit contract is <= 1 *)
-(* Note: whenever gCongressActionBuggy generates proposals to transfer, we have fixed the transfer amount to 1 to make it more easy to test.
-   It would be perfectly possible to generalize this, but then we would have to do a lot of filtering of the trace. *)
-Definition exploit_contract_balance_le_1 (chain : @LocalChain AddrSize) := 
-  let contracts := map fst (FMap.elements (lc_contracts chain)) in
-  let exploit_caddr : Address := nth 0 contracts creator in
-  let congress_caddr : Address := nth 1 contracts creator in
-  match FMap.find exploit_caddr chain.(lc_account_balances) with
-  | Some balance => 
-    whenFail (nl ++ "balance:" ++ show balance)
-    (balance <=? 1)
-  | None => 
-    whenFail ("couldn't find exploit for some reason...")
-    false
+Definition num_cacts_safe_P (msg : Congress_Buggy.Msg) 
+                            (resp_acts : list ActionBody)
+                            (old_state : Congress_Buggy.State) 
+                            (new_state : Congress_Buggy.State) :=
+  let nr_cacts := match msg with
+                  | create_proposal ls => length ls
+                  | _ => 0
+                  end in 
+  num_cacts_in_state new_state + length resp_acts <=?
+  num_cacts_in_state old_state + nr_cacts.
+
+Definition receive_state_well_behaved_P (cctx : ContractCallContext) 
+                                        (old_state : Congress_Buggy.State) 
+                                        (msg : Congress_Buggy.Msg) 
+                                        (result : option (Congress_Buggy.State * list ActionBody)) := 
+  match result with
+  | Some (new_state, resp_acts) =>
+    checker (num_cacts_safe_P msg resp_acts old_state new_state) 
+  | _ => checker false
   end.
 
-(* Counts the number of potential transfers (ie. including proposals of transfers) to the given address *)
-Definition nr_potential_transfers_to_exploit_contract (trace : LocalChainTraceList) exploit_caddr := 
-  let all_acts : list Action := fold_left (fun acc s => List.app (acts_of_lcstep s) acc) trace [] in
-  let is_potential_transfer_to_exploit act := match act.(act_body) with
-      | act_call _ _ ser_msg => match deserialize Congress_Buggy.Msg _ ser_msg with
-                                         | Some (create_proposal [cact_transfer to _]) =>
-                                           address_eqb to exploit_caddr 
-                                         | _ => false
-                                         end
-      | act_transfer addr _ => address_eqb addr exploit_caddr
-      | _ => false
-      end in
-  fold_left (fun acc act => if is_potential_transfer_to_exploit act then 1 + acc else acc) all_acts 0.
+(* QuickChick (
+  {{fun _ _ => true}}
+  Congress_Buggy.contract
+  {{receive_state_well_behaved_P}}
+). *)
 
-Local Open Scope Z_scope.
-
-(* A specialisation of the reentry problem; if a trace has one potential transfer (with amount=1) to the exploit contract,
-   then the balance of the exploit contract after this trace has been executed must be <= 1 *)
-Definition congress_no_reentry_on_finish_proposal := 
-  let chain := (lcb_lc (snd unpacked_exploit_example)) in
-  let contracts := map fst (FMap.elements (lc_contracts chain)) in
-  let exploit_caddr : Address := nth 0 contracts creator in
-  forAllTraces_traceProp 3 chain gBuggyCongressChainTraceList 
-    (fun trace => 
-      let last_chain := List.last (map next_lc_of_lcstep trace) chain in
-      ((nr_potential_transfers_to_exploit_contract trace exploit_caddr) =? 1%Z) 
-      ==> exploit_contract_balance_le_1 last_chain).
-
-(* QuickCheck (expectFailure congress_no_reentry_on_finish_proposal). *)
-(* 
-coqtop-stdout:
+(* coqtop-stdout:
 Begin Trace: 
-step_action{[Action{act_from: 10%256, act_body: (act_call 128%256, 0, create_proposal (transfer: 129%256, 1))}]};;
-step_action{[Action{act_from: 10%256, act_body: (act_call 128%256, 0, vote_for_proposal 1)}]};;
-step_action{[Action{act_from: 10%256, act_body: (act_call 128%256, 0, finish_proposal 1)}]}
+step_action{
+  Action{
+    act_from: 10%256, 
+    act_body: (act_call 128%256, 0, create_proposal (transfer: 10%256, 1))}};;
+step_action{
+  Action{act_from: 10%256, 
+  act_body: (act_call 128%256, 0, finish_proposal 1)}}
 End Trace
-balance:27
-+++ Failed (as expected) after 18 tests and 0 shrinks. (43 discards)
-*)
 
-
-
+*** Failed after 2 tests and 0 shrinks. (0 discards) *)
