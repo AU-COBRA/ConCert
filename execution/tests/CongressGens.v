@@ -461,7 +461,7 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :
           end))
     ]
   | S fuel' => backtrack [
-    (7, gCongressActionNew lc fuel') ;
+    (1, gCongressActionNew lc fuel') ;
     (* add_proposal *)
     (1, 
       (* recurse. Msg is converted to a SerializedType using 'serialize' *)
