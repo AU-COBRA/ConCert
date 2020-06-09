@@ -52,19 +52,40 @@ Definition debug_congress {A : Type}
   ).
 Close Scope string_scope.
 
+Definition nr_cacts (msg : option Congress.Msg) := 
+  match msg with
+  | Some (create_proposal ls) => length ls
+  | _ => 0
+  end.
+
 (* What this says is that the number of actions to be performed by the congress never increases 
    more than the actions that are added in proposals, ie. actions can't appear out of nowhere. *)
 (* If we replace '<=' with '<' QC finds a counterexample - a proposal can contain an empty list of actions, so they are equal before/after add_proposal *)
-Definition num_cacts_safe_P (msg : Congress.Msg) 
-                            (resp_acts : list ActionBody)
-                            (old_state : Congress.State) 
-                            (new_state : Congress.State) :=
-  let nr_cacts := match msg with
-                  | create_proposal ls => length ls
-                  | _ => 0
-                  end in 
-  num_cacts_in_state new_state + length resp_acts <=?
-  num_cacts_in_state old_state + nr_cacts.
+Definition receive_state_well_behaved state msg new_state (resp_acts : list ActionBody) :=
+  num_cacts_in_state new_state + length resp_acts <=
+  num_cacts_in_state state + nr_cacts msg.
+
+
+Instance receive_state_well_behaved_dec_ {state : Congress.State} 
+                                        {msg : option Congress.Msg} 
+                                        {new_state : Congress.State}
+                                        {resp_acts : list ActionBody} 
+                                        : Dec (receive_state_well_behaved state msg new_state resp_acts).
+Proof.
+  intros. 
+  unfold receive_state_well_behaved. 
+  constructor. 
+  apply le_dec.
+Qed.
+
+(* Instance receive_state_well_behaved_checkable {state : Congress.State} 
+                                              {msg : option Congress.Msg} 
+                                              {new_state : Congress.State}
+                                              {resp_acts : list ActionBody} 
+                                              : Checkable (receive_state_well_behaved_inner state msg new_state resp_acts). 
+Proof. apply testDec. Qed. *)
+
+
 
 Definition receive_state_well_behaved_P (cctx : ContractCallContext) 
                                         (old_state : Congress.State) 
@@ -72,15 +93,16 @@ Definition receive_state_well_behaved_P (cctx : ContractCallContext)
                                         (result : option (Congress.State * list ActionBody)) := 
   match result with
   | Some (new_state, resp_acts) =>
-    checker (num_cacts_safe_P msg resp_acts old_state new_state) 
-  | _ => checker false
+    (receive_state_well_behaved old_state (Some msg) new_state resp_acts)?
+    (* checker (num_cacts_safe_P msg resp_acts old_state new_state)  *)
+  | _ => false
   end.
 
-(* QuickChick (
+QuickChick (
   {{fun _ _ => true}}
   Congress.contract
   {{receive_state_well_behaved_P}}
-). *)
+).
 
 (* in 39 seconds: *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
