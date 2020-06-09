@@ -78,8 +78,8 @@ Definition debug_gEIP20Checker {A : Type}
   ))). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
-(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-(* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 10). *)
+Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr).
+Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5).
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 
@@ -100,28 +100,74 @@ Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_wit
       ((checker o isSome) (my_add_block (last_state trace) [act]))))). *)
 
 Local Open Scope N_scope.
-(* One key property: the sum of the balances is always equal to the initial supply *)
-Definition sum_balances_eq_init_supply_P maxLength := 
-  forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
-    (fun (lc : LocalChain) =>
-      debug_gEIP20Checker lc None
-      ( match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-      | Some state => 
-        let balances_list := (map snd o FMap.elements) state.(balances) in
-        let balances_sum : N := fold_left N.add balances_list 0%N in
-        balances_sum =? state.(total_supply)
-      | None => false
-      end)).
 
-(* QuickChick (sum_balances_eq_init_supply_P 7). *)
+Extract Constant defNumDiscards => "(4 * defNumTests)".
+
+Definition forAllEIP20Traces n := forAllTraces n chain_with_token_deployed (gEIP20TokenChainTraceList 2).
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion 10 chain_with_token_deployed (gEIP20TokenChainTraceList 1) c P Q)( at level 50).
+
+Definition msg_is_transfer (cstate : EIP20Token.State) (msg : EIP20Token.Msg) :=
+  match msg with
+  | transfer _ _ => true
+  | _ => false
+  end.
+
+Definition transfer_balance_update_correct old_state new_state from to tokens :=
+  let get_balance addr state := with_default 0 (FMap.find addr state.(balances)) in 
+  let from_balance_before := get_balance from old_state in
+  let to_balance_before := get_balance to old_state in
+  let from_balance_after := get_balance from new_state in
+  let to_balance_after := get_balance to new_state in
+  (* if the transfer is a self-transfer, balances should remain unchained *)
+  if address_eqb from to
+  then 
+    (from_balance_before =? from_balance_after) && 
+    (to_balance_before =? to_balance_after)
+  else
+    (from_balance_before =? from_balance_after + tokens) && 
+    (to_balance_before + tokens =? to_balance_after).
+
+Definition post_transfer_correct cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), transfer to tokens) => 
+    let from := cctx.(ctx_from) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (transfer_balance_update_correct old_state new_state from to tokens))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+
+(* QuickChick (
+  {{msg_is_transfer}}
+  EIP20Token.contract
+  {{post_transfer_correct}}
+). *)
+
+(* coqtop-stdout:*** Gave up! Passed only 126 tests
+Discarded: 20000 *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+
+(* One key property: the sum of the balances is always equal to the initial supply *)
+Definition sum_balances_eq_init_supply lc :=
+  (* debug_gEIP20Checker lc None *)
+  let contract_states := lc_token_contracts_states_deserialized lc in
+  checker match FMap.find contract_base_addr contract_states with
+  | Some state => 
+    let balances_list := (map snd o FMap.elements) state.(balances) in
+    let balances_sum : N := fold_left N.add balances_list 0%N in
+    balances_sum =? state.(total_supply)
+  | None => false
+  end.
+
+(* QuickChick (forAllEIP20Traces 10 sum_balances_eq_init_supply). *)
+(* coqtop-stdout:+++ Passed 10000 tests (1570 discards) *)
+(* 8 seconds *)
 
 (* INVALID PROPERTY: accounts may allow multiple other accounts to transfer tokens, but the actual transfer ensures that
    no more tokens are sent than the balance of the sender. *)
-Definition sum_allowances_le_init_supply_P maxLength :=
-  forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
-    (fun (lc : LocalChain) =>
-      debug_gEIP20Checker lc None
+Definition sum_allowances_le_init_supply lc :=
+  debug_gEIP20Checker lc None
       (match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
       | Some state => 
         let allowances := map_values_FMap 
@@ -131,7 +177,11 @@ Definition sum_allowances_le_init_supply_P maxLength :=
         let allowances_sum := fold_left N.add allowances_list 0%N in 
         allowances_sum <=? state.(total_supply)
       | None => false
-      end)).
+      end).
+
+Definition sum_allowances_le_init_supply_P maxLength :=
+  forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
+    sum_allowances_le_init_supply.
     
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
 
@@ -315,7 +365,7 @@ Definition allower_reapproves_transferFrom_correct trace allower delegate (first
   end.
 
 Definition reapprove_transfer_from_safe_P := 
-  (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 1))
+  (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 2))
   state_has_some_approve_act
   (fun approve_act_p pre_trace post_trace =>
     (* (delegate_made_no_transferFroms approve_act_p post_trace   *)
@@ -329,5 +379,23 @@ Definition reapprove_transfer_from_safe_P :=
   ).
 
 (* QuickChick reapprove_transfer_from_safe_P. *)
+
+(* coqtop-stdout:Begin Trace: 
+
+coqtop-stdout:step_action{Action{act_from: 10%256, act_body: (act_call 128%256, 0, transfer_from 12%256 12%256 7)};
+
+coqtop-stdout:Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 10%256 6)}};;
+
+coqtop-stdout:step_action{Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 10%256 1)};
+
+coqtop-stdout:Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 11%256 7)}}
+
+coqtop-stdout:End Trace
+
+coqtop-stdout:10%256 spent 7 on behalf of 12%256 when they were only allowed to spend at most 6
+
+coqtop-stdout:
+
+coqtop-stdout:*** Failed after 15 tests and 0 shrinks. (402 discards) *)
 
 (* Definition transfer_from_reduces_balance_correctly_P := . *)
