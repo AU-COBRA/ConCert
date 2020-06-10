@@ -18,7 +18,6 @@ Import RecordSetNotations.
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
-(* Notation "f 'o' g" := (compose f g) (at level 50). *)
 
 Module Type FA2TestsInfo.
   Parameter fa2_contract_addr : Address.
@@ -38,32 +37,6 @@ Definition returnGenSome {A : Type} (a : A) := returnGen (Some a).
 (* --------------------- FA2 Contract Generators --------------------- *)
 Section FA2ContractGens.
 
-(* 
-  generates a fa2 transfer message, where the following properties hold:
-  - 0 < amount <= to_ balance 
-  - if operators are allowed, then caller must be a valid operator for this transfer
-  - token_id is among existing token_ids of the FA2 Token state.
-*)
-(* Definition gTransfer : G transfer := 
-  from <- arbitrary ;;
-  to <- arbitrary ;;
-  tokenid <- arbitrary ;;
-  amount <- arbitrary ;;
-  returnGen {|
-    from_ := from;
-    to_ := to;
-    transfer_token_id := tokenid;
-    amount := amount;
-  |}.
-
-Local Open Scope N_scope.
-Definition valid_transfer_prop state trx :=
-  let from_balance := address_balance trx.(transfer_token_id) trx.(from_) state in
-  (trx.(amount) <=? from_balance ) && (
-    isSome (FMap.find trx.(transfer_token_id) state.(tokens))
-  ).
-Definition gValidTransfer (state : FA2Token.State) :=
-  suchThatMaybe gTransfer (valid_transfer_prop state). *)
 
 Definition policy_allows_operator_transfer (policy : permissions_descriptor) : bool := 
   match policy.(descr_operator) with
@@ -78,7 +51,7 @@ Definition policy_allows_self_transfer (policy : permissions_descriptor) : bool 
   end .
 
 Local Open Scope N_scope.
-(* TODO: check specification if transfers between contract addresses are allowed *)
+
 Definition gTransferCallerFromTo (lc : LocalChain) 
                            (state : FA2Token.State) 
                            (ledger : TokenLedger)
@@ -113,8 +86,7 @@ Definition gTransferCallerFromTo (lc : LocalChain)
   | (self_transfer_permitted, operator_transfer_permitted) => backtrack [ (1%nat, gSelfTransfer); 
                                                                           (1%nat, gOperatorTransfer)]
   | _ => returnGen None
-  end
-.
+  end.
 
 Definition gSingleTransfer (lc : LocalChain)
                            (state : FA2Token.State)
