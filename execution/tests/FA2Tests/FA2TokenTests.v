@@ -149,9 +149,9 @@ Definition gFA2ClientChainTraceList max_acts_per_block lc length :=
 (* Sample (gFA2TokenActionChainTraceList 1 chain1 10). *)
 
 Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
-Notation "{{ P }} c {{ Q }} traceGen" := (pre_post_assertion 10 chain1 traceGen c P Q)( at level 50).
+Notation "{{ P }} c {{ Q }} traceGen" := (pre_post_assertion 7 chain1 traceGen c P Q)( at level 50).
 
-Extract Constant defNumDiscards => "(4 * defNumTests)".
+Extract Constant defNumDiscards => "(10 * defNumTests)".
 
 Local Open Scope Z_scope.
 Definition transfer_state_update_correct prev_state next_state transfers := 
@@ -313,28 +313,66 @@ Definition showStateWhenFail (step : @LocalChainStep AddrSize) :=
 (* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
 
 
+Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
+  let (param, is_remove) := match op with
+    | add_operator param => (param, false)
+    | remove_operator param => (param, true)
+    end in
+  match FMap.find param.(op_param_owner) new_state.(operators) with
+  | Some owners_map => if is_remove
+                       then true
+                       else isSome (FMap.find param.(op_param_operator) owners_map)
+  | None => is_remove
+  end.
+
+
 (* This property asserts that if an update_operator action contains multiple updates for the same operator, 
    the LAST operation in the list must take effect *)
-Definition last_update_operator_occurrence_takes_effect (update_ops : list update_operator) : FMap (Address * Address) (list operator_param) :=
-  (* group updates by same owner and operator *)
-  let grouped_ops_map := fold_left (fun acc update_op =>
+Definition last_update_operator_occurrence_takes_effect (update_ops : list update_operator) 
+                                                        (new_state : FA2Token.State) :=
+  let last_ops : FMap (Address * Address) update_operator := 
+    fold_left (fun acc update_op =>
     let param := match update_op with
       | add_operator param => param
       | remove_operator param => param
       end in
-    match FMap.find (param.(op_param_owner), param.(op_param_operator)) acc with
-    | Some existing_ops => FMap.add (param.(op_param_owner), param.(op_param_operator))
-                                    (update_op :: existing_ops)
-                                    acc
-    | None => FMap.add (param.(op_param_owner), param.(op_param_operator))
-                       [update_op] 
-                       acc
-    end
+      FMap.add (param.(op_param_owner), param.(op_param_operator)) update_op acc
   ) update_ops FMap.empty in
-  (* get a list of lists of update_operator with the same owner and operator *)
-  let grouped_multiple_ops := filter (fun l => Nat.leb 1%nat (length l)) (FMap.values grouped_ops_map) in
-  FMap.empty.
+  whenFail (
+    show last_ops ++ nl ++
+    show new_state
+  )
+  (forallb (fun p => single_update_op_correct new_state (snd p)) (FMap.elements last_ops)).
 
+Definition msg_is_update_operator (cstate : FA2Token.State) (msg : FA2Token.Msg) :=
+  match msg with
+  | msg_update_operators _ => true
+  | _ => false
+  end.
+
+Definition post_last_update_operator_occurrence_takes_effect (cctx : ContractCallContext) 
+                                 (old_state : FA2Token.State) 
+                                 msg 
+                                 (result_opt : option (FA2Token.State * list ActionBody)) :=
+  match result_opt with
+  | Some (new_state, _) => 
+    let update_ops := 
+      match msg with
+      | msg_update_operators ops => ops
+      | _ => []
+      end in
+    last_update_operator_occurrence_takes_effect update_ops new_state
+    | None => checker false
+  end.
+
+QuickChick (
+  {{msg_is_update_operator}}
+  FA2Token.contract
+  {{post_last_update_operator_occurrence_takes_effect}}
+  (gFA2ChainTraceList 1)
+).
+(* 40 secs, max length 7: *)
+(* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)
 
 (* Sanity check that generating two actions in a row will always succeed *)
 (* QuickChick (
