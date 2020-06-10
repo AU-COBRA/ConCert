@@ -65,6 +65,13 @@ Definition receive_state_well_behaved state msg new_state (resp_acts : list Acti
   num_cacts_in_state new_state + length resp_acts <=
   num_cacts_in_state state + nr_cacts msg.
 
+Lemma a : forall state msg new_state resp_acts,
+Dec (receive_state_well_behaved state msg new_state resp_acts).
+Proof.
+  intros. unfold receive_state_well_behaved. 
+  constructor. 
+  apply le_dec.
+Qed.
 
 Instance receive_state_well_behaved_dec_ {state : Congress.State} 
                                         {msg : option Congress.Msg} 
