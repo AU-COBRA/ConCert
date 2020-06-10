@@ -3,6 +3,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import ExAst.
+From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
@@ -19,7 +21,6 @@ From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Erasure Require Import Loader SafeTemplateErasure EAst EAstUtils ETyping.
 
-
 Import StringExtra.
 
 Module P := MetaCoq.PCUIC.PCUICAst.
@@ -30,7 +31,7 @@ Module T := MetaCoq.Template.Ast.
 Module TL := MetaCoq.Template.Typing.TemplateLookup.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.SafeErasureFunction.
-Module Ex := ConCert.Extraction.Erasure.ExAst.
+Module Ex := ConCert.Extraction.ExAst.
 
 Import PrettyPrinterMonad.
 Import ListNotations.
@@ -663,7 +664,7 @@ Program Definition init
            (chain : Chain)
            (ctx : ContractCallContext)
            (setup : unit) : option Z :=
-  Some (sum_vec (seq_vec 17 7)).
+  Some (inspect (sum_vec (seq_vec 17 7))).
 
 Open Scope list.
 Definition receive
@@ -739,8 +740,13 @@ Definition test :=
       program.1
       [init_name; receive_name]
       (ignored_concert_types ++ extra_ignored ++ map fst midlang_translation_map).
+Time Compute (env <- test;;
+              let env := remove_parameters env in
+              ret (find_used_set env)).
 Time Compute
      (env <- test;;
+      let env := remove_parameters env in
+      let env := remove_unused_args env in
       '(_, s) <- finish_print (print_env env program.1 midlang_translate);;
       ret s).
 

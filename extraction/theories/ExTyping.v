@@ -1,4 +1,3 @@
-From ConCert.Extraction Require Import ESubterm.
 From ConCert.Extraction Require Import ExAst.
 From Coq Require Import Arith.
 From Coq Require Import List.
@@ -115,7 +114,7 @@ Proof.
   - destruct p.
     split; [easy|].
     split; [easy|].
-    destruct wft as (_ & (_ & allwf)).
+    destruct wft as (_ & _ & allwf).
     unfold tCaseBrsProp in X.
     induction X; cbn in *; easy.
   - revert k.

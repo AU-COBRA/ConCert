@@ -434,7 +434,7 @@ Definition specialize_ChainBase_and_check
 Definition specialize_erase_debox_template_env
            (Σ : T.global_env)
            (seeds : list kername)
-           (ignored : list kername) : result global_env string :=
+           (ignored : list kername) : result ExAst.global_env string :=
   '(Σ; wfΣ) <- specialize_ChainBase_and_check Σ;;
   map_error string_of_erase_global_decl_error
             (erase_global_decls_deps_recursive ignored Σ wfΣ seeds).
