@@ -66,6 +66,7 @@ Record Setup :=
     setup_total_supply        : list (token_id * N); (* is this necessary? *)
     setup_tokens              : FMap token_id token_metadata;
     initial_permission_policy : permissions_descriptor;
+    transfer_hook_addr_       : option Address;
   }.
 
 Instance token_ledger_settable : Settable _ :=
@@ -73,7 +74,7 @@ Instance token_ledger_settable : Settable _ :=
 Instance state_settable : Settable _ :=
   settable! build_state <fa2_owner; assets; operators; permission_policy; tokens; transfer_hook_addr>.
 Instance setup_settable : Settable _ :=
-  settable! build_setup <setup_total_supply; setup_tokens; initial_permission_policy>.
+  settable! build_setup <setup_total_supply; setup_tokens; initial_permission_policy; transfer_hook_addr_>.
 
 Section Serialization.
 
@@ -485,7 +486,7 @@ Definition init (chain : Chain)
   ) setup.(setup_tokens) in
   Some {| permission_policy := setup.(initial_permission_policy);
           fa2_owner := ctx.(ctx_from);
-          transfer_hook_addr := None;
+          transfer_hook_addr := setup.(transfer_hook_addr_);
           assets := assets';
           operators := FMap.empty;
           tokens := setup.(setup_tokens) |}.

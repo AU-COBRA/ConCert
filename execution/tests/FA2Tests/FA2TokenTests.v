@@ -69,18 +69,15 @@ Definition token_metadata_0 : token_metadata := {|
 
 (* Contract setups and deployments *)
 
-Definition token_setup : FA2Token.Setup := {|
+Definition token_setup (hook_addr : option Address): FA2Token.Setup := {|
   setup_total_supply := [];
   setup_tokens := FMap.add 0%N token_metadata_0 FMap.empty; 
   initial_permission_policy := policy_all;
+  transfer_hook_addr_ := hook_addr;
+
 |}.
-Definition deploy_fa2token : @ActionBody Base := create_deployment 0 FA2Token.contract token_setup.
+
 Definition token_contract_base_addr : Address := BoundedN.of_Z_const AddrSize 128%Z.
-
-Definition token_client_setup := build_clientsetup token_contract_base_addr.
-Definition deploy_fa2token_client : @ActionBody Base := create_deployment 0 client_contract token_client_setup.
-Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
-
 Definition fa2hook_setup : HookSetup := {|
   hook_fa2_caddr_ := token_contract_base_addr;
   hook_policy_ := policy_self_only; 
@@ -88,15 +85,36 @@ Definition fa2hook_setup : HookSetup := {|
 Definition deploy_fa2hook := create_deployment 0 hook_contract fa2hook_setup.
 Definition fa2hook_contract_addr : Address := BoundedN.of_Z_const AddrSize 130%Z.
 
-Definition chain_with_token_deployed : LocalChain :=  
+Definition deploy_fa2token_with_transfer_hook : @ActionBody Base := 
+  create_deployment 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr)) .
+Definition deploy_fa2token_without_transfer_hook : @ActionBody Base := 
+  create_deployment 0 FA2Token.contract (token_setup None).
+
+Definition token_client_setup := build_clientsetup token_contract_base_addr.
+Definition deploy_fa2token_client : @ActionBody Base := create_deployment 0 client_contract token_client_setup.
+Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
+
+
+
+Definition chain_with_token_deployed_with_hook : LocalChain :=  
   unpack_option (my_add_block lc_initial 
   [
     build_act creator (act_transfer person_1 10);
     build_act creator (act_transfer person_2 10);
     build_act creator (act_transfer person_3 10);
-    build_act creator deploy_fa2token;
+    build_act creator deploy_fa2token_with_transfer_hook;
     build_act creator deploy_fa2token_client;
     build_act creator deploy_fa2hook
+  ]).
+
+Definition chain_with_token_deployed_without_hook : LocalChain :=  
+  unpack_option (my_add_block lc_initial 
+  [
+    build_act creator (act_transfer person_1 10);
+    build_act creator (act_transfer person_2 10);
+    build_act creator (act_transfer person_3 10);
+    build_act creator deploy_fa2token_without_transfer_hook;
+    build_act creator deploy_fa2token_client
   ]).
 
 Definition client_other_msg := @other_msg _ FA2ClientMsg _.
@@ -108,8 +126,15 @@ Definition call_client_is_op_act :=
   let msg := client_other_msg (Call_fa2_is_operator params) in
   act_call client_contract_addr 0%Z (serialize ClientMsg _ msg).
 
-Definition chain1 :=
-  unpack_option (my_add_block chain_with_token_deployed 
+Definition chain_with_transfer_hook :=
+  unpack_option (my_add_block chain_with_token_deployed_with_hook 
+  [
+    build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+  ]).
+
+Definition chain_without_transfer_hook :=
+  unpack_option (my_add_block chain_with_token_deployed_without_hook 
   [
     build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
     build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
@@ -126,8 +151,8 @@ Definition token_state lc :=
   | None => None
   end.
 
-(* Compute (client_state chain1). *)
-(* Compute (show (token_state chain1)). *)
+(* Compute (client_state chain_with_transfer_hook). *)
+(* Compute (show (token_state chain_with_transfer_hook)). *)
 
 From ConCert.Execution.QCTests Require Import FA2Gens.
 
@@ -138,18 +163,18 @@ Module TestInfo <: FA2TestsInfo.
 End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
-Definition chain1_token_state : FA2Token.State := unpack_option (token_state chain1).
-Compute (show chain1_token_state).
+Definition chain_with_transfer_hook_token_state : FA2Token.State := unpack_option (token_state chain_with_transfer_hook).
+Compute (show chain_with_transfer_hook_token_state).
 Definition gFA2TokenActionChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gFA2TokenAction lc) length max_acts_per_block.
 Definition gFA2ClientChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
 
-(* Sample (gFA2TokenAction chain1). *)
-(* Sample (gFA2TokenActionChainTraceList 1 chain1 10). *)
+(* Sample (gFA2TokenAction chain_with_transfer_hook). *)
+(* Sample (gFA2TokenActionChainTraceList 1 chain_with_transfer_hook 10). *)
 
-Definition forAllFA2Traces n := forAllTraces_stepProp n chain1 (gFA2TokenActionChainTraceList 1).
-Notation "{{ P }} c {{ Q }} traceGen" := (pre_post_assertion 7 chain1 traceGen c P Q)( at level 50).
+Definition forAllFA2Traces chain n := forAllTraces_stepProp n chain (gFA2TokenActionChainTraceList 1).
+Notation "{{ P }} c {{ Q }} chain" := (pre_post_assertion 7 chain (gFA2ChainTraceList 1) c P Q)( at level 50).
 
 Extract Constant defNumDiscards => "(10 * defNumTests)".
 
@@ -202,12 +227,13 @@ Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (res
   | None => checker false
   end.
 
-(* QuickChick (
+QuickChick (
   {{ msg_is_transfer }} 
     FA2Token.contract 
   {{ post_transfer_correct }}
-  (gFA2ChainTraceList 1)). *)
-(* coqtop-stdout:+++ Passed 10000 tests (16758 discards) *)
+  chain_without_transfer_hook).
+(* 14 seconds, max size 7, 1 act per block *)
+(* coqtop-stdout:+++ Passed 10000 tests (12283 discards) *)
 
 Definition transfer_balances_correct (step : @LocalChainStep AddrSize) := 
   match step with
@@ -233,7 +259,7 @@ Definition transfer_balances_correct (step : @LocalChainStep AddrSize) :=
   | _ => false ==> true
   end.
 
-(* QuickChick (forAllFA2Traces 1 transfer_balances_correct). *)
+QuickChick (forAllFA2Traces chain_with_transfer_hook 1 transfer_balances_correct).
 
 
 Definition transfer_satisfies_policy sender trx state : Checker := 
