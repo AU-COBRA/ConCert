@@ -24,20 +24,65 @@ Inductive term_direct_subterm : term -> term -> Prop :=
 | term_sub_Fix t defs n : In t (map dbody defs) -> term_direct_subterm t (tFix defs n)
 | term_sub_CoFix t defs n : In t (map dbody defs) -> term_direct_subterm t (tCoFix defs n).
 
+Derive Inversion_clear inv_sub_of_tBox with (forall t, term_direct_subterm t tBox).
+Derive Inversion_clear inv_sub_of_tRel with (forall t i, term_direct_subterm t (tRel i)).
+Derive Inversion_clear inv_sub_of_tVar with (forall t na, term_direct_subterm t (tVar na)).
+Derive Inversion_clear inv_sub_of_tEvar with (forall t n ts, term_direct_subterm t (tEvar n ts)).
+Derive Inversion_clear inv_sub_of_tLambda
+  with (forall t na body, term_direct_subterm t (tLambda na body)).
+Derive Inversion_clear inv_sub_of_tLetIn
+  with (forall t na val body, term_direct_subterm t (tLetIn na val body)).
+Derive Inversion_clear inv_sub_of_tApp
+  with (forall t hd arg, term_direct_subterm t (tApp hd arg)).
+Derive Inversion_clear inv_sub_of_tConst with (forall t kn, term_direct_subterm t (tConst kn)).
+Derive Inversion_clear inv_sub_of_tConstruct
+  with (forall t ind c, term_direct_subterm t (tConstruct ind c)).
+Derive Inversion_clear inv_sub_of_tCase
+  with (forall t p discr brs, term_direct_subterm t (tCase p discr brs)).
+Derive Inversion_clear inv_sub_of_tProj
+  with (forall t p val, term_direct_subterm t (tProj p val)).
+Derive Inversion_clear inv_sub_of_tFix
+  with (forall t defs i, term_direct_subterm t (tFix defs i)).
+Derive Inversion_clear inv_sub_of_tCoFix
+  with (forall t defs i, term_direct_subterm t (tCoFix defs i)).
+
+(* This proof could be much shorter, but it is intentionally abstracted out here
+   so the proof term is smaller and we can compute with it more nicely. *)
 Lemma well_founded_term_direct_subterm : well_founded term_direct_subterm.
 Proof.
   intros t.
-  induction t using term_forall_list_ind;
-    constructor; intros t' rel; inversion rel; subst; clear rel; auto.
-  - induction H; cbn in *; intuition auto.
-    now subst.
-  - induction X; cbn in *; intuition auto.
-    now subst.
-  - induction H; cbn in *; intuition auto.
-    now subst.
-  - induction H; cbn in *; intuition auto.
-    now subst.
-Qed.
+  induction t using term_forall_list_ind; constructor; intros t' rel.
+  - now apply inv_sub_of_tBox.
+  - now apply (inv_sub_of_tRel t' n (fun t _ => Acc term_direct_subterm t)).
+  - now apply (inv_sub_of_tVar t' i (fun t _ => Acc term_direct_subterm t')).
+  - apply (inv_sub_of_tEvar t' n l (fun t _ _ => Acc term_direct_subterm t)).
+    + intros.
+      eapply Forall_forall; eassumption.
+    + assumption.
+  - now apply (inv_sub_of_tLambda t' n t (fun t _ _ => Acc term_direct_subterm t)).
+  - now apply (inv_sub_of_tLetIn t' n t1 t2 (fun t _ _ _ => Acc term_direct_subterm t)).
+  - now apply (inv_sub_of_tApp t' t1 t2 (fun t _ _ => Acc term_direct_subterm t)).
+  - now apply (inv_sub_of_tConst t' s (fun t _ => Acc term_direct_subterm t)).
+  - now apply (inv_sub_of_tConstruct t' i n (fun t _ _ => Acc term_direct_subterm t)).
+  - apply (inv_sub_of_tCase t' p t l (fun t _ _ _ => Acc term_direct_subterm t)).
+    + assumption.
+    + intros isin.
+      eapply Forall_forall; [|exact isin].
+      apply All_Forall.
+      now apply All_map.
+    + assumption.
+  - now apply (inv_sub_of_tProj t' s t (fun t _ _ => Acc term_direct_subterm t)).
+  - apply (inv_sub_of_tFix t' m n (fun t _ _ => Acc term_direct_subterm t)).
+    + intros isin.
+      eapply Forall_forall; [|exact isin].
+      now apply Forall_map.
+    + assumption.
+  - apply (inv_sub_of_tCoFix t' m n (fun t _ _ => Acc term_direct_subterm t)).
+    + intros isin.
+      eapply Forall_forall; [|exact isin].
+      now apply Forall_map.
+    + assumption.
+Defined.
 
 Definition term_subterm : term -> term -> Prop :=
   clos_trans _ term_direct_subterm.
@@ -52,10 +97,10 @@ Lemma well_founded_term_subterm : well_founded term_subterm.
 Proof.
   apply wf_clos_trans.
   apply well_founded_term_direct_subterm.
-Qed.
+Defined.
 
 Instance WellFounded_term_subterm : WellFounded term_subterm :=
-  Wf.Acc_intro_generator 1000 well_founded_term_subterm.
+  well_founded_term_subterm.
 
 Fixpoint map_in {A B} (l : list A) (f : forall a, In a l -> B) {struct l} : list B.
 Proof.

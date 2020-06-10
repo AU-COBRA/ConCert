@@ -106,7 +106,6 @@ eta_exp_viewc (tConstruct ind c) := eta_exp_view_Construct ind c;
 eta_exp_viewc (tConst kn) := eta_exp_view_Const kn;
 eta_exp_viewc t := eta_exp_view_other t _.
 
-Opaque WellFounded_term_subterm.
 Equations? eta_expand (t : term) : term by wf t term_subterm :=
 eta_expand t with inspect (decompose_app t) := {
   | exist (t, args) _ with eta_exp_viewc t := {
@@ -273,13 +272,29 @@ Qed.
 *)
 
 Notation "s ▷ t" := (eval mcΣ s t) (at level 50, t at next level) : type_scope.
+(*Context (a b : term).
+Eval cbn in eta_expand (tApp a b).*)
 
 Lemma eta_pars_correct t tr :
   t ▷ tr ->
   eta_expand t ▷ eta_expand tr.
 Proof.
   induction 1 using eval_evals_ind.
-  - funelim (eta_expand tBox).
+  - cbn in IHeval1.
+    funelim (eta_expand (tApp a t)).
+    + inversion H3.
+    cbn.
+    unfold well_founded_term_direct_subterm in z.
+    hnf in z.
+    cbn in z.
+    hnf in y.
+    cbn in y.
+    cbn in y.
+    hnf in y.
+    cbn in x.
+    lazy in IHeval1.
+    change (eta_expand tBox) with tBox in *.
+    funelim (eta_expand tBox).
     simp eta_expand in IHeval1.
     cbn in IHeval1.
     SearchAbout eta_expand.
