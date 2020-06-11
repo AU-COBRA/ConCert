@@ -199,7 +199,7 @@ Definition fresh (name : ident) (used : list ident) : ident :=
 Definition fresh_ident (name : name) (Γ : list ident) : PrettyPrinter ident :=
   used_names <- get_used_names;;
   match name with
-  | nAnon => ret (fresh "anon" (Γ ++ used_names))
+  | nAnon => ret "_"
   | nNamed name => ret (fresh (get_ident_name name) (Γ ++ used_names))
   end.
 
@@ -503,31 +503,6 @@ Definition print_constant_body
 
   ret ml_name.
 
-Definition decompose_ind_ctor
-         (nparams : nat)
-         (arity : nat)
-         (t : P.term) : PrettyPrinter (list P.term) :=
-  (* First get rid of parameters. The constructor will always start with those *)
-  t <- (fix f n t :=
-           match n, t with
-           | 0, _ => ret t
-           | S n, tProd _ (tSort _) t => f n t
-           | _, _ => printer_fail ("unexpected type of ctor: " ++ PCUICAstUtils.string_of_term t)
-           end) nparams t;;
-
-  (fix f n t :=
-     match n with
-     | 0 => ret []
-     | S n =>
-       match t with
-       | P.tProd _ dom cod =>
-         tl <- f n cod;;
-         ret (dom :: tl)
-       | _ =>
-         printer_fail ("unexpected type of ctor: " ++ PCUICAstUtils.string_of_term t)
-       end
-     end) arity t.
-
 Import P.
 Definition parenthesize_ind_ctor_ty (ty : box_type) : bool :=
   match ty with
@@ -659,6 +634,9 @@ Fixpoint seq_vec (start : Z) (count : nat) : Vector.t Z count :=
   | S count => start :: seq_vec (start + 1) count
   end.
 
+Definition inspect {A} (a : A) : { x : A | x = a } :=
+  exist a eq_refl.
+
 Local Open Scope Z.
 Program Definition init
            (chain : Chain)
@@ -689,7 +667,7 @@ Notation "'eval_extract' x" :=
             eval
               cbv
               beta
-              delta [x receive RecordSet.set RecordSet.constructor Monads.bind Monads.option_monad]
+              delta [x receive RecordSet.set RecordSet.constructor Monads.bind Monads.Monad_option]
               iota in x in
        exact x) (at level 70).
 
@@ -741,11 +719,9 @@ Definition test :=
       [init_name; receive_name]
       (ignored_concert_types ++ extra_ignored ++ map fst midlang_translation_map).
 Time Compute (env <- test;;
-              let env := remove_parameters env in
-              ret (find_used_set env)).
+              ret (get_dearg_set_for_unused_args env)).
 Time Compute
      (env <- test;;
-      let env := remove_parameters env in
       let env := remove_unused_args env in
       '(_, s) <- finish_print (print_env env program.1 midlang_translate);;
       ret s).
