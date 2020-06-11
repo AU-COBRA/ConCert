@@ -274,6 +274,9 @@ Definition chop (p : positive) : positive :=
   | XH => 1
   end.
 
+Definition chopn (n : nat) (p : positive) : positive :=
+  nat_rect _ p (fun _ => chop) n.
+
 Fixpoint bitmask_zeros (n : nat) : positive :=
   match n with
   | 0%nat => xH
@@ -519,8 +522,11 @@ Fixpoint used_context_vars (Γ : positive) (t : term) : positive :=
     let Γ := used_context_vars Γ disc in
     fold_right Pos.lor Γ (map (used_context_vars Γ ∘ snd) brs)
   | tProj _ t => used_context_vars Γ t
-  | tFix def _
-  | tCoFix def _ => fold_right Pos.lor Γ (map (used_context_vars Γ ∘ dbody) def)
+  | tFix defs _
+  | tCoFix defs _ =>
+    let Γfix := nat_rect _ Γ (fun _ => xO) #|defs| in
+    let Γfix := fold_right Pos.lor Γfix (map (used_context_vars Γfix ∘ dbody) defs) in
+    chopn #|defs| Γfix
   end.
 
 (* Return bitmask indicating which parameters are used by the
