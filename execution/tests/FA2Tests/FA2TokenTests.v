@@ -227,11 +227,11 @@ Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (res
   | None => checker false
   end.
 
-QuickChick (
+(* QuickChick (
   {{ msg_is_transfer }} 
     FA2Token.contract 
   {{ post_transfer_correct }}
-  chain_without_transfer_hook).
+  chain_without_transfer_hook). *)
 (* 14 seconds, max size 7, 1 act per block *)
 (* coqtop-stdout:+++ Passed 10000 tests (12283 discards) *)
 
@@ -259,7 +259,7 @@ Definition transfer_balances_correct (step : @LocalChainStep AddrSize) :=
   | _ => false ==> true
   end.
 
-QuickChick (forAllFA2Traces chain_with_transfer_hook 1 transfer_balances_correct).
+(* QuickChick (forAllFA2Traces chain_with_transfer_hook 1 transfer_balances_correct). *)
 
 
 Definition transfer_satisfies_policy sender trx state : Checker := 
@@ -391,12 +391,12 @@ Definition post_last_update_operator_occurrence_takes_effect (cctx : ContractCal
     | None => checker false
   end.
 
-QuickChick (
+(* QuickChick (
   {{msg_is_update_operator}}
   FA2Token.contract
   {{post_last_update_operator_occurrence_takes_effect}}
   (gFA2ChainTraceList 1)
-).
+). *)
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)
 

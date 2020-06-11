@@ -43,6 +43,7 @@ Definition token_metadata_0 : token_metadata := {|
 |}.
 
 Definition token_setup : FA2Token.Setup := {|
+  transfer_hook_addr_ := None; 
   setup_total_supply := [];
   setup_tokens := FMap.add 0%N token_metadata_0 FMap.empty; 
   initial_permission_policy := policy_all;
@@ -119,10 +120,10 @@ Definition add_operator_all owner operator := {|
 Definition chain1 :=  
   unpack_option (my_add_block lc_initial 
   [
-    build_act creator (act_transfer person_1 10);
-    build_act creator deploy_fa2token;
-    build_act creator deploy_dexter;
-    build_act creator deploy_exploit;
+    build_act creator (act_transfer person_1 10) ;
+    build_act creator deploy_fa2token ;
+    build_act creator deploy_dexter ;
+    build_act creator deploy_exploit ;
     build_act person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
     build_act creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
     build_act person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
@@ -145,14 +146,14 @@ Definition exploit_state lc :=
   | None => None
   end.
 
-(* From ConCert.Execution.QCTests Require Import DexterGens.
+From ConCert.Execution.QCTests Require Import DexterGens.
 
 Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
   Definition exploit_contract_addr := exploit_caddr.
 End TestInfo.
-Module MG := DexterGens.DexterGens TestInfo. Import MG. *)
+Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
 Definition call_dexter owner_addr := 
   let dummy_descriptor := {|
@@ -163,13 +164,15 @@ Definition call_dexter owner_addr :=
   build_act owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
 
 Definition gExploitAction : G (option Action) := 
-  returnGen (Some (call_dexter person_1)).
+  bindGen (elems [person_1; person_2; person_3]) (fun addr =>
+    returnGen (Some (call_dexter addr))
+  ).
 
 Definition gExploitChainTraceList max_acts_per_block lc length := 
-  gLocalChainTraceList_fix lc (fun _ _ => gExploitAction) length max_acts_per_block.
+  gLocalChainTraceList_fix lc (fun lc _ => gExploitAction) length max_acts_per_block.
 
 (* Sample (gExploitAction). *)
-(* Sample (gExploitChainTraceList 1 chain1 1). *)
+(* Sample (gExploitChainTraceList 1 chain1 3). *)
 
 Definition person_1_initial_balance : Amount := 
   unpack_option (FMap.find person_1 chain1.(lc_account_balances)).
@@ -207,7 +210,7 @@ Definition tokens_to_asset_correct_P_opt (lc : LocalChain) : option Checker :=
   let expected_dexter_balance := dexter_initial_balance - expected_currency_sold in
   Some (
     whenFail (
-      "dexter balance was " ++ show dexter_balance ++ " while it was expected to be at least " ++ show expected_dexter_balance ++ 
+      "dexter balance was " ++ show dexter_balance ++ " while it was expected to be at least " ++ show expected_dexter_balance ++ nl ++
       "person_1 balance: " ++ show person_1_balance ++ nl ++
       "person_1 tokens: " ++ show (account_tokens lc person_1) ++ nl ++
       "dexter balance: " ++ show dexter_balance ++ nl ++
@@ -225,7 +228,6 @@ Definition tokens_to_asset_correct_P lc :=
 
 Definition tokens_to_asset_correct := 
   forAllTraces 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
-
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
    Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)
@@ -253,7 +255,7 @@ Definition tokens_to_asset_correct :=
 (* 2 *)
 (* total = 16 *)
 
-(* QuickChick tokens_to_asset_correct. *)
+QuickChick tokens_to_asset_correct.
 (* 
 Begin Trace: 
 step_action{Action{act_from: 11%256, act_body: (act_call 130%256, 0, transferhook transfer_descriptor_param{transfer_descr_fa2: 128%256, transfer_descr_batch: [], transfer_descr_operator: 129%256})}}

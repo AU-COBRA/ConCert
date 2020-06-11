@@ -67,6 +67,15 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
   returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg))
 .
 
+Definition gAddTokensToReserve (lc : LocalChain) 
+                               (state : FA2Token.State)
+                               : GOpt (Address * Amount * Dexter.Msg) :=
+  tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
+  addr_and_amount <- gAccountBalanceFromLocalChain lc ;;
+  let caller := fst addr_and_amount in
+  let amount := snd addr_and_amount in
+  returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
+
 Definition gDexterAction (lc : LocalChain) : G (option Action) :=
   let mk_call caller_addr amount msg :=
 		returnGenSome {|
@@ -74,9 +83,15 @@ Definition gDexterAction (lc : LocalChain) : G (option Action) :=
 			act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg) 
     |} in
   match FMap.find fa2_contract_addr (lc_contract_state_deserialized FA2Token.State lc) with
-  | Some fa2_state => caller <- gContractAddrFromLCWithoutAddrs lc [fa2_contract_addr; dexter_contract_addr] ;;
-                      p <- gTokenExchange fa2_state ;;
-                      mk_call caller 0%Z (snd p) 
+  | Some fa2_state => backtrack [
+    (1, pp <- gAddTokensToReserve lc fa2_state ;;
+        mk_call (fst (fst pp)) (snd (fst pp)) (snd pp)
+    ) ;
+    (2, caller <- gContractAddrFromLCWithoutAddrs lc [fa2_contract_addr; dexter_contract_addr] ;;
+        p <- gTokenExchange fa2_state ;;
+        mk_call caller 0%Z (snd p) 
+    )
+  ]
   | None => returnGen None
   end.
 

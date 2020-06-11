@@ -105,11 +105,11 @@ Definition receive_state_well_behaved_P (cctx : ContractCallContext)
   | _ => false
   end.
 
-QuickChick (
+(* QuickChick (
   {{fun _ _ => true}}
   Congress.contract
   {{receive_state_well_behaved_P}}
-).
+). *)
 
 (* in 39 seconds: *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
