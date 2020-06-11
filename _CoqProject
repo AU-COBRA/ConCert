@@ -82,6 +82,8 @@ extraction/examples/CrowdfundingCertifiedExtraction.v
 extraction/examples/CounterDepCertifiedExtraction.v
 extraction/examples/CounterRefinementTypes.v
 extraction/examples/StackInterpreter.v
+extraction/examples/ErasuresTests.v
+extraction/examples/MidlangExtractTests.v
 
 
 embedding/theories/pcuic/PCUICCorrectness.v

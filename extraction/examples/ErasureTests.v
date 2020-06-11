@@ -1,4 +1,5 @@
 From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
 From Coq Require Import Ascii.
@@ -20,8 +21,6 @@ Local Open Scope string_scope.
 Import ListNotations.
 Import MonadNotation.
 Set Equations Transparent.
-
-Module E := MetaCoq.Erasure.EAst.
 
 Module flag_of_type_tests.
 Record type_flag_squashed := {
@@ -327,23 +326,23 @@ Definition parenthesize_ctor_type (bt : box_type) : bool :=
 
 Definition print_one_inductive_body
          (Σ : global_env)
-         (oib : EAst.one_inductive_body) : string :=
+         (oib : ExAst.one_inductive_body) : string :=
   let print_ctor_type bt :=
       " " ++ parens
           (negb (parenthesize_ctor_type bt))
-          (print_box_type Σ (map tvar_name (EAst.ind_type_vars oib)) bt) in
+          (print_box_type Σ (map tvar_name (ExAst.ind_type_vars oib)) bt) in
 
   let print_ctor '(ctor_name, ctor_types) :=
       nl ++ "| " ++ ctor_name ++
          concat "" (map print_ctor_type ctor_types) in
 
   "data "
-    ++ EAst.ind_name oib ++ concat "" (map (fun tvar => " " ++ print_name (tvar_name tvar))
-                                      (ind_type_vars oib))
-    ++ concat "" (map print_ctor (EAst.ind_ctors oib)).
+    ++ ExAst.ind_name oib ++ concat "" (map (fun tvar => " " ++ print_name (tvar_name tvar))
+                                            (ind_type_vars oib))
+    ++ concat "" (map print_ctor (ExAst.ind_ctors oib)).
 
-Definition print_inductive (Σ : global_env) (mib : EAst.mutual_inductive_body) : string :=
-  concat nl (map (print_one_inductive_body Σ) (EAst.ind_bodies mib)).
+Definition print_inductive (Σ : global_env) (mib : ExAst.mutual_inductive_body) : string :=
+  concat nl (map (print_one_inductive_body Σ) (ExAst.ind_bodies mib)).
 
 Axiom assume_wellformed : forall {X}, X.
 Axiom cannot_happen : forall {X}, X.
