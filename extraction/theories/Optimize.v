@@ -33,35 +33,6 @@ Import EAstUtils.
 Import Erasure.
 Import ExAst.
 
-(* Eta expand all constructors so they are applied to all their parameters *)
-Section eta.
-(* Ctors to eta expand *)
-Context (ctors : list (inductive * nat * nat)).
-(* Constants to eta expand *)
-Context (constants : list (kername * nat)).
-
-Definition eta_single (t : term) (args : list term) (count : nat) : term :=
-  let needed := count - List.length args in
-  let prev_args := map (lift0 needed) args in
-  let eta_args := rev_map tRel (seq 0 needed) in
-  nat_rect
-    _
-    (mkApps t (prev_args ++ eta_args))
-    (fun _ => tLambda nAnon)
-    needed.
-
-Definition eta_ctor (ind : inductive) (c : nat) (args : list term) : term :=
-  match find (fun '(ind', c', n) => eq_inductive ind' ind && (c' =? c)) ctors with
-  | Some (_, _, n) => eta_single (tConstruct ind c) args n
-  | None => mkApps (tConstruct ind c) args
-  end.
-
-Definition eta_const (kn : kername) (args : list term) : term :=
-  match find (fun '(kn', n) => eq_kername kn' kn) constants with
-  | Some (_, n) => eta_single (tConst kn) args n
-  | None => mkApps (tConst kn) args
-  end.
-
 Definition map_subterms (f : term -> term) (t : term) : term :=
   match t with
   | tEvar n ts => tEvar n (map f ts)
@@ -75,38 +46,6 @@ Definition map_subterms (f : term -> term) (t : term) : term :=
   | tCoFix def i => tCoFix (map (map_def f) def) i
   | t => t
   end.
-
-Fixpoint eta_expand_aux (args : list term) (t : term) : term :=
-  match t with
-  | tApp hd arg => eta_expand_aux (eta_expand_aux [] arg :: args) hd
-  | tConstruct ind c => eta_ctor ind c args
-  | tConst kn => eta_const kn args
-  (*| tCase (ind, npars) disc brs =>
-    mkApps
-      (tCase
-         (ind, npars)
-         (eta_expand_aux [] disc)
-         (eta_cases ind (map (on_snd (eta_expand_aux [])) brs)))
-      args*)
-  | t => mkApps (map_subterms (eta_expand_aux []) t) args
-  end.
-
-Definition eta_expand (t : term) : term :=
-  eta_expand_aux [] t.
-
-Definition eta_expand_decl (decl : global_decl) : global_decl :=
-  match decl with
-  | ConstantDecl cst =>
-    ConstantDecl
-      {| cst_type := cst_type cst;
-         cst_body := option_map eta_expand (cst_body cst) |}
-  | _ => decl
-  end.
-
-Definition eta_expand_env (Σ : global_env) : global_env :=
-  map (on_snd eta_expand_decl) Σ.
-
-End eta.
 
 Definition bitmask := list bool.
 
@@ -127,15 +66,6 @@ Fixpoint bitmask_not (bs : bitmask) : bitmask :=
 Definition count_zeros (bs : bitmask) : nat :=
   List.length (filter negb bs).
 
-(* Returns successor of the index of the last 1 in the bitmask *)
-Definition S_last_1 (bs : bitmask) : nat :=
-  (fix f bs i n :=
-     match bs with
-     | [] => n
-     | false :: bs => f bs (S i) n
-     | true :: bs => f bs (S i) (S i)
-     end) bs 0%nat 0%nat.
-
 Fixpoint bitmask_or (bs1 bs2 : bitmask) : bitmask :=
   match bs1, bs2 with
   | b1 :: bs1, b2 :: bs2 => (b1 || b2) :: bitmask_or bs1 bs2
@@ -143,13 +73,29 @@ Fixpoint bitmask_or (bs1 bs2 : bitmask) : bitmask :=
   | bs1, [] => bs1
   end.
 
+Definition trim_start (b : bool) : bitmask -> bitmask :=
+  fix f bs :=
+    match bs with
+    | b' :: bs => if Bool.eqb b' b then
+                    f bs
+                  else
+                    b' :: bs
+    | [] => []
+    end.
+
+Definition trim_end (b : bool) (bs : bitmask) : bitmask :=
+  List.rev (trim_start b (List.rev bs)).
+
 Section dearg.
 Record mib_masks := {
+  (* Bitmask specifying which parameters to remove *)
   param_mask : bitmask;
+  (* Bitmask specifying which **non-parameter** data to remove from
+     each constructor. The full mask used for each constructor is the
+     concatenation of the param_mask and this mask *)
   ctor_masks : list (nat * nat * bitmask); }.
 
 Context (ind_masks : list (kername * mib_masks)).
-(* Bitmask for each constructor specifying which parameters to remove, **excluding parameters** *)
 Context (const_masks : list (kername * bitmask)).
 
 Definition get_mib_masks (kn : kername) : option mib_masks :=
@@ -179,8 +125,9 @@ Fixpoint dearg_single (mask : bitmask) (t : term) (args : list term) : term :=
   match mask, args with
   | true :: mask, arg :: args => dearg_single mask t args
   | false :: mask, arg :: args => dearg_single mask (tApp t arg) args
-  | _, _ => mkApps t args
-            (* todo: pass through conditions saying that we never run out of args, only mask? *)
+  | true :: mask, [] => tLambda nAnon (dearg_single mask (lift0 1 t) [])
+  | false :: mask, [] => tLambda nAnon (dearg_single mask (tApp (lift0 1 t) (tRel 0)) [])
+  | [], _ => mkApps t args
   end.
 
 Definition dearg_ctor (ind : inductive) (c : nat) (args : list term) : term :=
@@ -243,6 +190,9 @@ Fixpoint dearg_aux (args : list term) (t : term) : term :=
   | t => mkApps (map_subterms (dearg_aux []) t) args
   end.
 
+Definition dearg (t : term) : term :=
+  dearg_aux [] t.
+
 (* Remove lambda abstractions from top level declaration based on bitmask *)
 Fixpoint dearg_cst_top
          (mask : bitmask)
@@ -275,7 +225,7 @@ Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
         end
       | None => cst
       end in
-  {| cst_type := cst_type cst; cst_body := option_map (dearg_aux []) (cst_body cst) |}.
+  {| cst_type := cst_type cst; cst_body := option_map dearg (cst_body cst) |}.
 
 (* Remove all data from ctor based on bitmask *)
 Fixpoint dearg_oib_ctor (mask : bitmask) (bts : list box_type) : list box_type :=
@@ -420,16 +370,18 @@ Fixpoint get_dearg_set_for_unused_args (Σ : global_env) : dearg_set :=
     {| const_masks := consts; ind_masks := inds |}
   end.
 
+(* Remove trailing "false" bits in masks in dearg set *)
+Definition trim_dearg_set (ds : dearg_set) : dearg_set :=
+  let dearg_mib_masks mm :=
+      {| param_mask := param_mask mm; (* todo: we could trim this too
+                                         if there are no ctor masks left *)
+         ctor_masks := map (fun '(ind, c, mask) =>
+                              (ind, c, trim_end false mask))
+                           (ctor_masks mm) |} in
+  {| const_masks := map (on_snd (trim_end false)) (const_masks ds);
+     ind_masks := map (on_snd dearg_mib_masks) (ind_masks ds) |}.
+
 Definition remove_unused_args (Σ : global_env) : global_env :=
-  let dearg_set := get_dearg_set_for_unused_args Σ in
-  let consts_eta_count := map (on_snd S_last_1) (const_masks dearg_set) in
-  let get_ctors_eta_count kn mib_masks :=
-      map (fun '(i, c, mask) => ({| inductive_mind := kn; inductive_ind := i |}, c,
-                                 List.length (param_mask mib_masks) + S_last_1 mask))
-          (ctor_masks mib_masks) in
-  let ctors_eta_count :=
-      List.concat
-        (map (fun '(kn, mib_masks) => get_ctors_eta_count kn mib_masks)
-             (ind_masks dearg_set)) in
-  let Σ := eta_expand_env ctors_eta_count consts_eta_count Σ in
-  dearg_env (ind_masks dearg_set) (const_masks dearg_set) Σ.
+  let ds := get_dearg_set_for_unused_args Σ in
+  let ds := trim_dearg_set ds in
+  dearg_env (ind_masks ds) (const_masks ds) Σ.

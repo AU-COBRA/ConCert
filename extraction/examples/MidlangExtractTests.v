@@ -84,7 +84,7 @@ Module ex3.
 "" ++ nl ++
 "baz : Nat" ++ nl ++
 "baz =" ++ nl ++
-"  foo (\_ -> bar)".
+"  foo (\x -> bar)".
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex3) in exact x) =
                   Ok ex3_expected.
 End ex3.
@@ -109,7 +109,6 @@ Module ex5.
   (* Using normal sum means it cannot be deboxed away *)
   Definition foo : (0 = 0) + (0 <> 0) := inl eq_refl.
   MetaCoq Quote Recursively Definition ex5 := foo.
-  Compute extract ex5.
 
   Definition ex5_expected :=
 "type Sum a b" ++ nl ++
@@ -122,3 +121,38 @@ Module ex5.
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex5) in exact x) =
                   Ok ex5_expected.
 End ex5.
+
+Module ex6.
+  Definition foo (f : 5 = 5 -> 5 = 5 -> nat -> nat) := f eq_refl eq_refl 0.
+  Definition bar (m : nat) (p q : 5 = 5) (n : nat) := m + n.
+  (* bar must be eta expanded twice and m and n need to be lifted *)
+  Definition baz := (fun m n => foo (bar (m + n))) 0.
+  MetaCoq Quote Recursively Definition ex6 := baz.
+
+  Definition ex6_expected :=
+"type Nat" ++ nl ++
+"  = O" ++ nl ++
+"  | S Nat" ++ nl ++
+"" ++ nl ++
+"foo : (□ -> □ -> Nat -> Nat) -> Nat" ++ nl ++
+"foo f =" ++ nl ++
+"  f □ □ O" ++ nl ++
+"" ++ nl ++
+"add : Nat -> Nat -> Nat" ++ nl ++
+"add n m =" ++ nl ++
+"  case n of" ++ nl ++
+"    O ->" ++ nl ++
+"      m" ++ nl ++
+"    S p ->" ++ nl ++
+"      S (add p m)" ++ nl ++
+"" ++ nl ++
+"bar : Nat -> Nat -> Nat" ++ nl ++
+"bar m n =" ++ nl ++
+"  add m n" ++ nl ++
+"" ++ nl ++
+"baz : Nat -> Nat" ++ nl ++
+"baz =" ++ nl ++
+"  (\m n -> foo (\x x2 -> bar (add m n))) O".
+  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex6) in exact x) =
+                  Ok ex6_expected.
+End ex6.

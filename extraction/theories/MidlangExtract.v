@@ -199,7 +199,7 @@ Definition fresh (name : ident) (used : list ident) : ident :=
 Definition fresh_ident (name : name) (Γ : list ident) : PrettyPrinter ident :=
   used_names <- get_used_names;;
   match name with
-  | nAnon => ret "_"
+  | nAnon => ret (fresh "x" (Γ ++ used_names))
   | nNamed name => ret (fresh (get_ident_name name) (Γ ++ used_names))
   end.
 
