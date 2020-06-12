@@ -26,6 +26,7 @@ Definition PREFIX := "coq_".
 
 Module Type ZTheorems.
   Axiom lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
+  Axiom lt_sub_pos : forall n m : Z, 0 < m -> n - m < n.
 End ZTheorems.
 
 (** We use parameterised modules (functors) to isolate proof terms from the extracted parts. Otherwise type cheking and erasing is taking too long *)
@@ -35,21 +36,25 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
 
   Definition positive := {z : Z | 0 <? z}.
 
-  Inductive msg :=
-  | Inc (_ : Z)
-  | Dec (_ : Z).
+  Inductive msg := Inc (_ : Z) | Dec (_ : Z).
 
-  Program Definition inc_counter (st : storage) (new_balance : positive) :
+  Program Definition inc_counter (st : storage) (inc : positive) :
     {new_st : storage | st <? new_st} :=
-    exist (st + proj1_sig new_balance) _.
+    st + proj1_sig inc.
   Next Obligation.
-    destruct new_balance.
+    destruct inc.
     unfold is_true in *. simpl.
     Zleb_ltb_to_prop. apply ZT.lt_add_pos_r. exact i.
   Qed.
 
-  Definition dec_counter (st : storage) (new_balance : positive) :=
-    st - proj1_sig new_balance.
+  Program Definition dec_counter (st : storage) (dec : positive) :
+    {new_st : storage | new_st <? st} :=
+    st - proj1_sig dec.
+  Next Obligation.
+    destruct dec.
+    unfold is_true in *. simpl.
+    Zleb_ltb_to_prop. apply ZT.lt_sub_pos. exact i.
+  Qed.
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
@@ -63,7 +68,7 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
       end
     | Dec i =>
       match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], dec_counter st (exist i h))
+      | left h => Some ([], proj1_sig (dec_counter st (exist i h)))
       | right _ => None
       end
     end.
@@ -73,6 +78,9 @@ End CounterRefinmentTypes.
 Module ZT : ZTheorems.
   Lemma lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
   Proof. apply Z.lt_add_pos_r. Qed.
+
+  Lemma lt_sub_pos : forall n m : Z, 0 < m -> n - m < n.
+  Proof. apply Z.lt_sub_pos. Qed.
 End ZT.
 
 Module CRT := (CounterRefinmentTypes ZT).
