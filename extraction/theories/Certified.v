@@ -328,6 +328,8 @@ Definition printLiquidityModule (prefix : string) (Σ : global_env) (TT : env st
                  ++ nl ++ nl
                  ++ defs
                  ++ nl ++ nl
+                 ++ "let%init storage = " ++ m.(lm_init)
+                 ++ nl ++ nl
                  ++ m.(lm_entry_point)) ;;
   tmDefinition m.(lm_module_name) res ;;
   msg <- tmEval lazy ("The module extracted successfully. The definition " ++ "[" ++ m.(lm_module_name) ++ "]" ++ " containing the Liquidity code has been added to the Coq environment. Use [Print] command to print the Liquidity code") ;;
