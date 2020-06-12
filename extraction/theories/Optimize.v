@@ -194,21 +194,19 @@ Definition dearg (t : term) : term :=
   dearg_aux [] t.
 
 (* Remove lambda abstractions from top level declaration based on bitmask *)
-Fixpoint dearg_cst_top
-         (mask : bitmask)
-         (type : box_type)
-         (body : term) : box_type * term :=
-  match mask, type, body with
-  | _, _, tLetIn na val body =>
-    let (type, body) := dearg_cst_top mask type body in
-    (type, tLetIn na val body)
-  | true :: mask, TArr _ cod, tLambda _ body =>
-    let (type, body) := dearg_cst_top mask cod body in
-    (type, unlift 1 0 body)
-  | false :: mask, TArr dom cod, tLambda na body =>
-    let (cod, body) := dearg_cst_top mask cod body in
-    (TArr dom cod, tLambda na body)
-  | _, _, _ => (type, body)
+Fixpoint dearg_cst_body_top (mask : bitmask) (body : term) : term :=
+  match mask, body with
+  | true :: mask, tLambda _ body => unlift 1 0 (dearg_cst_body_top mask body)
+  | false :: mask, tLambda na body => tLambda na (dearg_cst_body_top mask body)
+  | _, tLetIn na val body => tLetIn na val (dearg_cst_body_top mask body)
+  | _, _ => body
+  end.
+
+Fixpoint dearg_cst_type_top (mask : bitmask) (type : box_type) : box_type :=
+  match mask, type with
+  | true :: mask, TArr _ cod => dearg_cst_type_top mask cod
+  | false :: mask, TArr dom cod => TArr dom (dearg_cst_type_top mask cod)
+  | _, _ => type
   end.
 
 (* Remove lambda abstractions from top level declaration and remove
@@ -219,7 +217,8 @@ Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
       | Some (_, _, mask) =>
         match cst_body cst with
         | Some body =>
-          let (new_type, new_body) := dearg_cst_top mask (cst_type cst).2 body in
+          let new_body := dearg_cst_body_top mask body in
+          let new_type := dearg_cst_type_top mask (cst_type cst).2 in
           {| cst_type := ((cst_type cst).1, new_type); cst_body := Some new_body |}
         | None => cst
         end
@@ -272,26 +271,6 @@ Definition dearg_env (Σ : global_env) : global_env :=
 
 End dearg.
 
-Local Open Scope nat.
-Fixpoint delete_parameters_term (t : term) : term :=
-  match t with
-  | tCase (ind, npars) discr brs =>
-    tCase (ind, 0) (delete_parameters_term discr) (map (on_snd delete_parameters_term) brs)
-  | t => map_subterms delete_parameters_term t
-  end.
-
-Definition delete_parameters_decl (decl : global_decl) : global_decl :=
-  match decl with
-  | ConstantDecl cst =>
-    ConstantDecl
-      {| cst_type := cst_type cst;
-         cst_body := option_map delete_parameters_term (cst_body cst); |}
-  | InductiveDecl mib =>
-    InductiveDecl
-      {| ind_npars := 0;
-         ind_bodies := ind_bodies mib |}
-  end.
-
 (* Return bitmask indicating which context variables have uses *)
 Fixpoint used_context_vars (Γ : bitmask) (t : term) : bitmask :=
   match t with
@@ -318,20 +297,22 @@ Fixpoint used_context_vars (Γ : bitmask) (t : term) : bitmask :=
 (* Return bitmask indicating which parameters are used by the
 specified lambda abstractions. All parameters after the end of
 the bit mask should be assumed to be used. *)
-Fixpoint func_body_used_params (Γ : bitmask) (t : term) (ty : box_type) : bitmask :=
+Fixpoint func_body_used_params (Γ : bitmask) (t : term) (ty : box_type) : bitmask * bitmask :=
   match t, ty with
-  | tLetIn na val body, ty =>
+  | tLetIn na val body, _ =>
     let Γ := used_context_vars Γ val in
-    tl (func_body_used_params (false :: Γ) body ty)
-  | tLambda na body, TArr hd ty =>
-    func_body_used_params (false :: Γ) body ty
-  | t, ty => used_context_vars Γ t
+    let (mask, Γ) := func_body_used_params (false :: Γ) body ty in
+    (mask, tl Γ)
+  | tLambda na body, TArr _ dom =>
+    let (mask, Γ) := func_body_used_params (false :: Γ) body dom in
+    (hd false Γ :: mask, tl Γ)
+  | t, ty => ([], used_context_vars Γ t)
   end.
 
 Definition constant_used_params (cst : constant_body) : bitmask :=
   match cst_body cst with
   | None => []
-  | Some body => List.rev (func_body_used_params [] body (cst_type cst).2)
+  | Some body => (func_body_used_params [] body (cst_type cst).2).1
   end.
 
 Definition dearg_box_type (bt : box_type) : bool :=

@@ -156,3 +156,33 @@ Module ex6.
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex6) in exact x) =
                   Ok ex6_expected.
 End ex6.
+
+Module ex7.
+  (* Dearg through lets *)
+  Definition foo (n : nat) (x := 0) (p : x = 0) (m : nat) := match n with 0 => m | _ => n end.
+  Definition bar := foo 1 eq_refl 0.
+  MetaCoq Quote Recursively Definition ex7 := bar.
+
+  Definition ex7_expected :=
+"type Nat" ++ nl ++
+"  = O" ++ nl ++
+"  | S Nat" ++ nl ++
+"" ++ nl ++
+"foo : Nat -> Nat -> Nat" ++ nl ++
+"foo n =" ++ nl ++
+"  let" ++ nl ++
+"    x =" ++ nl ++
+"      O" ++ nl ++
+"  in" ++ nl ++
+"  \m -> case n of" ++ nl ++
+"          O ->" ++ nl ++
+"            m" ++ nl ++
+"          S n0 ->" ++ nl ++
+"            n" ++ nl ++
+"" ++ nl ++
+"bar : Nat" ++ nl ++
+"bar =" ++ nl ++
+"  foo (S O) O".
+  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex7) in exact x) =
+                  Ok ex7_expected.
+End ex7.
