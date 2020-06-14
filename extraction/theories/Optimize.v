@@ -195,11 +195,15 @@ Definition dearg (t : term) : term :=
 
 (* Remove lambda abstractions from top level declaration based on bitmask *)
 Fixpoint dearg_cst_body_top (mask : bitmask) (body : term) : term :=
-  match mask, body with
-  | true :: mask, tLambda _ body => unlift 1 0 (dearg_cst_body_top mask body)
-  | false :: mask, tLambda na body => tLambda na (dearg_cst_body_top mask body)
-  | _, tLetIn na val body => tLetIn na val (dearg_cst_body_top mask body)
-  | _, _ => body
+  match body with
+  | tLetIn na val body => tLetIn na val (dearg_cst_body_top mask body)
+  | tLambda na lam_body =>
+    match mask with
+    | true :: mask => unlift 1 0 (dearg_cst_body_top mask lam_body)
+    | false :: mask => tLambda na (dearg_cst_body_top mask lam_body)
+    | [] => body
+    end
+  | _ => body
   end.
 
 Fixpoint dearg_cst_type_top (mask : bitmask) (type : box_type) : box_type :=
