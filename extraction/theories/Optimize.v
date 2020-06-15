@@ -101,26 +101,6 @@ Context (const_masks : list (kername * bitmask)).
 Definition get_mib_masks (kn : kername) : option mib_masks :=
   option_map snd (find (fun '(kn', _) => eq_kername kn' kn) ind_masks).
 
-Fixpoint unlift (n k : nat) (t : term) : term :=
-  match t with
-  | tRel i => if k <=? i then tRel (i - n) else tRel i
-  | tEvar ev args => tEvar ev (map (unlift n k) args)
-  | tLambda na M => tLambda na (unlift n (S k) M)
-  | tLetIn na b b' => tLetIn na (unlift n k b) (unlift n (S k) b')
-  | tApp u v => tApp (unlift n k u) (unlift n k v)
-  | tCase ind c brs => let brs' := map (on_snd (unlift n k)) brs in tCase ind (unlift n k c) brs'
-  | tProj p c => tProj p (unlift n k c)
-  | tFix mfix idx =>
-    let k' := #|mfix| + k in
-    let mfix' := map (map_def (unlift n k')) mfix in
-    tFix mfix' idx
-  | tCoFix mfix idx =>
-    let k' := #|mfix| + k in
-    let mfix' := map (map_def (unlift n k')) mfix
-    in tCoFix mfix' idx
-  | _ => t
-  end.
-
 Fixpoint dearg_single (mask : bitmask) (t : term) (args : list term) : term :=
   match mask, args with
   | true :: mask, arg :: args => dearg_single mask t args
@@ -153,7 +133,7 @@ Definition dearg_const (kn : kername) (args : list term) : term :=
 
 Fixpoint dearg_lambdas (mask : bitmask) (ar : nat) (t : term) : nat * term :=
   match mask, t with
-  | true :: mask, tLambda na body => dearg_lambdas mask (ar - 1) (unlift 1 0 body)
+  | true :: mask, tLambda na body => dearg_lambdas mask (ar - 1) (body { 0 := tBox })
   | false :: mask, tLambda na body =>
     let (ar, t) := dearg_lambdas mask ar body in
     (ar, tLambda na t)
@@ -199,7 +179,7 @@ Fixpoint dearg_cst_body_top (mask : bitmask) (body : term) : term :=
   | tLetIn na val body => tLetIn na val (dearg_cst_body_top mask body)
   | tLambda na lam_body =>
     match mask with
-    | true :: mask => unlift 1 0 (dearg_cst_body_top mask lam_body)
+    | true :: mask => (dearg_cst_body_top mask lam_body) { 0 := tBox }
     | false :: mask => tLambda na (dearg_cst_body_top mask lam_body)
     | [] => body
     end
