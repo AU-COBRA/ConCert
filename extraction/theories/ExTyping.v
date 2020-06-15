@@ -12,6 +12,9 @@ Import MonadNotation.
 Section wf.
 Context (Σ : global_env).
 
+Definition declared_constant (kn : kername) (cst : constant_body) : Prop :=
+  lookup_env Σ kn = Some (ConstantDecl cst).
+
 Definition declared_minductive (kn : kername) (mib : mutual_inductive_body) : Prop :=
   lookup_env Σ kn = Some (InductiveDecl mib).
 
@@ -51,6 +54,12 @@ Fixpoint wfe_term (t : term) : Prop :=
   | tCoFix def _ => fold_right and True (map (wfe_term ∘ dbody) def)
   end.
 
+Definition lookup_constant (kn : kername) : option constant_body :=
+  match lookup_env Σ kn with
+  | Some (ConstantDecl cst) => Some cst
+  | _ => None
+  end.
+
 Definition lookup_minductive (kn : kername) : option mutual_inductive_body :=
   match lookup_env Σ kn with
   | Some (InductiveDecl mib) => Some mib
@@ -64,6 +73,14 @@ Definition lookup_inductive (ind : inductive) : option one_inductive_body :=
 Definition lookup_constructor (ind : inductive) (c : nat) : option (ident * list box_type) :=
   oib <- lookup_inductive ind;;
   nth_error (ind_ctors oib) c.
+
+Lemma lookup_constant_declared kn cst :
+  declared_constant kn cst ->
+  lookup_constant kn = Some cst.
+Proof.
+  unfold declared_constant, lookup_constant.
+  now intros ->.
+Qed.
 
 Lemma lookup_minductive_declared kn mib :
   declared_minductive kn mib ->
