@@ -3,6 +3,7 @@ From ConCert.Extraction Require Import ExTyping.
 From ConCert.Extraction Require Import Optimize.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
+From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import Psatz.
 From Equations Require Import Equations.
@@ -534,7 +535,7 @@ Qed.
 Derive Signature for eval.
 Derive NoConfusionHom for term.
 
-Lemma eval_LetIn Σ na val body res :
+Lemma eval_tLetIn Σ na val body res :
   Σ ⊢ tLetIn na val body ▷ res ->
   exists val_res,
     Σ ⊢ val ▷ val_res /\
@@ -555,24 +556,6 @@ Proof.
       cbn in *.
       congruence.
 Qed.
-
-(*
-Lemma mkApps_inv h f args :
-  h = mkApps f args ->
-  (h = f /\ args = []) \/
-  (exists args' a h',
-      args = args' ++ [a] /\
-      h = tApp (mkApps h' args') a).
-Proof.
-  intros ->.
-  destruct args using List.rev_ind.
-  - left; easy.
-  - right.
-    rewrite mkApps_app.
-    cbn.
-    exists args, x.
-Qed.
-*)
 
 Lemma eval_tApp_head Σ hd args v :
   Σ ⊢ tApp hd args ▷ v ->
@@ -665,119 +648,11 @@ Proof.
         congruence.
 Qed.
 
-(*
-(*
-Lemma eval_App Σ na body arg res :
-  Σ ⊢ tApp (tLambda na body) arg ▷ res ->
-  exists arg_res,
-    Σ ⊢ arg  ▷ arg_res /\
-    Σ ⊢ csubst arg_res 0 body ▷ res.
+Lemma eval_tApp_tLambda Σ na body hd v :
+  Σ ⊢ tApp (tLambda na body) hd ▷ v ->
+  Σ ⊢ csubst hd 0 body ▷ v.
 Proof.
-  intros ev.
-  depind ev.
-  - depelim ev1.
-    + destruct args using List.rev_ind; [easy|].
-      rewrite mkApps_app in *.
-      cbn in *.
-      congruence.
-    + destruct args' using List.rev_ind; [easy|].
-      rewrite mkApps_app in *.
-      cbn in *.
-      congruence.
-  - exists a'.
-    split; [easy|].
-    depelim ev1.
-    + admit.
-    + admit.
-    + easy.
-  - SearchAbout mkApps.
-    pose proof (mkApps_elim f args).
-    rewrite <- H3 in H4.
-    cbn in H4.
-    depelim H4.
-    destruct n.
-    + rewrite skipn_0 in H1, H2.
-      cbn in *.
-      admit.
-    + rewrite skipn_S, skipn_nil in H1.
-      easy.
-  - admit.
-  - apply eval_to_value in ev1.
-    depelim ev1.
-    + unfold atom in H.
-    exists a'.
-    split; [easy|].
-    SearchAbout eval.
-    rewrite mkApps_nested in H3.
-    cbn in *.
-    inversion H4.
-    change (tApp (tLambda na body) arg) with (mkApps (tLambda na body) [arg]) in H3.
-    apply mkApps_eq_inj in H3; try easy.
-    2: {
-*)
-
-(*
-Lemma eval_mkApps_subst_context Σ Γ inner args res :
-  #|args| = #|vasses Γ| ->
-  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ inner) args ▷ res ->
-  Σ ⊢ subst_context Γ inner (List.rev args) ▷ res.
-Proof.
-  revert inner args res.
-  induction Γ as [|cd Γ IH] using List.rev_ind; intros inner args res len_eq ev.
-  - cbn in *.
-    now destruct args.
-  - rewrite vasses_app, app_length in len_eq; cbn in *.
-    destruct (decl_body cd) eqn:decl_eq.
-    + cbn in *.
-      rewrite subst_context_app by (abstract (rewrite List.rev_length; lia)).
-      rewrite it_mkLambda_or_LetIn_app in *.
-      cbn in *.
-      unfold mkLambda_or_LetIn in *.
-      rewrite decl_eq in *.
-      assert (exists args_res, Forall2 (eval Σ) args args_res) by admit.
-      assert (exists let_in_res,
-                 Σ ⊢ tLetIn (decl_name cd) t (it_mkLambda_or_LetIn Γ inner) ▷ let_in_res)
-        by admit.
-      destruct H0 as (let_in_res & eval_let_in).
-      apply eval_LetIn in eval_let_in.
-      destruct eval_let_in as (val_res & eval_t & eval_subst).
-Lemma eval_csubst_congr t tn b res :
-  Σ ⊢ t ▷ tn ->
-  Σ ⊢ csubst tn 0 b ▷ res ->
-  Σ ⊢ csubst t 0 b ▷ res.
-
-      epose proof (IH inner args _ ltac:(abstract lia)).
-      eapply eval_LetIn.
-    destruct args as [|a args] using List.rev_ind.
-    + cbn in *.
-*)
-
-(*
-Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ inner args res :
-  #|args| = #|vasses Γ| ->
-  Σ ⊢ subst_context Γ inner (List.rev args) ▷ res ->
-  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ inner) args ▷ res.
-Proof.
-  revert inner args res.
-  induction Γ as [|cd Γ IH] using List.rev_ind; intros inner args res len_eq eval_res.
-  - cbn in *.
-    now destruct args.
-  - rewrite it_mkLambda_or_LetIn_app.
-    unfold vasses in len_eq; rewrite filter_app in len_eq; refold.
-    rewrite app_length in len_eq.
-    rewrite subst_context_app in eval_res by (abstract (rewrite List.rev_length; lia)).
-    cbn in *.
-    unfold mkLambda_or_LetIn.
-    destruct (decl_body cd) as [body|].
-    +
-    + destruct args as [|a args]; [cbn in *; abstract lia|].
-      cbn in *.
-      rewrite skipn_all_app_eq in eval_res by (abstract (rewrite List.rev_length; lia)).
-      rewrite subst_context_enough_args in eval_res.
-      rewrite firstn_all_app_eq in eval_res by (abstract (rewrite List.rev_length; lia)).
-      admit.
-Admitted.
-*)
+  Admitted.
 
 Fixpoint subst_in_let_values (ts : list term) (k : nat) (Γ : context) : context :=
   match Γ with
@@ -801,7 +676,6 @@ Fixpoint deass_context (mask : bitmask) (Γ : context) : context :=
       end
     end
   end.
-*)
 
 (*
 Lemma deass_context_app mask Γ Γ' :
@@ -913,21 +787,43 @@ Fixpoint eval_lambdas Σ (t : term) (args : list term) : Prop :=
       eval_lambdas Σ (tApp (tLambda na body) a) args
   end.
 
-Lemma eval_lambdas_LetIn Σ na val val_res body args :
+Lemma eval_lambdas_tLetIn Σ na val val_res body args :
   Σ ⊢ val ▷ val_res ->
   eval_lambdas Σ (csubst val_res 0 body) args ->
   eval_lambdas Σ (tLetIn na val body) args.
 Proof.
   revert na val val_res body.
   induction args; intros na val val_res body ev_val ev; cbn in *.
-  - intros.
-    destruct ev as (res & ev).
+  - destruct ev as (res & ev).
     exists res.
     econstructor; easy.
   - destruct ev as (na_lam & lam_body & ev_lam_val & ev).
     exists na_lam, lam_body.
     split.
     + econstructor; easy.
+    + easy.
+Qed.
+
+Lemma eval_lambdas_tApp_tLambda Σ na body a av args :
+  Σ ⊢ a ▷ av ->
+  eval_lambdas Σ (csubst av 0 body) args ->
+  eval_lambdas Σ (tApp (tLambda na body) a) args.
+Proof.
+  revert na body a av.
+  induction args; intros na body a' av ev_val ev; cbn in *.
+  - destruct ev as (res & ev).
+    exists res.
+    econstructor.
+    + now apply eval_atom.
+    + easy.
+    + easy.
+  - destruct ev as (na_lam & body_lam & ev_lam_val & ev).
+    exists na_lam, body_lam.
+    split.
+    + econstructor.
+      * now apply eval_atom.
+      * easy.
+      * easy.
     + easy.
 Qed.
 
@@ -944,16 +840,445 @@ Proof.
   now apply (IHargs _ v').
 Qed.
 
+Ltac propize :=
+  unfold is_true in *;
+  repeat
+    match goal with
+    | [H: context[orb _ _ = false] |- _] => rewrite Bool.orb_false_iff in H
+    | [H: context[orb _ _ = true] |- _] => rewrite Bool.orb_true_iff in H
+    | [|- context[orb _ _ = false]] => rewrite Bool.orb_false_iff
+    | [|- context[orb _ _ = true]] => rewrite Bool.orb_true_iff
+    | [H: context[andb _ _ = false] |- _] => rewrite Bool.andb_false_iff in H
+    | [H: context[andb _ _ = true] |- _] => rewrite Bool.andb_true_iff in H
+    | [|- context[andb _ _ = false]] => rewrite Bool.andb_false_iff
+    | [|- context[andb _ _ = true]] => rewrite Bool.andb_true_iff
+    | [H: context[Nat.ltb _ _ = true] |- _] => rewrite Nat.ltb_lt in H
+    | [H: context[Nat.ltb _ _ = false] |- _] => rewrite Nat.ltb_ge in H
+    | [H: context[Nat.eqb _ _ = true] |- _] => rewrite Nat.eqb_eq in H
+    | [H: context[Nat.eqb _ _ = false] |- _] => rewrite Nat.eqb_neq in H
+    | [|- context[Nat.eqb _ _ = true]] => rewrite Nat.eqb_eq
+    | [|- context[Nat.eqb _ _ = false]] => rewrite Nat.eqb_neq
+    end.
+
+Lemma has_use_closed k t n :
+  closedn k t ->
+  k <= n ->
+  has_use n t = false.
+Proof.
+  revert k n.
+  induction t using term_forall_list_ind; intros k n' clos klen;
+    cbn in *; auto.
+  - propize.
+    destruct (Nat.eqb_spec n n'); lia.
+  - induction H; [easy|].
+    cbn in *.
+    propize.
+    easy.
+  - easy.
+  - propize.
+    easy.
+  - propize.
+    easy.
+  - propize.
+    induction X; [easy|].
+    destruct x.
+    cbn in *.
+    propize.
+    easy.
+  - easy.
+  - revert k n' clos klen.
+    induction H; [easy|]; intros k n' clos klen.
+    destruct x.
+    cbn in *.
+    propize.
+    split; [easy|].
+    replace (n' + S #|l|) with (S n' + #|l|) by abstract lia.
+    apply (IHForall (S k)); [|easy].
+    now rewrite Nat.add_succ_r.
+  - revert k n' clos klen.
+    induction H; [easy|]; intros k n' clos klen.
+    destruct x.
+    cbn in *.
+    propize.
+    split; [easy|].
+    replace (n' + S #|l|) with (S n' + #|l|) by abstract lia.
+    apply (IHForall (S k)); [|easy].
+    now rewrite Nat.add_succ_r.
+Qed.
+
+Lemma has_use_csubst k t u k' :
+  has_use k t = false ->
+  closedn k u ->
+  k < k' ->
+  has_use k (csubst u k' t) = false.
+Proof.
+  revert k u k'.
+  induction t using term_forall_list_ind; intros k u k' use_eq clos kltn;
+    cbn in *; auto.
+  - propize.
+    destruct (Nat.compare_spec k' n) as [->| |].
+    + now apply has_use_closed with k.
+    + cbn.
+      propize.
+      lia.
+    + cbn.
+      propize.
+      lia.
+  - induction H; [easy|].
+    cbn in *.
+    propize.
+    easy.
+  - propize.
+    apply IHt; [easy| |easy].
+    now eapply closed_upwards.
+  - propize.
+    split; [easy|].
+    apply IHt2; [easy| |easy].
+    now eapply closed_upwards.
+  - propize.
+    split; [easy|].
+    apply IHt2; [easy| |easy].
+    now eapply closed_upwards.
+  - induction X; [easy|].
+    destruct x.
+    cbn in *.
+    propize.
+    easy.
+  - revert k k' kltn use_eq clos.
+    induction H; [easy|]; intros k k' kltn use_eq clos.
+    destruct x.
+    cbn in *.
+    propize.
+    rewrite map_length in *.
+    split.
+    + apply H; [easy| |easy].
+      now eapply closed_upwards.
+    + setoid_rewrite map_length in IHForall.
+      replace (k + S #|l|) with (S k + #|l|) in * by abstract lia.
+      rewrite <- Nat.add_succ_r.
+      apply IHForall; [easy|easy|].
+      now eapply closed_upwards.
+  - revert k k' kltn use_eq clos.
+    induction H; [easy|]; intros k k' kltn use_eq clos.
+    destruct x.
+    cbn in *.
+    propize.
+    rewrite map_length in *.
+    split.
+    + apply H; [easy| |easy].
+      now eapply closed_upwards.
+    + setoid_rewrite map_length in IHForall.
+      replace (k + S #|l|) with (S k + #|l|) in * by abstract lia.
+      rewrite <- Nat.add_succ_r.
+      apply IHForall; [easy|easy|].
+      now eapply closed_upwards.
+Qed.
+
+(*
+Lemma closedn_subst s k k' t :
+  forallb (closedn k) s -> closedn (k + k' + #|s|) t ->
+  closedn (k + k') (subst s k' t).
+Proof.
+  intros Hs. solve_all. revert H.
+  induction t in k' |- * using term_forall_list_ind; intros;
+    simpl in *;
+    rewrite -> ?map_map_compose, ?compose_on_snd, ?compose_map_def, ?map_length;
+    simpl closed in *; try change_Sk; repeat (rtoProp; solve_all);
+    unfold compose, test_def, on_snd, test_snd in *; simpl in *; eauto with all.
+
+  - elim (Nat.leb_spec k' n); intros. simpl.
+    apply Nat.ltb_lt in H.
+    destruct nth_error eqn:Heq.
+    -- eapply closedn_lift.
+       now eapply nth_error_all in Heq; simpl; eauto; simpl in *.
+    -- simpl. elim (Nat.ltb_spec); auto. intros.
+       apply nth_error_None in Heq. lia.
+    -- simpl. apply Nat.ltb_lt in H0.
+       apply Nat.ltb_lt. apply Nat.ltb_lt in H0. lia.
+
+  - specialize (IHt2 (S k')).
+    rewrite <- Nat.add_succ_comm in IHt2. eauto.
+  - specialize (IHt2 (S k')).
+    rewrite <- Nat.add_succ_comm in IHt2. eauto.
+  - specialize (IHt3 (S k')).
+    rewrite <- Nat.add_succ_comm in IHt3. eauto.
+  - rtoProp; solve_all. rewrite -> !Nat.add_assoc in *.
+    specialize (b0 (#|m| + k')). unfold is_true. rewrite <- b0. f_equal. lia.
+    unfold is_true. rewrite <- H0. f_equal. lia.
+  - rtoProp; solve_all. rewrite -> !Nat.add_assoc in *.
+    specialize (b0 (#|m| + k')). unfold is_true. rewrite <- b0. f_equal. lia.
+    unfold is_true. rewrite <- H0. f_equal. lia.
+Qed.
+
+Lemma closedn_subst0 s k t :
+  forallb (closedn k) s -> closedn (k + #|s|) t ->
+  closedn k (subst0 s t).
+Proof.
+  intros.
+  generalize (closedn_subst s k 0 t H).
+  rewrite Nat.add_0_r. eauto.
+Qed.
+*)
+
+
+Lemma closed_csubst t k u : closed t -> closedn (S k) u -> closedn k (csubst t 0 u).
+Proof.
+  Admitted.
+(*
+  intros.
+  rewrite closed_subst; auto.
+  eapply closedn_subst0. simpl. erewrite closed_upwards; eauto. lia.
+  simpl. now rewrite Nat.add_1_r.
+Qed.
+*)
+
+Lemma closed_mkApps hd args :
+  closed hd ->
+  Forall (closedn 0) args ->
+  closed (mkApps hd args).
+Proof.
+  revert hd.
+  induction args using List.rev_ind; [easy|].
+  intros hd closed_hd closed_args.
+  rewrite mkApps_app.
+  cbn.
+  propize.
+  apply Forall_app in closed_args.
+  destruct closed_args as (? & closed_x).
+  split; [|now inversion closed_x].
+  easy.
+Qed.
+
+Lemma closed_mkApps_inv hd args :
+  closed (mkApps hd args) ->
+  closed hd /\
+  Forall (closedn 0) args.
+Proof.
+  revert hd.
+  induction args using List.rev_ind; [easy|]; intros hd clos.
+  rewrite mkApps_app in clos.
+  cbn in clos.
+  propize.
+  specialize (IHargs hd ltac:(easy)).
+  split; [easy|].
+  apply app_Forall; [easy|].
+  constructor; easy.
+Qed.
+
+Lemma closed_mkApps_head hd args :
+  closed (mkApps hd args) ->
+  closed hd.
+Proof.
+  intros clos.
+  now pose proof (closed_mkApps_inv _ _ clos).
+Qed.
+
+Lemma closed_mkApps_args hd args :
+  closed (mkApps hd args) ->
+  Forall (closedn 0) args.
+Proof.
+  intros clos.
+  now pose proof (closed_mkApps_inv _ _ clos).
+Qed.
+
+Definition decl_closed (decl : EAst.global_decl) : Prop :=
+  match decl with
+  | EAst.ConstantDecl cst =>
+    match EAst.cst_body cst with
+    | Some body => closed body
+    | _ => True
+    end
+  | _ => True
+  end.
+
+Lemma mclookup_env_find Σ kn :
+  ETyping.lookup_env Σ kn =
+  option_map snd (find (fun '(kn', _) => if kername_eq_dec kn kn' then true else false) Σ).
+Proof.
+  induction Σ as [|(kn' & decl) Σ IH]; [easy|].
+  cbn.
+  now destruct (kername_eq_dec kn kn').
+Qed.
+
+Definition env_closed (Σ : EAst.global_declarations) :=
+  Forall (decl_closed ∘ snd) Σ.
+
+Lemma closed_constant Σ kn cst :
+  env_closed Σ ->
+  ETyping.declared_constant Σ kn cst ->
+  match EAst.cst_body cst with
+  | Some val => closed val = true
+  | None => True
+  end.
+Proof.
+  intros env_clos decl_const.
+  unfold ETyping.declared_constant in decl_const.
+  rewrite mclookup_env_find in decl_const.
+  destruct (find _ _) eqn:find; [|easy].
+  apply find_some in find.
+  unfold env_closed in env_clos.
+  rewrite Forall_forall in env_clos.
+  specialize (env_clos _ (proj1 find)).
+  destruct p.
+  cbn in *.
+  now inversion decl_const; subst.
+Qed.
+
+Lemma eval_closed Σ t v :
+  env_closed Σ ->
+  closed t ->
+  Σ ⊢ t ▷ v ->
+  closed v.
+Proof.
+  intros env_clos clos ev.
+  induction ev using eval_evals_ind; cbn in *.
+  - easy.
+  - propize.
+    apply IHev3.
+    now apply closed_csubst.
+  - propize.
+    apply IHev2.
+    now apply closed_csubst.
+  - apply IHev.
+    pose proof (closed_constant _ _ _ env_clos H).
+    now rewrite H0 in *.
+  - propize.
+    apply IHev2.
+    unfold ETyping.iota_red.
+    apply closed_mkApps.
+    + destruct clos as (_ & clos).
+      clear -clos.
+      revert c.
+      induction brs; intros c.
+      * now rewrite nth_nth_error, nth_error_nil.
+      * cbn in *.
+        propize.
+        now destruct a, c.
+    + apply Forall_skipn.
+      eapply closed_mkApps_args.
+      apply IHev1.
+      easy.
+  - subst brs.
+    cbn in *.
+    propize.
+    apply IHev2.
+    apply closed_mkApps; [easy|].
+    clear.
+    induction n; [constructor|].
+    constructor; easy.
+  - apply IHev2.
+    specialize (IHev1 clos).
+    apply closed_mkApps_args in IHev1.
+    rewrite nth_nth_error in *.
+    destruct (nth_error _ _) eqn:nth_eq.
+    + apply nth_error_In in nth_eq.
+      now rewrite Forall_forall in IHev1.
+    + easy.
+  - easy.
+  - apply IHev2.
+    specialize (IHev1 (closed_mkApps_head _ _ clos)).
+    apply closed_mkApps.
+    + apply forallb_Forall in IHev1.
+      unfold cunfold_fix in H.
+      destruct (nth_error mfix idx) eqn:nth_eq; [|easy].
+      apply nth_error_In in nth_eq.
+      rewrite Forall_forall in IHev1.
+      exact (todo "Fixpoint unfold").
+    + exact (todo "Fixpoint args").
+  - apply closed_mkApps.
+    + cbn.
+      apply IHev.
+      now eapply closed_mkApps_head.
+    + exact (todo "Stuck fixpoint unfold").
+  - exact (todo "CoFix").
+  - exact (todo "CoFix").
+  - propize.
+    easy.
+  - easy.
+Qed.
+
+Lemma valid_dearg_mask_nil t : valid_dearg_mask [] t.
+Proof. induction t; easy. Qed.
+
+Lemma valid_dearg_mask_csubst mask t u k :
+  valid_dearg_mask mask t ->
+  closed u ->
+  valid_dearg_mask mask (csubst u k t).
+Proof.
+  revert mask u k.
+  induction t using term_forall_list_ind; intros mask u k valid_mask clos;
+    cbn in *;
+    try solve [now destruct mask].
+  - destruct mask; [|easy].
+    apply valid_dearg_mask_nil.
+  - destruct mask; [easy|].
+    split.
+    + destruct b; [|easy].
+      now apply (has_use_csubst 0).
+    + now apply IHt.
+Qed.
+
 Lemma valid_dearg_mask_eval_lambdas mask body Σ args t :
   valid_dearg_mask mask body ->
   #|args| = #|mask| ->
+  env_closed Σ ->
+  Forall (closedn 0) args ->
   Σ ⊢ mkApps body args ▷ t ->
-  eval_lambdas Σ body args.
+  eval_lambdas Σ body (List.rev args).
 Proof.
-  intros valid_mask len_eq ev.
+  intros valid_mask len_eq env_clos.
+  revert mask body t valid_mask len_eq.
+  induction args using List.rev_ind; intros mask body t valid_mask len_eq all_closed ev.
+  - destruct mask as [|b mask]; [|easy].
+    cbn in *.
+    easy.
+  - rewrite mkApps_app in ev.
+    cbn in *.
+    destruct mask as [|b mask _] using List.rev_ind.
+    { now rewrite app_length in len_eq; cbn in *. }
+    rewrite List.rev_app_distr.
+    cbn.
+    destruct body; try easy.
+    + cbn in *.
+      exists n, body.
+      split; [now constructor|].
+      apply eval_mkApps_head in ev as (app_val & app_ev).
+      apply eval_tApp_arg in app_ev as ev_a.
+      destruct ev_a as (av & ev_a).
+      apply eval_lambdas_tApp_tLambda with av; [easy|].
+      apply eval_tApp_head in app_ev as ev_hd.
+      destruct ev_hd as (ev_hdv & ev_hd).
+      apply (IHargs mask _ app_val).
+      * apply valid_dearg_mask_csubst; [easy|].
+        apply (eval_closed Σ a av); [easy| |easy].
+        now inversion all_closed.
+      * easy.
+      * now inversion all_closed.
+      *
+        depelim app_ev.
+      apply IHbody.
+      apply eval_lambdas_tApp_tLambda
+
   destruct (valid_dearg_mask_spec _ _ valid_mask) as (Γ & inner & Γlen & ->).
-  revert args t inner len_eq ev Γlen valid_mask.
-  induction Γ as [|cd Γ IH] using List.rev_ind; intros args t inner len_eq ev Γlen valid_mask.
+  revert mask args t.
+  induction body using term_forall_list_ind; intros mask args t valid_mask len_eq ev;
+    cbn in *;
+    try solve [destruct mask; [|easy];
+               destruct args; [|easy];
+               now cbn in *].
+  - destruct mask as [|b mask], args as [|a args];
+      cbn in *; try easy.
+    exists n, body.
+    split.
+    + now apply eval_atom.
+    + apply eval_mkApps_head in ev as (app_val & app_ev).
+      apply eval_tApp_arg in app_ev as ev_a.
+      destruct ev_a as (av & ev_a).
+      apply eval_lambdas_tApp_tLambda with av; [easy|].
+      apply IHbody.
+  (*destruct (valid_dearg_mask_spec _ _ valid_mask) as (Γ & inner & Γlen & ->).
+  revert args t inner len_eq ev Γlen valid_mask.*)
+  induction Γ as [|cd Γ IH] using List.rev_ind; intros mask body t valid_mask len_eq ev.
   - cbn in *.
     destruct mask; [|easy].
     destruct args; [|easy].
@@ -967,8 +1292,6 @@ Proof.
     + apply eval_mkApps_head in ev as (let_in_res & ev_let_in).
       apply eval_LetIn in ev_let_in as (val_res & ev_val_res & subst_body_eval).
       eapply eval_lambdas_LetIn; [eassumption|].
-      SearchAbout (_ ⊢ mkApps _ _ ▷ _).
-      eapply eval_lambdas_LetIn; cycle 1.
 
       kcbn in *.
       rewrite app_nil_r in Γlen.
