@@ -44,8 +44,6 @@ Check (fun _ => eq_refl) :
   forall chain,
     Blockchain.account_balance chain = let (_, _, _, f) := chain in f.
 Local Open Scope bool.
-(* Check if term destructs 'Chain' anywhere and uses the
-account_balance field *)
 Import E.
 
 Definition kername_of_string (s : string) : kername :=

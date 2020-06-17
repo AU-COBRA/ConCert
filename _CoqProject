@@ -60,7 +60,9 @@ embedding/examples/Prelude.v
 embedding/examples/SimpleBlockchain.v
 
 -Q extraction/theories ConCert.Extraction
+extraction/theories/Aux.v
 extraction/theories/Certified.v
+extraction/theories/ClosedAux.v
 extraction/theories/Common.v
 extraction/theories/Erasure.v
 extraction/theories/Liquidity.v
@@ -68,6 +70,7 @@ extraction/theories/LPretty.v
 extraction/theories/MidlangExtract.v
 extraction/theories/ResultMonad.v
 extraction/theories/StringExtra.v
+extraction/theories/WcbvEvalAux.v
 # extraction/theories/Extraction.v
 
 

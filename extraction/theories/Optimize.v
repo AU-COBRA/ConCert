@@ -23,6 +23,7 @@ From MetaCoq.Erasure Require SafeErasureFunction.
 From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
+From MetaCoq Require Import PCUICGeneration.
 
 Local Open Scope string_scope.
 Import ListNotations.
