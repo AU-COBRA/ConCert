@@ -178,27 +178,60 @@ Proof.
   now destruct (eval_tApp_inv _ _ _ _ ev).
 Qed.
 
-Inductive eval_spine Σ v : term -> list term -> Prop :=
-| apps_nil hd : Σ ⊢ hd ▷ v -> eval_spine Σ v hd []
-| apps_cons hd arg v :
-    eval_app Σ hd arg v ->
-    eval_spine
-    Σ ⊢ a ▷ av ->
-    app_cases
-    eval_spine Σ v (tApp hd a) (a :: args).
+Inductive eval_spine Σ : term -> list term -> term -> Prop :=
+| apps_nil hd v : Σ ⊢ hd ▷ v -> eval_spine Σ hd [] v
+| apps_cons hd a hda args v :
+    eval_app Σ hd a hda ->
+    eval_spine Σ hda args v ->
+    eval_spine Σ hd (a :: args) v.
 
 Derive Signature for eval_spine.
 
 Lemma eval_mkApps_inv Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  eval_spine Σ v hd args.
+  eval_spine Σ hd args v.
 Proof.
   revert hd v.
   induction args; intros hd v ev.
   - now constructor.
   - cbn in *.
     specialize (IHargs _ _ ev).
+    econstructor; [|easy].
+
     depelim IHargs.
+    + cbn in *.
+      now apply eval_tApp_inv.
+    + cbn in *.
+    apply eval_tApp
+    depelim IHargs.
+    + cbn in *.
+      econstructor.
+      * now apply eval_tApp_inv.
+      * constructor.
+        admit.
+    +
+    + cbn in *.
+      econstructor.
+      *
+    econstructor.
+    rewrite mkApps_app in ev.
+    cbn in *.
+    apply eval_tApp_head in ev as ev_hd.
+    destruct ev_hd as (inner_hd & ev_inner_hd).
+    specialize (IHargs _ _ ev_inner_hd).
+    econstructor.
+    destruct
+    apply eval_tApp_inv in ev as ev_app.
+    specialize (IHargs _ _ ev).
+    depelim IHargs.
+    + cbn in *.
+      admit.
+    + cbn in *.
+    rewrite mkApps_app in ev.
+    cbn in *.
+    depelim ev_app.
+    depelim IHargs.
+    + cbn in *.
     cbn in *.
     destruct IHargs as (app_hdv & app_argsv & ev_app & ? & ?).
     apply eval_tApp_inv in ev_app.
@@ -226,6 +259,7 @@ Proof.
   intros ev.
   now destruct (eval_mkApps_inv _ _ _ _ ev) as (? & ? & ?).
 Qed.
+*)
 
 Definition env_closed (Σ : EAst.global_declarations) :=
   Forall (decl_closed ∘ snd) Σ.
