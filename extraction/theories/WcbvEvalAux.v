@@ -10,6 +10,7 @@ From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import EInduction.
+From MetaCoq.Erasure Require Import EInversion.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Template Require Import utils.
@@ -21,13 +22,6 @@ Notation "Σ ⊢ s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : t
 
 Derive Signature for eval.
 Derive NoConfusionHom for term.
-
-Lemma eval_deterministic Σ a v v' :
-  Σ ⊢ a ▷ v ->
-  Σ ⊢ a ▷ v' ->
-  v = v'.
-Proof.
-  Admitted.
 
 Lemma eval_tLetIn_inv Σ na val body res :
   Σ ⊢ tLetIn na val body ▷ res ->
@@ -196,6 +190,288 @@ Proof.
   apply eval_tApp_head in ev as (hdv & ev_hd).
   now apply IHargs in ev_hd.
 Qed.
+
+Lemma eval_mkApps_args Σ hd args v :
+  Σ ⊢ mkApps hd args ▷ v ->
+  exists argsv, Forall2 (eval Σ) args argsv.
+Proof.
+  revert hd v.
+  induction args using List.rev_ind; intros hd v ev; [easy|].
+  rewrite mkApps_app in ev.
+  cbn in *.
+  apply eval_tApp_head in ev as ev_hd.
+  destruct ev_hd as (hd' & ev_hd').
+  apply eval_tApp_arg in ev as ev_arg.
+  destruct ev_arg as (arg & ev_arg).
+  destruct (IHargs _ _ ev_hd') as (args' & args'_all).
+  exists (args' ++ [arg]).
+  now apply Forall2_app.
+Qed.
+
+Lemma isLambda_mkApps t args :
+  isLambda t = false -> isLambda (mkApps t args) = false.
+Proof.
+  induction args using List.rev_ind; [easy|].
+  now rewrite mkApps_app.
+Qed.
+
+Lemma isFixApp_mkApps t args :
+  isFixApp t = false -> isFixApp (mkApps t args) = false.
+Proof.
+  induction args using List.rev_ind; [easy|].
+  rewrite mkApps_app.
+  cbn.
+  unfold isFixApp.
+  cbn.
+  rewrite Prelim.fst_decompose_app_rec.
+  easy.
+Qed.
+
+Lemma isBox_mkApps t args :
+  isBox t = false -> isBox (mkApps t args) = false.
+Proof.
+  induction args using List.rev_ind; [easy|].
+  now rewrite mkApps_app.
+Qed.
+
+Ltac gen_equalities :=
+  repeat
+    match goal with
+    | [H: ?Σ ⊢ ?a ▷ ?v, IH: forall _ : term, ?Σ ⊢ ?a ▷ _ -> _ |- _ = _] =>
+      let t := constr:(IH _ H) in
+      let tty := type of t in
+      (match goal with
+       | [H: tty |- _] => fail 2
+       end || pose proof t)
+    end;
+  repeat
+    match goal with
+    | [H: ?a = ?a |- _] => clear H
+    end.
+
+Lemma eval_mkApps_tCoFix Σ mfix idx args v :
+  Σ ⊢ mkApps (tCoFix mfix idx) args ▷ v ->
+  exists argsv,
+  Σ ⊢ mkApps (tCoFix mfix idx) args ▷ mkApps (tCoFix mfix idx) argsv.
+Proof.
+  intros ev.
+  apply eval_mkApps_args in ev as (argsv & ev_argsv).
+  exists argsv.
+  revert argsv ev_argsv.
+  induction args using List.rev_ind; intros argsv ev_argsv.
+  - apply Forall2_length in ev_argsv.
+    destruct argsv; [|easy].
+    now apply eval_atom.
+  - apply Forall2_length in ev_argsv as argsv_len.
+    rewrite app_length in *.
+    destruct argsv using List.rev_ind; [now cbn in *|].
+    rewrite !mkApps_app.
+    cbn.
+    apply eval_app_cong.
+    + apply IHargs.
+      now apply Forall2_app_r in ev_argsv.
+    + now rewrite isLambda_mkApps, isFixApp_mkApps, isBox_mkApps.
+    + now apply Forall2_app_r in ev_argsv.
+Qed.
+
+Lemma eval_deterministic Σ a v v' :
+  Σ ⊢ a ▷ v ->
+  Σ ⊢ a ▷ v' ->
+  v = v'.
+Proof.
+  intros ev1.
+  revert v'.
+  induction ev1 using eval_evals_ind; intros v' ev2.
+  - apply eval_tApp_inv in ev2.
+    depelim ev2; try easy.
+    + now gen_equalities.
+    + gen_equalities; solve_discr.
+    + gen_equalities; solve_discr.
+    + gen_equalities; solve_discr.
+  - apply eval_tApp_inv in ev2.
+    depelim ev2; gen_equalities; try congruence; try solve_discr.
+    subst; gen_equalities.
+    inversion H5; subst.
+    now gen_equalities.
+  - apply eval_tLetIn_inv in ev2.
+    destruct ev2 as (? & ? & ?).
+    gen_equalities.
+    subst.
+    now gen_equalities.
+  - depind ev2.
+    + destruct args using List.rev_ind; [easy|].
+      now rewrite mkApps_app in H5.
+    + destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
+      cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      cbn in *.
+      eapply IHev2; easy.
+    + unfold ETyping.declared_constant in *.
+      replace body0 with body in * by congruence.
+      now gen_equalities.
+    + easy.
+  - depind ev2.
+    + gen_equalities.
+      solve_discr.
+      inversion H; subst; clear H.
+      now gen_equalities.
+    + gen_equalities.
+      solve_discr.
+    + destruct args using List.rev_ind; [easy|].
+      rewrite mkApps_app in H3.
+      solve_discr.
+    + destruct args using List.rev_ind; cycle 1.
+      { now rewrite mkApps_app in H1. }
+      cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      cbn in *.
+      easy.
+    + destruct (eval_mkApps_tCoFix _ _ _ _ _ ev1_1).
+      gen_equalities; solve_discr.
+    + easy.
+  - depind ev2.
+    + gen_equalities.
+      solve_discr.
+    + inversion H; subst.
+      now gen_equalities.
+    + destruct args using List.rev_ind; [easy|].
+      now rewrite mkApps_app in *.
+    + destruct args using List.rev_ind; cycle 1.
+      { now rewrite mkApps_app in H1. }
+      cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      easy.
+    + destruct (eval_mkApps_tCoFix _ _ _ _ _ ev1_1).
+      gen_equalities; solve_discr.
+    + easy.
+  - depind ev2.
+    + destruct args using List.rev_ind; [easy|].
+      now rewrite mkApps_app in H3.
+    + destruct args using List.rev_ind; cycle 1.
+      { now rewrite mkApps_app in H1. }
+      cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      easy.
+    + destruct (eval_mkApps_tCoFix _ _ _ _ _ ev1_1).
+      gen_equalities; solve_discr.
+    + gen_equalities.
+      solve_discr.
+      inversion H; subst.
+      now gen_equalities.
+    + gen_equalities.
+      solve_discr.
+    + easy.
+  - depind ev2.
+    + destruct args using List.rev_ind; [easy|].
+      now rewrite mkApps_app in H3.
+    + destruct args using List.rev_ind; cycle 1.
+      { now rewrite mkApps_app in H1. }
+      cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      easy.
+    + destruct (eval_mkApps_tCoFix _ _ _ _ _ ev1_1).
+      gen_equalities; solve_discr.
+    + gen_equalities.
+      solve_discr.
+    + easy.
+    + easy.
+  - depind ev2.
+    + destruct args as [|? ? _] using List.rev_ind; [easy|].
+      rewrite mkApps_app in *.
+      cbn in *.
+      inversion H4; subst; clear H4.
+      destruct args' as [|? ? _] using List.rev_ind.
+      { apply Forall2_length in H2.
+        rewrite app_length in *.
+        now cbn in *. }
+      rewrite mkApps_app in *.
+      cbn in *.
+      admit.
+    + destruct args as [|? ? _] using List.rev_ind; [easy|].
+      rewrite mkApps_app in *.
+      cbn in *.
+      inversion H4; subst; clear H4.
+      gen_equalities.
+      solve_discr.
+      destruct (eval_mkApps_tCoFix _ _ _ _ _ ev1_1).
+      gen_equalities; solve_discr.
+    + gen_equalities.
+      solve_discr.
+    + easy.
+    + easy.
+  - admit.
+  - admit.
+    assert (Σ ⊢ tProj (i, pars, arg) discr ▷ tBox).
+    { now apply eval_proj_box. }
+    gen_equalities.
+      eapply IHev2
+      subst brs.
+      cbn in *.
+      easy.
+      apply IHev1.
+      subst f.
+      2: {
+      gen_equalities; try congruence; try solve_discr.
+
+    +
+    + gen_equalities; congruence.
+    + gen_equalities; subst.
+      inversion H2; subst.
+      gen_equalities.
+      admit.
+    + gen_equalities.
+      solve_discr.
+    + gen_equalities.
+      solve_discr.
+    + gen_equai
+    depelim ev2.
+    + gen_equalities; congruence.
+    + gen_equalities.
+      inversion H2.
+      subst.
+      now gen_equalities.
+    + destruct args as [|a'' args _] using List.rev_ind; [easy|].
+      rewrite mkApps_app in H3.
+      cbn in *.
+      inversion H3; subst; clear H3.
+
+      replace f with (mkApps f0 args) in * by congruence.
+      apply eval_mkApps_inv in ev2_2.
+      destruct ev2_2 as (? & ? & ? & ? & ?).
+
+      gen_equalities.
+      subst a'0.
+      inversion H2; subst; clear H2.
+      apply IHev1_3.
+      let x := (has_hypothesis_of_type term) in
+      match x with
+      | 0 => idtac "foo"
+      | 1 => idtac "bar"
+      end.
+      gen_equalities.
+      gen_equalities.
+    +
+    apply eval_tApp_inv in ev2 as (hdv & argv & ev_hd & ev_arg & hd_cases).
+    apply IHev1_3.
+    depelim hd_cases; try solve_congr.
+    + apply IHev1_3.
+    +
+    inversion hd_cases; subst.
+    apply eval_tApp_head in ev2.
+    destruct ev2 as (hdv & ev_hd & hdv_cases).
+    depelim hdv_cases;
+      specialize (IHev1_1 _ ev_hd); try congruence.
+
 
 Lemma eval_tLambda_tBox Σ na body :
   Σ ⊢ tLambda na body ▷ tBox -> False.
@@ -457,21 +733,6 @@ Qed.
 
 
 (*
-Ltac gen_equalities :=
-  repeat
-    match goal with
-    | [H: ?Σ ⊢ ?a ▷ ?v, IH: forall _ : term, ?Σ ⊢ ?a ▷ _ -> _ |- _ = _] =>
-      let t := constr:(IH _ H) in
-      let tty := type of t in
-      (match goal with
-       | [H: tty |- _] => fail 2
-       end || pose proof t)
-    end;
-  repeat
-    match goal with
-    | [H: ?a = ?a |- _] => clear H
-    end.
-
 Lemma eval_deterministic Σ t v v' :
   Σ ⊢ t ▷ v ->
   Σ ⊢ t ▷ v' ->
