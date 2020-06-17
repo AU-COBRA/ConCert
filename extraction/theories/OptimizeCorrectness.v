@@ -711,7 +711,8 @@ Proof.
     + cbn in *.
       exists n, body.
       split; [apply eval_atom; easy|].
-      apply eval_tApp_inv in ev as (hdv & argv & ? & ? & ?).
+      pose proof (eval_tApp_head _ _ _ _ ev) as (hdv & ev_hd).
+      pose proof (eval_tApp_arg _ _ _ _ ev) as (av & ev_a).
       eapply eval_lambdas_tApp_tLambda; [easy|].
       apply (IHargs mask _ hdv).
       * apply valid_dearg_mask_csubst; [easy|].
@@ -720,6 +721,7 @@ Proof.
       * lia.
       * easy.
       *
+    + cbn in *.
     rewrite List.rev_app_distr.
     cbn.
     destruct (valid_dearg_mask_spec (mask ++ [b]) body)

@@ -22,6 +22,13 @@ Notation "Σ ⊢ s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : t
 Derive Signature for eval.
 Derive NoConfusionHom for term.
 
+Lemma eval_deterministic Σ a v v' :
+  Σ ⊢ a ▷ v ->
+  Σ ⊢ a ▷ v' ->
+  v = v'.
+Proof.
+  Admitted.
+
 Lemma eval_tLetIn_inv Σ na val body res :
   Σ ⊢ tLetIn na val body ▷ res ->
   exists val_res,
@@ -178,76 +185,165 @@ Proof.
   now destruct (eval_tApp_inv _ _ _ _ ev).
 Qed.
 
-Inductive eval_spine Σ : term -> list term -> term -> Prop :=
-| apps_nil hd v : Σ ⊢ hd ▷ v -> eval_spine Σ hd [] v
-| apps_cons hd a hda args v :
-    eval_app Σ hd a hda ->
-    eval_spine Σ hda args v ->
-    eval_spine Σ hd (a :: args) v.
+Lemma eval_mkApps_head Σ hd args v :
+  Σ ⊢ mkApps hd args ▷ v ->
+  exists hdv, Σ ⊢ hd ▷ hdv.
+Proof.
+  revert hd v.
+  induction args using List.rev_ind; intros hd v ev; [easy|].
+  rewrite mkApps_app in ev.
+  cbn in *.
+  apply eval_tApp_head in ev as (hdv & ev_hd).
+  now apply IHargs in ev_hd.
+Qed.
 
-Derive Signature for eval_spine.
+Lemma eval_tLambda_tBox Σ na body :
+  Σ ⊢ tLambda na body ▷ tBox -> False.
+Proof.
+  intros ev.
+  depelim ev.
+  - destruct args using List.rev_ind; [easy|].
+    rewrite mkApps_app in H3; easy.
+  - solve_discr.
+Qed.
 
+Lemma eval_tApp_tLambda Σ a av na body v :
+  Σ ⊢ a ▷ av ->
+  Σ ⊢ tApp (tLambda na body) a ▷ v ->
+  Σ ⊢ csubst av 0 body ▷ v.
+Proof.
+  intros ev_a ev.
+  depind ev.
+  - now apply eval_tLambda_tBox in ev1.
+  - assert (tLambda na b = tLambda na0 body).
+    { apply (eval_deterministic _ _ _ _ ev1).
+      now apply eval_atom. }
+    inversion H; subst; clear H.
+    replace av with a'; [easy|].
+    now eapply eval_deterministic.
+  - destruct args as [|? ? _] using List.rev_ind; [easy|].
+    rewrite mkApps_app in *.
+    cbn in *.
+    inversion H3; subst.
+    destruct args using List.rev_ind; [|now rewrite mkApps_app in H5].
+    cbn in *.
+    subst f.
+    assert (tFix mfix idx = tLambda na body); [|discriminate].
+    apply (eval_deterministic _ _ _ _ ev1).
+    now apply eval_atom.
+  - destruct args as [|? ? _] using List.rev_ind.
+    + cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      easy.
+    + rewrite mkApps_app in *.
+      cbn in *.
+      inversion H1; subst; clear H1.
+      destruct args using List.rev_ind; cbn in *.
+      * subst f.
+        assert (tFix mfix idx = tLambda na body); [|discriminate].
+        apply (eval_deterministic _ _ _ _ ev).
+        now apply eval_atom.
+      * rewrite mkApps_app in H3.
+        cbn in *.
+        discriminate.
+  - replace f' with (tLambda na body) in *; [easy|].
+    symmetry.
+    apply (eval_deterministic _ _ _ _ ev1).
+    now apply eval_atom.
+  - easy.
+Qed.
+
+(*
+Lemma mkApps_csubst Σ na body av args v :
+  Σ ⊢ mkApps (tLambda na body) args ▷ v ->
+  Σ ⊢ mkApps (csubst av 0 body) args ▷ v.
+Proof.
+  revert na body av v.
+  induction args using List.rev_ind; intros na body av v ev; cbn in *.
+  - apply eval_
+    depelim ev.
+    + destruct args using List.rev_ind; [easy|].
+      rewrite mkApps_app in H3; easy.
+    + destruct args using List.rev_ind; [easy|].
+      rewrite mkApps_app in H3; easy.
+*)
+(*
 Lemma eval_mkApps_inv Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  eval_spine Σ hd args v.
+  exists hdv argsv,
+    Σ ⊢ hd ▷ hdv /\
+    Forall2 (eval Σ) args argsv /\
+    match args with
+    |
+    (args = [] \/ head_of_app_cases hdv).
 Proof.
   revert hd v.
   induction args; intros hd v ev.
-  - now constructor.
+  - cbn in *.
+    now exists v, [].
   - cbn in *.
     specialize (IHargs _ _ ev).
-    econstructor; [|easy].
-
-    depelim IHargs.
-    + cbn in *.
-      now apply eval_tApp_inv.
-    + cbn in *.
-    apply eval_tApp
-    depelim IHargs.
-    + cbn in *.
-      econstructor.
-      * now apply eval_tApp_inv.
-      * constructor.
-        admit.
-    +
-    + cbn in *.
-      econstructor.
-      *
-    econstructor.
-    rewrite mkApps_app in ev.
-    cbn in *.
-    apply eval_tApp_head in ev as ev_hd.
-    destruct ev_hd as (inner_hd & ev_inner_hd).
-    specialize (IHargs _ _ ev_inner_hd).
-    econstructor.
-    destruct
-    apply eval_tApp_inv in ev as ev_app.
-    specialize (IHargs _ _ ev).
-    depelim IHargs.
-    + cbn in *.
-      admit.
-    + cbn in *.
-    rewrite mkApps_app in ev.
-    cbn in *.
-    depelim ev_app.
-    depelim IHargs.
-    + cbn in *.
-    cbn in *.
     destruct IHargs as (app_hdv & app_argsv & ev_app & ? & ?).
     apply eval_tApp_inv in ev_app.
     destruct ev_app as (hdv & argv & ev_hd & ev_arg & head_hdv).
     exists hdv, (argv :: app_argsv).
-    split; [easy|].
-    split; [easy|].
     easy.
 Qed.
 
+Inductive eval_mkApps Σ hd : list term -> term -> Prop :=
+| eval_mkApps_nil v : Σ ⊢ hd ▷ v -> eval_mkApps Σ hd [] v
+| eval_mkApps_snoc args v a av appv :
+    eval_mkApps Σ hd args v ->
+    Σ ⊢ a ▷ av ->
+    Σ ⊢ tApp (mkApps hd args) a ▷ appv ->
+    eval_mkApps Σ hd (args ++ [a]) appv.
+
+Derive Signature for eval_mkApps.
+
+(*
+Lemma eval_spine_app Σ hd args args' v :
+  eval_spine Σ v hd (args ++ args') ->
+  exists v',
+    eval_spine Σ v' hd args /\
+    eval_spine Σ v v' args'.
+Proof.
+  revert hd args' v.
+  induction args; intros hd args' v eval_app; cbn in *.
+  - depelim eval_app.
+    + exists v.
+
+    exists hd.
+    split; [constructor|easy].
+*)
+
+Lemma eval_mkApps_inv Σ hd args v :
+  Σ ⊢ mkApps hd args ▷ v ->
+  eval_mkApps Σ hd args v.
+Proof.
+  revert hd v.
+  induction args using List.rev_ind; intros hd v ev.
+  - now constructor.
+  - rewrite mkApps_app in ev.
+    cbn in *.
+    apply eval_tApp_arg in ev as ev_x.
+    apply eval_tApp_head in ev as ev_hd.
+    destruct ev_x as (xv & ev_x).
+    destruct ev_hd as (hdv & ev_hd).
+    specialize (IHargs _ _ ev_hd).
+    apply (eval_mkApps_snoc Σ hd args hdv x xv v); easy.
+Qed.
+
+(*
 Lemma eval_mkApps_head Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  exists hdv, Σ ⊢ hd ▷ hdv /\ (args = [] \/ head_of_app_cases hdv).
+  exists hdv, Σ ⊢ hd ▷ hdv.
 Proof.
   intros ev.
-  destruct (eval_mkApps_inv _ _ _ _ ev) as (? & ? & ? & ? & ?).
+  apply eval_mkApps_inv in ev.
+  destruct (eval_mkApps_inv _ _ _ _ ev); eexists.
+  -
   eexists.
   easy.
 Qed.
@@ -259,6 +355,7 @@ Proof.
   intros ev.
   now destruct (eval_mkApps_inv _ _ _ _ ev) as (? & ? & ?).
 Qed.
+*)
 *)
 
 Definition env_closed (Σ : EAst.global_declarations) :=
