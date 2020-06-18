@@ -167,8 +167,8 @@ Definition mkLambda_or_LetIn (cd : context_decl) (t : term) : term :=
   | Some body => tLetIn (decl_name cd) body t
   end.
 
-Definition it_mkLambda_or_LetIn (Γ : context) (t : term) : term :=
-  fold_left (fun t d => mkLambda_or_LetIn d t) Γ t.
+Definition it_mkLambda_or_LetIn :=
+  fold_left (fun t d => mkLambda_or_LetIn d t).
 
 Fixpoint decompose_body_masked (mask : bitmask) (Γ : context) (t : term) : context * term :=
   match mask, t with
@@ -186,8 +186,8 @@ Definition vasses (Γ : context) : context :=
 Ltac refold :=
   repeat
     match goal with
-    | [H: context[fold_left _ ?Γ ?t] |- _] => progress (fold (it_mkLambda_or_LetIn Γ t) in * )
-    | [|- context[fold_left _ ?Γ ?t]] => progress (fold (it_mkLambda_or_LetIn Γ t) in * )
+    | [H: context[fold_left _] |- _] => progress (fold it_mkLambda_or_LetIn in * )
+    | [|- context[fold_left _]] => progress (fold it_mkLambda_or_LetIn in * )
     | [H: context[filter _ ?Γ] |- _] => progress (fold (vasses Γ) in * )
     | [|- context[filter _ ?Γ]] => progress (fold (vasses Γ) in * )
     end.
@@ -277,10 +277,10 @@ Fixpoint close_term_aux (Γ : context) (t : term) (args : list term) : term :=
   | [] => t
   | cd :: Γ =>
     match decl_body cd with
-    | Some val => close_term_aux Γ (t { 0 := val }) args
+    | Some val => close_term_aux Γ (csubst val 0 t) args
     | None =>
       match args with
-      | a :: args => close_term_aux Γ (t { 0 := a }) args
+      | a :: args => close_term_aux Γ (csubst a 0 t) args
       | [] => t
       end
     end
@@ -686,16 +686,290 @@ Proof.
       * easy.
 Qed.
 
+(*
+Lemma eval_it_mkLambda_or_LetIn_bodies Σ Γ Γ' body body' v :
+  Σ ⊢ it_mkLambda_or_LetIn (Γ ++ Γ') body ▷ v ->
+  Σ ⊢ it_mkLambda_or_LetIn Γ' (close_term_aux body' ▷ v
+*)
+
+(*
+Lemma close_term_aux_csubst_let Σ Γ na lv inner args v :
+  #|args| = #|vasses Γ| ->
+  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ (tLetIn na lv inner)) args ▷ v ->
+  Σ ⊢ close_term_aux Γ (csubst lv 0 inner) (List.rev args) ▷ v.
+Proof.
+  revert na lv inner args v.
+  induction Γ as [|cd Γ IH] using List.rev_ind; intros na lv inner args v ev len_eq.
+  - destruct args; [|easy].
+    cbn in *.
+    admit.
+  - rewrite vasses_app, app_length, it_mkLambda_or_LetIn_app, close_term_aux_app in *
+      by (rewrite List.rev_length; lia).
+    cbn in *.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + cbn in *.
+*)
+
+(*
+Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ inner args t :
+  #|args| = #|vasses Γ| ->
+  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ inner) args ▷ t ->
+  Σ ⊢ close_term_aux Γ inner (List.rev args) ▷ t.
+Proof.
+  revert inner args t.
+  induction Γ as [|cd Γ IH]; intros inner args t len_eq ev.
+  - now destruct args.
+  - cbn in *; refold.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    +
+    + destruct args as [|a args _] using List.rev_ind; cbn in *; [easy|].
+      rewrite List.rev_app_distr, mkApps_app in *.
+      cbn in *.
+      Lemma close_term_aux_csubst Σ :
+        Σ ⊢
+        Σ ⊢ close_term_aux Γ (csubst a 0 inner) (List.rev args) ▷ t
+      rewrite mkApps_app in ev.
+      cbn in *
+      rewrite skipn_all_app_eq by (rewrite List.rev_length; lia).
+    rewrite vasses_app, app_length, it_mkLambda_or_LetIn_app, close_term_aux_app in *
+      by (rewrite List.rev_length; lia).
+    cbn in *; refold.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + admit.
+    + destruct args as [|a args]; cbn in *; [easy|].
+      rewrite skipn_all_app_eq by (rewrite List.rev_length; lia).
+*)
+
+Section foo.
+From Coq Require Import String.
+From MetaCoq.Erasure Require Import EPretty.
+Open Scope string.
+
+Definition Γ := [vass (nNamed "b"); vass (nNamed "a")].
+Definition Γ' := [vass (nNamed "d"); vass (nNamed "c")].
+Definition args := [tVar "a"; tVar "b"].
+Definition args' := [tVar "c"; tVar "d"].
+Definition inner := tRel 1.
+Open Scope list.
+Compute print_term [] [] false false
+        (mkApps (it_mkLambda_or_LetIn (Γ' ++ Γ) inner) (args ++ args')).
+Compute print_term [] [] false false
+        (mkApps (it_mkLambda_or_LetIn Γ (close_term_aux Γ' inner (List.rev args'))) args).
+Compute print_term [] [] false false
+        (mkApps (close_term_aux (Γ ++ Γ') inner (List.rev args)) args').
+Compute print_term [] [] false false
+        (mkApps (close_term_aux Γ (it_mkLambda_or_LetIn Γ' inner) (List.rev args)) args').
+End foo.
+
+Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ Γ' inner args args' t :
+  #|args| = #|vasses Γ| ->
+  #|args'| = #|vasses Γ'| ->
+  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ (close_term_aux Γ' inner args')) args ▷ t ->
+  Σ ⊢ mkApps (close_term_aux (Γ ++ Γ) (it_mkLambda_or_LetIn Γ' inner) (List.rev args)) args' ▷ t.
+Proof.
+  revert Γ inner args args' t.
+  induction Γ' as [|cd Γ' IH]; intros Γ inner args args' t len_eq len_eq' ev.
+  - cbn in *.
+    destruct args'; [|easy].
+    cbn in *.
+    rewrite app_nil_r in *.
+    cbn in *.
+  - rewrite vasses_app, app_length, app_assoc in *.
+    rewrite it_mkLambda_or_LetIn_app, close_term_aux_app in *
+      by (rewrite List.rev_length; abstract lia).
+    cbn in *.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + admit.
+    + destruct args as [|a args]; cbn in *; [easy|].
+      rewrite skipn_all_app_eq by (rewrite List.rev_length; now lia).
+      rewrite close_term_aux_app.
+    cbn in *; refold.
+    rewrite <- app_tip_assoc in ev.
+    rewrite it_mkLambda_or_LetIn_app in ev.
+    rewrite app_assoc in ev.
+    rewrite vasses_app, app_length in *.
+    rewrite close_term_aux_app by (rewrite List.rev_length; abstract lia).
+
+  revert Γ' inner args args' t.
+  induction Γ as [|cd Γ IH] using List.rev_ind; intros Γ' inner args args' t len_eq len_eq' ev.
+  - destruct args; [|easy].
+    now rewrite app_nil_r in *.
+  - rewrite vasses_app, app_length, app_assoc in *.
+    rewrite it_mkLambda_or_LetIn_app, close_term_aux_app in *
+      by (rewrite List.rev_length; abstract lia).
+    cbn in *.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + admit.
+    + destruct args as [|a args]; cbn in *; [easy|].
+      rewrite skipn_all_app_eq by (rewrite List.rev_length; now lia).
+      rewrite close_term_aux_app.
+    cbn in *; refold.
+    rewrite <- app_tip_assoc in ev.
+    rewrite it_mkLambda_or_LetIn_app in ev.
+    rewrite app_assoc in ev.
+    rewrite vasses_app, app_length in *.
+    rewrite close_term_aux_app by (rewrite List.rev_length; abstract lia).
+    rewrite app_assoc, it_mkLambda_or_LetIn_app in ev.
+    cbn in *.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + cbn in *.
+      specialize (IH (Γ' ++ [cd]) inner args args' t ltac:(easy)).
+      rewrite <- app_assoc in IH.
+      rewrite !it_mkLambda_or_LetIn_app in IH.
+      cbn in IH.
+      unfold mkLambda_or_LetIn in IH.
+      rewrite decl_eq in *.
+      cbn in *.
+
+      rewrite decl_eq in *.
+      specialize (IH (Γ' ++ [cd]) inner args args' t len_eq).
+      rewrite vasses_app in IH.
+      cbn in IH.
+      rewrite decl_eq, app_nil_r in IH.
+      specialize (IH len_eq').
+      rewrite <- app_assoc in IH.
+      rewrite !it_mkLambda_or_LetIn_app in IH.
+      cbn in IH.
+      unfold mkLambda_or_LetIn in IH.
+      rewrite decl_eq in IH.
+      rewrite <- app_tip_assoc in ev.
+      rewrite <- app_assoc in ev.
+      rewrite !it_mkLambda_or_LetIn_app in ev.
+      cbn in ev.
+      unfold mkLambda_or_LetIn in ev.
+      rewrite decl_eq in ev.
+      specialize (IH ev).
+      clear ev.
+      apply eval_mkApps_head in IH as ev_hd.
+      destruct ev_hd as (hdv & ev_hd).
+      eapply eval_mkApps_heads; [exact ev_hd| |easy].
+      clear IH.
+      eapply eval_mkApps_heads in IH.
+      replace (List.rev args) with (skipn #|vasses [cd]| (List.rev args)); cycle 1.
+      { cbn.
+        now rewrite decl_eq. }
+      replace (csubst t0 0 inner) with (close_term_aux [cd] inner (List.rev args));
+        cycle 1.
+      { cbn.
+        now rewrite decl_eq. }
+      rewrite <- close_term_aux_app; cycle 1.
+      { cbn.
+        rewrite decl_eq.
+        now cbn. }
+      cbn.
+      rewrite decl_eq.
+      change (csubst t0 0 inner) with (close_term_aux [c
+      close_term_aux_app
+
+      rewrite app_nil_r
+      apply IH; [easy|easy|].
+      easy.
+  cbn in *.
+  refold.
+  unfold mkLambda_or_LetIn in *.
+  destruct (decl_body cd) eqn:decl_eq.
+  + apply IH; [|easy].
+    apply eval_mkApps_head in ev as ev_hd.
+    destruct ev_hd as (hdv & ev_hd).
+    eapply eval_mkApps_heads; [exact ev_hd| |exact ev].
+  intros ev.
+  remember (mkApps (it_mkLambda_or_LetIn Γ inner) args).
+  induction ev using eval_evals_ind; subst.
+  -
+
+(*
 Lemma valid_dearg_mask_eval_lambdas mask body Σ args t :
   valid_dearg_mask mask body ->
   #|args| = #|mask| ->
   env_closed Σ ->
   Forall (closedn 0) args ->
   Σ ⊢ mkApps body args ▷ t ->
-  eval_lambdas Σ body (List.rev args).
+  eval_lambdas Σ body args.
 Proof.
+  intros valid_mask len_eq env_clos all_clos ev.
+  revert mask valid_mask len_eq all_clos.
+  remember (mkApps body args).
+  induction ev using eval_evals_ind; intros mask valid_mask len_eq all_clos;
+    subst.
+  - induction args using List.rev_ind.
+    + cbn in *.
+      subst body.
+      easy.
+    + rewrite mkApps_app in *.
+      cbn in *.*)
+  (* Cannot induct on body because our IH ends up talking about eval_lambdas on
+     open term ... *)
+  (*
+  intros valid_mask len_eq env_clos.
+  revert mask args t valid_mask len_eq.
+  induction body using term_forall_list_ind; intros mask args t valid_mask len_eq all_clos ev;
+    try solve [now destruct mask; [|easy]; destruct args; [|easy]; cbn in *].
+  - cbn in *.
+    destruct mask as [|b mask], args as [|a args]; cbn in *; try easy.
+    exists n, body.
+    split; [now apply eval_atom|].
+    apply eval_mkApps_head in ev as ev_hd.
+    destruct ev_hd as (hdv & ev_hd).
+    apply eval_tApp_arg in ev_hd as (av & ev_a).
+
+    apply eval_lambdas_tApp_tLambda with av; [easy|].
+    apply eval_lambdas_csubst.
+    eapply IHbody.
+    * apply valid_dearg_mask_csubst; [easy|].
+      eapply eval_closed; [eassumption| |easy].
+      now inversion all_closed.
+    * easy.
+    * now inversion all_closed.
+    * now eapply mkApps_csubst.
+  cbn in *.
   intros valid_mask len_eq env_clos.
   revert mask body t valid_mask len_eq.
+  induction args; intros mask body t valid_mask len_eq all_clos ev.
+  - destruct mask as [|b mask]; [|easy].
+    cbn in *.
+    easy.
+  - destruct mask as [|b mask]; [easy|].
+    cbn in *.
+    destruct body using term_forall_list_ind; try easy; cbn in *.
+    + exists n, body.
+      split; [apply eval_atom; easy|].
+      apply eval_mkApps_head in ev as ev_hd.
+      destruct ev_hd as (hdv & ev_hd).
+      apply eval_tApp_arg in ev_hd as (av & ev_a).
+      apply eval_lambdas_tApp_tLambda with av; [easy|].
+      eapply (IHargs mask _).
+      * apply valid_dearg_mask_csubst; [easy|].
+        eapply eval_closed; [eassumption| |easy].
+        now inversion all_clos.
+      * easy.
+      * now inversion all_clos.
+      * now eapply mkApps_csubst.
+    +
+      cbn in *.
+      * cbn in *.
+
+      eexists _, _.
+
+      specialize (IHargs _ _ _ valid_mask).
+      eapply IHargs.
+      eapply eval_lambdas_tApp_tLambda.
+      pose proof (eval_tApp_head _ _ _ _ ev) as (hdv & ev_hd).
+      pose proof (eval_tApp_arg _ _ _ _ ev) as (av & ev_a).
+      eapply eval_lambdas_tApp_tLambda; [easy|].
+      apply (IHargs mask _ hdv).
+      * apply valid_dearg_mask_csubst; [easy|].
+        eapply eval_closed; [eassumption| |easy].
+        now destruct all_closed as (_ & clos); inversion clos.
+      * lia.
+      * easy.
+      *
+
   induction args using List.rev_ind; intros mask body t valid_mask len_eq all_closed ev.
   - destruct mask as [|b mask]; [|easy].
     cbn in *.
@@ -791,6 +1065,7 @@ Proof.
       rewrite app_nil_r in Γlen.
       specialize
 Admitted.
+*)
 
 (*
 Lemma dearg_single_correct_full Σ body args t mask :
@@ -808,7 +1083,7 @@ Lemma dearg_single_correct mask body args Σ t :
   #|args| = #|mask| ->
   Σ ⊢ dearg_single mask (dearg_cst_body_top mask body) args ▷ t.
 Proof.
-  intros eval valid_mask len_eq.
+  intros ev valid_mask len_eq.
   destruct (valid_dearg_mask_spec _ _ valid_mask) as (Γ & inner & Γlen & ->).
   revert mask args t inner valid_mask eval len_eq Γlen.
   induction Γ as [|cd Γ IH] using List.rev_ind; intros mask args t inner valid_mask ev len_eq Γlen.

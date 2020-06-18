@@ -74,7 +74,7 @@ Inductive eval_app Σ hd arg : term -> Prop :=
 
 Arguments isStuckFix : simpl nomatch.
 
-Lemma eval_tApp_inv Σ hd arg v :
+Lemma eval_tApp_inv {Σ hd arg v} :
   Σ ⊢ tApp hd arg ▷ v ->
   eval_app Σ hd arg v.
 Proof.
@@ -168,7 +168,7 @@ Lemma eval_tApp_head Σ hd arg v :
   exists hdv, Σ ⊢ hd ▷ hdv.
 Proof.
   intros ev.
-  now destruct (eval_tApp_inv _ _ _ _ ev).
+  now destruct (eval_tApp_inv ev).
 Qed.
 
 Lemma eval_tApp_arg Σ hd arg v :
@@ -176,7 +176,7 @@ Lemma eval_tApp_arg Σ hd arg v :
   exists argv, Σ ⊢ arg ▷ argv.
 Proof.
   intros ev.
-  now destruct (eval_tApp_inv _ _ _ _ ev).
+  now destruct (eval_tApp_inv ev).
 Qed.
 
 Lemma eval_mkApps_head Σ hd args v :
@@ -401,77 +401,25 @@ Proof.
       rewrite mkApps_app in *.
       cbn in *.
       inversion H4; subst; clear H4.
-      gen_equalities.
-      solve_discr.
-      destruct (eval_mkApps_tCoFix _ _ _ _ _ ev1_1).
-      gen_equalities; solve_discr.
-    + gen_equalities.
-      solve_discr.
-    + easy.
-    + easy.
-  - admit.
-  - admit.
-    assert (Σ ⊢ tProj (i, pars, arg) discr ▷ tBox).
-    { now apply eval_proj_box. }
-    gen_equalities.
-      eapply IHev2
-      subst brs.
-      cbn in *.
-      easy.
-      apply IHev1.
-      subst f.
-      2: {
-      gen_equalities; try congruence; try solve_discr.
-
-    +
-    + gen_equalities; congruence.
-    + gen_equalities; subst.
-      inversion H2; subst.
-      gen_equalities.
       admit.
-    + gen_equalities.
-      solve_discr.
-    + gen_equalities.
-      solve_discr.
-    + gen_equai
-    depelim ev2.
-    + gen_equalities; congruence.
-    + gen_equalities.
-      inversion H2.
-      subst.
-      now gen_equalities.
-    + destruct args as [|a'' args _] using List.rev_ind; [easy|].
-      rewrite mkApps_app in H3.
-      cbn in *.
-      inversion H3; subst; clear H3.
-
-      replace f with (mkApps f0 args) in * by congruence.
-      apply eval_mkApps_inv in ev2_2.
-      destruct ev2_2 as (? & ? & ? & ? & ?).
-
-      gen_equalities.
-      subst a'0.
-      inversion H2; subst; clear H2.
-      apply IHev1_3.
-      let x := (has_hypothesis_of_type term) in
-      match x with
-      | 0 => idtac "foo"
-      | 1 => idtac "bar"
-      end.
-      gen_equalities.
-      gen_equalities.
-    +
-    apply eval_tApp_inv in ev2 as (hdv & argv & ev_hd & ev_arg & hd_cases).
-    apply IHev1_3.
-    depelim hd_cases; try solve_congr.
-    + apply IHev1_3.
-    +
-    inversion hd_cases; subst.
-    apply eval_tApp_head in ev2.
-    destruct ev2 as (hdv & ev_hd & hdv_cases).
-    depelim hdv_cases;
-      specialize (IHev1_1 _ ev_hd); try congruence.
-
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
 
 Lemma eval_tLambda_tBox Σ na body :
   Σ ⊢ tLambda na body ▷ tBox -> False.
@@ -531,12 +479,29 @@ Proof.
   - easy.
 Qed.
 
-(*
-Lemma mkApps_csubst Σ na body av args v :
-  Σ ⊢ mkApps (tLambda na body) args ▷ v ->
+Lemma eval_tApp_heads Σ hd hd' hdv arg v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ tApp hd arg ▷ v ->
+  Σ ⊢ tApp hd' arg ▷ v.
+Proof.
+  Admitted.
+
+Lemma eval_mkApps_heads Σ hd hd' hdv args v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ mkApps hd args ▷ v ->
+  Σ ⊢ mkApps hd' args ▷ v.
+Proof.
+  Admitted.
+
+Lemma mkApps_csubst Σ a av na body args v :
+  Σ ⊢ a ▷ av ->
+  Σ ⊢ mkApps (tApp (tLambda na body) a) args ▷ v ->
   Σ ⊢ mkApps (csubst av 0 body) args ▷ v.
 Proof.
-  revert na body av v.
+  Admitted.
+  (*revert na body av v.
   induction args using List.rev_ind; intros na body av v ev; cbn in *.
   - apply eval_
     depelim ev.
