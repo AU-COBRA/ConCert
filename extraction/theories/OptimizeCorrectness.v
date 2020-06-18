@@ -17,7 +17,6 @@ From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Template Require Import utils.
 
 Import ListNotations.
-Set Equations Transparent.
 
 Import EAstUtils.
 Import Erasure.
@@ -242,10 +241,10 @@ Qed.
 Definition fold_context f (Γ : context) : context :=
   List.rev (mapi (fun k' decl => map_decl (f k') decl) (List.rev Γ)).
 
-Definition subst_decl s k (d : context_decl) := map_decl (subst s k) d.
+Definition subst_decl s k (d : context_decl) := map_decl (csubst s k) d.
 
 Definition subst_context n k (Γ : context) : context :=
-  fold_context (fun k' => subst n (k' + k)) Γ.
+  fold_context (fun k' => csubst n (k' + k)) Γ.
 
 Lemma subst_context_snoc s k Γ d :
   subst_context s k (d :: Γ) = subst_context s k Γ ,, subst_decl s (#|Γ| + k) d.
@@ -262,8 +261,8 @@ Proof.
 Qed.
 
 Lemma subst_it_mkLambda_or_LetIn n k ctx t :
-  subst n k (it_mkLambda_or_LetIn ctx t) =
-  it_mkLambda_or_LetIn (subst_context n k ctx) (subst n (length ctx + k) t).
+  csubst n k (it_mkLambda_or_LetIn ctx t) =
+  it_mkLambda_or_LetIn (subst_context n k ctx) (csubst n (length ctx + k) t).
 Proof.
   induction ctx in n, k, t |- *; simpl; [easy|].
   pose (subst_context_snoc n k ctx a). unfold snoc in e. rewrite e. clear e.
@@ -271,24 +270,27 @@ Proof.
   pose (subst_context_snoc n k ctx a). simpl. now destruct a as [na [b|]].
 Qed.
 
-(* Close a term t that lives in a context Γ given args for each assumption in Γ *)
-Fixpoint close_term_aux (Γ : context) (t : term) (args : list term) : term :=
-  match Γ with
-  | [] => t
-  | cd :: Γ =>
-    match decl_body cd with
-    | Some val => close_term_aux Γ (csubst val 0 t) args
-    | None =>
-      match args with
-      | a :: args => close_term_aux Γ (csubst a 0 t) args
-      | [] => t
-      end
-    end
-  end.
+Lemma length_subst_context n k Γ :
+  #|subst_context n k Γ| = #|Γ|.
+Proof.
+  unfold subst_context, fold_context.
+  now rewrite List.rev_length, mapi_length, List.rev_length.
+Qed.
+
+Equations? close_term_aux (Γ : context) (t : term) (args : list term) : term
+  by wf #|Γ| lt :=
+close_term_aux [] t args := t;
+close_term_aux ({| decl_body := Some val |} :: Γ) t args :=
+  close_term_aux (subst_context val 0 Γ) (csubst val #|Γ| t) args;
+close_term_aux (_ :: Γ) t (a :: args) :=
+  close_term_aux (subst_context a 0 Γ) (csubst a #|Γ| t) args;
+close_term_aux _ t [] := t.
+Proof. all: now rewrite length_subst_context. Qed.
 
 Definition close_term (Γ : context) (t : term) (args : list term) : term :=
-  close_term_aux Γ t (List.rev args).
+  close_term_aux (List.rev Γ) t args.
 
+(*
 Lemma close_term_aux_app Γ Γ' inner args :
   #|vasses Γ| <= #|args| ->
   close_term_aux (Γ ++ Γ') inner args =
@@ -332,6 +334,7 @@ Proof.
   rewrite close_term_aux_app by (now rewrite List.rev_length).
   now rewrite List.rev_involutive.
 Qed.
+*)
 
 Fixpoint subst_in_let_values (ts : list term) (k : nat) (Γ : context) : context :=
   match Γ with
@@ -748,32 +751,92 @@ From Coq Require Import String.
 From MetaCoq.Erasure Require Import EPretty.
 Open Scope string.
 
-Definition Γ := [vass (nNamed "b"); vass (nNamed "a")].
+Definition Γ := [vass (nNamed "a")].
 Definition Γ' := [vass (nNamed "d"); vass (nNamed "c")].
-Definition args := [tVar "a"; tVar "b"].
+Definition args := [tVar "a"].
 Definition args' := [tVar "c"; tVar "d"].
-Definition inner := tRel 1.
+Definition inner := tRel 0.
 Open Scope list.
 Compute print_term [] [] false false
         (mkApps (it_mkLambda_or_LetIn (Γ' ++ Γ) inner) (args ++ args')).
 Compute print_term [] [] false false
-        (mkApps (it_mkLambda_or_LetIn Γ (close_term_aux Γ' inner (List.rev args'))) args).
+        (mkApps (it_mkLambda_or_LetIn Γ (close_term Γ' inner args')) args).
 Compute print_term [] [] false false
-        (mkApps (close_term_aux (Γ ++ Γ') inner (List.rev args)) args').
-Compute print_term [] [] false false
-        (mkApps (close_term_aux Γ (it_mkLambda_or_LetIn Γ' inner) (List.rev args)) args').
+        (close_term (Γ' ++ Γ) inner (args ++ args')).
 End foo.
 
 Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ Γ' inner args args' t :
   #|args| = #|vasses Γ| ->
   #|args'| = #|vasses Γ'| ->
-  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ (close_term_aux Γ' inner args')) args ▷ t ->
-  Σ ⊢ mkApps (close_term_aux (Γ ++ Γ) (it_mkLambda_or_LetIn Γ' inner) (List.rev args)) args' ▷ t.
+  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ (close_term Γ' inner args')) args ▷ t ->
+  Σ ⊢ close_term (Γ' ++ Γ) inner (args ++ args') ▷ t.
 Proof.
-  revert Γ inner args args' t.
-  induction Γ' as [|cd Γ' IH]; intros Γ inner args args' t len_eq len_eq' ev.
-  - cbn in *.
-    destruct args'; [|easy].
+  revert Γ' inner args args' t.
+  induction Γ as [|cd Γ IH]; intros Γ' inner args args' t len_eq len_eq' ev.
+  - destruct args; [|easy].
+    now rewrite app_nil_r.
+  - cbn in *; refold.
+    unfold close_term.
+    rewrite List.rev_app_distr.
+    cbn.
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + admit.
+    + destruct args as [|a args _] using List.rev_ind; [easy|].
+      rewrite !List.rev_app_distr.
+      rewrite close_term_aux_app; cycle 1.
+      { rewrite !app_length, !List.rev_length in *.
+        now cbn in *. }
+      cbn in *.
+      rewrite decl_eq.
+      rewrite <- len_eq'.
+      rewrite <- List.rev_length.
+      rewrite skipn_all_app.
+      rewrite mkApps_app in ev.
+      rewrite !app_length in *.
+      cbn in *.
+      specialize (IH Γ' inner args args' t ltac:(lia) len_eq').
+      apply
+      cbn.
+    rewrite close_term_aux_app; cycle 1.
+    { rewrite List.rev_length, app_length.
+      lia. }
+    cbn.
+    destruct (decl_body cd) eqn:decl_eq.
+    +
+      rewrite List.rev_app_distr.
+      rewrite <- len_eq'.
+      rewrite <- List.rev_length.
+      rewrite skipn_all_app.
+      specialize (IH (Γ' ++ [cd]) inner args args' t len_eq).
+      cbn in IH; refold.
+      rewrite vasses_app, app_length in IH.
+      cbn in IH.
+      rewrite decl_eq in IH.
+      specialize (IH ltac:(cbn; easy)).
+      rewrite close_term_aux_app in IH.
+
+    rewrite <- app_tip_assoc.
+    rewrite app
+    apply IH.
+    destruct (decl_body cd) eqn:decl_eq.
+    + apply IH; [easy|easy|].
+    rewrite vasses_app, app_length, it_mkLambda_or_LetIn_app, close_term_aux_app in *;
+      cycle 1.
+    { rewrite List.rev_length, app_length.
+      cbn in *.
+      lia. }
+    unfold mkLambda_or_LetIn in *.
+    destruct (decl_body cd) eqn:decl_eq.
+    + replace (List.rev (args ++ args')) with (skipn #|vasses [cd]| (List.rev (args ++ args')));
+        cycle 1.
+      { cbn.
+        now rewrite decl_eq. }
+      replace (csubst t0 0 inner) with (close_term_aux [cd] inner (List.rev (args ++ args')));
+        cycle 1.
+      { cbn.
+        now rewrite decl_eq. }
+      rewrite <- close_term_aux_app by (now cbn; rewrite decl_eq; cbn).
     cbn in *.
     rewrite app_nil_r in *.
     cbn in *.

@@ -274,6 +274,22 @@ Proof.
     + now apply Forall2_app_r in ev_argsv.
 Qed.
 
+Lemma eval_tApp_heads Σ hd hd' hdv arg v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ tApp hd arg ▷ v ->
+  Σ ⊢ tApp hd' arg ▷ v.
+Proof.
+  Admitted.
+
+Lemma eval_mkApps_heads Σ hd hd' hdv args v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ mkApps hd args ▷ v ->
+  Σ ⊢ mkApps hd' args ▷ v.
+Proof.
+  Admitted.
+
 Lemma eval_deterministic Σ a v v' :
   Σ ⊢ a ▷ v ->
   Σ ⊢ a ▷ v' ->
@@ -385,29 +401,14 @@ Proof.
       solve_discr.
     + easy.
     + easy.
-  - depind ev2.
-    + destruct args as [|? ? _] using List.rev_ind; [easy|].
-      rewrite mkApps_app in *.
-      cbn in *.
-      inversion H4; subst; clear H4.
-      destruct args' as [|? ? _] using List.rev_ind.
-      { apply Forall2_length in H2.
-        rewrite app_length in *.
-        now cbn in *. }
-      rewrite mkApps_app in *.
-      cbn in *.
-      admit.
-    + destruct args as [|? ? _] using List.rev_ind; [easy|].
-      rewrite mkApps_app in *.
-      cbn in *.
-      inversion H4; subst; clear H4.
-      admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
+  - destruct args as [|rarg args _] using List.rev_ind; [easy|].
+    destruct args' as [|rargv args' _] using List.rev_ind;
+      [apply Forall2_length in H2;
+       rewrite app_length in *;
+       now cbn in *|].
+    rewrite mkApps_app in ev2.
+    cbn in *.
+    depelim ev2.
     + admit.
     + admit.
     + admit.
@@ -478,22 +479,6 @@ Proof.
     now apply eval_atom.
   - easy.
 Qed.
-
-Lemma eval_tApp_heads Σ hd hd' hdv arg v :
-  Σ ⊢ hd ▷ hdv ->
-  Σ ⊢ hd' ▷ hdv ->
-  Σ ⊢ tApp hd arg ▷ v ->
-  Σ ⊢ tApp hd' arg ▷ v.
-Proof.
-  Admitted.
-
-Lemma eval_mkApps_heads Σ hd hd' hdv args v :
-  Σ ⊢ hd ▷ hdv ->
-  Σ ⊢ hd' ▷ hdv ->
-  Σ ⊢ mkApps hd args ▷ v ->
-  Σ ⊢ mkApps hd' args ▷ v.
-Proof.
-  Admitted.
 
 Lemma mkApps_csubst Σ a av na body args v :
   Σ ⊢ a ▷ av ->
