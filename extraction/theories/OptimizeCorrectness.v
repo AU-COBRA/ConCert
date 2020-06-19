@@ -160,20 +160,44 @@ Proof.
     + now apply IH.
 Qed.
 
+(* We use our own "properly ordered" contexts to represent the lambdas/lets
+   that we debox away. Unlike the rest of MetaCoq, these contexts actually
+   have the first declaration at the beginning. *)
+Fixpoint subst_context (t : term) (k : nat) (Γ : context) : context :=
+  match Γ with
+  | [] => []
+  | cd :: Γ => map_decl (csubst t k) cd :: subst_context t (S k) Γ
+  end.
+
 Definition mkLambda_or_LetIn (cd : context_decl) (t : term) : term :=
   match decl_body cd with
   | None => tLambda (decl_name cd) t
   | Some body => tLetIn (decl_name cd) body t
   end.
 
-Definition it_mkLambda_or_LetIn :=
-  fold_left (fun t d => mkLambda_or_LetIn d t).
+Definition it_mkLambda_or_LetIn (Γ : context) (u : term) : term :=
+  fold_right mkLambda_or_LetIn u Γ.
 
-Fixpoint decompose_body_masked (mask : bitmask) (Γ : context) (t : term) : context * term :=
+Lemma subst_context_app t k Γ Γ' :
+  subst_context t k (Γ ++ Γ') =
+  subst_context t k Γ ++ subst_context t (length Γ + k) Γ'.
+Proof.
+  revert t k Γ'.
+  induction Γ as [|cd Γ IH]; intros t k Γ'; [easy|].
+  cbn.
+  f_equal.
+  now rewrite IH.
+Qed.
+
+Fixpoint decompose_body_masked (mask : bitmask) (t : term) : context * term :=
   match mask, t with
-  | _, tLetIn na val body => decompose_body_masked mask (Γ,, vdef na val) body
-  | b :: mask, tLambda na body => decompose_body_masked mask (Γ,, vass na) body
-  | _, _ => (Γ, t)
+  | _, tLetIn na val body =>
+    let (Γ, t) := decompose_body_masked mask body in
+    (vdef na val :: Γ, t)
+  | b :: mask, tLambda na body =>
+    let (Γ, t) := decompose_body_masked mask body in
+    (vass na :: Γ, t)
+  | _, _ => ([], t)
   end.
 
 Definition vasses (Γ : context) : context :=
@@ -182,25 +206,6 @@ Definition vasses (Γ : context) : context :=
                     | None => true
                     end) Γ.
 
-Ltac refold :=
-  repeat
-    match goal with
-    | [H: context[fold_left _] |- _] => progress (fold it_mkLambda_or_LetIn in * )
-    | [|- context[fold_left _]] => progress (fold it_mkLambda_or_LetIn in * )
-    | [H: context[filter _ ?Γ] |- _] => progress (fold (vasses Γ) in * )
-    | [|- context[filter _ ?Γ]] => progress (fold (vasses Γ) in * )
-    end.
-
-Lemma it_mkLambda_or_LetIn_app Γ Γ' t :
-  it_mkLambda_or_LetIn (Γ ++ Γ') t =
-  it_mkLambda_or_LetIn Γ' (it_mkLambda_or_LetIn Γ t).
-Proof.
-  revert Γ' t.
-  induction Γ; [easy|]; intros Γ' t; cbn in *.
-  refold.
-  now rewrite IHΓ.
-Qed.
-
 Lemma vasses_app Γ Γ' :
   vasses (Γ ++ Γ') = vasses Γ ++ vasses Γ'.
 Proof.
@@ -208,11 +213,20 @@ Proof.
   now rewrite filter_app.
 Qed.
 
-Lemma decompose_body_masked_spec mask Γ t Γ' t' :
+Ltac refold :=
+  repeat
+    match goal with
+    | [H: context[fold_right _ ?t ?Γ] |- _] => progress (fold (it_mkLambda_or_LetIn Γ t) in * )
+    | [|- context[fold_right _ ?t ?Γ]] => progress (fold (it_mkLambda_or_LetIn Γ t) in * )
+    | [H: context[filter _ ?Γ] |- _] => progress (fold (vasses Γ) in * )
+    | [|- context[filter _ ?Γ]] => progress (fold (vasses Γ) in * )
+    end.
+
+Lemma decompose_body_masked_spec mask Γ t t' :
   valid_dearg_mask mask t ->
-  (Γ', t') = decompose_body_masked mask Γ t ->
-  #|vasses Γ'| = #|vasses Γ| + #|mask| /\
-  it_mkLambda_or_LetIn Γ t = it_mkLambda_or_LetIn Γ' t'.
+  (Γ, t') = decompose_body_masked mask t ->
+  #|vasses Γ| = #|mask| /\
+  it_mkLambda_or_LetIn Γ t' = t.
 Proof.
   revert Γ t' mask.
   induction t using term_forall_list_ind; intros Γ t' mask valid_mask eq.
@@ -220,245 +234,136 @@ Proof.
   all: try solve [destruct mask; [|easy]; inversion eq; easy].
   - destruct mask as [|b mask]; inversion eq; subst; clear eq; [easy|].
     cbn in *.
-    destruct (IHt _ _ _ (proj2 valid_mask) H0) as (-> & <-).
-    now cbn.
-  - now destruct (IHt2 _ _ _ valid_mask ltac:(destruct mask; eassumption)) as (-> & <-).
+    destruct (decompose_body_masked mask t) as (Γ' & t'') eqn:decomp_eq.
+    inversion H0; subst; clear H0.
+    symmetry in decomp_eq.
+    cbn.
+    refold.
+    now destruct (IHt _ _ _ (proj2 valid_mask) decomp_eq) as (-> & ->).
+  - destruct (decompose_body_masked mask t2) eqn:decomp_eq.
+    symmetry in decomp_eq.
+    destruct (IHt2 _ _ _ valid_mask decomp_eq).
+    now destruct mask; inversion eq; subst.
 Qed.
 
 Lemma valid_dearg_mask_spec mask t :
   valid_dearg_mask mask t ->
   exists Γ inner,
-    #|vasses Γ| = #|mask| /\ t = it_mkLambda_or_LetIn Γ inner.
+    #|vasses Γ| = #|mask| /\ it_mkLambda_or_LetIn Γ inner = t.
 Proof.
   intros is_valid.
-  destruct (decompose_body_masked mask [] t) as (Γ & inner) eqn:decomp.
+  destruct (decompose_body_masked mask t) as (Γ & inner) eqn:decomp.
   exists Γ, inner.
-  change t with (it_mkLambda_or_LetIn [] t).
-  change #|mask| with (#|vasses []| + #|mask|).
   now apply decompose_body_masked_spec.
 Qed.
 
-Definition fold_context f (Γ : context) : context :=
-  List.rev (mapi (fun k' decl => map_decl (f k') decl) (List.rev Γ)).
-
-Definition subst_decl s k (d : context_decl) := map_decl (csubst s k) d.
-
-Definition subst_context n k (Γ : context) : context :=
-  fold_context (fun k' => csubst n (k' + k)) Γ.
-
-Lemma subst_context_snoc s k Γ d :
-  subst_context s k (d :: Γ) = subst_context s k Γ ,, subst_decl s (#|Γ| + k) d.
+Lemma subst_it_mkLambda_or_LetIn t k Γ u :
+  csubst t k (it_mkLambda_or_LetIn Γ u) =
+  it_mkLambda_or_LetIn (subst_context t k Γ) (csubst t (k + length Γ) u).
 Proof.
-  cbn.
-  rewrite mapi_rec_app.
-  cbn.
-  rewrite List.rev_app_distr.
-  cbn.
-  unfold snoc.
-  f_equal.
-  rewrite List.rev_length.
-  now rewrite Nat.add_0_r.
+  revert t k u.
+  induction Γ as [|cd Γ IH]; intros t k u.
+  - cbn.
+    f_equal; lia.
+  - cbn in *; refold.
+    destruct cd as [na [val|]];
+      cbn in *; refold;
+      repeat (f_equal; rewrite ?IH; try lia).
 Qed.
 
-Lemma subst_it_mkLambda_or_LetIn n k ctx t :
-  csubst n k (it_mkLambda_or_LetIn ctx t) =
-  it_mkLambda_or_LetIn (subst_context n k ctx) (csubst n (length ctx + k) t).
+Lemma length_subst_context t k Γ :
+  #|subst_context t k Γ| = #|Γ|.
 Proof.
-  induction ctx in n, k, t |- *; simpl; [easy|].
-  pose (subst_context_snoc n k ctx a). unfold snoc in e. rewrite e. clear e.
-  simpl. rewrite -> IHctx.
-  pose (subst_context_snoc n k ctx a). simpl. now destruct a as [na [b|]].
+  revert t k.
+  induction Γ; [easy|]; intros t k.
+  cbn.
+  now rewrite IHΓ.
 Qed.
 
-Lemma length_subst_context n k Γ :
-  #|subst_context n k Γ| = #|Γ|.
-Proof.
-  unfold subst_context, fold_context.
-  now rewrite List.rev_length, mapi_length, List.rev_length.
-Qed.
-
-Equations? close_term_aux (Γ : context) (t : term) (args : list term) : term
+(* Given [Γ ⊢ t] and args for assumptions in [Γ], return Γ' ⊢ t' by substituting
+   as many args as available into Γ and t. *)
+Equations? close_context_term (Γ : context) (t : term) (args : list term) : context * term
   by wf #|Γ| lt :=
-close_term_aux [] t args := t;
-close_term_aux ({| decl_body := Some val |} :: Γ) t args :=
-  close_term_aux (subst_context val 0 Γ) (csubst val #|Γ| t) args;
-close_term_aux (_ :: Γ) t (a :: args) :=
-  close_term_aux (subst_context a 0 Γ) (csubst a #|Γ| t) args;
-close_term_aux _ t [] := t.
+close_context_term ({| decl_body := Some val |} :: Γ) t args :=
+  close_context_term (subst_context val 0 Γ) (csubst val #|Γ| t) args;
+close_context_term ({| decl_body := None |} :: Γ) t (a :: args) :=
+  close_context_term (subst_context a 0 Γ) (csubst a #|Γ| t) args;
+close_context_term Γ t args := (Γ, t).
 Proof. all: now rewrite length_subst_context. Qed.
 
-Definition close_term (Γ : context) (t : term) (args : list term) : term :=
-  close_term_aux (List.rev Γ) t args.
-
-(*
-Lemma close_term_aux_app Γ Γ' inner args :
-  #|vasses Γ| <= #|args| ->
-  close_term_aux (Γ ++ Γ') inner args =
-  close_term_aux Γ' (close_term_aux Γ inner args) (skipn #|vasses Γ| args).
-Proof.
-  revert Γ' inner args.
-  induction Γ; intros Γ' inner args le.
-  - cbn.
-    now rewrite skipn_0.
-  - cbn in *.
-    refold.
-    destruct (decl_body a).
-    + easy.
-    + destruct args; cbn in *; [abstract lia|].
-      apply IHΓ.
-      abstract lia.
-Qed.
-
-Lemma filter_rev {A} f (l : list A) :
-  filter f (List.rev l) = List.rev (filter f l).
-Proof.
-  induction l; [easy|].
-  cbn.
-  rewrite filter_app.
-  cbn.
-  destruct (f a); cbn.
-  - now f_equal.
-  - now rewrite app_nil_r.
-Qed.
-
-Lemma vasses_rev Γ : vasses (List.rev Γ) = List.rev (vasses Γ).
-Proof. apply filter_rev. Qed.
-
-Lemma close_term_app Γ Γ' inner args :
-  #|vasses Γ| <= #|args| ->
-  close_term (Γ ++ Γ') inner args =
-  close_term Γ' (close_term Γ inner args) (List.rev (skipn #|vasses Γ| (List.rev args))).
-Proof.
-  intros le.
-  unfold close_term.
-  rewrite close_term_aux_app by (now rewrite List.rev_length).
-  now rewrite List.rev_involutive.
-Qed.
-*)
-
-Fixpoint subst_in_let_values (ts : list term) (k : nat) (Γ : context) : context :=
-  match Γ with
-  | [] => []
-  | cd :: Γ =>
-    {| decl_name := decl_name cd; decl_body := option_map (subst ts k) (decl_body cd) |}
-       :: subst_in_let_values ts (S k) Γ
-  end.
-
-Fixpoint deass_context (mask : bitmask) (Γ : context) : context :=
-  match Γ with
-  | [] => []
-  | cd :: Γ =>
-    match decl_body cd with
-    | Some val => cd :: deass_context mask Γ
-    | None =>
-      match mask with
-      | true :: mask => subst_in_let_values [tBox] 0 (deass_context mask Γ)
-      | false :: mask => cd :: deass_context mask Γ
-      | [] => []
-      end
+Lemma close_context_term_cons cd Γ t args :
+  close_context_term (cd :: Γ) t args =
+  match decl_body cd with
+  | Some val => close_context_term (subst_context val 0 Γ) (csubst val #|Γ| t) args
+  | None =>
+    match args with
+    | a :: args => close_context_term (subst_context a 0 Γ) (csubst a #|Γ| t) args
+    | [] => (cd :: Γ, t)
     end
   end.
+Proof.
+  destruct cd, decl_body.
+  - now simp close_context_term.
+  - destruct args.
+    + now simp close_context_term.
+    + now simp close_context_term.
+Qed.
+
+Hint Rewrite close_context_term_cons : close_context_term.
+
+Definition close_term (Γ : context) (t : term) (args : list term) : term :=
+  (close_context_term Γ t args).2.
+
+Definition close_context (Γ : context) (args : list term) : context :=
+  (close_context_term Γ tBox args).1.
+
+Lemma close_term_cons cd Γ t args :
+  close_term (cd :: Γ) t args =
+  match decl_body cd with
+  | Some val => close_term (subst_context val 0 Γ) (csubst val #|Γ| t) args
+  | None =>
+    match args with
+    | a :: args => close_term (subst_context a 0 Γ) (csubst a #|Γ| t) args
+    | [] => t
+    end
+  end.
+Proof.
+  unfold close_term.
+  simp close_context_term.
+  destruct (decl_body cd); [easy|].
+  destruct args; easy.
+Qed.
+
+Lemma close_term_nil_context t args :
+  close_term [] t args = t.
+Proof.
+  unfold close_term.
+  now simp close_context_term.
+Qed.
+
+Hint Rewrite close_term_cons close_term_nil_context : close_term.
 
 (*
-Lemma deass_context_app mask Γ Γ' :
-  #|vasses Γ| = #|mask| ->
-  deass_context mask (Γ ++ Γ') =
-  deass_context mask Γ ++ deass_context (skipn #|vasses Γ| mask) Γ'.
+Lemma close_term_app Γ Γ' t args :
+  close_context_term (Γ ++ Γ') t args =
+  close_context Γ' (close_term Γ t args) (skipn #|vasses Γ| args).
 Proof.
-  revert mask Γ'.
-  induction Γ as [|cd Γ IH]; intros mask Γ' len_le.
-  - cbn.
-    destruct mask; easy.
-  - cbn in *.
+  induction #|Γ| as [|n IH] eqn:len_eq in Γ, Γ', t, args |- *.
+  - destruct Γ; [|easy].
+    now simp close_term.
+  - destruct Γ as [|cd Γ]; [easy|].
+    cbn in  *.
+    simp close_term.
     destruct (decl_body cd).
-    + cbn.
+    + rewrite subst_context_app.
+      rewrite IH by (now rewrite length_subst_context).
       refold.
-      now f_equal.
-    + cbn.
-      refold.
-      destruct mask as [|b mask]; [cbn in *; abstract lia|].
-      destruct b.
-      *
-        rewrite <- plus_Snm_nSm.
-        apply IH.
-        cbn in *.
-        abstract lia.
-      * cbn in *.
-        unfold skipn; fold (skipn #|vasses Γ| mask). (* wtf *)
-        f_equal.
-        now apply IH.
-Qed.
+      specialize (IH (subst_context t0 0 Γ) (subst_context t0 (#|Γ| + 0) Γ')
+                     ltac:(now rewrite length_subst_context)).
+      rewrite IH.
+j
 *)
 
-(*
-Lemma deass_context_enough mask Γ :
-  deass_context mask Γ = deass_context (firstn #|vasses Γ| mask) Γ.
-Proof.
-  revert mask.
-  induction Γ; intros mask; [easy|].
-  cbn.
-  destruct (decl_body a).
-  - f_equal.
-    easy.
-  - refold.
-    destruct mask as [|b mask]; [easy|].
-    destruct b; cbn; [easy|].
-    now f_equal.
-Qed.
-
-Local Set Keyed Unification.
-Lemma dearg_cst_body_top_it_mkLambda_or_LetIn mask Γ inner ts k :
-  #|vasses Γ| = #|mask| ->
-  subst ts k (dearg_cst_body_top mask (it_mkLambda_or_LetIn Γ inner)) =
-  it_mkLambda_or_LetIn
-    (subst_in_let_values ts k (deass_context mask Γ))
-    (subst (List.repeat tBox #|filter id mask| ++ ts) (#|Γ| + k) inner).
-Proof.
-  revert inner mask ts k.
-  induction Γ as [|cd Γ IH]; intros inner mask ts k len_eq.
-  - destruct mask; [|easy].
-    cbn.
-    now rewrite dearg_cst_body_top_nil.
-  - cbn in *; refold.
-    unfold mkLambda_or_LetIn.
-    destruct (decl_body cd) eqn:body_eq.
-    + cbn.
-      refold.
-      unfold mkLambda_or_LetIn.
-      rewrite body_eq.
-      cbn.
-      f_equal.
-      replace (S (#|Γ| + k)) with (#|Γ| + S k) by abstract lia.
-      now apply IH.
-    + cbn in *.
-      destruct mask as [|b mask]; [cbn in *; abstract lia|].
-      cbn in *.
-      destruct b; cbn.
-      * rewrite distr_subst.
-        cbn.
-        rewrite IH by easy.
-        change (tBox :: ?a) with ([tBox] ++ a) at 3.
-        rewrite subst_app_simpl.
-        cbn.
-        SearchAbout (subst _ _ (subst _ _ _)).
-        replace (S k) with (k + #|[tBox]|) by (cbn; lia).
-        rewrite <- subst_app_simpl.
-
-        rewrite IH by easy.
-        rewrite unlift_unlift.
-        SearchAbout (lift _ _ (lift _ _ _)).
-        rewrite IH by easy.
-        rewrite IH by easy.
-
-      * cbn.
-        unfold mkLambda_or_LetIn.
-        rewrite body_eq.
-        f_equal.
-        rewrite deass_context_enough.
-        rewrite firstn_all_app_eq by (rewrite List.rev_length; abstract lia).
-        now apply IHΓ.
-Admitted.
-*)
 
 Fixpoint eval_lambdas Σ (t : term) (args : list term) : Prop :=
   match args with
@@ -672,11 +577,10 @@ Lemma valid_dearg_mask_app mask mask' Γ inner :
   valid_dearg_mask mask' inner.
 Proof.
   revert mask mask' inner.
-  induction Γ as [|cd Γ IH] using List.rev_ind; intros mask mask' inner len_eq valid_mask.
+  induction Γ as [|cd Γ IH]; intros mask mask' inner len_eq valid_mask.
   - destruct mask; [|easy].
     easy.
-  - rewrite it_mkLambda_or_LetIn_app, vasses_app, app_length in *.
-    cbn in *.
+  - cbn in *; refold.
     unfold mkLambda_or_LetIn in *.
     destruct (decl_body cd) eqn:decl_eq.
     + cbn in *.
@@ -746,6 +650,7 @@ Proof.
       rewrite skipn_all_app_eq by (rewrite List.rev_length; lia).
 *)
 
+(*
 Section foo.
 From Coq Require Import String.
 From MetaCoq.Erasure Require Import EPretty.
@@ -764,6 +669,58 @@ Compute print_term [] [] false false
 Compute print_term [] [] false false
         (close_term (Γ' ++ Γ) inner (args ++ args')).
 End foo.
+*)
+
+Lemma vasses_subst_context t k Γ :
+  vasses (subst_context t k Γ) = vasses Γ.
+Proof.
+  revert t k.
+  induction Γ as [|cd Γ IH]; [easy|]; intros t k.
+  cbn in *.
+  unfold map_decl.
+  destruct cd.
+  cbn in *.
+  destruct decl_body; cbn.
+  - easy.
+  - f_equal.
+    easy.
+Qed.
+
+Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ inner args t :
+  #|args| = #|vasses Γ| ->
+  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ inner) args ▷ t ->
+  Σ ⊢ close_term Γ inner args ▷ t.
+Proof.
+  intros len_eq ev.
+  unfold close_term.
+  funelim (close_context_term Γ inner args);
+    simp close_context_term;
+    cbn in *.
+  - now destruct args.
+  - refold.
+    apply H; try easy.
+    + now rewrite vasses_subst_context.
+    + apply eval_mkApps_head in ev as ev_hd.
+      destruct ev_hd as (hdv & ev_hd).
+      eapply eval_mkApps_heads.
+      * exact ev_hd.
+      * rewrite <- subst_it_mkLambda_or_LetIn.
+        apply eval_tLetIn_inv in ev_hd as (? & ? & ?).
+        now eapply eval_csubst_commute.
+      * easy.
+  - congruence.
+  - refold.
+    apply H.
+    + now rewrite vasses_subst_context.
+    + apply eval_mkApps_head in ev as ev_hd.
+      destruct ev_hd as (hdv & ev_hd).
+      eapply eval_mkApps_heads.
+      * exact ev_hd.
+      * rewrite <- subst_it_mkLambda_or_LetIn.
+        apply eval_tApp_tLambda_inv in ev_hd as (? & ? & ?).
+        now eapply eval_csubst_commute.
+      * easy.
+Qed.
 
 Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ Γ' inner args args' t :
   #|args| = #|vasses Γ| ->
@@ -938,7 +895,7 @@ Proof.
   unfold mkLambda_or_LetIn in *.
   destruct (decl_body cd) eqn:decl_eq.
   + apply IH; [|easy].
-    apply eval_mkApps_head in ev as ev_hd.
+    apply eval_mkApps_head in ev as (s & s' & ->).
     destruct ev_hd as (hdv & ev_hd).
     eapply eval_mkApps_heads; [exact ev_hd| |exact ev].
   intros ev.

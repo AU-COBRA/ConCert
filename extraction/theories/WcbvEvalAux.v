@@ -45,6 +45,76 @@ Proof.
       congruence.
 Qed.
 
+Lemma eval_tLambda_inv Σ na body v :
+  Σ ⊢ tLambda na body ▷ v ->
+  v = tLambda na body.
+Proof.
+  intros ev.
+  depind ev.
+  - destruct args as [|? ? _] using List.rev_ind; [easy|].
+    now rewrite mkApps_app in *.
+  - destruct args as [|? ? _] using List.rev_ind.
+    + cbn in *.
+      subst f.
+      erewrite <- IHev; [|easy].
+      destruct args'; [easy|].
+      now apply Forall2_length in H.
+    + now rewrite mkApps_app in *.
+  - easy.
+Qed.
+
+Lemma eval_tApp_tLambda_inv Σ na body a v :
+  Σ ⊢ tApp (tLambda na body) a ▷ v ->
+  exists av,
+    Σ ⊢ a ▷ av /\
+    Σ ⊢ csubst av 0 body ▷ v.
+Proof.
+  intros ev.
+  depind ev.
+  - now apply eval_tLambda_inv in ev1.
+  - apply eval_tLambda_inv in ev1.
+    inversion ev1; subst; clear ev1.
+    easy.
+  - destruct args as [|? ? _] using List.rev_ind; [easy|].
+    rewrite mkApps_app in *.
+    cbn in *.
+    inversion H3; subst; clear H3.
+    destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
+    cbn in *.
+    subst f.
+    now apply eval_tLambda_inv in ev1.
+  - destruct args as [|? ? _] using List.rev_ind.
+    + cbn in *.
+      subst f.
+      apply Forall2_length in H.
+      destruct args'; [|easy].
+      easy.
+    + rewrite mkApps_app in *.
+      cbn in *.
+      inversion H1; subst; clear H1.
+      destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
+      cbn in *.
+      subst f.
+      now apply eval_tLambda_inv in ev.
+  - apply eval_tLambda_inv in ev1.
+    now subst f'.
+  - easy.
+Qed.
+
+(*
+Lemma eval_csubst_commute Σ t tv s v :
+  Σ ⊢ t ▷ tv ->
+  Σ ⊢ csubst tv 0 s ▷ v ->
+  Σ ⊢ csubst t 0 s ▷ v .
+Proof.
+  revert t tv v.
+  induction s using term_forall_list_ind; intros t tv v ev_t ev_tv.
+  - depelim ev_tv.
+    + admit.
+    + admit.
+    + cbn in *.
+*)
+
 Inductive eval_app Σ hd arg : term -> Prop :=
 | eval_app_box argv :
     Σ ⊢ hd ▷ tBox ->
@@ -422,70 +492,13 @@ Proof.
   - admit.
 Admitted.
 
-Lemma eval_tLambda_tBox Σ na body :
-  Σ ⊢ tLambda na body ▷ tBox -> False.
-Proof.
-  intros ev.
-  depelim ev.
-  - destruct args using List.rev_ind; [easy|].
-    rewrite mkApps_app in H3; easy.
-  - solve_discr.
-Qed.
-
-Lemma eval_tApp_tLambda Σ a av na body v :
-  Σ ⊢ a ▷ av ->
-  Σ ⊢ tApp (tLambda na body) a ▷ v ->
-  Σ ⊢ csubst av 0 body ▷ v.
-Proof.
-  intros ev_a ev.
-  depind ev.
-  - now apply eval_tLambda_tBox in ev1.
-  - assert (tLambda na b = tLambda na0 body).
-    { apply (eval_deterministic _ _ _ _ ev1).
-      now apply eval_atom. }
-    inversion H; subst; clear H.
-    replace av with a'; [easy|].
-    now eapply eval_deterministic.
-  - destruct args as [|? ? _] using List.rev_ind; [easy|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    inversion H3; subst.
-    destruct args using List.rev_ind; [|now rewrite mkApps_app in H5].
-    cbn in *.
-    subst f.
-    assert (tFix mfix idx = tLambda na body); [|discriminate].
-    apply (eval_deterministic _ _ _ _ ev1).
-    now apply eval_atom.
-  - destruct args as [|? ? _] using List.rev_ind.
-    + cbn in *.
-      subst f.
-      apply Forall2_length in H.
-      destruct args'; [|easy].
-      easy.
-    + rewrite mkApps_app in *.
-      cbn in *.
-      inversion H1; subst; clear H1.
-      destruct args using List.rev_ind; cbn in *.
-      * subst f.
-        assert (tFix mfix idx = tLambda na body); [|discriminate].
-        apply (eval_deterministic _ _ _ _ ev).
-        now apply eval_atom.
-      * rewrite mkApps_app in H3.
-        cbn in *.
-        discriminate.
-  - replace f' with (tLambda na body) in *; [easy|].
-    symmetry.
-    apply (eval_deterministic _ _ _ _ ev1).
-    now apply eval_atom.
-  - easy.
-Qed.
-
 Lemma mkApps_csubst Σ a av na body args v :
   Σ ⊢ a ▷ av ->
   Σ ⊢ mkApps (tApp (tLambda na body) a) args ▷ v ->
   Σ ⊢ mkApps (csubst av 0 body) args ▷ v.
 Proof.
   Admitted.
+
   (*revert na body av v.
   induction args using List.rev_ind; intros na body av v ev; cbn in *.
   - apply eval_
