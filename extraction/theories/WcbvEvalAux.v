@@ -101,6 +101,12 @@ Proof.
   - easy.
 Qed.
 
+Lemma eval_value Σ v :
+  value v ->
+  Σ ⊢ v ▷ v.
+Proof.
+  Admitted.
+
 (*
 Lemma eval_csubst_commute Σ t tv s v :
   Σ ⊢ t ▷ tv ->
@@ -108,11 +114,19 @@ Lemma eval_csubst_commute Σ t tv s v :
   Σ ⊢ csubst t 0 s ▷ v .
 Proof.
   revert t tv v.
-  induction s using term_forall_list_ind; intros t tv v ev_t ev_tv.
-  - depelim ev_tv.
-    + admit.
-    + admit.
-    + cbn in *.
+  induction s using term_forall_list_ind;
+    intros t tv v ev_t ev.
+  - easy.
+  - cbn -[Nat.compare] in *.
+    destruct (_ ?= _) eqn:comp; [|easy|easy].
+    (* tv is a value, so tv ▷ tv, v so tv = v *)
+    admit.
+  - easy.
+  - cbn in *.
+    admit.
+  - cbn in *.
+    apply eval_tLambda_inv in ev.
+    subst v.
 *)
 
 Inductive eval_app Σ hd arg : term -> Prop :=
@@ -344,23 +358,7 @@ Proof.
     + now apply Forall2_app_r in ev_argsv.
 Qed.
 
-Lemma eval_tApp_heads Σ hd hd' hdv arg v :
-  Σ ⊢ hd ▷ hdv ->
-  Σ ⊢ hd' ▷ hdv ->
-  Σ ⊢ tApp hd arg ▷ v ->
-  Σ ⊢ tApp hd' arg ▷ v.
-Proof.
-  Admitted.
-
-Lemma eval_mkApps_heads Σ hd hd' hdv args v :
-  Σ ⊢ hd ▷ hdv ->
-  Σ ⊢ hd' ▷ hdv ->
-  Σ ⊢ mkApps hd args ▷ v ->
-  Σ ⊢ mkApps hd' args ▷ v.
-Proof.
-  Admitted.
-
-Lemma eval_deterministic Σ a v v' :
+Lemma eval_deterministic {Σ a v v'} :
   Σ ⊢ a ▷ v ->
   Σ ⊢ a ▷ v' ->
   v = v'.
@@ -491,6 +489,33 @@ Proof.
   - admit.
   - admit.
 Admitted.
+
+Lemma eval_tApp_heads Σ hd hd' hdv arg v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ tApp hd arg ▷ v ->
+  Σ ⊢ tApp hd' arg ▷ v.
+Proof.
+  intros ev_hd ev_hd' ev_app.
+  depind ev_app.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_box.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_beta.
+  - admit.
+  - admit.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_app_cong.
+  - easy.
+Admitted.
+
+Lemma eval_mkApps_heads Σ hd hd' hdv args v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ mkApps hd args ▷ v ->
+  Σ ⊢ mkApps hd' args ▷ v.
+Proof.
+  Admitted.
 
 Lemma mkApps_csubst Σ a av na body args v :
   Σ ⊢ a ▷ av ->
