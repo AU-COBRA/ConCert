@@ -543,94 +543,25 @@ Proof.
         easy.
 Qed.
 
-Lemma no_use_subst_eq k t s s' :
-  has_use k t = false ->
-  csubst s k t = csubst s' k t.
-Proof.
-  Admitted.
-
-(*
-Lemma dearg_subst Σ mask na body bodyv args t tv :
-  #|args| = #|mask| ->
+Lemma dearg_cst_body_top_subst mask s k t :
   valid_dearg_mask mask t ->
-  Σ ⊢ body ▷ bodyv ->
-  Σ ⊢ dearg_single mask (dearg_cst_body_top mask (csubst bodyv 0 t)) args ▷ tv ->
-  Σ ⊢ dearg_single mask (tLetIn na body (dearg_cst_body_top mask t)) args ▷ tv.
+  dearg_cst_body_top mask (subst [s] k t) =
+  subst [s] k (dearg_cst_body_top mask t).
 Proof.
-  revert mask na body bodyv args tv.
-  induction t using term_forall_list_ind;
-    intros mask na body bodyv args tv len_eq valid_mask ev_body ev;
-    try solve [destruct mask, args; cbn in *; try easy; try now econstructor].
-  - cbn -[Nat.compare] in *.
-    destruct mask, args; try easy.
-    rewrite dearg_cst_body_top_nil in *.
-    cbn -[Nat.compare] in *.
-    econstructor; [|easy].
-    easy.
+  revert mask s k.
+  induction t using term_forall_list_ind; intros mask s' k valid_mask; try easy.
   - cbn in *.
-    destruct args, mask; try easy.
-    + cbn in *.
-      econstructor.
-      * exact ev_body.
-      * easy.
-    + cbn in *.
-      destruct b.
-      *
-    eapply IHt.
-    destruct
-  - destruct mask, args; cbn in *; try now econstructor.
-    cbn in *.
-    now econstructor.
-    try ec
-    easy.
-    destruct ag
-    tr
-  induction mask as [|[] mask IH]; intros na body bodyv args t tv len_eq valid_mask ev_body ev.
+    destruct mask; [|easy].
+    now rewrite dearg_cst_body_top_nil.
   - cbn in *.
-    destruct args; [|easy].
-    cbn in *.
-    rewrite !dearg_cst_body_top_nil in *.
-    now econstructor.
-  - destruct args; [easy|].
-    cbn in *.
-    destruct t; [|easy].
-*)
-
-(*
-Lemma csubst_subst0 s k t s' :
-  (csubst s (S k) t){0 := s'} =
-  csubst s k (t{0 := s'}).
-Proof.
-  revert s k s'.
-  induction t using term_forall_list_ind;
-    intros s' k s''; cbn -[Nat.compare] in *; try easy.
-  - destruct (Nat.compare_spec (S k) n).
-    +
-*)
-
-Set Keyed Unification.
-Declare Equivalent Keys subst1 subst.
-
-Lemma dearg_cst_body_top_subst mask s k Γ inner :
-  #|vasses Γ| = #|mask| ->
-  dearg_cst_body_top mask (subst [s] k (it_mkLambda_or_LetIn Γ inner)) =
-  subst [s] k (dearg_cst_body_top mask (it_mkLambda_or_LetIn Γ inner)).
-Proof.
-  revert mask s k inner.
-  induction Γ as [|cd Γ IH]; intros mask s k inner len_eq.
-  - destruct mask; [|easy].
-    cbn in *.
-    rewrite !dearg_cst_body_top_nil.
-    now f_equal.
-  - destruct cd as [na [body|]];
-      cbn in *; refold.
-    + now rewrite IH by easy.
-    + destruct mask as [|[] mask].
-      * easy.
-      * rewrite IH by easy.
-        cbn in *.
-        now rewrite !distr_subst.
-      * now rewrite IH.
+    destruct mask as [|[] mask].
+    + easy.
+    + rewrite IHt by easy.
+      unfold subst1.
+      now rewrite distr_subst.
+    + now rewrite IHt.
+  - cbn in *.
+    now rewrite IHt2.
 Qed.
 
 Lemma eval_dearg_single_head Σ mask head args v :
@@ -652,15 +583,95 @@ Proof.
     now apply eval_tApp_head in ev_app.
 Qed.
 
+Lemma eval_dearg_cst_body_top_inv Σ mask Γ inner v :
+  env_closed Σ ->
+  closed (it_mkLambda_or_LetIn Γ inner) ->
+  #|mask| = #|vasses Γ| ->
+  Σ ⊢ dearg_cst_body_top mask (it_mkLambda_or_LetIn Γ inner) ▷ v ->
+  exists tv,
+    Σ ⊢ it_mkLambda_or_LetIn Γ inner ▷ tv.
+Proof.
+  intros env_clos clos len_eq ev.
+  induction #|Γ| as [|Γlen IH] eqn:Γlen_eq in Γ, mask, inner, v, clos, len_eq, ev |- *.
+  - destruct Γ, mask; try easy.
+    cbn in *.
+    now rewrite dearg_cst_body_top_nil in *.
+  - destruct Γ as [|[na [body|]] Γ];
+      cbn in *; refold.
+    + easy.
+    + apply eval_tLetIn_inv in ev as (bodyv & ev_body & ev_let).
+      propify.
+      assert (closed bodyv) by (now eapply eval_closed).
+      rewrite closed_subst in ev_let by easy.
+      rewrite <- dearg_cst_body_top_subst in ev_let by admit.
+      rewrite <- closed_subst in ev_let by easy.
+      rewrite subst_it_mkLambda_or_LetIn in ev_let.
+      cbn in *.
+      apply IH in ev_let as (tv & ev_tv).
+      * exists tv.
+        rewrite <- subst_it_mkLambda_or_LetIn in ev_tv.
+        now econstructor.
+      * rewrite <- subst_it_mkLambda_or_LetIn.
+        now apply closed_csubst.
+      * now rewrite vasses_subst_context.
+      * now rewrite length_subst_context.
+    + destruct mask as [|[] mask].
+      * easy.
+      * eexists.
+        now eapply eval_atom.
+      * eexists.
+        now eapply eval_atom.
+        unfold subst1 in *.
+        rewrite <- dearg_cst_body_top_subst in ev by admit.
+        rewrite <- closed_subst in ev by easy.
+        rewrite subst_it_mkLambda_or_LetIn in ev.
+        cbn in *.
+        apply IH in ev as (tv & ev_tv).
+        -- exists tv.
+           rewrite <- subst_it_mkLambda_or_LetIn in ev_tv.
+           now econstructor.
+        -- rewrite <- subst_it_mkLambda_or_LetIn.
+           now apply closed_csubst.
+        -- now rewrite vasses_subst_context.
+        -- now rewrite length_subst_context.
+      apply ev_let in IH.
+    cbn in *; refold.
+    destruct cd as [na [body|]].
+    + cbn in *.
+      apply eval_tLetIn_inv in ev as (bodyv & ev_body & ev_let).
+      propify.
+      assert (closed bodyv) by (now eapply eval_closed).
+      rewrite closed_subst in ev_let by easy.
+      rewrite <- dearg_cst_body_top_subst in ev_let by admit.
+      rewrite <- closed_subst in ev_let by easy.
+      rewrite subst_it_mkLambda_or_LetIn in ev_let.
+      cbn in *.
+
 Lemma eval_dearg_cst_body_top_inv Σ mask t v :
   env_closed Σ ->
   closed t ->
+  valid_dearg_mask mask t ->
   Σ ⊢ dearg_cst_body_top mask t ▷ v ->
   exists tv, Σ ⊢ t ▷ tv.
 Proof.
-  intros env_clos.
+  intros env_clos t_clos valid_mask ev.
+  depind ev.
+  - replace t0 with (tApp a t) in * by admit.
+    cbn in *.
+    destruct mask; [|easy].
+    exists tBox.
+    now econstructor.
+  - replace t with (tApp f a) in * by admit.
+    cbn in *.
+    destruct mask; [|easy].
+    exists res.
+    now econstructor.
+  -
+    propify.
+    cbn in *.
+    exists
   revert mask v.
-  induction t using term_forall_list_ind; intros mask v clos ev; try easy.
+  induction t using term_forall_list_ind; intros mask v clos valid_mask ev; try easy.
   - exists (tLambda n t).
     now apply eval_atom.
   - cbn in *.
@@ -669,7 +680,7 @@ Proof.
     destruct ev as (t1v & ev_t1 & ev_sub).
     exists v.
     rewrite closed_subst in ev_sub by (now eapply eval_closed).
-    rewrite <- dearg_cst_body_top_subst.
+    rewrite <- dearg_cst_body_top_subst in ev_sub by easy.
 
 Lemma eval_dearg_single_heads Σ hd hd' hdv mask args v :
   Σ ⊢ hd ▷ hdv ->
@@ -780,6 +791,7 @@ Proof.
     + rewrite <- subst_it_mkLambda_or_LetIn in IH.
       apply eval_dearg_single_head in IH as ev_top; [|easy].
       destruct ev_top as (topv & ev_top).
+      rewrite subst_it_mkLambda_or_LetIn in ev_top.
       apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top.
       2: easy.
       2: now apply closed_csubst.
