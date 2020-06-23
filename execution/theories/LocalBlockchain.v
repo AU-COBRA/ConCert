@@ -7,15 +7,16 @@ execution order, while the other uses a breadth-first execution order. *)
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
+Require Import Automation.
 Require Import Blockchain.
-Require Import Serializable.
-Require Import Monads.
+Require Import BoundedN.
+Require Import ChainedList.
+Require Import Circulation.
 Require Import Containers.
 Require Import Extras.
-Require Import Automation.
-Require Import BoundedN.
-Require Import Circulation.
-Require Import ChainedList.
+Require Import Monads.
+Require Import ResultMonad.
+Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Psatz.
@@ -94,24 +95,25 @@ Section ExecuteActions.
              (from to : Address)
              (amount : Amount)
              (msg : option SerializedValue)
-             (lc : LocalChain) : option (list Action * LocalChain) :=
-    do if amount <? 0 then None else Some tt;
-    do if amount >? account_balance lc from then None else Some tt;
+             (lc : LocalChain) : result (list Action * LocalChain) ActionEvaluationError :=
+    do if amount <? 0 then Err amount_negative else Ok tt;
+    do if amount >? account_balance lc from then Err amount_too_high else Ok tt;
     match FMap.find to lc.(lc_contracts) with
     | None =>
       (* Fail if sending a message to address without contract *)
-      do if address_is_contract to then None else Some tt;
+      do if address_is_contract to then Err no_such_contract else Ok tt;
       match msg with
-        | None => Some ([], transfer_balance from to amount lc)
-        | Some msg => None
+        | None => Ok ([], transfer_balance from to amount lc)
+        | Some msg => Err no_such_contract
       end
     | Some wc =>
-      do state <- env_contract_states lc to;
+      do state <- result_of_option (env_contract_states lc to) internal_error;
       let lc := transfer_balance from to amount lc in
       let ctx := build_ctx from to amount in
-      do '(new_state, new_actions) <- wc_receive wc  lc ctx state msg;
+      do '(new_state, new_actions) <- result_of_option (wc_receive wc lc ctx state msg)
+                                                       receive_failed;
       let lc := set_contract_state to new_state lc in
-      Some (map (build_act to) new_actions, lc)
+      Ok (map (build_act to) new_actions, lc)
     end.
 
   Definition deploy_contract
@@ -120,25 +122,25 @@ Section ExecuteActions.
              (wc : WeakContract)
              (setup : SerializedValue)
              (lc : LocalChain)
-    : option (list Action * LocalChain) :=
-    do if amount <? 0 then None else Some tt;
-    do if amount >? account_balance lc from then None else Some tt;
-    do contract_addr <- get_new_contract_addr lc;
+    : result (list Action * LocalChain) ActionEvaluationError :=
+    do if amount <? 0 then Err amount_negative else Ok tt;
+    do if amount >? account_balance lc from then Err amount_too_high else Ok tt;
+    do contract_addr <- result_of_option (get_new_contract_addr lc) too_many_contracts;
     do match FMap.find contract_addr (lc_contracts lc) with
-       | Some _ => None
-       | None => Some tt
+       | Some _ => Err internal_error
+       | None => Ok tt
        end;
     let lc := transfer_balance from contract_addr amount lc in
     let ctx := build_ctx from contract_addr amount in
-    do state <- wc_init wc lc ctx setup;
+    do state <- result_of_option (wc_init wc lc ctx setup) init_failed;
     let lc := add_contract contract_addr wc lc in
     let lc := set_contract_state contract_addr state lc in
-    Some ([], lc).
+    Ok ([], lc).
 
   Local Open Scope nat.
 
   Definition execute_action (act : Action) (lc : LocalChain) :
-    option (list Action * LocalChain) :=
+    result (list Action * LocalChain) ActionEvaluationError :=
     match act with
     | build_act from (act_transfer to amount) =>
       send_or_call from to amount None lc
@@ -153,16 +155,20 @@ Section ExecuteActions.
            (acts : list Action)
            (lc : LocalChain)
            (depth_first : bool)
-    : option LocalChain :=
+    : result LocalChain AddBlockError :=
     match count, acts with
-    | _, [] => Some lc
-    | 0, _ => None
+    | _, [] => Ok lc
+    | 0, _ => Err action_evaluation_depth_exceeded
     | S count, act :: acts =>
-      do '(next_acts, lc) <- execute_action act lc;
-      let acts := if depth_first
-                  then next_acts ++ acts
-                  else acts ++ next_acts in
-      execute_actions count acts lc depth_first
+      match execute_action act lc with
+      | Ok (next_acts, lc) =>
+        let acts := if depth_first
+                    then next_acts ++ acts
+                    else acts ++ next_acts in
+        execute_actions count acts lc depth_first
+      | Err act_err =>
+        Err (action_evaluation_error act act_err)
+      end
     end.
 
   Lemma transfer_balance_equiv from to amount (lc : LocalChain) (env : Environment) :
@@ -239,7 +245,7 @@ Section ExecuteActions.
   Qed.
 
   Lemma send_or_call_step from to amount msg act lc_before new_acts lc_after :
-    send_or_call from to amount msg lc_before = Some (new_acts, lc_after) ->
+    send_or_call from to amount msg lc_before = Ok (new_acts, lc_after) ->
     act = build_act from (match msg with
                           | None => act_transfer to amount
                           | Some msg => act_call to amount msg
@@ -291,7 +297,7 @@ Section ExecuteActions.
   Qed.
 
   Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
-    deploy_contract from amount wc setup lc_before = Some (new_acts, lc_after) ->
+    deploy_contract from amount wc setup lc_before = Ok (new_acts, lc_after) ->
     act = build_act from (act_deploy amount wc setup) ->
     ActionEvaluation lc_before act lc_after new_acts.
   Proof.
@@ -322,7 +328,7 @@ Section ExecuteActions.
         (new_acts : list Action)
         (lc_before : LocalChain)
         (lc_after : LocalChain) :
-    execute_action act lc_before = Some (new_acts, lc_after) ->
+    execute_action act lc_before = Ok (new_acts, lc_after) ->
     ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros exec.
@@ -334,7 +340,7 @@ Section ExecuteActions.
 
   Lemma execute_actions_trace count acts (lc lc_final : LocalChain) df
         (trace : ChainTrace empty_state (build_chain_state lc acts)) :
-    execute_actions count acts lc df = Some lc_final ->
+    execute_actions count acts lc df = Ok lc_final ->
     ChainTrace empty_state (build_chain_state lc_final []).
   Proof.
     revert acts lc lc_final trace.
@@ -376,18 +382,16 @@ Record LocalChainBuilder :=
 Definition lcb_initial : LocalChainBuilder :=
   {| lcb_lc := lc_initial; lcb_trace := clnil |}.
 
-Definition validate_header (header : BlockHeader) (chain : Chain) : option unit :=
-  if (block_height header =? S (chain_height chain))
-       && (current_slot chain <? block_slot header)
-       && (finalized_height chain <=? block_finalized_height header)
-       && (block_finalized_height header <? block_height header)
-       && negb (address_is_contract (block_creator header))
-       && (block_reward header >=? 0)%Z
-  then Some tt
-  else None.
+Definition validate_header (header : BlockHeader) (chain : Chain) : bool :=
+  (block_height header =? S (chain_height chain))
+  && (current_slot chain <? block_slot header)
+  && (finalized_height chain <=? block_finalized_height header)
+  && (block_finalized_height header <? block_height header)
+  && negb (address_is_contract (block_creator header))
+  && (block_reward header >=? 0)%Z.
 
 Lemma validate_header_valid header chain :
-  validate_header header chain = Some tt ->
+  validate_header header chain = true ->
   IsValidNextBlock header chain.
 Proof.
   intros valid.
@@ -406,25 +410,17 @@ Proof.
   lia.
 Qed.
 
-Definition validate_actions (actions : list Action) : option unit :=
-  if existsb (fun act => address_is_contract (act_from act)) actions
-  then None
-  else Some tt.
+Definition find_invalid_root_action (actions : list Action) : option Action :=
+  find (fun act => address_is_contract (act_from act)) actions.
 
 Lemma validate_actions_valid actions :
-  validate_actions actions = Some tt ->
+  find_invalid_root_action actions = None ->
   Forall act_is_from_account actions.
 Proof.
-  intros valid.
-  induction actions as [|x xs IH]; auto.
-  unfold validate_actions in valid.
-  cbn -[address_is_contract] in valid.
-  destruct (address_is_contract _) eqn:eq1; try (cbn in *; congruence).
-  destruct (existsb _) eqn:eq2; try (cbn in *; congruence).
-  clear valid.
-  unfold validate_actions in IH.
-  rewrite eq2 in IH.
-  auto.
+  intros find_none.
+  unfold find_invalid_root_action in find_none.
+  specialize (List.find_none _ _ find_none) as all_nin.
+  now apply Forall_forall in all_nin.
 Qed.
 
 Definition add_new_block (header : BlockHeader) (lc : LocalChain) : LocalChain :=
@@ -459,9 +455,12 @@ Definition add_block_exec
            (depth_first : bool)
            (lc : LocalChain)
            (header : BlockHeader)
-           (actions : list Action) : option LocalChain :=
-  do validate_header header lc;
-  do validate_actions actions;
+           (actions : list Action) : result LocalChain AddBlockError :=
+  do (if validate_header header lc then Ok tt else Err invalid_header);
+  do (match find_invalid_root_action actions with
+      | Some act => Err (invalid_root_action act)
+      | None => Ok tt
+      end);
   let lc := add_new_block header lc in
   execute_actions 1000 actions lc depth_first.
 
@@ -472,18 +471,17 @@ Definition add_block
            (depth_first : bool)
            (lcb : LocalChainBuilder)
            (header : BlockHeader)
-           (actions : list Action) : option LocalChainBuilder.
+           (actions : list Action) : result LocalChainBuilder AddBlockError.
 Proof.
   set (lcopt := add_block_exec depth_first (lcb_lc lcb) header actions).
   unfold add_block_exec in lcopt.
-  destruct lcopt as [lc|] eqn:exec; [|exact None].
+  destruct lcopt as [lc|e] eqn:exec; [|exact (Err e)].
   subst lcopt.
   cbn -[execute_actions] in exec.
   destruct (validate_header _) eqn:validate; [|cbn in *; congruence].
-  destruct (validate_actions _) eqn:validate_actions; [|cbn in *; congruence].
-  destruct_units.
+  destruct (find_invalid_root_action _) eqn:invalid_root_act; [cbn in *; congruence|].
   destruct lcb as [prev_lc_end prev_lcb_trace].
-  refine (Some {| lcb_lc := lc; lcb_trace := _ |}).
+  refine (Ok {| lcb_lc := lc; lcb_trace := _ |}).
   cbn -[execute_actions] in exec.
 
   refine (execute_actions_trace _ _ _ _ _ _ exec).

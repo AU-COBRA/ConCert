@@ -42,6 +42,7 @@ Class BoardroomAxioms {A : Type} :=
     mul_proper :> Proper (elmeq ==> elmeq ==> elmeq) mul;
     opp_proper :> Proper (elmeq ==> elmeq) opp;
     inv_proper :> Proper (elmeq ==> elmeq) inv;
+    pow_base_proper :> Proper (elmeq ==> eq ==> elmeq) pow;
     pow_exp_proper a :
       ~(elmeq a zero) -> Proper (expeq ==> elmeq) (pow a);
 
@@ -75,6 +76,11 @@ Class BoardroomAxioms {A : Type} :=
     pow_plus a e e' :
       ~(elmeq a zero) ->
       elmeq (pow a (e + e')) (mul (pow a e) (pow a e'));
+
+    pow_pow a b e :
+      ~(elmeq a zero) ->
+      elmeq (pow (pow a b) e)
+            (pow a (b * e)%Z);
 
     pow_nonzero a e :
       ~(elmeq a zero) ->
@@ -564,6 +570,25 @@ Section WithBoardroomAxioms.
     now intros ? ? <-.
   Qed.
 
+  Global Instance elmeqb_elmeq_proper :
+    Proper (elmeq ==> elmeq ==> eq) elmeqb.
+  Proof.
+    intros x x' xeq y y' yeq.
+    destruct (elmeqb_spec x y), (elmeqb_spec x' y'); auto.
+    - contradiction n.
+      now rewrite <- xeq, <- yeq.
+    - contradiction n.
+      now rewrite xeq, yeq.
+  Qed.
+
+  Lemma elmeqb_refl a :
+    a =? a = true.
+  Proof.
+    destruct (elmeqb_spec a a); [easy|].
+    contradiction n.
+    reflexivity.
+  Qed.
+
   Lemma bruteforce_tally_aux_correct result max :
     Z.of_nat max < order - 1 ->
     (result <= max)%nat ->
@@ -573,13 +598,10 @@ Section WithBoardroomAxioms.
     induction max as [|max IH].
     - replace result with 0%nat by lia.
       cbn.
-      destruct (elmeqb_spec (generator^0) (generator^0)); auto.
-      contradiction n; reflexivity.
+      now rewrite elmeqb_refl.
     - destruct (Nat.eq_dec result (S max)) as [->|?].
       + cbn.
-        destruct (elmeqb_spec (generator ^ Z.pos (Pos.of_succ_nat max))
-                              (generator ^ Z.pos (Pos.of_succ_nat max))); auto.
-        contradiction n; reflexivity.
+        now rewrite elmeqb_refl.
       + cbn -[Z.of_nat].
         destruct (elmeqb_spec (generator ^ Z.of_nat (S max))
                               (generator ^ Z.of_nat result)) as [eq|?]; auto.
@@ -961,6 +983,16 @@ Module Zp.
   Lemma mod_pow_pos_mod_idemp a x p :
     mod_pow_pos (a mod p) x p = mod_pow_pos a x p.
   Proof. apply mod_pow_pos_aux_mod_idemp. Qed.
+
+  Lemma mod_pow_mod_idemp a e p :
+    mod_pow (a mod p) e p = mod_pow a e p.
+  Proof.
+    unfold mod_pow.
+    destruct e.
+    - now rewrite Z_pow_mod_idemp.
+    - now rewrite mod_pow_pos_mod_idemp.
+    - now rewrite mod_pow_pos_mod_idemp.
+  Qed.
 
   Lemma mod_pow_pos_aux_mod a x p r :
     mod_pow_pos_aux a x p r mod p = mod_pow_pos_aux a x p r.
@@ -1487,6 +1519,8 @@ Module Zp.
     - intros a a' aeq.
       cbn.
       now rewrite <- mod_inv_mod_idemp, aeq, mod_inv_mod_idemp by auto.
+    - intros a a' aeq e ? <-.
+      now rewrite <- mod_pow_mod_idemp, aeq, mod_pow_mod_idemp.
     - intros a anp e e' eeq.
       rewrite <- (mod_pow_exp_mod _ e), <- (mod_pow_exp_mod _ e') by auto.
       now rewrite eeq.
@@ -1533,6 +1567,8 @@ Module Zp.
       now rewrite mod_inv_mod_idemp.
     - intros a e e' ap0.
       now rewrite mod_pow_exp_plus by auto.
+    - intros a b e anz.
+      now rewrite mod_pow_exp_mul.
     - auto.
     - auto.
   Defined.
@@ -1708,6 +1744,9 @@ Module BigZp.
     - intros a a' aeq.
       autorewrite with zsimpl in *.
       now rewrite <- Zp.mod_inv_mod_idemp, aeq, Zp.mod_inv_mod_idemp.
+    - intros a a' aeq e ? <-.
+      autorewrite with zsimpl in *.
+      now rewrite <- Zp.mod_pow_mod_idemp, aeq, Zp.mod_pow_mod_idemp.
     - intros a anp e e' eeq.
       autorewrite with zsimpl in *.
       rewrite <- (Zp.mod_pow_exp_mod _ e), <- (Zp.mod_pow_exp_mod _ e') by auto.
@@ -1770,6 +1809,9 @@ Module BigZp.
     - intros a e e' ap0.
       autorewrite with zsimpl in *.
       now rewrite Zp.mod_pow_exp_plus by auto.
+    - intros a b e ap0.
+      autorewrite with zsimpl in *.
+      now rewrite Zp.mod_pow_exp_mul.
     - intros a e ap0.
       autorewrite with zsimpl in *.
       auto.

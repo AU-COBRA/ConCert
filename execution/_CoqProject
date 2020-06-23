@@ -30,4 +30,18 @@ theories/Extras.v
 theories/Finite.v
 theories/LocalBlockchain.v
 theories/Monads.v
+theories/ResultMonad.v
 theories/Serializable.v
+
+-R examples ConCert.Execution.Examples
+examples/Counter.v
+examples/BoardroomMath.v
+examples/BoardroomVoting.v
+examples/BoardroomVotingTest.v
+examples/Congress.v
+examples/Congress_Buggy.v
+examples/Egcd.v
+examples/EIP20Token.v
+examples/Escrow.v
+examples/Euler.v
+examples/LocalBlockchainTests.v

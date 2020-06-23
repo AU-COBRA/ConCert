@@ -12,7 +12,7 @@ Require Import Morphisms.
 Require Import Permutation.
 Require Import Program.Tactics.
 
-From ConCert.Execution Require Import Blockchain Congress Automation Extras.
+From ConCert.Execution Require Import Blockchain Congress Automation Extras ResultMonad.
 
 Import ListNotations.
 
@@ -262,20 +262,6 @@ Proof.
           contract_no_created_blocks; auto.
 Qed.
 
-Definition is_deploy (ac : ActionBody) : bool :=
-  match ac with
-  | act_transfer to amount => false
-  | act_call to amount msg => false
-  | act_deploy amount c setup => true
-  end.
-
-Definition is_call (ac : ActionBody) : bool :=
-  match ac with
-  | act_transfer to amount => false
-  | act_call to amount msg => true
-  | act_deploy amount c setup => false
-  end.
-
 Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
   reachable bstate ->
   env_contracts bstate addr = Some (cf_contract : WeakContract) ->
@@ -519,7 +505,7 @@ Qed.
 
 Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}
           prev hd acts new cf_addr lstate :
-  builder_add_block prev hd acts = Some new ->
+  builder_add_block prev hd acts = Ok new ->
   env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
   cf_state new cf_addr = Some lstate ->
   (account_balance (env_chain new) cf_addr >= balance_coq lstate)%Z.
@@ -537,7 +523,7 @@ Qed.
 (** ** The actual contract balance is consistent with the sum of individual contributions *)
 Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
           prev hd acts new cf_addr lstate :
-  builder_add_block prev hd acts = Some new ->
+  builder_add_block prev hd acts = Ok new ->
   env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
   cf_state new cf_addr = Some lstate ->
   ~~ lstate.(done_coq) ->
