@@ -186,4 +186,12 @@ Qed.
 
 Lemma closed_csubst t k u : closed t -> closedn (S k) u -> closedn k (csubst t 0 u).
 Proof.
-  Admitted.
+  intros clost closu.
+  rewrite closed_subst by easy.
+  rewrite <- (Nat.add_0_r k) at 1.
+  apply closedn_subst.
+  - constructor; [|easy].
+    now eapply closed_upwards.
+  - cbn in *.
+    now replace (k + 0 + 1) with (S k).
+Qed.
