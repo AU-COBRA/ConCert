@@ -45,7 +45,7 @@ Inductive Msg :=
   | msg_balance_of : balance_of_param -> Msg
   | msg_total_supply : total_supply_param -> Msg
   | msg_token_metadata : token_metadata_param -> Msg
-  | msg_permissions_descriptor : callback permissions_descriptor -> Msg (* TODO fix callback type *)
+  | msg_permissions_descriptor : callback permissions_descriptor -> Msg 
   | msg_update_operators : list update_operator -> Msg
   | msg_is_operator : is_operator_param -> Msg
   | msg_create_tokens : token_id -> Msg.

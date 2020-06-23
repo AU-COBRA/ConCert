@@ -5,7 +5,7 @@ From ConCert.Execution.QCTests Require Import CongressPrinters EIP20TokenPrinter
 
 Local Open Scope string_scope.
 
-(* Currently we hack it to always deserialize to Msg types - only works for Congress! TODO: fix *)
+(* Currently we hack it to always deserialize to some known Msg types *)
 
 Instance showSerializedValue : Show SerializedValue := 
 {|
