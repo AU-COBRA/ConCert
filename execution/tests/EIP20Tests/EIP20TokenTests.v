@@ -51,10 +51,6 @@ Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
 Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
   reachableFrom_implies_reachable lc (gEIP20TokenChainTraceList 1) pf1 pf2.
 
-(* Compute (show (map fst (FMap.elements (lc_contracts chain_with_token_deployed)))).
-Compute (show (lc_token_contracts_states_deserialized chain_with_token_deployed)).
-Compute (show (lc_account_balances chain_with_token_deployed)). *)
-(* Sample (gEIP20TokenChainTraceList chain_with_token_deployed 10). *)
 Open Scope string_scope.
 Definition debug_gEIP20Checker {A : Type}
                               `{Checkable A}
@@ -67,34 +63,8 @@ Definition debug_gEIP20Checker {A : Type}
     ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl 
     ).
 
-(* QuickChick (forAll 
-  (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
-  (fun act_opt => isSomeCheck act_opt (fun act => 
-    (isSomeCheck (my_add_block chain_with_token_deployed [act]) (fun _ => checker true))
-  ))). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
 (* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
-
-(* QuickChick (forAll 
-  (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
-  (fun act_opt => isSomeCheck act_opt (fun act => 
-    (debug_gEIP20Checker chain_with_token_deployed (Some act))  
-      ((checker o isSome) (my_add_block chain_with_token_deployed [act]))))). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
-Definition last_state trace := List.last (map next_lc_of_lcstep trace) chain_with_token_deployed.
-
-(* Generate a trace, and then execute an action on the last state of the trace. Check that this always succeeds *)
-(* QuickChick (forAll2 
-  (gEIP20TokenChainTraceList chain_with_token_deployed 5) 
-  (fun trace => 
-    gEIP20TokenAction (last_state trace) 
-                      contract_base_addr)
-  (fun trace act_opt => isSomeCheck act_opt (fun act => 
-    (debug_gEIP20Checker (last_state trace) (Some act))  
-      ((checker o isSome) (my_add_block (last_state trace) [act]))))). *)
 
 Local Open Scope N_scope.
 

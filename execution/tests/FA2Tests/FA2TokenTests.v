@@ -151,8 +151,6 @@ Definition token_state lc :=
   | None => None
   end.
 
-(* Compute (client_state chain_with_transfer_hook). *)
-(* Compute (show (token_state chain_with_transfer_hook)). *)
 
 From ConCert.Execution.QCTests Require Import FA2Gens.
 
@@ -164,7 +162,7 @@ End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
 Definition chain_with_transfer_hook_token_state : FA2Token.State := unpack_option (token_state chain_with_transfer_hook).
-Compute (show chain_with_transfer_hook_token_state).
+(* Compute (show chain_with_transfer_hook_token_state). *)
 Definition gFA2TokenActionChainTraceList max_acts_per_block lc length := 
   gLocalChainTraceList_fix lc (fun lc _ => gFA2TokenAction lc) length max_acts_per_block.
 Definition gFA2ClientChainTraceList max_acts_per_block lc length := 
