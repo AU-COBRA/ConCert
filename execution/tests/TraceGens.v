@@ -55,68 +55,17 @@ Definition next_header_lc (chain : @LocalChain AddrSize) :=
        block_creator := creator;
        block_reward := 50; |}.
 
+(* Adds a new block with a given list of actions in that block. Uses next_header_lc to compute header info. *)
 Definition my_add_block c acts := 
   match (add_block_exec true c (next_header_lc c) acts) with
   | Err _ => None
   | Ok r => Some r
   end.
 
-Open Scope bool_scope.
 
-Section Trees.
-  Variable V : Type.
-  Variable default: V.
-  Definition key := N.
-  Inductive tree : Type :=
-   | leaf : tree
-   | node : V -> tree -> tree -> tree.
-  Definition empty_tree : tree := leaf.
-End Trees.
-Arguments leaf {V}.
-Arguments node {V} _ _ _.
-
-Fixpoint allPaths_fix {V : Type} (t : tree V) (acc : list (list V)) : list (list V) :=
-let call_rec n v := match acc with
-  | [] => allPaths_fix n [[v]]
-  | _ => allPaths_fix n (map (fun l => l ++ [v]) acc) 
-  end in
-match t with
-| leaf => acc
-| node v 
-       (node _ _ _ as l) 
-       leaf => call_rec l v
-| node v 
-       leaf 
-       (node _ _ _ as r) => call_rec r v
-| node v 
-       (node _ _ _ as l) 
-       (node _ _ _ as r) => call_rec l v ++ call_rec r v
-| node v leaf leaf => (map (fun l => l ++ [v]) acc) 
-end.
-
-Definition allPaths {V : Type} (t : tree V) : list (list V):= allPaths_fix t [[]].
-
-Example ex_tree : tree nat := node 1 (node 2 leaf leaf) (node 3 (node 4 leaf leaf) (node 5 leaf leaf)).
-(* Compute (show (allPaths ex_tree)). *)
-
-Derive Arbitrary for tree.
-
-Open Scope string_scope.
-
-Instance showTree {A} `{_ : Show A} : Show (tree A) :=
-  {| show t := let fix aux (indent : string) t :=
-       match t with
-         | leaf => "leaf"
-         | node x l r =>
-                      "(node" ++ nl 
-                      ++ indent ++ "(" ++ show x ++ ")" ++ nl
-                      ++ indent ++ aux (indent ++ "  ") l ++ nl 
-                      ++ indent ++  aux (indent ++ "  ") r ++ ")"
-       end
-     in nl ++ "Begin Tree:" ++ nl ++ (aux "  " t) ++ nl ++ "End Tree."
-  |}.
-Close Scope string_scope.
-
+(* The representation of an execution step.
+   A step can either add an empty new block, or add a new block with some actions to execute.
+   The next_chain is assumed to be related to prev_chain with the 'my_add_block' function *)
 Inductive LocalChainStep {AddrSize : N} : Type :=
 | step_add_block : forall (prev_chain : @LocalChain AddrSize) 
                           (header : BlockHeader) 
@@ -125,7 +74,9 @@ Inductive LocalChainStep {AddrSize : N} : Type :=
                        (header : BlockHeader) 
                        (next_chain : @LocalChain AddrSize) 
                        (acts : list Action), LocalChainStep.
-                       
+                  
+(* Helper functions *)
+
 Definition acts_of_lcstep (state : @LocalChainStep AddrSize) :=
   match state with
   | step_add_block _ _ _ => []
@@ -144,10 +95,13 @@ Definition next_lc_of_lcstep (state : @LocalChainStep AddrSize) : LocalChain :=
   | step_action _ _ next _ => next
   end.
 Close Scope string_scope.
+
+(* Shallow Equality of LocalChains *)
 Definition lc_shallow_eqb lc1 lc2 : bool := 
   (lc_height lc1 =? lc_height lc2) 
   && (lc_slot lc1 =? lc_slot lc2) 
   && (@lc_fin_height AddrSize lc1 =? @lc_fin_height AddrSize lc2).
+
 
 Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
@@ -164,10 +118,6 @@ Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) :=
   | Ok c_next => Some (c_next, step_action c header c_next acts)
   | Err _ => None
   end.
-
-(* Example t : tree LocalChainStep := node (mk_basic_step_add_block lc_initial) 
-              (node (mk_basic_step_action c1 []) leaf leaf)
-              leaf. *)
 
 Open Scope string_scope.
 Instance showLocalChainStepVerbose {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show (@LocalChainStep AddrSize) :=
@@ -190,67 +140,11 @@ Instance showLocalChainStep {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show
   end
 |}.
 
-(* Instance showLocalChainStepWithOnlyName {AddrSize : N} : Show (@LocalChainStep AddrSize) :=
-{|
-  show step := match step with
-  | step_add_block prev header next => 
-    "step_add_block"  
-  | step_action prev header next acts =>
-    "step_action"
-  end
-|}. *)
 
-(* ---------------------- Trace Tree on LocalChain ---------------------- *)
-
-Definition lctracetree := tree (@LocalChainStep AddrSize).
-
-Fixpoint next_lc_eq_child_prev_lc_P (t : lctracetree) := 
-  match t with
-  | leaf => true
-  | node step (node step_lchild lcl lcr) (node step_rchild rcl rcr) =>
-    (lc_shallow_eqb (next_lc_of_lcstep step) (prev_lc_of_lcstep step_lchild))
-    && (lc_shallow_eqb (next_lc_of_lcstep step) (prev_lc_of_lcstep step_rchild))
-  | _ => true 
-  end.
-
-Instance showLctracetree : Show lctracetree :=
-{|
-  show t := @show _ (@showTree _ showLocalChainStepVerbose) t 
-|}.
-
-Fixpoint glctracetree_fix (prev_lc : LocalChain)
-                          (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
-                          (height : nat) : G lctracetree :=
-  match height with
-  | 0 | 1 => returnGen leaf
-  | S height => 
-    lc_opt <- backtrack [
-      (10, 
-          (* acts <- liftM (shrinkListTo 2) (optToVector 5 (gActOptFromLCSized prev_lc 2)) ;; *)
-          bindGenOpt (gActOptFromLCSized prev_lc 1)
-          (fun act => returnGen (mk_basic_step_action prev_lc [act]))
-      )
-          (* match acts with
-          | [] => returnGen None
-          | _ => returnGen (mk_basic_step_action prev_lc acts)
-          end) *)
-      (* (1, returnGen (mk_basic_step_add_block prev_lc)) ; *)
-      (* (3, liftM (mk_basic_step_action prev_lc ) (optToVector 1 (gDeployCongressActionFromLC prev_lc)))  *)
-      ] ;;
-    match lc_opt with
-          | Some (lc, step) => 
-            liftM2 (node step) 
-                   (glctracetree_fix lc gActOptFromLCSized height) 
-                   (glctracetree_fix lc gActOptFromLCSized height) 
-          | None => returnGen leaf
-    end
-  end.
-
-(* QuickChick (forAll (glctracetree 7) next_lc_eq_child_prev_lc_P). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition LocalChainTraceList {AddrSize : N} := list (@LocalChainStep AddrSize).
-(* TODO: optimize by making an inner fixpoint, and keeping gActOptFromLCSized and max_nr_acts_per_block fixed *)
+(* Main generator of execution traces, using a given generator for Actions. *)
+(* Generates a trace up to some maximal length. It only contains traces that succeeded according to my_add_block. *)
 Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
                               (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
                               (length : nat)
@@ -298,19 +192,6 @@ Instance showLocalChainList : Show LocalChainTraceList :=
   show l := nl ++ "Begin Trace: " ++ nl ++ String.concat (";;" ++ nl) (map show l) ++ nl ++ "End Trace"
 |}.
 Close Scope string_scope.  
-
-Fixpoint all_suffices_fix {A : Type} (l : list A) (acc : list (list A)) : list (list A) := 
-  match l with
-  | [] => acc
-  | x::xs => match acc with
-             | [] => all_suffices_fix xs [[x]]
-             | _ => all_suffices_fix xs ([x] :: (map (fun l => app l [x]) acc)) 
-             end
-  end.
-
-(* working solution, but not very pretty, or the most efficient. Maybe fix later. *)
-Definition all_prefixes {A : Type} (l : list A) := map (fun l => rev' l) (all_suffices_fix (rev' l) []).
-Compute (all_prefixes [1;2;3;4]).
 
 (* -------------------- Checker combinators on traces --------------------  *)
 

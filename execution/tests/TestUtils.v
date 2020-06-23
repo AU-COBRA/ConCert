@@ -188,6 +188,14 @@ Definition lc_contract_members_and_proposals_with_votes (lc : LocalChain)
 
 (* Utils for Generators *)
 
+Definition elems_opt {A : Type} (l : list A) : G (option A) :=
+  match l with
+  | x::xs => liftM Some (elems_ x xs)
+  | _ => returnGen None end.
+  
+Definition returnGenSome {A : Type} (a : A) := returnGen (Some a).
+
+
 Definition sampleFMapOpt {A B : Type}                           
                         `{countable.Countable A}
                         `{base.EqDecision A}

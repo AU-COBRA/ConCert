@@ -3,7 +3,7 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
 From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
 
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.

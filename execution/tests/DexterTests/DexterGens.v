@@ -34,7 +34,6 @@ Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
-Definition returnGenSome {A : Type} (a : A) := returnGen (Some a).
 
 (* --------------------- FA2 Contract Generators --------------------- *)
 Section DexterContractGens.
