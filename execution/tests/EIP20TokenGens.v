@@ -1,7 +1,6 @@
 From ConCert Require Import Blockchain LocalBlockchain EIP20Token.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters EIP20TokenPrinters SerializablePrinters.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters EIP20TokenPrinters SerializablePrinters.
 
 Require Import ZArith Strings.String.
 
@@ -16,7 +15,7 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Definition serializeMsg := @serialize EIP20Token.Msg _.
 
 Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Address EIP20Token.State :=
@@ -28,6 +27,8 @@ Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Addre
                   | None => acc
                   end)  
                 els_list []).
+
+
 
 (* Will try to generate a transfer between existing accounts in the token contract's state.
 	 Otherwise tries to use accounts in the Blockchain state.

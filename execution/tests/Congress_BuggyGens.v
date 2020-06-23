@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress_Buggy.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters Congress_BuggyPrinters SerializablePrinters.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_BuggyPrinters SerializablePrinters.
 
 Require Import ZArith Strings.Ascii Strings.String.
 
@@ -22,9 +22,8 @@ Definition serializeMsg := serialize Msg _.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 
-(* ChainGens for the types defined in the Congress_Buggy contract *)
 
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 Definition gRulesSized (n : nat) : G Rules :=
   vote_count <- choose(1%Z, 1000%Z) ;;

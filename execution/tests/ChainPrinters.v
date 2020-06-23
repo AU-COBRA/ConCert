@@ -39,11 +39,6 @@ Instance showLocalChainBuilderDepthFirst {n : N} : Show (LocalChainBuilderDepthF
 Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
   {| show a := "ChainBuilderType{...}" |}.
 
-Instance showBaseGens {BaseTypes : ChainBase} : Show (ChainContext BaseTypes)  :=
-  {|
-    show bg := "ChainContext{...}"
-  |}.
-
 Instance shrinkAmount : Shrink Amount := 
   {|
     shrink := @shrink Z _

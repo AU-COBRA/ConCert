@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress_Buggy.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
 
 Require Import ZArith Strings.Ascii Strings.String.
 
@@ -15,7 +15,7 @@ From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
 Notation "f 'o' g" := (compose f g) (at level 50).
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Open Scope string_scope.
 
 Instance showRules : Show Rules :=

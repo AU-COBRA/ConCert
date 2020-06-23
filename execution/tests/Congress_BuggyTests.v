@@ -11,10 +11,10 @@ From ConCert Require Import BoundedN.
 (* From ConCert Require Import LocalBlockchainTests. *)
 From ConCert Require Import Containers.
 From ConCert Require Import Congress_Buggy.
+Require Import ResultMonad.
 Require Import Extras.
 
-From ConCert.Execution.QCTests Require Import 
-ChainGens TestUtils ChainPrinters Congress_BuggyGens Congress_BuggyPrinters SerializablePrinters TraceGens.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_BuggyGens Congress_BuggyPrinters SerializablePrinters TraceGens.
 Close Scope monad_scope.
 
 From ConCert Require Import Monads.
@@ -53,7 +53,7 @@ Definition exploit_example : option (Address * Builder) :=
              block_creator := creator;
              block_reward := 50; |} in
       let acts := map (build_act creator) act_bodies in
-      builder_add_block chain next_header acts in
+      option_of_result (builder_add_block chain next_header acts) in
   (* Get some money on the creator *)
   (* Deploy congress and exploit contracts *)
   do chain <- add_block chain [];

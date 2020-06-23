@@ -5,7 +5,7 @@ From ConCert Require Import BoundedN ChainedList.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import 
-  ChainGens TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters TraceGens.
+  TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters TraceGens.
 
 Require Import ZArith Strings.Ascii Strings.String.
 
@@ -21,7 +21,7 @@ Require Import Containers.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 Definition chain_with_congress_deployed : LocalChain := lcb_lc chain6. (* chain6 is from LocalBlockchainTests.v *)
 Definition congress_chain := chain_with_congress_deployed.

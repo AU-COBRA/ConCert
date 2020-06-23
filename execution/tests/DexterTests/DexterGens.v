@@ -10,7 +10,7 @@ Global Set Warnings "-extraction-logical-axiom".
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import 
-	ChainGens TestUtils ChainPrinters SerializablePrinters TraceGens DexterPrinters.
+	TestUtils ChainPrinters SerializablePrinters TraceGens DexterPrinters.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import ZArith List.
 Import ListNotations.
@@ -32,7 +32,7 @@ Import Info.
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 Definition returnGenSome {A : Type} (a : A) := returnGen (Some a).
 

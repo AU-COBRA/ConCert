@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain.
 From ConCert Require Import FA2Interface FA2Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters TestContracts.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters TestContracts.
 Require Import Strings.String.
 From QuickChick Require Import QuickChick.
 Local Open Scope string_scope.

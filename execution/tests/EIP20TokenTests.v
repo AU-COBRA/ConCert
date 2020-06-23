@@ -14,7 +14,7 @@ From ConCert Require Import EIP20Token.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import 
-	ChainGens TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
+	TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
 
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
@@ -61,13 +61,9 @@ Definition debug_gEIP20Checker {A : Type}
                                lc 
                                (act : option Action)
                                : A -> Checker :=
-  let print_valid_actions := match act with
-                            | Some act => "valid actions: " ++ show (validate_actions [act]) ++ sep ++ nl
-                            | None => ""
-                            end in
   whenFail 
     ("lc balances: " ++ show (lc_account_balances lc) ++ sep ++ nl
-    ++ print_valid_actions
+    ++ show act
     ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl 
     ).
 
@@ -78,8 +74,9 @@ Definition debug_gEIP20Checker {A : Type}
   ))). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
-Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr).
-Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5).
+(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
+(* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
+
 (* QuickChick (forAll 
   (gEIP20TokenAction chain_with_token_deployed contract_base_addr) 
   (fun act_opt => isSomeCheck act_opt (fun act => 

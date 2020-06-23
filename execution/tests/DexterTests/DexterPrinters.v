@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain.
 From ConCert Require Import Dexter FA2Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters FA2Printers.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters FA2Printers.
 Require Import Strings.String.
 From QuickChick Require Import QuickChick.
 Local Open Scope string_scope.

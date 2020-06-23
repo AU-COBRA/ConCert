@@ -8,7 +8,7 @@ From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
 From ConCert Require Import LocalBlockchain.
-From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import BoundedN ChainedList. Import BoundedN.Stdpp.
 
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
@@ -24,6 +24,8 @@ Notation "f 'o' g" := (compose f g) (at level 50).
 (* Misc utility functions *)
 Open Scope list_scope.
 Open Scope string_scope.
+
+Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 
 Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
 Definition isSome {A : Type} (a : option A) := negb (isNone a).
@@ -289,29 +291,46 @@ Definition gContractSateFromLCWithoutAddrs lc addrs : G (option (Address * Seria
   let states_sub := remove_multipe_FMap (@lc_contract_state AddrSize lc) addrs in
   sampleFMapOpt states_sub.
 
-Record ChainContext (BaseTypes : ChainBase) := 
-  mkBaseGens {
-    gAddress              : G (@Address BaseTypes);
-    accounts              : list (@Address BaseTypes);
-    contracts             : list (@Address BaseTypes);
-    gContractAddr         : G (@Address BaseTypes);
-    gAccountAddr          : G (@Address BaseTypes);    
-  }.
-  
-(* Helpers for ChainContext. TODO: look into parameterising ChainBase *)
-Definition ctx_gAccountAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
-  @gAccountAddr LocalChainBase ctx.
-Definition ctx_gContractAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
-  @gContractAddr LocalChainBase ctx.
-Definition ctx_gAnyAddr (ctx : ChainContext LocalChainBase) : G (@Address LocalChainBase) := 
-  @gAddress LocalChainBase ctx.
-Definition ctx_accounts (ctx : ChainContext LocalChainBase) : list Address := 
-  @accounts LocalChainBase ctx.
-Definition ctx_contracts (ctx : ChainContext LocalChainBase) : list Address := 
-  @contracts LocalChainBase ctx.
 
 Definition gZPositive := liftM Z.of_nat arbitrary.
 Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
+
+(* Although the type is G (option ...) it will never generate None values. 
+   Perhaps this is where we should use generators with property proof relevance? Future work... *)
+	 Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
+	 n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
+	 returnGen (@decode_bounded bound (Pos.of_nat n)).
+ 
+ Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
+	 bn <- gBoundedNOpt AddrSize ;;
+	 returnGen match bn with
+		 | Some b => b
+		 (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
+				 n <= AddrSized. **)
+		 | None => BoundedN.of_Z_const AddrSize 0
+	 end. 
+
+Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
+  {|
+    arbitrary := gBoundedN
+  |}.
+
+Instance genAddress : Gen (@Address LocalChainBase) :=
+  {|
+    (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
+    arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN 
+  |}.
+
+Definition gDeploymentAction {Setup Msg State : Type}
+                            `{Serializable Setup}
+                            `{Serializable Msg}
+                            `{Serializable State}
+                             {BaseTypes : ChainBase} 
+                             (contract : @Contract BaseTypes Setup Msg State _ _ _)
+                             (setup : Setup) : G ActionBody :=
+  amount <- arbitrary ;;
+  returnGen (act_deploy amount contract (@serialize Setup _ setup)).
+
 
 (* Helper generator and show instance for arbitrary FMaps *)
 
@@ -408,32 +427,6 @@ Instance genSerializedValueSized : GenSized SerializedValue :=
 
 (* Helper functions when we want to state a property forAll x y z ... (someProp x y z ...) in QuickChick *)
 (* Where the generator for y depends on x, the generator for z depends on y, etc. *)
-(* Example: In vanilla QC, we have: *)
-(* QuickChick (
-  forAll
-    (gLocalChainContext 2)
-    (fun ctx => 
-  forAll
-    (gLocalChainSized 2 ctx)
-    (fun chain => 
-  forAll
-    (@gStateSized ctx 2)
-    (fun state => 
-  forAll
-    (gChainActionsFromCongressActions ctx)
-    (fun cacts => add_proposal_cacts_P cacts chain state
-    ))))
-). *)
-(* Which is of course very clunky. With forAll4 we get: *)
-(* QuickChick (
-  forAll4
-    (gLocalChainContext 2)
-    (fun ctx => gLocalChainSized 2 ctx)
-    (fun ctx _ => @gStateSized ctx 2)
-    (fun ctx _ _ => gChainActionsFromCongressActions ctx)
-    (fun ctx chain state cacts => add_proposal_cacts_P cacts chain state)
-). *)
-(* Which is better, although not optimal. *)
 Definition forAll2 {A B prop : Type} 
                   `{Checkable prop} 
                   `{Show A} 
@@ -462,106 +455,6 @@ Definition forAll3 {A B C prop : Type}
     (fgenC a b)
   (fun c => pf a b c))).
 
-Definition forAll4 {A B C D prop : Type} 
-                  `{Checkable prop} 
-                  `{Show A} 
-                  `{Show B} 
-                  `{Show C} 
-                  `{Show D} 
-                   (genA : G A)
-                   (fgenB : A -> G B)
-                   (fgenC : A -> B -> G C)
-                   (fgenD : A -> B -> C -> G D)
-                   (pf : A -> B -> C -> D -> prop) :=
-  forAll3 genA fgenB fgenC
-    (fun a b c => 
-    (forAll
-      (fgenD a b c)
-      (fun d => pf a b c d))).
-
-Definition forAll5 {A B C D E prop : Type} 
-                  `{Checkable prop} 
-                  `{Show A} 
-                  `{Show B} 
-                  `{Show C} 
-                  `{Show D} 
-                  `{Show E} 
-                   (genA : G A)
-                   (fgenB : A -> G B)
-                   (fgenC : A -> B -> G C)
-                   (fgenD : A -> B -> C -> G D)
-                   (fgenE : A -> B -> C -> D -> G E)
-                   (pf : A -> B -> C -> D -> E -> prop) :=
-  forAll4 genA fgenB fgenC fgenD
-    (fun a b c d => 
-    (forAll
-      (fgenE a b c d)
-      (fun e => pf a b c d e))).
-
-Definition forAll6 {A B C D E prop : Type} 
-                  `{Checkable prop} 
-                  `{Show A} 
-                  `{Show B} 
-                  `{Show C} 
-                  `{Show D} 
-                  `{Show E} 
-                  `{Show F} 
-                   (genA : G A)
-                   (fgenB : A -> G B)
-                   (fgenC : A -> B -> G C)
-                   (fgenD : A -> B -> C -> G D)
-                   (fgenE : A -> B -> C -> D -> G E)
-                   (fgenF : A -> B -> C -> D -> E -> G F)
-                   (pf : A -> B -> C -> D -> E -> F -> prop) :=
-  forAll5 genA fgenB fgenC fgenD fgenE
-    (fun a b c d e => 
-    (forAll
-      (fgenF a b c d e)
-      (fun f => pf a b c d e f))).
-(* Similar to above, but where the "quantified" variables are not dependent on each other.
-   This easens the syntactic form. *)
-
-Definition indepForAll2 {A B prop : Type} 
-                       `{Checkable prop} 
-                       `{Show A} 
-                       `{Show B} 
-                        (genA : G A)
-                        (genB : G B)
-                        (pf : A -> B -> prop) 
-                        := forAll2 genA (fun _ => genB) pf.
-
-Definition indepForAll3 {A B C prop : Type} 
-                       `{Checkable prop} 
-                       `{Show A} 
-                       `{Show B} 
-                       `{Show C} 
-                        (genA : G A)
-                        (genB : G B)
-                        (genC : G C)
-                        (pf : A -> B -> C -> prop) 
-                        := forAll3 
-                            genA 
-                            (fun _ => genB) 
-                            (fun _ _ => genC)
-                            pf.
-
-Definition indepForAll4 {A B C D prop : Type} 
-                       `{Checkable prop} 
-                       `{Show A} 
-                       `{Show B} 
-                       `{Show C} 
-                       `{Show D} 
-                        (genA : G A)
-                        (genB : G B)
-                        (genC : G C)
-                        (genD : G D)
-                        (pf : A -> B -> C -> D -> prop) 
-                        := forAll4 
-                            genA 
-                            (fun _ => genB) 
-                            (fun _ _ => genC)
-                            (fun _ _ _ => genD)
-                            pf.
 
 (* Little helper to avoid having to write out matches with "false ==> true" in None case all the time *)
 Definition isSomeCheck {A B : Type} `{Checkable B} (a : option A) (f : A -> B) : Checker := 

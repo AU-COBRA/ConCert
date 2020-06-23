@@ -11,7 +11,7 @@ Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import 
-	ChainGens TestUtils ChainPrinters SerializablePrinters TraceGens FA2Printers TestContracts.
+	TestUtils ChainPrinters SerializablePrinters TraceGens FA2Printers TestContracts.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 Import ListNotations.
@@ -22,7 +22,7 @@ Import MonadNotation. Open Scope monad_scope.
 Close Scope address_scope.
 (* Notation "f 'o' g" := (compose f g) (at level 50). *)
 
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 (** example policies *)
 

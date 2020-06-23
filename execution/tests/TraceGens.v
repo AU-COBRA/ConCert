@@ -21,9 +21,10 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
 From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Containers.
+From ConCert Require Import ResultMonad.
 Require Import Extras.
 
-From ConCert.Execution.QCTests Require Import ChainGens TestUtils ChainPrinters SerializablePrinters .
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters SerializablePrinters .
 
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
@@ -38,7 +39,7 @@ Import ListNotations.
 Close Scope address_scope.
 Definition AddrSize := (2^8)%N.
 
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 Definition next_header (chain : ChainBuilder) :=
     {| block_height := S (chain_height chain);
@@ -54,7 +55,11 @@ Definition next_header_lc (chain : @LocalChain AddrSize) :=
        block_creator := creator;
        block_reward := 50; |}.
 
-Definition my_add_block c acts := (add_block_exec true c (next_header_lc c) acts).
+Definition my_add_block c acts := 
+  match (add_block_exec true c (next_header_lc c) acts) with
+  | Err _ => None
+  | Ok r => Some r
+  end.
 
 Open Scope bool_scope.
 
@@ -146,18 +151,18 @@ Definition lc_shallow_eqb lc1 lc2 : bool :=
 
 Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
-  let c_next_opt := add_block_exec true c header [] in
-  match c_next_opt with
-  | None => None
-  | Some c_next => Some (c_next, step_add_block c header c_next)
+  let next := add_block_exec true c header [] in
+  match next with
+  | Err _ => None
+  | Ok c_next => Some (c_next, step_add_block c header c_next)
   end.
 
 Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) := 
   let header := (next_header_lc c) in
-  let c_next_opt := add_block_exec true c header acts in
-  match c_next_opt with
-  | Some c_next => Some (c_next, step_action c header c_next acts)
-  | None => None
+  let next := add_block_exec true c header acts in
+  match next with
+  | Ok c_next => Some (c_next, step_action c header c_next acts)
+  | Err _ => None
   end.
 
 (* Example t : tree LocalChainStep := node (mk_basic_step_add_block lc_initial) 

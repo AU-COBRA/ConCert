@@ -13,7 +13,7 @@ Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import 
-	ChainGens TestUtils ChainPrinters SerializablePrinters TraceGens DexterGens.
+	TestUtils ChainPrinters SerializablePrinters TraceGens DexterGens.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Morphisms.
@@ -26,7 +26,7 @@ Import RecordSetNotations.
 Close Scope address_scope.
 (* Notation "f 'o' g" := (compose f g) (at level 50). *)
 
-Definition LocalChainBase : ChainBase := ChainGens.LocalChainBase.
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 (* the policy which allows both owners and operators to transfer tokens. *)
 Definition policy_all : permissions_descriptor := {|
