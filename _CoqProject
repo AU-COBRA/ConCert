@@ -22,15 +22,15 @@ execution/theories/Serializable.v
 -Q execution/tests ConCert.Execution.QCTests
 execution/tests/TestUtils.v
 execution/tests/ChainPrinters.v
-execution/tests/CongressGens.v
-execution/tests/CongressPrinters.v
-execution/tests/CongressTests.v
-execution/tests/Congress_BuggyGens.v
-execution/tests/Congress_BuggyPrinters.v
-execution/tests/Congress_BuggyTests.v
-execution/tests/EIP20TokenPrinters.v
-execution/tests/EIP20TokenGens.v
-execution/tests/EIP20TokenTests.v
+execution/tests//CongressTests/CongressGens.v
+execution/tests//CongressTests/CongressPrinters.v
+execution/tests//CongressTests/CongressTests.v
+execution/tests//CongressTests/Congress_BuggyGens.v
+execution/tests//CongressTests/Congress_BuggyPrinters.v
+execution/tests//CongressTests/Congress_BuggyTests.v
+execution/tests/EIP20Tests/EIP20TokenPrinters.v
+execution/tests/EIP20Tests/EIP20TokenGens.v
+execution/tests/EIP20Tests/EIP20TokenTests.v
 execution/tests/TraceGens.v
 execution/tests/FA2Tests/TestContracts.v
 execution/tests/FA2Tests/FA2Printers.v

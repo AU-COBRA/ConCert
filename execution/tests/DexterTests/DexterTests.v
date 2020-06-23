@@ -255,7 +255,7 @@ Definition tokens_to_asset_correct :=
 (* 2 *)
 (* total = 16 *)
 
-QuickChick tokens_to_asset_correct.
+(* QuickChick tokens_to_asset_correct. *)
 (* 
 Begin Trace: 
 step_action{Action{act_from: 11%256, act_body: (act_call 130%256, 0, transferhook transfer_descriptor_param{transfer_descr_fa2: 128%256, transfer_descr_batch: [], transfer_descr_operator: 129%256})}}
