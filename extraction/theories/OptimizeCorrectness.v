@@ -128,39 +128,6 @@ Proof.
   now rewrite IHt2.
 Qed.
 
-Lemma dearg_single_0_mask mask args t :
-  Forall (eq false) mask ->
-  #|args| = #|mask| ->
-  dearg_single mask t args = mkApps t args.
-Proof.
-  intros mask_zero.
-  revert args t.
-  induction mask_zero.
-  - destruct args; easy.
-  - intros [|a args] t len_eq; [easy|].
-    subst.
-    cbn in *.
-    now apply IHmask_zero.
-Qed.
-
-Lemma dearg_single_snoc mask b t args a :
-  #|mask| = #|args| ->
-  dearg_single (mask ++ [b]) t (args ++ [a]) =
-  if b then
-    dearg_single mask t args
-  else
-    tApp (dearg_single mask t args) a.
-Proof.
-  revert t args b a.
-  induction mask as [|b mask IH]; intros t args bend aend len_eq.
-  - now destruct args as [|a args]; [|easy].
-  - destruct args as [|a args]; [easy|].
-    cbn in *.
-    destruct b.
-    + now apply IH.
-    + now apply IH.
-Qed.
-
 (* We use our own "properly ordered" contexts to represent the lambdas/lets
    that we debox away. Unlike the rest of MetaCoq, these contexts actually
    have the first declaration at the beginning. *)
@@ -178,17 +145,6 @@ Definition mkLambda_or_LetIn (cd : context_decl) (t : term) : term :=
 
 Definition it_mkLambda_or_LetIn (Γ : context) (u : term) : term :=
   fold_right mkLambda_or_LetIn u Γ.
-
-Lemma subst_context_app t k Γ Γ' :
-  subst_context t k (Γ ++ Γ') =
-  subst_context t k Γ ++ subst_context t (length Γ + k) Γ'.
-Proof.
-  revert t k Γ'.
-  induction Γ as [|cd Γ IH]; intros t k Γ'; [easy|].
-  cbn.
-  f_equal.
-  now rewrite IH.
-Qed.
 
 Fixpoint decompose_body_masked (mask : bitmask) (t : term) : context * term :=
   match mask, t with
@@ -280,31 +236,6 @@ Proof.
   cbn.
   now rewrite IHΓ.
 Qed.
-
-(* Represents normalized values to fill in for assumptions/definitions
-   in a context *)
-Inductive context_substitution Σ : context -> list term -> Type :=
-| ctx_subst_nil : context_substitution Σ [] []
-| ctx_subst_ass a av Γ args na :
-    Σ ⊢ a ▷ av ->
-    context_substitution Σ (subst_context av 0 Γ) args ->
-    context_substitution Σ (vass na :: Γ) (a :: args)
-| ctx_subst_def body v Γ args na :
-    Σ ⊢ body ▷ v ->
-    context_substitution Σ (subst_context v 0 Γ) args ->
-    context_substitution Σ (vdef na body :: Γ) args.
-
-(* Given [Γ ⊢ t] and normalized args/values for assumptions/definitions in [Γ],
-   return ⊢ t' by substituting into t. *)
-Equations close_term
-         {Σ : global_declarations}
-         (inner : term)
-         {Γ : context}
-         {args : list term}
-         (sub : context_substitution Σ Γ args) : term :=
-close_term inner ctx_subst_nil := inner;
-close_term inner (ctx_subst_ass _ v Γ _ _ _ sub) := close_term (csubst v #|Γ| inner) sub;
-close_term inner (ctx_subst_def _ v Γ _ _ _ sub) := close_term (csubst v #|Γ| inner) sub.
 
 Lemma has_use_closed k t n :
   closedn k t ->
@@ -437,49 +368,6 @@ Proof.
     + now apply IHt.
 Qed.
 
-Lemma valid_dearg_mask_app mask mask' Γ inner :
-  valid_dearg_mask (mask ++ mask') (it_mkLambda_or_LetIn Γ inner) ->
-  #|vasses Γ| = #|mask| ->
-  valid_dearg_mask mask' inner.
-Proof.
-  revert mask mask' inner.
-  induction Γ as [|cd Γ IH]; intros mask mask' inner len_eq valid_mask.
-  - destruct mask; [|easy].
-    easy.
-  - cbn in *; refold.
-    unfold mkLambda_or_LetIn in *.
-    destruct (decl_body cd) eqn:decl_eq.
-    + cbn in *.
-      easy.
-    + cbn in *.
-      destruct mask; [now cbn in *|].
-      cbn in *.
-      destruct b.
-      * now eapply IH.
-      * easy.
-Qed.
-
-(*
-Section foo.
-From Coq Require Import String.
-From MetaCoq.Erasure Require Import EPretty.
-Open Scope string.
-
-Definition Γ := [vass (nNamed "a")].
-Definition Γ' := [vass (nNamed "d"); vass (nNamed "c")].
-Definition args := [tVar "a"].
-Definition args' := [tVar "c"; tVar "d"].
-Definition inner := tRel 0.
-Open Scope list.
-Compute print_term [] [] false false
-        (mkApps (it_mkLambda_or_LetIn (Γ' ++ Γ) inner) (args ++ args')).
-Compute print_term [] [] false false
-        (mkApps (it_mkLambda_or_LetIn Γ (close_term Γ' inner args')) args).
-Compute print_term [] [] false false
-        (close_term (Γ' ++ Γ) inner (args ++ args')).
-End foo.
-*)
-
 Lemma vasses_subst_context t k Γ :
   vasses (subst_context t k Γ) = vasses Γ.
 Proof.
@@ -495,73 +383,27 @@ Proof.
     easy.
 Qed.
 
-Lemma eval_mkApps_it_mkLambda_or_LetIn Σ Γ inner args v :
-  #|args| = #|vasses Γ| ->
-  Σ ⊢ mkApps (it_mkLambda_or_LetIn Γ inner) args ▷ v ->
-  exists sub : context_substitution Σ Γ args,
-    Σ ⊢ close_term inner sub ▷ v.
+Lemma dearg_cst_body_top_subst mask s k Γ inner :
+  #|vasses Γ| = #|mask| ->
+  dearg_cst_body_top mask (subst [s] k (it_mkLambda_or_LetIn Γ inner)) =
+  subst [s] k (dearg_cst_body_top mask (it_mkLambda_or_LetIn Γ inner)).
 Proof.
-  intros len_eq ev.
-  induction #|Γ| as [|Γlen IH] eqn:eq in Γ, len_eq, ev, inner, args |- *.
-  - destruct Γ, args; try easy.
-    exists (ctx_subst_nil _).
-    easy.
-  - destruct Γ as [|[na [body|]] Γ];
+  revert mask s k inner.
+  induction Γ as [|cd Γ IH]; intros mask s k inner len_eq.
+  - destruct mask; [|easy].
+    cbn in *.
+    rewrite !dearg_cst_body_top_nil.
+    now f_equal.
+  - destruct cd as [na [body|]];
       cbn in *; refold.
-    + easy.
-    + apply eval_mkApps_head in ev as ev_hd.
-      destruct ev_hd as (hdv & ev_hd).
-      apply eval_tLetIn_inv in ev_hd as ev_let.
-      destruct ev_let as (bodyv & ev_body & ev_let).
-      unshelve epose proof
-               (IH (subst_context bodyv 0 Γ)
-                   (csubst bodyv #|Γ| inner)
-                   args _ _ _) as IH.
-      * now rewrite vasses_subst_context.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        eapply eval_mkApps_heads; [exact ev_hd| |]; easy.
-      * now rewrite length_subst_context.
-      * destruct IH as (sub & ev_close_sub).
-        exists (ctx_subst_def _ _ _ _ _ na ev_body sub).
-        easy.
-    + destruct args as [|a args]; [easy|].
-      cbn in *.
-      apply eval_mkApps_head in ev as ev_hd.
-      destruct ev_hd as (hdv & ev_hd).
-      apply eval_tApp_tLambda_inv in ev_hd as ev_app.
-      destruct ev_app as (av & ev_a & ev_app).
-      unshelve epose proof
-               (IH (subst_context av 0 Γ)
-                   (csubst av #|Γ| inner)
-                   args _ _ _) as IH.
-      * now rewrite vasses_subst_context.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        eapply eval_mkApps_heads; [exact ev_hd| |]; easy.
-      * now rewrite length_subst_context.
-      * destruct IH as (sub & ev_close_sub).
-        exists (ctx_subst_ass _ _ _ _ _ na ev_a sub).
-        easy.
-Qed.
-
-Lemma dearg_cst_body_top_subst mask s k t :
-  valid_dearg_mask mask t ->
-  dearg_cst_body_top mask (subst [s] k t) =
-  subst [s] k (dearg_cst_body_top mask t).
-Proof.
-  revert mask s k.
-  induction t using term_forall_list_ind; intros mask s' k valid_mask; try easy.
-  - cbn in *.
-    destruct mask; [|easy].
-    now rewrite dearg_cst_body_top_nil.
-  - cbn in *.
-    destruct mask as [|[] mask].
-    + easy.
-    + rewrite IHt by easy.
-      unfold subst1.
-      now rewrite distr_subst.
-    + now rewrite IHt.
-  - cbn in *.
-    now rewrite IHt2.
+    + now rewrite IH by easy.
+    + destruct mask as [|[] mask].
+      * easy.
+      * rewrite IH by easy.
+        cbn in *.
+        unfold subst1.
+        now rewrite !distr_subst.
+      * now rewrite IH.
 Qed.
 
 Lemma eval_dearg_single_head Σ mask head args v :
@@ -603,7 +445,7 @@ Proof.
       propify.
       assert (closed bodyv) by (now eapply eval_closed).
       rewrite closed_subst in ev_let by easy.
-      rewrite <- dearg_cst_body_top_subst in ev_let by admit.
+      rewrite <- dearg_cst_body_top_subst in ev_let by easy.
       rewrite <- closed_subst in ev_let by easy.
       rewrite subst_it_mkLambda_or_LetIn in ev_let.
       cbn in *.
@@ -621,74 +463,32 @@ Proof.
         now eapply eval_atom.
       * eexists.
         now eapply eval_atom.
-        unfold subst1 in *.
-        rewrite <- dearg_cst_body_top_subst in ev by admit.
-        rewrite <- closed_subst in ev by easy.
-        rewrite subst_it_mkLambda_or_LetIn in ev.
-        cbn in *.
-        apply IH in ev as (tv & ev_tv).
-        -- exists tv.
-           rewrite <- subst_it_mkLambda_or_LetIn in ev_tv.
-           now econstructor.
-        -- rewrite <- subst_it_mkLambda_or_LetIn.
-           now apply closed_csubst.
-        -- now rewrite vasses_subst_context.
-        -- now rewrite length_subst_context.
-      apply ev_let in IH.
-    cbn in *; refold.
-    destruct cd as [na [body|]].
-    + cbn in *.
-      apply eval_tLetIn_inv in ev as (bodyv & ev_body & ev_let).
-      propify.
-      assert (closed bodyv) by (now eapply eval_closed).
-      rewrite closed_subst in ev_let by easy.
-      rewrite <- dearg_cst_body_top_subst in ev_let by admit.
-      rewrite <- closed_subst in ev_let by easy.
-      rewrite subst_it_mkLambda_or_LetIn in ev_let.
-      cbn in *.
-
-Lemma eval_dearg_cst_body_top_inv Σ mask t v :
-  env_closed Σ ->
-  closed t ->
-  valid_dearg_mask mask t ->
-  Σ ⊢ dearg_cst_body_top mask t ▷ v ->
-  exists tv, Σ ⊢ t ▷ tv.
-Proof.
-  intros env_clos t_clos valid_mask ev.
-  depind ev.
-  - replace t0 with (tApp a t) in * by admit.
-    cbn in *.
-    destruct mask; [|easy].
-    exists tBox.
-    now econstructor.
-  - replace t with (tApp f a) in * by admit.
-    cbn in *.
-    destruct mask; [|easy].
-    exists res.
-    now econstructor.
-  -
-    propify.
-    cbn in *.
-    exists
-  revert mask v.
-  induction t using term_forall_list_ind; intros mask v clos valid_mask ev; try easy.
-  - exists (tLambda n t).
-    now apply eval_atom.
-  - cbn in *.
-    propify.
-    apply eval_tLetIn_inv in ev.
-    destruct ev as (t1v & ev_t1 & ev_sub).
-    exists v.
-    rewrite closed_subst in ev_sub by (now eapply eval_closed).
-    rewrite <- dearg_cst_body_top_subst in ev_sub by easy.
+Qed.
 
 Lemma eval_dearg_single_heads Σ hd hd' hdv mask args v :
+  #|mask| = #|args| ->
   Σ ⊢ hd ▷ hdv ->
   Σ ⊢ hd' ▷ hdv ->
   Σ ⊢ dearg_single mask hd args ▷ v ->
   Σ ⊢ dearg_single mask hd' args ▷ v.
 Proof.
-  Admitted.
+  revert hd hd' hdv args v.
+  induction mask as [|[] mask IH]; intros hd hd' hdv args v len_eq ev_hd ev_hd' ev;
+    cbn in *.
+  - destruct args; [|easy].
+    now rewrite (eval_deterministic ev ev_hd).
+  - now destruct args.
+  - destruct args; [easy|].
+    cbn in *.
+    apply eval_dearg_single_head in ev as ev_app_hd; [|easy].
+    destruct ev_app_hd as (app_hdv & ev_app_hd).
+    eapply IH.
+    3: {
+      eapply eval_tApp_heads; [| |exact ev_app_hd].
+      all: easy.
+    }
+    all: easy.
+Qed.
 
 Lemma no_use_subst k t s s' :
   has_use k t = false ->
@@ -747,7 +547,7 @@ Proof.
       now rewrite Nat.add_succ_comm.
 Qed.
 
-Lemma dearg_single_correct mask body args Σ t :
+Lemma dearg_single_correct Σ mask body args Σ t :
   env_closed Σ ->
   closed body ->
   Forall (closedn 0) args ->
@@ -792,14 +592,17 @@ Proof.
       apply eval_dearg_single_head in IH as ev_top; [|easy].
       destruct ev_top as (topv & ev_top).
       rewrite subst_it_mkLambda_or_LetIn in ev_top.
-      apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top.
-      2: easy.
-      2: now apply closed_csubst.
-      destruct ev_sub_top as (sub_top & ev_sub_top).
-      eapply eval_dearg_single_heads; [exact ev_top| |easy].
-      econstructor; [easy|].
-      rewrite !closed_subst in * by easy.
-      now rewrite <- dearg_cst_body_top_subst.
+      apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top; cycle 1.
+      * easy.
+      * rewrite <- subst_it_mkLambda_or_LetIn.
+        now apply closed_csubst.
+      * now rewrite vasses_subst_context.
+      * destruct ev_sub_top as (sub_top & ev_sub_top).
+        rewrite <- subst_it_mkLambda_or_LetIn in ev_top.
+        eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
+        econstructor; [easy|].
+        rewrite !closed_subst in * by easy.
+        now rewrite <- dearg_cst_body_top_subst.
   - destruct mask as [|[] mask];
       cbn in *; refold.
     + easy.
@@ -827,19 +630,20 @@ Proof.
         now eapply eval_mkApps_heads; [exact ev_app| |]; easy.
       * now rewrite vasses_subst_context.
       * now rewrite length_subst_context.
-      * rewrite <- subst_it_mkLambda_or_LetIn in IH.
-        apply eval_dearg_single_head in IH as ev_top; [|easy].
+      * apply eval_dearg_single_head in IH as ev_top; [|easy].
         destruct ev_top as (topv & ev_top).
-        apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top.
-        2: easy.
-        2: now apply closed_csubst.
-        destruct ev_sub_top as (sub_top & ev_sub_top).
-        eapply eval_dearg_single_heads; [exact ev_top| |easy].
-        unfold subst1.
-        rewrite !closed_subst in * by easy.
-        rewrite <- dearg_cst_body_top_subst by easy.
-        erewrite no_use_subst by easy.
-        easy.
+        apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top; cycle 1.
+        -- easy.
+        -- rewrite <- subst_it_mkLambda_or_LetIn.
+           now apply closed_csubst.
+        -- now rewrite vasses_subst_context.
+        -- rewrite <- !subst_it_mkLambda_or_LetIn in *.
+           destruct ev_sub_top as (sub_top & ev_sub_top).
+           eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
+           unfold subst1.
+           rewrite !closed_subst in * by easy.
+           rewrite <- dearg_cst_body_top_subst by easy.
+           now erewrite no_use_subst.
     + destruct args as [|a args]; [easy|].
       cbn in *.
       apply eval_mkApps_head in ev as ev_app.
@@ -864,192 +668,22 @@ Proof.
         now eapply eval_mkApps_heads; [exact ev_app| |]; easy.
       * now rewrite vasses_subst_context.
       * now rewrite length_subst_context.
-      * rewrite <- subst_it_mkLambda_or_LetIn in IH.
-        apply eval_dearg_single_head in IH as ev_top; [|easy].
+      * apply eval_dearg_single_head in IH as ev_top; [|easy].
         destruct ev_top as (topv & ev_top).
-        apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top.
-        2: easy.
-        2: now apply closed_csubst.
-        destruct ev_sub_top as (sub_top & ev_sub_top).
-        eapply eval_dearg_single_heads; [exact ev_top| |easy].
-        unfold subst1.
-        rewrite !closed_subst in * by easy.
-        rewrite dearg_cst_body_top_subst in ev_top by easy.
-        rewrite <- closed_subst in ev_top by easy.
-        eapply eval_beta; [|easy|easy].
-        now eapply eval_atom.
+        apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top; cycle 1.
+        -- easy.
+        -- rewrite <- subst_it_mkLambda_or_LetIn.
+           now apply closed_csubst.
+        -- now rewrite vasses_subst_context.
+        -- rewrite <- !subst_it_mkLambda_or_LetIn in *.
+           destruct ev_sub_top as (sub_top & ev_sub_top).
+           eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
+           unfold subst1.
+           rewrite !closed_subst in * by easy.
+           rewrite dearg_cst_body_top_subst in ev_top by easy.
+           rewrite <- closed_subst in ev_top by easy.
+           eapply eval_beta; [|easy|easy].
+           now eapply eval_atom.
 Qed.
 
 Print Assumptions dearg_single_correct.
-
-Lemma foo :
-  #|mask| = #|args| ->
-  Σ ⊢ dearg_single mask  args ▷ res
-
-Inductive eval_apps Σ res : term -> list term -> Prop :=
-| eval_apps_nil t : Σ ⊢ t ▷ res -> eval_apps_nil Σ res t []
-| eval_apps_cons t args :
-    eval_apps Σ res t args ->
-    Σ ⊢ tApp t
-
-Fixpoint mkApps_eval_spine :
-  -> mkApps t
-
-
-      Σ ⊢ mkApps hd args ▷ res
-  apply eval_mkApps_subst_context in eval; [|congruence].
-
-  induction Γ.
-  - cbn in *.
-    destruct mask; [|easy].
-    destruct args; [|easy].
-    now rewrite dearg_cst_body_top_nil.
-  - cbn in *; refold.
-
-
-    rewrite <- it_mkLambda_or_LetIn_unfold in *.
-  revert mask body t.
-  induction args as [|a args IH] using List.rev_ind; intros mask body t eval valid_mask len_eq.
-  - destruct mask as [|b mask]; [|easy].
-    now rewrite dearg_cst_body_top_nil.
-  - rewrite mkApps_app.
-    rewrite app_length in len_eq.
-    destruct mask as [|b mask] using List.rev_ind.
-    + rewrite dearg_cst_body_top_nil.
-      cbn.
-      now rewrite Prelim.emkApps_snoc.
-    + clear IHmask.
-      rewrite app_length in len_eq.
-      rewrite dearg_single_snoc by (cbn in *; abstract lia).
-      destruct b.
-      * destruct (dearg_cst_body_top_snoc_true mask body valid_mask)
-          as (na & Γ & inner & -> & ->).
-
-        destruct (valid_dearg_mask_snoc_true mask body valid_mask)
-          as (na & inner_body & -> & no_use & valid_inner & ->).
-        apply IH; [|easy|cbn in *; abstract lia].
-      admit.
-      unfold dearg_single.
-      intros
-    inversion eval; subst; clear eval.
-    +
-      destruct b.
-      *
-  intros eval valid_mask.
-  revert args t eval mask valid_mask.
-  induction body using term_forall_list_ind; intros args t eval mask valid_mask len_eq;
-    try solve [
-          cbn in *;
-          destruct mask as [|[] ?];
-          now rewrite ?dearg_single_0_mask].
-  - cbn in *.
-    clear IHbody.
-    revert mask valid_mask len_eq.
-    induction args as [|a args IH]; cbn in *; intros mask valid_mask len_eq.
-    + destruct mask; easy.
-    + destruct mask as [|b mask]; [easy|].
-      destruct b; cbn in *.
-      *
-    admit.
-  - cbn in *.
-    induction mask as [|b mask]; [easy|].
-    destruct args as [|a args]; [easy|].
-    destruct b; cbn in *.
-    + (* Arg was removed, use the fact that there is no use to show that unlift
-         commutes with beta application in this case. *)
-
-    destruct mask as [|[] ?].
-    + cbn in *.
-
-  - cbn in *.
-    destruct mask as [|[] ?].
-    + easy.
-    + now rewrite dearg_single_0_mask by easy.
-    + now rewrite dearg_single_0_mask by easy.
-  - cbn in *.
-    assert (Forall (eq false) mask).
-    { destruct mask as [|[] ?]; auto. }
-    rewrite dearg_single_0_mask by easy.
-
-  - cbn in *.
-    destruct mask; [|easy].
-    cbn.
-    now rewrite dearg_cst_body_top_nil.
-  - destruct mask as [|b mask]; [easy|].
-    cbn in *.
-    destruct b.
-    + induction body using term_forall_list_ind;
-        try solve [cbn in *; inversion_clear valid_mask; congruence].
-      * cbn in *.
-        inversion_clear valid_mask; try congruence.
-      * cbn in *.
-        inversion_clear valid_mask.
-
-Definition const_mask_wf_top Σ (p : kername * bitmask) : Prop :=
-  exists cst,
-    declared_constant Σ p.1 cst /\
-    match cst_body cst with
-    | Some body => valid_dearg_mask p.2 body
-    | None => False
-    end.
-
-Definition const_masks_wf_top Σ : Prop :=
-  Forall (const_mask_wf_top Σ) const_masks.
-
-Fixpoint enough_lambdas (mask : bitmask) (body : term) : Prop :=
-  match mask, body with
-  | _ :: mask, tLambda _ body => enough_lambdas mask body
-  | mask, _ => Forall (eq false) mask
-  end.
-
-Definition case_shape
-           (ind : inductive) (npars : nat)
-           (brs : list (nat * term)) : Prop :=
-  match get_mib_masks ind_masks (inductive_mind ind) with
-  | Some mib_masks =>
-    npars = length (param_mask mib_masks) /\
-    ∥ Alli (fun c '(_, br) =>
-            match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
-                       (ctor_masks mib_masks) with
-            | Some (_, _, mask) => enough_lambdas mask br
-            | None => True
-            end)
-         0 brs ∥
-  | None => True
-  end.
-
-(* Proposition representing that all case branches have the correct shapes
-   (iterated lambdas) to be dearged. *)
-Fixpoint case_shapes (t : term) : Prop :=
-  match t with
-  | tBox => True
-  | tRel _ => True
-  | tVar _ => True
-  | tEvar _ ts => fold_right and True (map case_shapes ts)
-  | tLambda _ body => case_shapes body
-  | tLetIn _ val body => case_shapes val /\ case_shapes body
-  | tApp hd arg => case_shapes arg /\ case_shapes hd
-  | tConst kn => True
-  | tConstruct ind c => True
-  | tCase (ind, npars) discr brs => case_shape ind npars brs /\
-                                    fold_right and True (map (case_shapes ∘ snd) brs)
-  | tProj p t => case_shapes t
-  | tFix defs _
-  | tCoFix defs _ => fold_right and True (map (case_shapes ∘ dbody) defs)
-  end.
-
-Notation dearg_ctor := (dearg_ctor ind_masks).
-Notation dearg_consts := (dearg_const const_masks).
-Notation dearg_case := (dearg_case ind_masks).
-Notation dearg_aux := (dearg_aux ind_masks const_masks).
-Notation dearg := (dearg ind_masks const_masks).
-Notation dearg_cst := (dearg_cst ind_masks const_masks).
-Notation dearg_mib := (dearg_mib ind_masks).
-Notation dearg_decl := (dearg_decl ind_masks const_masks).
-Notation dearg_env := (dearg_env ind_masks const_masks).
-
-Theorem dearg_env_eval Σ s t :
-  trans Σ ⊢ s ▷ t ->
-  const_masks_wf_top Σ ->
-  trans (dearg_env Σ) ⊢ dearg s ▷ dearg t.
-Proof.

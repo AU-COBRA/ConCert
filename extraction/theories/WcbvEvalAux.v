@@ -490,6 +490,18 @@ Proof.
   - admit.
 Admitted.
 
+Lemma decompose_app_ex hd :
+  exists hd' args',
+    hd = mkApps hd' args' /\
+    negb (isApp hd').
+Proof.
+  destruct (decompose_app hd) as [hd' args'] eqn:decomp_eq.
+  exists hd', args'.
+  split.
+  - now apply decompose_app_inv.
+  - now eapply decompose_app_notApp.
+Qed.
+
 Lemma eval_tApp_heads Σ hd hd' hdv arg v :
   Σ ⊢ hd ▷ hdv ->
   Σ ⊢ hd' ▷ hdv ->
@@ -503,7 +515,8 @@ Proof.
   - rewrite (eval_deterministic ev_hd ev_app1) in *.
     now eapply eval_beta.
   - admit.
-  - admit.
+  - destruct (mkApps_elim f args).
+    admit.
   - rewrite (eval_deterministic ev_hd ev_app1) in *.
     now eapply eval_app_cong.
   - easy.
@@ -515,7 +528,21 @@ Lemma eval_mkApps_heads Σ hd hd' hdv args v :
   Σ ⊢ mkApps hd args ▷ v ->
   Σ ⊢ mkApps hd' args ▷ v.
 Proof.
-  Admitted.
+  revert hd hd' hdv v.
+  induction args as [|a args]; intros hd hd' hdv v ev_hd ev_hd' ev.
+  - cbn in *.
+    now rewrite (eval_deterministic ev ev_hd) in *.
+  - cbn in *.
+    apply eval_mkApps_head in ev as ev_app_hd.
+    destruct ev_app_hd as (app_hdv & ev_app_hd).
+    eapply IHargs.
+    2: {
+      eapply eval_tApp_heads; [| |exact ev_app_hd].
+      all: easy.
+    }
+    + easy.
+    + easy.
+Qed.
 
 Lemma mkApps_csubst Σ a av na body args v :
   Σ ⊢ a ▷ av ->
@@ -717,7 +744,7 @@ Proof.
   - propify.
     easy.
   - easy.
-Qed.
+Admitted.
 
 
 (*
