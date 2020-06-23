@@ -21,6 +21,9 @@ Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
 
+(* Any contract that wants to receive callback messages from the FA2 contract
+   should have this type as its Msg type. The contract may have other endpoints,
+   as composed in the 'other_msg' constructor *)
 Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
   | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
   | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
@@ -29,10 +32,12 @@ Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
   | receive_permissions_descriptor : permissions_descriptor -> FA2ReceiverMsg
   | other_msg : Msg' -> FA2ReceiverMsg.
 
+(* Transfer hook contracts of the FA2 Contract should use this type as their Msg type *)
 Inductive FA2TransferHook {Msg : Type} `{Serializable Msg} :=
   | transfer_hook : transfer_descriptor_param -> FA2TransferHook
   | hook_other_msg : Msg -> FA2TransferHook.
 
+(* The FA2 Endpoints. *)
 Inductive Msg := 
   | msg_transfer : list transfer -> Msg
   | msg_set_transfer_hook : set_hook_param -> Msg
@@ -63,7 +68,7 @@ Record State :=
 
 Record Setup :=
   build_setup {
-    setup_total_supply        : list (token_id * N); (* is this necessary? *)
+    setup_total_supply        : list (token_id * N);
     setup_tokens              : FMap token_id token_metadata;
     initial_permission_policy : permissions_descriptor;
     transfer_hook_addr_       : option Address;
@@ -156,6 +161,7 @@ Definition get_owner_operator_tokens (owner operator : Address)
   do operator_tokens <- FMap.find owner state.(operators) ;
   FMap.find operator operator_tokens.
 
+(* Executes a single transfer by returning a new state, if successful. *)
 Definition try_single_transfer (caller : Address)
                                (params : transfer)
                                (state : State)
@@ -193,6 +199,8 @@ Definition transfer_check_permissions (caller : Address)
                                else None
     end.
 
+(* Executes all transfers in a batch operation and returns a new state if *all*
+   transfers were successful. *)
 Definition try_transfer (caller : Address)
                         (transfers : list transfer)
                         (state : State)
@@ -288,7 +296,6 @@ Definition handle_transfer (caller : Address)
   end.
 
 Open Scope bool_scope.
-
 Definition mk_transfer_from_decr descr := 
 {|
   from_ := descr.(transfer_descr_from_);
@@ -297,7 +304,6 @@ Definition mk_transfer_from_decr descr :=
   amount := descr.(transfer_descr_amount);    
   sender_callback_addr := None (* Some param.(transfer_descr_operator) *) 
 |}.
-
 
 Definition handle_transfer_hook_receive (caller : Address)
                                         (param : transfer_descriptor_param)
@@ -315,6 +321,7 @@ Definition handle_transfer_hook_receive (caller : Address)
   try_transfer param.(transfer_descr_operator) transfers state.
 Close Scope bool_scope.
 
+(* create a 'balance_of' action to send to the callback address *)
 Definition get_balance_of_callback (caller : Address)
                                    (param : balance_of_param)
                                    (state : State)
@@ -326,6 +333,7 @@ Definition get_balance_of_callback (caller : Address)
   let response_msg := serialize (receive_balance_of_param responses) in
   act_call caller 0%Z response_msg .
 
+(* create a 'total_supply' action to send to the callback address *)
 Definition get_total_supply_callback (caller : Address)
                                      (param : total_supply_param)
                                      (state : State)
@@ -340,7 +348,7 @@ Definition get_total_supply_callback (caller : Address)
   let response_msg := serialize (receive_total_supply_param responses) in
   act_call caller 0%Z response_msg.
   
-
+(* Updates operators if policy allows it, and if the caller is the owner. *)
 Definition update_operators (caller : Address)
                             (updates : list update_operator)
                             (state : State)
@@ -422,6 +430,7 @@ Definition get_token_metadata_callback (caller : Address)
   let response := serialize (receive_metadata_callback metadata_list) in
   act_call caller 0%Z response.
 
+(* creates some tokens with a fixed exchange ratio of 1:100 *)
 Definition try_create_tokens (caller : Address)
                              (amount : Amount)
                              (tokenid : token_id)

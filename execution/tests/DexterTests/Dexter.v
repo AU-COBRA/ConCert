@@ -16,6 +16,10 @@ From Coq Require Import Program.Basics.
 Notation "f 'o' g" := (compose f g) (at level 50).
 Require Import FA2Token FA2Interface.
 
+
+(* A liquidity exchange contract inspired by the Dexter contract.
+   Allows for exchanging tokens to money, and allows the owner to add tokens to the
+   reserve held by this contract. *)
 Section Dexter.
 Context {BaseTypes : ChainBase}.
 Set Primitive Projections.

@@ -28,9 +28,7 @@ Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Addre
                   end)  
                 els_list []).
 
-
-
-(* Will try to generate a transfer between existing accounts in the token contract's state.
+(* This function tries to generate a transfer between existing accounts in the token contract's state.
 	 Otherwise tries to use accounts in the Blockchain state.
 	 Has a small chance to transfer between "fresh" accounts. *)
 Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address * Msg) := 
@@ -39,8 +37,7 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 	let randomize_mk_gen g := (* the probability of sampling fresh accounts grows smaller over time *)
 		freq [
 			(weight_1, returnGen g) ;
-			(* TODO: only generate non_contract addresses *)
-			(0, from_addr <- arbitrary ;; (* TODO: temporarily set to 0 *)
+			(0, from_addr <- arbitrary ;;
 					to_addr <- arbitrary ;;
 					returnGen (from_addr, transfer to_addr 0%N))
 		] in
@@ -54,13 +51,13 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
 		| None => to_addr <- arbitrary ;; randomize_mk_gen (addr, transfer to_addr transfer_amount)
 		end	
 	(* if the contract state contains no accounts, just transfer 0 tokens between two arbitrary accounts *)
-	(* TODO: only generate non_contract addresses *)
 	| None => from_addr <- arbitrary ;;
 						to_addr <- arbitrary ;;
 						returnGen (from_addr, transfer to_addr 0%N)
 	end.
 Local Open Scope N_scope.
-(* TODO: not super good implementation. Should filter on balances map instead of first sampling and then filtering *)
+
+(* Note: not optimal implementation. Should filter on balances map instead of first sampling and then filtering *)
 Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) := 
 	bindGenOpt (sample2UniqueFMapOpt state.(balances)) (fun p =>
 		let addr1 := fst (fst p) in
@@ -92,7 +89,7 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
 	)).
 
 Local Close Scope N_scope.
-(* Main generator *)
+(* Main generator. *)
 Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (option Action) := 
   let mk_call contract_addr caller_addr msg :=
 		returnGen (Some {|
@@ -129,5 +126,4 @@ Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (op
 				mk_call contract_addr' (fst caller_msg_pair) (snd caller_msg_pair)
 				))
 		)
-		
-		].
+	].

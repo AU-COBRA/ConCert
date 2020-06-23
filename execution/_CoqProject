@@ -34,7 +34,6 @@ examples/LocalBlockchainTests.v
 examples/BAT.v
 examples/FA2Interface.v
 examples/FA2Token.v
-examples/Dexter.v
 examples/Escrow.v
 examples/Euler.v
 examples/LocalBlockchainTests.v
