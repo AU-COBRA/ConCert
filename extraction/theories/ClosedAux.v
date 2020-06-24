@@ -184,14 +184,24 @@ Proof.
   now destruct (kername_eq_dec kn kn').
 Qed.
 
+Lemma closedn_subst0 s k t :
+  Forall (closedn k) s ->
+  closedn (k + #|s|) t ->
+  closedn k (subst0 s t).
+Proof.
+  intros all clos.
+  rewrite <- (Nat.add_0_r k).
+  apply closedn_subst; [easy|].
+  now rewrite Nat.add_0_r.
+Qed.
+
 Lemma closed_csubst t k u : closed t -> closedn (S k) u -> closedn k (csubst t 0 u).
 Proof.
   intros clost closu.
   rewrite closed_subst by easy.
-  rewrite <- (Nat.add_0_r k) at 1.
-  apply closedn_subst.
+  apply closedn_subst0.
   - constructor; [|easy].
     now eapply closed_upwards.
-  - cbn in *.
-    now replace (k + 0 + 1) with (S k).
+  - cbn.
+    now rewrite Nat.add_1_r.
 Qed.

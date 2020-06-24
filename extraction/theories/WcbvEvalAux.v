@@ -673,6 +673,71 @@ Proof.
   now inversion decl_const; subst.
 Qed.
 
+Lemma closed_unfold_fix mfix idx narg fn :
+  closed (tFix mfix idx) ->
+  ETyping.unfold_fix mfix idx = Some (narg, fn) ->
+  closed fn.
+Proof.
+  cbn.
+  intros clos_fix fix_eq.
+  rewrite Nat.add_0_r in *.
+  unfold ETyping.unfold_fix in *.
+  destruct (nth_error mfix idx) eqn:Heq; [|easy].
+  noconf fix_eq.
+  eapply closedn_subst0.
+  - clear Heq.
+    unfold ETyping.fix_subst.
+    generalize #|mfix|.
+    induction n as [|n IH]; [easy|].
+    constructor.
+    + cbn.
+      now rewrite Nat.add_0_r.
+    + easy.
+  - apply nth_error_In in Heq.
+    apply forallb_Forall in clos_fix.
+    rewrite Forall_forall in clos_fix.
+    now rewrite ETyping.fix_subst_length.
+Qed.
+
+Lemma closed_unfold_cofix mfix idx narg fn :
+  closed (tFix mfix idx) ->
+  ETyping.unfold_cofix mfix idx = Some (narg, fn) ->
+  closed fn.
+Proof.
+  cbn.
+  intros clos_fix fix_eq.
+  rewrite Nat.add_0_r in *.
+  unfold ETyping.unfold_cofix in *.
+  destruct (nth_error mfix idx) eqn:Heq; [|easy].
+  noconf fix_eq.
+  eapply closedn_subst0.
+  - clear Heq.
+    unfold ETyping.cofix_subst.
+    generalize #|mfix|.
+    induction n as [|n IH]; [easy|].
+    constructor.
+    + cbn.
+      now rewrite Nat.add_0_r.
+    + easy.
+  - apply nth_error_In in Heq.
+    apply forallb_Forall in clos_fix.
+    rewrite Forall_forall in clos_fix.
+    now rewrite ETyping.cofix_subst_length.
+Qed.
+
+Lemma all_closed Σ args args' :
+  Forall (closedn 0) args ->
+  Forall2 (eval Σ) args args' ->
+  Forall2 (fun t v => closed t -> closed v) args args' ->
+  Forall (closedn 0) args'.
+Proof.
+  intros args_clos args_eval impl_clos.
+  induction args_eval; [easy|].
+  depelim args_clos.
+  depelim impl_clos.
+  easy.
+Qed.
+
 Lemma eval_closed Σ t v :
   env_closed Σ ->
   closed t ->
@@ -680,29 +745,25 @@ Lemma eval_closed Σ t v :
   closed v.
 Proof.
   intros env_clos clos ev.
-  induction ev using eval_evals_ind; cbn in *.
+  induction ev using eval_evals_ind; cbn in *; propify.
   - easy.
-  - propify.
-    apply IHev3.
+  - apply IHev3.
     now apply closed_csubst.
-  - propify.
-    apply IHev2.
+  - apply IHev2.
     now apply closed_csubst.
   - apply IHev.
     pose proof (closed_constant _ _ _ env_clos H).
     now rewrite H0 in *.
-  - propify.
-    apply IHev2.
+  - apply IHev2.
     unfold ETyping.iota_red.
     apply closed_mkApps.
     + destruct clos as (_ & clos).
       clear -clos.
-      revert c.
-      induction brs; intros c.
-      * now rewrite nth_nth_error, nth_error_nil.
-      * cbn in *.
-        propify.
-        now destruct a, c.
+      rewrite forallb_forall in clos.
+      rewrite nth_nth_error.
+      destruct (nth_error _ _) eqn:nth; [|easy].
+      apply nth_error_In in nth.
+      now apply clos.
     + apply Forall_skipn.
       eapply closed_mkApps_args.
       apply IHev1.
@@ -721,31 +782,35 @@ Proof.
     rewrite nth_nth_error in *.
     destruct (nth_error _ _) eqn:nth_eq.
     + apply nth_error_In in nth_eq.
-      now rewrite Forall_forall in IHev1.
+      rewrite Forall_forall in IHev1.
+      now apply IHev1.
     + easy.
   - easy.
   - apply IHev2.
-    specialize (IHev1 (closed_mkApps_head _ _ clos)).
+    apply closed_mkApps_inv in clos.
     apply closed_mkApps.
-    + apply forallb_Forall in IHev1.
-      unfold cunfold_fix in H.
-      destruct (nth_error mfix idx) eqn:nth_eq; [|easy].
-      apply nth_error_In in nth_eq.
-      rewrite Forall_forall in IHev1.
-      exact (todo "Fixpoint unfold").
-    + exact (todo "Fixpoint args").
-  - apply closed_mkApps.
-    + cbn.
-      apply IHev.
-      now eapply closed_mkApps_head.
-    + exact (todo "Stuck fixpoint unfold").
-  - exact (todo "CoFix").
-  - exact (todo "CoFix").
-  - propify.
-    easy.
+    + rewrite <- closed_unfold_fix_cunfold_eq in * by easy.
+      now eapply closed_unfold_fix.
+    + now eapply (all_closed _ args args').
+  - apply closed_mkApps_inv in clos as (? & ?).
+    apply closed_mkApps; [easy|].
+    now eapply (all_closed _ args args').
+  - apply IHev.
+    split; [|easy].
+    destruct clos as (clos & _).
+    apply closed_mkApps_inv in clos.
+    cbn in *.
+    apply closed_mkApps; [|easy].
+    rewrite <- closed_unfold_cofix_cunfold_eq in * by easy.
+    now eapply closed_unfold_cofix.
+  - apply IHev.
+    apply closed_mkApps_inv in clos.
+    apply closed_mkApps; [|easy].
+    rewrite <- closed_unfold_cofix_cunfold_eq in * by easy.
+    now eapply closed_unfold_cofix.
   - easy.
-Admitted.
-
+  - easy.
+Qed.
 
 (*
 Lemma eval_deterministic Σ t v v' :

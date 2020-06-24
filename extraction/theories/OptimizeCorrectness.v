@@ -547,7 +547,7 @@ Proof.
       now rewrite Nat.add_succ_comm.
 Qed.
 
-Lemma dearg_single_correct Σ mask body args Σ t :
+Lemma dearg_single_correct Σ body args mask t :
   env_closed Σ ->
   closed body ->
   Forall (closedn 0) args ->
@@ -686,4 +686,4 @@ Proof.
            now eapply eval_atom.
 Qed.
 
-Print Assumptions dearg_single_correct.
+Lemma
