@@ -74,6 +74,8 @@ Fixpoint bitmask_or (bs1 bs2 : bitmask) : bitmask :=
   | bs1, [] => bs1
   end.
 
+Notation "bs #|| bs'" := (bitmask_or bs bs') (at level 50, left associativity).
+
 Definition trim_start (b : bool) : bitmask -> bitmask :=
   fix f bs :=
     match bs with
@@ -275,7 +277,7 @@ Fixpoint used_context_vars (Γ : bitmask) (t : term) : bitmask :=
   | tFix defs _
   | tCoFix defs _ =>
     let Γfix := List.repeat false #|defs| ++ Γ in
-    let Γfix := fold_right bitmask_or Γ (map (used_context_vars Γfix ∘ dbody) defs) in
+    let Γfix := fold_right bitmask_or Γfix (map (used_context_vars Γfix ∘ dbody) defs) in
     skipn #|defs| Γfix
   end.
 

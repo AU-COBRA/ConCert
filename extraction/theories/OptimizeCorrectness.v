@@ -650,3 +650,138 @@ Proof.
            eapply eval_beta; [|easy|easy].
            now eapply eval_atom.
 Qed.
+
+Lemma nth_set_bit_eq k bs d :
+  nth k (set_bit k bs) d = true.
+Proof.
+  revert bs.
+  induction k as [|k IH]; intros bs.
+  - now destruct bs.
+  - cbn.
+    now destruct bs.
+Qed.
+
+Lemma nth_set_bit_neq k k' bs :
+  k <> k' ->
+  nth k (set_bit k' bs) false = nth k bs false.
+Proof.
+  revert bs k'.
+  induction k as [|k IH]; intros bs k' ne.
+  - destruct k'; [easy|].
+    now destruct bs.
+  - destruct k'.
+    + destruct bs; [|easy].
+      now destruct k.
+    + destruct bs.
+      * cbn.
+        assert (k <> k') by easy.
+        clear -H.
+        revert k H.
+        induction k'; intros k H.
+        -- cbn.
+           destruct k; [easy|].
+           now destruct k.
+        -- cbn.
+           destruct k; [easy|].
+           easy.
+      * cbn.
+        easy.
+Qed.
+
+Lemma nth_bitmask_or k bs1 bs2 :
+  nth k (bs1 #|| bs2) false = nth k bs1 false || nth k bs2 false.
+Proof.
+  revert bs1 bs2.
+  induction k; intros bs1 bs2.
+  + cbn.
+    destruct bs1, bs2; try easy.
+    cbn.
+    now rewrite orb_false_r.
+  + destruct bs1, bs2; try easy.
+    * cbn in *.
+      now rewrite orb_false_r.
+    * cbn in *.
+      easy.
+Qed.
+
+Lemma nth_tl {A} k (l : list A) d :
+  nth k (tl l) d = nth (S k) l d.
+Proof.
+  destruct l.
+  - now destruct k.
+  - easy.
+Qed.
+
+Lemma used_context_vars_has_use k bs t :
+  nth k (used_context_vars bs t) false = nth k bs false || has_use k t.
+Proof.
+  revert k bs.
+  induction t using term_forall_list_ind; intros k bs; cbn in *;
+    rewrite ?orb_false_r; auto.
+  - destruct (Nat.eqb_spec n k) as [->|].
+    + rewrite nth_set_bit_eq.
+      now rewrite orb_true_r.
+    + rewrite nth_set_bit_neq by easy.
+      now rewrite orb_false_r.
+  - revert k bs.
+    induction H; intros k bs.
+    + cbn.
+      now rewrite orb_false_r.
+    + cbn.
+      rewrite nth_bitmask_or.
+      rewrite H.
+      rewrite orb_assoc.
+      rewrite IHForall.
+      now destruct (nth k bs false).
+  - now rewrite nth_tl, IHt.
+  - rewrite nth_tl.
+    rewrite IHt2.
+    cbn.
+    rewrite IHt1.
+    now rewrite orb_assoc.
+  - rewrite IHt2, IHt1.
+    now rewrite orb_assoc.
+  - rewrite orb_assoc.
+    induction X; cbn in *.
+    + rewrite IHt.
+      now rewrite orb_false_r.
+    + rewrite nth_bitmask_or.
+      rewrite p0, IHt.
+      rewrite orb_assoc.
+      rewrite IHX.
+      destruct (nth k bs false); [easy|].
+      destruct (has_use k t); [easy|].
+      easy.
+  - rewrite nth_nth_error, nth_error_skipn, <- nth_nth_error.
+    generalize #|m|.
+    intros.
+    induction H; cbn in *.
+    + rewrite app_nth2; rewrite repeat_length; [|easy].
+      rewrite minus_plus.
+      now rewrite orb_false_r.
+    + rewrite nth_bitmask_or.
+      rewrite H.
+      rewrite app_nth2; rewrite repeat_length; [|easy].
+      rewrite minus_plus.
+      rewrite orb_assoc.
+      rewrite IHForall.
+      destruct (nth k bs false); [|easy].
+      rewrite Nat.add_comm.
+      now destruct (has_use _ _).
+  - rewrite nth_nth_error, nth_error_skipn, <- nth_nth_error.
+    generalize #|m|.
+    intros.
+    induction H; cbn in *.
+    + rewrite app_nth2; rewrite repeat_length; [|easy].
+      rewrite minus_plus.
+      now rewrite orb_false_r.
+    + rewrite nth_bitmask_or.
+      rewrite H.
+      rewrite app_nth2; rewrite repeat_length; [|easy].
+      rewrite minus_plus.
+      rewrite orb_assoc.
+      rewrite IHForall.
+      destruct (nth k bs false); [|easy].
+      rewrite Nat.add_comm.
+      now destruct (has_use _ _).
+Qed.
