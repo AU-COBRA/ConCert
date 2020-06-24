@@ -573,7 +573,7 @@ Proof.
     propify.
     assert (closed bodyv) by (now eapply eval_closed).
     unshelve epose proof
-             (IH mask args
+             (IH args mask
                  (subst_context bodyv 0 Γ)
                  (csubst bodyv #|Γ| inner)
                  _ _ _ _ _ _ _) as IH.
@@ -603,87 +603,50 @@ Proof.
         econstructor; [easy|].
         rewrite !closed_subst in * by easy.
         now rewrite <- dearg_cst_body_top_subst.
-  - destruct mask as [|[] mask];
+  - destruct mask as [|b mask]; [easy|];
       cbn in *; refold.
+    destruct args as [|a args]; [easy|].
+    cbn in *.
+    apply eval_mkApps_head in ev as ev_app.
+    destruct ev_app as (appv & ev_app).
+    apply eval_tApp_tLambda_inv in ev_app as ev_subst.
+    destruct ev_subst as (av & ev_a & ev_subst).
+    assert (closed av).
+    { apply Forall_inv in args_clos.
+      now eapply eval_closed. }
+    unshelve epose proof
+    (IH args mask
+        (subst_context av 0 Γ)
+        (csubst av #|Γ| inner)
+        _ _ _ _ _ _ _) as IH.
+    + rewrite <- subst_it_mkLambda_or_LetIn.
+      now apply closed_csubst.
+    + now apply Forall_inv_tail in args_clos.
+    + rewrite <- subst_it_mkLambda_or_LetIn.
+      now apply valid_dearg_mask_csubst.
     + easy.
-    + destruct args as [|a args]; [easy|].
-      cbn in *.
-      apply eval_mkApps_head in ev as ev_app.
-      destruct ev_app as (appv & ev_app).
-      apply eval_tApp_tLambda_inv in ev_app as ev_subst.
-      destruct ev_subst as (av & ev_a & ev_subst).
-      assert (closed av).
-      { apply Forall_inv in args_clos.
-        now eapply eval_closed. }
-      unshelve epose proof
-      (IH mask args
-          (subst_context av 0 Γ)
-          (csubst av #|Γ| inner)
-          _ _ _ _ _ _ _) as IH.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        now apply closed_csubst.
-      * now apply Forall_inv_tail in args_clos.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        now apply valid_dearg_mask_csubst.
+    + rewrite <- subst_it_mkLambda_or_LetIn.
+      now eapply eval_mkApps_heads; [exact ev_app| |]; easy.
+    + now rewrite vasses_subst_context.
+    + now rewrite length_subst_context.
+    + apply eval_dearg_single_head in IH as ev_top; [|easy].
+      destruct ev_top as (topv & ev_top).
+      apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top; cycle 1.
       * easy.
       * rewrite <- subst_it_mkLambda_or_LetIn.
-        now eapply eval_mkApps_heads; [exact ev_app| |]; easy.
+        now apply closed_csubst.
       * now rewrite vasses_subst_context.
-      * now rewrite length_subst_context.
-      * apply eval_dearg_single_head in IH as ev_top; [|easy].
-        destruct ev_top as (topv & ev_top).
-        apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top; cycle 1.
-        -- easy.
-        -- rewrite <- subst_it_mkLambda_or_LetIn.
-           now apply closed_csubst.
-        -- now rewrite vasses_subst_context.
-        -- rewrite <- !subst_it_mkLambda_or_LetIn in *.
-           destruct ev_sub_top as (sub_top & ev_sub_top).
-           eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
+      * rewrite <- !subst_it_mkLambda_or_LetIn in *.
+        destruct ev_sub_top as (sub_top & ev_sub_top).
+        rewrite !closed_subst in * by easy.
+        destruct b.
+        -- eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
            unfold subst1.
-           rewrite !closed_subst in * by easy.
            rewrite <- dearg_cst_body_top_subst by easy.
            now erewrite no_use_subst.
-    + destruct args as [|a args]; [easy|].
-      cbn in *.
-      apply eval_mkApps_head in ev as ev_app.
-      destruct ev_app as (appv & ev_app).
-      apply eval_tApp_tLambda_inv in ev_app as ev_subst.
-      destruct ev_subst as (av & ev_a & ev_subst).
-      assert (closed av).
-      { apply Forall_inv in args_clos.
-        now eapply eval_closed. }
-      unshelve epose proof
-      (IH mask args
-          (subst_context av 0 Γ)
-          (csubst av #|Γ| inner)
-          _ _ _ _ _ _ _) as IH.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        now apply closed_csubst.
-      * now apply Forall_inv_tail in args_clos.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        now apply valid_dearg_mask_csubst.
-      * easy.
-      * rewrite <- subst_it_mkLambda_or_LetIn.
-        now eapply eval_mkApps_heads; [exact ev_app| |]; easy.
-      * now rewrite vasses_subst_context.
-      * now rewrite length_subst_context.
-      * apply eval_dearg_single_head in IH as ev_top; [|easy].
-        destruct ev_top as (topv & ev_top).
-        apply eval_dearg_cst_body_top_inv in ev_top as ev_sub_top; cycle 1.
-        -- easy.
-        -- rewrite <- subst_it_mkLambda_or_LetIn.
-           now apply closed_csubst.
-        -- now rewrite vasses_subst_context.
-        -- rewrite <- !subst_it_mkLambda_or_LetIn in *.
-           destruct ev_sub_top as (sub_top & ev_sub_top).
-           eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
-           unfold subst1.
-           rewrite !closed_subst in * by easy.
+        -- eapply eval_dearg_single_heads; [easy|exact ev_top| |easy].
            rewrite dearg_cst_body_top_subst in ev_top by easy.
            rewrite <- closed_subst in ev_top by easy.
            eapply eval_beta; [|easy|easy].
            now eapply eval_atom.
 Qed.
-
-Lemma
