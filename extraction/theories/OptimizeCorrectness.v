@@ -785,3 +785,21 @@ Proof.
       rewrite Nat.add_comm.
       now destruct (has_use _ _).
 Qed.
+
+Lemma func_body_used_params_valid_mask uses_before t ty use_mask uses_after :
+  Forall (eq false) uses_before ->
+  func_body_used_params uses_before t ty = (use_mask, uses_after) ->
+  valid_dearg_mask (bitmask_not use_mask) t.
+Proof.
+  revert uses_before ty use_mask uses_after.
+  induction t using term_forall_list_ind;
+    intros uses_before ty use_mask uses_after all_false fun_eq;
+    cbn in *;
+    try solve [now noconf fun_eq].
+  - destruct use_mask as [|b use_mask]; [easy|].
+    destruct ty; try solve [noconf fun_eq].
+    cbn in *.
+    destruct (func_body_used_params _ _ _) eqn:fun_eq'.
+    apply IHt in fun_eq'; [|easy].
+    noconf fun_eq.
+    split; [|easy].

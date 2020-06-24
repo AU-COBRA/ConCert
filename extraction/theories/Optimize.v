@@ -61,7 +61,7 @@ Fixpoint set_bit (n : nat) (bs : bitmask) : bitmask :=
 Definition has_bit (n : nat) (bs : bitmask) : bool :=
   nth n bs false.
 
-Fixpoint bitmask_not (bs : bitmask) : bitmask :=
+Definition bitmask_not (bs : bitmask) : bitmask :=
   map negb bs.
 
 Definition count_zeros (bs : bitmask) : nat :=
