@@ -7,14 +7,14 @@ The work on this fork is aimed at building infrastructure for random property te
 ## How to build
 
 
-Our development works with Coq 8.10. and depends on MetaCoq 1.0,
-std++ and coq-bignums. These dependencies can be installed through `opam`.
+Our development works with Coq 8.11. and depends on MetaCoq 1.0,
+std++ and coq-bignums. The tests depend on QuickChick. These dependencies can be installed through `opam`.
 
 Install Coq (see https://coq.inria.fr/opam-using.html for detailed instructions on how to manage
 multiple Coq installations using opam).:
 
 ```bash
-opam install coq.8.10
+opam install coq.8.11
 ```
 
 Then MetaCoq and bignums:
@@ -29,6 +29,10 @@ And std++:
 ```bash
 opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam install coq-stdpp
+```
+
+```quickchick
+opam install coq-quickchick
 ```
 
 After completing the procedures above, run `make` to build the development, and
