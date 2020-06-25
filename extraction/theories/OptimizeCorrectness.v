@@ -93,10 +93,6 @@ Proof.
     now destruct (kername_eq_dec _ _).
 Qed.
 
-Section dearg_correctness.
-Context (ind_masks : list (kername * mib_masks)).
-Context (const_masks : list (kername * bitmask)).
-
 Fixpoint has_use (rel : nat) (t : term) : bool :=
   match t with
   | tRel i => i =? rel
@@ -786,20 +782,326 @@ Proof.
       now destruct (has_use _ _).
 Qed.
 
+Lemma hd_nth {A} d (l : list A) :
+  hd d l = nth 0 l d.
+Proof. now destruct l. Qed.
+
 Lemma func_body_used_params_valid_mask uses_before t ty use_mask uses_after :
-  Forall (eq false) uses_before ->
   func_body_used_params uses_before t ty = (use_mask, uses_after) ->
+  uses_after = used_context_vars uses_before t /\
   valid_dearg_mask (bitmask_not use_mask) t.
 Proof.
   revert uses_before ty use_mask uses_after.
   induction t using term_forall_list_ind;
-    intros uses_before ty use_mask uses_after all_false fun_eq;
+    intros uses_before ty use_mask uses_after fun_eq;
     cbn in *;
     try solve [now noconf fun_eq].
-  - destruct use_mask as [|b use_mask]; [easy|].
-    destruct ty; try solve [noconf fun_eq].
-    cbn in *.
+  - destruct ty; try solve [now noconf fun_eq].
     destruct (func_body_used_params _ _ _) eqn:fun_eq'.
-    apply IHt in fun_eq'; [|easy].
     noconf fun_eq.
+    apply IHt in fun_eq' as (-> & valid).
+    split; [easy|].
+    cbn.
     split; [|easy].
+    destruct (hd false _) eqn:hd_eq; [easy|].
+    cbn.
+    rewrite hd_nth in hd_eq.
+    now rewrite used_context_vars_has_use in hd_eq.
+  - destruct (func_body_used_params _ _ _) eqn:fun_eq'.
+    noconf fun_eq.
+    now apply IHt2 in fun_eq'.
+Qed.
+
+Section dearg_correct.
+Context (ind_masks : list (kername * mib_masks)).
+Context (const_masks : list (kername * bitmask)).
+Notation dearg := (dearg ind_masks const_masks).
+Notation dearg_aux := (dearg_aux ind_masks const_masks).
+
+Lemma dearg_mkApps hd args :
+  dearg (mkApps hd args) = dearg_aux (map dearg args) hd.
+Proof.
+  Admitted.
+
+Lemma dearg_aux_mkApps args args' hd :
+  dearg_aux args (mkApps hd args') = dearg_aux (map dearg args' ++ args) hd.
+Proof.
+  revert args hd.
+  induction args' as [|a args' IH]; intros args hd; [easy|].
+  cbn.
+  now rewrite IH.
+Qed.
+
+Lemma dearg_single_app bs t args args' :
+  dearg_single bs t (args ++ args') =
+  dearg_single (skipn #|args| bs) (dearg_single (firstn #|args| bs) t args) args'.
+Proof.
+  revert t args args'.
+  induction bs as [|[] bs IH]; intros t args args'; cbn in *.
+  - now rewrite firstn_nil, skipn_nil, mkApps_app.
+  - now destruct args; cbn.
+  - now destruct args; cbn.
+Qed.
+
+Lemma dearg_single_mask_length Σ bs h args v :
+  Σ ⊢ dearg_single bs h args ▷ v ->
+  (forall na b, v <> tLambda na b) ->
+  #|bs| <= #|args|.
+Proof.
+  intros ev disc.
+  revert args h ev.
+  induction bs as [|b bs IH]; intros args h ev; cbn in *; [easy|].
+  destruct b, args; cbn in *;
+    (try apply eval_tLambda_inv in ev; subst); intuition.
+Qed.
+
+Lemma csubst_mkApps s k t args :
+  csubst s k (mkApps t args) =
+  mkApps (csubst s k t) (map (csubst s k) args).
+Proof.
+  revert s k t.
+  induction args as [|a args IH]; intros s k t; cbn in *; [easy|].
+  now rewrite IH.
+Qed.
+
+(*
+Lemma csubst_dearg_aux args s k t :
+  csubst (dearg_aux args s) k (dearg_aux args t) =
+  dearg_aux args (csubst s k t).
+Proof.
+  induction t in s, k, t |- * using term_forall_list_ind; cbn in *.
+  - rewrite csubst_mkApps.
+    cbn.
+  - now destruct (_ ?= _).
+  - easy.
+  - f_equal.
+    induction H; [easy|].
+    cbn.
+    now rewrite H, IHForall.
+  - now rewrite IHt.
+  - now f_equal.
+  -
+*)
+
+Ltac refold' :=
+  refold;
+  repeat
+    match goal with
+    | [H: context[dearg_aux [] ?t] |- _] => progress (fold (dearg t) in * )
+    | [|- context[dearg_aux [] ?t]] => progress (fold (dearg t) in * )
+    end.
+
+(* dearg_aux args (csubst (tConstruct _ _ _) 0 (tRel 0) = dearg_aux args (tConstruct _ _ _) *)
+(* dearg_aux args (csubst (tConstruct _ _ _) 0 (tLambda na (tRel 0))) =
+   dearg_aux args (tLambda na (tConstruct _ _ _)) =
+   mkApps (tLambda na (dearg (tConstruct _ _ _))) args *)
+
+(*
+Lemma csubst_dearg_aux args args' s k t :
+  csubst (dearg_aux args s) k (dearg_aux args' t) =
+  dearg_aux (map (csubst (dearg_aux args s) k) args') (csubst (dearg_aux args s) k t).
+Proof.
+  induction t in args, args', s, k, t |- * using term_forall_list_ind; cbn in *.
+  - now rewrite csubst_mkApps.
+  - rewrite csubst_mkApps.
+    cbn.
+    destruct (_ ?= _).
+    + rewrite
+*)
+
+(*
+Section examples.
+  Open Scope string.
+  Definition foo : kername := (MPfile [], "foo").
+  Definition masks : list (kername * bitmask) :=
+    [(foo, [false; false])].
+
+  Notation dearg := (Optimize.dearg [] masks).
+  Definition s''' := (tApp (tConst foo) (tVar "something")).
+  Definition t''' := (tApp (tRel 0) (tVar "something 2")).
+  Compute (dearg (csubst s''' 0 t''')).
+  Compute (csubst (dearg s''') 0 (dearg t''')).
+End examples.
+*)
+
+(*
+Lemma csubst_dearg s k t :
+  csubst (dearg s) k (dearg t) =
+  dearg (csubst s k t).
+Proof.
+  induction t in s, k, t |- * using term_forall_list_ind; cbn in *.
+  - easy.
+  - now destruct (_ ?= _).
+  - easy.
+  - f_equal.
+    induction H; [easy|].
+    cbn.
+    now rewrite H, IHForall.
+  - now rewrite IHt.
+  - now f_equal.
+  - refold'.
+    rewrite <- (app_nil_r [dearg t2]).
+    change [dearg t2] with (map dearg [t2]).
+    rewrite <- dearg_aux_mkApps.
+    rewrite dearg_aux_mkApps.
+    cbn.
+    rewrite IHt1.
+    rewrite mkApps_csubst.
+    cbn.
+    rewrite
+  csubst (dearg s) k (dearg_aux args t) =
+  dearg_aux args (csubst (dearg s) k
+  dearg_aux (map dearg args) (csubst s k t)
+    rewrite <- IHt2.
+    rewrite <- dearg_aux_mkApps.
+*)
+
+Lemma dearg_correct Σ hd args v :
+  Σ ⊢ mkApps hd args ▷ v ->
+  Σ ⊢ dearg_aux (map dearg args) hd ▷ dearg v.
+Proof.
+  intros ev.
+  remember (mkApps hd args) eqn:teq.
+  induction ev using eval_evals_ind in ev, t, v, hd, args, teq; cbn in *.
+  - destruct (mkApps_elim hd args).
+    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+    rewrite mkApps_app in *.
+    cbn in *.
+    noconf teq.
+    rewrite dearg_aux_mkApps.
+    rewrite <- map_app.
+    rewrite firstn_skipn.
+    specialize (IHev1 f l eq_refl).
+    specialize (IHev2 t [] eq_refl).
+    rewrite map_app.
+    destruct f;
+      cbn in *;
+      rewrite ?mkApps_app;
+      cbn in *;
+      try now econstructor.
+    + easy.
+    + unfold dearg_const in *.
+      destruct (find _ _) as [[]|] eqn:find_eq;
+        [|rewrite mkApps_app; cbn in *; now econstructor].
+      rewrite dearg_single_app.
+      apply dearg_single_mask_length in IHev1 as ?; [|easy].
+      rewrite firstn_all2, skipn_all2 by easy.
+      cbn.
+      now econstructor.
+    + unfold dearg_ctor in *.
+      rewrite dearg_single_app.
+      apply dearg_single_mask_length in IHev1 as ?; [|easy].
+      rewrite firstn_all2, skipn_all2 by easy.
+      cbn.
+      now econstructor.
+    + destruct p.
+      rewrite mkApps_app.
+      cbn.
+      now econstructor.
+  - destruct (mkApps_elim hd args).
+    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+    rewrite mkApps_app in *.
+    cbn in *.
+    noconf teq.
+    rewrite dearg_aux_mkApps, <- map_app, firstn_skipn.
+    specialize (IHev1 _ _ eq_refl).
+    specialize (IHev2 _ [] eq_refl).
+    specialize (IHev3 _ [] eq_refl).
+    rewrite map_app.
+    cbn in *; refold'.
+    destruct f0.
+    + cbn in *.
+      rewrite mkApps_app.
+      cbn in *.
+      eapply eval_beta.
+      easy.
+      easy.
+      admit.
+    + admit.
+    + admit.
+    + admit.
+    + cbn in *.
+      rewrite mkApps_app.
+      cbn in *.
+      eapply eval_beta.
+      easy.
+      easy.
+      specialize (IHev3 _ [] eq_refl).
+    destruct f0;
+      cbn in *;
+      rewrite ?mkApps_app;
+      cbn in *;
+      try now econstructor.
+    destruct l; cbn in *.
+    subst
+    2:
+    specialize (IHev1 _ _ eq_refl).
+    specialize (IHev2 _ [] eq_refl).
+    cbn in *.
+      unfold dearg_case in *.
+      rewrite firstn_length_le.
+
+      rewrite skipn_all_eq.
+      revert l ev1 IHev1.
+      generalize (tConst k) as hd.
+      induction b; cbn in *; intros hd l ev IHev1; rewrite ?mkApps_app; try now econstructor.
+      destruct a.
+      * destruct l as [|? ? _]; cbn in *.
+        -- now apply eval_tLambda_inv in IHev1.
+        -- apply IHb; [|easy].
+      rewrite dearg_single_app.
+
+      destruct (skipn _ _); cbn; [now econstructor|].
+      destruct b0; cbn.
+
+    + cbn.
+      rewrite map_app.
+      rewrite mkApps_app.
+      cbn.
+      eapply eval_box; [easy|].
+      now apply (IHev2 t []).
+    + cbn.
+      rewrite map_app.
+      rewrite mkApps_app.
+      cbn.
+      eapply eval_box; [easy|].
+      now apply (IHev2 t []).
+    rewrite map_app.
+    cbn.
+    clear IHev2.
+    destruct l.
+    cbn in *.
+    +
+    rewrite map_app.
+    rewrite <- dearg_aux_mkApps.
+    cbn.
+    apply (IHev1 _ [t]).
+    cbn.
+  - rewrite dearg_mkApps.
+    cbn.
+    admit.
+  -
+  - easy.
+  - easy.
+  - easy.
+  - easy.
+  - easy.
+  - easy.
+  - easy.
+  - easy.
+  - easy.
+  -
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+Lemma dearg_correct_b Σ t v :
+  Σ ⊢ t ▷ v ->
+  Σ ⊢ dearg t ▷ dearg v.
+Proof.
+  intros ev.
+  induction ev using eval_evals_ind.
+  - cbn in *.
+    unfold dearg in IHev2.
