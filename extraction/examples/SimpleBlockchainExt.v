@@ -3,6 +3,7 @@
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations Prelude PCUICTranslate TranslationUtils.
 From ConCert.Embedding.Examples Require Import Utils.
+From ConCert.Extraction.Examples Require Import PreludeExt.
 Require Import List.
 
 From MetaCoq.Template Require Import All.
@@ -17,8 +18,8 @@ Open Scope list.
 the actual definitions of [SmartContracts.Blockchain] which are parameterised with [BaseTypes] *)
 
 Module AcornBlockchain.
-  Definition Address := Nat.
-  Definition Money := Int.
+  Definition Address := address.
+  Definition Money := money.
 
   MetaCoq Run
         ( mp_ <- tmCurrentModPath tt ;;
@@ -60,6 +61,6 @@ Module AcornBlockchain.
 
   MetaCoq Unquote Inductive (global_to_tc SimpleActionBodyAcorn).
 
-  Notation SActionBody := (to_string_name <% SimpleActionBody_coq %>).
+  Definition SActionBody := (to_string_name <% SimpleActionBody_coq %>).
 
 End AcornBlockchain.

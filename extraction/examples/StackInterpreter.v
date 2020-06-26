@@ -135,7 +135,7 @@ Definition print_main (func_name : string): string :=
   let params_name := PREFIX ++ "params" in
   "let%entry main (p : " ++ params_name ++ ")" ++ " s ="
     ++ nl
-    ++ "match " ++ func_name ++ " p s"  ++ " with"
+    ++ "match " ++ func_name ++ " p []"  ++ " with"
     ++ nl
     ++ "| Some res -> ( [], res ) "
     ++ nl

@@ -79,6 +79,6 @@ let receive (p : params) (s :  (value) list) = interp ((snd p), (fst p), s)
 let%init storage = []
 
 let%entry main (p : params) s =
-match receive p s with
+match receive p [] with
 | Some res -> ( [], res ) 
 | _ -> Current.failwith s

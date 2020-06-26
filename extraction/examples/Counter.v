@@ -1,15 +1,24 @@
 From Coq Require Import List String ZArith.
-From ConCert.Embedding Require Import Utils Notations Ast MyEnv.
+From ConCert.Embedding Require Import Utils Notations Ast MyEnv PCUICTranslate
+     TranslationUtils  SimpleBlockchain Prelude.
 From ConCert.Extraction Require Import Liquidity.
-From ConCert.Extraction Require Import SimpleBlockchain Prelude.
-
-Import ListNotations.
+From ConCert.Extraction Require Import PreludeExt.
+From MetaCoq.Template Require Import All.
+Import ListNotations MonadNotation.
 
 Module Counter.
   Import AcornBlockchain.
+
+  Open Scope list.
+
   (** Generating names for the data structures  *)
-  Run TemplateProgram
-       (mkNames ["n"; "own"; "st" ; "new_st" ; "new_balance" ; "state" ; "MkState" ; "owner" ; "msg" ; "Inc" ; "Dec"; "addr" ] "_coq").
+  MetaCoq Run
+          (mp_ <- tmCurrentModPath tt ;;
+           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+            mkNames mp ["state" ; "MkState" ; "owner" ; "msg" ] "_coq").
+
+  (** Variable names and constructor names *)
+  MetaCoq Run (mkNames "" ["m" ;"n"; "own"; "st" ; "new_st" ; "addr" ; "new_balance"; "Inc" ; "Dec"] "_coq").
 
   (** ** Definitions of data structures for the contract *)
 
@@ -25,69 +34,68 @@ Module Counter.
     [| second money address {a} |]
       (in custom expr at level 0).
 
-  Definition update_balance_syn :=
-    [| \st : money × address => \new_balance : money =>
-       Pair money address (balance st + new_balance) (owner st) |].
-
-  Notation "'update_balance' a b" :=
-    [| {eConst "_update_balance"} {a} {b} |]
-      (in custom expr at level 0,
-          a custom expr at level 1,
-          b custom expr at level 1).
-
-
   (** Messages *)
   Definition msg_syn :=
   [\ data msg =
        Inc [money,_]
      | Dec [money,_] \].
 
+  Definition Σ' :=
+    (StdLib.Σ ++ [ Prelude.AcornMaybe; msg_syn])%list.
+
+    Definition update_balance_syn :=
+    [| \st : money × address => \new_balance : money =>
+       Pair money address (balance st + new_balance) (owner st) |].
+
+  MetaCoq Unquote Definition _update_balance :=
+    (expr_to_tc Σ' (indexify nil update_balance_syn)).
+
+
+  Notation "'update_balance' a b" :=
+    [| {eConst (to_string_name <% _update_balance %>)} {a} {b} |]
+      (in custom expr at level 0,
+          a custom expr at level 1,
+          b custom expr at level 1).
+
   (** The main functionality *)
   Definition counter_syn :=
-    [| \msg : msg => \st : CounterState =>
-       case msg : msg return Maybe ((List "SimpleActionBody") ×  CounterState) of
-         | Inc n -> $Just$Maybe [: List "SimpleActionBody" × CounterState]
-                        (Pair (List "SimpleActionBody") CounterState
-                              (Nil "SimpleActionBody")
+    [| \m : msg => \st : CounterState =>
+       case m : msg return Maybe ((List SimpleActionBody) ×  CounterState) of
+         | Inc n -> $Just$Maybe [: List SimpleActionBody × CounterState]
+                        (Pair (List SimpleActionBody) CounterState
+                              (Nil SimpleActionBody)
                               (update_balance st n))
-         | Dec n -> $Nothing$Maybe [: List "SimpleActionBody" × CounterState] |].
+         | Dec n -> $Nothing$Maybe [: List SimpleActionBody × CounterState] |].
 
   (** Packing together the data type definitions and functions *)
   Definition CounterModule : LiquidityModule :=
     {| datatypes := [msg_syn];
        storage := [! CounterState !];
-       init := [| \n : money => \addr : address => Pair money address n addr  |];
+       init := [| \n : money => \addr : address => \"c" : CallCtx  =>
+                  $Just$Maybe [: money × address] Pair money address n addr  |];
        message := [! msg !];
        functions := [("_update_balance", update_balance_syn);
                        ("counter", counter_syn)];
        main := "counter";
        main_extra_args := []|}.
 
-  Definition Σ' :=
-    (Prelude.Σ ++ [ Prelude.AcornMaybe; msg_syn])%list.
+  MetaCoq Unquote Inductive (global_to_tc msg_syn).
 
-  Make Inductive (global_to_tc msg_syn).
-
-  Make Definition _update_balance :=
-    (expr_to_tc Σ' (indexify nil update_balance_syn)).
-
-  Make Definition counter :=
+  MetaCoq Unquote Definition counter :=
     (expr_to_tc Σ' (indexify nil counter_syn)).
 
 End Counter.
 
 (** A translation table for types*)
 Definition TTty : env string :=
-  [("address_coq", "address");
-     ("Coq.Numbers.BinNums.Z", "tez");
-     ("Coq.Init.Datatypes.nat", "nat")].
+  [(to_string_name <% address_coq %>, "address");
+   (to_string_name <% time_coq %>, "timestamp");
+   (to_string_name <% Z %>, "tez");
+   (to_string_name <% nat %>, "nat")].
 
 (** A translation table for primitive binary operations *)
 Definition TT : env string :=
-  [("Coq.ZArith.BinInt.Z.add", "addTez")].
-
-Compute liquidify TT TTty
-        ([| {eConstr "prod" "pair"} {eTy (tyInd "A")} {eTy (tyInd "B")} "b" "o" |]).
+  [(to_string_name <% Z.add %>, "addTez")].
 
 (** The output has been tested in the online Liquidity editor: https://www.liquidity-lang.org/edit/ *)
 Compute liquidifyModule TT TTty Counter.CounterModule.
