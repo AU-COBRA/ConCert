@@ -101,6 +101,21 @@ Proof.
   - easy.
 Qed.
 
+Lemma eval_tEvar_inv Σ n ts v :
+  Σ ⊢ tEvar n ts ▷ v ->
+  False.
+Proof.
+  intros ev.
+  depind ev.
+  - destruct args using List.rev_ind; [easy|].
+    now rewrite mkApps_app in *.
+  - destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
+    cbn in *.
+    subst.
+    easy.
+  - easy.
+Qed.
+
 Lemma eval_value Σ v :
   value v ->
   Σ ⊢ v ▷ v.

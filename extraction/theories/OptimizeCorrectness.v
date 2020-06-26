@@ -909,7 +909,6 @@ Proof.
     + rewrite
 *)
 
-(*
 Section examples.
   Open Scope string.
   Definition foo : kername := (MPfile [], "foo").
@@ -917,11 +916,67 @@ Section examples.
     [(foo, [false; false])].
 
   Notation dearg := (Optimize.dearg [] masks).
-  Definition s''' := (tApp (tConst foo) (tVar "something")).
-  Definition t''' := (tApp (tRel 0) (tVar "something 2")).
-  Compute (dearg (csubst s''' 0 t''')).
-  Compute (csubst (dearg s''') 0 (dearg t''')).
+  Definition s := (tApp (tConst foo) (tVar "something")).
+  Definition t := (tLambda nAnon (tApp (tRel 1) (tVar "something 2"))).
+  Compute (dearg (csubst s 0 t)).
+  Compute (csubst (dearg s) 0 (dearg t)).
+
+  Definition prog :=
+    tLetIn
+      nAnon
+      (tApp (tConst foo) (tVar "something"))
+      (tLambda nAnon (tApp (tRel 1) (tVar "something 2"))).
+
+  (* Given
+       let x := foo "something" in fun y => x "something 2"
+     this evaluates to
+       fun y => foo "something" "something 2"
+
+     With eta expansion, we first transform
+       let x := foo "something" in fun y => x "something 2"
+     to
+       let x := fun v => foo "something" v in fun y => x "something 2"
+
+     and then this evaluates to
+       fun y => (fun v => foo "something" v) "something 2") *)
+
+  (* = tApp (tApp (tConst (MPfile [], "foo")) (tVar "something")) (tVar "something 2")
+     : term *)
+  (* = tApp
+         (tLambda nAnon (tApp (tApp (tConst (MPfile [], "foo")) (tVar "something")) (tRel 0)))
+         (tVar "something 2")
+     : term *)
 End examples.
+
+Inductive eval_eq Σ v : term -> Prop :=
+| exteq_syntactic : eval_eq Σ v (dearg v)
+| exteq_app v' :
+    (forall a,
+        exists vv v'v,
+          Σ ⊢ tApp v a ▷ vv ->
+
+          Σ ⊢ tApp (dearg v) a ▷ v'v /\
+          eval_eq vv v'v) ->
+    eval_eq Σ v (dearg vv)
+| exteq_app v v' :
+    (forall a,
+        exists vv v'v,
+          Σ ⊢ tApp v a ▷ vv ->
+          Σ ⊢ tApp v' a ▷ v'v /\
+          exteq Σ vv v'v) ->
+    exteq Σ v v'.
+
+(*
+Lemma eval_csubst_dearg Σ s k t v :
+  Σ ⊢ dearg (csubst s k t) ▷ v ->
+  Σ ⊢ csubst (dearg s) k (dearg t) ▷ v.
+Proof.
+  induction t in s, k, t, v |- * using term_forall_list_ind; intros ev; cbn in *.
+  - easy.
+  - now destruct (_ ?= _).
+  - easy.
+  - now apply eval_tEvar_inv in ev.
+  - refold'.
 *)
 
 (*
@@ -955,6 +1010,14 @@ Proof.
     rewrite <- IHt2.
     rewrite <- dearg_aux_mkApps.
 *)
+
+
+Lemma dearg_correct Σ hd args v dv :
+  Σ ⊢ mkApps hd args ▷ v ->
+  Σ ⊢ dearg_aux (map dearg args) hd ▷ dv ->
+  eval_eq Σ v dv.
+Proof.
+
 
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
@@ -1008,25 +1071,22 @@ Proof.
     specialize (IHev2 _ [] eq_refl).
     specialize (IHev3 _ [] eq_refl).
     rewrite map_app.
-    cbn in *; refold'.
-    destruct f0.
-    + cbn in *.
-      rewrite mkApps_app.
-      cbn in *.
-      eapply eval_beta.
+    destruct f0; cbn in *; rewrite ?mkApps_app; cbn in *; refold'.
+    + eapply eval_beta.
       easy.
       easy.
       admit.
     + admit.
     + admit.
     + admit.
-    + cbn in *.
-      rewrite mkApps_app.
-      cbn in *.
-      eapply eval_beta.
+    + eapply eval_beta.
       easy.
       easy.
-      specialize (IHev3 _ [] eq_refl).
+      admit.
+    + eapply eval_beta.
+      easy.
+      easy.
+
     destruct f0;
       cbn in *;
       rewrite ?mkApps_app;
