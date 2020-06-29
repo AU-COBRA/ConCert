@@ -909,6 +909,8 @@ Proof.
     + rewrite
 *)
 
+
+(*
 Section examples.
   Open Scope string.
   Definition foo : kername := (MPfile [], "foo").
@@ -947,24 +949,7 @@ Section examples.
          (tVar "something 2")
      : term *)
 End examples.
-
-Inductive eval_eq Σ v : term -> Prop :=
-| exteq_syntactic : eval_eq Σ v (dearg v)
-| exteq_app v' :
-    (forall a,
-        exists vv v'v,
-          Σ ⊢ tApp v a ▷ vv ->
-
-          Σ ⊢ tApp (dearg v) a ▷ v'v /\
-          eval_eq vv v'v) ->
-    eval_eq Σ v (dearg vv)
-| exteq_app v v' :
-    (forall a,
-        exists vv v'v,
-          Σ ⊢ tApp v a ▷ vv ->
-          Σ ⊢ tApp v' a ▷ v'v /\
-          exteq Σ vv v'v) ->
-    exteq Σ v v'.
+*)
 
 (*
 Lemma eval_csubst_dearg Σ s k t v :
@@ -1011,12 +996,71 @@ Proof.
     rewrite <- dearg_aux_mkApps.
 *)
 
+Inductive dearged_result Σ v : term -> Prop :=
+| dearged_syntactic : dearged_result Σ v (dearg v)
+| dearged_extensional dv :
+    (forall a vv,
+        Σ ⊢ tApp v a ▷ vv ->
+        exists v'v,
+          Σ ⊢ tApp dv a ▷ v'v /\
+          dearged_result Σ vv v'v) ->
+    dearged_result Σ v dv.
 
-Lemma dearg_correct Σ hd args v dv :
+Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  Σ ⊢ dearg_aux (map dearg args) hd ▷ dv ->
-  eval_eq Σ v dv.
+  exists dv,
+    Σ ⊢ dearg_aux (map dearg args) hd ▷ dv /\
+    dearged_result Σ v dv.
 Proof.
+  intros ev.
+  remember (mkApps hd args) eqn:teq.
+  induction ev using eval_evals_ind in ev, t, v, hd, args, teq; cbn in *.
+  - destruct (mkApps_elim hd args).
+    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+    rewrite mkApps_app in *.
+    cbn in *.
+    noconf teq.
+    rewrite dearg_aux_mkApps.
+    rewrite <- map_app.
+    rewrite firstn_skipn.
+    specialize (IHev1 f l eq_refl).
+    specialize (IHev2 t [] eq_refl).
+    destruct IHev1 as (fv & ev_f & drf).
+    rewrite map_app.
+    exists tBox.
+    destruct f;
+      cbn in *;
+      rewrite ?mkApps_app;
+      cbn in *;
+      try solve [now eexists; split; [|apply dearged_syntactic]; econstructor].
+    + destruct IHev1 as (? & ? & ?).
+      destruct H0; cbn in *.
+      * exists tBox.
+      exists tBox.
+      split; [|apply dearged_syntactic].
+      admit.
+    + eexists.
+      split; [|apply dearged_syntactic].
+
+    + easy.
+    + unfold dearg_const in *.
+      destruct (find _ _) as [[]|] eqn:find_eq;
+        [|rewrite mkApps_app; cbn in *; now econstructor].
+      rewrite dearg_single_app.
+      apply dearg_single_mask_length in IHev1 as ?; [|easy].
+      rewrite firstn_all2, skipn_all2 by easy.
+      cbn.
+      now econstructor.
+    + unfold dearg_ctor in *.
+      rewrite dearg_single_app.
+      apply dearg_single_mask_length in IHev1 as ?; [|easy].
+      rewrite firstn_all2, skipn_all2 by easy.
+      cbn.
+      now econstructor.
+    + destruct p.
+      rewrite mkApps_app.
+      cbn.
+      now econstructor.
 
 
 Lemma dearg_correct Σ hd args v :

@@ -307,32 +307,6 @@ Proof.
   now apply Forall2_app.
 Qed.
 
-Lemma isLambda_mkApps t args :
-  isLambda t = false -> isLambda (mkApps t args) = false.
-Proof.
-  induction args using List.rev_ind; [easy|].
-  now rewrite mkApps_app.
-Qed.
-
-Lemma isFixApp_mkApps t args :
-  isFixApp t = false -> isFixApp (mkApps t args) = false.
-Proof.
-  induction args using List.rev_ind; [easy|].
-  rewrite mkApps_app.
-  cbn.
-  unfold isFixApp.
-  cbn.
-  rewrite Prelim.fst_decompose_app_rec.
-  easy.
-Qed.
-
-Lemma isBox_mkApps t args :
-  isBox t = false -> isBox (mkApps t args) = false.
-Proof.
-  induction args using List.rev_ind; [easy|].
-  now rewrite mkApps_app.
-Qed.
-
 Ltac gen_equalities :=
   repeat
     match goal with
