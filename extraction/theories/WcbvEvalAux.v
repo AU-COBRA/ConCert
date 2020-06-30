@@ -173,7 +173,7 @@ Proof.
     { unfold isStuckFix, cunfold_fix, ETyping.unfold_fix in *.
       destruct (nth_error mfix idx) as [f'|]; [|easy].
       replace (rarg f') with narg by congruence.
-      unfold ETyping.is_constructor.
+      unfold ETyping.is_constructor_or_box.
       rewrite !app_length in *.
       cbn in *.
       rewrite (proj2 (nth_error_None _ _)) by abstract lia.
@@ -207,11 +207,11 @@ Proof.
       assert (stuck: isStuckFix (tFix mfix idx) args').
       { unfold isStuckFix in *.
         destruct (ETyping.unfold_fix mfix idx) as [(? & ?)|]; [|easy].
-        unfold ETyping.is_constructor in H0.
+        unfold ETyping.is_constructor_or_box in H0.
         destruct (Nat.ltb_spec n #|args'|).
         - rewrite nth_error_app_lt in H0 by easy.
           apply H0.
-        - unfold ETyping.is_constructor.
+        - unfold ETyping.is_constructor_or_box.
           now rewrite (proj2 (nth_error_None _ _)) by abstract lia. }
       apply (eval_app_fix Σ _ _ mfix idx args' a' _).
       * apply eval_fix_value; [easy| |easy].
@@ -520,3 +520,85 @@ Proof.
   - easy.
   - easy.
 Qed.
+
+Fixpoint f (a b : nat) {struct b} := b.
+Definition prog := (fun x => f x) 0 0.
+
+Definition f' := tFix [{| dname := nAnon;
+                          dbody := tLambda nAnon (tLambda nAnon (tRel 0));
+                          rarg := 1 |}] 0.
+
+Definition prog' := tApp (tApp (tLambda nAnon (tApp f' (tRel 0))) tBox) tBox.
+
+Lemma stuck_fix_eval Σ f a v :
+  Σ ⊢ tApp (tFix [f] 0) a ▷ v ->
+  Extract.E.rarg f = 1 ->
+  (forall av, v = tApp (tFix [f] 0) av -> False) ->
+  False.
+Proof.
+  intros ev is_1 is_false.
+  apply eval_tApp_arg in ev as arg.
+  destruct arg as (arg & ev_arg).
+  apply (is_false arg).
+  eapply eval_deterministic.
+  - easy.
+  - eapply (eval_fix_value _ _ _ _ [a] [arg]).
+    + now constructor.
+    + easy.
+    + cbn.
+      now rewrite is_1.
+Qed.
+
+Lemma no_eval Σ v :
+  Σ ⊢ prog' ▷ v ->
+  False.
+Proof.
+  intros ev.
+  unfold prog' in ev.
+  depind ev.
+  + apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
+    cbn in *.
+    now eapply stuck_fix_eval in ev_sub.
+  + apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
+    cbn in *.
+    now eapply stuck_fix_eval in ev_sub.
+  + change (tApp (tApp (tLambda nAnon (tApp f' (tRel 0))) tBox) tBox)
+      with (mkApps (tLambda nAnon (tApp f' (tRel 0))) [tBox; tBox]) in H3.
+    destruct (mkApps_elim f0 args).
+    apply mkApps_eq_inj in H3 as (<- & <-); try easy.
+    clear i.
+    destruct n as [|[]].
+    * cbn in *.
+      now apply eval_tLambda_inv in ev1.
+    * cbn in *.
+      apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
+      cbn in *.
+      now eapply stuck_fix_eval in ev_sub.
+    * now rewrite !skipn_cons, skipn_nil in H1.
+  + change (tApp (tApp (tLambda nAnon (tApp f' (tRel 0))) tBox) tBox)
+      with (mkApps (tLambda nAnon (tApp f' (tRel 0))) [tBox; tBox]) in H1.
+    destruct (mkApps_elim f0 args).
+    apply mkApps_eq_inj in H1 as (<- & <-); try easy.
+    clear i.
+    destruct n as [|[]].
+    * cbn in *.
+      now apply eval_tLambda_inv in ev.
+    * cbn in *.
+      apply eval_tApp_tLambda_inv in ev as (av & ev_a & ev_sub).
+      cbn in *.
+      now eapply stuck_fix_eval in ev_sub.
+    * cbn in *.
+      rewrite firstn_nil in *.
+      cbn in *.
+      easy.
+  + apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
+    cbn in *.
+    unfold map_def in *.
+    cbn in *.
+    apply stuck_fix_eval in ev_sub; try easy.
+    intros.
+    now subst.
+  + easy.
+Qed.
+
+Print Assumptions no_eval.

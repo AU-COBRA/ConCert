@@ -460,30 +460,84 @@ Proof.
   - apply aeval_stuck_fix_mkApps; [easy|easy|].
     unfold isStuckFix, ETyping.unfold_fix in H1.
     destruct (nth_error mfix idx); [|easy].
-    assert (negb (ETyping.is_constructor_or_box (rarg d) args')) by admit.
     propify.
     right.
     easy.
-Admitted.
-  (*- intros ev.
-    induction ev; try now econstructor.
-    + induction args using List.rev_ind.
-      * cbn in *.
-        change (tApp f a) with (mkApps f [a]).
-        change (tApp (tFix mfix idx) av) with (mkApps (tFix mfix idx) [av]).
-        apply eval_fix_value; [easy|easy|].
-        cbn.
-        unfold cunfold_fix, ETyping.unfold_fix in *.
-        destruct (nth_error _ _); [|easy].
-        noconf H.
-        destruct H0 as [?|(<- & ?)].
-        -- unfold ETyping.is_constructor.
-           rewrite (proj2 (nth_error_None _ _)); [easy|].
-           cbn in *.
-           lia.
-        -- propify.
-           admit.
-      **)
+Qed.
+
+Lemma eval_to_app_inv Σ t hdv argv :
+  eval Σ t (tApp hdv argv) ->
+  exists hd arg,
+    eval Σ hd hdv /\ eval Σ arg argv.
+Proof.
+  Admitted.
+
+Lemma eval_to_stuck_inv Σ fa mfix idx argsv :
+  eval Σ fa (mkApps (tFix mfix idx) argsv) ->
+  exists args,
+    eval Σ (mkApps (tFix mfix idx) args) (mkApps (tFix mfix idx) argsv) /\
+    Forall2 (eval Σ) args argsv.
+Proof.
+  Admitted.
+
+(*
+Lemma eval_fix_mkApps_still_stuck Σ fa mfix idx argsv narg fn a av :
+  eval Σ fa (mkApps (tFix mfix idx) argsv) ->
+  cunfold_fix mfix idx = Some (narg, fn) ->
+  eval Σ a av ->
+  ((#|argsv| <> narg) \/ (#|argsv| = narg /\ ~is_ctor_or_box av)) ->
+  eval Σ (tApp fa a) (mkApps (tFix mfix idx) (argsv ++ [av])).
+Proof.
+  induction argsv using List.rev_ind in fa, mfix, idx, narg, fn, a, av |- *; intros ev cuf ev_a cs.
+  - cbn in *.
+    change (tApp fa a) with (mkApps fa [a]).
+    change (tApp (tFix mfix idx) av) with (mkApps (tFix mfix idx) [av]).
+    apply eval_fix_value; [easy|easy|].
+    cbn.
+    unfold cunfold_fix, ETyping.unfold_fix in *.
+    destruct (nth_error _ _); [|easy].
+    noconf cuf.
+    destruct cs as [?|(<- & ?)].
+    + unfold ETyping.is_constructor_or_box.
+      rewrite (proj2 (nth_error_None _ _)); [easy|].
+      cbn in *.
+      lia.
+    + cbn.
+      propify.
+      now apply Bool.not_true_is_false in H.
+  - rewrite !mkApps_app in *.
+    cbn in *.
+    +
+
+Lemma aeval_eval Σ t v :
+  Σ ⊢ t ▷ v ->
+  eval Σ t v.
+Proof.
+  intros ev.
+  depind ev; try now econstructor.
+  - apply eval_to_stuck_inv in IHev1 as (args' & ev & ev_all).
+
+    revert f narg ev1 IHev1 H H0.
+    induction args using List.rev_ind; intros f narg ev1 IHev1 cuf cs.
+    + cbn in *.
+      change (tApp f a) with (mkApps f [a]).
+      change (tApp (tFix mfix idx) av) with (mkApps (tFix mfix idx) [av]).
+      apply eval_fix_value; [easy|easy|].
+      cbn.
+      unfold cunfold_fix, ETyping.unfold_fix in *.
+      destruct (nth_error _ _); [|easy].
+      noconf cuf.
+      destruct cs as [?|(<- & ?)].
+      * unfold ETyping.is_constructor_or_box.
+        rewrite (proj2 (nth_error_None _ _)); [easy|].
+        cbn in *.
+        lia.
+      * cbn.
+        propify.
+        now apply Bool.not_true_is_false in H.
+    +
+      eapply IHargs.
+*)
 
 Lemma aeval_tApp_heads Σ hd hd' hdv arg v :
   Σ ⊢ hd ▷ hdv ->
