@@ -1,6 +1,5 @@
 From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ClosedAux.
-From ConCert.Extraction Require WcbvEvalAlt.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import List.
@@ -21,9 +20,77 @@ Set Equations Transparent.
 
 Notation "Σ ⊢ s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : type_scope.
 
+Lemma eval_tApp_head Σ hd arg v :
+  Σ ⊢ tApp hd arg ▷ v ->
+  exists hdv,
+    Σ ⊢ hd ▷ hdv.
+Proof.
+  intros ev.
+  now depelim ev.
+Qed.
+
+Lemma eval_tApp_arg Σ hd arg v :
+  Σ ⊢ tApp hd arg ▷ v ->
+  exists argv,
+    Σ ⊢ arg ▷ argv.
+Proof.
+  intros ev.
+  now depelim ev.
+Qed.
+
+Lemma eval_mkApps_head Σ hd args v :
+  Σ ⊢ mkApps hd args ▷ v ->
+  exists hdv,
+    Σ ⊢ hd ▷ hdv.
+Proof.
+  revert hd v.
+  induction args; intros hd v ev; [easy|].
+  cbn in *.
+  specialize (IHargs _ _ ev) as (? & ?).
+  now apply eval_tApp_head in H.
+Qed.
+
+Lemma eval_mkApps_args Σ hd args v :
+  Σ ⊢ mkApps hd args ▷ v ->
+  exists argsv,
+    Forall2 (eval Σ) args argsv.
+Proof.
+  revert hd v.
+  induction args; intros hd v ev; [easy|].
+  cbn in *.
+  apply eval_mkApps_head in ev as ev_hd.
+  destruct ev_hd as (hdv & ev_hd).
+  specialize (IHargs _ _ ev) as (argsv & all).
+  apply eval_tApp_arg in ev_hd as (argv & ev_arg).
+  exists (argv :: argsv).
+  now constructor.
+Qed.
+
+Lemma eval_tApp_heads Σ hd hd' hdv arg v :
+  Σ ⊢ hd ▷ hdv ->
+  Σ ⊢ hd' ▷ hdv ->
+  Σ ⊢ tApp hd arg ▷ v ->
+  Σ ⊢ tApp hd' arg ▷ v.
+Proof.
+  intros ev_hd ev_hd' ev_app.
+  depind ev_app.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_box.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_beta.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_fix.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_fix_value.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_app_cong.
+  - easy.
+Qed.
+
 Derive Signature for eval.
 Derive NoConfusionHom for term.
 
+(*
 Lemma eval_tLetIn_inv Σ na val body res :
   Σ ⊢ tLetIn na val body ▷ res ->
   exists val_res,
@@ -521,84 +588,4 @@ Proof.
   - easy.
 Qed.
 
-Fixpoint f (a b : nat) {struct b} := b.
-Definition prog := (fun x => f x) 0 0.
-
-Definition f' := tFix [{| dname := nAnon;
-                          dbody := tLambda nAnon (tLambda nAnon (tRel 0));
-                          rarg := 1 |}] 0.
-
-Definition prog' := tApp (tApp (tLambda nAnon (tApp f' (tRel 0))) tBox) tBox.
-
-Lemma stuck_fix_eval Σ f a v :
-  Σ ⊢ tApp (tFix [f] 0) a ▷ v ->
-  Extract.E.rarg f = 1 ->
-  (forall av, v = tApp (tFix [f] 0) av -> False) ->
-  False.
-Proof.
-  intros ev is_1 is_false.
-  apply eval_tApp_arg in ev as arg.
-  destruct arg as (arg & ev_arg).
-  apply (is_false arg).
-  eapply eval_deterministic.
-  - easy.
-  - eapply (eval_fix_value _ _ _ _ [a] [arg]).
-    + now constructor.
-    + easy.
-    + cbn.
-      now rewrite is_1.
-Qed.
-
-Lemma no_eval Σ v :
-  Σ ⊢ prog' ▷ v ->
-  False.
-Proof.
-  intros ev.
-  unfold prog' in ev.
-  depind ev.
-  + apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
-    cbn in *.
-    now eapply stuck_fix_eval in ev_sub.
-  + apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
-    cbn in *.
-    now eapply stuck_fix_eval in ev_sub.
-  + change (tApp (tApp (tLambda nAnon (tApp f' (tRel 0))) tBox) tBox)
-      with (mkApps (tLambda nAnon (tApp f' (tRel 0))) [tBox; tBox]) in H3.
-    destruct (mkApps_elim f0 args).
-    apply mkApps_eq_inj in H3 as (<- & <-); try easy.
-    clear i.
-    destruct n as [|[]].
-    * cbn in *.
-      now apply eval_tLambda_inv in ev1.
-    * cbn in *.
-      apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
-      cbn in *.
-      now eapply stuck_fix_eval in ev_sub.
-    * now rewrite !skipn_cons, skipn_nil in H1.
-  + change (tApp (tApp (tLambda nAnon (tApp f' (tRel 0))) tBox) tBox)
-      with (mkApps (tLambda nAnon (tApp f' (tRel 0))) [tBox; tBox]) in H1.
-    destruct (mkApps_elim f0 args).
-    apply mkApps_eq_inj in H1 as (<- & <-); try easy.
-    clear i.
-    destruct n as [|[]].
-    * cbn in *.
-      now apply eval_tLambda_inv in ev.
-    * cbn in *.
-      apply eval_tApp_tLambda_inv in ev as (av & ev_a & ev_sub).
-      cbn in *.
-      now eapply stuck_fix_eval in ev_sub.
-    * cbn in *.
-      rewrite firstn_nil in *.
-      cbn in *.
-      easy.
-  + apply eval_tApp_tLambda_inv in ev1 as (av & ev_a & ev_sub).
-    cbn in *.
-    unfold map_def in *.
-    cbn in *.
-    apply stuck_fix_eval in ev_sub; try easy.
-    intros.
-    now subst.
-  + easy.
-Qed.
-
-Print Assumptions no_eval.
+*)
