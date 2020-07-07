@@ -90,46 +90,17 @@ Qed.
 Derive Signature for eval.
 Derive NoConfusionHom for term.
 
-(*
 Lemma eval_tLetIn_inv Σ na val body res :
   Σ ⊢ tLetIn na val body ▷ res ->
   exists val_res,
     Σ ⊢ val ▷ val_res /\
     Σ ⊢ csubst val_res 0 body ▷ res.
-Proof.
-  intros ev.
-  depind ev; try easy.
-  - destruct args using List.rev_ind; [easy|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    congruence.
-  - destruct args using List.rev_ind.
-    + cbn in *.
-      depelim H.
-      subst f.
-      now eapply IHev.
-    + rewrite mkApps_app in *.
-      cbn in *.
-      congruence.
-Qed.
+Proof. intros ev; depelim ev; easy. Qed.
 
 Lemma eval_tLambda_inv Σ na body v :
   Σ ⊢ tLambda na body ▷ v ->
   v = tLambda na body.
-Proof.
-  intros ev.
-  depind ev.
-  - destruct args as [|? ? _] using List.rev_ind; [easy|].
-    now rewrite mkApps_app in *.
-  - destruct args as [|? ? _] using List.rev_ind.
-    + cbn in *.
-      subst f.
-      erewrite <- IHev; [|easy].
-      destruct args'; [easy|].
-      now apply Forall2_length in H.
-    + now rewrite mkApps_app in *.
-  - easy.
-Qed.
+Proof. now intros ev; depelim ev. Qed.
 
 Lemma eval_tApp_tLambda_inv Σ na body a v :
   Σ ⊢ tApp (tLambda na body) a ▷ v ->
@@ -138,263 +109,18 @@ Lemma eval_tApp_tLambda_inv Σ na body a v :
     Σ ⊢ csubst av 0 body ▷ v.
 Proof.
   intros ev.
-  depind ev.
+  depelim ev.
   - now apply eval_tLambda_inv in ev1.
   - apply eval_tLambda_inv in ev1.
     inversion ev1; subst; clear ev1.
     easy.
-  - destruct args as [|? ? _] using List.rev_ind; [easy|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    inversion H3; subst; clear H3.
-    destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
-    cbn in *.
-    subst f.
-    now apply eval_tLambda_inv in ev1.
-  - destruct args as [|? ? _] using List.rev_ind.
-    + cbn in *.
-      subst f.
-      apply Forall2_length in H.
-      destruct args'; [|easy].
-      easy.
-    + rewrite mkApps_app in *.
-      cbn in *.
-      inversion H1; subst; clear H1.
-      destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
-      cbn in *.
-      subst f.
-      now apply eval_tLambda_inv in ev.
   - apply eval_tLambda_inv in ev1.
-    now subst f'.
+    solve_discr.
+  - apply eval_tLambda_inv in ev1.
+    solve_discr.
+  - now apply eval_tLambda_inv in ev1 as ->.
   - easy.
 Qed.
-
-Lemma eval_tEvar_inv Σ n ts v :
-  Σ ⊢ tEvar n ts ▷ v ->
-  False.
-Proof.
-  intros ev.
-  depind ev.
-  - destruct args using List.rev_ind; [easy|].
-    now rewrite mkApps_app in *.
-  - destruct args using List.rev_ind; [|now rewrite mkApps_app in *].
-    cbn in *.
-    subst.
-    easy.
-  - easy.
-Qed.
-
-Lemma eval_value Σ v :
-  value v ->
-  Σ ⊢ v ▷ v.
-Proof.
-  Admitted.
-
-Inductive eval_app Σ hd arg : term -> Prop :=
-| eval_app_box argv :
-    Σ ⊢ hd ▷ tBox ->
-    Σ ⊢ arg ▷ argv ->
-    eval_app Σ hd arg tBox
-| eval_app_lambda na body argv v :
-    Σ ⊢ hd ▷ tLambda na body ->
-    Σ ⊢ arg ▷ argv ->
-    Σ ⊢ csubst argv 0 body ▷ v ->
-    eval_app Σ hd arg v
-| eval_app_ctor ind c args argv v :
-    Σ ⊢ hd ▷ mkApps (tConstruct ind c) args ->
-    Σ ⊢ arg ▷ argv ->
-    Forall value args ->
-    eval_app Σ hd arg v
-| eval_app_fix defs idx args argv v :
-    Σ ⊢ hd ▷ mkApps (tFix defs idx) args ->
-    Σ ⊢ arg ▷ argv ->
-    isStuckFix (tFix defs idx) args ->
-    Forall value args ->
-    eval_app Σ hd arg v
-| eval_app_cofix defs idx args argv v :
-    Σ ⊢ hd ▷ mkApps (tCoFix defs idx) args ->
-    Σ ⊢ arg ▷ argv ->
-    Forall value args ->
-    eval_app Σ hd arg v.
-
-Arguments isStuckFix : simpl nomatch.
-
-Lemma eval_tApp_inv {Σ hd arg v} :
-  Σ ⊢ tApp hd arg ▷ v ->
-  eval_app Σ hd arg v.
-Proof.
-  intros ev.
-  depind ev.
-  - now econstructor.
-  - now eapply eval_app_lambda.
-  - destruct args using List.rev_ind; [easy|].
-    clear IHargs.
-    rewrite mkApps_app in H3.
-    cbn in *.
-    apply Forall2_length in H2 as args_len.
-    rewrite !app_length in *.
-    cbn in *.
-    destruct args' as [|a' args' _] using List.rev_ind; [cbn in *; abstract lia|].
-    inversion H3; subst; clear H3.
-    assert (stuck: isStuckFix (tFix mfix idx) args').
-    { unfold isStuckFix, cunfold_fix, ETyping.unfold_fix in *.
-      destruct (nth_error mfix idx) as [f'|]; [|easy].
-      replace (rarg f') with narg by congruence.
-      unfold ETyping.is_constructor_or_box.
-      rewrite !app_length in *.
-      cbn in *.
-      rewrite (proj2 (nth_error_None _ _)) by abstract lia.
-      easy. }
-    apply (eval_app_fix Σ _ _ mfix idx args' a' _).
-    + apply eval_fix_value.
-      * easy.
-      * apply Forall2_app_r in H2.
-        easy.
-      * easy.
-    + now apply Forall2_app_r in H2.
-    + easy.
-    + apply Forall2_app_r in H2.
-      destruct H2 as (all_eval & _).
-      clear -all_eval.
-      induction all_eval; [easy|].
-      constructor; [|easy].
-      now eapply eval_to_value.
-  - destruct args as [|a args _] using List.rev_ind.
-    + cbn in *.
-      apply Forall2_length in H.
-      destruct args'; [|easy].
-      eapply IHev.
-      now f_equal.
-    + rewrite mkApps_app in H1.
-      apply Forall2_length in H as args_len.
-      rewrite !app_length in *.
-      cbn in *.
-      destruct args' as [|a' args' _] using List.rev_ind; [cbn in *; abstract lia|].
-      inversion H1; subst; clear H1.
-      assert (stuck: isStuckFix (tFix mfix idx) args').
-      { unfold isStuckFix in *.
-        destruct (ETyping.unfold_fix mfix idx) as [(? & ?)|]; [|easy].
-        unfold ETyping.is_constructor_or_box in H0.
-        destruct (Nat.ltb_spec n #|args'|).
-        - rewrite nth_error_app_lt in H0 by easy.
-          apply H0.
-        - unfold ETyping.is_constructor_or_box.
-          now rewrite (proj2 (nth_error_None _ _)) by abstract lia. }
-      apply (eval_app_fix Σ _ _ mfix idx args' a' _).
-      * apply eval_fix_value; [easy| |easy].
-        now apply Forall2_app_r in H.
-      * now apply Forall2_app_r in H.
-      * easy.
-      * apply Forall2_app_r in H.
-        destruct H as (all_eval & _).
-        clear -all_eval.
-        induction all_eval; [easy|].
-        constructor; [|easy].
-        now eapply eval_to_value.
-  - apply eval_to_value in ev1 as f'value.
-    destruct f'value.
-    + destruct t; cbn in *; try congruence.
-      * now eapply (eval_app_ctor _ _ _ _ _ []).
-      * now eapply (eval_app_cofix _ _ _ _ _ []).
-    + destruct t; cbn in *; try congruence.
-      * now econstructor.
-      * now econstructor.
-    + clear -H1 H.
-      exfalso.
-      destruct f0; try easy.
-      propify.
-      destruct H as ((_ & not_fix) & _).
-      now rewrite isFixApp_mkApps in not_fix.
-  - easy.
-Qed.
-
-Lemma eval_tApp_head Σ hd arg v :
-  Σ ⊢ tApp hd arg ▷ v ->
-  exists hdv, Σ ⊢ hd ▷ hdv.
-Proof.
-  intros ev.
-  now destruct (eval_tApp_inv ev).
-Qed.
-
-Lemma eval_tApp_arg Σ hd arg v :
-  Σ ⊢ tApp hd arg ▷ v ->
-  exists argv, Σ ⊢ arg ▷ argv.
-Proof.
-  intros ev.
-  now destruct (eval_tApp_inv ev).
-Qed.
-
-Lemma eval_mkApps_head Σ hd args v :
-  Σ ⊢ mkApps hd args ▷ v ->
-  exists hdv, Σ ⊢ hd ▷ hdv.
-Proof.
-  revert hd v.
-  induction args using List.rev_ind; intros hd v ev; [easy|].
-  rewrite mkApps_app in ev.
-  cbn in *.
-  apply eval_tApp_head in ev as (hdv & ev_hd).
-  now apply IHargs in ev_hd.
-Qed.
-
-Lemma eval_mkApps_args Σ hd args v :
-  Σ ⊢ mkApps hd args ▷ v ->
-  exists argsv, Forall2 (eval Σ) args argsv.
-Proof.
-  revert hd v.
-  induction args using List.rev_ind; intros hd v ev; [easy|].
-  rewrite mkApps_app in ev.
-  cbn in *.
-  apply eval_tApp_head in ev as ev_hd.
-  destruct ev_hd as (hd' & ev_hd').
-  apply eval_tApp_arg in ev as ev_arg.
-  destruct ev_arg as (arg & ev_arg).
-  destruct (IHargs _ _ ev_hd') as (args' & args'_all).
-  exists (args' ++ [arg]).
-  now apply Forall2_app.
-Qed.
-
-Lemma eval_deterministic {Σ a v v'} :
-  Σ ⊢ a ▷ v ->
-  Σ ⊢ a ▷ v' ->
-  v = v'.
-Proof.
-  intros ev ev'.
-  apply WcbvEvalAlt.eval_aeval in ev.
-  apply WcbvEvalAlt.eval_aeval in ev'.
-  now eapply WcbvEvalAlt.aeval_deterministic.
-Qed.
-
-Lemma decompose_app_ex hd :
-  exists hd' args',
-    hd = mkApps hd' args' /\
-    negb (isApp hd').
-Proof.
-  destruct (decompose_app hd) as [hd' args'] eqn:decomp_eq.
-  exists hd', args'.
-  split.
-  - now apply decompose_app_inv.
-  - now eapply decompose_app_notApp.
-Qed.
-
-Lemma eval_tApp_heads Σ hd hd' hdv arg v :
-  Σ ⊢ hd ▷ hdv ->
-  Σ ⊢ hd' ▷ hdv ->
-  Σ ⊢ tApp hd arg ▷ v ->
-  Σ ⊢ tApp hd' arg ▷ v.
-Proof.
-  intros ev_hd ev_hd' ev_app.
-  depind ev_app.
-  - rewrite (eval_deterministic ev_hd ev_app1) in *.
-    now eapply eval_box.
-  - rewrite (eval_deterministic ev_hd ev_app1) in *.
-    now eapply eval_beta.
-  - admit.
-  - destruct (mkApps_elim f args).
-    admit.
-  - rewrite (eval_deterministic ev_hd ev_app1) in *.
-    now eapply eval_app_cong.
-  - easy.
-Admitted.
 
 Lemma eval_mkApps_heads Σ hd hd' hdv args v :
   Σ ⊢ hd ▷ hdv ->
@@ -417,13 +143,6 @@ Proof.
     + easy.
     + easy.
 Qed.
-
-Lemma mkApps_csubst Σ a av na body args v :
-  Σ ⊢ a ▷ av ->
-  Σ ⊢ mkApps (tApp (tLambda na body) a) args ▷ v ->
-  Σ ⊢ mkApps (csubst av 0 body) args ▷ v.
-Proof.
-  Admitted.
 
 Definition env_closed (Σ : EAst.global_declarations) :=
   Forall (decl_closed ∘ snd) Σ.
@@ -521,15 +240,12 @@ Lemma eval_closed Σ t v :
   closed v.
 Proof.
   intros env_clos clos ev.
-  induction ev using eval_evals_ind; cbn in *; propify.
+  induction ev; cbn in *; propify.
   - easy.
   - apply IHev3.
     now apply closed_csubst.
   - apply IHev2.
     now apply closed_csubst.
-  - apply IHev.
-    pose proof (closed_constant _ _ _ env_clos H).
-    now rewrite H0 in *.
   - apply IHev2.
     unfold ETyping.iota_red.
     apply closed_mkApps.
@@ -552,25 +268,15 @@ Proof.
     clear.
     induction n; [constructor|].
     constructor; easy.
-  - apply IHev2.
+  - apply IHev3.
+    split; [|easy].
+    destruct clos as (clos & _).
     specialize (IHev1 clos).
-    apply closed_mkApps_args in IHev1.
-    rewrite nth_nth_error in *.
-    destruct (nth_error _ _) eqn:nth_eq.
-    + apply nth_error_In in nth_eq.
-      rewrite Forall_forall in IHev1.
-      now apply IHev1.
-    + easy.
+    apply closed_mkApps_inv in IHev1 as (? & ?).
+    apply closed_mkApps; [|easy].
+    rewrite <- closed_unfold_fix_cunfold_eq in * by easy.
+    now eapply closed_unfold_fix.
   - easy.
-  - apply IHev2.
-    apply closed_mkApps_inv in clos.
-    apply closed_mkApps.
-    + rewrite <- closed_unfold_fix_cunfold_eq in * by easy.
-      now eapply closed_unfold_fix.
-    + now eapply (all_closed _ args args').
-  - apply closed_mkApps_inv in clos as (? & ?).
-    apply closed_mkApps; [easy|].
-    now eapply (all_closed _ args args').
   - apply IHev.
     split; [|easy].
     destruct clos as (clos & _).
@@ -584,8 +290,18 @@ Proof.
     apply closed_mkApps; [|easy].
     rewrite <- closed_unfold_cofix_cunfold_eq in * by easy.
     now eapply closed_unfold_cofix.
+  - apply IHev.
+    pose proof (closed_constant _ _ _ env_clos isdecl).
+    now rewrite H in *.
+  - apply IHev2.
+    apply closed_mkApps_args in IHev1; [|easy].
+    rewrite nth_nth_error in *.
+    destruct (nth_error _ _) eqn:nth_eq.
+    + apply nth_error_In in nth_eq.
+      rewrite Forall_forall in IHev1.
+      now apply IHev1.
+    + easy.
+  - easy.
   - easy.
   - easy.
 Qed.
-
-*)

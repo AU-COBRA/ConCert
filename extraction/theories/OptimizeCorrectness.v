@@ -60,8 +60,7 @@ Lemma eval_only_constants Σ s t :
   Σ ⊢ s ▷ t ->
   only_constants Σ ⊢ s ▷ t.
 Proof.
-  induction 1 using eval_evals_ind;
-    eauto using eval, declared_constant_only_constants.
+  induction 1; eauto using eval, declared_constant_only_constants.
 Qed.
 
 Definition trans_cst (cst : constant_body) : EAst.constant_body :=

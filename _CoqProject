@@ -64,6 +64,7 @@ extraction/theories/Aux.v
 extraction/theories/Certified.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v
+extraction/theories/ExAst.v
 extraction/theories/Erasure.v
 extraction/theories/Liquidity.v
 extraction/theories/LPretty.v
