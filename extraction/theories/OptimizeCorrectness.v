@@ -1,4 +1,5 @@
 From ConCert.Extraction Require Import Aux.
+From ConCert.Extraction Require Import BetaEq.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ExTyping.
@@ -14,6 +15,7 @@ From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import EInduction.
+From MetaCoq.Erasure Require Import EInversion.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Template Require Import utils.
@@ -818,80 +820,6 @@ Context (const_masks : list (kername * bitmask)).
 Notation dearg := (dearg ind_masks const_masks).
 Notation dearg_aux := (dearg_aux ind_masks const_masks).
 
-Reserved Infix "β=" (at level 70, right associativity).
-
-Inductive betaeq : term -> term -> Prop :=
-| betaeq_beta na body arg arg' sub :
-    arg β= arg' ->
-    sub β= subst1 arg' 0 body ->
-    tApp (tLambda na body) arg β= sub
-| betaeq_box : tBox β= tBox
-| betaeq_rel i : tRel i β= tRel i
-| betaeq_var id : tVar id β= tVar id
-| betaeq_evar i ts ts' :
-    Forall2 betaeq ts ts' ->
-    tEvar i ts β= tEvar i ts'
-| betaeq_lambda na body body' :
-    body β= body' ->
-    tLambda na body β= tLambda na body'
-| betaeq_let_in na val val' body body' :
-    val β= val' ->
-    body β= body' ->
-    tLetIn na val body β= tLetIn na val' body'
-| betaeq_app hd hd' arg arg' :
-    hd β= hd' ->
-    arg β= arg' ->
-    tApp hd arg β= tApp hd' arg'
-| betaeq_const kn : tConst kn β= tConst kn
-| betaeq_construct ind c : tConstruct ind c β= tConstruct ind c
-| betaeq_case ind npars disc disc' brs brs' :
-    disc β= disc' ->
-    betaeq_branches brs brs' ->
-    tCase (ind, npars) disc brs β= tCase (ind, npars) disc' brs'
-| betaeq_proj p t t' :
-    t β= t' ->
-    tProj p t β= tProj p t'
-| betaeq_fix defs defs' i :
-    betaeq_defs defs defs' ->
-    tFix defs i β= tFix defs' i
-| betaeq_cofix defs defs' i :
-    betaeq_defs defs defs' ->
-    tCoFix defs i β= tCoFix defs' i
-
-with betaeq_branches : list (nat × term) -> list (nat × term) -> Prop :=
-| betaeq_branches_nil : betaeq_branches [] []
-| betaeq_branches_cons ar t t' brs brs' :
-    t β= t' ->
-    betaeq_branches brs brs' ->
-    betaeq_branches ((ar, t) :: brs) ((ar, t') :: brs')
-
-with betaeq_defs : mfixpoint term -> mfixpoint term -> Prop :=
-| betaeq_defs_nil : betaeq_defs [] []
-| betaeq_defs_cons dname rarg dbody dbody' defs defs' :
-    dbody β= dbody' ->
-    betaeq_defs defs defs' ->
-    betaeq_defs
-      ({| dname := dname; dbody := dbody; rarg := rarg |} :: defs)
-      ({| dname := dname; dbody := dbody'; rarg := rarg |} :: defs')
-
-where "t β= t'" := (betaeq t t').
-
-Scheme betaeq_mind := Induction for betaeq Sort Prop
-  with betaeq_branches_mind := Induction for betaeq_branches Sort Prop
-  with betaeq_defs_mind := Induction for betaeq_defs Sort Prop.
-
-Fixpoint betaeq_refl (t : term) {struct term} : t β= t :=
-  match t with
-  | tBox =>
-with betaeq_branches_refl (brs : list (nat × term)) : betaeq_branches brs brs
-with betaeq_defs_refl (defs : mfixpoint term) : betaeq_defs defs defs.
-
-Global Instance betaeq_equivalence : Coq.Classes.RelationClasses.Equivalence betaeq.
-Proof.
-  constructor.
-  - intros x.
-    induction x.
-
 Lemma dearg_mkApps hd args :
   dearg (mkApps hd args) = dearg_aux (map dearg args) hd.
 Proof.
@@ -1070,38 +998,58 @@ Proof.
     rewrite <- dearg_aux_mkApps.
 *)
 
-Inductive dearged_result Σ v : term -> Prop :=
-| dearged_syntactic : dearged_result Σ v (dearg v)
-| dearged_extensional dv :
-    (forall a vv,
-        Σ ⊢ tApp v a ▷ vv ->
-        exists v'v,
-          Σ ⊢ tApp dv a ▷ v'v /\
-          dearged_result Σ vv v'v) ->
-    dearged_result Σ v dv.
-
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
   exists dv,
     Σ ⊢ dearg_aux (map dearg args) hd ▷ dv /\
-    dearged_result Σ v dv.
+    dv β= dearg v.
 Proof.
   intros ev.
-  remember (mkApps hd args) eqn:teq.
-  induction ev using eval_evals_ind in ev, t, v, hd, args, teq; cbn in *.
+  depind ev.
   - destruct (mkApps_elim hd args).
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
     cbn in *.
-    noconf teq.
-    rewrite dearg_aux_mkApps.
-    rewrite <- map_app.
-    rewrite firstn_skipn.
-    specialize (IHev1 f l eq_refl).
-    specialize (IHev2 t [] eq_refl).
-    destruct IHev1 as (fv & ev_f & drf).
-    rewrite map_app.
-    exists tBox.
+    noconf H.
+    rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
+    specialize (IHev1 _ _ _ eq_refl) as (fv & ev_f & drf).
+    specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
+    cbn in *.
+    refold'.
+    admit.
+  - destruct (mkApps_elim hd args).
+    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+    rewrite mkApps_app in *.
+    cbn in *.
+    noconf H.
+    rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
+    specialize (IHev1 _ _ _ eq_refl).
+    specialize (IHev2 _ [] _ eq_refl).
+    specialize (IHev3 _ [] _ eq_refl).
+    cbn in *.
+
+    destruct f; cbn in *.
+    +
+      exists tBox.
+      split; [|easy].
+      apply eval_mkApps_args in ev_f as (? & ?).
+      eapply eval_box_apps; [|now apply eval_atom].
+      now apply Forall2_app.
+    + apply eval_mkApps_head in ev1 as (? & ?).
+      now depelim H1.
+    + apply eval_mkApps_head in ev1 as (? & ?).
+      now depelim H1.
+    + apply eval_mkApps_head in ev1 as (? & ?).
+      now depelim H1.
+    +
+rewrite mkApps_app.
+      cbn in *.
+
+      apply eval_to_value in ev_f.
+      destruct ev_f.
+      * replace t0 with tBox in * by admit.
+      * admit.
+      *
     destruct f;
       cbn in *;
       rewrite ?mkApps_app;
