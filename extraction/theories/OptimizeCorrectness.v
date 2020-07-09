@@ -1000,6 +1000,7 @@ Proof.
     rewrite <- dearg_aux_mkApps.
 *)
 
+(*
 Fixpoint is_first_order (t : term) : bool :=
   match t with
   | tBox => true
@@ -1018,6 +1019,33 @@ Fixpoint is_first_order (t : term) : bool :=
   | tFix defs _ => false
   | tCoFix defs _ => false
   end.
+
+Definition is_first_order_betanorm t :
+  is_first_order t ->
+  betanorm t t.
+Proof.
+  intros fo.
+  induction t using term_forall_list_ind; eauto using betanorm; try easy.
+  - cbn in *.
+    constructor.
+    induction H; [easy|].
+    cbn in *.
+    propify.
+    easy.
+  - cbn in *; propify.
+    now constructor.
+  - cbn in *; propify.
+    apply betanorm_app; [easy| |easy].
+    now destruct t1.
+  - cbn in *.
+    propify.
+    constructor; [easy|].
+    destruct fo as (_ & fo).
+    clear -X fo.
+    induction X; [easy|].
+    cbn in *; propify.
+    now constructor.
+Qed.
 
 Lemma value_app_inv hd arg :
   value (tApp hd arg) ->
@@ -1055,7 +1083,7 @@ Lemma value_betaeq_first_order v v' :
   v' = v.
 Proof.
   intros ev beq fo.
-  induction beq using betaeq_forall_list_ind in v, v', ev, beq, fo |- *.
+  induction beq using betaeq_forall_list_ind in v, v', ev, beq, fo |- *; try easy.
   - change (tApp ?hd ?a) with (mkApps hd [a]) in ev.
     apply value_mkApps_inv in ev; [|easy].
     now destruct ev as [(? & ?)|[(? & ?)|(? & ?)]].
@@ -1063,7 +1091,6 @@ Proof.
     + easy.
     + now destruct t; solve_discr.
     + now destruct f; solve_discr.
-  - easy.
   - inversion ev.
     + easy.
     + now destruct t; solve_discr.
@@ -1071,7 +1098,7 @@ Proof.
   - cbn in *.
     apply value_app_inv in ev as (? & ?).
     propify.
-    now erewrite IHbeq1, IHbeq2.
+    now erewrite IHbeq1, IHbeq2; try easy.
   - cbn in *.
     propify.
     inversion ev.
@@ -1083,6 +1110,19 @@ Proof.
     + easy.
     + now destruct t0; solve_discr.
     + now destruct f; solve_discr.
+  -
+Qed.
+
+Lemma value_betaeq'_first_order v v' :
+  value v ->
+  betaeq' v v' ->
+  is_first_order v' ->
+  v' = v.
+Proof.
+  intros val beq fo.
+  induction beq.
+  - now apply value_betaeq_first_order.
+  -
   - easy.
   - easy.
   - easy.
@@ -1129,6 +1169,7 @@ Proof.
            (fun
   induction beq.
   - depelim
+*)
 
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
@@ -1148,6 +1189,8 @@ Proof.
     specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
     cbn in *.
     refold'.
+    eexists.
+    rewrite <- drf.
     admit.
   - destruct (mkApps_elim hd args).
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].

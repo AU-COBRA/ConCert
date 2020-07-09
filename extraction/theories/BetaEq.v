@@ -23,174 +23,282 @@ Import ListNotations.
 
 Import EAstUtils.
 
-Reserved Infix "β=" (at level 70, right associativity).
+Inductive betanorm : term -> term -> Prop :=
+| betanorm_box : betanorm tBox tBox
+| betanorm_rel i : betanorm (tRel i) (tRel i)
+| betanorm_var id : betanorm (tVar id) (tVar id)
+| betanorm_evar i ts ts' :
+    Forall2 betanorm ts ts' ->
+    betanorm (tEvar i ts) (tEvar i ts')
+| betanorm_lambda na body body' :
+    betanorm body body' ->
+    betanorm (tLambda na body) (tLambda na body')
+| betanorm_let_in na val val' body body' :
+    betanorm val val' ->
+    betanorm body body' ->
+    betanorm (tLetIn na val body) (tLetIn na val' body')
+| betanorm_app hd hd' arg arg' :
+    betanorm hd hd' ->
+    isLambda hd' = false ->
+    betanorm arg arg' ->
+    betanorm (tApp hd arg) (tApp hd' arg')
+| betanorm_const kn : betanorm (tConst kn) (tConst kn)
+| betanorm_construct ind c : betanorm (tConstruct ind c) (tConstruct ind c)
+| betanorm_case ind discr discr' brs brs' :
+    betanorm discr discr' ->
+    Forall2 (fun br br' => br.1 = br'.1 /\ betanorm br.2 br'.2) brs brs' ->
+    betanorm (tCase ind discr brs) (tCase ind discr' brs')
+| betanorm_proj proj t t' :
+    betanorm t t' ->
+    betanorm (tProj proj t) (tProj proj t')
+| betanorm_fix defs defs' i :
+    Forall2 (fun d d' => dname d = dname d' /\
+                         betanorm (dbody d) (dbody d') /\
+                         rarg d = rarg d') defs defs' ->
+    betanorm (tFix defs i) (tFix defs' i)
+| betanorm_cofix defs defs' i :
+    Forall2 (fun d d' => dname d = dname d' /\
+                         betanorm (dbody d) (dbody d') /\
+                         rarg d = rarg d') defs defs' ->
+    betanorm (tCoFix defs i) (tCoFix defs' i)
+| betanorm_beta na body arg res :
+    betanorm (body{0 := arg}) res ->
+    betanorm (tApp (tLambda na body) arg) res.
 
-Inductive betaeq : term -> term -> Prop :=
-| betaeq_beta_l na body arg :
-    tApp (tLambda na body) arg β= body{0 := arg}
-| betaeq_beta_r na body arg :
-    body{0 := arg} β= tApp (tLambda na body) arg
-| betaeq_box : tBox β= tBox
-| betaeq_rel i : tRel i β= tRel i
-| betaeq_var id : tVar id β= tVar id
-| betaeq_evar i ts ts' :
-    Forall2 betaeq ts ts' ->
-    tEvar i ts β= tEvar i ts'
-| betaeq_lambda na body body' :
-    body β= body' ->
-    tLambda na body β= tLambda na body'
-| betaeq_let_in na val val' body body' :
-    val β= val' ->
-    body β= body' ->
-    tLetIn na val body β= tLetIn na val' body'
-| betaeq_app hd hd' arg arg' :
-    hd β= hd' ->
-    arg β= arg' ->
-    tApp hd arg β= tApp hd' arg'
-| betaeq_const kn : tConst kn β= tConst kn
-| betaeq_construct ind c : tConstruct ind c β= tConstruct ind c
-| betaeq_case p disc disc' brs brs' :
-    disc β= disc' ->
-    Forall2 (fun p p' => fst p = fst p' /\ snd p β= snd p') brs brs' ->
-    tCase p disc brs β= tCase p disc' brs'
-| betaeq_proj p t t' :
-    t β= t' ->
-    tProj p t β= tProj p t'
-| betaeq_fix defs defs' i :
-    Forall2 (fun d d' => dname d = dname d' /\ dbody d β= dbody d' /\ rarg d = rarg d')
-            defs defs' ->
-    tFix defs i β= tFix defs' i
-| betaeq_cofix defs defs' i :
-    Forall2 (fun d d' => dname d = dname d' /\ dbody d β= dbody d' /\ rarg d = rarg d')
-            defs defs' ->
-    tCoFix defs i β= tCoFix defs' i
-| betaeq_trans a b c :
-    a β= b ->
-    b β= c ->
-    a β= c
-where "t β= t'" := (betaeq t t').
+Derive Signature for betanorm.
 
-Lemma betaeq_refl t : t β= t.
+Lemma no_sn :
+  exists t,
+    forall v,
+      betanorm t v -> False.
 Proof.
-  induction t using term_forall_list_ind; eauto using betaeq.
-  - constructor.
-    now induction H.
-  - constructor.
-    now induction H.
+  set (Ω := tLambda nAnon (tApp (tRel 0) (tRel 0))).
+  exists (tApp Ω Ω).
+  subst Ω.
+  intros v norm.
+  depind norm.
+  - now depelim norm1.
+  - cbn in *.
+    easy.
+Qed.
 
-Derive Signature for betaeq.
+Open Scope string.
+Definition example_tree :=
+  tApp (tLambda nAnon (tApp (tLambda nAnon (tRel 1))
+                            (tVar "inner")))
+       (tVar "outer").
 
-Definition betaeq_forall_list_ind
+Example reduce_twice : betanorm example_tree (tVar "outer").
+Proof. repeat constructor. Qed.
+
+Example reduce_in_lam :
+  betanorm
+    (tLambda nAnon example_tree)
+    (tLambda nAnon (tVar "outer")).
+Proof. repeat constructor. Qed.
+
+Definition betanorm_forall_list_ind
            (P : term -> term -> Prop)
-           (Hbeta : forall (na : name) (body arg : term),
-               P (tApp (tLambda na body) arg) (body {0 := arg}))
+           (Hbox : P tBox tBox)
+           (Hrel : forall i : nat, P (tRel i) (tRel i))
+           (Hvar : forall id : ident, P (tVar id) (tVar id))
            (Hevar : forall (i : nat) (ts ts' : list term),
-               Forall2 (fun t t' => t β= t' /\ P t t') ts ts' ->
+               Forall2 betanorm ts ts' ->
+               Forall2 P ts ts' ->
                P (tEvar i ts) (tEvar i ts'))
-           (Hlambda : forall (na : name) (body body' : term),
-               body β= body' ->
+           (Hlam : forall (na : name) (body body' : term),
+               betanorm body body' ->
                P body body' ->
                P (tLambda na body) (tLambda na body'))
            (Hletin : forall (na : name) (val val' body body' : term),
-               val β= val' ->
+               betanorm val val' ->
                P val val' ->
-               body β= body' ->
+               betanorm body body' ->
                P body body' ->
                P (tLetIn na val body) (tLetIn na val' body'))
            (Happ : forall hd hd' arg arg' : term,
-               hd β= hd' ->
+               betanorm hd hd' ->
                P hd hd' ->
-               arg β= arg' ->
+               isLambda hd' = false ->
+               betanorm arg arg' ->
                P arg arg' ->
                P (tApp hd arg) (tApp hd' arg'))
-           (Hcase : forall (p : inductive × nat) (disc disc' : term)
+           (Hconst : forall kn : kername, P (tConst kn) (tConst kn))
+           (Hconstruct : forall (ind : inductive) (c : nat),
+               P (tConstruct ind c) (tConstruct ind c))
+           (Hcase : forall (ind : inductive × nat)
+                           (discr discr' : term)
                            (brs brs' : list (nat × term)),
-               disc β= disc' ->
-               P disc disc' ->
-               Forall2 (fun '(ar, t) '(ar', t') => ar = ar' /\ t β= t' /\ P t t') brs brs' ->
-               P (tCase p disc brs) (tCase p disc' brs'))
-           (Hproj : forall (p : projection) (t t' : term),
-               t β= t' ->
+               betanorm discr discr' ->
+               P discr discr' ->
+               Forall2 (fun br br' => br.1 = br'.1 /\ betanorm br.2 br'.2) brs brs' ->
+               Forall2 (fun br br' => P br.2 br'.2) brs brs' ->
+               P (tCase ind discr brs) (tCase ind discr' brs'))
+           (Hproj : forall (proj : projection) (t t' : term),
+               betanorm t t' ->
                P t t' ->
-               P (tProj p t) (tProj p t'))
+               P (tProj proj t) (tProj proj t'))
            (Hfix : forall (defs defs' : list (def term)) (i : nat),
                Forall2
-                 (fun d d' =>
-                    dname d = dname d' /\
-                    rarg d = rarg d' /\
-                    dbody d β= dbody d' /\
-                    P (dbody d) (dbody d')) defs defs' ->
+                 (fun d d' => dname d = dname d' /\
+                              betanorm (dbody d) (dbody d') /\
+                              rarg d = rarg d')
+                 defs defs' ->
+               Forall2 (fun d d' => P (dbody d) (dbody d')) defs defs' ->
                P (tFix defs i) (tFix defs' i))
            (Hcofix : forall (defs defs' : list (def term)) (i : nat),
                Forall2
-                 (fun d d' =>
-                    dname d = dname d' /\
-                    rarg d = rarg d' /\
-                    dbody d β= dbody d' /\
-                    P (dbody d) (dbody d')) defs defs' ->
+                 (fun d d' => dname d = dname d' /\
+                              betanorm (dbody d) (dbody d') /\
+                              rarg d = rarg d')
+                 defs defs' ->
+               Forall2 (fun d d' => P (dbody d) (dbody d')) defs defs' ->
                P (tCoFix defs i) (tCoFix defs' i))
-           (Hrefl : forall t, P t t)
-           (Hsym : forall t t',
-               t β= t' ->
-               P t t' ->
-               P t' t)
-           (Htrans : forall t t' t'',
-               t β= t' ->
-               P t t' ->
-               t' β= t'' ->
-               P t' t'' ->
-               P t t'') :
-  forall t t', t β= t' -> P t t'.
+           (Hbeta : forall (na : name) (body arg res : term),
+               betanorm (body {0 := arg}) res ->
+               P (body {0 := arg}) res ->
+               P (tApp (tLambda na body) arg) res) :
+  forall t t', betanorm t t' -> P t t'.
 Proof.
   fix ind 3.
   intros t t' beq.
   destruct beq;
     try solve [
-          clear Hrefl Hsym Htrans;
           match goal with [ H : _ |- _ ] =>
                                match type of H with
-                                 forall t t', t β= t' -> _ => fail 1
+                                 forall t t', betanorm t t' -> _ => fail 1
                                | _ => eapply H
                                end end; eauto].
-  - apply Hevar.
+  - apply Hevar; [assumption|].
     clear -H ind.
     revert ts ts' H.
     fix f 3.
     destruct 1; constructor; [|auto].
-    split; [assumption|].
-    apply ind; auto.
-  - apply Hcase; [assumption|apply ind; auto|].
+    now apply ind.
+  - apply Hcase; [assumption|now apply ind|assumption|].
     clear -H ind.
     revert brs brs' H.
     fix f 3.
     destruct 1; constructor; [|auto].
-    destruct b, b'.
-    split; [assumption|].
-    split; [assumption|].
-    apply ind; auto.
-  - apply Hfix.
+    destruct H.
+    now apply ind.
+  - apply Hfix; [assumption|].
     clear -H ind.
     revert defs defs' H.
     fix f 3.
     destruct 1; constructor; [|auto].
-    split; [assumption|].
-    split; [assumption|].
-    split; [assumption|].
-    apply ind; auto.
-  - apply Hcofix.
+    destruct H as (? & ? & ?).
+    now apply ind.
+  - apply Hcofix; [assumption|].
     clear -H ind.
     revert defs defs' H.
     fix f 3.
     destruct 1; constructor; [|auto].
-    cbn.
-    split; [assumption|].
-    split; [assumption|].
-    split; [assumption|].
-    apply ind; auto.
-  - apply Hrefl.
-  - apply Hsym; auto.
-  - eapply Htrans; eauto.
+    destruct H as (? & ? & ?).
+    now apply ind.
 Defined.
 
+Lemma betanorm_deterministic t v v' :
+  betanorm t v ->
+  betanorm t v' ->
+  v = v'.
+Proof.
+  intros n1 n2.
+  induction n1 using betanorm_forall_list_ind in t, v, v', n1, n2 |- *;
+    try solve [depelim n2; auto; f_equal; auto].
+  - depelim n2.
+    f_equal.
+    induction H in ts, ts', ts'0, H, H0, H1 |- *.
+    + now depelim H1.
+    + depelim H0.
+      depelim H3.
+      now f_equal.
+  - depelim n2.
+    + now erewrite IHn1_1, IHn1_2 by easy.
+    + now depelim n1_1.
+  - depelim n2.
+    f_equal; auto.
+    clear ind discr'0 discr discr' n1 n2 IHn1.
+    induction H in brs, brs', brs'0, H, H0, H1 |- *.
+    + now depelim H1.
+    + depelim H0.
+      depelim H3.
+      destruct y0, x, y.
+      cbn in *.
+      destruct H, H3.
+      erewrite H0 by easy.
+      now f_equal.
+  - depelim n2.
+    f_equal.
+    induction H in defs, defs', defs'0, H, H0, H1 |- *.
+    + now depelim H1.
+    + depelim H0.
+      depelim H3.
+      destruct y0, x, y, H as (? & ? & ?), H3 as (? & ? & ?).
+      cbn in *.
+      erewrite H0 by easy.
+      f_equal; [f_equal|]; try congruence.
+      easy.
+  - depelim n2.
+    f_equal.
+    induction H in defs, defs', defs'0, H, H0, H1 |- *.
+    + now depelim H1.
+    + depelim H0.
+      depelim H3.
+      destruct y0, x, y, H as (? & ? & ?), H3 as (? & ? & ?).
+      cbn in *.
+      erewrite H0 by easy.
+      f_equal; [f_equal|]; try congruence.
+      easy.
+  - depelim n2.
+    + now depelim n2_1.
+    + now apply IHn1.
+Qed.
+
+Definition betaeq (t1 t2 : term) : Prop :=
+  forall v, betanorm t1 v <-> betanorm t2 v.
+
+Infix "β=" := betaeq (at level 70, right associativity).
+
 Instance Equivalence_betaeq : Equivalence betaeq.
-Proof. constructor; eauto with beta. Qed.
+Proof. constructor; repeat intro; firstorder. Qed.
+
+Fixpoint has_beta_redex (t : term) : bool :=
+  match t with
+  | tBox => false
+  | tRel _ => false
+  | tVar _ => false
+  | tEvar _ ts => fold_right orb false (map has_beta_redex ts)
+  | tLambda na body => has_beta_redex body
+  | tLetIn na val body => has_beta_redex val || has_beta_redex body
+  | tApp hd arg => isLambda hd || has_beta_redex hd || has_beta_redex arg
+  | tConst _ => false
+  | tConstruct _ _ => false
+  | tCase _ discr brs =>
+    has_beta_redex discr || fold_right orb false (map (has_beta_redex ∘ snd) brs)
+  | tProj _ t => has_beta_redex t
+  | tFix defs _ => fold_right orb false (map (has_beta_redex ∘ dbody) defs)
+  | tCoFix defs _ => fold_right orb false (map (has_beta_redex ∘ dbody) defs)
+  end.
+
+Lemma betanorm_normalizes t v :
+  betanorm t v ->
+  has_beta_redex v = false.
+Proof.
+  intros bn.
+  induction bn using betanorm_forall_list_ind;
+    cbn in *; propify; auto.
+  - induction H; depelim H0; [easy|].
+    cbn in *.
+    now propify.
+  - split; [easy|].
+    induction H; depelim H0; [easy|].
+    cbn in *.
+    now propify.
+  - induction H; depelim H0; [easy|].
+    cbn in *.
+    now propify.
+  - induction H; depelim H0; [easy|].
+    cbn in *.
+    now propify.
+Qed.
