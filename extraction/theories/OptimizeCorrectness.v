@@ -820,10 +820,12 @@ Context (const_masks : list (kername * bitmask)).
 Notation dearg := (dearg ind_masks const_masks).
 Notation dearg_aux := (dearg_aux ind_masks const_masks).
 
+(*
 Lemma dearg_mkApps hd args :
   dearg (mkApps hd args) = dearg_aux (map dearg args) hd.
 Proof.
   Admitted.
+*)
 
 Lemma dearg_aux_mkApps args args' hd :
   dearg_aux args (mkApps hd args') = dearg_aux (map dearg args' ++ args) hd.
@@ -997,6 +999,136 @@ Proof.
     rewrite <- IHt2.
     rewrite <- dearg_aux_mkApps.
 *)
+
+Fixpoint is_first_order (t : term) : bool :=
+  match t with
+  | tBox => true
+  | tRel _ => true
+  | tVar _ => true
+  | tEvar _ ts => fold_right andb true (map is_first_order ts)
+  | tLambda _ _ => false
+  | tLetIn _ val body => is_first_order val && is_first_order body
+  | tApp hd arg => is_first_order hd && is_first_order arg
+  | tConst _ => true
+  | tConstruct _ _ => true
+  | tCase _ disc brs =>
+    is_first_order disc &&
+    fold_right andb true (map (is_first_order ∘ snd) brs)
+  | tProj _ t => is_first_order t
+  | tFix defs _ => false
+  | tCoFix defs _ => false
+  end.
+
+Lemma value_app_inv hd arg :
+  value (tApp hd arg) ->
+  value hd /\ value arg.
+Proof.
+  intros val.
+  inversion val.
+  - easy.
+  - destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+    rewrite mkApps_app in H.
+    inversion H; subst; clear H.
+    apply Forall_app in H1 as (? & ?).
+    depelim H1.
+    split; [|easy].
+    now apply value_app.
+  - destruct args as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+    rewrite mkApps_app in H.
+    inversion H; subst; clear H.
+    apply Forall_app in H0 as (? & ?).
+    depelim H0.
+    split; [|easy].
+    apply value_stuck_fix; [easy|].
+    unfold isStuckFix in *.
+    destruct f; try easy.
+    destruct (cunfold_fix m n) as [(? & ?)|]; [|easy].
+    unfold ETyping.is_nth_constructor_app_or_box in *.
+    destruct (nth_error args n0) eqn:nth; [|easy].
+    now erewrite nth_error_app_left in H1.
+Qed.
+
+Lemma value_betaeq_first_order v v' :
+  value v ->
+  v β= v' ->
+  is_first_order v' ->
+  v' = v.
+Proof.
+  intros ev beq fo.
+  induction beq using betaeq_forall_list_ind in v, v', ev, beq, fo |- *.
+  - change (tApp ?hd ?a) with (mkApps hd [a]) in ev.
+    apply value_mkApps_inv in ev; [|easy].
+    now destruct ev as [(? & ?)|[(? & ?)|(? & ?)]].
+  - inversion ev.
+    + easy.
+    + now destruct t; solve_discr.
+    + now destruct f; solve_discr.
+  - easy.
+  - inversion ev.
+    + easy.
+    + now destruct t; solve_discr.
+    + now destruct f; solve_discr.
+  - cbn in *.
+    apply value_app_inv in ev as (? & ?).
+    propify.
+    now erewrite IHbeq1, IHbeq2.
+  - cbn in *.
+    propify.
+    inversion ev.
+    + easy.
+    + now destruct t; solve_discr.
+    + now destruct f; solve_discr.
+  - cbn in *.
+    inversion ev.
+    + easy.
+    + now destruct t0; solve_discr.
+    + now destruct f; solve_discr.
+  - easy.
+  - easy.
+  - easy.
+  - admit.
+  -
+  - destruct beq; try easy.
+    + cbn in *.
+      admit.
+    + cbn in *.
+      propify.
+      admit.
+    +
+  -
+    erewrite IHbeq by easy.
+    inversion ev.
+    + easy.
+    + destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
+      rewrite mkApps_app in H.
+      inversion H; subst; clear H.
+      apply Forall_app in H1 as (? & ?).
+      depelim H1.
+      propify.
+      rewrite IHbeq1, IHbeq2; try easy; first last.
+      { now apply value_app. }
+      now rewrite mkApps_app.
+    + destruct f; try easy.
+      change (tApp ?h ?a) with (mkApps h [a]) in H.
+      apply mkApps_eq_inj in H.
+    cbn in *.
+    inversion ev.
+    + easy.
+    + destruct (mkApps_elim t0 l).
+      change
+      destruct l using List.rev_ind.
+      * cbn in *.
+        subst.
+        easy.
+      * rewrite mkApps_app in H.
+        cbn in *.
+        inversion H; subst.
+  revert v v' beq ev fo.
+  apply (betaeq_mind
+           (fun v v' beq => Σ ⊢ t ▷ v -> is_first_order v' -> v' = v)
+           (fun
+  induction beq.
+  - depelim
 
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->

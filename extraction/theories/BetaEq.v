@@ -26,9 +26,15 @@ Import EAstUtils.
 Reserved Infix "β=" (at level 70, right associativity).
 
 Inductive betaeq : term -> term -> Prop :=
-| betaeq_beta na body arg : tApp (tLambda na body) arg β= body{0 := arg}
+| betaeq_beta_l na body arg :
+    tApp (tLambda na body) arg β= body{0 := arg}
+| betaeq_beta_r na body arg :
+    body{0 := arg} β= tApp (tLambda na body) arg
+| betaeq_box : tBox β= tBox
+| betaeq_rel i : tRel i β= tRel i
+| betaeq_var id : tVar id β= tVar id
 | betaeq_evar i ts ts' :
-    betaeq_terms ts ts' ->
+    Forall2 betaeq ts ts' ->
     tEvar i ts β= tEvar i ts'
 | betaeq_lambda na body body' :
     body β= body' ->
@@ -41,110 +47,43 @@ Inductive betaeq : term -> term -> Prop :=
     hd β= hd' ->
     arg β= arg' ->
     tApp hd arg β= tApp hd' arg'
+| betaeq_const kn : tConst kn β= tConst kn
+| betaeq_construct ind c : tConstruct ind c β= tConstruct ind c
 | betaeq_case p disc disc' brs brs' :
     disc β= disc' ->
-    betaeq_branches brs brs' ->
+    Forall2 (fun p p' => fst p = fst p' /\ snd p β= snd p') brs brs' ->
     tCase p disc brs β= tCase p disc' brs'
 | betaeq_proj p t t' :
     t β= t' ->
     tProj p t β= tProj p t'
 | betaeq_fix defs defs' i :
-    betaeq_defs defs defs' ->
+    Forall2 (fun d d' => dname d = dname d' /\ dbody d β= dbody d' /\ rarg d = rarg d')
+            defs defs' ->
     tFix defs i β= tFix defs' i
 | betaeq_cofix defs defs' i :
-    betaeq_defs defs defs' ->
+    Forall2 (fun d d' => dname d = dname d' /\ dbody d β= dbody d' /\ rarg d = rarg d')
+            defs defs' ->
     tCoFix defs i β= tCoFix defs' i
-| betaeq_refl t : t β= t
-| betaeq_sym t t' : t β= t' -> t' β= t
 | betaeq_trans a b c :
     a β= b ->
     b β= c ->
     a β= c
-
-with betaeq_terms : list term -> list term -> Prop :=
-| betaeq_terms_nil : betaeq_terms [] []
-| betaeq_terms_cons t t' ts ts' :
-    t β= t' ->
-    betaeq_terms ts ts' ->
-    betaeq_terms (t :: ts) (t' :: ts')
-
-with betaeq_branches : list (nat × term) -> list (nat × term) -> Prop :=
-| betaeq_branches_nil : betaeq_branches [] []
-| betaeq_branches_cons b b' brs brs' :
-    b.1 = b'.1 ->
-    b.2 β= b'.2 ->
-    betaeq_branches brs brs' ->
-    betaeq_branches (b :: brs) (b' :: brs')
-
-with betaeq_defs : mfixpoint term -> mfixpoint term -> Prop :=
-| betaeq_defs_nil : betaeq_defs [] []
-| betaeq_defs_cons d d' defs defs' :
-    dname d = dname d' ->
-    dbody d β= dbody d' ->
-    rarg d = rarg d' ->
-    betaeq_defs defs defs' ->
-    betaeq_defs
-      (d :: defs)
-      (d' :: defs')
-
 where "t β= t'" := (betaeq t t').
+
+Lemma betaeq_refl t : t β= t.
+Proof.
+  induction t using term_forall_list_ind; eauto using betaeq.
+  - constructor.
+    now induction H.
+  - constructor.
+    now induction H.
 
 Derive Signature for betaeq.
 
-Hint Constructors betaeq betaeq_terms betaeq_branches betaeq_defs : beta.
-
-Lemma betaeq_terms_Forall2 ts ts' :
-  betaeq_terms ts ts' <-> Forall2 betaeq ts ts'.
-Proof. split; induction 1; eauto with beta. Qed.
-
-Lemma betaeq_branches_Forall2 brs brs' :
-  betaeq_branches brs brs' <->
-  Forall2 (fun b b' => b.1 = b'.1 /\ b.2 β= b'.2) brs brs'.
-Proof.
-  split; induction 1; eauto with beta.
-  destruct H.
-  eauto with beta.
-Qed.
-
-Lemma betaeq_defs_Forall2 defs defs' :
-  betaeq_defs defs defs' <->
-  Forall2 (fun d d' => dname d = dname d' /\
-                       dbody d β= dbody d' /\
-                       rarg d = rarg d') defs defs'.
-Proof.
-  split; induction 1; eauto with beta.
-  destruct H as (? & ? & ?); eauto with beta.
-Qed.
-
-Ltac beta_to_all :=
-  rewrite -> ?betaeq_terms_Forall2 in *;
-  rewrite -> ?betaeq_branches_Forall2 in *;
-  rewrite -> ?betaeq_defs_Forall2 in *.
-
-Ltac all_to_beta :=
-  rewrite <- ?betaeq_terms_Forall2 in *;
-  rewrite <- ?betaeq_branches_Forall2 in *;
-  rewrite <- ?betaeq_defs_Forall2 in *.
-
-Scheme betaeq_mind := Induction for betaeq Sort Prop
-  with betaeq_terms_mind := Induction for betaeq_terms Sort Prop
-  with betaeq_branches_mind := Induction for betaeq_branches Sort Prop
-  with betaeq_defs_mind := Induction for betaeq_defs Sort Prop.
-
-(*
 Definition betaeq_forall_list_ind
            (P : term -> term -> Prop)
-           (Hbetal : forall (na : name) (body arg sub : term),
-               body{0 := arg} β= sub ->
-               P (body {0 := arg}) sub ->
-               P (tApp (tLambda na body) arg) sub)
-           (Hbetar : forall (na : name) (body arg sub : term),
-               sub β= body {0 := arg} ->
-               P sub (body {0 := arg}) ->
-               P sub (tApp (tLambda na body) arg))
-           (Hbox : P tBox tBox)
-           (Hrel : forall i : nat, P (tRel i) (tRel i))
-           (Hvar : forall id : ident, P (tVar id) (tVar id))
+           (Hbeta : forall (na : name) (body arg : term),
+               P (tApp (tLambda na body) arg) (body {0 := arg}))
            (Hevar : forall (i : nat) (ts ts' : list term),
                Forall2 (fun t t' => t β= t' /\ P t t') ts ts' ->
                P (tEvar i ts) (tEvar i ts'))
@@ -164,9 +103,6 @@ Definition betaeq_forall_list_ind
                arg β= arg' ->
                P arg arg' ->
                P (tApp hd arg) (tApp hd' arg'))
-           (Hconst : forall kn : kername, P (tConst kn) (tConst kn))
-           (Hconstruct : forall (ind : inductive) (c : nat),
-               P (tConstruct ind c) (tConstruct ind c))
            (Hcase : forall (p : inductive × nat) (disc disc' : term)
                            (brs brs' : list (nat × term)),
                disc β= disc' ->
@@ -192,13 +128,26 @@ Definition betaeq_forall_list_ind
                     rarg d = rarg d' /\
                     dbody d β= dbody d' /\
                     P (dbody d) (dbody d')) defs defs' ->
-               P (tCoFix defs i) (tCoFix defs' i)) :
+               P (tCoFix defs i) (tCoFix defs' i))
+           (Hrefl : forall t, P t t)
+           (Hsym : forall t t',
+               t β= t' ->
+               P t t' ->
+               P t' t)
+           (Htrans : forall t t' t'',
+               t β= t' ->
+               P t t' ->
+               t' β= t'' ->
+               P t' t'' ->
+               P t t'') :
   forall t t', t β= t' -> P t t'.
 Proof.
   fix ind 3.
   intros t t' beq.
   destruct beq;
-    try solve [match goal with [ H : _ |- _ ] =>
+    try solve [
+          clear Hrefl Hsym Htrans;
+          match goal with [ H : _ |- _ ] =>
                                match type of H with
                                  forall t t', t β= t' -> _ => fail 1
                                | _ => eapply H
@@ -238,8 +187,10 @@ Proof.
     split; [assumption|].
     split; [assumption|].
     apply ind; auto.
+  - apply Hrefl.
+  - apply Hsym; auto.
+  - eapply Htrans; eauto.
 Defined.
-*)
 
 Instance Equivalence_betaeq : Equivalence betaeq.
 Proof. constructor; eauto with beta. Qed.

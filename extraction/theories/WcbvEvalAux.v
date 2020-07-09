@@ -305,3 +305,59 @@ Proof.
   - easy.
   - easy.
 Qed.
+
+Lemma eval_stuck_fix Σ args argsv mfix idx :
+  Forall2 (eval Σ) args argsv ->
+  isStuckFix (tFix mfix idx) argsv ->
+  Σ ⊢ (mkApps (tFix mfix idx) args) ▷ (mkApps (tFix mfix idx) argsv).
+Proof.
+  revert argsv.
+  induction args as [|a args IH] using MCList.rev_ind;
+    intros argsv all stuck.
+  - apply Forall2_length in all.
+    destruct argsv; [|easy].
+    now apply eval_atom.
+  - destruct argsv as [|? ? _] using MCList.rev_ind;
+      [apply Forall2_length in all; rewrite app_length in all; now cbn in *|].
+    apply Forall2_app_r in all as (all & ev_a).
+    rewrite <- !mkApps_nested.
+    cbn in *.
+    destruct (cunfold_fix mfix idx) as [(? & ?)|] eqn:cuf; [|easy].
+    eapply eval_fix_value.
+    + apply IH; [easy|].
+      destruct (cunfold_fix mfix idx) as [(? & ?)|]; [|easy].
+      unfold ETyping.is_nth_constructor_app_or_box in *.
+      destruct (nth_error argsv _) eqn:nth; [|easy].
+      now erewrite nth_error_app_left in stuck.
+    + easy.
+    + easy.
+    + destruct (Nat.eqb_spec #|argsv| n) as [<-|].
+      * unfold ETyping.is_nth_constructor_app_or_box in *.
+        now rewrite nth_error_snoc in stuck.
+      * now left.
+Qed.
+
+Lemma value_final Σ e : value e -> Σ ⊢ e ▷ e.
+Proof.
+  induction 1 using value_values_ind; cbn in *.
+  - now apply eval_atom.
+  - induction l using List.rev_ind.
+    + cbn in *.
+      destruct t; cbn in *; propify; try easy; now apply eval_atom.
+    + rewrite mkApps_app.
+      cbn.
+      apply Forall_app in H0 as (? & ?).
+      apply Forall_app in H1 as (? & ?).
+      depelim H2.
+      depelim H4.
+      apply eval_app_cong.
+      * now apply IHl.
+      * rewrite isFixApp_mkApps by (now destruct t).
+        destruct l using List.rev_ind; [now destruct t|].
+        rewrite mkApps_app.
+        now destruct t.
+      * easy.
+  - destruct f; try easy.
+    apply Forall_All, All_All2_refl, All2_Forall2 in H0.
+    now apply eval_stuck_fix.
+Qed.
