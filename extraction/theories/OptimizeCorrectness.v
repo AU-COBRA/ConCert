@@ -820,13 +820,6 @@ Context (const_masks : list (kername * bitmask)).
 Notation dearg := (dearg ind_masks const_masks).
 Notation dearg_aux := (dearg_aux ind_masks const_masks).
 
-(*
-Lemma dearg_mkApps hd args :
-  dearg (mkApps hd args) = dearg_aux (map dearg args) hd.
-Proof.
-  Admitted.
-*)
-
 Lemma dearg_aux_mkApps args args' hd :
   dearg_aux args (mkApps hd args') = dearg_aux (map dearg args' ++ args) hd.
 Proof.
@@ -1000,7 +993,6 @@ Proof.
     rewrite <- dearg_aux_mkApps.
 *)
 
-(*
 Fixpoint is_first_order (t : term) : bool :=
   match t with
   | tBox => true
@@ -1020,6 +1012,7 @@ Fixpoint is_first_order (t : term) : bool :=
   | tCoFix defs _ => false
   end.
 
+(*
 Definition is_first_order_betanorm t :
   is_first_order t ->
   betanorm t t.
@@ -1046,6 +1039,7 @@ Proof.
     cbn in *; propify.
     now constructor.
 Qed.
+*)
 
 Lemma value_app_inv hd arg :
   value (tApp hd arg) ->
@@ -1076,51 +1070,32 @@ Proof.
     now erewrite nth_error_app_left in H1.
 Qed.
 
+Lemma value_betaeq1_first_order v v' :
+  is_first_order v ->
+  betaeq1 v v' ->
+  is_first_order v' ->
+  False.
+Proof.
+  intros fov beq fov'.
+  induction beq using betaeq1_forall_list_ind; cbn in *; propify; try easy.
+  - now induction H; cbn in *; propify.
+  - now induction H; cbn in *; propify.
+Qed.
+
 Lemma value_betaeq_first_order v v' :
-  value v ->
+  is_first_order v ->
   v β= v' ->
   is_first_order v' ->
   v' = v.
 Proof.
-  intros ev beq fo.
-  induction beq using betaeq_forall_list_ind in v, v', ev, beq, fo |- *; try easy.
-  - change (tApp ?hd ?a) with (mkApps hd [a]) in ev.
-    apply value_mkApps_inv in ev; [|easy].
-    now destruct ev as [(? & ?)|[(? & ?)|(? & ?)]].
-  - inversion ev.
-    + easy.
-    + now destruct t; solve_discr.
-    + now destruct f; solve_discr.
-  - inversion ev.
-    + easy.
-    + now destruct t; solve_discr.
-    + now destruct f; solve_discr.
-  - cbn in *.
-    apply value_app_inv in ev as (? & ?).
-    propify.
-    now erewrite IHbeq1, IHbeq2; try easy.
-  - cbn in *.
-    propify.
-    inversion ev.
-    + easy.
-    + now destruct t; solve_discr.
-    + now destruct f; solve_discr.
-  - cbn in *.
-    inversion ev.
-    + easy.
-    + now destruct t0; solve_discr.
-    + now destruct f; solve_discr.
-  -
-Qed.
-
-Lemma value_betaeq'_first_order v v' :
-  value v ->
-  betaeq' v v' ->
-  is_first_order v' ->
-  v' = v.
-Proof.
   intros val beq fo.
-  induction beq.
+  induction beq; [easy|].
+  destruct (is_first_order y) eqn:foy.
+  - exfalso.
+    admit.
+  -
+  exfalso.
+  eapply value_betaeq1_first_order.
   - now apply value_betaeq_first_order.
   -
   - easy.
