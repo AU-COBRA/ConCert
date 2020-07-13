@@ -973,7 +973,10 @@ Proof.
   - now rewrite <- mkApps_app.
   - destruct args, args'; cbn in *.
     + easy.
-    + rewrite normalize_mkApps, normalize_tApp by easy.
+    + rewrite normalize_mkApps, normalize_tApp; last first.
+      { rewrite normalize_tApp.
+        rewrite normalize_tLambda.
+        cbn.
       cbn.
       replace (affinely_used _ _) with true by admit.
       rewrite subst1_dearg_single_nil.
