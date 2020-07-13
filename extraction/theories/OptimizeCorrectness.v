@@ -1070,6 +1070,7 @@ Proof.
     now erewrite nth_error_app_left in H1.
 Qed.
 
+(*
 Lemma value_betaeq1_first_order v v' :
   is_first_order v ->
   betaeq1 v v' ->
@@ -1081,7 +1082,9 @@ Proof.
   - now induction H; cbn in *; propify.
   - now induction H; cbn in *; propify.
 Qed.
+*)
 
+(*
 Lemma value_betaeq_first_order v v' :
   is_first_order v ->
   v β= v' ->
@@ -1146,11 +1149,27 @@ Proof.
   - depelim
 *)
 
+(*
+Lemma value_normalize v :
+  value v ->
+  normalize v = v.
+Proof.
+  intros is_val.
+  induction is_val using value_values_ind.
+  - destruct t; try easy.
+    +
+  inversion is_val.
+  - subst.
+    destruct v; try easy.
+    + simp normalize.
+      cbn in *.
+*)
+
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
   exists dv,
     Σ ⊢ dearg_aux (map dearg args) hd ▷ dv /\
-    dv β= dearg v.
+    normalize dv = normalize (dearg v).
 Proof.
   intros ev.
   depind ev.
@@ -1164,18 +1183,51 @@ Proof.
     specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
     cbn in *.
     refold'.
-    eexists.
-    rewrite <- drf.
-    admit.
+    rewrite normalize_tBox in *.
+    replace fv with tBox in *; cycle 1.
+    { apply eval_to_value in ev_f.
+      apply value_normalize_tBox in ev_f; [|easy].
+      congruence. }
+    exists tBox.
+    split; [|easy].
+    destruct f;
+      cbn in *;
+      rewrite ?mkApps_app;
+      cbn in *;
+      try now econstructor.
+    + easy.
+    + unfold dearg_const in *.
+      destruct (find _ _) as [[]|] eqn:find_eq;
+        [|rewrite mkApps_app; cbn in *; now econstructor].
+      rewrite dearg_single_app.
+      apply dearg_single_mask_length in ev_f as ?; [|easy].
+      rewrite firstn_all2, skipn_all2 by easy.
+      cbn.
+      now econstructor.
+    + unfold dearg_ctor in *.
+      rewrite dearg_single_app.
+      apply dearg_single_mask_length in ev_f as ?; [|easy].
+      rewrite firstn_all2, skipn_all2 by easy.
+      cbn.
+      now econstructor.
+    + destruct p.
+      rewrite mkApps_app.
+      cbn.
+      now econstructor.
   - destruct (mkApps_elim hd args).
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
     cbn in *.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ eq_refl).
-    specialize (IHev2 _ [] _ eq_refl).
-    specialize (IHev3 _ [] _ eq_refl).
+    specialize (IHev1 _ _ _ eq_refl) as (? & ? & ?).
+    specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
+    specialize (IHev3 _ [] _ eq_refl) as (? & ? & ?).
+    cbn in *; refold'.
+    rewrite normalize_tLambda in H0.
+    exists x1.
+    split; [|easy].
+    simp normalize in H0.
     cbn in *.
 
     destruct f; cbn in *.
