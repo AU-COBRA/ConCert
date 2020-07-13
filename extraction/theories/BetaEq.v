@@ -224,6 +224,134 @@ Proof.
     lia.
 Qed.
 
+(*
+Equations is_lam_sig (t : term) : option ({ '(na, body) | t = tLambda na body }) :=
+is_lam_sig (tLambda na body) := Some (exist (na, body) eq_refl);
+is_lam_sig _ := None.
+
+Equations normalize (t : term) : { t' : term | num_subterms t' <= num_subterms t }
+  by wf (num_subterms t) lt :=
+normalize tBox := exist tBox _;
+normalize (tRel i) := exist (tRel i) _;
+normalize (tVar id) := exist (tVar id) _;
+normalize (tEvar n ts) := exist (tEvar n (map_in ts (fun t isin => proj1_sig (normalize t)))) _;
+normalize (tLambda na body) := exist (tLambda na (proj1_sig (normalize body))) _;
+normalize (tLetIn na val body) := exist (tLetIn na (proj1_sig (normalize val)) (proj1_sig (normalize body))) _;
+normalize (tApp hd arg) with is_lam_sig (proj1_sig (normalize hd)) := {
+  | Some (exist (na, body) eq) with inspect (affinely_used 0 body) := {
+    | exist true affin := exist (proj1_sig (normalize (body{0 := arg}))) _;
+    | exist false _ := exist (tApp (tLambda na (proj1_sig (normalize body))) (proj1_sig (normalize arg))) _
+    };
+  | None := exist (tApp (proj1_sig (normalize hd)) (proj1_sig (normalize arg))) _
+  };
+normalize (tConst kn) := exist (tConst kn) _;
+normalize (tConstruct ind c) := exist (tConstruct ind c) _;
+normalize (tCase ind discr brs) :=
+  exist
+    (tCase ind (proj1_sig (normalize discr))
+           (map_in brs (fun '(ar, t) isin => (ar, proj1_sig (normalize t)))))
+    _;
+normalize (tProj p t) := exist (tProj p (proj1_sig (normalize t))) _;
+normalize (tFix defs i) :=
+ exist
+   (tFix (map_in defs (fun d isin =>
+                         {| dname := dname d;
+                            dbody := proj1_sig (normalize (dbody d));
+                            rarg := rarg d |})) i)
+   _;
+normalize (tCoFix defs i) :=
+  exist
+    (tCoFix (map_in defs (fun d isin =>
+                            {| dname := dname d;
+                               dbody := proj1_sig (normalize (dbody d));
+                               rarg := rarg d |})) i)
+    _.
+Next Obligation. now apply Nat.lt_succ_r, num_subterms_le_sum_In. Qed.
+Next Obligation. Admitted.
+Next Obligation. destruct (normalize _ _); cbn in *; subst; lia. Qed.
+Next Obligation. lia. Qed.
+Next Obligation. lia. Qed.
+Next Obligation. repeat (destruct (normalize _ _)); cbn in *; subst; lia. Qed.
+Next Obligation. lia. Qed.
+Next Obligation.
+  destruct (normalize _ _); cbn in *; subst; cbn in *.
+  unfold affinely_used in *.
+  propify.
+  rewrite num_subterms_subst.
+  destruct (count_uses _ _) as [|[]]; lia.
+Qed.
+Next Obligation. Admitted.
+Next Obligation. Admitted.
+Next Obligation. destruct (normalize _ _); cbn in *; subst; cbn in *; lia. Qed.
+Next Obligation. Admitted.
+Next Obligation. lia. Qed.
+Next Obligation. lia. Qed.
+Next Obligation. repeat destruct (normalize _ _); cbn in *; subst; lia. Qed.
+Next Obligation. lia. Qed.
+Next Obligation.
+  apply (in_map snd) in isin.
+  rewrite <- map_map.
+  apply Nat.lt_succ_r.
+  pose proof (num_subterms_le_sum_In _ _ isin).
+  cbn in *.
+  lia.
+Qed.
+Next Obligation. Admitted.
+Next Obligation. destruct (normalize _ _); cbn in *; subst; lia. Qed.
+Next Obligation.
+  apply (in_map dbody) in isin.
+  apply Nat.lt_succ_r.
+  rewrite <- map_map.
+  now apply num_subterms_le_sum_In.
+Qed.
+Next Obligation. Admitted.
+Next Obligation.
+  apply (in_map dbody) in isin.
+  apply Nat.lt_succ_r.
+  rewrite <- map_map.
+  now apply num_subterms_le_sum_In.
+Qed.
+Next Obligation. Admitted.
+Proof.
+  all: repeat (destruct (normalize _ _)).
+  all: cbn in *.
+  all: subst.
+  all: cbn in *.
+  all: try lia.
+  - now apply Nat.lt_succ_r, num_subterms_le_sum_In.
+  - cbn.
+    exact (todo "foo").
+  - rewrite num_subterms_subst.
+    unfold affinely_used in affin.
+    propify.
+    destruct (count_uses 0 body) as [|[]]; lia.
+  - rewrite num_subterms_subst in l0.
+    unfold affinely_used in affin.
+    propify.
+    destruct (count_uses _ _) as [|[]]; lia.
+  - apply (in_map snd) in isin.
+    rewrite <- map_map.
+    apply Nat.lt_succ_r.
+    pose proof (num_subterms_le_sum_In _ _ isin).
+    cbn in *.
+    lia.
+  - cbn.
+    exact (todo "foo").
+  - apply (in_map dbody) in isin.
+    apply Nat.lt_succ_r.
+    rewrite <- map_map.
+    now apply num_subterms_le_sum_In.
+  - cbn.
+    exact (todo "foo").
+  - apply (in_map dbody) in isin.
+    apply Nat.lt_succ_r.
+    rewrite <- map_map.
+    now apply num_subterms_le_sum_In.
+  - cbn.
+    exact (todo "foo").
+Qed.
+*)
+
 Equations? normalize (t : term) : term by wf (num_subterms t) lt :=
 normalize t with normalize_viewc t := {
   | nv_box := tBox;
@@ -290,6 +418,12 @@ Proof. now simp normalize. Qed.
 
 Hint Rewrite normalize_tLambda : normalize.
 
+Lemma normalize_tLetIn na val body :
+  normalize (tLetIn na val body) = tLetIn na (normalize val) (normalize body).
+Proof. now simp normalize. Qed.
+
+Hint Rewrite normalize_tLetIn : normalize.
+
 Definition subst_body_affine (t a : term) :=
   match t with
   | tLambda na body => if affinely_used 0 body then
@@ -337,16 +471,32 @@ Lemma value_normalize_tBox v :
   v = tBox.
 Proof.
   intros val norm.
-  induction val using value_values_ind.
+  destruct val.
   - now destruct t.
   - rewrite normalize_mkApps in norm by (now destruct t).
-    destruct t; try easy.
-    + simp normalize in norm.
-      solve_discr.
-    + simp normalize in norm.
-      solve_discr.
+    destruct t; try easy; simp normalize in norm; solve_discr.
   - destruct f; try easy.
     rewrite normalize_mkApps in norm by easy.
     simp normalize in norm.
     solve_discr.
+Qed.
+
+Lemma value_normalize_tLambda v na body :
+  value v ->
+  normalize v = tLambda na body ->
+  exists body',
+    v = tLambda na body' /\
+    normalize body' = body.
+Proof.
+  intros val norm.
+  destruct val.
+  - destruct t; try easy.
+    rewrite normalize_tLambda in norm.
+    noconf norm.
+    now eexists.
+  - rewrite normalize_mkApps in norm by (now destruct t).
+    destruct t; try easy; simp normalize in norm; solve_discr.
+  - destruct f; try easy.
+    rewrite normalize_mkApps in norm by easy.
+    simp normalize in norm; solve_discr.
 Qed.

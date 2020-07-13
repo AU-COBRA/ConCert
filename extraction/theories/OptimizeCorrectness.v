@@ -888,111 +888,6 @@ Ltac refold' :=
     | [|- context[dearg_aux [] ?t]] => progress (fold (dearg t) in * )
     end.
 
-(* dearg_aux args (csubst (tConstruct _ _ _) 0 (tRel 0) = dearg_aux args (tConstruct _ _ _) *)
-(* dearg_aux args (csubst (tConstruct _ _ _) 0 (tLambda na (tRel 0))) =
-   dearg_aux args (tLambda na (tConstruct _ _ _)) =
-   mkApps (tLambda na (dearg (tConstruct _ _ _))) args *)
-
-(*
-Lemma csubst_dearg_aux args args' s k t :
-  csubst (dearg_aux args s) k (dearg_aux args' t) =
-  dearg_aux (map (csubst (dearg_aux args s) k) args') (csubst (dearg_aux args s) k t).
-Proof.
-  induction t in args, args', s, k, t |- * using term_forall_list_ind; cbn in *.
-  - now rewrite csubst_mkApps.
-  - rewrite csubst_mkApps.
-    cbn.
-    destruct (_ ?= _).
-    + rewrite
-*)
-
-
-(*
-Section examples.
-  Open Scope string.
-  Definition foo : kername := (MPfile [], "foo").
-  Definition masks : list (kername * bitmask) :=
-    [(foo, [false; false])].
-
-  Notation dearg := (Optimize.dearg [] masks).
-  Definition s := (tApp (tConst foo) (tVar "something")).
-  Definition t := (tLambda nAnon (tApp (tRel 1) (tVar "something 2"))).
-  Compute (dearg (csubst s 0 t)).
-  Compute (csubst (dearg s) 0 (dearg t)).
-
-  Definition prog :=
-    tLetIn
-      nAnon
-      (tApp (tConst foo) (tVar "something"))
-      (tLambda nAnon (tApp (tRel 1) (tVar "something 2"))).
-
-  (* Given
-       let x := foo "something" in fun y => x "something 2"
-     this evaluates to
-       fun y => foo "something" "something 2"
-
-     With eta expansion, we first transform
-       let x := foo "something" in fun y => x "something 2"
-     to
-       let x := fun v => foo "something" v in fun y => x "something 2"
-
-     and then this evaluates to
-       fun y => (fun v => foo "something" v) "something 2") *)
-
-  (* = tApp (tApp (tConst (MPfile [], "foo")) (tVar "something")) (tVar "something 2")
-     : term *)
-  (* = tApp
-         (tLambda nAnon (tApp (tApp (tConst (MPfile [], "foo")) (tVar "something")) (tRel 0)))
-         (tVar "something 2")
-     : term *)
-End examples.
-*)
-
-(*
-Lemma eval_csubst_dearg Σ s k t v :
-  Σ ⊢ dearg (csubst s k t) ▷ v ->
-  Σ ⊢ csubst (dearg s) k (dearg t) ▷ v.
-Proof.
-  induction t in s, k, t, v |- * using term_forall_list_ind; intros ev; cbn in *.
-  - easy.
-  - now destruct (_ ?= _).
-  - easy.
-  - now apply eval_tEvar_inv in ev.
-  - refold'.
-*)
-
-(*
-Lemma csubst_dearg s k t :
-  csubst (dearg s) k (dearg t) =
-  dearg (csubst s k t).
-Proof.
-  induction t in s, k, t |- * using term_forall_list_ind; cbn in *.
-  - easy.
-  - now destruct (_ ?= _).
-  - easy.
-  - f_equal.
-    induction H; [easy|].
-    cbn.
-    now rewrite H, IHForall.
-  - now rewrite IHt.
-  - now f_equal.
-  - refold'.
-    rewrite <- (app_nil_r [dearg t2]).
-    change [dearg t2] with (map dearg [t2]).
-    rewrite <- dearg_aux_mkApps.
-    rewrite dearg_aux_mkApps.
-    cbn.
-    rewrite IHt1.
-    rewrite mkApps_csubst.
-    cbn.
-    rewrite
-  csubst (dearg s) k (dearg_aux args t) =
-  dearg_aux args (csubst (dearg s) k
-  dearg_aux (map dearg args) (csubst s k t)
-    rewrite <- IHt2.
-    rewrite <- dearg_aux_mkApps.
-*)
-
 Fixpoint is_first_order (t : term) : bool :=
   match t with
   | tBox => true
@@ -1011,35 +906,6 @@ Fixpoint is_first_order (t : term) : bool :=
   | tFix defs _ => false
   | tCoFix defs _ => false
   end.
-
-(*
-Definition is_first_order_betanorm t :
-  is_first_order t ->
-  betanorm t t.
-Proof.
-  intros fo.
-  induction t using term_forall_list_ind; eauto using betanorm; try easy.
-  - cbn in *.
-    constructor.
-    induction H; [easy|].
-    cbn in *.
-    propify.
-    easy.
-  - cbn in *; propify.
-    now constructor.
-  - cbn in *; propify.
-    apply betanorm_app; [easy| |easy].
-    now destruct t1.
-  - cbn in *.
-    propify.
-    constructor; [easy|].
-    destruct fo as (_ & fo).
-    clear -X fo.
-    induction X; [easy|].
-    cbn in *; propify.
-    now constructor.
-Qed.
-*)
 
 Lemma value_app_inv hd arg :
   value (tApp hd arg) ->
@@ -1071,99 +937,161 @@ Proof.
 Qed.
 
 (*
-Lemma value_betaeq1_first_order v v' :
-  is_first_order v ->
-  betaeq1 v v' ->
-  is_first_order v' ->
-  False.
+Lemma dearg_single_nil mask t :
+  dearg_single mask t [] =
+  fold_right (fun _ => tLambda nAnon) (lift0 (length mask) t) mask.
 Proof.
-  intros fov beq fov'.
-  induction beq using betaeq1_forall_list_ind; cbn in *; propify; try easy.
-  - now induction H; cbn in *; propify.
-  - now induction H; cbn in *; propify.
+  induction mask as [|[] mask IH] in mask, t |- *; cbn in *.
+  - now rewrite lift0_id.
+  - rewrite IH.
+    f_equal.
+    f_equal.
+    rewrite <- permute_lift by easy.
+    f_equal.
+    cbn.
+*)
+Lemma subst1_dearg_single_nil mask k t s :
+  (dearg_single mask (lift 1 k t) []) {k := s} =
+  dearg_single mask t [].
+Proof.
+  induction mask as [|[] mask IH] in k, t |- *; cbn in *.
+  - now rewrite simpl_subst_k by easy.
+  - f_equal.
+    rewrite permute_lift0.
+    apply IH.
+  - f_equal.
+    rewrite permute_lift0.
+    change (tApp ?h ?a) with (lift 1 (S k) (tApp (lift0 1 t) (tRel 0))) at 1.
+    apply IH.
 Qed.
+
+Lemma normalize_mkApps_dearg_single mask t args args' :
+  normalize (mkApps (dearg_single mask t args) args') =
+  normalize (dearg_single mask t (args ++ args')).
+Proof.
+  induction mask as [|[] mask IH] in mask, args, args' |- *; cbn in *.
+  - now rewrite <- mkApps_app.
+  - destruct args, args'; cbn in *.
+    + easy.
+    + rewrite normalize_mkApps, normalize_tApp by easy.
+      cbn.
+      replace (affinely_used _ _) with true by admit.
+      rewrite subst1_dearg_single_nil.
+      change args' with ([] ++ args') at 2.
+      rewrite <- IH.
+      induction args'; [easy|].
+      cbn.
+      destruct mask.
+      * cbn.
+        rewrite normalize_mkApps by easy.
+        f_equal.
+      * cbn.
+        admit.
+      * cbn.
+      change args' with ([] ++ args') at 2.
+      rewrite <- IH.
+      rewrite normalize_tLambda.
+      rewrite
+      rewrite dearg_single_nil.
+      destruct (affinely_used _ _) eqn:afu.
+      *
+        rewrite <- IH.
+        rewrite normalize_mkApps.
+Admitted.
 *)
 
-(*
-Lemma value_betaeq_first_order v v' :
-  is_first_order v ->
-  v β= v' ->
-  is_first_order v' ->
-  v' = v.
+Lemma normalize_mkApps_dearg s args args' :
+  normalize (mkApps (dearg_aux args s) args') =
+  normalize (dearg_aux (args ++ args') s).
 Proof.
-  intros val beq fo.
-  induction beq; [easy|].
-  destruct (is_first_order y) eqn:foy.
-  - exfalso.
-    admit.
-  -
-  exfalso.
-  eapply value_betaeq1_first_order.
-  - now apply value_betaeq_first_order.
-  -
+  induction s in s, args, args' |- *; cbn in *; try now rewrite <- mkApps_app.
+  - now rewrite IHs1.
+  - unfold dearg_const.
+    destruct (find _ _) as [(? & mask)|] eqn:find; [|now rewrite <- mkApps_app].
+    apply normalize_mkApps_dearg_single.
+  - unfold dearg_ctor.
+    apply normalize_mkApps_dearg_single.
+  - destruct p.
+    now rewrite mkApps_app.
+Qed.
+
+Lemma count_uses_csubst_dearg_aux k s k' args t :
+  k < k' ->
+  count_uses k (csubst (dearg s) k' (dearg_aux args t)) =
+  count_uses k (dearg_aux args (csubst s k' t)).
+Proof.
+  Admitted.
+
+Lemma normalize_csubst_dearg s k args t :
+  normalize (csubst (dearg s) k (dearg_aux args t)) =
+  normalize (dearg_aux (map (csubst (dearg s) k) args) (csubst s k t)).
+Proof.
+  induction t in k, t, args |- * using term_forall_list_ind;
+    cbn in *; rewrite ?csubst_mkApps; cbn in *.
   - easy.
+  - destruct (k ?= n); try easy.
+    apply normalize_mkApps_dearg.
   - easy.
-  - easy.
-  - admit.
-  -
-  - destruct beq; try easy.
-    + cbn in *.
-      admit.
-    + cbn in *.
-      propify.
-      admit.
-    +
-  -
-    erewrite IHbeq by easy.
-    inversion ev.
-    + easy.
-    + destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
-      rewrite mkApps_app in H.
-      inversion H; subst; clear H.
-      apply Forall_app in H1 as (? & ?).
-      depelim H1.
-      propify.
-      rewrite IHbeq1, IHbeq2; try easy; first last.
-      { now apply value_app. }
-      now rewrite mkApps_app.
-    + destruct f; try easy.
-      change (tApp ?h ?a) with (mkApps h [a]) in H.
-      apply mkApps_eq_inj in H.
+  - rewrite !normalize_mkApps by easy.
+    f_equal.
+    simp normalize.
+    f_equal.
+    induction H; [easy|].
     cbn in *.
-    inversion ev.
-    + easy.
-    + destruct (mkApps_elim t0 l).
-      change
-      destruct l using List.rev_ind.
-      * cbn in *.
-        subst.
-        easy.
-      * rewrite mkApps_app in H.
-        cbn in *.
-        inversion H; subst.
-  revert v v' beq ev fo.
-  apply (betaeq_mind
-           (fun v v' beq => Σ ⊢ t ▷ v -> is_first_order v' -> v' = v)
-           (fun
-  induction beq.
-  - depelim
-*)
+    rewrite H.
+    now cbn.
+  - destruct args.
+    + cbn.
+      now rewrite !normalize_tLambda, IHt.
+    + cbn.
+      rewrite !normalize_mkApps by easy.
+      f_equal.
+      rewrite !normalize_tApp.
+      cbn.
+      rewrite !normalize_tLambda.
+      rewrite IHt.
+      cbn.
+      unfold affinely_used.
+      rewrite count_uses_csubst_dearg_aux by easy.
+      destruct (_ <=? _); cbn; [|easy].
+      rewrite IHt.
+      *
+      easy.
+      admit.
+    f_equal.
+    f_equal.
+    f_equal.
+  - simp normalize.
+    f_equal.
+    induction H; [easy|].
+    cbn in *.
+    now rewrite H.
+  - rewrite !normalize_tLambda.
+    now f_equal.
+  - rewrite !normalize_tLetIn.
+    now f_equal.
+  -
 
-(*
-Lemma value_normalize v :
-  value v ->
-  normalize v = v.
+Lemma eval_dearg_subst Σ s k t v :
+  Σ ⊢ dearg (csubst s k t) ▷ v ->
+  exists v',
+    Σ ⊢ csubst (dearg s) k (dearg t) ▷ v' /\
+    normalize v' = normalize v.
 Proof.
-  intros is_val.
-  induction is_val using value_values_ind.
-  - destruct t; try easy.
-    +
-  inversion is_val.
-  - subst.
-    destruct v; try easy.
-    + simp normalize.
-      cbn in *.
-*)
+  intros ev.
+  induction t using term_forall_list_ind; cbn in *.
+  - now exists v.
+  - exists v.
+    now destruct (k ?= n).
+  - now exists v.
+  - now depelim ev.
+  - eexists.
+    split; [now apply eval_atom|].
+    rewrite (eval_deterministic ev ltac:(now eapply eval_atom)) in *.
+    rewrite !normalize_tLambda.
+    f_equal.
+
+
 
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
@@ -1220,18 +1148,23 @@ Proof.
     cbn in *.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ eq_refl) as (? & ? & ?).
-    specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
-    specialize (IHev3 _ [] _ eq_refl) as (? & ? & ?).
+    specialize (IHev1 _ _ _ eq_refl) as (? & ev_lam & norm_lam).
+    specialize (IHev2 _ [] _ eq_refl) as (av & ev_a & norm_a).
+    specialize (IHev3 _ [] _ eq_refl) as (sub & ev_sub & norm_sub).
     cbn in *; refold'.
-    rewrite normalize_tLambda in H0.
-    exists x1.
-    split; [|easy].
-    simp normalize in H0.
-    cbn in *.
+    rewrite normalize_tLambda in norm_lam.
+    apply eval_to_value in ev_lam as value_x.
+    destruct (value_normalize_tLambda _ _ _ value_x norm_lam) as (body & -> & norm_body).
+    clear norm_lam value_x.
 
-    destruct f; cbn in *.
-    +
+    exists sub.
+    split; [|easy].
+    destruct f0; cbn in *.
+    + rewrite ?mkApps_app.
+      eapply eval_beta; [eassumption|eassumption|].
+      (* normalize x = tLambda na (normalize (dearg b)) and
+         normalize
+      try now econstructor.
       exists tBox.
       split; [|easy].
       apply eval_mkApps_args in ev_f as (? & ?).
