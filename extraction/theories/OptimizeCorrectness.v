@@ -861,25 +861,6 @@ Proof.
   now rewrite IH.
 Qed.
 
-(*
-Lemma csubst_dearg_aux args s k t :
-  csubst (dearg_aux args s) k (dearg_aux args t) =
-  dearg_aux args (csubst s k t).
-Proof.
-  induction t in s, k, t |- * using term_forall_list_ind; cbn in *.
-  - rewrite csubst_mkApps.
-    cbn.
-  - now destruct (_ ?= _).
-  - easy.
-  - f_equal.
-    induction H; [easy|].
-    cbn.
-    now rewrite H, IHForall.
-  - now rewrite IHt.
-  - now f_equal.
-  -
-*)
-
 Ltac refold' :=
   refold;
   repeat
@@ -936,49 +917,25 @@ Proof.
     now erewrite nth_error_app_left in H1.
 Qed.
 
-(*
-Lemma dearg_single_nil mask t :
-  dearg_single mask t [] =
-  fold_right (fun _ => tLambda nAnon) (lift0 (length mask) t) mask.
+Lemma subst_dearg_single s k mask t  args :
+  subst s k (dearg_single mask t args) =
+  dearg_single mask (subst s k t) (map (subst s k) args).
 Proof.
-  induction mask as [|[] mask IH] in mask, t |- *; cbn in *.
-  - now rewrite lift0_id.
-  - rewrite IH.
-    f_equal.
-    f_equal.
-    rewrite <- permute_lift by easy.
-    f_equal.
-    cbn.
-*)
-Lemma subst1_dearg_single_nil s k t mask :
-  subst [s] k (dearg_single mask (lift 1 k t) []) =
-  dearg_single mask t [].
-Proof.
-  induction mask as [|[] mask IH] in k, t |- *; cbn in *.
-  - now rewrite simpl_subst_k by easy.
-  - f_equal.
-    rewrite permute_lift0.
-    apply IH.
-  - f_equal.
-    rewrite permute_lift0.
-    change (tApp ?h ?a) with (lift 1 (S k) (tApp (lift0 1 t) (tRel 0))) at 1.
-    apply IH.
-Qed.
-
-Lemma subst1_dearg_single_app_nil s t mask :
-  subst [s] 0 (dearg_single mask (tApp (lift0 1 t) (tRel 0)) []) =
-  tApp (dearg_single mask t []) s.
-Proof.
-  induction mask as [|[] mask IH] in t |- *; cbn in *.
-  -
-    now rewrite simpl_subst_k by easy.
-  - f_equal.
-    rewrite permute_lift0.
-    apply IH.
-  - f_equal.
-    rewrite permute_lift0.
-    change (tApp ?h ?a) with (lift 1 (S k) (tApp (lift0 1 t) (tRel 0))) at 1.
-    apply IH.
+  induction mask as [|[] mask IH] in mask, args, k, t |- *; cbn in *.
+  - now rewrite subst_mkApps.
+  - destruct args.
+    + cbn.
+      f_equal.
+      rewrite IH.
+      now rewrite <- commut_lift_subst.
+    + apply IH.
+  - destruct args.
+    + cbn.
+      f_equal.
+      rewrite IH.
+      cbn.
+      now rewrite commut_lift_subst.
+    + apply IH.
 Qed.
 
 Lemma count_uses_lift k k' n t :
@@ -1262,7 +1219,7 @@ Lemma normalize_mkApps_dearg_single mask t args args' :
   normalize (mkApps (dearg_single mask t args) args') =
   normalize (dearg_single mask t (args ++ args')).
 Proof.
-  induction mask as [|[] mask IH] in mask, args, args' |- *; cbn in *.
+  induction mask as [|[] mask IH] in t, mask, args, args' |- *; cbn in *.
   - now rewrite <- mkApps_app.
   - destruct args, args'; cbn in *.
     + easy.
@@ -1273,10 +1230,11 @@ Proof.
       unfold subst1.
       rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
-      rewrite subst1_dearg_single_nil.
+      rewrite subst_dearg_single.
+      rewrite simpl_subst_k by easy.
       apply IH.
     + now rewrite app_nil_r.
-    + apply (IH args (t1 :: args')).
+    + apply (IH _ args (t1 :: args')).
   - destruct args, args'; cbn in *.
     + easy.
     + rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
@@ -1286,53 +1244,14 @@ Proof.
       unfold subst1.
       rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
-
-      fold (subst1 t0 0 (dearg_single mask (tApp (lift0 1 t) (tRel 0)) [])).
-      rewrite subst1_dearg_single_nil.
-      apply IH.
-      cbn in IH.
-      rewrite <- app_tip_assoc.
-      rewrite <- IH.
-      destruct mask as [|[]].
-      * cbn.
-        now rewrite mkApps_app.
-      * cbn.
-        destruct args.
-        -- cbn.
-     rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
-      simp normalize.
+      rewrite subst_dearg_single.
       cbn.
-      replace (affinely_used _ _) with true by admit.
-      unfold subst1.
-      rewrite <- normalize_subst_r.
-      rewrite normalize_mkApps_normalize_hd.
-      fold (subst1 t1 0 (dearg_single mask (lift0 1 t) [])).
-      now rewrite subst1_dearg_single_nil.
-        -- cbn.
+      rewrite simpl_subst_k by easy.
+      rewrite lift0_id.
       apply IH.
-      apply (IH (args ++ [t1]))%list.
-      change args' with ([] ++ args') at 2.
-      rewrite <- IH.
-      induction args'; [easy|].
-      cbn.
-      destruct mask.
-      * cbn.
-        rewrite normalize_mkApps by easy.
-        f_equal.
-      * cbn.
-        admit.
-      * cbn.
-      change args' with ([] ++ args') at 2.
-      rewrite <- IH.
-      rewrite normalize_tLambda.
-      rewrite
-      rewrite dearg_single_nil.
-      destruct (affinely_used _ _) eqn:afu.
-      *
-        rewrite <- IH.
-        rewrite normalize_mkApps.
+    + now rewrite app_nil_r.
+    + apply (IH _ args (t1 :: args')).
 Admitted.
-*)
 
 Lemma normalize_mkApps_dearg s args args' :
   normalize (mkApps (dearg_aux args s) args') =
@@ -1349,12 +1268,14 @@ Proof.
     now rewrite mkApps_app.
 Qed.
 
+(*
 Lemma count_uses_csubst_dearg_aux k s k' args t :
   k < k' ->
   count_uses k (csubst (dearg s) k' (dearg_aux args t)) =
   count_uses k (dearg_aux args (csubst s k' t)).
 Proof.
   Admitted.
+*)
 
 Lemma normalize_csubst_dearg s k args t :
   normalize (csubst (dearg s) k (dearg_aux args t)) =
@@ -1378,7 +1299,7 @@ Proof.
     + cbn.
       now rewrite !normalize_tLambda, IHt.
     + cbn.
-      rewrite !normalize_mkApps by easy.
+      rewrite !normalize_mkApps.
       f_equal.
       rewrite !normalize_tApp.
       cbn.
@@ -1406,7 +1327,7 @@ Proof.
 
     now f_equal.
   -
-
+*)
 Lemma eval_dearg_subst Σ s k t v :
   Σ ⊢ dearg (csubst s k t) ▷ v ->
   exists v',
