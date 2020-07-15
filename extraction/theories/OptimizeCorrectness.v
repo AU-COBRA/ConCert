@@ -950,12 +950,28 @@ Proof.
     f_equal.
     cbn.
 *)
-Lemma subst1_dearg_single_nil mask k t s :
-  (dearg_single mask (lift 1 k t) []) {k := s} =
+Lemma subst1_dearg_single_nil s k t mask :
+  subst [s] k (dearg_single mask (lift 1 k t) []) =
   dearg_single mask t [].
 Proof.
   induction mask as [|[] mask IH] in k, t |- *; cbn in *.
   - now rewrite simpl_subst_k by easy.
+  - f_equal.
+    rewrite permute_lift0.
+    apply IH.
+  - f_equal.
+    rewrite permute_lift0.
+    change (tApp ?h ?a) with (lift 1 (S k) (tApp (lift0 1 t) (tRel 0))) at 1.
+    apply IH.
+Qed.
+
+Lemma subst1_dearg_single_app_nil s t mask :
+  subst [s] 0 (dearg_single mask (tApp (lift0 1 t) (tRel 0)) []) =
+  tApp (dearg_single mask t []) s.
+Proof.
+  induction mask as [|[] mask IH] in t |- *; cbn in *.
+  -
+    now rewrite simpl_subst_k by easy.
   - f_equal.
     rewrite permute_lift0.
     apply IH.
@@ -1076,23 +1092,63 @@ Proof.
     lia.
 Qed.
 
-Lemma normalize_subst s k t :
-  normalize (subst s k t) = subst (map normalize s) k (normalize t).
+Open Scope string.
+(*Definition s := [tLambda nAnon (tRel 0)].
+Definition k := 0.
+Definition t := tApp (tRel 0) (tVar "arg").*)
+(*Compute normalize (subst s k t).
+Compute subst (map normalize s) k (normalize t).
+Compute normalize (subst [tLambda nAnon (tRel 0)] 0 (tApp (tRel 0) (tVar "arg"))).
+Compute normalize (subst [tLambda nAnon (tRel 0)] 0 (normalize (tApp (tRel 0) (tVar "arg")))).*)
+
+(*
+Lemma normalize_head t :
+  match normalize t with
+  | tLambda na body => affinely_used 0 body = false
+  | _ => True
+  end.
 Proof.
+*)
+
+(*
+Lemma affine_lam_body_normalize t :
+  affine_lam_body (normalize t) = None.
+Proof.
+  unfold normalize.
+  funelim (normalize' t); try easy.
+  cbn.
+  unfold affine_lam_body in H.
+  assert (exists na body, (proj
+  destruct (proj1_sig (normalize' t0)).
+  - cbn.
+*)
+
+(*
+Definition s := [tLambda nAnon (tRel 0)].
+Definition k := 0.
+Definition t := tLambda nAnon (tApp (tRel 1) (tRel 0)).
+Compute (subst s k t).
+Compute normalize (subst (map normalize s) k (normalize t)).
+Compute normalize (subst (map normalize s) k (normalize t)).
+*)
+
+Lemma normalize_subst s k t :
+  normalize (subst s k t) = normalize (subst (map normalize s) k (normalize t)).
+Proof.
+(*
   enough (forall ns,
              num_subterms t <= ns ->
-             normalize (subst s k t) = subst (map normalize s) k (normalize t)).
+             normalize (subst s k t) = normalize (subst (map normalize s) k (normalize t))).
   { now apply (H (num_subterms t)). }
   intros ns le.
-  induction ns as [|ns IH] in ns, t, k, le |- *; [now destruct t|].
+  induction ns as [|ns IH] in ns, t, k, s, le |- *; [now destruct t|].
   destruct t; repeat (cbn in *; simp normalize).
   - easy.
   - destruct (_ <=? _).
     + rewrite nth_error_map.
       destruct (nth_error _ _).
       * cbn.
-        apply normalize_lift.
-        (*now rewrite !normalize_lift, normalize_normalize.*)
+        now rewrite <- normalize_lift, normalize_normalize.
       * cbn.
         now rewrite map_length.
     + easy.
@@ -1101,9 +1157,50 @@ Proof.
     admit.
   - admit.
   - admit.
-  - unfold affine_lam_body.
+  - destruct t1 eqn:?; repeat (cbn in *; simp normalize).
+    + now rewrite IH.
+    + destruct (_ <=? _) eqn:?.
+      * rewrite nth_error_map.
+        destruct (nth_error _ _) eqn:?; cbn in *.
+        -- rewrite !normalize_lift, !normalize_normalize.
+           destruct (affine_lam_body _) eqn:bod.
+           ++ apply affine_lam_body_Some_inv in bod as (? & ? & ?).
+              unfold subst1.
+              apply (f_equal num_subterms) in H.
+              rewrite num_subterms_lift in H.
+              cbn in H.
+              pose proof (num_subterms_normalize t).
+              rewrite IH; last first.
+              ** rewrite H in H1.
+
+                 assert (num_subterms (normalize t) = num_subterms t0 - 1) by lia.
+              ** cbn.
+                 rewrite (IH _ _ t2) by easy.
+                 pose proof (IH [subst (map normalize s) k (normalize t2)]).
+                 rewrite H by admit.
+                 cbn.
+                 cbn.
+                 rewrite <- IH.
     rewrite !IH by easy.
-    destruct (normalize t1) eqn:nt1; try easy.
+    unfold affine_lam_body.
+    destruct (normalize t1) eqn:?; repeat (cbn in *; simp normalize); try now rewrite IH.
+    + destruct (_ <=? _) eqn:?.
+      * destruct (nth_error _ _) eqn:?.
+        -- rewrite normalize_lift.
+           unfold affine_lam_body.
+           destruct (lift0 k (normalize t0)); try easy.
+           destruct (affinely_used _ _); try easy.
+           unfold subst1.
+           rewrite IH.
+    destruct (normalize t1) eqn:nt1; repeat (cbn in *; simp normalize); try easy.
+    + destruct (_ <=? _) eqn:?.
+      * destruct (nth_error _ _) eqn:?.
+        -- rewrite normalize_lift.
+           unfold affine_lam_body.
+           destruct (lift0 k (normalize t0)); try easy.
+           destruct (affinely_used _ _); try easy.
+           unfold subst1.
+           rewrite IH.
     + cbn.
       destruct (_ <=? _) eqn:uses; [|easy].
       destruct (nth_error _ _) eqn:nth; [|easy].
@@ -1116,7 +1213,50 @@ Proof.
       rewrite count_uses_lift by easy.
       destruct (_ <=? _) eqn:uses'.
       * replace ((lift k 1 t) {0 := subst s k t2}) with t by admit.
+*)
+  Admitted.
 
+Lemma normalize_subst_r s k t :
+  normalize (subst s k t) = normalize (subst s k (normalize t)).
+Proof.
+  symmetry; rewrite normalize_subst; symmetry.
+  now rewrite normalize_subst, normalize_normalize.
+Qed.
+
+(*
+Lemma count_uses_subst k s k' t :
+  count_uses k (t{k' := s}) =
+*)
+
+
+(*
+Lemma count_uses_normalize k t :
+  count_uses k (normalize t) = count_uses k t.
+Proof.
+  enough (forall ns,
+             num_subterms t <= ns ->
+             count_uses k (normalize t) = count_uses k t).
+  { now apply (H (num_subterms t)). }
+  intros ns le.
+  induction ns as [|ns IH] in ns, k, t, le |- *; [now destruct t|].
+  destruct t; repeat (cbn in *; simp normalize); try easy.
+  - admit.
+  - admit.
+  - destruct (affine_lam_body (normalize t1)) eqn:af.
+    + apply affine_lam_body_Some_inv in af as (? & ? & ?).
+      rewrite IH; last first.
+      { rewrite num_subterms_subst.
+        apply (f_equal num_subterms) in H.
+        cbn in H.
+        pose proof (num_subterms_normalize t1).
+        now destruct (count_uses _ _) as [|[]]. }
+    rewrite <- (IH _ t1) by easy.
+      rewrite H.
+      cbn.
+
+    destruct (normalize t1) eqn:?.
+    + cbn.
+*)
 
 Lemma normalize_mkApps_dearg_single mask t args args' :
   normalize (mkApps (dearg_single mask t args) args') =
@@ -1130,8 +1270,47 @@ Proof.
       simp normalize.
       cbn.
       replace (affinely_used _ _) with true by admit.
+      unfold subst1.
+      rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
       rewrite subst1_dearg_single_nil.
+      apply IH.
+    + now rewrite app_nil_r.
+    + apply (IH args (t1 :: args')).
+  - destruct args, args'; cbn in *.
+    + easy.
+    + rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
+      simp normalize.
+      cbn.
+      replace (affinely_used _ _) with true by admit.
+      unfold subst1.
+      rewrite <- normalize_subst_r.
+      rewrite normalize_mkApps_normalize_hd.
+
+      fold (subst1 t0 0 (dearg_single mask (tApp (lift0 1 t) (tRel 0)) [])).
+      rewrite subst1_dearg_single_nil.
+      apply IH.
+      cbn in IH.
+      rewrite <- app_tip_assoc.
+      rewrite <- IH.
+      destruct mask as [|[]].
+      * cbn.
+        now rewrite mkApps_app.
+      * cbn.
+        destruct args.
+        -- cbn.
+     rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
+      simp normalize.
+      cbn.
+      replace (affinely_used _ _) with true by admit.
+      unfold subst1.
+      rewrite <- normalize_subst_r.
+      rewrite normalize_mkApps_normalize_hd.
+      fold (subst1 t1 0 (dearg_single mask (lift0 1 t) [])).
+      now rewrite subst1_dearg_single_nil.
+        -- cbn.
+      apply IH.
+      apply (IH (args ++ [t1]))%list.
       change args' with ([] ++ args') at 2.
       rewrite <- IH.
       induction args'; [easy|].
