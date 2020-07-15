@@ -965,6 +965,159 @@ Proof.
     apply IH.
 Qed.
 
+Lemma count_uses_lift k k' n t :
+  k < k' ->
+  count_uses k (lift n k' t) = count_uses k t.
+Proof.
+  intros lt.
+  induction t using term_forall_list_ind in t, k, k', lt |- *; cbn in *.
+  - easy.
+  - repeat
+      (try destruct (_ <=? _) eqn:?; propify;
+       try destruct (_ =? _) eqn:?; propify;
+       cbn in *);
+       lia.
+  - easy.
+  - induction H; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    lia.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - easy.
+  - easy.
+  - rewrite IHt by easy.
+    f_equal.
+    induction X; [easy|].
+    cbn.
+    rewrite p0 by easy.
+    lia.
+  - now rewrite IHt.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by lia.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by lia.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+Qed.
+
+Lemma normalize_lift n k t :
+  normalize (lift n k t) = lift n k (normalize t).
+Proof.
+  enough (forall ns, num_subterms t <= ns -> normalize (lift n k t) = lift n k (normalize t)).
+  { now apply (H (num_subterms t)). }
+  intros ns le.
+  induction ns as [|ns IH] in ns, t, k, le |- *; [now destruct t|].
+  destruct t; repeat (cbn in *; simp normalize).
+  - easy.
+  - destruct (_ <=? _); now simp normalize.
+  - easy.
+  - f_equal.
+    induction l; [easy|].
+    cbn in *.
+    now rewrite IH, IHl.
+  - now rewrite IH.
+  - now rewrite !IH.
+  - rewrite !IH by easy.
+    destruct (normalize t1) eqn:norm; try easy; cbn in *.
+    + now destruct (_ <=? _).
+    + unfold affinely_used.
+      rewrite count_uses_lift by easy.
+      destruct (_ <=? _) eqn:uses; [|easy].
+      unfold subst1.
+      change [lift n k t2] with (map (lift n k) [t2]).
+      rewrite <- distr_lift_subst.
+      rewrite IH; [easy|].
+      fold (t{0 := t2}).
+      rewrite num_subterms_subst.
+      propify.
+      pose proof (num_subterms_normalize t1).
+      rewrite norm in H.
+      cbn in *.
+      now destruct (count_uses 0 t) as [|[]].
+  - easy.
+  - easy.
+  - rewrite IH by easy.
+    f_equal.
+    induction l; [easy|].
+    cbn in *.
+    rewrite IH by lia.
+    f_equal.
+    apply IHl; lia.
+  - now rewrite IH.
+  - f_equal.
+    rewrite map_length.
+    induction m in m, k, le |- *; [easy|].
+    cbn in *.
+    unfold map_def.
+    f_equal; [f_equal|]; cbn in *.
+    { now rewrite IH. }
+    rewrite <- !Nat.add_succ_r.
+    apply IHm.
+    lia.
+  - f_equal.
+    rewrite map_length.
+    induction m in m, k, le |- *; [easy|].
+    cbn in *.
+    unfold map_def.
+    f_equal; [f_equal|]; cbn in *.
+    { now rewrite IH. }
+    rewrite <- !Nat.add_succ_r.
+    apply IHm.
+    lia.
+Qed.
+
+Lemma normalize_subst s k t :
+  normalize (subst s k t) = subst (map normalize s) k (normalize t).
+Proof.
+  enough (forall ns,
+             num_subterms t <= ns ->
+             normalize (subst s k t) = subst (map normalize s) k (normalize t)).
+  { now apply (H (num_subterms t)). }
+  intros ns le.
+  induction ns as [|ns IH] in ns, t, k, le |- *; [now destruct t|].
+  destruct t; repeat (cbn in *; simp normalize).
+  - easy.
+  - destruct (_ <=? _).
+    + rewrite nth_error_map.
+      destruct (nth_error _ _).
+      * cbn.
+        apply normalize_lift.
+        (*now rewrite !normalize_lift, normalize_normalize.*)
+      * cbn.
+        now rewrite map_length.
+    + easy.
+  - easy.
+  - f_equal.
+    admit.
+  - admit.
+  - admit.
+  - unfold affine_lam_body.
+    rewrite !IH by easy.
+    destruct (normalize t1) eqn:nt1; try easy.
+    + cbn.
+      destruct (_ <=? _) eqn:uses; [|easy].
+      destruct (nth_error _ _) eqn:nth; [|easy].
+      propify.
+      destruct (lift0 _ _) eqn:lift; try easy.
+      unfold affinely_used.
+      destruct t; try easy.
+      cbn in *.
+      noconf lift.
+      rewrite count_uses_lift by easy.
+      destruct (_ <=? _) eqn:uses'.
+      * replace ((lift k 1 t) {0 := subst s k t2}) with t by admit.
+
+
 Lemma normalize_mkApps_dearg_single mask t args args' :
   normalize (mkApps (dearg_single mask t args) args') =
   normalize (dearg_single mask t (args ++ args')).
@@ -973,12 +1126,11 @@ Proof.
   - now rewrite <- mkApps_app.
   - destruct args, args'; cbn in *.
     + easy.
-    + rewrite normalize_mkApps, normalize_tApp; last first.
-      { rewrite normalize_tApp.
-        rewrite normalize_tLambda.
-        cbn.
+    + rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
+      simp normalize.
       cbn.
       replace (affinely_used _ _) with true by admit.
+      rewrite normalize_mkApps_normalize_hd.
       rewrite subst1_dearg_single_nil.
       change args' with ([] ++ args') at 2.
       rewrite <- IH.
@@ -1072,6 +1224,7 @@ Proof.
   - rewrite !normalize_tLambda.
     now f_equal.
   - rewrite !normalize_tLetIn.
+
     now f_equal.
   -
 

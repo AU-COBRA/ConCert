@@ -611,9 +611,33 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
   ret names.
 End FixEnv.
 
+Inductive SimpleActionBody :=.
+
 From Coq Require VectorDef.
+From Coq Require Import Bool.
 Section Counter.
 Context `{ChainBase}.
+
+Open Scope Z.
+Definition storage := Z.
+Definition positive := {z : Z | 0 <? z}.
+Inductive msg := Inc (_ : Z) | Dec (_ : Z).
+Program Definition inc_counter (st : storage) (inc : positive) :
+  {new_st : storage | st <? new_st} :=
+  st + inc. Next Obligation. Admitted.
+
+Definition my_bool_dec := Eval compute in bool_dec.
+Program Definition counter (msg : msg) (st : storage)
+  : option (list SimpleActionBody * storage) :=
+  match msg with
+  | Inc i => match 0 <? i with
+            | true => Some ([], inc_counter st i)
+            | false => None
+            end
+  | Dec i => None
+  end.
+
+(*
 Inductive Msg :=
 | increment
 | decrement.
@@ -656,11 +680,16 @@ Definition receive
   | Some decrement => Some (state - 1, [])
   | _ => None
   end.
+*)
 
+(*
 Program Definition contract : Contract unit Msg Z :=
   {| Blockchain.init := init; Blockchain.receive := receive; |}.
+*)
 
 End Counter.
+
+Recursive Extraction counter.
 
 Notation "'eval_extract' x" :=
   ltac:(let x :=
@@ -683,7 +712,13 @@ Quote Recursively Definition program := (escrow_init, escrow_receive).
 Definition init_name := "ConCert.Extraction.MidlangExtract.escrow_init".
 Definition receive_name := "ConCert.Extraction.MidlangExtract.escrow_receive".*)
 
+(*
 MetaCoq Quote Recursively Definition program := (init, receive).
+Definition init_name := kername_of_string "ConCert.Extraction.MidlangExtract.init".
+Definition receive_name := kername_of_string "ConCert.Extraction.MidlangExtract.receive".
+*)
+
+MetaCoq Quote Recursively Definition program := counter.
 Definition init_name := kername_of_string "ConCert.Extraction.MidlangExtract.init".
 Definition receive_name := kername_of_string "ConCert.Extraction.MidlangExtract.receive".
 
@@ -716,7 +751,7 @@ Definition extra_ignored :=
 Definition test :=
     specialize_erase_debox_template_env
       program.1
-      [init_name; receive_name]
+      [kername_of_string "ConCert.Extraction.MidlangExtract.counter"]
       (ignored_concert_types ++ extra_ignored ++ map fst midlang_translation_map).
 Time Compute (env <- test;;
               ret (get_dearg_set_for_unused_args env)).

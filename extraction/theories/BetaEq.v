@@ -232,163 +232,399 @@ is_lam_sig _ := None.
 Unset Equations Transparent.
 *)
 
-Definition lam_body (t : term) : option term :=
-  match t with
-  | tLambda na body => Some body
-  | _ => None
-  end.
-
-Equations? normalize (t : term) : term
-  by wf (num_subterms t) lt :=
-normalize tBox := tBox;
-normalize (tRel i) := tRel i;
-normalize (tVar id) := tVar id;
-normalize (tEvar n ts) := tEvar n (map_in ts (fun t isin => normalize t));
-normalize (tLambda na body) := tLambda na (normalize body);
-normalize (tLetIn na val body) := tLetIn na (normalize val) (normalize body);
-normalize (tApp hd arg) with lam_body (normalize hd) := {
-  | Some body with inspect (affinely_used 0 body) := {
-    | exist true affin := body{0 := normalize arg};
-    | exist false _ := tApp (normalize hd) (normalize arg)
-    };
-  | None := tApp (normalize hd) (normalize arg)
-    (*
-  | Some (exist (na, body) eq) with inspect (affinely_used 0 body) := {
-    | exist true affin := body{0 := normalize arg};
-    | exist false _ := tApp (normalize hd) (normalize arg)
-    };
-  | None := tApp (normalize hd) (normalize arg) *)
-  };
-normalize (tConst kn) := tConst kn;
-normalize (tConstruct ind c) := tConstruct ind c;
-normalize (tCase ind discr brs) :=
-  tCase ind (normalize discr) (map_in brs (fun '(ar, t) isin => (ar, normalize t)));
-normalize (tProj p t) := tProj p (normalize t);
-normalize (tFix defs i) :=
-  tFix (map_in defs (fun d isin =>
-                       {| dname := dname d;
-                          dbody := normalize (dbody d);
-                          rarg := rarg d |})) i;
-normalize (tCoFix defs i) :=
-  tCoFix (map_in defs (fun d isin =>
-                         {| dname := dname d;
-                            dbody := normalize (dbody d);
-                            rarg := rarg d |})) i.
-Proof.
-  all: try abstract lia.
-  - now apply Nat.lt_succ_r, num_subterms_le_sum_In.
-  - apply (in_map snd) in isin.
-    rewrite <- map_map.
-    apply Nat.lt_succ_r.
-    pose proof (num_subterms_le_sum_In _ _ isin).
-    cbn in *.
-    lia.
-  - apply (in_map dbody) in isin.
-    apply Nat.lt_succ_r.
-    rewrite <- map_map.
-    now apply num_subterms_le_sum_In.
-  - apply (in_map dbody) in isin.
-    apply Nat.lt_succ_r.
-    rewrite <- map_map.
-    now apply num_subterms_le_sum_In.
-Qed.
-
-(*
-Equations? normalize (t : term) : term by wf (num_subterms t) lt :=
-normalize t with normalize_viewc t := {
-  | nv_box := tBox;
-  | nv_rel i := tRel i;
-  | nv_var id := tVar id;
-  | nv_evar n ts := tEvar n (map_in ts (fun t isin => normalize t));
-  | nv_lambda na body := tLambda na (normalize body);
-  | nv_let_in na val body := tLetIn na (normalize val) (normalize body);
-  | nv_app_lam na body arg with inspect (affinely_used 0 body) := {
-    | exist true affin := normalize (body{0 := arg});
-    | exist false _ := tApp (tLambda na (normalize body)) (normalize arg)
-    };
-  | nv_app hd arg := tApp (normalize hd) (normalize arg);
-  | nv_const kn := tConst kn;
-  | nv_construct ind c := tConstruct ind c;
-  | nv_case ind discr brs := tCase
-                               ind
-                               (normalize discr)
-                               (map_in brs (fun '(ar, t) isin => (ar, normalize t)));
-  | nv_proj p t := tProj p (normalize t);
-  | nv_fix defs i :=
-    tFix (map_in defs (fun d isin =>
-                         {| dname := dname d;
-                            dbody := normalize (dbody d);
-                            rarg := rarg d |})) i;
-  | nv_cofix defs i :=
-    tCoFix (map_in defs (fun d isin =>
-                           {| dname := dname d;
-                              dbody := normalize (dbody d);
-                              rarg := rarg d |})) i
-  }.
-Proof.
-  all: try abstract lia.
-  - now apply Nat.lt_succ_r, num_subterms_le_sum_In.
-  - rewrite num_subterms_subst.
-    unfold affinely_used in affin.
-    propify.
-    destruct (count_uses 0 body) as [|[]]; abstract lia.
-  - apply (in_map snd) in isin.
-    rewrite <- map_map.
-    apply Nat.lt_succ_r.
-    pose proof (num_subterms_le_sum_In _ _ isin).
-    cbn in *.
-    abstract lia.
-  - apply (in_map dbody) in isin.
-    apply Nat.lt_succ_r.
-    rewrite <- map_map.
-    now apply num_subterms_le_sum_In.
-  - apply (in_map dbody) in isin.
-    apply Nat.lt_succ_r.
-    rewrite <- map_map.
-    now apply num_subterms_le_sum_In.
-Qed.
-*)
-
-Lemma normalize_tBox :
-  normalize tBox = tBox.
-Proof. reflexivity. Qed.
-
-Hint Rewrite normalize_tBox : normalize.
-
-Lemma normalize_tLambda na body :
-  normalize (tLambda na body) = tLambda na (normalize body).
-Proof. now simp normalize. Qed.
-
-Hint Rewrite normalize_tLambda : normalize.
-
-Lemma normalize_tLetIn na val body :
-  normalize (tLetIn na val body) = tLetIn na (normalize val) (normalize body).
-Proof. now simp normalize. Qed.
-
-Hint Rewrite normalize_tLetIn : normalize.
-
-Definition subst_body_affine (t a : term) :=
+Definition affine_lam_body (t : term) : option term :=
   match t with
   | tLambda na body => if affinely_used 0 body then
-                         Some (body{0 := normalize a})
+                         Some body
                        else
                          None
   | _ => None
   end.
 
+Lemma sum_le_by_element {A} (f : A -> nat) (l : list A) (g : forall a, In a l -> A) :
+  (forall a isin, f (g a isin) <= f a) ->
+  fold_right plus 0 (map f (map_in l g)) <=
+  fold_right plus 0 (map f l).
+Proof.
+  intros le.
+  induction l as [|a l IH]; [easy|].
+  cbn in *.
+  apply Nat.add_le_mono.
+  - apply le.
+  - apply IH.
+    intros a' isin.
+    apply le.
+Qed.
+
+Lemma affine_lam_body_Some_inv (t body : term) :
+  affine_lam_body t = Some body ->
+  exists na,
+    t = tLambda na body /\ count_uses 0 body <= 1.
+Proof.
+  intros aff.
+  unfold affine_lam_body, affinely_used in *.
+  destruct t; try congruence.
+  destruct (_ <=? _) eqn:le; [|congruence].
+  noconf aff.
+  now propify.
+Qed.
+
+Ltac solve_normalize :=
+  match goal with
+  | [normalize: forall x : term, _ |- _] =>
+    repeat destruct (normalize _ _);
+    try apply Nat.lt_succ_r;
+    cbn in *;
+    rewrite ?num_subterms_subst in *;
+    try lia
+  end.
+
+Inductive affine_lam_body_view : term -> Type :=
+| is_affine_lam_body na body : affinely_used 0 body -> affine_lam_body_view (tLambda na body)
+| affine_lam_body_view_other t :
+    (forall na body, t = tLambda na body -> affinely_used 0 body = false) ->
+    affine_lam_body_view t.
+
+Set Equations Transparent.
+Equations affine_lam_body_viewc (t : term) : affine_lam_body_view t :=
+affine_lam_body_viewc (tLambda na body) with inspect (affinely_used 0 body) := {
+  | exist true h := is_affine_lam_body na body h;
+  | exist false _ := affine_lam_body_view_other (tLambda na body) _
+  };
+affine_lam_body_viewc t := affine_lam_body_view_other t _.
+Unset Equations Transparent.
+
+Equations normalize' (t : term) : {t' : term | num_subterms t' <= num_subterms t}
+  by wf (num_subterms t) lt :=
+normalize' tBox := exist tBox _;
+normalize' (tRel i) := exist (tRel i) _;
+normalize' (tVar id) := exist (tVar id) _;
+normalize' (tEvar n ts) :=
+  exist (tEvar n (map_in ts (fun t isin => proj1_sig (normalize' t)))) _;
+normalize' (tLambda na body) := exist (tLambda na (proj1_sig (normalize' body))) _;
+normalize' (tLetIn na val body) :=
+  exist (tLetIn na (proj1_sig (normalize' val)) (proj1_sig (normalize' body))) _;
+normalize' (tApp hd arg) with normalize' hd := {
+  | exist nhd le with affine_lam_body_viewc nhd := {
+    | is_affine_lam_body _ body affin := exist (proj1_sig (normalize' (body{0 := arg}))) _;
+    | affine_lam_body_view_other nhd _ := exist (tApp nhd (proj1_sig (normalize' arg))) _
+    }
+  };
+normalize' (tConst kn) := exist (tConst kn) _;
+normalize' (tConstruct ind c) := exist (tConstruct ind c) _;
+normalize' (tCase ind discr brs) :=
+  exist
+    (tCase
+       ind
+       (proj1_sig (normalize' discr))
+       (map_in brs (fun p isin => (p.1, proj1_sig (normalize' p.2)))))
+    _;
+normalize' (tProj p t) := exist (tProj p (proj1_sig (normalize' t))) _;
+normalize' (tFix defs i) :=
+  exist
+    (tFix (map_in defs (fun d isin =>
+                          {| dname := dname d;
+                             dbody := proj1_sig (normalize' (dbody d));
+                             rarg := rarg d |})) i)
+    _;
+normalize' (tCoFix defs i) :=
+  exist
+    (tCoFix (map_in defs (fun d isin =>
+                            {| dname := dname d;
+                               dbody := proj1_sig (normalize' (dbody d));
+                               rarg := rarg d |})) i)
+    _.
+Next Obligation.
+  solve_normalize.
+  now apply num_subterms_le_sum_In.
+Qed.
+Next Obligation.
+  solve_normalize.
+  apply sum_le_by_element.
+  intros.
+  now destruct (normalize' _ _).
+Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation.
+  solve_normalize.
+  unfold affinely_used in affin; propify.
+  destruct (count_uses _ _) as [|[]]; lia.
+Defined.
+Next Obligation.
+  solve_normalize.
+  unfold affinely_used in affin; propify.
+  destruct (count_uses _ _) as [|[]]; lia.
+Qed.
+Next Obligation. solve_normalize. Defined.
+Next Obligation. solve_normalize. Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation.
+  solve_normalize.
+  apply (in_map snd) in isin.
+  rewrite <- map_map.
+  pose proof (num_subterms_le_sum_In _ _ isin).
+  cbn in *.
+  lia.
+Qed.
+Next Obligation.
+  solve_normalize.
+  apply Nat.add_le_mono; [easy|].
+  apply sum_le_by_element.
+  intros.
+  now destruct a, (normalize' _ _).
+Qed.
+Next Obligation. solve_normalize. Qed.
+Next Obligation.
+  solve_normalize.
+  apply (in_map dbody) in isin.
+  rewrite <- map_map.
+  now apply num_subterms_le_sum_In.
+Qed.
+Next Obligation.
+  solve_normalize.
+  apply sum_le_by_element.
+  intros [] ?.
+  cbn.
+  now destruct (normalize' _ _).
+Qed.
+Next Obligation.
+  solve_normalize.
+  apply (in_map dbody) in isin.
+  rewrite <- map_map.
+  now apply num_subterms_le_sum_In.
+Qed.
+Next Obligation.
+  solve_normalize.
+  apply sum_le_by_element.
+  intros [] ?.
+  cbn.
+  now destruct (normalize' _ _).
+Qed.
+
+Definition normalize (t : term) : term :=
+  proj1_sig (normalize' t).
+
+Lemma normalize_unfold t :
+  normalize t = proj1_sig (normalize' t).
+Proof. reflexivity. Qed.
+
+Lemma num_subterms_normalize t :
+  num_subterms (normalize t) <= num_subterms t.
+Proof.
+  unfold normalize.
+  now destruct (normalize' t).
+Qed.
+
+Lemma map_in_map {A B} (l : list A) (f : forall a, In a l -> B) (g : A -> B) :
+  (forall a isin, f a isin = g a) ->
+  map_in l f = map g l.
+Proof.
+  intros ext.
+  induction l as [|a l IH]; [easy|].
+  cbn.
+  rewrite ext, IH; [easy|].
+  intros; apply ext.
+Qed.
+
+Lemma normalize_tBox : normalize tBox = tBox.
+Proof. reflexivity. Qed.
+
+Lemma normalize_tRel i : normalize (tRel i) = tRel i.
+Proof. reflexivity. Qed.
+
+Lemma normalize_tVar id : normalize (tVar id) = tVar id.
+Proof. reflexivity. Qed.
+
+Lemma normalize_tEvar n ts :
+  normalize (tEvar n ts) = tEvar n (map normalize ts).
+Proof.
+  unfold normalize.
+  simp normalize'.
+  cbn.
+  f_equal.
+  now apply map_in_map.
+Qed.
+
+Lemma normalize_tLambda na body :
+  normalize (tLambda na body) = tLambda na (normalize body).
+Proof. now unfold normalize; simp normalize'. Qed.
+
+Lemma normalize_tLetIn na val body :
+  normalize (tLetIn na val body) = tLetIn na (normalize val) (normalize body).
+Proof. now unfold normalize; simp normalize'. Qed.
+
 Lemma normalize_tApp hd arg :
   normalize (tApp hd arg) =
-  match subst_body_affine (normalize hd) arg with
-  | Some body => body
+  match affine_lam_body (normalize hd) with
+  | Some body => normalize (body{0 := arg})
   | None => tApp (normalize hd) (normalize arg)
   end.
 Proof.
-  simp normalize.
-  destruct (normalize hd) eqn:hdeq; cbn; rewrite ?hdeq; try easy.
-  now destruct (affinely_used _ _).
+  unfold normalize.
+  simp normalize'.
+  destruct (normalize' hd).
+  cbn.
+  destruct x; try easy.
+  destruct (affine_lam_body_viewc (tLambda n x)) eqn:abody.
+  - cbn.
+    clear abody.
+    now destruct (affinely_used 0 body).
+  - destruct t; try easy.
+    cbn.
+    clear abody.
+    specialize (e _ _ eq_refl).
+    now rewrite e.
 Qed.
 
-Hint Rewrite normalize_tApp : normalize.
+Lemma normalize_tConst kn : normalize (tConst kn) = tConst kn.
+Proof. reflexivity. Qed.
+
+Lemma normalize_tConstruct ind c : normalize (tConstruct ind c) = tConstruct ind c.
+Proof. reflexivity. Qed.
+
+Lemma normalize_tCase ind discr brs :
+  normalize (tCase ind discr brs) =
+  tCase ind (normalize discr) (map (on_snd normalize) brs).
+Proof.
+  unfold normalize.
+  simp normalize'.
+  cbn.
+  f_equal.
+  now apply map_in_map.
+Qed.
+
+Lemma normalize_tProj p t :
+  normalize (tProj p t) = tProj p (normalize t).
+Proof. now unfold normalize; simp normalize'. Qed.
+
+Lemma normalize_tFix defs i :
+  normalize (tFix defs i) =
+  tFix (map (map_def normalize) defs) i.
+Proof.
+  unfold normalize.
+  simp normalize'.
+  cbn.
+  f_equal.
+  now apply map_in_map.
+Qed.
+
+Lemma normalize_tCoFix defs i :
+  normalize (tCoFix defs i) =
+  tCoFix (map (map_def normalize) defs) i.
+Proof.
+  unfold normalize.
+  simp normalize'.
+  cbn.
+  f_equal.
+  now apply map_in_map.
+Qed.
+
+Hint Rewrite
+     normalize_tBox
+     normalize_tRel
+     normalize_tVar
+     normalize_tEvar
+     normalize_tLambda
+     normalize_tLetIn
+     normalize_tApp
+     normalize_tConst
+     normalize_tConstruct
+     normalize_tCase
+     normalize_tProj
+     normalize_tFix
+     normalize_tCoFix : normalize.
+
+Lemma normalize_normalize t :
+  normalize (normalize t) = normalize t.
+Proof.
+  unfold normalize at 2.
+  funelim (normalize' t); cbn in *; simp normalize.
+  - easy.
+  - easy.
+  - easy.
+  - f_equal.
+    induction l; [easy|].
+    cbn.
+    rewrite H by (now left).
+    f_equal.
+    rewrite IHl.
+    + easy.
+    + intros t intl.
+      apply H.
+      now right.
+    + intros.
+      apply H0.
+      cbn.
+      lia.
+  - now rewrite H.
+  - now rewrite H, H0.
+  - easy.
+  - easy.
+  - rewrite H.
+    f_equal.
+    clear -H0 H1.
+    induction l0; [easy|].
+    cbn.
+    rewrite H0 by (now left).
+    f_equal.
+    apply IHl0.
+    + intros; apply H0; now right.
+    + intros; apply H1; cbn; lia.
+  - now rewrite H.
+  - f_equal.
+    induction m; [easy|].
+    unfold map_def.
+    cbn.
+    f_equal; [f_equal; now apply H; left|].
+    apply IHm.
+    + intros; apply H; now right.
+    + intros; apply H0; cbn; lia.
+  - f_equal.
+    induction m0; [easy|].
+    unfold map_def.
+    cbn.
+    f_equal; [f_equal; now apply H; left|].
+    apply IHm0.
+    + intros; apply H; now right.
+    + intros; apply H0; cbn; lia.
+  - rewrite H.
+    unfold normalize at 2.
+    rewrite Heq0.
+    cbn.
+    propify.
+    now rewrite i.
+  - replace t with (normalize t2); last first.
+    { unfold normalize.
+      now rewrite Heq0. }
+    fold (normalize t2) in Hind.
+    rewrite Hind.
+    unfold normalize at 1 5.
+    rewrite Heq0.
+    cbn.
+    rewrite H.
+    destruct t; try easy.
+    clear -e.
+    specialize (e _ _ eq_refl).
+    cbn.
+    now rewrite e.
+Qed.
+
+Lemma normalize_mkApps_normalize_hd hd args :
+  normalize (mkApps (normalize hd) args) =
+  normalize (mkApps hd args).
+Proof.
+  induction args using List.rev_ind in hd, args |- *.
+  - cbn.
+    apply normalize_normalize.
+  - rewrite !mkApps_app.
+    cbn.
+    rewrite !normalize_tApp.
+    now rewrite IHargs.
+Qed.
 
 Lemma normalize_mkApps hd args :
   isLambda (normalize hd) = false ->
@@ -399,12 +635,11 @@ Proof.
   induction args in hd, args, not_lam |- *; [easy|].
   cbn in *.
   rewrite IHargs.
-  rewrite normalize_tApp.
-  now destruct (normalize hd).
-
-  rewrite normalize_tApp.
-  cbn.
-  now destruct (normalize hd).
+  - rewrite normalize_tApp.
+    now destruct (normalize hd).
+  - rewrite normalize_tApp.
+    cbn.
+    now destruct (normalize hd).
 Qed.
 
 Lemma value_normalize_tBox v :
