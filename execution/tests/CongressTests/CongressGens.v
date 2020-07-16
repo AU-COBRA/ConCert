@@ -59,15 +59,13 @@ Definition allProposalsWithVotes lc : FMap ProposalId Proposal :=
 Definition congressContractsMembers lc : FMap Address (list Address) :=
  map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized Congress.State lc).
 
- Definition congressContractsMembers_nonempty lc : FMap Address (list Address) :=
+Definition congressContractsMembers_nonempty lc : FMap Address (list Address) :=
  let members_map :=
   map_values_FMap (fun state => map fst (FMap.elements (members state))) (lc_contract_state_deserialized Congress.State lc) in
-  filter_FMap (fun p => 0 <? length (snd p)) members_map.
+  filter_FMap (fun '(_, members) => 0 <? length members) members_map.
 
 Definition congressContractsMembers_nonempty_nonowners lc : FMap Address (list Address) :=
-  map_filter_FMap (fun p =>
-    let contract_addr := fst p in
-    let state := snd p in
+  map_filter_FMap (fun '(contract_addr, state) =>
     let members := (map fst o FMap.elements) (members state) in
     let non_owner_members := filter (fun member => negb (address_eqb member (owner state))) members in
     if 0 <? length non_owner_members then Some non_owner_members else None
@@ -137,26 +135,12 @@ Definition bindCallerIsOwnerOpt {A : Type}
 Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):=
   bindCallerIsOwnerOpt lc calling_addr contract_addr (gCongressMember_without_caller lc calling_addr contract_addr).
 
-(* Sample (@gMsgSimpleFromLC lc_initial). *)
-(*
-Definition optToList {A : Type} : (G (option A)) -> G (list A) :=
-  fun g =>
-  l <- listOf g ;;
-  let l' := fold_left (fun acc aopt => match aopt with
-                          | Some a => a :: acc
-                          | None => acc
-                          end) l []
-  in returnGen l'. *)
 
 Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Address (list ProposalId)))
                          (mk_call : Address -> Address -> Msg -> G (option Action))
                          (vote : ProposalId -> Msg):=
-  p <- sampleFMapOpt contract_members_and_proposals ;;
-  let contract_addr := fst p in
-  let members_and_proposals := snd p in
-  p' <- sampleFMapOpt members_and_proposals ;;
-  let member := fst p' in
-  let pids := snd p' in
+  '(contract_addr, members_and_proposals) <- sampleFMapOpt contract_members_and_proposals ;;
+  '(member, pids) <- sampleFMapOpt members_and_proposals ;;
   pid <- elems_opt pids ;;
   mk_call contract_addr member (vote pid).
 
@@ -165,13 +149,11 @@ Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Ad
 Definition finishable_proposals (lc : LocalChain)
                                 : FMap Address (FMap ProposalId Proposal) :=
   let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_contract_state_deserialized Congress.State lc) in
-  map_filter_FMap (fun p =>
-    let caddr := fst p in
-    let pids_map := snd p in
+  map_filter_FMap (fun '(caddr, pids_map) =>
     match FMap.find caddr contracts_rules with
     | Some rules =>
-      let pids_map_filtered := filter_FMap (fun p =>
-        (snd p).(proposed_in) + rules.(debating_period_in_blocks) <=? lc.(lc_slot)
+      let pids_map_filtered := filter_FMap (fun '(_, proposal) =>
+        proposal.(proposed_in) + rules.(debating_period_in_blocks) <=? lc.(lc_slot)
       ) pids_map in
       if 0 <? FMap.size pids_map_filtered
       then Some pids_map_filtered
@@ -196,9 +178,7 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :
     (* let bindCallerIsOwner {T : Type} := @bindCallerIsOwnerOpt T lc calling_addr contract_addr in *)
     backtrack [
       (* transfer_ownership *)
-      (1, contract_members_pair <- sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc) ;;
-          let contract_addr := fst contract_members_pair in
-          let members := snd contract_members_pair in
+      (1, '(contract_addr, members) <- sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc) ;;
           let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
           match owner_opt with
           | Some owner_addr =>
@@ -208,25 +188,19 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :
           end
       ) ;
       (* change_rules *)
-      (1, p <- sampleFMapOpt (lc_contract_owners lc) ;;
-          let contract_addr := fst p in
-          let owner_addr := snd p in
+      (1, '(contract_addr, owner_addr) <- sampleFMapOpt (lc_contract_owners lc) ;;
           rules <- genToOpt (gRulesSized 4) ;;
           (mk_call contract_addr owner_addr (change_rules rules))
       ) ;
       (* add_member *)
-      (2, p <- sampleFMapOpt (lc_contract_owners lc) ;;
-        let contract_addr := fst p in
-        let owner_addr := snd p in
+      (2, '(contract_addr, owner_addr) <- sampleFMapOpt (lc_contract_owners lc) ;;
         match (try_newCongressMember lc contract_addr 10) with
         | Some addr => mk_call contract_addr owner_addr (add_member addr)
         | None => returnGen None
         end
       ) ;
       (* remove_member *)
-      (1, contract_members_pair <- sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc) ;;
-          let contract_addr := fst contract_members_pair in
-          let members := snd contract_members_pair in
+      (1, '(contract_addr, members) <- sampleFMapOpt (congressContractsMembers_nonempty_nonowners lc) ;;
           member <- elems_opt members ;;
           let owner_opt := FMap.find contract_addr (lc_contract_owners lc) in
           match owner_opt with
@@ -251,12 +225,10 @@ Fixpoint gCongressActionNew (lc : LocalChain) (fuel : nat) : G (option Action) :
       (* Requirements:
          - only contract owner can finish proposals
          - the debating period must have passed *)
-      (2, p <- sampleFMapOpt (finishable_proposals lc) ;;
-        let contract_addr := fst p in
+      (2, '(contract_addr, proposals) <- sampleFMapOpt (finishable_proposals lc) ;;
         match FMap.find contract_addr (lc_contract_owners lc) with
         | Some owner_addr =>
-          p' <- sampleFMapOpt (snd p) ;;
-          let pid := fst p' in
+          '(pid, _) <- sampleFMapOpt proposals ;;
           mk_call contract_addr owner_addr (finish_proposal pid)
         | None => returnGen None
         end)

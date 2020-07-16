@@ -21,9 +21,9 @@ Definition serializeMsg := @serialize EIP20Token.Msg _.
 Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Address EIP20Token.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left
-                (fun acc p =>
-                  match deserialize EIP20Token.State _ (snd p) with
-                  | Some state => (fst p, state) :: acc
+                (fun acc '(addr, ser_val) =>
+                  match deserialize EIP20Token.State _ ser_val with
+                  | Some state => (addr, state) :: acc
                   | None => acc
                   end)
                 els_list []).
@@ -72,14 +72,9 @@ Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) :=
   ).
 
 Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)) :=
-  bindGenOpt (sampleFMapOpt state.(allowances)) (fun p =>
-  let allower := fst p in
-  let allowance_map := snd p in
-  bindGenOpt (sampleFMapOpt allowance_map) (fun p' =>
-    let delegate := fst p' in
-    let allowance := snd p' in
-    bindGenOpt (sampleFMapOpt state.(balances)) (fun p'' =>
-      let receiver := fst p'' in
+  bindGenOpt (sampleFMapOpt state.(allowances)) (fun '(allower, allowance_map) =>
+  bindGenOpt (sampleFMapOpt allowance_map) (fun '(delegate, allowance) =>
+    bindGenOpt (sampleFMapOpt state.(balances)) (fun '(receiver, _) =>
       let allower_balance := (FMap_find_ allower state.(balances) 0) in
       amount <- (if allower_balance =? 0
                 then returnGen 0
@@ -99,31 +94,25 @@ Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (op
   backtrack [
     (* transfer *)
     (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
-        (fun c_state_pair =>
-        let contract_addr' := fst c_state_pair in
-        let state := snd c_state_pair in
-        caller_msg_pair <- gTransfer lc state ;;
-        mk_call contract_addr' (fst caller_msg_pair) (snd caller_msg_pair)
+        (fun '(contract_addr', state) =>
+        '(caller, msg) <- gTransfer lc state ;;
+        mk_call contract_addr' caller msg
         )
     ) ;
     (* transfer_from *)
     (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
-        (fun c_state_pair =>
-        let contract_addr' := fst c_state_pair in
-        let state := snd c_state_pair in
+        (fun '(contract_addr', state) =>
         bindGenOpt (gTransfer_from state)
-        (fun caller_msg_pair =>
-        mk_call contract_addr' (fst caller_msg_pair) (snd caller_msg_pair)
+        (fun '(caller, msg) =>
+        mk_call contract_addr' caller msg
         ))
     );
     (* approve *)
     (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
-        (fun c_state_pair =>
-        let contract_addr' := fst c_state_pair in
-        let state := snd c_state_pair in
+        (fun '(contract_addr', state) =>
         bindGenOpt (gApprove state)
-        (fun caller_msg_pair =>
-        mk_call contract_addr' (fst caller_msg_pair) (snd caller_msg_pair)
+        (fun '(caller, msg) =>
+        mk_call contract_addr' caller msg
         ))
     )
   ].

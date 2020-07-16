@@ -71,12 +71,10 @@ Definition gTransferCallerFromTo (lc : LocalChain)
     let owner_has_tokens owner := 0 <? (with_default 0 (FMap.find owner ledger.(balances))) in
     let filter_ op_tokens_map := (Nat.ltb 0%nat (FMap.size op_tokens_map)) &&
                                 (existsb op_tokens_contains_tokenid (FMap.values op_tokens_map)) in
-    p <- sampleFMapOpt_filter state.(operators) (fun p => (owner_has_tokens (fst p)) && (filter_ (snd p))) ;;
-    let from := fst p in
-    p' <- sampleFMapOpt_filter (snd p) (fun p => op_tokens_contains_tokenid (snd p)) ;;
-    let caller : Address := fst p' in
+    '(from, ops_map) <- sampleFMapOpt_filter state.(operators) (fun p => (owner_has_tokens (fst p)) && (filter_ (snd p))) ;;
+    '(caller, _) <- sampleFMapOpt_filter ops_map (fun p => op_tokens_contains_tokenid (snd p)) ;;
     to <- gAddrFromLCWithoutAddrs lc [caller; from] ;;
-    returnGenSome (fst p, from, to) in
+    returnGenSome (from, from, to) in
   match (policy.(descr_self), policy.(descr_operator)) with
   | (self_transfer_permitted, operator_transfer_denied) => gSelfTransfer
     (* caller and from must be the same *)
@@ -94,10 +92,7 @@ Definition gSingleTransfer (lc : LocalChain)
   match FMap.find tokenid state.(assets) with
   | Some ledger =>
     bindGenOpt (gTransferCallerFromTo lc state ledger tokenid)
-    (fun pp =>
-      let caller := fst (fst pp) in
-      let from := snd (fst pp) in
-      let to := snd pp in
+    (fun '(caller, from, to) =>
       let from_balance := with_default 0 (FMap.find from ledger.(balances)) in
       if from_balance =? 0 then
         returnGen None
@@ -150,9 +145,8 @@ Definition gTransfer (lc : LocalChain)
                      (state : FA2Token.State)
                      (maxNrTransfers : nat)
                      : G (option (Address * FA2Token.Msg)) :=
-  p <- (gTransfersFix lc state maxNrTransfers []) ;;
-  let trxs := snd p in
-  returnGenSome (fst p, msg_transfer trxs).
+  '(caller,trxs) <- (gTransfersFix lc state maxNrTransfers []) ;;
+  returnGenSome (caller, msg_transfer trxs).
 
 
 Local Close Scope N_scope.
@@ -216,9 +210,7 @@ Definition gFA2TokenAction (lc : LocalChain) : G (option Action) :=
   | Some fa2_state =>
     backtrack [
       (* transfer tokens *)
-      (4, p <- gTransfer lc fa2_state 4 ;;
-          let caller := fst p in
-          let trx := snd p in
+      (4, '(caller, trx) <- gTransfer lc fa2_state 4 ;;
           mk_call caller 0%Z trx
       ) ;
       (* create tokens *)
@@ -226,9 +218,7 @@ Definition gFA2TokenAction (lc : LocalChain) : G (option Action) :=
           let is_not_contract_addr addr := negb (address_is_contract addr) in
           caller <- liftM fst (sampleFMapOpt_filter lc.(lc_account_balances)
                               (fun p => (is_not_contract_addr (fst p)) && (has_balance (snd p)))) ;;
-          p <- gCreateTokens lc caller fa2_state ;;
-          let amount := fst p in
-          let msg := snd p in
+          '(amount, msg) <- gCreateTokens lc caller fa2_state ;;
           mk_call caller amount msg
       ) ;
       (* update operators *)
@@ -251,9 +241,7 @@ Let client_other_msg := @other_msg _ FA2ClientMsg _.
 
 Definition gIsOperatorMsg (lc : LocalChain) : G (option ClientMsg) :=
   bindGenOpt (sample2UniqueFMapOpt lc.(lc_account_balances))
-  (fun p =>
-    let addr1 := fst (fst p) in
-    let addr2 := fst (snd p) in
+  (fun '((addr1, _), (addr2, _)) =>
     op_tokens <- elems [all_tokens ; some_tokens [0%N]] ;;
     let params := Build_is_operator_param
       (Build_operator_param addr1 addr2 op_tokens)

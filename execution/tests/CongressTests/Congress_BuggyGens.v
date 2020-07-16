@@ -49,9 +49,9 @@ Instance genSetupSized : GenSized Setup :=
 Definition lc_congress_buggy_state_deserialized lc : FMap Address Congress_Buggy.State :=
   let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
   FMap.of_list (List.fold_left
-                (fun acc p =>
-                  match deserialize Congress_Buggy.State _ (snd p) with
-                  | Some state => (fst p, state) :: acc
+                (fun acc '(addr, ser_val) =>
+                  match deserialize Congress_Buggy.State _ ser_val with
+                  | Some state => (addr, state) :: acc
                   | None => acc
                   end)
                 els_list []).
@@ -133,12 +133,8 @@ Definition try_gNewOwner lc calling_addr contract_addr : G (option Address):=
 Definition vote_proposal (contract_members_and_proposals : FMap Address (FMap Address (list ProposalId)))
                          (mk_call : Address -> Address -> Msg -> G (option Action))
                          (vote : ProposalId -> Msg):=
-  p <- sampleFMapOpt contract_members_and_proposals ;;
-  let contract_addr := fst p in
-  let members_and_proposals := snd p in
-  p' <- sampleFMapOpt members_and_proposals ;;
-  let member := fst p' in
-  let pids := snd p' in
+  '(contract_addr, members_and_proposals) <- sampleFMapOpt contract_members_and_proposals ;;
+  '(member, pids) <- sampleFMapOpt members_and_proposals ;;
   pid <- elems_opt pids ;;
   mk_call contract_addr member (vote pid).
 
@@ -151,13 +147,11 @@ Definition lc_proposals' (lc : LocalChain) : FMap Address (FMap ProposalId Propo
 Definition finishable_proposals (lc : LocalChain)
                                 : FMap Address (FMap ProposalId Proposal) :=
   let contracts_rules : FMap Address Rules := map_values_FMap state_rules (lc_congress_buggy_state_deserialized lc) in
-  map_filter_FMap (fun p =>
-    let caddr := fst p in
-    let pids_map := snd p in
+  map_filter_FMap (fun '(caddr, pids_map) =>
     match FMap.find caddr contracts_rules with
     | Some rules =>
-      let pids_map_filtered := filter_FMap (fun p =>
-        (snd p).(proposed_in) + rules.(debating_period_in_blocks) <=? lc.(lc_slot)
+      let pids_map_filtered := filter_FMap (fun '(_, proposal) =>
+        proposal.(proposed_in) + rules.(debating_period_in_blocks) <=? lc.(lc_slot)
       ) pids_map in
       if 0 <? FMap.size pids_map_filtered
       then Some pids_map_filtered
@@ -203,12 +197,10 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
       (* Requirements:
          - only contract owner can finish proposals
          - the debating period must have passed *)
-      (2, p <- sampleFMapOpt (lc_proposals' lc) ;;
-          let contract_addr := fst p in
+      (2, '(contract_addr, proposals) <- sampleFMapOpt (lc_proposals' lc) ;;
           match FMap.find contract_addr (lc_contract_owners lc) with
           | Some owner_addr =>
-            p' <- sampleFMapOpt (snd p) ;;
-            let pid := fst p' in
+            '(pid, _) <- sampleFMapOpt proposals ;;
             mk_call contract_addr owner_addr (finish_proposal pid)
           | None => returnGen None
           end
@@ -217,11 +209,9 @@ Fixpoint gCongressActionBuggy (lc : LocalChain) (fuel : nat) : G (option Action)
   | S fuel' => backtrack [
     (6, gCongressActionBuggy lc fuel') ;
     (* add_proposal which contains a congress action (like create vote actions, create proposals, etc.) *)
-    (1, p <- sampleFMapOpt (lc_contract_owners lc) ;;
-        let contract_addr := fst p in
-        let owner := snd p in
-        p <- sampleFMapOpt lc.(lc_account_balances) ;;
-        let transfer_act := cact_transfer (fst p) 1%Z in
+    (1, '(contract_addr, owner) <- sampleFMapOpt (lc_contract_owners lc) ;;
+        '(owner, _) <- sampleFMapOpt lc.(lc_account_balances) ;;
+        let transfer_act := cact_transfer owner 1%Z in
         mk_call contract_addr owner (create_proposal [transfer_act])
     ) ;
     (1,

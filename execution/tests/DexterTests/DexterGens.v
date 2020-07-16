@@ -49,13 +49,9 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
   let has_balance p :=
     let ledger := snd p in
     0 <? FMap.size ledger.(balances) in
-  p <-  (sampleFMapOpt_filter state.(assets) has_balance) ;;
-  let tokenid := fst p in
-  let ledger := snd p in
+  '(tokenid, ledger) <-  (sampleFMapOpt_filter state.(assets) has_balance) ;;
   let has_tokens p := N.ltb 0 (snd p) in
-  pp <- sampleFMapOpt_filter ledger.(balances) has_tokens ;;
-  let addr := fst pp in
-  let nr_tokens : N := snd pp in
+  '(addr, nr_tokens) <- sampleFMapOpt_filter ledger.(balances) has_tokens ;;
   tokens_to_exchange <- gTokensToExchange nr_tokens ;;
   let exchange_msg := {|
     exchange_owner := addr;
@@ -70,9 +66,7 @@ Definition gAddTokensToReserve (lc : LocalChain)
                                (state : FA2Token.State)
                                : GOpt (Address * Amount * Dexter.Msg) :=
   tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
-  addr_and_amount <- gAccountBalanceFromLocalChain lc ;;
-  let caller := fst addr_and_amount in
-  let amount := snd addr_and_amount in
+  '(caller, amount) <- gAccountBalanceFromLocalChain lc ;;
   returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
 Definition gDexterAction (lc : LocalChain) : G (option Action) :=
@@ -83,12 +77,12 @@ Definition gDexterAction (lc : LocalChain) : G (option Action) :=
     |} in
   match FMap.find fa2_contract_addr (lc_contract_state_deserialized FA2Token.State lc) with
   | Some fa2_state => backtrack [
-    (1, pp <- gAddTokensToReserve lc fa2_state ;;
-        mk_call (fst (fst pp)) (snd (fst pp)) (snd pp)
+    (1, '(caller, amount, msg) <- gAddTokensToReserve lc fa2_state ;;
+        mk_call caller amount msg
     ) ;
     (2, caller <- gContractAddrFromLCWithoutAddrs lc [fa2_contract_addr; dexter_contract_addr] ;;
-        p <- gTokenExchange fa2_state ;;
-        mk_call caller 0%Z (snd p)
+        '(_, msg) <- gTokenExchange fa2_state ;;
+        mk_call caller 0%Z msg
     )
   ]
   | None => returnGen None
