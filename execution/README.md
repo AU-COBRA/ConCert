@@ -194,6 +194,8 @@ about to our actual implementations of the execution layer described above.
 ### Property-based Testing of Smart Contracts with QuickChick
 The [tests](tests/) folder contains tests of some of the contracts from the [examples](examples/) folder. Input generators for the contract under test can be found in files ending in 'Gens.v', and the QuickChick properties/tests can be found in files ending in 'Tests.v'. [TraceGens.v](tests/TraceGens.v) contains key generator combinators for deriving "arbitrary" input generators of blockchain execution traces for a given smart contract, along with QuickChick `Checker`s that define the kind of properties we can test. The simplest example is the [EIP20Tests](tests/EIP20Tests/).
 
+The testing framework was developed as part of a Master's Thesis  at Aarhus University, and the thesis detailing the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
+
 ## Building/Developing
 This project uses the std++ and bignums library. These must be installed first
 and can be installed via Opam in the following way:
