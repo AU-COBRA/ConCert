@@ -18,10 +18,8 @@ Section FA2Types.
 
 Definition token_id := N.
 
-(* Definition callback (A : Type) := A -> ActionBody.  *)
-
+(* Dummy implementation of callbacks. *)
 Record callback (A : Type) := {
-  (* callback_addr : Address; *)
   blob : option A;
 }.
 
@@ -35,7 +33,7 @@ Record transfer :=
 }.
 Record balance_of_request := {
   owner : Address;
-  bal_req_token_id : token_id;  
+  bal_req_token_id : token_id;
 }.
 
 Record balance_of_response := {
@@ -45,7 +43,7 @@ Record balance_of_response := {
 
 Record balance_of_param := {
   bal_requests : list balance_of_request;
-  bal_callback : callback (list balance_of_response); (* TODO : what type here? *)
+  bal_callback : callback (list balance_of_response);
 }.
 
 Record total_supply_response := {
@@ -55,25 +53,22 @@ Record total_supply_response := {
 
 Record total_supply_param := {
   supply_param_token_ids : list token_id;
-  supply_param_callback : callback (list total_supply_response); (*TODO : what type here? *)
+  supply_param_callback : callback (list total_supply_response);
 }.
 
 Record token_metadata := {
   metadata_token_id : token_id;
-  (* metadata_symbol : string; *)
-  (* metadata_name : string; *)
   metadata_decimals : N;
-  (* metadata_extras : FMap string string; *)
 }.
 
 Record token_metadata_param := {
   metadata_token_ids : list token_id;
-  metadata_callback : callback (list token_metadata); (*TODO : what type here? *)
+  metadata_callback : callback (list token_metadata);
 }.
 
 Inductive operator_tokens  :=
   | all_tokens : operator_tokens
-  | some_tokens : list token_id -> operator_tokens (* TODO: maybe set instead of list?*) .
+  | some_tokens : list token_id -> operator_tokens (* a set could be used here instead of list?*) .
 
 Record operator_param := {
   op_param_owner : Address;
@@ -84,7 +79,7 @@ Record operator_param := {
 Inductive update_operator :=
   | add_operator : operator_param -> update_operator
   | remove_operator : operator_param -> update_operator.
-  
+
 Record is_operator_response := {
   operator : operator_param;
   is_operator : bool;
@@ -92,7 +87,7 @@ Record is_operator_response := {
 
 Record is_operator_param := {
   is_operator_operator : operator_param;
-  is_operator_callback : callback (is_operator_response); (* TODO *)
+  is_operator_callback : callback (is_operator_response);
 }.
 
 (* permission policy definition *)
@@ -100,21 +95,15 @@ Record is_operator_param := {
 Inductive self_transfer_policy :=
   | self_transfer_permitted : self_transfer_policy
   | self_transfer_denied : self_transfer_policy.
-  
+
 Inductive operator_transfer_policy :=
   | operator_transfer_permitted : operator_transfer_policy
   | operator_transfer_denied : operator_transfer_policy.
-  
+
 Inductive owner_transfer_policy :=
   | owner_no_op : owner_transfer_policy
   | optional_owner_hook : owner_transfer_policy
   | required_owner_hook : owner_transfer_policy.
-  
-(* Inlined the address instead *)
-(* Record custom_permission_policy := {
-  (* custom_policy_tag : string; *)
-  custom_policy_config_api: option Address;
-}. *)
 
 Record permissions_descriptor := {
   descr_self : self_transfer_policy;
@@ -123,15 +112,6 @@ Record permissions_descriptor := {
   descr_sender : owner_transfer_policy;
   descr_custom : option Address;
 }.
-
-(* Inductive fa2_entry_points :=
-  | Transfer : list transfer -> fa2_entry_points
-  | Balance_of : balance_of_param -> fa2_entry_points
-  | Total_supply : total_supply_param -> fa2_entry_points
-  | Token_metadata : token_metadata_param -> fa2_entry_points
-  | Permissions_descriptor : permissions_descriptor -> fa2_entry_points (* TODO fix callback type *)
-  | Update_operators : list update_operator -> fa2_entry_points
-  | Is_operator : is_operator_param -> fa2_entry_points. *)
 
 Record transfer_descriptor := {
   transfer_descr_from_ : Address;
@@ -161,9 +141,6 @@ End FA2Types.
 
 Section Setters.
 
-(* Instance callback_settable {A : Type} : Settable (callback A) :=
-  settable! (Build_callback A) <(callback_addr A); (body A)>. *)
-  
 Instance transfer_settable : Settable transfer :=
   settable! build_transfer <from_; to_; transfer_token_id; amount; sender_callback_addr>.
 
@@ -197,9 +174,6 @@ Instance is_operator_response_settable : Settable is_operator_response :=
 Instance is_operator_param_settable : Settable is_operator_param :=
   settable! Build_is_operator_param <is_operator_operator; is_operator_callback>.
 
-(* Instance custom_permission_policy_settable : Settable custom_permission_policy :=
-  settable! Build_custom_permission_policy <custom_policy_config_api>. *)
-
 Instance permissions_descriptor_settable : Settable permissions_descriptor :=
   settable! Build_permissions_descriptor <descr_self; descr_operator; descr_receiver; descr_sender; descr_custom>.
 
@@ -221,21 +195,6 @@ End Setters.
 Section Serialization.
 Instance callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) :=
 Derive Serializable (callback_rect A) <(Build_callback A)>.
-
-(* Global Program Instance callback_serializable {A : Type} : Serializable (callback A) :=
-  {| serialize c := @serialize unit _ tt;
-     deserialize p := 
-     do tt <- @deserialize unit _ p ;
-     Some (Build_callback A)
-  |}.
-Next Obligation.
-intros.
-cbn.
-rewrite deserialize_serialize. 
-destruct x.
-reflexivity. 
-Qed. *)
-
 
 Global Instance transfer_serializable : Serializable transfer :=
   Derive Serializable transfer_rect <build_transfer>.
