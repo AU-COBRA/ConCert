@@ -11,7 +11,6 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
-(* Import ListNotations. *)
 Module TC := Template.BasicAst.
 
 Import ListNotations.
