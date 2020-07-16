@@ -119,7 +119,7 @@ Global Instance TokenLedger_serializable : Serializable TokenLedger :=
   Derive Serializable TokenLedger_rect <build_token_ledger>.
 
 Global Instance state_serializable : Serializable State :=
-	Derive Serializable State_rect <build_state>.
+  Derive Serializable State_rect <build_state>.
 
 End Serialization.
 
@@ -449,16 +449,16 @@ Definition try_create_tokens (caller : Address)
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
-						 			 (ctx : ContractCallContext)
-									 (state : State)
-									 (maybe_msg : option Msg)
-					         : option (State * list ActionBody) :=
+                    (ctx : ContractCallContext)
+                   (state : State)
+                   (maybe_msg : option Msg)
+                   : option (State * list ActionBody) :=
   let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
-	let without_actions := option_map (fun new_state => (new_state, [])) in
-	let without_statechange acts := Some (state, acts) in
-	(* Only 'create_token' messages are allowed to carry money *)
-	if ctx.(ctx_amount) >? 0
+  let without_actions := option_map (fun new_state => (new_state, [])) in
+  let without_statechange acts := Some (state, acts) in
+  (* Only 'create_token' messages are allowed to carry money *)
+  if ctx.(ctx_amount) >? 0
   then match maybe_msg with
   | Some (msg_create_tokens tokenid) => without_actions (try_create_tokens sender ctx.(ctx_amount) tokenid state)
   | _ => None
@@ -487,7 +487,7 @@ Definition map_values_FMap {A B C: Type}
   FMap.of_list mapped_l.
 
 Definition init (chain : Chain)
-								(ctx : ContractCallContext)
+                (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
   (* setup ledgers with empty balance for each initial token id *)
   let assets' := map_values_FMap (fun _ =>

@@ -9,8 +9,8 @@ Global Set Warnings "-extraction-logical-axiom".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
-From ConCert.Execution.QCTests Require Import 
-	TestUtils ChainPrinters SerializablePrinters TraceGens DexterPrinters.
+From ConCert.Execution.QCTests Require Import
+  TestUtils ChainPrinters SerializablePrinters TraceGens DexterPrinters.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import ZArith List.
 Import ListNotations.
@@ -38,23 +38,23 @@ Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 (* --------------------- FA2 Contract Generators --------------------- *)
 Section DexterContractGens.
 
-Definition gTokensToExchange (balance : N) : G (option N) := 
+Definition gTokensToExchange (balance : N) : G (option N) :=
   if N.eqb 0%N balance
   then returnGen None
-  else 
+  else
     amount <- choose (0%N, balance) ;;
     returnGenSome amount.
 
 Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexter.Msg)):=
   let has_balance p :=
-    let ledger := snd p in 
+    let ledger := snd p in
     0 <? FMap.size ledger.(balances) in
   p <-  (sampleFMapOpt_filter state.(assets) has_balance) ;;
   let tokenid := fst p in
   let ledger := snd p in
   let has_tokens p := N.ltb 0 (snd p) in
   pp <- sampleFMapOpt_filter ledger.(balances) has_tokens ;;
-  let addr := fst pp in 
+  let addr := fst pp in
   let nr_tokens : N := snd pp in
   tokens_to_exchange <- gTokensToExchange nr_tokens ;;
   let exchange_msg := {|
@@ -66,7 +66,7 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
   returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg))
 .
 
-Definition gAddTokensToReserve (lc : LocalChain) 
+Definition gAddTokensToReserve (lc : LocalChain)
                                (state : FA2Token.State)
                                : GOpt (Address * Amount * Dexter.Msg) :=
   tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
@@ -77,9 +77,9 @@ Definition gAddTokensToReserve (lc : LocalChain)
 
 Definition gDexterAction (lc : LocalChain) : G (option Action) :=
   let mk_call caller_addr amount msg :=
-		returnGenSome {|
-			act_from := caller_addr;
-			act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg) 
+    returnGenSome {|
+      act_from := caller_addr;
+      act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg)
     |} in
   match FMap.find fa2_contract_addr (lc_contract_state_deserialized FA2Token.State lc) with
   | Some fa2_state => backtrack [
@@ -88,7 +88,7 @@ Definition gDexterAction (lc : LocalChain) : G (option Action) :=
     ) ;
     (2, caller <- gContractAddrFromLCWithoutAddrs lc [fa2_contract_addr; dexter_contract_addr] ;;
         p <- gTokenExchange fa2_state ;;
-        mk_call caller 0%Z (snd p) 
+        mk_call caller 0%Z (snd p)
     )
   ]
   | None => returnGen None
@@ -97,14 +97,14 @@ Definition gDexterAction (lc : LocalChain) : G (option Action) :=
 End DexterContractGens.
 
 
-Definition gDexterChainTraceList max_acts_per_block lc length := 
+Definition gDexterChainTraceList max_acts_per_block lc length :=
   gLocalChainTraceList_fix lc (fun lc _ => gDexterAction lc) length max_acts_per_block.
 
 (* the '1' fixes nr of actions per block to 1 *)
-Definition token_reachableFrom (lc : LocalChain) pf : Checker := 
+Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
   @reachableFrom AddrSize lc (gDexterChainTraceList 1) pf.
 
-Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker := 
+Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker :=
   reachableFrom_implies_reachable lc (gDexterChainTraceList 1) pf1 pf2.
 
 End DexterGens.

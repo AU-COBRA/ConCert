@@ -6,8 +6,6 @@ From ConCert Require Import Blockchain LocalBlockchain EIP20Token Congress BAT T
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList.
 
-(* From ConCert.Execution.QCTests Require Import SerializablePrinters. *)
-
 Let Base := TestUtils.LocalChainBase.
 
 (* For monad notations *)

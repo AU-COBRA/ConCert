@@ -24,22 +24,22 @@ Arguments serialize : clear implicits.
 
 Instance showRules : Show Rules :=
 {|
-  show r := 
+  show r :=
     "Rules{"
     ++ "min_vote_count_permille: " ++ show (min_vote_count_permille r) ++ sep
     ++ "margin_needed_permille: " ++ show (margin_needed_permille r) ++ sep
-    ++ "debating_period_in_blocks: " ++ show (debating_period_in_blocks r) 
+    ++ "debating_period_in_blocks: " ++ show (debating_period_in_blocks r)
     ++ "}"
 |}.
 
-Definition string_of_ca str_of_msg ca := 
+Definition string_of_ca str_of_msg ca :=
 match ca with
 | cact_transfer to amount => "(transfer: " ++ show to ++ sep ++ show amount ++ ")"
-| cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++ 
+| cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++
     match @deserialize Msg _ msg with
     | Some msg => str_of_msg msg
     | None =>  "<FAILED DESERIALIZATION>"
-    end ++ ")" 
+    end ++ ")"
 end.
 
 Instance showSetup : Show Setup :=
@@ -48,20 +48,20 @@ Instance showSetup : Show Setup :=
 |}.
 
 (* Ugly fuel hack :/ *)
-Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string := 
+Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
   let show_acts actions := match fuel with
     | 0 => String.concat "; " (map (fun _ => "Msg{...}") actions)
-    | S fuel => String.concat "; " (map (string_of_ca (string_of_Msg fuel)) actions) 
+    | S fuel => String.concat "; " (map (string_of_ca (string_of_Msg fuel)) actions)
     end in
   match m with
-    | transfer_ownership addr => "transfer_ownership " ++ show addr 
+    | transfer_ownership addr => "transfer_ownership " ++ show addr
     | change_rules rules => "change_rules " ++ show rules
-    | add_member addr => "add_member " ++ show addr 
+    | add_member addr => "add_member " ++ show addr
     | remove_member addr => "remove_member " ++ show addr
     | create_proposal actions => "create_proposal " ++ show_acts actions
     | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
     | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
-    | retract_vote proposalId => "retract_vote " ++ show proposalId 
+    | retract_vote proposalId => "retract_vote " ++ show proposalId
     | finish_proposal proposalId => "finish_proposal " ++ show proposalId
   end.
 
@@ -89,7 +89,7 @@ Instance showProposal : Show Proposal :=
 
 Instance showState : Show Congress.State :=
 {|
-  show s := "State{" 
+  show s := "State{"
             ++ "owner: " ++ show (owner s) ++ sep
             ++ "rules: " ++ show (state_rules s) ++ sep
             ++ "proposals: " ++ show (proposals s) ++ sep

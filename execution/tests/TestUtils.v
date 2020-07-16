@@ -18,7 +18,6 @@ Require Import ResultMonad.
 Global Definition AddrSize := (2^8)%N.
 
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
-(* Global Instance LocalChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize. *)
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
 
 Definition creator : Address :=
@@ -107,15 +106,15 @@ Definition map_filter_FMap {A B C: Type}
   FMap.of_list mapped_l.
 
 Definition FMap_find_ {A B : Type}
-										`{countable.Countable A}
-										`{base.EqDecision A}
-										 (k : A)
-										 (m : FMap A B)
-										 (default : B)  :=
-	match FMap.find k m with
-	| Some v => v
-	| None => default
-	end.
+                    `{countable.Countable A}
+                    `{base.EqDecision A}
+                     (k : A)
+                     (m : FMap A B)
+                     (default : B)  :=
+  match FMap.find k m with
+  | Some v => v
+  | None => default
+  end.
 
 (* Utils for Show instances *)
 
@@ -241,18 +240,18 @@ Definition sampleFMapOpt_filter {A B : Type}
   end.
 
 Definition sample2UniqueFMapOpt
-												 {A B : Type}
+                         {A B : Type}
                         `{countable.Countable A}
                         `{base.EqDecision A}
                          (m : FMap A B)
-												 : G (option ((A * B) * (A * B))) :=
-	bindGenOpt (sampleFMapOpt m) (fun p1 =>
-		let key1 := fst p1 in
-		let val1 := snd p1 in
-		bindGenOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
-			returnGen (Some (p1, p2))
-		)
-	).
+                         : G (option ((A * B) * (A * B))) :=
+  bindGenOpt (sampleFMapOpt m) (fun p1 =>
+    let key1 := fst p1 in
+    let val1 := snd p1 in
+    bindGenOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
+      returnGen (Some (p1, p2))
+    )
+  ).
 
 Definition gContractFromLocalChain lc : G (option (Address * WeakContract)) :=
   sampleFMapOpt (@lc_contracts AddrSize lc).
@@ -326,18 +325,18 @@ Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
 
 (* Although the type is G (option ...) it will never generate None values.
    Perhaps this is where we should use generators with property proof relevance? Future work... *)
-	 Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
-	 n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
-	 returnGen (@decode_bounded bound (Pos.of_nat n)).
+   Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
+   n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
+   returnGen (@decode_bounded bound (Pos.of_nat n)).
 
  Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
-	 bn <- gBoundedNOpt AddrSize ;;
-	 returnGen match bn with
-		 | Some b => b
-		 (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
-				 n <= AddrSized. **)
-		 | None => BoundedN.of_Z_const AddrSize 0
-	 end.
+   bn <- gBoundedNOpt AddrSize ;;
+   returnGen match bn with
+     | Some b => b
+     (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
+         n <= AddrSized. **)
+     | None => BoundedN.of_Z_const AddrSize 0
+   end.
 
 Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
   {|
