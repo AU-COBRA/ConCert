@@ -1,6 +1,6 @@
 # ConCert
 
-Fork of the ConCert framework - A framework for smart contract verification in Coq.
+A framework for smart contract verification in Coq.
 
 The work on this fork is aimed at building infrastructure for random property testing of the Smart Contracts (and the execution environment) using QuickChick.
 
@@ -44,7 +44,7 @@ docs folder after `make html`.
 The [embedding](embedding/) folder contains the development of the embedding.
 
 The [execution](execution/) folder contains the formalization of the smart
-contract execution layer, which allows reasoning about interacting contracts.
+contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [tests](execution/tests) folder contains example tests. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/tests/TraceGens.v).
 
 The [extraction](extraction/) folder contains a printing procedure for the deep embedding into the Liquidity syntax. For extraction using MetaCoq's **certified erasure** see the [extract-cert](https://github.com/AU-COBRA/ConCert/tree/extract-cert) branch (requires [MetaCoq's fork](https://github.com/annenkov/template-coq/tree/coq-8.11-erase-annotated) to compile).
 
