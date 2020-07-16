@@ -20,6 +20,7 @@ From MetaCoq.Erasure Require Import EInduction.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Template Require Import utils.
+From MetaCoq.Template Require Import Universes.
 
 Import ListNotations.
 
@@ -819,11 +820,13 @@ Proof.
     now apply IHForall.
 Qed.
 
-Lemma count_uses_lift t k k' :
-  count_uses (k + k') (lift k' k t) = count_uses k t.
+Lemma count_uses_lift k k' n t :
+  k' <= k ->
+  n + k' <= k ->
+  count_uses k (lift n k' t) = count_uses (k - n) t.
 Proof.
-  symmetry.
-  induction t in t, k |- * using term_forall_list_ind; cbn in *; auto.
+  intros l1 l2.
+  induction t in k, k', n, t, l1, l2 |- * using term_forall_list_ind; cbn in *; auto.
   - repeat
       (try destruct (_ <=? _) eqn:?; propify;
        try destruct (_ =? _) eqn:?; propify;
@@ -834,89 +837,30 @@ Proof.
     now rewrite H.
   - now rewrite IHt.
   - now rewrite IHt1, IHt2.
-  - rewrite IHt.
+  - rewrite IHt by easy.
     f_equal.
     induction X; cbn in *; [easy|].
-    rewrite p0.
+    rewrite p0 by easy.
     lia.
   - rewrite map_length.
-    induction H in H, m, k |- *; [easy|].
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
     cbn.
-    rewrite H.
-    cbn.
-    rewrite Nat.add_assoc.
-    f_equal.
     rewrite <- !Nat.add_succ_r.
-    rewrite IHForall.
-    cbn.
-    now rewrite <- Nat.add_succ_r, Nat.add_assoc.
+    rewrite IHForall by easy.
+    now replace (S (k - n)) with (S k - n) by lia.
   - rewrite map_length.
-    induction H in H, m, k |- *; [easy|].
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
     cbn.
-    rewrite H.
-    cbn.
-    rewrite Nat.add_assoc.
-    f_equal.
     rewrite <- !Nat.add_succ_r.
-    rewrite IHForall.
-    cbn.
-    now rewrite <- Nat.add_succ_r, Nat.add_assoc.
+    rewrite IHForall by easy.
+    now replace (S (k - n)) with (S k - n) by lia.
 Qed.
 
-Lemma count_uses_lift0 k t :
-  count_uses k (lift0 k t) = count_uses 0 t.
-Proof.
-  symmetry; erewrite <- count_uses_lift; symmetry.
-  cbn.
-  reflexivity.
-Qed.
-
-Lemma count_uses_subst s k t :
-  count_uses k (t{k := s}) =
-  count_uses (S k) t + count_uses k t * count_uses 0 s.
-Proof.
-  induction t in t, k |- * using term_forall_list_ind; cbn in *; auto.
-  - destruct (_ <=? _) eqn:?; propify; cbn.
-    + destruct (nth_error _ _) eqn:nth.
-      * replace n with k in * by (now apply nth_error_Some_length in nth; cbn in *).
-        rewrite Nat.sub_diag in nth.
-        cbn in *.
-        noconf nth.
-        rewrite Nat.eqb_refl, (proj2 (Nat.eqb_neq _ _)) by easy.
-        now rewrite count_uses_lift0.
-      * cbn.
-        apply nth_error_None in nth.
-        cbn in *.
-        repeat (destruct (_ =? _) eqn:?; propify); try lia.
-    + destruct (k =? n) eqn:?, (S k =? n) eqn:?; propify; cbn in *; lia.
-   - induction H; [easy|].
-     cbn.
-     rewrite !H.
-     lia.
-   - now rewrite IHt.
-   - now rewrite IHt1, IHt2.
-   - now rewrite IHt1, IHt2.
-   - rewrite IHt.
-     clear IHt.
-     induction X; cbn in *; [easy|].
-     rewrite p0.
-     lia.
-   - now rewrite IHt.
-   - rewrite map_length.
-     induction H in H, m, k |- *; cbn in *; [easy|].
-     rewrite H.
-     specialize (IHForall (S k)).
-     rewrite <- !Nat.add_succ_r.
-     lia.
-   - rewrite map_length.
-     induction H in H, m, k |- *; cbn in *; [easy|].
-     rewrite H.
-     specialize (IHForall (S k)).
-     rewrite <- !Nat.add_succ_r.
-     lia.
-Qed.
-
-Lemma count_uses_subst_full s k k' t :
+Lemma count_uses_subst s k k' t :
   k' <= k ->
   count_uses k (subst [s] k' t) =
   count_uses (S k) t + count_uses k' t * count_uses (k - k') s.
@@ -925,15 +869,12 @@ Proof.
   induction t in t, k, k', le |- * using term_forall_list_ind; cbn in *; auto.
   - destruct (_ <=? _) eqn:?; propify; cbn.
     + destruct (nth_error _ _) eqn:nth.
-      * replace n with k' in * by (now apply nth_error_Some_length in nth; cbn in *).
+      * replace n with k' in * by (now apply nth_error_Some_length in nth; cbn in * ).
         rewrite Nat.sub_diag in nth.
         cbn in *.
         noconf nth.
         rewrite Nat.eqb_refl, (proj2 (Nat.eqb_neq _ _)) by easy.
-        pose proof (count_uses_lift s 0 k).
-        cbn in *.
-        rewrite count_uses_lift.
-        admit.
+        now rewrite count_uses_lift.
       * cbn.
         apply nth_error_None in nth.
         cbn in *.
@@ -944,25 +885,32 @@ Proof.
      rewrite !H by easy.
      lia.
    - now rewrite IHt.
+   - rewrite IHt1, IHt2 by easy.
+     replace (S k - S k') with (k - k') by lia.
+     lia.
    - now rewrite IHt1, IHt2.
-   - now rewrite IHt1, IHt2.
-   - rewrite IHt.
+   - rewrite IHt by easy.
      clear IHt.
      induction X; cbn in *; [easy|].
-     rewrite p0.
-     lia.
-   - now rewrite IHt.
-   - rewrite map_length.
-     induction H in H, m, k |- *; cbn in *; [easy|].
-     rewrite H.
-     specialize (IHForall (S k)).
-     rewrite <- !Nat.add_succ_r.
+     rewrite p0 by easy.
      lia.
    - rewrite map_length.
-     induction H in H, m, k |- *; cbn in *; [easy|].
-     rewrite H.
-     specialize (IHForall (S k)).
+     induction H in H, m, k, k', le |- *; cbn in *; [easy|].
+     rewrite H by easy.
+     specialize (IHForall (S k) (S k') ltac:(lia)).
+     rewrite !Nat.sub_succ in *.
+     replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
      rewrite <- !Nat.add_succ_r.
+     rewrite IHForall.
+     lia.
+   - rewrite map_length.
+     induction H in H, m, k, k', le |- *; cbn in *; [easy|].
+     rewrite H by easy.
+     specialize (IHForall (S k) (S k') ltac:(lia)).
+     rewrite !Nat.sub_succ in *.
+     replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
+     rewrite <- !Nat.add_succ_r.
+     rewrite IHForall.
      lia.
 Qed.
 
@@ -1238,6 +1186,14 @@ Proof.
     now repeat split.
 Qed.
 
+Lemma OnOne2_splitn {A} (P : A -> A -> Type) l l' :
+  OnOne2 P l l' ->
+  ∑ n a a',
+  l' = firstn n l ++ [a'] ++ skipn (S n) l ×
+  nth_error l n = Some a × P a a'.
+Proof.
+  Admitted.
+
 Inductive rtrans_clos {A} (R : A -> A -> Type) (x : A) : A -> Type :=
 | rtrans_clos_refl : rtrans_clos R x x
 | rtrans_clos_trans :
@@ -1512,12 +1468,13 @@ Lemma ared1_count_uses t t' k :
 Proof.
   intros r.
   induction r in t, t', k, r |- * using ared1_ind_all; cbn in *.
-  - destruct (Nat.eqb_spec k 0) as [->|].
-    + rewrite count_uses_subst.
-      unfold affinely_used in *.
-      propify.
-      now destruct (count_uses 0 body) as [|[]].
-    + now rewrite count_uses_subst_below.
+  - unfold subst1.
+    rewrite count_uses_subst by easy.
+    unfold affinely_used in *.
+    propify.
+    cbn.
+    rewrite Nat.sub_0_r.
+    now destruct (count_uses 0 body) as [|[]].
   - induction H as [? ? ? (? & ?)|]; cbn in *.
     + now specialize (H0 k).
     + lia.
@@ -1555,6 +1512,120 @@ Proof.
   lia.
 Qed.
 
+Lemma ared1_irreflexive t : ared1 t t -> False.
+Proof.
+  intros r.
+  induction t using term_forall_list_ind.
+  - depelim r.
+  - depelim r.
+  - depelim r.
+  - depelim r.
+    now depind H0; depelim H.
+  - now depelim r.
+  - now depelim r.
+  - depelim r; [|easy|easy].
+    apply (f_equal num_subterms) in H0.
+    cbn in *.
+    rewrite num_subterms_subst in H0.
+    unfold affinely_used in *.
+    now destruct (count_uses 0 body) as [|[]].
+  - depelim r.
+  - depelim r.
+  - depelim r; [easy|].
+    now depind H; depelim X.
+  - now depelim r.
+  - depelim r.
+    now depind H0; depelim H.
+  - depelim r.
+    now depind H0; depelim H.
+Qed.
+
+Lemma app_inj_length_l {A} (l l' l'' l''' : list A) :
+  #|l| = #|l''| ->
+  l ++ l' = l'' ++ l''' ->
+  l = l'' /\ l' = l'''.
+Proof.
+  intros len_eq eq.
+  now apply PCUICParallelReduction.app_inj_length_l.
+Qed.
+
+Lemma OnOne2_left_rooted {A} {P1 P2 : A -> A -> Type} {l l' l'' : list A} :
+  OnOne2 P1 l l' ->
+  OnOne2 P2 l l'' ->
+  (* same element *)
+  ((∑ pref a ar1 ar2 suf,
+       l = pref ++ a :: suf ×
+       l' = pref ++ ar1 :: suf ×
+       l'' = pref ++ ar2 :: suf ×
+       P1 a ar1 × P2 a ar2) +
+   (* P1 comes first *)
+   (∑ l1 al1 ar1 l2 al2 ar2 l3,
+       l = l1 ++ al1 :: l2 ++ al2 :: l3 ×
+       l' = l1 ++ ar1 :: l2 ++ al2 :: l3 ×
+       l'' = l1 ++ al1 :: l2 ++ ar2 :: l3 ×
+       P1 al1 ar1 × P2 al2 ar2) +
+   (* P2 comes first *)
+   (∑ l1 al2 ar2 l2 al1 ar1 l3,
+       l = l1 ++ al2 :: l2 ++ al1 :: l3 ×
+       l' = l1 ++ al2 :: l2 ++ ar1 :: l3 ×
+       l'' = l1 ++ ar2 :: l2 ++ al1 :: l3 ×
+       P1 al1 ar1 × P2 al2 ar2)).
+Proof.
+  intros oo1 oo2.
+  apply OnOne2_splitn in oo1 as (? & ? & ? & -> & ? & ?).
+  apply OnOne2_splitn in oo2 as (? & ? & ? & -> & ? & ?).
+  destruct (Nat.compare x x2) eqn:comp.
+  - apply Nat.compare_eq in comp.
+    subst.
+    replace x3 with x0 in * by congruence.
+    left.
+    left.
+    exists (firstn x2 l), x0, x1, x4, (skipn (S x2) l).
+    now split; [admit|].
+  - apply Nat.compare_lt_iff in comp.
+    left.
+    right.
+    exists (firstn x l), x0, x1, (firstn (x2 - S x) (skipn (S x) l)), x3, x4, (skipn (S x2) l).
+    split; [admit|].
+    split.
+    + cbn.
+      f_equal.
+      f_equal.
+      rewrite firstn_skipn_comm.
+      replace (S x + (x2 - S x)) with x2 by lia.
+      replace (x3 :: skipn (S x2) l) with (skipn x2 l) by admit.
+      clear.
+      rewrite skipn_firstn_comm.
+      rewrite skipn_firstn_skipn.
+      rewrite skipn_firstn. cbn.
+      rewrite skipn_firstn_comm.
+      replace (S x2 - S x) with (x2 - x) by lia.
+      (* #|l| - S x = x2 - x + (#|l| - x2) = #|l| - x *)
+      rewrite firstn_skipn.
+    +
+  apply OnOne2_split in oo1 as (? & ? & ? & ? & ? & ? & ?).
+  apply OnOne2_split in oo2 as (? & ? & ? & ? & ? & ? & ?).
+  subst.
+  rewrite !app_length in *.
+  cbn in *.
+  destruct (Nat.compare #|x| #|x3|) eqn:comp.
+  - apply Nat.compare_eq in comp.
+    left.
+    left.
+    exists x, x0, x1, x5, x2.
+    split; [easy|].
+    split; [easy|].
+    apply app_inj_length_l in e1 as (-> & ?); [|easy].
+    now depelim H.
+  - apply Nat.compare_lt_iff in comp.
+    left.
+    right.
+    exists
+  destruct (Nat.compare_spec #|x| #|x3|).
+*)
+  Admitted.
+
+
 Lemma ared_diamond t t1 t2 :
   ared1 t t1 ->
   ared1 t t2 ->
@@ -1574,7 +1645,62 @@ Proof.
       split; [admit|].
       now apply ared_step, ared_beta.
   - depelim r2.
-    admit.
+    destruct (OnOne2_left_rooted H H0) as
+        [[(? & ? & ? & ? & ? & -> & -> & -> & (? & ?) & ?)|
+          (? & ? & ? & ? & ? & ? & ? & -> & -> & -> & (? & ?) & ?)]|
+         (? & ? & ? & ? & ? & ? & ? & -> & -> & -> & (? & ?) & ?)].
+    + apply H2 in a as (? & ? & ?).
+      exists (tEvar n (x ++ x4 :: x3)).
+      split.
+      * apply ared_evar_one.
+        apply OnOne2_app.
+        now constructor.
+      * apply ared_evar_one.
+        apply OnOne2_app.
+        now constructor.
+    + exists (tEvar n (x ++ x1 :: x2 ++ x4 :: x5)).
+      split; apply ared_evar_all.
+      * apply All2_app; [now apply All2_same|].
+        apply All2_cons; [easy|].
+        apply All2_app; [now apply All2_same|].
+        apply All2_cons; [|now apply All2_same].
+        now apply ared_step.
+      * apply All2_app; [now apply All2_same|].
+        apply All2_cons; [now apply ared_step|].
+        now apply All2_same.
+    + exists (tEvar n (x ++ x1 :: x2 ++ x4 :: x5)).
+      split; apply ared_evar_all.
+      * apply All2_app; [now apply All2_same|].
+        apply All2_cons; [now apply ared_step|].
+        now apply All2_same.
+      * apply All2_app; [now apply All2_same|].
+        apply All2_cons; [easy|].
+        apply All2_app; [now apply All2_same|].
+        apply All2_cons; [now apply ared_step|].
+        now apply All2_same.
+  - depelim r2.
+    apply IHr1 in r2 as (? & ? & ?).
+    exists (tLambda na x).
+    split.
+    apply OnOne2_split in H as (? & ? & ? & (? & -> & -> & ? & ?)).
+    depind H0.
+    +
+    + depind H0.
+      * destruct p0.
+        specialize (H0 _ p) as (? & ? & ?).
+        exists (tEvar n (x :: tl)).
+        split.
+        -- apply ared_evar_one.
+           now constructor.
+        -- apply ared_evar_one.
+           now constructor.
+      * eapply IHOnOne2.
+        easy.
+        easy.
+        exists (tEvar n (hd' :: tl)).
+        split; [|reflexivity].
+        apply ared_evar_one.
+        constructor.
   - depelim r2.
     admit.
     all: admit.
