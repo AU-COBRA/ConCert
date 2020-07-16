@@ -819,6 +819,153 @@ Proof.
     now apply IHForall.
 Qed.
 
+Lemma count_uses_lift t k k' :
+  count_uses (k + k') (lift k' k t) = count_uses k t.
+Proof.
+  symmetry.
+  induction t in t, k |- * using term_forall_list_ind; cbn in *; auto.
+  - repeat
+      (try destruct (_ <=? _) eqn:?; propify;
+       try destruct (_ =? _) eqn:?; propify;
+       cbn in *);
+       lia.
+  - induction H; [easy|].
+    cbn in *.
+    now rewrite H.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt.
+    f_equal.
+    induction X; cbn in *; [easy|].
+    rewrite p0.
+    lia.
+  - rewrite map_length.
+    induction H in H, m, k |- *; [easy|].
+    cbn.
+    rewrite H.
+    cbn.
+    rewrite Nat.add_assoc.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    rewrite IHForall.
+    cbn.
+    now rewrite <- Nat.add_succ_r, Nat.add_assoc.
+  - rewrite map_length.
+    induction H in H, m, k |- *; [easy|].
+    cbn.
+    rewrite H.
+    cbn.
+    rewrite Nat.add_assoc.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    rewrite IHForall.
+    cbn.
+    now rewrite <- Nat.add_succ_r, Nat.add_assoc.
+Qed.
+
+Lemma count_uses_lift0 k t :
+  count_uses k (lift0 k t) = count_uses 0 t.
+Proof.
+  symmetry; erewrite <- count_uses_lift; symmetry.
+  cbn.
+  reflexivity.
+Qed.
+
+Lemma count_uses_subst s k t :
+  count_uses k (t{k := s}) =
+  count_uses (S k) t + count_uses k t * count_uses 0 s.
+Proof.
+  induction t in t, k |- * using term_forall_list_ind; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?; propify; cbn.
+    + destruct (nth_error _ _) eqn:nth.
+      * replace n with k in * by (now apply nth_error_Some_length in nth; cbn in *).
+        rewrite Nat.sub_diag in nth.
+        cbn in *.
+        noconf nth.
+        rewrite Nat.eqb_refl, (proj2 (Nat.eqb_neq _ _)) by easy.
+        now rewrite count_uses_lift0.
+      * cbn.
+        apply nth_error_None in nth.
+        cbn in *.
+        repeat (destruct (_ =? _) eqn:?; propify); try lia.
+    + destruct (k =? n) eqn:?, (S k =? n) eqn:?; propify; cbn in *; lia.
+   - induction H; [easy|].
+     cbn.
+     rewrite !H.
+     lia.
+   - now rewrite IHt.
+   - now rewrite IHt1, IHt2.
+   - now rewrite IHt1, IHt2.
+   - rewrite IHt.
+     clear IHt.
+     induction X; cbn in *; [easy|].
+     rewrite p0.
+     lia.
+   - now rewrite IHt.
+   - rewrite map_length.
+     induction H in H, m, k |- *; cbn in *; [easy|].
+     rewrite H.
+     specialize (IHForall (S k)).
+     rewrite <- !Nat.add_succ_r.
+     lia.
+   - rewrite map_length.
+     induction H in H, m, k |- *; cbn in *; [easy|].
+     rewrite H.
+     specialize (IHForall (S k)).
+     rewrite <- !Nat.add_succ_r.
+     lia.
+Qed.
+
+Lemma count_uses_subst_full s k k' t :
+  k' <= k ->
+  count_uses k (subst [s] k' t) =
+  count_uses (S k) t + count_uses k' t * count_uses (k - k') s.
+Proof.
+  intros le.
+  induction t in t, k, k', le |- * using term_forall_list_ind; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?; propify; cbn.
+    + destruct (nth_error _ _) eqn:nth.
+      * replace n with k' in * by (now apply nth_error_Some_length in nth; cbn in *).
+        rewrite Nat.sub_diag in nth.
+        cbn in *.
+        noconf nth.
+        rewrite Nat.eqb_refl, (proj2 (Nat.eqb_neq _ _)) by easy.
+        pose proof (count_uses_lift s 0 k).
+        cbn in *.
+        rewrite count_uses_lift.
+        admit.
+      * cbn.
+        apply nth_error_None in nth.
+        cbn in *.
+        repeat (destruct (_ =? _) eqn:?; propify); try lia.
+    + destruct (k =? n) eqn:?, (S k =? n) eqn:?, (k' =? n) eqn:?; propify; cbn in *; try lia.
+   - induction H; [easy|].
+     cbn.
+     rewrite !H by easy.
+     lia.
+   - now rewrite IHt.
+   - now rewrite IHt1, IHt2.
+   - now rewrite IHt1, IHt2.
+   - rewrite IHt.
+     clear IHt.
+     induction X; cbn in *; [easy|].
+     rewrite p0.
+     lia.
+   - now rewrite IHt.
+   - rewrite map_length.
+     induction H in H, m, k |- *; cbn in *; [easy|].
+     rewrite H.
+     specialize (IHForall (S k)).
+     rewrite <- !Nat.add_succ_r.
+     lia.
+   - rewrite map_length.
+     induction H in H, m, k |- *; cbn in *; [easy|].
+     rewrite H.
+     specialize (IHForall (S k)).
+     rewrite <- !Nat.add_succ_r.
+     lia.
+Qed.
+
 Inductive ared1 : term -> term -> Prop :=
 | ared_beta na body arg :
     affinely_used 0 body ->
@@ -1359,6 +1506,55 @@ Proof.
       apply IHOnOne2.
 Qed.
 
+Lemma ared1_count_uses t t' k :
+  ared1 t t' ->
+  count_uses k t' <= count_uses k t.
+Proof.
+  intros r.
+  induction r in t, t', k, r |- * using ared1_ind_all; cbn in *.
+  - destruct (Nat.eqb_spec k 0) as [->|].
+    + rewrite count_uses_subst.
+      unfold affinely_used in *.
+      propify.
+      now destruct (count_uses 0 body) as [|[]].
+    + now rewrite count_uses_subst_below.
+  - induction H as [? ? ? (? & ?)|]; cbn in *.
+    + now specialize (H0 k).
+    + lia.
+  - apply IHr.
+  - now specialize (IHr k).
+  - now specialize (IHr (S k)).
+  - now specialize (IHr k).
+  - now specialize (IHr k).
+  - now specialize (IHr k).
+  - induction H as [? ? ? (? & ? & ?)|]; cbn in *.
+    + now specialize (H1 k).
+    + lia.
+  - apply IHr.
+  - induction H as [? ? ? (? & ? & ? & ?)|] in H, k, defs, defs' |- *; cbn in *.
+    + apply plus_le_compat_r, H1.
+    + rewrite (OnOne2_length H) in *.
+      rewrite <- !Nat.add_succ_r.
+      now apply plus_le_compat_l.
+  - induction H as [? ? ? (? & ? & ? & ?)|] in H, k, defs, defs' |- *; cbn in *.
+    + apply plus_le_compat_r, H1.
+    + rewrite (OnOne2_length H) in *.
+      rewrite <- !Nat.add_succ_r.
+      now apply plus_le_compat_l.
+Qed.
+
+Lemma ared1_affinely_used t t' :
+  ared1 t t' ->
+  affinely_used 0 t ->
+  affinely_used 0 t'.
+Proof.
+  intros r af.
+  unfold affinely_used in *.
+  propify.
+  pose proof (ared1_count_uses _ _ 0 r).
+  lia.
+Qed.
+
 Lemma ared_diamond t t1 t2 :
   ared1 t t1 ->
   ared1 t t2 ->
@@ -1373,7 +1569,7 @@ Proof.
       split.
       * now apply ared_step, substitution_ared1.
       * apply ared_step, ared_beta.
-        admit.
+        now eapply ared1_affinely_used.
     + exists (body{0 := arg'}).
       split; [admit|].
       now apply ared_step, ared_beta.

@@ -26,6 +26,8 @@ Ltac propify :=
     | [|- context[Nat.eqb _ _ = true]] => rewrite Nat.eqb_eq
     | [|- context[Nat.ltb _ _ = false]] => rewrite Nat.ltb_ge
     | [|- context[Nat.ltb _ _ = true]] => rewrite Nat.ltb_lt
+    | [|- context[Nat.leb _ _ = false]] => rewrite Nat.leb_gt
+    | [|- context[Nat.leb _ _ = true]] => rewrite Nat.leb_le
     | [|- context[andb _ _ = false]] => rewrite Bool.andb_false_iff
     | [|- context[andb _ _ = true]] => rewrite Bool.andb_true_iff
     | [|- context[negb _ = false]] => rewrite Bool.negb_false_iff
