@@ -18,8 +18,6 @@ Require Import ResultMonad.
 Require Import Serializable.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
 
 Import ListNotations.
 Import RecordSetNotations.
@@ -285,7 +283,7 @@ Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
 
 
-  Section Theories.
+Section Theories.
 Local Open Scope nat.
 
 (* The rules stored in the blockchain's state are always valid *)
