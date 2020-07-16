@@ -677,3 +677,747 @@ Proof.
     rewrite normalize_mkApps in norm by easy.
     simp normalize in norm; solve_discr.
 Qed.
+
+(*
+Lemma count_uses_lift k n k' t :
+  k' < k ->
+  count_uses k (lift n k' t) = count_uses (k + k') t.
+Proof.
+  intros le.
+  induction t using term_forall_list_ind in t, k, le |- *; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?, (_ =? _) eqn:?; propify;
+      cbn; destruct (_ =? _) eqn:?; propify; try lia.
+    + rewrite <- Heqb0 in Heqb.
+      lia.
+
+      cbn; destruct (_ =? _) eqn:?; propify; try lia.
+*)
+
+Lemma count_uses_lift_other k k' n t :
+  k < k' ->
+  count_uses k (lift n k' t) = count_uses k t.
+Proof.
+  intros lt.
+  induction t using term_forall_list_ind in t, k, k', lt |- *; cbn in *.
+  - easy.
+  - repeat
+      (try destruct (_ <=? _) eqn:?; propify;
+       try destruct (_ =? _) eqn:?; propify;
+       cbn in *);
+       lia.
+  - easy.
+  - induction H; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    lia.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - easy.
+  - easy.
+  - rewrite IHt by easy.
+    f_equal.
+    induction X; [easy|].
+    cbn.
+    rewrite p0 by easy.
+    lia.
+  - now rewrite IHt.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by lia.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by lia.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+Qed.
+
+Lemma count_uses_lift_all k k' n t :
+  k <= k' ->
+  k' < n + k ->
+  count_uses k' (lift n k t) = 0.
+Proof.
+  intros l1 l2.
+  induction t using term_forall_list_ind in t, n, k, k', l1, l2 |- *; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?; propify; cbn;
+      destruct (_ =? _) eqn:?; propify; lia.
+  - induction H; [easy|].
+    cbn in *.
+    now rewrite H.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt by easy.
+    cbn.
+    clear IHt.
+    induction X; [easy|].
+    cbn.
+    now rewrite p0.
+  - rewrite map_length.
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    cbn.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+  - rewrite map_length.
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    cbn.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+Qed.
+
+Lemma count_uses_subst_other k k' s t :
+  k < k' ->
+  count_uses k (subst s k' t) = count_uses k t.
+Proof.
+  intros lt.
+  induction t in t, k, k', lt |- * using term_forall_list_ind; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?, (_ =? _) eqn:?; propify; subst.
+    + lia.
+    + destruct (nth_error _ _) eqn:nth.
+      * now apply count_uses_lift_all.
+      * cbn.
+        destruct (_ =? _) eqn:?; propify; [|easy].
+        apply nth_error_None in nth.
+        lia.
+    + cbn.
+      now rewrite Nat.eqb_refl.
+    + cbn.
+      destruct (_ =? _) eqn:?; propify; lia.
+  - induction H; [easy|].
+    cbn in *.
+    now rewrite H.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt by easy; cbn; clear IHt.
+    f_equal.
+    induction X; [easy|].
+    cbn.
+    now rewrite p0.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by easy.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by easy.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+Qed.
+
+Inductive ared1 : term -> term -> Prop :=
+| ared_beta na body arg :
+    affinely_used 0 body ->
+    ared1 (tApp (tLambda na body) arg) (body{0 := arg})
+| ared_evar n ts ts' :
+    OnOne2 ared1 ts ts' ->
+    ared1 (tEvar n ts) (tEvar n ts')
+| ared_lambda na body body' :
+    ared1 body body' ->
+    ared1 (tLambda na body) (tLambda na body')
+| ared_let_in_l na val val' body :
+    ared1 val val' ->
+    ared1 (tLetIn na val body) (tLetIn na val' body)
+| ared_let_in_r na val body body' :
+    ared1 body body' ->
+    ared1 (tLetIn na val body) (tLetIn na val body')
+| ared_app_l hd hd' arg :
+    ared1 hd hd' ->
+    ared1 (tApp hd arg) (tApp hd' arg)
+| ared_app_r hd arg arg' :
+    ared1 arg arg' ->
+    ared1 (tApp hd arg) (tApp hd arg')
+| ared_case_discr ind discr discr' brs :
+    ared1 discr discr' ->
+    ared1 (tCase ind discr brs) (tCase ind discr' brs)
+| ared_case_brs ind discr brs brs' :
+    OnOne2 (fun br br' => br.1 = br'.1 /\ ared1 br.2 br'.2) brs brs' ->
+    ared1 (tCase ind discr brs) (tCase ind discr brs')
+| ared_proj p t t' :
+    ared1 t t' ->
+    ared1 (tProj p t) (tProj p t')
+| ared_fix defs defs' i :
+    OnOne2 (fun d d' => dname d = dname d' /\
+                        ared1 (dbody d) (dbody d') /\
+                        rarg d = rarg d') defs defs' ->
+    ared1 (tFix defs i) (tFix defs' i)
+| ared_cofix defs defs' i :
+    OnOne2 (fun d d' => dname d = dname d' /\
+                        ared1 (dbody d) (dbody d') /\
+                        rarg d = rarg d') defs defs' ->
+    ared1 (tCoFix defs i) (tCoFix defs' i).
+
+Derive Signature for ared1.
+
+Lemma ared1_ind_all
+      (P : term -> term -> Prop)
+      (Hbeta : forall (na : name) (body arg : term),
+          affinely_used 0 body ->
+          P (tApp (tLambda na body) arg) (body {0 := arg}))
+      (Hevar : forall (n : nat) (ts ts' : list term),
+          OnOne2 (fun t t' => ared1 t t' /\ P t t') ts ts' ->
+          P (tEvar n ts) (tEvar n ts'))
+      (Hlam : forall (na : name) (body body' : term),
+          ared1 body body' ->
+          P body body' ->
+          P (tLambda na body) (tLambda na body'))
+      (Hletinl : forall (na : name) (val val' body : term),
+          ared1 val val' ->
+          P val val' ->
+          P (tLetIn na val body) (tLetIn na val' body))
+      (Hletinr : forall (na : name) (val body body' : term),
+          ared1 body body' ->
+          P body body' ->
+          P (tLetIn na val body) (tLetIn na val body'))
+      (Happl : forall hd hd' arg : term,
+          ared1 hd hd' ->
+          P hd hd' ->
+          P (tApp hd arg) (tApp hd' arg))
+      (Happr : forall hd arg arg' : term,
+          ared1 arg arg' ->
+          P arg arg' ->
+          P (tApp hd arg) (tApp hd arg'))
+      (Hcasediscr : forall (ind : inductive × nat) (discr discr' : term) (brs : list (nat × term)),
+          ared1 discr discr' ->
+          P discr discr' ->
+          P (tCase ind discr brs) (tCase ind discr' brs))
+      (Hcasebrs : forall (ind : inductive × nat) (discr : term) (brs brs' : list (nat × term)),
+          OnOne2 (fun br br' => br.1 = br'.1 /\ ared1 br.2 br'.2 /\ P br.2 br'.2) brs brs' ->
+          P (tCase ind discr brs) (tCase ind discr brs'))
+      (Hproj : forall (p : projection) (t t' : term),
+          ared1 t t' ->
+          P t t' ->
+          P (tProj p t) (tProj p t'))
+      (Hfix : forall (defs defs' : list (def term)) (i : nat),
+          OnOne2
+            (fun d d' => dname d = dname d' /\
+                         ared1 (dbody d) (dbody d') /\
+                         P (dbody d) (dbody d') /\
+                         rarg d = rarg d') defs defs' ->
+          P (tFix defs i) (tFix defs' i))
+      (Hcofix : forall (defs defs' : list (def term)) (i : nat),
+          OnOne2
+            (fun d d' => dname d = dname d' /\
+                         ared1 (dbody d) (dbody d') /\
+                         P (dbody d) (dbody d') /\
+                         rarg d = rarg d') defs defs' ->
+          P (tCoFix defs i) (tCoFix defs' i)) :
+  forall t t' , ared1 t t' -> P t t'.
+Proof.
+  fix ind 3.
+  destruct 1;
+    try solve[
+          match goal with
+          | [H: _ |- _] =>
+            match type of H with
+            | forall t t', ared1 t t' -> _ => fail 1
+            | _ => eapply H
+            end; eauto
+          end].
+  - apply Hevar.
+    clear -H ind.
+    revert ts ts' H.
+    fix f 3.
+    destruct 1.
+    + constructor.
+      split; [|apply ind]; assumption.
+    + constructor.
+      apply f.
+      assumption.
+  - apply Hcasebrs.
+    clear -H ind.
+    revert brs brs' H.
+    fix f 3.
+    destruct 1.
+    + constructor.
+      destruct a.
+      (repeat split); [| |apply ind]; assumption.
+    + constructor.
+      apply f.
+      assumption.
+  - apply Hfix.
+    clear -H ind.
+    revert defs defs' H.
+    fix f 3.
+    destruct 1.
+    + constructor.
+      destruct a as (? & ? & ?).
+      (repeat split); [| |apply ind|]; assumption.
+    + constructor.
+      apply f.
+      assumption.
+  - apply Hcofix.
+    clear -H ind.
+    revert defs defs' H.
+    fix f 3.
+    destruct 1.
+    + constructor.
+      destruct a as (? & ? & ?).
+      (repeat split); [| |apply ind|]; assumption.
+    + constructor.
+      apply f.
+      assumption.
+Defined.
+
+Inductive ared : term -> term -> Prop :=
+| ared_refl x : ared x x
+| ared_trans1 x y z : ared x y -> ared1 y z -> ared x z.
+
+Lemma ared_alt t t' :
+  ared t t' <-> clos_refl_trans _ ared1 t t'.
+Proof.
+  split; intros r.
+  - apply clos_rt_rtn1_iff.
+    now induction r; econstructor.
+  - apply clos_rt_rtn1_iff in r.
+    now induction r; econstructor.
+Qed.
+
+Lemma ared_trans x y z :
+  ared x y ->
+  ared y z ->
+  ared x z.
+Proof.
+  rewrite !ared_alt.
+  intros.
+  now eapply rt_trans.
+Qed.
+
+Instance Reflexive_ared : Reflexive ared.
+Proof. intros x. apply ared_refl. Qed.
+
+Instance Transitive_ared : Transitive ared.
+Proof.
+  intros x y z.
+  apply ared_trans.
+Qed.
+
+Lemma ared_step x y :
+  ared1 x y ->
+  ared x y.
+Proof.
+  intros.
+  now eapply ared_trans1; [apply ared_refl|].
+Qed.
+
+Definition normal t : Prop :=
+  forall r, ared1 t r -> False.
+
+Derive Signature for OnOne2.
+Derive NoConfusionHom for term.
+
+Lemma normal_normalize t : normal (normalize t).
+Proof.
+  enough (forall ns, num_subterms t <= ns -> normal (normalize t)).
+  { now apply (H (num_subterms t)). }
+  intros ns le.
+  induction ns as [|ns IH] in ns, t, le |- *; [now destruct t|].
+  destruct t; repeat (cbn in *; simp normalize); intros ? r; try solve [depelim r].
+  - depelim r.
+    induction l in l, le, ts', H |- *; [easy|].
+    cbn in *.
+    depelim H.
+    + now eapply (IH a).
+    + now eapply IHl.
+  - depelim r.
+    now eapply (IH t).
+  - depelim r.
+    + now eapply (IH t1).
+    + now eapply (IH t2).
+  - destruct (affine_lam_body _) eqn:aff.
+    + apply affine_lam_body_Some_inv in aff as (? & ? & ?).
+      eapply (IH (t{0 := t2})); [|easy].
+      rewrite num_subterms_subst.
+      apply (f_equal num_subterms) in H.
+      cbn in *.
+      pose proof (num_subterms_normalize t1).
+      now destruct (count_uses 0 t) as [|[]].
+    + inversion r; subst; clear r.
+      * rewrite <- H in aff.
+        cbn in *.
+        now rewrite H2 in aff.
+      * now eapply (IH t1).
+      * now eapply (IH t2).
+  - depelim r.
+    + now eapply (IH t).
+    + induction l in l, le, brs', H |- *; [easy|].
+      cbn in *.
+      depelim H.
+      * now eapply (IH a.2).
+      * now eapply IHl.
+  - depelim r.
+    now eapply (IH t).
+  - depelim r.
+    induction m in m, le, defs', H |- *; [easy|].
+    cbn in *.
+    depelim H.
+    + now eapply (IH (dbody a)).
+    + now eapply IHm.
+  - depelim r.
+    induction m in m, le, defs', H |- *; [easy|].
+    cbn in *.
+    depelim H.
+    + now eapply (IH (dbody a)).
+    + now eapply IHm.
+Qed.
+
+Lemma OnOne2_split {A} (P : A -> A -> Type) l l' :
+  OnOne2 P l l' ->
+  ∑ pref a a' suf,
+    l = pref ++ [a] ++ suf ×
+    l' = pref ++ [a'] ++ suf ×
+    P a a'.
+Proof.
+  intros oo.
+  induction oo.
+  - exists [], hd, hd', tl.
+    now repeat split.
+  - destruct IHoo as (pref & a & a' & suf & -> & -> & p).
+    exists (hd :: pref), a, a', suf.
+    now repeat split.
+Qed.
+
+Inductive rtrans_clos {A} (R : A -> A -> Type) (x : A) : A -> Type :=
+| rtrans_clos_refl : rtrans_clos R x x
+| rtrans_clos_trans :
+    forall y z,
+      rtrans_clos R x y ->
+      R y z ->
+      rtrans_clos R x z.
+
+Lemma All2_many_OnOne2 :
+  forall A (R : A -> A -> Type) l l',
+    All2 R l l' ->
+    rtrans_clos (OnOne2 R) l l'.
+Proof.
+  intros A R l l' h.
+  induction h.
+  - constructor.
+  - econstructor ; revgoals.
+    + constructor. eassumption.
+    + clear - IHh. rename IHh into h.
+      induction h.
+      * constructor.
+      * econstructor.
+        -- eassumption.
+        -- econstructor. assumption.
+Qed.
+
+Lemma ared_evar_one n l l' :
+  OnOne2 ared l l' ->
+  ared (tEvar n l) (tEvar n l').
+Proof.
+  intros oo.
+  apply OnOne2_split in oo as (pref & t & t' & suf & -> & -> & r).
+  induction r.
+  - apply ared_refl.
+  - eapply ared_trans1; [eassumption|].
+    constructor.
+    apply OnOne2_app.
+    now constructor.
+Qed.
+
+Lemma ared_evar_all n l l' :
+  All2 ared l l' ->
+  ared (tEvar n l) (tEvar n l').
+Proof.
+  intros all.
+  apply All2_many_OnOne2 in all.
+  induction all; [apply ared_refl|].
+  eapply ared_trans; [eassumption|].
+  now apply ared_evar_one.
+Qed.
+
+Lemma ared_case_brs_one ind discr brs brs' :
+  OnOne2 (fun br br' => br.1 = br'.1 × ared br.2 br'.2) brs brs' ->
+  ared (tCase ind discr brs) (tCase ind discr brs').
+Proof.
+  intros oo.
+  apply OnOne2_split in oo as (pref & t & t' & suf & -> & -> & fst & r).
+  destruct t, t'; cbn in *; subst.
+  depind r.
+  - apply ared_refl.
+  - eapply ared_trans1; [eassumption|].
+    constructor.
+    apply OnOne2_app.
+    now constructor.
+Qed.
+
+Lemma ared_case_brs_all ind discr brs brs' :
+  All2 (fun br br' => br.1 = br'.1 × ared br.2 br'.2) brs brs' ->
+  ared (tCase ind discr brs) (tCase ind discr brs').
+Proof.
+  intros all.
+  apply All2_many_OnOne2 in all.
+  induction all; [apply ared_refl|].
+  eapply ared_trans; [eassumption|].
+  now apply ared_case_brs_one.
+Qed.
+
+Lemma ared_fix_one defs defs' i :
+  OnOne2 (fun d d' => dname d = dname d' × ared (dbody d) (dbody d') × rarg d = rarg d')
+         defs defs' ->
+  ared (tFix defs i) (tFix defs' i).
+Proof.
+  intros oo.
+  apply OnOne2_split in oo as (pref & t & t' & suf & -> & -> & ? & r & ?).
+  destruct t, t'; cbn in *; subst.
+  depind r.
+  - apply ared_refl.
+  - eapply ared_trans1; [eassumption|].
+    constructor.
+    apply OnOne2_app.
+    now constructor.
+Qed.
+
+Lemma ared_fix_all defs defs' i :
+  All2 (fun d d' => dname d = dname d' × ared (dbody d) (dbody d') × rarg d = rarg d')
+         defs defs' ->
+  ared (tFix defs i) (tFix defs' i).
+Proof.
+  intros all.
+  apply All2_many_OnOne2 in all.
+  induction all; [apply ared_refl|].
+  eapply ared_trans; [eassumption|].
+  now apply ared_fix_one.
+Qed.
+
+Lemma ared_cofix_one defs defs' i :
+  OnOne2 (fun d d' => dname d = dname d' × ared (dbody d) (dbody d') × rarg d = rarg d')
+         defs defs' ->
+  ared (tCoFix defs i) (tCoFix defs' i).
+Proof.
+  intros oo.
+  apply OnOne2_split in oo as (pref & t & t' & suf & -> & -> & ? & r & ?).
+  destruct t, t'; cbn in *; subst.
+  depind r.
+  - apply ared_refl.
+  - eapply ared_trans1; [eassumption|].
+    constructor.
+    apply OnOne2_app.
+    now constructor.
+Qed.
+
+Lemma ared_cofix_all defs defs' i :
+  All2 (fun d d' => dname d = dname d' × ared (dbody d) (dbody d') × rarg d = rarg d')
+         defs defs' ->
+  ared (tCoFix defs i) (tCoFix defs' i).
+Proof.
+  intros all.
+  apply All2_many_OnOne2 in all.
+  induction all; [apply ared_refl|].
+  eapply ared_trans; [eassumption|].
+  now apply ared_cofix_one.
+Qed.
+
+Lemma ared_to_normalize t : ared t (normalize t).
+Proof.
+  unfold normalize.
+  funelim (normalize' t); cbn in *.
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - rewrite (map_in_map _ _ normalize) by (now intros).
+    apply ared_evar_all.
+    induction l; [constructor|].
+    cbn.
+    constructor.
+    + now apply H; left.
+    + apply IHl.
+      * now intros; apply H; right.
+      * now intros; apply H0; cbn.
+  - induction H; [reflexivity|].
+    etransitivity; [now apply IHared|].
+    now apply ared_step; constructor.
+  - transitivity (tLetIn n2 (normalize t0) t1).
+    + clear H0.
+      fold (normalize t0) in H.
+      induction H; [reflexivity|].
+      etransitivity; [now apply IHared|].
+      now apply ared_step; constructor.
+    + fold (normalize t1) in *.
+      fold (normalize t0) in *.
+      induction H0; [reflexivity|].
+      etransitivity; [now apply IHared|].
+      now apply ared_step; constructor.
+  - reflexivity.
+  - reflexivity.
+  - rewrite (map_in_map _ _ (on_snd normalize)) by (now intros).
+    transitivity (tCase p (normalize t4) l0).
+    + fold (normalize t4) in H.
+      induction H; [reflexivity|].
+      etransitivity; [now apply IHared|].
+      now apply ared_step; constructor.
+    + apply ared_case_brs_all.
+      induction l0; [constructor|].
+      cbn in *.
+      constructor.
+      * split; [reflexivity|].
+        now apply H0; left.
+      * apply IHl0.
+        -- now intros; apply H0; right.
+        -- now intros; apply H1; cbn.
+  - induction H; [reflexivity|].
+    etransitivity.
+    + now apply IHared.
+    + apply ared_step.
+      now constructor.
+  - apply ared_fix_all.
+    induction m; [constructor|].
+    cbn in *.
+    constructor.
+    + split; [reflexivity|].
+      split; [|reflexivity].
+      now apply H; left.
+    + apply IHm.
+      * now intros; apply H; right.
+      * now intros; apply H0; cbn.
+  - apply ared_cofix_all.
+    induction m0; [constructor|].
+    cbn in *.
+    constructor.
+    + split; [reflexivity|].
+      split; [|reflexivity].
+      now apply H; left.
+    + apply IHm0.
+      * now intros; apply H; right.
+      * now intros; apply H0; cbn.
+  - transitivity (tApp (normalize t2) t3).
+    + fold (normalize t2) in *.
+      induction Hind; [reflexivity|].
+      etransitivity; [now eapply IHHind|].
+      now apply ared_step; constructor.
+    + unfold normalize.
+      rewrite Heq0.
+      cbn.
+      transitivity (body{0 := t3}); [now apply ared_step, ared_beta|].
+      apply H0.
+      rewrite num_subterms_subst.
+      unfold affinely_used in i.
+      clear Heq.
+      now destruct (count_uses 0 body) as [|[]].
+  - transitivity (tApp (normalize t2) t3).
+    + fold (normalize t2) in Hind.
+      induction Hind; [reflexivity|].
+      etransitivity; [now eapply IHHind|].
+      now apply ared_step; constructor.
+    + unfold normalize.
+      rewrite Heq0.
+      cbn.
+      fold (normalize t3) in *.
+      induction H; [reflexivity|].
+      etransitivity; [now eapply IHared|].
+      now apply ared_step; constructor.
+Qed.
+
+Lemma substitution_ared1 s k t t' :
+  ared1 t t' ->
+  ared1 (subst s k t) (subst s k t').
+Proof.
+  intros r.
+  induction r in r, t, t', k |- * using ared1_ind_all; cbn in *; auto using ared1.
+  - unfold subst1.
+    rewrite distr_subst.
+    apply ared_beta.
+    unfold affinely_used in *.
+    now rewrite count_uses_subst_other.
+  - constructor.
+    induction H; constructor; auto.
+    intuition.
+  - constructor.
+    induction H; constructor; auto.
+    intuition.
+  - constructor.
+    induction H in H, defs, defs', k |- *; cbn.
+    + constructor.
+      intuition.
+    + rewrite (OnOne2_length H) in *.
+      constructor.
+      rewrite <- !Nat.add_succ_r.
+      apply IHOnOne2.
+  - constructor.
+    induction H in H, defs, defs', k |- *; cbn.
+    + constructor.
+      intuition.
+    + rewrite (OnOne2_length H) in *.
+      constructor.
+      rewrite <- !Nat.add_succ_r.
+      apply IHOnOne2.
+Qed.
+
+Lemma ared_diamond t t1 t2 :
+  ared1 t t1 ->
+  ared1 t t2 ->
+  exists t', ared t1 t' /\ ared t2 t'.
+Proof.
+  intros r1 r2.
+  induction r1 in t, t1, t2, r1, r2 |- * using ared1_ind_all.
+  - depelim r2.
+    + eexists; split; reflexivity.
+    + depelim r2.
+      exists (body'{0 := arg}).
+      split.
+      * now apply ared_step, substitution_ared1.
+      * apply ared_step, ared_beta.
+        admit.
+    + exists (body{0 := arg'}).
+      split; [admit|].
+      now apply ared_step, ared_beta.
+  - depelim r2.
+    admit.
+  - depelim r2.
+    admit.
+    all: admit.
+Admitted.
+
+Lemma confluence {t t1 t2} :
+  ared t t1 ->
+  ared t t2 ->
+  exists t', ared t1 t' /\ ared t2 t'.
+Proof.
+  rewrite !ared_alt, !clos_rt_rt1n_iff.
+  intros r1 r2.
+  induction r1 in t, t1, t2, r1, r2 |- *.
+  - exists t2.
+    now rewrite <- clos_rt_rt1n_iff, <- ared_alt in r2.
+  - destruct r2.
+    + exists z.
+      split; [reflexivity|].
+      rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1.
+      transitivity y; [|easy].
+      now apply ared_step.
+    + rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1, r2.
+      pose proof (ared_diamond _ _ _ H H0) as (t' & ? & ?).
+      apply ared_alt, clos_rt_rt1n, IHr1 in H1 as r2'.
+      apply
+      apply IHr1 in
+      exists t'.
+      split.
+      * transi
+  Admitted.
+
+Lemma ared_normal t t' :
+  normal t ->
+  ared t t' ->
+  t' = t.
+Proof.
+  rewrite ared_alt.
+  intros norm r.
+  apply clos_rt_rt1n_iff in r.
+  induction r; [easy|].
+  now apply norm in H.
+Qed.

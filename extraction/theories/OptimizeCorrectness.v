@@ -938,51 +938,6 @@ Proof.
     + apply IH.
 Qed.
 
-Lemma count_uses_lift k k' n t :
-  k < k' ->
-  count_uses k (lift n k' t) = count_uses k t.
-Proof.
-  intros lt.
-  induction t using term_forall_list_ind in t, k, k', lt |- *; cbn in *.
-  - easy.
-  - repeat
-      (try destruct (_ <=? _) eqn:?; propify;
-       try destruct (_ =? _) eqn:?; propify;
-       cbn in *);
-       lia.
-  - easy.
-  - induction H; [easy|].
-    cbn in *.
-    rewrite H by easy.
-    lia.
-  - now rewrite IHt.
-  - now rewrite IHt1, IHt2.
-  - now rewrite IHt1, IHt2.
-  - easy.
-  - easy.
-  - rewrite IHt by easy.
-    f_equal.
-    induction X; [easy|].
-    cbn.
-    rewrite p0 by easy.
-    lia.
-  - now rewrite IHt.
-  - rewrite map_length.
-    induction H in H, m, k, k', lt |- *; [easy|].
-    cbn.
-    rewrite H by lia.
-    f_equal.
-    rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
-  - rewrite map_length.
-    induction H in H, m, k, k', lt |- *; [easy|].
-    cbn.
-    rewrite H by lia.
-    f_equal.
-    rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
-Qed.
-
 Lemma normalize_lift n k t :
   normalize (lift n k t) = lift n k (normalize t).
 Proof.
@@ -1049,7 +1004,6 @@ Proof.
     lia.
 Qed.
 
-Open Scope string.
 (*Definition s := [tLambda nAnon (tRel 0)].
 Definition k := 0.
 Definition t := tApp (tRel 0) (tVar "arg").*)
@@ -1087,133 +1041,26 @@ Definition t := tLambda nAnon (tApp (tRel 1) (tRel 0)).
 Compute (subst s k t).
 Compute normalize (subst (map normalize s) k (normalize t)).
 Compute normalize (subst (map normalize s) k (normalize t)).
+
+Lemma affine_lam_body_normalize t :
+  affine_lam_body (normalize t) =
+
 *)
 
 Lemma normalize_subst s k t :
-  normalize (subst s k t) = normalize (subst (map normalize s) k (normalize t)).
-Proof.
-(*
-  enough (forall ns,
-             num_subterms t <= ns ->
-             normalize (subst s k t) = normalize (subst (map normalize s) k (normalize t))).
-  { now apply (H (num_subterms t)). }
-  intros ns le.
-  induction ns as [|ns IH] in ns, t, k, s, le |- *; [now destruct t|].
-  destruct t; repeat (cbn in *; simp normalize).
-  - easy.
-  - destruct (_ <=? _).
-    + rewrite nth_error_map.
-      destruct (nth_error _ _).
-      * cbn.
-        now rewrite <- normalize_lift, normalize_normalize.
-      * cbn.
-        now rewrite map_length.
-    + easy.
-  - easy.
-  - f_equal.
-    admit.
-  - admit.
-  - admit.
-  - destruct t1 eqn:?; repeat (cbn in *; simp normalize).
-    + now rewrite IH.
-    + destruct (_ <=? _) eqn:?.
-      * rewrite nth_error_map.
-        destruct (nth_error _ _) eqn:?; cbn in *.
-        -- rewrite !normalize_lift, !normalize_normalize.
-           destruct (affine_lam_body _) eqn:bod.
-           ++ apply affine_lam_body_Some_inv in bod as (? & ? & ?).
-              unfold subst1.
-              apply (f_equal num_subterms) in H.
-              rewrite num_subterms_lift in H.
-              cbn in H.
-              pose proof (num_subterms_normalize t).
-              rewrite IH; last first.
-              ** rewrite H in H1.
-
-                 assert (num_subterms (normalize t) = num_subterms t0 - 1) by lia.
-              ** cbn.
-                 rewrite (IH _ _ t2) by easy.
-                 pose proof (IH [subst (map normalize s) k (normalize t2)]).
-                 rewrite H by admit.
-                 cbn.
-                 cbn.
-                 rewrite <- IH.
-    rewrite !IH by easy.
-    unfold affine_lam_body.
-    destruct (normalize t1) eqn:?; repeat (cbn in *; simp normalize); try now rewrite IH.
-    + destruct (_ <=? _) eqn:?.
-      * destruct (nth_error _ _) eqn:?.
-        -- rewrite normalize_lift.
-           unfold affine_lam_body.
-           destruct (lift0 k (normalize t0)); try easy.
-           destruct (affinely_used _ _); try easy.
-           unfold subst1.
-           rewrite IH.
-    destruct (normalize t1) eqn:nt1; repeat (cbn in *; simp normalize); try easy.
-    + destruct (_ <=? _) eqn:?.
-      * destruct (nth_error _ _) eqn:?.
-        -- rewrite normalize_lift.
-           unfold affine_lam_body.
-           destruct (lift0 k (normalize t0)); try easy.
-           destruct (affinely_used _ _); try easy.
-           unfold subst1.
-           rewrite IH.
-    + cbn.
-      destruct (_ <=? _) eqn:uses; [|easy].
-      destruct (nth_error _ _) eqn:nth; [|easy].
-      propify.
-      destruct (lift0 _ _) eqn:lift; try easy.
-      unfold affinely_used.
-      destruct t; try easy.
-      cbn in *.
-      noconf lift.
-      rewrite count_uses_lift by easy.
-      destruct (_ <=? _) eqn:uses'.
-      * replace ((lift k 1 t) {0 := subst s k t2}) with t by admit.
-*)
-  Admitted.
-
-Lemma normalize_subst_r s k t :
   normalize (subst s k t) = normalize (subst s k (normalize t)).
 Proof.
-  symmetry; rewrite normalize_subst; symmetry.
-  now rewrite normalize_subst, normalize_normalize.
+  pose proof (ared_to_normalize (subst s k t)) as red1.
+  assert (red2: ared (subst s k t) (normalize (subst s k (normalize t)))).
+  { etransitivity.
+    apply substitution_ared.
+    - apply ared_to_normalize.
+    - apply ared_to_normalize. }
+  pose proof (confluence red1 red2) as (? & ? & ?).
+  eapply ared_normal in H; [|apply normal_normalize].
+  eapply ared_normal in H0; [|apply normal_normalize].
+  congruence.
 Qed.
-
-(*
-Lemma count_uses_subst k s k' t :
-  count_uses k (t{k' := s}) =
-*)
-
-
-(*
-Lemma count_uses_normalize k t :
-  count_uses k (normalize t) = count_uses k t.
-Proof.
-  enough (forall ns,
-             num_subterms t <= ns ->
-             count_uses k (normalize t) = count_uses k t).
-  { now apply (H (num_subterms t)). }
-  intros ns le.
-  induction ns as [|ns IH] in ns, k, t, le |- *; [now destruct t|].
-  destruct t; repeat (cbn in *; simp normalize); try easy.
-  - admit.
-  - admit.
-  - destruct (affine_lam_body (normalize t1)) eqn:af.
-    + apply affine_lam_body_Some_inv in af as (? & ? & ?).
-      rewrite IH; last first.
-      { rewrite num_subterms_subst.
-        apply (f_equal num_subterms) in H.
-        cbn in H.
-        pose proof (num_subterms_normalize t1).
-        now destruct (count_uses _ _) as [|[]]. }
-    rewrite <- (IH _ t1) by easy.
-      rewrite H.
-      cbn.
-
-    destruct (normalize t1) eqn:?.
-    + cbn.
-*)
 
 Lemma normalize_mkApps_dearg_single mask t args args' :
   normalize (mkApps (dearg_single mask t args) args') =
