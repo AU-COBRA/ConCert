@@ -2,9 +2,11 @@ From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import List.
 From Equations Require Import Equations.
+From MetaCoq Require Import utils.
 
 Derive Signature for Forall.
 Derive Signature for Forall2.
+Derive Signature for OnOne2.
 
 Ltac propify :=
   unfold is_true in *;

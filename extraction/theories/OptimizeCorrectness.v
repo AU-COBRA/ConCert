@@ -1,5 +1,5 @@
+From ConCert.Extraction Require Import AffineLambdaCalculus.
 From ConCert.Extraction Require Import Aux.
-From ConCert.Extraction Require Import BetaEq.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ExTyping.
@@ -917,6 +917,42 @@ Proof.
     now erewrite nth_error_app_left in H1.
 Qed.
 
+Lemma value_normalize_tBox v :
+  value v ->
+  normalize v = tBox ->
+  v = tBox.
+Proof.
+  intros val norm.
+  destruct val.
+  - now destruct t.
+  - rewrite normalize_mkApps in norm by (now destruct t).
+    destruct t; try easy; simp normalize in norm; solve_discr.
+  - destruct f; try easy.
+    rewrite normalize_mkApps in norm by easy.
+    simp normalize in norm.
+    solve_discr.
+Qed.
+
+Lemma value_normalize_tLambda v na body :
+  value v ->
+  normalize v = tLambda na body ->
+  exists body',
+    v = tLambda na body' /\
+    normalize body' = body.
+Proof.
+  intros val norm.
+  destruct val.
+  - destruct t; try easy.
+    rewrite normalize_tLambda in norm.
+    noconf norm.
+    now eexists.
+  - rewrite normalize_mkApps in norm by (now destruct t).
+    destruct t; try easy; simp normalize in norm; solve_discr.
+  - destruct f; try easy.
+    rewrite normalize_mkApps in norm by easy.
+    simp normalize in norm; solve_discr.
+Qed.
+
 Lemma subst_dearg_single s k mask t  args :
   subst s k (dearg_single mask t args) =
   dearg_single mask (subst s k t) (map (subst s k) args).
@@ -938,87 +974,6 @@ Proof.
     + apply IH.
 Qed.
 
-Lemma normalize_lift n k t :
-  normalize (lift n k t) = lift n k (normalize t).
-Proof.
-  enough (forall ns, num_subterms t <= ns -> normalize (lift n k t) = lift n k (normalize t)).
-  { now apply (H (num_subterms t)). }
-  intros ns le.
-  induction ns as [|ns IH] in ns, t, k, le |- *; [now destruct t|].
-  destruct t; repeat (cbn in *; simp normalize).
-  - easy.
-  - destruct (_ <=? _); now simp normalize.
-  - easy.
-  - f_equal.
-    induction l; [easy|].
-    cbn in *.
-    now rewrite IH, IHl.
-  - now rewrite IH.
-  - now rewrite !IH.
-  - rewrite !IH by easy.
-    destruct (normalize t1) eqn:norm; try easy; cbn in *.
-    + now destruct (_ <=? _).
-    + unfold affinely_used.
-      rewrite count_uses_lift_other by easy.
-      destruct (_ <=? _) eqn:uses; [|easy].
-      unfold subst1.
-      change [lift n k t2] with (map (lift n k) [t2]).
-      rewrite <- distr_lift_subst.
-      rewrite IH; [easy|].
-      fold (t{0 := t2}).
-      rewrite num_subterms_subst.
-      propify.
-      pose proof (num_subterms_normalize t1).
-      rewrite norm in H.
-      cbn in *.
-      now destruct (count_uses 0 t) as [|[]].
-  - easy.
-  - easy.
-  - rewrite IH by easy.
-    f_equal.
-    induction l; [easy|].
-    cbn in *.
-    rewrite IH by lia.
-    f_equal.
-    apply IHl; lia.
-  - now rewrite IH.
-  - f_equal.
-    rewrite map_length.
-    induction m in m, k, le |- *; [easy|].
-    cbn in *.
-    unfold map_def.
-    f_equal; [f_equal|]; cbn in *.
-    { now rewrite IH. }
-    rewrite <- !Nat.add_succ_r.
-    apply IHm.
-    lia.
-  - f_equal.
-    rewrite map_length.
-    induction m in m, k, le |- *; [easy|].
-    cbn in *.
-    unfold map_def.
-    f_equal; [f_equal|]; cbn in *.
-    { now rewrite IH. }
-    rewrite <- !Nat.add_succ_r.
-    apply IHm.
-    lia.
-Qed.
-
-Lemma normalize_subst s k t :
-  normalize (subst s k t) = normalize (subst s k (normalize t)).
-Proof.
-  pose proof (ared_to_normalize (subst s k t)) as red1.
-  assert (red2: ared (subst s k t) (normalize (subst s k (normalize t)))).
-  { etransitivity.
-    apply substitution_ared.
-    - apply ared_to_normalize.
-    - apply ared_to_normalize. }
-  pose proof (confluence red1 red2) as (? & ? & ?).
-  eapply ared_normal in H; [|apply normal_normalize].
-  eapply ared_normal in H0; [|apply normal_normalize].
-  congruence.
-Qed.
-
 Lemma normalize_mkApps_dearg_single mask t args args' :
   normalize (mkApps (dearg_single mask t args) args') =
   normalize (dearg_single mask t (args ++ args')).
@@ -1032,7 +987,7 @@ Proof.
       cbn.
       replace (affinely_used _ _) with true by admit.
       unfold subst1.
-      rewrite <- normalize_subst.
+      rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
       rewrite subst_dearg_single.
       rewrite simpl_subst_k by easy.
@@ -1046,7 +1001,7 @@ Proof.
       cbn.
       replace (affinely_used _ _) with true by admit.
       unfold subst1.
-      rewrite <- normalize_subst.
+      rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
       rewrite subst_dearg_single.
       cbn.
