@@ -915,42 +915,42 @@ Proof.
 Qed.
 
 Inductive ared1 : term -> term -> Prop :=
-| ared_beta na body arg :
+| ared1_beta na body arg :
     affinely_used 0 body ->
     ared1 (tApp (tLambda na body) arg) (body{0 := arg})
-| ared_evar n ts ts' :
+| ared1_evar n ts ts' :
     OnOne2 ared1 ts ts' ->
     ared1 (tEvar n ts) (tEvar n ts')
-| ared_lambda na body body' :
+| ared1_lambda na body body' :
     ared1 body body' ->
     ared1 (tLambda na body) (tLambda na body')
-| ared_let_in_l na val val' body :
+| ared1_let_in_l na val val' body :
     ared1 val val' ->
     ared1 (tLetIn na val body) (tLetIn na val' body)
-| ared_let_in_r na val body body' :
+| ared1_let_in_r na val body body' :
     ared1 body body' ->
     ared1 (tLetIn na val body) (tLetIn na val body')
-| ared_app_l hd hd' arg :
+| ared1_app_l hd hd' arg :
     ared1 hd hd' ->
     ared1 (tApp hd arg) (tApp hd' arg)
-| ared_app_r hd arg arg' :
+| ared1_app_r hd arg arg' :
     ared1 arg arg' ->
     ared1 (tApp hd arg) (tApp hd arg')
-| ared_case_discr ind discr discr' brs :
+| ared1_case_discr ind discr discr' brs :
     ared1 discr discr' ->
     ared1 (tCase ind discr brs) (tCase ind discr' brs)
-| ared_case_brs ind discr brs brs' :
+| ared1_case_brs ind discr brs brs' :
     OnOne2 (fun br br' => br.1 = br'.1 /\ ared1 br.2 br'.2) brs brs' ->
     ared1 (tCase ind discr brs) (tCase ind discr brs')
-| ared_proj p t t' :
+| ared1_proj p t t' :
     ared1 t t' ->
     ared1 (tProj p t) (tProj p t')
-| ared_fix defs defs' i :
+| ared1_fix defs defs' i :
     OnOne2 (fun d d' => dname d = dname d' /\
                         ared1 (dbody d) (dbody d') /\
                         rarg d = rarg d') defs defs' ->
     ared1 (tFix defs i) (tFix defs' i)
-| ared_cofix defs defs' i :
+| ared1_cofix defs defs' i :
     OnOne2 (fun d d' => dname d = dname d' /\
                         ared1 (dbody d) (dbody d') /\
                         rarg d = rarg d') defs defs' ->
@@ -1234,7 +1234,7 @@ Proof.
     now constructor.
 Qed.
 
-Lemma ared_evar_all n l l' :
+Lemma ared_evar n l l' :
   All2 ared l l' ->
   ared (tEvar n l) (tEvar n l').
 Proof.
@@ -1243,6 +1243,48 @@ Proof.
   induction all; [apply ared_refl|].
   eapply ared_trans; [eassumption|].
   now apply ared_evar_one.
+Qed.
+
+Lemma ared_lambda na body body' :
+  ared body body' ->
+  ared (tLambda na body) (tLambda na body').
+Proof.
+  intros r.
+  induction r; [reflexivity|].
+  etransitivity.
+  - now apply IHr.
+  - apply ared_step.
+    now constructor.
+Qed.
+
+Lemma ared_let_in na val val' body body' :
+  ared val val' ->
+  ared body body' ->
+  ared (tLetIn na val body) (tLetIn na val' body').
+Proof.
+  intros r1 r2.
+  transitivity (tLetIn na val' body).
+  - induction r1; [reflexivity|].
+    etransitivity; [now apply IHr1|].
+    now apply ared_step; constructor.
+  - induction r2; [reflexivity|].
+    etransitivity; [now apply IHr2|].
+    now apply ared_step; constructor.
+Qed.
+
+Lemma ared_app hd hd' arg arg' :
+  ared hd hd' ->
+  ared arg arg' ->
+  ared (tApp hd arg) (tApp hd' arg').
+Proof.
+  intros r1 r2.
+  transitivity (tApp hd' arg).
+  - induction r1; [reflexivity|].
+    etransitivity; [now eapply IHr1|].
+    now apply ared_step; constructor.
+  - induction r2; [reflexivity|].
+    etransitivity; [now eapply IHr2|].
+    now apply ared_step; constructor.
 Qed.
 
 Lemma ared_case_brs_one ind discr brs brs' :
@@ -1260,15 +1302,32 @@ Proof.
     now constructor.
 Qed.
 
-Lemma ared_case_brs_all ind discr brs brs' :
+Lemma ared_case ind discr discr' brs brs' :
+  ared discr discr' ->
   All2 (fun br br' => br.1 = br'.1 × ared br.2 br'.2) brs brs' ->
-  ared (tCase ind discr brs) (tCase ind discr brs').
+  ared (tCase ind discr brs) (tCase ind discr' brs').
 Proof.
-  intros all.
-  apply All2_many_OnOne2 in all.
-  induction all; [apply ared_refl|].
-  eapply ared_trans; [eassumption|].
-  now apply ared_case_brs_one.
+  intros r1 r2.
+  transitivity (tCase ind discr' brs).
+  + induction r1; [reflexivity|].
+    etransitivity; [now apply IHr1|].
+    now apply ared_step; constructor.
+  + apply All2_many_OnOne2 in r2.
+    induction r2; [apply ared_refl|].
+    eapply ared_trans; [eassumption|].
+    now apply ared_case_brs_one.
+Qed.
+
+Lemma ared_proj p t t' :
+  ared t t' ->
+  ared (tProj p t) (tProj p t').
+Proof.
+  intros r.
+  induction r; [reflexivity|].
+  etransitivity.
+  - now apply IHr.
+  - apply ared_step.
+    now constructor.
 Qed.
 
 Lemma ared_fix_one defs defs' i :
@@ -1287,7 +1346,7 @@ Proof.
     now constructor.
 Qed.
 
-Lemma ared_fix_all defs defs' i :
+Lemma ared_fix defs defs' i :
   All2 (fun d d' => dname d = dname d' × ared (dbody d) (dbody d') × rarg d = rarg d')
          defs defs' ->
   ared (tFix defs i) (tFix defs' i).
@@ -1315,7 +1374,7 @@ Proof.
     now constructor.
 Qed.
 
-Lemma ared_cofix_all defs defs' i :
+Lemma ared_cofix defs defs' i :
   All2 (fun d d' => dname d = dname d' × ared (dbody d) (dbody d') × rarg d = rarg d')
          defs defs' ->
   ared (tCoFix defs i) (tCoFix defs' i).
@@ -1335,7 +1394,7 @@ Proof.
   - reflexivity.
   - reflexivity.
   - rewrite (map_in_map _ _ normalize) by (now intros).
-    apply ared_evar_all.
+    apply ared_evar.
     induction l; [constructor|].
     cbn.
     constructor.
@@ -1343,43 +1402,22 @@ Proof.
     + apply IHl.
       * now intros; apply H; right.
       * now intros; apply H0; cbn.
-  - induction H; [reflexivity|].
-    etransitivity; [now apply IHared|].
-    now apply ared_step; constructor.
-  - transitivity (tLetIn n2 (normalize t0) t1).
-    + clear H0.
-      fold (normalize t0) in H.
-      induction H; [reflexivity|].
-      etransitivity; [now apply IHared|].
-      now apply ared_step; constructor.
-    + fold (normalize t1) in *.
-      fold (normalize t0) in *.
-      induction H0; [reflexivity|].
-      etransitivity; [now apply IHared|].
-      now apply ared_step; constructor.
+  - now apply ared_lambda.
+  - now apply ared_let_in.
   - reflexivity.
   - reflexivity.
   - rewrite (map_in_map _ _ (on_snd normalize)) by (now intros).
-    transitivity (tCase p (normalize t4) l0).
-    + fold (normalize t4) in H.
-      induction H; [reflexivity|].
-      etransitivity; [now apply IHared|].
-      now apply ared_step; constructor.
-    + apply ared_case_brs_all.
-      induction l0; [constructor|].
-      cbn in *.
-      constructor.
-      * split; [reflexivity|].
-        now apply H0; left.
-      * apply IHl0.
-        -- now intros; apply H0; right.
-        -- now intros; apply H1; cbn.
-  - induction H; [reflexivity|].
-    etransitivity.
-    + now apply IHared.
-    + apply ared_step.
-      now constructor.
-  - apply ared_fix_all.
+    apply ared_case; [easy|].
+    induction l0; [constructor|].
+    cbn in *.
+    constructor.
+    + split; [reflexivity|].
+      now apply H0; left.
+    + apply IHl0.
+      * now intros; apply H0; right.
+      * now intros; apply H1; cbn.
+  - now apply ared_proj.
+  - apply ared_fix.
     induction m; [constructor|].
     cbn in *.
     constructor.
@@ -1389,7 +1427,7 @@ Proof.
     + apply IHm.
       * now intros; apply H; right.
       * now intros; apply H0; cbn.
-  - apply ared_cofix_all.
+  - apply ared_cofix.
     induction m0; [constructor|].
     cbn in *.
     constructor.
@@ -1400,31 +1438,23 @@ Proof.
       * now intros; apply H; right.
       * now intros; apply H0; cbn.
   - transitivity (tApp (normalize t2) t3).
-    + fold (normalize t2) in *.
-      induction Hind; [reflexivity|].
-      etransitivity; [now eapply IHHind|].
-      now apply ared_step; constructor.
+    + now apply ared_app.
     + unfold normalize.
       rewrite Heq0.
       cbn.
-      transitivity (body{0 := t3}); [now apply ared_step, ared_beta|].
+      transitivity (body{0 := t3}); [now apply ared_step, ared1_beta|].
       apply H0.
       rewrite num_subterms_subst.
       unfold affinely_used in i.
       clear Heq.
       now destruct (count_uses 0 body) as [|[]].
   - transitivity (tApp (normalize t2) t3).
-    + fold (normalize t2) in Hind.
-      induction Hind; [reflexivity|].
-      etransitivity; [now eapply IHHind|].
-      now apply ared_step; constructor.
+    + now apply ared_app.
     + unfold normalize.
       rewrite Heq0.
       cbn.
       fold (normalize t3) in *.
-      induction H; [reflexivity|].
-      etransitivity; [now eapply IHared|].
-      now apply ared_step; constructor.
+      now apply ared_app.
 Qed.
 
 Lemma substitution_ared1 s k t t' :
@@ -1435,7 +1465,7 @@ Proof.
   induction r in r, t, t', k |- * using ared1_ind_all; cbn in *; auto using ared1.
   - unfold subst1.
     rewrite distr_subst.
-    apply ared_beta.
+    apply ared1_beta.
     unfold affinely_used in *.
     now rewrite count_uses_subst_other.
   - constructor.
@@ -1460,6 +1490,117 @@ Proof.
       constructor.
       rewrite <- !Nat.add_succ_r.
       apply IHOnOne2.
+Qed.
+
+Lemma substitution_ared s k t t' :
+  ared t t' ->
+  ared (subst s k t) (subst s k t').
+Proof.
+  rewrite !ared_alt, !clos_rt_rt1n_iff.
+  intros r.
+  induction r.
+  - apply rt1n_refl.
+  - rewrite <- !clos_rt_rt1n_iff, <- !ared_alt in *.
+    transitivity (subst s k y); [|easy].
+    apply ared_step.
+    now apply substitution_ared1.
+Qed.
+
+Lemma ared1_lift t t' n k :
+  ared1 t t' ->
+  ared1 (lift n k t) (lift n k t').
+Proof.
+  intros r.
+  induction r in r, t, t', k |- * using ared1_ind_all; cbn in *; auto using ared1.
+  - rewrite distr_lift_subst10.
+    apply ared1_beta.
+    unfold affinely_used in *.
+    now rewrite count_uses_lift_other by easy.
+  - constructor.
+    induction H; constructor; auto.
+    intuition.
+  - constructor.
+    induction H; constructor; auto.
+    intuition.
+  - constructor.
+    induction H in H, defs, defs', k |- *; cbn.
+    + constructor.
+      intuition.
+    + rewrite (OnOne2_length H) in *.
+      constructor.
+      rewrite <- !Nat.add_succ_r.
+      apply IHOnOne2.
+  - constructor.
+    induction H in H, defs, defs', k |- *; cbn.
+    + constructor.
+      intuition.
+    + rewrite (OnOne2_length H) in *.
+      constructor.
+      rewrite <- !Nat.add_succ_r.
+      apply IHOnOne2.
+Qed.
+
+Lemma ared_lift t t' n k :
+  ared t t' ->
+  ared (lift n k t) (lift n k t').
+Proof.
+  rewrite !ared_alt, !clos_rt_rt1n_iff.
+  intros r.
+  induction r.
+  - apply rt1n_refl.
+  - rewrite <- !clos_rt_rt1n_iff, <- !ared_alt in *.
+    transitivity (lift n k y); [|easy].
+    apply ared_step.
+    now apply ared1_lift.
+Qed.
+
+Lemma ared_ared s s' k t :
+  All2 ared s s' ->
+  ared (subst s k t) (subst s' k t).
+Proof.
+  intros r.
+  induction t in k, t |- * using term_forall_list_ind; cbn in *; try easy.
+  - destruct (_ <=? _).
+    + destruct (nth_error _ _) eqn:nth.
+      * eapply All2_nth_error_Some in nth as (? & -> & ?); [|eassumption].
+        now apply ared_lift.
+      * eapply All2_nth_error_None in nth as ->; [|eassumption].
+        now apply All2_length in r as ->.
+    + reflexivity.
+  - apply Forall_All in H.
+    apply ared_evar.
+    now induction H; constructor.
+  - apply ared_lambda, IHt.
+  - now apply ared_let_in.
+  - now apply ared_app.
+  - apply ared_case; [easy|].
+    induction X; constructor; [|easy].
+    cbn in *.
+    intuition.
+  - now apply ared_proj.
+  - apply Forall_All in H.
+    apply ared_fix.
+    induction H in m, H, k |- *; constructor; cbn in *.
+    + intuition.
+    + rewrite <- Nat.add_succ_r.
+      apply IHAll.
+  - apply Forall_All in H.
+    apply ared_cofix.
+    induction H in m, H, k |- *; constructor; cbn in *.
+    + intuition.
+    + rewrite <- Nat.add_succ_r.
+      apply IHAll.
+Qed.
+
+Lemma ared_subst s s' k t t' :
+  All2 ared s s' ->
+  ared t t' ->
+  ared (subst s k t) (subst s' k t').
+Proof.
+  intros all r.
+  transitivity (subst s k t').
+  - now apply substitution_ared.
+  - now apply ared_ared.
 Qed.
 
 Lemma ared1_count_uses t t' k :
@@ -1549,7 +1690,33 @@ Proof.
   now apply PCUICParallelReduction.app_inj_length_l.
 Qed.
 
-Lemma OnOne2_left_rooted {A} {P1 P2 : A -> A -> Type} {l l' l'' : list A} :
+Lemma cons_skipn {A} (x : A) i l :
+  nth_error l i = Some x ->
+  x :: skipn (S i) l = skipn i l.
+Proof.
+  intros nth.
+  induction i as [|i IH] in x, i, l, nth |- *.
+  - destruct l; [easy|].
+    cbn in *.
+    noconf nth.
+    now rewrite skipn_cons, !skipn_0.
+  - now destruct l.
+Qed.
+
+Lemma skipn_firstn_slice {A} n n' (l : list A) :
+  n <= n' ->
+  skipn n (firstn n' l) ++ skipn n' l = skipn n l.
+Proof.
+  intros le.
+  induction n in n, n', le, l |- *.
+  - now rewrite !skipn_0, firstn_skipn.
+  - destruct n'; [easy|].
+    destruct l; [easy|].
+    rewrite firstn_cons, !skipn_cons.
+    now apply IHn.
+Qed.
+
+Lemma OnOne2_left_rooted' {A} {P1 P2 : A -> A -> Type} {l l' l'' : list A} :
   OnOne2 P1 l l' ->
   OnOne2 P2 l l'' ->
   (* same element *)
@@ -1581,50 +1748,383 @@ Proof.
     left.
     left.
     exists (firstn x2 l), x0, x1, x4, (skipn (S x2) l).
-    now split; [admit|].
+    now rewrite cons_skipn, firstn_skipn.
   - apply Nat.compare_lt_iff in comp.
     left.
     right.
     exists (firstn x l), x0, x1, (firstn (x2 - S x) (skipn (S x) l)), x3, x4, (skipn (S x2) l).
-    split; [admit|].
-    split.
-    + cbn.
-      f_equal.
-      f_equal.
-      rewrite firstn_skipn_comm.
-      replace (S x + (x2 - S x)) with x2 by lia.
-      replace (x3 :: skipn (S x2) l) with (skipn x2 l) by admit.
-      clear.
-      rewrite skipn_firstn_comm.
-      rewrite skipn_firstn_skipn.
-      rewrite skipn_firstn. cbn.
-      rewrite skipn_firstn_comm.
-      replace (S x2 - S x) with (x2 - x) by lia.
-      (* #|l| - S x = x2 - x + (#|l| - x2) = #|l| - x *)
-      rewrite firstn_skipn.
-    +
-  apply OnOne2_split in oo1 as (? & ? & ? & ? & ? & ? & ?).
-  apply OnOne2_split in oo2 as (? & ? & ? & ? & ? & ? & ?).
-  subst.
-  rewrite !app_length in *.
-  cbn in *.
-  destruct (Nat.compare #|x| #|x3|) eqn:comp.
-  - apply Nat.compare_eq in comp.
-    left.
-    left.
-    exists x, x0, x1, x5, x2.
+    rewrite cons_skipn by easy.
+    rewrite firstn_skipn_comm.
+    replace (S x + (x2 - S x)) with x2 by lia.
+    rewrite app_comm_cons.
+    assert (#|firstn x2 l| = x2).
+    { rewrite firstn_length.
+      now apply nth_error_Some_length in e0. }
+    rewrite (cons_skipn x0); last first.
+    { rewrite <- (firstn_skipn x2 l) in e.
+      now rewrite nth_error_app1 in e. }
+    rewrite skipn_firstn_slice by easy.
+    rewrite firstn_skipn.
     split; [easy|].
+    rewrite skipn_firstn_slice by easy.
     split; [easy|].
-    apply app_inj_length_l in e1 as (-> & ?); [|easy].
-    now depelim H.
-  - apply Nat.compare_lt_iff in comp.
-    left.
+    split; [|easy].
+    rewrite <- (firstn_skipn x (firstn x2 l)) at 1.
+    assert (nth_error (firstn x2 l) x = Some x0).
+    { rewrite <- (nth_error_app1 _ (skipn x2 l)) by easy.
+      now rewrite firstn_skipn. }
+    rewrite <- (cons_skipn _ _ _ H0).
+    rewrite firstn_firstn.
+    replace (Nat.min x x2) with x by lia.
+    now rewrite <- !app_assoc.
+  - apply Nat.compare_gt_iff in comp.
     right.
-    exists
-  destruct (Nat.compare_spec #|x| #|x3|).
-*)
-  Admitted.
+    exists (firstn x2 l), x3, x4, (firstn (x - S x2) (skipn (S x2) l)), x0, x1, (skipn (S x) l).
+    rewrite cons_skipn by easy.
+    rewrite firstn_skipn_comm.
+    replace (S x2 + (x - S x2)) with x by lia.
+    rewrite app_comm_cons.
+    assert (#|firstn x l| = x).
+    { rewrite firstn_length.
+      now apply nth_error_Some_length in e. }
+    rewrite (cons_skipn x3); last first.
+    { rewrite <- (firstn_skipn x l) in e0.
+      now rewrite nth_error_app1 in e0. }
+    rewrite skipn_firstn_slice by easy.
+    rewrite firstn_skipn.
+    split; [easy|].
+    rewrite skipn_firstn_slice by easy.
+    split; [|easy].
+    rewrite <- (firstn_skipn x2 (firstn x l)) at 1.
+    assert (nth_error (firstn x l) x2 = Some x3).
+    { rewrite <- (nth_error_app1 _ (skipn x l)) by easy.
+      now rewrite firstn_skipn. }
+    rewrite <- (cons_skipn _ _ _ H0).
+    rewrite firstn_firstn.
+    replace (Nat.min x2 x) with x2 by lia.
+    now rewrite <- !app_assoc.
+Qed.
 
+Inductive OnOne2_left_rooted_type
+          {A} {P1 P2 : A -> A -> Type} : list A -> list A -> list A -> Type :=
+| on_same pref a ar1 ar2 suf :
+    P1 a ar1 ->
+    P2 a ar2 ->
+    OnOne2_left_rooted_type
+      (pref ++ a :: suf)
+      (pref ++ ar1 :: suf)
+      (pref ++ ar2 :: suf)
+| on12 l1 al1 ar1 l2 al2 ar2 l3 :
+    P1 al1 ar1 ->
+    P2 al2 ar2 ->
+    OnOne2_left_rooted_type
+      (l1 ++ al1 :: l2 ++ al2 :: l3)
+      (l1 ++ ar1 :: l2 ++ al2 :: l3)
+      (l1 ++ al1 :: l2 ++ ar2 :: l3)
+| on21 l1 al2 ar2 l2 al1 ar1 l3 :
+    P1 al1 ar1 ->
+    P2 al2 ar2 ->
+    OnOne2_left_rooted_type
+      (l1 ++ al2 :: l2 ++ al1 :: l3)
+      (l1 ++ al2 :: l2 ++ ar1 :: l3)
+      (l1 ++ ar2 :: l2 ++ al1 :: l3).
+
+Lemma OnOne2_left_rooted {A} {P1 P2 : A -> A -> Type} {l l' l'' : list A} :
+  OnOne2 P1 l l' ->
+  OnOne2 P2 l l'' ->
+  @OnOne2_left_rooted_type _ P1 P2 l l' l''.
+Proof.
+  intros oo1 oo2.
+  pose proof (OnOne2_left_rooted' oo1 oo2).
+  destruct (OnOne2_left_rooted' oo1 oo2) as
+      [[(? & ? & ? & ? & ? & -> & -> & -> & ? & ?)|
+        (? & ? & ? & ? & ? & ? & ? & -> & -> & -> & ? & ?)]|
+       (? & ? & ? & ? & ? & ? & ? & -> & -> & -> & ? & ?)];
+    now constructor.
+Qed.
+
+Definition ared1_refl := clos_refl _ ared1.
+
+Lemma ared1_refl_subst s s' k t :
+  affinely_used k t ->
+  ared1 s s' ->
+  ared1_refl (t{k := s}) (t{k := s'}).
+Proof.
+  Admitted.
+  (*
+  intros r.
+  induction t in k, t |- * using term_forall_list_ind; cbn in *; try apply r_refl.
+  - destruct (_ <=? _).
+    + destruct (nth_error _ _) eqn:nth.
+      * destruct (n - k) eqn:?; cbn in *; [|rewrite nth_error_nil in *; congruence].
+        noconf nth.
+        now apply r_step, ared1_lift.
+      * destruct (n - k) eqn:?; cbn in *; [congruence|].
+        rewrite nth_error_nil.
+        apply r_refl.
+    + apply r_refl.
+  - apply r_step.
+    constructor.
+    apply Forall_All in H.
+    apply ared_evar.
+    now induction H; constructor.
+  - apply ared_lambda, IHt.
+  - now apply ared_let_in.
+  - now apply ared_app.
+  - apply ared_case; [easy|].
+    induction X; constructor; [|easy].
+    cbn in *.
+    intuition.
+  - now apply ared_proj.
+  - apply Forall_All in H.
+    apply ared_fix.
+    induction H in m, H, k |- *; constructor; cbn in *.
+    + intuition.
+    + rewrite <- Nat.add_succ_r.
+      apply IHAll.
+  - apply Forall_All in H.
+    apply ared_cofix.
+    induction H in m, H, k |- *; constructor; cbn in *.
+    + intuition.
+    + rewrite <- Nat.add_succ_r.
+      apply IHAll.
+Qed.
+*)
+
+Lemma ared1_refl_diamond t t1 t2 :
+  ared1_refl t t1 ->
+  ared1_refl t t2 ->
+  exists t', ared1_refl t1 t' /\ ared1_refl t2 t'.
+Proof.
+  intros r1 r2.
+  destruct r1 as [t1 r1|]; last first.
+  { exists t2.
+    now split; [|apply r_refl]. }
+  destruct r2 as [t2 r2|]; last first.
+  { exists t1.
+    now split; [apply r_refl|apply r_step]. }
+  induction r1 in t, t1, t2, r1, r2 |- * using ared1_ind_all.
+  - depelim r2.
+    + eexists; split; apply r_refl.
+    + depelim r2.
+      exists (body'{0 := arg}).
+      split.
+      * now apply r_step, substitution_ared1.
+      * apply r_step, ared1_beta.
+        now eapply ared1_affinely_used.
+    + exists (body{0 := arg'}).
+      split; [|now apply r_step, ared1_beta].
+      now apply ared1_refl_subst.
+  - depelim r2.
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0.
+      apply H2 in a1 as (? & ? & ?).
+      exists (tEvar n (pref ++ x :: suf)).
+      split.
+      * destruct H3; [|apply r_refl].
+        apply r_step; constructor.
+        now apply OnOne2_app, OnOne2_hd.
+      * destruct H4; [|apply r_refl].
+        apply r_step; constructor.
+        now apply OnOne2_app, OnOne2_hd.
+    + exists (tEvar n (l1 ++ ar1 :: l2 ++ ar2 :: l3)).
+      split; apply r_step; constructor.
+      * destruct a.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+      * now apply OnOne2_app, OnOne2_hd.
+    + exists (tEvar n (l1 ++ ar2 :: l2 ++ ar1 :: l3)).
+      split; apply r_step; constructor.
+      * destruct a.
+        now apply OnOne2_app, OnOne2_hd.
+      * now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+  - depelim r2.
+    apply IHr1 in r2 as (? & ? & ?).
+    exists (tLambda na x).
+    split.
+    + destruct H; [|apply r_refl].
+      now apply r_step, ared1_lambda.
+    + destruct H0; [|apply r_refl].
+      now apply r_step, ared1_lambda.
+  - depelim r2.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tLetIn na x body).
+      split.
+      * destruct H; [|apply r_refl].
+        now apply r_step, ared1_let_in_l.
+      * destruct H0; [|apply r_refl].
+        now apply r_step, ared1_let_in_l.
+    + exists (tLetIn na val' body').
+      split.
+      * now apply r_step, ared1_let_in_r.
+      * now apply r_step, ared1_let_in_l.
+  - depelim r2.
+    + exists (tLetIn na val' body').
+      split.
+      * now apply r_step, ared1_let_in_l.
+      * now apply r_step, ared1_let_in_r.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tLetIn na val x).
+      split.
+      * destruct H; [|apply r_refl].
+        now apply r_step, ared1_let_in_r.
+      * destruct H0; [|apply r_refl].
+        now apply r_step, ared1_let_in_r.
+  - depelim r2.
+    + depelim r1.
+      exists (body'{0 := arg}).
+      split.
+      * apply r_step, ared1_beta.
+        now eapply ared1_affinely_used.
+      * now apply r_step, substitution_ared1.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tApp x arg).
+      split.
+      * destruct H; [|apply r_refl].
+        now apply r_step, ared1_app_l.
+      * destruct H0; [|apply r_refl].
+        now apply r_step, ared1_app_l.
+    + exists (tApp hd' arg').
+      split.
+      * now apply r_step, ared1_app_r.
+      * now apply r_step, ared1_app_l.
+  - depelim r2.
+    + exists (body{0 := arg'}).
+      split.
+      * now apply r_step, ared1_beta.
+      * now apply ared1_refl_subst.
+    + exists (tApp hd' arg').
+      split.
+      * now apply r_step, ared1_app_l.
+      * now apply r_step, ared1_app_r.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tApp hd x).
+      split.
+      * destruct H; [|apply r_refl].
+        now apply r_step, ared1_app_r.
+      * destruct H0; [|apply r_refl].
+        now apply r_step, ared1_app_r.
+  - depelim r2.
+    { apply IHr1 in r2 as (? & ? & ?).
+      exists (tCase ind x brs).
+      split.
+      - destruct H; [|apply r_refl].
+        now apply r_step, ared1_case_discr.
+      - destruct H0; [|apply r_refl].
+        now apply r_step, ared1_case_discr. }
+    exists (tCase ind discr' brs').
+    split.
+    + now apply r_step, ared1_case_brs.
+    + now apply r_step, ared1_case_discr.
+  - depelim r2.
+    { exists (tCase ind discr' brs').
+      split.
+      - now apply r_step, ared1_case_discr.
+      - apply r_step, ared1_case_brs.
+        now eapply OnOne2_impl; [eassumption|]. }
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0 as (? & ? & ?), a1.
+      apply H3 in H5 as (? & ? & ?).
+      exists (tCase ind discr (pref ++ (a.1, x) :: suf)).
+      split.
+      * destruct H5; last first.
+        { rewrite H1.
+          destruct ar1; apply r_refl. }
+        apply r_step, ared1_case_brs.
+        apply OnOne2_app, OnOne2_hd.
+        now split.
+      * destruct H6; last first.
+        { rewrite H4.
+          destruct ar2; apply r_refl. }
+        apply r_step, ared1_case_brs.
+        apply OnOne2_app, OnOne2_hd.
+        now split.
+    + destruct a as (? & ? & ?), a0.
+      exists (tCase ind discr (l1 ++ ar1 :: l2 ++ ar2 :: l3)).
+      split.
+      * apply r_step, ared1_case_brs.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+      * apply r_step, ared1_case_brs.
+        now apply OnOne2_app, OnOne2_hd.
+    + destruct a as (? & ? & ?), a0.
+      exists (tCase ind discr (l1 ++ ar2 :: l2 ++ ar1 :: l3)).
+      split.
+      * apply r_step, ared1_case_brs.
+        now apply OnOne2_app, OnOne2_hd.
+      * apply r_step, ared1_case_brs.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+  - depelim r2.
+    apply IHr1 in r2 as (? & ? & ?).
+    exists (tProj p x).
+    split.
+    + destruct H; [|apply r_refl].
+      now apply r_step, ared1_proj.
+    + destruct H0; [|apply r_refl].
+      now apply r_step, ared1_proj.
+  - depelim r2.
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0 as (? & ? & ? & ?), a1 as (? & ? & ?).
+      apply H3 in H6 as (? & ? & ?).
+      exists (tFix (pref ++ {| dname := dname a; dbody := x; rarg := rarg a |} :: suf) i).
+      split.
+      * destruct H6; last first.
+        { rewrite H1, H4.
+          destruct ar1; apply r_refl. }
+        apply r_step, ared1_fix.
+        apply OnOne2_app, OnOne2_hd.
+        now repeat split.
+      * destruct H8; last first.
+        { rewrite H5, H7.
+          destruct ar2; apply r_refl. }
+        apply r_step, ared1_fix.
+        apply OnOne2_app, OnOne2_hd.
+        now repeat split.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tFix (l1 ++ ar1 :: l2 ++ ar2 :: l3) i).
+      split.
+      * apply r_step, ared1_fix.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+      * apply r_step, ared1_fix.
+        now apply OnOne2_app, OnOne2_hd.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tFix (l1 ++ ar2 :: l2 ++ ar1 :: l3) i).
+      split.
+      * apply r_step, ared1_fix.
+        now apply OnOne2_app, OnOne2_hd.
+      * apply r_step, ared1_fix.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+  - depelim r2.
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0 as (? & ? & ? & ?), a1 as (? & ? & ?).
+      apply H3 in H6 as (? & ? & ?).
+      exists (tCoFix (pref ++ {| dname := dname a; dbody := x; rarg := rarg a |} :: suf) i).
+      split.
+      * destruct H6; last first.
+        { rewrite H1, H4.
+          destruct ar1; apply r_refl. }
+        apply r_step, ared1_cofix.
+        apply OnOne2_app, OnOne2_hd.
+        now repeat split.
+      * destruct H8; last first.
+        { rewrite H5, H7.
+          destruct ar2; apply r_refl. }
+        apply r_step, ared1_cofix.
+        apply OnOne2_app, OnOne2_hd.
+        now repeat split.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tCoFix (l1 ++ ar1 :: l2 ++ ar2 :: l3) i).
+      split.
+      * apply r_step, ared1_cofix.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+      * apply r_step, ared1_cofix.
+        now apply OnOne2_app, OnOne2_hd.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tCoFix (l1 ++ ar2 :: l2 ++ ar1 :: l3) i).
+      split.
+      * apply r_step, ared1_cofix.
+        now apply OnOne2_app, OnOne2_hd.
+      * apply r_step, ared1_cofix.
+        now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
+Qed.
 
 Lemma ared_diamond t t1 t2 :
   ared1 t t1 ->
@@ -1639,18 +2139,19 @@ Proof.
       exists (body'{0 := arg}).
       split.
       * now apply ared_step, substitution_ared1.
-      * apply ared_step, ared_beta.
+      * apply ared_step, ared1_beta.
         now eapply ared1_affinely_used.
     + exists (body{0 := arg'}).
-      split; [admit|].
-      now apply ared_step, ared_beta.
+      unfold subst1.
+      split; [|now apply ared_step, ared1_beta].
+      apply ared_subst; [|reflexivity].
+      constructor; [|constructor].
+      now apply ared_step.
   - depelim r2.
-    destruct (OnOne2_left_rooted H H0) as
-        [[(? & ? & ? & ? & ? & -> & -> & -> & (? & ?) & ?)|
-          (? & ? & ? & ? & ? & ? & ? & -> & -> & -> & (? & ?) & ?)]|
-         (? & ? & ? & ? & ? & ? & ? & -> & -> & -> & (? & ?) & ?)].
-    + apply H2 in a as (? & ? & ?).
-      exists (tEvar n (x ++ x4 :: x3)).
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0.
+      apply H2 in a1 as (? & ? & ?).
+      exists (tEvar n (pref ++ x :: suf)).
       split.
       * apply ared_evar_one.
         apply OnOne2_app.
@@ -1658,8 +2159,8 @@ Proof.
       * apply ared_evar_one.
         apply OnOne2_app.
         now constructor.
-    + exists (tEvar n (x ++ x1 :: x2 ++ x4 :: x5)).
-      split; apply ared_evar_all.
+    + exists (tEvar n (l1 ++ ar1 :: l2 ++ ar2 :: l3)).
+      split; apply ared_evar.
       * apply All2_app; [now apply All2_same|].
         apply All2_cons; [easy|].
         apply All2_app; [now apply All2_same|].
@@ -1668,8 +2169,8 @@ Proof.
       * apply All2_app; [now apply All2_same|].
         apply All2_cons; [now apply ared_step|].
         now apply All2_same.
-    + exists (tEvar n (x ++ x1 :: x2 ++ x4 :: x5)).
-      split; apply ared_evar_all.
+    + exists (tEvar n (l1 ++ ar2 :: l2 ++ ar1 :: l3)).
+      split; apply ared_evar.
       * apply All2_app; [now apply All2_same|].
         apply All2_cons; [now apply ared_step|].
         now apply All2_same.
@@ -1681,30 +2182,286 @@ Proof.
   - depelim r2.
     apply IHr1 in r2 as (? & ? & ?).
     exists (tLambda na x).
-    split.
-    apply OnOne2_split in H as (? & ? & ? & (? & -> & -> & ? & ?)).
-    depind H0.
-    +
-    + depind H0.
-      * destruct p0.
-        specialize (H0 _ p) as (? & ? & ?).
-        exists (tEvar n (x :: tl)).
-        split.
-        -- apply ared_evar_one.
-           now constructor.
-        -- apply ared_evar_one.
-           now constructor.
-      * eapply IHOnOne2.
-        easy.
-        easy.
-        exists (tEvar n (hd' :: tl)).
-        split; [|reflexivity].
-        apply ared_evar_one.
-        constructor.
+    now split; apply ared_lambda.
   - depelim r2.
-    admit.
-    all: admit.
-Admitted.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tLetIn na x body).
+      now split; apply ared_let_in.
+    + exists (tLetIn na val' body').
+      now split; apply ared_let_in; try easy; apply ared_step.
+  - depelim r2.
+    + exists (tLetIn na val' body').
+      now split; apply ared_let_in; try easy; apply ared_step.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tLetIn na val x).
+      now split; apply ared_let_in.
+  - depelim r2.
+    + depelim r1.
+      exists (body'{0 := arg}).
+      split.
+      * apply ared_step, ared1_beta.
+        now eapply ared1_affinely_used.
+      * now apply ared_step, substitution_ared1.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tApp x arg).
+      now split; apply ared_app.
+    + exists (tApp hd' arg').
+      apply ared_step in r1.
+      apply ared_step in r2.
+      now split; apply ared_app.
+  - depelim r2.
+    + exists (body{0 := arg'}).
+      split; [now apply ared_step, ared1_beta|].
+      apply ared_subst; [|reflexivity].
+      constructor; [|constructor].
+      now apply ared_step.
+    + exists (tApp hd' arg').
+      apply ared_step in r1.
+      apply ared_step in r2.
+      now split; apply ared_app.
+    + apply IHr1 in r2 as (? & ? & ?).
+      exists (tApp hd x).
+      now split; apply ared_app.
+  - depelim r2.
+    { apply IHr1 in r2 as (? & ? & ?).
+      exists (tCase ind x brs).
+      split; apply ared_case; try easy.
+      all: apply All2_same; intuition. }
+    exists (tCase ind discr' brs').
+    apply ared_step in r1.
+    split.
+    + apply ared_case; [easy|].
+      induction H; [|now constructor].
+      constructor.
+      * split; [easy|].
+        now apply ared_step.
+      * apply All2_same; intuition.
+    + apply ared_case; [easy|].
+      apply All2_same; intuition.
+  - depelim r2.
+    { exists (tCase ind discr' brs').
+      apply ared_step in r2.
+      split; apply ared_case; try easy; [apply All2_same; intuition|].
+      induction H.
+      - constructor; [|apply All2_same; intuition].
+        split; [easy|].
+        apply ared_step.
+        easy.
+      - constructor; [split; reflexivity|].
+        assumption. }
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0 as (? & ? & ?), a1.
+      apply H3 in H5 as (? & ? & ?).
+      exists (tCase ind discr (pref ++ (a.1, x) :: suf)).
+      split; apply ared_case; try easy.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        cbn.
+        split; easy.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        cbn.
+        split; easy.
+    + destruct a as (? & ? & ?), a0.
+      exists (tCase ind discr (l1 ++ ar1 :: l2 ++ ar2 :: l3)).
+      split; apply ared_case; try reflexivity.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [intuition|].
+        apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        split; [congruence|].
+        now apply ared_step.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        split; [congruence|].
+        now apply ared_step.
+    + destruct a as (? & ? & ?), a0.
+      exists (tCase ind discr (l1 ++ ar2 :: l2 ++ ar1 :: l3)).
+      split; apply ared_case; try reflexivity.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        split; [congruence|].
+        now apply ared_step.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [intuition|].
+        apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        split; [congruence|].
+        now apply ared_step.
+  - depelim r2.
+    apply IHr1 in r2 as (? & ? & ?).
+    exists (tProj p x).
+    now split; apply ared_proj.
+  - depelim r2.
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0 as (? & ? & ? & ?), a1 as (? & ? & ?).
+      apply H3 in H6 as (? & ? & ?).
+      exists (tFix (pref ++ {| dname := dname a; dbody := x; rarg := rarg a |} :: suf) i).
+      split; apply ared_fix.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        cbn.
+        now repeat split.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        cbn.
+        now repeat split.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tFix (l1 ++ ar1 :: l2 ++ ar2 :: l3) i).
+      split; apply ared_fix.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [intuition|].
+        apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tFix (l1 ++ ar2 :: l2 ++ ar1 :: l3) i).
+      split; apply ared_fix.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [intuition|].
+        apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+  - depelim r2.
+    destruct (OnOne2_left_rooted H H0).
+    + destruct a0 as (? & ? & ? & ?), a1 as (? & ? & ?).
+      apply H3 in H6 as (? & ? & ?).
+      exists (tCoFix (pref ++ {| dname := dname a; dbody := x; rarg := rarg a |} :: suf) i).
+      split; apply ared_cofix.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        cbn.
+        now repeat split.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        cbn.
+        now repeat split.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tCoFix (l1 ++ ar1 :: l2 ++ ar2 :: l3) i).
+      split; apply ared_cofix.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [intuition|].
+        apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
+      exists (tCoFix (l1 ++ ar2 :: l2 ++ ar1 :: l3) i).
+      split; apply ared_cofix.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+      * apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [intuition|].
+        apply All2_app; [apply All2_same; intuition|].
+        apply All2_cons; [|apply All2_same; intuition].
+        repeat split; [congruence| |congruence].
+        now apply ared_step.
+Qed.
+
+Definition ared1_refl := clos_refl _ ared1.
+
+Lemma confluence1n t t1 t2 :
+  ared1 t t1 ->
+  ared t t2 ->
+  exists t', ared t1 t' /\ ared t2 t'.
+Proof.
+  rewrite ared_alt, clos_rt_rt1n_iff.
+  intros r1 r2.
+  induction r2 in t, t1, t2, r1, r2 |- *.
+  - exists t1.
+    now split; [|apply ared_step].
+  - destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
+    apply ared_alt, clos_rt_rt1n_iff in H1.
+    destruct H0, H1.
+    + exists z.
+      split; [|easy].
+      transitivity y; [easy|].
+      now apply ared_alt, clos_rt_rt1n_iff.
+    + apply IHr2 in H0 as (? & ? & ?).
+    destruct H1, H2.
+    + exists z.
+      split; [|reflexivity].
+      now apply ared_alt, clos_rt_rt1n_iff.
+
+  - destruct r1; last first.
+    { now eexists; split. }
+    exists y.
+    now split; [|apply ared_step].
+  - destruct r1; last first.
+    { exists z.
+      split; [|reflexivity].
+      transitivity y; [now apply ared_step|].
+      now apply ared_alt, clos_rt_rt1n_iff. }
+    destruct (ared_diamond _ _ _ H0 H) as (? & ? & ?).
+    destruct H1, H2.
+    + exists z.
+      split; [|reflexivity].
+      now apply ared_alt, clos_rt_rt1n_iff.
+    +
+    + apply IHr2 in H0 as (? & ? & ?).
+      exists x0.
+      apply ared_alt, clos_rt_rt1n_iff in H1.
+    + exists z.
+      split; [|reflexivity].
+      transitivity y; [easy|].
+      apply clos_trans_t1n_iff in r2.
+      now apply clos_trans_ared.
+    + apply IHr2 in H1 as (? & ? & ?).
+      exists x0.
+      apply ared_alt, clos_rt_rt1n_iff in H1.
+      destruct H1.
+
+Lemma confluence1n t t1 t2 :
+  ared1 t t1 ->
+  ared t t2 ->
+  exists t', ared t1 t' /\ ared t2 t'.
+Proof.
+  rewrite !ared_alt, !clos_rt_rt1n_iff.
+  intros r1 r2.
+  induction r2 in t, t1, t2, r1, r2 |- *.
+  - exists t1; split; [reflexivity|now apply ared_step].
+  - destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
+    destruct r2.
+    +
+    destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
+    destruct H1.
+    + exists z.
+      split; [|reflexivity].
+      apply clos_rt_rt1n_iff, ared_alt in r2.
+      now transitivity x0.
+    + apply IHr2 in H1.
+    destruct r2.
+    + destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
+      now exists x0.
+    + apply IHr2 in H0 as (? & ? & ?).
+      apply IHr2 in
+
+
+    destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
+    apply ared_alt, clos_rt_rt1n_iff in H1.
+    induction H1.
+    + exists z.
+      split; [|reflexivity].
+      now transitivity x0.
+    + apply IHr2 in H1 as (? & ? & ?).
+      apply clos_rt_rt1n_iff, ared_alt in H2.
+      exists x1.
 
 Lemma confluence {t t1 t2} :
   ared t t1 ->
@@ -1716,14 +2473,14 @@ Proof.
   induction r1 in t, t1, t2, r1, r2 |- *.
   - exists t2.
     now rewrite <- clos_rt_rt1n_iff, <- ared_alt in r2.
-  - destruct r2.
+  - induction r2 in t2, x, y, z, H, r1, r2, z, IHr1 |- *.
     + exists z.
       split; [reflexivity|].
       rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1.
       transitivity y; [|easy].
       now apply ared_step.
-    + rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1, r2.
-      pose proof (ared_diamond _ _ _ H H0) as (t' & ? & ?).
+    + pose proof (ared_diamond _ _ _ H H0) as (t' & ? & ?).
+      rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1, r2.
       apply ared_alt, clos_rt_rt1n, IHr1 in H1 as r2'.
       apply
       apply IHr1 in
