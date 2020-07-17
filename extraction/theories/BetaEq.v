@@ -1192,7 +1192,22 @@ Lemma OnOne2_splitn {A} (P : A -> A -> Type) l l' :
   l' = firstn n l ++ [a'] ++ skipn (S n) l ×
   nth_error l n = Some a × P a a'.
 Proof.
-  Admitted.
+  intros oo.
+  apply OnOne2_split in oo as (pref & a & a' & suf & -> & -> & ?).
+  exists #|pref|, a, a'.
+  rewrite (firstn_app_left _ 0) by lia.
+  rewrite firstn_0 by easy.
+  replace (S #|pref|) with (#|pref ++ [a]|); last first.
+  { now rewrite app_length; cbn. }
+  rewrite (app_assoc pref [a]).
+  rewrite skipn_all_app.
+  rewrite app_nil_r.
+  split; [easy|].
+  rewrite <- app_assoc.
+  rewrite nth_error_app2 by easy.
+  rewrite Nat.sub_diag.
+  now split.
+Qed.
 
 Inductive rtrans_clos {A} (R : A -> A -> Type) (x : A) : A -> Type :=
 | rtrans_clos_refl : rtrans_clos R x x
@@ -1845,51 +1860,208 @@ Qed.
 
 Definition ared1_refl := clos_refl _ ared1.
 
+Lemma count_uses_0 {k} t {s} s' :
+  count_uses k t = 0 ->
+  subst [s] k t = subst [s'] k t.
+Proof.
+  intros cu.
+  induction t in k, t, cu |- * using term_forall_list_ind; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?; [|easy].
+    destruct (n - k) eqn:?; [|easy].
+    destruct (k =? n) eqn:?; [congruence|].
+    propify.
+    lia.
+  - f_equal.
+    induction H; [easy|].
+    cbn in *.
+    now rewrite H, IHForall.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt by easy.
+    f_equal.
+    induction X; [easy|].
+    cbn in *.
+    now rewrite p0, IHX.
+  - now rewrite IHt.
+  - f_equal.
+    induction H in H, m, k, cu |- *; [easy|].
+    cbn in *.
+    rewrite <- !Nat.add_succ_r in *.
+    unfold map_def.
+    rewrite H by easy.
+    f_equal.
+    now apply IHForall.
+  - f_equal.
+    induction H in H, m, k, cu |- *; [easy|].
+    cbn in *.
+    rewrite <- !Nat.add_succ_r in *.
+    unfold map_def.
+    rewrite H by easy.
+    f_equal.
+    now apply IHForall.
+Qed.
+
+Lemma map_subst_count_uses_0 {A} k (p : A -> term) (q : term -> A -> A) (l : list A) s s' :
+  Forall (fun a => count_uses k (p a) = 0) l ->
+  map (fun a => q (subst [s] k (p a)) a) l = map (fun a => q (subst [s'] k (p a)) a) l.
+Proof.
+  intros all.
+  induction all; [easy|].
+  cbn in *.
+  erewrite count_uses_0 by easy.
+  f_equal.
+  now rewrite IHall.
+Qed.
+
+Lemma sum_all_0 {A} (p : A -> nat) (l : list A) :
+  fold_right plus 0 (map p l) = 0 ->
+  Forall (fun a => p a = 0) l.
+Proof.
+  intros eq.
+  induction l; [easy|].
+  cbn in *.
+  constructor; [lia|].
+  now apply IHl.
+Qed.
+
+Lemma OnOne2_cons_tl_eq {A} (P : A -> A -> Type) (h h' : A) (l l' : list A) :
+  P h h' ->
+  l = l' ->
+  OnOne2 P (h :: l) (h' :: l').
+Proof.
+  intros ? ->.
+  now econstructor.
+Qed.
+
+Lemma sum_split_subst_list {A} k (p : A -> term) (l : list A) :
+  fold_right plus 0 (map (fun x => count_uses k (p x)) l) = 1 ->
+  exists pref a suf,
+    l = pref ++ a :: suf /\
+    count_uses k (p a) = 1 /\
+    Forall (fun a => count_uses k (p a) = 0) pref /\
+    Forall (fun a => count_uses k (p a) = 0) suf.
+Proof.
+  intros sum.
+  induction l; [easy|].
+  cbn in *.
+  destruct (count_uses k (p a)) eqn:?.
+  - apply IHl in sum as (pref & ? & suf & -> & ? & ? & ?).
+    clear IHl.
+    exists (a :: pref), x, suf.
+    split; [easy|].
+    split; [easy|].
+    split; [|easy].
+    now constructor.
+  - exists [], a, l.
+    split; [easy|].
+    split; [lia|].
+    split; [constructor|].
+    now apply sum_all_0.
+Qed.
+
 Lemma ared1_refl_subst s s' k t :
   affinely_used k t ->
   ared1 s s' ->
   ared1_refl (t{k := s}) (t{k := s'}).
 Proof.
-  Admitted.
-  (*
-  intros r.
-  induction t in k, t |- * using term_forall_list_ind; cbn in *; try apply r_refl.
-  - destruct (_ <=? _).
-    + destruct (nth_error _ _) eqn:nth.
-      * destruct (n - k) eqn:?; cbn in *; [|rewrite nth_error_nil in *; congruence].
-        noconf nth.
-        now apply r_step, ared1_lift.
-      * destruct (n - k) eqn:?; cbn in *; [congruence|].
-        rewrite nth_error_nil.
-        apply r_refl.
-    + apply r_refl.
-  - apply r_step.
-    constructor.
-    apply Forall_All in H.
-    apply ared_evar.
-    now induction H; constructor.
-  - apply ared_lambda, IHt.
-  - now apply ared_let_in.
-  - now apply ared_app.
-  - apply ared_case; [easy|].
-    induction X; constructor; [|easy].
-    cbn in *.
-    intuition.
-  - now apply ared_proj.
-  - apply Forall_All in H.
-    apply ared_fix.
-    induction H in m, H, k |- *; constructor; cbn in *.
-    + intuition.
-    + rewrite <- Nat.add_succ_r.
-      apply IHAll.
-  - apply Forall_All in H.
-    apply ared_cofix.
-    induction H in m, H, k |- *; constructor; cbn in *.
-    + intuition.
-    + rewrite <- Nat.add_succ_r.
-      apply IHAll.
+  intros af r.
+  unfold affinely_used in *.
+  unfold subst1.
+  propify.
+  destruct (count_uses k t) eqn:?.
+  { erewrite count_uses_0 by easy.
+    apply r_refl. }
+  replace (S n) with 1 in * by lia.
+  clear af.
+  apply r_step.
+  induction t in t, k, Heqn |- * using term_forall_list_ind; cbn in *; try easy.
+  - destruct (_ =? _) eqn:?; propify; try congruence.
+    subst.
+    rewrite Nat.leb_refl, Nat.sub_diag.
+    cbn.
+    now apply ared1_lift.
+  - apply sum_split_subst_list in Heqn as (pref & a & suf & -> & ? & ? & ?).
+    rewrite !map_app; cbn.
+    apply ared1_evar.
+    do 2 (
+         rewrite (map_subst_count_uses_0 _ (fun x => x) (fun x a => x) _ _ s') by easy;
+         try apply OnOne2_app).
+    apply OnOne2_hd.
+    apply Forall_app in H as (_ & ?).
+    depelim H.
+    now apply H.
+  - now apply ared1_lambda, IHt.
+  - destruct (count_uses k t1) eqn:?.
+    + rewrite !(count_uses_0 t1 s') by lia.
+      now apply ared1_let_in_r, IHt2.
+    + rewrite !(count_uses_0 t2 s') by lia.
+      now apply ared1_let_in_l, IHt1.
+  - destruct (count_uses k t1) eqn:?.
+    + rewrite !(count_uses_0 t1 s') by lia.
+      now apply ared1_app_r, IHt2.
+    + rewrite !(count_uses_0 t2 s') by lia.
+      now apply ared1_app_l, IHt1.
+  - destruct (count_uses k t) eqn:?.
+    + rewrite !(count_uses_0 t s') by lia.
+      apply sum_split_subst_list in Heqn as (pref & a & suf & -> & ? & ? & ?).
+      apply All_Forall in X.
+      apply ared1_case_brs.
+      rewrite !map_app; cbn.
+      unfold on_snd.
+      do 2 (
+           rewrite (map_subst_count_uses_0 _ snd (fun t a => (a.1, t)) _ _ s') by easy;
+           try apply OnOne2_app).
+      apply OnOne2_hd.
+      split; [easy|].
+      cbn.
+      apply Forall_app in X as (_ & ?).
+      depelim H2.
+      now apply H.
+    + unfold on_snd.
+      rewrite (map_subst_count_uses_0 _ snd (fun t a => (a.1, t)) _ _ s').
+      2: now apply (sum_all_0 (fun a => count_uses k a.2)).
+      now apply ared1_case_discr, IHt.
+  - now apply ared1_proj, IHt.
+  - apply sum_split_subst_list in Heqn as (pref & a & suf & -> & ? & ? & ?).
+    apply ared1_fix.
+    rewrite !map_app; cbn.
+    unfold map_def.
+    do 2 (
+    rewrite (map_subst_count_uses_0
+                _
+                dbody
+                (fun t d => {| dname := dname d;
+                               dbody := t;
+                               rarg := rarg d |}) _ _ s') by easy;
+    try apply OnOne2_app).
+    apply OnOne2_hd.
+    cbn.
+    split; [easy|].
+    split; [|easy].
+    apply Forall_app in H as (_ & ?).
+    depelim H.
+    now apply H.
+  - apply sum_split_subst_list in Heqn as (pref & a & suf & -> & ? & ? & ?).
+    apply ared1_cofix.
+    rewrite !map_app; cbn.
+    unfold map_def.
+    do 2 (
+    rewrite (map_subst_count_uses_0
+                _
+                dbody
+                (fun t d => {| dname := dname d;
+                               dbody := t;
+                               rarg := rarg d |}) _ _ s') by easy;
+    try apply OnOne2_app).
+    apply OnOne2_hd.
+    cbn.
+    split; [easy|].
+    split; [|easy].
+    apply Forall_app in H as (_ & ?).
+    depelim H.
+    now apply H.
 Qed.
-*)
 
 Lemma ared1_refl_diamond t t1 t2 :
   ared1_refl t t1 ->
@@ -2126,368 +2298,70 @@ Proof.
         now apply OnOne2_app, OnOne2_tl, OnOne2_app, OnOne2_hd.
 Qed.
 
-Lemma ared_diamond t t1 t2 :
-  ared1 t t1 ->
-  ared1 t t2 ->
-  exists t', ared t1 t' /\ ared t2 t'.
+Lemma confluence1n t t1 t2 :
+  ared1_refl t t1 ->
+  clos_trans_1n _ ared1_refl t t2 ->
+  exists t', clos_trans_1n _ ared1_refl t1 t' /\ clos_trans_1n _ ared1_refl t2 t'.
 Proof.
   intros r1 r2.
-  induction r1 in t, t1, t2, r1, r2 |- * using ared1_ind_all.
-  - depelim r2.
-    + eexists; split; reflexivity.
-    + depelim r2.
-      exists (body'{0 := arg}).
-      split.
-      * now apply ared_step, substitution_ared1.
-      * apply ared_step, ared1_beta.
-        now eapply ared1_affinely_used.
-    + exists (body{0 := arg'}).
-      unfold subst1.
-      split; [|now apply ared_step, ared1_beta].
-      apply ared_subst; [|reflexivity].
-      constructor; [|constructor].
-      now apply ared_step.
-  - depelim r2.
-    destruct (OnOne2_left_rooted H H0).
-    + destruct a0.
-      apply H2 in a1 as (? & ? & ?).
-      exists (tEvar n (pref ++ x :: suf)).
-      split.
-      * apply ared_evar_one.
-        apply OnOne2_app.
-        now constructor.
-      * apply ared_evar_one.
-        apply OnOne2_app.
-        now constructor.
-    + exists (tEvar n (l1 ++ ar1 :: l2 ++ ar2 :: l3)).
-      split; apply ared_evar.
-      * apply All2_app; [now apply All2_same|].
-        apply All2_cons; [easy|].
-        apply All2_app; [now apply All2_same|].
-        apply All2_cons; [|now apply All2_same].
-        now apply ared_step.
-      * apply All2_app; [now apply All2_same|].
-        apply All2_cons; [now apply ared_step|].
-        now apply All2_same.
-    + exists (tEvar n (l1 ++ ar2 :: l2 ++ ar1 :: l3)).
-      split; apply ared_evar.
-      * apply All2_app; [now apply All2_same|].
-        apply All2_cons; [now apply ared_step|].
-        now apply All2_same.
-      * apply All2_app; [now apply All2_same|].
-        apply All2_cons; [easy|].
-        apply All2_app; [now apply All2_same|].
-        apply All2_cons; [now apply ared_step|].
-        now apply All2_same.
-  - depelim r2.
-    apply IHr1 in r2 as (? & ? & ?).
-    exists (tLambda na x).
-    now split; apply ared_lambda.
-  - depelim r2.
-    + apply IHr1 in r2 as (? & ? & ?).
-      exists (tLetIn na x body).
-      now split; apply ared_let_in.
-    + exists (tLetIn na val' body').
-      now split; apply ared_let_in; try easy; apply ared_step.
-  - depelim r2.
-    + exists (tLetIn na val' body').
-      now split; apply ared_let_in; try easy; apply ared_step.
-    + apply IHr1 in r2 as (? & ? & ?).
-      exists (tLetIn na val x).
-      now split; apply ared_let_in.
-  - depelim r2.
-    + depelim r1.
-      exists (body'{0 := arg}).
-      split.
-      * apply ared_step, ared1_beta.
-        now eapply ared1_affinely_used.
-      * now apply ared_step, substitution_ared1.
-    + apply IHr1 in r2 as (? & ? & ?).
-      exists (tApp x arg).
-      now split; apply ared_app.
-    + exists (tApp hd' arg').
-      apply ared_step in r1.
-      apply ared_step in r2.
-      now split; apply ared_app.
-  - depelim r2.
-    + exists (body{0 := arg'}).
-      split; [now apply ared_step, ared1_beta|].
-      apply ared_subst; [|reflexivity].
-      constructor; [|constructor].
-      now apply ared_step.
-    + exists (tApp hd' arg').
-      apply ared_step in r1.
-      apply ared_step in r2.
-      now split; apply ared_app.
-    + apply IHr1 in r2 as (? & ? & ?).
-      exists (tApp hd x).
-      now split; apply ared_app.
-  - depelim r2.
-    { apply IHr1 in r2 as (? & ? & ?).
-      exists (tCase ind x brs).
-      split; apply ared_case; try easy.
-      all: apply All2_same; intuition. }
-    exists (tCase ind discr' brs').
-    apply ared_step in r1.
+  induction r2 in t, t1, t2, r1, r2 |- *.
+  - destruct (ared1_refl_diamond _ _ _ r1 H) as (? & ? & ?).
+    exists x0.
+    now split; constructor.
+  - destruct (ared1_refl_diamond _ _ _ r1 H) as (? & ? & ?).
+    apply IHr2 in H1 as (? & ? & ?).
+    exists x1.
     split.
-    + apply ared_case; [easy|].
-      induction H; [|now constructor].
-      constructor.
-      * split; [easy|].
-        now apply ared_step.
-      * apply All2_same; intuition.
-    + apply ared_case; [easy|].
-      apply All2_same; intuition.
-  - depelim r2.
-    { exists (tCase ind discr' brs').
-      apply ared_step in r2.
-      split; apply ared_case; try easy; [apply All2_same; intuition|].
-      induction H.
-      - constructor; [|apply All2_same; intuition].
-        split; [easy|].
-        apply ared_step.
-        easy.
-      - constructor; [split; reflexivity|].
-        assumption. }
-    destruct (OnOne2_left_rooted H H0).
-    + destruct a0 as (? & ? & ?), a1.
-      apply H3 in H5 as (? & ? & ?).
-      exists (tCase ind discr (pref ++ (a.1, x) :: suf)).
-      split; apply ared_case; try easy.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        cbn.
-        split; easy.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        cbn.
-        split; easy.
-    + destruct a as (? & ? & ?), a0.
-      exists (tCase ind discr (l1 ++ ar1 :: l2 ++ ar2 :: l3)).
-      split; apply ared_case; try reflexivity.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [intuition|].
-        apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        split; [congruence|].
-        now apply ared_step.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        split; [congruence|].
-        now apply ared_step.
-    + destruct a as (? & ? & ?), a0.
-      exists (tCase ind discr (l1 ++ ar2 :: l2 ++ ar1 :: l3)).
-      split; apply ared_case; try reflexivity.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        split; [congruence|].
-        now apply ared_step.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [intuition|].
-        apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        split; [congruence|].
-        now apply ared_step.
-  - depelim r2.
-    apply IHr1 in r2 as (? & ? & ?).
-    exists (tProj p x).
-    now split; apply ared_proj.
-  - depelim r2.
-    destruct (OnOne2_left_rooted H H0).
-    + destruct a0 as (? & ? & ? & ?), a1 as (? & ? & ?).
-      apply H3 in H6 as (? & ? & ?).
-      exists (tFix (pref ++ {| dname := dname a; dbody := x; rarg := rarg a |} :: suf) i).
-      split; apply ared_fix.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        cbn.
-        now repeat split.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        cbn.
-        now repeat split.
-    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
-      exists (tFix (l1 ++ ar1 :: l2 ++ ar2 :: l3) i).
-      split; apply ared_fix.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [intuition|].
-        apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
-      exists (tFix (l1 ++ ar2 :: l2 ++ ar1 :: l3) i).
-      split; apply ared_fix.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [intuition|].
-        apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-  - depelim r2.
-    destruct (OnOne2_left_rooted H H0).
-    + destruct a0 as (? & ? & ? & ?), a1 as (? & ? & ?).
-      apply H3 in H6 as (? & ? & ?).
-      exists (tCoFix (pref ++ {| dname := dname a; dbody := x; rarg := rarg a |} :: suf) i).
-      split; apply ared_cofix.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        cbn.
-        now repeat split.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        cbn.
-        now repeat split.
-    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
-      exists (tCoFix (l1 ++ ar1 :: l2 ++ ar2 :: l3) i).
-      split; apply ared_cofix.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [intuition|].
-        apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-    + destruct a as (? & ? & ? & ?), a0 as (? & ? & ?).
-      exists (tCoFix (l1 ++ ar2 :: l2 ++ ar1 :: l3) i).
-      split; apply ared_cofix.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
-      * apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [intuition|].
-        apply All2_app; [apply All2_same; intuition|].
-        apply All2_cons; [|apply All2_same; intuition].
-        repeat split; [congruence| |congruence].
-        now apply ared_step.
+    + now eapply Relation_Operators.t1n_trans.
+    + assumption.
 Qed.
 
-Definition ared1_refl := clos_refl _ ared1.
-
-Lemma confluence1n t t1 t2 :
-  ared1 t t1 ->
-  ared t t2 ->
-  exists t', ared t1 t' /\ ared t2 t'.
+Lemma confluencenn t t1 t2 :
+  clos_trans_1n _ ared1_refl t t1 ->
+  clos_trans_1n _ ared1_refl t t2 ->
+  exists t',
+    clos_trans_1n _ ared1_refl t1 t' /\
+    clos_trans_1n _ ared1_refl t2 t'.
 Proof.
-  rewrite ared_alt, clos_rt_rt1n_iff.
   intros r1 r2.
-  induction r2 in t, t1, t2, r1, r2 |- *.
-  - exists t1.
-    now split; [|apply ared_step].
-  - destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
-    apply ared_alt, clos_rt_rt1n_iff in H1.
-    destruct H0, H1.
-    + exists z.
-      split; [|easy].
-      transitivity y; [easy|].
-      now apply ared_alt, clos_rt_rt1n_iff.
-    + apply IHr2 in H0 as (? & ? & ?).
-    destruct H1, H2.
-    + exists z.
-      split; [|reflexivity].
-      now apply ared_alt, clos_rt_rt1n_iff.
+  induction r1 in t, t1, t2, r1, r2 |- *.
+  - now eapply confluence1n.
+  - pose proof (confluence1n _ _ _ H r2) as (? & ? & ?).
+    apply IHr1 in H0 as (? & ? & ?).
+    exists x1.
+    split; [assumption|].
+    rewrite <- !clos_trans_t1n_iff in *.
+    now eapply t_trans.
+Qed.
 
-  - destruct r1; last first.
-    { now eexists; split. }
-    exists y.
-    now split; [|apply ared_step].
-  - destruct r1; last first.
-    { exists z.
-      split; [|reflexivity].
-      transitivity y; [now apply ared_step|].
-      now apply ared_alt, clos_rt_rt1n_iff. }
-    destruct (ared_diamond _ _ _ H0 H) as (? & ? & ?).
-    destruct H1, H2.
-    + exists z.
-      split; [|reflexivity].
-      now apply ared_alt, clos_rt_rt1n_iff.
-    +
-    + apply IHr2 in H0 as (? & ? & ?).
-      exists x0.
-      apply ared_alt, clos_rt_rt1n_iff in H1.
-    + exists z.
-      split; [|reflexivity].
-      transitivity y; [easy|].
-      apply clos_trans_t1n_iff in r2.
-      now apply clos_trans_ared.
-    + apply IHr2 in H1 as (? & ? & ?).
-      exists x0.
-      apply ared_alt, clos_rt_rt1n_iff in H1.
-      destruct H1.
-
-Lemma confluence1n t t1 t2 :
-  ared1 t t1 ->
-  ared t t2 ->
-  exists t', ared t1 t' /\ ared t2 t'.
+Lemma clos_trans_1n_ared1_refl_ared_iff t t' :
+  clos_trans_1n _ ared1_refl t t' <-> ared t t'.
 Proof.
-  rewrite !ared_alt, !clos_rt_rt1n_iff.
-  intros r1 r2.
-  induction r2 in t, t1, t2, r1, r2 |- *.
-  - exists t1; split; [reflexivity|now apply ared_step].
-  - destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
-    destruct r2.
-    +
-    destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
-    destruct H1.
-    + exists z.
-      split; [|reflexivity].
-      apply clos_rt_rt1n_iff, ared_alt in r2.
-      now transitivity x0.
-    + apply IHr2 in H1.
-    destruct r2.
-    + destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
-      now exists x0.
-    + apply IHr2 in H0 as (? & ? & ?).
-      apply IHr2 in
+  split.
+  - intros r.
+    induction r.
+    + now destruct H; econstructor.
+    + transitivity y; [|easy].
+      destruct H; [|reflexivity].
+      now apply ared_step.
+  - intros r.
+    induction r.
+    + apply Relation_Operators.t1n_step, r_refl.
+    + rewrite <- clos_trans_t1n_iff in *.
+      eapply t_trans; [eassumption|].
+      now apply t_step, r_step.
+Qed.
 
-
-    destruct (ared_diamond _ _ _ r1 H) as (? & ? & ?).
-    apply ared_alt, clos_rt_rt1n_iff in H1.
-    induction H1.
-    + exists z.
-      split; [|reflexivity].
-      now transitivity x0.
-    + apply IHr2 in H1 as (? & ? & ?).
-      apply clos_rt_rt1n_iff, ared_alt in H2.
-      exists x1.
-
-Lemma confluence {t t1 t2} :
+Theorem confluence {t t1 t2} :
   ared t t1 ->
   ared t t2 ->
   exists t', ared t1 t' /\ ared t2 t'.
 Proof.
-  rewrite !ared_alt, !clos_rt_rt1n_iff.
+  rewrite <- !clos_trans_1n_ared1_refl_ared_iff.
   intros r1 r2.
-  induction r1 in t, t1, t2, r1, r2 |- *.
-  - exists t2.
-    now rewrite <- clos_rt_rt1n_iff, <- ared_alt in r2.
-  - induction r2 in t2, x, y, z, H, r1, r2, z, IHr1 |- *.
-    + exists z.
-      split; [reflexivity|].
-      rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1.
-      transitivity y; [|easy].
-      now apply ared_step.
-    + pose proof (ared_diamond _ _ _ H H0) as (t' & ? & ?).
-      rewrite <- clos_rt_rt1n_iff, <- ared_alt in r1, r2.
-      apply ared_alt, clos_rt_rt1n, IHr1 in H1 as r2'.
-      apply
-      apply IHr1 in
-      exists t'.
-      split.
-      * transi
-  Admitted.
+  destruct (confluencenn _ _ _ r1 r2) as (? & ? & ?).
+  now rewrite !clos_trans_1n_ared1_refl_ared_iff in *.
+Qed.
 
 Lemma ared_normal t t' :
   normal t ->

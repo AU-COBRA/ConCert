@@ -959,7 +959,7 @@ Proof.
     destruct (normalize t1) eqn:norm; try easy; cbn in *.
     + now destruct (_ <=? _).
     + unfold affinely_used.
-      rewrite count_uses_lift by easy.
+      rewrite count_uses_lift_other by easy.
       destruct (_ <=? _) eqn:uses; [|easy].
       unfold subst1.
       change [lift n k t2] with (map (lift n k) [t2]).
@@ -1004,49 +1004,6 @@ Proof.
     lia.
 Qed.
 
-(*Definition s := [tLambda nAnon (tRel 0)].
-Definition k := 0.
-Definition t := tApp (tRel 0) (tVar "arg").*)
-(*Compute normalize (subst s k t).
-Compute subst (map normalize s) k (normalize t).
-Compute normalize (subst [tLambda nAnon (tRel 0)] 0 (tApp (tRel 0) (tVar "arg"))).
-Compute normalize (subst [tLambda nAnon (tRel 0)] 0 (normalize (tApp (tRel 0) (tVar "arg")))).*)
-
-(*
-Lemma normalize_head t :
-  match normalize t with
-  | tLambda na body => affinely_used 0 body = false
-  | _ => True
-  end.
-Proof.
-*)
-
-(*
-Lemma affine_lam_body_normalize t :
-  affine_lam_body (normalize t) = None.
-Proof.
-  unfold normalize.
-  funelim (normalize' t); try easy.
-  cbn.
-  unfold affine_lam_body in H.
-  assert (exists na body, (proj
-  destruct (proj1_sig (normalize' t0)).
-  - cbn.
-*)
-
-(*
-Definition s := [tLambda nAnon (tRel 0)].
-Definition k := 0.
-Definition t := tLambda nAnon (tApp (tRel 1) (tRel 0)).
-Compute (subst s k t).
-Compute normalize (subst (map normalize s) k (normalize t)).
-Compute normalize (subst (map normalize s) k (normalize t)).
-
-Lemma affine_lam_body_normalize t :
-  affine_lam_body (normalize t) =
-
-*)
-
 Lemma normalize_subst s k t :
   normalize (subst s k t) = normalize (subst s k (normalize t)).
 Proof.
@@ -1075,7 +1032,7 @@ Proof.
       cbn.
       replace (affinely_used _ _) with true by admit.
       unfold subst1.
-      rewrite <- normalize_subst_r.
+      rewrite <- normalize_subst.
       rewrite normalize_mkApps_normalize_hd.
       rewrite subst_dearg_single.
       rewrite simpl_subst_k by easy.
@@ -1089,7 +1046,7 @@ Proof.
       cbn.
       replace (affinely_used _ _) with true by admit.
       unfold subst1.
-      rewrite <- normalize_subst_r.
+      rewrite <- normalize_subst.
       rewrite normalize_mkApps_normalize_hd.
       rewrite subst_dearg_single.
       cbn.
