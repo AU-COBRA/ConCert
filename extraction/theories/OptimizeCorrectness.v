@@ -925,10 +925,10 @@ Proof.
   intros val norm.
   destruct val.
   - now destruct t.
-  - rewrite normalize_mkApps in norm by (now destruct t).
+  - rewrite normalize_mkApps_notlambda in norm by (now destruct t).
     destruct t; try easy; simp normalize in norm; solve_discr.
   - destruct f; try easy.
-    rewrite normalize_mkApps in norm by easy.
+    rewrite normalize_mkApps_notlambda in norm by easy.
     simp normalize in norm.
     solve_discr.
 Qed.
@@ -946,10 +946,10 @@ Proof.
     rewrite normalize_tLambda in norm.
     noconf norm.
     now eexists.
-  - rewrite normalize_mkApps in norm by (now destruct t).
+  - rewrite normalize_mkApps_notlambda in norm by (now destruct t).
     destruct t; try easy; simp normalize in norm; solve_discr.
   - destruct f; try easy.
-    rewrite normalize_mkApps in norm by easy.
+    rewrite normalize_mkApps_notlambda in norm by easy.
     simp normalize in norm; solve_discr.
 Qed.
 
@@ -974,6 +974,23 @@ Proof.
     + apply IH.
 Qed.
 
+Lemma count_uses_dearg_single_nil k mask t :
+  count_uses k (dearg_single mask t []) = count_uses k t.
+Proof.
+  induction mask as [|[] mask IH] in mask, k, t |- *.
+  - easy.
+  - cbn in *.
+    rewrite IH.
+    rewrite count_uses_lift by lia.
+    now f_equal.
+  - cbn in *.
+    rewrite IH.
+    cbn.
+    rewrite count_uses_lift by lia.
+    rewrite Nat.add_0_r.
+    now f_equal.
+Qed.
+
 Lemma normalize_mkApps_dearg_single mask t args args' :
   normalize (mkApps (dearg_single mask t args) args') =
   normalize (dearg_single mask t (args ++ args')).
@@ -985,7 +1002,10 @@ Proof.
     + rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
       simp normalize.
       cbn.
-      replace (affinely_used _ _) with true by admit.
+      rewrite ared_affinely_used; [|apply ared_to_normalize|]; last first.
+      { unfold affinely_used.
+        rewrite count_uses_dearg_single_nil.
+        now rewrite count_uses_lift_all. }
       unfold subst1.
       rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
@@ -999,7 +1019,11 @@ Proof.
     + rewrite <- normalize_mkApps_normalize_hd, normalize_tApp.
       simp normalize.
       cbn.
-      replace (affinely_used _ _) with true by admit.
+      rewrite ared_affinely_used; [|apply ared_to_normalize|]; last first.
+      { unfold affinely_used.
+        rewrite count_uses_dearg_single_nil.
+        cbn.
+        now rewrite count_uses_lift_all. }
       unfold subst1.
       rewrite <- normalize_subst_r.
       rewrite normalize_mkApps_normalize_hd.
@@ -1010,32 +1034,26 @@ Proof.
       apply IH.
     + now rewrite app_nil_r.
     + apply (IH _ args (t1 :: args')).
-Admitted.
+Qed.
 
-Lemma normalize_mkApps_dearg s args args' :
+Lemma normalize_mkApps_dearg_aux s args args' :
   normalize (mkApps (dearg_aux args s) args') =
   normalize (dearg_aux (args ++ args') s).
 Proof.
   induction s in s, args, args' |- *; cbn in *; try now rewrite <- mkApps_app.
   - now rewrite IHs1.
-  - unfold dearg_const.
-    destruct (find _ _) as [(? & mask)|] eqn:find; [|now rewrite <- mkApps_app].
-    apply normalize_mkApps_dearg_single.
-  - unfold dearg_ctor.
-    apply normalize_mkApps_dearg_single.
+  - apply normalize_mkApps_dearg_single.
+  - apply normalize_mkApps_dearg_single.
   - destruct p.
     now rewrite mkApps_app.
 Qed.
 
-(*
-Lemma count_uses_csubst_dearg_aux k s k' args t :
-  k < k' ->
-  count_uses k (csubst (dearg s) k' (dearg_aux args t)) =
-  count_uses k (dearg_aux args (csubst s k' t)).
-Proof.
-  Admitted.
-*)
+Lemma normalize_mkApps_dearg s args :
+  normalize (mkApps (dearg s) args) =
+  normalize (dearg_aux args s).
+Proof. apply normalize_mkApps_dearg_aux. Qed.
 
+(*
 Lemma normalize_csubst_dearg s k args t :
   normalize (csubst (dearg s) k (dearg_aux args t)) =
   normalize (dearg_aux (map (csubst (dearg s) k) args) (csubst s k t)).
@@ -1087,17 +1105,265 @@ Proof.
     now f_equal.
   -
 *)
+
+Lemma lift_dearg_single n k mask t args :
+  lift n k (dearg_single mask t args) = dearg_single mask (lift n k t) (map (lift n k) args).
+Proof.
+  induction mask as [|[] mask IH] in mask, t, args, k |- *; cbn in *.
+  - now rewrite lift_mkApps.
+  - destruct args.
+    + cbn.
+      rewrite IH.
+      cbn.
+      now symmetry; rewrite permute_lift.
+    + apply IH.
+  - destruct args; cbn.
+    + rewrite IH.
+      cbn.
+      now symmetry; rewrite permute_lift.
+    + apply IH.
+Qed.
+
+Lemma dearg_lambdas_lift n k mask ar t :
+  dearg_lambdas mask ar (lift n k t) =
+  ((dearg_lambdas mask ar t).1, lift n k (dearg_lambdas mask ar t).2).
+Proof.
+  induction mask as [|[] mask IH] in mask, k, t, ar |- *; cbn in *.
+  - easy.
+  - destruct t; try easy; cbn in *.
+    + now destruct (_ <=? _).
+    + change tBox with (lift n k tBox).
+      rewrite <- distr_lift_subst10.
+      now rewrite IH.
+  - destruct t; try easy; cbn in *.
+    + now destruct (_ <=? _).
+    + rewrite IH.
+      cbn.
+      assert (H: forall {A B} (t : A * B), t = (fst t, snd t)) by (now intros ? ? []).
+      now symmetry; rewrite (H _ _ (dearg_lambdas _ _ _)); symmetry.
+Qed.
+
+Lemma lift_dearg_aux n k args t :
+  lift n k (dearg_aux args t) = dearg_aux (map (lift n k) args) (lift n k t).
+Proof.
+  induction t in k, args, t |- * using term_forall_list_ind; cbn in *.
+  - now rewrite lift_mkApps.
+  - rewrite lift_mkApps.
+    cbn.
+    now destruct (_ <=? _).
+  - now rewrite lift_mkApps.
+  - rewrite lift_mkApps.
+    cbn.
+    f_equal.
+    f_equal.
+    induction H; [easy|].
+    cbn in *.
+    now rewrite H, IHForall.
+  - rewrite lift_mkApps.
+    cbn.
+    now rewrite IHt.
+  - rewrite lift_mkApps.
+    cbn.
+    now rewrite IHt1, IHt2.
+  - rewrite IHt1.
+    cbn.
+    now rewrite IHt2.
+  - apply lift_dearg_single.
+  - now rewrite lift_dearg_single.
+  - destruct p.
+    rewrite lift_mkApps.
+    f_equal.
+    unfold dearg_case.
+    destruct (get_mib_masks _ _); last first.
+    + cbn.
+      rewrite IHt.
+      f_equal.
+      induction X; [easy|].
+      cbn.
+      now rewrite p, IHX.
+    + cbn.
+      rewrite IHt.
+      f_equal.
+      unfold mapi.
+      generalize 0.
+      induction X; [easy|]; intros ?.
+      cbn in *.
+      rewrite IHX.
+      f_equal.
+      destruct (find _ _) as [((? & ?) & ?)|].
+      -- rewrite <- dearg_lambdas_lift.
+         now rewrite p.
+      -- cbn.
+         now rewrite p.
+  - rewrite lift_mkApps.
+    cbn.
+    now rewrite IHt.
+  - rewrite lift_mkApps.
+    cbn.
+    f_equal.
+    f_equal.
+    rewrite map_length.
+    induction H in k |- *; [easy|].
+    cbn in *.
+    rewrite <- Nat.add_succ_r.
+    rewrite IHForall.
+    f_equal.
+    unfold map_def.
+    cbn.
+    f_equal.
+    now rewrite H.
+  - rewrite lift_mkApps.
+    cbn.
+    f_equal.
+    f_equal.
+    rewrite map_length.
+    induction H in k |- *; [easy|].
+    cbn in *.
+    rewrite <- Nat.add_succ_r.
+    rewrite IHForall.
+    f_equal.
+    unfold map_def.
+    cbn.
+    f_equal.
+    now rewrite H.
+Qed.
+
+Lemma lift_dearg n k t :
+  lift n k (dearg t) = dearg (lift n k t).
+Proof. apply lift_dearg_aux. Qed.
+
+(*
+Lemma ared1_dearg_aux args t t' :
+  ared1 t t' ->
+  ared (dearg_aux args t) (dearg_aux args t').
+Proof.
+  intros r.
+  induction t in t, t', r, args |- * using term_forall_list_ind; cbn in *.
+  - depelim r.
+  - depelim r.
+  - depelim r.
+  - depelim r.
+    cbn.
+    apply ared_mkApps_l.
+    apply Forall_All in H.
+    apply ared_evar.
+    induction H0; depelim H; intuition.
+  - depelim r.
+    cbn.
+    apply ared_mkApps_l.
+    apply ared_lambda.
+    now apply IHt.
+  - depelim r; apply ared_mkApps_l; apply ared_let_in; try reflexivity;
+      [apply IHt1|apply IHt2]; assumption.
+  - depelim r.
+    + cbn in *.
+      transitivity (mkApps ((dearg body){0 := dearg t2}) args).
+      * apply ared_mkApps_l.
+        apply ared_step.
+        apply ared1_beta.
+        admit.
+      * apply IHt2.
+    depelim r; apply ared_mkApps_l; apply ared_app; try reflexivity;
+      [apply IHt1|apply IHt2]; assumption.
+
+
+Lemma normalize_subst_dearg_aux args s k t :
+  normalize (subst (map dearg s) k (dearg_aux args t)) =
+  normalize (dearg_aux (map (subst (map dearg s) k) args) (subst s k t)).
+Proof.
+  induction t in args, k, t |- * using term_forall_list_ind; cbn in *.
+  - now rewrite subst_mkApps.
+  - rewrite subst_mkApps.
+    cbn.
+    destruct (_ <=? _); [|easy].
+    rewrite nth_error_map.
+    destruct (nth_error _ _) eqn:nth; cbn.
+    + rewrite lift_dearg.
+      now rewrite normalize_mkApps_dearg.
+    + now rewrite map_length.
+  - now rewrite subst_mkApps.
+  - rewrite subst_mkApps.
+    cbn.
+    rewrite !normalize_mkApps_notlambda by easy.
+    simp normalize.
+    f_equal.
+    f_equal.
+    induction H; cbn in *; [easy|].
+    now rewrite H, IHForall.
+  - rewrite subst_mkApps.
+    cbn.
+    rewrite normalize_mkApps_l; symmetry; rewrite normalize_mkApps_l; symmetry.
+    simp normalize.
+    now rewrite IHt.
+  - rewrite subst_mkApps.
+    cbn.
+    rewrite !normalize_mkApps_notlambda by easy.
+    simp normalize.
+    now rewrite IHt1, IHt2.
+  - rewrite IHt1.
+    cbn.
+    f_equal.
+    f_equal.
+    f_equal.
+    rewrite !normalize_mkApps by easy.
+    simp normalize.
+    now rewrite IHt1, IHt2.
+
+    cbn in *.
+    fold (dearg (subst s k t2)).
+    rewrite <- normalize_mkApps_dearg.
+    rewrite H.
+    rewrite IHt1.
+    cbn.
+    pose proof (IHt1
+    rewrite <- IHt1.
+    rewrite IHt2.
+    rewrite normali
+    rewrite IHt2.
+    cbn in *.
+    rewrite H.
+    pose proof (IHt1 (dearg_aux [] t2 :: args)).
+    cbn in *.
+    now rewrite H0.
+  - unfold dearg_const.
+    destruct (find _ _) as [(? & ?)|].
+    + now rewrite subst_dearg_single.
+    + now rewrite subst_mkApps.
+    cbn.
+    now rewrite normalize_mkApps by easy.
+  - rewrite subst_mkApps.
+    cbn.
+    destruct (_ <=? _); [|easy].
+    destruct (nth_error _ _); [|easy].
+    change (map (subst s k) args) with ([] ++ map (subst s k) args).
+    rewrite <- (normalize_mkApps_dearg _ []).
+    cbn.
+    change [] with (map (lift0 k) []).
+    rewrite <- lift_dearg_aux.
+    rewrite normalize_mkApps_normalize.
+    rewrite <- lift_mkApps.
+    apnormalize_mkApps_deargply normalize_mkApps
+*)
+
 Lemma eval_dearg_subst Σ s k t v :
-  Σ ⊢ dearg (csubst s k t) ▷ v ->
+  Σ ⊢ dearg (subst [s] k t) ▷ v ->
   exists v',
-    Σ ⊢ csubst (dearg s) k (dearg t) ▷ v' /\
+    Σ ⊢ subst [dearg s] k (dearg t) ▷ v' /\
     normalize v' = normalize v.
 Proof.
+  Admitted.
+(*
   intros ev.
   induction t using term_forall_list_ind; cbn in *.
   - now exists v.
   - exists v.
-    now destruct (k ?= n).
+    simp normalize.
+    cbn.
+    destruct (_ <=? _); [|easy].
+    destruct (n - k) eqn:?.
+    cbn in *.
+    + now rewrite lift_dearg.
+    + now cbn in *; rewrite nth_error_nil in *.
   - now exists v.
   - now depelim ev.
   - eexists.
@@ -1105,8 +1371,92 @@ Proof.
     rewrite (eval_deterministic ev ltac:(now eapply eval_atom)) in *.
     rewrite !normalize_tLambda.
     f_equal.
+    admit.
+    all: admit.
+Admitted.
+*)
+
+Open Scope string.
+
+(*
+Definition kn := (MPfile [], "foo").
+Definition ind := mkInd kn 0.
+Definition test := tApp (tLambda nAnon (tApp (tConstruct ind 0) (tLambda nAnon (tRel 5))))
+                        (tLambda nAnon (tRel 0)).
+
+Goal True.
+  evar (v : term).
+  assert ([] ⊢ test ▷ v).
+  { eapply eval_beta; eauto using eval.
+    eapply eval_app_cong; eauto using eval. }
+  cbn in *.
+    eapply eval_beta; [now apply eval_atom|now apply eval_atom|].
+    cbn.
+    apply eval_app_cong; [now apply eval_atom| |now apply eval_atom].
+    easy. }
+*)
+
+Lemma eval_normalize Σ t v v' :
+  Σ ⊢ t ▷ v ->
+  Σ ⊢ normalize v ▷ v' ->
+  Σ ⊢ normalize t ▷ v'.
+Proof.
+  Admitted.
+
+(*
+Lemma eval_normalize_hom Σ t v :
+  Σ ⊢ t ▷ v ->
+  Σ ⊢ normalize t ▷ normalize v.
+Proof.
+  intros ev.
+  depind ev; simp normalize in *.
+  - destruct (affine_lam_body (normalize a)) eqn:af.
+    + apply affine_lam_body_Some_inv in af as (? & ? & ?).
+      rewrite H in IHev1.
+      now depelim IHev1.
+    + now eapply eval_box.
+  - destruct (affine_lam_body _) eqn:af.
+    + apply affine_lam_body_Some_inv in af as (? & ? & ?).
+      rewrite H in IHev1.
+      depelim IHev1.
+      unfold subst1.
+      rewrite <- normalize_subst_r.
+      eapply eval_normalize.
+      * apply eval_subst.
+      rewrite normalize_subst.
+      admit.
+    + unfold affine_lam_body in af.
 
 
+Lemma eval_normalize Σ t v :
+  Σ ⊢ t ▷ v <->
+  Σ ⊢ normalize t ▷ normalize v.
+Proof.
+  split; intros ev.
+  - depind ev; simp normalize.
+    + simp
+*)
+
+Example foo : exists t v,
+    [] ⊢ normalize t ▷ normalize v /\ (~ [] ⊢ t ▷ v).
+Proof.
+  exists (tApp (tLambda nAnon (tLambda nAnon (tRel 0))) (tRel 1)), (tLambda nAnon (tRel 0)).
+  split.
+  - simp normalize.
+    cbn.
+    simp normalize.
+    now apply eval_atom.
+  - intros ev.
+    depelim ev.
+    + now depelim ev2.
+    + now depelim ev2.
+Qed.
+
+(*
+Lemma dearg_aux_alt args t :
+  isApp t
+  dearg_aux args t =
+*)
 
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
@@ -1139,16 +1489,12 @@ Proof.
       cbn in *;
       try now econstructor.
     + easy.
-    + unfold dearg_const in *.
-      destruct (find _ _) as [[]|] eqn:find_eq;
-        [|rewrite mkApps_app; cbn in *; now econstructor].
-      rewrite dearg_single_app.
+    + rewrite dearg_single_app.
       apply dearg_single_mask_length in ev_f as ?; [|easy].
       rewrite firstn_all2, skipn_all2 by easy.
       cbn.
       now econstructor.
-    + unfold dearg_ctor in *.
-      rewrite dearg_single_app.
+    + rewrite dearg_single_app.
       apply dearg_single_mask_length in ev_f as ?; [|easy].
       rewrite firstn_all2, skipn_all2 by easy.
       cbn.
@@ -1172,11 +1518,66 @@ Proof.
     destruct (value_normalize_tLambda _ _ _ value_x norm_lam) as (body & -> & norm_body).
     clear norm_lam value_x.
 
-    exists sub.
-    split; [|easy].
     destruct f0; cbn in *.
-    + rewrite ?mkApps_app.
-      eapply eval_beta; [eassumption|eassumption|].
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + refold'.
+      rewrite mkApps_app.
+      cbn.
+      eexists; split.
+      eapply eval_beta.
+      eassumption.
+      eassumption.
+      rewrite closed_subst in ev_sub by admit.
+      apply eval_dearg_subst in ev_sub as (? & ? & ?).
+      rewrite <- norm_a, <- norm_body in H.
+      rewrite eval_dearg_
+      (* have: normalize av = normalize (dearg a')
+               subst [av] 0 body =
+      (* red  t' ->
+         subst s k t = foo ->
+         subst
+
+      (* need something about subst [dearg a] 0 (dearg b) *)
+      rewrite closed_subst in ev_sub by admit.
+      apply eval_dearg_subst in ev_sub as (? & ? & ?).
+      exists (normalize x).
+      rewrite H0.
+      rewrite normalize_normalize.
+      split; [|congruence].
+      assert (H': forall t v, Σ ⊢ normalize t ▷ normalize v <-> Σ ⊢ t ▷ v) by admit.
+      apply H'.
+      rewrite normalize_mkApps.
+      apply H'.
+      rewrite map_app.
+      rewrite ?mkApps_app.
+      cbn.
+      eapply eval_beta.
+      2: { apply H'. eassumption. }
+      2: { rewrite closed_subst by admit.
+           rewrite norm_a.
+           apply H'.
+           rewrite <- (normalize_subst [dearg a']).
+           rewrite <- H0, normalize_normalize.
+           apply H'.
+           eassumption. }
+      rewrite <- norm_body.
+      apply H'.
+      rewrite <- normalize_mkApps.
+      rewrite <- normalize_tLambda.
+      rewrite normalize_normalize.
+      apply H'.
+      eassumption.
+      admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    +
+      rewrite closed_subst by admit.
+      eapply eval_dearg_subst.
       (* normalize x = tLambda na (normalize (dearg b)) and
          normalize
       try now econstructor.

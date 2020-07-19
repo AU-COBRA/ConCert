@@ -113,25 +113,23 @@ Fixpoint dearg_single (mask : bitmask) (t : term) (args : list term) : term :=
   | [], _ => mkApps t args
   end.
 
-Definition dearg_ctor (ind : inductive) (c : nat) (args : list term) : term :=
-  let mask :=
-      match get_mib_masks (inductive_mind ind) with
-      | Some mib_masks =>
-        let ctor_mask :=
-            match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
-                       (ctor_masks mib_masks) with
-            | Some (_, _, ctor_mask) => ctor_mask
-            | None => []
-            end in
-        param_mask mib_masks ++ ctor_mask
-      | None => []
-      end in
-  dearg_single mask (tConstruct ind c) args.
+Definition get_ctor_mask (ind : inductive) (c : nat) : bitmask :=
+  match get_mib_masks (inductive_mind ind) with
+  | Some mib_masks =>
+    let ctor_mask :=
+        match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
+                   (ctor_masks mib_masks) with
+        | Some (_, _, ctor_mask) => ctor_mask
+        | None => []
+        end in
+    param_mask mib_masks ++ ctor_mask
+  | None => []
+  end.
 
-Definition dearg_const (kn : kername) (args : list term) : term :=
+Definition get_const_mask (kn : kername) : bitmask :=
   match find (fun '(kn', _) => eq_kername kn' kn) const_masks with
-  | Some (_, mask) => dearg_single mask (tConst kn) args
-  | None => mkApps (tConst kn) args
+  | Some (_, mask) => mask
+  | None => []
   end.
 
 Fixpoint dearg_lambdas (mask : bitmask) (ar : nat) (t : term) : nat * term :=
@@ -164,8 +162,8 @@ Definition dearg_case
 Fixpoint dearg_aux (args : list term) (t : term) : term :=
   match t with
   | tApp hd arg => dearg_aux (dearg_aux [] arg :: args) hd
-  | tConstruct ind c => dearg_ctor ind c args
-  | tConst kn => dearg_const kn args
+  | tConstruct ind c => dearg_single (get_ctor_mask ind c) t args
+  | tConst kn => dearg_single (get_const_mask kn) t args
   | tCase (ind, npars) discr brs =>
     let discr := dearg_aux [] discr in
     let brs := map (on_snd (dearg_aux [])) brs in

@@ -424,6 +424,8 @@ Inductive ared : term -> term -> Prop :=
 | ared_refl x : ared x x
 | ared_trans1 x y z : ared x y -> ared1 y z -> ared x z.
 
+Derive Signature for ared.
+
 Lemma ared_alt t t' :
   ared t t' <-> clos_refl_trans _ ared1 t t'.
 Proof.
@@ -838,6 +840,27 @@ Proof.
   - now apply ared_ared.
 Qed.
 
+Lemma ared_mkApps hd hd' args args' :
+  ared hd hd' ->
+  All2 ared args args' ->
+  ared (mkApps hd args) (mkApps hd' args').
+Proof.
+  intros r a.
+  induction a in hd, hd', r |- *; [easy|].
+  cbn in *.
+  apply IHa.
+  now apply ared_app.
+Qed.
+
+Lemma ared_mkApps_l hd hd' args :
+  ared hd hd' ->
+  ared (mkApps hd args) (mkApps hd' args).
+Proof.
+  intros r.
+  apply ared_mkApps; [easy|].
+  now apply All2_same.
+Qed.
+
 Lemma ared1_count_uses t t' k :
   ared1 t t' ->
   count_uses k t' <= count_uses k t.
@@ -876,6 +899,16 @@ Proof.
       now apply plus_le_compat_l.
 Qed.
 
+Lemma ared_count_uses t t' k :
+  ared t t' ->
+  count_uses k t' <= count_uses k t.
+Proof.
+  intros r.
+  induction r; [easy|].
+  apply (ared1_count_uses _ _ k) in H.
+  lia.
+Qed.
+
 Lemma ared1_affinely_used t t' :
   ared1 t t' ->
   affinely_used 0 t ->
@@ -886,6 +919,17 @@ Proof.
   propify.
   pose proof (ared1_count_uses _ _ 0 r).
   lia.
+Qed.
+
+Lemma ared_affinely_used t t' :
+  ared t t' ->
+  affinely_used 0 t ->
+  affinely_used 0 t'.
+Proof.
+  intros r af.
+  unfold affinely_used in *.
+  propify.
+  now apply (ared_count_uses _ _ 0) in r.
 Qed.
 
 Lemma cons_skipn {A} (x : A) i l :
@@ -1995,7 +2039,7 @@ Proof.
   now propify.
 Qed.
 
-Lemma normalize_mkApps hd args :
+Lemma normalize_mkApps_notlambda hd args :
   isLambda (normalize hd) = false ->
   normalize (mkApps hd args) =
   mkApps (normalize hd) (map normalize args).
@@ -2267,5 +2311,33 @@ Proof.
   rewrite normalize_subst.
   rewrite <- (normalize_normalize t).
   rewrite <- normalize_subst.
+  now rewrite normalize_normalize.
+Qed.
+
+Lemma normalize_mkApps hd args :
+  normalize (mkApps hd args) = normalize (mkApps (normalize hd) (map normalize args)).
+Proof.
+  pose proof (ared_to_normalize (mkApps hd args)) as red1.
+  assert (red2: ared (mkApps hd args) (normalize (mkApps (normalize hd) (map normalize args)))).
+  { etransitivity.
+    apply ared_mkApps.
+    - apply ared_to_normalize.
+    - eapply All2_map_right.
+      apply All2_same.
+      intros.
+      apply ared_to_normalize.
+    - apply ared_to_normalize. }
+  pose proof (confluence red1 red2) as (? & ? & ?).
+  eapply ared_normal in H; [|apply normal_normalize].
+  eapply ared_normal in H0; [|apply normal_normalize].
+  congruence.
+Qed.
+
+Lemma normalize_mkApps_l hd args :
+  normalize (mkApps hd args) = normalize (mkApps (normalize hd) args).
+Proof.
+  rewrite normalize_mkApps.
+  rewrite <- (normalize_normalize hd).
+  rewrite <- normalize_mkApps.
   now rewrite normalize_normalize.
 Qed.
