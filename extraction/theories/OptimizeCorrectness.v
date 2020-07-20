@@ -1232,6 +1232,20 @@ Lemma lift_dearg n k t :
   lift n k (dearg t) = dearg (lift n k t).
 Proof. apply lift_dearg_aux. Qed.
 
+Definition aeq t t' :=
+  normalize t = normalize t'.
+
+Instance Equivalence_aeq : Equivalence aeq.
+Proof. now constructor. Qed.
+
+Notation "t ≡ t'" := (aeq t t') (at level 70) : type_scope.
+
+Definition aeval Σ t v :=
+  exists v', Σ ⊢ t ▷ v' /\ v' ≡ v.
+
+Notation "Σ ⊢ t ▷≡ v" := (aeval Σ t v) (at level 50, t, v at next level) : type_scope.
+
+
 (*
 Lemma ared1_dearg_aux args t t' :
   ared1 t t' ->
@@ -1346,10 +1360,8 @@ Proof.
 *)
 
 Lemma eval_dearg_subst Σ s k t v :
-  Σ ⊢ dearg (subst [s] k t) ▷ v ->
-  exists v',
-    Σ ⊢ subst [dearg s] k (dearg t) ▷ v' /\
-    normalize v' = normalize v.
+  Σ ⊢ dearg (subst [s] k t) ▷≡ v ->
+  Σ ⊢ subst [dearg s] k (dearg t) ▷≡ v.
 Proof.
   Admitted.
 (*
@@ -1375,8 +1387,6 @@ Proof.
     all: admit.
 Admitted.
 *)
-
-Open Scope string.
 
 (*
 Definition kn := (MPfile [], "foo").
@@ -1452,7 +1462,66 @@ Proof.
     + now depelim ev2.
 Qed.
 
+Lemma aeval_lambda_inv Σ t na body :
+  Σ ⊢ t ▷≡ tLambda na body ->
+  exists body',
+    Σ ⊢ t ▷ tLambda na body' /\
+    normalize body' = normalize body.
+Proof.
+  intros (lam & ev & norm).
+  apply eval_to_value in ev as val.
+  destruct (value_normalize_tLambda _ _ _ val norm) as (body' & -> & norm_body).
+  unfold aeq in *.
+  simp normalize in norm.
+  exists body'.
+  now split.
+Qed.
+
 (*
+Lemma eval_subst_congr_value Σ a a' k t t' v :
+  a ≡ a' ->
+  t ≡ t' ->
+  value
+  Σ ⊢ csubst a k t ▷≡ v ->
+  Σ ⊢ csubst a' k t' ▷≡ v.
+Proof.
+  intros aeqv teqv.
+  enough (forall v, Σ ⊢ csubst a k t ▷ v -> Σ ⊢ csubst a' k t' ▷≡ v).
+  { intros (norm & ev & eq).
+    specialize (H norm ev) as (norm' & ev' & ?).
+    now exists norm'. }
+
+  unfold aeq in teqv.
+  clear v; intros v ev.
+  induction t in a, a', k, t, t', aeqv, teqv, v, ev |- * using term_forall_list_ind;
+    cbn in *.
+  - (* seems doable since t' must be repeated app/lambda *)
+    simp normalize in teqv.
+    assert (csubst _ _ (tApp (tLambda nAnon tBox) (tRel 5))).
+    admit.
+  - destruct (_ ?= _); try now depelim ev.
+    admit.
+  - now depelim ev.
+  - now depelim ev.
+  - depelim ev.
+    unfold aeq in teq.
+*)
+
+
+(*
+Lemma aeval_beta Σ f na body a av res :
+  Σ ⊢ f ▷≡ tLambda na body ->
+  Σ ⊢ a ▷≡ av ->
+  Σ ⊢ subst [av] 0 body ▷≡ res ->
+  Σ ⊢ tApp f a ▷≡ res.
+Proof.
+  intros evf eva evsub.
+  apply aeval_lambda_inv in evf as (body' & evf & normf).
+  destruct eva as (av' & eva & norma).
+*)
+
+(*
+Lemma eval_dearg_aux_app
 Lemma dearg_aux_alt args t :
   isApp t
   dearg_aux args t =
@@ -1460,9 +1529,7 @@ Lemma dearg_aux_alt args t :
 
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  exists dv,
-    Σ ⊢ dearg_aux (map dearg args) hd ▷ dv /\
-    normalize dv = normalize (dearg v).
+  Σ ⊢ dearg_aux (map dearg args) hd ▷≡ dearg v.
 Proof.
   intros ev.
   depind ev.
@@ -1476,11 +1543,13 @@ Proof.
     specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
     cbn in *.
     refold'.
+    unfold aeq in *.
     rewrite normalize_tBox in *.
     replace fv with tBox in *; cycle 1.
     { apply eval_to_value in ev_f.
       apply value_normalize_tBox in ev_f; [|easy].
       congruence. }
+    (* Σ ⊢ mkApps (dearg_aux (map dearg l) f) (dearg t) f ▷≡ tBox *)
     exists tBox.
     split; [|easy].
     destruct f;
@@ -1509,10 +1578,23 @@ Proof.
     cbn in *.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ eq_refl) as (? & ev_lam & norm_lam).
-    specialize (IHev2 _ [] _ eq_refl) as (av & ev_a & norm_a).
-    specialize (IHev3 _ [] _ eq_refl) as (sub & ev_sub & norm_sub).
+    specialize (IHev1 _ _ _ eq_refl).
+    specialize (IHev2 _ [] _ eq_refl).
+    specialize (IHev3 _ [] _ eq_refl).
     cbn in *; refold'.
+    rewrite closed_subst in IHev3 by admit.
+    apply eval_dearg_subst in IHev3.
+    assert (Σ ⊢ subst0 [dearg a] (dearg b) ▷≡ dearg res) by admit.
+    destruct f0; cbn in *.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + refold'.
+      rewrite mkApps_app.
+      cbn.
+      now eapply aeval_beta.
+    +
     rewrite normalize_tLambda in norm_lam.
     apply eval_to_value in ev_lam as value_x.
     destruct (value_normalize_tLambda _ _ _ value_x norm_lam) as (body & -> & norm_body).
