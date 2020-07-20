@@ -1241,9 +1241,9 @@ Proof. now constructor. Qed.
 Notation "t ≡ t'" := (aeq t t') (at level 70) : type_scope.
 
 Definition aeval Σ t v :=
-  exists v', Σ ⊢ t ▷ v' /\ v' ≡ v.
+  exists v', Σ ⊢ t ▷ v' /\ ared v' v.
 
-Notation "Σ ⊢ t ▷≡ v" := (aeval Σ t v) (at level 50, t, v at next level) : type_scope.
+Notation "Σ ⊢ t ▷▷ v" := (aeval Σ t v) (at level 50, t, v at next level) : type_scope.
 
 
 (*
@@ -1359,6 +1359,7 @@ Proof.
     apnormalize_mkApps_deargply normalize_mkApps
 *)
 
+(*
 Lemma eval_dearg_subst Σ s k t v :
   Σ ⊢ dearg (subst [s] k t) ▷≡ v ->
   Σ ⊢ subst [dearg s] k (dearg t) ▷≡ v.
@@ -1386,6 +1387,7 @@ Proof.
     admit.
     all: admit.
 Admitted.
+*)
 *)
 
 (*
@@ -1462,8 +1464,9 @@ Proof.
     + now depelim ev2.
 Qed.
 
+(*
 Lemma aeval_lambda_inv Σ t na body :
-  Σ ⊢ t ▷≡ tLambda na body ->
+  Σ ⊢ t ▷▷ tLambda na body ->
   exists body',
     Σ ⊢ t ▷ tLambda na body' /\
     normalize body' = normalize body.
@@ -1476,6 +1479,7 @@ Proof.
   exists body'.
   now split.
 Qed.
+*)
 
 (*
 Lemma eval_subst_congr_value Σ a a' k t t' v :
@@ -1527,9 +1531,52 @@ Lemma dearg_aux_alt args t :
   dearg_aux args t =
 *)
 
+Lemma aeval_to_lambda Σ t na body :
+  Σ ⊢ t ▷▷ tLambda na body ->
+  exists body',
+    Σ ⊢ t ▷ tLambda na body' /\
+    ared body' body.
+Proof.
+  intros (lam & ev & norm).
+  remember (tLambda na body).
+  induction norm in norm, Heqt0, lam, t0, na, body, ev |- * using ared_rev_ind;
+    subst.
+  - now eexists; split.
+  - destruct (eval_to_value _ _ _ ev).
+    + depelim norm.
+      * depelim H; [easy|].
+        apply IHnorm in ev.
+    destruct ev.
+    + destruct H; try easy.
+    depelim H.
+    + apply eval_to_value in ev.
+      destruct ev.
+      * depelim norm; [easy|].
+
+  remember (tLambda na body).
+  induction norm.
+  induction norm using ared_rev_ind; subst.
+  - now eexists; split.
+  - apply eval_to_value
+    depelim H.
+  depelim norm; [eexists; now split|].
+  apply eval_to_value in ev.
+  destruct ev.
+  - depelim H.
+  depind norm.
+  - eexists; now split.
+  - depelim H.
+  destruct val.
+  - destruct t0; try easy; try depelim norm.
+  destruct (value_normalize_tLambda _ _ _ val norm) as (body' & -> & norm_body).
+  unfold aeq in *.
+  simp normalize in norm.
+  exists body'.
+  now split.
+
 Lemma dearg_correct Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  Σ ⊢ dearg_aux (map dearg args) hd ▷≡ dearg v.
+  Σ ⊢ dearg_aux (map dearg args) hd ▷▷ dearg v.
 Proof.
   intros ev.
   depind ev.
@@ -1539,39 +1586,10 @@ Proof.
     cbn in *.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ eq_refl) as (fv & ev_f & drf).
-    specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
-    cbn in *.
-    refold'.
-    unfold aeq in *.
-    rewrite normalize_tBox in *.
-    replace fv with tBox in *; cycle 1.
-    { apply eval_to_value in ev_f.
-      apply value_normalize_tBox in ev_f; [|easy].
-      congruence. }
-    (* Σ ⊢ mkApps (dearg_aux (map dearg l) f) (dearg t) f ▷≡ tBox *)
-    exists tBox.
-    split; [|easy].
-    destruct f;
-      cbn in *;
-      rewrite ?mkApps_app;
-      cbn in *;
-      try now econstructor.
-    + easy.
-    + rewrite dearg_single_app.
-      apply dearg_single_mask_length in ev_f as ?; [|easy].
-      rewrite firstn_all2, skipn_all2 by easy.
-      cbn.
-      now econstructor.
-    + rewrite dearg_single_app.
-      apply dearg_single_mask_length in ev_f as ?; [|easy].
-      rewrite firstn_all2, skipn_all2 by easy.
-      cbn.
-      now econstructor.
-    + destruct p.
-      rewrite mkApps_app.
-      cbn.
-      now econstructor.
+    specialize (IHev1 _ _ _ eq_refl).
+    specialize (IHev2 _ [] _ eq_refl).
+    cbn in *; refold'.
+    admit.
   - destruct (mkApps_elim hd args).
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
@@ -1579,12 +1597,10 @@ Proof.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
     specialize (IHev1 _ _ _ eq_refl).
-    specialize (IHev2 _ [] _ eq_refl).
+    specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
     specialize (IHev3 _ [] _ eq_refl).
     cbn in *; refold'.
     rewrite closed_subst in IHev3 by admit.
-    apply eval_dearg_subst in IHev3.
-    assert (Σ ⊢ subst0 [dearg a] (dearg b) ▷≡ dearg res) by admit.
     destruct f0; cbn in *.
     + admit.
     + admit.
@@ -1593,7 +1609,10 @@ Proof.
     + refold'.
       rewrite mkApps_app.
       cbn.
-      now eapply aeval_beta.
+      eexists.
+      split.
+      * eapply eval_beta; [easy|easy|].
+      eapply aeval_beta.
     +
     rewrite normalize_tLambda in norm_lam.
     apply eval_to_value in ev_lam as value_x.

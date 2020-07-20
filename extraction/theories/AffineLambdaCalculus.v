@@ -463,6 +463,25 @@ Proof.
   now eapply ared_trans1; [apply ared_refl|].
 Qed.
 
+Lemma ared_rev_ind
+      (P : term -> term -> Prop)
+      (Hrefl : forall x, P x x)
+      (Htrans : forall x y z,
+          ared1 x y ->
+          ared y z ->
+          P y z ->
+          P x z) :
+  forall t t', ared t t' -> P t t'.
+Proof.
+  intros t t'.
+  intros r.
+  apply ared_alt, clos_rt_rt1n_iff in r.
+  induction r.
+  - apply Hrefl.
+  - eapply Htrans; [eassumption| |easy].
+    now apply clos_rt_rt1n_iff, ared_alt in r.
+Qed.
+
 Lemma OnOne2_split {A} (P : A -> A -> Type) l l' :
   OnOne2 P l l' ->
   ∑ pref a a' suf,
@@ -733,14 +752,11 @@ Lemma substitution_ared s k t t' :
   ared t t' ->
   ared (subst s k t) (subst s k t').
 Proof.
-  rewrite !ared_alt, !clos_rt_rt1n_iff.
   intros r.
-  induction r.
-  - apply rt1n_refl.
-  - rewrite <- !clos_rt_rt1n_iff, <- !ared_alt in *.
-    transitivity (subst s k y); [|easy].
-    apply ared_step.
-    now apply substitution_ared1.
+  induction r using ared_rev_ind; [reflexivity|].
+  transitivity (subst s k y); [|easy].
+  apply ared_step.
+  now apply substitution_ared1.
 Qed.
 
 Lemma ared1_lift t t' n k :
@@ -781,14 +797,11 @@ Lemma ared_lift t t' n k :
   ared t t' ->
   ared (lift n k t) (lift n k t').
 Proof.
-  rewrite !ared_alt, !clos_rt_rt1n_iff.
   intros r.
-  induction r.
-  - apply rt1n_refl.
-  - rewrite <- !clos_rt_rt1n_iff, <- !ared_alt in *.
-    transitivity (lift n k y); [|easy].
-    apply ared_step.
-    now apply ared1_lift.
+  induction r using ared_rev_ind; [reflexivity|].
+  transitivity (lift n k y); [|easy].
+  apply ared_step.
+  now apply ared1_lift.
 Qed.
 
 Lemma ared_ared s s' k t :
@@ -2063,10 +2076,8 @@ Lemma ared_normal t t' :
   ared t t' ->
   t' = t.
 Proof.
-  rewrite ared_alt.
   intros norm r.
-  apply clos_rt_rt1n_iff in r.
-  induction r; [easy|].
+  induction r using ared_rev_ind; [easy|].
   now apply norm in H.
 Qed.
 
