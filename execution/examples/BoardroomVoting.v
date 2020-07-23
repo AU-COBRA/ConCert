@@ -329,40 +329,28 @@ Lemma no_outgoing bstate caddr :
   env_contracts bstate caddr = Some (boardroom_voting : WeakContract) ->
   outgoing_acts bstate caddr = [].
 Proof.
-  contract_induction; intros; cbn -[Nat.ltb] in *; auto.
-  - now inversion IH.
-  - destruct msg as [msg|]; cbn -[Nat.ltb] in *; try congruence.
-    destruct msg.
-    + destruct (_ <? _); cbn in *; try congruence.
-      destruct (FMap.find _ _); cbn in *; try congruence.
-      destruct (FMap.find _ _); cbn in *; try congruence.
-      destruct (_ =? _)%Z; cbn in *; try congruence.
-      destruct (_ <? _)%Z; cbn in *; try congruence.
-      destruct (verify_secret_key_proof _ _ _); cbn in *; try congruence.
-      now inversion_clear receive_some.
-    + destruct (finish_commit_by _); cbn -[Nat.ltb] in *; try congruence.
-      destruct (_ <? _); cbn in *; try congruence.
-      destruct (FMap.find _ _); cbn in *; try congruence.
-      now inversion_clear receive_some.
-    + destruct (_ <? _); cbn in *; try congruence.
-      destruct (FMap.find _ _); cbn in *; try congruence.
-      destruct (if finish_commit_by _ then _ else _); cbn in *; try congruence.
-      destruct (verify_secret_vote_proof _ _ _ _); cbn in *; try congruence.
-      now inversion_clear receive_some.
-    + destruct (_ <? _); cbn in *; try congruence.
-      destruct (result _); cbn in *; try congruence.
-      destruct (existsb _ _); cbn in *; try congruence.
-      destruct (bruteforce_tally _); cbn in *; try congruence.
-      now inversion_clear receive_some.
-  - inversion IH.
-  - subst out_queue.
-    now apply Permutation_nil in perm.
-  - [AddBlockFacts]: exact (fun _ _ _ _ _ _ => True).
-    [DeployFacts]: exact (fun _ _ => True).
-    [CallFacts]: exact (fun _ _ _ => True).
-    unset_all; subst.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
+  intros.
+  apply (lift_outgoing_acts_nil boardroom_voting); try easy.
+  intros.
+  destruct msg as [msg|]; cbn -[Nat.ltb] in *; try congruence.
+  destruct msg.
+  - destruct (_ <? _); cbn in *; try congruence.
+    destruct (FMap.find _ _); cbn in *; try congruence.
+    destruct (FMap.find _ _); cbn in *; try congruence.
+    destruct (_ =? _)%Z; cbn in *; try congruence.
+    destruct (_ <? _)%Z; cbn in *; try congruence.
+    destruct (verify_secret_key_proof _ _ _); cbn in *; congruence.
+  - destruct (finish_commit_by _); cbn -[Nat.ltb] in *; try congruence.
+    destruct (_ <? _); cbn in *; try congruence.
+    destruct (FMap.find _ _); cbn in *; congruence.
+  - destruct (_ <? _); cbn in *; try congruence.
+    destruct (FMap.find _ _); cbn in *; try congruence.
+    destruct (if finish_commit_by _ then _ else _); cbn in *; try congruence.
+    destruct (verify_secret_vote_proof _ _ _ _); cbn in *; congruence.
+  - destruct (_ <? _); cbn in *; try congruence.
+    destruct (result _); cbn in *; try congruence.
+    destruct (existsb _ _); cbn in *; try congruence.
+    destruct (bruteforce_tally _); cbn in *; congruence.
 Qed.
 
 Lemma Permutation_modify k vold vnew (m : FMap Address VoterInfo) :
