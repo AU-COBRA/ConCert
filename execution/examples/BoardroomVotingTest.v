@@ -80,7 +80,7 @@ Definition signups : list Msg :=
    using the make_vote_msg function provided by the contract.
    In this example we just use the secret key as the random parameters. *)
 Definition votes : list Msg :=
-  Eval native_compute in map (fun '(i, sk, sv, rk) => make_vote_msg hash_func sk rk sv i sk sk sk)
+  Eval native_compute in map (fun '(i, sk, sv, rk) => make_vote_msg hash_func pks i sk sv sk sk sk)
                              (zip (zip (zip (seq 0 (length pks)) sks) svs) rks).
 
 Definition AddrSize := (2^128)%N.
