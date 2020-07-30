@@ -105,7 +105,6 @@ Module CrowdfundingContract.
 (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
   Definition actions_ty := [! List SimpleActionBody !].
-
   Notation "'Transfer' a b" :=
     [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
       (in custom expr at level 0,
@@ -177,7 +176,6 @@ Module CrowdfundingContract.
               | Nothing -> #Nothing)
              else #Nothing : Maybe Result |].
 
-   Compute crowdfunding.
   MetaCoq Unquote Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).
 

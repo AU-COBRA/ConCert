@@ -72,7 +72,7 @@ Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
   Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq):
-    Chain (BaseTypes:=CB) -> ContractCallContext (BaseTypes:=CB) -> Setup -> option State_coq
+    Chain (Base:=CB) -> ContractCallContext (Base:=CB) -> Setup -> option State_coq
     := fun c cc setup => Some (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
   Definition wrapped_init
@@ -260,21 +260,6 @@ Proof.
   rewrite undeployed_contract_no_out_txs, undeployed_contract_no_in_txs,
           contract_no_created_blocks; auto.
 Qed.
-
-(* FIXME: move to Blockchain *)
-Definition is_deploy (ac : ActionBody) : bool :=
-  match ac with
-  | act_transfer _ _ => false
-  | act_call _ _ _ => false
-  | act_deploy _ _ _ => true
-  end.
-
-Definition is_call (ac : ActionBody) : bool :=
-  match ac with
-  | act_transfer _ _ => false
-  | act_call _ _ _ => true
-  | act_deploy _ _ _ => false
-  end.
 
 Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
   reachable bstate ->

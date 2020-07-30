@@ -3,7 +3,7 @@ From ConCert.Embedding Require Import Ast Notations CustomTactics
      PCUICTranslate PCUICtoTemplate Utils MyEnv.
 
 From ConCert.Extraction Require Import Certified LPretty.
-From ConCert.Extraction.Examples Require Import Prelude CrowdfundingData Crowdfunding SimpleBlockchain.
+From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -37,8 +37,8 @@ Definition TT : env string :=
      ; remap <% @fst %> "fst"
      ; remap <% @snd %> "snd"
      ; remap <% option %> "option"
-     ; remap <% addr_map %> "(address,tez) map"
-     ; remap <% SimpleActionBody %> "operation"
+     ; remap <% Maps.addr_map_coq %> "(address,tez) map"
+     ; remap <% SimpleActionBody_coq %> "operation"
 
      ; remap <% Z.add %> "addTez"
      ; remap <% Z.eqb %> "eqTez"
@@ -49,8 +49,8 @@ Definition TT : env string :=
      ; remap <% eqb_addr %> "eq_addr"
      ; remap <% andb %> "andb"
      ; remap <% negb %> "not"
-     ; remap <% add_map %> "Map.add"
-     ; remap <% lookup %> "Map.find"
+     ; remap <% Maps.add_map %> "Map.add"
+     ; remap <% lookup_map' %> "Map.find"
 
      ; ("Z0" ,"0DUN")
      ; ("nil", "[]")
@@ -62,7 +62,6 @@ Definition TT : env string :=
      ; local_def <% maybe_bind_unit %>
      ; local_def <% set_done %>
      ; local_def <% validate %>
-
   ].
 
 
@@ -71,8 +70,8 @@ Definition printWrapperAndMain :=
 | Some v -> v| None -> failwith ()
 let%entry main (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = wrapper msg st".
 
-Time Run TemplateProgram
-     (ind <- tmQuoteInductive "msg_coq" ;;
+Time MetaCoq Run
+     (ind <- tmQuoteInductive <%% msg_coq %%> ;;
      ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
      t1 <- toLiquidity PREFIX TT update_contribs ;;
      t2 <- toLiquidity PREFIX TT maybe_bind_unit ;;

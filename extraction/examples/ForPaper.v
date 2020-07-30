@@ -10,7 +10,8 @@ From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
 From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
      TemplateToPCUIC.
 
-From ConCert Require Import MyEnv Certified.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Extraction Require Import Certified LPretty.
 
 From Coq Require Import List String.
 
@@ -55,3 +56,18 @@ Definition square (xs : list nat) : list nat := map (fun x => x * x) xs.
 Quote Recursively Definition square_prog := (unfolded square).
 Compute erase_print_with_boxes square_prog.
 Compute erase_print_deboxed_all_applied square_prog.
+
+Definition local_def := local "".
+
+(** A translation table for various constants we want to rename *)
+Definition TT : env string :=
+  [  remap <% List.map %> "List.map" ;
+     remap <% Nat.mul %> "mulNat" ;
+     remap <% nat %> "nat" ;
+     remap <% list %> "list"].
+
+Quote Recursively Definition square_syn := (unfolded square).
+
+Time Run TemplateProgram
+     (t1 <- toLiquidity "" TT square ;;
+      tmPrint t1).

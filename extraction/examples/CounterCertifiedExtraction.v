@@ -6,7 +6,6 @@ From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Extraction Require Import LPretty Certified.
-From ConCert.Extraction Require Import Counter.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -38,7 +37,7 @@ Module Counter.
     (st.1 - new_balance, st.2).
 
   Definition counter (msg : msg) (st : storage)
-    : option (list SimpleActionBody * storage) :=
+    : option (list SimpleActionBody_coq * storage) :=
     match msg with
     | Inc i =>
       if (0 <=? i) then
@@ -105,13 +104,15 @@ Definition TT : env string :=
      ; local_def <% dec_balance %>
   ].
 
-Quote Recursively Definition counter_syn := (unfolded counter).
+MetaCoq Quote Recursively Definition counter_syn := (unfolded counter).
+
+Time Eval vm_compute in (erase_and_check_applied counter_syn).
 
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. Even though the de-boxing is not certified yet, before removing boxes we check if constant is applied to all logical argument (i.e. proofs or types) and constructors are fully applied. In this case, it is safe to remove these applications. *)
-Time Run TemplateProgram
-    (storage_def <- tmQuoteConstant "storage" false ;;
+Time MetaCoq Run
+    (storage_def <- tmQuoteConstant <%% storage %%> false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
-     ind <- tmQuoteInductive "msg" ;;
+     ind <- tmQuoteInductive <%% msg %%> ;;
      ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
      t1 <- toLiquidity PREFIX TT inc_balance ;;
      t2 <- toLiquidity PREFIX TT dec_balance ;;

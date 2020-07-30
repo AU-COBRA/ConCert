@@ -7,7 +7,6 @@ From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Extraction Require Import LPretty Certified.
-From ConCert.Extraction Require Import Counter.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -44,7 +43,7 @@ Module Counter.
   Definition my_bool_dec := Eval compute in bool_dec.
 
   Definition counter (msg : msg) (st : storage)
-    : option (list SimpleActionBody * storage) :=
+    : option (list SimpleActionBody_coq * storage) :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
@@ -90,7 +89,7 @@ Definition TT : env string :=
      ; local_def <% dec_balance %>
   ].
 
-Quote Recursively Definition ex_partially_applied_syn :=
+MetaCoq Quote Recursively Definition ex_partially_applied_syn :=
   ((fun msg : msg => fun st => match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
@@ -104,19 +103,21 @@ Quote Recursively Definition ex_partially_applied_syn :=
       | left h => Some ([], dec_balance st i h)
       | right _ => None
       end
-    end) : msg -> storage -> option (list SimpleActionBody * storage)).
+    end) : msg -> storage -> option (list SimpleActionBody_coq * storage)).
 
-Compute (check_applied ex_partially_applied_syn).
-(* returns [false], as expected *)
+
+Example partially_applied :
+  erase_and_check_applied ex_partially_applied_syn = PCUICSafeChecker.CorrectDecl false.
+Proof. reflexivity. Qed.
 
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. Even though the de-boxing is not certified yet, before removing boxes we check if constant is applied to all logical argument (i.e. proofs or types) and constructors are fully applied. In this case, it is safe to remove these applications. *)
-Run TemplateProgram
-    (storage_def <- tmQuoteConstant "storage" false ;;
+MetaCoq Run
+    (storage_def <- tmQuoteConstant <%% storage %%> false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
-     sumbool_t <- tmQuoteInductive "sumbool" ;;
-     sumbool_liq <- print_one_ind_body PREFIX TT sumbool_t.(ind_bodies);;
-     ind <- tmQuoteInductive "msg" ;;
+     ind <- tmQuoteInductive <%% msg %%> ;;
      ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
+     sumbool_t <- tmQuoteInductive <%% sumbool %%> ;;
+     sumbool_liq <- print_one_ind_body PREFIX TT sumbool_t.(ind_bodies);;
      t1 <- toLiquidity PREFIX TT inc_balance ;;
      t2 <- toLiquidity PREFIX TT dec_balance ;;
      t3 <- toLiquidity PREFIX TT my_bool_dec ;;

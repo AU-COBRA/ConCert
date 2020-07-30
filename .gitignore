@@ -37,3 +37,4 @@ _opam/
 ## extraction output
 *.liq
 *.out
+e

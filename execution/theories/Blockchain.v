@@ -124,7 +124,7 @@ Global Ltac destruct_address_eq :=
     end.
 
 Section Blockchain.
-Context {BaseTypes : ChainBase}.
+Context {Base : ChainBase}.
 
 (* This represents the view of the blockchain that a contract
 can access and interact with. *)
@@ -909,6 +909,27 @@ Definition created_blocks
            (creator : Address) : list BlockHeader :=
   filter (fun b => (block_creator b =? creator)%address)
          (trace_blocks trace).
+
+Definition is_deploy (ac : ActionBody) : bool :=
+  match ac with
+  | act_transfer _ _ => false
+  | act_call _ _ _ => false
+  | act_deploy _ _ _ => true
+  end.
+
+Definition is_call (ac : ActionBody) : bool :=
+  match ac with
+  | act_transfer _ _ => false
+  | act_call _ _ _ => true
+  | act_deploy _ _ _ => false
+  end.
+
+Definition is_transfer (ac : ActionBody) : bool :=
+  match ac with
+  | act_transfer _ _ => true
+  | act_call _ _ _ => false
+  | act_deploy _ _ _ => false
+  end.
 
 Section Theories.
 Ltac destruct_chain_step :=
@@ -2028,3 +2049,68 @@ Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'recursive
 Global Notation
        "'Please' 'reestablish' 'the' 'invariant' 'after' 'permutation' 'of' 'the' 'action' 'queue'"
   := TagPermuteQueue (at level 100, only printing).
+
+
+Section LiftTransactionProp.
+
+  Context {BaseTypes : ChainBase}
+          {Setup : Type} `{Serializable Setup}
+          {Msg : Type} `{Serializable Msg}
+          {State : Type} `{Serializable State}.
+
+(** If the receive function always returns an empty list of actions,
+ the same holds for all reachable states *)
+  Lemma lift_outgoing_txs_empty (contract : Contract Setup Msg State)
+      (bstate : ChainState) (addr : Address) :
+  reachable bstate ->
+  (forall chain ctx cstate msg new_cstate acts,
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      acts = []) ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  outgoing_acts bstate addr = [].
+Proof.
+  intros Hr Hc Haddr.
+  contract_induction; intros; cbn in *; auto.
+  + inversion_clear IH; auto.
+  + assert (new_acts = []) by (eapply Hc;eauto).
+    now subst.
+  + inversion IH.
+  + subst. apply Permutation.Permutation_nil;auto.
+  + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
+    instantiate (DeployFacts := fun _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ => Logic.True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
+Qed.
+
+(** If some property [P] holds for all actions in the output of the receive function, the property can be lifted to all outgoing actions for all reachabile states. *)
+Lemma lift_outgoing_txs_prop {P : ActionBody -> Prop}
+      (contract : Contract Setup Msg State ) (bstate : ChainState) (addr : Address) :
+  reachable bstate ->
+  (forall chain ctx cstate msg new_cstate acts,
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      Forall P acts) ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  Forall P (outgoing_acts bstate addr).
+Proof.
+  intros Hr Hc.
+  contract_induction; intros; cbn in *; auto.
+  - inversion_clear IH; auto.
+  - apply Forall_app.
+    split; auto.
+    eauto.
+  - apply Forall_app.
+    inversion_clear IH.
+    split; auto.
+    eauto.
+  - now rewrite <- perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
+    instantiate (DeployFacts := fun _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ => Logic.True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
+Qed.
+
+End LiftTransactionProp.

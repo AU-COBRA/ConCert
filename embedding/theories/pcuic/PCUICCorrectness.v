@@ -153,7 +153,7 @@ Proof.
           { simpl. rewrite <- mkApps_vars_to_apps. cbn.
             unfold isConstruct_app.
             rewrite decompose_app_mkApps; now rewrite HresC. }
-          eapply PcbvCurr.eval_fix with (args':=[t⟦ of_val_i (vConstr i e l) ⟧ Σ1]);
+          eapply PcbvCurr.eval_fix with (av:=t⟦of_val_i (vConstr i e l)⟧Σ1) (argsv:=[]) (narg:=0);
             subst;eauto with hints;try reflexivity.
           cbn. remember (tFix _ _) as tfix.
           assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by eauto 8 with hints.
@@ -308,13 +308,9 @@ Proof.
            rewrite Hfind. subst f. cbn in *.
            assert (Hci' : #|ci| = #|pVars pt|) by lia.
            rewrite H3. rewrite Hci'. rewrite PeanoNat.Nat.eqb_refl.
-           (* inversion H1';clear H1'. *)
            clear Hfind.
 
            subst. replace ((#|pVars pt| + 0)) with (#|pVars pt|) in * by lia.
-           (* assert (Hcomb : *)
-           (*           #|rev (combine (pVars p) ci)| = #|map (fun x : val => t⟦ of_val_i x ⟧ Σ1) l0|). *)
-           (* { rewrite rev_length;rewrite map_length. rewrite Hl0. rewrite combine_length. rewrite Hci. lia. } *)
            assert (Hok_constr: val_ok Σ1 (vConstr i0 c.1 l2)) by eauto 8 with hints.
            inversion Hok_constr;subst;clear Hok_constr.
            rewrite pat_to_lam_rev.

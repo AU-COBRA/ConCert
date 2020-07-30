@@ -7,7 +7,6 @@ From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations CustomTactics.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Extraction Require Import LPretty Certified.
-From ConCert.Extraction Require Import Counter.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -59,16 +58,16 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
   Definition my_bool_dec := Eval compute in bool_dec.
 
   Definition counter (msg : msg) (st : storage)
-    : option (list SimpleActionBody * storage) :=
+    : option (list SimpleActionBody_coq * storage) :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], proj1_sig (inc_counter st (exist i h)))
+      | left h => Some ([], proj1_sig (inc_counter st (exist _ i h)))
       | right _ => None
       end
     | Dec i =>
       match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], proj1_sig (dec_counter st (exist i h)))
+      | left h => Some ([], proj1_sig (dec_counter st (exist _ i h)))
       | right _ => None
       end
     end.
@@ -78,14 +77,12 @@ End CounterRefinmentTypes.
 Module ZT : ZTheorems.
   Lemma lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
   Proof. apply Z.lt_add_pos_r. Qed.
-
   Lemma lt_sub_pos : forall n m : Z, 0 < m -> n - m < n.
   Proof. apply Z.lt_sub_pos. Qed.
 End ZT.
 
 Module CRT := (CounterRefinmentTypes ZT).
 Import CRT.
-
 
 Definition local_def := local PREFIX.
 
@@ -99,7 +96,7 @@ Definition TT_rt : env string :=
      ; remap <% bool %> "bool"
      ; remap <% nat %> "address"
      ; remap <% option %> "option"
-     ; remap <% proj1_sig %> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
+     ; remap <% @proj1_sig %> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
      ; remap <% positive %> "int" (* this is again an ad-hoc optimisation *)
      ; ("Some", "Some")
      ; ("None", "None")
@@ -121,16 +118,16 @@ Definition TT_rt : env string :=
 (** exists becomes just a wrapper *)
 Definition exists_def := "let exist a = a".
 
-Quote Recursively Definition Counter := (counter).
+MetaCoq Quote Recursively Definition Counter := (counter).
 
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that remove redundant type abstractions and application of boxes *)
-Time Run TemplateProgram
-    (storage_def <- tmQuoteConstant "storage" false ;;
+Time MetaCoq Run
+    (storage_def <- tmQuoteConstant <%% storage %%> false ;;
      storage_body <- opt_to_template storage_def.(cst_body) ;;
-     sumbool_t <- tmQuoteInductive "sumbool" ;;
-     sumbool_liq <- print_one_ind_body PREFIX TT sumbool_t.(ind_bodies);;
-     ind <- tmQuoteInductive "msg" ;;
+     ind <- tmQuoteInductive <%% msg %%> ;;
      ind_liq <- print_one_ind_body PREFIX TT_rt ind.(ind_bodies);;
+     sumbool_t <- tmQuoteInductive <%% sumbool %%> ;;
+     sumbool_liq <- print_one_ind_body PREFIX TT_rt sumbool_t.(ind_bodies);;
      t1 <- toLiquidityEnv PREFIX TT_rt (Counter.1) inc_counter ;;
      t2 <- toLiquidityEnv PREFIX TT_rt (Counter.1) dec_counter ;;
      t3 <- toLiquidityEnv PREFIX TT_rt (Counter.1) my_bool_dec ;;

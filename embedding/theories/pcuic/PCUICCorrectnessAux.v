@@ -536,10 +536,6 @@ Lemma eval_lam_inv Σ nm1 nm2 ty1 ty2 b1 b2:
 Proof.
   intros H.
   inversion H.
-  + subst. destruct args using rev_ind;tryfalse;clear IHargs.
-    now rewrite mkApps_unfold in *.
-  + destruct args' using rev_ind;simpl in *;tryfalse.
-    rewrite mkApps_unfold in *. tryfalse.
   + now subst.
 Qed.
 

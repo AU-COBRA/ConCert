@@ -16,29 +16,16 @@ Records are currently not supported. Should be represented as iterated products.
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
 
 From Coq Require Import List Program String Ascii.
-From ConCert Require Import MyEnv Ast.
+From ConCert.Embedding Require Import MyEnv Ast.
+From ConCert.Extraction Require Import StringExtra ExAst.
 From MetaCoq.Template Require Import utils Loader Environment.
 From MetaCoq.Template Require Pretty.
-From MetaCoq.Erasure Require Import Debox EAst EAstUtils ETyping.
+From MetaCoq.Erasure Require Import EAst EAstUtils ETyping EPretty.
 
-(* TODO: taken form the Jakob's fork. Eventually, we should import [StringExtra] *)
-Definition char_to_upper (c : ascii) : ascii :=
-  match c with
-  | Ascii b0 b1 b2 b3 b4 b5 b6 b7 =>
-    Ascii b0 b1 b2 b3 b4 false b6 b7
-  end.
-
-Definition capitalize (s : string) : string :=
-  match s with
-  | EmptyString => EmptyString
-  | String c s => String (char_to_upper c) s
-  end.
-
+Local Open Scope string_scope.
 
 Section print_term.
-  Context (Σ : global_context).
-
-  Local Open Scope string_scope.
+  Context (Σ : ExAst.global_env).
 
   Definition look (e : env string) (s : string) : option string :=
     lookup e s.
@@ -65,12 +52,27 @@ Section print_term.
   Eval lazy in (tokenize "." "Coq.ZArith.BinInt.Z.add").
 
   (** Extracts a constant name, inductive name or returns None *)
-  Definition to_name (t : Ast.term) : option string:=
-  match t with
-  | Ast.tConst c _ => Some c
-  | Ast.tInd c _ => Some c.(inductive_mind)
-  | _ => None
-  end.
+  (* TODO: move to utils *)
+  Definition to_kername (t : Ast.term) : option kername :=
+    match t with
+    | Ast.tConst c _ => Some c
+    | Ast.tInd c _ => Some c.(inductive_mind)
+    | _ => None
+    end.
+
+  (* TODO: move to utils *)
+  Definition to_kername_dummy (t : Ast.term) :  kername :=
+    let dummy := (MPfile [],"") in
+    (Ast.from_option (to_kername t) dummy).
+
+  Notation "<%% t %%>" := (to_kername_dummy <% t %>).
+
+  (* TODO: move to utils *)
+  Definition to_string_name (t : Ast.term) : string :=
+    match to_kername t with
+    | Some kn => string_of_kername kn
+    | None => "Not a constant or inductive"
+    end.
 
 (** Takes a fully qualified name and returns the last part, e.g.
   for "Coq.ZArith.BinInt.Z.add" returns "add" *)
@@ -80,29 +82,82 @@ Section print_term.
     let print_parens := (Nat.ltb 0 (List.length args)) in
     s ++ " " ++ parens ((negb print_parens)) (concat ", " args).
 
+  Definition is_arr (bt : box_type) : bool :=
+  match bt with
+  | TArr _ _ => true
+  | _ => false
+  end.
+
+  Definition map_targs (f : box_type -> string) :  box_type -> list string
+    := fix go bt := match bt with
+                    | TApp t1 t2 => (go t1 ++ [f t2])%list
+                    | _ => []
+                    end.
+
+  Fixpoint get_tapp_hd (bt : box_type) : box_type :=
+    match bt with
+    | TApp t1 t2 => get_tapp_hd t1
+    | _ => bt
+    end.
+
+  Fixpoint print_box_type (prefix : string) (TT : env string) (bt : box_type) :=
+  match bt with
+  | TBox => "Box"
+  | TArr dom codom => parens (negb (is_arr dom)) (print_box_type prefix TT dom) ++ " → " ++ print_box_type prefix TT codom
+  | TApp t1 t2 =>
+    let hd := get_tapp_hd t1 in
+    let args := map_targs (print_box_type prefix TT) bt in
+    match hd with
+    | TInd ind =>
+      (* a special case of products - infix *)
+      if eq_kername <%% prod %%> ind.(inductive_mind) then
+        parens false (concat " * " args)
+      else parens false (print_uncurried "" args ++ " " ++ print_box_type prefix TT hd)
+    | _ => parens false (print_uncurried "" args ++ " " ++ print_box_type prefix TT hd)
+    end
+  | TVar i => "'a" ++ string_of_nat i
+  | TInd s =>
+    let full_ind_name := string_of_kername s.(inductive_mind) in
+    from_option (look TT full_ind_name) (prefix ++ s.(inductive_mind).2)
+  | TConst s =>
+    let full_cst_name := string_of_kername s in
+    from_option (look TT full_cst_name) (prefix ++ s.2)
+
+  | TAny => "UnknownType"
+  end.
+
+  Compute print_box_type "" []
+          (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1)).
+
+  Compute print_box_type "" []
+          (TApp (TApp (TApp (TApp (TInd (mkInd (MPfile [], "list") 0)) (TVar 0)) (TVar 1)) (TVar 2))(TVar 3)).
+
   Fixpoint print_liq_type (prefix : string) (TT : env string) (t : Ast.term) :=
   let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
   match t with
   | Ast.tInd ind _ =>
-    let nm := ind.(inductive_mind) in
-    from_option (look TT nm) (prefix ++ nm)
+    let nm := string_of_kername ind.(inductive_mind) in
+    from_option (look TT nm) (prefix ++ ind.(inductive_mind).2)
   | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
     (* a special case of products - infix *)
-      if (Ast.from_option (to_name <% prod %>) "" =? ind.(inductive_mind))%string then
-        parens false (print_liq_type prefix TT t1 ++ " * " ++ print_liq_type prefix TT t2)
+    if eq_kername <%% prod %%> ind.(inductive_mind) then
+      parens false (print_liq_type prefix TT t1 ++ " * " ++ print_liq_type prefix TT t2)
       else error
   | Ast.tApp (Ast.tInd ind i) args =>
     (* the usual - postfix - case of an applied type constructor *)
-    let nm := ind.(inductive_mind) in
-    let nm' := from_option (look TT nm) (prefix ++ nm) in
+    let nm := string_of_kername ind.(inductive_mind) in
+    let nm' := from_option (look TT nm) (prefix ++ ind.(inductive_mind).2) in
     let printed_args := map (print_liq_type prefix TT) args in
     (print_uncurried "" printed_args) ++ " " ++ nm'
   | Ast.tApp (Ast.tConst nm _) args =>
     (* similarly we do for constants to enable remapping of aliases to types *)
-    let nm := from_option (look TT nm) (prefix ++ nm) in
+    let cst_nm := string_of_kername nm in
+    let nm' := from_option (look TT cst_nm) (prefix ++ nm.2) in
     let printed_args := map (print_liq_type prefix TT) args in
-    (print_uncurried "" printed_args) ++ " " ++ nm
-  | Ast.tConst nm _ => from_option (look TT nm) (prefix ++ nm)
+    (print_uncurried "" printed_args) ++ " " ++ nm'
+  | Ast.tConst nm _ =>
+    let cst_nm := string_of_kername nm in
+    from_option (look TT cst_nm) (prefix ++ nm.2)
   | _ => error
   end.
 
@@ -144,21 +199,31 @@ Section print_term.
     | _ => prefix ++ nm ++ " of " ++ concat " * " (get_ctor_type prefix TT ty)
     end.
 
-  Definition print_inductive (prefix : string)(TT : env string) (oib : Ast.one_inductive_body) : string :=
+  Definition print_inductive (prefix : string)(TT : env string) (oib : Ast.one_inductive_body) : string
+    :=
     "type " ++ prefix ++ oib.(Ast.ind_name) ++ " = "
-                              ++ nl ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p.1 ++ nl) oib.(Ast.ind_ctors)).
+            ++ nl
+            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p.1 ++ nl) oib.(Ast.ind_ctors)).
+
+  Fixpoint Edecompose_lam (t : term) : (list name) × term :=
+  match t with
+  | tLambda n b =>
+      let (ns, b) := Edecompose_lam b in
+      (n :: ns, b)
+  | _ => ([], t)
+  end.
 
   (* This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
-  Fixpoint lam_body (t : E.term) : E.term :=
+  Fixpoint lam_body (t : term) : term :=
     match t with
-    | E.tLambda n b => lam_body b
+    | tLambda n b => lam_body b
     | _ => t
     end.
 
   Definition print_def (f : context -> term -> string) (def : def term) :=
     let (args, _) := Edecompose_lam (dbody def) in
-    let ctx := rev (map (vass ∘ binder_name) args) in
-    let sargs := print_uncurried "" (map (fun x => string_of_name x.(binder_name)) args) in
+    let ctx := rev (map vass args) in
+    let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
     string_of_name (dname def) ++ " " ++ sargs  ++ " = "
                    ++ nl ++ f ctx (lam_body (dbody def)).
 
@@ -168,24 +233,13 @@ Section print_term.
     print_list (print_def (fun Γ' => print_term (Γ' ++ ctx' ++ Γ)%list true false)) (nl ++ " with ") defs.
 
   Definition lookup_ind_decl ind i :=
-    match lookup_env Σ ind with
-    | Some (InductiveDecl {| ind_bodies := l |}) =>
+    match ExAst.lookup_env Σ ind with
+    | Some (ExAst.InductiveDecl _ {| ExAst.ind_bodies := l |}) =>
       match nth_error l i with
       | Some body => Some body
       | None => None
       end
     | _ => None
-    end.
-
-  Fixpoint decompose_lam (t : term) (n : nat) : (list aname) * term :=
-    match n with
-    | 0 => ([], t)
-    | S n =>
-      match t with
-      | tLambda na B => let (ns, B) := decompose_lam B n in
-                        (na :: ns, B)
-      | _ => ([], t)
-      end
     end.
 
   Definition is_fresh (Γ : context) (id : ident) :=
@@ -229,8 +283,8 @@ Section print_term.
   Definition get_constr_name (ind : inductive) (i : nat) :=
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     | Some oib =>
-      match nth_error oib.(ind_ctors) i with
-      | Some (na, _, _) => na
+      match nth_error oib.(ExAst.ind_ctors) i with
+      | Some (na, _) => na
       | None =>
         "UnboundConstruct(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ ")"
       end
@@ -238,24 +292,22 @@ Section print_term.
       "UnboundConstruct(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ ")"
     end.
 
-
   Definition is_pair_constr (ind : inductive) :=
-    String.eqb ind.(inductive_mind) "Coq.Init.Datatypes.prod".
+    eq_kername ind.(inductive_mind) <%% prod %%>.
 
   Definition print_pair (f : term -> string) (t1 : term) (t2 : term) :=
     parens false ((f t1) ++ " ," ++ (f t2)).
 
   Definition is_list_cons (ind : inductive) (ctor_num : nat):=
-    andb (String.eqb ind.(inductive_mind) "Coq.Init.Datatypes.list")
+    andb (eq_kername ind.(inductive_mind) <%% list %%>)
          (Nat.eqb ctor_num 1).
 
   Definition print_list_cons (f : term -> string) (t1 : term) (t2 : term) :=
     (f t1) ++ " :: " ++ (f t2).
 
-
-  Definition app_args {A} (f : E.term -> A) :=
-    fix go (t : E.term) := match t with
-    | E.tApp t1 t2 => f t2 :: go t1
+  Definition app_args {A} (f : term -> A) :=
+    fix go (t : term) := match t with
+    | tApp t1 t2 => f t2 :: go t1
     | _ => []
     end.
 
@@ -282,10 +334,9 @@ Section print_term.
   (*   | E.tConstruct ind i => Some (print_constr (capitalize prefix) TT ind i) *)
   (*   | _ => None *)
   (*   end. *)
-
   (* Builds a context for the branch *)
-  Definition get_ctx_from_branch (Γ : context) : nat -> E.term -> context :=
-    let fix go (ctx : context) (arity: nat) (branch : E.term) :=
+  Definition get_ctx_from_branch (Γ : context) : nat -> term -> context :=
+    let fix go (ctx : context) (arity: nat) (branch : term) :=
     match arity with
     | 0 => []
     | S n =>
@@ -316,7 +367,6 @@ Section print_term.
 
   (** [prefix] - a sting pre-pended to the constants' and constructors' names to avoid clashes
       [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call) or to an applied constant (if it corresponds to a recursive definition). We assume that the list of names to be uncurried is determined beforehand.
-
       [TT] - translation table allowing for remapping constants and constructors to Liquidity primitives, if required.
 
       [Γ] - context that gets updated when we go under lambda, let, pattern or fixpoint.
@@ -325,9 +375,9 @@ Section print_term.
 
       [t] - a term to be printed.
    *)
-  Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : E.term) {struct t} :=
+  Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
   match t with
-  | tBox _ => "()" (* boxes become the contructor of the [unit] type *)
+  | tBox => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n =>
     match nth_error Γ n with
     | Some {| decl_name := na |} =>
@@ -342,7 +392,7 @@ Section print_term.
   | tLambda na body =>
     let na' := fresh_name Γ na t in
     parens top ("fun " ++ string_of_name na'
-                                ++ " -> " ++ print_term prefix FT TT (vass na' :: Γ) true false body)
+                       ++ " -> " ++ print_term prefix FT TT (vass na' :: Γ) true false body)
   | tLetIn na def body =>
     let na' := fresh_name Γ na t in
     parens top ("let " ++ string_of_name na' ++
@@ -353,7 +403,7 @@ Section print_term.
     let (b,_) := decompose_app f in
     match b with
       (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
-    | E.tRel i =>
+    | tRel i =>
       match nth_error Γ i with
       | Some d =>
         let nm := (string_of_name d.(decl_name)) in
@@ -362,15 +412,16 @@ Section print_term.
         else parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
       | None => "UnboundRel(" ++ string_of_nat i ++ ")"
       end
-    | E.tConst c =>
-      let nm := from_option (look TT c) (prefix ++ c) in
+    | tConst c =>
+      let cst_name := string_of_kername c in
+      let nm := from_option (look TT cst_name) (prefix ++ c.2) in
       (* checking if the constant corresponds to a recursive definition *)
-      if in_list String.string_dec FT (unqual_name c)
+      if in_list String.string_dec FT (unqual_name c.2)
       then (* packing the argument into a tuple *)
         (print_uncurried nm apps)
       else (* just a normal application of a constant *)
         parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
-    | E.tConstruct ind i =>
+    | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
       if (nm =? "pair") then print_uncurried "" apps
@@ -386,13 +437,15 @@ Section print_term.
             parens top (print_uncurried nm' apps)
     | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
     end
-  | tConst c => from_option (look TT c) (prefix ++ c)
+  | tConst c =>
+    let cst_name := string_of_kername c in
+    from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l =>
     let nm := get_constr_name ind l in
     from_option (look TT nm) ((capitalize prefix) ++ nm)
-  | tCase (mkInd mind i as ind, pars) t brs =>
+  | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
-    if mind =? "Coq.Init.Datatypes.bool" then
+    if eq_kername mind <%% bool %%> then
       match brs with
       | [b1;b2] =>
         parens top
@@ -404,14 +457,14 @@ Section print_term.
       end
     else
       (* [list] is a special case *)
-      if mind =? "Coq.Init.Datatypes.list" then
+      if eq_kername mind <%% list %%> then
         match brs with
         | [b1;b2] =>
           let nil_case := "[] -> " ++ print_term prefix FT TT Γ false false b1.2 in
           let (cons_args, _) := Edecompose_lam b2.2 in
           let cons_body := lam_body b2.2 in
-          let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x.(binder_name) b2.2)) cons_args) in
-          let cons_ctx := rev (map (vass ∘ binder_name) cons_args) in
+          let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x b2.2)) cons_args) in
+          let cons_ctx := rev (map vass cons_args) in
           let cons_case := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false cons_body in
           parens top
              ("match " ++ print_term prefix FT TT Γ true false t
@@ -426,29 +479,23 @@ Section print_term.
       (* TODO: use [print_branch] to cover the special case of lists *)
       let fix print_branch Γ arity params br {struct br} :=
           match arity with
-            | 0 => (params , print_term prefix FT TT Γ false false br)
+            | 0 => (params, print_term prefix FT TT Γ false false br)
             | S n =>
               match br with
               | tLambda na B =>
-                match na.(binder_erasure_reason) with
-                | Some _ =>
-                  let na' := fresh_name Γ na br in
-                  print_branch (vass na' :: Γ) n params B
-                | None =>
                   let na' := fresh_name Γ na br in
                   let (ps, b) := print_branch (vass na' :: Γ) n params B in
                   (ps ++ [string_of_name na'], b)%list
-                end
               | t => (params , print_term prefix FT TT Γ false false br)
               end
             end in
       let brs := map (fun '(arity, br) =>
                         print_branch Γ arity [] br) brs in
-      let brs := combine brs oib.(ind_ctors) in
+      let brs := combine brs oib.(ExAst.ind_ctors) in
       parens top
              ("match " ++ print_term prefix FT TT Γ true false t
                        ++ " with " ++ nl
-                       ++ print_list (fun '(b, (na, _, _)) =>
+                       ++ print_list (fun '(b, (na, _)) =>
                                         print_pat prefix TT na b)
                        (nl ++ " | ") brs)
     | None =>
@@ -456,9 +503,10 @@ Section print_term.
               ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
     end
   | tProj (mkInd mind i as ind, pars, k) c =>
+    (*NOTE: since records are not supported, projections are not very meaningful, curretnly*)
     match lookup_ind_decl mind i with
     | Some oib =>
-      match nth_error oib.(ind_projs) k with
+      match nth_error oib.(ExAst.ind_projs) k with
       | Some (na, _) => print_term prefix FT TT Γ false false c ++ ".(" ++ na ++ ")"
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
@@ -476,8 +524,48 @@ Section print_term.
 
 End print_term.
 
-Local Open Scope string_scope.
+Fixpoint get_fix_names (t : term) : list name :=
+  match t with
+  | tEvar _ args => List.concat (map get_fix_names args)
+  | tLambda _ b => get_fix_names b
+  | tLetIn _ t1 t2 => get_fix_names t1 ++ get_fix_names t2
+  | tApp t1 t2 => get_fix_names t1 ++ get_fix_names t2
+  | tCase _ t1 brs => get_fix_names t1
+                        ++ List.concat (map (get_fix_names ∘ snd) brs)
+  | tProj _ t1 => get_fix_names t1
+  | tFix mfix _ => map dname mfix ++ List.concat (map (get_fix_names ∘ dbody) mfix)
+  | tCoFix mfix _ => map dname mfix ++ List.concat (map (get_fix_names ∘ dbody) mfix)
+  | _ => []
+  end.
 
+
+Definition print_cst (prefix : string)
+           (TT : MyEnv.env string) (* tranlation table *)
+           (Σ : ExAst.global_env)
+           (kn : kername)
+           (cst : ExAst.constant_body)
+  : string :=
+  let (_, decl_name) := kn in
+  let (tys,_) := decompose_arr cst.(ExAst.cst_type).2 in
+  match cst.(ExAst.cst_body) with
+  | Some cst_body =>
+    let (args,lam_body) := Edecompose_lam cst_body in
+    let targs := combine args (map (print_box_type prefix TT) tys) in
+    let printed_targs :=
+        map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs in
+    (* NOTE: ignoring the path part *)
+    let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
+    let ctx := map (fun x => Build_context_decl x None) (rev args) in
+    (* NOTE: we construct a list of fixpoint names *)
+    let FT := map string_of_name (get_fix_names cst_body) in
+    "let " ++ decl ++ " = " ++  LPretty.print_term Σ prefix FT TT ctx true false lam_body
+  | None =>
+    let liq_type := LPretty.print_box_type prefix TT cst.(ExAst.cst_type).2 in
+    "type " ++ prefix ++ decl_name ++ " = " ++ liq_type
+  end.
+
+
+Local Open Scope string_scope.
 
 (** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)
 
@@ -544,24 +632,4 @@ Definition printWrapper (contract : string): string :=
 Definition printMain :=
   "let%entry main param st = wrapper param st".
 
-
-Fixpoint get_fix_names (t : Ast.term) : list name :=
-  match t with
-  | Ast.tRel _ => []
-  | Ast.tVar _ => []
-  | Ast.tSort _ => []
-  | Ast.tInd _ _ => []
-  | Ast.tCast _ _ t1 => get_fix_names t1
-  | Ast.tProd _ _ _ => []
-  | Ast.tEvar _ args => List.concat (map get_fix_names args)
-  | Ast.tLambda _ _ b => get_fix_names b
-  | Ast.tLetIn _ _ t1 t2 => get_fix_names t1 ++ get_fix_names t2
-  | Ast.tApp t1 t2 => get_fix_names t1 ++ List.concat (map get_fix_names t2)
-  | Ast.tConst _ _ => []
-  | Ast.tConstruct _ _ _ => []
-  | Ast.tCase _ _ t1 brs => get_fix_names t1
-                        ++ List.concat (map (get_fix_names ∘ snd) brs)
-  | Ast.tProj _ t1 => get_fix_names t1
-  | Ast.tFix mfix _ => map BasicAst.dname mfix ++ List.concat (map (get_fix_names ∘ BasicAst.dbody) mfix)
-  | Ast.tCoFix mfix _ => map BasicAst.dname mfix ++ List.concat (map (get_fix_names ∘ BasicAst.dbody) mfix)
-  end.
+Notation "<%% t %%>" := (to_kername_dummy <% t %>).
