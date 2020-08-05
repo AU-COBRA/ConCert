@@ -136,6 +136,6 @@ Definition boardroom_example : option nat :=
   let tally := build_act creator (act_call caddr 0 (serialize tally_votes)) in
   do chain <- add_block chain [tally];
   do state <- @contract_state _ (@State _ Z) _ (lcb_lc chain) caddr;
-  BoardroomVoting.result state.
+  BoardroomVoting.tally state.
 
 Check (@eq_refl (option nat) (Some votes_for)) <<: boardroom_example = Some votes_for.
