@@ -5,6 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aucobra/concert:deps-coq-8.11
     steps:
+    - run: sudo su
     - uses: actions/checkout@v2
     - run: eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
     - run: make -j
