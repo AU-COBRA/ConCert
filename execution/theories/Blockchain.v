@@ -1664,7 +1664,7 @@ Proof.
     rewrite_environment_equiv.
     cbn in *.
     specialize_hypotheses.
-    destruct IH as [depinfo' [cstate' [inc_calls' [-> [? [-> ?]]]]]].
+    destruct IH as (depinfo' & cstate' & inc_calls' & -> & ? & -> & ?).
     exists depinfo', cstate', inc_calls'.
     rewrite_environment_equiv.
     repeat split; auto.
@@ -1679,7 +1679,7 @@ Proof.
   - (* Evaluation: transfer *)
     clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
     specialize_hypotheses.
-    destruct IH as [depinfo' [cstate' [inc_calls' [-> [? [-> ?]]]]]].
+    destruct IH as (depinfo' & cstate' & inc_calls' & -> & ? & -> & ?).
     exists depinfo', cstate', inc_calls'.
     rewrite_environment_equiv.
     repeat split; auto.
@@ -1713,7 +1713,7 @@ Proof.
     + (* Deployment of this contract *)
       replace wc with (contract : WeakContract) in * by congruence.
       destruct (wc_init_strong ltac:(eassumption))
-        as [setup_strong [result_strong [deser_setup_eq [<- init]]]].
+        as (setup_strong & result_strong & deser_setup_eq & <- & init).
       rewrite deser_setup_eq in *.
       cbn in *.
       exists (build_deployment_info from_addr amount setup_strong),
@@ -1744,7 +1744,7 @@ Proof.
       replace from_addr with (ctx_from ctx) by (subst; auto).
       replace to_addr with (ctx_contract_address ctx) by (subst; auto).
       replace amount with (ctx_amount ctx) by (subst; auto).
-      replace (ctx_amount ctx + 0) with (ctx_amount ctx) by lia.
+      rewrite Z.add_0_r.
       pose proof
            (init_case (mid <| account_balance ::= add_balance to_addr amount |>
                            <| account_balance ::= add_balance from_addr (- amount) |>)).
@@ -1752,7 +1752,7 @@ Proof.
       auto.
     + (* Deployment of other contract, might be by this contract. *)
       specialize_hypotheses.
-      destruct IH as [depinfo [cstate [inc_calls [-> [? [-> ?]]]]]].
+      destruct IH as (depinfo & cstate & inc_calls & -> & ? & -> & ?).
       exists depinfo, cstate, inc_calls.
       rewrite_environment_equiv; cbn.
       rewrite address_eq_ne by auto.
@@ -1760,8 +1760,7 @@ Proof.
       rewrite (address_eq_sym caddr).
       unfold outgoing_acts in *.
       rewrite queue_prev, queue_new in *.
-      replace new_acts with ([] : list Action) by assumption.
-      subst act.
+      subst new_acts act.
       cbn in *.
       fold (outgoing_txs trace caddr).
       destruct_address_eq; subst; cbn in *; auto.
@@ -1776,7 +1775,7 @@ Proof.
     clear init_case permute_queue_case.
     specialize_hypotheses.
     subst act new_acts.
-    destruct IH as [depinfo [cstate [inc_calls [-> [? [-> IH]]]]]].
+    destruct IH as (depinfo & cstate & inc_calls & -> & ? & -> & IH).
     unfold outgoing_acts in *.
     rewrite queue_prev, queue_new in *.
     cbn in *.
@@ -1785,8 +1784,8 @@ Proof.
     + (* Call to contract *)
       replace wc with (contract : WeakContract) in * by congruence.
       destruct (wc_receive_strong ltac:(eassumption))
-        as [prev_state_strong [msg_strong [resp_state_strong
-                                             [deser_state [deser_msg [<- receive]]]]]].
+        as (prev_state_strong & msg_strong & resp_state_strong &
+            deser_state & deser_msg & <- & receive).
       replace (env_contract_states mid caddr) with (Some prev_state) in * by auto.
       cbn in *.
       replace prev_state_strong with cstate in * by congruence; clear prev_state_strong.
@@ -1865,7 +1864,7 @@ Proof.
   - (* Permutation *)
     rewrite prev_next in *.
     specialize_hypotheses.
-    destruct IH as [depinfo [cstate [inc_calls [? [? [? IH]]]]]].
+    destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH).
     exists depinfo, cstate, inc_calls.
     cbn.
     repeat split; auto.
@@ -1971,9 +1970,8 @@ Local Ltac generalize_contract_statement_aux
    let cstate_strong := fresh "cstate_strong" in
    let inc_calls_strong := fresh "inc_calls_strong" in
    let provenP := fresh "provenP" in
-   destruct H as
-       [depinfo [cstate [inc_calls
-                           [depinfo_strong [cstate_strong [inc_calls_strong provenP]]]]]];
+   destruct H as (depinfo & cstate & inc_calls &
+                  depinfo_strong & cstate_strong & inc_calls_strong & provenP);
    repeat
      match goal with
      | [|- exists _ : DeploymentInfo Setup, _] => exists depinfo
@@ -2058,35 +2056,9 @@ Section LiftTransactionProp.
           {Msg : Type} `{Serializable Msg}
           {State : Type} `{Serializable State}.
 
-(** If the receive function always returns an empty list of actions,
- the same holds for all reachable states *)
-  Lemma lift_outgoing_txs_empty (contract : Contract Setup Msg State)
-      (bstate : ChainState) (addr : Address) :
-  reachable bstate ->
-  (forall chain ctx cstate msg new_cstate acts,
-      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
-      acts = []) ->
-  env_contracts bstate addr = Some (contract : WeakContract) ->
-  outgoing_acts bstate addr = [].
-Proof.
-  intros Hr Hc Haddr.
-  contract_induction; intros; cbn in *; auto.
-  + inversion_clear IH; auto.
-  + assert (new_acts = []) by (eapply Hc;eauto).
-    now subst.
-  + inversion IH.
-  + subst. apply Permutation.Permutation_nil;auto.
-  + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ => Logic.True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
-Qed.
-
 (** If some property [P] holds for all actions in the output of the receive function, the property can be lifted to all outgoing actions for all reachabile states. *)
-Lemma lift_outgoing_txs_prop {P : ActionBody -> Prop}
-      (contract : Contract Setup Msg State ) (bstate : ChainState) (addr : Address) :
+Lemma lift_outgoing_acts_prop {P : ActionBody -> Prop}
+      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
   reachable bstate ->
   (forall chain ctx cstate msg new_cstate acts,
       contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
@@ -2111,6 +2083,24 @@ Proof.
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.
+Qed.
+
+(** If the receive function always returns an empty list of actions,
+ the same holds for all reachable states *)
+Lemma lift_outgoing_acts_nil (contract : Contract Setup Msg State)
+      (bstate : ChainState) (addr : Address) :
+  reachable bstate ->
+  (forall chain ctx cstate msg new_cstate acts,
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      acts = []) ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  outgoing_acts bstate addr = [].
+Proof.
+  intros.
+  enough (all_false: Forall (fun _ => False) (outgoing_acts bstate addr)) by (now destruct all_false).
+  apply (lift_outgoing_acts_prop contract); auto.
+  intros.
+  erewrite (H3 _ _ _ _ _ acts); [constructor|eassumption].
 Qed.
 
 End LiftTransactionProp.
