@@ -1,0 +1,16 @@
+name: Build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: aucobra/concert:deps-coq-8.11
+    steps:
+    - uses: actions/checkout@v2
+    - run: eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+    - run: make -j
+    - run: make html
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: Documentation
+        path: docs/
