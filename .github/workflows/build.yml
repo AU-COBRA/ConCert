@@ -6,6 +6,7 @@ jobs:
     container: aucobra/concert:deps-coq-8.11
     steps:
     - run: sudo chown -R coq:coq .
+    - run: opam switch
     - uses: actions/checkout@v2
     - run: eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
     - run: make -j
