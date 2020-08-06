@@ -6,7 +6,7 @@ jobs:
     container: aucobra/concert:deps-coq-8.11
     steps:
     - run: env
-    - run: /usr/bin/docker ps
+    - run: whoami
     - run: sudo chown -R coq:coq .
     - run: opam switch
     - uses: actions/checkout@v2
