@@ -7,18 +7,14 @@ jobs:
     steps:
     - run: sudo chown -R coq:coq "$RUNNER_WORKSPACE"
     - uses: actions/checkout@v2
-    - run: echo '::set-env name=HOME::/home/coq'
-    - run: env
-    - run: whoami
-    - run: ls -a ~
-    - run: ls -a /home/coq
-    - run: realpath ~
-    - run: opam switch
-    - run: eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
-    - run: make -j
-    - run: make html
-    - name: Upload artifact
-      uses: actions/upload-artifact@v2
+    - run: |
+        export HOME=/home/coq
+        env
+        opam switch
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        make -j
+        make html
+    - uses: actions/upload-artifact@v2
       with:
         name: Documentation
         path: docs/
