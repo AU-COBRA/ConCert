@@ -5,6 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aucobra/concert:deps-coq-8.11
     steps:
+    - run: docker ps
     - run: sudo chown -R coq:coq .
     - run: opam switch
     - uses: actions/checkout@v2
