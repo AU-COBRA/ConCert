@@ -7,7 +7,7 @@ jobs:
     steps:
     - run: sudo chown -R coq:coq "$RUNNER_WORKSPACE"
     - uses: actions/checkout@v2
-    - run: export HOME=/home/coq
+    - run: echo '::set-env name=HOME::/home/coq'
     - run: env
     - run: whoami
     - run: ls -a ~
