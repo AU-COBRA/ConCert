@@ -11,7 +11,8 @@ jobs:
     - run: whoami
     - run: pwd
     - run: ls
-    - run: ls ~
+    - run: ls -a ~
+    - run: ls -a ~/.opam
     - run: opam switch
     - run: eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
     - run: make -j
