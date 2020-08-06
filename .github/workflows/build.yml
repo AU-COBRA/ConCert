@@ -5,11 +5,12 @@ jobs:
     runs-on: ubuntu-latest
     container: aucobra/concert:deps-coq-8.11
     steps:
+    - uses: actions/checkout@v2
     - run: env
     - run: whoami
+    - run: pwd
     - run: sudo chown -R coq:coq .
     - run: opam switch
-    - uses: actions/checkout@v2
     - run: eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
     - run: make -j
     - run: make html
