@@ -3,13 +3,11 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: aucobra/concert:deps-coq-8.11
-      env:
-        HOME: /home/coq
+    container: aucobra/concert:deps-coq-8.11
     steps:
     - run: sudo chown -R coq:coq "$RUNNER_WORKSPACE"
     - uses: actions/checkout@v2
+    - run: export HOME=/home/coq
     - run: env
     - run: whoami
     - run: ls -a ~
