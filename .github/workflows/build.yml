@@ -10,7 +10,10 @@ jobs:
     - run: env
     - run: whoami
     - run: pwd
-    - run: ls
+    - run: |
+        whoami
+        ls -a ~
+        ls -a /home/coq
     - run: ls -a ~
     - run: ls -a ~/.opam
     - run: opam switch
