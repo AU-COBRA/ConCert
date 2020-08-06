@@ -5,14 +5,15 @@ jobs:
     runs-on: ubuntu-latest
     container: aucobra/concert:deps-coq-8.11
     steps:
-    - run: sudo chown -R coq:coq "$RUNNER_WORKSPACE"
+    - run: sudo chown -R coq:coq .
     - uses: actions/checkout@v2
-    - run: |
-        export HOME=/home/coq
-        env
-        opam switch
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
-        make -j
+    - name: Build
+      run: |
+        export HOME=/home/coq && \
+        env && \
+        opam switch && \
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
+        make -j && \
         make html
     - uses: actions/upload-artifact@v2
       with:

@@ -411,7 +411,7 @@ Next Obligation.
   apply (@transitivity Chain _ _ _ y _); auto.
 Qed.
 
-Global Instance environment_equiv_env_contracts_proper :
+Global Insfootance environment_equiv_env_contracts_proper :
   Proper (EnvironmentEquiv ==> eq ==> eq) env_contracts.
 Proof. repeat intro; subst; apply contracts_eq; assumption. Qed.
 
