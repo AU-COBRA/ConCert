@@ -281,6 +281,8 @@ Proof. repeat intro; solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
+
+
 Section Theories.
 Local Open Scope nat.
 

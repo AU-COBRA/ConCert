@@ -170,10 +170,6 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
   Run TemplateProgram
       (translateDefs gEnv Functions).
 
-  Print List.
-  Print foldr.
-  Print zipWith.
-
   Definition AcornList := List.
 
   Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A :=
@@ -367,9 +363,6 @@ Module Recursion.
   Run TemplateProgram (translateData R_data).
 
   Run TemplateProgram (translateDefs (StdLib.Σ ++ R_data)%list R_functions).
-
-  Print add.
-
 
 
   Fixpoint Nat_nat (n : Nat) : nat :=

@@ -44,7 +44,7 @@ Definition state_syn : global_dec :=
 
 Unset Printing Notations.
 
-Print state_syn.
+(* Print state_syn. *)
 (* state_syn =
     gdInd State O
       (cons
@@ -63,7 +63,7 @@ Set Nonrecursive Elimination Schemes.
 Make Inductive (global_to_tc state_syn).
 
 (** As a result, we get a new Coq record [State_coq] *)
-Print State_coq.
+(* Print State_coq. *)
 
 Definition msg_syn :=
   [\ data Msg =
@@ -170,7 +170,7 @@ Module Notations.
 Import Prelude.
 (** Generating string constants for variable names *)
 
-Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
+Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain"; "n"; "b";
                               "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                               "accs"; "now";
                                "newstate"; "newmap"; "cond"] "").

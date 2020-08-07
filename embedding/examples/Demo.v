@@ -11,7 +11,6 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
-(* Import ListNotations. *)
 Module TC := Template.BasicAst.
 
 Import ListNotations.
@@ -27,7 +26,7 @@ Import BasicAst.
 
 (* Quote *)
 Quote Definition id_nat_syn := (fun x : nat => x).
-Print id_nat_syn.
+(* Print id_nat_syn. *)
 (* Ast.tLambda (nNamed "x")
    (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
       []) (Ast.tRel 0) : Ast.term *)
@@ -38,7 +37,7 @@ Make Definition plus_one :=
               (MC.tApp (MC.tConstruct (mkInd "nat" 0) 1 nil)
                        (MC.tRel 0 :: nil))).
 
-Print plus_one.
+(* Print plus_one. *)
 (* fun x : nat => S x : nat -> nat *)
 
 
@@ -55,10 +54,10 @@ Definition negb_app_true :=
            | False -> True) True
      |].
 
-Print negb_app_true.
+(* Print negb_app_true. *)
 
 Unset Printing Notations.
-Print negb_app_true.
+(* Print negb_app_true. *)
 
 Set Printing Notations.
 
@@ -71,7 +70,7 @@ Compute (expr_eval_i Σ 3 nil (indexify nil negb_app_true)).
 Make Definition coq_negb_app_true :=
   (expr_to_tc Σ (indexify nil negb_app_true)).
 
-Print coq_negb_app_true.
+(* Print coq_negb_app_true. *)
 
 Definition my_negb_syn :=
   [| \x : Bool => case x : Bool return Bool of
@@ -165,7 +164,6 @@ Definition factorial_syn :=
 
 Make Definition factorial :=
   (expr_to_tc Σ (indexify [] factorial_syn)).
-
 
 Definition plus_syn : expr :=
   [| fix "plus" (x : Nat) : Nat -> Nat :=

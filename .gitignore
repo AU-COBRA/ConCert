@@ -24,6 +24,10 @@ execution/CoqMakefile.conf
 *.cmxs
 *.ml.d
 *.mllib.d
+*.ml4.d
+*.mli.d
+*.mlpack.d
+*.native
 *.o
 *.aux
 *.d
@@ -31,3 +35,27 @@ execution/CoqMakefile.conf
 doc/
 docs/
 _opam/
+
+.coq-native/
+.csdp.cache
+.lia.cache
+.nia.cache
+.nlia.cache
+.nra.cache
+csdp.cache
+lia.cache
+nia.cache
+nlia.cache
+nra.cache
+
+## Editors
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
