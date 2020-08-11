@@ -152,8 +152,7 @@ Class Generator {A : Type} (field : BoardroomAxioms A) :=
 
 Class DiscreteLog {A : Type} (field : BoardroomAxioms A) (g : Generator field) :=
   build_log {
-    (* This is computationally intractable, but we still elmequire it
-    for ease of specification *)
+    (* This is computationally intractable, but we still require it for ease of specification *)
     log : A -> Z;
     log_proper :> Proper (elmeq ==> expeq) log;
     pow_log a :

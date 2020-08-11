@@ -166,7 +166,7 @@ Section LocalBlockchainTests.
   Compute (account_balance chain8 person_3).
   Print Assumptions chain8.
 
-  Hint Resolve congress_txs_after_block : core.
+  Hint Resolve congress_correct_after_block : core.
   Definition BuilderDF := LocalChainBuilderDepthFirst AddrSize.
   (* The congress satisfies a property specialized to the local blockchain DFS: *)
   Lemma congress_txs_after_local_chain_block

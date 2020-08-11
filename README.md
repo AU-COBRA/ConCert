@@ -17,18 +17,15 @@ multiple Coq installations using opam).:
 opam install coq.8.11
 ```
 
-Then MetaCoq and bignums:
+Then dependencies:
 
 ```bash
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install coq-metacoq.1.0~alpha2+8.11
 opam install coq-bignums
-```
-And std++:
-
-```bash
 opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam install coq-stdpp
+opam install coq-quickchick
 ```
 
 ```quickchick
@@ -51,4 +48,4 @@ The [extraction](extraction/) folder contains a printing procedure for the deep 
 
 ## Notes for developers
 
-The [execution](execution/) subproject can be built independently via running `make` in the `execution` folder. This also means that the `_CoqProject` file inside the `execution` folder musdt be manually kept in sync with the main `_CoqProject` in the root.
+The [execution](execution/) subproject can be built independently via running `make` in the `execution` folder. This also means that the `_CoqProject` file inside the `execution` folder must be manually kept in sync with the main `_CoqProject` in the root.
