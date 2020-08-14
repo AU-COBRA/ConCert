@@ -5,9 +5,9 @@
 
 (** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of Liquidity, or some times, lack of proper support.
 
-Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. Before calling a printing function, one needs to provide a list of strings that will be used to determine if the constant (or a variable corresponding to the recursive call) needs to be treated as uncurried when applied. This assumes that the names of fixpoints (even "local") do not clash with any constant names.
+Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied.
 
-Another issue (mostly solved): constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage.
+Another issue (mostly solved): constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
 
@@ -16,18 +16,20 @@ Records are currently not supported. Should be represented as iterated products.
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
 
 From Coq Require Import List Program String Ascii.
+From ConCert.Extraction Require Import StringExtra ExAst Common.
 From ConCert.Embedding Require Import MyEnv Ast.
-From ConCert.Extraction Require Import StringExtra ExAst.
 From MetaCoq.Template Require Import utils Loader Environment.
 From MetaCoq.Template Require Pretty.
+From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Erasure Require Import EAst EAstUtils ETyping EPretty.
 
+Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
 
 Section print_term.
   Context (Σ : ExAst.global_env).
 
-  Definition look (e : env string) (s : string) : option string :=
+  Definition look (e : MyEnv.env string) (s : string) : option string :=
     lookup e s.
 
   Definition is_rel (t : Ast.term) :=
@@ -50,29 +52,6 @@ Section print_term.
   Definition tokenize := tokenize_aux EmptyString.
 
   Eval lazy in (tokenize "." "Coq.ZArith.BinInt.Z.add").
-
-  (** Extracts a constant name, inductive name or returns None *)
-  (* TODO: move to utils *)
-  Definition to_kername (t : Ast.term) : option kername :=
-    match t with
-    | Ast.tConst c _ => Some c
-    | Ast.tInd c _ => Some c.(inductive_mind)
-    | _ => None
-    end.
-
-  (* TODO: move to utils *)
-  Definition to_kername_dummy (t : Ast.term) :  kername :=
-    let dummy := (MPfile [],"") in
-    (Ast.from_option (to_kername t) dummy).
-
-  Notation "<%% t %%>" := (to_kername_dummy <% t %>).
-
-  (* TODO: move to utils *)
-  Definition to_string_name (t : Ast.term) : string :=
-    match to_kername t with
-    | Some kn => string_of_kername kn
-    | None => "Not a constant or inductive"
-    end.
 
 (** Takes a fully qualified name and returns the last part, e.g.
   for "Coq.ZArith.BinInt.Z.add" returns "add" *)
@@ -100,28 +79,30 @@ Section print_term.
     | _ => bt
     end.
 
-  Fixpoint print_box_type (prefix : string) (TT : env string) (bt : box_type) :=
+  Definition print_box_type (prefix : string) (TT : env string)
+    : box_type -> string :=
+    fix go  (bt : box_type) :=
   match bt with
   | TBox => "Box"
-  | TArr dom codom => parens (negb (is_arr dom)) (print_box_type prefix TT dom) ++ " → " ++ print_box_type prefix TT codom
+  | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " → " ++ go codom
   | TApp t1 t2 =>
     let hd := get_tapp_hd t1 in
-    let args := map_targs (print_box_type prefix TT) bt in
+    let args := map_targs go bt in
     match hd with
     | TInd ind =>
       (* a special case of products - infix *)
       if eq_kername <%% prod %%> ind.(inductive_mind) then
         parens false (concat " * " args)
-      else parens false (print_uncurried "" args ++ " " ++ print_box_type prefix TT hd)
-    | _ => parens false (print_uncurried "" args ++ " " ++ print_box_type prefix TT hd)
+      else parens false (print_uncurried "" args ++ " " ++ go hd)
+    | _ => parens false (print_uncurried "" args ++ " " ++ go hd)
     end
-  | TVar i => "'a" ++ string_of_nat i
+  | TVar i => "'a" ++ string_of_nat i (* TODO: pass context with type variables *)
   | TInd s =>
     let full_ind_name := string_of_kername s.(inductive_mind) in
-    from_option (look TT full_ind_name) (prefix ++ s.(inductive_mind).2)
+    uncapitalize (from_option (look TT full_ind_name) (prefix ++ s.(inductive_mind).2))
   | TConst s =>
     let full_cst_name := string_of_kername s in
-    from_option (look TT full_cst_name) (prefix ++ s.2)
+    uncapitalize (from_option (look TT full_cst_name) (prefix ++ s.2))
 
   | TAny => "UnknownType"
   end.
@@ -131,6 +112,33 @@ Section print_term.
 
   Compute print_box_type "" []
           (TApp (TApp (TApp (TApp (TInd (mkInd (MPfile [], "list") 0)) (TVar 0)) (TVar 1)) (TVar 2))(TVar 3)).
+
+
+  Definition print_ctor (prefix : string) (TT : env string) (ctor : ident × list box_type) :=
+    let (nm,tys) := ctor in
+    match tys with
+    | [] => prefix ++ nm
+    | _ => prefix ++ nm ++ " of "
+                  ++ concat " * " (map (print_box_type prefix TT) tys)
+    end.
+
+  Compute print_ctor "" []
+          ("blah",[TInd (mkInd (MPfile [], "nat") 0);
+                  (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1))]).
+
+  Definition print_inductive (prefix : string) (TT : env string)
+             (oib : ExAst.one_inductive_body) :=
+    let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
+                              (prefix ++ oib.(ExAst.ind_name)) in
+    let print_type_var (i : nat) :=
+        "'a" ++ string_of_nat i in
+    let params :=
+        if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
+        else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
+             (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
+    "type " ++ params ++ uncapitalize ind_nm ++" = "
+            ++ nl
+            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors)).
 
   Fixpoint print_liq_type (prefix : string) (TT : env string) (t : Ast.term) :=
   let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
@@ -175,36 +183,6 @@ Section print_term.
 
   Open Scope bool.
 
-  Fixpoint get_ctor_type (prefix : string)(TT : env string) (ty : Ast.term) : list string:=
-    match ty with
-    | Ast.tProd _ dom codom =>
-      if negb (is_prod codom) then get_ctor_type prefix TT dom
-      else if is_sort dom || is_rel dom
-      (* FIXME: ignoring sorts and variables in an ad-hoc way *)
-           then get_ctor_type prefix TT codom
-           else print_liq_type prefix TT dom :: get_ctor_type prefix TT codom
-    | Ast.tInd ind _ => [print_liq_type prefix TT ty]
-    | _ => if is_rel ty then [] else
-             ["Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true ty ++ ")"]
-  end.
-
-  Definition print_ctor_type (prefix : string)(TT : env string) (ty : Ast.term) : string :=
-    concat " * " (get_ctor_type prefix TT ty).
-
-  Definition print_ctor (prefix : string) (TT : env string) (nm_ty : ident * Ast.term) : string :=
-    let (nm,ty) := nm_ty in
-    let tys := get_ctor_type prefix TT ty in
-    match tys with
-    | [] => prefix ++ nm
-    | _ => prefix ++ nm ++ " of " ++ concat " * " (get_ctor_type prefix TT ty)
-    end.
-
-  Definition print_inductive (prefix : string)(TT : env string) (oib : Ast.one_inductive_body) : string
-    :=
-    "type " ++ prefix ++ oib.(Ast.ind_name) ++ " = "
-            ++ nl
-            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p.1 ++ nl) oib.(Ast.ind_ctors)).
-
   Fixpoint Edecompose_lam (t : term) : (list name) × term :=
   match t with
   | tLambda n b =>
@@ -213,24 +191,24 @@ Section print_term.
   | _ => ([], t)
   end.
 
-  (* This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
+
+  (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : term) : term :=
     match t with
     | tLambda n b => lam_body b
     | _ => t
     end.
 
-  Definition print_def (f : context -> term -> string) (def : def term) :=
-    let (args, _) := Edecompose_lam (dbody def) in
-    let ctx := rev (map vass args) in
-    let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
-    string_of_name (dname def) ++ " " ++ sargs  ++ " = "
-                   ++ nl ++ f ctx (lam_body (dbody def)).
-
-    Definition print_defs (print_term : context -> bool -> bool -> term -> string) (Γ : context) (defs : mfixpoint term) :=
-      let ctx' := List.map (fun d => {| decl_name := dname d; decl_body := None |}) defs in
-      let fix_names := List.map (string_of_name ∘ dname) defs in
-    print_list (print_def (fun Γ' => print_term (Γ' ++ ctx' ++ Γ)%list true false)) (nl ++ " with ") defs.
+    Definition print_def (print_term : context -> bool -> bool -> term -> string) (Γ : context) (fdef : def  term) :=
+      let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
+      let fix_name := string_of_name (fdef.(dname)) in
+      let (args, _) := Edecompose_lam (fdef.(dbody)) in
+      let ctx := rev (map vass args) in
+      let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
+      string_of_name fdef.(dname)
+          ++ " " ++ sargs  ++ " = "
+          ++ nl
+          ++ print_term (ctx ++ ctx' ++ Γ)%list true false (lam_body fdef.(dbody)).
 
   Definition lookup_ind_decl ind i :=
     match ExAst.lookup_env Σ ind with
@@ -319,22 +297,7 @@ Section print_term.
                 else in_list eq_dec tl a
     end.
 
-  (** Returns a printed symbol that needs to be applied "uncurried", meaning that the arguments mush be packed into a tuple.
-   Currently, we uncurry fixpoints and constructor applications *)
-  (* Definition needs_uncurry (prefix : string) (FT : list string) (TT : env string) (Γ : context) (t : E.term) := *)
-  (*   let (b,_) := decompose_app t in *)
-  (*   match b with *)
-  (*   | E.tRel i => match nth_error Γ i with *)
-  (*                | Some d => *)
-  (*                  let nm := (string_of_name d.(decl_name)) in *)
-  (*                  if in_list String.string_dec FT nm then Some nm *)
-  (*                  else None *)
-  (*                | None => Some ("UnboundRel(" ++ string_of_nat i ++ ")") *)
-  (*                end *)
-  (*   | E.tConstruct ind i => Some (print_constr (capitalize prefix) TT ind i) *)
-  (*   | _ => None *)
-  (*   end. *)
-  (* Builds a context for the branch *)
+  (** Builds a context for the branch *)
   Definition get_ctx_from_branch (Γ : context) : nat -> term -> context :=
     let fix go (ctx : context) (arity: nat) (branch : term) :=
     match arity with
@@ -366,7 +329,8 @@ Section print_term.
   (** ** The pretty-printer *)
 
   (** [prefix] - a sting pre-pended to the constants' and constructors' names to avoid clashes
-      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for the applied variable (if it corresponds to a recursive call) or to an applied constant (if it corresponds to a recursive definition). We assume that the list of names to be uncurried is determined beforehand.
+      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for an applied variable (if it corresponds to a recursive call). The initial value is an empty list. Once we fit a fixpoint case, we add the fixpoint name to [FT], so all the recursive calls in the fixpoint body are packed into a tuple.
+
       [TT] - translation table allowing for remapping constants and constructors to Liquidity primitives, if required.
 
       [Γ] - context that gets updated when we go under lambda, let, pattern or fixpoint.
@@ -415,12 +379,7 @@ Section print_term.
     | tConst c =>
       let cst_name := string_of_kername c in
       let nm := from_option (look TT cst_name) (prefix ++ c.2) in
-      (* checking if the constant corresponds to a recursive definition *)
-      if in_list String.string_dec FT (unqual_name c.2)
-      then (* packing the argument into a tuple *)
-        (print_uncurried nm apps)
-      else (* just a normal application of a constant *)
-        parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+      parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
     | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
@@ -517,8 +476,21 @@ Section print_term.
                      ++ print_term prefix FT TT Γ true false c ++ ")"
     end
   | tFix l n =>
-    parens top ("let rec " ++ print_defs (print_term prefix FT TT) Γ l ++ nl ++
-                          " in " ++ List.nth_default (string_of_nat n) (map (string_of_name ∘ dname) l) n)
+    match l with
+    | [fix_decl] => (* NOTE: We assume that the fixpoints are not mutual *)
+      let fix_name := string_of_name fix_decl.(dname) in
+      let body := fix_decl.(dbody) in
+      let (args, _) := Edecompose_lam body in
+      let sargs := map string_of_name args in
+      let fix_call :=
+          "fun " ++ concat " " sargs ++ " -> "
+                 ++ print_uncurried fix_name sargs in
+      let FT' := fix_name :: FT in
+      parens top ("let rec " ++ print_def (print_term prefix FT' TT) Γ fix_decl ++ nl ++
+                             " in " ++ fix_call)
+    | [] => "FixWithNoBody"
+    | _ => "NotSupportedMutualFix"
+    end
   | tCoFix l n => "NotSupportedCoFix"
   end.
 
@@ -539,29 +511,103 @@ Fixpoint get_fix_names (t : term) : list name :=
   end.
 
 
+Definition print_decl (prefix : string)
+           (TT : MyEnv.env string) (* tranlation table *)
+           (Σ : ExAst.global_env)
+           (decl_name : string)
+           (modifier : option string)
+           (wrap : string -> string)
+           (ty : box_type)
+           (t : term) :=
+  let (tys,_) := decompose_arr ty in
+  let (args,lam_body) := Edecompose_lam t in
+  let targs := combine args (map (print_box_type prefix TT) tys) in
+  let printed_targs :=
+      map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs in
+  let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
+  let ctx := map (fun x => Build_context_decl x None) (rev args) in
+  let modif := match modifier with
+               | Some m => "%"++m
+               | None => ""
+               end in
+  "let" ++ modif ++ " " ++ decl ++ " = "
+        ++ wrap (LPretty.print_term Σ prefix [] TT ctx true false lam_body).
+
+Definition print_init (prefix : string)
+           (TT : MyEnv.env string) (* tranlation table *)
+           (build_call_ctx : string) (* a string that corresponds to a call contex *)
+           (init_prelude : string) (* operations available in the [init] as local definitions.
+                                      Liquidity does not allow to refer to global definitions in [init]*)
+           (Σ : ExAst.global_env)
+           (cst : ExAst.constant_body) : option string :=
+  b <- cst.(ExAst.cst_body) ;;
+  let ty := cst.(ExAst.cst_type) in
+  let (tys,_) := decompose_arr ty.2 in
+  let (args,lam_body) := Edecompose_lam b in
+  let targs_inner := combine args (map (print_box_type prefix TT) tys) in
+  let printed_targs_inner :=
+      map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs_inner in
+  let decl_inner := "inner " ++ concat " " printed_targs_inner in
+  let ctx := map (fun x => Build_context_decl x None) (rev args) in
+  let wrap t := "match " ++ t ++ " with Some v -> v | None -> failwith ()" in
+  let let_inner :=
+      "let " ++ decl_inner ++ " = "
+             ++ LPretty.print_term Σ prefix [] TT ctx true false lam_body
+             ++ " in" in
+  (* ignore the first argument because it's a call context *)
+  let printed_targs_outer := tl printed_targs_inner in
+  let decl_outer := "storage " ++ concat " " printed_targs_outer in
+  let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
+  let inner_app := "inner " ++ concat " " ( "ctx" :: map string_of_name (tl args)) in
+  ret ("let%init " ++ decl_outer ++ " = "
+                   ++ init_prelude
+                   ++ nl
+                   ++ let_inner
+                   ++ nl
+                   ++ let_ctx
+                   ++ nl
+                   ++ wrap (parens false inner_app)).
+
+
 Definition print_cst (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (Σ : ExAst.global_env)
            (kn : kername)
-           (cst : ExAst.constant_body)
-  : string :=
-  let (_, decl_name) := kn in
-  let (tys,_) := decompose_arr cst.(ExAst.cst_type).2 in
+           (cst : ExAst.constant_body) : string :=
   match cst.(ExAst.cst_body) with
   | Some cst_body =>
-    let (args,lam_body) := Edecompose_lam cst_body in
-    let targs := combine args (map (print_box_type prefix TT) tys) in
-    let printed_targs :=
-        map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs in
     (* NOTE: ignoring the path part *)
-    let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
-    let ctx := map (fun x => Build_context_decl x None) (rev args) in
-    (* NOTE: we construct a list of fixpoint names *)
-    let FT := map string_of_name (get_fix_names cst_body) in
-    "let " ++ decl ++ " = " ++  LPretty.print_term Σ prefix FT TT ctx true false lam_body
-  | None =>
-    let liq_type := LPretty.print_box_type prefix TT cst.(ExAst.cst_type).2 in
-    "type " ++ prefix ++ decl_name ++ " = " ++ liq_type
+    let (_, decl_name) := kn in
+    print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type).2 cst_body
+  | None => ""
+  end.
+
+Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
+           (nm : kername)
+           (Σ : ExAst.global_env)
+           (d : ExAst.global_decl) : kername * string :=
+  match d with
+  | ExAst.ConstantDecl cst =>
+      (nm, print_cst prefix TT Σ nm cst)
+  | ExAst.InductiveDecl ignore mib =>
+    if ignore then (nm,"") else
+    match mib.(ExAst.ind_bodies) with
+    | [oib] => (nm, print_inductive prefix TT oib)
+    | _ => (nm,"Only non-mutual inductives are supported")
+    end
+  | TypeAliasDecl (params, ty) =>
+    let ta_nm := from_option (lookup TT (string_of_kername nm))
+                             (prefix ++ nm.2) in
+    (nm, "type " ++ uncapitalize ta_nm ++ concat " " (map string_of_name params) ++  " = "
+            ++ print_box_type prefix TT ty)
+  end.
+
+Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
+           (Σ : ExAst.global_env) : list (kername * string) :=
+  match Σ with
+  | (kn,decl) :: Σ' =>
+    print_global_decl prefix TT kn Σ' decl :: print_global_env prefix TT Σ'
+  | [] => []
   end.
 
 
@@ -631,5 +677,3 @@ Definition printWrapper (contract : string): string :=
 
 Definition printMain :=
   "let%entry main param st = wrapper param st".
-
-Notation "<%% t %%>" := (to_kername_dummy <% t %>).

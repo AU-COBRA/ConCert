@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Congress.
-From ConCert.Extraction Require Import Certified.
+From ConCert.Extraction Require Import LiquidityExtract.
 
 From Coq Require Import List.
 From Coq Require Import String.

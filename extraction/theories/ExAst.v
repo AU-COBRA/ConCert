@@ -64,7 +64,8 @@ Record mutual_inductive_body :=
 
 Inductive global_decl :=
 | ConstantDecl : constant_body -> global_decl
-| InductiveDecl : forall (ignore_on_print : bool), mutual_inductive_body -> global_decl.
+| InductiveDecl : forall (ignore_on_print : bool), mutual_inductive_body -> global_decl
+| TypeAliasDecl : list name * box_type -> global_decl.
 
 Definition global_env := list (kername * global_decl).
 

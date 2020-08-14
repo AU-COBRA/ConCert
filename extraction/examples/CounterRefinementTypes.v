@@ -5,8 +5,8 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations CustomTactics.
-From ConCert.Embedding Require Import SimpleBlockchain.
-From ConCert.Extraction Require Import LPretty Certified.
+From ConCert.Extraction Require Import LPretty LiquidityExtract PreludeExt Common.
+From ConCert.Execution Require Import Blockchain.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -14,7 +14,6 @@ Local Open Scope string_scope.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
-Import AcornBlockchain.
 Import MonadNotation.
 
 Open Scope Z.
@@ -23,42 +22,45 @@ Import Lia.
 
 Definition PREFIX := "coq_".
 
-Module Type ZTheorems.
-  Axiom lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
-  Axiom lt_sub_pos : forall n m : Z, 0 < m -> n - m < n.
-End ZTheorems.
-
 (** We use parameterised modules (functors) to isolate proof terms from the extracted parts. Otherwise type cheking and erasing is taking too long *)
-Module CounterRefinmentTypes (ZT : ZTheorems).
+Module CounterRefinmentTypes.
 
+  (** Enabling recursors for records allows for deriving [Serializable] instances. *)
+  Set Nonrecursive Elimination Schemes.
+
+  Notation address := nat.
+
+  Definition operation := ActionBody.
   Definition storage := Z.
 
-  Definition positive := {z : Z | 0 <? z}.
+  Definition init (ctx : SimpleCallCtx) (setup : Z) : option storage :=
+    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    Some setup.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
 
-  Program Definition inc_counter (st : storage) (inc : positive) :
+  Program Definition inc_counter (st : storage) (inc : {z : Z | 0 <? z}) :
     {new_st : storage | st <? new_st} :=
-    st + proj1_sig inc.
+    st + inc.
   Next Obligation.
-    destruct inc.
-    unfold is_true in *. simpl.
-    Zleb_ltb_to_prop. apply ZT.lt_add_pos_r. exact i.
+    intros st inc. unfold is_true in *.
+    destruct inc;simpl.
+    Zleb_ltb_to_prop. lia.
   Qed.
 
-  Program Definition dec_counter (st : storage) (dec : positive) :
+  Program Definition dec_counter (st : storage) (dec : {z : Z | 0 <? z}) :
     {new_st : storage | new_st <? st} :=
-    st - proj1_sig dec.
+    st - dec.
   Next Obligation.
-    destruct dec.
-    unfold is_true in *. simpl.
-    Zleb_ltb_to_prop. apply ZT.lt_sub_pos. exact i.
+    intros st dec. unfold is_true in *.
+    destruct dec;simpl.
+    Zleb_ltb_to_prop. lia.
   Qed.
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
   Definition counter (msg : msg) (st : storage)
-    : option (list SimpleActionBody_coq * storage) :=
+    : option (list operation * storage) :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <? i) true) with
@@ -74,84 +76,68 @@ Module CounterRefinmentTypes (ZT : ZTheorems).
 
 End CounterRefinmentTypes.
 
-Module ZT : ZTheorems.
-  Lemma lt_add_pos_r : forall n m : Z, 0 < n -> m < m + n.
-  Proof. apply Z.lt_add_pos_r. Qed.
-  Lemma lt_sub_pos : forall n m : Z, 0 < m -> n - m < n.
-  Proof. apply Z.lt_sub_pos. Qed.
-End ZT.
+Import CounterRefinmentTypes.
 
-Module CRT := (CounterRefinmentTypes ZT).
-Import CRT.
+(** [sig] and [exist] becomes just wrappers *)
+Definition sig_def := "type 'a sig_ = 'a".
+Definition exist_def := "let exist_ a = a".
 
-Definition local_def := local PREFIX.
+(** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
+Definition TT_remap : list (kername * string) :=
+  [ remap <% bool %> "bool"
+  ; remap <% list %> "list"
+  ; remap <% Amount %> "tez"
+  ; remap <% address_coq %> "address"
+  ; remap <% time_coq %> "timestamp"
+  ; remap <% option %> "option"
+  ; remap <% Z.add %> "addInt"
+  ; remap <% Z.sub %> "subInt"
+  ; remap <% Z.leb %> "leInt"
+  ; remap <% Z.ltb %> "ltInt"
+  ; remap <% sig %> "sig_" (* remapping [sig] to the wrapper *)
+  ; remap <% @proj1_sig %> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
+  ; remap <% Z %> "int"
+  ; remap <% nat %> "key_hash" (* type of account addresses*)
+  ; remap <% operation %> "operation"
+  ; remap <% @fst %> "fst"
+  ; remap <% @snd %> "snd" ].
 
-(** A translation table for various constants we want to rename *)
-Definition TT_rt : env string :=
-  [  remap <% Z.add %> "addInt"
-     ; remap <% Z.sub %> "subInt"
-     ; remap <% Z.leb %> "leInt"
-     ; remap <% Z.ltb %> "ltInt"
-     ; remap <% Z %> "int"
-     ; remap <% bool %> "bool"
-     ; remap <% nat %> "address"
-     ; remap <% option %> "option"
-     ; remap <% @proj1_sig %> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
-     ; remap <% positive %> "int" (* this is again an ad-hoc optimisation *)
-     ; ("Some", "Some")
-     ; ("None", "None")
-     ; ("true", "true")
-     ; ("false", "false")
-     ; ("exist", "exist")
-     ; ("Z0" ,"0")
-     ; ("nil", "[]")
-     ; remap <% @fst %> "fst"
-     ; remap <% @snd %> "snd"
-     ; remap <% storage %> "storage"
-     ; local_def <% storage %>
-     ; local_def <% msg %>
-     ; local_def <% my_bool_dec %>
-     ; local_def <% inc_counter %>
-     ; local_def <% dec_counter %>
-  ].
+(** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
+Definition TT_rename : list (string * string):=
+  [ ("Some", "Some")
+  ; ("None", "None")
+  ; ("Z0" ,"0")
+  ; ("nil", "[]")
+  ; ("true", "true")
+  ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
+  ; (string_of_kername <%% storage %%>, "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-(** exists becomes just a wrapper *)
-Definition exists_def := "let exist a = a".
+Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
+  {| (* a name for the definition with the extracted code *)
+     lmd_module_name := "liquidity_counter" ;
 
-MetaCoq Quote Recursively Definition Counter := (counter).
+     (* definitions of operations on pairs and ints *)
+     lmd_prelude := concat nl [prod_ops;int_ops; sig_def; exist_def];
 
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that remove redundant type abstractions and application of boxes *)
+     (* initial storage *)
+     lmd_init := init ;
+
+     (* no extra operations in [init] are required *)
+     lmd_init_prelude := "" ;
+
+     (* the main functionality *)
+     lmd_receive := counter ;
+
+     (* code for the entry point *)
+     lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
+                       ++ printMain |}.
+
+(* TODO : revisit the description after proofs for deboxing are done *)
+(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. *)
+
 Time MetaCoq Run
-    (storage_def <- tmQuoteConstant <%% storage %%> false ;;
-     storage_body <- opt_to_template storage_def.(cst_body) ;;
-     ind <- tmQuoteInductive <%% msg %%> ;;
-     ind_liq <- print_one_ind_body PREFIX TT_rt ind.(ind_bodies);;
-     sumbool_t <- tmQuoteInductive <%% sumbool %%> ;;
-     sumbool_liq <- print_one_ind_body PREFIX TT_rt sumbool_t.(ind_bodies);;
-     t1 <- toLiquidityEnv PREFIX TT_rt (Counter.1) inc_counter ;;
-     t2 <- toLiquidityEnv PREFIX TT_rt (Counter.1) dec_counter ;;
-     t3 <- toLiquidityEnv PREFIX TT_rt (Counter.1) my_bool_dec ;;
-     t4 <- toLiquidityEnv PREFIX TT_rt (Counter.1) counter ;;
-     res <- tmEval lazy
-                  (prod_ops ++ nl ++ int_ops ++ nl ++ exists_def
-                     ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type PREFIX TT_rt storage_body
-                     ++ nl ++ nl
-                     ++ sumbool_liq
-                     ++ nl ++ nl
-                     ++ ind_liq
-                     ++ nl ++ nl
-                     ++ t1
-                     ++ nl ++ nl
-                     ++ t2
-                     ++ nl ++ nl
-                     ++ t3
-                     ++ nl ++ nl
-                     ++ t4
-                     ++ nl ++ nl
-                     ++ printWrapper (PREFIX ++ "counter")
-                     ++ nl ++ nl
-                     ++ printMain) ;;
-    tmDefinition "counter_extracted_refinment_types" res).
+     (t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+      tmDefinition COUNTER_MODULE.(lmd_module_name) t
+     ).
 
-Print counter_extracted_refinment_types.
+Print liquidity_counter.

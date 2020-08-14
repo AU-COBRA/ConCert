@@ -61,12 +61,11 @@ embedding/examples/Prelude.v
 embedding/examples/SimpleBlockchain.v
 
 -Q extraction/theories ConCert.Extraction
-extraction/theories/Certified.v
+extraction/theories/LiquidityExtract.v
 extraction/theories/Common.v
 # extraction/theories/Dependencies.v
 extraction/theories/Erasure.v
 extraction/theories/ExAst.v
-extraction/theories/Extra.v
 extraction/theories/ExTyping.v
 # extraction/theories/Extraction.v
 extraction/theories/Liquidity.v
@@ -88,7 +87,7 @@ extraction/examples/CounterCertifiedExtraction.v
 extraction/examples/CrowdfundingCertifiedExtraction.v
 extraction/examples/CounterDepCertifiedExtraction.v
 extraction/examples/CounterRefinementTypes.v
-# extraction/examples/StackInterpreter.v
+extraction/examples/StackInterpreter.v
 extraction/examples/ErasureTests.v
 extraction/examples/MidlangExtractTests.v
 

@@ -471,29 +471,27 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 Definition print_constant_body
            (name : kername)
            (cst : Ex.constant_body) : PrettyPrinter string :=
-  name_col <- get_current_line_length;;
-  push_indent name_col;;
 
   let (type, body) := cst in
   let ml_name := get_fun_name name in
 
-  match type with
-  | (type_vars, ty) =>
-    append ml_name;;
-    append " : ";;
-    Γrev <- monad_fold_left (fun Γ name => name <- fresh_ty_arg_name name Γ;;
-                                           ret (name :: Γ))
-                            type_vars [];;
-    print_type (rev Γrev) ty;;
-    append_nl_and_indent
-  (*| Err s =>
-    append ("-- Could not erase type: " ++ s);;
-    append_nl_and_indent*)
-  end;;
-
   match body with
-  | None => ret tt
+  | None => ret tt (* NOTE: ignoring axioms on printing *)
   | Some body =>
+    name_col <- get_current_line_length;;
+    push_indent name_col;;
+
+    match type with
+    | (type_vars, ty) =>
+      append ml_name;;
+      append " : ";;
+      Γrev <- monad_fold_left (fun Γ name => name <- fresh_ty_arg_name name Γ;;
+                                         ret (name :: Γ))
+                             type_vars [];;
+      print_type (rev Γrev) ty;;
+      append_nl_and_indent
+    end;;
+
     let name := get_fun_name name in
     push_use name;;
     print_define_term [] name body print_term
@@ -582,6 +580,23 @@ Definition print_mutual_inductive_body
 
   ret names.
 
+Definition print_type_alias
+           (nm : kername)
+           (ty : list name × Ex.box_type) : PrettyPrinter string :=
+  append "type alias ";;
+  let ty_ml_name := get_ty_name nm in
+  append ty_ml_name;;
+  let '(type_vars, ty) := ty in
+  append " = ";;
+  Γrev <- monad_fold_left (fun Γ name => name <- fresh_ty_arg_name name Γ;;
+                                           ret (name :: Γ))
+                         type_vars [];;
+  (* FIXME: print type vars? Can type aliases have parameters? *)
+  print_type (rev Γrev) ty ;;
+  append_nl ;;
+  ret ty_ml_name.
+
+
 Definition print_global_decl
            (name : kername)
            (decl : Ex.global_decl) : PrettyPrinter (list (kername * string)) :=
@@ -591,6 +606,19 @@ Definition print_global_decl
   | Ex.InductiveDecl ignore_on_print mib =>
     if ignore_on_print then ret []
     else print_mutual_inductive_body name mib
+  | Ex.TypeAliasDecl ty =>
+    ml_ty <- print_type_alias name ty ;;
+    ret [(name, ml_ty)]
+  end.
+
+Definition is_axiom (decl : Ex.global_decl) : bool :=
+  match decl with
+  | Ex.ConstantDecl cst =>
+    match cst.(Ex.cst_body) with
+    | Some _ => false
+    | None => true
+    end
+  | _ => false
   end.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=
@@ -601,7 +629,9 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
      match l with
      | [] => ret names
      | (name, decl) :: l =>
-
+       (* NOTE: ignoring axioms on printing *)
+       if is_axiom decl then f l prefix names
+       else
        prefix;;
        new_names <- print_global_decl name decl;;
 
@@ -725,9 +755,111 @@ Time Compute (env <- test;;
               ret (get_dearg_set_for_unused_args env)).
 Time Compute
      (env <- test;;
-      let env := remove_unused_args env in
       '(_, s) <- finish_print (print_env env program.1 midlang_translate);;
       ret s).
+
+Module CounterRefinmentTypes.
+
+  Open Scope Z.
+  Definition storage := Z.
+
+  Definition pos := {z : Z | 0 <? z}.
+
+  Inductive msg := Inc (_ : Z) | Dec (_ : Z).
+
+  Import Lia.
+
+  Program Definition inc_counter (st : storage) (inc : pos) :
+    {new_st : storage | st <? new_st} :=
+    st + proj1_sig inc.
+  Next Obligation.
+    destruct inc;simpl;unfold is_true in *.
+    rewrite <- Zlt_is_lt_bool in *;lia.
+  Qed.
+
+
+  Program Definition dec_counter (st : storage) (dec : pos) :
+    {new_st : storage | new_st <? st} :=
+    st - proj1_sig dec.
+  Next Obligation.
+    destruct dec;simpl;unfold is_true in *.
+    rewrite <- Zlt_is_lt_bool in *;lia.
+  Qed.
+
+  Definition my_bool_dec := Eval compute in Bool.bool_dec.
+
+  Inductive SimpleActionBody :=
+  | Act_transfer : nat -> Z -> SimpleActionBody.
+
+  Definition Transaction := list SimpleActionBody.
+  Definition Transaction_none : Transaction := [].
+
+  Definition counter (msg : msg) (st : storage)
+    : option (Transaction * storage) :=
+    match msg with
+    | Inc i =>
+      match (my_bool_dec (0 <? i) true) with
+      | left h => Some (Transaction_none, proj1_sig (inc_counter st (exist i h)))
+      | right _ => None
+      end
+    | Dec i =>
+      match (my_bool_dec (0 <? i) true) with
+      | left h => Some (Transaction_none, proj1_sig (dec_counter st (exist i h)))
+      | right _ => None
+      end
+    end.
+End CounterRefinmentTypes.
+
+MetaCoq Run
+        (p <- tmQuoteRecTransp (CounterRefinmentTypes.counter) false;;
+        tmDefinition "counter_env" p.1).
+
+Definition counter_name := <%% CounterRefinmentTypes.counter %%>.
+
+
+(** A translation table for various constants we want to rename *)
+
+Definition TT : list (kername * string) :=
+  [
+       remap <% Z.add %> "add"
+     ; remap <% Z.sub %> "sub"
+     ; remap <% Z.leb %> "le"
+     ; remap <% Z.ltb %> "lt"
+     ; remap <% Z %> "Int"
+     ; (kername_of_string "Coq.Numbers.BinNums.Z0","0")
+     ; remap <% nat %> "AccountAddress"
+     ; remap <% CounterRefinmentTypes.Transaction %> "Transaction"
+     ; remap <% CounterRefinmentTypes.Transaction_none %> "Transaction.none"
+     ; remap <% bool %> "Bool" ].
+
+Definition midlang_counter_translate (name : kername) : option string :=
+  match find (fun '(key, _) => eq_kername key name) (TT ++ midlang_translation_map) with
+  | Some (_, val) => Some val
+  | None => None
+  end.
+
+Definition counter_ignored :=
+  [<%% RecordSet.Reader %%> ;
+   <%% @RecordSet.constructor %%>].
+
+Definition counter_extract :=
+    specialize_erase_debox_template_env
+      counter_env
+      [counter_name]
+      (ignored_concert_types ++ counter_ignored
+                             ++ map fst midlang_translation_map
+                             ++ map fst TT).
+
+Compute counter_extract.
+
+Time Compute (env <- counter_extract;;
+              ret (get_dearg_set_for_unused_args env)).
+
+Time Compute
+     (env <- counter_extract ;;
+      '(_, s) <- finish_print (print_env env counter_env midlang_counter_translate);;
+      ret s).
+
 
 (*
 (*From ConCert.Execution Require Import Escrow.*)

@@ -144,5 +144,6 @@ Fixpoint wfe (Σ : global_env) : Prop :=
       | None => True
       end
     | InductiveDecl _ _ => True
+    | TypeAliasDecl _ => True (* FIXME: Do we need to say something about type aliases? *)
     end /\ wfe Σ
   end.

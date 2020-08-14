@@ -180,7 +180,7 @@ Fixpoint dearg_single (mask : bitmask) (t : term) (args : list term) : term :=
   | true :: mask, arg :: args => dearg_single mask t args
   | false :: mask, arg :: args => dearg_single mask (tApp t arg) args
   | _, _ => mkApps t args
-            (* todo: pass through conditions saying that we never run out of args, only mask? *)
+  (* TODO: pass through conditions saying that we never run out of args, only mask? *)
   end.
 
 Definition dearg_ctor (ind : inductive) (c : nat) (args : list term) : term :=
@@ -315,6 +315,7 @@ Definition dearg_decl (kn : kername) (decl : global_decl) : global_decl :=
   match decl with
   | ConstantDecl cst => ConstantDecl (dearg_cst kn cst)
   | InductiveDecl b mib => InductiveDecl b (dearg_mib kn mib)
+  | TypeAliasDecl _ => decl
   end.
 
 Definition dearg_env (Σ : global_env) : global_env :=
@@ -340,6 +341,7 @@ Definition delete_parameters_decl (decl : global_decl) : global_decl :=
     InductiveDecl b
       {| ind_npars := 0;
          ind_bodies := ind_bodies mib |}
+  | TypeAliasDecl _ => decl
   end.
 
 (* Return bitmask indicating which context variables have uses *)
@@ -378,9 +380,21 @@ Fixpoint func_body_used_params (Γ : bitmask) (t : term) (ty : box_type) : bitma
   | t, ty => used_context_vars Γ t
   end.
 
+(* Return bitmask for a box type. [TBox] corresponds to unused variables.
+   We use this function to produce a bitmask for axioms in the global environment that
+   correspond to remapped definitions. *)
+Definition box_type_used_params (ty : box_type) : bitmask :=
+  let '(tys,codom) := decompose_arr ty in
+  let is_box ty :=
+      match ty with
+      | TBox => false
+      | _ => true
+      end in
+  map is_box tys.
+
 Definition constant_used_params (cst : constant_body) : bitmask :=
   match cst_body cst with
-  | None => []
+  | None => box_type_used_params ((cst_type cst).2)
   | Some body => List.rev (func_body_used_params [] body (cst_type cst).2)
   end.
 
@@ -416,13 +430,15 @@ Fixpoint get_dearg_set_for_unused_args (Σ : global_env) : dearg_set :=
         match decl with
         | ConstantDecl cst => ((kn, bitmask_not (constant_used_params cst)) :: consts, inds)
         | InductiveDecl _ mib => (consts, (kn, make_dearg_mib_masks mib) :: inds)
+        | TypeAliasDecl _ =>
+          (* FIXME: look for unused parameters in type alisases? *)
+          (consts,inds)
         end in
     {| const_masks := consts; ind_masks := inds |}
   end.
 
-Definition remove_unused_args (Σ : global_env) : global_env :=
-  let dearg_set := get_dearg_set_for_unused_args Σ in
-  let consts_eta_count := map (on_snd S_last_1) (const_masks dearg_set) in
+Definition remove_unused_args (ds : dearg_set) (Σ : global_env) : global_env :=
+  let consts_eta_count := map (on_snd S_last_1) (const_masks ds) in
   let get_ctors_eta_count kn mib_masks :=
       map (fun '(i, c, mask) => ({| inductive_mind := kn; inductive_ind := i |}, c,
                                  List.length (param_mask mib_masks) + S_last_1 mask))
@@ -430,49 +446,136 @@ Definition remove_unused_args (Σ : global_env) : global_env :=
   let ctors_eta_count :=
       List.concat
         (map (fun '(kn, mib_masks) => get_ctors_eta_count kn mib_masks)
-             (ind_masks dearg_set)) in
+             (ind_masks ds)) in
   let Σ := eta_expand_env ctors_eta_count consts_eta_count Σ in
-  dearg_env (ind_masks dearg_set) (const_masks dearg_set) Σ.
-
+  dearg_env (ind_masks ds) (const_masks ds) Σ.
 
 Import ExAst.
 
-Fixpoint debox_box_type (bt : box_type) : box_type :=
-  match bt with
-  | TBox => bt
-  | TArr dom codom =>
-    match dom with
-    | TBox => debox_box_type codom (* we turn [box -> ty] into [ty] *)
-    | _ => TArr (debox_box_type dom) (debox_box_type codom)
-    end
-  | TApp ty1 ty2 =>
-    match ty2 with
-    | TBox => debox_box_type ty1 (* we turn [(ty1 box)] into [ty1] *)
-    | _ => TApp (debox_box_type ty1) (debox_box_type ty2)
-    end
-  | TVar _ => bt
-  | TInd _ => bt
-  | TConst _ => bt
-  | TAny => bt
+Definition map_subterms_box_type (f : box_type -> box_type) (ty : box_type) : box_type :=
+  match ty with
+  | TArr dom codom => TArr (f dom) (f codom)
+  | TApp ty1 ty2 => TApp (f ty1) (f ty2)
+  | _ => ty
   end.
 
+Fixpoint decompose_TApp (bt : box_type) : list box_type × box_type :=
+  match bt with
+  | TApp dom cod => let (args, res) := decompose_TApp cod in (dom :: args, res)
+  | _ => ([], bt)
+  end.
+
+Fixpoint mkAppsBt (t : box_type) (us : list box_type) : box_type :=
+  match us with
+  | [] => t
+  | a :: args => mkAppsBt (TApp t a) args
+  end.
+
+Fixpoint dearg_single_bt (mask : bitmask) (t : box_type) (args : list box_type)
+  : box_type :=
+  match mask, args with
+  | true :: mask, arg :: args => dearg_single_bt mask t args
+  | false :: mask, arg :: args => dearg_single_bt mask (TApp t arg) args
+  | _, _ => mkAppsBt t args
+  (* TODO: pass through conditions saying that we never run out of args, only mask? *)
+  end.
+
+(* Fixpoint dearg_aux (args : list term) (t : term) : term := *)
+(*   match t with *)
+(*   | tApp hd arg => dearg_aux (dearg_aux [] arg :: args) hd *)
+(*   | tConstruct ind c => dearg_ctor ind c args *)
+(*   | tConst kn => dearg_const kn args *)
+(*   | tCase (ind, npars) discr brs => *)
+(*     let discr := dearg_aux [] discr in *)
+(*     let brs := map (on_snd (dearg_aux [])) brs in *)
+(*     mkApps (dearg_case ind npars discr brs) args *)
+(*   | t => mkApps (map_subterms (dearg_aux []) t) args *)
+(*   end. *)
+
+Definition dearg_ty_const (const_masks : list (kername × bitmask)) (kn : kername)
+           (args : list box_type) :=
+match find (fun '(kn', _) => eq_kername kn' kn) const_masks with
+| Some (_, mask) => dearg_single_bt mask (TConst kn) args
+| None => mkAppsBt (TConst kn) args
+end.
+
+Definition get_param_mask (oib : one_inductive_body) : bitmask :=
+  map (fun x => tvar_is_logical x || negb (tvar_is_sort x))
+      oib.(ind_type_vars).
+
+Definition dearg_ty_ind (ind_masks : list (inductive × bitmask))
+           (ind : inductive)
+           (args : list box_type)
+        :=
+          let kn := ind.(inductive_mind) in
+          let i := ind.(inductive_ind) in
+          let mask_o :=
+              find (fun '(mkInd kn' i',_) => eq_kername kn' kn && Nat.eqb i i')
+                   ind_masks in
+            match mask_o with
+            | Some (_, mask) => dearg_single_bt mask (TInd ind) args
+            | None => mkAppsBt (TInd ind) args
+            end.
+
+Record dearg_set_ty :=
+  { dst_const_masks : list (kername × bitmask);
+    dst_ind_masks : list (inductive × bitmask) }.
+
+Fixpoint debox_box_type_aux (ds : dearg_set_ty) (app_args : list box_type) (bt : box_type) : box_type :=
+  match bt with
+  | TArr dom codom =>
+    match dom with
+    | TBox => debox_box_type_aux ds app_args codom (* we turn [box -> ty] into [ty] *)
+    | TArr TBox codom' =>
+      (* NOTE: we do not remove boxes in a negative position *)
+      TArr (TArr TBox (debox_box_type_aux ds app_args codom'))
+           (debox_box_type_aux ds app_args codom)
+    | _ => TArr (debox_box_type_aux ds app_args dom) (debox_box_type_aux ds app_args codom)
+    end
+  | TApp ty1 ty2 =>
+    debox_box_type_aux ds (debox_box_type_aux ds [] ty2 :: app_args) ty1
+  | TInd ind => dearg_ty_ind ds.(dst_ind_masks) ind app_args
+  | TConst kn => dearg_ty_const ds.(dst_const_masks) kn app_args
+  | TVar _ | TAny | TBox => bt
+  end.
+
+Definition debox_box_type (ds : dearg_set_ty) (bt : box_type) :=
+  debox_box_type_aux ds [] bt.
+
 Definition remove_logical_params (oib : ExAst.one_inductive_body) :=
+  let mask := get_param_mask oib in
   let filtered_ty_vars :=
-      filter (fun x => negb (tvar_is_logical x) && (tvar_is_sort x)) oib.(ind_type_vars)
-  in {| ind_name:= oib.(ind_name);
+      map snd (filter (negb ∘ fst) (combine mask oib.(ind_type_vars))) in
+  {| ind_name:= oib.(ind_name);
         ind_type_vars := filtered_ty_vars;
-        ind_ctors := oib.(ind_ctors);
+        ind_ctors := oib.(ind_ctors); (* FIXME: recalculate the type var indices! *)
         ind_projs := oib.(ind_projs) |}.
 
+Fixpoint get_param_masks_global_env (Σ : ExAst.global_env)
+  : list (inductive * bitmask) :=
+  match Σ with
+  | (kn, InductiveDecl _ mib) :: Σ' =>
+    let get_for_mib kn mib :=
+        mapi (fun i oib =>(mkInd kn i, get_param_mask oib)) mib.(ind_bodies) in
+    get_for_mib kn mib ++ get_param_masks_global_env Σ'
+  | _ :: Σ' => get_param_masks_global_env Σ'
+  | [] => []
+  end.
+
 Definition debox_types_global_env (Σ : ExAst.global_env) : ExAst.global_env :=
+  let _ds := get_dearg_set_for_unused_args Σ in
+  let ind_masks := get_param_masks_global_env Σ in
+  let ds := {| dst_const_masks := _ds.(const_masks);
+               dst_ind_masks := ind_masks|} in
   map (on_snd
          (fun d => match d with
                 | ConstantDecl cst =>
                   ConstantDecl {| cst_type := let '(nm,ty) := cst.(cst_type) in
-                                              (nm, debox_box_type ty) ;
+                                              (nm, debox_box_type ds ty) ;
                                   cst_body := cst.(cst_body) |}
                 | InductiveDecl b ind =>
                   InductiveDecl b {| ind_npars := ind.(ind_npars);
                                      ind_bodies :=
-                                     map remove_logical_params ind.(ind_bodies) |}
+                                       map remove_logical_params ind.(ind_bodies) |}
+                | TypeAliasDecl (nms, ty) => TypeAliasDecl (nms, debox_box_type ds ty)
                 end)) Σ.

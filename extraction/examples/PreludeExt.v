@@ -6,6 +6,7 @@ Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast CustomTactics Notations
      PCUICTranslate PCUICtoTemplate TranslationUtils MyEnv Prelude.
 From ConCert.Embedding.Examples Require Import Utils.
+From ConCert.Execution Require Import Blockchain.
 Require Import List.
 
 From MetaCoq.Template Require Import All Loader.
@@ -98,14 +99,71 @@ Notation "'mkCallCtx' now sender sent_am bal " :=
                 (Pair money money {sent_am} {bal} )) |]
     (in custom expr at level 0).
 
-(** We use this abbreviation to state lemmas *)
-Definition SimpleCallCtx : Set:= time_coq × (address_coq × (Z × Z)).
+(** A simple representation of the call context *)
 
-(** These projections correspont to the notations above *)
+(** current_time, sender_add, sent_amount, acc_balance *)
+Definition SimpleCallCtx : Set:= time_coq × (address_coq × (Amount × Amount)).
+
+(** These projections correspond to the notations above *)
 Definition sc_current_time (ctx : SimpleCallCtx) : time_coq := ctx.1.
 Definition sc_sender_addr (ctx : SimpleCallCtx) : address_coq := ctx.2.1.
 Definition sc_sent_amount (ctx : SimpleCallCtx) : Z := ctx.2.2.1.
 Definition sc_acc_balance (ctx : SimpleCallCtx) : Z := ctx.2.2.2.
+
+
+Definition is_contract (addr: address_coq) :=
+  match addr with
+  | ContractAddr_coq _ => true
+  | UserAddr_coq _ => false
+  end.
+
+Print Instances countable.Countable.
+
+Definition encode_addr (addr: address_coq) : nat + nat :=
+  match addr with
+  | ContractAddr_coq x => inl x
+  | UserAddr_coq x => inr x
+  end.
+
+Definition decode_addr (addr: nat + nat) : address_coq :=
+  match addr with
+  | inl x => ContractAddr_coq x
+  | inr x => UserAddr_coq x
+  end.
+
+
+Global Program Instance CB : ChainBase :=
+  build_chain_base address_coq eqb_addr _ _ _ _ is_contract.
+Next Obligation.
+  intros a b. destruct a,b;simpl.
+  - destruct (n =? n0)%nat eqn:Heq.
+    * constructor. now rewrite Nat.eqb_eq in *.
+    * constructor. now rewrite NPeano.Nat.eqb_neq in *.
+  - now constructor.
+  - now constructor.
+  - destruct (n =? n0)%nat eqn:Heq.
+    * constructor. now rewrite Nat.eqb_eq in *.
+    * constructor. now rewrite NPeano.Nat.eqb_neq in *.
+Qed.
+Next Obligation.
+  intros ??. unfold base.Decision.
+  decide equality;apply Nat.eq_dec.
+Qed.
+Next Obligation.
+Admitted.
+Next Obligation.
+Admitted.
+
+Definition init_wrapper {setup storage}
+           (init : SimpleCallCtx -> setup -> storage)
+           (ch : Chain)
+           (ctx : ContractCallContext) : setup -> storage :=
+  let simple_ctx :=
+      (Time_coq ch.(current_slot),
+       ((ctx.(ctx_from)),
+        ((ctx.(ctx_amount), ch.(account_balance) ctx.(ctx_contract_address))))) in
+    init simple_ctx.
+
 
 (** Our approximation for finite maps. We cannot use the one defined in the Embedding.Prelude, because it cannot be made parametric wrt. the type of keys doe to limitations of the embedding (types cannot be constants, only inductives) *)
 Module Maps.

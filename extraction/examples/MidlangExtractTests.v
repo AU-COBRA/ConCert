@@ -19,7 +19,6 @@ Definition extract (p : program) : result string string :=
            | _ => Err "Expected program to be a tConst"
            end;;
   Σ <- specialize_erase_debox_template_env p.1 [entry] [];;
-  let Σ := remove_unused_args Σ in
   '(_, s) <- finish_print (print_env Σ p.1 (fun _ => None));;
   ret s.
 
@@ -29,10 +28,10 @@ Module ex1.
   MetaCoq Quote Recursively Definition ex1 := bar.
 
   Definition ex1_expected :=
-"type Sig a p" ++ nl ++
+"type Sig a" ++ nl ++
 "  = Exist a" ++ nl ++
 "" ++ nl ++
-"proj1_sig : Sig a □ -> a" ++ nl ++
+"proj1_sig : Sig a -> a" ++ nl ++
 "proj1_sig e =" ++ nl ++
 "  case e of" ++ nl ++
 "    Exist a ->" ++ nl ++
@@ -42,13 +41,14 @@ Module ex1.
 "  = O" ++ nl ++
 "  | S Nat" ++ nl ++
 "" ++ nl ++
-"foo : Sig Nat □" ++ nl ++
+"foo : Sig Nat" ++ nl ++
 "foo =" ++ nl ++
 "  Exist O" ++ nl ++
 "" ++ nl ++
 "bar : Nat" ++ nl ++
 "bar =" ++ nl ++
 "  proj1_sig foo".
+
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex1) in exact x) =
                   Ok ex1_expected.
 End ex1.
@@ -94,13 +94,14 @@ Module ex4.
   MetaCoq Quote Recursively Definition ex4 := foo.
 
   Definition ex4_expected :=
-"type Sumbool a b" ++ nl ++
+"type Sumbool" ++ nl ++
 "  = Left" ++ nl ++
 "  | Right" ++ nl ++
 "" ++ nl ++
-"foo : Sumbool □ □" ++ nl ++
+"foo : Sumbool" ++ nl ++
 "foo =" ++ nl ++
 "  Left".
+
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex4) in exact x) =
                   Ok ex4_expected.
 End ex4.
@@ -119,6 +120,8 @@ Module ex5.
 "foo : Sum □ □" ++ nl ++
 "foo =" ++ nl ++
 "  Inl □".
+  Compute (extract ex5).
+  Compute ex5_expected.
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex5) in exact x) =
                   Ok ex5_expected.
 End ex5.

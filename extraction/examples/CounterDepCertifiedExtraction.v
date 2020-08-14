@@ -5,8 +5,8 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import SimpleBlockchain.
-From ConCert.Extraction Require Import LPretty Certified.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Extraction Require Import LiquidityExtract LPretty PreludeExt Common.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -14,7 +14,6 @@ Local Open Scope string_scope.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
-Import AcornBlockchain.
 Import MonadNotation.
 
 Open Scope Z.
@@ -25,7 +24,20 @@ Definition PREFIX := "coq_".
 
 Module Counter.
 
-  Definition storage := Z × nat.
+  (** Enabling recursors for records allows for deriving [Serializable] instances. *)
+  Set Nonrecursive Elimination Schemes.
+
+  (** The definitions in this section are generalized over the [ChainBase] that specifies the type of addresses and which properties such a type must have *)
+  Context {BaseTypes : ChainBase}.
+
+  Notation address := nat.
+
+  Definition operation := ActionBody.
+  Definition storage := Z × address.
+
+  Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
+    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    Some setup.
 
   Inductive msg :=
   | Inc (_ : Z)
@@ -43,7 +55,7 @@ Module Counter.
   Definition my_bool_dec := Eval compute in bool_dec.
 
   Definition counter (msg : msg) (st : storage)
-    : option (list SimpleActionBody_coq * storage) :=
+    : option (list operation * storage) :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
@@ -62,32 +74,51 @@ End Counter.
 
 Import Counter.
 
-Definition local_def := local PREFIX.
+(** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
+Definition TT_remap : list (kername * string) :=
+  [ remap <% bool %> "bool"
+  ; remap <% list %> "list"
+  ; remap <% Amount %> "tez"
+  ; remap <% address_coq %> "address"
+  ; remap <% time_coq %> "timestamp"
+  ; remap <% option %> "option"
+  ; remap <% Z.add %> "addInt"
+  ; remap <% Z.sub %> "subInt"
+  ; remap <% Z.leb %> "leInt"
+  ; remap <% Z %> "int"
+  ; remap <% nat %> "key_hash" (* type of account addresses*)
+  ; remap <% operation %> "operation"
+  ; remap <% @fst %> "fst"
+  ; remap <% @snd %> "snd" ].
 
-(** A translation table for various constants we want to rename *)
-Definition TT : env string :=
-  [  remap <% Z.add %> "addInt"
-     ; remap <% Z.sub %> "subInt"
-     ; remap <% Z.leb %> "leInt"
-     ; remap <% Z %> "int"
-     ; remap <% bool %> "bool"
-     ; remap <% nat %> "address"
-     ; remap <% option %> "option"
-     ; ("Some", "Some")
-     ; ("None", "None")
-     ; ("true", "true")
-     ; ("false", "false")
-     ; ("Z0" ,"0")
-     ; ("nil", "[]")
-     ; remap <% @fst %> "fst"
-     ; remap <% @snd %> "snd"
-     ; remap <% storage %> "storage"
-     ; local_def <% storage %>
-     ; local_def <% msg %>
-     ; local_def <% my_bool_dec %>
-     ; local_def <% inc_balance %>
-     ; local_def <% dec_balance %>
-  ].
+(** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
+Definition TT_rename : list (string * string):=
+  [ ("Some", "Some")
+  ; ("None", "None")
+  ; ("Z0" ,"0")
+  ; ("nil", "[]")
+  ; ("true", "true")
+  ; (string_of_kername <%% storage %%>, "storage")  (* we add [storage] so it is printed without the prefix *) ].
+
+Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+  {| (* a name for the definition with the extracted code *)
+     lmd_module_name := "liquidity_counter" ;
+
+     (* definitions of operations on pairs and ints *)
+     lmd_prelude := prod_ops ++ nl ++ int_ops;
+
+     (* initial storage *)
+     lmd_init := init ;
+
+     (* no extra operations in [init] are required *)
+     lmd_init_prelude := "" ;
+
+     (* the main functionality *)
+     lmd_receive := counter ;
+
+     (* code for the entry point *)
+     lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
+                       ++ printMain |}.
 
 MetaCoq Quote Recursively Definition ex_partially_applied_syn :=
   ((fun msg : msg => fun st => match msg with
@@ -103,45 +134,19 @@ MetaCoq Quote Recursively Definition ex_partially_applied_syn :=
       | left h => Some ([], dec_balance st i h)
       | right _ => None
       end
-    end) : msg -> storage -> option (list SimpleActionBody_coq * storage)).
+    end) : msg -> storage -> option (list operation * storage)).
 
 
 Example partially_applied :
   erase_and_check_applied ex_partially_applied_syn = PCUICSafeChecker.CorrectDecl false.
 Proof. reflexivity. Qed.
 
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. Even though the de-boxing is not certified yet, before removing boxes we check if constant is applied to all logical argument (i.e. proofs or types) and constructors are fully applied. In this case, it is safe to remove these applications. *)
-MetaCoq Run
-    (storage_def <- tmQuoteConstant <%% storage %%> false ;;
-     storage_body <- opt_to_template storage_def.(cst_body) ;;
-     ind <- tmQuoteInductive <%% msg %%> ;;
-     ind_liq <- print_one_ind_body PREFIX TT ind.(ind_bodies);;
-     sumbool_t <- tmQuoteInductive <%% sumbool %%> ;;
-     sumbool_liq <- print_one_ind_body PREFIX TT sumbool_t.(ind_bodies);;
-     t1 <- toLiquidity PREFIX TT inc_balance ;;
-     t2 <- toLiquidity PREFIX TT dec_balance ;;
-     t3 <- toLiquidity PREFIX TT my_bool_dec ;;
-     t4 <- toLiquidity PREFIX TT counter ;;
-     res <- tmEval lazy
-                  (prod_ops ++ nl ++ int_ops
-                     ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type PREFIX TT storage_body
-                     ++ nl ++ nl
-                     ++ sumbool_liq
-                     ++ nl ++ nl
-                     ++ ind_liq
-                     ++ nl ++ nl
-                     ++ t1
-                     ++ nl ++ nl
-                     ++ t2
-                     ++ nl ++ nl
-                     ++ t3
-                     ++ nl ++ nl
-                     ++ t4
-                     ++ nl ++ nl
-                     ++ printWrapper (PREFIX ++ "counter")
-                     ++ nl ++ nl
-                     ++ printMain) ;;
-    tmDefinition "counter_extracted" res).
+(* TODO : revisit the description after proofs for deboxing are done *)
+(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. *)
 
-Print counter_extracted.
+Time MetaCoq Run
+     (t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+      tmDefinition COUNTER_MODULE.(lmd_module_name) t
+     ).
+
+Print liquidity_counter.

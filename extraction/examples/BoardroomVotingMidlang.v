@@ -6,7 +6,7 @@ From MetaCoq.Erasure Require Import Loader.
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
-From ConCert.Extraction Require Import LPretty Certified.
+From ConCert.Extraction Require Import LPretty LiquidityExtract.
 From ConCert.Extraction Require Import Counter.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Congress.

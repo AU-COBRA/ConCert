@@ -11,7 +11,7 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
      TemplateToPCUIC.
 
 From ConCert.Embedding Require Import MyEnv.
-From ConCert.Extraction Require Import Certified LPretty.
+From ConCert.Extraction Require Import LiquidityExtract LPretty.
 
 From Coq Require Import List String.
 
