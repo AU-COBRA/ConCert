@@ -10,6 +10,8 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
 From ConCert Require Import Containers.
 From ConCert Require Import EIP20Token.
+From ConCert Require Import ResultMonad.
+From ConCert Require Import ChainedList.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
@@ -34,8 +36,17 @@ Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Toke
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
-Definition chain_with_token_deployed :=
-  unpack_option (my_add_block lc_initial
+Definition unpack_result {T E} (r : result T E) :=
+  match r return match r with
+                 | Ok _ => T
+                 | Err _ => E
+                 end with
+  | Ok t => t
+  | Err e => e
+  end.
+
+Definition token_cb :=
+  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
     build_act creator (act_transfer person_1 10);
     build_act creator (act_transfer person_2 10);
@@ -43,9 +54,17 @@ Definition chain_with_token_deployed :=
     build_act creator deploy_eip20token
   ]).
 
+Definition chain_with_token_deployed : LocalChain := token_cb.(lcb_lc).
+
 Definition gEIP20TokenChainTraceList max_acts_per_block lc length :=
   gLocalChainTraceList_fix lc (fun lc _ =>
     gEIP20TokenAction lc contract_base_addr) length max_acts_per_block.
+
+(* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
+Definition gEIP20Chain := gChain token_cb 
+  (fun lc _ => gEIP20TokenAction lc contract_base_addr) 5 1 1.
+
+Sample gEIP20Chain .
 
 Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
   @reachableFrom AddrSize lc (gEIP20TokenChainTraceList 1) pf.

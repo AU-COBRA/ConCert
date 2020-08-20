@@ -69,6 +69,32 @@ Definition my_add_block c acts :=
   | Ok r => Some r
   end.
 
+Definition gAdd_block (lc : ChainBuilder)
+                         (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
+                         (act_depth : nat)
+                         (max_acts_per_block : nat)
+                         : G (result ChainBuilder AddBlockError) :=
+  acts <- optToVector max_acts_per_block (gActOptFromLCSized lc.(lcb_lc) act_depth) ;;
+  (* TODO: handle case where length acts = 0 *)
+  returnGen (add_block lc acts).
+
+Definition gChain (init_lc : ChainBuilder)
+                  (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
+                  (max_length act_depth : nat) 
+                  (max_acts_per_block : nat)
+                  : G (result ChainBuilder AddBlockError) := 
+  let gAdd_block' lc := gAdd_block lc gActOptFromLCSized act_depth max_acts_per_block in
+  let fix rec n (lc : ChainBuilder) : G (result ChainBuilder AddBlockError):=
+    match n with
+    | 0 => returnGen (Ok lc)
+    | S n => lc' <- gAdd_block' lc ;;
+             match lc' with
+             | Ok lc' => rec n lc'
+             | err => returnGen err
+             end
+    end in 
+  rec max_length init_lc.
+
 
 (* The representation of an execution step.
    A step can either add an empty new block, or add a new block with some actions to execute.

@@ -4,7 +4,7 @@ From ExtLib.Structures Require Import Functor Applicative.
 
 From ConCert Require Import Blockchain LocalBlockchain EIP20Token Congress BAT TestUtils.
 From ConCert Require Import Serializable. Import SerializedType.
-From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import BoundedN ChainedList ResultMonad.
 
 Let Base := TestUtils.LocalChainBase.
 
@@ -26,28 +26,8 @@ Open Scope string_scope.
 Derive Show for positive.
 Derive Show for SerializedType.
 
-Instance showLCB : Show ChainBuilder :=
-  {| show a := "ChainBuilder{...}" |}.
-
-
-Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
-  {| show a := "ChainBuilderType{...}" |}.
-
-Instance shrinkAmount : Shrink Amount :=
-  {|
-    shrink := @shrink Z _
-  |}.
-
-Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
-{|
-  show c :=
-    let height := show (chain_height c) in
-    let slot := show (current_slot c) in
-    let fin_height := show (finalized_height c) in
-      "Chain{" ++ "height: "       ++ height     ++ sep
-                ++ "current slot: " ++ slot       ++ sep
-                ++ "final height: " ++ fin_height ++ "}"
-|}.
+Derive Show for result.
+Derive Show for ActionEvaluationError.
 
 Instance showContract {Setup Msg State : Type}
                      `{Serializable Setup}
@@ -155,6 +135,7 @@ Instance showLocalActionList `{Show (@Action Base)}: Show (list (@Action Base)) 
   show a := String.concat (";" ++ nl) (map show a)
 |}.
 Existing Instance showLocalActionList | 0.
+
 Instance showOptLocalActionList `{Show (option (@Action Base))}: Show (list (option (@Action Base))) :=
 {|
   show a := String.concat (";" ++ nl) (map show a)
@@ -172,6 +153,64 @@ Instance showContractCallInfo {Msg : Type} `{Show Msg} : Show (ContractCallInfo 
                 ++ "call_from: " ++ show (call_from info) ++ sep
                 ++ "call_amount: " ++ show (call_amount info) ++ sep
                 ++ "call_msg: " ++ show (call_msg info) ++ sep ++ "}"
+|}.
+
+(* Show instanced related to ChainedLists and ChainTraces *)
+
+Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
+{|
+  show err := match err with
+              | invalid_header => "invalid_header"
+              | invalid_root_action act => "invalid_root_action: " ++ show act
+              | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded" 
+              | action_evaluation_error act eval_error =>
+                "action_evaluation_error for " ++ show act ++ " with error: " ++ show eval_error
+              end
+|}.
+
+(* retrieves the previous and next state of a ChainStep *)
+Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) := 
+  (prev_bstate, next_bstate).
+
+Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace from to) :=
+{|
+  show :=
+    let fix showChainTrace {from to : ChainState} (trace : ChainTrace from to) :=
+      match trace with
+      | snoc trace' step =>
+      match step with
+      | Blockchain.step_block _ _ _ _ _ _ _ =>
+          let '(_, next_bstate) := chainstep_states step in
+          showChainTrace trace' ++ nl ++
+          "Block [" ++ nl ++ 
+            show next_bstate.(chain_state_queue) 
+          ++ "];"
+        | _ => showChainTrace trace'
+        end
+      | clnil  => ""
+      end in
+    showChainTrace
+|}.
+
+Instance showLCB `{Show (@Action Base)} : Show ChainBuilder :=
+{| 
+  show cb := "LocalChain{| " ++ nl
+             ++ show cb.(lcb_trace)
+             ++ "|}" ++ nl
+|}.
+
+Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
+  {| show a := "ChainBuilderType{...}" |}.
+
+Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
+{|
+  show c :=
+    let height := show (chain_height c) in
+    let slot := show (current_slot c) in
+    let fin_height := show (finalized_height c) in
+      "Chain{" ++ "height: "       ++ height     ++ sep
+                ++ "current slot: " ++ slot       ++ sep
+                ++ "final height: " ++ fin_height ++ "}"
 |}.
 
 Close Scope string_scope.
