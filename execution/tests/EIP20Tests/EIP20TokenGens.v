@@ -100,7 +100,7 @@ Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (op
         )
     ) ;
     (* transfer_from *)
-    (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
+    (2, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
         (fun '(contract_addr', state) =>
         bindGenOpt (gTransfer_from state)
         (fun '(caller, msg) =>
