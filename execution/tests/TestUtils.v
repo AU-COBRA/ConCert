@@ -29,16 +29,6 @@ Definition person_2 : Address :=
 Definition person_3 : Address :=
   BoundedN.of_Z_const AddrSize 13.
 
-Definition unpack_result {T E} (r : result T E) :=
-  match r return match r with
-                  | Ok _ => T
-                  | Err _ => E
-                  end with
-  | Ok t => t
-  | Err e => e
-  end.
-
-
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 (* Misc utility functions *)

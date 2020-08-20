@@ -1,6 +1,6 @@
 From ConCert Require Import Blockchain LocalBlockchain Congress.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
+From ConCert Require Import BoundedN ChainedList ResultMonad.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
