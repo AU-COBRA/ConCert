@@ -21,6 +21,7 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
 From ConCert Require Import Containers.
 From ConCert Require Import ResultMonad.
+From ConCert Require Import ChainedList.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters SerializablePrinters .
@@ -69,14 +70,45 @@ Definition my_add_block c acts :=
   | Ok r => Some r
   end.
 
+(* Helper function for backtrack_result. It picks and removes an element from a list of result generators. *)
+Fixpoint pickDrop {T E}
+                  (default : E)
+                  (xs : list (nat * G (result T E))) 
+                  (n : nat) 
+                  : nat * G (result T E) * list (nat * G (result T E)) :=
+  match xs with
+    | nil => (0, returnGen (Err default), nil)
+    | (k, x) :: xs =>
+      if (n <? k) then  (k, x, xs)
+      else let '(k', x', xs') := pickDrop default xs (n - k)
+           in (k', x', (k,x)::xs')
+  end. 
+
+(* Backtracking generator for results instead of Option. Works the same way as backtrack. *)
+Fixpoint backtrack_result_fix {T E} (default : E) (fuel : nat) (gs : list (nat * G (result T E))) : G (result T E) :=
+  match fuel with
+  | 0 => returnGen (Err default)
+  | S fuel' => idx <- choose (0, fuel') ;;
+         let '(k, g, gs') := pickDrop default gs idx in
+         ma <- g ;;
+         match ma with
+         | Err e => backtrack_result_fix default fuel' gs'
+         | Ok r => returnGen (Ok r)
+         end
+  end.
+
+Definition backtrack_result {T E} (default : E) (gs : list (nat * G (result T E))) : G (result T E) :=
+  backtrack_result_fix default (length gs) gs.
+
 Definition gAdd_block (lc : ChainBuilder)
                          (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
                          (act_depth : nat)
                          (max_acts_per_block : nat)
                          : G (result ChainBuilder AddBlockError) :=
   acts <- optToVector max_acts_per_block (gActOptFromLCSized lc.(lcb_lc) act_depth) ;;
-  (* TODO: handle case where length acts = 0 *)
-  returnGen (add_block lc acts).
+  if (length acts) =? 0
+  then returnGen (Err action_evaluation_depth_exceeded)
+  else returnGen (add_block lc acts).
 
 Definition gChain (init_lc : ChainBuilder)
                   (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
@@ -84,17 +116,18 @@ Definition gChain (init_lc : ChainBuilder)
                   (max_acts_per_block : nat)
                   : G (result ChainBuilder AddBlockError) := 
   let gAdd_block' lc := gAdd_block lc gActOptFromLCSized act_depth max_acts_per_block in
+  let default_error := action_evaluation_depth_exceeded in (* Not ideal approach, but it suffices for now *)
+  let try_twice g := backtrack_result default_error [(1, g);(1, g)] in
   let fix rec n (lc : ChainBuilder) : G (result ChainBuilder AddBlockError):=
     match n with
     | 0 => returnGen (Ok lc)
-    | S n => lc' <- gAdd_block' lc ;;
+    | S n => lc' <- try_twice (gAdd_block' lc) ;; (* heuristic: try twice for more expected robustness *)
              match lc' with
              | Ok lc' => rec n lc'
              | err => returnGen err
              end
     end in 
   rec max_length init_lc.
-
 
 (* The representation of an execution step.
    A step can either add an empty new block, or add a new block with some actions to execute.
@@ -173,8 +206,6 @@ Instance showLocalChainStep {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show
   end
 |}.
 
-
-
 Definition LocalChainTraceList {AddrSize : N} := list (@LocalChainStep AddrSize).
 (* Main generator of execution traces, using a given generator for Actions. *)
 (* Generates a trace up to some maximal length. It only contains traces that succeeded according to my_add_block. *)
@@ -225,6 +256,81 @@ Instance showLocalChainList : Show LocalChainTraceList :=
   show l := nl ++ "Begin Trace: " ++ nl ++ String.concat (";;" ++ nl) (map show l) ++ nl ++ "End Trace"
 |}.
 Close Scope string_scope.
+
+(* NEW Checker combinators on ChainBuilder *)
+Definition forAllChainBuilder {prop : Type}
+                            `{Checkable prop}
+                             (maxLength : nat)
+                             (init_lc : ChainBuilder)
+                             (gTrace : ChainBuilder -> nat -> G (result ChainBuilder AddBlockError))
+                             (pf : ChainBuilder -> prop)
+                             : Checker :=
+  forAll (gTrace init_lc maxLength)
+  (fun cb => match cb with
+             | Err e => tag (show e) (false ==> true)
+             | Ok cb => checker (pf cb)
+             end).
+
+(* Asserts that a ChainState property holds for all ChainStates (at block creation) in a ChainTrace  *)
+Definition ChainTrace_ChainTraceProp {prop : Type}
+                                   {from to}
+                                  `{Checkable prop}
+                                   (trace : ChainTrace from to)
+                                   (pf : ChainState -> prop)
+                                   : Checker :=
+  let fix rec {from to : ChainState} (trace : ChainTrace from to) : Checker :=
+    match trace with
+    | snoc trace' step =>
+      match step with
+      | Blockchain.step_block _ _ _ _ _ _ _ =>
+          let '(_, next_bstate) := chainstep_states step in
+          conjoin [(checker (pf next_bstate)); rec trace'] 
+      | _ => rec trace'
+        end
+      | clnil  => false ==> true
+    end in
+  rec trace.
+
+(* NEW Checker combinators on ChainTrace *)
+Definition forAllChainState {prop : Type}
+                            `{Checkable prop}
+                             (maxLength : nat)
+                             (init_lc : ChainBuilder)
+                             (gTrace : ChainBuilder -> nat -> G (result ChainBuilder AddBlockError))
+                             (pf : ChainState -> prop)
+                             : Checker :=
+  forAll (gTrace init_lc maxLength)
+  (fun cb => match cb with
+             | Err e => tag (show e) (false ==> true)
+             | Ok cb => ChainTrace_ChainTraceProp cb.(lcb_trace) pf
+             end).
+
+(* NEW Checker combinators on ChainTrace, asserting holds a property on 
+   each pair of succeeding ChainStates in the trace. *)
+Definition forAllChainStatePairs {prop : Type}
+                            `{Checkable prop}
+                             (maxLength : nat)
+                             (init_lc : ChainBuilder)
+                             (gTrace : ChainBuilder -> nat -> G (result ChainBuilder AddBlockError))
+                             (pf : ChainState -> ChainState -> prop)
+                             : Checker :=
+    (* helper function folding over the trace*)
+    let fix all_statepairs {from to : ChainState} (trace : ChainTrace from to) : Checker :=
+    match trace with
+    | snoc trace' step =>
+      match step with
+      | Blockchain.step_block _ _ _ _ _ _ _ =>
+          let '(prev_bstate, next_bstate) := chainstep_states step in
+          conjoin [(checker (pf prev_bstate next_bstate)); all_statepairs trace'] 
+      | _ => all_statepairs trace'
+        end
+      | clnil  => false ==> true
+    end in
+  forAll (gTrace init_lc maxLength)
+  (fun cb => match cb with
+             | Err e => tag (show e) (false ==> true)
+             | Ok cb => all_statepairs cb.(lcb_trace)
+             end).
 
 (* -------------------- Checker combinators on traces --------------------  *)
 
