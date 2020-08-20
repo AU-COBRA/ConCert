@@ -324,13 +324,44 @@ Definition forAllChainStatePairs {prop : Type}
           conjoin [(checker (pf prev_bstate next_bstate)); all_statepairs trace'] 
       | _ => all_statepairs trace'
         end
-      | clnil  => false ==> true
+    | clnil  => false ==> true
     end in
   forAll (gTrace init_lc maxLength)
   (fun cb => match cb with
              | Err e => tag (show e) (false ==> true)
              | Ok cb => all_statepairs cb.(lcb_trace)
              end).
+
+(* Gathers all ChainStates from a ChainTrace in a list, appearing in order. *)
+(* Currently not tail-call optimized. Can be improved if needed. *)
+Fixpoint trace_states {from to} (trace : ChainTrace from to) : list ChainState :=
+  match trace with
+  | snoc trace' step => trace_states trace' ++ [snd (chainstep_states step)]
+  | clnil => []
+  end.
+
+(* Asserts that a boolean predicate holds for at least one ChainState in the given ChainTrace *)
+Definition existsb_chaintrace {from to}
+                              (pf : ChainState -> bool)  
+                              (trace : ChainTrace from to) : bool :=
+  existsb pf (trace_states trace).
+
+(* Asserts that a ChainState satisfying a given predicate is reachable from the given trace generator. *)
+Definition reachableFromSized_chaintrace
+                         (maxLength : nat)
+                         (init_lc : ChainBuilder)
+                         (gTrace : ChainBuilder -> nat -> G (result ChainBuilder AddBlockError))
+                         (pf : ChainState -> bool)
+                         : Checker :=
+  existsP (gTrace init_lc maxLength) (fun trace => 
+    match trace with
+    | Err e => false (* is 'false' the right result here? *)
+    | Ok cb => existsb_chaintrace pf cb.(lcb_trace)
+    end).
+
+Definition reachableFrom_chaintrace init_lc gTrace pf : Checker :=
+  sized (fun n => reachableFromSized_chaintrace n init_lc gTrace pf).
+
 
 (* -------------------- Checker combinators on traces --------------------  *)
 
