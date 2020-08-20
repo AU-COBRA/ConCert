@@ -30,27 +30,19 @@ Close Scope address_scope.
 
 Definition Base := TestUtils.LocalChainBase.
 
-
 Definition token_setup := EIP20Token.build_setup creator (100%N).
 Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
-Definition unpack_result {T E} (r : result T E) :=
-  match r return match r with
-                 | Ok _ => T
-                 | Err _ => E
-                 end with
-  | Ok t => t
-  | Err e => e
-  end.
-
+(* In the initial chain we transfer some assets to a few accounts, just to make the addresses
+   present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
   unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (act_transfer person_1 10);
-    build_act creator (act_transfer person_2 10);
-    build_act creator (act_transfer person_3 10);
+    build_act creator (act_transfer person_1 0);
+    build_act creator (act_transfer person_2 0);
+    build_act creator (act_transfer person_3 0);
     build_act creator deploy_eip20token
   ]).
 
@@ -61,10 +53,15 @@ Definition gEIP20TokenChainTraceList max_acts_per_block lc length :=
     gEIP20TokenAction lc contract_base_addr) length max_acts_per_block.
 
 (* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
-Definition gEIP20Chain := gChain token_cb 
-  (fun lc _ => gEIP20TokenAction lc contract_base_addr) 5 1 1.
+Definition gEIP20Chain token_cb max_acts_per_block:=  
+  let max_length := 1 in
+  gChain token_cb
+    (fun lc _ => gEIP20TokenAction lc contract_base_addr) max_length 1 max_acts_per_block.
 
-Sample gEIP20Chain .
+(* Sample gEIP20Chain. *)
+
+Definition token_reachableFrom_chainbuilder pf : Checker :=
+  reachableFrom_chaintrace token_cb gEIP20Chain pf.
 
 Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
   @reachableFrom AddrSize lc (gEIP20TokenChainTraceList 1) pf.
@@ -182,11 +179,26 @@ Definition person_has_tokens person (n : N) :=
     | None => None
     end.
 
+Definition person_has_tokens_ person (n : N) :=
+  fun (cs : ChainState) =>
+    let env := cs.(chain_state_env) in
+    let token_contract_opt := env.(env_contract_states) contract_base_addr in
+    match token_contract_opt with
+    | Some ser_state =>
+      match @deserialize EIP20Token.State _ ser_state with
+      | Some state => n =? (FMap_find_ person state.(balances) 0)
+      | None => false
+      end
+    | None => false
+    end.
+    
 (* Notation "lc '~~>' pf" :=
-  (token_reachableFrom lc pf)
+  (token_reachableFrom lc (fun x => pf (next_lc_of_lcstep x)))
   (at level 45, no associativity). *)
 
-(* QuickChick (chain_with_token_deployed ~~> person_has_tokens person_3 12). *)
+(* QuickChick (token_reachableFrom_chainbuilder (person_has_tokens_ person_3 12)). *)
+
+(* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
 
 (* QuickChick (token_reachableFrom_implies_reachable
