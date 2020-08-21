@@ -133,6 +133,17 @@ Instance showFMap {A B : Type}
 
 Close Scope string_scope.
 
+Definition get_contract_state (state : Type) `{Serializable state} env addr : option state :=
+  let cstates := env.(env_contract_states) in
+  match cstates addr with
+  | Some ser_state =>
+    match @deserialize state _ ser_state with
+    | Some state => Some state
+    | None => None
+    end 
+  | None => None
+  end. 
+
 Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSize lc)).
 Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
 Definition lc_account_balance lc addr : option Amount := (FMap.find addr (@lc_account_balances AddrSize lc)).
@@ -156,10 +167,7 @@ Definition lc_proposals (lc : LocalChain) : FMap Address (FMap ProposalId Propos
   map_values_FMap proposals (lc_contract_state_deserialized Congress.State lc).
 
 
-Definition lc_contract_members_and_proposals_new_voters (lc : LocalChain) : FMap Address (FMap Address (list ProposalId)) :=
-  map_filter_FMap (fun p =>
-    let contract_addr := fst p in
-    let state := snd p in
+Definition lc_contract_members_and_proposals_new_voters (state : Congress.State) : (FMap Address (list ProposalId)) :=
     let candidate_members := (map fst o FMap.elements) (members state) in
     let proposals_pairs := FMap.elements (proposals state) in
     if (0 <? length candidate_members) && (0 <? length proposals_pairs)
@@ -175,26 +183,19 @@ Definition lc_contract_members_and_proposals_new_voters (lc : LocalChain) : FMap
         | _ as ps => FMap.add m ps acc
         end
       ) candidate_members FMap.empty in
-      Some voters_to_proposals
-    else None
-  ) (lc_contract_state_deserialized Congress.State lc)
-.
+      voters_to_proposals
+    else FMap.empty.
 
-Definition lc_contract_members_and_proposals_with_votes (lc : LocalChain)
-                                                        : FMap Address (FMap Address (list ProposalId)) :=
-  map_filter_FMap (fun p =>
-    let contract_addr := fst p in
-    let state := snd p in
+Definition lc_contract_members_and_proposals_with_votes (state : Congress.State)
+                                                        : FMap Address (list ProposalId) :=
     let members : list Address := (map fst o FMap.elements) (members state) in
     let proposals_map : FMap nat Proposal := filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
     if (0 <? length members) && (0 =? (FMap.size proposals_map))
-    then Some (
+    then (
       let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in
       fold_left (fun acc m => FMap.add m propIds acc) members FMap.empty
     )
-    else None
-  ) (lc_contract_state_deserialized Congress.State lc)
-.
+    else FMap.empty.
 
 (* Utils for Generators *)
 

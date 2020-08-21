@@ -182,7 +182,7 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
       | Blockchain.step_block _ _ _ _ _ _ _ =>
           let '(_, next_bstate) := chainstep_states step in
           showChainTrace trace' ++ nl ++
-          "Block [" ++ nl ++ 
+          "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++ 
             show next_bstate.(chain_state_queue) 
           ++ "];"
         | _ => showChainTrace trace'
