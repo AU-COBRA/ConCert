@@ -28,6 +28,10 @@ Definition person_2 : Address :=
   BoundedN.of_Z_const AddrSize 12.
 Definition person_3 : Address :=
   BoundedN.of_Z_const AddrSize 13.
+Definition person_4 : Address :=
+  BoundedN.of_Z_const AddrSize 14.
+Definition person_5 : Address :=
+  BoundedN.of_Z_const AddrSize 15.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 
