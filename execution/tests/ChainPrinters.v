@@ -142,9 +142,11 @@ Instance showOptLocalActionList `{Show (option (@Action Base))}: Show (list (opt
 |}.
 Existing Instance showOptLocalActionList | 0.
 
-Instance showChainState : Show (@ChainState Base) :=
+Instance showChainState `{Show Environment} `{Show (@Action Base)} : Show (@ChainState Base) :=
 {|
-  show a := "ChainState{" ++ "}"
+  show a := "ChainState{"
+            ++ "env: " ++ show a.(chain_state_env) ++ sep
+            ++ "queue: " ++ show a.(chain_state_queue) ++ "}"
 |}.
 
 Instance showContractCallInfo {Msg : Type} `{Show Msg} : Show (ContractCallInfo Msg) :=
