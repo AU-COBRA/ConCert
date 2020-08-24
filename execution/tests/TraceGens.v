@@ -42,8 +42,6 @@ Section TraceGens.
   Context  {ChainBuilder : ChainBuilderType}.
   Context `{Show ChainBuilder}.
 
-  Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
-
   Definition cb_to_lc {AddrSize : N} (cb : LocalChainBuilder AddrSize) : LocalChain := cb.(lcb_lc).
   Global Coercion cb_to_lc : LocalChainBuilder >-> LocalChain.
 
