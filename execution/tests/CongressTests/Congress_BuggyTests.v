@@ -30,9 +30,12 @@ Import ListNotations.
 Close Scope address_scope.
 
 (* -------------------------- Tests of the Buggy Congress Implementation -------------------------- *)
-Definition AddrSize := (2^8)%N.
+(* Definition AddrSize := (2^8)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
-Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize. *)
+
+Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
+
 
 Let creator := BoundedN.of_Z_const AddrSize 10.
 
@@ -42,9 +45,9 @@ Definition rules := {|
   debating_period_in_blocks := 0;
 |}.
 
-Definition exploit_example : option (Address * Builder) :=
+Definition exploit_example : option (Address * ChainBuilder) :=
   let chain := builder_initial in
-  let add_block (chain : Builder) act_bodies :=
+  let add_block (chain : ChainBuilder) act_bodies :=
       let next_header :=
           {| block_height := S (chain_height chain);
              block_slot := S (current_slot chain);
@@ -70,17 +73,31 @@ Definition exploit_example : option (Address * Builder) :=
   do chain <- add_block chain act_bodies;
   Some (congress, chain).
 
-Definition unpacked_exploit_example : Address * Builder :=
+Definition unpacked_exploit_example : Address * ChainBuilder :=
   unpack_option exploit_example.
 
-Definition gCongressChainTraceList max_acts_per_block lc length :=
-  gLocalChainTraceList_fix lc (fun lc _ =>
-  gCongressActionBuggy lc 2) length max_acts_per_block.
+Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
 
-Definition forAllCongressTraces n :=
-  forAllTraces n (lcb_lc (snd unpacked_exploit_example)) (gCongressChainTraceList 1).
-Notation "{{ P }} c {{ Q }}" :=
-  (pre_post_assertion 2 (lcb_lc (snd unpacked_exploit_example)) (gCongressChainTraceList 1) c P Q)( at level 50).
+Definition gCongressChain max_acts_per_block congress_cb max_length := 
+  let act_depth := 2 in 
+  gChain congress_cb
+    (fun env act_depth => gCongressActionNew env act_depth congress_caddr) max_length act_depth max_acts_per_block.
+
+(* Definition gCongressChainTraceList max_acts_per_block lc length :=
+  gLocalChainTraceList_fix lc (fun lc _ =>
+  gCongressActionBuggy lc 2) length max_acts_per_block. *)
+
+Definition forAllCongressChainTraces n :=
+  forAllChainState n (snd unpacked_exploit_example) (gCongressChain 2).
+
+(* Definition forAllCongressTraces n :=
+  forAllTraces n (lcb_lc (snd unpacked_exploit_example)) (gCongressChainTraceList 1). *)
+Definition pre_post_assertion_congress P c Q :=
+  pre_post_assertion 2 (snd unpacked_exploit_example) (gCongressChain 1) Congress_Buggy.contract c P Q.
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
+
+(* Notation "{{ P }} c {{ Q }}" :=
+  (pre_post_assertion 2 (lcb_lc (snd unpacked_exploit_example)) (gCongressChainTraceList 1) c P Q)( at level 50). *)
 Local Close Scope Z_scope.
 
 Definition num_cacts_in_state state :=
@@ -109,19 +126,22 @@ Definition receive_state_well_behaved_P (cctx : ContractCallContext)
 
 (* QuickChick (
   {{fun _ _ => true}}
-  Congress_Buggy.contract
+  congress_caddr
   {{receive_state_well_behaved_P}}
 ). *)
 
-(* coqtop-stdout:
-Begin Trace:
-step_action{
-  Action{
-    act_from: 10%256,
-    act_body: (act_call 128%256, 0, create_proposal (transfer: 10%256, 1))}};;
-step_action{
-  Action{act_from: 10%256,
-  act_body: (act_call 128%256, 0, finish_proposal 1)}}
-End Trace
+(* 
+LocalChain{| 
+Block 1 [];
+Block 2 [
+Action{act_from: 10%256, act_body: (act_deploy 50, <FAILED DESERIALIZATION>)};
+Action{act_from: 10%256, act_body: (act_deploy 0, <FAILED DESERIALIZATION>)}];
+Block 3 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, add_member 10%256)}];
+Block 4 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 79, create_proposal (call: 128%256, 80, add_member 0%256))}];
+Block 5 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 13, finish_proposal 1)}];|}
 
-*** Failed after 2 tests and 0 shrinks. (0 discards) *)
+*** Failed after 33 tests and 0 shrinks. (0 discards)
+*)

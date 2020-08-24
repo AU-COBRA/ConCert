@@ -6,7 +6,7 @@ Require Import Extras.
 From ConCert.Execution.QCTests Require Import
   TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters TraceGens.
 
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
@@ -21,7 +21,6 @@ Require Import Containers.
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
-
 
 (* chains for deploying congress with some existing members *)
 Definition chain1 : ChainBuilder := builder_initial.
@@ -75,8 +74,6 @@ Definition chain6 : ChainBuilder :=
 Definition chain_with_congress_deployed : LocalChain := lcb_lc chain6. (* chain6 is from LocalBlockchainTests.v *)
 Definition congress_chain := chain5.
 Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
-
-Extract Constant defNumDiscards => "(2 * defNumTests)".
 
 Definition gCongressChain max_acts_per_block congress_cb max_length := 
   let act_depth := 2 in 
