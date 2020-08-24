@@ -106,9 +106,9 @@ Section TraceGens.
 
   Definition backtrack_result {T E} (default : E) (gs : list (nat * G (result T E))) : G (result T E) :=
     backtrack_result_fix default (length gs) gs.
-    
+
   Definition gAdd_block (cb : ChainBuilder)
-                          (gActOptFromChainSized : Chain -> nat -> G (option Action))
+                          (gActOptFromChainSized : Environment -> nat -> G (option Action))
                           (act_depth : nat)
                           (max_acts_per_block : nat)
                           : G (result ChainBuilder AddBlockError) :=
@@ -118,8 +118,9 @@ Section TraceGens.
     else returnGen (add_block cb acts).
 
   Definition gChain (init_lc : ChainBuilder)
-                    (gActOptFromChainSized : Chain -> nat -> G (option Action))
-                    (max_length act_depth : nat) 
+                    (gActOptFromChainSized : Environment -> nat -> G (option Action))
+                    (max_length : nat)
+                    (act_depth : nat)
                     (max_acts_per_block : nat)
                     : G ChainBuilder := 
     let gAdd_block' lc := gAdd_block lc gActOptFromChainSized act_depth max_acts_per_block in
@@ -276,6 +277,23 @@ Section TraceGens.
     forAll (gTrace init_lc maxLength)
     (fun cb => checker (pf cb)).
 
+  (* Gathers all ChainStates from a ChainTrace in a list, appearing in order. *)
+  (* Currently not tail-call optimized. Can be improved if needed. *)
+  Fixpoint trace_states {from to} (trace : ChainTrace from to) : list ChainState :=
+    match trace with
+    | snoc trace' step => trace_states trace' ++ [snd (chainstep_states step)]
+    | clnil => []
+    end.
+
+  (* Variant that only gathers ChainStates of step_block steps in the trace. *)
+  Fixpoint trace_states_step_block {from to} (trace : ChainTrace from to) : list ChainState :=
+    match trace with
+    | snoc trace' (Blockchain.step_block _ _ _ _ _ _ _ as step) => 
+      trace_states_step_block trace' ++ [snd (chainstep_states step)]
+    | snoc trace' _ => trace_states_step_block trace'
+    | clnil => []
+    end.
+
   (* Asserts that a ChainState property holds for all ChainStates (at block creation) in a ChainTrace  *)
   Definition ChainTrace_ChainTraceProp {prop : Type}
                                     {from to}
@@ -283,18 +301,8 @@ Section TraceGens.
                                     (trace : ChainTrace from to)
                                     (pf : ChainState -> prop)
                                     : Checker :=
-    let fix rec {from to : ChainState} (trace : ChainTrace from to) : Checker :=
-      match trace with
-      | snoc trace' step =>
-        match step with
-        | Blockchain.step_block _ _ _ _ _ _ _ =>
-            let '(_, next_bstate) := chainstep_states step in
-            conjoin [rec trace'; (checker (pf next_bstate))] 
-        | _ => rec trace'
-          end
-        | clnil  => checker true
-      end in
-    rec trace.
+    let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
+    conjoin_map printOnFail (trace_states_step_block trace).
 
   (* NEW Checker combinators on ChainTrace *)
   Definition forAllChainState {prop : Type}
@@ -330,14 +338,6 @@ Section TraceGens.
       end in
     forAll (gTrace init_lc maxLength)
     (fun cb => all_statepairs cb.(builder_trace)).
-
-  (* Gathers all ChainStates from a ChainTrace in a list, appearing in order. *)
-  (* Currently not tail-call optimized. Can be improved if needed. *)
-  Fixpoint trace_states {from to} (trace : ChainTrace from to) : list ChainState :=
-    match trace with
-    | snoc trace' step => trace_states trace' ++ [snd (chainstep_states step)]
-    | clnil => []
-    end.
 
   (* Asserts that a boolean predicate holds for at least one ChainState in the given ChainTrace *)
   Definition existsb_chaintrace {from to}
@@ -543,6 +543,7 @@ Section TraceGens.
           | _ => acc
           end
         ) [] acts in
+      let post_helper '(cctx, post_state) cstate msg := post cctx cstate msg post_state in
       let stepProp (cs : ChainState) :=
         let env : Environment := cs.(chain_state_env) in
         let msgs := messages_of_acts cs.(chain_state_queue) in
@@ -558,14 +559,16 @@ Section TraceGens.
         match get_contract_state State env caddr with
         (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
         | Some cstate => conjoin (map (fun '(act, msg) =>
-                           let (cctx, post_state) := execute_receive env caddr cstate act msg in
-                           pre cstate msg ==> post cctx cstate msg post_state
+                         if pre cstate msg
+                         then pre cstate msg ==> (
+                                post_helper (execute_receive env caddr cstate act msg) cstate msg
+                              )
+                         else false ==> true
                          ) msgs)
-        | None => false ==> true
+        | None => checker true
         end in
       (* combine it all with the forAllTraces checker combinator *)
       forAllChainState maxLength init_chain gTrace stepProp.
-
 
       
   (* if pre tests true, then post tests true, for all tested execution traces *)
