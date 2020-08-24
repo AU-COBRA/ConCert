@@ -48,29 +48,31 @@ Definition token_cb :=
 
 Definition chain_with_token_deployed : LocalChain := token_cb.(lcb_lc).
 
-Definition gEIP20TokenChainTraceList max_acts_per_block lc length :=
-  gLocalChainTraceList_fix lc (fun lc _ =>
-    gEIP20TokenAction lc contract_base_addr) length max_acts_per_block.
+Module TestInfo <: EIP20GensInfo.
+  Definition contract_addr := contract_base_addr.
+  Definition gAccount (c : Chain) := elems [person_1; person_2; person_3; person_4; person_5].
+End TestInfo.
+Module MG := EIP20Gens TestInfo. Import MG.
 
-(* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
-Definition gEIP20Chain token_cb max_acts_per_block:=  
-  let max_length := 1 in
+Definition gTokenChain max_acts_per_block token_cb max_length := 
+  let act_depth := 1 in 
   gChain token_cb
-    (fun lc _ => gEIP20TokenAction lc contract_base_addr) max_length 1 max_acts_per_block.
+    (fun env act_depth => gEIP20TokenAction env) max_length act_depth max_acts_per_block.
+(* Sample (gTokenChain 2 token_cb 7).  *)
 
-(* Sample gEIP20Chain. *)
+Definition forAllTokenChainTraces n :=
+  let max_acts_per_block := 2 in
+  forAllChainState n token_cb (gTokenChain max_acts_per_block).
 
-Definition token_reachableFrom_chainbuilder pf : Checker :=
-  reachableFrom_chaintrace token_cb gEIP20Chain pf.
+Definition pre_post_assertion_congress P c Q :=
+  let max_acts_per_block := 2 in
+  let trace_length := 7 in
+  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) EIP20Token.contract c P Q.
 
-Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
-  @reachableFrom AddrSize lc (gEIP20TokenChainTraceList 1) pf.
-
-Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker :=
-  reachableFrom_implies_reachable lc (gEIP20TokenChainTraceList 1) pf1 pf2.
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
 
 Open Scope string_scope.
-Definition debug_gEIP20Checker {A : Type}
+(* Definition debug_gEIP20Checker {A : Type}
                               `{Checkable A}
                                lc
                                (act : option Action)
@@ -79,17 +81,15 @@ Definition debug_gEIP20Checker {A : Type}
     ("lc balances: " ++ show (lc_account_balances lc) ++ sep ++ nl
     ++ show act
     ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl
-    ).
+    ). *)
 
 (* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
 (* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
+Close Scope string_scope.
 
 Local Open Scope N_scope.
 
-Extract Constant defNumDiscards => "(4 * defNumTests)".
-
-Definition forAllEIP20Traces n := forAllTraces n chain_with_token_deployed (gEIP20TokenChainTraceList 2).
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion 10 chain_with_token_deployed (gEIP20TokenChainTraceList 1) c P Q)( at level 50).
+Extract Constant defNumDiscards => "(3 * defNumTests)".
 
 Definition msg_is_transfer (cstate : EIP20Token.State) (msg : EIP20Token.Msg) :=
   match msg with
@@ -125,61 +125,54 @@ Definition post_transfer_correct cctx old_state msg (result_opt : option (State 
 
 (* QuickChick (
   {{msg_is_transfer}}
-  EIP20Token.contract
+  contract_base_addr
   {{post_transfer_correct}}
 ). *)
 
-(* coqtop-stdout:*** Gave up! Passed only 126 tests
-Discarded: 20000 *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+(* *** Gave up! Passed only 9684 tests
+Discarded: 30000 *)
 
 (* One key property: the sum of the balances is always equal to the initial supply *)
-Definition sum_balances_eq_init_supply lc :=
-  (* debug_gEIP20Checker lc None *)
-  let contract_states := lc_token_contracts_states_deserialized lc in
-  checker match FMap.find contract_base_addr contract_states with
-  | Some state =>
-    let balances_list := (map snd o FMap.elements) state.(balances) in
-    let balances_sum : N := fold_left N.add balances_list 0%N in
-    balances_sum =? state.(total_supply)
-  | None => false
+Definition sum_balances_eq_init_supply (state : EIP20Token.State) :=
+  let balances_list := (map snd o FMap.elements) state.(balances) in
+  let balances_sum : N := fold_left N.add balances_list 0%N in
+  balances_sum =? state.(total_supply).
+
+Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker := 
+  match get_contract_state EIP20Token.State cs contract_base_addr with
+  | Some state => checker (pf state)
+  | None => tag "discard" (checker true) (* trivially true case *) 
   end.
 
-(* QuickChick (forAllEIP20Traces 10 sum_balances_eq_init_supply). *)
+(* QuickChick (forAllTokenChainTraces 10 (checker_get_state sum_balances_eq_init_supply)). *)
 (* coqtop-stdout:+++ Passed 10000 tests (1570 discards) *)
 (* 8 seconds *)
 
 (* INVALID PROPERTY: accounts may allow multiple other accounts to transfer tokens, but the actual transfer ensures that
    no more tokens are sent than the balance of the sender. *)
-Definition sum_allowances_le_init_supply lc :=
-  debug_gEIP20Checker lc None
-      (match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-      | Some state =>
-        let allowances := map_values_FMap
-          (fun allowance_map => fold_left N.add ((map snd o FMap.elements) allowance_map) 0)
-          state.(allowances) in
-        let allowances_list := (map snd o FMap.elements) allowances in
-        let allowances_sum := fold_left N.add allowances_list 0%N in
-        allowances_sum <=? state.(total_supply)
-      | None => false
-      end).
+Definition sum_allowances_le_init_supply (state : EIP20Token.State) :=
+  (* debug_gEIP20Checker lc None *)
+  let allowances := map_values_FMap
+    (fun allowance_map => fold_left N.add ((map snd o FMap.elements) allowance_map) 0)
+      state.(allowances) in
+  let allowances_list := (map snd o FMap.elements) allowances in
+  let allowances_sum := fold_left N.add allowances_list 0%N in
+  allowances_sum <=? state.(total_supply).
 
 Definition sum_allowances_le_init_supply_P maxLength :=
-  forAllTraces maxLength chain_with_token_deployed (gEIP20TokenChainTraceList 2)
-    sum_allowances_le_init_supply.
+  forAllChainState maxLength token_cb (gTokenChain 2)
+    (checker_get_state sum_allowances_le_init_supply).
 
 (* QuickChick (sum_allowances_le_init_supply_P 5). *)
 
 Definition person_has_tokens person (n : N) :=
-  fun lc =>
-    match FMap.find contract_base_addr (lc_token_contracts_states_deserialized lc) with
-    | Some state => if n =? (FMap_find_ person state.(balances) 0)
-                    then Some n
-                    else None
-    | None => None
+  fun cs => 
+    match get_contract_state State cs contract_base_addr with
+    | Some state => n =? (FMap_find_ person state.(balances) 0)
+    | None => true (* trivial case *)
     end.
 
-Definition person_has_tokens_ person (n : N) :=
+(* Definition person_has_tokens_ person (n : N) :=
   fun (cs : ChainState) =>
     let env := cs.(chain_state_env) in
     let token_contract_opt := env.(env_contract_states) contract_base_addr in
@@ -190,13 +183,13 @@ Definition person_has_tokens_ person (n : N) :=
       | None => false
       end
     | None => false
-    end.
+    end. *)
     
-(* Notation "lc '~~>' pf" :=
-  (token_reachableFrom lc (fun x => pf (next_lc_of_lcstep x)))
-  (at level 45, no associativity). *)
+Notation "cb '~~>' pf" :=
+  (reachableFrom_chaintrace cb (gTokenChain 2) pf)
+  (at level 45, no associativity).
 
-(* QuickChick (token_reachableFrom_chainbuilder (person_has_tokens_ person_3 12)). *)
+QuickChick (token_cb ~~> (person_has_tokens person_3 12)).
 
 (* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
