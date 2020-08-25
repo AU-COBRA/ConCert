@@ -332,7 +332,7 @@ Section TraceGens.
             conjoin [(checker (pf prev_bstate next_bstate)); all_statepairs trace'] 
         | _ => all_statepairs trace'
           end
-      | clnil  => false ==> true
+      | clnil  => checker true
       end in
     forAll (gTrace init_lc maxLength)
     (fun cb => all_statepairs cb.(builder_trace)).
@@ -356,6 +356,51 @@ Section TraceGens.
   Definition reachableFrom_chaintrace init_lc gTrace pf : Checker :=
     sized (fun n => reachableFromSized_chaintrace n init_lc gTrace pf).
 
+  (* Open Scope clist_scope. *)
+
+
+  (* Fixpoint split_trace_at_first_satisfying 
+            {from mid to} 
+            (p : ChainState -> ChainState -> bool)
+            (trace : ChainTrace from to) 
+            : (ChainTrace from mid) * (ChainTrace mid to) :=
+  let fix rec {from' mid'} (trace : ChainTrace from' mid') acc :=
+    let '(prefix_acc, suffix_acc) := acc in
+    match trace with
+    | @snoc _ _ _ mid0 _ trace' step => 
+      let prefix : ChainTrace from' mid0 := trace' in
+      rec trace' (prefix, (snoc clnil step) ++ suffix_acc)
+    | clnil => acc
+    end in
+  rec trace (clnil, clnil). *)
+
+  (* This property states that if there is a reachable chainstate satisfying the reachable_prop predicate,
+     then all succeeding chainstates must satisfy implied_prop *)
+  Definition reachableFrom_implies_chaintracePropSized
+                        {A prop : Type}
+                       `{Checkable prop}
+                        (maxLength : nat)
+                        (init_cb : ChainBuilder)
+                        (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                        (reachable_prop : ChainState -> option A)
+                        (implied_prop : A -> list ChainState -> list ChainState -> prop)
+                        : Checker :=
+  forAll (gTrace init_cb maxLength)
+  (fun cb =>
+    let trace := cb.(builder_trace) in
+    let reachable_prop_bool := isSome o reachable_prop in
+    let tracelist := trace_states_step_block trace in
+    match split_at_first_satisfying reachable_prop_bool tracelist with
+    | Some ((x::xs) as pre, post) =>
+      (* last_step is the element satisfying reachable_prop_bool *)
+      let last_step := (List.last pre x) in
+      isSomeCheck (reachable_prop last_step)
+        (fun a => 
+          (* assert that implied_prop holds on the post trace *)
+          implied_prop a pre post
+        )
+    | _ => false ==> true
+    end).
   (* -------------------- Checker combinators on traces --------------------  *)
 
   (* Checks that a property holds on all states in all traces from a given trace generator *)
@@ -484,38 +529,28 @@ Section TraceGens.
                                             : Checker :=
     sized (fun n => reachableFrom_implies_tracePropSized n init_lc gTrace pf1 pf_trace).
 
-  Fixpoint split_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A * list A) :=
-    match l with
-    | [] => None
-    | x::xs => if p x
-              then Some (acc ++ [x], xs)
-              else (split_at_first_satisfying_fix p xs (acc ++ [x]))
-    end.
-
-  Definition split_at_first_satisfying {A : Type} (p : A -> bool) (l : list A) : option (list A * list A) :=
-    split_at_first_satisfying_fix p l [].
 
   (* Compute (split_at_first_satisfying (fun x => x =? 2) [1;3;2;4;5]). *)
 
-  Definition reachableFrom_implies_tracePropSized_new
-                          {A prop : Type}
-                          `{Checkable prop}
-                          (maxLength : nat)
-                          (init_lc : (@LocalChain AddrSize))
-                          (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
-                          (pf1 : LocalChainStep -> option A)
-                          (pf_trace : A -> LocalChainTraceList -> LocalChainTraceList -> prop)
-                          : Checker :=
-    forAll (gTrace init_lc maxLength)
-    (fun trace =>
-      let pf1_bool := isSome o pf1 in
-      match split_at_first_satisfying pf1_bool trace with
-      | Some ((x::xs) as pre, (y::ys) as post) =>
-        let last_step := (List.last pre x) in
-        isSomeCheck (pf1 last_step)
-          (fun a => (pf_trace a pre post))
-      | _ => false ==> true
-      end).
+Definition reachableFrom_implies_tracePropSized_new
+                        {A prop : Type}
+                        `{Checkable prop}
+                        (maxLength : nat)
+                        (init_lc : (@LocalChain AddrSize))
+                        (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
+                        (pf1 : LocalChainStep -> option A)
+                        (pf_trace : A -> LocalChainTraceList -> LocalChainTraceList -> prop)
+                        : Checker :=
+  forAll (gTrace init_lc maxLength)
+  (fun trace =>
+    let pf1_bool := isSome o pf1 in
+    match split_at_first_satisfying pf1_bool trace with
+    | Some ((x::xs) as pre, (y::ys) as post) =>
+      let last_step := (List.last pre x) in
+      isSomeCheck (pf1 last_step)
+        (fun a => (pf_trace a pre post))
+    | _ => false ==> true
+    end).
 
       
   (* if pre tests true, then post tests true, for all tested execution traces *)
