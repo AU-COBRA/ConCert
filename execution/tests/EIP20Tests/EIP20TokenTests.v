@@ -185,11 +185,11 @@ Definition person_has_tokens person (n : N) :=
     | None => false
     end. *)
     
-Notation "cb '~~>' pf" :=
+(* Notation "cb '~~>' pf" :=
   (reachableFrom_chaintrace cb (gTokenChain 2) pf)
-  (at level 45, no associativity).
+  (at level 45, no associativity). *)
 
-QuickChick (token_cb ~~> (person_has_tokens person_3 12)).
+(* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
 
 (* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
@@ -201,7 +201,7 @@ QuickChick (token_cb ~~> (person_has_tokens person_3 12)).
 ). *)
 
 Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implies_tracePropSized_new 3 lc (gEIP20TokenChainTraceList 1) pf1 pf2)
+  (reachableFrom_implies_chaintracePropSized 3 lc (gTokenChain 2) pf1 pf2)
   (at level 90, left associativity).
 
 (* This (false) property says that from the initial chain where the token contract has been deployed,
@@ -235,25 +235,20 @@ Definition get_transferFrom_act (act : Action) : option (Address * Address * EIP
   | _ => None
   end.
 
-Definition state_has_some_approve_act {AddrSize : N} (step : @LocalChainStep AddrSize) :=
-  match step with
-  | step_action prev_lc header next_lc acts =>
-    match find (isSome o get_approve_act) acts with
-    | Some x => get_approve_act x
-    | None => None
-    end
-  | _ => None
+Definition state_has_some_approve_act (cs : ChainState) :=
+  match find (isSome o get_approve_act) cs.(chain_state_queue) with
+  | Some x => get_approve_act x
+  | None => None
   end.
 
 Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address * EIP20Token.Msg))
-                                          (trace : list LocalChainStep) :=
+                                          (cs : ChainState) :=
   let caddr := fst (fst approve_act_p) in
   let approver := snd (fst approve_act_p) in
   match (snd approve_act_p) with
   | approve delegate amount =>
-    forallb (fun step =>
-      let acts := acts_of_lcstep step in
-      let act_not_transferFrom_delegate act :=
+    let acts := cs.(chain_state_queue) in
+    let act_not_transferFrom_delegate act :=
         match get_transferFrom_act act with
         | Some (caddr', caller, (transfer_from from to _)) =>
           if (address_eqb caddr' caddr)
@@ -261,15 +256,9 @@ Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address *
           else true
         | _ => true
         end in
-      forallb act_not_transferFrom_delegate acts
-    ) trace
+    forallb act_not_transferFrom_delegate acts
   | _ => false
   end.
-
-(* Definition forAnyStateInTrace n trace c :=
-  let trace' := map prev_lc_of_lcstep trace in
-  forAll (elems_ chain_with_token_deployed trace') (fun lc =>
-  forAllTraces_traceProp n lc (gEIP20TokenChainTraceList 2) c). *)
 
 Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match snd approve_act_p with
@@ -296,8 +285,8 @@ Definition transfer_from_amount (transferFrom_act_p : (Address * Address * EIP20
   | _ => 0
   end.
 
-Definition allower_reapproves_delegate_step allower delegate step :=
-  let acts := acts_of_lcstep step in
+Definition allower_reapproves_delegate_step allower delegate (cs : ChainState) :=
+  let acts := cs.(chain_state_queue) in
   match find isSome (map get_approve_act acts) with
   | Some (Some (caddr, caller, (approve delegate' amount)) as act)  =>
     if address_eqb caller allower && address_eqb delegate delegate'
@@ -306,14 +295,14 @@ Definition allower_reapproves_delegate_step allower delegate step :=
   | _ => None
   end.
 
-Definition delegate_transferFrom_sum_of_approver approver delegate trace :=
+Definition delegate_transferFrom_sum_of_approver approver delegate (trace : list ChainState) :=
   fold_left (fun acc step =>
     let transfer_from_acts := fold_left (fun acc act =>
       match get_transferFrom_act act with
       | Some x => x :: acc
       | None => acc
       end
-    ) (acts_of_lcstep step) [] in
+    ) (step.(chain_state_queue)) [] in
     let filter_p p := if address_eqb (allower_addr p) approver
                       then match delegate_addr p with
                            | Some delegate' => address_eqb delegate delegate'
@@ -325,70 +314,63 @@ Definition delegate_transferFrom_sum_of_approver approver delegate trace :=
     step_sum + acc
   ) trace 0.
 
-Extract Constant defNumDiscards => "(3 * defNumTests)".
-
-Fixpoint last_opt {A : Type} (l : list A) : option A :=
-  match l with
-  | [] => None
-  | x::[] => Some x
-  | x::xs => last_opt xs
-  end.
-
-Definition allower_reapproves_transferFrom_correct trace allower delegate (first_approval_amount : N) :=
-  match last_opt trace with
-  | None => false ==> true
-  | Some start_step =>
-    let start_lc := next_lc_of_lcstep start_step in
-    reachableFrom_implies_tracePropSized_new 2 start_lc (gEIP20TokenChainTraceList 2)
-    (allower_reapproves_delegate_step allower delegate)
-    (fun new_approval_amount pre_trace _ =>
-      let trace_until_reapproval := app trace (removelast pre_trace) in
-      let delegate_spent_until_reapproval := delegate_transferFrom_sum_of_approver allower delegate trace_until_reapproval in
-      let delegate_spent_incl_reapproval_act :=
-        delegate_transferFrom_sum_of_approver allower delegate (trace ++ pre_trace) in
-      let total_allowed := delegate_spent_until_reapproval + new_approval_amount in
-      (new_approval_amount <? first_approval_amount) ==>
-      whenFail (show delegate ++ " spent "
-        ++ show delegate_spent_incl_reapproval_act
-        ++ " on behalf of " ++ show allower
-        ++ " when they were only allowed to spend at most "
-        ++ show total_allowed  ++ nl)
-      (delegate_spent_incl_reapproval_act <=? total_allowed)
-    )
-  end.
+Definition allower_reapproves_transferFrom_correct (pre_trace post_trace : list ChainState) allower delegate (first_approval_amount : N) :=
+  let trace := pre_trace ++ post_trace in
+  let reapprove_correct cs :=
+  (* Checks if a chainstate has a re-approval act, and if so, then checks that the spent amount inbetween
+     the first approval and the re-approval is not greater than expected. *)
+  let res := (allower_reapproves_delegate_step allower delegate cs) in
+    isSomeCheck res (fun new_approval_amount =>
+      let p := split_at_first_satisfying (isSome o (allower_reapproves_delegate_step allower delegate)) trace in
+      match p with
+      | Some (trace_until_reapproval, _) =>
+        let delegate_spent_until_reapproval := delegate_transferFrom_sum_of_approver allower delegate trace_until_reapproval in
+        let delegate_spent_incl_reapproval_act :=
+          delegate_transferFrom_sum_of_approver allower delegate trace in
+        let total_allowed := delegate_spent_until_reapproval + new_approval_amount in
+        (new_approval_amount <? first_approval_amount) ==>
+        whenFail (show delegate ++ " spent "
+          ++ show delegate_spent_incl_reapproval_act
+          ++ " on behalf of " ++ show allower
+          ++ " when they were only allowed to spend at most "
+          ++ show total_allowed  ++ nl)
+        (delegate_spent_incl_reapproval_act <=? total_allowed)
+      | None => checker false
+      end) in
+  conjoin_map reapprove_correct trace.
 
 Definition reapprove_transfer_from_safe_P :=
-  (reachableFrom_implies_tracePropSized_new 3 chain_with_token_deployed (gEIP20TokenChainTraceList 2))
-  state_has_some_approve_act
+  {token_cb ~~> state_has_some_approve_act ===>
   (fun approve_act_p pre_trace post_trace =>
-    (* (delegate_made_no_transferFroms approve_act_p post_trace   *)
     isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
-      allower_reapproves_transferFrom_correct post_trace
+      allower_reapproves_transferFrom_correct pre_trace
+                                              post_trace
                                               (allower_addr approve_act_p)
                                               delegate
-                                              (approve_amount approve_act_p)
-      )
-    (* ) *)
-  ).
+                                              (approve_amount approve_act_p)))}.
 
 (* QuickChick reapprove_transfer_from_safe_P. *)
 
-(* coqtop-stdout:Begin Trace:
+(* 
+LocalChain{| 
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 0)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}];
+Block 2 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, transfer 11%256 7)};
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, transfer 12%256 34)}];
+Block 3 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 12%256 32)};
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 11%256 23)}];
+Block 4 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer_from 10%256 10%256 25)};
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 12%256 8)}];|}
 
-coqtop-stdout:step_action{Action{act_from: 10%256, act_body: (act_call 128%256, 0, transfer_from 12%256 12%256 7)};
+12%256 spent 25 on behalf of 10%256 when they were only allowed to spend at most 8
 
-coqtop-stdout:Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 10%256 6)}};;
+*** Failed after 1 tests and 0 shrinks. (216 discards)
+*)
 
-coqtop-stdout:step_action{Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 10%256 1)};
-
-coqtop-stdout:Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 11%256 7)}}
-
-coqtop-stdout:End Trace
-
-coqtop-stdout:10%256 spent 7 on behalf of 12%256 when they were only allowed to spend at most 6
-
-coqtop-stdout:
-
-coqtop-stdout:*** Failed after 15 tests and 0 shrinks. (402 discards) *)
-
-(* Definition transfer_from_reduces_balance_correctly_P := . *)
+(* Definition transfer_from_reduces_balance_correctly_P := TODO... *)
