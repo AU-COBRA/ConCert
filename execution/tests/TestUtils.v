@@ -110,6 +110,20 @@ Definition FMap_find_ {A B : Type}
   | None => default
   end.
 
+Close Scope string_scope.
+Fixpoint split_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A * list A) :=
+  match l with
+  | [] => None
+  | x::xs => if p x
+            then Some (acc ++ [x], xs)
+            else (split_at_first_satisfying_fix p xs (acc ++ [x]))
+  end.
+
+Definition split_at_first_satisfying {A : Type} (p : A -> bool) (l : list A) : option (list A * list A) :=
+  split_at_first_satisfying_fix p l [].
+
+Open Scope string_scope.
+  
 (* Utils for Show instances *)
 
 Definition empty_str : string := "".
