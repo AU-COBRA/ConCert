@@ -33,6 +33,9 @@ Definition person_4 : Address :=
 Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
 
+Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
+
+
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 (* Misc utility functions *)
@@ -334,18 +337,18 @@ Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
 
 (* Although the type is G (option ...) it will never generate None values.
    Perhaps this is where we should use generators with property proof relevance? Future work... *)
-   Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
-   n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
-   returnGen (@decode_bounded bound (Pos.of_nat n)).
+Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
+  n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
+  returnGen (@decode_bounded bound (Pos.of_nat n)).
 
- Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
-   bn <- gBoundedNOpt AddrSize ;;
-   returnGen match bn with
-     | Some b => b
-     (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
-         n <= AddrSized. **)
-     | None => BoundedN.of_Z_const AddrSize 0
-   end.
+Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
+  bn <- gBoundedNOpt AddrSize ;;
+  returnGen match bn with
+    | Some b => b
+    (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
+        n <= AddrSized. **)
+    | None => BoundedN.of_Z_const AddrSize 0
+  end.
 
 Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
   {|
@@ -548,6 +551,16 @@ Definition conjoin_map {A prop : Type}
                       `{Checkable prop}
                        (f : A -> prop)
                        (l : list A) := conjoin (map (checker o f) l).
+
+Definition discard_empty {A prop : Type} 
+                        `{Checkable prop} 
+                         (l : list A) 
+                         (f : list A -> prop) : Checker :=
+  match l with
+  | [] => false ==> true
+  | _ => checker (f l)
+  end.
+
 
 Definition forEachMapEntry {A B prop : Type}
                           `{countable.Countable A}
