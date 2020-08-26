@@ -1,25 +1,17 @@
-Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 
-From ConCert Require Import Blockchain LocalBlockchain EIP20Token Congress BAT TestUtils.
+From ConCert Require Import Blockchain LocalBlockchain TestUtils.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList ResultMonad.
 
-Let Base := TestUtils.LocalChainBase.
-
-(* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
-
-From Coq Require Import List.
-From Coq Require Import Morphisms.
+From Coq Require Import ZArith Strings.String.
+From Coq Require Import List. Import ListNotations.
 Import BoundedN.Stdpp.
 
-Import LocalBlockchain.
-Import ListNotations.
-Close Scope address_scope.
+Section ChainPrinters.
+Let Base := TestUtils.LocalChainBase.
 
+Close Scope address_scope.
 Open Scope list_scope.
 Open Scope string_scope.
 
@@ -217,3 +209,5 @@ Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
 
 Close Scope string_scope.
 Close Scope list_scope.
+
+End ChainPrinters.
