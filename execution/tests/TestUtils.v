@@ -1,6 +1,5 @@
 Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
@@ -8,17 +7,16 @@ From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
 From ConCert Require Import LocalBlockchain.
-From ConCert Require Import BoundedN ChainedList. Import BoundedN.Stdpp.
+From ConCert Require Import BoundedN. Import BoundedN.Stdpp.
 
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
 Require Import Containers.
-Require Import ResultMonad.
 
 Global Definition AddrSize := (2^8)%N.
-
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition creator : Address :=
   BoundedN.of_Z_const AddrSize 10.
@@ -34,9 +32,6 @@ Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
 
 Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
-
-
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 (* Misc utility functions *)
 Open Scope list_scope.
