@@ -1,12 +1,12 @@
-From ConCert Require Import Blockchain LocalBlockchain.
+From ConCert Require Import Blockchain.
 From ConCert Require Import Dexter FA2Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters FA2Printers.
-Require Import Strings.String.
+From ConCert.Execution.QCTests Require Import TestUtils FA2Printers.
 From QuickChick Require Import QuickChick.
+
+Section DexterPrinters.
+Context `{Show Address}.
 Local Open Scope string_scope.
-
-
 
 Instance showDexterExchangeParam : Show Dexter.exchange_param :=
 {|
@@ -17,12 +17,18 @@ Instance showDexterExchangeParam : Show Dexter.exchange_param :=
             ++ "}"
 |}.
 
-Instance showDexterMsg : Show Dexter.DexterMsg :=
+Instance showDexterMsgMsg : Show Dexter.DexterMsg :=
 {|
   show m := match m with
             | tokens_to_asset param => "token_to_asset " ++ show param
             | add_to_tokens_reserve tokenid => "add_to_tokens_reserve (token_id=" ++ show tokenid ++ ")"
             end
+|}.
+
+Existing Instance showFA2ReceiverMsg.
+Instance showDexterMsg : Show Dexter.Msg :=
+{|
+  show m := show m
 |}.
 
 Instance showDexterState : Show Dexter.State :=
@@ -39,3 +45,5 @@ Instance showDexterSetup : Show Dexter.Setup :=
             ++ "fa2_caddr_: " ++ show t.(fa2_caddr_)
             ++ "}"
 |}.
+
+End DexterPrinters.

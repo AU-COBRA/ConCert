@@ -1,29 +1,22 @@
-From ConCert Require Import Blockchain LocalBlockchain FA2Token FA2Interface Dexter.
+From ConCert Require Import Blockchain FA2Token FA2Interface Dexter.
 From ConCert Require Import Serializable.
-From ConCert Require Import LocalBlockchainTests.
-(* From Coq Require Import Morphisms. *)
-From ConCert Require Import Extras.
 From ConCert Require Import Containers.
 From ConCert Require Import BoundedN.
-Global Set Warnings "-extraction-logical-axiom".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters TraceGens DexterPrinters.
-From RecordUpdate Require Import RecordUpdate.
-From Coq Require Import ZArith List.
-Import ListNotations.
-Import RecordSetNotations.
+  TestUtils TraceGens SerializablePrinters.
+From Coq Require Import ZArith List. Import ListNotations.
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
-(* Notation "f 'o' g" := (compose f g) (at level 50). *)
 
 Module Type DexterTestsInfo.
   Parameter fa2_contract_addr : Address.
   Parameter dexter_contract_addr : Address.
   Parameter exploit_contract_addr : Address.
+  Parameter gAccountAddress : G Address.
+  Parameter gAccountAddrWithout : list Address -> GOpt Address.
 End DexterTestsInfo.
 
 Module DexterGens (Info : DexterTestsInfo).
@@ -62,44 +55,47 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
   returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg))
 .
 
-Definition gAddTokensToReserve (lc : LocalChain)
+Definition liftOptGen {A : Type} (g : G A) : G (option A) :=
+  a <- g ;;
+  returnGenSome a.
+
+Definition gAddTokensToReserve (c : Chain)
                                (state : FA2Token.State)
                                : GOpt (Address * Amount * Dexter.Msg) :=
   tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
-  '(caller, amount) <- gAccountBalanceFromLocalChain lc ;;
+  caller <- liftOptGen gAccountAddress ;;
+  amount <- liftOptGen (choose (0%Z, c.(account_balance) caller)) ;;
   returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
-Definition gDexterAction (lc : LocalChain) : G (option Action) :=
+Definition gDexterAction (env : Environment) : G (option Action) :=
   let mk_call caller_addr amount msg :=
     returnGenSome {|
       act_from := caller_addr;
       act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg)
     |} in
-  match FMap.find fa2_contract_addr (lc_contract_state_deserialized FA2Token.State lc) with
-  | Some fa2_state => backtrack [
-    (1, '(caller, amount, msg) <- gAddTokensToReserve lc fa2_state ;;
+  fa2_state <- returnGen (get_contract_state FA2Token.State env fa2_contract_addr) ;;
+  backtrack [
+    (1, '(caller, amount, msg) <- gAddTokensToReserve env fa2_state ;;
         mk_call caller amount msg
     ) ;
-    (2, caller <- gContractAddrFromLCWithoutAddrs lc [fa2_contract_addr; dexter_contract_addr] ;;
+    (2, caller <- gAccountAddrWithout [fa2_contract_addr; dexter_contract_addr] ;;
         '(_, msg) <- gTokenExchange fa2_state ;;
         mk_call caller 0%Z msg
     )
-  ]
-  | None => returnGen None
-  end.
+  ].
 
 End DexterContractGens.
 
-
-Definition gDexterChainTraceList max_acts_per_block lc length :=
-  gLocalChainTraceList_fix lc (fun lc _ => gDexterAction lc) length max_acts_per_block.
+Definition gDexterChain max_acts_per_block cb length :=
+  gChain cb (fun e _ => gDexterAction e) length 1 max_acts_per_block.
 
 (* the '1' fixes nr of actions per block to 1 *)
-Definition token_reachableFrom (lc : LocalChain) pf : Checker :=
-  @reachableFrom AddrSize lc (gDexterChainTraceList 1) pf.
+Definition token_reachableFrom max_acts_per_block cb pf : Checker :=
+  reachableFrom_chaintrace cb (gDexterChain max_acts_per_block) pf.
 
-Definition token_reachableFrom_implies_reachable (lc : LocalChain) pf1 pf2 : Checker :=
-  reachableFrom_implies_reachable lc (gDexterChainTraceList 1) pf1 pf2.
+Definition token_reachableFrom_implies_reachable 
+           {A} length max_acts_per_block cb (pf1 : ChainState -> option A) pf2 : Checker :=
+  reachableFrom_implies_chaintracePropSized length cb (gDexterChain max_acts_per_block) pf1 pf2.
 
 End DexterGens.
 
@@ -107,5 +103,7 @@ Module DummyTestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := zero_address.
   Definition dexter_contract_addr := zero_address.
   Definition exploit_contract_addr := zero_address.
+  Definition gAccountAddress := returnGen zero_address.
+  Definition gAccountAddrWithout (w : list Address) := returnGenSome zero_address.
 End DummyTestInfo.
 Module MG := DexterGens.DexterGens DummyTestInfo. Import MG.

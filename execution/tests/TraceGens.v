@@ -13,37 +13,27 @@
 Global Set Warnings "-extraction-logical-axiom".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
-
 From ConCert Require Import Blockchain.
-From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
-From ConCert Require Import Containers.
 From ConCert Require Import ResultMonad.
 From ConCert Require Import ChainedList.
-Require Import Extras.
 
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters SerializablePrinters .
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters .
 
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
-From Coq Require Import ZArith Strings.String.
-From Coq Require Import List Int BinInt FunInd.
+From Coq Require Import ZArith.
+From Coq Require Import List.
 
 Import BoundedN.Stdpp.
-
-Import LocalBlockchain.
 Import ListNotations.
-Close Scope address_scope.
 
 Section TraceGens.
   Context  {ChainBuilder : ChainBuilderType}.
   Context `{Show ChainBuilder}.
-
-  Definition cb_to_lc {AddrSize : N} (cb : LocalChainBuilder AddrSize) : LocalChain := cb.(lcb_lc).
-  Global Coercion cb_to_lc : LocalChainBuilder >-> LocalChain.
+  Context `{Show ChainState}.
 
   Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
@@ -60,20 +50,6 @@ Section TraceGens.
         block_finalized_height := finalized_height chain;
         block_creator := creator;
         block_reward := 50; |}.
-
-  Definition next_header_lc (chain : @LocalChain AddrSize)  :=
-      {| block_height := S (chain_height chain);
-        block_slot := S (current_slot chain);
-        block_finalized_height := finalized_height chain;
-        block_creator := creator;
-        block_reward := 50; |}.
-
-  (* Adds a new block with a given list of actions in that block. Uses next_header_lc to compute header info. *)
-  Definition my_add_block c acts :=
-    match (add_block_exec true c (next_header_lc c) acts) with
-    | Err _ => None
-    | Ok r => Some r
-    end.
 
   (* Helper function for backtrack_result. It picks and removes an element from a list of result generators. *)
   Fixpoint pickDrop {T E}
@@ -136,135 +112,7 @@ Section TraceGens.
       end in 
     rec max_length init_lc.
 
-  (* The representation of an execution step.
-    A step can either add an empty new block, or add a new block with some actions to execute.
-    The next_chain is assumed to be related to prev_chain with the 'my_add_block' function *)
-  Inductive LocalChainStep {AddrSize : N} : Type :=
-  | step_add_block : forall (prev_chain : @LocalChain AddrSize)
-                            (header : BlockHeader)
-                            (next_chain : @LocalChain AddrSize), LocalChainStep
-  | step_action : forall (prev_chain : @LocalChain AddrSize)
-                        (header : BlockHeader)
-                        (next_chain : @LocalChain AddrSize)
-                        (acts : list Action), LocalChainStep.
-
-  (* Helper functions *)
-
-  Definition acts_of_lcstep (state : @LocalChainStep AddrSize) :=
-    match state with
-    | step_add_block _ _ _ => []
-    | step_action _ _ _ acts => acts
-    end.
-
-  Definition prev_lc_of_lcstep (state : @LocalChainStep AddrSize) :=
-    match state with
-    | step_add_block prev _ _ => prev
-    | step_action prev _ _ _ => prev
-    end.
-
-  Definition next_lc_of_lcstep (state : @LocalChainStep AddrSize) : LocalChain :=
-    match state with
-    | step_add_block _ _ next => next
-    | step_action _ _ next _ => next
-    end.
-  Close Scope string_scope.
-
-  (* Shallow Equality of LocalChains *)
-  Definition lc_shallow_eqb lc1 lc2 : bool :=
-    (lc_height lc1 =? lc_height lc2)
-    && (lc_slot lc1 =? lc_slot lc2)
-    && (@lc_fin_height AddrSize lc1 =? @lc_fin_height AddrSize lc2).
-
-
-  Definition mk_basic_step_add_block c : option (LocalChain * LocalChainStep) :=
-    let header := (next_header_lc c) in
-    let next := add_block_exec true c header [] in
-    match next with
-    | Err _ => None
-    | Ok c_next => Some (c_next, step_add_block c header c_next)
-    end.
-
-  Definition mk_basic_step_action c acts : option (LocalChain * LocalChainStep) :=
-    let header := (next_header_lc c) in
-    let next := add_block_exec true c header acts in
-    match next with
-    | Ok c_next => Some (c_next, step_action c header c_next acts)
-    | Err _ => None
-    end.
-
-  Open Scope string_scope.
-  Instance showLocalChainStepVerbose {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show (@LocalChainStep AddrSize) :=
-  {|
-    show step := match step with
-    | step_add_block prev header next =>
-      "step_add_block{ prev_lc: " ++ show prev ++ sep ++ "header: " ++ show header ++ sep ++ "next_lc:" ++ show next ++ "}"
-    | step_action prev header next acts =>
-      "step_action{ prev_lc: " ++ show prev ++ sep ++ "header: " ++ show header ++ sep ++ "next_lc:" ++ show next ++ sep ++ "acts: " ++ show acts ++ "}"
-    end
-  |}.
-
-  Instance showLocalChainStep {AddrSize : N} `{Show (@LocalChain AddrSize)} : Show (@LocalChainStep AddrSize) :=
-  {|
-    show step := match step with
-    | step_add_block prev header next =>
-      "step_add_block{ ... }"
-    | step_action prev header next acts =>
-      "step_action{" ++ show acts ++ "}"
-    end
-  |}.
-
-  Definition LocalChainTraceList {AddrSize : N} := list (@LocalChainStep AddrSize).
-  (* Main generator of execution traces, using a given generator for Actions. *)
-  (* Generates a trace up to some maximal length. It only contains traces that succeeded according to my_add_block. *)
-  Fixpoint gLocalChainTraceList_fix (prev_lc : LocalChain)
-                                (gActOptFromLCSized : LocalChain -> nat -> G (option Action))
-                                (length : nat)
-                                (max_nr_acts_per_block : nat)
-                                : G LocalChainTraceList :=
-    match length with
-    | 0 => returnGen []
-    | S length =>
-      lc_opt <- backtrack [
-        (10,
-            (* What we're essentially doing here trying twice and then discarding one - to increase robustness.  *)
-            let try_twice g := backtrack [(1, g);(1, g)] in
-            try_twice (
-              acts <- optToVector max_nr_acts_per_block (gActOptFromLCSized prev_lc 2) ;;
-              if 0 <? (List.length acts)
-              then returnGen (mk_basic_step_action prev_lc acts)
-              else returnGen None
-            )
-            (* acts <- liftM (shrinkListTo 1) (optToVector nr_retries ) ;; *)
-            (* returnGen (mk_basic_step_action prev_lc acts) *)
-            (* bindGenOpt (gActOptFromLCSized prev_lc 2) *)
-            (* (fun act => returnGen (mk_basic_step_action prev_lc [act])) *)
-        )
-            (* match acts with
-            | [] => returnGen None
-            | _ => returnGen (mk_basic_step_action prev_lc acts)
-            end) *)
-        (* (1, returnGen (mk_basic_step_add_block prev_lc)) ; *)
-        (* (3, liftM (mk_basic_step_action prev_lc ) (optToVector 1 (gDeployCongressActionFromLC prev_lc)))  *)
-        ] ;;
-      match lc_opt with
-            | Some (lc, step) =>
-              trace <- (gLocalChainTraceList_fix lc gActOptFromLCSized length max_nr_acts_per_block) ;;
-              match trace with
-              | [] => returnGen [step]
-              | _ =>  returnGen (cons step trace)
-              end
-            | None => returnGen []
-      end
-    end.
-
-  Open Scope string_scope.
-  Instance showLocalChainList : Show LocalChainTraceList :=
-  {|
-    show l := nl ++ "Begin Trace: " ++ nl ++ String.concat (";;" ++ nl) (map show l) ++ nl ++ "End Trace"
-  |}.
-  Close Scope string_scope.
-
-  (* NEW Checker combinators on ChainBuilder *)
+  (* Checker combinators on ChainBuilder *)
   Definition forAllChainBuilder {prop : Type}
                               `{Checkable prop}
                               (maxLength : nat)
@@ -292,7 +140,7 @@ Section TraceGens.
     | clnil => []
     end.
 
-  (* Asserts that a ChainState property holds for all ChainStates (at block creation) in a ChainTrace  *)
+  (* Asserts that a ChainState property holds for all ChainStates in a ChainTrace  *)
   Definition ChainTrace_ChainTraceProp {prop : Type}
                                     {from to}
                                     `{Checkable prop}
@@ -300,9 +148,11 @@ Section TraceGens.
                                     (pf : ChainState -> prop)
                                     : Checker :=
     let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
-    conjoin_map printOnFail (trace_states_step_block trace).
+    let trace_list := trace_states_step_block trace in
+    discard_empty trace_list (conjoin_map printOnFail).
 
-  (* NEW Checker combinators on ChainTrace *)
+  (* -------------------- Checker combinators on traces --------------------  *)
+
   Definition forAllChainState {prop : Type}
                               `{Checkable prop}
                               (maxLength : nat)
@@ -313,7 +163,7 @@ Section TraceGens.
     forAll (gTrace init_lc maxLength)
     (fun cb => ChainTrace_ChainTraceProp cb.(builder_trace) pf).
 
-  (* NEW Checker combinators on ChainTrace, asserting holds a property on 
+  (* Checker combinators on ChainTrace, asserting holds a property on 
     each pair of succeeding ChainStates in the trace. *)
   Definition forAllChainStatePairs {prop : Type}
                               `{Checkable prop}
@@ -322,20 +172,22 @@ Section TraceGens.
                               (gTrace : ChainBuilder -> nat -> G ChainBuilder)
                               (pf : ChainState -> ChainState -> prop)
                               : Checker :=
-      (* helper function folding over the trace*)
-      let fix all_statepairs {from to : ChainState} (trace : ChainTrace from to) : Checker :=
+    (* helper function folding over the trace*)
+    let last_cstate {from to} (trace : ChainTrace from to) := to in
+    let fix all_statepairs {from to : ChainState} (trace : ChainTrace from to) prev_bstate : Checker :=
       match trace with
       | snoc trace' step =>
         match step with
         | Blockchain.step_block _ _ _ _ _ _ _ =>
-            let '(prev_bstate, next_bstate) := chainstep_states step in
-            conjoin [(checker (pf prev_bstate next_bstate)); all_statepairs trace'] 
-        | _ => all_statepairs trace'
+          (* next_bstate has acts, bstate_before_step_block has no acts *)
+          let '(bstate_before_step_block, next_bstate) := chainstep_states step in
+          conjoin [(checker (pf next_bstate prev_bstate)); all_statepairs trace' bstate_before_step_block] 
+        | _ => all_statepairs trace' prev_bstate
           end
       | clnil  => checker true
       end in
     forAll (gTrace init_lc maxLength)
-    (fun cb => all_statepairs cb.(builder_trace)).
+    (fun cb => all_statepairs cb.(builder_trace) (last_cstate cb.(builder_trace))).
 
   (* Asserts that a boolean predicate holds for at least one ChainState in the given ChainTrace *)
   Definition existsb_chaintrace {from to}
@@ -355,24 +207,6 @@ Section TraceGens.
 
   Definition reachableFrom_chaintrace init_lc gTrace pf : Checker :=
     sized (fun n => reachableFromSized_chaintrace n init_lc gTrace pf).
-
-  (* Open Scope clist_scope. *)
-
-
-  (* Fixpoint split_trace_at_first_satisfying 
-            {from mid to} 
-            (p : ChainState -> ChainState -> bool)
-            (trace : ChainTrace from to) 
-            : (ChainTrace from mid) * (ChainTrace mid to) :=
-  let fix rec {from' mid'} (trace : ChainTrace from' mid') acc :=
-    let '(prefix_acc, suffix_acc) := acc in
-    match trace with
-    | @snoc _ _ _ mid0 _ trace' step => 
-      let prefix : ChainTrace from' mid0 := trace' in
-      rec trace' (prefix, (snoc clnil step) ++ suffix_acc)
-    | clnil => acc
-    end in
-  rec trace (clnil, clnil). *)
 
   (* This property states that if there is a reachable chainstate satisfying the reachable_prop predicate,
      then all succeeding chainstates must satisfy implied_prop *)
@@ -401,158 +235,7 @@ Section TraceGens.
         )
     | _ => false ==> true
     end).
-  (* -------------------- Checker combinators on traces --------------------  *)
 
-  (* Checks that a property holds on all states in all traces from a given trace generator *)
-  Definition forAllTraces {prop : Type}
-                        `{Checkable prop}
-                          {AddrSize : N}
-                          (maxLength : nat)
-                          (init_lc : @LocalChain AddrSize)
-                          (gTrace : LocalChain -> nat -> G LocalChainTraceList)
-                          (pf : LocalChain -> prop)
-                          : Checker :=
-    forAll (gTrace init_lc maxLength)
-    (fun trace => match trace with
-                  | [] => false ==> true
-                  | _ => conjoin (map (checker o pf o next_lc_of_lcstep) trace)
-                  end).
-
-  (* A variant where the property is over the step *)
-  Definition forAllTraces_stepProp {prop : Type}
-                        `{Checkable prop}
-                          {AddrSize : N}
-                          (maxLength : nat)
-                          (init_lc : @LocalChain AddrSize)
-                          (gTrace : LocalChain -> nat -> G LocalChainTraceList)
-                          (pf : LocalChainStep -> prop)
-                          : Checker :=
-    forAll (gTrace init_lc maxLength)
-    (fun trace => match trace with
-                  | [] => false ==> true
-                  | _ => conjoin (map (checker o pf) trace)
-                  end).
-
-  (* A variant where the property is over the whole trace *)
-  Definition forAllTraces_traceProp {prop : Type}
-                        `{Checkable prop}
-                          {AddrSize : N}
-                          (maxLength : nat)
-                          (init_lc : LocalChain)
-                          (gTrace : (@LocalChain AddrSize) -> nat -> G LocalChainTraceList)
-                          (pf : LocalChainTraceList -> prop)
-                          : Checker :=
-    forAll (gTrace init_lc maxLength)  pf.
-
-  Definition reachableFromSized {AddrSize : N}
-                          (maxLength : nat)
-                          (init_lc : LocalChain)
-                          (gTrace : (@LocalChain AddrSize) -> nat -> G LocalChainTraceList)
-                          (pf : LocalChainStep -> bool)
-                          : Checker :=
-    existsP (gTrace init_lc maxLength) (fun trace => existsb pf trace).
-
-  Definition reachableFrom {AddrSize : N} init_lc gTrace pf : Checker :=
-    sized (fun n => @reachableFromSized AddrSize n init_lc gTrace pf).
-
-  Fixpoint cut_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A) :=
-    match l with
-    | [] => None
-    | x::xs => if p x
-              then Some (acc ++ [x])
-              else (cut_at_first_satisfying_fix p xs (acc ++ [x]))
-    end.
-
-  Definition cut_at_first_satisfying_ {A : Type} (p : A -> bool) (l : list A) := cut_at_first_satisfying_fix p l [] .
-
-  (* represents: if there is a state x, satisfying pf1, reachable from init_lc,
-                then there is a state y, satisfyring pf2, reachable from state x. *)
-  Definition reachableFrom_implies_reachableSized
-                          (maxLength : nat)
-                          (init_lc : (@LocalChain AddrSize))
-                          (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
-                          (pf1 : LocalChain -> bool)
-                          (pf2 : LocalChain -> bool)
-                          : Checker :=
-    expectFailure (forAll (gTrace init_lc maxLength)
-      (fun trace =>
-      match cut_at_first_satisfying_ (pf1 o next_lc_of_lcstep) trace with
-        | None => checker true
-        | Some trace_cut =>
-          let new_init_lc := (List.last (map next_lc_of_lcstep trace_cut) init_lc) in
-          expectFailure (forAll (gTrace new_init_lc maxLength)
-          (fun new_trace => whenFail
-            ("Success - found witnesses satisfying the predicates:" ++ nl ++
-            "First trace:"  ++
-            show trace_cut ++ nl ++
-            "Second trace:" ++
-            show new_trace ++ nl)
-            ((checker o negb) (existsb pf2 (map (next_lc_of_lcstep) new_trace)))
-          ))
-        end)).
-
-  Definition reachableFrom_implies_reachable init_lc gTrace pf1 pf2 : Checker :=
-    sized (fun n => reachableFrom_implies_reachableSized n init_lc gTrace pf1 pf2).
-
-  (* If a state satisfying pf1 is reachable from init_lc, then any trace from this state satisfies pf_trace  *)
-  Definition reachableFrom_implies_tracePropSized
-                          {A prop : Type}
-                          `{Checkable prop}
-                          (maxLength : nat)
-                          (init_lc : (@LocalChain AddrSize))
-                          (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
-                          (pf1 : LocalChainStep -> option A)
-                          (pf_trace : A -> LocalChainTraceList -> prop)
-                          : Checker :=
-    forAll (gTrace init_lc maxLength)
-    (fun trace =>
-      let pf1_bool lc := match pf1 lc with Some _ => true | None => false end in
-      match cut_at_first_satisfying_ pf1_bool trace with
-      | Some (x::xs as trace_cut) =>
-        let last_step := (List.last trace_cut x) in
-        isSomeCheck (pf1 last_step)
-          (fun a =>
-            let new_init_lc := next_lc_of_lcstep last_step in
-            (forAll (gTrace new_init_lc maxLength)
-              (fun new_trace => (pf_trace a new_trace))
-            )
-          )
-      | Some [] => checker false
-      | _ => false ==> true
-      end).
-
-  Definition reachableFrom_implies_traceProp {A : Type}
-                                            (init_lc : (@LocalChain AddrSize))
-                                            (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
-                                            (pf1 : LocalChainStep -> option A)
-                                            (pf_trace : A -> LocalChainTraceList -> bool)
-                                            : Checker :=
-    sized (fun n => reachableFrom_implies_tracePropSized n init_lc gTrace pf1 pf_trace).
-
-
-  (* Compute (split_at_first_satisfying (fun x => x =? 2) [1;3;2;4;5]). *)
-
-Definition reachableFrom_implies_tracePropSized_new
-                        {A prop : Type}
-                        `{Checkable prop}
-                        (maxLength : nat)
-                        (init_lc : (@LocalChain AddrSize))
-                        (gTrace : @LocalChain AddrSize -> nat -> G (list (@LocalChainStep AddrSize)))
-                        (pf1 : LocalChainStep -> option A)
-                        (pf_trace : A -> LocalChainTraceList -> LocalChainTraceList -> prop)
-                        : Checker :=
-  forAll (gTrace init_lc maxLength)
-  (fun trace =>
-    let pf1_bool := isSome o pf1 in
-    match split_at_first_satisfying pf1_bool trace with
-    | Some ((x::xs) as pre, (y::ys) as post) =>
-      let last_step := (List.last pre x) in
-      isSomeCheck (pf1 last_step)
-        (fun a => (pf_trace a pre post))
-    | _ => false ==> true
-    end).
-
-      
   (* if pre tests true, then post tests true, for all tested execution traces *)
   Definition pre_post_assertion {Setup Msg State prop : Type}
                                `{Checkable prop}
@@ -591,68 +274,14 @@ Definition reachableFrom_implies_tracePropSized_new
           (cctx, new_state) in
         match get_contract_state State env caddr with
         (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
-        | Some cstate => conjoin (map (fun '(act, msg) =>
-                         if pre cstate msg
-                         then pre cstate msg ==> (
-                                post_helper (execute_receive env caddr cstate act msg) cstate msg
-                              )
-                         else false ==> true
-                         ) msgs)
+        | Some cstate => (conjoin_map (fun '(act, msg) =>
+                          if pre cstate msg
+                          then checker (post_helper (execute_receive env caddr cstate act msg) cstate msg)
+                          else checker true (* TODO: should be discarded!*)
+                          ) msgs)
         | None => checker true
         end in
       (* combine it all with the forAllTraces checker combinator *)
       forAllChainState maxLength init_chain gTrace stepProp.
-
-      
-  (* if pre tests true, then post tests true, for all tested execution traces *)
-  Definition pre_post_assertion_ {Setup Msg State prop : Type}
-                              `{Checkable prop}
-                              `{Serializable Msg}
-                              `{Serializable State}
-                              `{Serializable Setup}
-                                {AddrSize : N}
-                                (maxLength : nat)
-                                (init_lc : @LocalChain AddrSize)
-                                (gTrace : LocalChain -> nat -> G LocalChainTraceList)
-                                (c : Contract Setup Msg State)
-                                (pre : State -> Msg -> bool)
-                                (post : ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
-      let ContractType := Contract Setup Msg State in
-      let contracts_of_step step : list (Address * State) :=
-        let lc := prev_lc_of_lcstep step in
-        FMap.elements (lc_contract_state_deserialized State lc) in
-      let messages_of_step step := fold_right (fun act acc =>
-          match act.(act_body) with
-          | act_call _ _ ser_msg =>
-            match @deserialize Msg _ ser_msg with
-            | Some msg => (act, msg) :: acc
-            | None => acc
-            end
-          | _ => acc
-          end
-        ) [] (acts_of_lcstep step) in
-      let stepProp step :=
-        let lc := prev_lc_of_lcstep step in
-        let msgs := messages_of_step step in
-        let contracts := contracts_of_step step in
-        let execute_receive chain caddr cstate act msg :=
-          let amount :=
-            match act.(act_body) with
-            | act_call _ amount _ => amount
-            | _ => 0%Z
-            end in
-          let cctx := build_ctx act.(act_from) caddr amount in
-          let new_state := c.(receive) chain cctx cstate (Some msg) in
-          (cctx, new_state) in
-
-        conjoin (map (fun '(caddr, cstate) =>
-          (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
-          conjoin (map (fun '(act, msg) =>
-            let (cctx, post_state) := execute_receive lc caddr cstate act msg in
-            pre cstate msg ==> post cctx cstate msg post_state
-          ) msgs)
-        ) contracts) in
-      (* combine it all with the forAllTraces checker combinator *)
-      forAllTraces_stepProp maxLength init_lc gTrace stepProp.
 
 End TraceGens.

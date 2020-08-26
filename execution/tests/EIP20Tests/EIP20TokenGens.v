@@ -1,11 +1,10 @@
 From ConCert Require Import Blockchain EIP20Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters EIP20TokenPrinters SerializablePrinters.
+From ConCert.Execution.QCTests Require Import TestUtils.
 
 Require Import ZArith Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.

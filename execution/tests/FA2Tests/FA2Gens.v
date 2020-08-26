@@ -1,19 +1,13 @@
-From ConCert Require Import Blockchain LocalBlockchain FA2Token FA2Interface.
+From ConCert Require Import Blockchain FA2Token FA2Interface.
 From ConCert Require Import Serializable.
-From ConCert Require Import LocalBlockchainTests.
 From ConCert Require Import Extras.
 From ConCert Require Import Containers.
-From ConCert Require Import BoundedN.
-Global Set Warnings "-extraction-logical-axiom".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters TraceGens FA2Printers TestContracts.
-From RecordUpdate Require Import RecordUpdate.
+  TestUtils TraceGens TestContracts SerializablePrinters.
 From Coq Require Import ZArith List.
 Import ListNotations.
-Import RecordSetNotations.
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
@@ -251,13 +245,10 @@ Definition gClientAction (env : Environment) : G (option Action) :=
     |} in
   state <- returnGen (get_contract_state ClientState env fa2_client_addr) ;;
   let fa2_caddr := state.(fa2_caddr) in
-  backtrack [
-    (1, caller <- liftOptGen (gAddrWithout []) ;;
-        msg <- gIsOperatorMsg ;;
-        mk_call_fa2 caller fa2_caddr msg
-    )
-  ].
-
+  caller <- liftOptGen (gAddrWithout []) ;;
+  msg <- gIsOperatorMsg ;;
+  mk_call_fa2 caller fa2_caddr msg.
+  
 End FA2ClientGens.
 
 (* --------------------- FA2 Hook Generators --------------------- *)
@@ -268,7 +259,7 @@ End FA2HookGens.
 (* Combine fa2 action generator, client action generator, and hook generator into one generator *)
 Definition gFA2Actions (env : Environment) (size : nat) : G (option Action) :=
   backtrack [
-    (1, gFA2TokenAction env);
+    (2, gFA2TokenAction env);
     (1, gClientAction env)
   ].
 

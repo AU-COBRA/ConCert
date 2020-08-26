@@ -8,14 +8,13 @@ From Coq Require Import ZArith Strings.String.
 From Coq Require Import List. Import ListNotations.
 Import BoundedN.Stdpp.
 
-Section ChainPrinters.
 Let Base := TestUtils.LocalChainBase.
 
 Close Scope address_scope.
 Open Scope list_scope.
 Open Scope string_scope.
 
-Derive Show for positive.
+(* Derive Show for positive. *)
 Derive Show for SerializedType.
 
 Derive Show for result.
@@ -188,7 +187,7 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
 
 Instance showLCB `{Show (@Action Base)} : Show ChainBuilder :=
 {| 
-  show cb := "LocalChain{| " ++ nl
+  show cb := "Chain{| " ++ nl
              ++ show cb.(lcb_trace)
              ++ "|}" ++ nl
 |}.
@@ -209,5 +208,3 @@ Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
 
 Close Scope string_scope.
 Close Scope list_scope.
-
-End ChainPrinters.

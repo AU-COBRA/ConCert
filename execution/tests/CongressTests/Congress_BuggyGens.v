@@ -1,17 +1,15 @@
 From ConCert Require Import Blockchain Congress_Buggy.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_BuggyPrinters SerializablePrinters.
+From ConCert Require Import BoundedN.
+From ConCert.Execution.QCTests Require Import TestUtils.
 
-Require Import ZArith Strings.Ascii Strings.String.
+Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Morphisms.
-From Coq Require Import Program.Basics.
 Require Import Containers.
 
 Arguments SerializedValue : clear implicits.
@@ -20,7 +18,6 @@ Arguments serialize : clear implicits.
 
 Definition serializeMsg := serialize Msg _.
 
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition gRulesSized (n : nat) : G Rules :=
   vote_count <- choose(1%Z, 1000%Z) ;;

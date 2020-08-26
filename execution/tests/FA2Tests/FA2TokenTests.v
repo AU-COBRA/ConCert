@@ -1,5 +1,6 @@
 From ConCert Require Import Blockchain LocalBlockchain FA2Token FA2Interface.
 From ConCert Require Import Serializable.
+From ConCert Require Import ResultMonad.
 From ConCert Require Import Extras.
 From ConCert Require Import Containers.
 From ConCert Require Import BoundedN.
@@ -15,12 +16,10 @@ From Coq Require Import List.
 Import ListNotations.
 Import RecordSetNotations.
 (* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
+(* From ExtLib.Structures Require Import Monads. *)
+(* Import MonadNotation. Open Scope monad_scope. *)
 Close Scope address_scope.
 (* Notation "f 'o' g" := (compose f g) (at level 50). *)
-
-Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 (** example policies *)
 
@@ -93,9 +92,8 @@ Definition deploy_fa2token_client : @ActionBody LocalChainBase := create_deploym
 Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
 
 
-
-Definition chain_with_token_deployed_with_hook : LocalChain :=
-  unpack_option (my_add_block lc_initial
+Definition chain_with_token_deployed_with_hook : ChainBuilder :=
+  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
     build_act creator (act_transfer person_1 10);
     build_act creator (act_transfer person_2 10);
@@ -105,8 +103,8 @@ Definition chain_with_token_deployed_with_hook : LocalChain :=
     build_act creator deploy_fa2hook
   ]).
 
-Definition chain_with_token_deployed_without_hook : LocalChain :=
-  unpack_option (my_add_block lc_initial
+Definition chain_with_token_deployed_without_hook : ChainBuilder :=
+  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
     build_act creator (act_transfer person_1 10);
     build_act creator (act_transfer person_2 10);
@@ -114,6 +112,24 @@ Definition chain_with_token_deployed_without_hook : LocalChain :=
     build_act creator deploy_fa2token_without_transfer_hook;
     build_act creator deploy_fa2token_client
   ]).
+
+Definition chain_without_transfer_hook' : result ChainBuilder AddBlockError :=
+  (TraceGens.add_block chain_with_token_deployed_without_hook
+  [
+    build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+  ]).
+
+Definition chain_with_transfer_hook' : result ChainBuilder AddBlockError :=
+  (TraceGens.add_block chain_with_token_deployed_with_hook
+  [
+    build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+  ]).
+
+(* Uncomment for testing. This is commented because it is computationally expensive (> 20 seconds to compute) *)
+(* Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'. *)
+(* Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'. *)
 
 Definition client_other_msg := @other_msg _ FA2ClientMsg _.
 
@@ -124,55 +140,47 @@ Definition call_client_is_op_act :=
   let msg := client_other_msg (Call_fa2_is_operator params) in
   act_call client_contract_addr 0%Z (serialize ClientMsg _ msg).
 
-Definition chain_with_transfer_hook :=
-  unpack_option (my_add_block chain_with_token_deployed_with_hook
-  [
-    build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
-  ]).
-
-Definition chain_without_transfer_hook :=
-  unpack_option (my_add_block chain_with_token_deployed_without_hook
-  [
-    build_act person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
-  ]).
-
-Definition client_state lc :=
-  match (FMap.find client_contract_addr lc.(lc_contract_state)) with
-  | Some state => deserialize ClientState _ state
-  | None => None
-  end.
-Definition token_state lc :=
-  match (FMap.find token_contract_base_addr lc.(lc_contract_state)) with
-  | Some state => deserialize FA2Token.State _ state
-  | None => None
-  end.
-
+Definition token_state (cs : Environment) := get_contract_state FA2Token.State cs token_contract_base_addr.
+Definition client_state (cs : Environment) := get_contract_state ClientState cs client_contract_addr.
 
 From ConCert.Execution.QCTests Require Import FA2Gens.
 
+
 Module TestInfo <: FA2TestsInfo.
+  From ExtLib.Structures Require Import Monads.
+  Import MonadNotation. Open Scope monad_scope.
+
   Definition fa2_contract_addr := token_contract_base_addr.
   Definition fa2_client_addr := client_contract_addr.
   Definition fa2_hook_addr := fa2hook_contract_addr.
+  Definition gAddrWithout (ws : list Address) :=
+    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
+    elems_ zero_address addrs.
+  Definition gUniqueAddrPair : G (option (Address * Address)) :=
+    addr1 <- elems_opt test_chain_addrs ;;
+    let addrs := filter (fun a => negb (address_eqb addr1 a)) test_chain_addrs in   
+    addr2 <- elems_opt addrs ;;
+    returnGenSome (addr1, addr2).
+  
+  (* A quick little sanity check that gUniqueAddrPair generator indeed always generates unique pairs *)
+  (* QuickChick (forAll gUniqueAddrPair (fun p => isSomeCheck p (fun '(addr1, addr2) => negb (address_eqb addr1 addr2)))). *)
+  (* +++ Passed 10000 tests (0 discards) *)
 End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
-Definition chain_with_transfer_hook_token_state : FA2Token.State := unpack_option (token_state chain_with_transfer_hook).
-(* Compute (show chain_with_transfer_hook_token_state). *)
-Definition gFA2TokenActionChainTraceList max_acts_per_block lc length :=
-  gLocalChainTraceList_fix lc (fun lc _ => gFA2TokenAction lc) length max_acts_per_block.
-Definition gFA2ClientChainTraceList max_acts_per_block lc length :=
-  gLocalChainTraceList_fix lc (fun lc _ => gClientAction lc) length max_acts_per_block.
+Definition gFA2TokenChain max_acts_per_block cb length := 
+  gChain cb (fun cb _ => gFA2TokenAction cb) length 1 max_acts_per_block.
+
+Definition gFA2ClientChain max_acts_per_block cb length := 
+  gChain cb (fun cb _ => gClientAction cb) length 1 max_acts_per_block.
+
 
 (* Sample (gFA2TokenAction chain_with_transfer_hook). *)
-(* Sample (gFA2TokenActionChainTraceList 1 chain_with_transfer_hook 10). *)
+(* Sample (gFA2TokenChain 1 chain_with_transfer_hook 10). *)
 
-Definition forAllFA2Traces chain n := forAllTraces_stepProp n chain (gFA2TokenActionChainTraceList 1).
-Notation "{{ P }} c {{ Q }} chain" := (pre_post_assertion 7 chain (gFA2ChainTraceList 1) c P Q)( at level 50).
-
-Extract Constant defNumDiscards => "(10 * defNumTests)".
+Definition forAllFA2Traces chain n := forAllChainState n chain (gFA2TokenChain 1).
+Definition forAllFA2TracesStatePairs chain n := forAllChainStatePairs n chain (gFA2TokenChain 1).
+Notation "{{ P }} c {{ Q }} chain" := (pre_post_assertion 7 chain (gFA2TokenChain 1) FA2Token.contract c P Q)( at level 50).
 
 Local Open Scope Z_scope.
 Definition transfer_state_update_correct prev_state next_state transfers :=
@@ -201,7 +209,12 @@ Definition transfer_state_update_correct prev_state next_state transfers :=
     let balance_before := Z.of_N (address_balance tokenid addr prev_state) in
     let balance_after := Z.of_N (address_balance tokenid addr next_state) in
     (* check that balance_diff is equal to the difference in recorded balance *)
-    (balance_before + balance_diff) =? balance_after in
+    whenFail (
+      "Failed predicate with owner: " ++ show addr ++ nl ++
+      "Expected new balance: " ++ show balance_after ++ nl ++
+      "But got: " ++ show balance_before ++ " + " ++ show balance_diff ++ " = " ++ show (balance_before + balance_diff)  
+      )
+    ((balance_before + balance_diff) =? balance_after) in
   forEachMapEntry balance_diffs_map balance_update_correct.
 Local Close Scope Z_scope.
 
@@ -223,40 +236,67 @@ Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (res
   | None => checker false
   end.
 
+
+(* Extract Constant defNumDiscards => "(4 * defNumTests)". *)
+
 (* QuickChick (
   {{ msg_is_transfer }}
-    FA2Token.contract
+    token_contract_base_addr
   {{ post_transfer_correct }}
   chain_without_transfer_hook). *)
 (* 14 seconds, max size 7, 1 act per block *)
-(* coqtop-stdout:+++ Passed 10000 tests (12283 discards) *)
+(* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_balances_correct (step : @LocalChainStep AddrSize) :=
-  match step with
-  | step_add_block _ _ _ => false ==> true
-  | step_action prev_lc _ next_lc [act] =>
+Definition get_transfer_from_act (act : Action) : option (list transfer) :=
+  match act.(act_body) with
+    | act_call _ _ msg =>
+      match deserialize FA2Token.Msg _ msg with
+      | Some (msg_transfer transfers) => Some transfers
+      | _ => None
+      end
+    | _ => None
+  end.
+
+(* get the queued transfer actions in the old state, and check that the succeeding state
+   has updated the balances correctly.
+   Assumes that there is at most one transfer action per block *)
+Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
+  let get_transfer_transfers (msgs : list Action) := fold_left (fun acc act =>
+    if isSome acc
+    then acc
+    else match get_transfer_from_act act with
+         | Some trxs => Some trxs
+         | _ => acc
+         end
+  ) msgs None in
+  match get_transfer_transfers old_cs.(chain_state_queue) with
+  | Some transfers =>
+     (* check that new_cs is updated correctly from old_cs according to the transfers *)
+     let prev_state := token_state old_cs in
+     let next_state := token_state new_cs in
+     match (prev_state, next_state) with
+     | (Some prev_state, Some next_state) =>
+       whenFail (show prev_state ++ nl ++ show next_state)
+       (checker (transfer_state_update_correct prev_state next_state transfers))
+     | _ => checker false
+     end
+  | None => checker true
+  end.
+
+(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+Definition get_transfers (acts : list Action) : list (Address * list FA2Interface.transfer) :=
+  fold_left (fun trxs act =>
     match act.(act_body) with
     | act_call _ _ msg =>
       match deserialize FA2Token.Msg _ msg with
-      | Some (msg_transfer transfers) =>
-        (* check that next_lc is updated correctly from prev_lc according to the transfers *)
-        let prev_state := token_state prev_lc in
-        let next_state := token_state next_lc in
-        match (prev_state, next_state) with
-        | (Some prev_state, Some next_state) =>
-          whenFail (show prev_state ++ nl ++ show next_state)
-          (checker (transfer_state_update_correct prev_state next_state transfers))
-        | _ => false ==> true
-        end
-      | _ => false ==> true
+      | Some (msg_transfer transfers) => (act.(act_from), transfers) :: trxs
+      | _ => trxs
       end
-    | _ => false ==> true
-    end
-  | _ => false ==> true
-  end.
-
-(* QuickChick (forAllFA2Traces chain_with_transfer_hook 1 transfer_balances_correct). *)
-
+    | _ => trxs
+    end) acts [].
 
 Definition transfer_satisfies_policy sender trx state : Checker :=
   (* check if sender is an operator, and permission to transfer the specified token_id *)
@@ -276,38 +316,31 @@ Definition transfer_satisfies_policy sender trx state : Checker :=
   whenFail
   ("failed with sender: " ++ show sender ++ nl)
   match (policy.(descr_self), policy.(descr_operator)) with
-    (* no transfers allowed *)
-    | (self_transfer_denied, operator_transfer_denied) => checker false
-    (* only self transfer allowed - check sender is equal to 'from' *)
-    | (self_transfer_permitted, operator_transfer_denied) =>
-      whenFail "operator transfer was denied, but sender != from"
-      (address_eqb sender trx.(from_))
-    | (self_transfer_denied, operator_transfer_permitted) =>
-      if address_eqb sender trx.(from_)
-      then whenFail "self transfer was denied but got transfer with sender = from" false
-      else is_valid_operator_transfer
-    | (self_transfer_permitted, operator_transfer_permitted) =>
+  (* no transfers allowed *)
+  | (self_transfer_denied, operator_transfer_denied) => checker false
+  (* only self transfer allowed - check sender is equal to 'from' *)
+  | (self_transfer_permitted, operator_transfer_denied) =>
+    whenFail "operator transfer was denied, but sender != from"
+    (* Note: this case seems to not be hit during testing *)
+    (address_eqb sender trx.(from_))
+  | (self_transfer_denied, operator_transfer_permitted) =>
+    if address_eqb sender trx.(from_)
+    then whenFail "self transfer was denied but got transfer with sender = from" false
+    else 
+      (* Note: this case seems to not be hit during testing *)
+      is_valid_operator_transfer
+  | (self_transfer_permitted, operator_transfer_permitted) =>
     if address_eqb sender trx.(from_)
     then checker true
-    else is_valid_operator_transfer
+    else
+      (* Note: this case seems to not be hit during testing *)
+      is_valid_operator_transfer
   end.
 
-Definition get_transfers (acts : list Action) : list (Address * list FA2Interface.transfer) :=
-  fold_left (fun trxs act =>
-    match act.(act_body) with
-    | act_call _ _ msg =>
-      match deserialize FA2Token.Msg _ msg with
-      | Some (msg_transfer transfers) => (act.(act_from), transfers) :: trxs
-      | _ => trxs
-      end
-    | _ => trxs
-    end) acts [].
-
-Definition transfer_satisfies_policy_P (step : @LocalChainStep AddrSize) : Checker :=
-  let acts := acts_of_lcstep step in
-  let lc := prev_lc_of_lcstep step in
+Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
+  let acts := old_cs.(chain_state_queue) in
   let transfers := get_transfers acts in
-  match token_state lc with
+  match token_state new_cs with
   | Some state =>
       conjoin_map (fun sender_trxs_pair =>
         conjoin_map (fun trx =>
@@ -317,21 +350,7 @@ Definition transfer_satisfies_policy_P (step : @LocalChainStep AddrSize) : Check
   | None => checker false
   end.
 
-Definition showStateWhenFail (step : @LocalChainStep AddrSize) :=
-  let prev_lc := prev_lc_of_lcstep step in
-  let next_lc := next_lc_of_lcstep step in
-  whenFail
-  ("Failed on step: " ++ nl ++ show step ++ nl ++
-  match (token_state prev_lc, token_state next_lc) with
-  | (Some prev_state, Some next_state) =>
-    "state before execution: " ++ nl ++ show prev_state ++ nl ++
-    "state after execution: " ++ nl ++ show next_state ++ nl
-  | (Some prev_state, None) =>
-    "state before execution: " ++ nl ++ show prev_state ++ nl
-  | _ => ""
-  end).
-
-(* QuickChick (forAllFA2Traces chain_with_transfer_hook 7 transfer_satisfies_policy_P). *)
+(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
 
 
@@ -346,7 +365,6 @@ Definition single_update_op_correct (new_state : FA2Token.State) (op : update_op
                        else isSome (FMap.find param.(op_param_operator) owners_map)
   | None => is_remove
   end.
-
 
 (* This property asserts that if an update_operator action contains multiple updates for the same operator,
    the LAST operation in the list must take effect *)
@@ -384,14 +402,14 @@ Definition post_last_update_operator_occurrence_takes_effect (cctx : ContractCal
       | _ => []
       end in
     last_update_operator_occurrence_takes_effect update_ops new_state
-    | None => checker false
+  | None => checker false
   end.
 
 (* QuickChick (
   {{msg_is_update_operator}}
-  FA2Token.contract
+  token_contract_base_addr
   {{post_last_update_operator_occurrence_takes_effect}}
-  (gFA2ChainTraceList 1)
+  chain_without_transfer_hook
 ). *)
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)

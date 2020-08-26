@@ -4,13 +4,11 @@ From ConCert Require Import BoundedN ChainedList ResultMonad.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters CongressGens CongressPrinters SerializablePrinters TraceGens.
+  TestUtils CongressGens TraceGens SerializablePrinters.
 
 Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
-From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Strings.BinaryString.
@@ -19,19 +17,12 @@ From Coq Require Import Program.Basics.
 Require Import Containers.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
-
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
-(* chains for deploying congress with some existing members *)
 Definition chain1 : ChainBuilder := builder_initial.
-
-(* Creator created an empty block (and gets some coins) *)
-Definition chain2 : ChainBuilder :=
-  unpack_result (add_block chain1 []).
-
-(* Creator transfers 10 coins to person_1 *)
-Definition chain3 : ChainBuilder :=
-  unpack_result (add_block chain2 [build_act creator (act_transfer person_1 10)]).
+Definition chain2 : ChainBuilder := unpack_result (add_block chain1 []).
+Definition chain3 : ChainBuilder := unpack_result
+  (add_block chain2 [build_act creator (act_transfer person_1 10)]).
 
 Definition setup_rules :=
   {| min_vote_count_permille := 200; (* 20% of congress needs to vote *)
@@ -71,7 +62,6 @@ Definition create_proposal_call :=
 Definition chain6 : ChainBuilder :=
   unpack_result (add_block chain5 [build_act person_1 create_proposal_call]).
 
-Definition chain_with_congress_deployed : LocalChain := lcb_lc chain6. (* chain6 is from LocalBlockchainTests.v *)
 Definition congress_chain := chain5.
 Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
 
@@ -84,7 +74,7 @@ Definition forAllCongressChainTraces n :=
   forAllChainState n congress_chain (gCongressChain 1).
 
 Definition pre_post_assertion_congress P c Q :=
-  pre_post_assertion 3 congress_chain (gCongressChain 2) Congress.contract c P Q.
+  pre_post_assertion 5 congress_chain (gCongressChain 2) Congress.contract c P Q.
 
 Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
 

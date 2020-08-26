@@ -18,8 +18,6 @@ From ConCert.Execution.QCTests Require Import
   TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
 
 (* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List Int.
 Import BoundedN.Stdpp.
 Import LocalBlockchain.
@@ -28,6 +26,7 @@ Close Scope address_scope.
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
+Existing Instance showTokenState.
 Definition Base := TestUtils.LocalChainBase.
 
 Definition token_setup := EIP20Token.build_setup creator (100%N).
@@ -129,8 +128,7 @@ Definition post_transfer_correct cctx old_state msg (result_opt : option (State 
   {{post_transfer_correct}}
 ). *)
 
-(* *** Gave up! Passed only 9684 tests
-Discarded: 30000 *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 (* One key property: the sum of the balances is always equal to the initial supply *)
 Definition sum_balances_eq_init_supply (state : EIP20Token.State) :=
@@ -141,10 +139,10 @@ Definition sum_balances_eq_init_supply (state : EIP20Token.State) :=
 Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker := 
   match get_contract_state EIP20Token.State cs contract_base_addr with
   | Some state => checker (pf state)
-  | None => tag "discard" (checker true) (* trivially true case *) 
+  | None => checker true (* trivially true case *) 
   end.
 
-(* QuickChick (forAllTokenChainTraces 10 (checker_get_state sum_balances_eq_init_supply)). *)
+(* QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_init_supply)). *)
 (* coqtop-stdout:+++ Passed 10000 tests (1570 discards) *)
 (* 8 seconds *)
 
@@ -171,19 +169,6 @@ Definition person_has_tokens person (n : N) :=
     | Some state => n =? (FMap_find_ person state.(balances) 0)
     | None => true (* trivial case *)
     end.
-
-(* Definition person_has_tokens_ person (n : N) :=
-  fun (cs : ChainState) =>
-    let env := cs.(chain_state_env) in
-    let token_contract_opt := env.(env_contract_states) contract_base_addr in
-    match token_contract_opt with
-    | Some ser_state =>
-      match @deserialize EIP20Token.State _ ser_state with
-      | Some state => n =? (FMap_find_ person state.(balances) 0)
-      | None => false
-      end
-    | None => false
-    end. *)
     
 (* Notation "cb '~~>' pf" :=
   (reachableFrom_chaintrace cb (gTokenChain 2) pf)
