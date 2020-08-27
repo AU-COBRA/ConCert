@@ -576,3 +576,34 @@ Fixpoint repeatWith {A prop : Type}
 
 (* Repeats a generator n times *)
 Definition repeatn (n : nat) (c : Checker) := repeatWith (seq 0 n) (fun _ => c).
+
+(* Converts a discarded test into a succesful test *)
+Definition discardToSuccess {prop} `{Checkable prop} (p : prop): Checker :=
+  mapTotalResult (fun res => match res.(ok) with
+                             | None => updOk res (Some true)
+                             | _ => res
+                             end) p.
+  
+(* QuickChick (discardToSuccess (false ==> true)). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (discardToSuccess (conjoin [false==>true; checker true])). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (conjoin [discardToSuccess (false==>true); checker true]). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (discardToSuccess true). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (discardToSuccess false). *)
+(* *** Failed after 1 tests and 0 shrinks. (0 discards) *)
+
+(* discard-friendly variant of conjoin where discarded tests will NOT cause the conjoin
+   combinator to also result in a discard. Specifically, conjoin_no_discard [false==>true] tests succesfully,
+   whereas conjoin [false==>true] results in a discarded test. *)
+Definition conjoin_no_discard {prop} `{Checkable prop} (l : list prop) : Checker := 
+  conjoin_map discardToSuccess l.
+
+(* QuickChick (conjoin_no_discard [false==>true; checker true]). *)
+(* +++ Passed 10000 tests (0 discards) *)
