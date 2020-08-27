@@ -48,7 +48,7 @@ Inductive NextStep :=
 (* Waiting for buyer and seller to withdraw their funds. *)
 | withdrawals
 (* No next step, sale is done. *)
-| none.
+| no_next_step.
 
 Record State :=
   build_state {
@@ -73,7 +73,7 @@ Global Instance Setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect<build_setup>.
 
 Global Instance NextStep_serializable : Serializable NextStep :=
-  Derive Serializable NextStep_rect<buyer_commit, buyer_confirm, withdrawals, none>.
+  Derive Serializable NextStep_rect<buyer_commit, buyer_confirm, withdrawals, no_next_step>.
 
 Global Instance State_serializable : Serializable State :=
   Derive Serializable State_rect<build_state>.
@@ -86,10 +86,13 @@ Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup)
   : option State :=
   let seller := ctx_from ctx in
   let buyer := setup_buyer setup in
-  do if (buyer =? seller)%address then None else Some tt;
-  do if ctx_amount ctx =? 0 then None else Some tt;
-  do if Z.even (ctx_amount ctx) then Some tt else None;
-  Some (build_state (current_slot chain) buyer_commit seller buyer 0 0).
+  if (buyer =? seller)%address then 
+    None 
+  else if ctx_amount ctx =? 0 
+  then None 
+  else if Z.even (ctx_amount ctx) 
+  then Some (build_state (current_slot chain) buyer_commit seller buyer 0 0)
+  else None.
 
 Definition receive
            (chain : Chain) (ctx : ContractCallContext)
@@ -127,7 +130,7 @@ Definition receive
     do if to_pay >? 0 then Some tt else None;
     let new_state :=
         match buyer_withdrawable new_state, seller_withdrawable new_state with
-        | 0, 0 => new_state<|next_step := none|>
+        | 0, 0 => new_state<|next_step := no_next_step|>
         | _, _ => new_state
         end in
     Some (new_state, [act_transfer (ctx_from ctx) to_pay])
@@ -137,7 +140,7 @@ Definition receive
     do if (last_action state + 50 <? current_slot chain)%nat then None else Some tt;
     do if (ctx_from ctx =? seller state)%address then Some tt else None;
     let balance := account_balance chain (ctx_contract_address ctx) in
-    Some (state<|next_step := none|>, [act_transfer (seller state) balance])
+    Some (state<|next_step := no_next_step|>, [act_transfer (seller state) balance])
 
   | _, _ => None
   end.
@@ -318,7 +321,7 @@ Section Theories.
         money_to trace caddr seller_addr + seller_withdrawable cstate = 3 * item_worth /\
         money_to trace caddr buyer_addr + buyer_withdrawable cstate = 1 * item_worth
 
-      | none =>
+      | no_next_step =>
         buyer_confirmed inc_calls buyer_addr = true /\
         filter (fun c => negb (call_amount c =? 0)%Z) inc_calls =
         [build_call_info buyer_addr (2 * item_worth) (Some commit_money)] /\
@@ -375,7 +378,7 @@ Section Theories.
         do 2 (split; try tauto).
         destruct IH as [_ [_ [? ?]]].
         destruct_address_eq; cbn in *; lia.
-      + (* Transfer while next_step is none; action moved from queue to txs *)
+      + (* Transfer while next_step is no_next_step; action moved from queue to txs *)
         destruct IH as [IH | IH]; [left|right].
         * do 2 (split; try tauto).
           destruct IH as [_ [? ?]].
@@ -442,7 +445,7 @@ Section Theories.
             as [->|]; cbn in *; try congruence.
           inversion_clear receive_some; cbn.
           do 4 (split; try tauto).
-          (* In this case we go to none state without buyer having confirmed anything *)
+          (* In this case we go to no_next_step state without buyer having confirmed anything *)
           right.
           destruct IH as [_ [_ [<- [_ [? [_ [? [-> [-> ->]]]]]]]]].
           unfold txs_to, transfer_acts_to.
@@ -451,7 +454,7 @@ Section Theories.
           cbn.
           split; auto; lia.
         * (* next_step was withdrawals, so either seller or buyer is withdrawing money.
-             This might put us into next_step = none. *)
+             This might put us into next_step = no_next_step. *)
           destruct (ctx_amount ctx =? 0) eqn:zero_amount in receive_some;
             cbn -[Nat.ltb] in *; try congruence.
           apply Z.eqb_eq in zero_amount.
@@ -466,7 +469,7 @@ Section Theories.
             apply and_assoc; split; [destruct_match; tauto|].
             do 2 (split; try tauto).
             destruct (Z.eqb_spec (seller_withdrawable prev_state) 0) as [seller_done|].
-            ++ (* No one has more to withdrew, next_step is none now, so establish
+            ++ (* No one has more to withdrew, next_step is no_next_step now, so establish
                   final IH. Since we got here from withdrawal we will be in left case. *)
               rewrite seller_done in *.
               left.
@@ -501,7 +504,7 @@ Section Theories.
             apply and_assoc; split; [destruct_match; tauto|].
             do 2 (split; try tauto).
             destruct (Z.eqb_spec (buyer_withdrawable prev_state) 0) as [buyer_done|].
-            ++ (* No one has more to withdrew, next_step is none now, so establish
+            ++ (* No one has more to withdrew, next_step is no_next_step now, so establish
                   final IH. Since we got here from withdrawal we will be in left case. *)
               rewrite buyer_done in *.
               left.
@@ -575,7 +578,7 @@ Section Theories.
   economically rational actors. We do not formalize this. *)
   Definition is_escrow_finished cstate :=
     match next_step cstate with
-    | none => true
+    | no_next_step => true
     | _ => false
     end.
 
