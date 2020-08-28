@@ -204,10 +204,10 @@ Definition collect_steps_length_distribution g :=
    buyer_commit -> no_next_step
    Corresponding to the case where the seller withdraws their funds before the buyer commits & confirms their purchase. *)
 
-Sample (
+(* Sample (
   bindGen (gEscrowTrace escrow_chain 10) (fun cb =>
     returnGen (escrow_next_states escrow_contract_addr (cb.(builder_trace))))
-).
+). *)
 
 Definition is_valid_step_sequence steps := 
   let fix rec steps prev_step :=
