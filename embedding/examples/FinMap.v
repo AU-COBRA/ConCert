@@ -40,7 +40,6 @@ Run TemplateProgram
 
 (** Now we can use [Maybe] as a name for a data type in our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
 
-(* Print Maybe. *)
 (* Maybe = "MaybeAcorn" *)
 (*      : string *)
 
