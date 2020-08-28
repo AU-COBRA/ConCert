@@ -4,7 +4,6 @@ From ConCert.Execution.QCTests Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import List. Import ListNotations.
-Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Open Scope string_scope.
 
 Arguments SerializedValue : clear implicits.

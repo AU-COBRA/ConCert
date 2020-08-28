@@ -39,6 +39,36 @@ Instance genSetupSized : GenSized Setup :=
   arbitrarySized n := liftM build_setup (arbitrarySized n)
 |}.
 
+Definition lc_contract_members_and_proposals_new_voters (state : Congress.State) : (FMap Address (list ProposalId)) :=
+    let candidate_members := (map fst o FMap.elements) (members state) in
+    let proposals_pairs := FMap.elements (proposals state) in
+    if (0 <? length candidate_members) && (0 <? length proposals_pairs)
+    then
+      let voters_to_proposals : FMap Address (list ProposalId) :=
+        List.fold_left (fun acc m =>
+        let unvoted_proposals : list (ProposalId * Proposal) := List.filter (fun p => match FMap.find m (votes (snd p)) with
+                                                  | Some _ => false
+                                                  | None => true
+                                                  end) proposals_pairs in
+        match List.map fst unvoted_proposals with
+        | [] => acc
+        | _ as ps => FMap.add m ps acc
+        end
+      ) candidate_members FMap.empty in
+      voters_to_proposals
+    else FMap.empty.
+
+Definition lc_contract_members_and_proposals_with_votes (state : Congress.State)
+                                                        : FMap Address (list ProposalId) :=
+    let members : list Address := (map fst o FMap.elements) (members state) in
+    let proposals_map : FMap nat Proposal := filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
+    if (0 <? length members) && (0 =? (FMap.size proposals_map))
+    then (
+      let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in
+      fold_left (fun acc m => FMap.add m propIds acc) members FMap.empty
+    )
+    else FMap.empty.
+
 Definition congressContractsMembers_nonowners state : list Address :=
     let members := (map fst o FMap.elements) (members state) in
     let non_owner_members := filter (fun member => negb (address_eqb member (owner state))) members in

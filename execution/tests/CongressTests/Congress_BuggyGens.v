@@ -18,7 +18,6 @@ Arguments serialize : clear implicits.
 
 Definition serializeMsg := serialize Msg _.
 
-
 Definition gRulesSized (n : nat) : G Rules :=
   vote_count <- choose(1%Z, 1000%Z) ;;
   margin <- choose(1%Z, 1000%Z) ;;
@@ -35,7 +34,7 @@ Instance genSetupSized : GenSized Setup :=
 |}.
 
 (* ------------------------------------------------------ *)
-(* generators of actions from the LocalChain context type *)
+(* generators of actions *)
 
 (* helpers *)
 
@@ -71,7 +70,6 @@ Fixpoint try_newCongressMember_fix (members : list Address) nr_attempts curr_nr 
             end
   end in aux nr_attempts curr_nr.
 
-
 Definition try_newCongressMember (state : Congress_Buggy.State)
                                  (congress_addr : Address)
                                  (nr_attempts : nat) : option Address :=
@@ -91,7 +89,6 @@ Definition bindCallerIsOwnerOpt {A : Type}
 
 Definition try_gNewOwner state calling_addr contract_addr : G (option Address):=
   bindCallerIsOwnerOpt state calling_addr contract_addr (gCongressMember_without_caller state calling_addr contract_addr).
-
 
 Definition vote_proposal (caddr : Address)
                          (members_and_proposals : FMap Address (list ProposalId))

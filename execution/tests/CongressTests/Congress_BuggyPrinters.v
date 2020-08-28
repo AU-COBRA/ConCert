@@ -15,7 +15,6 @@ From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
 Notation "f 'o' g" := (compose f g) (at level 50).
-Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Open Scope string_scope.
 
 Instance showRules : Show Rules :=

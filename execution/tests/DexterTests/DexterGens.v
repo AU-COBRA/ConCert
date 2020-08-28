@@ -25,7 +25,6 @@ Import Info.
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
-Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 
 (* --------------------- FA2 Contract Generators --------------------- *)

@@ -148,6 +148,7 @@ Instance showFMap {A B : Type}
 |}.
 
 Close Scope string_scope.
+Open Scope bool_scope.
 
 Definition get_contract_state (state : Type) `{Serializable state} env addr : option state :=
   let cstates := env.(env_contract_states) in
@@ -159,59 +160,6 @@ Definition get_contract_state (state : Type) `{Serializable state} env addr : op
     end 
   | None => None
   end. 
-
-Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSize lc)).
-Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
-Definition lc_account_balance lc addr : option Amount := (FMap.find addr (@lc_account_balances AddrSize lc)).
-
-Definition lc_contract_state_deserialized (state : Type) `{Serializable state} lc : FMap Address state :=
-  let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
-  FMap.of_list (List.fold_left
-                (fun acc p =>
-                  match @deserialize state _ (snd p) with
-                  | Some state => (fst p, state) :: acc
-                  | None => acc
-                  end)
-                els_list []).
-
-Definition lc_contract_owners : LocalChain -> FMap Address Address :=
-  (map_values_FMap owner) o (lc_contract_state_deserialized Congress.State).
-
-Open Scope bool_scope.
-
-Definition lc_proposals (lc : LocalChain) : FMap Address (FMap ProposalId Proposal) :=
-  map_values_FMap proposals (lc_contract_state_deserialized Congress.State lc).
-
-
-Definition lc_contract_members_and_proposals_new_voters (state : Congress.State) : (FMap Address (list ProposalId)) :=
-    let candidate_members := (map fst o FMap.elements) (members state) in
-    let proposals_pairs := FMap.elements (proposals state) in
-    if (0 <? length candidate_members) && (0 <? length proposals_pairs)
-    then
-      let voters_to_proposals : FMap Address (list ProposalId) :=
-        List.fold_left (fun acc m =>
-        let unvoted_proposals : list (ProposalId * Proposal) := List.filter (fun p => match FMap.find m (votes (snd p)) with
-                                                  | Some _ => false
-                                                  | None => true
-                                                  end) proposals_pairs in
-        match List.map fst unvoted_proposals with
-        | [] => acc
-        | _ as ps => FMap.add m ps acc
-        end
-      ) candidate_members FMap.empty in
-      voters_to_proposals
-    else FMap.empty.
-
-Definition lc_contract_members_and_proposals_with_votes (state : Congress.State)
-                                                        : FMap Address (list ProposalId) :=
-    let members : list Address := (map fst o FMap.elements) (members state) in
-    let proposals_map : FMap nat Proposal := filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
-    if (0 <? length members) && (0 =? (FMap.size proposals_map))
-    then (
-      let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in
-      fold_left (fun acc m => FMap.add m propIds acc) members FMap.empty
-    )
-    else FMap.empty.
 
 (* Utils for Generators *)
 
@@ -260,16 +208,6 @@ Definition sample2UniqueFMapOpt
     )
   ).
 
-Definition gContractFromLocalChain lc : G (option (Address * WeakContract)) :=
-  sampleFMapOpt (@lc_contracts AddrSize lc).
-
-Definition gAccountAddrFromLocalChain lc : G (option Address) :=
-  p <- sampleFMapOpt_filter (@lc_account_balances AddrSize lc) (fun p => negb (address_is_contract (fst p))) ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
 Fixpoint remove_multipe_FMap {A B : Type}
                             `{countable.Countable A}
                             `{base.EqDecision A}
@@ -280,52 +218,6 @@ Fixpoint remove_multipe_FMap {A B : Type}
   | id::ids => remove_multipe_FMap (FMap.remove id m) ids
   | [] => m
   end.
-
-Definition gAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
-  let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
-  p <- sampleFMapOpt acc_bals_sub ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gAccountAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
-  let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
-  p <- sampleFMapOpt_filter acc_bals_sub (fun p => negb (address_is_contract (fst p)));;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gContractAddrFromLocalChain lc : G (option Address) :=
-  p <- sampleFMapOpt (@lc_contracts AddrSize lc) ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gContractAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
-  let contracts_sub := remove_multipe_FMap (@lc_contracts AddrSize lc) addrs in
-  p <- sampleFMapOpt contracts_sub ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gAccountBalanceFromLocalChain lc : G (option (Address * Amount)) :=
-  sampleFMapOpt (@lc_account_balances AddrSize lc).
-
-Definition gAccountBalanceFromLCWithoutAddrs lc addrs : G (option (Address * Amount)) :=
-  let bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
-  sampleFMapOpt bals_sub.
-
-Definition gContractSateFromLocalChain lc : G (option (Address * SerializedValue)) :=
-  sampleFMapOpt (@lc_contract_state AddrSize lc).
-
-Definition gContractSateFromLCWithoutAddrs lc addrs : G (option (Address * SerializedValue)) :=
-  let states_sub := remove_multipe_FMap (@lc_contract_state AddrSize lc) addrs in
-  sampleFMapOpt states_sub.
-
 
 Definition gZPositive := liftM Z.of_nat arbitrary.
 Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).

@@ -17,20 +17,17 @@ Require Import Extras.
 From ConCert.Execution.QCTests Require Import
   TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
 
-(* For monad notations *)
 From Coq Require Import List Int.
 Import BoundedN.Stdpp.
 Import LocalBlockchain.
 Import ListNotations.
-Close Scope address_scope.
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
 Existing Instance showTokenState.
-Definition Base := TestUtils.LocalChainBase.
 
 Definition token_setup := EIP20Token.build_setup creator (100%N).
-Definition deploy_eip20token : @ActionBody Base := create_deployment 0 EIP20Token.contract token_setup.
+Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
@@ -44,8 +41,6 @@ Definition token_cb :=
     build_act creator (act_transfer person_3 0);
     build_act creator deploy_eip20token
   ]).
-
-Definition chain_with_token_deployed : LocalChain := token_cb.(lcb_lc).
 
 Module TestInfo <: EIP20GensInfo.
   Definition contract_addr := contract_base_addr.
@@ -337,7 +332,7 @@ Definition reapprove_transfer_from_safe_P :=
 (* QuickChick reapprove_transfer_from_safe_P. *)
 
 (* 
-LocalChain{| 
+Chain{| 
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};

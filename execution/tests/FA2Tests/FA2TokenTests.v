@@ -15,11 +15,7 @@ From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 Import ListNotations.
 Import RecordSetNotations.
-(* For monad notations *)
-(* From ExtLib.Structures Require Import Monads. *)
-(* Import MonadNotation. Open Scope monad_scope. *)
 Close Scope address_scope.
-(* Notation "f 'o' g" := (compose f g) (at level 50). *)
 
 (** example policies *)
 
@@ -236,9 +232,6 @@ Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (res
   | None => checker false
   end.
 
-
-(* Extract Constant defNumDiscards => "(4 * defNumTests)". *)
-
 (* QuickChick (
   {{ msg_is_transfer }}
     token_contract_base_addr
@@ -353,7 +346,6 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
 (* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
 
-
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
   let (param, is_remove) := match op with
     | add_operator param => (param, false)
@@ -413,32 +405,3 @@ Definition post_last_update_operator_occurrence_takes_effect (cctx : ContractCal
 ). *)
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)
-
-(* Sanity check that generating two actions in a row will always succeed *)
-(* QuickChick (
-  forAll2 (gFA2TokenAction chain_with_token_deployed)
-  (fun act_opt =>
-  match act_opt with
-  | Some act =>
-    match (my_add_block chain_with_token_deployed [act]) with
-    | Some c => gFA2TokenAction c
-    | None => returnGen None
-    end
-  | None => returnGen None
-  end)
-  (fun act1_opt act2_opt =>
-    match (act1_opt, act2_opt) with
-    | (Some act1, Some act2) =>
-      whenFail
-        ("execution failed:" ++ nl
-        ++ show (my_add_block chain_with_token_deployed [act1]))
-        (
-          let c_opt := my_add_block chain_with_token_deployed [act1] in
-          match c_opt with
-          | Some c => checker (isSome (my_add_block c [act2]))
-          | None => whenFail "empty chain" false
-          end
-        )
-    | _ => whenFail "empty act" false
-    end)
-). *)
