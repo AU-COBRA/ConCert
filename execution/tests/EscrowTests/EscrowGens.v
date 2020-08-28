@@ -65,10 +65,14 @@ Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
   let buyer := state.(buyer) in
   let seller := state.(seller) in
   match state.(next_step) with
-  (* Waiting for buyer to commit itemvalue * 2 *)
-  | buyer_commit => if e.(account_balance) buyer <? 2
-                    then returnGen None
-                    else mk_call_escrow buyer 2 commit_money
+  (* Waiting for buyer to commit itemvalue * 2. In this state, the seller can also choose to withdraw their deposit *)
+  | buyer_commit => backtrack [
+                      (2%nat, if e.(account_balance) buyer <? 2
+                              then returnGen None
+                              else mk_call_escrow buyer 2 commit_money
+                      );
+                      (1%nat, mk_call_escrow seller 0 withdraw)
+                    ]
   | buyer_confirm => mk_call_escrow buyer 0 confirm_item_received
   | _ => if 0 <? state.(buyer_withdrawable)
          then mk_call_escrow buyer 0 withdraw

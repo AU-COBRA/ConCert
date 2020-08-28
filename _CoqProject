@@ -42,6 +42,7 @@ execution/tests/DexterTests/DexterGens.v
 execution/tests/DexterTests/DexterTests.v
 execution/tests/EscrowTests/EscrowPrinters.v
 execution/tests/EscrowTests/EscrowGens.v
+execution/tests/EscrowTests/EscrowExtras.v
 execution/tests/EscrowTests/EscrowTests.v
 execution/tests/SerializablePrinters.v
 

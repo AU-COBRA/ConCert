@@ -1,8 +1,9 @@
-From ConCert Require Import Blockchain LocalBlockchain Escrow.
+From ConCert Require Import Blockchain LocalBlockchain Escrow EscrowExtras.
 From ConCert Require Import Serializable.
 From ConCert Require Import ResultMonad.
 From ConCert Require Import BoundedN.
 From ConCert Require Import Extras.
+From ConCert Require Import ChainedList.
 From ConCert Require Import Containers.
 Require Import ZArith Strings.String.
 
@@ -60,106 +61,18 @@ Definition forAllEscrowChainBuilder gEscrowTrace length cb :=
 
 (* Sample (gEscrowMsg escrow_chain). *)
 (* Sample (gEscrowTraceBetter escrow_chain 10). *)
-(* Sanity check: *)
 (* QuickChick (forAll (gEscrowTraceBetter escrow_chain 10) (fun cb =>
-  5 =? (chain_height cb)
+  1 <? (chain_height cb)
 )). *)
 (* +++ Passed 10000 tests (0 discards) *)
-(* This implies that all generated traces follow the pattern: 
-   commit_money -> confirm_item_received -> withdraw (buyer/seller) -> withdraw (buyer/seller) *)
+
+(* This is the proposition we wish to test, but QuickChick cannot test arbitrary Props since they are not
+   decidable in general. Therefore, we define a boolean version, escrow_correct_bool, below and
+   show that it implies escrow_correct_Prop. We then test on escrow_correct_bool instead.
+   An alternative approach is to prove that escrow_correct_Prop is decidable, since QuickChick can test any
+   decidable proposition (by coercing it to a bool) *)
 Local Open Scope Z_scope.
-Definition escrow_correct_bool {from to}
-                            (caddr : Address)
-                            (cstate : Escrow.State)
-                            (trace : ChainTrace from to) 
-                            (depinfo : DeploymentInfo Setup)
-                            (inc_calls : list (ContractCallInfo Msg)) := 
-  let item_worth := deployment_amount depinfo / 2 in
-  let seller := deployment_from depinfo in
-  let buyer := setup_buyer (deployment_setup depinfo) in
-  is_escrow_finished cstate ==>
-  ((buyer_confirmed inc_calls buyer &&
-    (net_balance_effect trace caddr seller =? item_worth) &&
-    (net_balance_effect trace caddr buyer =? -item_worth)) 
-    ||
-    ((negb (buyer_confirmed inc_calls buyer)) && 
-    (net_balance_effect trace caddr seller =? 0) &&
-    (net_balance_effect trace caddr buyer =? 0))).
-
-
-Definition escrow_correct_P (cb : ChainBuilder) := 
-  let trace := builder_trace cb in
-  let depinfo' := deployment_info Escrow.Setup trace escrow_contract_addr in
-  let inc_calls' := incoming_calls Escrow.Msg trace escrow_contract_addr in
-  conjoin [
-    (* checker (isSome depinfo'); *)
-    (* checker (negb (isSome inc_calls')); *)
-    isSomeCheck depinfo' (fun depinfo =>
-      isSomeCheck inc_calls' (fun inc_calls =>
-        match get_contract_state Escrow.State cb escrow_contract_addr with
-        | Some cstate => 
-            (escrow_correct_bool escrow_contract_addr cstate trace depinfo inc_calls)
-        | None => checker false
-        end
-      )
-    )
-  ].
-
-(* QuickChick (forAllEscrowChainBuilder gEscrowTrace 7 escrow_chain escrow_correct_P). *)
-(* *** Gave up! Passed only 8598 tests
-Discarded: 20000 *)
-
-(* Using the better generator, which avoid the discards: *)
-(* QuickChick (forAllEscrowChainBuilder gEscrowTraceBetter 7 escrow_chain escrow_correct_P). *)
-(* +++ Passed 10000 tests (0 discards) *)
-
-
-
-
-(* 
-
-From Coq Require Import Arith.
-From Coq Require Import Bool.
-From Coq Require Import List.
-From Equations Require Import Equations.
-From MetaCoq Require Import utils.
-
-Derive Signature for Forall.
-Derive Signature for Forall2.
-Derive Signature for OnOne2.
-
-Ltac propify :=
-  unfold is_true in *;
-  repeat
-    match goal with
-    | [H: context[Nat.eqb _ _ = false] |- _] => rewrite Nat.eqb_neq in H
-    | [H: context[Nat.eqb _ _ = true] |- _] => rewrite Nat.eqb_eq in H
-    | [H: context[Nat.ltb _ _ = false] |- _] => rewrite Nat.ltb_ge in H
-    | [H: context[Nat.ltb _ _ = true] |- _] => rewrite Nat.ltb_lt in H
-    | [H: context[Nat.leb _ _ = false] |- _] => rewrite Nat.leb_gt in H
-    | [H: context[Nat.leb _ _ = true] |- _] => rewrite Nat.leb_le in H
-    | [H: context[andb _ _ = false] |- _] => rewrite Bool.andb_false_iff in H
-    | [H: context[andb _ _ = true] |- _] => rewrite Bool.andb_true_iff in H
-    | [H: context[negb _ = false] |- _] => rewrite Bool.negb_false_iff in H
-    | [H: context[negb _ = true] |- _] => rewrite Bool.negb_true_iff in H
-    | [H: context[orb _ _ = false] |- _] => rewrite Bool.orb_false_iff in H
-    | [H: context[orb _ _ = true] |- _] => rewrite Bool.orb_true_iff in H
-    | [|- context[Nat.eqb _ _ = false]] => rewrite Nat.eqb_neq
-    | [|- context[Nat.eqb _ _ = true]] => rewrite Nat.eqb_eq
-    | [|- context[Nat.ltb _ _ = false]] => rewrite Nat.ltb_ge
-    | [|- context[Nat.ltb _ _ = true]] => rewrite Nat.ltb_lt
-    | [|- context[Nat.leb _ _ = false]] => rewrite Nat.leb_gt
-    | [|- context[Nat.leb _ _ = true]] => rewrite Nat.leb_le
-    | [|- context[andb _ _ = false]] => rewrite Bool.andb_false_iff
-    | [|- context[andb _ _ = true]] => rewrite Bool.andb_true_iff
-    | [|- context[negb _ = false]] => rewrite Bool.negb_false_iff
-    | [|- context[negb _ = true]] => rewrite Bool.negb_true_iff
-    | [|- context[orb _ _ = false]] => rewrite Bool.orb_false_iff
-    | [|- context[orb _ _ = true]] => rewrite Bool.orb_true_iff
-    end.
-*)
-
-(* Definition escrow_correct_P {from to}
+Definition escrow_correct_Prop {from to}
                             (caddr : Address)
                             (cstate : Escrow.State)
                             (trace : ChainTrace from to) 
@@ -177,33 +90,191 @@ Ltac propify :=
     net_balance_effect trace caddr seller = 0 /\
     net_balance_effect trace caddr buyer = 0).
 
-Lemma asd {from to}
+(* bool version of escrow_correct_Prop *)
+Definition escrow_correct_bool {from to}
+                            (caddr : Address)
+                            (cstate : Escrow.State)
+                            (trace : ChainTrace from to) 
+                            (depinfo : DeploymentInfo Setup)
+                            (inc_calls : list (ContractCallInfo Msg)) := 
+  let item_worth := deployment_amount depinfo / 2 in
+  let seller := deployment_from depinfo in
+  let buyer := setup_buyer (deployment_setup depinfo) in
+  if is_escrow_finished cstate
+  then (buyer_confirmed inc_calls buyer &&
+    ((net_balance_effect trace caddr seller =? item_worth) &&
+    (net_balance_effect trace caddr buyer =? -item_worth)) 
+    ||
+    (negb (buyer_confirmed inc_calls buyer)) && 
+    ((net_balance_effect trace caddr seller =? 0) &&
+    (net_balance_effect trace caddr buyer =? 0)))
+  else true.
+
+Lemma escrow_correct_bool_impl_prop {from to}
 (caddr : Address)
 (cstate : Escrow.State)
 (trace : ChainTrace from to) 
 (depinfo : DeploymentInfo Setup)
 (inc_calls : list (ContractCallInfo Msg)) : 
-  escrow_correct_bool caddr cstate trace depinfo inc_calls ->
-  escrow_correct_P caddr cstate trace depinfo inc_calls.
+  escrow_correct_bool caddr cstate trace depinfo inc_calls = true ->
+  escrow_correct_Prop caddr cstate trace depinfo inc_calls.
 Proof. 
   unfold escrow_correct_bool.
   destruct (is_escrow_finished cstate) eqn:H1.
-  - unfold escrow_correct_P. intros. admit.
-  - intros. unfold escrow_correct_P. left. rewrite H1 in H0. inversion H0. 
-Admitted.
+  - unfold escrow_correct_Prop. 
+    intros. 
+    propify. 
+    repeat rewrite Z.eqb_eq in H. 
+    apply H.
+  - intros. unfold escrow_correct_Prop. left. rewrite H1 in H0. inversion H0. 
+Qed.
 
-Import Bool.
+(* Wrapper for escrow_correct_bool. This is the Checker we will run QC on. *)
+Definition escrow_correct_P (cb : ChainBuilder) := 
+  let trace := builder_trace cb in
+  let depinfo' := deployment_info Escrow.Setup trace escrow_contract_addr in
+  let inc_calls' := incoming_calls Escrow.Msg trace escrow_contract_addr in
+  isSomeCheck depinfo' (fun depinfo =>
+    isSomeCheck inc_calls' (fun inc_calls =>
+      match get_contract_state Escrow.State cb escrow_contract_addr with
+      | Some cstate => 
+          (escrow_correct_bool escrow_contract_addr cstate trace depinfo inc_calls)
+      | None => false
+      end
+    )
+  ).
+
+(* QuickChick (forAllEscrowChainBuilder gEscrowTrace 7 escrow_chain escrow_correct_P). *)
+(* *** Gave up! Passed only 8598 tests
+Discarded: 20000 *)
+
+(* Using the better generator, which avoid the discards: *)
+(* QuickChick (forAllEscrowChainBuilder gEscrowTraceBetter 7 escrow_chain escrow_correct_P). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition next_step_eqb s1 s2 := 
+  match s1, s2 with
+  | buyer_commit, buyer_commit => true 
+  | buyer_confirm, buyer_confirm => true
+  | withdrawals, withdrawals => true
+  | no_next_step, no_next_step => true
+  | _, _ => false
+  end.
+
+
+Definition escrow_next_states {from to} 
+                              (escrow_caddr : Address) 
+                              (trace : ChainTrace from to) : list NextStep :=
+  let fix rec {from to} (trace : ChainTrace from to) acc :=
+    match trace with
+    | snoc trace' step => match acc, get_contract_state Escrow.State to escrow_caddr with
+                          | nextstep::_, Some state => 
+                            if next_step_eqb nextstep state.(next_step)
+                            then rec trace' acc
+                            else rec trace' (state.(next_step) :: acc)
+                          | [], Some state => rec trace' (state.(next_step) :: acc)
+                          | _, _ => rec trace' acc
+                          end 
+    | clnil => acc
+    end in rec trace [].
+
+(* We want to see what the length of the generated sequences of next_step are,
+   so we use QuickChick's 'collect' to collect length distribution statistics *)
+Definition collect_steps_length_distribution g :=
+  forAll (g escrow_chain 10%nat) (fun cb =>
+    collect (length (escrow_next_states escrow_contract_addr (cb.(builder_trace))))
+    true).
+
+(* QuickChick (collect_steps_length_distribution gEscrowTrace). *)
+(* 
+4812 : 2
+2470 : 1
+2244 : 3
+474 : 4
++++ Passed 10000 tests (0 discards) *)
+(* QuickChick (collect_steps_length_distribution gEscrowTraceBetter). *)
+(* 
+6636 : 4
+3364 : 2
++++ Passed 10000 tests (0 discards) *)
+
+(* We see that the "better" generator more often generates the full sequence of states, namely the sequence:
+   buyer_commit -> buyer_confirm -> withdrawals -> no_next_step
+   The sequence of length 2 is the sequence:
+   buyer_commit -> no_next_step
+   Corresponding to the case where the seller withdraws their funds before the buyer commits & confirms their purchase. *)
+
+Sample (
+  bindGen (gEscrowTrace escrow_chain 10) (fun cb =>
+    returnGen (escrow_next_states escrow_contract_addr (cb.(builder_trace))))
+).
+
+Definition is_valid_step_sequence steps := 
+  let fix rec steps prev_step :=
+  match prev_step, steps with
+  | _, [] => true
+  | None, step::steps' => rec steps' (Some step) 
+  | Some prev_step, step::steps' => match prev_step, step with
+                                    | buyer_commit, buyer_confirm
+                                    | buyer_commit, no_next_step 
+                                    | buyer_confirm, withdrawals
+                                    | withdrawals, no_next_step => rec steps' (Some step)
+                                    | _, _ => false
+                                    end
+  end in
+  rec steps None.
+
+Definition escrow_valid_steps_P cb := 
+  let trace := builder_trace cb in
+  let steps := escrow_next_states escrow_contract_addr trace in
+  is_valid_step_sequence steps.
+
+(* QuickChick (forAllEscrowChainBuilder gEscrowTrace 7 escrow_chain (checker o escrow_valid_steps_P)). *)
+(* +++ Passed 10000 tests (0 discards) *)
+ 
+
+(* Import Bool.
 Import ssrbool.
 Import Logic.Decidable.
-Print Bool.
+Print Bool. *)
+
+
+(* Lemma escrow_correct_bool_false_impl_prop {from to}
+(caddr : Address)
+(cstate : Escrow.State)
+(trace : ChainTrace from to) 
+(depinfo : DeploymentInfo Setup)
+(inc_calls : list (ContractCallInfo Msg)) : 
+  escrow_correct_bool caddr cstate trace depinfo inc_calls = false ->
+  ~(escrow_correct_Prop caddr cstate trace depinfo inc_calls).
+Proof. 
+  unfold escrow_correct_bool.
+  destruct (is_escrow_finished cstate) eqn:H1.
+  - unfold escrow_correct_Prop. 
+    intros. 
+    propify. 
+    repeat rewrite Z.eqb_neq in H.
+    unfold not. intros.
+    apply H0 in H1. 
+    apply H.
+  - intros. unfold escrow_correct_P. left. rewrite H1 in H0. inversion H0. 
+Qed. *)
+(* 
+
 Instance escrow_correct_P_dec {from to caddr cstate trace depinfo inc_calls} 
-  : Dec (@escrow_correct_P from to caddr cstate trace depinfo inc_calls).
+  : Dec (@escrow_correct_Prop from to caddr cstate trace depinfo inc_calls).
   Proof. 
-  constructor.
+  constructor. unfold ssrbool.decidable. 
+  destruct (escrow_correct_bool caddr cstate trace depinfo inc_calls) eqn:H.
+  - left. apply escrow_correct_bool_impl_prop. apply H.
+  - right. unfold escrow_correct_bool in H.   apply escrow_correct_bool_impl_prop in H. 
+
+   
+  rewrite (escrow_correct_bool_impl_prop caddr cstate trace depinfo inc_calls).
   remember (setup_buyer (deployment_setup depinfo)) as buyer.
   remember (deployment_from depinfo) as seller.
   remember (deployment_amount depinfo / 2) as item_worth.
-  unfold escrow_correct_P;
+  unfold escrow_correct_Prop;
   destruct (is_escrow_finished cstate) eqn:H1; 
   destruct (buyer_confirmed inc_calls buyer) eqn:H2; 
   destruct (net_balance_effect trace caddr seller =? item_worth) eqn:H3;
@@ -217,7 +288,18 @@ Instance escrow_correct_P_dec {from to caddr cstate trace depinfo inc_calls}
     constructor.
     auto.
   - rewrite Z.eqb_eq in H3. rewrite H3.
-    right. unfold not. intros. 
+    rewrite Z.eqb_neq in H4.
+    right. unfold not. intros.
+    destruct H; try reflexivity;
+    destruct H; destruct H0. 
+    + contradiction.
+    + inversion H.
+  - rewrite Z.eqb_neq in H3. 
+    rewrite Z.eqb_eq in H4.
+
+
+Admitted.
+    apply eq_refl in H.
     inversion H.
      in H.
      
