@@ -86,13 +86,10 @@ Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup)
   : option State :=
   let seller := ctx_from ctx in
   let buyer := setup_buyer setup in
-  if (buyer =? seller)%address then 
-    None 
-  else if ctx_amount ctx =? 0 
-  then None 
-  else if Z.even (ctx_amount ctx) 
-  then Some (build_state (current_slot chain) buyer_commit seller buyer 0 0)
-  else None.
+  do if (buyer =? seller)%address then None else Some tt;
+  do if ctx_amount ctx =? 0 then None else Some tt;
+  do if Z.even (ctx_amount ctx) then Some tt else None;
+  Some (build_state (current_slot chain) buyer_commit seller buyer 0 0).
 
 Definition receive
            (chain : Chain) (ctx : ContractCallContext)
