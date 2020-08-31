@@ -1,4 +1,4 @@
-From Coq Require Import Arith.
+From Coq Require Import Arith ZArith.
 From Coq Require Import Bool.
 From Equations Require Import Equations.
 
@@ -6,6 +6,8 @@ Ltac propify :=
   unfold is_true in *;
   repeat
     match goal with
+    | [H: context[Z.eqb _ _ = true] |- _] => rewrite Z.eqb_eq in H
+    | [H: context[Z.eqb _ _ = false] |- _] => rewrite Z.eqb_neq in H
     | [H: context[Nat.eqb _ _ = false] |- _] => rewrite Nat.eqb_neq in H
     | [H: context[Nat.eqb _ _ = true] |- _] => rewrite Nat.eqb_eq in H
     | [H: context[Nat.ltb _ _ = false] |- _] => rewrite Nat.ltb_ge in H

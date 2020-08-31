@@ -107,11 +107,11 @@ Definition escrow_correct_bool {from to}
 (* We show that the bool version implies the propositional version
    of the correctness property. *)
 Lemma escrow_correct_bool_impl_prop {from to}
-(caddr : Address)
-(cstate : Escrow.State)
-(trace : ChainTrace from to) 
-(depinfo : DeploymentInfo Setup)
-(inc_calls : list (ContractCallInfo Msg)) : 
+                                    (caddr : Address)
+                                    (cstate : Escrow.State)
+                                    (trace : ChainTrace from to) 
+                                    (depinfo : DeploymentInfo Setup)
+                                    (inc_calls : list (ContractCallInfo Msg)) : 
   escrow_correct_bool caddr cstate trace depinfo inc_calls = true ->
   escrow_correct_Prop caddr cstate trace depinfo inc_calls.
 Proof. 
@@ -120,7 +120,6 @@ Proof.
   - unfold escrow_correct_Prop. 
     intros. 
     propify. 
-    repeat rewrite Z.eqb_eq in H. 
     apply H.
   - intros. unfold escrow_correct_Prop. left. rewrite H1 in H0. inversion H0. 
 Qed.
