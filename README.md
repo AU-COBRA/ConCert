@@ -28,10 +28,6 @@ opam install coq-stdpp
 opam install coq-quickchick
 ```
 
-```quickchick
-opam install coq-quickchick
-```
-
 After completing the procedures above, run `make` to build the development, and
 `make html` to build the documentation. The documentation will be located in the
 docs folder after `make html`.
