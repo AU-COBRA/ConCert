@@ -1,4 +1,4 @@
-From ConCert Require Import Blockchain LocalBlockchain FA2Token FA2Interface.
+From ConCert Require Import Blockchain FA2Token FA2Interface.
 From ConCert Require Import Serializable.
 From Coq Require Import Morphisms.
 

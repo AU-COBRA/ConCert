@@ -1,37 +1,32 @@
-From ConCert Require Import Blockchain LocalBlockchain EIP20Token.
+From ConCert Require Import Blockchain EIP20Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters EIP20TokenPrinters SerializablePrinters.
+From ConCert.Execution.QCTests Require Import TestUtils.
 
 Require Import ZArith Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
 Require Import Containers.
 
+Module Type EIP20GensInfo.
+  Parameter contract_addr : Address.
+  Parameter gAccount : Chain -> G Address.
+End EIP20GensInfo.
+
+Module EIP20Gens (Info : EIP20GensInfo).
+Import Info.
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Definition serializeMsg := @serialize EIP20Token.Msg _.
-
-Definition lc_token_contracts_states_deserialized (lc : LocalChain) : FMap Address EIP20Token.State :=
-  let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
-  FMap.of_list (List.fold_left
-                (fun acc '(addr, ser_val) =>
-                  match deserialize EIP20Token.State _ ser_val with
-                  | Some state => (addr, state) :: acc
-                  | None => acc
-                  end)
-                els_list []).
 
 (* This function tries to generate a transfer between existing accounts in the token contract's state.
    Otherwise tries to use accounts in the Blockchain state.
    Has a small chance to transfer between "fresh" accounts. *)
-Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address * Msg) :=
+Definition gTransfer (env : Environment) (state : EIP20Token.State) : G (Address * Msg) :=
   let nr_accounts_in_state := FMap.size state.(balances) in
   let weight_1 := 2 * nr_accounts_in_state + 1 in
   let randomize_mk_gen g := (* the probability of sampling fresh accounts grows smaller over time *)
@@ -45,11 +40,8 @@ Definition gTransfer (lc : LocalChain) (state : EIP20Token.State) : G (Address *
   match sample with
   | Some (addr, balance) =>
     transfer_amount <- choose (0%N, balance) ;;
-    account_opt <- gAccountAddrFromLocalChain lc ;; (* ensures no contract addresses are generated *)
-    match account_opt with
-    | Some account => randomize_mk_gen (addr, transfer account transfer_amount)
-    | None => to_addr <- arbitrary ;; randomize_mk_gen (addr, transfer to_addr transfer_amount)
-    end
+    account <- gAccount env ;;
+    randomize_mk_gen (addr, transfer account transfer_amount)
   (* if the contract state contains no accounts, just transfer 0 tokens between two arbitrary accounts *)
   | None => from_addr <- arbitrary ;;
             to_addr <- arbitrary ;;
@@ -85,34 +77,36 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
 
 Local Close Scope N_scope.
 (* Main generator. *)
-Definition gEIP20TokenAction (lc : LocalChain) (contract_addr : Address) : G (option Action) :=
+Definition gEIP20TokenAction (env : Environment) : G (option Action) :=
   let mk_call contract_addr caller_addr msg :=
     returnGen (Some {|
       act_from := caller_addr;
       act_body := act_call contract_addr 0%Z (serializeMsg msg)
     |}) in
+  state <- returnGen (get_contract_state EIP20Token.State env contract_addr) ;;
   backtrack [
     (* transfer *)
-    (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
-        (fun '(contract_addr', state) =>
-        '(caller, msg) <- gTransfer lc state ;;
-        mk_call contract_addr' caller msg
-        )
+    (2, '(caller, msg) <- gTransfer env state ;;
+        mk_call contract_addr caller msg
     ) ;
     (* transfer_from *)
-    (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
-        (fun '(contract_addr', state) =>
-        bindGenOpt (gTransfer_from state)
+    (3, bindGenOpt (gTransfer_from state)
         (fun '(caller, msg) =>
-        mk_call contract_addr' caller msg
-        ))
+        mk_call contract_addr caller msg
+        )
     );
     (* approve *)
-    (1, bindGenOpt (sampleFMapOpt (lc_token_contracts_states_deserialized lc))
-        (fun '(contract_addr', state) =>
-        bindGenOpt (gApprove state)
+    (2, bindGenOpt (gApprove state)
         (fun '(caller, msg) =>
-        mk_call contract_addr' caller msg
-        ))
+        mk_call contract_addr caller msg
+        )
     )
   ].
+
+End EIP20Gens.
+
+Module DummyTestInfo <: EIP20GensInfo.
+  Definition contract_addr := zero_address.
+  Definition gAccount (e : Chain) := returnGen zero_address.
+End DummyTestInfo.
+Module MG := EIP20Gens DummyTestInfo. Import MG.

@@ -541,4 +541,3 @@ Proof.
   cbn in *. lia.
 Qed.
 
-(* Print Assumptions cf_backed. *)

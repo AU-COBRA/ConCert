@@ -1,6 +1,5 @@
 Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
@@ -8,17 +7,16 @@ From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
 From ConCert Require Import LocalBlockchain.
-From ConCert Require Import BoundedN ChainedList. Import BoundedN.Stdpp.
+From ConCert Require Import BoundedN. Import BoundedN.Stdpp.
 
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
 Require Import Containers.
-Require Import ResultMonad.
 
 Global Definition AddrSize := (2^8)%N.
-
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition creator : Address :=
   BoundedN.of_Z_const AddrSize 10.
@@ -28,18 +26,12 @@ Definition person_2 : Address :=
   BoundedN.of_Z_const AddrSize 12.
 Definition person_3 : Address :=
   BoundedN.of_Z_const AddrSize 13.
+Definition person_4 : Address :=
+  BoundedN.of_Z_const AddrSize 14.
+Definition person_5 : Address :=
+  BoundedN.of_Z_const AddrSize 15.
 
-Definition unpack_result {T E} (r : result T E) :=
-  match r return match r with
-                  | Ok _ => T
-                  | Err _ => E
-                  end with
-  | Ok t => t
-  | Err e => e
-  end.
-
-
-Notation "f 'o' g" := (compose f g) (at level 50).
+Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
 
 (* Misc utility functions *)
 Open Scope list_scope.
@@ -116,6 +108,20 @@ Definition FMap_find_ {A B : Type}
   | None => default
   end.
 
+Close Scope string_scope.
+Fixpoint split_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (acc : list A) : option (list A * list A) :=
+  match l with
+  | [] => None
+  | x::xs => if p x
+            then Some (acc ++ [x], xs)
+            else (split_at_first_satisfying_fix p xs (acc ++ [x]))
+  end.
+
+Definition split_at_first_satisfying {A : Type} (p : A -> bool) (l : list A) : option (list A * list A) :=
+  split_at_first_satisfying_fix p l [].
+
+Open Scope string_scope.
+  
 (* Utils for Show instances *)
 
 Definition empty_str : string := "".
@@ -142,69 +148,18 @@ Instance showFMap {A B : Type}
 |}.
 
 Close Scope string_scope.
-
-Definition lc_contract_addrs lc := map fst (FMap.elements (@lc_contracts AddrSize lc)).
-Definition lc_accounts lc := map fst (FMap.elements (@lc_account_balances AddrSize lc)).
-Definition lc_account_balance lc addr : option Amount := (FMap.find addr (@lc_account_balances AddrSize lc)).
-
-Definition lc_contract_state_deserialized (state : Type) `{Serializable state} lc : FMap Address state :=
-  let els_list : list (Address * SerializedValue) := FMap.elements (lc_contract_state lc) in
-  FMap.of_list (List.fold_left
-                (fun acc p =>
-                  match @deserialize state _ (snd p) with
-                  | Some state => (fst p, state) :: acc
-                  | None => acc
-                  end)
-                els_list []).
-
-Definition lc_contract_owners : LocalChain -> FMap Address Address :=
-  (map_values_FMap owner) o (lc_contract_state_deserialized Congress.State).
-
 Open Scope bool_scope.
 
-Definition lc_proposals (lc : LocalChain) : FMap Address (FMap ProposalId Proposal) :=
-  map_values_FMap proposals (lc_contract_state_deserialized Congress.State lc).
-
-
-Definition lc_contract_members_and_proposals_new_voters (lc : LocalChain) : FMap Address (FMap Address (list ProposalId)) :=
-  map_filter_FMap (fun p =>
-    let contract_addr := fst p in
-    let state := snd p in
-    let candidate_members := (map fst o FMap.elements) (members state) in
-    let proposals_pairs := FMap.elements (proposals state) in
-    if (0 <? length candidate_members) && (0 <? length proposals_pairs)
-    then
-      let voters_to_proposals : FMap Address (list ProposalId) :=
-        List.fold_left (fun acc m =>
-        let unvoted_proposals : list (ProposalId * Proposal) := List.filter (fun p => match FMap.find m (votes (snd p)) with
-                                                  | Some _ => false
-                                                  | None => true
-                                                  end) proposals_pairs in
-        match List.map fst unvoted_proposals with
-        | [] => acc
-        | _ as ps => FMap.add m ps acc
-        end
-      ) candidate_members FMap.empty in
-      Some voters_to_proposals
-    else None
-  ) (lc_contract_state_deserialized Congress.State lc)
-.
-
-Definition lc_contract_members_and_proposals_with_votes (lc : LocalChain)
-                                                        : FMap Address (FMap Address (list ProposalId)) :=
-  map_filter_FMap (fun p =>
-    let contract_addr := fst p in
-    let state := snd p in
-    let members : list Address := (map fst o FMap.elements) (members state) in
-    let proposals_map : FMap nat Proposal := filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
-    if (0 <? length members) && (0 =? (FMap.size proposals_map))
-    then Some (
-      let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in
-      fold_left (fun acc m => FMap.add m propIds acc) members FMap.empty
-    )
-    else None
-  ) (lc_contract_state_deserialized Congress.State lc)
-.
+Definition get_contract_state (state : Type) `{Serializable state} env addr : option state :=
+  let cstates := env.(env_contract_states) in
+  match cstates addr with
+  | Some ser_state =>
+    match @deserialize state _ ser_state with
+    | Some state => Some state
+    | None => None
+    end 
+  | None => None
+  end. 
 
 (* Utils for Generators *)
 
@@ -253,16 +208,6 @@ Definition sample2UniqueFMapOpt
     )
   ).
 
-Definition gContractFromLocalChain lc : G (option (Address * WeakContract)) :=
-  sampleFMapOpt (@lc_contracts AddrSize lc).
-
-Definition gAccountAddrFromLocalChain lc : G (option Address) :=
-  p <- sampleFMapOpt_filter (@lc_account_balances AddrSize lc) (fun p => negb (address_is_contract (fst p))) ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
 Fixpoint remove_multipe_FMap {A B : Type}
                             `{countable.Countable A}
                             `{base.EqDecision A}
@@ -274,69 +219,23 @@ Fixpoint remove_multipe_FMap {A B : Type}
   | [] => m
   end.
 
-Definition gAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
-  let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
-  p <- sampleFMapOpt acc_bals_sub ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gAccountAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
-  let acc_bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
-  p <- sampleFMapOpt_filter acc_bals_sub (fun p => negb (address_is_contract (fst p)));;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gContractAddrFromLocalChain lc : G (option Address) :=
-  p <- sampleFMapOpt (@lc_contracts AddrSize lc) ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gContractAddrFromLCWithoutAddrs lc addrs : G (option Address) :=
-  let contracts_sub := remove_multipe_FMap (@lc_contracts AddrSize lc) addrs in
-  p <- sampleFMapOpt contracts_sub ;;
-  returnGen match p with
-  | Some (addr, _) => Some addr
-  | None => None
-  end.
-
-Definition gAccountBalanceFromLocalChain lc : G (option (Address * Amount)) :=
-  sampleFMapOpt (@lc_account_balances AddrSize lc).
-
-Definition gAccountBalanceFromLCWithoutAddrs lc addrs : G (option (Address * Amount)) :=
-  let bals_sub := remove_multipe_FMap (@lc_account_balances AddrSize lc) addrs in
-  sampleFMapOpt bals_sub.
-
-Definition gContractSateFromLocalChain lc : G (option (Address * SerializedValue)) :=
-  sampleFMapOpt (@lc_contract_state AddrSize lc).
-
-Definition gContractSateFromLCWithoutAddrs lc addrs : G (option (Address * SerializedValue)) :=
-  let states_sub := remove_multipe_FMap (@lc_contract_state AddrSize lc) addrs in
-  sampleFMapOpt states_sub.
-
-
 Definition gZPositive := liftM Z.of_nat arbitrary.
 Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
 
 (* Although the type is G (option ...) it will never generate None values.
    Perhaps this is where we should use generators with property proof relevance? Future work... *)
-   Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
-   n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
-   returnGen (@decode_bounded bound (Pos.of_nat n)).
+Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
+  n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
+  returnGen (@decode_bounded bound (Pos.of_nat n)).
 
- Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
-   bn <- gBoundedNOpt AddrSize ;;
-   returnGen match bn with
-     | Some b => b
-     (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
-         n <= AddrSized. **)
-     | None => BoundedN.of_Z_const AddrSize 0
-   end.
+Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
+  bn <- gBoundedNOpt AddrSize ;;
+  returnGen match bn with
+    | Some b => b
+    (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
+        n <= AddrSized. **)
+    | None => BoundedN.of_Z_const AddrSize 0
+  end.
 
 Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
   {|
@@ -540,6 +439,16 @@ Definition conjoin_map {A prop : Type}
                        (f : A -> prop)
                        (l : list A) := conjoin (map (checker o f) l).
 
+Definition discard_empty {A prop : Type} 
+                        `{Checkable prop} 
+                         (l : list A) 
+                         (f : list A -> prop) : Checker :=
+  match l with
+  | [] => false ==> true
+  | _ => checker (f l)
+  end.
+
+
 Definition forEachMapEntry {A B prop : Type}
                           `{countable.Countable A}
                           `{base.EqDecision A}
@@ -559,3 +468,34 @@ Fixpoint repeatWith {A prop : Type}
 
 (* Repeats a generator n times *)
 Definition repeatn (n : nat) (c : Checker) := repeatWith (seq 0 n) (fun _ => c).
+
+(* Converts a discarded test into a succesful test *)
+Definition discardToSuccess {prop} `{Checkable prop} (p : prop): Checker :=
+  mapTotalResult (fun res => match res.(ok) with
+                             | None => updOk res (Some true)
+                             | _ => res
+                             end) p.
+  
+(* QuickChick (discardToSuccess (false ==> true)). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (discardToSuccess (conjoin [false==>true; checker true])). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (conjoin [discardToSuccess (false==>true); checker true]). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (discardToSuccess true). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* QuickChick (discardToSuccess false). *)
+(* *** Failed after 1 tests and 0 shrinks. (0 discards) *)
+
+(* discard-friendly variant of conjoin where discarded tests will NOT cause the conjoin
+   combinator to also result in a discard. Specifically, conjoin_no_discard [false==>true] tests succesfully,
+   whereas conjoin [false==>true] results in a discarded test. *)
+Definition conjoin_no_discard {prop} `{Checkable prop} (l : list prop) : Checker := 
+  conjoin_map discardToSuccess l.
+
+(* QuickChick (conjoin_no_discard [false==>true; checker true]). *)
+(* +++ Passed 10000 tests (0 discards) *)

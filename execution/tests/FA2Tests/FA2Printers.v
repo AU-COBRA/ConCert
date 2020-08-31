@@ -1,10 +1,12 @@
-From ConCert Require Import Blockchain LocalBlockchain.
+From ConCert Require Import Blockchain.
 From ConCert Require Import FA2Interface FA2Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters TestContracts.
-Require Import Strings.String.
+From ConCert.Execution.QCTests Require Import TestUtils TestContracts.
 From QuickChick Require Import QuickChick.
 Local Open Scope string_scope.
+
+Section FA2PrintersSec.
+Context `{Show Address}.
 
 Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
 {|
@@ -95,7 +97,7 @@ Instance showFA2Interfaceoperator_param : Show FA2Interface.operator_param :=
             ++ "}"
 |}.
 
-Instance showupdate_operator : Show update_operator :=
+Global Instance showupdate_operator : Show update_operator :=
 {|
   show m := match m with
             | add_operator param => "add_operator " ++ show param
@@ -253,7 +255,7 @@ Instance showFA2TokenLedger : Show FA2Token.TokenLedger :=
             ++ "}"
 |}.
 
-Instance showFA2State : Show FA2Token.State :=
+Global Instance showFA2State : Show FA2Token.State :=
 {|
   show t := "FA2TokenState{"
             ++ "fa2_owner: " ++ show t.(fa2_owner) ++ sep
@@ -313,6 +315,12 @@ Instance showFA2TransferHookMsg : Show FA2TransferHookMsg :=
             end
 |}.
 
+Instance showTransferHookMsg : Show TransferHookMsg :=
+{|
+  show m := show m
+|}.
+
+
 Instance showFA2TransferHookContractState : Show HookState :=
 {|
   show t := "FA2TransferHookState{"
@@ -329,3 +337,5 @@ Instance showFA2TransferHookContractSetup : Show HookSetup :=
             ++ "policy_: " ++ show t.(hook_policy_) ++ sep
             ++ "}"
 |}.
+
+End FA2PrintersSec.

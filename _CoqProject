@@ -40,6 +40,10 @@ execution/tests/DexterTests/Dexter.v
 execution/tests/DexterTests/DexterPrinters.v
 execution/tests/DexterTests/DexterGens.v
 execution/tests/DexterTests/DexterTests.v
+execution/tests/EscrowTests/EscrowPrinters.v
+execution/tests/EscrowTests/EscrowGens.v
+execution/tests/EscrowTests/EscrowExtras.v
+execution/tests/EscrowTests/EscrowTests.v
 execution/tests/SerializablePrinters.v
 
 -R execution/examples ConCert.Execution.Examples

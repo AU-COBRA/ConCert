@@ -46,15 +46,6 @@ Section LocalBlockchainTests.
            block_reward := 50; |} in
     builder_add_block chain header acts.
 
-  Definition unpack_result {T E} (r : result T E) :=
-    match r return match r with
-                   | Ok _ => T
-                   | Err _ => E
-                   end with
-    | Ok t => t
-    | Err e => e
-    end.
-
   (* Creator created an empty block (and gets some coins) *)
   Definition chain2 : ChainBuilder :=
     unpack_result (add_block chain1 []).

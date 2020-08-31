@@ -1,26 +1,21 @@
-From ConCert Require Import Blockchain LocalBlockchain FA2Token FA2Interface Dexter.
+From ConCert Require Import Blockchain FA2Token FA2Interface Dexter.
 From ConCert Require Import Serializable.
 From ConCert Require Import Extras.
 From ConCert Require Import Containers.
 From ConCert Require Import BoundedN.
+From ConCert Require Import ResultMonad.
 Require Import Monads.
-
-Global Set Warnings "-extraction-logical-axiom".
-Require Import ZArith Strings.String.
+Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters TraceGens DexterGens.
+  TestUtils TraceGens DexterGens.
 From RecordUpdate Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Morphisms.
 
 Import ListNotations.
 Import RecordSetNotations.
-Close Scope address_scope.
-
-Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 (* the policy which allows both owners and operators to transfer tokens. *)
 Definition policy_all : permissions_descriptor := {|
@@ -111,8 +106,11 @@ Definition add_operator_all owner operator := {|
 
 (* Setup a chain with fa2 contract, dexter contract, and exploit contract deployed.
    Also adds some tokens to person_1 and dexter contract, and adds some operators on the fa2 contract *)
-Definition chain1 :=
-  unpack_option (my_add_block lc_initial
+Definition chain0 : ChainBuilder :=
+  unpack_result (TraceGens.add_block builder_initial []).
+
+Definition chain1 : ChainBuilder :=
+  unpack_result (TraceGens.add_block chain0
   [
     build_act creator (act_transfer person_1 10) ;
     build_act creator deploy_fa2token ;
@@ -124,21 +122,9 @@ Definition chain1 :=
                                                                                       add_operator (add_operator_all person_1 dexter_caddr)])))
   ]).
 
-Definition dexter_state lc :=
-  match (FMap.find dexter_caddr lc.(lc_contract_state)) with
-  | Some state => deserialize Dexter.State _ state
-  | None => None
-  end.
-Definition token_state lc :=
-  match (FMap.find fa2_caddr lc.(lc_contract_state)) with
-  | Some state => deserialize FA2Token.State _ state
-  | None => None
-  end.
-Definition exploit_state lc :=
-  match (FMap.find exploit_caddr lc.(lc_contract_state)) with
-  | Some state => deserialize ExploitContractState _ state
-  | None => None
-  end.
+Definition dexter_state env := get_contract_state Dexter.State env dexter_caddr.
+Definition token_state env := get_contract_state FA2Token.State env fa2_caddr.
+Definition explit_state env := get_contract_state ExploitContractState env exploit_caddr.
 
 From ConCert.Execution.QCTests Require Import DexterGens.
 
@@ -146,6 +132,10 @@ Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
   Definition exploit_contract_addr := exploit_caddr.
+  Definition gAccountAddress := elems_ person_1 test_chain_addrs.
+  Definition gAccountAddrWithout (ws : list Address) :=
+    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
+    elems_opt addrs.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
@@ -162,20 +152,19 @@ Definition gExploitAction : G (option Action) :=
     returnGen (Some (call_dexter addr))
   ).
 
-Definition gExploitChainTraceList max_acts_per_block lc length :=
-  gLocalChainTraceList_fix lc (fun lc _ => gExploitAction) length max_acts_per_block.
+Definition gExploitChainTraceList max_acts_per_block cb length :=
+  gChain cb (fun cb _ => gExploitAction) length 1 max_acts_per_block.
 
 (* Sample (gExploitAction). *)
-(* Sample (gExploitChainTraceList 1 chain1 3). *)
+(* Sample (gExploitChainTraceList 1 chain1 1). *)
 
-Definition person_1_initial_balance : Amount :=
-  unpack_option (FMap.find person_1 chain1.(lc_account_balances)).
-Definition dexter_liquidity : Amount :=
-  unpack_option (FMap.find dexter_caddr chain1.(lc_account_balances)).
+Definition person_1_initial_balance : Amount := account_balance chain1 person_1.
 
-Definition account_tokens (lc : LocalChain) (account : Address) : N :=
+Definition dexter_liquidity : Amount := account_balance chain1 dexter_caddr.
+
+Definition account_tokens (env : Environment) (account : Address) : N :=
   with_default 0%N (
-    do state_fa2 <- token_state lc ;
+    do state_fa2 <- token_state env ;
     do assets <- FMap.find 0%N state_fa2.(assets) ;
     FMap.find account assets.(balances)).
 
@@ -191,14 +180,13 @@ Definition account_tokens (lc : LocalChain) (account : Address) : N :=
 (* This property asserts that the token reserve of the dexter contract is consistent
    with how much money has been exchanged for tokens, with respect to the conversion function 'getInputPrice' *)
 Open Scope Z_scope.
-Definition tokens_to_asset_correct_P_opt (lc : LocalChain) : option Checker :=
-  do state_dexter <- dexter_state lc ;
-  do person_1_balance <- FMap.find person_1 lc.(lc_account_balances) ;
-  do dexter_balance <- FMap.find dexter_caddr lc.(lc_account_balances) ;
-  do dexter_initial_balance <- FMap.find dexter_caddr chain1.(lc_account_balances) ;
-  do dexter_initial_balance <- FMap.find dexter_caddr chain1.(lc_account_balances) ;
+Definition tokens_to_asset_correct_P_opt (env : Environment) : option Checker :=
+  do state_dexter <- dexter_state env;
+  let person_1_balance := account_balance env person_1 in
+  let dexter_balance := account_balance env dexter_caddr in
+  let dexter_initial_balance := account_balance chain1 dexter_caddr in
   let dexter_initial_token_reserve := Z.of_N (account_tokens chain1 dexter_caddr) in
-  let dexter_current_token_reserve := Z.of_N (account_tokens lc dexter_caddr) in
+  let dexter_current_token_reserve := Z.of_N (account_tokens env dexter_caddr) in
   let tokens_received := dexter_current_token_reserve - dexter_initial_token_reserve in
   let expected_currency_sold := getInputPrice tokens_received dexter_initial_token_reserve dexter_initial_balance in
   let expected_dexter_balance := dexter_initial_balance - expected_currency_sold in
@@ -206,22 +194,23 @@ Definition tokens_to_asset_correct_P_opt (lc : LocalChain) : option Checker :=
     whenFail (
       "dexter balance was " ++ show dexter_balance ++ " while it was expected to be at least " ++ show expected_dexter_balance ++ nl ++
       "person_1 balance: " ++ show person_1_balance ++ nl ++
-      "person_1 tokens: " ++ show (account_tokens lc person_1) ++ nl ++
+      "person_1 tokens: " ++ show (account_tokens env person_1) ++ nl ++
       "dexter balance: " ++ show dexter_balance ++ nl ++
-      "dexter tokens: " ++ show (account_tokens lc dexter_caddr) ++ nl ++
+      "dexter tokens: " ++ show (account_tokens env dexter_caddr) ++ nl ++
       "history: " ++ show (state_dexter.(price_history))
     )
     (checker (expected_dexter_balance <? dexter_balance))
   ).
 
-Definition tokens_to_asset_correct_P lc :=
-  match tokens_to_asset_correct_P_opt lc with
+Definition tokens_to_asset_correct_P env :=
+  match tokens_to_asset_correct_P_opt env with
   | Some p => p
   | None => false ==> true
   end.
 
 Definition tokens_to_asset_correct :=
-  forAllTraces 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+  forAllChainState 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+(* QuickChick tokens_to_asset_correct. *)
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
    Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)

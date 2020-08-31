@@ -1,9 +1,10 @@
-From ConCert Require Import Blockchain LocalBlockchain.
+From ConCert Require Import Blockchain.
 From ConCert Require Import EIP20Token.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
-Require Import Strings.String.
+From ConCert.Execution.QCTests Require Import TestUtils.
 From QuickChick Require Import QuickChick.
 
+Section EIP20TokenPrinters.
+Context `{Show Address}.
 Local Open Scope string_scope.
 
 Instance showTokenValue : Show TokenValue :=
@@ -32,3 +33,5 @@ Instance showTokenState : Show EIP20Token.State :=
                ++ "balances: " ++ show s.(balances) ++ sep
                ++ "allowances: " ++ show s.(allowances) ++ "}"
 |}.
+
+End EIP20TokenPrinters.
