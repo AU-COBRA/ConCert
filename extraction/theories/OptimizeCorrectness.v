@@ -817,6 +817,9 @@ Qed.
 Section dearg_correct.
 Context (ind_masks : list (kername * mib_masks)).
 Context (const_masks : list (kername * bitmask)).
+Notation get_ctor_mask := (get_ctor_mask ind_masks).
+Notation get_mib_masks := (get_mib_masks ind_masks).
+Notation get_const_mask := (get_const_mask const_masks).
 Notation dearg := (dearg ind_masks const_masks).
 Notation dearg_aux := (dearg_aux ind_masks const_masks).
 
@@ -1174,7 +1177,7 @@ Proof.
     rewrite lift_mkApps.
     f_equal.
     unfold dearg_case.
-    destruct (get_mib_masks _ _); last first.
+    destruct (get_mib_masks _); last first.
     + cbn.
       rewrite IHt.
       f_equal.
@@ -1231,6 +1234,40 @@ Qed.
 Lemma lift_dearg n k t :
   lift n k (dearg t) = dearg (lift n k t).
 Proof. apply lift_dearg_aux. Qed.
+
+Definition check_case (ind : inductive) (npars : nat) (brs : list (nat * term)) : bool :=
+  match get_mib_masks (inductive_mind ind) with
+  | Some mm =>
+    (#|param_mask mm| =? npars) &&
+    match
+
+
+
+
+(* Check if all applications are applied enough to be deboxed without eta expansion
+   and if all case branches are iterated lambdas. *)
+Fixpoint is_expanded_aux (args : list term) (t : term) : bool :=
+  match t with
+  | tBox => true
+  | tRel _ => true
+  | tVar _ => true
+  | tEvar _ ts => fold_right andb true (map (is_expanded_aux []) ts)
+  | tLambda _ body => is_expanded_aux [] body
+  | tLetIn _ val body => is_expanded_aux [] val && is_expanded_aux [] body
+  | tApp hd arg => is_expanded_aux [] arg && is_expanded_aux (arg :: args) hd
+  | tConst kn => #|get_const_mask kn| <=? #|args|
+  | tConstruct ind c => #|get_ctor_mask ind c| <=? #|args|
+  | tCase (ind, npars) discr brs => true
+  (*| tCase (ind, npars) discr brs =>
+    let discr := dearg_aux [] discr in
+    let brs := map (on_snd (dearg_aux [])) brs in
+    mkApps (dearg_case ind npars discr brs) args*)
+  | tProj _ t => is_expanded_aux [] t
+  | tFix defs _
+  | tCoFix defs _ => fold_right andb true (map (is_expanded_aux [] ∘ dbody) defs)
+  end.
+
+Lemma dearg_single_expanded_correct :
 
 Definition aeq t t' :=
   normalize t = normalize t'.
