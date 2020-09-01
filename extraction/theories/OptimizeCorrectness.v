@@ -105,7 +105,7 @@ Fixpoint has_use (rel : nat) (t : term) : bool :=
   | tCase _ discr brs => has_use rel discr || fold_right orb false (map (has_use rel ∘ snd) brs)
   | tProj _ t => has_use rel t
   | tFix defs _
-  | tCoFix defs _ => fold_right orb false (map (has_use (rel + #|defs|) ∘ dbody) defs)
+  | tCoFix defs _ => fold_right orb false (map (has_use (#|defs| + rel) ∘ dbody) defs)
   | _ => false
   end.
 
@@ -267,18 +267,16 @@ Proof.
     cbn in *.
     propify.
     split; [easy|].
-    replace (n' + S #|l|) with (S n' + #|l|) by abstract lia.
-    apply (IHForall (S k)); [|easy].
-    now rewrite Nat.add_succ_r.
+    rewrite <- Nat.add_succ_r in *.
+    now eapply IHForall.
   - revert k n' clos klen.
     induction H; [easy|]; intros k n' clos klen.
     destruct x.
     cbn in *.
     propify.
     split; [easy|].
-    replace (n' + S #|l|) with (S n' + #|l|) by abstract lia.
-    apply (IHForall (S k)); [|easy].
-    now rewrite Nat.add_succ_r.
+    rewrite <- Nat.add_succ_r in *.
+    now eapply IHForall.
 Qed.
 
 Lemma has_use_csubst k t u k' :
@@ -315,32 +313,28 @@ Proof.
     cbn in *.
     propify.
     easy.
-  - revert k k' kltn use_eq clos.
+  - rewrite map_length.
+    revert k k' kltn use_eq clos.
     induction H; [easy|]; intros k k' kltn use_eq clos.
     destruct x.
     cbn in *.
     propify.
-    rewrite map_length in *.
     split.
     + apply H; [easy| |easy].
       now eapply closed_upwards.
-    + setoid_rewrite map_length in IHForall.
-      replace (k + S #|l|) with (S k + #|l|) in * by abstract lia.
-      rewrite <- Nat.add_succ_r.
+    + rewrite <- !Nat.add_succ_r in *.
       apply IHForall; [easy|easy|].
       now eapply closed_upwards.
-  - revert k k' kltn use_eq clos.
+  - rewrite map_length.
+    revert k k' kltn use_eq clos.
     induction H; [easy|]; intros k k' kltn use_eq clos.
     destruct x.
     cbn in *.
     propify.
-    rewrite map_length in *.
     split.
     + apply H; [easy| |easy].
       now eapply closed_upwards.
-    + setoid_rewrite map_length in IHForall.
-      replace (k + S #|l|) with (S k + #|l|) in * by abstract lia.
-      rewrite <- Nat.add_succ_r.
+    + rewrite <- !Nat.add_succ_r in *.
       apply IHForall; [easy|easy|].
       now eapply closed_upwards.
 Qed.
@@ -528,8 +522,7 @@ Proof.
       rewrite <- (proj1 no_use).
       now f_equal.
     + rewrite <- Nat.add_succ_r in *.
-      apply IHForall.
-      now rewrite Nat.add_succ_comm.
+      now apply IHForall.
   - f_equal.
     revert k no_use.
     induction H; [easy|]; intros k no_use.
@@ -540,9 +533,8 @@ Proof.
       apply H.
       rewrite <- (proj1 no_use).
       now f_equal.
-    + rewrite <- Nat.add_succ_r in *.
-      apply IHForall.
-      now rewrite Nat.add_succ_comm.
+    + rewrite <- !Nat.add_succ_r in *.
+      now apply IHForall.
 Qed.
 
 Lemma dearg_single_correct Σ body args mask t :
@@ -1058,59 +1050,6 @@ Lemma normalize_mkApps_dearg s args :
   normalize (dearg_aux args s).
 Proof. apply normalize_mkApps_dearg_aux. Qed.
 
-(*
-Lemma normalize_csubst_dearg s k args t :
-  normalize (csubst (dearg s) k (dearg_aux args t)) =
-  normalize (dearg_aux (map (csubst (dearg s) k) args) (csubst s k t)).
-Proof.
-  induction t in k, t, args |- * using term_forall_list_ind;
-    cbn in *; rewrite ?csubst_mkApps; cbn in *.
-  - easy.
-  - destruct (k ?= n); try easy.
-    apply normalize_mkApps_dearg.
-  - easy.
-  - rewrite !normalize_mkApps by easy.
-    f_equal.
-    simp normalize.
-    f_equal.
-    induction H; [easy|].
-    cbn in *.
-    rewrite H.
-    now cbn.
-  - destruct args.
-    + cbn.
-      now rewrite !normalize_tLambda, IHt.
-    + cbn.
-      rewrite !normalize_mkApps.
-      f_equal.
-      rewrite !normalize_tApp.
-      cbn.
-      rewrite !normalize_tLambda.
-      rewrite IHt.
-      cbn.
-      unfold affinely_used.
-      rewrite count_uses_csubst_dearg_aux by easy.
-      destruct (_ <=? _); cbn; [|easy].
-      rewrite IHt.
-      *
-      easy.
-      admit.
-    f_equal.
-    f_equal.
-    f_equal.
-  - simp normalize.
-    f_equal.
-    induction H; [easy|].
-    cbn in *.
-    now rewrite H.
-  - rewrite !normalize_tLambda.
-    now f_equal.
-  - rewrite !normalize_tLetIn.
-
-    now f_equal.
-  -
-*)
-
 Lemma lift_dearg_single n k mask t args :
   lift n k (dearg_single mask t args) = dearg_single mask (lift n k t) (map (lift n k) args).
 Proof.
@@ -1330,61 +1269,88 @@ Fixpoint is_expanded_env (Σ : global_env) : bool :=
   | [] => true
   end.
 
-Lemma has_use_subst k t u k' :
-  has_use k t = false ->
-  k < k' ->
-  has_use k (subst u k' t) = false.
+Lemma has_use_lift_all k k' n t :
+  k <= k' ->
+  k' < n + k ->
+  has_use k' (lift n k t) = false.
 Proof.
-  revert k u k'.
-  induction t using term_forall_list_ind; intros k u k' use_eq kltn;
-    cbn in *; propify; auto.
-  - destruct (Nat.leb_spec k' n).
+  intros l1 l2.
+  induction t using term_forall_list_ind in t, n, k, k', l1, l2 |- *; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?; cbn; propify; lia.
+  - induction H; [easy|].
+    cbn in *.
+    now rewrite H.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt by easy.
+    cbn.
+    clear IHt.
+    induction X; [easy|].
+    cbn.
+    now rewrite p0.
+  - rewrite map_length.
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    cbn.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+  - rewrite map_length.
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    cbn.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+Qed.
+
+
+Lemma has_use_subst k k' s t :
+  k < k' ->
+  has_use k (subst s k' t) = has_use k t.
+Proof.
+  intros lt.
+  induction t in t, k, k', lt |- * using term_forall_list_ind; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?, (_ =? _) eqn:?; propify; subst.
+    + lia.
     + destruct (nth_error _ _) eqn:nth.
-      * admit.
+      * now apply has_use_lift_all.
       * cbn.
-        propify.
+        destruct (_ =? _) eqn:?; propify; [|easy].
         apply nth_error_None in nth.
         lia.
+    + cbn.
+      now rewrite Nat.eqb_refl.
     + cbn.
       propify.
       lia.
   - induction H; [easy|].
     cbn in *.
-    propify.
-    easy.
-  - now apply IHt.
-  - easy.
-  - easy.
-  - induction X; [easy|].
-    destruct x.
-    cbn in *.
-    propify.
-    easy.
-  - revert k k' kltn use_eq.
-    induction H; [easy|]; intros k k' kltn use_eq.
-    destruct x.
-    cbn in *.
-    propify.
-    rewrite map_length in *.
-    split.
-    + now apply H.
-    + setoid_rewrite map_length in IHForall.
-      replace (k + S #|l|) with (S k + #|l|) in * by abstract lia.
-      rewrite <- Nat.add_succ_r.
-      now apply IHForall.
-  - revert k k' kltn use_eq.
-    induction H; [easy|]; intros k k' kltn use_eq.
-    destruct x.
-    cbn in *.
-    propify.
-    rewrite map_length in *.
-    split.
-    + now apply H.
-    + setoid_rewrite map_length in IHForall.
-      replace (k + S #|l|) with (S k + #|l|) in * by abstract lia.
-      rewrite <- Nat.add_succ_r.
-      now apply IHForall.
-Admitted.
+    now rewrite H.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt by easy; cbn; clear IHt.
+    f_equal.
+    induction X; [easy|].
+    cbn.
+    now rewrite p0.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by easy.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+  - rewrite map_length.
+    induction H in H, m, k, k', lt |- *; [easy|].
+    cbn.
+    rewrite H by easy.
+    f_equal.
+    rewrite <- !Nat.add_succ_r.
+    now apply IHForall.
+Qed.
 
 Lemma valid_branch_mask_subst mask s k t :
   valid_branch_mask mask t ->
@@ -1399,7 +1365,7 @@ Proof.
     cbn in *.
     split; [|now apply IH].
     destruct b; [|easy].
-    now apply has_use_subst.
+    now erewrite has_use_subst.
 Qed.
 
 Lemma subst_dearg_case s k ind c discr brs :
