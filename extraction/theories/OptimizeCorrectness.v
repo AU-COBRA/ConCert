@@ -98,14 +98,14 @@ Qed.
 Fixpoint has_use (rel : nat) (t : term) : bool :=
   match t with
   | tRel i => i =? rel
-  | tEvar _ ts => fold_right orb false (map (has_use rel) ts)
+  | tEvar _ ts => existsb (has_use rel) ts
   | tLambda _ body => has_use (S rel) body
   | tLetIn _ val body => has_use rel val || has_use (S rel) body
   | tApp hd arg => has_use rel hd || has_use rel arg
-  | tCase _ discr brs => has_use rel discr || fold_right orb false (map (has_use rel ∘ snd) brs)
+  | tCase _ discr brs => has_use rel discr || existsb (has_use rel ∘ snd) brs
   | tProj _ t => has_use rel t
   | tFix defs _
-  | tCoFix defs _ => fold_right orb false (map (has_use (#|defs| + rel) ∘ dbody) defs)
+  | tCoFix defs _ => existsb (has_use (#|defs| + rel) ∘ dbody) defs
   | _ => false
   end.
 
@@ -1305,8 +1305,7 @@ Proof.
     now apply IHForall.
 Qed.
 
-
-Lemma has_use_subst k k' s t :
+Lemma has_use_subst_other k k' s t :
   k < k' ->
   has_use k (subst s k' t) = has_use k t.
 Proof.
@@ -1365,7 +1364,7 @@ Proof.
     cbn in *.
     split; [|now apply IH].
     destruct b; [|easy].
-    now erewrite has_use_subst.
+    now erewrite has_use_subst_other.
 Qed.
 
 Lemma subst_dearg_case s k ind c discr brs :
@@ -1493,27 +1492,318 @@ Lemma is_expanded_lift n k t :
   is_expanded (lift n k t) = is_expanded t.
 Proof. apply is_expanded_aux_lift. Qed.
 
-Lemma dearg_subst_expanded s k t args :
-  valid_cases t ->
-  is_expanded s = true ->
-  is_expanded_aux #|args| t = true ->
-  dearg_aux (map (subst [dearg s] k ∘ dearg) args) (subst [s] k t) =
-  subst [dearg s] k (dearg_aux (map dearg args) t).
+Lemma has_use_mkApps k t args :
+  has_use k (mkApps t args) =
+  has_use k t || existsb (has_use k) args.
 Proof.
-  intros vcases es et.
-  induction t using term_forall_list_ind in s, k, t, args, vcases, es, et |- *; cbn in *; refold'.
+  induction args using List.rev_ind; cbn in *.
+  - now rewrite Bool.orb_false_r.
+  - rewrite mkApps_app, existsb_app.
+    cbn.
+    rewrite IHargs.
+    now rewrite Bool.orb_false_r, Bool.orb_assoc.
+Qed.
+
+Lemma Forall_existsb_false {A} (p : A -> bool) (l : list A) :
+  Forall (fun a => p a = false) l ->
+  existsb p l = false.
+Proof.
+  induction 1; [easy|].
+  cbn in *.
+  now rewrite H, IHForall.
+Qed.
+
+Lemma has_use_lift k k' n t :
+  k' <= k ->
+  n + k' <= k ->
+  has_use k (lift n k' t) = has_use (k - n) t.
+Proof.
+  intros l1 l2.
+  induction t in k, k', n, t, l1, l2 |- * using term_forall_list_ind; cbn in *; auto.
+  - repeat
+      (try destruct (_ <=? _) eqn:?; propify;
+       try destruct (_ =? _) eqn:?; propify;
+       cbn in *);
+       lia.
+  - induction H; [easy|].
+    cbn in *.
+    now rewrite H.
+  - now rewrite IHt.
+  - now rewrite IHt1, IHt2.
+  - now rewrite IHt1, IHt2.
+  - rewrite IHt by easy.
+    f_equal.
+    induction X; cbn in *; [easy|].
+    now rewrite p0.
+  - rewrite map_length.
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    cbn.
+    rewrite <- !Nat.add_succ_r.
+    rewrite IHForall by easy.
+    now replace (S (k - n)) with (S k - n) by lia.
+  - rewrite map_length.
+    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    cbn in *.
+    rewrite H by easy.
+    cbn.
+    rewrite <- !Nat.add_succ_r.
+    rewrite IHForall by easy.
+    now replace (S (k - n)) with (S k - n) by lia.
+Qed.
+
+Lemma has_use_dearg_single k mask t args :
+  has_use k t = false ->
+  Forall (fun t => has_use k t = false) args ->
+  has_use k (dearg_single mask t args) = false.
+Proof.
+  intros no_use args_no_use.
+  induction mask as [|[] mask IH] in k, mask, t, args, no_use, args_no_use |- *; cbn in *.
+  - now rewrite has_use_mkApps, no_use, Forall_existsb_false.
+  - destruct args; cbn.
+    + apply IH; [|easy].
+      rewrite has_use_lift by lia.
+      cbn.
+      now rewrite Nat.sub_0_r.
+    + apply IH; [easy|].
+      now inversion args_no_use.
+  - destruct args; cbn.
+    + apply IH; [|easy].
+      cbn.
+      rewrite Bool.orb_false_r.
+      rewrite has_use_lift by lia.
+      cbn.
+      now rewrite Nat.sub_0_r.
+    + inversion args_no_use.
+      apply IH; [|easy].
+      cbn.
+      now propify.
+Qed.
+
+Lemma existsb_map {A B} (p : B -> bool) (f : A -> B) (l : list A) :
+  existsb p (map f l) = existsb (fun a => p (f a)) l.
+Proof.
+  induction l; [easy|]; cbn in *.
+  intuition.
+Qed.
+
+Ltac bia :=
+  repeat (destruct (has_use _ _); cbn;
+          rewrite ?Bool.orb_true_r, ?Bool.orb_false_r, ?Bool.andb_false_r; auto).
+
+Lemma has_use_subst s k k' t :
+  k' <= k ->
+  has_use k (subst [s] k' t) =
+  has_use (S k) t || (has_use k' t && has_use (k - k') s).
+Proof.
+  intros le.
+  induction t in t, k, k', le |- * using term_forall_list_ind; cbn in *; auto.
+  - destruct (_ <=? _) eqn:?; propify; cbn.
+    + destruct (nth_error _ _) eqn:nth.
+      * replace n with k' in * by (now apply nth_error_Some_length in nth; cbn in * ).
+        rewrite Nat.sub_diag in nth.
+        cbn in *.
+        noconf nth.
+        rewrite Nat.eqb_refl, (proj2 (Nat.eqb_neq _ _)) by easy.
+        now rewrite has_use_lift.
+      * cbn.
+        apply nth_error_None in nth.
+        cbn in *.
+        repeat (destruct (_ =? _) eqn:?; propify); auto; try lia.
+    + destruct (n =? k) eqn:?, (n =? S k) eqn:?, (n =? k') eqn:?; propify; cbn in *; auto; lia.
+   - induction H; [easy|].
+     cbn.
+     rewrite !H, !IHForall by easy.
+     bia.
+   - now rewrite IHt.
+   - rewrite IHt1, IHt2 by easy.
+     replace (S k - S k') with (k - k') by lia.
+     bia.
+   - rewrite IHt1, IHt2 by easy.
+     bia.
+   - rewrite IHt by easy.
+     clear IHt.
+     induction X; cbn in *; [bia|].
+     rewrite p0 by easy.
+     bia; cbn in *.
+     + now rewrite Bool.orb_false_r in IHX.
+     + now rewrite Bool.andb_false_r, Bool.orb_false_r in IHX.
+   - rewrite map_length.
+     induction H in H, m, k, k', le |- *; cbn in *; [easy|].
+     rewrite H by easy.
+     specialize (IHForall (S k) (S k') ltac:(lia)).
+     rewrite !Nat.sub_succ in *.
+     replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
+     rewrite <- !Nat.add_succ_r.
+     rewrite IHForall.
+     bia.
+   - rewrite map_length.
+     induction H in H, m, k, k', le |- *; cbn in *; [easy|].
+     rewrite H by easy.
+     specialize (IHForall (S k) (S k') ltac:(lia)).
+     rewrite !Nat.sub_succ in *.
+     replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
+     rewrite <- !Nat.add_succ_r.
+     rewrite IHForall.
+     bia.
+Qed.
+
+Lemma has_use_dearg_lambdas k mask ar t :
+  has_use k (dearg_lambdas mask ar t).2 = has_use k t.
+Proof.
+  induction mask as [|[] mask IH] in mask, k, ar, t |- *; cbn.
+  - easy.
+  - destruct t; try reflexivity.
+    cbn in *.
+    rewrite IH.
+    unfold subst1.
+    rewrite has_use_subst by easy.
+    cbn.
+    now rewrite Bool.andb_false_r, Bool.orb_false_r.
+  - destruct t; try reflexivity.
+    destruct (dearg_lambdas mask ar t) eqn:dearg.
+    cbn.
+    replace t0 with (dearg_lambdas mask ar t).2.
+    + now rewrite IH.
+    + destruct (dearg_lambdas _ _ _); cbn; congruence.
+Qed.
+
+Lemma has_use_dearg_case k ind npars discr brs :
+  has_use k (dearg_case ind npars discr brs) =
+  has_use k discr || existsb (has_use k) (map snd brs).
+Proof.
+  unfold dearg_case.
+  destruct (get_mib_masks _); cbn; [|now rewrite existsb_map].
+  f_equal.
+  unfold mapi.
+  generalize 0.
+  induction brs; intros; [easy|].
+  cbn in *.
+  rewrite IHbrs.
+  f_equal.
+  destruct (find _ _); [|easy].
+  destruct p as ((? & ?) & ?).
+  now rewrite has_use_dearg_lambdas.
+Qed.
+
+Lemma has_use_dearg_aux k t args :
+  has_use k t = false ->
+  Forall (fun t => has_use k t = false) args ->
+  has_use k (dearg_aux args t) = false.
+Proof.
+  intros no_use args_no_use.
+  induction t using term_forall_list_ind in k, t, args, no_use, args_no_use |- *;
+    cbn in *; rewrite ?has_use_mkApps; cbn.
+  - now apply Forall_existsb_false.
+  - now rewrite no_use; apply Forall_existsb_false.
+  - now apply Forall_existsb_false.
+  - propify; split; [|now apply Forall_existsb_false].
+    induction H; [easy|]; cbn in *; propify.
+    now rewrite H, IHForall.
+  - now rewrite Forall_existsb_false, Bool.orb_false_r, IHt.
+  - rewrite Forall_existsb_false, Bool.orb_false_r by easy.
+    propify.
+    now split; [apply IHt1|apply IHt2].
+  - propify.
+    now rewrite IHt1.
+  - now apply has_use_dearg_single.
+  - now apply has_use_dearg_single.
+  - destruct p.
+    rewrite has_use_mkApps.
+    rewrite Forall_existsb_false, Bool.orb_false_r by easy.
+    rewrite has_use_dearg_case.
+    propify.
+    split; [now apply IHt|].
+    induction X; [easy|]; cbn in *; propify.
+    rewrite p by easy.
+    split; [easy|].
+    now apply IHX.
+  - now rewrite IHt, Forall_existsb_false.
+  - rewrite map_length.
+    propify; split; [|now apply Forall_existsb_false].
+    induction H in k, m, H, no_use |- *; [easy|].
+    cbn in *; propify.
+    rewrite <- !Nat.add_succ_r in *.
+    rewrite H by easy.
+    split; [easy|].
+    now apply IHForall.
+  - rewrite map_length.
+    propify; split; [|now apply Forall_existsb_false].
+    induction H in k, m, H, no_use |- *; [easy|].
+    cbn in *; propify.
+    rewrite <- !Nat.add_succ_r in *.
+    rewrite H by easy.
+    split; [easy|].
+    now apply IHForall.
+Qed.
+
+Lemma valid_branch_mask_dearg mask t :
+  valid_branch_mask mask t ->
+  valid_branch_mask mask (dearg t).
+Proof.
+  intros valid.
+  induction mask as [|b mask IH] in mask, t, valid |- *; cbn in *.
+  - now destruct ?.
+  - destruct t; try contradiction.
+    cbn in *.
+    split; [|easy].
+    destruct b; [|easy].
+    now apply has_use_dearg_aux.
+Qed.
+
+Lemma valid_branch_dearg mm ind c br :
+  valid_branch mm ind c br ->
+  valid_branch mm ind c (dearg br).
+Proof.
+  intros valid.
+  unfold valid_branch in *.
+  destruct (find _ _) as [((? & ?) & ?)|]; [|easy].
+  now apply valid_branch_mask_dearg.
+Qed.
+
+Lemma Alli_map {A B} (P : nat -> B -> Type) n (f : A -> B) (l : list A) :
+  Alli (fun n a => P n (f a)) n l ->
+  Alli P n (map f l).
+Proof. now induction 1; cbn; constructor. Qed.
+
+Lemma valid_case_masks_dearg_branches ind npars brs :
+  valid_case_masks ind npars brs ->
+  valid_case_masks ind npars (map (on_snd dearg) brs).
+Proof.
+  intros valid.
+  unfold valid_case_masks in *.
+  destruct (get_mib_masks _); [|easy].
+  destruct valid as (? & [?]).
+  split; [easy|].
+  constructor.
+  apply Alli_map.
+  cbn.
+  eapply Alli_impl; [eassumption|].
+  cbn.
+  intros n [].
+  intros valid.
+  now apply valid_branch_dearg.
+Qed.
+
+Lemma dearg_aux_subst s k t args :
+  valid_cases t ->
+  Forall (fun s => is_expanded s = true) s ->
+  dearg_aux (map (subst (map dearg s) k ∘ dearg) args) (subst s k t) =
+  subst (map dearg s) k (dearg_aux (map dearg args) t).
+Proof.
+  intros vcases es.
+  induction t using term_forall_list_ind in s, k, t, args, vcases, es |- *; cbn in *; refold'.
   - now rewrite subst_mkApps, map_map.
   - rewrite subst_mkApps, map_map.
     cbn in *.
-    rewrite Nat.leb_compare.
-    destruct (Nat.compare_spec k n) as [->| |].
-    + rewrite Nat.sub_diag.
-      cbn.
-      rewrite dearg_expanded, lift_dearg; [easy|].
-      now rewrite is_expanded_lift.
-    + rewrite !(proj2 (nth_error_None _ _)) by (cbn in *; lia).
-      now rewrite dearg_expanded.
-    + now rewrite dearg_expanded.
+    destruct (_ <=? _) eqn:?; propify; [|easy].
+    rewrite nth_error_map.
+    destruct (nth_error _ _) eqn:nth; cbn.
+    + rewrite dearg_expanded, lift_dearg; [easy|].
+      rewrite is_expanded_lift.
+      now eapply nth_error_forall in nth; [|eassumption].
+    + now rewrite map_length.
   - now rewrite subst_mkApps, map_map.
   - rewrite subst_mkApps, map_map.
     cbn in *.
@@ -1553,14 +1843,13 @@ Proof.
     rewrite subst_mkApps, !map_map.
     cbn.
     f_equal.
-    rewrite subst_dearg_case by admit.
+    rewrite subst_dearg_case by (now apply valid_case_masks_dearg_branches).
     rewrite map_map.
     cbn.
     f_equal.
     + now apply (IHt _ _ []).
-    + destruct et as (_ & et).
-      destruct vcases as (vdiscr & vcases & _).
-      clear -X vdiscr vcases es et X.
+    + destruct vcases as (_ & vcases & _).
+      clear -X vcases es X.
       induction X; [easy|].
       cbn in *.
       propify.
@@ -1602,28 +1891,117 @@ Proof.
     unfold map_def; cbn.
     f_equal.
     now apply (H _ _ []).
-Admitted.
+Qed.
 
-Lemma dearg_correct Σ hd args v :
-  (* Masks produced by analysis are valid *)
-  valid_masks Σ ->
-  (* All relevant applications are applied enough *)
-  is_expanded_env Σ = true ->
+Lemma dearg_subst s k t :
+  valid_cases t ->
+  Forall (fun s => is_expanded s = true) s ->
+  dearg (subst s k t) = subst (map dearg s) k (dearg t).
+Proof. now intros; apply (dearg_aux_subst _ _ _ []). Qed.
+
+Lemma dearg_subst1 s k t :
+  valid_cases t ->
+  is_expanded s = true ->
+  dearg (subst [s] k t) = subst [dearg s] k (dearg t).
+Proof. now intros; apply (dearg_subst [s]). Qed.
+
+Lemma Forall_snoc {A} (P : A -> Prop) (l : list A) (a : A) :
+  Forall P (l ++ [a]) ->
+  Forall P l /\ P a.
+Proof.
+  intros all.
+  apply Forall_app in all.
+  intuition.
+  now inversion H0.
+Qed.
+
+Lemma valid_cases_mkApps_inv hd args :
+  valid_cases (mkApps hd args) ->
+  valid_cases hd /\ Forall valid_cases args.
+Proof.
+  intros valid.
+  induction args using List.rev_ind; [easy|].
+  rewrite mkApps_app in *.
+  cbn in *.
+  intuition auto.
+  apply Forall_app_inv; intuition.
+Qed.
+
+Lemma is_expanded_aux_mkApps n hd args :
+  is_expanded_aux n (mkApps hd args) =
+  is_expanded_aux (#|args| + n) hd && forallb is_expanded args.
+Proof.
+  induction args in args, n |- * using List.rev_ind.
+  - cbn.
+    now rewrite Bool.andb_true_r.
+  - rewrite mkApps_app, forallb_app.
+    cbn.
+    rewrite IHargs.
+    rewrite app_length, Bool.andb_true_r.
+    cbn in *.
+    rewrite !Bool.andb_assoc.
+    symmetry; rewrite Bool.andb_comm; symmetry.
+    rewrite <- !Bool.andb_assoc.
+    f_equal.
+    f_equal.
+    f_equal.
+    lia.
+Qed.
+
+Ltac transfer_elim :=
+  match goal with
+  | [clos_hd : is_true (closed (mkApps ?f (firstn ?n ?l))),
+     clos_args : Forall (fun t => is_true (closed t)) (skipn ?n ?l),
+     valid_hd : valid_cases (mkApps ?f (firstn ?n ?l)),
+     valid_args : Forall valid_cases (skipn ?n ?l),
+     exp_hd : is_expanded_aux _ (mkApps ?f (firstn ?n ?l)) = true,
+     exp_args : Forall (fun a => is_expanded a = true) (skipn ?n ?l) |- _] =>
+    apply closed_mkApps_inv in clos_hd as (clos_hd & clos_args');
+    eapply Forall_app_inv in clos_args; [|exact clos_args'];
+
+    apply valid_cases_mkApps_inv in valid_hd as (valid_hd & valid_args');
+    eapply Forall_app_inv in valid_args; [|exact valid_args'];
+
+    rewrite is_expanded_aux_mkApps in exp_hd;
+    apply Bool.andb_true_iff in exp_hd as (exp_hd & exp_args');
+    apply forallb_Forall in exp_args';
+    eapply Forall_app_inv in exp_args; [|exact exp_args'];
+
+    rewrite firstn_skipn in clos_args, valid_args, exp_args;
+
+    clear clos_args' valid_args' exp_args'
+  end.
+
+Lemma dearg_correct Σ hd args v n :
+  env_closed (trans Σ) ->
   closed hd ->
   Forall (closedn 0) args ->
+
+  valid_masks Σ ->
+  valid_cases hd ->
+  Forall valid_cases args ->
+
+  is_expanded_env Σ = true ->
+  is_expanded_aux n hd = true ->
+  Forall (fun a => is_expanded a = true) args ->
+
   trans Σ ⊢ mkApps hd args ▷ v ->
   trans (dearg_env Σ) ⊢ dearg_aux (map dearg args) hd ▷ dearg v.
 Proof.
-  intros masks expanded clos_hd clos_args ev.
+  intros clos_env clos_hd clos_args valid_env valid_hd valid_args exp_env exp_hd exp_args ev.
   depind ev.
-  - destruct (mkApps_elim hd args).
+  - destruct (mkApps_elim hd args); transfer_elim.
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
     cbn in *.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ masks expanded eq_refl).
-    specialize (IHev2 _ [] _ masks expanded eq_refl).
+    apply Forall_snoc in clos_args as (clos_l & clos_t).
+    apply Forall_snoc in valid_args as (valid_l & valid_t).
+    apply Forall_snoc in exp_args as (exp_l & exp_t).
+    unshelve epose proof (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev1.
+    admit.
+    unshelve epose proof (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev2; auto.
     destruct f;
       cbn in *;
       rewrite ?mkApps_app;
@@ -1644,12 +2022,48 @@ Proof.
       rewrite mkApps_app.
       cbn.
       now econstructor.
-  - destruct (mkApps_elim hd args).
+  - destruct (mkApps_elim hd args); transfer_elim.
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
     cbn in *.
     noconf H.
     rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
+    apply Forall_snoc in clos_args as (clos_l & clos_t).
+    apply Forall_snoc in valid_args as (valid_l & valid_t).
+    apply Forall_snoc in exp_args as (exp_l & exp_t).
+    Hint Resolve closed_csubst eval_closed closed_mkApps : closed.
+    Hint Constructors Forall : closed.
+    rewrite (closed_subst a' 0 b) in * by (eauto with closed).
+    unshelve epose proof (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev1; auto.
+    admit.
+    unshelve epose proof (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev2; auto.
+    unshelve epose proof (IHev3 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev3; auto.
+    { apply closedn_subst0.
+      - constructor; [eauto with closed|constructor].
+      - eapply eval_closed in ev1; cbn in *; eauto.
+        eapply closed_mkApps; eauto. }
+    { admit. }
+    { admit. }
+    cbn in *; refold'.
+    rewrite dearg_subst in IHev3; cycle 1.
+    admit.
+    constructor; [|auto].
+    admit.
+    cbn in *.
+    destruct f0; cbn in *.
+    + rewrite ?mkApps_app.
+      cbn in *.
+      econstructor.
+      eassumption.
+      eassumption.
+      rewrite closed_subst; [easy|].
+      apply closed_dearg.
+    rewrite dearg_subst0
+    specialize (IHev1 _ _ _ clos_Σ clos_hd clos_l masks expanded eq_refl).
+    specialize (IHev2 _ [] _ clos_Σ clos_a ltac:masks expanded clos_a ltac:(auto) eq_refl).
+    unshelve epose proof (IHev3 _ [] _ masks expanded _ ltac:(auto) eq_refl).
+    { eapply eval_closed in ev1.
+    speciali
     specialize (IHev1 _ _ _ masks expanded eq_refl).
     specialize (IHev2 _ [] _ masks expanded eq_refl).
     specialize (IHev3 _ [] _ masks expanded eq_refl).
