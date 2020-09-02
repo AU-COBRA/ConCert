@@ -1954,7 +1954,7 @@ Ltac transfer_elim :=
      clos_args : Forall (fun t => is_true (closed t)) (skipn ?n ?l),
      valid_hd : valid_cases (mkApps ?f (firstn ?n ?l)),
      valid_args : Forall valid_cases (skipn ?n ?l),
-     exp_hd : is_expanded_aux _ (mkApps ?f (firstn ?n ?l)) = true,
+     exp_hd : is_expanded_aux #|skipn ?n ?l| (mkApps ?f (firstn ?n ?l)) = true,
      exp_args : Forall (fun a => is_expanded a = true) (skipn ?n ?l) |- _] =>
     apply closed_mkApps_inv in clos_hd as (clos_hd & clos_args');
     eapply Forall_app_inv in clos_args; [|exact clos_args'];
@@ -1962,7 +1962,7 @@ Ltac transfer_elim :=
     apply valid_cases_mkApps_inv in valid_hd as (valid_hd & valid_args');
     eapply Forall_app_inv in valid_args; [|exact valid_args'];
 
-    rewrite is_expanded_aux_mkApps in exp_hd;
+    rewrite is_expanded_aux_mkApps, <- app_length, firstn_skipn in exp_hd;
     apply Bool.andb_true_iff in exp_hd as (exp_hd & exp_args');
     apply forallb_Forall in exp_args';
     eapply Forall_app_inv in exp_args; [|exact exp_args'];
@@ -1972,7 +1972,33 @@ Ltac transfer_elim :=
     clear clos_args' valid_args' exp_args'
   end.
 
-Lemma dearg_correct Σ hd args v n :
+Lemma is_expanded_subst_true s k t :
+  is_expanded s = true ->
+  is_expanded (subst [s] k t).
+Proof.
+  intros exp.
+  Admitted.
+
+Lemma eval_is_expanded Σ t v :
+  is_expanded_env Σ ->
+  is_expanded t = true ->
+  trans Σ ⊢ t ▷ v ->
+  is_expanded v = true.
+Proof.
+  Admitted.
+
+Lemma closedn_dearg_true n t :
+  closedn n t = true ->
+  closedn n (dearg t) = true.
+Proof.
+  Admitted.
+
+Hint Resolve
+     closedn_subst0 closed_mkApps closedn_dearg_true
+     is_expanded_subst_true eval_is_expanded : dearg.
+Hint Constructors Forall : dearg.
+
+Lemma dearg_correct Σ hd args v :
   env_closed (trans Σ) ->
   closed hd ->
   Forall (closedn 0) args ->
@@ -1982,7 +2008,7 @@ Lemma dearg_correct Σ hd args v n :
   Forall valid_cases args ->
 
   is_expanded_env Σ = true ->
-  is_expanded_aux n hd = true ->
+  is_expanded_aux #|args| hd = true ->
   Forall (fun a => is_expanded a = true) args ->
 
   trans Σ ⊢ mkApps hd args ▷ v ->
@@ -1990,7 +2016,7 @@ Lemma dearg_correct Σ hd args v n :
 Proof.
   intros clos_env clos_hd clos_args valid_env valid_hd valid_args exp_env exp_hd exp_args ev.
   depind ev.
-  - destruct (mkApps_elim hd args); transfer_elim.
+  - destruct (mkApps_elim hd args). transfer_elim.
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
     cbn in *.
@@ -1999,7 +2025,16 @@ Proof.
     apply Forall_snoc in clos_args as (clos_l & clos_t).
     apply Forall_snoc in valid_args as (valid_l & valid_t).
     apply Forall_snoc in exp_args as (exp_l & exp_t).
-    unshelve epose proof (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev1.
+    admit.
+    (*
+    destruct f;
+      cbn in *;
+      rewrite ?mkApps_app;
+      cbn in *.
+    + econstructor.
+      *
+      eapply eval_box_apps.
+    unshelve epose proof (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev1; auto.
     admit.
     unshelve epose proof (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev2; auto.
     destruct f;
@@ -2022,6 +2057,7 @@ Proof.
       rewrite mkApps_app.
       cbn.
       now econstructor.
+*)
   - destruct (mkApps_elim hd args); transfer_elim.
     destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
     rewrite mkApps_app in *.
@@ -2031,10 +2067,41 @@ Proof.
     apply Forall_snoc in clos_args as (clos_l & clos_t).
     apply Forall_snoc in valid_args as (valid_l & valid_t).
     apply Forall_snoc in exp_args as (exp_l & exp_t).
-    Hint Resolve closed_csubst eval_closed closed_mkApps : closed.
-    Hint Constructors Forall : closed.
-    rewrite (closed_subst a' 0 b) in * by (eauto with closed).
-    unshelve epose proof (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev1; auto.
+    rewrite (closed_subst a' 0 b) in * by (eauto with dearg).
+    destruct f0; cbn in *.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + rewrite ?mkApps_app.
+      cbn in *.
+      econstructor.
+      * eapply (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ eq_refl).
+      * eapply (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl).
+      * rewrite closed_subst; cycle 1.
+        { eapply closedn_dearg_true.
+          eapply eval_closed; eauto. }
+        specialize (IHev3 (subst0 [a'] b) []).
+        cbn in *; refold'.
+        rewrite dearg_subst in IHev3.
+        eapply IHev3; eauto.
+        -- eapply closedn_subst0; eauto with dearg.
+           eapply eval_closed in ev1; eauto with dearg.
+        -- admit.
+        -- apply is_expanded_subst_true.
+           eauto with dearg.
+    +
+        auto.
+        eapply (IHev3 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl).
+        unshelve epose proof () as IHev3.
+        10: {
+          cbn in *; refold'.
+          rewrite dearg_subst in IHev3.
+          apply IHev3.
+        10: apply IHev3.
+        apply IHev2.
+        cbn in *.
+        apply IHev1.
     admit.
     unshelve epose proof (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev2; auto.
     unshelve epose proof (IHev3 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev3; auto.
@@ -2057,7 +2124,7 @@ Proof.
       eassumption.
       eassumption.
       rewrite closed_subst; [easy|].
-      apply closed_dearg.
+      apply closed_dearg_aux.
     rewrite dearg_subst0
     specialize (IHev1 _ _ _ clos_Σ clos_hd clos_l masks expanded eq_refl).
     specialize (IHev2 _ [] _ clos_Σ clos_a ltac:masks expanded clos_a ltac:(auto) eq_refl).
