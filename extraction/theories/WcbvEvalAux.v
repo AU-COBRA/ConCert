@@ -234,12 +234,12 @@ Proof.
 Qed.
 
 Lemma eval_closed Σ t v :
+  Σ ⊢ t ▷ v ->
   env_closed Σ ->
   closed t ->
-  Σ ⊢ t ▷ v ->
   closed v.
 Proof.
-  intros env_clos clos ev.
+  intros ev env_clos clos.
   induction ev; cbn in *; propify.
   - easy.
   - apply IHev3.

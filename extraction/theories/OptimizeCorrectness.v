@@ -1239,18 +1239,16 @@ Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
   | tBox => true
   | tRel _ => true
   | tVar _ => true
-  | tEvar _ ts => fold_right andb true (map (is_expanded_aux 0) ts)
+  | tEvar _ ts => forallb (is_expanded_aux 0) ts
   | tLambda _ body => is_expanded_aux 0 body
   | tLetIn _ val body => is_expanded_aux 0 val && is_expanded_aux 0 body
   | tApp hd arg => is_expanded_aux 0 arg && is_expanded_aux (S nargs) hd
   | tConst kn => #|get_const_mask kn| <=? nargs
   | tConstruct ind c => #|get_ctor_mask ind c| <=? nargs
-  | tCase _ discr brs =>
-    is_expanded_aux 0 discr &&
-    fold_right andb true (map (is_expanded_aux 0 ∘ snd) brs)
+  | tCase _ discr brs => is_expanded_aux 0 discr && forallb (is_expanded_aux 0 ∘ snd) brs
   | tProj _ t => is_expanded_aux 0 t
   | tFix defs _
-  | tCoFix defs _ => fold_right andb true (map (is_expanded_aux 0 ∘ dbody) defs)
+  | tCoFix defs _ => forallb (is_expanded_aux 0 ∘ dbody) defs
   end.
 
 (* Check if all applications are applied enough to be deboxed without eta expansion *)
@@ -1972,12 +1970,59 @@ Ltac transfer_elim :=
     clear clos_args' valid_args' exp_args'
   end.
 
-Lemma is_expanded_subst_true s k t :
-  is_expanded s = true ->
-  is_expanded (subst [s] k t).
+Lemma is_expanded_aux_upwards n t n' :
+  is_expanded_aux n t = true ->
+  n <= n' ->
+  is_expanded_aux n' t = true.
 Proof.
-  intros exp.
-  Admitted.
+  intros exp l.
+  induction t in n, t, n', l, exp |- * using term_forall_list_ind; cbn in *; propify; easy.
+Qed.
+
+Lemma is_expanded_subst_true s n t k :
+  is_expanded_aux 0 s = true ->
+  is_expanded_aux n t = true ->
+  is_expanded_aux n (subst [s] k t) = true.
+Proof.
+  unfold is_expanded.
+  intros exps expt.
+  induction t in s, n, t, k, exps, expt |- * using term_forall_list_ind; cbn in *.
+  - easy.
+  - destruct (_ <=? _); [|easy].
+    destruct (nth_error _ _) eqn:nth; [|easy].
+    destruct (_ - _); cbn in *.
+    + noconf nth.
+      rewrite is_expanded_aux_lift.
+      now eapply is_expanded_aux_upwards.
+    + now rewrite nth_error_nil in nth.
+  - easy.
+  - induction H; [easy|].
+    cbn in *; propify.
+    now rewrite H, IHForall.
+  - now apply IHt.
+  - now propify.
+  - now propify.
+  - easy.
+  - easy.
+  - propify.
+    rewrite IHt by easy.
+    split; [easy|].
+    induction X; [easy|].
+    cbn in *.
+    propify.
+    now rewrite p0, IHX.
+  - easy.
+  - induction H in m, H, k, expt |- *; [easy|].
+    cbn in *.
+    propify.
+    rewrite <- !Nat.add_succ_r.
+    now rewrite H, IHForall.
+  - induction H in m, H, k, expt |- *; [easy|].
+    cbn in *.
+    propify.
+    rewrite <- !Nat.add_succ_r.
+    now rewrite H, IHForall.
+Qed.
 
 Lemma eval_is_expanded Σ t v :
   is_expanded_env Σ ->
@@ -1995,8 +2040,19 @@ Proof.
 
 Hint Resolve
      closedn_subst0 closed_mkApps closedn_dearg_true
-     is_expanded_subst_true eval_is_expanded : dearg.
+     eval_is_expanded : dearg.
 Hint Constructors Forall : dearg.
+
+Ltac pose_eval_closed :=
+  repeat
+    match goal with
+    | [H: ?Σ ⊢ ?t ▷ ?v |- _] =>
+      match goal with
+      | [H' : is_true (closed v) |- _] => fail 1
+      | _ => idtac
+      end;
+      assert (closed v) by (eapply eval_closed in H; eauto with dearg)
+    end.
 
 Lemma dearg_correct Σ hd args v :
   env_closed (trans Σ) ->
@@ -2067,7 +2123,9 @@ Proof.
     apply Forall_snoc in clos_args as (clos_l & clos_t).
     apply Forall_snoc in valid_args as (valid_l & valid_t).
     apply Forall_snoc in exp_args as (exp_l & exp_t).
-    rewrite (closed_subst a' 0 b) in * by (eauto with dearg).
+    cbn in *.
+    assert (closed a') by (eapply eval_closed; eauto).
+    rewrite (closed_subst a' 0 b) in * by assumption.
     destruct f0; cbn in *.
     + admit.
     + admit.
@@ -2076,15 +2134,26 @@ Proof.
     + rewrite ?mkApps_app.
       cbn in *.
       econstructor.
-      * eapply (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ eq_refl).
-      * eapply (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl).
-      * rewrite closed_subst; cycle 1.
-        { eapply closedn_dearg_true.
-          eapply eval_closed; eauto. }
+      * specialize (IHev1 (tLambda n0 f0) l (tLambda na b)).
+        now apply IHev1.
+      * specialize (IHev2 a [] a').
+        now apply IHev2.
+      * specialize (IHev3 (subst0 [a'] b) [] res).
+        rewrite closed_subst by eauto with dearg.
+        cbn in *; refold'.
+        rewrite dearg_subst in IHev3; eauto with dearg.
+        -- apply IHev3; auto with dearg.
+           ++ apply closedn_subst0; auto with dearg.
+              eapply eval_closed in ev1; now auto with dearg.
+           ++ apply
+        rewrite
+        apply IHev3.
+        eapply (IHev2 _ [] _ _ _ _ _ _ _ _ _ _ eq_refl).
+      *
         specialize (IHev3 (subst0 [a'] b) []).
         cbn in *; refold'.
-        rewrite dearg_subst in IHev3.
-        eapply IHev3; eauto.
+        rewrite dearg_subst in IHev3; eauto with dearg.
+        -- eapply (IHev3 _ _ _ _ _ _ _ _ _ _ eq_refl).
         -- eapply closedn_subst0; eauto with dearg.
            eapply eval_closed in ev1; eauto with dearg.
         -- admit.
@@ -2136,313 +2205,3 @@ Proof.
     specialize (IHev3 _ [] _ masks expanded eq_refl).
     cbn in *; refold'.
     destruct f0; cbn in *.
-
-Lemma dearg_correct Σ hd args v :
-  Σ ⊢ mkApps hd args ▷ v ->
-  Σ ⊢ dearg_aux (map dearg args) hd ▷ dearg v.
-Proof.
-  intros ev.
-  depind ev.
-  - destruct (mkApps_elim hd args).
-    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    noconf H.
-    rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ eq_refl).
-    specialize (IHev2 _ [] _ eq_refl).
-    cbn in *; refold'.
-    admit.
-  - destruct (mkApps_elim hd args).
-    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    noconf H.
-    rewrite dearg_aux_mkApps, <- map_app, firstn_skipn, map_app.
-    specialize (IHev1 _ _ _ eq_refl).
-    specialize (IHev2 _ [] _ eq_refl) as (? & ? & ?).
-    specialize (IHev3 _ [] _ eq_refl).
-    cbn in *; refold'.
-    rewrite closed_subst in IHev3 by admit.
-    destruct f0; cbn in *.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + refold'.
-      rewrite mkApps_app.
-      cbn.
-      eexists.
-      split.
-      * eapply eval_beta; [easy|easy|].
-      eapply aeval_beta.
-    +
-    rewrite normalize_tLambda in norm_lam.
-    apply eval_to_value in ev_lam as value_x.
-    destruct (value_normalize_tLambda _ _ _ value_x norm_lam) as (body & -> & norm_body).
-    clear norm_lam value_x.
-
-    destruct f0; cbn in *.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + refold'.
-      rewrite mkApps_app.
-      cbn.
-      eexists; split.
-      eapply eval_beta.
-      eassumption.
-      eassumption.
-      rewrite closed_subst in ev_sub by admit.
-      apply eval_dearg_subst in ev_sub as (? & ? & ?).
-      rewrite <- norm_a, <- norm_body in H.
-      rewrite eval_dearg_
-      (* have: normalize av = normalize (dearg a')
-               subst [av] 0 body =
-      (* red  t' ->
-         subst s k t = foo ->
-         subst
-
-      (* need something about subst [dearg a] 0 (dearg b) *)
-      rewrite closed_subst in ev_sub by admit.
-      apply eval_dearg_subst in ev_sub as (? & ? & ?).
-      exists (normalize x).
-      rewrite H0.
-      rewrite normalize_normalize.
-      split; [|congruence].
-      assert (H': forall t v, Σ ⊢ normalize t ▷ normalize v <-> Σ ⊢ t ▷ v) by admit.
-      apply H'.
-      rewrite normalize_mkApps.
-      apply H'.
-      rewrite map_app.
-      rewrite ?mkApps_app.
-      cbn.
-      eapply eval_beta.
-      2: { apply H'. eassumption. }
-      2: { rewrite closed_subst by admit.
-           rewrite norm_a.
-           apply H'.
-           rewrite <- (normalize_subst [dearg a']).
-           rewrite <- H0, normalize_normalize.
-           apply H'.
-           eassumption. }
-      rewrite <- norm_body.
-      apply H'.
-      rewrite <- normalize_mkApps.
-      rewrite <- normalize_tLambda.
-      rewrite normalize_normalize.
-      apply H'.
-      eassumption.
-      admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    +
-      rewrite closed_subst by admit.
-      eapply eval_dearg_subst.
-      (* normalize x = tLambda na (normalize (dearg b)) and
-         normalize
-      try now econstructor.
-      exists tBox.
-      split; [|easy].
-      apply eval_mkApps_args in ev_f as (? & ?).
-      eapply eval_box_apps; [|now apply eval_atom].
-      now apply Forall2_app.
-    + apply eval_mkApps_head in ev1 as (? & ?).
-      now depelim H1.
-    + apply eval_mkApps_head in ev1 as (? & ?).
-      now depelim H1.
-    + apply eval_mkApps_head in ev1 as (? & ?).
-      now depelim H1.
-    +
-rewrite mkApps_app.
-      cbn in *.
-
-      apply eval_to_value in ev_f.
-      destruct ev_f.
-      * replace t0 with tBox in * by admit.
-      * admit.
-      *
-    destruct f;
-      cbn in *;
-      rewrite ?mkApps_app;
-      cbn in *;
-      try solve [now eexists; split; [|apply dearged_syntactic]; econstructor].
-    + destruct IHev1 as (? & ? & ?).
-      destruct H0; cbn in *.
-      * exists tBox.
-      exists tBox.
-      split; [|apply dearged_syntactic].
-      admit.
-    + eexists.
-      split; [|apply dearged_syntactic].
-
-    + easy.
-    + unfold dearg_const in *.
-      destruct (find _ _) as [[]|] eqn:find_eq;
-        [|rewrite mkApps_app; cbn in *; now econstructor].
-      rewrite dearg_single_app.
-      apply dearg_single_mask_length in IHev1 as ?; [|easy].
-      rewrite firstn_all2, skipn_all2 by easy.
-      cbn.
-      now econstructor.
-    + unfold dearg_ctor in *.
-      rewrite dearg_single_app.
-      apply dearg_single_mask_length in IHev1 as ?; [|easy].
-      rewrite firstn_all2, skipn_all2 by easy.
-      cbn.
-      now econstructor.
-    + destruct p.
-      rewrite mkApps_app.
-      cbn.
-      now econstructor.
-
-
-Lemma dearg_correct Σ hd args v :
-  Σ ⊢ mkApps hd args ▷ v ->
-  Σ ⊢ dearg_aux (map dearg args) hd ▷ dearg v.
-Proof.
-  intros ev.
-  remember (mkApps hd args) eqn:teq.
-  induction ev using eval_evals_ind in ev, t, v, hd, args, teq; cbn in *.
-  - destruct (mkApps_elim hd args).
-    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    noconf teq.
-    rewrite dearg_aux_mkApps.
-    rewrite <- map_app.
-    rewrite firstn_skipn.
-    specialize (IHev1 f l eq_refl).
-    specialize (IHev2 t [] eq_refl).
-    rewrite map_app.
-    destruct f;
-      cbn in *;
-      rewrite ?mkApps_app;
-      cbn in *;
-      try now econstructor.
-    + easy.
-    + unfold dearg_const in *.
-      destruct (find _ _) as [[]|] eqn:find_eq;
-        [|rewrite mkApps_app; cbn in *; now econstructor].
-      rewrite dearg_single_app.
-      apply dearg_single_mask_length in IHev1 as ?; [|easy].
-      rewrite firstn_all2, skipn_all2 by easy.
-      cbn.
-      now econstructor.
-    + unfold dearg_ctor in *.
-      rewrite dearg_single_app.
-      apply dearg_single_mask_length in IHev1 as ?; [|easy].
-      rewrite firstn_all2, skipn_all2 by easy.
-      cbn.
-      now econstructor.
-    + destruct p.
-      rewrite mkApps_app.
-      cbn.
-      now econstructor.
-  - destruct (mkApps_elim hd args).
-    destruct l as [|? ? _] using List.rev_ind; cbn in *; [now subst|].
-    rewrite mkApps_app in *.
-    cbn in *.
-    noconf teq.
-    rewrite dearg_aux_mkApps, <- map_app, firstn_skipn.
-    specialize (IHev1 _ _ eq_refl).
-    specialize (IHev2 _ [] eq_refl).
-    specialize (IHev3 _ [] eq_refl).
-    rewrite map_app.
-    destruct f0; cbn in *; rewrite ?mkApps_app; cbn in *; refold'.
-    + eapply eval_beta.
-      easy.
-      easy.
-      admit.
-    + admit.
-    + admit.
-    + admit.
-    + eapply eval_beta.
-      easy.
-      easy.
-      admit.
-    + eapply eval_beta.
-      easy.
-      easy.
-
-    destruct f0;
-      cbn in *;
-      rewrite ?mkApps_app;
-      cbn in *;
-      try now econstructor.
-    destruct l; cbn in *.
-    subst
-    2:
-    specialize (IHev1 _ _ eq_refl).
-    specialize (IHev2 _ [] eq_refl).
-    cbn in *.
-      unfold dearg_case in *.
-      rewrite firstn_length_le.
-
-      rewrite skipn_all_eq.
-      revert l ev1 IHev1.
-      generalize (tConst k) as hd.
-      induction b; cbn in *; intros hd l ev IHev1; rewrite ?mkApps_app; try now econstructor.
-      destruct a.
-      * destruct l as [|? ? _]; cbn in *.
-        -- now apply eval_tLambda_inv in IHev1.
-        -- apply IHb; [|easy].
-      rewrite dearg_single_app.
-
-      destruct (skipn _ _); cbn; [now econstructor|].
-      destruct b0; cbn.
-
-    + cbn.
-      rewrite map_app.
-      rewrite mkApps_app.
-      cbn.
-      eapply eval_box; [easy|].
-      now apply (IHev2 t []).
-    + cbn.
-      rewrite map_app.
-      rewrite mkApps_app.
-      cbn.
-      eapply eval_box; [easy|].
-      now apply (IHev2 t []).
-    rewrite map_app.
-    cbn.
-    clear IHev2.
-    destruct l.
-    cbn in *.
-    +
-    rewrite map_app.
-    rewrite <- dearg_aux_mkApps.
-    cbn.
-    apply (IHev1 _ [t]).
-    cbn.
-  - rewrite dearg_mkApps.
-    cbn.
-    admit.
-  -
-  - easy.
-  - easy.
-  - easy.
-  - easy.
-  - easy.
-  - easy.
-  - easy.
-  - easy.
-  - easy.
-  -
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-Admitted.
-
-Lemma dearg_correct_b Σ t v :
-  Σ ⊢ t ▷ v ->
-  Σ ⊢ dearg t ▷ dearg v.
-Proof.
-  intros ev.
-  induction ev using eval_evals_ind.
-  - cbn in *.
-    unfold dearg in IHev2.
