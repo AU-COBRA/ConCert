@@ -233,6 +233,20 @@ Proof.
   easy.
 Qed.
 
+Lemma closed_iota_red pars c args brs :
+  Forall (fun a => closed a) args ->
+  Forall (fun t => closed t.2) brs ->
+  closed (ETyping.iota_red pars c args brs).
+Proof.
+  intros clos_args clos_brs.
+  unfold ETyping.iota_red.
+  apply closed_mkApps.
+  - rewrite nth_nth_error.
+    destruct (nth_error _ _) eqn:nth; [|easy].
+    now eapply nth_error_forall in nth; [|eassumption].
+  - now apply Forall_skipn.
+Qed.
+
 Lemma eval_closed Σ t v :
   Σ ⊢ t ▷ v ->
   env_closed Σ ->
@@ -247,19 +261,9 @@ Proof.
   - apply IHev2.
     now apply closed_csubst.
   - apply IHev2.
-    unfold ETyping.iota_red.
-    apply closed_mkApps.
-    + destruct clos as (_ & clos).
-      clear -clos.
-      rewrite forallb_forall in clos.
-      rewrite nth_nth_error.
-      destruct (nth_error _ _) eqn:nth; [|easy].
-      apply nth_error_In in nth.
-      now apply clos.
-    + apply Forall_skipn.
-      eapply closed_mkApps_args.
-      apply IHev1.
-      easy.
+    apply closed_iota_red.
+    + now eapply closed_mkApps_args.
+    + now apply forallb_Forall.
   - subst brs.
     cbn in *.
     propify.
