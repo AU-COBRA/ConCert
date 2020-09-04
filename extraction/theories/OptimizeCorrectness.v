@@ -1223,20 +1223,18 @@ Fixpoint valid_cases (t : term) : Prop :=
   | _ => True
   end.
 
+Definition valid_masks_decl (p : kername * global_decl) : Prop :=
+  match p with
+  | (kn, ConstantDecl {| cst_body := Some body |}) =>
+    valid_dearg_mask (get_const_mask kn) body /\ valid_cases body
+  | _ => True
+  end.
+
 (* Proposition representing whether masks are valid for entire environment.
    We should be able to prove that our analysis produces masks that satisfy this
    predicate. *)
-Fixpoint valid_masks (Σ : global_env) : Prop :=
-  match Σ with
-  | (kn, decl) :: Σ =>
-    match decl with
-    | ConstantDecl {| cst_body := Some body |} =>
-      valid_dearg_mask (get_const_mask kn) body /\
-      valid_cases body
-    | _ => True
-    end /\ valid_masks Σ
-  | [] => True
-  end.
+Definition valid_masks_env (Σ : global_env) : Prop :=
+  Forall valid_masks_decl Σ.
 
 (* Check if all applications are applied enough to be deboxed without eta expansion *)
 Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
@@ -2117,7 +2115,7 @@ Proof.
   now apply is_expanded_csubst_true.
 Qed.
 
-Lemma cunfold_fix_is_expanded defs i narg f :
+Lemma is_expanded_cunfold_fix defs i narg f :
   cunfold_fix defs i = Some (narg, f) ->
   Forall (fun d => is_expanded (dbody d)) defs ->
   is_expanded f.
@@ -2134,7 +2132,7 @@ Proof.
   - now apply IHm.
 Qed.
 
-Lemma cunfold_cofix_is_expanded defs i narg f :
+Lemma is_expanded_cunfold_cofix defs i narg f :
   cunfold_cofix defs i = Some (narg, f) ->
   Forall (fun d => is_expanded (dbody d)) defs ->
   is_expanded f.
@@ -2207,7 +2205,7 @@ Proof.
     cbn in *; propify.
     intuition auto.
     eapply is_expanded_aux_upwards.
-    + eapply cunfold_fix_is_expanded; [eassumption|].
+    + eapply is_expanded_cunfold_fix; [eassumption|].
       now apply forallb_Forall.
     + easy.
   - easy.
@@ -2216,7 +2214,7 @@ Proof.
     cbn in *; propify.
     intuition auto.
     eapply is_expanded_aux_upwards.
-    + eapply cunfold_cofix_is_expanded; [eassumption|].
+    + eapply is_expanded_cunfold_cofix; [eassumption|].
       now apply forallb_Forall.
     + easy.
   - apply IHev; clear IHev.
@@ -2224,7 +2222,7 @@ Proof.
     cbn in *; propify.
     intuition auto.
     eapply is_expanded_aux_upwards.
-    + eapply cunfold_cofix_is_expanded; [eassumption|].
+    + eapply is_expanded_cunfold_cofix; [eassumption|].
       now apply forallb_Forall.
     + easy.
   - apply IHev.
@@ -2387,13 +2385,106 @@ Qed.
 
 Hint Resolve -> fold_right_Forall : dearg.
 
+Lemma valid_cases_substl s t :
+  Forall (fun s => closed s) s ->
+  Forall valid_cases s ->
+  valid_cases t ->
+  valid_cases (substl s t).
+Proof.
+  intros clos_s valid_s valid_t.
+  unfold substl.
+  induction s using List.rev_ind; [easy|].
+  rewrite fold_left_app.
+  cbn.
+  apply Forall_snoc in clos_s as (? & ?).
+  apply Forall_snoc in valid_s as (? & ?).
+  rewrite closed_subst by easy.
+  now apply valid_cases_subst.
+Qed.
+
+Lemma Forall_conj {A} (P Q : A -> Prop) (l : list A) :
+  (Forall P l /\ Forall Q l) <-> Forall (fun a => P a /\ Q a) l.
+Proof.
+  split; induction l; try easy; cbn in *.
+  - intros (allp & allq).
+    depelim allp.
+    depelim allq.
+    now constructor.
+  -  intros all.
+     depelim all.
+     now split; constructor.
+Qed.
+
+Lemma valid_cases_cunfold_fix defs i narg f :
+  cunfold_fix defs i = Some (narg, f) ->
+  closed (tFix defs i) ->
+  valid_cases (tFix defs i) ->
+  valid_cases f.
+Proof.
+  intros cuf clos_defs valid_defs.
+  unfold cunfold_fix in *.
+  cbn in *.
+  apply forallb_Forall in clos_defs.
+  apply fold_right_Forall in valid_defs.
+  destruct (nth_error _ _) eqn:nth; [|congruence].
+  eapply nth_error_forall in clos_defs as ?; [|eassumption].
+  eapply nth_error_forall in valid_defs as ?; [|eassumption].
+  cbn in *.
+  noconf cuf.
+  enough (Forall (fun t => closed t /\ valid_cases t) (fix_subst defs)).
+  { apply Forall_conj in H1.
+    now apply valid_cases_substl. }
+  unfold fix_subst.
+  induction defs at 2; constructor; cbn in *.
+  - now rewrite fold_right_Forall, <- forallb_Forall.
+  - now apply IHm.
+Qed.
+
+Lemma valid_cases_cunfold_cofix defs i narg f :
+  cunfold_cofix defs i = Some (narg, f) ->
+  closed (tCoFix defs i) ->
+  valid_cases (tCoFix defs i) ->
+  valid_cases f.
+Proof.
+  intros cuf clos_defs valid_defs.
+  unfold cunfold_cofix in *.
+  cbn in *.
+  apply forallb_Forall in clos_defs.
+  apply fold_right_Forall in valid_defs.
+  destruct (nth_error _ _) eqn:nth; [|congruence].
+  eapply nth_error_forall in clos_defs as ?; [|eassumption].
+  eapply nth_error_forall in valid_defs as ?; [|eassumption].
+  cbn in *.
+  noconf cuf.
+  enough (Forall (fun t => closed t /\ valid_cases t) (cofix_subst defs)).
+  { apply Forall_conj in H1.
+    now apply valid_cases_substl. }
+  unfold cofix_subst.
+  induction defs at 2; constructor; cbn in *.
+  - now rewrite fold_right_Forall, <- forallb_Forall.
+  - now apply IHm.
+Qed.
+
+Lemma valid_cases_constant Σ kn cst body :
+  valid_masks_env Σ ->
+  ETyping.declared_constant (trans Σ) kn cst ->
+  EAst.cst_body cst = Some body ->
+  valid_cases body.
+Proof.
+  intros valid_env decl_const body_eq.
+  eapply declared_constant_trans in decl_const as (? & ? & nth).
+  eapply nth_error_forall in nth; [|eassumption].
+  cbn in *.
+  now rewrite body_eq in nth.
+Qed.
+
 Lemma eval_valid_cases Σ t v :
   trans Σ ⊢ t ▷ v ->
 
   env_closed (trans Σ) ->
   closed t ->
 
-  valid_masks Σ ->
+  valid_masks_env Σ ->
   valid_cases t ->
 
   valid_cases v.
@@ -2430,70 +2521,49 @@ Proof with auto with dearg.
       now apply Forall_repeat.
     + apply valid_cases_mkApps...
       now apply Forall_repeat.
-  -
-
-    eappl
-    apply IHev2.
-    apply is_expanded_csubst_true; intuition auto.
-    now eapply is_expanded_aux_upwards.
-  - apply IHev2.
-    unfold ETyping.iota_red.
-    specialize (IHev1 0 ltac:(easy)).
-    rewrite is_expanded_aux_mkApps in *.
-    propify.
-    split.
-    + rewrite nth_nth_error.
-      destruct (nth_error _ _) eqn:nth; [|easy].
-      eapply nth_error_forall in nth; [|now eapply forallb_Forall].
-      now eapply is_expanded_aux_upwards.
-    + now apply forallb_Forall, Forall_skipn, forallb_Forall.
-  - apply IHev2.
-    rewrite is_expanded_aux_mkApps.
-    propify.
-    split.
-    + subst brs.
-      cbn in *.
-      now propify; eapply is_expanded_aux_upwards.
-    + apply forallb_Forall.
-      now apply Forall_repeat.
-  - apply IHev3; clear IHev3.
-    specialize (IHev1 (S k)).
-    specialize (IHev2 0).
-    rewrite is_expanded_aux_mkApps in *.
-    cbn in *; propify.
-    intuition auto.
-    eapply is_expanded_aux_upwards.
-    + eapply cunfold_fix_is_expanded; [eassumption|].
-      now apply forallb_Forall.
-    + easy.
+  - intuition auto.
+    eapply eval_closed in ev1 as ?...
+    eapply eval_closed in ev2 as ?...
+    apply closed_mkApps_inv in H9 as (? & ?).
+    apply valid_cases_mkApps_inv in H8 as (? & ?).
+    apply H7...
+    + apply closed_mkApps...
+      now eapply closed_cunfold_fix.
+    + split; [|easy].
+      apply valid_cases_mkApps...
+      eapply valid_cases_cunfold_fix; [eassumption| |]...
   - easy.
-  - apply IHev; clear IHev.
-    rewrite is_expanded_aux_mkApps in *.
-    cbn in *; propify.
+  - destruct ip.
     intuition auto.
-    eapply is_expanded_aux_upwards.
-    + eapply cunfold_cofix_is_expanded; [eassumption|].
-      now apply forallb_Forall.
-    + easy.
-  - apply IHev; clear IHev.
-    rewrite is_expanded_aux_mkApps in *.
-    cbn in *; propify.
-    intuition auto.
-    eapply is_expanded_aux_upwards.
-    + eapply cunfold_cofix_is_expanded; [eassumption|].
-      now apply forallb_Forall.
-    + easy.
+    apply closed_mkApps_inv in H0 as (? & ?).
+    apply valid_cases_mkApps_inv in H2 as (? & ?).
+    assert (closed fn) by (now eapply closed_cunfold_cofix).
+    assert (closed (mkApps fn args)) by (now apply closed_mkApps).
+    eapply eval_closed in ev as ?...
+    + apply H3...
+      intuition auto...
+      apply valid_cases_mkApps...
+      now eapply valid_cases_cunfold_cofix.
+    + now cbn; propify.
+  - apply closed_mkApps_inv in clos_t as (? & ?).
+    apply valid_cases_mkApps_inv in valid_t as (? & ?).
+    assert (closed fn) by (now eapply closed_cunfold_cofix).
+    apply IHev.
+    + now apply closed_mkApps.
+    + apply valid_cases_mkApps...
+      now eapply valid_cases_cunfold_cofix.
   - apply IHev.
-    eapply is_expanded_aux_upwards.
-    + now eapply declared_constant_expanded.
-    + easy.
-  - apply IHev2; clear IHev2.
-    specialize (IHev1 _ exp_t).
-    rewrite is_expanded_aux_mkApps in IHev1; propify.
-    rewrite nth_nth_error.
-    destruct (nth_error _ _) eqn:nth; [|easy].
-    eapply nth_error_forall in nth; [|now apply forallb_Forall].
-    now eapply is_expanded_aux_upwards.
+    + now eapply closed_constant.
+    + now eapply valid_cases_constant.
+  - intuition auto.
+    eapply eval_closed in ev1 as ?...
+    eapply closed_mkApps_inv in H as (? & ?).
+    eapply valid_cases_mkApps_inv in H0 as (? & ?).
+    rewrite (nth_nth_error (pars + arg) args tDummy) in *.
+    destruct (nth_error _ _) eqn:nth; [|now apply IHev2].
+    eapply nth_error_forall in H1; [|eassumption].
+    eapply nth_error_forall in H2; [|eassumption].
+    now apply IHev2.
   - easy.
 Qed.
 
@@ -2526,7 +2596,7 @@ Lemma dearg_correct Σ hd args v :
   closed hd ->
   Forall (closedn 0) args ->
 
-  valid_masks Σ ->
+  valid_masks_env Σ ->
   valid_cases hd ->
   Forall valid_cases args ->
 

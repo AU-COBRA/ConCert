@@ -147,15 +147,13 @@ Qed.
 Definition env_closed (Σ : EAst.global_declarations) :=
   Forall (decl_closed ∘ snd) Σ.
 
-Lemma closed_constant Σ kn cst :
+Lemma closed_constant Σ kn cst body :
   env_closed Σ ->
   ETyping.declared_constant Σ kn cst ->
-  match EAst.cst_body cst with
-  | Some val => closed val = true
-  | None => True
-  end.
+  EAst.cst_body cst = Some body ->
+  closed body.
 Proof.
-  intros env_clos decl_const.
+  intros env_clos decl_const body_eq.
   unfold ETyping.declared_constant in decl_const.
   rewrite lookup_env_find in decl_const.
   destruct (find _ _) eqn:find; [|easy].
@@ -165,7 +163,9 @@ Proof.
   specialize (env_clos _ (proj1 find)).
   destruct p.
   cbn in *.
-  now inversion decl_const; subst.
+  noconf decl_const.
+  cbn in *.
+  now rewrite body_eq in env_clos.
 Qed.
 
 Lemma closed_unfold_fix mfix idx narg fn :
@@ -247,6 +247,26 @@ Proof.
   - now apply Forall_skipn.
 Qed.
 
+Lemma closed_cunfold_fix defs n narg f :
+  cunfold_fix defs n = Some (narg, f) ->
+  closed (tFix defs n) ->
+  closed f.
+Proof.
+  intros eq clos.
+  rewrite <- closed_unfold_fix_cunfold_eq in eq by easy.
+  now eapply closed_unfold_fix.
+Qed.
+
+Lemma closed_cunfold_cofix defs n narg f :
+  cunfold_cofix defs n = Some (narg, f) ->
+  closed (tCoFix defs n) ->
+  closed f.
+Proof.
+  intros eq clos.
+  rewrite <- closed_unfold_cofix_cunfold_eq in eq by easy.
+  now eapply closed_unfold_cofix.
+Qed.
+
 Lemma eval_closed Σ t v :
   Σ ⊢ t ▷ v ->
   env_closed Σ ->
@@ -278,8 +298,7 @@ Proof.
     specialize (IHev1 clos).
     apply closed_mkApps_inv in IHev1 as (? & ?).
     apply closed_mkApps; [|easy].
-    rewrite <- closed_unfold_fix_cunfold_eq in * by easy.
-    now eapply closed_unfold_fix.
+    now eapply closed_cunfold_fix.
   - easy.
   - apply IHev.
     split; [|easy].
@@ -287,16 +306,13 @@ Proof.
     apply closed_mkApps_inv in clos.
     cbn in *.
     apply closed_mkApps; [|easy].
-    rewrite <- closed_unfold_cofix_cunfold_eq in * by easy.
-    now eapply closed_unfold_cofix.
+    now eapply closed_cunfold_cofix.
   - apply IHev.
     apply closed_mkApps_inv in clos.
     apply closed_mkApps; [|easy].
-    rewrite <- closed_unfold_cofix_cunfold_eq in * by easy.
-    now eapply closed_unfold_cofix.
+    now eapply closed_cunfold_cofix.
   - apply IHev.
-    pose proof (closed_constant _ _ _ env_clos isdecl).
-    now rewrite H in *.
+    now eapply closed_constant.
   - apply IHev2.
     apply closed_mkApps_args in IHev1; [|easy].
     rewrite nth_nth_error in *.
