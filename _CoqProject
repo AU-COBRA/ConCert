@@ -90,7 +90,7 @@ extraction/examples/CounterRefinementTypes.v
 extraction/examples/StackInterpreter.v
 extraction/examples/ErasureTests.v
 extraction/examples/MidlangExtractTests.v
-
+extraction/examples/ElmExtractTests.v
 
 embedding/theories/pcuic/PCUICCorrectness.v
 embedding/theories/pcuic/PCUICCorrectnessAux.v

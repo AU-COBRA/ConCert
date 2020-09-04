@@ -38,3 +38,12 @@ _opam/
 *.liq
 *.out
 e
+
+## Elm tests
+extraction/examples/elm-extract/elm-stuff/
+extraction/examples/elm-extract/node_modules/
+extraction/examples/elm-extract/src/
+extraction/examples/elm-extract/tests/
+extraction/examples/elm-extract/*.html
+
+
