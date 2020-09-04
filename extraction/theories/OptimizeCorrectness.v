@@ -2605,9 +2605,13 @@ Lemma dearg_correct Σ hd args v :
   Forall (fun a => is_expanded a) args ->
 
   trans Σ ⊢ mkApps hd args ▷ v ->
+
   trans (dearg_env Σ) ⊢ dearg_aux (map dearg args) hd ▷ dearg v.
-Proof.
-  intros clos_env clos_hd clos_args valid_env valid_hd valid_args exp_env exp_hd exp_args ev.
+Proof with auto using dearg.
+  intros
+    clos_env clos_hd clos_args
+    valid_env valid_hd valid_args
+    exp_env exp_hd exp_args ev.
   remember (mkApps hd args) as t eqn:eq.
   induction ev in hd, args, v,
                   clos_hd, clos_args,
@@ -2623,14 +2627,28 @@ Proof.
     apply Forall_snoc in clos_args as (clos_l & clos_t).
     apply Forall_snoc in valid_args as (valid_l & valid_t).
     apply Forall_snoc in exp_args as (exp_l & exp_t).
-    admit.
-    (*
+    rewrite map_app.
+    specialize (IHev1 f l).
+    specialize (IHev2 x []).
     destruct f;
       cbn in *;
       rewrite ?mkApps_app;
-      cbn in *.
-    + econstructor.
-      *
+      cbn in *;
+      try solve [econstructor; [apply IHev1; auto|apply IHev2; auto]].
+    + easy.
+    +
+      eapply dearg_single_correct in ev1.
+      rewrite dearg_single_app.
+      rewrite map_length in *.
+      apply dearg_single_mask_length in IHev1; auto.
+      * admit.
+      * propify.
+
+      rewrite firstn_all2.
+      econstructor.
+      * apply (IHev1 tBox l); auto.
+      * apply (IHev2 x []); auto.
+    +
       eapply eval_box_apps.
     unshelve epose proof (IHev1 _ _ _ _ _ _ _ _ _ _ _ _ eq_refl) as IHev1; auto.
     admit.
@@ -2666,6 +2684,8 @@ Proof.
     apply Forall_snoc in valid_args as (valid_l & valid_t).
     apply Forall_snoc in exp_args as (exp_l & exp_t).
     assert (closed a') by (eapply eval_closed; eauto).
+    assert (valid_cases a') by (eapply eval_valid_cases; eauto).
+    assert (is_expanded a') by (eapply eval_is_expanded_aux; eauto).
     rewrite (closed_subst a' 0 b) in * by assumption.
     destruct f0; cbn in *.
     + admit.
@@ -2683,14 +2703,17 @@ Proof.
         rewrite closed_subst by eauto with dearg.
         cbn in *; refold'.
         rewrite dearg_subst in IHev3.
-        -- apply IHev3; auto with dearg.
-           ++ apply closedn_subst0; auto with dearg.
-              eapply eval_closed in ev1; now auto with dearg.
-           ++ apply valid_cases_subst.
+        -- apply IHev3...
+           ++ apply closedn_subst0...
+              eapply eval_closed in ev1; eauto with dearg.
+           ++ apply valid_cases_subst...
+              eapply eval_valid_cases in ev1; eauto with dearg.
+              eapply valid_cases_mkApps...
            ++ apply is_expanded_subst_true.
               ** now eapply eval_is_expanded_aux in ev2.
               ** eapply (eval_is_expanded_aux _ _ _ 0) in ev1; auto with dearg.
-        -- admit.
+        -- eapply eval_valid_cases in ev1; eauto with dearg.
+           eapply valid_cases_mkApps...
         -- constructor; [|easy].
            now eapply eval_is_expanded_aux in ev2.
     +
