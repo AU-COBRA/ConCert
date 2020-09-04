@@ -763,26 +763,24 @@ Module CounterRefinmentTypes.
   Open Scope Z.
   Definition storage := Z.
 
-  Definition pos := {z : Z | 0 <? z}.
-
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
 
   Import Lia.
 
-  Program Definition inc_counter (st : storage) (inc : pos) :
+  Program Definition inc_counter (st : storage) (inc : {z : Z | 0 <? z}) :
     {new_st : storage | st <? new_st} :=
     st + proj1_sig inc.
   Next Obligation.
-    destruct inc;simpl;unfold is_true in *.
+    unfold is_true in *.
     rewrite <- Zlt_is_lt_bool in *;lia.
   Qed.
 
 
-  Program Definition dec_counter (st : storage) (dec : pos) :
+  Program Definition dec_counter (st : storage) (dec : {z : Z | 0 <? z}) :
     {new_st : storage | new_st <? st} :=
     st - proj1_sig dec.
   Next Obligation.
-    destruct dec;simpl;unfold is_true in *.
+    unfold is_true in *.
     rewrite <- Zlt_is_lt_bool in *;lia.
   Qed.
 

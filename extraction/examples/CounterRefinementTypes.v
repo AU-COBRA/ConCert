@@ -136,8 +136,13 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
 (** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
-     (t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) t
+     (r <- tmQuoteRecTransp counter false;;
+      b <- EnvCheck_to_template (erase_and_check_applied_no_wf_check r) ;;
+      if (b : bool) then
+        t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+        tmDefinition COUNTER_MODULE.(lmd_module_name) t
+      else
+        tmFail "Constructors or constants are not applied enough"
      ).
 
 Print liquidity_counter.

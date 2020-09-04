@@ -1,3 +1,4 @@
+(** * Tests for extraction to Midlang *)
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.

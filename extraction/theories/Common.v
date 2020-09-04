@@ -837,6 +837,12 @@ Definition erase_and_check_applied (p : Ast.program) : EnvCheck bool :=
   et <- erase_template_program p ;;
   check_applied Σ (proj2 (projT2 G)) et.2.
 
+Definition erase_and_check_applied_no_wf_check (p : Ast.program) : EnvCheck bool :=
+  let p := fix_program_universes p in
+  let Σ := (trans_global (Ast.empty_ext p.1)).1 in
+  et <- erase_template_program p ;;
+  check_applied Σ (assume_env_wellformed Σ) et.2.
+
 Definition print_sum (s : string + string) :=
   match s with
   | inl s' => s'
@@ -847,4 +853,10 @@ Definition opt_to_template {A} (o : option A) : TemplateMonad A:=
   match o with
   | Some v => ret v
   | None => tmFail "None"
+  end.
+
+Definition EnvCheck_to_template {A } (ec : EnvCheck A) : TemplateMonad A :=
+  match ec with
+  | CorrectDecl a => ret a
+  | EnvError Σ e => tmFail (string_of_env_error Σ e)
   end.

@@ -75,6 +75,10 @@ MetaCoq Quote Recursively Definition ex5 := (Prop).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex5) in exact x) =
                 Ok {| is_logical := true; is_sort := true; is_arity := true |}.
 
+MetaCoq Quote Recursively Definition ex5' := (forall n m: nat, Prop).
+Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex5') in exact x) =
+                Ok {| is_logical := true; is_sort := false; is_arity := true |}.
+
 MetaCoq Quote Recursively Definition ex6 := (Prop -> Type).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex6) in exact x) =
                 Ok {| is_logical := false; is_sort := false; is_arity := true |}.
