@@ -521,34 +521,43 @@ Record dearg_set_ty :=
   { dst_const_masks : list (kername × bitmask);
     dst_ind_masks : list (inductive × bitmask) }.
 
-Fixpoint debox_box_type_aux (ds : dearg_set_ty) (app_args : list box_type) (bt : box_type) : box_type :=
+Definition get_tvar_shift (i : nat) (ind_par_mask : bitmask) : nat :=
+  #|filter id (firstn i ind_par_mask)|.
+
+
+Fixpoint debox_box_type_aux (ind_par_mask : bitmask)(ds : dearg_set_ty) (app_args : list box_type) (bt : box_type) : box_type :=
   match bt with
   | TArr dom codom =>
     match dom with
-    | TBox => debox_box_type_aux ds app_args codom (* we turn [box -> ty] into [ty] *)
+    | TBox => debox_box_type_aux ind_par_mask ds app_args codom (* we turn [box -> ty] into [ty] *)
     | TArr TBox codom' =>
       (* NOTE: we do not remove boxes in a negative position *)
-      TArr (TArr TBox (debox_box_type_aux ds app_args codom'))
-           (debox_box_type_aux ds app_args codom)
-    | _ => TArr (debox_box_type_aux ds app_args dom) (debox_box_type_aux ds app_args codom)
+      TArr (TArr TBox (debox_box_type_aux ind_par_mask ds app_args codom'))
+           (debox_box_type_aux ind_par_mask ds app_args codom)
+    | _ => TArr (debox_box_type_aux ind_par_mask ds app_args dom) (debox_box_type_aux ind_par_mask ds app_args codom)
     end
   | TApp ty1 ty2 =>
-    debox_box_type_aux ds (debox_box_type_aux ds [] ty2 :: app_args) ty1
+    debox_box_type_aux ind_par_mask ds (debox_box_type_aux ind_par_mask ds [] ty2 :: app_args) ty1
   | TInd ind => dearg_ty_ind ds.(dst_ind_masks) ind app_args
   | TConst kn => dearg_ty_const ds.(dst_const_masks) kn app_args
-  | TVar _ | TAny | TBox => bt
+  | TVar i => TVar (i - get_tvar_shift i ind_par_mask)
+  | TAny | TBox => bt
   end.
 
-Definition debox_box_type (ds : dearg_set_ty) (bt : box_type) :=
-  debox_box_type_aux ds [] bt.
+Definition debox_box_type (ind_par_mask : bitmask) (ds : dearg_set_ty) (bt : box_type) :=
+  debox_box_type_aux ind_par_mask ds [] bt.
 
-Definition remove_logical_params (oib : ExAst.one_inductive_body) :=
+Fixpoint remove_logical_params_ctor (ind_par_mask : bitmask) (ds : dearg_set_ty) (ctor : ident × list box_type) : ident × list box_type
+  := let '(nm,tys) := ctor in
+     (nm, map (debox_box_type ind_par_mask ds) tys).
+
+Definition remove_logical_params (ds : dearg_set_ty) (oib : ExAst.one_inductive_body) :=
   let mask := get_param_mask oib in
   let filtered_ty_vars :=
       map snd (filter (negb ∘ fst) (combine mask oib.(ind_type_vars))) in
   {| ind_name:= oib.(ind_name);
         ind_type_vars := filtered_ty_vars;
-        ind_ctors := oib.(ind_ctors); (* FIXME: recalculate the type var indices! *)
+        ind_ctors := map (remove_logical_params_ctor mask ds) oib.(ind_ctors);
         ind_projs := oib.(ind_projs) |}.
 
 Fixpoint get_param_masks_global_env (Σ : ExAst.global_env)
@@ -562,6 +571,11 @@ Fixpoint get_param_masks_global_env (Σ : ExAst.global_env)
   | [] => []
   end.
 
+Definition remove_logical_params_mib (ds : dearg_set_ty) (ind : ExAst.mutual_inductive_body) :  ExAst.mutual_inductive_body :=
+  {| ind_npars := ind.(ind_npars);
+     ind_bodies :=
+       map (remove_logical_params ds) ind.(ind_bodies) |}.
+
 Definition debox_types_global_env (Σ : ExAst.global_env) : ExAst.global_env :=
   let _ds := get_dearg_set_for_unused_args Σ in
   let ind_masks := get_param_masks_global_env Σ in
@@ -571,11 +585,9 @@ Definition debox_types_global_env (Σ : ExAst.global_env) : ExAst.global_env :=
          (fun d => match d with
                 | ConstantDecl cst =>
                   ConstantDecl {| cst_type := let '(nm,ty) := cst.(cst_type) in
-                                              (nm, debox_box_type ds ty) ;
+                                              (nm, debox_box_type [] ds ty) ;
                                   cst_body := cst.(cst_body) |}
                 | InductiveDecl b ind =>
-                  InductiveDecl b {| ind_npars := ind.(ind_npars);
-                                     ind_bodies :=
-                                       map remove_logical_params ind.(ind_bodies) |}
-                | TypeAliasDecl (nms, ty) => TypeAliasDecl (nms, debox_box_type ds ty)
+                  InductiveDecl b (remove_logical_params_mib ds ind)
+                | TypeAliasDecl (nms, ty) => TypeAliasDecl (nms, debox_box_type [] ds ty)
                 end)) Σ.
