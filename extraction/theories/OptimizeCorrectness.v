@@ -404,22 +404,23 @@ Proof.
 Qed.
 
 Lemma eval_dearg_single_head Σ mask head args v :
-  #|args| = #|mask| ->
+  #|mask| <= #|args| ->
   Σ ⊢ dearg_single mask head args ▷ v ->
   exists hdv, Σ ⊢ head ▷ hdv.
 Proof.
   revert head args v.
-  induction mask as [|[] mask IH]; intros head args v len_eq ev.
+  induction mask as [|[] mask IH]; intros head args v l ev.
   - cbn in *.
     now apply eval_mkApps_head in ev.
   - destruct args as [|a args]; [easy|].
     cbn in *.
-    easy.
+    now eapply (IH _ args).
   - destruct args as [|a args]; [easy|].
     cbn in *.
-    specialize (IH _ _ _ ltac:(easy) ev).
-    destruct IH as (appv & ev_app).
-    now apply eval_tApp_head in ev_app.
+    edestruct (IH (tApp head a) args) as (appv & ev_app).
+    + easy.
+    + exact ev.
+    + now apply eval_tApp_head in ev_app.
 Qed.
 
 Lemma eval_dearg_cst_body_top_inv Σ mask Γ inner v :
@@ -463,7 +464,7 @@ Proof.
 Qed.
 
 Lemma eval_dearg_single_heads Σ hd hd' hdv mask args v :
-  #|mask| = #|args| ->
+  #|mask| <= #|args| ->
   Σ ⊢ hd ▷ hdv ->
   Σ ⊢ hd' ▷ hdv ->
   Σ ⊢ dearg_single mask hd args ▷ v ->
@@ -472,12 +473,12 @@ Proof.
   revert hd hd' hdv args v.
   induction mask as [|[] mask IH]; intros hd hd' hdv args v len_eq ev_hd ev_hd' ev;
     cbn in *.
-  - destruct args; [|easy].
-    now rewrite (eval_deterministic ev ev_hd).
-  - now destruct args.
+  - now eapply eval_mkApps_heads; [|eassumption|eassumption].
+  - destruct args; [easy|].
+    now cbn in *.
   - destruct args; [easy|].
     cbn in *.
-    apply eval_dearg_single_head in ev as ev_app_hd; [|easy].
+    apply eval_dearg_single_head in ev as ev_app_hd.
     destruct ev_app_hd as (app_hdv & ev_app_hd).
     eapply IH.
     3: {
@@ -820,6 +821,8 @@ Notation get_const_mask := (get_const_mask const_masks).
 Notation dearg := (dearg ind_masks const_masks).
 Notation dearg_aux := (dearg_aux ind_masks const_masks).
 Notation dearg_env := (dearg_env ind_masks const_masks).
+Notation dearg_decl := (dearg_decl ind_masks const_masks).
+Notation dearg_cst := (dearg_cst ind_masks const_masks).
 Notation dearg_case := (dearg_case ind_masks).
 
 Lemma dearg_aux_mkApps args args' hd :
@@ -829,6 +832,13 @@ Proof.
   induction args' as [|a args' IH]; intros args hd; [easy|].
   cbn.
   now rewrite IH.
+Qed.
+
+Lemma dearg_mkApps hd args :
+  dearg (mkApps hd args) = dearg_aux (map dearg args) hd.
+Proof.
+  unfold dearg.
+  now rewrite dearg_aux_mkApps, app_nil_r.
 Qed.
 
 Lemma dearg_single_app bs t args args' :
@@ -1988,6 +1998,10 @@ Proof.
     lia.
 Qed.
 
+Lemma is_expanded_mkApps hd args :
+  is_expanded (mkApps hd args) = is_expanded_aux #|args| hd && forallb is_expanded args.
+Proof. now apply is_expanded_aux_mkApps. Qed.
+
 Lemma is_expanded_aux_mkApps_true n hd args :
   is_expanded_aux (n + #|args|) hd ->
   Forall (fun a => is_expanded a) args ->
@@ -2590,6 +2604,62 @@ Ltac transfer_elim :=
 
     clear clos_args' valid_args' exp_args'
   end.
+
+Definition deriv_length {Σ t v} (ev : Σ ⊢ t ▷ v) : nat := todo "foo".
+
+Lemma dearg_correct Σ t v :
+  env_closed (trans Σ) ->
+  closed t ->
+
+  valid_masks_env Σ ->
+  valid_cases t ->
+
+  is_expanded_env Σ ->
+  is_expanded t ->
+
+  trans Σ ⊢ t ▷ v ->
+  trans (dearg_env Σ) ⊢ dearg t ▷ dearg v.
+Proof.
+  intros clos_env clos_t valid_env valid_t exp_env exp_t.
+  enough (forall n (ev : trans Σ ⊢ t ▷ v),
+             deriv_length ev <= n ->
+             trans (dearg_env Σ) ⊢ dearg t ▷ dearg v).
+  { intros ev.
+    eapply H.
+    apply le_refl. }
+  induction n in t, v, clos_t, valid_t, exp_t |- *; [admit|].
+  intros ev len.
+  destruct (mkApps_elim t []).
+  set (args := firstn n0 l) in *; clearbody args.
+  rename f into hd.
+  rewrite dearg_mkApps.
+  destruct hd; cbn in *.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - easy.
+  - rewrite is_expanded_mkApps in exp_t.
+    eapply eval_mkApps_head in ev as ?.
+    destruct H as (hdv & ev_hd).
+    eapply eval_dearg_single_heads.
+    1: { rewrite map_length.
+         cbn in *.
+         now propify. }
+    2: { depelim ev_hd; [|easy].
+    3: {
+      econstructor.
+    + admit.
+    +
+    2: econstructor.
+
+Lemma foo :
+  trans Σ ⊢ mkApps hd args ▷ v ->
+  trans Σ ⊢ mkApps hd (map dearg args) ▷ dearg v
+  -
+
 
 Lemma dearg_correct Σ hd args v :
   env_closed (trans Σ) ->
