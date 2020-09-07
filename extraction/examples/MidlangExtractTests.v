@@ -14,14 +14,24 @@ From MetaCoq Require Import utils.
 Import MonadNotation.
 Local Open Scope string.
 
-Definition extract (p : program) : result string string :=
+Instance StandardBoxes : BoxSymbol :=
+  {| term_box_symbol := "□";
+     type_box_symbol := "□";
+     any_type_symbol := "𝕋"|}.
+
+Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- specialize_erase_debox_template_env p.1 [entry] [];;
-  '(_, s) <- finish_print (print_env Σ p.1 (fun _ => None));;
+  Σ <- specialize_erase_debox_template_env p.1 [entry] ignore;;
+  let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
+  '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret s.
+
+Definition extract (p : program) : result string string :=
+  general_extract p [] [].
+
 
 Module ex1.
   Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.

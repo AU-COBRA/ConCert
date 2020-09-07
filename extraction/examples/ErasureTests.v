@@ -487,12 +487,6 @@ MetaCoq Quote Recursively Definition ex11 := ManyParamsInd.
 
 Compute erase_and_print_ind_prog ex11.
 
-Definition lines (l : list string) :=
-  String.concat nl l.
-
-Notation "<$ x ; y ; .. ; z $>" :=
-  (lines (List.cons x (List.cons y .. (List.cons z List.nil) ..))) : list_scope.
-
 Example ManyParamsInd_test :
   erase_and_print_ind_prog ex11 =
   Ok <$ "data ManyParamsInd A P Q B";

@@ -43,12 +43,19 @@ Local Open Scope string.
 Local Definition indent_size := 2.
 
 Section FixEnv.
-Context (Σ : Ex.global_env).
+  Context (Σ : Ex.global_env).
 (* Additional environment only used to look up names for inductives
    and inductive ctors. Those names are required to be translated
    or the printing will fail. *)
 Context (Σnames : T.global_env).
 Context (translate : kername -> option string).
+(* A setting for symbols for boxes and un-extractable types *)
+Class BoxSymbol :=
+  {term_box_symbol : string;
+   type_box_symbol : string;
+   any_type_symbol : string}.
+
+Context `{BoxSymbol}.
 
 Definition option_get {A} (o : option A) (default : A) : A :=
   match o with
@@ -225,8 +232,8 @@ Definition parenthesize_ty_app_arg (t : box_type) : bool :=
 
 Fixpoint print_type (Γ : list ident) (t : box_type) : PrettyPrinter unit :=
   match t with
-  | TBox => append "□"
-  | TAny => append "𝕋"
+  | TBox => append type_box_symbol
+  | TAny => append any_type_symbol
   | TArr dom cod =>
     print_parenthesized
       (parenthesize_prod_domain dom)
@@ -284,7 +291,7 @@ Definition print_define_term
 
 Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   match t with
-  | tBox => append "□"
+  | tBox => append term_box_symbol
   | tRel n =>
     match nth_error Γ n with
     | Some name => append name
