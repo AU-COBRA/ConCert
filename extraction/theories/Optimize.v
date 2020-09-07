@@ -197,19 +197,9 @@ Fixpoint dearg_cst_type_top (mask : bitmask) (type : box_type) : box_type :=
 (* Remove lambda abstractions from top level declaration and remove
    all unused args in applicacations *)
 Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
-  let cst :=
-      match find (fun '(kn', _) => eq_kername kn' kn) const_masks with
-      | Some (_, _, mask) =>
-        match cst_body cst with
-        | Some body =>
-          let new_body := dearg_cst_body_top mask body in
-          let new_type := dearg_cst_type_top mask (cst_type cst).2 in
-          {| cst_type := ((cst_type cst).1, new_type); cst_body := Some new_body |}
-        | None => cst
-        end
-      | None => cst
-      end in
-  {| cst_type := cst_type cst; cst_body := option_map dearg (cst_body cst) |}.
+  let mask := get_const_mask kn in
+  {| cst_type := on_snd (dearg_cst_type_top mask) (cst_type cst);
+     cst_body := option_map (dearg ∘ dearg_cst_body_top mask) (cst_body cst) |}.
 
 (* Remove all data from ctor based on bitmask *)
 Fixpoint dearg_oib_ctor (mask : bitmask) (bts : list box_type) : list box_type :=

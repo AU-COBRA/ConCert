@@ -548,16 +548,15 @@ Lemma dearg_single_correct Σ body args mask t :
   closed body ->
   Forall (closedn 0) args ->
   valid_dearg_mask mask body ->
-  #|args| = #|mask| ->
+  #|mask| <= #|args| ->
   Σ ⊢ mkApps body args ▷ t ->
   Σ ⊢ dearg_single mask (dearg_cst_body_top mask body) args ▷ t.
 Proof.
-  intros env_clos body_clos args_clos valid_mask len_eq ev.
+  intros env_clos body_clos args_clos valid_mask l ev.
   destruct (valid_dearg_mask_spec _ _ valid_mask) as (Γ & inner & vasses_len & <-).
   induction #|Γ| as [|Γlen IH] eqn:eq
-    in Γ, mask, valid_mask, args, body_clos, args_clos, inner, ev, len_eq, vasses_len |- *.
-  1: { destruct Γ, mask, args; try easy.
-       cbn in *.
+    in Γ, mask, valid_mask, args, body_clos, args_clos, inner, ev, l, vasses_len |- *.
+  1: { destruct Γ, mask, args; try easy; cbn in *;
        now rewrite dearg_cst_body_top_nil. }
   destruct Γ as [|[na [body|]] Γ];
     cbn in *; refold.
@@ -2163,7 +2162,7 @@ Proof.
   - now apply IHm.
 Qed.
 
-Lemma declared_constant_expanded Σ kn cst body :
+Lemma is_expanded_constant Σ kn cst body :
   is_expanded_env Σ ->
   ETyping.declared_constant (trans Σ) kn cst ->
   EAst.cst_body cst = Some body ->
@@ -2241,7 +2240,7 @@ Proof.
     + easy.
   - apply IHev.
     eapply is_expanded_aux_upwards.
-    + now eapply declared_constant_expanded.
+    + now eapply is_expanded_constant.
     + easy.
   - apply IHev2; clear IHev2.
     specialize (IHev1 _ exp_t).
@@ -2605,7 +2604,87 @@ Ltac transfer_elim :=
     clear clos_args' valid_args' exp_args'
   end.
 
-Definition deriv_length {Σ t v} (ev : Σ ⊢ t ▷ v) : nat := todo "foo".
+Inductive eval_length {Σ} : forall {t v}, Σ ⊢ t ▷ v -> nat -> Prop :=
+| el_box hd ev_hd arg argv ev_arg : eval_length (eval_box Σ hd arg argv ev_hd ev_arg) 1
+| el_beta hd na body ev_hd evl_hd arg argv ev_arg evl_arg res ev_subst evl_subst :
+    eval_length ev_hd evl_hd ->
+    eval_length ev_arg evl_arg ->
+    eval_length ev_subst evl_subst ->
+    eval_length (eval_beta Σ hd na body arg argv res ev_hd ev_arg ev_subst)
+                (S (evl_hd + evl_arg + evl_subst))
+| el_zeta val valv ev_val evl_val body res ev_subst evl_subst na :
+    eval_length ev_val evl_val ->
+    eval_length ev_subst evl_subst ->
+    eval_length (eval_zeta Σ na val valv body res ev_val ev_subst)
+                (S (evl_val + evl_subst))
+| el_iota ind pars discr c args brs res ev_discr evl_discr ev_subst evl_subst :
+    eval_length ev_discr evl_discr ->
+    eval_length ev_subst evl_subst ->
+    eval_length (eval_iota Σ ind pars discr c args brs res ev_discr ev_subst)
+                (S (evl_discr + evl_subst))
+| eval_iota_sing ind pars discr brs n f res ev_discr evl_discr brs_eq ev_apps evl_apps :
+    eval_length ev_discr evl_discr ->
+    eval_length ev_apps evl_apps ->
+    eval_length (eval_iota_sing Σ ind pars discr brs n f res ev_discr brs_eq ev_apps)
+                (S (evl_discr + evl_apps)).
+
+Definition deriv_length {Σ t v} : Σ ⊢ t ▷ v -> nat := todo "foo".
+
+Lemma declared_constant_dearg Σ k cst :
+  ETyping.declared_constant (trans Σ) k cst ->
+  exists cst',
+    ETyping.declared_constant (trans (dearg_env Σ)) k cst' /\
+    EAst.cst_body cst' = option_map (dearg ∘ dearg_cst_body_top (get_const_mask k))
+                                    (EAst.cst_body cst).
+Proof.
+  unfold ETyping.declared_constant.
+  intros typ.
+  induction Σ as [|(kn, decl) Σ IH]; [easy|].
+  cbn in *.
+  destruct decl; cbn in *.
+  - destruct (kername_eq_dec k kn) as [->|].
+    + noconf typ.
+      eexists.
+      now split; [reflexivity|].
+    + now apply IH.
+  - now apply IH.
+Qed.
+
+Inductive dearg_spec : term -> term -> Type :=
+| dearg_spec_const kn args :
+    dearg_spec (mkApps (tConst kn) args)
+               (dearg_single (get_const_mask kn) (tConst kn) (map dearg args))
+| dearg_spec_ctor ind c args :
+    dearg_spec (mkApps (tConstruct ind c) args)
+               (dearg_single (get_ctor_mask ind c) (tConstruct ind c) (map dearg args))
+| dearg_spec_case ind npars discr brs args :
+    dearg_spec (mkApps (tCase (ind, npars) discr brs) args)
+               (mkApps (dearg_case ind npars (dearg discr) (map (on_snd dearg) brs))
+                       (map dearg args))
+| dearg_spec_other hd args :
+    match hd with
+    | tConst _
+    | tConstruct _ _
+    | tCase _ _ _
+    | tApp _ _ => False
+    | _ => True
+    end ->
+    dearg_spec (mkApps hd args) (mkApps (map_subterms dearg hd) (map dearg args)).
+
+Lemma dearg_elim t :
+  dearg_spec t (dearg t).
+Proof.
+  destruct (mkApps_elim t []).
+  generalize (firstn n l) as args.
+  clear n.
+  intros args.
+  rewrite dearg_mkApps.
+  destruct f; try solve [now econstructor].
+  - easy.
+  - cbn in *.
+    destruct p.
+    eapply dearg_spec_case.
+Qed.
 
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
@@ -2629,7 +2708,21 @@ Proof.
     apply le_refl. }
   induction n in t, v, clos_t, valid_t, exp_t |- *; [admit|].
   intros ev len.
-  destruct (mkApps_elim t []).
+  destruct (dearg_elim t).
+  - rewrite is_expanded_mkApps in exp_t.
+    admit.
+  - admit.
+  - admit.
+  -
+  - replace v with (mkApps (tConstruct ind c) args); cycle 1.
+    { eapply eval_deterministic; [|eassumption].
+      clear.
+      induction args using List.rev_ind.
+      - now eapply eval_atom.
+      - rewrite mkApps_app.
+        cbn.
+        eapply eval_app_cong.
+        3: {
   set (args := firstn n0 l) in *; clearbody args.
   rename f into hd.
   rewrite dearg_mkApps.
@@ -2644,11 +2737,76 @@ Proof.
   - rewrite is_expanded_mkApps in exp_t.
     eapply eval_mkApps_head in ev as ?.
     destruct H as (hdv & ev_hd).
-    eapply eval_dearg_single_heads.
+    depelim ev_hd; [|easy].
+    eapply declared_constant_dearg in isdecl as decl_cst_dearg.
+    destruct decl_cst_dearg as (cst' & decl_dearg & dearg_body).
+    rewrite H in dearg_body.
+    cbn in *.
+    assert (exists h, trans (dearg_env Σ) ⊢ tConst k ▷ h /\
+                      trans (dearg_env Σ) ⊢ dearg_cst_body_top (get_const_mask k) (dearg body)
+                            ▷ h).
+    { admit. }
+    destruct H0 as (cstv & ev_const & ev_inner).
+    eapply eval_dearg_single_heads; [|exact ev_inner|eassumption|].
+    + rewrite map_length.
+      now propify.
+    + apply dearg_single_correct.
+      * admit.
+      * admit.
+      * admit.
+      * admit.
+      * rewrite map_length.
+        now propify.
+      *
+        replace (mkApps (dearg body) (map dearg args)) with (dearg (mkApps body args)) by admit.
+        unshelve eapply (IHn (mkApps body args) v _ _ _ _ _).
+        -- admit.
+        -- admit.
+        -- admit.
+        -- eapply eval_mkApps_heads.
+           2: eassumption.
+           2: exact ev.
+           econstructor; eauto.
+        --
+    unshelve epose proof (IHn _ _ _ _ _ ev_hd _).
+    + now eapply closed_constant; eauto.
+    + now eapply valid_cases_constant; eauto.
+    + now eapply is_expanded_constant; eauto.
+    + admit.
+    + eapply eval_dearg_single_heads.
+      4: {
+        eapply dearg_single_correct.
+        - admit.
+        - admit.
+        - admit.
+        - admit.
+        - admit.
+        -
+    assert (trans (dearg_env Σ) ⊢ tConst k ▷ dearg (dearg_cst_body_top (get_const_mask k) body)).
+    { econstructor; eauto.
+      cbn.
+      eapply IHn.
+      - admit.
+      - admit.
+      - admit.
+      - admit.
+    eapply (eval_dearg_single_heads _ (
     1: { rewrite map_length.
          cbn in *.
          now propify. }
     2: { depelim ev_hd; [|easy].
+         eapply declared_constant_dearg in isdecl as (cst' & decl_dearg & dearg_body).
+         econstructor.
+         - eassumption.
+         - rewrite H in dearg_body.
+           cbn in *.
+           eassumption.
+         - unshelve eapply (IHn body hdv).
+           + admit.
+           + admit.
+           + admit.
+           + admit.
+           + admit.
     3: {
       econstructor.
     + admit.
