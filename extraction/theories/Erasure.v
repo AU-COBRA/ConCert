@@ -904,7 +904,8 @@ Program Definition erase_ind_body
   ctors <- monad_map_in (P.ind_ctors oib) erase_ind_ctor;;
 
   ret {| ind_name := P.ind_name oib;
-         ind_type_vars := ind_params_arities_only ++ the_rest;
+         ind_type_vars := oib_tvars;
+         ind_ctor_type_vars := ind_params_arities_only ++ the_rest;
          ind_ctors := ctors;
          ind_projs := [] (* todo *) |}.
 Next Obligation.

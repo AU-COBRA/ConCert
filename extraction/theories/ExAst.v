@@ -55,6 +55,7 @@ Record oib_type_var :=
 Record one_inductive_body :=
   { ind_name : ident;
     ind_type_vars : list oib_type_var;
+    ind_ctor_type_vars : list oib_type_var;
     ind_ctors : list (ident * list box_type);
     ind_projs : list (ident * box_type); }.
 

@@ -291,6 +291,7 @@ Definition dearg_oib
            (oib : one_inductive_body) : one_inductive_body :=
   {| ind_name := ind_name oib;
      ind_type_vars := ind_type_vars oib;
+     ind_ctor_type_vars := ind_ctor_type_vars oib;
      ind_ctors :=
        mapi (fun c '(name, bts) =>
                let ctor_mask :=
@@ -503,6 +504,10 @@ Definition get_param_mask (oib : one_inductive_body) : bitmask :=
   map (fun x => tvar_is_logical x || negb (tvar_is_sort x))
       oib.(ind_type_vars).
 
+Definition get_ctor_param_mask (oib : one_inductive_body) : bitmask :=
+  map (fun x => tvar_is_logical x || negb (tvar_is_sort x))
+      oib.(ind_ctor_type_vars).
+
 Definition dearg_ty_ind (ind_masks : list (inductive × bitmask))
            (ind : inductive)
            (args : list box_type)
@@ -553,12 +558,16 @@ Fixpoint remove_logical_params_ctor (ind_par_mask : bitmask) (ds : dearg_set_ty)
 
 Definition remove_logical_params (ds : dearg_set_ty) (oib : ExAst.one_inductive_body) :=
   let mask := get_param_mask oib in
+  let mask_ctor := get_ctor_param_mask oib in
   let filtered_ty_vars :=
       map snd (filter (negb ∘ fst) (combine mask oib.(ind_type_vars))) in
+    let filtered_ctor_ty_vars :=
+        map snd (filter (negb ∘ fst) (combine mask_ctor oib.(ind_ctor_type_vars))) in
   {| ind_name:= oib.(ind_name);
-        ind_type_vars := filtered_ty_vars;
-        ind_ctors := map (remove_logical_params_ctor mask ds) oib.(ind_ctors);
-        ind_projs := oib.(ind_projs) |}.
+     ind_type_vars := filtered_ty_vars;
+     ind_ctor_type_vars := filtered_ctor_ty_vars;
+     ind_ctors := map (remove_logical_params_ctor mask_ctor ds) oib.(ind_ctors);
+     ind_projs := oib.(ind_projs) |}.
 
 Fixpoint get_param_masks_global_env (Σ : ExAst.global_env)
   : list (inductive * bitmask) :=

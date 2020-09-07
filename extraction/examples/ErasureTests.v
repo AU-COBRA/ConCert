@@ -335,7 +335,7 @@ Definition print_one_inductive_body
   let print_ctor_type bt :=
       " " ++ parens
           (negb (parenthesize_ctor_type bt))
-          (print_box_type Σ (map tvar_name (ExAst.ind_type_vars oib)) bt) in
+          (print_box_type Σ (map tvar_name (ExAst.ind_ctor_type_vars oib)) bt) in
 
   let print_ctor '(ctor_name, ctor_types) :=
       nl ++ "| " ++ ctor_name ++
@@ -377,7 +377,7 @@ Definition erase_remove_params_and_print_ind_prog (p : Ast.program)
     match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
     | Some (kn, P.InductiveDecl mib) =>
       let get_for_mib kn mib' :=
-          mapi (fun i oib=>(mkInd kn i, get_param_mask oib)) mib'.(ExAst.ind_bodies) in
+          mapi (fun i oib=>(mkInd kn i, get_ctor_param_mask oib)) mib'.(ExAst.ind_bodies) in
       inder <- erase_ind
                  (Σ, ind_universes mib) assume_wellformed
                  (inductive_mind ind) mib assume_wellformed;;
@@ -514,7 +514,7 @@ MetaCoq Quote Recursively Definition ex12 := ManyParamsIndNonArity.
 
 Example ManyParamsIndNonArity_test:
   erase_and_print_ind_prog ex12 =
-  Ok <$ "data ManyParamsIndNonArity A P B";
+  Ok <$ "data ManyParamsIndNonArity A P Q B";
         "| MPINAConstr1 □ □ □ □ □ A B";
         "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
 Proof. vm_compute. reflexivity. Qed.
