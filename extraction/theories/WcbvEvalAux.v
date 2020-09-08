@@ -22,8 +22,7 @@ Notation "Σ ⊢ s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : t
 
 Lemma eval_tApp_head Σ hd arg v :
   Σ ⊢ tApp hd arg ▷ v ->
-  exists hdv,
-    Σ ⊢ hd ▷ hdv.
+  ∑ hdv, Σ ⊢ hd ▷ hdv.
 Proof.
   intros ev.
   now depelim ev.
@@ -31,8 +30,7 @@ Qed.
 
 Lemma eval_tApp_arg Σ hd arg v :
   Σ ⊢ tApp hd arg ▷ v ->
-  exists argv,
-    Σ ⊢ arg ▷ argv.
+  ∑ argv, Σ ⊢ arg ▷ argv.
 Proof.
   intros ev.
   now depelim ev.
@@ -40,20 +38,18 @@ Qed.
 
 Lemma eval_mkApps_head Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  exists hdv,
-    Σ ⊢ hd ▷ hdv.
+  ∑ hdv, Σ ⊢ hd ▷ hdv.
 Proof.
   revert hd v.
   induction args; intros hd v ev; [easy|].
   cbn in *.
   specialize (IHargs _ _ ev) as (? & ?).
-  now apply eval_tApp_head in H.
+  now apply eval_tApp_head in e.
 Qed.
 
 Lemma eval_mkApps_args Σ hd args v :
   Σ ⊢ mkApps hd args ▷ v ->
-  exists argsv,
-    Forall2 (eval Σ) args argsv.
+  ∑ argsv, All2 (eval Σ) args argsv.
 Proof.
   revert hd v.
   induction args; intros hd v ev; [easy|].
@@ -92,8 +88,8 @@ Derive NoConfusionHom for term.
 
 Lemma eval_tLetIn_inv Σ na val body res :
   Σ ⊢ tLetIn na val body ▷ res ->
-  exists val_res,
-    Σ ⊢ val ▷ val_res /\
+  ∑ val_res,
+    Σ ⊢ val ▷ val_res ×
     Σ ⊢ csubst val_res 0 body ▷ res.
 Proof. intros ev; depelim ev; easy. Qed.
 
@@ -104,8 +100,8 @@ Proof. now intros ev; depelim ev. Qed.
 
 Lemma eval_tApp_tLambda_inv Σ na body a v :
   Σ ⊢ tApp (tLambda na body) a ▷ v ->
-  exists av,
-    Σ ⊢ a ▷ av /\
+  ∑ av,
+    Σ ⊢ a ▷ av ×
     Σ ⊢ csubst av 0 body ▷ v.
 Proof.
   intros ev.
@@ -222,7 +218,7 @@ Qed.
 
 Lemma all_closed Σ args args' :
   Forall (closedn 0) args ->
-  Forall2 (eval Σ) args args' ->
+  All2 (eval Σ) args args' ->
   Forall2 (fun t v => closed t -> closed v) args args' ->
   Forall (closedn 0) args'.
 Proof.
@@ -327,19 +323,19 @@ Proof.
 Qed.
 
 Lemma eval_stuck_fix Σ args argsv mfix idx :
-  Forall2 (eval Σ) args argsv ->
+  All2 (eval Σ) args argsv ->
   isStuckFix (tFix mfix idx) argsv ->
   Σ ⊢ (mkApps (tFix mfix idx) args) ▷ (mkApps (tFix mfix idx) argsv).
 Proof.
   revert argsv.
   induction args as [|a args IH] using MCList.rev_ind;
     intros argsv all stuck.
-  - apply Forall2_length in all.
+  - apply All2_length in all.
     destruct argsv; [|easy].
     now apply eval_atom.
   - destruct argsv as [|? ? _] using MCList.rev_ind;
-      [apply Forall2_length in all; rewrite app_length in all; now cbn in *|].
-    apply Forall2_app_r in all as (all & ev_a).
+      [apply All2_length in all; rewrite app_length in all; now cbn in *|].
+    apply All2_app_r in all as (all & ev_a).
     rewrite <- !mkApps_nested.
     cbn in *.
     destruct (cunfold_fix mfix idx) as [(? & ?)|] eqn:cuf; [|easy].
@@ -359,17 +355,17 @@ Qed.
 
 Lemma value_final Σ e : value e -> Σ ⊢ e ▷ e.
 Proof.
-  induction 1 using value_values_ind; cbn in *.
+  induction 1 using value_values_rect; cbn in *.
   - now apply eval_atom.
-  - induction l using List.rev_ind.
+  - induction l using MCList.rev_ind.
     + cbn in *.
       destruct t; cbn in *; propify; try easy; now apply eval_atom.
     + rewrite mkApps_app.
       cbn.
-      apply Forall_app in H0 as (? & ?).
-      apply Forall_app in H1 as (? & ?).
-      depelim H2.
-      depelim H4.
+      apply All_app in H0 as (? & ?).
+      apply All_app in H1 as (? & ?).
+      depelim a0.
+      depelim a2.
       apply eval_app_cong.
       * now apply IHl.
       * rewrite isFixApp_mkApps by (now destruct t).
@@ -378,6 +374,6 @@ Proof.
         now destruct t.
       * easy.
   - destruct f; try easy.
-    apply Forall_All, All_All2_refl, All2_Forall2 in H0.
+    apply All_All2_refl in H0.
     now apply eval_stuck_fix.
 Qed.
