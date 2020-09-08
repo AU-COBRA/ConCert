@@ -9,11 +9,12 @@ From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
-From ConCert.Extraction Require Import MidlangExtractTests.
-From Coq Require Import Arith.
+From ConCert.Extraction.Examples Require Import MidlangExtractTests.
+From ConCert.Extraction.Examples Require Import Ack.
 From Coq Require Import String.
-From Coq Require Import String Ascii.
 From Coq Require Import List.
+From Coq Require Import Arith.
+From Coq Require Import Lia.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
@@ -43,6 +44,9 @@ Definition wrapped (p : program) (pre post : string) : result string string :=
   general_wrapped p pre post [] [].
 
 Module ElmExamples.
+
+  Import Lia.
+
   Definition Preambule mod_name :=
     String.concat nl
                   ["module " ++ mod_name ++ " exposing (..)";
@@ -61,9 +65,21 @@ Module ElmExamples.
 
   MetaCoq Quote Recursively Definition rev_syn := List.rev.
 
-  Redirect "./extraction/examples/elm-extract/Rev.elm" Compute wrapped rev_syn
-          (Preambule "Rev")
-          (main_and_test "Expect.equal (rev (Cons 3 (Cons 2 (Cons 1 (Cons 0 Nil))))) (Cons 0 (Cons 1 (Cons 2 (Cons 3 Nil))))").
+  Definition ackermann := Eval compute in ack.
+
+  MetaCoq Run (t <- tmQuoteRecTransp ackermann false ;;
+               tmDefinition "ackermann_syn" t).
+
+
+  Redirect "./extraction/examples/elm-extract/Ackermann.elm"
+  Compute wrapped ackermann_syn
+          (Preambule "Ackermann")
+          (main_and_test "Expect.equal (ackermann (Pair (S (S (S O))) (S (S (S O))))) (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S O)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))").
+
+  Redirect "./extraction/examples/elm-extract/Rev.elm"
+           Compute wrapped rev_syn
+           (Preambule "Rev")
+           (main_and_test "Expect.equal (rev (Cons 3 (Cons 2 (Cons 1 (Cons 0 Nil))))) (Cons 0 (Cons 1 (Cons 2 (Cons 3 Nil))))").
 
 
   MetaCoq Quote Recursively Definition nth_syn := List.nth.
@@ -153,14 +169,12 @@ Module ElmExamples.
     extract foldl_syn = Ok result_foldl.
   Proof. reflexivity. Qed.
 
-  Import Lia.
-
   Program Definition inc_counter (st : nat) (inc : {z : nat | 0 <? z}) :
     {new_st : nat | st <? new_st} :=
     st + inc.
   Next Obligation.
-    intros st inc. unfold is_true in *.
-    destruct inc;simpl.
+    intros ? inc0. unfold is_true in *.
+    destruct inc0;simpl.
     rewrite NPeano.Nat.ltb_lt in *. lia.
   Qed.
 
