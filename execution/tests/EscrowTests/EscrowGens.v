@@ -52,6 +52,7 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
     )
   ].
 
+
 (* This generator uses the 'next_step' state of the Escrow contract to determine which message to generate.
    This should lead to much fewer discards during testing, but at the cost of the generator being more complex
    and less "blackbox-like" *)

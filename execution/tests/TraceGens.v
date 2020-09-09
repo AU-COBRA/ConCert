@@ -112,6 +112,50 @@ Section TraceGens.
       end in 
     rec max_length init_lc.
 
+
+  Definition get_reachable {to} : ChainTrace empty_state to -> reachable to := fun t => inhabits t.
+
+  Definition gReachableFromTrace {to} (gtrace : G (ChainTrace empty_state to)) : G (reachable to) :=
+    bindGen gtrace (fun trace =>
+    returnGen (get_reachable trace)).
+
+  Global Instance shrinkReachable : Shrink {to : ChainState | reachable to} :=
+  {|
+    shrink a := [a]
+  |}.
+    
+  Global Instance genReachableSized `{GenSized ChainBuilder} : GenSized {to | reachable to}.
+  Proof.
+    constructor.
+    intros H2. 
+    apply H1 in H2.
+    apply (bindGen H2).
+    intros cb.
+    remember (builder_trace cb) as trace.
+    apply returnGen.
+    eapply exist.
+    apply get_reachable.
+    apply trace.
+  Defined.
+
+  Global Instance shrinkChainTraceSig : Shrink {to : ChainState & ChainTrace empty_state to} := 
+  {|
+    shrink a := [a]
+  |}.
+
+  Global Instance genChainTraceSigSized `{GenSized ChainBuilder} : GenSized {to : ChainState & ChainTrace empty_state to}.
+  Proof.
+    constructor. 
+    intros n.
+    apply H1 in n.
+    apply (bindGen n).
+    intros cb.
+    remember (builder_trace cb) as trace.
+    apply returnGen.
+    eapply existT.
+    eauto.
+  Defined.
+
   (* Checker combinators on ChainBuilder *)
   Definition forAllChainBuilder {prop : Type}
                               `{Checkable prop}
@@ -142,11 +186,11 @@ Section TraceGens.
 
   (* Asserts that a ChainState property holds for all ChainStates in a ChainTrace  *)
   Definition ChainTrace_ChainTraceProp {prop : Type}
-                                    {from to}
-                                    `{Checkable prop}
-                                    (trace : ChainTrace from to)
-                                    (pf : ChainState -> prop)
-                                    : Checker :=
+                                       {from to}
+                                      `{Checkable prop}
+                                       (trace : ChainTrace from to)
+                                       (pf : ChainState -> prop)
+                                       : Checker :=
     let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
     let trace_list := trace_states_step_block trace in
     discard_empty trace_list (conjoin_map printOnFail).
@@ -154,7 +198,7 @@ Section TraceGens.
   (* -------------------- Checker combinators on traces --------------------  *)
 
   Definition forAllChainState {prop : Type}
-                              `{Checkable prop}
+                             `{Checkable prop}
                               (maxLength : nat)
                               (init_lc : ChainBuilder)
                               (gTrace : ChainBuilder -> nat -> G ChainBuilder)
@@ -166,12 +210,12 @@ Section TraceGens.
   (* Checker combinators on ChainTrace, asserting holds a property on 
     each pair of succeeding ChainStates in the trace. *)
   Definition forAllChainStatePairs {prop : Type}
-                              `{Checkable prop}
-                              (maxLength : nat)
-                              (init_lc : ChainBuilder)
-                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                              (pf : ChainState -> ChainState -> prop)
-                              : Checker :=
+                                  `{Checkable prop}
+                                   (maxLength : nat)
+                                   (init_lc : ChainBuilder)
+                                   (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                                   (pf : ChainState -> ChainState -> prop)
+                                   : Checker :=
     (* helper function folding over the trace*)
     let last_cstate {from to} (trace : ChainTrace from to) := to in
     let fix all_statepairs {from to : ChainState} (trace : ChainTrace from to) prev_bstate : Checker :=

@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain.
 From ConCert Require Import Serializable.
 From QuickChick Require Import QuickChick.
-From ConCert.Execution.QCTests Require Import ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers TestContracts DexterPrinters EscrowPrinters.
+From ConCert.Execution.QCTests Require Import ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers TestContracts DexterPrinters EscrowPrinters BoardroomVotingPrinters.
 Local Open Scope string_scope.
 
 Existing Instance EIP20TokenPrinters.showMsg.
@@ -31,6 +31,9 @@ Global Instance showSerializedValue : Show SerializedValue :=
     match @deserialize EIP20Token.Msg _ v with
     | Some v => show v
     | None =>
+    match @deserialize BoardroomVoting.Msg _ v with
+    | Some v => show v
+    | None =>
     match @deserialize Escrow.Msg _ v with
     | Some v => show v
     | None =>
@@ -44,5 +47,11 @@ Global Instance showSerializedValue : Show SerializedValue :=
     end
     end
     end
+    end
 |}.
 Close Scope string_scope.
+
+Instance showChainTraceSigT : Show {to : ChainState & ChainTrace empty_state to} :=
+{|
+  show a := show (projT2 a)
+|}.
