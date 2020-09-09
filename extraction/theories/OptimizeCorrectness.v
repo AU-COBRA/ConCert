@@ -2813,6 +2813,126 @@ Section dearg.
     Admitted.
 End dearg.
 
+Set Equations With UIP.
+
+Inductive All2_eval_app_spec Σ : list term -> term -> list term -> term -> forall ts tsv, All2 (eval Σ) ts tsv -> Type :=
+| All2_eval_app_intro {ts tsv} (a : All2 (eval Σ) ts tsv)
+                      {x xv} (evx : Σ ⊢ x ▷ xv) :
+    All2_eval_app_spec
+      Σ ts x tsv xv
+      (ts ++ [x])
+      (tsv ++ [xv])
+      (app_All2 a (All2_cons evx All2_nil)).
+
+Derive Signature for All2.
+Derive NoConfusionHom for All2.
+
+Lemma All2_eval_snoc_elim
+      {Σ ts tsv x xv} (a : All2 (eval Σ) (ts ++ [x]) (tsv ++ [xv])) :
+  All2_eval_app_spec Σ ts x tsv xv _ _ a.
+Proof.
+  Admitted.
+
+Derive Signature for eval.
+Derive NoConfusionHom for term.
+
+Lemma sum_deriv_lengths_app_All2 {Σ}
+      {ts tsv} (a : All2 (eval Σ) ts tsv)
+      {ts' tsv'} (a' : All2 (eval Σ) ts' tsv') :
+  sum_deriv_lengths (app_All2 a a') = sum_deriv_lengths a + sum_deriv_lengths a'.
+Proof.
+  induction a in ts', tsv', a' |- *; [easy|].
+  cbn in *.
+  now rewrite IHa.
+Qed.
+
+Lemma derivs_length_eq {Σ t v} (ev1 ev2 : Σ ⊢ t ▷ v) :
+  deriv_length ev1 = deriv_length ev2.
+Proof.
+  Admitted.
+
+Lemma eval_mkApps_tConstruct Σ ind c args argsv
+      (a : All2 (eval Σ) args argsv) :
+  exists ev : Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv,
+    deriv_length ev = S #|args| + sum_deriv_lengths a.
+Proof.
+  revert argsv a.
+  induction args using MCList.rev_ind; intros argsv all.
+  - depelim all.
+    cbn.
+    unshelve eexists _.
+    + now constructor.
+    + easy.
+  - destruct argsv as [|? ? _] using MCList.rev_ind.
+    { apply All2_length in all as len.
+      rewrite app_length in len; cbn in *; lia. }
+    destruct (All2_eval_snoc_elim all).
+    rewrite !mkApps_app.
+    cbn.
+    specialize (IHargs _ a) as (ev & deriv).
+    unshelve eexists _.
+    + eapply eval_app_cong.
+      * easy.
+      * admit.
+      * eassumption.
+    + rewrite sum_deriv_lengths_app_All2.
+      cbn.
+      rewrite app_length.
+      cbn.
+      lia.
+Admitted.
+
+Fixpoint select {X} (mask : bitmask) (xs : list X) :=
+  match mask, xs with
+  | _, [] => []
+  | [], _ => xs
+  | true :: mask, x :: xs => x :: select mask xs
+  | false :: mask, _ :: xs => select mask xs
+  end.
+
+Lemma select_nil {X} mask :
+  @select X mask [] = [].
+Proof. now destruct mask as [|[] ?]. Qed.
+
+Lemma dearg_single_select mask t args :
+  #|mask| <= #|args| ->
+  dearg_single mask t args = mkApps t (select (bitmask_not mask) args).
+Proof.
+  intros le.
+  induction mask in mask, t, args, le |- *.
+  - now destruct args.
+  - destruct args; [easy|].
+    now destruct a; cbn in *; apply IHmask.
+Qed.
+
+Lemma All2_select {X Y} {T : X -> Y -> Type} xs ys mask :
+  All2 T xs ys ->
+  All2 T (select mask xs) (select mask ys).
+Proof.
+  intros all.
+  induction all in mask |- *.
+  - now rewrite !select_nil.
+  - destruct mask as [|[] mask]; [now constructor| |]; cbn in *.
+    1: constructor; [easy|].
+    all: now apply IHall.
+Qed.
+
+Lemma All2_rev_rect X Y (T : X -> Y -> Type) (P : forall xs ys, All2 T xs ys -> Type) :
+  P [] [] All2_nil ->
+  (forall x y xs ys (t : T x y) (a : All2 T xs ys),
+      P xs ys a -> P (xs ++ [x]) (ys ++ [y]) (app_All2 a (All2_cons t All2_nil))) ->
+  forall xs ys (a : All2 T xs ys), P xs ys a.
+Proof.
+  intros nil_case snoc_case.
+  induction xs using MCList.rev_ind; intros ys a.
+  - now depelim a.
+  - destruct ys as [|y ys _] using MCList.rev_ind.
+    + apply All2_length in a as ?.
+      rewrite app_length in *.
+      now cbn in *.
+    + admit.
+Admitted.
+
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
   closed t ->
@@ -2835,7 +2955,7 @@ Proof.
     destruct ev as [ev].
     edestruct (H _ ev (le_refl _)).
     now constructor. }
-  induction n in t, v, clos_t, valid_t, exp_t |- *; [admit|].
+  induction n as [|n IH] in t, v, clos_t, valid_t, exp_t |- *; [admit|].
   intros ev len.
   destruct (dearg_elim t).
   - rewrite is_expanded_mkApps in exp_t.
@@ -2850,26 +2970,107 @@ Proof.
     admit.
   - rewrite is_expanded_mkApps in exp_t.
     cbn in *; propify.
-    induction args in v, args, clos_t, valid_t, exp_t, ev, len |- * using List.rev_ind; cbn in *.
-    + depelim ev.
+    specialize (eval_mkApps_deriv ev) as (? & ev_constr & argsv & ev_args & deriv).
+    assert (v = (mkApps (tConstruct ind c) argsv)).
+    { destruct (eval_mkApps_tConstruct _ ind c _ _ ev_args) as (? & _).
+      now eapply eval_deterministic. }
+    apply All2_length in ev_args as len_args.
+    revert ev len deriv; subst v; intros ev len deriv.
+    rewrite dearg_mkApps.
+    cbn.
+    rewrite !dearg_single_select by (now rewrite map_length).
+    assert (∥All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv)∥).
+    { constructor.
+      apply All2_map.
+      eapply All2_impl; [eassumption|].
+      clear -clos_t valid_t exp_t IH ev_args deriv_args.
+      destruct exp_t as (_ & exp_args).
+      induction ev_args using All2_rev_rect; cbn in *; [now constructor|].
+      rewrite sum_deriv_lengths_app_All2 in deriv_args.
+      rewrite mkApps_app, forallb_app in *.
+      cbn in *; propify.
+      unshelve epose proof (IHev_args _ _ _ ) as [all]; try easy.
+      i
+      unshelve epose proof (IH _ _ _ _ _ r _) as [ev_x]; try easy.
+      -
+      constructor.
+      rewrite !map_app.
+      apply All2_app; [easy|].
+      constructor; [|easy].
+
+      - apply IH
+      - easy.
+      - easy.
+      eapply All2_impl; [eassumption|].
+      specialize (IH
+      intros x y ev.
+
+    apply (All2_select _ _ (bitmask_not (get_ctor_mask ind c))) in ev_args as ev_args_select.
+    revert ev_args ev len deriv.
+    rewrite <- (firstn_skipn #|get_ctor_mask ind c| args).
+    rewrite <- (firstn_skipn #|get_ctor_mask ind c| argsv).
+    rewrite !mkApps_app, !map_app, !dearg_single_app, !map_length, !firstn_length.
+    replace (min _ _) with #|get_ctor_mask ind c| by lia.
+    replace (min _ _) with #|get_ctor_mask ind c| by lia.
+    rewrite !firstn_all, skipn_all.
+    intros ev_args ev len deriv.
+    cbn in *.
+    unshelve eexists
+    rewrite !skipn_all.
+    rewrite (skipn_all2
+    intros ev_args ev len deriv.
+    rewrite !map_app, !dearg_single_app, !map_length.
+    induction args in args, clos_t, valid_t, exp_t, argsv, ev_args, ev, len, deriv |- * using List.rev_ind; cbn in *.
+    + destruct (get_ctor_mask ind c); [|easy].
+      depelim ev_args.
       cbn in *.
-      destruct (get_ctor_mask ind c); [|easy].
+      unshelve eexists _; [now constructor|].
       cbn in *.
-      unshelve eexists _; [now constructor|easy].
-    + rewrite app_length in *; cbn in *.
-      revert ev len.
-      rewrite mkApps_app.
-      cbn.
-      intros ev len.
-      rewrite map_app, dearg_single_app, map_length.
-      specialize (eval_tApp_deriv ev) as (constrv & ev_constr & xv & ev_x & ev_app_len).
-      revert ev len ev_app_len.
-      replace v with (tApp constrv xv) by admit.
-      intros ev len ev_app_len.
+      now depelim ev.
+    + destruct argsv as [|? ? _] using List.rev_ind.
+      { apply All2_length in ev_args as H.
+        rewrite app_length in H.
+        now cbn in H. }
+      rewrite app_length in *; cbn in *.
+      revert ev len ev_args deriv.
+      rewrite !map_app, !dearg_single_app, !mkApps_app, !map_length in *.
+      cbn in *.
+      intros ev len ev_args deriv.
+      destruct (All2_eval_snoc_elim ev_args) as [args argsv ev_args x0 x1 ev_x].
+      rewrite sum_deriv_lengths_app_All2 in deriv.
+      rewrite <- (All2_length _ _ ev_args) in *.
+      cbn in *.
       destruct (Nat.leb_spec #|get_ctor_mask ind c| #|args|).
-      * rewrite firstn_all2, skipn_all2 by easy.
+      * rewrite !firstn_all2, !skipn_all2 by easy.
         cbn.
-        unshelve epose proof (IHargs v _ _ _ ev_constrv
+        depelim ev.
+        -- cbn in *.
+           admit.
+        -- admit.
+        -- admit.
+        -- depelim ev_constr.
+           rewrite forallb_app in exp_t.
+           cbn in *.
+           propify.
+           assert (deriv_length ev_x = deriv_length ev2) by (now apply derivs_length_eq).
+           unshelve epose proof (IHargs _ _ _ _ ev_args ev1 _ _) as (? & ?);
+             try easy.
+           unshelve epose proof (IHn _ _ _ _ _ ev_x _) as (? & ?);
+             try easy.
+           unshelve eexists _.
+           ++ eapply eval_app_cong; [eassumption| |eassumption].
+              admit.
+           ++ cbn.
+              lia.
+        -- inversion i.
+      *
+
+           unshelve eexists _.
+           ++ eapply eval_app_cong.
+              **
+        pose proof (eval_tApp_deriv ev) as (? & ev_mkApps_constr & ? & ev_x
+        eapply eval_tApp_deriv
+        unshelve epose proof (IHargs _ _ _ _ ev_args
       apply All2_app_r in ev_args as ?.
       destruct H as (ev_args_hd & ev_x).
       assert (sum_deriv_lengths ev_args_hd + deriv_length ev_x <= n) by admit.
