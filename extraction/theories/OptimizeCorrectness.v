@@ -2813,9 +2813,73 @@ Section dearg.
     Admitted.
 End dearg.
 
+(*
 Set Equations With UIP.
 
-Inductive All2_eval_app_spec Σ : list term -> term -> list term -> term -> forall ts tsv, All2 (eval Σ) ts tsv -> Type :=
+*)
+
+Derive Signature for eval.
+Derive NoConfusionHom for term.
+Lemma sum_deriv_lengths_app_All2 {Σ}
+      {ts tsv} (a : All2 (eval Σ) ts tsv)
+      {ts' tsv'} (a' : All2 (eval Σ) ts' tsv') :
+  sum_deriv_lengths (app_All2 a a') = sum_deriv_lengths a + sum_deriv_lengths a'.
+Proof.
+  induction a in ts', tsv', a' |- *; [easy|].
+  cbn in *.
+  now rewrite IHa.
+Qed.
+
+Lemma derivs_length_eq {Σ t v} (ev1 ev2 : Σ ⊢ t ▷ v) :
+  deriv_length ev1 = deriv_length ev2.
+Proof.
+  Admitted.
+
+Lemma All2_split_eq
+      {X Y} {T : X -> Y -> Type}
+      {xs ys xs' ys'}
+      (a : All2 T (xs ++ xs') (ys ++ ys')) :
+  #|xs| = #|ys| ->
+  ∑ apref asuf, a = app_All2 apref asuf.
+Proof.
+  intros eq.
+  induction xs in xs, ys, xs', ys', a, eq |- *.
+  - destruct ys; [|easy].
+    cbn in *.
+    now exists All2_nil, a.
+  - destruct ys; [easy|].
+    cbn in *.
+    depelim a.
+    specialize (IHxs ys xs' ys' a ltac:(easy)) as (apref & asuf & ->).
+    now exists (All2_cons t apref), asuf.
+Qed.
+
+Lemma All2_rev_rect X Y (T : X -> Y -> Type) (P : forall xs ys, All2 T xs ys -> Type) :
+  P [] [] All2_nil ->
+  (forall x y xs ys (t : T x y) (a : All2 T xs ys),
+      P xs ys a -> P (xs ++ [x]) (ys ++ [y]) (app_All2 a (All2_cons t All2_nil))) ->
+  forall xs ys (a : All2 T xs ys), P xs ys a.
+Proof.
+  intros nil_case snoc_case.
+  induction xs using MCList.rev_ind; intros ys a.
+  - now depelim a.
+  - destruct ys as [|y ys _] using MCList.rev_ind.
+    + apply All2_length in a as ?.
+      rewrite app_length in *.
+      now cbn in *.
+    + unshelve epose proof (All2_split_eq a _) as (? & ? & ->).
+      * apply All2_length in a.
+        rewrite !app_length in a.
+        now cbn in *.
+      * depelim x1.
+        depelim x3.
+        apply snoc_case.
+        apply IHxs.
+Qed.
+
+Inductive All2_eval_app_spec Σ : list term -> term ->
+                                 list term -> term ->
+                                 forall ts tsv, All2 (eval Σ) ts tsv -> Type :=
 | All2_eval_app_intro {ts tsv} (a : All2 (eval Σ) ts tsv)
                       {x xv} (evx : Σ ⊢ x ▷ xv) :
     All2_eval_app_spec
@@ -2831,25 +2895,14 @@ Lemma All2_eval_snoc_elim
       {Σ ts tsv x xv} (a : All2 (eval Σ) (ts ++ [x]) (tsv ++ [xv])) :
   All2_eval_app_spec Σ ts x tsv xv _ _ a.
 Proof.
-  Admitted.
-
-Derive Signature for eval.
-Derive NoConfusionHom for term.
-
-Lemma sum_deriv_lengths_app_All2 {Σ}
-      {ts tsv} (a : All2 (eval Σ) ts tsv)
-      {ts' tsv'} (a' : All2 (eval Σ) ts' tsv') :
-  sum_deriv_lengths (app_All2 a a') = sum_deriv_lengths a + sum_deriv_lengths a'.
-Proof.
-  induction a in ts', tsv', a' |- *; [easy|].
-  cbn in *.
-  now rewrite IHa.
+  unshelve epose proof (All2_split_eq a _) as (? & ev & ->).
+  - apply All2_length in a.
+    rewrite !app_length in a.
+    now cbn in *.
+  - depelim ev.
+    depelim ev.
+    constructor.
 Qed.
-
-Lemma derivs_length_eq {Σ t v} (ev1 ev2 : Σ ⊢ t ▷ v) :
-  deriv_length ev1 = deriv_length ev2.
-Proof.
-  Admitted.
 
 Lemma eval_mkApps_tConstruct Σ ind c args argsv
       (a : All2 (eval Σ) args argsv) :
@@ -2917,21 +2970,39 @@ Proof.
     all: now apply IHall.
 Qed.
 
-Lemma All2_rev_rect X Y (T : X -> Y -> Type) (P : forall xs ys, All2 T xs ys -> Type) :
-  P [] [] All2_nil ->
-  (forall x y xs ys (t : T x y) (a : All2 T xs ys),
-      P xs ys a -> P (xs ++ [x]) (ys ++ [y]) (app_All2 a (All2_cons t All2_nil))) ->
-  forall xs ys (a : All2 T xs ys), P xs ys a.
+Inductive In_All2
+          {X Y} {T : X -> Y -> Type}
+          {x y} (t : T x y) : forall {xs ys}, All2 T xs ys -> Type :=
+| In_All2_here {xs ys} (a : All2 T xs ys) :
+    In_All2 t (All2_cons t a)
+| In_All2_there {xs ys x' y'} (a : All2 T xs ys) (t' : T x' y') :
+    In_All2 t a ->
+    In_All2 t (All2_cons t' a).
+
+Lemma All2_impl_In
+      {X Y} {T T' : X -> Y -> Type}
+      {xs : list X} {ys : list Y} (a : All2 T xs ys) :
+  (forall x y (t : T x y), In x xs -> In y ys -> In_All2 t a -> T' x y) ->
+  All2 T' xs ys.
 Proof.
-  intros nil_case snoc_case.
-  induction xs using MCList.rev_ind; intros ys a.
-  - now depelim a.
-  - destruct ys as [|y ys _] using MCList.rev_ind.
-    + apply All2_length in a as ?.
-      rewrite app_length in *.
-      now cbn in *.
-    + admit.
-Admitted.
+  intros f.
+  induction a; [easy|].
+  constructor.
+  - apply (f _ _ r); [now left|now left|constructor].
+  - apply IHa.
+    intros.
+    apply (f _ _ t); [now right|now right|].
+    now apply In_All2_there.
+Qed.
+
+Lemma In_All2_sum_deriv_lengths
+      {Σ t tv ts tsv} (ev : Σ ⊢ t ▷ tv) (a : All2 (eval Σ) ts tsv) :
+  In_All2 ev a ->
+  deriv_length ev <= sum_deriv_lengths a.
+Proof.
+  intros isin.
+  now induction isin; cbn.
+Qed.
 
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
@@ -2979,11 +3050,50 @@ Proof.
     rewrite dearg_mkApps.
     cbn.
     rewrite !dearg_single_select by (now rewrite map_length).
-    assert (∥All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv)∥).
-    { constructor.
-      apply All2_map.
-      eapply All2_impl; [eassumption|].
+    assert (
+        exists a : All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv),
+          sum_deriv_lengths a <= sum_deriv_lengths ev_args) as (ev_args_dearged & deriv_args_dearged).
+    { assert (all_smaller: sum_deriv_lengths ev_args <= n).
+      { pose proof (deriv_length_min ev_constr).
+        lia. }
+      apply closed_mkApps_inv in clos_t as (_ & clos_apps).
+      apply valid_cases_mkApps_inv in valid_t as (_ & valid_apps).
+      destruct exp_t as (_ & exp_args).
+      apply forallb_Forall in exp_args.
+      clear -clos_apps valid_apps exp_args IH ev_args all_smaller.
+      induction ev_args; cbn in *.
+      - now exists All2_nil.
+      - depelim clos_apps.
+        depelim valid_apps.
+        depelim exp_args.
+        unshelve epose proof (IH _ _ _ _ _ r _) as (ev_dearg & deriv_dearg); try easy.
+        unshelve epose proof (IHev_args _ _ _ _) as (ev_suf & deriv_suf); try easy.
+        exists (All2_cons ev_dearg ev_suf).
+        cbn.
+        lia. }
+    pose proof (eval_mkApps_tConstruct _ ind c _ _ ev_args_dearged).
+
+All2 (fun x y => ∥trans (dearg_env Σ) ⊢ x ▷ y∥) (map dearg args) (map dearg argsv)).
+    { apply All2_map.
+      apply (All2_impl_In ev_args).
+      intros y yv ev_y iny inyv isin.
+      apply In_All2_sum_deriv_lengths in isin.
+      unshelve epose proof (IH _ _ _ _ _ ev_y _) as (ev_dearg & deriv_dearg).
+      - apply closed_mkApps_inv in clos_t as (_ & clos_args).
+        rewrite Forall_forall in clos_args.
+        now apply clos_args in iny.
+      - apply valid_cases_mkApps_inv in valid_t as (_ & valid_args).
+        rewrite Forall_forall in valid_args.
+        now apply valid_args in iny.
+      - destruct exp_t as (_ & exp_args).
+        apply forallb_Forall in exp_args.
+        rewrite Forall_forall in exp_args.
+        now apply exp_args in iny.
+      - pose proof (deriv_length_min ev_constr).
+        lia.
+      - now constructor. }
       clear -clos_t valid_t exp_t IH ev_args deriv_args.
+      eapply
       destruct exp_t as (_ & exp_args).
       induction ev_args using All2_rev_rect; cbn in *; [now constructor|].
       rewrite sum_deriv_lengths_app_All2 in deriv_args.
