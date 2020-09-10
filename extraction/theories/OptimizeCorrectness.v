@@ -2611,29 +2611,6 @@ Ltac transfer_elim :=
     clear clos_args' valid_args' exp_args'
   end.
 
-Fixpoint deriv_length {Σ t v} (ev : Σ ⊢ t ▷ v) : nat :=
-  match ev with
-  | eval_atom _ _ => 1
-  | red_cofix_case _ _ _ _ _ _ _ _ _ ev
-  | red_cofix_proj _ _ _ _ _ _ _ _ ev
-  | eval_delta _ _ _ _ _ _ ev
-  | eval_proj_box _ _ _ _ ev => S (deriv_length ev)
-  | eval_box _ _ _ ev1 ev2
-  | eval_zeta _ _ _ _ _ ev1 ev2
-  | eval_iota _ _ _ _ _ _ _ ev1 ev2
-  | eval_iota_sing _ _ _ _ _ _ _ ev1 _ ev2
-  | eval_fix_value _ _ _ _ _ _ _ _ ev1 ev2 _ _
-  | eval_proj _ _ _ _ _ _ _ ev1 ev2
-  | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
-  | eval_beta _ _ _ _ _ _ ev1 ev2 ev3
-  | eval_fix _ _ _ _ _ _ _ _ _ ev1 ev2 _ _ _ ev3 =>
-    S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
-  end.
-
-Lemma deriv_length_min {Σ t v} (ev : Σ ⊢ t ▷ v) :
-  1 <= deriv_length ev.
-Proof. destruct ev; cbn in *; lia. Qed.
-
 Lemma declared_constant_dearg Σ k cst :
   ETyping.declared_constant (trans Σ) k cst ->
   exists cst',
@@ -2719,64 +2696,6 @@ Proof.
   - now refold'; rewrite IHt2.
 Qed.
 
-Lemma eval_tApp_deriv {Σ hd arg v} (ev : Σ ⊢ tApp hd arg ▷ v) :
-  ∑ hdv (ev_hd : Σ ⊢ hd ▷ hdv) argv (ev_arg : Σ ⊢ arg ▷ argv),
-    S (deriv_length ev_hd + deriv_length ev_arg) <= deriv_length ev.
-Proof.
-  depelim ev; cbn in *;
-    try now eexists _, ev1, _, ev2.
-  easy.
-Qed.
-
-Fixpoint sum_deriv_lengths {Σ ts tsv} (a : All2 (eval Σ) ts tsv) : nat :=
-  match a with
-  | All2_nil => 0
-  | All2_cons _ _ _ _ ev a => deriv_length ev + sum_deriv_lengths a
-  end.
-
-Fixpoint app_All2
-         {A B}
-         {T : A -> B -> Type}
-         {la lb la' lb'}
-         (a1 : All2 T la lb)
-         (a2 : All2 T la' lb') : All2 T (la ++ la') (lb ++ lb').
-Proof.
-  destruct a1.
-  - exact a2.
-  - refine (All2_cons t _).
-    exact (app_All2 _ _ _ _ _ _ _ a1 a2).
-Defined.
-
-(*
-Lemma All2_split
-      {A B}
-      {T : A -> B -> Type}
-      {la lb la' lb'}
-      (a : All2 T (la ++ la') (lb ++ lb')) :
-  exists (l : All2 T la lb) (r : All2 T la' lb'),
-    a = app_All2 l r.
-Proof.
-  exists
-    (fix
-  depind a.
-  -*)
-
-Lemma eval_mkApps_deriv {Σ hd args v} (ev : Σ ⊢ mkApps hd args ▷ v) :
-  ∑ hdv (ev_hd : Σ ⊢ hd ▷ hdv) argsv (ev_args : All2 (eval Σ) args argsv),
-    deriv_length ev_hd + #|args| + sum_deriv_lengths ev_args <= deriv_length ev.
-Proof.
-  revert hd v ev.
-  induction args; intros hd v ev; cbn in *.
-  - exists _, ev, [], All2_nil.
-    now cbn.
-  - specialize (IHargs _ _ ev) as (hdv & ev_hd & argsv & ev_args & len).
-    specialize (eval_tApp_deriv ev_hd) as (hdv' & ev_hdv' & argv & ev_argv & len').
-    exists _, ev_hdv', (argv :: argsv).
-    exists (All2_cons ev_argv ev_args).
-    cbn in *.
-    lia.
-Qed.
-
 Section dearg.
   Context (n : nat).
   Context (Σ : global_env).
@@ -2857,90 +2776,6 @@ Set Equations With UIP.
 
 Derive Signature for eval.
 Derive NoConfusionHom for term.
-Lemma sum_deriv_lengths_app_All2 {Σ}
-      {ts tsv} (a : All2 (eval Σ) ts tsv)
-      {ts' tsv'} (a' : All2 (eval Σ) ts' tsv') :
-  sum_deriv_lengths (app_All2 a a') = sum_deriv_lengths a + sum_deriv_lengths a'.
-Proof.
-  induction a in ts', tsv', a' |- *; [easy|].
-  cbn in *.
-  now rewrite IHa.
-Qed.
-
-Lemma derivs_length_eq {Σ t v} (ev1 ev2 : Σ ⊢ t ▷ v) :
-  deriv_length ev1 = deriv_length ev2.
-Proof.
-  Admitted.
-
-Lemma All2_split_eq
-      {X Y} {T : X -> Y -> Type}
-      {xs ys xs' ys'}
-      (a : All2 T (xs ++ xs') (ys ++ ys')) :
-  #|xs| = #|ys| ->
-  ∑ apref asuf, a = app_All2 apref asuf.
-Proof.
-  intros eq.
-  induction xs in xs, ys, xs', ys', a, eq |- *.
-  - destruct ys; [|easy].
-    cbn in *.
-    now exists All2_nil, a.
-  - destruct ys; [easy|].
-    cbn in *.
-    depelim a.
-    specialize (IHxs ys xs' ys' a ltac:(easy)) as (apref & asuf & ->).
-    now exists (All2_cons t apref), asuf.
-Qed.
-
-Lemma All2_rev_rect X Y (T : X -> Y -> Type) (P : forall xs ys, All2 T xs ys -> Type) :
-  P [] [] All2_nil ->
-  (forall x y xs ys (t : T x y) (a : All2 T xs ys),
-      P xs ys a -> P (xs ++ [x]) (ys ++ [y]) (app_All2 a (All2_cons t All2_nil))) ->
-  forall xs ys (a : All2 T xs ys), P xs ys a.
-Proof.
-  intros nil_case snoc_case.
-  induction xs using MCList.rev_ind; intros ys a.
-  - now depelim a.
-  - destruct ys as [|y ys _] using MCList.rev_ind.
-    + apply All2_length in a as ?.
-      rewrite app_length in *.
-      now cbn in *.
-    + unshelve epose proof (All2_split_eq a _) as (? & ? & ->).
-      * apply All2_length in a.
-        rewrite !app_length in a.
-        now cbn in *.
-      * depelim x1.
-        depelim x3.
-        apply snoc_case.
-        apply IHxs.
-Qed.
-
-Inductive All2_eval_app_spec Σ : list term -> term ->
-                                 list term -> term ->
-                                 forall ts tsv, All2 (eval Σ) ts tsv -> Type :=
-| All2_eval_app_intro {ts tsv} (a : All2 (eval Σ) ts tsv)
-                      {x xv} (evx : Σ ⊢ x ▷ xv) :
-    All2_eval_app_spec
-      Σ ts x tsv xv
-      (ts ++ [x])
-      (tsv ++ [xv])
-      (app_All2 a (All2_cons evx All2_nil)).
-
-Derive Signature for All2.
-Derive NoConfusionHom for All2.
-
-Lemma All2_eval_snoc_elim
-      {Σ ts tsv x xv} (a : All2 (eval Σ) (ts ++ [x]) (tsv ++ [xv])) :
-  All2_eval_app_spec Σ ts x tsv xv _ _ a.
-Proof.
-  unshelve epose proof (All2_split_eq a _) as (? & ev & ->).
-  - apply All2_length in a.
-    rewrite !app_length in a.
-    now cbn in *.
-  - depelim ev.
-    depelim ev.
-    constructor.
-Qed.
-
 Lemma eval_mkApps_tConstruct Σ ind c args argsv
       (a : All2 (eval Σ) args argsv) :
   Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
@@ -2997,6 +2832,7 @@ Proof.
     all: now apply IHall.
 Qed.
 
+(*
 Inductive In_All2
           {X Y} {T : X -> Y -> Type}
           {x y} (t : T x y) : forall {xs ys}, All2 T xs ys -> Type :=
@@ -3030,6 +2866,7 @@ Proof.
   intros isin.
   now induction isin; cbn.
 Qed.
+*)
 
 Lemma eval_mkApps_tConst_fold Σ k cst body args v :
   ETyping.declared_constant Σ k cst ->
@@ -3043,14 +2880,6 @@ Proof.
   eapply eval_mkApps_heads; [eassumption| |easy].
   now econstructor.
 Qed.
-
-Lemma eval_mkApps_heads_deriv Σ hd hd' hdv args v
-      (ev_hd : Σ ⊢ hd ▷ hdv)
-      (ev_hd' : Σ ⊢ hd' ▷ hdv)
-      (ev' : Σ ⊢ mkApps hd args ▷ v) :
-  deriv_length ev_hd' <= deriv_length ev_hd ->
-  ∑ ev : Σ ⊢ mkApps hd' args ▷ v,
-         deriv_length ev + deriv_length ev_hd = deriv_length ev' + deriv_length ev_hd'.
 
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
@@ -3083,6 +2912,7 @@ Proof.
     eapply declared_constant_dearg in isdecl as isdecl_dearg.
     destruct isdecl_dearg as (cst_dearg & decl_dearg & body_dearg).
     rewrite e in body_dearg; cbn in *.
+
     enough (∥ trans (dearg_env Σ)
               ⊢ dearg_single (get_const_mask kn)
                              (dearg (dearg_cst_body_top (get_const_mask kn) body))
@@ -3093,34 +2923,19 @@ Proof.
       eapply eval_dearg_single_heads; try eassumption.
       - now rewrite map_length.
       - econstructor; eassumption. }
+
     rewrite dearg_dearg_cst_body_top by
         eauto using valid_dearg_mask_constant, valid_cases_constant.
     assert (exists ev' : trans Σ ⊢ mkApps body args ▷ v,
-               deriv_length ev' < deriv_length ev).
-    {
-      unshelve eexists _.
-      - eapply eval_mkApps_heads; [|eassumption|eassumption].
-        now econstructor.
-      - match goal with
-        | [|- deriv_length ?ev < _] => set (eval := ev); clearbody eval
-        end.
-        destruct (eval_mkApps_deriv eval) as (? & ? & ? & ? & ?).
-        apply eval_mkApps_deriv in eval.
-        apply
+               deriv_length ev' < deriv_length ev) as (ev_body & deriv_body).
+    { unshelve epose proof (eval_mkApps_heads_deriv _ ev_const ev) as (ev' & ?).
+      - now econstructor.
+      - exists ev'.
+        now cbn in *. }
+
     constructor.
-    apply dearg_single_correct; eauto with dearg.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + now rewrite map_length.
-    +
-    rewrite dearg_single_select by (now rewrite map_length).
-    rewrit
-    (*eapply declared_constant_dearg in isdecl as isdecl_dearg.
-    destruct isdecl_dearg as (cst_dearg & decl_dearg & body_dearg).
-    rewrite e in body_dearg.
-    cbn in *.*)
+    apply dearg_single_correct.
+    1-5: admit.
     admit.
 
   - rewrite is_expanded_mkApps in exp_t.
@@ -3153,7 +2968,7 @@ Proof.
         now constructor. }
     constructor.
     now apply eval_mkApps_tConstruct, All2_select.
-  -
+  - admit.
   -
 
 All2 (fun x y => ∥trans (dearg_env Σ) ⊢ x ▷ y∥) (map dearg args) (map dearg argsv)).
@@ -3245,7 +3060,7 @@ All2 (fun x y => ∥trans (dearg_env Σ) ⊢ x ▷ y∥) (map dearg args) (map d
            rewrite forallb_app in exp_t.
            cbn in *.
            propify.
-           assert (deriv_length ev_x = deriv_length ev2) by (now apply derivs_length_eq).
+           assert (deriv_length ev_x = deriv_length ev2) by (now apply deriv_lengths_eq).
            unshelve epose proof (IHargs _ _ _ _ ev_args ev1 _ _) as (? & ?);
              try easy.
            unshelve epose proof (IHn _ _ _ _ _ ev_x _) as (? & ?);
