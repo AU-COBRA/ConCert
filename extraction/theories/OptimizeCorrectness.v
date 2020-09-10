@@ -2485,6 +2485,19 @@ Proof.
   now rewrite body_eq in nth.
 Qed.
 
+Lemma valid_dearg_mask_constant Σ kn cst body :
+  valid_masks_env Σ ->
+  ETyping.declared_constant (trans Σ) kn cst ->
+  EAst.cst_body cst = Some body ->
+  valid_dearg_mask (get_const_mask kn) body.
+Proof.
+  intros valid_env decl_const body_eq.
+  eapply declared_constant_trans in decl_const as (? & ? & nth).
+  eapply nth_error_forall in nth; [|eassumption].
+  cbn in *.
+  now rewrite body_eq in nth.
+Qed.
+
 Lemma eval_valid_cases Σ t v :
   trans Σ ⊢ t ▷ v ->
 
@@ -2677,10 +2690,34 @@ Proof.
     eapply dearg_spec_case.
 Qed.
 
+Lemma valid_cases_dearg_cst_body_top mask t :
+  valid_cases t ->
+  valid_cases (dearg_cst_body_top mask t).
+Proof.
+  intros valid.
+  induction t in mask, valid |- * using term_forall_list_ind; cbn in *; try easy.
+  - destruct mask as [|[] mask]; try easy.
+    now apply valid_cases_subst.
+Qed.
+
 Lemma dearg_dearg_cst_body_top mask t :
+  valid_dearg_mask mask t ->
+  valid_cases t ->
   dearg (dearg_cst_body_top mask t) = dearg_cst_body_top mask (dearg t).
 Proof.
-  Admitted.
+  intros vm vc.
+  induction t in mask, vm, vc |- * using term_forall_list_ind; cbn in *; try easy;
+    try solve [destruct mask; [|easy]; now rewrite dearg_cst_body_top_nil].
+  - destruct mask as [|[] mask]; cbn in *; try easy.
+    + refold'.
+      unfold subst1.
+      rewrite dearg_subst; cbn in *.
+      * now rewrite IHt.
+      * now apply valid_cases_dearg_cst_body_top.
+      * easy.
+    + refold'; now rewrite IHt.
+  - now refold'; rewrite IHt2.
+Qed.
 
 Lemma eval_tApp_deriv {Σ hd arg v} (ev : Σ ⊢ tApp hd arg ▷ v) :
   ∑ hdv (ev_hd : Σ ⊢ hd ▷ hdv) argv (ev_arg : Σ ⊢ arg ▷ argv),
@@ -2906,33 +2943,23 @@ Qed.
 
 Lemma eval_mkApps_tConstruct Σ ind c args argsv
       (a : All2 (eval Σ) args argsv) :
-  exists ev : Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv,
-    deriv_length ev = S #|args| + sum_deriv_lengths a.
+  Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
 Proof.
   revert argsv a.
   induction args using MCList.rev_ind; intros argsv all.
   - depelim all.
     cbn.
-    unshelve eexists _.
-    + now constructor.
-    + easy.
+    now constructor.
   - destruct argsv as [|? ? _] using MCList.rev_ind.
     { apply All2_length in all as len.
       rewrite app_length in len; cbn in *; lia. }
     destruct (All2_eval_snoc_elim all).
     rewrite !mkApps_app.
     cbn.
-    specialize (IHargs _ a) as (ev & deriv).
-    unshelve eexists _.
-    + eapply eval_app_cong.
-      * easy.
-      * admit.
-      * eassumption.
-    + rewrite sum_deriv_lengths_app_All2.
-      cbn.
-      rewrite app_length.
-      cbn.
-      lia.
+    eapply eval_app_cong.
+    + easy.
+    + admit.
+    + assumption.
 Admitted.
 
 Fixpoint select {X} (mask : bitmask) (xs : list X) :=
@@ -3004,6 +3031,27 @@ Proof.
   now induction isin; cbn.
 Qed.
 
+Lemma eval_mkApps_tConst_fold Σ k cst body args v :
+  ETyping.declared_constant Σ k cst ->
+  EAst.cst_body cst = Some body ->
+  Σ ⊢ mkApps body args ▷ v ->
+  Σ ⊢ mkApps (tConst k) args ▷ v.
+Proof.
+  intros decl body_eq app.
+  apply eval_mkApps_head in app as ev_hd.
+  destruct ev_hd as (hdv & ev_hd).
+  eapply eval_mkApps_heads; [eassumption| |easy].
+  now econstructor.
+Qed.
+
+Lemma eval_mkApps_heads_deriv Σ hd hd' hdv args v
+      (ev_hd : Σ ⊢ hd ▷ hdv)
+      (ev_hd' : Σ ⊢ hd' ▷ hdv)
+      (ev' : Σ ⊢ mkApps hd args ▷ v) :
+  deriv_length ev_hd' <= deriv_length ev_hd ->
+  ∑ ev : Σ ⊢ mkApps hd' args ▷ v,
+         deriv_length ev + deriv_length ev_hd = deriv_length ev' + deriv_length ev_hd'.
+
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
   closed t ->
@@ -3020,39 +3068,73 @@ Proof.
   intros clos_env clos_t valid_env valid_t exp_env exp_t.
   enough (forall n (ev : trans Σ ⊢ t ▷ v),
              deriv_length ev <= n ->
-             exists (ev' : trans (dearg_env Σ) ⊢ dearg t ▷ dearg v),
-               deriv_length ev' <= deriv_length ev).
+             ∥trans (dearg_env Σ) ⊢ dearg t ▷ dearg v∥).
   { intros ev.
     destruct ev as [ev].
     edestruct (H _ ev (le_refl _)).
     now constructor. }
-  induction n as [|n IH] in t, v, clos_t, valid_t, exp_t |- *; [admit|].
-  intros ev len.
+  induction n as [|n IH] in t, v, clos_t, valid_t, exp_t |- *; intros ev deriv_len.
+  { now pose proof (deriv_length_min ev). }
   destruct (dearg_elim t).
   - rewrite is_expanded_mkApps in exp_t.
     cbn in *; propify.
-    eapply eval_mkApps_head in ev as ev_const.
-    destruct ev_const as (constv & ev_const).
-    depelim ev_const; [|easy].
+    specialize (eval_mkApps_deriv ev) as (? & ev_const & argsv & ev_args & deriv).
+    depelim ev_const; cbn in *; [|easy].
     eapply declared_constant_dearg in isdecl as isdecl_dearg.
     destruct isdecl_dearg as (cst_dearg & decl_dearg & body_dearg).
+    rewrite e in body_dearg; cbn in *.
+    enough (∥ trans (dearg_env Σ)
+              ⊢ dearg_single (get_const_mask kn)
+                             (dearg (dearg_cst_body_top (get_const_mask kn) body))
+                             (map dearg args) ▷ dearg v ∥) as [ev'].
+    { constructor.
+      eapply eval_dearg_single_head in ev' as ev_hd; [|now rewrite map_length].
+      destruct ev_hd as (hdv & ev_hd).
+      eapply eval_dearg_single_heads; try eassumption.
+      - now rewrite map_length.
+      - econstructor; eassumption. }
+    rewrite dearg_dearg_cst_body_top by
+        eauto using valid_dearg_mask_constant, valid_cases_constant.
+    assert (exists ev' : trans Σ ⊢ mkApps body args ▷ v,
+               deriv_length ev' < deriv_length ev).
+    {
+      unshelve eexists _.
+      - eapply eval_mkApps_heads; [|eassumption|eassumption].
+        now econstructor.
+      - match goal with
+        | [|- deriv_length ?ev < _] => set (eval := ev); clearbody eval
+        end.
+        destruct (eval_mkApps_deriv eval) as (? & ? & ? & ? & ?).
+        apply eval_mkApps_deriv in eval.
+        apply
+    constructor.
+    apply dearg_single_correct; eauto with dearg.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + now rewrite map_length.
+    +
+    rewrite dearg_single_select by (now rewrite map_length).
+    rewrit
+    (*eapply declared_constant_dearg in isdecl as isdecl_dearg.
+    destruct isdecl_dearg as (cst_dearg & decl_dearg & body_dearg).
     rewrite e in body_dearg.
-    cbn in *.
+    cbn in *.*)
     admit.
+
   - rewrite is_expanded_mkApps in exp_t.
     cbn in *; propify.
     specialize (eval_mkApps_deriv ev) as (? & ev_constr & argsv & ev_args & deriv).
-    assert (v = (mkApps (tConstruct ind c) argsv)).
-    { destruct (eval_mkApps_tConstruct _ ind c _ _ ev_args) as (? & _).
-      now eapply eval_deterministic. }
-    apply All2_length in ev_args as len_args.
-    revert ev len deriv; subst v; intros ev len deriv.
+    assert (v = mkApps (tConstruct ind c) argsv) as ->.
+    { eapply eval_deterministic; try eassumption.
+      now apply eval_mkApps_tConstruct. }
     rewrite dearg_mkApps.
     cbn.
+    apply All2_length in ev_args as ?.
     rewrite !dearg_single_select by (now rewrite map_length).
-    assert (
-        exists a : All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv),
-          sum_deriv_lengths a <= sum_deriv_lengths ev_args) as (ev_args_dearged & deriv_args_dearged).
+    assert (∥All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv)∥)
+      as [ev_args_dearg].
     { assert (all_smaller: sum_deriv_lengths ev_args <= n).
       { pose proof (deriv_length_min ev_constr).
         lia. }
@@ -3062,16 +3144,17 @@ Proof.
       apply forallb_Forall in exp_args.
       clear -clos_apps valid_apps exp_args IH ev_args all_smaller.
       induction ev_args; cbn in *.
-      - now exists All2_nil.
+      - now constructor.
       - depelim clos_apps.
         depelim valid_apps.
         depelim exp_args.
-        unshelve epose proof (IH _ _ _ _ _ r _) as (ev_dearg & deriv_dearg); try easy.
-        unshelve epose proof (IHev_args _ _ _ _) as (ev_suf & deriv_suf); try easy.
-        exists (All2_cons ev_dearg ev_suf).
-        cbn.
-        lia. }
-    pose proof (eval_mkApps_tConstruct _ ind c _ _ ev_args_dearged).
+        unshelve epose proof (IH _ _ _ _ _ r _) as [ev_dearg]; try easy.
+        unshelve epose proof (IHev_args _ _ _ _) as [ev_suf]; try easy.
+        now constructor. }
+    constructor.
+    now apply eval_mkApps_tConstruct, All2_select.
+  -
+  -
 
 All2 (fun x y => ∥trans (dearg_env Σ) ⊢ x ▷ y∥) (map dearg args) (map dearg argsv)).
     { apply All2_map.
