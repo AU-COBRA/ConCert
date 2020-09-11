@@ -39,8 +39,15 @@ Ltac propify :=
     | [|- context[orb _ _ = true]] => rewrite Bool.orb_true_iff
     end.
 
+Definition alli {X} (f : nat -> X -> bool) : nat -> list X -> bool :=
+  fix alli (n : nat) (xs : list X) :=
+    match xs with
+    | [] => true
+    | x :: xs => f n x && alli (S n) xs
+    end.
+
 Lemma alli_Alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
-  alli f l n -> Alli (fun n a => f n a) n l.
+  alli f n l -> Alli (fun n a => f n a) n l.
 Proof.
   intros a.
   induction l in n, a |- *.
@@ -52,7 +59,7 @@ Proof.
 Qed.
 
 Lemma Alli_alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
-  Alli (fun n a => f n a) n l -> alli f l n.
+  Alli (fun n a => f n a) n l -> alli f n l.
 Proof.
   intros a.
   induction l in n, a |- *.

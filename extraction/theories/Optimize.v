@@ -159,6 +159,12 @@ Definition dearg_case
   | None => tCase (ind, npars) discr brs
   end.
 
+Definition dearg_proj (ind : inductive) (c : nat) (npars : nat) (discr : term) : term :=
+  match get_mib_masks (inductive_mind ind) with
+  | Some mm => tProj (ind, c, count_zeros (param_mask mm)) discr
+  | None => tProj (ind, c, npars) discr
+  end.
+
 Fixpoint dearg_aux (args : list term) (t : term) : term :=
   match t with
   | tApp hd arg => dearg_aux (dearg_aux [] arg :: args) hd
@@ -168,6 +174,8 @@ Fixpoint dearg_aux (args : list term) (t : term) : term :=
     let discr := dearg_aux [] discr in
     let brs := map (on_snd (dearg_aux [])) brs in
     mkApps (dearg_case ind npars discr brs) args
+  | tProj (ind, c, npars) t =>
+    mkApps (dearg_proj ind c npars (dearg_aux [] t)) args
   | t => mkApps (map_subterms (dearg_aux []) t) args
   end.
 
@@ -329,8 +337,7 @@ Fixpoint get_dearg_set_for_unused_args (Σ : global_env) : dearg_set :=
 (* Remove trailing "false" bits in masks in dearg set *)
 Definition trim_dearg_set (ds : dearg_set) : dearg_set :=
   let dearg_mib_masks mm :=
-      {| param_mask := param_mask mm; (* todo: we could trim this too
-                                         if there are no ctor masks left *)
+      {| param_mask := param_mask mm;
          ctor_masks := map (fun '(ind, c, mask) =>
                               (ind, c, trim_end false mask))
                            (ctor_masks mm) |} in
