@@ -64,14 +64,14 @@ Proof.
   now pose proof (closed_mkApps_inv _ _ clos).
 Qed.
 
-Definition decl_closed (decl : EAst.global_decl) : Prop :=
+Definition decl_closed (decl : EAst.global_decl) : bool :=
   match decl with
   | EAst.ConstantDecl cst =>
     match EAst.cst_body cst with
     | Some body => closed body
-    | _ => True
+    | _ => true
     end
-  | _ => True
+  | _ => true
   end.
 
 Arguments Nat.ltb : simpl nomatch.

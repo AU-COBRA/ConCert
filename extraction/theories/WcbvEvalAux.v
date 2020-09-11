@@ -141,8 +141,8 @@ Proof.
     + easy.
 Qed.
 
-Definition env_closed (Σ : EAst.global_declarations) :=
-  Forall (decl_closed ∘ snd) Σ.
+Definition env_closed (Σ : EAst.global_declarations) : bool :=
+  forallb (decl_closed ∘ snd) Σ.
 
 Lemma closed_constant Σ kn cst body :
   env_closed Σ ->
@@ -155,9 +155,7 @@ Proof.
   rewrite lookup_env_find in decl_const.
   destruct (find _ _) eqn:find; [|easy].
   apply find_some in find.
-  unfold env_closed in env_clos.
-  rewrite Forall_forall in env_clos.
-  specialize (env_clos _ (proj1 find)).
+  eapply forallb_forall in env_clos; [|exact (proj1 find)].
   destruct p.
   cbn in *.
   noconf decl_const.

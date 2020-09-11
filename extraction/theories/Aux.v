@@ -4,6 +4,7 @@ From Coq Require Import List.
 From Equations Require Import Equations.
 From MetaCoq Require Import utils.
 
+Derive Signature for Alli.
 Derive Signature for Forall.
 Derive Signature for Forall2.
 Derive Signature for OnOne2.
@@ -37,3 +38,26 @@ Ltac propify :=
     | [|- context[orb _ _ = false]] => rewrite Bool.orb_false_iff
     | [|- context[orb _ _ = true]] => rewrite Bool.orb_true_iff
     end.
+
+Lemma alli_Alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
+  alli f l n -> Alli (fun n a => f n a) n l.
+Proof.
+  intros a.
+  induction l in n, a |- *.
+  - constructor.
+  - cbn in *.
+    propify.
+    constructor; [easy|].
+    now apply IHl.
+Qed.
+
+Lemma Alli_alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
+  Alli (fun n a => f n a) n l -> alli f l n.
+Proof.
+  intros a.
+  induction l in n, a |- *.
+  - easy.
+  - depelim a.
+    cbn.
+    now rewrite i, IHl.
+Qed.
