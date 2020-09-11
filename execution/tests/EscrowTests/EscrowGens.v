@@ -1,3 +1,7 @@
+(* Generators for the Escrow contract, to be used for QuickChick testing.
+   Main functions of interest: gEscrowMsg and gEscrowMsgBetter.
+*)
+
 From ConCert Require Import Blockchain Escrow.
 From ConCert Require Import Serializable.
 From ConCert.Execution.QCTests Require Import TestUtils TraceGens.
@@ -22,13 +26,13 @@ Import Info.
 Definition Env := Environment.
 Open Scope Z_scope.
 
+(* Try to generate an account which has balance > 0. Returns None whenever no such address could be found.  *)
 Definition gAccountWithBalance (e : Env) (gAccOpt : GOpt Address) : GOpt (Address * Amount) :=
   addr <- suchThatMaybeOpt gAccOpt (fun addr => 0 <? e.(account_balance) addr) ;;
   returnGenSome (addr, e.(account_balance) addr).
-(* Close Scope Z_scope. *)
 
 Definition gEscrowMsg (e : Env) : GOpt Action :=
-  let mk_call_escrow caller amount msg :=
+  let call caller amount msg :=
   returnGenSome {|
     act_from := caller;
     act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
@@ -36,19 +40,21 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
   state <- returnGen (get_contract_state Escrow.State e contract_addr) ;;
   let buyer := state.(buyer) in
   let seller := state.(seller) in
+  (* pick one generator uniformly at random from the given list.
+     backtrack if one fails. *)
   backtrack [
     (* commit money *)
     (1%nat, 
         (* amount <- choose (0%Z, e.(account_balance) buyer) ;; *)
         if e.(account_balance) buyer <? 2
         then returnGen None
-        else mk_call_escrow buyer 2 commit_money
+        else call buyer 2 commit_money
     ) ;
     (* confirm received item *)
-    (1%nat, mk_call_escrow buyer 0 confirm_item_received) ;
+    (1%nat, call buyer 0 confirm_item_received) ;
     (* withdraw money *)
     (1%nat, addr <- elems [seller; buyer] ;;
-            mk_call_escrow addr 0 withdraw
+            call addr 0 withdraw
     )
   ].
 
@@ -57,7 +63,7 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
    This should lead to much fewer discards during testing, but at the cost of the generator being more complex
    and less "blackbox-like" *)
 Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
-  let mk_call_escrow caller amount msg :=
+  let call caller amount msg :=
   returnGenSome {|
     act_from := caller;
     act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
@@ -70,15 +76,15 @@ Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
   | buyer_commit => backtrack [
                       (2%nat, if e.(account_balance) buyer <? 2
                               then returnGen None
-                              else mk_call_escrow buyer 2 commit_money
+                              else call buyer 2 commit_money
                       );
-                      (1%nat, mk_call_escrow seller 0 withdraw)
+                      (1%nat, call seller 0 withdraw)
                     ]
-  | buyer_confirm => mk_call_escrow buyer 0 confirm_item_received
+  | buyer_confirm => call buyer 0 confirm_item_received
   | _ => if 0 <? state.(buyer_withdrawable)
-         then mk_call_escrow buyer 0 withdraw
+         then call buyer 0 withdraw
          else if 0 <? state.(seller_withdrawable)
-         then mk_call_escrow seller 0 withdraw
+         then call seller 0 withdraw
          else returnGen None
   end.
 
