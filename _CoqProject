@@ -44,9 +44,6 @@ execution/tests/EscrowTests/EscrowPrinters.v
 execution/tests/EscrowTests/EscrowGens.v
 execution/tests/EscrowTests/EscrowExtras.v
 execution/tests/EscrowTests/EscrowTests.v
-execution/tests/BoardroomVotingTests/BoardroomVotingPrinters.v
-execution/tests/BoardroomVotingTests/BoardroomVotingGens.v
-execution/tests/BoardroomVotingTests/BoardroomVotingTests.v
 execution/tests/SerializablePrinters.v
 
 -R execution/examples ConCert.Execution.Examples
