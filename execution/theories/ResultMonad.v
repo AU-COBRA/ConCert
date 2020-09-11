@@ -26,3 +26,12 @@ Definition option_of_result {T E} (r : result T E) : option T :=
   | Ok t => Some t
   | Err e => None
   end.
+
+Definition unpack_result {T E} (r : result T E) :=
+  match r return match r with
+                  | Ok _ => T
+                  | Err _ => E
+                  end with
+  | Ok t => t
+  | Err e => e
+  end.

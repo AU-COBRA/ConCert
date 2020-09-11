@@ -47,7 +47,6 @@ Definition state_syn : global_dec :=
 
 Unset Printing Notations.
 
-Print state_syn.
 (* state_syn =
     gdInd State O
       (cons
@@ -67,7 +66,6 @@ Set Nonrecursive Elimination Schemes.
 MetaCoq Unquote Inductive (global_to_tc state_syn).
 
 (** As a result, we get a new Coq record [State_coq] *)
-Print State_coq.
 
 Definition msg_syn :=
   [\ data Msg =
@@ -177,6 +175,7 @@ MetaCoq Run (mkNames "" ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
                      "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                      "accs"; "now";
                      "newstate"; "newmap"; "cond"] "").
+
 (** A shortcut for [if .. then .. else ..]  *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
   (eCase (Bool,[]) ty cond

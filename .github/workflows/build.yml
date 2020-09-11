@@ -1,0 +1,21 @@
+name: Build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: aucobra/concert:deps-coq-8.11
+    steps:
+    - run: sudo chown -R coq:coq .
+    - uses: actions/checkout@v2
+    - name: Build
+      run: |
+        export HOME=/home/coq && \
+        env && \
+        opam switch && \
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
+        make -j && \
+        make html
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Documentation
+        path: docs/

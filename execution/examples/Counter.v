@@ -186,7 +186,7 @@ Proof.
     cbn. intros cstate Hc Hstate.
     (* we use the fact that [counter_receive] doesn't return any actions *)
     assert ((outgoing_acts bstate_from to_addr) = []) as Hempty.
-    { apply lift_outgoing_txs_empty with (contract := counter_contract);eauto.
+    { apply lift_outgoing_acts_nil with (contract := counter_contract);eauto.
       intros. eapply (receive_produces_no_calls (chain:=chain) (ctx:=ctx));eauto. apply H. }
     unfold outgoing_acts in *. rewrite queue_prev in *.
     subst act;cbn in Hempty.

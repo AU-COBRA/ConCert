@@ -19,6 +19,33 @@ execution/theories/Monads.v
 execution/theories/ResultMonad.v
 execution/theories/Serializable.v
 
+-Q execution/tests ConCert.Execution.QCTests
+execution/tests/TestUtils.v
+execution/tests/ChainPrinters.v
+execution/tests//CongressTests/CongressGens.v
+execution/tests//CongressTests/CongressPrinters.v
+execution/tests//CongressTests/CongressTests.v
+execution/tests//CongressTests/Congress_BuggyGens.v
+execution/tests//CongressTests/Congress_BuggyPrinters.v
+execution/tests//CongressTests/Congress_BuggyTests.v
+execution/tests/EIP20Tests/EIP20TokenPrinters.v
+execution/tests/EIP20Tests/EIP20TokenGens.v
+execution/tests/EIP20Tests/EIP20TokenTests.v
+execution/tests/TraceGens.v
+execution/tests/FA2Tests/TestContracts.v
+execution/tests/FA2Tests/FA2Printers.v
+execution/tests/FA2Tests/FA2Gens.v
+execution/tests/FA2Tests/FA2TokenTests.v
+execution/tests/DexterTests/Dexter.v
+execution/tests/DexterTests/DexterPrinters.v
+execution/tests/DexterTests/DexterGens.v
+execution/tests/DexterTests/DexterTests.v
+execution/tests/EscrowTests/EscrowPrinters.v
+execution/tests/EscrowTests/EscrowGens.v
+execution/tests/EscrowTests/EscrowExtras.v
+execution/tests/EscrowTests/EscrowTests.v
+execution/tests/SerializablePrinters.v
+
 -R execution/examples ConCert.Execution.Examples
 execution/examples/Counter.v
 execution/examples/BoardroomMath.v
@@ -31,6 +58,10 @@ execution/examples/EIP20Token.v
 execution/examples/Escrow.v
 execution/examples/Euler.v
 execution/examples/LocalBlockchainTests.v
+execution/examples/BAT.v
+execution/examples/FA2Interface.v
+execution/examples/FA2Token.v
+
 
 
 -Q embedding/theories ConCert.Embedding

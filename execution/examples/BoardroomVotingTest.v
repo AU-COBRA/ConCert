@@ -80,7 +80,7 @@ Definition signups : list Msg :=
    using the make_vote_msg function provided by the contract.
    In this example we just use the secret key as the random parameters. *)
 Definition votes : list Msg :=
-  Eval native_compute in map (fun '(i, sk, sv, rk) => make_vote_msg hash_func sk rk sv i sk sk sk)
+  Eval native_compute in map (fun '(i, sk, sv, rk) => make_vote_msg hash_func pks i sk sv sk sk sk)
                              (zip (zip (zip (seq 0 (length pks)) sks) svs) rks).
 
 Definition AddrSize := (2^128)%N.
@@ -136,6 +136,6 @@ Definition boardroom_example : option nat :=
   let tally := build_act creator (act_call caddr 0 (serialize tally_votes)) in
   do chain <- add_block chain [tally];
   do state <- @contract_state _ (@State _ Z) _ (lcb_lc chain) caddr;
-  BoardroomVoting.result state.
+  BoardroomVoting.tally state.
 
 Check (@eq_refl (option nat) (Some votes_for)) <<: boardroom_example = Some votes_for.

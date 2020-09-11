@@ -46,15 +46,6 @@ Section LocalBlockchainTests.
            block_reward := 50; |} in
     builder_add_block chain header acts.
 
-  Definition unpack_result {T E} (r : result T E) :=
-    match r return match r with
-                   | Ok _ => T
-                   | Err _ => E
-                   end with
-    | Ok t => t
-    | Err e => e
-    end.
-
   (* Creator created an empty block (and gets some coins) *)
   Definition chain2 : ChainBuilder :=
     unpack_result (add_block chain1 []).
@@ -166,7 +157,7 @@ Section LocalBlockchainTests.
   Compute (account_balance chain8 person_3).
   Print Assumptions chain8.
 
-  Hint Resolve congress_txs_after_block : core.
+  Hint Resolve congress_correct_after_block : core.
   Definition BuilderDF := LocalChainBuilderDepthFirst AddrSize.
   (* The congress satisfies a property specialized to the local blockchain DFS: *)
   Lemma congress_txs_after_local_chain_block

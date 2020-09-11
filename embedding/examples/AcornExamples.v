@@ -146,68 +146,69 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
   MetaCoq Run (translateDefs dependencies gEnv Functions).
 
   Print List.
-  (* Print foldr. *)
-  (* Print zipWith. *)
+  Print foldr.
+  Print zipWith.
 
-  (* Definition AcornList := List. *)
+  Definition AcornList := List.
 
-  (* Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A := *)
-  (*   match acornL with *)
-  (*   | Cons_coq hd tl => hd :: from_acorn tl *)
-  (*   | Nil_coq => [] *)
-  (*   end. *)
+  (** We prove that the imported definitions are equivalent to the corresponding definitions from the standard library of Coq *)
+  Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A :=
+    match acornL with
+    | Cons_coq hd tl => hd :: from_acorn tl
+    | Nil_coq => []
+    end.
 
-  (* Fixpoint to_acorn {A : Set} (coqL : list A) : AcornList A := *)
-  (*   match coqL with *)
-  (*   | hd :: tl => Cons_coq _ hd (to_acorn tl) *)
-  (*   | nil => Nil_coq _ *)
-  (*   end. *)
+  Fixpoint to_acorn {A : Set} (coqL : list A) : AcornList A :=
+    match coqL with
+    | hd :: tl => Cons_coq _ hd (to_acorn tl)
+    | nil => Nil_coq _
+    end.
 
-  (* Lemma to_from_acorn (A : Set) (l : AcornList A) : to_acorn (from_acorn l) = l. *)
-  (* Proof. *)
-  (*   induction l;simpl;congruence. *)
-  (* Qed. *)
+  Lemma to_from_acorn (A : Set) (l : AcornList A) : to_acorn (from_acorn l) = l.
+  Proof.
+    induction l;simpl;congruence.
+  Qed.
 
-  (* Lemma from_to_acorn (A : Set) (l : list A) : from_acorn (to_acorn l) = l. *)
-  (* Proof. *)
-  (*   induction l;simpl;congruence. *)
-  (* Qed. *)
+  Lemma from_to_acorn (A : Set) (l : list A) : from_acorn (to_acorn l) = l.
+  Proof.
+    induction l;simpl;congruence.
+  Qed.
 
-  (* Arguments foldr {_ _}. *)
-  (* Arguments concat {_}. *)
+  Arguments foldr {_ _}.
+  Arguments concat {_}.
 
-  (* Lemma acorn_foldr_coq_fold_right (A B : Set) (l : AcornList A) (f : A -> B -> B) a : *)
-  (*   foldr f a l = fold_right f a (from_acorn l). *)
-  (* Proof. *)
-  (*   induction l;simpl;auto. *)
-  (*   f_equal. congruence. *)
-  (* Qed. *)
+  Lemma acorn_foldr_coq_fold_right (A B : Set) (l : AcornList A) (f : A -> B -> B) a :
+    foldr f a l = fold_right f a (from_acorn l).
+  Proof.
+    induction l;simpl;auto.
+    f_equal. congruence.
+  Qed.
 
-  (* Open Scope list. *)
+  Open Scope list.
 
-  (* Lemma concat_app (A : Set) (l1 l2 : AcornList A) : *)
-  (* concat l1 l2 = to_acorn (from_acorn l1 ++ from_acorn l2). *)
-  (* Proof. *)
-  (*   revert l2. *)
-  (*   induction l1;intros l2;destruct l2;simpl;try rewrite to_from_acorn;auto. *)
-  (*   f_equal. rewrite app_nil_r. rewrite to_from_acorn. *)
-  (*   clear IHl1; induction l1;simpl. congruence. now f_equal. *)
-  (*   change (a0 :: from_acorn l2) with (from_acorn (Cons_coq _ a0 l2)). *)
-  (*   now f_equal. *)
-  (* Qed. *)
+  Lemma concat_app (A : Set) (l1 l2 : AcornList A) :
+  concat l1 l2 = to_acorn (from_acorn l1 ++ from_acorn l2).
+  Proof.
+    revert l2.
+    induction l1;intros l2;destruct l2;simpl;try rewrite to_from_acorn;auto.
+    f_equal. rewrite app_nil_r. rewrite to_from_acorn.
+    clear IHl1; induction l1;simpl. congruence. now f_equal.
+    change (a0 :: from_acorn l2) with (from_acorn (Cons_coq _ a0 l2)).
+    now f_equal.
+  Qed.
 
-  (* Hint Rewrite acorn_foldr_coq_fold_right concat_app from_to_acorn : hints. *)
+  Hint Rewrite acorn_foldr_coq_fold_right concat_app from_to_acorn : hints.
 
-  (* Lemma concat_assoc : *)
-  (*   forall (A : Set) (l m n : AcornList A), concat l (concat m n) = concat (concat l m) n. *)
-  (* Proof. *)
-  (*   intros. autorewrite with hints. f_equal. *)
-  (*   apply app_assoc. *)
-  (* Qed. *)
+  Lemma concat_assoc :
+    forall (A : Set) (l m n : AcornList A), concat l (concat m n) = concat (concat l m) n.
+  Proof.
+    intros. autorewrite with hints. f_equal.
+    apply app_assoc.
+  Qed.
 
-  (* Lemma foldr_concat (A B : Set) (f : A -> B -> B) (l l' : AcornList A) (i : B) : *)
-  (*     foldr f i (concat l l') = foldr f (foldr f i l') l. *)
-  (* Proof. autorewrite with hints;apply fold_right_app. Qed. *)
+  Lemma foldr_concat (A B : Set) (f : A -> B -> B) (l l' : AcornList A) (i : B) :
+      foldr f i (concat l l') = foldr f (foldr f i l') l.
+  Proof. autorewrite with hints;apply fold_right_app. Qed.
 
 End AcornListBase.
 

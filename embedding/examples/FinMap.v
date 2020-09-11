@@ -35,7 +35,6 @@ MetaCoq Run (mkNames "" ["Nothing";"Just"; "MNil"; "MCons"] "Acorn").
 
 (** Now we can use [Maybe] as a name for a data type in our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
 
-Print Maybe.
 (* Maybe = "MaybeAcorn" *)
 (*      : string *)
 
@@ -90,7 +89,7 @@ Definition lookup_syn :=
                        $Just$Maybe 'B y
                        else lookup z : Maybe 'B |].
 
-Compute (indexify [] lookup_syn).
+(* Compute (indexify [] lookup_syn). *)
 
 (** Unquoting the [lookup_syn] to produce a Coq function *)
 MetaCoq Unquote Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
