@@ -24,7 +24,7 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- specialize_erase_debox_template_env p.1 [entry] ignore;;
+  Σ <- specialize_erase_debox_template_env_no_wf_check p.1 [entry] ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret s.

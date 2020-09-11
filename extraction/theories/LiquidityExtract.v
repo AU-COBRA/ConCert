@@ -63,7 +63,7 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (receive : kername)
   : string + string :=
   let seeds := [init;receive] in
-  match specialize_erase_debox_template_env Σ seeds ignore with
+  match specialize_erase_debox_template_env_no_wf_check Σ seeds ignore with
   | Ok eΣ =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ) in
@@ -97,6 +97,30 @@ Definition liquidity_call_ctx :=
    (Current.sender (),
    (Current.amount (),
     Current.balance ())))".
+
+Definition liquitidy_simple_extract
+           (TT_defs : list (kername *  string))
+           (TT_ctors : MyEnv.env string)
+           (extract_deps : bool)
+           (p : program) : string + string :=
+  match p.2 with
+  | tConst kn _ =>
+    let seeds := [kn] in
+    let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
+    let TT :=
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+    match general_specialize_erase_debox_template_env p.1 seeds ignore false true with
+    | Ok eΣ =>
+      (* dependencies should be printed before the dependent definitions *)
+      let ldef_list := List.rev (print_global_env "" TT eΣ) in
+      (* filtering empty strings corresponding to the ignored definitions *)
+      let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
+      let defs := map snd ldef_list in
+      inl (concat (nl ++ nl) defs) %list
+    | Err e => inr e
+    end
+  | _ => inr "Constant expected"
+  end.
 
 Definition liquitidy_extraction {msg ctx params storage operation : Type}
            (prefix : string)

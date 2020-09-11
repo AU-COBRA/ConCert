@@ -35,7 +35,7 @@ Definition general_wrapped (p : program) (pre post : string)
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- specialize_erase_debox_template_env p.1 [entry] ignore;;
+  Σ <- specialize_erase_debox_template_env_no_wf_check p.1 [entry] ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret (pre ++ nl ++ s ++ nl ++ post).
@@ -69,7 +69,6 @@ Module ElmExamples.
 
   MetaCoq Run (t <- tmQuoteRecTransp ackermann false ;;
                tmDefinition "ackermann_syn" t).
-
 
   Redirect "./extraction/examples/elm-extract/Ackermann.elm"
   Compute wrapped ackermann_syn

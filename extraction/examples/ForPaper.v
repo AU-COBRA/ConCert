@@ -1,17 +1,24 @@
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import LiquidityExtract.
+From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import ResultMonad.
+
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import SafeTemplateErasure Loader.
 From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.Erasure Require SafeErasureFunction.
+From MetaCoq.Erasure Require EPretty.
 From MetaCoq.Template Require Import config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
      TemplateToPCUIC.
 
-From ConCert.Embedding Require Import MyEnv.
-From ConCert.Extraction Require Import LiquidityExtract LPretty Common.
 
 From Coq Require Import List String.
 
@@ -19,6 +26,7 @@ From MetaCoq.Template Require Import All.
 
 Import ListNotations.
 Import MonadNotation.
+Import ResultMonad.
 
 Open Scope nat.
 
@@ -26,84 +34,91 @@ Definition rank2_ex : forall (A : Type), A -> (forall A : Type, A -> A) -> A :=
 fun A a f => f _ a.
 Extraction rank2_ex.
 
-(** Cumulativity *)
+(** ** Cumulativity *)
+
+(** The [sum] type constructor can be instantiated with Prop *)
+Definition inl_prop : Prop + Prop:= @inl Prop Prop True.
+
+MetaCoq Erase (unfolded inl_prop).
+(* Environment is well-formed and [inl [Prop] [Prop]] True erases to:
+   inl ∎ ∎ ∎ *)
+(** We cannot remove all boxes from [inl ∎ ∎ ∎ ] because we it won't match with deboxing of the
+    definition of the [sum] type. *)
+
+(** For other instantiations the last parameter is relevant and will not be erased. *)
+Definition inl_type : nat + bool:= @inl _ _ 0.
+MetaCoq Erase (unfolded inl_type).
+(* Environment is well-formed and [inl nat bool O] erases to:
+   inl ∎ ∎ O *)
+
+(** Therefore, the best we can do is to keep the last box in the erased version of [inl_prop]:
+    [inl ∎ ∎ ∎] *)
+
+(** The similar things happen to polymorphic constants *)
 Definition const_zero {A : Type} (a : A) := 0.
 
 Definition const_zero_app_prop := const_zero True.
 Definition const_zero_app_type := const_zero 0.
 
 MetaCoq Erase (unfolded const_zero_app_prop).
+(* const_zero ∎ ∎ *)
 MetaCoq Erase (unfolded const_zero_app_type).
+(* const_zero ∎ O *)
 
-Definition weird_map {A B} (f : A -> B) (l : list A) : unit -> list B :=
-  let g := @map A in
-  fun _ : unit => g B f l.
-
-MetaCoq Erase (unfolded @weird_map).
-
-Definition ex_prop (n : nat) (p : (0 < n)%nat) := n.
-
-(** Let's return something more tricky that could not be optimised easily *)
-Definition ex3 (n : nat) (b : bool) :=
-  let f := match b with | true => ex_prop (S n) | false => fun _ => 0 end in
-  fun _ : unit => f (Nat.lt_0_succ n) + f (Nat.lt_0_succ n).
-
-MetaCoq Erase (unfolded ex3).
-Extraction ex3.
-
-Definition ex4 (n : nat) (b : bool) :=
-  (match b with
-  | true => (fun (p : 0 < S n) => n)
-  | false => fun _ => 0
-  end) (Nat.lt_0_succ n).
-
-MetaCoq Erase (unfolded ex4).
-
-Definition erase_print_with_boxes (p : Ast.program) : string :=
-  let p := fix_program_universes p in
-  let checked_t := erase_template_program p in
-  let res := print_EnvCheck (fun Σ t => EPretty.print_term Σ [] true false t) checked_t in
-  print_sum res.
-
-Definition erase_print_deboxed_all_applied (p : Ast.program) : string :=
-  let p := fix_program_universes p in
-  let deboxed := erase_debox_all_applied [] p in
-  let res := print_EnvCheck (fun Σ t => EPretty.print_term Σ [] true false t) deboxed in
-  print_sum res.
-
-Quote Recursively Definition fold_left_prog := (unfolded fold_left).
-Compute erase_print_with_boxes fold_left_prog.
-
-Quote Recursively Definition map_prog := (unfolded map).
-Compute erase_print_with_boxes map_prog.
+Definition erase_print (p : program) (debox : bool) : result string string :=
+  entry <- match p.2 with
+           | tConst kn _ => ret kn
+           | _ => Err "Expected program to be a tConst"
+          end;;
+  Σ <- general_specialize_erase_debox_template_env p.1 [entry] (fun kn' => negb ( eq_kername entry kn')) false debox ;;
+  decl <- result_of_option (ExAst.lookup_env Σ entry) "Error : no declaration found" ;;
+  match decl with
+  | ExAst.ConstantDecl cb =>
+    b <- result_of_option cb.(ExAst.cst_body) "Error: a constant with no body";;
+    ret (EPretty.print_term (trans_global_decls Σ) [] true false b)
+  | _ => Err "Error: expected a constant"
+  end.
 
 Definition sum_nat (xs : list nat) : nat := fold_left plus xs 0.
 
 Set Printing Implicit.
 Print sum_nat.
+(* sum_nat = fun xs : list nat => @fold_left nat nat Init.Nat.add xs 0
+     : list nat -> nat *)
 Unset Printing Implicit.
 
-Quote Recursively Definition sum_prog := (unfolded sum_nat).
+MetaCoq Quote Recursively Definition sum_prog := sum_nat.
 
-Compute erase_print_with_boxes sum_prog.
+(** Erase and print before the deboxing step *)
+Compute erase_print sum_prog false.
+(* = Ok "fun xs => Coq.Lists.List.fold_left ∎ ∎ Coq.Init.Nat.add xs O" *)
+
+(** Erase and print after the deboxing step *)
+Compute erase_print sum_prog true.
+(* = Ok "fun xs => Coq.Lists.List.fold_left Coq.Init.Nat.add xs O" *)
 
 Definition square (xs : list nat) : list nat := map (fun x => x * x) xs.
 
-Quote Recursively Definition square_prog := (unfolded square).
-Compute erase_print_with_boxes square_prog.
-Compute erase_print_deboxed_all_applied square_prog.
+MetaCoq Quote Recursively Definition square_prog := square.
 
-Definition local_def := local "".
+(** Erase and print before the deboxing step *)
+Compute erase_print square_prog false.
+(* = Ok "fun xs => Coq.Lists.List.map ∎ ∎ (fun x => Coq.Init.Nat.mul x x) xs" *)
+
+(** Erase and print after the deboxing step *)
+Compute erase_print square_prog true.
+(* = Ok "fun xs => Coq.Lists.List.map (fun x => Coq.Init.Nat.mul x x) xs" *)
+
 
 (** A translation table for various constants we want to rename *)
-Definition TT : env string :=
-  [  remap <% List.map %> "List.map" ;
+Definition TT :=
+  [  remap <% List.map %> "Liquidity.List.map" ;
      remap <% Nat.mul %> "mulNat" ;
      remap <% nat %> "nat" ;
      remap <% list %> "list"].
 
-Quote Recursively Definition square_syn := (unfolded square).
+MetaCoq Quote Recursively Definition square_syn := square.
 
-Time Run TemplateProgram
-     (t1 <- toLiquidity "" TT square ;;
-      tmPrint t1).
+(** Erase and print the program give the remapped definitions *)
+Time Compute liquitidy_simple_extract TT [] false square_syn.
+(* = inl "let square (xs : ( (nat) list)) = Liquidity.List.map (fun x -> mulNat x x) xs" *)

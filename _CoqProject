@@ -92,6 +92,7 @@ extraction/examples/ErasureTests.v
 extraction/examples/MidlangExtractTests.v
 extraction/examples/Ack.v
 extraction/examples/ElmExtractTests.v
+extraction/examples/ForPaper.v
 
 embedding/theories/pcuic/PCUICCorrectness.v
 embedding/theories/pcuic/PCUICCorrectnessAux.v

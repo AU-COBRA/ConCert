@@ -400,18 +400,25 @@ Module ChainBaseSpecialization.
     ret (List.rev Σrev).
 End ChainBaseSpecialization.
 
+(* We assume well-formedness for performance reasons. Since quoted terms meant to be well-formed it is a reasonable assumption. *)
 Axiom assume_env_wellformed : forall Σ, ∥PT.wf Σ∥.
+
+(* We provide a flag to control if we want to retype the environment or just assume well-formed. *)
 Definition specialize_ChainBase_and_check
+           (retype : bool)
            (Σ : T.global_env) :
   result { Σ : P.global_env & ∥PT.wf Σ∥ } string :=
   let Σ := fix_global_env_universes Σ in
   let Σ := T2P.trans_global_decls Σ in
-  Σ <- ChainBaseSpecialization.specialize_env Σ;;
-  ret (Σ; assume_env_wellformed Σ).
-  (*G <- result_of_EnvCheck (check_wf_env_only_univs Σ);;
-  ret (Σ; G.π2.p2).*)
+  if retype then
+    G <- result_of_EnvCheck (check_wf_env_only_univs Σ);;
+    ret (Σ; G.π2.p2)
+  else
+    Σ <- ChainBaseSpecialization.specialize_env Σ;;
+    ret (Σ; assume_env_wellformed Σ).
 
-(* Specialize, erase and debox the specified template environment.
+(* Specialize, erase and debox the specified template environment
+   (depending on the flags passed to the function).
    Generalization over ChainBase is first specialized away, turning
    things like
 
@@ -435,31 +442,31 @@ Definition specialize_ChainBase_and_check
 Definition general_specialize_erase_debox_template_env
            (Σ : T.global_env)
            (seeds : list kername)
-           (ignore : kername -> bool) : result ExAst.global_env string :=
-  '(Σ; wfΣ) <- specialize_ChainBase_and_check Σ;;
+           (ignore : kername -> bool)
+           (retype : bool)
+           (debox : bool): result ExAst.global_env string :=
+  '(Σ; wfΣ) <- specialize_ChainBase_and_check retype Σ;;
   let ignored_names := filter ignore (map fst Σ) in
   Σ' <- map_error string_of_erase_global_decl_error
                  (general_erase_global_decls_deps_recursive Σ wfΣ ignore seeds) ;;
-  let mask := get_dearg_set_for_unused_args Σ' in
-  ret (debox_types_global_env (remove_unused_args mask Σ')).
+  if debox then
+    let mask := get_dearg_set_for_unused_args Σ' in
+    ret (debox_types_global_env (remove_unused_args mask Σ'))
+  else ret Σ'.
 
-(* Like above, but takes a list of names to ignore *)
-Definition specialize_erase_debox_template_env
+(* Like above, but takes a list of names to ignore and assumes that the environment is well-formed *)
+Definition specialize_erase_debox_template_env_no_wf_check
            (Σ : T.global_env)
            (seeds : list kername)
            (ignored : list kername) : result ExAst.global_env string :=
-  general_specialize_erase_debox_template_env Σ seeds (fun kn => contains kn ignored).
+  general_specialize_erase_debox_template_env Σ seeds (fun kn => contains kn ignored) false true.
 
 (* Like above, but does not debox *)
-Definition specialize_erase_template_env
+Definition specialize_erase_template_env_no_wf_check
            (Σ : T.global_env)
            (seeds : list kername)
            (ignored : list kername) : result ExAst.global_env string :=
-  '(Σ; wfΣ) <- specialize_ChainBase_and_check Σ;;
-  let ignore kn := contains kn ignored in
-  map_error string_of_erase_global_decl_error
-            (general_erase_global_decls_deps_recursive Σ wfΣ ignore seeds).
-
+  general_specialize_erase_debox_template_env Σ seeds (fun kn => contains kn ignored) false false.
 
 (*
 (* Like above, but get the dependencies from the term of a template
@@ -561,7 +568,7 @@ Definition get_contract_extraction_set
   receive_name <- extract_def_name (Blockchain.receive contract);;
   p <- tmQuoteRec contract;;
   let seeds := [init_name; receive_name] in
-  match specialize_erase_debox_template_env p.1 seeds ignored_concert_types with
+  match specialize_erase_debox_template_env_no_wf_check p.1 seeds ignored_concert_types with
   | Ok Σ => ret {| env := Σ; init_name := init_name; receive_name := receive_name; |}
   | Err err => tmFail err
   end.
@@ -860,3 +867,26 @@ Definition EnvCheck_to_template {A } (ec : EnvCheck A) : TemplateMonad A :=
   | CorrectDecl a => ret a
   | EnvError Σ e => tmFail (string_of_env_error Σ e)
   end.
+
+(* The definitions below are ment to be used ONLY when translating [ExAst.global_env] into [EAst.global_contex] for PRINTING purposes. Because in general it's not possible to recover the "standard" [EAst] representation of inductives from the data structures of [ExAst]*)
+Definition trans_cst (cst : ExAst.constant_body) : EAst.constant_body :=
+  {| EAst.cst_body := ExAst.cst_body cst |}.
+
+Definition trans_oib (oib : ExAst.one_inductive_body) : EAst.one_inductive_body :=
+  {| EAst.ind_name := oib.(ExAst.ind_name);
+     EAst.ind_kelim := InType; (* just a "random" pick, not involved in printing *)
+     EAst.ind_ctors := map (fun '(nm, _) => ((nm,EAst.tBox),0)) oib.(ExAst.ind_ctors);
+     EAst.ind_projs := [] |}.
+
+Definition trans_mib (mib : ExAst.mutual_inductive_body) : EAst.mutual_inductive_body :=
+  {| EAst.ind_npars := mib.(ExAst.ind_npars);
+     EAst.ind_bodies := map trans_oib mib.(ExAst.ind_bodies) |}.
+
+Definition trans_global_decls (Σ : ExAst.global_env) : EAst.global_context :=
+  let map_decl kn (decl : ExAst.global_decl) : list (kername * EAst.global_decl) :=
+      match decl with
+      | ExAst.ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
+      | ExAst.InductiveDecl _ mib => [(kn, EAst.InductiveDecl (trans_mib mib))]
+      | ExAst.TypeAliasDecl _ => []
+      end in
+  flat_map (fun '(kn, decl) => map_decl kn decl) Σ.

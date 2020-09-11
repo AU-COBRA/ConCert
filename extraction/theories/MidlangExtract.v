@@ -760,7 +760,7 @@ Definition extra_ignored :=
         "RecordUpdate.RecordSet.constructor"].
 
 Definition test :=
-    specialize_erase_debox_template_env
+    specialize_erase_debox_template_env_no_wf_check
       program.1
       [init_name; receive_name]
       (ignored_concert_types ++ extra_ignored ++ map fst midlang_translation_map).
@@ -855,7 +855,7 @@ Definition counter_ignored :=
    <%% @RecordSet.constructor %%>].
 
 Definition counter_extract :=
-    specialize_erase_debox_template_env
+    specialize_erase_debox_template_env_no_wf_check
       counter_env
       [counter_name]
       (ignored_concert_types ++ counter_ignored
