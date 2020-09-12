@@ -471,38 +471,125 @@ Ltac determ :=
     end;
   subst.
 
-Lemma Forall_specialize {A B} {Q : A -> B -> Prop} l l' :
-  Forall (fun x => forall y, Q x y) l ->
-  #|l| = #|l'| ->
-  Forall2 Q l l'.
+Lemma term_forall_list_rect :
+  forall P : term -> Type,
+    (P tBox) ->
+    (forall n : nat, P (tRel n)) ->
+    (forall i : ident, P (tVar i)) ->
+    (forall (n : nat) (l : list term), All P l -> P (tEvar n l)) ->
+    (forall (n : name) (t : term), P t -> P (tLambda n t)) ->
+    (forall (n : name) (t : term),
+        P t -> forall t0 : term, P t0 -> P (tLetIn n t t0)) ->
+    (forall t u : term, P t -> P u -> P (tApp t u)) ->
+    (forall s, P (tConst s)) ->
+    (forall (i : inductive) (n : nat), P (tConstruct i n)) ->
+    (forall (p : inductive * nat) (t : term),
+        P t -> forall l : list (nat * term),
+            tCaseBrsProp P l -> P (tCase p t l)) ->
+    (forall (s : projection) (t : term), P t -> P (tProj s t)) ->
+    (forall (m : mfixpoint term) (n : nat), All (fun x => P (dbody x)) m -> P (tFix m n)) ->
+    (forall (m : mfixpoint term) (n : nat), All (fun x => P (dbody x)) m -> P (tCoFix m n)) ->
+    forall t : term, P t.
 Proof.
-  intros all len_eq.
-  induction all in l', len_eq |- *.
-  - now destruct l'.
-  - now destruct l'.
-Qed.
+  intros until t. revert t.
+  fix auxt 1.
+  move auxt at top.
+  destruct t; match goal with
+                 H : _ |- _ => apply H
+              end; auto.
+  revert l.
+  fix auxl' 1.
+  destruct l; constructor; [|apply auxl'].
+  apply auxt.
+  revert l.
+  fix auxl' 1.
+  destruct l; constructor; [|apply auxl'].
+  apply auxt.
 
-Instance UIP_term : UIP term.
+  revert m.
+  fix auxm 1.
+  destruct m; constructor; [|apply auxm].
+  apply auxt.
+
+  revert m.
+  fix auxm 1.
+  destruct m; constructor; [|apply auxm].
+  apply auxt.
+Defined.
+
+(* We need UIP below *)
+Instance EqDec_term : EqDec term.
 Proof.
-  intros x y e e'.
-  apply eq_proofs_unicity.
-  clear.
   intros x.
-  induction x using term_forall_list_ind; intros []; try solve [right; discriminate].
+  induction x using term_forall_list_rect; intros []; try solve [right; discriminate].
   - now left.
-  - destruct (Nat.eq_dec n n0) as [<-|]; [left|right]; congruence.
-  - destruct (String.string_dec i i0) as [<-|]; [left|right]; congruence.
-  - destruct (Nat.eq_dec n n0) as [<-|]; [|right; congruence].
-    destruct (Nat.eq_dec #|l| #|l0|); [|right; congruence].
-    eapply Forall_specialize in H; [|eassumption].
-    clear e.
-    enough (l = l0 \/ l <> l0).
+  - destruct (eq_dec n n0); subst; [left|right]; congruence.
+  - destruct (eq_dec i i0); subst; [left|right]; congruence.
+  - destruct (eq_dec n n0); subst; [|right; congruence].
+    destruct (eq_dec #|l| #|l0|); [|right; congruence].
+    enough ({l = l0} + {l <> l0}).
     { destruct H0; [left|right]; congruence. }
-    induction H; [now left|].
-    destruct H, IHForall2; first [left; congruence|right; congruence].
-  - admit.
-    all: admit.
-    Admitted.
+    induction H in l0, e |- *.
+    + destruct l0; [|easy].
+      now left.
+    + destruct l0; [easy|].
+      destruct (p t); subst; [|right; congruence].
+      destruct (IHAll l0 ltac:(easy)); subst; [left|right]; congruence.
+  - destruct (eq_dec n n0); subst; [|right; congruence].
+    destruct (IHx t); subst; [left|right]; congruence.
+  - destruct (eq_dec n n0); subst; [|right; congruence].
+    destruct (IHx1 t); subst; [|right; congruence].
+    destruct (IHx2 t0); subst; [left|right]; congruence.
+  - destruct (IHx1 t); subst; [|right; congruence].
+    destruct (IHx2 t0); subst; [left|right]; congruence.
+  - destruct (eq_dec s k); subst; [left|right]; congruence.
+  - destruct (eq_dec i i0); subst; [|right; congruence].
+    destruct (eq_dec n n0); subst; [left|right]; congruence.
+  - destruct (eq_dec p p0); subst; [|right; congruence].
+    destruct (IHx t); subst; [|right; congruence].
+    destruct (eq_dec #|l| #|l0|); [|right; congruence].
+    enough ({l = l0} + {l <> l0}).
+    { destruct H; subst; [left|right]; congruence. }
+    induction X in l0, e |- *.
+    + destruct l0; [|easy].
+      now left.
+    + destruct l0; cbn in *; [easy|].
+      destruct (p p1.2); [|right; congruence].
+      destruct (eq_dec x.1 p1.1); [|right; congruence].
+      destruct (IHX l0 ltac:(easy)); subst; [|right; congruence].
+      destruct x, p1; cbn in *; subst.
+      now left.
+  - destruct (eq_dec s p); subst; [|right; congruence].
+    destruct (IHx t); [left|right]; congruence.
+  - destruct (eq_dec n n0); subst; [|right; congruence].
+    destruct (eq_dec #|m| #|m0|); [|right; congruence].
+    enough ({m = m0} + {m <> m0}).
+    { destruct H0; subst; [left|right]; congruence. }
+    induction H in m0, e |- *.
+    + destruct m0; [|easy].
+      now left.
+    + destruct m0; cbn in *; [easy|].
+      destruct (eq_dec (dname x) (dname d)); [|right; congruence].
+      destruct (p (dbody d)); [|right; congruence].
+      destruct (eq_dec (rarg x) (rarg d)); [|right; congruence].
+      destruct (IHAll m0 ltac:(easy)); subst; [|right; congruence].
+      destruct x, d; cbn in *; subst.
+      now left.
+  - destruct (eq_dec n n0); subst; [|right; congruence].
+    destruct (eq_dec #|m| #|m0|); [|right; congruence].
+    enough ({m = m0} + {m <> m0}).
+    { destruct H0; subst; [left|right]; congruence. }
+    induction H in m0, e |- *.
+    + destruct m0; [|easy].
+      now left.
+    + destruct m0; cbn in *; [easy|].
+      destruct (eq_dec (dname x) (dname d)); [|right; congruence].
+      destruct (p (dbody d)); [|right; congruence].
+      destruct (eq_dec (rarg x) (rarg d)); [|right; congruence].
+      destruct (IHAll m0 ltac:(easy)); subst; [|right; congruence].
+      destruct x, d; cbn in *; subst.
+      now left.
+Qed.
 
 Lemma deriv_lengths_eq {Σ t v} (ev1 ev2 : Σ ⊢ t ▷ v) :
   deriv_length ev1 = deriv_length ev2.
