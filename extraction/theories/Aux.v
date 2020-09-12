@@ -1,6 +1,7 @@
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import List.
+From Coq Require Import Psatz.
 From Equations Require Import Equations.
 From MetaCoq Require Import utils.
 
@@ -69,6 +70,11 @@ Proof.
     now rewrite i, IHl.
 Qed.
 
+Lemma Alli_map {A B} (P : nat -> B -> Type) n (f : A -> B) (l : list A) :
+  Alli (fun n a => P n (f a)) n l ->
+  Alli P n (map f l).
+Proof. now induction 1; cbn; constructor. Qed.
+
 Lemma Forall_snoc {A} (P : A -> Prop) (l : list A) (a : A) :
   Forall P (l ++ [a]) ->
   Forall P l /\ P a.
@@ -77,4 +83,42 @@ Proof.
   apply Forall_app in all.
   intuition.
   now inversion H0.
+Qed.
+
+Lemma Forall_repeat {A} (P : A -> Prop) (a : A) (n : nat) :
+  P a ->
+  Forall P (repeat a n).
+Proof.
+  intros pa.
+  now induction n; constructor.
+Qed.
+
+Lemma skipn_firstn_slice {A} n n' (l : list A) :
+  n <= n' ->
+  skipn n (firstn n' l) ++ skipn n' l = skipn n l.
+Proof.
+  intros le.
+  induction n in n, n', le, l |- *.
+  - now rewrite !skipn_0, firstn_skipn.
+  - destruct n'; [easy|].
+    destruct l; [easy|].
+    rewrite firstn_cons, !skipn_cons.
+    apply IHn.
+    lia.
+Qed.
+
+Lemma existsb_map {A B} (p : B -> bool) (f : A -> B) (l : list A) :
+  existsb p (map f l) = existsb (fun a => p (f a)) l.
+Proof.
+  induction l; [easy|]; cbn in *.
+  now rewrite IHl.
+Qed.
+
+Lemma Forall_existsb_false {A} (p : A -> bool) (l : list A) :
+  Forall (fun a => p a = false) l ->
+  existsb p l = false.
+Proof.
+  induction 1; [easy|].
+  cbn in *.
+  now rewrite H, IHForall.
 Qed.
