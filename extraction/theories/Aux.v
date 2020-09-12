@@ -68,3 +68,13 @@ Proof.
     cbn.
     now rewrite i, IHl.
 Qed.
+
+Lemma Forall_snoc {A} (P : A -> Prop) (l : list A) (a : A) :
+  Forall P (l ++ [a]) ->
+  Forall P l /\ P a.
+Proof.
+  intros all.
+  apply Forall_app in all.
+  intuition.
+  now inversion H0.
+Qed.

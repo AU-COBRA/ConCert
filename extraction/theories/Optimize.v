@@ -67,6 +67,9 @@ Definition bitmask_not (bs : bitmask) : bitmask :=
 Definition count_zeros (bs : bitmask) : nat :=
   List.length (filter negb bs).
 
+Definition count_ones (bs : bitmask) : nat :=
+  List.length (filter id bs).
+
 Fixpoint bitmask_or (bs1 bs2 : bitmask) : bitmask :=
   match bs1, bs2 with
   | b1 :: bs1, b2 :: bs2 => (b1 || b2) :: bitmask_or bs1 bs2
@@ -113,16 +116,18 @@ Fixpoint dearg_single (mask : bitmask) (t : term) (args : list term) : term :=
   | [], _ => mkApps t args
   end.
 
+(* Get the branch for a branch of an inductive, i.e. without including parameters of the inductive *)
+Definition get_branch_mask (mm : mib_masks) (ind : inductive) (c : nat) : bitmask :=
+  match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
+             (ctor_masks mm) with
+  | Some (_, _, mask) => mask
+  | None => []
+  end.
+
+(* Get mask for a constructor, i.e. combined parameter and branch mask *)
 Definition get_ctor_mask (ind : inductive) (c : nat) : bitmask :=
   match get_mib_masks (inductive_mind ind) with
-  | Some mib_masks =>
-    let ctor_mask :=
-        match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
-                   (ctor_masks mib_masks) with
-        | Some (_, _, ctor_mask) => ctor_mask
-        | None => []
-        end in
-    param_mask mib_masks ++ ctor_mask
+  | Some mm => param_mask mm ++ get_branch_mask mm ind c
   | None => []
   end.
 
@@ -132,13 +137,38 @@ Definition get_const_mask (kn : kername) : bitmask :=
   | None => []
   end.
 
-Fixpoint dearg_lambdas (mask : bitmask) (ar : nat) (t : term) : nat * term :=
-  match mask, t with
-  | true :: mask, tLambda na body => dearg_lambdas mask (ar - 1) (body { 0 := tBox })
-  | false :: mask, tLambda na body =>
-    let (ar, t) := dearg_lambdas mask ar body in
-    (ar, tLambda na t)
-  | _, _ => (ar, t)
+(* Remove lambda abstractions based on bitmask *)
+Fixpoint dearg_lambdas (mask : bitmask) (body : term) : term :=
+  match body with
+  | tLetIn na val body => tLetIn na val (dearg_lambdas mask body)
+  | tLambda na lam_body =>
+    match mask with
+    | true :: mask => (dearg_lambdas mask lam_body) { 0 := tBox }
+    | false :: mask => tLambda na (dearg_lambdas mask lam_body)
+    | [] => body
+    end
+  | _ => body
+  end.
+
+Definition dearged_npars (mm : option mib_masks) (npars : nat) : nat :=
+  match mm with
+  | Some mm => count_zeros (param_mask mm)
+  | None => npars
+  end.
+
+Definition dearg_case_branch
+           (mm : mib_masks) (ind : inductive) (c : nat)
+           (br : nat × term) : nat × term :=
+  let mask := get_branch_mask mm ind c in
+  (br.1 - count_ones mask, dearg_lambdas mask br.2).
+
+Definition dearg_case_branches
+           (mm : option mib_masks)
+           (ind : inductive)
+           (brs : list (nat × term)) :=
+  match mm with
+  | Some mm => mapi (dearg_case_branch mm ind) brs
+  | None => brs
   end.
 
 Definition dearg_case
@@ -146,24 +176,12 @@ Definition dearg_case
            (npars : nat)
            (discr : term)
            (brs : list (nat * term)) : term :=
-  match get_mib_masks (inductive_mind ind) with
-  | Some mib_masks =>
-    let new_npars := count_zeros (param_mask mib_masks) in
-    let dearg_one c br :=
-        match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
-                   (ctor_masks mib_masks) with
-        | Some (_, _, ctor_masks) => dearg_lambdas ctor_masks br.1 br.2
-        | None => br
-        end in
-    tCase (ind, new_npars) discr (mapi dearg_one brs)
-  | None => tCase (ind, npars) discr brs
-  end.
+  let mm := get_mib_masks (inductive_mind ind) in
+  tCase (ind, dearged_npars mm npars) discr (dearg_case_branches mm ind brs).
 
 Definition dearg_proj (ind : inductive) (c : nat) (npars : nat) (discr : term) : term :=
-  match get_mib_masks (inductive_mind ind) with
-  | Some mm => tProj (ind, c, count_zeros (param_mask mm)) discr
-  | None => tProj (ind, c, npars) discr
-  end.
+  let mm := get_mib_masks (inductive_mind ind) in
+  tProj (ind, c, dearged_npars mm npars) discr.
 
 Fixpoint dearg_aux (args : list term) (t : term) : term :=
   match t with
@@ -182,19 +200,6 @@ Fixpoint dearg_aux (args : list term) (t : term) : term :=
 Definition dearg (t : term) : term :=
   dearg_aux [] t.
 
-(* Remove lambda abstractions from top level declaration based on bitmask *)
-Fixpoint dearg_cst_body_top (mask : bitmask) (body : term) : term :=
-  match body with
-  | tLetIn na val body => tLetIn na val (dearg_cst_body_top mask body)
-  | tLambda na lam_body =>
-    match mask with
-    | true :: mask => (dearg_cst_body_top mask lam_body) { 0 := tBox }
-    | false :: mask => tLambda na (dearg_cst_body_top mask lam_body)
-    | [] => body
-    end
-  | _ => body
-  end.
-
 Fixpoint dearg_cst_type_top (mask : bitmask) (type : box_type) : box_type :=
   match mask, type with
   | true :: mask, TArr _ cod => dearg_cst_type_top mask cod
@@ -207,7 +212,7 @@ Fixpoint dearg_cst_type_top (mask : bitmask) (type : box_type) : box_type :=
 Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
   let mask := get_const_mask kn in
   {| cst_type := on_snd (dearg_cst_type_top mask) (cst_type cst);
-     cst_body := option_map (dearg ∘ dearg_cst_body_top mask) (cst_body cst) |}.
+     cst_body := option_map (dearg ∘ dearg_lambdas mask) (cst_body cst) |}.
 
 (* Remove all data from ctor based on bitmask *)
 Fixpoint dearg_oib_ctor (mask : bitmask) (bts : list box_type) : list box_type :=

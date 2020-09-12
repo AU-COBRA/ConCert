@@ -15,22 +15,24 @@ From MetaCoq.Template Require Import utils.
 Import ListNotations.
 Set Equations Transparent.
 
+Lemma closedn_mkApps k hd args :
+  closedn k hd ->
+  Forall (closedn k) args ->
+  closedn k (mkApps hd args).
+Proof.
+  intros clos_hd clos_args.
+  induction args in k, hd, args, clos_hd, clos_args |- * using List.rev_ind; [easy|].
+  rewrite mkApps_app.
+  cbn.
+  propify.
+  now apply Forall_snoc in clos_args as (clos_args & clos_x).
+Qed.
+
 Lemma closed_mkApps hd args :
   closed hd ->
   Forall (closedn 0) args ->
   closed (mkApps hd args).
-Proof.
-  revert hd.
-  induction args using List.rev_ind; [easy|].
-  intros hd closed_hd closed_args.
-  rewrite mkApps_app.
-  cbn.
-  propify.
-  apply Forall_app in closed_args.
-  destruct closed_args as (? & closed_x).
-  split; [|now inversion closed_x].
-  easy.
-Qed.
+Proof. now intros; apply closedn_mkApps. Qed.
 
 Lemma closed_mkApps_inv hd args :
   closed (mkApps hd args) ->
