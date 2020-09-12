@@ -171,6 +171,13 @@ Definition dearg_case_branches
   | None => brs
   end.
 
+Definition dearged_proj_arg (mm : option mib_masks) (ind : inductive) (arg : nat) : nat :=
+  match mm with
+  | Some mm => let mask := get_branch_mask mm ind 0 in
+               arg - count_ones (firstn arg mask)
+  | None => arg
+  end.
+
 Definition dearg_case
            (ind : inductive)
            (npars : nat)
@@ -179,9 +186,9 @@ Definition dearg_case
   let mm := get_mib_masks (inductive_mind ind) in
   tCase (ind, dearged_npars mm npars) discr (dearg_case_branches mm ind brs).
 
-Definition dearg_proj (ind : inductive) (c : nat) (npars : nat) (discr : term) : term :=
+Definition dearg_proj (ind : inductive) (npars arg : nat) (discr : term) : term :=
   let mm := get_mib_masks (inductive_mind ind) in
-  tProj (ind, c, dearged_npars mm npars) discr.
+  tProj (ind, dearged_npars mm npars, dearged_proj_arg mm ind arg) discr.
 
 Fixpoint dearg_aux (args : list term) (t : term) : term :=
   match t with
@@ -192,8 +199,8 @@ Fixpoint dearg_aux (args : list term) (t : term) : term :=
     let discr := dearg_aux [] discr in
     let brs := map (on_snd (dearg_aux [])) brs in
     mkApps (dearg_case ind npars discr brs) args
-  | tProj (ind, c, npars) t =>
-    mkApps (dearg_proj ind c npars (dearg_aux [] t)) args
+  | tProj (ind, npars, arg) t =>
+    mkApps (dearg_proj ind npars arg (dearg_aux [] t)) args
   | t => mkApps (map_subterms (dearg_aux []) t) args
   end.
 

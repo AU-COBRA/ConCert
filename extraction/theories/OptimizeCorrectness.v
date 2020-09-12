@@ -1162,13 +1162,26 @@ Definition valid_case_masks (ind : inductive) (npars : nat) (brs : list (nat * t
   match get_mib_masks (inductive_mind ind) with
   | Some mm =>
     (#|param_mask mm| =? npars) &&
-    alli (fun c '(ar, br) => valid_dearg_mask (get_branch_mask mm ind c) br) 0 brs
+    alli (fun c '(ar, br) =>
+            (#|get_branch_mask mm ind c| <=? ar) &&
+            (valid_dearg_mask (get_branch_mask mm ind c) br)) 0 brs
   | None => true
   end.
 
-(* Check that all case discriminations in a term are valid according to the masks:
-   they have the proper number of parameters and their branches are compatible with the masks
-   (they are iterated lambdas, and when 'true' appears in the mask, the parameter is unused *)
+Definition valid_proj (ind : inductive) (npars arg : nat) : bool :=
+  match get_mib_masks (inductive_mind ind) with
+  | Some mm => (#|param_mask mm| =? npars) &&
+               (* Projected argument must not be removed *)
+               negb (nth arg (get_branch_mask mm ind 0) false)
+  | _ => true
+  end.
+
+(* Check that all case and projections in a term are valid according
+   to the masks. They must have the proper number of parameters, and
+   1. For cases, their branches must be compatible with the masks,
+      i.e. they are iterated lambdas/let-ins and when "true" appears in the mask,
+      the parameter is unused
+   2. For projections, the projected argument must not be removed *)
 Fixpoint valid_cases (t : term) : bool :=
   match t with
   | tEvar _ ts => forallb valid_cases ts
@@ -1177,7 +1190,7 @@ Fixpoint valid_cases (t : term) : bool :=
   | tApp hd arg => valid_cases hd && valid_cases arg
   | tCase (ind, npars) discr brs =>
     valid_cases discr && forallb (valid_cases ∘ snd) brs && valid_case_masks ind npars brs
-  | tProj _ t => valid_cases t
+  | tProj (ind, npars, arg) t => valid_cases t && valid_proj ind npars arg
   | tFix defs _
   | tCoFix defs _  => forallb (valid_cases ∘ dbody) defs
   | _ => true
@@ -1415,6 +1428,7 @@ Proof.
   unfold dearg_case_branch.
   cbn.
   f_equal.
+  propify.
   now apply subst_dearg_lambdas.
 Qed.
 
@@ -1768,8 +1782,9 @@ Proof.
   apply Alli_map.
   eapply Alli_impl; [eassumption|].
   cbn.
-  intros n [].
-  intros valid.
+  intros n [] valid.
+  propify.
+  split; [easy|].
   now apply valid_dearg_mask_dearg.
 Qed.
 
@@ -1841,7 +1856,7 @@ Proof.
     rewrite subst_mkApps, map_map.
     f_equal.
     unfold dearg_proj.
-    cbn.
+    cbn in *; propify.
     f_equal.
     now apply (IHt _ _ []).
   - rewrite subst_mkApps, map_map.
@@ -1901,7 +1916,7 @@ Proof.
   apply Forall_app_inv; intuition.
 Qed.
 
-Lemma is_expanded_aux_mkApps n hd args :
+Lemma is_expanded_aux_mkApps_eq n hd args :
   is_expanded_aux n (mkApps hd args) =
   is_expanded_aux (n + #|args|) hd && forallb is_expanded args.
 Proof.
@@ -1922,17 +1937,28 @@ Proof.
     lia.
 Qed.
 
-Lemma is_expanded_mkApps hd args :
+Lemma is_expanded_mkApps_eq hd args :
   is_expanded (mkApps hd args) = is_expanded_aux #|args| hd && forallb is_expanded args.
-Proof. now apply is_expanded_aux_mkApps. Qed.
+Proof. now apply is_expanded_aux_mkApps_eq. Qed.
 
-Lemma is_expanded_aux_mkApps_true n hd args :
+Lemma is_expanded_aux_mkApps_inv n hd args :
+  is_expanded_aux n (mkApps hd args) ->
+  is_expanded_aux (n + #|args|) hd /\ Forall is_expanded args.
+Proof.
+  intros exp.
+  rewrite is_expanded_aux_mkApps_eq in exp.
+  propify.
+  split; [easy|].
+  now apply forallb_Forall.
+Qed.
+
+Lemma is_expanded_aux_mkApps n hd args :
   is_expanded_aux (n + #|args|) hd ->
   Forall (fun a => is_expanded a) args ->
   is_expanded_aux n (mkApps hd args).
 Proof.
   intros exp_hd exp_args.
-  rewrite is_expanded_aux_mkApps.
+  rewrite is_expanded_aux_mkApps_eq.
   rewrite exp_hd.
   now apply forallb_Forall.
 Qed.
@@ -1946,7 +1972,7 @@ Proof.
   induction t in n, t, n', l, exp |- * using term_forall_list_ind; cbn in *; propify; easy.
 Qed.
 
-Lemma is_expanded_csubst_true s n t k :
+Lemma is_expanded_csubst s n t k :
   is_expanded_aux 0 s ->
   is_expanded_aux n t ->
   is_expanded_aux n (csubst s k t).
@@ -1987,7 +2013,7 @@ Proof.
     now rewrite H, IHForall.
 Qed.
 
-Lemma is_expanded_subst_true s n t k :
+Lemma is_expanded_subst s n t k :
   is_expanded_aux 0 s ->
   is_expanded_aux n t ->
   is_expanded_aux n (subst [s] k t).
@@ -2039,7 +2065,7 @@ Proof.
   now induction n; constructor.
 Qed.
 
-Lemma is_expanded_substl_true s n t :
+Lemma is_expanded_substl s n t :
   Forall (fun s => is_expanded s) s ->
   is_expanded_aux n t ->
   is_expanded_aux n (substl s t).
@@ -2050,7 +2076,7 @@ Proof.
   rewrite fold_left_app.
   cbn.
   apply Forall_snoc in all.
-  now apply is_expanded_csubst_true.
+  now apply is_expanded_csubst.
 Qed.
 
 Lemma Forall_is_expanded_fix_subst defs :
@@ -2085,7 +2111,7 @@ Proof.
   destruct (nth_error _ _) eqn:nth; [|congruence].
   eapply nth_error_forall in nth; [|eassumption].
   noconf cuf.
-  apply is_expanded_substl_true; [|easy].
+  apply is_expanded_substl; [|easy].
   now apply Forall_is_expanded_fix_subst.
 Qed.
 
@@ -2099,7 +2125,7 @@ Proof.
   destruct (nth_error _ _) eqn:nth; [|congruence].
   eapply nth_error_forall in nth; [|eassumption].
   noconf cuf.
-  apply is_expanded_substl_true; [|easy].
+  apply is_expanded_substl; [|easy].
   now apply Forall_is_expanded_cofix_subst.
 Qed.
 
@@ -2127,69 +2153,63 @@ Proof.
   intros ev exp_env exp_t.
   induction ev in t, v, k, ev, exp_t |- *; auto; cbn in *; propify.
   - apply IHev3.
-    apply is_expanded_csubst_true; intuition auto.
+    apply is_expanded_csubst; intuition auto.
     now eapply is_expanded_aux_upwards.
   - apply IHev2.
-    apply is_expanded_csubst_true; intuition auto.
+    apply is_expanded_csubst; intuition auto.
     now eapply is_expanded_aux_upwards.
   - apply IHev2.
     unfold ETyping.iota_red.
     specialize (IHev1 0 ltac:(easy)).
-    rewrite is_expanded_aux_mkApps in *.
-    propify.
-    split.
+    apply is_expanded_aux_mkApps_inv in IHev1 as (exp_hd & exp_args); cbn in *.
+    apply is_expanded_aux_mkApps.
     + rewrite nth_nth_error.
       destruct (nth_error _ _) eqn:nth; [|easy].
       eapply nth_error_forall in nth; [|now eapply forallb_Forall].
       now eapply is_expanded_aux_upwards.
-    + now apply forallb_Forall, Forall_skipn, forallb_Forall.
+    + now apply Forall_skipn.
   - apply IHev2.
-    rewrite is_expanded_aux_mkApps.
-    propify.
-    split.
+    apply is_expanded_aux_mkApps.
     + subst brs.
       cbn in *.
       now propify; eapply is_expanded_aux_upwards.
-    + apply forallb_Forall.
-      now apply Forall_repeat.
+    + now apply Forall_repeat.
   - apply IHev3; clear IHev3.
     specialize (IHev1 (S k)).
     specialize (IHev2 0).
-    rewrite is_expanded_aux_mkApps in *.
-    cbn in *; propify.
+    propify; split; [easy|].
     intuition auto.
-    eapply is_expanded_aux_upwards.
-    + eapply is_expanded_cunfold_fix; [eassumption|].
+    apply is_expanded_aux_mkApps_inv in H2 as (? & ?).
+    apply is_expanded_aux_mkApps.
+    + apply (is_expanded_aux_upwards 0); [|lia].
+      eapply is_expanded_cunfold_fix; [eassumption|].
       now apply forallb_Forall.
     + easy.
   - easy.
   - apply IHev; clear IHev.
-    rewrite is_expanded_aux_mkApps in *.
-    cbn in *; propify.
-    intuition auto.
-    eapply is_expanded_aux_upwards.
-    + eapply is_expanded_cunfold_cofix; [eassumption|].
-      now apply forallb_Forall.
-    + easy.
+    propify; split; [|easy].
+    destruct exp_t.
+    apply is_expanded_aux_mkApps_inv in H as (exp_cofix & exp_args).
+    apply is_expanded_aux_mkApps; [|easy].
+    apply (is_expanded_aux_upwards 0); [|easy].
+    eapply is_expanded_cunfold_cofix; [eassumption|].
+    now apply forallb_Forall.
   - apply IHev; clear IHev.
-    rewrite is_expanded_aux_mkApps in *.
-    cbn in *; propify.
-    intuition auto.
-    eapply is_expanded_aux_upwards.
-    + eapply is_expanded_cunfold_cofix; [eassumption|].
-      now apply forallb_Forall.
-    + easy.
+    apply is_expanded_aux_mkApps_inv in exp_t as (exp_cofix & exp_args).
+    apply is_expanded_aux_mkApps; [|easy].
+    apply (is_expanded_aux_upwards 0); [|easy].
+    eapply is_expanded_cunfold_cofix; [eassumption|].
+    now apply forallb_Forall.
   - apply IHev.
-    eapply is_expanded_aux_upwards.
-    + now eapply is_expanded_constant.
-    + easy.
+    apply (is_expanded_aux_upwards 0); [|easy].
+    now eapply is_expanded_constant.
   - apply IHev2; clear IHev2.
     specialize (IHev1 _ exp_t).
-    rewrite is_expanded_aux_mkApps in IHev1; propify.
+    apply is_expanded_aux_mkApps_inv in IHev1 as (exp_hd & exp_args).
     rewrite nth_nth_error.
     destruct (nth_error _ _) eqn:nth; [|easy].
-    eapply nth_error_forall in nth; [|now apply forallb_Forall].
-    now eapply is_expanded_aux_upwards.
+    eapply nth_error_forall in nth; [|eassumption].
+    now apply (is_expanded_aux_upwards 0).
   - easy.
 Qed.
 
@@ -2208,7 +2228,8 @@ Proof.
   apply Alli_map.
   eapply Alli_impl; [eassumption|].
   intros ? [] val_branch.
-  cbn in *.
+  cbn in *; propify.
+  split; [easy|].
   now apply valid_dearg_mask_lift.
 Qed.
 
@@ -2227,7 +2248,8 @@ Proof.
   apply Alli_map.
   eapply Alli_impl; [eassumption|].
   intros ? [] val_branch.
-  cbn in *.
+  cbn in *; propify.
+  split; [easy|].
   now apply valid_dearg_mask_subst.
 Qed.
 
@@ -2250,6 +2272,8 @@ Proof.
     destruct valid_t as ((_ & valid) & _).
     induction X; [easy|].
     cbn in *.
+    now propify.
+  - destruct s as ((ind & npars) & arg).
     now propify.
   - induction H in H, k, valid_t |- *; [easy|].
     cbn in *.
@@ -2285,6 +2309,8 @@ Proof.
     destruct valid_t as ((_ & valid) & _).
     induction X; [easy|].
     now cbn in *; propify.
+  - destruct s0 as ((ind & npars) & arg).
+    now propify.
   - induction H in H, k, valid_t |- *; [easy|].
     cbn in *; propify.
     now rewrite <- !Nat.add_succ_r.
@@ -2390,10 +2416,9 @@ Proof.
     now apply IHForall.
 Qed.
 
-
 Hint Resolve
      closedn_subst0 closed_mkApps closedn_dearg_aux closed_iota_red
-     is_expanded_subst_true is_expanded_aux_mkApps_true
+     is_expanded_subst is_expanded_aux_mkApps
      valid_cases_subst : dearg.
 Hint Constructors Forall : dearg.
 
@@ -2649,51 +2674,31 @@ Proof with auto with dearg.
       apply valid_cases_mkApps...
       now eapply valid_cases_cunfold_cofix.
     + now cbn; propify.
-  - apply closed_mkApps_inv in clos_t as (? & ?).
+  - destruct p as ((ind & npars) & arg).
+    apply closed_mkApps_inv in clos_t as (? & ?).
+    propify.
+    destruct valid_t as (valid_t & valid_proj).
     apply valid_cases_mkApps_inv in valid_t as (? & ?).
     assert (closed fn) by (now eapply closed_cunfold_cofix).
     apply IHev.
     + now apply closed_mkApps.
-    + apply valid_cases_mkApps...
+    + split; [|easy].
+      apply valid_cases_mkApps...
       now eapply valid_cases_cunfold_cofix.
   - apply IHev.
     + now eapply closed_constant.
     + now eapply valid_cases_constant.
   - intuition auto.
     eapply eval_closed in ev1 as ?...
-    eapply closed_mkApps_inv in H as (? & ?).
-    eapply valid_cases_mkApps_inv in H0 as (? & ?).
+    eapply closed_mkApps_inv in H1 as (? & ?).
+    eapply valid_cases_mkApps_inv in H2 as (? & ?).
     rewrite (nth_nth_error (pars + arg) args tDummy) in *.
     destruct (nth_error _ _) eqn:nth; [|now apply IHev2].
-    eapply nth_error_forall in H1; [|eassumption].
-    eapply nth_error_forall in H2; [|eassumption].
+    eapply nth_error_forall in H4; [|eassumption].
+    eapply nth_error_forall in H3; [|eassumption].
     now apply IHev2.
   - easy.
 Qed.
-
-Ltac transfer_elim :=
-  match goal with
-  | [clos_hd : is_true (closed (mkApps ?f (firstn ?n ?l))),
-     clos_args : Forall (fun t => is_true (closed t)) (skipn ?n ?l),
-     valid_hd : valid_cases (mkApps ?f (firstn ?n ?l)),
-     valid_args : Forall valid_cases (skipn ?n ?l),
-     exp_hd : is_true (is_expanded_aux #|skipn ?n ?l| (mkApps ?f (firstn ?n ?l))),
-     exp_args : Forall (fun a => is_true (is_expanded a)) (skipn ?n ?l) |- _] =>
-    apply closed_mkApps_inv in clos_hd as (clos_hd & clos_args');
-    eapply Forall_app_inv in clos_args; [|exact clos_args'];
-
-    apply valid_cases_mkApps_inv in valid_hd as (valid_hd & valid_args');
-    eapply Forall_app_inv in valid_args; [|exact valid_args'];
-
-    rewrite is_expanded_aux_mkApps, Nat.add_comm, <- app_length, firstn_skipn in exp_hd;
-    apply Bool.andb_true_iff in exp_hd as (exp_hd & exp_args');
-    apply forallb_Forall in exp_args';
-    eapply Forall_app_inv in exp_args; [|exact exp_args'];
-
-    rewrite firstn_skipn in clos_args, valid_args, exp_args;
-
-    clear clos_args' valid_args' exp_args'
-  end.
 
 Lemma declared_constant_dearg Σ k cst :
   ETyping.declared_constant (trans Σ) k cst ->
@@ -2787,42 +2792,6 @@ Proof.
   - now refold'; rewrite IHt2.
 Qed.
 
-Derive Signature for eval.
-Derive NoConfusionHom for term.
-Lemma eval_mkApps_tConstruct Σ ind c args argsv
-      (a : All2 (eval Σ) args argsv) :
-  Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
-Proof.
-  revert argsv a.
-  induction args using MCList.rev_ind; intros argsv all.
-  - depelim all.
-    cbn.
-    now constructor.
-  - destruct argsv as [|? ? _] using MCList.rev_ind.
-    { apply All2_length in all as len.
-      rewrite app_length in len; cbn in *; lia. }
-    destruct (All2_eval_snoc_elim all).
-    rewrite !mkApps_app.
-    cbn.
-    eapply eval_app_cong.
-    + easy.
-    + admit.
-    + assumption.
-Admitted.
-
-Lemma eval_mkApps_tConst_fold Σ k cst body args v :
-  ETyping.declared_constant Σ k cst ->
-  EAst.cst_body cst = Some body ->
-  Σ ⊢ mkApps body args ▷ v ->
-  Σ ⊢ mkApps (tConst k) args ▷ v.
-Proof.
-  intros decl body_eq app.
-  apply eval_mkApps_head in app as ev_hd.
-  destruct ev_hd as (hdv & ev_hd).
-  eapply eval_mkApps_heads; [eassumption| |easy].
-  now econstructor.
-Qed.
-
 Ltac facts :=
   (repeat
      match goal with
@@ -2874,12 +2843,12 @@ Proof.
   refold'.
   rewrite dearg_subst.
   - cbn.
-    rewrite <- closed_subst by admit.
+    rewrite <- closed_subst by (now apply closedn_dearg_aux).
     f_equal.
     now apply IHs.
   - now apply valid_cases_substl.
   - easy.
-Admitted.
+Qed.
 
 Lemma fix_subst_dearg defs :
   fix_subst (map (map_def dearg) defs) = map dearg (fix_subst defs).
@@ -3050,7 +3019,7 @@ Proof.
   intros exp yes.
   destruct (dearg_elim t).
   - now rewrite is_constructor_app_or_box_alt, isBox_mkApps, decompose_app_mkApps in yes.
-  - rewrite is_expanded_mkApps in exp.
+  - apply is_expanded_aux_mkApps_inv in exp as (exp_hd & exp_args).
     cbn in *; propify.
     rewrite dearg_single_pairwise_remove by (now rewrite map_length).
     rewrite is_constructor_app_or_box_alt.
@@ -3079,6 +3048,27 @@ Proof.
     cbn.
     symmetry; propify.
     right; easy.
+Qed.
+
+Lemma eval_mkApps_tConstruct Σ ind c args argsv
+      (a : All2 (eval Σ) args argsv) :
+  Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
+Proof.
+  revert argsv a.
+  induction args using MCList.rev_ind; intros argsv all.
+  - depelim all.
+    cbn.
+    now constructor.
+  - destruct argsv as [|? ? _] using MCList.rev_ind.
+    { apply All2_length in all as len.
+      rewrite app_length in len; cbn in *; lia. }
+    destruct (All2_eval_snoc_elim all).
+    rewrite !mkApps_app.
+    cbn.
+    eapply eval_app_cong.
+    + easy.
+    + now rewrite isLambda_mkApps, isFixApp_mkApps, isBox_mkApps by easy.
+    + assumption.
 Qed.
 
 Section dearg.
@@ -3123,7 +3113,7 @@ Section dearg.
         intros.
         rewrite <- (dearg_subst [a']) by easy.
         unshelve eapply (IH _ _ _ _ _ ev3)...
-        * apply is_expanded_subst_true ...
+        * apply is_expanded_subst...
         * lia.
     - facts.
       apply (eval_fix
@@ -3142,24 +3132,21 @@ Section dearg.
       + now unshelve eapply (IH _ _ _ _ _ ev2).
       + apply closed_mkApps_inv in H0 as (? & ?).
         apply valid_cases_mkApps_inv in H2 as (? & ?).
-        rewrite is_expanded_mkApps in H4.
-        propify.
+        apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
         now apply dearg_cunfold_fix.
       + now rewrite map_length.
       + now apply is_constructor_app_or_box_dearg_true.
       + apply closed_mkApps_inv in H0 as (? & ?).
         apply valid_cases_mkApps_inv in H2 as (? & ?).
-        rewrite is_expanded_mkApps in H4.
-        cbn in *.
-        propify.
+        apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
         apply closed_cunfold_fix in e as ?; auto.
         apply valid_cases_cunfold_fix in e as ?; auto.
-        apply is_expanded_cunfold_fix in e as ?; [|now apply forallb_Forall].
+        apply forallb_Forall in H4.
+        apply is_expanded_cunfold_fix in e as ?; auto.
         rewrite dearg_mkApps, dearg_expanded in IHev3 by easy.
         apply IHev3...
-        * apply closed_mkApps...
         * apply valid_cases_mkApps...
-        * rewrite is_expanded_mkApps.
+        * apply is_expanded_aux_mkApps...
           erewrite is_expanded_aux_upwards; [|eassumption|easy].
           cbn.
           easy.
@@ -3177,8 +3164,7 @@ Section dearg.
       + now unshelve eapply (IH _ _ _ _ _ ev2).
       + apply closed_mkApps_inv in H0 as (? & ?).
         apply valid_cases_mkApps_inv in H2 as (? & ?).
-        rewrite is_expanded_mkApps in H4.
-        propify.
+        apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
         now apply dearg_cunfold_fix.
       + rewrite map_length.
         destruct o as [|(<- & ?)]; [now left|].
@@ -3192,11 +3178,11 @@ Section dearg.
       apply eval_app_cong.
       + now unshelve eapply (IH _ _ _ _ _ ev1 _).
       + destruct (dearg_elim f'); cbn.
-        * rewrite is_expanded_mkApps in H4.
+        * apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
           cbn in *; propify.
           rewrite dearg_single_pairwise_remove by (now rewrite map_length).
           now rewrite isLambda_mkApps, isFixApp_mkApps, isBox_mkApps.
-        * rewrite is_expanded_mkApps in H4.
+        * apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
           cbn in *; propify.
           rewrite dearg_single_pairwise_remove by (now rewrite map_length).
           now rewrite isLambda_mkApps, isFixApp_mkApps, isBox_mkApps.
@@ -3242,10 +3228,7 @@ Section dearg.
         now apply Forall_snoc in clos_args.
       + apply valid_cases_mkApps; auto.
         now apply Forall_snoc in valid_args.
-      + rewrite is_expanded_mkApps.
-        propify.
-        split; [now eapply is_expanded_aux_upwards|].
-        apply forallb_Forall.
+      + apply is_expanded_aux_mkApps; [now eapply is_expanded_aux_upwards|].
         now apply Forall_snoc in exp_args.
       + now apply Forall_snoc in clos_args.
       + now apply Forall_snoc in valid_args.
@@ -3286,12 +3269,8 @@ Section dearg.
            now apply closed_mkApps.
          - apply Forall_snoc in valid_args.
            now apply valid_cases_mkApps.
-         - apply Forall_snoc in exp_args.
-           rewrite is_expanded_mkApps.
-           propify.
-           split.
-           + now eapply is_expanded_aux_upwards.
-           + now apply forallb_Forall.
+         - apply is_expanded_aux_mkApps; [now eapply is_expanded_aux_upwards|].
+           now apply Forall_snoc in exp_args.
          - lia. }
       unshelve eapply eval_tApp_dearg.
       all: auto.
@@ -3300,11 +3279,8 @@ Section dearg.
     - apply Forall_snoc in valid_args.
       now apply valid_cases_mkApps.
     - apply Forall_snoc in exp_args.
-      rewrite is_expanded_mkApps.
-      propify.
-      split.
-      + now eapply is_expanded_aux_upwards.
-      + now apply forallb_Forall.
+      apply is_expanded_aux_mkApps; [|easy].
+      now eapply is_expanded_aux_upwards.
     - now apply Forall_snoc in clos_args.
     - now apply Forall_snoc in valid_args.
     - now apply Forall_snoc in exp_args.
@@ -3370,6 +3346,51 @@ Proof.
       apply IHm.
 Qed.
 
+Lemma pairwise_remove_map {X Y} m (f : X -> Y) xs :
+  pairwise_remove m (map f xs) = map f (pairwise_remove m xs).
+Proof.
+  induction m as [|[] m IH] in xs |- *; [easy| |]; cbn in *.
+  - destruct xs; cbn in *; [easy|].
+    apply IH.
+  - destruct xs; cbn in *; [easy|].
+    f_equal; apply IH.
+Qed.
+
+Lemma filter_length {X} (f : X -> bool) (xs : list X) :
+  #|filter f xs| <= #|xs|.
+Proof.
+  induction xs; [easy|].
+  cbn.
+  destruct (f a); cbn; lia.
+Qed.
+
+Lemma map_repeat {X Y} (f : X -> Y) x n :
+  map f (repeat x n) = repeat (f x) n.
+Proof.
+  induction n; [easy|].
+  now cbn; rewrite IHn.
+Qed.
+
+Lemma nth_error_pairwise_remove {X} m (xs : list X) n :
+  nth n m false = false ->
+  nth_error (pairwise_remove m xs) (n - count_ones (firstn n m)) =
+  nth_error xs n.
+Proof.
+  intros not_removed.
+  induction n in m, xs, not_removed |- *; cbn in *.
+  - destruct xs; [now rewrite pairwise_remove_nil|].
+    destruct m; [easy|].
+    now destruct b.
+  - destruct m; cbn in *; [easy|].
+    destruct xs; cbn in *.
+    + now rewrite nth_error_nil.
+    + destruct b; cbn in *.
+      * now apply IHn.
+      * rewrite Nat.sub_succ_l; [now apply IHn|].
+        transitivity #|firstn n m|; [|now rewrite firstn_length].
+        apply filter_length.
+Qed.
+
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
   closed t ->
@@ -3393,7 +3414,7 @@ Proof.
   induction n as [|n IH] in t, v, clos_t, valid_t, exp_t |- *; intros ev deriv_len.
   { now pose proof (deriv_length_min ev). }
   destruct (dearg_elim t).
-  - rewrite is_expanded_mkApps in exp_t.
+  - apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
     cbn in *; propify.
     specialize (eval_mkApps_deriv ev) as (? & ev_const & argsv & ev_args & deriv).
     depelim ev_const; cbn in *; [|easy].
@@ -3427,7 +3448,7 @@ Proof.
       now eapply closed_constant.
     + apply Forall_map.
       apply closed_mkApps_inv in clos_t as (? & clos_args).
-      eapply Forall_impl; [eassumption|].
+      eapply Forall_impl; [exact clos_args|].
       intros.
       now apply closedn_dearg_aux.
     + apply valid_dearg_mask_dearg_aux.
@@ -3441,19 +3462,17 @@ Proof.
       * now eapply is_expanded_constant.
       * now apply closed_mkApps_inv in clos_t.
       * now apply valid_cases_mkApps_inv in valid_t.
-      * destruct exp_t as (exp_t & exp_args).
-        now apply forallb_Forall in exp_args.
       * lia.
 
-  - rewrite is_expanded_mkApps in exp_t.
-    cbn in *; propify.
-    specialize (eval_mkApps_deriv ev) as (? & ev_constr & argsv & ev_args & deriv).
+  - specialize (eval_mkApps_deriv ev) as (? & ev_constr & argsv & ev_args & deriv).
     assert (v = mkApps (tConstruct ind c) argsv) as ->.
     { eapply eval_deterministic; try eassumption.
       now apply eval_mkApps_tConstruct. }
     rewrite dearg_mkApps.
     cbn.
     apply All2_length in ev_args as ?.
+    apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
+    cbn in *; propify.
     rewrite !dearg_single_pairwise_remove by (now rewrite map_length).
     assert (ev_args_dearg: All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv)).
     { assert (all_smaller: sum_deriv_lengths ev_args <= n).
@@ -3461,8 +3480,6 @@ Proof.
         lia. }
       apply closed_mkApps_inv in clos_t as (_ & clos_apps).
       apply valid_cases_mkApps_inv in valid_t as (_ & valid_apps).
-      destruct exp_t as (_ & exp_args).
-      apply forallb_Forall in exp_args.
       clear -clos_apps valid_apps exp_args IH ev_args all_smaller.
       induction ev_args; cbn in *.
       - now constructor.
@@ -3481,10 +3498,7 @@ Proof.
   - facts.
     apply closed_mkApps_inv in clos_t as (clos_t & clos_args).
     apply valid_cases_mkApps_inv in valid_t as (valid_t & valid_args).
-    rewrite is_expanded_mkApps in exp_t.
-    propify.
-    destruct exp_t as (exp_t & exp_args).
-    apply forallb_Forall in exp_args.
+    apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
     unshelve eapply eval_mkApps_dearg_reduce.
     6: exact IH.
     all: auto.
@@ -3492,11 +3506,17 @@ Proof.
     cbn in *; propify; refold'.
     destruct clos_t as (clos_discr & clos_brs).
     destruct valid_t as ((valid_discr & valid_brs) & valid_brs_masks).
-    destruct exp_t as (exp_discr & exp_brs).
+    destruct exp_hd as (exp_discr & exp_brs).
     unfold dearg_case.
-    depelim ev; cbn in *; try easy.
-    + facts.
-      rewrite is_expanded_mkApps in H4.
+    (* We need induction as casing on a cofix involves casing on whatever it evaluates to *)
+    depind ev; cbn in *.
+    + (* Normal pattern match *)
+      clear IHev1 IHev2.
+      facts.
+      clear clos_args valid_args exp_args.
+      apply closed_mkApps_inv in H2 as (clos_hd & clos_args).
+      apply valid_cases_mkApps_inv in H3 as (valid_hd & valid_args).
+      apply is_expanded_aux_mkApps_inv in H4 as (exp_hd & exp_args).
       cbn in *; propify.
       apply (eval_iota _ _ _ _ c (pairwise_remove (get_ctor_mask ind c) (map dearg args))).
       * unshelve epose proof (IH _ _ _ _ _ ev1 _); auto.
@@ -3519,11 +3539,9 @@ Proof.
           - now eapply nth_error_forallb in clos_brs; rewrite nth in *.
           - now eapply nth_error_forallb in valid_brs; rewrite nth in *.
           - now eapply nth_error_forallb in exp_brs; rewrite nth in *.
-          - apply closed_mkApps_inv in H2.
-            now apply Forall_skipn.
-          - apply valid_cases_mkApps_inv in H3.
-            now apply Forall_skipn.
-          - now apply Forall_skipn, forallb_Forall.
+          - now apply Forall_skipn.
+          - now apply Forall_skipn.
+          - now apply Forall_skipn.
           - lia. }
 
         cbn.
@@ -3573,78 +3591,220 @@ Proof.
            now apply closedn_dearg_aux.
         -- apply Forall_skipn.
            apply Forall_map.
-           apply closed_mkApps_inv in H2 as (? & clos).
-           eapply Forall_impl; [eassumption|].
+           eapply Forall_impl; [exact clos_args|].
            intros; now apply closedn_dearg_aux.
         -- apply alli_Alli in valid_brs_masks.
            unshelve eapply Alli_nth_error in valid_brs_masks.
            4: eassumption.
            destruct p.
-           cbn in *.
+           cbn in *; propify.
            now apply valid_dearg_mask_dearg_aux.
-        -- unfold get_ctor_mask in H4.
-           rewrite mm in H4.
-           rewrite app_length in H4.
+        -- unfold get_ctor_mask in *.
+           rewrite mm in *.
+           rewrite app_length in *.
            rewrite <- map_skipn, map_length.
-           destruct H4.
            rewrite skipn_length by lia.
            lia.
         -- rewrite <- map_skipn.
            unshelve eapply eval_mkApps_dearg.
            6: exact IH.
            all: eauto.
-           ++ eapply nth_error_forallb in clos_brs.
-              now rewrite nth in clos_brs.
-           ++ eapply nth_error_forallb in valid_brs.
-              now rewrite nth in valid_brs.
-           ++ eapply nth_error_forallb in exp_brs.
-              now rewrite nth in exp_brs.
-           ++ apply Forall_skipn.
-              now apply closed_mkApps_inv in H2.
-           ++ apply Forall_skipn.
-              now apply valid_cases_mkApps_inv in H3.
-           ++ apply Forall_skipn.
-              destruct H4 as (_ & exp_args').
-              now apply forallb_Forall in exp_args'.
+           ++ now eapply nth_error_forallb in clos_brs; rewrite nth in *.
+           ++ now eapply nth_error_forallb in valid_brs; rewrite nth in *.
+           ++ now eapply nth_error_forallb in exp_brs; rewrite nth in *.
+           ++ now apply Forall_skipn.
+           ++ now apply Forall_skipn.
+           ++ now apply Forall_skipn.
            ++ lia.
-    + set (branch_mask := match get_mib_masks (inductive_mind ind) with
+    + clear IHev1 IHev2.
+      (* Singleton pattern match *)
+      subst brs; cbn in *; propify.
+      set (branch_mask := match get_mib_masks (inductive_mind ind) with
                           | Some mm => get_branch_mask mm ind 0
                           | None => []
                           end).
-      apply (eval_iota_sing _ _ _ _ _ (n0 - count_ones branch_mask)
+      apply (eval_iota_sing _ _ _ _ _ (n - count_ones branch_mask)
                             (dearg_lambdas branch_mask (dearg f))).
       * unshelve eapply (IH _ tBox); eauto.
         lia.
-      * subst brs.
-        cbn.
-        destruct (get_mib_masks _); [easy|].
-        subst branch_mask.
-        cbn.
+      * destruct (get_mib_masks _); cbn in *; [easy|].
         now rewrite dearg_lambdas_nil, Nat.sub_0_r.
-      * admit.
-    + admit.
+      * replace (repeat tBox _) with (pairwise_remove branch_mask (repeat tBox n)); cycle 1.
+        { unfold valid_case_masks in valid_brs_masks.
+          destruct (get_mib_masks _).
+          - clear -valid_brs_masks.
+            cbn in *; propify.
+            destruct valid_brs_masks as (_ & (bound & _) & _).
+            change (get_branch_mask m ind 0) with branch_mask in bound.
+            induction branch_mask in n, bound |- *; cbn in *.
+            + now rewrite Nat.sub_0_r.
+            + destruct n; [easy|].
+              cbn.
+              destruct a; cbn.
+              * now apply IHbranch_mask.
+              * pose proof (filter_length id branch_mask).
+                rewrite Nat.sub_succ_l by easy.
+                cbn; f_equal.
+                now apply IHbranch_mask.
+          - cbn.
+            now rewrite Nat.sub_0_r. }
+
+        apply dearg_lambdas_correct.
+        -- now apply env_closed_dearg.
+        -- now apply closedn_dearg_aux.
+        -- now apply Forall_repeat.
+        -- apply valid_dearg_mask_dearg_aux.
+           unfold valid_case_masks in valid_brs_masks.
+           destruct (get_mib_masks _); cbn in *; propify; [easy|].
+           apply valid_dearg_mask_nil.
+        -- rewrite repeat_length.
+           unfold valid_case_masks in valid_brs_masks.
+           destruct (get_mib_masks _); cbn in *; [|easy].
+           now propify.
+        -- change tBox with (dearg tBox).
+           rewrite <- map_repeat.
+           unshelve eapply eval_mkApps_dearg.
+           6: exact IH.
+           all: auto.
+           ++ easy.
+           ++ easy.
+           ++ easy.
+           ++ now apply Forall_repeat.
+           ++ now apply Forall_repeat.
+           ++ now apply Forall_repeat.
+           ++ lia.
+
+    + (* Unfold cofix *)
+      clear clos_args valid_args exp_args.
+      apply closed_mkApps_inv in clos_discr as (clos_hd & clos_args).
+      apply valid_cases_mkApps_inv in valid_discr as (valid_hd & valid_args).
+      apply is_expanded_aux_mkApps_inv in exp_discr as (exp_hd & exp_args).
+      cbn in *; propify.
+      rewrite dearg_mkApps.
+      cbn.
+      apply (red_cofix_case _ _ _ _ _ narg (dearg fn)); [now eapply dearg_cunfold_cofix|].
+      assert (closed fn) by now eapply closed_cunfold_cofix.
+      assert (valid_cases fn) by now eapply valid_cases_cunfold_cofix.
+      assert (is_expanded fn).
+      { eapply is_expanded_cunfold_cofix; [eassumption|].
+        now apply forallb_Forall. }
+      rewrite <- dearg_expanded, <- dearg_mkApps by easy.
+      unshelve eapply (IHev _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ n IH ev).
+      all: auto.
+      * now apply closed_mkApps.
+      * now apply valid_cases_mkApps.
+      * apply is_expanded_aux_mkApps; [|easy].
+        now eapply is_expanded_aux_upwards.
+      * lia.
+    + congruence.
 
   - facts.
-    apply closed_mkApps_inv in clos_t as (clos_t & clos_args).
-    apply valid_cases_mkApps_inv in valid_t as (valid_t & valid_args).
-    rewrite is_expanded_mkApps in exp_t.
-    propify.
-    destruct exp_t as (exp_t & exp_args).
-    apply forallb_Forall in exp_args.
+    apply closed_mkApps_inv in clos_t as (clos_hd & clos_args).
+    apply valid_cases_mkApps_inv in valid_t as (valid_hd & valid_args).
+    apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
+    cbn in * |-.
     unshelve eapply eval_mkApps_dearg_reduce.
     6: exact IH.
     all: auto.
     intros ->.
     cbn in *; refold'.
-    Open Scope string.
-    todo "proj case".
+    clear clos_args valid_args exp_args.
+    depind ev; cbn in *.
+    + (* Cofix projection *)
+      propify.
+      destruct valid_hd as (valid_hd & valid_proj).
+      apply closed_mkApps_inv in clos_hd as (clos_hd & clos_args).
+      apply valid_cases_mkApps_inv in valid_hd as (valid_hd & valid_args).
+      apply is_expanded_aux_mkApps_inv in exp_hd as (exp_hd & exp_args).
+      cbn in *; propify.
+      rewrite dearg_mkApps.
+      unfold dearg_proj.
+      cbn.
+      apply (red_cofix_proj _ _ _ _ _ narg (dearg fn)); [now eapply dearg_cunfold_cofix|].
+      assert (closed fn) by now eapply closed_cunfold_cofix.
+      assert (valid_cases fn) by now eapply valid_cases_cunfold_cofix.
+      assert (is_expanded fn).
+      { eapply is_expanded_cunfold_cofix; [eassumption|].
+        now apply forallb_Forall. }
+      rewrite <- dearg_expanded, <- dearg_mkApps by easy.
+      unshelve eapply IHev.
+      8: exact IH.
+      all: auto.
+      * now apply closed_mkApps.
+      * propify; split; [|easy].
+        now apply valid_cases_mkApps.
+      * apply is_expanded_aux_mkApps; [|easy].
+        now eapply is_expanded_aux_upwards.
+      * lia.
+    + (* Regular projection *)
+      clear IHev1 IHev2.
+      propify.
+      destruct valid_hd as (valid_hd & valid_p).
+      facts.
+      apply closed_mkApps_inv in H2 as (clos_constr & clos_args).
+      apply valid_cases_mkApps_inv in H3 as (valid_constr & valid_args).
+      apply is_expanded_aux_mkApps_inv in H4 as (exp_constr & exp_args).
+      cbn in *; propify.
+      unfold dearg_proj.
+      apply (eval_proj _ _ _ _ _ (pairwise_remove (get_ctor_mask i k) (map dearg args)) k).
+      * unshelve epose proof (IH _ _ _ _ _ ev1 _); auto.
+        1: lia.
+        rewrite dearg_mkApps in *.
+        cbn in *.
+        now rewrite dearg_single_pairwise_remove in * by (now rewrite map_length).
+      * clear clos_constr valid_constr.
+        unfold get_ctor_mask in *.
+        revert ev2 deriv_len.
+        rewrite !nth_nth_error.
+        intros.
+
+        destruct (get_mib_masks _) eqn:mm; cbn in *; cycle 1.
+        { rewrite nth_error_map.
+          destruct (nth_error _ _) eqn:nth; cbn in *; [|now depelim ev2].
+          unshelve eapply (IH _ _ _ _ _ ev2).
+          - now eapply nth_error_forall in clos_args; [|eassumption].
+          - now eapply nth_error_forall in valid_args; [|eassumption].
+          - now eapply nth_error_forall in exp_args; [|eassumption].
+          - lia. }
+        destruct (nth_error args _) eqn:nth; [|now depelim ev2].
+        rewrite app_length in *.
+        unfold valid_proj in valid_p; rewrite mm in valid_p; propify.
+        destruct valid_p as (<- & arg_unused).
+        rewrite pairwise_remove_map, nth_error_map, pairwise_remove_app.
+        rewrite nth_error_app2; cycle 1.
+        { rewrite firstn_length.
+          lia. }
+        rewrite firstn_length.
+        rewrite Nat.min_l; cycle 1.
+        { rewrite pairwise_remove_length by easy.
+          lia. }
+        replace (count_zeros (param_mask m) + (arg - count_ones (firstn arg (get_branch_mask m i 0))) -
+            count_zeros (param_mask m)) with (arg - count_ones (firstn arg (get_branch_mask m i 0)))
+          by lia.
+        Open Scope string.
+        assert (k = 0) as -> by (todo "spec is weird or we need some typing").
+        rewrite nth_error_pairwise_remove by easy.
+        rewrite nth_error_skipn, nth.
+        cbn.
+        unshelve eapply (IH _ _ _ _ _ ev2 _).
+        -- now eapply nth_error_forall in clos_args; [|eassumption].
+        -- now eapply nth_error_forall in valid_args; [|eassumption].
+        -- now eapply nth_error_forall in exp_args; [|eassumption].
+        -- lia.
+    + (* Project out of box *)
+      clear IHev.
+      propify.
+      destruct valid_hd as (valid_hd & valid_p).
+      unfold dearg_proj.
+      apply eval_proj_box.
+      unshelve eapply (IH _ _ _ _ _ ev _); auto.
+      lia.
+    + congruence.
+
   - facts.
     apply closed_mkApps_inv in clos_t as (clos_t & clos_args).
     apply valid_cases_mkApps_inv in valid_t as (valid_t & valid_args).
-    rewrite is_expanded_mkApps in exp_t.
-    propify.
-    destruct exp_t as (exp_t & exp_args).
-    apply forallb_Forall in exp_args.
+    apply is_expanded_aux_mkApps_inv in exp_t as (exp_t & exp_args).
     unshelve eapply eval_mkApps_dearg_reduce.
     6: exact IH.
     all: auto.
@@ -3664,8 +3824,8 @@ Proof.
         unshelve eapply (IH _ _ _ _ _ ev2 _).
         -- now apply closedn_subst0.
         -- now apply valid_cases_subst.
-        -- now apply is_expanded_subst_true.
+        -- now apply is_expanded_subst.
         -- lia.
     + destruct t; cbn in *; try destruct y; try congruence; now constructor.
-Admitted.
+Qed.
 Print Assumptions dearg_correct.
