@@ -267,6 +267,46 @@ Fixpoint clear_bit (n : nat) (bs : bitmask) : bitmask :=
   | _, _ => []
   end.
 
+(* Pair of bitmask and inductive masks.
+   The first projection is a bitmask of dead local variables, i.e. when a use is found,
+   a bit in this is set to false.
+   The second projection is a list of dead constructor datas. When a use of a constructor
+   parameter is found, this is set to false. *)
+Definition analyze_state := bitmask × list (kername × mib_masks).
+
+Definition set_used (s : analyze_state) (n : nat) : analyze_state :=
+  (clear_bit n s.1, s.2).
+
+Definition new_var (s : analyze_state) : analyze_state :=
+  (true :: s.1, s.2).
+
+Definition remove_var (s : analyze_state) : analyze_state :=
+  (tl s.1, s.2).
+
+Definition fold_lefti {A B} (f : nat -> A -> B -> A) :=
+  fix fold_lefti (n : nat) (l : list B) (a0 : A) :=
+    match l with
+    | [] => a0
+    | b :: t => fold_lefti (S n) t (f n a0 b)
+    end.
+
+Fixpoint analyze (state : analyze_state) (t : term) : analyze_state :=
+  match t with
+  | tBox => state
+  | tRel i => set_used state i
+  | tVar n => state
+  | tEvar _ ts => fold_left analyze ts state
+  | tLambda _ cod => remove_var (analyze (new_var state) cod)
+  | tLetIn _ val body => remove_var (analyze (new_var (analyze state val)) body)
+  | tApp hd arg => analyze (analyze state hd) arg
+  | tConst _ => state
+  | tConstruct _ _ => state
+  | tCase (ind, npars) discr brs =>
+    let state := analyze state discr in
+    let analyze_case c state brs :=
+        analyze_top analyze c state
+  end.
+
 (* Return bitmask indicating which context variables are dead, i.e. unused. *)
 Fixpoint dead_context_vars (Γ : bitmask) (t : term) : bitmask :=
   match t with
