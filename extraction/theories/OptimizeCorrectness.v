@@ -6,6 +6,7 @@ From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import WcbvEvalAux.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
+From Coq Require Import Btauto.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import Psatz.
@@ -104,25 +105,25 @@ Proof.
     now exists (S n'), typ.
 Qed.
 
-Fixpoint has_use (rel : nat) (t : term) : bool :=
+Fixpoint is_dead (rel : nat) (t : term) : bool :=
   match t with
-  | tRel i => i =? rel
-  | tEvar _ ts => existsb (has_use rel) ts
-  | tLambda _ body => has_use (S rel) body
-  | tLetIn _ val body => has_use rel val || has_use (S rel) body
-  | tApp hd arg => has_use rel hd || has_use rel arg
-  | tCase _ discr brs => has_use rel discr || existsb (has_use rel ∘ snd) brs
-  | tProj _ t => has_use rel t
+  | tRel i => negb (i =? rel)
+  | tEvar _ ts => forallb (is_dead rel) ts
+  | tLambda _ body => is_dead (S rel) body
+  | tLetIn _ val body => is_dead rel val && is_dead (S rel) body
+  | tApp hd arg => is_dead rel hd && is_dead rel arg
+  | tCase _ discr brs => is_dead rel discr && forallb (is_dead rel ∘ snd) brs
+  | tProj _ t => is_dead rel t
   | tFix defs _
-  | tCoFix defs _ => existsb (has_use (#|defs| + rel) ∘ dbody) defs
-  | _ => false
+  | tCoFix defs _ => forallb (is_dead (#|defs| + rel) ∘ dbody) defs
+  | _ => true
   end.
 
 Fixpoint valid_dearg_mask (mask : bitmask) (body : term) : bool :=
   match body, mask with
   | tLetIn na val body, _ => valid_dearg_mask mask body
   | tLambda _ body, b :: mask =>
-    (if b then negb (has_use 0 body) else true) && valid_dearg_mask mask body
+    (if b then is_dead 0 body else true) && valid_dearg_mask mask body
   | _, [] => true
   | _, _ => false
   end.
@@ -245,10 +246,10 @@ Proof.
   now rewrite IHΓ.
 Qed.
 
-Lemma has_use_closed k t n :
+Lemma is_dead_closed k t n :
   closedn k t ->
   k <= n ->
-  has_use n t = false.
+  is_dead n t.
 Proof.
   revert k n.
   induction t using term_forall_list_ind; intros k n' clos klen;
@@ -289,17 +290,17 @@ Proof.
     now eapply IHForall.
 Qed.
 
-Lemma has_use_csubst k t u k' :
-  has_use k t = false ->
+Lemma is_dead_csubst k t u k' :
+  is_dead k t ->
   closedn k u ->
   k < k' ->
-  has_use k (csubst u k' t) = false.
+  is_dead k (csubst u k' t).
 Proof.
   revert k u k'.
   induction t using term_forall_list_ind; intros k u k' use_eq clos kltn;
     cbn in *; propify; auto.
   - destruct (Nat.compare_spec k' n) as [->| |].
-    + now apply has_use_closed with k.
+    + now apply is_dead_closed with k.
     + cbn.
       propify.
       lia.
@@ -368,7 +369,7 @@ Proof.
     split.
     + destruct b; [|easy].
       propify.
-      now apply (has_use_csubst 0).
+      now apply (is_dead_csubst 0).
     + now apply IHt.
 Qed.
 
@@ -491,7 +492,7 @@ Proof.
 Qed.
 
 Lemma no_use_subst k t s s' :
-  has_use k t = false ->
+  is_dead k t ->
   subst [s] k t = subst [s'] k t.
 Proof.
   revert k.
@@ -688,173 +689,6 @@ Proof.
            rewrite <- closed_subst in ev_top by easy.
            eapply eval_beta; [|easy|easy].
            now eapply eval_atom.
-Qed.
-
-Lemma nth_set_bit_eq k bs d :
-  nth k (set_bit k bs) d = true.
-Proof.
-  revert bs.
-  induction k as [|k IH]; intros bs.
-  - now destruct bs.
-  - cbn.
-    now destruct bs.
-Qed.
-
-Lemma nth_set_bit_neq k k' bs :
-  k <> k' ->
-  nth k (set_bit k' bs) false = nth k bs false.
-Proof.
-  revert bs k'.
-  induction k as [|k IH]; intros bs k' ne.
-  - destruct k'; [easy|].
-    now destruct bs.
-  - destruct k'.
-    + destruct bs; [|easy].
-      now destruct k.
-    + destruct bs.
-      * cbn.
-        assert (k <> k') by easy.
-        clear -H.
-        revert k H.
-        induction k'; intros k H.
-        -- cbn.
-           destruct k; [easy|].
-           now destruct k.
-        -- cbn.
-           destruct k; [easy|].
-           easy.
-      * cbn.
-        easy.
-Qed.
-
-Lemma nth_bitmask_or k bs1 bs2 :
-  nth k (bs1 #|| bs2) false = nth k bs1 false || nth k bs2 false.
-Proof.
-  revert bs1 bs2.
-  induction k; intros bs1 bs2.
-  + cbn.
-    destruct bs1, bs2; try easy.
-    cbn.
-    now rewrite orb_false_r.
-  + destruct bs1, bs2; try easy.
-    * cbn in *.
-      now rewrite orb_false_r.
-    * cbn in *.
-      easy.
-Qed.
-
-Lemma nth_tl {A} k (l : list A) d :
-  nth k (tl l) d = nth (S k) l d.
-Proof.
-  destruct l.
-  - now destruct k.
-  - easy.
-Qed.
-
-Lemma used_context_vars_has_use k bs t :
-  nth k (used_context_vars bs t) false = nth k bs false || has_use k t.
-Proof.
-  revert k bs.
-  induction t using term_forall_list_ind; intros k bs; cbn in *;
-    rewrite ?orb_false_r; auto.
-  - destruct (Nat.eqb_spec n k) as [->|].
-    + rewrite nth_set_bit_eq.
-      now rewrite orb_true_r.
-    + rewrite nth_set_bit_neq by easy.
-      now rewrite orb_false_r.
-  - revert k bs.
-    induction H; intros k bs.
-    + cbn.
-      now rewrite orb_false_r.
-    + cbn.
-      rewrite nth_bitmask_or.
-      rewrite H.
-      rewrite orb_assoc.
-      rewrite IHForall.
-      now destruct (nth k bs false).
-  - now rewrite nth_tl, IHt.
-  - rewrite nth_tl.
-    rewrite IHt2.
-    cbn.
-    rewrite IHt1.
-    now rewrite orb_assoc.
-  - rewrite IHt2, IHt1.
-    now rewrite orb_assoc.
-  - rewrite orb_assoc.
-    induction X; cbn in *.
-    + rewrite IHt.
-      now rewrite orb_false_r.
-    + rewrite nth_bitmask_or.
-      rewrite p0, IHt.
-      rewrite orb_assoc.
-      rewrite IHX.
-      destruct (nth k bs false); [easy|].
-      destruct (has_use k t); [easy|].
-      easy.
-  - rewrite nth_nth_error, nth_error_skipn, <- nth_nth_error.
-    generalize #|m|.
-    intros.
-    induction H; cbn in *.
-    + rewrite app_nth2; rewrite repeat_length; [|easy].
-      rewrite minus_plus.
-      now rewrite orb_false_r.
-    + rewrite nth_bitmask_or.
-      rewrite H.
-      rewrite app_nth2; rewrite repeat_length; [|easy].
-      rewrite minus_plus.
-      rewrite orb_assoc.
-      rewrite IHForall.
-      destruct (nth k bs false); [|easy].
-      rewrite Nat.add_comm.
-      now destruct (has_use _ _).
-  - rewrite nth_nth_error, nth_error_skipn, <- nth_nth_error.
-    generalize #|m|.
-    intros.
-    induction H; cbn in *.
-    + rewrite app_nth2; rewrite repeat_length; [|easy].
-      rewrite minus_plus.
-      now rewrite orb_false_r.
-    + rewrite nth_bitmask_or.
-      rewrite H.
-      rewrite app_nth2; rewrite repeat_length; [|easy].
-      rewrite minus_plus.
-      rewrite orb_assoc.
-      rewrite IHForall.
-      destruct (nth k bs false); [|easy].
-      rewrite Nat.add_comm.
-      now destruct (has_use _ _).
-Qed.
-
-Lemma hd_nth {A} d (l : list A) :
-  hd d l = nth 0 l d.
-Proof. now destruct l. Qed.
-
-Lemma func_body_used_params_valid_mask uses_before t ty use_mask uses_after :
-  func_body_used_params uses_before t ty = (use_mask, uses_after) ->
-  uses_after = used_context_vars uses_before t /\
-  valid_dearg_mask (bitmask_not use_mask) t.
-Proof.
-  revert uses_before ty use_mask uses_after.
-  induction t using term_forall_list_ind;
-    intros uses_before ty use_mask uses_after fun_eq;
-    cbn in *;
-    try solve [now noconf fun_eq].
-  - destruct ty; try solve [now noconf fun_eq].
-    destruct (func_body_used_params _ _ _) eqn:fun_eq'.
-    noconf fun_eq.
-    apply IHt in fun_eq' as (-> & valid).
-    split; [easy|].
-    cbn.
-    propify.
-    split; [|easy].
-    destruct (hd false _) eqn:hd_eq; [easy|].
-    cbn.
-    rewrite hd_nth in hd_eq.
-    propify.
-    now rewrite used_context_vars_has_use in hd_eq.
-  - destruct (func_body_used_params _ _ _) eqn:fun_eq'.
-    noconf fun_eq.
-    now apply IHt2 in fun_eq'.
 Qed.
 
 Section dearg_correct.
@@ -1111,9 +945,9 @@ Definition is_expanded_env (Σ : global_env) : bool :=
              | _ => true
              end) Σ.
 
-Lemma has_use_lift_other k k' n t :
+Lemma is_dead_lift_other k k' n t :
   k < k' ->
-  has_use k (lift n k' t) = has_use k t.
+  is_dead k (lift n k' t) = is_dead k t.
 Proof.
   intros lt.
   induction t using term_forall_list_ind in t, k, k', lt |- *; cbn in *.
@@ -1154,10 +988,10 @@ Proof.
     now apply IHForall.
 Qed.
 
-Lemma has_use_lift_all k k' n t :
+Lemma is_dead_lift_all k k' n t :
   k <= k' ->
   k' < n + k ->
-  has_use k' (lift n k t) = false.
+  is_dead k' (lift n k t).
 Proof.
   intros l1 l2.
   induction t using term_forall_list_ind in t, n, k, k', l1, l2 |- *; cbn in *; auto.
@@ -1190,16 +1024,16 @@ Proof.
     now apply IHForall.
 Qed.
 
-Lemma has_use_subst_other k k' s t :
+Lemma is_dead_subst_other k k' s t :
   k < k' ->
-  has_use k (subst s k' t) = has_use k t.
+  is_dead k (subst s k' t) = is_dead k t.
 Proof.
   intros lt.
   induction t in t, k, k', lt |- * using term_forall_list_ind; cbn in *; auto.
   - destruct (_ <=? _) eqn:?, (_ =? _) eqn:?; propify; subst.
     + lia.
     + destruct (nth_error _ _) eqn:nth.
-      * now apply has_use_lift_all.
+      * now apply is_dead_lift_all.
       * cbn.
         destruct (_ =? _) eqn:?; propify; [|easy].
         apply nth_error_None in nth.
@@ -1247,7 +1081,7 @@ Proof.
   - destruct mask; [easy|].
     destruct b; [|now apply IHt].
     propify.
-    now rewrite has_use_lift_other by easy.
+    now rewrite is_dead_lift_other by easy.
 Qed.
 
 Lemma valid_dearg_mask_subst mask s k t :
@@ -1261,7 +1095,7 @@ Proof.
   - destruct mask; [easy|].
     destruct b; [|now apply IHt].
     propify.
-    now rewrite has_use_subst_other by easy.
+    now rewrite is_dead_subst_other by easy.
 Qed.
 
 Lemma subst_dearg_lambdas s k mask t :
@@ -1380,22 +1214,21 @@ Lemma is_expanded_lift n k t :
   is_expanded (lift n k t) = is_expanded t.
 Proof. apply is_expanded_aux_lift. Qed.
 
-Lemma has_use_mkApps k t args :
-  has_use k (mkApps t args) =
-  has_use k t || existsb (has_use k) args.
+Lemma is_dead_mkApps k t args :
+  is_dead k (mkApps t args) = is_dead k t && forallb (is_dead k) args.
 Proof.
   induction args using List.rev_ind; cbn in *.
-  - now rewrite Bool.orb_false_r.
-  - rewrite mkApps_app, existsb_app.
+  - now btauto.
+  - rewrite mkApps_app, forallb_app.
     cbn.
     rewrite IHargs.
-    now rewrite Bool.orb_false_r, Bool.orb_assoc.
+    now btauto.
 Qed.
 
-Lemma has_use_lift k k' n t :
+Lemma is_dead_lift k k' n t :
   k' <= k ->
   n + k' <= k ->
-  has_use k (lift n k' t) = has_use (k - n) t.
+  is_dead k (lift n k' t) = is_dead (k - n) t.
 Proof.
   intros l1 l2.
   induction t in k, k', n, t, l1, l2 |- * using term_forall_list_ind; cbn in *; auto.
@@ -1432,17 +1265,18 @@ Proof.
     now replace (S (k - n)) with (S k - n) by lia.
 Qed.
 
-Lemma has_use_dearg_single k mask t args :
-  has_use k t = false ->
-  Forall (fun t => has_use k t = false) args ->
-  has_use k (dearg_single mask t args) = false.
+Lemma is_dead_dearg_single k mask t args :
+  is_dead k t ->
+  Forall (is_dead k) args ->
+  is_dead k (dearg_single mask t args).
 Proof.
   intros no_use args_no_use.
   induction mask as [|[] mask IH] in k, mask, t, args, no_use, args_no_use |- *; cbn in *.
-  - now rewrite has_use_mkApps, no_use, Forall_existsb_false.
+  - rewrite is_dead_mkApps, no_use.
+    now apply forallb_Forall.
   - destruct args; cbn.
     + apply IH; [|easy].
-      rewrite has_use_lift by lia.
+      rewrite is_dead_lift by lia.
       cbn.
       now rewrite Nat.sub_0_r.
     + apply IH; [easy|].
@@ -1450,8 +1284,8 @@ Proof.
   - destruct args; cbn.
     + apply IH; [|easy].
       cbn.
-      rewrite Bool.orb_false_r.
-      rewrite has_use_lift by lia.
+      rewrite Bool.andb_true_r.
+      rewrite is_dead_lift by lia.
       cbn.
       now rewrite Nat.sub_0_r.
     + inversion args_no_use.
@@ -1461,13 +1295,13 @@ Proof.
 Qed.
 
 Ltac bia :=
-  repeat (destruct (has_use _ _); cbn;
+  repeat (destruct (is_dead _ _); cbn;
           rewrite ?Bool.orb_true_r, ?Bool.orb_false_r, ?Bool.andb_false_r; auto).
 
-Lemma has_use_subst s k k' t :
+Lemma is_dead_subst s k k' t :
   k' <= k ->
-  has_use k (subst [s] k' t) =
-  has_use (S k) t || (has_use k' t && has_use (k - k') s).
+  is_dead k (subst [s] k' t) =
+  is_dead (S k) t && (is_dead k' t || is_dead (k - k') s).
 Proof.
   intros le.
   induction t in t, k, k', le |- * using term_forall_list_ind; cbn in *; auto.
@@ -1478,7 +1312,7 @@ Proof.
         cbn in *.
         noconf nth.
         rewrite Nat.eqb_refl, (proj2 (Nat.eqb_neq _ _)) by easy.
-        now rewrite has_use_lift.
+        now rewrite is_dead_lift.
       * cbn.
         apply nth_error_None in nth.
         cbn in *.
@@ -1499,8 +1333,8 @@ Proof.
      induction X; cbn in *; [bia|].
      rewrite p0 by easy.
      bia; cbn in *.
+     + now rewrite Bool.orb_true_r in IHX.
      + now rewrite Bool.orb_false_r in IHX.
-     + now rewrite Bool.andb_false_r, Bool.orb_false_r in IHX.
    - rewrite map_length.
      induction H in H, m, k, k', le |- *; cbn in *; [easy|].
      rewrite H by easy.
@@ -1521,24 +1355,24 @@ Proof.
      bia.
 Qed.
 
-Lemma has_use_dearg_lambdas k mask t :
-  has_use k (dearg_lambdas mask t) = has_use k t.
+Lemma is_dead_dearg_lambdas k mask t :
+  is_dead k (dearg_lambdas mask t) = is_dead k t.
 Proof.
   induction t in k, mask, t |- *; cbn in *; try easy.
   destruct mask as [|[] mask]; [easy| |]; cbn in *.
   - unfold subst1.
-    rewrite has_use_subst, IHt, Nat.sub_0_r by easy.
+    rewrite is_dead_subst, IHt, Nat.sub_0_r by easy.
     cbn.
-    now rewrite Bool.andb_false_r, Bool.orb_false_r.
+    now btauto.
   - now rewrite IHt.
 Qed.
 
-Lemma has_use_dearg_case k ind npars discr brs :
-  has_use k (dearg_case ind npars discr brs) =
-  has_use k discr || existsb (has_use k) (map snd brs).
+Lemma is_dead_dearg_case k ind npars discr brs :
+  is_dead k (dearg_case ind npars discr brs) =
+  is_dead k discr && forallb (is_dead k) (map snd brs).
 Proof.
   unfold dearg_case.
-  destruct (get_mib_masks _); cbn; [|now rewrite existsb_map].
+  destruct (get_mib_masks _); cbn; [|now rewrite forallb_map].
   f_equal.
   unfold mapi.
   generalize 0.
@@ -1546,48 +1380,48 @@ Proof.
   cbn in *.
   rewrite IHbrs.
   f_equal.
-  now rewrite has_use_dearg_lambdas.
+  now rewrite is_dead_dearg_lambdas.
 Qed.
 
-Lemma has_use_dearg_aux k t args :
-  has_use k t = false ->
-  Forall (fun t => has_use k t = false) args ->
-  has_use k (dearg_aux args t) = false.
+Lemma is_dead_dearg_aux k t args :
+  is_dead k t ->
+  Forall (is_dead k) args ->
+  is_dead k (dearg_aux args t).
 Proof.
   intros no_use args_no_use.
   induction t using term_forall_list_ind in k, t, args, no_use, args_no_use |- *;
-    cbn in *; rewrite ?has_use_mkApps; cbn.
-  - now apply Forall_existsb_false.
-  - now rewrite no_use; apply Forall_existsb_false.
-  - now apply Forall_existsb_false.
-  - propify; split; [|now apply Forall_existsb_false].
+    cbn in *; rewrite ?is_dead_mkApps; cbn.
+  - now apply forallb_Forall.
+  - now rewrite no_use; apply forallb_Forall.
+  - now apply forallb_Forall.
+  - propify; split; [|now apply forallb_Forall].
     induction H; [easy|]; cbn in *; propify.
     now rewrite H, IHForall.
-  - now rewrite Forall_existsb_false, Bool.orb_false_r, IHt.
-  - rewrite Forall_existsb_false, Bool.orb_false_r by easy.
-    propify.
-    now split; [apply IHt1|apply IHt2].
+  - rewrite IHt by easy.
+    now apply forallb_Forall.
+  - propify.
+    rewrite IHt1, IHt2 by easy.
+    split; [easy|now apply forallb_Forall].
   - propify.
     now rewrite IHt1.
-  - now apply has_use_dearg_single.
-  - now apply has_use_dearg_single.
+  - now apply is_dead_dearg_single.
+  - now apply is_dead_dearg_single.
   - destruct p.
-    rewrite has_use_mkApps.
-    rewrite Forall_existsb_false, Bool.orb_false_r by easy.
-    rewrite has_use_dearg_case.
+    rewrite is_dead_mkApps, is_dead_dearg_case.
     propify.
+    split; [|now apply forallb_Forall].
     split; [now apply IHt|].
     induction X; [easy|]; cbn in *; propify.
     rewrite p by easy.
     split; [easy|].
     now apply IHX.
   - destruct s as ((ind & c) & npars).
-    rewrite has_use_mkApps.
-    rewrite Forall_existsb_false, Bool.orb_false_r by easy.
+    rewrite is_dead_mkApps.
+    propify; split; [|now apply forallb_Forall].
     unfold dearg_proj.
     now destruct (get_mib_masks _); apply IHt.
   - rewrite map_length.
-    propify; split; [|now apply Forall_existsb_false].
+    propify; split; [|now apply forallb_Forall].
     induction H in k, m, H, no_use |- *; [easy|].
     cbn in *; propify.
     rewrite <- !Nat.add_succ_r in *.
@@ -1595,7 +1429,7 @@ Proof.
     split; [easy|].
     now apply IHForall.
   - rewrite map_length.
-    propify; split; [|now apply Forall_existsb_false].
+    propify; split; [|now apply forallb_Forall].
     induction H in k, m, H, no_use |- *; [easy|].
     cbn in *; propify.
     rewrite <- !Nat.add_succ_r in *.
@@ -1614,7 +1448,7 @@ Proof.
   destruct mask as [|[] mask]; try easy.
   cbn in *.
   propify.
-  now rewrite has_use_dearg_aux.
+  now rewrite is_dead_dearg_aux.
 Qed.
 
 Lemma valid_case_masks_dearg_branches ind npars brs :
@@ -3139,7 +2973,7 @@ Proof.
   propify; split; [|easy].
   destruct b; [|easy].
   propify.
-  now rewrite has_use_dearg_aux.
+  now rewrite is_dead_dearg_aux.
 Qed.
 
 Lemma pairwise_remove_length {X} m (xs : list X) :

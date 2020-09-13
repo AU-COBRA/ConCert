@@ -22,12 +22,12 @@ execution/theories/ResultMonad.v
 execution/theories/Serializable.v
 
 -Q execution/tests ConCert.Execution.QCTests
-execution/tests//CongressTests/CongressGens.v
-execution/tests//CongressTests/CongressPrinters.v
-execution/tests//CongressTests/CongressTests.v
-execution/tests//CongressTests/Congress_BuggyGens.v
-execution/tests//CongressTests/Congress_BuggyPrinters.v
-execution/tests//CongressTests/Congress_BuggyTests.v
+execution/tests/CongressTests/CongressGens.v
+execution/tests/CongressTests/CongressPrinters.v
+execution/tests/CongressTests/CongressTests.v
+execution/tests/CongressTests/Congress_BuggyGens.v
+execution/tests/CongressTests/Congress_BuggyPrinters.v
+execution/tests/CongressTests/Congress_BuggyTests.v
 execution/tests/ChainPrinters.v
 execution/tests/DexterTests/Dexter.v
 execution/tests/DexterTests/DexterGens.v
@@ -94,6 +94,7 @@ embedding/examples/crowdfunding/Crowdfunding.v
 embedding/examples/crowdfunding/CrowdfundingData.v
 
 -Q extraction/theories ConCert.Extraction
+extraction/theories/AnalyzeCorrectness.v
 extraction/theories/Aux.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v

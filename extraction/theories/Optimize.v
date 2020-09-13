@@ -50,14 +50,6 @@ Definition map_subterms (f : term -> term) (t : term) : term :=
 
 Definition bitmask := list bool.
 
-Fixpoint set_bit (n : nat) (bs : bitmask) : bitmask :=
-  match n, bs with
-  | 0, _ :: bs => true :: bs
-  | 0, [] => [true]
-  | S n, b :: bs => b :: set_bit n bs
-  | S n, [] => false :: set_bit n []
-  end.
-
 Definition has_bit (n : nat) (bs : bitmask) : bool :=
   nth n bs false.
 
@@ -268,60 +260,55 @@ Definition dearg_env (Σ : global_env) : global_env :=
 
 End dearg.
 
-(* Return bitmask indicating which context variables have uses *)
-Fixpoint used_context_vars (Γ : bitmask) (t : term) : bitmask :=
+Fixpoint clear_bit (n : nat) (bs : bitmask) : bitmask :=
+  match n, bs with
+  | 0, _ :: bs => false :: bs
+  | S n, b :: bs => b :: clear_bit n bs
+  | _, _ => []
+  end.
+
+(* Return bitmask indicating which context variables are dead, i.e. unused. *)
+Fixpoint dead_context_vars (Γ : bitmask) (t : term) : bitmask :=
   match t with
   | tBox => Γ
-  | tRel i => set_bit i Γ
+  | tRel i => clear_bit i Γ
   | tVar n => Γ
-  | tEvar _ ts => fold_right bitmask_or Γ (map (used_context_vars Γ) ts)
-  | tLambda _ cod => tl (used_context_vars (false :: Γ) cod)
-  | tLetIn _ val body => tl (used_context_vars (false :: used_context_vars Γ val) body)
-  | tApp hd arg => used_context_vars (used_context_vars Γ hd) arg
+  | tEvar _ ts => fold_right (fun t Γ => dead_context_vars Γ t) Γ ts
+  | tLambda _ cod => tl (dead_context_vars (true :: Γ) cod)
+  | tLetIn _ val body => tl (dead_context_vars (true :: dead_context_vars Γ val) body)
+  | tApp hd arg => dead_context_vars (dead_context_vars Γ hd) arg
   | tConst _ => Γ
   | tConstruct _ _ => Γ
   | tCase _ disc brs =>
-    let Γ := used_context_vars Γ disc in
-    fold_right bitmask_or Γ (map (used_context_vars Γ ∘ snd) brs)
-  | tProj _ t => used_context_vars Γ t
+    let Γ := dead_context_vars Γ disc in
+    fold_right (fun br Γ => dead_context_vars Γ br.2) Γ brs
+  | tProj _ t => dead_context_vars Γ t
   | tFix defs _
   | tCoFix defs _ =>
-    let Γfix := List.repeat false #|defs| ++ Γ in
-    let Γfix := fold_right bitmask_or Γfix (map (used_context_vars Γfix ∘ dbody) defs) in
-    skipn #|defs| Γfix
+    let Γ := List.repeat false #|defs| ++ Γ in
+    let Γ := fold_right (fun d Γ => dead_context_vars Γ (dbody d)) Γ defs in
+    skipn #|defs| Γ
   end.
 
-(* Return bitmask indicating which parameters are used by the
+(* Return bitmask indicating which parameters are dead in the
 specified lambda abstractions. All parameters after the end of
-the bit mask should be assumed to be used. *)
-Fixpoint func_body_used_params (Γ : bitmask) (t : term) (ty : box_type) : bitmask * bitmask :=
+the bit mask should be assumed to be live. *)
+Fixpoint func_body_dead_params (Γ : bitmask) (t : term) (ty : box_type) : bitmask * bitmask :=
   match t, ty with
   | tLetIn na val body, _ =>
-    let Γ := used_context_vars Γ val in
-    let (mask, Γ) := func_body_used_params (false :: Γ) body ty in
+    let Γ := dead_context_vars Γ val in
+    let (mask, Γ) := func_body_dead_params (true :: Γ) body ty in
     (mask, tl Γ)
   | tLambda na body, TArr _ dom =>
-    let (mask, Γ) := func_body_used_params (false :: Γ) body dom in
+    let (mask, Γ) := func_body_dead_params (true :: Γ) body dom in
     (hd false Γ :: mask, tl Γ)
-  | t, ty => ([], used_context_vars Γ t)
+  | t, ty => ([], dead_context_vars Γ t)
   end.
 
-(* Return bitmask for a box type. [TBox] corresponds to unused variables.
-   We use this function to produce a bitmask for axioms in the global environment that
-   correspond to remapped definitions. *)
-Definition box_type_used_params (ty : box_type) : bitmask :=
-  let '(tys,codom) := decompose_arr ty in
-  let is_box ty :=
-      match ty with
-      | TBox => false
-      | _ => true
-      end in
-  map is_box tys.
-
-Definition constant_used_params (cst : constant_body) : bitmask :=
+Definition constant_dead_params (cst : constant_body) : bitmask :=
   match cst_body cst with
   | None => []
-  | Some body => (func_body_used_params [] body (cst_type cst).2).1
+  | Some body => (func_body_dead_params [] body (cst_type cst).2).1
   end.
 
 Definition dearg_box_type (bt : box_type) : bool :=
@@ -342,6 +329,7 @@ Definition make_dearg_mib_masks (mib : mutual_inductive_body) : mib_masks :=
                     (ind_ctors oib))
             (ind_bodies mib)) |}.
 
+
 Record dearg_set := {
   const_masks : list (kername * bitmask);
   ind_masks : list (kername * mib_masks); }.
@@ -354,7 +342,7 @@ Fixpoint get_dearg_set_for_unused_args (Σ : global_env) : dearg_set :=
     let (consts, inds) := get_dearg_set_for_unused_args Σ in
     let (consts, inds) :=
         match decl with
-        | ConstantDecl cst => ((kn, bitmask_not (constant_used_params cst)) :: consts, inds)
+        | ConstantDecl cst => ((kn, constant_dead_params cst) :: consts, inds)
         | InductiveDecl _ mib => (consts, (kn, make_dearg_mib_masks mib) :: inds)
         | TypeAliasDecl _ =>
           (* FIXME: look for unused parameters in type alisases? *)
@@ -407,10 +395,7 @@ Fixpoint dearg_single_bt (mask : bitmask) (t : box_type) (args : list box_type)
 
 Definition dearg_ty_const (const_masks : list (kername × bitmask)) (kn : kername)
            (args : list box_type) :=
-match find (fun '(kn', _) => eq_kername kn' kn) const_masks with
-| Some (_, mask) => dearg_single_bt mask (TConst kn) args
-| None => mkAppsBt (TConst kn) args
-end.
+  dearg_single_bt (get_const_mask const_masks kn) (TConst kn) args.
 
 Definition get_param_mask (oib : one_inductive_body) : bitmask :=
   map (fun x => tvar_is_logical x || negb (tvar_is_sort x))
@@ -422,17 +407,16 @@ Definition get_ctor_param_mask (oib : one_inductive_body) : bitmask :=
 
 Definition dearg_ty_ind (ind_masks : list (inductive × bitmask))
            (ind : inductive)
-           (args : list box_type)
-        :=
-          let kn := ind.(inductive_mind) in
-          let i := ind.(inductive_ind) in
-          let mask_o :=
-              find (fun '(mkInd kn' i',_) => eq_kername kn' kn && Nat.eqb i i')
-                   ind_masks in
-            match mask_o with
-            | Some (_, mask) => dearg_single_bt mask (TInd ind) args
-            | None => mkAppsBt (TInd ind) args
-            end.
+           (args : list box_type) :=
+  let kn := ind.(inductive_mind) in
+  let i := ind.(inductive_ind) in
+  let mask_o :=
+      find (fun '(mkInd kn' i',_) => eq_kername kn' kn && Nat.eqb i i')
+           ind_masks in
+  match mask_o with
+  | Some (_, mask) => dearg_single_bt mask (TInd ind) args
+  | None => mkAppsBt (TInd ind) args
+  end.
 
 Record dearg_set_ty :=
   { dst_const_masks : list (kername × bitmask);
