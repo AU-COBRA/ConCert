@@ -3601,7 +3601,6 @@ Proof.
         replace (count_zeros (param_mask m) + (arg - count_ones (firstn arg (get_branch_mask m i 0))) -
             count_zeros (param_mask m)) with (arg - count_ones (firstn arg (get_branch_mask m i 0)))
           by lia.
-        Open Scope string.
         pose proof (projections_first k) as ->.
         rewrite nth_error_pairwise_remove by easy.
         rewrite nth_error_skipn, nth.
