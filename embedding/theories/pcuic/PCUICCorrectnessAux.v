@@ -27,7 +27,7 @@ Remove Hints Bool.trans_eq_bool.
 Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.
 
-Notation "Σ ;;; Γ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ Γ t1 t2) (at level 50).
+Notation "Σ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ t1 t2) (at level 50).
 
 Tactic Notation "simpl_vars_to_apps" "in" ident(H) :=
   simpl in H;try rewrite map_app in H; simpl in H;
@@ -43,8 +43,8 @@ Section WcbvEvalProp.
     PcbvCurr.atom (tInd (mkInd ind i) u).
   Proof. reflexivity. Qed.
 
-  Lemma tInd_value_head Σ Γ ind i u :
-    PcbvCurr.value_head Σ Γ (tInd (mkInd ind i) u).
+  Lemma tInd_value_head Σ ind i u :
+    PcbvCurr.value_head Σ (tInd (mkInd ind i) u).
   Proof. reflexivity. Qed.
 
   Lemma All_eq {A} (l1 l2 : list A) : All2 (fun t1 t2 => t1 = t2) l1 l2 -> l1 = l2.
@@ -109,11 +109,10 @@ Proof.
   + simpl. now rewrite <- IHl.
 Qed.
 
-
 Lemma mkApps_vars_to_apps_constr :
   forall (Σ1 : global_env) (i0 : Ast.inductive) (n1 : BasicAst.ident) (l0 : list val) ci,
     resolve_constr Σ1 i0 n1 = Some ci ->
-    mkApps (tConstruct (BasicAst.mkInd i0 0) (ci.1.2) []) (map (fun x => t⟦of_val_i x⟧ Σ1) l0) =
+    mkApps (tConstruct (BasicAst.mkInd (kername_of_string i0) 0) (ci.1.2) []) (map (fun x => t⟦of_val_i x⟧ Σ1) l0) =
     t⟦ vars_to_apps (eConstr i0 n1) (map of_val_i l0) ⟧ Σ1.
 Proof.
   intros Σ1 i0 n1 l0 ci Hci.
@@ -121,11 +120,11 @@ Proof.
   simpl. rewrite Hci. apply f_equal. rewrite map_map. reflexivity.
 Qed.
 
-Lemma Wcbv_value_vars_to_apps Σ1 Σ2 Γ :
+Lemma Wcbv_value_vars_to_apps Σ1 Σ2 :
   forall (i : inductive) n (l : list val) ci,
     resolve_constr Σ1 i n = Some ci ->
-    All (fun v : val => PcbvCurr.value Σ2 Γ (t⟦ of_val_i v ⟧ Σ1)) l ->
-    PcbvCurr.value Σ2 Γ (t⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
+    All (fun v : val => PcbvCurr.value Σ2 (t⟦ of_val_i v ⟧ Σ1)) l ->
+    PcbvCurr.value Σ2 (t⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
 Proof.
   intros i n l ci Hres Hfa.
   erewrite <- mkApps_vars_to_apps_constr;eauto.
@@ -150,22 +149,9 @@ Fixpoint ge_val_ok Σ v : bool:=
 
 Hint Constructors PcbvCurr.value : hints.
 
-Lemma decompose_inductive_decompose_app {ty ind args args0} :
-  decompose_inductive ty = Some (ind, args) ->
-  exists args', decompose_app_rec (type_to_term ty) (map type_to_term args0) = (tInd (mkInd ind 0) [], args').
-Proof.
-  revert args args0 ind.
-  induction ty;intros args args0 ind Hdi;inversion Hdi;subst.
-  + eexists;easy.
-  + simpl in *. destruct (decompose_inductive ty1) eqn:Heq;tryfalse.
-    destruct p. inversion Hdi. subst.
-    destruct (IHty1 _ (ty2 :: args0) _ eq_refl) as [args' H]. exists args'. cbn in *.
-    now rewrite H.
-Qed.
-
 Lemma decompose_inductive_mkApps ty ind args :
   decompose_inductive ty = Some (ind, args) ->
-  type_to_term ty = mkApps (tInd (mkInd ind 0) []) (map type_to_term args).
+  type_to_term ty = mkApps (tInd (mkInd (kername_of_string ind) 0) []) (map type_to_term args).
 Proof.
   revert args ind.
   induction ty;intros args ind Hdi;inversion Hdi;subst.
@@ -178,12 +164,12 @@ Proof.
 Qed.
 
 Lemma decompose_inductive_value:
-  forall (Σ : PCUICAst.global_env) (Γ : list context_decl) (t1 : type) (args : list type) ind,
-    PcbvCurr.value Σ Γ (type_to_term t1) ->
+  forall (Σ : PCUICAst.global_env) (t1 : type) (args : list type) ind,
+    PcbvCurr.value Σ (type_to_term t1) ->
     decompose_inductive t1 = Some (ind, args) ->
-    All (PcbvCurr.value Σ Γ) (map type_to_term args).
+    All (PcbvCurr.value Σ) (map type_to_term args).
 Proof.
-  intros Σ Γ t1.
+  intros Σ t1.
   induction t1;intros args ind Hv Hdi;tryfalse.
   + inversion Hdi;subst. constructor.
   + simpl in *.
@@ -193,7 +179,7 @@ Proof.
     rewrite <- mkApps_unfold in Hv.
     remember (tInd _ _) as tind.
     assert (Hna : ~~ isApp tind) by (subst;auto).
-    specialize (PcbvCurr.value_mkApps_inv _ _ _ _ Hna Hv).
+    specialize (PcbvCurr.value_mkApps_inv _ _ _ Hna Hv).
     intros W. destruct W.
     * destruct s.
       ** destruct p as [H1 ?]. destruct tys;simpl;tryfalse.
@@ -201,10 +187,10 @@ Proof.
     * destruct p as [H1 H2]. subst;inversion H1.
 Qed.
 
-Lemma type_value_term_value Σ Γ ty :
+Lemma type_value_term_value Σ ty :
   iclosed_ty 0 ty ->
   ty_val ty ->
-  PcbvCurr.value Σ Γ (type_to_term ty).
+  PcbvCurr.value Σ (type_to_term ty).
 Proof.
   intros Hc Hty. induction Hty.
   + simpl. constructor. apply tInd_atom.
@@ -305,10 +291,10 @@ Qed.
 
 
 Lemma type_to_term_eval_value :
-  forall Σ1 Σ2 (Γ : list context_decl) (ty ty_v : type) ρ,
+  forall Σ1 Σ2 (ty ty_v : type) ρ,
     env_ok Σ2 ρ  ->
     eval_type_i 0 ρ ty = Some ty_v ->
-    PcbvCurr.value Σ1 Γ (type_to_term ty_v).
+    PcbvCurr.value Σ1 (type_to_term ty_v).
 Proof.
   intros.
   eapply type_value_term_value;eauto with hints.
@@ -317,20 +303,20 @@ Proof.
 Qed.
 
 Lemma Wcvb_type_to_term_eval :
-  forall (Σ1 : PCUICAst.global_env) Σ2 (Γ : list context_decl) (ty ty_v : type) ρ,
+  forall (Σ1 : PCUICAst.global_env) Σ2 (ty ty_v : type) ρ,
     env_ok Σ2 ρ ->
     AllEnv (iclosed_n 0) (exprs ρ)  ->
     eval_type_i 0 ρ ty = Some ty_v ->
-    Σ1;;; Γ |- type_to_term ty_v ⇓ type_to_term ty_v.
+    Σ1 |- type_to_term ty_v ⇓ type_to_term ty_v.
 Proof.
   intros.
   eapply PcbvCurr.value_final.
   eapply type_to_term_eval_value;eauto.
 Qed.
 
-Lemma Wcbv_of_value_value v Σ1 Σ2 Γ :
+Lemma Wcbv_of_value_value v Σ1 Σ2 :
   val_ok Σ1 v ->
-  PcbvCurr.value Σ2 Γ (t⟦ of_val_i v⟧Σ1).
+  PcbvCurr.value Σ2 (t⟦ of_val_i v⟧Σ1).
 Proof.
   intros Hok.
   induction v using val_elim_full.
@@ -545,15 +531,11 @@ Proof.
 Qed.
 
 (* TODO : use this lemma in all places where this inversion is needed *)
-Lemma eval_lam_inv Σ Γ nm1 nm2 ty1 ty2 b1 b2:
-  Σ;;; Γ |- tLambda nm1 ty1 b1 ⇓ tLambda nm2 ty2 b2 -> nm1 = nm2 /\ ty1 = ty2 /\ b1 = b2.
+Lemma eval_lam_inv Σ nm1 nm2 ty1 ty2 b1 b2:
+  Σ |- tLambda nm1 ty1 b1 ⇓ tLambda nm2 ty2 b2 -> nm1 = nm2 /\ ty1 = ty2 /\ b1 = b2.
 Proof.
   intros H.
   inversion H.
-  + subst. destruct args using rev_ind;tryfalse;clear IHargs.
-    now rewrite mkApps_unfold in *.
-  + destruct args' using rev_ind;simpl in *;tryfalse.
-    rewrite mkApps_unfold in *. tryfalse.
   + now subst.
 Qed.
 
@@ -600,12 +582,12 @@ Ltac destr_args args := let args0 := fresh "args0" in
 Notation "P <--> Q" := (Logic.BiImpl P Q) (at level 100).
 
 (* NOTE: this solves the "evaluation in one go" issue in [eCase]*)
-Lemma pat_to_lam_app_par l params args t v Σ (Γ:=[]) :
-  All ((PcbvCurr.value Σ Γ)) args ->
+Lemma pat_to_lam_app_par l params args t v Σ  :
+  All (PcbvCurr.value Σ) args ->
   forallb (closedn 0) args ->
   #|l| = #|args| ->
-  Σ ;;; Γ |- subst (rev args) 0 t ⇓ v ->
-  Σ ;;; Γ |- mkApps (lpat_to_lam t params l) args ⇓ v .
+  Σ |- subst (rev args) 0 t ⇓ v ->
+  Σ |- mkApps (lpat_to_lam t params l) args ⇓ v .
 Proof.
   - revert dependent args. revert t v params.
     induction l; intros t0 v params args Hval Hc Heq He.
@@ -617,15 +599,17 @@ Proof.
       apply All_app in Hval. destruct Hval as [Hargs Ha].
       inversion Ha;subst;clear Ha.
       rewrite forallb_app in Hc. inv_andb Hc. simpl in *.
+      inv_andb H0.
       assert (#|l| = #|args1|).
       { rewrite app_length in Heq. simpl in Heq. lia. }
       clear Heq.
       rewrite mkApps_unfold in *.
       rewrite rev_unit in *. cbn in He.
-      assert (Σ;;; Γ |- a1 ⇓ a1) by (eapply PcbvCurr.value_final;eauto).
+      assert (Σ |- a1 ⇓ a1) by (eapply PcbvCurr.value_final;eauto).
       eapply PcbvCurr.eval_beta;eauto with hints.
       eapply IHl;eauto with hints. simpl. econstructor;simpl;eauto.
       unfold subst1.
+      rewrite PCUICCSubst.closed_subst by auto.
       now rewrite <- subst_app_simpl.
 Qed.
 
@@ -1805,22 +1789,6 @@ Proof.
   + simpl in *. inversion H1. destruct t0;tryfalse.
 Qed.
 
-
-Ltac destruct_one_ex_named :=
-  let tac x H := let x_new := fresh x in (destruct H as [x_new H]) in
-    match goal with
-      | [H : (exists x1, _) |- _] => tac x1 H
-    end.
-
-Ltac destruct_one_ex_named' Hex :=
-  let tac x H := (destruct H as [x H]) in
-  match Hex with
-  | ex (fun x => _) => tac x Hex
-  end.
-
-
-Ltac destruct_ex_named := repeat (destruct_one_ex_named).
-
 Lemma fix_not_constr_of_val {Σ mf m i nm vs} :
   tFix mf m = t⟦of_val_i (vConstr i nm vs)⟧Σ -> False.
 Proof.
@@ -1914,11 +1882,6 @@ Proof.
   assert (l1=l2 /\ tConstruct ind n1 u1 = (tConstruct ind n2 u2)) by now apply mkApps_atom_inv.
   now intuition.
 Qed.
-
-Ltac inv_dummy :=
-  match goal with
-    [H : _ ;;; _ |- tDummy ⇓ _ |- _ ] => inversion H;inversion isdecl
-  end.
 
 Lemma nth_error_map_exists {A B} (f : A -> B) (l : list A) n p:
   nth_error (map f l) n = Some p ->
@@ -2018,11 +1981,11 @@ Hint Resolve negb_and_to_orb : hints.
 Hint Constructors All2 : hints.
 
 Lemma All_value_of_val:
-  forall (Σ1 : global_env) (Σ2 : PCUICAst.global_env) (Γ : list context_decl)
+  forall (Σ1 : global_env) (Σ2 : PCUICAst.global_env)
     (l : list val),
-    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 Γ (t⟦ of_val_i v ⟧ Σ1)) l.
+    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 (t⟦ of_val_i v ⟧ Σ1)) l.
 Proof.
-  intros Σ1 Σ2 Γ l X.
+  intros Σ1 Σ2 l X.
   eapply All_impl. apply X.
   intros. eapply Wcbv_of_value_value;eauto with hints.
 Qed.

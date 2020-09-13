@@ -395,7 +395,7 @@ Section Theories.
   (* Now we prove that this version of the contract is buggy, i.e. it does not satisfy the
      property we proved for the other version of the Congress. We filter out transactions
      from the congress to the congress as we have those now (due to self calls). *)
-  Theorem congress_is_buggy :
+  Theorem congress_buggy :
     exists bstate caddr (trace : ChainTrace empty_state bstate)
            (inc_calls : list (ContractCallInfo Msg)),
       env_contracts bstate caddr = Some (contract : WeakContract) /\

@@ -2,10 +2,10 @@
 
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate Utils MyEnv.
+     PCUICTranslate PCUICtoTemplate Utils MyEnv TranslationUtils Prelude.
 
 From ConCert.Extraction Require Import Liquidity.
-From ConCert.Extraction.Examples Require Import Prelude CrowdfundingData SimpleBlockchain.
+From ConCert.Extraction.Examples Require Import PreludeExt SimpleBlockchainExt CrowdfundingData.
 
 Require Import List PeanoNat ssrbool.
 
@@ -27,18 +27,10 @@ Import Lia.
 
 Module CrowdfundingContract.
 
-  Import AcornBlockchain.
+  Import AcornBlockchain PreludeExt.Maps.
 
-  (** Generating string constants for variable names *)
-
-  Run TemplateProgram
-      (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain"; "ctx"; "setup";
-               "tx_amount"; "bal"; "sender"; "sent_by"; "own"; "isdone" ;
-               "accs"; "now"; "newstate"; "newmap"; "cond" ] "").
-
-  Notation "'Result'" := [!"prod"  ("list" "SimpleActionBody") {full_state_ty} !]
+  Notation "'Result'" := [! Prod (List SimpleActionBody) {full_state_ty} !]
                            (in custom type at level 2).
-
 
   (** ** AST of the validation function *)
   Module Validate.
@@ -50,11 +42,11 @@ Module CrowdfundingContract.
         | Just "_" -> "b"
         | Nothing -> $Nothing$Maybe [:  Result ]  |].
 
-   Make Definition maybe_bind_unit :=
+   MetaCoq Unquote Definition maybe_bind_unit :=
      (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
 
    Notation "a >> b" :=
-     [| {eConst "maybe_bind_unit"} {a} {b}|]
+     [| {eConst (to_string_name <% maybe_bind_unit %>)} {a} {b}|]
        (in custom expr at level 0,
            a custom expr,
            b custom expr).
@@ -65,11 +57,11 @@ Module CrowdfundingContract.
         if 0z == tx_amount then $Just$Maybe [: Unit] star
         else $Nothing$Maybe [: Unit] : Maybe Unit |].
 
-   Make Definition validate :=
+   MetaCoq Unquote Definition validate :=
      (expr_to_tc Σ' (indexify nil validate_syn)).
 
 
-   Notation "'VALIDATE' amt" := [| {eConst "validate"} {amt} |] (in custom expr at level 0).
+   Notation "'VALIDATE' amt" := [| {eConst (to_string_name <% validate %>)} {amt} |] (in custom expr at level 0).
 
    End Validate.
 
@@ -86,7 +78,8 @@ Module CrowdfundingContract.
              (mkFullState setup (mkState MNil False))
           else $Nothing$Maybe [: {full_state_ty}] : Maybe  {full_state_ty})|].
 
-    Make Definition init :=
+    Compute ((expr_to_tc Σ' (indexify nil crowdfunding_init))).
+    MetaCoq Unquote Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
     (** We prove that the initialisation fails if we send money on contact deployment. *)
@@ -107,56 +100,47 @@ Module CrowdfundingContract.
 
    Import CrowdfundingData.Notations.
    Import Validate.
+   Import StdLib.
 
 (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
-  Definition actions_ty := [! "list" "SimpleActionBody" !].
-
+  Definition actions_ty := [! List SimpleActionBody !].
   Notation "'Transfer' a b" :=
     [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
       (in custom expr at level 0,
           a custom expr at level 1,
           b custom expr at level 1).
 
-  Definition eqb_addr (a1 a2 : address_coq) :=
-    match a1, a2 with
-    | ContractAddr_coq n1, ContractAddr_coq n2 => Nat.eqb n1 n2
-    | UserAddr_coq n1, UserAddr_coq n2 => Nat.eqb n1 n2
-    | _, _ => false
-    end.
-
-  Notation "a ==a b" := [| {eConst "eqb_addr"} {a} {b} |]
-                        (in custom expr at level 0).
-
 
    (** We specialise some polymorphic constructors to avoid writing types all the time *)
-   Notation "'#Just' a" := [| $Just$Maybe  [: Result ] {a}|]
+   Notation "'#Just' a" := [| $Just$Maybe [: Result ] {a}|]
                            (in custom expr at level 0,
                                a custom expr at level 1).
 
-   Notation "'#Pair' a b" := [| $"pair"$"prod" [: {actions_ty}] [: {full_state_ty}] {a} {b} |]
+   Notation "'#Pair' a b" := [| Pair {actions_ty} {full_state_ty} {a} {b} |]
                            (in custom expr at level 0,
                                a custom expr at level 1,
                                b custom expr at level 1).
 
-   Notation "'#Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
+   Notation "'#Nothing'" := [| $Nothing$Maybe [: Result ] |]
                               (in custom expr at level 0).
 
-   Notation "'#Nil'" := [| {eConstr "list" "nil"} {eTy (tyInd SActionBody)} |]
-                      (in custom expr at level 0).
-   Notation "[ x ]" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} #Nil |]
+   Notation "'#Nil'" := [| Nil SActionBody |]
+                          (in custom expr at level 0).
+
+   Notation "[ x ]" := [| Cons SActionBody {x} #Nil |]
                         ( in custom expr at level 0,
                           x custom expr at level 1).
 
 
-   Notation "'DONE'" := (eConst "set_done")
+   Notation "'DONE'" := (eConst (to_string_name <% set_done %>))
                           (in custom expr at level 0).
-   Notation "'UPDATE_CONTRIBS'" := (eConst "update_contribs")
-                                    (in custom expr at level 0).
+   Notation "'UPDATE_CONTRIBS'" := (eConst (to_string_name <% update_contribs %>))
+                                     (in custom expr at level 0).
 
-   Definition lookup k m := lookup_map m k.
-
-   Notation "'findm' a b" :=  [| {eConst "lookup"} {a} {b} |]
+   (** We make the remapping to the Liquidity primitives easier by using this abbreviation for the lookup, since in Liquidity the arguments are swapped *)
+  Definition lookup_map' k m := PreludeExt.Maps.lookup_map m k.
+  Notation "'findm' a b" :=  [| {eConst (to_string_name <% lookup_map' %> )} {a} {b} |]
         (in custom expr at level 0,
             a custom expr at level 1,
             b custom expr at level 1).
@@ -190,10 +174,9 @@ Module CrowdfundingContract.
               | Just v -> let newmap : Map := madd sender 0z accs in
                  (VALIDATE tx_amount) >> (#Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap)))
               | Nothing -> #Nothing)
-             else #Nothing : Maybe Result
-    |].
+             else #Nothing : Maybe Result |].
 
-  Make Definition receive :=
+  MetaCoq Unquote Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   (** We prove that the call to the [receive] fails (returns [None]) if the contract was called with non-zero amount and this is not the "donate" case*)
@@ -241,24 +224,23 @@ Definition CFModule : LiquidityModule :=
      main_extra_args :=
        [simpleCallCtx] |}.
 
-
 (** A translation table for types *)
 Definition TTty : env string :=
-  [("Coq.Numbers.BinNums.Z", "tez");
-   ("time_coq", "timestamp");
-   ("address_coq", "address");
-   ("addr_map", "(address,tez) map");
-   ("Coq.Init.Datatypes.nat", "nat");
-   ("SimpleActionBody", "operation")].
+  [(to_string_name <% address_coq %>, "address");
+   (to_string_name <% PreludeExt.Maps.addr_map_coq %>, "(address,tez) map");
+   (to_string_name <% time_coq %>, "timestamp");
+   (to_string_name <% Z %>, "tez");
+   (to_string_name <% nat %>, "nat");
+   (to_string_name <% AcornBlockchain.SimpleActionBody_coq %>, "operation")].
 
 (** A translation table for primitive binary operations *)
 Definition TT : env string :=
-  [("Coq.ZArith.BinInt.Z.add", "addTez");
-     ("Coq.ZArith.BinInt.Z.eqb", "eqTez");
-     ("Coq.ZArith.BinInt.Z.leb", "lebTez");
-     ("Coq.ZArith.BinInt.Z.ltb", "ltbTez");
-     ("negb", "not");
-     ("add_map", "Map.add");
-     ("lookup", "Map.find")].
+  [(to_string_name <% Z.add %>, "addTez");
+  (to_string_name <% Z.eqb %>, "eqTez");
+  (to_string_name <% Z.leb %>, "lebTez");
+  (to_string_name <% Z.ltb %>, "ltbTez");
+  (to_string_name <% negb %>, "not");
+  (to_string_name <% Maps.add_map %>, "Map.add") ;
+  (to_string_name <% CrowdfundingContract.Receive.lookup_map' %>, "Map.find")].
 
 Compute liquidifyModule TT TTty CFModule.

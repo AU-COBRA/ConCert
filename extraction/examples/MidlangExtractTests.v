@@ -1,3 +1,4 @@
+(** * Tests for extraction to Midlang *)
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.
@@ -13,15 +14,24 @@ From MetaCoq Require Import utils.
 Import MonadNotation.
 Local Open Scope string.
 
-Definition extract (p : program) : result string string :=
+Instance StandardBoxes : BoxSymbol :=
+  {| term_box_symbol := "□";
+     type_box_symbol := "□";
+     any_type_symbol := "𝕋"|}.
+
+Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- specialize_erase_debox_template_env p.1 [entry] [];;
-  let Σ := remove_unused_args Σ in
-  '(_, s) <- finish_print (print_env Σ p.1 (fun _ => None));;
+  Σ <- specialize_erase_debox_template_env_no_wf_check p.1 [entry] ignore;;
+  let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
+  '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret s.
+
+Definition extract (p : program) : result string string :=
+  general_extract p [] [].
+
 
 Module ex1.
   Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
@@ -29,10 +39,10 @@ Module ex1.
   MetaCoq Quote Recursively Definition ex1 := bar.
 
   Definition ex1_expected :=
-"type Sig a p" ++ nl ++
+"type Sig a" ++ nl ++
 "  = Exist a" ++ nl ++
 "" ++ nl ++
-"proj1_sig : Sig a □ -> a" ++ nl ++
+"proj1_sig : Sig a -> a" ++ nl ++
 "proj1_sig e =" ++ nl ++
 "  case e of" ++ nl ++
 "    Exist a ->" ++ nl ++
@@ -42,13 +52,14 @@ Module ex1.
 "  = O" ++ nl ++
 "  | S Nat" ++ nl ++
 "" ++ nl ++
-"foo : Sig Nat □" ++ nl ++
+"foo : Sig Nat" ++ nl ++
 "foo =" ++ nl ++
 "  Exist O" ++ nl ++
 "" ++ nl ++
 "bar : Nat" ++ nl ++
 "bar =" ++ nl ++
 "  proj1_sig foo".
+
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex1) in exact x) =
                   Ok ex1_expected.
 End ex1.
@@ -94,13 +105,14 @@ Module ex4.
   MetaCoq Quote Recursively Definition ex4 := foo.
 
   Definition ex4_expected :=
-"type Sumbool a b" ++ nl ++
+"type Sumbool" ++ nl ++
 "  = Left" ++ nl ++
 "  | Right" ++ nl ++
 "" ++ nl ++
-"foo : Sumbool □ □" ++ nl ++
+"foo : Sumbool" ++ nl ++
 "foo =" ++ nl ++
 "  Left".
+
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex4) in exact x) =
                   Ok ex4_expected.
 End ex4.
@@ -118,16 +130,20 @@ Module ex5.
 "foo : Sum □ □" ++ nl ++
 "foo =" ++ nl ++
 "  Inl □".
+  Compute (extract ex5).
+  Compute ex5_expected.
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex5) in exact x) =
                   Ok ex5_expected.
 End ex5.
 
+(*
 Module ex6.
   Definition foo (f : 5 = 5 -> 5 = 5 -> nat -> nat) := f eq_refl eq_refl 0.
   Definition bar (m : nat) (p q : 5 = 5) (n : nat) := m + n.
   (* bar must be eta expanded twice and m and n need to be lifted *)
   Definition baz := (fun m n => foo (bar (m + n))) 0.
   MetaCoq Quote Recursively Definition ex6 := baz.
+  Compute extract ex6.
 
   Definition ex6_expected :=
 "type Nat" ++ nl ++
@@ -186,3 +202,5 @@ Module ex7.
   Check eq_refl : ltac:(let x := eval vm_compute in (extract ex7) in exact x) =
                   Ok ex7_expected.
 End ex7.
+
+*)

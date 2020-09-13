@@ -49,8 +49,6 @@ Notation " ^ x " := (tyRel x)
 Notation "( x )" := x (in custom type, x at level 2).
 Notation "{ x }" := x (in custom type, x constr).
 
-
-Definition example_type := [! ∀ "A", ∀ "B", "prod" '"A" '"B" !].
 Definition example_arr := [! "A" -> "B" -> ^0 !].
 
 Fixpoint ctor_type_to_list_anon (ty : type) : list (option ename * type) :=

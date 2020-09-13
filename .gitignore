@@ -26,14 +26,49 @@ execution/CoqMakefile.conf
 *.cmxs
 *.ml.d
 *.mllib.d
+*.ml4.d
+*.mli.d
+*.mlpack.d
+*.native
 *.o
 *.aux
 *.d
 *.lia.cache
 doc/
 docs/
-_opam
+_opam/
 
 ## extraction output
 *.liq
 *.out
+
+## Elm tests
+extraction/examples/elm-extract/elm-stuff/
+extraction/examples/elm-extract/node_modules/
+extraction/examples/elm-extract/src/
+extraction/examples/elm-extract/tests/
+extraction/examples/elm-extract/*.html
+
+.coq-native/
+.csdp.cache
+.lia.cache
+.nia.cache
+.nlia.cache
+.nra.cache
+csdp.cache
+lia.cache
+nia.cache
+nlia.cache
+nra.cache
+
+## Editors
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history

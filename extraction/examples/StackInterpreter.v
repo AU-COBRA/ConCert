@@ -1,15 +1,15 @@
 From Coq Require Import PeanoNat ZArith Notations Bool.
+From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
 
 From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader SafeTemplateErasure.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
+From MetaCoq.Erasure Require Import Loader.
+From MetaCoq.PCUIC Require Import TemplateToPCUIC PCUICTyping.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import SimpleBlockchain.
-From ConCert.Extraction Require Import LPretty Certified.
-From ConCert.Extraction Require Import Counter.
-From ConCert.Execution Require Import Containers.
+From ConCert.Extraction Require Import LPretty LiquidityExtract
+     Erasure Common PreludeExt.
+From ConCert.Execution Require Import Containers Blockchain.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -19,17 +19,12 @@ From MetaCoq.Template Require Import All.
 Import ListNotations.
 Import MonadNotation.
 
-(** Quoting this runs forever, because of many dependencies *)
-Definition my_lookup (m : FMap string Z) (k : string) := FMap.find k m.
-(* Quote Recursively Definition zz := (my_lookup). *)
+Definition PREFIX := "".
 
-(** To overcome the dependency issue, we parameterise the development with a module of the following type *)
-Module Type FiniteMap.
-  Parameter FM : Type -> Type.
-  Parameter lookup : forall {V}, (string * Z) -> FM V -> option V.
-End FiniteMap.
+Definition map_key_type := (string * Z).
+Definition action := ActionBody.
 
-Module Interpreter (FinMap : FiniteMap).
+Module Interpreter.
 
   Inductive op : Set := Add | And | Equal.
 
@@ -41,14 +36,18 @@ Module Interpreter (FinMap : FiniteMap).
 
   Inductive value : Set := BVal : bool -> value | ZVal : Z -> value.
 
-  Definition ext_map := FinMap.FM value.
+  Definition ext_map := FMap (string * Z) value.
+  Definition lookup (k : string * Z) (m : ext_map) := FMap.find k m.
 
   Definition storage := list value.
 
-  Definition obs0 s := IObs s 0.
+  Definition init (ctx : SimpleCallCtx) (setup : unit) : option storage :=
+    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    Some [].
 
-  Definition key_eq (k1 : string * Z) (k2 : string * Z)
-    := (k1.1 =? k2.1) && (k1.2 =? k2.2)%Z.
+  Definition params := list instruction * ext_map.
+
+  Definition obs0 s := IObs s 0.
 
   Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) :=
     match insts with
@@ -57,132 +56,105 @@ Module Interpreter (FinMap : FiniteMap).
       match hd with
       | IPushZ i => interp ext inst' (ZVal i :: s)
       | IPushB b => interp ext inst' (BVal b :: s)
-      | IObs l i => match FinMap.lookup (l,i) ext with
-                   | Some v => Some (v :: s)
+      | IObs l i => match lookup (l,i) ext with
+                   | Some v => interp ext inst' (v :: s)
                    | None => None
                    end
-      | IOp Add => match s with
-                   | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i+j) :: s')%Z
-                   | _ => None
-                   end
-      | IOp And => match s with
-                   | BVal i :: BVal j :: s' => interp ext inst' (BVal (i && j) :: s')%Z
-                   | _ => None
-                   end
-      | IOp Equal => match s with
-                     | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i =? j) :: s')%Z
-                     | _ => None
-                     end
+      | IOp op => match op with
+                   | Add => match s with
+                            | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i+j) :: s')%Z
+                            | _ => None
+                            end
+                   | And => match s with
+                            | BVal i :: BVal j :: s' => interp ext inst' (BVal (i && j) :: s')%Z
+                            | _ => None
+                           end
+                   | Equal => match s with
+                            | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i =? j) :: s')%Z
+                            | _ => None
+                             end
+                 end
       end
     end.
 
-(** A wrapper for calling the main functionality. It is important to be explicit about types for all the parameters of entry points *)
-Definition main (param_type : string):=
-       "let%entry main (prog : " ++ param_type ++ ")" ++ " s ="
-    ++ nl
-    ++ "let s = interp (prog.(1), prog.(0) ,[]) in"
-    ++ nl
-    ++ "match s with"
-    ++ nl
-    ++ "| Some res -> ( [], res ) "
-    ++ nl
-    ++ "| _ -> Current.failwith s".
+  Definition receive (p : params) (s : list value)
+    : option (list action * storage) :=
+    let s' := s in (* prevents optimisations from removing unused [s]  *)
+    match interp p.2 p.1 [] with
+    | Some v => Some ([],v)
+    | None => None
+    end.
 
 End Interpreter.
 
-(** Now, we create a module of  [FiniteMap] type using the [FMap] functionality *)
-Module MyFinMap : FiniteMap.
-  Definition FM := FMap (string * Z).
-  Definition lookup {V} : (string * Z) -> FM V -> option V :=
-    FMap.find.
-End MyFinMap.
+Import Interpreter.
 
-Module Interp := Interpreter MyFinMap.
+(** Input for the interpreter in Liquidity: *)
+(** ([IPushZ 0; IObs ("blah",0); IOp Add; IPushZ 1; IOp Equal], (Map [(("blah", 0), (ZVal 1))])) *)
+Example test_interp :
+  let env  := FMap.of_list [(("blah", 0%Z), (ZVal 1))] in
+  interp env [IPushZ 0; IObs "blah" 0; IOp Add; IPushZ 1; IOp Equal] [] =
+  Some [BVal true].
+Proof. reflexivity. Qed.
 
-Import Interp.
+Definition print_finmap_type (prefix ty_key ty_val : string) :=
+  parens false (ty_key ++ "," ++ prefix ++ ty_val) ++ " map".
 
 (** A translation table for various constants we want to rename *)
-Definition TT : env string :=
+Definition TT_remap : list (kername * string) :=
   [   (* remapping types *)
        remap <% Z %> "int"
      ; remap <% bool %> "bool"
-     ; remap <% nat %> "address"
+     ; remap <% unit %> "unit"
+     ; remap <% option %> "option"
+     ; remap <% Amount %> "tez"
+     ; remap <% address_coq %> "address"
+     ; remap <% time_coq %> "timestamp"
      ; remap <% list %> "list"
      ; remap <% string %> "string"
-     ; remap <% ext_map %> "((string*int),value) map"
-
+     ; remap <% ext_map %> (print_finmap_type PREFIX "string * int" "value")
+     ; remap <% action %> "operation"
      (* remapping operations *)
      ; remap <% Z.add %> "addInt"
      ; remap <% Z.eqb %> "eqInt"
-     ; remap <% @MyFinMap.lookup %> "Map.find"
+     ; remap <% @lookup %> "Map.find"
+     ; remap <% @fst %> "fst"
+     ; remap <% @snd %> "snd"
+       ; remap <% andb %> "andb" ].
 
-     (* remapping constructors *)
-     ; ("Z0" ,"0")
-     ; ("nil", "[]")
+Definition TT_rename : MyEnv.env string :=
+     (* constructors *)
+     [ ("Z0" ,"0")
+     ; ("nil", "[]")].
 
-     (* local declarations (available in the same module or in the prelude) *)
-     ; local <% @fst %>
-     ; local <% @snd %>
-     ; local <% andb %>
+Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
+  {| (* a name for the definition with the extracted code *)
+     lmd_module_name := "liquidity_interp" ;
 
-     (* local types *)
-     ; local <% storage %>
-     ; local <% value %>
-     ; local <% op %>
-  ].
+     (* definitions of operations on ints, bools, pairs, ect. *)
+     lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops;
 
-MetaCoq Erase (@map nat nat S [1; 2; 3]).
+     lmd_init := init ;
 
-Definition test : TemplateMonad unit :=
-  p <- tmQuoteRec (@map nat nat) ;;
-  x <- tmEval lazy (erase_template_program p) ;;
-  tmPrint x;;
-  ret tt.
-  (*tmMsg (erase_check_debox_all_print TT "foo" [] p).*)
+     lmd_init_prelude := "";
 
-Run TemplateProgram test.
+     lmd_receive := receive ;
 
+     (* code for the entry point *)
+     lmd_entry_point :=
+           printWrapper (PREFIX ++ "receive")
+                        ++ nl
+                        ++ printMain |}.
 
-
-(** We translate required definitions and print them into a single string containing the whole program. *)
-Time Run TemplateProgram
-    (storage_def <- tmQuoteConstant "storage" false ;;
-     storage_body <- opt_to_template storage_def.(cst_body) ;;
-     (* ext_map_def <- tmQuoteConstant "ext_map" false ;; *)
-     (* ext_map_body <- opt_to_template ext_map_def.(cst_body) ;; *)
-     ind1 <- tmQuoteInductive "op" ;;
-     ind_liq1 <- print_one_ind_body TT ind1.(ind_bodies);;
-     ind2 <- tmQuoteInductive "instruction" ;;
-     ind_liq2 <- print_one_ind_body TT ind2.(ind_bodies);;
-     ind3 <- tmQuoteInductive "value" ;;
-     ind_liq3 <- print_one_ind_body TT ind3.(ind_bodies);;
-     t0 <- toLiquidity TT obs0 ;;
-     t1 <- toLiquidity TT interp ;;
-     res <- tmEval lazy
-                  (prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops
-                     ++ nl ++ nl
-                     ++ ind_liq1
-                     ++ nl ++ nl
-                     ++ ind_liq2
-                     ++ nl ++ nl
-                     ++ ind_liq3
-                     ++ nl ++ nl
-                     ++ "type storage = " ++ print_liq_type TT storage_body
-                     ++ nl ++ nl
-                     ++ "let%init storage = []"
-                     ++ nl ++ nl
-                     ++ t0
-                     ++ nl ++ nl
-                     ++ t1
-                     ++ nl ++ nl
-                     ++ main "(instruction list) * ((string * int,value) map)") ;;
-    tmDefinition "interp_extracted" res).
-
-Definition my_lookup' (m : FMap string Z) (k : string) := FMap.find k m.
+(** We translate required definitions and print them into a single string containing the whole program. The definition with the corresponding code is added to Coq's environment. *)
+Time MetaCoq Run
+     (t <- liquitidy_extraction PREFIX TT_remap TT_rename INTERP_MODULE ;;
+      tmDefinition INTERP_MODULE.(lmd_module_name) t
+     ).
 
 (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
-Print interp_extracted.
+Print liquidity_interp.
 
 (** or redirected to a file, creating "interp.liq.out".
  The contents require further post-processing to be compiled with the Liquidity compiler.*)
-Redirect "interp.liq" Compute interp_extracted. (* creates "interp.liq.out"*)
+Redirect "interp.liq" Compute liquidity_interp. (* creates "interp.liq.out"*)

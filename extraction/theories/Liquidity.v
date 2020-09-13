@@ -1,5 +1,5 @@
 From Coq Require Import List String Basics ZArith Bool.
-From ConCert Require Import Ast
+From ConCert.Embedding Require Import Ast
      Notations Utils Prelude SimpleBlockchain MyEnv.
 
 Import ListNotations.
@@ -37,13 +37,22 @@ Definition look (e : env string) (s : string) : option string :=
 
 Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   match ty with
-  | tyInd nm => from_option (look TT nm) nm
+  | tyInd nm =>
+    (* ignore module path on prining *)
+    let (_, nm') := PCUICTranslate.kername_of_string nm in
+    from_option (look TT nm) nm'
   | tyForall x b => "forall " ++ "'" ++ x ++ liquidifyTy TT b
   (* is it a product? *)
-  | tyApp (tyApp (tyInd "prod") A) B =>
-    inParens (liquidifyTy TT A ++ " * " ++ liquidifyTy TT B)
   | tyApp ty1 ty2 =>
-    inParens (liquidifyTy TT ty2 ++ " " ++ liquidifyTy TT ty1)
+    match ty1 with
+      | (tyApp (tyInd ty_nm) A) =>
+        (* ignore module path on prining *)
+        let (_, nm') := PCUICTranslate.kername_of_string ty_nm in
+        if nm' =? "prod" then
+          inParens (liquidifyTy TT A ++ " * " ++ liquidifyTy TT ty2)
+        else inParens (liquidifyTy TT ty2 ++ " " ++ liquidifyTy TT ty1)
+      | _ => inParens (liquidifyTy TT ty2 ++ " " ++ liquidifyTy TT ty1)
+    end
   | tyVar x => "'" ++ x
   | tyRel x => "Error: indices are not supported"
   | tyArr ty1 ty2 => liquidifyTy TT ty1 ++ " -> " ++ liquidifyTy TT ty2
@@ -67,7 +76,9 @@ Definition printCtorTy (TT : env string) (args : list (option ename * type)) :=
 Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
   match gd with
   | gdInd nm nparams ctors is_record =>
-    "type " ++ nm ++ " = " ++
+    (* ignore module path on prining *)
+    let (_, nm') := PCUICTranslate.kername_of_string nm in
+    "type " ++ nm' ++ " = " ++
     if is_record then
       from_option (head (map (printRecord TT) ctors)) "Not a Record!"
     else
@@ -157,11 +168,13 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
                               ++ "default" ++ " ()"
         else default_app
     | eConst cst =>
+      (* ignore module path *)
+      let (_, cst') := PCUICTranslate.kername_of_string cst in
       (* is it a first projection? *)
-      if cst =? "fst" then go e2 ++ "." ++ inParens ("0")
+      if cst' =? "fst" then go e2 ++ "." ++ inParens ("0")
       else
         (* is it a second projection? *)
-        if cst =? "snd" then go e2 ++  "." ++ inParens ("1")
+        if cst' =? "snd" then go e2 ++  "." ++ inParens ("1")
       else default_app
     | _ => default_app
     end
@@ -169,7 +182,7 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
     (* is it a list constructor [nil]? *)
     (* TODO: add [cons] *)
     if String.eqb "nil" ctor then "[]"
-    else (* is it an ampty map? *)
+    else (* is it an empty map? *)
       if String.eqb "mnil" ctor then "Map []"
       else (* Is it zero amount? *)
         if String.eqb "Z0" ctor then "0DUN"
@@ -177,24 +190,31 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
           if String.eqb "tt" ctor then "()"
           else ctor
   | eConst cst =>
-    match look TT cst with
-    | Some op => op
-    | _ => cst
+    (* ignore module path *)
+    let (_, cst') := PCUICTranslate.kername_of_string cst in
+    from_option (look TT cst) cst'
+  | eCase (ind,_) _ d bs =>
+    match bs with
+    | [b1;b2] => (* Handling if-then-else *)
+      (* ignore module path *)
+      let (_, ind') := PCUICTranslate.kername_of_string ind in
+      if (ind' =? "bool") then
+        if (isTruePat (fst b1)) && (isFalsePat (fst b2)) then
+          "if " ++ inParens (go d)
+                ++ " then " ++ (go (snd b1))
+                ++ " else " ++ (go (snd b2))
+        else if (isTruePat (fst b2)) && (isFalsePat (fst b1)) then
+               "if " ++ inParens (go d)
+                     ++ " then " ++ (go (snd b2))
+                     ++ " else " ++ (go (snd b1))
+             else "ERROR: wrong mathing on bool"
+      else (* default case translation *)
+        let sbs := map (fun '(p,e) => (printPat p, go e)) bs in
+        "match " ++ go d ++ " with " ++ newLine ++ printBranches sbs
+    | _ => (* default case translation *)
+      let sbs := map (fun '(p,e) => (printPat p, go e)) bs in
+      "match " ++ go d ++ " with " ++ newLine ++ printBranches sbs
     end
-      (* Handling if-then-else *)
-  | eCase ("bool", _) _ d (b1 :: b2 :: []) =>
-    if (isTruePat (fst b1)) && (isFalsePat (fst b2)) then
-      "if " ++ inParens (go d)
-            ++ " then " ++ (go (snd b1))
-            ++ " else " ++ (go (snd b2))
-    else if (isTruePat (fst b2)) && (isFalsePat (fst b1)) then
-        "if " ++ inParens (go d)
-              ++ " then " ++ (go (snd b2))
-              ++ " else " ++ (go (snd b1))
-         else "ERROR: wrong mathing on bool"
-  | eCase _ _ d bs =>
-    let sbs := map (fun '(p,e) => (printPat p, go e)) bs in
-    "match " ++ go d ++ " with " ++ newLine ++ printBranches sbs
   | eFix f x _ _ b => "let rec " ++ f ++ " " ++ x ++ " = " ++ go b
   | eTy x => ""
   end.

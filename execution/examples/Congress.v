@@ -281,6 +281,8 @@ Proof. repeat intro; solve_contract_proper. Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
+
+
 Section Theories.
 Local Open Scope nat.
 
@@ -495,7 +497,7 @@ Proof.
   - inversion receive; subst; cbn; lia.
 Qed.
 
-Theorem congress_txs_well_behaved bstate caddr (trace : ChainTrace empty_state bstate) :
+Theorem congress_correct bstate caddr (trace : ChainTrace empty_state bstate) :
   env_contracts bstate caddr = Some (Congress.contract : WeakContract) ->
   exists (cstate : Congress.State) (inc_calls : list (ContractCallInfo Congress.Msg)),
     contract_state bstate caddr = Some cstate /\
@@ -526,7 +528,7 @@ Proof.
     destruct a; auto.
 Qed.
 
-Corollary congress_txs_after_block
+Theorem congress_correct_after_block
           {ChainBuilder : ChainBuilderType}
           prev new header acts :
   builder_add_block prev header acts = Ok new ->
@@ -538,7 +540,7 @@ Corollary congress_txs_after_block
       num_acts_created_in_proposals inc_calls.
 Proof.
   intros add_block contract congress_at_addr.
-  pose proof (congress_txs_well_behaved _ _ (builder_trace new) congress_at_addr)
+  pose proof (congress_correct _ _ (builder_trace new) congress_at_addr)
        as general.
   destruct general as [? [inc_calls [? [? ?]]]].
   exists inc_calls.

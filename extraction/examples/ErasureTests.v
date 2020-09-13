@@ -1,4 +1,5 @@
 From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
@@ -74,6 +75,10 @@ Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex4) in 
 MetaCoq Quote Recursively Definition ex5 := (Prop).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex5) in exact x) =
                 Ok {| is_logical := true; is_sort := true; is_arity := true |}.
+
+MetaCoq Quote Recursively Definition ex5' := (forall n m: nat, Prop).
+Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex5') in exact x) =
+                Ok {| is_logical := true; is_sort := false; is_arity := true |}.
 
 MetaCoq Quote Recursively Definition ex6 := (Prop -> Type).
 Check eq_refl : ltac:(let x := eval vm_compute in (flag_of_type_program ex6) in exact x) =
@@ -184,11 +189,11 @@ Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex1) 
 
 MetaCoq Quote Recursively Definition ex2 := (forall (A : Type) (P : A -> Prop), @sig A P).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex2) in exact x) =
-                Ok ("A", "□ → □ → sig A □").
+                Ok ("A P", "□ → □ → sig A □").
 
 MetaCoq Quote Recursively Definition ex3 := (forall (A : Type) (P : A -> Prop), { a : A | P a }).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex3) in exact x) =
-                Ok ("A", "□ → □ → sig A □").
+                Ok ("A P", "□ → □ → sig A □").
 
 MetaCoq Quote Recursively Definition ex4 := (forall (A B : Type) (f : A -> B) (n : nat),
                                         Vector.t A n -> Vector.t B n).
@@ -240,7 +245,7 @@ Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex11)
 
 MetaCoq Quote Recursively Definition ex12 := (forall (A : Type) (P : A -> Prop), unit).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex12) in exact x) =
-                Ok ("A", "□ → □ → unit").
+                Ok ("A P", "□ → □ → unit").
 
 MetaCoq Quote Recursively Definition ex13 := (let p := (nat, unit) in fst p × snd p).
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_type id ex13) in exact x) =
@@ -330,7 +335,7 @@ Definition print_one_inductive_body
   let print_ctor_type bt :=
       " " ++ parens
           (negb (parenthesize_ctor_type bt))
-          (print_box_type Σ (map tvar_name (ExAst.ind_type_vars oib)) bt) in
+          (print_box_type Σ (map tvar_name (ExAst.ind_ctor_type_vars oib)) bt) in
 
   let print_ctor '(ctor_name, ctor_types) :=
       nl ++ "| " ++ ctor_name ++
@@ -357,6 +362,27 @@ Definition erase_and_print_ind_prog (p : Ast.program)
       inder <- erase_ind
                  (Σ, ind_universes mib) assume_wellformed
                  (inductive_mind ind) mib assume_wellformed;;
+      ret (print_inductive Σ inder)
+    | _ => cannot_happen
+    end
+  | _ => cannot_happen
+  end.
+
+Definition erase_remove_params_and_print_ind_prog (p : Ast.program)
+           : result string erase_ind_error :=
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
+  match trans p.2 with
+  | P.tInd ind _ =>
+    match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
+    | Some (kn, P.InductiveDecl mib) =>
+      let get_for_mib kn mib' :=
+          mapi (fun i oib=>(mkInd kn i, get_ctor_param_mask oib)) mib'.(ExAst.ind_bodies) in
+      inder <- erase_ind
+                 (Σ, ind_universes mib) assume_wellformed
+                 (inductive_mind ind) mib assume_wellformed;;
+      let ds := Build_dearg_set_ty [] (get_for_mib kn inder) in
+      let inder := remove_logical_params_mib ds inder in
       ret (print_inductive Σ inder)
     | _ => cannot_happen
     end
@@ -453,5 +479,45 @@ MetaCoq Quote Recursively Definition ex10 := Monad.
 Compute erase_and_print_ind_prog ex10.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex10) in exact x) =
                 Err (EraseIndBodyError "Monad" (EraseCtorError "Build_Monad" NotPrenex)).
+
+Inductive ManyParamsInd (A : Type) (P : Prop) (Q : Prop) (B : Type) :=
+  MPIConstr : P -> A -> B -> ManyParamsInd A P Q B.
+
+MetaCoq Quote Recursively Definition ex11 := ManyParamsInd.
+
+Compute erase_and_print_ind_prog ex11.
+
+Example ManyParamsInd_test :
+  erase_and_print_ind_prog ex11 =
+  Ok <$ "data ManyParamsInd A P Q B";
+        "| MPIConstr □ □ □ □ □ A B" $>.
+Proof. reflexivity. Qed.
+
+Example ManyParamsInd_remove_log_params_test :
+  erase_remove_params_and_print_ind_prog ex11 =
+  Ok <$ "data ManyParamsInd A B";
+        "| MPIConstr □ □ □ □ □ A B" $>.
+Proof. reflexivity. Qed.
+
+(* [Q] is non-arity parameter *)
+Inductive ManyParamsIndNonArity (A : Type) (P : Prop) (Q : True) (B : Type) :=
+  MPINAConstr1 : P -> A -> B -> ManyParamsIndNonArity A P Q B
+| MPINAConstr2 : P -> list P -> A*B -> ManyParamsIndNonArity A P Q B.
+
+MetaCoq Quote Recursively Definition ex12 := ManyParamsIndNonArity.
+
+Example ManyParamsIndNonArity_test:
+  erase_and_print_ind_prog ex12 =
+  Ok <$ "data ManyParamsIndNonArity A P Q B";
+        "| MPINAConstr1 □ □ □ □ □ A B";
+        "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
+Proof. vm_compute. reflexivity. Qed.
+
+Example ManyParamsIndNonArity_remove_log_params_test:
+  erase_remove_params_and_print_ind_prog ex12 =
+  Ok <$ "data ManyParamsIndNonArity A B";
+        "| MPINAConstr1 □ □ □ □ □ A B";
+        "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
+Proof. vm_compute. reflexivity. Qed.
 
 End erase_ind_tests.

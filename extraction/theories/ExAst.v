@@ -55,6 +55,7 @@ Record oib_type_var :=
 Record one_inductive_body :=
   { ind_name : ident;
     ind_type_vars : list oib_type_var;
+    ind_ctor_type_vars : list oib_type_var;
     ind_ctors : list (ident * list box_type);
     ind_projs : list (ident * box_type); }.
 
@@ -64,7 +65,8 @@ Record mutual_inductive_body :=
 
 Inductive global_decl :=
 | ConstantDecl : constant_body -> global_decl
-| InductiveDecl : mutual_inductive_body -> global_decl.
+| InductiveDecl : forall (ignore_on_print : bool), mutual_inductive_body -> global_decl
+| TypeAliasDecl : list name * box_type -> global_decl.
 
 Definition global_env := list (kername * global_decl).
 

@@ -16,7 +16,7 @@ Definition declared_constant (kn : kername) (cst : constant_body) : Prop :=
   lookup_env Σ kn = Some (ConstantDecl cst).
 
 Definition declared_minductive (kn : kername) (mib : mutual_inductive_body) : Prop :=
-  lookup_env Σ kn = Some (InductiveDecl mib).
+  exists flag, lookup_env Σ kn = Some (InductiveDecl flag mib).
 
 Definition declared_inductive
            (mib : mutual_inductive_body)
@@ -62,7 +62,7 @@ Definition lookup_constant (kn : kername) : option constant_body :=
 
 Definition lookup_minductive (kn : kername) : option mutual_inductive_body :=
   match lookup_env Σ kn with
-  | Some (InductiveDecl mib) => Some mib
+  | Some (InductiveDecl _ mib) => Some mib
   | _ => None
   end.
 
@@ -87,7 +87,7 @@ Lemma lookup_minductive_declared kn mib :
   lookup_minductive kn = Some mib.
 Proof.
   unfold declared_minductive, lookup_minductive.
-  now intros ->.
+  intros H. destruct H. now rewrite H.
 Qed.
 
 Lemma lookup_inductive_declared mib ind oib :
@@ -160,6 +160,7 @@ Fixpoint wfe (Σ : global_env) : Prop :=
       | Some body => wfe_term Σ body
       | None => True
       end
-    | InductiveDecl _ => True
+    | InductiveDecl _ _ => True
+    | TypeAliasDecl _ => True (* FIXME: Do we need to say something about type aliases? *)
     end /\ wfe Σ
   end.

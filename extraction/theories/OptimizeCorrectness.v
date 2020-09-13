@@ -70,11 +70,14 @@ Qed.
 Definition trans_cst (cst : constant_body) : EAst.constant_body :=
   {| EAst.cst_body := cst_body cst |}.
 
+(* Translation from our global environment into MetaCoq's global environment.
+   We only translate constants which is justified by the proof above. *)
 Definition trans (Σ : global_env) : EAst.global_context :=
   let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
       match decl with
       | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
-      | InductiveDecl _ => []
+      | InductiveDecl _ _ => []
+      | TypeAliasDecl _ => []
       end in
   flat_map (fun '(kn, decl) => map_decl kn decl) Σ.
 
@@ -95,6 +98,8 @@ Proof.
       now destruct c.
     + destruct IH as (n' & typ & cond); [assumption|].
       now exists (S n'), typ.
+  - destruct IH as (n' & typ & cond); [assumption|].
+    now exists (S n'), typ.
   - destruct IH as (n' & typ & cond); [assumption|].
     now exists (S n'), typ.
 Qed.
@@ -2537,6 +2542,7 @@ Proof.
       now split; [reflexivity|].
     + now apply IH.
   - now apply IH.
+  - now apply IH.
 Qed.
 
 Inductive dearg_spec : term -> term -> Type :=
@@ -3113,7 +3119,7 @@ Proof.
   intros clos.
   induction Σ as [|(kn & decl) Σ IH]; [easy|].
   cbn in *.
-  destruct decl; [|easy].
+  destruct decl; [|easy|easy].
   cbn in *.
   propify; split; [|easy].
   destruct (cst_body c); [|easy].

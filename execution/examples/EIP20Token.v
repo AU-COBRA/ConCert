@@ -1,6 +1,6 @@
 (*
-	This file contains an implementation of the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
-	The implementation is essentially a port of https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
+  This file contains an implementation of the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
+  The implementation is essentially a port of https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
 
 *)
 
@@ -34,14 +34,14 @@ Section EIP20Token.
   Record State :=
     build_state {
         total_supply : TokenValue;
-	balances : FMap Address TokenValue;
-	allowances : FMap Address (FMap Address TokenValue)
+  balances : FMap Address TokenValue;
+  allowances : FMap Address (FMap Address TokenValue)
     }.
 
   Record Setup :=
     build_setup {
-	owner : Address;
-	init_amount : TokenValue;
+  owner : Address;
+  init_amount : TokenValue;
     }.
 
   Instance state_settable : Settable _ :=
@@ -63,17 +63,17 @@ Section EIP20Token.
   End Serialization.
 
   Definition init (chain : Chain)
-	     (ctx : ContractCallContext)
-	     (setup : Setup) : option State :=
+       (ctx : ContractCallContext)
+       (setup : Setup) : option State :=
     Some {| total_supply := setup.(init_amount);
             balances := FMap.add setup.(owner) setup.(init_amount) FMap.empty;
             allowances := FMap.empty |}.
 
   (* Transfers <amount> tokens, if <from> has enough tokens to transfer *)
   Definition try_transfer (from : Address)
-	     (to : Address)
-	     (amount : TokenValue)
-	     (state : State) : option State :=
+       (to : Address)
+       (amount : TokenValue)
+       (state : State) : option State :=
     let from_balance := with_default 0 (FMap.find from state.(balances)) in
     if from_balance <? amount
     then None
@@ -82,28 +82,28 @@ Section EIP20Token.
          Some (state<|balances := new_balances|>).
 
 (* The delegate tries to transfer <amount> tokens from <from> to <to>.
-	 Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
+   Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
   Local Open Scope bool_scope.
   Definition try_transfer_from (delegate : Address)
-	     (from : Address)
-	     (to : Address)
-	     (amount : TokenValue)
-	     (state : State) : option State :=
-	do from_allowances_map <- FMap.find from state.(allowances) ;
-	do delegate_allowance <- FMap.find delegate from_allowances_map ;
-	let from_balance := with_default 0 (FMap.find from state.(balances)) in
-	if (delegate_allowance <? amount) || (from_balance <? amount)
-	then None
-	else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
-	     let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-	     let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in
-	     Some (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
+       (from : Address)
+       (to : Address)
+       (amount : TokenValue)
+       (state : State) : option State :=
+  do from_allowances_map <- FMap.find from state.(allowances) ;
+  do delegate_allowance <- FMap.find delegate from_allowances_map ;
+  let from_balance := with_default 0 (FMap.find from state.(balances)) in
+  if (delegate_allowance <? amount) || (from_balance <? amount)
+  then None
+  else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
+       let new_balances := FMap.add from (from_balance - amount) state.(balances) in
+       let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in
+       Some (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
 
   (* The caller approves the delegate to transfer up to <amount> tokens on behalf of the caller *)
   Definition try_approve (caller : Address)
-	     (delegate : Address)
-	     (amount : TokenValue)
-	     (state : State) : option State :=
+       (delegate : Address)
+       (amount : TokenValue)
+       (state : State) : option State :=
     match FMap.find caller state.(allowances) with
     | Some caller_allowances =>
       Some (state<|allowances ::= FMap.add caller (FMap.add delegate amount caller_allowances) |>)
@@ -113,9 +113,9 @@ Section EIP20Token.
 
   Open Scope Z_scope.
   Definition receive (chain : Chain)
-	     (ctx : ContractCallContext)
-	     (state : State)
-	     (maybe_msg : option Msg)
+       (ctx : ContractCallContext)
+       (state : State)
+       (maybe_msg : option Msg)
     : option (State * list ActionBody) :=
     let sender := ctx.(ctx_from) in
     let without_actions := option_map (fun new_state => (new_state, [])) in
@@ -123,12 +123,12 @@ Section EIP20Token.
     if ctx.(ctx_amount) >? 0
     then None
     else match maybe_msg with
-	 | Some (transfer to amount) => without_actions (try_transfer sender to amount state)
-	 | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
-	 | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-	 (* transfer actions to this contract are not allowed *)
+   | Some (transfer to amount) => without_actions (try_transfer sender to amount state)
+   | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
+   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
+   (* transfer actions to this contract are not allowed *)
          | None => None
-	 end.
+   end.
   Close Scope Z_scope.
 
   Ltac solve_contract_proper :=
