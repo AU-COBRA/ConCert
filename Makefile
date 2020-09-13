@@ -1,4 +1,3 @@
-SED = `which gsed || which sed`
 EXTRA_DIR:=extra
 DOCS_DIR:=docs
 COQDOCFLAGS:= \
@@ -7,24 +6,14 @@ COQDOCFLAGS:= \
   --with-header $(EXTRA_DIR)/header.html --with-footer $(EXTRA_DIR)/footer.html
 export COQDOCFLAGS
 COQMAKEFILE:=CoqMakefile
-PLUGINMAKEFILE:=CoqMakefile.plugin
 COQ_PROJ:=_CoqProject
-PLUGIN_PROJ:=_PluginProject
 
-default: code # plugin
+default: code
 
-all: code html # plugin
-
-plugin: $(PLUGINMAKEFILE)
-	$(MAKE) -f $(PLUGINMAKEFILE)
-
-cleanplugin: $(PLUGINMAKEFILE)
-	@$(MAKE) -f $(PLUGINMAKEFILE) clean
-	rm -f $(PLUGINMAKEFILE)
+all: code html
 
 code: $(COQMAKEFILE)
 	$(MAKE) -f $(COQMAKEFILE)
-#	./clean_extraction.sh
 
 clean: $(COQMAKEFILE)
 	@$(MAKE) -f $(COQMAKEFILE) $@
@@ -38,10 +27,6 @@ html: $(COQMAKEFILE)
 
 $(COQMAKEFILE): $(COQ_PROJ)
 		coq_makefile -f $(COQ_PROJ) -o $@
-
-$(PLUGINMAKEFILE): $(PLUGIN_PROJ)
-		coq_makefile -f $(PLUGIN_PROJ) -o $@ $(DEPS)
-		$(SED) -i -e s/coqdeps/coqdeps.plugin/g $(PLUGINMAKEFILE)
 
 %: $(COQMAKEFILE) force
 	@$(MAKE) -f $(COQMAKEFILE) $@

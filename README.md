@@ -21,14 +21,14 @@ Then dependencies:
 
 ```bash
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install coq-metacoq.1.0~alpha2+8.11
 opam install coq-bignums
 opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam install coq-stdpp
 opam install coq-quickchick
 ```
 
-Install MetaCoq from this [MetaCoq's fork](https://github.com/annenkov/template-coq/tree/coq-8.11-erase-annotated). Follow the instructions from the [official MetaCoq repo](https://github.com/MetaCoq/metacoq#installing-from-github-repository-for-developers).
+Install MetaCoq's coq-8.11 branch from source. The simplest way is to clone the MetaCoq repo, check out the coq-8.11 branch, and then run `opam install <path to MetaCoq>`.
+For more instructions, see the [official MetaCoq repo](https://github.com/MetaCoq/metacoq#installing-from-github-repository-for-developers).
 
 After completing the procedures above, run `make` to build the development, and
 `make html` to build the documentation. The documentation will be located in the
