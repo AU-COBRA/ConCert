@@ -30,29 +30,28 @@ Next Obligation.
   eapply NPeano.Nat.eqb_spec.
 Defined.
 
-Definition to_chain (sc : SimpleChain) : Chain :=
-  let '(Build_chain h s fh ab) := sc in build_chain h s fh ab.
+Definition to_chain (sc : SimpleChain_coq) : Chain :=
+  let '(Build_chain_coq h s fh ab) := sc in build_chain h s fh ab.
 
-Definition of_chain (c : Chain) : SimpleChain :=
-  let '(build_chain h s fh ab) := c in Build_chain h s fh ab.
+Definition of_chain (c : Chain) : SimpleChain_coq :=
+  let '(build_chain h s fh ab) := c in Build_chain_coq h s fh ab.
 
-Definition to_action_body (sab : SimpleActionBody) : ActionBody :=
+Definition to_action_body (sab : SimpleActionBody_coq) : ActionBody :=
   match sab with
   | Act_transfer addr x => act_transfer addr x
   end.
 
-Definition to_contract_call_context (scc : SimpleContractCallContext) : ContractCallContext :=
-  let '(Build_ctx from contr_addr am) := scc in build_ctx from contr_addr am.
+Definition to_contract_call_context (scc : SimpleContractCallContext_coq) : ContractCallContext :=
+  let '(Build_ctx_coq from contr_addr am) := scc in build_ctx from contr_addr am.
 
-Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext :=
-  let '(build_ctx from contr_addr am) := cc in Build_ctx from contr_addr am.
+Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext_coq :=
+  let '(build_ctx from contr_addr am) := cc in Build_ctx_coq from contr_addr am.
 
-Import Serializable.
+Import Serializable Prelude.Maps.
 
 Section Serialize.
-
   Hint Rewrite to_list_of_list of_list_to_list : hints.
-  Global Program Instance addr_map_serialize : Serializable addr_map :=
+  Global Program Instance addr_map_serialize : Serializable addr_map_coq :=
     {| serialize m := serialize (to_list m);
        deserialize l := option_map of_list (deserialize l); |}.
   Next Obligation.
@@ -72,8 +71,8 @@ End Serialize.
 Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
-  Definition init_wrapper (f : SimpleContractCallContext -> nat -> Z -> State_coq):
-    Chain (BaseTypes:=CB) -> ContractCallContext (BaseTypes:=CB) -> Setup -> option State_coq
+  Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq):
+    Chain (Base:=CB) -> ContractCallContext (Base:=CB) -> Setup -> option State_coq
     := fun c cc setup => Some (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
   Definition wrapped_init
@@ -81,9 +80,9 @@ Section Wrappers.
     := init_wrapper Init.init.
 
     Definition receive_wrapper
-             (f : SimpleChain ->
-                  SimpleContractCallContext ->
-                   Msg_coq -> State_coq -> option (State_coq * list SimpleActionBody)) :
+             (f : SimpleChain_coq ->
+                  SimpleContractCallContext_coq ->
+                   Msg_coq -> State_coq -> option (State_coq * list SimpleActionBody_coq)) :
     Chain -> ContractCallContext ->
     State_coq -> option Msg_coq -> option (State_coq * list ActionBody) :=
     fun ch cc st msg => match msg with

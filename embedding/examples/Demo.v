@@ -1,7 +1,7 @@
 (** * Simple examples on how to use our framework  **)
 Require Import String Basics.
 Require Import List.
-From ConCert.Embedding Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate Prelude.
+From ConCert.Embedding Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.
 
 From MetaCoq.Template Require Ast.
 From MetaCoq.Template Require Import TemplateMonad.
@@ -25,15 +25,17 @@ Import BasicAst.
 (** MetaCoq demo *)
 
 (* Quote *)
-Quote Definition id_nat_syn := (fun x : nat => x).
+MetaCoq Quote Definition id_nat_syn := (fun x : nat => x).
+Print id_nat_syn.
 (* Ast.tLambda (nNamed "x")
    (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
       []) (Ast.tRel 0) : Ast.term *)
 
 (* Unquote *)
-Make Definition plus_one :=
-  (MC.tLambda (nNamed "x") (MC.tInd (mkInd "nat"  0 ) nil)
-              (MC.tApp (MC.tConstruct (mkInd "nat" 0) 1 nil)
+MetaCoq Unquote Definition plus_one :=
+  (MC.tLambda (nNamed "x")
+              (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) nil)
+              (MC.tApp (MC.tConstruct (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
                        (MC.tRel 0 :: nil))).
 
 (* fun x : nat => S x : nat -> nat *)
@@ -63,7 +65,7 @@ Compute (expr_eval_n Σ 3 nil negb_app_true).
 Compute (expr_eval_i Σ 3 nil (indexify nil negb_app_true)).
 
 (* Make a Coq function from the AST of the program *)
-Make Definition coq_negb_app_true :=
+MetaCoq Unquote Definition coq_negb_app_true :=
   (expr_to_tc Σ (indexify nil negb_app_true)).
 
 
@@ -72,7 +74,7 @@ Definition my_negb_syn :=
                    | True -> False
                    | False -> True  |].
 
-Make Definition my_negb :=
+MetaCoq Unquote Definition my_negb :=
   (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 Lemma my_negb_coq_negb b :
@@ -85,7 +87,7 @@ Example eval_my_negb_true :
   expr_eval_i Σ 4 nil (indexify nil [| {my_negb_syn} True |]) = Ok (vConstr Bool "false" nil).
 Proof. reflexivity. Qed.
 
-Make Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
+MetaCoq Unquote Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 Import MonadNotation.
 
@@ -99,8 +101,7 @@ Definition is_zero_syn :=
 
   |].
 
-Make Definition is_zero' := (expr_to_tc Σ (indexify nil is_zero_syn)).
-
+MetaCoq Unquote Definition is_zero' := (expr_to_tc Σ (indexify nil is_zero_syn)).
 
 Definition pred_syn :=
   [|
@@ -112,7 +113,7 @@ Definition pred_syn :=
 
   |].
 
-Make Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
+MetaCoq Unquote Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Zero) |].
 
@@ -157,7 +158,7 @@ Definition factorial_syn :=
        | Suc y -> x * (fact y)
   |].
 
-Make Definition factorial :=
+MetaCoq Unquote Definition factorial :=
   (expr_to_tc Σ (indexify [] factorial_syn)).
 
 Definition plus_syn : expr :=
@@ -167,7 +168,7 @@ Definition plus_syn : expr :=
            | Zero -> y
            | Suc z -> Suc ("plus" z y) |].
 
-Make Definition my_plus := (expr_to_tc Σ (indexify [] plus_syn)).
+MetaCoq Unquote Definition my_plus := (expr_to_tc Σ (indexify [] plus_syn)).
 
 Lemma my_plus_correct n m :
   my_plus n m = n + m.
@@ -186,12 +187,12 @@ Compute (expr_eval_n Σ 10 [] [| {plus_syn} 1 1 |]).
 
 Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
 
-Make Definition two_arg_fun_app :=
+MetaCoq Unquote Definition two_arg_fun_app :=
   (expr_to_tc Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
 
 Parameter bbb: bool.
 
-Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
+MetaCoq Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
 
 Example one_plus_one_two : expr_eval_n Σ 10 [] one_plus_one = Ok two.
 Proof.  reflexivity. Qed.
@@ -208,7 +209,7 @@ Definition plus_syn' :=
            | Suc z -> Suc ("plus" z))
   |].
 
-Make Definition my_plus' :=
+MetaCoq Unquote Definition my_plus' :=
   (expr_to_tc Σ (indexify [] plus_syn')).
 
 Lemma my_plus'_0 : forall n, my_plus' 0 n = n.
@@ -292,9 +293,9 @@ Definition is_zero (n : nat) :=
   | O => mtrue
   end.
 
-Quote Definition q_stupid_case := Eval compute in stupid_case.
+MetaCoq Quote Definition q_stupid_case := Eval compute in stupid_case.
 (* Nested patters are transformed into the nested "case" expressions *)
-Quote Definition q_stupid_case' := Eval compute in stupid_case'.
+MetaCoq Quote Definition q_stupid_case' := Eval compute in stupid_case'.
 
 Inductive Bazz :=
   cBazz : nat -> nat -> nat -> Bazz.
@@ -304,15 +305,15 @@ Definition Bazz_match b :=
     cBazz n m k => n
   end.
 
-Quote Definition q_Bazz_match := Eval compute in Bazz_match.
+MetaCoq Quote Definition q_Bazz_match := Eval compute in Bazz_match.
 
 (** Inductives *)
 Definition Nat_syn :=
-  [\ data "Nat" =
+  [\ data "MyNat" =
        "Z" [_]
-     | "Suc" ["Nat", _] \].
+     | "Suc" ["MyNat", _] \].
 
-Make Inductive (global_to_tc Nat_syn).
+MetaCoq Unquote Inductive (global_to_tc Nat_syn).
 
 
 (** Records *)
@@ -320,9 +321,9 @@ Make Inductive (global_to_tc Nat_syn).
 Import Template.Ast.
 
 Definition State_syn :=
-  [\ record "State" := "mkState" { "balance" : "Nat" ; "day" : "Nat" }  \].
+  [\ record "State" := "mkState" { "balance" : Nat ; "day" : Nat }  \].
 
-Make Inductive (global_to_tc State_syn).
+MetaCoq Unquote Inductive (global_to_tc State_syn).
 
 Check balance.
 Check day.

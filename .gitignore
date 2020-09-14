@@ -11,6 +11,8 @@
 *~
 CoqMakefile
 CoqMakefile.conf
+CoqMakefile.plugin
+CoqMakefile.plugin.conf
 Makefile.coq
 Makefile.coq.conf
 execution/CoqMakefile
@@ -35,6 +37,17 @@ execution/CoqMakefile.conf
 doc/
 docs/
 _opam/
+
+## extraction output
+*.liq
+*.out
+
+## Elm tests
+extraction/examples/elm-extract/elm-stuff/
+extraction/examples/elm-extract/node_modules/
+extraction/examples/elm-extract/src/
+extraction/examples/elm-extract/tests/
+extraction/examples/elm-extract/*.html
 
 .coq-native/
 .csdp.cache

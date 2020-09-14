@@ -1,3 +1,7 @@
-# Extraction prototype
+# Extraction
 
-A prototype implementation of the extraction procedure from the deep embedding (essentially, just by printing). Currently, implements simplistic extraction to Liquidity. We also try to set use the standard Coq extraction to OCaml as a substitute for the Liquidity extraction, since the two languages are very close syntactically.
+Contains two implementations:
+
+* Pretty-printing procedure from the deep embedding into the Liquidity syntax. Smart contracts have to be written in ``λsmart`` using the notations.
+
+* Extraction using MetaCoq's certified erasure. Extracts smart contracts implemented in Gallina. Can handle some form of dependent types. Currently supports Liquidity and Midlang (Elm) as a target language.

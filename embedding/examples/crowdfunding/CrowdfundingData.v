@@ -1,30 +1,33 @@
 (** * Data types for the crowdfunding contract *)
 
 Require Import String ZArith Basics.
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate Utils.
+From ConCert.Embedding Require Import Ast Notations PCUICTranslate Utils TranslationUtils.
 From ConCert.Embedding.Examples Require Import Prelude SimpleBlockchain.
 Require Import List PeanoNat ssrbool.
 
 Import ListNotations.
-From MetaCoq.Template Require Import All.
+From MetaCoq.Template Require Import All Loader.
 
 Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 
-
-Import AcornBlockchain.
+Import AcornBlockchain Prelude.Maps.
 
 (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
-(** Generating names for the data structures  *)
-Run TemplateProgram
-      (mkNames ["State" ; "mkState"; "balance" ; "donations" ; "owner"; "deadline"; "goal"; "done";
-                "Res" ; "Error";
-                "Msg"; "Donate"; "GetFunds"; "Claim";
-                "Action"; "Transfer"; "Empty" ] "_coq").
+(** Generating names for the data structures. We also add a prefix, corresponsing ti the current module path.  *)
+MetaCoq Run
+        ( mp_ <- tmCurrentModPath tt ;;
+          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+          mkNames mp
+             ["State" ; "mkState"; "balance" ; "donations" ; "owner";
+              "deadline"; "goal"; "done";
+              "Res" ; "Error";
+              "Msg"; "Donate"; "GetFunds"; "Claim";
+              "Action"; "Transfer"; "Empty" ] "_coq").
 
 Import ListNotations.
 
@@ -59,7 +62,8 @@ Set Printing Notations.
 
 (** Unquoting the definition of a record *)
 Set Nonrecursive Elimination Schemes.
-Make Inductive (global_to_tc state_syn).
+
+MetaCoq Unquote Inductive (global_to_tc state_syn).
 
 (** As a result, we get a new Coq record [State_coq] *)
 
@@ -69,17 +73,17 @@ Definition msg_syn :=
      | GetFunds [_]
      | Claim [_] \].
 
-Make Inductive (global_to_tc msg_syn).
+MetaCoq Unquote Inductive (global_to_tc msg_syn).
 
 (** Custom notations for patterns, projections and constructors *)
 Module Notations.
 
-  Notation "'ctx_from' a" := [| {eConst "Ctx_from"} {a} |]
+  Notation "'ctx_from' a" := [| {eConst (to_string_name <% Ctx_from %>)} {a} |]
                              (in custom expr at level 0).
   Notation "'ctx_contract_address' a" :=
-    [| {eConst "Ctx_contract_address"} {a} |]
+    [| {eConst (to_string_name <% Ctx_contract_address %>)} {a} |]
       (in custom expr at level 0).
-  Notation "'amount' a" := [| {eConst "Ctx_amount"} {a} |]
+  Notation "'amount' a" := [| {eConst (to_string_name <% Ctx_amount %>)} {a} |]
                              (in custom expr at level 0).
 
 
@@ -104,28 +108,26 @@ Module Notations.
       (in custom expr at level 0).
 
 
-  Notation "'Nil'" := [| {eConstr "list" "nil"} {eTy (tyInd SActionBody)} |]
+  Notation "'Nil'" := [| {eConstr List "nil"} {eTy (tyInd SActionBody)} |]
                       (in custom expr at level 0).
 
-  Notation " x ::: xs" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} {xs} |]
+  Notation " x ::: xs" := [| {eConstr List "cons"} {eTy (tyInd SActionBody)} {x} {xs} |]
                             ( in custom expr at level 0).
 
-  Notation "[ x ]" := [| {eConstr "list" "cons"} {eTy (tyInd SActionBody)} {x} Nil |]
+  Notation "[ x ]" := [| {eConstr List "cons"} {eTy (tyInd SActionBody)} {x} Nil |]
                         ( in custom expr at level 0,
                           x custom expr at level 1).
   (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
+  Definition actions_ty := [! List SActionBody !].
 
-
-  Definition actions_ty := [! "list" "SimpleActionBody" !].
-
-  Notation "'Result'" := [!"prod" State ("list" "SimpleActionBody") !]
+  Notation "'Result'" := [! Prod State (List SActionBody) !]
                            (in custom type at level 2).
 
 
   Definition mk_res a b := [| {eConstr "option" "Some"}
                                 {eTy [! Result !]}
-                                 ({eConstr "prod" "pair"} {eTy (tyInd State)}
+                                 ({eConstr Prod "pair"} {eTy (tyInd State)}
                                  {eTy actions_ty} {a} {b}) |].
   Notation "'Res' a b" := (mk_res a b)
       (in custom expr at level 2,
@@ -133,7 +135,7 @@ Module Notations.
           b custom expr at level 4).
 
   Notation "'mkState' a b" :=
-    [| {eConstr State "mkState_coq"} {a} {b} |]
+    [| {eConstr State mkState} {a} {b} |]
       (in custom expr at level 0,
           a custom expr at level 1,
           b custom expr at level 1).
@@ -149,8 +151,10 @@ Module Notations.
 
   (** New global context with the constants defined above (in addition to the ones defined in the Oak's "StdLib") *)
 
+  Import Maps.
+
   Definition Σ' :=
-    Prelude.Σ ++ [ Prelude.AcornMaybe;
+    StdLib.Σ ++ [ Prelude.AcornMaybe;
            state_syn;
            msg_syn;
            addr_map_acorn;
@@ -160,18 +164,18 @@ Module Notations.
            gdInd "Z" 0 [("Z0", []); ("Zpos", [(None,tyInd "positive")]);
                           ("Zneg", [(None,tyInd "positive")])] false].
 
-
-  Notation "0 'z'" := (eConstr "Z" "Z0") (in custom expr at level 0).
   End Notations.
 
 
 Import Prelude.
+
 (** Generating string constants for variable names *)
 
-Run TemplateProgram (mkNames ["c";"s";"e";"m";"v";"dl"; "g"; "chain"; "n"; "b";
-                              "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
-                              "accs"; "now";
-                               "newstate"; "newmap"; "cond"] "").
+MetaCoq Run (mkNames "" ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
+                     "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
+                     "accs"; "now";
+                     "newstate"; "newmap"; "cond"] "").
+
 (** A shortcut for [if .. then .. else ..]  *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
   (eCase (Bool,[]) ty cond
@@ -182,4 +186,4 @@ Notation "'if' cond 'then' b1 'else' b2 : ty" :=
         b1 custom expr at level 4,
         b2 custom expr at level 4).
 
-Notation SCtx := "SimpleContractCallContext".
+Definition SCtx := to_string_name <% SimpleContractCallContext_coq %>.

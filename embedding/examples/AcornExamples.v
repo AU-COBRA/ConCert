@@ -1,7 +1,7 @@
 (** * Examples of library code and contracts originating from the actual Acorn implementation  *)
 Require Import ZArith Basics.
 Require Import String.
-From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate.
+From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate MyEnv TranslationUtils.
 Require Import List.
 Require Import PeanoNat.
 Import ListNotations.
@@ -11,62 +11,35 @@ Import MonadNotation.
 
 Import ListNotations.
 
-Open Scope string.
-
-Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
-Definition type_to_tc := compose trans type_to_term.
-Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
-
-(** We TemplateMonad to translate and unquote a list of data type declarations *)
-Fixpoint translateData (es : list global_dec) :=
-  match es with
-  | [] => tmPrint "Done."
-  | e :: es' =>
-    coq_data <- tmEval all (global_to_tc e) ;;
-    tmMkInductive coq_data;;
-    translateData es'
-  end.
-
-(** This function translates and unquotes a list of function definitions *)
-Fixpoint translateDefs Σ (es : list (string * expr)) :=
-  match es with
-  | [] => tmPrint "Done."
-  | (name, e) :: es' =>
-    coq_expr <- tmEval all (expr_to_tc Σ (reindexify 0 e)) ;;
-    print_nf ("Unquoted: " ++ name);;
-    tmMkDefinition name coq_expr;;
-    translateDefs Σ es'
-  end.
-
 Open Scope list.
 
-(** All ASTs below were produced by a printing function implemented in Haskell and operating on Haskell representation of Acorn terms. We collecter the outputs of our printing procedure for several modules in this Coq file. For the [ListBase] example, we give also a corresponding Acorn source code *)
+(** All ASTs below were produced by a printing function implemented in Haskell and operating on Haskell representation of Acorn terms. We collect the outputs of our printing procedure for several modules in this Coq file. For the [ListBase] example, we give also a corresponding Acorn source code *)
 
 (** ** [Bool] module from the standard library of Acorn *)
 Module AcornBool.
-
-
+  MetaCoq Run define_mod_prefix.
 
   Definition Data := [gdInd "Bool" 0 [("True_coq", []);("False_coq", [])] false].
   (*---------------------*)
   Definition Functions := [("not", eLambda "x" ((tyInd "Bool")) (eCase ("Bool", []) ((tyInd "Bool")) (eRel 0) [(pConstr "True_coq" [], eConstr "Bool" "False_coq");(pConstr "False_coq" [], eConstr "Bool" "True_coq")]))].
-  Run TemplateProgram (translateData Data).
 
-  Run TemplateProgram (translateDefs (StdLib.Σ ++ Data) Functions).
+  MetaCoq Run (translateData [] Data).
+
+  MetaCoq Run (translateDefs [] Data Functions).
 End AcornBool.
 
 (** ** [Maybe] module from the standard library of Acorn *)
 
 Module AcornMaybe.
-  Import AcornBool.
+  MetaCoq Run define_mod_prefix.
 
   Definition Data :=  [gdInd "Maybe" 1 [("Nothing_coq", []);("Just_coq", [(None, tyRel 0)])] false].
   (*---------------------*)
   Definition Functions := [("isJust", eTyLam "A" (eLambda "x" ((tyApp (tyInd "Maybe") (tyRel 0))) (eCase ("Maybe",[tyRel 0]) ((tyInd "Bool")) (eRel 0) [(pConstr "Nothing_coq" [], eConstr "Bool" "False_coq");(pConstr "Just_coq" ["x0"], eConstr "Bool" "True_coq")])))].
 
-  Run TemplateProgram (translateData Data).
-
-  Run TemplateProgram (translateDefs (StdLib.Σ ++ Data ++ AcornBool.Data) Functions).
+  MetaCoq Run (translateData [] Data).
+Compute AcornBool.exported.
+  MetaCoq Run (translateDefs AcornBool.exported (Data ++ AcornBool.Data) Functions).
 
 End AcornMaybe.
 
@@ -81,9 +54,9 @@ Module AcornProd.
   Definition Functions :=
     [("fst", eTyLam "A" (eTyLam "A" (eLambda "x" ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))) (eCase ("Pair",[(tyRel 1);(tyRel 0)]) (tyRel 1) (eRel 0) [(pConstr "Pair_coq" ["x0";"x1"], eRel 1)]))));("snd", eTyLam "A" (eTyLam "A" (eLambda "x" ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))) (eCase ("Pair",[(tyRel 1);(tyRel 0)]) (tyRel 0) (eRel 0) [(pConstr "Pair_coq" ["x0";"x1"], eRel 0)]))))].
 
-  Run TemplateProgram (translateData Data).
+  MetaCoq Run (translateData [] Data).
 
-  Run TemplateProgram (translateDefs (StdLib.Σ ++ Data) Functions).
+  MetaCoq Run (translateDefs [] Data Functions).
 End AcornProd.
 
 (** ** Acorn [List] module *)
@@ -150,7 +123,8 @@ Module AcornListBase.
   Import AcornBool.
   Import AcornProd.
 
-Definition Data := [gdInd "List" 1 [("Nil_coq", []);("Cons_coq", [(None, tyRel 0);(None, (tyApp (tyInd "List") (tyRel 0)))])] false].
+  Definition Data := [gdInd "List" 1 [("Nil_coq", []);("Cons_coq", [(None, tyRel 0);(None, (tyApp (tyInd "List") (tyRel 0)))])] false].
+
 (*---------------------*)
 Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))
 ;("foldr", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyArr (tyRel 0) (tyRel 0))) (eLambda "x" (tyRel 0) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 0) [(pConstr "Nil_coq" [], eRel 2);(pConstr "Cons_coq" ["x0";"x1"], eApp (eApp (eRel 5) (eRel 1)) (eApp (eRel 3) (eRel 0)))])) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0)) (eRel 0))))))
@@ -163,15 +137,21 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
 ;("zip", eTyLam "A" (eTyLam "A" (eApp (eApp (eApp (eApp (eConst "zipWith") (eTy (tyRel 1))) (eTy (tyRel 0))) (eTy ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))))) (eApp (eApp (eConstr "Pair" "Pair_coq") (eTy (tyRel 1))) (eTy (tyRel 0))))))
 ;("filter", eTyLam "A" (eLambda "x" (tyArr (tyRel 0) ((tyInd "Bool"))) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 0) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eCase ("Bool", []) ((tyApp (tyInd "List") (tyRel 0))) (eApp (eRel 2) (eRel 1)) [(pConstr "True_coq" [], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 1)) (eRel 0));(pConstr "False_coq" [], eRel 0)])))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))].
 
-  Run TemplateProgram (translateData Data).
+  MetaCoq Run (translateData [] Data).
 
-  Definition gEnv := (StdLib.Σ ++ Data ++ AcornBool.Data ++ AcornProd.Data)%list.
+  Definition gEnv := (Data ++ AcornBool.Data ++ AcornProd.Data)%list.
 
-  Run TemplateProgram
-      (translateDefs gEnv Functions).
+  Definition dependencies := AcornBool.exported ++ AcornProd.exported.
+
+  MetaCoq Run (translateDefs dependencies gEnv Functions).
+
+  Print List.
+  Print foldr.
+  Print zipWith.
 
   Definition AcornList := List.
 
+  (** We prove that the imported definitions are equivalent to the corresponding definitions from the standard library of Coq *)
   Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A :=
     match acornL with
     | Cons_coq hd tl => hd :: from_acorn tl
@@ -236,9 +216,7 @@ End AcornListBase.
 Module AcornBlochain.
 
   Definition ABl_data :=  [gdInd "Caller" 0 [("CallerContract_coq", [(None, tyInd "nat")]);("CallerAccount_coq", [(None, tyInd "string")])] false;gdInd "ChainContext" 0 [("ChainContext_coq", [(None, tyInd "nat");(None, tyInd "nat");(None, tyInd "nat")])] false;gdInd "InitContext" 0 [("InitContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string")])] false;gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(None, (tyInd "ChainContext"));(None, tyInd "string");(None, tyInd "nat")])] false].
-
   (*---------------------*)
-
   Definition ABl_functions := [("slotNumber", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 2)]))
 ;("blockHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 1)]))
 ;("finalizedHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0";"x1";"x2"], eRel 0)]))
@@ -248,8 +226,9 @@ Module AcornBlochain.
 ;("receiveOrigin", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "string") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 1)]))
 ;("receiveSelfAddress", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "nat") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0";"x1";"x2"], eRel 0)]))].
 
-  Run TemplateProgram (translateData ABl_data).
-  Run TemplateProgram (translateDefs (StdLib.Σ ++ ABl_data)%list ABl_functions).
+  MetaCoq Run (translateData stdlib_prefixes ABl_data).
+
+  MetaCoq Run (translateDefs stdlib_prefixes (StdLib.Σ ++ ABl_data)%list ABl_functions).
 End AcornBlochain.
 
 (** ** A simple [Counter] contract *)
@@ -281,23 +260,22 @@ definition count (s :: CState) (msg :: Msg) =
       CState (Prim.minusInt64 (balance s) a) (owner s)
  *)
 
-(** For now, we assume that data types are already translated *)
-
-Module Prim.
-  Definition plusInt64 := Z.add.
-  Definition minusInt64 := Z.sub.
-End Prim.
-
 (** Data type definitions corresponding representation of the module [CoqExamples] above *)
 Definition acorn_datatypes :=
 [gdInd "Msg" 0 [("Inc_coq", [(None, tyInd "Z")]);("Dec_coq", [(None, tyInd "Z")])] false;gdInd "CState" 0 [("CState_coq", [(None, tyInd "Z");(None, tyInd "string")])] false].
 
-Run TemplateProgram (translateData acorn_datatypes).
+MetaCoq Run (translateData [] acorn_datatypes).
 
 Definition Σ' :=
   (StdLib.Σ ++ acorn_datatypes)%list.
 
-Import Prim.
+(** For now, we assume that data types are already translated *)
+
+Section Prim.
+  Definition plusInt64 := Z.add.
+  Definition minusInt64 := Z.sub.
+End Prim.
+
 
 (** Function definitions corresponding representation of the module [CoqExamples] above *)
 Definition acorn_module : list (string * expr) := [("owner", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "string") (eRel 0) [(pConstr "CState_coq" ["x0"
@@ -307,7 +285,7 @@ Definition acorn_module : list (string * expr) := [("owner", eLambda "x" (tyInd 
 ;("count", eLambda "x" (tyInd "CState") (eLambda "x" (tyInd "Msg") (eCase ("Msg", []) (tyInd "CState") (eRel 0) [(pConstr "Inc_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "plusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))
 ;(pConstr "Dec_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "minusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))])))].
 
-Run TemplateProgram (translateDefs Σ' acorn_module).
+MetaCoq Run (translateDefs [] Σ' acorn_module).
 
 Open Scope Z_scope.
 
@@ -360,10 +338,11 @@ Module Recursion.
 
   Definition R_functions := [("add", eLetIn "f" (eFix "rec" "x" ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat")) (eLambda "x" ((tyInd "Nat")) (eCase ("Nat", []) ((tyInd "Nat")) (eRel 1) [(pConstr "Zero_coq" [], eRel 0);(pConstr "Suc_coq" ["x0"], eApp (eConstr "Nat" "Suc_coq") (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))]))) (tyArr ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat"))) (eRel 0))].
 
-  Run TemplateProgram (translateData R_data).
+  MetaCoq Run (translateData [] R_data).
 
-  Run TemplateProgram (translateDefs (StdLib.Σ ++ R_data)%list R_functions).
+  MetaCoq Run (translateDefs [] (StdLib.Σ ++ R_data)%list R_functions).
 
+  Print add.
 
   Fixpoint Nat_nat (n : Nat) : nat :=
     match n with
@@ -398,6 +377,7 @@ End Recursion.
 
 
 (** Predicativity *)
+Module Predicativity.
 Definition id := fun (A : Set) (a : A) => a.
 
 Definition id_id_syn := eApp (eApp (eConst "id") (eTy (tyForall "A" (tyArr (tyRel 0) (tyRel 0))))) (eConst "id").
@@ -412,4 +392,14 @@ Compute (expr_to_term StdLib.Σ (reindexify 0 id_forall)).
 
 (** Application [id id] fails, since [A] must be [Set], but type of
  [id] is [forall A, A -> A], which lives in [Type]  *)
-Fail Make Definition id_id := (expr_to_tc StdLib.Σ (reindexify 0 id_id_syn)).
+Compute (expr_to_tc StdLib.Σ (reindexify 0 id_id_syn)).
+Fail MetaCoq Run (translateDefs [] [] [("id_id", id_id_syn)]).
+(* Illegal application:
+The term "id" of type "forall A : Set, A -> A"
+cannot be applied to the terms
+ "forall A : Set, A -> A" : "Type"
+ "id" : "forall A : Set, A -> A"
+The 1st term has type "Type" which should be coercible to
+"Set".
+ *)
+End Predicativity.
