@@ -879,17 +879,17 @@ Program Definition erase_ind_body
 
   let ind_params := firstn (P.ind_npars mib) oib_tvars in
   (* Type erasure will only produce type vars for non-logical sorts *)
-  let ind_params_tvars :=
+  let ind_ctor_tvars :=
       filter (fun t => tvar_is_sort t && negb (tvar_is_logical t)) ind_params in
   (* We map type vars in constructors to type vars in the inductive parameters.
      Thus, we only allow the constructor this many type vars *)
-  let num_tvars_in_params := List.length ind_params_tvars in
+  let num_ctor_tvars := List.length ind_ctor_tvars in
   let erase_ind_ctor (p : (ident × P.term) × nat) (is_in : In p (P.ind_ctors oib)) :=
       let '((name, t), _) := p in
       '(ctor_tvars, bt) <- map_error (EraseCtorError name)
                                      (erase_type Γ erΓ t _ []);;
 
-      (if (#|ctor_tvars| <=? num_tvars_in_params)%nat then
+      (if (#|ctor_tvars| <=? num_ctor_tvars)%nat then
          ret tt
        else
          Err (CtorUnmappedTypeVariables name));;
@@ -901,7 +901,7 @@ Program Definition erase_ind_body
 
   ret {| ind_name := P.ind_name oib;
          ind_type_vars := oib_tvars;
-         ind_ctor_type_vars := ind_params_tvars;
+         ind_ctor_type_vars := ind_ctor_tvars;
          ind_ctors := ctors;
          ind_projs := [] (* todo *) |}.
 Next Obligation.
