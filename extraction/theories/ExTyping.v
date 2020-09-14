@@ -1,4 +1,3 @@
-From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ExAst.
 From Coq Require Import Arith.
 From Coq Require Import List.
@@ -7,12 +6,53 @@ From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 From MetaCoq.Erasure Require Import EInduction.
 From MetaCoq.Erasure Require Import ELiftSubst.
-From MetaCoq.Erasure Require Import Extract.
 
 Import MonadNotation.
 
 Section wf.
 Context (Σ : global_env).
+
+Definition declared_constant (kn : kername) (cst : constant_body) : Prop :=
+  lookup_env Σ kn = Some (ConstantDecl cst).
+
+Definition declared_minductive (kn : kername) (mib : mutual_inductive_body) : Prop :=
+  exists flag, lookup_env Σ kn = Some (InductiveDecl flag mib).
+
+Definition declared_inductive
+           (mib : mutual_inductive_body)
+           (ind : inductive)
+           (oib : one_inductive_body) : Prop :=
+  declared_minductive (inductive_mind ind) mib /\
+  nth_error (ind_bodies mib) (inductive_ind ind) = Some oib.
+
+Definition declared_constructor
+           (mib : mutual_inductive_body)
+           (oib : one_inductive_body)
+           (ind : inductive)
+           (i : nat)
+           (cdecl : ident * list box_type) : Prop :=
+  declared_inductive mib ind oib /\
+  nth_error (ind_ctors oib) i = Some cdecl.
+
+Fixpoint wfe_term (t : term) : Prop :=
+  match t with
+  | tBox => True
+  | tRel _ => True
+  | tVar _ => True
+  | tEvar _ ts => fold_right and True (map wfe_term ts)
+  | tLambda _ cod => wfe_term cod
+  | tLetIn _ val body => wfe_term val /\ wfe_term body
+  | tApp hd arg => wfe_term hd /\ wfe_term arg
+  | tConst _ => True
+  | tConstruct ind c => exists mib oib cdecl, declared_constructor mib oib ind c cdecl
+  | tCase (ind, npars) disc brs =>
+    (exists mib oib, declared_inductive mib ind oib /\ ind_npars mib = npars) /\
+    wfe_term disc /\
+    fold_right and True (map (wfe_term ∘ snd) brs)
+  | tProj _ t => wfe_term t
+  | tFix def _
+  | tCoFix def _ => fold_right and True (map (wfe_term ∘ dbody) def)
+  end.
 
 Definition lookup_constant (kn : kername) : option constant_body :=
   match lookup_env Σ kn with
@@ -34,35 +74,37 @@ Definition lookup_constructor (ind : inductive) (c : nat) : option (ident * list
   oib <- lookup_inductive ind;;
   nth_error (ind_ctors oib) c.
 
-Fixpoint wfe_term (t : term) : bool :=
-  match t with
-  | tBox => true
-  | tRel _ => true
-  | tVar _ => true
-  | tEvar _ ts => forallb wfe_term ts
-  | tLambda _ cod => wfe_term cod
-  | tLetIn _ val body => wfe_term val && wfe_term body
-  | tApp hd arg => wfe_term hd && wfe_term arg
-  | tConst _ => true
-  | tConstruct ind c => if lookup_constructor ind c then true else false
-  | tCase (ind, npars) disc brs =>
-    match lookup_minductive (inductive_mind ind) with
-    | Some mib => ind_npars mib =? npars
-    | None => false
-    end && wfe_term disc && forallb (wfe_term ∘ snd) brs
-  | tProj (ind, npars, arg) t =>
-    match lookup_minductive (inductive_mind ind) with
-    | Some mib =>
-      (ind_npars mib =? npars) &&
-      match nth_error (ind_bodies mib) (inductive_ind ind) with
-      | Some oib => #|ind_ctors oib| =? 1
-      | None => false
-      end
-    | None => false
-    end
-  | tFix def _
-  | tCoFix def _ => forallb (wfe_term ∘ dbody) def
-  end.
+Lemma lookup_constant_declared kn cst :
+  declared_constant kn cst ->
+  lookup_constant kn = Some cst.
+Proof.
+  unfold declared_constant, lookup_constant.
+  now intros ->.
+Qed.
+
+Lemma lookup_minductive_declared kn mib :
+  declared_minductive kn mib ->
+  lookup_minductive kn = Some mib.
+Proof.
+  unfold declared_minductive, lookup_minductive.
+  intros H. destruct H. now rewrite H.
+Qed.
+
+Lemma lookup_inductive_declared mib ind oib :
+  declared_inductive mib ind oib ->
+  lookup_inductive ind = Some oib.
+Proof.
+  unfold declared_inductive, lookup_inductive.
+  now intros (->%lookup_minductive_declared & ?).
+Qed.
+
+Lemma lookup_ctor_declared mib oib ind c ctor :
+  declared_constructor mib oib ind c ctor ->
+  lookup_constructor ind c = Some ctor.
+Proof.
+  unfold declared_constructor, lookup_constructor.
+  now intros (->%lookup_inductive_declared & ?).
+Qed.
 
 Lemma wfe_term_mkApps hd args :
   wfe_term hd ->
@@ -74,20 +116,7 @@ Proof.
   induction wfall; intros hd wfhd; [easy|].
   cbn in *.
   apply IHwfall.
-  cbn.
-  now propify.
-Qed.
-
-Lemma wfe_term_mkApps_inv hd args :
-  wfe_term (mkApps hd args) ->
-  wfe_term hd /\ Forall wfe_term args.
-Proof.
-  intros wf.
-  induction args in hd, wf |- *; [easy|].
-  cbn in *.
-  apply IHargs in wf as (wf_app & wf_args).
-  cbn in *.
-  now propify.
+  now cbn.
 Qed.
 
 Lemma wfe_term_lift t n k :
@@ -98,40 +127,40 @@ Proof.
   revert n k.
   induction t using term_forall_list_ind; intros ? ?; cbn in *; try easy.
   - now destruct (_ <=? _).
-  - induction H; cbn in *; [easy|].
-    now propify.
-  - now propify.
-  - now propify.
+  - induction H; cbn in *; easy.
   - destruct p.
-    propify.
     split; [easy|].
-    induction X; cbn in *; [easy|].
-    now propify.
+    split; [easy|].
+    destruct wft as (_ & _ & allwf).
+    unfold tCaseBrsProp in X.
+    induction X; cbn in *; easy.
   - revert k.
     induction H; intros k; [easy|].
-    cbn in *; propify.
+    cbn in *.
     split; [easy|].
-    now rewrite <- Nat.add_succ_r.
+    rewrite <- Nat.add_succ_r.
+    easy.
   - revert k.
     induction H; intros k; [easy|].
-    cbn in *; propify.
+    cbn in *.
     split; [easy|].
-    now rewrite <- Nat.add_succ_r.
+    rewrite <- Nat.add_succ_r.
+    easy.
 Qed.
 
 End wf.
 
-Fixpoint wfe_env (Σ : global_env) : bool :=
+Fixpoint wfe (Σ : global_env) : Prop :=
   match Σ with
-  | [] => true
+  | [] => True
   | (kn, decl) :: Σ =>
     match decl with
     | ConstantDecl cst =>
       match cst_body cst with
       | Some body => wfe_term Σ body
-      | None => true
+      | None => True
       end
-    | InductiveDecl _ _ => true
-    | TypeAliasDecl _ => true
-    end && wfe_env Σ
+    | InductiveDecl _ _ => True
+    | TypeAliasDecl _ => True (* FIXME: Do we need to say something about type aliases? *)
+    end /\ wfe Σ
   end.
