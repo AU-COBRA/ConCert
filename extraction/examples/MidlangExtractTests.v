@@ -4,13 +4,16 @@ From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import StringExtra.
 From Coq Require Import Arith.
+From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 
+Import ListNotations.
 Import MonadNotation.
 Local Open Scope string.
 
@@ -31,7 +34,6 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
 
 Definition extract (p : program) : result string string :=
   general_extract p [] [].
-
 
 Module ex1.
   Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
@@ -204,3 +206,22 @@ Module ex7.
 End ex7.
 
 *)
+
+Module ex8.
+  (* Ensure ignored works *)
+  Definition unerasable (T : nat -> Type) := 0.
+  Definition foo := unerasable (fun _ => nat).
+  MetaCoq Quote Recursively Definition ex8 := foo.
+
+  Example ex8_test :
+    general_extract ex8 [<%% unerasable %%>] [] =
+Ok <$
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : Nat";
+"foo =";
+"  unerasable □" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex8.

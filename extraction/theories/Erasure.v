@@ -996,14 +996,13 @@ Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : str
 Program Definition erase_global_decl
         (Σext : P.global_env_ext) (wfΣext : ∥wf_ext Σext∥)
         (kn : kername)
-        (ignore_on_print : bool)
         (decl : P.global_decl)
         (wt : ∥on_global_decl (lift_typing typing) Σext kn decl∥)
   : result global_decl erase_global_decl_error :=
   match decl with
   | P.ConstantDecl cst =>
     cst_or_ty_alias <- map_error (ErrConstant Σext kn)
-                                (erase_constant_decl Σext _ cst _);;
+                                 (erase_constant_decl Σext _ cst _);;
     match cst_or_ty_alias with
     | inl cst => ret (ConstantDecl cst)
     | inr ta => ret (TypeAliasDecl ta)
@@ -1011,7 +1010,7 @@ Program Definition erase_global_decl
   | P.InductiveDecl mib =>
     ind <- map_error (ErrInductive Σext kn)
                      (erase_ind Σext _ kn mib _);;
-    ret (InductiveDecl ignore_on_print ind)
+    ret (InductiveDecl false ind)
   end.
 
 (* Erase all declarations for which [f] returns [true] *)
@@ -1026,7 +1025,7 @@ Program Fixpoint general_erase_global_decls (Σ : P.global_env) (wfΣ : ∥wf Σ
       ret Σer
     else
       let Σext := (Σ, universes_decl_of_decl decl) in
-      decl <- erase_global_decl Σext _ kn false decl _;;
+      decl <- erase_global_decl Σext _ kn decl _;;
       ret ((kn, decl) :: Σer)
   end.
 Next Obligation. now sq; inversion wfΣ. Qed.
@@ -1079,7 +1078,6 @@ Fixpoint box_type_deps (seen : list kername) (t : box_type) : list kername :=
   | TConst n => add_seen n seen
   end.
 
-
 Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :=
   match decl with
   | ConstantDecl body =>
@@ -1099,32 +1097,6 @@ Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :
   | TypeAliasDecl (nms, ty) => box_type_deps seen ty
   end.
 
-Definition is_inductive_decl (d : P.global_decl) : bool :=
-  match d with
-  | P.ConstantDecl _ => false
-  | P.InductiveDecl _ => true
-  end.
-
-Definition Tis_inductive_decl (d : Ast.global_decl) : bool :=
-  match d with
-  | Ast.ConstantDecl _ => false
-  | Ast.InductiveDecl _ => true
-  end.
-
-(** Turn a global declaration into an axiom, if it's a constant, by removing the constant's body *)
-Definition decl_to_axiom (decl : global_decl) : global_decl :=
-  match decl with
-  | ConstantDecl cst =>
-    ConstantDecl {| cst_type := cst.(cst_type);
-                    cst_body := None |}
-  | TypeAliasDecl ty => (* NOTE: type aliases become axioms as well *)
-    ConstantDecl {| cst_type := ty;
-                    cst_body := None |}
-
-  | _ => decl
-  end.
-
-
 (* Erase the global declarations by the specified names and
    their non-erased dependencies recursively. Ignore dependencies for which [ignore] returnes [true] *)
 Program Fixpoint general_erase_global_decls_deps_recursive
@@ -1136,18 +1108,31 @@ Program Fixpoint general_erase_global_decls_deps_recursive
   | [] => ret []
   | (kn, decl) :: Σ =>
     let Σext := (Σ, universes_decl_of_decl decl) in
-    if contains kn include && negb (ignore kn)  then
-      decl <- erase_global_decl Σext _ kn false decl _;;
-      Σer <- general_erase_global_decls_deps_recursive Σ _ ignore (decl_deps include decl);;
-      ret ((kn, decl) :: Σer)
-    else
-      if contains kn include && ignore kn then
-      (* NOTE: if the inductive declarations is ignored, we still add it to have enough info for printing [match] and inductives that depend on it. But we ignore its dependencies and ignore the declaration itself on printing *)
-        decl <- erase_global_decl Σext _ kn true decl _;;
-        let decl := decl_to_axiom decl in
-        Σer <- general_erase_global_decls_deps_recursive Σ _ ignore include ;;
+    if contains kn include then
+      if ignore kn then
+      (* NOTE: if we ignore an inductive declaration, we still add
+      it to have enough info for printing [match] and inductives that
+      depend on it. But we ignore its dependencies and ignore the
+      declaration itself on printing.
+      This is a bit of a hack, we should probably not erase (all) ignored
+      types as they may fail to erase. *)
+        decl <-
+        match decl with
+        | P.InductiveDecl mib =>
+          ind <- map_error (ErrInductive Σext kn)
+                           (erase_ind Σext _ kn mib _);;
+          ret [(kn, InductiveDecl true ind)]
+        | P.ConstantDecl _ =>
+          ret []
+        end;;
+        Σer <- general_erase_global_decls_deps_recursive Σ _ ignore include;;
+        ret (decl ++ Σer)%list
+      else
+        decl <- erase_global_decl Σext _ kn decl _;;
+        Σer <- general_erase_global_decls_deps_recursive Σ _ ignore (decl_deps include decl);;
         ret ((kn, decl) :: Σer)
-      else general_erase_global_decls_deps_recursive Σ _ ignore include
+    else
+      general_erase_global_decls_deps_recursive Σ _ ignore include
   end.
 Solve All Obligations with cbn;intros;subst; now sq; inversion wfΣ.
 
@@ -1158,63 +1143,6 @@ Program Fixpoint erase_global_decls_deps_recursive
         (include : list kername)
   : result global_env erase_global_decl_error :=
   general_erase_global_decls_deps_recursive Σ wfΣ (fun kn => contains kn ignored) include.
-
-Fixpoint Tterm_deps (seen : list kername) (t : Ast.term) : list kername :=
-  match t with
-  | Ast.tRel _
-  | Ast.tVar _
-  | Ast.tSort _ => seen
-  | Ast.tCast t1 _ t2 => fold_left Tterm_deps [t1;t2] seen
-  | Ast.tInd ind _ => add_seen (inductive_mind ind) seen
-  | Ast.tProd _ ty1 ty2 => fold_left Tterm_deps [ty1;ty2] seen
-  | Ast.tEvar _ ts => fold_left Tterm_deps ts seen
-  | Ast.tLambda _ ty t => Tterm_deps seen t
-  | Ast.tLetIn _ ty t1 t2 => fold_left Tterm_deps [ty;t1;t2] seen
-  | Ast.tApp t1 t2 => fold_left Tterm_deps (t1 :: t2) seen
-  | Ast.tConst n _ => add_seen n seen
-  | Ast.tConstruct ind _ _ => add_seen (inductive_mind ind) seen
-  | Ast.tCase (ind, _) ty t brs =>
-    let seen := Tterm_deps (add_seen (inductive_mind ind) seen) t in
-    fold_left (fun seen '(_, t) => Tterm_deps seen t) brs seen
-  | Ast.tProj (ind, _, _) t => Tterm_deps (add_seen (inductive_mind ind) seen) t
-  | Ast.tFix defs _
-  | Ast.tCoFix defs _ =>
-    fold_left (fun seen d => Tterm_deps seen (BasicAst.dbody d)) defs seen
-  end.
-
-Definition Tdecl_deps (seen : list kername) (decl : Ast.global_decl) : list kername :=
-  match decl with
-  | Ast.ConstantDecl body =>
-    let seen :=
-        match Ast.cst_body body with
-        | Some body => Tterm_deps seen body
-        | None => seen
-        end in
-    Tterm_deps seen (Ast.cst_type body)
-  | Ast.InductiveDecl mib =>
-    let one_inductive_body_deps seen oib :=
-        let seen := fold_left Tterm_deps
-                              (map (snd ∘ fst) (Ast.ind_ctors oib))
-                              seen in
-        fold_left Tterm_deps (map snd (Ast.ind_projs oib)) seen in
-    fold_left one_inductive_body_deps (Ast.ind_bodies mib) seen
-  end.
-
-
-Import TemplateMonad.
-
-Program Fixpoint Tglobal_decls_deps_recursive
-        (Σ : Ast.global_env) (include : list kername)
-  : Ast.global_env :=
-  match Σ with
-  | [] => []
-  | (kn, decl) :: Σ =>
-    if contains kn include && negb (contains kn ignored) then
-        (kn, decl) :: Tglobal_decls_deps_recursive Σ (Tdecl_deps include decl)
-    else if Tis_inductive_decl decl && contains kn include && contains kn ignored then
-           (kn, decl) :: Tglobal_decls_deps_recursive Σ include
-         else Tglobal_decls_deps_recursive Σ include
-  end.
 
 End EraseEnv.
 
