@@ -28,7 +28,6 @@ Module PT := MetaCoq.PCUIC.PCUICTyping.
 Module T2P := MetaCoq.PCUIC.TemplateToPCUIC.
 Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
-Module TL := MetaCoq.Template.Typing.TemplateLookup.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.SafeErasureFunction.
 Module Ex := ConCert.Extraction.ExAst.
@@ -104,7 +103,7 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
   end.
 
 Definition names_lookup_ind_decl (ind : inductive) : option T.one_inductive_body :=
-  match TL.lookup_env Σnames (inductive_mind ind) with
+  match T.lookup_env Σnames (inductive_mind ind) with
   | Some (T.InductiveDecl {| T.ind_bodies := oibs |}) =>
     nth_error oibs (inductive_ind ind)
   | _ => None

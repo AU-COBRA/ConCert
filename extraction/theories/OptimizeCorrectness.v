@@ -4,6 +4,7 @@ From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ExTyping.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import WcbvEvalAux.
+From ConCert.Extraction Require Import WcbvEvalType.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import Btauto.
@@ -18,7 +19,6 @@ From MetaCoq.Erasure Require Import EInduction.
 From MetaCoq.Erasure Require Import EInversion.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import ETyping.
-From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Template Require Import utils.
 
 Import ListNotations.
@@ -27,6 +27,7 @@ Import EAstUtils.
 Import Erasure.
 Import ExAst.
 Import ExTyping.
+Import ConCert.Extraction.Aux.
 
 (* We have our own environment which is different from MetaCoq's erased environment
    (it includes more information and a different treatment of types).
@@ -1591,7 +1592,7 @@ Proof.
   cbn in *.
   propify.
   intuition auto.
-  apply Forall_app_inv; intuition.
+  apply app_Forall; intuition.
 Qed.
 
 Lemma is_expanded_aux_mkApps_eq n hd args :
@@ -3486,6 +3487,25 @@ Proof.
         -- now apply is_expanded_aux_subst.
         -- lia.
     + destruct t; cbn in *; try destruct y; try congruence; now constructor.
+Qed.
+
+Lemma metacoq_dearg_correct Σ t v :
+  env_closed (trans Σ) ->
+  closed t ->
+
+  valid_masks_env Σ ->
+  valid_cases t ->
+
+  is_expanded_env Σ ->
+  is_expanded t ->
+
+  trans Σ p⊢ t ▷ v ->
+  trans (dearg_env Σ) p⊢ dearg t ▷ dearg v.
+Proof.
+  intros ? ? ? ? ? ? ev.
+  apply eval_evalT in ev as [ev].
+  apply evalT_eval.
+  now apply dearg_correct.
 Qed.
 End dearg_correct.
 
