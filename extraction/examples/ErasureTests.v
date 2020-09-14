@@ -519,12 +519,20 @@ Proof. vm_compute. reflexivity. Qed.
 Inductive PropTypeVarInCtor :=
   ex13_ctor : Prop -> PropTypeVarInCtor.
 MetaCoq Quote Recursively Definition ex13 := PropTypeVarInCtor.
-Compute erase_and_print_ind_prog ex13.
 
 Example PropTypeVarInCtor_test :
   erase_and_print_ind_prog ex13 =
   Ok <$ "data PropTypeVarInCtor";
         "| ex13_ctor □" $>.
+Proof. vm_compute. reflexivity. Qed.
+
+Inductive IndWithIndex : nat -> Type :=
+| ex14_ctor (T : Type) : IndWithIndex 0.
+MetaCoq Quote Recursively Definition ex14 := IndWithIndex.
+
+Example IndWithIndex_test :
+  erase_and_print_ind_prog ex14 =
+  Err (EraseIndBodyError "IndWithIndex" (CtorUnmappedTypeVariables "ex14_ctor")).
 Proof. vm_compute. reflexivity. Qed.
 
 End erase_ind_tests.
