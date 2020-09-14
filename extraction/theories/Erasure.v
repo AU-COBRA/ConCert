@@ -507,10 +507,8 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
 
       | et_view_prod na A B with flag_of_type Γ A _ := {
           (* For logical things, we add a type variable if it's an arity *)
-        | Checked {| is_logical := true ; is_arity := isar |} :=
-          let e := if isar then RelTypeVar (List.length tvars) else RelOther in
-          let tvars' := if isar then tvars ++ [na] else tvars in
-          '(tvars, bt) <- erase_type (Γ,, vass na A) (e :: erΓ)%vector B _ tvars';;
+        | Checked {| is_logical := true |} :=
+          '(tvars, bt) <- erase_type (Γ,, vass na A) (RelOther :: erΓ)%vector B _ tvars;;
           ret (tvars, TArr TBox bt);
 
           (* If the type isn't an arity now, then it's a "normal" type like nat. *)
@@ -880,20 +878,18 @@ Program Definition erase_ind_body
   let '(Γ; erΓ) := arities_contexts mind (P.ind_bodies mib) in
 
   let ind_params := firstn (P.ind_npars mib) oib_tvars in
-  let the_rest := skipn (P.ind_npars mib) oib_tvars in
-  (* we filter out non-arities from the inductive parameters since non-arities
-     will not be type variables *)
-  let ind_params_arities_only := filter tvar_is_arity ind_params in
+  (* Type erasure will only produce type vars for non-logical sorts *)
+  let ind_ctor_tvars :=
+      filter (fun t => tvar_is_sort t && negb (tvar_is_logical t)) ind_params in
   (* We map type vars in constructors to type vars in the inductive parameters.
      Thus, we only allow the constructor this many type vars *)
-  let num_tvars_in_params :=
-      List.length ind_params_arities_only in
+  let num_ctor_tvars := List.length ind_ctor_tvars in
   let erase_ind_ctor (p : (ident × P.term) × nat) (is_in : In p (P.ind_ctors oib)) :=
       let '((name, t), _) := p in
       '(ctor_tvars, bt) <- map_error (EraseCtorError name)
                                      (erase_type Γ erΓ t _ []);;
 
-      (if (#|ctor_tvars| <=? num_tvars_in_params)%nat then
+      (if (#|ctor_tvars| <=? num_ctor_tvars)%nat then
          ret tt
        else
          Err (CtorUnmappedTypeVariables name));;
@@ -905,7 +901,7 @@ Program Definition erase_ind_body
 
   ret {| ind_name := P.ind_name oib;
          ind_type_vars := oib_tvars;
-         ind_ctor_type_vars := ind_params_arities_only ++ the_rest;
+         ind_ctor_type_vars := ind_ctor_tvars;
          ind_ctors := ctors;
          ind_projs := [] (* todo *) |}.
 Next Obligation.
