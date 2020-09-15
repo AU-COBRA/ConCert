@@ -152,7 +152,7 @@ Module TestInfo <: FA2TestsInfo.
   Definition gAddrWithout (ws : list Address) :=
     let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
     elems_ zero_address addrs.
-  Definition gUniqueAddrPair : G (option (Address * Address)) :=
+  Definition gUniqueAddrPair : GOpt (Address * Address) :=
     addr1 <- elems_opt test_chain_addrs ;;
     let addrs := filter (fun a => negb (address_eqb addr1 a)) test_chain_addrs in   
     addr2 <- elems_opt addrs ;;

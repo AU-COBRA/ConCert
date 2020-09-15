@@ -72,7 +72,7 @@ Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition gCongressChain max_acts_per_block congress_cb max_length := 
   let act_depth := 2 in 
   gChain congress_cb
-    (fun env act_depth => gCongressActionNew env act_depth congress_caddr) max_length act_depth max_acts_per_block.
+    (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
 
 Definition forAllCongressChainTraces n :=
   forAllChainState n (snd unpacked_exploit_example) (gCongressChain 2).

@@ -1,3 +1,5 @@
+(* Show instances for the Escrow types. Necessary for QuickChick testing. *)
+
 From ConCert Require Import Blockchain.
 From ConCert Require Import Escrow.
 From ConCert.Execution.QCTests Require Import TestUtils.

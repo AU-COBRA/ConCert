@@ -33,12 +33,11 @@ Instance genSetupSized : GenSized Setup :=
   arbitrarySized n := liftM build_setup (arbitrarySized n)
 |}.
 
-(* ------------------------------------------------------ *)
-(* generators of actions *)
+(* ------------------ generators of actions --------------------------- *)
 
 (* helpers *)
 
-Definition genToOpt {A : Type} (g : G A) : G (option A) :=
+Definition genToOpt {A : Type} (g : G A) : GOpt A :=
   a <- g ;;
   returnGenSome a.
 
@@ -50,7 +49,7 @@ Definition congressContractsMembers_nonowners state : list Address :=
 Definition gCongressMember_without_caller (state : Congress_Buggy.State)
                            (calling_addr : Address)
                            (contract_addr : Address)
-                           : G (option Address) :=
+                           : GOpt Address :=
   let members := (map fst o FMap.elements) (members state) in
   let members_without_caller := List.remove address_eqdec calling_addr members in
   match members_without_caller with
@@ -80,23 +79,23 @@ Definition bindCallerIsOwnerOpt {A : Type}
                                 (state : Congress_Buggy.State)
                                 (calling_addr : Address)
                                 (contract_addr : Address)
-                                (g : G (option A)) : G (option A) :=
+                                (g : GOpt A) : GOpt A :=
   if address_eqb calling_addr contract_addr
   then g
   else if address_eqb state.(owner) calling_addr
        then g
        else returnGen None.
 
-Definition try_gNewOwner state calling_addr contract_addr : G (option Address):=
+Definition try_gNewOwner state calling_addr contract_addr : GOpt Address:=
   bindCallerIsOwnerOpt state calling_addr contract_addr (gCongressMember_without_caller state calling_addr contract_addr).
 
 Definition vote_proposal (caddr : Address)
                          (members_and_proposals : FMap Address (list ProposalId))
-                         (mk_call : Address -> Address -> Msg -> G (option Action))
+                         (call : Address -> Address -> Msg -> GOpt Action)
                          (vote : ProposalId -> Msg):=
   '(member, pids) <- sampleFMapOpt members_and_proposals ;;
   pid <- elems_opt pids ;;
-  mk_call caddr member (vote pid).
+  call caddr member (vote pid).
 
 (* Returns a mapping to proposals which have been discussed long enough, according to the
    current rules in the given congress' state *)
@@ -140,8 +139,8 @@ Definition lc_contract_members_and_proposals_with_votes (state : Congress_Buggy.
     )
     else FMap.empty.
 
-Fixpoint gCongressActionNew (env : Environment) (fuel : nat) (caddr : Address) : G (option Action) :=
-  let mk_call contract_addr caller_addr msg :=
+Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GOpt Action :=
+  let call contract_addr caller_addr msg :=
     amount <- match env.(account_balance) caller_addr with
               | 0%Z => returnGenSome 0%Z
               | caller_balance => genToOpt (choose (0%Z, caller_balance))
@@ -157,44 +156,42 @@ Fixpoint gCongressActionNew (env : Environment) (fuel : nat) (caddr : Address) :
       (* transfer_ownership *)
       (1, members <- elems_opt (congressContractsMembers_nonowners congress_state) ;;
           new_owner <- (try_gNewOwner congress_state owner caddr) ;;
-          mk_call caddr owner (transfer_ownership new_owner)
+          call caddr owner (transfer_ownership new_owner)
       ) ;
       (* change_rules *)
       (1, rules <- genToOpt (gRulesSized 4) ;;
-          (mk_call caddr owner (change_rules rules))
+          (call caddr owner (change_rules rules))
       ) ;
       (* add_member *)
-      (2, match (try_newCongressMember congress_state caddr 10) with
-          | Some addr => mk_call caddr owner (add_member addr)
-          | None => returnGen None
-          end
+      (2, addr <- returnGen (try_newCongressMember congress_state caddr 10) ;;
+          call caddr owner (add_member addr)
       ) ;
       (* remove_member *)
       (1, member <- elems_opt members ;;
-          mk_call caddr owner (remove_member member)
+          call caddr owner (remove_member member)
       ) ;
       (* vote_for_proposal *)
       (* Requirements:
          - contract with a proposal and members must exist
          - only members which have not already voted can vote again *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_new_voters congress_state)
-                        mk_call vote_for_proposal ) ;
+                        call vote_for_proposal ) ;
       (* vote_against_proposal *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_new_voters congress_state)
-                        mk_call vote_against_proposal ) ;
+                        call vote_against_proposal ) ;
       (* retract_vote *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_with_votes congress_state)
-                        mk_call retract_vote) ;
+                        call retract_vote) ;
       (* finish_proposal *)
       (* Requirements:
          - only contract owner can finish proposals
          - the debating period must have passed *)
       (2, '(pid, _) <- sampleFMapOpt (finishable_proposals congress_state env.(current_slot)) ;;
-           mk_call caddr owner (finish_proposal pid)
+           call caddr owner (finish_proposal pid)
       )
     ]
   | S fuel' => backtrack [
-    (3, gCongressActionNew env fuel' caddr) ;
+    (3, GCongressAction env fuel' caddr) ;
     (* add_proposal *)
     (1,
       (* recurse. Msg is converted to a SerializedType using 'serialize' *)
@@ -203,13 +200,13 @@ Fixpoint gCongressActionNew (env : Environment) (fuel : nat) (caddr : Address) :
       (* Note: the way we recurse may be too restrictive - we fix a caddr, which may cause gCongressMember
                to return None even though it could have succeeded for another caddr.
                Maybe this is not a big issue, though. *)
-      act <- gCongressActionNew env fuel' caddr ;;
+      act <- GCongressAction env fuel' caddr ;;
       let caller_addr := act.(act_from) in
       match act.(act_body) with
       | act_call caddr amount msg =>
         member <- elems_opt members ;;
         let ca := cact_call caddr amount msg in
-        mk_call caddr member (create_proposal [ca])
+        call caddr member (create_proposal [ca])
       | _ => returnGenSome act
       end)
   ]

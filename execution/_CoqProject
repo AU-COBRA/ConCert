@@ -28,6 +28,7 @@ examples/Congress.v
 examples/Congress_Buggy.v
 examples/Egcd.v
 examples/EIP20Token.v
+examples/EIP20Token_Buggy.v
 examples/Escrow.v
 examples/Euler.v
 examples/LocalBlockchainTests.v

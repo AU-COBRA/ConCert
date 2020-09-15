@@ -6,6 +6,7 @@ Import MonadNotation. Open Scope monad_scope.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
+From ConCert Require Import ResultMonad.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import BoundedN. Import BoundedN.Stdpp.
 
@@ -42,18 +43,6 @@ Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
 Definition isSome {A : Type} (a : option A) := negb (isNone a).
 
-Fixpoint mkMapFromLists {A B : Type}
-                       (a_eqb : A -> A -> bool)
-                       (default : B)
-                       (l : list A)
-                       (lb : list B)
-                       : A -> B :=
-  match (l,lb) with
-  | ([],[]) => fun x => default
-  | (a::l', b::lb') =>
-    fun (x : A) => if a_eqb x a then b else (mkMapFromLists a_eqb default l' lb') x
-  | (_,_) => fun x => default
-  end.
 Definition string_of_FMap {A B : Type}
                          `{countable.Countable A}
                          `{base.EqDecision A}
@@ -84,19 +73,6 @@ Definition map_values_FMap {A B C: Type}
   let mapped_l := List.map (fun p => (fst p, f (snd p))) l in
   FMap.of_list mapped_l.
 
-Definition map_filter_FMap {A B C: Type}
-                      `{countable.Countable A}
-                      `{base.EqDecision A}
-                       (f : (A * B) -> option C)
-                       (m : FMap A B)
-                       : FMap A C :=
-  let l := FMap.elements m in
-  let mapped_l := List.fold_left (fun acc p => match f p with
-                                               | Some c => ((fst p), c) :: acc
-                                               | None => acc
-                                               end  ) l [] in
-  FMap.of_list mapped_l.
-
 Definition FMap_find_ {A B : Type}
                     `{countable.Countable A}
                     `{base.EqDecision A}
@@ -120,11 +96,40 @@ Fixpoint split_at_first_satisfying_fix {A : Type} (p : A -> bool) (l : list A) (
 Definition split_at_first_satisfying {A : Type} (p : A -> bool) (l : list A) : option (list A * list A) :=
   split_at_first_satisfying_fix p l [].
 
-Open Scope string_scope.
-  
-(* Utils for Show instances *)
+(* Helper function for backtrack_result. It picks and removes an element from a list of result generators. *)
+Fixpoint pickDrop {T E}
+                  (default : E)
+                  (xs : list (nat * G (result T E))) 
+                  (n : nat) 
+                  : nat * G (result T E) * list (nat * G (result T E)) :=
+  match xs with
+    | nil => (0, returnGen (Err default), nil)
+    | (k, x) :: xs =>
+      if (n <? k) then  (k, x, xs)
+      else let '(k', x', xs') := pickDrop default xs (n - k)
+          in (k', x', (k,x)::xs')
+  end. 
 
-Definition empty_str : string := "".
+(* Backtracking generator for results instead of Option. Works the same way as backtrack. *)
+Fixpoint backtrack_result_fix {T E} (default : E) (fuel : nat) (gs : list (nat * G (result T E))) : G (result T E) :=
+  match fuel with
+  | 0 => returnGen (Err default)
+  | S fuel' => idx <- choose (0, fuel') ;;
+        let '(k, g, gs') := pickDrop default gs idx in
+        ma <- g ;;
+        match ma with
+        | Err e => backtrack_result_fix default fuel' gs'
+        | Ok r => returnGen (Ok r)
+        end
+  end.
+
+Definition backtrack_result {T E} (default : E) (gs : list (nat * G (result T E))) : G (result T E) :=
+  backtrack_result_fix default (length gs) gs.
+
+
+(* Utils for Show instances *)
+Open Scope string_scope.
+
 Definition sep : string := ", ".
 Derive Show for unit.
 
@@ -163,7 +168,7 @@ Definition get_contract_state (state : Type) `{Serializable state} env addr : op
 
 (* Utils for Generators *)
 
-Definition elems_opt {A : Type} (l : list A) : G (option A) :=
+Definition elems_opt {A : Type} (l : list A) : GOpt A :=
   match l with
   | x::xs => liftM Some (elems_ x xs)
   | _ => returnGen None end.
@@ -187,7 +192,7 @@ Definition sampleFMapOpt_filter {A B : Type}
                         `{base.EqDecision A}
                          (m : FMap A B)
                          (f : (A * B) -> bool)
-                         : G (option (A * B)) :=
+                         : GOpt (A * B) :=
   let els := FMap.elements m in
   match els with
   | e :: _ => liftM Some (elems_ e (List.filter f els))
@@ -199,32 +204,18 @@ Definition sample2UniqueFMapOpt
                         `{countable.Countable A}
                         `{base.EqDecision A}
                          (m : FMap A B)
-                         : G (option ((A * B) * (A * B))) :=
+                         : GOpt ((A * B) * (A * B)) :=
   bindGenOpt (sampleFMapOpt m) (fun p1 =>
     let key1 := fst p1 in
     let val1 := snd p1 in
     bindGenOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
-      returnGen (Some (p1, p2))
+      returnGenSome (p1, p2)
     )
   ).
 
-Fixpoint remove_multipe_FMap {A B : Type}
-                            `{countable.Countable A}
-                            `{base.EqDecision A}
-                             (m : FMap A B)
-                             (ids_to_remove : list A)
-                             : FMap A B :=
-  match ids_to_remove with
-  | id::ids => remove_multipe_FMap (FMap.remove id m) ids
-  | [] => m
-  end.
-
-Definition gZPositive := liftM Z.of_nat arbitrary.
-Definition gZPositiveSized n := liftM Z.of_nat (arbitrarySized n).
-
-(* Although the type is G (option ...) it will never generate None values.
+(* Although the type is GOpt ...) it will never generate None values.
    Perhaps this is where we should use generators with property proof relevance? Future work... *)
-Definition gBoundedNOpt (bound : N): G (option (BoundedN.BoundedN bound)) :=
+Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
   n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
   returnGen (@decode_bounded bound (Pos.of_nat n)).
 
@@ -248,17 +239,6 @@ Instance genAddress : Gen (@Address LocalChainBase) :=
     arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
   |}.
 
-Definition gDeploymentAction {Setup Msg State : Type}
-                            `{Serializable Setup}
-                            `{Serializable Msg}
-                            `{Serializable State}
-                             {BaseTypes : ChainBase}
-                             (contract : @Contract BaseTypes Setup Msg State _ _ _)
-                             (setup : Setup) : G ActionBody :=
-  amount <- arbitrary ;;
-  returnGen (act_deploy amount contract (@serialize Setup _ setup)).
-
-
 (* Helper generator and show instance for arbitrary FMaps *)
 
 Fixpoint gFMapSized {A B : Type}
@@ -276,17 +256,6 @@ Fixpoint gFMapSized {A B : Type}
     returnGen (FMap.add a b m)
   end.
 
-Fixpoint gFMapFromInput {A B : Type}
-                       `{countable.Countable A}
-                       `{base.EqDecision A}
-                        (l1 : list A)
-                        (l2 : list B)
-                        : G (FMap A B) :=
-  match (l1, l2) with
-  | (a::l1', b::l2') => liftM (FMap.add a b) (gFMapFromInput l1' l2')
-  | (_, _) => returnGen FMap.empty
-  end.
-
 Instance genFMapSized {A B : Type}
                      `{Gen A}
                      `{Gen B}
@@ -299,20 +268,8 @@ Instance genFMapSized {A B : Type}
 
 (* Sample (@gFMapSized nat nat arbitrary arbitrary _ _ _ 1). *)
 
-Fixpoint vectorOfCount {A : Type}
-                      `{countable.Countable A}
-                       (default : A)
-                       (n : nat) : G (list A) :=
-  match n with
-  | 0    => returnGen []
-  | S n' =>
-    match (countable.decode o Pos.of_nat) n with
-    | Some a => liftM (cons a) (vectorOfCount default n')
-    | None => liftM (cons default) (vectorOfCount default n')
-    end
-  end.
 
-Definition optToVector {A : Type} (n : nat): (G (option A)) -> G (list A) :=
+Definition optToVector {A : Type} (n : nat): GOpt A -> G (list A) :=
   fun g =>
   l <- vectorOf n g ;;
   let l' := fold_left (fun acc aopt => match aopt with
@@ -321,67 +278,7 @@ Definition optToVector {A : Type} (n : nat): (G (option A)) -> G (list A) :=
                           end) l []
   in returnGen l'.
 
-Fixpoint shrinkListTo {A : Type} maxSize (l : list A) : list A:=
-  match l with
-  | [] => []
-  | x::xs => match maxSize with
-            | 0 => []
-            | S maxSize' => x :: (shrinkListTo maxSize' xs)
-            end
-  end.
-
-Fixpoint gInterp_type (t : SerializedType) : G (interp_type t) :=
-  match t with
-  | ser_unit => returnGen tt
-  | ser_int => @arbitrary Z _
-  | ser_bool => arbitrary
-  | ser_pair a b => liftM2 pair (gInterp_type a) (gInterp_type b)
-  | ser_list a => listOf (gInterp_type a)
-  end.
-
-Derive Arbitrary for SerializedType.
-
-Definition gSerializedValueSized (n : nat): G SerializedValue :=
-  t <- arbitrarySized n ;;
-  liftM (build_ser_value t) (gInterp_type t).
-
-Instance genSerializedValueSized : GenSized SerializedValue :=
-{|
-  arbitrarySized := gSerializedValueSized
-|}.
-
 (* Utils for QuickChick *)
-
-(* Helper functions when we want to state a property forAll x y z ... (someProp x y z ...) in QuickChick *)
-(* Where the generator for y depends on x, the generator for z depends on y, etc. *)
-Definition forAll2 {A B prop : Type}
-                  `{Checkable prop}
-                  `{Show A}
-                  `{Show B}
-                   (genA : G A)
-                   (fgenB : A -> G B)
-                   (pf : A -> B -> prop) :=
-  forAll genA (fun a => forAll (fgenB a) (fun b => pf a b)).
-
-Definition forAll3 {A B C prop : Type}
-                  `{Checkable prop}
-                  `{Show A}
-                  `{Show B}
-                  `{Show C}
-                   (genA : G A)
-                   (fgenB : A -> G B)
-                   (fgenC : A -> B -> G C)
-                   (pf : A -> B -> C -> prop) :=
-  forAll
-    genA
-    (fun a =>
-  forAll
-    (fgenB a)
-  (fun b =>
-  forAll
-    (fgenC a b)
-  (fun c => pf a b c))).
-
 
 (* Little helper to avoid having to write out matches with "false ==> true" in None case all the time *)
 Definition isSomeCheck {A B : Type} `{Checkable B} (a : option A) (f : A -> B) : Checker :=
@@ -478,16 +375,12 @@ Definition discardToSuccess {prop} `{Checkable prop} (p : prop): Checker :=
   
 (* QuickChick (discardToSuccess (false ==> true)). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
 (* QuickChick (discardToSuccess (conjoin [false==>true; checker true])). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
 (* QuickChick (conjoin [discardToSuccess (false==>true); checker true]). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
 (* QuickChick (discardToSuccess true). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
 (* QuickChick (discardToSuccess false). *)
 (* *** Failed after 1 tests and 0 shrinks. (0 discards) *)
 

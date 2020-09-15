@@ -46,3 +46,8 @@ Global Instance showSerializedValue : Show SerializedValue :=
     end
 |}.
 Close Scope string_scope.
+
+Instance showChainTraceSigT : Show {to : ChainState & ChainTrace empty_state to} :=
+{|
+  show a := show (projT2 a)
+|}.
