@@ -5,11 +5,11 @@ Import ListNotations.
 Import MonadNotation.
 
 (** Generation of string constants using MetaCoq *)
-Fixpoint mkNames (ns : list string) (postfix : string) :=
+Fixpoint mkNames (prefix : string) (ns : list string) (postfix : string) :=
   match ns with
   | [] => tmPrint "Done."
-  | n :: ns' => n' <- tmEval all (n ++ postfix)%string ;;
+  | n :: ns' => n' <- tmEval all (prefix ++ n ++ postfix)%string ;;
                   str <- tmQuote n';;
                   tmMkDefinition n str;;
-                  mkNames ns' postfix
+                  mkNames prefix ns' postfix
   end.

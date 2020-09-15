@@ -32,4 +32,10 @@ $(COQMAKEFILE): $(COQ_PROJ)
 	@$(MAKE) -f $(COQMAKEFILE) $@
 force $(COQ_PROJ): ;
 
+test-extraction:
+	./test-extraction.sh
+
+clean-extraction:
+	rm ./extraction/examples/elm-extract/*.elm.out
+
 .PHONY: clean all default force

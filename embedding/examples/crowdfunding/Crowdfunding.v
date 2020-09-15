@@ -2,7 +2,7 @@
 
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate Utils.
+     PCUICTranslate PCUICtoTemplate Utils TranslationUtils.
 
 From ConCert.Embedding.Examples Require Import Prelude SimpleBlockchain CrowdfundingData.
 
@@ -12,10 +12,12 @@ Import ListNotations.
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
-Import BaseTypes.
+Import BaseTypes StdLib.
 Open Scope list.
 
 Import Lia.
+
+Import Prelude.Maps.
 
 (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
 
@@ -34,7 +36,7 @@ Module CrowdfundingContract.
     Definition crowdfunding_init : expr :=
       [| \c : SCtx => \dl : Nat => \g : Money => mkState 0z MNil dl (ctx_from c) False g |].
 
-    Make Definition init :=
+    MetaCoq Unquote Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
     Check init.
@@ -45,23 +47,22 @@ Module CrowdfundingContract.
    Import Notations.
 
    (** We specialise some polymorphic constructors to avoid writing types all the time *)
-   Notation "'#Just' a" := [| {eConstr "option" "Some"}  {eTy [! Result!]} {a}|]
+   Notation "'#Just' a" := [| {eConstr (to_string_name <% option %>) "Some"}  {eTy [! Result!]} {a}|]
                            (in custom expr at level 0,
                                a custom expr at level 1).
 
-   Notation "'#Pair' a b" := [| {eConstr "prod" "pair"}
+   Notation "'#Pair' a b" := [| {eConstr Prod "pair"}
                                {eTy (tyInd State)}
                                {eTy actions_ty} {a} {b} |]
                            (in custom expr at level 0,
                                a custom expr at level 1,
                                b custom expr at level 1).
 
-   Notation "'#Nothing'" := (eApp (eConstr "option" "None") (eTy [!Result!]))
+   Notation "'#Nothing'" := (eApp (eConstr (to_string_name <% option %>) "None") (eTy [!Result!]))
                              (in custom expr at level 0).
 
-
-   Notation SCtx := "SimpleContractCallContext".
-   Notation SChain := "SimpleChain".
+   Definition SCtx := to_string_name <% SimpleContractCallContext_coq %>.
+   Definition SChain := to_string_name <% SimpleChain_coq %>.
 
    Definition crowdfunding : expr :=
     [| \chain : SChain =>  \c : SCtx => \m : Msg => \s : State =>
@@ -73,7 +74,7 @@ Module CrowdfundingContract.
          let accs : Map := donations s in
          case m : Msg return Maybe Result of
             | GetFunds ->
-             if (own == sender) && (deadline s <n now) && (goal s <= bal)  then
+             if (own ==n sender) && (deadline s <n now) && (goal s <= bal)  then
                #Just (#Pair (mkState 0z accs own (deadline s) True (goal s))
                           [Transfer bal sender])
              else #Nothing : Maybe Result
@@ -98,9 +99,7 @@ Module CrowdfundingContract.
               else #Nothing : Maybe Result
     |].
 
-  (* Compute (expr_to_tc Σ' (indexify nil crowdfunding)). *)
-
-  Make Definition receive :=
+  MetaCoq Unquote Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   End Receive.
@@ -161,8 +160,8 @@ Module CrowdfundingProperties.
 
   (** This lemma states that the only relevant part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :
-    Receive.receive (Build_chain height1 cur_slot fheight1 bal1) ctx msg st  =
-    Receive.receive (Build_chain height2 cur_slot fheight2 bal2) ctx msg st.
+    Receive.receive (Build_chain_coq height1 cur_slot fheight1 bal1) ctx msg st  =
+    Receive.receive (Build_chain_coq height2 cur_slot fheight2 bal2) ctx msg st.
   Proof.
     destruct msg;
       simpl;
@@ -172,8 +171,8 @@ Module CrowdfundingProperties.
   Qed.
 
   (** This function is a simplistic execution environment that performs one step of execution *)
-  Definition run (receive : State_coq -> option (State_coq * list SimpleActionBody) ) (init : State_coq)
-    : State_coq * list SimpleActionBody :=
+  Definition run (receive : State_coq -> option (State_coq * list SimpleActionBody_coq) ) (init : State_coq)
+    : State_coq * list SimpleActionBody_coq :=
     match receive init with
     | Some (fin, out) => (fin, out)
     | None => (init, []) (* if an error occurs, the state remains the same *)
@@ -181,8 +180,8 @@ Module CrowdfundingProperties.
 
   (** A wrapper for the assertions about the contract execution *)
   Definition assertion (pre : State_coq -> Prop)
-             (entry : State_coq -> option (State_coq * list SimpleActionBody))
-             (post : State_coq -> list SimpleActionBody -> Prop) :=
+             (entry : State_coq -> option (State_coq * list SimpleActionBody_coq))
+             (post : State_coq -> list SimpleActionBody_coq -> Prop) :=
     forall init, pre init -> exists fin out, run entry init = (fin, out) /\ post fin out.
 
   Notation "{{ P }} c {{ Q }}" := (assertion P c Q)( at level 50).
@@ -279,7 +278,7 @@ reached within a deadline *)
     repeat split;simpl;eauto. now rewrite lookup_map_add.
   Qed.
 
-  Fixpoint sum_map (m : addr_map) : Z :=
+  Fixpoint sum_map (m : addr_map_coq) : Z :=
     match m with
     | mnil => 0
     | mcons _ v m' => v + sum_map m'

@@ -7,7 +7,8 @@ Require Import PeanoNat.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
-From ConCert Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate EvalE.
+From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate EvalE.
+From ConCert.Embedding.Examples Require Import Utils.
 
 Import MonadNotation.
 Import BaseTypes.
@@ -21,22 +22,16 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
 (** Implementing a simple finite map data type using our embedding. We pick a simple representation of finite maps which is isomorphic to lists of key-value pairs *)
 
-(** Generation of string constants using MetaCoq. We use these string constants to make the embedding more readable. *)
-
-Fixpoint mkNames (ns : list string) (suffix : string) :=
-  match ns with
-  | [] => tmPrint "Done."
-  | n :: ns' => n' <- tmEval all (n ++ suffix)%string ;;
-                  str <- tmQuote n';;
-                  tmMkDefinition n str;;
-                  mkNames ns' suffix
-  end.
-
 (** ** The deep embedding of data structures for finite maps *)
 
-(** We generate names for inductives and constructors *)
-Run TemplateProgram
-      (mkNames ["Maybe";"Nothing";"Just"; "Map"; "MNil"; "MCons" ] "Acorn").
+(** We generate names for inductives and constants (preffixed with a module path) *)
+MetaCoq Run
+        (mp_ <- tmCurrentModPath tt ;;
+          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+          mkNames mp ["Maybe"; "Map"] "Acorn").
+
+(** And constructors (just names, no module path prefix) *)
+MetaCoq Run (mkNames "" ["Nothing";"Just"; "MNil"; "MCons"] "Acorn").
 
 (** Now we can use [Maybe] as a name for a data type in our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
 
@@ -49,7 +44,7 @@ Run TemplateProgram
 Definition maybe_syn :=
   gdInd Maybe 1 [(Nothing, []);  (Just, [(None,tyRel 0)])] false.
 
-Make Inductive (global_to_tc maybe_syn).
+MetaCoq Unquote Inductive (global_to_tc maybe_syn).
 
 (** Now, we define a type of finite maps using notations based on Custom Entries *)
 Definition map_syn :=
@@ -57,14 +52,14 @@ Definition map_syn :=
        MNil [_]
      | MCons [^1, ^0, (Map ^1 ^0), _]  \].
 
-Make Inductive (global_to_tc map_syn).
+MetaCoq Unquote Inductive (global_to_tc map_syn).
 
 Definition Σ' :=
   Σ ++ [ maybe_syn; map_syn ].
 
 (** We generate string constants for variable names as well to make our examples look nicer *)
-Run TemplateProgram
-      (mkNames ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "x"; "y"; "z"; "lookup"; "add" ] "_coq").
+MetaCoq Run
+      (mkNames "" ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "x"; "y"; "z" ; "lookup"; "add" ] "_coq").
 
 Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,
@@ -97,7 +92,7 @@ Definition lookup_syn :=
 (* Compute (indexify [] lookup_syn). *)
 
 (** Unquoting the [lookup_syn] to produce a Coq function *)
-Make Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
+MetaCoq Unquote Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
 
 (** AST for a function that adds an element to a map *)
 Definition add_map_syn :=
@@ -112,9 +107,7 @@ Definition add_map_syn :=
                        $MCons$Map 'A 'B k v z
                      else $MCons$Map 'A 'B x y (add z) : Map 'A 'B |].
 
-(* Compute (expr_to_term Σ' (indexify [] add_map_syn)). *)
-
-Make Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn)).
+MetaCoq Unquote Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn)).
 
 (** ** Correctness *)
 
@@ -164,7 +157,7 @@ Section MapEval.
                    | Suc b -> "eqb" a b))
      |].
 
-  Make Definition nat_eqb :=
+  MetaCoq Unquote Definition nat_eqb :=
     (expr_to_tc Σ' (indexify [] eqb_syn)).
 
   (** Showing that Acorn boolean equality is in fact the same as [Nat.eqb] *)

@@ -35,7 +35,7 @@ Definition my_negb_syn :=
           | False -> True |].
 
 (** We translate and unquote using the ConCert embedding feature *)
-Make Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
+MetaCoq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 (** We prove that the running the interpreter with [my_negb_syn] applied to an expression originating from Coq' boolean value computes the same result as the unquoted function [my_negb]. As a result, we do not depend on correctness of [unquote]  *)
 Lemma my_negb_correct b :

@@ -124,7 +124,7 @@ Global Ltac destruct_address_eq :=
     end.
 
 Section Blockchain.
-Context {BaseTypes : ChainBase}.
+Context {Base : ChainBase}.
 
 (* This represents the view of the blockchain that a contract
 can access and interact with. *)

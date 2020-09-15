@@ -2,6 +2,7 @@
 
 From ConCert Require Import Ast Notations PCUICTranslate PCUICtoTemplate.
 From Coq Require Import Basics String List.
+From MetaCoq Require Import Loader.
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
@@ -22,13 +23,13 @@ Check [| \x : Nat => y |].
 
 Definition id_f_syn :=  [| (\x : Nat => ^0) 1 |].
 
-Make Definition id_f_one := (expr_to_tc Σ id_f_syn).
+MetaCoq Unquote Definition id_f_one := (expr_to_tc Σ id_f_syn).
 Example id_f_eq : id_f_one = 1. Proof. reflexivity. Qed.
 
 (* The same as [id_f_syn], but with named vars *)
 Definition id_f_with_vars := [| (\x : Nat => x) 1 |].
 
-Make Definition id_f_one' := (expr_to_tc Σ (indexify [] id_f_with_vars)).
+MetaCoq Unquote Definition id_f_one' := (expr_to_tc Σ (indexify [] id_f_with_vars)).
 Example id_f_eq' : id_f_one' = 1. Proof. reflexivity. Qed.
 
 Definition simple_let_syn :=
@@ -37,7 +38,7 @@ Definition simple_let_syn :=
      let y : Nat := 1 in ^0
    |].
 
-Make Definition simple_let := (expr_to_tc Σ simple_let_syn).
+MetaCoq Unquote Definition simple_let := (expr_to_tc Σ simple_let_syn).
 Example simple_let_eq : simple_let 1 = 1. Proof. reflexivity. Qed.
 
 Definition simple_let_with_vars_syn :=
@@ -46,7 +47,7 @@ Definition simple_let_with_vars_syn :=
      let y : Nat := 1 in y
    |].
 
-Make Definition simple_let' := (expr_to_tc Σ (indexify [] simple_let_with_vars_syn)).
+MetaCoq Unquote Definition simple_let' := (expr_to_tc Σ (indexify [] simple_let_with_vars_syn)).
 Example simple_let_eq' : simple_let' 0 = 1. Proof. reflexivity. Qed.
 
 
@@ -58,7 +59,7 @@ Definition negb_syn :=
           | False -> True
   |].
 
-Make Definition negb' := (expr_to_tc Σ (indexify [] negb_syn)).
+MetaCoq Unquote Definition negb' := (expr_to_tc Σ (indexify [] negb_syn)).
 
 Example negb'_correct : forall b, negb' b = negb b.
 Proof.
@@ -68,7 +69,7 @@ Qed.
 Definition myplus_syn :=
   [| \x : Nat => \y : Nat => x + y |].
 
-Make Definition myplus := (expr_to_tc Σ (indexify [] myplus_syn)).
+MetaCoq Unquote Definition myplus := (expr_to_tc Σ (indexify [] myplus_syn)).
 
 Definition stupid_case :=
   fun y : Set => fun x : y => fun z : list y =>
@@ -77,50 +78,52 @@ Definition stupid_case :=
                 | _ => x
                 end.
 
-Quote Definition q_stupid_case := Eval compute in stupid_case.
-Quote Recursively Definition q_stupid_case_rec := stupid_case.
-Quote Definition cons_syn := (fun A : Set => cons A).
+MetaCoq Quote Definition q_stupid_case := Eval compute in stupid_case.
+MetaCoq Quote Recursively Definition q_stupid_case_rec := stupid_case.
+MetaCoq Quote Definition cons_syn := (fun A : Set => cons A).
 
 Definition case_ex :=
-  [| \\y  => \x : 'y =>  \z : "list" 'y =>
-         case z : "list" 'y return 'y of
+  [| \\y  => \x : 'y =>  \z : List 'y =>
+         case z : List 'y return 'y of
          | Nil -> x
          | Cons "hd" "tl" -> x |].
 
 Compute (expr_to_tc Σ (indexify [] case_ex)).
 
-Make Definition case_ex_def :=  (expr_to_tc Σ (indexify [] case_ex)).
+MetaCoq Unquote Definition case_ex_def :=  (expr_to_tc Σ (indexify [] case_ex)).
 
 Definition case_ex1 :=
-  [| \\y  => \"w" : 'y => \x : 'y =>  \z : "list" 'y =>
-         case z : "list" 'y return "prod" 'y 'y of
-         | Nil -> {eConstr "prod" "pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
-         | Cons "hd" "tl" -> {eConstr "prod" "pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
+  [| \\y  => \"w" : 'y => \x : 'y =>  \z : List 'y =>
+         case z : List 'y return Prod 'y 'y of
+         | Nil -> {eConstr Prod "pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
+         | Cons "hd" "tl" -> {eConstr Prod "pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
 
 Compute (expr_to_tc Σ (indexify [] case_ex1)).
 
-Make Definition case_ex_def1 :=  (expr_to_tc Σ (indexify [] case_ex1)).
+MetaCoq Unquote Definition case_ex_def1 :=  (expr_to_tc Σ (indexify [] case_ex1)).
 
 Definition case_ex2 :=
-  [| \\y => case ({eConstr "list" "nil"} "y") : "list" 'y return "list" 'y of
-            | Nil -> {eConstr "list" "nil"} "y"
-            | Cons "hd" "tl" -> {eConstr "list" "nil"} "y" |].
+  [| \\y => case ({eConstr List "nil"} "y") : List 'y return List 'y of
+            | Nil -> {eConstr List "nil"} "y"
+            | Cons "hd" "tl" -> {eConstr List "nil"} "y" |].
 
 Compute indexify [] case_ex2.
 Compute (expr_to_tc Σ (indexify [] case_ex2)).
 
-Make Definition case_ex_def2 :=  (expr_to_tc Σ (indexify [] case_ex2)).
+MetaCoq Unquote Definition case_ex_def2 :=  (expr_to_tc Σ (indexify [] case_ex2)).
 
-Make Definition ex_type_def := (type_to_tc (indexify_type [] example_type)).
+Definition example_type := [! ∀ "A", ∀ "B", Prod '"A" '"B" !].
+
+MetaCoq Unquote Definition ex_type_def := (type_to_tc (indexify_type [] example_type)).
 
 Definition map_syn :=
 gdInd "AMap" 2 [("ANil", []);
                   ("ACons", [(None,tyRel 1);(None,tyRel 0);
                                (None,(tyApp (tyApp (tyInd "AMap") (tyRel 1)) (tyRel 0)))])] false.
 
-Make Inductive (global_to_tc map_syn).
+MetaCoq Unquote Inductive (global_to_tc map_syn).
 
 Definition single_field_record_syn :=
   [\ record "sfrec" := "mkRec" {"fld" : Nat } \].
 
-Make Inductive (global_to_tc single_field_record_syn).
+MetaCoq Unquote Inductive (global_to_tc single_field_record_syn).
