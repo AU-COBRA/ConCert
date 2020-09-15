@@ -3051,7 +3051,6 @@ Proof.
         apply filter_length.
 Qed.
 
-Axiom projections_first : forall n, n = 0.
 Lemma dearg_correct Σ t v :
   env_closed (trans Σ) ->
   closed t ->
@@ -3407,7 +3406,7 @@ Proof.
       apply is_expanded_aux_mkApps_inv in H4 as (exp_constr & exp_args).
       cbn in *; propify.
       unfold dearg_proj.
-      apply (eval_proj _ _ _ _ _ (pairwise_remove (get_ctor_mask i k) (map dearg args)) k).
+      apply (eval_proj _ _ _ _ _ (pairwise_remove (get_ctor_mask i 0) (map dearg args))).
       * unshelve epose proof (IH _ _ _ _ _ ev1 _); auto.
         1: lia.
         rewrite dearg_mkApps in *.
@@ -3442,7 +3441,6 @@ Proof.
         replace (count_zeros (param_mask m) + (arg - count_ones (firstn arg (get_branch_mask m i 0))) -
             count_zeros (param_mask m)) with (arg - count_ones (firstn arg (get_branch_mask m i 0)))
           by lia.
-        pose proof (projections_first k) as ->.
         rewrite nth_error_pairwise_remove by easy.
         rewrite nth_error_skipn, nth.
         cbn.
