@@ -2,7 +2,6 @@ Global Set Warnings "-extraction-logical-axiom".
 
 Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
 
 From ConCert Require Import Blockchain.
 From ConCert Require Import LocalBlockchain.
@@ -11,16 +10,15 @@ From ConCert Require Import BoundedN.
 From ConCert Require Import Containers.
 From ConCert Require Import EIP20Token.
 From ConCert Require Import ResultMonad.
-From ConCert Require Import ChainedList.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
   TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
 
-From Coq Require Import List Int.
+From Coq Require Import List.
+Import ListNotations.
 Import BoundedN.Stdpp.
 Import LocalBlockchain.
-Import ListNotations.
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
@@ -34,7 +32,7 @@ Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
-  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
     build_act creator (act_transfer person_1 0);
     build_act creator (act_transfer person_2 0);
@@ -58,31 +56,14 @@ Definition forAllTokenChainTraces n :=
   let max_acts_per_block := 2 in
   forAllChainState n token_cb (gTokenChain max_acts_per_block).
 
-Definition pre_post_assertion_congress P c Q :=
+Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
   let trace_length := 7 in
   pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) EIP20Token.contract c P Q.
 
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
-
-Open Scope string_scope.
-(* Definition debug_gEIP20Checker {A : Type}
-                              `{Checkable A}
-                               lc
-                               (act : option Action)
-                               : A -> Checker :=
-  whenFail
-    ("lc balances: " ++ show (lc_account_balances lc) ++ sep ++ nl
-    ++ show act
-    ++ "token state: " ++ show (lc_token_contracts_states_deserialized lc) ++ sep ++ nl
-    ). *)
-
-(* Sample (gEIP20TokenAction chain_with_token_deployed contract_base_addr). *)
-(* Sample (gEIP20TokenChainTraceList 1 chain_with_token_deployed 5). *)
-Close Scope string_scope.
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
 
 Local Open Scope N_scope.
-
 Extract Constant defNumDiscards => "(3 * defNumTests)".
 
 Definition msg_is_transfer (cstate : EIP20Token.State) (msg : EIP20Token.Msg) :=

@@ -36,6 +36,7 @@ execution/tests/DexterTests/DexterTests.v
 execution/tests/EIP20Tests/EIP20TokenGens.v
 execution/tests/EIP20Tests/EIP20TokenPrinters.v
 execution/tests/EIP20Tests/EIP20TokenTests.v
+execution/tests/EIP20Tests/EIP20TokenBuggyTests.v
 execution/tests/EscrowTests/EscrowExtras.v
 execution/tests/EscrowTests/EscrowGens.v
 execution/tests/EscrowTests/EscrowPrinters.v
@@ -57,6 +58,7 @@ execution/examples/Congress.v
 execution/examples/Congress_Buggy.v
 execution/examples/Counter.v
 execution/examples/EIP20Token.v
+execution/examples/EIP20Token_Buggy.v
 execution/examples/Egcd.v
 execution/examples/Escrow.v
 execution/examples/Euler.v
