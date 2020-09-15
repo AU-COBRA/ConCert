@@ -331,7 +331,7 @@ Fixpoint deriv_length {Σ t v} (ev : Σ ⊢ t ▷ v) : nat :=
   | eval_iota _ _ _ _ _ _ _ ev1 ev2
   | eval_iota_sing _ _ _ _ _ _ _ ev1 _ ev2
   | eval_fix_value _ _ _ _ _ _ _ _ ev1 ev2 _ _
-  | eval_proj _ _ _ _ _ _ _ ev1 ev2
+  | eval_proj _ _ _ _ _ _ ev1 ev2
   | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
   | eval_beta _ _ _ _ _ _ ev1 ev2 ev3
   | eval_fix _ _ _ _ _ _ _ _ _ ev1 ev2 _ _ _ ev3 =>
@@ -572,10 +572,15 @@ Proof.
       noconf e.
       destruct o as [|(_ & ?)]; [easy|].
       now rewrite i in H.
-    + noconf H1.
-      assert (H = eq_refl) as -> by (apply uip).
+    + apply mkApps_eq_inj in e' as H'; try easy.
+      destruct H' as (H' & <-).
+      noconf H'.
+      assert (e' = eq_refl) as -> by (now apply uip).
       cbn in *.
       subst ev0.
+      rewrite e0 in e.
+      noconf e.
+      cbn in *.
       intuition.
   - depelim ev2; cbn in *; determ; cbn in *; try congruence; try solve_discr.
     + apply eval_mkApps_tCoFix in ev2_1 as H.
@@ -612,10 +617,8 @@ Proof.
     assert (body0 = body) as -> by congruence.
     intuition.
   - depelim ev2; cbn in *; determ; cbn in *; try congruence; try solve_discr.
-    + apply eval_mkApps_tCoFix in ev1_1 as H.
-      destruct H; solve_discr.
-    + noconf H.
-      intuition.
+    apply eval_mkApps_tCoFix in ev1_1 as H.
+    destruct H; solve_discr.
   - depelim ev2; cbn in *; determ; cbn in *; try congruence; try solve_discr.
     apply eval_mkApps_tCoFix in ev1 as H.
     destruct H; solve_discr.
