@@ -1,13 +1,10 @@
 (*
   The ChainTrace datatype is defined as a ChainedList of ChainStates and ChainSteps.
-  The ChainStep is an inductive relation with constructors 'step_block', 'step_action', and 'step_permute'.
-  Each constructor is guarded with a number of propositions, requiring various validity conditions.
+  This file defines a generator combinator, gChain, for the ChainBuilder type.
+  From this, a generator/arbitrary instance for the ChainTrace type is derived automatically.
 
-  This makes it hard to construct a generator for the ChainTrace type, so instead we initially construct a simpler model
-  for chain traces, which is essentially just a list of chain states.
-  But since we are working in the context of black-box testing, this may even be a better approach than trying to implement
-  generators for the ChainTrace type, since we don't want to ensure/require that certain conditions hold, we only want
-  to generate data from the given functions, and see what result we get.
+  This file also contains checker combinator  over ChainBuilders/ChainTraces, 
+  like forAllChainTrace, reachableFrom_chaintrace, and pre_post_assertion.
 *)
 
 Global Set Warnings "-extraction-logical-axiom".
@@ -35,6 +32,7 @@ Section TraceGens.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
 
+  (* Adds a block with 50 money as reward. This will be used for all testing. *)
   Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
         {| block_height := S (chain_height chain);
@@ -44,45 +42,8 @@ Section TraceGens.
           block_reward := 50; |} in
     builder_add_block chain header acts.
 
-  Definition next_header (chain : ChainBuilder) :=
-      {| block_height := S (chain_height chain);
-        block_slot := S (current_slot chain);
-        block_finalized_height := finalized_height chain;
-        block_creator := creator;
-        block_reward := 50; |}.
-
-  (* Helper function for backtrack_result. It picks and removes an element from a list of result generators. *)
-  Fixpoint pickDrop {T E}
-                    (default : E)
-                    (xs : list (nat * G (result T E))) 
-                    (n : nat) 
-                    : nat * G (result T E) * list (nat * G (result T E)) :=
-    match xs with
-      | nil => (0, returnGen (Err default), nil)
-      | (k, x) :: xs =>
-        if (n <? k) then  (k, x, xs)
-        else let '(k', x', xs') := pickDrop default xs (n - k)
-            in (k', x', (k,x)::xs')
-    end. 
-
-  (* Backtracking generator for results instead of Option. Works the same way as backtrack. *)
-  Fixpoint backtrack_result_fix {T E} (default : E) (fuel : nat) (gs : list (nat * G (result T E))) : G (result T E) :=
-    match fuel with
-    | 0 => returnGen (Err default)
-    | S fuel' => idx <- choose (0, fuel') ;;
-          let '(k, g, gs') := pickDrop default gs idx in
-          ma <- g ;;
-          match ma with
-          | Err e => backtrack_result_fix default fuel' gs'
-          | Ok r => returnGen (Ok r)
-          end
-    end.
-
-  Definition backtrack_result {T E} (default : E) (gs : list (nat * G (result T E))) : G (result T E) :=
-    backtrack_result_fix default (length gs) gs.
-
   Definition gAdd_block (cb : ChainBuilder)
-                          (gActOptFromChainSized : Environment -> nat -> G (option Action))
+                          (gActOptFromChainSized : Environment -> nat -> GOpt Action)
                           (act_depth : nat)
                           (max_acts_per_block : nat)
                           : G (result ChainBuilder AddBlockError) :=
@@ -92,7 +53,7 @@ Section TraceGens.
     else returnGen (add_block cb acts).
 
   Definition gChain (init_lc : ChainBuilder)
-                    (gActOptFromChainSized : Environment -> nat -> G (option Action))
+                    (gActOptFromChainSized : Environment -> nat -> GOpt Action)
                     (max_length : nat)
                     (act_depth : nat)
                     (max_acts_per_block : nat)

@@ -1,14 +1,12 @@
 From ConCert Require Import Blockchain EIP20Token.
 From ConCert Require Import Serializable.
+From ConCert Require Import Containers.
 From ConCert.Execution.QCTests Require Import TestUtils.
-
-Require Import ZArith Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
-From Coq Require Import List. Import ListNotations.
-Require Import Containers.
+From Coq Require Import List ZArith. Import ListNotations.
 
 Module Type EIP20GensInfo.
   Parameter contract_addr : Address.
@@ -50,20 +48,20 @@ Definition gTransfer (env : Environment) (state : EIP20Token.State) : G (Address
 Local Open Scope N_scope.
 
 (* Note: not optimal implementation. Should filter on balances map instead of first sampling and then filtering *)
-Definition gApprove (state : EIP20Token.State) : G (option (Address * Msg)) :=
+Definition gApprove (state : EIP20Token.State) : GOpt (Address * Msg) :=
   bindGenOpt (sample2UniqueFMapOpt state.(balances)) (fun p =>
     let addr1 := fst (fst p) in
     let balance1 := snd (fst p) in
     let addr2 := fst (snd p) in
     let balance2 := snd (snd p) in
     if 0 <? balance1
-    then amount <- choose (0, balance1) ;; returnGen (Some (addr1, approve addr2 amount))
+    then amount <- choose (0, balance1) ;; returnGenSome (addr1, approve addr2 amount)
     else if 0 <? balance2
-    then amount <- choose (0, balance2) ;; returnGen (Some (addr2, approve addr1 amount))
+    then amount <- choose (0, balance2) ;; returnGenSome (addr2, approve addr1 amount)
     else returnGen None
   ).
 
-Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)) :=
+Definition gTransfer_from (state : EIP20Token.State) : GOpt (Address * Msg) :=
   bindGenOpt (sampleFMapOpt state.(allowances)) (fun '(allower, allowance_map) =>
   bindGenOpt (sampleFMapOpt allowance_map) (fun '(delegate, allowance) =>
     bindGenOpt (sampleFMapOpt state.(balances)) (fun '(receiver, _) =>
@@ -71,34 +69,34 @@ Definition gTransfer_from (state : EIP20Token.State) : G (option (Address * Msg)
       amount <- (if allower_balance =? 0
                 then returnGen 0
                 else choose (0, N.min allowance allower_balance)) ;;
-      returnGen (Some (delegate, transfer_from allower receiver  amount))
+      returnGenSome (delegate, transfer_from allower receiver  amount)
     )
   )).
 
 Local Close Scope N_scope.
 (* Main generator. *)
-Definition gEIP20TokenAction (env : Environment) : G (option Action) :=
-  let mk_call contract_addr caller_addr msg :=
-    returnGen (Some {|
+Definition gEIP20TokenAction (env : Environment) : GOpt Action :=
+  let call contract_addr caller_addr msg :=
+    returnGenSome {|
       act_from := caller_addr;
       act_body := act_call contract_addr 0%Z (serializeMsg msg)
-    |}) in
+    |} in
   state <- returnGen (get_contract_state EIP20Token.State env contract_addr) ;;
   backtrack [
     (* transfer *)
     (2, '(caller, msg) <- gTransfer env state ;;
-        mk_call contract_addr caller msg
+        call contract_addr caller msg
     ) ;
     (* transfer_from *)
     (3, bindGenOpt (gTransfer_from state)
         (fun '(caller, msg) =>
-        mk_call contract_addr caller msg
+        call contract_addr caller msg
         )
     );
     (* approve *)
     (2, bindGenOpt (gApprove state)
         (fun '(caller, msg) =>
-        mk_call contract_addr caller msg
+        call contract_addr caller msg
         )
     )
   ].

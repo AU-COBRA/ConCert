@@ -17,7 +17,7 @@ Module Type FA2TestsInfo.
   Parameter fa2_client_addr : Address.
   Parameter fa2_hook_addr : Address.
   Parameter gAddrWithout : list Address -> G Address.
-  Parameter gUniqueAddrPair : G (option (Address * Address)).
+  Parameter gUniqueAddrPair : GOpt (Address * Address).
 End FA2TestsInfo.
 
 Module FA2Gens (Info : FA2TestsInfo).
@@ -43,7 +43,7 @@ Definition policy_allows_self_transfer (policy : permissions_descriptor) : bool 
 
 Local Open Scope N_scope.
 
-Definition liftOptGen {A : Type} (g : G A) : G (option A) :=
+Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
   a <- g ;;
   returnGenSome a.
 
@@ -193,7 +193,7 @@ Definition gUpdateOperators (chain : Chain)
       returnGenSome (msg_update_operators ops).
 
 
-Definition gFA2TokenAction (env : Environment) : G (option Action) :=
+Definition gFA2TokenAction (env : Environment) : GOpt Action :=
   let mk_call caller_addr amount msg :=
     returnGenSome {|
       act_from := caller_addr;
@@ -237,7 +237,7 @@ Definition gIsOperatorMsg : G (option ClientMsg) :=
       (Build_callback is_operator_response None) in
     returnGenSome (client_other_msg (Call_fa2_is_operator params)).
 
-Definition gClientAction (env : Environment) : G (option Action) :=
+Definition gClientAction (env : Environment) : GOpt Action :=
   let mk_call_fa2 caller fa2_caddr msg :=
     returnGenSome {|
       act_from := caller;
@@ -257,7 +257,7 @@ Section FA2HookGens.
 End FA2HookGens.
 
 (* Combine fa2 action generator, client action generator, and hook generator into one generator *)
-Definition gFA2Actions (env : Environment) (size : nat) : G (option Action) :=
+Definition gFA2Actions (env : Environment) (size : nat) : GOpt Action :=
   backtrack [
     (2, gFA2TokenAction env);
     (1, gClientAction env)
@@ -286,6 +286,6 @@ Module DummyTestInfo <: FA2TestsInfo.
   Definition fa2_client_addr := zero_address.
   Definition fa2_hook_addr := zero_address.
   Definition gAddrWithout (ws : list Address) := returnGen zero_address.
-  Definition gUniqueAddrPair : G (option (Address * Address)) := returnGen None.
+  Definition gUniqueAddrPair : GOpt (Address * Address) := returnGen None.
 End DummyTestInfo.
 Module MG := FA2Gens.FA2Gens DummyTestInfo. Import MG.

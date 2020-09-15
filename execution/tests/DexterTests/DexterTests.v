@@ -147,9 +147,9 @@ Definition call_dexter owner_addr :=
   |} in
   build_act owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
 
-Definition gExploitAction : G (option Action) :=
+Definition gExploitAction : GOpt Action :=
   bindGen (elems [person_1; person_2; person_3]) (fun addr =>
-    returnGen (Some (call_dexter addr))
+    returnGenSome (call_dexter addr)
   ).
 
 Definition gExploitChainTraceList max_acts_per_block cb length :=

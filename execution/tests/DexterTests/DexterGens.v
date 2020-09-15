@@ -54,7 +54,7 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
   returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg))
 .
 
-Definition liftOptGen {A : Type} (g : G A) : G (option A) :=
+Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
   a <- g ;;
   returnGenSome a.
 
@@ -66,7 +66,7 @@ Definition gAddTokensToReserve (c : Chain)
   amount <- liftOptGen (choose (0%Z, c.(account_balance) caller)) ;;
   returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
-Definition gDexterAction (env : Environment) : G (option Action) :=
+Definition gDexterAction (env : Environment) : GOpt Action :=
   let mk_call caller_addr amount msg :=
     returnGenSome {|
       act_from := caller_addr;
