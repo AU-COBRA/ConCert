@@ -1,3 +1,4 @@
+From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ExTyping.
@@ -467,26 +468,11 @@ Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :
     remove_vars state #|defs|
   end.
 
-Fixpoint type_arity (t : box_type) : nat :=
-  match t with
-  | TArr _ cod => S (type_arity cod)
-  | _ => 0
+Fixpoint decompose_TArr (bt : box_type) : list box_type × box_type :=
+  match bt with
+  | TArr dom cod => map_fst (cons dom) (decompose_TArr cod)
+  | _ => ([], bt)
   end.
-
-Definition analyze_constant
-           (cst : constant_body)
-           (inds : list (kername × mib_masks)) : bitmask × list (kername × mib_masks) :=
-  match cst_body cst with
-  | Some body =>
-    let max_lams := type_arity (cst_type cst).2 in
-    let '(mask, (_, inds)) := analyze_top_level analyze ([], inds) max_lams body in
-    (mask, inds)
-  | None => ([], inds)
-  end.
-
-Record dearg_set := {
-  const_masks : list (kername * bitmask);
-  ind_masks : list (kername * mib_masks); }.
 
 Definition is_box_or_any (bt : box_type) : bool :=
   match bt with
@@ -494,6 +480,21 @@ Definition is_box_or_any (bt : box_type) : bool :=
   | TAny => true
   | _ => false
   end.
+
+Definition analyze_constant
+           (cst : constant_body)
+           (inds : list (kername × mib_masks)) : bitmask × list (kername × mib_masks) :=
+  match cst_body cst with
+  | Some body =>
+    let max_lams := #|(decompose_TArr (cst_type cst).2).1| in
+    let '(mask, (_, inds)) := analyze_top_level analyze ([], inds) max_lams body in
+    (mask, inds)
+  | None => (map is_box_or_any (decompose_TArr (cst_type cst).2).1, inds)
+  end.
+
+Record dearg_set := {
+  const_masks : list (kername * bitmask);
+  ind_masks : list (kername * mib_masks); }.
 
 Fixpoint analyze_env (Σ : global_env) : dearg_set :=
   match Σ with

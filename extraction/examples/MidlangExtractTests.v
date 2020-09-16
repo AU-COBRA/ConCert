@@ -255,3 +255,23 @@ Module ex9.
 "  | MPINAConstr2 (List □) (Prod a b)" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex9.
+
+Module ex10.
+  (* Debox axiom *)
+  Definition foo (x : { n : nat | n > 0 }) := proj1_sig x.
+  MetaCoq Quote Recursively Definition ex10 := foo.
+
+  Example ex10_test :
+    general_extract ex10 [<%% @proj1_sig %%>] [] = Ok <$
+"type Sig a";
+"  = Exist a";
+"";
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : Sig Nat -> Nat";
+"foo x =";
+"  proj1_sig x" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex10.

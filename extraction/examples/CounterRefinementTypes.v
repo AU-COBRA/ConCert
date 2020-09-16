@@ -133,7 +133,7 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
                        ++ printMain |}.
 
 (* TODO : revisit the description after proofs for deboxing are done *)
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. *)
+(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and de-boxing procedure that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
      (r <- tmQuoteRecTransp counter false;;
