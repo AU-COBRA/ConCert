@@ -4,6 +4,7 @@ From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import StringExtra.
 From Coq Require Import Arith.
 From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
@@ -22,7 +23,8 @@ Instance StandardBoxes : BoxSymbol :=
 Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
-           | _ => Err "Expected program to be a tConst"
+           | tInd ind _ => ret (inductive_mind ind)
+           | _ => Err "Expected program to be a tConst or tInd"
            end;;
   Σ <- specialize_erase_debox_template_env_no_wf_check p.1 [entry] ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
@@ -32,36 +34,34 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
 Definition extract (p : program) : result string string :=
   general_extract p [] [].
 
-
 Module ex1.
   Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex1 := bar.
 
-  Definition ex1_expected :=
-"type Sig a" ++ nl ++
-"  = Exist a" ++ nl ++
-"" ++ nl ++
-"proj1_sig : Sig a -> a" ++ nl ++
-"proj1_sig e =" ++ nl ++
-"  case e of" ++ nl ++
-"    Exist a ->" ++ nl ++
-"      a" ++ nl ++
-"" ++ nl ++
-"type Nat" ++ nl ++
-"  = O" ++ nl ++
-"  | S Nat" ++ nl ++
-"" ++ nl ++
-"foo : Sig Nat" ++ nl ++
-"foo =" ++ nl ++
-"  Exist O" ++ nl ++
-"" ++ nl ++
-"bar : Nat" ++ nl ++
-"bar =" ++ nl ++
-"  proj1_sig foo".
-
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex1) in exact x) =
-                  Ok ex1_expected.
+  Example ex1_test :
+    extract ex1 = Ok <$
+"type Sig a";
+"  = Exist a";
+"";
+"proj1_sig : Sig a -> a";
+"proj1_sig e =";
+"  case e of";
+"    Exist a ->";
+"      a";
+"";
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : Sig Nat";
+"foo =";
+"  Exist O";
+"";
+"bar : Nat";
+"bar =";
+"  proj1_sig foo" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex1.
 
 Module ex2.
@@ -69,8 +69,29 @@ Module ex2.
   Definition foo : { n : nat | only_in_type = 5 } := exist _ 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex2 := bar.
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex2) in exact x) =
-                  Ok ex1.ex1_expected.
+  Example ex2_test :
+    extract ex2 = Ok <$
+"type Sig a";
+"  = Exist a";
+"";
+"proj1_sig : Sig a -> a";
+"proj1_sig e =";
+"  case e of";
+"    Exist a ->";
+"      a";
+"";
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : Sig Nat";
+"foo =";
+"  Exist O";
+"";
+"bar : Nat";
+"bar =";
+"  proj1_sig foo" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex2.
 
 Module ex3.
@@ -80,41 +101,40 @@ Module ex3.
   Definition baz := foo bar.
   MetaCoq Quote Recursively Definition ex3 := baz.
 
-  Definition ex3_expected :=
-"type Nat" ++ nl ++
-"  = O" ++ nl ++
-"  | S Nat" ++ nl ++
-"" ++ nl ++
-"foo : (□ -> Nat -> Nat) -> Nat" ++ nl ++
-"foo f =" ++ nl ++
-"  f □ O" ++ nl ++
-"" ++ nl ++
-"bar : Nat -> Nat" ++ nl ++
-"bar n =" ++ nl ++
-"  n" ++ nl ++
-"" ++ nl ++
-"baz : Nat" ++ nl ++
-"baz =" ++ nl ++
-"  foo (\x -> bar)".
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex3) in exact x) =
-                  Ok ex3_expected.
+  Example ex3_test :
+    extract ex3 = Ok <$
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : (□ -> Nat -> Nat) -> Nat";
+"foo f =";
+"  f □ O";
+"";
+"bar : Nat -> Nat";
+"bar n =";
+"  n";
+"";
+"baz : Nat";
+"baz =";
+"  foo (\x -> bar)" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex3.
 
 Module ex4.
   Definition foo : {0 = 0} + {0 <> 0} := left eq_refl.
   MetaCoq Quote Recursively Definition ex4 := foo.
 
-  Definition ex4_expected :=
-"type Sumbool" ++ nl ++
-"  = Left" ++ nl ++
-"  | Right" ++ nl ++
-"" ++ nl ++
-"foo : Sumbool" ++ nl ++
-"foo =" ++ nl ++
-"  Left".
-
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex4) in exact x) =
-                  Ok ex4_expected.
+  Example ex4_test :
+    extract ex4 = Ok <$
+"type Sumbool";
+"  = Left";
+"  | Right";
+"";
+"foo : Sumbool";
+"foo =";
+"  Left" $>.
+  Proof. now vm_compute. Qed.
 End ex4.
 
 Module ex5.
@@ -122,55 +142,51 @@ Module ex5.
   Definition foo : (0 = 0) + (0 <> 0) := inl eq_refl.
   MetaCoq Quote Recursively Definition ex5 := foo.
 
-  Definition ex5_expected :=
-"type Sum a b" ++ nl ++
-"  = Inl a" ++ nl ++
-"  | Inr b" ++ nl ++
-"" ++ nl ++
-"foo : Sum □ □" ++ nl ++
-"foo =" ++ nl ++
-"  Inl □".
-  Compute (extract ex5).
-  Compute ex5_expected.
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex5) in exact x) =
-                  Ok ex5_expected.
+  Example ex5_test :
+    extract ex5 = Ok <$
+"type Sum a b";
+"  = Inl a";
+"  | Inr b";
+"";
+"foo : Sum □ □";
+"foo =";
+"  Inl □" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex5.
 
-(*
 Module ex6.
   Definition foo (f : 5 = 5 -> 5 = 5 -> nat -> nat) := f eq_refl eq_refl 0.
   Definition bar (m : nat) (p q : 5 = 5) (n : nat) := m + n.
   (* bar must be eta expanded twice and m and n need to be lifted *)
   Definition baz := (fun m n => foo (bar (m + n))) 0.
   MetaCoq Quote Recursively Definition ex6 := baz.
-  Compute extract ex6.
 
-  Definition ex6_expected :=
-"type Nat" ++ nl ++
-"  = O" ++ nl ++
-"  | S Nat" ++ nl ++
-"" ++ nl ++
-"foo : (□ -> □ -> Nat -> Nat) -> Nat" ++ nl ++
-"foo f =" ++ nl ++
-"  f □ □ O" ++ nl ++
-"" ++ nl ++
-"add : Nat -> Nat -> Nat" ++ nl ++
-"add n m =" ++ nl ++
-"  case n of" ++ nl ++
-"    O ->" ++ nl ++
-"      m" ++ nl ++
-"    S p ->" ++ nl ++
-"      S (add p m)" ++ nl ++
-"" ++ nl ++
-"bar : Nat -> Nat -> Nat" ++ nl ++
-"bar m n =" ++ nl ++
-"  add m n" ++ nl ++
-"" ++ nl ++
-"baz : Nat -> Nat" ++ nl ++
-"baz =" ++ nl ++
-"  (\m n -> foo (\x x2 -> bar (add m n))) O".
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex6) in exact x) =
-                  Ok ex6_expected.
+  Example ex6_test :
+    extract ex6 = Ok <$
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : (□ -> □ -> Nat -> Nat) -> Nat";
+"foo f =";
+"  f □ □ O";
+"";
+"add : Nat -> Nat -> Nat";
+"add n m =";
+"  case n of";
+"    O ->";
+"      m";
+"    S p ->";
+"      S (add p m)";
+"";
+"bar : Nat -> Nat -> Nat";
+"bar m n =";
+"  add m n";
+"";
+"baz : Nat -> Nat";
+"baz =";
+"  (\m n -> foo (\x x2 -> bar (add m n))) O" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex6.
 
 Module ex7.
@@ -179,28 +195,83 @@ Module ex7.
   Definition bar := foo 1 eq_refl 0.
   MetaCoq Quote Recursively Definition ex7 := bar.
 
-  Definition ex7_expected :=
-"type Nat" ++ nl ++
-"  = O" ++ nl ++
-"  | S Nat" ++ nl ++
-"" ++ nl ++
-"foo : Nat -> Nat -> Nat" ++ nl ++
-"foo n =" ++ nl ++
-"  let" ++ nl ++
-"    x =" ++ nl ++
-"      O" ++ nl ++
-"  in" ++ nl ++
-"  \m -> case n of" ++ nl ++
-"          O ->" ++ nl ++
-"            m" ++ nl ++
-"          S n0 ->" ++ nl ++
-"            n" ++ nl ++
-"" ++ nl ++
-"bar : Nat" ++ nl ++
-"bar =" ++ nl ++
-"  foo (S O) O".
-  Check eq_refl : ltac:(let x := eval vm_compute in (extract ex7) in exact x) =
-                  Ok ex7_expected.
+  Example ex7_test :
+    extract ex7 = Ok <$
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : Nat -> Nat -> Nat";
+"foo n =";
+"  let";
+"    x =";
+"      O";
+"  in";
+"  \m -> case n of";
+"          O ->";
+"            m";
+"          S n0 ->";
+"            n";
+"";
+"bar : Nat";
+"bar =";
+"  foo (S O) O" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex7.
 
-*)
+Module ex8.
+  (* Remove P, Q, and proofs from inductive *)
+  Inductive ManyParamsInd (A : Type) (P : Prop) (Q : Prop) (B : Type) :=
+    MPIConstr : P -> A -> B -> ManyParamsInd A P Q B.
+
+  MetaCoq Quote Recursively Definition ex8 := ManyParamsInd.
+
+  Example ex8_test :
+    extract ex8 = Ok <$
+"type ManyParamsInd a b";
+"  = MPIConstr a b" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex8.
+
+Module ex9.
+  (* [Q] is non-arity parameter *)
+  Inductive ManyParamsIndNonArity (A : Type) (P : Prop) (Q : True) (B : Type) :=
+    MPINAConstr1 : P -> A -> B -> ManyParamsIndNonArity A P Q B
+  | MPINAConstr2 : P -> list P -> A*B -> ManyParamsIndNonArity A P Q B.
+
+  MetaCoq Quote Recursively Definition ex9 := ManyParamsIndNonArity.
+
+  Example ManyParamsIndNonArity_test:
+    extract ex9 = Ok <$
+"type List a";
+"  = Nil";
+"  | Cons a (List a)";
+"";
+"type Prod a b";
+"  = Pair a b";
+"";
+"type ManyParamsIndNonArity a b";
+"  = MPINAConstr1 a b";
+"  | MPINAConstr2 (List □) (Prod a b)" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex9.
+
+Module ex10.
+  (* Debox axiom *)
+  Definition foo (x : { n : nat | n > 0 }) := proj1_sig x.
+  MetaCoq Quote Recursively Definition ex10 := foo.
+
+  Example ex10_test :
+    general_extract ex10 [<%% @proj1_sig %%>] [] = Ok <$
+"type Sig a";
+"  = Exist a";
+"";
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"foo : Sig Nat -> Nat";
+"foo x =";
+"  proj1_sig x" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex10.
