@@ -547,27 +547,14 @@ Proof.
       now apply IHForall.
 Qed.
 
-Fixpoint pairwise_remove {X} (mask : bitmask) (xs : list X) :=
-  match mask with
-  | [] => xs
-  | b :: mask =>
-    match xs with
-    | [] => []
-    | x :: xs =>
-      match b with
-      | true => pairwise_remove mask xs
-      | false => x :: pairwise_remove mask xs
-      end
-    end
-  end.
 
-Lemma pairwise_remove_nil {X} mask :
-  @pairwise_remove X mask [] = [].
+Lemma masked_nil {X} mask :
+  @masked X mask [] = [].
 Proof. now destruct mask as [|[] ?]. Qed.
 
-Lemma dearg_single_pairwise_remove mask t args :
+Lemma dearg_single_masked mask t args :
   #|mask| <= #|args| ->
-  dearg_single mask t args = mkApps t (pairwise_remove mask args).
+  dearg_single mask t args = mkApps t (masked mask args).
 Proof.
   intros le.
   induction mask in mask, t, args, le |- *.
@@ -576,13 +563,13 @@ Proof.
     now destruct a; cbn in *; apply IHmask.
 Qed.
 
-Lemma All2_pairwise_remove {X Y} {T : X -> Y -> Type} xs ys mask :
+Lemma All2_masked {X Y} {T : X -> Y -> Type} xs ys mask :
   All2 T xs ys ->
-  All2 T (pairwise_remove mask xs) (pairwise_remove mask ys).
+  All2 T (masked mask xs) (masked mask ys).
 Proof.
   intros all.
   induction all in mask |- *.
-  - now rewrite !pairwise_remove_nil.
+  - now rewrite !masked_nil.
   - destruct mask as [|[] mask]; [now constructor| |]; cbn in *.
     + now apply IHall.
     + now constructor.
@@ -595,7 +582,7 @@ Lemma dearg_lambdas_correct Σ body args mask v :
   valid_dearg_mask mask body ->
   #|mask| <= #|args| ->
   Σ ⊢ mkApps body args ▷ v ->
-  Σ ⊢ mkApps (dearg_lambdas mask body) (pairwise_remove mask args) ▷ v.
+  Σ ⊢ mkApps (dearg_lambdas mask body) (masked mask args) ▷ v.
 Proof.
   intros env_clos body_clos args_clos valid_mask l ev.
   destruct (valid_dearg_mask_spec _ _ valid_mask) as (Γ & inner & vasses_len & <-).
@@ -2649,7 +2636,7 @@ Proof.
   - now rewrite is_constructor_app_or_box_alt, isBox_mkApps, decompose_app_mkApps in yes.
   - apply is_expanded_aux_mkApps_inv in exp as (exp_hd & exp_args).
     cbn in *; propify.
-    rewrite dearg_single_pairwise_remove by (now rewrite map_length).
+    rewrite dearg_single_masked by (now rewrite map_length).
     rewrite is_constructor_app_or_box_alt.
     rewrite decompose_app_mkApps by easy.
     cbn.
@@ -2840,11 +2827,11 @@ Section dearg.
       + destruct (dearg_elim f'); cbn.
         * apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
           cbn in *; propify.
-          rewrite dearg_single_pairwise_remove by (now rewrite map_length).
+          rewrite dearg_single_masked by (now rewrite map_length).
           now rewrite isLambda_mkApps, isFixApp_mkApps, isBox_mkApps.
         * apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
           cbn in *; propify.
-          rewrite dearg_single_pairwise_remove by (now rewrite map_length).
+          rewrite dearg_single_masked by (now rewrite map_length).
           now rewrite isLambda_mkApps, isFixApp_mkApps, isBox_mkApps.
         * unfold dearg_case.
           now destruct (get_mib_masks _);
@@ -2977,9 +2964,9 @@ Proof.
   now rewrite is_dead_dearg_aux.
 Qed.
 
-Lemma pairwise_remove_length {X} m (xs : list X) :
+Lemma masked_length {X} m (xs : list X) :
   #|m| <= #|xs| ->
-  #|pairwise_remove m xs| = count_zeros m + #|xs| - #|m|.
+  #|masked m xs| = count_zeros m + #|xs| - #|m|.
 Proof.
   intros len.
   induction m in xs, len |- *; cbn in *.
@@ -2992,22 +2979,22 @@ Proof.
       now unfold count_zeros.
 Qed.
 
-Lemma pairwise_remove_app {X} m m' (xs : list X) :
-  pairwise_remove (m ++ m') xs = firstn (count_zeros m) (pairwise_remove m xs) ++ pairwise_remove m' (skipn #|m| xs).
+Lemma masked_app {X} m m' (xs : list X) :
+  masked (m ++ m') xs = firstn (count_zeros m) (masked m xs) ++ masked m' (skipn #|m| xs).
 Proof.
   induction m in m', xs |- *; cbn in *; [easy|].
   destruct xs.
   - destruct a; cbn.
-    + now rewrite firstn_nil, skipn_nil, pairwise_remove_nil.
-    + now rewrite skipn_nil, pairwise_remove_nil.
+    + now rewrite firstn_nil, skipn_nil, masked_nil.
+    + now rewrite skipn_nil, masked_nil.
   - destruct a; cbn.
     + now rewrite IHm, skipn_S.
     + f_equal.
       apply IHm.
 Qed.
 
-Lemma pairwise_remove_map {X Y} m (f : X -> Y) xs :
-  pairwise_remove m (map f xs) = map f (pairwise_remove m xs).
+Lemma masked_map {X Y} m (f : X -> Y) xs :
+  masked m (map f xs) = map f (masked m xs).
 Proof.
   induction m as [|[] m IH] in xs |- *; [easy| |]; cbn in *.
   - destruct xs; cbn in *; [easy|].
@@ -3031,14 +3018,14 @@ Proof.
   now cbn; rewrite IHn.
 Qed.
 
-Lemma nth_error_pairwise_remove {X} m (xs : list X) n :
+Lemma nth_error_masked {X} m (xs : list X) n :
   nth n m false = false ->
-  nth_error (pairwise_remove m xs) (n - count_ones (firstn n m)) =
+  nth_error (masked m xs) (n - count_ones (firstn n m)) =
   nth_error xs n.
 Proof.
   intros not_removed.
   induction n in m, xs, not_removed |- *; cbn in *.
-  - destruct xs; [now rewrite pairwise_remove_nil|].
+  - destruct xs; [now rewrite masked_nil|].
     destruct m; [easy|].
     now destruct b.
   - destruct m; cbn in *; [easy|].
@@ -3101,7 +3088,7 @@ Proof.
       - exists ev'.
         now cbn in *. }
 
-    rewrite dearg_single_pairwise_remove by (now rewrite map_length).
+    rewrite dearg_single_masked by (now rewrite map_length).
     apply dearg_lambdas_correct.
     + now apply env_closed_dearg.
     + apply closedn_dearg_aux; [|easy].
@@ -3133,7 +3120,7 @@ Proof.
     apply All2_length in ev_args as ?.
     apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
     cbn in *; propify.
-    rewrite !dearg_single_pairwise_remove by (now rewrite map_length).
+    rewrite !dearg_single_masked by (now rewrite map_length).
     assert (ev_args_dearg: All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv)).
     { assert (all_smaller: sum_deriv_lengths ev_args <= n).
       { pose proof (deriv_length_min ev_constr).
@@ -3154,7 +3141,7 @@ Proof.
           * now depelim exp_args.
           * lia. }
 
-    now apply eval_mkApps_tConstruct, All2_pairwise_remove.
+    now apply eval_mkApps_tConstruct, All2_masked.
   - facts.
     apply closed_mkApps_inv in clos_t as (clos_t & clos_args).
     apply valid_cases_mkApps_inv in valid_t as (valid_t & valid_args).
@@ -3178,12 +3165,12 @@ Proof.
       apply valid_cases_mkApps_inv in H3 as (valid_hd & valid_args).
       apply is_expanded_aux_mkApps_inv in H4 as (exp_hd & exp_args).
       cbn in *; propify.
-      apply (eval_iota _ _ _ _ c (pairwise_remove (get_ctor_mask ind c) (map dearg args))).
+      apply (eval_iota _ _ _ _ c (masked (get_ctor_mask ind c) (map dearg args))).
       * unshelve epose proof (IH _ _ _ _ _ ev1 _); auto.
         1: lia.
         rewrite dearg_mkApps in *.
         cbn in *.
-        now rewrite dearg_single_pairwise_remove in * by (now rewrite map_length).
+        now rewrite dearg_single_masked in * by (now rewrite map_length).
       * destruct (get_mib_masks _) eqn:mm; cycle 1.
         { cbn in *.
           unfold get_ctor_mask.
@@ -3219,9 +3206,9 @@ Proof.
         cbn in *.
         replace
           (skipn (count_zeros (param_mask m))
-                 (pairwise_remove (param_mask m ++ get_branch_mask m ind c) (map dearg args)))
+                 (masked (param_mask m ++ get_branch_mask m ind c) (map dearg args)))
           with
-            (pairwise_remove (get_branch_mask m ind c)
+            (masked (get_branch_mask m ind c)
                              (skipn #|param_mask m| (map dearg args))); cycle 1.
         { clear.
           generalize (get_branch_mask m ind c) as m2.
@@ -3232,10 +3219,10 @@ Proof.
           - cbn.
             now rewrite !skipn_0.
           - destruct a; cbn in *.
-            + destruct ts; [now rewrite !skipn_nil, !pairwise_remove_nil|].
+            + destruct ts; [now rewrite !skipn_nil, !masked_nil|].
               rewrite skipn_S.
               now apply IHm1.
-            + destruct ts; [now rewrite !skipn_nil, !pairwise_remove_nil|].
+            + destruct ts; [now rewrite !skipn_nil, !masked_nil|].
               rewrite !skipn_S.
               now apply IHm1. }
 
@@ -3289,7 +3276,7 @@ Proof.
         lia.
       * destruct (get_mib_masks _); cbn in *; [easy|].
         now rewrite dearg_lambdas_nil, Nat.sub_0_r.
-      * replace (repeat tBox _) with (pairwise_remove branch_mask (repeat tBox n)); cycle 1.
+      * replace (repeat tBox _) with (masked branch_mask (repeat tBox n)); cycle 1.
         { unfold valid_case_masks in valid_brs_masks.
           destruct (get_mib_masks _).
           - clear -valid_brs_masks.
@@ -3406,12 +3393,12 @@ Proof.
       apply is_expanded_aux_mkApps_inv in H4 as (exp_constr & exp_args).
       cbn in *; propify.
       unfold dearg_proj.
-      apply (eval_proj _ _ _ _ _ (pairwise_remove (get_ctor_mask i 0) (map dearg args))).
+      apply (eval_proj _ _ _ _ _ (masked (get_ctor_mask i 0) (map dearg args))).
       * unshelve epose proof (IH _ _ _ _ _ ev1 _); auto.
         1: lia.
         rewrite dearg_mkApps in *.
         cbn in *.
-        now rewrite dearg_single_pairwise_remove in * by (now rewrite map_length).
+        now rewrite dearg_single_masked in * by (now rewrite map_length).
       * clear clos_constr valid_constr.
         unfold get_ctor_mask in *.
         revert ev2 deriv_len.
@@ -3430,18 +3417,18 @@ Proof.
         rewrite app_length in *.
         unfold valid_proj in valid_p; rewrite mm in valid_p; propify.
         destruct valid_p as (<- & arg_unused).
-        rewrite pairwise_remove_map, nth_error_map, pairwise_remove_app.
+        rewrite masked_map, nth_error_map, masked_app.
         rewrite nth_error_app2; cycle 1.
         { rewrite firstn_length.
           lia. }
         rewrite firstn_length.
         rewrite Nat.min_l; cycle 1.
-        { rewrite pairwise_remove_length by easy.
+        { rewrite masked_length by easy.
           lia. }
         replace (count_zeros (param_mask m) + (arg - count_ones (firstn arg (get_branch_mask m i 0))) -
             count_zeros (param_mask m)) with (arg - count_ones (firstn arg (get_branch_mask m i 0)))
           by lia.
-        rewrite nth_error_pairwise_remove by easy.
+        rewrite nth_error_masked by easy.
         rewrite nth_error_skipn, nth.
         cbn.
         unshelve eapply (IH _ _ _ _ _ ev2 _).

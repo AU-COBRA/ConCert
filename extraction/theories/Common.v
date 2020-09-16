@@ -448,7 +448,7 @@ Definition general_specialize_erase_debox_template_env
   Σ' <- map_error string_of_erase_global_decl_error
                  (general_erase_global_decls_deps_recursive Σ wfΣ ignore seeds) ;;
   if debox then
-    ret (debox_types_global_env (remove_unused_args Σ'))
+    ret (remove_unused_args Σ')
   else ret Σ'.
 
 (* Like above, but takes a list of names to ignore and assumes that the environment is well-formed *)

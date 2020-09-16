@@ -269,4 +269,4 @@ Definition lines (l : list string) :=
   String.concat (String (ascii_of_nat 10) "") l.
 
 Notation "<$ x ; y ; .. ; z $>" :=
-  (lines (List.cons x (List.cons y .. (List.cons z List.nil) ..))) : list_scope.
+  (lines (List.cons x (List.cons y .. (List.cons z List.nil) ..))) : string_scope.

@@ -368,27 +368,6 @@ Definition erase_and_print_ind_prog (p : Ast.program)
   | _ => cannot_happen
   end.
 
-Definition erase_remove_params_and_print_ind_prog (p : Ast.program)
-           : result string erase_ind_error :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  match trans p.2 with
-  | P.tInd ind _ =>
-    match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
-    | Some (kn, P.InductiveDecl mib) =>
-      let get_for_mib kn mib' :=
-          mapi (fun i oib=>(mkInd kn i, get_ctor_param_mask oib)) mib'.(ExAst.ind_bodies) in
-      inder <- erase_ind
-                 (Σ, ind_universes mib) assume_wellformed
-                 (inductive_mind ind) mib assume_wellformed;;
-      let ds := Build_dearg_set_ty [] (get_for_mib kn inder) in
-      let inder := remove_logical_params_mib ds inder in
-      ret (print_inductive Σ inder)
-    | _ => cannot_happen
-    end
-  | _ => cannot_happen
-  end.
-
 MetaCoq Quote Recursively Definition ex1 := nat.
 Check eq_refl : ltac:(let x := eval vm_compute in (erase_and_print_ind_prog ex1) in exact x) =
                 Ok ("data nat" ++ nl ++
@@ -489,12 +468,6 @@ Example ManyParamsInd_test :
         "| MPIConstr □ □ □ □ □ A B" $>.
 Proof. reflexivity. Qed.
 
-Example ManyParamsInd_remove_log_params_test :
-  erase_remove_params_and_print_ind_prog ex11 =
-  Ok <$ "data ManyParamsInd A B";
-        "| MPIConstr □ □ □ □ □ A B" $>.
-Proof. reflexivity. Qed.
-
 (* [Q] is non-arity parameter *)
 Inductive ManyParamsIndNonArity (A : Type) (P : Prop) (Q : True) (B : Type) :=
   MPINAConstr1 : P -> A -> B -> ManyParamsIndNonArity A P Q B
@@ -505,13 +478,6 @@ MetaCoq Quote Recursively Definition ex12 := ManyParamsIndNonArity.
 Example ManyParamsIndNonArity_test:
   erase_and_print_ind_prog ex12 =
   Ok <$ "data ManyParamsIndNonArity A P Q B";
-        "| MPINAConstr1 □ □ □ □ □ A B";
-        "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
-Proof. vm_compute. reflexivity. Qed.
-
-Example ManyParamsIndNonArity_remove_log_params_test:
-  erase_remove_params_and_print_ind_prog ex12 =
-  Ok <$ "data ManyParamsIndNonArity A B";
         "| MPINAConstr1 □ □ □ □ □ A B";
         "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
 Proof. vm_compute. reflexivity. Qed.
