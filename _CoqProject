@@ -96,7 +96,6 @@ embedding/examples/crowdfunding/Crowdfunding.v
 embedding/examples/crowdfunding/CrowdfundingData.v
 
 -Q extraction/theories ConCert.Extraction
-extraction/theories/AnalyzeCorrectness.v
 extraction/theories/Aux.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v

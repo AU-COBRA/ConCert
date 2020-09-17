@@ -40,6 +40,12 @@ Ltac propify :=
     | [|- context[orb _ _ = true]] => rewrite Bool.orb_true_iff
     end.
 
+Definition map_fst {A B C} (f : A -> B) (p : A × C) : B × C :=
+  (f p.1, p.2).
+
+Definition map_snd {A B C} (f : B -> C) (p : A × B) : A × C :=
+  (p.1, f p.2).
+
 Definition alli {X} (f : nat -> X -> bool) : nat -> list X -> bool :=
   fix alli (n : nat) (xs : list X) :=
     match xs with
