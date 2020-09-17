@@ -13,7 +13,7 @@ jobs:
         env && \
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        make && \
+        make -j && \
         make html
     - uses: actions/upload-artifact@v2
       with:
