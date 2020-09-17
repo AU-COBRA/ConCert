@@ -39,7 +39,7 @@ test-extraction:
 	cd $(ELM_DIR); elm-test
 	$(foreach file, $(wildcard $(LIQ_DIR)/*.liq), liquidity $(file);)
 
-process-extraction:
+process-extraction: code
 	./process-extraction.sh
 
 clean-extraction:
