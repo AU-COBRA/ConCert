@@ -105,9 +105,9 @@ Definition COUNTER_MODULE :
      (* code for the entry point *)
      lmd_entry_point := printWrapperAndMain |}.
 
-
-(* TODO : revisit the description after proofs for deboxing are done *)
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. *)
+(** We run the extraction procedure inside the [TemplateMonad].
+    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
      (t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
@@ -115,3 +115,6 @@ Time MetaCoq Run
      ).
 
 Print liquidity_crowdfunding.
+
+(** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+Redirect "./extraction/examples/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.
