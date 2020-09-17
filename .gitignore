@@ -49,6 +49,9 @@ extraction/examples/elm-extract/src/
 extraction/examples/elm-extract/tests/
 extraction/examples/elm-extract/*.html
 
+## Liquidity tests
+extraction.examples/liquidity-extract/*
+
 .coq-native/
 .csdp.cache
 .lia.cache

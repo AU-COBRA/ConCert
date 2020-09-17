@@ -7,8 +7,11 @@ COQDOCFLAGS:= \
 export COQDOCFLAGS
 COQMAKEFILE:=CoqMakefile
 COQ_PROJ:=_CoqProject
+ELM_DIR:=./extraction/examples/elm-extract/
+LIQ_DIR:=./extraction/examples/liquidity-extract/tests
 
-default: code
+
+default: code process-extraction
 
 all: code html
 
@@ -33,9 +36,14 @@ $(COQMAKEFILE): $(COQ_PROJ)
 force $(COQ_PROJ): ;
 
 test-extraction:
-	./test-extraction.sh
+	cd $(ELM_DIR); elm-test
+	$(foreach file, $(wildcard $(LIQ_DIR)/*.liq), liquidity $(file);)
+
+process-extraction:
+	./process-extraction.sh
 
 clean-extraction:
 	rm ./extraction/examples/elm-extract/*.elm.out
+	rm ./extraction/examples/liquidity-extract/*.liq.out
 
 .PHONY: clean all default force

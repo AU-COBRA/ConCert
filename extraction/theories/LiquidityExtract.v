@@ -122,6 +122,9 @@ Definition liquitidy_simple_extract
   | _ => inr "Constant expected"
   end.
 
+Definition wrap_in_delimeters s :=
+  String.concat nl ["";"(*START*)"; s; "(*END*)"].
+
 Definition liquitidy_extraction {msg ctx params storage operation : Type}
            (prefix : string)
            (TT_defs : list (kername *  string))
@@ -140,6 +143,7 @@ Definition liquitidy_extraction {msg ctx params storage operation : Type}
                                  init_nm receive_nm) ;;
   match p with
   | inl s =>
-    tmEval lazy (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])
+    tmEval lazy
+           (wrap_in_delimeters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)]))
   | inr s => tmFail s
   end.

@@ -146,7 +146,10 @@ Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
                         ++ nl
                         ++ printMain |}.
 
-(** We translate required definitions and print them into a single string containing the whole program. The definition with the corresponding code is added to Coq's environment. *)
+(** We run the extraction procedure inside the [TemplateMonad].
+    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    that removes application of boxes to constants and constructors. *)
+
 Time MetaCoq Run
      (t <- liquitidy_extraction PREFIX TT_remap TT_rename INTERP_MODULE ;;
       tmDefinition INTERP_MODULE.(lmd_module_name) t
@@ -155,6 +158,5 @@ Time MetaCoq Run
 (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
 Print liquidity_interp.
 
-(** or redirected to a file, creating "interp.liq.out".
- The contents require further post-processing to be compiled with the Liquidity compiler.*)
-Redirect "interp.liq" Compute liquidity_interp. (* creates "interp.liq.out"*)
+(** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+Redirect "./extraction/examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp.

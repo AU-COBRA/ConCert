@@ -1,0 +1,40 @@
+parameter %default (pair int key_hash);
+storage (pair int key_hash);
+code { DUP ;
+       DIP { CDR @_storage } ;
+       CAR @_parameter ;
+       DUP ;
+       LAMBDA @inner
+         (pair (pair timestamp (pair address (pair mutez mutez))) (pair int key_hash))
+         (option (pair int key_hash))
+         { RENAME @ctx_setup_slash_51 ;
+           DUP @ctx_setup ;
+           CAR @ctx ;
+           { DIP { DUP @ctx_setup } ; SWAP } ;
+           CDR @setup ;
+           { DIP { DUP @ctx } ; SWAP } ;
+           { DIP { DUP @setup } ; SWAP } ;
+           SOME ;
+           DIP { DROP } ;
+           DIP { DROP } ;
+           DIP { DROP } ;
+           DIP { DROP } } ;
+       BALANCE ;
+       AMOUNT ;
+       PAIR ;
+       SENDER ;
+       PAIR ;
+       NOW ;
+       PAIR @ctx ;
+       { DIP { DUP @inner } ; SWAP } ;
+       { DIP 3 { DUP @setup } ; DIG 3 } ;
+       { DIP 2 { DUP @ctx } ; DIG 2 } ;
+       PAIR ;
+       EXEC ;
+       IF_NONE { UNIT ; FAILWITH } { DUP @v ; DIP { DROP } } ;
+       DIP { DROP } ;
+       DIP { DROP } ;
+       DIP { DROP } ;
+       NIL operation ;
+       PAIR ;
+       DIP { DROP 2 } };
