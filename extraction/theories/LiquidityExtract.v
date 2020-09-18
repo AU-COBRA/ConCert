@@ -98,6 +98,18 @@ Definition liquidity_call_ctx :=
    (Current.amount (),
     Current.balance ())))".
 
+Definition liquidity_extract_args :=
+  {| check_wf_env_func := check_wf_env_func check_masks_args;
+     pcuic_params :=
+       {| erase_func := erase_func (pcuic_params check_masks_args);
+          dearg_args :=
+            Some
+              {| do_trim_const_masks := true;
+                 do_trim_ctor_masks := false; (* cannot have partially applied ctors *)
+                 check_closed := true;
+                 check_expanded := true;
+                 check_valid_masks := true |} |} |}.
+
 Definition liquidity_simple_extract
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -109,7 +121,7 @@ Definition liquidity_simple_extract
     let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
     let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-    match extract_template_env_check_masks p.1 seeds ignore with
+    match extract_template_env liquidity_extract_args p.1 seeds ignore with
     | Ok eΣ =>
       (* dependencies should be printed before the dependent definitions *)
       let ldef_list := List.rev (print_global_env "" TT eΣ) in
