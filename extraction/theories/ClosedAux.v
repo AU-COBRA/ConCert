@@ -68,13 +68,16 @@ Qed.
 
 Definition decl_closed (decl : EAst.global_decl) : bool :=
   match decl with
-  | EAst.ConstantDecl cst =>
-    match EAst.cst_body cst with
+  | ConstantDecl cst =>
+    match cst_body cst with
     | Some body => closed body
     | _ => true
     end
   | _ => true
   end.
+
+Definition env_closed (Σ : EAst.global_declarations) : bool :=
+  forallb (decl_closed ∘ snd) Σ.
 
 Arguments Nat.ltb : simpl nomatch.
 

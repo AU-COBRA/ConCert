@@ -74,7 +74,7 @@ Definition trans_cst (cst : constant_body) : EAst.constant_body :=
 
 (* Translation from our global environment into MetaCoq's global environment.
    We only translate constants which is justified by the proof above. *)
-Definition trans (Σ : global_env) : EAst.global_context :=
+Definition trans_env (Σ : global_env) : EAst.global_context :=
   let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
       match decl with
       | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
@@ -84,7 +84,7 @@ Definition trans (Σ : global_env) : EAst.global_context :=
   flat_map (fun '(kn, decl) => map_decl kn decl) Σ.
 
 Lemma declared_constant_trans Σ kn cst :
-  ETyping.declared_constant (trans Σ) kn cst ->
+  ETyping.declared_constant (trans_env Σ) kn cst ->
   exists n typ,
     nth_error Σ n =
     Some (kn, ConstantDecl {| cst_type := typ; cst_body := EAst.cst_body cst |}).
@@ -105,6 +105,7 @@ Proof.
   - destruct IH as (n' & typ & cond); [assumption|].
     now exists (S n'), typ.
 Qed.
+
 
 Fixpoint is_dead (rel : nat) (t : term) : bool :=
   match t with
@@ -435,8 +436,7 @@ Lemma eval_dearg_lambdas_inv Σ mask Γ inner v :
   closed (it_mkLambda_or_LetIn Γ inner) ->
   #|mask| = #|vasses Γ| ->
   Σ ⊢ dearg_lambdas mask (it_mkLambda_or_LetIn Γ inner) ▷ v ->
-  ∑ tv,
-    Σ ⊢ it_mkLambda_or_LetIn Γ inner ▷ tv.
+  ∑ tv, Σ ⊢ it_mkLambda_or_LetIn Γ inner ▷ tv.
 Proof.
   intros env_clos clos len_eq ev.
   induction #|Γ| as [|Γlen IH] eqn:Γlen_eq in Γ, mask, inner, v, clos, len_eq, ev |- *.
@@ -1789,7 +1789,7 @@ Qed.
 
 Lemma is_expanded_constant Σ kn cst body :
   is_expanded_env Σ ->
-  ETyping.declared_constant (trans Σ) kn cst ->
+  ETyping.declared_constant (trans_env Σ) kn cst ->
   EAst.cst_body cst = Some body ->
   is_expanded body.
 Proof.
@@ -1803,7 +1803,7 @@ Proof.
 Qed.
 
 Lemma eval_is_expanded_aux Σ t v k :
-  trans Σ ⊢ t ▷ v ->
+  trans_env Σ ⊢ t ▷ v ->
   is_expanded_env Σ ->
   is_expanded_aux k t ->
   is_expanded_aux k v .
@@ -2227,7 +2227,7 @@ Qed.
 
 Lemma valid_cases_constant Σ kn cst body :
   valid_masks_env Σ ->
-  ETyping.declared_constant (trans Σ) kn cst ->
+  ETyping.declared_constant (trans_env Σ) kn cst ->
   EAst.cst_body cst = Some body ->
   valid_cases body.
 Proof.
@@ -2241,7 +2241,7 @@ Qed.
 
 Lemma valid_dearg_mask_constant Σ kn cst body :
   valid_masks_env Σ ->
-  ETyping.declared_constant (trans Σ) kn cst ->
+  ETyping.declared_constant (trans_env Σ) kn cst ->
   EAst.cst_body cst = Some body ->
   valid_dearg_mask (get_const_mask kn) body.
 Proof.
@@ -2254,9 +2254,9 @@ Proof.
 Qed.
 
 Lemma eval_valid_cases Σ t v :
-  trans Σ ⊢ t ▷ v ->
+  trans_env Σ ⊢ t ▷ v ->
 
-  env_closed (trans Σ) ->
+  env_closed (trans_env Σ) ->
   closed t ->
 
   valid_masks_env Σ ->
@@ -2347,9 +2347,9 @@ Proof with auto with dearg.
 Qed.
 
 Lemma declared_constant_dearg Σ k cst :
-  ETyping.declared_constant (trans Σ) k cst ->
+  ETyping.declared_constant (trans_env Σ) k cst ->
   ∑ cst',
-    ETyping.declared_constant (trans (dearg_env Σ)) k cst' ×
+    ETyping.declared_constant (trans_env (dearg_env Σ)) k cst' ×
     EAst.cst_body cst' = option_map (dearg ∘ dearg_lambdas (get_const_mask k))
                                     (EAst.cst_body cst).
 Proof.
@@ -2721,16 +2721,16 @@ Ltac facts :=
 Section dearg.
   Context (n : nat).
   Context (Σ : global_env).
-  Context (clos_Σ : env_closed (trans Σ)).
+  Context (clos_Σ : env_closed (trans_env Σ)).
   Context (valid_Σ : valid_masks_env Σ).
   Context (exp_Σ : is_expanded_env Σ).
   Context (IH : forall t v : term,
         closed t ->
         valid_cases t ->
         is_expanded t ->
-        forall ev : trans Σ ⊢ t ▷ v,
+        forall ev : trans_env Σ ⊢ t ▷ v,
         deriv_length ev <= n ->
-        trans (dearg_env Σ) ⊢ dearg t ▷ dearg v).
+        trans_env (dearg_env Σ) ⊢ dearg t ▷ dearg v).
 
   Lemma eval_tApp_dearg {hd arg v} :
     closed hd ->
@@ -2740,9 +2740,9 @@ Section dearg.
     closed arg ->
     valid_cases arg ->
     is_expanded arg ->
-    forall (ev : trans Σ ⊢ tApp hd arg ▷ v),
+    forall (ev : trans_env Σ ⊢ tApp hd arg ▷ v),
       deriv_length ev <= S n ->
-      trans (dearg_env Σ) ⊢ tApp (dearg hd) (dearg arg) ▷ dearg v.
+      trans_env (dearg_env Σ) ⊢ tApp (dearg hd) (dearg arg) ▷ dearg v.
   Proof with auto with dearg.
     intros clos_hd valid_hd exp_hd clos_arg valid_arg exp_arg ev ev_len.
     depind ev; cbn in *.
@@ -2855,9 +2855,9 @@ Section dearg.
     Forall (closedn 0) args ->
     Forall valid_cases args ->
     Forall is_expanded args ->
-    forall (ev : trans Σ ⊢ mkApps hd args ▷ v),
+    forall (ev : trans_env Σ ⊢ mkApps hd args ▷ v),
       deriv_length ev <= n ->
-      trans (dearg_env Σ) ⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
+      trans_env (dearg_env Σ) ⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
   Proof.
     intros clos_hd valid_hd exp_hd clos_args valid_args exp_args ev ev_len.
     pose proof (eval_mkApps_deriv ev) as (hdv & ev_hd & argsv & ev_args & ev_args_len).
@@ -2890,10 +2890,10 @@ Section dearg.
     Forall (closedn 0) args ->
     Forall valid_cases args ->
     Forall is_expanded args ->
-    (args = [] -> trans (dearg_env Σ) ⊢ dearg hd ▷ dearg v) ->
-    forall (ev : trans Σ ⊢ mkApps hd args ▷ v),
+    (args = [] -> trans_env (dearg_env Σ) ⊢ dearg hd ▷ dearg v) ->
+    forall (ev : trans_env Σ ⊢ mkApps hd args ▷ v),
       deriv_length ev <= S n ->
-      trans (dearg_env Σ) ⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
+      trans_env (dearg_env Σ) ⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
   Proof.
     intros clos_hd valid_hd exp_hd clos_args valid_args exp_args no_args ev ev_len.
     destruct args as [|? ? _] using MCList.rev_ind; cbn in *; [easy|].
@@ -2935,8 +2935,8 @@ Section dearg.
 End dearg.
 
 Lemma env_closed_dearg Σ :
-  env_closed (trans Σ) ->
-  env_closed (trans (dearg_env Σ)).
+  env_closed (trans_env Σ) ->
+  env_closed (trans_env (dearg_env Σ)).
 Proof.
   intros clos.
   induction Σ as [|(kn & decl) Σ IH]; [easy|].
@@ -3039,7 +3039,7 @@ Proof.
 Qed.
 
 Lemma dearg_correct Σ t v :
-  env_closed (trans Σ) ->
+  env_closed (trans_env Σ) ->
   closed t ->
 
   valid_masks_env Σ ->
@@ -3048,13 +3048,13 @@ Lemma dearg_correct Σ t v :
   is_expanded_env Σ ->
   is_expanded t ->
 
-  trans Σ ⊢ t ▷ v ->
-  trans (dearg_env Σ) ⊢ dearg t ▷ dearg v.
+  trans_env Σ ⊢ t ▷ v ->
+  trans_env (dearg_env Σ) ⊢ dearg t ▷ dearg v.
 Proof.
   intros clos_env clos_t valid_env valid_t exp_env exp_t.
-  enough (forall n (ev : trans Σ ⊢ t ▷ v),
+  enough (forall n (ev : trans_env Σ ⊢ t ▷ v),
              deriv_length ev <= n ->
-             trans (dearg_env Σ) ⊢ dearg t ▷ dearg v).
+             trans_env (dearg_env Σ) ⊢ dearg t ▷ dearg v).
   { intros ev.
     eapply (H _ ev).
     apply le_refl. }
@@ -3069,7 +3069,7 @@ Proof.
     destruct isdecl_dearg as (cst_dearg & decl_dearg & body_dearg).
     rewrite e in body_dearg; cbn in *.
 
-    enough (trans (dearg_env Σ)
+    enough (trans_env (dearg_env Σ)
             ⊢ dearg_single (get_const_mask kn)
                            (dearg (dearg_lambdas (get_const_mask kn) body))
                            (map dearg args) ▷ dearg v) as ev'.
@@ -3081,7 +3081,7 @@ Proof.
 
     rewrite dearg_dearg_lambdas by
         eauto using valid_dearg_mask_constant, valid_cases_constant.
-    assert (∑ ev' : trans Σ ⊢ mkApps body args ▷ v,
+    assert (∑ ev' : trans_env Σ ⊢ mkApps body args ▷ v,
                deriv_length ev' < deriv_length ev) as (ev_body & deriv_body).
     { unshelve epose proof (eval_mkApps_heads_deriv _ ev_const ev) as (ev' & ?).
       - now econstructor.
@@ -3121,7 +3121,7 @@ Proof.
     apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
     cbn in *; propify.
     rewrite !dearg_single_masked by (now rewrite map_length).
-    assert (ev_args_dearg: All2 (eval (trans (dearg_env Σ))) (map dearg args) (map dearg argsv)).
+    assert (ev_args_dearg: All2 (eval (trans_env (dearg_env Σ))) (map dearg args) (map dearg argsv)).
     { assert (all_smaller: sum_deriv_lengths ev_args <= n).
       { pose proof (deriv_length_min ev_constr).
         lia. }
@@ -3475,7 +3475,7 @@ Proof.
 Qed.
 
 Lemma metacoq_dearg_correct Σ t v :
-  env_closed (trans Σ) ->
+  env_closed (trans_env Σ) ->
   closed t ->
 
   valid_masks_env Σ ->
@@ -3484,8 +3484,8 @@ Lemma metacoq_dearg_correct Σ t v :
   is_expanded_env Σ ->
   is_expanded t ->
 
-  trans Σ p⊢ t ▷ v ->
-  trans (dearg_env Σ) p⊢ dearg t ▷ dearg v.
+  trans_env Σ p⊢ t ▷ v ->
+  trans_env (dearg_env Σ) p⊢ dearg t ▷ dearg v.
 Proof.
   intros ? ? ? ? ? ? ev.
   apply eval_evalT in ev as [ev].

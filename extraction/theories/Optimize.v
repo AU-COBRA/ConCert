@@ -522,18 +522,16 @@ Fixpoint analyze_env (Σ : global_env) : dearg_set :=
     {| const_masks := consts; ind_masks := inds |}
   end.
 
-(* Remove trailing "false" bits in masks in dearg set *)
-Definition trim_dearg_set (ds : dearg_set) : dearg_set :=
-  let dearg_mib_masks mm :=
-      {| param_mask := param_mask mm;
-         ctor_masks := map (fun '(ind, c, mask) =>
-                              (ind, c, trim_end false mask))
-                           (ctor_masks mm) |} in
-  {| const_masks := map (on_snd (trim_end false)) (const_masks ds);
-     ind_masks := map (on_snd dearg_mib_masks) (ind_masks ds) |}.
+(* Remove trailing "false" bits in masks *)
+Definition trim_const_masks (cm : list (kername × bitmask)) :=
+  map (on_snd (trim_end false)) cm.
 
-Definition remove_unused_args (Σ : global_env) : global_env :=
-  let ds := analyze_env Σ in
-  let ds := trim_dearg_set ds in
-  let Σ := dearg_env (ind_masks ds) (const_masks ds) Σ in
-  debox_env_types Σ.
+Definition trim_ctor_masks (cm : list ((nat × nat) × bitmask)) :=
+  map (fun '(ind, c, mask) => (ind, c, trim_end false mask)) cm.
+
+Definition trim_mib_masks (mm : mib_masks) :=
+  {| param_mask := param_mask mm;
+     ctor_masks := trim_ctor_masks (ctor_masks mm) |}.
+
+Definition trim_ind_masks (im : list (kername × mib_masks)) :=
+  map (on_snd trim_mib_masks) im.

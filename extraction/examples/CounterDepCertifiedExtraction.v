@@ -6,7 +6,7 @@ From MetaCoq.Erasure Require Import Loader.
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Extraction Require Import LiquidityExtract LPretty PreludeExt Common.
+From ConCert.Extraction Require Import LiquidityExtract LPretty PreludeExt Common Extraction.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -120,33 +120,12 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
                        ++ printMain |}.
 
-MetaCoq Quote Recursively Definition ex_partially_applied_syn :=
-  ((fun msg : msg => fun st => match msg with
-    | Inc i =>
-      match (my_bool_dec (0 <=? i) true) with
-      | left h =>
-        let f := inc_balance st i in
-        Some ([], f h)
-      | right _ => None
-      end
-    | Dec i =>
-      match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
-      | right _ => None
-      end
-    end) : msg -> storage -> option (list operation * storage)).
-
-
-Example partially_applied :
-  erase_and_check_applied ex_partially_applied_syn = PCUICSafeChecker.CorrectDecl false.
-Proof. reflexivity. Qed.
-
 (** We run the extraction procedure inside the [TemplateMonad].
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
-     (t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 
