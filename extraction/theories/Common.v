@@ -801,26 +801,3 @@ Definition EnvCheck_to_template {A } (ec : EnvCheck A) : TemplateMonad A :=
   | CorrectDecl a => ret a
   | EnvError Σ e => tmFail (string_of_env_error Σ e)
   end.
-
-(* The definitions below are ment to be used ONLY when translating [ExAst.global_env] into [EAst.global_contex] for PRINTING purposes. Because in general it's not possible to recover the "standard" [EAst] representation of inductives from the data structures of [ExAst]*)
-Definition trans_cst (cst : ExAst.constant_body) : EAst.constant_body :=
-  {| EAst.cst_body := ExAst.cst_body cst |}.
-
-Definition trans_oib (oib : ExAst.one_inductive_body) : EAst.one_inductive_body :=
-  {| EAst.ind_name := oib.(ExAst.ind_name);
-     EAst.ind_kelim := InType; (* just a "random" pick, not involved in printing *)
-     EAst.ind_ctors := map (fun '(nm, _) => ((nm,EAst.tBox),0)) oib.(ExAst.ind_ctors);
-     EAst.ind_projs := [] |}.
-
-Definition trans_mib (mib : ExAst.mutual_inductive_body) : EAst.mutual_inductive_body :=
-  {| EAst.ind_npars := mib.(ExAst.ind_npars);
-     EAst.ind_bodies := map trans_oib mib.(ExAst.ind_bodies) |}.
-
-Definition trans_global_decls (Σ : ExAst.global_env) : EAst.global_context :=
-  let map_decl kn (decl : ExAst.global_decl) : list (kername * EAst.global_decl) :=
-      match decl with
-      | ExAst.ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
-      | ExAst.InductiveDecl _ mib => [(kn, EAst.InductiveDecl (trans_mib mib))]
-      | ExAst.TypeAliasDecl _ => []
-      end in
-  flat_map (fun '(kn, decl) => map_decl kn decl) Σ.

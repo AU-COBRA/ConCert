@@ -12,7 +12,6 @@ From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import SafeTemplateErasure Loader.
 From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.Erasure Require SafeErasureFunction.
-From MetaCoq.Erasure Require EPretty.
 From MetaCoq.Template Require Import config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.
@@ -75,7 +74,7 @@ Definition erase_print (p : program) (debox : bool) : result string string :=
   match decl with
   | ExAst.ConstantDecl cb =>
     b <- result_of_option cb.(ExAst.cst_body) "Error: a constant with no body";;
-    ret (EPretty.print_term (Common.trans_global_decls Σ) [] true false b)
+    ret (ExAst.print_term Σ b)
   | _ => Err "Error: expected a constant"
   end.
 

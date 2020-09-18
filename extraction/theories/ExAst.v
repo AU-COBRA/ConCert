@@ -1,5 +1,7 @@
 From Coq Require Import List.
+From Coq Require Import String.
 From MetaCoq.Erasure Require Export EAst.
+From MetaCoq.Erasure Require EPretty.
 
 Import ListNotations.
 
@@ -75,3 +77,29 @@ Fixpoint lookup_env (Σ : global_env) (id : kername) : option global_decl :=
   | [] => None
   | (name, decl) :: Σ => if eq_kername id name then Some decl else lookup_env Σ id
   end.
+
+Definition trans_cst_for_printing (cst : constant_body) : EAst.constant_body :=
+  {| EAst.cst_body := cst_body cst |}.
+
+Definition trans_oib_for_printing (oib : one_inductive_body) : EAst.one_inductive_body :=
+  {| EAst.ind_name := oib.(ind_name);
+     EAst.ind_kelim := InType; (* just a "random" pick, not involved in printing *)
+     EAst.ind_ctors := map (fun '(nm, _) => ((nm,EAst.tBox),0)) oib.(ind_ctors);
+     EAst.ind_projs := [] |}.
+
+Definition trans_mib_for_printing
+           (mib : mutual_inductive_body) : EAst.mutual_inductive_body :=
+  {| EAst.ind_npars := mib.(ind_npars);
+     EAst.ind_bodies := map trans_oib_for_printing mib.(ind_bodies) |}.
+
+Definition trans_global_decls_for_printing (Σ : global_env) : EAst.global_context :=
+  let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
+      match decl with
+      | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst_for_printing cst))]
+      | InductiveDecl _ mib => [(kn, EAst.InductiveDecl (trans_mib_for_printing mib))]
+      | TypeAliasDecl _ => []
+      end in
+  flat_map (fun '(kn, decl) => map_decl kn decl) Σ.
+
+Definition print_term (Σ : global_env) (t : term) : string :=
+  EPretty.print_term (trans_global_decls_for_printing Σ) [] true false t.
