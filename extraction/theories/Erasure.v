@@ -1124,7 +1124,8 @@ Program Fixpoint erase_global_decls_deps_recursive
         let decl := decl_to_axiom decl in
         Σer <- erase_global_decls_deps_recursive Σ _ include ignore ;;
         ret ((kn, decl) :: Σer)
-      else erase_global_decls_deps_recursive Σ _ include ignore
+      else
+        erase_global_decls_deps_recursive Σ _ include ignore
   end.
 Solve All Obligations with cbn;intros;subst; now sq; inversion wfΣ.
 End EraseEnv.

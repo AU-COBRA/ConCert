@@ -3495,3 +3495,17 @@ Qed.
 End dearg_correct.
 
 Print Assumptions dearg_correct.
+
+Lemma trans_env_debox_env_types Σ :
+  trans_env (debox_env_types Σ) = trans_env Σ.
+Proof.
+  unfold debox_env_types.
+  generalize Σ at 1 as masks.
+  induction Σ as [|(kn, decl) Σ IH]; intros masks; [easy|].
+  cbn in *.
+  destruct decl; cbn in *.
+  - f_equal.
+    apply IH.
+  - easy.
+  - easy.
+Qed.
