@@ -45,48 +45,15 @@ Record extract_pcuic_params :=
         Coq and is less efficient than the latter. The latter uses retyping and is
         executable within Coq, but has some unproved theory about it. *)
     erase_func : forall Σ, ∥wf_ext Σ∥ -> forall Γ t, welltyped Σ Γ t -> typing_result E.term;
-       forall Σ : PCUICEnvironment.global_env,
-       ∥ wf Σ ∥ -> typing_result Extract.E.global_declarations.
 
     (* Args for dearging (if it should be done) *)
     dearg_args : option dearg_params; }.
-
-(* The MetaCoq proof of erasure requires that the full global environment is erased,
-   but our erasure function is more clever and erases only necessary dependencies.
-   To get a nice top-level statement we verify here that all constant bodies actually
-   erase. This is inefficient and in the future we should generalize the result upstream. *)
-Program Fixpoint validate_erases
-        (erase_func : forall Σ, ∥wf_ext Σ∥ -> forall Γ t, welltyped Σ Γ t -> typing_result E.term)
-        (Σ : P.global_env) (wfΣ : ∥PT.wf Σ∥) : bool :=
-  match Σ with
-  | [] => true
-  | (kn, decl) :: Σ =>
-    let Σext := (Σ, universes_decl_of_decl decl) in
-    match decl with
-    | P.ConstantDecl {| P.cst_body := Some body |} =>
-      match erase_func Σext _ [] body _ with
-      | Checked _ => true
-      | TypeError _ => false
-      end
-    | _ => true
-    end && validate_erases erase_func Σ _
-  end.
-Next Obligation. now sq; inversion wfΣ. Qed.
-Next Obligation.
-  sq.
-  inversion wfΣ.
-  subst.
-  cbn in *.
-  now econstructor.
-Qed.
-Next Obligation. now sq; inversion wfΣ. Qed.
 
 Definition extract_pcuic_env
            (params : extract_pcuic_params)
            (Σ : P.global_env) (wfΣ : ∥PT.wf Σ∥)
            (seeds : list kername)
            (ignore : kername -> bool) : result ExAst.global_env string :=
-  (if validate_erases (erase_func params) Σ wfΣ then Ok tt else Err "MetaCoq erasure failed");;
 
   Σ <- map_error string_of_erase_global_decl_error
                  (erase_global_decls_deps_recursive (erase_func params) Σ wfΣ seeds ignore);;
@@ -142,7 +109,6 @@ Definition no_check_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_params :=
        {| erase_func := SafeErasureFunction.erase;
-          erase_env_func :=
           dearg_args :=
             Some
               {| do_trim_const_masks := true;

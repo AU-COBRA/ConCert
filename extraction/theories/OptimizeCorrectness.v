@@ -3473,25 +3473,6 @@ Proof.
         -- lia.
     + destruct t; cbn in *; try destruct y; try congruence; now constructor.
 Qed.
-
-Lemma metacoq_dearg_correct Σ t v :
-  env_closed (trans_env Σ) ->
-  closed t ->
-
-  valid_masks_env Σ ->
-  valid_cases t ->
-
-  is_expanded_env Σ ->
-  is_expanded t ->
-
-  trans_env Σ p⊢ t ▷ v ->
-  trans_env (dearg_env Σ) p⊢ dearg t ▷ dearg v.
-Proof.
-  intros ? ? ? ? ? ? ev.
-  apply eval_evalT in ev as [ev].
-  apply evalT_eval.
-  now apply dearg_correct.
-Qed.
 End dearg_correct.
 
 Print Assumptions dearg_correct.

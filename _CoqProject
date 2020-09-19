@@ -100,6 +100,7 @@ extraction/theories/Aux.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v
 extraction/theories/Erasure.v
+extraction/theories/ErasureCorrectness.v
 extraction/theories/ExAst.v
 extraction/theories/ExTyping.v
 extraction/theories/Extraction.v
@@ -107,6 +108,7 @@ extraction/theories/ExtractionCorrectness.v
 extraction/theories/LPretty.v
 extraction/theories/Liquidity.v
 extraction/theories/LiquidityExtract.v
+extraction/theories/MetaCoqErasureCorrectnessStrong.v
 extraction/theories/MidlangExtract.v
 extraction/theories/Optimize.v
 extraction/theories/OptimizeCorrectness.v
