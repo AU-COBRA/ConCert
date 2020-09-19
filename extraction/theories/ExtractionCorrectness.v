@@ -33,42 +33,6 @@ Module E := EAst.
 Notation "Σ 'p⊢' s ▷ t" := (PCUICWcbvEval.eval Σ s t) (at level 50, s, t at next level) : type_scope.
 Notation "Σ 'e⊢' s ▷ t" := (EWcbvEval.eval Σ s t) (at level 50, s, t at next level) : type_scope.
 
-Definition Pis_constant (decl : P.global_decl) : bool :=
-  match decl with
-  | P.ConstantDecl _ => true
-  | _ => false
-  end.
-
-Definition Ponly_constants (Σ : P.global_env) : P.global_env :=
-  filter (Pis_constant ∘ snd) Σ.
-
-Lemma Pdeclared_constant_only_constants Σ kn decl :
-  declared_constant Σ kn decl ->
-  declared_constant (Ponly_constants Σ) kn decl.
-Proof.
-  unfold declared_constant.
-  intros lookup_decl.
-  induction Σ; [easy|].
-  destruct a as (kn' & decl').
-  cbn in *.
-  destruct (Pis_constant decl') eqn:isconst.
-  - cbn in *.
-    unfold eq_kername in *.
-    destruct (kername_eq_dec _ _) as [<-|?]; easy.
-  - apply IHΣ.
-    unfold eq_kername in *.
-    destruct (kername_eq_dec _ _).
-    + inversion lookup_decl; subst; easy.
-    + auto.
-Qed.
-
-Lemma Peval_only_constants Σ s t :
-  Σ p⊢ s ▷ t ->
-  Ponly_constants Σ p⊢ s ▷ t.
-Proof.
-  induction 1; eauto using PCUICWcbvEval.eval, Pdeclared_constant_only_constants.
-Qed.
-
 Lemma eval_const_construct_mask Σ kn ind c im cm :
   trans_env Σ e⊢ E.tConst kn ▷ E.tConstruct ind c ->
   valid_masks_env im cm Σ ->
