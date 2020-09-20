@@ -65,15 +65,13 @@ Lemma erases_deps_forall_ind Σ Σ'
         P val -> erases_deps Σ Σ' body -> P body -> P (Extract.E.tLetIn na val body))
   (Happ : forall hd arg : Extract.E.term,
         erases_deps Σ Σ' hd -> P hd -> erases_deps Σ Σ' arg -> P arg -> P (Extract.E.tApp hd arg))
-  (Hconst : forall (kn : kername) (n : nat) (cb : MetaCoqErasureCorrectnessStrong.PA.constant_body)
-                   (Σsuf : list (kername × MetaCoqErasureCorrectnessStrong.PA.global_decl))
-                   (cb' : EAst.constant_body),
-      skipn n Σ = (kn, MetaCoqErasureCorrectnessStrong.PA.ConstantDecl cb) :: Σsuf ->
+  (Hconst : forall (kn : kername) (cb : PCUICAst.PCUICEnvironment.constant_body) (cb' : EAst.constant_body),
+      declared_constant Σ kn cb ->
       ETyping.declared_constant Σ' kn cb' ->
-      erases_constant_body (Σsuf, PCUICAst.cst_universes cb) cb cb' ->
+      erases_constant_body (Σ, PCUICAst.cst_universes cb) cb cb' ->
       (forall body : Extract.E.term, Extract.E.cst_body cb' = Some body -> erases_deps Σ Σ' body) ->
       (forall body : Extract.E.term, Extract.E.cst_body cb' = Some body -> P body) ->
- P (Extract.E.tConst kn))
+        P (Extract.E.tConst kn))
   (Hconstruct : forall (ind : inductive) (c : nat), P (Extract.E.tConstruct ind c))
   (Hcase : forall (p : inductive × nat) (discr : Extract.E.term) (brs : list (nat × Extract.E.term)),
         erases_deps Σ Σ' discr ->
@@ -129,34 +127,48 @@ Proof.
 Defined.
 
 Lemma erases_deps_cons Σ Σ' kn decl t :
-  fresh_global kn Σ ->
+  wf ((kn, decl) :: Σ) ->
   erases_deps Σ Σ' t ->
   erases_deps ((kn, decl) :: Σ) Σ' t.
 Proof.
-  intros fresh er.
+  intros wfΣ er.
   induction er using erases_deps_forall_ind; try solve [now constructor].
+  apply lookup_env_Some_fresh in H as not_fresh.
   econstructor.
-  - rewrite skipn_S.
-    eassumption.
-    (*unfold declared_constant.
+  - unfold declared_constant in *.
     cbn.
     unfold eq_kername.
+    inversion wfΣ; subst.
     destruct kername_eq_dec as [<-|]; [congruence|].
-    eassumption.*)
+    eassumption.
   - eassumption.
-  - eassumption.
-  - easy.
-  (*- unfold erases_constant_body in *.
+  - unfold erases_constant_body in *.
     destruct PCUICAst.cst_body eqn:body.
     + destruct E.cst_body eqn:ebody; [|easy].
-      pose proof erases_extends.
-      red in X.
+      assert (declared_constant ((kn, decl) :: Σ) kn0 cb).
+      { unfold declared_constant.
+        cbn.
+        unfold eq_kername.
+        inversion wfΣ; subst.
+        destruct kername_eq_dec as [<-|]; [congruence|].
+        easy. }
       inversion wfΣ; subst.
-      specialize (X (Σ, PCUICAst.cst_universes cb) ltac:(easy) [] t).
-      clear -H0 fresh.
-k      admit.
+      eapply PCUICWeakeningEnv.declared_constant_inv in H4; eauto.
+      2:eapply PCUICWeakeningEnv.weaken_env_prop_typing.
+      red in H4.
+      rewrite body in *.
+      cbn in *.
+      eapply (erases_extends (_, P.cst_universes cb)); eauto.
+      2: eexists [_]; reflexivity.
+      eapply declared_constant_inv in H.
+      2:eapply PCUICWeakeningEnv.weaken_env_prop_typing.
+      2: easy.
+      2: easy.
+      unfold on_constant_decl in H.
+      rewrite body in *.
+      apply H.
     + now destruct E.cst_body.
-  - easy.*)
+  - easy.
 Qed.
 
 Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore erase_func Σex :
@@ -200,12 +212,21 @@ Ltac unproof :=
     + destruct P.lookup_env; [|easy].
       destruct g; [|easy].
       destruct wfΣ.
-      inversion X; subst; clear X.
       now apply erases_deps_cons.
   - cbn in *.
     destruct erase_global_decl eqn:erdecl; cbn in *; [|congruence].
     destruct erase_global_decls_deps_recursive eqn:errec; [|congruence].
     inversion er; subst; clear er.
+    intros k isin.
+    unfold eq_kername.
+    destruct kername_eq_dec as [->|].
+    + destruct decl; [|easy].
+      econstructor.
+      * unfold declared_constant; cbn.
+        rewrite eq_kername_refl.
+        reflexivity.
+      * simpl in erdecl.
+
     eapply IH in errec.
   - cbn in *.
     destruct erase_global_decl eqn:erdecl; [|congruence].
