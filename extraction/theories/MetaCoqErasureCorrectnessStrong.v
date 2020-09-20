@@ -53,10 +53,10 @@ Inductive erases_deps (Σ : PA.global_env) (Σ' : global_declarations) : term ->
     erases_deps Σ Σ' hd ->
     erases_deps Σ Σ' arg ->
     erases_deps Σ Σ' (tApp hd arg)
-| erases_deps_tConst kn cb cb' :
-    PCUICTyping.declared_constant Σ kn cb ->
+| erases_deps_tConst kn n cb Σsuf cb' :
+    skipn n Σ = (kn, PA.ConstantDecl cb) :: Σsuf ->
     ETyping.declared_constant Σ' kn cb' ->
-    erases_constant_body (Σ, cst_universes cb) cb cb' ->
+    erases_constant_body (Σsuf, cst_universes cb) cb cb' ->
     (forall body, cst_body cb' = Some body -> erases_deps Σ Σ' body) ->
     erases_deps Σ Σ' (tConst kn)
 | erases_deps_tConstruct ind c :
@@ -407,6 +407,63 @@ Hint Resolve erases_deps_subst1 erases_deps_eval erases_deps_mkApps : core.
 
 Import PA.
 
+(*
+Lemma lookup_env_erases (Σ : global_env_ext) c decl Σ' :
+  wf Σ ->
+  lookup_env (fst Σ) c = Some (ConstantDecl decl) ->
+  exists decl', ETyping.lookup_env Σ' c = Some (EAst.ConstantDecl decl') /\
+           erases_constant_body (Σ.1, cst_universes decl)  decl decl'.
+Proof.
+  unfold erases_global. destruct Σ; simpl.
+  intros. induction H; cbn in *.
+  - inv H0.
+  - unfold eq_kername in *; destruct ?.
+    + inv H0.
+      exists cb'. split; eauto. unfold erases_constant_body in *.
+      destruct ?. destruct ?.
+      * destruct decl.
+        eapply (erases_extends (Σ, _)); simpl; eauto. now inv X.
+        2:eexists [_]; simpl; eauto. cbn in *.
+        inv X. cbn in X1.
+        eassumption.
+      * eassumption.
+      * destruct ?; tauto.
+    + edestruct IHerases_global_decls as (decl' & ? & ?).
+      eapply wf_extends.
+      eassumption. now eexists [_]. eauto.
+      destruct decl. cbn in *.
+      exists decl'. split. eauto.
+      unfold erases_constant_body in *. clear H. destruct ?. destruct ?.
+      eapply (@erases_extends (_, _)). 6: eassumption.
+        eapply wf_extends.
+        eassumption. now eexists [_]. eauto.
+        eapply (declared_constant_inv Σ) in H0; eauto.
+        unfold on_constant_decl in H0. rewrite E0 in H0. unfold lift_typing in H0. exact H0.
+        eapply weaken_env_prop_typing. eapply wf_extends. eauto.
+        eexists [_]. reflexivity. eapply wf_extends. eauto. now eexists [_].
+        eauto. now eexists [_].
+      * tauto.
+      * destruct ?; tauto.
+  - unfold eq_kername in *; destruct ?.
+    + inv H0.
+    + edestruct IHerases_global_decls as (decl' & ? & ?).
+      eapply wf_extends.
+      eassumption. now eexists [_]. eauto.
+      exists decl'. split. eauto.
+      unfold erases_constant_body in *. clear H. destruct ?. destruct ?.
+      * eapply (@erases_extends (_,_)). 5: eassumption.
+        eapply wf_extends.
+        eassumption. now eexists [_]. eauto.
+        eapply (declared_constant_inv Σ) in H0; eauto.
+        unfold on_constant_decl in H0. rewrite E0 in H0. unfold lift_typing in H0. eassumption.
+        eapply weaken_env_prop_typing. eapply wf_extends. eauto.
+        eexists [_]. reflexivity. eapply wf_extends. eauto. now eexists [_].
+        eauto. now eexists [_].
+      * tauto.
+      * destruct ?; tauto.
+Qed.
+*)
+
 Lemma erases_correct Σ t T t' v Σ' :
   extraction_pre Σ ->
   Σ;;; [] |- t : T ->
@@ -506,7 +563,37 @@ Proof.
     inv He.
     + depelim Heg.
       assert (isdecl' := isdecl).
-      eapply declared_constant_inj in H0; eauto; subst.
+      assert (declared_constant Σ c cb).
+      { clear -H0 extr_env_wf'.
+        inversion extr_env_wf'.
+        clear extr_env_wf' H.
+        revert Σ H0 X.
+        cbn in *.
+        induction n; intros.
+        - rewrite skipn_0 in H0.
+          subst.
+          unfold declared_constant.
+          cbn.
+          now rewrite eq_kername_refl.
+        - destruct Σ.
+          + rewrite skipn_nil in H0.
+            inv H0.
+          + rewrite skipn_S in H0.
+            unfold declared_constant.
+            cbn.
+            unfold eq_kername.
+            destruct kername_eq_dec as [->|]; cbn in *.
+            * inversion X; subst.
+              cbn in *.
+              unfold fresh_global in H2.
+              apply skipn_eq_cons in H0 as (? & ?).
+              eapply nth_error_forall in H; [|eassumption].
+              cbn in *.
+              congruence.
+            * apply IHn; [easy|].
+              now inversion X. }
+
+      eapply declared_constant_inj in isdecl; eauto; subst.
       unfold erases_constant_body in *. rewrite e in *.
       destruct ?; try tauto. cbn in *.
       eapply declared_constant_inj in d; eauto; subst.
@@ -524,8 +611,21 @@ Proof.
         unfold on_constant_decl in isdecl'. rewrite e in isdecl'. cbn in *.
         2:eapply PCUICWeakeningEnv.weaken_env_prop_typing.
         eapply erases_subst_instance_decl with (Σ := (Σ, univs)) (Γ := []); eauto.
+        cbn.
+        pose proof erases_extends.
+        red in X1.
+        cbn.
+        eapply (@erases_extends (_, cst_universes x)).
+        5: eassumption.
+        cbn.
+        admit.
+        eassumption.
+        destruct x.
+        cbn in *.
+        easy.
       * apply H3; eauto.
       * destruct H0. exists x0. split; eauto. econstructor; eauto.
+*)
     + exists EAst.tBox. split. econstructor.
       eapply Is_type_eval. 3: eassumption. eauto. eauto. econstructor. eauto.
 
