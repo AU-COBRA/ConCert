@@ -2,8 +2,6 @@
 
 A framework for smart contract verification in Coq.
 
-The work on this fork is aimed at building infrastructure for random property testing of the Smart Contracts (and the execution environment) using QuickChick.
-
 ## How to build
 
 
@@ -39,7 +37,7 @@ docs folder after `make html`.
 The [embedding](embedding/) folder contains the development of the embedding.
 
 The [execution](execution/) folder contains the formalization of the smart
-contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [tests](execution/tests) folder contains example tests. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/tests/TraceGens.v). The testing framework was developed as part of a Master's Thesis at Aarhus University, and the thesis detailing the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
+contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [tests](execution/tests) folder contains example tests. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/tests/TraceGens.v). The testing framework was developed as part of a Master's Thesis at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
 
 The [extraction](extraction/) folder contains two versions of extraction. The first one is a printing procedure from the deep embedding into the Liquidity syntax. The second one is based on MetaCoq's **certified erasure**.
 

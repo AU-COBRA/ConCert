@@ -192,9 +192,27 @@ one of our implementations of blockchains. We also specialize the proof shown
 about to our actual implementations of the execution layer described above.
 
 ### Property-based Testing of Smart Contracts with QuickChick
-The [tests](tests/) folder contains tests of some of the contracts from the [examples](examples/) folder. Input generators for the contract under test can be found in files ending in 'Gens.v', and the QuickChick properties/tests can be found in files ending in 'Tests.v'. [TraceGens.v](tests/TraceGens.v) contains key generator combinators for deriving "arbitrary" input generators of blockchain execution traces for a given smart contract, along with QuickChick `Checker`s that define the kind of properties we can test. The simplest example is the [EIP20Tests](tests/EIP20Tests/).
+The [tests](tests/) folder contains tests of some of the contracts from the [examples](examples/) folder. Input generators for the contract under test can be found in files ending in 'Gens.v', and the QuickChick properties/tests can be found in files ending in 'Tests.v'. [TraceGens.v](tests/TraceGens.v) contains key generator combinators for deriving "arbitrary" input generators of blockchain execution traces for a given smart contract, along with QuickChick `Checker`s that define the kind of properties we can test. The simplest example is the [EIP20Tests](tests/EIP20Tests/). Here, we primarily test functional correctness of the EIP20 Token, namely the three properties
 
-The testing framework was developed as part of a Master's Thesis  at Aarhus University, and the thesis detailing the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
+```coq
+balances_sum = state.(total_supply).
+
+sum_allowances <= total_supply.
+
+{msg_is_transfer}
+  EIP20Token.receive
+{post_transfer_balance_update_correct}
+```
+The first property states that the total supply of tokens is preserved by the `total_supply` field of the contract's state. In our implementation, the contract has no way of minting and burning tokens, so in this case `total_supply` is a constant.
+
+The second property states that the combined allowances (as provided by the `approve` endpoint of the token contract) cannot exceed the total number of tokens.
+
+The third property is a hoare-triple on the `receive` function of the token contract, stating that if there is an incoming `transfer` message, then the balances are updated correct according to the `transfer` message. We also test a similar property for `transfer_from` messages.
+
+In [EIP20Tests/EIP20TokenBuggyTests.v](tests/EIP20Tests/EIP20TokenBuggyTests.v) we test an implementation which has a bug in the `transfer_from` method, similar to the one discovered in the [iToken](https://bzx.network/blog/incident) contract. The bug allows an attacker to create (mint) arbitrary tokens for themselves by performing self-transfers. When testing this implementation against the first property above, QuickChick reports a counterexample - an execution trace leading to a violation of the property. 
+
+
+The testing framework was developed as part of a Master's Thesis  at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
 
 ## Building/Developing
 This project uses the std++ and bignums library. These must be installed first
