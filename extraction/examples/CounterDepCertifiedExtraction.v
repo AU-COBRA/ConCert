@@ -140,11 +140,55 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
                        ++ printMain |}.
 
+(** We run the extraction procedure inside the [TemplateMonad].
+    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    that removes application of boxes to constants and constructors. *)
+
+Time MetaCoq Run
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+      tmDefinition COUNTER_MODULE.(lmd_module_name) t
+     ).
+
+Print liquidity_counter.
+
+(* Now we show how we can also eta expand using MetaCoq.
+   There is a version of the counter above that it partially applied, and if we
+   try to extract that extraction fails. *)
+
+Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+  {| (* a name for the definition with the extracted code *)
+     lmd_module_name := "liquidity_counter_partially_applied" ;
+
+     (* definitions of operations on pairs and ints *)
+     lmd_prelude := prod_ops ++ nl ++ int_ops;
+
+     (* initial storage *)
+     lmd_init := init ;
+
+     (* no extra operations in [init] are required *)
+     lmd_init_prelude := "" ;
+
+     (* the main functionality *)
+     lmd_receive := counter_partially_applied ;
+
+     (* code for the entry point *)
+     lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
+                       ++ printMain |}.
+
+Fail MetaCoq Run
+     (liquidity_extraction PREFIX TT_remap TT_rename COUNTER_PARTIAL_MODULE).
+(* The command has indeed failed with message:
+   Erased environment is not expanded enough for dearging to be provably correct *)
+
+(* However, Coq's metatheory already includes eta conversion as part of its TCB,
+   so we can systematically eta expand the necessary terms and easily generate
+   a proof that the new definition is equal to the old (by reflexivity). *)
+
 (** Just a dummy definition to get the current module path *)
 Definition anchor := fun x : nat => x.
 Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
 
-(** Running out eta-expansion procedure with MetaCoq *)
+(** Running our eta-expansion procedure with MetaCoq *)
 MetaCoq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
              tmDefinition "counter_partially_applied_syn" counter_syn;;
              (* eta-expand dedinitions in the environment *)
@@ -165,16 +209,34 @@ Check counter_partially_applied_expanded_correct.
 (* counter_partially_applied_expanded_correct
      : counter_partially_applied = counter_partially_applied_expanded *)
 
-(** We run the extraction procedure inside the [TemplateMonad].
-    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
-    that removes application of boxes to constants and constructors. *)
+(* Now we can extract this one successfully. *)
+
+Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+  {| (* a name for the definition with the extracted code *)
+     lmd_module_name := "liquidity_counter_partially_applied_expanded" ;
+
+     (* definitions of operations on pairs and ints *)
+     lmd_prelude := prod_ops ++ nl ++ int_ops;
+
+     (* initial storage *)
+     lmd_init := init ;
+
+     (* no extra operations in [init] are required *)
+     lmd_init_prelude := "" ;
+
+     (* the main functionality *)
+     lmd_receive := counter_partially_applied_expanded ;
+
+     (* code for the entry point *)
+     lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
+                       ++ printMain |}.
 
 Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) t
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_PARTIAL_EXPANDED_MODULE ;;
+      tmDefinition COUNTER_PARTIAL_EXPANDED_MODULE.(lmd_module_name) t
      ).
 
-Print liquidity_counter.
+Print liquidity_counter_partially_applied_expanded.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "./extraction/examples/liquidity-extract/CounterDepCertifiedExtraction.liq" Compute liquidity_counter.
