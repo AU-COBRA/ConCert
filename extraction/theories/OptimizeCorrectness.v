@@ -1,7 +1,6 @@
 From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import ExTyping.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import WcbvEvalAux.
 From ConCert.Extraction Require Import WcbvEvalType.
@@ -26,7 +25,6 @@ Import ListNotations.
 Import EAstUtils.
 Import Erasure.
 Import ExAst.
-Import ExTyping.
 Import ConCert.Extraction.Aux.
 
 (* We have our own environment which is different from MetaCoq's erased environment

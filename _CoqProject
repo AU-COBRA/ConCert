@@ -102,7 +102,6 @@ extraction/theories/Common.v
 extraction/theories/Erasure.v
 extraction/theories/ErasureCorrectness.v
 extraction/theories/ExAst.v
-extraction/theories/ExTyping.v
 extraction/theories/Extraction.v
 extraction/theories/ExtractionCorrectness.v
 extraction/theories/LPretty.v
