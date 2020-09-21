@@ -221,7 +221,6 @@ Example expanded_counter :
   is_expanded dearg_set_counter.(Optimize.ind_masks) dearg_set_counter.(Optimize.const_masks) counter_papp_erased_expanded = true.
 Proof. reflexivity. Qed.
 
-
 (** We run the extraction procedure inside the [TemplateMonad].
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
