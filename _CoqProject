@@ -113,6 +113,7 @@ extraction/theories/ResultMonad.v
 extraction/theories/StringExtra.v
 extraction/theories/WcbvEvalAux.v
 extraction/theories/WcbvEvalType.v
+extraction/theories/CertifyingEta.v
 
 -Q extraction/examples ConCert.Extraction.Examples
 extraction/examples/Ack.v
