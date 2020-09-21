@@ -244,8 +244,8 @@ Proof.
     destruct (decompose_inductive _) eqn:Hind;tryfalse.
     inversion He;subst;clear He. simpl.
     split_andb.
-    eapply IHty1;intuition;eauto.
-    eapply IHty2;intuition;eauto.
+    * eapply IHty1; eauto.
+    * eapply IHty2; eauto.
   + tryfalse.
   + simpl in *. destruct (n0 <=? n) eqn:Hn0;tryfalse.
     destruct (lookup_i ρ (n - n0)) eqn:Hlook;tryfalse. destruct v;tryfalse.
@@ -255,8 +255,8 @@ Proof.
     destruct (eval_type_i _ _ ty1) eqn:Hty1;tryfalse.
     inversion He;subst.
     simpl;split_andb.
-    eapply IHty1;intuition;eauto.
-    eapply IHty2;intuition;eauto.
+    * eapply IHty1; eauto.
+    * eapply IHty2; eauto.
 Qed.
 
 Lemma type_eval_value Σ ρ ty ty_v n :
@@ -1054,7 +1054,7 @@ Proof.
                 symmetry. eapply subst_env_ty_closed_n_eq with (m:=0). now eapply iclosed_ty_0.
            **** simpl. unfold lookup_ty in *. simpl. prop_to_leb_ltb. rewrite H.
                 destruct k;auto;tryfalse.
-                rewrite Nat.eqb_neq in *. assert (n-k<>0) by lia.
+                rewrite Nat.eqb_neq in *. simpl. assert (n-k<>0) by lia.
                 destruct (n - k =? 0)%nat eqn:HH;tryfalse;auto. rewrite Nat.eqb_eq in *.
                 leb_ltb_to_prop. lia.
        *** remember (S n) as m. simpl.
