@@ -34,7 +34,7 @@ Some highlights from `theories`:
 * `theories/LPretty.v` -- Pretty-printer for Liquidity from `λ□`.
 * `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart` language.
 * `theories/LiquidityExtract.v` - A high-level interface to Liquidity extraction.
-* `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction, incudes a pretty-printed and some examples.
+* `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction, incudes a pretty-printer.
 * `theories/PrettyPrinterMonad.v` -- A monad for implementing pretty-printing in Coq.
 * `theories/WcbvEvalType.v` -- Big-step cbv realtion of MetaCoq valued in `Type` instead of `Prop`. Eventually will be removed, once MetaCoq relation is updated.
 
