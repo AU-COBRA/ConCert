@@ -23,7 +23,6 @@ Some highlights from `theories`:
 
 * `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures with additional information about erased types. 
 * `theories/Erasure.v` -- An extension of the MetaCoq's certified erasure with erasure for types and erasing only required dependencies. Also implements erasure for global environments with extra typing information for global definitions.
-* `theories/ExTyping.v` -- Well-formedness of erased terms and erased global environments.
 * `theories/ErasureCorrectness.v` -- Correctness lemmas for definitions from `Erasure.v`, proving that our erasure produces a well-formed erased environment.
 * `theories/MetaCoqErasureCorrectnessStrong.v` -- A strengthened version of the correctness proof from MetaCoq (erasing dependencies only, not the full environment).
 * `theories/Extraction.v` -- High-level interface to extraction. Provides different pipelines for doing extraction with different trusted computing bases.
