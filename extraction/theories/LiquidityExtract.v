@@ -137,15 +137,6 @@ Definition liquidity_simple_extract
 Definition wrap_in_delimeters s :=
   String.concat nl ["";"(*START*)"; s; "(*END*)"].
 
-Definition extract_def_name {A : Type} (a : A) : TemplateMonad kername :=
-  a <- tmEval cbn a;;
-  quoted <- tmQuote a;;
-  let (head, args) := TUtil.decompose_app quoted in
-  match head with
-  | tConst name _ => ret name
-  | _ => tmFail ("Expected constant at head, got " ++ TUtil.string_of_term head)
-  end.
-
 Definition liquidity_extraction {msg ctx params storage operation : Type}
            (prefix : string)
            (TT_defs : list (kername *  string))
