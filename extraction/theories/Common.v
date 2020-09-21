@@ -824,3 +824,28 @@ Definition trans_global_decls (Σ : ExAst.global_env) : EAst.global_context :=
       | ExAst.TypeAliasDecl _ => []
       end in
   flat_map (fun '(kn, decl) => map_decl kn decl) Σ.
+
+Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad T.program :=
+  p <- tmQuoteRecTransp def false ;;
+  kn <- match p.2 with
+       | T.tConst name _ => ret name
+       | _ => tmFail ("Expected constant, got "  ++
+                       TUtil.string_of_term p.2)
+       end;;
+  match T.lookup_env p.1 kn with
+  | Some (T.ConstantDecl cb) =>
+    match cb.(T.cst_body) with
+    | Some b => ret (p.1, b)
+    | None => tmFail ("The constant doesn't have a body: " ++ kn.2)
+    end
+  | _ => tmFail ("Not found: " ++ kn.2)
+  end.
+
+Fixpoint update_global_env (Σ :T.global_env) (Σup : T.global_env) : T.global_env :=
+  match Σ with
+  | (kn, gd) :: Σ' => match T.lookup_env Σup kn with
+                    | Some v => (kn,v) :: update_global_env Σ' Σup
+                    | None => (kn, gd) :: update_global_env Σ' Σup
+                    end
+  | [] => []
+  end.
