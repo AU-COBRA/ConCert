@@ -132,17 +132,21 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
                        ++ printMain |}.
 
-(* TODO : revisit the description after proofs for deboxing are done *)
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and de-boxing procedure that removes application of boxes to constants and constructors. *)
+(** We run the extraction procedure inside the [TemplateMonad].
+    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
      (r <- tmQuoteRecTransp counter false;;
       b <- EnvCheck_to_template (erase_and_check_applied_no_wf_check r) ;;
       if (b : bool) then
         t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
-        tmDefinition COUNTER_MODULE.(lmd_module_name) t
+        tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimeters t)
       else
         tmFail "Constructors or constants are not applied enough"
      ).
 
 Print liquidity_counter.
+
+(** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+Redirect "./extraction/examples/liquidity-extract/CounterRefinementTypes.liq" Compute liquidity_counter.

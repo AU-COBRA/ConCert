@@ -141,8 +141,9 @@ Example partially_applied :
   erase_and_check_applied ex_partially_applied_syn = PCUICSafeChecker.CorrectDecl false.
 Proof. reflexivity. Qed.
 
-(* TODO : revisit the description after proofs for deboxing are done *)
-(** We run the extraction procedure inside the [TemplateMonad]. It uses the certified erasure from [MetaCoq] and (so far uncertified) de-boxing procedure that removes application of boxes to constants and constructors. *)
+(** We run the extraction procedure inside the [TemplateMonad].
+    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
      (t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
@@ -150,3 +151,6 @@ Time MetaCoq Run
      ).
 
 Print liquidity_counter.
+
+(** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+Redirect "./extraction/examples/liquidity-extract/CounterDepCertifiedExtraction.liq" Compute liquidity_counter.
