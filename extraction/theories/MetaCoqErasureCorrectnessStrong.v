@@ -53,10 +53,10 @@ Inductive erases_deps (Σ : PA.global_env) (Σ' : global_declarations) : term ->
     erases_deps Σ Σ' hd ->
     erases_deps Σ Σ' arg ->
     erases_deps Σ Σ' (tApp hd arg)
-| erases_deps_tConst kn n cb Σsuf cb' :
-    skipn n Σ = (kn, PA.ConstantDecl cb) :: Σsuf ->
+| erases_deps_tConst kn cb cb' :
+    PCUICTyping.declared_constant Σ kn cb ->
     ETyping.declared_constant Σ' kn cb' ->
-    erases_constant_body (Σsuf, cst_universes cb) cb cb' ->
+    erases_constant_body (Σ, cst_universes cb) cb cb' ->
     (forall body, cst_body cb' = Some body -> erases_deps Σ Σ' body) ->
     erases_deps Σ Σ' (tConst kn)
 | erases_deps_tConstruct ind c :
