@@ -78,6 +78,32 @@ Fixpoint lookup_env (Σ : global_env) (id : kername) : option global_decl :=
   | (name, decl) :: Σ => if eq_kername id name then Some decl else lookup_env Σ id
   end.
 
+Definition lookup_constant (Σ : global_env) (kn : kername) : option constant_body :=
+  match lookup_env Σ kn with
+  | Some (ConstantDecl cst) => Some cst
+  | _ => None
+  end.
+
+Definition lookup_minductive (Σ : global_env) (kn : kername) : option mutual_inductive_body :=
+  match lookup_env Σ kn with
+  | Some (InductiveDecl _ mib) => Some mib
+  | _ => None
+  end.
+
+Definition lookup_inductive (Σ : global_env) (ind : inductive) : option one_inductive_body :=
+  match lookup_minductive Σ (inductive_mind ind) with
+  | Some mib => nth_error (ind_bodies mib) (inductive_ind ind)
+  | None => None
+  end.
+
+Definition lookup_constructor
+           (Σ : global_env)
+           (ind : inductive) (c : nat) : option (ident * list box_type) :=
+  match lookup_inductive Σ ind with
+  | Some oib => nth_error (ind_ctors oib) c
+  | None => None
+  end.
+
 Definition trans_cst_for_printing (cst : constant_body) : EAst.constant_body :=
   {| EAst.cst_body := cst_body cst |}.
 

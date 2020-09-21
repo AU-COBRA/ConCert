@@ -1,7 +1,6 @@
 From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import ExTyping.
 From ConCert.Extraction Require Import StringExtra.
 From ConCert.Extraction Require Import ResultMonad.
 From Coq Require Import Arith.
