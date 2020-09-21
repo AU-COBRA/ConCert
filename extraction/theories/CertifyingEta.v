@@ -1,3 +1,10 @@
+(** * Eta-expansion and proof generation **)
+
+(** We perform eta-expansion of template-coq terms and generate proofs that
+    we terms are equal to the originals. Since eta-conversion is part of the
+    Coq's conversion, the proof is essentially [eq_refl].
+    All dependencies are also expanded.*)
+
 From Coq Require Import List PeanoNat Bool String.
 From MetaCoq Require Import Template.All.
 From ConCert.Extraction Require Import Erasure Optimize Common ResultMonad.
@@ -275,90 +282,93 @@ Definition eta_expand_def {A} (full_eta : bool) (mpath : modpath) (cst_name_igno
   kn <- extract_def_name def ;;
   eta_global_env_template full_eta mpath p.1 [kn] (fun _ => false) cst_name_ignore .
 
-Module Ex1.
-Definition partial_app_pair :=
-  let p : forall B : Type, unit -> B -> unit × B:= @pair unit in
-  p bool tt true.
-End Ex1.
-MetaCoq Quote Recursively Definition p_app_pair_syn := Ex1.partial_app_pair.
+Module Examples.
 
-Definition anchor := fun x : nat => x.
-Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
+  Module Ex1.
+  Definition partial_app_pair :=
+    let p : forall B : Type, unit -> B -> unit × B:= @pair unit in
+    p bool tt true.
+  End Ex1.
+  MetaCoq Quote Recursively Definition p_app_pair_syn := Ex1.partial_app_pair.
 
-Definition modpath_eq_dec (mp1 mp2 : modpath) : {mp1 = mp2} + {mp1 <> mp2}.
-  repeat decide equality.
-Defined.
-
-Definition eq_modpath (mp1 mp2 : modpath) : bool :=
-  match modpath_eq_dec mp1 mp2 with
-  | left _ => true
-  | right _ => false
-  end.
-
-Definition only_from_module_of (kn_base : kername) :=
-  fun (kn : kername) => negb (eq_modpath kn_base.1 kn.1).
-
-Module Test1.
   Definition anchor := fun x : nat => x.
   Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
-  MetaCoq Run (eta_global_env_template
-                 true CURRENT_MODULE
-                 p_app_pair_syn.1
-                 [<%% Ex1.partial_app_pair %%>]
-                 (fun _ => false)
-                 (fun _ => false)).
-End Test1.
+
+  Definition modpath_eq_dec (mp1 mp2 : modpath) : {mp1 = mp2} + {mp1 <> mp2}.
+    repeat decide equality.
+  Defined.
+
+  Definition eq_modpath (mp1 mp2 : modpath) : bool :=
+    match modpath_eq_dec mp1 mp2 with
+    | left _ => true
+    | right _ => false
+    end.
+
+  Definition only_from_module_of (kn_base : kername) :=
+    fun (kn : kername) => negb (eq_modpath kn_base.1 kn.1).
+
+  Module Test1.
+    Definition anchor := fun x : nat => x.
+    Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
+    MetaCoq Run (eta_global_env_template
+                   true CURRENT_MODULE
+                   p_app_pair_syn.1
+                   [<%% Ex1.partial_app_pair %%>]
+                   (fun _ => false)
+                   (fun _ => false)).
+  End Test1.
 
 
-Inductive MyInd (A B C : Type) :=
-  miCtor : A * A -> B -> C -> True -> MyInd A B C.
+  Inductive MyInd (A B C : Type) :=
+    miCtor : A * A -> B -> C -> True -> MyInd A B C.
 
-Module Ex2.
-  Definition partial_app1 A B n m := let f := miCtor A in f B bool (let n' := @pair A in n' A n n) m true I.
-  Definition partial_app2 := let f := partial_app1 in f bool true.
-End Ex2.
+  Module Ex2.
+    Definition partial_app1 A B n m := let f := miCtor A in f B bool (let n' := @pair A in n' A n n) m true I.
+    Definition partial_app2 := let f := partial_app1 in f bool true.
+  End Ex2.
 
-Set Printing Implicit.
-(** Expands the dependencies and adds the corresponding definitions *)
-MetaCoq Run (eta_expand_def
-               false
-               CURRENT_MODULE
-               (only_from_module_of <%% Ex2.partial_app2 %%>)
-               Ex2.partial_app2).
+  Set Printing Implicit.
+  (** Expands the dependencies and adds the corresponding definitions *)
+  MetaCoq Run (eta_expand_def
+                 false
+                 CURRENT_MODULE
+                 (only_from_module_of <%% Ex2.partial_app2 %%>)
+                 Ex2.partial_app2).
 
-(** [partial_app2_expanded] is defined in terms of [partial_app1_expanded] *)
-Print partial_app2_expanded.
-(* partial_app2_expanded =
-let f := fun H H0 : Type => partial_app1_expanded H H0 in f bool true
-     : bool -> true -> MyInd bool true bool
- *)
+  (** [partial_app2_expanded] is defined in terms of [partial_app1_expanded] *)
+  Print partial_app2_expanded.
+  (* partial_app2_expanded =
+  let f := fun H H0 : Type => partial_app1_expanded H H0 in f bool true
+       : bool -> true -> MyInd bool true bool
+   *)
 
-Inductive MyInd1 (A B C : Type) :=
-  | miCtor0 : MyInd1 A B C
-  | miCtor1 : A * A -> B -> True -> C -> MyInd1 A B C.
+  Inductive MyInd1 (A B C : Type) :=
+    | miCtor0 : MyInd1 A B C
+    | miCtor1 : A * A -> B -> True -> C -> MyInd1 A B C.
 
-Definition partial_app3 A B n m :=
-  let f := miCtor1 A in f B bool n m I.
+  Definition partial_app3 A B n m :=
+    let f := miCtor1 A in f B bool n m I.
 
-MetaCoq Run (eta_expand_def
-               false
-               CURRENT_MODULE
-               (only_from_module_of <%% partial_app3 %%>)
-               partial_app3).
+  MetaCoq Run (eta_expand_def
+                 false
+                 CURRENT_MODULE
+                 (only_from_module_of <%% partial_app3 %%>)
+                 partial_app3).
 
-Module Ex3.
-Definition inc_balance (st :  nat × nat) (new_balance : nat)
-               (p : (0 <=? new_balance) = true) :=
-  (st.1 + new_balance, st.2).
+  Module Ex3.
+  Definition inc_balance (st :  nat × nat) (new_balance : nat)
+                 (p : (0 <=? new_balance) = true) :=
+    (st.1 + new_balance, st.2).
 
-Definition partial_inc_balance st i := inc_balance st i.
-End Ex3.
-MetaCoq Run (p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
-             eta_global_env_template
-               false
-               CURRENT_MODULE
-               p.1
-               [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>]
-               (fun _ => false)
-               (only_from_module_of <%% Ex3.partial_inc_balance %%>)
-            ).
+  Definition partial_inc_balance st i := inc_balance st i.
+  End Ex3.
+  MetaCoq Run (p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
+               eta_global_env_template
+                 false
+                 CURRENT_MODULE
+                 p.1
+                 [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>]
+                 (fun kn => contains kn [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>])
+                 (only_from_module_of <%% Ex3.partial_inc_balance %%>)
+              ).
+End Examples.
