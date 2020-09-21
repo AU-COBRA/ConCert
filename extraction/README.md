@@ -6,17 +6,17 @@ the name suggests, contains examples of smart contracts and programs extracted u
 and tests for our extensions to the certified erasure.
 
 After building the project (running `make` from the project's root), the folders
-`liquidity-extract/tests` and `elm-extract/tests` are populated with the extracted code. 
+`examples/liquidity-extract/tests` and `examples/elm-extract/tests` are populated with the extracted code. 
 
 Compiling Liquidity code:
-install the [Liquiditycompiler](https://www.liquidity-lang.org/doc/installation/index.html). Be
+install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html). Be
 aware of some issues while installing Liquidity: https://github.com/OCamlPro/liquidity/issues/254.
 Alternatively, the Liquidity code can be run using the online IDE: https://www.liquidity-lang.org/
 
 Compiling Elm code:
-install the [Elm compiler] (https://guide.elm-lang.org/install/elm.html).
+install the [Elm compiler](https://guide.elm-lang.org/install/elm.html).
 Running Elm tests also requires `elm-explorations/test` package (see the required dependencies in
-`elm-extract/elm.json`)
+`examples/elm-extract/elm.json`)
 
 Some highlights from `theories`:
 
