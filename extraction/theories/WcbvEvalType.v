@@ -58,12 +58,10 @@ Section Wcbv.
       eval (tCase (ind, pars) discr brs) res
 
   (** Fix unfolding, with guard *)
-  | eval_fix f mfix idx argsv a av narg fn res :
+  | eval_fix f mfix idx argsv a av fn res :
       eval f (mkApps (tFix mfix idx) argsv) ->
       eval a av ->
-      cunfold_fix mfix idx = Some (narg, fn) ->
-      #|argsv| = narg ->
-      is_constructor_app_or_box av ->
+      cunfold_fix mfix idx = Some (#|argsv|, fn) ->
       eval (tApp (mkApps fn argsv) av) res ->
       eval (tApp f a) res
 
@@ -72,7 +70,7 @@ Section Wcbv.
       eval f (mkApps (tFix mfix idx) argsv) ->
       eval a av ->
       cunfold_fix mfix idx = Some (narg, fn) ->
-      (#|argsv| <> narg \/ (#|argsv| = narg /\ negb (is_constructor_app_or_box av))) ->
+      #|argsv| < narg ->
       eval (tApp f a) (tApp (mkApps (tFix mfix idx) argsv) av)
 
   (** CoFix-case unfolding *)

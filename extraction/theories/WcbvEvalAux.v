@@ -334,7 +334,7 @@ Fixpoint deriv_length {Σ t v} (ev : Σ ⊢ t ▷ v) : nat :=
   | eval_proj _ _ _ _ _ _ ev1 ev2
   | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
   | eval_beta _ _ _ _ _ _ ev1 ev2 ev3
-  | eval_fix _ _ _ _ _ _ _ _ _ ev1 ev2 _ _ _ ev3 =>
+  | eval_fix _ _ _ _ _ _ _ _ ev1 ev2 _ ev3 =>
     S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
   end.
 
@@ -555,23 +555,21 @@ Proof.
       destruct H; solve_discr.
   - depelim ev2; cbn in *; determ; cbn in *; try congruence; try solve_discr.
     + noconf H.
-      rewrite e1 in e.
+      rewrite e0 in e.
       noconf e.
       intuition.
     + noconf H.
-      rewrite e1 in e.
+      rewrite e0 in e.
       noconf e.
-      destruct o as [|(_ & ?)]; [easy|].
-      now rewrite i in H.
-    + rewrite isFixApp_mkApps in i0 by easy.
+      lia.
+    + rewrite isFixApp_mkApps in i by easy.
       cbn in *.
-      now rewrite Bool.orb_true_r in i0.
+      now rewrite Bool.orb_true_r in i.
   - depelim ev2; cbn in *; determ; cbn in *; try congruence; try solve_discr.
     + noconf H.
       rewrite e0 in e.
       noconf e.
-      destruct o as [|(_ & ?)]; [easy|].
-      now rewrite i in H.
+      lia.
     + apply mkApps_eq_inj in e' as H'; try easy.
       destruct H' as (H' & <-).
       noconf H'.

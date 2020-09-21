@@ -2545,18 +2545,6 @@ Proof.
     now rewrite nth in valid_fix.
 Qed.
 
-Lemma is_constructor_app_or_box_alt hd :
-  is_constructor_app_or_box hd = isBox hd || isConstruct (decompose_app hd).1.
-Proof.
-  destruct (mkApps_elim hd []).
-  unfold is_constructor_app_or_box.
-  rewrite decompose_app_mkApps; [|now propify].
-  cbn in *.
-  destruct (firstn n l) as [|? ? _] using List.rev_ind.
-  - now destruct f.
-  - now rewrite mkApps_app.
-Qed.
-
 Lemma isBox_mkApps hd args :
   isBox (mkApps hd args) = isBox hd && (#|args| =? 0).
 Proof.
@@ -2568,89 +2556,6 @@ Proof.
     rewrite Nat.add_comm.
     cbn.
     now rewrite Bool.andb_false_r.
-Qed.
-
-Lemma is_constructor_app_or_box_mkApps_false hd args :
-  is_constructor_app_or_box hd = false ->
-  is_constructor_app_or_box (mkApps hd args) = false.
-Proof.
-  intros no.
-  rewrite is_constructor_app_or_box_alt in *.
-  destruct (mkApps_elim hd []).
-  rewrite <- mkApps_app.
-  propify.
-  rewrite !decompose_app_mkApps in * by easy.
-  rewrite mkApps_app.
-  rewrite isBox_mkApps.
-  cbn.
-  now rewrite (proj1 no).
-Qed.
-
-Lemma is_constructor_app_or_box_dearg_single_false mask t args :
-  is_constructor_app_or_box t = false ->
-  is_constructor_app_or_box (dearg_single mask t args) = false.
-Proof.
-  intros no.
-  induction mask in t, args, no |- *; cbn in *.
-  - now apply is_constructor_app_or_box_mkApps_false.
-  - destruct a; cbn in *.
-    + destruct args; [easy|].
-      now apply IHmask.
-    + destruct args; [easy|].
-      apply IHmask.
-      now apply (is_constructor_app_or_box_mkApps_false _ [t0]).
-Qed.
-
-Lemma is_constructor_app_or_box_dearg_false t :
-  is_constructor_app_or_box t = false ->
-  is_constructor_app_or_box (dearg t) = false.
-Proof.
-  intros no.
-  destruct (dearg_elim t).
-  - now apply is_constructor_app_or_box_dearg_single_false.
-  - rewrite is_constructor_app_or_box_alt in no.
-    rewrite decompose_app_mkApps in no by easy.
-    cbn in *.
-    now rewrite Bool.orb_true_r in no.
-  - now apply is_constructor_app_or_box_mkApps_false.
-  - now apply is_constructor_app_or_box_mkApps_false.
-  - rewrite is_constructor_app_or_box_alt in no.
-    destruct args as [|? ? _] using List.rev_ind.
-    + cbn in *.
-      now destruct hd.
-    + rewrite is_constructor_app_or_box_alt.
-      rewrite map_app, mkApps_app at 1.
-      cbn.
-      rewrite decompose_app_mkApps by (now destruct hd).
-      cbn.
-      now destruct hd.
-Qed.
-
-Lemma is_constructor_app_or_box_dearg_true t :
-  is_expanded t ->
-  is_constructor_app_or_box t = true ->
-  is_constructor_app_or_box (dearg t).
-Proof.
-  intros exp yes.
-  destruct (dearg_elim t).
-  - now rewrite is_constructor_app_or_box_alt, isBox_mkApps, decompose_app_mkApps in yes.
-  - apply is_expanded_aux_mkApps_inv in exp as (exp_hd & exp_args).
-    cbn in *; propify.
-    rewrite dearg_single_masked by (now rewrite map_length).
-    rewrite is_constructor_app_or_box_alt.
-    rewrite decompose_app_mkApps by easy.
-    cbn.
-    now rewrite Bool.orb_true_r.
-  - now rewrite is_constructor_app_or_box_alt, isBox_mkApps, decompose_app_mkApps in yes.
-  - now rewrite is_constructor_app_or_box_alt, isBox_mkApps, decompose_app_mkApps in yes.
-  - rewrite is_constructor_app_or_box_alt, isBox_mkApps, decompose_app_mkApps
-      in yes by now destruct hd.
-    cbn in *.
-    propify.
-    destruct yes as [(? & ?)|]; [|now destruct hd].
-    destruct args; [|easy].
-    cbn.
-    now destruct hd.
 Qed.
 
 Lemma isLambda_mkApps hd args :
@@ -2770,7 +2675,6 @@ Section dearg.
                 (map dearg argsv)
                 _
                 (dearg av)
-                narg
                 (dearg fn)).
       + unshelve epose proof (IH _ _ _ _ _ ev1 _) as ev; trivial.
         1: lia.
@@ -2780,9 +2684,8 @@ Section dearg.
       + apply closed_mkApps_inv in H0 as (? & ?).
         apply valid_cases_mkApps_inv in H2 as (? & ?).
         apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
+        rewrite map_length.
         now apply dearg_cunfold_fix.
-      + now rewrite map_length.
-      + now apply is_constructor_app_or_box_dearg_true.
       + apply closed_mkApps_inv in H0 as (? & ?).
         apply valid_cases_mkApps_inv in H2 as (? & ?).
         apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
@@ -2814,11 +2717,7 @@ Section dearg.
         apply is_expanded_aux_mkApps_inv in H4 as (? & ?).
         now apply dearg_cunfold_fix.
       + rewrite map_length.
-        destruct o as [|(<- & ?)]; [now left|].
-        right.
-        split; [easy|].
-        propify.
-        now apply is_constructor_app_or_box_dearg_false.
+        lia.
     - facts.
       rewrite dearg_expanded by trivial.
       cbn.
