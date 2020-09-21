@@ -153,7 +153,7 @@ Proof.
           { simpl. rewrite <- mkApps_vars_to_apps. cbn.
             unfold isConstruct_app.
             rewrite decompose_app_mkApps; now rewrite HresC. }
-          eapply PcbvCurr.eval_fix with (av:=t⟦of_val_i (vConstr i e l)⟧Σ1) (argsv:=[]) (narg:=0);
+          eapply PcbvCurr.eval_fix with (av:=t⟦of_val_i (vConstr i e l)⟧Σ1) (argsv:=[]);
             subst;eauto with hints;try reflexivity.
           cbn. remember (tFix _ _) as tfix.
           assert (Hok_ctor: val_ok Σ1 (vConstr i _ l)) by eauto 8 with hints.
