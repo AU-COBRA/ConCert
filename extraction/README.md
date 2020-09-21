@@ -29,7 +29,7 @@ Some highlights from `theories`:
 * `theories/Extraction.v` -- High-level interface to extraction. Provides different pipelines for doing extraction with different trusted computing bases.
 * `theories/ExtractionCorrectness.v` -- Top-level correctness theorem relating the stages.
 * `theories/Optimize.v` -- Optimisations (dead argument elimination, logical parameters elimination) on `λ□` terms.
-* `theories/OptimizeCorrectness.v` -- Optimsations correctness.
+* `theories/OptimizeCorrectness.v` -- Correctness of optimisation (dead argument elimination).
 * `theories/CertifyingEta.v` -- A eta-expansion procedure which generated proofs of equality of between the result and the original.
 * `theories/LPretty.v` -- Pretty-printer for Liquidity from `λ□`.
 * `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart` language.
@@ -47,4 +47,3 @@ Some highlights from `examples`:
 * `examples/CrowdfundingCertifiedExtraction.v` -- Machinery for extraction of a crowdfunding contract (defined in `examples/crowdfunding_extract/Crowdfunding.v`).
 * `examples/ElmExtractTests.v` -- Several examples of extraction into Elm.
 * `examples/StackInterpreter.v` -- An interpreter for a simple stack-based language.
-
