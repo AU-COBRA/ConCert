@@ -7,7 +7,7 @@
 
 From Coq Require Import List PeanoNat Bool String.
 From MetaCoq Require Import Template.All.
-From ConCert.Extraction Require Import Erasure Optimize Common ResultMonad.
+From ConCert.Extraction Require Import Erasure Optimize Common ResultMonad Extraction.
 Open Scope nat.
 
 Import Template.Ast.
@@ -106,54 +106,11 @@ Fixpoint get_eta_info (Σ : global_env) (ds : dearg_set) : ctors_info * constans
   | [] => ([],[])
   end.
 
-
-Definition ds_ (full_eta : bool) (p : program) : result _ string :=
-  let Σ := p.1 in
-  entry <- match p.2 with
-          | tConst kn _ => ret kn
-          | tInd ind _ => ret (inductive_mind ind)
-          | _ => Err "Expected program to be a tConst or tInd"
-          end;;
-  Σe <- specialize_erase_template_env_no_wf_check Σ [entry] [];;
-  let ds := analyze_env Σe in
-  if full_eta then ret ds else ret (trim_dearg_set ds).
-
-Definition eta_info_ (full_eta : bool) (p : program) : result _ string :=
-  let Σ := p.1 in
-  entry <- match p.2 with
-          | tConst kn _ => ret kn
-          | tInd ind _ => ret (inductive_mind ind)
-          | _ => Err "Expected program to be a tConst or tInd"
-          end;;
-  Σe <- specialize_erase_template_env_no_wf_check Σ [entry] [];;
-  let ds := analyze_env Σe in
-  let ds := if full_eta then ds else trim_dearg_set ds in
-  ret (get_eta_info p.1 ds).
-
 Definition template_of_result {A} (res : result A string) : TemplateMonad A :=
   t <- tmEval lazy res ;;
   match t with
   | Ok v => ret v
   | Err e => tmFail e
-  end.
-
-Definition eta_prog (full_eta : bool)(p : program) : result term string :=
-  let Σ := p.1 in
-  entry <- match p.2 with
-          | tConst kn _ => ret kn
-          | tInd ind _ => ret (inductive_mind ind)
-          | _ => Err "Expected program to be a tConst or tInd"
-          end;;
-  Σe <- specialize_erase_template_env_no_wf_check Σ [entry] [];;
-  let ds := analyze_env Σe in
-  let ds' := if full_eta then ds else trim_dearg_set ds in
-  b <- result_of_option (lookup_env Σ entry) "No item" ;;
-  match b with
-  | ConstantDecl cb =>
-    t <- result_of_option cb.(cst_body) "No body" ;;
-    let (ctors, consts) := get_eta_info Σ ds' in
-    ret (eta_expand ctors consts t)
-  | _ => Err "Not supported"
   end.
 
 Fixpoint change_modpath (mpath : modpath) (ignore : kername -> bool) (t : term) : term :=
@@ -241,21 +198,36 @@ Definition add_suffix_global_env (mpath : modpath) (ignore : kername -> bool) (�
                            Some (change_modpath mpath ignore b);
                 cst_universes := cb.(cst_universes) |}) Σ.
 
-Definition eta_global_env (full_eta : bool)(Σ : global_env) (seeds : list kername) (ignore : kername -> bool) :
+Definition eta_global_env
+           (params : extract_template_env_params)
+           (Σ : global_env) (seeds : list kername) (ignore : kername -> bool) :
   result _ string :=
-  Σe <- general_specialize_erase_debox_template_env Σ seeds ignore false false;;
-  let ds := analyze_env Σe in
-  let ds' := if full_eta then ds else trim_dearg_set ds in
-  let f cb :=
-      match cb.(cst_body) with
-      | Some b => let (ctors, consts) := get_eta_info Σ ds' in
-                 {| cst_type := cb.(cst_type);
-                    cst_body := Some (eta_expand ctors consts b);
-                    cst_universes := cb.(cst_universes) |}
-      | None => cb
-      end in
-  let Σ' := restrict_env Σ (map fst Σe) in
-  ret (map_constants_global_env id f Σ').
+  match dearg_args (pcuic_params params) with
+  | None => ret Σ (* no need to eta expand if we aren't doing dearging *)
+  | Some dp =>
+    Σe <-
+    map_error
+      string_of_erase_global_decl_error
+      (erase_global_decls_deps_recursive
+         SafeErasureFunction.erase
+         (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
+         seeds ignore);;
+
+    let (const_masks, ind_masks) := analyze_env Σe in
+    let const_masks := (if do_trim_const_masks dp then trim_const_masks else id) const_masks in
+    let ind_masks := (if do_trim_ctor_masks dp then trim_ind_masks else id) ind_masks in
+    let f cb :=
+        match cb.(cst_body) with
+        | Some b => let (ctors, consts) := get_eta_info Σ {| ind_masks := ind_masks;
+                                                             const_masks := const_masks |} in
+                    {| cst_type := cb.(cst_type);
+                       cst_body := Some (eta_expand ctors consts b);
+                       cst_universes := cb.(cst_universes) |}
+        | None => cb
+        end in
+    let Σ' := restrict_env Σ (map fst Σe) in
+    ret (map_constants_global_env id f Σ')
+  end.
 
 Definition is_none {A} (o : option A) :=
   match o with
@@ -272,17 +244,34 @@ Definition gen_expanded_const_and_proof (Σ : global_env) (mpath : modpath) (ign
   monad_iter (fun kn1 => gen_proof_prog Σ Σdecls' kn1 (mpath,kn1.2 ++ "_expanded"))
              (List.rev (map fst Σdecls)).
 
-Definition eta_global_env_template (full_eta : bool) (mpath : modpath) (Σ : global_env) (seeds : list kername) (ignore : kername -> bool) (cst_name_ignore : kername -> bool) : TemplateMonad global_env :=
-  Σext <- template_of_result (eta_global_env full_eta Σ seeds ignore) ;;
+Definition eta_global_env_template
+           (params : extract_template_env_params)
+           (mpath : modpath)
+           (Σ : global_env)
+           (seeds : list kername) (ignore : kername -> bool)
+           (cst_name_ignore : kername -> bool) : TemplateMonad global_env :=
+  Σext <- template_of_result (eta_global_env params Σ seeds ignore) ;;
   gen_expanded_const_and_proof Σext mpath cst_name_ignore;;
   ret Σext.
 
-Definition eta_expand_def {A} (full_eta : bool) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
+Definition eta_expand_def {A} (params : extract_template_env_params) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
   p <- tmQuoteRecTransp def false ;;
   kn <- extract_def_name def ;;
-  eta_global_env_template full_eta mpath p.1 [kn] (fun _ => false) cst_name_ignore .
+  eta_global_env_template params mpath p.1 [kn] (fun _ => false) cst_name_ignore .
 
 Module Examples.
+
+  Definition no_trimming :=
+    {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+       pcuic_params :=
+         {| erase_func := SafeErasureFunction.erase;
+            dearg_args :=
+              Some
+                {| do_trim_const_masks := false;
+                   do_trim_ctor_masks := false;
+                   check_closed := true;
+                   check_expanded := true;
+                   check_valid_masks := true |} |} |}.
 
   Module Ex1.
   Definition partial_app_pair :=
@@ -311,7 +300,7 @@ Module Examples.
     Definition anchor := fun x : nat => x.
     Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
     MetaCoq Run (eta_global_env_template
-                   true CURRENT_MODULE
+                   no_trimming CURRENT_MODULE
                    p_app_pair_syn.1
                    [<%% Ex1.partial_app_pair %%>]
                    (fun _ => false)
@@ -330,7 +319,7 @@ Module Examples.
   Set Printing Implicit.
   (** Expands the dependencies and adds the corresponding definitions *)
   MetaCoq Run (eta_expand_def
-                 false
+                 check_masks_args
                  CURRENT_MODULE
                  (only_from_module_of <%% Ex2.partial_app2 %%>)
                  Ex2.partial_app2).
@@ -350,7 +339,7 @@ Module Examples.
     let f := miCtor1 A in f B bool n m I.
 
   MetaCoq Run (eta_expand_def
-                 false
+                 check_masks_args
                  CURRENT_MODULE
                  (only_from_module_of <%% partial_app3 %%>)
                  partial_app3).
@@ -364,7 +353,7 @@ Module Examples.
   End Ex3.
   MetaCoq Run (p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
                eta_global_env_template
-                 false
+                 check_masks_args
                  CURRENT_MODULE
                  p.1
                  [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>]

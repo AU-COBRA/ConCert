@@ -2,17 +2,17 @@ From Coq Require Import PeanoNat ZArith Notations Bool.
 
 From ConCert.Embedding Require Import MyEnv.
 From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Erasure.
-From ConCert.Extraction Require Import ResultMonad.
 
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import SafeTemplateErasure Loader.
 From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.Erasure Require SafeErasureFunction.
-From MetaCoq.Erasure Require EPretty.
 From MetaCoq.Template Require Import config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.
@@ -26,9 +26,9 @@ From MetaCoq.Template Require Import All.
 
 Import ListNotations.
 Import MonadNotation.
-Import ResultMonad.
 
 Open Scope nat.
+Open Scope string.
 
 Definition rank2_ex : forall (A : Type), A -> (forall A : Type, A -> A) -> A :=
 fun A a f => f _ a.
@@ -65,17 +65,27 @@ MetaCoq Erase (unfolded const_zero_app_prop).
 MetaCoq Erase (unfolded const_zero_app_type).
 (* const_zero ∎ O *)
 
+Definition no_check_no_debox_args :=
+{| check_wf_env_func := check_wf_env_func no_check_args;
+     pcuic_params :=
+       {| erase_func := erase_func (pcuic_params no_check_args);
+          dearg_args := None |} |}.
+
 Definition erase_print (p : program) (debox : bool) : result string string :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
-          end;;
-  Σ <- general_specialize_erase_debox_template_env p.1 [entry] (fun kn' => negb ( eq_kername entry kn')) false debox ;;
+           end;;
+  Σ <- extract_template_env
+         (if debox then no_check_args else no_check_no_debox_args)
+         p.1
+         [entry]
+         (fun kn' => negb ( eq_kername entry kn'));;
   decl <- result_of_option (ExAst.lookup_env Σ entry) "Error : no declaration found" ;;
   match decl with
   | ExAst.ConstantDecl cb =>
     b <- result_of_option cb.(ExAst.cst_body) "Error: a constant with no body";;
-    ret (EPretty.print_term (Common.trans_global_decls Σ) [] true false b)
+    ret (ExAst.print_term Σ b)
   | _ => Err "Error: expected a constant"
   end.
 
@@ -120,5 +130,5 @@ Definition TT :=
 MetaCoq Quote Recursively Definition square_syn := square.
 
 (** Erase and print the program give the remapped definitions *)
-Time Compute liquitidy_simple_extract TT [] false square_syn.
+Time Compute liquidity_simple_extract TT [] false square_syn.
 (* = inl "let square (xs : ( (nat) list)) = Liquidity.List.map (fun x -> mulNat x x) xs" *)

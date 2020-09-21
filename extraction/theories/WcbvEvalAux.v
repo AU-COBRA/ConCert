@@ -139,9 +139,6 @@ Proof.
     + easy.
 Qed.
 
-Definition env_closed (Σ : EAst.global_declarations) : bool :=
-  forallb (decl_closed ∘ snd) Σ.
-
 Lemma closed_constant Σ kn cst body :
   env_closed Σ ->
   ETyping.declared_constant Σ kn cst ->

@@ -19,7 +19,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     ExAst Erasure Optimize Common.
+     Common ExAst Erasure Optimize Extraction.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -63,7 +63,7 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (receive : kername)
   : string + string :=
   let seeds := [init;receive] in
-  match specialize_erase_debox_template_env_no_wf_check Σ seeds ignore with
+  match extract_template_env_check_masks Σ seeds (fun k => contains k ignore) with
   | Ok eΣ =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ) in
@@ -98,7 +98,19 @@ Definition liquidity_call_ctx :=
    (Current.amount (),
     Current.balance ())))".
 
-Definition liquitidy_simple_extract
+Definition liquidity_extract_args :=
+  {| check_wf_env_func := check_wf_env_func check_masks_args;
+     pcuic_params :=
+       {| erase_func := erase_func (pcuic_params check_masks_args);
+          dearg_args :=
+            Some
+              {| do_trim_const_masks := true;
+                 do_trim_ctor_masks := false; (* cannot have partially applied ctors *)
+                 check_closed := true;
+                 check_expanded := true;
+                 check_valid_masks := true |} |} |}.
+
+Definition liquidity_simple_extract
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
            (extract_deps : bool)
@@ -109,7 +121,7 @@ Definition liquitidy_simple_extract
     let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
     let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-    match general_specialize_erase_debox_template_env p.1 seeds ignore false true with
+    match extract_template_env liquidity_extract_args p.1 seeds ignore with
     | Ok eΣ =>
       (* dependencies should be printed before the dependent definitions *)
       let ldef_list := List.rev (print_global_env "" TT eΣ) in
@@ -125,7 +137,7 @@ Definition liquitidy_simple_extract
 Definition wrap_in_delimeters s :=
   String.concat nl ["";"(*START*)"; s; "(*END*)"].
 
-Definition liquitidy_extraction {msg ctx params storage operation : Type}
+Definition liquidity_extraction {msg ctx params storage operation : Type}
            (prefix : string)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)

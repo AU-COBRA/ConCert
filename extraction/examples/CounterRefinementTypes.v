@@ -5,7 +5,7 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations CustomTactics.
-From ConCert.Extraction Require Import LPretty LiquidityExtract PreludeExt Common.
+From ConCert.Extraction Require Import LPretty LiquidityExtract PreludeExt Common Extraction.
 From ConCert.Execution Require Import Blockchain.
 
 From Coq Require Import List Ascii String.
@@ -138,12 +138,8 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
 
 Time MetaCoq Run
      (r <- tmQuoteRecTransp counter false;;
-      b <- EnvCheck_to_template (erase_and_check_applied_no_wf_check r) ;;
-      if (b : bool) then
-        t <- liquitidy_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
-        tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimeters t)
-      else
-        tmFail "Constructors or constants are not applied enough"
+      t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+      tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimeters t)
      ).
 
 Print liquidity_counter.

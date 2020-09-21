@@ -1,11 +1,13 @@
 (** * Tests for extraction to Midlang *)
 From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
 From Coq Require Import Arith.
+From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Loader.
@@ -26,7 +28,7 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
            | tInd ind _ => ret (inductive_mind ind)
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
-  Σ <- specialize_erase_debox_template_env_no_wf_check p.1 [entry] ignore;;
+  Σ <- extract_template_env_no_check p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret s.

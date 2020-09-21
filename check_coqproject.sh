@@ -2,7 +2,7 @@
 echo "Lines in _CoqProject not present on disk:"
 cat _CoqProject | while read f
 do
-  if [[ ! $f == -* ]] && [ ! -z "$f" ] && [ ! -s "./$f" ]; then
+  if [[ ! $f == -* ]] && [ ! -z "$f" ] && [ ! -f "./$f" ]; then
     echo "$f"
   fi
 done

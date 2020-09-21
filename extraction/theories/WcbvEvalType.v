@@ -116,15 +116,15 @@ End Wcbv.
 Derive Signature for eval.
 
 Notation "Σ ⊢ s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : type_scope.
-Notation "Σ 'p⊢' s ▷ t" := (EWcbvEval.eval Σ s t) (at level 50, s, t at next level) : type_scope.
+Notation "Σ 'e⊢' s ▷ t" := (EWcbvEval.eval Σ s t) (at level 50, s, t at next level) : type_scope.
 
 Lemma evalT_eval {Σ s t} :
   Σ ⊢ s ▷ t ->
-  Σ p⊢ s ▷ t.
+  Σ e⊢ s ▷ t.
 Proof. induction 1; eauto using EWcbvEval.eval. Qed.
 
 Lemma eval_evalT {Σ s t} :
-  Σ p⊢ s ▷ t ->
+  Σ e⊢ s ▷ t ->
   ∥Σ ⊢ s ▷ t∥.
 Proof. induction 1; sq; eauto using eval. Qed.
 

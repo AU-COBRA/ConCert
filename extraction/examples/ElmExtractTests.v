@@ -4,6 +4,7 @@
 
 (** Warning: this file does not work in the interactive mode due to the problems with paths for [Redirect]. We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
 From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
@@ -35,7 +36,7 @@ Definition general_wrapped (p : program) (pre post : string)
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- specialize_erase_debox_template_env_no_wf_check p.1 [entry] ignore;;
+  Σ <- extract_template_env_check_masks p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret (pre ++ nl ++ s ++ nl ++ post).
