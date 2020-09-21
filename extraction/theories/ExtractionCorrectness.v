@@ -67,7 +67,7 @@ Proof.
     + depelim ev.
 Qed.
 
-Lemma extract_correct (Σ : P.global_env_ext) kn ui ind c ui' (wfΣ : wf_ext Σ) exΣ :
+Theorem extract_correct (Σ : P.global_env_ext) kn ui ind c ui' (wfΣ : wf_ext Σ) exΣ :
   axiom_free Σ ->
   welltyped Σ [] (P.tConst kn ui) ->
   Σ p⊢ P.tConst kn ui ▷ P.tConstruct ind c ui' ->
