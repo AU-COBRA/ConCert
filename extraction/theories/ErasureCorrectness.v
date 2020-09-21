@@ -7,6 +7,7 @@ From ConCert.Extraction Require Import OptimizeCorrectness.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import WcbvEvalType.
 From Coq Require Import List.
+From Coq Require Import Permutation.
 From Coq Require Import String.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import ErasureCorrectness.
@@ -49,6 +50,16 @@ Proof.
     + now rewrite eq_kername_refl.
     + rewrite IHks by easy.
       now rewrite Bool.orb_true_r.
+Qed.
+
+Lemma contains_In_not k ks :
+  Erasure.contains k ks = false <-> ~ In k ks.
+Proof.
+  split; intros.
+  - intros isin.
+    now apply contains_In in isin.
+  - destruct (contains k ks) eqn:cont; [|easy].
+    now apply contains_In in cont.
 Qed.
 
 Lemma erases_deps_forall_ind Σ Σ'
@@ -262,7 +273,7 @@ Proof.
     now right.
 Qed.
 
-Lemma In_Eterm_deps k ks t :
+Lemma In_Eterm_deps_already k ks t :
   In k ks ->
   In k (Eterm_deps ks t).
 Proof.
@@ -289,6 +300,122 @@ Proof.
     now eapply Forall_All, All_In in H as [H]; [|eassumption].
 Qed.
 
+Lemma In_fold_left_new_exists {A} k (ks : list kername) f (ts : list A) :
+  In k (fold_left f ts ks) ->
+  ~In k ks ->
+  exists tspref t' tssuf,
+    ts = (tspref ++ [t'] ++ tssuf)%list /\
+    ~In k (fold_left f tspref ks) /\
+    In k (f (fold_left f tspref ks) t').
+Proof.
+  intros isin notin.
+  induction ts in ks, ts, isin, notin |- *; cbn in *; [congruence|].
+  destruct (contains k (f ks a)) eqn:cont.
+  - apply contains_In in cont.
+    now exists [], a, ts.
+  - apply IHts in isin as (pref & t' & suf & -> & ? & ?); cycle 1.
+    { intros isin'.
+      apply contains_In in isin'.
+      congruence. }
+    now exists (a :: pref), t', suf.
+Qed.
+
+Lemma In_fold_left_new {A} k (ks ks' : list kername) f (ts : list A) :
+  In k (fold_left f ts ks) ->
+  ~In k ks ->
+  (forall a ks, In a ts -> In k ks -> In k (f ks a)) ->
+  (forall a ks ks', In a ts -> ~In k ks -> In k (f ks a) -> In k (f ks' a)) ->
+  In k (fold_left f ts ks').
+Proof.
+  intros isin notin allin_already allin_new.
+  destruct (In_fold_left_new_exists _ _ _ _ isin) as (tspref & t' & tssuf & -> & ? & ?); [easy|].
+  rewrite !fold_left_app in *.
+  cbn in *.
+  apply In_fold_left.
+  - eapply allin_new; [| |exact H0].
+    + apply in_or_app.
+      now right; left.
+    + easy.
+  - intros.
+    eapply allin_already; [|easy].
+    apply in_or_app.
+    now right; right.
+Qed.
+
+Lemma add_seen_new k ks k' :
+  ~In k ks ->
+  In k (add_seen k' ks) ->
+  k = k'.
+Proof.
+  intros notin isin.
+  unfold add_seen in *.
+  destruct existsb eqn:ex; [easy|].
+  now destruct isin.
+Qed.
+
+Lemma In_Eterm_deps_new k ks ks' t :
+  In k (Eterm_deps ks t) ->
+  ~In k ks ->
+  In k (Eterm_deps ks' t).
+Proof.
+  intros isin notin.
+  induction t in ks, ks', isin, notin |- * using EInduction.term_forall_list_ind; cbn in *; try easy.
+  - eapply In_fold_left_new; eauto.
+    + intros.
+      now apply In_Eterm_deps_already.
+    + intros.
+      now eapply Forall_All, All_In in H as [H]; [|eassumption].
+  - destruct (contains k (Eterm_deps ks t1)) eqn:cont.
+    + apply contains_In in cont.
+      now apply In_Eterm_deps_already.
+    + eapply IHt2; [easy|].
+      apply contains_In_not.
+      eassumption.
+  - destruct (contains k (Eterm_deps ks t1)) eqn:cont.
+    + apply contains_In in cont.
+      now apply In_Eterm_deps_already.
+    + eapply IHt2; [easy|].
+      apply contains_In_not.
+      eassumption.
+  - apply add_seen_new in isin as ->; [|easy].
+    now apply In_add_seen.
+  - apply add_seen_new in isin as ->; [|easy].
+    now apply In_add_seen.
+  - destruct p.
+    destruct (contains k (Eterm_deps (add_seen (inductive_mind i) ks) t)) eqn:cont.
+    + apply contains_In in cont.
+      apply In_fold_left.
+      * destruct (eq_dec k (inductive_mind i)) as [->|].
+        -- now apply In_Eterm_deps_already, In_add_seen.
+        -- eapply IHt; [eassumption|].
+           intros isin'.
+           now apply add_seen_new in isin'; subst.
+      * intros; destruct a.
+        now apply In_Eterm_deps_already.
+    + apply contains_In_not in cont.
+      eapply In_fold_left_new; eauto.
+      * intros; destruct a.
+        now apply In_Eterm_deps_already.
+      * intros; destruct a.
+        now eapply All_In in X as []; [|eassumption].
+  - destruct s as ((? & ?) & ?).
+    destruct (eq_dec (inductive_mind i) k) as [<-|].
+    + now apply In_Eterm_deps_already, In_add_seen.
+    + eapply IHt; [easy|].
+      intros isin'.
+      now apply add_seen_new in isin'; subst.
+  - eapply In_fold_left_new; eauto.
+    + intros.
+      now apply In_Eterm_deps_already.
+    + intros.
+      now eapply Forall_All, All_In in H as [H]; [|eassumption].
+  - eapply In_fold_left_new; eauto.
+    + intros.
+      now apply In_Eterm_deps_already.
+    + intros.
+      now eapply Forall_All, All_In in H as [H]; [|eassumption].
+Qed.
+
 Lemma In_fold_box_type_deps k ks ts :
   In k ks ->
   In k (fold_left box_type_deps ts ks).
@@ -306,7 +433,7 @@ Proof.
   destruct decl; cbn in *.
   - apply In_box_type_deps.
     destruct ExAst.cst_body; [|easy].
-    now apply In_Eterm_deps.
+    now apply In_Eterm_deps_already.
   - apply In_fold_left; [easy|].
     intros.
     apply In_fold_left.
@@ -319,72 +446,106 @@ Proof.
     now apply In_box_type_deps.
 Qed.
 
-Lemma erases_forall_list_ind :
-forall (Σ : PCUICAst.global_env_ext)
-  (P : PCUICAst.context -> PCUICAst.term -> Extract.E.term -> Prop),
-(forall (Γ : PCUICAst.context) (i : nat), P Γ (PCUICAst.tRel i) (Extract.E.tRel i)) ->
-(forall (Γ : PCUICAst.context) (n : ident), P Γ (PCUICAst.tVar n) (Extract.E.tVar n)) ->
-(forall (Γ : PCUICAst.context) (m m' : nat) (l : list PCUICAst.term) (l' : list Extract.E.term),
+Lemma erases_forall_list_ind
+      Σ (P : P.context -> P.term -> E.term -> Prop)
+(Hrel : forall (Γ : P.context) (i : nat), P Γ (P.tRel i) (E.tRel i))
+(Hvar : forall (Γ : P.context) (n : ident), P Γ (P.tVar n) (E.tVar n))
+(Hevar : forall (Γ : P.context) (m m' : nat) (l : list P.term) (l' : list E.term),
  All2 (erases Σ Γ) l l' ->
  Forall2 (P Γ) l l' ->
- P Γ (PCUICAst.tEvar m l) (Extract.E.tEvar m' l')) ->
-(forall (Γ : PCUICAst.context) (na : name) (b t : PCUICAst.term) (t' : Extract.E.term),
- Σ;;; (PCUICAst.vass na b :: Γ) |- t ⇝ℇ t' ->
- P (PCUICAst.vass na b :: Γ) t t' -> P Γ (PCUICAst.tLambda na b t) (Extract.E.tLambda na t')) ->
-(forall (Γ : PCUICAst.context) (na : name) (t1 : PCUICAst.term) (t1' : Extract.E.term)
-   (T t2 : PCUICAst.term) (t2' : Extract.E.term),
+ P Γ (P.tEvar m l) (E.tEvar m' l'))
+(Hlam : forall (Γ : P.context) (na : name) (b t : P.term) (t' : E.term),
+ Σ;;; (P.vass na b :: Γ) |- t ⇝ℇ t' ->
+ P (P.vass na b :: Γ) t t' -> P Γ (P.tLambda na b t) (E.tLambda na t'))
+(Hletin : forall (Γ : P.context) (na : name) (t1 : P.term) (t1' : E.term)
+   (T t2 : P.term) (t2' : E.term),
  Σ;;; Γ |- t1 ⇝ℇ t1' ->
  P Γ t1 t1' ->
- Σ;;; (PCUICAst.vdef na t1 T :: Γ) |- t2 ⇝ℇ t2' ->
- P (PCUICAst.vdef na t1 T :: Γ) t2 t2' ->
- P Γ (PCUICAst.tLetIn na t1 T t2) (Extract.E.tLetIn na t1' t2')) ->
-(forall (Γ : PCUICAst.context) (f4 u : PCUICAst.term) (f' u' : Extract.E.term),
+ Σ;;; (P.vdef na t1 T :: Γ) |- t2 ⇝ℇ t2' ->
+ P (P.vdef na t1 T :: Γ) t2 t2' ->
+ P Γ (P.tLetIn na t1 T t2) (E.tLetIn na t1' t2'))
+(Happ : forall (Γ : P.context) (f4 u : P.term) (f' u' : E.term),
  Σ;;; Γ |- f4 ⇝ℇ f' ->
- P Γ f4 f' -> Σ;;; Γ |- u ⇝ℇ u' -> P Γ u u' -> P Γ (PCUICAst.tApp f4 u) (Extract.E.tApp f' u')) ->
-(forall (Γ : PCUICAst.context) (kn : kername) (u : Universes.Instance.t),
- P Γ (PCUICAst.tConst kn u) (Extract.E.tConst kn)) ->
-(forall (Γ : PCUICAst.context) (kn : inductive) (k : nat) (n : Universes.Instance.t),
- P Γ (PCUICAst.tConstruct kn k n) (Extract.E.tConstruct kn k)) ->
-(forall (Γ : PCUICAst.context) (ind : inductive) (npar : nat) (T c : PCUICAst.term)
-   (brs : list (nat × PCUICAst.term)) (c' : Extract.E.term) (brs' : list (nat × Extract.E.term)),
+ P Γ f4 f' -> Σ;;; Γ |- u ⇝ℇ u' -> P Γ u u' -> P Γ (P.tApp f4 u) (E.tApp f' u'))
+(Hconst : forall (Γ : P.context) (kn : kername) (u : Universes.Instance.t),
+ P Γ (P.tConst kn u) (E.tConst kn))
+(Hconstruct : forall (Γ : P.context) (kn : inductive) (k : nat) (n : Universes.Instance.t),
+ P Γ (P.tConstruct kn k n) (E.tConstruct kn k))
+(Hcase : forall (Γ : P.context) (ind : inductive) (npar : nat) (T c : P.term)
+   (brs : list (nat × P.term)) (c' : E.term) (brs' : list (nat × E.term)),
  PCUICElimination.Informative Σ ind ->
  Σ;;; Γ |- c ⇝ℇ c' ->
  P Γ c c' ->
  All2
-   (fun (x : nat × PCUICAst.term) (x' : nat × Extract.E.term) => Σ;;; Γ |- x.2 ⇝ℇ x'.2 × x.1 = x'.1)
+   (fun (x : nat × P.term) (x' : nat × E.term) => Σ;;; Γ |- x.2 ⇝ℇ x'.2 × x.1 = x'.1)
    brs brs' ->
 Forall2 (fun br br' => P Γ br.2 br'.2) brs brs' ->
- P Γ (PCUICAst.tCase (ind, npar) T c brs) (Extract.E.tCase (ind, npar) c' brs')) ->
-(forall (Γ : PCUICAst.context) (p : (inductive × nat) × nat) (c : PCUICAst.term)
-   (c' : Extract.E.term),
+ P Γ (P.tCase (ind, npar) T c brs) (E.tCase (ind, npar) c' brs'))
+(Hproj : forall (Γ : P.context) (p : (inductive × nat) × nat) (c : P.term)
+   (c' : E.term),
  let ind := p.1.1 in
  PCUICElimination.Informative Σ ind ->
- Σ;;; Γ |- c ⇝ℇ c' -> P Γ c c' -> P Γ (PCUICAst.tProj p c) (Extract.E.tProj p c')) ->
-(forall (Γ : PCUICAst.context) (mfix : mfixpoint PCUICAst.term) (n : nat)
-   (mfix' : list (Extract.E.def Extract.E.term)),
+ Σ;;; Γ |- c ⇝ℇ c' -> P Γ c c' -> P Γ (P.tProj p c) (E.tProj p c'))
+(Hfix : forall (Γ : P.context) (mfix : mfixpoint P.term) (n : nat)
+   (mfix' : list (E.def E.term)),
  All2
-   (fun (d : def PCUICAst.term) (d' : Extract.E.def Extract.E.term) =>
-    dname d = Extract.E.dname d'
-    × rarg d = Extract.E.rarg d'
-      × Σ;;; PCUICAst.app_context Γ (PCUICLiftSubst.fix_context mfix) |-
-        dbody d ⇝ℇ Extract.E.dbody d') mfix mfix' ->
- Forall2 (fun d d' => P (PCUICAst.app_context Γ (PCUICLiftSubst.fix_context mfix)) (dbody d) (EAst.dbody d') ) mfix mfix' ->
- P Γ (PCUICAst.tFix mfix n) (Extract.E.tFix mfix' n)) ->
-(forall (Γ : PCUICAst.context) (mfix : mfixpoint PCUICAst.term) (n : nat)
-   (mfix' : list (Extract.E.def Extract.E.term)),
+   (fun (d : def P.term) (d' : E.def E.term) =>
+    dname d = E.dname d'
+    × rarg d = E.rarg d'
+      × Σ;;; P.app_context Γ (PCUICLiftSubst.fix_context mfix) |-
+        dbody d ⇝ℇ E.dbody d') mfix mfix' ->
+ Forall2 (fun d d' => P (P.app_context Γ (PCUICLiftSubst.fix_context mfix)) (dbody d) (EAst.dbody d') ) mfix mfix' ->
+ P Γ (P.tFix mfix n) (E.tFix mfix' n))
+(Hcofix : forall (Γ : P.context) (mfix : mfixpoint P.term) (n : nat)
+   (mfix' : list (E.def E.term)),
  All2
-   (fun (d : def PCUICAst.term) (d' : Extract.E.def Extract.E.term) =>
-    dname d = Extract.E.dname d'
-    × rarg d = Extract.E.rarg d'
-      × Σ;;; PCUICAst.app_context Γ (PCUICLiftSubst.fix_context mfix) |-
-        dbody d ⇝ℇ Extract.E.dbody d') mfix mfix' ->
- Forall2 (fun d d' => P (PCUICAst.app_context Γ (PCUICLiftSubst.fix_context mfix)) (dbody d) (EAst.dbody d') ) mfix mfix' ->
- P Γ (PCUICAst.tCoFix mfix n) (Extract.E.tCoFix mfix' n)) ->
-(forall (Γ : PCUICAst.context) (t : PCUICAst.term), isErasable Σ Γ t -> P Γ t Extract.E.tBox) ->
-forall (Γ : PCUICAst.context) (t : PCUICAst.term) (t0 : Extract.E.term),
-Σ;;; Γ |- t ⇝ℇ t0 -> P Γ t t0.
+   (fun (d : def P.term) (d' : E.def E.term) =>
+    dname d = E.dname d'
+    × rarg d = E.rarg d'
+      × Σ;;; P.app_context Γ (PCUICLiftSubst.fix_context mfix) |-
+        dbody d ⇝ℇ E.dbody d') mfix mfix' ->
+ Forall2 (fun d d' => P (P.app_context Γ (PCUICLiftSubst.fix_context mfix)) (dbody d) (EAst.dbody d') ) mfix mfix' ->
+ P Γ (P.tCoFix mfix n) (E.tCoFix mfix' n))
+(Hbox : forall (Γ : P.context) (t : P.term), isErasable Σ Γ t -> P Γ t E.tBox) :
+  forall (Γ : P.context) (t : P.term) (t0 : E.term),
+    Σ;;; Γ |- t ⇝ℇ t0 -> P Γ t t0.
 Proof.
-  intros until t0.
+  fix f 4.
+  intros Γ t et er.
+  move f at top.
+  destruct er;
+    try solve [match goal with
+    | [H: _ |- _] => apply H
+    end; auto].
+  - apply Hevar; [assumption|].
+    revert l l' X.
+    fix f' 3.
+    intros l l' [].
+    + now constructor.
+    + constructor; [now apply f|now apply f'].
+  - apply Hcase; try assumption.
+    + now apply f.
+    + revert brs brs' X.
+      fix f' 3.
+      intros brs brs' []; [now constructor|].
+      constructor; [now apply f|now apply f'].
+  - apply Hfix; try assumption.
+    revert X.
+    generalize mfix at 1 3.
+    intros mfix_gen.
+    revert mfix mfix'.
+    fix f' 3.
+    intros mfix mfix' []; [now constructor|].
+    constructor; [now apply f|now apply f'].
+  - apply Hcofix; try assumption.
+    revert X.
+    generalize mfix at 1 3.
+    intros mfix_gen.
+    revert mfix mfix'.
+    fix f' 3.
+    intros mfix mfix' []; [now constructor|].
+    constructor; [now apply f|now apply f'].
+Defined.
 
 Lemma erases_deps_recursive Σ Σer t T et :
   wf_ext Σ ->
@@ -410,21 +571,21 @@ Proof.
     + eapply IHer1; eauto.
       intros.
       apply deps_er.
-      now apply In_Eterm_deps.
+      now apply In_Eterm_deps_already.
     + eapply IHer2; eauto.
       intros.
       apply deps_er.
-      admit.
+      now eapply In_Eterm_deps_new.
   - apply inversion_App in wt as (? & ? & ? & ? & ? & ?); eauto.
     constructor.
     + eapply IHer1; eauto.
       intros.
       apply deps_er.
-      now apply In_Eterm_deps.
+      now apply In_Eterm_deps_already.
     + eapply IHer2; eauto.
       intros.
       apply deps_er.
-      admit.
+      now eapply In_Eterm_deps_new.
   - apply inversion_Const in wt as (? & ? & ? & ? & ?); eauto.
     specialize (deps_er kn (or_introl eq_refl)).
     unfold declared_constant in d.
@@ -437,21 +598,18 @@ Proof.
     + eapply IHer; eauto.
       intros.
       eapply deps_er.
-      apply In_fold_left.
-      * admit.
+      eapply In_fold_left.
+      * now eapply In_Eterm_deps_new.
       * intros.
         destruct a0.
-        now apply In_Eterm_deps.
+        now apply In_Eterm_deps_already.
     + clear -wf a X H0 deps_er.
-      revert a X H0 deps_er.
-      generalize brs' at 3.
-      intros brs_gen.
-      revert brs' x5.
-      induction brs; intros brs' brtys typ er all_deps deps.
+      revert brs' x5 a X H0 deps_er.
+      induction brs; intros brs' x5 brtys typ er deps.
       { now depelim er. }
+      depelim brtys.
       depelim typ.
       depelim er.
-      depelim all_deps.
       destruct p as ((? & ?) & ?).
       destruct p0.
       constructor.
@@ -461,18 +619,35 @@ Proof.
         cbn.
         destruct y0; cbn in *.
         apply In_fold_left.
-        -- admit.
-        -- intros.
-           destruct a0.
-           now apply In_Eterm_deps.
+        -- now eapply In_Eterm_deps_new.
+        -- intros; destruct a0.
+           now apply In_Eterm_deps_already.
       * eapply IHbrs; eauto.
+        intros.
+        apply deps.
+        cbn.
+        destruct y0; cbn in *.
+        destruct (contains k (Eterm_deps (Eterm_deps [inductive_mind ind] c') t1)) eqn:cont.
+        -- apply contains_In in cont.
+           apply In_fold_left; cbn in *; [easy|].
+           intros; destruct a0.
+           now apply In_Eterm_deps_already.
+        -- apply contains_In_not in cont.
+           eapply In_fold_left_new; eauto.
+           ++ intros isin'.
+              contradiction cont.
+              now apply In_Eterm_deps_already.
+           ++ intros; destruct a0.
+              now apply In_Eterm_deps_already.
+           ++ intros; destruct a0.
+              eapply In_Eterm_deps_new; eauto.
 
   - apply inversion_Proj in wt as (?&?&?&?&?&?&?&?&?); eauto.
     constructor.
     eapply IHer; eauto.
     intros; apply deps_er.
     destruct p as ((? & ?) & ?).
-    admit.
+    now eapply In_Eterm_deps_new.
   - constructor.
     apply inversion_Fix in wt as (?&?&?&?&?&?&?); eauto.
     clear -wf a0 X H deps_er.
@@ -494,12 +669,16 @@ Proof.
       cbn in *.
       apply In_fold_left; [easy|].
       intros.
-      now apply In_Eterm_deps.
+      now apply In_Eterm_deps_already.
     + apply IHmfix; eauto.
       intros.
       apply deps.
       cbn in *.
-      admit.
+      eapply In_fold_left_new; eauto.
+      * intros.
+        now apply In_Eterm_deps_already.
+      * intros.
+        now eapply In_Eterm_deps_new.
   - constructor.
     apply inversion_CoFix in wt as (?&?&?&?&?&?&?); eauto.
     clear -wf a0 X H deps_er.
@@ -520,14 +699,18 @@ Proof.
       cbn in *.
       apply In_fold_left; [easy|].
       intros.
-      now apply In_Eterm_deps.
+      now apply In_Eterm_deps_already.
     + apply IHmfix; eauto.
       intros.
       apply deps.
       cbn in *.
-      admit.
+      eapply In_fold_left_new; eauto.
+      * intros.
+        now apply In_Eterm_deps_already.
+      * intros.
+        now eapply In_Eterm_deps_new.
   - now constructor.
-Admitted.
+Qed.
 
 Opaque erase_type SafeErasureFunction.wf_reduction.
 Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore erase_func Σex :
@@ -671,5 +854,5 @@ Proof.
         intros.
         apply IH.
         apply In_box_type_deps.
-        todo "easy".
+        now eapply In_Eterm_deps_new.
 Qed.

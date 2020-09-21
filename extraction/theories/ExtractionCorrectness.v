@@ -42,7 +42,10 @@ Proof.
   depelim ev.
   unfold valid_masks_env in valid.
   apply forallb_Forall in valid.
-  apply declared_constant_trans in isdecl as (? & ? & nth).
+  apply declared_constant_trans in isdecl as [(? & ? & nth)|(isbox & ? & ? & nth)]; cycle 1.
+  { eapply nth_error_forall in nth; [|eassumption].
+    cbn in *.
+    now destruct get_const_mask. }
   eapply nth_error_forall in nth; [|eassumption].
   cbn in *.
   rewrite H in nth.
@@ -84,7 +87,9 @@ Proof.
   inversion_clear ex.
   rewrite trans_env_debox_env_types.
   eapply erase_global_decls_deps_recursive_correct in er; eauto.
-  2: left; reflexivity.
+  3: left; reflexivity.
+  2: intros.
+  2: now eapply SafeErasureFunction.erases_erase.
   assert (ev' := ev).
   depelim ev'.
   unfold declared_constant in isdecl.
