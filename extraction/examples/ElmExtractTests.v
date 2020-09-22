@@ -26,11 +26,11 @@ From MetaCoq Require Import utils.
 
 Import MonadNotation.
 
-Instance ElmBoxes : BoxSymbol :=
+Instance ElmBoxes : MidlangPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)
-     any_type_symbol := "()"(* unit type *) |}.
-
+     any_type_symbol := "()"; (* unit type *)
+     print_full_names := false (* short names for readability *)|}.
 
 Definition general_wrapped (p : program) (pre post : string)
   (ignore: list kername) (TT : list (kername * string)) : result string string :=
