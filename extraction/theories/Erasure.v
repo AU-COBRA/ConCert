@@ -1260,15 +1260,15 @@ Program Fixpoint erase_global_decls_deps_recursive
         | P.InductiveDecl mib =>
           ind <- map_error (ErrInductive Σext kn)
                            (erase_ind Σext _ kn mib _);;
-        ret [(kn, InductiveDecl true ind)]
+        ret (kn, InductiveDecl true ind)
         | P.ConstantDecl cb =>
           ety <- map_error ((ErrConstant Σext kn) ∘ EraseTypeError)
                           (erase_type Σext _ [] (Vector.nil _) cb.(P.cst_type) _ []);;
           let cb' := {| cst_type := ety; cst_body := None |} in
-          ret [(kn, ConstantDecl cb')]
+          ret (kn, ConstantDecl cb')
         end;;
         Σer <- erase_global_decls_deps_recursive Σ _ include ignore;;
-        ret (decl ++ Σer)%list
+        ret (decl :: Σer)%list
       else
         decl <- erase_global_decl Σext _ kn decl _;;
         Σer <- erase_global_decls_deps_recursive Σ _ (decl_deps include decl) ignore;;
