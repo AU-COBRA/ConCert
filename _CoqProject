@@ -129,6 +129,7 @@ extraction/examples/CrowdfundingCertifiedExtraction.v
 extraction/examples/ElmExtractTests.v
 extraction/examples/ErasureTests.v
 extraction/examples/ForPaper.v
+extraction/examples/MidlangCounterRefTypes.v
 extraction/examples/MidlangExtractTests.v
 extraction/examples/PreludeExt.v
 extraction/examples/SimpleBlockchainExt.v

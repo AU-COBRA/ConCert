@@ -1,8 +1,10 @@
 (** * Tests for extraction to Elm *)
+
 (** Uses the same pretty-printer as Midlang, since Midlang is a fork of Elm.
     The examples are writen into files which are later processed and passed to the Elm compiler as part of the building process. *)
 
-(** Warning: this file does not work in the interactive mode due to the problems with paths for [Redirect]. We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
+(** Warning: this file does not work in the interactive mode due to the problems with paths for [Redirect].
+    We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import MidlangExtract.

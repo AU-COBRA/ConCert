@@ -1153,7 +1153,6 @@ Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : str
 Program Definition erase_global_decl
         (Σext : P.global_env_ext) (wfΣext : ∥wf_ext Σext∥)
         (kn : kername)
-        (ignore_on_print : bool)
         (decl : P.global_decl)
         (wt : ∥on_global_decl (lift_typing typing) Σext kn decl∥)
   : result global_decl erase_global_decl_error :=
@@ -1168,7 +1167,7 @@ Program Definition erase_global_decl
   | P.InductiveDecl mib =>
     ind <- map_error (ErrInductive Σext kn)
                      (erase_ind Σext _ kn mib _);;
-    ret (InductiveDecl ignore_on_print ind)
+    ret (InductiveDecl false ind)
   end.
 
 Definition add_seen (n : kername) (seen : list kername) : list kername :=
@@ -1233,25 +1232,11 @@ Definition is_inductive_decl (d : P.global_decl) : bool :=
   | P.InductiveDecl _ => true
   end.
 
-(** Turn a global declaration into an axiom, if it's a constant, by removing the constant's body *)
-Definition decl_to_axiom (decl : global_decl) : global_decl :=
-  match decl with
-  | ConstantDecl cst =>
-    ConstantDecl {| cst_type := cst.(cst_type);
-                    cst_body := None |}
-  | TypeAliasDecl ty => (* NOTE: type aliases become axioms as well *)
-    ConstantDecl {| cst_type := ty;
-                    cst_body := None |}
-
-  | _ => decl
-  end.
-
 Definition contains (kn : kername) :=
   List.existsb (eq_kername kn).
 
-(* Erase the global declarations by the specified names and their
-   non-erased dependencies recursively. Ignore dependencies for which
-   [ignore] returnes [true] *)
+(* Erase the global declarations by the specified names and
+   their non-erased dependencies recursively. Ignore dependencies for which [ignore] returnes [true] *)
 Program Fixpoint erase_global_decls_deps_recursive
         (Σ : P.global_env)
         (wfΣ : ∥wf Σ∥)
@@ -1262,21 +1247,49 @@ Program Fixpoint erase_global_decls_deps_recursive
   | [] => ret []
   | (kn, decl) :: Σ =>
     let Σext := (Σ, universes_decl_of_decl decl) in
-    if contains kn include && negb (ignore kn)  then
-      decl <- erase_global_decl Σext _ kn false decl _;;
-      Σer <- erase_global_decls_deps_recursive Σ _ (decl_deps include decl) ignore;;
-      ret ((kn, decl) :: Σer)
-    else
-      if contains kn include && ignore kn then
-      (* NOTE: if the inductive declarations is ignored, we still add it to have enough info for printing [match] and inductives that depend on it. But we ignore its dependencies and ignore the declaration itself on printing *)
-        decl <- erase_global_decl Σext _ kn true decl _;;
-        let decl := decl_to_axiom decl in
-        Σer <- erase_global_decls_deps_recursive Σ _ include ignore ;;
-        ret ((kn, decl) :: Σer)
+    if contains kn include then
+      if ignore kn then
+      (* NOTE: if we ignore an inductive declaration, we still add
+      it to have enough info for printing [match] and inductives that
+      depend on it. But we ignore its dependencies and ignore the
+      declaration itself on printing.
+      This is a bit of a hack, we should probably not erase (all) ignored
+      types as they may fail to erase. *)
+        decl <-
+        match decl with
+        | P.InductiveDecl mib =>
+          ind <- map_error (ErrInductive Σext kn)
+                           (erase_ind Σext _ kn mib _);;
+        ret (kn, InductiveDecl true ind)
+        | P.ConstantDecl cb =>
+          ety <- map_error ((ErrConstant Σext kn) ∘ EraseTypeError)
+                          (erase_type Σext _ [] (Vector.nil _) cb.(P.cst_type) _ []);;
+          let cb' := {| cst_type := ety; cst_body := None |} in
+          ret (kn, ConstantDecl cb')
+        end;;
+        Σer <- erase_global_decls_deps_recursive Σ _ include ignore;;
+        ret (decl :: Σer)%list
       else
-        erase_global_decls_deps_recursive Σ _ include ignore
+        decl <- erase_global_decl Σext _ kn decl _;;
+        Σer <- erase_global_decls_deps_recursive Σ _ (decl_deps include decl) ignore;;
+        ret ((kn, decl) :: Σer)
+    else
+      erase_global_decls_deps_recursive Σ _ include ignore
   end.
-Solve All Obligations with cbn;intros;subst; now sq; inversion wfΣ.
+Solve Obligations with cbn;intros;subst; now sq; inversion wfΣ.
+Next Obligation.
+  sq.
+  inversion wfΣ;subst;clear wfΣ;cbn in *.
+  unfold on_constant_decl in *.
+  destruct (P.cst_body cb).
+  - cbn in *.
+    eapply validity_term; [easy|eassumption].
+  - cbn in *.
+    destruct X0 as (s & ?).
+    right.
+    now exists s.
+Qed.
+
 End EraseEnv.
 
 (* Use SafeErasureFunction.erase for erasure. Runs from within Coq but has more

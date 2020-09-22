@@ -1,3 +1,7 @@
+(** * Extraction of a counter contract with refinement types to Liquidity *)
+
+(** The contract uses refinement types to specify some functional correctness properties *)
+
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
 From MetaCoq.Template Require Import Loader.
@@ -139,7 +143,7 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
 Time MetaCoq Run
      (r <- tmQuoteRecTransp counter false;;
       t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimeters t)
+      tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimiters t)
      ).
 
 Print liquidity_counter.

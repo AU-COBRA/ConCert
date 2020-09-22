@@ -731,9 +731,9 @@ Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore erase_fun
 Proof.
   intros no_ignores erase_erases er.
   induction Σ as [|(kn, decl) Σ IH] in wfΣ, include, Σex, er |- *; [easy|].
-  cbn in *.
+  simpl in *.
   match goal with
-  | [H: context[erase_global_decl _ _ ?wfΣarg _ _ _ ?wfdeclarg] |- _] =>
+  | [H: context[erase_global_decl _ _ ?wfΣarg _ _ ?wfdeclarg] |- _] =>
       set (wfΣext := wfΣarg) in *; clearbody wfΣext;
         set (wfdecl := wfdeclarg) in *; clearbody wfdecl
   end.
