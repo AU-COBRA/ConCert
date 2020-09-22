@@ -1,7 +1,6 @@
 # Extraction
 
-The content of this folder corresponds to Section 3 of the paper.
-See more references below starting with the prefix "PAPER:"
+The content of this folder corresponds to Section 3 of the paper. See more references below starting with the prefix "PAPER:"
 
 Contains an implementation of extraction based on the certified erasure provided by MetaCoq. The
 `theories` folder contains the implementation and correctness theorems.  The `examples` folder, as
@@ -12,10 +11,9 @@ After building the project (running `make` from the project's root), the folders
 `examples/liquidity-extract/tests`, `examples/elm-extract/tests` and `examples/midlang-extract/tests`
 are populated with the extracted code.
 
-Compiling Liquidity code:
-install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html). Be
-aware of some issues while installing Liquidity: https://github.com/OCamlPro/liquidity/issues/254.
-Alternatively, the Liquidity code can be run using the online IDE: https://www.liquidity-lang.org/
+Compiling Liquidity code: install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html).
+Follow the instructions, but pin the version of `ocaml-migrate-parsetree` to 1.5.5. Alternatively,
+the Liquidity code can be run using the online IDE: https://www.liquidity-lang.org/
 
 Compiling Elm code:
 install the [Elm compiler](https://guide.elm-lang.org/install/elm.html).

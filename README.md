@@ -31,6 +31,11 @@ After completing the procedures above, run `make` to build the development, and
 `make html` to build the documentation. The documentation will be located in the
 docs folder after `make html`.
 
+To test the code produced by our extraction run `make test-extraction`. 
+However, this command requires [Elm compiler](https://guide.elm-lang.org/install/elm.html) and
+[Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html) 
+(follow the instructions, but pin the version of `ocaml-migrate-parsetree` to 1.5.5).
+
 ## Structure of the project
 
 See notes with "PAPER:" prefix referencing to the corresponding sections/definitions in the paper.
