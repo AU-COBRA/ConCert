@@ -100,10 +100,10 @@ Definition extract_template_env_specalize
   let Σ := T2P.trans_global_decls Σ in
   Σ <- specialize_ChainBase_env Σ ;;
   wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_params params) Σ wfΣ seeds ignore.
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
 Definition escrow_extract :=
-  extract_template_env_specalize check_masks_args
+  extract_template_env_specalize extract_within_coq
       escrow_env
       [escrow_name]
        (fun kn => contains kn (ignored_concert_types

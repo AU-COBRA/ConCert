@@ -163,7 +163,7 @@ fot_viewc t := fot_view_other t _.
 Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
 Proof. now apply wat_wellformed. Qed.
 
-Axiom needs_metacoq_proof : forall {A}, A.
+Axiom hnf_completion : forall {A}, A.
 Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
   : typing_result (type_flag Γ T)
   by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) term_rel :=
@@ -258,7 +258,7 @@ Next Obligation.
        the assumption that hnf of T is neither tProd nor tSort.
        To do this we will need to use some completeness fact about hnf,
        which is not proved in MetaCoq yet, so we defer this proof for now. *)
-    exact needs_metacoq_proof.
+    exact hnf_completion.
   - destruct isT as [[]].
     now econstructor.
 Qed.
@@ -270,11 +270,14 @@ Next Obligation.
   eapply validity; [easy|exact typK].
 Qed.
 Next Obligation.
-  (* same as above *)
-  exact needs_metacoq_proof.
+  (* Same as above: since the head normal form of T is neither a product
+     or sort, it is not convertible to an arity by completeness of hnf. *)
+  exact hnf_completion.
 Qed.
 Next Obligation.
-  exact needs_metacoq_proof.
+  (* Same as above: since the head normal form of T is neither a product
+     or sort, it is not convertible to a sort by completeness of hnf. *)
+  exact hnf_completion.
 Qed.
 
 Definition redβιζ : RedFlags.t :=

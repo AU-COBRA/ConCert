@@ -38,7 +38,7 @@ Definition general_wrapped (p : program) (pre post : string)
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- extract_template_env_check_masks p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
+  Σ <- extract_template_env_within_coq p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret (pre ++ nl ++ s ++ nl ++ post).
