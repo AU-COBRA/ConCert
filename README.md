@@ -33,15 +33,17 @@ docs folder after `make html`.
 
 ## Structure of the project
 
+See notes with "PAPER:" prefix referencing to the corresponding sections/definitions in the paper.
+
 The [embedding](embedding/) folder contains the development of the embedding.
 
-The [execution](execution/) folder contains the formalization of the smart
-contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [tests](execution/tests) folder contains example tests. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/tests/TraceGens.v).
+The [execution](execution/) folder contains the formalization of the smart contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. Contains a README file with the details of the execution layer structure.
 
-The [extraction](extraction/) folder contains an implemention of extraction based on MetaCoq's **certified erasure**. 
-It supports Liquidity and Elm as target languages. The extraction also features verified optimisations.
+The [execution/examples](execution/examples) folder contains implementations of and theorems about smart contracts. 
+It includes the [Escrow](execution/examples/Escrow.v) contract (PAPER: Section 4) and the [Boardroom voting](execution/examples/BoardroomVoting.v) contract (PAPER: Section 5)
 
+The [execution/tests](execution/tests) folder contains example tests. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/tests/TraceGens.v). (PAPER: Section 6)
 
-## Notes for developers
-
-The [execution](execution/) subproject can be built independently via running `make` in the `execution` folder. This also means that the `_CoqProject` file inside the `execution` folder must be manually kept in sync with the main `_CoqProject` in the root.
+The [extraction](extraction/) folder contains an implementation of extraction based on MetaCoq's **certified erasure**. 
+It supports Liquidity, Midlang, and Elm as target languages. The extraction also features verified optimisations. 
+Contains a README file with the details of the extraction implementation. (PAPER: Section 3)

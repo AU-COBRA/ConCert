@@ -1,3 +1,5 @@
+(** * Erasure for types, inductives and the global environment *)
+
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import StringExtra.
 From ConCert.Extraction Require Import ResultMonad.
@@ -636,8 +638,7 @@ Definition wrap_typing_result
   | TypeError te => Err (f te)
   end.
 
-(* Marked noeqns until we need to prove things about it to make its
-definition faster *)
+(** ** Erasure for types (PAPER: Figure 1) *)
 Equations(noeqns) erase_type
           (Γ : context)
           (erΓ : Vector.t tRel_kind #|Γ|)
@@ -1091,6 +1092,8 @@ Definition string_of_erase_ind_error (e : erase_ind_error) : string :=
                                  ++ string_of_erase_ind_body_error e
   end.
 
+
+(** ** Erasure for inductive definitions *)
 Program Definition erase_ind
         (kn : kername)
         (mib : P.mutual_inductive_body)
@@ -1235,6 +1238,7 @@ Definition is_inductive_decl (d : P.global_decl) : bool :=
 Definition contains (kn : kername) :=
   List.existsb (eq_kername kn).
 
+(** ** Erasure of dependencies for a given initial list of names  *)
 (* Erase the global declarations by the specified names and
    their non-erased dependencies recursively. Ignore dependencies for which [ignore] returnes [true] *)
 Program Fixpoint erase_global_decls_deps_recursive
@@ -1292,7 +1296,7 @@ Qed.
 
 End EraseEnv.
 
-(* Use SafeErasureFunction.erase for erasure. Runs from within Coq but has more
+(** Use SafeErasureFunction.erase for erasure. Runs from within Coq but has more
    things admitted about it. *)
 Definition erase_global_decls_deps_recursive_safe_erasure :=
   erase_global_decls_deps_recursive SafeErasureFunction.erase.

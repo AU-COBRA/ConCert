@@ -1,3 +1,7 @@
+(** * Correctness theorems about optimisations *)
+
+(** PAPER: Contains Theorem 1 Soundness of dearging *)
+
 From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
@@ -2971,6 +2975,7 @@ Proof.
         apply filter_length.
 Qed.
 
+(** Soundness of dearging (PAPER: Theorem 1) **)
 Lemma dearg_correct Σ t v :
   env_closed (trans_env Σ) ->
   closed t ->

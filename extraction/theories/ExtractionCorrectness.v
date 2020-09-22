@@ -1,3 +1,7 @@
+(** * The top-level correctness theorem *)
+
+(** Top-level correctness theorem relating the stages (PAPER: Theorem 2) *)
+
 From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import Erasure.
@@ -67,6 +71,8 @@ Proof.
     + depelim ev.
 Qed.
 
+(** ** Soundness of extraction *)
+(** PAPER: Theorem 2 *)
 Theorem extract_correct (Σ : P.global_env_ext) kn ui ind c ui' (wfΣ : wf_ext Σ) exΣ :
   axiom_free Σ ->
   welltyped Σ [] (P.tConst kn ui) ->
