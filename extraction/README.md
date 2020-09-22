@@ -26,7 +26,7 @@ been compiled with the private version of the Midlang compiler for the testing p
 Some highlights from `theories`:
 
 * `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures
-  with additional information about erased types.
+                        with additional information about erased types.
 * `theories/Erasure.v` -- An extension of the MetaCoq's certified erasure with erasure for types and
   erasing only required dependencies. Also implements erasure for global environments with extra
   typing information for global definitions (PAPER: Section 3.1/Erasure for types).
