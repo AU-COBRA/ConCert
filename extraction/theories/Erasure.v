@@ -23,6 +23,7 @@ From MetaCoq.PCUIC Require Import PCUICGeneration.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require Import PCUICNormal.
 From MetaCoq.PCUIC Require Import PCUICPrincipality.
+From MetaCoq.PCUIC Require Import PCUICReduction.
 From MetaCoq.PCUIC Require Import PCUICSN.
 From MetaCoq.PCUIC Require Import PCUICSR.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
@@ -291,18 +292,70 @@ Inductive term_sub_ctx : context * term -> context * term -> Prop :=
     In arg (decompose_app (tApp hd arg1)).2 ->
     term_sub_ctx (Γ, arg) (Γ, tApp hd arg1).
 
+Derive Signature for term_sub_ctx.
+
+Lemma In_app_inv {X} (x : X) xs ys :
+  In x (xs ++ ys) ->
+  In x xs \/ In x ys.
+Proof.
+  intros isin.
+  induction xs; [easy|].
+  cbn in *.
+  destruct isin as [->|]; [easy|].
+  apply IHxs in H.
+  now destruct H.
+Qed.
+
 Lemma well_founded_term_sub_ctx : well_founded term_sub_ctx.
 Proof.
-  Admitted.
+  intros (Γ & t).
+  induction t in Γ |- *; constructor; intros (Γs & ts) rel; try solve [inversion rel].
+  - now depelim rel.
+  - depelim rel.
+    destruct (mkApps_elim t1 []).
+    cbn in *.
+    rewrite decompose_app_rec_mkApps, atom_decompose_app in H by easy.
+    cbn in *.
+    apply In_app_inv in H.
+    destruct H as [|[|]]; cbn in *; subst; [|easy|easy].
+    apply (IHt1 Γ).
+    destruct (firstn n l) using List.rev_ind; [easy|].
+    rewrite <- mkApps_nested.
+    constructor.
+    cbn.
+    now rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
+Qed.
 
 Definition erase_type_rel : Relation_Definitions.relation (∑ Γ t, wellformed Σ Γ t) :=
   fun '(Γs; ts; wfs) '(Γl; tl; wfl) =>
     ∥∑m, red Σ Γl tl m × term_sub_ctx (Γs, ts) (Γl, m)∥.
 
+Lemma cored_prod_l Γ na A A' B :
+  cored Σ Γ A A' ->
+  cored Σ Γ (tProd na A B) (tProd na A' B).
+Proof.
+  intros cor.
+  depelim cor.
+  - now eapply cored_red_trans.
+  - apply cored_red in cor as [cor].
+    eapply cored_red_trans; [|easy].
+    now apply red_prod_l.
+Qed.
+
+Lemma cored_prod_r Γ na A B B' :
+  cored Σ (Γ,, vass na A) B B' ->
+  cored Σ Γ (tProd na A B) (tProd na A B').
+Proof.
+  intros cor.
+  depelim cor.
+  - now eapply cored_red_trans.
+  - apply cored_red in cor as [cor].
+    eapply cored_red_trans; [|easy].
+    now apply red_prod_r.
+Qed.
+
 Lemma well_founded_erase_type_rel : well_founded erase_type_rel.
 Proof.
-  Admitted.
-(*
   intros (Γl & l & wfl).
   destruct wfΣ as [wfΣu].
   induction (normalisation' Σ Γl l wfΣu wfl) as [l _ IH].
@@ -316,29 +369,126 @@ Proof.
   constructor.
   intros (Γs & s & wfs) [(m & mred & msub)].
   inversion msub; subst; clear msub.
-  - admit.
+  - inversion mred; subst.
+    + rewrite H0 in *.
+      apply (IH' (p.1, s)).
+      { replace p with (p.1, tProd na s B) by (now destruct p; cbn in *; congruence).
+        cbn.
+        constructor. }
+      intros y cor wfly.
+      cbn in *.
+      unshelve eapply (IH (tProd na y B)).
+      3: now repeat econstructor.
+      1: { eapply red_wellformed in wfl; eauto.
+           eapply cored_red in cor as [cor].
+           constructor.
+           now apply red_prod_l. }
+      now apply cored_prod_l.
+    + unshelve eapply (IH (tProd na s B)).
+      3: now repeat econstructor.
+      1: { eapply red_wellformed in wfl; eauto.
+           now constructor. }
+      apply red_neq_cored; [now transitivity P; eauto|].
+      intros eq.
+      rewrite eq in *.
+      eapply cored_red_trans in X0; eauto.
+      eapply SafeErasureFunction.Acc_no_loop in X0; [easy|].
+      eapply @normalisation'; eauto.
   - inversion mred; subst.
     + apply (IH' (p.1,, vass na A, s)).
-      * replace p with (p.1, tProd na A s) by (destruct p; cbn in *; congruence).
+      { replace p with (p.1, tProd na A s) by (destruct p; cbn in *; congruence).
         cbn.
+        now constructor. }
+      intros y cor wfly.
+      cbn in *.
+      unshelve eapply IH.
+      4: now repeat econstructor.
+      1: { eapply red_wellformed; eauto.
+           eapply cored_red in cor as [cored].
+           constructor.
+           rewrite H0.
+           now apply red_prod. }
+      rewrite H0.
+      now apply cored_prod_r.
+    + unshelve eapply IH.
+      4: now repeat econstructor.
+      1: { eapply red_wellformed; eauto.
+           now constructor. }
+      apply red_neq_cored; [now transitivity P; eauto|].
+      intros eq.
+      rewrite eq in *.
+      eapply cored_red_trans in X0; eauto.
+      eapply SafeErasureFunction.Acc_no_loop in X0; [easy|].
+      eapply @normalisation'; eauto.
+  - inversion mred; subst.
+    + apply (IH' (p.1, s)).
+      { replace p with (p.1, tApp hd arg1) by (destruct p; cbn in *; congruence).
+        now constructor. }
+      intros y cor wfly.
+      destruct (mkApps_elim hd []).
+      cbn in *.
+      rewrite decompose_app_rec_mkApps, atom_decompose_app in H0 by easy.
+      change (tApp ?hd ?arg) with (mkApps hd [arg]) in *.
+      rewrite mkApps_nested in *.
+      set (args := (firstn n l ++ [arg1])%list) in *.
+      clearbody args.
+      cbn in *.
+      apply In_split in H0 as (args_pref & args_suf & ->).
+      unshelve eapply (IH (mkApps f (args_pref ++ y :: args_suf))).
+      3: { constructor.
+           econstructor.
+           split; [easy|].
+           destruct args_suf using rev_ind.
+           - rewrite <- mkApps_nested.
+             constructor.
+             cbn.
+             rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
+             cbn.
+             now apply in_or_app; right; left.
+           - rewrite <- app_tip_assoc, app_assoc.
+             rewrite <- mkApps_nested.
+             constructor.
+             cbn.
+             rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
+             cbn.
+             apply in_or_app; left.
+             apply in_or_app; left.
+             now apply in_or_app; right; left. }
+      1: { eapply red_wellformed in wfl; eauto.
+           eapply cored_red in cor as [cor].
+           constructor.
+           rewrite H1.
+           apply red_mkApps; [easy|].
+           apply All2_app; [now apply All2_refl|].
+           constructor; [easy|].
+           now apply All2_refl. }
+      depelim cor; cycle 1.
+      * apply cored_red in cor as [cor].
+        eapply cored_red_trans.
+        2: apply PCUICSubstitution.red1_mkApps_r.
+        2: eapply OnOne2_app.
+        2: now constructor.
+        rewrite H1.
+        apply red_mkApps; [easy|].
+        apply All2_app; [now apply All2_refl|].
+        constructor; [easy|].
+        now apply All2_refl.
+      * rewrite H1.
         constructor.
-      * intros y cored wfly.
-        cbn in *.
-        inversion cored; subst.
-        -- eapply IH.
-           ++ econstructor.
-              rewrite H0.
-              apply prod_red_r.
-              exact X.
-           ++ cbn.
-              sq.
-              exists (tProd na A y).
-              split; [easy|].
-              constructor.
-        -- eapply IH.
-           ++ eapply red_neq_cored; [exact mred|].
-        eapply IH.
-*)
+        apply PCUICSubstitution.red1_mkApps_r.
+        eapply OnOne2_app.
+        now constructor.
+    + unshelve eapply (IH (tApp hd arg1)).
+      3: now repeat econstructor.
+      1: { eapply red_wellformed in wfl; eauto.
+           now constructor. }
+      apply red_neq_cored; [now transitivity P; eauto|].
+      intros eq.
+      rewrite eq in *.
+      eapply cored_red_trans in X0; eauto.
+      eapply SafeErasureFunction.Acc_no_loop in X0; [easy|].
+      eapply @normalisation'; eauto.
+Qed.
 
 Instance WellFounded_erase_type_rel : WellFounded erase_type_rel :=
   Wf.Acc_intro_generator 1000 well_founded_erase_type_rel.
@@ -490,7 +640,7 @@ Definition wrap_typing_result
 definition faster *)
 Equations(noeqns) erase_type
           (Γ : context)
-          (erΓ : Vector.t tRel_kind (List.length Γ))
+          (erΓ : Vector.t tRel_kind #|Γ|)
           (t : term)
           (wat : ∥isWfArity_or_Type Σ Γ t∥)
           (tvars : list name)
@@ -1017,7 +1167,7 @@ Program Definition erase_global_decl
     end
   | P.InductiveDecl mib =>
     ind <- map_error (ErrInductive Σext kn)
-                     (erase_ind erase_func Σext _ kn mib _);;
+                     (erase_ind Σext _ kn mib _);;
     ret (InductiveDecl ignore_on_print ind)
   end.
 
