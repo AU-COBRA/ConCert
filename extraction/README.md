@@ -33,16 +33,17 @@ Some highlights from `theories`:
 * `theories/LPretty.v` -- Pretty-printer for Liquidity from `λ□`.
 * `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart` language.
 * `theories/LiquidityExtract.v` - A high-level interface to Liquidity extraction.
-* `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction, incudes a pretty-printer.
+* `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction including the pretty-printer to Midlang/Elm.
 * `theories/PrettyPrinterMonad.v` -- A monad for implementing pretty-printing in Coq.
-* `theories/WcbvEvalType.v` -- Big-step cbv realtion of MetaCoq valued in `Type` instead of `Prop`. Eventually will be removed, once MetaCoq relation is updated.
+* `theories/WcbvEvalType.v` -- Big-step cbv relation of MetaCoq valued in `Type` instead of `Prop`. Used purely as an intermediate step for some proofs and not in the top level statements.
 
 
 Some highlights from `examples`:
 
 * `examples/CounterCertifiedExtraction.v` -- A simple counter contract.
-* `examples/CounterDepCertifiedExtraction.v` -- A counter contract that uses propositions to filter out the correct input. It also serves as an example appication of the certifying eta-expansion.
+* `examples/CounterDepCertifiedExtraction.v` -- A counter contract that uses propositions to filter out the correct input. It also serves as an example application of the certifying eta-expansion.
 * `examples/CounterRefinementTypes.v` -- A counter contract that uses refinement types for expressing partial functional correctness.
 * `examples/CrowdfundingCertifiedExtraction.v` -- Machinery for extraction of a crowdfunding contract (defined in `examples/crowdfunding_extract/Crowdfunding.v`).
 * `examples/ElmExtractTests.v` -- Several examples of extraction into Elm.
+* `examples/MidlangEscrow.v` -- Extraction of the escrow contract defined in [../execution/examples/Escrow.v](../execution/examples/Escrow.v) to Midlang.
 * `examples/StackInterpreter.v` -- An interpreter for a simple stack-based language.
