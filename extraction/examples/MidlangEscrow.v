@@ -8,6 +8,7 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import StringExtra.
+From ConCert.Execution.Examples Require Import Escrow.
 
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
@@ -23,6 +24,12 @@ Import MonadNotation.
 
 Open Scope string.
 
+Instance EscrowMidlangBoxes : MidlangPrintConfig :=
+  {| term_box_symbol := "()";
+     type_box_symbol := "()";
+     any_type_symbol := "()";
+     print_full_names := true; (* full names to avoid clashes*)|}.
+
 Notation "'eval_extract' x" :=
   ltac:(let x :=
             eval
@@ -32,33 +39,24 @@ Notation "'eval_extract' x" :=
               iota in x in
        exact x) (at level 70).
 
-From ConCert.Execution Require Import Escrow.
-
 Definition TT_escrow : list (kername * string) :=
-  [
-       remap <% Z.add %> "add"
-     ; remap <% Z.sub %> "sub"
-     ; remap <% Z.leb %> "le"
-     ; remap <% Z.ltb %> "lt"
-     ; remap <% Z %> "Int"
-     ; ((<%% Z %%>.1, "Z0"),"0")
-     ; remap <% nat %> "AccountAddress"
-     ; remap <% bool %> "Bool"
-     ; remap <% @Address %> "AccountAddress"].
+  [    remap <% bool %> "Bool"
+     ; remap <% @Address %> "Int"].
 
 Definition midlang_translation_map :=
   Eval compute in
         [(<%% @current_slot %%>, "current_slot");
         (<%% @account_balance %%>, "account_balance");
-        (<%% @address_eqb %%>, "address_eq");
-        (<%% @ctx_amount %%>, "amount");
-        (<%% @ctx_from %%>, "from");
+        (<%% @address_eqb %%>, "Order.eq");
+        (<%% @ctx_amount %%>, "ctx_amount");
+        (<%% @ctx_from %%>, "ctx_from");
         (<%% @Chain %%>, "ConCertChain");
         (<%% @ContractCallContext %%>, "ConCertCallContext");
         (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
         (<%% @ChainBase %%>, "ChainBaseWTF");
         (<%% @act_transfer %%>, "transfer");
-        (<%% @ctx_contract_address %%>, "contract_address")].
+        (<%% @ctx_contract_address %%>, "contract_address");
+        (<%% @Amount %%>,"Z" )].
 
 Definition midlang_escrow_translate (name : kername) : option string :=
   match find (fun '(key, _) => eq_kername key name) (TT_escrow ++ midlang_translation_map) with
@@ -102,20 +100,42 @@ Definition extract_template_env_specalize
   let Σ := T2P.trans_global_decls Σ in
   Σ <- specialize_ChainBase_env Σ ;;
   wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_params params) Σ wfΣ seeds ignore.
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
 Definition escrow_extract :=
-  extract_template_env_specalize check_masks_args
+  extract_template_env_specalize extract_within_coq
       escrow_env
       [escrow_name]
        (fun kn => contains kn (ignored_concert_types
                              ++ map fst midlang_translation_map
                              ++ map fst TT_escrow)).
 
-Instance MidlangBoxes : BoxSymbol :=
-  {| term_box_symbol := "()";
-     type_box_symbol := "()";
-     any_type_symbol := "()"|}.
+Definition wrap_in_delimiters s :=
+  String.concat nl ["";"{-START-} "; s; "{-END-}"].
+
+
+Definition midlang_prelude :=
+  String.concat nl
+                ["import Basics exposing (..)";
+                "import Blockchain exposing (..)";
+                "import Bool exposing (..)";
+                "import Int exposing (..)";
+                "import Maybe exposing (..)";
+                "import Order exposing (..)";
+                "import Transaction exposing (..)";
+                "import Tuple exposing (..)";
+                "";
+                "-- some dummy definitions (will be remapped properly in the future)";
+                "type AccountAddress = Int";
+                "type ConCertAction = Act_transfer Int Z";
+                "type ConCertCallContext = CCtx Unit";
+                "type ConCertChain = CChain Unit";
+                "ctx_from ctx = 0";
+                "ctx_amount ctx = (Zpos (XO XH))";
+                "contract_address _ = 0";
+                "account_balance _ _ = (Zpos (XO XH))";
+                "current_slot _ = O"
+].
 
 Definition escrow_result :=
   Eval vm_compute in
@@ -123,4 +143,15 @@ Definition escrow_result :=
      '(_, s) <- finish_print (print_env env escrow_env midlang_escrow_translate);;
      ret s).
 
-Compute escrow_result.
+
+MetaCoq Run (match escrow_result with
+             | ResultMonad.Ok s =>
+               res <- tmEval lazy (wrap_in_delimiters
+                                    (midlang_prelude ++ nl ++ s));;
+               tmDefinition "midlang_escrow" res
+             | ResultMonad.Err e => tmFail e
+             end).
+
+Compute midlang_escrow.
+
+Redirect "./extraction/examples/midlang-extract/MidlangEscrow.midlang" Compute midlang_escrow.

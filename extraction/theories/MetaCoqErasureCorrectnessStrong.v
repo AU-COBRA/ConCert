@@ -408,6 +408,7 @@ Hint Resolve erases_deps_subst1 erases_deps_eval erases_deps_mkApps : core.
 
 Import PA.
 
+Axiom metacoq_cofix_erasure_is_admitted : forall {A}, A.
 Set SsrRewrite.
 Lemma erases_correct Σ t T t' v Σ' :
   extraction_pre Σ ->
@@ -1002,13 +1003,13 @@ Proof.
     eauto.
     eapply PCUICValidity.inversion_mkApps in t0 as (? & ? & ?); eauto.
     eapply inversion_CoFix in t0 as (? & ? & ? &?); eauto.
-    todo "erasure cofix"%string.
+    apply metacoq_cofix_erasure_is_admitted.
 
   - assert (Hty' := Hty).
-    eapply inversion_Proj in Hty' as (? & ? & ? & [] & ? & ? & ? & ? & ?).
+    eapply inversion_Proj in Hty' as (? & ? & ? & [] & ? & ? & ? & ? & ?); eauto.
     eapply PCUICValidity.inversion_mkApps in t0 as (? & ? & ?); eauto.
     eapply inversion_CoFix in t0 as (? & ? & ? &?); eauto.
-    todo "erasure cofix". auto.
+    apply metacoq_cofix_erasure_is_admitted.
   - pose (Hty' := Hty).
     eapply inversion_App in Hty' as (? & ? & ? & ? & ? & ?); eauto.
     inv He.

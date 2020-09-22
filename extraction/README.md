@@ -27,7 +27,7 @@ has been compiled with the private version of the Midlang compiler for the testi
 
 Some highlights from `theories`:
 
-* `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures with additional information about erased types. 
+* `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures with additional information about erased types.
 * `theories/Erasure.v` -- An extension of the MetaCoq's certified erasure with erasure for types and erasing only required dependencies. Also implements erasure for global environments with extra typing information for global definitions (PAPER: Section 3.1/Erasure for types).
 * `theories/ErasureCorrectness.v` -- Correctness lemmas for definitions from `Erasure.v`, proving that our erasure produces a well-formed erased environment.
 * `theories/MetaCoqErasureCorrectnessStrong.v` -- A strengthened version of the correctness proof from MetaCoq (erasing dependencies only, not the full environment).
@@ -39,18 +39,18 @@ Some highlights from `theories`:
 * `theories/LPretty.v` -- Pretty-printer for Liquidity from `λ□` (PAPER: Section 3.2).
 * `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart` language.
 * `theories/LiquidityExtract.v` - A high-level interface to Liquidity extraction (PAPER: Section 3.2).
-* `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction, includes a pretty-printer (PAPER: Section 3.3).
+* `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction including the pretty-printer to Midlang/Elm (PAPER: Section 3.3).
 * `theories/PrettyPrinterMonad.v` -- A monad for implementing pretty-printing in Coq.
-* `theories/WcbvEvalType.v` -- Big-step cbv relation of MetaCoq valued in `Type` instead of `Prop`. Eventually will be removed, once MetaCoq relation is updated.
+* `theories/WcbvEvalType.v` -- Big-step cbv relation of MetaCoq valued in `Type` instead of `Prop`. Used purely as an intermediate step for some proofs and not in the top level statements.
 
 
 Some highlights from `examples`:
 
 * `examples/CounterCertifiedExtraction.v` -- A simple counter contract.
-* `examples/CounterDepCertifiedExtraction.v` -- A counter contract that uses propositions to filter out the correct input. It also serves as an example appication of the certifying eta-expansion.
+* `examples/CounterDepCertifiedExtraction.v` -- A counter contract that uses propositions to filter out the correct input. It also serves as an example application of the certifying eta-expansion.
 * `examples/CounterRefinementTypes.v` -- A counter contract that uses refinement types for expressing partial functional correctness, extracts to Liquidity (PAPER: implementation shown in Figure 2, extracted code: Figure 3a).
 * `examples/CrowdfundingCertifiedExtraction.v` -- Machinery for extraction of a crowdfunding contract (defined in `examples/crowdfunding_extract/Crowdfunding.v`).
-* `examples/MidlangCounterRefTypes.v` -- extraction of a counter contract with refinement types to Midlang (PAPER: implementation shown in Figure 2, extracted code: Figure 3b).
-* `MidlangEscrow.v` -- extraction of the Escrow contract, which was tested and verified in ConCert (implementation is available in `<project-root>/execution/examples/Escrow.v)
 * `examples/ElmExtractTests.v` -- Several examples of extraction into Elm (PAPER: examples mentioned in Section 3.3).
-* `examples/StackInterpreter.v` -- An interpreter for a simple stack-based language (PAPER:an example mentioned in Section 3.2).
+* `examples/MidlangCounterRefTypes.v` -- extraction of a counter contract with refinement types to Midlang (PAPER: implementation shown in Figure 2, extracted code: Figure 3b).
+* `examples/MidlangEscrow.v` -- Extraction of the Escrow contract, which was tested and verified in ConCert (implementation is available in [../execution/examples/Escrow.v](../execution/examples/Escrow.v))
+* `examples/StackInterpreter.v` -- An interpreter for a simple stack-based language (PAPER: example mentioned in Section 3.2).

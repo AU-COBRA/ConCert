@@ -25,11 +25,11 @@ Import MonadNotation.
 
 Open Scope string.
 
-Instance MidlangBoxes : BoxSymbol :=
+Instance MidlangBoxes : MidlangPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
-     any_type_symbol := "()"|}.
-
+     any_type_symbol := "()";
+     print_full_names := false |}.
 
 Definition midlang_translation_map :=
   Eval compute in
@@ -150,7 +150,7 @@ Definition ignored_concert_types :=
 
 
 Definition counter_extract :=
-    extract_template_env_check_masks
+    extract_template_env_within_coq
       counter_env
       [counter_name]
       (fun kn => contains kn (ignored_concert_types ++ counter_ignored

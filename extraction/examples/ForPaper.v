@@ -66,9 +66,9 @@ MetaCoq Erase (unfolded const_zero_app_type).
 (* const_zero ∎ O *)
 
 Definition no_check_no_debox_args :=
-{| check_wf_env_func := check_wf_env_func no_check_args;
-     pcuic_params :=
-       {| erase_func := erase_func (pcuic_params no_check_args);
+{| check_wf_env_func := check_wf_env_func extract_within_coq;
+     pcuic_args :=
+       {| erase_func := erase_func (pcuic_args extract_within_coq);
           dearg_args := None |} |}.
 
 Definition erase_print (p : program) (debox : bool) : result string string :=
@@ -76,8 +76,22 @@ Definition erase_print (p : program) (debox : bool) : result string string :=
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
+  let dearg :=
+    if debox then
+      Some {| do_trim_const_masks := true;
+              do_trim_ctor_masks := true;
+              check_closed := false;
+              check_expanded := false;
+              check_valid_masks := false |}
+    else
+      None in
+  let args :=
+    {| check_wf_env_func := check_wf_env_func extract_within_coq;
+       pcuic_args :=
+         {| erase_func := erase_func (pcuic_args extract_within_coq);
+            dearg_args := dearg |} |} in
   Σ <- extract_template_env
-         (if debox then no_check_args else no_check_no_debox_args)
+         args
          p.1
          [entry]
          (fun kn' => negb ( eq_kername entry kn'));;

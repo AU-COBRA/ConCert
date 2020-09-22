@@ -50,13 +50,15 @@ Section FixEnv.
    or the printing will fail. *)
 Context (Σnames : T.global_env).
 Context (translate : kername -> option string).
-(* A setting for symbols for boxes and un-extractable types *)
-Class BoxSymbol :=
+
+(* A printing config for Midlang *)
+Class MidlangPrintConfig :=
   {term_box_symbol : string;
    type_box_symbol : string;
-   any_type_symbol : string}.
+   any_type_symbol : string;
+   print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *)}.
 
-Context `{BoxSymbol}.
+Context `{MidlangPrintConfig}.
 
 Definition option_get {A} (o : option A) (default : A) : A :=
   match o with
@@ -65,9 +67,12 @@ Definition option_get {A} (o : option A) (default : A) : A :=
   end.
 
 Definition get_fun_name (name : kername) : string :=
+  let get_name kn := if print_full_names then
+                       replace_char "." "_" (string_of_kername name)
+                     else name.2 in
   option_get
     (translate name)
-    (uncapitalize (replace_char "." "_" name.2)).
+    (uncapitalize (get_name name)).
 
 Definition get_ty_name (name : kername) : string :=
   option_get
