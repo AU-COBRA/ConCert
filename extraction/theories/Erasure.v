@@ -1276,7 +1276,7 @@ Program Fixpoint erase_global_decls_deps_recursive
     else
       erase_global_decls_deps_recursive Σ _ include ignore
   end.
-Solve Obligations with cbn;intros;subst; now sq; inversion wfΣ.
+Solve Obligations with try now cbn;intros;subst; sq; inversion wfΣ.
 Next Obligation.
   sq.
   inversion wfΣ;subst;clear wfΣ;cbn in *.
