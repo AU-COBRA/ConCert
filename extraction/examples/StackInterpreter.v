@@ -1,3 +1,5 @@
+(** * Extraction of an interpreter **)
+
 From Coq Require Import PeanoNat ZArith Notations Bool.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
 

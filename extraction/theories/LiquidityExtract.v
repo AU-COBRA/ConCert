@@ -134,7 +134,7 @@ Definition liquidity_simple_extract
   | _ => inr "Constant expected"
   end.
 
-Definition wrap_in_delimeters s :=
+Definition wrap_in_delimiters s :=
   String.concat nl ["";"(*START*)"; s; "(*END*)"].
 
 Definition liquidity_extraction {msg ctx params storage operation : Type}
@@ -156,6 +156,6 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
   match p with
   | inl s =>
     tmEval lazy
-           (wrap_in_delimeters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)]))
+           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)]))
   | inr s => tmFail s
   end.

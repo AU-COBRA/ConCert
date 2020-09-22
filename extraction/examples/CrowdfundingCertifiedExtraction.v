@@ -1,3 +1,5 @@
+(** * Extraction of a crowdfunding contract *)
+
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations CustomTactics
      PCUICTranslate PCUICtoTemplate Utils MyEnv.

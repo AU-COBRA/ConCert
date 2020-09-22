@@ -3,6 +3,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.

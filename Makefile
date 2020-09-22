@@ -45,5 +45,6 @@ process-extraction: code
 clean-extraction:
 	rm ./extraction/examples/elm-extract/*.elm.out
 	rm ./extraction/examples/liquidity-extract/*.liq.out
+	rm ./extraction/examples/midlang-extract/*.midlang.out
 
 .PHONY: clean all default force

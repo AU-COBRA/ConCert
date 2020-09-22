@@ -1,3 +1,5 @@
+(** * Extraction of a simple counter contract *)
+
 From Coq Require Import PeanoNat ZArith Notations.
 
 From MetaCoq.Template Require Import Loader.
