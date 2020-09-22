@@ -17,10 +17,11 @@ From MetaCoq Require Import utils.
 Import MonadNotation.
 Local Open Scope string.
 
-Instance StandardBoxes : BoxSymbol :=
+Instance StandardBoxes : MidlangPrintConfig :=
   {| term_box_symbol := "□";
      type_box_symbol := "□";
-     any_type_symbol := "𝕋"|}.
+     any_type_symbol := "𝕋";
+     print_full_names := false |}.
 
 Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with

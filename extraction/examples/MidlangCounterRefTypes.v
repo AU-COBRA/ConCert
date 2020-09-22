@@ -25,11 +25,11 @@ Import MonadNotation.
 
 Open Scope string.
 
-Instance MidlangBoxes : BoxSymbol :=
+Instance MidlangBoxes : MidlangPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
-     any_type_symbol := "()"|}.
-
+     any_type_symbol := "()";
+     print_full_names := false |}.
 
 Definition midlang_translation_map :=
   Eval compute in
