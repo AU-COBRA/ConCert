@@ -476,35 +476,29 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   | tCoFix _ _ => printer_fail "Cannot handle cofix"
   end.
 
-Definition print_constant_body
-           (name : kername)
-           (cst : Ex.constant_body) : PrettyPrinter string :=
+Definition print_constant
+           (kn : kername)
+           (type : (list name × box_type))
+           (body : E.term) : PrettyPrinter string :=
 
-  let (type, body) := cst in
-  let ml_name := get_fun_name name in
+  let ml_name := get_fun_name kn in
 
-  match body with
-  | None => ret tt (* NOTE: ignoring axioms on printing *)
-  | Some body =>
-    name_col <- get_current_line_length;;
-    push_indent name_col;;
+  name_col <- get_current_line_length;;
+  push_indent name_col;;
 
-    match type with
-    | (type_vars, ty) =>
-      append ml_name;;
-      append " : ";;
-      Γrev <- monad_fold_left (fun Γ name => name <- fresh_ty_arg_name name Γ;;
-                                         ret (name :: Γ))
-                             type_vars [];;
-      print_type (rev Γrev) ty;;
-      append_nl_and_indent
-    end;;
-
-    let name := get_fun_name name in
-    push_use name;;
-    print_define_term [] name body print_term
+  match type with
+  | (type_vars, ty) =>
+    append ml_name;;
+    append " : ";;
+    Γrev <- monad_fold_left (fun Γ name => name <- fresh_ty_arg_name name Γ;;
+                                           ret (name :: Γ))
+                            type_vars [];;
+    print_type (rev Γrev) ty;;
+    append_nl_and_indent
   end;;
 
+  push_use ml_name;;
+  print_define_term [] ml_name body print_term;;
   pop_indent;;
 
   ret ml_name.
@@ -611,31 +605,6 @@ Definition print_type_alias
   append_nl ;;
   ret ty_ml_name.
 
-
-Definition print_global_decl
-           (name : kername)
-           (decl : Ex.global_decl) : PrettyPrinter (list (kername * string)) :=
-  match decl with
-  | Ex.ConstantDecl cst => ml_name <- print_constant_body name cst;;
-                           ret [(name, ml_name)]
-  | Ex.InductiveDecl ignore_on_print mib =>
-    if ignore_on_print then ret []
-    else print_mutual_inductive_body name mib
-  | Ex.TypeAliasDecl ty =>
-    ml_ty <- print_type_alias name ty ;;
-    ret [(name, ml_ty)]
-  end.
-
-Definition is_axiom (decl : Ex.global_decl) : bool :=
-  match decl with
-  | Ex.ConstantDecl cst =>
-    match cst.(Ex.cst_body) with
-    | Some _ => false
-    | None => true
-    end
-  | _ => false
-  end.
-
 Definition print_env : PrettyPrinter (list (kername * string)) :=
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
@@ -643,12 +612,24 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
   names <- (fix f l prefix names :=
      match l with
      | [] => ret names
-     | (name, decl) :: l =>
-       (* NOTE: ignoring axioms on printing *)
-       if is_axiom decl then f l prefix names
-       else
-       prefix;;
-       new_names <- print_global_decl name decl;;
+     | (kn, decl) :: l =>
+       new_names <-
+       match decl with
+       | Ex.ConstantDecl {|
+             Ex.cst_type := type;
+             Ex.cst_body := Some body; |} =>
+         prefix;;
+         name <- print_constant kn type body;;
+         ret [(kn, name)]
+       | Ex.InductiveDecl false mib =>
+         prefix;;
+         print_mutual_inductive_body kn mib
+       | Ex.TypeAliasDecl ty =>
+         prefix;;
+         name <- print_type_alias kn ty;;
+         ret [(kn, name)]
+       | _ => ret []
+       end;;
 
        f l (append_nl;; append_nl_and_indent) (new_names ++ names)%list
      end) (List.rev Σ) (ret tt) [];;

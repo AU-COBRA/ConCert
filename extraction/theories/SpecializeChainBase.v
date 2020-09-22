@@ -105,14 +105,16 @@ Section ChainBaseSpecialization.
                   ++ "' (or constructor) appears in term; this needs to be specialized")
         else
           ret t
-      | tCase ind ret_ty disc brs =>
+      | tCase (ind, npars) ret_ty disc brs =>
         ret_ty <- f Γ ret_ty;;
         disc <- f Γ disc;;
         brs <- monad_map (fun '(ar, t) => t <- f Γ t;; ret (ar, t)) brs;;
-        ret (tCase ind ret_ty disc brs)
-      | tProj proj body =>
+        let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
+        ret (tCase (ind, npars) ret_ty disc brs)
+      | tProj ((ind, npars), arg) body =>
         body <- f Γ body;;
-        ret (tProj proj body)
+        let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
+        ret (tProj ((ind, npars), arg) body)
       | tFix defs i =>
         let Γ := (repeat none (List.length defs) ++ Γ)%list in
         defs <- monad_map (fun (d : def term) =>
