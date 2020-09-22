@@ -1166,7 +1166,7 @@ Program Definition erase_global_decl
     end
   | P.InductiveDecl mib =>
     ind <- map_error (ErrInductive Σext kn)
-                     (erase_ind erase_func Σext _ kn mib _);;
+                     (erase_ind Σext _ kn mib _);;
     ret (InductiveDecl false ind)
   end.
 
@@ -1259,11 +1259,11 @@ Program Fixpoint erase_global_decls_deps_recursive
         match decl with
         | P.InductiveDecl mib =>
           ind <- map_error (ErrInductive Σext kn)
-                           (erase_ind erase_func Σext _ kn mib _);;
+                           (erase_ind Σext _ kn mib _);;
         ret [(kn, InductiveDecl true ind)]
         | P.ConstantDecl cb =>
           ety <- map_error ((ErrConstant Σext kn) ∘ EraseTypeError)
-                          (erase_type erase_func Σext _ [] (Vector.nil _) cb.(P.cst_type) _ []);;
+                          (erase_type Σext _ [] (Vector.nil _) cb.(P.cst_type) _ []);;
           let cb' := {| cst_type := ety; cst_body := None |} in
           ret [(kn, ConstantDecl cb')]
         end;;
