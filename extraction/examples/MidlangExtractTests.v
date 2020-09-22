@@ -22,13 +22,25 @@ Instance StandardBoxes : BoxSymbol :=
      type_box_symbol := "□";
      any_type_symbol := "𝕋"|}.
 
+Definition no_check_args :=
+  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| erase_func := SafeErasureFunction.erase;
+          dearg_args :=
+            Some
+              {| do_trim_const_masks := true;
+                 do_trim_ctor_masks := true;
+                 check_closed := false;
+                 check_expanded := false;
+                 check_valid_masks := false |} |} |}.
+
 Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | tInd ind _ => ret (inductive_mind ind)
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
-  Σ <- extract_template_env_no_check p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
+  Σ <- extract_template_env no_check_args p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
   ret s.

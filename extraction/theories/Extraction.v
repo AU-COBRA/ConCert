@@ -1,5 +1,4 @@
-(* This file provides different pipelines for doing extraction with
-   differing trusted computing bases. *)
+(* This file provides the main function for invoking our extraction. *)
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
@@ -88,7 +87,7 @@ Definition extract_pcuic_env
 Record extract_template_env_params :=
   { (* Function to use to check wellformedness of the environment *)
     check_wf_env_func : forall Σ, result (∥PT.wf Σ∥) string;
-    pcuic_params : extract_pcuic_params }.
+    pcuic_args : extract_pcuic_params }.
 
 Definition extract_template_env
            (params : extract_template_env_params)
@@ -98,54 +97,22 @@ Definition extract_template_env
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
   let Σ := T2P.trans_global_decls Σ in
   wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_params params) Σ wfΣ seeds ignore.
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
-(* We assume well-formedness for performance reasons.
-   Since quoted terms meant to be well-formed it is a reasonable assumption, and
-   one that is also made in MetaCoq itself. *)
+(* MetaCoq's safe checker does not run from within Coq, only when extracting.
+   To work around this we assume environments are well formed when extracting
+   from within Coq. This is justified since our environments are produced by quoting
+   and thus come directly from Coq, where they have already been type checked. *)
 Axiom assume_env_wellformed : forall Σ, ∥PT.wf Σ∥.
 
-Definition no_check_args :=
-  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
-     pcuic_params :=
-       {| erase_func := SafeErasureFunction.erase;
-          dearg_args :=
-            Some
-              {| do_trim_const_masks := true;
-                 do_trim_ctor_masks := true;
-                 check_closed := false;
-                 check_expanded := false;
-                 check_valid_masks := false |} |} |}.
-
-(* Extract an environment with no checks. This assumes the environment is well-formed
-   and does no checks for expandedness of constants/constructors or dearg masks.
-   Suitable for tests from within Coq. *)
-Definition extract_template_env_no_check := extract_template_env no_check_args.
-
-Definition check_masks_args :=
-  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
-     pcuic_params :=
-       {| erase_func := SafeErasureFunction.erase;
-          dearg_args :=
-            Some
-              {| do_trim_const_masks := true;
-                 do_trim_ctor_masks := true;
-                 check_closed := true;
-                 check_expanded := true;
-                 check_valid_masks := true |} |} |}.
-
-(* Extract an environment with some minimal checks. This still assumes the environment
+(* Extract an environment with some minimal checks. This assumes the environment
    is well-formed (to make it computable from within Coq) but furthermore checks that the
    erased context is closed, expanded and that the masks are valid before dearging.
    Suitable for extraction of programs **from within Coq**. *)
-Definition extract_template_env_check_masks := extract_template_env check_masks_args.
-
-Definition full_check_args :=
-  {| check_wf_env_func Σ :=
-       '(_; conj _ wfΣ) <- result_of_EnvCheck (check_wf_env Σ);;
-       ret wfΣ;
-     pcuic_params :=
-       {| erase_func := erase_with_normal_erasure;
+Definition extract_within_coq :=
+  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| erase_func := SafeErasureFunction.erase;
           dearg_args :=
             Some
               {| do_trim_const_masks := true;
@@ -154,8 +121,4 @@ Definition full_check_args :=
                  check_expanded := true;
                  check_valid_masks := true |} |} |}.
 
-(* Extract an environment with full checks. This type checks the
-   environment and checks closedness, expandedness and validity of
-   masks. Suitable for use only after extracting our extraction since
-   MetaCoq's type checker does not run from within Coq. *)
-Definition extract_template_env_check := extract_template_env full_check_args.
+Definition extract_template_env_within_coq := extract_template_env extract_within_coq.

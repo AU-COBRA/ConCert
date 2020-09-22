@@ -150,7 +150,7 @@ Definition ignored_concert_types :=
 
 
 Definition counter_extract :=
-    extract_template_env_check_masks
+    extract_template_env_within_coq
       counter_env
       [counter_name]
       (fun kn => contains kn (ignored_concert_types ++ counter_ignored

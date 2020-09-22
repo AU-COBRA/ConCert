@@ -193,7 +193,7 @@ MetaCoq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
              tmDefinition "counter_partially_applied_syn" counter_syn;;
              (* eta-expand dedinitions in the environment *)
              Σexpanded <- eta_global_env_template
-               check_masks_args
+               extract_within_coq
                CURRENT_MODULE
                counter_syn.1
                [<%% inc_balance %%>; <%% counter_partially_applied %%>]

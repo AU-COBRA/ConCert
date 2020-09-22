@@ -202,7 +202,7 @@ Definition eta_global_env
            (params : extract_template_env_params)
            (Σ : global_env) (seeds : list kername) (ignore : kername -> bool) :
   result _ string :=
-  match dearg_args (pcuic_params params) with
+  match dearg_args (pcuic_args params) with
   | None => ret Σ (* no need to eta expand if we aren't doing dearging *)
   | Some dp =>
     Σe <-
@@ -263,7 +263,7 @@ Module Examples.
 
   Definition no_trimming :=
     {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
-       pcuic_params :=
+       pcuic_args :=
          {| erase_func := SafeErasureFunction.erase;
             dearg_args :=
               Some
@@ -319,7 +319,7 @@ Module Examples.
   Set Printing Implicit.
   (** Expands the dependencies and adds the corresponding definitions *)
   MetaCoq Run (eta_expand_def
-                 check_masks_args
+                 extract_within_coq
                  CURRENT_MODULE
                  (only_from_module_of <%% Ex2.partial_app2 %%>)
                  Ex2.partial_app2).
@@ -339,7 +339,7 @@ Module Examples.
     let f := miCtor1 A in f B bool n m I.
 
   MetaCoq Run (eta_expand_def
-                 check_masks_args
+                 extract_within_coq
                  CURRENT_MODULE
                  (only_from_module_of <%% partial_app3 %%>)
                  partial_app3).
@@ -353,7 +353,7 @@ Module Examples.
   End Ex3.
   MetaCoq Run (p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
                eta_global_env_template
-                 check_masks_args
+                 extract_within_coq
                  CURRENT_MODULE
                  p.1
                  [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>]

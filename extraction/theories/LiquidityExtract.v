@@ -63,7 +63,7 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (receive : kername)
   : string + string :=
   let seeds := [init;receive] in
-  match extract_template_env_check_masks Σ seeds (fun k => contains k ignore) with
+  match extract_template_env_within_coq Σ seeds (fun k => contains k ignore) with
   | Ok eΣ =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ) in
@@ -99,9 +99,9 @@ Definition liquidity_call_ctx :=
     Current.balance ())))".
 
 Definition liquidity_extract_args :=
-  {| check_wf_env_func := check_wf_env_func check_masks_args;
-     pcuic_params :=
-       {| erase_func := erase_func (pcuic_params check_masks_args);
+  {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     pcuic_args :=
+       {| erase_func := erase_func (pcuic_args extract_within_coq);
           dearg_args :=
             Some
               {| do_trim_const_masks := true;
