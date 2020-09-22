@@ -23,15 +23,12 @@ From MetaCoq.PCUIC Require Import PCUICElimination.
 From MetaCoq.PCUIC Require Import PCUICGeneration.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require Import PCUICNormal.
-From MetaCoq.PCUIC Require Import PCUICPosition.
 From MetaCoq.PCUIC Require Import PCUICPrincipality.
 From MetaCoq.PCUIC Require Import PCUICReduction.
-From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICSN.
 From MetaCoq.PCUIC Require Import PCUICSR.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
-From MetaCoq.PCUIC Require Import PCUICUtils.
 From MetaCoq.PCUIC Require Import PCUICValidity.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce.
@@ -1171,7 +1168,7 @@ Program Definition erase_global_decl
     end
   | P.InductiveDecl mib =>
     ind <- map_error (ErrInductive Σext kn)
-                     (erase_ind erase_func Σext _ kn mib _);;
+                     (erase_ind Σext _ kn mib _);;
     ret (InductiveDecl ignore_on_print ind)
   end.
 
