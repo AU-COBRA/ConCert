@@ -24,10 +24,10 @@ Import MonadNotation.
 Set Equations Transparent.
 
 Module flag_of_type_tests.
-Record type_flag_squashed := {
-                              is_logical : bool;
-                              is_sort : bool;
-                              is_arity : bool }.
+Record type_flag_squashed :=
+  { is_logical : bool;
+    is_sort : bool;
+    is_arity : bool }.
 
 Program Definition flag_of_type_program (p : Ast.program)
   : result type_flag_squashed string :=
@@ -116,7 +116,7 @@ Program Definition erase_type_program (p : Ast.program)
   : result (P.global_env * (list name * box_type)) erase_type_error :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
-  t <- erase_type SafeErasureFunction.erase (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _ [];;
+  t <- erase_type (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _ [];;
   ret (Σ, t).
 Next Obligation.  Admitted.
 Next Obligation.  Admitted.
@@ -315,7 +315,7 @@ Program Definition erase_arity_program (p : Ast.program)
 : result (list oib_type_var) string :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
-  wrap_typing_result (erase_ind_arity SafeErasureFunction.erase (empty_ext Σ) _ [] (trans p.2) _)
+  wrap_typing_result (erase_ind_arity (empty_ext Σ) _ [] (trans p.2) _)
                      (string_of_type_error (empty_ext Σ)).
 Next Obligation. Admitted.
 Next Obligation. Admitted.
@@ -386,7 +386,6 @@ Definition erase_and_print_ind_prog (p : Ast.program)
     match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
     | Some (kn, P.InductiveDecl mib) =>
       inder <- erase_ind
-                 SafeErasureFunction.erase
                  (Σ, ind_universes mib) assume_wellformed
                  (inductive_mind ind) mib assume_wellformed;;
       ret (print_inductive Σ inder)
