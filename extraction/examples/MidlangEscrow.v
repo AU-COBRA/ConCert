@@ -143,14 +143,16 @@ Definition escrow_result :=
      '(_, s) <- finish_print (print_env env escrow_env midlang_escrow_translate);;
      ret s).
 
-
 MetaCoq Run (match escrow_result with
-             | ResultMonad.Ok s =>
-               res <- tmEval lazy (wrap_in_delimiters
-                                    (midlang_prelude ++ nl ++ s));;
-               tmDefinition "midlang_escrow" res
-             | ResultMonad.Err e => tmFail e
+             | Ok s => tmMsg "Extraction of escrow succeeded"
+             | Err err => tmFail err
              end).
+
+Definition midlang_escrow :=
+  match escrow_result with
+  | Ok s => wrap_in_delimiters (midlang_prelude ++ nl ++ s)
+  | Err s => s
+  end.
 
 Compute midlang_escrow.
 
