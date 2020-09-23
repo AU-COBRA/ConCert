@@ -36,13 +36,15 @@ $(COQMAKEFILE): $(COQ_PROJ)
 force $(COQ_PROJ): ;
 
 test-extraction:
-	$(foreach file, $(wildcard $(LIQ_DIR)/*.liq), liquidity $(file);)
+	$(foreach file, $(wildcard $(LIQ_DIR)/*.liq), liquidity $(file) || exit 1;)
 	cd $(ELM_DIR); elm-test
+	@echo "============== All tests succeeded! ================"
 
 process-extraction: code
 	./process-extraction.sh
 
 clean-extraction:
+	rm ./extraction/examples/*.vo
 	rm ./extraction/examples/elm-extract/*.elm.out
 	rm ./extraction/examples/liquidity-extract/*.liq.out
 	rm ./extraction/examples/midlang-extract/*.midlang.out
