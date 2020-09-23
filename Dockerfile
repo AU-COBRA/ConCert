@@ -54,6 +54,9 @@ RUN ["/bin/bash", "--login", "-c", " \
       && opam install -y -v -j 4 coq-equations.1.2.3+8.11 coq-stdpp.1.4.0 coq-ext-lib.0.11.2 coq-quickchick.1.3.2 \
       && opam pin -y -j 4 add https://github.com/MetaCoq/metacoq.git#df8ef08832d4b30f1b354a8e751cdaf154d0b9a0 "]
 
+# Set locale
+ENV LANG en_US.UTF-8
+
 # Build ConCert and extract examples
 RUN ["/bin/bash", "--login", "-c", "set -x \
       && cd ~/ConCert \
