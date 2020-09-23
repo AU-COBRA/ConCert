@@ -35,7 +35,7 @@ instructions, but pin the version of `ocaml-migrate-parsetree` to 1.5.5).
 ## Building with Docker
 
 To build and install everything (including the Elm and Liquidity compilers) you can instead use
-Docker. With Docker installed, simply run
+Docker. With Docker installed, simply run (note the dot "." at the end)
 
 ```bash
 docker build --tag concert .
