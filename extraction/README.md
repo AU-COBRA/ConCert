@@ -29,7 +29,7 @@ Some highlights from `theories`:
       with additional information about erased types.
 * `theories/Erasure.v` -- An extension of the MetaCoq's certified erasure with erasure for types and
       erasing only required dependencies. Also implements erasure for global environments with extra
-      typing information for global definitions 
+      typing information for global definitions
       (PAPER: Section 3.1/Erasure for types).
 * `theories/ErasureCorrectness.v` -- Correctness lemmas for definitions from `Erasure.v`, proving
       that our erasure produces a well-formed erased environment.
@@ -37,7 +37,7 @@ Some highlights from `theories`:
       from MetaCoq (erasing dependencies only, not the full environment).
 * `theories/Extraction.v` -- High-level interface to extraction. Provides different pipelines for
       doing extraction with different trusted computing bases.
-* `theories/ExtractionCorrectness.v` -- Top-level correctness theorem relating the stages 
+* `theories/ExtractionCorrectness.v` -- Top-level correctness theorem relating the stages
       (PAPER: Theorem 2 (Soundness of extraction)).
 * `theories/Optimize.v` -- Optimisations (dead argument elimination, logical parameters elimination)
       on `λ□` terms (PAPER: Section 3.1/Optimisations).
@@ -46,7 +46,7 @@ Some highlights from `theories`:
 * `theories/CertifyingEta.v` -- A eta-expansion procedure which generated proofs of equality of
       between the result and the original.
 * `theories/LPretty.v` -- Pretty-printer for Liquidity from `λ□` (PAPER: Section 3.2).
-* `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart` 
+* `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart`
       language.
 * `theories/LiquidityExtract.v` - A high-level interface to Liquidity extraction (PAPER: Section 3.2).
 * `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction including the
@@ -62,16 +62,16 @@ Some highlights from `examples`:
 * `examples/CounterDepCertifiedExtraction.v` -- A counter contract that uses propositions to filter
       out the correct input. It also serves as an example application of the certifying eta-expansion.
 * `examples/CounterRefinementTypes.v` -- A counter contract that uses refinement types for
-      expressing partial functional correctness, extracts to Liquidity 
+      expressing partial functional correctness, extracts to Liquidity
       (PAPER: implementation shown in Figure 2, extracted code: Figure 3a).
 * `examples/CrowdfundingCertifiedExtraction.v` -- Machinery for extraction of a crowdfunding
       contract (defined in `examples/crowdfunding_extract/Crowdfunding.v`).
-* `examples/ElmExtractTests.v` -- Several examples of extraction into Elm 
+* `examples/ElmExtractTests.v` -- Several examples of extraction into Elm
     (PAPER: examples mentioned in Section 3.3).
 * `examples/MidlangCounterRefTypes.v` -- extraction of a counter contract with refinement types to
       Midlang (PAPER: implementation shown in Figure 2, extracted code: Figure 3b).
 * `examples/MidlangEscrow.v` -- Extraction of the Escrow contract, which was tested and verified in
       ConCert (implementation is available in
       [../execution/examples/Escrow.v](../execution/examples/Escrow.v))
-* `examples/StackInterpreter.v` -- An interpreter for a simple stack-based language 
+* `examples/StackInterpreter.v` -- An interpreter for a simple stack-based language
     (PAPER: example mentioned in Section 3.2).

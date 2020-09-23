@@ -36,8 +36,8 @@ $(COQMAKEFILE): $(COQ_PROJ)
 force $(COQ_PROJ): ;
 
 test-extraction:
-	cd $(ELM_DIR); elm-test
 	$(foreach file, $(wildcard $(LIQ_DIR)/*.liq), liquidity $(file);)
+	cd $(ELM_DIR); elm-test
 
 process-extraction: code
 	./process-extraction.sh
