@@ -1,0 +1,1 @@
+git archive --output ConCert.zip HEAD
