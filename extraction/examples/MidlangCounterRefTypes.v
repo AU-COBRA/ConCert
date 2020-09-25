@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
 
 From Coq Require Import Arith.
@@ -159,7 +160,7 @@ Definition counter_extract :=
 
 Definition counter_result:= Eval vm_compute in
      (env <- counter_extract ;;
-      '(_, s) <- finish_print (print_env env counter_env midlang_counter_translate);;
+      '(_, s) <- finish_print (print_env env midlang_counter_translate);;
       ret s).
 
 Definition wrap_in_delimiters s :=
@@ -177,11 +178,14 @@ Definition midlang_prelude :=
                 "import Tuple exposing (..)"].
 
 MetaCoq Run (match counter_result with
-             | ResultMonad.Ok s =>
-               res <- tmEval lazy (wrap_in_delimiters
-                                    (midlang_prelude ++ nl ++ s));;
-               tmDefinition "midlang_counter" res
-             | ResultMonad.Err e => tmFail e
+             | Ok s => tmMsg "Extraction of counter succeeded"
+             | Err err => tmFail err
              end).
+
+Definition midlang_counter :=
+  match counter_result with
+  | Ok s => wrap_in_delimiters (midlang_prelude ++ nl ++ s)
+  | Err s => s
+  end.
 
 Redirect "./extraction/examples/midlang-extract/MidlangCounterRefTypes.midlang" Compute midlang_counter.

@@ -140,7 +140,7 @@ Definition midlang_prelude :=
 Definition escrow_result :=
   Eval vm_compute in
     (env <- escrow_extract ;;
-     '(_, s) <- finish_print (print_env env escrow_env midlang_escrow_translate);;
+     '(_, s) <- finish_print (print_env env midlang_escrow_translate);;
      ret s).
 
 MetaCoq Run (match escrow_result with
@@ -153,7 +153,5 @@ Definition midlang_escrow :=
   | Ok s => wrap_in_delimiters (midlang_prelude ++ nl ++ s)
   | Err s => s
   end.
-
-Compute midlang_escrow.
 
 Redirect "./extraction/examples/midlang-extract/MidlangEscrow.midlang" Compute midlang_escrow.
