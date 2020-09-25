@@ -44,11 +44,7 @@ Local Open Scope string.
 Local Definition indent_size := 2.
 
 Section FixEnv.
-  Context (Σ : Ex.global_env).
-(* Additional environment only used to look up names for inductives
-   and inductive ctors. Those names are required to be translated
-   or the printing will fail. *)
-Context (Σnames : T.global_env).
+Context (Σ : Ex.global_env).
 Context (translate : kername -> option string).
 
 (* A printing config for Midlang *)
@@ -109,51 +105,19 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
                 ++ string_of_kername (inductive_mind ind) ++ " in environment")
   end.
 
-Definition names_lookup_ind_decl (ind : inductive) : option T.one_inductive_body :=
-  match T.lookup_env Σnames (inductive_mind ind) with
-  | Some (T.InductiveDecl {| T.ind_bodies := oibs |}) =>
-    nth_error oibs (inductive_ind ind)
-  | _ => None
-  end.
-
 Definition print_ind (ind : inductive) : PrettyPrinter unit :=
-  match lookup_ind_decl ind with
-  | Ok oib =>
-    let kn := ((inductive_mind ind).1, Ex.ind_name oib) in
-    append (get_ty_name kn)
-  | Err err =>
-    (* Not found in extraction environment, lookup in names environment *)
-    match names_lookup_ind_decl ind with
-    | Some oib =>
-      let kn := ((inductive_mind ind).1, T.ind_name oib) in
-      (* We require this to be translated now *)
-      append =<< wrap_option (translate kn) ("No translation for " ++ string_of_kername kn)
-    | None => printer_fail err
-    end
-  end.
+  oib <- wrap_result (lookup_ind_decl ind) id;;
+  let kn := ((inductive_mind ind).1, Ex.ind_name oib) in
+  append (get_ty_name kn).
 
 Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
-  match lookup_ind_decl ind with
-  | Ok oib =>
-    match nth_error (Ex.ind_ctors oib) i with
-    | Some (name, _) =>
-      let kn := ((inductive_mind ind).1, name) in
-      append (get_ctor_name kn)
-    | None =>
-      printer_fail (Ex.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
-    end
-  | Err err =>
-    match names_lookup_ind_decl ind with
-    | Some oib =>
-      match nth_error (T.ind_ctors oib) i with
-      | Some (name, _, _) =>
-        let kn := ((inductive_mind ind).1, name) in
-        append =<< wrap_option (translate kn) ("No translation for " ++ string_of_kername kn)
-      | None =>
-        printer_fail (T.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
-      end
-    | _ => printer_fail err
-    end
+  oib <- wrap_result (lookup_ind_decl ind) id;;
+  match nth_error (Ex.ind_ctors oib) i with
+  | Some (name, _) =>
+    let kn := ((inductive_mind ind).1, name) in
+    append (get_ctor_name kn)
+  | None =>
+    printer_fail (Ex.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
   end.
 
 Definition print_parenthesized

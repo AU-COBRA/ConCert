@@ -43,7 +43,7 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
            end;;
   Σ <- extract_template_env no_check_args p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
-  '(_, s) <- finish_print (print_env Σ p.1 TT_fun);;
+  '(_, s) <- finish_print (print_env Σ TT_fun);;
   ret s.
 
 Definition extract (p : program) : result string string :=
