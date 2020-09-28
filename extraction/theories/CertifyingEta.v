@@ -15,11 +15,16 @@ Import ListNotations.
 Import MonadNotation.
 
 Section Eta.
-  Definition ctors_info := list (inductive * nat * nat * term).
+  Definition ctors_info := list (inductive
+                                 * nat (* constructor number *)
+                                 * nat (* how much to expand *)
+                                 * term (* constructor's type *)
+                                ).
   Definition constansts_info := list (kername * nat * term).
-  Context (ctors : ctors_info).
 
+  Context (ctors : ctors_info).
   Context (constants : constansts_info).
+  Context (Σ : global_env).
 
   Fixpoint remove_top_prod (t : Ast.term) (n : nat) :=
     match n,t with
@@ -28,31 +33,58 @@ Section Eta.
     | _, _ => t
     end.
 
-  Definition eta_single (t : Ast.term) (args : list Ast.term) (ty : Ast.term) (count : nat): term :=
+  (** Eta-expands the given term of the form [(t args)].
+
+      [Γ] -- context used to specialise the type of the term along with the arguments [args];
+             particularly useful for eta-expanding constructors -- contains the list of inductives the constructor belongs to;
+      [t] -- a term;
+      [args] -- arguments to which the term is applied;
+      [ty] -- the term's type;
+      [count] -- how much to expand *)
+  Definition eta_single (Γ : list term) (t : Ast.term) (args : list Ast.term) (ty : Ast.term) (count : nat): term :=
     let needed := count - #|args| in
     let prev_args := map (lift0 needed) args in
     let eta_args := rev_map tRel (seq 0 needed) in
     let cut_ty := remove_top_prod ty #|args| in
-    (* NOTE: we substitute the arguments in order to "specialise" types according to the application *)
-    (* TODO: handle recursive inductives (requires subsitusion of the inductive itself)*)
-    let subst_ty := subst (rev args) 0 cut_ty in
+    (* NOTE: we substitute the arguments and the context Γ in order to "specialise" the term's type *)
+    let subst_ty := subst (rev args ++ rev Γ ) 0 cut_ty in
     let remaining := firstn needed (decompose_prod subst_ty).1.2 in
     let remaining_names := firstn needed (decompose_prod subst_ty).1.1 in
     fold_right (fun '(nm,ty) b => Ast.tLambda nm ty b) (mkApps t (prev_args ++ eta_args)) (combine remaining_names remaining).
 
-  Definition eta_ctor (ind : inductive) (c : nat)
+
+  Record ind_info :=
+    { ind_info_inductive : inductive;
+      ind_info_nmind : nat (* how many mutual inductives in the definition *)
+    }.
+
+  Definition eta_ctor (ind_i : ind_info) (c : nat)
            (u : Instance.t)
            (args : list term) : term :=
+    let ind := ind_i.(ind_info_inductive) in
     match find (fun '(ind', c', _, _) => eq_inductive ind' ind && (c' =? c)) ctors with
-  | Some (_, _,n,ty) => eta_single (Ast.tConstruct ind c u) args ty n
-  | None => mkApps (tConstruct ind c u) args
+    | Some (_, _,n,ty) =>
+      let ind := mkInd ind.(inductive_mind) ind.(inductive_ind) in
+      let Γind := map
+                    (fun i => tInd (mkInd ind.(inductive_mind) i) [])
+                    (seq 0 (ind_i.(ind_info_nmind))) in
+      eta_single Γind (Ast.tConstruct ind c u) args ty n
+    | None => mkApps (tConstruct ind c u) args
     end.
 
 Definition eta_const (kn : kername) (u : Instance.t) (args : list term) : term :=
   match find (fun '(kn',n, _) => eq_kername kn' kn) constants with
-  | Some (_, n, ty) => eta_single (tConst kn u) args ty n
+  | Some (_, n, ty) => eta_single [] (tConst kn u) args ty n
   | None => mkApps (tConst kn u) args
   end.
+
+Definition get_ind_info (ind : inductive) : option ind_info :=
+   match lookup_env Σ ind.(inductive_mind) with
+      | Some (InductiveDecl mib) =>
+        let n_mind := mib.(ind_bodies) in
+        Some {| ind_info_inductive := ind; ind_info_nmind := #|n_mind| |}
+      | _ => None
+   end.
 
 (** We assume that all applications are "flattened" e.g. of the form
     [tApp hd [t1; t2; t3; ...; tn]] where hd itself is not an application.
@@ -61,9 +93,15 @@ Fixpoint eta_expand (t : term) : term :=
   match t with
   | tApp hd args =>
     match hd with
-      | tConstruct ind c u => eta_ctor ind c u (map eta_expand args)
-      | tConst kn u => eta_const kn u (map eta_expand args)
-      | _ => mkApps (eta_expand hd) (map eta_expand args)
+    | tConstruct ind c u =>
+      match get_ind_info ind with
+      | Some ind_i => eta_ctor ind_i c u (map eta_expand args)
+      | _ => tVar ("Error: lookup of an inductive failed for "
+                    ++ string_of_kername ind.(inductive_mind))
+      end
+
+    | tConst kn u => eta_const kn u (map eta_expand args)
+    | _ => mkApps (eta_expand hd) (map eta_expand args)
     end
   | tEvar n ts => tEvar n (map eta_expand ts)
   | tLambda na ty body => tLambda na ty (eta_expand body)
@@ -75,7 +113,12 @@ Fixpoint eta_expand (t : term) : term :=
   | tCoFix def i => tCoFix (map (map_def id eta_expand) def) i
   (* NOTE: we know that constructros and constants are not applied at this point,
      since applications are captured by the previous cases *)
-  | tConstruct ind c u => eta_ctor ind c u (map eta_expand [])
+  | tConstruct ind c u =>
+    match get_ind_info ind with
+    | Some ind_i => eta_ctor ind_i c u (map eta_expand [])
+    | None => tVar ("Error: lookup of an inductive failed for "
+                     ++ string_of_kername ind.(inductive_mind))
+    end
   | tConst kn u => eta_const kn u (map eta_expand [])
   | t => t
   end.
@@ -221,7 +264,7 @@ Definition eta_global_env
         | Some b => let (ctors, consts) := get_eta_info Σ {| ind_masks := ind_masks;
                                                              const_masks := const_masks |} in
                     {| cst_type := cb.(cst_type);
-                       cst_body := Some (eta_expand ctors consts b);
+                       cst_body := Some (eta_expand ctors consts Σ b);
                        cst_universes := cb.(cst_universes) |}
         | None => cb
         end in
@@ -360,4 +403,56 @@ Module Examples.
                  (fun kn => contains kn [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>])
                  (only_from_module_of <%% Ex3.partial_inc_balance %%>)
               ).
+
+  Module Ex4.
+    (* Partially applied constructor of a recursive inductive type *)
+    Definition papp_cons {A} (x : A) (xs : list A) := let my_cons := @cons in
+                                                      my_cons A x xs.
+
+    MetaCoq Run (eta_expand_def
+                 no_trimming
+                 <%% @papp_cons %%>.1
+                 (only_from_module_of <%% @papp_cons %%>)
+                 papp_cons).
+  End Ex4.
+
+  Module Ex5.
+
+    (* Mutial inductive *)
+    Inductive even : nat -> Type :=
+    | even_O : even 0
+    | even_S : forall n, odd n -> even (S n)
+    with odd : nat -> Type :=
+    | odd_S : forall n, even n -> odd (S n).
+
+    Definition papp_odd :=
+      let f := odd_S 0 in
+      f even_O.
+
+    MetaCoq Run (eta_expand_def
+                   no_trimming
+                   <%% papp_odd %%>.1
+                   (only_from_module_of <%% papp_odd %%>)
+                   papp_odd).
+
+    Inductive Expr (Annot : Type) :=
+    | eNat : nat -> Expr Annot
+    | eFn : string -> Expr Annot -> Expr Annot
+    | eAnnot : Annot -> Expr Annot
+    | eApp : Expr Annot -> Exprs Annot -> Expr Annot
+    with Exprs (Annot : Type) :=
+    | eNil : Exprs Annot
+    | eCons : Expr Annot -> Exprs Annot -> Exprs Annot.
+
+    Definition papp_expr :=
+      let part_app := eApp _ (eFn unit "f" (eNat unit 0)) in
+      part_app (eCons _ (eNat unit 0) (eNil _)).
+
+    MetaCoq Run (eta_expand_def
+                   no_trimming
+                   <%% papp_expr %%>.1
+                   (only_from_module_of <%% papp_expr %%>)
+                   papp_expr).
+  End Ex5.
+
 End Examples.
