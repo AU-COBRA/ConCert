@@ -2104,3 +2104,23 @@ Proof.
 Qed.
 
 End LiftTransactionProp.
+
+(* Helper tactics *)
+
+Global Ltac solve_contract_proper :=
+  repeat
+    match goal with
+    | [|- @bind _ ?m _ _ _ _ = @bind _ ?m _ _ _ _] => unfold bind, m
+    | [|- ?x _  = ?x _] => unfold x
+    | [|- ?x _ _ = ?x _ _] => unfold x
+    | [|- ?x _ _ _ = ?x _ _ _] => unfold x
+    | [|- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
+    | [|- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
+    | [|- ?x _ _ _ _ _ = ?x _ _ _ _ _] => unfold x
+    | [|- Some _ = Some _] => f_equal
+    | [|- pair _ _ = pair _ _] => f_equal
+    | [|- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
+    | [|- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
+    | [H: ChainEquiv _ _ |- _] => rewrite H in *
+    | _ => subst; auto
+    end.

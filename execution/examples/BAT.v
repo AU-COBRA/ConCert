@@ -198,23 +198,6 @@ Definition receive (chain : Chain)
   | _ => receive_bat chain ctx state maybe_msg
   end.
 
-Ltac solve_contract_proper :=
-  repeat
-    match goal with
-    | [|- ?x _  = ?x _] => unfold x
-    | [|- ?x _ _ = ?x _ _] => unfold x
-    | [|- ?x _ _ _ = ?x _ _ _] => unfold x
-    | [|- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
-    | [|- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
-    | [|- ?x _ _ _ _ _ = ?x _ _ _ _ _] => unfold x
-    | [|- Some _ = Some _] => f_equal
-    | [|- pair _ _ = pair _ _] => f_equal
-    | [|- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
-    | [|- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
-    | [H: ChainEquiv _ _ |- _] => rewrite H in *
-    | _ => subst; auto
-    end.
-
 Lemma init_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
 Proof. repeat intro; solve_contract_proper.	Qed.
@@ -223,8 +206,6 @@ Proof. repeat intro; solve_contract_proper.	Qed.
 Lemma receive_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
 Proof. repeat intro; solve_contract_proper.
-  rewrite (account_balance_eq x y), (current_slot_eq x y) by assumption.
-  reflexivity.
 Qed.
 
 Definition contract : Contract Setup Msg State :=

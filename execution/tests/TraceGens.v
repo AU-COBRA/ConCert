@@ -241,12 +241,14 @@ Section TraceGens.
     | _ => false ==> true
     end).
 
+  Open Scope string_scope.
   (* if pre tests true, then post tests true, for all tested execution traces *)
   Definition pre_post_assertion {Setup Msg State prop : Type}
                                `{Checkable prop}
                                `{Serializable Msg}
                                `{Serializable State}
                                `{Serializable Setup}
+                               `{Show Msg}
                                 (maxLength : nat)
                                 (init_chain : ChainBuilder)
                                 (gTrace : ChainBuilder -> nat -> G ChainBuilder)
@@ -264,7 +266,10 @@ Section TraceGens.
           | _ => acc
           end
         ) [] acts in
-      let post_helper '(cctx, post_state) cstate msg := post cctx cstate msg post_state in
+      let post_helper '(cctx, post_state) cstate msg : Checker := 
+        whenFail 
+          ("On Msg: " ++ show msg)
+          (checker (post cctx cstate msg post_state)) in
       let stepProp (cs : ChainState) :=
         let env : Environment := cs.(chain_state_env) in
         let msgs := messages_of_acts cs.(chain_state_queue) in
@@ -281,7 +286,7 @@ Section TraceGens.
         (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
         | Some cstate => (conjoin_map (fun '(act, msg) =>
                           if pre cstate msg
-                          then checker (post_helper (execute_receive env caddr cstate act msg) cstate msg)
+                          then (post_helper (execute_receive env caddr cstate act msg) cstate msg)
                           else checker true (* TODO: should be discarded!*)
                           ) msgs)
         | None => checker true
