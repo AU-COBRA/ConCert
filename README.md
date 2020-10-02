@@ -2,10 +2,8 @@
 
 A framework for smart contract verification in Coq. 
 
-Papers detailing the development:
-- [ConCert: A Smart Contract Certification Framework in Coq](https://arxiv.org/abs/1907.10674)
-- [Smart Contract Interactions in Coq](https://arxiv.org/abs/1911.04732)
-- [Verifying, testing and running smart contracts in ConCert](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
+See the [Papers](#paper) for details on the development.
+
 ## How to build
 
 
@@ -50,3 +48,39 @@ It supports Liquidity and Elm as target languages. The extraction also features 
 ## Notes for developers
 
 The [execution](execution/) subproject can be built independently via running `make` in the `execution` folder. This also means that the `_CoqProject` file inside the `execution` folder must be manually kept in sync with the main `_CoqProject` in the root.
+
+## Papers
+ - ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732)
+   Jakob Botsch Nielsen, Bas Spitters. Presented at 1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
+- ["ConCert: A Smart Contract Certification Framework in Coq"](https://arxiv.org/abs/1907.10674)
+  Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters. CPP 2020.
+- ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
+  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Coq Workshop 2020.
+### Citing the papers
+@misc{nielsen2019smart,
+      title={Smart Contract Interactions in Coq}, 
+      author={Jakob Botsch Nielsen and Bas Spitters},
+      year={2019},
+      eprint={1911.04732},
+      archivePrefix={arXiv},
+      primaryClass={cs.LO}
+}
+
+@article{Annenkov_2020,
+   title={ConCert: a smart contract certification framework in Coq},
+   ISBN={9781450370974},
+   url={http://dx.doi.org/10.1145/3372885.3373829},
+   DOI={10.1145/3372885.3373829},
+   journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
+   publisher={ACM},
+   author={Annenkov, Danil and Nielsen, Jakob Botsch and Spitters, Bas},
+   year={2020},
+   month={Jan}
+}
+
+@inproceedings{Annenkov2020VerifyingTA,
+  title={Verifying, testing and running smart contracts in ConCert},
+  author={D. Annenkov and Mikkel Milo and Jakob Botsch Nielsen and Bas Spitters},
+  year={2020}
+}
+
