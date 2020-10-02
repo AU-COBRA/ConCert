@@ -1,6 +1,10 @@
 # ConCert
 
-A framework for smart contract verification in Coq.
+A framework for smart contract verification in Coq. 
+
+Papers detailing the development:
+- [ConCert: A Smart Contract Certification Framework in Coq](https://arxiv.org/abs/1907.10674)
+- [Smart Contract Interactions in Coq](https://arxiv.org/abs/1911.04732)
 
 ## How to build
 
