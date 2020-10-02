@@ -5,7 +5,7 @@ A framework for smart contract verification in Coq.
 Papers detailing the development:
 - [ConCert: A Smart Contract Certification Framework in Coq](https://arxiv.org/abs/1907.10674)
 - [Smart Contract Interactions in Coq](https://arxiv.org/abs/1911.04732)
-
+- [Verifying, testing and running smart contracts in ConCert](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
 ## How to build
 
 
