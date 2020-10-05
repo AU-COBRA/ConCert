@@ -51,19 +51,16 @@ The [execution](execution/) subproject can be built independently via running `m
 
 ## Papers
  - ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732)
-   Jakob Botsch Nielsen, Bas Spitters. Presented at 1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
+   Jakob Botsch Nielsen, Bas Spitters. 1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
 - ["ConCert: A Smart Contract Certification Framework in Coq"](https://arxiv.org/abs/1907.10674)
   Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters. CPP 2020.
 - ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Coq Workshop 2020.
 ### Citing the papers
-@misc{nielsen2019smart,
-      title={Smart Contract Interactions in Coq}, 
-      author={Jakob Botsch Nielsen and Bas Spitters},
-      year={2019},
-      eprint={1911.04732},
-      archivePrefix={arXiv},
-      primaryClass={cs.LO}
+@misc{Annenkov2020VerifyingTA,
+  title={Verifying, testing and running smart contracts in ConCert},
+  author={D. Annenkov and Mikkel Milo and Jakob Botsch Nielsen and Bas Spitters},
+  year={2020}
 }
 
 @article{Annenkov_2020,
@@ -78,9 +75,18 @@ The [execution](execution/) subproject can be built independently via running `m
    month={Jan}
 }
 
-@inproceedings{Annenkov2020VerifyingTA,
-  title={Verifying, testing and running smart contracts in ConCert},
-  author={D. Annenkov and Mikkel Milo and Jakob Botsch Nielsen and Bas Spitters},
-  year={2020}
+@inproceedings{smart-contract-interactions,
+  author    = {Jakob Botsch Nielsen and
+               Bas Spitters},
+  title     = {Smart Contract Interactions in Coq},
+  booktitle = {{FM} Workshops {(1)}},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {12232},
+  pages     = {380--391},
+  publisher = {Springer},
+  year      = {2019}
 }
+
+
+
 
