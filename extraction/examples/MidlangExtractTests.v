@@ -26,8 +26,7 @@ Instance StandardBoxes : MidlangPrintConfig :=
 Definition no_check_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
-       {| erase_func := SafeErasureFunction.erase;
-          dearg_args :=
+       {| dearg_args :=
             Some
               {| do_trim_const_masks := true;
                  do_trim_ctor_masks := true;

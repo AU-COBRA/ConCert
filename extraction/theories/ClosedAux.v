@@ -103,10 +103,10 @@ Proof.
     induction H; intros n' k k' clos; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
-    + erewrite <- (H _ (S (#|l| + k)) _) by easy.
+    + erewrite <- (p _ (S (#|l| + k)) _) by easy.
       f_equal.
       lia.
-    + erewrite <- (IHForall n' (S k) (S k'));
+    + erewrite <- (IHAll n' (S k) (S k'));
         repeat (f_equal; try lia).
       rewrite <- (proj2 clos);
         repeat (f_equal; try lia).
@@ -115,10 +115,10 @@ Proof.
     induction H; intros n' k k' clos; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
-    + erewrite <- (H _ (S (#|l| + k)) _) by easy.
+    + erewrite <- (p _ (S (#|l| + k)) _) by easy.
       f_equal.
       lia.
-    + erewrite <- (IHForall n' (S k) (S k'));
+    + erewrite <- (IHAll n' (S k) (S k'));
         repeat (f_equal; try lia).
       rewrite <- (proj2 clos);
         repeat (f_equal; try lia).
@@ -157,11 +157,11 @@ Proof.
     induction H; intros k k' all all'; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
-    + erewrite <- (H _ (S (#|l| + k'))); [|easy|].
+    + erewrite <- (p _ (S (#|l| + k'))); [|easy|].
       * f_equal; lia.
       * rewrite <- (proj1 all').
         f_equal; lia.
-    + erewrite <- (IHForall _ (S k')); [|easy|].
+    + erewrite <- (IHAll _ (S k')); [|easy|].
       * repeat (f_equal; try lia).
       * rewrite <- (proj2 all').
         repeat (f_equal; try lia).
@@ -170,11 +170,11 @@ Proof.
     induction H; intros k k' all all'; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
-    + erewrite <- (H _ (S (#|l| + k'))); [|easy|].
+    + erewrite <- (p _ (S (#|l| + k'))); [|easy|].
       * f_equal; lia.
       * rewrite <- (proj1 all').
         f_equal; lia.
-    + erewrite <- (IHForall _ (S k')); [|easy|].
+    + erewrite <- (IHAll _ (S k')); [|easy|].
       * repeat (f_equal; try lia).
       * rewrite <- (proj2 all').
         repeat (f_equal; try lia).

@@ -11,7 +11,7 @@ From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From Coq Require Import List.
 From Coq Require Import String.
-From MetaCoq.Erasure Require Import ELiftSubst.
+From MetaCoq.Erasure Require Import ELiftSubst SafeErasureFunction.
 From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import monad_utils.
@@ -38,14 +38,7 @@ Record dearg_params :=
     check_valid_masks : bool; }.
 
 Record extract_pcuic_params :=
-  { (* Function to be used to erase bodies of declarations.
-        MetaCoq has both ErasureFunction and SafeErasureFunction.
-        The former has the most proofs about it but is not executable from within
-        Coq and is less efficient than the latter. The latter uses retyping and is
-        executable within Coq, but has some unproved theory about it. *)
-    erase_func : forall Σ, ∥wf_ext Σ∥ -> forall Γ t, welltyped Σ Γ t -> typing_result E.term;
-
-    (* Args for dearging (if it should be done) *)
+  { (* Args for dearging (if it should be done) *)
     dearg_args : option dearg_params; }.
 
 Definition extract_pcuic_env
@@ -55,7 +48,7 @@ Definition extract_pcuic_env
            (ignore : kername -> bool) : result ExAst.global_env string :=
 
   Σ <- map_error string_of_erase_global_decl_error
-                 (erase_global_decls_deps_recursive (erase_func params) Σ wfΣ seeds ignore);;
+                 (erase_global_decls_deps_recursive Σ wfΣ seeds ignore);;
 
   match dearg_args params with
   | Some dp =>
@@ -112,8 +105,7 @@ Axiom assume_env_wellformed : forall Σ, ∥PT.wf Σ∥.
 Definition extract_within_coq :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
-       {| erase_func := SafeErasureFunction.erase;
-          dearg_args :=
+       {| dearg_args :=
             Some
               {| do_trim_const_masks := true;
                  do_trim_ctor_masks := true;

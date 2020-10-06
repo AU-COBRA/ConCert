@@ -11,7 +11,6 @@ From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EArities.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import Prelim.
-From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.Erasure Require SafeErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
@@ -51,11 +50,6 @@ Import PCUICAst.
 
 Section FixSigmaExt.
 Local Existing Instance extraction_checker_flags.
-(* We abstract over the erasure func used since MetaCoq has both
-SafeErasureFunction and ErasureFunction. The former uses retyping, is
-computable within Coq and is generally better, but has fewer things
-proven about it and more axioms used. *)
-Context (erase_func : forall Σ, ∥wf_ext Σ∥ -> forall Γ t, welltyped Σ Γ t -> typing_result E.term).
 Context (Σ : global_env_ext).
 Context (wfextΣ : ∥wf_ext Σ∥).
 Let wfΣ : ∥wf Σ∥ := ltac:(now sq).
@@ -108,8 +102,8 @@ Lemma isArity_red Γ u v :
   red Σ Γ u v ->
   isArity v.
 Proof.
-  intros arity_u red.
-  induction red; [easy|].
+  intros arity_u r.
+  induction r using red_rect'; [easy|].
   eapply isArity_red1; eassumption.
 Qed.
 
@@ -163,7 +157,7 @@ fot_viewc t := fot_view_other t _.
 Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
 Proof. now apply wat_wellformed. Qed.
 
-Axiom hnf_completion : forall {A}, A.
+Axiom hnf_completeness : forall {A}, A.
 Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
   : typing_result (type_flag Γ T)
   by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) term_rel :=
@@ -181,15 +175,14 @@ flag_of_type Γ T wat with inspect (hnf wfΣ Γ T (watwf wat)) :=
     | fot_view_sort univ := ret {| is_logical := Universe.is_prop univ;
                                    is_arity := left _;
                                    is_sort := left _; |};
-    | fot_view_other T discr with type_of Σ wfΣ _ Γ T _ := {
-      | Checked (existT _ K typK) with reduce_to_sort wfΣ Γ K _ := {
+    | fot_view_other T discr with infer Σ wfΣ _ Γ T _ := {
+      | exist K princK with reduce_to_sort wfΣ Γ K _ := {
         | Checked (existT _ univ red_univ) :=
           ret {| is_logical := Universe.is_prop univ;
                  is_arity := right _;
                  is_sort := right _; |};
         | TypeError t := TypeError t
-        };
-      | TypeError t := TypeError t
+        }
       }
     }.
 Next Obligation.
@@ -258,12 +251,12 @@ Next Obligation.
        the assumption that hnf of T is neither tProd nor tSort.
        To do this we will need to use some completeness fact about hnf,
        which is not proved in MetaCoq yet, so we defer this proof for now. *)
-    exact hnf_completion.
+    exact hnf_completeness.
   - destruct isT as [[]].
     now econstructor.
 Qed.
 Next Obligation.
-  destruct typK as [typK].
+  destruct princK as [(typK & princK)].
   apply wat_wellformed; [easy|].
   destruct wfΣ.
   sq.
@@ -272,12 +265,12 @@ Qed.
 Next Obligation.
   (* Same as above: since the head normal form of T is neither a product
      or sort, it is not convertible to an arity by completeness of hnf. *)
-  exact hnf_completion.
+  exact hnf_completeness.
 Qed.
 Next Obligation.
   (* Same as above: since the head normal form of T is neither a product
      or sort, it is not convertible to a sort by completeness of hnf. *)
-  exact hnf_completion.
+  exact hnf_completeness.
 Qed.
 
 Definition redβιζ : RedFlags.t :=
@@ -339,9 +332,11 @@ Lemma cored_prod_l Γ na A A' B :
 Proof.
   intros cor.
   depelim cor.
-  - now eapply cored_red_trans.
+  - eapply cored_red_trans; [easy|].
+    now constructor.
   - apply cored_red in cor as [cor].
-    eapply cored_red_trans; [|easy].
+    eapply cored_red_trans.
+    2: now apply prod_red_l.
     now apply red_prod_l.
 Qed.
 
@@ -351,9 +346,11 @@ Lemma cored_prod_r Γ na A B B' :
 Proof.
   intros cor.
   depelim cor.
-  - now eapply cored_red_trans.
+  - eapply cored_red_trans; [easy|].
+    now constructor.
   - apply cored_red in cor as [cor].
-    eapply cored_red_trans; [|easy].
+    eapply cored_red_trans.
+    2: now apply prod_red_r.
     now apply red_prod_r.
 Qed.
 
@@ -372,7 +369,7 @@ Proof.
   constructor.
   intros (Γs & s & wfs) [(m & mred & msub)].
   inversion msub; subst; clear msub.
-  - inversion mred; subst.
+  - eapply Relation_Properties.clos_rt_rtn1 in mred. inversion mred; subst.
     + rewrite H0 in *.
       apply (IH' (p.1, s)).
       { replace p with (p.1, tProd na s B) by (now destruct p; cbn in *; congruence).
@@ -387,17 +384,22 @@ Proof.
            constructor.
            now apply red_prod_l. }
       now apply cored_prod_l.
-    + unshelve eapply (IH (tProd na s B)).
+    + apply Relation_Properties.clos_rtn1_rt in X0.
+      unshelve eapply (IH (tProd na s B)).
       3: now repeat econstructor.
       1: { eapply red_wellformed in wfl; eauto.
-           now constructor. }
-      apply red_neq_cored; [now transitivity P; eauto|].
+           constructor.
+           etransitivity; [exact X0|].
+           now apply red1_red. }
+      eapply red_neq_cored.
+      { etransitivity; [exact X0|].
+        now apply red1_red. }
       intros eq.
       rewrite eq in *.
       eapply cored_red_trans in X0; eauto.
       eapply SafeErasureFunction.Acc_no_loop in X0; [easy|].
       eapply @normalisation'; eauto.
-  - inversion mred; subst.
+  - eapply Relation_Properties.clos_rt_rtn1 in mred; inversion mred; subst.
     + apply (IH' (p.1,, vass na A, s)).
       { replace p with (p.1, tProd na A s) by (destruct p; cbn in *; congruence).
         cbn.
@@ -405,7 +407,10 @@ Proof.
       intros y cor wfly.
       cbn in *.
       unshelve eapply IH.
-      4: now repeat econstructor.
+      4: { constructor.
+           eexists.
+           split; try easy.
+           constructor. }
       1: { eapply red_wellformed; eauto.
            eapply cored_red in cor as [cored].
            constructor.
@@ -413,17 +418,25 @@ Proof.
            now apply red_prod. }
       rewrite H0.
       now apply cored_prod_r.
-    + unshelve eapply IH.
-      4: now repeat econstructor.
+    + apply Relation_Properties.clos_rtn1_rt in X0.
+      unshelve eapply IH.
+      4: { constructor.
+           eexists.
+           split; try easy.
+           constructor. }
       1: { eapply red_wellformed; eauto.
-           now constructor. }
-      apply red_neq_cored; [now transitivity P; eauto|].
+           constructor.
+           etransitivity; [exact X0|].
+           now apply red1_red. }
+      apply red_neq_cored.
+      { etransitivity; [exact X0|].
+        now apply red1_red. }
       intros eq.
       rewrite eq in *.
       eapply cored_red_trans in X0; eauto.
       eapply SafeErasureFunction.Acc_no_loop in X0; [easy|].
       eapply @normalisation'; eauto.
-  - inversion mred; subst.
+  - eapply Relation_Properties.clos_rt_rtn1 in mred; inversion mred; subst.
     + apply (IH' (p.1, s)).
       { replace p with (p.1, tApp hd arg1) by (destruct p; cbn in *; congruence).
         now constructor. }
@@ -481,11 +494,19 @@ Proof.
         apply PCUICSubstitution.red1_mkApps_r.
         eapply OnOne2_app.
         now constructor.
-    + unshelve eapply (IH (tApp hd arg1)).
-      3: now repeat econstructor.
-      1: { eapply red_wellformed in wfl; eauto.
+    + apply Relation_Properties.clos_rtn1_rt in X0.
+      unshelve eapply (IH (tApp hd arg1)).
+      3: { constructor.
+           eexists.
+           split; try easy.
            now constructor. }
-      apply red_neq_cored; [now transitivity P; eauto|].
+      1: { eapply red_wellformed in wfl; eauto.
+           constructor.
+           etransitivity; [exact X0|].
+           now apply red1_red. }
+      apply red_neq_cored.
+      { etransitivity; [exact X0|].
+        now apply red1_red. }
       intros eq.
       rewrite eq in *.
       eapply cored_red_trans in X0; eauto.
@@ -720,7 +741,7 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
                   end eq_refl;;
 
           let erase_arg (a : term) (i : In a decomp_args) : result box_type erase_type_error :=
-              '(aT; typ) <- wrap_typing_result (type_of Σ wfΣ _ Γ a _) TypingError;;
+              let (aT, princaT) := infer Σ wfΣ _ Γ a _ in
               ft <- wrap_typing_result (flag_of_type Γ aT _) TypingError;;
               match ft with
               | {| is_logical := true |} => ret TBox
@@ -811,12 +832,13 @@ Next Obligation.
     + easy.
 Qed.
 Next Obligation.
-  destruct typ as [typ].
+  destruct princaT as [(typ & princaT)].
   destruct wfΣ.
   sq.
   eapply validity_term; [easy|exact typ].
 Qed.
 Next Obligation.
+  destruct princaT as [(typ & princaT)].
   destruct conv_sort as (univ & reduniv).
   destruct wfΣ as [wfΣu].
   sq.
@@ -867,14 +889,11 @@ Program Definition erase_constant_decl
     end
   | right _ => (* proceed as usual *)
     et <- map_error EraseTypeError (erase_type [] []%vector (P.cst_type cst) _ []);;
-    eb <- match P.cst_body cst with
-         | Some body =>
-           match erase_func Σ wfextΣ [] body _ with
-           | TypeError te => Err (EraseBodyError te)
-           | Checked eb => ret (Some eb)
-           end
-        | None => ret None
-        end;;
+    let eb :=
+        match P.cst_body cst with
+         | Some body => Some (SafeErasureFunction.erase Σ wfextΣ [] body _)
+         | None => None
+        end in
     ret (inl {| cst_type := et; cst_body := eb |})
   end.
 Next Obligation.
@@ -1135,7 +1154,6 @@ End FixSigmaExt.
 
 Section EraseEnv.
 Local Existing Instance extraction_checker_flags.
-Context (erase_func : forall Σ, ∥wf_ext Σ∥ -> forall Γ t, welltyped Σ Γ t -> typing_result E.term).
 
 Import ExAst.
 
@@ -1162,7 +1180,7 @@ Program Definition erase_global_decl
   match decl with
   | P.ConstantDecl cst =>
     cst_or_ty_alias <- map_error (ErrConstant Σext kn)
-                                 (erase_constant_decl erase_func Σext _ cst _);;
+                                 (erase_constant_decl Σext _ cst _);;
     match cst_or_ty_alias with
     | inl cst => ret (ConstantDecl cst)
     | inr ta => ret (TypeAliasDecl ta)
@@ -1294,28 +1312,6 @@ Next Obligation.
 Qed.
 
 End EraseEnv.
-
-(* Use SafeErasureFunction.erase for erasure. Runs from within Coq but has more
-   things admitted about it. *)
-Definition erase_global_decls_deps_recursive_safe_erasure :=
-  erase_global_decls_deps_recursive SafeErasureFunction.erase.
-
-Program Definition erase_with_normal_erasure
-        (cf := extraction_checker_flags)
-        (Σ : global_env_ext)
-        (wfΣ : ∥wf_ext Σ∥)
-        (Γ : context)
-        (t : term)
-        (wt : welltyped Σ Γ t) : typing_result E.term :=
-  ErasureFunction.erase Σ wfΣ Γ _ t.
-Next Obligation.
-  destruct wt.
-  sq.
-  now eapply typing_wf_local.
-Qed.
-
-Definition erase_global_decls_deps_recursive_normal_erasure :=
-  erase_global_decls_deps_recursive erase_with_normal_erasure.
 
 Global Arguments is_logical {_ _ _}.
 Global Arguments is_sort {_ _ _}.

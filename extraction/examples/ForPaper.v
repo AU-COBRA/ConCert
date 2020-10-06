@@ -68,8 +68,7 @@ MetaCoq Erase (unfolded const_zero_app_type).
 Definition no_check_no_debox_args :=
 {| check_wf_env_func := check_wf_env_func extract_within_coq;
      pcuic_args :=
-       {| erase_func := erase_func (pcuic_args extract_within_coq);
-          dearg_args := None |} |}.
+       {| dearg_args := None |} |}.
 
 Definition erase_print (p : program) (debox : bool) : result string string :=
   entry <- match p.2 with
@@ -88,8 +87,7 @@ Definition erase_print (p : program) (debox : bool) : result string string :=
   let args :=
     {| check_wf_env_func := check_wf_env_func extract_within_coq;
        pcuic_args :=
-         {| erase_func := erase_func (pcuic_args extract_within_coq);
-            dearg_args := dearg |} |} in
+         {| dearg_args := dearg |} |} in
   Σ <- extract_template_env
          args
          p.1

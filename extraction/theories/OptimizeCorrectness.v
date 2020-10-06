@@ -3,7 +3,6 @@ From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import WcbvEvalAux.
-From ConCert.Extraction Require Import WcbvEvalType.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import Btauto.
@@ -17,6 +16,7 @@ From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import EInduction.
 From MetaCoq.Erasure Require Import EInversion.
 From MetaCoq.Erasure Require Import ELiftSubst.
+From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import ETyping.
 From MetaCoq.Template Require Import utils.
 
@@ -61,8 +61,8 @@ Proof.
 Qed.
 
 Lemma eval_only_constants Σ s t :
-  Σ ⊢ s ▷ t ->
-  only_constants Σ ⊢ s ▷ t.
+  Σ e⊢ s ▷ t ->
+  only_constants Σ e⊢ s ▷ t.
 Proof.
   induction 1; eauto using eval, declared_constant_only_constants.
 Qed.
@@ -303,7 +303,7 @@ Proof.
     propify.
     split; [easy|].
     rewrite <- Nat.add_succ_r in *.
-    now eapply IHForall.
+    now eapply IHAll.
   - revert k n' clos klen.
     induction H; [easy|]; intros k n' clos klen.
     destruct x.
@@ -311,7 +311,7 @@ Proof.
     propify.
     split; [easy|].
     rewrite <- Nat.add_succ_r in *.
-    now eapply IHForall.
+    now eapply IHAll.
 Qed.
 
 Lemma is_dead_csubst k t u k' :
@@ -355,10 +355,10 @@ Proof.
     cbn in *.
     propify.
     split.
-    + apply H; [easy| |easy].
+    + apply p; [easy| |easy].
       now eapply closed_upwards.
     + rewrite <- !Nat.add_succ_r in *.
-      apply IHForall; [easy|easy|].
+      apply IHAll; [easy|easy|].
       now eapply closed_upwards.
   - rewrite map_length.
     revert k k' kltn use_eq clos.
@@ -367,10 +367,10 @@ Proof.
     cbn in *.
     propify.
     split.
-    + apply H; [easy| |easy].
+    + apply p; [easy| |easy].
       now eapply closed_upwards.
     + rewrite <- !Nat.add_succ_r in *.
-      apply IHForall; [easy|easy|].
+      apply IHAll; [easy|easy|].
       now eapply closed_upwards.
 Qed.
 
@@ -437,8 +437,8 @@ Qed.
 
 Lemma eval_dearg_single_head Σ mask head args v :
   #|mask| <= #|args| ->
-  Σ ⊢ dearg_single mask head args ▷ v ->
-  ∑ hdv, Σ ⊢ head ▷ hdv.
+  Σ e⊢ dearg_single mask head args ▷ v ->
+  ∑ hdv, Σ e⊢ head ▷ hdv.
 Proof.
   revert head args v.
   induction mask as [|[] mask IH]; intros head args v l ev.
@@ -457,8 +457,8 @@ Lemma eval_dearg_lambdas_inv Σ mask Γ inner v :
   env_closed Σ ->
   closed (it_mkLambda_or_LetIn Γ inner) ->
   #|mask| = #|vasses Γ| ->
-  Σ ⊢ dearg_lambdas mask (it_mkLambda_or_LetIn Γ inner) ▷ v ->
-  ∑ tv, Σ ⊢ it_mkLambda_or_LetIn Γ inner ▷ tv.
+  Σ e⊢ dearg_lambdas mask (it_mkLambda_or_LetIn Γ inner) ▷ v ->
+  ∑ tv, Σ e⊢ it_mkLambda_or_LetIn Γ inner ▷ tv.
 Proof.
   intros env_clos clos len_eq ev.
   induction #|Γ| as [|Γlen IH] eqn:Γlen_eq in Γ, mask, inner, v, clos, len_eq, ev |- *.
@@ -494,10 +494,10 @@ Qed.
 
 Lemma eval_dearg_single_heads mask args Σ hd hd' hdv v :
   #|mask| <= #|args| ->
-  Σ ⊢ hd ▷ hdv ->
-  Σ ⊢ dearg_single mask hd' args ▷ v ->
-  Σ ⊢ hd' ▷ hdv ->
-  Σ ⊢ dearg_single mask hd args ▷ v.
+  Σ e⊢ hd ▷ hdv ->
+  Σ e⊢ dearg_single mask hd' args ▷ v ->
+  Σ e⊢ hd' ▷ hdv ->
+  Σ e⊢ dearg_single mask hd args ▷ v.
 Proof.
   revert hd hd' hdv args v.
   induction mask as [|[] mask IH]; intros hd hd' hdv args v len ev_hd ev ev_hd';
@@ -550,11 +550,11 @@ Proof.
     destruct x; cbn in *; propify.
     f_equal.
     + f_equal.
-      apply H.
+      apply p.
       rewrite <- (proj1 no_use).
       now f_equal.
     + rewrite <- Nat.add_succ_r in *.
-      now apply IHForall.
+      now apply IHAll.
   - f_equal.
     revert k no_use.
     induction H; [easy|]; intros k no_use.
@@ -562,11 +562,11 @@ Proof.
     destruct x; cbn in *; propify.
     f_equal.
     + f_equal.
-      apply H.
+      apply p.
       rewrite <- (proj1 no_use).
       now f_equal.
     + rewrite <- !Nat.add_succ_r in *.
-      now apply IHForall.
+      now apply IHAll.
 Qed.
 
 
@@ -603,8 +603,8 @@ Lemma dearg_lambdas_correct Σ body args mask v :
   Forall (closedn 0) args ->
   valid_dearg_mask mask body ->
   #|mask| <= #|args| ->
-  Σ ⊢ mkApps body args ▷ v ->
-  Σ ⊢ mkApps (dearg_lambdas mask body) (masked mask args) ▷ v.
+  Σ e⊢ mkApps body args ▷ v ->
+  Σ e⊢ mkApps (dearg_lambdas mask body) (masked mask args) ▷ v.
 Proof.
   intros env_clos body_clos args_clos valid_mask l ev.
   destruct (valid_dearg_mask_spec _ _ valid_mask) as (Γ & inner & vasses_len & <-).
@@ -801,7 +801,7 @@ Proof.
     f_equal.
     induction H; [easy|].
     cbn in *.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - rewrite lift_mkApps.
     cbn.
     now rewrite IHt.
@@ -847,12 +847,12 @@ Proof.
     induction H in k |- *; [easy|].
     cbn in *.
     rewrite <- Nat.add_succ_r.
-    rewrite IHForall.
+    rewrite IHAll.
     f_equal.
     unfold map_def.
     cbn.
     f_equal.
-    now rewrite H.
+    now rewrite p.
   - rewrite lift_mkApps.
     cbn.
     f_equal.
@@ -861,12 +861,12 @@ Proof.
     induction H in k |- *; [easy|].
     cbn in *.
     rewrite <- Nat.add_succ_r.
-    rewrite IHForall.
+    rewrite IHAll.
     f_equal.
     unfold map_def.
     cbn.
     f_equal.
-    now rewrite H.
+    now rewrite p.
 Qed.
 
 Lemma lift_dearg n k t :
@@ -971,7 +971,7 @@ Proof.
   - easy.
   - induction H; [easy|].
     cbn in *.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - now rewrite IHt.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
@@ -986,17 +986,17 @@ Proof.
   - rewrite map_length.
     induction H in H, m, k, k', lt |- *; [easy|].
     cbn.
-    rewrite H by lia.
+    rewrite p by lia.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
+    now apply IHAll.
   - rewrite map_length.
     induction H in H, m, k, k', lt |- *; [easy|].
     cbn.
-    rewrite H by lia.
+    rewrite p by lia.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
+    now apply IHAll.
 Qed.
 
 Lemma is_dead_lift_all k k' n t :
@@ -1009,7 +1009,7 @@ Proof.
   - destruct (_ <=? _) eqn:?; cbn; propify; lia.
   - induction H; [easy|].
     cbn in *.
-    now rewrite H.
+    now rewrite p.
   - now rewrite IHt.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
@@ -1022,17 +1022,17 @@ Proof.
   - rewrite map_length.
     induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
-    rewrite H by easy.
+    rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
+    now apply IHAll.
   - rewrite map_length.
     induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
-    rewrite H by easy.
+    rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
+    now apply IHAll.
 Qed.
 
 Lemma is_dead_subst_other k k' s t :
@@ -1056,7 +1056,7 @@ Proof.
       lia.
   - induction H; [easy|].
     cbn in *.
-    now rewrite H.
+    now rewrite p.
   - now rewrite IHt.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
@@ -1068,17 +1068,17 @@ Proof.
   - rewrite map_length.
     induction H in H, m, k, k', lt |- *; [easy|].
     cbn.
-    rewrite H by easy.
+    rewrite p by easy.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
+    now apply IHAll.
   - rewrite map_length.
     induction H in H, m, k, k', lt |- *; [easy|].
     cbn.
-    rewrite H by easy.
+    rewrite p by easy.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHForall.
+    now apply IHAll.
 Qed.
 
 Lemma valid_dearg_mask_lift mask n k t :
@@ -1203,7 +1203,7 @@ Proof.
   - now destruct (_ <=? _).
   - induction H; [easy|].
     cbn in *.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
   - rewrite IHt.
@@ -1214,11 +1214,11 @@ Proof.
   - induction H in k' |- *; [easy|].
     cbn.
     rewrite <- Nat.add_succ_r.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - induction H in k' |- *; [easy|].
     cbn.
     rewrite <- Nat.add_succ_r.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
 Qed.
 
 Lemma is_expanded_lift n k t :
@@ -1250,7 +1250,7 @@ Proof.
        lia.
   - induction H; [easy|].
     cbn in *.
-    now rewrite H.
+    now rewrite p.
   - now rewrite IHt.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
@@ -1261,18 +1261,18 @@ Proof.
   - rewrite map_length.
     induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
-    rewrite H by easy.
+    rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    rewrite IHForall by easy.
+    rewrite IHAll by easy.
     now replace (S (k - n)) with (S k - n) by lia.
   - rewrite map_length.
     induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
-    rewrite H by easy.
+    rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    rewrite IHForall by easy.
+    rewrite IHAll by easy.
     now replace (S (k - n)) with (S k - n) by lia.
 Qed.
 
@@ -1331,7 +1331,7 @@ Proof.
     + destruct (n =? k) eqn:?, (n =? S k) eqn:?, (n =? k') eqn:?; propify; cbn in *; auto; lia.
    - induction H; [easy|].
      cbn.
-     rewrite !H, !IHForall by easy.
+     rewrite !p, !IHAll by easy.
      bia.
    - now rewrite IHt.
    - rewrite IHt1, IHt2 by easy.
@@ -1348,21 +1348,21 @@ Proof.
      + now rewrite Bool.orb_false_r in IHX.
    - rewrite map_length.
      induction H in H, m, k, k', le |- *; cbn in *; [easy|].
-     rewrite H by easy.
-     specialize (IHForall (S k) (S k') ltac:(lia)).
+     rewrite p by easy.
+     specialize (IHAll (S k) (S k') ltac:(lia)).
      rewrite !Nat.sub_succ in *.
      replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
      rewrite <- !Nat.add_succ_r.
-     rewrite IHForall.
+     rewrite IHAll.
      bia.
    - rewrite map_length.
      induction H in H, m, k, k', le |- *; cbn in *; [easy|].
-     rewrite H by easy.
-     specialize (IHForall (S k) (S k') ltac:(lia)).
+     rewrite p by easy.
+     specialize (IHAll (S k) (S k') ltac:(lia)).
      rewrite !Nat.sub_succ in *.
      replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
      rewrite <- !Nat.add_succ_r.
-     rewrite IHForall.
+     rewrite IHAll.
      bia.
 Qed.
 
@@ -1407,7 +1407,7 @@ Proof.
   - now apply forallb_Forall.
   - propify; split; [|now apply forallb_Forall].
     induction H; [easy|]; cbn in *; propify.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - rewrite IHt by easy.
     now apply forallb_Forall.
   - propify.
@@ -1436,17 +1436,17 @@ Proof.
     induction H in k, m, H, no_use |- *; [easy|].
     cbn in *; propify.
     rewrite <- !Nat.add_succ_r in *.
-    rewrite H by easy.
+    rewrite p by easy.
     split; [easy|].
-    now apply IHForall.
+    now apply IHAll.
   - rewrite map_length.
     propify; split; [|now apply forallb_Forall].
     induction H in k, m, H, no_use |- *; [easy|].
     cbn in *; propify.
     rewrite <- !Nat.add_succ_r in *.
-    rewrite H by easy.
+    rewrite p by easy.
     split; [easy|].
-    now apply IHForall.
+    now apply IHAll.
 Qed.
 
 Lemma valid_dearg_mask_dearg mask t :
@@ -1511,8 +1511,8 @@ Proof.
     cbn in *.
     propify.
     f_equal.
-    + now apply (H _ _ []).
-    + now apply IHForall.
+    + now apply (p _ _ []).
+    + now apply IHAll.
   - rewrite subst_mkApps, map_map.
     cbn.
     f_equal.
@@ -1565,10 +1565,10 @@ Proof.
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    f_equal; [|now apply IHForall].
+    f_equal; [|now apply IHAll].
     unfold map_def; cbn.
     f_equal.
-    now apply (H _ _ []).
+    now apply (p _ _ []).
   - rewrite subst_mkApps, map_map.
     cbn.
     rewrite !map_map.
@@ -1580,10 +1580,10 @@ Proof.
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    f_equal; [|now apply IHForall].
+    f_equal; [|now apply IHAll].
     unfold map_def; cbn.
     f_equal.
-    now apply (H _ _ []).
+    now apply (p _ _ []).
 Qed.
 
 Lemma dearg_subst s k t :
@@ -1676,7 +1676,7 @@ Proof.
   - easy.
   - induction H; [easy|].
     cbn in *; propify.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - now apply IHt.
   - now propify.
   - now propify.
@@ -1694,12 +1694,12 @@ Proof.
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - induction H in m, H, k, expt |- *; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
 Qed.
 
 Lemma is_expanded_aux_subst s n t k :
@@ -1720,7 +1720,7 @@ Proof.
   - easy.
   - induction H; [easy|].
     cbn in *; propify.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - now apply IHt.
   - now propify.
   - now propify.
@@ -1738,12 +1738,12 @@ Proof.
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
   - induction H in m, H, k, expt |- *; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite H, IHForall.
+    now rewrite p, IHAll.
 Qed.
 
 Lemma is_expanded_substl s n t :
@@ -1826,7 +1826,7 @@ Proof.
 Qed.
 
 Lemma eval_is_expanded_aux Σ t v k :
-  trans_env Σ ⊢ t ▷ v ->
+  trans_env Σ e⊢ t ▷ v ->
   is_expanded_env Σ ->
   is_expanded_aux k t ->
   is_expanded_aux k v .
@@ -2086,7 +2086,7 @@ Proof.
     cbn in *; propify.
     split; [easy|].
     rewrite <- !Nat.add_succ_r in *.
-    now apply IHForall.
+    now apply IHAll.
   - apply closedn_mkApps; [|easy].
     cbn.
     rewrite map_length.
@@ -2094,7 +2094,7 @@ Proof.
     cbn in *; propify.
     split; [easy|].
     rewrite <- !Nat.add_succ_r in *.
-    now apply IHForall.
+    now apply IHAll.
 Qed.
 
 Hint Resolve
@@ -2284,7 +2284,7 @@ Proof.
 Qed.
 
 Lemma eval_valid_cases Σ t v :
-  trans_env Σ ⊢ t ▷ v ->
+  trans_env Σ e⊢ t ▷ v ->
 
   env_closed (trans_env Σ) ->
   closed t ->
@@ -2606,7 +2606,7 @@ Qed.
 
 Lemma eval_mkApps_tConstruct Σ ind c args argsv
       (a : All2 (eval Σ) args argsv) :
-  Σ ⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
+  Σ e⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
 Proof.
   revert argsv a.
   induction args using MCList.rev_ind; intros argsv all.
@@ -2628,7 +2628,7 @@ Qed.
 Ltac facts :=
   (repeat
      match goal with
-     | [H: ?Σ ⊢ ?t ▷ ?v |- _] =>
+     | [H: ?Σ e⊢ ?t ▷ ?v |- _] =>
        match goal with
        | [H': is_true (closed v) |- _] =>
          fail 1
@@ -2638,7 +2638,7 @@ Ltac facts :=
      end);
   (repeat
      match goal with
-     | [H: ?Σ ⊢ ?t ▷ ?v |- _] =>
+     | [H: ?Σ e⊢ ?t ▷ ?v |- _] =>
        match goal with
        | [H': is_true (valid_cases v) |- _] =>
          fail 1
@@ -2648,7 +2648,7 @@ Ltac facts :=
      end);
   (repeat
      match goal with
-     | [H: ?Σ ⊢ ?t ▷ ?v |- _] =>
+     | [H: ?Σ e⊢ ?t ▷ ?v |- _] =>
        match goal with
        | [H': is_true (is_expanded v) |- _] =>
          fail 1
@@ -2667,9 +2667,9 @@ Section dearg.
         closed t ->
         valid_cases t ->
         is_expanded t ->
-        forall ev : trans_env Σ ⊢ t ▷ v,
+        forall ev : trans_env Σ e⊢ t ▷ v,
         deriv_length ev <= n ->
-        trans_env (dearg_env Σ) ⊢ dearg t ▷ dearg v).
+        trans_env (dearg_env Σ) e⊢ dearg t ▷ dearg v).
 
   Lemma eval_tApp_dearg {hd arg v} :
     closed hd ->
@@ -2679,9 +2679,9 @@ Section dearg.
     closed arg ->
     valid_cases arg ->
     is_expanded arg ->
-    forall (ev : trans_env Σ ⊢ tApp hd arg ▷ v),
+    forall (ev : trans_env Σ e⊢ tApp hd arg ▷ v),
       deriv_length ev <= S n ->
-      trans_env (dearg_env Σ) ⊢ tApp (dearg hd) (dearg arg) ▷ dearg v.
+      trans_env (dearg_env Σ) e⊢ tApp (dearg hd) (dearg arg) ▷ dearg v.
   Proof with auto with dearg.
     intros clos_hd valid_hd exp_hd clos_arg valid_arg exp_arg ev ev_len.
     depind ev; cbn in *.
@@ -2788,9 +2788,9 @@ Section dearg.
     Forall (closedn 0) args ->
     Forall valid_cases args ->
     Forall is_expanded args ->
-    forall (ev : trans_env Σ ⊢ mkApps hd args ▷ v),
+    forall (ev : trans_env Σ e⊢ mkApps hd args ▷ v),
       deriv_length ev <= n ->
-      trans_env (dearg_env Σ) ⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
+      trans_env (dearg_env Σ) e⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
   Proof.
     intros clos_hd valid_hd exp_hd clos_args valid_args exp_args ev ev_len.
     pose proof (eval_mkApps_deriv ev) as (hdv & ev_hd & argsv & ev_args & ev_args_len).
@@ -2823,10 +2823,10 @@ Section dearg.
     Forall (closedn 0) args ->
     Forall valid_cases args ->
     Forall is_expanded args ->
-    (args = [] -> trans_env (dearg_env Σ) ⊢ dearg hd ▷ dearg v) ->
-    forall (ev : trans_env Σ ⊢ mkApps hd args ▷ v),
+    (args = [] -> trans_env (dearg_env Σ) e⊢ dearg hd ▷ dearg v) ->
+    forall (ev : trans_env Σ e⊢ mkApps hd args ▷ v),
       deriv_length ev <= S n ->
-      trans_env (dearg_env Σ) ⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
+      trans_env (dearg_env Σ) e⊢ mkApps (dearg hd) (map dearg args) ▷ dearg v.
   Proof.
     intros clos_hd valid_hd exp_hd clos_args valid_args exp_args no_args ev ev_len.
     destruct args as [|? ? _] using MCList.rev_ind; cbn in *; [easy|].
@@ -2981,13 +2981,13 @@ Lemma dearg_correct Σ t v :
   is_expanded_env Σ ->
   is_expanded t ->
 
-  trans_env Σ ⊢ t ▷ v ->
-  trans_env (dearg_env Σ) ⊢ dearg t ▷ dearg v.
+  trans_env Σ e⊢ t ▷ v ->
+  trans_env (dearg_env Σ) e⊢ dearg t ▷ dearg v.
 Proof.
   intros clos_env clos_t valid_env valid_t exp_env exp_t.
-  enough (forall n (ev : trans_env Σ ⊢ t ▷ v),
+  enough (forall n (ev : trans_env Σ e⊢ t ▷ v),
              deriv_length ev <= n ->
-             trans_env (dearg_env Σ) ⊢ dearg t ▷ dearg v).
+             trans_env (dearg_env Σ) e⊢ dearg t ▷ dearg v).
   { intros ev.
     eapply (H _ ev).
     apply le_refl. }
@@ -3003,7 +3003,7 @@ Proof.
     rewrite e in body_dearg; cbn in *.
 
     enough (trans_env (dearg_env Σ)
-            ⊢ dearg_single (get_const_mask kn)
+            e⊢ dearg_single (get_const_mask kn)
                            (dearg (dearg_lambdas (get_const_mask kn) body))
                            (map dearg args) ▷ dearg v) as ev'.
     { eapply eval_dearg_single_head in ev' as ev_hd; [|now rewrite map_length].
@@ -3014,7 +3014,7 @@ Proof.
 
     rewrite dearg_dearg_lambdas by
         eauto using valid_dearg_mask_constant, valid_cases_constant.
-    assert (∑ ev' : trans_env Σ ⊢ mkApps body args ▷ v,
+    assert (∑ ev' : trans_env Σ e⊢ mkApps body args ▷ v,
                deriv_length ev' < deriv_length ev) as (ev_body & deriv_body).
     { unshelve epose proof (eval_mkApps_heads_deriv _ ev_const ev) as (ev' & ?).
       - now econstructor.

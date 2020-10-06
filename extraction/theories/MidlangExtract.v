@@ -24,6 +24,7 @@ From MetaCoq.Template Require Import All.
 From MetaCoq.Erasure Require Import Loader SafeTemplateErasure EAst EAstUtils ETyping.
 
 Import StringExtra.
+Import String.
 
 Module P := MetaCoq.PCUIC.PCUICAst.
 Module PT := MetaCoq.PCUIC.PCUICTyping.
@@ -187,7 +188,6 @@ Definition fresh_ty_arg_name (name : name) (Γ : list ident) : PrettyPrinter ide
   | nNamed name => ret (fresh (get_ty_arg_name name) (Γ ++ used_names))
   end.
 
-Import P.
 Definition parenthesize_prod_domain (t : box_type) : bool :=
   match t with
   | TArr _ _ => true
@@ -223,7 +223,6 @@ Fixpoint print_type (Γ : list ident) (t : box_type) : PrettyPrinter unit :=
   | TConst name => append (get_ty_name name)
   end.
 
-Import E.
 (* Print something of the form
    foo =
      a b c
@@ -472,7 +471,6 @@ Definition print_constant
 
   ret ml_name.
 
-Import P.
 Definition parenthesize_ind_ctor_ty (ty : box_type) : bool :=
   match ty with
   | TBox
@@ -496,7 +494,7 @@ Definition print_ind_ctor_definition
                        (print_type Γ bty)) data tt.
 
 Local Open Scope string.
-Import Ex.
+Import ExAst PrettyPrinterMonad.
 Definition print_mutual_inductive_body
            (kn : kername)
            (mib : mutual_inductive_body) : PrettyPrinter (list (kername * string)) :=
@@ -519,7 +517,7 @@ Definition print_mutual_inductive_body
        Γ <- monad_fold_left
               (fun Γ name =>
                  name <- fresh_ty_arg_name (tvar_name name) Γ;;
-                 ret (Γ ++ [name])%list) (ind_type_vars oib) [];;
+                 ret (Γ ++ [name])%list) (Ex.ind_type_vars oib) [];;
 
        append "type ";;
        let ind_name := (kn.1, ind_name oib) in

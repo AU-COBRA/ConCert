@@ -109,7 +109,6 @@ extraction/theories/ExtractionCorrectness.v
 extraction/theories/LPretty.v
 extraction/theories/Liquidity.v
 extraction/theories/LiquidityExtract.v
-extraction/theories/MetaCoqErasureCorrectnessStrong.v
 extraction/theories/MidlangExtract.v
 extraction/theories/Optimize.v
 extraction/theories/OptimizeCorrectness.v
@@ -118,7 +117,6 @@ extraction/theories/ResultMonad.v
 extraction/theories/SpecializeChainBase.v
 extraction/theories/StringExtra.v
 extraction/theories/WcbvEvalAux.v
-extraction/theories/WcbvEvalType.v
 extraction/theories/CertifyingEta.v
 
 -Q extraction/examples ConCert.Extraction.Examples

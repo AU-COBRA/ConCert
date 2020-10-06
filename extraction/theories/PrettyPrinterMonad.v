@@ -8,6 +8,8 @@ From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.Template Require Import BasicAst.
 
+Import String.
+
 Import ListNotations.
 Import MonadNotation.
 Local Open Scope string.
