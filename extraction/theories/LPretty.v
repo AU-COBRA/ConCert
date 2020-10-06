@@ -25,6 +25,7 @@ From MetaCoq.Erasure Require Import EAst EAstUtils ETyping EPretty.
 
 Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
+Import String.
 
 Section print_term.
   Context (Σ : ExAst.global_env).

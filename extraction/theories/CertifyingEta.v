@@ -8,6 +8,7 @@
 From Coq Require Import List PeanoNat Bool String.
 From MetaCoq Require Import Template.All.
 From ConCert.Extraction Require Import Erasure Optimize Common ResultMonad Extraction.
+Open Scope string.
 Open Scope nat.
 
 Import Template.Ast.
@@ -252,7 +253,6 @@ Definition eta_global_env
     map_error
       string_of_erase_global_decl_error
       (erase_global_decls_deps_recursive
-         SafeErasureFunction.erase
          (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
          seeds ignore);;
 
@@ -307,8 +307,7 @@ Module Examples.
   Definition no_trimming :=
     {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
        pcuic_args :=
-         {| erase_func := SafeErasureFunction.erase;
-            dearg_args :=
+         {| dearg_args :=
               Some
                 {| do_trim_const_masks := false;
                    do_trim_ctor_masks := false;

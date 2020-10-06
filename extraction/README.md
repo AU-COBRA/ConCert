@@ -6,7 +6,7 @@ the name suggests, contains examples of smart contracts and programs extracted u
 and tests for our extensions to the certified erasure.
 
 After building the project (running `make` from the project's root), the folders
-`examples/liquidity-extract/tests` and `examples/elm-extract/tests` are populated with the extracted code. 
+`examples/liquidity-extract/tests` and `examples/elm-extract/tests` are populated with the extracted code.
 
 Compiling Liquidity code:
 install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html). Be
@@ -21,10 +21,9 @@ Running Elm tests also requires `elm-explorations/test` package (see the require
 Some highlights from `theories`:
 
 
-* `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures with additional information about erased types. 
+* `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures with additional information about erased types.
 * `theories/Erasure.v` -- An extension of the MetaCoq's certified erasure with erasure for types and erasing only required dependencies. Also implements erasure for global environments with extra typing information for global definitions.
 * `theories/ErasureCorrectness.v` -- Correctness lemmas for definitions from `Erasure.v`, proving that our erasure produces a well-formed erased environment.
-* `theories/MetaCoqErasureCorrectnessStrong.v` -- A strengthened version of the correctness proof from MetaCoq (erasing dependencies only, not the full environment).
 * `theories/Extraction.v` -- High-level interface to extraction. Provides different pipelines for doing extraction with different trusted computing bases.
 * `theories/ExtractionCorrectness.v` -- Top-level correctness theorem relating the stages.
 * `theories/Optimize.v` -- Optimisations (dead argument elimination, logical parameters elimination) on `λ□` terms.
@@ -35,7 +34,6 @@ Some highlights from `theories`:
 * `theories/LiquidityExtract.v` - A high-level interface to Liquidity extraction.
 * `theories/MidlangExtract.v` -- A high-level interface to Midlang extraction including the pretty-printer to Midlang/Elm.
 * `theories/PrettyPrinterMonad.v` -- A monad for implementing pretty-printing in Coq.
-* `theories/WcbvEvalType.v` -- Big-step cbv relation of MetaCoq valued in `Type` instead of `Prop`. Used purely as an intermediate step for some proofs and not in the top level statements.
 
 
 Some highlights from `examples`:

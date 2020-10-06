@@ -4,6 +4,8 @@ From MetaCoq.Template Require Import All.
 Import ListNotations.
 Import MonadNotation.
 
+Open Scope string.
+
 (** Generation of string constants using MetaCoq *)
 Fixpoint mkNames (prefix : string) (ns : list string) (postfix : string) :=
   match ns with

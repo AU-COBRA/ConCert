@@ -22,14 +22,14 @@ Fixpoint mdots (prefix : modpath) (l : list string) :=
 
 (** Parses a string containig a file path and a module path separated in a way that helps to recover the kername structure.
  E.g. "Path/To/File#ModuleName.NestedModuleName" *)
-Definition modpath_of_string (s : string) : modpath:=
+Definition modpath_of_string (s : string) : modpath :=
   let fpath_mod := StringExtra.str_split "#" s in
   let fpath := hd "" fpath_mod in
-  let mod := hd "" (tl fpath_mod) in
+  let module := hd "" (tl fpath_mod) in
   let fpath_items := rev (StringExtra.str_split "/" fpath) in
-  let mod_items := StringExtra.str_split "." mod in
+  let mod_items := StringExtra.str_split "." module in
   let fp := MPfile fpath_items in
-  if mod =? "" then fp
+  if module =? "" then fp
   else mdots fp mod_items.
 
 (** Parses a string containig a file path, a module path separated and a name in a way that helps to recover the kername structure.

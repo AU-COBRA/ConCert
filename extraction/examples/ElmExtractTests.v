@@ -25,6 +25,7 @@ From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 
 Import MonadNotation.
+Open Scope string.
 
 Instance ElmBoxes : MidlangPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)

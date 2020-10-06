@@ -101,8 +101,7 @@ Definition liquidity_call_ctx :=
 Definition liquidity_extract_args :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
      pcuic_args :=
-       {| erase_func := erase_func (pcuic_args extract_within_coq);
-          dearg_args :=
+       {| dearg_args :=
             Some
               {| do_trim_const_masks := true;
                  do_trim_ctor_masks := false; (* cannot have partially applied ctors *)

@@ -19,6 +19,7 @@ From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
 
 Local Open Scope string_scope.
+Import String.
 Import ListNotations.
 Import MonadNotation.
 Set Equations Transparent.

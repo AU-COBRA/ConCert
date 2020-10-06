@@ -110,8 +110,8 @@ Definition trans_cst_for_printing (cst : constant_body) : EAst.constant_body :=
 Definition trans_oib_for_printing (oib : one_inductive_body) : EAst.one_inductive_body :=
   {| EAst.ind_name := oib.(ind_name);
      EAst.ind_kelim := InType; (* just a "random" pick, not involved in printing *)
-     EAst.ind_ctors := map (fun '(nm, _) => ((nm,EAst.tBox),0)) oib.(ind_ctors);
-     EAst.ind_projs := [] |}.
+     EAst.ind_ctors := map (fun '(nm, args) => (nm, #|args|)) oib.(ind_ctors);
+     EAst.ind_projs := map fst oib.(ind_projs) |}.
 
 Definition trans_mib_for_printing
            (mib : mutual_inductive_body) : EAst.mutual_inductive_body :=
