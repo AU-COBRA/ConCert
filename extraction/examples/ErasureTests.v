@@ -34,10 +34,7 @@ Program Definition flag_of_type_program (p : Ast.program)
   : result type_flag_squashed string :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
-  f <- match flag_of_type (empty_ext Σ) _ [] (trans p.2) _ with
-       | Checked a => ret a
-       | TypeError te => Err "Could not get flag"
-       end;;
+  let f := flag_of_type (empty_ext Σ) _ [] (trans p.2) _ in
   ret {| is_logical := Erasure.is_logical f;
          is_sort := if Erasure.is_sort f then true else false;
          is_arity := if Erasure.is_arity f then true else false |}.
@@ -308,6 +305,13 @@ MetaCoq Quote Recursively Definition ex19 := (Fin.t 0 -> False).
 Example ex19_test :
   erase_and_print_type id ex19 =
   Ok ("", "□").
+Proof. vm_compute. reflexivity. Qed.
+
+Axiom match_head : nat.
+MetaCoq Quote Recursively Definition ex20 := (match match_head with | 0 => nat | S n => bool end).
+Example ex20_test :
+  erase_and_print_type id ex20 =
+  Ok ("", "𝕋").
 Proof. vm_compute. reflexivity. Qed.
 End erase_type_tests.
 

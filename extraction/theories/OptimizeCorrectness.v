@@ -76,57 +76,57 @@ Definition trans_env (Σ : global_env) : EAst.global_context :=
   let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
       match decl with
       | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
-      | InductiveDecl _ _ => []
+      | InductiveDecl _ => []
       | TypeAliasDecl _ => [(kn, EAst.ConstantDecl {| EAst.cst_body := Some tBox |})]
       end in
-  flat_map (fun '(kn, decl) => map_decl kn decl) Σ.
+  flat_map (fun '(kn, _, decl) => map_decl kn decl) Σ.
 
 Lemma declared_constant_trans Σ kn cst :
   ETyping.declared_constant (trans_env Σ) kn cst ->
-  (exists n typ,
+  (exists n has_deps typ,
     nth_error Σ n =
-    Some (kn, ConstantDecl {| cst_type := typ; cst_body := EAst.cst_body cst |})) \/
+    Some (kn, has_deps, ConstantDecl {| cst_type := typ; cst_body := EAst.cst_body cst |})) \/
   (EAst.cst_body cst = Some tBox /\
-    exists n typ,
-      nth_error Σ n = Some (kn, TypeAliasDecl typ)).
+    exists n has_deps typ,
+      nth_error Σ n = Some (kn, has_deps, TypeAliasDecl typ)).
 Proof.
   unfold ETyping.declared_constant.
   intros decl.
-  induction Σ as [|(kn' & cst') Σ IH]; [easy|].
+  induction Σ as [|((kn' & has_deps') & cst') Σ IH]; [easy|].
   destruct cst'; cbn in *.
   - destruct (kername_eq_dec _ _) as [->|].
     + noconf decl.
       cbn in *.
       left.
-      eexists 0, (cst_type c).
+      eexists 0, has_deps', (cst_type c).
       now destruct c.
     + destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
       * eassumption.
       * left.
-        now exists (S n'), typ.
+        now exists (S n').
       * right.
         split; [easy|].
-        now exists (S n'), typ.
+        now exists (S n').
   - destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
     + eassumption.
     + left.
-      now exists (S n'), typ.
+      now exists (S n').
     + right.
       split; [easy|].
-      now exists (S n'), typ.
+      now exists (S n').
   - destruct (kername_eq_dec _ _) as [->|].
     + noconf decl.
       cbn in *.
       right.
       split; [easy|].
-      now eexists 0, _.
+      now eexists 0, _, _.
     + destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
       * eassumption.
       * left.
-        now exists (S n'), typ.
+        now exists (S n').
       * right.
         split; [easy|].
-        now exists (S n'), typ.
+        now exists (S n').
 Qed.
 
 Fixpoint is_dead (rel : nat) (t : term) : bool :=
@@ -911,11 +911,11 @@ Fixpoint valid_cases (t : term) : bool :=
   | _ => true
   end.
 
-Definition valid_masks_decl (p : kername * global_decl) : bool :=
+Definition valid_masks_decl (p : kername * bool * global_decl) : bool :=
   match p with
-  | (kn, ConstantDecl {| cst_body := Some body |}) =>
+  | (kn, _, ConstantDecl {| cst_body := Some body |}) =>
     valid_dearg_mask (get_const_mask kn) body && valid_cases body
-  | (kn, TypeAliasDecl typ) => #|get_const_mask kn| =? 0
+  | (kn, _, TypeAliasDecl typ) => #|get_const_mask kn| =? 0
   | _ => true
   end.
 
@@ -1819,7 +1819,7 @@ Proof.
   intros exp_env decl body_eq.
   unfold is_expanded_env in *.
   apply forallb_Forall in exp_env.
-  eapply declared_constant_trans in decl as [(? & ? & nth)|(is_box & _)].
+  eapply declared_constant_trans in decl as [(? & ? & ? & nth)|(is_box & _)].
   - rewrite body_eq in nth.
     now eapply nth_error_forall in nth; [|eassumption].
   - now replace body with tBox by congruence.
@@ -2255,7 +2255,7 @@ Lemma valid_cases_constant Σ kn cst body :
   valid_cases body.
 Proof.
   intros valid_env decl_const body_eq.
-  eapply declared_constant_trans in decl_const as [(? & ? & nth)|(is_box & _)].
+  eapply declared_constant_trans in decl_const as [(? & ? & ? & nth)|(is_box & _)].
   - eapply nth_error_forallb in valid_env.
     rewrite nth in valid_env.
     cbn in *.
@@ -2270,7 +2270,7 @@ Lemma valid_dearg_mask_constant Σ kn cst body :
   valid_dearg_mask (get_const_mask kn) body.
 Proof.
   intros valid_env decl_const body_eq.
-  eapply declared_constant_trans in decl_const as [(? & ? & nth)|(is_box & ? & ? & nth)].
+  eapply declared_constant_trans in decl_const as [(? & ? & ? & nth)|(is_box & ? & ? & ? & nth)].
   - eapply nth_error_forallb in valid_env.
     rewrite nth in valid_env.
     cbn in *.
@@ -2385,7 +2385,7 @@ Lemma declared_constant_dearg Σ k cst :
 Proof.
   unfold ETyping.declared_constant.
   intros typ.
-  induction Σ as [|(kn, decl) Σ IH]; [easy|].
+  induction Σ as [|((kn, has_deps), decl) Σ IH]; [easy|].
   cbn in *.
   destruct decl; cbn in *.
   - destruct (kername_eq_dec k kn) as [->|].
@@ -2872,7 +2872,7 @@ Lemma env_closed_dearg Σ :
   env_closed (trans_env (dearg_env Σ)).
 Proof.
   intros clos.
-  induction Σ as [|(kn & decl) Σ IH]; [easy|].
+  induction Σ as [|((kn & has_deps) & decl) Σ IH]; [easy|].
   cbn in *.
   destruct decl; [|easy|easy].
   cbn in *.
@@ -3407,8 +3407,6 @@ Proof.
     + destruct t; cbn in *; try destruct y; try congruence; now constructor.
 Qed.
 End dearg_correct.
-
-Print Assumptions dearg_correct.
 
 Lemma trans_env_debox_env_types Σ :
   trans_env (debox_env_types Σ) = trans_env Σ.

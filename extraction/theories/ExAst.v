@@ -21,6 +21,12 @@ Fixpoint decompose_arr (bt : box_type) : list box_type * box_type :=
   | _ => ([], bt)
   end.
 
+Fixpoint mkTApps (hd : box_type) (args : list box_type) : box_type :=
+  match args with
+  | [] => hd
+  | a :: args => mkTApps (TApp hd a) args
+  end.
+
 Record constant_body :=
   { cst_type : list name * box_type;
     cst_body : option term; }.
@@ -67,15 +73,16 @@ Record mutual_inductive_body :=
 
 Inductive global_decl :=
 | ConstantDecl : constant_body -> global_decl
-| InductiveDecl : forall (ignore_on_print : bool), mutual_inductive_body -> global_decl
+| InductiveDecl : mutual_inductive_body -> global_decl
 | TypeAliasDecl : list name * box_type -> global_decl.
 
-Definition global_env := list (kername * global_decl).
+(* has_deps specified whether the environment includes dependencies of this global *)
+Definition global_env := list (kername * bool (* has_deps *) * global_decl).
 
 Fixpoint lookup_env (Σ : global_env) (id : kername) : option global_decl :=
   match Σ with
   | [] => None
-  | (name, decl) :: Σ => if eq_kername id name then Some decl else lookup_env Σ id
+  | (name, _, decl) :: Σ => if eq_kername id name then Some decl else lookup_env Σ id
   end.
 
 Definition lookup_constant (Σ : global_env) (kn : kername) : option constant_body :=
@@ -86,7 +93,7 @@ Definition lookup_constant (Σ : global_env) (kn : kername) : option constant_bo
 
 Definition lookup_minductive (Σ : global_env) (kn : kername) : option mutual_inductive_body :=
   match lookup_env Σ kn with
-  | Some (InductiveDecl _ mib) => Some mib
+  | Some (InductiveDecl mib) => Some mib
   | _ => None
   end.
 
@@ -122,10 +129,10 @@ Definition trans_global_decls_for_printing (Σ : global_env) : EAst.global_conte
   let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
       match decl with
       | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst_for_printing cst))]
-      | InductiveDecl _ mib => [(kn, EAst.InductiveDecl (trans_mib_for_printing mib))]
+      | InductiveDecl mib => [(kn, EAst.InductiveDecl (trans_mib_for_printing mib))]
       | TypeAliasDecl _ => []
       end in
-  flat_map (fun '(kn, decl) => map_decl kn decl) Σ.
+  flat_map (fun '(kn, _, decl) => map_decl kn decl) Σ.
 
 Definition print_term (Σ : global_env) (t : term) : string :=
   EPretty.print_term (trans_global_decls_for_printing Σ) [] true false t.

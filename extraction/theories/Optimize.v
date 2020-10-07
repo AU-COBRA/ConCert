@@ -261,12 +261,12 @@ Definition dearg_mib (kn : kername) (mib : mutual_inductive_body) : mutual_induc
 Definition dearg_decl (kn : kername) (decl : global_decl) : global_decl :=
   match decl with
   | ConstantDecl cst => ConstantDecl (dearg_cst kn cst)
-  | InductiveDecl b mib => InductiveDecl b (dearg_mib kn mib)
+  | InductiveDecl mib => InductiveDecl (dearg_mib kn mib)
   | TypeAliasDecl _ => decl
   end.
 
 Definition dearg_env (Σ : global_env) : global_env :=
-  map (fun '(kn, decl) => (kn, dearg_decl kn decl)) Σ.
+  map (fun '(kn, has_deps, decl) => (kn, has_deps, dearg_decl kn decl)) Σ.
 
 End dearg.
 
@@ -327,7 +327,7 @@ Definition debox_type_mib (mib : mutual_inductive_body) : mutual_inductive_body 
 Definition debox_type_decl (decl : global_decl) : global_decl :=
   match decl with
   | ConstantDecl cst => ConstantDecl (debox_type_constant cst)
-  | InductiveDecl b mib => InductiveDecl b (debox_type_mib mib)
+  | InductiveDecl mib => InductiveDecl (debox_type_mib mib)
   | TypeAliasDecl _ => decl
   end.
 
@@ -498,14 +498,14 @@ Record dearg_set := {
 Fixpoint analyze_env (Σ : global_env) : dearg_set :=
   match Σ with
   | [] => {| const_masks := []; ind_masks := [] |}
-  | (kn, decl) :: Σ =>
+  | (kn, has_deps, decl) :: Σ =>
     let (consts, inds) := analyze_env Σ in
     let (consts, inds) :=
         match decl with
         | ConstantDecl cst =>
           let '(mask, inds) := analyze_constant cst inds in
           ((kn, mask) :: consts, inds)
-        | InductiveDecl _ mib =>
+        | InductiveDecl mib =>
           let ctor_masks :=
               List.concat
                 (mapi (fun ind oib =>

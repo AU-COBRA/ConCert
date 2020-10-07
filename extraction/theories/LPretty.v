@@ -213,7 +213,7 @@ Section print_term.
 
   Definition lookup_ind_decl ind i :=
     match ExAst.lookup_env Σ ind with
-    | Some (ExAst.InductiveDecl _ {| ExAst.ind_bodies := l |}) =>
+    | Some (ExAst.InductiveDecl {| ExAst.ind_bodies := l |}) =>
       match nth_error l i with
       | Some body => Some body
       | None => None
@@ -590,8 +590,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
   match d with
   | ExAst.ConstantDecl cst =>
       (nm, print_cst prefix TT Σ nm cst)
-  | ExAst.InductiveDecl ignore mib =>
-    if ignore then (nm,"") else
+  | ExAst.InductiveDecl mib =>
     match mib.(ExAst.ind_bodies) with
     | [oib] => (nm, print_inductive prefix TT oib)
     | _ => (nm,"Only non-mutual inductives are supported")
@@ -606,8 +605,14 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
            (Σ : ExAst.global_env) : list (kername * string) :=
   match Σ with
-  | (kn,decl) :: Σ' =>
-    print_global_decl prefix TT kn Σ' decl :: print_global_env prefix TT Σ'
+  | (kn, has_deps, decl) :: Σ' =>
+    let printed :=
+        (* only print decls for which the environment includes dependencies *)
+        if has_deps then
+          print_global_decl prefix TT kn Σ' decl
+        else
+          (kn, "") in
+    printed :: print_global_env prefix TT Σ'
   | [] => []
   end.
 
