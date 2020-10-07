@@ -483,7 +483,7 @@ Proof.
   - now constructor.
 Qed.
 
-Opaque erase_type SafeErasureFunction.wf_reduction.
+Opaque erase_type flag_of_type SafeErasureFunction.wf_reduction.
 Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore Σex :
   (forall k, ignore k = false) ->
   erase_global_decls_deps_recursive Σ wfΣ include ignore = Ok Σex ->
@@ -539,10 +539,9 @@ Proof.
     cbn -[erase_constant_decl] in *.
     destruct erase_constant_decl eqn:erconst; cbn -[erase_constant_decl] in *; [|congruence].
     unfold erase_constant_decl in erconst.
-    destruct flag_of_type; cbn in *; [|congruence].
-    destruct a; cbn in *.
-    destruct is_sort.
-    + cbn in wfdecl.
+    destruct flag_of_type; cbn in *.
+    destruct is_arity; cbn in *.
+    + destruct is_sort; [|congruence].
       destruct c.
       destruct cst_body; cbn in *; [|congruence].
       destruct erase_type; cbn in *; [|congruence].
@@ -558,7 +557,7 @@ Proof.
       * cbn.
         destruct wfΣ as [wfΣ].
         destruct wfdecl as [wfdecl].
-        destruct i as (u & [redu]).
+        destruct i0 as (u & [redu]).
         eapply type_reduction in wfdecl; eauto.
         2: now inversion wfΣ.
         constructor.

@@ -268,7 +268,7 @@ Definition eta_global_env
                        cst_universes := cb.(cst_universes) |}
         | None => cb
         end in
-    let Σ' := restrict_env Σ (map fst Σe) in
+    let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
     ret (map_constants_global_env id f Σ')
   end.
 

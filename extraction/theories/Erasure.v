@@ -40,11 +40,13 @@ Import PCUICEnvTyping.
 Import PCUICLookup.
 
 Local Open Scope string_scope.
+Import VectorDef.VectorNotations.
 Import ListNotations.
 Import MonadNotation.
 Set Equations Transparent.
 
 Module P := PCUICAst.
+Module Ex := ExAst.
 
 Import PCUICAst.
 
@@ -107,6 +109,100 @@ Proof.
   eapply isArity_red1; eassumption.
 Qed.
 
+Lemma isType_red Γ t t' :
+  ∥isType Σ Γ t∥ ->
+  ∥red Σ Γ t t'∥ ->
+  ∥isType Σ Γ t'∥.
+Proof.
+  intros [(s & typ)] [r].
+  destruct wfΣ.
+  constructor.
+  exists s.
+  red in typ |- *.
+  eapply subject_reduction; eauto.
+Qed.
+
+Hint Resolve isType_red : erase.
+
+Lemma isType_prod_dom Γ na A B :
+  ∥isType Σ Γ (tProd na A B)∥ ->
+  ∥isType Σ Γ A∥.
+Proof.
+  intros [(s & typ)].
+  destruct wfΣ.
+  apply inversion_Prod in typ as (s' & ? & ? & ? & ?); [|now eauto].
+  constructor.
+  now exists s'.
+Qed.
+
+Hint Resolve isType_prod_dom : erase.
+
+Lemma isType_prod_cod Γ na A B :
+  ∥isType Σ Γ (tProd na A B)∥ ->
+  ∥isType Σ (Γ,, vass na A) B∥.
+Proof.
+  intros [(s & typ)].
+  destruct wfΣ.
+  apply inversion_Prod in typ as (s' & ? & ? & ? & ?); [|now eauto].
+  constructor.
+  now exists x.
+Qed.
+
+Hint Resolve isType_prod_cod : erase.
+
+Lemma isType_isWfArity_or_Type Γ t :
+  ∥isType Σ Γ t∥ ->
+  ∥isWfArity_or_Type Σ Γ t∥.
+Proof.
+  intros [isT].
+  now constructor; right.
+Qed.
+
+Hint Resolve isType_isWfArity_or_Type : erase.
+
+Lemma isWfArity_or_Type_red Γ t t' :
+  ∥isWfArity_or_Type Σ Γ t∥ ->
+  ∥red Σ Γ t t'∥ ->
+  ∥isWfArity_or_Type Σ Γ t'∥.
+Proof.
+  intros.
+  sq.
+  eapply isWfArity_or_Type_red; eauto.
+Qed.
+
+Hint Resolve isWfArity_or_Type_red : erase.
+
+Lemma isWfArity_or_Type_prod_dom Γ na A B :
+  ∥ isWfArity_or_Type Σ Γ (tProd na A B) ∥ ->
+  ∥ isType Σ Γ A ∥.
+Proof.
+  destruct wfΣ as [wfΣu].
+  intros [[ar|isT]].
+  - constructor.
+    apply isWfArity_prod_inv in ar as ((s & ?) & _).
+    now exists s.
+  - pose proof (isType_prod_dom _ _ _ _ (sq isT)).
+    now sq.
+Qed.
+
+Hint Resolve isWfArity_or_Type_prod_dom : erase.
+
+Lemma isWfArity_or_Type_prod_cod Γ na A B :
+  ∥ isWfArity_or_Type Σ Γ (tProd na A B) ∥ ->
+  ∥ isWfArity_or_Type Σ (Γ,, vass na A) B ∥.
+Proof.
+  destruct wfΣ as [wfΣu].
+  intros [[ar|isT]].
+  - constructor; left.
+    apply isWfArity_prod_inv in ar.
+    now destruct ar as ((s & typ) & ar).
+  - pose proof (isType_prod_cod _ _ _ _ (sq isT)).
+    sq.
+    now right.
+Qed.
+
+Hint Resolve isWfArity_or_Type_prod_cod : erase.
+
 Lemma Is_conv_to_Arity_red Γ T T' :
   Is_conv_to_Arity Σ Γ T ->
   ∥ red Σ Γ T T' ∥ ->
@@ -122,164 +218,24 @@ Proof.
   eapply isArity_red; eauto.
 Qed.
 
-Lemma isWfArity_or_Type_prod_cod Γ na A B :
-  ∥ isWfArity_or_Type Σ Γ (tProd na A B) ∥ ->
-  ∥ isWfArity_or_Type Σ (Γ,, vass na A) B ∥.
+Hint Resolve Is_conv_to_Arity_red : erase.
+
+Hint Resolve reduce_term_sound sq existT pair : erase.
+
+Definition is_prod_or_sort (t : term) : bool :=
+  match t with
+  | tProd _ _ _
+  | tSort _ => true
+  | _ => false
+  end.
+
+Lemma not_prod_or_sort_hnf {Γ t wf} :
+  negb (is_prod_or_sort (hnf wfΣ Γ t wf)) ->
+  ~Is_conv_to_Arity Σ Γ t.
 Proof.
-  destruct wfΣ as [wfΣu].
-  intros [[ar|isT]]; constructor.
-  - left.
-    apply isWfArity_prod_inv in ar.
-    now destruct ar as ((s & typ) & ar).
-  - destruct isT as [univ typ].
-    apply inversion_Prod in typ; [|easy].
-    destruct typ as (? & s & ? & ? & ?).
-    right.
-    exists s.
-    easy.
-Qed.
-
-Equations fot_discr (T : term) : Prop :=
-fot_discr (tProd _ _ _) := False;
-fot_discr (tSort _) := False;
-fot_discr _ := True.
-
-Inductive fot_view : term -> Type :=
-| fot_view_prod na A B : fot_view (tProd na A B)
-| fot_view_sort univ : fot_view (tSort univ)
-| fot_view_other t : fot_discr t -> fot_view t.
-
-Equations fot_viewc (t : term) : fot_view t :=
-fot_viewc (tProd na A B) := fot_view_prod na A B;
-fot_viewc (tSort univ) := fot_view_sort univ;
-fot_viewc t := fot_view_other t _.
-
-Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
-Proof. now apply wat_wellformed. Qed.
-
-Axiom hnf_completeness : forall {A}, A.
-Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
-  : typing_result (type_flag Γ T)
-  by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) term_rel :=
-flag_of_type Γ T wat with inspect (hnf wfΣ Γ T (watwf wat)) :=
-  | exist T is_hnf with fot_viewc T := {
-    | fot_view_prod na A B with flag_of_type (Γ,, vass na A) B _ := {
-      | Checked flag_cod := ret {| is_logical := is_logical flag_cod;
-                                   is_arity := match is_arity flag_cod with
-                                               | left isar => left _
-                                               | right notar => right _
-                                               end;
-                                   is_sort := right _ |};
-      | TypeError t := TypeError t
-      };
-    | fot_view_sort univ := ret {| is_logical := Universe.is_prop univ;
-                                   is_arity := left _;
-                                   is_sort := left _; |};
-    | fot_view_other T discr with infer Σ wfΣ _ Γ T _ := {
-      | exist K princK with reduce_to_sort wfΣ Γ K _ := {
-        | Checked (existT _ univ red_univ) :=
-          ret {| is_logical := Universe.is_prop univ;
-                 is_arity := right _;
-                 is_sort := right _; |};
-        | TypeError t := TypeError t
-        }
-      }
-    }.
-Next Obligation.
-  pose proof (@hnf_sound _ _ wfΣ _ _ (watwf wat)) as [red_hnf].
-  apply isWfArity_or_Type_prod_cod.
-  rewrite is_hnf.
-  destruct wfΣ, wat.
-  sq.
-  eapply isWfArity_or_Type_red; [easy|exact red_hnf|easy].
-Qed.
-Next Obligation.
-  pose proof (@hnf_sound _ _ wfΣ Γ T (watwf wat)) as [sound].
-  sq.
-  exists na, A.
-  rewrite is_hnf.
-  easy.
-Qed.
-Next Obligation.
-  destruct isar as [Bconv [Bred Bar]].
-  exists (tProd na A Bconv).
-  split; [|easy].
-  apply (sq_red_transitivity (tProd na A B)); [rewrite is_hnf; apply hnf_sound|].
-  sq.
-  now apply red_prod_alt.
-Qed.
-Next Obligation.
-  contradiction notar.
-  assert (prod_conv: Is_conv_to_Arity Σ Γ (tProd na A B)).
-  { eapply Is_conv_to_Arity_red with T; [easy|].
-    rewrite is_hnf.
-    apply hnf_sound. }
-  destruct prod_conv as [tm [[redtm] ar]].
-  destruct wfΣ.
-  apply invert_red_prod in redtm; [|easy].
-  destruct redtm as (A' & B' & (-> & redAA') & redBB').
-  exists B'; easy.
-Qed.
-Next Obligation.
-  destruct H as [univ [red_sort]].
-  pose proof (@hnf_sound _ _ wfΣ Γ T (watwf wat)) as [red_prod].
-  rewrite <- is_hnf in red_prod.
-  destruct wfΣ as [wfΣu].
-  pose proof (red_confluence wfΣu red_sort red_prod) as (v' & redv'1 & redv'2).
-  apply invert_red_sort in redv'1.
-  subst.
-  apply invert_red_prod in redv'2 as (? & ? & (? & ?) & ?); easy.
-Qed.
-Next Obligation.
-  exists (tSort univ).
-  split; [|easy].
-  rewrite is_hnf.
-  apply hnf_sound.
-Qed.
-Next Obligation.
-  exists univ.
-  rewrite is_hnf.
-  apply hnf_sound.
-Qed.
-Next Obligation.
-  case wfextΣ.
-  now intros [].
-Qed.
-Next Obligation.
-  destruct wat as [[ar|isT]].
-  - (* We need to show that T is not convertible to an arity under
-       the assumption that hnf of T is neither tProd nor tSort.
-       To do this we will need to use some completeness fact about hnf,
-       which is not proved in MetaCoq yet, so we defer this proof for now. *)
-    exact hnf_completeness.
-  - destruct isT as [[]].
-    now econstructor.
-Qed.
-Next Obligation.
-  destruct princK as [(typK & princK)].
-  apply wat_wellformed; [easy|].
-  destruct wfΣ.
-  sq.
-  eapply validity; [easy|exact typK].
-Qed.
-Next Obligation.
-  (* Same as above: since the head normal form of T is neither a product
-     or sort, it is not convertible to an arity by completeness of hnf. *)
-  exact hnf_completeness.
-Qed.
-Next Obligation.
-  (* Same as above: since the head normal form of T is neither a product
-     or sort, it is not convertible to a sort by completeness of hnf. *)
-  exact hnf_completeness.
-Qed.
-
-Definition redβιζ : RedFlags.t :=
-  {| RedFlags.beta := true;
-     RedFlags.iota := true;
-     RedFlags.zeta := true;
-     RedFlags.delta := false;
-     RedFlags.fix_ := true;
-     RedFlags.cofix_ := true |}.
+  (* We need to use the fact that hnf produces a normal form,
+     but this is not proven in MetaCoq yet, so we admit this for now. *)
+  Admitted.
 
 Inductive term_sub_ctx : context * term -> context * term -> Prop :=
 | sub_prod_dom Γ na A B : term_sub_ctx (Γ, A) (Γ, tProd na A B)
@@ -322,7 +278,7 @@ Proof.
     now rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
 Qed.
 
-Definition erase_type_rel : Relation_Definitions.relation (∑ Γ t, wellformed Σ Γ t) :=
+Definition erase_rel : Relation_Definitions.relation (∑ Γ t, wellformed Σ Γ t) :=
   fun '(Γs; ts; wfs) '(Γl; tl; wfl) =>
     ∥∑m, red Σ Γl tl m × term_sub_ctx (Γs, ts) (Γl, m)∥.
 
@@ -354,7 +310,7 @@ Proof.
     now apply red_prod_r.
 Qed.
 
-Lemma well_founded_erase_type_rel : well_founded erase_type_rel.
+Lemma well_founded_erase_rel : well_founded erase_rel.
 Proof.
   intros (Γl & l & wfl).
   destruct wfΣ as [wfΣu].
@@ -514,91 +470,156 @@ Proof.
       eapply @normalisation'; eauto.
 Qed.
 
-Instance WellFounded_erase_type_rel : WellFounded erase_type_rel :=
-  Wf.Acc_intro_generator 1000 well_founded_erase_type_rel.
-Opaque WellFounded_erase_type_rel.
+Instance WellFounded_erase_rel : WellFounded erase_rel :=
+  Wf.Acc_intro_generator 1000 well_founded_erase_rel.
+Opaque WellFounded_erase_rel.
 
-Lemma reduce_term_sr {Γ t red wft s} :
-  s = reduce_term red Σ wfΣ Γ t wft ->
-  ∥isWfArity_or_Type Σ Γ t∥ ->
-  ∥isWfArity_or_Type Σ Γ s∥.
-Proof.
-  intros -> [wat].
-  pose proof (reduce_term_sound red Σ wfΣ Γ t wft) as [redt].
+Hint Constructors term_sub_ctx : erase.
+
+Inductive fot_view : term -> Type :=
+| fot_view_prod na A B : fot_view (tProd na A B)
+| fot_view_sort univ : fot_view (tSort univ)
+| fot_view_other t : negb (is_prod_or_sort t) -> fot_view t.
+
+Equations fot_viewc (t : term) : fot_view t :=
+fot_viewc (tProd na A B) := fot_view_prod na A B;
+fot_viewc (tSort univ) := fot_view_sort univ;
+fot_viewc t := fot_view_other t _.
+
+Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
+Proof. now apply wat_wellformed. Qed.
+
+Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
+  : type_flag Γ T
+  by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) erase_rel :=
+flag_of_type Γ T wat with inspect (hnf wfΣ Γ T (watwf wat)) :=
+  | exist T is_hnf with fot_viewc T := {
+    | fot_view_prod na A B with flag_of_type (Γ,, vass na A) B _ := {
+      | flag_cod := {| is_logical := is_logical flag_cod;
+                       is_arity := match is_arity flag_cod with
+                                   | left isar => left _
+                                   | right notar => right _
+                                   end;
+                       is_sort := right _ |}
+      };
+    | fot_view_sort univ := {| is_logical := Universe.is_prop univ;
+                               is_arity := left _;
+                               is_sort := left _; |};
+    | fot_view_other T discr with infer Σ wfΣ _ Γ T _ := {
+      | exist K princK with inspect (reduce_to_sort wfΣ Γ K _) := {
+        | exist (Checked (existT _ univ red_univ)) eq :=
+          {| is_logical := Universe.is_prop univ;
+             is_arity := right _;
+             is_sort := right _; |};
+        | exist (TypeError t) eq := !
+        }
+    }
+  }.
+
+Ltac reduce_term_sound :=
+  unfold hnf in *;
+  match goal with
+  | [H: ?a = reduce_term ?flags ?Σ ?wfΣ ?Γ ?t ?wft |- _] =>
+    let r := fresh "r" in
+    pose proof (reduce_term_sound flags Σ wfΣ Γ t wft) as [r];
+    rewrite <- H in r
+  end.
+
+Next Obligation. reduce_term_sound; eauto with erase. Qed.
+Next Obligation. reduce_term_sound; eauto with erase. Qed.
+Next Obligation.
+  reduce_term_sound.
+  destruct isar as [Bconv [Bred Bar]].
+  exists (tProd na A Bconv).
+  split; [|easy].
+  apply (sq_red_transitivity (tProd na A B)); [rewrite is_hnf; apply hnf_sound|].
+  sq.
+  now apply red_prod_alt.
+Qed.
+Next Obligation.
+  contradiction notar.
+  assert (prod_conv: Is_conv_to_Arity Σ Γ (tProd na A B)).
+  { eapply Is_conv_to_Arity_red with T; [easy|].
+    rewrite is_hnf.
+    apply hnf_sound. }
+  destruct prod_conv as [tm [[redtm] ar]].
+  destruct wfΣ.
+  apply invert_red_prod in redtm; [|easy].
+  destruct redtm as (A' & B' & (-> & redAA') & redBB').
+  exists B'; easy.
+Qed.
+Next Obligation.
+  destruct H as [univ [red_sort]].
+  pose proof (@hnf_sound _ _ wfΣ Γ T (watwf wat)) as [red_prod].
+  rewrite <- is_hnf in red_prod.
+  destruct wfΣ as [wfΣu].
+  pose proof (red_confluence wfΣu red_sort red_prod) as (v' & redv'1 & redv'2).
+  apply invert_red_sort in redv'1.
+  subst.
+  apply invert_red_prod in redv'2 as (? & ? & (? & ?) & ?); easy.
+Qed.
+Next Obligation.
+  exists (tSort univ).
+  split; [|easy].
+  rewrite is_hnf.
+  apply hnf_sound.
+Qed.
+Next Obligation.
+  exists univ.
+  rewrite is_hnf.
+  apply hnf_sound.
+Qed.
+Next Obligation.
+  case wfextΣ.
+  now intros [].
+Qed.
+Next Obligation.
+  destruct wat as [[ar|isT]].
+  - apply not_prod_or_sort_hnf in discr.
+    now apply nIs_conv_to_Arity_isWfArity_elim in discr.
+  - destruct isT as [[]].
+    now econstructor.
+Qed.
+Next Obligation.
+  destruct princK as [(typK & princK)].
+  apply wat_wellformed; [easy|].
   destruct wfΣ.
   sq.
-  eapply isWfArity_or_Type_red; [easy|exact redt|easy].
+  eapply validity; [easy|exact typK].
+Qed.
+Next Obligation.
+  clear eq.
+  now apply not_prod_or_sort_hnf in discr.
+Qed.
+Next Obligation.
+  clear eq.
+  apply not_prod_or_sort_hnf in discr.
+  contradiction discr.
+  destruct H.
+  exists (tSort x).
+  now split.
+Qed.
+Next Obligation.
+  pose proof (SafeErasureFunction.reduce_to_sort_complete _ (eq_sym eq)).
+  clear eq.
+  apply not_prod_or_sort_hnf in discr.
+  destruct wat as [[|]].
+  - now apply nIs_conv_to_Arity_isWfArity_elim in discr.
+  - destruct i.
+    red in t0.
+    destruct princK as [(typK & princK)].
+    specialize (princK _ t0).
+    eapply invert_cumul_sort_r in princK as (? & ? & ?).
+    eauto.
 Qed.
 
-Lemma isWfArity_or_Type_prod_dom_eq Γ t na A B red wft :
-  ∥ isWfArity_or_Type Σ Γ t ∥ ->
-  tProd na A B = reduce_term red Σ wfΣ Γ t wft ->
-  ∥ isWfArity_or_Type Σ Γ A ∥.
-Proof.
-  intros wat eq.
-  pose proof (reduce_term_sr eq wat) as [wat_prod].
-  clear wat eq.
-  destruct wfΣ as [wfΣu].
-  constructor.
-  right.
-  destruct wat_prod as [ar|isT].
-  - apply isWfArity_prod_inv in ar.
-    destruct ar as ((s & typ) & ar).
-    now econstructor.
-  - destruct isT as [univ typ].
-    apply inversion_Prod in typ; [|easy].
-    destruct typ as (s & ? & ? & ? & ?).
-    exists s.
-    easy.
-Qed.
-
-Lemma isWfArity_or_Type_prod_cod_eq Γ t na A B red wft :
-  ∥ isWfArity_or_Type Σ Γ t ∥ ->
-  tProd na A B = reduce_term red Σ wfΣ Γ t wft ->
-  ∥ isWfArity_or_Type Σ (Γ,, vass na A) B ∥.
-Proof.
-  intros wat eq.
-  pose proof (reduce_term_sr eq wat) as [wat_prod].
-  clear wat eq.
-  destruct wfΣ as [wfΣu].
-  destruct wat_prod as [ar|isT]; constructor.
-  - apply isWfArity_prod_inv in ar.
-    destruct ar as ((s & typ) & ar).
-    now left.
-  - destruct isT as [univ typ].
-    apply inversion_Prod in typ; [|easy].
-    destruct typ as (? & s & ? & ? & ?).
-    right.
-    exists s.
-    easy.
-Qed.
-
-Lemma rec_prod_dom Γ t na A B rf wft :
-  tProd na A B = reduce_term rf Σ wfΣ Γ t wft ->
-  ∥ ∑ r, red Σ Γ t r × term_sub_ctx (Γ, A) (Γ, r) ∥.
-Proof.
-  intros eq.
-  pose proof (reduce_term_sound rf Σ wfΣ Γ t wft) as [red].
-  sq.
-  exists (tProd na A B).
-  split; [rewrite eq; easy|].
-  constructor.
-Qed.
-
-Lemma rec_prod_cod Γ t na A B rf wft :
-  tProd na A B = reduce_term rf Σ wfΣ Γ t wft ->
-  ∥ ∑ r, red Σ Γ t r × term_sub_ctx (Γ,, vass na A, B) (Γ, r) ∥.
-Proof.
-  intros eq.
-  pose proof (reduce_term_sound rf Σ wfΣ Γ t wft) as [red].
-  sq.
-  exists (tProd na A B).
-  split; [rewrite eq; easy|].
-  constructor.
-Qed.
-
-Import VectorDef.VectorNotations.
-Open Scope list.
+Definition redβιζ : RedFlags.t :=
+  {| RedFlags.beta := true;
+     RedFlags.iota := true;
+     RedFlags.zeta := true;
+     RedFlags.delta := false;
+     RedFlags.fix_ := true;
+     RedFlags.cofix_ := true |}.
 
 Equations erase_type_discr (t : term) : Prop := {
   | tRel _ := False;
@@ -660,23 +681,44 @@ Definition wrap_typing_result
   | TypeError te => Err (f te)
   end.
 
+Lemma isTwf {Γ t} (isT: ∥isType Σ Γ t∥) :
+  wellformed Σ Γ t.
+Proof.
+  destruct isT.
+  now apply isType_wellformed.
+Qed.
+
+Definition monad_map_in
+           {T : Type -> Type} {M : Monad T} {A B : Type}
+           (l : list A)
+           (f : forall (a : A), In a l -> T B) : T (list B) :=
+  let fix go (l' : list A) : incl l' l -> T (list B) :=
+      match l' return incl l' l -> T (list B) with
+      | [] => fun _ => ret []
+      | a :: l' =>
+        fun (inc : incl (a :: l') l) =>
+          b <- f a (inc _ (or_introl eq_refl));;
+          tl <- go l' (fun a' a'in => inc _ (or_intror a'in));;
+          ret (b :: tl)
+      end in
+  go l (fun a i => i).
+
 (* Marked noeqns until we need to prove things about it to make its
 definition faster *)
 Equations(noeqns) erase_type
           (Γ : context)
           (erΓ : Vector.t tRel_kind #|Γ|)
           (t : term)
-          (wat : ∥isWfArity_or_Type Σ Γ t∥)
+          (isT : ∥isType Σ Γ t∥)
           (tvars : list name)
   : result (list name × box_type) erase_type_error
-  by wf ((Γ; t; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
-erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t (watwf wat)) :=
-  | exist t eq_hnf with (f <- flag_of_type Γ t _;; ret (is_logical f)) := {
-    | TypeError te := Err (TypingError te);
+  by wf ((Γ; t; (isTwf isT)) : (∑ Γ t, wellformed Σ Γ t)) erase_rel :=
+erase_type Γ erΓ t isT tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t (isTwf isT)) :=
+  | exist t eq_hnf with (is_logical (flag_of_type Γ t _)) := {
 
-    | Checked true := ret (tvars, TBox);
+    | true := ret (tvars, TBox);
 
-    | Checked false with erase_type_viewc t := {
+    | false with erase_type_viewc t := {
 
       | et_view_rel i with @Vector.nth_order _ _ erΓ i _ := {
         | RelTypeVar n := ret (tvars, TVar n);
@@ -688,12 +730,12 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
 
       | et_view_prod na A B with flag_of_type Γ A _ := {
           (* For logical things, we add a type variable if it's an arity *)
-        | Checked {| is_logical := true |} :=
+        | {| is_logical := true |} :=
           '(tvars, bt) <- erase_type (Γ,, vass na A) (RelOther :: erΓ)%vector B _ tvars;;
           ret (tvars, TArr TBox bt);
 
           (* If the type isn't an arity now, then it's a "normal" type like nat. *)
-        | Checked {| is_arity := right _ |} :=
+        | {| is_arity := right _ |} :=
           '(tvars_dom, dom) <- erase_type Γ erΓ A _ tvars;;
 
           (* If domain added new type vars then it is not in prenex form.
@@ -708,7 +750,7 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
           ret (tvars, TArr dom cod);
 
         (* Ok, so it is an arity. If it is a sort then add a type variable. *)
-        | Checked {| is_sort := left _ |} :=
+        | {| is_sort := left _ |} :=
           '(tvars, cod) <- erase_type
                              (Γ,, vass na A) (RelTypeVar (List.length tvars) :: erΓ)%vector
                              B _
@@ -717,9 +759,7 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
 
         (* Finally this must be a non-nullary non-logical arity.
            This is not in prenex form. *)
-        | Checked _ := Err NotPrenex;
-
-        | TypeError te := Err (TypingError te)
+        | _ := Err NotPrenex
 
         };
 
@@ -742,8 +782,7 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
 
           let erase_arg (a : term) (i : In a decomp_args) : result box_type erase_type_error :=
               let (aT, princaT) := infer Σ wfΣ _ Γ a _ in
-              ft <- wrap_typing_result (flag_of_type Γ aT _) TypingError;;
-              match ft with
+              match flag_of_type Γ aT _ with
               | {| is_logical := true |} => ret TBox
               | {| is_sort := left conv_sort |} =>
                 '(tvars_arg, bt) <- erase_type Γ erΓ a _ tvars;;
@@ -754,19 +793,8 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
               | _ => ret TAny (* Arity or value *)
               end in
 
-          let fix erase_args
-                  (args : list term) (inc : incl args decomp_args)
-                  (r : box_type) : result (list name * box_type) erase_type_error :=
-              match args return incl args decomp_args ->
-                                result (list name * box_type) erase_type_error with
-              | [] => fun _ => ret (tvars, r)
-              | a :: args =>
-                fun inc =>
-                  abt <- erase_arg a _;;
-                  erase_args args _ (TApp r abt)
-              end inc in
-
-          erase_args decomp_args _ hdbt
+          args <- monad_map_in decomp_args erase_arg;;
+          ret (tvars, mkTApps hdbt args)
 
         };
 
@@ -774,62 +802,57 @@ erase_type Γ erΓ t wat tvars with inspect (reduce_term redβιζ Σ wfΣ Γ t 
 
       | et_view_ind ind _ := ret (tvars, TInd ind);
 
-      | et_view_other t _ := Err (GeneralError ("Unsupported type " ++ string_of_term t))
+      | et_view_other t _ := ret (tvars, TAny)
 
       }
     }.
-Next Obligation. now eapply reduce_term_sr. Qed.
+Solve All Obligations with
+    Tactics.program_simplify;
+    CoreTactics.equations_simpl;
+    try reduce_term_sound;
+    eauto with erase.
 Next Obligation.
-  pose proof (reduce_term_sr eq_hnf wat) as [wat_rel].
-  destruct wfΣ as [wfΣu].
-  destruct wat_rel as [isar|(univ & typ)].
-  - now destruct isar as (? & ? & ? & ?).
-  - apply inversion_Rel in typ; [|easy].
-    apply nth_error_Some.
-    destruct typ as (? & _ & ? & _).
-    congruence.
+  reduce_term_sound.
+  assert (∥isType Σ Γ (tRel i)∥) as [(s & typ)] by eauto with erase.
+  red in typ.
+  clear eq_hnf.
+  destruct wfΣ.
+  eapply subject_reduction in typ; eauto.
+  apply inversion_Rel in typ as (? & _ & ? & _); [|easy].
+  now apply nth_error_Some.
 Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-Next Obligation. now eapply rec_prod_dom. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
 Next Obligation.
-  pose proof (reduce_term_sr eq_hnf wat) as [[isar|(univ & typ)]].
-  - now destruct isar as (? & ? & ? & ?).
-  - unfold PCUICTypingDef.typing in typ.
-    replace (tApp orig_hd orig_arg) with (mkApps (tRel i) decomp_args) in typ; cycle 1.
-    { symmetry. apply decompose_app_inv.
-      now rewrite <- eq_decomp. }
-    destruct wfΣ as [wfΣu].
-    apply inversion_mkApps in typ; [|easy].
-    destruct typ as (rel_type & rel_typed & spine).
-    apply inversion_Rel in rel_typed; [|easy].
-    apply nth_error_Some.
-    destruct rel_typed as (? & _ & ? & _).
-    congruence.
+  reduce_term_sound; clear eq_hnf.
+  destruct isT as [(? & typ)].
+  destruct wfΣ.
+  eapply subject_reduction in typ; eauto.
+  replace (tApp orig_hd orig_arg) with (mkApps (tRel i) decomp_args) in typ; cycle 1.
+  { symmetry. apply decompose_app_inv.
+    now rewrite <- eq_decomp. }
+  apply inversion_mkApps in typ; [|easy].
+  destruct typ as (rel_type & rel_typed & spine).
+  apply inversion_Rel in rel_typed; [|easy].
+  apply nth_error_Some.
+  destruct rel_typed as (? & _ & ? & _).
+  congruence.
 Qed.
 Next Obligation. now case wfextΣ; intros [[]]. Qed.
 Next Obligation.
-  pose proof (reduce_term_sr eq_hnf wat) as [[isar|(univ & typ)]].
-  - now destruct isar as (? & ? & ? & ?).
-  - unfold PCUICTypingDef.typing in typ.
-    replace (tApp orig_hd orig_arg) with (mkApps hd decomp_args) in typ; cycle 1.
-    { symmetry. apply decompose_app_inv.
-      now rewrite <- eq_decomp. }
-    destruct wfΣ as [wfΣu].
-    apply inversion_mkApps in typ; [|easy].
-    destruct typ as (? & ? & spine).
-    clear -spine i.
-    induction spine; [easy|].
-    destruct i.
-    + subst a.
-      econstructor; easy.
-    + easy.
+  reduce_term_sound; clear eq_hnf.
+  destruct isT as [(? & typ)].
+  destruct wfΣ.
+  eapply subject_reduction in typ; eauto.
+  replace (tApp orig_hd orig_arg) with (mkApps hd decomp_args) in typ; cycle 1.
+  { symmetry. apply decompose_app_inv.
+    now rewrite <- eq_decomp. }
+  apply inversion_mkApps in typ; [|easy].
+  destruct typ as (? & ? & spine).
+  clear -spine i.
+  induction spine; [easy|].
+  destruct i.
+  + subst a.
+    econstructor; easy.
+  + easy.
 Qed.
 Next Obligation.
   destruct princaT as [(typ & princaT)].
@@ -842,24 +865,17 @@ Next Obligation.
   destruct conv_sort as (univ & reduniv).
   destruct wfΣ as [wfΣu].
   sq.
-  right.
   exists univ.
   eapply type_reduction; [easy|exact typ|easy].
 Qed.
 Next Obligation.
-  pose proof (reduce_term_sound redβιζ Σ wfΣ Γ t (watwf wat)).
+  reduce_term_sound; clear eq_hnf.
   sq.
   exists (tApp orig_hd orig_arg).
-  split; [rewrite eq_hnf; easy|].
+  split; [easy|].
   constructor.
   rewrite <- eq_decomp.
   easy.
-Qed.
-Next Obligation.
-  now specialize (inc a (or_introl eq_refl)).
-Qed.
-Next Obligation.
-  now specialize (inc a0 (or_intror H)).
 Qed.
 
 Inductive erase_constant_decl_error :=
@@ -873,72 +889,67 @@ Definition string_of_erase_constant_decl_error (err : erase_constant_decl_error)
   end.
 
 Import ExAst.
-Program Definition erase_constant_decl
+Equations? (noeqns) erase_constant_decl
           (cst : P.constant_body)
           (wt : ∥on_constant_decl (lift_typing typing) Σ cst∥)
   : result (constant_body + (list name × box_type)) erase_constant_decl_error :=
-  flg <- wrap_typing_result (flag_of_type [] (P.cst_type cst) _) EraseBodyError ;;
-  match is_sort flg with
-  | left ics => (* erase as a type alias  *)
-    match P.cst_body cst with
-    | Some body =>
-      ety <- map_error EraseTypeError (erase_type [] []%vector body _ []);;
-      ret (inr ety)
-    | None =>
-      Err (EraseBodyError (Msg "Type alias without a body"))
-    end
-  | right _ => (* proceed as usual *)
-    et <- map_error EraseTypeError (erase_type [] []%vector (P.cst_type cst) _ []);;
-    let eb :=
-        match P.cst_body cst with
-         | Some body => Some (SafeErasureFunction.erase Σ wfextΣ [] body _)
-         | None => None
-        end in
-    ret (inl {| cst_type := et; cst_body := eb |})
-  end.
-Next Obligation.
-  sq.
-  unfold on_constant_decl in wt.
-  destruct (P.cst_body cst).
-  - cbn in wt.
-    eapply validity_term; [easy|exact wt].
-  - cbn in wt.
-    destruct wt as (s & ?).
-    right.
-    now exists s.
-Qed.
-Next Obligation.
-  destruct ics as [u Hred].
-  destruct Hred as [Hred].
-  sq.
-  unfold on_constant_decl in wt.
-  destruct (P.cst_body cst).
-  - cbn in wt.
-    inversion Heq_anonymous;subst.
-    right. exists u.
-    eapply type_reduction;eauto.
-  - cbn in wt.
-    destruct wt as (s & ?).
-    right.
-    now exists s.
-Qed.
-Next Obligation.
-  sq.
-  unfold on_constant_decl in wt.
-  destruct (P.cst_body cst).
-  - cbn in wt.
-    eapply validity_term; [easy|exact wt].
-  - cbn in wt.
-    destruct wt as (s & ?).
-    right.
-    now exists s.
-Qed.
-Next Obligation.
-  destruct wt as [wt].
-  unfold on_constant_decl in wt.
-  rewrite <- Heq_anonymous in wt.
-  cbn in *.
-  now eapply iswelltyped.
+erase_constant_decl cst wt with flag_of_type [] (P.cst_type cst) _ := {
+  | {| is_arity := left isar; is_sort := left issort |} with inspect (P.cst_body cst) := {
+    | exist (Some body) body_eq with erase_type [] []%vector body _ [] := {
+      | Err err => Err (EraseTypeError err);
+      | Ok ety => Ok (inr ety)
+      };
+    | exist None _ => Err (EraseBodyError (Msg "Type alias without a body"))
+    };
+  | {| is_arity := left isar; is_sort := right notsort |} =>
+    Err (EraseBodyError (Msg "Cannot handle type schemes yet"));
+  | {| is_arity := right notar |} with erase_type [] []%vector (P.cst_type cst) _ [] := {
+    | Err err => Err (EraseTypeError err);
+    | Ok ety with inspect (P.cst_body cst) := {
+      | exist (Some body) body_eq =>
+        Ok (inl {| cst_type := ety;
+                   cst_body := Some (SafeErasureFunction.erase Σ wfextΣ [] body _) |});
+      | exist None _ => Ok (inl {| cst_type := ety; cst_body := None |})
+      }
+    }
+  }.
+Proof.
+  - sq.
+    unfold on_constant_decl in wt.
+    destruct (P.cst_body cst).
+    + cbn in wt.
+      eapply validity_term; [easy|exact wt].
+    + cbn in wt.
+      destruct wt as (s & ?).
+      right.
+      now exists s.
+  - destruct cst; cbn in *.
+    subst cst_body.
+    cbn in *.
+    destruct issort as (s & [r]).
+    sq.
+    exists s.
+    red.
+    eapply type_reduction; eauto.
+  - destruct wfΣ.
+    destruct wt as [wt].
+    unfold on_constant_decl in wt.
+    destruct (P.cst_body cst).
+    + cbn in wt.
+      eapply validity_term in wt; [|now eauto].
+      destruct wt.
+      * now apply nIs_conv_to_Arity_isWfArity_elim in notar.
+      * now constructor.
+    + cbn in wt.
+      destruct wt as (s & ?).
+      constructor.
+      now exists s.
+  - destruct wt as [wt].
+    unfold on_constant_decl in wt.
+    rewrite <- body_eq in wt.
+    cbn in *.
+    econstructor.
+    eassumption.
 Qed.
 
 Import P.
@@ -949,25 +960,24 @@ Definition fot_to_oib_tvar (na : name) {Γ t} (f : type_flag Γ t) : oib_type_va
      tvar_is_arity := if is_arity f then true else false;
      tvar_is_sort := if is_sort f then true else false; |}.
 
-Equations erase_ind_arity
+Equations? (noeqns) erase_ind_arity
           (Γ : context)
           (t : term)
           (wat : ∥isWfArity_or_Type Σ Γ t∥)
   : typing_result (list oib_type_var)
-  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_type_rel :=
+  by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_rel :=
 erase_ind_arity Γ t wat with inspect (hnf wfΣ Γ t (watwf wat)) := {
   | exist (tProd na A B) hnf_eq with flag_of_type Γ A _ := {
-    | TypeError te := TypeError te;
-    | Checked f with erase_ind_arity (Γ,, vass na A) B _ := {
+    | f with erase_ind_arity (Γ,, vass na A) B _ := {
       | TypeError te := TypeError te;
       | Checked tvars := ret (fot_to_oib_tvar na f :: tvars)
       }
     };
   | exist _ _ := ret []
   }.
-Next Obligation. now eapply isWfArity_or_Type_prod_dom_eq. Qed.
-Next Obligation. now eapply isWfArity_or_Type_prod_cod_eq. Qed.
-Next Obligation. now eapply rec_prod_cod. Qed.
+Proof.
+  all: reduce_term_sound; eauto with erase.
+Qed.
 
 Definition arities_contexts
          (mind : kername)
@@ -1031,21 +1041,6 @@ Definition string_of_erase_ind_body_error (e : erase_ind_body_error) : string :=
   | CtorUnmappedTypeVariables ctor => "Ctor " ++ ctor ++ " has unmapped type variables"
   end.
 
-Definition monad_map_in
-           {T : Type -> Type} {M : Monad T} {A B : Type}
-           (l : list A)
-           (f : forall (a : A), In a l -> T B) : T (list B) :=
-  let fix go (l' : list A) : incl l' l -> T (list B) :=
-      match l' return incl l' l -> T (list B) with
-      | [] => fun _ => ret []
-      | a :: l' =>
-        fun (inc : incl (a :: l') l) =>
-          b <- f a (inc _ (or_introl eq_refl));;
-          tl <- go l' (fun a' a'in => inc _ (or_intror a'in));;
-          ret (b :: tl)
-      end in
-  go l (fun a i => i).
-
 Program Definition erase_ind_body
         (mind : kername)
         (mib : P.mutual_inductive_body)
@@ -1096,7 +1091,6 @@ Next Obligation.
   induction on_ctors; [easy|].
   destruct is_in as [->|later]; [|easy].
   constructor.
-  right.
   destruct (on_ctype r) as (s & typ).
   rewrite <- (arities_contexts_1 mind) in typ.
   rewrite <- Heq_anonymous in typ.
@@ -1132,21 +1126,18 @@ Next Obligation.
   constructor.
   exists i.
   specialize (onInductives _ _ _ _ wt).
+
+  change i with (0 + i).
+  generalize 0 as n.
   revert i nth_some.
 
-  enough (H: forall n i,
-             nth_error (P.ind_bodies mib) i = Some oib ->
-             Alli (on_ind_body (lift_typing typing) Σ kn mib) n (P.ind_bodies mib) ->
-             on_ind_body (lift_typing typing) Σ kn mib (n + i) oib).
-  { apply (H 0). }
-
-  induction (P.ind_bodies mib) as [|? oibs IH]; intros n i nth_some inds_wt.
+  induction (P.ind_bodies mib) as [|? oibs IH]; intros i nth_some n inds_wt.
   - now rewrite nth_error_nil in nth_some.
   - inversion inds_wt; subst; clear inds_wt.
     destruct i; cbn in *.
     + replace a with oib in * by congruence.
       now rewrite Nat.add_0_r.
-    + specialize (IH (S n)).
+    + specialize (IH _ nth_some (S n)).
       now rewrite Nat.add_succ_r.
 Qed.
 
@@ -1188,7 +1179,7 @@ Program Definition erase_global_decl
   | P.InductiveDecl mib =>
     ind <- map_error (ErrInductive Σext kn)
                      (erase_ind Σext _ kn mib _);;
-    ret (InductiveDecl false ind)
+    ret (InductiveDecl ind)
   end.
 
 Definition add_seen (n : kername) (seen : list kername) : list kername :=
@@ -1237,7 +1228,7 @@ Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :
         | None => seen
         end in
     box_type_deps seen (cst_type body).2
-  | InductiveDecl _ mib =>
+  | InductiveDecl mib =>
     let one_inductive_body_deps seen oib :=
         let seen := fold_left box_type_deps
                               (flat_map snd (ind_ctors oib))
@@ -1256,60 +1247,36 @@ Definition is_inductive_decl (d : P.global_decl) : bool :=
 Definition contains (kn : kername) :=
   List.existsb (eq_kername kn).
 
-(* Erase the global declarations by the specified names and
-   their non-erased dependencies recursively. Ignore dependencies for which [ignore] returnes [true] *)
+(* Erase the global declarations by the specified names and their
+   non-erased dependencies recursively. Ignore dependencies for which
+   [ignore_deps] returnes [true] *)
 Program Fixpoint erase_global_decls_deps_recursive
         (Σ : P.global_env)
         (wfΣ : ∥wf Σ∥)
         (include : list kername)
-        (ignore : kername -> bool)
+        (ignore_deps : kername -> bool)
   : result global_env erase_global_decl_error :=
   match Σ with
   | [] => ret []
   | (kn, decl) :: Σ =>
     let Σext := (Σ, universes_decl_of_decl decl) in
     if contains kn include then
-      if ignore kn then
-      (* NOTE: if we ignore an inductive declaration, we still add
-      it to have enough info for printing [match] and inductives that
-      depend on it. But we ignore its dependencies and ignore the
-      declaration itself on printing.
-      This is a bit of a hack, we should probably not erase (all) ignored
-      types as they may fail to erase. *)
-        decl <-
-        match decl with
-        | P.InductiveDecl mib =>
-          ind <- map_error (ErrInductive Σext kn)
-                           (erase_ind Σext _ kn mib _);;
-        ret (kn, InductiveDecl true ind)
-        | P.ConstantDecl cb =>
-          ety <- map_error ((ErrConstant Σext kn) ∘ EraseTypeError)
-                          (erase_type Σext _ [] (Vector.nil _) cb.(P.cst_type) _ []);;
-          let cb' := {| cst_type := ety; cst_body := None |} in
-          ret (kn, ConstantDecl cb')
-        end;;
-        Σer <- erase_global_decls_deps_recursive Σ _ include ignore;;
-        ret (decl :: Σer)%list
-      else
-        decl <- erase_global_decl Σext _ kn decl _;;
-        Σer <- erase_global_decls_deps_recursive Σ _ (decl_deps include decl) ignore;;
-        ret ((kn, decl) :: Σer)
+      (* We still erase ignored inductives and constants for two reasons:
+         1. For inductives, we want to allow pattern matches on them and we need
+         information about them to print names.
+         2. For constants, we use their type to do deboxing.
+         This is a little hacky as we might fail to erase these and then fail erasure.
+         On the other hand, it is unlikely that something remapped has a higher-kinded type
+         as we wouldn't be able to remap it to something sane, so this is probably ok. *)
+      decl <- erase_global_decl Σext _ kn decl _;;
+      let with_deps := negb (ignore_deps kn) in
+      let new_deps := if with_deps then decl_deps include decl else include in
+      Σer <- erase_global_decls_deps_recursive Σ _ new_deps ignore_deps;;
+      ret ((kn, with_deps, decl) :: Σer)
     else
-      erase_global_decls_deps_recursive Σ _ include ignore
+      erase_global_decls_deps_recursive Σ _ include ignore_deps
   end.
 Solve Obligations with try now cbn;intros;subst; sq; inversion wfΣ.
-Next Obligation.
-  sq.
-  inversion wfΣ;subst;clear wfΣ;cbn in *.
-  unfold on_constant_decl in *.
-  destruct (P.cst_body cb).
-  - cbn in *.
-    eapply validity_term; [easy|eassumption].
-  - cbn in *.
-    destruct X0 as (s & ?).
-    right.
-    now exists s.
-Qed.
 
 End EraseEnv.
 

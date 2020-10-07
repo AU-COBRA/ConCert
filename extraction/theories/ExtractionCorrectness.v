@@ -41,7 +41,7 @@ Proof.
   depelim ev.
   unfold valid_masks_env in valid.
   apply forallb_Forall in valid.
-  apply declared_constant_trans in isdecl as [(? & ? & nth)|(isbox & ? & ? & nth)]; cycle 1.
+  apply declared_constant_trans in isdecl as [(? & ? & ? & nth)|(isbox & ? & ? & ? & nth)]; cycle 1.
   { eapply nth_error_forall in nth; [|eassumption].
     cbn in *.
     now destruct get_const_mask. }
@@ -120,10 +120,12 @@ Print Assumptions extract_correct.
 (* There are some assumptions of which almost all are in MetaCoq.
    From this project are the following:
 
-   1. hnf_completion, which is used in flag_of_type. These cases require a completion
-      statement about the hnf function from MetaCoq, saying that this function actually
-      reduces to head normal from. MetaCoq does not yet include a completeness statement
-      about hnf (but it is planned), so for now we defer those proofs.
+   1. not_prod_or_sort_hnf, which is used in flag_of_type. This says that if the head normal
+      form of a term is not a product or sort then the term is not convertible to an arity.
+      The proof of this requires a statement about completeness of the hnf function from MetaCoq,
+      saying that this function actually reduces to head normal from. MetaCoq does not yet
+      include a completeness statement about hnf (but it is planned), so for now we defer
+      those proofs.
 
    2. assume_env_wellformed, which is used to assume that the environments we extract are
       wellformed. MetaCoq's safe checker does not run from within Coq, so we cannot type

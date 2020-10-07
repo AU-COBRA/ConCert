@@ -89,13 +89,13 @@ Definition get_ty_arg_name (name : ident) : ident :=
 
 Definition lookup_mind (name : kername) : option Ex.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
-  | Some (Ex.InductiveDecl _ mib) => Some mib
+  | Some (Ex.InductiveDecl mib) => Some mib
   | _ => None
   end.
 
 Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body string :=
   match Ex.lookup_env Σ (inductive_mind ind) with
-  | Some (Ex.InductiveDecl _ {| Ex.ind_bodies := oibs |}) =>
+  | Some (Ex.InductiveDecl {| Ex.ind_bodies := oibs |}) =>
     match nth_error oibs (inductive_ind ind) with
     | Some body => ret body
     | None => Err ("Could not find inductive "
@@ -576,27 +576,31 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
 
-  names <- (fix f l prefix names :=
+  names <- (fix f (l : list (kername * bool * global_decl)) prefix names :=
      match l with
      | [] => ret names
-     | (kn, decl) :: l =>
+     | (kn, has_deps, decl) :: l =>
+
        new_names <-
-       match decl with
-       | Ex.ConstantDecl {|
-             Ex.cst_type := type;
-             Ex.cst_body := Some body; |} =>
-         prefix;;
-         name <- print_constant kn type body;;
-         ret [(kn, name)]
-       | Ex.InductiveDecl false mib =>
-         prefix;;
-         print_mutual_inductive_body kn mib
-       | Ex.TypeAliasDecl ty =>
-         prefix;;
-         name <- print_type_alias kn ty;;
-         ret [(kn, name)]
-       | _ => ret []
-       end;;
+       (if has_deps then
+         match decl with
+         | Ex.ConstantDecl {|
+               Ex.cst_type := type;
+               Ex.cst_body := Some body; |} =>
+           prefix;;
+           name <- print_constant kn type body;;
+           ret [(kn, name)]
+         | Ex.InductiveDecl mib =>
+           prefix;;
+           print_mutual_inductive_body kn mib
+         | Ex.TypeAliasDecl ty =>
+           prefix;;
+           name <- print_type_alias kn ty;;
+           ret [(kn, name)]
+         | _ => ret []
+         end
+       else
+         ret []);;
 
        f l (append_nl;; append_nl_and_indent) (new_names ++ names)%list
      end) (List.rev Σ) (ret tt) [];;
