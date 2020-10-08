@@ -405,7 +405,7 @@ Definition print_one_inductive_body
   let print_ctor_type bt :=
       " " ++ parens
           (negb (parenthesize_ctor_type bt))
-          (print_box_type Σ (map tvar_name (ExAst.ind_ctor_type_vars oib)) bt) in
+          (print_box_type Σ (map tvar_name (ExAst.ind_type_vars oib)) bt) in
 
   let print_ctor '(ctor_name, ctor_types) :=
       nl ++ "| " ++ ctor_name ++
@@ -421,18 +421,17 @@ Definition print_inductive (Σ : global_env) (mib : ExAst.mutual_inductive_body)
 
 Axiom assume_wellformed : forall {X}, X.
 Axiom cannot_happen : forall {X}, X.
-Definition erase_and_print_ind_prog (p : Ast.program)
-  : result string erase_ind_error :=
+Definition erase_and_print_ind_prog (p : Ast.program) : string :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
   match trans p.2 with
   | P.tInd ind _ =>
     match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
     | Some (kn, P.InductiveDecl mib) =>
-      inder <- erase_ind
-                 (Σ, ind_universes mib) assume_wellformed
-                 (inductive_mind ind) mib assume_wellformed;;
-      ret (print_inductive Σ inder)
+      let inder := erase_ind
+                     (Σ, ind_universes mib) assume_wellformed
+                     (inductive_mind ind) mib assume_wellformed in
+      print_inductive Σ inder
     | _ => cannot_happen
     end
   | _ => cannot_happen
@@ -440,7 +439,7 @@ Definition erase_and_print_ind_prog (p : Ast.program)
 
 MetaCoq Quote Recursively Definition ex1 := nat.
 Example ex1_test :
-  erase_and_print_ind_prog ex1 = Ok <$
+  erase_and_print_ind_prog ex1 = <$
 "data nat";
 "| O";
 "| S nat" $>.
@@ -448,14 +447,14 @@ Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex2 := sig.
 Example ex2_test :
-  erase_and_print_ind_prog ex2 = Ok <$
+  erase_and_print_ind_prog ex2 = <$
 "data sig A P";
 "| exist □ □ A □" $>.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex3 := list.
 Example ex3_test :
-  erase_and_print_ind_prog ex3 = Ok <$
+  erase_and_print_ind_prog ex3 = <$
 "data list A";
 "| nil □";
 "| cons □ A (list A)" $>.
@@ -463,7 +462,7 @@ Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex4 := option.
 Example ex4_test :
-  erase_and_print_ind_prog ex4 = Ok <$
+  erase_and_print_ind_prog ex4 = <$
 "data option A";
 "| Some □ A";
 "| None □" $>.
@@ -471,7 +470,7 @@ Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex5 := Vector.t.
 Example ex5_test :
-  erase_and_print_ind_prog ex5 = Ok <$
+  erase_and_print_ind_prog ex5 = <$
 "data t A _";
 "| nil □";
 "| cons □ A nat (t A 𝕋)" $>.
@@ -484,7 +483,7 @@ with forest (A : Set) : Set :=
 | cons : tree A -> forest A -> forest A.
 MetaCoq Quote Recursively Definition ex6 := tree.
 Example ex6_test :
-  erase_and_print_ind_prog ex6 = Ok <$
+  erase_and_print_ind_prog ex6 = <$
 "data tree A";
 "| node □ A (forest A)";
 "data forest A";
@@ -505,7 +504,7 @@ with MTy :=
 | MSigma : Mod -> MTy.
 MetaCoq Quote Recursively Definition ex7 := Env.
 Example ex7_test :
-  erase_and_print_ind_prog ex7 = Ok <$
+  erase_and_print_ind_prog ex7 = <$
 "data Env";
 "| EnvCtr MEnv MTEnv";
 "data MEnv";
@@ -525,7 +524,7 @@ Inductive Weird (A : Type) : Type :=
 
 MetaCoq Quote Recursively Definition ex8 := Weird.
 Example ex8_test :
-  erase_and_print_ind_prog ex8 = Ok <$
+  erase_and_print_ind_prog ex8 = <$
 "data Weird A";
 "| Nil □";
 "| Cons □ A (Weird (prod A A))" $>.
@@ -537,14 +536,17 @@ Inductive IndexedList : Type -> Type :=
 
 MetaCoq Quote Recursively Definition ex9 := IndexedList.
 Example ex9_test :
-  erase_and_print_ind_prog ex9 =
-  Err (EraseIndBodyError "IndexedList" (CtorUnmappedTypeVariables "inil")).
+  erase_and_print_ind_prog ex9 = <$
+"data IndexedList _";
+"| inil □";
+"| icons □ 𝕋 (IndexedList 𝕋)" $>.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex10 := Monad.
 Example ex10_test :
-  erase_and_print_ind_prog ex10 =
-  Err (EraseIndBodyError "Monad" (CtorUnmappedTypeVariables "Build_Monad")).
+  erase_and_print_ind_prog ex10 = <$
+"data Monad m";
+"| Build_Monad (□ → □) (□ → 𝕋 → m) (□ → □ → m → (𝕋 → m) → m)" $>.
 Proof. vm_compute. reflexivity. Qed.
 
 Inductive ManyParamsInd (A : Type) (P : Prop) (Q : Prop) (B : Type) :=
@@ -553,7 +555,7 @@ Inductive ManyParamsInd (A : Type) (P : Prop) (Q : Prop) (B : Type) :=
 MetaCoq Quote Recursively Definition ex11 := ManyParamsInd.
 
 Example ManyParamsInd_test :
-  erase_and_print_ind_prog ex11 = Ok <$
+  erase_and_print_ind_prog ex11 = <$
 "data ManyParamsInd A P Q B";
 "| MPIConstr □ □ □ □ □ A B" $>.
 Proof. vm_compute. reflexivity. Qed.
@@ -566,7 +568,7 @@ Inductive ManyParamsIndNonArity (A : Type) (P : Prop) (Q : True) (B : Type) :=
 MetaCoq Quote Recursively Definition ex12 := ManyParamsIndNonArity.
 
 Example ManyParamsIndNonArity_test:
-  erase_and_print_ind_prog ex12 = Ok <$
+  erase_and_print_ind_prog ex12 = <$
 "data ManyParamsIndNonArity A P Q B";
 "| MPINAConstr1 □ □ □ □ □ A B";
 "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
@@ -577,7 +579,7 @@ Inductive PropTypeVarInCtor :=
 MetaCoq Quote Recursively Definition ex13 := PropTypeVarInCtor.
 
 Example PropTypeVarInCtor_test :
-  erase_and_print_ind_prog ex13 = Ok <$
+  erase_and_print_ind_prog ex13 = <$
 "data PropTypeVarInCtor";
 "| ex13_ctor □" $>.
 Proof. vm_compute. reflexivity. Qed.
@@ -587,7 +589,8 @@ Inductive IndWithIndex : nat -> Type :=
 MetaCoq Quote Recursively Definition ex14 := IndWithIndex.
 
 Example IndWithIndex_test :
-  erase_and_print_ind_prog ex14 =
-  Err (EraseIndBodyError "IndWithIndex" (CtorUnmappedTypeVariables "ex14_ctor")).
+  erase_and_print_ind_prog ex14 = <$
+"data IndWithIndex _";
+"| ex14_ctor □" $>.
 Proof. vm_compute. reflexivity. Qed.
 End erase_ind_tests.
