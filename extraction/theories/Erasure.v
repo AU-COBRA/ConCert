@@ -992,22 +992,13 @@ Proof.
   apply IH.
 Qed.
 
-Inductive erase_ind_body_error :=
-| CtorUnmappedTypeVariables (ctor : ident).
-
-Definition string_of_erase_ind_body_error (e : erase_ind_body_error) : string :=
-  match e with
-  | CtorUnmappedTypeVariables ctor => "Ctor " ++ ctor ++ " has unmapped type variables"
-  end.
-
 Inductive view_prod : term -> Type :=
 | view_prod_prod na A B : view_prod (tProd na A B)
 | view_prod_other t : negb (isProd t) -> view_prod t.
 
-Equations view_prodc (t : term) : view_prod t := {
-  | tProd na A B => view_prod_prod na A B;
-  | t => view_prod_other t _
-  }.
+Equations view_prodc (t : term) : view_prod t :=
+| tProd na A B => view_prod_prod na A B;
+| t => view_prod_other t _.
 
 (* Constructors are treated slightly differently to types as we always
    generate type variables for parameters *)
@@ -1075,16 +1066,6 @@ Next Obligation.
   now exists s.
 Qed.
 
-Inductive erase_ind_error :=
-| EraseIndBodyError (ind : ident) (err : erase_ind_body_error).
-
-Definition string_of_erase_ind_error (e : erase_ind_error) : string :=
-  match e with
-  | EraseIndBodyError ind e => "Error while erasing ind body "
-                                 ++ ind ++ ": "
-                                 ++ string_of_erase_ind_body_error e
-  end.
-
 Program Definition erase_ind
         (kn : kername)
         (mib : P.mutual_inductive_body)
@@ -1121,17 +1102,13 @@ Local Existing Instance extraction_checker_flags.
 Import ExAst.
 
 Inductive erase_global_decl_error :=
-| ErrConstant (kn : kername) (err : erase_constant_decl_error)
-| ErrInductive (kn : kername) (err : erase_ind_error).
+| ErrConstant (kn : kername) (err : erase_constant_decl_error).
 
 Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : string :=
   match e with
   | ErrConstant kn err => "Error while erasing constant "
                               ++ string_of_kername kn ++ ": "
                               ++ string_of_erase_constant_decl_error err
-  | ErrInductive kn err => "Error while erasing inductive "
-                               ++ string_of_kername kn ++ ": "
-                               ++ string_of_erase_ind_error err
   end.
 
 Program Definition erase_global_decl
