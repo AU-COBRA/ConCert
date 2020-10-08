@@ -272,21 +272,18 @@ End dearg.
 Section dearg_types.
 Context (Σ : global_env).
 
-Fixpoint mkAppsBt (t : box_type) (us : list box_type) : box_type :=
-  match us with
-  | [] => t
-  | a :: args => mkAppsBt (TApp t a) args
-  end.
+Definition keep_tvar tvar :=
+  tvar_is_arity tvar && negb (tvar_is_logical tvar).
 
 Fixpoint dearg_single_bt (tvars : list oib_type_var) (t : box_type) (args : list box_type)
   : box_type :=
   match tvars, args with
   | tvar :: tvars, arg :: args =>
-    if tvar_is_logical tvar || negb (tvar_is_sort tvar) then
-      dearg_single_bt tvars t args
-    else
+    if keep_tvar tvar then
       dearg_single_bt tvars (TApp t arg) args
-  | _, _ => mkAppsBt t args
+    else
+      dearg_single_bt tvars t args
+  | _, _ => mkTApps t args
   end.
 
 Definition get_inductive_tvars (ind : inductive) : list oib_type_var :=
@@ -311,9 +308,6 @@ Definition debox_box_type (bt : box_type) : box_type :=
 Definition debox_type_constant (cst : constant_body) : constant_body :=
   {| cst_type := on_snd debox_box_type (cst_type cst);
      cst_body := cst_body cst; |}.
-
-Definition keep_tvar tvar :=
-  tvar_is_sort tvar && negb (tvar_is_logical tvar).
 
 Definition reindex (tvars : list oib_type_var) :=
   fix f (bt : box_type) : box_type :=

@@ -289,3 +289,12 @@ Module ex10.
 "  proj1_sig x" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex10.
+
+Module ex11.
+  MetaCoq Quote Recursively Definition ex11 := Monad.
+  Example Monad_test :
+    extract ex11 = Ok <$
+"type Monad m";
+"  = Build_Monad (□ -> 𝕋 -> m) (□ -> □ -> m -> (𝕋 -> m) -> m)" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex11.
