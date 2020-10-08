@@ -18,7 +18,7 @@ From Coq Require Import PArith.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
-From MetaCoq.Template Require Import All.
+From MetaCoq.Template Require Import Kernames All.
 
 Import MonadNotation.
 
@@ -94,7 +94,7 @@ Import ResultMonad.
 Definition extract_template_env_specalize
            (params : extract_template_env_params)
            (Σ : T.global_env)
-           (seeds : list kername)
+           (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
   let Σ := T2P.trans_global_decls Σ in
@@ -105,7 +105,7 @@ Definition extract_template_env_specalize
 Definition escrow_extract :=
   extract_template_env_specalize extract_within_coq
       escrow_env
-      [escrow_name]
+      (KernameSet.singleton escrow_name)
        (fun kn => contains kn (ignored_concert_types
                              ++ map fst midlang_translation_map
                              ++ map fst TT_escrow)).

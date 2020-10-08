@@ -19,6 +19,7 @@ From Coq Require Import List.
 From Coq Require Import Arith.
 From Coq Require Import Lia.
 From MetaCoq.Template Require Import Ast.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq Require Import monad_utils.
@@ -39,7 +40,10 @@ Definition general_wrapped (p : program) (pre post : string)
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  Σ <- extract_template_env_within_coq p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
+  Σ <- extract_template_env_within_coq
+         p.1
+         (KernameSet.singleton entry)
+         (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ TT_fun);;
   ret (pre ++ nl ++ s ++ nl ++ post).

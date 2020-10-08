@@ -6,7 +6,7 @@
     All dependencies are also expanded.*)
 
 From Coq Require Import List PeanoNat Bool String.
-From MetaCoq Require Import Template.All.
+From MetaCoq.Template Require Import Kernames All.
 From ConCert.Extraction Require Import Erasure Optimize Common ResultMonad Extraction.
 Open Scope string.
 Open Scope nat.
@@ -244,7 +244,7 @@ Definition add_suffix_global_env (mpath : modpath) (ignore : kername -> bool) (�
 
 Definition eta_global_env
            (params : extract_template_env_params)
-           (Σ : global_env) (seeds : list kername) (ignore : kername -> bool) :
+           (Σ : global_env) (seeds : KernameSet.t) (ignore : kername -> bool) :
   result _ string :=
   match dearg_args (pcuic_args params) with
   | None => ret Σ (* no need to eta expand if we aren't doing dearging *)
@@ -291,7 +291,7 @@ Definition eta_global_env_template
            (params : extract_template_env_params)
            (mpath : modpath)
            (Σ : global_env)
-           (seeds : list kername) (ignore : kername -> bool)
+           (seeds : KernameSet.t) (ignore : kername -> bool)
            (cst_name_ignore : kername -> bool) : TemplateMonad global_env :=
   Σext <- template_of_result (eta_global_env params Σ seeds ignore) ;;
   gen_expanded_const_and_proof Σext mpath cst_name_ignore;;
@@ -300,7 +300,9 @@ Definition eta_global_env_template
 Definition eta_expand_def {A} (params : extract_template_env_params) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
   p <- tmQuoteRecTransp def false ;;
   kn <- extract_def_name def ;;
-  eta_global_env_template params mpath p.1 [kn] (fun _ => false) cst_name_ignore.
+  eta_global_env_template
+    params mpath p.1
+    (KernameSet.singleton kn) (fun _ => false) cst_name_ignore.
 
 Module Examples.
 
@@ -344,7 +346,7 @@ Module Examples.
     MetaCoq Run (eta_global_env_template
                    no_trimming CURRENT_MODULE
                    p_app_pair_syn.1
-                   [<%% Ex1.partial_app_pair %%>]
+                   (KernameSet.singleton <%% Ex1.partial_app_pair %%>)
                    (fun _ => false)
                    (fun _ => false)).
   End Test1.
@@ -398,8 +400,11 @@ Module Examples.
                  extract_within_coq
                  CURRENT_MODULE
                  p.1
-                 [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>]
-                 (fun kn => contains kn [<%% Ex3.inc_balance %%>; <%% Ex3.partial_inc_balance %%>])
+                 (KernameSet.union
+                    (KernameSet.singleton <%% Ex3.inc_balance %%>)
+                    (KernameSet.singleton <%% Ex3.partial_inc_balance %%>))
+                 (fun kn => eq_kername kn <%% Ex3.inc_balance %%> ||
+                            eq_kername kn <%% Ex3.partial_inc_balance %%>)
                  (only_from_module_of <%% Ex3.partial_inc_balance %%>)
               ).
 

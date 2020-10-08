@@ -12,6 +12,7 @@ From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Erasure Require Import ELiftSubst SafeErasureFunction.
 From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
@@ -43,7 +44,7 @@ Record extract_pcuic_params :=
 Definition extract_pcuic_env
            (params : extract_pcuic_params)
            (Σ : P.global_env) (wfΣ : ∥PT.wf Σ∥)
-           (seeds : list kername)
+           (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
 
   Σ <- map_error string_of_erase_global_decl_error
@@ -84,7 +85,7 @@ Record extract_template_env_params :=
 Definition extract_template_env
            (params : extract_template_env_params)
            (Σ : T.global_env)
-           (seeds : list kername)
+           (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
   let Σ := T2P.trans_global_decls Σ in

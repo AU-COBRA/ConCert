@@ -10,6 +10,7 @@ From Coq Require Import Arith.
 From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
@@ -40,7 +41,11 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
            | tInd ind _ => ret (inductive_mind ind)
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
-  Σ <- extract_template_env no_check_args p.1 [entry] (fun k => existsb (eq_kername k) ignore);;
+  Σ <- extract_template_env
+         no_check_args
+         p.1
+         (KernameSet.singleton entry)
+         (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   '(_, s) <- finish_print (print_env Σ TT_fun);;
   ret s.

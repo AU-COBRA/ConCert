@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Erasure.
 
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import SafeTemplateErasure Loader.
 From MetaCoq.Erasure Require ErasureFunction.
@@ -91,7 +92,7 @@ Definition erase_print (p : program) (debox : bool) : result string string :=
   Σ <- extract_template_env
          args
          p.1
-         [entry]
+         (KernameSet.singleton entry)
          (fun kn' => negb ( eq_kername entry kn'));;
   decl <- result_of_option (ExAst.lookup_env Σ entry) "Error : no declaration found" ;;
   match decl with

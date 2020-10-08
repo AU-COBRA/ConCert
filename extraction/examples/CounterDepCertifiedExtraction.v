@@ -5,7 +5,7 @@
     that constants and constructors are applied to all logial arguments *)
 From Coq Require Import PeanoNat ZArith Notations Bool.
 
-From MetaCoq.Template Require Import Loader.
+From MetaCoq.Template Require Import Kernames Loader.
 From MetaCoq.Erasure Require Import Loader.
 
 From ConCert Require Import MyEnv.
@@ -196,7 +196,11 @@ MetaCoq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
                extract_within_coq
                CURRENT_MODULE
                counter_syn.1
-               [<%% inc_balance %%>; <%% counter_partially_applied %%>]
+               (KernameSet.add
+                  <%% inc_balance %%>
+                  (KernameSet.add
+                     <%% counter_partially_applied %%>
+                     KernameSet.empty))
                (fun kn => negb (eq_kername kn <%% inc_balance %%>) &&
                        negb (eq_kername kn <%% counter_partially_applied %%>))
                (fun kn => negb (eq_kername kn <%% inc_balance %%>) &&
