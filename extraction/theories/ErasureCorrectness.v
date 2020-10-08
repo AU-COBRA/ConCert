@@ -544,7 +544,7 @@ Proof.
     + destruct is_sort; [|congruence].
       destruct c.
       destruct cst_body; cbn in *; [|congruence].
-      destruct erase_type; cbn in *; [|congruence].
+      destruct erase_type; cbn in *.
       inversion erconst; subst; clear erconst.
       inversion erdecl; subst; clear erdecl.
       cbn in *.
@@ -572,7 +572,7 @@ Proof.
         cbn in *.
         inversion H; subst; clear H.
         now constructor.
-    + destruct erase_type; cbn in *; [|congruence].
+    + destruct erase_type; cbn in *.
       destruct c; cbn in *.
       destruct cst_body; cycle 1.
       { inversion erconst; subst; clear erconst.

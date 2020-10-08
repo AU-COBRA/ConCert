@@ -110,12 +110,10 @@ Definition string_of_env_error Σ e :=
   | AlreadyDeclared s => "Alreadydeclared " ++ s
   end%string.
 
-Program Definition erase_type_program (p : Ast.program)
-  : result (P.global_env * (list name * box_type)) erase_type_error :=
+Program Definition erase_type_program (p : Ast.program) : P.global_env * (list name * box_type) :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
-  t <- erase_type (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _ [];;
-  ret (Σ, t).
+  (Σ, erase_type (empty_ext Σ) _ (trans p.2) _).
 Next Obligation.  Admitted.
 Next Obligation.  Admitted.
 
@@ -168,57 +166,54 @@ Definition print_type_vars (l : list name) :=
 Definition erase_and_print_type
            {cf : checker_flags}
            (after_erasure : box_type -> box_type)
-           (p : Ast.program)
-  : result (string × string) erase_type_error :=
-  '(Σ, (tvars, bt)) <- erase_type_program p;;
-  ret (print_type_vars tvars, print_box_type Σ tvars bt).
+           (p : Ast.program) : string × string :=
+  let '(Σ, (tvars, bt)) := erase_type_program p in
+  (print_type_vars tvars, print_box_type Σ tvars bt).
 
 MetaCoq Quote Recursively Definition ex1 := (forall (A B : Type) (a : A * B) (C : Type), A * B * C).
 Example ex1_test :
   erase_and_print_type id ex1 =
-  Ok ("A B C", "□ → □ → prod A B → □ → prod (prod A B) C").
+  ("A B C", "□ → □ → prod A B → □ → prod (prod A B) C").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex2 := (forall (A : Type) (P : A -> Prop), @sig A P).
 Example ex2_test :
   erase_and_print_type id ex2 =
-  Ok ("A", "□ → □ → sig A □").
+  ("A", "□ → □ → sig A □").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex3 := (forall (A : Type) (P : A -> Prop), { a : A | P a }).
 Example ex3_test :
   erase_and_print_type id ex3 =
-  Ok ("A", "□ → □ → sig A □").
+  ("A", "□ → □ → sig A □").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex4 := (forall (A B : Type) (f : A -> B) (n : nat),
                                                 Vector.t A n -> Vector.t B n).
 Example ex4_test :
   erase_and_print_type id ex4 =
-  Ok ("A B", "□ → □ → (A → B) → nat → t A 𝕋 → t B 𝕋").
+  ("A B", "□ → □ → (A → B) → nat → t A 𝕋 → t B 𝕋").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex5 :=
   (forall (A : Type),  list A -> list A -> 0 = 0 -> forall (B : Type), B -> A -> A).
 Example ex5_test :
   erase_and_print_type id ex5 =
-  Ok ("A B", "□ → list A → list A → □ → □ → B → A → A").
+  ("A B", "□ → list A → list A → □ → □ → B → A → A").
 Proof. vm_compute. reflexivity. Qed.
 
-(* Prenex form that we fail on *)
 MetaCoq Quote Recursively Definition ex6 :=
   (forall (A : Type), (forall A : Type, A -> A) -> A -> forall B : Type, B -> nat).
 Example ex6_test :
   erase_and_print_type id ex6 =
-  Err NotPrenex.
+  ("A B", "□ → (□ → 𝕋 → 𝕋) → A → □ → B → nat").
 Proof. vm_compute. reflexivity. Qed.
 
-(** Erasing and deboxing *)
 MetaCoq Quote Recursively Definition ex7 :=
   (forall (A : Type), A -> forall (B : Type) (C : Type), B -> C).
 Example ex7_test :
   erase_and_print_type id ex7 =
-  Ok ("A B C", "□ → A → □ → □ → B → C").
+  ("A B C", "□ → A → □ → □ → B → C").
 Proof. vm_compute. reflexivity. Qed.
 
 (** Tesing mutual inductives *)
@@ -231,47 +226,45 @@ with forest (A : Set) : Set :=
 MetaCoq Quote Recursively Definition ex8 := (forall (A: Set), forest A -> tree A -> A).
 Example ex8_test :
   erase_and_print_type id ex8 =
-  Ok ("A", "□ → forest A → tree A → A").
+  ("A", "□ → forest A → tree A → A").
 Proof. vm_compute. reflexivity. Qed.
 
-(* We cannot currently handle the following even though we may want to be able to.
- To handle this we would need to do deboxing simultaneously with erasure. *)
 MetaCoq Quote Recursively Definition ex9 :=
   (forall (A : 0 = 0 -> Type) (B : Type), option (A eq_refl) -> B).
 Example ex9_test :
   erase_and_print_type id ex9 =
-  Err NotPrenex.
+  ("A B", "□ → □ → option A → B").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex10 :=
   (forall (A : Type), (forall (B : Type), B -> B) -> A).
 Example ex10_test :
   erase_and_print_type id ex10 =
-  Err NotPrenex.
+  ("A", "□ → (□ → 𝕋 → 𝕋) → A").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex11 := (forall (A : Type), {n : nat | 0 < n} -> A).
 Example ex11_test :
   erase_and_print_type id ex11 =
-  Ok ("A", "□ → sig nat □ → A").
+  ("A", "□ → sig nat □ → A").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex12 := (forall (A : Type) (P : A -> Prop), unit).
 Example ex12_test :
   erase_and_print_type id ex12 =
-  Ok ("A", "□ → □ → unit").
+  ("A", "□ → □ → unit").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex13 := (let p := (nat, unit) in fst p × snd p).
 Example ex13_test :
   erase_and_print_type id ex13 =
-  Ok ("", "prod (fst □ □ 𝕋) (snd □ □ 𝕋)").
+  ("", "prod (fst □ □ 𝕋) (snd □ □ 𝕋)").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex14 := (let t := nat in t).
 Example ex14_test :
   erase_and_print_type id ex14 =
-  Ok ("", "nat").
+  ("", "nat").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex15 := ((fix f n := match n with
@@ -280,55 +273,101 @@ MetaCoq Quote Recursively Definition ex15 := ((fix f n := match n with
                                                           end) 5).
 Example ex15_test :
   erase_and_print_type id ex15 =
-  Ok ("", "nat → nat → nat → nat → nat → nat").
+  ("", "nat → nat → nat → nat → nat → nat").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex16 := (Type -> Type).
 Example ex16_test :
   erase_and_print_type id ex16 =
-  Ok ("_", "□ → □").
+  ("_", "□ → □").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex17 := (Type -> Prop).
 Example ex17_test :
   erase_and_print_type id ex17 =
-  Ok ("", "□").
+  ("", "□").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex18 := (False).
 Example ex18_test :
   erase_and_print_type id ex18 =
-  Ok ("", "□").
+  ("", "□").
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex19 := (Fin.t 0 -> False).
 Example ex19_test :
   erase_and_print_type id ex19 =
-  Ok ("", "□").
+  ("", "□").
 Proof. vm_compute. reflexivity. Qed.
 
 Axiom match_head : nat.
 MetaCoq Quote Recursively Definition ex20 := (match match_head with | 0 => nat | S n => bool end).
 Example ex20_test :
   erase_and_print_type id ex20 =
-  Ok ("", "𝕋").
+  ("", "𝕋").
 Proof. vm_compute. reflexivity. Qed.
+
+Definition zero := 0.
+MetaCoq Quote Recursively Definition ex21 := match zero with 0 => nat | S n => bool end.
+Example ex21_test :
+  erase_and_print_type id ex21 =
+  ("", "𝕋").
+Proof. vm_compute. reflexivity. Qed.
+
+MetaCoq Quote Recursively Definition ex22 := match 0 with 0 => nat | S n => bool end.
+Example ex22_test :
+  erase_and_print_type id ex22 =
+  ("", "nat").
+Proof. vm_compute. reflexivity. Qed.
+
+MetaCoq Quote Recursively Definition ex23 :=
+  ((fix f (n : nat) :=
+     match n with
+     | 0 => nat
+     | S n => nat -> f n
+     end) zero).
+Example ex23_test :
+  erase_and_print_type id ex23 =
+  ("", "𝕋").
+Proof. vm_compute. reflexivity. Qed.
+
+MetaCoq Quote Recursively Definition ex24 :=
+  ((fix f (n : nat) :=
+     match n with
+     | 0 => nat
+     | S n => nat -> f n
+     end) 2).
+Example ex24_test :
+  erase_and_print_type id ex24 =
+  ("", "nat → nat → nat").
+Proof. vm_compute. reflexivity. Qed.
+
+MetaCoq Quote Recursively Definition ex25 := (forall P : Type -> Type, P nat -> nat).
+Example ex25_test :
+  erase_and_print_type id ex25 =
+  ("P", "□ → P → nat").
+Proof. vm_compute. reflexivity. Qed.
+
+MetaCoq Quote Recursively Definition ex26 := ((Type -> nat) -> nat).
+Example ex26_test :
+  erase_and_print_type id ex26 =
+  ("", "(□ → nat) → nat").
+Proof. vm_compute. reflexivity. Qed.
+
 End erase_type_tests.
 
 Module erase_ind_arity_tests.
 Program Definition erase_arity_program (p : Ast.program)
-: result (list oib_type_var) string :=
+: list oib_type_var :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
-  wrap_typing_result (erase_ind_arity (empty_ext Σ) _ [] (trans p.2) _)
-                     (string_of_type_error (empty_ext Σ)).
+  erase_ind_arity (empty_ext Σ) _ [] (trans p.2) _.
 Next Obligation. Admitted.
 Next Obligation. Admitted.
 
 MetaCoq Quote Recursively Definition ex1 := (forall (A : Type), A -> A -> Prop).
 Example ex1_test :
   erase_arity_program ex1 =
-  Ok
     [{| tvar_name := nNamed "A";
         tvar_is_logical := false;
         tvar_is_arity := true;
@@ -505,7 +544,7 @@ Proof. vm_compute. reflexivity. Qed.
 MetaCoq Quote Recursively Definition ex10 := Monad.
 Example ex10_test :
   erase_and_print_ind_prog ex10 =
-  Err (EraseIndBodyError "Monad" (EraseCtorError "Build_Monad" NotPrenex)).
+  Err (EraseIndBodyError "Monad" (CtorUnmappedTypeVariables "Build_Monad")).
 Proof. vm_compute. reflexivity. Qed.
 
 Inductive ManyParamsInd (A : Type) (P : Prop) (Q : Prop) (B : Type) :=
