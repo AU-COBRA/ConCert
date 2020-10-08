@@ -237,7 +237,6 @@ Definition dearg_oib
            (oib : one_inductive_body) : one_inductive_body :=
   {| ind_name := ind_name oib;
      ind_type_vars := ind_type_vars oib;
-     ind_ctor_type_vars := ind_ctor_type_vars oib;
      ind_ctors :=
        mapi (fun c '(name, bts) =>
                let ctor_mask :=
@@ -273,21 +272,18 @@ End dearg.
 Section dearg_types.
 Context (Σ : global_env).
 
-Fixpoint mkAppsBt (t : box_type) (us : list box_type) : box_type :=
-  match us with
-  | [] => t
-  | a :: args => mkAppsBt (TApp t a) args
-  end.
+Definition keep_tvar tvar :=
+  tvar_is_arity tvar && negb (tvar_is_logical tvar).
 
 Fixpoint dearg_single_bt (tvars : list oib_type_var) (t : box_type) (args : list box_type)
   : box_type :=
   match tvars, args with
   | tvar :: tvars, arg :: args =>
-    if tvar_is_logical tvar || negb (tvar_is_sort tvar) then
-      dearg_single_bt tvars t args
-    else
+    if keep_tvar tvar then
       dearg_single_bt tvars (TApp t arg) args
-  | _, _ => mkAppsBt t args
+    else
+      dearg_single_bt tvars t args
+  | _, _ => mkTApps t args
   end.
 
 Definition get_inductive_tvars (ind : inductive) : list oib_type_var :=
@@ -313,13 +309,21 @@ Definition debox_type_constant (cst : constant_body) : constant_body :=
   {| cst_type := on_snd debox_box_type (cst_type cst);
      cst_body := cst_body cst; |}.
 
+Definition reindex (tvars : list oib_type_var) :=
+  fix f (bt : box_type) : box_type :=
+    match bt with
+    | TArr dom cod => TArr (f dom) (f cod)
+    | TApp hd arg => TApp (f hd) (f arg)
+    | TVar i => TVar #|filter keep_tvar (firstn i tvars)|
+    | _ => bt
+    end.
+
 Definition debox_type_oib (oib : one_inductive_body) : one_inductive_body :=
+  let debox := reindex (ind_type_vars oib) ∘ debox_box_type in
   {| ind_name := ind_name oib;
-     ind_type_vars := filter (fun tvar => tvar_is_sort tvar && negb (tvar_is_logical tvar))
-                             (ind_type_vars oib);
-     ind_ctor_type_vars := ind_ctor_type_vars oib;
-     ind_ctors := map (on_snd (map debox_box_type)) (ind_ctors oib);
-     ind_projs := map (on_snd debox_box_type) (ind_projs oib); |}.
+     ind_type_vars := filter keep_tvar (ind_type_vars oib);
+     ind_ctors := map (on_snd (map debox)) (ind_ctors oib);
+     ind_projs := map (on_snd debox) (ind_projs oib); |}.
 
 Definition debox_type_mib (mib : mutual_inductive_body) : mutual_inductive_body :=
   {| ind_npars := ind_npars mib; ind_bodies := map debox_type_oib (ind_bodies mib) |}.

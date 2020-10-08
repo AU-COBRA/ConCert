@@ -21,6 +21,7 @@ From MetaCoq.PCUIC Require Import PCUICCumulativity.
 From MetaCoq.PCUIC Require Import PCUICElimination.
 From MetaCoq.PCUIC Require Import PCUICGeneration.
 From MetaCoq.PCUIC Require Import PCUICInversion.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICNormal.
 From MetaCoq.PCUIC Require Import PCUICPrincipality.
 From MetaCoq.PCUIC Require Import PCUICReduction.
@@ -660,16 +661,6 @@ Inductive tRel_kind :=
    non-nullary type scheme or a value *)
 | RelOther.
 
-Definition wrap_typing_result
-           {T E}
-           (tr : typing_result T)
-           (f : type_error -> E)
-  : result T E :=
-  match tr with
-  | Checked a => ret a
-  | TypeError te => Err (f te)
-  end.
-
 Lemma isTwf {Γ t} (isT: ∥isType Σ Γ t∥) :
   wellformed Σ Γ t.
 Proof.
@@ -1001,54 +992,61 @@ Proof.
   apply IH.
 Qed.
 
+Inductive view_prod : term -> Type :=
+| view_prod_prod na A B : view_prod (tProd na A B)
+| view_prod_other t : negb (isProd t) -> view_prod t.
+
+Equations view_prodc (t : term) : view_prod t :=
+| tProd na A B => view_prod_prod na A B;
+| t => view_prod_other t _.
+
+(* Constructors are treated slightly differently to types as we always
+   generate type variables for parameters *)
+Equations? (noeqns) erase_ind_ctor
+          (Γ : context)
+          (erΓ : Vector.t tRel_kind #|Γ|)
+          (t : term)
+          (isT : ∥isType Σ Γ t∥)
+          (next_par : nat)
+          (tvars : list oib_type_var) : box_type
+  by struct tvars :=
+erase_ind_ctor Γ erΓ t isT next_par [] := (erase_type_aux Γ erΓ t isT None).2;
+
+erase_ind_ctor Γ erΓ t isT next_par (tvar :: tvars)
+  with inspect (reduce_term redβιζ Σ wfΣ Γ t (isTwf isT)) :=
+  | exist t eq_red with view_prodc t := {
+    | view_prod_prod na A B =>
+      let rel_kind := if tvar_is_arity tvar then RelTypeVar next_par else RelOther in
+      let '(_, dom) := erase_type_aux Γ erΓ A _ None in
+      let cod := erase_ind_ctor (Γ,, vass na A) (rel_kind :: erΓ)%vector B _ (S next_par) tvars in
+      TArr dom cod;
+    | view_prod_other _ _ => TAny (* unreachable *)
+    }.
+Proof. all: reduce_term_sound; eauto with erase. Qed.
+
 Import ExAst.
-
-Inductive erase_ind_body_error :=
-| CtorUnmappedTypeVariables (ctor : ident).
-
-Definition string_of_erase_ind_body_error (e : erase_ind_body_error) : string :=
-  match e with
-  | CtorUnmappedTypeVariables ctor => "Ctor " ++ ctor ++ " has unmapped type variables"
-  end.
-
 Program Definition erase_ind_body
         (mind : kername)
         (mib : P.mutual_inductive_body)
         (oib : P.one_inductive_body)
-        (wt : ∥∑i, on_ind_body (lift_typing typing) Σ mind mib i oib∥)
-        : result one_inductive_body erase_ind_body_error :=
+        (wt : ∥∑i, on_ind_body (lift_typing typing) Σ mind mib i oib∥) : one_inductive_body :=
   let oib_tvars := erase_ind_arity [] (P.ind_type oib) _ in
 
   let '(Γ; erΓ) := arities_contexts mind (P.ind_bodies mib) in
 
   let ind_params := firstn (P.ind_npars mib) oib_tvars in
-  (* Type erasure will only produce type vars for non-logical sorts *)
-  let ind_ctor_tvars :=
-      filter (fun t => tvar_is_sort t && negb (tvar_is_logical t)) ind_params in
-  (* We map type vars in constructors to type vars in the inductive parameters.
-     Thus, we only allow the constructor this many type vars *)
-  let num_ctor_tvars := List.length ind_ctor_tvars in
   let erase_ind_ctor (p : (ident × P.term) × nat) (is_in : In p (P.ind_ctors oib)) :=
       let '((name, t), _) := p in
-      (* TODO: We should call erase_type_aux with a context here that has type variables
-         for parameters and then disallow more type variables to make this total. *)
-      let '(ctor_tvars, bt) := erase_type_aux Γ erΓ t _ (Some 0) in
-
-      (if (#|ctor_tvars| <=? num_ctor_tvars)%nat then
-         ret tt
-       else
-         Err (CtorUnmappedTypeVariables name));;
-
+      let bt := erase_ind_ctor Γ erΓ t _ 0 ind_params in
       let '(ctor_args, _) := decompose_arr bt in
-      ret (name, ctor_args) in
+      (name, ctor_args) in
 
-  ctors <- monad_map_In (P.ind_ctors oib) erase_ind_ctor;;
+  let ctors := map_In (P.ind_ctors oib) erase_ind_ctor in
 
-  ret {| ind_name := P.ind_name oib;
-         ind_type_vars := oib_tvars;
-         ind_ctor_type_vars := ind_ctor_tvars;
-         ind_ctors := ctors;
-         ind_projs := [] (* todo *) |}.
+  {| ind_name := P.ind_name oib;
+     ind_type_vars := oib_tvars;
+     ind_ctors := ctors;
+     ind_projs := [] (* todo *) |}.
 Next Obligation.
   destruct wt as [wt].
   sq.
@@ -1068,28 +1066,12 @@ Next Obligation.
   now exists s.
 Qed.
 
-Inductive erase_ind_error :=
-| EraseIndBodyError (ind : ident) (err : erase_ind_body_error).
-
-Definition string_of_erase_ind_error (e : erase_ind_error) : string :=
-  match e with
-  | EraseIndBodyError ind e => "Error while erasing ind body "
-                                 ++ ind ++ ": "
-                                 ++ string_of_erase_ind_body_error e
-  end.
-
 Program Definition erase_ind
         (kn : kername)
         (mib : P.mutual_inductive_body)
-        (wt : ∥on_inductive (lift_typing typing) Σ kn mib∥)
-        : result mutual_inductive_body erase_ind_error :=
-  inds <- monad_map_In
-            (P.ind_bodies mib)
-            (fun oib is_in =>
-               map_error
-                 (EraseIndBodyError (P.ind_name oib))
-                 (erase_ind_body kn mib oib _));;
-  ret {| ind_npars := P.ind_npars mib; ind_bodies := inds |}.
+        (wt : ∥on_inductive (lift_typing typing) Σ kn mib∥) : mutual_inductive_body :=
+  let inds := map_In (P.ind_bodies mib) (fun oib is_in => erase_ind_body kn mib oib _) in
+  {| ind_npars := P.ind_npars mib; ind_bodies := inds |}.
 Next Obligation.
   apply In_nth_error in is_in.
   destruct is_in as (i & nth_some).
@@ -1120,17 +1102,13 @@ Local Existing Instance extraction_checker_flags.
 Import ExAst.
 
 Inductive erase_global_decl_error :=
-| ErrConstant (kn : kername) (err : erase_constant_decl_error)
-| ErrInductive (kn : kername) (err : erase_ind_error).
+| ErrConstant (kn : kername) (err : erase_constant_decl_error).
 
 Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : string :=
   match e with
   | ErrConstant kn err => "Error while erasing constant "
                               ++ string_of_kername kn ++ ": "
                               ++ string_of_erase_constant_decl_error err
-  | ErrInductive kn err => "Error while erasing inductive "
-                               ++ string_of_kername kn ++ ": "
-                               ++ string_of_erase_ind_error err
   end.
 
 Program Definition erase_global_decl
@@ -1148,9 +1126,7 @@ Program Definition erase_global_decl
     | inr ta => ret (TypeAliasDecl ta)
     end
   | P.InductiveDecl mib =>
-    ind <- map_error (ErrInductive kn)
-                     (erase_ind Σext _ kn mib _);;
-    ret (InductiveDecl ind)
+    ret (InductiveDecl (erase_ind Σext _ kn mib _))
   end.
 
 Definition add_seen (n : kername) (seen : list kername) : list kername :=

@@ -8,7 +8,6 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import OptimizeCorrectness.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import SpecializeChainBase.
 From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Erasure Require Import ELiftSubst SafeErasureFunction.

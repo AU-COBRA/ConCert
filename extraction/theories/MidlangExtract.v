@@ -4,7 +4,6 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
@@ -529,20 +528,13 @@ Definition print_mutual_inductive_body
 
        push_indent (col + indent_size);;
 
-       (* Type variables for constructors *)
-       Γc <- monad_fold_left
-              (fun Γ name =>
-                 name <- fresh_ty_arg_name (tvar_name name) Γ;;
-                 ret (Γ ++ [name])%list) (ind_ctor_type_vars oib) [];;
-
-
        (fix print_ind_ctors (ctors : list (ident * list box_type)) prefix :=
           match ctors with
           | [] => ret tt
           | (name, data) :: ctors =>
             append_nl_and_indent;;
             append (prefix ++ " ");;
-            print_ind_ctor_definition Γc (kn.1, name) data;;
+            print_ind_ctor_definition Γ (kn.1, name) data;;
 
             print_ind_ctors ctors "|"
           end) (ind_ctors oib) "=";;
