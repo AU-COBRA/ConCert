@@ -67,8 +67,13 @@ Proof.
     + depelim ev.
 Qed.
 
+Lemma wf_squash {Σ} :
+  ∥wf_ext Σ∥ ->
+  ∥wf Σ∥.
+Proof. intros []. now constructor. Qed.
+
 Theorem extract_correct
-        (Σ : P.global_env_ext) (wfΣ : wf_ext Σ)
+        (Σ : P.global_env_ext) (wfΣ : ∥wf_ext Σ∥)
         kn ui ind c ui' ignored exΣ :
   axiom_free Σ ->
   welltyped Σ [] (P.tConst kn ui) ->
@@ -77,7 +82,7 @@ Theorem extract_correct
   (forall k, ignored k = false) ->
   extract_pcuic_env
     (pcuic_args extract_within_coq)
-    Σ (wf_ext_wf_squash wfΣ) (KernameSet.singleton kn) ignored = Ok exΣ ->
+    Σ (wf_squash wfΣ) (KernameSet.singleton kn) ignored = Ok exΣ ->
   ∥trans_env exΣ e⊢ E.tConst kn ▷ E.tConstruct ind c∥.
 Proof.
   intros ax [T wt] ev not_erasable no_ignores ex.
@@ -96,6 +101,7 @@ Proof.
   unfold declared_constant in isdecl.
   rewrite isdecl in er.
 
+  destruct wfΣ.
   eapply erases_correct in er as (erv & erase_to & [erev]); eauto.
   2: now constructor.
 
