@@ -128,3 +128,29 @@ Proof.
   cbn in *.
   now rewrite H, IHForall.
 Qed.
+
+Definition map_In {X Y} : forall (xs : list X) (f : forall x, In x xs -> Y), list Y.
+Proof.
+  fix map_In 1.
+  intros [|x xs] f.
+  - exact [].
+  - refine (f x (or_introl eq_refl) :: map_In xs _).
+    intros x' isin.
+    apply (f x').
+    right.
+    assumption.
+Defined.
+
+Definition monad_map_In {T : Type -> Type} {M : Monad T} {X Y : Type}
+  : forall (xs : list X) (f : forall (x : X), In x xs -> T Y), T (list Y).
+Proof.
+  fix monad_map_In 1.
+  intros [|x xs] f.
+  - exact (ret []).
+  - refine (y <- f x (or_introl eq_refl);;
+            tl <- monad_map_In xs _;; ret (y :: tl)).
+    intros x' isin.
+    apply (f x').
+    right.
+    assumption.
+Defined.

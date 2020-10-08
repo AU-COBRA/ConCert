@@ -223,7 +223,7 @@ Definition contains_global_env (Σ : global_env) (kn : kername) :=
 
 Definition restrict_env (Σ : global_env) (kns : list kername) : global_env :=
   filter (fun '(kn, _) => match find (eq_kername kn) kns with
-                       |Some _ => true
+                       | Some _ => true
                        | None => false
                        end) Σ.
 
@@ -300,7 +300,7 @@ Definition eta_global_env_template
 Definition eta_expand_def {A} (params : extract_template_env_params) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
   p <- tmQuoteRecTransp def false ;;
   kn <- extract_def_name def ;;
-  eta_global_env_template params mpath p.1 [kn] (fun _ => false) cst_name_ignore .
+  eta_global_env_template params mpath p.1 [kn] (fun _ => false) cst_name_ignore.
 
 Module Examples.
 

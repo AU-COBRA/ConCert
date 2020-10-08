@@ -21,6 +21,13 @@ Fixpoint decompose_arr (bt : box_type) : list box_type * box_type :=
   | _ => ([], bt)
   end.
 
+Definition can_have_args (bt : box_type) : bool :=
+  match bt with
+  | TInd _
+  | TConst _ => true
+  | _ => false
+  end.
+
 Fixpoint mkTApps (hd : box_type) (args : list box_type) : box_type :=
   match args with
   | [] => hd
