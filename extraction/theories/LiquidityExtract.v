@@ -4,7 +4,7 @@ From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import SafeTemplateErasure.
 From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.Erasure Require SafeErasureFunction.
-From MetaCoq.Template Require Import config.
+From MetaCoq.Template Require Import Kernames config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
@@ -62,8 +62,8 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (init : kername)
            (receive : kername)
   : string + string :=
-  let seeds := [init;receive] in
-  match extract_template_env_within_coq Σ seeds (fun k => contains k ignore) with
+  let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
+  match extract_template_env_within_coq Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
   | Ok eΣ =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ) in
@@ -116,7 +116,7 @@ Definition liquidity_simple_extract
            (p : program) : string + string :=
   match p.2 with
   | tConst kn _ =>
-    let seeds := [kn] in
+    let seeds := KernameSet.singleton kn in
     let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
     let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in

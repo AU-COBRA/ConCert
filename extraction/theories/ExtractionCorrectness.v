@@ -21,6 +21,7 @@ From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require PCUICWcbvEval.
 From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import utils.
 
 Open Scope string.
@@ -76,7 +77,7 @@ Theorem extract_correct
   (forall k, ignored k = false) ->
   extract_pcuic_env
     (pcuic_args extract_within_coq)
-    Σ (wf_ext_wf_squash wfΣ) [kn] ignored = Ok exΣ ->
+    Σ (wf_ext_wf_squash wfΣ) (KernameSet.singleton kn) ignored = Ok exΣ ->
   ∥trans_env exΣ e⊢ E.tConst kn ▷ E.tConstruct ind c∥.
 Proof.
   intros ax [T wt] ev not_erasable no_ignores ex.
@@ -89,7 +90,7 @@ Proof.
   inversion_clear ex.
   rewrite trans_env_debox_env_types.
   eapply erase_global_decls_deps_recursive_correct in er; eauto.
-  2: left; reflexivity.
+  2: apply KernameSet.singleton_spec; reflexivity.
   assert (ev' := ev).
   depelim ev'.
   unfold declared_constant in isdecl.

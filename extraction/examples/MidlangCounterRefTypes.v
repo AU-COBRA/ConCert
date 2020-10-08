@@ -20,7 +20,7 @@ From Coq Require Import PArith.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
-From MetaCoq.Template Require Import All.
+From MetaCoq.Template Require Import Kernames All.
 
 Import MonadNotation.
 
@@ -153,10 +153,12 @@ Definition ignored_concert_types :=
 Definition counter_extract :=
     extract_template_env_within_coq
       counter_env
-      [counter_name]
-      (fun kn => contains kn (ignored_concert_types ++ counter_ignored
-                             ++ map fst midlang_translation_map
-                             ++ map fst TT)).
+      (KernameSet.singleton counter_name)
+      (fun kn => List.existsb (eq_kername kn)
+                              (ignored_concert_types
+                                 ++ counter_ignored
+                                 ++ map fst midlang_translation_map
+                                 ++ map fst TT)).
 
 Definition counter_result:= Eval vm_compute in
      (env <- counter_extract ;;

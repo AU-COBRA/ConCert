@@ -10,6 +10,7 @@ From Coq Require Import String.
 From Coq Require VectorDef.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EArities.
+From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import Prelim.
 From MetaCoq.Erasure Require SafeErasureFunction.
@@ -33,6 +34,7 @@ From MetaCoq.PCUIC Require Import PCUICValidity.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce.
 From MetaCoq.SafeChecker Require Import PCUICSafeRetyping.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
@@ -1129,70 +1131,38 @@ Program Definition erase_global_decl
     ret (InductiveDecl (erase_ind Σext _ kn mib _))
   end.
 
-Definition add_seen (n : kername) (seen : list kername) : list kername :=
-  if existsb (eq_kername n) seen then
-    seen
-  else
-    n :: seen.
-
-Fixpoint Eterm_deps (seen : list kername) (t : term) : list kername :=
-  match t with
-  | tBox
-  | tRel _
-  | tVar _ => seen
-  | tEvar _ ts => fold_left Eterm_deps ts seen
-  | tLambda _ t => Eterm_deps seen t
-  | tLetIn _ t1 t2
-  | tApp t1 t2 => Eterm_deps (Eterm_deps seen t1) t2
-  | tConst n => add_seen n seen
-  | tConstruct ind _ => add_seen (inductive_mind ind) seen
-  | tCase (ind, _) t brs =>
-    let seen := Eterm_deps (add_seen (inductive_mind ind) seen) t in
-    fold_left (fun seen '(_, t) => Eterm_deps seen t) brs seen
-  | tProj (ind, _, _) t => Eterm_deps (add_seen (inductive_mind ind) seen) t
-  | tFix defs _
-  | tCoFix defs _ =>
-    fold_left (fun seen d => Eterm_deps seen (dbody d)) defs seen
-  end.
-
-Fixpoint box_type_deps (seen : list kername) (t : box_type) : list kername :=
+Fixpoint box_type_deps (t : box_type) : KernameSet.t :=
   match t with
   | TBox
-  | TAny => seen
+  | TAny
+  | TVar _ => KernameSet.empty
   | TArr t1 t2
-  | TApp t1 t2 => fold_left box_type_deps [t1; t2] seen
-  | TVar _ => seen
-  | TInd ind => add_seen (inductive_mind ind) seen
-  | TConst n => add_seen n seen
+  | TApp t1 t2 => KernameSet.union (box_type_deps t1) (box_type_deps t2)
+  | TInd ind => KernameSet.singleton (inductive_mind ind)
+  | TConst kn => KernameSet.singleton kn
   end.
 
-Definition decl_deps (seen : list kername) (decl : global_decl) : list kername :=
+Definition decl_deps (decl : global_decl) : KernameSet.t :=
   match decl with
   | ConstantDecl body =>
     let seen :=
         match cst_body body with
-        | Some body => Eterm_deps seen body
-        | None => seen
+        | Some body => term_global_deps body
+        | None => KernameSet.empty
         end in
-    box_type_deps seen (cst_type body).2
+    KernameSet.union (box_type_deps (cst_type body).2) seen
   | InductiveDecl mib =>
-    let one_inductive_body_deps seen oib :=
-        let seen := fold_left box_type_deps
+    let one_inductive_body_deps oib :=
+        let seen := fold_left (fun seen bt => KernameSet.union seen (box_type_deps bt))
                               (flat_map snd (ind_ctors oib))
-                              seen in
-        fold_left box_type_deps (map snd (ind_projs oib)) seen in
-    fold_left one_inductive_body_deps (ind_bodies mib) seen
-  | TypeAliasDecl (nms, ty) => box_type_deps seen ty
+                              KernameSet.empty in
+        fold_left (fun seen bt => KernameSet.union seen (box_type_deps bt))
+                  (map snd (ind_projs oib)) seen in
+    fold_left (fun seen oib => KernameSet.union seen (one_inductive_body_deps oib))
+              (ind_bodies mib)
+              KernameSet.empty
+  | TypeAliasDecl (nms, ty) => box_type_deps ty
   end.
-
-Definition is_inductive_decl (d : P.global_decl) : bool :=
-  match d with
-  | P.ConstantDecl _ => false
-  | P.InductiveDecl _ => true
-  end.
-
-Definition contains (kn : kername) :=
-  List.existsb (eq_kername kn).
 
 (* Erase the global declarations by the specified names and their
    non-erased dependencies recursively. Ignore dependencies for which
@@ -1200,14 +1170,14 @@ Definition contains (kn : kername) :=
 Program Fixpoint erase_global_decls_deps_recursive
         (Σ : P.global_env)
         (wfΣ : ∥wf Σ∥)
-        (include : list kername)
+        (include : KernameSet.t)
         (ignore_deps : kername -> bool)
   : result global_env erase_global_decl_error :=
   match Σ with
   | [] => ret []
   | (kn, decl) :: Σ =>
     let Σext := (Σ, universes_decl_of_decl decl) in
-    if contains kn include then
+    if KernameSet.mem kn include then
       (* We still erase ignored inductives and constants for two reasons:
          1. For inductives, we want to allow pattern matches on them and we need
          information about them to print names.
@@ -1217,8 +1187,8 @@ Program Fixpoint erase_global_decls_deps_recursive
          as we wouldn't be able to remap it to something sane, so this is probably ok. *)
       decl <- erase_global_decl Σext _ kn decl _;;
       let with_deps := negb (ignore_deps kn) in
-      let new_deps := if with_deps then decl_deps include decl else include in
-      Σer <- erase_global_decls_deps_recursive Σ _ new_deps ignore_deps;;
+      let new_deps := if with_deps then decl_deps decl else KernameSet.empty in
+      Σer <- erase_global_decls_deps_recursive Σ _ (KernameSet.union new_deps include) ignore_deps;;
       ret ((kn, with_deps, decl) :: Σer)
     else
       erase_global_decls_deps_recursive Σ _ include ignore_deps
