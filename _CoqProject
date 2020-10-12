@@ -98,6 +98,7 @@ embedding/examples/crowdfunding/Crowdfunding.v
 embedding/examples/crowdfunding/CrowdfundingData.v
 
 -Q extraction/theories ConCert.Extraction
+extraction/theories/Annotations.v
 extraction/theories/Aux.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v
@@ -116,6 +117,7 @@ extraction/theories/PrettyPrinterMonad.v
 extraction/theories/ResultMonad.v
 extraction/theories/SpecializeChainBase.v
 extraction/theories/StringExtra.v
+extraction/theories/TypeAnnotations.v
 extraction/theories/WcbvEvalAux.v
 extraction/theories/CertifyingEta.v
 
@@ -135,5 +137,6 @@ extraction/examples/MidlangExtractTests.v
 extraction/examples/PreludeExt.v
 extraction/examples/SimpleBlockchainExt.v
 extraction/examples/StackInterpreter.v
+extraction/examples/TypeAnnotationTests.v
 extraction/examples/crowdfunding_extract/Crowdfunding.v
 extraction/examples/crowdfunding_extract/CrowdfundingData.v

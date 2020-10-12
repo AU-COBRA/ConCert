@@ -154,3 +154,56 @@ Proof.
     right.
     assumption.
 Defined.
+
+Section bigprod.
+  Context {X : Type}.
+  Context (T : X -> Type).
+
+  Fixpoint bigprod (xs : list X) : Type :=
+    match xs with
+    | [] => unit
+    | x :: xs => T x * bigprod xs
+    end.
+
+  Section bigprod_map.
+    Context {f : X -> X}.
+    Context (Tf : forall x, T x -> T (f x)).
+    Equations bigprod_map (xs : list X) (p : bigprod xs) : bigprod (map f xs) :=
+      bigprod_map [] _ := tt;
+      bigprod_map (x :: xs) (xt, a) := (Tf _ xt, bigprod_map xs a).
+  End bigprod_map.
+
+  Section bigprod_map_id.
+    Context (f : forall x, T x -> T x).
+    Equations bigprod_map_id (xs : list X) (p : bigprod xs) : bigprod xs :=
+      bigprod_map_id [] p := tt;
+      bigprod_map_id (x :: xs) (xt, a) := (f _ xt, bigprod_map_id xs a).
+  End bigprod_map_id.
+
+  Section bigprod_mapi_rec.
+    Context {f : nat -> X -> X}.
+    Context (Tf : forall i x, T x -> T (f i x)).
+
+    Equations bigprod_mapi_rec
+              (xs : list X)
+              (i : nat)
+              (p : bigprod xs) : bigprod (mapi_rec f xs i) :=
+      bigprod_mapi_rec [] i _ := tt;
+      bigprod_mapi_rec (x :: xs) i (xt, a) := (Tf i _ xt, bigprod_mapi_rec xs (S i) a).
+  End bigprod_mapi_rec.
+
+  Section bigprod_find.
+    Context (f : forall x, T x -> bool).
+    Equations bigprod_find (xs : list X) (p : bigprod xs) : option (∑ x, T x) :=
+    bigprod_find [] _ := None;
+    bigprod_find (x :: xs) (xa, xsa) with f x xa := {
+      | true => Some (x; xa);
+      | false => bigprod_find xs xsa
+      }.
+  End bigprod_find.
+End bigprod.
+
+Arguments bigprod_map {_ _ _} _ {_}.
+Arguments bigprod_map_id {_ _} _ {_}.
+Arguments bigprod_mapi_rec {_ _ _} _ {_}.
+Arguments bigprod_find {_ _} _ {_}.
