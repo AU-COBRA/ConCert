@@ -38,7 +38,7 @@ Module Counter.
   Definition storage := Z × address.
 
   Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
-    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Some setup.
 
   Inductive msg :=
@@ -168,12 +168,42 @@ Definition TT_rename :=
 (** We run the extraction procedure inside the [TemplateMonad].
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
+From ConCert Require Import CameLIGOPretty CameLIGOExtract.
 
+Definition LIGO_COUNTER_MODULE : CameLIGOMod msg _ (Z × address) storage operation :=
+{| (* a name for the definition with the extracted code *)
+    lmd_module_name := "cameLIGO_counter" ;
+
+    (* definitions of operations on pairs and ints *)
+    lmd_prelude := CameLIGOPrelude;
+
+    (* initial storage *)
+    lmd_init := init ;
+
+    (* no extra operations in [init] are required *)
+    lmd_init_prelude := "" ;
+
+    (* the main functionality *)
+    lmd_receive := counter ;
+
+    (* code for the entry point *)
+    lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" ++ nl
+                      ++ CameLIGOPretty.printMain |}.
 Time MetaCoq Run
+     (t <- CameLIGO_extraction PREFIX TT_remap TT_rename LIGO_COUNTER_MODULE ;;
+      tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
+
+Print cameLIGO_counter.
+Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter.
+
+
+(* Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t).
 
-Print liquidity_counter.
+Print liquidity_counter. *)
+
+
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "./examples/liquidity-extract/CounterCertifiedExtraction.liq" Compute liquidity_counter.
