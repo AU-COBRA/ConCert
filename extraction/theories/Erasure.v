@@ -659,8 +659,7 @@ Inductive tRel_kind :=
 | RelTypeVar (n : nat)
 (* tRel refers to an inductive type (used in constructors of inductives) *)
 | RelInductive (ind : inductive)
-(* tRel refers to something else, for example something logical or a
-   non-nullary type scheme or a value *)
+(* tRel refers to something else, for example something logical or a value *)
 | RelOther.
 
 Lemma isTwf {Γ t} (isT: ∥isType Σ Γ t∥) :
