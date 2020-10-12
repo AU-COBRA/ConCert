@@ -307,14 +307,10 @@ Proof.
                     | TArr _ cod => cod
                     | _ => bt
                     end) hda).
-      * (* arg was removed, new type is codomain *)
+      * (* arg was removed. We take the new type to be the old type of the application
+         instead of the codomain as the old type of the application is more specialized. *)
         apply IHmask; [|exact argsa].
-        exact (map_annot
-                 (fun bt =>
-                    match bt with
-                    | TArr _ cod => cod
-                    | _ => bt
-                    end) hda).
+        exact (map_annot (fun _ => p.1) hda).
     + destruct argsa.
       * refine (annot hda, _).
         apply IHmask; [|exact All_nil].
@@ -324,10 +320,7 @@ Proof.
                 | t => (t, (annot_lift _ _ hda, t))
                 end).
       * apply IHmask; [|exact argsa].
-        exact (match annot hda with
-               | TArr dom cod => (cod, (hda, p.2))
-               | t => (t, (hda, p.2))
-               end).
+        exact (p.1, (hda, p.2)).
 Defined.
 
 Definition annot_dearg_case_branches
