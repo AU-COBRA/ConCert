@@ -113,12 +113,14 @@ Module ex2.
   Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex := bar.
-  Example test_opt :
-    extract_opt ex = "(proj1_sig : sig 𝕋 → 𝕋) (foo : sig nat) : nat".
-  Proof. vm_compute. reflexivity. Qed.
+
   Example test_no_opt :
     extract_no_opt ex =
     "(((proj1_sig : □ → □ → sig 𝕋 □ → 𝕋) (□ : □) : □ → sig nat □ → nat) (□ : □) : sig nat □ → nat) (foo : sig nat □) : nat".
+  Proof. vm_compute. reflexivity. Qed.
+
+  Example test_opt :
+    extract_opt ex = "(proj1_sig : sig nat → nat) (foo : sig nat) : nat".
   Proof. vm_compute. reflexivity. Qed.
 End ex2.
 
@@ -132,8 +134,35 @@ Module ex3.
   Example test_no_opt :
     extract_no_opt ex = "(foo : (□ → nat → nat) → nat) (bar : □ → nat → nat) : nat".
   Proof. vm_compute. reflexivity. Qed.
+
   Example test_opt :
     extract_opt ex =
     "(foo : (□ → nat → nat) → nat) ((_ -> (bar : nat → nat)) : □ → nat → nat) : nat".
   Proof. vm_compute. reflexivity. Qed.
 End ex3.
+
+Module ex4.
+  Definition foo : option nat := None.
+  MetaCoq Quote Recursively Definition ex := foo.
+
+  Example test_no_opt :
+    extract_no_opt ex = "(None : □ → option 𝕋) (□ : □) : option nat".
+  Proof. vm_compute. reflexivity. Qed.
+
+  Example test_opt :
+    extract_opt ex = "None : option nat".
+  Proof. vm_compute. reflexivity. Qed.
+End ex4.
+
+Module ex5.
+  Definition foo : list nat := [0].
+  MetaCoq Quote Recursively Definition ex := foo.
+
+  Example test_no_opt :
+    extract_no_opt ex = "(((cons : □ → 𝕋 → list 𝕋 → list 𝕋) (□ : □) : nat → list nat → list nat) (O : nat) : list nat → list nat) ((nil : □ → list 𝕋) (□ : □) : list nat) : list nat".
+  Proof. vm_compute. reflexivity. Qed.
+
+  Example test_opt :
+    extract_opt ex = "((cons : nat → list nat → list nat) (O : nat) : list nat → list nat) (nil : list nat) : list nat".
+  Proof. vm_compute. reflexivity. Qed.
+End ex5.
