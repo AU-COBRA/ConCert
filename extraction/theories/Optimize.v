@@ -275,7 +275,7 @@ Context (Σ : global_env).
 Definition keep_tvar tvar :=
   tvar_is_arity tvar && negb (tvar_is_logical tvar).
 
-Fixpoint dearg_single_bt (tvars : list oib_type_var) (t : box_type) (args : list box_type)
+Fixpoint dearg_single_bt (tvars : list type_var_info) (t : box_type) (args : list box_type)
   : box_type :=
   match tvars, args with
   | tvar :: tvars, arg :: args =>
@@ -286,7 +286,7 @@ Fixpoint dearg_single_bt (tvars : list oib_type_var) (t : box_type) (args : list
   | _, _ => mkTApps t args
   end.
 
-Definition get_inductive_tvars (ind : inductive) : list oib_type_var :=
+Definition get_inductive_tvars (ind : inductive) : list type_var_info :=
   match lookup_inductive Σ ind with
   | Some oib => ind_type_vars oib
   | None => []
@@ -299,7 +299,7 @@ Fixpoint debox_box_type_aux (args : list box_type) (bt : box_type) : box_type :=
   | TApp ty1 ty2 =>
     debox_box_type_aux (debox_box_type_aux [] ty2 :: args) ty1
   | TInd ind => dearg_single_bt (get_inductive_tvars ind) bt args
-  | _ => bt
+  | _ => mkTApps bt args
   end.
 
 Definition debox_box_type (bt : box_type) : box_type :=
@@ -309,7 +309,7 @@ Definition debox_type_constant (cst : constant_body) : constant_body :=
   {| cst_type := on_snd debox_box_type (cst_type cst);
      cst_body := cst_body cst; |}.
 
-Definition reindex (tvars : list oib_type_var) :=
+Definition reindex (tvars : list type_var_info) :=
   fix f (bt : box_type) : box_type :=
     match bt with
     | TArr dom cod => TArr (f dom) (f cod)

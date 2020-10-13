@@ -98,11 +98,11 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
     match nth_error oibs (inductive_ind ind) with
     | Some body => ret body
     | None => Err ("Could not find inductive "
-                     ++ string_of_nat (inductive_ind ind)
-                     ++ " in mutual inductive " ++ string_of_kername (inductive_mind ind))
+                     ^ string_of_nat (inductive_ind ind)
+                     ^ " in mutual inductive " ^ string_of_kername (inductive_mind ind))
     end
   | _ => Err ("Could not find inductive "
-                ++ string_of_kername (inductive_mind ind) ++ " in environment")
+                ^ string_of_kername (inductive_mind ind) ^ " in environment")
   end.
 
 Definition print_ind (ind : inductive) : PrettyPrinter unit :=
@@ -117,7 +117,7 @@ Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
     let kn := ((inductive_mind ind).1, name) in
     append (get_ctor_name kn)
   | None =>
-    printer_fail (Ex.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
+    printer_fail (Ex.ind_name oib ^ " does not have a ctor " ^ string_of_nat i)
   end.
 
 Definition print_parenthesized
@@ -164,7 +164,7 @@ Definition fresh (name : ident) (used : list ident) : ident :=
        match n with
        | 0 => "unreachable"
        | S n =>
-         let numbered_name := name ++ string_of_nat i in
+         let numbered_name := name ^ string_of_nat i in
          if existsb (String.eqb numbered_name) used then
            f n (S i)
          else
@@ -216,7 +216,7 @@ Fixpoint print_type (Γ : list ident) (t : box_type) : PrettyPrinter unit :=
   | TVar n =>
     match nth_error Γ n with
     | Some name => append name
-    | None => printer_fail ("unbound TVar " ++ string_of_nat n)
+    | None => printer_fail ("unbound TVar " ^ string_of_nat n)
     end
   | TInd ind => print_ind ind
   | TConst name => append (get_ty_name name)
@@ -242,7 +242,7 @@ Definition print_define_term
       match t with
       | tLambda arg_name t =>
         arg_name <- fresh_ident arg_name Γ;;
-        append (" " ++ arg_name);;
+        append (" " ^ arg_name);;
         print_decompose (arg_name :: Γ) t
       | _ =>
         append " =";;
@@ -263,9 +263,9 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   | tRel n =>
     match nth_error Γ n with
     | Some name => append name
-    | None => printer_fail ("unbound tRel " ++ string_of_nat n)
+    | None => printer_fail ("unbound tRel " ^ string_of_nat n)
     end
-  | tVar ident => printer_fail ("tVar " ++ ident)
+  | tVar ident => printer_fail ("tVar " ^ ident)
   | tEvar _ _ => printer_fail "unexpected evar"
   | tLambda name t =>
 
@@ -273,7 +273,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     (fix f Γ name body :=
        name <- fresh_ident name Γ;;
-       append (name ++ " ");;
+       append (name ^ " ");;
 
        let Γ := name :: Γ in
        match body with
@@ -386,7 +386,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
               match t with
               | tLambda name t =>
                 name <- fresh_ident name Γ;;
-                append (" " ++ name);;
+                append (" " ^ name);;
                 print_branch n (name :: Γ) t
 
               | _ => printer_fail "could not decompose branch"
@@ -524,7 +524,7 @@ Definition print_mutual_inductive_body
        append ind_ml_name;;
 
        (* Print type args *)
-       monad_fold_left (fun _ name => append (" " ++ name)) Γ tt;;
+       monad_fold_left (fun _ name => append (" " ^ name)) Γ tt;;
 
        push_indent (col + indent_size);;
 
@@ -533,7 +533,7 @@ Definition print_mutual_inductive_body
           | [] => ret tt
           | (name, data) :: ctors =>
             append_nl_and_indent;;
-            append (prefix ++ " ");;
+            append (prefix ^ " ");;
             print_ind_ctor_definition Γ (kn.1, name) data;;
 
             print_ind_ctors ctors "|"
@@ -550,18 +550,18 @@ Definition print_mutual_inductive_body
 
 Definition print_type_alias
            (nm : kername)
-           (ty : list name × Ex.box_type) : PrettyPrinter string :=
+           (tvars : list type_var_info)
+           (bt : box_type) : PrettyPrinter string :=
   append "type alias ";;
   let ty_ml_name := get_ty_name nm in
   append ty_ml_name;;
-  let '(type_vars, ty) := ty in
+  Γrev <- monad_fold_left (fun Γ tvar => name <- fresh_ty_arg_name (tvar_name tvar) Γ;;
+                                         ret (name :: Γ))
+                          tvars [];;
+  let Γ := rev Γrev in
+  append (String.concat "" (map (fun x => " " ^ x) Γ));;
   append " = ";;
-  Γrev <- monad_fold_left (fun Γ name => name <- fresh_ty_arg_name name Γ;;
-                                           ret (name :: Γ))
-                         type_vars [];;
-  (* FIXME: print type vars? Can type aliases have parameters? *)
-  print_type (rev Γrev) ty ;;
-  append_nl ;;
+  print_type Γ bt ;;
   ret ty_ml_name.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=
@@ -585,9 +585,9 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
          | Ex.InductiveDecl mib =>
            prefix;;
            print_mutual_inductive_body kn mib
-         | Ex.TypeAliasDecl ty =>
+         | Ex.TypeAliasDecl (Some (tvars, bt)) =>
            prefix;;
-           name <- print_type_alias kn ty;;
+           name <- print_type_alias kn tvars bt;;
            ret [(kn, name)]
          | _ => ret []
          end

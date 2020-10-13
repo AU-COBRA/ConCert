@@ -77,7 +77,9 @@ Definition trans_env (Σ : global_env) : EAst.global_context :=
       match decl with
       | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
       | InductiveDecl _ => []
-      | TypeAliasDecl _ => [(kn, EAst.ConstantDecl {| EAst.cst_body := Some tBox |})]
+      | TypeAliasDecl o =>
+        [(kn, EAst.ConstantDecl
+                {| EAst.cst_body := option_map (fun _ => tBox) o |})]
       end in
   flat_map (fun '(kn, _, decl) => map_decl kn decl) Σ.
 
@@ -86,7 +88,7 @@ Lemma declared_constant_trans Σ kn cst :
   (exists n has_deps typ,
     nth_error Σ n =
     Some (kn, has_deps, ConstantDecl {| cst_type := typ; cst_body := EAst.cst_body cst |})) \/
-  (EAst.cst_body cst = Some tBox /\
+  ((EAst.cst_body cst = Some tBox \/ EAst.cst_body cst = None) /\
     exists n has_deps typ,
       nth_error Σ n = Some (kn, has_deps, TypeAliasDecl typ)).
 Proof.
@@ -118,7 +120,7 @@ Proof.
     + noconf decl.
       cbn in *.
       right.
-      split; [easy|].
+      split; [destruct o; tauto|].
       now eexists 0, _, _.
     + destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
       * eassumption.
@@ -1822,7 +1824,8 @@ Proof.
   eapply declared_constant_trans in decl as [(? & ? & ? & nth)|(is_box & _)].
   - rewrite body_eq in nth.
     now eapply nth_error_forall in nth; [|eassumption].
-  - now replace body with tBox by congruence.
+  - destruct is_box; [|congruence].
+    now replace body with tBox by congruence.
 Qed.
 
 Lemma eval_is_expanded_aux Σ t v k :
@@ -2260,7 +2263,8 @@ Proof.
     rewrite nth in valid_env.
     cbn in *.
     now rewrite body_eq in valid_env; propify.
-  - now replace body with tBox by congruence.
+  - destruct is_box; [|congruence].
+    now replace body with tBox by congruence.
 Qed.
 
 Lemma valid_dearg_mask_constant Σ kn cst body :
@@ -2278,6 +2282,7 @@ Proof.
   - eapply nth_error_forallb in valid_env.
     rewrite nth in valid_env.
     cbn in *.
+    destruct is_box; [|congruence].
     replace body with tBox by congruence.
     cbn.
     now destruct get_const_mask.
@@ -2397,7 +2402,9 @@ Proof.
   - destruct (kername_eq_dec k kn) as [->|].
     + noconf typ.
       eexists.
-      now split; [reflexivity|].
+      split; [reflexivity|].
+      cbn.
+      now destruct o.
     + now apply IH.
 Qed.
 
@@ -2874,13 +2881,15 @@ Proof.
   intros clos.
   induction Σ as [|((kn & has_deps) & decl) Σ IH]; [easy|].
   cbn in *.
-  destruct decl; [|easy|easy].
-  cbn in *.
-  propify; split; [|easy].
-  destruct (cst_body c); [|easy].
-  cbn in *.
-  eapply closedn_dearg_aux; [|easy].
-  now eapply closedn_dearg_lambdas.
+  destruct decl; [|easy|].
+  - cbn in *.
+    propify; split; [|easy].
+    destruct (cst_body c); [|easy].
+    cbn in *.
+    eapply closedn_dearg_aux; [|easy].
+    now eapply closedn_dearg_lambdas.
+  - cbn in *.
+    now destruct o.
 Qed.
 
 Lemma valid_dearg_mask_dearg_aux mask t :

@@ -14,13 +14,18 @@ From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import Prelim.
 From MetaCoq.Erasure Require SafeErasureFunction.
+From MetaCoq.PCUIC Require Import PCUICArities.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.PCUIC Require Import PCUICCanonicity.
 From MetaCoq.PCUIC Require Import PCUICConfluence.
+From MetaCoq.PCUIC Require Import PCUICContextConversion.
+From MetaCoq.PCUIC Require Import PCUICContexts.
 From MetaCoq.PCUIC Require Import PCUICConversion.
 From MetaCoq.PCUIC Require Import PCUICCumulativity.
 From MetaCoq.PCUIC Require Import PCUICElimination.
 From MetaCoq.PCUIC Require Import PCUICGeneration.
+From MetaCoq.PCUIC Require Import PCUICInductiveInversion.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICNormal.
@@ -29,6 +34,7 @@ From MetaCoq.PCUIC Require Import PCUICReduction.
 From MetaCoq.PCUIC Require Import PCUICSN.
 From MetaCoq.PCUIC Require Import PCUICSR.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
+From MetaCoq.PCUIC Require Import PCUICSubstitution.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICValidity.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
@@ -66,32 +72,6 @@ Opaque reduce_term.
 Notation term_rel := (SafeErasureFunction.term_rel Σ).
 Instance WellFounded_term_rel : WellFounded term_rel :=
   (SafeErasureFunction.wf_reduction Σ wfΣ).
-
-Definition Is_conv_to_Sort Γ T : Prop :=
-  exists univ, ∥red Σ Γ T (tSort univ)∥.
-
-(* type_flag of a term indexed by the term's type. For example, for
-      t    :   T
-   eq_refl : 5 = 5 : Prop
-   we would pass T to flag_of_type below, and it would give
-   is_logical = true, is_arity = false. On the other hand, for
-   (fun (X : Type) => X) : Type -> Type
-   we would pass Type -> Type and get is_logical = false, is_arity = true.
-*)
-Record type_flag {Γ T} :=
-  build_flag
-    { (* Type is proposition when fully applied, i.e. either
-         (T : Prop, or T a0 .. an : Prop). If this is an arity,
-         indicates whether this is a logical arity (i.e. into Prop). *)
-      is_logical : bool;
-      (* Term is a type scheme, i.e. type is an arity.
-         T = SProp/Type/Prop or ... -> SProp/Type/Prop *)
-      is_arity : {Is_conv_to_Arity Σ Γ T} + {~Is_conv_to_Arity Σ Γ T};
-      (* Term is a type, i.e. type is a sort. *)
-      is_sort : {Is_conv_to_Sort Γ T} + {~Is_conv_to_Sort Γ T};
-    }.
-
-Global Arguments type_flag : clear implicits.
 
 Lemma sq_red_transitivity {Γ A} B {C} :
   ∥red Σ Γ A B∥ ->
@@ -493,6 +473,151 @@ fot_viewc t := fot_view_other t _.
 Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
 Proof. now apply wat_wellformed. Qed.
 
+(* Definition of normalized arities *)
+Definition arity_ass := name * term.
+
+Fixpoint mkNormalArity (l : list arity_ass) (s : Universe.t) : term :=
+  match l with
+  | [] => tSort s
+  | (na, A) :: l => tProd na A (mkNormalArity l s)
+  end.
+
+Lemma isArity_mkNormalArity l s :
+  isArity (mkNormalArity l s).
+Proof.
+  induction l as [|(na & A) l IH]; cbn; auto.
+Qed.
+
+Record conv_arity {Γ T} : Type := build_conv_arity {
+  conv_ar_context : list arity_ass;
+  conv_ar_univ : Universe.t;
+  conv_ar_red : ∥red Σ Γ T (mkNormalArity conv_ar_context conv_ar_univ)∥
+}.
+
+Global Arguments conv_arity : clear implicits.
+
+Definition conv_arity_or_not Γ T : Type :=
+  (conv_arity Γ T) + (~∥conv_arity Γ T∥).
+
+Definition Is_conv_to_Sort Γ T : Prop :=
+  exists univ, ∥red Σ Γ T (tSort univ)∥.
+
+Definition is_sort {Γ T} (c : conv_arity_or_not Γ T) : option (Is_conv_to_Sort Γ T).
+Proof.
+  destruct c as [c|not_conv_ar].
+  - destruct c as [[|(na & A) ctx] univ r].
+    + apply Some.
+      eexists.
+      eassumption.
+    + exact None.
+  - exact None.
+Defined.
+
+Lemma red_it_mkProd_or_LetIn_smash_context Γ Δ t :
+  red Σ Γ
+      (it_mkProd_or_LetIn Δ t)
+      (it_mkProd_or_LetIn (smash_context [] Δ) (expand_lets Δ t)).
+Proof.
+  induction Δ in Γ, t |- * using ctx_length_rev_ind; cbn.
+  - now rewrite expand_lets_nil.
+  - change (Γ0 ++ [d]) with ([d],,, Γ0).
+    rewrite smash_context_app_expand.
+    destruct d as [na [b|] ty]; cbn.
+    + unfold app_context.
+      rewrite expand_lets_vdef, it_mkProd_or_LetIn_app, app_nil_r.
+      cbn.
+      rewrite lift0_context, lift0_id, subst_empty.
+      rewrite subst_context_smash_context.
+      cbn.
+      etransitivity.
+      { apply red1_red.
+        apply red_zeta. }
+      unfold subst1.
+      rewrite subst_it_mkProd_or_LetIn.
+      rewrite Nat.add_0_r.
+      apply X.
+      now rewrite subst_context_length.
+    + unfold app_context.
+      rewrite expand_lets_vass, !it_mkProd_or_LetIn_app.
+      cbn.
+      apply red_prod_r.
+      rewrite subst_context_lift_id.
+      now apply X.
+Qed.
+
+Lemma conv_arity_Is_conv_to_Arity {Γ T} :
+  conv_arity Γ T ->
+  Is_conv_to_Arity Σ Γ T.
+Proof.
+  intros [asses univ r].
+  eexists.
+  split; [eassumption|].
+  apply isArity_mkNormalArity.
+Qed.
+
+Lemma Is_conv_to_Arity_conv_arity {Γ T} :
+  Is_conv_to_Arity Σ Γ T ->
+  ∥conv_arity Γ T∥.
+Proof.
+  intros (t & [r] & isar).
+  eexists.
+  destruct (destArity [] t) as [(ctx & univ)|] eqn:dar.
+  + set (ctx' := rev_map (fun d => (decl_name d, decl_type d)) (smash_context [] ctx)).
+    apply (build_conv_arity _ _ ctx' univ).
+    constructor.
+    transitivity t; [auto|].
+    apply PCUICArities.destArity_spec_Some in dar.
+    cbn in dar.
+    subst.
+    replace (mkNormalArity ctx' univ) with (it_mkProd_or_LetIn (smash_context [] ctx) (tSort univ)).
+    { apply red_it_mkProd_or_LetIn_smash_context. }
+    subst ctx'.
+    pose proof (@smash_context_assumption_context [] ctx assumption_context_nil).
+    clear -H.
+    induction (smash_context [] ctx) using List.rev_ind; [easy|].
+    rewrite it_mkProd_or_LetIn_app in *.
+    rewrite rev_map_app.
+    cbn.
+    apply assumption_context_app in H as (? & ass_x).
+    depelim ass_x.
+    cbn.
+    f_equal.
+    now apply IHc.
+  + exfalso.
+    clear -isar dar.
+    revert dar.
+    generalize ([] : context).
+    induction t; intros ctx; cbn in *; eauto; try congruence.
+Qed.
+
+Definition is_arity {Γ T} (c : conv_arity_or_not Γ T) :
+  {Is_conv_to_Arity Σ Γ T} + {~Is_conv_to_Arity Σ Γ T}.
+Proof.
+  destruct c; [left|right].
+  - apply (conv_arity_Is_conv_to_Arity c).
+  - abstract (intros conv; apply Is_conv_to_Arity_conv_arity in conv; tauto).
+Defined.
+
+(* type_flag of a term indexed by the term's type. For example, for
+      t    :   T
+   eq_refl : 5 = 5 : Prop
+   we would pass T to flag_of_type below, and it would give
+   is_logical = true, conv_ar = right _. On the other hand, for
+   (fun (X : Type) => X) : Type -> Type
+   we would pass Type -> Type and get is_logical = false, conv_ar = left _.
+*)
+Record type_flag {Γ T} :=
+  build_flag
+    { (* Type is proposition when fully applied, i.e. either
+         (T : Prop, or T a0 .. an : Prop). If this is an arity,
+         indicates whether this is a logical arity (i.e. into Prop). *)
+      is_logical : bool;
+      (* Arity that this type is convertible to *)
+      conv_ar : conv_arity_or_not Γ T;
+    }.
+
+Global Arguments type_flag : clear implicits.
+
 Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
   : type_flag Γ T
   by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) erase_rel :=
@@ -500,21 +625,21 @@ flag_of_type Γ T wat with inspect (hnf wfΣ Γ T (watwf wat)) :=
   | exist T is_hnf with fot_viewc T := {
     | fot_view_prod na A B with flag_of_type (Γ,, vass na A) B _ := {
       | flag_cod := {| is_logical := is_logical flag_cod;
-                       is_arity := match is_arity flag_cod with
-                                   | left isar => left _
-                                   | right notar => right _
-                                   end;
-                       is_sort := right _ |}
+                       conv_ar := match conv_ar flag_cod with
+                                  | inl car =>
+                                    inl {| conv_ar_context := (na, A) :: conv_ar_context car;
+                                           conv_ar_univ := conv_ar_univ car |}
+                                  | inr notar => inr _
+                                  end |}
       };
     | fot_view_sort univ := {| is_logical := Universe.is_prop univ;
-                               is_arity := left _;
-                               is_sort := left _; |};
+                               conv_ar := inl {| conv_ar_context := [];
+                                                 conv_ar_univ := univ; |} |};
     | fot_view_other T discr with infer Σ wfΣ _ Γ T _ := {
       | exist K princK with inspect (reduce_to_sort wfΣ Γ K _) := {
         | exist (Checked (existT _ univ red_univ)) eq :=
           {| is_logical := Universe.is_prop univ;
-             is_arity := right _;
-             is_sort := right _; |};
+             conv_ar := inr _ |};
         | exist (TypeError t) eq := !
         }
     }
@@ -533,15 +658,18 @@ Next Obligation. reduce_term_sound; eauto with erase. Qed.
 Next Obligation. reduce_term_sound; eauto with erase. Qed.
 Next Obligation.
   reduce_term_sound.
-  destruct isar as [Bconv [Bred Bar]].
-  exists (tProd na A Bconv).
-  split; [|easy].
-  apply (sq_red_transitivity (tProd na A B)); [rewrite is_hnf; apply hnf_sound|].
-  sq.
-  now apply red_prod_alt.
+  destruct car as [ctx univ [r']].
+  cbn.
+  constructor.
+  transitivity (tProd na A B); auto.
+  now apply red_prod_r.
 Qed.
 Next Obligation.
+  reduce_term_sound.
   contradiction notar.
+  apply Is_conv_to_Arity_conv_arity.
+  destruct H as [car].
+  apply conv_arity_Is_conv_to_Arity in car.
   assert (prod_conv: Is_conv_to_Arity Σ Γ (tProd na A B)).
   { eapply Is_conv_to_Arity_red with T; [easy|].
     rewrite is_hnf.
@@ -552,27 +680,7 @@ Next Obligation.
   destruct redtm as (A' & B' & (-> & redAA') & redBB').
   exists B'; easy.
 Qed.
-Next Obligation.
-  destruct H as [univ [red_sort]].
-  pose proof (@hnf_sound _ _ wfΣ Γ T (watwf wat)) as [red_prod].
-  rewrite <- is_hnf in red_prod.
-  destruct wfΣ as [wfΣu].
-  pose proof (red_confluence wfΣu red_sort red_prod) as (v' & redv'1 & redv'2).
-  apply invert_red_sort in redv'1.
-  subst.
-  apply invert_red_prod in redv'2 as (? & ? & (? & ?) & ?); easy.
-Qed.
-Next Obligation.
-  exists (tSort univ).
-  split; [|easy].
-  rewrite is_hnf.
-  apply hnf_sound.
-Qed.
-Next Obligation.
-  exists univ.
-  rewrite is_hnf.
-  apply hnf_sound.
-Qed.
+Next Obligation. reduce_term_sound; eauto with erase. Qed.
 Next Obligation.
   case wfextΣ.
   now intros [].
@@ -593,15 +701,9 @@ Next Obligation.
 Qed.
 Next Obligation.
   clear eq.
-  now apply not_prod_or_sort_hnf in discr.
-Qed.
-Next Obligation.
-  clear eq.
   apply not_prod_or_sort_hnf in discr.
-  contradiction discr.
-  destruct H.
-  exists (tSort x).
-  now split.
+  destruct H as [car].
+  now apply conv_arity_Is_conv_to_Arity in car.
 Qed.
 Next Obligation.
   pose proof (SafeErasureFunction.reduce_to_sort_complete _ (eq_sym eq)).
@@ -685,7 +787,7 @@ Equations(noeqns) erase_type_aux
 erase_type_aux Γ erΓ t isT next_tvar
   with inspect (reduce_term redβιζ Σ wfΣ Γ t (isTwf isT)) :=
 
-  | exist t eq_hnf with (is_logical (flag_of_type Γ t _)) := {
+  | exist t eq_hnf with is_logical (flag_of_type Γ t _) := {
 
     | true := ([], TBox);
 
@@ -707,7 +809,7 @@ erase_type_aux Γ erΓ t isT next_tvar
             (erase_type_aux (Γ,, vass na A) (RelOther :: erΓ)%vector B _ next_tvar);
 
           (* If the type isn't an arity now, then the domain is a "normal" type like nat. *)
-        | {| is_arity := right _ |} :=
+        | {| conv_ar := inr _ |} :=
           let '(_, dom) := erase_type_aux Γ erΓ A _ None in
           on_snd
             (TArr dom)
@@ -761,8 +863,11 @@ erase_type_aux Γ erΓ t isT next_tvar
                 let (aT, princaT) := infer Σ wfΣ _ Γ a _ in
                 match flag_of_type Γ aT _ with
                 | {| is_logical := true |} => TBox
-                | {| is_sort := left conv_sort |} => snd (erase_type_aux Γ erΓ a _ None)
-                | _ => TAny (* Arity or value *)
+                | {| conv_ar := car |} =>
+                  match is_sort car with
+                  | Some conv_sort => snd (erase_type_aux Γ erΓ a _ None)
+                  | None => TAny (* non-sort arity or value *)
+                  end
                 end in
             ([], mkTApps hdbt (map_In decomp_args erase_arg))
           else
@@ -852,30 +957,159 @@ Qed.
 Definition erase_type (t : term) (isT : ∥isType Σ [] t∥) : list name × box_type :=
   erase_type_aux [] []%vector t isT (Some 0).
 
-Inductive erase_constant_decl_error :=
-| TypeAliasWithoutBody
-| CannotHandleTypeScheme.
+Lemma typwf {Γ t T} :
+  ∥Σ;;; Γ |- t : T∥ ->
+  wellformed Σ Γ t.
+Proof.
+  intros [typ].
+  left.
+  now econstructor.
+Qed.
 
-Definition string_of_erase_constant_decl_error (err : erase_constant_decl_error) : string :=
-  match err with
-  | TypeAliasWithoutBody => "Type alias does not have a body"
-  | CannotHandleTypeScheme => "Cannot handle type schemes yet"
-  end.
+Inductive erase_type_scheme_view : term -> Type :=
+| erase_type_scheme_view_lam na A B : erase_type_scheme_view (tLambda na A B)
+| erase_type_scheme_view_other t : negb (isLambda t) -> erase_type_scheme_view t.
+
+Equations erase_type_scheme_viewc (t : term) : erase_type_scheme_view t :=
+erase_type_scheme_viewc (tLambda na A B) := erase_type_scheme_view_lam na A B;
+erase_type_scheme_viewc t := erase_type_scheme_view_other t _.
+
+Definition type_var_info_of_flag (na : name) {Γ t} (f : type_flag Γ t) : type_var_info :=
+  {| tvar_name := na;
+     tvar_is_logical := is_logical f;
+     tvar_is_arity := if is_arity (conv_ar f) then true else false;
+     tvar_is_sort := if is_sort (conv_ar f) then true else false; |}.
+
+(* For a non-lambda type scheme, i.e.
+   t : T1 -> T2 -> ... -> Tn -> Type
+   where t is not a lambda, finish erasing it as a type scheme
+   by repeatedly eta expanding it *)
+Equations? (noeqns) erase_type_scheme_eta
+          (Γ : context)
+          (erΓ : Vector.t tRel_kind #|Γ|)
+          (t : term)
+          (ar_ctx : list arity_ass)
+          (ar_univ : Universe.t)
+          (typ : ∥Σ;;; Γ |- t : mkNormalArity ar_ctx ar_univ∥)
+          (next_tvar : nat) : list type_var_info × box_type :=
+erase_type_scheme_eta Γ erΓ t [] univ typ next_tvar => ([], (erase_type_aux Γ erΓ t _ None).2);
+erase_type_scheme_eta Γ erΓ t ((na, A) :: ar_ctx) univ typ next_tvar =>
+let inf := type_var_info_of_flag na (flag_of_type Γ A _) in
+let (kind, new_next_tvar) :=
+    if tvar_is_arity inf then
+      (RelTypeVar next_tvar, S next_tvar)
+    else
+      (RelOther, next_tvar) in
+let '(infs, bt) := erase_type_scheme_eta
+                     (Γ,, vass na A)
+                     (kind :: erΓ)%vector
+                     (tApp (lift0 1 t) (tRel 0))
+                     ar_ctx univ _
+                     new_next_tvar in
+(inf :: infs, bt).
+Proof.
+  - destruct typ.
+    constructor.
+    eexists; eassumption.
+  - destruct typ as [typ].
+    destruct wfΣ.
+    assert (wf_local Σ Γ) by (eapply typing_wf_local; eauto).
+    apply validity in typ; auto.
+    apply isWAT_tProd in typ; auto.
+    constructor.
+    now right.
+  - clear inf.
+    destruct wfΣ.
+    destruct typ as [typ].
+    apply typing_wf_local in typ as wfl.
+    assert (wflext: wf_local Σ (Γ,, vass na A)).
+    { apply validity in typ; auto.
+      apply isWAT_tProd in typ as (_ & typ); auto.
+      eapply isWAT_wf_local; eauto. }
+    constructor.
+    rewrite <- (PCUICSpine.subst_rel0_lift_id 0 (mkNormalArity ar_ctx univ)).
+    eapply type_App.
+    + eapply (PCUICWeakening.weakening _ _ [_] _ _ _ wflext typ).
+    + fold lift.
+      eapply (type_Rel _ _ _ (vass na A)); auto.
+Qed.
+
+Equations? (noeqns) erase_type_scheme
+          (Γ : context)
+          (erΓ : Vector.t tRel_kind #|Γ|)
+          (t : term)
+          (ar_ctx : list arity_ass)
+          (ar_univ : Universe.t)
+          (typ : ∥Σ;;; Γ |- t : mkNormalArity ar_ctx ar_univ∥)
+          (next_tvar : nat) : list type_var_info × box_type :=
+erase_type_scheme Γ erΓ t [] univ typ next_tvar => ([], (erase_type_aux Γ erΓ t _ None).2);
+erase_type_scheme Γ erΓ t ((na', A') :: ar_ctx) univ typ next_tvar
+  with inspect (reduce_term redβιζ Σ wfΣ Γ t (typwf typ)) := {
+  | exist thnf eq_hnf with erase_type_scheme_viewc thnf := {
+    | erase_type_scheme_view_lam na A body =>
+      let inf := type_var_info_of_flag na (flag_of_type Γ A _) in
+      let (kind, new_next_tvar) :=
+          if tvar_is_arity inf then
+            (RelTypeVar next_tvar, S next_tvar)
+          else
+            (RelOther, next_tvar) in
+      let '(infs, bt) := erase_type_scheme
+                          (Γ,, vass na A) (kind :: erΓ)%vector
+                          body ar_ctx univ _ new_next_tvar in
+      (inf :: infs, bt);
+    | erase_type_scheme_view_other thnf _ =>
+      erase_type_scheme_eta Γ erΓ t ((na', A') :: ar_ctx) univ typ next_tvar
+    }
+  }.
+Proof.
+  - destruct typ.
+    constructor; eexists; eauto.
+  - destruct typ as [typ].
+    reduce_term_sound.
+    destruct wfΣ.
+    eapply subject_reduction in r; eauto.
+    apply inversion_Lambda in r as (?&?&?&?&?); auto.
+    constructor.
+    right.
+    eexists; eassumption.
+  - clear inf.
+    destruct typ as [typ].
+    reduce_term_sound.
+    destruct wfΣ.
+    eapply subject_reduction in r; eauto.
+    apply inversion_Lambda in r as (?&?&?&?&?); auto.
+    assert (wf_local Σ Γ) by (eapply typing_wf_local; eauto).
+    apply cumul_Prod_inv_l in c as (?&?); auto.
+    constructor.
+    clear eq_hnf.
+    eapply validity in typ; auto.
+    apply isWAT_tProd in typ as (_ & typ); auto.
+    assert (conv_context Σ (Γ,, vass na A) (Γ,, vass na' A')).
+    { constructor; [reflexivity|].
+      constructor; assumption. }
+    eapply context_conversion'; eauto.
+    1: now eapply typing_wf_local; eauto.
+    2: now apply conv_context_sym; eauto.
+    eapply type_Cumul.
+    + eapply context_conversion; eauto.
+      eapply isWAT_wf_local; eassumption.
+    + eassumption.
+    + now eapply cumul_conv_ctx; eauto.
+Qed.
 
 Import ExAst.
 Equations? (noeqns) erase_constant_decl
           (cst : P.constant_body)
           (wt : ∥on_constant_decl (lift_typing typing) Σ cst∥)
-  : result (constant_body + (list name × box_type)) erase_constant_decl_error :=
+  : constant_body + option (list type_var_info × box_type) :=
 erase_constant_decl cst wt with flag_of_type [] (P.cst_type cst) _ := {
-  | {| is_arity := left isar; is_sort := left issort |} with inspect (P.cst_body cst) := {
-    | exist (Some body) body_eq => Ok (inr (erase_type body _));
-    | exist None _ => Err (TypeAliasWithoutBody)
+  | {| conv_ar := inl car |} with inspect (P.cst_body cst) := {
+    | exist (Some body) body_eq =>
+      inr (Some (erase_type_scheme [] []%vector body (conv_ar_context car) (conv_ar_univ car) _ 0));
+    | exist None _ => inr None
     };
-  | {| is_arity := left isar; is_sort := right notsort |} => Err CannotHandleTypeScheme;
-  | {| is_arity := right notar |} =>
-    Ok (inl {| cst_type := erase_type (P.cst_type cst) _;
-               cst_body := erased_body |})
+  | {| conv_ar := inr notar |} =>
+    inl {| cst_type := erase_type (P.cst_type cst) _; cst_body := erased_body |}
     where erased_body : option term := {
     erased_body with inspect (P.cst_body cst) := {
       | exist (Some body) body_eq => Some (SafeErasureFunction.erase Σ wfextΣ [] body _);
@@ -893,14 +1127,14 @@ Proof.
       destruct wt as (s & ?).
       right.
       now exists s.
-  - destruct cst; cbn in *.
-    subst cst_body.
+  - unfold on_constant_decl in wt.
+    rewrite <- body_eq in wt.
     cbn in *.
-    destruct issort as (s & [r]).
-    sq.
-    exists s.
-    red.
-    eapply type_reduction; eauto.
+    destruct wt as [wt].
+    destruct car as [ctx univ [r]].
+    destruct wfΣ.
+    eapply type_reduction in wt; eauto.
+    constructor; eauto.
   - destruct wt as [wt].
     unfold on_constant_decl in wt.
     rewrite <- body_eq in wt.
@@ -914,7 +1148,10 @@ Proof.
     destruct (P.cst_body cst).
     + eapply validity_term in wt; [|now eauto].
       destruct wt.
-      * now apply nIs_conv_to_Arity_isWfArity_elim in notar.
+      * apply nIs_conv_to_Arity_isWfArity_elim in i; [easy|].
+        intros conv.
+        apply Is_conv_to_Arity_conv_arity in conv.
+        tauto.
       * now constructor.
     + cbn in wt.
       destruct wt as (s & ?).
@@ -924,21 +1161,14 @@ Qed.
 
 Import P.
 
-Definition fot_to_oib_tvar (na : name) {Γ t} (f : type_flag Γ t) : oib_type_var :=
-  {| tvar_name := na;
-     tvar_is_logical := is_logical f;
-     tvar_is_arity := if is_arity f then true else false;
-     tvar_is_sort := if is_sort f then true else false; |}.
-
 Equations? (noeqns) erase_ind_arity
           (Γ : context)
           (t : term)
-          (wat : ∥isWfArity_or_Type Σ Γ t∥)
-  : list oib_type_var
+          (wat : ∥isWfArity_or_Type Σ Γ t∥) : list type_var_info
   by wf ((Γ; t; watwf wat) : (∑ Γ t, wellformed Σ Γ t)) erase_rel :=
 erase_ind_arity Γ t wat with inspect (hnf wfΣ Γ t (watwf wat)) := {
   | exist (tProd na A B) hnf_eq =>
-    let hd := fot_to_oib_tvar na (flag_of_type Γ A _) in
+    let hd := type_var_info_of_flag na (flag_of_type Γ A _) in
     let tl := erase_ind_arity (Γ,, vass na A) B _ in
     hd :: tl;
   | exist _ _ := []
@@ -1009,7 +1239,7 @@ Equations? (noeqns) erase_ind_ctor
           (t : term)
           (isT : ∥isType Σ Γ t∥)
           (next_par : nat)
-          (tvars : list oib_type_var) : box_type
+          (tvars : list type_var_info) : box_type
   by struct tvars :=
 erase_ind_ctor Γ erΓ t isT next_par [] := (erase_type_aux Γ erΓ t isT None).2;
 
@@ -1102,32 +1332,18 @@ Local Existing Instance extraction_checker_flags.
 
 Import ExAst.
 
-Inductive erase_global_decl_error :=
-| ErrConstant (kn : kername) (err : erase_constant_decl_error).
-
-Definition string_of_erase_global_decl_error (e : erase_global_decl_error) : string :=
-  match e with
-  | ErrConstant kn err => "Error while erasing constant "
-                              ++ string_of_kername kn ++ ": "
-                              ++ string_of_erase_constant_decl_error err
-  end.
-
 Program Definition erase_global_decl
         (Σext : P.global_env_ext) (wfΣext : ∥wf_ext Σext∥)
         (kn : kername)
         (decl : P.global_decl)
-        (wt : ∥on_global_decl (lift_typing typing) Σext kn decl∥)
-  : result global_decl erase_global_decl_error :=
+        (wt : ∥on_global_decl (lift_typing typing) Σext kn decl∥) : global_decl :=
   match decl with
   | P.ConstantDecl cst =>
-    cst_or_ty_alias <- map_error (ErrConstant kn)
-                                 (erase_constant_decl Σext _ cst _);;
-    match cst_or_ty_alias with
-    | inl cst => ret (ConstantDecl cst)
-    | inr ta => ret (TypeAliasDecl ta)
+    match erase_constant_decl Σext _ cst _ with
+    | inl cst => ConstantDecl cst
+    | inr ta => TypeAliasDecl ta
     end
-  | P.InductiveDecl mib =>
-    ret (InductiveDecl (erase_ind Σext _ kn mib _))
+  | P.InductiveDecl mib => InductiveDecl (erase_ind Σext _ kn mib _)
   end.
 
 Fixpoint box_type_deps (t : box_type) : KernameSet.t :=
@@ -1160,7 +1376,8 @@ Definition decl_deps (decl : global_decl) : KernameSet.t :=
     fold_left (fun seen oib => KernameSet.union seen (one_inductive_body_deps oib))
               (ind_bodies mib)
               KernameSet.empty
-  | TypeAliasDecl (nms, ty) => box_type_deps ty
+  | TypeAliasDecl (Some (nms, ty)) => box_type_deps ty
+  | _ => KernameSet.empty
   end.
 
 (* Erase the global declarations by the specified names and their
@@ -1170,10 +1387,9 @@ Program Fixpoint erase_global_decls_deps_recursive
         (Σ : P.global_env)
         (wfΣ : ∥wf Σ∥)
         (include : KernameSet.t)
-        (ignore_deps : kername -> bool)
-  : result global_env erase_global_decl_error :=
+        (ignore_deps : kername -> bool) : global_env :=
   match Σ with
-  | [] => ret []
+  | [] => []
   | (kn, decl) :: Σ =>
     let Σext := (Σ, universes_decl_of_decl decl) in
     if KernameSet.mem kn include then
@@ -1181,14 +1397,15 @@ Program Fixpoint erase_global_decls_deps_recursive
          1. For inductives, we want to allow pattern matches on them and we need
          information about them to print names.
          2. For constants, we use their type to do deboxing.
-         This is a little hacky as we might fail to erase these and then fail erasure.
          On the other hand, it is unlikely that something remapped has a higher-kinded type
          as we wouldn't be able to remap it to something sane, so this is probably ok. *)
-      decl <- erase_global_decl Σext _ kn decl _;;
+      let decl := erase_global_decl Σext _ kn decl _ in
       let with_deps := negb (ignore_deps kn) in
       let new_deps := if with_deps then decl_deps decl else KernameSet.empty in
-      Σer <- erase_global_decls_deps_recursive Σ _ (KernameSet.union new_deps include) ignore_deps;;
-      ret ((kn, with_deps, decl) :: Σer)
+      let Σer := erase_global_decls_deps_recursive
+                   Σ _
+                   (KernameSet.union new_deps include) ignore_deps in
+      (kn, with_deps, decl) :: Σer
     else
       erase_global_decls_deps_recursive Σ _ include ignore_deps
   end.
@@ -1197,5 +1414,6 @@ Solve Obligations with try now cbn;intros;subst; sq; inversion wfΣ.
 End EraseEnv.
 
 Global Arguments is_logical {_ _ _}.
+Global Arguments conv_ar {_ _ _}.
 Global Arguments is_sort {_ _ _}.
 Global Arguments is_arity {_ _ _}.

@@ -47,8 +47,7 @@ Definition extract_pcuic_env
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
 
-  Σ <- map_error string_of_erase_global_decl_error
-                 (erase_global_decls_deps_recursive Σ wfΣ seeds ignore);;
+  let Σ := erase_global_decls_deps_recursive Σ wfΣ seeds ignore in
 
   match dearg_args params with
   | Some dp =>

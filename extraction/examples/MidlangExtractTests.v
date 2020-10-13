@@ -303,3 +303,46 @@ Module ex11.
 "  = Build_Monad (□ -> 𝕋 -> m) (□ -> □ -> m -> (𝕋 -> m) -> m)" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex11.
+
+Module ex12.
+  Definition idT (T : Type) := T.
+  Definition weird_id {T} (i : idT T) := i.
+  MetaCoq Quote Recursively Definition ex := @weird_id.
+  Example test :
+    extract ex = Ok <$
+"type alias IdT t = t";
+"";
+"weird_id : IdT t -> IdT t";
+"weird_id i =";
+"  i" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex12.
+
+Module ex13.
+  Definition opt := option.
+  Definition unwrap (o : opt nat) : nat := match o with
+                                           | Some x => x
+                                           | None => 0
+                                           end.
+  MetaCoq Quote Recursively Definition ex := unwrap.
+  Example test :
+    extract ex = Ok <$
+"type Option a";
+"  = Some a";
+"  | None";
+"";
+"type alias Opt a = Option a";
+"";
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"unwrap : Opt Nat -> Nat";
+"unwrap o =";
+"  case o of";
+"    Some x ->";
+"      x";
+"    None ->";
+"      O" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex13.
