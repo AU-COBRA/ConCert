@@ -482,26 +482,10 @@ Fixpoint mkNormalArity (l : list arity_ass) (s : Universe.t) : term :=
   | (na, A) :: l => tProd na A (mkNormalArity l s)
   end.
 
-Definition context_of_arity_asses (l : list arity_ass) : context :=
-  rev_map (fun '(na, A) => vass na A) l.
-
-Lemma mkNormalArity_it_mkProd_or_LetIn l s :
-  mkNormalArity l s = it_mkProd_or_LetIn (context_of_arity_asses l) (tSort s).
-Proof.
-  unfold context_of_arity_asses.
-  rewrite rev_map_spec.
-  induction l as [|(na, A) l IH]; [easy|].
-  cbn.
-  rewrite it_mkProd_or_LetIn_app.
-  cbn.
-  now rewrite IH.
-Qed.
-
 Lemma isArity_mkNormalArity l s :
   isArity (mkNormalArity l s).
 Proof.
-  rewrite mkNormalArity_it_mkProd_or_LetIn.
-  now apply isArity_it_mkProd_or_LetIn.
+  induction l as [|(na & A) l IH]; cbn; auto.
 Qed.
 
 Record conv_arity {Γ T} : Type := build_conv_arity {

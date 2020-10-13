@@ -353,6 +353,12 @@ Example ex26_test :
   ("", "(□ → nat) → nat").
 Proof. vm_compute. reflexivity. Qed.
 
+Definition idT (T : Type) := T.
+MetaCoq Quote Recursively Definition ex27 := (idT nat -> idT nat).
+Example ex27_test :
+  erase_and_print_type id ex27 = ("", "idT nat → idT nat").
+Proof. vm_compute. reflexivity. Qed.
+
 End erase_type_tests.
 
 Module erase_ind_arity_tests.

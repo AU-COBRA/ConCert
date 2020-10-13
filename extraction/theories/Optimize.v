@@ -299,7 +299,7 @@ Fixpoint debox_box_type_aux (args : list box_type) (bt : box_type) : box_type :=
   | TApp ty1 ty2 =>
     debox_box_type_aux (debox_box_type_aux [] ty2 :: args) ty1
   | TInd ind => dearg_single_bt (get_inductive_tvars ind) bt args
-  | _ => bt
+  | _ => mkTApps bt args
   end.
 
 Definition debox_box_type (bt : box_type) : box_type :=
