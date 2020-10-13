@@ -38,7 +38,7 @@ Record constant_body :=
   { cst_type : list name * box_type;
     cst_body : option term; }.
 
-(* The arity of an inductive is an iterated product that we will
+(* The arity of an inductive and type alias is an iterated product that we will
      decompose into type vars. Each type var has information about its
      type associated with it. Here are a couple of examples:
 
@@ -61,7 +61,7 @@ Record constant_body :=
           tvar_is_logical b = false,
           tvar_is_arity b = false,
           tvar_is_sort b = false *)
-Record oib_type_var :=
+Record type_var_info :=
   { tvar_name : name;
     tvar_is_logical : bool;
     tvar_is_arity : bool;
@@ -69,7 +69,7 @@ Record oib_type_var :=
 
 Record one_inductive_body :=
   { ind_name : ident;
-    ind_type_vars : list oib_type_var;
+    ind_type_vars : list type_var_info;
     ind_ctors : list (ident * list box_type);
     ind_projs : list (ident * box_type); }.
 
@@ -80,7 +80,7 @@ Record mutual_inductive_body :=
 Inductive global_decl :=
 | ConstantDecl : constant_body -> global_decl
 | InductiveDecl : mutual_inductive_body -> global_decl
-| TypeAliasDecl : list name * box_type -> global_decl.
+| TypeAliasDecl : option (list type_var_info * box_type) -> global_decl.
 
 (* has_deps specified whether the environment includes dependencies of this global *)
 Definition global_env := list (kername * bool (* has_deps *) * global_decl).

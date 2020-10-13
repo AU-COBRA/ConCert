@@ -595,11 +595,13 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
     | [oib] => (nm, print_inductive prefix TT oib)
     | _ => (nm,"Only non-mutual inductives are supported")
     end
-  | TypeAliasDecl (params, ty) =>
+  | TypeAliasDecl (Some (params, ty)) =>
     let ta_nm := from_option (lookup TT (string_of_kername nm))
                              (prefix ++ nm.2) in
-    (nm, "type " ++ uncapitalize ta_nm ++ concat " " (map string_of_name params) ++  " = "
+    (nm, "type " ++ uncapitalize ta_nm
+                 ++ concat " " (map (string_of_name ∘ tvar_name) params) ++  " = "
             ++ print_box_type prefix TT ty)
+  | TypeAliasDecl None => (nm, "")
   end.
 
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)

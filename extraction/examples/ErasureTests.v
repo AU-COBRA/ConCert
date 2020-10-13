@@ -30,75 +30,74 @@ Record type_flag_squashed :=
     is_sort : bool;
     is_arity : bool }.
 
-Program Definition flag_of_type_program (p : Ast.program)
-  : result type_flag_squashed string :=
+Program Definition flag_of_type_program (p : Ast.program) : type_flag_squashed :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
   let f := flag_of_type (empty_ext Σ) _ [] (trans p.2) _ in
-  ret {| is_logical := Erasure.is_logical f;
-         is_sort := if Erasure.is_sort f then true else false;
-         is_arity := if Erasure.is_arity f then true else false |}.
+  {| is_logical := Erasure.is_logical f;
+     is_sort := if Erasure.is_sort (conv_ar f) then true else false;
+     is_arity := if Erasure.is_arity (conv_ar f) then true else false |}.
 Next Obligation. Admitted.
 Next Obligation. Admitted.
 
 MetaCoq Quote Recursively Definition ex1 := Type.
 Example ex1_test :
   flag_of_type_program ex1 =
-  Ok {| is_logical := false; is_sort := true; is_arity := true |}.
+  {| is_logical := false; is_sort := true; is_arity := true |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex2 := nat.
 Example ex2_test :
   flag_of_type_program ex2 =
-  Ok {| is_logical := false; is_sort := false; is_arity := false |}.
+  {| is_logical := false; is_sort := false; is_arity := false |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex3 := (nat -> nat).
 Example ex3_test :
   flag_of_type_program ex3 =
-  Ok {| is_logical := false; is_sort := false; is_arity := false |}.
+  {| is_logical := false; is_sort := false; is_arity := false |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex4 := (forall A, A).
 Example ex4_test :
   flag_of_type_program ex4 =
-  Ok {| is_logical := false; is_sort := false; is_arity := false |}.
+  {| is_logical := false; is_sort := false; is_arity := false |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex5 := (Prop).
 Example ex5_test :
   flag_of_type_program ex5 =
-  Ok {| is_logical := true; is_sort := true; is_arity := true |}.
+  {| is_logical := true; is_sort := true; is_arity := true |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex5' := (forall n m: nat, Prop).
 Example ex5'_test :
   flag_of_type_program ex5' =
-  Ok {| is_logical := true; is_sort := false; is_arity := true |}.
+  {| is_logical := true; is_sort := false; is_arity := true |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex6 := (Prop -> Type).
 Example ex6_test :
   flag_of_type_program ex6 =
-  Ok {| is_logical := false; is_sort := false; is_arity := true |}.
+  {| is_logical := false; is_sort := false; is_arity := true |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex7 := (Type -> Prop).
 Example ex7_test :
   flag_of_type_program ex7 =
-  Ok {| is_logical := true; is_sort := false; is_arity := true |}.
+  {| is_logical := true; is_sort := false; is_arity := true |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex8 := (False).
 Example ex8_test :
   flag_of_type_program ex8 =
-  Ok {| is_logical := true; is_sort := false; is_arity := false |}.
+  {| is_logical := true; is_sort := false; is_arity := false |}.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex9 := (Fin.t 0 -> False).
 Example ex9_test :
   flag_of_type_program ex9 =
-  Ok {| is_logical := true; is_sort := false; is_arity := false |}.
+  {| is_logical := true; is_sort := false; is_arity := false |}.
 Proof. vm_compute. reflexivity. Qed.
 End flag_of_type_tests.
 
@@ -357,8 +356,7 @@ Proof. vm_compute. reflexivity. Qed.
 End erase_type_tests.
 
 Module erase_ind_arity_tests.
-Program Definition erase_arity_program (p : Ast.program)
-: list oib_type_var :=
+Program Definition erase_arity_program (p : Ast.program) : list type_var_info :=
   let p := fix_program_universes p in
   let Σ := trans_global_decls p.1 in
   erase_ind_arity (empty_ext Σ) _ [] (trans p.2) _.
@@ -594,3 +592,89 @@ Example IndWithIndex_test :
 "| ex14_ctor □" $>.
 Proof. vm_compute. reflexivity. Qed.
 End erase_ind_tests.
+
+Module erase_type_scheme_tests.
+Axiom assume_wellformed : forall {X}, X.
+Axiom does_not_happen : forall {X}, X.
+Definition erase_and_print_type_scheme (p : Ast.program) : string * string :=
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
+  match trans p.2 with
+  | P.tConst kn _ =>
+    match lookup_env Σ kn with
+    | Some (P.ConstantDecl cst) =>
+      let r := erase_constant_decl
+                 (Σ, cst_universes cst) assume_wellformed
+                 cst assume_wellformed in
+      match r with
+      | inr (Some (tvars, bt)) =>
+        let tvars := map tvar_name tvars in
+        (erase_type_tests.print_type_vars tvars,
+         erase_type_tests.print_box_type Σ tvars bt)
+      | _ => does_not_happen
+      end
+    | _ => does_not_happen
+    end
+  | _ => does_not_happen
+  end.
+
+Definition nat_alias := nat.
+MetaCoq Quote Recursively Definition ex1 := nat_alias.
+Example ex1_test :
+  erase_and_print_type_scheme ex1 = ("", "nat").
+Proof. vm_compute. reflexivity. Qed.
+
+Definition list_nat := list nat.
+MetaCoq Quote Recursively Definition ex2 := list_nat.
+Example ex2_test :
+  erase_and_print_type_scheme ex2 = ("", "list nat").
+Proof. vm_compute. reflexivity. Qed.
+
+Definition list_alias T := list T.
+MetaCoq Quote Recursively Definition ex3 := list_alias.
+Example ex3_test :
+  erase_and_print_type_scheme ex3 = ("T", "list T").
+Proof. vm_compute. reflexivity. Qed.
+
+Definition list_alias_eta := list.
+MetaCoq Quote Recursively Definition ex4 := list_alias_eta.
+Example ex4_test :
+  (* Names are taken from arity when eta expanding *)
+  erase_and_print_type_scheme ex4 = ("A", "list A").
+Proof. vm_compute. reflexivity. Qed.
+
+Inductive anon_list : Type -> Type :=
+| anil : forall T, anon_list T
+| acons : forall T, T -> anon_list T -> anon_list T.
+
+Definition anon_list_alias_eta := anon_list.
+MetaCoq Quote Recursively Definition ex5 := anon_list_alias_eta.
+Example ex5_test :
+  erase_and_print_type_scheme ex5 = ("_", "anon_list _").
+Proof. vm_compute. reflexivity. Qed.
+
+Definition option_wrap T := option T.
+MetaCoq Quote Recursively Definition ex6 := option_wrap.
+Example ex6_test :
+  erase_and_print_type_scheme ex6 = ("T", "option T").
+Proof. vm_compute. reflexivity. Qed.
+
+Definition vector_wrap T n := Vector.t (option T) n.
+MetaCoq Quote Recursively Definition ex7 := vector_wrap.
+Example ex7_test :
+  erase_and_print_type_scheme ex7 = ("T n", "t (option T) 𝕋").
+Proof. vm_compute. reflexivity. Qed.
+
+Definition vector_wrap_eta T := Vector.t (option T).
+MetaCoq Quote Recursively Definition ex8 := vector_wrap_eta.
+Example ex8_test :
+  erase_and_print_type_scheme ex8 = ("T _", "t (option T) 𝕋").
+Proof. vm_compute. reflexivity. Qed.
+
+Fixpoint vector_wrap_fix T n := Vector.t (option T) n.
+MetaCoq Quote Recursively Definition ex9 := vector_wrap_fix.
+Example ex9_test :
+  erase_and_print_type_scheme ex9 = ("T n", "𝕋").
+Proof. vm_compute. reflexivity. Qed.
+
+End erase_type_scheme_tests.

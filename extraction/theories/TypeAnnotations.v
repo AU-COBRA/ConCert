@@ -74,7 +74,7 @@ Fixpoint vec_repeat {A} (a : A) (n : nat) : Vector.t A n :=
 Program Definition erase_type_of Γ t (wt : welltyped Σ Γ t) : box_type :=
   let ty := type_of Σ wfΣ _ Γ t wt in
   let flag := flag_of_type Σ wfextΣ Γ ty _ in
-  if is_arity flag then
+  if conv_ar flag then
     TBox
   else
     (erase_type_aux Σ wfextΣ Γ (vec_repeat RelOther #|Γ|) ty _ None).2.
@@ -97,7 +97,9 @@ Next Obligation.
   destruct wfΣ.
   eapply validity_term in typ; eauto.
   destruct typ.
-  - now apply nIs_conv_to_Arity_isWfArity_elim in H.
+  - apply nIs_conv_to_Arity_isWfArity_elim in i; [easy|].
+    intros conv.
+    now apply Is_conv_to_Arity_conv_arity in conv.
   - now constructor.
 Qed.
 
@@ -197,16 +199,15 @@ Qed.
 
 Definition annotate_types_erase_constant_decl cst wt :
   match erase_constant_decl Σ wfextΣ cst wt with
-  | Ok (inl cst) => constant_body_annots box_type cst
+  | inl cst => constant_body_annots box_type cst
   | _ => unit
   end.
 Proof.
   unfold erase_constant_decl.
   destruct flag_of_type.
   cbn in *.
-  destruct is_arity.
-  - destruct is_sort; [|exact tt].
-    destruct cst; cbn.
+  destruct conv_ar.
+  - destruct cst; cbn.
     destruct cst_body; exact tt.
   - destruct cst; cbn.
     destruct cst_body; [|exact tt].
@@ -218,10 +219,7 @@ Proof.
 Defined.
 
 Definition annotate_types_erase_global_decl kn decl wt :
-  match erase_global_decl Σ wfextΣ kn decl wt with
-  | Ok decl => global_decl_annots box_type decl
-  | _ => unit
-  end.
+  global_decl_annots box_type (erase_global_decl Σ wfextΣ kn decl wt).
 Proof.
   unfold erase_global_decl.
   destruct decl; [|exact tt].
@@ -229,17 +227,13 @@ Proof.
   pose proof (annotate_types_erase_constant_decl c wt).
   destruct erase_constant_decl; [|exact tt].
   cbn.
-  destruct t; [|exact tt].
   exact X.
 Defined.
 
 End fix_env.
 
 Definition annotate_types_erase_global_decls_deps_recursive Σ wfΣ include ignore_deps :
-  match erase_global_decls_deps_recursive Σ wfΣ include ignore_deps with
-  | Ok Σ => env_annots box_type Σ
-  | _ => unit
-  end.
+  env_annots box_type (erase_global_decls_deps_recursive Σ wfΣ include ignore_deps).
 Proof.
   revert include.
   induction Σ; intros include; [exact tt|].
@@ -249,21 +243,17 @@ Proof.
   - cbn.
     match goal with
     | |- context[erase_global_decl ?a ?b ?c ?d ?e] =>
-      pose proof (annotate_types_erase_global_decl a b c d e);
-        destruct erase_global_decl
-    end; [|exact tt].
+      pose proof (annotate_types_erase_global_decl a b c d e)
+    end.
     match goal with
     | |- context[erase_global_decls_deps_recursive _ ?prf ?incl _] =>
-      specialize (IHΣ prf incl);
-        destruct erase_global_decls_deps_recursive
-    end; [|exact tt].
-    cbn.
+      specialize (IHΣ prf incl)
+    end.
     exact (X, IHΣ).
   - match goal with
     | |- context[erase_global_decls_deps_recursive _ ?prf ?incl _] =>
-      specialize (IHΣ prf incl);
-        destruct erase_global_decls_deps_recursive
-    end; [|exact tt].
+      specialize (IHΣ prf incl)
+    end.
     exact IHΣ.
 Defined.
 
@@ -458,7 +448,6 @@ Definition annot_extract_pcuic_env params Σ wfΣ include ignore :
 Proof.
   unfold extract_pcuic_env.
   pose proof (annotate_types_erase_global_decls_deps_recursive Σ wfΣ include ignore).
-  destruct erase_global_decls_deps_recursive; cbn; [|exact tt].
   destruct dearg_args; [|exact X].
   destruct (_ && _); [exact tt|].
   destruct analyze_env.

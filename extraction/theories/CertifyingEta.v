@@ -150,13 +150,6 @@ Fixpoint get_eta_info (Σ : global_env) (ds : dearg_set) : ctors_info * constans
   | [] => ([],[])
   end.
 
-Definition template_of_result {A} (res : result A string) : TemplateMonad A :=
-  t <- tmEval lazy res ;;
-  match t with
-  | Ok v => ret v
-  | Err e => tmFail e
-  end.
-
 Fixpoint change_modpath (mpath : modpath) (ignore : kername -> bool) (t : term) : term :=
   match t with
   | tRel n => t
@@ -244,18 +237,14 @@ Definition add_suffix_global_env (mpath : modpath) (ignore : kername -> bool) (�
 
 Definition eta_global_env
            (params : extract_template_env_params)
-           (Σ : global_env) (seeds : KernameSet.t) (ignore : kername -> bool) :
-  result _ string :=
+           (Σ : global_env) (seeds : KernameSet.t) (ignore : kername -> bool) :=
   match dearg_args (pcuic_args params) with
-  | None => ret Σ (* no need to eta expand if we aren't doing dearging *)
+  | None => Σ (* no need to eta expand if we aren't doing dearging *)
   | Some dp =>
-    Σe <-
-    map_error
-      string_of_erase_global_decl_error
-      (erase_global_decls_deps_recursive
-         (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
-         seeds ignore);;
-
+    let Σe :=
+        erase_global_decls_deps_recursive
+          (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
+          seeds ignore in
     let (const_masks, ind_masks) := analyze_env Σe in
     let const_masks := (if do_trim_const_masks dp then trim_const_masks else id) const_masks in
     let ind_masks := (if do_trim_ctor_masks dp then trim_ind_masks else id) ind_masks in
@@ -269,7 +258,7 @@ Definition eta_global_env
         | None => cb
         end in
     let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
-    ret (map_constants_global_env id f Σ')
+    map_constants_global_env id f Σ'
   end.
 
 Definition is_none {A} (o : option A) :=
@@ -293,7 +282,7 @@ Definition eta_global_env_template
            (Σ : global_env)
            (seeds : KernameSet.t) (ignore : kername -> bool)
            (cst_name_ignore : kername -> bool) : TemplateMonad global_env :=
-  Σext <- template_of_result (eta_global_env params Σ seeds ignore) ;;
+  Σext <- tmEval lazy (eta_global_env params Σ seeds ignore);;
   gen_expanded_const_and_proof Σext mpath cst_name_ignore;;
   ret Σext.
 

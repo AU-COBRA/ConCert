@@ -87,7 +87,8 @@ Theorem extract_correct
 Proof.
   intros ax [T wt] ev not_erasable no_ignores ex.
   cbn in *.
-  destruct erase_global_decls_deps_recursive as [Σex|] eqn:er; cbn in *; [|congruence].
+  remember (erase_global_decls_deps_recursive _ _ _ _) eqn:er.
+  symmetry in er.
   destruct env_closed eqn:closed; cbn in *; [|congruence].
   destruct analyze_env eqn:an; cbn in *.
   destruct is_expanded_env eqn:isexp; cbn in *; [|congruence].

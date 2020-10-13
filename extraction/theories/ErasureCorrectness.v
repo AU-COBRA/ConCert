@@ -190,12 +190,11 @@ Qed.
 Opaque erase_type flag_of_type SafeErasureFunction.wf_reduction.
 Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore Σex :
   (forall k, ignore k = false) ->
-  erase_global_decls_deps_recursive Σ wfΣ include ignore = Ok Σex ->
+  erase_global_decls_deps_recursive Σ wfΣ include ignore = Σex ->
   (forall k,
       KernameSet.In k include ->
       match P.lookup_env Σ k with
-      | Some (P.ConstantDecl cst) =>
-        erases_deps Σ (trans_env Σex) (E.tConst k)
+      | Some (P.ConstantDecl cst) => erases_deps Σ (trans_env Σex) (E.tConst k)
       | _ => True
       end).
 Proof.
@@ -225,32 +224,38 @@ Proof.
       destruct wfΣ.
       now apply erases_deps_weaken.
   - cbn in *.
-    destruct erase_global_decl eqn:erdecl; cbn in *; [|congruence].
-    destruct erase_global_decls_deps_recursive eqn:errec; [|congruence].
+    destruct Σex; [congruence|].
+    (*destruct erase_global_decl eqn:erdecl; cbn in *; [|congruence].
+    destruct erase_global_decls_deps_recursive eqn:errec; [|congruence].*)
     inversion er; subst; clear er.
+    remember (erase_global_decls_deps_recursive _ _ _ _) eqn:errec.
+    symmetry in errec.
     intros k isin.
     unfold eq_kername.
     destruct kername_eq_dec as [->|]; cycle 1.
     { cbn in *.
       eapply IH with (k := k) in errec; eauto.
-      destruct P.lookup_env; [|easy].
-      destruct g; [|easy].
-      destruct wfΣ.
-      destruct t;
-        eauto using erases_deps_cons, erases_deps_weaken.
-      now apply KernameSet.union_spec. }
+      - destruct P.lookup_env; [|easy].
+        destruct g0; [|easy].
+        destruct wfΣ.
+        destruct erase_global_decl; eauto using erases_deps_cons, erases_deps_weaken.
+      - now apply KernameSet.union_spec. }
     destruct decl; [|easy].
     cbn -[erase_constant_decl] in *.
-    destruct erase_constant_decl eqn:erconst; cbn -[erase_constant_decl] in *; [|congruence].
-    unfold erase_constant_decl in erconst.
+    unfold erase_constant_decl in *.
     destruct flag_of_type; cbn in *.
-    destruct is_arity; cbn in *.
-    + destruct is_sort; [|congruence].
-      destruct c.
-      destruct cst_body; cbn in *; [|congruence].
-      destruct erase_type; cbn in *.
-      inversion erconst; subst; clear erconst.
-      inversion erdecl; subst; clear erdecl.
+    destruct conv_ar; cbn in *.
+    + destruct c; cbn in *.
+      destruct cst_body; cbn in *; cycle 1.
+      { econstructor.
+        - unfold declared_constant; cbn; rewrite eq_kername_refl; reflexivity.
+        - unfold ETyping.declared_constant; cbn.
+          destruct kername_eq_dec; [|congruence].
+          reflexivity.
+        - easy.
+        - intros.
+          cbn in *.
+          congruence. }
       cbn in *.
       econstructor.
       * unfold declared_constant; cbn; rewrite eq_kername_refl.
@@ -258,10 +263,12 @@ Proof.
       * unfold ETyping.declared_constant; cbn.
         destruct kername_eq_dec; [|congruence].
         reflexivity.
-      * cbn.
-        destruct wfΣ as [wfΣ].
+      * destruct wfΣ as [wfΣ].
         destruct wfdecl as [wfdecl].
-        destruct i0 as (u & [redu]).
+        unfold erases_constant_body.
+        cbn.
+        clear errec.
+        destruct c0 as [ctx univ [r]].
         eapply type_reduction in wfdecl; eauto.
         2: now inversion wfΣ.
         constructor.
@@ -271,7 +278,8 @@ Proof.
         1: now eauto.
         eexists _.
         split; [eassumption|].
-        now left.
+        left.
+        apply isArity_mkNormalArity.
       * intros.
         cbn in *.
         inversion H; subst; clear H.
@@ -279,9 +287,7 @@ Proof.
     + destruct erase_type; cbn in *.
       destruct c; cbn in *.
       destruct cst_body; cycle 1.
-      { inversion erconst; subst; clear erconst.
-        inversion erdecl; subst; clear erdecl.
-        cbn in *.
+      { cbn in *.
         econstructor.
         - unfold declared_constant; cbn; rewrite eq_kername_refl; reflexivity.
         - unfold ETyping.declared_constant; cbn.
@@ -293,13 +299,9 @@ Proof.
           congruence. }
 
       match goal with
-      | [H: context[SafeErasureFunction.erase _ _ _ _ ?p] |- _] =>
+      | |- context[erase _ _ _ _ ?p] =>
         set (twt := p) in *; clearbody twt
       end.
-      inversion erconst; subst; clear erconst.
-      inversion erdecl; subst; clear erdecl.
-      cbn in *.
-      specialize (IH _ _ _ errec).
       destruct wfΣ as [wfΣ].
       destruct wfdecl as [wfdecl].
       econstructor.
@@ -307,7 +309,8 @@ Proof.
       * unfold ETyping.declared_constant; cbn.
         destruct kername_eq_dec; [|congruence].
         reflexivity.
-      * cbn.
+      * cbn in *.
+        clear errec.
         eapply type_reduction in wfdecl; eauto.
         2: now inversion wfΣ.
         eapply (erases_extends (_, _)).
@@ -315,7 +318,7 @@ Proof.
         1: now inversion wfΣ.
         2: eexists [_]; reflexivity.
         1: now eauto.
-        apply SafeErasureFunction.erases_erase.
+        apply erases_erase.
       * intros.
         cbn in *.
         noconf H.
@@ -324,7 +327,7 @@ Proof.
         eapply (erases_deps_recursive (Σ, cst_universes)); eauto.
         { apply SafeErasureFunction.erases_erase. }
         intros.
-        apply IH.
+        apply (IH _ _ _ errec).
         apply KernameSet.union_spec; left.
         apply KernameSet.union_spec; auto.
 Qed.
