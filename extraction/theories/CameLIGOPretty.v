@@ -215,6 +215,10 @@ Section print_term.
     | _ => t
     end.
 
+  Equations lam_body_annot {A : Type} (t : term) (a : annots A t) : ∑t, annots A t :=
+    lam_body_annot (tLambda na b) (_, ba) => lam_body_annot b ba;
+    lam_body_annot t a := (t; a).
+
     Definition print_def (print_term : context -> bool -> bool -> term -> string) (Γ : context) (fdef : def  term) :=
       let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
       let fix_name := string_of_name (fdef.(dname)) in
@@ -355,6 +359,10 @@ Section print_term.
 
       [t] - a term to be printed.
    *)
+
+   (* Compute forall ind t r, annots box_type (tCase ind t r). *)
+   Eval simpl in forall ind t b1 b2, annots box_type (tCase ind t [b1; b2]).
+   Eval simpl in forall f l, annots box_type (tApp f l).
   Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) : annots box_type t -> string :=
   match t return annots box_type t -> string with
   | tBox => fun bt => "()" (* boxes become the contructor of the [unit] type *)
@@ -379,10 +387,8 @@ Section print_term.
     parens top ("let " ++ string_of_name na' ++
                       " = " ++ print_term prefix FT TT Γ true false def vala ++ " in " ++ nl ++
                       print_term prefix FT TT (vdef na' def :: Γ) true false body bodya)
-  | tApp f l => fun bt => "" (*TODO*)
-  (* | tApp f l => fun bt' =>
-    let '(bt, (hda, arga)) := bt' in
-    let apps := rev (app_args (fun t => print_term prefix FT TT Γ false false t bt') t) in
+  | tApp f l => fun '(bt, (fa, la)) =>
+    let apps := rev (app_args (fun t => print_term prefix FT TT Γ false false t fa) t) in
     let (b,_) := decompose_app f in
     match b with
       (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
@@ -392,7 +398,7 @@ Section print_term.
         let nm := (string_of_name d.(decl_name)) in
         if in_list String.string_dec FT nm
         then parens top (print_uncurried nm apps)
-        else parens (top || inapp) (print_term prefix FT TT Γ false true f hda ++ " " ++ print_term prefix FT TT Γ false false l)
+        else parens (top || inapp) (print_term prefix FT TT Γ false true f fa ++ " " ++ print_term prefix FT TT Γ false false l la)
       | None => "UnboundRel(" ++ string_of_nat i ++ ")"
       end
     | tConst c => fun bt =>
@@ -417,7 +423,7 @@ Section print_term.
         let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
         parens top (print_uncurried nm' apps)
     | _ => fun bt =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
-    end *)
+    end
   | tConst c => fun bt =>
     let cst_name := string_of_kername c in
     from_option (look TT cst_name) (prefix ++ c.2)
@@ -426,63 +432,65 @@ Section print_term.
     if nm =? "nil" then
     "([]: " ++ print_box_type prefix TT (TInd ind) ++ ")" 
     else from_option (look TT nm) ((capitalize prefix) ++ nm)
-  | tCase (mkInd mind i as ind, nparam) t brs => fun '(bt, (bt1, bt2)) =>
+  | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
     if eq_kername mind <%% bool %%> then
       match brs with
-      | [b1;b2] => ""
+      | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
         (* TODO *)
-        (* parens top
-                ("if " ++ print_term prefix FT TT Γ true false t bt1
-                       ++ " then " ++ print_term prefix FT TT Γ true false (snd b1) bt1
-                       ++ " else " ++ print_term prefix FT TT Γ true false (snd b2) bt2) *)
-      | _ => "Error (Malformed pattern-mathing on bool: given "
+        parens top
+                ("if " ++ print_term prefix FT TT Γ true false t ta 
+                       ++ " then " ++ print_term prefix FT TT Γ true false (snd b1) b1a
+                       ++ " else " ++ print_term prefix FT TT Γ true false (snd b2) b2a)
+      | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
       end
     else
       (* [list] is a special case *)
       if eq_kername mind <%% list %%> then
         match brs with
-        | [b1;b2] =>
-          let nil_case := "[] -> " ++ print_term prefix FT TT Γ false false b1.2 _ in
+        | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
+          let nil_case := "[] -> " ++ print_term prefix FT TT Γ false false b1.2 b1a in
           let (cons_args, _) := Edecompose_lam b2.2 in
-          let cons_body := lam_body b2.2 in
+          let (cons_body, body_annot) := lam_body_annot b2.2 b2a in
           let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x b2.2)) cons_args) in
           let cons_ctx := rev (map vass cons_args) in
-          let cons_case := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false cons_body _ in
+          let cons_case := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false cons_body body_annot in
           parens top
-             ("match " ++ print_term prefix FT TT Γ true false t _
+             ("match " 
+             ++ print_term prefix FT TT Γ true false t ta
                        ++ " with " ++ nl
                        ++ concat (nl ++ " | ") [nil_case;cons_case])
-        | _ => "Error (Malformed pattern-mathing on bool: given "
+        | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
                 ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
         end
-      else
+    else
     match lookup_ind_decl mind i with
-    | Some oib =>
+    | Some oib => fun '(bt, (ta, trs)) =>
       (* TODO: use [print_branch] to cover the special case of lists *)
-      let fix print_branch Γ arity params br {struct br} :=
-          match arity with
-            | 0 => (params, print_term prefix FT TT Γ false false br _)
-            | S n =>
-              match br with
-              | tLambda na B =>
-                  let na' := fresh_name Γ na br in
-                  let (ps, b) := print_branch (vass na' :: Γ) n params B in
-                  (ps ++ [string_of_name na'], b)%list
-              | t => (params , print_term prefix FT TT Γ false false br _)
-              end
-            end in
-      let brs := map (fun '(arity, br) =>
+      let fix print_branch Γ arity params br :=
+      match br with
+      | tLambda na B => fun bt =>
+        match arity with
+        | S n =>
+          let na' := fresh_name Γ na br in
+          let (ps, b) := print_branch (vass na' :: Γ) n params B bt in
+          (ps ++ [string_of_name na'], b)%list
+        | 0 => (params , print_term prefix FT TT Γ false false br bt)
+        end
+      | t => fun bt => (params , print_term prefix FT TT Γ false false br bt)
+        end in
+            ""
+      (* let brs := map (fun '(tra, arity, br) =>
                         print_branch Γ arity [] br) brs in
       let brs := combine brs oib.(ExAst.ind_ctors) in
       parens top
-             ("match " ++ print_term prefix FT TT Γ true false t _
+             ("match " ++ print_term prefix FT TT Γ true false t ta
                        ++ " with " ++ nl
                        ++ print_list (fun '(b, (na, _)) =>
                                         print_pat prefix TT na b)
-                       (nl ++ " | ") brs)
-    | None =>
+                       (nl ++ " | ") brs) *)
+    | None => fun '(bt, br) =>
       "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
               ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
     end
