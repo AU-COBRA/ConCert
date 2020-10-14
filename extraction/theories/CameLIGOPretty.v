@@ -309,6 +309,16 @@ Section print_term.
     | _ => []
     end.
 
+  Definition app_args_annot {A} (f : (∑t, annots box_type t) -> A) :=
+    fix go (t : term) : annots box_type t -> list A := match t with
+    | tApp t1 t2 => fun '(bt, (hda, arga)) => (f (t2; arga)) :: go t1 hda
+    | _ => fun _ => []
+    end.
+(*   
+  Equations app_args_annot {A B : Type} (f : term -> A) (t : term) (a : annots B t) : list (∑tt, annots B tt) :=
+  app_args_annot f (tApp t1 t2) (bt, (hda, arga)) => (f t2; arga) :: app_args_annot f t1 hda;
+  app_args_annot f t a := [].
+ *)
   Fixpoint in_list {A} (eq_dec : forall x y : A, {x = y} + {x <> y})
            (l : list A) (a : A) : bool :=
     match l with
@@ -388,7 +398,7 @@ Section print_term.
                       " = " ++ print_term prefix FT TT Γ true false def vala ++ " in " ++ nl ++
                       print_term prefix FT TT (vdef na' def :: Γ) true false body bodya)
   | tApp f l => fun '(bt, (fa, la)) =>
-    let apps := rev (app_args (fun t => print_term prefix FT TT Γ false false t fa) t) in
+    let apps := rev (app_args_annot (fun '(t; a) => print_term prefix FT TT Γ false false t a) (tApp f l) (bt, (fa, la))) in
     let (b,_) := decompose_app f in
     match b with
       (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
@@ -401,7 +411,7 @@ Section print_term.
         else parens (top || inapp) (print_term prefix FT TT Γ false true f fa ++ " " ++ print_term prefix FT TT Γ false false l la)
       | None => "UnboundRel(" ++ string_of_nat i ++ ")"
       end
-    | tConst c => fun bt =>
+    | tConst c =>
       let cst_name := string_of_kername c in
       let nm := from_option (look TT cst_name) (prefix ++ c.2) in
       if nm =? "fst" then
@@ -409,7 +419,7 @@ Section print_term.
       else if nm =? "snd" then
         (concat " " (map (parens true) apps)) ++ ".1"
       else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
-    | tConstruct ind i => fun bt =>
+    | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
       if (nm =? "pair") then
@@ -422,7 +432,7 @@ Section print_term.
       else
         let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
         parens top (print_uncurried nm' apps)
-    | _ => fun bt =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
+    | _ => parens (top || inapp) (print_term prefix FT TT Γ false true f fa ++ " " ++ print_term prefix FT TT Γ false false l la)
     end
   | tConst c => fun bt =>
     let cst_name := string_of_kername c in
@@ -468,21 +478,22 @@ Section print_term.
     match lookup_ind_decl mind i with
     | Some oib => fun '(bt, (ta, trs)) =>
       (* TODO: use [print_branch] to cover the special case of lists *)
-      let fix print_branch Γ arity params br :=
-      match br with
-      | tLambda na B => fun bt =>
+      let fix print_branch Γ arity params br : annots box_type br -> (_ * string) :=
+      match br return annots box_type br -> (_ * string) with
+      | tLambda na B => fun '(bt, a) =>
         match arity with
         | S n =>
           let na' := fresh_name Γ na br in
-          let (ps, b) := print_branch (vass na' :: Γ) n params B bt in
+          let (ps, b) := print_branch (vass na' :: Γ) n params B a in
           (ps ++ [string_of_name na'], b)%list
-        | 0 => (params , print_term prefix FT TT Γ false false br bt)
+        | 0 => (params , print_term prefix FT TT Γ false false (tLambda na B) (bt, a))
         end
-      | t => fun bt => (params , print_term prefix FT TT Γ false false br bt)
+      | t => fun btt => (params , print_term prefix FT TT Γ false false t btt)
         end in
-            ""
-      (* let brs := map (fun '(tra, arity, br) =>
-                        print_branch Γ arity [] br) brs in
+        ""
+      (* let brs_zip := map (fun '(br, tr) => (br; tr)) (combine brs trs) in
+      let brs := map (fun '((tra, arity, br); tr) =>
+                        print_branch Γ arity [] br tr) brs_zip in
       let brs := combine brs oib.(ExAst.ind_ctors) in
       parens top
              ("match " ++ print_term prefix FT TT Γ true false t ta
@@ -498,14 +509,14 @@ Section print_term.
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => print_term prefix FT TT Γ false false c _ ++ na
+      | Some (na, _) => print_term prefix FT TT Γ false false c bt.2 ++ na
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                       ++ print_term prefix FT TT Γ true false c _ ++ ")"
+                       ++ print_term prefix FT TT Γ true false c bt.2 ++ ")"
       end
     | None =>
       "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                     ++ print_term prefix FT TT Γ true false c _ ++ ")"
+                     ++ print_term prefix FT TT Γ true false c bt.2 ++ ")"
     end
   | tFix l n => fun bt =>
     match l with
@@ -518,7 +529,7 @@ Section print_term.
           "fun " ++ concat " " sargs ++ " -> "
                  ++ print_uncurried fix_name sargs in
       let FT' := fix_name :: FT in
-      parens top ("let rec " ++ print_def (fun ctx b1 b2 t => print_term prefix FT' TT ctx b1 b2 t _) Γ fix_decl ++ nl ++
+      parens top ("let rec " ++ print_def (fun ctx b1 b2 t => print_term prefix FT' TT ctx b1 b2 (tFix l n) bt) Γ fix_decl ++ nl ++
                              " in " ++ fix_call)
     | [] => "FixWithNoBody"
     | _ => "NotSupportedMutualFix"
