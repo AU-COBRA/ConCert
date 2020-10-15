@@ -180,15 +180,6 @@ Proof.
         repeat (f_equal; try lia).
 Qed.
 
-Lemma lookup_env_find Σ kn :
-  ETyping.lookup_env Σ kn =
-  option_map snd (find (fun '(kn', _) => if kername_eq_dec kn kn' then true else false) Σ).
-Proof.
-  induction Σ as [|(kn' & decl) Σ IH]; [easy|].
-  cbn.
-  now destruct (kername_eq_dec kn kn').
-Qed.
-
 Lemma closedn_subst0 s k t :
   Forall (closedn k) s ->
   closedn (k + #|s|) t ->

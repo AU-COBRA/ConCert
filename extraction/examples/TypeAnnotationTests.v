@@ -110,7 +110,7 @@ Module ex1.
 End ex1.
 
 Module ex2.
-  Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
+  Definition foo : { n : nat | n = 0 } := exist 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex := bar.
 

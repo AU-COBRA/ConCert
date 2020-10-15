@@ -21,6 +21,13 @@ Set Equations Transparent.
 
 Notation "Σ 'e⊢' s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : type_scope.
 
+Global Arguments eval_unique_sig {_ _ _ _ _}.
+Global Arguments eval_deterministic {_ _ _ _ _}.
+Global Arguments eval_unique {_ _ _ _}.
+
+Section fix_flags.
+Context {wfl : WcbvFlags}.
+
 Lemma eval_tApp_head Σ hd arg v :
   Σ e⊢ tApp hd arg ▷ v ->
   ∑ hdv, Σ e⊢ hd ▷ hdv.
@@ -139,6 +146,15 @@ Proof.
     }
     + easy.
     + easy.
+Qed.
+
+Lemma lookup_env_find Σ kn :
+  ETyping.lookup_env Σ kn =
+  option_map snd (find (fun '(kn', _) => if kername_eq_dec kn kn' then true else false) Σ).
+Proof.
+  induction Σ as [|(kn' & decl) Σ IH]; [easy|].
+  cbn.
+  now destruct (kername_eq_dec kn kn').
 Qed.
 
 Lemma closed_constant Σ kn cst body :
@@ -324,13 +340,13 @@ Fixpoint deriv_length {Σ t v} (ev : Σ e⊢ t ▷ v) : nat :=
   | red_cofix_case _ _ _ _ _ _ _ _ _ ev
   | red_cofix_proj _ _ _ _ _ _ _ _ ev
   | eval_delta _ _ _ _ _ _ ev
-  | eval_proj_box _ _ _ _ ev => S (deriv_length ev)
+  | eval_proj_prop _ _ _ _ _ ev _ => S (deriv_length ev)
   | eval_box _ _ _ ev1 ev2
   | eval_zeta _ _ _ _ _ ev1 ev2
-  | eval_iota _ _ _ _ _ _ _ ev1 ev2
-  | eval_iota_sing _ _ _ _ _ _ _ ev1 _ ev2
+  | eval_iota _ _ _ _ _ _ _ ev1 _ ev2
+  | eval_iota_sing _ _ _ _ _ _ _ _ ev1 _ _ ev2
   | eval_fix_value _ _ _ _ _ _ _ _ ev1 ev2 _ _
-  | eval_proj _ _ _ _ _ _ ev1 ev2
+  | eval_proj _ _ _ _ _ _ ev1 _ ev2
   | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
   | eval_beta _ _ _ _ _ _ ev1 ev2 ev3
   | eval_fix _ _ _ _ _ _ _ _ ev1 ev2 _ ev3 =>
@@ -500,3 +516,5 @@ Proof.
     exists ev.
     lia.
 Qed.
+
+End fix_flags.

@@ -27,108 +27,28 @@ Import Erasure.
 Import ExAst.
 Import ConCert.Extraction.Aux.
 
-(* We have our own environment which is different from MetaCoq's erased environment
-   (it includes more information and a different treatment of types).
-   To reconcile this, we map our environments to theirs, but the treatment of types
-   remains different. However, MetaCoq does not actually use information about types
-   for anything during evaluation, so we just filter them out. This is justified
-   by the following lemmas. *)
-Definition is_constant (decl : EAst.global_decl) : bool :=
-  match decl with
-  | EAst.ConstantDecl _ => true
-  | _ => false
-  end.
-
-Definition only_constants (Σ : EAst.global_context) : EAst.global_context :=
-  filter (is_constant ∘ snd) Σ.
-
-Lemma declared_constant_only_constants Σ kn decl :
-  ETyping.declared_constant Σ kn decl ->
-  ETyping.declared_constant (only_constants Σ) kn decl.
+Lemma lookup_env_trans_env Σ kn :
+  ETyping.lookup_env (trans_env Σ) kn =
+  option_map trans_global_decl (lookup_env Σ kn).
 Proof.
-  unfold ETyping.declared_constant.
-  intros lookup_decl.
-  induction Σ; [easy|].
-  destruct a as (kn' & decl').
-  cbn in *.
-  destruct (is_constant decl') eqn:isconst.
-  - cbn in *.
-    destruct (kername_eq_dec _ _) as [<-|?]; easy.
-  - apply IHΣ.
-    destruct (kername_eq_dec _ _).
-    + inversion lookup_decl; subst; easy.
-    + auto.
-Qed.
-
-Lemma eval_only_constants Σ s t :
-  Σ e⊢ s ▷ t ->
-  only_constants Σ e⊢ s ▷ t.
-Proof.
-  induction 1; eauto using eval, declared_constant_only_constants.
-Qed.
-
-Definition trans_cst (cst : constant_body) : EAst.constant_body :=
-  {| EAst.cst_body := cst_body cst |}.
-
-(* Translation from our global environment into MetaCoq's global environment.
-   We only translate constants which is justified by the proof above. *)
-Definition trans_env (Σ : global_env) : EAst.global_context :=
-  let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
-      match decl with
-      | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst cst))]
-      | InductiveDecl _ => []
-      | TypeAliasDecl o =>
-        [(kn, EAst.ConstantDecl
-                {| EAst.cst_body := option_map (fun _ => tBox) o |})]
-      end in
-  flat_map (fun '(kn, _, decl) => map_decl kn decl) Σ.
-
-Lemma declared_constant_trans Σ kn cst :
-  ETyping.declared_constant (trans_env Σ) kn cst ->
-  (exists n has_deps typ,
-    nth_error Σ n =
-    Some (kn, has_deps, ConstantDecl {| cst_type := typ; cst_body := EAst.cst_body cst |})) \/
-  ((EAst.cst_body cst = Some tBox \/ EAst.cst_body cst = None) /\
-    exists n has_deps typ,
-      nth_error Σ n = Some (kn, has_deps, TypeAliasDecl typ)).
-Proof.
-  unfold ETyping.declared_constant.
-  intros decl.
+  unfold lookup_env, eq_kername.
   induction Σ as [|((kn' & has_deps') & cst') Σ IH]; [easy|].
-  destruct cst'; cbn in *.
-  - destruct (kername_eq_dec _ _) as [->|].
-    + noconf decl.
-      cbn in *.
-      left.
-      eexists 0, has_deps', (cst_type c).
-      now destruct c.
-    + destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
-      * eassumption.
-      * left.
-        now exists (S n').
-      * right.
-        split; [easy|].
-        now exists (S n').
-  - destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
-    + eassumption.
-    + left.
-      now exists (S n').
-    + right.
-      split; [easy|].
-      now exists (S n').
-  - destruct (kername_eq_dec _ _) as [->|].
-    + noconf decl.
-      cbn in *.
-      right.
-      split; [destruct o; tauto|].
-      now eexists 0, _, _.
-    + destruct IH as [(n' & typ & cond)|(isbox & n' & typ & cond)].
-      * eassumption.
-      * left.
-        now exists (S n').
-      * right.
-        split; [easy|].
-        now exists (S n').
+  cbn in *.
+  now destruct (kername_eq_dec _ _) as [->|].
+Qed.
+
+Lemma declared_constant_trans_env Σ kn ecst :
+  declared_constant (trans_env Σ) kn ecst ->
+  (exists cst, ecst = trans_cst cst /\ lookup_env Σ kn = Some (ConstantDecl cst)) \/
+  (exists ta, ecst = {| EAst.cst_body := option_map (fun _ => tBox) ta |} /\
+              lookup_env Σ kn = Some (TypeAliasDecl ta)).
+Proof.
+  unfold declared_constant.
+  rewrite lookup_env_trans_env.
+  cbn.
+  intros decl.
+  destruct (lookup_env Σ kn) as [cst|]; cbn in *; [|congruence].
+  destruct cst; cbn in *; [|congruence|]; noconf decl; eauto.
 Qed.
 
 Fixpoint is_dead (rel : nat) (t : term) : bool :=
@@ -437,25 +357,18 @@ Proof.
       * now rewrite IH.
 Qed.
 
-Lemma eval_dearg_single_head Σ mask head args v :
+Lemma dearg_single_masked mask t args :
   #|mask| <= #|args| ->
-  Σ e⊢ dearg_single mask head args ▷ v ->
-  ∑ hdv, Σ e⊢ head ▷ hdv.
+  dearg_single mask t args = mkApps t (masked mask args).
 Proof.
-  revert head args v.
-  induction mask as [|[] mask IH]; intros head args v l ev.
-  - cbn in *.
-    now apply eval_mkApps_head in ev.
-  - destruct args as [|a args]; cbn in *; [easy|].
-    now eapply (IH _ args).
-  - destruct args as [|a args]; cbn in *; [easy|].
-    edestruct (IH (tApp head a) args) as (appv & ev_app).
-    + easy.
-    + exact ev.
-    + now apply eval_tApp_head in ev_app.
+  intros le.
+  induction mask in mask, t, args, le |- *.
+  - now destruct args.
+  - destruct args; [easy|].
+    now destruct a; cbn in *; apply IHmask.
 Qed.
 
-Lemma eval_dearg_lambdas_inv Σ mask Γ inner v :
+Lemma eval_dearg_lambdas_inv {wfl:WcbvFlags} Σ mask Γ inner v :
   env_closed Σ ->
   closed (it_mkLambda_or_LetIn Γ inner) ->
   #|mask| = #|vasses Γ| ->
@@ -492,28 +405,6 @@ Proof.
         now eapply eval_atom.
       * eexists.
         now eapply eval_atom.
-Qed.
-
-Lemma eval_dearg_single_heads mask args Σ hd hd' hdv v :
-  #|mask| <= #|args| ->
-  Σ e⊢ hd ▷ hdv ->
-  Σ e⊢ dearg_single mask hd' args ▷ v ->
-  Σ e⊢ hd' ▷ hdv ->
-  Σ e⊢ dearg_single mask hd args ▷ v.
-Proof.
-  revert hd hd' hdv args v.
-  induction mask as [|[] mask IH]; intros hd hd' hdv args v len ev_hd ev ev_hd';
-    cbn in *.
-  - now eapply eval_mkApps_heads; [|eassumption|eassumption].
-  - now destruct args; cbn in *.
-  - destruct args; cbn in *; [easy|].
-    apply eval_dearg_single_head in ev as ev_app_hd; [|easy].
-    destruct ev_app_hd as (app_hdv & ev_app_hd).
-    eapply IH.
-    + easy.
-    + now eapply eval_tApp_heads; [| |exact ev_app_hd].
-    + eassumption.
-    + easy.
 Qed.
 
 Lemma no_use_subst k t s s' :
@@ -571,21 +462,9 @@ Proof.
       now apply IHAll.
 Qed.
 
-
 Lemma masked_nil {X} mask :
   @masked X mask [] = [].
 Proof. now destruct mask as [|[] ?]. Qed.
-
-Lemma dearg_single_masked mask t args :
-  #|mask| <= #|args| ->
-  dearg_single mask t args = mkApps t (masked mask args).
-Proof.
-  intros le.
-  induction mask in mask, t, args, le |- *.
-  - now destruct args.
-  - destruct args; [easy|].
-    now destruct a; cbn in *; apply IHmask.
-Qed.
 
 Lemma All2_masked {X Y} {T : X -> Y -> Type} xs ys mask :
   All2 T xs ys ->
@@ -599,7 +478,7 @@ Proof.
     + now constructor.
 Qed.
 
-Lemma dearg_lambdas_correct Σ body args mask v :
+Lemma dearg_lambdas_correct {wfl:WcbvFlags} Σ body args mask v :
   env_closed Σ ->
   closed body ->
   Forall (closedn 0) args ->
@@ -1812,6 +1691,22 @@ Proof.
   now apply Forall_is_expanded_cofix_subst.
 Qed.
 
+Lemma lookup_env_Forall {P} Σ kn decl :
+  lookup_env Σ kn = Some decl ->
+  Forall P Σ ->
+  exists b, P (kn, b, decl).
+Proof.
+  intros look all.
+  unfold lookup_env in *.
+  destruct find as [((kn' & b) & decl')|] eqn:find; cbn in *; [|congruence].
+  noconf look.
+  apply find_some in find as (isin & name_eq).
+  unfold eq_kername in *.
+  destruct kername_eq_dec as [->|]; [|congruence].
+  rewrite Forall_forall in all.
+  now eexists; apply all.
+Qed.
+
 Lemma is_expanded_constant Σ kn cst body :
   is_expanded_env Σ ->
   ETyping.declared_constant (trans_env Σ) kn cst ->
@@ -1821,14 +1716,16 @@ Proof.
   intros exp_env decl body_eq.
   unfold is_expanded_env in *.
   apply forallb_Forall in exp_env.
-  eapply declared_constant_trans in decl as [(? & ? & ? & nth)|(is_box & _)].
-  - rewrite body_eq in nth.
-    now eapply nth_error_forall in nth; [|eassumption].
-  - destruct is_box; [|congruence].
+  apply declared_constant_trans_env in decl as [(? & -> & look)|(? & -> & look)]; cbn in *.
+  - eapply lookup_env_Forall in look as (? & P); eauto.
+    destruct x.
+    cbn in *.
+    now rewrite body_eq in P.
+  - destruct x; cbn in *; [|congruence].
     now replace body with tBox by congruence.
 Qed.
 
-Lemma eval_is_expanded_aux Σ t v k :
+Lemma eval_is_expanded_aux {wfl:WcbvFlags} Σ t v k :
   trans_env Σ e⊢ t ▷ v ->
   is_expanded_env Σ ->
   is_expanded_aux k t ->
@@ -2258,12 +2155,13 @@ Lemma valid_cases_constant Σ kn cst body :
   valid_cases body.
 Proof.
   intros valid_env decl_const body_eq.
-  eapply declared_constant_trans in decl_const as [(? & ? & ? & nth)|(is_box & _)].
-  - eapply nth_error_forallb in valid_env.
-    rewrite nth in valid_env.
+  eapply declared_constant_trans_env in decl_const as [(? & -> & look)|(? & -> & look)].
+  - apply forallb_Forall in valid_env.
+    eapply lookup_env_Forall in valid_env as (? & valid); eauto.
+    destruct x.
     cbn in *.
-    now rewrite body_eq in valid_env; propify.
-  - destruct is_box; [|congruence].
+    now rewrite body_eq in valid; propify.
+  - destruct x; cbn in *; [|congruence].
     now replace body with tBox by congruence.
 Qed.
 
@@ -2274,21 +2172,20 @@ Lemma valid_dearg_mask_constant Σ kn cst body :
   valid_dearg_mask (get_const_mask kn) body.
 Proof.
   intros valid_env decl_const body_eq.
-  eapply declared_constant_trans in decl_const as [(? & ? & ? & nth)|(is_box & ? & ? & ? & nth)].
-  - eapply nth_error_forallb in valid_env.
-    rewrite nth in valid_env.
+  apply forallb_Forall in valid_env.
+  eapply declared_constant_trans_env in decl_const as [(? & -> & look)|(? & -> & look)].
+  - eapply lookup_env_Forall in valid_env as (? & valid); eauto.
+    destruct x.
     cbn in *.
-    now rewrite body_eq in valid_env; propify.
-  - eapply nth_error_forallb in valid_env.
-    rewrite nth in valid_env.
-    cbn in *.
-    destruct is_box; [|congruence].
+    now rewrite body_eq in valid; propify.
+  - eapply lookup_env_Forall in valid_env as (? & valid); eauto.
+    destruct x; cbn in *; [|congruence].
     replace body with tBox by congruence.
     cbn.
     now destruct get_const_mask.
 Qed.
 
-Lemma eval_valid_cases Σ t v :
+Lemma eval_valid_cases {wfl:WcbvFlags} Σ t v :
   trans_env Σ e⊢ t ▷ v ->
 
   env_closed (trans_env Σ) ->
@@ -2381,31 +2278,34 @@ Proof with auto with dearg.
   - easy.
 Qed.
 
+Lemma lookup_env_dearg_env Σ kn :
+  lookup_env (dearg_env Σ) kn = option_map (dearg_decl kn) (lookup_env Σ kn).
+Proof.
+  unfold lookup_env.
+  induction Σ as [|((kn', has_deps), decl) Σ IH]; [easy|].
+  cbn.
+  unfold eq_kername.
+  destruct kername_eq_dec as [->|]; [easy|].
+  apply IH.
+Qed.
+
 Lemma declared_constant_dearg Σ k cst :
-  ETyping.declared_constant (trans_env Σ) k cst ->
+  declared_constant (trans_env Σ) k cst ->
   ∑ cst',
-    ETyping.declared_constant (trans_env (dearg_env Σ)) k cst' ×
+    declared_constant (trans_env (dearg_env Σ)) k cst' ×
     EAst.cst_body cst' = option_map (dearg ∘ dearg_lambdas (get_const_mask k))
                                     (EAst.cst_body cst).
 Proof.
-  unfold ETyping.declared_constant.
+  unfold declared_constant.
+  rewrite !lookup_env_trans_env, lookup_env_dearg_env.
   intros typ.
-  induction Σ as [|((kn, has_deps), decl) Σ IH]; [easy|].
-  cbn in *.
-  destruct decl; cbn in *.
-  - destruct (kername_eq_dec k kn) as [->|].
-    + noconf typ.
-      eexists.
-      now split; [reflexivity|].
-    + now apply IH.
-  - now apply IH.
-  - destruct (kername_eq_dec k kn) as [->|].
-    + noconf typ.
-      eexists.
-      split; [reflexivity|].
-      cbn.
-      now destruct o.
-    + now apply IH.
+  destruct lookup_env as [decl|]; cbn in *; [|congruence].
+  destruct decl; cbn in *; [|congruence|]; noconf typ; eauto.
+  cbn.
+  eexists.
+  split; [reflexivity|].
+  cbn.
+  now destruct o.
 Qed.
 
 Inductive dearg_spec : term -> term -> Type :=
@@ -2611,7 +2511,7 @@ Proof.
     right; easy.
 Qed.
 
-Lemma eval_mkApps_tConstruct Σ ind c args argsv
+Lemma eval_mkApps_tConstruct {wfl:WcbvFlags} Σ ind c args argsv
       (a : All2 (eval Σ) args argsv) :
   Σ e⊢ mkApps (tConstruct ind c) args ▷ mkApps (tConstruct ind c) argsv.
 Proof.
@@ -2665,6 +2565,7 @@ Ltac facts :=
      end).
 
 Section dearg.
+  Context {wfl:WcbvFlags}.
   Context (n : nat).
   Context (Σ : global_env).
   Context (clos_Σ : env_closed (trans_env Σ)).
@@ -2980,7 +2881,23 @@ Proof.
         apply filter_length.
 Qed.
 
-Lemma dearg_correct Σ t v :
+Lemma is_propositional_trans_env_dearg_env Σ ind :
+  is_propositional (trans_env (dearg_env Σ)) ind =
+  is_propositional (trans_env Σ) ind.
+Proof.
+  unfold is_propositional.
+  rewrite !lookup_env_trans_env, lookup_env_dearg_env.
+  destruct lookup_env; cbn in *; [|reflexivity].
+  destruct g; cbn in *; auto.
+  rewrite !nth_error_map.
+  unfold dearg_mib.
+  destruct get_mib_masks; [|reflexivity].
+  cbn.
+  rewrite nth_error_mapi.
+  now destruct nth_error.
+Qed.
+
+Lemma dearg_correct {wfl:WcbvFlags} Σ t v :
   env_closed (trans_env Σ) ->
   closed t ->
 
@@ -3005,6 +2922,7 @@ Proof.
   destruct (dearg_elim t).
   - apply is_expanded_aux_mkApps_inv in exp_t as (exp_hd & exp_args).
     cbn in *; propify.
+    rewrite dearg_single_masked by (now rewrite map_length).
     specialize (eval_mkApps_deriv ev) as (? & ev_const & argsv & ev_args & deriv).
     depelim ev_const; cbn in *; [|easy].
     eapply declared_constant_dearg in isdecl as isdecl_dearg.
@@ -3012,14 +2930,14 @@ Proof.
     rewrite e in body_dearg; cbn in *.
 
     enough (trans_env (dearg_env Σ)
-            e⊢ dearg_single (get_const_mask kn)
-                           (dearg (dearg_lambdas (get_const_mask kn) body))
-                           (map dearg args) ▷ dearg v) as ev'.
-    { eapply eval_dearg_single_head in ev' as ev_hd; [|now rewrite map_length].
+            e⊢ mkApps (dearg (dearg_lambdas (get_const_mask kn) body))
+                      (masked (get_const_mask kn) (map dearg args)) ▷ dearg v) as ev'.
+    { eapply eval_mkApps_head in ev' as ev_hd.
       destruct ev_hd as (hdv & ev_hd).
-      eapply eval_dearg_single_heads; try eassumption.
-      - now rewrite map_length.
-      - econstructor; eassumption. }
+      eapply eval_mkApps_heads.
+      3: eassumption.
+      1: eassumption.
+      econstructor; eassumption. }
 
     rewrite dearg_dearg_lambdas by
         eauto using valid_dearg_mask_constant, valid_cases_constant.
@@ -3030,7 +2948,6 @@ Proof.
       - exists ev'.
         now cbn in *. }
 
-    rewrite dearg_single_masked by (now rewrite map_length).
     apply dearg_lambdas_correct.
     + now apply env_closed_dearg.
     + apply closedn_dearg_aux; [|easy].
@@ -3113,6 +3030,7 @@ Proof.
         rewrite dearg_mkApps in *.
         cbn in *.
         now rewrite dearg_single_masked in * by (now rewrite map_length).
+      * rewrite is_propositional_trans_env_dearg_env; eauto.
       * destruct (get_mib_masks _) eqn:mm; cycle 1.
         { cbn in *.
           unfold get_ctor_mask.
@@ -3214,8 +3132,10 @@ Proof.
                           end).
       apply (eval_iota_sing _ _ _ _ _ (n - count_ones branch_mask)
                             (dearg_lambdas branch_mask (dearg f))).
+      * eauto.
       * unshelve eapply (IH _ tBox); eauto.
         lia.
+      * rewrite is_propositional_trans_env_dearg_env; eauto.
       * destruct (get_mib_masks _); cbn in *; [easy|].
         now rewrite dearg_lambdas_nil, Nat.sub_0_r.
       * replace (repeat tBox _) with (masked branch_mask (repeat tBox n)); cycle 1.
@@ -3341,6 +3261,7 @@ Proof.
         rewrite dearg_mkApps in *.
         cbn in *.
         now rewrite dearg_single_masked in * by (now rewrite map_length).
+      * rewrite is_propositional_trans_env_dearg_env; eauto.
       * clear clos_constr valid_constr.
         unfold get_ctor_mask in *.
         revert ev2 deriv_len.
@@ -3383,9 +3304,11 @@ Proof.
       propify.
       destruct valid_hd as (valid_hd & valid_p).
       unfold dearg_proj.
-      apply eval_proj_box.
-      unshelve eapply (IH _ _ _ _ _ ev _); auto.
-      lia.
+      apply eval_proj_prop.
+      * eauto.
+      * unshelve eapply (IH _ _ _ _ _ ev _); auto.
+        lia.
+      * rewrite is_propositional_trans_env_dearg_env; eauto.
     + congruence.
 
   - facts.
@@ -3417,17 +3340,48 @@ Proof.
 Qed.
 End dearg_correct.
 
-Lemma trans_env_debox_env_types Σ :
-  trans_env (debox_env_types Σ) = trans_env Σ.
+Lemma lookup_env_debox_env_types Σ kn :
+  lookup_env (debox_env_types Σ) kn = option_map (debox_type_decl Σ) (lookup_env Σ kn).
 Proof.
-  unfold debox_env_types.
-  generalize Σ at 1 as masks.
-  induction Σ as [|(kn, decl) Σ IH]; intros masks; [easy|].
-  cbn in *.
-  destruct decl; cbn in *.
-  - f_equal.
-    apply IH.
-  - easy.
-  - f_equal.
-    apply IH.
+  unfold debox_env_types, lookup_env.
+  generalize Σ at 1 3.
+  intros masks.
+  induction Σ as [|((kn', has_deps), decl) Σ IH]; [easy|].
+  cbn.
+  unfold eq_kername.
+  destruct kername_eq_dec as [->|]; [easy|].
+  apply IH.
+Qed.
+
+Lemma is_propositional_trans_env_debox_env_types Σ ind :
+  is_propositional (trans_env (debox_env_types Σ)) ind =
+  is_propositional (trans_env Σ) ind.
+Proof.
+  unfold is_propositional.
+  rewrite !lookup_env_trans_env, lookup_env_debox_env_types.
+  destruct lookup_env; cbn in *; [|reflexivity].
+  destruct g; cbn in *; auto.
+  rewrite !nth_error_map.
+  now destruct nth_error.
+Qed.
+
+Lemma eval_debox_env_types {wfl:WcbvFlags} Σ t v :
+  trans_env Σ e⊢ t ▷ v ->
+  trans_env (debox_env_types Σ) e⊢ t ▷ v.
+Proof.
+  induction 1; try solve [econstructor; eauto].
+  - eapply eval_iota; eauto.
+    now rewrite is_propositional_trans_env_debox_env_types.
+  - eapply eval_iota_sing; eauto.
+    now rewrite is_propositional_trans_env_debox_env_types.
+  - eapply eval_delta; eauto.
+    unfold declared_constant in *.
+    rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
+    destruct lookup_env; cbn in *; [|congruence].
+    destruct g; cbn in *; auto.
+    congruence.
+  - eapply eval_proj; eauto.
+    now rewrite is_propositional_trans_env_debox_env_types.
+  - eapply eval_proj_prop; eauto.
+    now rewrite is_propositional_trans_env_debox_env_types.
 Qed.
