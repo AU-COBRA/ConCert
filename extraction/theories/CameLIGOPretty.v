@@ -22,6 +22,7 @@ From Coq Require Import List Program String Ascii.
 From ConCert.Extraction Require Import Aux StringExtra ExAst Common.
 From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import TypeAnnotations.
+From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Embedding Require Import MyEnv Ast.
 From MetaCoq.Template Require Import utils Loader Environment Kernames.
@@ -156,6 +157,7 @@ Section print_term.
             ++ nl
             ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors)).
 
+  
   Fixpoint print_ligo_type (prefix : string) (TT : env string) (t : Ast.term) :=
   let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
   match t with
@@ -207,6 +209,14 @@ Section print_term.
   | _ => ([], t)
   end.
 
+  Fixpoint Edecompose_lam_annot {A} (t : term) : (annots A t) -> (list name) × term :=
+    match t return annots A t -> (list name) × term with
+    | tLambda n b => fun '(bt, a) =>
+        let (ns, b) := Edecompose_lam_annot b a  in
+        (n :: ns, b)
+    | _ => fun bt => ([], t)
+    end.
+  
 
   (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : term) : term :=
@@ -215,20 +225,48 @@ Section print_term.
     | _ => t
     end.
 
-  Equations lam_body_annot {A : Type} (t : term) (a : annots A t) : ∑t, annots A t :=
+  (* Equations lam_body_annot {A : Type} (t : term) (a : annots A t) : ∑t, annots A t :=
     lam_body_annot (tLambda na b) (_, ba) => lam_body_annot b ba;
-    lam_body_annot t a := (t; a).
+    lam_body_annot t a := (t; a). *)
 
-    Definition print_def (print_term : context -> bool -> bool -> term -> string) (Γ : context) (fdef : def  term) :=
-      let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
-      let fix_name := string_of_name (fdef.(dname)) in
-      let (args, _) := Edecompose_lam (fdef.(dbody)) in
-      let ctx := rev (map vass args) in
-      let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
-      string_of_name fdef.(dname)
-          ++ " " ++ sargs  ++ " = "
-          ++ nl
-          ++ print_term (ctx ++ ctx' ++ Γ)%list true false (lam_body fdef.(dbody)).
+  Section lam_body_annot_cont.
+  Context {A B : Type}.
+  Context (f : forall t, annots A t -> B).
+  Fixpoint lam_body_annot_cont (t : term) (a : annots A t) : B :=
+    match t return annots A t -> B with
+    | tLambda na b => fun '(_, ba) => lam_body_annot_cont b ba
+    | _ => fun _ => f t a
+    end a.
+  End lam_body_annot_cont.
+
+  Section print_branch.
+  Context {A B : Type}.
+  Context (f : forall t, annots A t -> B).
+  Fixpoint print_branch Γ arity params (br : term) : annots A br -> (_ * B) :=      
+  match br return annots A br -> (_ * B) with
+  | tLambda na B as br => fun bt => 
+    match arity with
+    | S n =>
+      let '(bt, a) := bt in
+      let na' := fresh_name Γ na br in
+      let (ps, b) := print_branch (vass na' :: Γ) n params B a in
+      (ps ++ [string_of_name na'], b)%list
+    | 0 => (params , f br bt)
+    end
+  | t => fun btt => (params , f t btt)
+  end.
+  End print_branch.
+
+  Definition print_def (print_term : context -> bool -> bool -> term -> string) (Γ : context) (fdef : def  term) :=
+    let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
+    let fix_name := string_of_name (fdef.(dname)) in
+    let (args, _) := Edecompose_lam (fdef.(dbody)) in
+    let ctx := rev (map vass args) in
+    let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
+    string_of_name fdef.(dname)
+        ++ " " ++ sargs  ++ " = "
+        ++ nl
+        ++ print_term (ctx ++ ctx' ++ Γ)%list true false (lam_body fdef.(dbody)).
 
   Definition lookup_ind_decl ind i :=
     match ExAst.lookup_env Σ ind with
@@ -370,10 +408,22 @@ Section print_term.
       [t] - a term to be printed.
    *)
 
+   Section map_with_bigprod.
+   Context {X : Type}.
+   Context {T : X -> Type}.
+   Context {Y : Type}.
+   Context (f : forall x, T x -> Y).
+   Equations map_with_bigprod (xs : list X) (p : bigprod T xs) : list Y :=
+   map_with_bigprod [] _ => [];
+   map_with_bigprod (x :: xs) (Tx, bp) := f x Tx :: map_with_bigprod xs bp.
+   End map_with_bigprod.
+
    (* Compute forall ind t r, annots box_type (tCase ind t r). *)
    Eval simpl in forall ind t b1 b2, annots box_type (tCase ind t [b1; b2]).
+   Eval simpl in forall ind t r, annots box_type (tCase ind t r).
    Eval simpl in forall f l, annots box_type (tApp f l).
-  Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) : annots box_type t -> string :=
+   Eval simpl in forall f t1 n, annots box_type (tFix [t1] n).
+  Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} : annots box_type t -> string :=
   match t return annots box_type t -> string with
   | tBox => fun bt => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n => fun bt =>
@@ -397,8 +447,8 @@ Section print_term.
     parens top ("let " ++ string_of_name na' ++
                       " = " ++ print_term prefix FT TT Γ true false def vala ++ " in " ++ nl ++
                       print_term prefix FT TT (vdef na' def :: Γ) true false body bodya)
-  | tApp f l => fun '(bt, (fa, la)) =>
-    let apps := rev (app_args_annot (fun '(t; a) => print_term prefix FT TT Γ false false t a) (tApp f l) (bt, (fa, la))) in
+  | tApp f l as t => fun '(bt, (fa, la)) =>
+    let apps := rev (app_args_annot (fun '(t; a) => print_term prefix FT TT Γ false false t a) t (bt, (fa, la))) in
     let (b,_) := decompose_app f in
     match b with
       (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
@@ -462,46 +512,52 @@ Section print_term.
         | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
           let nil_case := "[] -> " ++ print_term prefix FT TT Γ false false b1.2 b1a in
           let (cons_args, _) := Edecompose_lam b2.2 in
-          let (cons_body, body_annot) := lam_body_annot b2.2 b2a in
+          (* let '(cons_body; body_annot) := lam_body_annot_cont b2.2 b2a in *)
           let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x b2.2)) cons_args) in
           let cons_ctx := rev (map vass cons_args) in
-          let cons_case := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false cons_body body_annot in
+          let cons_case tbody tbodya := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false tbody tbodya in
           parens top
              ("match " 
              ++ print_term prefix FT TT Γ true false t ta
                        ++ " with " ++ nl
-                       ++ concat (nl ++ " | ") [nil_case;cons_case])
+                       ++ concat (nl ++ " | ") [nil_case;(lam_body_annot_cont cons_case b2.2 b2a)])
         | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
                 ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
         end
     else
+    fun '(bt, (ta, trs)) =>
     match lookup_ind_decl mind i with
-    | Some oib => fun '(bt, (ta, trs)) =>
-      (* TODO: use [print_branch] to cover the special case of lists *)
-      let fix print_branch Γ arity params br : annots box_type br -> (_ * string) :=
-      match br return annots box_type br -> (_ * string) with
-      | tLambda na B => fun '(bt, a) =>
-        match arity with
-        | S n =>
-          let na' := fresh_name Γ na br in
-          let (ps, b) := print_branch (vass na' :: Γ) n params B a in
-          (ps ++ [string_of_name na'], b)%list
-        | 0 => (params , print_term prefix FT TT Γ false false (tLambda na B) (bt, a))
-        end
-      | t => fun btt => (params , print_term prefix FT TT Γ false false t btt)
+    | Some oib =>
+      (* let map_brs (f : forall x : (nat * term), _ x -> string)  := map_with_bigprod f brs trs in *)
+      let fix print_branch Γ arity params (br : term) : annots box_type br -> (_ * _) :=  
+        match br return annots box_type br -> (_ * _) with
+        | tLambda na B as br => fun bt => 
+          match arity with
+          | S n =>
+            let '(bt, a) := bt in
+            let na' := fresh_name Γ na br in
+            let (ps, b) := print_branch (vass na' :: Γ) n params B a in
+            (ps ++ [string_of_name na'], b)%list
+          | 0 => (params , "UNEXPECTED ERROR IN print_branch")
+          (* | 0 => (params , print_term prefix FT TT Γ false false br bt) *)
+          end
+        | t => fun btt => (params , "UNEXPECTED ERROR IN print_branch")
+        (* | t => fun btt => (params , print_term prefix FT TT Γ false false t btt) *)
         end in
-        ""
-      (* let brs_zip := map (fun '(br, tr) => (br; tr)) (combine brs trs) in
-      let brs := map (fun '((tra, arity, br); tr) =>
-                        print_branch Γ arity [] br tr) brs_zip in
-      let brs := combine brs oib.(ExAst.ind_ctors) in
-      parens top
-             ("match " ++ print_term prefix FT TT Γ true false t ta
-                       ++ " with " ++ nl
-                       ++ print_list (fun '(b, (na, _)) =>
-                                        print_pat prefix TT na b)
-                       (nl ++ " | ") brs) *)
-    | None => fun '(bt, br) =>
+      
+      let brs := map_with_bigprod (fun br tra => 
+        print_branch Γ br.1 [] br.2 tra
+      (* print_branch (fun tt ttra => print_term prefix FT TT Γ false false tt ttra) Γ br.1 [] br.2 tra *)
+      ) brs trs in
+      let brs_ := combine brs oib.(ExAst.ind_ctors) in
+      let brs_printed : string := print_list (fun '(b, (na, _)) =>
+                            print_pat prefix TT na b) (nl ++ " | ") brs_ in
+       parens top
+              ("match " 
+                        ++ print_term prefix FT TT Γ true false t ta
+                        ++ " with " ++ nl
+                        ++ brs_printed)
+    | None =>
       "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
               ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
     end
@@ -518,9 +574,7 @@ Section print_term.
       "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
                      ++ print_term prefix FT TT Γ true false c bt.2 ++ ")"
     end
-  | tFix l n => fun bt =>
-    match l with
-    | [fix_decl] => (* NOTE: We assume that the fixpoints are not mutual *)
+  | tFix [fix_decl] n => fun '(bt, (fixa, _)) => (* NOTE: We assume that the fixpoints are not mutual *)
       let fix_name := string_of_name fix_decl.(dname) in
       let body := fix_decl.(dbody) in
       let (args, _) := Edecompose_lam body in
@@ -529,12 +583,23 @@ Section print_term.
           "fun " ++ concat " " sargs ++ " -> "
                  ++ print_uncurried fix_name sargs in
       let FT' := fix_name :: FT in
-      parens top ("let rec " ++ print_def (fun ctx b1 b2 t => print_term prefix FT' TT ctx b1 b2 (tFix l n) bt) Γ fix_decl ++ nl ++
+      let print_def_annot (Γ : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
+        let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
+        let fix_name := string_of_name (fdef.(dname)) in
+        let (args, _) := Edecompose_lam (fdef.(dbody)) in
+        let ctx := rev (map vass args) in
+        let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
+        fun btt => 
+        string_of_name fdef.(dname)
+            ++ " " ++ sargs  ++ " = "
+            ++ nl
+            ++ lam_body_annot_cont (fun body body_annot => print_term prefix FT' TT (ctx ++ ctx' ++ Γ)%list true false body body_annot) fdef.(dbody) btt
+      in
+      parens top ("let rec " ++ print_def_annot Γ fix_decl fixa ++ nl ++
                              " in " ++ fix_call)
-    | [] => "FixWithNoBody"
-    | _ => "NotSupportedMutualFix"
-    end
-  | tCoFix l n => fun bt => "NotSupportedCoFix"
+  | tFix [] _ => fun _ => "FixWithNoBody"
+  | tFix _ _ => fun _ => "NotSupportedMutualFix"
+  | tCoFix l n => fun _ => "NotSupportedCoFix"
   end.
 
 End print_term.
@@ -555,6 +620,48 @@ Fixpoint get_fix_names (t : term) : list name :=
   | _ => []
   end.
 
+
+Definition opt_args :=
+  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| dearg_args :=
+            Some
+              {| do_trim_const_masks := true;
+                 do_trim_ctor_masks := true;
+                 check_closed := false;
+                 check_expanded := false;
+                 check_valid_masks := false |} |} |}.
+
+Definition no_opt_args :=
+  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| dearg_args := None |} |}.
+
+Axiom does_not_happen : forall {A}, A.
+
+Definition general_extract_typed (prefix : string) (p : T.program) (opt : bool) (ignore : list kername) (TT : MyEnv.env string) : string.
+Proof.
+  refine (let entry := match p.2 with
+           | T.tConst kn _ => kn
+           | T.tInd ind _ => (inductive_mind ind)
+           | _ => does_not_happen
+           end in _).
+  set (args := if opt then opt_args else no_opt_args).
+  pose proof (annot_extract_template_env args p.1 (KernameSet.singleton entry)
+                                         (fun k => existsb (eq_kername k) ignore)).
+  destruct extract_template_env as [|e]; [|exact does_not_happen].
+  destruct (bigprod_find (fun '(kn, _, _) _ => eq_kername entry kn) X); [|exact does_not_happen].
+  destruct s as ((? & decl) & annot).
+  destruct decl; [|exact does_not_happen|exact does_not_happen].
+  cbn in *.
+  unfold constant_body_annots in *.
+  destruct Ex.cst_body; [|exact does_not_happen].
+  refine (let (args,lam_body) := Edecompose_lam_annot t0 annot in _).
+  refine (let ctx := map (fun x => Build_context_decl x None) (rev args) in _).
+  
+  exact (print_term t prefix [] TT ctx true false lam_body annot).
+
+Defined.
 
 Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
