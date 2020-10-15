@@ -202,7 +202,7 @@ Proof.
     cbn in *; auto.
   - propify.
     destruct (Nat.eqb_spec n n'); lia.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
     propify.
     easy.
@@ -219,21 +219,21 @@ Proof.
     easy.
   - easy.
   - revert k n' clos klen.
-    induction H; [easy|]; intros k n' clos klen.
+    induction X; [easy|]; intros k n' clos klen.
     destruct x.
     cbn in *.
     propify.
     split; [easy|].
     rewrite <- Nat.add_succ_r in *.
-    now eapply IHAll.
+    now eapply IHX.
   - revert k n' clos klen.
-    induction H; [easy|]; intros k n' clos klen.
+    induction X; [easy|]; intros k n' clos klen.
     destruct x.
     cbn in *.
     propify.
     split; [easy|].
     rewrite <- Nat.add_succ_r in *.
-    now eapply IHAll.
+    now eapply IHX.
 Qed.
 
 Lemma is_dead_csubst k t u k' :
@@ -253,7 +253,7 @@ Proof.
     + cbn.
       propify.
       lia.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
     propify.
     easy.
@@ -272,7 +272,7 @@ Proof.
     easy.
   - rewrite map_length.
     revert k k' kltn use_eq clos.
-    induction H; [easy|]; intros k k' kltn use_eq clos.
+    induction X; [easy|]; intros k k' kltn use_eq clos.
     destruct x.
     cbn in *.
     propify.
@@ -280,11 +280,11 @@ Proof.
     + apply p; [easy| |easy].
       now eapply closed_upwards.
     + rewrite <- !Nat.add_succ_r in *.
-      apply IHAll; [easy|easy|].
+      apply IHX; [easy|easy|].
       now eapply closed_upwards.
   - rewrite map_length.
     revert k k' kltn use_eq clos.
-    induction H; [easy|]; intros k k' kltn use_eq clos.
+    induction X; [easy|]; intros k k' kltn use_eq clos.
     destruct x.
     cbn in *.
     propify.
@@ -292,7 +292,7 @@ Proof.
     + apply p; [easy| |easy].
       now eapply closed_upwards.
     + rewrite <- !Nat.add_succ_r in *.
-      apply IHAll; [easy|easy|].
+      apply IHX; [easy|easy|].
       now eapply closed_upwards.
 Qed.
 
@@ -419,7 +419,7 @@ Proof.
     + easy.
   - easy.
   - f_equal.
-    induction H; [easy|].
+    induction X; [easy|].
     cbn in *.
     propify.
     now f_equal.
@@ -438,7 +438,7 @@ Proof.
   - now f_equal.
   - f_equal.
     revert k no_use.
-    induction H; [easy|]; intros k no_use.
+    induction X; [easy|]; intros k no_use.
     unfold map_def in *.
     destruct x; cbn in *; propify.
     f_equal.
@@ -447,10 +447,10 @@ Proof.
       rewrite <- (proj1 no_use).
       now f_equal.
     + rewrite <- Nat.add_succ_r in *.
-      now apply IHAll.
+      now apply IHX.
   - f_equal.
     revert k no_use.
-    induction H; [easy|]; intros k no_use.
+    induction X; [easy|]; intros k no_use.
     unfold map_def in *.
     destruct x; cbn in *; propify.
     f_equal.
@@ -459,7 +459,7 @@ Proof.
       rewrite <- (proj1 no_use).
       now f_equal.
     + rewrite <- !Nat.add_succ_r in *.
-      now apply IHAll.
+      now apply IHX.
 Qed.
 
 Lemma masked_nil {X} mask :
@@ -680,9 +680,9 @@ Proof.
     cbn.
     f_equal.
     f_equal.
-    induction H; [easy|].
+    induction X; [easy|].
     cbn in *.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
   - rewrite lift_mkApps.
     cbn.
     now rewrite IHt.
@@ -725,10 +725,10 @@ Proof.
     f_equal.
     f_equal.
     rewrite map_length.
-    induction H in k |- *; [easy|].
+    induction X in k |- *; [easy|].
     cbn in *.
     rewrite <- Nat.add_succ_r.
-    rewrite IHAll.
+    rewrite IHX.
     f_equal.
     unfold map_def.
     cbn.
@@ -739,10 +739,10 @@ Proof.
     f_equal.
     f_equal.
     rewrite map_length.
-    induction H in k |- *; [easy|].
+    induction X in k |- *; [easy|].
     cbn in *.
     rewrite <- Nat.add_succ_r.
-    rewrite IHAll.
+    rewrite IHX.
     f_equal.
     unfold map_def.
     cbn.
@@ -850,9 +850,9 @@ Proof.
        cbn in *);
        lia.
   - easy.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
   - now rewrite IHt.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
@@ -865,19 +865,19 @@ Proof.
     now rewrite p0, IHX.
   - now rewrite IHt.
   - rewrite map_length.
-    induction H in H, m, k, k', lt |- *; [easy|].
+    induction X in X, m, k, k', lt |- *; [easy|].
     cbn.
     rewrite p by lia.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHAll.
+    now apply IHX.
   - rewrite map_length.
-    induction H in H, m, k, k', lt |- *; [easy|].
+    induction X in X, m, k, k', lt |- *; [easy|].
     cbn.
     rewrite p by lia.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHAll.
+    now apply IHX.
 Qed.
 
 Lemma is_dead_lift_all k k' n t :
@@ -888,7 +888,7 @@ Proof.
   intros l1 l2.
   induction t using term_forall_list_ind in t, n, k, k', l1, l2 |- *; cbn in *; auto.
   - destruct (_ <=? _) eqn:?; cbn; propify; lia.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
     now rewrite p.
   - now rewrite IHt.
@@ -901,19 +901,19 @@ Proof.
     cbn.
     now rewrite p0.
   - rewrite map_length.
-    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    induction X in X, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
     rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    now apply IHAll.
+    now apply IHX.
   - rewrite map_length.
-    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    induction X in X, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
     rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    now apply IHAll.
+    now apply IHX.
 Qed.
 
 Lemma is_dead_subst_other k k' s t :
@@ -935,7 +935,7 @@ Proof.
     + cbn.
       propify.
       lia.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
     now rewrite p.
   - now rewrite IHt.
@@ -947,19 +947,19 @@ Proof.
     cbn.
     now rewrite p0.
   - rewrite map_length.
-    induction H in H, m, k, k', lt |- *; [easy|].
+    induction X in X, m, k, k', lt |- *; [easy|].
     cbn.
     rewrite p by easy.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHAll.
+    now apply IHX.
   - rewrite map_length.
-    induction H in H, m, k, k', lt |- *; [easy|].
+    induction X in X, m, k, k', lt |- *; [easy|].
     cbn.
     rewrite p by easy.
     f_equal.
     rewrite <- !Nat.add_succ_r.
-    now apply IHAll.
+    now apply IHX.
 Qed.
 
 Lemma valid_dearg_mask_lift mask n k t :
@@ -1082,9 +1082,9 @@ Lemma is_expanded_aux_lift k n k' t :
 Proof.
   induction t in n, k, k', t |- * using term_forall_list_ind; cbn in *; auto.
   - now destruct (_ <=? _).
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
   - now rewrite IHt1, IHt2.
   - now rewrite IHt1, IHt2.
   - rewrite IHt.
@@ -1092,14 +1092,14 @@ Proof.
     induction X; [easy|].
     cbn in *.
     now rewrite p0, IHX.
-  - induction H in k' |- *; [easy|].
+  - induction X in k' |- *; [easy|].
     cbn.
     rewrite <- Nat.add_succ_r.
-    now rewrite p, IHAll.
-  - induction H in k' |- *; [easy|].
+    now rewrite p, IHX.
+  - induction X in k' |- *; [easy|].
     cbn.
     rewrite <- Nat.add_succ_r.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
 Qed.
 
 Lemma is_expanded_lift n k t :
@@ -1129,7 +1129,7 @@ Proof.
        try destruct (_ =? _) eqn:?; propify;
        cbn in *);
        lia.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
     now rewrite p.
   - now rewrite IHt.
@@ -1140,20 +1140,20 @@ Proof.
     induction X; cbn in *; [easy|].
     now rewrite p0.
   - rewrite map_length.
-    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    induction X in X, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
     rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    rewrite IHAll by easy.
+    rewrite IHX by easy.
     now replace (S (k - n)) with (S k - n) by lia.
   - rewrite map_length.
-    induction H in H, m, k, k', n, l1, l2 |- *; [easy|].
+    induction X in X, m, k, k', n, l1, l2 |- *; [easy|].
     cbn in *.
     rewrite p by easy.
     cbn.
     rewrite <- !Nat.add_succ_r.
-    rewrite IHAll by easy.
+    rewrite IHX by easy.
     now replace (S (k - n)) with (S k - n) by lia.
 Qed.
 
@@ -1210,9 +1210,9 @@ Proof.
         cbn in *.
         repeat (destruct (_ =? _) eqn:?; propify); auto; try lia.
     + destruct (n =? k) eqn:?, (n =? S k) eqn:?, (n =? k') eqn:?; propify; cbn in *; auto; lia.
-   - induction H; [easy|].
+   - induction X; [easy|].
      cbn.
-     rewrite !p, !IHAll by easy.
+     rewrite !p, !IHX by easy.
      bia.
    - now rewrite IHt.
    - rewrite IHt1, IHt2 by easy.
@@ -1228,22 +1228,22 @@ Proof.
      + now rewrite Bool.orb_true_r in IHX.
      + now rewrite Bool.orb_false_r in IHX.
    - rewrite map_length.
-     induction H in H, m, k, k', le |- *; cbn in *; [easy|].
+     induction X in X, m, k, k', le |- *; cbn in *; [easy|].
      rewrite p by easy.
-     specialize (IHAll (S k) (S k') ltac:(lia)).
+     specialize (IHX (S k) (S k') ltac:(lia)).
      rewrite !Nat.sub_succ in *.
      replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
      rewrite <- !Nat.add_succ_r.
-     rewrite IHAll.
+     rewrite IHX.
      bia.
    - rewrite map_length.
-     induction H in H, m, k, k', le |- *; cbn in *; [easy|].
+     induction X in X, m, k, k', le |- *; cbn in *; [easy|].
      rewrite p by easy.
-     specialize (IHAll (S k) (S k') ltac:(lia)).
+     specialize (IHX (S k) (S k') ltac:(lia)).
      rewrite !Nat.sub_succ in *.
      replace (#|l| + k - (#|l| + k')) with (k - k') by lia.
      rewrite <- !Nat.add_succ_r.
-     rewrite IHAll.
+     rewrite IHX.
      bia.
 Qed.
 
@@ -1287,8 +1287,8 @@ Proof.
   - now rewrite no_use; apply forallb_Forall.
   - now apply forallb_Forall.
   - propify; split; [|now apply forallb_Forall].
-    induction H; [easy|]; cbn in *; propify.
-    now rewrite p, IHAll.
+    induction X; [easy|]; cbn in *; propify.
+    now rewrite p, IHX.
   - rewrite IHt by easy.
     now apply forallb_Forall.
   - propify.
@@ -1314,20 +1314,20 @@ Proof.
     now destruct (get_mib_masks _); apply IHt.
   - rewrite map_length.
     propify; split; [|now apply forallb_Forall].
-    induction H in k, m, H, no_use |- *; [easy|].
+    induction X in k, m, X, no_use |- *; [easy|].
     cbn in *; propify.
     rewrite <- !Nat.add_succ_r in *.
     rewrite p by easy.
     split; [easy|].
-    now apply IHAll.
+    now apply IHX.
   - rewrite map_length.
     propify; split; [|now apply forallb_Forall].
-    induction H in k, m, H, no_use |- *; [easy|].
+    induction X in k, m, X, no_use |- *; [easy|].
     cbn in *; propify.
     rewrite <- !Nat.add_succ_r in *.
     rewrite p by easy.
     split; [easy|].
-    now apply IHAll.
+    now apply IHX.
 Qed.
 
 Lemma valid_dearg_mask_dearg mask t :
@@ -1388,12 +1388,12 @@ Proof.
     rewrite !map_map.
     f_equal.
     f_equal.
-    induction H; [easy|].
+    induction X; [easy|].
     cbn in *.
     propify.
     f_equal.
     + now apply (p _ _ []).
-    + now apply IHAll.
+    + now apply IHX.
   - rewrite subst_mkApps, map_map.
     cbn.
     f_equal.
@@ -1442,11 +1442,11 @@ Proof.
     cbn.
     f_equal.
     rewrite map_length.
-    revert k; induction H; intros k; [easy|].
+    revert k; induction X; intros k; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    f_equal; [|now apply IHAll].
+    f_equal; [|now apply IHX].
     unfold map_def; cbn.
     f_equal.
     now apply (p _ _ []).
@@ -1457,11 +1457,11 @@ Proof.
     cbn.
     f_equal.
     rewrite map_length.
-    revert k; induction H; intros k; [easy|].
+    revert k; induction X; intros k; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    f_equal; [|now apply IHAll].
+    f_equal; [|now apply IHX].
     unfold map_def; cbn.
     f_equal.
     now apply (p _ _ []).
@@ -1555,9 +1555,9 @@ Proof.
     + easy.
     + easy.
   - easy.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *; propify.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
   - now apply IHt.
   - now propify.
   - now propify.
@@ -1571,16 +1571,16 @@ Proof.
     propify.
     now rewrite p0, IHX.
   - easy.
-  - induction H in m, H, k, expt |- *; [easy|].
+  - induction X in m, X, k, expt |- *; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite p, IHAll.
-  - induction H in m, H, k, expt |- *; [easy|].
+    now rewrite p, IHX.
+  - induction X in m, X, k, expt |- *; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
 Qed.
 
 Lemma is_expanded_aux_subst s n t k :
@@ -1599,9 +1599,9 @@ Proof.
       now eapply is_expanded_aux_upwards.
     + now rewrite nth_error_nil in nth.
   - easy.
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *; propify.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
   - now apply IHt.
   - now propify.
   - now propify.
@@ -1615,16 +1615,16 @@ Proof.
     propify.
     now rewrite p0, IHX.
   - easy.
-  - induction H in m, H, k, expt |- *; [easy|].
+  - induction X in m, X, k, expt |- *; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite p, IHAll.
-  - induction H in m, H, k, expt |- *; [easy|].
+    now rewrite p, IHX.
+  - induction X in m, X, k, expt |- *; [easy|].
     cbn in *.
     propify.
     rewrite <- !Nat.add_succ_r.
-    now rewrite p, IHAll.
+    now rewrite p, IHX.
 Qed.
 
 Lemma is_expanded_substl s n t :
@@ -1841,7 +1841,7 @@ Proof.
   intros valid_t.
   induction t in t, k, valid_t |- * using term_forall_list_ind; cbn in *; propify; auto.
   - now destruct (_ <=? _).
-  - induction H; [easy|].
+  - induction X; [easy|].
     cbn in *.
     now propify.
   - easy.
@@ -1856,11 +1856,11 @@ Proof.
     now propify.
   - destruct s as ((ind & npars) & arg).
     now propify.
-  - induction H in H, k, valid_t |- *; [easy|].
+  - induction X in X, k, valid_t |- *; [easy|].
     cbn in *.
     propify.
     now rewrite <- !Nat.add_succ_r.
-  - induction H in H, k, valid_t |- *; [easy|].
+  - induction X in X, k, valid_t |- *; [easy|].
     cbn in *.
     propify.
     now rewrite <- !Nat.add_succ_r.
@@ -1879,7 +1879,7 @@ Proof.
     + noconf nth.
       now apply valid_cases_lift.
     + now rewrite nth_error_nil in nth.
-  - induction H; [easy|].
+  - induction X; [easy|].
     now cbn in *; propify.
   - easy.
   - easy.
@@ -1892,10 +1892,10 @@ Proof.
     now cbn in *; propify.
   - destruct s0 as ((ind & npars) & arg).
     now propify.
-  - induction H in H, k, valid_t |- *; [easy|].
+  - induction X in X, k, valid_t |- *; [easy|].
     cbn in *; propify.
     now rewrite <- !Nat.add_succ_r.
-  - induction H in H, k, valid_t |- *; [easy|].
+  - induction X in X, k, valid_t |- *; [easy|].
     cbn in *; propify.
     now rewrite <- !Nat.add_succ_r.
 Qed.
@@ -1948,7 +1948,7 @@ Proof.
     try solve [now apply closedn_mkApps].
   - apply closedn_mkApps; [|easy].
     cbn.
-    induction H; [easy|].
+    induction X; [easy|].
     cbn in *.
     now propify.
   - apply closedn_mkApps; [|easy].
@@ -1982,19 +1982,19 @@ Proof.
   - apply closedn_mkApps; [|easy].
     cbn.
     rewrite map_length.
-    induction H in k, args, H, clos_t |- *; [easy|].
+    induction X in k, args, X, clos_t |- *; [easy|].
     cbn in *; propify.
     split; [easy|].
     rewrite <- !Nat.add_succ_r in *.
-    now apply IHAll.
+    now apply IHX.
   - apply closedn_mkApps; [|easy].
     cbn.
     rewrite map_length.
-    induction H in k, args, H, clos_t |- *; [easy|].
+    induction X in k, args, X, clos_t |- *; [easy|].
     cbn in *; propify.
     split; [easy|].
     rewrite <- !Nat.add_succ_r in *.
-    now apply IHAll.
+    now apply IHX.
 Qed.
 
 Hint Resolve

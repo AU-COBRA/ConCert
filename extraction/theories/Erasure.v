@@ -1325,7 +1325,7 @@ Next Obligation.
   destruct wt as [wt].
   constructor.
   exists i.
-  specialize (onInductives _ _ _ _ wt).
+  specialize (onInductives wt).
 
   change i with (0 + i).
   generalize 0 as n.

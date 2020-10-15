@@ -151,9 +151,9 @@ Section Values.
       apply forallb_All in Hforall.
       apply All_impl_inner with (P:= fun x => iclosed_n (#|pVars (fst x)|+n1) (snd x) = true).
       assumption.
-      eapply All_impl. apply H.
+      eapply All_impl. apply X.
       intros. simpl in *.
-      eapply H0 with (n:=#|pVars x.1| + n1). lia. easy.
+      eapply H with (n:=#|pVars x.1| + n1). lia. easy.
     + simpl in *. rewrite H1. repeat rewrite Bool.andb_true_iff in *. intuition.
       repeat split_andb;eauto with facts.
       eapply iclosed_ty_geq with (n:=n1);eauto.
@@ -254,12 +254,12 @@ Section Values.
           intros a H. unfold compose. change (iclosed_n (0+n1) (snd a) = true); now apply iclosed_m_n.
         * simpl in *. leb_ltb_to_prop. assumption.
       + inv_andb H1. inv_andb H. split_andb;auto with facts.
-      + repeat inv_andb H0. repeat inv_andb H2.
+      + repeat inv_andb H. repeat inv_andb H1.
         destruct p as [ind tys]. simpl in *.
-        apply forallb_All in H3 as Hall3.
-        apply forallb_All in H1 as Hall1.
-        apply forallb_All in H0 as Hall0.
-        apply forallb_All in H2 as Hall2.
+        apply forallb_All in H2 as Hall3.
+        apply forallb_All in H0 as Hall1.
+        apply forallb_All in H as Hall0.
+        apply forallb_All in H1 as Hall2.
         specialize (All_mix Hall0 Hall2) as Hall'. simpl in *.
         specialize (All_mix Hall3 Hall1) as Hall. simpl in *.
         repeat split_andb;eauto with facts.
@@ -270,9 +270,9 @@ Section Values.
           intros;eapply subst_env_i_ty_closed;intuition.
         apply All_forallb. apply All_map. unfold compose. simpl.
         eapply All_impl_inner. apply Hall. simpl in *.
-        eapply All_impl. apply H. intros. simpl in *.
+        eapply All_impl. apply X. intros. simpl in *.
         rewrite PeanoNat.Nat.add_assoc in *.
-        eapply H8;intuition;auto with facts.
+        eapply H7;intuition;auto with facts.
       + inv_andb H. inv_andb H1. split_andb.
         eapply subst_env_i_ty_closed;eauto with facts. intuition.
   Qed.
@@ -628,10 +628,10 @@ Section Validate.
       simpl in *;unfold is_true in *;repeat rewrite Bool.andb_true_iff in *;intuition;
         try eapply valid_ty_env_ty_env_ok;eauto.
     + destruct p as [ind tys]. simpl in *.
-      eapply forallb_impl_inner. eapply H1. intros.
+      eapply forallb_impl_inner. eapply H0. intros.
       now eapply valid_ty_env_ty_env_ok.
-    + apply All_forallb. apply forallb_All in H2.
-      eapply All_impl_inner. apply H2. simpl.
-      eapply (All_impl H);eauto.
+    + apply All_forallb. apply forallb_All in H1.
+      eapply All_impl_inner. apply H1. simpl.
+      eapply (All_impl X);eauto.
   Qed.
 End Validate.

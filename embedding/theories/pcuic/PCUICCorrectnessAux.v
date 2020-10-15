@@ -1130,7 +1130,7 @@ Proof.
   + intros. simpl. symmetry. rewrite <- subst_env_i_empty with (k:=n).
     f_equal. lia.
   + intros. simpl. destruct a.
-    inversion H0. subst. clear H0.
+    inversion X0. subst. clear X0.
     assert (All (fun x => iclosed_n 0 (snd x) = true) (ρ2++ρ1))
       by now apply All_app_inv.
     rewrite subst_env_compose_1 with (ρ := ρ2 ++ ρ1) by auto.
@@ -1244,9 +1244,9 @@ Proof.
     intuition;eauto with hints.
     eapply forallb_impl_inner;intros;eauto; now apply iclosed_ty_env_ok.
     now apply iclosed_ty_env_ok.
-    apply All_forallb. apply forallb_All in H1.
-    eapply All_impl_inner. apply H. simpl in *.
-    eapply All_impl. apply H1. intros.
+    apply All_forallb. apply forallb_All in H0.
+    eapply All_impl_inner. apply X. simpl in *.
+    eapply All_impl. apply H0. intros.
     simpl in *. easy.
   + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
     intuition;now apply iclosed_ty_env_ok.
@@ -1312,11 +1312,11 @@ Proof.
     * eapply ty_env_ok_subst_env;eauto.
     * apply All_forallb. apply All_map.
       intros. unfold compose. simpl in *.
-      eapply forallb_All in H2.
-      eapply (All_impl_inner _ _ _ H2).
-      eapply All_impl. apply H. intros. simpl in *.
+      eapply forallb_All in H1.
+      eapply (All_impl_inner _ _ _ H1).
+      eapply All_impl. apply X. intros. simpl in *.
       replace (#|pVars x.1| + (k + #|ρ1|)) with (#|pVars x.1| + k + #|ρ1|) by lia.
-      eapply H0;eauto.
+      eapply H;eauto.
   + simpl in *.
     unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
     intuition;eapply ty_env_ok_subst_env;eauto.
