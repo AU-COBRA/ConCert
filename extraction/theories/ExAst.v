@@ -69,8 +69,12 @@ Record type_var_info :=
 
 Record one_inductive_body :=
   { ind_name : ident;
+    ind_propositional : bool;
+    ind_kelim : sort_family;
     ind_type_vars : list type_var_info;
     ind_ctors : list (ident * list box_type);
+    (* unfortunately needed for erases_one_inductive_body *)
+    ind_ctor_original_arities : list nat;
     ind_projs : list (ident * box_type); }.
 
 Record mutual_inductive_body :=
@@ -85,11 +89,8 @@ Inductive global_decl :=
 (* has_deps specified whether the environment includes dependencies of this global *)
 Definition global_env := list (kername * bool (* has_deps *) * global_decl).
 
-Fixpoint lookup_env (Σ : global_env) (id : kername) : option global_decl :=
-  match Σ with
-  | [] => None
-  | (name, _, decl) :: Σ => if eq_kername id name then Some decl else lookup_env Σ id
-  end.
+Definition lookup_env (Σ : global_env) (id : kername) : option global_decl :=
+  option_map snd (find (fun '(name, _, _) => eq_kername id name) Σ).
 
 Definition lookup_constant (Σ : global_env) (kn : kername) : option constant_body :=
   match lookup_env Σ kn with
@@ -117,28 +118,32 @@ Definition lookup_constructor
   | None => None
   end.
 
-Definition trans_cst_for_printing (cst : constant_body) : EAst.constant_body :=
+Definition trans_cst (cst : constant_body) : EAst.constant_body :=
   {| EAst.cst_body := cst_body cst |}.
 
-Definition trans_oib_for_printing (oib : one_inductive_body) : EAst.one_inductive_body :=
+Definition trans_oib (oib : one_inductive_body) : EAst.one_inductive_body :=
   {| EAst.ind_name := oib.(ind_name);
-     EAst.ind_kelim := InType; (* just a "random" pick, not involved in printing *)
-     EAst.ind_ctors := map (fun '(nm, args) => (nm, #|args|)) oib.(ind_ctors);
+     EAst.ind_kelim := oib.(ind_kelim);
+     EAst.ind_propositional := oib.(ind_propositional);
+     EAst.ind_ctors :=
+       combine (map fst oib.(ind_ctors)) oib.(ind_ctor_original_arities);
      EAst.ind_projs := map fst oib.(ind_projs) |}.
 
-Definition trans_mib_for_printing
+Definition trans_mib
            (mib : mutual_inductive_body) : EAst.mutual_inductive_body :=
   {| EAst.ind_npars := mib.(ind_npars);
-     EAst.ind_bodies := map trans_oib_for_printing mib.(ind_bodies) |}.
+     EAst.ind_bodies := map trans_oib mib.(ind_bodies) |}.
 
-Definition trans_global_decls_for_printing (Σ : global_env) : EAst.global_context :=
-  let map_decl kn (decl : global_decl) : list (kername * EAst.global_decl) :=
-      match decl with
-      | ConstantDecl cst => [(kn, EAst.ConstantDecl (trans_cst_for_printing cst))]
-      | InductiveDecl mib => [(kn, EAst.InductiveDecl (trans_mib_for_printing mib))]
-      | TypeAliasDecl _ => []
-      end in
-  flat_map (fun '(kn, _, decl) => map_decl kn decl) Σ.
+Definition trans_global_decl (decl : global_decl) : EAst.global_decl :=
+  match decl with
+  | ConstantDecl cst => EAst.ConstantDecl (trans_cst cst)
+  | InductiveDecl mib => EAst.InductiveDecl (trans_mib mib)
+  | TypeAliasDecl o =>
+    EAst.ConstantDecl {| EAst.cst_body := option_map (fun _ => tBox) o |}
+  end.
+
+Definition trans_env (Σ : global_env) : EAst.global_context :=
+  map (fun '(kn, _, decl) => (kn, trans_global_decl decl)) Σ.
 
 Definition print_term (Σ : global_env) (t : term) : string :=
-  EPretty.print_term (trans_global_decls_for_printing Σ) [] true false t.
+  EPretty.print_term (trans_env Σ) [] true false t.

@@ -1,6 +1,6 @@
 # ConCert
 
-A framework for smart contract verification in Coq. 
+A framework for smart contract verification in Coq.
 
 See the [Papers](#paper) for details on the development.
 
@@ -17,7 +17,7 @@ opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install -j 4 coq.8.11 coq-bignums coq-stdpp coq-quickchick
-opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#6f241fe5f0c39d1d33f9ae169c81e0db968b7117
+opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#bc323fd17aa25a242480770711c6b6685803dd9c
 ```
 
 After completing the procedures above, run `make` to build the development, and

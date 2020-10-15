@@ -88,7 +88,7 @@ Proof.
     cbn in *; auto; propify.
   - destruct (Nat.leb_spec k' n);
       cbn; propify; lia.
-  - induction H; cbn in *; propify; easy.
+  - induction X; cbn in *; propify; easy.
   - erewrite <- IHt by eassumption.
     easy.
   - erewrite <- IHt1 at 1 by easy.
@@ -100,25 +100,25 @@ Proof.
     induction X; cbn in *; propify; easy.
   - rewrite map_length.
     revert n' k k' clos.
-    induction H; intros n' k k' clos; cbn in *; propify; [easy|].
+    induction X; intros n' k k' clos; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
     + erewrite <- (p _ (S (#|l| + k)) _) by easy.
       f_equal.
       lia.
-    + erewrite <- (IHAll n' (S k) (S k'));
+    + erewrite <- (IHX n' (S k) (S k'));
         repeat (f_equal; try lia).
       rewrite <- (proj2 clos);
         repeat (f_equal; try lia).
   - rewrite map_length.
     revert n' k k' clos.
-    induction H; intros n' k k' clos; cbn in *; propify; [easy|].
+    induction X; intros n' k k' clos; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
     + erewrite <- (p _ (S (#|l| + k)) _) by easy.
       f_equal.
       lia.
-    + erewrite <- (IHAll n' (S k) (S k'));
+    + erewrite <- (IHX n' (S k) (S k'));
         repeat (f_equal; try lia).
       rewrite <- (proj2 clos);
         repeat (f_equal; try lia).
@@ -142,7 +142,7 @@ Proof.
         apply nth_error_None in eq.
         lia.
     + lia.
-  - induction H; cbn in *; propify; easy.
+  - induction X; cbn in *; propify; easy.
   - erewrite <- (IHt _ (S k')); [|easy|rewrite <- clos; f_equal; lia].
     f_equal; lia.
   - split; [easy|].
@@ -154,39 +154,30 @@ Proof.
     induction X; cbn in *; propify; easy.
   - rewrite map_length.
     revert k k' all clos.
-    induction H; intros k k' all all'; cbn in *; propify; [easy|].
+    induction X; intros k k' all all'; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
     + erewrite <- (p _ (S (#|l| + k'))); [|easy|].
       * f_equal; lia.
       * rewrite <- (proj1 all').
         f_equal; lia.
-    + erewrite <- (IHAll _ (S k')); [|easy|].
+    + erewrite <- (IHX _ (S k')); [|easy|].
       * repeat (f_equal; try lia).
       * rewrite <- (proj2 all').
         repeat (f_equal; try lia).
   - rewrite map_length.
     revert k k' all clos.
-    induction H; intros k k' all all'; cbn in *; propify; [easy|].
+    induction X; intros k k' all all'; cbn in *; propify; [easy|].
     destruct x; cbn in *.
     split.
     + erewrite <- (p _ (S (#|l| + k'))); [|easy|].
       * f_equal; lia.
       * rewrite <- (proj1 all').
         f_equal; lia.
-    + erewrite <- (IHAll _ (S k')); [|easy|].
+    + erewrite <- (IHX _ (S k')); [|easy|].
       * repeat (f_equal; try lia).
       * rewrite <- (proj2 all').
         repeat (f_equal; try lia).
-Qed.
-
-Lemma lookup_env_find Σ kn :
-  ETyping.lookup_env Σ kn =
-  option_map snd (find (fun '(kn', _) => if kername_eq_dec kn kn' then true else false) Σ).
-Proof.
-  induction Σ as [|(kn' & decl) Σ IH]; [easy|].
-  cbn.
-  now destruct (kername_eq_dec kn kn').
 Qed.
 
 Lemma closedn_subst0 s k t :

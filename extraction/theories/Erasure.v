@@ -1256,46 +1256,62 @@ erase_ind_ctor Γ erΓ t isT next_par (tvar :: tvars)
 Proof. all: reduce_term_sound; eauto with erase. Qed.
 
 Import ExAst.
-Program Definition erase_ind_body
+Definition erase_ind_body
         (mind : kername)
         (mib : P.mutual_inductive_body)
         (oib : P.one_inductive_body)
-        (wt : ∥∑i, on_ind_body (lift_typing typing) Σ mind mib i oib∥) : one_inductive_body :=
+        (wt : ∥∑i, on_ind_body (lift_typing typing) Σ mind mib i oib∥) : one_inductive_body.
+Proof.
+  unshelve refine (
+  let is_propositional :=
+      match destArity [] (ind_type oib) with
+      | Some (_, u) => Universe.is_prop u
+      | None => false
+      end in
   let oib_tvars := erase_ind_arity [] (P.ind_type oib) _ in
 
-  let '(Γ; erΓ) := arities_contexts mind (P.ind_bodies mib) in
+  let ctx := inspect (arities_contexts mind (P.ind_bodies mib)) in
 
   let ind_params := firstn (P.ind_npars mib) oib_tvars in
   let erase_ind_ctor (p : (ident × P.term) × nat) (is_in : In p (P.ind_ctors oib)) :=
-      let '((name, t), _) := p in
-      let bt := erase_ind_ctor Γ erΓ t _ 0 ind_params in
+      let bt := erase_ind_ctor (proj1_sig ctx).π1 (proj1_sig ctx).π2 p.1.2 _ 0 ind_params in
       let '(ctor_args, _) := decompose_arr bt in
-      (name, ctor_args) in
+      (p.1.1, ctor_args) in
 
   let ctors := map_In (P.ind_ctors oib) erase_ind_ctor in
 
+  let erase_ind_proj (p : ident × P.term) (is_in : In p (P.ind_projs oib)) :=
+      (p.1, TBox) (* todo *) in
+
+  let projs := map_In (P.ind_projs oib) erase_ind_proj in
+
   {| ind_name := P.ind_name oib;
+     ind_propositional := is_propositional;
+     ind_kelim := P.ind_kelim oib;
      ind_type_vars := oib_tvars;
      ind_ctors := ctors;
-     ind_projs := [] (* todo *) |}.
-Next Obligation.
-  destruct wt as [wt].
-  sq.
-  right.
-  exact (onArity wt.π2).
-Qed.
-Next Obligation.
-  destruct wt as [[ind_index wt]].
-  pose proof (onConstructors wt) as on_ctors.
-  unfold on_constructors in *.
-  induction on_ctors; [easy|].
-  destruct is_in as [->|later]; [|easy].
-  constructor.
-  destruct (on_ctype r) as (s & typ).
-  rewrite <- (arities_contexts_1 mind) in typ.
-  rewrite <- Heq_anonymous in typ.
-  now exists s.
-Qed.
+     ind_ctor_original_arities := map snd (P.ind_ctors oib);
+     ind_projs := projs |}).
+
+  - abstract (
+        destruct wt as [wt];
+        sq;
+        right;
+        exact (onArity wt.π2)).
+  - abstract (
+        destruct p as ((?&?)&?);
+        cbn in *;
+        destruct wt as [[ind_index wt]];
+        pose proof (onConstructors wt) as on_ctors;
+        unfold on_constructors in *;
+        induction on_ctors; [easy|];
+        destruct is_in as [->|later]; [|easy];
+        constructor;
+        destruct (on_ctype r) as (s & typ);
+        rewrite <- (arities_contexts_1 mind) in typ;
+        cbn in *;
+        now exists s).
+Defined.
 
 Program Definition erase_ind
         (kn : kername)
@@ -1309,7 +1325,7 @@ Next Obligation.
   destruct wt as [wt].
   constructor.
   exists i.
-  specialize (onInductives _ _ _ _ wt).
+  specialize (onInductives wt).
 
   change i with (0 + i).
   generalize 0 as n.

@@ -2,6 +2,7 @@ From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ErasureCorrectness.
+From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import OptimizeCorrectness.
@@ -12,13 +13,14 @@ From Coq Require Import List.
 From Coq Require Import String.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import ErasureCorrectness.
-From MetaCoq.Erasure Require Import ErasureFunction.
+From MetaCoq.Erasure Require Import SafeErasureFunction.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import Prelim.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
+From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require PCUICWcbvEval.
 From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
@@ -33,27 +35,17 @@ Module E := EAst.
 
 Notation "Σ 'p⊢' s ▷ t" := (PCUICWcbvEval.eval Σ s t) (at level 50, s, t at next level) : type_scope.
 
-Lemma eval_const_construct_mask Σ kn ind c im cm :
+Lemma eval_const_construct_mask {wfl:WcbvFlags} Σ kn ind c im cm :
   trans_env Σ e⊢ E.tConst kn ▷ E.tConstruct ind c ->
   valid_masks_env im cm Σ ->
   get_const_mask cm kn = [].
 Proof.
   intros ev valid.
   depelim ev.
-  unfold valid_masks_env in valid.
-  apply forallb_Forall in valid.
-  apply declared_constant_trans in isdecl as [(? & ? & ? & nth)|(isbox & ? & ? & ? & nth)]; cycle 1.
-  { eapply nth_error_forall in nth; [|eassumption].
-    cbn in *.
-    now destruct get_const_mask. }
-  eapply nth_error_forall in nth; [|eassumption].
-  cbn in *.
-  rewrite e in nth.
-  propify.
-  destruct nth as (valid_mask_body & _).
-  clear -ev valid_mask_body.
+  eapply valid_dearg_mask_constant in valid; eauto.
   enough (#|get_const_mask cm kn| = 0) by (now destruct get_const_mask).
-  apply valid_dearg_mask_spec in valid_mask_body as (Γ & inner & <- & <-).
+  apply valid_dearg_mask_spec in valid as (Γ & inner & <- & <-).
+  clear -ev.
   induction #|Γ| as [|Γlen IH] eqn:eq in Γ, inner, ev |- *.
   - now destruct Γ.
   - destruct Γ as [|[na [body|]] Γ]; cbn in *.
@@ -72,7 +64,20 @@ Lemma wf_squash {Σ} :
   ∥wf Σ∥.
 Proof. intros []. now constructor. Qed.
 
+Lemma global_erased_with_deps_erases_deps_tConst Σ Σer kn cst :
+  declared_constant Σ kn cst ->
+  global_erased_with_deps Σ Σer kn ->
+  erases_deps Σ Σer (E.tConst kn).
+Proof.
+  intros decl glob.
+  destruct glob as [(?&?&?&?&?&?)|(?&?&?&?&?)].
+  - econstructor; eauto.
+  - unfold ETyping.declared_constant, ETyping.declared_minductive in *.
+    congruence.
+Qed.
+
 Theorem extract_correct
+        (wfl := default_wcbv_flags)
         (Σ : P.global_env_ext) (wfΣ : ∥wf_ext Σ∥)
         kn ui ind c ui' ignored exΣ :
   axiom_free Σ ->
@@ -87,27 +92,25 @@ Theorem extract_correct
 Proof.
   intros ax [T wt] ev not_erasable no_ignores ex.
   cbn in *.
-  remember (erase_global_decls_deps_recursive _ _ _ _) eqn:er.
-  symmetry in er.
   destruct env_closed eqn:closed; cbn in *; [|congruence].
   destruct analyze_env eqn:an; cbn in *.
   destruct is_expanded_env eqn:isexp; cbn in *; [|congruence].
   destruct valid_masks_env eqn:valid; cbn in *; [|congruence].
   inversion_clear ex.
-  rewrite trans_env_debox_env_types.
-  eapply erase_global_decls_deps_recursive_correct in er; eauto.
-  2: apply KernameSet.singleton_spec; reflexivity.
-  assert (ev' := ev).
-  depelim ev'.
-  unfold declared_constant in isdecl.
-  rewrite isdecl in er.
-
   destruct wfΣ.
-  eapply erases_correct in er as (erv & erase_to & [erev]); eauto.
-  2: now constructor.
+  eapply erases_correct in ev as (erv& erase_to & [erev]); eauto.
+  2: constructor; auto.
+  2: { eapply inversion_Const in wt as (?&?&?&?&?); auto.
+       eapply global_erased_with_deps_erases_deps_tConst; eauto.
+       eapply (erase_global_decls_deps_recursive_correct
+                 _ (wf_squash (sq w))
+                 (KernameSet.singleton kn)); eauto.
+       - intros ? ->%KernameSet.singleton_spec.
+         unfold declared_constant, PCUICAst.fst_ctx, fst_ctx in *.
+         congruence.
+       - now apply KernameSet.singleton_spec. }
 
   depelim erase_to; [|easy].
-
   eapply eval_const_construct_mask in erev as no_mask; eauto.
   assert (ctor_exp := erev).
   eapply eval_is_expanded_aux with (k := 0) in ctor_exp; eauto.
@@ -118,7 +121,8 @@ Proof.
     rewrite no_mask in erev.
     destruct get_ctor_mask; [|easy].
     cbn in *.
-    now constructor.
+    constructor.
+    now apply eval_debox_env_types.
   - cbn.
     now rewrite no_mask.
 Qed.

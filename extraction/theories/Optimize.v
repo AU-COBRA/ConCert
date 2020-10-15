@@ -236,6 +236,8 @@ Definition dearg_oib
            (oib_index : nat)
            (oib : one_inductive_body) : one_inductive_body :=
   {| ind_name := ind_name oib;
+     ind_propositional := ind_propositional oib;
+     ind_kelim := ind_kelim oib;
      ind_type_vars := ind_type_vars oib;
      ind_ctors :=
        mapi (fun c '(name, bts) =>
@@ -247,6 +249,7 @@ Definition dearg_oib
                    end in
                (name, masked (param_mask mib_masks ++ ctor_mask) bts))
             (ind_ctors oib);
+     ind_ctor_original_arities := ind_ctor_original_arities oib;
      ind_projs := ind_projs oib |}.
 
 Definition dearg_mib (kn : kername) (mib : mutual_inductive_body) : mutual_inductive_body :=
@@ -321,8 +324,11 @@ Definition reindex (tvars : list type_var_info) :=
 Definition debox_type_oib (oib : one_inductive_body) : one_inductive_body :=
   let debox := reindex (ind_type_vars oib) ∘ debox_box_type in
   {| ind_name := ind_name oib;
+     ind_propositional := ind_propositional oib;
+     ind_kelim := ind_kelim oib;
      ind_type_vars := filter keep_tvar (ind_type_vars oib);
      ind_ctors := map (on_snd (map debox)) (ind_ctors oib);
+     ind_ctor_original_arities := ind_ctor_original_arities oib;
      ind_projs := map (on_snd debox) (ind_projs oib); |}.
 
 Definition debox_type_mib (mib : mutual_inductive_body) : mutual_inductive_body :=

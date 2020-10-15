@@ -1,8 +1,8 @@
+From ConCert.Extraction Require Import Aux.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import OptimizeCorrectness.
 From ConCert.Extraction Require Import ResultMonad.
 From Coq Require Import List.
 From Coq Require Import Permutation.
@@ -37,237 +37,142 @@ Module E := EAst.
 
 Notation "Σ 'p⊢' s ▷ t" := (PCUICWcbvEval.eval Σ s t) (at level 50, s, t at next level) : type_scope.
 
-Lemma erases_deps_recursive Σ Σer t T et :
-  wf_ext Σ ->
-  Σ;;; [] |- t : T ->
-  Σ;;; [] |- t ⇝ℇ et ->
-  (forall k,
-      KernameSet.In k (term_global_deps et) ->
-      match P.lookup_env Σ k with
-      | Some (P.ConstantDecl _) => erases_deps Σ Σer (E.tConst k)
-      | _ => True
-      end) ->
-  erases_deps Σ Σer et.
+Lemma map_map_In {X Y Z} xs (f : forall (x : X), In x xs -> Y) (g : Y -> Z) :
+  map g (map_In xs f) = map_In xs (fun x isin => g (f x isin)).
 Proof.
-  intros wf wt er deps_er.
-  induction er in t, T, et, wf, wt, er, deps_er |- * using erases_forall_list_ind; cbn in *.
-  - now constructor.
-  - now constructor.
-  - now apply inversion_Evar in wt.
-  - constructor.
-    apply inversion_Lambda in wt as (? & ? & ? & ? & ?); eauto.
-  - apply inversion_LetIn in wt as (? & ? & ? & ? & ? & ?); eauto.
-    constructor.
-    + eapply IHer1; eauto.
-      intros.
-      apply deps_er.
-      apply KernameSet.union_spec; eauto.
-    + eapply IHer2; eauto.
-      intros.
-      apply deps_er.
-      apply KernameSet.union_spec; eauto.
-  - apply inversion_App in wt as (? & ? & ? & ? & ? & ?); eauto.
-    constructor.
-    + eapply IHer1; eauto.
-      intros.
-      apply deps_er.
-      apply KernameSet.union_spec; eauto.
-    + eapply IHer2; eauto.
-      intros.
-      apply deps_er.
-      apply KernameSet.union_spec; eauto.
-  - apply inversion_Const in wt as (? & ? & ? & ? & ?); eauto.
-    unshelve epose proof (deps_er kn _) as deps_er; [now apply KernameSet.singleton_spec|].
-    unfold declared_constant in d.
-    unfold PCUICAst.fst_ctx, fst_ctx in *.
-    now rewrite d in deps_er.
-  - now constructor.
-  - apply inversion_Case in wt
-      as (? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
-    constructor.
-    + eapply IHer; eauto.
-      intros.
-      eapply deps_er.
-      apply KernameSet.union_spec; right.
-      apply knset_in_fold_left; auto.
-    + clear -wf a X H0 deps_er.
-      revert brs' x5 a X H0 deps_er.
-      induction brs; intros brs' x5 brtys typ er deps.
-      { now depelim er. }
-      depelim brtys.
-      depelim typ.
-      depelim er.
-      destruct p as ((? & ?) & ?).
-      destruct p0.
-      constructor.
-      * eapply H; eauto.
-        intros.
-        apply deps.
-        cbn.
-        destruct y0; cbn in *.
-        apply KernameSet.union_spec; right.
-        apply knset_in_fold_left.
-        left.
-        apply KernameSet.union_spec; auto.
-      * eapply IHbrs; eauto.
-        intros.
-        apply deps.
-        cbn.
-        destruct y0; cbn in *.
-        apply KernameSet.union_spec.
-        apply KernameSet.union_spec in H0 as [|]; [tauto|].
-        right.
-        apply knset_in_fold_left.
-        apply knset_in_fold_left in H0 as [|]; [|tauto].
-        left.
-        apply KernameSet.union_spec; auto.
-  - apply inversion_Proj in wt as (?&?&?&?&?&?&?&?&?); eauto.
-    constructor.
-    eapply IHer; eauto.
-    intros; apply deps_er.
-    destruct p as ((? & ?) & ?).
-    apply KernameSet.union_spec; auto.
-  - constructor.
-    apply inversion_Fix in wt as (?&?&?&?&?&?&?); eauto.
-    clear -wf a0 X H deps_er.
-    revert a0 X H deps_er.
-    generalize mfix at 1 2 4 6.
-    intros mfix_gen.
-    revert mfix'.
-    induction mfix; cbn in *; intros mfix' typ er all_deps deps.
-    { now depelim er. }
-    depelim typ.
-    depelim er.
-    depelim all_deps.
-    destruct p.
-    destruct p0 as (?&?&?).
-    constructor.
-    + eapply H; eauto.
-      intros.
-      apply deps.
-      cbn in *.
-      apply knset_in_fold_left.
-      left.
-      apply KernameSet.union_spec; auto.
-    + apply IHmfix; eauto.
-      intros.
-      apply deps.
-      cbn in *.
-      apply knset_in_fold_left.
-      apply knset_in_fold_left in H0 as [|]; [|tauto].
-      now apply KernameSet.empty_spec in H0.
-  - constructor.
-    apply inversion_CoFix in wt as (?&?&?&?&?&?&?); eauto.
-    clear -wf a0 X H deps_er.
-    revert a0 X H deps_er.
-    generalize mfix at 1 2 4 6.
-    intros mfix_gen.
-    revert mfix'.
-    induction mfix; cbn in *; intros mfix' typ er all_deps deps.
-    { now depelim er. }
-    depelim typ.
-    depelim er.
-    depelim all_deps.
-    destruct p as (?&?&?).
-    constructor.
-    + eapply H; eauto.
-      intros.
-      apply deps.
-      cbn in *.
-      apply knset_in_fold_left.
-      left.
-      apply KernameSet.union_spec; auto.
-    + apply IHmfix; eauto.
-      intros.
-      apply deps.
-      cbn in *.
-      apply knset_in_fold_left.
-      apply knset_in_fold_left in H0 as [|]; [|tauto].
-      now apply KernameSet.empty_spec in H0.
-  - now constructor.
+  induction xs in xs, f |- *; [easy|].
+  cbn.
+  f_equal.
+  apply IHxs.
+Qed.
+
+Lemma map_In_ext {X Y : Type} {xs : list X} {f : forall x, In x xs -> Y} g :
+  (forall x isin, f x isin = g x isin) ->
+  map_In xs f = map_In xs g.
+Proof.
+  induction xs in xs, f, g |- *; intros all_eq; [easy|].
+  cbn.
+  f_equal.
+  - apply all_eq.
+  - apply IHxs.
+    intros; apply all_eq.
+Qed.
+
+Lemma erase_ind_body_correct Σ wfΣ kn mib oib wf :
+  erases_one_inductive_body oib (trans_oib (erase_ind_body Σ wfΣ kn mib oib wf)).
+Proof.
+  unfold erases_one_inductive_body, trans_oib, erase_ind_body.
+  simpl.
+  apply and_assoc.
+  split; [|intuition auto].
+  split.
+  - rewrite map_map_In.
+    rewrite (map_In_ext (fun x _ => x.1.1)) by (now intros; destruct decompose_arr).
+    induction P.ind_ctors; [now constructor|].
+    constructor; [easy|].
+    apply IHl.
+  - induction P.ind_projs; [now constructor|].
+    cbn.
+    constructor; [easy|].
+    apply IHl.
+  - destruct wf as [(i & [])].
+    unfold isPropositionalArity.
+    rewrite ind_arity_eq.
+    now rewrite !destArity_it_mkProd_or_LetIn.
+Qed.
+
+Lemma erase_ind_correct Σ wfΣ kn mib wf :
+  erases_mutual_inductive_body mib (trans_mib (erase_ind Σ wfΣ kn mib wf)).
+Proof.
+  unfold trans_mib, erase_ind.
+  cbn.
+  split; [|easy].
+  cbn.
+  generalize (Erasure.erase_ind_obligation_1 Σ kn mib wf).
+  intros wfobl.
+  induction P.ind_bodies; [constructor|].
+  cbn in *.
+  constructor; auto.
+  apply erase_ind_body_correct.
 Qed.
 
 Opaque erase_type flag_of_type SafeErasureFunction.wf_reduction.
-Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore Σex :
-  (forall k, ignore k = false) ->
-  erase_global_decls_deps_recursive Σ wfΣ include ignore = Σex ->
-  (forall k,
-      KernameSet.In k include ->
-      match P.lookup_env Σ k with
-      | Some (P.ConstantDecl cst) => erases_deps Σ (trans_env Σex) (E.tConst k)
-      | _ => True
-      end).
+Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore_deps :
+  (forall k, ignore_deps k = false) ->
+  (forall k, KernameSet.In k include -> PCUICAst.lookup_env Σ k <> None) ->
+  includes_deps Σ (trans_env (erase_global_decls_deps_recursive Σ wfΣ include ignore_deps)) include.
 Proof.
-  intros no_ignores er.
-  induction Σ as [|(kn, decl) Σ IH] in wfΣ, include, Σex, er |- *; [easy|].
+  cut (is_true (KernameSet.subset include include)); [|now apply KernameSet.subset_spec].
+  generalize include at 1 3 5 as include'.
+  intros include' sub no_ignores all_in.
+  induction Σ as [|(kn, decl) Σ IH] in Σ, wfΣ, all_in, include, include', sub |- *.
+  { intros kn isin.
+    now apply all_in in isin. }
   simpl in *.
   match goal with
-  | [H: context[erase_global_decl _ ?wfΣarg _ _ ?wfdeclarg] |- _] =>
+  | |- context[erase_global_decl _ ?wfΣarg _ _ ?wfdeclarg] =>
       set (wfΣext := wfΣarg) in *; clearbody wfΣext;
         set (wfdecl := wfdeclarg) in *; clearbody wfdecl
   end.
   match goal with
-  | [H: context[erase_global_decls_deps_recursive _ ?wfΣarg] |- _] =>
+  | |- context[erase_global_decls_deps_recursive _ ?wfΣarg] =>
     set (wfΣprev := wfΣarg) in *; clearbody wfΣprev
   end.
 
-  rewrite no_ignores in er.
-  destruct (KernameSet.mem kn include) eqn:mem; cycle 1.
+  destruct wfΣ as [wfΣ].
+  rewrite no_ignores.
+  destruct KernameSet.mem eqn:mem; cycle 1.
+  - intros kn' isin.
+    apply global_erases_with_deps_weaken; auto.
+    eapply IH; eauto.
+    intros k kisin.
+    specialize (all_in _ kisin).
+    unfold eq_kername in *.
+    apply KernameSet.subset_spec in sub.
+    apply sub in kisin.
+    apply KernameSet.mem_spec in kisin.
+    destruct (kername_eq_dec k kn); congruence.
   - cbn in *.
-    intros.
-    eapply IH with (k := k) in er; eauto.
-    unfold eq_kername.
-    destruct kername_eq_dec as [->|].
-    + now apply KernameSet.mem_spec in H.
-    + destruct P.lookup_env; [|easy].
-      destruct g; [|easy].
-      destruct wfΣ.
-      now apply erases_deps_weaken.
-  - cbn in *.
-    destruct Σex; [congruence|].
-    (*destruct erase_global_decl eqn:erdecl; cbn in *; [|congruence].
-    destruct erase_global_decls_deps_recursive eqn:errec; [|congruence].*)
-    inversion er; subst; clear er.
-    remember (erase_global_decls_deps_recursive _ _ _ _) eqn:errec.
-    symmetry in errec.
     intros k isin.
-    unfold eq_kername.
-    destruct kername_eq_dec as [->|]; cycle 1.
-    { cbn in *.
-      eapply IH with (k := k) in errec; eauto.
-      - destruct P.lookup_env; [|easy].
-        destruct g0; [|easy].
-        destruct wfΣ.
-        destruct erase_global_decl; eauto using erases_deps_cons, erases_deps_weaken.
-      - now apply KernameSet.union_spec. }
-    destruct decl; [|easy].
-    cbn -[erase_constant_decl] in *.
-    unfold erase_constant_decl in *.
-    destruct flag_of_type; cbn in *.
-    destruct conv_ar; cbn in *.
-    + destruct c; cbn in *.
-      destruct cst_body; cbn in *; cycle 1.
-      { econstructor.
-        - unfold declared_constant; cbn; rewrite eq_kername_refl; reflexivity.
-        - unfold ETyping.declared_constant; cbn.
-          destruct kername_eq_dec; [|congruence].
-          reflexivity.
-        - easy.
-        - intros.
-          cbn in *.
-          congruence. }
-      cbn in *.
-      econstructor.
-      * unfold declared_constant; cbn; rewrite eq_kername_refl.
-        reflexivity.
-      * unfold ETyping.declared_constant; cbn.
-        destruct kername_eq_dec; [|congruence].
-        reflexivity.
-      * destruct wfΣ as [wfΣ].
+    destruct (kername_eq_dec k kn) as [->|]; cycle 1.
+    { apply global_erases_with_deps_cons; auto.
+      eapply (IH wfΣprev _ (KernameSet.singleton k)).
+      - apply KernameSet.subset_spec.
+        intros ? ?.
+        eapply KernameSet.singleton_spec in H; subst a.
+        apply KernameSet.union_spec.
+        right.
+        apply KernameSet.subset_spec in sub.
+        now apply sub.
+      - specialize (all_in _ isin).
+        intros isink <-%KernameSet.singleton_spec.
+        apply KernameSet.mem_spec in isin.
+        unfold eq_kername in *.
+        destruct kername_eq_dec; congruence.
+      - now apply KernameSet.singleton_spec. }
+
+    cbn.
+    destruct decl; [left|right].
+    all: unfold declared_constant, declared_minductive,
+         ETyping.declared_constant, ETyping.declared_minductive; cbn.
+    all: unfold eq_kername.
+    all: destruct kername_eq_dec; cbn; [|congruence].
+    + eexists; split; [reflexivity|].
+      unfold erase_constant_decl.
+      destruct flag_of_type; cbn in *.
+      destruct conv_ar; cbn in *.
+      * destruct c; cbn in *.
+        destruct cst_body; cbn in *; cycle 1.
+        { eexists; split; [reflexivity|]; cbn.
+          intuition congruence. }
+
+        eexists; split; [reflexivity|]; cbn.
+        split; last first.
+        { intros ? H.
+          noconf H.
+          constructor. }
+
         destruct wfdecl as [wfdecl].
-        unfold erases_constant_body.
-        cbn.
-        clear errec.
         destruct c0 as [ctx univ [r]].
         eapply type_reduction in wfdecl; eauto.
         2: now inversion wfΣ.
@@ -280,54 +185,41 @@ Proof.
         split; [eassumption|].
         left.
         apply isArity_mkNormalArity.
-      * intros.
-        cbn in *.
-        inversion H; subst; clear H.
-        now constructor.
-    + destruct erase_type; cbn in *.
-      destruct c; cbn in *.
-      destruct cst_body; cycle 1.
-      { cbn in *.
-        econstructor.
-        - unfold declared_constant; cbn; rewrite eq_kername_refl; reflexivity.
-        - unfold ETyping.declared_constant; cbn.
-          destruct kername_eq_dec; [|congruence].
-          reflexivity.
-        - easy.
-        - intros.
-          cbn in *.
-          congruence. }
+      * eexists; split; [reflexivity|]; cbn.
+        unfold trans_cst; cbn.
+        destruct c; cbn in *.
+        destruct cst_body; cbn in *; cycle 1.
+        { intuition congruence. }
 
-      match goal with
-      | |- context[erase _ _ _ _ ?p] =>
-        set (twt := p) in *; clearbody twt
-      end.
-      destruct wfΣ as [wfΣ].
-      destruct wfdecl as [wfdecl].
-      econstructor.
-      * unfold declared_constant; cbn; rewrite eq_kername_refl; reflexivity.
-      * unfold ETyping.declared_constant; cbn.
-        destruct kername_eq_dec; [|congruence].
-        reflexivity.
-      * cbn in *.
-        clear errec.
-        eapply type_reduction in wfdecl; eauto.
-        2: now inversion wfΣ.
-        eapply (erases_extends (_, _)).
-        2: now eauto.
-        1: now inversion wfΣ.
-        2: eexists [_]; reflexivity.
-        1: now eauto.
-        apply erases_erase.
-      * intros.
-        cbn in *.
-        noconf H.
-        destruct wfΣext.
-        apply erases_deps_cons; eauto.
-        eapply (erases_deps_recursive (Σ, cst_universes)); eauto.
-        { apply SafeErasureFunction.erases_erase. }
-        intros.
-        apply (IH _ _ _ errec).
-        apply KernameSet.union_spec; left.
-        apply KernameSet.union_spec; auto.
+        match goal with
+        | |- context[erase _ _ _ _ ?p] =>
+          set (twt := p) in *; clearbody twt
+        end.
+        destruct wfdecl as [wfdecl].
+        split.
+        -- eapply type_reduction in wfdecl; eauto.
+           2: now inversion wfΣ.
+           eapply (erases_extends (_, _)).
+           2: now eauto.
+           1: now inversion wfΣ.
+           2: eexists [_]; reflexivity.
+           1: now eauto.
+           apply erases_erase.
+        -- intros.
+           noconf H.
+           destruct wfΣext.
+           apply erases_deps_cons; auto.
+           eapply (@erase_global_erases_deps (Σ, cst_universes)); eauto.
+           { apply erases_erase. }
+           eapply IH.
+           ++ apply KernameSet.subset_spec.
+              intros ? isin'.
+              apply KernameSet.union_spec; left.
+              now apply KernameSet.union_spec; right.
+           ++ intros ? isin'.
+              eapply term_global_deps_spec in isin' as [(? & ?)]; eauto.
+              ** cbn in *. congruence.
+              ** apply erases_erase.
+    + eexists _, _; split; [reflexivity|]; split; [reflexivity|].
+      apply erase_ind_correct.
 Qed.
