@@ -209,12 +209,12 @@ Section print_term.
   | _ => ([], t)
   end.
 
-  Fixpoint Edecompose_lam_annot {A} (t : term) : (annots A t) -> (list name) × term :=
-    match t return annots A t -> (list name) × term with
+  Fixpoint Edecompose_lam_annot {A} (t : term) : (annots A t) -> (list name) × (∑t, annots A t) :=
+    match t return annots A t -> (list name) × (∑t, annots A t) with
     | tLambda n b => fun '(bt, a) =>
-        let (ns, b) := Edecompose_lam_annot b a  in
-        (n :: ns, b)
-    | _ => fun bt => ([], t)
+        let '(ns, (b; a)) := Edecompose_lam_annot b a  in
+        (n :: ns, (b; a))
+    | t => fun bt => ([], (t; bt))
     end.
   
 
@@ -639,7 +639,7 @@ Definition no_opt_args :=
 
 Axiom does_not_happen : forall {A}, A.
 
-Definition general_extract_typed (prefix : string) (p : T.program) (opt : bool) (ignore : list kername) (TT : MyEnv.env string) : string.
+Definition general_print_decl (prefix : string) (p : T.program) (opt : bool) (ignore : list kername) (TT : MyEnv.env string) : string.
 Proof.
   refine (let entry := match p.2 with
            | T.tConst kn _ => kn
@@ -656,14 +656,13 @@ Proof.
   cbn in *.
   unfold constant_body_annots in *.
   destruct Ex.cst_body; [|exact does_not_happen].
-  refine (let (args,lam_body) := Edecompose_lam_annot t0 annot in _).
+  refine (let '(args,s) := Edecompose_lam_annot t0 annot in _).
+  refine (let (lam_body, body_annot) := s in _).
   refine (let ctx := map (fun x => Build_context_decl x None) (rev args) in _).
-  
-  exact (print_term t prefix [] TT ctx true false lam_body annot).
-
+  exact (print_term t prefix [] TT ctx true false lam_body body_annot).
 Defined.
 
-Definition print_decl (prefix : string)
+(* Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (Σ : ExAst.global_env)
            (decl_name : string)
@@ -683,7 +682,7 @@ Definition print_decl (prefix : string)
                | None => ""
                end in *)
   "let" ++ " " ++ decl ++ " = "
-        ++ wrap (CameLIGOPretty.print_term Σ prefix [] TT ctx true false lam_body).
+        ++ wrap (CameLIGOPretty. prefix (Σ, lam_b  [] TT ctx true false lam_body). *)
 
 Definition print_init (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
@@ -745,7 +744,7 @@ Definition print_cst (prefix : string)
   | Some cst_body =>
     (* NOTE: ignoring the path part *)
     let (_, decl_name) := kn in
-    print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type).2 cst_body
+    general_print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type).2 cst_body
   | None => ""
   end.
 
