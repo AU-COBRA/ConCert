@@ -638,6 +638,39 @@ Definition no_opt_args :=
        {| dearg_args := None |} |}.
 
 Axiom does_not_happen : forall {A}, A.
+Definition print_term_annotated_type :=ExAst.global_env ->
+    string ->
+    list string ->
+    env string ->
+    context ->
+    bool -> bool -> forall t : term, annots box_type t -> string.
+
+Definition general_extract_typed (p : T.program) (opt : bool) (ignore : list kername) (TT : list (kername * string)) : (∑t, annots box_type t).
+Proof.
+  refine (let entry := match p.2 with
+           | T.tConst kn _ => kn
+           | T.tInd ind _ => (inductive_mind ind)
+           | _ => does_not_happen
+           end in _).
+  set (args := if opt then opt_args else no_opt_args).
+  pose proof (annot_extract_template_env args p.1 (KernameSet.singleton entry)
+                                         (fun k => existsb (eq_kername k) ignore)).
+  destruct extract_template_env as [|e]; [|exact does_not_happen].
+  destruct (bigprod_find (fun '(kn, _, _) _ => eq_kername entry kn) X); [|exact does_not_happen].
+  destruct s as ((? & decl) & annot).
+  destruct decl; [|exact does_not_happen|exact does_not_happen].
+  cbn in *.
+  unfold constant_body_annots in *.
+  destruct Ex.cst_body; [|exact does_not_happen].
+  
+  exact (t0; annot).
+  
+  (* refine (let ctx := map (fun x => Build_context_decl x None) (rev args) in _). *)
+  (* exact (print_term t prefix [] TT ctx true false t0 annot). *)
+  (* exact (print_term_annotated (TemplateToPCUIC.trans_global_decls p.1) [] t0 annot). *)
+Defined.
+
+
 
 Definition general_print_decl (prefix : string) (p : T.program) (opt : bool) (ignore : list kername) (TT : MyEnv.env string) : string.
 Proof.
@@ -662,16 +695,19 @@ Proof.
   exact (print_term t prefix [] TT ctx true false lam_body body_annot).
 Defined.
 
-(* Definition print_decl (prefix : string)
+
+Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
-           (Σ : ExAst.global_env)
+           (env : ExAst.global_env)
            (decl_name : string)
            (modifier : option string)
            (wrap : string -> string)
            (ty : box_type)
-           (t : term) :=
+           (t : term)
+           (ta : annots box_type t)
+            :=
   let (tys,_) := decompose_arr ty in
-  let (args,lam_body) := Edecompose_lam t in
+  let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
   let targs := combine args (map (print_box_type prefix TT) tys) in
   let printed_targs :=
       map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs in
@@ -682,105 +718,140 @@ Defined.
                | None => ""
                end in *)
   "let" ++ " " ++ decl ++ " = "
-        ++ wrap (CameLIGOPretty. prefix (Σ, lam_b  [] TT ctx true false lam_body). *)
+        ++ wrap (CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot).
 
 Definition print_init (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (build_call_ctx : string) (* a string that corresponds to a call contex *)
            (init_prelude : string) (* operations available in the [init] as local definitions.
                                       CameLIGO does not allow to refer to global definitions in [init]*)
-           (Σ : ExAst.global_env)
-           (cst : ExAst.constant_body) : option string :=
-  b <- cst.(ExAst.cst_body) ;;
-  let ty := cst.(ExAst.cst_type) in
-  let (tys,inner_ret_ty) := decompose_arr ty.2 in
-  let (args,lam_body) := Edecompose_lam b in
-  let targs_inner := combine args (map (print_box_type prefix TT) tys) in
-  let printed_targs_inner :=
-      map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs_inner in
-  let decl_inner := "inner " ++ concat " " printed_targs_inner in
-  let ctx := map (fun x => Build_context_decl x None) (rev args) in
-  let printed_inner_ret_ty := print_box_type prefix TT inner_ret_ty in 
-  let printed_outer_ret_ty :=
-    match inner_ret_ty with
-    | TApp (TInd ind) t1 =>
-      if eq_kername <%% option %%> ind.(inductive_mind) then
-        print_box_type prefix TT t1
-      else ":/"
-      (* else print_box_type prefix TT inner_ret_ty *)
-    | _ => "::/"
-    (* | _ => print_box_type prefix TT inner_ret_ty  *)
-    end in 
-  let wrap t := 
-    "match " ++ t ++ " with" ++ nl ++
-    "  Some v -> v" ++ nl ++
-    "| None -> (failwith (""): " ++ printed_outer_ret_ty ++ ")" in
-  let let_inner :=
-      "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
-             ++ CameLIGOPretty.print_term Σ prefix [] TT ctx true false lam_body
-             ++ " in" in
-  (* ignore the first argument because it's a call context *)
-  let printed_targs_outer := tl printed_targs_inner in
-  let decl_outer := 
-    "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
-  let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
-  let inner_app := "inner " ++ concat " " ( "ctx" :: map string_of_name (tl args)) in
-  ret ("let " ++ decl_outer ++ " = "
-                   ++ init_prelude
-                   ++ nl
-                   ++ let_inner
-                   ++ nl
-                   ++ let_ctx
-                   ++ nl
-                   ++ wrap (parens false inner_app)).
+           (env : ExAst.global_env)
+           (cst : ExAst.constant_body) 
+           : (constant_body_annots box_type cst) -> option string :=
+    match cst.(ExAst.cst_body) as body return match body with
+                                              | Some body => annots box_type body
+                                              | None => unit
+                                              end -> option string with
+    | Some b => fun cstAnnot =>
+    (* b <- cst.(ExAst.cst_body) ;; *)
+    let '(args,(lam_body; body_annot)) := Edecompose_lam_annot b cstAnnot in
+    let ty := cst.(ExAst.cst_type) in
+    let (tys,inner_ret_ty) := decompose_arr ty.2 in
+    let targs_inner := combine args (map (print_box_type prefix TT) tys) in
+    let printed_targs_inner :=
+        map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs_inner in
+    let decl_inner := "inner " ++ concat " " printed_targs_inner in
+    let ctx := map (fun x => Build_context_decl x None) (rev args) in
+    let printed_inner_ret_ty := print_box_type prefix TT inner_ret_ty in 
+    let printed_outer_ret_ty :=
+      match inner_ret_ty with
+      | TApp (TInd ind) t1 =>
+        if eq_kername <%% option %%> ind.(inductive_mind) then
+          print_box_type prefix TT t1
+        else ":/"
+        (* else print_box_type prefix TT inner_ret_ty *)
+      | _ => "::/"
+      (* | _ => print_box_type prefix TT inner_ret_ty  *)
+      end in 
+    let wrap t := 
+      "match " ++ t ++ " with" ++ nl ++
+      "  Some v -> v" ++ nl ++
+      "| None -> (failwith (""): " ++ printed_outer_ret_ty ++ ")" in
+    let let_inner :=
+        "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
+              ++ CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot
+              ++ " in" in
+    let printed_targs_outer := tl printed_targs_inner in
+    (* ignore the first argument because it's a call context *)
+    let decl_outer := 
+      "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
+    let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
+    let inner_app := "inner " ++ concat " " ( "ctx" :: map string_of_name (tl args)) in
+    ret ("let " ++ decl_outer ++ " = "
+                    ++ init_prelude
+                    ++ nl
+                    ++ let_inner
+                    ++ nl
+                    ++ let_ctx
+                    ++ nl
+                    ++ wrap (parens false inner_app))
+  | None => fun _ => None
+  end. 
 
 
 Definition print_cst (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
-           (Σ : ExAst.global_env)
+           (env : ExAst.global_env)
            (kn : kername)
-           (cst : ExAst.constant_body) : string :=
-  match cst.(ExAst.cst_body) with
-  | Some cst_body =>
+           (cst : ExAst.constant_body)
+           : (constant_body_annots box_type cst) -> option string :=
+  match cst.(ExAst.cst_body) as body return match body with
+                                            | Some body => annots box_type body
+                                            | None => unit
+                                            end -> option string with
+  | Some cst_body => fun annot =>
     (* NOTE: ignoring the path part *)
     let (_, decl_name) := kn in
-    general_print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type).2 cst_body
-  | None => ""
+    Some <| print_decl prefix TT env decl_name None id cst.(ExAst.cst_type).2 cst_body annot
+  | None => fun _ => None
   end.
+
+Section on_every.
+  Import ExAst.
+  Definition on_every_body (t : term) : annots box_type t -> unit := fun _ => tt.
+  Equations on_every_constant (cst : Ex.constant_body) (a : constant_body_annots box_type cst) : unit :=
+    on_every_constant {| cst_body := Some body |} a => on_every_body body a;
+    on_every_constant _ _ => tt.
+
+  Equations on_every_global_decl (decl : Ex.global_decl) (a : global_decl_annots box_type decl) : unit :=
+    on_every_global_decl (Ex.ConstantDecl cst) a => on_every_constant cst a;
+    on_every_global_decl _ _ => tt.
+
+  Equations on_env (Σ : global_env) (Σa : env_annots box_type Σ) : list unit :=
+    on_env ((kn, decl) :: Σ) (a, Σa) => on_every_global_decl decl a :: on_env Σ Σa;
+    on_env [] _ => [].
+End on_every.
 
 Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
            (nm : kername)
-           (Σ : ExAst.global_env)
-           (d : ExAst.global_decl) : kername * string :=
-  match d with
-  | ExAst.ConstantDecl cst =>
-      (nm, print_cst prefix TT Σ nm cst)
-  | ExAst.InductiveDecl mib =>
+           (env : ExAst.global_env)
+           (d : ExAst.global_decl) : 
+           (global_decl_annots box_type d) -> kername * string :=
+  match d return (global_decl_annots box_type d) -> kername * string with
+  | ExAst.ConstantDecl cst => fun annot =>
+    match print_cst prefix TT env nm cst annot with
+    | Some r => (nm, r)
+    | None => (nm, "")
+    end
+  | ExAst.InductiveDecl mib => fun annot =>
     match mib.(ExAst.ind_bodies) with
     | [oib] => (nm, print_inductive prefix TT oib)
     | _ => (nm,"Only non-mutual inductives are supported")
     end
-  | TypeAliasDecl (params, ty) =>
+  | TypeAliasDecl (Some (params, ty)) => fun annot =>
     let ta_nm := from_option (lookup TT (string_of_kername nm))
                              (prefix ++ nm.2) in
-    (nm, "type " ++ uncapitalize ta_nm ++ concat " " (map string_of_name params) ++  " = "
+    (nm, "type " ++ uncapitalize ta_nm ++ concat " " (map (string_of_name ∘ tvar_name) params) ++  " = "
             ++ print_box_type prefix TT ty)
-  end.
+  | TypeAliasDecl None => fun _ => (nm, "")
+end.
 
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
-           (Σ : ExAst.global_env) : list (kername * string) :=
-  match Σ with
-  | (kn, has_deps, decl) :: Σ' =>
+           (env : ExAst.global_env) 
+           : (env_annots box_type env) -> list (kername * string) :=
+  match env return (env_annots box_type env) -> list (kername * string) with
+  | (kn, has_deps, decl) :: env' => fun '(a,b) =>
     let printed :=
         (* only print decls for which the environment includes dependencies *)
         if has_deps then
-          print_global_decl prefix TT kn Σ' decl
+          print_global_decl prefix TT kn env' decl a
         else
           (kn, "") in
-    printed :: print_global_env prefix TT Σ'
-  | [] => []
+    printed :: print_global_env prefix TT env' b
+  | [] => fun _ => []
   end.
 
+  
 Local Open Scope string_scope.
 
 (** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)

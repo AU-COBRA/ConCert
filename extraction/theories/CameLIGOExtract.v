@@ -19,7 +19,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import CameLIGOPretty
-     Common ExAst Erasure Optimize Extraction.
+     Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Aux.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -56,6 +56,7 @@ Arguments lmd_entry_point {_ _ _ _ _}.
 
 Definition printCameLIGODefs (prefix : string) (Σ : global_env)
            (TT : MyEnv.env string)
+           (temp_env : extract_template_env_params)
            (ignore : list kername)
            (build_call_ctx : string)
            (init_prelude : string)
@@ -63,15 +64,16 @@ Definition printCameLIGODefs (prefix : string) (Σ : global_env)
            (receive : kername)
   : string + string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
-  match extract_template_env_within_coq Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
-  | Ok eΣ =>
+  match annot_extract_template_env_sig temp_env Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
+  (* match extract_template_env_within_coq Σ seeds (fun k => List.existsb (eq_kername k) ignore) with *)
+  | Some (eΣ; annots) => 
     (* dependencies should be printed before the dependent definitions *)
-    let ldef_list := List.rev (print_global_env prefix TT eΣ) in
+    let ldef_list := List.rev (print_global_env prefix TT eΣ annots) in
     (* filtering empty strings corresponding to the ignored definitions *)
     let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
-    match ExAst.lookup_env eΣ init with
-    | Some (ExAst.ConstantDecl init_cst) =>
-      match print_init prefix TT build_call_ctx init_prelude eΣ init_cst with
+    match bigprod_find (fun '(k, _, _) _ => eq_kername k init) annots with
+    | Some ((_, ExAst.ConstantDecl init_cst); annots) =>
+      match print_init prefix TT build_call_ctx init_prelude eΣ init_cst annots with
       | Some init_code =>
         (* filtering out the definition of [init] and projecting the code *)
         let defs :=
@@ -84,7 +86,7 @@ Definition printCameLIGODefs (prefix : string) (Σ : global_env)
     | Some _ => inr "Error: init must be a constant"
     | None => inr "Error: No init found"
     end
-  | Err e => inr e
+  | None => inr "annotated extract environment failed internally..."
   end.
 
 Definition CameLIGO_ignore_default :=
@@ -120,10 +122,10 @@ Definition CameLIGO_simple_extract
     let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
     let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-    match extract_template_env CameLIGO_extract_args p.1 seeds ignore with
-    | Ok eΣ =>
+    match annot_extract_template_env_sig CameLIGO_extract_args p.1 seeds ignore with
+    | Ok (eΣ; eAnnots) =>
       (* dependencies should be printed before the dependent definitions *)
-      let ldef_list := List.rev (print_global_env "" TT eΣ) in
+      let ldef_list := List.rev (print_global_env "" TT eΣ eAnnots) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in
