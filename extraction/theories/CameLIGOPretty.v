@@ -413,6 +413,7 @@ Section print_term.
    Context {T : X -> Type}.
    Context {Y : Type}.
    Context (f : forall x, T x -> Y).
+   Set Equations Transparent.
    Equations map_with_bigprod (xs : list X) (p : bigprod T xs) : list Y :=
    map_with_bigprod [] _ => [];
    map_with_bigprod (x :: xs) (Tx, bp) := f x Tx :: map_with_bigprod xs bp.
@@ -489,8 +490,11 @@ Section print_term.
     from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l => fun bt =>
     let nm := get_constr_name ind l in
+    (* print annotations for 0-ary constructors of polymorphic types (like [] and None) *)
     if nm =? "nil" then
-    "([]: " ++ print_box_type prefix TT (TInd ind) ++ ")" 
+      "([]:" ++ print_box_type prefix TT (bt) ++ ")" 
+    else if nm =? "None" then
+      "(None:" ++ print_box_type prefix TT (bt) ++ ")" 
     else from_option (look TT nm) ((capitalize prefix) ++ nm)
   | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
@@ -528,21 +532,19 @@ Section print_term.
     fun '(bt, (ta, trs)) =>
     match lookup_ind_decl mind i with
     | Some oib =>
-      (* let map_brs (f : forall x : (nat * term), _ x -> string)  := map_with_bigprod f brs trs in *)
-      let fix print_branch Γ arity params (br : term) : annots box_type br -> (_ * _) :=  
-        match br return annots box_type br -> (_ * _) with
-        | tLambda na B as br => fun bt => 
-          match arity with
-          | S n =>
+      let fix print_branch Γ arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=  
+        match arity return annots box_type br -> (_ * _) with
+        | S n =>
+          match br return annots box_type br -> (_ * _) with
+          | tLambda na B => fun bt => 
             let '(bt, a) := bt in
             let na' := fresh_name Γ na br in
             let (ps, b) := print_branch (vass na' :: Γ) n params B a in
             (ps ++ [string_of_name na'], b)%list
-          | 0 => (params , "UNEXPECTED ERROR IN print_branch")
-          (* | 0 => (params , print_term prefix FT TT Γ false false br bt) *)
-          end
-        | t => fun btt => (params , "UNEXPECTED ERROR IN print_branch")
-        (* | t => fun btt => (params , print_term prefix FT TT Γ false false t btt) *)
+          (* | t => fun btt => (params , print_term prefix FT TT Γ false false t btt) *)
+          | t => fun btt => (params , "UNEXPECTED ERROR IN print_branch")
+        end
+        | 0 => fun bt => (params , print_term prefix FT TT Γ false false br bt)
         end in
       
       let brs := map_with_bigprod (fun br tra => 
@@ -798,6 +800,7 @@ Definition print_cst (prefix : string)
 
 Section on_every.
   Import ExAst.
+  Set Equations Transparent.
   Definition on_every_body (t : term) : annots box_type t -> unit := fun _ => tt.
   Equations on_every_constant (cst : Ex.constant_body) (a : constant_body_annots box_type cst) : unit :=
     on_every_constant {| cst_body := Some body |} a => on_every_body body a;
@@ -821,7 +824,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
   | ExAst.ConstantDecl cst => fun annot =>
     match print_cst prefix TT env nm cst annot with
     | Some r => (nm, r)
-    | None => (nm, "")
+    | None => (nm, "TODO: print_global_decl ConstantDecl ERROR?")
     end
   | ExAst.InductiveDecl mib => fun annot =>
     match mib.(ExAst.ind_bodies) with
@@ -833,7 +836,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
                              (prefix ++ nm.2) in
     (nm, "type " ++ uncapitalize ta_nm ++ concat " " (map (string_of_name ∘ tvar_name) params) ++  " = "
             ++ print_box_type prefix TT ty)
-  | TypeAliasDecl None => fun _ => (nm, "")
+  | TypeAliasDecl None => fun _ => (nm, "TODO: print_global_decl TypeAliasDecl ERROR?")
 end.
 
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)

@@ -130,6 +130,7 @@ extraction/theories/CertifyingEta.v
 -Q extraction/examples ConCert.Extraction.Examples
 extraction/examples/Ack.v
 extraction/examples/Counter.v
+extraction/examples/CameLIGOExtractionTests.v
 extraction/examples/CounterCertifiedExtraction.v
 extraction/examples/CounterDepCertifiedExtraction.v
 extraction/examples/CounterRefinementTypes.v

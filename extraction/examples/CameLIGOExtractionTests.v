@@ -151,7 +151,7 @@ Time MetaCoq Run
 Print cameLIGO_counter.
 Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter.
 
-Module Crowdfunding.
+(* Module Crowdfunding.
 
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
   Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
@@ -210,4 +210,4 @@ Time MetaCoq Run
 Print CameLIGO_crowdfunding.
 
 (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-Redirect "./extraction/examples/CameLIGO-extract/CrowdfundingCertifiedExtraction.liq" Compute CameLIGO_crowdfunding.
+Redirect "./extraction/examples/CameLIGO-extract/CrowdfundingCertifiedExtraction.liq" Compute CameLIGO_crowdfunding. *)

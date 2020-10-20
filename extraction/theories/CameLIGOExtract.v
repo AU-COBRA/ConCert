@@ -123,14 +123,14 @@ Definition CameLIGO_simple_extract
     let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
     match annot_extract_template_env_sig CameLIGO_extract_args p.1 seeds ignore with
-    | Ok (eΣ; eAnnots) =>
+    | Some (eΣ; eAnnots) =>
       (* dependencies should be printed before the dependent definitions *)
       let ldef_list := List.rev (print_global_env "" TT eΣ eAnnots) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in
       inl (concat (nl ++ nl) defs) %list
-    | Err e => inr e
+    | None => inr "failed at annot_extract_template_env_sig"
     end
   | _ => inr "Constant expected"
   end.
@@ -150,7 +150,7 @@ Definition CameLIGO_extraction {msg ctx params storage operation : Type}
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
-             (printCameLIGODefs prefix Σ TT ignore
+             (printCameLIGODefs prefix Σ TT CameLIGO_extract_args ignore
                                  CameLIGO_call_ctx
                                  m.(lmd_init_prelude)
                                  init_nm receive_nm) ;;
