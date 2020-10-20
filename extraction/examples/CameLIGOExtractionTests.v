@@ -111,7 +111,8 @@ End Counter.
 
 Import Lia.
 Import Counter.
-
+(* Require Coq.Numbers.BinNums. *)
+Print positive.
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 Definition TT_remap : list (kername * string) :=
   [ remap <% bool %> "bool"
@@ -123,11 +124,17 @@ Definition TT_remap : list (kername * string) :=
   ; remap <% Z.add %> "addInt"
   ; remap <% Z.sub %> "subInt"
   ; remap <% Z.leb %> "leInt"
+  ; remap <% Z.eqb %> "eqInt"
   ; remap <% List.fold_left %> "List.fold"
   ; remap <% Z %> "int"
   ; remap <% nat %> "address"
   ; remap <% operation %> "operation"
   ; remap <% @fst %> "fst"
+  ; remap <% positive %> "nat"
+  (* ; remap <% positive.add %> "addNat" *)
+  (* ; remap <% positive.sub %> "subNat" *)
+  (* ; remap <% positive.leb %> "leNat" *)
+  ; remap <% positive.eqb %> "eqNat"
   ; remap <% @snd %> "snd"
    (* TODO: set operations  *)
   ; remap <% Set %> "set" 
@@ -138,20 +145,22 @@ Definition TT_rename :=
   [ ("Some", "Some")
   ; ("None", "None")
   ; ("Z0" ,"0")
+  ; ("xH" ,"1n")
   ; ("nil", "[]") ].
 
 (** We run the extraction procedure inside the [TemplateMonad].
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 
-Time MetaCoq Run
+(* Time MetaCoq Run
      (t <- CameLIGO_extraction PREFIX TT_remap TT_rename LIGO_COUNTER_MODULE ;;
       tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
 
 Print cameLIGO_counter.
-Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter.
+Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter. *)
 
-(* Module Crowdfunding.
+Module Crowdfunding.
+  From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
 
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
   Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
@@ -159,16 +168,23 @@ Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo
             (setup : (time_coq × Z × address_coq)) : option storage :=
     if ctx.2.2.1 =? 0 then Some (setup, (Maps.mnil, false)) else None.
     (* (unfolded Init.init) setup ctx. *)
-
+    Open Scope Z.
+    Import ListNotations.
+    Import AcornBlockchain.
+    Import MonadNotation.
+    Import CrowdfundingContract.
+    Import Validate.
+    Import Receive.
+    
   Definition crowdfunding_receive
             (params : params)
             (st : storage) : option (list SimpleActionBody_coq × storage) :=
     receive params.2 st params.1.
 
-  Definition COUNTER_MODULE :
+  Definition CF_MODULE :
     CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
     {| (* a name for the definition with the extracted code *)
-      lmd_module_name := "cameligo_crowdfunding" ;
+      lmd_module_name := "cameLIGO_crowdfunding" ;
 
       (* definitions of operations on pairs and ints *)
       lmd_prelude :=
@@ -180,19 +196,21 @@ Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo
       lmd_init := crowdfunding_init ;
 
       (* init requires some extra operations *)
-      lmd_init_prelude :=
-              "let fst (p : 'a * 'b) : 'a = p.(0) in"
+      lmd_init_prelude := "";
+              (* "let fst (p : 'a * 'b) : 'a = p.(0) in"
           ++ nl
           ++ "let snd (p : 'a * 'b) : 'b = p.(1) in"
           ++ nl
-          ++ "let eqTez (a : tez ) (b : tez ) = a = b in" ;
+          ++ "let eqTez (a : tez ) (b : tez ) = a = b in" ; *)
 
 
       (* the main functionality *)
       lmd_receive := crowdfunding_receive  ;
 
       (* code for the entry point *)
-      lmd_entry_point := printWrapperAndMain |}.
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding") "params" "storage" ++ nl
+                        ++ CameLIGOPretty.printMain |}.
+
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -203,11 +221,11 @@ End Crowdfunding.
 Import Crowdfunding.
 
 Time MetaCoq Run
-(t <- CameLIGO_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
-  tmDefinition COUNTER_MODULE.(lmd_module_name) t
+(t <- CameLIGO_extraction PREFIX TT_remap TT_rename CF_MODULE ;;
+  tmDefinition CF_MODULE.(lmd_module_name) t
 ).
 
-Print CameLIGO_crowdfunding.
+Print cameLIGO_crowdfunding.
 
 (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-Redirect "./extraction/examples/CameLIGO-extract/CrowdfundingCertifiedExtraction.liq" Compute CameLIGO_crowdfunding. *)
+Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" Compute cameLIGO_crowdfunding.
