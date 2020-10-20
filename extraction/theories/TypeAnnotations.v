@@ -25,6 +25,7 @@ Import VectorNotations.
 Import ListNotations.
 
 Open Scope list.
+Set Equations Transparent.
 
 Section fix_env.
 Opaque flag_of_type erase_type.

@@ -156,6 +156,8 @@ Proof.
 Defined.
 
 Section bigprod.
+  Set Equations Transparent.
+
   Context {X : Type}.
   Context (T : X -> Type).
 
@@ -201,6 +203,8 @@ Section bigprod.
       | false => bigprod_find xs xsa
       }.
   End bigprod_find.
+
+  Set Equations Opaque.
 End bigprod.
 
 Arguments bigprod_map {_ _ _} _ {_}.
