@@ -39,6 +39,7 @@ _opam/
 *.liq
 *.midlang
 *.out
+*.mligo
 
 ## Elm tests
 extraction/examples/elm-extract/elm-stuff/
