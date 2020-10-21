@@ -14,10 +14,6 @@ From MetaCoq.Template Require Pretty.
 
 From ConCert.Execution Require Import Blockchain Serializable.
 
-From ConCert.Embedding Require Import MyEnv.
-From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import SimpleBlockchain.
-
 From ConCert.Extraction Require Import CameLIGOPretty
      Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Aux.
 
@@ -26,10 +22,6 @@ Local Open Scope string_scope.
 
 From MetaCoq.Template Require Import All.
 
-Import ListNotations.
-Import AcornBlockchain.
-Import MonadNotation.
-Import ResultMonad.
 
 Definition to_constant_decl (gd : option T.global_decl) :=
   match gd with
@@ -52,6 +44,8 @@ Arguments lmd_init {_ _ _ _ _}.
 Arguments lmd_init_prelude {_ _ _ _ _}.
 Arguments lmd_receive {_ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _}.
+
+Definition string_of_bool b := match b with true => "true" | _ => "false" end.
 
 
 Definition printCameLIGODefs (prefix : string) (Σ : global_env)
@@ -110,30 +104,6 @@ Definition CameLIGO_extract_args :=
                  check_closed := true;
                  check_expanded := true;
                  check_valid_masks := true |} |} |}.
-
-(* Definition CameLIGO_simple_extract
-           (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
-           (extract_deps : bool)
-           (p : program) : string + string :=
-  match p.2 with
-  | tConst kn _ =>
-    let seeds := KernameSet.singleton kn in
-    let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
-    let TT :=
-      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-    match annot_extract_template_env_sig CameLIGO_extract_args p.1 seeds ignore with
-    | Some (eΣ; eAnnots) =>
-      (* dependencies should be printed before the dependent definitions *)
-      let ldef_list := List.rev (print_global_env "" TT eΣ eAnnots) in
-      (* filtering empty strings corresponding to the ignored definitions *)
-      let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
-      let defs := map snd ldef_list in
-      inl (concat (nl ++ nl) defs) %list
-    | None => inr "failed at annot_extract_template_env_sig"
-    end
-  | _ => inr "Constant expected"
-  end. *)
 
 Definition wrap_in_delimiters s :=
   String.concat nl [""; s].

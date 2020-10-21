@@ -7,16 +7,12 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import SimpleBlockchain.
+(* From ConCert.Embedding Require Import SimpleBlockchain. *)
 From ConCert.Extraction Require Import Common Optimize PreludeExt.
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-
-Require Import String ZArith Basics.
-From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate Utils MyEnv.
 
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding.
@@ -24,11 +20,7 @@ From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
 
 From MetaCoq.Template Require Import All.
-
-Import ListNotations.
-Import AcornBlockchain.
 Import MonadNotation.
-
 Open Scope Z.
 
 Definition PREFIX := "".
@@ -115,57 +107,59 @@ Module Counter.
   Next Obligation. easy. Qed.
 
 End Counter.
+Section CounterExtraction.
+  Import Lia.
+  Import Counter.
+  (* Require Coq.Numbers.BinNums. *)
+  (* Print positive. *)
+  (* Search positive. *)
+  (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
+  Definition TT_remap_counter : list (kername * string) :=
+    [ remap <% bool %> "bool"
+    ; remap <% list %> "list"
+    ; remap <% Amount %> "tez"
+    ; remap <% address_coq %> "address"
+    ; remap <% time_coq %> "timestamp"
+    ; remap <% option %> "option"
+    ; remap <% Z.add %> "addInt"
+    ; remap <% Z.sub %> "subInt"
+    ; remap <% Z.leb %> "leInt"
+    ; remap <% Z.eqb %> "eqInt"
+    ; remap <% List.fold_left %> "List.fold"
+    ; remap <% Z %> "int"
+    ; remap <% nat %> "address"
+    ; remap <% operation %> "operation"
+    ; remap <% @fst %> "fst"
+    ; remap <% positive %> "nat"
+    ; remap <% Pos.add %> "addNat"
+    ; remap <% Pos.sub %> "subNat"
+    ; remap <% Pos.leb %> "leNat"
+    ; remap <% @snd %> "snd"
+    ; remap <% Pos.eqb %> "eqNat"
+    (* TODO: set operations  *)
+    ; remap <% Set %> "set" 
+    ].
 
-Import Lia.
-Import Counter.
-(* Require Coq.Numbers.BinNums. *)
-(* Print positive. *)
-(* Search positive. *)
-(** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-Definition TT_remap_counter : list (kername * string) :=
-  [ remap <% bool %> "bool"
-  ; remap <% list %> "list"
-  ; remap <% Amount %> "tez"
-  ; remap <% address_coq %> "address"
-  ; remap <% time_coq %> "timestamp"
-  ; remap <% option %> "option"
-  ; remap <% Z.add %> "addInt"
-  ; remap <% Z.sub %> "subInt"
-  ; remap <% Z.leb %> "leInt"
-  ; remap <% Z.eqb %> "eqInt"
-  ; remap <% List.fold_left %> "List.fold"
-  ; remap <% Z %> "int"
-  ; remap <% nat %> "address"
-  ; remap <% operation %> "operation"
-  ; remap <% @fst %> "fst"
-  ; remap <% positive %> "nat"
-  ; remap <% Pos.add %> "addNat"
-  ; remap <% Pos.sub %> "subNat"
-  ; remap <% Pos.leb %> "leNat"
-  ; remap <% Pos.eqb %> "eqNat"
-  ; remap <% @snd %> "snd"
-   (* TODO: set operations  *)
-  ; remap <% Set %> "set" 
-  ].
+  (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
+  Definition TT_rename :=
+    [ ("Some", "Some")
+    ; ("None", "None")
+    ; ("Z0" ,"0")
+    ; ("xH" ,"1n")
+    ; ("nil", "[]") ].
 
-(** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-Definition TT_rename :=
-  [ ("Some", "Some")
-  ; ("None", "None")
-  ; ("Z0" ,"0")
-  ; ("xH" ,"1n")
-  ; ("nil", "[]") ].
+  (** We run the extraction procedure inside the [TemplateMonad].
+      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+      that removes application of boxes to constants and constructors. *)
 
-(** We run the extraction procedure inside the [TemplateMonad].
-    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
-    that removes application of boxes to constants and constructors. *)
+  (* Time MetaCoq Run
+      (t <- CameLIGO_extraction PREFIX TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
+        tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
 
-(* Time MetaCoq Run
-     (t <- CameLIGO_extraction PREFIX TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
-      tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
-
-Print cameLIGO_counter.
-Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter. *)
+  Print cameLIGO_counter.
+  Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter. *)
+  
+End CounterExtraction.
 
 Module Crowdfunding.
   From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
@@ -226,81 +220,64 @@ Module Crowdfunding.
 
 End Crowdfunding.
 
-Import Crowdfunding.
-Import CrowdfundingContract.
-Import Validate.
-Import Receive.
-(* [ remap <% bool %> "bool"
-; remap <% list %> "list"
-; remap <% Amount %> "tez"
-; remap <% address_coq %> "address"
-; remap <% time_coq %> "timestamp"
-; remap <% option %> "option"
-; remap <% Z.add %> "addInt"
-; remap <% Z.sub %> "subInt"
-; remap <% Z.leb %> "leInt"
-; remap <% Z.eqb %> "eqInt"
-; remap <% List.fold_left %> "List.fold"
-; remap <% Z %> "int"
-; remap <% nat %> "address"
-; remap <% operation %> "operation"
-; remap <% @fst %> "fst"
-; remap <% positive %> "nat"
-; remap <% Pos.add %> "addNat"
-; remap <% Pos.sub %> "subNat"
-; remap <% Pos.leb %> "leNat"
-; remap <% Pos.eqb %> "eqNat"
-; remap <% @snd %> "snd"
- (* TODO: set operations  *)
-; remap <% Set %> "set" 
-]. *)
-Definition TT_remap_crowdfunding : list (kername * string) :=
+Section CrowdfundingExtraction.
 
-  [  (* types *)
-  remap <% Z %> "tez"
-; remap <% address_coq %> "address"
-; remap <% time_coq %> "timestamp"
-; remap <% nat %> "nat"
-; remap <% bool %> "bool"
-; remap <% unit %> "unit"
-; remap <% list %> "list"
-; remap <% @fst %> "fst"
-; remap <% @snd %> "snd"
-; remap <% option %> "option"
-; remap <% Maps.addr_map_coq %> "(address,tez) map"
-; remap <% SimpleActionBody_coq %> "operation"
-  (* 'amount' is a reserved keyword in ligo *)
-; remap <% Amount %> "tez"
+  Import Crowdfunding.
+  Import CrowdfundingContract.
+  Import Validate.
+  Import Receive.
+  From ConCert.Extraction.Examples Require Import SimpleBlockchainExt.
+  Import AcornBlockchain.
 
-(* operations *)
-; remap <% Z.add %> "addTez"
-; remap <% Z.sub %> "subTez"
-; remap <% Z.leb %> "leTez"
-; remap <% Z.ltb %> "ltTez"
-; remap <% Z.eqb %> "eqTez"
-; remap <% ltb_time %> "ltb_time"
-; remap <% leb_time %> "leb_time"
-; remap <% eqb_addr %> "eq_addr"
-; remap <% andb %> "andb"
-; remap <% negb %> "not"
-; remap <% Maps.add_map %> "Map.add"
-(* ; remap <% Maps.remove_map %> "Map.add" *)
-; remap <% lookup_map' %> "Map.find_opt" 
-].
+  Definition TT_remap_crowdfunding : list (kername * string) :=
 
-Definition TT_rename_crowdfunding :=
-  [ ("Z0" ,"0tez")
-  ; ("nil", "[]")
-  ; ("mnil", "Map.empty")
-  ; ("tt", "()") ].
+    [  (* types *)
+    remap <% Z %> "tez"
+  ; remap <% address_coq %> "address"
+  ; remap <% time_coq %> "timestamp"
+  ; remap <% nat %> "nat"
+  ; remap <% bool %> "bool"
+  ; remap <% unit %> "unit"
+  ; remap <% list %> "list"
+  ; remap <% @fst %> "fst"
+  ; remap <% @snd %> "snd"
+  ; remap <% option %> "option"
+  ; remap <% SimpleActionBody_coq %> "operation"
+  ; remap <% Maps.addr_map_coq %> "(address,tez) map"
+    (* 'amount' is a reserved keyword in ligo *)
+  ; remap <% Amount %> "tez"
+
+  (* operations *)
+  ; remap <% Z.add %> "addTez"
+  ; remap <% Z.sub %> "subTez"
+  ; remap <% Z.leb %> "leTez"
+  ; remap <% Z.ltb %> "ltTez"
+  ; remap <% Z.eqb %> "eqTez"
+  ; remap <% ltb_time %> "ltb_time"
+  ; remap <% leb_time %> "leb_time"
+  ; remap <% eqb_addr %> "eq_addr"
+  ; remap <% andb %> "andb"
+  ; remap <% negb %> "not"
+  ; remap <% Maps.add_map %> "Map.add"
+  (* ; remap <% Maps.remove_map %> "Map.add" *)
+  ; remap <% lookup_map' %> "Map.find_opt" 
+  ].
+
+  Definition TT_rename_crowdfunding :=
+    [ ("Z0" ,"0tez")
+    ; ("nil", "[]")
+    ; ("mnil", "Map.empty")
+    ; ("tt", "()") ].
 
 
-Time MetaCoq Run
-(t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
-  tmDefinition CF_MODULE.(lmd_module_name) t
-).
+  Time MetaCoq Run
+  (t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
+    tmDefinition CF_MODULE.(lmd_module_name) t
+  ).
 
-Print cameLIGO_crowdfunding.
+  Print cameLIGO_crowdfunding.
 
-(** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" Compute cameLIGO_crowdfunding.
+  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" Compute cameLIGO_crowdfunding.
+
+End CrowdfundingExtraction.
