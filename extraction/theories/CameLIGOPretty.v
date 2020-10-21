@@ -389,8 +389,7 @@ Section print_term.
   Definition print_transfer (args : list string) :=
     match args with
     | [] => "MalformedTransfer()"
-    | [a1;a2] => "Tezos.get_contract_opt (" ++ a1 ++ ") " ++ a2 ++ " "
-                                 ++ "default" ++ " ()"
+    | [a1;a2] => "Tezos.transaction unit " ++ a2 ++ " (get_contract_unit " ++ a1 ++ ")" 
     | _ => "MalformedTransfer(" ++ concat "," args ++ ")"
     end.
 
@@ -495,6 +494,8 @@ Section print_term.
       "([]:" ++ print_box_type prefix TT (bt) ++ ")" 
     else if nm =? "None" then
       "(None:" ++ print_box_type prefix TT (bt) ++ ")" 
+    else if nm =? "Map.empty" then
+      "(Map.empty:" ++ print_box_type prefix TT (bt) ++ ")" 
     else from_option (look TT nm) ((capitalize prefix) ++ nm)
   | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
@@ -900,7 +901,7 @@ Definition printWrapper (contract parameter_name storage_name : string): string 
   ++ "let wrapper (param, st : parameter_wrapper * " ++ storage_name ++ ") : return =" ++ nl
   ++ "  match param with  " ++ nl
   ++ "    Init st_init -> (([]: operation list), st_init) " ++ nl
-  ++ "  | Call p -> (match (counter p st) with  " ++ nl
+  ++ "  | Call p -> (match (" ++ contract ++ " p st) with  " ++ nl
   ++ "      Some v -> v" ++ nl
   ++ "    | None -> (failwith ("") : return)) " ++ nl.
 
