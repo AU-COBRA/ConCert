@@ -13,6 +13,13 @@ From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
+
+Require Import String ZArith Basics.
+From ConCert.Embedding Require Import Ast Notations CustomTactics
+     PCUICTranslate PCUICtoTemplate Utils MyEnv.
+
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding.
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
 
@@ -112,9 +119,10 @@ End Counter.
 Import Lia.
 Import Counter.
 (* Require Coq.Numbers.BinNums. *)
-Print positive.
+(* Print positive. *)
+(* Search positive. *)
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-Definition TT_remap : list (kername * string) :=
+Definition TT_remap_counter : list (kername * string) :=
   [ remap <% bool %> "bool"
   ; remap <% list %> "list"
   ; remap <% Amount %> "tez"
@@ -131,10 +139,10 @@ Definition TT_remap : list (kername * string) :=
   ; remap <% operation %> "operation"
   ; remap <% @fst %> "fst"
   ; remap <% positive %> "nat"
-  (* ; remap <% positive.add %> "addNat" *)
-  (* ; remap <% positive.sub %> "subNat" *)
-  (* ; remap <% positive.leb %> "leNat" *)
-  ; remap <% positive.eqb %> "eqNat"
+  ; remap <% Pos.add %> "addNat"
+  ; remap <% Pos.sub %> "subNat"
+  ; remap <% Pos.leb %> "leNat"
+  ; remap <% Pos.eqb %> "eqNat"
   ; remap <% @snd %> "snd"
    (* TODO: set operations  *)
   ; remap <% Set %> "set" 
@@ -153,7 +161,7 @@ Definition TT_rename :=
     that removes application of boxes to constants and constructors. *)
 
 (* Time MetaCoq Run
-     (t <- CameLIGO_extraction PREFIX TT_remap TT_rename LIGO_COUNTER_MODULE ;;
+     (t <- CameLIGO_extraction PREFIX TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
       tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
 
 Print cameLIGO_counter.
@@ -208,7 +216,7 @@ Module Crowdfunding.
       lmd_receive := crowdfunding_receive  ;
 
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding") "params" "storage" ++ nl
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding") "msg_coq" "storage" ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
 
@@ -219,9 +227,76 @@ Module Crowdfunding.
 End Crowdfunding.
 
 Import Crowdfunding.
+Import CrowdfundingContract.
+Import Validate.
+Import Receive.
+(* [ remap <% bool %> "bool"
+; remap <% list %> "list"
+; remap <% Amount %> "tez"
+; remap <% address_coq %> "address"
+; remap <% time_coq %> "timestamp"
+; remap <% option %> "option"
+; remap <% Z.add %> "addInt"
+; remap <% Z.sub %> "subInt"
+; remap <% Z.leb %> "leInt"
+; remap <% Z.eqb %> "eqInt"
+; remap <% List.fold_left %> "List.fold"
+; remap <% Z %> "int"
+; remap <% nat %> "address"
+; remap <% operation %> "operation"
+; remap <% @fst %> "fst"
+; remap <% positive %> "nat"
+; remap <% Pos.add %> "addNat"
+; remap <% Pos.sub %> "subNat"
+; remap <% Pos.leb %> "leNat"
+; remap <% Pos.eqb %> "eqNat"
+; remap <% @snd %> "snd"
+ (* TODO: set operations  *)
+; remap <% Set %> "set" 
+]. *)
+Definition TT_remap_crowdfunding : list (kername * string) :=
+
+  [  (* types *)
+  remap <% Z %> "tez"
+; remap <% address_coq %> "address"
+; remap <% time_coq %> "timestamp"
+; remap <% nat %> "nat"
+; remap <% bool %> "bool"
+; remap <% unit %> "unit"
+; remap <% list %> "list"
+; remap <% @fst %> "fst"
+; remap <% @snd %> "snd"
+; remap <% option %> "option"
+; remap <% Maps.addr_map_coq %> "(address,tez) map"
+; remap <% SimpleActionBody_coq %> "operation"
+  (* 'amount' is a reserved keyword in ligo *)
+; remap <% Amount %> "tez"
+
+(* operations *)
+; remap <% Z.add %> "addTez"
+; remap <% Z.sub %> "subTez"
+; remap <% Z.leb %> "leTez"
+; remap <% Z.ltb %> "ltTez"
+; remap <% Z.eqb %> "eqTez"
+; remap <% ltb_time %> "ltb_time"
+; remap <% leb_time %> "leb_time"
+; remap <% eqb_addr %> "eq_addr"
+; remap <% andb %> "andb"
+; remap <% negb %> "not"
+; remap <% Maps.add_map %> "Map.add"
+(* ; remap <% Maps.remove_map %> "Map.add" *)
+; remap <% lookup_map' %> "Map.find_opt" 
+].
+
+Definition TT_rename_crowdfunding :=
+  [ ("Z0" ,"0tez")
+  ; ("nil", "[]")
+  ; ("mnil", "Map.empty")
+  ; ("tt", "()") ].
+
 
 Time MetaCoq Run
-(t <- CameLIGO_extraction PREFIX TT_remap TT_rename CF_MODULE ;;
+(t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
   tmDefinition CF_MODULE.(lmd_module_name) t
 ).
 

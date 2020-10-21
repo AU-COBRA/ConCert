@@ -111,7 +111,7 @@ Definition CameLIGO_extract_args :=
                  check_expanded := true;
                  check_valid_masks := true |} |} |}.
 
-Definition CameLIGO_simple_extract
+(* Definition CameLIGO_simple_extract
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
            (extract_deps : bool)
@@ -133,7 +133,7 @@ Definition CameLIGO_simple_extract
     | None => inr "failed at annot_extract_template_env_sig"
     end
   | _ => inr "Constant expected"
-  end.
+  end. *)
 
 Definition wrap_in_delimiters s :=
   String.concat nl [""; s].

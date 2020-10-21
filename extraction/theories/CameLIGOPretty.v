@@ -389,7 +389,7 @@ Section print_term.
   Definition print_transfer (args : list string) :=
     match args with
     | [] => "MalformedTransfer()"
-    | [a1;a2] => "Contract.call " ++ a1 ++ " " ++ a2 ++ " "
+    | [a1;a2] => "Tezos.get_contract_opt (" ++ a1 ++ ") " ++ a2 ++ " "
                                  ++ "default" ++ " ()"
     | _ => "MalformedTransfer(" ++ concat "," args ++ ")"
     end.
@@ -647,33 +647,6 @@ Definition print_term_annotated_type :=ExAst.global_env ->
     context ->
     bool -> bool -> forall t : term, annots box_type t -> string.
 
-Definition general_extract_typed (p : T.program) (opt : bool) (ignore : list kername) (TT : list (kername * string)) : (∑t, annots box_type t).
-Proof.
-  refine (let entry := match p.2 with
-           | T.tConst kn _ => kn
-           | T.tInd ind _ => (inductive_mind ind)
-           | _ => does_not_happen
-           end in _).
-  set (args := if opt then opt_args else no_opt_args).
-  pose proof (annot_extract_template_env args p.1 (KernameSet.singleton entry)
-                                         (fun k => existsb (eq_kername k) ignore)).
-  destruct extract_template_env as [|e]; [|exact does_not_happen].
-  destruct (bigprod_find (fun '(kn, _, _) _ => eq_kername entry kn) X); [|exact does_not_happen].
-  destruct s as ((? & decl) & annot).
-  destruct decl; [|exact does_not_happen|exact does_not_happen].
-  cbn in *.
-  unfold constant_body_annots in *.
-  destruct Ex.cst_body; [|exact does_not_happen].
-  
-  exact (t0; annot).
-  
-  (* refine (let ctx := map (fun x => Build_context_decl x None) (rev args) in _). *)
-  (* exact (print_term t prefix [] TT ctx true false t0 annot). *)
-  (* exact (print_term_annotated (TemplateToPCUIC.trans_global_decls p.1) [] t0 annot). *)
-Defined.
-
-
-
 Definition general_print_decl (prefix : string) (p : T.program) (opt : bool) (ignore : list kername) (TT : MyEnv.env string) : string.
 Proof.
   refine (let entry := match p.2 with
@@ -750,10 +723,8 @@ Definition print_init (prefix : string)
       | TApp (TInd ind) t1 =>
         if eq_kername <%% option %%> ind.(inductive_mind) then
           print_box_type prefix TT t1
-        else ":/"
-        (* else print_box_type prefix TT inner_ret_ty *)
-      | _ => "::/"
-      (* | _ => print_box_type prefix TT inner_ret_ty  *)
+        else print_box_type prefix TT inner_ret_ty
+      | _ => print_box_type prefix TT inner_ret_ty 
       end in 
     let wrap t := 
       "match " ++ t ++ " with" ++ nl ++
@@ -836,7 +807,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
                              (prefix ++ nm.2) in
     (nm, "type " ++ uncapitalize ta_nm ++ concat " " (map (string_of_name ∘ tvar_name) params) ++  " = "
             ++ print_box_type prefix TT ty)
-  | TypeAliasDecl None => fun _ => (nm, "TODO: print_global_decl TypeAliasDecl ERROR?")
+  | TypeAliasDecl None => fun _ => (nm, "")
 end.
 
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
@@ -922,13 +893,11 @@ Definition CameLIGOPrelude :=
    | Call of parameter *)
 
 Definition printWrapper (contract parameter_name storage_name : string): string :=
-     "type parameter = " ++ parameter_name ++ nl
-  ++ "type storage = " ++ storage_name ++ nl
-  ++ "type return = (operation) list * storage" ++ nl
+     "type return = (operation) list * storage" ++ nl
   ++ "type parameter_wrapper =" ++ nl
-  ++ "  Init of storage" ++ nl
-  ++ "| Call of parameter" ++ nl ++ nl
-  ++ "let wrapper (param, st : parameter_wrapper * storage) : return =" ++ nl
+  ++ "  Init of " ++ storage_name ++ nl
+  ++ "| Call of " ++ parameter_name ++ nl ++ nl
+  ++ "let wrapper (param, st : parameter_wrapper * " ++ storage_name ++ ") : return =" ++ nl
   ++ "  match param with  " ++ nl
   ++ "    Init st_init -> (([]: operation list), st_init) " ++ nl
   ++ "  | Call p -> (match (counter p st) with  " ++ nl
