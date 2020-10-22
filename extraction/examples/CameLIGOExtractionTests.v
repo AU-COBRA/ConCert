@@ -199,18 +199,12 @@ Module Crowdfunding.
 
       (* init requires some extra operations *)
       lmd_init_prelude := "";
-              (* "let fst (p : 'a * 'b) : 'a = p.(0) in"
-          ++ nl
-          ++ "let snd (p : 'a * 'b) : 'b = p.(1) in"
-          ++ nl
-          ++ "let eqTez (a : tez ) (b : tez ) = a = b in" ; *)
-
 
       (* the main functionality *)
       lmd_receive := crowdfunding_receive  ;
 
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding") "msg_coq" "storage" ++ nl
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive") "msg_coq" "storage" ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
 
@@ -259,7 +253,6 @@ Section CrowdfundingExtraction.
   ; remap <% andb %> "andb"
   ; remap <% negb %> "not"
   ; remap <% Maps.add_map %> "Map.add"
-  (* ; remap <% Maps.remove_map %> "Map.add" *)
   ; remap <% lookup_map' %> "Map.find_opt" 
   ].
 
