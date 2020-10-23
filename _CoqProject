@@ -99,7 +99,7 @@ embedding/examples/crowdfunding/CrowdfundingData.v
 
 -Q extraction/theories ConCert.Extraction
 extraction/theories/Annotations.v
-extraction/theories/Aux.v
+extraction/theories/Utils.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v
 extraction/theories/Erasure.v

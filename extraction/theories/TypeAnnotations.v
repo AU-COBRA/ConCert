@@ -1,5 +1,5 @@
 From ConCert.Extraction Require Import Annotations.
-From ConCert.Extraction Require Import Aux.
+From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
