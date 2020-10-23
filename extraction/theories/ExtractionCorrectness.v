@@ -130,20 +130,13 @@ Qed.
 Print Assumptions extract_correct.
 
 (* There are some assumptions of which almost all are in MetaCoq.
-   From this project are the following:
-
-   1. not_prod_or_sort_hnf, which is used in flag_of_type. This says that if the head normal
-      form of a term is not a product or sort then the term is not convertible to an arity.
-      The proof of this requires a statement about completeness of the hnf function from MetaCoq,
-      saying that this function actually reduces to head normal from. MetaCoq does not yet
-      include a completeness statement about hnf (but it is planned), so for now we defer
-      those proofs.
-
-   2. assume_env_wellformed, which is used to assume that the environments we extract are
-      wellformed. MetaCoq's safe checker does not run from within Coq, so we cannot type
-      check the environments. However, our environments are unquoted directly from Coq's
-      kernel where they are already welltyped, so this is justified (and the same assumption
-      is used in MetaCoq when they run their erasure).
+   From this project is only assume_env_wellformed assumption which is
+   used to assume that the environments we extract are
+   wellformed. MetaCoq's safe checker does not run from within Coq, so
+   we cannot type check the environments. However, our environments
+   are unquoted directly from Coq's kernel where they are already
+   welltyped, so this is justified (and the same assumption is used in
+   MetaCoq when they run their erasure).
 
    The rest of the assumptions are normal MetaCoq assumptions
-   (which are justified in Coq Coq Correct!) and todos left in the MetaCoq development. *)
+   (which are justified in Coq Coq Correct!). *)

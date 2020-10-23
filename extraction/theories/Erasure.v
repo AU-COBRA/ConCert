@@ -217,9 +217,23 @@ Lemma not_prod_or_sort_hnf {Γ t wf} :
   negb (is_prod_or_sort (hnf wfΣ Γ t wf)) ->
   ~Is_conv_to_Arity Σ Γ t.
 Proof.
-  (* We need to use the fact that hnf produces a normal form,
-     but this is not proven in MetaCoq yet, so we admit this for now. *)
-  Admitted.
+  intros nar car.
+  unfold hnf in nar.
+  pose proof (reduce_term_sound RedFlags.default Σ wfΣ Γ t wf) as [r].
+  pose proof (reduce_term_complete RedFlags.default Σ wfΣ Γ t wf) as wh.
+  destruct wfΣ.
+  apply Is_conv_to_Arity_inv in car as [(?&?&?&[r'])|(?&[r'])]; auto.
+  - eapply red_confluence in r' as (?&r1&r2); eauto.
+    apply invert_red_prod in r2 as (?&?&(->&?)&?); auto.
+    apply whnf_red_prod in r1 as (?&?&?); auto.
+    rewrite H in nar.
+    now cbn in nar.
+  - eapply red_confluence in r' as (?&r1&r2); eauto.
+    apply invert_red_sort in r2 as ->; auto.
+    apply whnf_red_sort in r1; auto.
+    rewrite r1 in nar.
+    now cbn in nar.
+Qed.
 
 Inductive term_sub_ctx : context * term -> context * term -> Prop :=
 | sub_prod_dom Γ na A B : term_sub_ctx (Γ, A) (Γ, tProd na A B)
@@ -706,7 +720,7 @@ Next Obligation.
   now apply conv_arity_Is_conv_to_Arity in car.
 Qed.
 Next Obligation.
-  pose proof (SafeErasureFunction.reduce_to_sort_complete _ (eq_sym eq)).
+  pose proof (PCUICSafeChecker.reduce_to_sort_complete _ _ (eq_sym eq)).
   clear eq.
   apply not_prod_or_sort_hnf in discr.
   destruct wat as [[|]].
@@ -1412,9 +1426,7 @@ Program Fixpoint erase_global_decls_deps_recursive
       (* We still erase ignored inductives and constants for two reasons:
          1. For inductives, we want to allow pattern matches on them and we need
          information about them to print names.
-         2. For constants, we use their type to do deboxing.
-         On the other hand, it is unlikely that something remapped has a higher-kinded type
-         as we wouldn't be able to remap it to something sane, so this is probably ok. *)
+         2. For constants, we use their type to do deboxing. *)
       let decl := erase_global_decl Σext _ kn decl _ in
       let with_deps := negb (ignore_deps kn) in
       let new_deps := if with_deps then decl_deps decl else KernameSet.empty in
