@@ -17,7 +17,7 @@ opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install -j 4 coq.8.11 coq-bignums coq-stdpp coq-quickchick
-opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#bc323fd17aa25a242480770711c6b6685803dd9c
+opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#abc736f20020156e520e7ca4ef0557ce5f8b7db0
 ```
 
 After completing the procedures above, run `make` to build the development, and
