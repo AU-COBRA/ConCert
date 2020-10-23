@@ -666,7 +666,6 @@ Definition print_init (prefix : string)
                                               | None => unit
                                               end -> option string with
     | Some b => fun cstAnnot =>
-    (* b <- cst.(ExAst.cst_body) ;; *)
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot b cstAnnot in
     let ty := cst.(ExAst.cst_type) in
     let (tys,inner_ret_ty) := decompose_arr ty.2 in
@@ -687,7 +686,7 @@ Definition print_init (prefix : string)
     let wrap t := 
       "match " ++ t ++ " with" ++ nl ++
       "  Some v -> v" ++ nl ++
-      "| None -> (failwith (""): " ++ printed_outer_ret_ty ++ ")" in
+      "| None -> (failwith (""""): " ++ printed_outer_ret_ty ++ ")" in
     let let_inner :=
         "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
               ++ CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot
@@ -698,6 +697,18 @@ Definition print_init (prefix : string)
       "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
     let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
     let inner_app := "inner " ++ concat " " ( "ctx" :: map (string_of_name ctx) (tl args)) in
+    (* Type declaration of TODO *)
+    let init_args_ty := "type init_args_ty = " ++ (tl tys |> map (print_box_type prefix TT) |> concat " * ") in
+    let init_wrapper_args_printed tys :=
+      match tys with
+      | [] => ""
+      | [ty] => " args"
+      | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "") |> snd
+      end in
+    let init_wrapper := 
+         "let init_wrapper (args : init_args_ty) ="
+      ++ nl
+      ++ "  init" ++ (tl tys |> init_wrapper_args_printed) in 
     ret ("let " ++ decl_outer ++ " = "
                     ++ init_prelude
                     ++ nl
@@ -705,7 +716,12 @@ Definition print_init (prefix : string)
                     ++ nl
                     ++ let_ctx
                     ++ nl
-                    ++ wrap (parens false inner_app))
+                    ++ wrap (parens false inner_app)
+                    ++ nl
+                    ++ init_args_ty
+                    ++ nl
+                    ++ init_wrapper
+                    ++ nl)
   | None => fun _ => None
   end. 
 
@@ -839,7 +855,6 @@ Definition time_ops :=
 Definition address_ops :=
   "[@inline] let eq_addr (a1 : address) (a2 : address) = a1 = a2".
 
-Print string.
 Definition double_quote := String (ascii_of_byte "034") "".
 
 Definition get_contract_def :=
@@ -861,17 +876,20 @@ Definition CameLIGOPrelude :=
    | Call of parameter *)
 
 Definition printWrapper (contract parameter_name storage_name : string): string :=
-     "type return = (operation) list * storage" ++ nl
+     "type return = (operation) list * (storage option)" ++ nl
   ++ "type parameter_wrapper =" ++ nl
-  ++ "  Init of " ++ storage_name ++ nl
+  ++ "  Init of init_args_ty" ++ nl
   ++ "| Call of " ++ parameter_name ++ nl ++ nl
-  ++ "let wrapper (param, st : parameter_wrapper * " ++ storage_name ++ ") : return =" ++ nl
+  ++ "let wrapper (param, st : parameter_wrapper * " ++ storage_name ++ " option) : return =" ++ nl
   ++ "  match param with  " ++ nl
-  ++ "    Init st_init -> (([]: operation list), st_init) " ++ nl
-  ++ "  | Call p -> (match (" ++ contract ++ " p st) with  " ++ nl
-  ++ "      Some v -> v" ++ nl
-  ++ "    | None -> (failwith ("") : return)) " ++ nl.
+  ++ "    Init init_args -> (([]: operation list), Some (init init_args))" ++ nl
+  ++ "| Call p -> (" ++ nl
+  ++ "  match st with" ++ nl
+  ++ "    Some st -> (match (" ++ contract ++ " p st) with   " ++ nl
+  ++ "                  Some v -> (v.0, Some v.1)" ++ nl
+  ++ "                | None -> (failwith ("""") : return))" ++ nl
+  ++ "  | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
 
 
 Definition printMain :=
-  "let main (action, st : parameter_wrapper * storage) : return = wrapper (action, st)".
+  "let main (action, st : parameter_wrapper * storage option) : return = wrapper (action, st)".

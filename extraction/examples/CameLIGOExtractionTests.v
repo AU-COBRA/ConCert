@@ -161,9 +161,9 @@ Section CounterExtraction.
   
 End CounterExtraction.
 
+From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
 Module Crowdfunding.
-  From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
-
+  (* Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt. *)
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
   Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
   Definition crowdfunding_init (ctx : SimpleCallCtx)
@@ -183,6 +183,8 @@ Module Crowdfunding.
             (st : storage) : option (list SimpleActionBody_coq × storage) :=
     receive params.2 st params.1.
 
+  Definition double_quote := String (ascii_of_byte "034") "a".
+  Open Scope string_scope.
   Definition CF_MODULE :
     CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
     {| (* a name for the definition with the extracted code *)
@@ -192,7 +194,11 @@ Module Crowdfunding.
       lmd_prelude :=
         CameLIGOPrelude
           ++ nl
-          ++ "type storage = ((timestamp * (tez * address)) * ((address,tez) map * bool))";
+          ++ "type storage = ((timestamp * (tez * address)) * ((address,tez) map * bool))"
+          ++ nl
+          ++ "let init_storage :  (timestamp * (tez * address)) =
+          (Tezos.now, (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
+
 
       (* initial storage *)
       lmd_init := crowdfunding_init ;
@@ -204,7 +210,7 @@ Module Crowdfunding.
       lmd_receive := crowdfunding_receive  ;
 
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive") "msg_coq" "storage" ++ nl
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive") "((timestamp * (address * (tez * tez))) * msg_coq)" "storage" ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
 
@@ -220,7 +226,7 @@ Section CrowdfundingExtraction.
   Import CrowdfundingContract.
   Import Validate.
   Import Receive.
-  From ConCert.Extraction.Examples Require Import SimpleBlockchainExt.
+  Import SimpleBlockchainExt.
   Import AcornBlockchain.
 
   Definition TT_remap_crowdfunding : list (kername * string) :=
@@ -262,6 +268,10 @@ Section CrowdfundingExtraction.
     ; ("mnil", "Map.empty")
     ; ("tt", "()") ].
 
+  (* Definition aa := "hello""aaaa".
+  
+  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg aa). *)
+  
 
   Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
@@ -270,7 +280,9 @@ Section CrowdfundingExtraction.
 
   Print cameLIGO_crowdfunding.
 
-  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" Compute cameLIGO_crowdfunding.
+  Open Scope string.
+  Definition printed := Eval vm_compute in cameLIGO_crowdfunding.
+    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
 
 End CrowdfundingExtraction.
