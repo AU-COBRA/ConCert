@@ -1,4 +1,4 @@
-From ConCert.Extraction Require Import Aux.
+From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
@@ -25,7 +25,7 @@ Import ListNotations.
 Import EAstUtils.
 Import Erasure.
 Import ExAst.
-Import ConCert.Extraction.Aux.
+Import ConCert.Extraction.Utils.
 
 Lemma lookup_env_trans_env Σ kn :
   ETyping.lookup_env (trans_env Σ) kn =

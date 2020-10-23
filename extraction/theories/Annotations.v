@@ -1,4 +1,4 @@
-From ConCert.Extraction Require Import Aux.
+From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ExAst.
 From Coq Require Import List.
 From Equations Require Import Equations.

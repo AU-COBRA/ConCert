@@ -1,4 +1,4 @@
-From ConCert.Extraction Require Import Aux.
+From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.

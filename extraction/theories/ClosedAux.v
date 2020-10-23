@@ -1,4 +1,4 @@
-From ConCert.Extraction Require Import Aux.
+From ConCert.Extraction Require Import Utils.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import List.
