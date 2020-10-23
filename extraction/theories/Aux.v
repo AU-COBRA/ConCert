@@ -204,7 +204,7 @@ Section bigprod.
       }.
   End bigprod_find.
 
-  Set Equations Opaque.
+  Unset Equations Transparent.
 End bigprod.
 
 Arguments bigprod_map {_ _ _} _ {_}.
