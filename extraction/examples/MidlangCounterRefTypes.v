@@ -33,18 +33,16 @@ Instance MidlangBoxes : MidlangPrintConfig :=
      print_full_names := false |}.
 
 Definition midlang_translation_map :=
-  Eval compute in
-        [(<%% @current_slot %%>, "current_slot");
-        (<%% @account_balance %%>, "account_balance");
-        (<%% @address_eqb %%>, "address_eq");
-        (<%% @ctx_amount %%>, "amount");
-        (<%% @ctx_from %%>, "from");
-        (<%% @Chain %%>, "ConCertChain");
-        (<%% @ContractCallContext %%>, "ConCertCallContext");
-        (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
-        (<%% @ChainBase %%>, "ChainBaseWTF");
-        (<%% @act_transfer %%>, "transfer");
-        (<%% @ctx_contract_address %%>, "contract_address")].
+  [(<%% @current_slot %%>, "current_slot");
+  (<%% @account_balance %%>, "account_balance");
+  (<%% @address_eqb %%>, "address_eq");
+  (<%% @ctx_amount %%>, "amount");
+  (<%% @ctx_from %%>, "from");
+  (<%% @Chain %%>, "ConCertChain");
+  (<%% @ContractCallContext %%>, "ConCertCallContext");
+  (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
+  (<%% @ChainBase %%>, "ChainBaseWTF");
+  (<%% @ctx_contract_address %%>, "contract_address")].
 
 Definition midlang_translate (name : kername) : option string :=
   match find (fun '(key, _) => eq_kername key name) midlang_translation_map with
@@ -118,16 +116,16 @@ Definition counter_name := <%% CounterRefinmentTypes.counter %%>.
 
 Definition TT : list (kername * string) := Eval compute in
   [
-       remap <% Z.add %> "add"
-     ; remap <% Z.sub %> "sub"
-     ; remap <% Z.leb %> "le"
-     ; remap <% Z.ltb %> "lt"
-     ; remap <% Z %> "Int"
+       remap <%% Z.add %%> "add"
+     ; remap <%% Z.sub %%> "sub"
+     ; remap <%% Z.leb %%> "le"
+     ; remap <%% Z.ltb %%> "lt"
+     ; remap <%% Z %%> "Int"
      ; ((<%% Z %%>.1, "Z0"),"0")
-     ; remap <% nat %> "AccountAddress"
-     ; remap <% CounterRefinmentTypes.Transaction %> "Transaction"
-     ; remap <% CounterRefinmentTypes.Transaction_none %> "Transaction.none"
-     ; remap <% bool %> "Bool" ].
+     ; remap <%% nat %%> "AccountAddress"
+     ; remap <%% CounterRefinmentTypes.Transaction %%> "Transaction"
+     ; remap <%% CounterRefinmentTypes.Transaction_none %%> "Transaction.none"
+     ; remap <%% bool %%> "Bool" ].
 
 Definition midlang_counter_translate (name : kername) : option string :=
   match find (fun '(key, _) => eq_kername key name) (TT ++ midlang_translation_map) with

@@ -105,24 +105,24 @@ Definition print_finmap_type (prefix ty_key ty_val : string) :=
 (** A translation table for various constants we want to rename *)
 Definition TT_remap : list (kername * string) :=
   [   (* remapping types *)
-       remap <% Z %> "int"
-     ; remap <% bool %> "bool"
-     ; remap <% unit %> "unit"
-     ; remap <% option %> "option"
-     ; remap <% Amount %> "tez"
-     ; remap <% address_coq %> "address"
-     ; remap <% time_coq %> "timestamp"
-     ; remap <% list %> "list"
-     ; remap <% string %> "string"
-     ; remap <% ext_map %> (print_finmap_type PREFIX "string * int" "value")
-     ; remap <% action %> "operation"
+       remap <%% Z %%> "int"
+     ; remap <%% bool %%> "bool"
+     ; remap <%% unit %%> "unit"
+     ; remap <%% option %%> "option"
+     ; remap <%% Amount %%> "tez"
+     ; remap <%% address_coq %%> "address"
+     ; remap <%% time_coq %%> "timestamp"
+     ; remap <%% list %%> "list"
+     ; remap <%% string %%> "string"
+     ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
+     ; remap <%% action %%> "operation"
      (* remapping operations *)
-     ; remap <% Z.add %> "addInt"
-     ; remap <% Z.eqb %> "eqInt"
-     ; remap <% @lookup %> "Map.find"
-     ; remap <% @fst %> "fst"
-     ; remap <% @snd %> "snd"
-       ; remap <% andb %> "andb" ].
+     ; remap <%% Z.add %%> "addInt"
+     ; remap <%% Z.eqb %%> "eqInt"
+     ; remap <%% @lookup %%> "Map.find"
+     ; remap <%% @fst %%> "fst"
+     ; remap <%% @snd %%> "snd"
+       ; remap <%% andb %%> "andb" ].
 
 Definition TT_rename : MyEnv.env string :=
      (* constructors *)

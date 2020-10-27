@@ -51,14 +51,13 @@ Definition to_kername (t : Ast.term) : option kername :=
   | _ => None
   end.
 
-Definition to_kername_dummy (t : Ast.term) :  kername :=
-  let dummy := (MPfile [],"") in
-  match (to_kername t) with
-  | Some v => v
-  | None => dummy
-  end.
-
-Notation "<%% t %%>" := (to_kername_dummy <% t %>).
+Notation "<%% t %%>" :=
+  (ltac:(let p y :=
+             let e := eval cbv in (to_kername y) in
+             match e with
+             | @Some _ ?kn => exact kn
+             | _ => fail "not a name"
+             end in quote_term t p)).
 
 Definition result_of_typing_result
            {A}
@@ -106,11 +105,8 @@ Definition extract_def_name {A : Type} (a : A) : TemplateMonad kername :=
 Notation "'unfolded' d" :=
   ltac:(let y := eval unfold d in d in exact y) (at level 100, only parsing).
 
-(** Returns a pair of a kername (if [t] is a constant) and a new name.
- Used in a similar way as [Extract Inlined Constant] of the standard extraction *)
-Definition remap (t : Ast.term) (new_name : string) :  kername * string :=
-  let nm := to_kername_dummy t in
-  (nm, new_name).
+Definition remap (kn : kername) (new_name : string) : kername * string :=
+  (kn, new_name).
 
 Definition EnvCheck_to_template {A } (ec : EnvCheck A) : TemplateMonad A :=
   match ec with
