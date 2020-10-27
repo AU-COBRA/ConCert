@@ -135,10 +135,10 @@ Compute erase_print square_prog true.
 
 (** A translation table for various constants we want to rename *)
 Definition TT :=
-  [  remap <% List.map %> "Liquidity.List.map" ;
-     remap <% Nat.mul %> "mulNat" ;
-     remap <% nat %> "nat" ;
-     remap <% list %> "list"].
+  [  remap <%% List.map %%> "Liquidity.List.map" ;
+     remap <%% Nat.mul %%> "mulNat" ;
+     remap <%% nat %%> "nat" ;
+     remap <%% list %%> "list"].
 
 MetaCoq Quote Recursively Definition square_syn := square.
 

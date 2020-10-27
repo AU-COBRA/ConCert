@@ -27,31 +27,31 @@ Definition PREFIX := "".
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 Definition TT_remap : list (kername * string) :=
   [  (* types *)
-    remap <% Z %> "tez"
-  ; remap <% address_coq %> "address"
-  ; remap <% time_coq %> "timestamp"
-  ; remap <% nat %> "nat"
-  ; remap <% bool %> "bool"
-  ; remap <% unit %> "unit"
-  ; remap <% list %> "list"
-  ; remap <% @fst %> "fst"
-  ; remap <% @snd %> "snd"
-  ; remap <% option %> "option"
-  ; remap <% Maps.addr_map_coq %> "(address,tez) map"
-  ; remap <% SimpleActionBody_coq %> "operation"
+    remap <%% Z %%> "tez"
+  ; remap <%% address_coq %%> "address"
+  ; remap <%% time_coq %%> "timestamp"
+  ; remap <%% nat %%> "nat"
+  ; remap <%% bool %%> "bool"
+  ; remap <%% unit %%> "unit"
+  ; remap <%% list %%> "list"
+  ; remap <%% @fst %%> "fst"
+  ; remap <%% @snd %%> "snd"
+  ; remap <%% option %%> "option"
+  ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
+  ; remap <%% SimpleActionBody_coq %%> "operation"
 
   (* operations *)
-  ; remap <% Z.add %> "addTez"
-  ; remap <% Z.eqb %> "eqTez"
-  ; remap <% Z.leb %> "leTez"
-  ; remap <% Z.ltb %> "ltTez"
-  ; remap <% ltb_time %> "ltb_time"
-  ; remap <% leb_time %> "leb_time"
-  ; remap <% eqb_addr %> "eq_addr"
-  ; remap <% andb %> "andb"
-  ; remap <% negb %> "not"
-  ; remap <% Maps.add_map %> "Map.add"
-  ; remap <% lookup_map' %> "Map.find" ].
+  ; remap <%% Z.add %%> "addTez"
+  ; remap <%% Z.eqb %%> "eqTez"
+  ; remap <%% Z.leb %%> "leTez"
+  ; remap <%% Z.ltb %%> "ltTez"
+  ; remap <%% ltb_time %%> "ltb_time"
+  ; remap <%% leb_time %%> "leb_time"
+  ; remap <%% eqb_addr %%> "eq_addr"
+  ; remap <%% andb %%> "andb"
+  ; remap <%% negb %%> "not"
+  ; remap <%% Maps.add_map %%> "Map.add"
+  ; remap <%% lookup_map' %%> "Map.find" ].
 
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
 Definition TT_rename :=

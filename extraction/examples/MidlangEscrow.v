@@ -40,8 +40,8 @@ Notation "'eval_extract' x" :=
        exact x) (at level 70).
 
 Definition TT_escrow : list (kername * string) :=
-  [    remap <% bool %> "Bool"
-     ; remap <% @Address %> "Int"].
+  [    remap <%% bool %%> "Bool"
+     ; remap <%% @Address %%> "Int"].
 
 Definition midlang_translation_map :=
   Eval compute in
@@ -54,7 +54,6 @@ Definition midlang_translation_map :=
         (<%% @ContractCallContext %%>, "ConCertCallContext");
         (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
         (<%% @ChainBase %%>, "ChainBaseWTF");
-        (<%% @act_transfer %%>, "transfer");
         (<%% @ctx_contract_address %%>, "contract_address");
         (<%% @Amount %%>,"Z" )].
 
