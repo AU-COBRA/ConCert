@@ -19,7 +19,7 @@ TODO:REWRITE
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
 
 From Coq Require Import List Program String Ascii.
-From ConCert.Extraction Require Import Aux StringExtra ExAst Common.
+From ConCert.Extraction Require Import Utils StringExtra ExAst Common.
 From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import TypeAnnotations.
 From ConCert.Extraction Require Import ResultMonad.
@@ -215,14 +215,12 @@ Section print_term.
     | t => fun bt => ([], (t; bt))
     end.
   
-
   (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : term) : term :=
     match t with
     | tLambda n b => lam_body b
     | _ => t
     end.
-
 
   Section lam_body_annot_cont.
   Context {A B : Type}.
@@ -233,24 +231,6 @@ Section print_term.
     | _ => fun _ => f t a
     end a.
   End lam_body_annot_cont.
-
-  (* Section print_branch.
-  Context {A B : Type}.
-  Context (f : forall t, annots A t -> B).
-  Fixpoint print_branch ctx arity params (br : term) : annots A br -> (_ * B) :=      
-  match br return annots A br -> (_ * B) with
-  | tLambda na B as br => fun bt => 
-    match arity with
-    | S n =>
-      let '(bt, a) := bt in
-      let na' := fresh_name ctx na br in
-      let (ps, b) := print_branch (vass na' :: ctx) n params B a in
-      (ps ++ [string_of_name ctx na'], b)%list
-    | 0 => (params , f br bt)
-    end
-  | t => fun btt => (params , f t btt)
-  end.
-  End print_branch. *)
 
   Definition lookup_ind_decl ind i :=
     match ExAst.lookup_env Σ ind with
@@ -437,8 +417,9 @@ Section print_term.
   | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *)  ++ ")"
   | tLambda na body => fun '(bt, a) =>
     let na' := fresh_name ctx na t in
-    parens top ("fun " ++ string_of_name ctx na'
-                       ++ " -> " ++ print_term prefix FT TT (vass na' :: ctx) true false body a)
+    parens top ("fun (" ++ string_of_name ctx na' ++ " : "
+                        ++ print_box_type prefix TT bt ++ ")" 
+                        ++ " -> " ++ print_term prefix FT TT (vass na' :: ctx) true false body a)
 
   | tLetIn na def body => fun '(bt, (vala, bodya)) =>
     let na' := fresh_name ctx na t in
@@ -855,6 +836,9 @@ Definition time_ops :=
 Definition address_ops :=
   "[@inline] let eq_addr (a1 : address) (a2 : address) = a1 = a2".
 
+(* Definition fmap_ops := . *)
+
+
 Definition double_quote := String (ascii_of_byte "034") "".
 
 Definition get_contract_def :=
@@ -870,25 +854,20 @@ Definition CameLIGOPrelude :=
              [int_ops; tez_ops; nat_ops;
              bool_ops; time_ops; address_ops; get_contract_def].
 
-(* TODO: need to revisit this for init *)
-(* type parameter_wrapper = 
-     Init of storage 
-   | Call of parameter *)
-
 Definition printWrapper (contract parameter_name storage_name : string): string :=
      "type return = (operation) list * (storage option)" ++ nl
   ++ "type parameter_wrapper =" ++ nl
   ++ "  Init of init_args_ty" ++ nl
-  ++ "| Call of " ++ parameter_name ++ nl ++ nl
+  ++ "| Call of " ++ parameter_name ++ " option" ++ nl 
   ++ "let wrapper (param, st : parameter_wrapper * " ++ storage_name ++ " option) : return =" ++ nl
   ++ "  match param with  " ++ nl
   ++ "    Init init_args -> (([]: operation list), Some (init init_args))" ++ nl
-  ++ "| Call p -> (" ++ nl
-  ++ "  match st with" ++ nl
-  ++ "    Some st -> (match (" ++ contract ++ " p st) with   " ++ nl
-  ++ "                  Some v -> (v.0, Some v.1)" ++ nl
-  ++ "                | None -> (failwith ("""") : return))" ++ nl
-  ++ "  | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
+  ++ "  | Call p -> (" ++ nl
+  ++ "    match st with" ++ nl
+  ++ "      Some st -> (match (" ++ contract ++ " st p) with   " ++ nl
+  ++ "                    Some v -> (v.0, Some v.1)" ++ nl
+  ++ "                  | None -> (failwith ("""") : return))" ++ nl
+  ++ "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
 
 
 Definition printMain :=

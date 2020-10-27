@@ -12,10 +12,11 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
 
 From MetaCoq.Template Require Pretty.
 
+From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Execution Require Import Blockchain Serializable.
 
 From ConCert.Extraction Require Import CameLIGOPretty
-     Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Aux.
+     Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Utils.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -30,23 +31,20 @@ Definition to_constant_decl (gd : option T.global_decl) :=
   | None => tmFail "Error (expected constant with a body)"
   end.
 
-Record CameLIGOMod (msg init_ctx params storage operation : Type) :=
+Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
   { lmd_module_name : string ;
     lmd_prelude : string ;
-    lmd_init : init_ctx -> params -> option storage;
+    lmd_init : ctx -> setup -> option storage;
     lmd_init_prelude : string ;
-    lmd_receive : msg -> storage -> option (list operation * storage);
+    lmd_receive : Chain -> ctx -> storage -> option msg -> option (list operation * storage);
     lmd_entry_point : string }.
 
-Arguments lmd_module_name {_ _ _ _ _}.
-Arguments lmd_prelude {_ _ _ _ _}.
-Arguments lmd_init {_ _ _ _ _}.
-Arguments lmd_init_prelude {_ _ _ _ _}.
-Arguments lmd_receive {_ _ _ _ _}.
-Arguments lmd_entry_point {_ _ _ _ _}.
-
-Definition string_of_bool b := match b with true => "true" | _ => "false" end.
-
+Arguments lmd_module_name {_ _ _ _ _ _}.
+Arguments lmd_prelude {_ _ _ _ _ _}.
+Arguments lmd_init {_ _ _ _ _ _}.
+Arguments lmd_init_prelude {_ _ _ _ _ _}.
+Arguments lmd_receive {_ _ _ _ _ _}.
+Arguments lmd_entry_point {_ _ _ _ _ _}.
 
 Definition printCameLIGODefs (prefix : string) (Σ : global_env)
            (TT : MyEnv.env string)
@@ -58,9 +56,9 @@ Definition printCameLIGODefs (prefix : string) (Σ : global_env)
            (receive : kername)
   : string + string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
-  match annot_extract_template_env_sig temp_env Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
+  match annot_extract_template_env_specalize temp_env Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
   (* match extract_template_env_within_coq Σ seeds (fun k => List.existsb (eq_kername k) ignore) with *)
-  | Some (eΣ; annots) => 
+  | Ok (eΣ; annots) => 
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ annots) in
     (* filtering empty strings corresponding to the ignored definitions *)
@@ -80,11 +78,12 @@ Definition printCameLIGODefs (prefix : string) (Σ : global_env)
     | Some _ => inr "Error: init must be a constant"
     | None => inr "Error: No init found"
     end
-  | None => inr "annotated extract environment failed internally..."
+  | Err e => inr e
   end.
 
-Definition CameLIGO_ignore_default :=
-  [<%% prod %%>].
+
+Definition CameLIGO_ignore_default {Base : ChainBase} :=
+  [<%% prod %%>; <%% @Chain %%>; <%% ChainBase %%>].
 
 (* We assume the structure of the context from the [PreludeExt]:
   current_time , sender_addr, sent_amount, acc_balance *)
@@ -108,7 +107,7 @@ Definition CameLIGO_extract_args :=
 Definition wrap_in_delimiters s :=
   String.concat nl [""; s].
 
-Definition CameLIGO_extraction {msg ctx params storage operation : Type}
+Definition CameLIGO_extraction {Base : ChainBase} {msg ctx params storage operation : Type}
            (prefix : string)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)

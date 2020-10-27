@@ -615,3 +615,31 @@ Proof.
   destruct extract_template_env_within_coq; [|exact None].
   exact (Some (t; X)).
 Defined.
+
+
+(* Definition annot_extract_template_env_specialize params Σ include ignore :
+  match extract_template_env params Σ include ignore with
+  | Ok Σ => env_annots box_type Σ
+  | _ => unit
+  end.
+Proof.
+  apply (SafeTemplateChecker.fix_global_env_universes) in Σ.
+  unfold extract_template_env.
+  destruct check_wf_env_func; [|exact tt].
+  apply annot_extract_pcuic_env.
+Defined. *)
+
+From ConCert.Extraction Require Import Common SpecializeChainBase.
+Definition annot_extract_template_env_specalize
+           (params : extract_template_env_params)
+           (e : Ast.global_env)
+           (seeds : KernameSet.t)
+           (ignore : kername -> bool) : result (∑ e, env_annots box_type e) string :=
+  let e := SafeTemplateChecker.fix_global_env_universes e in
+  let e := T2P.trans_global_decls e in
+  e <- specialize_ChainBase_env e ;;
+  wfe <- check_wf_env_func params e;;
+  match annot_extract_pcuic_env_sig (pcuic_args params) e wfe seeds ignore with
+  | Some s => Ok s
+  | None => Err "failed internally in annot_extract_pcuic_env_sig"
+  end. 
