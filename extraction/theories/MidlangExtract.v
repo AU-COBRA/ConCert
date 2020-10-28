@@ -561,7 +561,7 @@ Definition print_type_alias
   let Γ := rev Γrev in
   append (String.concat "" (map (fun x => " " ^ x) Γ));;
   append " = ";;
-  print_type Γ bt ;;
+  print_type Γ bt;;
   ret ty_ml_name.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=

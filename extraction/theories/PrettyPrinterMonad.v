@@ -105,6 +105,22 @@ Definition append_indent : PrettyPrinter unit :=
 Definition append_nl_and_indent : PrettyPrinter unit :=
   append_nl;; append_indent.
 
+Definition monad_append_join
+           (sep : PrettyPrinter unit)
+           (xs : list (PrettyPrinter unit)) : PrettyPrinter unit :=
+  monad_fold_left (fun sep' x => sep';; x;; ret sep) xs (ret tt);;
+  ret tt.
+
+Definition append_join (sep : string) (s : list string) : PrettyPrinter unit :=
+  monad_append_join (append sep) (map append s).
+
+Definition monad_append_concat (xs : list (PrettyPrinter unit)) : PrettyPrinter unit :=
+  monad_map id xs;;
+  ret tt.
+
+Definition append_concat (xs : list string) : PrettyPrinter unit :=
+  monad_append_concat (map append xs).
+
 Definition fresh_name (name : ident) (extra_used : list ident) : PrettyPrinter ident :=
   used <- get_used_names;;
   let used := (extra_used ++ used)%list in
