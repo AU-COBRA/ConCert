@@ -111,12 +111,14 @@ extraction/theories/LPretty.v
 extraction/theories/Liquidity.v
 extraction/theories/LiquidityExtract.v
 extraction/theories/MidlangExtract.v
+extraction/theories/RustExtract.v
 extraction/theories/Optimize.v
 extraction/theories/OptimizeCorrectness.v
 extraction/theories/PrettyPrinterMonad.v
 extraction/theories/ResultMonad.v
 extraction/theories/SpecializeChainBase.v
 extraction/theories/StringExtra.v
+extraction/theories/TopLevelFixes.v
 extraction/theories/TypeAnnotations.v
 extraction/theories/WcbvEvalAux.v
 extraction/theories/CertifyingEta.v
@@ -134,6 +136,7 @@ extraction/examples/ForPaper.v
 extraction/examples/MidlangCounterRefTypes.v
 extraction/examples/MidlangEscrow.v
 extraction/examples/MidlangExtractTests.v
+extraction/examples/RustExtractTests.v
 extraction/examples/PreludeExt.v
 extraction/examples/SimpleBlockchainExt.v
 extraction/examples/StackInterpreter.v
