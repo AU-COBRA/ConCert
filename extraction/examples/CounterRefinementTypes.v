@@ -61,26 +61,22 @@ Module CounterRefinmentTypes.
     Zleb_ltb_to_prop. lia.
   Qed.
 
-  Program Definition counter (msg : msg) (st : storage)
+  Definition my_bool_dec := Eval compute in bool_dec.
+
+  Definition counter (msg : msg) (st : storage)
     : option (list operation * storage) :=
     match msg with
     | Inc i =>
-      match 0 <? i with
-      | true => Some ([], inc_counter st i)
-      | false => None
+      match (my_bool_dec (0 <? i) true) with
+      | left h => Some ([], proj1_sig (inc_counter st (exist _ i h)))
+      | right _ => None
       end
     | Dec i =>
-      match 0 <? i with
-      | true => Some ([], dec_counter st i)
-      | false => None
+      match (my_bool_dec (0 <? i) true) with
+      | left h => Some ([], proj1_sig (dec_counter st (exist _ i h)))
+      | right _ => None
       end
     end.
-  Next Obligation.
-    easy.
-  Qed.
-  Next Obligation.
-    easy.
-  Qed.
 
 End CounterRefinmentTypes.
 
