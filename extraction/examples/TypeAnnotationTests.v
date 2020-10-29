@@ -3,6 +3,7 @@ From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import ErasureTests.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import TypeAnnotations.
 From MetaCoq.Template Require Import Kernames.
@@ -63,18 +64,14 @@ End printing.
 Definition opt_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
-       {| dearg_args :=
-            Some
-              {| do_trim_const_masks := true;
-                 do_trim_ctor_masks := true;
-                 check_closed := false;
-                 check_expanded := false;
-                 check_valid_masks := false |} |} |}.
+       {| optimize_prop_discr := true;
+          transforms := [dearg_transform true true false false false] |} |}.
 
 Definition no_opt_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
-       {| dearg_args := None |} |}.
+       {| optimize_prop_discr := false;
+          transforms := [] |} |}.
 
 Axiom does_not_happen : forall {A}, A.
 
@@ -86,8 +83,12 @@ Proof.
            | _ => does_not_happen
            end in _).
   set (args := if opt then opt_args else no_opt_args).
-  pose proof (annot_extract_template_env args p.1 (KernameSet.singleton entry)
-                                         (fun k => existsb (eq_kername k) ignore)).
+  unshelve epose proof (annot_extract_template_env args p.1 (KernameSet.singleton entry)
+                                                   (fun k => existsb (eq_kername k) ignore) _).
+  { destruct opt; cbn.
+    - constructor; [|constructor].
+      apply annot_dearg_transform.
+    - constructor. }
   destruct extract_template_env as [|e]; [|exact does_not_happen].
   destruct (bigprod_find (fun '(kn, _, _) _ => eq_kername entry kn) X); [|exact does_not_happen].
   destruct s as ((? & decl) & annot).

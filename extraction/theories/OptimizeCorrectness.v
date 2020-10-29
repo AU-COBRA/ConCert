@@ -2,6 +2,7 @@ From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import WcbvEvalAux.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
@@ -50,29 +51,6 @@ Proof.
   destruct (lookup_env Σ kn) as [cst|]; cbn in *; [|congruence].
   destruct cst; cbn in *; [|congruence|]; noconf decl; eauto.
 Qed.
-
-Fixpoint is_dead (rel : nat) (t : term) : bool :=
-  match t with
-  | tRel i => negb (i =? rel)
-  | tEvar _ ts => forallb (is_dead rel) ts
-  | tLambda _ body => is_dead (S rel) body
-  | tLetIn _ val body => is_dead rel val && is_dead (S rel) body
-  | tApp hd arg => is_dead rel hd && is_dead rel arg
-  | tCase _ discr brs => is_dead rel discr && forallb (is_dead rel ∘ snd) brs
-  | tProj _ t => is_dead rel t
-  | tFix defs _
-  | tCoFix defs _ => forallb (is_dead (#|defs| + rel) ∘ dbody) defs
-  | _ => true
-  end.
-
-Fixpoint valid_dearg_mask (mask : bitmask) (body : term) : bool :=
-  match body, mask with
-  | tLetIn na val body, _ => valid_dearg_mask mask body
-  | tLambda _ body, b :: mask =>
-    (if b then is_dead 0 body else true) && valid_dearg_mask mask body
-  | _, [] => true
-  | _, _ => false
-  end.
 
 Lemma dearg_lambdas_nil t :
   dearg_lambdas [] t = t.
@@ -595,6 +573,14 @@ Notation dearg_decl := (dearg_decl ind_masks const_masks).
 Notation dearg_cst := (dearg_cst ind_masks const_masks).
 Notation dearg_case := (dearg_case ind_masks).
 Notation dearg_proj := (dearg_proj ind_masks).
+Notation valid_case_masks := (valid_case_masks ind_masks).
+Notation valid_proj := (valid_proj ind_masks).
+Notation valid_cases := (valid_cases ind_masks).
+Notation valid_masks_decl := (valid_masks_decl ind_masks const_masks).
+Notation valid_masks_env := (valid_masks_env ind_masks const_masks).
+Notation is_expanded_aux := (is_expanded_aux ind_masks const_masks).
+Notation is_expanded := (is_expanded ind_masks const_masks).
+Notation is_expanded_env := (is_expanded_env ind_masks const_masks).
 
 Lemma dearg_aux_mkApps args args' hd :
   dearg_aux args (mkApps hd args') = dearg_aux (map dearg args' ++ args) hd.
@@ -753,89 +739,6 @@ Qed.
 Lemma lift_dearg n k t :
   lift n k (dearg t) = dearg (lift n k t).
 Proof. apply lift_dearg_aux. Qed.
-
-Definition valid_case_masks (ind : inductive) (npars : nat) (brs : list (nat * term)) : bool :=
-  match get_mib_masks (inductive_mind ind) with
-  | Some mm =>
-    (#|param_mask mm| =? npars) &&
-    alli (fun c '(ar, br) =>
-            (#|get_branch_mask mm ind c| <=? ar) &&
-            (valid_dearg_mask (get_branch_mask mm ind c) br)) 0 brs
-  | None => true
-  end.
-
-Definition valid_proj (ind : inductive) (npars arg : nat) : bool :=
-  match get_mib_masks (inductive_mind ind) with
-  | Some mm => (#|param_mask mm| =? npars) &&
-               (* Projected argument must not be removed *)
-               negb (nth arg (get_branch_mask mm ind 0) false)
-  | _ => true
-  end.
-
-(* Check that all case and projections in a term are valid according
-   to the masks. They must have the proper number of parameters, and
-   1. For cases, their branches must be compatible with the masks,
-      i.e. they are iterated lambdas/let-ins and when "true" appears in the mask,
-      the parameter is unused
-   2. For projections, the projected argument must not be removed *)
-Fixpoint valid_cases (t : term) : bool :=
-  match t with
-  | tEvar _ ts => forallb valid_cases ts
-  | tLambda _ body => valid_cases body
-  | tLetIn _ val body => valid_cases val && valid_cases body
-  | tApp hd arg => valid_cases hd && valid_cases arg
-  | tCase (ind, npars) discr brs =>
-    valid_cases discr && forallb (valid_cases ∘ snd) brs && valid_case_masks ind npars brs
-  | tProj (ind, npars, arg) t => valid_cases t && valid_proj ind npars arg
-  | tFix defs _
-  | tCoFix defs _  => forallb (valid_cases ∘ dbody) defs
-  | _ => true
-  end.
-
-Definition valid_masks_decl (p : kername * bool * global_decl) : bool :=
-  match p with
-  | (kn, _, ConstantDecl {| cst_body := Some body |}) =>
-    valid_dearg_mask (get_const_mask kn) body && valid_cases body
-  | (kn, _, TypeAliasDecl typ) => #|get_const_mask kn| =? 0
-  | _ => true
-  end.
-
-(* Proposition representing whether masks are valid for entire environment.
-   We should be able to prove that our analysis produces masks that satisfy this
-   predicate. *)
-Definition valid_masks_env (Σ : global_env) : bool :=
-  forallb valid_masks_decl Σ.
-
-(* Check if all applications are applied enough to be deboxed without eta expansion *)
-Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
-  match t with
-  | tBox => true
-  | tRel _ => true
-  | tVar _ => true
-  | tEvar _ ts => forallb (is_expanded_aux 0) ts
-  | tLambda _ body => is_expanded_aux 0 body
-  | tLetIn _ val body => is_expanded_aux 0 val && is_expanded_aux 0 body
-  | tApp hd arg => is_expanded_aux 0 arg && is_expanded_aux (S nargs) hd
-  | tConst kn => #|get_const_mask kn| <=? nargs
-  | tConstruct ind c => #|get_ctor_mask ind c| <=? nargs
-  | tCase _ discr brs => is_expanded_aux 0 discr && forallb (is_expanded_aux 0 ∘ snd) brs
-  | tProj _ t => is_expanded_aux 0 t
-  | tFix defs _
-  | tCoFix defs _ => forallb (is_expanded_aux 0 ∘ dbody) defs
-  end.
-
-(* Check if all applications are applied enough to be deboxed without eta expansion *)
-Definition is_expanded (t : term) : bool :=
-  is_expanded_aux 0 t.
-
-(* Like above, but check all bodies in environment. This assumption does not necessarily hold,
-   but we should try to make it hold by eta expansion before quoting *)
-Definition is_expanded_env (Σ : global_env) : bool :=
-  forallb (fun '(kn, decl) =>
-             match decl with
-             | ConstantDecl {| cst_body := Some body |} => is_expanded body
-             | _ => true
-             end) Σ.
 
 Lemma is_dead_lift_other k k' n t :
   k < k' ->
@@ -2561,7 +2464,7 @@ Ltac facts :=
          fail 1
        | _ => idtac
        end;
-       assert (is_expanded v) by (apply (eval_is_expanded_aux _ _ _ _ H); trivial)
+       assert (is_expanded v) by (apply (eval_is_expanded_aux _ _ _ 0 H); trivial)
      end).
 
 Section dearg.
@@ -3384,4 +3287,51 @@ Proof.
     now rewrite is_propositional_trans_env_debox_env_types.
   - eapply eval_proj_prop; eauto.
     now rewrite is_propositional_trans_env_debox_env_types.
+Qed.
+
+Lemma eval_const_construct_expanded {wfl:WcbvFlags} Σ kn ind c im cm :
+  trans_env Σ e⊢ tConst kn ▷ tConstruct ind c ->
+  valid_masks_env im cm Σ ->
+  is_expanded im cm (tConst kn).
+Proof.
+  intros ev valid.
+  depelim ev.
+  eapply valid_dearg_mask_constant in valid; eauto.
+  cbn.
+  apply valid_dearg_mask_spec in valid as (Γ & inner & <- & <-).
+  clear -ev.
+  induction #|Γ| as [|Γlen IH] eqn:eq in Γ, inner, ev |- *.
+  - now destruct Γ.
+  - destruct Γ as [|[na [body|]] Γ]; cbn in *.
+    + easy.
+    + depelim ev.
+      refold.
+      rewrite subst_it_mkLambda_or_LetIn in ev2.
+      erewrite <- vasses_subst_context.
+      eapply IH; [eassumption|].
+      now rewrite length_subst_context.
+    + depelim ev.
+Qed.
+
+Lemma dearg_transform_correct do_trim_const_masks do_trim_ctor_masks :
+  TransformCorrect (dearg_transform do_trim_const_masks do_trim_ctor_masks true true true).
+Proof.
+  red.
+  intros Σ Σopt kn ind c opt ev.
+  cbn in opt.
+  destruct env_closed eqn:clos; cbn in *; [|congruence].
+  destruct analyze_env; cbn in *.
+  destruct is_expanded_env eqn:exp; cbn in *; [|congruence].
+  destruct valid_masks_env eqn:valid; cbn in *; [|congruence].
+  injection opt as <-.
+  set (im := (if do_trim_ctor_masks then trim_ind_masks else id) ind_masks) in *; clearbody im.
+  set (cm := (if do_trim_const_masks then trim_const_masks else id) const_masks) in *; clearbody cm.
+  apply eval_debox_env_types.
+  eapply eval_const_construct_expanded in ev as expanded_const; eauto.
+  eapply eval_is_expanded_aux in ev as empty_ctor_mask; eauto.
+  cbn in *.
+  replace (tConst kn) with (dearg im cm (tConst kn)).
+  replace (tConstruct ind c) with (dearg im cm (tConstruct ind c)).
+  2-3: now cbn; destruct get_const_mask, get_ctor_mask.
+  apply dearg_correct; eauto.
 Qed.

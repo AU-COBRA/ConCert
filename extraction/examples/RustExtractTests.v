@@ -64,7 +64,7 @@ Module ex1.
     extract ex1 = Ok <$
 "#[derive(Debug, Copy, Clone)]";
 "pub enum Sig<'a, A> {";
-"  Exist(PhantomData<&'a ()>, A)";
+"  Exist(PhantomData<&'a A>, A)";
 "}";
 "";
 "#[derive(Debug, Copy, Clone)]";
@@ -105,7 +105,7 @@ Module ex2.
     extract ex2 = Ok <$
 "#[derive(Debug, Copy, Clone)]";
 "pub enum Sig<'a, A> {";
-"  Exist(PhantomData<&'a ()>, A)";
+"  Exist(PhantomData<&'a A>, A)";
 "}";
 "";
 "#[derive(Debug, Copy, Clone)]";
@@ -224,3 +224,41 @@ Module ex4.
 "}" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex4.
+
+Module ex5.
+  Definition code (n m : nat) (f : Fin.t (n + m)) : Fin.t (m + n) :=
+    match Nat.add_comm n m with
+    | eq_refl => f
+    end.
+
+  MetaCoq Quote Recursively Definition quoted := code.
+
+  Example test :
+    extract quoted = Ok <$
+"#[derive(Debug, Copy, Clone)]";
+"pub enum Nat<'a> {";
+"  O(PhantomData<&'a ()>),";
+"  S(PhantomData<&'a ()>, &'a Nat<'a>)";
+"}";
+"";
+"#[derive(Debug, Copy, Clone)]";
+"pub enum T<'a> {";
+"  F1(PhantomData<&'a ()>, &'a Nat<'a>),";
+"  FS(PhantomData<&'a ()>, &'a Nat<'a>, &'a T<'a>)";
+"}";
+"";
+"#[derive(Debug, Copy, Clone)]";
+"pub enum Eq<'a, A> {";
+"  Eq_refl(PhantomData<&'a A>)";
+"}";
+"";
+"fn code(&'a self, f: &'a T<'a>) -> &'a T<'a> {";
+"  f";
+"}";
+"fn code__closure(&'a self) -> &'a dyn Fn(&'a T<'a>) -> &'a T<'a> {";
+"  self.closure(move |f| {";
+"    self.code(f)";
+"  })";
+"}" $>.
+  Proof. vm_compute. reflexivity. Qed.
+End ex5.

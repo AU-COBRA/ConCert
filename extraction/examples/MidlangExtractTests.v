@@ -27,13 +27,8 @@ Instance StandardBoxes : MidlangPrintConfig :=
 Definition no_check_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
-       {| dearg_args :=
-            Some
-              {| do_trim_const_masks := true;
-                 do_trim_ctor_masks := true;
-                 check_closed := false;
-                 check_expanded := false;
-                 check_valid_masks := false |} |} |}.
+       {| optimize_prop_discr := true;
+          transforms := [dearg_transform true true false false false] |} |}.
 
 Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with

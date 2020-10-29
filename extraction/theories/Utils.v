@@ -46,15 +46,8 @@ Definition map_fst {A B C} (f : A -> B) (p : A × C) : B × C :=
 Definition map_snd {A B C} (f : B -> C) (p : A × B) : A × C :=
   (p.1, f p.2).
 
-Definition alli {X} (f : nat -> X -> bool) : nat -> list X -> bool :=
-  fix alli (n : nat) (xs : list X) :=
-    match xs with
-    | [] => true
-    | x :: xs => f n x && alli (S n) xs
-    end.
-
-Lemma alli_Alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
-  alli f n l -> Alli (fun n a => f n a) n l.
+Lemma alli_Alli {A} (f : nat -> A -> bool) (l : list A) (n : nat) :
+  alli f l n -> Alli (fun n a => f n a) n l.
 Proof.
   intros a.
   induction l in n, a |- *.
@@ -66,7 +59,7 @@ Proof.
 Qed.
 
 Lemma Alli_alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
-  Alli (fun n a => f n a) n l -> alli f n l.
+  Alli (fun n a => f n a) n l -> alli f l n.
 Proof.
   intros a.
   induction l in n, a |- *.

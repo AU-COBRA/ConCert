@@ -545,7 +545,17 @@ Definition print_ind_ctor_definition
   (* Make sure we always take a lifetime parameter in data types *)
   append "(";;
 
-  let print_datas := append "PhantomData<&'a ()>" :: map (print_type Γ) data in
+  (* All constructors take a PhantomData as their first argument which ensures that
+     Rust does not complained about unused lifetimes/type parameters.
+     This phantom type is a 'a lifetimed reference to a tuple of all the type args. *)
+  let print_phantom :=
+      append "PhantomData<&'a ";;
+      (if (#|Γ| =? 0)%nat then
+         append "()"
+       else
+         print_parenthesized (1 <? #|Γ|)%nat (append_join ", " Γ));;
+      append ">" in
+  let print_datas := print_phantom :: map (print_type Γ) data in
   monad_append_join (append ", ") print_datas;;
 
   append ")".
