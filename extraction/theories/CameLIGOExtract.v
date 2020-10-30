@@ -16,7 +16,7 @@ From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Execution Require Import Blockchain Serializable.
 
 From ConCert.Extraction Require Import CameLIGOPretty
-     Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Utils.
+     Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Utils SpecializeChainBase.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -36,6 +36,7 @@ Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :
     lmd_prelude : string ;
     lmd_init : ctx -> setup -> option storage;
     lmd_init_prelude : string ;
+    lmd_receive_prelude : string;
     lmd_receive : Chain -> ctx -> storage -> option msg -> option (list operation * storage);
     lmd_entry_point : string }.
 
@@ -44,6 +45,7 @@ Arguments lmd_prelude {_ _ _ _ _ _}.
 Arguments lmd_init {_ _ _ _ _ _}.
 Arguments lmd_init_prelude {_ _ _ _ _ _}.
 Arguments lmd_receive {_ _ _ _ _ _}.
+Arguments lmd_receive_prelude {_ _ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _ _}.
 
 Definition printCameLIGODefs (prefix : string) (Σ : global_env)
@@ -83,7 +85,15 @@ Definition printCameLIGODefs (prefix : string) (Σ : global_env)
 
 
 Definition CameLIGO_ignore_default {Base : ChainBase} :=
-  [<%% prod %%>; <%% @Chain %%>; <%% ChainBase %%>].
+  [
+    <%% prod %%>
+    ; <%% @Chain %%>
+    ; <%% ChainBase %%>
+    ; <%% axiomatized_ChainBase %%>
+    ; <%% @address_eqdec %%>
+    ; <%% @address_countable %%>
+    ; <%% @SerializedValue %%>
+    ; <%% @SerializedType %%>].
 
 (* We assume the structure of the context from the [PreludeExt]:
   current_time , sender_addr, sent_amount, acc_balance *)
@@ -93,16 +103,18 @@ Definition CameLIGO_call_ctx :=
    (Tezos.amount,
     Tezos.balance)))".
 
-Definition CameLIGO_extract_args :=
-  {| check_wf_env_func := check_wf_env_func extract_within_coq;
-     pcuic_args :=
-       {| dearg_args :=
-            Some
-              {| do_trim_const_masks := true;
-                 do_trim_ctor_masks := false; (* cannot have partially applied ctors *)
-                 check_closed := true;
-                 check_expanded := true;
-                 check_valid_masks := true |} |} |}.
+Definition CameLIGO_extract_args := {| 
+  check_wf_env_func := check_wf_env_func extract_within_coq;
+    pcuic_args := {| 
+      dearg_args := Some {| 
+        do_trim_const_masks := true;
+        do_trim_ctor_masks := false; (* cannot have partially applied ctors *)
+        check_closed := true;
+        check_expanded := true;
+        check_valid_masks := true
+      |} 
+    |} 
+  |}.
 
 Definition wrap_in_delimiters s :=
   String.concat nl [""; s].
@@ -126,6 +138,6 @@ Definition CameLIGO_extraction {Base : ChainBase} {msg ctx params storage operat
   match p with
   | inl s =>
     tmEval lazy
-           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)]))
+           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); m.(lmd_receive_prelude); s; m.(lmd_entry_point)]))
   | inr s => tmFail s
   end.

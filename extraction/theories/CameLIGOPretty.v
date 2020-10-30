@@ -155,36 +155,6 @@ Section print_term.
             ++ nl
             ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors)).
 
-  
-  Fixpoint print_ligo_type (prefix : string) (TT : env string) (t : Ast.term) :=
-  let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
-  match t with
-  | Ast.tInd ind _ =>
-    let nm := string_of_kername ind.(inductive_mind) in
-    from_option (look TT nm) (prefix ++ ind.(inductive_mind).2)
-  | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
-    (* a special case of products - infix *)
-    if eq_kername <%% prod %%> ind.(inductive_mind) then
-      parens false (print_ligo_type prefix TT t1 ++ " * " ++ print_ligo_type prefix TT t2)
-      else error
-  | Ast.tApp (Ast.tInd ind i) args =>
-    (* the usual - postfix - case of an applied type constructor *)
-    let nm := string_of_kername ind.(inductive_mind) in
-    let nm' := from_option (look TT nm) (prefix ++ ind.(inductive_mind).2) in
-    let printed_args := map (print_ligo_type prefix TT) args in
-    (print_uncurried "" printed_args) ++ " " ++ nm'
-  | Ast.tApp (Ast.tConst nm _) args =>
-    (* similarly we do for constants to enable remapping of aliases to types *)
-    let cst_nm := string_of_kername nm in
-    let nm' := from_option (look TT cst_nm) (prefix ++ nm.2) in
-    let printed_args := map (print_ligo_type prefix TT) args in
-    (print_uncurried "" printed_args) ++ " " ++ nm'
-  | Ast.tConst nm _ =>
-    let cst_nm := string_of_kername nm in
-    from_option (look TT cst_nm) (prefix ++ nm.2)
-  | _ => error
-  end.
-
   Definition is_sort (t : Ast.term) :=
     match t with
     | Ast.tSort _ => true
@@ -808,6 +778,8 @@ Definition tez_ops :=
     ++ "[@inline] let leTez (a : tez ) (b : tez ) = a <= b"
     ++ nl
     ++ "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b"
+    ++ nl
+    ++ "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b"
     ++ nl
     ++ "[@inline] let eqTez (a : tez ) (b : tez ) = a = b".
 

@@ -89,6 +89,8 @@ Module Counter.
         lmd_init_prelude := "" ;
     
         (* the main functionality *)
+        lmd_receive_prelude := "";
+
         lmd_receive := counter;
     
         (* code for the entry point *)
@@ -179,7 +181,6 @@ Module Crowdfunding.
     end.
 
 
-  Definition double_quote := String (ascii_of_byte "034") "a".
   Open Scope string_scope.
   Definition CF_MODULE :
     CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
@@ -203,6 +204,8 @@ Module Crowdfunding.
 
       (* init requires some extra operations *)
       lmd_init_prelude := "";
+
+      lmd_receive_prelude := "";
 
       (* the main functionality *)
       lmd_receive := crowdfunding_receive;
@@ -326,20 +329,29 @@ Section EIP20TokenExtraction.
     ++ "  | None -> Map.update k (f (None : nat option)) m" ++ nl.
 
   Definition option_map_state_acts : string :=
-    "let option_map_state_acts (f : state -> (state * operation list)) (o : state option) =" ++ nl
-    ++ " match o with" ++ nl
-    ++ "  Some a -> Some (f a)" ++ nl
-    ++ "| None -> (None : (state * operation list))".
+       "let option_map_state_acts (f : state -> (state * operation list)) (o : state option) =" ++ nl
+    ++ "  match o with" ++ nl
+    ++ "    Some a -> Some (f a)" ++ nl
+    ++ "    | None -> (None : (state * operation list))".
+
+  Definition bind_option_state : string :=
+       "let bind_option_state (a b c : unit) (m : option A) (f : A -> state option) : state option =" ++ nl
+    ++ "match m with" ++ nl
+    ++ "    Some a -> f a" ++ nl
+    ++ "  | None -> (None : state option)".
+
+  Definition with_default_N : string :=
+       "let with_default_N (n : nat) (m : nat option) : n =" ++ nl
+    ++ "  match m with" ++ nl 
+    ++ "    Some m -> m" ++ nl
+    ++ "  | None -> n".
 
   Definition LIGO_EIP20Token_MODULE : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_eip20token" ;
   
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := 
-        CameLIGOPrelude ++ nl ++
-        partial_alter_addr_nat ++ nl ++
-        option_map_state_acts;
+      lmd_prelude := CameLIGOPrelude;
   
       (* initial storage *)
       lmd_init := init ;
@@ -347,13 +359,19 @@ Section EIP20TokenExtraction.
       lmd_init_prelude := "";
   
       (* the main functionality *)
+      lmd_receive_prelude := partial_alter_addr_nat ++ nl ++
+      option_map_state_acts ++ nl ++
+      bind_option_state ++ nl ++
+      with_default_N;
       lmd_receive := receive ;
   
       (* code for the entry point *)
       lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
- 
+  Search "gmap_empty".
+
+
   Definition TT_remap_eip20token : list (kername * string) :=
   [  (* types *)
     remap <% Z %> "tez"
@@ -394,7 +412,7 @@ Section EIP20TokenExtraction.
   ; remap <% Z.leb %> "leTez"
   ; remap <% Z.ltb %> "ltTez"
   ; remap <% Z.eqb %> "eqTez"
-
+  ; remap <% Z.gtb %> "gtbTez"
   ; remap <% N.add %> "addInt"
   ; remap <% N.sub %> "subInt"
   ; remap <% N.leb %> "leInt"
@@ -406,21 +424,37 @@ Section EIP20TokenExtraction.
   ; remap <% andb %> "andb"
   ; remap <% negb %> "not"
   ; remap <% orb %> "orb"
+
+  ; remap <% @Extras.with_default %> "with_default_N"
+  ; remap <% @Monads.bind %> "bind_option_state"
+  ; remap <% Monads.Monad_option %> "()"
   
-  (* ; remap <% Maps.add_map %> "Map.add" *)
   
+  ; remap <% @fin_maps.map_insert %> "Map.add"
   ; remap <% @stdpp.base.insert %> "Map.add"
   ; remap <% @stdpp.base.lookup %> "Map.find_opt"
+  ; remap <% @stdpp.base.empty %> "Map.empty"
+  ; remap <% @gmap.gmap_empty %> "Map.empty"
+  ; remap <% @gmap.gmap_lookup %> "Map.find_opt"
+  ; remap <% @gmap.gmap_partial_alter %> "partial_alter_addr_nat"
   ; remap <% @stdpp.base.partial_alter %> "partial_alter_addr_nat"
   ; remap <% option_map %> "option_map_state_acts"
   ].
 
   Definition TT_rename_eip20token :=
     [ ("Z0" ,"0tez")
+    ; ("N0", "0n")
+    ; ("N1", "1n")
     ; ("nil", "[]")
-    ; ("mnil", "Map.empty")
-    ; ("stdpp.base.empty", "Map.empty")
-    ; ("FMap.empty", "Map.empty")
+    (* ; ("mnil", "Map.empty") *)
+    
+    (* ; ("gmap_empty", "Map.empty") *)
+    (* ; ("gmap.gmap_empty", "Map.empty") *)
+    (* ; ("stdpp.base.empty", "Map.empty") *)
+    (* ; ("FMap.empty", "Map.empty") *)
+    (* ; ("base.empty", "Map.empty") *)
+      (* monad hack *)
+    ; ("Monad_option", "()")
     ; ("tt", "()") ].
   
   Time MetaCoq Run
