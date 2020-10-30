@@ -1,5 +1,7 @@
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ExAst.
+From ConCert.Extraction Require Import Transform.
+From ConCert.Extraction Require Import ResultMonad.
 From Coq Require Import List.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAst.
@@ -182,9 +184,17 @@ Definition global_decl_annots (decl : Ex.global_decl) : Type :=
 Definition env_annots (Σ : global_env) : Type :=
   bigprod (global_decl_annots ∘ snd) Σ.
 
+Definition annot_transform_type (t : Transform) :=
+  forall Σ (a : env_annots Σ),
+    match t Σ with
+    | Ok Σ => env_annots Σ
+    | Err _ => unit
+    end.
+
 End annots.
 
 Arguments annots : clear implicits.
 Arguments constant_body_annots : clear implicits.
 Arguments global_decl_annots : clear implicits.
 Arguments env_annots : clear implicits.
+Arguments annot_transform_type : clear implicits.

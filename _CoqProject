@@ -114,6 +114,8 @@ extraction/theories/MidlangExtract.v
 extraction/theories/RustExtract.v
 extraction/theories/Optimize.v
 extraction/theories/OptimizeCorrectness.v
+extraction/theories/OptimizePropDiscr.v
+extraction/theories/Transform.v
 extraction/theories/PrettyPrinterMonad.v
 extraction/theories/ResultMonad.v
 extraction/theories/SpecializeChainBase.v

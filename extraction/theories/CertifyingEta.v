@@ -236,30 +236,26 @@ Definition add_suffix_global_env (mpath : modpath) (ignore : kername -> bool) (�
                 cst_universes := cb.(cst_universes) |}) Σ.
 
 Definition eta_global_env
-           (params : extract_template_env_params)
+           (trim_consts trim_inds : bool)
            (Σ : global_env) (seeds : KernameSet.t) (ignore : kername -> bool) :=
-  match dearg_args (pcuic_args params) with
-  | None => Σ (* no need to eta expand if we aren't doing dearging *)
-  | Some dp =>
-    let Σe :=
-        erase_global_decls_deps_recursive
-          (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
-          seeds ignore in
-    let (const_masks, ind_masks) := analyze_env Σe in
-    let const_masks := (if do_trim_const_masks dp then trim_const_masks else id) const_masks in
-    let ind_masks := (if do_trim_ctor_masks dp then trim_ind_masks else id) ind_masks in
-    let f cb :=
-        match cb.(cst_body) with
-        | Some b => let (ctors, consts) := get_eta_info Σ {| ind_masks := ind_masks;
-                                                             const_masks := const_masks |} in
-                    {| cst_type := cb.(cst_type);
-                       cst_body := Some (eta_expand ctors consts Σ b);
-                       cst_universes := cb.(cst_universes) |}
-        | None => cb
-        end in
-    let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
-    map_constants_global_env id f Σ'
-  end.
+  let Σe :=
+      erase_global_decls_deps_recursive
+        (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
+        seeds ignore in
+  let (const_masks, ind_masks) := analyze_env Σe in
+  let const_masks := (if trim_consts then trim_const_masks else id) const_masks in
+  let ind_masks := (if trim_inds then trim_ind_masks else id) ind_masks in
+  let f cb :=
+      match cb.(cst_body) with
+      | Some b => let (ctors, consts) := get_eta_info Σ {| ind_masks := ind_masks;
+                                                           const_masks := const_masks |} in
+                  {| cst_type := cb.(cst_type);
+                     cst_body := Some (eta_expand ctors consts Σ b);
+                     cst_universes := cb.(cst_universes) |}
+      | None => cb
+      end in
+  let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
+  map_constants_global_env id f Σ'.
 
 Definition is_none {A} (o : option A) :=
   match o with
@@ -277,34 +273,23 @@ Definition gen_expanded_const_and_proof (Σ : global_env) (mpath : modpath) (ign
              (List.rev (map fst Σdecls)).
 
 Definition eta_global_env_template
-           (params : extract_template_env_params)
+           (trim_consts trim_inds : bool)
            (mpath : modpath)
            (Σ : global_env)
            (seeds : KernameSet.t) (ignore : kername -> bool)
            (cst_name_ignore : kername -> bool) : TemplateMonad global_env :=
-  Σext <- tmEval lazy (eta_global_env params Σ seeds ignore);;
+  Σext <- tmEval lazy (eta_global_env trim_consts trim_inds Σ seeds ignore);;
   gen_expanded_const_and_proof Σext mpath cst_name_ignore;;
   ret Σext.
 
-Definition eta_expand_def {A} (params : extract_template_env_params) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
+Definition eta_expand_def {A} (trim_inds trim_consts : bool) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
   p <- tmQuoteRecTransp def false ;;
   kn <- extract_def_name def ;;
   eta_global_env_template
-    params mpath p.1
+    trim_inds trim_consts mpath p.1
     (KernameSet.singleton kn) (fun _ => false) cst_name_ignore.
 
 Module Examples.
-
-  Definition no_trimming :=
-    {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
-       pcuic_args :=
-         {| dearg_args :=
-              Some
-                {| do_trim_const_masks := false;
-                   do_trim_ctor_masks := false;
-                   check_closed := true;
-                   check_expanded := true;
-                   check_valid_masks := true |} |} |}.
 
   Module Ex1.
   Definition partial_app_pair :=
@@ -333,7 +318,7 @@ Module Examples.
     Definition anchor := fun x : nat => x.
     Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
     MetaCoq Run (eta_global_env_template
-                   no_trimming CURRENT_MODULE
+                   false false CURRENT_MODULE
                    p_app_pair_syn.1
                    (KernameSet.singleton <%% Ex1.partial_app_pair %%>)
                    (fun _ => false)
@@ -352,7 +337,7 @@ Module Examples.
   Set Printing Implicit.
   (** Expands the dependencies and adds the corresponding definitions *)
   MetaCoq Run (eta_expand_def
-                 extract_within_coq
+                 true true
                  CURRENT_MODULE
                  (only_from_module_of <%% Ex2.partial_app2 %%>)
                  Ex2.partial_app2).
@@ -372,7 +357,7 @@ Module Examples.
     let f := miCtor1 A in f B bool n m I.
 
   MetaCoq Run (eta_expand_def
-                 extract_within_coq
+                 true true
                  CURRENT_MODULE
                  (only_from_module_of <%% partial_app3 %%>)
                  partial_app3).
@@ -386,7 +371,7 @@ Module Examples.
   End Ex3.
   MetaCoq Run (p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
                eta_global_env_template
-                 extract_within_coq
+                 true true
                  CURRENT_MODULE
                  p.1
                  (KernameSet.union
@@ -403,7 +388,7 @@ Module Examples.
                                                       my_cons A x xs.
 
     MetaCoq Run (eta_expand_def
-                 no_trimming
+                 false false
                  <%% @papp_cons %%>.1
                  (only_from_module_of <%% @papp_cons %%>)
                  papp_cons).
@@ -423,7 +408,7 @@ Module Examples.
       f even_O.
 
     MetaCoq Run (eta_expand_def
-                   no_trimming
+                   false false
                    <%% papp_odd %%>.1
                    (only_from_module_of <%% papp_odd %%>)
                    papp_odd).
@@ -442,7 +427,7 @@ Module Examples.
       part_app (eCons _ (eNat unit 0) (eNil _)).
 
     MetaCoq Run (eta_expand_def
-                   no_trimming
+                   false false
                    <%% papp_expr %%>.1
                    (only_from_module_of <%% papp_expr %%>)
                    papp_expr).

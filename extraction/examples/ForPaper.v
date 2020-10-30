@@ -66,29 +66,16 @@ MetaCoq Erase (unfolded const_zero_app_prop).
 MetaCoq Erase (unfolded const_zero_app_type).
 (* const_zero ∎ O *)
 
-Definition no_check_no_debox_args :=
-{| check_wf_env_func := check_wf_env_func extract_within_coq;
-     pcuic_args :=
-       {| dearg_args := None |} |}.
-
-Definition erase_print (p : program) (debox : bool) : result string string :=
+Definition erase_print (p : program) (opt : bool) : result string string :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  let dearg :=
-    if debox then
-      Some {| do_trim_const_masks := true;
-              do_trim_ctor_masks := true;
-              check_closed := false;
-              check_expanded := false;
-              check_valid_masks := false |}
-    else
-      None in
   let args :=
     {| check_wf_env_func := check_wf_env_func extract_within_coq;
        pcuic_args :=
-         {| dearg_args := dearg |} |} in
+         {| optimize_prop_discr := opt;
+            transforms := if opt then [dearg_transform true true false false false] else [] |} |} in
   Σ <- extract_template_env
          args
          p.1

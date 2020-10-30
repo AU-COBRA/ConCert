@@ -101,13 +101,13 @@ Definition liquidity_call_ctx :=
 Definition liquidity_extract_args :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
      pcuic_args :=
-       {| dearg_args :=
-            Some
-              {| do_trim_const_masks := true;
-                 do_trim_ctor_masks := false; (* cannot have partially applied ctors *)
-                 check_closed := true;
-                 check_expanded := true;
-                 check_valid_masks := true |} |} |}.
+       {| optimize_prop_discr := true;
+          transforms := [dearg_transform
+                           true
+                           false (* cannot have partially applied ctors *)
+                           true
+                           true
+                           true] |} |}.
 
 Definition liquidity_simple_extract
            (TT_defs : list (kername *  string))

@@ -4,6 +4,8 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import OptimizePropDiscr.
+From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
 From Coq Require Import List.
 From Coq Require Import VectorDef.
@@ -441,53 +443,174 @@ Proof.
   exact X.
 Defined.
 
-Definition annot_extract_pcuic_env params Σ wfΣ include ignore :
-  match extract_pcuic_env params Σ wfΣ include ignore with
-  | Ok Σ => env_annots box_type Σ
-  | _ => unit
-  end.
+Definition annot_dearg_transform
+           (do_trim_const_masks : bool)
+           (do_trim_ctor_masks : bool)
+           (check_closed : bool)
+           (check_expanded : bool)
+           (check_valid_masks : bool) :
+  annot_transform_type
+    box_type
+    (dearg_transform
+       do_trim_const_masks do_trim_ctor_masks
+       check_closed check_expanded check_valid_masks).
 Proof.
-  unfold extract_pcuic_env.
-  pose proof (annotate_types_erase_global_decls_deps_recursive Σ wfΣ include ignore).
-  destruct dearg_args; [|exact X].
+  red.
+  intros Σ a.
+  red.
   destruct (_ && _); [exact tt|].
   destruct analyze_env.
   destruct (_ && _); [exact tt|].
   destruct (_ && _); [exact tt|].
   apply annot_debox_env_types.
   apply annot_dearg_env.
-  exact X.
+  exact a.
 Defined.
 
-Definition annot_extract_pcuic_env_sig
-           (params : extract_pcuic_params)
-           (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
-           (include : KernameSet.t)
-           (ignore : kername -> bool) : option (∑ Σ, env_annots box_type Σ).
+Module AnnotOptimizePropDiscr.
+  Import EOptimizePropDiscr OptimizePropDiscr.
+  Definition annot_optimize Σ {t} (a : annots box_type t) : annots box_type (optimize Σ t).
+  Proof.
+    revert t a.
+    fix f 1.
+    intros [] a; cbn in *; try exact a.
+    - exact (a.1, bigprod_map f a.2).
+    - exact (a.1, f _ a.2).
+    - exact (a.1, (f _ a.2.1, f _ a.2.2)).
+    - exact (a.1, (f _ a.2.1, f _ a.2.2)).
+    - assert (br_annots : bigprod (fun br => annots box_type br.2) (map (on_snd (optimize Σ)) l)).
+      { refine (bigprod_map _ a.2.2).
+        intros ? a'; apply (f _ a'). }
+      destruct ETyping.is_propositional as [[]|]; cbn.
+      2-3: exact (a.1, (f _ a.2.1, br_annots)).
+      destruct map as [|(?&?) []]; cbn in *.
+      1,3: exact (a.1, (f _ a.2.1, br_annots)).
+      (* Term changed from
+         match e with
+         | c a1 .. an => f
+         end
+         to
+         f tBox .. tBox *)
+      (* We annotate the boxes based on the domains of f. *)
+      destruct br_annots as (fa&_).
+      revert n t0 fa.
+      clear.
+      fix f 1.
+      intros [] hd hda.
+      + exact hda.
+      + cbn.
+        apply f.
+        exact (
+            match annot hda with
+            | TArr dom cod => (cod, (hda, cod))
+            | t => (t, (hda, t))
+            end).
+    - destruct ETyping.is_propositional as [[]|].
+      2-3: exact (a.1, f _ a.2).
+      exact a.1.
+    - refine (a.1, bigprod_map _ a.2).
+      intros ? a'; exact (f _ a').
+    - refine (a.1, bigprod_map _ a.2).
+      intros ? a'; exact (f _ a').
+  Defined.
+
+  Definition annot_optimize_constant_body Σ {cst} (a : constant_body_annots box_type cst) :
+    constant_body_annots box_type (optimize_constant_body Σ cst).
+  Proof.
+    unfold constant_body_annots, optimize_constant_body in *.
+    cbn.
+    destruct ExAst.cst_body; cbn; [|exact tt].
+    apply annot_optimize.
+    exact a.
+  Defined.
+
+  Definition annot_optimize_decl Σ {decl} (a : global_decl_annots box_type decl) :
+    global_decl_annots box_type (optimize_decl Σ decl).
+  Proof.
+    unfold global_decl_annots, optimize_decl in *.
+    destruct decl; [|exact tt|exact tt].
+    apply annot_optimize_constant_body.
+    exact a.
+  Defined.
+
+  Definition annot_optimize_env Σ (a : env_annots box_type Σ) :
+    env_annots box_type (optimize_env Σ).
+  Proof.
+    unfold env_annots, optimize_env.
+    apply bigprod_map.
+    - intros.
+      apply annot_optimize_decl.
+      exact X.
+    - exact a.
+  Defined.
+End AnnotOptimizePropDiscr.
+
+Definition annot_compose_transforms {Σ} (a : env_annots box_type Σ) transforms :
+  All (annot_transform_type box_type) transforms ->
+  match compose_transforms transforms Σ with
+  | Ok Σ => env_annots box_type Σ
+  | Err _ => unit
+  end.
 Proof.
-  pose proof (annot_extract_pcuic_env params Σ wfΣ include ignore).
-  destruct extract_pcuic_env; [|exact None].
-  exact (Some (t; X)).
+  revert transforms Σ a.
+  fix f 4.
+  intros ? Σ a [].
+  - exact a.
+  - cbn.
+    red in a0.
+    specialize (a0 _ a).
+    destruct x; [|exact tt].
+    apply f; [exact a0|exact a1].
+Defined.
+
+Definition annot_extract_pcuic_env params Σ wfΣ include ignore :
+  All (annot_transform_type box_type) (transforms params) ->
+  match extract_pcuic_env params Σ wfΣ include ignore with
+  | Ok Σ => env_annots box_type Σ
+  | _ => unit
+  end.
+Proof.
+  intros all.
+  unfold extract_pcuic_env.
+  destruct optimize_prop_discr.
+  + apply annot_compose_transforms; [|exact all].
+    apply AnnotOptimizePropDiscr.annot_optimize_env.
+    apply annotate_types_erase_global_decls_deps_recursive.
+  + apply annotate_types_erase_global_decls_deps_recursive.
 Defined.
 
 Definition annot_extract_template_env params Σ include ignore :
+  All (annot_transform_type box_type) (transforms (pcuic_args params)) ->
   match extract_template_env params Σ include ignore with
   | Ok Σ => env_annots box_type Σ
   | _ => unit
   end.
 Proof.
+  intros all.
   unfold extract_template_env.
   destruct check_wf_env_func; [|exact tt].
   apply annot_extract_pcuic_env.
+  exact all.
 Defined.
 
-Definition annot_extract_template_env_sig
-           (params : extract_template_env_params)
+Definition annot_extract_template_env_within_coq Σ include ignore :
+  match extract_template_env_within_coq Σ include ignore with
+  | Ok Σ => env_annots box_type Σ
+  | _ => unit
+  end.
+Proof.
+  apply annot_extract_template_env.
+  cbn.
+  constructor; [|constructor].
+  apply annot_dearg_transform.
+Defined.
+
+Definition annot_extract_template_env_within_coq_sig
            (Σ : Ast.global_env)
            (include : KernameSet.t)
            (ignore : kername -> bool) : option (∑ Σ, env_annots box_type Σ).
 Proof.
-  pose proof (annot_extract_template_env params Σ include ignore).
-  destruct extract_template_env; [|exact None].
+  pose proof (annot_extract_template_env_within_coq Σ include ignore).
+  destruct extract_template_env_within_coq; [|exact None].
   exact (Some (t; X)).
 Defined.

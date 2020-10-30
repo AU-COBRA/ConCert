@@ -1,8 +1,10 @@
-From ConCert.Extraction Require Import Utils.
+From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import StringExtra.
+From ConCert.Extraction Require Import Utils.
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
 From Coq Require Import Bool.
@@ -269,6 +271,113 @@ Definition dearg_decl (kn : kername) (decl : global_decl) : global_decl :=
 
 Definition dearg_env (Σ : global_env) : global_env :=
   map (fun '(kn, has_deps, decl) => (kn, has_deps, dearg_decl kn decl)) Σ.
+
+(* Validity checks used when invoking the pass and to prove it correct *)
+Fixpoint is_dead (rel : nat) (t : term) : bool :=
+  match t with
+  | tRel i => negb (i =? rel)
+  | tEvar _ ts => forallb (is_dead rel) ts
+  | tLambda _ body => is_dead (S rel) body
+  | tLetIn _ val body => is_dead rel val && is_dead (S rel) body
+  | tApp hd arg => is_dead rel hd && is_dead rel arg
+  | tCase _ discr brs => is_dead rel discr && forallb (is_dead rel ∘ snd) brs
+  | tProj _ t => is_dead rel t
+  | tFix defs _
+  | tCoFix defs _ => forallb (is_dead (#|defs| + rel) ∘ dbody) defs
+  | _ => true
+  end.
+
+Fixpoint valid_dearg_mask (mask : bitmask) (body : term) : bool :=
+  match body, mask with
+  | tLetIn na val body, _ => valid_dearg_mask mask body
+  | tLambda _ body, b :: mask =>
+    (if b then is_dead 0 body else true) && valid_dearg_mask mask body
+  | _, [] => true
+  | _, _ => false
+  end.
+
+Definition valid_case_masks (ind : inductive) (npars : nat) (brs : list (nat * term)) : bool :=
+  match get_mib_masks (inductive_mind ind) with
+  | Some mm =>
+    (#|param_mask mm| =? npars) &&
+    alli (fun c '(ar, br) =>
+            (#|get_branch_mask mm ind c| <=? ar) &&
+            (valid_dearg_mask (get_branch_mask mm ind c) br)) brs 0
+  | None => true
+  end.
+
+Definition valid_proj (ind : inductive) (npars arg : nat) : bool :=
+  match get_mib_masks (inductive_mind ind) with
+  | Some mm => (#|param_mask mm| =? npars) &&
+               (* Projected argument must not be removed *)
+               negb (nth arg (get_branch_mask mm ind 0) false)
+  | _ => true
+  end.
+
+(* Check that all case and projections in a term are valid according
+   to the masks. They must have the proper number of parameters, and
+   1. For cases, their branches must be compatible with the masks,
+      i.e. they are iterated lambdas/let-ins and when "true" appears in the mask,
+      the parameter is unused
+   2. For projections, the projected argument must not be removed *)
+Fixpoint valid_cases (t : term) : bool :=
+  match t with
+  | tEvar _ ts => forallb valid_cases ts
+  | tLambda _ body => valid_cases body
+  | tLetIn _ val body => valid_cases val && valid_cases body
+  | tApp hd arg => valid_cases hd && valid_cases arg
+  | tCase (ind, npars) discr brs =>
+    valid_cases discr && forallb (valid_cases ∘ snd) brs && valid_case_masks ind npars brs
+  | tProj (ind, npars, arg) t => valid_cases t && valid_proj ind npars arg
+  | tFix defs _
+  | tCoFix defs _  => forallb (valid_cases ∘ dbody) defs
+  | _ => true
+  end.
+
+Definition valid_masks_decl (p : kername * bool * global_decl) : bool :=
+  match p with
+  | (kn, _, ConstantDecl {| cst_body := Some body |}) =>
+    valid_dearg_mask (get_const_mask kn) body && valid_cases body
+  | (kn, _, TypeAliasDecl typ) => #|get_const_mask kn| =? 0
+  | _ => true
+  end.
+
+(* Proposition representing whether masks are valid for entire environment.
+   We should be able to prove that our analysis produces masks that satisfy this
+   predicate. *)
+Definition valid_masks_env (Σ : global_env) : bool :=
+  forallb valid_masks_decl Σ.
+
+(* Check if all applications are applied enough to be deboxed without eta expansion *)
+Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
+  match t with
+  | tBox => true
+  | tRel _ => true
+  | tVar _ => true
+  | tEvar _ ts => forallb (is_expanded_aux 0) ts
+  | tLambda _ body => is_expanded_aux 0 body
+  | tLetIn _ val body => is_expanded_aux 0 val && is_expanded_aux 0 body
+  | tApp hd arg => is_expanded_aux 0 arg && is_expanded_aux (S nargs) hd
+  | tConst kn => #|get_const_mask kn| <=? nargs
+  | tConstruct ind c => #|get_ctor_mask ind c| <=? nargs
+  | tCase _ discr brs => is_expanded_aux 0 discr && forallb (is_expanded_aux 0 ∘ snd) brs
+  | tProj _ t => is_expanded_aux 0 t
+  | tFix defs _
+  | tCoFix defs _ => forallb (is_expanded_aux 0 ∘ dbody) defs
+  end.
+
+(* Check if all applications are applied enough to be deboxed without eta expansion *)
+Definition is_expanded (t : term) : bool :=
+  is_expanded_aux 0 t.
+
+(* Like above, but check all bodies in environment. This assumption does not necessarily hold,
+   but we should try to make it hold by eta expansion before quoting *)
+Definition is_expanded_env (Σ : global_env) : bool :=
+  forallb (fun '(kn, decl) =>
+             match decl with
+             | ConstantDecl {| cst_body := Some body |} => is_expanded body
+             | _ => true
+             end) Σ.
 
 End dearg.
 
@@ -544,3 +653,37 @@ Definition trim_mib_masks (mm : mib_masks) :=
 
 Definition trim_ind_masks (im : list (kername × mib_masks)) :=
   map (on_snd trim_mib_masks) im.
+
+Definition dearg_transform
+           (* If true, trim ends of constant masks to avoid unnecessary eta expansion. *)
+           (do_trim_const_masks : bool)
+           (* If true, trim ends of constructor masks to avoid unnecessary eta expansion. *)
+           (do_trim_ctor_masks : bool)
+           (* Check if erased environment is closed *)
+           (check_closed : bool)
+           (* Check that environment is expanded enough before dearging *)
+           (check_expanded : bool)
+           (* Check that the dearg masks generated by analysis are valid for dearging *)
+           (check_valid_masks : bool) : Transform :=
+  fun Σ =>
+    (if check_closed && negb (env_closed (trans_env Σ)) then
+       Err "Erased environment is not closed"
+     else
+       Ok tt);;
+
+    let (const_masks, ind_masks) := analyze_env Σ in
+
+    let const_masks := (if do_trim_const_masks then trim_const_masks else id) const_masks in
+    let ind_masks := (if do_trim_ctor_masks then trim_ind_masks else id) ind_masks in
+
+    (if check_expanded && negb (is_expanded_env ind_masks const_masks Σ) then
+       Err "Erased environment is not expanded enough for dearging to be provably correct"
+     else
+       Ok tt);;
+
+    (if check_valid_masks && negb (valid_masks_env ind_masks const_masks Σ) then
+       Err "Analysis produced masks that ask to remove live arguments"
+     else
+       Ok tt);;
+
+    ret (debox_env_types (dearg_env ind_masks const_masks Σ)).
