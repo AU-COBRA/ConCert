@@ -32,11 +32,10 @@ Definition general_extract (p : T.program) (ignore: list kername) (TT : list (ke
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
   Σ <- extract_template_env
-         extract_within_coq
+         extract_rust_within_coq
          p.1
          (KernameSet.singleton entry)
          (fun k => existsb (eq_kername k) ignore);;
-  let Σ := opt_top_level_fixes Σ in
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   let is_const '(kn, decl) :=
       match decl with

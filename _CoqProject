@@ -99,31 +99,32 @@ embedding/examples/crowdfunding/CrowdfundingData.v
 
 -Q extraction/theories ConCert.Extraction
 extraction/theories/Annotations.v
-extraction/theories/Utils.v
+extraction/theories/CertifyingEta.v
 extraction/theories/ClosedAux.v
 extraction/theories/Common.v
 extraction/theories/Erasure.v
 extraction/theories/ErasureCorrectness.v
 extraction/theories/ExAst.v
+extraction/theories/ExpandBranches.v
 extraction/theories/Extraction.v
 extraction/theories/ExtractionCorrectness.v
 extraction/theories/LPretty.v
 extraction/theories/Liquidity.v
 extraction/theories/LiquidityExtract.v
 extraction/theories/MidlangExtract.v
-extraction/theories/RustExtract.v
 extraction/theories/Optimize.v
 extraction/theories/OptimizeCorrectness.v
 extraction/theories/OptimizePropDiscr.v
-extraction/theories/Transform.v
 extraction/theories/PrettyPrinterMonad.v
 extraction/theories/ResultMonad.v
+extraction/theories/RustExtract.v
 extraction/theories/SpecializeChainBase.v
 extraction/theories/StringExtra.v
 extraction/theories/TopLevelFixes.v
+extraction/theories/Transform.v
 extraction/theories/TypeAnnotations.v
+extraction/theories/Utils.v
 extraction/theories/WcbvEvalAux.v
-extraction/theories/CertifyingEta.v
 
 -Q extraction/examples ConCert.Extraction.Examples
 extraction/examples/Ack.v
