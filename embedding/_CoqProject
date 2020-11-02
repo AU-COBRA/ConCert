@@ -1,0 +1,43 @@
+-arg -w -arg -undeclared-scope
+-arg -w -arg -notation-overridden
+-arg -w -arg -non-reversible-notation
+
+-R ../execution/theories ConCert.Execution
+-R ../utils/theories ConCert.Utils
+
+-Q theories ConCert.Embedding
+theories/Ast.v
+theories/Certifying.v
+theories/CustomTactics.v
+theories/EnvSubst.v
+theories/EvalE.v
+theories/Misc.v
+theories/MyEnv.v
+theories/Notations.v
+theories/Prelude.v
+theories/SimpleBlockchain.v
+theories/Tests.v
+theories/TranslationUtils.v
+theories/Utils.v
+theories/Wf.v
+theories/pcuic/PCUICCorrectness.v
+theories/pcuic/PCUICCorrectnessAux.v
+theories/pcuic/PCUICFacts.v
+theories/pcuic/PCUICTranslate.v
+theories/pcuic/PCUICtoTemplate.v
+
+-Q extraction ConCert.Embedding.Extraction
+extraction/Counter.v
+extraction/Crowdfunding.v
+extraction/CrowdfundingData.v
+extraction/Liquidity.v
+extraction/PreludeExt.v
+extraction/SimpleBlockchainExt.v
+
+-Q examples ConCert.Embedding.Examples
+examples/AcornExamples.v
+examples/Demo.v
+examples/ExecFrameworkIntegration.v
+examples/FinMap.v
+examples/crowdfunding/Crowdfunding.v
+examples/crowdfunding/CrowdfundingData.v

@@ -9,7 +9,8 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations CustomTactics.
-From ConCert.Extraction Require Import LPretty LiquidityExtract PreludeExt Common Extraction.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Extraction Require Import LPretty LiquidityExtract Common Extraction.
 From ConCert.Execution Require Import Blockchain.
 
 From Coq Require Import List Ascii String.
@@ -149,4 +150,4 @@ Time MetaCoq Run
 Print liquidity_counter.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "./extraction/examples/liquidity-extract/CounterRefinementTypes.liq" Compute liquidity_counter.
+Redirect "examples/liquidity-extract/CounterRefinementTypes.liq" Compute liquidity_counter.

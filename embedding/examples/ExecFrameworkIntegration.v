@@ -1,9 +1,9 @@
 (** * Integration with the execution framework, properties of [crowdfunding] *)
 Require Import String Basics ZArith.
 From ConCert.Embedding Require Import Misc Notations PCUICtoTemplate
-     PCUICTranslate CustomTactics.
+     PCUICTranslate CustomTactics SimpleBlockchain Prelude.
 
-From ConCert.Embedding Require Import Crowdfunding CrowdfundingData SimpleBlockchain Prelude.
+From ConCert.Embedding.Examples Require Import Crowdfunding CrowdfundingData.
 
 Require Import List.
 Require Import PeanoNat.
@@ -12,7 +12,7 @@ Require Import Morphisms.
 Require Import Permutation.
 Require Import Program.Tactics.
 
-From ConCert.Execution Require Import Blockchain Congress Automation Extras ResultMonad.
+From ConCert.Execution Require Import Blockchain Automation Extras ResultMonad.
 
 Import ListNotations.
 
@@ -539,4 +539,3 @@ Proof.
   specialize (cf_backed _ _ _ Hr Hcf Hst) as Hbacked.
   cbn in *. lia.
 Qed.
-

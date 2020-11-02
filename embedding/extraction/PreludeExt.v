@@ -5,7 +5,7 @@
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast CustomTactics Notations
      PCUICTranslate PCUICtoTemplate TranslationUtils MyEnv Prelude.
-From ConCert.Embedding.Examples Require Import Utils.
+From ConCert.Embedding Require Import Utils.
 From ConCert.Execution Require Import Blockchain.
 Require Import List.
 

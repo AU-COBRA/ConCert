@@ -1,3 +1,6 @@
+(* Adapted from https://github.com/tchajed/coq-record-update; see NOTICE in the
+   root for license notice *)
+
 Set Implicit Arguments.
 
 (** Reader is the reader monad (or just the function monad). We only use

@@ -5,7 +5,12 @@ From ConCert.Embedding Require Import Ast Notations CustomTactics
      PCUICTranslate PCUICtoTemplate Utils MyEnv.
 
 From ConCert.Extraction Require Import LiquidityExtract LPretty Common.
-From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
+From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt.
+(* These imports need to be like this or coqdep gets confused since there exists
+   these modules in ConCert.Embedding.Examples as well.
+   https://github.com/coq/coq/issues/9080 *)
+Require Import ConCert.Embedding.Extraction.CrowdfundingData.
+Require Import ConCert.Embedding.Extraction.Crowdfunding.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -119,4 +124,4 @@ Time MetaCoq Run
 Print liquidity_crowdfunding.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "./extraction/examples/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.
+Redirect "examples/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.

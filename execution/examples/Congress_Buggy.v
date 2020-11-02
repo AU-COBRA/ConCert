@@ -18,7 +18,7 @@ Require Import Extras.
 Require Import Monads.
 Require Import ResultMonad.
 Require Import Serializable.
-From RecordUpdate Require Import RecordUpdate.
+From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 
 Import ListNotations.

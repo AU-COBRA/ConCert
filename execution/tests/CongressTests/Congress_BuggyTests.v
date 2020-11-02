@@ -17,7 +17,7 @@ From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_B
 Close Scope monad_scope.
 
 From ConCert Require Import Monads.
-From RecordUpdate Require Import RecordUpdate.
+From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List Int BinInt FunInd.
 
 Import BoundedN.Stdpp.

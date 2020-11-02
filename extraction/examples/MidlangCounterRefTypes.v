@@ -10,7 +10,7 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Utils Require Import StringExtra.
 
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
@@ -52,8 +52,8 @@ Definition midlang_translate (name : kername) : option string :=
 
 Definition extra_ignored :=
   Eval compute in
-        [ <%% @RecordUpdate.RecordSet.Reader %%>;
-         <%% @RecordUpdate.RecordSet.constructor %%>].
+        [ <%% @RecordSet.Reader %%>;
+         <%% @RecordSet.constructor %%>].
 
 Module CounterRefinmentTypes.
 
@@ -188,4 +188,4 @@ Definition midlang_counter :=
   | Err s => s
   end.
 
-Redirect "./extraction/examples/midlang-extract/MidlangCounterRefTypes.midlang" Compute midlang_counter.
+Redirect "examples/midlang-extract/MidlangCounterRefTypes.midlang" Compute midlang_counter.

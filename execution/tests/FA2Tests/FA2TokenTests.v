@@ -11,7 +11,7 @@ From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import
   TestUtils ChainPrinters SerializablePrinters TraceGens FA2Printers TestContracts.
-From RecordUpdate Require Import RecordUpdate.
+From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 Import ListNotations.
 Import RecordSetNotations.

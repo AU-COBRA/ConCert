@@ -6,7 +6,7 @@ Require Import Monads.
 Require Import Extras.
 Require Import Containers.
 Require Import Automation.
-From RecordUpdate Require Import RecordUpdate.
+From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 Require Import Serializable.
 Require Import Blockchain.

@@ -2,8 +2,8 @@
 
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations PCUICTranslate Utils TranslationUtils.
-From ConCert.Embedding.Examples Require Import Prelude.
-From ConCert.Extraction.Examples Require Import PreludeExt SimpleBlockchainExt.
+From ConCert.Embedding Require Import Prelude.
+From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt.
 
 Require Import List PeanoNat ssrbool.
 

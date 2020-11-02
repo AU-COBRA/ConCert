@@ -1,0 +1,53 @@
+-arg -w -arg -undeclared-scope
+-arg -w -arg -notation-overridden
+-arg -w -arg -non-reversible-notation
+
+-R ../utils/theories ConCert.Utils
+-R ../execution/theories ConCert.Execution
+-R ../execution/examples ConCert.Execution.Examples
+-R ../embedding/theories ConCert.Embedding
+-R ../embedding/examples ConCert.Embedding.Examples
+-R ../embedding/extraction ConCert.Embedding.Extraction
+
+-Q theories ConCert.Extraction
+theories/Annotations.v
+theories/CertifyingEta.v
+theories/ClosedAux.v
+theories/Common.v
+theories/Erasure.v
+theories/ErasureCorrectness.v
+theories/ExAst.v
+theories/ExpandBranches.v
+theories/Extraction.v
+theories/ExtractionCorrectness.v
+theories/LPretty.v
+theories/LiquidityExtract.v
+theories/MidlangExtract.v
+theories/Optimize.v
+theories/OptimizeCorrectness.v
+theories/OptimizePropDiscr.v
+theories/PrettyPrinterMonad.v
+theories/ResultMonad.v
+theories/RustExtract.v
+theories/SpecializeChainBase.v
+theories/TopLevelFixes.v
+theories/Transform.v
+theories/TypeAnnotations.v
+theories/Utils.v
+theories/WcbvEvalAux.v
+
+-Q examples ConCert.Extraction.Examples
+examples/Ack.v
+examples/CounterCertifiedExtraction.v
+examples/CounterDepCertifiedExtraction.v
+examples/CounterRefinementTypes.v
+examples/CrowdfundingCertifiedExtraction.v
+examples/ElmExtractTests.v
+examples/ErasureTests.v
+examples/ForPaper.v
+examples/MidlangCounterRefTypes.v
+examples/MidlangEscrow.v
+examples/MidlangExtractTests.v
+examples/RustExtractTests.v
+examples/StackInterpreter.v
+examples/TypeAnnotationTests.v

@@ -1,8 +1,6 @@
 -arg -w -arg -undeclared-scope
 
--R ../vendor/record-update RecordUpdate
-../vendor/record-update/RecordSet.v
-../vendor/record-update/RecordUpdate.v
+-R ../utils/theories ConCert.Utils
 
 -R theories ConCert.Execution
 theories/Automation.v
@@ -20,53 +18,48 @@ theories/ResultMonad.v
 theories/Serializable.v
 
 -R examples ConCert.Execution.Examples
-examples/Counter.v
+examples/BAT.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingTest.v
 examples/Congress.v
 examples/Congress_Buggy.v
-examples/Egcd.v
+examples/Counter.v
 examples/EIP20Token.v
+examples/Egcd.v
 examples/Escrow.v
 examples/Euler.v
-examples/LocalBlockchainTests.v
-examples/BAT.v
 examples/FA2Interface.v
 examples/FA2Token.v
-examples/Escrow.v
-examples/Euler.v
 examples/LocalBlockchainTests.v
 
 -R tests ConCert.Execution.QCTests
-tests/TestUtils.v
 tests/ChainPrinters.v
-tests/TraceGens.v
 tests/CongressTests/CongressGens.v
 tests/CongressTests/CongressPrinters.v
+tests/CongressTests/CongressTests.v
 tests/CongressTests/Congress_BuggyGens.v
 tests/CongressTests/Congress_BuggyPrinters.v
+tests/CongressTests/Congress_BuggyTests.v
 tests/DexterTests/Dexter.v
+tests/DexterTests/DexterGens.v
+tests/DexterTests/DexterPrinters.v
+tests/DexterTests/DexterTests.v
 tests/EIP20Tests/EIP20TokenGens.v
 tests/EIP20Tests/EIP20TokenPrinters.v
-tests/iTokenBuggyTests/iTokenBuggy.v
-tests/iTokenBuggyTests/iTokenBuggyPrinters.v
-tests/iTokenBuggyTests/iTokenBuggyGens.v
-tests/iTokenBuggyTests/iTokenBuggyTests.v
+tests/EIP20Tests/EIP20TokenTests.v
 tests/EscrowTests/EscrowExtras.v
 tests/EscrowTests/EscrowGens.v
 tests/EscrowTests/EscrowPrinters.v
-tests/FA2Tests/FA2Printers.v
-
-tests/SerializablePrinters.v
-
-tests/FA2Tests/FA2Gens.v
-tests/FA2Tests/TestContracts.v
-tests/FA2Tests/FA2TokenTests.v
-tests/DexterTests/DexterPrinters.v
-tests/DexterTests/DexterGens.v
-tests/DexterTests/DexterTests.v
 tests/EscrowTests/EscrowTests.v
-tests/EIP20Tests/EIP20TokenTests.v
-tests/CongressTests/Congress_BuggyTests.v
-tests/CongressTests/CongressTests.v
+tests/FA2Tests/FA2Gens.v
+tests/FA2Tests/FA2Printers.v
+tests/FA2Tests/FA2TokenTests.v
+tests/FA2Tests/TestContracts.v
+tests/SerializablePrinters.v
+tests/TestUtils.v
+tests/TraceGens.v
+tests/iTokenBuggyTests/iTokenBuggy.v
+tests/iTokenBuggyTests/iTokenBuggyGens.v
+tests/iTokenBuggyTests/iTokenBuggyPrinters.v
+tests/iTokenBuggyTests/iTokenBuggyTests.v

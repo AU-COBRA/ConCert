@@ -1,8 +1,7 @@
 (** * Data types for the crowdfunding contract *)
 
 Require Import String ZArith Basics.
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate Utils TranslationUtils.
-From ConCert.Embedding.Examples Require Import Prelude SimpleBlockchain.
+From ConCert.Embedding Require Import Ast Notations PCUICTranslate Prelude SimpleBlockchain Utils TranslationUtils.
 Require Import List PeanoNat ssrbool.
 
 Import ListNotations.

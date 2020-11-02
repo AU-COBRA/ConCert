@@ -4,7 +4,7 @@ Require Import String List.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
 From MetaCoq.Template Require Import BasicAst utils monad_utils MCString Loader.
 From ConCert.Embedding Require Import Ast Notations Misc MyEnv.
-From ConCert.Extraction Require StringExtra.
+From ConCert.Utils Require StringExtra.
 
 Module P := PCUICAst.
 Import MonadNotation.

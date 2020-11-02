@@ -1,50 +1,68 @@
-EXTRA_DIR:=extra
-DOCS_DIR:=docs
-COQDOCFLAGS:= \
-  --html --interpolate \
-  --no-index --no-lib-name --parse-comments \
-  --with-header $(EXTRA_DIR)/header.html --with-footer $(EXTRA_DIR)/footer.html
-export COQDOCFLAGS
-COQMAKEFILE:=CoqMakefile
-COQ_PROJ:=_CoqProject
-ELM_DIR:=./extraction/examples/elm-extract/
-LIQ_DIR:=./extraction/examples/liquidity-extract/tests
+all: utils execution embedding extraction
+.PHONY: all
 
+utils:
+	+make -C utils
+.PHONY: utils
 
-default: code process-extraction
+execution: utils
+	+make -C execution
+.PHONY: execution
 
-all: code html
+embedding: utils execution
+	+make -C embedding
+.PHONY: embedding
 
-code: $(COQMAKEFILE)
-	$(MAKE) -f $(COQMAKEFILE)
+extraction: utils execution embedding
+	+make -C extraction
+.PHONY: extraction
 
-clean: $(COQMAKEFILE)
-	@$(MAKE) -f $(COQMAKEFILE) $@
-	rm -f $(COQMAKEFILE)
+clean:
+	+make -C utils clean
+	+make -C execution clean
+	+make -C embedding clean
+	+make -C extraction clean
+	rm -rf docs
+.PHONY: clean
 
-html: $(COQMAKEFILE)
-	rm -rf $(DOCS_DIR)
-	@$(MAKE) -f $(COQMAKEFILE) $@
-	cp $(EXTRA_DIR)/resources/* html
-	mv html $(DOCS_DIR)
+install: all
+	+make -C utils install
+	+make -C execution install
+	+make -C embedding install
+	+make -C extraction install
+.PHONY: install
 
-$(COQMAKEFILE): $(COQ_PROJ)
-		coq_makefile -f $(COQ_PROJ) -o $@
-
-%: $(COQMAKEFILE) force
-	@$(MAKE) -f $(COQMAKEFILE) $@
-force $(COQ_PROJ): ;
+uninstall: all
+	+make -C utils uninstall
+	+make -C execution uninstall
+	+make -C embedding uninstall
+	+make -C extraction uninstall
+.PHONY: uninstall
 
 test-extraction:
-	cd $(ELM_DIR); elm-test
-	$(foreach file, $(wildcard $(LIQ_DIR)/*.liq), liquidity $(file);)
+	cd ./extraction/examples/elm-extract/; elm-test
+	$(foreach file, $(wildcard ./extraction/examples/liquidity-extract/tests/*.liq), liquidity $(file);)
+.PHONY: test-extraction
 
 process-extraction: code
 	./process-extraction.sh
+.PHONY: process-extraction
 
 clean-extraction:
 	rm ./extraction/examples/elm-extract/*.elm.out
 	rm ./extraction/examples/liquidity-extract/*.liq.out
 	rm ./extraction/examples/midlang-extract/*.midlang.out
+.PHONY: clean-extraction
 
-.PHONY: clean all default force
+html: all
+	rm -rf docs
+	mkdir docs
+	coqdoc --html --interpolate --parse-comments \
+		--with-header extra/header.html --with-footer extra/footer.html \
+		-R utils/theories ConCert.Utils \
+		-R execution/theories ConCert.Execution \
+		-R embedding/theories ConCert.Embedding \
+		-R extraction/theories ConCert.Extraction \
+		-d docs `find . -type f -wholename "*theories/*" -name "*.v"`
+	cp extra/resources/* docs
+.PHONY: html
