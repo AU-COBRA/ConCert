@@ -10,6 +10,7 @@ From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import StringExtra.
 From ConCert.Extraction Require Import TopLevelFixes.
+From ConCert.Extraction Require Import ExpandBranches.
 
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
@@ -783,7 +784,13 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
   ret (const_names ++ ind_names)%list.
 End FixEnv.
 
-(*
+Definition extract_rust_within_coq : extract_template_env_params :=
+  {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     pcuic_args :=
+       {| optimize_prop_discr := true;
+          transforms := [TopLevelFixes.transform; ExpandBranches.transform;
+                         dearg_transform true true false false false] |} |}.
+
 Instance RustConfig : RustPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
@@ -797,11 +804,10 @@ Definition general_extract (p : T.program) (ignore: list kername) (TT : list (ke
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
   Σ <- extract_template_env
-         extract_within_coq
+         extract_rust_within_coq
          p.1
          (KernameSet.singleton entry)
          (fun k => existsb (eq_kername k) ignore);;
-  let Σ := opt_top_level_fixes Σ in
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   let p :=
       names <- print_program Σ TT_fun;;
