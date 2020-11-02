@@ -4,8 +4,7 @@
 
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast CustomTactics Notations
-     PCUICTranslate PCUICtoTemplate TranslationUtils MyEnv.
-From ConCert.Embedding.Examples Require Import Utils.
+     PCUICTranslate PCUICtoTemplate TranslationUtils Utils MyEnv.
 Require Import List.
 
 From MetaCoq.Template Require Import All.

@@ -7,7 +7,7 @@ From Coq Require Import Permutation.
 From Coq Require Import Psatz.
 From Coq Require Import Mergesort.
 From Coq Require Program.
-From RecordUpdate Require Import RecordUpdate.
+From ConCert.Utils Require Import RecordUpdate.
 Require Import Automation.
 Require Import Blockchain.
 Require Import BoundedN.

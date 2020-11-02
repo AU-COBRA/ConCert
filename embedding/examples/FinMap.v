@@ -8,7 +8,7 @@ Import ListNotations.
 From MetaCoq.Template Require Import All.
 
 From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate EvalE.
-From ConCert.Embedding.Examples Require Import Utils.
+From ConCert.Embedding Require Import Utils.
 
 Import MonadNotation.
 Import BaseTypes.

@@ -4,8 +4,8 @@ Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations CustomTactics
      PCUICTranslate PCUICtoTemplate Utils MyEnv TranslationUtils Prelude.
 
-From ConCert.Extraction Require Import Liquidity.
-From ConCert.Extraction.Examples Require Import PreludeExt SimpleBlockchainExt CrowdfundingData.
+From ConCert.Embedding.Extraction Require Import Liquidity.
+From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt CrowdfundingData.
 
 Require Import List PeanoNat ssrbool.
 

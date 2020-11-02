@@ -9,8 +9,9 @@ From MetaCoq.PCUIC Require Import TemplateToPCUIC PCUICTyping.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require Import LPretty LiquidityExtract
-     Erasure Common PreludeExt.
+     Erasure Common.
 From ConCert.Execution Require Import Containers Blockchain.
 
 From Coq Require Import List Ascii String.
@@ -161,4 +162,4 @@ Time MetaCoq Run
 Print liquidity_interp.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "./extraction/examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp.
+Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp.

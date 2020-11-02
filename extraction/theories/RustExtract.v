@@ -8,7 +8,7 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import TopLevelFixes.
 From ConCert.Extraction Require Import ExpandBranches.
 
@@ -824,6 +824,7 @@ Definition general_extract (p : T.program) (ignore: list kername) (TT : list (ke
 Definition extract (p : T.program) : result string string :=
   general_extract p [] [].
 
+(*
 Open Scope nat.
 Fixpoint ack (n m : nat) : nat :=
   match n with

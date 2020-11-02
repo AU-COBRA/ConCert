@@ -7,7 +7,7 @@ Require Import Monads.
 Import ListNotations.
 Require Import Extras.
 Require Import Containers.
-From RecordUpdate Require Import RecordUpdate.
+From ConCert.Utils Require Import RecordUpdate.
 Import RecordSetNotations.
 
 Section FA2Interface.

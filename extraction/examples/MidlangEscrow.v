@@ -7,7 +7,7 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Utils Require Import StringExtra.
 From ConCert.Execution.Examples Require Import Escrow.
 
 From Coq Require Import Arith.
@@ -153,4 +153,4 @@ Definition midlang_escrow :=
   | Err s => s
   end.
 
-Redirect "./extraction/examples/midlang-extract/MidlangEscrow.midlang" Compute midlang_escrow.
+Redirect "examples/midlang-extract/MidlangEscrow.midlang" Compute midlang_escrow.

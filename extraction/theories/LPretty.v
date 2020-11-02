@@ -16,7 +16,9 @@ Records are currently not supported. Should be represented as iterated products.
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
 
 From Coq Require Import List Program String Ascii.
-From ConCert.Extraction Require Import StringExtra ExAst Common.
+From ConCert.Utils Require Import StringExtra.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import ExAst.
 From ConCert.Embedding Require Import MyEnv Ast.
 From MetaCoq.Template Require Import utils Loader Environment.
 From MetaCoq.Template Require Pretty.

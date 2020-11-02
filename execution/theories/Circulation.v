@@ -2,7 +2,7 @@
 semantics is as expected: the sum of all rewards paid out in blocks. *)
 From Coq Require Import List Permutation ZArith Psatz Morphisms.
 Require Import Automation Blockchain Extras Finite ChainedList.
-From RecordUpdate Require Import RecordSet.
+From ConCert.Utils Require Import RecordSet.
 Import ListNotations.
 
 Section Circulation.

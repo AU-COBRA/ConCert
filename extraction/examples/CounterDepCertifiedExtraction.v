@@ -10,9 +10,10 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import LiquidityExtract LPretty
-     PreludeExt Common CertifyingEta Optimize OptimizeCorrectness Extraction.
+     Common CertifyingEta Optimize OptimizeCorrectness Extraction.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -243,4 +244,4 @@ Time MetaCoq Run
 Print liquidity_counter_partially_applied_expanded.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "./extraction/examples/liquidity-extract/CounterDepCertifiedExtraction.liq" Compute liquidity_counter.
+Redirect "examples/liquidity-extract/CounterDepCertifiedExtraction.liq" Compute liquidity_counter.

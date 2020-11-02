@@ -2,9 +2,9 @@
 
 Require Import String ZArith Basics.
 From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate Utils TranslationUtils.
+     PCUICTranslate PCUICtoTemplate Prelude SimpleBlockchain Utils TranslationUtils.
 
-From ConCert.Embedding.Examples Require Import Prelude SimpleBlockchain CrowdfundingData.
+From ConCert.Embedding.Examples Require Import CrowdfundingData.
 
 Require Import List PeanoNat ssrbool.
 

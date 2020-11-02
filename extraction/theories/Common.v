@@ -25,7 +25,7 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import OptimizeCorrectness.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Utils Require Import StringExtra.
 
 Module T := MetaCoq.Template.Ast.
 Module P := MetaCoq.PCUIC.PCUICAst.

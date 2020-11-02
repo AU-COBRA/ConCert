@@ -5,7 +5,7 @@ From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Utils Require Import StringExtra.
 From Coq Require Import Arith.
 From Coq Require Import List.
 From Coq Require Import String.

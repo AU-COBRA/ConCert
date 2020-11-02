@@ -2,7 +2,7 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import StringExtra.
+From ConCert.Utils Require Import StringExtra.
 From Coq Require Import Ascii.
 From Coq Require Import Bool.
 From Coq Require Import List.
