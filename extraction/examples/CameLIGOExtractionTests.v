@@ -394,11 +394,9 @@ Section EIP20TokenExtraction.
   ; remap <% Amount %> "tez"
   ; remap <% @Address %> "address"
 
-  (* ; remap <% Z %> "int" *)
-  (* ; remap <% nat %> "address" *)
   ; remap <% positive %> "nat"
   (* TODO: set operations  *)
-  (* ; remap <% Set %> "set"  *)
+  ; remap <% Set %> "set" 
 
 
   (* operations *)
