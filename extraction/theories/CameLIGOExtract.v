@@ -88,10 +88,17 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
   [
     <%% prod %%>
     ; <%% @Chain %%>
-    ; <%% ChainBase %%>
+    ; <%% @RecordUpdate.RecordSet.set %%>
+    ; <%% @ChainBase %%>
     ; <%% axiomatized_ChainBase %%>
+    ; <%% Amount %%>
+    ; <%% Address %%>
     ; <%% @address_eqdec %%>
     ; <%% @address_countable %%>
+    ; <%% @ContractCallContext %%>
+    ; <%% @RecordSet.constructor %%>
+    ; <%% @RecordSet.Reader %%>
+    ; <%% @RecordSet.set %%>
     ; <%% @SerializedValue %%>
     ; <%% @SerializedType %%>].
 

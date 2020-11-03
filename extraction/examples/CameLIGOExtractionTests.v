@@ -446,18 +446,11 @@ Section EIP20TokenExtraction.
     ; ("N0", "0n")
     ; ("N1", "1n")
     ; ("nil", "[]")
-    (* ; ("mnil", "Map.empty") *)
-    
-    (* ; ("gmap_empty", "Map.empty") *)
-    (* ; ("gmap.gmap_empty", "Map.empty") *)
-    (* ; ("stdpp.base.empty", "Map.empty") *)
-    (* ; ("FMap.empty", "Map.empty") *)
-    (* ; ("base.empty", "Map.empty") *)
       (* monad hack *)
     ; ("Monad_option", "()")
     ; ("tt", "()") ].
   
-  Time MetaCoq Run
+  (* Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE ;;
     tmDefinition LIGO_EIP20Token_MODULE.(lmd_module_name) t
   ).
@@ -466,6 +459,92 @@ Section EIP20TokenExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_eip20token.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End EIP20TokenExtraction.
+
+
+
+Section TestExtractionPlayground.
+  Import EIP20Token.
+  From RecordUpdate Require Import RecordUpdate.
+  Import RecordSetNotations.
+  Require Import Containers.
+  From stdpp Require gmap.
+
+  Open Scope N_scope.
+  Definition test_try_transfer (from : Address)
+       (to : Address)
+       (amount : TokenValue)
+       (state : State) : option State :=
+    let from_balance := Extras.with_default 0 (FMap.find from state.(balances)) in
+    if from_balance <? amount
+    then None
+    else let new_balances := FMap.add from (from_balance - amount) state.(balances) in
+         let new_balances := FMap.partial_alter (fun balance => Some (Extras.with_default 0 balance + amount)) to new_balances in
+         Some ({|
+          balances := new_balances;
+          total_supply := state.(total_supply);
+          allowances := state.(allowances);
+        |}).
+
+  Definition test_init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
+    Some {| total_supply := setup.(init_amount);
+            balances := FMap.empty;
+            allowances := FMap.empty |}.
+  Open Scope Z_scope.
+  Definition test_receive (chain : Chain)
+       (ctx : ContractCallContext)
+       (state : EIP20Token.State)
+       (maybe_msg : option EIP20Token.Msg)
+    : option (list ActionBody * EIP20Token.State) :=
+    let without_actions := option_map (fun new_state => ([], new_state)) in
+    match maybe_msg with
+    | Some (transfer to amount) => without_actions (test_try_transfer to to amount state)
+    (* Other endpoints are not included in this extraction test *)
+    | _ => None
+    end.
+
+  Close Scope Z_scope.
+  Close Scope N_scope.
+
+  Definition playground_module : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
+  {| (* a name for the definition with the extracted code *)
+      lmd_module_name := "playground_mod" ;
+  
+      (* definitions of operations on pairs and ints *)
+      lmd_prelude := CameLIGOPrelude;
+  
+      (* initial storage *)
+      lmd_init := test_init ;
+  
+      lmd_init_prelude := "";
+  
+      (* the main functionality *)
+      lmd_receive_prelude := partial_alter_addr_nat ++ nl ++
+      option_map_state_acts ++ nl ++
+      bind_option_state ++ nl ++
+      with_default_N;
+
+      lmd_receive := test_receive ;
+  
+      (* code for the entry point *)
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" ++ nl
+                        ++ CameLIGOPretty.printMain |}.
+
+  Search "gmap_empty".
+
+  
+  Time MetaCoq Run
+  (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token playground_module ;;
+    tmDefinition playground_module.(lmd_module_name) t
+  ).
+
+  Print playground_mod.
+
+  Definition printed := Eval vm_compute in playground_mod.
+    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+
+End TestExtractionPlayground.
+

@@ -141,6 +141,13 @@ Section print_term.
           ("blah",[TInd (mkInd (MPfile [], "nat") 0);
                   (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1))]).
 
+  Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
+  let (nm, ty) := proj in
+    prefix
+      ^ nm
+      ^ " : "
+      ^ print_box_type prefix TT ty.
+
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
     let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
@@ -148,12 +155,22 @@ Section print_term.
     let print_type_var (i : nat) :=
         "a_" ++ string_of_nat i in
     let params :=
-        if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
-        else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
-             (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
-    "type " ++ params ++ uncapitalize ind_nm ++" = "
-            ++ nl
-            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors)).
+      if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
+      else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
+           (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
+    (* one-constructor inductives are interpreted/printed as records *)
+    match oib.(ExAst.ind_ctors) with
+    | [build_record_ctor] =>
+      let '(_, ctors) := build_record_ctor in
+      let asd := combine oib.(ExAst.ind_projs) ctors in
+      let dsa := asd |> map (fun '(p, ty) => print_proj (capitalize prefix) TT (p.1, ty)) in
+      "type " ++ params ++ uncapitalize ind_nm ++" = {" ++ nl
+              ++ concat ("," ++ nl) dsa
+              ++  "};" 
+    | _ => "type " ++ params ++ uncapitalize ind_nm ++" = "
+                   ++ nl
+                   ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
+    end.
 
   Definition is_sort (t : Ast.term) :=
     match t with
@@ -183,6 +200,14 @@ Section print_term.
         let '(ns, (b; a)) := Edecompose_lam_annot b a  in
         (n :: ns, (b; a))
     | t => fun bt => ([], (t; bt))
+    end.
+
+  Fixpoint Edecompose_app_annot {A} (t : term) : (annots A t) -> (∑t, annots A t) × (list (∑t, annots A t))  :=
+    match t return annots A t -> (∑t, annots A t) × list (∑t, annots A t) with
+    | tApp f a => fun '(bt, (fa, arga)) => 
+        let '(ba, l) := Edecompose_app_annot f fa in
+        (ba, (a; arga) :: l)
+    | t => fun bt => ((t; bt), [])
     end.
   
   (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
@@ -294,11 +319,7 @@ Section print_term.
     | tApp t1 t2 => fun '(bt, (hda, arga)) => (f (t2; arga)) :: go t1 hda
     | _ => fun _ => []
     end.
-(*   
-  Equations app_args_annot {A B : Type} (f : term -> A) (t : term) (a : annots B t) : list (∑tt, annots B tt) :=
-  app_args_annot f (tApp t1 t2) (bt, (hda, arga)) => (f t2; arga) :: app_args_annot f t1 hda;
-  app_args_annot f t a := [].
- *)
+
   Fixpoint in_list {A} (eq_dec : forall x y : A, {x = y} + {x <> y})
            (l : list A) (a : A) : bool :=
     match l with
@@ -398,7 +419,7 @@ Section print_term.
                       print_term prefix FT TT (vdef na' def :: ctx) true false body bodya)
   | tApp f l as t => fun '(bt, (fa, la)) =>
     let apps := rev (app_args_annot (fun '(t; a) => print_term prefix FT TT ctx false false t a) t (bt, (fa, la))) in
-    let (b,_) := decompose_app f in
+    let '((b;ba),argas) := Edecompose_app_annot f fa in
     match b with
       (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
     | tRel i =>
@@ -410,6 +431,22 @@ Section print_term.
         else parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
       | None => "UnboundRel(" ++ string_of_nat i ++ ")"
       end
+    (* record projections (k=1) *)
+    | tProj (mkInd mind i as ind, pars, k) c => 
+      match lookup_ind_decl mind i with
+      | Some oib =>
+        match nth_error oib.(ExAst.ind_projs) k with
+        | Some (na, _) => 
+            parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
+          | None =>
+          "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ")"
+                        (* ++ print_term prefix FT TT ctx true false b ba ++ ")" TODO: b should be replaced by c - but need to retrieve annotation first *)
+        end
+        | None =>
+        "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ")"
+                       (* ++ print_term prefix FT TT ctx true false b ba ++ ")" *)
+      end
+
     | tConst c =>
       let cst_name := string_of_kername c in
       let nm := from_option (look TT cst_name) (prefix ++ c.2) in
@@ -417,8 +454,17 @@ Section print_term.
         (concat " " (map (parens true) apps)) ++ ".0"
       else if nm =? "snd" then
         (concat " " (map (parens true) apps)) ++ ".1"
+      else if (nm =? "constructor") then
+        concat " " apps
+      (* else if (nm =? "set") then 
+        match apps with
+        | [_; e; r] => 
+          "{" ++ r ++ " with "  ++ " = " ++ e ++ "}"
+        | _ => 
+        "{...???" ++ ", " ++ "." ++ concat ", " apps ++ "}"
+        end *)
       else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
-    | tConstruct ind i =>
+    | tConstruct (mkInd mind j as ind) i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
       if (nm =? "pair") then
@@ -431,9 +477,18 @@ Section print_term.
         print_transfer apps
       else if (nm =? "_") then 
         fresh_id_from ctx 10 "a"
-      else
-        let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
-        parens top (print_uncurried nm' apps)
+      else let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+        (* inductive constructors of 1 arg are treated as records *)
+        match lookup_ind_decl mind i with
+        | Some oib =>
+          if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) then
+            let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
+            let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
+                                                      |> concat "; " in 
+            "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
+          else parens top (print_uncurried nm' apps)
+        | _ => parens top (print_uncurried nm' apps)
+        end
     | _ => parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
     end
   | tConst c => fun bt =>
@@ -454,7 +509,6 @@ Section print_term.
     if eq_kername mind <%% bool %%> then
       match brs with
       | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
-        (* TODO *)
         parens top
                 ("if " ++ print_term prefix FT TT ctx true false t ta 
                        ++ " then " ++ print_term prefix FT TT ctx true false (snd b1) b1a
@@ -469,7 +523,6 @@ Section print_term.
         | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
           let nil_case := "[] -> " ++ print_term prefix FT TT ctx false false b1.2 b1a in
           let (cons_args, _) := Edecompose_lam b2.2 in
-          (* let '(cons_body; body_annot) := lam_body_annot_cont b2.2 b2a in *)
           let cons_pat := concat " :: " (map (fun x => string_of_name ctx (fresh_name ctx x b2.2)) cons_args) in
           let cons_ctx := rev (map vass cons_args) in
           let cons_case tbody tbodya := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ ctx)%list false false tbody tbodya in
@@ -490,13 +543,7 @@ Section print_term.
         | S n =>
           match br return annots box_type br -> (_ * _) with
           | tLambda na B => fun '(bt, a) => 
-            (* let na' := match na with
-              | nAnon | nNamed "_" => CameLIGOPretty.print_term.fresh_name ctx (nNamed "a") br
-              | nNamed id => CameLIGOPretty.print_term.fresh_name ctx na br
-            end in *)
             let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
-            
-            (* let na' := nNamed "a0" in *)
             let (ps, b) := print_branch (vass na' :: ctx) n params B a in
             (ps ++ [string_of_name ctx na'], b)%list
           (* | t => fun btt => (params , print_term prefix FT TT ctx false false t btt) *)
@@ -507,7 +554,6 @@ Section print_term.
       
       let brs := map_with_bigprod (fun br tra => 
         print_branch ctx br.1 [] br.2 tra
-      (* print_branch (fun tt ttra => print_term prefix FT TT ctx false false tt ttra) ctx br.1 [] br.2 tra *)
       ) brs trs in
       let brs_ := combine brs oib.(ExAst.ind_ctors) in
       let brs_printed : string := print_list (fun '(b, (na, _)) =>
@@ -525,10 +571,9 @@ Section print_term.
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => print_term prefix FT TT ctx false false c bt.2 ++ na
-      | None =>
-        "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                       ++ print_term prefix FT TT ctx true false c bt.2 ++ ")"
+      | Some (na, _) => print_term prefix FT TT ctx false false c bt.2 ++ "." ++ na
+      | None => "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
+                ++ print_term prefix FT TT ctx true false c bt.2 ++ ")"
       end
     | None =>
       "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
@@ -563,8 +608,6 @@ Section print_term.
   end.
 
 End print_term.
-
-
 
 Fixpoint get_fix_names (t : term) : list name :=
   match t with
@@ -601,8 +644,8 @@ Definition print_decl (prefix : string)
                | Some m => "%"++m
                | None => ""
                end in *)
-  "let" ++ " " ++ decl ++ " = "
-        ++ wrap (CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot).
+    "let" ++ " " ++ decl ++ " = "
+          ++ wrap (CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot).
 
 Definition print_init (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
@@ -648,7 +691,6 @@ Definition print_init (prefix : string)
       "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
     let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
     let inner_app := "inner " ++ concat " " ( "ctx" :: map (string_of_name ctx) (tl args)) in
-    (* Type declaration of TODO *)
     let init_args_ty := "type init_args_ty = " ++ (tl tys |> map (print_box_type prefix TT) |> concat " * ") in
     let init_wrapper_args_printed tys :=
       match tys with
@@ -742,10 +784,9 @@ Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
   | (kn, has_deps, decl) :: env' => fun '(a,b) =>
     let printed :=
         (* only print decls for which the environment includes dependencies *)
-        if has_deps then
+        if has_deps then 
           print_global_decl prefix TT kn env' decl a
-        else
-          (kn, "") in
+        else (kn, "") in
     printed :: print_global_env prefix TT env' b
   | [] => fun _ => []
   end.
