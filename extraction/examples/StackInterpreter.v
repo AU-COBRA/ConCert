@@ -47,7 +47,7 @@ Module Interpreter.
   Definition storage := list value.
 
   Definition init (ctx : SimpleCallCtx) (setup : unit) : option storage :=
-    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx0 := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Some [].
 
   Definition params := list instruction * ext_map.
@@ -73,63 +73,63 @@ Module Interpreter.
   Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) (cond : Z) :=
     match insts with
     | [] => Some s
-    | hd :: inst' =>
+    | hd :: inst0 =>
         match hd with
         | IPushZ i => if continue cond then
-                       interp ext inst' (ZVal i :: s) cond
-                     else interp ext inst' s cond
+                       interp ext inst0 (ZVal i :: s) cond
+                     else interp ext inst0 s cond
         | IPushB b => if continue cond then
-                       interp ext inst' (BVal b :: s) cond
-                     else interp ext inst' s cond
+                       interp ext inst0 (BVal b :: s) cond
+                     else interp ext inst0 s cond
         | IIf => if (cond =? 0) then
                   match s with
-                  | BVal b :: s' => interp ext inst' s' (bool_to_cond b)
+                  | BVal b :: s0 => interp ext inst0 s0 (bool_to_cond b)
                   | _ => None
-                  end else interp ext inst' s (one + cond)%Z
-        | IElse => interp ext inst' s (flip cond)
-        | IEndIf => interp ext inst' s (reset_decrement cond)
+                  end else interp ext inst0 s (one + cond)%Z
+        | IElse => interp ext inst0 s (flip cond)
+        | IEndIf => interp ext inst0 s (reset_decrement cond)
         | IObs p =>
           if continue cond then
             match lookup p ext with
-            | Some v => interp ext inst' (v :: s) cond
+            | Some v => interp ext inst0 (v :: s) cond
             | None => None
             end
-          else interp ext inst' s cond
+          else interp ext inst0 s cond
         | IOp op =>
           if continue cond then
             match op with
             | Add => match s with
-                    | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i+j) :: s')%Z cond
+                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i+j) :: s0)%Z cond
                     | _ => None
                     end
             | Sub => match s with
-                      | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i-j) :: s')%Z cond
+                      | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i-j) :: s0)%Z cond
                       | _ => None
                       end
             | Mult => match s with
-                     | ZVal i :: ZVal j :: s' => interp ext inst' (ZVal (i*j) :: s')%Z cond
+                     | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i*j) :: s0)%Z cond
                      | _ => None
                             end
             | Le => match s with
-                   | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i<=?j) :: s')%Z cond
+                   | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<=?j) :: s0)%Z cond
                    | _ => None
                    end
             | Lt => match s with
-                   | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i<?j) :: s')%Z cond
+                   | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<?j) :: s0)%Z cond
                    | _ => None
                    end
             | Equal => match s with
-                      | ZVal i :: ZVal j :: s' => interp ext inst' (BVal (i =? j) :: s')%Z cond
+                      | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i =? j) :: s0)%Z cond
                       | _ => None
                      end
             end
-          else interp ext inst' s cond
+          else interp ext inst0 s cond
         end
         end.
 
   Definition receive (p : params) (s : list value)
     : option (list action * storage) :=
-    let s' := s in (* prevents optimisations from removing unused [s]  *)
+    let s0 := s in (* prevents optimisations from removing unused [s]  *)
     match interp p.2 p.1 [] 0 with
     | Some v => Some ([],v)
     | None => None
