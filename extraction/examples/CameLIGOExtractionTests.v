@@ -104,29 +104,29 @@ Section CounterExtraction.
   (* Require Coq.Numbers.BinNums. *)
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_counter : list (kername * string) :=
-    [ remap <% bool %> "bool"
-    ; remap <% list %> "list"
-    ; remap <% Amount %> "tez"
-    ; remap <% address_coq %> "address"
-    ; remap <% time_coq %> "timestamp"
-    ; remap <% option %> "option"
-    ; remap <% Z.add %> "addInt"
-    ; remap <% Z.sub %> "subInt"
-    ; remap <% Z.leb %> "leInt"
-    ; remap <% Z.eqb %> "eqInt"
-    ; remap <% List.fold_left %> "List.fold"
-    ; remap <% Z %> "int"
-    ; remap <% nat %> "address"
-    ; remap <% operation %> "operation"
-    ; remap <% @fst %> "fst"
-    ; remap <% positive %> "nat"
-    ; remap <% Pos.add %> "addNat"
-    ; remap <% Pos.sub %> "subNat"
-    ; remap <% Pos.leb %> "leNat"
-    ; remap <% @snd %> "snd"
-    ; remap <% Pos.eqb %> "eqNat"
+    [ remap <%% bool %%> "bool"
+    ; remap <%% list %%> "list"
+    ; remap <%% Amount %%> "tez"
+    ; remap <%% address_coq %%> "address"
+    ; remap <%% time_coq %%> "timestamp"
+    ; remap <%% option %%> "option"
+    ; remap <%% Z.add %%> "addInt"
+    ; remap <%% Z.sub %%> "subInt"
+    ; remap <%% Z.leb %%> "leInt"
+    ; remap <%% Z.eqb %%> "eqInt"
+    ; remap <%% List.fold_left %%> "List.fold"
+    ; remap <%% Z %%> "int"
+    ; remap <%% nat %%> "address"
+    ; remap <%% operation %%> "operation"
+    ; remap <%% @fst %%> "fst"
+    ; remap <%% positive %%> "nat"
+    ; remap <%% Pos.add %%> "addNat"
+    ; remap <%% Pos.sub %%> "subNat"
+    ; remap <%% Pos.leb %%> "leNat"
+    ; remap <%% @snd %%> "snd"
+    ; remap <%% Pos.eqb %%> "eqNat"
     (* TODO: set operations  *)
-    ; remap <% Set %> "set" 
+    (* ; remap <%% Set %%> "set"  *)
     ].
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
@@ -232,34 +232,34 @@ Section CrowdfundingExtraction.
   Definition TT_remap_crowdfunding : list (kername * string) :=
 
     [  (* types *)
-    remap <% Z %> "tez"
-  ; remap <% address_coq %> "address"
-  ; remap <% time_coq %> "timestamp"
-  ; remap <% nat %> "nat"
-  ; remap <% bool %> "bool"
-  ; remap <% unit %> "unit"
-  ; remap <% list %> "list"
-  ; remap <% @fst %> "fst"
-  ; remap <% @snd %> "snd"
-  ; remap <% option %> "option"
-  ; remap <% SimpleActionBody_coq %> "operation"
-  ; remap <% Maps.addr_map_coq %> "(address,tez) map"
+    remap <%% Z %%> "tez"
+  ; remap <%% address_coq %%> "address"
+  ; remap <%% time_coq %%> "timestamp"
+  ; remap <%% nat %%> "nat"
+  ; remap <%% bool %%> "bool"
+  ; remap <%% unit %%> "unit"
+  ; remap <%% list %%> "list"
+  ; remap <%% @fst %%> "fst"
+  ; remap <%% @snd %%> "snd"
+  ; remap <%% option %%> "option"
+  ; remap <%% SimpleActionBody_coq %%> "operation"
+  ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
     (* 'amount' is a reserved keyword in ligo *)
-  ; remap <% Amount %> "tez"
+  ; remap <%% Amount %%> "tez"
 
   (* operations *)
-  ; remap <% Z.add %> "addTez"
-  ; remap <% Z.sub %> "subTez"
-  ; remap <% Z.leb %> "leTez"
-  ; remap <% Z.ltb %> "ltTez"
-  ; remap <% Z.eqb %> "eqTez"
-  ; remap <% ltb_time %> "ltb_time"
-  ; remap <% leb_time %> "leb_time"
-  ; remap <% eqb_addr %> "eq_addr"
-  ; remap <% andb %> "andb"
-  ; remap <% negb %> "not"
-  ; remap <% Maps.add_map %> "Map.add"
-  ; remap <% lookup_map' %> "Map.find_opt" 
+  ; remap <%% Z.add %%> "addTez"
+  ; remap <%% Z.sub %%> "subTez"
+  ; remap <%% Z.leb %%> "leTez"
+  ; remap <%% Z.ltb %%> "ltTez"
+  ; remap <%% Z.eqb %%> "eqTez"
+  ; remap <%% ltb_time %%> "ltb_time"
+  ; remap <%% leb_time %%> "leb_time"
+  ; remap <%% eqb_addr %%> "eq_addr"
+  ; remap <%% andb %%> "andb"
+  ; remap <%% negb %%> "not"
+  ; remap <%% Maps.add_map %%> "Map.add"
+  ; remap <%% lookup_map' %%> "Map.find_opt" 
   ].
 
   Definition TT_rename_crowdfunding :=
@@ -374,69 +374,68 @@ Section EIP20TokenExtraction.
 
   Definition TT_remap_eip20token : list (kername * string) :=
   [  (* types *)
-    remap <% Z %> "tez"
-  (* ; remap <% address_coq %> "address" *)
-  (* ; remap <% time_coq %> "timestamp" *)
-  ; remap <% N %> "nat"
-  ; remap <% nat %> "nat"
-  ; remap <% bool %> "bool"
-  ; remap <% unit %> "unit"
-  ; remap <% list %> "list"
-  ; remap <% @fst %> "fst"
-  ; remap <% @snd %> "snd"
-  ; remap <% option %> "option"
-  (* ; remap <% SimpleActionBody_coq %> "operation" *)
-  (* ; remap <% Maps.addr_map_coq %> "(address,tez) map" *)
-  ; remap <% gmap.gmap %> "map"
-  ; remap <% gmap.gmap Address TokenValue %> "(address,nat) map"
-  ; remap <% gmap.gmap Address (gmap.gmap Address TokenValue) %> "(address,(address, nat) map) map"
+    remap <%% Z %%> "tez"
+  (* ; remap <%% address_coq %%> "address" *)
+  (* ; remap <%% time_coq %%> "timestamp" *)
+  ; remap <%% N %%> "nat"
+  ; remap <%% nat %%> "nat"
+  ; remap <%% bool %%> "bool"
+  ; remap <%% unit %%> "unit"
+  ; remap <%% list %%> "list"
+  ; remap <%% @fst %%> "fst"
+  ; remap <%% @snd %%> "snd"
+  ; remap <%% option %%> "option"
+  ; remap <%% gmap.gmap %%> "map"
+  (* ; remap <%% gmap.gmap Address TokenValue %%> "(address,nat) map" *)
+  (* ; remap <%% gmap.gmap Address (gmap.gmap Address TokenValue) %%> "(address,(address, nat) map) map" *)
     (* 'amount' is a reserved keyword in ligo *)
-  ; remap <% Amount %> "tez"
-  ; remap <% @Address %> "address"
+  ; remap <%% Amount %%> "tez"
+  ; remap <%% @Address %%> "address"
 
-  ; remap <% positive %> "nat"
+  ; remap <%% positive %%> "nat"
   (* TODO: set operations  *)
-  ; remap <% Set %> "set" 
-
+  (* ; remap <%% Set %%> "set"  *)
 
   (* operations *)
-  ; remap <% List.fold_left %> "List.fold"
-  ; remap <% Pos.add %> "addNat"
-  ; remap <% Pos.sub %> "subNat"
-  ; remap <% Pos.leb %> "leNat"
-  ; remap <% Pos.eqb %> "eqNat"
-  ; remap <% Z.add %> "addTez"
-  ; remap <% Z.sub %> "subTez"
-  ; remap <% Z.leb %> "leTez"
-  ; remap <% Z.ltb %> "ltTez"
-  ; remap <% Z.eqb %> "eqTez"
-  ; remap <% Z.gtb %> "gtbTez"
-  ; remap <% N.add %> "addInt"
-  ; remap <% N.sub %> "subInt"
-  ; remap <% N.leb %> "leInt"
-  ; remap <% N.ltb %> "ltInt"
-  ; remap <% N.eqb %> "eqInt"
-  ; remap <% ltb_time %> "ltb_time"
-  ; remap <% leb_time %> "leb_time"
-  ; remap <% eqb_addr %> "eq_addr"
-  ; remap <% andb %> "andb"
-  ; remap <% negb %> "not"
-  ; remap <% orb %> "orb"
+  ; remap <%% List.fold_left %%> "List.fold"
+  ; remap <%% Pos.add %%> "addNat"
+  ; remap <%% Pos.sub %%> "subNat"
+  ; remap <%% Pos.leb %%> "leNat"
+  ; remap <%% Pos.eqb %%> "eqNat"
+  ; remap <%% Z.add %%> "addTez"
+  ; remap <%% Z.sub %%> "subTez"
+  ; remap <%% Z.leb %%> "leTez"
+  ; remap <%% Z.ltb %%> "ltTez"
+  ; remap <%% Z.eqb %%> "eqTez"
+  ; remap <%% Z.gtb %%> "gtbTez"
+  ; remap <%% N.add %%> "addInt"
+  ; remap <%% N.sub %%> "subInt"
+  ; remap <%% N.leb %%> "leInt"
+  ; remap <%% N.ltb %%> "ltInt"
+  ; remap <%% N.eqb %%> "eqInt"
+  ; remap <%% ltb_time %%> "ltb_time"
+  ; remap <%% leb_time %%> "leb_time"
+  ; remap <%% eqb_addr %%> "eq_addr"
+  ; remap <%% andb %%> "andb"
+  ; remap <%% negb %%> "not"
+  ; remap <%% orb %%> "orb"
 
-  ; remap <% @Extras.with_default %> "with_default_N"
-  ; remap <% @Monads.bind %> "bind_option_state"
-  ; remap <% Monads.Monad_option %> "()"
+  ; remap <%% @Extras.with_default %%> "with_default_N"
+  ; remap <%% @Monads.bind %%> "bind_option_state"
+  ; remap <%% Monads.Monad_option %%> "()"
   
   
-  ; remap <% @fin_maps.map_insert %> "Map.add"
-  ; remap <% @stdpp.base.insert %> "Map.add"
-  ; remap <% @stdpp.base.lookup %> "Map.find_opt"
-  ; remap <% @stdpp.base.empty %> "Map.empty"
-  ; remap <% @gmap.gmap_empty %> "Map.empty"
-  ; remap <% @gmap.gmap_lookup %> "Map.find_opt"
-  ; remap <% @gmap.gmap_partial_alter %> "partial_alter_addr_nat"
-  ; remap <% @stdpp.base.partial_alter %> "partial_alter_addr_nat"
-  ; remap <% option_map %> "option_map_state_acts"
+  ; remap <%% @stdpp.base.insert %%> "Map.add"
+  ; remap <%% @stdpp.base.lookup %%> "Map.find_opt"
+  ; remap <%% @stdpp.base.empty %%> "Map.empty"
+  ; remap <%% @stdpp.base.partial_alter %%> "partial_alter_addr_nat" 
+  ; remap <%% @gmap.gmap_partial_alter %%> ""
+  ; remap <%% @fin_maps.map_insert %%> ""
+  ; remap <%% @gmap.gmap_empty %%> ""
+  ; remap <%% @gmap.gmap_lookup %%> ""
+  ; remap <%% @address_eqdec %%> ""
+  ; remap <%% @address_countable %%> ""
+  ; remap <%% option_map %%> "option_map_state_acts"
   ].
 
   Definition TT_rename_eip20token :=
@@ -485,6 +484,30 @@ Section TestExtractionPlayground.
           total_supply := state.(total_supply);
           allowances := state.(allowances);
         |}).
+  Open Scope bool_scope.
+  Definition test_try_transfer_from (delegate : Address)
+       (from : Address)
+       (to : Address)
+       (amount : TokenValue)
+       (state : State) : option State :=
+  match FMap.find from state.(allowances) with
+  | Some from_allowances_map =>
+  match FMap.find delegate from_allowances_map with
+  | Some delegate_allowance =>
+  let from_balance := Extras.with_default 0 (FMap.find from state.(balances)) in
+  if (delegate_allowance <? amount) || (from_balance <? amount)
+  then None
+  else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
+       let new_balances := FMap.add from (from_balance - amount) state.(balances) in
+       let new_balances := FMap.partial_alter (fun balance => Some (Extras.with_default 0 balance + amount)) to new_balances in
+       Some ({|
+        balances := new_balances;
+        allowances := FMap.add from new_allowances state.(allowances);
+        total_supply := state.(total_supply)|})
+  | _ => None
+  end
+  | _ => None
+  end.
 
   Definition test_init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
     Some {| total_supply := setup.(init_amount);
@@ -496,9 +519,11 @@ Section TestExtractionPlayground.
        (state : EIP20Token.State)
        (maybe_msg : option EIP20Token.Msg)
     : option (list ActionBody * EIP20Token.State) :=
+    let sender := ctx.(ctx_from) in
     let without_actions := option_map (fun new_state => ([], new_state)) in
     match maybe_msg with
-    | Some (transfer to amount) => without_actions (test_try_transfer to to amount state)
+    | Some (transfer to amount) => without_actions (test_try_transfer sender to amount state)
+    | Some (transfer_from from to amount) => without_actions (test_try_transfer_from sender from to amount state)
     (* Other endpoints are not included in this extraction test *)
     | _ => None
     end.
@@ -529,8 +554,6 @@ Section TestExtractionPlayground.
       (* code for the entry point *)
       lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" ++ nl
                         ++ CameLIGOPretty.printMain |}.
-
-  Search "gmap_empty".
 
   
   Time MetaCoq Run
