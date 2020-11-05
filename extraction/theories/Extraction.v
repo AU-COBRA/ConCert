@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import OptimizeCorrectness.
 From ConCert.Extraction Require OptimizePropDiscr.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
+From ConCert.Extraction Require Import Utils.
 From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Erasure Require Import ELiftSubst.
@@ -40,10 +41,10 @@ Definition extract_pcuic_env
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
 
-  let Σ := erase_global_decls_deps_recursive Σ wfΣ seeds ignore in
+  let Σ := timed "Erasure" (fun _ => erase_global_decls_deps_recursive Σ wfΣ seeds ignore) in
 
   if optimize_prop_discr params then
-    let Σ := OptimizePropDiscr.optimize_env Σ in
+    let Σ := timed "Removal of prop discrimination" (fun _ => OptimizePropDiscr.optimize_env Σ) in
     compose_transforms (transforms params) Σ
   else
     Ok Σ.

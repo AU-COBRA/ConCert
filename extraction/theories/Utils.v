@@ -204,3 +204,9 @@ Arguments bigprod_map {_ _ _} _ {_}.
 Arguments bigprod_map_id {_ _} _ {_}.
 Arguments bigprod_mapi_rec {_ _ _} _ {_}.
 Arguments bigprod_find {_ _} _ {_}.
+
+(* When extracting this can be remapped as something that measures and outputs some info *)
+Definition timed {A} (part : string) (f : unit -> A) : A :=
+  f tt.
+
+Arguments timed /.

@@ -458,6 +458,7 @@ Proof.
   red.
   intros Σ a.
   red.
+  unfold timed.
   destruct (_ && _); [exact tt|].
   destruct analyze_env.
   destruct (_ && _); [exact tt|].
