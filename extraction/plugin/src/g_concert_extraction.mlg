@@ -1,0 +1,49 @@
+DECLARE PLUGIN "concert_extraction_plugin"
+
+{
+
+open Stdarg
+open Pp
+open PeanoNat.Nat
+open Datatypes
+open ResultMonad
+
+let pr_char c = str (Char.escaped c)
+
+let bytes_of_list l =
+  let bytes = Bytes.create (List.length l) in
+  let rec fill acc = function
+    | [] -> bytes
+    | c :: cs ->
+      Bytes.set bytes acc c;
+      fill (1 + acc) cs
+  in fill 0 l
+
+let pr_char_list l =
+  (* We allow utf8 encoding *)
+  str (Bytes.to_string (bytes_of_list l))
+
+let time prefix f x =
+  let start = Unix.gettimeofday () in
+  let res = f x in
+  let stop = Unix.gettimeofday () in
+  let () =
+    Feedback.msg_debug
+      (Pp.str (Printf.sprintf "%s executed in: %fs" prefix (stop -. start))) in
+  res
+
+let check env evm c =
+  let prog = time "Quoting" (Ast_quoter.quote_term_rec false env) (EConstr.to_constr evm c) in
+  let res = time "Extraction" RustExtract.extract prog in
+  Feedback.msg_info (pr_char_list (match res with | Ok s -> s | Err s -> s))
+}
+
+VERNAC COMMAND EXTEND ConCertExtract CLASSIFIED AS QUERY
+| [ "ConCert" "Extract" constr(c) ] -> {
+    let env = Global.env () in
+    let evm = Evd.from_env env in
+    let (c, _) = Constrintern.interp_constr env evm c in
+    check env evm c
+  }
+END
+

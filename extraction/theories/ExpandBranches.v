@@ -2,6 +2,7 @@ From Coq Require Import Arith.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
+From ConCert.Extraction Require Import Utils.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Template Require Import utils.
 
@@ -48,4 +49,4 @@ Definition expand_env (Σ : global_env) : global_env :=
   map (on_snd expand_decl) Σ.
 
 Definition transform : Transform :=
-  fun Σ => Ok (expand_env Σ).
+  fun Σ => Ok (timed "Expansion of match branches" (fun _ => expand_env Σ)).

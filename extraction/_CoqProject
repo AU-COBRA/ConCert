@@ -18,6 +18,7 @@ theories/Erasure.v
 theories/ErasureCorrectness.v
 theories/ExAst.v
 theories/ExpandBranches.v
+theories/ExtractExtraction.v
 theories/Extraction.v
 theories/ExtractionCorrectness.v
 theories/LPretty.v

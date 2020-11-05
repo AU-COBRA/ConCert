@@ -5,6 +5,7 @@ From Coq Require Import Arith.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
+From ConCert.Extraction Require Import Utils.
 From MetaCoq.Erasure Require Import ELiftSubst.
 
 Fixpoint optimize_aux (t : term) (kn : kername) (lams : nat) :=
@@ -33,4 +34,4 @@ Definition optimize_env (Σ : global_env) : global_env :=
 
 Definition transform : Transform :=
   fun Σ =>
-    Ok (optimize_env Σ).
+    Ok (timed "Substitution of top level fixes" (fun _ => optimize_env Σ)).

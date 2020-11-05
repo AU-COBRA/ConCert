@@ -4,13 +4,14 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
+From ConCert.Extraction Require Import ExpandBranches.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import TopLevelFixes.
-From ConCert.Extraction Require Import ExpandBranches.
+From ConCert.Extraction Require Import Utils.
 
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
@@ -788,8 +789,8 @@ Definition extract_rust_within_coq : extract_template_env_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [TopLevelFixes.transform; ExpandBranches.transform;
-                         dearg_transform true true false false false] |} |}.
+          transforms := [dearg_transform true true false false false;
+                         TopLevelFixes.transform; ExpandBranches.transform] |} |}.
 
 Instance RustConfig : RustPrintConfig :=
   {| term_box_symbol := "()";
@@ -818,7 +819,7 @@ Definition general_extract (p : T.program) (ignore: list kername) (TT : list (ke
       append ("  print!(""{:?}"", Program::new()." ++ name ++ "())");;
       append_nl;;
       append "}" in
-  '(_, s) <- finish_print p;;
+  '(_, s) <- timed "Printing" (fun _ => finish_print p);;
   ret s.
 
 Definition extract (p : T.program) : result string string :=

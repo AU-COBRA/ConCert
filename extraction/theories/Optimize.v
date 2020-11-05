@@ -671,7 +671,7 @@ Definition dearg_transform
      else
        Ok tt);;
 
-    let (const_masks, ind_masks) := analyze_env Σ in
+    let (const_masks, ind_masks) := timed "Dearg analysis" (fun _ => analyze_env Σ) in
 
     let const_masks := (if do_trim_const_masks then trim_const_masks else id) const_masks in
     let ind_masks := (if do_trim_ctor_masks then trim_ind_masks else id) ind_masks in
@@ -686,4 +686,4 @@ Definition dearg_transform
      else
        Ok tt);;
 
-    ret (debox_env_types (dearg_env ind_masks const_masks Σ)).
+    ret (debox_env_types (timed "Dearging" (fun _ => dearg_env ind_masks const_masks Σ))).
