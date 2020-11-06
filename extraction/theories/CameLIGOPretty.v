@@ -616,21 +616,40 @@ Section print_term.
   | tFix [fix_decl] n => fun '(bt, (fixa, _)) => (* NOTE: We assume that the fixpoints are not mutual *)
       let fix_name := string_of_name ctx fix_decl.(dname) in
       let body := fix_decl.(dbody) in
-      let (args, _) := Edecompose_lam body in
+      let '(args, (lam_body; body_annot)) := Edecompose_lam_annot body fixa in
+      let (tys,ret_ty) := decompose_arr bt  in
+      let targs := combine args (map (print_box_type prefix TT) tys) in
+      let printed_targs :=
+          map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
+
       let sargs := map (string_of_name ctx) args in
+      let sargs_typed := map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty) ) targs in
+
       let fix_call :=
-          "fun " ++ concat " " sargs ++ " -> "
+          "fun " ++ concat " " sargs_typed ++ " -> "
                  ++ print_uncurried fix_name sargs in
       let FT' := fix_name :: FT in
+
       let print_def_annot (ctx : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
+        fun btt =>
         let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
         let fix_name := string_of_name ctx (fdef.(dname)) in
         let (args, _) := Edecompose_lam (fdef.(dbody)) in
+
+        let (tys,ret_ty) := decompose_arr bt  in
+        let '(args,(lam_body; body_annot)) := Edecompose_lam_annot (fdef.(dbody)) btt in
         let ctx := rev (map vass args) in
-        let sargs := print_uncurried "" (map (fun x => string_of_name ctx x) args) in
-        fun btt => 
+
+        let targs := combine args (map (print_box_type prefix TT) tys) in
+        (* let ctx := map (fun x => Build_context_decl x None) (rev args) in *)
+        let printed_targs :=
+            map (fun '(x,ty) => parens false (string_of_name ctx' x ++ " : " ++ ty)) targs in
+        (* let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in *)
+        
+        let sargs := print_uncurried "" (map (fun '(x,ty) => parens false (string_of_name ctx' x ++ " : " ++ ty)) targs) in
+        let ret_ty_printed := print_box_type prefix TT ret_ty in
         string_of_name ctx fdef.(dname)
-            ++ " " ++ sargs  ++ " = "
+            ++ " " ++ sargs  ++ " : " ++ ret_ty_printed ++ " = "
             ++ nl
             ++ lam_body_annot_cont (fun body body_annot => print_term prefix FT' TT (ctx ++ ctx' ++ ctx)%list true false body body_annot) fdef.(dbody) btt
       in
@@ -642,6 +661,56 @@ Section print_term.
   end.
 
 End print_term.
+
+Fixpoint bigprod_of_sigmas A (l : list (∑ t, annots A t)) :
+  bigprod (annots A) (map (fun s => s.π1) l) :=
+  match l with
+  | [] => tt
+  | (s; a) :: l => (a, bigprod_of_sigmas A l)
+  end.
+
+(* applies the given replacing function to any name in a term *)
+Fixpoint term_replace_name_with (TT : env string) 
+                                (ctx : context) 
+                                (t : term) 
+                                (replace : string -> string) 
+                                {struct t} : annots box_type t -> (∑t, annots box_type t) :=
+  let replace_nm nm := match nm with nNamed id => nNamed (replace id) | _ => nm end in
+  let fix rec TT ctx t {struct t} : annots box_type t -> ∑t, annots box_type t :=
+    match t return annots box_type t -> ∑t, annots box_type t with
+    | tEvar n args => fun '(bt, argas) => 
+      let argas' := map_with_bigprod (fun tt => rec TT ctx tt) args argas in  
+      let argas_bigprod := bigprod_of_sigmas _ argas' in
+      (tEvar n (map (fun '(t;_) => t) argas'); argas)  
+      (* todo: updatee TT and ctx? *)
+    | tLambda nm b => fun bt => (tLambda (replace_nm nm) (rec TT ctx b bt.2).π1; _)   
+    | tLetIn nm t1 t2 => fun bt => (tLetIn (replace_nm nm) (rec TT ctx t1 bt.2.1).π1 (rec TT ctx t2 bt.2.2).π1; _)
+    | tApp t1 t2 => fun bt => (tApp (rec TT ctx t1 bt.2.1).π1 (rec TT ctx t2 bt.2.2).π1; _)
+    | tCase n t1 brs => fun '(bt, (t1a, brsa)) =>
+      let brs' := (map_with_bigprod (fun t ta => (t.1, (rec TT ctx t.2 ta).π1)) brs brsa) in
+      (tCase n (rec TT ctx t1 t1a).π1 brs'; _)
+    | tProj p t1 => fun bt => (tProj p (rec TT ctx t1 bt.2).π1; _)
+    | tFix mfix n => fun bt => 
+      let t := tFix (map_with_bigprod (fun fix_decl bt => {| 
+        dname := replace_nm fix_decl.(dname); 
+        dbody := (rec TT ctx fix_decl.(dbody) bt).π1;
+        rarg  := fix_decl.(rarg);
+      |}) mfix bt.2) n in
+      (t; _) 
+    | tCoFix mfix n => fun bt => 
+      let t := tCoFix (map_with_bigprod (fun fix_decl bt => {| 
+        dname := replace_nm fix_decl.(dname); 
+        dbody := (rec TT ctx fix_decl.(dbody) bt).π1;
+        rarg  := fix_decl.(rarg);
+      |}) mfix bt.2) n in
+      (t; _)  
+    | tVar id => fun bt => (tVar (replace id); bt)
+    | tBox => fun bt => (tBox; bt)
+    | tRel n => fun bt => (tRel n; bt)
+    | tConst kn => fun bt => (tConst (kn.1, replace kn.2); bt)
+    | tConstruct (mkInd ind_mind k) n =>  fun bt => (tConstruct (mkInd (ind_mind.1, replace ind_mind.2) k) n; bt)
+    end in
+  rec TT ctx t.
 
 Fixpoint get_fix_names (t : term) : list name :=
   match t with
@@ -656,6 +725,14 @@ Fixpoint get_fix_names (t : term) : list name :=
   | tCoFix mfix _ => map dname mfix ++ List.concat (map (get_fix_names ∘ dbody) mfix)
   | _ => []
   end.
+
+Definition string_replace_char_with (matched replace : ascii) (s : string) :=
+  let fix rec s :=
+    match s with
+    | String c cs => String (if Strings.Ascii.eqb c matched then replace else c) (rec cs)
+    | EmptyString => EmptyString
+    end in
+  rec s.
 
 Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
@@ -674,6 +751,7 @@ Definition print_decl (prefix : string)
   let printed_targs :=
       map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
   let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
+  let lam_body := term_replace_name_with TT ctx lam_body (string_replace_char_with "'" "_") body_annot in
   (* let modif := match modifier with
                | Some m => "%"++m
                | None => ""
@@ -695,6 +773,7 @@ Definition print_init (prefix : string)
                                               end -> option string with
     | Some b => fun cstAnnot =>
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot b cstAnnot in
+    let '(lam:body; body_annot) := term_replace_name_with TT ctx lam_body (string_replace_char_with "'" "_")
     let ty := cst.(ExAst.cst_type) in
     let (tys,inner_ret_ty) := decompose_arr ty.2 in
     let targs_inner := combine args (map (print_box_type prefix TT) tys) in
@@ -719,13 +798,22 @@ Definition print_init (prefix : string)
         "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
               ++ CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot
               ++ " in" in
-    let printed_targs_outer := tl printed_targs_inner in
+    (* if init takes no parameters, we give it a unit parameter  *)
+    let printed_targs_outer := match printed_targs_inner with
+                               | _::xs => xs
+                               | [] => let arg_name := fresh_name ctx nAnon tBox in
+                                       [parens false (string_of_name ctx arg_name ++ " : unit")]
+                               end in
     (* ignore the first argument because it's a call context *)
     let decl_outer := 
       "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
     let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
     let inner_app := "inner " ++ concat " " ( "ctx" :: map (string_of_name ctx) (tl args)) in
-    let init_args_ty := "type init_args_ty = " ++ (tl tys |> map (print_box_type prefix TT) |> concat " * ") in
+    let init_args_ty := "type init_args_ty = " ++ 
+      match tys with
+      | _::_ => (tl tys |> map (print_box_type prefix TT) |> concat " * ")
+      | [] => "()" 
+    end in
     let init_wrapper_args_printed tys :=
       match tys with
       | [] => ""
@@ -803,8 +891,8 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
   match d return (global_decl_annots box_type d) -> Decl (kername * string) with
   | ExAst.ConstantDecl cst => fun annot =>
     match print_cst prefix TT env nm cst annot with
-    | None =>  ConstDecl (nm, "TODO: print_global_decl ConstantDecl ERROR?")
     | Some r => ConstDecl (nm, r)
+    | None =>  ConstDecl (nm, "print_global_decl ConstantDecl ERROR?")
     end
   | ExAst.InductiveDecl mib => fun annot =>
     match mib.(ExAst.ind_bodies) with
@@ -891,17 +979,12 @@ Definition time_ops :=
 Definition address_ops :=
   "[@inline] let eq_addr (a1 : address) (a2 : address) = a1 = a2".
 
-(* Definition fmap_ops := . *)
-
-
-Definition double_quote := String (ascii_of_byte "034") "".
 
 Definition get_contract_def :=
      "let get_contract_unit (a : address) : unit contract  =" ++ nl
   ++ "  match (Tezos.get_contract_opt a : unit contract option) with" ++ nl
   ++ "    Some c -> c" ++ nl
-  ++ "  | None -> (failwith (" ++ double_quote ++ "Contract not found." ++ double_quote ++ ") : unit contract)". 
-
+  ++ "  | None -> (failwith (""""Contract not found."""") : unit contract)". 
 
 
 Definition CameLIGOPrelude :=
@@ -914,7 +997,7 @@ Definition printWrapper (contract parameter_name storage_name : string): string 
   ++ "type parameter_wrapper =" ++ nl
   ++ "  Init of init_args_ty" ++ nl
   ++ "| Call of " ++ parameter_name ++ " option" ++ nl 
-  ++ "let wrapper (param, st : parameter_wrapper * " ++ storage_name ++ " option) : return =" ++ nl
+  ++ "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ++ nl
   ++ "  match param with  " ++ nl
   ++ "    Init init_args -> (([]: operation list), Some (init init_args))" ++ nl
   ++ "  | Call p -> (" ++ nl

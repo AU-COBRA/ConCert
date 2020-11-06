@@ -197,13 +197,11 @@ Print cameLIGO_counter.
 Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" Compute cameLIGO_counter.
 
 
-(* Time MetaCoq Run
+Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t).
 
-Print liquidity_counter. *)
-
-
+Print liquidity_counter.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "./examples/liquidity-extract/CounterCertifiedExtraction.liq" Compute liquidity_counter.
