@@ -670,7 +670,7 @@ Fixpoint bigprod_of_sigmas A (l : list (∑ t, annots A t)) :
   end.
 
 (* applies the given replacing function to any name in a term *)
-Fixpoint term_replace_name_with (TT : env string) 
+(* Fixpoint term_replace_name_with (TT : env string) 
                                 (ctx : context) 
                                 (t : term) 
                                 (replace : string -> string) 
@@ -710,7 +710,7 @@ Fixpoint term_replace_name_with (TT : env string)
     | tConst kn => fun bt => (tConst (kn.1, replace kn.2); bt)
     | tConstruct (mkInd ind_mind k) n =>  fun bt => (tConstruct (mkInd (ind_mind.1, replace ind_mind.2) k) n; bt)
     end in
-  rec TT ctx t.
+  rec TT ctx t. *)
 
 Fixpoint get_fix_names (t : term) : list name :=
   match t with
@@ -751,7 +751,7 @@ Definition print_decl (prefix : string)
   let printed_targs :=
       map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
   let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
-  let lam_body := term_replace_name_with TT ctx lam_body (string_replace_char_with "'" "_") body_annot in
+  (* let lam_body := term_replace_name_with TT ctx lam_body (string_replace_char_with "'" "_") body_annot in *)
   (* let modif := match modifier with
                | Some m => "%"++m
                | None => ""
@@ -773,7 +773,7 @@ Definition print_init (prefix : string)
                                               end -> option string with
     | Some b => fun cstAnnot =>
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot b cstAnnot in
-    let '(lam:body; body_annot) := term_replace_name_with TT ctx lam_body (string_replace_char_with "'" "_")
+    (* let '(lam_body; body_annot) := term_replace_name_with TT ctx lam_body (string_replace_char_with "'" "_") *)
     let ty := cst.(ExAst.cst_type) in
     let (tys,inner_ret_ty) := decompose_arr ty.2 in
     let targs_inner := combine args (map (print_box_type prefix TT) tys) in
@@ -800,9 +800,9 @@ Definition print_init (prefix : string)
               ++ " in" in
     (* if init takes no parameters, we give it a unit parameter  *)
     let printed_targs_outer := match printed_targs_inner with
-                               | _::xs => xs
-                               | [] => let arg_name := fresh_name ctx nAnon tBox in
+                               | _::[] | [] => let arg_name := fresh_name ctx nAnon tBox in
                                        [parens false (string_of_name ctx arg_name ++ " : unit")]
+                               | _::xs => xs
                                end in
     (* ignore the first argument because it's a call context *)
     let decl_outer := 
@@ -811,12 +811,13 @@ Definition print_init (prefix : string)
     let inner_app := "inner " ++ concat " " ( "ctx" :: map (string_of_name ctx) (tl args)) in
     let init_args_ty := "type init_args_ty = " ++ 
       match tys with
+      | _::[] => "unit"
+      | [] => "unit" 
       | _::_ => (tl tys |> map (print_box_type prefix TT) |> concat " * ")
-      | [] => "()" 
     end in
     let init_wrapper_args_printed tys :=
       match tys with
-      | [] => ""
+      | [] => "()"
       | [ty] => " args"
       | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "") |> snd
       end in
@@ -1005,7 +1006,7 @@ Definition printWrapper (contract parameter_name storage_name : string): string 
   ++ "      Some st -> (match (" ++ contract ++ " st p) with   " ++ nl
   ++ "                    Some v -> (v.0, Some v.1)" ++ nl
   ++ "                  | None -> (failwith ("""") : return))" ++ nl
-  ++ "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
+  ++ "    | None -> (failwith (""""cannot call this endpoint before Init has been called""""): return))".
 
 
 Definition printMain :=
