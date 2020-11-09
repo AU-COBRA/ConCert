@@ -165,8 +165,8 @@ Section print_term.
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
       let projs_and_ctors_printed := projs_and_ctors |> map (fun '(p, ty) => print_proj (capitalize prefix) TT (p.1, ty)) in
       "type " ++ params ++ uncapitalize ind_nm ++" = {" ++ nl
-              ++ concat ("," ++ nl) projs_and_ctors_printed ++ nl
-              ++  "};" 
+              ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
+              ++  "}" 
     | _ => "type " ++ params ++ uncapitalize ind_nm ++" = "
                    ++ nl
                    ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
@@ -452,7 +452,7 @@ End on_every.
           | Some (na, _) => 
               if is_not_empty_const l then
                 parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
-              else
+              else (* if term is on the form (tApp t ""), then just print t *)
                 print_term prefix FT TT ctx false true f fa
             | None =>
             "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ")"
@@ -475,6 +475,13 @@ End on_every.
           concat " " apps
         else if (nm =? "") then
           concat " " apps
+        (* ContractCallContext remappings *)
+        else if (nm =? "ctx_from") then 
+          "Tezos.sender"
+        else if (nm =? "ctx_contract_address") then
+          "Tezos.self_address"
+        else if (nm =? "ctx_amount") then 
+          "Tezos.amount"
         else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
       | tConstruct (mkInd mind j as ind) i =>
         let nm := get_constr_name ind i in
@@ -881,28 +888,47 @@ Definition get_contract_def :=
      "let get_contract_unit (a : address) : unit contract  =" ++ nl
   ++ "  match (Tezos.get_contract_opt a : unit contract option) with" ++ nl
   ++ "    Some c -> c" ++ nl
-  ++ "  | None -> (failwith (""""Contract not found."""") : unit contract)". 
+  ++ "  | None -> (failwith (""Contract not found."") : unit contract)". 
 
+Definition chain_type_def := 
+     "type chain = {" ++ nl
+  ++ "  chain_height : nat;" ++ nl
+  ++ "  current_slot : nat;" ++ nl
+  ++ "  finalized_height : nat;" ++ nl
+  ++ "  account_balance : address -> int"  ++ nl
+  ++ "}".
+
+Definition dummy_chain := "let dummy_chain : chain = (failwith(""not implemented""): chain)".
 
 Definition CameLIGOPrelude :=
   print_list id (nl ++ nl)
              [int_ops; tez_ops; nat_ops;
-             bool_ops; time_ops; address_ops; get_contract_def].
+             bool_ops; time_ops; address_ops; 
+             get_contract_def; chain_type_def; dummy_chain].
+
+(* We assume the structure of the context from the [PreludeExt]:
+  current_time , sender_addr, sent_amount, acc_balance *)
+Definition CameLIGO_contractCallContext :=
+  "(Tezos.sender,
+   (Tezos.self_address,
+    Tezos.amount)))".
 
 Definition printWrapper (contract parameter_name storage_name : string): string :=
      "type return = (operation) list * (storage option)" ++ nl
+  ++ "let ctx = (Tezos.sender,(Tezos.self_address,Tezos.amount)))"
   ++ "type parameter_wrapper =" ++ nl
   ++ "  Init of init_args_ty" ++ nl
-  ++ "| Call of " ++ parameter_name ++ " option" ++ nl 
+  ++ "| Call of " ++ parameter_name ++ " option" ++ nl
+  ++ nl
   ++ "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ++ nl
   ++ "  match param with  " ++ nl
   ++ "    Init init_args -> (([]: operation list), Some (init init_args))" ++ nl
   ++ "  | Call p -> (" ++ nl
   ++ "    match st with" ++ nl
-  ++ "      Some st -> (match (" ++ contract ++ " st p) with   " ++ nl
+  ++ "      Some st -> (match (" ++ contract ++ " dummy_chain ctx st p) with   " ++ nl
   ++ "                    Some v -> (v.0, Some v.1)" ++ nl
   ++ "                  | None -> (failwith ("""") : return))" ++ nl
-  ++ "    | None -> (failwith (""""cannot call this endpoint before Init has been called""""): return))".
+  ++ "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
 
 
 Definition printMain :=

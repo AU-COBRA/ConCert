@@ -150,6 +150,9 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
     ; <%% @address_eqdec %%>
     ; <%% @address_countable %%>
     ; <%% @ContractCallContext %%>
+    ; <%% @ctx_from %%>
+    ; <%% @ctx_amount %%>
+    ; <%% @ctx_contract_address %%>
     ; <%% @RecordSet.constructor %%>
     ; <%% @RecordSet.Reader %%>
     ; <%% @RecordSet.set %%>
@@ -160,7 +163,7 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
   current_time , sender_addr, sent_amount, acc_balance *)
 Definition CameLIGO_call_ctx :=
   "(Tezos.now,
-   (Tezos.source,
+   (Tezos.sender,
    (Tezos.amount,
     Tezos.balance)))".
 

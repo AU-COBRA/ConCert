@@ -152,8 +152,8 @@ Section CounterExtraction.
 
 End CounterExtraction.
 
-From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
 Module Crowdfunding.
+  From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
   (* Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt. *)
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
   Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
@@ -180,7 +180,6 @@ Module Crowdfunding.
     | None => None
     end.
 
-
   Open Scope string_scope.
   Definition CF_MODULE :
     CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
@@ -197,7 +196,6 @@ Module Crowdfunding.
           ++ nl
           ++ "let init_storage :  (timestamp * (tez * address)) =
           (Tezos.now, (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
-
 
       (* initial storage *)
       lmd_init := crowdfunding_init ;
@@ -295,7 +293,7 @@ Section EIP20TokenExtraction.
             balances := FMap.add (EIP20Token.owner setup) (init_amount setup) FMap.empty;
             allowances := FMap.empty |}.
   Open Scope Z_scope.
-  Definition receive (chain : Chain)
+  Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
        (state : EIP20Token.State)
        (maybe_msg : option EIP20Token.Msg)
@@ -304,19 +302,6 @@ Section EIP20TokenExtraction.
     | Some x => Some (x.2, x.1)
     | None => None
     end.
-
-    (* let sender := ctx.(ctx_from) in
-    let without_actions := option_map (fun new_state => (new_state, [])) in
-    (* Only allow calls with no money attached *)
-    if ctx.(ctx_amount) >? 0
-    then None
-    else match maybe_msg with
-   | Some (transfer to amount) => without_actions (try_transfer sender to amount state)
-   | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
-   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-   (* transfer actions to this contract are not allowed *)
-         | None => None
-   end. *)
   Close Scope Z_scope.
 
   (* A specialized version of FMap's partial alter, w.r.t. FMap Address N *)
@@ -335,7 +320,7 @@ Section EIP20TokenExtraction.
     ++ "    | None -> (None : (state * operation list))".
 
   Definition bind_option_state : string :=
-       "let bind_option_state (a b c : unit) (m : option A) (f : A -> state option) : state option =" ++ nl
+       "let bind_option_state (a, b, c : unit) (m : state option) (f : state -> state option) : state option =" ++ nl
     ++ "match m with" ++ nl
     ++ "    Some a -> f a" ++ nl
     ++ "  | None -> (None : state option)".
@@ -363,14 +348,11 @@ Section EIP20TokenExtraction.
       option_map_state_acts ++ nl ++
       bind_option_state ++ nl ++
       with_default_N;
-      lmd_receive := receive ;
+      lmd_receive := receive_ ;
   
       (* code for the entry point *)
       lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" ++ nl
                         ++ CameLIGOPretty.printMain |}.
-
-  Search "gmap_empty".
-
 
   Definition TT_remap_eip20token : list (kername * string) :=
   [  (* types *)
@@ -393,8 +375,7 @@ Section EIP20TokenExtraction.
   ; remap <%% @Address %%> "address"
 
   ; remap <%% positive %%> "nat"
-  (* TODO: set operations  *)
-  (* ; remap <%% Set %%> "set"  *)
+  ; remap <%% @ContractCallContext %%> "(adress * (address * int))"
 
   (* operations *)
   ; remap <%% List.fold_left %%> "List.fold"
@@ -447,7 +428,7 @@ Section EIP20TokenExtraction.
     ; ("Monad_option", "()")
     ; ("tt", "()") ].
   
-  (* Time MetaCoq Run
+  Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE ;;
     tmDefinition LIGO_EIP20Token_MODULE.(lmd_module_name) t
   ).
@@ -456,7 +437,7 @@ Section EIP20TokenExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_eip20token.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
 
 End EIP20TokenExtraction.
 

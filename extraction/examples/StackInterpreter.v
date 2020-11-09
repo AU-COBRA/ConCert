@@ -318,6 +318,8 @@ Print liquidity_interp.
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 (* Redirect "./extraction/examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp. *)
 *)
+
+(* ------- CameLIGO extraction -------- *)
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 
 Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):= 
