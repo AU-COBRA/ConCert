@@ -9,8 +9,7 @@ After building the project (running `make` from the project's root), the folders
 `examples/liquidity-extract/tests` and `examples/elm-extract/tests` are populated with the extracted code.
 
 Compiling Liquidity code:
-install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html). Be
-aware of some issues while installing Liquidity: https://github.com/OCamlPro/liquidity/issues/254.
+install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html).
 Alternatively, the Liquidity code can be run using the online IDE: https://www.liquidity-lang.org/
 
 Compiling Elm code:

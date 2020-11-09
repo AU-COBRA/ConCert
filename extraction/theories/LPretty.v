@@ -631,6 +631,8 @@ Definition prod_ops :=
 Definition int_ops :=
        "let[@inline] addInt (i : int) (j : int) = i + j"
     ++ nl
+    ++ "let[@inline] mulInt (i : int) (j : int) = i * j"
+    ++ nl
     ++ "let[@inline] subInt (i : int) (j : int) = i - j"
     ++ nl
     ++ "let[@inline] leInt (i : int) (j : int) = i <= j"
