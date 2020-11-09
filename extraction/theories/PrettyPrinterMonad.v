@@ -18,7 +18,8 @@ Record PrettyPrinterState :=
   {
     indent_stack : list nat;
     used_names : list ident;
-    output : string;
+    output_lines : list (nat * string);
+    cur_output_line : nat * string;
   }.
 
 Definition PrettyPrinter A := PrettyPrinterState -> result (A * PrettyPrinterState) string.
@@ -31,79 +32,80 @@ Instance Monad_PrettyPrinter : Monad PrettyPrinter :=
        | Err err => Err err
        end |}.
 
+Definition map_pps
+           (f : list nat -> list nat)
+           (g : list ident -> list ident)
+           (h : list (nat * string) -> list (nat * string))
+           (i : nat * string -> nat * string) : PrettyPrinter unit :=
+  fun pps =>
+    Ok (tt,
+        let (a, b, c, d) := pps in
+        Build_PrettyPrinterState (f a) (g b) (h c) (i d)).
+
+Fixpoint prefix_spaces n s :=
+  match n with
+  | 0 => s
+  | S n => prefix_spaces n (String " "%char s)
+  end.
+
+Definition collect_output pps :=
+  let make_line '(n, s) :=
+      match s with
+      | EmptyString => EmptyString
+      | _ => prefix_spaces n s
+      end in
+  concat nl (rev_map make_line (cur_output_line pps :: output_lines pps)).
+
 Definition printer_fail {A} (str : string) : PrettyPrinter A :=
-  fun pps => Err (str ++ nl ++ "failed after printing" ++ nl ++ output pps).
+  fun pps => Err (str ++ nl ++ "failed after printing" ++ nl ++ collect_output pps).
 
 Definition finish_print {A} (pp : PrettyPrinter A) : result (A * string) string :=
   '(a, pps) <- pp {| indent_stack := [];
                      used_names := [];
-                     output := "" |};;
-  ret (a, output pps).
+                     output_lines := [];
+                     cur_output_line := (0, "") |};;
+  ret (a, collect_output pps).
 
 Definition get_indent : PrettyPrinter nat :=
   fun pps => Ok (hd 0 (indent_stack pps), pps).
 
-Definition update_indent (f : list nat -> list nat) : PrettyPrinter unit :=
-  fun pps => Ok (tt, {| indent_stack := f (indent_stack pps);
-                        used_names := used_names pps;
-                        output := output pps |}).
+Definition map_indent_stack (f : list nat -> list nat) : PrettyPrinter unit :=
+  map_pps f id id id.
 
 Definition push_indent (n : nat) : PrettyPrinter unit :=
-  update_indent (cons n).
+  map_indent_stack (cons n).
 
 Definition pop_indent : PrettyPrinter unit :=
-  update_indent (@tl nat).
+  map_indent_stack (@tl nat).
 
 Definition get_used_names : PrettyPrinter (list ident) :=
   fun pps => Ok (used_names pps, pps).
 
-Definition update_used_names (f : list ident -> list ident) : PrettyPrinter unit :=
-  fun pps => Ok (tt, {| indent_stack := indent_stack pps;
-                        used_names := f (used_names pps);
-                        output := output pps |}).
+Definition map_used_names (f : list ident -> list ident) : PrettyPrinter unit :=
+  map_pps id f id id.
 
 Definition push_use (n : ident) : PrettyPrinter unit :=
-  update_used_names (cons n).
+  map_used_names (cons n).
 
 Definition pop_use : PrettyPrinter unit :=
-  update_used_names (@tl string).
-
-Definition is_newline (c : ascii) : bool :=
-  match c with
-  | "010"%char => true
-  | _ => false
-  end.
-
-Definition last_line_length (s : string) : nat :=
-  (fix f (s : string) (result : nat) :=
-     match s with
-     | EmptyString => result
-     | String c s =>
-       if is_newline c then
-         f s 0
-       else
-         f s (S result)
-     end) s 0.
+  map_used_names (@tl string).
 
 Definition get_current_line_length : PrettyPrinter nat :=
-  fun pps => Ok (last_line_length (output pps), pps).
+  fun pps => Ok ((cur_output_line pps).1 + String.length (cur_output_line pps).2, pps).
 
-Definition update_output (f : string -> string) : PrettyPrinter unit :=
-  fun pps => Ok (tt, {| indent_stack := indent_stack pps;
-                        used_names := used_names pps;
-                        output := f (output pps) |}).
+Definition map_cur_output_line (f : nat * string -> nat * string) : PrettyPrinter unit :=
+  map_pps id id id f.
 
 Definition append (s : string) : PrettyPrinter unit :=
-  update_output (fun o => o ++ s).
+  map_cur_output_line (fun '(n, prev) => (n, prev ^ s)).
 
-Definition append_nl : PrettyPrinter unit := append nl.
-
-Definition append_indent : PrettyPrinter unit :=
-  indent <- get_indent;;
-  append (concat "" (repeat " " indent)).
-
-Definition append_nl_and_indent : PrettyPrinter unit :=
-  append_nl;; append_indent.
+Definition append_nl : PrettyPrinter unit :=
+  fun pps =>
+    Ok (tt,
+        {| indent_stack := indent_stack pps;
+           used_names := used_names pps;
+           output_lines := cur_output_line pps :: output_lines pps;
+           cur_output_line := (hd 0 (indent_stack pps), "") |}).
 
 Definition monad_append_join
            (sep : PrettyPrinter unit)
