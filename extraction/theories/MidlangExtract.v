@@ -247,7 +247,7 @@ Definition print_define_term
       | _ =>
         append " =";;
         push_indent (name_col + indent_size);;
-        append_nl_and_indent;;
+        append_nl;;
         print_term Γ t;;
         pop_indent
       end in
@@ -289,7 +289,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     append "let";;
 
     let print_and_add_one Γ name value :=
-        append_nl_and_indent;;
+        append_nl;;
         name <- fresh_ident name Γ;;
         (* We will define this name to make sure we don't reuse it
            until the let is all over. Midlang does not allow shadowing. *)
@@ -314,10 +314,10 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
        | _ =>
          pop_indent;; (* indent in let block *)
 
-         append_nl_and_indent;; (* indent to 'let' keyword *)
+         append_nl;; (* indent to 'let' keyword *)
          append "in";;
 
-         append_nl_and_indent;; (* body is indented to 'let'/'in' keyword as well *)
+         append_nl;; (* body is indented to 'let'/'in' keyword as well *)
          print_term Γ t;;
          pop_indent;;
          ret 0
@@ -328,10 +328,10 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     *)
 
     pop_indent;;
-    append_nl_and_indent;;
+    append_nl;;
 
     append "in";;
-    append_nl_and_indent;;
+    append_nl;;
     print_term Γ body;;
     pop_indent;;
 
@@ -363,7 +363,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
        match branches, ctors with
        | [], [] => ret tt
        | (arity, t) :: branches, (ctor_name, data) :: ctors =>
-         append_nl_and_indent;;
+         append_nl;;
 
          ctor_indent <- get_indent;;
          push_indent (ctor_indent + indent_size);;
@@ -379,7 +379,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
             match n with
             | 0 =>
               append " ->";;
-              append_nl_and_indent;;
+              append_nl;;
               print_parenthesized (parenthesize_case_branch t) (print_term Γ t)
 
             | S n =>
@@ -421,7 +421,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
        match ds, names with
        | [], _ => ret tt
        | d :: ds, name :: names =>
-         append_nl_and_indent;;
+         append_nl;;
          print_define_term Γ name (dbody d) print_term;;
          print_fixes ds names
        | _, _ =>
@@ -430,9 +430,9 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     pop_indent;;
 
-    append_nl_and_indent;;
+    append_nl;;
     append "in";;
-    append_nl_and_indent;;
+    append_nl;;
     match nth_error names nfix with
     | Some n => append n
     | None => printer_fail "invalid fix index"
@@ -461,7 +461,7 @@ Definition print_constant
                                            ret (name :: Γ))
                             type_vars [];;
     print_type (rev Γrev) ty;;
-    append_nl_and_indent
+    append_nl
   end;;
 
   push_use ml_name;;
@@ -509,7 +509,7 @@ Definition print_mutual_inductive_body
      | [] => ret names
      | oib :: l =>
 
-       (if first then ret tt else append_nl_and_indent);;
+       (if first then ret tt else append_nl);;
 
        (* Add type parameters. Note that since we are in prenex form,
           our context will have last type parameter last, not first. *)
@@ -532,7 +532,7 @@ Definition print_mutual_inductive_body
           match ctors with
           | [] => ret tt
           | (name, data) :: ctors =>
-            append_nl_and_indent;;
+            append_nl;;
             append (prefix ^ " ");;
             print_ind_ctor_definition Γ (kn.1, name) data;;
 
@@ -594,7 +594,7 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
        else
          ret []);;
 
-       f l (append_nl;; append_nl_and_indent) (new_names ++ names)%list
+       f l (append_nl;; append_nl) (new_names ++ names)%list
      end) (List.rev Σ) (ret tt) [];;
 
   pop_indent;;

@@ -45,7 +45,7 @@ Definition general_extract (p : T.program) (ignore: list kername) (TT : list (ke
   let p :=
       print_decls Σ TT_fun (filter (negb ∘ is_const) (List.rev Σ));;
       append_nl;;
-      append_nl_and_indent;;
+      append_nl;;
       print_decls Σ TT_fun (filter is_const (List.rev Σ));;
       ret tt in
   '(_, s) <- finish_print p;;

@@ -65,20 +65,21 @@ Definition option_get {A} (o : option A) (default : A) : A :=
   | None => default
   end.
 
+Definition clean_name (s : string) : string :=
+  replace_char "." "_" (replace_char "'" "_" s).
+
 Definition get_const_name (name : kername) : string :=
   let const_name :=
-      if print_full_names then
-        replace_char "." "_" (string_of_kername name)
-      else
-        name.2 in
+      clean_name (if print_full_names then string_of_kername name else name.2) in
   option_get (translate name) const_name.
 
 Definition get_ty_name (name : kername) : string :=
-  capitalize (option_get (translate name) (replace_char "." "_" name.2)).
+  capitalize (option_get (translate name) (clean_name name.2)).
 
 Definition get_ctor_name (name : kername) : string :=
-  capitalize (option_get (translate name) name.2).
+  capitalize (option_get (translate name) (clean_name name.2)).
 
+(* Fine to remove primes here as we generate fresh names *)
 Definition get_ident_name (name : ident) : string :=
   remove_char "'" (replace_char "." "_" name).
 
@@ -269,11 +270,11 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
     append ("self.closure(move |" ++ name ++ "| {");;
 
     push_indent (col + indent_size);;
-    append_nl_and_indent;;
+    append_nl;;
     let Γ := name :: Γ in
     print_term Γ t;;
     pop_indent;;
-    append_nl_and_indent;;
+    append_nl;;
     append "})";;
     pop_indent
 
@@ -286,17 +287,17 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
     (if bracketize_let_value val then append " {" else ret tt);;
 
     push_indent (col + indent_size);;
-    append_nl_and_indent;;
+    append_nl;;
     print_term Γ val;;
     pop_indent;;
 
     (if bracketize_let_value val then
-       append_nl_and_indent;;
+       append_nl;;
        append "};"
      else
        append ";");;
 
-    append_nl_and_indent;;
+    append_nl;;
 
     print_term (name :: Γ) body;;
     pop_indent
@@ -362,7 +363,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
        match brs, ctors with
        | [], [] => ret tt
        | (arity, t) :: branches, (ctor_name, data) :: ctors =>
-         append_nl_and_indent;;
+         append_nl;;
 
          let kn := ((inductive_mind ind).1, name) in
          append "&";;
@@ -383,7 +384,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
               let args := (parameters ++ rev (firstn arity Γ))%list in
               print_parenthesized (0 <? #|args|) (append_join ", " args);;
               append " => {";;
-              append_nl_and_indent;;
+              append_nl;;
               print_term Γ t
 
             | S n, tLambda name t =>
@@ -393,7 +394,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
             end) arity Γ t;;
 
          pop_indent;;
-         append_nl_and_indent;;
+         append_nl;;
          append "},";;
 
          print_cases branches ctors
@@ -401,7 +402,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
        end) brs (Ex.ind_ctors oib);;
 
     pop_indent;;
-    append_nl_and_indent;;
+    append_nl;;
     append "}";;
 
     pop_indent
@@ -429,7 +430,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
             na <- fresh_ident (dname d) Γ;;
             push_use na;;
             append ("let " ++ na ++ " = self.alloc(std::cell::Cell::new(None));");;
-            append_nl_and_indent;;
+            append_nl;;
             ret ((na ++ ".get().unwrap()") :: Γ, na :: cells))
          defs (Γ, []);;
 
@@ -440,11 +441,11 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
       (fun _ '(print_def, cell) =>
          append (cell ++ ".set(Some(");;
          push_indent (col + indent_size);;
-         append_nl_and_indent;;
+         append_nl;;
          print_def;;
          append "));";;
          pop_indent;;
-         append_nl_and_indent)
+         append_nl)
       (combine
          (map (fun d => print_term Γ (dbody d)) defs)
          cells)
@@ -453,7 +454,11 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
     append (nth i cells "" ++ ".get().unwrap()");;
     pop_indent
 
-  | _ => printer_fail "unhandled"
+  | tProj ((ind, pars), c) t =>
+    printer_fail ("unhandled tProj on " ^ string_of_kername (inductive_mind ind))
+
+  | tCoFix _ _ => printer_fail "Cannot handle tCoFix yet"
+
   end.
 
 Definition print_constant
@@ -493,20 +498,20 @@ Definition print_constant
        append " {";;
 
        push_indent (name_col + indent_size);;
-       append_nl_and_indent;;
+       append_nl;;
 
        push_use rname;;
        print_term Γ body;;
 
        pop_indent;;
-       append_nl_and_indent;;
+       append_nl;;
        append "}";;
        ret 0
      end) [] body ty;;
 
   (* Print closure version if there were inlined args *)
   (if 0 <? num_inline_args then
-     append_nl_and_indent;;
+     append_nl;;
      append ("fn " ++ rname ++ "__closure");;
      print_parenthesized_with
        "<" ">" (0 <? #|Γty|)
@@ -516,7 +521,7 @@ Definition print_constant
      append " {";;
 
      push_indent (name_col + indent_size);;
-     append_nl_and_indent;;
+     append_nl;;
 
      push_use (rname ++ "__closure");;
      eta_term <-
@@ -530,7 +535,7 @@ Definition print_constant
      print_term [] eta_term;;
 
      pop_indent;;
-     append_nl_and_indent;;
+     append_nl;;
      append "}"
    else
      ret tt);;
@@ -581,7 +586,7 @@ Definition print_mutual_inductive_body
        prefix;;
 
        append "#[derive(Debug, Copy, Clone)]";;
-       append_nl_and_indent;;
+       append_nl;;
        append "pub enum ";;
        let ind_name := (kn.1, Ex.ind_name oib) in
        let ind_ml_name := get_ty_name ind_name in
@@ -600,18 +605,18 @@ Definition print_mutual_inductive_body
 
        (* Print constructors *)
        push_indent (col + indent_size);;
-       append_nl_and_indent;;
+       append_nl;;
 
-       monad_append_join (append ",";; append_nl_and_indent)
+       monad_append_join (append ",";; append_nl)
                          (map (fun '(name, data) =>
                                  print_ind_ctor_definition Γ (kn.1, name) data)
                               (Ex.ind_ctors oib));;
 
        pop_indent;;
-       append_nl_and_indent;;
+       append_nl;;
        append "}";;
 
-       print_ind_bodies l append_nl_and_indent ((ind_name, ind_ml_name) :: names)
+       print_ind_bodies l append_nl ((ind_name, ind_ml_name) :: names)
      end) (Ex.ind_bodies mib) (ret tt) [];;
   pop_indent;;
   ret names.
@@ -659,7 +664,7 @@ Fixpoint print_decls_aux
        end
      else
        ret []);;
-    print_decls_aux decls (append_nl;; append_nl_and_indent) (new_names ++ names)%list
+    print_decls_aux decls (append_nl;; append_nl) (new_names ++ names)%list
   end.
 
 Definition print_decls decls :=
@@ -691,7 +696,7 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
 
-  monad_append_join append_nl_and_indent (map append preamble);;
+  monad_append_join append_nl (map append preamble);;
 
   let is_const '(kn, decl) :=
       match decl with
@@ -699,7 +704,7 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
       | _ => false
       end in
   ind_names <- print_decls_aux (filter (negb ∘ is_const) (List.rev Σ))
-                               (append_nl;; append_nl_and_indent)
+                               (append_nl;; append_nl)
                                [];;
 
   (* First print a structure that has the arena and all
@@ -712,72 +717,72 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
                   end) (List.rev Σ) in
 
   append_nl;;
-  append_nl_and_indent;;
+  append_nl;;
   push_indent (sig_col + indent_size);;
 
   append "struct Program<'a> {";;
-  append_nl_and_indent;;
+  append_nl;;
   append "__alloc: bumpalo::Bump,";;
 
   monad_fold_left (fun _ '(kn, has_deps, cst) =>
                      if is_polymorphic cst then
                        ret tt
                      else
-                       append_nl_and_indent;;
+                       append_nl;;
                        append "__";;
                        append (get_const_name kn);;
                        append ": std::cell::Cell<std::option::Option<";;
                        print_type [] (Ex.cst_type cst).2;;
                        append ">>,") constants tt;;
   pop_indent;;
-  append_nl_and_indent;;
+  append_nl;;
   append "}";;
 
   (* Next we print all the code as associated members. First
      we print a way to create such a program. *)
   append_nl;;
-  append_nl_and_indent;;
+  append_nl;;
   append "impl<'a> Program<'a> {";;
 
-  append_nl_and_indent;;
+  append_nl;;
   append "fn new() -> Self {";;
 
   push_indent (sig_col + indent_size);;
-  append_nl_and_indent;;
+  append_nl;;
   append "Program {";;
 
   push_indent (sig_col + 2*indent_size);;
-  append_nl_and_indent;;
+  append_nl;;
   append "__alloc: bumpalo::Bump::new(),";;
 
   monad_fold_left (fun _ '(kn, has_deps, cst) =>
                      if is_polymorphic cst then
                        ret tt
                      else
-                       append_nl_and_indent;;
+                       append_nl;;
                        append "__";;
                        append (get_const_name kn);;
                        append ": std::cell::Cell::new(None),") constants tt;;
 
   pop_indent;;
-  append_nl_and_indent;;
+  append_nl;;
   append "}";;
 
   pop_indent;;
-  append_nl_and_indent;;
+  append_nl;;
   append "}";;
 
   append_nl;;
   append_nl;;
-  monad_append_join append_nl_and_indent (map append program_preamble);;
+  monad_append_join append_nl (map append program_preamble);;
 
   (* Finally print all constants *)
   const_names <- print_decls_aux
                    (map (on_snd Ex.ConstantDecl) constants)
-                   (append_nl;; append_nl_and_indent)
+                   (append_nl;; append_nl)
                    [];;
 
-  append_nl_and_indent;;
+  append_nl;;
   append "}";;
 
   pop_indent;;
