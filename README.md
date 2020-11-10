@@ -7,7 +7,7 @@ See the [Papers](#paper) for details on the development.
 ## How to build
 
 
-Our development works with Coq 8.11. and depends on MetaCoq installed from source,
+Our development works with Coq 8.11.2. and depends on MetaCoq installed from source,
 std++ and coq-bignums. The tests depend on QuickChick. Most of the dependencies can be installed through `opam`.
 
 To set up a switch with the necessary dependencies run the following commands from the root of the project:
@@ -16,7 +16,7 @@ To set up a switch with the necessary dependencies run the following commands fr
 opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install -j 4 coq.8.11 coq-bignums coq-stdpp coq-quickchick
+opam install -j 4 coq.8.11.2 coq-bignums coq-stdpp coq-quickchick
 opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#abc736f20020156e520e7ca4ef0557ce5f8b7db0
 ```
 
