@@ -518,14 +518,15 @@ End on_every.
     from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l => fun bt =>
     let nm := get_constr_name ind l in
+    let nm_tt := (from_option (look TT nm) ((capitalize prefix) ++ nm)) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
-    if nm =? "nil" then
+    if nm_tt =? "[]" then
       "([]:" ++ print_box_type prefix TT (bt) ++ ")" 
-    else if nm =? "None" then
+    else if nm_tt =? "None" then
       "(None:" ++ print_box_type prefix TT (bt) ++ ")" 
-    else if nm =? "Map.empty" then
+    else if nm_tt =? "Map.empty" then
       "(Map.empty: " ++ print_box_type prefix TT (bt) ++ ")" 
-    else from_option (look TT nm) ((capitalize prefix) ++ nm)
+    else nm_tt 
   | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
     if eq_kername mind <%% bool %%> then
@@ -898,8 +899,6 @@ Definition CameLIGOPrelude :=
              bool_ops; time_ops; address_ops; 
              get_contract_def].
 
-(* We assume the structure of the context from the [PreludeExt]:
-  current_time , sender_addr, sent_amount, acc_balance *)
 Definition CameLIGO_contractCallContext :=
   "(Tezos.sender,
    (Tezos.self_address,
