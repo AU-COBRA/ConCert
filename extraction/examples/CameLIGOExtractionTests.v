@@ -7,7 +7,6 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
-(* From ConCert.Embedding Require Import SimpleBlockchain. *)
 From ConCert.Extraction Require Import Common Optimize PreludeExt.
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Automation.
@@ -69,18 +68,37 @@ Module Counter.
     end.
 
   Definition counter (c : Chain) (ctx : SimpleCallCtx) st msg :=
+    (* avoid erasing c and ctx arguments *)
+    let c_ := c in
+    let ctx_ := ctx in
     match msg with
     | Some msg =>counter_inner msg st
     | None => None
     end.
-    
+  
+  Definition dummy_chain := 
+       "type chain = {
+          chain_height     : nat;
+          current_slot     : nat;
+          finalized_height : nat;
+          account_balance  : address -> nat
+        }"
+    ++ nl
+    ++ "let dummy_chain : chain = {
+          chain_height     = 0n;
+          current_slot     = 0n;
+          finalized_height = 0n;
+          account_balance  = fun (a : address) -> 0n
+        }".
+  
   Definition LIGO_COUNTER_MODULE : CameLIGOMod msg _ (Z × address) storage operation :=
     {| (* a name for the definition with the extracted code *)
         lmd_module_name := "cameLIGO_counter" ;
     
-        (* definitions of operations on pairs and ints *)
         (* and a test address *)
-        lmd_prelude := CameLIGOPrelude ++ nl ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)";
+        lmd_prelude := CameLIGOPrelude ++ nl 
+                       ++ dummy_chain ++ nl
+                       ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)";
     
         (* initial storage *)
         lmd_init := init ;
@@ -94,7 +112,7 @@ Module Counter.
         lmd_receive := counter;
     
         (* code for the entry point *)
-        lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" ++ nl
+        lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" CameLIGO_call_ctx ++ nl
                           ++ CameLIGOPretty.printMain |}.
 
 End Counter.
@@ -141,14 +159,14 @@ Section CounterExtraction.
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
-  (* Time MetaCoq Run
+  Time MetaCoq Run
       (t <- CameLIGO_extraction PREFIX TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
         tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
 
   Print cameLIGO_counter.
   Definition printed := Eval vm_compute in cameLIGO_counter.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
 
 End CounterExtraction.
 
@@ -181,6 +199,8 @@ Module Crowdfunding.
     end.
 
   Open Scope string_scope.
+  Definition dummy_chain := "let dummy_chain : chain = (failwith(""not implemented""): chain)".
+
   Definition CF_MODULE :
     CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
     {| (* a name for the definition with the extracted code *)
@@ -189,6 +209,8 @@ Module Crowdfunding.
       (* definitions of operations on pairs and ints *)
       lmd_prelude :=
         CameLIGOPrelude
+          ++ nl
+          ++ dummy_chain
           ++ nl
           ++ "type storage = ((timestamp * (tez * address)) * ((address,tez) map * bool))"
           ++ nl
@@ -209,7 +231,12 @@ Module Crowdfunding.
       lmd_receive := crowdfunding_receive;
 
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive") "((timestamp * (address * (tez * tez))) * msg_coq)" "storage" ++ nl
+      lmd_entry_point := 
+        CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive") 
+                                    "((timestamp * (address * (tez * tez))) * msg_coq)"
+                                    "storage" 
+                                    CameLIGO_call_ctx
+                                    ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
@@ -351,7 +378,7 @@ Section EIP20TokenExtraction.
       lmd_receive := receive_ ;
   
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" ++ nl
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
   Definition TT_remap_eip20token : list (kername * string) :=
@@ -428,7 +455,7 @@ Section EIP20TokenExtraction.
     ; ("Monad_option", "()")
     ; ("tt", "()") ].
   
-  Time MetaCoq Run
+  (* Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE ;;
     tmDefinition LIGO_EIP20Token_MODULE.(lmd_module_name) t
   ).
@@ -437,7 +464,7 @@ Section EIP20TokenExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_eip20token.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End EIP20TokenExtraction.
 
@@ -533,7 +560,7 @@ Section TestExtractionPlayground.
       lmd_receive := test_receive ;
   
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" ++ nl
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
                         ++ CameLIGOPretty.printMain |}.
 
   

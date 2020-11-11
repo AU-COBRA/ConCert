@@ -744,6 +744,7 @@ Definition print_init (prefix : string)
       ++ nl
       ++ "  init" ++ (tl tys |> init_wrapper_args_printed) in 
     ret ("let " ++ decl_outer ++ " = "
+                    ++ nl
                     ++ init_prelude
                     ++ nl
                     ++ let_inner
@@ -890,21 +891,12 @@ Definition get_contract_def :=
   ++ "    Some c -> c" ++ nl
   ++ "  | None -> (failwith (""Contract not found."") : unit contract)". 
 
-Definition chain_type_def := 
-     "type chain = {" ++ nl
-  ++ "  chain_height : nat;" ++ nl
-  ++ "  current_slot : nat;" ++ nl
-  ++ "  finalized_height : nat;" ++ nl
-  ++ "  account_balance : address -> int"  ++ nl
-  ++ "}".
-
-Definition dummy_chain := "let dummy_chain : chain = (failwith(""not implemented""): chain)".
 
 Definition CameLIGOPrelude :=
   print_list id (nl ++ nl)
              [int_ops; tez_ops; nat_ops;
              bool_ops; time_ops; address_ops; 
-             get_contract_def; chain_type_def; dummy_chain].
+             get_contract_def].
 
 (* We assume the structure of the context from the [PreludeExt]:
   current_time , sender_addr, sent_amount, acc_balance *)
@@ -913,9 +905,8 @@ Definition CameLIGO_contractCallContext :=
    (Tezos.self_address,
     Tezos.amount)))".
 
-Definition printWrapper (contract parameter_name storage_name : string): string :=
+Definition printWrapper (contract parameter_name storage_name ctx : string): string :=
      "type return = (operation) list * (storage option)" ++ nl
-  ++ "let ctx = (Tezos.sender,(Tezos.self_address,Tezos.amount)))"
   ++ "type parameter_wrapper =" ++ nl
   ++ "  Init of init_args_ty" ++ nl
   ++ "| Call of " ++ parameter_name ++ " option" ++ nl
@@ -925,7 +916,7 @@ Definition printWrapper (contract parameter_name storage_name : string): string 
   ++ "    Init init_args -> (([]: operation list), Some (init init_args))" ++ nl
   ++ "  | Call p -> (" ++ nl
   ++ "    match st with" ++ nl
-  ++ "      Some st -> (match (" ++ contract ++ " dummy_chain ctx st p) with   " ++ nl
+  ++ "      Some st -> (match (" ++ contract ++ " dummy_chain " ++ ctx ++ " st p) with   " ++ nl
   ++ "                    Some v -> (v.0, Some v.1)" ++ nl
   ++ "                  | None -> (failwith ("""") : return))" ++ nl
   ++ "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
