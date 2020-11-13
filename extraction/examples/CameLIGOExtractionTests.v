@@ -122,29 +122,11 @@ Section CounterExtraction.
   (* Require Coq.Numbers.BinNums. *)
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_counter : list (kername * string) :=
-    [ remap <%% bool %%> "bool"
-    ; remap <%% list %%> "list"
-    ; remap <%% Amount %%> "tez"
+    [
+      remap <%% Amount %%> "tez"
     ; remap <%% address_coq %%> "address"
     ; remap <%% time_coq %%> "timestamp"
-    ; remap <%% option %%> "option"
-    ; remap <%% Z.add %%> "addInt"
-    ; remap <%% Z.sub %%> "subInt"
-    ; remap <%% Z.leb %%> "leInt"
-    ; remap <%% Z.eqb %%> "eqInt"
-    ; remap <%% List.fold_left %%> "List.fold"
-    ; remap <%% Z %%> "int"
     ; remap <%% nat %%> "address"
-    ; remap <%% operation %%> "operation"
-    ; remap <%% @fst %%> "fst"
-    ; remap <%% positive %%> "nat"
-    ; remap <%% Pos.add %%> "addNat"
-    ; remap <%% Pos.sub %%> "subNat"
-    ; remap <%% Pos.leb %%> "leNat"
-    ; remap <%% @snd %%> "snd"
-    ; remap <%% Pos.eqb %%> "eqNat"
-    (* TODO: set operations  *)
-    (* ; remap <%% Set %%> "set"  *)
     ].
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
@@ -258,33 +240,16 @@ Section CrowdfundingExtraction.
 
   Definition TT_remap_crowdfunding : list (kername * string) :=
 
-    [  (* types *)
-    remap <%% Z %%> "tez"
-  ; remap <%% address_coq %%> "address"
+  [  (* types *)
+    remap <%% address_coq %%> "address"
   ; remap <%% time_coq %%> "timestamp"
-  ; remap <%% nat %%> "nat"
-  ; remap <%% bool %%> "bool"
-  ; remap <%% unit %%> "unit"
-  ; remap <%% list %%> "list"
-  ; remap <%% @fst %%> "fst"
-  ; remap <%% @snd %%> "snd"
-  ; remap <%% option %%> "option"
   ; remap <%% SimpleActionBody_coq %%> "operation"
   ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
-    (* 'amount' is a reserved keyword in ligo *)
-  ; remap <%% Amount %%> "tez"
 
   (* operations *)
-  ; remap <%% Z.add %%> "addTez"
-  ; remap <%% Z.sub %%> "subTez"
-  ; remap <%% Z.leb %%> "leTez"
-  ; remap <%% Z.ltb %%> "ltTez"
-  ; remap <%% Z.eqb %%> "eqTez"
   ; remap <%% ltb_time %%> "ltb_time"
   ; remap <%% leb_time %%> "leb_time"
   ; remap <%% eqb_addr %%> "eq_addr"
-  ; remap <%% andb %%> "andb"
-  ; remap <%% negb %%> "not"
   ; remap <%% Maps.add_map %%> "Map.add"
   ; remap <%% lookup_map' %%> "Map.find_opt" 
   ].
@@ -295,7 +260,7 @@ Section CrowdfundingExtraction.
     ; ("mnil", "Map.empty")
     ; ("tt", "()") ].
   
-  (* Time MetaCoq Run
+  Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
     tmDefinition CF_MODULE.(lmd_module_name) t
   ).
@@ -304,7 +269,7 @@ Section CrowdfundingExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_crowdfunding.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
 
 End CrowdfundingExtraction.
 
@@ -384,56 +349,12 @@ Section EIP20TokenExtraction.
                         ++ CameLIGOPretty.printMain |}.
 
   Definition TT_remap_eip20token : list (kername * string) :=
-  [  (* types *)
-    remap <%% Z %%> "tez"
-  (* ; remap <%% address_coq %%> "address" *)
-  (* ; remap <%% time_coq %%> "timestamp" *)
-  ; remap <%% N %%> "nat"
-  ; remap <%% nat %%> "nat"
-  ; remap <%% bool %%> "bool"
-  ; remap <%% unit %%> "unit"
-  ; remap <%% list %%> "list"
-  ; remap <%% @fst %%> "fst"
-  ; remap <%% @snd %%> "snd"
-  ; remap <%% option %%> "option"
-  ; remap <%% gmap.gmap %%> "map"
-  (* ; remap <%% gmap.gmap Address TokenValue %%> "(address,nat) map" *)
-  (* ; remap <%% gmap.gmap Address (gmap.gmap Address TokenValue) %%> "(address,(address, nat) map) map" *)
-    (* 'amount' is a reserved keyword in ligo *)
-  ; remap <%% Amount %%> "tez"
-  ; remap <%% @Address %%> "address"
-
-  ; remap <%% positive %%> "nat"
-  ; remap <%% @ContractCallContext %%> "(adress * (address * int))"
-
-  (* operations *)
-  ; remap <%% List.fold_left %%> "List.fold"
-  ; remap <%% Pos.add %%> "addNat"
-  ; remap <%% Pos.sub %%> "subNat"
-  ; remap <%% Pos.leb %%> "leNat"
-  ; remap <%% Pos.eqb %%> "eqNat"
-  ; remap <%% Z.add %%> "addTez"
-  ; remap <%% Z.sub %%> "subTez"
-  ; remap <%% Z.leb %%> "leTez"
-  ; remap <%% Z.ltb %%> "ltTez"
-  ; remap <%% Z.eqb %%> "eqTez"
-  ; remap <%% Z.gtb %%> "gtbTez"
-  ; remap <%% N.add %%> "addInt"
-  ; remap <%% N.sub %%> "subInt"
-  ; remap <%% N.leb %%> "leInt"
-  ; remap <%% N.ltb %%> "ltInt"
-  ; remap <%% N.eqb %%> "eqInt"
-  ; remap <%% ltb_time %%> "ltb_time"
-  ; remap <%% leb_time %%> "leb_time"
+  [  
+    remap <%% @ContractCallContext %%> "(adress * (address * int))"
   ; remap <%% eqb_addr %%> "eq_addr"
-  ; remap <%% andb %%> "andb"
-  ; remap <%% negb %%> "not"
-  ; remap <%% orb %%> "orb"
-
   ; remap <%% @Extras.with_default %%> "with_default_N"
   ; remap <%% @Monads.bind %%> "bind_option_state"
   ; remap <%% Monads.Monad_option %%> "()"
-  
   
   ; remap <%% @stdpp.base.insert %%> "Map.add"
   ; remap <%% @stdpp.base.lookup %%> "Map.find_opt"
@@ -567,7 +488,7 @@ Section TestExtractionPlayground.
                         ++ CameLIGOPretty.printMain |}.
 
   
-  Time MetaCoq Run
+  (* Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token playground_module ;;
     tmDefinition playground_module.(lmd_module_name) t
   ).
@@ -576,6 +497,6 @@ Section TestExtractionPlayground.
 
   Definition printed := Eval vm_compute in playground_mod.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End TestExtractionPlayground.

@@ -736,13 +736,15 @@ Definition print_init (prefix : string)
       match tys with
       | _::[] => "unit"
       | [] => "unit" 
-      | _::_ => (tl tys |> map (print_box_type prefix TT) |> concat " * ")
+      | _::_ => tl tys |> map (print_box_type prefix TT) 
+                       |> concat " * "
     end in
     let init_wrapper_args_printed tys :=
       match tys with
       | [] => "()"
       | [ty] => " args"
-      | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "") |> snd
+      | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "") 
+                   |> snd
       end in
     let init_wrapper := 
          "let init_wrapper (args : init_args_ty) ="
