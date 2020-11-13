@@ -157,7 +157,16 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
     ; <%% @RecordSet.Reader %%>
     ; <%% @RecordSet.set %%>
     ; <%% @SerializedValue %%>
-    ; <%% @SerializedType %%>].
+    ; <%% @SerializedType %%>
+    
+  ].
+
+Definition CameLIGO_rename_default := 
+  [
+      ("to", "to_")
+    ; ("amount", "amount_")
+    ; ("continue", "continue_")
+  ].
 
 (* We assume the structure of the context from the [PreludeExt]:
   current_time , sender_addr, sent_amount, acc_balance *)
@@ -179,7 +188,7 @@ Definition CameLIGO_extraction {Base : ChainBase} {msg ctx params storage operat
   receive_nm <- extract_def_name m.(lmd_receive);;
   let ignore := (map fst TT_defs ++ CameLIGO_ignore_default)%list in
   let TT :=
-      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+      (CameLIGO_rename_default ++ TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
              (printCameLIGODefs prefix Σ TT ignore
                                  CameLIGO_call_ctx

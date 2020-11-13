@@ -37,7 +37,7 @@ let get_contract_unit (a : address) : unit contract  =
 type tokenValue = nat
 
 type msg = 
-  Transfer of (address * tokenValue)
+Transfer of (address * tokenValue)
 | Transfer_from of (address * address * tokenValue)
 | Approve of (address * tokenValue)
 
@@ -64,7 +64,6 @@ let option_map_state_acts (f : state -> (state * operation list)) (o : state opt
   match o with
     Some a -> Some (f a)
     | None -> (None : (state * operation list))
-
 let bind_option_state (a, b, c : unit) (m : state option) (f : state -> state option) : state option =
 match m with
     Some a -> f a
@@ -74,51 +73,37 @@ let with_default_N (n : nat) (m : nat option) : n =
     Some m -> m
   | None -> n
 
-let ctx_from (c : contractCallContext) = match c with 
-build_ctx (ctx_from, ctx_contract_address, ctx_amount) -> ctx_from
-
-let ctx_amount (c : contractCallContext) = match c with 
-build_ctx (ctx_from, ctx_contract_address, ctx_amount) -> ctx_amount
-
-let balances (s : state) = s.balances
-
-let total_supply (s : state) = s.total_supply
-
-let allowances (s : state) = s.allowances
-
-let try_Transfer (from : address) (to : address) (amount : tokenValue) (state : state) = let from_balance = with_default_N 0n (Map.find_opt from state.balances) in 
+let test_try_transfer (from : address) (to : address) (amount : tokenValue) (state : state) = let from_balance = with_default_N 0n (Map.find_opt from state.balances) in 
 if ltInt from_balance amount then (None: (state) option) else let new_balances = Map.add  from (subInt from_balance amount) state.balances in 
 let new_balances0 = partial_alter_addr_nat (fun (balance :  (nat) option ->  (nat) option) -> Some ((addInt (with_default_N 0n balance) amount))) to new_balances in 
-Some ((set (fun (f : ( (address, tokenValue) map ->  (address, tokenValue) map) -> state -> state) -> fun (e : state -> state) -> ({total_supply = (total_supply e); balances = (f e.balances); allowances = (allowances e)}: state)) new_balances0 state))
+Some (({total_supply = state.total_supply; balances = new_balances0; allowances = state.allowances}: state))
 
-let try_Transfer_from (delegate : address) (from : address) (to : address) (amount : tokenValue) (state : state) = bind_option_state () () () (Map.find_opt from state.allowances) (fun (from_allowances_map :  (address, tokenValue) map ->  (state) option) -> bind_option_state () () () (Map.find_opt delegate from_allowances_map) (fun (delegate_allowance : nat ->  (state) option) -> let from_balance = with_default_N 0n (Map.find_opt from state.balances) in 
+let test_try_transfer_from (delegate : address) (from : address) (to : address) (amount : tokenValue) (state : state) = match Map.find_opt from state.allowances with 
+Some (from_allowances_map) -> (match Map.find_opt delegate from_allowances_map with 
+Some (delegate_allowance) -> (let from_balance = with_default_N 0n (Map.find_opt from state.balances) in 
 if orb (ltInt delegate_allowance amount) (ltInt from_balance amount) then (None: (state) option) else let new_allowances = Map.add  delegate (subInt delegate_allowance amount) from_allowances_map in 
 let new_balances = Map.add  from (subInt from_balance amount) state.balances in 
 let new_balances0 = partial_alter_addr_nat (fun (balance :  (nat) option ->  (nat) option) -> Some ((addInt (with_default_N 0n balance) amount))) to new_balances in 
-Some ((set (fun (f : ( (address,  (address, tokenValue) map) map ->  (address,  (address, tokenValue) map) map) -> state -> state) -> fun (e : state -> state) -> ({total_supply = (total_supply e); balances = (balances e); allowances = (f e.allowances)}: state)) (Map.add  from new_allowances) (set (fun (f : ( (address, tokenValue) map ->  (address, tokenValue) map) -> state -> state) -> fun (e : state -> state) -> ({total_supply = (total_supply e); balances = (f e.balances); allowances = (allowances e)}: state)) new_balances0 state)))))
+Some (({total_supply = state.total_supply; balances = new_balances0; allowances = (Map.add  from new_allowances state.allowances)}: state)))
+ | None  -> (None: (state) option))
+ | None  -> (None: (state) option)
 
-let try_Approve (caller : address) (delegate : address) (amount : tokenValue) (state : state) = match Map.find_opt caller state.allowances with 
-Some (caller_allowances) -> (Some ((set (fun (f : ( (address,  (address, tokenValue) map) map ->  (address,  (address, tokenValue) map) map) -> state -> state) -> fun (e : state -> state) -> ({total_supply = (total_supply e); balances = (balances e); allowances = (f e.allowances)}: state)) (Map.add  caller (Map.add  delegate amount caller_allowances)) state)))
- | None  -> (Some ((set (fun (f : ( (address,  (address, tokenValue) map) map ->  (address,  (address, tokenValue) map) map) -> state -> state) -> fun (e : state -> state) -> ({total_supply = (total_supply e); balances = (balances e); allowances = (f e.allowances)}: state)) (Map.add  caller (Map.add  delegate amount Map.empty)) state)))
-
-let receive (ctx : contractCallContext) (state : state) (maybe_msg :  (msg) option) = let sender = ctx_from ctx in 
-let without_actions = option_map_state_acts (fun (new_state : state -> (state *  (actionBody) list)) ->  (new_state, ([]: (actionBody) list))) in 
-if gtbTez (ctx_amount ctx) 0tez then (None: ((state *  (actionBody) list)) option) else match maybe_msg with 
+let test_receive (chain : chain) (ctx : (adress * (address * int))) (state : state) (maybe_msg :  (msg) option) = let chain_ = chain in 
+let sender = Tezos.sender in 
+let without_actions = option_map_state_acts (fun (new_state : state -> ( (actionBody) list * state)) ->  (([]: (actionBody) list), new_state)) in 
+match maybe_msg with 
 Some (m) -> (match m with 
-Transfer (to, amount) -> (without_actions (try_Transfer sender to amount state))
- | Transfer_from (from, to, amount) -> (without_actions (try_Transfer_from sender from to amount state))
- | Approve (delegate, amount) -> (without_actions (try_Approve sender delegate amount state)))
- | None  -> (None: ((state *  (actionBody) list)) option)
-
-let eip20token (chain : chain) (ctx : contractCallContext) (state : state) (maybe_msg :  (msg) option) = match receive ctx state maybe_msg with 
-Some (x) -> (Some ( (x.1, x.0)))
+Transfer (to, amount) -> (without_actions (test_try_transfer sender to amount state))
+ | Transfer_from (from, to, amount) -> (without_actions (test_try_transfer_from sender from to amount state))
+ | Approve (a, t) -> (None: (( (actionBody) list * state)) option))
  | None  -> (None: (( (actionBody) list * state)) option)
 
 let init (a : unit) : state = 
+
 let inner (setup : setup) : (state) option = 
-Some (({total_supply = setup.init_amount; balances = (Map.add  setup.owner setup.init_amount Map.empty); allowances = Map.empty}: state)) in
+Some (({total_supply = setup.init_amount; balances = Map.empty; allowances = Map.empty}: state)) in
 let ctx = (Tezos.now,
-   (Tezos.source,
+   (Tezos.sender,
    (Tezos.amount,
     Tezos.balance))) in
 match (inner ctx) with
@@ -133,12 +118,15 @@ type return = (operation) list * (storage option)
 type parameter_wrapper =
   Init of init_args_ty
 | Call of msg option
+
 let wrapper (param, st : parameter_wrapper * (state) option) : return =
   match param with  
     Init init_args -> (([]: operation list), Some (init init_args))
   | Call p -> (
     match st with
-      Some st -> (match (eip20token st p) with   
+      Some st -> (match (eip20token dummy_chain (Tezos.sender,
+   (Tezos.self_address,
+    Tezos.amount))) st p) with   
                     Some v -> (v.0, Some v.1)
                   | None -> (failwith ("") : return))
     | None -> (failwith ("cannot call this endpoint before Init has been called"): return))

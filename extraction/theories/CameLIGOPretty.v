@@ -131,6 +131,8 @@ Section print_term.
 
   Definition print_ctor (prefix : string) (TT : env string) (ctor : ident × list box_type) :=
     let (nm,tys) := ctor in
+    (* cameligo constructors must start with a capital letter *)
+    let nm := capitalize nm in
     match tys with
     | [] => prefix ++ nm
     | _ => prefix ++ nm ++ " of "
@@ -193,7 +195,6 @@ Section print_term.
       (n :: ns, b)
   | _ => ([], t)
   end.
-
 
   (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : term) : term :=
@@ -309,7 +310,6 @@ Section print_term.
       else go t1 hda
     | _ => fun _ => []
     end.
- 
 
   Fixpoint in_list {A} (eq_dec : forall x y : A, {x = y} + {x <> y})
            (l : list A) (a : A) : bool :=
@@ -496,11 +496,13 @@ End on_every.
           print_transfer apps
         else if (nm =? "_") then 
           fresh_id_from ctx 10 "a"
-        else let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+        else 
           (* inductive constructors of 1 arg are treated as records *)
+          let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in
           match lookup_ind_decl mind i with
           | Some oib =>
             if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) then
+              (* TODO: maybe need to capitalize projs here, to ensure consistency with get_constr_name *)
               let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
               let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
                                                         |> concat "; " in 
@@ -518,7 +520,7 @@ End on_every.
     from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l => fun bt =>
     let nm := get_constr_name ind l in
-    let nm_tt := (from_option (look TT nm) ((capitalize prefix) ++ nm)) in
+    let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ nm) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
     if nm_tt =? "[]" then
       "([]:" ++ print_box_type prefix TT (bt) ++ ")" 
@@ -526,7 +528,7 @@ End on_every.
       "(None:" ++ print_box_type prefix TT (bt) ++ ")" 
     else if nm_tt =? "Map.empty" then
       "(Map.empty: " ++ print_box_type prefix TT (bt) ++ ")" 
-    else nm_tt 
+    else capitalize nm_tt 
   | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
     if eq_kername mind <%% bool %%> then
@@ -581,7 +583,7 @@ End on_every.
       ) brs trs in
       let brs_ := combine brs oib.(ExAst.ind_ctors) in
       let brs_printed : string := print_list (fun '(b, (na, _)) =>
-                            print_pat prefix TT na b) (nl ++ " | ") brs_ in
+                            print_pat prefix TT (capitalize na) b) (nl ++ " | ") brs_ in
        parens top
               ("match " 
                         ++ print_term prefix FT TT ctx true false t ta
@@ -610,7 +612,7 @@ End on_every.
         let targs := combine args (map (print_box_type prefix TT) tys) in
         targs 
           |> map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty) )
-          |> concat "" in  
+          |> concat " " in  
       let fix_name := string_of_name ctx fix_decl.(dname) in
       let body := fix_decl.(dbody) in
       let '(args, (lam_body; body_annot)) := Edecompose_lam_annot body fixa in
@@ -621,7 +623,7 @@ End on_every.
           "fun " ++ sargs_typed ++ " -> "
                  ++ print_uncurried fix_name sargs in
       let FT' := fix_name :: FT in
-
+        
       let print_def_annot (ctx : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
         fun btt =>
         let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
@@ -629,10 +631,12 @@ End on_every.
         let (tys,ret_ty) := decompose_arr bt  in
         let '(args,(lam_body; body_annot)) := Edecompose_lam_annot (fdef.(dbody)) btt in
         let ctx := rev (map vass args) in
-        let sargs := print_args_curried prefix TT ctx bt args in
+        let sargs := map (string_of_name ctx) args in
+        let tys_printed := map (print_box_type prefix TT) tys in
+        let sargs_uncurried := parens false (concat ", " sargs ++ " : " ++ concat " * " tys_printed) in
         let ret_ty_printed := print_box_type prefix TT ret_ty in
-        string_of_name ctx fdef.(dname)
-            ++ " " ++ sargs  ++ " : " ++ ret_ty_printed ++ " = "
+            string_of_name ctx fdef.(dname) ++ " " ++ sargs_uncurried  ++ 
+            " : " ++ ret_ty_printed ++ " = "
             ++ nl
             ++ lam_body_annot_cont (fun body body_annot => print_term prefix FT' TT (ctx ++ ctx' ++ ctx)%list true false body body_annot) fdef.(dbody) btt
       in

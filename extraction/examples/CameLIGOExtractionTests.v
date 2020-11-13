@@ -295,7 +295,7 @@ Section CrowdfundingExtraction.
     ; ("mnil", "Map.empty")
     ; ("tt", "()") ].
   
-  Time MetaCoq Run
+  (* Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
     tmDefinition CF_MODULE.(lmd_module_name) t
   ).
@@ -304,7 +304,7 @@ Section CrowdfundingExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_crowdfunding.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End CrowdfundingExtraction.
 
@@ -550,7 +550,7 @@ Section TestExtractionPlayground.
       lmd_prelude := CameLIGOPrelude;
   
       (* initial storage *)
-      lmd_init := test_init ;
+      lmd_init := test_init;
   
       lmd_init_prelude := "";
   
@@ -567,7 +567,7 @@ Section TestExtractionPlayground.
                         ++ CameLIGOPretty.printMain |}.
 
   
-  (* Time MetaCoq Run
+  Time MetaCoq Run
   (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token playground_module ;;
     tmDefinition playground_module.(lmd_module_name) t
   ).
@@ -576,6 +576,6 @@ Section TestExtractionPlayground.
 
   Definition printed := Eval vm_compute in playground_mod.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
 
 End TestExtractionPlayground.
