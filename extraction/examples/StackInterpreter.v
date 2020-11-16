@@ -316,7 +316,7 @@ Time MetaCoq Run
 Print liquidity_interp.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-(* Redirect "./extraction/examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp. *)
+(* Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp. *)
 *)
 
 (* ------- CameLIGO extraction -------- *)
@@ -402,4 +402,4 @@ Definition LIGO_INTERP_MODULE : CameLIGOMod params SimpleCallCtx unit storage ac
 
   Definition printed := Eval vm_compute in cameligo_interp.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg printed).
+  Redirect "examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg printed).

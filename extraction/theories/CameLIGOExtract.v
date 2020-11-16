@@ -13,6 +13,7 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
 From MetaCoq.Template Require Pretty.
 
 From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Utils Require Import RecordSet RecordUpdate StringExtra.
 From ConCert.Execution Require Import Blockchain Serializable.
 
 From ConCert.Extraction Require Import CameLIGOPretty
@@ -142,7 +143,7 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
       <%% prod %%>
     ; <%% @Chain %%>
     ; <%% @ActionBody %%>
-    ; <%% @RecordUpdate.RecordSet.set %%>
+    ; <%% @RecordSet.set %%>
     ; <%% @ChainBase %%>
     ; <%% axiomatized_ChainBase %%>
     ; <%% Amount %%>

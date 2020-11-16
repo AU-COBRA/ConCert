@@ -52,12 +52,18 @@ Definition to_kername (t : Ast.term) : option kername :=
   end.
 
 Notation "<%% t %%>" :=
-  (ltac:(let p y :=
-             let e := eval cbv in (to_kername y) in
-             match e with
-             | @Some _ ?kn => exact kn
-             | _ => fail "not a name"
-             end in quote_term t p)).
+  (let x := t in
+   ltac:(
+     match goal with
+     | [x := ?qt : _ |- _] =>
+       let p y :=
+         let e := eval cbv in (to_kername y) in
+         match e with
+         | @Some _ ?kn => exact kn
+         | _ => fail "not a name"
+         end in
+       quote_term qt p
+     end)).
 
 Definition result_of_typing_result
            {A}

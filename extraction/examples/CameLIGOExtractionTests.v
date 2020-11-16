@@ -7,14 +7,14 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
-From ConCert.Extraction Require Import Common Optimize PreludeExt.
+From ConCert.Extraction Require Import Common Optimize.
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding.
+From ConCert.Embedding.Extraction Require Import CrowdfundingData Crowdfunding PreludeExt.
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
 
@@ -148,12 +148,12 @@ Section CounterExtraction.
   Print cameLIGO_counter.
   Definition printed := Eval vm_compute in cameLIGO_counter.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/CounterCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "examples/cameligo-extract/CounterCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End CounterExtraction.
 
 Module Crowdfunding.
-  From ConCert.Extraction.Examples Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
+  From ConCert.Embedding.Extraction Require Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt.
   (* Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt. *)
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
   Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
@@ -269,7 +269,7 @@ Section CrowdfundingExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_crowdfunding.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+  Redirect "examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
 
 End CrowdfundingExtraction.
 
@@ -277,7 +277,7 @@ From ConCert.Execution.Examples Require EIP20Token.
 
 Section EIP20TokenExtraction.
   Import EIP20Token.
-  From RecordUpdate Require Import RecordUpdate.
+  From ConCert.Utils Require Import RecordUpdate.
   Import RecordSetNotations.
   Require Import Containers.
   From stdpp Require gmap.
@@ -387,7 +387,7 @@ Section EIP20TokenExtraction.
 
   Definition printed := Eval vm_compute in cameLIGO_eip20token.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End EIP20TokenExtraction.
 
@@ -395,7 +395,7 @@ End EIP20TokenExtraction.
 
 Section TestExtractionPlayground.
   Import EIP20Token.
-  From RecordUpdate Require Import RecordUpdate.
+  From ConCert.Utils Require Import RecordUpdate.
   Import RecordSetNotations.
   Require Import Containers.
   From stdpp Require gmap.
@@ -497,6 +497,6 @@ Section TestExtractionPlayground.
 
   Definition printed := Eval vm_compute in playground_mod.
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "./extraction/examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
 
 End TestExtractionPlayground.
