@@ -19,7 +19,7 @@ TODO:REWRITE
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
 
 From Coq Require Import List Program String Ascii.
-From ConCert.Extraction Require Import Utils StringExtra ExAst Common.
+From ConCert.Extraction Require Import Utils ExAst Common.
 From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import TypeAnnotations.
 From ConCert.Extraction Require Import ResultMonad.
@@ -27,6 +27,7 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Embedding Require Import MyEnv Ast.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Erasure Require Import EAst EAstUtils.
+From ConCert.Utils Require Import StringExtra.
 
 Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
