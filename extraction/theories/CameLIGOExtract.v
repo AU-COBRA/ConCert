@@ -53,7 +53,7 @@ Definition cameligo_args :=
   {| optimize_prop_discr := true;
      transforms := [Optimize.dearg_transform
                       true
-                      false (* cannot have aprtially applied ctors *)
+                      false (* cannot have partially applied ctors *)
                       true
                       true
                       true] |}.
