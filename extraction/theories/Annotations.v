@@ -193,17 +193,6 @@ Definition annot_transform_type (t : Transform) :=
 
 (* More utility functions *)
 
-Section map_with_bigprod.
-  Context {X : Type}.
-  Context {T : X -> Type}.
-  Context {Y : Type}.
-  Context (f : forall x, T x -> Y).
-  Set Equations Transparent.
-  Equations map_with_bigprod (xs : list X) (p : bigprod T xs) : list Y :=
-  map_with_bigprod [] _ => [];
-  map_with_bigprod (x :: xs) (Tx, bp) := f x Tx :: map_with_bigprod xs bp.
-End map_with_bigprod.
-
 Section on_every.
   Import ExAst.
   Set Equations Transparent.
@@ -215,10 +204,6 @@ Section on_every.
   Equations on_every_global_decl (decl : Ex.global_decl) (a : global_decl_annots decl) : unit :=
     on_every_global_decl (Ex.ConstantDecl cst) a => on_every_constant cst a;
     on_every_global_decl _ _ => tt.
-
-  Equations on_env (Σ : global_env) (Σa : env_annots Σ) : list unit :=
-    on_env ((kn, decl) :: Σ) (a, Σa) => on_every_global_decl decl a :: on_env Σ Σa;
-    on_env [] _ => [].
 End on_every.
 
 Fixpoint Edecompose_lam_annot (t : term) : (annots t) -> (list name) × (∑t, annots t) :=

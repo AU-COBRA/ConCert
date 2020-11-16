@@ -359,23 +359,6 @@ Section print_term.
     | _ => "MalformedTransfer(" ++ concat "," args ++ ")"
     end.
 
-Section on_every.
-  Import ExAst.
-  Set Equations Transparent.
-  Definition on_every_body (t : term) : annots box_type t -> unit := fun _ => tt.
-  Equations on_every_constant (cst : Ex.constant_body) (a : constant_body_annots box_type cst) : unit :=
-    on_every_constant {| cst_body := Some body |} a => on_every_body body a;
-    on_every_constant _ _ => tt.
-
-  Equations on_every_global_decl (decl : Ex.global_decl) (a : global_decl_annots box_type decl) : unit :=
-    on_every_global_decl (Ex.ConstantDecl cst) a => on_every_constant cst a;
-    on_every_global_decl _ _ => tt.
-
-  Equations on_env (Σ : global_env) (Σa : env_annots box_type Σ) : list unit :=
-    on_env ((kn, decl) :: Σ) (a, Σa) => on_every_global_decl decl a :: on_env Σ Σa;
-    on_env [] _ => [].
-End on_every.
-
   (** ** The pretty-printer *)
 
   (** [prefix] - a sting pre-pended to the constants' and constructors' names to avoid clashes
@@ -579,7 +562,7 @@ End on_every.
         | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
         end in
       
-      let brs := map_with_bigprod (fun br tra => 
+      let brs := map_with_bigprod _ (fun br tra => 
         print_branch ctx br.1 [] br.2 tra
       ) brs trs in
       let brs_ := combine brs oib.(ExAst.ind_ctors) in
