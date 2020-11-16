@@ -36,6 +36,8 @@ theories/Transform.v
 theories/TypeAnnotations.v
 theories/Utils.v
 theories/WcbvEvalAux.v
+theories/CameLIGOExtract.v
+theories/CameLIGOPretty.v
 
 -Q examples ConCert.Extraction.Examples
 examples/Ack.v
@@ -52,3 +54,4 @@ examples/MidlangExtractTests.v
 examples/RustExtractTests.v
 examples/StackInterpreter.v
 examples/TypeAnnotationTests.v
+examples/CameLIGOExtractionTests.v
