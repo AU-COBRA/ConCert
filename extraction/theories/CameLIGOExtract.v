@@ -53,7 +53,7 @@ Definition cameligo_args :=
   {| optimize_prop_discr := true;
      transforms := [Optimize.dearg_transform
                       true
-                      false (* cannot have aprtially applied ctors *)
+                      false (* cannot have partially applied ctors *)
                       true
                       true
                       true] |}.
@@ -97,7 +97,6 @@ Definition printCameLIGODefs (prefix : string) (Σ : TemplateEnvironment.global_
   : string + string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
   match annot_extract_template_env_specalize Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
-  (* match extract_template_env_within_coq Σ seeds (fun k => List.existsb (eq_kername k) ignore) with *)
   | Ok (eΣ; annots) => 
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ annots) in

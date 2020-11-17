@@ -114,12 +114,6 @@ Section print_term.
   | TAny => "UnknownType"
   end.
 
-  Compute print_box_type "" []
-          (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1)).
-
-  Compute print_box_type "" []
-          (TApp (TApp (TApp (TApp (TInd (mkInd (MPfile [], "list") 0)) (TVar 0)) (TVar 1)) (TVar 2))(TVar 3)).
-
 
   Definition print_ctor (prefix : string) (TT : env string) (ctor : ident × list box_type) :=
     let (nm,tys) := ctor in
@@ -130,10 +124,6 @@ Section print_term.
     | _ => prefix ++ nm ++ " of "
                   ++ parens false <| concat " * " (map (print_box_type prefix TT) tys)
     end.
-
-  Compute print_ctor "" []
-          ("blah",[TInd (mkInd (MPfile [], "nat") 0);
-                  (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1))]).
 
   Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
   let (nm, ty) := proj in
