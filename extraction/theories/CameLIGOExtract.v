@@ -56,7 +56,10 @@ Definition cameligo_args :=
                       false (* cannot have partially applied ctors *)
                       true
                       true
-                      true] |}.
+                      true
+                      (* Expanding branches requires annotations for match expansion, which we currently don't have *)
+                      (* ExpandBranches.transform Expand all branches, i.e. no wildcard branches will be generated *)
+                    ] |}.
 
 Import PCUICAst PCUICTyping.
 Definition annot_extract_env_cameligo

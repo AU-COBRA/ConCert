@@ -528,13 +528,11 @@ Section print_term.
             let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
             let (ps, b) := print_branch (vass na' :: ctx) n params B a in
             (ps ++ [string_of_name ctx na'], b)%list
-          (* Should never happen: *)
-          (* | t => fun btt => (params , print_term prefix FT TT ctx false false t btt) *)
-          | t => fun btt => (params , "UNEXPECTED ERROR IN print_branch")
+          (* Assuming all case-branches have been expanded this should never happen: *)
+          | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
         end
         | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
         end in
-      
       let brs := map_with_bigprod _ (fun br tra => 
         print_branch ctx br.1 [] br.2 tra
       ) brs trs in
@@ -542,8 +540,7 @@ Section print_term.
       let brs_printed : string := print_list (fun '(b, (na, _)) =>
                             print_pat prefix TT (capitalize na) b) (nl ++ " | ") brs_ in
        parens top
-              ("match " 
-                        ++ print_term prefix FT TT ctx true false t ta
+              ("match " ++ print_term prefix FT TT ctx true false t ta
                         ++ " with " ++ nl
                         ++ brs_printed)
     | None =>
