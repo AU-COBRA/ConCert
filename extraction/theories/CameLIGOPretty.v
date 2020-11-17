@@ -134,10 +134,6 @@ Section print_term.
                   ++ parens false <| concat " * " (map (print_box_type prefix TT) tys)
     end.
 
-  Compute print_ctor "" []
-          ("blah",[TInd (mkInd (MPfile [], "nat") 0);
-                  (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1))]).
-
   Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
   let (nm, ty) := proj in
     prefix
