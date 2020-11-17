@@ -52,19 +52,10 @@ Section print_term.
   | _ => false
   end.
 
-  (** Not efficient, but fine for our case *)
-  Fixpoint tokenize_aux (buffer : string) (sep : ascii) (s : string) : list string :=
-  match s with
-  | EmptyString => if (buffer =? EmptyString)%string then []
-                  else [buffer]
-  | String c tl =>
-    if Ascii.eqb c sep
-    then buffer :: tokenize_aux EmptyString sep tl
-    else tokenize_aux (buffer ++ String c EmptyString) sep tl
-  end.
-
-  Definition tokenize := tokenize_aux EmptyString.
-
+  (* Use string_of_nat from StringExtra instead of MetaCoq's string_of_nat *)
+  Definition string_of_nat := StringExtra.string_of_nat.
+  Definition tokenize := str_split.
+  
   Eval lazy in (tokenize "." "Coq.ZArith.BinInt.Z.add").
 
 (** Takes a fully qualified name and returns the last part, e.g.
@@ -167,11 +158,11 @@ Section print_term.
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
       let projs_and_ctors_printed := projs_and_ctors |> map (fun '(p, ty) => print_proj (capitalize prefix) TT (p.1, ty)) in
-      "type " ++ params ++ uncapitalize ind_nm ++" = {" ++ nl
+      "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}" 
-    | _ => "type " ++ params ++ uncapitalize ind_nm ++" = "
-                   ++ nl
+    | _ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
+                   ++ nl ++ "  "
                    ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
     end.
 
@@ -312,14 +303,6 @@ Section print_term.
     | _ => fun _ => []
     end.
 
-  Fixpoint in_list {A} (eq_dec : forall x y : A, {x = y} + {x <> y})
-           (l : list A) (a : A) : bool :=
-    match l with
-    | [] => false
-    | hd :: tl => if eq_dec hd a then true
-                else in_list eq_dec tl a
-    end.
-
   (** Builds a context for the branch *)
   Definition get_ctx_from_branch (ctx : context) : nat -> term -> context :=
     let fix go (ctx : context) (arity: nat) (branch : term) :=
@@ -340,7 +323,7 @@ Section print_term.
     let fix_name := string_of_name ctx (fdef.(dname)) in
     let (args, _) := Edecompose_lam (fdef.(dbody)) in
     let ctx := rev (map vass args) in
-    let sargs := print_uncurried "" (map (fun x => string_of_name ctx x) args) in
+    let sargs := print_uncurried "" (map (string_of_name ctx) args) in
     string_of_name ctx fdef.(dname)
         ++ " " ++ sargs  ++ " = "
         ++ nl
@@ -424,7 +407,7 @@ Section print_term.
         match nth_error ctx i with
         | Some d =>
           let nm := (string_of_name ctx d.(decl_name)) in
-          if in_list String.string_dec FT nm
+          if List.in_dec String.string_dec nm FT
           then parens top (print_uncurried nm apps)
           else parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
         | None => "UnboundRel(" ++ string_of_nat i ++ ")"
@@ -751,7 +734,6 @@ Definition print_init (prefix : string)
   | None => fun _ => None
   end. 
 
-
 Definition print_cst (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (env : ExAst.global_env)
@@ -768,8 +750,6 @@ Definition print_cst (prefix : string)
     Some <| print_decl prefix TT env decl_name None id cst.(ExAst.cst_type).2 cst_body annot
   | None => fun _ => None
   end.
-
-
 
 (* Wrapper type to separate declarations into type declarations ("type ... = ...")
    and constant declarations ("let x = ...") *)
@@ -822,65 +802,58 @@ Local Open Scope string_scope.
 
 (** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)
 
-Definition int_ops :=
-       "[@inline] let addInt (i : int) (j : int) = i + j"
-    ++ nl
-    ++ "[@inline] let subInt (i : int) (j : int) = i - j"
-    ++ nl
-    ++ "[@inline] let multInt (i : int) (j : int) = i * j"
-    ++ nl
-    ++ "[@inline] let divInt (i : int) (j : int) = i / j"
-    ++ nl
-    ++ "[@inline] let leInt (i : int) (j : int) = i <= j"
-    ++ nl
-    ++ "[@inline] let ltInt (i : int) (j : int) = i < j"
-    ++ nl
-    ++ "[@inline] let eqInt (i : int) (j : int) = i = j".
+Definition int_ops := 
+  <$
+  "[@inline] let addInt (i : int) (j : int) = i + j" ;
+  "[@inline] let subInt (i : int) (j : int) = i - j" ;
+  "[@inline] let multInt (i : int) (j : int) = i * j" ;
+  "[@inline] let divInt (i : int) (j : int) = i / j" ;
+  "[@inline] let leInt (i : int) (j : int) = i <= j" ;
+  "[@inline] let ltInt (i : int) (j : int) = i < j" ;
+  "[@inline] let eqInt (i : int) (j : int) = i = j"
+  $>.
 
-Definition tez_ops :=
-       "[@inline] let addTez (n : tez) (m : tez) = n + m"
-    ++ nl
-    ++ "[@inline] let subTez (n : tez) (m : tez) = n - m"
-    ++ nl
-    ++ "[@inline] let leTez (a : tez ) (b : tez ) = a <= b"
-    ++ nl
-    ++ "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b"
-    ++ nl
-    ++ "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b"
-    ++ nl
-    ++ "[@inline] let eqTez (a : tez ) (b : tez ) = a = b".
-
+Definition tez_ops := 
+  <$
+  "[@inline] let addTez (n : tez) (m : tez) = n + m" ;
+  "[@inline] let subTez (n : tez) (m : tez) = n - m" ;
+  "[@inline] let leTez (a : tez ) (b : tez ) = a <= b" ;
+  "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b" ;
+  "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b" ;
+  "[@inline] let eqTez (a : tez ) (b : tez ) = a = b"
+  $>.
 Definition nat_ops :=
-       "[@inline] let modN (a : nat ) (b : nat ) = a mod b"
-    ++ nl
-    ++ "[@inline] let divN (a : nat ) (b : nat ) = a / b"
-    ++ nl
-    ++ "[@inline] let eqN (a : nat ) (b : nat ) = a = b"
-    ++ nl
-    ++ "[@inline] let lebN (a : nat ) (b : nat ) = a <= b"
-    ++ nl
-    ++ "[@inline] let ltbN (a : nat ) (b : nat ) = a < b".
+  <$
+  "[@inline] let modN (a : nat ) (b : nat ) = a mod b" ;
+  "[@inline] let divN (a : nat ) (b : nat ) = a / b" ;
+  "[@inline] let eqN (a : nat ) (b : nat ) = a = b" ;
+  "[@inline] let lebN (a : nat ) (b : nat ) = a <= b" ;
+  "[@inline] let ltbN (a : nat ) (b : nat ) = a < b"
+  $>.
 
 Definition bool_ops :=
-  "[@inline] let andb (a : bool ) (b : bool ) = a && b" ++ nl ++
-  "[@inline] let orb (a : bool ) (b : bool ) = a || b".
+  <$
+  "[@inline] let andb (a : bool ) (b : bool ) = a && b" ;
+  "[@inline] let orb (a : bool ) (b : bool ) = a || b"
+  $>.
 
 Definition time_ops :=
-       "[@inline] let eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2"
-    ++ nl
-    ++ "[@inline] let leb_time (a1 : timestamp) (a2 : timestamp) = a1 <= a2"
-    ++ nl
-    ++ "[@inline] let ltb_time (a1 : timestamp) (a2 : timestamp) = a1 < a2".
+  <$
+  "[@inline] let eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2" ;
+  "[@inline] let leb_time (a1 : timestamp) (a2 : timestamp) = a1 <= a2" ;
+  "[@inline] let ltb_time (a1 : timestamp) (a2 : timestamp) = a1 < a2"
+  $>.
 
 Definition address_ops :=
   "[@inline] let eq_addr (a1 : address) (a2 : address) = a1 = a2".
 
-
 Definition get_contract_def :=
-     "let get_contract_unit (a : address) : unit contract  =" ++ nl
-  ++ "  match (Tezos.get_contract_opt a : unit contract option) with" ++ nl
-  ++ "    Some c -> c" ++ nl
-  ++ "  | None -> (failwith (""Contract not found."") : unit contract)". 
+  <$
+  "let get_contract_unit (a : address) : unit contract  =" ;
+  "  match (Tezos.get_contract_opt a : unit contract option) with" ;
+  "    Some c -> c" ;
+  "  | None -> (failwith (""Contract not found."") : unit contract)"
+  $>.
 
 
 Definition CameLIGOPrelude :=
@@ -895,21 +868,22 @@ Definition CameLIGO_contractCallContext :=
     Tezos.amount)))".
 
 Definition printWrapper (contract parameter_name storage_name ctx : string): string :=
-     "type return = (operation) list * (storage option)" ++ nl
-  ++ "type parameter_wrapper =" ++ nl
-  ++ "  Init of init_args_ty" ++ nl
-  ++ "| Call of " ++ parameter_name ++ " option" ++ nl
-  ++ nl
-  ++ "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ++ nl
-  ++ "  match param with  " ++ nl
-  ++ "    Init init_args -> (([]: operation list), Some (init init_args))" ++ nl
-  ++ "  | Call p -> (" ++ nl
-  ++ "    match st with" ++ nl
-  ++ "      Some st -> (match (" ++ contract ++ " dummy_chain " ++ ctx ++ " st p) with   " ++ nl
-  ++ "                    Some v -> (v.0, Some v.1)" ++ nl
-  ++ "                  | None -> (failwith ("""") : return))" ++ nl
-  ++ "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))".
-
+  <$
+  "type return = (operation) list * (storage option)" ;
+  "type parameter_wrapper =" ;
+  "  Init of init_args_ty" ;
+  "| Call of " ++ parameter_name ++ " option" ;
+  "";
+  "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ;
+  "  match param with  " ;
+  "    Init init_args -> (([]: operation list), Some (init init_args))" ;
+  "  | Call p -> (" ;
+  "    match st with" ;
+  "      Some st -> (match (" ++ contract ++ " dummy_chain " ++ ctx ++ " st p) with   " ;
+  "                    Some v -> (v.0, Some v.1)" ;
+  "                  | None -> (failwith ("""") : return))" ;
+  "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))"
+  $>.
 
 Definition printMain :=
   "let main (action, st : parameter_wrapper * storage option) : return = wrapper (action, st)".
