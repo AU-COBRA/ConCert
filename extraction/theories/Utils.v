@@ -201,7 +201,6 @@ Section bigprod.
   Section map_with_bigprod.
     Context {Y : Type}.
     Context (f : forall x, T x -> Y).
-    Set Equations Transparent.
     Equations map_with_bigprod (xs : list X) (p : bigprod xs) : list Y :=
     map_with_bigprod [] _ => [];
     map_with_bigprod (x :: xs) (Tx, bp) := f x Tx :: map_with_bigprod xs bp.
