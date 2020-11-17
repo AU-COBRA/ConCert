@@ -193,19 +193,6 @@ Definition annot_transform_type (t : Transform) :=
 
 (* More utility functions *)
 
-Section on_every.
-  Import ExAst.
-  Set Equations Transparent.
-  Definition on_every_body (t : term) : annots t -> unit := fun _ => tt.
-  Equations on_every_constant (cst : Ex.constant_body) (a : constant_body_annots cst) : unit :=
-    on_every_constant {| cst_body := Some body |} a => on_every_body body a;
-    on_every_constant _ _ => tt.
-
-  Equations on_every_global_decl (decl : Ex.global_decl) (a : global_decl_annots decl) : unit :=
-    on_every_global_decl (Ex.ConstantDecl cst) a => on_every_constant cst a;
-    on_every_global_decl _ _ => tt.
-End on_every.
-
 Fixpoint Edecompose_lam_annot (t : term) : (annots t) -> (list name) × (∑t, annots t) :=
   match t return annots t -> (list name) × (∑t, annots t) with
   | tLambda n b => fun '(bt, a) =>
