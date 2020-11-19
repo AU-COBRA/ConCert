@@ -62,7 +62,7 @@ Module Interpreter.
     end.
 
   Open Scope Z.
-  Definition continue (i : Z) := (i =? 0)%Z.
+  Definition continue_ (i : Z) := (i =? 0)%Z.
   Definition one := 1%Z.
   Definition bool_to_cond (b : bool) : Z :=
     if b then 0 else one.
@@ -76,10 +76,10 @@ Module Interpreter.
     | [] => Some s
     | hd :: inst0 =>
         match hd with
-        | IPushZ i => if continue cond then
+        | IPushZ i => if continue_ cond then
                        interp ext inst0 (ZVal i :: s) cond
                      else interp ext inst0 s cond
-        | IPushB b => if continue cond then
+        | IPushB b => if continue_ cond then
                        interp ext inst0 (BVal b :: s) cond
                      else interp ext inst0 s cond
         | IIf => if (cond =? 0) then
@@ -90,14 +90,14 @@ Module Interpreter.
         | IElse => interp ext inst0 s (flip cond)
         | IEndIf => interp ext inst0 s (reset_decrement cond)
         | IObs p =>
-          if continue cond then
+          if continue_ cond then
             match lookup p ext with
             | Some v => interp ext inst0 (v :: s) cond
             | None => None
             end
           else interp ext inst0 s cond
         | IOp op =>
-          if continue cond then
+          if continue_ cond then
             match op with
             | Add => match s with
                     | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i+j) :: s0)%Z cond
@@ -317,3 +317,89 @@ Print liquidity_interp.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp.
+
+
+(* ------- CameLIGO extraction -------- *)
+From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
+
+Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):= 
+  (* prevent optimizations from deleting these arguments from receive_'s type signature *)
+  let c_ := c in
+  let ctx_ := ctx in
+  match msg with 
+  | Some msg => receive msg s
+  | None => None
+  end.  
+
+Definition TT_remap_ligo : list (kername * string) :=
+  [   (* remapping types *)
+       remap <%% Z %%> "int"
+     ; remap <%% bool %%> "bool"
+     ; remap <%% unit %%> "unit"
+     ; remap <%% option %%> "option"
+     ; remap <%% Amount %%> "tez"
+     ; remap <%% address_coq %%> "address"
+     ; remap <%% time_coq %%> "timestamp"
+     ; remap <%% list %%> "list"
+     ; remap <%% string %%> "string"
+     ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
+     ; remap <%% action %%> "operation"
+     (* remapping operations *)
+     ; remap <%% Z.add %%> "addInt"
+     ; remap <%% Z.mul %%> "multInt"
+     ; remap <%% Z.sub %%> "subInt"
+     ; remap <%% Z.eqb %%> "eqInt"
+     ; remap <%% Z.leb %%> "leInt"
+     ; remap <%% Z.ltb %%> "ltInt"
+     ; remap <%% @lookup %%> "Map.find_opt"
+     ; remap <%% @fst %%> "fst"
+     ; remap <%% @snd %%> "snd"
+     ; remap <%% andb %%> "andb"
+     ; remap <%% one %%> "1"].
+
+Definition dummy_chain := 
+      "type chain = {
+        chain_height     : nat;
+        current_slot     : nat;
+        finalized_height : nat;
+        account_balance  : address -> nat
+      }"
+  ++ nl
+  ++ "let dummy_chain : chain = {
+        chain_height     = 0n;
+        current_slot     = 0n;
+        finalized_height = 0n;
+        account_balance  = fun (a : address) -> 0n
+      }".
+
+Definition LIGO_INTERP_MODULE : CameLIGOMod params SimpleCallCtx unit storage action :=
+  {| (* a name for the definition with the extracted code *)
+     lmd_module_name := "cameligo_interp" ;
+
+     (* definitions of operations on ints, bools, pairs, ect. *)
+     lmd_prelude := CameLIGOPrelude ++ nl
+                    ++ dummy_chain;
+
+     lmd_init := init ;
+
+     lmd_init_prelude := "";
+     lmd_receive_prelude := "";
+
+     lmd_receive := receive_ ;
+
+     (* code for the entry point *)
+     lmd_entry_point :=
+            CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list" CameLIGO_call_ctx
+                        ++ nl
+                        ++ CameLIGOPretty.printMain |}.
+
+  Time MetaCoq Run
+  (t <- CameLIGO_extraction PREFIX TT_remap_ligo TT_rename LIGO_INTERP_MODULE ;;
+    tmDefinition LIGO_INTERP_MODULE.(lmd_module_name) t
+  ).
+
+  Print cameligo_interp.
+
+  Definition printed := Eval vm_compute in cameligo_interp.
+    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  Redirect "examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg printed).

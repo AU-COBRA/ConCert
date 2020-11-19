@@ -11,6 +11,8 @@
 
 -Q theories ConCert.Extraction
 theories/Annotations.v
+theories/CameLIGOExtract.v
+theories/CameLIGOPretty.v
 theories/CertifyingEta.v
 theories/ClosedAux.v
 theories/Common.v
@@ -39,6 +41,7 @@ theories/WcbvEvalAux.v
 
 -Q examples ConCert.Extraction.Examples
 examples/Ack.v
+examples/CameLIGOExtractionTests.v
 examples/CounterCertifiedExtraction.v
 examples/CounterDepCertifiedExtraction.v
 examples/CounterRefinementTypes.v

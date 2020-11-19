@@ -191,6 +191,34 @@ Definition annot_transform_type (t : Transform) :=
     | Err _ => unit
     end.
 
+(* More utility functions *)
+
+Fixpoint Edecompose_lam_annot (t : term) : (annots t) -> (list name) × (∑t, annots t) :=
+  match t return annots t -> (list name) × (∑t, annots t) with
+  | tLambda n b => fun '(bt, a) =>
+      let '(ns, (b; a)) := Edecompose_lam_annot b a  in
+      (n :: ns, (b; a))
+  | t => fun bt => ([], (t; bt))
+  end.
+
+Fixpoint Edecompose_app_annot (t : term) : (annots t) -> (∑t, annots t) × (list (∑t, annots t))  :=
+  match t return annots t -> (∑t, annots t) × list (∑t, annots t) with
+  | tApp f a => fun '(bt, (fa, arga)) => 
+      let '(ba, l) := Edecompose_app_annot f fa in
+      (ba, (a; arga) :: l)
+  | t => fun bt => ((t; bt), [])
+  end.
+
+Section lam_body_annot_cont.
+  Context {B : Type}.
+  Context (f : forall t, annots t -> B).
+  Fixpoint lam_body_annot_cont (t : term) (a : annots t) : B :=
+    match t return annots t -> B with
+    | tLambda na b => fun '(_, ba) => lam_body_annot_cont b ba
+    | _ => fun _ => f t a
+    end a.
+End lam_body_annot_cont.
+
 End annots.
 
 Arguments annots : clear implicits.
