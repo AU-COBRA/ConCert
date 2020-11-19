@@ -23,7 +23,7 @@ From Coq Require Import ZArith.
 
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
 From MetaCoq.Template Require Import Kernames All.
-From MetaCoq.Erasure Require Import Loader SafeTemplateErasure EAst EAstUtils ELiftSubst ETyping.
+From MetaCoq.Erasure Require Import Loader EAst EAstUtils ELiftSubst ETyping.
 
 Import StringExtra.
 Import String.
@@ -35,7 +35,7 @@ Module T2P := MetaCoq.PCUIC.TemplateToPCUIC.
 Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
 Module TUtil := MetaCoq.Template.AstUtils.
-Module EF := MetaCoq.Erasure.SafeErasureFunction.
+Module EF := MetaCoq.Erasure.ErasureFunction.
 Module Ex := ConCert.Extraction.ExAst.
 
 Import PrettyPrinterMonad.

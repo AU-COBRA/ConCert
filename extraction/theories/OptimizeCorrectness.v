@@ -2784,11 +2784,11 @@ Proof.
         apply filter_length.
 Qed.
 
-Lemma is_propositional_trans_env_dearg_env Σ ind :
-  is_propositional (trans_env (dearg_env Σ)) ind =
-  is_propositional (trans_env Σ) ind.
+Lemma is_propositional_ind_trans_env_dearg_env Σ ind :
+  is_propositional_ind (trans_env (dearg_env Σ)) ind =
+  is_propositional_ind (trans_env Σ) ind.
 Proof.
-  unfold is_propositional.
+  unfold is_propositional_ind.
   rewrite !lookup_env_trans_env, lookup_env_dearg_env.
   destruct lookup_env; cbn in *; [|reflexivity].
   destruct g; cbn in *; auto.
@@ -2933,7 +2933,7 @@ Proof.
         rewrite dearg_mkApps in *.
         cbn in *.
         now rewrite dearg_single_masked in * by (now rewrite map_length).
-      * rewrite is_propositional_trans_env_dearg_env; eauto.
+      * rewrite is_propositional_ind_trans_env_dearg_env; eauto.
       * destruct (get_mib_masks _) eqn:mm; cycle 1.
         { cbn in *.
           unfold get_ctor_mask.
@@ -3038,7 +3038,7 @@ Proof.
       * eauto.
       * unshelve eapply (IH _ tBox); eauto.
         lia.
-      * rewrite is_propositional_trans_env_dearg_env; eauto.
+      * rewrite is_propositional_ind_trans_env_dearg_env; eauto.
       * destruct (get_mib_masks _); cbn in *; [easy|].
         now rewrite dearg_lambdas_nil, Nat.sub_0_r.
       * replace (repeat tBox _) with (masked branch_mask (repeat tBox n)); cycle 1.
@@ -3164,7 +3164,7 @@ Proof.
         rewrite dearg_mkApps in *.
         cbn in *.
         now rewrite dearg_single_masked in * by (now rewrite map_length).
-      * rewrite is_propositional_trans_env_dearg_env; eauto.
+      * rewrite is_propositional_ind_trans_env_dearg_env; eauto.
       * clear clos_constr valid_constr.
         unfold get_ctor_mask in *.
         revert ev2 deriv_len.
@@ -3211,7 +3211,7 @@ Proof.
       * eauto.
       * unshelve eapply (IH _ _ _ _ _ ev _); auto.
         lia.
-      * rewrite is_propositional_trans_env_dearg_env; eauto.
+      * rewrite is_propositional_ind_trans_env_dearg_env; eauto.
     + congruence.
 
   - facts.
@@ -3256,11 +3256,11 @@ Proof.
   apply IH.
 Qed.
 
-Lemma is_propositional_trans_env_debox_env_types Σ ind :
-  is_propositional (trans_env (debox_env_types Σ)) ind =
-  is_propositional (trans_env Σ) ind.
+Lemma is_propositional_ind_trans_env_debox_env_types Σ ind :
+  is_propositional_ind (trans_env (debox_env_types Σ)) ind =
+  is_propositional_ind (trans_env Σ) ind.
 Proof.
-  unfold is_propositional.
+  unfold is_propositional_ind.
   rewrite !lookup_env_trans_env, lookup_env_debox_env_types.
   destruct lookup_env; cbn in *; [|reflexivity].
   destruct g; cbn in *; auto.
@@ -3274,9 +3274,9 @@ Lemma eval_debox_env_types {wfl:WcbvFlags} Σ t v :
 Proof.
   induction 1; try solve [econstructor; eauto].
   - eapply eval_iota; eauto.
-    now rewrite is_propositional_trans_env_debox_env_types.
+    now rewrite is_propositional_ind_trans_env_debox_env_types.
   - eapply eval_iota_sing; eauto.
-    now rewrite is_propositional_trans_env_debox_env_types.
+    now rewrite is_propositional_ind_trans_env_debox_env_types.
   - eapply eval_delta; eauto.
     unfold declared_constant in *.
     rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
@@ -3284,9 +3284,9 @@ Proof.
     destruct g; cbn in *; auto.
     congruence.
   - eapply eval_proj; eauto.
-    now rewrite is_propositional_trans_env_debox_env_types.
+    now rewrite is_propositional_ind_trans_env_debox_env_types.
   - eapply eval_proj_prop; eauto.
-    now rewrite is_propositional_trans_env_debox_env_types.
+    now rewrite is_propositional_ind_trans_env_debox_env_types.
 Qed.
 
 Lemma eval_const_construct_expanded {wfl:WcbvFlags} Σ kn ind c im cm :

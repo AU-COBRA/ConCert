@@ -21,10 +21,6 @@ then
   files=`cat ../template-coq-files.txt`
   echo "Removing files linked in template-coq:" $files
   rm -f $files
-
-  echo "Fixing extraction bugs"
-  sed -i "s/Coq__2/Coq__1/g" common1.mli
-  sed -i "s/Coq__3/Coq__1/g" common1.mli
 else
   echo "Extraction up to date"
 fi

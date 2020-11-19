@@ -40,7 +40,7 @@ ETyping
 EPretty
 Extract
 EOptimizePropDiscr
-SafeErasureFunction
+ErasureFunction
 Typing0
 SafeTemplateChecker
 

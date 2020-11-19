@@ -7,7 +7,6 @@ From Coq Require Import Ascii.
 From Coq Require Import Bool.
 From Coq Require Import List.
 From Coq Require Import String.
-From MetaCoq.Erasure Require Import SafeTemplateErasure.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import TemplateToPCUIC.
@@ -23,6 +22,8 @@ Import String.
 Import ListNotations.
 Import MonadNotation.
 Set Equations Transparent.
+
+Local Existing Instance extraction_checker_flags.
 
 Module flag_of_type_tests.
 Record type_flag_squashed :=

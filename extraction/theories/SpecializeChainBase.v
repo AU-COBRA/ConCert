@@ -21,11 +21,11 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From Coq Require Import List.
 From Coq Require Import String.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.Template Require Import BasicAst.
-From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
-From MetaCoq.PCUIC Require Import PCUICAst.
 
 Import MonadNotation.
 Local Open Scope string.
@@ -148,7 +148,7 @@ Section ChainBaseSpecialization.
       map_error (fun s => "While specializing body in " ++ string_of_kername name ++ ": " ++ s)
                 (specialize_term specialized (replace :: Γ) body)
 
-    | true, _ => Err ("Expected lambda in " ++ string_of_kername name ++ ", got" ++ nl ++ PUtil.string_of_term t)
+    | true, _ => Err ("Expected lambda in " ++ string_of_kername name ++ ", got" ++ nl ++ string_of_term t)
     | false, _ => specialize_term specialized Γ t
     end.
 
@@ -163,7 +163,7 @@ Section ChainBaseSpecialization.
       map_error (fun s => "While specializing type in " ++ string_of_kername name ++ ": " ++ s)
                 (specialize_term specialized (replace :: Γ) body)
 
-    | true, _ => Err ("Expected product in " ++ string_of_kername name ++ ", got" ++ nl ++ PUtil.string_of_term t)
+    | true, _ => Err ("Expected product in " ++ string_of_kername name ++ ", got" ++ nl ++ string_of_term t)
     | false, _ => specialize_term specialized Γ t
     end.
 
@@ -246,10 +246,11 @@ Section ChainBaseSpecialization.
                       (ind_projs oib);;
           ret
             {| ind_name := ind_name oib;
-                ind_type := type;
-                ind_kelim := ind_kelim oib;
-                ind_ctors := ctors;
-                ind_projs := projs; |} in
+               ind_type := type;
+               ind_kelim := ind_kelim oib;
+               ind_ctors := ctors;
+               ind_projs := projs;
+               ind_relevance := ind_relevance oib |} in
       bodies <- monad_map go (ind_bodies mib);;
       ret (if remove then kn :: specialized else specialized,
             InductiveDecl

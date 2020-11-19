@@ -93,8 +93,8 @@ src/resultMonad.ml
 src/resultMonad.mli
 src/rustExtract.ml
 src/rustExtract.mli
-src/safeErasureFunction.ml
-src/safeErasureFunction.mli
+src/erasureFunction.ml
+src/erasureFunction.mli
 src/safeTemplateChecker.ml
 src/safeTemplateChecker.mli
 src/ssrbool.ml

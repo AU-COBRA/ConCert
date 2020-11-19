@@ -29,7 +29,7 @@ Extraction Inline Equations.Init.pr2.
 Extraction Inline Equations.Init.hidebody.
 Extraction Inline Equations.Prop.DepElim.solution_left.
 
-Extract Inductive Equations.Init.sigma => "(*)" ["(,)"].
+Extract Inductive Equations.Init.sigma => "( * )" ["(,)"].
 Extract Constant PCUICTyping.fix_guard => "(fun x -> true)".
 Extract Constant PCUICTyping.cofix_guard => "(fun x -> true)".
 Extract Constant PCUICTyping.ind_guard => "(fun x -> true)".
@@ -42,10 +42,8 @@ Extract Constant timed =>
    Feedback.msg_debug (Pp.str (Printf.sprintf ""%s executed in: %fs"" ((fun s-> (String.concat """" (List.map (String.make 1) s))) c) time));
               temp)".
 
-
-
 Cd "plugin/src".
 Separate Extraction RustExtract.extract
          (* The following directives ensure separate extraction does not produce name clashes *)
-         Coq.Strings.String Common utils ELiftSubst ETyping.
+         Bool Nat Coq.Strings.String Common utils ELiftSubst ETyping.
 Cd "../..".

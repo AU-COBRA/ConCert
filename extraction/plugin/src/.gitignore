@@ -82,8 +82,8 @@ resultMonad.ml
 resultMonad.mli
 rustExtract.ml
 rustExtract.mli
-safeErasureFunction.ml
-safeErasureFunction.mli
+erasureFunction.ml
+erasureFunction.mli
 safeTemplateChecker.ml
 safeTemplateChecker.mli
 ssrbool.ml
