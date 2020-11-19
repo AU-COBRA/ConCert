@@ -1,9 +1,8 @@
 From Coq Require Import PeanoNat ZArith.
 
 From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import SafeTemplateErasure.
+From MetaCoq.Erasure Require Import Erasure.
 From MetaCoq.Erasure Require ErasureFunction.
-From MetaCoq.Erasure Require SafeErasureFunction.
 From MetaCoq.Template Require Import Kernames config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.
@@ -24,13 +23,6 @@ Local Open Scope string_scope.
 
 From MetaCoq.Template Require Import All.
 From MetaCoq.PCUIC Require PCUICAst PCUICTyping.
-
-Definition to_constant_decl (gd : option T.global_decl) :=
-  match gd with
-  | Some (ConstantDecl cst_body) => ret cst_body
-  | Some (InductiveDecl cst_body) => tmFail "Error (constant expected, given inductive)"
-  | None => tmFail "Error (expected constant with a body)"
-  end.
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
   { lmd_module_name : string ;
@@ -61,7 +53,7 @@ Definition cameligo_args :=
 
 Import PCUICAst PCUICTyping.
 Definition annot_extract_env_cameligo
-           (Σ : PCUICAst.global_env) 
+           (Σ : PCUICAst.global_env)
            (wfΣ : ∥wf Σ∥)
            (include : KernameSet.t)
            (ignore : kername -> bool) : option (∑ Σ, env_annots box_type Σ).
@@ -79,13 +71,13 @@ Definition annot_extract_template_env_specalize
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result (∑ e, env_annots box_type e) string :=
   let e := SafeTemplateChecker.fix_global_env_universes e in
-  let e := T2P.trans_global_decls e in
+  let e := TemplateToPCUIC.trans_global_decls e in
   e <- specialize_ChainBase_env e ;;
   wfe <-check_wf_env_func extract_within_coq e;;
   match annot_extract_env_cameligo e wfe seeds ignore with
   | Some s => Ok s
   | None => Err "failed internally in annot_extract_template_env_specalize"
-  end. 
+  end.
 
 Definition printCameLIGODefs (prefix : string) (Σ : TemplateEnvironment.global_env)
            (TT : MyEnv.env string)
@@ -98,17 +90,17 @@ Definition printCameLIGODefs (prefix : string) (Σ : TemplateEnvironment.global_
   : string + string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
   match annot_extract_template_env_specalize Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
-  | Ok (eΣ; annots) => 
+  | Ok (eΣ; annots) =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ annots) in
     (* filtering empty strings corresponding to the ignored definitions *)
     let not_empty_str := (negb ∘ (String.eqb "") ∘ snd) in
-    
-    let ldef_ty_list := ldef_list 
+
+    let ldef_ty_list := ldef_list
                           |> filter (fun d => match d with TyDecl _ => true | _ => false end)
                           |> map (fun d => match d with ConstDecl d' => d' | TyDecl d' => d' end)
                           |> filter not_empty_str in
-    let ldef_const_list := ldef_list 
+    let ldef_const_list := ldef_list
                             |> filter (fun d => match d with ConstDecl _ => true | _ => false end)
                             |> map (fun d => match d with ConstDecl d' => d' | TyDecl d' => d' end)
                             |> filter not_empty_str in
@@ -162,7 +154,7 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
   ].
 
 Definition TT_remap_default : list (kername * string) :=
-  [  
+  [
     (* types *)
     remap <%% Z %%> "tez"
   ; remap <%% N %%> "nat"
@@ -207,8 +199,8 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @address_eqdec %%> ""
   ; remap <%% @address_countable %%> ""
   ].
-  
-Definition CameLIGO_rename_default := 
+
+Definition CameLIGO_rename_default :=
   [
       ("to", "to_")
     ; ("amount", "amount_")

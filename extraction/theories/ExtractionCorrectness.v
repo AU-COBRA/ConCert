@@ -14,7 +14,7 @@ From Coq Require Import List.
 From Coq Require Import String.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import ErasureCorrectness.
-From MetaCoq.Erasure Require Import SafeErasureFunction.
+From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import Prelim.

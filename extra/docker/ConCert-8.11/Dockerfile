@@ -9,7 +9,7 @@ RUN ["/bin/bash", "--login", "-c", "set -x \
   && opam install -y -v -j ${NJOBS} coq-equations.1.2.1+8.11 coq-stdpp coq-quickchick \
   && git clone https://github.com/MetaCoq/metacoq.git \
   && cd metacoq \
-  && git checkout coq-8.11 \
+  && git checkout 77adb13585d2f357b78642c16b6c4da817f35eff \
   && opam install -y -v -j ${NJOBS} . \
   && opam clean -a -c -s --logs \
   && opam config list \

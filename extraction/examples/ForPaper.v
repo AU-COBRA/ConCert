@@ -11,9 +11,8 @@ From ConCert.Extraction Require Import Erasure.
 
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import SafeTemplateErasure Loader.
+From MetaCoq.Erasure Require Import Loader.
 From MetaCoq.Erasure Require ErasureFunction.
-From MetaCoq.Erasure Require SafeErasureFunction.
 From MetaCoq.Template Require Import config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.

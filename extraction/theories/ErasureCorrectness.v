@@ -15,7 +15,7 @@ From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.Erasure Require Import ESubstitution.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import Extract.
-From MetaCoq.Erasure Require Import SafeErasureFunction.
+From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICInduction.
 From MetaCoq.PCUIC Require Import PCUICInversion.
@@ -96,7 +96,7 @@ Proof.
   apply erase_ind_body_correct.
 Qed.
 
-Opaque erase_type flag_of_type SafeErasureFunction.wf_reduction.
+Opaque erase_type flag_of_type ErasureFunction.wf_reduction.
 Lemma erase_global_decls_deps_recursive_correct Σ wfΣ include ignore_deps :
   (forall k, ignore_deps k = false) ->
   (forall k, KernameSet.In k include -> PCUICAst.lookup_env Σ k <> None) ->

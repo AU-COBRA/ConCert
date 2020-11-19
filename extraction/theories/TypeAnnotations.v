@@ -12,7 +12,7 @@ From Coq Require Import VectorDef.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EArities.
 From MetaCoq.Erasure Require Import Extract.
-From MetaCoq.Erasure Require SafeErasureFunction.
+From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
@@ -98,12 +98,7 @@ Next Obligation.
   destruct infer as (ty & [(typ & ?)]).
   cbn in *.
   destruct wfΣ.
-  eapply validity_term in typ; eauto.
-  destruct typ.
-  - apply nIs_conv_to_Arity_isWfArity_elim in i; [easy|].
-    intros conv.
-    now apply Is_conv_to_Arity_conv_arity in conv.
-  - now constructor.
+  eapply validity_term in typ; eauto using sq.
 Qed.
 
 Equations? (noeqns) annotate_types
@@ -215,7 +210,7 @@ Proof.
   - destruct cst; cbn.
     destruct cst_body; [|exact tt].
     cbn.
-    apply (annotate_types [] t); [|apply SafeErasureFunction.erases_erase].
+    apply (annotate_types [] t); [|apply ErasureFunction.erases_erase].
     cbn in *.
     destruct wt.
     econstructor; eauto.
@@ -482,7 +477,7 @@ Module AnnotOptimizePropDiscr.
     - assert (br_annots : bigprod (fun br => annots box_type br.2) (map (on_snd (optimize Σ)) l)).
       { refine (bigprod_map _ a.2.2).
         intros ? a'; apply (f _ a'). }
-      destruct ETyping.is_propositional as [[]|]; cbn.
+      destruct ETyping.is_propositional_ind as [[]|]; cbn.
       2-3: exact (a.1, (f _ a.2.1, br_annots)).
       destruct map as [|(?&?) []]; cbn in *.
       1,3: exact (a.1, (f _ a.2.1, br_annots)).
@@ -506,7 +501,7 @@ Module AnnotOptimizePropDiscr.
             | TArr dom cod => (cod, (hda, cod))
             | t => (t, (hda, t))
             end).
-    - destruct ETyping.is_propositional as [[]|].
+    - destruct ETyping.is_propositional_ind as [[]|].
       2-3: exact (a.1, f _ a.2).
       exact a.1.
     - refine (a.1, bigprod_map _ a.2).

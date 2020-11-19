@@ -1,9 +1,7 @@
 From Coq Require Import PeanoNat ZArith.
 
 From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import SafeTemplateErasure.
 From MetaCoq.Erasure Require ErasureFunction.
-From MetaCoq.Erasure Require SafeErasureFunction.
 From MetaCoq.Template Require Import Kernames config.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
      SafeTemplateChecker.
@@ -31,7 +29,7 @@ Import AcornBlockchain.
 Import MonadNotation.
 Import ResultMonad.
 
-Definition to_constant_decl (gd : option T.global_decl) :=
+Definition to_constant_decl (gd : option Ast.global_decl) :=
   match gd with
   | Some (ConstantDecl cst_body) => ret cst_body
   | Some (InductiveDecl cst_body) => tmFail "Error (constant expected, given inductive)"

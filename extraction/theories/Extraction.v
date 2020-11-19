@@ -13,20 +13,25 @@ From ConCert.Extraction Require Import Utils.
 From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Erasure Require Import ELiftSubst.
-From MetaCoq.Erasure Require Import SafeErasureFunction.
+From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
+From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
+From MetaCoq.PCUIC Require Import TemplateToPCUIC.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
+From MetaCoq.SafeChecker Require Import SafeTemplateChecker.
 
 Local Open Scope bool.
 Local Open Scope string.
 Import MonadNotation.
+
+Existing Instance extraction_checker_flags.
 
 Record extract_pcuic_params :=
   { (* Whether to remove discrimination (matches and projections) on things in Prop.
@@ -37,7 +42,7 @@ Record extract_pcuic_params :=
 
 Definition extract_pcuic_env
            (params : extract_pcuic_params)
-           (Σ : P.global_env) (wfΣ : ∥PT.wf Σ∥)
+           (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
 
@@ -51,16 +56,16 @@ Definition extract_pcuic_env
 
 Record extract_template_env_params :=
   { (* Function to use to check wellformedness of the environment *)
-    check_wf_env_func : forall Σ, result (∥PT.wf Σ∥) string;
+    check_wf_env_func : forall Σ, result (∥wf Σ∥) string;
     pcuic_args : extract_pcuic_params }.
 
 Definition extract_template_env
            (params : extract_template_env_params)
-           (Σ : T.global_env)
+           (Σ : Ast.global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
-  let Σ := T2P.trans_global_decls Σ in
+  let Σ := trans_global_decls Σ in
   wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
@@ -68,7 +73,7 @@ Definition extract_template_env
    To work around this we assume environments are well formed when extracting
    from within Coq. This is justified since our environments are produced by quoting
    and thus come directly from Coq, where they have already been type checked. *)
-Axiom assume_env_wellformed : forall Σ, ∥PT.wf Σ∥.
+Axiom assume_env_wellformed : forall Σ, ∥wf Σ∥.
 
 (* Extract an environment with some minimal checks. This assumes the environment
    is well-formed (to make it computable from within Coq) but furthermore checks that the

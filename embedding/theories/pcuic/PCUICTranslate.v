@@ -64,17 +64,20 @@ Fixpoint string_of_modpath (mp : modpath) : string :=
 Definition string_of_kername (kn : kername) :=
   (string_of_modpath kn.1 ++ "@" ++ kn.2)%string.
 
+Definition aRelevant (n : name) :=
+  {| binder_name := n; binder_relevance := Relevant |}.
+
 (** Translation of types to PCUIC terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd (kername_of_string i) 0) []
-  | tyForall nm ty => tProd (nNamed nm) (tSort Universe.type0) T⟦ty⟧
+  | tyForall nm ty => tProd (aRelevant (nNamed nm)) (tSort Universe.type0) T⟦ty⟧
   | tyVar nm => tVar nm
   | tyApp ty1 ty2 => tApp T⟦ty1⟧ T⟦ty2⟧
   | tyArr ty1 ty2 =>
     (* NOTE: we have to lift indices for the codomain,
        since in Coq arrows are Pi types and introduce an binder *)
-    tProd nAnon T⟦ty1⟧ (lift0 1 T⟦ty2⟧)
+    tProd (aRelevant nAnon) T⟦ty1⟧ (lift0 1 T⟦ty2⟧)
   | tyRel i => tRel i
   end
 where "T⟦ ty ⟧ " := (type_to_term ty).
@@ -91,7 +94,7 @@ Definition pat_to_lam (body : term)
       introduces a binder, we need also to lift free variables in
       [ty_params] *)
       let lam_type := subst ty_params 0 ty in
-      tLambda (BasicTC.nNamed n) lam_type (rec (map (lift0 1) ty_params) tys')
+      tLambda (aRelevant (nNamed n)) lam_type (rec (map (lift0 1) ty_params) tys')
     end).
 
 (** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
@@ -121,9 +124,9 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
   match e with
   | eRel i => tRel i
   | eVar nm => tVar nm
-  | eLambda nm ty b => tLambda (nNamed nm) T⟦ty⟧ t⟦b⟧Σ
-  | eTyLam nm b => tLambda (nNamed nm) (tSort Universe.type0) t⟦b⟧Σ
-  | eLetIn nm e1 ty e2 => tLetIn (nNamed nm) t⟦e1⟧Σ T⟦ty⟧ t⟦e2⟧Σ
+  | eLambda nm ty b => tLambda (aRelevant (nNamed nm)) T⟦ty⟧ t⟦b⟧Σ
+  | eTyLam nm b => tLambda (aRelevant (nNamed nm)) (tSort Universe.type0) t⟦b⟧Σ
+  | eLetIn nm e1 ty e2 => tLetIn (aRelevant (nNamed nm)) t⟦e1⟧Σ T⟦ty⟧ t⟦e2⟧Σ
   | eApp e1 e2 => tApp t⟦e1⟧Σ t⟦e2⟧Σ
   | eConstr i t =>
     match (resolve_constr Σ i t) with
@@ -133,8 +136,9 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
   | eConst nm => tConst (kername_of_string nm) []
   | eCase nm_i ty2 e bs =>
     let (nm, params) := nm_i in
-    let typeInfo := tLambda nAnon (mkApps (tInd (mkInd (kername_of_string nm) 0) [])
-                                          (map type_to_term params))
+    let typeInfo := tLambda (aRelevant nAnon)
+                            (mkApps (tInd (mkInd (kername_of_string nm) 0) [])
+                                    (map type_to_term params))
                             (lift0 1 (type_to_term ty2)) in
     match (resolve_inductive Σ nm) with
     | Some v =>
@@ -149,11 +153,11 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
   | eFix nm nv ty1 ty2 b =>
     let tty1 := T⟦ty1⟧ in
     let tty2 := T⟦ty2⟧ in
-    let ty := tProd nAnon tty1 (lift0 1 tty2) in
+    let ty := tProd (aRelevant nAnon) tty1 (lift0 1 tty2) in
     (* NOTE: we have to lift the indices in [tty1] because [tRel 0]
              corresponds to the recursive call *)
-    let body := tLambda (nNamed nv) (lift0 1 tty1) t⟦b⟧Σ in
-    tFix [(mkdef _ (nNamed nm) ty body 0)] 0
+    let body := tLambda (aRelevant (nNamed nv)) (lift0 1 tty1) t⟦b⟧Σ in
+    tFix [(mkdef _ (aRelevant (nNamed nm)) ty body 0)] 0
   | eTy ty => T⟦ty⟧
   end
 where "t⟦ e ⟧ Σ":= (expr_to_term Σ e).
@@ -163,12 +167,12 @@ where "t⟦ e ⟧ Σ":= (expr_to_term Σ e).
 
 Import Basics.
 
-Definition of_ename (e : option ename) : BasicTC.name :=
+Definition of_ename (e : option ename) : aname :=
   match e with
   | Some e' =>
     let (mp,unqualified_nm) := kername_of_string e' in
-    BasicTC.nNamed unqualified_nm
-  | None => BasicTC.nAnon
+    aRelevant (nNamed unqualified_nm)
+  | None => aRelevant nAnon
   end.
 
 (** Translation of constructors of parameterised inductive types requires

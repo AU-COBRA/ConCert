@@ -488,7 +488,7 @@ Definition lpat_to_lam : term -> list term -> list (BasicTC.ident * term) -> ter
          lambda introduces a binder, we need also to lift free
          variables in [ty_params] *)
          let lam_type := subst (map (lift0 #|tys'|) ty_params) 0 ty in
-         rec (tLambda (BasicTC.nNamed n) lam_type body) ty_params tys'
+         rec (tLambda (aRelevant (nNamed n)) lam_type body) ty_params tys'
        end.
 
 
@@ -508,7 +508,7 @@ Qed.
 
 Lemma pat_to_lam_unfold b tys n ty params :
   lpat_to_lam b params (tys ++ [(n,ty)]) =
-  tLambda (BasicTC.nNamed n) (subst0 params ty) (lpat_to_lam b (map (lift0 1) params) tys).
+  tLambda (aRelevant (nNamed n)) (subst0 params ty) (lpat_to_lam b (map (lift0 1) params) tys).
 Proof.
   revert b params.
   induction tys;intros.
@@ -1766,7 +1766,7 @@ Qed.
 
 
 Lemma from_vConstr_not_lambda :
-  forall (Σ : global_env) (i : Ast.inductive) (n0 : ename) (na : BasicAst.name) (t0 b : term) l,
+  forall (Σ : global_env) (i : Ast.inductive) (n0 : ename) (na : aname) (t0 b : term) l,
     tLambda na t0 b = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ -> False.
 Proof.
   intros Σ i n0 na t0 b l H.

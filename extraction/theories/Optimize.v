@@ -21,7 +21,7 @@ From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import Prelim.
-From MetaCoq.Erasure Require SafeErasureFunction.
+From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.

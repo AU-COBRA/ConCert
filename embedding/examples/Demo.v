@@ -33,7 +33,7 @@ Print id_nat_syn.
 
 (* Unquote *)
 MetaCoq Unquote Definition plus_one :=
-  (MC.tLambda (nNamed "x")
+  (MC.tLambda (aRelevant (nNamed "x"))
               (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) nil)
               (MC.tApp (MC.tConstruct (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
                        (MC.tRel 0 :: nil))).
