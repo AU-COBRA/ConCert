@@ -306,7 +306,7 @@ Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
 (** We run the extraction procedure inside the [TemplateMonad].
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
-(* 
+
 Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename INTERP_MODULE ;;
       tmDefinition INTERP_MODULE.(lmd_module_name) t
@@ -316,8 +316,8 @@ Time MetaCoq Run
 Print liquidity_interp.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-(* Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp. *)
-*)
+Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp.
+
 
 (* ------- CameLIGO extraction -------- *)
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.

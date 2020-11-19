@@ -57,8 +57,6 @@ Definition cameligo_args :=
                       true
                       true
                       true
-                      (* Expanding branches requires annotations for match expansion, which we currently don't have *)
-                      (* ExpandBranches.transform Expand all branches, i.e. no wildcard branches will be generated *)
                     ] |}.
 
 Import PCUICAst PCUICTyping.
