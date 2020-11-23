@@ -1,14 +1,14 @@
-Require Import ZArith Strings.String.
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
-
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
 From ConCert Require Import Congress.
 From ConCert Require Import ResultMonad.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import BoundedN. Import BoundedN.Stdpp.
+
+Require Import ZArith Strings.String.
+From QuickChick Require Import QuickChick. Import QcNotation.
+From ExtLib.Structures Require Import Monads.
+Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
@@ -99,8 +99,8 @@ Definition split_at_first_satisfying {A : Type} (p : A -> bool) (l : list A) : o
 (* Helper function for backtrack_result. It picks and removes an element from a list of result generators. *)
 Fixpoint pickDrop {T E}
                   (default : E)
-                  (xs : list (nat * G (result T E))) 
-                  (n : nat) 
+                  (xs : list (nat * G (result T E)))
+                  (n : nat)
                   : nat * G (result T E) * list (nat * G (result T E)) :=
   match xs with
     | nil => (0, returnGen (Err default), nil)
@@ -108,7 +108,7 @@ Fixpoint pickDrop {T E}
       if (n <? k) then  (k, x, xs)
       else let '(k', x', xs') := pickDrop default xs (n - k)
           in (k', x', (k,x)::xs')
-  end. 
+  end.
 
 (* Backtracking generator for results instead of Option. Works the same way as backtrack. *)
 Fixpoint backtrack_result_fix {T E} (default : E) (fuel : nat) (gs : list (nat * G (result T E))) : G (result T E) :=
@@ -162,9 +162,9 @@ Definition get_contract_state (state : Type) `{Serializable state} env addr : op
     match @deserialize state _ ser_state with
     | Some state => Some state
     | None => None
-    end 
+    end
   | None => None
-  end. 
+  end.
 
 (* Utils for Generators *)
 
@@ -336,9 +336,9 @@ Definition conjoin_map {A prop : Type}
                        (f : A -> prop)
                        (l : list A) := conjoin (map (checker o f) l).
 
-Definition discard_empty {A prop : Type} 
-                        `{Checkable prop} 
-                         (l : list A) 
+Definition discard_empty {A prop : Type}
+                        `{Checkable prop}
+                         (l : list A)
                          (f : list A -> prop) : Checker :=
   match l with
   | [] => false ==> true
@@ -372,7 +372,7 @@ Definition discardToSuccess {prop} `{Checkable prop} (p : prop): Checker :=
                              | None => updOk res (Some true)
                              | _ => res
                              end) p.
-  
+
 (* QuickChick (discardToSuccess (false ==> true)). *)
 (* +++ Passed 10000 tests (0 discards) *)
 (* QuickChick (discardToSuccess (conjoin [false==>true; checker true])). *)
@@ -387,7 +387,7 @@ Definition discardToSuccess {prop} `{Checkable prop} (p : prop): Checker :=
 (* discard-friendly variant of conjoin where discarded tests will NOT cause the conjoin
    combinator to also result in a discard. Specifically, conjoin_no_discard [false==>true] tests succesfully,
    whereas conjoin [false==>true] results in a discarded test. *)
-Definition conjoin_no_discard {prop} `{Checkable prop} (l : list prop) : Checker := 
+Definition conjoin_no_discard {prop} `{Checkable prop} (l : list prop) : Checker :=
   conjoin_map discardToSuccess l.
 
 (* QuickChick (conjoin_no_discard [false==>true; checker true]). *)

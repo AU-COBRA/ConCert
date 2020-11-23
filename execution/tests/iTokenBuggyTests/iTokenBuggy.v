@@ -29,7 +29,7 @@ Section iTokenBuggy.
   | approve : Address -> N -> Msg
   | mint : N -> Msg
   | burn : N -> Msg.
-  
+
   Record State :=
     build_state {
       total_supply : N;
@@ -43,10 +43,8 @@ Section iTokenBuggy.
       init_amount : N;
     }.
 
-  Instance state_settable : Settable _ :=
-    settable! build_state <total_supply; balances; allowances>.
-  Instance setup_settable : Settable _ :=
-    settable! build_setup <owner; init_amount>.
+  MetaCoq Run (make_setters State).
+  MetaCoq Run (make_setters Setup).
 
   Section Serialization.
 
@@ -72,7 +70,7 @@ Section iTokenBuggy.
   Definition try_mint caller amount state : State :=
     let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) caller in
     state<|total_supply ::= N.add amount|><| balances ::= new_balances|>.
-  
+
   (* If the caller tries to burn more tokens than they have, fail *)
   Definition try_burn caller burn_amount state : option State :=
     let caller_balance := with_default 0 (FMap.find caller state.(balances)) in

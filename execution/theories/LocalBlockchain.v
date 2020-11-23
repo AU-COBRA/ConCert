@@ -49,10 +49,7 @@ Record LocalChain :=
     lc_contracts : FMap Address WeakContract;
   }.
 
-Instance local_chain_settable : Settable _ :=
-  settable! build_local_chain
-  <lc_height; lc_slot; lc_fin_height;
-   lc_account_balances; lc_contract_state; lc_contracts>.
+MetaCoq Run (make_setters LocalChain).
 
 Definition lc_to_env (lc : LocalChain) : Environment :=
   {| env_chain :=

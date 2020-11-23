@@ -1,117 +1,129 @@
-(* Adapted from https://github.com/tchajed/coq-record-update; see NOTICE in the
-   root for license notice *)
+From MetaCoq.Template Require Import Ast.
+From MetaCoq.Template Require Import AstUtils.
+From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Template Require Import Loader.
+From MetaCoq.Template Require Import TemplateMonad.
+From MetaCoq.Template Require Import monad_utils.
+From MetaCoq.Template Require Import utils.
 
-Set Implicit Arguments.
+Global Unset Asymmetric Patterns.
 
-(** Reader is the reader monad (or just the function monad). We only use
-Applicative here. *)
-Definition Reader E T := forall (e:E), T e.
-Arguments Reader : clear implicits.
+Import MonadNotation.
 
-(* pure/return *)
-Definition constructor {E T} (x:T) : Reader E (fun _ => T) := fun _ => x.
+Class SetterFromGetter {A B} (a : A -> B) := setter_from_getter : (B -> B) -> A -> A.
 
-(* Always unfold constructor when applied with with a "final" argument. *)
-Arguments constructor {_ _} _ _ /.
+Definition aRelevant (na : name) : aname :=
+  {| binder_name := na; binder_relevance := Relevant |}.
 
-(* Applicative's (<*>) (written as `ap`).
+Definition make_setters (T : Type) : TemplateMonad unit :=
+  Tast <- tmQuote T;;
+  ind <- match Tast with
+        | tInd ind _ => ret ind
+        | tApp (tInd ind _) _ => ret ind
+        | _ => tmFail "Cannot extract inductive, are you sure you passed a type?"
+        end;;
+  mib <- tmQuoteInductive (inductive_mind ind);;
+  match ind_finite mib with
+  | BiFinite => ret tt
+  | _ => tmFail "Unexpected finite kind; are you sure you are creating setters for a record?"
+  end;;
+  oib <- match nth_error (ind_bodies mib) (inductive_ind ind) with
+         | Some oib => ret oib
+         | None => tmFail "Could not find inductive in mutual inductive?"
+         end;;
+  '(ctor, ar) <- match ind_ctors oib with
+                 | [((_, t), ar)] => ret (t, ar)
+                 | _ => tmFail "Type should have exactly one constructor"
+                 end;;
 
-This has an awkwardly long name since it's intended to be used infix with
- *)
-Definition applicative_ap {E}
-           {A: E -> Type}
-           {B: forall (e:E), A e -> Type}
-           (f: Reader E (fun e => forall (a:A e), B e a)) :
-  forall (x: Reader E A), Reader E (fun e => B e (x e))  :=
-  fun x => fun e => f e (x e).
+  let fix find_getter_kns (t : term) : TemplateMonad (list kername) :=
+      match t with
+      | tProd na A B =>
+        kn <-
+        match binder_name na with
+        | nNamed id => ret ((inductive_mind ind).1, id)
+        | nAnon => tmFail "Records with anonymous fields are not supported"
+        end;;
+        kns <- find_getter_kns B;;
+        ret (kn :: kns)
+      | tLetIn na a A B => find_getter_kns B
+      | _ => ret []
+      end in
 
-(** Settable is a way of accessing a constructor for a record of type T. The
-syntactic form of this definition is important: it must be an eta-expanded
-version of T's constructor, written generically over the field accessors of T.
-The best way to do this for a record X := mkX { A; B; C} is
-[settable! mkX <A; B; C>]. *)
-Class Settable T := { mkT: Reader T (fun _ => T);
-                      mkT_ok: forall x, mkT x = x }.
-Arguments mkT T mk : clear implicits, rename.
+  getter_kns <- find_getter_kns ctor;;
 
-Local Ltac solve_mkT_ok :=
-  match goal with
-  | |- forall x, _ = _ => solve [ destruct x; cbv; f_equal ]
-  end.
+  let fix create_setters (t : term) (idx : nat) : TemplateMonad unit :=
+      match t with
+      | tProd na A B =>
+        match binder_name na with
+        | nNamed id =>
+          (* Create setter *)
+          let getter_kn := ((inductive_mind ind).1, id) in
 
-(** settable! creates an instance of Settable from a constructor and list of
-fields. *)
-Notation "'settable!' mk < f1 ; .. ; fn >" :=
-  (Build_Settable
-     (applicative_ap .. (applicative_ap (constructor mk) f1) .. fn)
-     ltac:(solve_mkT_ok)) (at level 0, mk at level 10, f1, fn at level 9, only parsing).
+          let body :=
+              tLambda
+                (aRelevant (nNamed "f"))
+                (tProd (aRelevant nAnon) A A)
+                (tLambda
+                   (aRelevant (nNamed "r"))
+                   (tInd ind [])
+                   (tApp
+                      (tConstruct ind 0 [])
+                      (mapi
+                         (fun i (gkn : kername) =>
+                            let get := tApp (tConst gkn []) [tRel 0] in
+                            if eq_kername gkn getter_kn then
+                              tApp (tRel 1) [get]
+                            else
+                              get)
+                         getter_kns))) in
 
-(** [setter] creates a setter based on an eta-expanded record constructor and a
-particular field projection proj *)
-Local Ltac setter etaT proj :=
-  let set :=
-      (match eval pattern proj in etaT with
-       | ?setter ?proj => constr:(fun f => setter (fun r => f (proj r)))
-       end) in
-  let set := (eval cbv [constructor applicative_ap] in set) in
-  exact set.
+          let setter_id := "set_" ^ ind_name oib ^ "_" ^ id in
+          tmMkDefinition setter_id body;;
 
-(* Combining the above, [getSetter'] looks up the eta-expanded version of T with
-the Settable typeclass, and calls [setter] to create a setter. *)
-Local Ltac get_setter T proj :=
-  match constr:(mkT T _) with
-  | mkT _ ?updateable =>
-    let updateable := (eval hnf in updateable) in
-    match updateable with
-    | {| mkT := ?mk |} =>
-      setter mk proj
-    end
-  end.
+          (* Create SetterFromGetter instance *)
+          setter_gr <- tmLocate1 setter_id;;
+          setter_kn <- match setter_gr with
+          | ConstRef kn => ret kn
+          | _ => tmFail "Unexpected global_reference after unquoting"
+          end;;
 
-(* Setter provides a way to change a field given by a projection function, along
-with correctness conditions that require the projected field and only the
-projected field is modified. *)
-Class Setter {R T} (proj: R -> T) := set : (T -> T) -> R -> R.
-Arguments set {R T} proj {Setter}.
+          (* I could not find a way to specify the type of an unquoted constant,
+             so we always unquote as a cast *)
+          let body :=
+              tCast
+                (tConst setter_kn [])
+                Cast
+                (tApp
+                   <% @SetterFromGetter %>
+                   [tInd ind []; A; tConst getter_kn []]) in
 
-Class SetterWf {R T} (proj: R -> T) :=
-  { set_wf :> Setter proj;
-    set_get: forall v r, proj (set proj v r) = v (proj r);
-    set_eq: forall r, set proj (fun x => x) r = r; }.
+          let setter_from_getter_id := "setter_from_getter_" ^ ind_name oib ^ "_" ^ id in
+          tmMkDefinition setter_from_getter_id body;;
 
-Arguments set_wf {R T} proj {SetterWf}.
-
-Local Ltac SetterInstance_t :=
-  match goal with
-  | |- @Setter ?T _ ?A => get_setter T A
-  end.
-
-Local Ltac SetterWfInstance_t :=
-  match goal with
-  | |- @SetterWf ?T _ ?A =>
-    unshelve notypeclasses refine (Build_SetterWf _ _ _);
-    [ get_setter T A |
-      let r := fresh in
-      intros ? r; destruct r |
-      let r := fresh in
-      intros r; destruct r ];
-    intros; reflexivity
-  end.
-
-Hint Extern 1 (Setter _) => SetterInstance_t : typeclass_instances.
-Hint Extern 1 (SetterWf _) => SetterWfInstance_t : typeclass_instances.
+          tmLocate1 setter_from_getter_id >>= tmExistingInstance
+        | nAnon => ret tt
+        end;;
+        create_setters B (S idx)
+      | tLetIn na a A B => create_setters B idx
+      | _  => ret tt
+      end in
+  create_setters ctor 0.
 
 Module RecordSetNotations.
+  Declare Scope record_set.
   Delimit Scope record_set with rs.
   Open Scope rs.
-  Notation "x <| proj  :=  v |>" := (set proj (constructor v) x)
-                                    (at level 12, left associativity) : record_set.
-  Notation "x <| proj  ::=  f |>" := (set proj f x)
+  Notation "x <| proj  ::=  f |>" := ((_ : SetterFromGetter proj) f x)
                                      (at level 12, f at next level, left associativity) : record_set.
-  Notation "x <| proj1 ; proj2 ; .. ; projn := v |>" :=
-    (set proj1 (set proj2 .. (set projn (constructor v)) ..) x)
-    (at level 12, left associativity).
+  Notation "x <| proj  :=  v |>" := ((_ : SetterFromGetter proj) (fun _ => v) x)
+                                    (at level 12, left associativity) : record_set.
   Notation "x <| proj1 ; proj2 ; .. ; projn ::= f |>" :=
-    (set proj1 (set proj2 .. (set projn f) ..) x)
+    ((_ : SetterFromGetter proj1)
+       ((_ : SetterFromGetter proj2) .. ((_ : SetterFromGetter projn) f) ..) x)
+    (at level 12, left associativity).
+  Notation "x <| proj1 ; proj2 ; .. ; projn := v |>" :=
+    ((_ : SetterFromGetter proj1)
+       ((_ : SetterFromGetter proj2) .. ((_ : SetterFromGetter projn) (fun _ => v)) ..) x)
     (at level 12, left associativity).
 End RecordSetNotations.

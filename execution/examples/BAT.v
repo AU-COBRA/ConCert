@@ -64,11 +64,8 @@ Record Setup :=
     _tokenCreationMin 	: N;
   }.
 
-Instance state_settable : Settable _ :=
-  settable! build_state <token_state; fundDeposit; batFundDeposit;
-  isFinalized; fundingStart; fundingEnd; tokenExchangeRate; tokenCreationCap; tokenCreationMin>.
-Instance setup_settable : Settable _ :=
-  settable! build_setup <_batFund; _fundDeposit; _batFundDeposit; _fundingStart; _fundingEnd; _tokenExchangeRate; _tokenCreationCap; _tokenCreationMin>.
+MetaCoq Run (make_setters State).
+MetaCoq Run (make_setters Setup).
 
 Section Serialization.
 

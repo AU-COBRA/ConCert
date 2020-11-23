@@ -65,9 +65,7 @@ Inductive Msg :=
 | confirm_item_received
 | withdraw.
 
-Global Instance State_settable : Settable _ :=
-  settable! build_state <last_action; next_step; seller; buyer;
-                         seller_withdrawable; buyer_withdrawable>.
+MetaCoq Run (make_setters State).
 
 Global Instance Setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect<build_setup>.
@@ -145,7 +143,12 @@ Definition receive
 Program Definition contract : Contract Setup Msg State :=
   build_contract init _ receive _.
 Next Obligation. repeat intro; solve_contract_proper. Qed.
-Next Obligation. repeat intro; solve_contract_proper. Qed.
+Next Obligation.
+  repeat intro; solve_contract_proper.
+  cbn.
+  rewrite H.
+  easy.
+Qed.
 
 Section Theories.
   Lemma no_self_calls bstate caddr :

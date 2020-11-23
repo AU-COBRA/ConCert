@@ -149,8 +149,8 @@ Record ChainEquiv (c1 c2 : Chain) : Prop :=
 
 Global Program Instance chain_equiv_equivalence : Equivalence ChainEquiv.
 Next Obligation. repeat intro; apply build_chain_equiv; reflexivity. Qed.
-Next Obligation. intros x y []; apply build_chain_equiv; congruence. Qed.
-Next Obligation. intros x y z [] []; apply build_chain_equiv; congruence. Qed.
+Next Obligation. destruct H; apply build_chain_equiv; congruence. Qed.
+Next Obligation. destruct H, H0; apply build_chain_equiv; congruence. Qed.
 
 Global Instance chain_equiv_chain_height :
   Proper (ChainEquiv ==> eq) chain_height.
@@ -298,21 +298,11 @@ Program Definition contract_to_weak_contract
           end in
       build_weak_contract weak_init _ weak_recv _.
 Next Obligation.
-  repeat intro.
-  subst.
-  subst weak_init.
-  cbn.
   destruct (deserialize _); auto.
-  cbn.
   now rewrite init_proper.
 Qed.
 Next Obligation.
-  repeat intro.
-  subst.
-  subst weak_recv.
-  cbn.
   destruct (deserialize _); auto.
-  cbn.
   destruct_match.
   - destruct (deserialize _); auto.
     cbn.
@@ -358,9 +348,7 @@ Definition get_contract_interface
   Some {| contract_address := addr; send := ifc_send; |}.
 
 Section Semantics.
-Global Instance chain_settable : Settable _ :=
-  settable! build_chain
-  <chain_height; current_slot; finalized_height; account_balance>.
+MetaCoq Run (make_setters Chain).
 
 Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amount) :
   Address -> Amount :=
@@ -401,14 +389,14 @@ Definition contract_state
 
 Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.
 Next Obligation.
-  intros x; apply build_env_equiv; reflexivity.
+  apply build_env_equiv; reflexivity.
 Qed.
 Next Obligation.
-  intros x y []; apply build_env_equiv; now symmetry.
+  destruct H; apply build_env_equiv; now symmetry.
 Qed.
 Next Obligation.
-  intros x y z [] []; apply build_env_equiv; try congruence.
-  apply (@transitivity Chain _ _ _ y _); auto.
+  destruct H, H0; apply build_env_equiv; try congruence.
+  transitivity y; auto.
 Qed.
 
 Global Instance environment_equiv_env_contracts_proper :
@@ -433,8 +421,7 @@ Proof.
   now rewrite env_eq.
 Qed.
 
-Instance env_settable : Settable _ :=
-  settable! build_env <env_chain; env_contracts; env_contract_states>.
+MetaCoq Run (make_setters Environment).
 
 Definition transfer_balance (from to : Address) (amount : Amount) (env : Environment) :=
   env<|env_chain; account_balance ::= add_balance to amount|>
@@ -716,8 +703,7 @@ Record ChainState :=
     chain_state_queue : list Action;
   }.
 
-Global Instance chain_state_settable : Settable _ :=
-  settable! build_chain_state <chain_state_env; chain_state_queue>.
+MetaCoq Run (make_setters ChainState).
 
 Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
 | step_block :

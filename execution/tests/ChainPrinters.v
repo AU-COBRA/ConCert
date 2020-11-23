@@ -1,8 +1,8 @@
-From QuickChick Require Import QuickChick. Import QcNotation.
-
 From ConCert Require Import Blockchain LocalBlockchain TestUtils.
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import BoundedN ChainedList ResultMonad.
+
+From QuickChick Require Import QuickChick. Import QcNotation.
 
 From Coq Require Import ZArith Strings.String.
 From Coq Require Import List. Import ListNotations.
@@ -155,14 +155,14 @@ Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
   show err := match err with
               | invalid_header => "invalid_header"
               | invalid_root_action act => "invalid_root_action: " ++ show act
-              | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded" 
+              | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded"
               | action_evaluation_error act eval_error =>
                 "action_evaluation_error for " ++ show act ++ " with error: " ++ show eval_error
               end
 |}.
 
 (* retrieves the previous and next state of a ChainStep *)
-Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) := 
+Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) :=
   (prev_bstate, next_bstate).
 
 Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace from to) :=
@@ -175,8 +175,8 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
       | Blockchain.step_block _ _ _ _ _ _ _ =>
           let '(_, next_bstate) := chainstep_states step in
           showChainTrace trace' ++ nl ++
-          "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++ 
-            show next_bstate.(chain_state_queue) 
+          "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++
+            show next_bstate.(chain_state_queue)
           ++ "];"
         | _ => showChainTrace trace'
         end
@@ -186,7 +186,7 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
 |}.
 
 Instance showLCB `{Show (@Action Base)} : Show ChainBuilder :=
-{| 
+{|
   show cb := "Chain{| " ++ nl
              ++ show cb.(lcb_trace)
              ++ "|}" ++ nl
