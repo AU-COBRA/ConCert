@@ -141,54 +141,21 @@ End FA2Types.
 
 Section Setters.
 
-Instance transfer_settable : Settable transfer :=
-  settable! build_transfer <from_; to_; transfer_token_id; amount; sender_callback_addr>.
-
-Instance balance_of_request_settable : Settable balance_of_request :=
-  settable! Build_balance_of_request <owner; bal_req_token_id>.
-
-Instance balance_of_response_settable : Settable balance_of_response :=
-  settable! Build_balance_of_response <request; balance>.
-
-Instance balance_of_param_settable : Settable balance_of_param :=
-  settable! Build_balance_of_param <bal_requests; bal_callback>.
-
-Instance total_supply_reponse_settable : Settable total_supply_response :=
-  settable! Build_total_supply_response <supply_resp_token_id; total_supply>.
-
-Instance total_supply_param_settable : Settable total_supply_param :=
-  settable! Build_total_supply_param <supply_param_token_ids; supply_param_callback>.
-
-Instance token_metadata_settable : Settable token_metadata :=
-  settable! Build_token_metadata <  metadata_token_id; metadata_decimals>.
-
-Instance token_metadata_param_settable : Settable token_metadata_param :=
-  settable! Build_token_metadata_param <  metadata_token_ids; metadata_callback>.
-
-Instance operator_param_settable : Settable operator_param :=
-  settable! Build_operator_param <op_param_owner; op_param_operator; op_param_tokens>.
-
-Instance is_operator_response_settable : Settable is_operator_response :=
-  settable! Build_is_operator_response <operator; is_operator>.
-
-Instance is_operator_param_settable : Settable is_operator_param :=
-  settable! Build_is_operator_param <is_operator_operator; is_operator_callback>.
-
-Instance permissions_descriptor_settable : Settable permissions_descriptor :=
-  settable! Build_permissions_descriptor <descr_self; descr_operator; descr_receiver; descr_sender; descr_custom>.
-
-Instance transfer_descriptor_settable : Settable transfer_descriptor :=
-  settable! Build_transfer_descriptor <
-    transfer_descr_from_;
-    transfer_descr_to_;
-    transfer_descr_token_id;
-    transfer_descr_amount>.
-
-Instance transfer_descriptor_param_settable : Settable transfer_descriptor_param :=
-  settable! Build_transfer_descriptor_param <transfer_descr_fa2; transfer_descr_batch; transfer_descr_operator>.
-
-Instance set_hook_param_settable : Settable set_hook_param :=
-  settable! Build_set_hook_param <hook_addr; hook_permissions_descriptor>.
+MetaCoq Run (make_setters transfer).
+MetaCoq Run (make_setters balance_of_request).
+MetaCoq Run (make_setters balance_of_response).
+MetaCoq Run (make_setters balance_of_param).
+MetaCoq Run (make_setters total_supply_response).
+MetaCoq Run (make_setters total_supply_param).
+MetaCoq Run (make_setters token_metadata).
+MetaCoq Run (make_setters token_metadata_param).
+MetaCoq Run (make_setters operator_param).
+MetaCoq Run (make_setters is_operator_response).
+MetaCoq Run (make_setters is_operator_param).
+MetaCoq Run (make_setters permissions_descriptor).
+MetaCoq Run (make_setters transfer_descriptor).
+MetaCoq Run (make_setters transfer_descriptor_param).
+MetaCoq Run (make_setters set_hook_param).
 
 End Setters.
 

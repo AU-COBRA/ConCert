@@ -44,10 +44,8 @@ Section EIP20Token.
   init_amount : TokenValue;
     }.
 
-  Instance state_settable : Settable _ :=
-    settable! build_state <total_supply; balances; allowances>.
-  Instance setup_settable : Settable _ :=
-    settable! build_setup <owner; init_amount>.
+  MetaCoq Run (make_setters State).
+  MetaCoq Run (make_setters Setup).
 
   Section Serialization.
 

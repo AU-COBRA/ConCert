@@ -59,12 +59,8 @@ Record Setup :=
     fa2_caddr_ : Address;
   }.
 
-Instance token_ledger_settable : Settable _ :=
-  settable! build_token_ledger <fungible; balances>.
-Instance state_settable : Settable _ :=
-  settable! build_state <fa2_caddr; ongoing_exchanges; price_history>.
-Instance setup_settable : Settable _ :=
-  settable! build_setup <fa2_caddr_>.
+MetaCoq Run (make_setters State).
+MetaCoq Run (make_setters Setup).
 
 Section Serialization.
 

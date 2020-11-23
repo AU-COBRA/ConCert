@@ -71,11 +71,8 @@ Inductive Msg :=
 | submit_vote (v : A) (proof : VoteProof)
 | tally_votes.
 
-Global Instance VoterInfo_settable : Settable _ :=
-  settable! build_voter_info <voter_index; vote_hash; public_vote>.
-
-Global Instance State_settable : Settable _ :=
-  settable! build_state <owner; registered_voters; public_keys; setup; tally>.
+MetaCoq Run (make_setters VoterInfo).
+MetaCoq Run (make_setters State).
 
 Global Instance Setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect<build_setup>.
@@ -277,9 +274,7 @@ Record SecretVoterInfo :=
     svi_sv_d : Z;
   }.
 
-Global Instance SecretVoterInfo_settable : Settable _ :=
-  settable! build_secret_voter_info <svi_index; svi_sk; svi_sk_r;
-                                     svi_sv; svi_sv_w; svi_sv_r; svi_sv_d>.
+MetaCoq Run (make_setters SecretVoterInfo).
 
 (* For correctness we assume that all signups and vote messages were
    created using the make_signup_msg and make_vote_msg functions from

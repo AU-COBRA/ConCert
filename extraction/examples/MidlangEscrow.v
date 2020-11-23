@@ -35,7 +35,7 @@ Notation "'eval_extract' x" :=
             eval
               cbv
               beta
-              delta [x receive RecordSet.set RecordSet.constructor Monads.bind Monads.Monad_option]
+              delta [x receive Monads.bind Monads.Monad_option]
               iota in x in
        exact x) (at level 70).
 

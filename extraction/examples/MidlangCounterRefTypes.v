@@ -50,11 +50,6 @@ Definition midlang_translate (name : kername) : option string :=
   | None => None
   end.
 
-Definition extra_ignored :=
-  Eval compute in
-        [ <%% @RecordSet.Reader %%>;
-         <%% @RecordSet.constructor %%>].
-
 Module CounterRefinmentTypes.
 
   Open Scope Z.
@@ -133,10 +128,6 @@ Definition midlang_counter_translate (name : kername) : option string :=
   | None => None
   end.
 
-Definition counter_ignored :=
-  [<%% RecordSet.Reader %%> ;
-   <%% @RecordSet.constructor %%>].
-
 Definition ignored_concert_types :=
   Eval compute in
         [<%% @ActionBody %%>;
@@ -154,7 +145,6 @@ Definition counter_extract :=
       (KernameSet.singleton counter_name)
       (fun kn => List.existsb (eq_kername kn)
                               (ignored_concert_types
-                                 ++ counter_ignored
                                  ++ map fst midlang_translation_map
                                  ++ map fst TT)).
 

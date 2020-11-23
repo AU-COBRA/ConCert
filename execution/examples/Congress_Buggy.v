@@ -45,8 +45,7 @@ Record Proposal :=
     proposed_in : nat;
   }.
 
-Instance proposal_settable : Settable _ :=
-  settable! build_proposal <actions; votes; vote_result; proposed_in>.
+MetaCoq Run (make_setters Proposal).
 
 Record Rules :=
   build_rules {
@@ -81,8 +80,7 @@ Record State :=
     members : FMap Address unit;
   }.
 
-Instance state_settable : Settable _ :=
-  settable! build_state <owner; state_rules; proposals; next_proposal_id; members>.
+MetaCoq Run (make_setters State).
 
 Section Serialization.
 
@@ -267,7 +265,27 @@ Proof. repeat intro; solve_contract_proper. Qed.
 
 Lemma receive_proper :
   Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof. repeat intro; solve_contract_proper. Qed.
+Proof.
+  repeat intro.
+  subst.
+  unfold receive.
+  destruct y2; auto.
+  destruct m; auto.
+  - destruct FMap.mem; auto.
+    f_equal.
+    f_equal.
+    unfold add_proposal.
+    f_equal.
+    f_equal.
+    f_equal.
+    f_equal.
+    apply H.
+  - unfold do_finish_proposal.
+    cbn.
+    destruct FMap.find; auto.
+    rewrite H.
+    auto.
+Qed.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.

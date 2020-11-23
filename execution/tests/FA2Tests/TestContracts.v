@@ -46,10 +46,8 @@ Record ClientSetup :=
   fa2_caddr_ : Address
 }.
 
-Instance state_settable : Settable _ :=
-  settable! build_clientstate <fa2_caddr; bit>.
-Instance setup_settable : Settable _ :=
-  settable! build_clientsetup <fa2_caddr_>.
+MetaCoq Run (make_setters ClientState).
+MetaCoq Run (make_setters ClientSetup).
 
 Section Serialization.
 
@@ -127,10 +125,8 @@ Record HookSetup :=
     hook_policy_ : permissions_descriptor;
 }.
 
-Instance hookstate_settable : Settable _ :=
-  settable! build_hookstate <hook_owner; hook_fa2_caddr; hook_policy>.
-Instance hooksetup_settable : Settable _ :=
-  settable! build_hooksetup <hook_fa2_caddr_; hook_policy_>.
+MetaCoq Run (make_setters HookState).
+MetaCoq Run (make_setters HookSetup).
 
 Section Serialization.
 

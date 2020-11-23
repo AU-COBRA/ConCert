@@ -135,7 +135,6 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
       <%% prod %%>
     ; <%% @Chain %%>
     ; <%% @ActionBody %%>
-    ; <%% @RecordSet.set %%>
     ; <%% @ChainBase %%>
     ; <%% axiomatized_ChainBase %%>
     ; <%% Amount %%>
@@ -146,9 +145,6 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
     ; <%% @ctx_from %%>
     ; <%% @ctx_amount %%>
     ; <%% @ctx_contract_address %%>
-    ; <%% @RecordSet.constructor %%>
-    ; <%% @RecordSet.Reader %%>
-    ; <%% @RecordSet.set %%>
     ; <%% @SerializedValue %%>
     ; <%% @SerializedType %%>
   ].
