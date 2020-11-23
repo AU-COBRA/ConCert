@@ -4,6 +4,8 @@ From Coq Require Import List.
 From Coq Require Import Psatz.
 From Equations Require Import Equations.
 From MetaCoq Require Import utils.
+From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Template Require Import Kernames.
 
 Derive Signature for Alli.
 Derive Signature for Forall.
@@ -213,6 +215,9 @@ Arguments bigprod_map {_ _ _} _ {_}.
 Arguments bigprod_map_id {_ _} _ {_}.
 Arguments bigprod_mapi_rec {_ _ _} _ {_}.
 Arguments bigprod_find {_ _} _ {_}.
+
+Definition kername_set_of_list (l : list kername) : KernameSet.t :=
+  fold_left (fun s k => KernameSet.add k s) l KernameSet.empty.
 
 (* When extracting this can be remapped as something that measures and outputs some info *)
 Definition timed {A} (part : string) (f : unit -> A) : A :=

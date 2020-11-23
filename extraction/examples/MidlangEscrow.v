@@ -5,8 +5,10 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import MidlangExtract.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import Inlining.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import Utils.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Execution.Examples Require Import Escrow.
 
@@ -20,6 +22,7 @@ From Coq Require Import ZArith.
 
 From MetaCoq.Template Require Import Kernames All.
 
+Import ListNotations.
 Import MonadNotation.
 
 Open Scope string.
@@ -29,15 +32,6 @@ Instance EscrowMidlangBoxes : MidlangPrintConfig :=
      type_box_symbol := "()";
      any_type_symbol := "()";
      print_full_names := true; (* full names to avoid clashes*)|}.
-
-Notation "'eval_extract' x" :=
-  ltac:(let x :=
-            eval
-              cbv
-              beta
-              delta [x receive Monads.bind Monads.Monad_option]
-              iota in x in
-       exact x) (at level 70).
 
 Definition TT_escrow : list (kername * string) :=
   [    remap <%% bool %%> "Bool"
@@ -66,17 +60,14 @@ Definition midlang_escrow_translate (name : kername) : option string :=
 Axiom extraction_chain_base : ChainBase.
 Existing Instance extraction_chain_base.
 
-Definition escrow_init :=
-  eval_extract @Escrow.init.
-
-Definition escrow_receive :=
-  eval_extract @Escrow.receive.
-
-Definition escrow_name := Eval compute in <%% escrow_receive %%>.
-
-
-MetaCoq Run (p <- tmQuoteRecTransp escrow_receive false ;;
+MetaCoq Run (p <- tmQuoteRecTransp Escrow.receive false ;;
              tmDefinition "escrow_env" p.1).
+
+Open Scope bool.
+Definition should_inline kn :=
+  eq_kername kn <%% @Monads.bind %%>
+  || eq_kername kn <%% Monads.Monad_option %%>
+  || if String.index 0 "setter_from_getter" (string_of_kername kn) then true else false.
 
 Definition ignored_concert_types :=
   Eval compute in
@@ -86,11 +77,12 @@ Definition ignored_concert_types :=
          <%% @ChainBase %%>;
          <%% @Chain %%>;
          <%% @ContractCallContext %%>;
-         <%% @SerializedValue %%>].
+         <%% @SerializedValue %%>;
+         <%% @RecordSet.SetterFromGetter %%>].
 
 Import ResultMonad.
 
-Definition extract_template_env_specalize
+Definition extract_template_env_specialize
            (params : extract_template_env_params)
            (Σ : T.global_env)
            (seeds : KernameSet.t)
@@ -101,56 +93,54 @@ Definition extract_template_env_specalize
   wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
+Definition extract_params :=
+  {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     pcuic_args :=
+       {| optimize_prop_discr := true;
+          transforms := [Optimize.dearg_transform true true true true true;
+                         Inlining.transform should_inline] |} |}.
+
 Definition escrow_extract :=
-  extract_template_env_specalize extract_within_coq
-      escrow_env
-      (KernameSet.singleton escrow_name)
-       (fun kn => contains kn (ignored_concert_types
-                             ++ map fst midlang_translation_map
-                             ++ map fst TT_escrow)).
-
-Definition wrap_in_delimiters s :=
-  String.concat nl ["";"{-START-} "; s; "{-END-}"].
-
+  Eval vm_compute in
+  extract_template_env_specialize
+    extract_params
+    escrow_env
+    (KernameSet.singleton <%% @Escrow.receive %%>)
+     (fun kn => contains kn (ignored_concert_types
+                           ++ map fst midlang_translation_map
+                           ++ map fst TT_escrow)).
 
 Definition midlang_prelude :=
-  String.concat nl
-                ["import Basics exposing (..)";
-                "import Blockchain exposing (..)";
-                "import Bool exposing (..)";
-                "import Int exposing (..)";
-                "import Maybe exposing (..)";
-                "import Order exposing (..)";
-                "import Transaction exposing (..)";
-                "import Tuple exposing (..)";
-                "";
-                "-- some dummy definitions (will be remapped properly in the future)";
-                "type AccountAddress = Int";
-                "type ConCertAction = Act_transfer Int Z";
-                "type ConCertCallContext = CCtx Unit";
-                "type ConCertChain = CChain Unit";
-                "ctx_from ctx = 0";
-                "ctx_amount ctx = (Zpos (XO XH))";
-                "contract_address _ = 0";
-                "account_balance _ _ = (Zpos (XO XH))";
-                "current_slot _ = O"
-].
+  ["import Basics exposing (..)";
+  "import Blockchain exposing (..)";
+  "import Bool exposing (..)";
+  "import Int exposing (..)";
+  "import Maybe exposing (..)";
+  "import Order exposing (..)";
+  "import Transaction exposing (..)";
+  "import Tuple exposing (..)";
+  "";
+  "-- some dummy definitions (will be remapped properly in the future)";
+  "type AccountAddress = Int";
+  "type ConCertAction = Act_transfer Int Z";
+  "type ConCertCallContext = CCtx Unit";
+  "type ConCertChain = CChain Unit";
+  "ctx_from ctx = 0";
+  "ctx_amount ctx = (Zpos (XO XH))";
+  "contract_address _ = 0";
+  "account_balance _ _ = (Zpos (XO XH))";
+  "current_slot _ = O"].
 
 Definition escrow_result :=
   Eval vm_compute in
-    (env <- escrow_extract ;;
-     '(_, s) <- finish_print (print_env env midlang_escrow_translate);;
-     ret s).
+    (env <- escrow_extract;;
+     '(_, lines) <- finish_print_lines (print_env env midlang_escrow_translate);;
+     ret lines).
 
-MetaCoq Run (match escrow_result with
-             | Ok s => tmMsg "Extraction of escrow succeeded"
-             | Err err => tmFail err
-             end).
-
-Definition midlang_escrow :=
+Definition result :=
   match escrow_result with
-  | Ok s => wrap_in_delimiters (midlang_prelude ++ nl ++ s)
-  | Err s => s
+  | Ok l => monad_map tmMsg (midlang_prelude ++ l)
+  | Err err => tmFail err
   end.
 
-Redirect "examples/midlang-extract/MidlangEscrow.midlang" Compute midlang_escrow.
+Redirect "examples/midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.

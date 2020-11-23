@@ -44,7 +44,7 @@ test-extraction:
 	$(foreach file, $(wildcard ./extraction/examples/liquidity-extract/tests/*.liq), liquidity $(file);)
 .PHONY: test-extraction
 
-process-extraction: code
+process-extraction: extraction
 	./process-extraction.sh
 .PHONY: process-extraction
 
