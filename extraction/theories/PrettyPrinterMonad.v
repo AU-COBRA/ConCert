@@ -48,23 +48,25 @@ Fixpoint prefix_spaces n s :=
   | S n => prefix_spaces n (String " "%char s)
   end.
 
+Definition collect_output_lines pps :=
+  rev_map (fun '(n, l) => prefix_spaces n l) (cur_output_line pps :: output_lines pps).
+
+Definition finish_print_lines {A} (pp : PrettyPrinter A) : result (A * list string) string :=
+  '(a, pps) <- pp {| indent_stack := [];
+                     used_names := [];
+                     output_lines := [];
+                     cur_output_line := (0, "") |};;
+  ret (a, collect_output_lines pps).
+
 Definition collect_output pps :=
-  let make_line '(n, s) :=
-      match s with
-      | EmptyString => EmptyString
-      | _ => prefix_spaces n s
-      end in
-  concat nl (rev_map make_line (cur_output_line pps :: output_lines pps)).
+  concat nl (collect_output_lines pps).
 
 Definition printer_fail {A} (str : string) : PrettyPrinter A :=
   fun pps => Err (str ++ nl ++ "failed after printing" ++ nl ++ collect_output pps).
 
 Definition finish_print {A} (pp : PrettyPrinter A) : result (A * string) string :=
-  '(a, pps) <- pp {| indent_stack := [];
-                     used_names := [];
-                     output_lines := [];
-                     cur_output_line := (0, "") |};;
-  ret (a, collect_output pps).
+  '(a, lines) <- finish_print_lines pp;;
+  ret (a, concat nl lines).
 
 Definition get_indent : PrettyPrinter nat :=
   fun pps => Ok (hd 0 (indent_stack pps), pps).

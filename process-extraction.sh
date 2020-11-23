@@ -30,5 +30,5 @@ echo "Processing Midlang extraction"
 for f in $MID_PATH/*.midlang.out;
 do
     echo $f "--->" $MID_TESTS/$(basename ${f%.out}) ;
-    sed -n 's/ *"//;/{-START-}/,/{-END-}/p' $f > $MID_TESTS/$(basename ${f%.out})
+    cp $f $MID_TESTS/$(basename ${f%.out})
 done

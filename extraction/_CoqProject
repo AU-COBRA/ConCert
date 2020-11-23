@@ -23,6 +23,7 @@ theories/ExpandBranches.v
 theories/ExtractExtraction.v
 theories/Extraction.v
 theories/ExtractionCorrectness.v
+theories/Inlining.v
 theories/LPretty.v
 theories/LiquidityExtract.v
 theories/MidlangExtract.v
