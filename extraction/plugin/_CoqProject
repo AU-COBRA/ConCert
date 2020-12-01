@@ -43,6 +43,8 @@ src/fin.ml
 src/fin.mli
 src/init.ml
 src/init.mli
+src/inlining.ml
+src/inlining.mli
 src/kernames.ml
 src/kernames.mli
 src/monad_utils.ml
@@ -87,6 +89,8 @@ src/pCUICUnivSubst.ml
 src/pCUICUnivSubst.mli
 src/prettyPrinterMonad.ml
 src/prettyPrinterMonad.mli
+src/printing.ml
+src/printing.mli
 src/reflect.ml
 src/reflect.mli
 src/resultMonad.ml
@@ -125,4 +129,8 @@ src/wGraph.mli
 src/g_concert_extraction.mlg
 src/concert_extraction_plugin.mlpack
 
+theories/BernsteinYangTermination.v
+theories/ExtrRustBasic.v
+theories/ExtrRustCheckedArith.v
+theories/ExtrRustUncheckedArith.v
 theories/Loader.v

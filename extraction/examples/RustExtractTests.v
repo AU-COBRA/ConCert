@@ -4,6 +4,7 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import TopLevelFixes.
@@ -25,34 +26,30 @@ Instance RustConfig : RustPrintConfig :=
      any_type_symbol := "()";
      print_full_names := false |}.
 
-Definition general_extract (p : T.program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
+Definition extract (p : T.program) : result string string :=
   entry <- match p.2 with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
   Σ <- extract_template_env
-         extract_rust_within_coq
+         (extract_rust_within_coq (fun _ => false))
          p.1
          (KernameSet.singleton entry)
-         (fun k => existsb (eq_kername k) ignore);;
-  let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
+         (fun k => false);;
   let is_const '(kn, decl) :=
       match decl with
       | Ex.ConstantDecl _ => true
       | _ => false
       end in
   let p :=
-      print_decls Σ TT_fun (filter (negb ∘ is_const) (List.rev Σ));;
+      print_decls Σ no_remaps (filter (negb ∘ is_const) (List.rev Σ));;
       append_nl;;
       append_nl;;
-      print_decls Σ TT_fun (filter is_const (List.rev Σ));;
+      print_decls Σ no_remaps (filter is_const (List.rev Σ));;
       ret tt in
   '(_, s) <- finish_print p;;
   ret s.
-
-Definition extract (p : T.program) : result string string :=
-  general_extract p [] [].
 
 Module ex1.
   Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
@@ -63,7 +60,7 @@ Module ex1.
     extract ex1 = Ok <$
 "#[derive(Debug, Copy, Clone)]";
 "pub enum Sig<'a, A> {";
-"  Exist(PhantomData<&'a A>, A)";
+"  exist(PhantomData<&'a A>, A)";
 "}";
 "";
 "#[derive(Debug, Copy, Clone)]";
@@ -74,23 +71,30 @@ Module ex1.
 "";
 "fn proj1_sig<A: Copy>(&'a self, e: &'a Sig<'a, A>) -> A {";
 "  match e {";
-"    &Sig::Exist(_, a) => {";
+"    &Sig::exist(_, a) => {";
 "      a";
 "    },";
 "  }";
 "}";
-"fn proj1_sig__closure<A: Copy>(&'a self) -> &'a dyn Fn(&'a Sig<'a, A>) -> A {";
+"fn proj1_sig__curried<A: Copy>(&'a self) -> &'a dyn Fn(&'a Sig<'a, A>) -> A {";
 "  self.closure(move |e| {";
-"    self.proj1_sig(e)";
+"    self.proj1_sig(";
+"      e)";
 "  })";
 "}";
 "";
 "fn foo(&'a self) -> &'a Sig<'a, &'a Nat<'a>> {";
-"  self.alloc(Sig::Exist(PhantomData, self.alloc(Nat::O(PhantomData))))";
+"  self.alloc(";
+"    Sig::exist(";
+"      PhantomData,";
+"      self.alloc(";
+"        Nat::O(";
+"          PhantomData))))";
 "}";
 "";
 "fn bar(&'a self) -> &'a Nat<'a> {";
-"  self.proj1_sig(self.foo())";
+"  self.proj1_sig(";
+"    self.foo())";
 "}" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex1.
@@ -104,7 +108,7 @@ Module ex2.
     extract ex2 = Ok <$
 "#[derive(Debug, Copy, Clone)]";
 "pub enum Sig<'a, A> {";
-"  Exist(PhantomData<&'a A>, A)";
+"  exist(PhantomData<&'a A>, A)";
 "}";
 "";
 "#[derive(Debug, Copy, Clone)]";
@@ -115,23 +119,30 @@ Module ex2.
 "";
 "fn proj1_sig<A: Copy>(&'a self, e: &'a Sig<'a, A>) -> A {";
 "  match e {";
-"    &Sig::Exist(_, a) => {";
+"    &Sig::exist(_, a) => {";
 "      a";
 "    },";
 "  }";
 "}";
-"fn proj1_sig__closure<A: Copy>(&'a self) -> &'a dyn Fn(&'a Sig<'a, A>) -> A {";
+"fn proj1_sig__curried<A: Copy>(&'a self) -> &'a dyn Fn(&'a Sig<'a, A>) -> A {";
 "  self.closure(move |e| {";
-"    self.proj1_sig(e)";
+"    self.proj1_sig(";
+"      e)";
 "  })";
 "}";
 "";
 "fn foo(&'a self) -> &'a Sig<'a, &'a Nat<'a>> {";
-"  self.alloc(Sig::Exist(PhantomData, self.alloc(Nat::O(PhantomData))))";
+"  self.alloc(";
+"    Sig::exist(";
+"      PhantomData,";
+"      self.alloc(";
+"        Nat::O(";
+"          PhantomData))))";
 "}";
 "";
 "fn bar(&'a self) -> &'a Nat<'a> {";
-"  self.proj1_sig(self.foo())";
+"  self.proj1_sig(";
+"    self.foo())";
 "}" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex2.
@@ -153,19 +164,25 @@ Module ex3.
 "      m";
 "    },";
 "    &Nat::S(_, p) => {";
-"      self.alloc(Nat::S(PhantomData, self.add(p, m)))";
+"      self.alloc(";
+"        Nat::S(";
+"          PhantomData,";
+"          self.add(";
+"            p,";
+"            m)))";
 "    },";
 "  }";
 "}";
-"fn add__closure(&'a self) -> &'a dyn Fn(&'a Nat<'a>) -> &'a dyn Fn(&'a Nat<'a>) -> &'a Nat<'a> {";
+"fn add__curried(&'a self) -> &'a dyn Fn(&'a Nat<'a>) -> &'a dyn Fn(&'a Nat<'a>) -> &'a Nat<'a> {";
 "  self.closure(move |n| {";
 "    self.closure(move |m| {";
-"      self.add(n, m)";
+"      self.add(";
+"        n,";
+"        m)";
 "    })";
 "  })";
 "}" $>.
   Proof. vm_compute. reflexivity. Qed.
-
 End ex3.
 
 Module ex4.
@@ -192,7 +209,10 @@ Module ex4.
 "fn ack(&'a self, n: &'a Nat<'a>, m: &'a Nat<'a>) -> &'a Nat<'a> {";
 "  match n {";
 "    &Nat::O(_) => {";
-"      self.alloc(Nat::S(PhantomData, m))";
+"      self.alloc(";
+"        Nat::S(";
+"          PhantomData,";
+"          m))";
 "    },";
 "    &Nat::S(_, p) => {";
 "      let ackn = {";
@@ -201,10 +221,19 @@ Module ex4.
 "          self.closure(move |m2| {";
 "            match m2 {";
 "              &Nat::O(_) => {";
-"                self.ack(p, self.alloc(Nat::S(PhantomData, self.alloc(Nat::O(PhantomData)))))";
+"                self.ack(";
+"                  p,";
+"                  self.alloc(";
+"                    Nat::S(";
+"                      PhantomData,";
+"                      self.alloc(";
+"                        Nat::O(";
+"                          PhantomData)))))";
 "              },";
 "              &Nat::S(_, q) => {";
-"                self.ack(p, hint_app(ackn.get().unwrap())(q))";
+"                self.ack(";
+"                  p,";
+"                  hint_app(ackn.get().unwrap())(q))";
 "              },";
 "            }";
 "          })));";
@@ -214,10 +243,12 @@ Module ex4.
 "    },";
 "  }";
 "}";
-"fn ack__closure(&'a self) -> &'a dyn Fn(&'a Nat<'a>) -> &'a dyn Fn(&'a Nat<'a>) -> &'a Nat<'a> {";
+"fn ack__curried(&'a self) -> &'a dyn Fn(&'a Nat<'a>) -> &'a dyn Fn(&'a Nat<'a>) -> &'a Nat<'a> {";
 "  self.closure(move |n| {";
 "    self.closure(move |m| {";
-"      self.ack(n, m)";
+"      self.ack(";
+"        n,";
+"        m)";
 "    })";
 "  })";
 "}" $>.
@@ -248,15 +279,16 @@ Module ex5.
 "";
 "#[derive(Debug, Copy, Clone)]";
 "pub enum Eq<'a, A> {";
-"  Eq_refl(PhantomData<&'a A>)";
+"  eq_refl(PhantomData<&'a A>)";
 "}";
 "";
 "fn code(&'a self, f: &'a T<'a>) -> &'a T<'a> {";
 "  f";
 "}";
-"fn code__closure(&'a self) -> &'a dyn Fn(&'a T<'a>) -> &'a T<'a> {";
+"fn code__curried(&'a self) -> &'a dyn Fn(&'a T<'a>) -> &'a T<'a> {";
 "  self.closure(move |f| {";
-"    self.code(f)";
+"    self.code(";
+"      f)";
 "  })";
 "}" $>.
   Proof. vm_compute. reflexivity. Qed.

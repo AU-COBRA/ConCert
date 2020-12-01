@@ -31,6 +31,7 @@ theories/Optimize.v
 theories/OptimizeCorrectness.v
 theories/OptimizePropDiscr.v
 theories/PrettyPrinterMonad.v
+theories/Printing.v
 theories/ResultMonad.v
 theories/RustExtract.v
 theories/SpecializeChainBase.v
