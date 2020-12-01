@@ -1,5 +1,6 @@
 COQ_SRC_SUBDIRS+=user-contrib/MetaCoq/Template
-OPENS=-open Metacoq_template_plugin
+OPENS+=-open Metacoq_template_plugin
+OPENS+=-open Extraction_plugin
 CAMLFLAGS+=$(OPENS)
 CAMLFLAGS+=-w -20 # Unused arguments
 CAMLFLAGS+=-w -32 # Unused values

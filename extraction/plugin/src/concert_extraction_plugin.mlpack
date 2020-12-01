@@ -49,12 +49,14 @@ StringExtra
 ResultMonad
 ExAst
 ClosedAux
+Printing
 Transform
 Common1
 Erasure
 ExpandBranches
 Optimize
 OptimizePropDiscr
+Inlining
 TopLevelFixes
 PrettyPrinterMonad
 Extraction0

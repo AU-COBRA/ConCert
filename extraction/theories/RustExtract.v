@@ -6,12 +6,14 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ExpandBranches.
 From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import Inlining.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import TopLevelFixes.
 From ConCert.Extraction Require Import Utils.
+From ConCert.Utils Require Import StringExtra.
 
 From Coq Require Import Arith.
 From Coq Require Import Ascii.
@@ -49,7 +51,7 @@ Local Definition indent_size := 2.
 
 Section FixEnv.
 Context (Σ : Ex.global_env).
-Context (translate : kername -> option string).
+Context (remaps : remaps).
 (* A printing config for Rust *)
 Class RustPrintConfig :=
   { term_box_symbol : string;
@@ -58,36 +60,6 @@ Class RustPrintConfig :=
     print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *)}.
 
 Context `{RustPrintConfig}.
-
-Definition option_get {A} (o : option A) (default : A) : A :=
-  match o with
-  | Some a => a
-  | None => default
-  end.
-
-Definition clean_name (s : string) : string :=
-  replace_char "." "_" (replace_char "'" "_" s).
-
-Definition get_const_name (name : kername) : string :=
-  let const_name :=
-      clean_name (if print_full_names then string_of_kername name else name.2) in
-  option_get (translate name) const_name.
-
-Definition get_ty_name (name : kername) : string :=
-  capitalize (option_get (translate name) (clean_name name.2)).
-
-Definition get_ctor_name (name : kername) : string :=
-  capitalize (option_get (translate name) (clean_name name.2)).
-
-(* Fine to remove primes here as we generate fresh names *)
-Definition get_ident_name (name : ident) : string :=
-  remove_char "'" (replace_char "." "_" name).
-
-Definition get_ty_arg_name (name : ident) : ident :=
-  name.
-
-Definition is_polymorphic (cst : Ex.constant_body) : bool :=
-  0 <? #|(Ex.cst_type cst).1|.
 
 Definition lookup_mind (name : kername) : option Ex.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
@@ -108,21 +80,47 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
                 ++ string_of_kername (inductive_mind ind) ++ " in environment")
   end.
 
-Definition print_ind (ind : inductive) : PrettyPrinter unit :=
-  oib <- wrap_result (lookup_ind_decl ind) id;;
-  let kn := ((inductive_mind ind).1, Ex.ind_name oib) in
-  append (get_ty_name kn).
+(* We clean global identifiers but do not generate any form of fresh names
+   to make it straightforward to know what extracted code maps to what. *)
+Definition clean_global_ident (s : string) : string :=
+  replace_char "." "_" (replace_char "'" "_" s).
 
-Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
-  oib <- wrap_result (lookup_ind_decl ind) id;;
-  match nth_error (Ex.ind_ctors oib) i with
-  | Some (name, _) =>
-    let kn := ((inductive_mind ind).1, name) in
-    print_ind ind;;
-    append ("::" ++ get_ctor_name kn)
-  | None =>
-    printer_fail (Ex.ind_name oib ++ " does not have a ctor " ++ string_of_nat i)
+(* Get identifier for a global constant function given its kername, without
+   taking remappings into account *)
+Definition const_global_ident_of_kername (kn : kername) :=
+  clean_global_ident (if print_full_names then string_of_kername kn else kn.2).
+
+(* Get identifier for a global constant meant to be used as a type, without
+   taking remappings into account. This is also used for [inductive]. *)
+Definition ty_const_global_ident_of_kername (kn : kername) :=
+  capitalize (clean_global_ident (if print_full_names then string_of_kername kn else kn.2)).
+
+(* Get identifier for a global type alias taking remappings into account *)
+Definition get_ty_const_ident (name : kername) : string :=
+  match remap_inline_constant remaps name with
+  | Some s => s
+  | None => ty_const_global_ident_of_kername name
   end.
+
+(* Get identifier for an inductive taking remappings into account *)
+Definition get_ind_ident (ind : inductive) : PrettyPrinter string :=
+  match remap_inductive remaps ind with
+  | Some rem => ret (re_ind_name rem)
+  | None =>
+    oib <- wrap_result (lookup_ind_decl ind) id;;
+    let kn := ((inductive_mind ind).1, Ex.ind_name oib) in
+    ret (ty_const_global_ident_of_kername kn)
+  end.
+
+(* Fine to remove primes here as we generate fresh names *)
+Definition clean_local_ident (name : ident) : string :=
+  remove_char "'" name.
+
+Definition is_polymorphic (cst : Ex.constant_body) : bool :=
+  0 <? #|(Ex.cst_type cst).1|.
+
+Definition print_ind (ind : inductive) : PrettyPrinter unit :=
+  get_ind_ident ind >>= append.
 
 Definition print_parenthesized
            (parenthesize : bool)
@@ -135,7 +133,6 @@ Definition print_parenthesized
 Definition print_parenthesized_with par_start par_end :=
   fun (parenthesize : bool) (print : PrettyPrinter unit) =>
   if parenthesize then append par_start;; print;; append par_end else print.
-
 
 Definition parenthesize_app_head (t : term) : bool :=
   match t with
@@ -183,14 +180,14 @@ Definition fresh_ident (name : name) (Γ : list ident) : PrettyPrinter ident :=
   used_names <- get_used_names;;
   match name with
   | nAnon => ret (fresh "x" (Γ ++ used_names))
-  | nNamed name => ret (fresh (get_ident_name name) (Γ ++ used_names))
+  | nNamed name => ret (fresh (clean_local_ident name) (Γ ++ used_names))
   end.
 
 Definition fresh_ty_arg_name (name : name) (Γ : list ident) : PrettyPrinter ident :=
   used_names <- get_used_names;;
   match name with
   | nAnon => ret (fresh "a" (Γ ++ used_names))
-  | nNamed name => ret (fresh (get_ty_arg_name name) (Γ ++ used_names))
+  | nNamed name => ret (fresh (clean_local_ident name) (Γ ++ used_names))
   end.
 
 Definition parenthesize_ty_app_arg (t : box_type) : bool :=
@@ -216,14 +213,21 @@ Fixpoint print_type_aux (Γ : list ident) (t : box_type) (args : list (PrettyPri
     | None => printer_fail ("unbound TVar " ++ string_of_nat n)
     end
   | TInd ind =>
-    append "&'a ";;
-    print_ind ind;;
-    append "<";;
-    monad_append_join (append ", ") (append "'a" :: args);;
-    append ">"
+    if remap_inductive remaps ind then
+      print_ind ind;;
+      print_parenthesized_with
+        "<" ">"
+        (0 <? #|args|)
+        (monad_append_join (append ", ") args)
+    else
+      append "&'a ";;
+      print_ind ind;;
+      append "<";;
+      monad_append_join (append ", ") (append "'a" :: args);;
+      append ">"
 
   | TConst name =>
-    append (get_ty_name name ++ "<");;
+    append (get_ty_const_ident name ++ "<");;
     monad_append_join (append ", ") (append "'a" :: args);;
     append ">"
   end.
@@ -246,10 +250,196 @@ Definition get_num_inline_args (kn : kername) : PrettyPrinter nat :=
     ret (count body (Ex.cst_type cst).2)
   end.
 
-Definition bracketize_let_value (t : term) :=
+Definition print_app
+           (head : PrettyPrinter unit)
+           (args : list (PrettyPrinter unit)) : PrettyPrinter unit :=
+  col <- get_current_line_length;;
+  head;;
+  push_indent (col + indent_size);;
+  append "(";;
+  (if 0 <? #|args| then append_nl else ret tt);;
+  monad_append_join (append ",";; append_nl) args;;
+  append ")";;
+  pop_indent.
+
+Definition print_constructor
+           (ind : inductive)
+           (c : nat)
+           (args : list (PrettyPrinter unit)) :=
+  match remap_inductive remaps ind with
+  | Some rem =>
+    s <- wrap_option (nth_error (re_ind_ctors rem) c)
+                     (string_of_inductive ind
+                      ^ "' does not remap enough constructors ");;
+    if 0 <? #|args| then
+      print_app (append s) args
+    else
+      append s
+  | None =>
+    oib <- wrap_result (lookup_ind_decl ind) id;;
+    '(ctor, _) <- wrap_option
+                    (nth_error (Ex.ind_ctors oib) c)
+                    ("Could not find ctor "
+                     ^ string_of_nat c
+                     ^ " for inductive "
+                     ^ string_of_inductive ind);;
+
+    col <- get_current_line_length;;
+    push_indent (col + indent_size);;
+    append "self.alloc(";;
+    append_nl;;
+    let head := print_ind ind;; append "::";; append (clean_global_ident ctor) in
+    let final_args := append "PhantomData" :: args in
+    print_app head final_args;;
+    append ")";;
+    pop_indent
+  end.
+
+Definition print_const (kn : kername) (args : list (PrettyPrinter unit)) : PrettyPrinter unit :=
+  num_inline_args <- get_num_inline_args kn;;
+  let (expr, num_inline_args) :=
+      if #|args| <? num_inline_args then
+        (* Not enough args, use curried version *)
+        ("self." ^ const_global_ident_of_kername kn ^ "__curried", 0)
+      else
+        (match remap_inline_constant remaps kn with
+         | Some s => s
+         | None => "self." ^ const_global_ident_of_kername kn
+         end, num_inline_args) in
+  head_col <- get_current_line_length;;
+  let head := append expr in
+  let args_in_head := firstn num_inline_args args in
+  let args_in_tail := skipn num_inline_args args in
+  print_app head args_in_head;;
+  push_indent (head_col + indent_size);;
+  let it_app a :=
+      append "(";;
+      append_nl;;
+      a;;
+      append ")" in
+  monad_append_concat (map it_app args_in_tail);;
+  pop_indent.
+
+Section print_term.
+  Context (print_term : list ident -> term -> PrettyPrinter unit).
+
+  Definition print_case Γ ind npars discr brs : PrettyPrinter unit :=
+    col <- get_current_line_length;;
+    push_indent col;;
+
+    append "match ";;
+    print_term Γ discr;;
+    append " {";;
+
+    oib <- wrap_result (lookup_ind_decl ind) id;;
+    let rem := remap_inductive remaps ind in
+
+    push_indent (col + indent_size);;
+    (fix print_cases (brs : list (nat × term)) (ctors : list (ident × list box_type)) (c : nat) :=
+       match brs, ctors with
+       | [], [] => ret tt
+       | (arity, t) :: branches, (ctor_name, data) :: ctors =>
+         append_nl;;
+
+         match rem with
+         | Some rem =>
+           s <- wrap_option (nth_error (re_ind_ctors rem) c)
+                            (string_of_inductive ind
+                             ^ "' does not remap enough constructors");;
+           append s
+
+         | None =>
+           append "&";;
+           print_ind ind;;
+           append "::";;
+           append (clean_global_ident ctor_name)
+         end;;
+
+         push_indent (col + 2*indent_size);;
+         (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
+            match n, t with
+            | 0, _ =>
+              (* In Coq, parameters are not part of branches. But
+            erasure adds the parameters to each constructor, so we
+            need to get those out of the way first. These won't have
+            any uses so we just print _. In addition, we add a phantom
+            data when not remapped to make it valid to always have
+            lifetimes. That gives another underscores. *)
+              let nextra := if rem then npars else S npars in
+              let extra := List.repeat "_" nextra in
+              let args := (extra ++ rev (firstn arity Γ))%list in
+              print_parenthesized (0 <? #|args|) (append_join ", " args);;
+              append " => {";;
+              append_nl;;
+              print_term Γ t
+
+            | S n, tLambda name t =>
+              name <- fresh_ident name Γ;;
+              print_branch n (name :: Γ) t
+            | _, _ => printer_fail "Could not decompose case branch"
+            end) arity Γ t;;
+
+         pop_indent;;
+         append_nl;;
+         append "},";;
+
+         print_cases branches ctors (S c)
+       | _, _ => printer_fail "wrong number of case branches compared to inductive"
+       end) brs (Ex.ind_ctors oib) 0;;
+
+    pop_indent;;
+    append_nl;;
+    append "}";;
+
+    pop_indent.
+
+  Definition print_remapped_case Γ ind discr brs eliminator : PrettyPrinter unit :=
+    col <- get_current_line_length;;
+    push_indent col;;
+
+    append (eliminator ^ "(");;
+
+    oib <- wrap_result (lookup_ind_decl ind) id;;
+
+    push_indent (col + indent_size);;
+
+    let fix print_branch (arity n : nat) (Γ : list ident) (t : term) {struct t} :=
+        match n, t with
+        | 0, _ =>
+          let args := rev (firstn arity Γ) in
+
+          append_nl;;
+          append_concat (map (fun a => a ^ ", ") args);;
+          append "{";;
+
+          push_indent (col + 2*indent_size);;
+          append_nl;;
+          print_term Γ t;;
+          pop_indent;;
+
+          append_nl;;
+          append "},"
+
+        | S n, tLambda name t =>
+          name <- fresh_ident name Γ;;
+          print_branch arity n (name :: Γ) t
+        | _, _ => printer_fail "Could not decompose case branch"
+        end in
+    monad_append_concat
+      (map (fun '(ar, t) => print_branch ar ar Γ t) brs);;
+
+    append_nl;;
+    print_term Γ discr;;
+
+    append ")";;
+    pop_indent;;
+    pop_indent.
+End print_term.
+
+Definition needs_block (t : term) : bool :=
   match t with
-  | tFix _ _
-  | tLetIn _ _ _ => true
+  | tLetIn _ _ _
+  | tFix _ _ => true
   | _ => false
   end.
 
@@ -284,14 +474,14 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
 
     push_indent col;;
     append ("let " ++ name ++ " =");;
-    (if bracketize_let_value val then append " {" else ret tt);;
+    (if needs_block val then append " {" else ret tt);;
 
     push_indent (col + indent_size);;
     append_nl;;
     print_term Γ val;;
     pop_indent;;
 
-    (if bracketize_let_value val then
+    (if needs_block val then
        append_nl;;
        append "};"
      else
@@ -306,106 +496,46 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
 
     (fix f head args_printed {struct head} :=
        match head with
-       | tApp head arg => f head (print_term Γ arg :: args_printed)
-       | tConstruct ind i =>
-         append "self.alloc(";;
-         print_ind_ctor ind i;;
-         append "(";;
-         monad_append_join (append ", ") (append "PhantomData" :: args_printed);;
-         append "))"
+       | tApp head arg =>
+         let printed_arg :=
+             (if needs_block arg then append "{ " else ret tt);;
+             print_term Γ arg;;
+             if needs_block arg then append " }" else ret tt in
+         f head (printed_arg :: args_printed)
 
-       | tConst kn =>
-         num_args <- get_num_inline_args kn;;
-         let (name, num_args) :=
-             if #|args_printed| <? num_args then
-               (* Not enough args, use closure *)
-               (get_const_name kn ++ "__closure", 0)
-             else
-               (get_const_name kn, num_args) in
-         append ("self." ++ name ++ "(");;
-         monad_append_join
-           (append ", ")
-           (firstn num_args args_printed);;
-         append ")";;
-         monad_fold_left
-           (fun _ a => append "(";; a;; append ")") (skipn num_args args_printed) tt
+       | tConstruct ind i => print_constructor ind i args_printed
+
+       | tConst kn => print_const kn args_printed
 
        | _ =>
          (* For other heads we might need to guide type inference by repeatedly
             applying a hint function *)
          append (concat "" (repeat "hint_app(" #|args_printed|));;
+         (if needs_block head then append "{ " else ret tt);;
          print_term Γ head;;
+         (if needs_block head then append " }" else ret tt);;
          append ")";;
          monad_fold_left
            (fun pref a => append pref;; a;; append ")";; ret ")(") args_printed "(";;
          ret tt
 
-       end) head [print_term Γ arg]
+       end) head [if needs_block arg then
+                    append "{ ";; print_term Γ arg;; append " }"
+                  else
+                    print_term Γ arg]
 
-  | tConst name => append ("self." ++ get_const_name name ++ "()")
-  | tConstruct ind i =>
-    append "self.alloc(";;
-    print_ind_ctor ind i;;
-    append "(PhantomData)";;
-    append ")"
+  | tConst kn => print_const kn []
+  | tConstruct ind i => print_constructor ind i []
 
   | tCase (ind, npars) discr brs =>
-    col <- get_current_line_length;;
-    push_indent col;;
-    append "match ";;
-    print_term Γ discr;;
-    append " {";;
-
-    oib <- wrap_result (lookup_ind_decl ind) id;;
-
-    push_indent (col + indent_size);;
-    (fix print_cases (brs : list (nat × term)) (ctors : list (ident × list box_type)) :=
-       match brs, ctors with
-       | [], [] => ret tt
-       | (arity, t) :: branches, (ctor_name, data) :: ctors =>
-         append_nl;;
-
-         let kn := ((inductive_mind ind).1, name) in
-         append "&";;
-         append (get_ty_name ((inductive_mind ind).1, Ex.ind_name oib));;
-         append "::";;
-         append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
-
-         push_indent (col + 2*indent_size);;
-         (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
-            match n, t with
-            | 0, _ =>
-              (* In Coq, parameters are not part of branches. But erasure
-            adds the parameters to each constructor, so we need to get those
-            out of the way first. These won't have any uses so we just print _. *)
-              (* In addition, we add a phantom data to make it valid to always have lifetimes.
-                 That gives another underscores. *)
-              let parameters := List.repeat "_" (S npars) in
-              let args := (parameters ++ rev (firstn arity Γ))%list in
-              print_parenthesized (0 <? #|args|) (append_join ", " args);;
-              append " => {";;
-              append_nl;;
-              print_term Γ t
-
-            | S n, tLambda name t =>
-              name <- fresh_ident name Γ;;
-              print_branch n (name :: Γ) t
-            | _, _ => printer_fail "Could not decompose case branch"
-            end) arity Γ t;;
-
-         pop_indent;;
-         append_nl;;
-         append "},";;
-
-         print_cases branches ctors
-       | _, _ => printer_fail "wrong number of case branches compared to inductive"
-       end) brs (Ex.ind_ctors oib);;
-
-    pop_indent;;
-    append_nl;;
-    append "}";;
-
-    pop_indent
+    match remap_inductive remaps ind with
+    | Some rem =>
+      match re_ind_match rem with
+      | Some s => print_remapped_case print_term Γ ind discr brs s
+      | None => print_case print_term Γ ind npars discr brs
+      end
+    | None => print_case print_term Γ ind npars discr brs
+    end
 
   | tFix defs i =>
     (* Rust does not have recursive closures. Instead, we have to do a trick
@@ -464,9 +594,9 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
 Definition print_constant
            (kn : kername)
            (type : (list name × box_type))
-           (body : E.term) : PrettyPrinter string :=
+           (body : E.term) : PrettyPrinter unit :=
 
-  let rname := get_const_name kn in
+  let rname := const_global_ident_of_kername kn in
 
   name_col <- get_current_line_length;;
   push_indent name_col;;
@@ -477,42 +607,47 @@ Definition print_constant
                          type_vars [];;
 
   (* Print version with inlined args *)
-  append ("fn " ++ rname);;
-  print_parenthesized_with
-    "<" ">" (0 <? #|Γty|)
-    (append_join ", " (map (fun na => na ++ ": Copy") Γty));;
-  append "(&'a self";;
+  match remap_constant remaps kn with
+  | Some s => append (StringExtra.replace "##name##" rname s)
+  | None =>
+    if remap_inline_constant remaps kn then
+      ret tt
+    else
+      append ("fn " ++ rname);;
+      print_parenthesized_with
+        "<" ">" (0 <? #|Γty|)
+        (append_join ", " (map (fun na => na ++ ": Copy") Γty));;
+      append "(&'a self";;
 
-  num_inline_args <-
-  (fix print_top Γ body ty :=
-     match body, ty with
-     | tLambda na body, TArr dom cod =>
-       na <- fresh_ident na Γ;;
-       append (", " ++ na ++ ": ");;
-       print_type Γty dom;;
-       num <- print_top (na :: Γ) body cod;;
-       ret (S num)
-     | _, _ =>
-       append ") -> ";;
-       print_type Γty ty;;
-       append " {";;
+      (fix print_top Γ body ty :=
+         match body, ty with
+         | tLambda na body, TArr dom cod =>
+           na <- fresh_ident na Γ;;
+           append (", " ++ na ++ ": ");;
+           print_type Γty dom;;
+           print_top (na :: Γ) body cod
+         | _, _ =>
+           append ") -> ";;
+           print_type Γty ty;;
+           append " {";;
 
-       push_indent (name_col + indent_size);;
-       append_nl;;
+           push_indent (name_col + indent_size);;
+           append_nl;;
 
-       push_use rname;;
-       print_term Γ body;;
+           push_use rname;;
+           print_term Γ body;;
 
-       pop_indent;;
-       append_nl;;
-       append "}";;
-       ret 0
-     end) [] body ty;;
+           pop_indent;;
+           append_nl;;
+           append "}"
+         end) [] body ty
+  end;;
 
-  (* Print closure version if there were inlined args *)
+  (* Print curried version if there were inlined args *)
+  num_inline_args <- get_num_inline_args kn;;
   (if 0 <? num_inline_args then
      append_nl;;
-     append ("fn " ++ rname ++ "__closure");;
+     append ("fn " ++ rname ++ "__curried");;
      print_parenthesized_with
        "<" ">" (0 <? #|Γty|)
        (append_join ", " (map (fun na => na ++ ": Copy") Γty));;
@@ -523,7 +658,7 @@ Definition print_constant
      push_indent (name_col + indent_size);;
      append_nl;;
 
-     push_use (rname ++ "__closure");;
+     push_use (rname ++ "__curried");;
      eta_term <-
      (fix make_eta_term n body ty :=
         match body, ty with
@@ -541,13 +676,13 @@ Definition print_constant
      ret tt);;
 
   pop_indent;;
-  ret rname.
+  ret tt.
 
 Definition print_ind_ctor_definition
            (Γ : list ident)
-           (name : kername)
+           (name : ident)
            (data : list box_type) : PrettyPrinter unit :=
-  append (get_ctor_name name);;
+  append (clean_global_ident name);;
 
   (* Make sure we always take a lifetime parameter in data types *)
   append "(";;
@@ -570,7 +705,7 @@ Definition print_ind_ctor_definition
 Local Open Scope string.
 Definition print_mutual_inductive_body
            (kn : kername)
-           (mib : Ex.mutual_inductive_body) : PrettyPrinter (list (kername * string)) :=
+           (mib : Ex.mutual_inductive_body) : PrettyPrinter unit :=
   col <- get_current_line_length;;
   push_indent col;;
 
@@ -578,9 +713,9 @@ Definition print_mutual_inductive_body
   (fix print_ind_bodies
        (l : list Ex.one_inductive_body)
        (prefix : PrettyPrinter unit)
-       (names : list (kername * string)) :=
+       (i : nat) :=
      match l with
-     | [] => ret names
+     | [] => ret tt
      | oib :: l =>
 
        prefix;;
@@ -588,9 +723,7 @@ Definition print_mutual_inductive_body
        append "#[derive(Debug, Copy, Clone)]";;
        append_nl;;
        append "pub enum ";;
-       let ind_name := (kn.1, Ex.ind_name oib) in
-       let ind_ml_name := get_ty_name ind_name in
-       append ind_ml_name;;
+       print_ind (mkInd kn i);;
 
        (* Add type parameters. Note that since we are in prenex form,
           our context will have last type parameter last, not first. *)
@@ -609,66 +742,58 @@ Definition print_mutual_inductive_body
 
        monad_append_join (append ",";; append_nl)
                          (map (fun '(name, data) =>
-                                 print_ind_ctor_definition Γ (kn.1, name) data)
+                                 print_ind_ctor_definition Γ name data)
                               (Ex.ind_ctors oib));;
 
        pop_indent;;
        append_nl;;
        append "}";;
 
-       print_ind_bodies l append_nl ((ind_name, ind_ml_name) :: names)
-     end) (Ex.ind_bodies mib) (ret tt) [];;
+       print_ind_bodies l append_nl (S i)
+     end) (Ex.ind_bodies mib) (ret tt) 0;;
   pop_indent;;
   ret names.
 
 Definition print_type_alias
            (nm : kername)
            (tvars : list type_var_info)
-           (bt : box_type) : PrettyPrinter string :=
-  let ty_ml_name := get_ty_name nm in
-  append ("type " ++ ty_ml_name ++ "<");;
-  Γrev <- monad_fold_left (fun Γ tvar => name <- fresh_ty_arg_name (tvar_name tvar) Γ;;
-                                         ret (name :: Γ))
+           (bt : box_type) : PrettyPrinter unit :=
+  match remap_constant remaps nm with
+  | Some s => append s
+  | None =>
+    append ("type " ++ ty_const_global_ident_of_kername nm ++ "<");;
+    Γrev <- monad_fold_left (fun Γ tvar => name <- fresh_ty_arg_name (tvar_name tvar) Γ;;
+                                           ret (name :: Γ))
                           tvars [];;
-  let Γ := rev Γrev in
-  append_join ", " ("'a" :: Γ);;
-  append "> = ";;
-  print_type Γ bt;;
-  append ";";;
-  ret ty_ml_name.
+    let Γ := rev Γrev in
+    append_join ", " ("'a" :: Γ);;
+    append "> = ";;
+    print_type Γ bt;;
+    append ";"
+  end.
 
 Fixpoint print_decls_aux
          (decls : list (kername * bool * Ex.global_decl))
-         (prefix : PrettyPrinter unit)
-         (names : list (kername × string)) : PrettyPrinter (list (kername × string)) :=
+         (prefix : PrettyPrinter unit) : PrettyPrinter unit :=
   match decls with
-  | [] => ret names
+  | [] => ret tt
   | (kn, has_deps, decl) :: decls =>
-    new_names <-
-    (if has_deps then
-       match decl with
-       | Ex.ConstantDecl
-           {| Ex.cst_type := type;
-              Ex.cst_body := Some body; |} =>
-         prefix;;
-         name <- print_constant kn type body;;
-         ret [(kn, name)]
-       | Ex.InductiveDecl mib =>
-         prefix;;
-         print_mutual_inductive_body kn mib
-       | Ex.TypeAliasDecl (Some (tvars, bt)) =>
-         prefix;;
-         name <- print_type_alias kn tvars bt;;
-         ret [(kn, name)]
-       | _ => ret []
-       end
-     else
-       ret []);;
-    print_decls_aux decls (append_nl;; append_nl) (new_names ++ names)%list
+    match decl with
+    | Ex.ConstantDecl {| Ex.cst_type := type; Ex.cst_body := Some body |} =>
+      prefix;; print_constant kn type body
+    | Ex.InductiveDecl mib =>
+      if remap_inductive remaps (mkInd kn 0) then
+        ret tt
+      else
+        prefix;; print_mutual_inductive_body kn mib
+    | Ex.TypeAliasDecl (Some (tvars, bt)) => prefix;; print_type_alias kn tvars bt
+    | _ => ret tt
+    end;;
+    print_decls_aux decls (append_nl;; append_nl)
   end.
 
 Definition print_decls decls :=
-  print_decls_aux decls (ret tt) [].
+  print_decls_aux decls (ret tt).
 
 Definition preamble := [
 "#![allow(dead_code)]";
@@ -676,8 +801,97 @@ Definition preamble := [
 "#![allow(unused_imports)]";
 "#![allow(non_snake_case)]";
 "#![allow(unused_variables)]";
+"#![feature(unsigned_abs)]";
 "";
 "use std::marker::PhantomData;";
+"";
+"fn __nat_succ(x: u64) -> u64 {";
+"  x.checked_add(1).unwrap()";
+"}";
+"";
+"macro_rules! __nat_elim {";
+"    ($zcase:expr, $pred:ident, $scase:expr, $val:expr) => {";
+"        { let v = $val;";
+"        if v == 0 { $zcase } else { let $pred = v - 1; $scase } }";
+"    }";
+"}";
+"";
+"macro_rules! __andb { ($b1:expr, $b2:expr) => { $b1 && $b2 } }";
+"macro_rules! __orb { ($b1:expr, $b2:expr) => { $b1 || $b2 } }";
+"";
+"fn __pos_onebit(x: u64) -> u64 {";
+"  x.checked_mul(2).unwrap() + 1";
+"}";
+"";
+"fn __pos_zerobit(x: u64) -> u64 {";
+"  x.checked_mul(2).unwrap()";
+"}";
+"";
+"macro_rules! __pos_elim {";
+"    ($p:ident, $onebcase:expr, $p2:ident, $zerobcase:expr, $onecase:expr, $val:expr) => {";
+"        {";
+"            let n = $val;";
+"            if n == 1 {";
+"                $onecase";
+"            } else if (n & 1) == 0 {";
+"                let $p2 = n >> 1;";
+"                $zerobcase";
+"            } else {";
+"                let $p = n >> 1;";
+"                $onebcase";
+"            }";
+"        }";
+"    }";
+"}";
+"";
+"fn __Z_frompos(z: u64) -> i64 {";
+"  use std::convert::TryFrom;";
+"";
+"  i64::try_from(z).unwrap()";
+"}";
+"";
+"fn __Z_fromneg(z : u64) -> i64 {";
+"  use std::convert::TryFrom;";
+"";
+"  i64::try_from(z).unwrap().checked_neg().unwrap()";
+"}";
+"";
+"macro_rules! __Z_elim {";
+"    ($zero_case:expr, $p:ident, $pos_case:expr, $p2:ident, $neg_case:expr, $val:expr) => {";
+"        {";
+"            let n = $val;";
+"            if n == 0 {";
+"                $zero_case";
+"            } else if n < 0 {";
+"                let $p2 = n.unsigned_abs();";
+"                $neg_case";
+"            } else {";
+"                let $p = n as u64;";
+"                $pos_case";
+"            }";
+"        }";
+"    }";
+"}";
+"";
+"fn __N_frompos(z: u64) -> u64 {";
+"  z";
+"}";
+"";
+"macro_rules! __N_elim {";
+"    ($zero_case:expr, $p:ident, $pos_case:expr, $val:expr) => {";
+"        { let $p = $val; if $p == 0 { $zero_case } else { $pos_case } }";
+"    }";
+"}";
+"";
+"type __pair<A, B> = (A, B);";
+"";
+"macro_rules! __pair_elim {";
+"    ($fst:ident, $snd:ident, $body:expr, $p:expr) => {";
+"        { let ($fst, $snd) = $p; $body }";
+"    }";
+"}";
+"";
+"fn __mk_pair<A: Copy, B: Copy>(a: A, b: B) -> __pair<A, B> { (a, b) }";
 "";
 "fn hint_app<TArg, TRet>(f: &dyn Fn(TArg) -> TRet) -> &dyn Fn(TArg) -> TRet {";
 "  f";
@@ -692,7 +906,7 @@ Definition program_preamble := [
 "  self.__alloc.alloc(F)";
 "}" ].
 
-Definition print_program : PrettyPrinter (list (kername * string)) :=
+Definition print_program : PrettyPrinter unit :=
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
 
@@ -704,8 +918,7 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
       | _ => false
       end in
   ind_names <- print_decls_aux (filter (negb ∘ is_const) (List.rev Σ))
-                               (append_nl;; append_nl)
-                               [];;
+                               (append_nl;; append_nl);;
 
   (* First print a structure that has the arena and all
      (non-polymorphic) constants in the program *)
@@ -730,7 +943,7 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
                      else
                        append_nl;;
                        append "__";;
-                       append (get_const_name kn);;
+                       append (const_global_ident_of_kername kn);;
                        append ": std::cell::Cell<std::option::Option<";;
                        print_type [] (Ex.cst_type cst).2;;
                        append ">>,") constants tt;;
@@ -761,7 +974,7 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
                      else
                        append_nl;;
                        append "__";;
-                       append (get_const_name kn);;
+                       append (const_global_ident_of_kername kn);;
                        append ": std::cell::Cell::new(None),") constants tt;;
 
   pop_indent;;
@@ -779,75 +992,60 @@ Definition print_program : PrettyPrinter (list (kername * string)) :=
   (* Finally print all constants *)
   const_names <- print_decls_aux
                    (map (on_snd Ex.ConstantDecl) constants)
-                   (append_nl;; append_nl)
-                   [];;
+                   (append_nl;; append_nl);;
 
   append_nl;;
   append "}";;
 
-  pop_indent;;
-
-  ret (const_names ++ ind_names)%list.
+  pop_indent.
 End FixEnv.
 
-Definition extract_rust_within_coq : extract_template_env_params :=
+Definition extract_rust_within_coq
+           (should_inline : kername -> bool) : extract_template_env_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform true true false false false;
-                         TopLevelFixes.transform; ExpandBranches.transform] |} |}.
+          transforms := [dearg_transform true false false false false;
+                         ExpandBranches.transform;
+                         Inlining.transform should_inline; (* before TopLevelFixes *)
+                         TopLevelFixes.transform] |} |}.
 
 Instance RustConfig : RustPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
      any_type_symbol := "()";
-     print_full_names := false |}.
+     print_full_names := true |}.
 
-Definition general_extract (p : T.program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
+Definition extract_lines
+           (p : T.program)
+           (remaps : remaps)
+           (should_inline : kername -> bool) : result (list string) string :=
   entry <- match p.2 with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
+  let without_deps kn :=
+      if remap_inductive remaps (mkInd kn 0) then true else
+      if remap_constant remaps kn then true else
+      if remap_inline_constant remaps kn then true else false in
   Σ <- extract_template_env
-         extract_rust_within_coq
+         (extract_rust_within_coq should_inline)
          p.1
          (KernameSet.singleton entry)
-         (fun k => existsb (eq_kername k) ignore);;
-  let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
+         without_deps;;
   let p :=
-      names <- print_program Σ TT_fun;;
+      names <- print_program Σ remaps;;
       append_nl;;
       append "fn main() {";;
       append_nl;;
-      let name := get_const_name TT_fun entry in
+      let name := const_global_ident_of_kername entry in
       append ("  print!(""{:?}"", Program::new()." ++ name ++ "())");;
       append_nl;;
       append "}" in
-  '(_, s) <- timed "Printing" (fun _ => finish_print p);;
+  '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
   ret s.
 
-Definition extract (p : T.program) : result string string :=
-  general_extract p [] [].
-
-(*
-Open Scope nat.
-Fixpoint ack (n m : nat) : nat :=
-  match n with
-  | O => S m
-  | S p => let fix ackn (m : nat) :=
-               match m with
-               | O => ack p 1
-               | S q => ack p (ackn q)
-               end
-           in let v := ackn m in v
-  end.
-Definition code := ack 3 4.
-MetaCoq Quote Recursively Definition ex := code.
-Definition printed := Eval vm_compute in extract ex.
-MetaCoq Run (match printed with
-             | Ok s => tmMsg s
-             | Err s => tmFail s
-             end).
-
-*)
+Definition extract p remaps should_inline :=
+  lines <- extract_lines p remaps should_inline;;
+  ret (concat nl lines).

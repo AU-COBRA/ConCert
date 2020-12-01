@@ -32,6 +32,8 @@ fin.ml
 fin.mli
 init.ml
 init.mli
+inlining.ml
+inlining.mli
 kernames.ml
 kernames.mli
 monad_utils.ml
@@ -76,6 +78,8 @@ pCUICUnivSubst.ml
 pCUICUnivSubst.mli
 prettyPrinterMonad.ml
 prettyPrinterMonad.mli
+printing.ml
+printing.mli
 reflect.ml
 reflect.mli
 resultMonad.ml
