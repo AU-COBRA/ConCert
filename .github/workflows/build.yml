@@ -19,3 +19,11 @@ jobs:
       with:
         name: Documentation
         path: docs/
+    - uses: actions/upload-artifact@v2
+      with:
+        name: liquidity-extraction
+        path: extraction/examples/liquidity-extract/tests/
+    - uses: actions/upload-artifact@v2
+      with:
+        name: elm-extraction
+        path: extraction/examples/elm-extract/
