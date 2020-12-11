@@ -140,6 +140,7 @@ Definition ignored_concert_types :=
 
 
 Definition counter_extract :=
+    Eval vm_compute in
     extract_template_env_within_coq
       counter_env
       (KernameSet.singleton counter_name)
@@ -150,22 +151,21 @@ Definition counter_extract :=
 
 Definition counter_result:= Eval vm_compute in
      (env <- counter_extract ;;
-      '(_, s) <- finish_print (print_env env midlang_counter_translate);;
-      ret s).
+      '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
+      ret lines).
 
 Definition wrap_in_delimiters s :=
   String.concat nl ["";"{-START-} "; s; "{-END-}"].
 
 Definition midlang_prelude :=
-  String.concat nl
-                ["import Basics exposing (..)";
-                "import Blockchain exposing (..)";
-                "import Bool exposing (..)";
-                "import Int exposing (..)";
-                "import Maybe exposing (..)";
-                "import Order exposing (..)";
-                "import Transaction exposing (..)";
-                "import Tuple exposing (..)"].
+   ["import Basics exposing (..)";
+    "import Blockchain exposing (..)";
+    "import Bool exposing (..)";
+    "import Int exposing (..)";
+    "import Maybe exposing (..)";
+    "import Order exposing (..)";
+    "import Transaction exposing (..)";
+    "import Tuple exposing (..)"].
 
 MetaCoq Run (match counter_result with
              | Ok s => tmMsg "Extraction of counter succeeded"
@@ -174,8 +174,8 @@ MetaCoq Run (match counter_result with
 
 Definition midlang_counter :=
   match counter_result with
-  | Ok s => wrap_in_delimiters (midlang_prelude ++ nl ++ s)
-  | Err s => s
+  | Ok s => monad_map tmMsg (midlang_prelude ++ s)
+  | Err s => tmFail s
   end.
 
-Redirect "examples/midlang-extract/MidlangCounterRefTypes.midlang" Compute midlang_counter.
+Redirect "examples/midlang-extract/MidlangCounterRefTypes.midlang" MetaCoq Run midlang_counter.

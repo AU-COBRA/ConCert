@@ -1,8 +1,8 @@
 #!/bin/bash
 
-ELM_PATH=./extraction/examples/elm-extract
-LIQ_PATH=./extraction/examples/liquidity-extract
-MID_PATH=./extraction/examples/midlang-extract
+ELM_PATH=./examples/elm-extract
+LIQ_PATH=./examples/liquidity-extract
+MID_PATH=./examples/midlang-extract
 ELM_TESTS=$ELM_PATH/tests
 LIQ_TESTS=$LIQ_PATH/tests
 MID_TESTS=$MID_PATH/tests

@@ -44,15 +44,13 @@ test-extraction:
 	$(foreach file, $(wildcard ./extraction/examples/liquidity-extract/tests/*.liq), liquidity $(file);)
 .PHONY: test-extraction
 
-process-extraction: extraction
-	./process-extraction.sh
-.PHONY: process-extraction
+process-extraction-examples:
+	+make -C extraction process-extraction-examples
+.PHONY: process-extraction-examples
 
-clean-extraction:
-	rm ./extraction/examples/elm-extract/*.elm.out
-	rm ./extraction/examples/liquidity-extract/*.liq.out
-	rm ./extraction/examples/midlang-extract/*.midlang.out
-.PHONY: clean-extraction
+clean-extraction-examples:
+	+make -C extraction clean-extraction-examples
+.PHONY: clean-extraction-examples
 
 html: all
 	rm -rf docs

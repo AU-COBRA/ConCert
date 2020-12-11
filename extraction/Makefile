@@ -1,4 +1,4 @@
-all: theory plugin
+all: theory process-extraction-examples plugin
 .PHONY: all
 
 CoqMakefile: _CoqProject
@@ -33,3 +33,16 @@ force: ;
 
 # Do not forward these files
 Makefile _CoqProject: ;
+
+process-extraction-examples: theory
+	./process-extraction-examples.sh
+.PHONY: process-extraction-examples
+
+clean-extraction-examples:
+	rm ./examples/elm-extract/*.elm.out
+	rm ./examples/elm-extract/tests/*.elm
+	rm ./examples/liquidity-extract/*.liq.out
+	rm ./examples/liquidity-extract/tests/*.liq
+	rm ./examples/midlang-extract/*.midlang.out
+	rm ./examples/*.vo # to force recompilation of examples (a bit ad-hoc though)
+.PHONY: clean-extraction-examples
