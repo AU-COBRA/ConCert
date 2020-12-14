@@ -130,11 +130,12 @@ Print Assumptions extract_correct.
 (* There are some assumptions of which almost all are in MetaCoq.
    There are three assumptions in the list from this project.
 
-   1. metacoq_cofix_erasure_is_admitted, used in from MetaCoqErasureCorrectnessStrong.v.
+   1. metacoq_case_cofix_is_admitted, metacoq_proj_cofix_is_admitted, which are used from
+      MetaCoqErasureCorrectnessStrong.v.
       This admission comes from the original MetaCoq development from which the proof was
       adapted to be stronger. Since we do not extract cofixes this does not matter much.
 
-   2. hnf_completion, which is used in flag_of_type. These cases require a completion
+   2. not_prod_or_sort_hnf, which is used in flag_of_type. These cases require a completeness
       statement about the hnf function from MetaCoq, saying that this function actually
       reduces to head normal from. MetaCoq does not yet include a completeness statement
       about hnf (but it is planned), so for now we defer those proofs.

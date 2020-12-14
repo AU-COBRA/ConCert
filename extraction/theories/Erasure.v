@@ -147,15 +147,17 @@ Proof.
     easy.
 Qed.
 
-Equations fot_discr (T : term) : Prop :=
-fot_discr (tProd _ _ _) := False;
-fot_discr (tSort _) := False;
-fot_discr _ := True.
+Definition is_prod_or_sort (t : term) : bool :=
+  match t with
+  | tProd _ _ _
+  | tSort _ => true
+  | _ => false
+  end.
 
 Inductive fot_view : term -> Type :=
 | fot_view_prod na A B : fot_view (tProd na A B)
 | fot_view_sort univ : fot_view (tSort univ)
-| fot_view_other t : fot_discr t -> fot_view t.
+| fot_view_other t : ~is_prod_or_sort t -> fot_view t.
 
 Equations fot_viewc (t : term) : fot_view t :=
 fot_viewc (tProd na A B) := fot_view_prod na A B;
@@ -165,7 +167,32 @@ fot_viewc t := fot_view_other t _.
 Lemma watwf {Γ T} (wat : ∥isWfArity_or_Type Σ Γ T∥) : wellformed Σ Γ T.
 Proof. now apply wat_wellformed. Qed.
 
-Axiom hnf_completion : forall {A}, A.
+Lemma not_prod_or_sort_hnf {Γ t wf} :
+  ~ (is_prod_or_sort (hnf wfΣ Γ t wf)) ->
+  ~Is_conv_to_Arity Σ Γ t.
+Proof using Σ wfextΣ.
+  (* We need to use the fact that hnf produces a normal form,
+     but this is not proven in MetaCoq yet, so we admit this for now. *)
+  Admitted.
+
+Lemma nIs_conv_to_Arity_isWfArity_elim {Γ x} :
+  ~ Is_conv_to_Arity Σ Γ x ->
+  isWfArity typing Σ Γ x ->
+  False.
+Proof.
+  intros nis (ctx & s & dar & lt).
+  apply nis.
+  red.
+  exists (it_mkProd_or_LetIn ctx (tSort s)).
+  split.
+  - sq.
+    apply PCUICArities.destArity_spec_Some in dar.
+    cbn in *.
+    subst x.
+    reflexivity.
+  - now eapply it_mkProd_isArity.
+Qed.
+
 Equations(noeqns) flag_of_type (Γ : context) (T : term) (wat : ∥isWfArity_or_Type Σ Γ T∥)
   : typing_result (type_flag Γ T)
   by wf ((Γ;T; (watwf wat)) : (∑ Γ t, wellformed Σ Γ t)) term_rel :=
@@ -256,11 +283,8 @@ Next Obligation.
 Qed.
 Next Obligation.
   destruct wat as [[ar|isT]].
-  - (* We need to show that T is not convertible to an arity under
-       the assumption that hnf of T is neither tProd nor tSort.
-       To do this we will need to use some completeness fact about hnf,
-       which is not proved in MetaCoq yet, so we defer this proof for now. *)
-    exact hnf_completion.
+  - apply not_prod_or_sort_hnf in discr.
+    now apply nIs_conv_to_Arity_isWfArity_elim in discr.
   - destruct isT as [[]].
     now econstructor.
 Qed.
@@ -272,14 +296,14 @@ Next Obligation.
   eapply validity; [easy|exact typK].
 Qed.
 Next Obligation.
-  (* Same as above: since the head normal form of T is neither a product
-     or sort, it is not convertible to an arity by completeness of hnf. *)
-  exact hnf_completion.
+  now apply not_prod_or_sort_hnf in discr.
 Qed.
 Next Obligation.
-  (* Same as above: since the head normal form of T is neither a product
-     or sort, it is not convertible to a sort by completeness of hnf. *)
-  exact hnf_completion.
+  apply not_prod_or_sort_hnf in discr.
+  contradiction discr.
+  destruct H.
+  exists (tSort x).
+  now split.
 Qed.
 
 Definition redβιζ : RedFlags.t :=

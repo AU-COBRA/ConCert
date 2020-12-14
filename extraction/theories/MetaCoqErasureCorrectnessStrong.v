@@ -408,7 +408,36 @@ Hint Resolve erases_deps_subst1 erases_deps_eval erases_deps_mkApps : core.
 
 Import PA.
 
-Axiom metacoq_cofix_erasure_is_admitted : forall {A}, A.
+Axiom metacoq_case_cofix_is_admitted :
+  forall mfix idx narg fn (Σ : global_env_ext) ip p args brs res T t' Σ',
+      cunfold_cofix mfix idx = Some (narg, fn) ->
+      Σ |-p PCUICAst.tCase ip p (PCUICAst.mkApps fn args) brs ▷ res ->
+      (forall T : PCUICAst.term,
+          Σ;;; [] |- PCUICAst.tCase ip p (PCUICAst.mkApps fn args) brs : T ->
+          forall t' : E.term,
+            Σ;;; [] |- PCUICAst.tCase ip p (PCUICAst.mkApps fn args) brs ⇝ℇ t' ->
+            erases_deps Σ Σ' t' ->
+            exists v' : E.term, Σ;;; [] |- res ⇝ℇ v' /\ Σ' ⊢ t' ▷ v') ->
+      Σ;;; [] |- PCUICAst.tCase ip p (PCUICAst.mkApps (PCUICAst.tCoFix mfix idx) args) brs : T ->
+      Σ;;; [] |- PCUICAst.tCase ip p (PCUICAst.mkApps (PCUICAst.tCoFix mfix idx) args) brs ⇝ℇ t' ->
+      erases_deps Σ Σ' t' ->
+      exists v' : E.term, Σ;;; [] |- res ⇝ℇ v' /\ Σ' ⊢ t' ▷ v'.
+
+Axiom metacoq_proj_cofix_is_admitted :
+  forall mfix idx narg fn (Σ : global_env_ext) p args res T t' Σ',
+      cunfold_cofix mfix idx = Some (narg, fn) ->
+      Σ |-p PCUICAst.tProj p (PCUICAst.mkApps fn args) ▷ res ->
+      (forall T : PCUICAst.term,
+          Σ;;; [] |- PCUICAst.tProj p (PCUICAst.mkApps fn args) : T ->
+          forall t' : E.term,
+            Σ;;; [] |- PCUICAst.tProj p (PCUICAst.mkApps fn args) ⇝ℇ t' ->
+            erases_deps Σ Σ' t' ->
+            exists v' : E.term, Σ;;; [] |- res ⇝ℇ v' /\ Σ' ⊢ t' ▷ v') ->
+      Σ;;; [] |- PCUICAst.tProj p (PCUICAst.mkApps (PCUICAst.tCoFix mfix idx) args) : T ->
+      Σ;;; [] |- PCUICAst.tProj p (PCUICAst.mkApps (PCUICAst.tCoFix mfix idx) args) ⇝ℇ t' ->
+      erases_deps Σ Σ' t' ->
+      exists v' : E.term, Σ;;; [] |- res ⇝ℇ v' /\ Σ' ⊢ t' ▷ v'.
+
 Set SsrRewrite.
 Lemma erases_correct Σ t T t' v Σ' :
   extraction_pre Σ ->
@@ -996,20 +1025,10 @@ Proof.
            ++ rewrite mkApps_snoc.
               eapply type_App; eauto.
 
-  - destruct ip.
-    assert (Hty' := Hty).
-    eapply inversion_Case in Hty' as [u' [args' [mdecl [idecl [ps [pty [btys
-                                   [? [? [? [? [? [_ [? [ht0 [? ?]]]]]]]]]]]]]]]];
-    eauto.
-    eapply PCUICValidity.inversion_mkApps in t0 as (? & ? & ?); eauto.
-    eapply inversion_CoFix in t0 as (? & ? & ? &?); eauto.
-    apply metacoq_cofix_erasure_is_admitted.
+  - eauto using metacoq_case_cofix_is_admitted.
 
-  - assert (Hty' := Hty).
-    eapply inversion_Proj in Hty' as (? & ? & ? & [] & ? & ? & ? & ? & ?); eauto.
-    eapply PCUICValidity.inversion_mkApps in t0 as (? & ? & ?); eauto.
-    eapply inversion_CoFix in t0 as (? & ? & ? &?); eauto.
-    apply metacoq_cofix_erasure_is_admitted.
+  - eauto using metacoq_proj_cofix_is_admitted.
+
   - pose (Hty' := Hty).
     eapply inversion_App in Hty' as (? & ? & ? & ? & ? & ?); eauto.
     inv He.
