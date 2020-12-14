@@ -1,3 +1,5 @@
+; Work around bug 34341 in Emacs 26.1
+(setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")
 (require 'package)
 (setq package-enable-at-startup nil)
 (add-to-list 'package-archives
