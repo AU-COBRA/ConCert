@@ -98,11 +98,11 @@ Definition post_transfer_correct cctx old_state msg (result_opt : option (State 
   | _ => checker false
   end.
 
-(* QuickChick (
+QuickChick (
   {{msg_is_transfer}}
   contract_base_addr
   {{post_transfer_correct}}
-). *)
+).
 
 (* +++ Passed 10000 tests (0 discards) *)
 
@@ -137,7 +137,7 @@ Definition sum_allowances_le_init_supply_P maxLength :=
   forAllChainState maxLength token_cb (gTokenChain 2)
     (checker_get_state sum_allowances_le_init_supply).
 
-(* QuickChick (sum_allowances_le_init_supply_P 5). *)
+QuickChick (sum_allowances_le_init_supply_P 5).
 
 Definition person_has_tokens person (n : N) :=
   fun cs => 
@@ -310,7 +310,7 @@ Definition reapprove_transfer_from_safe_P :=
                                               delegate
                                               (approve_amount approve_act_p)))}.
 
-(* QuickChick reapprove_transfer_from_safe_P. *)
+QuickChick reapprove_transfer_from_safe_P.
 
 (* 
 Chain{| 

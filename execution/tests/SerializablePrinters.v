@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain LocalBlockchain.
 From ConCert Require Import Serializable.
 From QuickChick Require Import QuickChick.
-From ConCert.Execution.QCTests Require Import ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers TestContracts DexterPrinters EscrowPrinters.
+From ConCert.Execution.QCTests Require Import ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers TestContracts DexterPrinters EscrowPrinters iTokenBuggyPrinters.
 Local Open Scope string_scope.
 
 Existing Instance EIP20TokenPrinters.showMsg.
@@ -11,6 +11,7 @@ Existing Instance showDexterMsg.
 Existing Instance showDexterMsgMsg.
 Existing Instance showFA2ClientContractMsg.
 Existing Instance showTransferHookMsg.
+Existing Instance iTokenBuggyPrinters.showMsg.
 (* Existing Instance showEscrowMsg. *)
 (* Currently we hack it to always deserialize to some known Msg types *)
 
@@ -34,9 +35,13 @@ Global Instance showSerializedValue : Show SerializedValue :=
     match @deserialize Escrow.Msg _ v with
     | Some v => show v
     | None =>
+    match @deserialize iTokenBuggy.Msg _ v with
+    | Some v => show v
+    | None =>
     match @deserialize Congress.Msg _ v with
     | Some v => show v
     | None => "<FAILED DESERIALIZATION>"
+    end
     end
     end
     end

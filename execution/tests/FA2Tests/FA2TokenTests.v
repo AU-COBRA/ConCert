@@ -123,9 +123,8 @@ Definition chain_with_transfer_hook' : result ChainBuilder AddBlockError :=
     build_act person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
   ]).
 
-(* Uncomment for testing. This is commented because it is computationally expensive (> 20 seconds to compute) *)
-(* Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'. *)
-(* Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'. *)
+Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'.
+Definition chain_with_transfer_hook := unpack_result chain_with_transfer_hook'.
 
 Definition client_other_msg := @other_msg _ FA2ClientMsg _.
 
@@ -232,11 +231,11 @@ Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (res
   | None => checker false
   end.
 
-(* QuickChick (
+QuickChick (
   {{ msg_is_transfer }}
     token_contract_base_addr
   {{ post_transfer_correct }}
-  chain_without_transfer_hook). *)
+  chain_without_transfer_hook).
 (* 14 seconds, max size 7, 1 act per block *)
 (* +++ Passed 10000 tests (0 discards) *)
 
@@ -276,7 +275,7 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
   | None => checker true
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct). *)
+QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct).
 (* +++ Passed 10000 tests (0 discards) *)
 
 
@@ -343,7 +342,7 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
   | None => checker false
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
+QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P).
 (* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
 
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
@@ -397,11 +396,11 @@ Definition post_last_update_operator_occurrence_takes_effect (cctx : ContractCal
   | None => checker false
   end.
 
-(* QuickChick (
+QuickChick (
   {{msg_is_update_operator}}
   token_contract_base_addr
   {{post_last_update_operator_occurrence_takes_effect}}
   chain_without_transfer_hook
-). *)
+).
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)

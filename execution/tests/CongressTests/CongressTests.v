@@ -120,11 +120,11 @@ Definition receive_state_well_behaved_P (cctx : ContractCallContext)
   | _ => false
   end.
 
-(* QuickChick (
+QuickChick (
   {{fun _ _ => true}}
   congress_caddr
   {{receive_state_well_behaved_P}}
-). *)
+).
 
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
@@ -164,7 +164,7 @@ Definition congress_has_votes_on_some_proposal (cs : ChainState) :=
   | None => false
   end.
 
-(* QuickChick (chain5 ~~> congress_has_votes_on_some_proposal). *)
+QuickChick (chain5 ~~> congress_has_votes_on_some_proposal).
 (* Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 7 tests and 0 shrinks. (0 discards) *)
 

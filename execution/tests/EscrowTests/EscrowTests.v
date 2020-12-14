@@ -255,7 +255,7 @@ End TestProperties.
 
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 
-(* QuickChick (forAllEscrowChainBuilder gEscrowTrace 7 escrow_chain escrow_correct_P). *)
+QuickChick (forAllEscrowChainBuilder gEscrowTrace 7 escrow_chain escrow_correct_P).
 (* *** Gave up! Passed only 8598 tests
 Discarded: 20000 *)
 
