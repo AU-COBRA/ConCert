@@ -50,10 +50,18 @@ The [execution](execution/) subproject can be built independently via running `m
   
 ### Citing the papers
 ```
-@misc{ConCertAbstract,
-  title={Verifying, testing and running smart contracts in ConCert},
-  author={Danil Annenkov and Mikkel Milo and Jakob Botsch Nielsen and Bas Spitters},
-  year={2020}
+@inproceedings{ConCert-extraction-testing,
+author = {Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
+title = {Extracting Smart Contracts Tested and Verified in Coq},
+year = {2021},
+isbn = {9781450382991},
+publisher = {Association for Computing Machinery},
+url = {https://doi.org/10.1145/3437992.3439934},
+doi = {10.1145/3437992.3439934},
+pages = {105–121},
+numpages = {17},
+location = {Virtual, Denmark},
+series = {CPP 2021}
 }
 
 @article{ConCert,
