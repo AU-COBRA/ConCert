@@ -46,6 +46,8 @@ The [execution](execution/) subproject can be built independently via running `m
   Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters. CPP 2020.
 - ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Coq Workshop 2020.
+- ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138) Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. CPP'21.
+  
 ### Citing the papers
 ```
 @misc{ConCertAbstract,
