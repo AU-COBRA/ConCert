@@ -17,7 +17,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction.
+     Common ExAst Erasure Optimize Extraction Inlining.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -51,17 +51,32 @@ Arguments lmd_init_prelude {_ _ _ _ _}.
 Arguments lmd_receive {_ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _}.
 
+(* Extract an environment with some minimal checks. This assumes the environment
+   is well-formed (to make it computable from within Coq) but furthermore checks that the
+   erased context is closed, expanded and that the masks are valid before dearging.
+   Takes [should_inline] - a map that returns true for the constants that should be inlined.
+   Suitable for extraction of programs **from within Coq**. *)
+Definition extract_liquidity_within_coq (should_inline : kername -> bool) :=
+  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| optimize_prop_discr := true;
+          transforms := [dearg_transform true true true true true;
+                         Inlining.transform should_inline ] |} |}.
+
+Definition extract (should_inline : kername -> bool)
+  := extract_template_env (extract_liquidity_within_coq should_inline).
 
 Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (TT : MyEnv.env string)
            (ignore : list kername)
+           (inline : list kername)
            (build_call_ctx : string)
            (init_prelude : string)
            (init : kername)
            (receive : kername)
   : string + string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
-  match extract_template_env_within_coq Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
+  match extract (fun k => List.existsb (eq_kername k) inline) Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
   | Ok eΣ =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ) in
@@ -138,6 +153,7 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
            (prefix : string)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
+           (inline : list kername)
            (m : LiquidityMod msg ctx params storage operation) :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(lmd_init);;
@@ -146,7 +162,7 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
-             (printLiquidityDefs prefix Σ TT ignore
+             (printLiquidityDefs prefix Σ TT ignore inline
                                  liquidity_call_ctx
                                  m.(lmd_init_prelude)
                                  init_nm receive_nm) ;;

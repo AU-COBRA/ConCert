@@ -14,7 +14,7 @@ Set Warnings "-extraction-opaque-accessed".
 Set Warnings "-extraction-reserved-identifier".
 
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import RustExtract.
+From ConCert.Extraction Require Import PluginExtract.
 From ConCert.Extraction Require Import Utils.
 
 Extraction Inline Equations.Prop.Classes.noConfusion.
@@ -43,7 +43,7 @@ Extract Constant timed =>
               temp)".
 
 Cd "plugin/src".
-Separate Extraction RustExtract.extract
+Separate Extraction PluginExtract.extract
          (* The following directives ensure separate extraction does not produce name clashes *)
          Bool Nat Coq.Strings.String Common utils ELiftSubst ETyping.
 Cd "../..".

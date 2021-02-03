@@ -101,7 +101,7 @@ let check env evm c =
                  Printing.remap_constant = remap_constant;
                  Printing.remap_inline_constant = remap_inline_constant; } in
   let do_extract _ =
-    RustExtract.extract prog remaps should_inline in
+    PluginExtract.extract prog remaps should_inline in
   let res = time "Extraction" do_extract () in
   Feedback.msg_info (str (string_of_char_list (match res with | Ok s -> s | Err s -> s)))
 

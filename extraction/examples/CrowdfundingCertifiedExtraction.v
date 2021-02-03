@@ -117,7 +117,7 @@ Definition COUNTER_MODULE :
     that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 

@@ -97,6 +97,8 @@ src/resultMonad.ml
 src/resultMonad.mli
 src/rustExtract.ml
 src/rustExtract.mli
+src/pluginExtract.ml
+src/pluginExtract.mli
 src/erasureFunction.ml
 src/erasureFunction.mli
 src/safeTemplateChecker.ml

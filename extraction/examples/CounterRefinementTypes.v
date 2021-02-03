@@ -28,14 +28,16 @@ Import Lia.
 Definition PREFIX := "coq_".
 
 (** We use parameterised modules (functors) to isolate proof terms from the extracted parts. Otherwise type cheking and erasing is taking too long *)
-Module CounterRefinmentTypes.
+Module CounterRefinementTypes.
 
   (** Enabling recursors for records allows for deriving [Serializable] instances. *)
   Set Nonrecursive Elimination Schemes.
 
   Notation address := nat.
 
-  Definition operation := ActionBody.
+  Definition Transaction := list ActionBody.
+  Definition Transaction_none : Transaction := [].
+
   Definition storage := Z.
 
   Definition init (ctx : SimpleCallCtx) (setup : Z) : option storage :=
@@ -62,26 +64,24 @@ Module CounterRefinmentTypes.
     Zleb_ltb_to_prop. lia.
   Qed.
 
-  Definition my_bool_dec := Eval compute in bool_dec.
-
   Definition counter (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+    : option (Transaction * storage) :=
     match msg with
     | Inc i =>
-      match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], proj1_sig (inc_counter st (exist _ i h)))
+      match (bool_dec true (0 <? i)) with
+      | left h => Some (Transaction_none, proj1_sig (inc_counter st (exist _ i (eq_sym h))))
       | right _ => None
       end
     | Dec i =>
-      match (my_bool_dec (0 <? i) true) with
-      | left h => Some ([], proj1_sig (dec_counter st (exist _ i h)))
+      match (bool_dec true (0 <? i)) with
+      | left h => Some (Transaction_none, proj1_sig (dec_counter st (exist _ i (eq_sym h))))
       | right _ => None
       end
     end.
 
-End CounterRefinmentTypes.
+End CounterRefinementTypes.
 
-Import CounterRefinmentTypes.
+Import CounterRefinementTypes.
 
 (** [sig] and [exist] becomes just wrappers *)
 Definition sig_def := "type 'a sig_ = 'a".
@@ -103,7 +103,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @proj1_sig %%> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
   ; remap <%% Z %%> "int"
   ; remap <%% nat %%> "key_hash" (* type of account addresses*)
-  ; remap <%% operation %%> "operation"
+  ; remap <%% Transaction %%> "operation list"
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd" ].
 
@@ -117,7 +117,7 @@ Definition TT_rename : list (string * string):=
   ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
   ; (string_of_kername <%% storage %%>, "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
+Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
@@ -141,9 +141,11 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage operation :=
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 
+Definition to_inline := [<%% bool_rect %%>; <%% bool_rec %%>].
+
 Time MetaCoq Run
      (r <- tmQuoteRecTransp counter false;;
-      t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+      t <- liquidity_extraction PREFIX  TT_remap TT_rename to_inline COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimiters t)
      ).
 
