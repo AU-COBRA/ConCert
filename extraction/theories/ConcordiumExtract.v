@@ -198,6 +198,7 @@ Import ConcordiumRemap.
 Definition extract_lines
            (p : T.program)
            (remaps : remaps)
+           (ind_attrs : ind_attr_map)
            (should_inline : kername -> bool) : result (list string) string :=
   entry <- match p.2 with
            | T.tConst kn _ => ret kn
@@ -213,20 +214,11 @@ Definition extract_lines
          p.1
          (KernameSet.singleton entry)
          without_deps;;
-  let p :=
-      names <- print_program Σ remaps;;
-
-      (* TODO: replace with something else from the Concordium infrastructure *)
-      append_nl;;
-      append "fn main() {";;
-      append_nl;;
-      let name := const_global_ident_of_kername entry in
-      append ("  print!(""{:?}"", Program::new()." ++ name ++ "())");;
-      append_nl;;
-      append "}" in
+  let p :=  print_program Σ remaps ind_attrs in
+      (* TODO: wrappers to integrate with the Concordium infrastructure go here *)
   '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
   ret s.
 
-Definition extract p remaps should_inline :=
-  lines <- extract_lines p remaps should_inline;;
+Definition extract p remaps ind_attrs should_inline :=
+  lines <- extract_lines p remaps ind_attrs should_inline;;
   ret (String.concat nl lines).

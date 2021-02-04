@@ -26,6 +26,8 @@ Instance RustConfig : RustPrintConfig :=
      any_type_symbol := "()";
      print_full_names := false |}.
 
+Definition default_attrs : ind_attr_map := fun _ => ["#[derive(Debug, Copy, Clone)]"].
+
 Definition extract (p : T.program) : result string string :=
   entry <- match p.2 with
            | T.tConst kn _ => ret kn
@@ -43,10 +45,10 @@ Definition extract (p : T.program) : result string string :=
       | _ => false
       end in
   let p :=
-      print_decls Σ no_remaps (filter (negb ∘ is_const) (List.rev Σ));;
+      print_decls Σ no_remaps default_attrs (filter (negb ∘ is_const) (List.rev Σ));;
       append_nl;;
       append_nl;;
-      print_decls Σ no_remaps (filter is_const (List.rev Σ));;
+      print_decls Σ no_remaps default_attrs (filter is_const (List.rev Σ));;
       ret tt in
   '(_, s) <- finish_print p;;
   ret s.

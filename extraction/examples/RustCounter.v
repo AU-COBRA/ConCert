@@ -1,4 +1,5 @@
 From Coq Require Import String.
+From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 
@@ -26,6 +27,10 @@ Definition remap_blockchain : list (kername * string) := Eval compute in
       [ remap <%% C.Transaction  %%> "type Transaction<'a> = ();"
       ; remap <%% C.Transaction_none %%> "fn ##name## (&'a self) -> Transaction<'a> { () }" ].
 
+Definition attrs : ind_attr_map :=
+  fun kn => if eq_kername <%% C.msg %%> kn then ["#[derive(Debug,Serialize)]"]
+         else ["#[derive(Debug, Copy, Clone)]"].
+
 (* TODO: remap <%% nat %%> "AccountAddress" *)
 
 Time MetaCoq Run
@@ -41,6 +46,7 @@ Definition counter_result:=
                                 (ConcordiumRemap.remap_arith ++ remap_blockchain)
                                 []
                                 (ConcordiumRemap.remap_std_types))
+                             attrs
                              (fun kn => eq_kername <%% bool_rec %%> kn
                                      || eq_kername <%% bool_rect %%> kn).
 

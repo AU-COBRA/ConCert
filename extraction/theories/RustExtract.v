@@ -61,6 +61,10 @@ Class RustPrintConfig :=
 
 Context `{RustPrintConfig}.
 
+Definition ind_attr_map := kername -> list string.
+
+Context (ind_attrs : ind_attr_map).
+
 Definition lookup_mind (name : kername) : option Ex.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
   | Some (Ex.InductiveDecl mib) => Some mib
@@ -720,8 +724,11 @@ Definition print_mutual_inductive_body
 
        prefix;;
 
-       append "#[derive(Debug, Copy, Clone)]";;
-       append_nl;;
+       match nth_error (ind_attrs kn) i with
+       | Some attr => append attr;;
+                      append_nl
+       | None => append ""
+       end ;;
        append "pub enum ";;
        print_ind (mkInd kn i);;
 

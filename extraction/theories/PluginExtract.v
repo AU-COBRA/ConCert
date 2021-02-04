@@ -132,6 +132,8 @@ Instance RustConfig : RustPrintConfig :=
      any_type_symbol := "()";
      print_full_names := true |}.
 
+Definition default_attrs : ind_attr_map := fun _ => ["#[derive(Debug, Copy, Clone)]"].
+
 Definition extract_lines
            (p : T.program)
            (remaps : remaps)
@@ -151,7 +153,7 @@ Definition extract_lines
          (KernameSet.singleton entry)
          without_deps;;
   let p :=
-      names <- print_program Σ remaps;;
+      names <- print_program Σ remaps default_attrs;;
       append_nl;;
       append "fn main() {";;
       append_nl;;
