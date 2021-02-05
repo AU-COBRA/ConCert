@@ -25,35 +25,42 @@ Instance RustCounterConfig : RustPrintConfig :=
 
 Definition remap_blockchain : list (kername * string) := Eval compute in
       [ remap <%% C.Transaction  %%> "type Transaction<'a> = ();"
-      ; remap <%% C.Transaction_none %%> "fn ##name## (&'a self) -> Transaction<'a> { () }" ].
+      ; remap <%% C.Transaction_none %%> "fn ##name## (&'a self) -> Transaction<'a> { () }"
+      ; remap <%% PreludeExt.SimpleCallCtx %%> "type SimpleCallCtx<'a> = ();"].
 
 Definition attrs : ind_attr_map :=
   fun kn => if eq_kername <%% C.msg %%> kn then ["#[derive(Debug,Serialize)]"]
          else ["#[derive(Debug, Copy, Clone)]"].
 
-(* TODO: remap <%% nat %%> "AccountAddress" *)
+Definition COUNTER_MODULE : ConcordiumMod _ _ :=
+  {| concmd_contract_name := "counter";
+     concmd_init := CounterRefinementTypes.init;
+     concmd_receive := CounterRefinementTypes.counter |}.
 
-Time MetaCoq Run
-     (r <- tmQuoteRecTransp CounterRefinementTypes.counter false;;
-      tmDefinition "COUNTER" r
-     ).
+(* Definition counter_result:= *)
+(*   Eval vm_compute in extract COUNTER *)
+(*                              (ConcordiumRemap.build_remaps *)
+(*                                 (ConcordiumRemap.remap_arith ++ remap_blockchain) *)
+(*                                 [] *)
+(*                                 (ConcordiumRemap.remap_std_types)) *)
+(*                              attrs *)
+(*                              (fun kn => eq_kername <%% bool_rec %%> kn *)
+(*                                      || eq_kername <%% bool_rect %%> kn). *)
 
-MetaCoq Quote Recursively Definition blah := bool_rect.
+(* Definition rust_counter := *)
+(*   match counter_result with *)
+(*   | Ok v => tmMsg v *)
+(*   | Err e => tmFail e *)
+(*   end. *)
 
-Definition counter_result:=
-  Eval vm_compute in extract COUNTER
-                             (ConcordiumRemap.build_remaps
-                                (ConcordiumRemap.remap_arith ++ remap_blockchain)
-                                []
-                                (ConcordiumRemap.remap_std_types))
-                             attrs
-                             (fun kn => eq_kername <%% bool_rec %%> kn
-                                     || eq_kername <%% bool_rect %%> kn).
+(* MetaCoq Run rust_counter. *)
 
-Definition rust_counter :=
-  match counter_result with
-  | Ok v => tmMsg v
-  | Err e => tmFail e
-  end.
-
-MetaCoq Run rust_counter.
+MetaCoq Run (res <- rust_extraction COUNTER_MODULE
+                           (ConcordiumRemap.build_remaps
+                              (ConcordiumRemap.remap_arith ++ remap_blockchain)
+                              []
+                              (ConcordiumRemap.remap_std_types))
+                           attrs
+                           (fun kn => eq_kername <%% bool_rec %%> kn
+                                   || eq_kername <%% bool_rect %%> kn);;
+            tmMsg res).

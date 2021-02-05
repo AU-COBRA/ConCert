@@ -62,13 +62,19 @@ Definition remap_option : remapped_inductive :=
      re_ind_match := None
   |}.
 
+Definition remap_unit : remapped_inductive :=
+  {| re_ind_name := "()";
+     re_ind_ctors := ["()"];
+     re_ind_match := None
+  |}.
 
 Definition remap_std_types :=
   [ (<%% positive %%>, remap_positive)
   ; (<%% Z %%>,  remap_Z)
   ; (<%% bool %%>, remap_bool)
   ; (<%% prod %%>, remap_pair)
-  ; (<%% option %%>, remap_option)].
+  ; (<%% option %%>, remap_option)
+  ; (<%% unit %%>, remap_unit)].
 
 Definition lookup_inductive (TT_inductives : list (kername * remapped_inductive))  (ind : inductive) : option remapped_inductive :=
   match find (fun '(key, _) => eq_kername key (inductive_mind ind)) TT_inductives with
@@ -203,30 +209,41 @@ End ConcordiumPreamble.
 
 Import ConcordiumRemap.
 
+Record ConcordiumMod (init_type receive_type : Type) :=
+  { concmd_contract_name : string ;
+    concmd_init : init_type;
+    concmd_receive : receive_type }.
+
+Arguments concmd_contract_name {_ _}.
+Arguments concmd_init {_ _}.
+Arguments concmd_receive {_ _}.
+
 Definition extract_lines
-           (p : T.program)
+           (init receive : kername)
+           (Σ : global_env)
            (remaps : remaps)
            (ind_attrs : ind_attr_map)
            (should_inline : kername -> bool) : result (list string) string :=
-  entry <- match p.2 with
-           | T.tConst kn _ => ret kn
-           | T.tInd ind _ => ret (inductive_mind ind)
-           | _ => Err "Expected program to be a tConst or tInd"
-           end;;
   let without_deps kn :=
       if remap_inductive remaps (mkInd kn 0) then true else
       if remap_constant remaps kn then true else
       if remap_inline_constant remaps kn then true else false in
   Σ <- extract_template_env
          (extract_rust_within_coq should_inline)
-         p.1
-         (KernameSet.singleton entry)
+         Σ
+         (KernameSet.add receive (KernameSet.singleton init))
          without_deps;;
   let p :=  print_program Σ remaps ind_attrs in
       (* TODO: wrappers to integrate with the Concordium infrastructure go here *)
   '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
   ret s.
 
-Definition extract p remaps ind_attrs should_inline :=
-  lines <- extract_lines p remaps ind_attrs should_inline;;
-  ret (String.concat nl lines).
+Definition rust_extraction {init_type receive_type : Type} (m : ConcordiumMod init_type receive_type) (remaps : remaps) (ind_attrs : ind_attr_map) (should_inline : kername -> bool) : TemplateMonad _ :=
+  '(Σ,_) <- tmQuoteRecTransp m false ;;
+  init_nm <- extract_def_name m.(concmd_init);;
+  receive_nm <- extract_def_name m.(concmd_receive);;
+  res <- tmEval lazy (extract_lines init_nm receive_nm Σ remaps ind_attrs should_inline);;
+  match res with
+  | Ok lines => tmEval lazy (String.concat nl lines)
+  | Err e => tmFail e
+  end.

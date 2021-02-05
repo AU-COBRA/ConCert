@@ -154,7 +154,7 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
            (inline : list kername)
-           (m : LiquidityMod msg ctx params storage operation) :=
+           (m : LiquidityMod msg ctx params storage operation) : TemplateMonad string :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(lmd_init);;
   receive_nm <- extract_def_name m.(lmd_receive);;
