@@ -56,11 +56,19 @@ Definition remap_pair : remapped_inductive :=
      re_ind_match := Some "__pair_elim"
   |}.
 
+Definition remap_option : remapped_inductive :=
+  {| re_ind_name := "Option";
+     re_ind_ctors := ["Some"; "None"];
+     re_ind_match := None
+  |}.
+
+
 Definition remap_std_types :=
   [ (<%% positive %%>, remap_positive)
   ; (<%% Z %%>,  remap_Z)
   ; (<%% bool %%>, remap_bool)
-  ; (<%% prod %%>, remap_pair)].
+  ; (<%% prod %%>, remap_pair)
+  ; (<%% option %%>, remap_option)].
 
 Definition lookup_inductive (TT_inductives : list (kername * remapped_inductive))  (ind : inductive) : option remapped_inductive :=
   match find (fun '(key, _) => eq_kername key (inductive_mind ind)) TT_inductives with
