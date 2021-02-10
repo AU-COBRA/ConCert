@@ -7,6 +7,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
@@ -53,7 +54,7 @@ Definition remap_bool : remapped_inductive :=
 Definition remap_pair : remapped_inductive :=
   {| re_ind_name := "__pair";
      re_ind_ctors := ["__mk_pair"];
-     re_ind_match := Some "__pair_elim"
+     re_ind_match := Some "__pair_elim!"
   |}.
 
 Definition remap_option : remapped_inductive :=
@@ -195,7 +196,30 @@ Module ConcordiumPreamble.
 "";
 "fn hint_app<TArg, TRet>(f: &dyn Fn(TArg) -> TRet) -> &dyn Fn(TArg) -> TRet {";
 "  f";
-"}" ];
+"}";
+"";
+"type State = Storage<'static>;";
+"";
+"#[derive(Debug, PartialEq, Eq)]";
+"enum InitError {";
+"   ParseParams,";
+"   IError";
+"}";
+"";
+"impl From<ParseError> for InitError {";
+"    fn from(_: ParseError) -> Self { InitError::ParseParams }";
+"}";
+"";
+"#[derive(Debug, PartialEq, Eq)]";
+"enum ReceiveError {";
+"    ParseParams,";
+"    Error";
+"}";
+"";
+"impl From<ParseError> for ReceiveError {";
+"    fn from(_: ParseError) -> Self { ReceiveError::ParseParams }";
+"}"
+];
 program_preamble := [
 "fn alloc<T>(&'a self, t: T) -> &'a T {";
 "  self.__alloc.alloc(t)";
@@ -212,14 +236,42 @@ Import ConcordiumRemap.
 Record ConcordiumMod (init_type receive_type : Type) :=
   { concmd_contract_name : string ;
     concmd_init : init_type;
-    concmd_receive : receive_type }.
+    concmd_receive : receive_type;
+    concmd_wrap_init : forall (contact_name init_name : string), string;
+    concmd_wrap_receive : forall (contact_name receive_name : string), string;}.
 
 Arguments concmd_contract_name {_ _}.
 Arguments concmd_init {_ _}.
 Arguments concmd_receive {_ _}.
+Arguments concmd_wrap_init {_ _}.
+Arguments concmd_wrap_receive {_ _}.
+
+Definition get_fn_arg_type (Σ : Ex.global_env) (fn_name : kername) (n : nat)
+  : result Ex.box_type string :=
+  match Ex.lookup_env Σ fn_name with
+  | Some (Ex.ConstantDecl cb) =>
+    match decompose_TArr cb.(Ex.cst_type).2 with
+    | (tys, _) => result_of_option (nth_error tys n)
+                                  ("No argument at position " ++ string_of_nat n)
+    end
+  | _ => Err "Init declaration must be a constant in the global environment"
+  end.
+
+Definition specilize_extract_template_env
+           (params : extract_template_env_params)
+           (Σ : global_env)
+           (seeds : KernameSet.t)
+           (ignore : kername -> bool) : result ExAst.global_env string :=
+  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
+  let Σ := TemplateToPCUIC.trans_global_decls Σ in
+  Σ <- SpecializeChainBase.specialize_ChainBase_env Σ ;;
+  wfΣ <- check_wf_env_func params Σ;;
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
+
 
 Definition extract_lines
-           (init receive : kername)
+           (init_name : kername)
+           (receive_name : kername)
            (Σ : global_env)
            (remaps : remaps)
            (ind_attrs : ind_attr_map)
@@ -228,15 +280,58 @@ Definition extract_lines
       if remap_inductive remaps (mkInd kn 0) then true else
       if remap_constant remaps kn then true else
       if remap_inline_constant remaps kn then true else false in
-  Σ <- extract_template_env
+  Σ <- specilize_extract_template_env
          (extract_rust_within_coq should_inline)
-         Σ
-         (KernameSet.add receive (KernameSet.singleton init))
-         without_deps;;
+         Σ (KernameSetProp.of_list [init_name; receive_name]) without_deps;;
   let p :=  print_program Σ remaps ind_attrs in
       (* TODO: wrappers to integrate with the Concordium infrastructure go here *)
   '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
   ret s.
+
+Open Scope string.
+
+Definition print_init_attrs (contract_name : string) : string :=
+  "#[init(contract = """ ++ contract_name ++ """" ++ ",  enable_logger)]".
+
+Definition init_wrapper (contract_name init_name : string) :=
+  <$ print_init_attrs contract_name ;
+     "fn contract_init(ctx: &impl HasInitContext<()>,";
+     "                 logger: &mut impl HasLogger) -> Result<State, InitError> {";
+     "let v = ctx.parameter_cursor().get()?;";
+     "logger.log(&v);";
+     "let prg = Program::new();";
+     "let res = prg." ++ init_name ++ "((),v);";
+     "match res {";
+     "   Option::Some(init_v) => Ok(init_v),";
+     "   Option::None => Err(InitError::IError)";
+"    }";
+"}" $>.
+
+Definition print_receive_attrs (contract_name receive_name : string) : string :=
+  "#[receive(contract = """ ++ contract_name ++
+                        """, name = """ ++ receive_name ++ """, payable, enable_logger)]".
+
+
+
+Definition receive_wrapper_no_calls (contract_name receive_name : string)
+  : string :=
+  <$ print_receive_attrs contract_name receive_name;
+     "fn contract_receive<A: HasActions>(";
+     "   ctx: &impl HasReceiveContext<()>,";
+     "   amount: Amount,";
+     "    logger: &mut impl HasLogger,";
+     "    state: &mut State )";
+     "    -> Result<A, ReceiveError> {";
+     "    let prg = Program::new();";
+     "    let msg = ctx.parameter_cursor().get()?;";
+     "    let res = prg.counter(&msg,*state);";
+     "    match res {";
+     "        Option::Some(v) =>{";
+     "            *state = v.1;";
+     "            Ok(A::accept())},";
+     "        Option::None => Err(ReceiveError::Error)";
+     "    }";
+     "}" $>.
 
 Definition rust_extraction {init_type receive_type : Type} (m : ConcordiumMod init_type receive_type) (remaps : remaps) (ind_attrs : ind_attr_map) (should_inline : kername -> bool) : TemplateMonad _ :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
@@ -244,6 +339,13 @@ Definition rust_extraction {init_type receive_type : Type} (m : ConcordiumMod in
   receive_nm <- extract_def_name m.(concmd_receive);;
   res <- tmEval lazy (extract_lines init_nm receive_nm Σ remaps ind_attrs should_inline);;
   match res with
-  | Ok lines => tmEval lazy (String.concat nl lines)
+  | Ok lines =>
+    let init_wrapper :=
+        m.(concmd_wrap_init) m.(concmd_contract_name) init_nm.2 in
+    let receive_wrapper :=
+        m.(concmd_wrap_receive) m.(concmd_contract_name) receive_nm.2 in
+    tmEval lazy (String.concat nl lines ++ nl ++ nl
+                               ++ init_wrapper ++ nl ++ nl
+                               ++ receive_wrapper)
   | Err e => tmFail e
   end.

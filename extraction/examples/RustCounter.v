@@ -9,11 +9,14 @@ From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Extraction Require Import ResultMonad.
 
 From ConCert.Extraction.Examples Require Import CounterRefinementTypes.
+From ConCert.Extraction.Examples Require Import CounterCertifiedExtraction.
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
+Import Printing.
 
-Module C := CounterRefinementTypes.
+Module CR := CounterRefinementTypes.
+Module CS := CounterCertifiedExtraction.Counter.
 
 Open Scope string.
 
@@ -24,42 +27,54 @@ Instance RustCounterConfig : RustPrintConfig :=
      print_full_names := false |}.
 
 Definition remap_blockchain : list (kername * string) := Eval compute in
-      [ remap <%% C.Transaction  %%> "type Transaction<'a> = ();"
-      ; remap <%% C.Transaction_none %%> "fn ##name## (&'a self) -> Transaction<'a> { () }"
-      ; remap <%% PreludeExt.SimpleCallCtx %%> "type SimpleCallCtx<'a> = ();"].
+      [ remap <%% PreludeExt.SimpleCallCtx %%> "type SimpleCallCtx<'a> = ();" ].
+
+Definition remap_address : remapped_inductive :=
+  {| re_ind_name := "AccountAddress";
+     re_ind_ctors := [];
+     re_ind_match := None |}.
 
 Definition attrs : ind_attr_map :=
-  fun kn => if eq_kername <%% C.msg %%> kn then ["#[derive(Debug,Serialize)]"]
+  fun kn => if eq_kername <%% CR.msg %%> kn || eq_kername <%% CS.msg %%> kn  then ["#[derive(Debug,Serialize)]"]
          else ["#[derive(Debug, Copy, Clone)]"].
 
 Definition COUNTER_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "counter";
      concmd_init := CounterRefinementTypes.init;
-     concmd_receive := CounterRefinementTypes.counter |}.
+     concmd_receive := CounterRefinementTypes.counter;
+     concmd_wrap_init := init_wrapper;
+     concmd_wrap_receive := receive_wrapper_no_calls |}.
 
-(* Definition counter_result:= *)
-(*   Eval vm_compute in extract COUNTER *)
-(*                              (ConcordiumRemap.build_remaps *)
-(*                                 (ConcordiumRemap.remap_arith ++ remap_blockchain) *)
-(*                                 [] *)
-(*                                 (ConcordiumRemap.remap_std_types)) *)
-(*                              attrs *)
-(*                              (fun kn => eq_kername <%% bool_rec %%> kn *)
-(*                                      || eq_kername <%% bool_rect %%> kn). *)
+Import Blockchain.
 
-(* Definition rust_counter := *)
-(*   match counter_result with *)
-(*   | Ok v => tmMsg v *)
-(*   | Err e => tmFail e *)
-(*   end. *)
+Open Scope list.
 
-(* MetaCoq Run rust_counter. *)
+Definition types_remap :=
+  ConcordiumRemap.remap_std_types
+    ++ [ (<%% @ActionBody %%>,  ConcordiumRemap.remap_Z )
+        ; (<%% nat %%>, remap_address) ].
 
 MetaCoq Run (res <- rust_extraction COUNTER_MODULE
                            (ConcordiumRemap.build_remaps
                               (ConcordiumRemap.remap_arith ++ remap_blockchain)
-                              []
-                              (ConcordiumRemap.remap_std_types))
+                              [] types_remap)
+                           attrs
+                           (fun kn => eq_kername <%% bool_rec %%> kn
+                                   || eq_kername <%% bool_rect %%> kn);;
+            tmMsg res).
+
+
+Definition SIMPLE_COUNTER_MODULE : ConcordiumMod _ _ :=
+  {| concmd_contract_name := "counter";
+     concmd_init := CounterCertifiedExtraction.Counter.init;
+     concmd_receive := CounterCertifiedExtraction.Counter.counter;
+     concmd_wrap_init := init_wrapper;
+     concmd_wrap_receive := receive_wrapper_no_calls |}.
+
+MetaCoq Run (res <- rust_extraction SIMPLE_COUNTER_MODULE
+                           (ConcordiumRemap.build_remaps
+                              (ConcordiumRemap.remap_arith ++ remap_blockchain)
+                              [] types_remap)
                            attrs
                            (fun kn => eq_kername <%% bool_rec %%> kn
                                    || eq_kername <%% bool_rect %%> kn);;
