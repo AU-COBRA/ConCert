@@ -2,7 +2,7 @@
 
 A framework for smart contract verification in Coq.
 
-See the [Papers](#paper) for details on the development.
+See the [Papers](#papers) for details on the development.
 
 ## How to build
 
