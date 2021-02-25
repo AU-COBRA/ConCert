@@ -29,8 +29,15 @@ Definition remap_arith : list (kername * string) := Eval compute in
    ; remap <%% BinPosDef.Pos.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }"
    ; remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }"
    ; remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }"
-  ; remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }"
-  ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }" ].
+   ; remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }"
+   ; remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }"
+   ; remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }"
+   ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }" ].
+
+
+Definition remap_inline_bool_ops := Eval compute in
+      [ remap <%% andb %%> "__andb!"
+      ; remap <%% orb %%> "__orb!"].
 
 Definition remap_positive : remapped_inductive :=
   {| re_ind_name := "u64";
@@ -270,8 +277,7 @@ Definition specilize_extract_template_env
 
 
 Definition extract_lines
-           (init_name : kername)
-           (receive_name : kername)
+           (seeds : KernameSet.t)
            (Σ : global_env)
            (remaps : remaps)
            (ind_attrs : ind_attr_map)
@@ -282,7 +288,7 @@ Definition extract_lines
       if remap_inline_constant remaps kn then true else false in
   Σ <- specilize_extract_template_env
          (extract_rust_within_coq should_inline)
-         Σ (KernameSetProp.of_list [init_name; receive_name]) without_deps;;
+         Σ seeds without_deps;;
   let p :=  print_program Σ remaps ind_attrs in
       (* TODO: wrappers to integrate with the Concordium infrastructure go here *)
   '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
@@ -324,7 +330,7 @@ Definition receive_wrapper_no_calls (contract_name receive_name : string)
      "    -> Result<A, ReceiveError> {";
      "    let prg = Program::new();";
      "    let msg = ctx.parameter_cursor().get()?;";
-     "    let res = prg.counter(&msg,*state);";
+     "    let res = prg." ++ receive_name ++ "(&msg,*state);";
      "    match res {";
      "        Option::Some(v) =>{";
      "            *state = v.1;";
@@ -337,7 +343,7 @@ Definition rust_extraction {init_type receive_type : Type} (m : ConcordiumMod in
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(concmd_init);;
   receive_nm <- extract_def_name m.(concmd_receive);;
-  res <- tmEval lazy (extract_lines init_nm receive_nm Σ remaps ind_attrs should_inline);;
+  res <- tmEval lazy (extract_lines (KernameSetProp.of_list [init_nm; receive_nm]) Σ remaps ind_attrs should_inline);;
   match res with
   | Ok lines =>
     let init_wrapper :=

@@ -61,3 +61,4 @@ examples/RustExtractTests.v
 examples/StackInterpreter.v
 examples/TypeAnnotationTests.v
 examples/RustCounter.v
+examples/RustInterp.v

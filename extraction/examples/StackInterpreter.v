@@ -48,7 +48,8 @@ Module Interpreter.
   Definition storage := list value.
 
   Definition init (ctx : SimpleCallCtx) (setup : unit) : option storage :=
-    let ctx0 := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx0 := ctx in
+    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
     Some [].
 
   Definition params := list instruction * ext_map.
