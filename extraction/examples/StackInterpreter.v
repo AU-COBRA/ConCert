@@ -48,7 +48,8 @@ Module Interpreter.
   Definition storage := list value.
 
   Definition init (ctx : SimpleCallCtx) (setup : unit) : option storage :=
-    let ctx0 := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx0 := ctx in
+    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
     Some [].
 
   Definition params := list instruction * ext_map.
@@ -308,7 +309,7 @@ Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
     that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename INTERP_MODULE ;;
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] INTERP_MODULE ;;
       tmDefinition INTERP_MODULE.(lmd_module_name) t
      ).
 

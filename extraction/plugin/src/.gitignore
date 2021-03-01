@@ -76,6 +76,8 @@ pCUICTyping.ml
 pCUICTyping.mli
 pCUICUnivSubst.ml
 pCUICUnivSubst.mli
+pluginExtract.ml
+pluginExtract.mli
 prettyPrinterMonad.ml
 prettyPrinterMonad.mli
 printing.ml

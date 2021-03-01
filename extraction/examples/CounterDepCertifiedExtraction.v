@@ -146,7 +146,7 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
     that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_MODULE ;;
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 
@@ -177,7 +177,7 @@ Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage op
                        ++ printMain |}.
 
 Fail MetaCoq Run
-     (liquidity_extraction PREFIX TT_remap TT_rename COUNTER_PARTIAL_MODULE).
+     (liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_PARTIAL_MODULE).
 (* The command has indeed failed with message:
    Erased environment is not expanded enough for dearging to be provably correct *)
 
@@ -237,7 +237,7 @@ Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) s
                        ++ printMain |}.
 
 Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename COUNTER_PARTIAL_EXPANDED_MODULE ;;
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_PARTIAL_EXPANDED_MODULE ;;
       tmDefinition COUNTER_PARTIAL_EXPANDED_MODULE.(lmd_module_name) t
      ).
 

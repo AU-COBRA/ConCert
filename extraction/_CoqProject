@@ -16,6 +16,7 @@ theories/CameLIGOPretty.v
 theories/CertifyingEta.v
 theories/ClosedAux.v
 theories/Common.v
+theories/ConcordiumExtract.v
 theories/Erasure.v
 theories/ErasureCorrectness.v
 theories/ExAst.v
@@ -30,6 +31,7 @@ theories/MidlangExtract.v
 theories/Optimize.v
 theories/OptimizeCorrectness.v
 theories/OptimizePropDiscr.v
+theories/PluginExtract.v
 theories/PrettyPrinterMonad.v
 theories/Printing.v
 theories/ResultMonad.v
@@ -54,6 +56,8 @@ examples/ForPaper.v
 examples/MidlangCounterRefTypes.v
 examples/MidlangEscrow.v
 examples/MidlangExtractTests.v
+examples/RustCounter.v
 examples/RustExtractTests.v
+examples/RustInterp.v
 examples/StackInterpreter.v
 examples/TypeAnnotationTests.v

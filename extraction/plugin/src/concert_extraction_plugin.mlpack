@@ -61,5 +61,6 @@ TopLevelFixes
 PrettyPrinterMonad
 Extraction0
 RustExtract
+PluginExtract
 
 G_concert_extraction
