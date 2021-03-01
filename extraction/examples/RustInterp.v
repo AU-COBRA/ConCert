@@ -61,11 +61,14 @@ Definition attrs : ind_attr_map :=
   fun kn => if eq_kername <%% SI.op %%> kn || eq_kername <%% SI.instruction %%> kn  then ["#[derive(Debug,Serialize)]"]
          else ["#[derive(Debug, Copy, Clone)]"].
 
+Definition ex1 := [SI.IPushZ 1; SI.IPushZ 1; SI.IOp SI.Add].
 
 Definition STACK_INTERP_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "interpreter";
      concmd_init := SI.init;
      concmd_receive := SI.receive;
+     (* Extracting the example as well *)
+     concmd_extra := [@existT _ (fun T : Type => T) _ ex1];
      concmd_wrap_init := init_wrapper;
      concmd_wrap_receive := receive_wrapper_no_calls |}.
 
@@ -80,7 +83,6 @@ Definition types_remap :=
   ; (<%% prod %%>, ConcordiumRemap.remap_pair)
   ; (<%% option %%>, ConcordiumRemap.remap_option)
   ; (<%% @ActionBody %%>,  ConcordiumRemap.remap_unit )
-       (* ; (<%% SI.ext_map %%>, remap_map) *)
   ; (<%% string %%>, remap_string)].
 
 MetaCoq Run (t <- tmQuoteRecTransp STACK_INTERP_MODULE false ;;
@@ -88,50 +90,7 @@ MetaCoq Run (t <- tmQuoteRecTransp STACK_INTERP_MODULE false ;;
 
 Open Scope string.
 
-(* Definition rust_interp := Eval vm_compute in *)
-(*   let init_nm := <%% SI.init %%> in *)
-(*   let receive_nm := <%% SI.receive %%> in *)
-(*   let res := extract_lines init_nm receive_nm ENV *)
-(*                  (ConcordiumRemap.build_remaps *)
-(*                     (ConcordiumRemap.remap_arith ++ remap_blockchain ++ remap_extra) *)
-(*                     (remap_inline ++ ConcordiumRemap.remap_inline_bool_ops) *)
-(*                     types_remap) *)
-(*                  attrs *)
-(*                  (fun kn => eq_kername <%% bool_rec %%> kn *)
-(*                          || eq_kername <%% bool_rect %%> kn) in *)
-(*   res. *)
-
-(* Definition unwrap_result (r : result (list string) string) : list string := *)
-(*   match r with *)
-(*   | Ok lines => lines *)
-(*   | Err _ => [] *)
-(*   end. *)
-
-(* Fixpoint print_lines (s : list string) : TemplateMonad unit := *)
-(*   match s with *)
-(*   | [] => tmMsg "" *)
-(*   | l :: s => tmMsg l;; *)
-(*               print_lines s *)
-(*   end. *)
-
-(* Redirect "interp.rs" MetaCoq Run (print_lines (unwrap_result rust_interp)). *)
-
-Definition ex1 := [SI.IPushZ 1; SI.IPushZ 1; SI.IOp SI.Add].
-
-MetaCoq Quote Recursively Definition blah := ex1.
-
-Compute (t <- (extract_lines (KernameSetProp.of_list [ (MPfile ["RustInterp"; "Examples"; "Extraction"; "ConCert"], "ex1")])
-                       blah.1
-           (ConcordiumRemap.build_remaps
-                            (ConcordiumRemap.remap_arith ++ remap_blockchain ++ remap_extra)
-                            ( ConcordiumRemap.remap_inline_bool_ops)
-                            types_remap)
-                         attrs
-                         (fun kn => eq_kername <%% bool_rec %%> kn
-                                 || eq_kername <%% bool_rect %%> kn));;
-             ret (String.concat nl t)).
-
-(* This leads to stack overflow, because the number of lines is too large and String.concat overflows *)
+(* This might lead to stack overflow in [String.concat], if the number of lines is too large *)
 MetaCoq Run (res <- rust_extraction STACK_INTERP_MODULE
                            (ConcordiumRemap.build_remaps
                               (ConcordiumRemap.remap_arith ++ remap_blockchain ++ remap_extra)

@@ -42,6 +42,7 @@ Definition COUNTER_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "counter";
      concmd_init := CounterRefinementTypes.init;
      concmd_receive := CounterRefinementTypes.counter;
+     concmd_extra := [];
      concmd_wrap_init := init_wrapper;
      concmd_wrap_receive := receive_wrapper_no_calls |}.
 
@@ -68,6 +69,7 @@ Definition SIMPLE_COUNTER_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "counter";
      concmd_init := CounterCertifiedExtraction.Counter.init;
      concmd_receive := CounterCertifiedExtraction.Counter.counter;
+     concmd_extra := [];
      concmd_wrap_init := init_wrapper;
      concmd_wrap_receive := receive_wrapper_no_calls |}.
 
