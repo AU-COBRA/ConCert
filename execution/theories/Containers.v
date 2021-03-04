@@ -163,25 +163,14 @@ Module FMap.
     Lemma size_add_new k v (m : FMap K V) :
       FMap.find k m = None ->
       size (FMap.add k v m) = S (size m).
-    Proof. apply fin_maps.map_size_insert. Qed.
+    Proof. apply fin_maps.map_size_insert_None. Qed.
 
     Lemma size_add_existing k v (m : FMap K V) :
       FMap.find k m <> None ->
       size (FMap.add k v m) = size m.
     Proof.
-      revert k v.
-      induction m using ind; intros kadd vadd find_some.
-      - rewrite find_empty in find_some.
-        congruence.
-      - destruct (stdpp.base.decide (k = kadd)) as [->|?].
-        + rewrite add_add.
-          now rewrite !size_add_new by auto.
-        + rewrite add_commute by auto.
-          rewrite find_add_ne in find_some by auto.
-          rewrite size_add_new.
-          * rewrite (IHm _ _ find_some).
-            now rewrite size_add_new by auto.
-          * now rewrite find_add_ne by auto.
+      rewrite option.not_eq_None_Some.
+      apply fin_maps.map_size_insert_Some.
     Qed.
 
     Lemma length_elements (m : FMap K V) : length (FMap.elements m) = size m.
