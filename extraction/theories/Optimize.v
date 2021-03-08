@@ -447,7 +447,11 @@ Definition debox_type_decl (decl : global_decl) : global_decl :=
   match decl with
   | ConstantDecl cst => ConstantDecl (debox_type_constant cst)
   | InductiveDecl mib => InductiveDecl (debox_type_mib mib)
-  | TypeAliasDecl _ => decl
+  | TypeAliasDecl ta => match ta with
+                       | Some (ty_vars, ty) =>
+                         TypeAliasDecl (Some (ty_vars, debox_box_type ty))
+                       | None => TypeAliasDecl None
+                       end
   end.
 
 End dearg_types.

@@ -3263,9 +3263,9 @@ Proof.
   unfold is_propositional_ind.
   rewrite !lookup_env_trans_env, lookup_env_debox_env_types.
   destruct lookup_env; cbn in *; [|reflexivity].
-  destruct g; cbn in *; auto.
-  rewrite !nth_error_map.
-  now destruct nth_error.
+  destruct g; cbn in *;auto.
+  * rewrite !nth_error_map. now destruct nth_error.
+  * destruct o;auto. now destruct p.
 Qed.
 
 Lemma eval_debox_env_types {wfl:WcbvFlags} Σ t v :
@@ -3281,8 +3281,9 @@ Proof.
     unfold declared_constant in *.
     rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
     destruct lookup_env; cbn in *; [|congruence].
-    destruct g; cbn in *; auto.
-    congruence.
+    destruct g; cbn in *;auto.
+    * congruence.
+    * destruct o;auto. now destruct p.
   - eapply eval_proj; eauto.
     now rewrite is_propositional_ind_trans_env_debox_env_types.
   - eapply eval_proj_prop; eauto.

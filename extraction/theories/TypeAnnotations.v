@@ -386,7 +386,7 @@ Definition annot_debox_type_decl Σ {decl} (a : global_decl_annots box_type decl
   : global_decl_annots box_type (debox_type_decl Σ decl).
 Proof.
   unfold debox_type_decl.
-  destruct decl; [|exact a|exact a].
+  destruct decl;[|exact a|  (destruct o as [p|]; auto; destruct p;exact a)].
   cbn in *.
   (* we have removed type variables from inductives, so adjust type annotations similarly *)
   unfold constant_body_annots in *.
