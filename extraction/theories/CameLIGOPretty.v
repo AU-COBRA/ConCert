@@ -5,18 +5,7 @@
 
 (** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of CameLIGO, or some times, lack of proper support.
 
-CameLIGO allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied.
-
-Another issue (mostly solved): constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
-
-TODO: CHECK THIS FOR CAMELIGO
-Pattern-macthing: pattern-matching on pairs is not supported by CameLIGO, so all the programs must use projections.
-
-TODO: RECORDS ARE SUPPORTED IN CAMELIGO
-Records are currently not supported. Should be represented as iterated products.
-
-TODO:REWRITE
-Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
+CameLIGO allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied. *)
 
 From Coq Require Import List Program String Ascii.
 From ConCert.Extraction Require Import Utils ExAst Common.
