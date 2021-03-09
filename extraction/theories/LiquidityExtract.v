@@ -59,6 +59,19 @@ Arguments lmd_entry_point {_ _ _ _ _}.
 Definition overridden_masks (kn : kername) : option bitmask :=
   if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
   else None.
+  
+(* Machinery for specializing chain base *)
+Definition extract_template_env_specialize
+           (params : extract_template_env_params)
+           (Σ : global_env)
+           (seeds : KernameSet.t)
+           (ignore : kername -> bool) : result ExAst.global_env string :=
+  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
+  let Σ := TemplateToPCUIC.trans_global_decls Σ in
+  Σ <- specialize_ChainBase_env Σ ;;
+  wfΣ <- check_wf_env_func params Σ;;
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
+>>>>>>> liq extraction with chainbase
 
 (* Machinery for specializing chain base *)
 Definition extract_template_env_specialize
@@ -296,6 +309,22 @@ Definition liquidity_extraction_ {msg ctx params storage operation : Type}
                              init_nm receive_nm ;;
     tmEval lazy
            (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).
+
+Definition liquidity_extraction_test {msg ctx params storage operation : Type}
+           (prefix : string)
+           (TT_defs : list (kername *  string))
+           (TT_ctors : MyEnv.env string)
+           (m : LiquidityMod msg ctx params storage operation) :=
+  '(Σ,_) <- tmQuoteRecTransp m false ;;
+  init_nm <- extract_def_name m.(lmd_init);;
+  receive_nm <- extract_def_name m.(lmd_receive);;
+  let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
+  let TT :=
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+  tmEval lazy
+             (match extract_template_env_specialize_test Σ init_nm receive_nm ignore with
+             | Ok a => a
+             | Err _ => [] end).
 
 (* Liquidity extraction *without* chainbase specialization *)
 Definition liquidity_extraction {msg ctx params storage operation : Type} := @liquidity_extraction_ msg ctx params storage operation printLiquidityDefs.
