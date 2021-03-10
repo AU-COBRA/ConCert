@@ -156,7 +156,7 @@ Instance ElmBoxes : MidlangPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)
      any_type_symbol := "()"; (* unit type *)
-     print_full_names := true |}.
+     print_full_names := false |}.
 
 Definition general_wrapped (Σ : global_env) (pre post : string)
            (seeds : KernameSet.t)
@@ -176,6 +176,15 @@ Record ElmMod :=
 
 Definition USER_FORM_APP : ElmMod :=
   {| elmmd_extract := [ existT _  updateModel; existT _ initModel] |}.
+
+Definition header_and_imports : string :=
+<$ "module Main exposing (main)"
+; ""
+; "import Browser"
+; "import Html exposing (..)"
+; "import Html.Attributes exposing (..)"
+; "import Html.Events exposing (onInput, onClick)"
+$>.
 
 Definition preamble : string :=
   <$ "type alias Prod_ a b = (a,b)"
@@ -241,7 +250,7 @@ Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : Template
   res <- tmEval lazy
                (general_wrapped
                   Σ
-                  preamble ""
+                  (header_and_imports ++ nl ++ nl ++ preamble) ""
                   (KernameSetProp.of_list seeds)
                   to_inline
                   (<%% @SetterFromGetter %%> :: map fst TT)
@@ -251,4 +260,4 @@ Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : Template
   | Err e => tmFail e
   end.
 
-Time MetaCoq Run (elm_extraction USER_FORM_APP TT).
+Redirect "examples/elm-web-extract/UserList.elm" MetaCoq Run (elm_extraction USER_FORM_APP TT).

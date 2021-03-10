@@ -341,3 +341,30 @@ Module ex13.
 "      O" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex13.
+
+Module ex_infix1.
+
+  Definition TT : list (kername * string) :=
+    [ remap <%% list %%> "List"
+    ; ((<%% list %%>.1, "nil"), "[]")
+    ; ((<%% list %%>.1, "cons"), "(::)")
+    ].
+
+  MetaCoq Quote Recursively Definition ex := map.
+
+  Example test :
+    general_extract ex (map fst TT) TT = Ok <$
+"";
+"";
+"map : (a -> b) -> List a -> List b";
+"map f =";
+"  let";
+"    map2 l =";
+"      case l of";
+"        [] ->";
+"          []";
+"        a :: t ->";
+"          (::) (f a) (map2 t)";
+"  in";
+"  map2" $>. reflexivity. Qed.
+End ex_infix1.

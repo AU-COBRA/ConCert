@@ -51,6 +51,7 @@ examples/CounterDepCertifiedExtraction.v
 examples/CounterRefinementTypes.v
 examples/CrowdfundingCertifiedExtraction.v
 examples/ElmExtractTests.v
+examples/ElmForms.v
 examples/ErasureTests.v
 examples/ForPaper.v
 examples/MidlangCounterRefTypes.v
