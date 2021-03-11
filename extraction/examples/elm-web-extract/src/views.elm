@@ -27,7 +27,7 @@ viewStorage model =
           Build_StoredEntry nm _ -> li [] [text nm]
   in
   div []
-    [ ul [] (List.map (renderEntry << proj1_sig) (users model))]
+    [ ul [] (List.map (renderEntry << proj1_sig) (proj1_sig <| users model))]
 
 -- MAIN
 

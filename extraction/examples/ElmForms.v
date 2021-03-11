@@ -1,3 +1,10 @@
+(** * Elm web app example **)
+
+(** We implement a simple web application allowing for adding users to
+a list after validating the input data. We use the Coq version of
+refinement types (a type with a predicate) to express the fact that
+the list of users contains only valid data. *)
+
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
@@ -15,6 +22,7 @@ From Coq Require Import List.
 From Coq Require Import Arith.
 From Coq Require Import Lia.
 From Coq Require Import ssreflect ssrbool.
+From Coq Require Import Program.Program.
 
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
@@ -30,42 +38,59 @@ Inductive Cmd (A : Type) : Set :=
 
 Arguments none {_}.
 
+(** An entry that corresponds to the user input.
+    Contains "raw" data, potentially invalid *)
 Record Entry :=
   { name : string;
     password : string;
     passwordAgain : string }.
 
+Definition validPassword (p : string) : Prop :=
+  8 <=? String.length p.
+
+Definition nonEmptyString (s : string) : Prop :=
+  s <> "".
+
+(** An entry after validation *)
+Definition ValidEntry :=
+  {entry : Entry | nonEmptyString entry.(name)
+                   /\ validPassword entry.(password)
+                   /\ entry.(password) =? entry.(passwordAgain)}.
+
+
+(** An entry with "raw "data we store in list of users *)
 Record StoredEntry :=
   { seName : string;
     sePassword : string }.
 
-Definition validPassword (p : string) : Prop :=
-  8 <=? String.length p.
+(** A valid entry that is stored in the list of users *)
+Definition ValidStoredEntry :=
+  { entry : StoredEntry | nonEmptyString entry.(seName)
+                          /\ validPassword entry.(sePassword)}.
 
-Definition ValidStoredEntry := { entry : StoredEntry | validPassword entry.(sePassword)}.
+Definition seNames (l : list ValidStoredEntry) :=
+  map (fun x => (proj1_sig x).(seName)) l.
 
+(** The application model *)
 Record Model :=
-  { users : list ValidStoredEntry;
+  { (** A list of valid entries such with unique user names *)
+    users : {l : list ValidStoredEntry | NoDup (seNames l)};
+    (** A list of erros after validation *)
     errors : list string;
+    (** Current user input *)
     currentEntry : Entry }.
 
+
+(** We derive setters for the records in order to use conveninet record update syntax *)
 MetaCoq Run (make_setters Entry).
 MetaCoq Run (make_setters StoredEntry).
 MetaCoq Run (make_setters Model).
 
-(* Goal (string -> Entry -> True). *)
-(*   Set Printing All. *)
-(*   intros s e. set (e<| name := s |>). *)
-(*   unfold SetterFromGetter,setter_from_getter_Entry_name,set_Entry_name in *. cbn in *. *)
-
+(** Messages for updating the model according to the current user input *)
 Inductive Msg :=
   | MsgName (_ : string)
   | MsgPassword (_ : string)
   | MsgPasswordAgain (_ : string).
-
-Definition ValidEntry :=
-  {entry : Entry | validPassword entry.(password)
-                   /\ entry.(password) =? entry.(passwordAgain)}.
 
 Definition updateEntry : Msg -> Entry -> Entry :=
   fun msg model =>
@@ -80,13 +105,16 @@ Definition updateEntry : Msg -> Entry -> Entry :=
 
 Definition emptyNameError := "Empty name!".
 Definition passwordsDoNotMatchError := "Passwords do not match!".
-Definition passwordIsTooShortError := "Password is too short".
+Definition passwordIsTooShortError := "Password is too short!".
+Definition userAlreadyExistsError := "User already exists!".
 
-Definition validateModel : Model -> list string
+Program Definition validateModel : Model -> list string
   := fun model =>
-       let res := [ (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
-                  ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
-                  ; (8 <=? String.length model.(currentEntry).(password), passwordIsTooShortError)] in
+       let res :=
+           [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError)
+           ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
+           ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
+           ; (8 <=? String.length model.(currentEntry).(password), passwordIsTooShortError)] in
        map snd (filter (fun x => ~~ x.1) res).
 
 
@@ -94,54 +122,63 @@ Inductive StorageMsg :=
    Add
  | UpdateEntry (_ : Msg).
 
+
+(** We translate the user input to the stored representation.
+Note that the transation only works for valid entries *)
 Program Definition toStoredEntry : ValidEntry -> StoredEntry
   := fun entry =>
        {| seName := entry.(name); sePassword := entry.(password) |}.
+
+Hint Resolve -> eqb_neq : core.
+Hint Unfold nonEmptyString : core.
+
+(** This tactic notation allows to extract information from the fact
+that the validation succeeded *)
+Tactic Notation "destruct_validation" :=
+  unfold validateModel in *;
+  destruct (existsb _ _) eqn:Hexists;
+  destruct (name _ =? "")
+           eqn:name_empty;
+  destruct (password _ =? passwordAgain _)
+           eqn: passwords_eq;
+  destruct (8 <=? String.length (password _))
+           eqn:password_long_enough;tryfalse.
 
 Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg
   := fun msg model =>
        match msg with
        | Add =>
          match validateModel model with
-         | [] => let newEntry := toStoredEntry model.(currentEntry) in
-                (model<| users := newEntry :: model.(users) |>, none)
+         | [] => let newEntry : ValidStoredEntry :=
+                    toStoredEntry model.(currentEntry) in
+                 let newList := newEntry :: model.(users) in
+                (model<| users := newList |>, none)
          | errs => (model<| errors := errs |>, none)
          end
        | UpdateEntry entryMsg =>
          (model<|currentEntry := updateEntry entryMsg model.(currentEntry) |>, none)
        end.
+Solve Obligations with (cbn;intros;destruct_validation;auto).
 Next Obligation.
-  cbn in *;intros.
-  destruct (name (currentEntry model) =? "")
-           eqn:name_empty;tryfalse.
-  destruct (password (currentEntry model) =? passwordAgain (currentEntry model))
-           eqn: passwords_eq;tryfalse.
-  destruct (8 <=? String.length (password (currentEntry model)))
-           eqn:password_long_enough;tryfalse.
-  auto.
-Qed.
-Next Obligation.
-  cbn in *;intros.
-    destruct (name (currentEntry model) =? "")
-           eqn:name_empty;tryfalse.
-  destruct (password (currentEntry model) =? passwordAgain (currentEntry model))
-           eqn: passwords_eq;tryfalse.
-  destruct (8 <=? String.length (password (currentEntry model)))
-           eqn:password_long_enough;tryfalse.
-  auto.
-Qed.
-Next Obligation.
-  cbn in *;intros ??????. tryfalse.
+  destruct_validation;auto.
+  constructor.
+  + intro Hin.
+    remember (fun nm : string => nm =? name (currentEntry model)) as f.
+    remember (seNames (proj1_sig model.(users))) as l.
+    assert (Hex_in : exists x, In x l /\ f x = true).
+    { exists model.(currentEntry).(name);subst;split. apply Hin. apply eqb_refl. }
+    now apply existsb_exists in Hex_in.
+  + destruct (model.(users)) as (l, l_nodup). cbn. auto.
 Qed.
 
+Hint Constructors NoDup : core.
 
-Definition initModel : Model * Cmd StorageMsg :=
+Program Definition initModel : Model * Cmd StorageMsg :=
   let entry :=
       {| users := []
        ; errors := []
        ; currentEntry := Build_Entry "" "" "" |} in
   (entry, none).
-
 
 Definition extract_elm_within_coq (should_inline : kername -> bool) :=
 {|
@@ -202,6 +239,9 @@ Definition preamble : string :=
 
 Notation "'remap_ctor' c1 'of' ind 'to' c2" := ((<%% ind %%>.1, c1), c2) (at level 100).
 
+  Notation "'string_literal' s" :=
+    (remap <%% s %%> (String.concat "" [""""; s; """"])) (at level 20).
+
 Definition TT :=
   [ remap <%% bool %%> "Bool"
   ; remap <%% negb %%> "not"
@@ -210,9 +250,10 @@ Definition TT :=
   ; remap <%% String.eqb %%> "string_eq"
   ; remap <%% String.length %%> "String.length"
   ; remap_ctor "EmptyString" of string to """"""
-  ; remap <%% emptyNameError %%> ("""" ++ emptyNameError ++ """")
-  ; remap <%% passwordsDoNotMatchError %%> ("""" ++ passwordsDoNotMatchError ++ """")
-  ; remap <%% passwordIsTooShortError %%> ("""" ++ passwordIsTooShortError ++ """")
+  ; string_literal emptyNameError
+  ; string_literal passwordsDoNotMatchError
+  ; string_literal passwordIsTooShortError
+  ; string_literal userAlreadyExistsError
 
   ; remap <%% nat %%> "Int"
   ; remap_ctor "O" of nat to "0"
