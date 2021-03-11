@@ -1,3 +1,0 @@
-post-all::
-	@echo "Done extracting the extraction, processing produced files!"
-	./process_extraction.sh

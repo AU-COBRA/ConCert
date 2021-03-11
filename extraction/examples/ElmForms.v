@@ -8,7 +8,7 @@ the list of users contains only valid data. *)
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import ElmExtractTests.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Inlining.
@@ -189,7 +189,7 @@ pcuic_args := {|
               transforms := [dearg_transform true true true true true
                             ;Inlining.transform should_inline] |} |}.
 
-Instance ElmBoxes : MidlangPrintConfig :=
+Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)
      any_type_symbol := "()"; (* unit type *)

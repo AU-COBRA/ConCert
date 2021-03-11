@@ -47,15 +47,15 @@ Section FixEnv.
 Context (Σ : Ex.global_env).
 Context (translate : kername -> option string).
 
-(* A printing config for Midlang *)
-Class MidlangPrintConfig :=
+(* A printing config for Elm *)
+Class ElmPrintConfig :=
   { term_box_symbol : string;
     type_box_symbol : string;
     any_type_symbol : string;
     print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *) }.
 
 
-Context `{MidlangPrintConfig}.
+Context `{ElmPrintConfig}.
 
 Definition option_get {A} (o : option A) (default : A) : A :=
   match o with
@@ -325,7 +325,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
         append_nl;;
         name <- fresh_ident name Γ;;
         (* We will define this name to make sure we don't reuse it
-           until the let is all over. Midlang does not allow shadowing. *)
+           until the let is all over. Elm does not allow shadowing. *)
         push_use name;;
         print_define_term Γ name value print_term;;
         ret (name :: Γ) in
@@ -334,7 +334,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     Γ <- print_and_add_one Γ name value;;
 
-    (* Print in Midlang/Elm style, which collapses multiple lets into one *)
+    (* Print in Elm style, which collapses multiple lets into one *)
     (* Turned off because of Elm's insane shadowing rules *)
     (*
     num_collapsed <-
