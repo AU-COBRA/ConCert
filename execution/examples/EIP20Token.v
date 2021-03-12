@@ -140,4 +140,82 @@ Section EIP20Token.
   Definition contract : Contract Setup Msg State :=
     build_contract init init_proper receive receive_proper.
 
+Section Theories.
+
+Import Program.Basics.
+Import Lia.
+Notation "f 'o' g" := (compose f g) (at level 50).
+Locate N.
+Definition sum_balances' (state : EIP20Token.State) :=
+  let balances_list := (map snd o FMap.elements) state.(balances) in
+    fold_left N.add balances_list 0%N.
+
+Definition sum_balances (state : EIP20Token.State) :=
+  sumnat (fun '(k, v) => N.to_nat v) (FMap.elements (balances state)).
+
+Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+  N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
+Proof.
+  intros. unfold receive in H. simpl in *. destruct_match in H.
+  - congruence.
+  - unfold try_transfer in H. destruct_match in H.
+    + cbn in H. congruence.
+    + cbn in *. inversion H. unfold setter_from_getter_State_balances. unfold set_State_balances. unfold sum_balances. simpl.
+      Search FMap.partial_alter.
+Admitted.
+
+Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+  N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
+Proof.
+Admitted.
+
+Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+  N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
+Proof.
+  intros. unfold receive in H. simpl in *. destruct_match in H.
+  - congruence.
+  - unfold try_approve in H. destruct_match in H; inversion H; auto.
+Qed.
+
+Lemma sum_balances_eq_init_supply block_state contract_addr (trace : ChainTrace empty_state block_state) :
+  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+  exists cstate call_info deploy_info,
+    incoming_calls Msg trace contract_addr = Some call_info
+    /\ contract_state block_state contract_addr = Some cstate
+    /\ deployment_info _ trace contract_addr = Some deploy_info
+    /\ let init_val := init_amount deploy_info.(deployment_setup) in
+      init_val = N.of_nat (sum_balances cstate).
+Proof.
+  contract_induction.
+  - intros. cbn in *. auto.
+  - intros. cbn in *. inversion init_some. unfold sum_balances. cbn in *. rewrite FMap.elements_add.
+    + rewrite FMap.elements_empty. simpl. lia.
+    + auto.
+  - intros. cbn in *. auto.
+  - intros. cbn in *. destruct msg. destruct m. 
+    + apply try_transfer_preserves_total_supply in receive_some. now rewrite <- receive_some.
+    + apply try_transfer_from_preserves_total_supply in receive_some. now rewrite <- receive_some.
+    + apply try_approve_preserves_total_supply in receive_some. now rewrite <- receive_some.
+    + unfold receive in receive_some; destruct_match in receive_some; try congruence.
+  - intros. cbn in *. destruct msg. destruct m. 
+    + apply try_transfer_preserves_total_supply in receive_some. now rewrite <- receive_some.
+    + apply try_transfer_from_preserves_total_supply in receive_some. now rewrite <- receive_some.
+    + apply try_approve_preserves_total_supply in receive_some. now rewrite <- receive_some.
+    + unfold receive in receive_some; destruct_match in receive_some; try congruence.
+  - intros. cbn in *. auto.
+  - intros. cbn in *. auto.
+    instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Qed.
+
+
+
+End Theories.
 End EIP20Token.
