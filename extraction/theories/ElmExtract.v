@@ -604,7 +604,7 @@ Definition print_type_alias
   ret ty_ml_name.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=
-  monad_iter push_use (map (fun x  => x.1.1.2) Σ);;
+  monad_iter push_use (map (fun '(kn, _, _) => get_fun_name kn) Σ);;
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
 
