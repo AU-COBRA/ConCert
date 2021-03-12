@@ -392,7 +392,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     (* Take care that this is structurally recursive... *)
     (fix print_branches
          (branches : list (nat * term))
-         (ctors : list (ident * list Ex.box_type)) :=
+         (ctors : list (ident * list (name * Ex.box_type))) :=
        match branches, ctors with
        | [], [] => ret tt
        | (arity, t) :: branches, (ctor_name, data) :: ctors =>
@@ -520,11 +520,11 @@ Definition parenthesize_ind_ctor_ty (ty : box_type) : bool :=
 
 Definition print_ind_ctor_definition
            (Γ : list ident)
-           (name : kername)
-           (data : list box_type) : PrettyPrinter unit :=
-  append (get_ctor_name name);;
+           (ctor_name : kername)
+           (data : list (name * box_type)) : PrettyPrinter unit :=
+  append (get_ctor_name ctor_name);;
 
-  monad_fold_left (fun _ bty =>
+  monad_fold_left (fun _ '(_, bty) =>
                      append " ";;
                      print_parenthesized
                        (parenthesize_ind_ctor_ty bty)
@@ -566,7 +566,7 @@ Definition print_mutual_inductive_body
 
        push_indent (col + indent_size);;
 
-       (fix print_ind_ctors (ctors : list (ident * list box_type)) prefix :=
+       (fix print_ind_ctors (ctors : list (ident * list (name * box_type))) prefix :=
           match ctors with
           | [] => ret tt
           | (name, data) :: ctors =>

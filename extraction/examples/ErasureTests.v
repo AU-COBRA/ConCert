@@ -414,7 +414,7 @@ Definition print_one_inductive_body
 
   let print_ctor '(ctor_name, ctor_types) :=
       nl ++ "| " ++ ctor_name ++
-         concat "" (map print_ctor_type ctor_types) in
+         concat "" (map (print_ctor_type ∘ snd) ctor_types) in
 
   "data "
     ++ ExAst.ind_name oib ++ concat "" (map (fun tvar => " " ++ print_name (tvar_name tvar))
