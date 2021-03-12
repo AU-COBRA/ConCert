@@ -503,7 +503,6 @@ Definition print_constant
     append_nl
   end;;
 
-  push_use ml_name;;
   print_define_term [] ml_name body print_term;;
   pop_indent;;
 
