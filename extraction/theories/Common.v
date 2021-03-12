@@ -75,7 +75,7 @@ Definition extract_def_name_exists {A : Type} (a : A) : TemplateMonad kername :=
   match head with
   | tConstruct ind _ _ =>
     if eq_kername ind.(inductive_mind)
-                        (MPfile ["Specif"; "Init"; "Coq"], "sigT")
+                        <%% sigT %%>
     then match nth_error args 3 with
          | Some (tConst name _) => ret name
          | Some t => tmFail ("Expected constant at second component, got " ++ string_of_term t)
