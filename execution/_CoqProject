@@ -63,3 +63,4 @@ tests/iTokenBuggyTests/iTokenBuggy.v
 tests/iTokenBuggyTests/iTokenBuggyGens.v
 tests/iTokenBuggyTests/iTokenBuggyPrinters.v
 tests/iTokenBuggyTests/iTokenBuggyTests.v
+tests/BATTests/BATGens.v

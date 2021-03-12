@@ -208,4 +208,27 @@ Qed.
 Definition contract : Contract Setup Msg State :=
   build_contract init init_proper receive receive_proper.
 
+Section Theories.
+Local Open Scope nat.
+
+Definition total_balance bstate accounts : Amount :=
+  let account_balance := account_balance (env_chain bstate) in
+    fold_left (fun a b => Z.add a (account_balance b)) accounts 0%Z.
+
+Lemma can_finalize : forall bstate caddr cstate accounts,
+  reachable bstate ->
+  env_contracts bstate caddr = Some (BAT.contract : WeakContract) ->
+  contract_state bstate caddr = Some cstate ->
+  cstate.(fundingStart) < cstate.(fundingEnd)
+    /\ current_slot (env_chain bstate) < fundingEnd cstate
+    /\ N.ge (Z.to_N (total_balance bstate accounts)) ((tokenCreationMin cstate) - (total_supply cstate)) ->
+      exists bstate_new cstate_new, reachable bstate_new /\ contract_state bstate_new caddr = Some cstate_new /\ isFinalized cstate_new = true.
+Proof.
+Admitted.
+(*  intros. simpl in *. destruct H2 as [H2 [H3 H4]].
+  induction accounts.
+  - simpl in *. destruct cstate. simpl in *. *)
+    
+
+End Theories.
 End BAT.
