@@ -41,6 +41,7 @@ uninstall: all
 
 test-extraction:
 	cd ./extraction/examples/elm-extract/; elm-test
+	cd ./extraction/examples/elm-web-extract/; elm make src/Main.elm
 	$(foreach file, $(wildcard ./extraction/examples/liquidity-extract/tests/*.liq), liquidity $(file);)
 .PHONY: test-extraction
 

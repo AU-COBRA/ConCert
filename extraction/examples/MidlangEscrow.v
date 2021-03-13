@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Inlining.
@@ -27,7 +27,7 @@ Import MonadNotation.
 
 Open Scope string.
 
-Instance EscrowMidlangBoxes : MidlangPrintConfig :=
+Instance EscrowMidlangBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
      any_type_symbol := "()";

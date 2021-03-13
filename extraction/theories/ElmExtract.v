@@ -47,14 +47,15 @@ Section FixEnv.
 Context (Σ : Ex.global_env).
 Context (translate : kername -> option string).
 
-(* A printing config for Midlang *)
-Class MidlangPrintConfig :=
-  {term_box_symbol : string;
-   type_box_symbol : string;
-   any_type_symbol : string;
-   print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *)}.
+(* A printing config for Elm *)
+Class ElmPrintConfig :=
+  { term_box_symbol : string;
+    type_box_symbol : string;
+    any_type_symbol : string;
+    print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *) }.
 
-Context `{MidlangPrintConfig}.
+
+Context `{ElmPrintConfig}.
 
 Definition option_get {A} (o : option A) (default : A) : A :=
   match o with
@@ -257,6 +258,38 @@ Definition print_define_term
   | _ => print_decompose Γ t
   end.
 
+(* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm*)
+Definition get_infix (s : string) : option string:=
+  let len := String.length s in
+  let begins := substring_count 1 s in
+  let ends := substring_from (len - 1) s in
+  if (begins =? "(") && (ends =? ")") then
+    Some (substring 1 (len-2) s)
+  else
+    None.
+
+(* Print a constructor as an infix operatior in patterns.
+
+   E.g. for [infix_op = "::"] it expects the [t] starts with two lambdas
+   [fun x => fun xs => ...],
+   so the corresponding pattern will look like
+   [x :: xs => ...] *)
+Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit) (infix_op : string) (Γ : list ident) (t : term) :=
+  match t with
+    | tLambda name1 (tLambda name2 t) =>
+      name1 <- fresh_ident name1 Γ;;
+      let Γ := name1 :: Γ in
+      name2 <- fresh_ident name2 Γ;;
+      append (name1 ^ " ");;
+      append infix_op;;
+      append (" " ^ name2);;
+      append " ->";;
+      append_nl;;
+      print_parenthesized (parenthesize_case_branch t) (print (name2 :: Γ) t)
+    | _ => printer_fail "could not decompose branch for infix constructor"
+  end.
+
+
 Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   match t with
   | tBox => append term_box_symbol
@@ -292,7 +325,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
         append_nl;;
         name <- fresh_ident name Γ;;
         (* We will define this name to make sure we don't reuse it
-           until the let is all over. Midlang does not allow shadowing. *)
+           until the let is all over. Elm does not allow shadowing. *)
         push_use name;;
         print_define_term Γ name value print_term;;
         ret (name :: Γ) in
@@ -301,7 +334,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     Γ <- print_and_add_one Γ name value;;
 
-    (* Print in Midlang/Elm style, which collapses multiple lets into one *)
+    (* Print in Elm style, which collapses multiple lets into one *)
     (* Turned off because of Elm's insane shadowing rules *)
     (*
     num_collapsed <-
@@ -368,30 +401,36 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
          ctor_indent <- get_indent;;
          push_indent (ctor_indent + indent_size);;
 
-         append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
+         let ctor_name := get_ctor_name ((inductive_mind ind).1, ctor_name) in
+         (* NOTE: if the constructor name is some operator in parenthesis, we apply a special prining procedure for infix constructors *)
+         match get_infix ctor_name with
+         | Some op => print_infix_match_branch print_term op Γ t
+         | None =>
+           append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
 
-         (* In Coq, parameters are not part of branches. But erasure
+           (* In Coq, parameters are not part of branches. But erasure
             adds the parameters to each constructor, so we need to get those
             out of the way first. These won't have any uses so we just print _. *)
-         append (concat "" (map (fun _ => " _") (seq 0 npars)));;
+           append (concat "" (map (fun _ => " _") (seq 0 npars)));;
 
-         (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
-            match n with
-            | 0 =>
-              append " ->";;
-              append_nl;;
-              print_parenthesized (parenthesize_case_branch t) (print_term Γ t)
+           (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
+              match n with
+              | 0 =>
+                append " ->";;
+                append_nl;;
+                print_parenthesized (parenthesize_case_branch t) (print_term Γ t)
 
-            | S n =>
-              match t with
-              | tLambda name t =>
-                name <- fresh_ident name Γ;;
-                append (" " ^ name);;
-                print_branch n (name :: Γ) t
+              | S n =>
+                match t with
+                | tLambda name t =>
+                  name <- fresh_ident name Γ;;
+                  append (" " ^ name);;
+                  print_branch n (name :: Γ) t
 
-              | _ => printer_fail "could not decompose branch"
-              end
-            end) arity Γ t;;
+                | _ => printer_fail "could not decompose branch"
+                end
+              end) arity Γ t
+         end;;
 
          pop_indent;;
 
@@ -464,7 +503,6 @@ Definition print_constant
     append_nl
   end;;
 
-  push_use ml_name;;
   print_define_term [] ml_name body print_term;;
   pop_indent;;
 
@@ -565,6 +603,7 @@ Definition print_type_alias
   ret ty_ml_name.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=
+  monad_iter push_use (map (fun '(kn, _, _) => get_fun_name kn) Σ);;
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
 

@@ -4,7 +4,7 @@ From ConCert.Embedding Require Import MyEnv.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Erasure.
