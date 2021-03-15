@@ -56,8 +56,6 @@ Section print_term.
   Definition string_of_nat := StringExtra.string_of_nat.
   Definition tokenize := str_split.
 
-  Eval lazy in (tokenize "." "Coq.ZArith.BinInt.Z.add").
-
 (** Takes a fully qualified name and returns the last part, e.g.
   for "Coq.ZArith.BinInt.Z.add" returns "add" *)
   Definition unqual_name nm := last (tokenize "." nm) ("Error (Malformed_qualified_name)").

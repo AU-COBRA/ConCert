@@ -1371,7 +1371,3 @@ Global Arguments is_logical {_ _ _}.
 Global Arguments conv_ar {_ _ _}.
 Global Arguments is_sort {_ _ _}.
 Global Arguments is_arity {_ _ _}.
-
-From MetaCoq.Template Require Import Loader.
-
-MetaCoq Quote Recursively Definition foo := Vector.t.
