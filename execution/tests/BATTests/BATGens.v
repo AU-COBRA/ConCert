@@ -31,13 +31,15 @@ Definition gCreateTokens (state : BAT.State) : G (Address * Amount * Msg) :=
   let randomize_mk_gen g :=
     freq [
       (weight_1, returnGen g) ;
-      (0, from_addr <- arbitrary ;; returnGen (from_addr, choose (0,3), create_tokens))
+      (0, from_addr <- arbitrary ;; value <- (choose (0,3))%Z ;; returnGen (from_addr, value, create_tokens))
     ] in
   sample <- sampleFMapOpt (balances state) ;;
+  value <- (choose (0,3))%Z ;;
   match sample with
-  | Some (from_addr, _) => randomize_mk_gen (from_addr, choose(0,3), create_tokens)
-  | None => from_addr <- arbitrary ;; returnGen (from_addr, choose(0,3), create_tokens)
+  | Some (from_addr, _) => randomize_mk_gen (from_addr, value, create_tokens)
+  | None => from_addr <- arbitrary ;; returnGen (from_addr, value, create_tokens)
   end.
-  
+
+
 
 
