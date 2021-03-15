@@ -110,13 +110,6 @@ Section print_term.
   | TAny => "UnknownType"
   end.
 
-  Compute print_box_type "" []
-          (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1)).
-
-  Compute print_box_type "" []
-          (TApp (TApp (TApp (TApp (TInd (mkInd (MPfile [], "list") 0)) (TVar 0)) (TVar 1)) (TVar 2))(TVar 3)).
-
-
   Definition print_ctor
              (prefix : string)
              (TT : env string)
