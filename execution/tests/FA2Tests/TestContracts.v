@@ -81,16 +81,8 @@ Definition client_receive (chain : Chain)
   | _ => None
   end.
 
-Lemma client_init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) client_init.
-Proof. repeat intro; solve_contract_proper.	Qed.
-
-Lemma client_receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) client_receive.
-Proof. repeat intro; solve_contract_proper. Qed.
-
 Definition client_contract : Contract FA2Client.ClientSetup ClientMsg FA2Client.ClientState :=
-  build_contract client_init client_init_proper client_receive client_receive_proper.
+  build_contract client_init client_receive.
 
 End FA2Client.
 
@@ -201,15 +193,7 @@ Definition hook_receive (chain : Chain)
   | _ => None
   end.
 
-Lemma hook_init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) hook_init.
-Proof. repeat intro; solve_contract_proper.	Qed.
-
-Lemma hook_receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) hook_receive.
-Proof. repeat intro; solve_contract_proper. Qed.
-
 Definition hook_contract : Contract HookSetup TransferHookMsg HookState :=
-  build_contract hook_init hook_init_proper hook_receive hook_receive_proper.
+  build_contract hook_init hook_receive.
 
 End FA2TransferHook.

@@ -28,8 +28,8 @@ Open Scope Z_scope.
 
 (* Try to generate an account which has balance > 0. Returns None whenever no such address could be found.  *)
 Definition gAccountWithBalance (e : Env) (gAccOpt : GOpt Address) : GOpt (Address * Amount) :=
-  addr <- suchThatMaybeOpt gAccOpt (fun addr => 0 <? e.(account_balance) addr) ;;
-  returnGenSome (addr, e.(account_balance) addr).
+  addr <- suchThatMaybeOpt gAccOpt (fun addr => 0 <? e.(env_account_balances) addr) ;;
+  returnGenSome (addr, e.(env_account_balances) addr).
 
 Definition gEscrowMsg (e : Env) : GOpt Action :=
   let call caller amount msg :=
@@ -44,9 +44,9 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
      backtrack if one fails. *)
   backtrack [
     (* commit money *)
-    (1%nat, 
+    (1%nat,
         (* amount <- choose (0%Z, e.(account_balance) buyer) ;; *)
-        if e.(account_balance) buyer <? 2
+        if e.(env_account_balances) buyer <? 2
         then returnGen None
         else call buyer 2 commit_money
     ) ;
@@ -74,7 +74,7 @@ Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
   match state.(next_step) with
   (* Waiting for buyer to commit itemvalue * 2. In this state, the seller can also choose to withdraw their deposit *)
   | buyer_commit => backtrack [
-                      (2%nat, if e.(account_balance) buyer <? 2
+                      (2%nat, if e.(env_account_balances) buyer <? 2
                               then returnGen None
                               else call buyer 2 commit_money
                       );

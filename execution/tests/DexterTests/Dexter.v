@@ -164,7 +164,7 @@ Definition receive (chain : Chain)
                    : option (State * list ActionBody) :=
   let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
-  let dexter_balance := chain.(account_balance) caddr in
+  let dexter_balance := ctx.(ctx_contract_balance) in
   let amount := ctx.(ctx_amount) in
   match maybe_msg with
   | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
@@ -180,15 +180,7 @@ Definition init (chain : Chain)
           ongoing_exchanges := [];
           price_history := [] |}.
 
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; solve_contract_proper.	Qed.
-
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof. repeat intro; solve_contract_proper. Qed.
-
 Definition contract : Contract Setup Msg State :=
-  build_contract init init_proper receive receive_proper.
+  build_contract init receive.
 
 End Dexter.

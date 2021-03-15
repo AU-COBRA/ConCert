@@ -135,14 +135,14 @@ Definition current_slot : ContractReader nat :=
 Definition finalized_height : ContractReader nat :=
   fun chain ctx => (chain, ctx, finalized_height chain).
 
-Definition account_balance (addr : Address) : ContractReader Amount :=
-  fun chain ctx => (chain, ctx, account_balance chain addr).
-
 Definition caller_addr : ContractReader Address :=
   fun chain ctx => (chain, ctx, ctx_from ctx).
 
 Definition my_addr : ContractReader Address :=
   fun chain ctx => (chain, ctx, ctx_contract_address ctx).
+
+Definition my_balance : ContractReader Amount :=
+  fun chain ctx => (chain, ctx, ctx_contract_balance ctx).
 
 Definition call_amount : ContractReader Amount :=
   fun chain ctx => (chain, ctx, ctx_amount ctx).
@@ -183,15 +183,8 @@ Definition build_contract
            {Setup Msg State : Type}
            `{Serializable Setup} `{Serializable Msg} `{Serializable State}
            (init : ContractIniter Setup State)
-           (receive : ContractReceiver State Msg State)
-           (init_proper :
-              Proper (ChainEquiv ==> eq ==> eq ==> eq) (run_contract_initer init))
-           (receive_proper :
-              Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) (run_contract_receiver receive))
-  : Contract Setup Msg State :=
+           (receive : ContractReceiver State Msg State) : Contract Setup Msg State :=
   {| init := (run_contract_initer init);
-     receive := (run_contract_receiver receive);
-     init_proper := init_proper;
-     receive_proper := receive_proper; |}.
+     receive := (run_contract_receiver receive); |}.
 
 End ContractMonads.

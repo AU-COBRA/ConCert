@@ -50,15 +50,15 @@ Section LocalBlockchainTests.
   Definition chain2 : ChainBuilder :=
     unpack_result (add_block chain1 []).
 
-  Compute (account_balance chain2 person_1).
-  Compute (account_balance chain2 creator).
+  Compute (env_account_balances chain2 person_1).
+  Compute (env_account_balances chain2 creator).
 
   (* Creator transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
     unpack_result (add_block chain2 [build_act creator (act_transfer person_1 10)]).
 
-  Compute (account_balance chain3 person_1).
-  Compute (account_balance chain3 creator).
+  Compute (env_account_balances chain3 person_1).
+  Compute (env_account_balances chain3 creator).
 
   (* person_1 deploys a Congress contract *)
   Definition setup_rules :=
@@ -80,9 +80,9 @@ Section LocalBlockchainTests.
     | _ => person_1
     end.
 
-  Compute (account_balance chain4 person_1).
-  Compute (account_balance chain4 creator).
-  Compute (account_balance chain4 congress_1).
+  Compute (env_account_balances chain4 person_1).
+  Compute (env_account_balances chain4 creator).
+  Compute (env_account_balances chain4 congress_1).
 
   Definition congress_ifc : ContractInterface Congress.Msg :=
     match get_contract_interface chain4 congress_1 Congress.Msg with
@@ -119,7 +119,7 @@ Section LocalBlockchainTests.
     unpack_result (add_block chain4 acts).
 
   Compute (FMap.elements (congress_state chain5).(members)).
-  Compute (account_balance chain5 congress_1).
+  Compute (env_account_balances chain5 congress_1).
 
   (* person_1 creates a proposal to send 3 coins to person_3 using funds
      of the contract *)
@@ -150,11 +150,11 @@ Section LocalBlockchainTests.
 
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)
-  Compute (account_balance chain7 congress_1).
-  Compute (account_balance chain7 person_3).
+  Compute (env_account_balances chain7 congress_1).
+  Compute (env_account_balances chain7 person_3).
   (* Balances after: *)
-  Compute (account_balance chain8 congress_1).
-  Compute (account_balance chain8 person_3).
+  Compute (env_account_balances chain8 congress_1).
+  Compute (env_account_balances chain8 person_3).
   Print Assumptions chain8.
 
   Hint Resolve congress_correct_after_block : core.

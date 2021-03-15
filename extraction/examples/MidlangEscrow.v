@@ -40,7 +40,6 @@ Definition TT_escrow : list (kername * string) :=
 Definition midlang_translation_map :=
   Eval compute in
         [(<%% @current_slot %%>, "current_slot");
-        (<%% @account_balance %%>, "account_balance");
         (<%% @address_eqb %%>, "Order.eq");
         (<%% @ctx_amount %%>, "ctx_amount");
         (<%% @ctx_from %%>, "ctx_from");

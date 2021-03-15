@@ -65,7 +65,7 @@ Definition exploit_receive (chain : Chain)
                    : option (ExploitContractState * list ActionBody) :=
   let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
-  let dexter_balance := chain.(account_balance) caddr in
+  let dexter_balance := ctx.(ctx_contract_balance) in
   match maybe_msg with
   | Some (tokens_sent param) => if 5 <? state (* repeat reentrancy up to five times *)
                                 then Some (state, [])
@@ -80,16 +80,8 @@ Definition exploit_receive (chain : Chain)
   | _ => Some (state, [])
   end.
 
-Instance exploit_init_proper :
-Proper (ChainEquiv ==> eq ==> eq ==> eq) exploit_init.
-Proof. now subst. Qed.
-
-Instance exploit_receive_proper :
-Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) exploit_receive.
-Proof. now subst. Qed.
-
 Definition exploit_contract : Contract ExplotContractSetup ExploitContractMsg ExploitContractState :=
-build_contract exploit_init exploit_init_proper exploit_receive exploit_receive_proper.
+build_contract exploit_init exploit_receive.
 
 End ExplotContract.
 
@@ -134,7 +126,7 @@ Module TestInfo <: DexterTestsInfo.
   Definition exploit_contract_addr := exploit_caddr.
   Definition gAccountAddress := elems_ person_1 test_chain_addrs.
   Definition gAccountAddrWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
+    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in
     elems_opt addrs.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
@@ -158,9 +150,9 @@ Definition gExploitChainTraceList max_acts_per_block cb length :=
 (* Sample (gExploitAction). *)
 (* Sample (gExploitChainTraceList 1 chain1 1). *)
 
-Definition person_1_initial_balance : Amount := account_balance chain1 person_1.
+Definition person_1_initial_balance : Amount := env_account_balances chain1 person_1.
 
-Definition dexter_liquidity : Amount := account_balance chain1 dexter_caddr.
+Definition dexter_liquidity : Amount := env_account_balances chain1 dexter_caddr.
 
 Definition account_tokens (env : Environment) (account : Address) : N :=
   with_default 0%N (
@@ -182,9 +174,9 @@ Definition account_tokens (env : Environment) (account : Address) : N :=
 Open Scope Z_scope.
 Definition tokens_to_asset_correct_P_opt (env : Environment) : option Checker :=
   do state_dexter <- dexter_state env;
-  let person_1_balance := account_balance env person_1 in
-  let dexter_balance := account_balance env dexter_caddr in
-  let dexter_initial_balance := account_balance chain1 dexter_caddr in
+  let person_1_balance := env_account_balances env person_1 in
+  let dexter_balance := env_account_balances env dexter_caddr in
+  let dexter_initial_balance := env_account_balances chain1 dexter_caddr in
   let dexter_initial_token_reserve := Z.of_N (account_tokens chain1 dexter_caddr) in
   let dexter_current_token_reserve := Z.of_N (account_tokens env dexter_caddr) in
   let tokens_received := dexter_current_token_reserve - dexter_initial_token_reserve in

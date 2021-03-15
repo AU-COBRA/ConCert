@@ -34,7 +34,6 @@ Instance MidlangBoxes : MidlangPrintConfig :=
 
 Definition midlang_translation_map :=
   [(<%% @current_slot %%>, "current_slot");
-  (<%% @account_balance %%>, "account_balance");
   (<%% @address_eqb %%>, "address_eq");
   (<%% @ctx_amount %%>, "amount");
   (<%% @ctx_from %%>, "from");
