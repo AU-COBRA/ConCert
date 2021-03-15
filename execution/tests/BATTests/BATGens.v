@@ -40,6 +40,7 @@ Definition gCreateTokens (state : BAT.State) : G (Address * Amount * Msg) :=
   | None => from_addr <- arbitrary ;; returnGen (from_addr, value, create_tokens)
   end.
 
+End BATGens.
 
 
 
