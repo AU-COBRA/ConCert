@@ -72,7 +72,7 @@ Record one_inductive_body :=
     ind_propositional : bool;
     ind_kelim : sort_family;
     ind_type_vars : list type_var_info;
-    ind_ctors : list (ident * list box_type);
+    ind_ctors : list (ident * list (name * box_type));
     (* unfortunately needed for erases_one_inductive_body *)
     ind_ctor_original_arities : list nat;
     ind_projs : list (ident * box_type); }.
@@ -112,7 +112,7 @@ Definition lookup_inductive (Σ : global_env) (ind : inductive) : option one_ind
 
 Definition lookup_constructor
            (Σ : global_env)
-           (ind : inductive) (c : nat) : option (ident * list box_type) :=
+           (ind : inductive) (c : nat) : option (ident * list (name * box_type)) :=
   match lookup_inductive Σ ind with
   | Some oib => nth_error (ind_ctors oib) c
   | None => None

@@ -55,8 +55,6 @@ Section print_term.
   (* Use string_of_nat from StringExtra instead of MetaCoq's string_of_nat *)
   Definition string_of_nat := StringExtra.string_of_nat.
   Definition tokenize := str_split.
-  
-  Eval lazy in (tokenize "." "Coq.ZArith.BinInt.Z.add").
 
 (** Takes a fully qualified name and returns the last part, e.g.
   for "Coq.ZArith.BinInt.Z.add" returns "add" *)
@@ -98,7 +96,7 @@ Section print_term.
       (* a special case of products - infix *)
       if eq_kername <%% prod %%> ind.(inductive_mind) then
         parens false (concat " * " args)
-      
+
       (* inductives are printed with args prefix style, e.g. "int option" *)
       else print_uncurried "" args ++ " " ++ go hd
     | _ => print_uncurried "" args ++ " " ++ go hd
@@ -115,14 +113,17 @@ Section print_term.
   end.
 
 
-  Definition print_ctor (prefix : string) (TT : env string) (ctor : ident × list box_type) :=
+  Definition print_ctor
+             (prefix : string)
+             (TT : env string)
+             (ctor : ident × list (name × box_type)) :=
     let (nm,tys) := ctor in
     (* cameligo constructors must start with a capital letter *)
     let nm := capitalize nm in
     match tys with
     | [] => prefix ++ nm
     | _ => prefix ++ nm ++ " of "
-                  ++ parens false <| concat " * " (map (print_box_type prefix TT) tys)
+                  ++ parens false <| concat " * " (map (print_box_type prefix TT ∘ snd) tys)
     end.
 
   Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
@@ -147,10 +148,10 @@ Section print_term.
     | [build_record_ctor] =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := projs_and_ctors |> map (fun '(p, ty) => print_proj (capitalize prefix) TT (p.1, ty)) in
+      let projs_and_ctors_printed := projs_and_ctors |> map (fun '(p, (na, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
-              ++  "}" 
+              ++  "}"
     | _ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
                    ++ nl ++ "  "
                    ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
@@ -224,7 +225,7 @@ Section print_term.
       end
     in aux n.
   (* ligo doesn't support wildcard *)
-  Definition string_of_name ctx (na : name) : string := 
+  Definition string_of_name ctx (na : name) : string :=
     match na with
     | nAnon => fresh_id_from ctx 10 "a"
     | nNamed "_" => fresh_id_from ctx 10 "a"
@@ -273,7 +274,7 @@ Section print_term.
     end.
 
   Definition app_args_annot {A} (f : (∑t, annots box_type t) -> A) :=
-    fix go (t : term) : annots box_type t -> list A := 
+    fix go (t : term) : annots box_type t -> list A :=
     match t with
     | tApp t1 (tConst c as t2) => fun '(bt, (hda, arga)) =>
       let cst_name := string_of_kername c in
@@ -284,9 +285,9 @@ Section print_term.
     end.
 
   Definition app_args_annot_empty_filtered {A} (f : (∑t, annots box_type t) -> A) (h : (∑t, annots box_type t) -> bool) :=
-    fix go (t : term) : annots box_type t -> list A := 
+    fix go (t : term) : annots box_type t -> list A :=
     match t with
-    | tApp t1 t2 => fun '(bt, (hda, arga)) => 
+    | tApp t1 t2 => fun '(bt, (hda, arga)) =>
       if h (t2;arga) then
         (f (t2; arga)) :: go t1 hda
       else go t1 hda
@@ -328,7 +329,7 @@ Section print_term.
   Definition print_transfer (args : list string) :=
     match args with
     | [] => "MalformedTransfer()"
-    | [a1;a2] => "Tezos.transaction unit " ++ a2 ++ " (get_contract_unit " ++ a1 ++ ")" 
+    | [a1;a2] => "Tezos.transaction unit " ++ a2 ++ " (get_contract_unit " ++ a1 ++ ")"
     | _ => "MalformedTransfer(" ++ concat "," args ++ ")"
     end.
 
@@ -370,7 +371,7 @@ Section print_term.
   | tLambda na body => fun '(bt, a) =>
     let na' := fresh_name ctx na t in
     parens top ("fun (" ++ string_of_name ctx na' ++ " : "
-                        ++ print_box_type prefix TT bt ++ ")" 
+                        ++ print_box_type prefix TT bt ++ ")"
                         ++ " -> " ++ print_term prefix FT TT (vass na' :: ctx) true false body a)
   | tLetIn na def body => fun '(bt, (vala, bodya)) =>
     let na' := fresh_name ctx na t in
@@ -378,9 +379,9 @@ Section print_term.
                       " = " ++ print_term prefix FT TT ctx true false def vala ++ " in " ++ nl ++
                       print_term prefix FT TT (vdef na' def :: ctx) true false body bodya)
   | tApp f l as t => fun '(bt, (fa, la)) =>
-    let is_not_empty_const := fun t => 
+    let is_not_empty_const := fun t =>
       match t with
-      | tApp t1 (tConst c as t2) => 
+      | tApp t1 (tConst c as t2) =>
         let cst_name := string_of_kername c in
         let nm := from_option (look TT cst_name) (prefix ++ c.2) in
         if nm =? "" then false
@@ -402,11 +403,11 @@ Section print_term.
           else parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
         | None => "UnboundRel(" ++ string_of_nat i ++ ")"
         end
-      | tProj (mkInd mind i as ind, pars, k) c => 
+      | tProj (mkInd mind i as ind, pars, k) c =>
         match lookup_ind_decl mind i with
         | Some oib =>
           match nth_error oib.(ExAst.ind_projs) k with
-          | Some (na, _) => 
+          | Some (na, _) =>
               if is_not_empty_const l then
                 parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
               else (* if term is on the form (tApp t ""), then just print t *)
@@ -433,11 +434,11 @@ Section print_term.
         else if (nm =? "") then
           concat " " apps
         (* ContractCallContext remappings *)
-        else if (nm =? "ctx_from") then 
+        else if (nm =? "ctx_from") then
           "Tezos.sender"
         else if (nm =? "ctx_contract_address") then
           "Tezos.self_address"
-        else if (nm =? "ctx_amount") then 
+        else if (nm =? "ctx_amount") then
           "Tezos.amount"
         else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
       | tConstruct (mkInd mind j as ind) i =>
@@ -449,27 +450,27 @@ Section print_term.
         else if (nm =? "cons") then
           parens top (concat " :: " apps)
         (* is it a transfer *)
-        else if (nm =? "Act_transfer") then 
+        else if (nm =? "Act_transfer") then
           print_transfer apps
-        else if (nm =? "_") then 
+        else if (nm =? "_") then
           fresh_id_from ctx 10 "a"
-        else 
+        else
           (* inductive constructors of 1 arg are treated as records *)
           let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in
           match lookup_ind_decl mind i with
           | Some oib =>
             if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) then
               (* TODO: maybe need to capitalize projs here, to ensure consistency with get_constr_name *)
-              let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
-              let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
-                                                        |> concat "; " in 
+              let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in
+              let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
+                                                        |> concat "; " in
               "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
             else parens top (print_uncurried nm' apps)
           | _ => parens top (print_uncurried nm' apps)
           end
       | _ => if is_not_empty_const l then
               parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
-             else print_term prefix FT TT ctx false true f fa 
+             else print_term prefix FT TT ctx false true f fa
       end
     end
   | tConst c => fun bt =>
@@ -480,19 +481,19 @@ Section print_term.
     let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ nm) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
     if nm_tt =? "[]" then
-      "([]:" ++ print_box_type prefix TT (bt) ++ ")" 
+      "([]:" ++ print_box_type prefix TT (bt) ++ ")"
     else if nm_tt =? "None" then
-      "(None:" ++ print_box_type prefix TT (bt) ++ ")" 
+      "(None:" ++ print_box_type prefix TT (bt) ++ ")"
     else if nm_tt =? "Map.empty" then
-      "(Map.empty: " ++ print_box_type prefix TT (bt) ++ ")" 
-    else capitalize nm_tt 
+      "(Map.empty: " ++ print_box_type prefix TT (bt) ++ ")"
+    else capitalize nm_tt
   | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
     if eq_kername mind <%% bool %%> then
       match brs with
       | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
         parens top
-                ("if " ++ print_term prefix FT TT ctx true false t ta 
+                ("if " ++ print_term prefix FT TT ctx true false t ta
                        ++ " then " ++ print_term prefix FT TT ctx true false (snd b1) b1a
                        ++ " else " ++ print_term prefix FT TT ctx true false (snd b2) b2a)
       | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
@@ -509,7 +510,7 @@ Section print_term.
           let cons_ctx := rev (map vass cons_args) in
           let cons_case tbody tbodya := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ ctx)%list false false tbody tbodya in
           parens top
-             ("match " 
+             ("match "
              ++ print_term prefix FT TT ctx true false t ta
                        ++ " with " ++ nl
                        ++ concat (nl ++ " | ") [nil_case;(lam_body_annot_cont cons_case b2.2 b2a)])
@@ -520,11 +521,11 @@ Section print_term.
     fun '(bt, (ta, trs)) =>
     match lookup_ind_decl mind i with
     | Some oib =>
-      let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=  
+      let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
         match arity return annots box_type br -> (_ * _) with
         | S n =>
           match br return annots box_type br -> (_ * _) with
-          | tLambda na B => fun '(bt, a) => 
+          | tLambda na B => fun '(bt, a) =>
             let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
             let (ps, b) := print_branch (vass na' :: ctx) n params B a in
             (ps ++ [string_of_name ctx na'], b)%list
@@ -533,7 +534,7 @@ Section print_term.
         end
         | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
         end in
-      let brs := map_with_bigprod _ (fun br tra => 
+      let brs := map_with_bigprod _ (fun br tra =>
         print_branch ctx br.1 [] br.2 tra
       ) brs trs in
       let brs_ := combine brs oib.(ExAst.ind_ctors) in
@@ -564,9 +565,9 @@ Section print_term.
       let print_args_curried prefix TT ctx bt args :=
         let (tys,_) := decompose_arr bt  in
         let targs := combine args (map (print_box_type prefix TT) tys) in
-        targs 
+        targs
           |> map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty) )
-          |> concat " " in  
+          |> concat " " in
       let fix_name := string_of_name ctx fix_decl.(dname) in
       let body := fix_decl.(dbody) in
       let '(args, (lam_body; body_annot)) := Edecompose_lam_annot body fixa in
@@ -577,7 +578,7 @@ Section print_term.
           "fun " ++ sargs_typed ++ " -> "
                  ++ print_uncurried fix_name sargs in
       let FT' := fix_name :: FT in
-        
+
       let print_def_annot (ctx : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
         fun btt =>
         let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
@@ -589,7 +590,7 @@ Section print_term.
         let tys_printed := map (print_box_type prefix TT) tys in
         let sargs_uncurried := parens false (concat ", " sargs ++ " : " ++ concat " * " tys_printed) in
         let ret_ty_printed := print_box_type prefix TT ret_ty in
-            string_of_name ctx fdef.(dname) ++ " " ++ sargs_uncurried  ++ 
+            string_of_name ctx fdef.(dname) ++ " " ++ sargs_uncurried  ++
             " : " ++ ret_ty_printed ++ " = "
             ++ nl
             ++ lam_body_annot_cont (fun body body_annot => print_term prefix FT' TT (ctx ++ ctx' ++ ctx)%list true false body body_annot) fdef.(dbody) btt
@@ -643,7 +644,7 @@ Definition print_init (prefix : string)
            (init_prelude : string) (* operations available in the [init] as local definitions.
                                       CameLIGO does not allow to refer to global definitions in [init]*)
            (env : ExAst.global_env)
-           (cst : ExAst.constant_body) 
+           (cst : ExAst.constant_body)
            : (constant_body_annots box_type cst) -> option string :=
     match cst.(ExAst.cst_body) as body return match body with
                                               | Some body => annots box_type body
@@ -658,16 +659,16 @@ Definition print_init (prefix : string)
     let printed_targs_inner :=
         map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs_inner in
     let decl_inner := "inner " ++ concat " " printed_targs_inner in
-    let printed_inner_ret_ty := print_box_type prefix TT inner_ret_ty in 
+    let printed_inner_ret_ty := print_box_type prefix TT inner_ret_ty in
     let printed_outer_ret_ty :=
       match inner_ret_ty with
       | TApp (TInd ind) t1 =>
         if eq_kername <%% option %%> ind.(inductive_mind) then
           print_box_type prefix TT t1
         else print_box_type prefix TT inner_ret_ty
-      | _ => print_box_type prefix TT inner_ret_ty 
-      end in 
-    let wrap t := 
+      | _ => print_box_type prefix TT inner_ret_ty
+      end in
+    let wrap t :=
       "match " ++ t ++ " with" ++ nl ++
       "  Some v -> v" ++ nl ++
       "| None -> (failwith (""""): " ++ printed_outer_ret_ty ++ ")" in
@@ -682,28 +683,28 @@ Definition print_init (prefix : string)
                                | _::xs => xs
                                end in
     (* ignore the first argument because it's a call context *)
-    let decl_outer := 
+    let decl_outer :=
       "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
     let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
     let inner_app := "inner " ++ concat " " ( "ctx" :: map (string_of_name ctx) (tl args)) in
-    let init_args_ty := "type init_args_ty = " ++ 
+    let init_args_ty := "type init_args_ty = " ++
       match tys with
       | _::[] => "unit"
-      | [] => "unit" 
-      | _::_ => tl tys |> map (print_box_type prefix TT) 
+      | [] => "unit"
+      | _::_ => tl tys |> map (print_box_type prefix TT)
                        |> concat " * "
     end in
     let init_wrapper_args_printed tys :=
       match tys with
       | [] => "()"
       | [ty] => " args"
-      | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "") 
+      | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "")
                    |> snd
       end in
-    let init_wrapper := 
+    let init_wrapper :=
          "let init_wrapper (args : init_args_ty) ="
       ++ nl
-      ++ "  init" ++ (tl tys |> init_wrapper_args_printed) in 
+      ++ "  init" ++ (tl tys |> init_wrapper_args_printed) in
     ret ("let " ++ decl_outer ++ " = "
                     ++ nl
                     ++ init_prelude
@@ -719,7 +720,7 @@ Definition print_init (prefix : string)
                     ++ init_wrapper
                     ++ nl)
   | None => fun _ => None
-  end. 
+  end.
 
 Definition print_cst (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
@@ -740,7 +741,7 @@ Definition print_cst (prefix : string)
 
 (* Wrapper type to separate declarations into type declarations ("type ... = ...")
    and constant declarations ("let x = ...") *)
-Inductive Decl a : Type := 
+Inductive Decl a : Type :=
   | TyDecl : a -> Decl a
   | ConstDecl : a -> Decl a.
 Arguments TyDecl {_}.
@@ -749,7 +750,7 @@ Arguments ConstDecl {_}.
 Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
            (nm : kername)
            (env : ExAst.global_env)
-           (d : ExAst.global_decl) : 
+           (d : ExAst.global_decl) :
            (global_decl_annots box_type d) -> Decl (kername * string) :=
   match d return (global_decl_annots box_type d) -> Decl (kername * string) with
   | ExAst.ConstantDecl cst => fun annot =>
@@ -771,25 +772,25 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
 end.
 
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
-           (env : ExAst.global_env) 
+           (env : ExAst.global_env)
            : (env_annots box_type env) -> list (Decl (kername * string)) :=
   match env return (env_annots box_type env) -> list (Decl (kername * string)) with
   | (kn, has_deps, decl) :: env' => fun '(a,b) =>
     let printed :=
         (* only print decls for which the environment includes dependencies *)
-        if has_deps then 
+        if has_deps then
           print_global_decl prefix TT kn env' decl a
         else ConstDecl (kn, "") in
     printed :: print_global_env prefix TT env' b
   | [] => fun _ => []
   end.
 
-  
+
 Local Open Scope string_scope.
 
 (** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)
 
-Definition int_ops := 
+Definition int_ops :=
   <$
   "[@inline] let addInt (i : int) (j : int) = i + j" ;
   "[@inline] let subInt (i : int) (j : int) = i - j" ;
@@ -800,7 +801,7 @@ Definition int_ops :=
   "[@inline] let eqInt (i : int) (j : int) = i = j"
   $>.
 
-Definition tez_ops := 
+Definition tez_ops :=
   <$
   "[@inline] let addTez (n : tez) (m : tez) = n + m" ;
   "[@inline] let subTez (n : tez) (m : tez) = n - m" ;
@@ -846,7 +847,7 @@ Definition get_contract_def :=
 Definition CameLIGOPrelude :=
   print_list id (nl ++ nl)
              [int_ops; tez_ops; nat_ops;
-             bool_ops; time_ops; address_ops; 
+             bool_ops; time_ops; address_ops;
              get_contract_def].
 
 Definition CameLIGO_contractCallContext :=

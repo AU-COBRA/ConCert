@@ -242,14 +242,14 @@ Definition dearg_oib
      ind_kelim := ind_kelim oib;
      ind_type_vars := ind_type_vars oib;
      ind_ctors :=
-       mapi (fun c '(name, bts) =>
+       mapi (fun c '(name, fields) =>
                let ctor_mask :=
                    match find (fun '(ind', c', _) => (ind' =? oib_index) && (c' =? c))
                               (ctor_masks mib_masks) with
                    | Some (_, _, mask) => mask
                    | None => []
                    end in
-               (name, masked (param_mask mib_masks ++ ctor_mask) bts))
+               (name, masked (param_mask mib_masks ++ ctor_mask) fields))
             (ind_ctors oib);
      ind_ctor_original_arities := ind_ctor_original_arities oib;
      ind_projs := ind_projs oib |}.
@@ -436,7 +436,7 @@ Definition debox_type_oib (oib : one_inductive_body) : one_inductive_body :=
      ind_propositional := ind_propositional oib;
      ind_kelim := ind_kelim oib;
      ind_type_vars := filter keep_tvar (ind_type_vars oib);
-     ind_ctors := map (on_snd (map debox)) (ind_ctors oib);
+     ind_ctors := map (on_snd (map (on_snd debox))) (ind_ctors oib);
      ind_ctor_original_arities := ind_ctor_original_arities oib;
      ind_projs := map (on_snd debox) (ind_projs oib); |}.
 
@@ -633,7 +633,8 @@ Fixpoint analyze_env (Σ : global_env) : dearg_set :=
               List.concat
                 (mapi (fun ind oib =>
                          mapi (fun c '(_, args) =>
-                                 (ind, c, map is_box_or_any (skipn (ind_npars mib) args)))
+                                 (ind, c, map (is_box_or_any ∘ snd)
+                                              (skipn (ind_npars mib) args)))
                               (ind_ctors oib))
                       (ind_bodies mib)) in
           let mm := {| param_mask := List.repeat true (ind_npars mib);

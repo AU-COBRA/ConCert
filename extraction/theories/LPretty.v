@@ -110,24 +110,16 @@ Section print_term.
   | TAny => "UnknownType"
   end.
 
-  Compute print_box_type "" []
-          (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1)).
-
-  Compute print_box_type "" []
-          (TApp (TApp (TApp (TApp (TInd (mkInd (MPfile [], "list") 0)) (TVar 0)) (TVar 1)) (TVar 2))(TVar 3)).
-
-
-  Definition print_ctor (prefix : string) (TT : env string) (ctor : ident × list box_type) :=
+  Definition print_ctor
+             (prefix : string)
+             (TT : env string)
+             (ctor : ident × list (name × box_type)) :=
     let (nm,tys) := ctor in
     match tys with
     | [] => prefix ++ nm
     | _ => prefix ++ nm ++ " of "
-                  ++ concat " * " (map (print_box_type prefix TT) tys)
+                  ++ concat " * " (map (print_box_type prefix TT ∘ snd) tys)
     end.
-
-  Compute print_ctor "" []
-          ("blah",[TInd (mkInd (MPfile [], "nat") 0);
-                  (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1))]).
 
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=

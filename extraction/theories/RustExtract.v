@@ -339,7 +339,10 @@ Section print_term.
     let rem := remap_inductive remaps ind in
 
     push_indent (col + indent_size);;
-    (fix print_cases (brs : list (nat × term)) (ctors : list (ident × list box_type)) (c : nat) :=
+    (fix print_cases
+         (brs : list (nat × term))
+         (ctors : list (ident × list (name × box_type)))
+         (c : nat) :=
        match brs, ctors with
        | [], [] => ret tt
        | (arity, t) :: branches, (ctor_name, data) :: ctors =>
@@ -684,9 +687,9 @@ Definition print_constant
 
 Definition print_ind_ctor_definition
            (Γ : list ident)
-           (name : ident)
-           (data : list box_type) : PrettyPrinter unit :=
-  append (clean_global_ident name);;
+           (ctor_name : ident)
+           (data : list (name × box_type)) : PrettyPrinter unit :=
+  append (clean_global_ident ctor_name);;
 
   (* Make sure we always take a lifetime parameter in data types *)
   append "(";;
@@ -701,7 +704,7 @@ Definition print_ind_ctor_definition
        else
          print_parenthesized (1 <? #|Γ|)%nat (append_join ", " Γ));;
       append ">" in
-  let print_datas := print_phantom :: map (print_type Γ) data in
+  let print_datas := print_phantom :: map (print_type Γ ∘ snd) data in
   monad_append_join (append ", ") print_datas;;
 
   append ")".
