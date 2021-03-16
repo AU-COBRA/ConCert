@@ -40,15 +40,15 @@ Definition TT_escrow : list (kername * string) :=
 Definition midlang_translation_map :=
   Eval compute in
         [(<%% @current_slot %%>, "current_slot");
-        (<%% @account_balance %%>, "account_balance");
         (<%% @address_eqb %%>, "Order.eq");
-        (<%% @ctx_amount %%>, "ctx_amount");
         (<%% @ctx_from %%>, "ctx_from");
+        (<%% @ctx_contract_address %%>, "ctx_contract_address");
+        (<%% @ctx_contract_balance %%>, "ctx_contract_balance");
+        (<%% @ctx_amount %%>, "ctx_amount");
         (<%% @Chain %%>, "ConCertChain");
         (<%% @ContractCallContext %%>, "ConCertCallContext");
         (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
         (<%% @ChainBase %%>, "ChainBaseWTF");
-        (<%% @ctx_contract_address %%>, "contract_address");
         (<%% @Amount %%>,"Z" )].
 
 Definition midlang_escrow_translate (name : kername) : option string :=
@@ -126,9 +126,9 @@ Definition midlang_prelude :=
   "type ConCertCallContext = CCtx Unit";
   "type ConCertChain = CChain Unit";
   "ctx_from ctx = 0";
+  "ctx_contract_address _ = 0";
+  "ctx_contract_balance _ = (Zpos (XO XH))";
   "ctx_amount ctx = (Zpos (XO XH))";
-  "contract_address _ = 0";
-  "account_balance _ _ = (Zpos (XO XH))";
   "current_slot _ = O"].
 
 Definition escrow_result :=

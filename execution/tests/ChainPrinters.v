@@ -99,6 +99,7 @@ Instance showLocalContractCallContext : Show (@ContractCallContext Base) :=
 show cctx := "ContractCallContext{"
              ++ "ctx_from: " ++ show (@ctx_from Base cctx) ++ sep
              ++ "ctx_contract_addr: " ++ show (@ctx_contract_address Base cctx) ++ sep
+             ++ "ctx_contract_balance: " ++ show (@ctx_contract_balance Base cctx) ++ sep
              ++ "ctx_amount: " ++ show (@ctx_amount Base cctx) ++ "}"
 |}.
 
@@ -195,7 +196,7 @@ Instance showLCB `{Show (@Action Base)} : Show ChainBuilder :=
 Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
   {| show a := "ChainBuilderType{...}" |}.
 
-Instance showChain (BaseTypes : ChainBase) : Show (@Chain BaseTypes) :=
+Instance showChain (BaseTypes : ChainBase) : Show Chain :=
 {|
   show c :=
     let height := show (chain_height c) in

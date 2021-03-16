@@ -10,8 +10,8 @@ Context {ChainBase : ChainBase}.
 Context `{Finite Address}.
 
 Local Open Scope Z.
-Definition circulation (chain : Chain) :=
-  sumZ (account_balance chain) (elements Address).
+Definition circulation (env : Environment) :=
+  sumZ (env_account_balances env) (elements Address).
 
 (* We prove first that over any single action, the circulation is preserved.
 The idea behind this proof is that addrs contain from and to so
@@ -69,7 +69,8 @@ Proof.
   cbn.
   rewrite (account_balance_post_to eval from_neq_to).
   rewrite (account_balance_post_from eval from_neq_to).
-  enough (sumZ (account_balance pre) suf = sumZ (account_balance post) suf) by lia.
+  enough (sumZ (env_account_balances pre) suf = sumZ (env_account_balances post) suf)
+    by lia.
 
   pose proof (Permutation_NoDup perm) as perm_set.
   assert (from_not_in_suf: ~In (eval_from eval) suf).
@@ -87,10 +88,10 @@ Qed.
 Hint Resolve eval_action_circulation_unchanged : core.
 
 Instance circulation_proper :
-  Proper (ChainEquiv ==> eq) circulation.
+  Proper (EnvironmentEquiv ==> eq) circulation.
 Proof.
   intros x y [].
-  unfold circulation, account_balance.
+  unfold circulation, env_account_balances.
   induction (elements Address) as [|z zs IH]; auto.
   cbn.
   now
@@ -99,6 +100,7 @@ Proof.
     | [H: _ |- _] => rewrite H
   end.
 Qed.
+
 
 (* Now we prove that adding a block _does_ increase the circulation
 by what we would expect. *)

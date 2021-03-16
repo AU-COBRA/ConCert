@@ -222,38 +222,8 @@ Definition receive : ContractReceiver State Msg State :=
     accept_call (state<|tally := Some res|>)
   end.
 
-Definition boardroom_voting : Contract Setup Msg State.
-Proof with cbn -[Nat.ltb].
-  refine (build_contract init receive _ _).
-  - repeat intro; subst.
-    cbn -[Nat.ltb].
-    destruct (_ <? _)%nat; auto.
-  - intros c1 c2 ceq ctx ? <- state ? <- msg ? <-.
-    unfold run_contract_receiver...
-    destruct msg as [msg|]; [|congruence]...
-    destruct msg.
-    + rewrite <- ceq.
-      destruct (_ <? _)%nat; auto.
-      destruct (FMap.find _ _); auto.
-      destruct (FMap.find _ _); auto.
-      destruct (_ =? _)%Z; auto.
-      destruct (_ <? _); auto.
-      destruct (verify_secret_key_proof _ _ _); auto.
-    + destruct (finish_commit_by _); auto.
-      rewrite <- ceq.
-      destruct (_ <? _)%nat; auto.
-      destruct (FMap.find _ _); auto.
-    + rewrite <- ceq.
-      destruct (_ <? _)%nat; auto.
-      destruct (FMap.find _ _); auto.
-      destruct (finish_commit_by _); [destruct (_ =? _)%positive; auto|].
-      all: destruct (verify_secret_vote_proof _ _ _ _); auto.
-    + rewrite <- ceq.
-      destruct (_ <? _)%nat; auto.
-      destruct (tally _); auto.
-      destruct (existsb _ _); auto.
-      destruct (bruteforce_tally _); auto.
-Defined.
+Definition boardroom_voting : Contract Setup Msg State :=
+  build_contract init receive.
 
 Section Theories.
 

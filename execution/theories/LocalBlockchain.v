@@ -55,8 +55,8 @@ Definition lc_to_env (lc : LocalChain) : Environment :=
   {| env_chain :=
         {| chain_height := lc_height lc;
            current_slot := lc_slot lc;
-           finalized_height := lc_fin_height lc;
-           account_balance a := with_default 0%Z (FMap.find a (lc_account_balances lc)); |};
+           finalized_height := lc_fin_height lc; |};
+     env_account_balances a := with_default 0%Z (FMap.find a (lc_account_balances lc));
      env_contract_states a := FMap.find a (lc_contract_state lc);
      env_contracts a := FMap.find a (lc_contracts lc); |}.
 
@@ -94,7 +94,7 @@ Section ExecuteActions.
              (msg : option SerializedValue)
              (lc : LocalChain) : result (list Action * LocalChain) ActionEvaluationError :=
     do if amount <? 0 then Err amount_negative else Ok tt;
-    do if amount >? account_balance lc from then Err amount_too_high else Ok tt;
+    do if amount >? env_account_balances lc from then Err amount_too_high else Ok tt;
     match FMap.find to lc.(lc_contracts) with
     | None =>
       (* Fail if sending a message to address without contract *)
@@ -106,7 +106,7 @@ Section ExecuteActions.
     | Some wc =>
       do state <- result_of_option (env_contract_states lc to) internal_error;
       let lc := transfer_balance from to amount lc in
-      let ctx := build_ctx from to amount in
+      let ctx := build_ctx from to (env_account_balances lc to) amount in
       do '(new_state, new_actions) <- result_of_option (wc_receive wc lc ctx state msg)
                                                        receive_failed;
       let lc := set_contract_state to new_state lc in
@@ -121,14 +121,14 @@ Section ExecuteActions.
              (lc : LocalChain)
     : result (list Action * LocalChain) ActionEvaluationError :=
     do if amount <? 0 then Err amount_negative else Ok tt;
-    do if amount >? account_balance lc from then Err amount_too_high else Ok tt;
+    do if amount >? env_account_balances lc from then Err amount_too_high else Ok tt;
     do contract_addr <- result_of_option (get_new_contract_addr lc) too_many_contracts;
     do match FMap.find contract_addr (lc_contracts lc) with
        | Some _ => Err internal_error
        | None => Ok tt
        end;
     let lc := transfer_balance from contract_addr amount lc in
-    let ctx := build_ctx from contract_addr amount in
+    let ctx := build_ctx from contract_addr amount amount in
     do state <- result_of_option (wc_init wc lc ctx setup) init_failed;
     let lc := add_contract contract_addr wc lc in
     let lc := set_contract_state contract_addr state lc in
@@ -176,9 +176,7 @@ Section ExecuteActions.
   Proof.
     intros <-.
     apply build_env_equiv; auto.
-    apply build_chain_equiv; auto.
     cbn.
-    unfold Blockchain.add_balance.
     intros addr.
     unfold Amount in *.
     destruct_address_eq; subst;
@@ -196,7 +194,6 @@ Section ExecuteActions.
   Proof.
     intros <-.
     apply build_env_equiv; auto.
-    apply build_chain_equiv; auto.
     intros addr'.
     cbn.
     unfold set_chain_contract_state.
@@ -213,12 +210,11 @@ Section ExecuteActions.
   Proof.
     intros <-.
     apply build_env_equiv; auto.
-    - apply build_chain_equiv; auto.
-    - intros addr'.
-      cbn.
-      destruct_address_eq.
-      + subst. now rewrite FMap.find_add.
-      + rewrite FMap.find_add_ne; auto.
+    intros addr'.
+    cbn.
+    destruct_address_eq.
+    - subst. now rewrite FMap.find_add.
+    - rewrite FMap.find_add_ne; auto.
   Qed.
 
   Local Open Scope Z.
@@ -253,7 +249,7 @@ Section ExecuteActions.
     unfold send_or_call in sent.
     destruct (Z.ltb amount 0) eqn:amount_nonnegative;
       [cbn in *; congruence|].
-    destruct (Z.gtb amount (account_balance lc_before from)) eqn:balance_enough;
+    destruct (Z.gtb amount (env_account_balances lc_before from)) eqn:balance_enough;
       [cbn in *; congruence|].
     destruct (FMap.find to (lc_contracts lc_before)) as [wc|] eqn:to_contract.
     - (* there is a contract at destination, so do call *)
@@ -265,10 +261,10 @@ Section ExecuteActions.
       Hint Resolve gtb_le ltb_ge : core.
       apply (eval_call from to amount wc msg prev_state new_state resp_acts);
         try solve [cbn in *; auto; congruence].
-      + rewrite <- receive.
-        apply wc_receive_proper; auto.
-        symmetry.
-        now apply transfer_balance_equiv.
+      + cbn in sent.
+        inversion_clear sent.
+        rewrite <- receive.
+        auto.
       + inversion sent; subst;
           now apply set_contract_state_equiv, transfer_balance_equiv.
     - (* no contract at destination, so msg should be empty *)
@@ -302,7 +298,7 @@ Section ExecuteActions.
     unfold deploy_contract in dep.
     destruct (Z.ltb amount 0) eqn:amount_nonnegative;
       [cbn in *; congruence|].
-    destruct (Z.gtb amount (account_balance lc_before from)) eqn:balance_enough;
+    destruct (Z.gtb amount (env_account_balances lc_before from)) eqn:balance_enough;
       [cbn in *; congruence|].
     destruct (get_new_contract_addr lc_before) as [contract_addr|] eqn:new_contract_addr;
       [|cbn in *; congruence].
@@ -313,11 +309,8 @@ Section ExecuteActions.
     assert (new_acts = []) by congruence; subst new_acts.
     Hint Resolve get_new_contract_addr_is_contract_addr : core.
     apply (eval_deploy from contract_addr amount wc setup state); eauto.
-    - rewrite <- recv.
-      apply wc_init_proper; auto.
-      now symmetry; apply transfer_balance_equiv.
-    - inversion dep; subst lc_after.
-      now apply set_contract_state_equiv, add_contract_equiv, transfer_balance_equiv.
+    inversion dep; subst lc_after.
+    now apply set_contract_state_equiv, add_contract_equiv, transfer_balance_equiv.
   Defined.
 
   Lemma execute_action_step
@@ -433,8 +426,7 @@ Lemma add_new_block_equiv header (lc : LocalChain) (env : Environment) :
     (Blockchain.add_new_block_to_env header env).
 Proof.
   intros eq.
-  apply build_env_equiv; try apply eq.
-  apply build_chain_equiv; try apply eq; auto.
+  apply build_env_equiv; try apply eq; auto.
   intros addr.
   cbn.
   unfold Blockchain.add_balance.
