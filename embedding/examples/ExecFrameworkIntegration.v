@@ -74,7 +74,7 @@ Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
   Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq):
-    Chain -> ContractCallContext (Base:=CB) -> Setup -> option State_coq
+    Chain -> ContractCallContext -> Setup -> option State_coq
     := fun c cc setup => Some (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
   Definition wrapped_init
