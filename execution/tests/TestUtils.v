@@ -1,6 +1,6 @@
 From ConCert Require Import Serializable. Import SerializedType.
 From ConCert Require Import Blockchain.
-From ConCert Require Import Congress.
+
 From ConCert Require Import ResultMonad.
 From ConCert Require Import LocalBlockchain.
 From ConCert Require Import BoundedN. Import BoundedN.Stdpp.

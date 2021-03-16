@@ -9,7 +9,6 @@ Section BATPrinters.
 Context `{Show Address}.
 Local Open Scope string_scope.
 
-Existing Instance EIP20TokenPrinters.showTokenValue.
 Existing Instance EIP20TokenPrinters.showMsg.
 Existing Instance EIP20TokenPrinters.showTokenState.
 
@@ -18,7 +17,7 @@ Instance showTokenValue : Show TokenValue :=
   show v := show v
 |}.
 
-Instance showMsg : Show Msg :=
+Instance showMsg : Show BAT.Msg :=
 {|
   show m := match m with
             | tokenMsg msg => show msg
