@@ -172,6 +172,8 @@ Fixpoint change_modpath (mpath : modpath) (ignore : kername -> bool) (t : term) 
   | tProj proj t => tProj proj (change_modpath mpath ignore t)
   | tFix mfix idx => tFix (map (map_def (change_modpath mpath ignore) (change_modpath mpath ignore)) mfix) idx
   | tCoFix mfix idx => tCoFix (map (map_def (change_modpath mpath ignore) (change_modpath mpath ignore)) mfix) idx
+  | tInt _ => t
+  | tFloat _ => t
   end.
 
 Definition generate_proof (Σ1 Σ2 : global_env) (kn1 kn2 : kername) : TemplateMonad (term × term × term × term) :=

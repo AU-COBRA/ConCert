@@ -135,6 +135,7 @@ Section ChainBaseSpecialization.
                                     dbody := dbody;
                                     rarg := rarg d |}) defs;;
         ret (tCoFix defs i)
+      | tPrim _ => ret t
       end.
 
   Definition specialize_body

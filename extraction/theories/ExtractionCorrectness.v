@@ -72,25 +72,19 @@ Proof.
   destruct dearg_transform eqn:dt; cbn -[dearg_transform] in *; [|congruence].
   injection ex as ->.
   destruct wfΣ.
-  eapply erases_correct in ev as (erv&erase_to&[erev]).
-  2: constructor; auto.
-  2: eassumption.
-  2: apply erases_tConst.
-  2: { eapply inversion_Const in wt as (?&?&?&?&?); auto.
-       eapply global_erased_with_deps_erases_deps_tConst; eauto.
-       eapply (erase_global_decls_deps_recursive_correct
-                 _ (wf_squash (sq w))
-                 (KernameSet.singleton kn)); eauto.
-       - intros ? ->%KernameSet.singleton_spec.
-         unfold declared_constant, PCUICAst.fst_ctx, fst_ctx in *.
-         congruence.
-       - now apply KernameSet.singleton_spec. }
-  depelim erase_to; [|easy].
-
-  constructor.
-  eapply dearg_transform_correct; eauto.
-  apply (OptimizePropDiscr.optimize_correct _ (tConst kn) (tConstruct ind c)).
-  assumption.
+  eapply erases_correct in ev as (erv&erase_to&[erev]);eauto.
+  + depelim erase_to; [|easy].
+    constructor.
+    eapply dearg_transform_correct; eauto.
+    now apply (OptimizePropDiscr.optimize_correct _ (tConst kn) (tConstruct ind c)).
+  + eapply inversion_Const in wt as (?&?&?&?&?); auto.
+    eapply global_erased_with_deps_erases_deps_tConst; eauto.
+    eapply (erase_global_decls_deps_recursive_correct
+              _ (wf_squash (sq w))
+              (KernameSet.singleton kn)); eauto.
+    * intros ? ->%KernameSet.singleton_spec.
+      now unfold declared_constant, PCUICAst.fst_ctx, fst_ctx in *.
+    * now apply KernameSet.singleton_spec.
 Qed.
 
 Print Assumptions extract_correct.

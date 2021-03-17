@@ -595,7 +595,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
     printer_fail ("unhandled tProj on " ^ string_of_kername (inductive_mind ind))
 
   | tCoFix _ _ => printer_fail "Cannot handle tCoFix yet"
-
+  | tPrim _ => printer_fail "Cannot handle Coq primitive types yet"
   end.
 
 Definition print_constant

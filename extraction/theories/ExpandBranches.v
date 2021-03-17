@@ -33,6 +33,7 @@ Fixpoint expand_branches (t : term) : term :=
   | tProj p t => tProj p (expand_branches t)
   | tFix defs i => tFix (map (map_def expand_branches) defs) i
   | tCoFix defs i => tCoFix (map (map_def expand_branches) defs) i
+  | tPrim _ => t
   end.
 
 Definition expand_constant_body cst :=

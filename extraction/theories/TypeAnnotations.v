@@ -176,7 +176,7 @@ Proof.
     intros Γ a.
     induction a; [now constructor|].
     constructor; [|now eauto].
-    destruct r as ((? & ?) & ? & ? & ?).
+    destruct r as (? & ? & ? & ?).
     split; [|now auto].
     econstructor; eauto.
   - apply inversion_CoFix in X as (?&?&?&?&?&?&?); auto.
@@ -377,6 +377,7 @@ Proof.
     apply bigprod_map; [|exact ta.2].
     intros.
     exact (f _ All_nil _ X).
+  - exact (annot_mkApps ta argsa).
 Defined.
 
 Definition annot_dearg im cm {t : term} (ta : annots box_type t) : annots box_type (dearg im cm t) :=

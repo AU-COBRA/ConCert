@@ -24,7 +24,9 @@ Notation "<%% t %%>" :=
              | @Some _ ?kn => exact kn
              | _ => fail "not a name"
              end in quote_term t p)).
-             
+
+Import PCUICErrors.
+
 Definition result_of_typing_result
            {A}
            (Σ : PCUICAst.global_env_ext)

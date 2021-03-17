@@ -487,6 +487,7 @@ Section print_term.
     | _ => "NotSupportedMutualFix"
     end
   | tCoFix l n => "NotSupportedCoFix"
+  | tPrim _ => "NotSupportedCoqPrimitive"
   end.
 
 End print_term.
