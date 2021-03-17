@@ -4,6 +4,8 @@ closedAux.ml
 closedAux.mli
 common1.ml
 common1.mli
+decimalString.ml
+decimalString.mli
 eAst.ml
 eAst.mli
 eAstUtils.ml
@@ -20,6 +22,8 @@ environmentTyping.ml
 environmentTyping.mli
 erasure.ml
 erasure.mli
+eqDecInstances.ml
+eqDecInstances.mli
 exAst.ml
 exAst.mli
 expandBranches.ml
@@ -30,12 +34,18 @@ extraction0.ml
 extraction0.mli
 fin.ml
 fin.mli
+floatOps.ml
+floatOps.mli
 init.ml
 init.mli
 inlining.ml
 inlining.mli
+int63.ml
+int63.mli
 kernames.ml
 kernames.mli
+mCPrelude.ml
+mCPrelude.mli
 monad_utils.ml
 monad_utils.mli
 optimize.ml
@@ -48,6 +58,8 @@ pCUICAst.ml
 pCUICAst.mli
 pCUICAstUtils.ml
 pCUICAstUtils.mli
+pCUICErrors.ml
+pCUICErrors.mli
 pCUICChecker.ml
 pCUICChecker.mli
 pCUICCumulativity.ml
@@ -62,6 +74,8 @@ pCUICPosition.ml
 pCUICPosition.mli
 pCUICPretty.ml
 pCUICPretty.mli
+pCUICPrimitive.ml
+pCUICPrimitive.mli
 pCUICReduction.ml
 pCUICReduction.mli
 pCUICSafeChecker.ml
@@ -80,6 +94,8 @@ pluginExtract.ml
 pluginExtract.mli
 prettyPrinterMonad.ml
 prettyPrinterMonad.mli
+primFloat.ml
+primFloat.mli
 printing.ml
 printing.mli
 reflect.ml
@@ -92,6 +108,8 @@ erasureFunction.ml
 erasureFunction.mli
 safeTemplateChecker.ml
 safeTemplateChecker.mli
+specFloat.ml
+specFloat.mli
 ssrbool.ml
 ssrbool.mli
 ssreflect.ml

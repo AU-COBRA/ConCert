@@ -174,7 +174,7 @@ Proof.
 
         destruct wfdecl as [wfdecl].
         destruct c0 as [ctx univ [r]].
-        eapply type_reduction in wfdecl; eauto.
+        apply @type_reduction with (B:=mkNormalArity ctx univ) in wfdecl; eauto.
         2: now inversion wfΣ.
         constructor.
         eapply (Is_type_extends (Σ, _)).
@@ -197,7 +197,7 @@ Proof.
         end.
         destruct wfdecl as [wfdecl].
         split.
-        -- eapply type_reduction in wfdecl; eauto.
+        -- apply @type_reduction with (B:=cst_type) in wfdecl; eauto.
            2: now inversion wfΣ.
            eapply (erases_extends (_, _)).
            2: now eauto.

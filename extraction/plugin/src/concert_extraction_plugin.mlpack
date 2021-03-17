@@ -15,15 +15,17 @@ OrderedTypeAlt
 Kernames
 Reflect
 
+PCUICPrimitive
 PCUICAst
 PCUICAstUtils
 PCUICChecker
 PCUICCumulativity
 PCUICEquality
 PCUICLiftSubst
+PCUICPretty
+PCUICErrors
 PCUICNormal
 PCUICPosition
-PCUICPretty
 PCUICReduction
 PCUICUnivSubst
 PCUICTyping
@@ -31,6 +33,10 @@ PCUICSafeReduce
 PCUICSafeChecker
 PCUICSafeConversion
 PCUICSafeRetyping
+Int63
+PrimFloat
+FloatOps
+SpecFloat
 TemplateToPCUIC
 
 EAst

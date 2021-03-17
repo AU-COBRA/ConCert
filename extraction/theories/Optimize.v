@@ -364,6 +364,7 @@ Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
   | tProj _ t => is_expanded_aux 0 t
   | tFix defs _
   | tCoFix defs _ => forallb (is_expanded_aux 0 ∘ dbody) defs
+  | tPrim _ => true
   end.
 
 (* Check if all applications are applied enough to be deboxed without eta expansion *)
@@ -588,6 +589,7 @@ Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :
     let state := new_vars state #|defs| in
     let state := fold_left (fun state d => analyze state (dbody d)) defs state in
     remove_vars state #|defs|
+  | tPrim _ => state
   end.
 
 Fixpoint decompose_TArr (bt : box_type) : list box_type × box_type :=

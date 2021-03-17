@@ -438,6 +438,7 @@ Proof.
       now f_equal.
     + rewrite <- !Nat.add_succ_r in *.
       now apply IHX.
+  - reflexivity.
 Qed.
 
 Lemma masked_nil {X} mask :
@@ -734,6 +735,7 @@ Proof.
     cbn.
     f_equal.
     now rewrite p.
+  - apply lift_mkApps.
 Qed.
 
 Lemma lift_dearg n k t :
@@ -781,6 +783,7 @@ Proof.
     f_equal.
     rewrite <- !Nat.add_succ_r.
     now apply IHX.
+  - reflexivity.
 Qed.
 
 Lemma is_dead_lift_all k k' n t :
@@ -1231,6 +1234,7 @@ Proof.
     rewrite p by easy.
     split; [easy|].
     now apply IHX.
+  - eapply Forall_forallb;eauto.
 Qed.
 
 Lemma valid_dearg_mask_dearg mask t :
@@ -1368,6 +1372,7 @@ Proof.
     unfold map_def; cbn.
     f_equal.
     now apply (p _ _ []).
+  - rewrite subst_mkApps. now rewrite map_map.
 Qed.
 
 Lemma dearg_subst s k t :
@@ -1484,6 +1489,7 @@ Proof.
     propify.
     rewrite <- !Nat.add_succ_r.
     now rewrite p, IHX.
+  - reflexivity.
 Qed.
 
 Lemma is_expanded_aux_subst s n t k :
@@ -1528,6 +1534,7 @@ Proof.
     propify.
     rewrite <- !Nat.add_succ_r.
     now rewrite p, IHX.
+  - reflexivity.
 Qed.
 
 Lemma is_expanded_substl s n t :

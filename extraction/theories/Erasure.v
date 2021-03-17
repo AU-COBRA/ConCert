@@ -48,6 +48,7 @@ From MetaCoq.Template Require TemplateMonad.
 
 Import PCUICEnvTyping.
 Import PCUICLookup.
+Import PCUICErrors.
 
 Local Open Scope string_scope.
 Import VectorDef.VectorNotations.
@@ -667,7 +668,7 @@ Next Obligation.
   now apply conv_arity_Is_conv_to_Arity in car.
 Qed.
 Next Obligation.
-  pose proof (PCUICSafeChecker.reduce_to_sort_complete _ _ (eq_sym eq)).
+  pose proof (PCUICSafeReduce.reduce_to_sort_complete _ _ (eq_sym eq)).
   clear eq.
   apply not_prod_or_sort_hnf in discr.
   destruct isT as [(u&typ)].
@@ -885,7 +886,7 @@ Next Obligation.
   destruct wfΣ as [wfΣu].
   sq.
   exists univ.
-  eapply type_reduction; [easy|exact typ|easy].
+  eapply type_reduction; [exact typ|easy].
 Qed.
 Next Obligation.
   reduce_term_sound; clear eq_hnf.
@@ -969,7 +970,11 @@ Proof.
       eapply isType_wf_local; eauto. }
     constructor.
     rewrite <- (PCUICSpine.subst_rel0_lift_id 0 (mkNormalArity ar_ctx univ)).
+    eapply validity in typ as typ_valid;auto.
+    destruct typ_valid as [u Hty].
     eapply type_App.
+    + eapply validity in typ as typ;auto.
+      eapply (PCUICWeakening.weakening _ _ [_] _ _ _ wflext Hty).
     + eapply (PCUICWeakening.weakening _ _ [_] _ _ _ wflext typ).
     + fold lift.
       eapply (type_Rel _ _ _ (vass na A)); auto.
@@ -1027,13 +1032,11 @@ Proof.
     assert (conv_context Σ (Γ,, vass na A) (Γ,, vass na' A')).
     { constructor; [reflexivity|].
       constructor; assumption. }
-    eapply context_conversion'; eauto.
-    1: now eapply typing_wf_local; eauto.
-    2: now apply conv_context_sym; eauto.
     eapply type_Cumul.
+    + eassumption.
     + eapply context_conversion; eauto.
       eapply typing_wf_local; eassumption.
-    + eassumption.
+      now apply conv_context_sym.
     + now eapply cumul_conv_ctx; eauto.
 Qed.
 
