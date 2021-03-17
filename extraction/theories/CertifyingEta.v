@@ -5,9 +5,12 @@
     Coq's conversion, the proof is essentially [eq_refl].
     All dependencies are also expanded.*)
 
-From Coq Require Import List PeanoNat Bool String.
-From MetaCoq.Template Require Import Kernames All.
-From ConCert.Extraction Require Import Erasure Optimize Common ResultMonad Extraction.
+From Coq Require Import List PeanoNat Bool Ascii String.
+From MetaCoq.Template Require Import Kernames All Ast.
+From ConCert.Extraction Require Import
+     Erasure Optimize Common ResultMonad Extraction.
+From ConCert.Utils Require StringExtra.
+
 Open Scope string.
 Open Scope nat.
 
@@ -79,6 +82,17 @@ Definition eta_const (kn : kername) (u : Instance.t) (args : list term) : term :
   | None => mkApps (tConst kn u) args
   end.
 
+Fixpoint eta_branch (ar : nat) (body : term) : term :=
+  match ar with
+  | 0 => body
+  | S ar =>
+    match body with
+    | tLambda na ty body => tLambda na ty (eta_branch ar body)
+    | _ => tLambda (mkBindAnn nAnon Relevant) hole (eta_branch ar (tApp (lift0 1 body) [tRel 0]))
+    end
+  end.
+
+
 Definition get_ind_info (ind : inductive) : option ind_info :=
    match lookup_env Σ ind.(inductive_mind) with
       | Some (InductiveDecl mib) =>
@@ -108,11 +122,12 @@ Fixpoint eta_expand (t : term) : term :=
   | tLambda na ty body => tLambda na ty (eta_expand body)
   | tLetIn na val ty body => tLetIn na (eta_expand val) ty (eta_expand body)
   | tCase p ty disc brs =>
-    tCase p ty (eta_expand disc) (map (on_snd eta_expand) brs)
+    let on_branch '(ar, t) := (ar, eta_branch ar (eta_expand t)) in
+    tCase p ty (eta_expand disc) (map on_branch brs)
   | tProj p t => tProj p (eta_expand t)
   | tFix def i => tFix (map (map_def id eta_expand) def) i
   | tCoFix def i => tCoFix (map (map_def id eta_expand) def) i
-  (* NOTE: we know that constructros and constants are not applied at this point,
+  (* NOTE: we know that constructors and constants are not applied at this point,
      since applications are captured by the previous cases *)
   | tConstruct ind c u =>
     match get_ind_info ind with
@@ -150,6 +165,9 @@ Fixpoint get_eta_info (Σ : global_env) (ds : dearg_set) : ctors_info * constans
   | [] => ([],[])
   end.
 
+Definition get_def_name (name : kername) : string :=
+  StringExtra.replace_char "." "_" (string_of_kername name).
+
 Fixpoint change_modpath (mpath : modpath) (ignore : kername -> bool) (t : term) : term :=
   match t with
   | tRel n => t
@@ -163,7 +181,7 @@ Fixpoint change_modpath (mpath : modpath) (ignore : kername -> bool) (t : term) 
     tLetIn na (change_modpath mpath ignore def) (change_modpath mpath ignore def_ty) (change_modpath mpath ignore body)
   | tApp f args => tApp (change_modpath mpath ignore f) (map (change_modpath mpath ignore) args)
   | tConst kn u => if ignore kn then t
-                  else tConst (mpath, kn.2 ++ "_expanded") u
+                  else tConst (mpath, get_def_name kn ++ "_expanded") u
   | tInd ind u => t
   | tConstruct ind idx u => t
   | tCase ind_and_nbparams type_info discr branches =>
@@ -201,13 +219,14 @@ Definition generate_proof (Σ1 Σ2 : global_env) (kn1 kn2 : kername) : TemplateM
 
 Definition gen_proof_prog (Σ1 Σ2 : global_env) (kn1 kn2 : kername) : TemplateMonad unit :=
   '(exp_ty, (exp_t, (p_ty, p_t))) <- generate_proof Σ1 Σ2 kn1 kn2 ;;
+  (* tmPrint (exp_ty, exp_t). *)
   tmBind (tmUnquoteTyped Type exp_ty)
          (fun A => ucst <- tmUnquoteTyped A exp_t ;;
                  tmDefinition kn2.2 ucst;;
             tmBind (tmUnquoteTyped Type p_ty)
                    (fun B =>
                       uproof <- tmUnquoteTyped B p_t ;;
-                      tmDefinition (kn2.2++"_correct") uproof ;;
+                      tmDefinition (kn2.2 ++ "_correct") uproof ;;
                       tmPrint B)).
 
 Definition contains_global_env (Σ : global_env) (kn : kername) :=
@@ -231,7 +250,7 @@ Fixpoint map_constants_global_env (k : kername -> kername) (f : constant_body ->
 
 Definition add_suffix_global_env (mpath : modpath) (ignore : kername -> bool) (Σ : global_env) :=
   map_constants_global_env
-    (fun kn => (mpath,kn.2 ++ "_expanded"))
+    (fun kn => (mpath,get_def_name kn ++ "_expanded"))
     (fun cb => {| cst_type := cb.(cst_type);
                cst_body := b <- cb.(cst_body);;
                            Some (change_modpath mpath ignore b);
@@ -271,7 +290,7 @@ Definition gen_expanded_const_and_proof (Σ : global_env) (mpath : modpath) (ign
                                     | _ => false
                                      end) Σ in
   Σdecls' <- tmEval lazy (add_suffix_global_env mpath ignore Σdecls) ;;
-  monad_iter (fun kn1 => gen_proof_prog Σ Σdecls' kn1 (mpath,kn1.2 ++ "_expanded"))
+  monad_iter (fun kn1 => gen_proof_prog Σ Σdecls' kn1 (mpath, get_def_name kn1 ++ "_expanded"))
              (List.rev (map fst Σdecls)).
 
 Definition eta_global_env_template
@@ -345,10 +364,10 @@ Module Examples.
                  Ex2.partial_app2).
 
   (** [partial_app2_expanded] is defined in terms of [partial_app1_expanded] *)
-  Print partial_app2_expanded.
-  (* partial_app2_expanded =
-  let f := fun H H0 : Type => partial_app1_expanded H H0 in f bool true
-       : bool -> true -> MyInd bool true bool
+  Print ConCert_Extraction_CertifyingEta_Examples_Ex2_partial_app2_expanded.
+  (* ConCert_Extraction_CertifyingEta_Examples_Ex2_partial_app2_expanded =
+  let f := fun A B : Type => ConCert_Extraction_CertifyingEta_Examples_Ex2_partial_app1_expanded A B in f bool true
+     : bool -> true -> MyInd bool true bool
    *)
 
   Inductive MyInd1 (A B C : Type) :=
@@ -398,7 +417,7 @@ Module Examples.
 
   Module Ex5.
 
-    (* Mutial inductive *)
+    (* Mutual inductive *)
     Inductive even : nat -> Type :=
     | even_O : even 0
     | even_S : forall n, odd n -> even (S n)
@@ -435,4 +454,128 @@ Module Examples.
                    papp_expr).
   End Ex5.
 
+  Module Ex_branches1.
+    Definition nat_cons (x : nat) (xs : list nat) := x :: xs.
+
+    (** A hand-crafted example with the second branch requiring expansion  *)
+    Definition match_ex1_syn :=
+      (tLambda
+       {|
+       binder_name := nNamed "xs";
+       binder_relevance := Relevant |}
+       (tApp
+          (tInd
+             {|
+             inductive_mind := (MPfile ["Datatypes"; "Init"; "Coq"],
+                               "list");
+             inductive_ind := 0 |} [])
+          [tInd
+             {|
+             inductive_mind := (MPfile ["Datatypes"; "Init"; "Coq"],
+                               "nat");
+             inductive_ind := 0 |} []])
+       (tCase
+          ({|
+           inductive_mind := (MPfile ["Datatypes"; "Init"; "Coq"],
+                             "list");
+           inductive_ind := 0 |}, 1, Relevant)
+          (tLambda
+             {|
+             binder_name := nNamed "xs";
+             binder_relevance := Relevant |}
+             (tApp
+                (tInd
+                   {|
+                   inductive_mind := (MPfile
+                                      ["Datatypes"; "Init"; "Coq"],
+                                     "list");
+                   inductive_ind := 0 |} [])
+                [tInd
+                   {|
+                   inductive_mind := (MPfile
+                                      ["Datatypes"; "Init"; "Coq"],
+                                     "nat");
+                   inductive_ind := 0 |} []])
+             (tApp
+                (tInd
+                   {|
+                   inductive_mind := (MPfile
+                                      ["Datatypes"; "Init"; "Coq"],
+                                     "list");
+                   inductive_ind := 0 |} [])
+                [tInd
+                   {|
+                   inductive_mind := (MPfile
+                                      ["Datatypes"; "Init"; "Coq"],
+                                     "nat");
+                   inductive_ind := 0 |} []]))
+          (tRel 0)
+          [(0,
+           tApp
+             (tConstruct
+                {|
+                inductive_mind := (MPfile
+                                     ["Datatypes"; "Init"; "Coq"],
+                                  "list");
+                inductive_ind := 0 |} 0 [])
+             [tInd
+                {|
+                inductive_mind := (MPfile
+                                     ["Datatypes"; "Init"; "Coq"],
+                                  "nat");
+                inductive_ind := 0 |} []]);
+          (2, tApp
+             (tConstruct
+                {|
+                inductive_mind := (MPfile
+                                     ["Datatypes"; "Init"; "Coq"],
+                                  "list");
+                inductive_ind := 0 |} 1 [])
+             [tInd
+                {|
+                inductive_mind := (MPfile
+                                     ["Datatypes"; "Init"; "Coq"],
+                                  "nat");
+                inductive_ind := 0 |} []])])).
+
+    MetaCoq Unquote Definition match_ex1 := match_ex1_syn.
+
+    MetaCoq Quote Recursively Definition match_ex1__ := match_ex1.
+    MetaCoq Run (eta_expand_def
+     (* We set the trimmig of masks to true, so the procedure does't not perform full expansion.
+        That way we can test the expansion of branches *)
+                   true true
+                   <%% match_ex1 %%>.1
+                   (only_from_module_of <%% match_ex1 %%>)
+                   match_ex1).
+
+    MetaCoq Quote Definition match_ex1_expanded_syn := (unfolded ConCert_Extraction_CertifyingEta_Examples_Ex_branches1_match_ex1_expanded).
+
+    (* We just check that they are not syntactically different, nothing more thorough *)
+    Lemma match_ex1_syn_neq_expanded :
+      match_ex1_syn <> match_ex1_expanded_syn.
+    Proof. intro H. inversion H. Qed.
+
+  End Ex_branches1.
+
+  (** An example requiring branch expansion from the standard library *)
+  Module Ex_branches2.
+    Definition anchor := fun x : nat => x.
+    Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
+
+    MetaCoq Quote Definition sig_rect_syn := (unfolded sig_rect).
+
+    MetaCoq Run (eta_expand_def
+                   true true
+                   CURRENT_MODULE
+                   (only_from_module_of <%% sig_rect %%>)
+                   sig_rect).
+
+    MetaCoq Quote Definition sig_rect_expanded_syn := (unfolded Coq_Init_Specif_sig_rect_expanded).
+
+    Lemma sig_rec_syn_neq_expanded :
+      sig_rect_syn <> sig_rect_expanded_syn.
+    Proof. intros H. inversion H. Qed.
+
+  End Ex_branches2.
 End Examples.
