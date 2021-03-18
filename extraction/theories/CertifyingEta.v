@@ -567,7 +567,7 @@ Module Examples.
   Module Ex_branches2.
     Definition anchor := fun x : nat => x.
     Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
-s
+
     MetaCoq Quote Definition sig_rect_syn := (unfolded sig_rect).
 
     MetaCoq Run (eta_expand_def
