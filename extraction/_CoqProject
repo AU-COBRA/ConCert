@@ -14,6 +14,7 @@ theories/Annotations.v
 theories/CameLIGOExtract.v
 theories/CameLIGOPretty.v
 theories/CertifyingEta.v
+theories/CertifyingInlining.v
 theories/ClosedAux.v
 theories/Common.v
 theories/ConcordiumExtract.v
