@@ -58,9 +58,10 @@ Arguments lmd_entry_point {_ _ _ _ _}.
    Suitable for extraction of programs **from within Coq**. *)
 Definition extract_liquidity_within_coq (should_inline : kername -> bool) :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform true true true true true;
+          extract_transforms := [dearg_transform true true true true true;
                          Inlining.transform should_inline ] |} |}.
 
 Definition extract (should_inline : kername -> bool)
@@ -113,14 +114,15 @@ Definition liquidity_call_ctx :=
 
 Definition liquidity_extract_args :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform
-                           true
-                           false (* cannot have partially applied ctors *)
-                           true
-                           true
-                           true] |} |}.
+          extract_transforms := [dearg_transform
+                                 true
+                                 false (* cannot have partially applied ctors *)
+                                 true
+                                 true
+                                 true] |} |}.
 
 Definition liquidity_simple_extract
            (TT_defs : list (kername *  string))

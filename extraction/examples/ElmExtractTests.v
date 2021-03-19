@@ -26,9 +26,10 @@ Instance StandardBoxes : ElmPrintConfig :=
 
 Definition no_check_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform true true false false false] |} |}.
+          extract_transforms := [dearg_transform true true false false false] |} |}.
 
 Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with

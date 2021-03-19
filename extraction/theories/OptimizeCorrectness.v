@@ -3322,7 +3322,7 @@ Proof.
 Qed.
 
 Lemma dearg_transform_correct do_trim_const_masks do_trim_ctor_masks :
-  TransformCorrect (dearg_transform do_trim_const_masks do_trim_ctor_masks true true true).
+  ExtractTransformCorrect (dearg_transform do_trim_const_masks do_trim_ctor_masks true true true).
 Proof.
   red.
   intros Σ Σopt kn ind c opt ev.

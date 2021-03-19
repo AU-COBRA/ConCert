@@ -1,9 +1,12 @@
-From Coq Require Import List String Bool.
+From Coq Require Import List String Bool Basics.
+
 From ConCert.Extraction Require Import CertifyingEta.
+From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
+
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
@@ -11,8 +14,41 @@ Import MonadNotation.
 
 Section inlining.
   Context (should_inline : kername -> bool).
-  Context (ignore : kername -> bool).
   Context (Σ : global_env).
+
+  Fixpoint contains_const (t : term) : bool :=
+    match t with
+    | tRel n => false
+    | tVar id => false
+    | tEvar ev args => existsb contains_const args
+    | tSort s => false
+    | tCast t kind v => contains_const t
+                       || contains_const v
+    | tProd na ty body => contains_const ty
+                         || contains_const body
+    | tLambda na ty body => contains_const ty
+                           || contains_const body
+    | tLetIn na def def_ty body => contains_const def_ty
+                                  || contains_const body
+    | tApp f args => contains_const f
+                    || existsb contains_const args
+    | tConst c u => should_inline c
+    | tInd ind u => false
+    | tConstruct ind idx u => false
+    | tCase ind_nbparams_relevance type_info discr branches =>
+      contains_const type_info
+      || contains_const discr
+      || existsb (contains_const ∘ snd) branches
+    | tProj proj t0 => contains_const t0
+    | tFix mfix idx =>
+      existsb id (map (fun d => contains_const d.(dtype) ||
+                             contains_const d.(dbody)) mfix)
+    | tCoFix mfix idx =>
+      existsb id (map (fun d => contains_const d.(dtype) ||
+                             contains_const d.(dbody)) mfix)
+    | tInt i => false
+    | tFloat f => false
+  end.
 
   Fixpoint beta_body (body : term) (args : list term) {struct args} : term :=
     match args with
@@ -58,7 +94,8 @@ Section inlining.
     match t with
     | tRel n => t
     | tVar id => t
-    | tEvar ev args => tEvar ev (map inline args)
+    | tEvar ev args =>
+      tEvar ev (map inline args)
     | tSort s => t
     | tCast t kind v => tCast (inline t) kind (inline v)
     | tProd na ty body => tProd na (inline ty) (inline body)
@@ -74,13 +111,16 @@ Section inlining.
         else tApp hd args
       | _ => tApp hd args
       end
-    | tConst kn u => inline_const kn u []
+    | tConst kn u =>
+      if should_inline kn then
+        inline_const kn u []
+      else t
     | tInd _ _ => t
     | tConstruct ind idx u => t
     | tCase ind_info type_info discr branches =>
       tCase ind_info (inline type_info) (inline discr)
             (map (on_snd inline) branches)
-    | tProj _ _ => t
+    | tProj _ t0 => inline t0
     | tFix mfix idx =>
       let mfix' := map (map_def inline inline) mfix in
       tFix mfix' idx
@@ -104,12 +144,18 @@ Section inlining.
 
   Definition inline_in_env : global_env:=
   let newΣ :=
-      fold_right (fun '(kn, decl) Σ =>
-                    if ignore kn then (kn, decl) :: Σ
-                    else (kn, inline_in_decl decl) :: Σ)
-                 [] Σ in
+      fold_right (fun '(kn, decl) Σ => (kn, inline_in_decl decl) :: Σ) [] Σ in
   filter (fun '(kn, _) => negb (should_inline kn)) newΣ.
 
+  Definition affected_by_inlining (kn : kername) : bool:=
+    match lookup_env Σ kn with
+    | Some (ConstantDecl cst) =>
+      match cst_body cst with
+      | Some body => contains_const body
+      | _ => false
+      end
+    | _ => false
+    end.
 
 End inlining.
 
@@ -118,22 +164,25 @@ Definition inline_global_env_template
            (mpath : modpath)
            (Σ : global_env)
            (should_inline : kername -> bool)
-           (ignore : kername -> bool)
   : TemplateMonad global_env :=
   let suffix := "_after_inlining" in
-  Σext <- tmEval lazy (inline_in_env should_inline ignore Σ);;
-  gen_defs_and_proofs Σext mpath suffix (fun kn => should_inline kn || ignore kn);;
-  ret Σext.
+  Σinlined <- tmEval lazy (inline_in_env should_inline Σ);;
+  gen_defs_and_proofs Σinlined mpath suffix
+                      (fun kn => should_inline kn
+                              || negb (affected_by_inlining should_inline Σ kn));;
+  ret Σinlined.
 
 (* Mainly for testing purposes *)
 Definition inline_def {A} (mpath : modpath)
            (should_inline : kername -> bool)
-           (ignore : kername -> bool)
            (def : A) : TemplateMonad _ :=
   p <- tmQuoteRecTransp def false ;;
   kn <- Common.extract_def_name def ;;
-  inline_global_env_template mpath p.1 should_inline ignore.
+  inline_global_env_template mpath p.1 should_inline.
 
+
+Definition template_inline (should_inline : kername -> bool): TemplateTransform :=
+  fun Σ => Ok (timed "Inlining" (fun _ => inline_in_env should_inline Σ)).
 
 Module Tests.
 
@@ -145,9 +194,7 @@ Module Tests.
     Definition baz : nat -> nat := fun x => foo x + bar x.
 
     MetaCoq Run (env <- inline_def <%% baz %%>.1
-                          (fun kn => eq_kername <%% foo %%> kn
-                                  || eq_kername <%% Nat.add %%> kn )
-                          (Examples.only_from_module_of <%% baz %%>)
+                          (fun kn => eq_kername <%% foo %%> kn)
                           baz;;
                  t <- tmEval lazy (map (Basics.compose snd fst) env);;
                  tmPrint t).
@@ -159,7 +206,6 @@ Module Tests.
 
     MetaCoq Run (inline_def <%% anchor %%>.1
                           (fun kn => eq_kername <%% Nat.add %%> kn )
-                          (fun kn => false)
                           mult).
   End Ex2.
 End Tests.

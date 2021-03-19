@@ -183,10 +183,11 @@ Program Definition initModel : Model * Cmd StorageMsg :=
 Definition extract_elm_within_coq (should_inline : kername -> bool) :=
 {|
 check_wf_env_func := fun Σ : PCUICAst.PCUICEnvironment.global_env =>
-                     Ok (assume_env_wellformed Σ);
+                       Ok (assume_env_wellformed Σ);
+template_transforms := [];
 pcuic_args := {|
               optimize_prop_discr := true;
-              transforms := [dearg_transform true true true true true
+              extract_transforms := [dearg_transform true true true true true
                             ;Inlining.transform should_inline] |} |}.
 
 Instance ElmBoxes : ElmPrintConfig :=

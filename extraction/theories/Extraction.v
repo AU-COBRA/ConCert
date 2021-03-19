@@ -37,25 +37,26 @@ Record extract_pcuic_params :=
   { (* Whether to remove discrimination (matches and projections) on things in Prop.
      Necessary to run the transforms. *)
     optimize_prop_discr : bool;
-    (* The transforms to apply. Only run when optimize_prop_discr is true. *)
-    transforms : list Transform; }.
+    (* The transforms to apply after extraction. Only run when optimize_prop_discr is true. *)
+    extract_transforms : list ExtractTransform; }.
 
 Definition extract_pcuic_env
            (params : extract_pcuic_params)
            (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
-
   let Σ := timed "Erasure" (fun _ => erase_global_decls_deps_recursive Σ wfΣ seeds ignore) in
 
   if optimize_prop_discr params then
     let Σ := timed "Removal of prop discrimination" (fun _ => OptimizePropDiscr.optimize_env Σ) in
-    compose_transforms (transforms params) Σ
+    compose_transforms (extract_transforms params) Σ
   else
     Ok Σ.
 
 Record extract_template_env_params :=
-  { (* Function to use to check wellformedness of the environment *)
+  { (* The transforms to apply at the template coq level, before translating to PCUIC and extracting *)
+    template_transforms : list TemplateTransform;
+    (* Function to use to check wellformedness of the environment *)
     check_wf_env_func : forall Σ, result (∥wf Σ∥) string;
     pcuic_args : extract_pcuic_params }.
 
@@ -65,6 +66,7 @@ Definition extract_template_env
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
+  Σ <- timed "Template transforms" (fun _ => compose_transforms (template_transforms params) Σ);;
   let Σ := trans_global_decls Σ in
   wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
@@ -79,10 +81,11 @@ Axiom assume_env_wellformed : forall Σ, ∥wf Σ∥.
    is well-formed (to make it computable from within Coq) but furthermore checks that the
    erased context is closed, expanded and that the masks are valid before dearging.
    Suitable for extraction of programs **from within Coq**. *)
-Definition extract_within_coq :=
-  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+Definition extract_within_coq : extract_template_env_params :=
+  {| template_transforms := [];
+     check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform true true true true true] |} |}.
+          extract_transforms := [dearg_transform true true true true true] |} |}.
 
 Definition extract_template_env_within_coq := extract_template_env extract_within_coq.

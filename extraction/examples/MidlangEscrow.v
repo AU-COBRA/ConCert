@@ -95,10 +95,11 @@ Definition extract_template_env_specialize
 
 Definition extract_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [Optimize.dearg_transform true true true true true;
-                         Inlining.transform should_inline] |} |}.
+          extract_transforms := [Optimize.dearg_transform true true true true true;
+                                Inlining.transform should_inline] |} |}.
 
 Definition escrow_extract :=
   Eval vm_compute in
