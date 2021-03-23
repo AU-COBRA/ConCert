@@ -13,6 +13,7 @@
 theories/Annotations.v
 theories/CameLIGOExtract.v
 theories/CameLIGOPretty.v
+theories/Certifying.v
 theories/CertifyingEta.v
 theories/CertifyingInlining.v
 theories/ClosedAux.v

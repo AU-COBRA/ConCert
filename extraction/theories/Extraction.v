@@ -10,6 +10,8 @@ From ConCert.Extraction Require OptimizePropDiscr.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Utils.
+From ConCert.Extraction Require Import Certifying.
+
 From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Erasure Require Import ELiftSubst.
@@ -20,6 +22,7 @@ From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
+From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
@@ -54,11 +57,18 @@ Definition extract_pcuic_env
     Ok Σ.
 
 Record extract_template_env_params :=
-  { (* The transforms to apply at the template coq level, before translating to PCUIC and extracting *)
-    template_transforms : list TemplateTransform;
+  { (* The transforms to apply at the template coq level, before translating to PCUIC and extracting.
+     The list contains a transform and an "ignore" function.
+     No proofs for the ignored definition will be generated. *)
+    template_transforms : list (TemplateTransform * (kername -> bool));
     (* Function to use to check wellformedness of the environment *)
     check_wf_env_func : forall Σ, result (∥wf Σ∥) string;
     pcuic_args : extract_pcuic_params }.
+
+Definition check_wf_and_extract (params : extract_template_env_params)
+           (Σ : global_env) (seeds : KernameSet.t) (ignore : kername -> bool)
+  := wfΣ <- check_wf_env_func params Σ;;
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
 Definition extract_template_env
            (params : extract_template_env_params)
@@ -66,10 +76,34 @@ Definition extract_template_env
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
-  Σ <- timed "Template transforms" (fun _ => compose_transforms (template_transforms params) Σ);;
   let Σ := trans_global_decls Σ in
-  wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
+  check_wf_and_extract params Σ seeds ignore.
+
+Definition compose_ignores (f g : kername -> bool) :=
+  fun kn => f kn || g kn.
+
+Definition run_transforms (Σ : Ast.global_env) (params : extract_template_env_params) : TemplateMonad Ast.global_env :=
+  let transforms := map fst params.(template_transforms) in
+  res <- tmEval lazy (compose_transforms transforms Σ) ;;
+  match res with
+  | Ok Σ => ret Σ
+  | Err s => tmFail s
+  end.
+
+Definition extract_template_env_certifying_passes
+           (params : extract_template_env_params)
+           (Σ : Ast.global_env)
+           (seeds : KernameSet.t)
+           (ignore : kername -> bool) : TemplateMonad ExAst.global_env :=
+  let ignores := fold_right compose_ignores (fun _ => false) (map snd params.(template_transforms)) in
+  Σ <- run_transforms Σ params ;;
+  mpath <- tmCurrentModPath tt;;
+  gen_defs_and_proofs Σ mpath "_cert_pass" ignores;;
+  res <- tmEval lazy (extract_template_env params Σ seeds ignore) ;;
+  match res with
+    | Ok env => ret env
+    | Err e => tmFail e
+  end.
 
 (* MetaCoq's safe checker does not run from within Coq, only when extracting.
    To work around this we assume environments are well formed when extracting

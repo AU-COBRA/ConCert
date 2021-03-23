@@ -144,9 +144,8 @@ Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody :=
 Definition to_inline := [<%% bool_rect %%>; <%% bool_rec %%>].
 
 Time MetaCoq Run
-     (r <- tmQuoteRecTransp counter false;;
-      t <- liquidity_extraction PREFIX  TT_remap TT_rename to_inline COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) (wrap_in_delimiters t)
+     (t <- liquidity_extraction PREFIX  TT_remap TT_rename to_inline COUNTER_MODULE ;;
+      tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 
 Print liquidity_counter.

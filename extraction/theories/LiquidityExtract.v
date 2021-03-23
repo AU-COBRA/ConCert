@@ -17,7 +17,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction Inlining.
+     Common ExAst Erasure Optimize Extraction CertifyingInlining.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -51,39 +51,53 @@ Arguments lmd_init_prelude {_ _ _ _ _}.
 Arguments lmd_receive {_ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _}.
 
+
 (* Extract an environment with some minimal checks. This assumes the environment
    is well-formed (to make it computable from within Coq) but furthermore checks that the
    erased context is closed, expanded and that the masks are valid before dearging.
    Takes [should_inline] - a map that returns true for the constants that should be inlined.
    Suitable for extraction of programs **from within Coq**. *)
-Definition extract_liquidity_within_coq (should_inline : kername -> bool) :=
+Definition extract_liquidity_within_coq (to_inline : kername -> bool)
+           (inlining_ignore : kername -> bool)
+           (seeds : list kername) :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
-     template_transforms := [];
+     template_transforms :=
+       [ (CertifyingInlining.template_inline to_inline, inlining_ignore) ];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [dearg_transform true true true true true;
-                         Inlining.transform should_inline ] |} |}.
+          extract_transforms :=
+            [dearg_transform true true true true true ] |} |}.
 
-Definition extract (should_inline : kername -> bool)
-  := extract_template_env (extract_liquidity_within_coq should_inline).
+Definition extract (to_inline :  kername -> bool)
+           (inlining_ignore : kername -> bool)
+           (seeds : list kername)
+           (Σ : global_env)
+           (extract_ignore : kername -> bool) : TemplateMonad ExAst.global_env
+  := let seed_set := Utils.kername_set_of_list seeds in
+    extract_template_env_certifying_passes (extract_liquidity_within_coq to_inline inlining_ignore seeds) Σ seed_set extract_ignore.
 
 Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (TT : MyEnv.env string)
-           (ignore : list kername)
            (inline : list kername)
+           (ignore : list kername)
            (build_call_ctx : string)
            (init_prelude : string)
            (init : kername)
            (receive : kername)
-  : string + string :=
-  let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
-  match extract (fun k => List.existsb (eq_kername k) inline) Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
-  | Ok eΣ =>
-    (* dependencies should be printed before the dependent definitions *)
-    let ldef_list := List.rev (print_global_env prefix TT eΣ) in
-    (* filtering empty strings corresponding to the ignored definitions *)
-    let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
-    match ExAst.lookup_env eΣ init with
+  : TemplateMonad string :=
+  let seeds := [init;receive] in
+  let should_inline kn := existsb (eq_kername kn) inline in
+  let ignore_extract kn := List.existsb (eq_kername kn) ignore in
+  let ignore_certifying_pass kn :=
+      should_inline kn
+      || negb (affected_by_inlining should_inline Σ kn)
+      || ignore_extract kn in
+  eΣ <- extract should_inline ignore_certifying_pass seeds Σ ignore_extract ;;
+  (* dependencies should be printed before the dependent definitions *)
+  let ldef_list := List.rev (print_global_env prefix TT eΣ) in
+  (* filtering empty strings corresponding to the ignored definitions *)
+  let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
+  match ExAst.lookup_env eΣ init with
     | Some (ExAst.ConstantDecl init_cst) =>
       match print_init prefix TT build_call_ctx init_prelude eΣ init_cst with
       | Some init_code =>
@@ -92,13 +106,11 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
             map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in
         let res :=
             concat (nl ++ nl) (defs ++[ init_code ]) %list in
-        inl res
-      | None => inr "Error: Empty body for init"
+        ret res
+      | None => tmFail "Error: Empty body for init"
       end
-    | Some _ => inr "Error: init must be a constant"
-    | None => inr "Error: No init found"
-    end
-  | Err e => inr e
+    | Some _ => tmFail "Error: init must be a constant"
+    | None => tmFail "Error: No init found"
   end.
 
 Definition liquidity_ignore_default :=
@@ -163,14 +175,9 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
   let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-  p <- tmEval lazy
-             (printLiquidityDefs prefix Σ TT ignore inline
-                                 liquidity_call_ctx
-                                 m.(lmd_init_prelude)
-                                 init_nm receive_nm) ;;
-  match p with
-  | inl s =>
+  s <- printLiquidityDefs prefix Σ TT inline ignore
+                         liquidity_call_ctx
+                         m.(lmd_init_prelude)
+                             init_nm receive_nm ;;
     tmEval lazy
-           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)]))
-  | inr s => tmFail s
-  end.
+           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).

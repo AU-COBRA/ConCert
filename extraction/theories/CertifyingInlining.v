@@ -6,6 +6,7 @@ From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
+From ConCert.Extraction Require Import Certifying.
 
 From MetaCoq.Template Require Import All.
 
@@ -108,8 +109,8 @@ Section inlining.
       | tConst kn u =>
         if should_inline kn then
            inline_const kn u args
-        else tApp hd args
-      | _ => tApp hd args
+        else tApp (inline hd) args
+      | _ => tApp (inline hd) args
       end
     | tConst kn u =>
       if should_inline kn then
@@ -142,11 +143,6 @@ Section inlining.
     | _ => d
     end.
 
-  Definition inline_in_env : global_env:=
-  let newΣ :=
-      fold_right (fun '(kn, decl) Σ => (kn, inline_in_decl decl) :: Σ) [] Σ in
-  filter (fun '(kn, _) => negb (should_inline kn)) newΣ.
-
   Definition affected_by_inlining (kn : kername) : bool:=
     match lookup_env Σ kn with
     | Some (ConstantDecl cst) =>
@@ -158,6 +154,12 @@ Section inlining.
     end.
 
 End inlining.
+
+
+Definition inline_in_env (should_inline : kername -> bool) (Σ : global_env) : global_env:=
+  let newΣ :=
+      fold_right (fun '(kn, decl) Σ => (kn, inline_in_decl should_inline Σ decl) :: Σ) [] Σ in
+  filter (fun '(kn, _) => negb (should_inline kn)) newΣ.
 
 
 Definition inline_global_env_template
@@ -194,7 +196,8 @@ Module Tests.
     Definition baz : nat -> nat := fun x => foo x + bar x.
 
     MetaCoq Run (env <- inline_def <%% baz %%>.1
-                          (fun kn => eq_kername <%% foo %%> kn)
+                                  (fun kn => eq_kername <%% foo %%> kn
+                                          ||  eq_kername <%% bar %%> kn)
                           baz;;
                  t <- tmEval lazy (map (Basics.compose snd fst) env);;
                  tmPrint t).
