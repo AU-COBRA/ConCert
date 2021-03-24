@@ -162,6 +162,12 @@ Definition transfer_balance_update_correct old_state new_state from to tokens :=
     (from_balance_before =? from_balance_after + tokens) &&
     (to_balance_before + tokens =? to_balance_after).
 
+Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
+  let get_allowance state := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances)))) in
+  let delegate_allowance_before := get_allowance old_state in
+  let delegate_allowance_after := get_allowance new_state in 
+    Some (delegate_allowance_before =? delegate_allowance_before + tokens).
+
 Lemma add_is_partial_alter : forall (account : Address) (balances : FMap Address N) (f : N -> N),
   FMap.partial_alter (fun balance : option N => Some (f (with_default 0 balance))) account balances =
   FMap.add account (f (with_default 0 (FMap.find account balances))) balances.
