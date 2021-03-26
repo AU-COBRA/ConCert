@@ -58,7 +58,6 @@ Definition extract_pcuic_env
 
 Record extract_template_env_params :=
   { (* The transforms to apply at the template coq level, before translating to PCUIC and extracting.
-     The list contains a transform and an "ignore" function.
      After performing all the transforms, the pipiline generates proofs that
      the transformed terms are convertible to the originals. *)
     template_transforms : list TemplateTransform;
@@ -80,9 +79,6 @@ Definition extract_template_env
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
   let Σ := trans_global_decls Σ in
   check_wf_and_extract params Σ seeds ignore.
-
-Definition compose_ignores (f g : kername -> bool) :=
-  fun kn => f kn || g kn.
 
 Definition run_transforms (Σ : Ast.global_env) (params : extract_template_env_params) : TemplateMonad Ast.global_env :=
   let transforms := params.(template_transforms) in

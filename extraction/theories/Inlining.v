@@ -1,9 +1,6 @@
 (* This implements a very rudimentary inlining pass without many heuristics.
    The pass is passed the name of definitions to be inlined and will inline
-   beta, and iota reduce those definitions.
-
-  Essentially, just an adaptaion of the inlining pass on the erased representation,
-  plus proof genertion (proof by [reflexivity], since the terms before and after are convertible) *)
+   beta, and iota reduce those definitions.  *)
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Optimize.

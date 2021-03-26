@@ -1,3 +1,8 @@
+(** * Inlining pass on the Template Coq representation  *)
+
+(** Essentially, just an adaptaion of the inlining pass on the erased representation.
+ After the pass is applied we generate proofs that the original and the transformed terms are equal in the theory of Coq. The proofs are just by [eq_refl], since the terms are convertible *)
+
 From Coq Require Import List String Bool Basics.
 
 From ConCert.Extraction Require Import Transform.
