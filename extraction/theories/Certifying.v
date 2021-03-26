@@ -155,8 +155,8 @@ Section Utils.
     | tApp f args => contains_kernames f
                     || existsb contains_kernames args
     | tConst c u => check_kernames c
-    | tInd ind u => check_kernames ind.(inductive_mind)
-    | tConstruct ind idx u => false
+    | tInd ind u
+    | tConstruct ind idx u => check_kernames ind.(inductive_mind)
     | tCase ind_nbparams_relevance type_info discr branches =>
       contains_kernames type_info
       || contains_kernames discr
