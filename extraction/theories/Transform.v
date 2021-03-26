@@ -2,6 +2,7 @@ From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import WcbvEvalAux.
 From Equations Require Import Equations.
+From MetaCoq.PCUIC Require PCUICAst PCUICWcbvEval.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.Template Require Ast.
 

@@ -59,8 +59,10 @@ Definition extract_pcuic_env
 Record extract_template_env_params :=
   { (* The transforms to apply at the template coq level, before translating to PCUIC and extracting.
      The list contains a transform and an "ignore" function.
-     No proofs for the ignored definition will be generated. *)
-    template_transforms : list (TemplateTransform * (kername -> bool));
+     After performing all the transforms, the pipiline generates proofs that
+     the transformed terms are convertible to the originals. *)
+    template_transforms : list TemplateTransform;
+
     (* Function to use to check wellformedness of the environment *)
     check_wf_env_func : forall Σ, result (∥wf Σ∥) string;
     pcuic_args : extract_pcuic_params }.
@@ -83,7 +85,7 @@ Definition compose_ignores (f g : kername -> bool) :=
   fun kn => f kn || g kn.
 
 Definition run_transforms (Σ : Ast.global_env) (params : extract_template_env_params) : TemplateMonad Ast.global_env :=
-  let transforms := map fst params.(template_transforms) in
+  let transforms := params.(template_transforms) in
   res <- tmEval lazy (compose_transforms transforms Σ) ;;
   match res with
   | Ok Σ => ret Σ
@@ -95,11 +97,10 @@ Definition extract_template_env_certifying_passes
            (Σ : Ast.global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : TemplateMonad ExAst.global_env :=
-  let ignores := fold_right compose_ignores (fun _ => false) (map snd params.(template_transforms)) in
-  Σ <- run_transforms Σ params ;;
+  Σtrans <- run_transforms Σ params ;;
   mpath <- tmCurrentModPath tt;;
-  gen_defs_and_proofs Σ mpath "_cert_pass" ignores;;
-  res <- tmEval lazy (extract_template_env params Σ seeds ignore) ;;
+  gen_defs_and_proofs Σ Σtrans mpath "_cert_pass" seeds;;
+  res <- tmEval lazy (extract_template_env params  Σtrans seeds ignore) ;;
   match res with
     | Ok env => ret env
     | Err e => tmFail e

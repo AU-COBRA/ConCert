@@ -11,6 +11,7 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import ElmExtractTests.
 From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Certifying.
 From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
@@ -182,17 +183,13 @@ Program Definition initModel : Model * Cmd StorageMsg :=
        ; currentEntry := Build_Entry "" "" "" |} in
   (entry, none).
 
-Definition extract_elm_within_coq (should_inline : kername -> bool)
-             (inlining_ignore : kername -> bool) :=
-{|
-check_wf_env_func := fun Σ : PCUICAst.PCUICEnvironment.global_env =>
-                       Ok (assume_env_wellformed Σ);
-template_transforms :=
-  [ (CertifyingInlining.template_inline should_inline, inlining_ignore) ];
-pcuic_args := {|
-              optimize_prop_discr := true;
-              extract_transforms :=
-                [dearg_transform true true true true true] |} |}.
+Definition extract_elm_within_coq (should_inline : kername -> bool) :=
+{| check_wf_env_func := fun Σ : PCUICAst.PCUICEnvironment.global_env =>
+                          Ok (assume_env_wellformed Σ);
+   template_transforms := [CertifyingInlining.template_inline should_inline ];
+   pcuic_args := {| optimize_prop_discr := true;
+                    extract_transforms :=
+                      [dearg_transform true true true true true] |} |}.
 
 Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
@@ -205,13 +202,8 @@ Definition general_wrapped (Σ : global_env) (pre post : string)
            (to_inline : list kername)
            (ignore: list kername) (TT : list (kername * string)) : TemplateMonad string :=
   let should_inline kn := existsb (eq_kername kn) to_inline in
-  let ignore_extract kn := existsb (eq_kername kn) ignore in
-  let ignore_certifying_pass kn :=
-      should_inline kn
-      || negb (affected_by_inlining should_inline Σ kn)
-      || ignore_extract kn in
   let extract_ignore kn := existsb (eq_kername kn) ignore in
-  Σ <- extract_template_env_certifying_passes (extract_elm_within_coq should_inline ignore_certifying_pass) Σ seeds extract_ignore;;
+  Σ <- extract_template_env_certifying_passes (extract_elm_within_coq should_inline) Σ seeds extract_ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   p <- tmEval lazy (finish_print (print_env Σ TT_fun)) ;;
   match p with
@@ -308,13 +300,5 @@ Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : Template
 
 Time MetaCoq Run (t <- elm_extraction USER_FORM_APP TT;;
                   tmDefinition "extracted_app" t).
-
-Print updateEntry.
-Print ConCert_Extraction_Examples_ElmForms_updateEntry_cert_pass.
-
-Unset Printing All.
-Print extracted_app.
-
-Open Scope string.
 
 Redirect "examples/elm-web-extract/UserList.elm" MetaCoq Run (tmMsg extracted_app).

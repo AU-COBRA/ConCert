@@ -193,24 +193,25 @@ Definition eta_global_env
       end in
   let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
   map_constants_global_env id f Σ'.
-
 Definition eta_global_env_template
            (trim_consts trim_inds : bool)
            (mpath : modpath)
            (Σ : global_env)
            (seeds : KernameSet.t) (erasure_ignore : kername -> bool)
-           (expansion_ignore : kername -> bool) : TemplateMonad global_env :=
+  : TemplateMonad global_env :=
   let suffix := "_expanded" in
   Σext <- tmEval lazy (eta_global_env trim_consts trim_inds Σ seeds erasure_ignore);;
-  gen_defs_and_proofs Σext mpath suffix expansion_ignore;;
+  gen_defs_and_proofs Σ Σext mpath suffix seeds;;
   ret Σext.
 
-Definition eta_expand_def {A} (trim_inds trim_consts : bool) (mpath : modpath) (cst_name_ignore : kername -> bool) (def : A) : TemplateMonad _ :=
+(* Mainly for tasting purposes *)
+Definition eta_expand_def {A} (trim_inds trim_consts : bool) (def : A) : TemplateMonad _ :=
+  cur_mod <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
   kn <- extract_def_name def ;;
   eta_global_env_template
-    trim_inds trim_consts mpath p.1
-    (KernameSet.singleton kn) (fun _ => false) cst_name_ignore.
+    trim_inds trim_consts cur_mod p.1
+    (KernameSet.singleton kn) (fun _ => false).
 
 Module Examples.
 
@@ -221,30 +222,16 @@ Module Examples.
   End Ex1.
   MetaCoq Quote Recursively Definition p_app_pair_syn := Ex1.partial_app_pair.
 
-  Definition anchor := fun x : nat => x.
-  Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
-
   Definition modpath_eq_dec (mp1 mp2 : modpath) : {mp1 = mp2} + {mp1 <> mp2}.
     repeat decide equality.
   Defined.
 
-  Definition eq_modpath (mp1 mp2 : modpath) : bool :=
-    match modpath_eq_dec mp1 mp2 with
-    | left _ => true
-    | right _ => false
-    end.
-
-  Definition only_from_module_of (kn_base : kername) :=
-    fun (kn : kername) => negb (eq_modpath kn_base.1 kn.1).
-
   Module Test1.
-    Definition anchor := fun x : nat => x.
-    Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
-    MetaCoq Run (eta_global_env_template
-                   false false CURRENT_MODULE
+    MetaCoq Run (cur_mod <- tmCurrentModPath tt;;
+                 eta_global_env_template
+                   false false cur_mod
                    p_app_pair_syn.1
                    (KernameSet.singleton <%% Ex1.partial_app_pair %%>)
-                   (fun _ => false)
                    (fun _ => false)).
   End Test1.
 
@@ -261,8 +248,6 @@ Module Examples.
   (** Expands the dependencies and adds the corresponding definitions *)
   MetaCoq Run (eta_expand_def
                  true true
-                 CURRENT_MODULE
-                 (only_from_module_of <%% Ex2.partial_app2 %%>)
                  Ex2.partial_app2).
 
   (** [partial_app2_expanded] is defined in terms of [partial_app1_expanded] *)
@@ -279,11 +264,7 @@ Module Examples.
   Definition partial_app3 A B n m :=
     let f := miCtor1 A in f B bool n m I.
 
-  MetaCoq Run (eta_expand_def
-                 true true
-                 CURRENT_MODULE
-                 (only_from_module_of <%% partial_app3 %%>)
-                 partial_app3).
+  MetaCoq Run (eta_expand_def true true partial_app3).
 
   Module Ex3.
   Definition inc_balance (st :  nat × nat) (new_balance : nat)
@@ -292,17 +273,14 @@ Module Examples.
 
   Definition partial_inc_balance st i := inc_balance st i.
   End Ex3.
-  MetaCoq Run (p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
+  MetaCoq Run (cur_mod <- tmCurrentModPath tt;;
+               p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
                eta_global_env_template
                  true true
-                 CURRENT_MODULE
+                 cur_mod
                  p.1
-                 (KernameSet.union
-                    (KernameSet.singleton <%% Ex3.inc_balance %%>)
-                    (KernameSet.singleton <%% Ex3.partial_inc_balance %%>))
-                 (fun kn => eq_kername kn <%% Ex3.inc_balance %%> ||
-                            eq_kername kn <%% Ex3.partial_inc_balance %%>)
-                 (only_from_module_of <%% Ex3.partial_inc_balance %%>)
+                 (KernameSet.singleton <%% Ex3.partial_inc_balance %%>)
+                 (fun _ => false)
               ).
 
   Module Ex4.
@@ -310,11 +288,7 @@ Module Examples.
     Definition papp_cons {A} (x : A) (xs : list A) := let my_cons := @cons in
                                                       my_cons A x xs.
 
-    MetaCoq Run (eta_expand_def
-                 false false
-                 <%% @papp_cons %%>.1
-                 (only_from_module_of <%% @papp_cons %%>)
-                 papp_cons).
+    MetaCoq Run (eta_expand_def false false papp_cons).
   End Ex4.
 
   Module Ex5.
@@ -330,11 +304,7 @@ Module Examples.
       let f := odd_S 0 in
       f even_O.
 
-    MetaCoq Run (eta_expand_def
-                   false false
-                   <%% papp_odd %%>.1
-                   (only_from_module_of <%% papp_odd %%>)
-                   papp_odd).
+    MetaCoq Run (eta_expand_def false false papp_odd).
 
     Inductive Expr (Annot : Type) :=
     | eNat : nat -> Expr Annot
@@ -349,11 +319,7 @@ Module Examples.
       let part_app := eApp _ (eFn unit "f" (eNat unit 0)) in
       part_app (eCons _ (eNat unit 0) (eNil _)).
 
-    MetaCoq Run (eta_expand_def
-                   false false
-                   <%% papp_expr %%>.1
-                   (only_from_module_of <%% papp_expr %%>)
-                   papp_expr).
+    MetaCoq Run (eta_expand_def false false  papp_expr).
   End Ex5.
 
   Module Ex_branches1.
@@ -447,8 +413,6 @@ Module Examples.
      (* We set the trimmig of masks to true, so the procedure does't not perform full expansion.
         That way we can test the expansion of branches *)
                    true true
-                   <%% match_ex1 %%>.1
-                   (only_from_module_of <%% match_ex1 %%>)
                    match_ex1).
 
     MetaCoq Quote Definition match_ex1_expanded_syn := (unfolded ConCert_Extraction_CertifyingEta_Examples_Ex_branches1_match_ex1_expanded).
@@ -467,11 +431,7 @@ Module Examples.
 
     MetaCoq Quote Definition sig_rect_syn := (unfolded sig_rect).
 
-    MetaCoq Run (eta_expand_def
-                   true true
-                   CURRENT_MODULE
-                   (only_from_module_of <%% sig_rect %%>)
-                   sig_rect).
+    MetaCoq Run (eta_expand_def true true sig_rect).
 
     MetaCoq Quote Definition sig_rect_expanded_syn := (unfolded Coq_Init_Specif_sig_rect_expanded).
 

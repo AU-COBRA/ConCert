@@ -17,7 +17,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction CertifyingInlining.
+     Common ExAst Erasure Optimize Extraction CertifyingInlining Certifying.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -62,7 +62,7 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
            (seeds : list kername) :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      template_transforms :=
-       [ (CertifyingInlining.template_inline to_inline, inlining_ignore) ];
+       [CertifyingInlining.template_inline to_inline];
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
@@ -90,7 +90,7 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
   let ignore_extract kn := List.existsb (eq_kername kn) ignore in
   let ignore_certifying_pass kn :=
       should_inline kn
-      || negb (affected_by_inlining should_inline Σ kn)
+      || negb (contains_kernames_env should_inline kn Σ)
       || ignore_extract kn in
   eΣ <- extract should_inline ignore_certifying_pass seeds Σ ignore_extract ;;
   (* dependencies should be printed before the dependent definitions *)
