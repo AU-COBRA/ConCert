@@ -17,7 +17,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction Inlining.
+     Common ExAst Erasure Optimize Extraction SpecializeChainBase Inlining.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -25,7 +25,7 @@ Local Open Scope string_scope.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
-Import AcornBlockchain.
+(* Import AcornBlockchain. *)
 Import MonadNotation.
 Import ResultMonad.
 
@@ -56,17 +56,34 @@ Arguments lmd_entry_point {_ _ _ _ _}.
    erased context is closed, expanded and that the masks are valid before dearging.
    Takes [should_inline] - a map that returns true for the constants that should be inlined.
    Suitable for extraction of programs **from within Coq**. *)
-Definition extract_liquidity_within_coq (should_inline : kername -> bool) :=
-  {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
-     pcuic_args :=
-       {| optimize_prop_discr := true;
-          transforms := [dearg_transform true true true true true;
-                         Inlining.transform should_inline ] |} |}.
+   Definition extract_liquidity_within_coq (should_inline : kername -> bool) :=
+    {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+       pcuic_args :=
+         {| optimize_prop_discr := true;
+            transforms := [dearg_transform true true true true true;
+                           Inlining.transform should_inline ] |} |}.
+  
+  Definition extract (should_inline : kername -> bool)
+    := extract_template_env (extract_liquidity_within_coq should_inline).
 
-Definition extract (should_inline : kername -> bool)
-  := extract_template_env (extract_liquidity_within_coq should_inline).
+(* Machinery for specializing chain base *)
+Definition extract_template_env_specialize
+           (should_inline : kername -> bool)
+           (params : extract_template_env_params)
+           (Σ : global_env)
+           (seeds : KernameSet.t)
+           (ignore : kername -> bool) : result ExAst.global_env string :=
+  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
+  let Σ := TemplateToPCUIC.trans_global_decls Σ in
+  Σ <- specialize_ChainBase_env Σ ;;
+  wfΣ <- check_wf_env_func params Σ;;
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
-Definition printLiquidityDefs (prefix : string) (Σ : global_env)
+Definition extract_template_env_within_coq_specialize inline := extract_template_env_specialize inline (extract_liquidity_within_coq inline).
+
+Definition printLiquidityDefs_ 
+           (extract_template_env : (kername -> bool) -> global_env -> KernameSet.t -> (kername -> bool) -> result ExAst.global_env string)
+           (prefix : string) (Σ : global_env)
            (TT : MyEnv.env string)
            (ignore : list kername)
            (inline : list kername)
@@ -76,7 +93,7 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (receive : kername)
   : string + string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
-  match extract (fun k => List.existsb (eq_kername k) inline) Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
+  match extract_template_env (fun k => List.existsb (eq_kername k) inline) Σ seeds (fun k => List.existsb (eq_kername k) ignore) with
   | Ok eΣ =>
     (* dependencies should be printed before the dependent definitions *)
     let ldef_list := List.rev (print_global_env prefix TT eΣ) in
@@ -100,8 +117,78 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
   | Err e => inr e
   end.
 
+(* standard printing of definitions *without* chainbase specialization *)
+Definition printLiquidityDefs := printLiquidityDefs_ extract.
+(* printing *with* chainbase specialization *)
+Definition printLiquidityDefs_specialize := printLiquidityDefs_ extract_template_env_within_coq_specialize.
+
+
 Definition liquidity_ignore_default :=
-  [<%% prod %%>].
+  [
+    <%% prod %%>
+    ; <%% @Chain %%>
+    ; <%% @ActionBody %%>
+    ; <%% @ChainBase %%>
+    ; <%% axiomatized_ChainBase %%>
+    ; <%% Amount %%>
+    ; <%% @Address %%>
+    ; <%% @address_eqdec %%>
+    ; <%% @address_countable %%>
+    ; <%% @ContractCallContext %%>
+    ; <%% @ctx_from %%>
+    ; <%% @ctx_amount %%>
+    ; <%% @ctx_contract_address %%>
+    ; <%% @SerializedValue %%>
+    ; <%% @SerializedType %%>
+].
+
+
+
+Definition TT_remap_default : list (kername * string) :=
+  [
+    (* types *)
+    remap <%% Z %%> "tez"
+  ; remap <%% N %%> "nat"
+  ; remap <%% nat %%> "nat"
+  ; remap <%% bool %%> "bool"
+  ; remap <%% unit %%> "unit"
+  ; remap <%% list %%> "list"
+  ; remap <%% @fst %%> "fst"
+  ; remap <%% @snd %%> "snd"
+  ; remap <%% option %%> "option"
+  ; remap <%% gmap.gmap %%> "map"
+  ; remap <%% positive %%> "nat"
+  ; remap <%% Amount %%> "tez"
+  ; remap <%% @Address %%> "address"
+
+  (* operations *)
+  ; remap <%% List.fold_left %%> "List.fold"
+  ; remap <%% Pos.add %%> "addNat"
+  ; remap <%% Pos.sub %%> "subNat"
+  ; remap <%% Pos.leb %%> "leNat"
+  ; remap <%% Pos.eqb %%> "eqNat"
+  ; remap <%% Z.add %%> "addTez"
+  ; remap <%% Z.sub %%> "subTez"
+  ; remap <%% Z.leb %%> "leTez"
+  ; remap <%% Z.ltb %%> "ltTez"
+  ; remap <%% Z.eqb %%> "eqTez"
+  ; remap <%% Z.gtb %%> "gtbTez"
+  ; remap <%% N.add %%> "addNat"
+  ; remap <%% N.sub %%> "subNat"
+  ; remap <%% N.leb %%> "leNat"
+  ; remap <%% N.ltb %%> "ltNat"
+  ; remap <%% N.eqb %%> "eqNat"
+  ; remap <%% andb %%> "andb"
+  ; remap <%% negb %%> "not"
+  ; remap <%% orb %%> "orb"
+
+  (* Maps *)
+  ; remap <%% @stdpp.base.insert %%> "Map.add"
+  ; remap <%% @stdpp.base.lookup %%> "Map.find_opt"
+  ; remap <%% @stdpp.base.empty %%> "Map.empty"
+  ; remap <%% @address_eqdec %%> ""
+  ; remap <%% @address_countable %%> ""
+  ].
 
 (* We assume the structure of the context from the [PreludeExt]:
   current_time , sender_addr, sent_amount, acc_balance *)
@@ -149,7 +236,13 @@ Definition liquidity_simple_extract
 Definition wrap_in_delimiters s :=
   String.concat nl ["";"(*START*)"; s; "(*END*)"].
 
-Definition liquidity_extraction {msg ctx params storage operation : Type}
+Definition liquidity_extraction_ {msg ctx params storage operation : Type}
+           (printLiquidityDefs_ : string ->
+                                 global_env ->
+                                 env string ->
+                                 list kername ->
+                                 list kername ->
+                                 string -> string -> kername -> kername -> string + string)
            (prefix : string)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -162,7 +255,7 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
-             (printLiquidityDefs prefix Σ TT ignore inline
+             (printLiquidityDefs_ prefix Σ TT ignore inline
                                  liquidity_call_ctx
                                  m.(lmd_init_prelude)
                                  init_nm receive_nm) ;;
@@ -172,3 +265,8 @@ Definition liquidity_extraction {msg ctx params storage operation : Type}
            (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)]))
   | inr s => tmFail s
   end.
+
+(* Liquidity extraction *without* chainbase specialization *)
+Definition liquidity_extraction {msg ctx params storage operation : Type} := @liquidity_extraction_ msg ctx params storage operation printLiquidityDefs.
+(* Liquidity extraction *with* chainbase specialization *)
+Definition liquidity_extraction_specialize {msg ctx params storage operation : Type} := @liquidity_extraction_ msg ctx params storage operation printLiquidityDefs_specialize.
