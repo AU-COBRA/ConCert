@@ -204,7 +204,7 @@ Definition eta_global_env_template
   gen_defs_and_proofs Σ Σext mpath suffix seeds;;
   ret Σext.
 
-(* Mainly for tasting purposes *)
+(* Mainly for testing purposes *)
 Definition eta_expand_def {A} (trim_inds trim_consts : bool) (def : A) : TemplateMonad _ :=
   cur_mod <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
