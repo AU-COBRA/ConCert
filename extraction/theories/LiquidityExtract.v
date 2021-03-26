@@ -25,7 +25,6 @@ Local Open Scope string_scope.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
-(* Import AcornBlockchain. *)
 Import MonadNotation.
 Import ResultMonad.
 
