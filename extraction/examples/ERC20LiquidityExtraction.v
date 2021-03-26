@@ -44,6 +44,8 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @Address %%> "address"
 
   (* operations *)
+  (* Note: N is mapped to Int instead of nat because Liquidity's minus operator on nats returns an int, 
+     which is not compatible with N.sub since it returns an N *)
   ; remap <%% List.fold_left %%> "List.fold"
   ; remap <%% Pos.add %%> "addNat"
   ; remap <%% Pos.sub %%> "subNat"
@@ -75,14 +77,12 @@ Section EIP20TokenExtraction.
   Require Import Containers.
   From stdpp Require gmap.
 
-
-  (* Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool). *)
   Notation params := (ContractCallContext × option EIP20Token.Msg).
   Open Scope N_scope.
 
     (* A specialized version of FMap's partial alter, w.r.t. FMap Address N *)
-  Definition partial_alter_addr_nat : string :=
-       "let partial_alter_addr_nat (f : int option -> int option)" ++ nl
+  Definition partial_alter_addr_int : string :=
+       "let partial_alter_addr_int (f : int option -> int option)" ++ nl
     ++ "                           (k : address)" ++ nl
     ++ "                           (m : (address,int) map) : (address,int) map =" ++ nl
     ++ "  match Map.find k m with" ++ nl
@@ -103,6 +103,7 @@ Section EIP20TokenExtraction.
           total_supply := state.(total_supply);
           allowances := state.(allowances);
         |}).
+
   Open Scope bool_scope.
   Definition test_try_transfer_from (delegate : Address)
       (from : Address)
@@ -144,7 +145,7 @@ Section EIP20TokenExtraction.
     match maybe_msg with
     | Some (transfer to_addr amountt) => without_actions (test_try_transfer sender to_addr amountt state)
     | Some (transfer_from from to_addr amountt) => without_actions (test_try_transfer_from sender from to_addr amountt state)
-    (* Other endpoints are not included in this extraction test *)
+    (* 'approve' endpoint not included in this test *)
     | _ => None
     end.
 
@@ -154,6 +155,7 @@ Section EIP20TokenExtraction.
     test_receive params.1 st params.2.
 
   Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
+    (* ensure extraction does not optimize unused ctx away *)
     let ctx_ := ctx in
     Some {| total_supply := setup.(init_amount);
             balances := FMap.add (EIP20Token.owner setup) (init_amount setup) FMap.empty;
@@ -166,7 +168,7 @@ Section EIP20TokenExtraction.
 
       (* definitions of operations on pairs and ints *)
       lmd_prelude := LiquidityPrelude ++ nl 
-                  ++ partial_alter_addr_nat;
+                  ++ partial_alter_addr_int;
 
       (* initial storage *)
       lmd_init := init ;
@@ -184,15 +186,15 @@ Section EIP20TokenExtraction.
   Definition TT_remap_eip20token : list (kername * string) :=
   TT_remap_default ++ [
     remap <%% @ContractCallContext %%> "(address * (address * int))"
-  ; remap <%% @ctx_from %%> "fst"
-  ; remap <%% @stdpp.base.partial_alter %%> "partial_alter_addr_nat"
+  ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+  ; remap <%% @stdpp.base.partial_alter %%> "partial_alter_addr_int"
   ; remap <%% @stdpp.base.insert %%> "Map.add"
   ; remap <%% @fin_maps.map_insert %%> "Map.add"
   ; remap <%% @stdpp.base.Lookup %%> "Map.find"
+  ; remap <%% @gmap.gmap_lookup %%> "Map.find"
   ; remap <%% @gmap.gmap_empty %%> "Map []"
   ; remap <%% @stdpp.base.empty %%> ""
   ; remap <%% @gmap.gmap_partial_alter %%> ""
-  ; remap <%% @gmap.gmap_lookup %%> "Map.find"
   ; remap <%% @address_eqdec %%> ""
   ; remap <%% @address_countable %%> ""
   ].
@@ -217,8 +219,6 @@ Section EIP20TokenExtraction.
       ; <%% @stdpp.base.lookup %%>
     ].
   
-
-  (* Compute (liquidity_extraction_test PREFIX TT_remap_eip20token TT_rename_eip20token EIP20Token_MODULE). *)
 
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
