@@ -105,7 +105,6 @@ Definition traverse_env (mpath : modpath) (suffix: string) :=
           if @Checker.eq_term config.default_checker_flags init_graph body1 new_body2 then
             go affected Σtail Σ2
           else
-            tmPrint kn;;
             gen_prog new_ty2 new_body2 (mpath, get_def_name kn ++ suffix);;
             go (KernameSet.add kn affected) Σtail Σ2
         | _,_ => go affected Σtail Σ2
