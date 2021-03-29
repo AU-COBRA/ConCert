@@ -58,7 +58,6 @@ Arguments lmd_entry_point {_ _ _ _ _}.
    Takes [should_inline] - a map that returns true for the constants that should be inlined.
    Suitable for extraction of programs **from within Coq**. *)
 Definition extract_liquidity_within_coq (to_inline : kername -> bool)
-           (inlining_ignore : kername -> bool)
            (seeds : list kername) :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      template_transforms :=
@@ -69,12 +68,11 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
             [dearg_transform true true true true true ] |} |}.
 
 Definition extract (to_inline :  kername -> bool)
-           (inlining_ignore : kername -> bool)
            (seeds : list kername)
            (Σ : global_env)
            (extract_ignore : kername -> bool) : TemplateMonad ExAst.global_env
   := let seed_set := Utils.kername_set_of_list seeds in
-    extract_template_env_certifying_passes (extract_liquidity_within_coq to_inline inlining_ignore seeds) Σ seed_set extract_ignore.
+    extract_template_env_certifying_passes (extract_liquidity_within_coq to_inline seeds) Σ seed_set extract_ignore.
 
 Definition printLiquidityDefs (prefix : string) (Σ : global_env)
            (TT : MyEnv.env string)
@@ -88,11 +86,7 @@ Definition printLiquidityDefs (prefix : string) (Σ : global_env)
   let seeds := [init;receive] in
   let should_inline kn := existsb (eq_kername kn) inline in
   let ignore_extract kn := List.existsb (eq_kername kn) ignore in
-  let ignore_certifying_pass kn :=
-      should_inline kn
-      || negb (contains_kernames_env should_inline kn Σ)
-      || ignore_extract kn in
-  eΣ <- extract should_inline ignore_certifying_pass seeds Σ ignore_extract ;;
+  eΣ <- extract should_inline seeds Σ ignore_extract ;;
   (* dependencies should be printed before the dependent definitions *)
   let ldef_list := List.rev (print_global_env prefix TT eΣ) in
   (* filtering empty strings corresponding to the ignored definitions *)

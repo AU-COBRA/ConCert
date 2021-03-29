@@ -88,7 +88,7 @@ Fixpoint eta_branch (ar : nat) (body : term) : term :=
   | S ar =>
     match body with
     | tLambda na ty body => tLambda na ty (eta_branch ar body)
-    | _ => tLambda (mkBindAnn nAnon Relevant) hole (eta_branch ar (tApp (lift0 1 body) [tRel 0]))
+    | _ => tLambda (mkBindAnn nAnon Relevant) hole (eta_branch ar (mkApp (lift0 1 body) (tRel 0)))
     end
   end.
 

@@ -57,18 +57,11 @@ Definition add_suffix_global_env (mpath : modpath) (suffix : string) (expansion_
                            Some (change_modpath mpath suffix expansion_ignore b);
                cst_universes := cb.(cst_universes) |}) Σ.
 
-
 Definition generate_proof_term (ty: term) (kn1 kn2 : kername) : term × term :=
   let proof_ty :=
-      tApp (tInd
-              {| inductive_mind := (MPfile ["Logic"; "Init"; "Coq"], "eq");
-                 inductive_ind := 0 |} [])
-           [ty; tConst kn1 []; tConst kn2 []] in
+      tApp <% @eq %> [ty; tConst kn1 []; tConst kn2 []] in
   let proof_body :=
-      tApp (tConstruct
-              {| inductive_mind := (MPfile ["Logic"; "Init"; "Coq"], "eq");
-                 inductive_ind := 0 |} 0 [])
-           [ty; tConst kn2 []] in
+      tApp <% @eq_refl %> [ty; tConst kn2 []] in
       (proof_ty, proof_body).
 
 Definition gen_prog (ty body : term) (kn : kername) : TemplateMonad unit
@@ -133,52 +126,3 @@ Definition gen_defs_and_proofs (Σold Σnew : global_env) (mpath : modpath) (suf
   affected_defs <- traverse_env mpath suffix KernameSet.empty (List.rev (filter_decls Σold)) (filter_decls Σnew);;
   let affected_seeds := KernameSet.inter affected_defs seeds in
   monad_iter (gen_proof suffix Σnew mpath) (KernameSet.elements affected_seeds).
-
-Section Utils.
-
-  Context (check_kernames : kername -> bool).
-
-  Fixpoint contains_kernames (t : term) : bool :=
-    match t with
-    | tRel n => false
-    | tVar id => false
-    | tEvar ev args => existsb contains_kernames args
-    | tSort s => false
-    | tCast t kind v => contains_kernames t
-                       || contains_kernames v
-    | tProd na ty body => contains_kernames ty
-                         || contains_kernames body
-    | tLambda na ty body => contains_kernames ty
-                           || contains_kernames body
-    | tLetIn na def def_ty body => contains_kernames def_ty
-                                  || contains_kernames body
-    | tApp f args => contains_kernames f
-                    || existsb contains_kernames args
-    | tConst c u => check_kernames c
-    | tInd ind u => check_kernames ind.(inductive_mind)
-    | tConstruct ind idx u => false
-    | tCase ind_nbparams_relevance type_info discr branches =>
-      contains_kernames type_info
-      || contains_kernames discr
-      || existsb (contains_kernames ∘ snd) branches
-    | tProj proj t0 => contains_kernames t0
-    | tFix mfix idx =>
-      existsb id (map (fun d => contains_kernames d.(dtype) ||
-                             contains_kernames d.(dbody)) mfix)
-    | tCoFix mfix idx =>
-      existsb id (map (fun d => contains_kernames d.(dtype) ||
-                             contains_kernames d.(dbody)) mfix)
-    | tInt i => false
-    | tFloat f => false
-  end.
-
-  Definition contains_kernames_env (kn : kername) (Σ : global_env) : bool:=
-    match lookup_env Σ kn with
-    | Some (ConstantDecl cst) =>
-      match cst_body cst with
-      | Some body => contains_kernames body
-      | _ => false
-      end
-    | _ => false
-    end.
-End Utils.
