@@ -561,7 +561,7 @@ Proof.
 Defined.
 
 Definition annot_extract_pcuic_env params Σ wfΣ include ignore :
-  All (annot_transform_type box_type) (transforms params) ->
+  All (annot_transform_type box_type) (extract_transforms params) ->
   match extract_pcuic_env params Σ wfΣ include ignore with
   | Ok Σ => env_annots box_type Σ
   | _ => unit
@@ -577,15 +577,16 @@ Proof.
 Defined.
 
 Definition annot_extract_template_env params Σ include ignore :
-  All (annot_transform_type box_type) (transforms (pcuic_args params)) ->
+  All (annot_transform_type box_type) (extract_transforms (pcuic_args params)) ->
   match extract_template_env params Σ include ignore with
   | Ok Σ => env_annots box_type Σ
   | _ => unit
   end.
 Proof.
   intros all.
-  unfold extract_template_env.
-  destruct check_wf_env_func; [|exact tt].
+  unfold extract_template_env,extract_template_env_general, check_wf_and_extract.
+  cbn.
+  destruct check_wf_env_func; [|exact tt]. cbn.
   apply annot_extract_pcuic_env.
   exact all.
 Defined.

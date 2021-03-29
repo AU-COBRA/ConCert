@@ -9,7 +9,11 @@ From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
 (* From ConCert.Embedding Require Import SimpleBlockchain. *)
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require Import LPretty LiquidityExtract Common Optimize.
+From ConCert.Extraction Require Import LPretty
+     LiquidityExtract
+     Common
+     Optimize
+     SpecializeChainBase.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
@@ -218,7 +222,6 @@ Section EIP20TokenExtraction.
       ; <%% @stdpp.base.empty %%>
       ; <%% @stdpp.base.lookup %%>
     ].
-  
 
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
@@ -231,7 +234,3 @@ Section EIP20TokenExtraction.
 
 
 End EIP20TokenExtraction.
-
-
-
-
