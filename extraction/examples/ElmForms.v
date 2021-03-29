@@ -203,7 +203,7 @@ Definition general_wrapped (Σ : global_env) (pre post : string)
            (ignore: list kername) (TT : list (kername * string)) : TemplateMonad string :=
   let should_inline kn := existsb (eq_kername kn) to_inline in
   let extract_ignore kn := existsb (eq_kername kn) ignore in
-  Σ <- extract_template_env_certifying_passes (extract_elm_within_coq should_inline) Σ seeds extract_ignore;;
+  Σ <- extract_template_env_certifying_passes ret (extract_elm_within_coq should_inline) Σ seeds extract_ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
   p <- tmEval lazy (finish_print (print_env Σ TT_fun)) ;;
   match p with

@@ -71,14 +71,18 @@ Definition check_wf_and_extract (params : extract_template_env_params)
   := wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
-Definition extract_template_env
+Definition extract_template_env_general
+           (pcuic_trans : PCUICEnvironment.global_env -> result PCUICEnvironment.global_env string)
            (params : extract_template_env_params)
            (Σ : Ast.global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
   let Σ := trans_global_decls Σ in
+  Σ <- pcuic_trans Σ ;;
   check_wf_and_extract params Σ seeds ignore.
+
+Definition extract_template_env := extract_template_env_general ret.
 
 Definition run_transforms (Σ : Ast.global_env) (params : extract_template_env_params) : TemplateMonad Ast.global_env :=
   let transforms := params.(template_transforms) in
@@ -89,6 +93,7 @@ Definition run_transforms (Σ : Ast.global_env) (params : extract_template_env_p
   end.
 
 Definition extract_template_env_certifying_passes
+           (pcuic_trans : PCUICEnvironment.global_env -> result PCUICEnvironment.global_env string)
            (params : extract_template_env_params)
            (Σ : Ast.global_env)
            (seeds : KernameSet.t)
@@ -96,7 +101,7 @@ Definition extract_template_env_certifying_passes
   Σtrans <- run_transforms Σ params ;;
   mpath <- tmCurrentModPath tt;;
   gen_defs_and_proofs Σ Σtrans mpath "_cert_pass" seeds;;
-  res <- tmEval lazy (extract_template_env params  Σtrans seeds ignore) ;;
+  res <- tmEval lazy (extract_template_env_general pcuic_trans params  Σtrans seeds ignore) ;;
   match res with
     | Ok env => ret env
     | Err e => tmFail e

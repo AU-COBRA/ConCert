@@ -584,7 +584,8 @@ Definition annot_extract_template_env params Σ include ignore :
   end.
 Proof.
   intros all.
-  unfold extract_template_env, check_wf_and_extract.
+  unfold extract_template_env,extract_template_env_general, check_wf_and_extract.
+  cbn.
   destruct check_wf_env_func; [|exact tt]. cbn.
   apply annot_extract_pcuic_env.
   exact all.

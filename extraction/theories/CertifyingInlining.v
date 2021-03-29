@@ -91,7 +91,7 @@ Section inlining.
     | tCase ind_info type_info discr branches =>
       tCase ind_info (inline type_info) (inline discr)
             (map (on_snd inline) branches)
-    | tProj _ t0 => inline t0
+    | tProj prj t0 => tProj prj (inline t0)
     | tFix mfix idx =>
       let mfix' := map (map_def inline inline) mfix in
       tFix mfix' idx
