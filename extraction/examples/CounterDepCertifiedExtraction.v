@@ -194,6 +194,7 @@ MetaCoq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
              tmDefinition "counter_partially_applied_syn" counter_syn;;
              (* eta-expand dedinitions in the environment *)
              Σexpanded <- eta_global_env_template
+               (fun _ => None)
                true true
                CURRENT_MODULE
                counter_syn.1

@@ -440,6 +440,7 @@ Proof.
 Defined.
 
 Definition annot_dearg_transform
+           (overridden_masks : kername -> option bitmask)
            (do_trim_const_masks : bool)
            (do_trim_ctor_masks : bool)
            (check_closed : bool)
@@ -448,6 +449,7 @@ Definition annot_dearg_transform
   annot_transform_type
     box_type
     (dearg_transform
+       overridden_masks
        do_trim_const_masks do_trim_ctor_masks
        check_closed check_expanded check_valid_masks).
 Proof.

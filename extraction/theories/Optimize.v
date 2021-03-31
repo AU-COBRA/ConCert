@@ -620,15 +620,18 @@ Record dearg_set := {
   const_masks : list (kername * bitmask);
   ind_masks : list (kername * mib_masks); }.
 
-Fixpoint analyze_env (Σ : global_env) : dearg_set :=
+Fixpoint analyze_env
+         (overridden_masks : kername -> option bitmask)
+         (Σ : global_env) : dearg_set :=
   match Σ with
   | [] => {| const_masks := []; ind_masks := [] |}
   | (kn, has_deps, decl) :: Σ =>
-    let (consts, inds) := analyze_env Σ in
+    let (consts, inds) := analyze_env overridden_masks Σ in
     let (consts, inds) :=
         match decl with
         | ConstantDecl cst =>
           let '(mask, inds) := analyze_constant cst inds in
+          let mask := option_get mask (overridden_masks kn) in
           ((kn, mask) :: consts, inds)
         | InductiveDecl mib =>
           let ctor_masks :=
@@ -662,6 +665,7 @@ Definition trim_ind_masks (im : list (kername × mib_masks)) :=
   map (on_snd trim_mib_masks) im.
 
 Definition dearg_transform
+           (overridden_masks : kername -> option bitmask)
            (* If true, trim ends of constant masks to avoid unnecessary eta expansion. *)
            (do_trim_const_masks : bool)
            (* If true, trim ends of constructor masks to avoid unnecessary eta expansion. *)
@@ -678,7 +682,8 @@ Definition dearg_transform
      else
        Ok tt);;
 
-    let (const_masks, ind_masks) := timed "Dearg analysis" (fun _ => analyze_env Σ) in
+    let (const_masks, ind_masks) := timed "Dearg analysis"
+                                          (fun _ => analyze_env overridden_masks Σ) in
 
     let const_masks := (if do_trim_const_masks then trim_const_masks else id) const_masks in
     let ind_masks := (if do_trim_ctor_masks then trim_ind_masks else id) ind_masks in

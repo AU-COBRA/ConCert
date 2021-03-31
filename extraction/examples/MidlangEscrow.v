@@ -98,8 +98,8 @@ Definition extract_params :=
      template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [Optimize.dearg_transform true true true true true;
-                                Inlining.transform should_inline] |} |}.
+          extract_transforms := [Optimize.dearg_transform (fun _ => None) true true true true true;
+                                 Inlining.transform should_inline] |} |}.
 
 Definition escrow_extract :=
   Eval vm_compute in

@@ -132,7 +132,7 @@ Instance RustConfig : RustPrintConfig :=
      any_type_symbol := "()";
      print_full_names := true |}.
 
-Definition default_attrs : ind_attr_map := fun _ => ["#[derive(Debug, Copy, Clone)]"].
+Definition default_attrs : ind_attr_map := fun _ => "#[derive(Debug, Clone)]".
 
 Definition extract_lines
            (p : T.program)
@@ -148,7 +148,7 @@ Definition extract_lines
       if remap_constant remaps kn then true else
       if remap_inline_constant remaps kn then true else false in
   Σ <- extract_template_env
-         (extract_rust_within_coq should_inline)
+         (extract_rust_within_coq (fun _ => None) should_inline)
          p.1
          (KernameSet.singleton entry)
          without_deps;;

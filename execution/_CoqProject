@@ -32,6 +32,7 @@ examples/Euler.v
 examples/FA2Interface.v
 examples/FA2Token.v
 examples/LocalBlockchainTests.v
+examples/StackInterpreter.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v

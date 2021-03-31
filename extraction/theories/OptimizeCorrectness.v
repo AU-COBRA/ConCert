@@ -3321,8 +3321,8 @@ Proof.
     + depelim ev.
 Qed.
 
-Lemma dearg_transform_correct do_trim_const_masks do_trim_ctor_masks :
-  ExtractTransformCorrect (dearg_transform do_trim_const_masks do_trim_ctor_masks true true true).
+Lemma dearg_transform_correct overridden_masks do_trim_const_masks do_trim_ctor_masks :
+  ExtractTransformCorrect (dearg_transform overridden_masks do_trim_const_masks do_trim_ctor_masks true true true).
 Proof.
   red.
   intros Σ Σopt kn ind c opt ev.
