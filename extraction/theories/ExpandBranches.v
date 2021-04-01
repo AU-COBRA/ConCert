@@ -49,5 +49,5 @@ Definition expand_decl d :=
 Definition expand_env (Σ : global_env) : global_env :=
   map (on_snd expand_decl) Σ.
 
-Definition transform : Transform :=
+Definition transform : ExtractTransform :=
   fun Σ => Ok (timed "Expansion of match branches" (fun _ => expand_env Σ)).

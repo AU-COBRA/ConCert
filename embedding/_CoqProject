@@ -7,7 +7,7 @@
 
 -Q theories ConCert.Embedding
 theories/Ast.v
-theories/Certifying.v
+theories/CertifyingTranslate.v
 theories/CustomTactics.v
 theories/EnvSubst.v
 theories/EvalE.v

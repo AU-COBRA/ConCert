@@ -11,7 +11,8 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import ElmExtractTests.
 From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import Inlining.
+From ConCert.Extraction Require Import Certifying.
+From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
@@ -103,6 +104,8 @@ Definition updateEntry : Msg -> Entry -> Entry :=
       model<| passwordAgain := newPassword |>
   end.
 
+Set Printing All.
+
 Definition emptyNameError := "Empty name!".
 Definition passwordsDoNotMatchError := "Passwords do not match!".
 Definition passwordIsTooShortError := "Password is too short!".
@@ -181,13 +184,12 @@ Program Definition initModel : Model * Cmd StorageMsg :=
   (entry, none).
 
 Definition extract_elm_within_coq (should_inline : kername -> bool) :=
-{|
-check_wf_env_func := fun Σ : PCUICAst.PCUICEnvironment.global_env =>
-                     Ok (assume_env_wellformed Σ);
-pcuic_args := {|
-              optimize_prop_discr := true;
-              transforms := [dearg_transform true true true true true
-                            ;Inlining.transform should_inline] |} |}.
+{| check_wf_env_func := fun Σ : PCUICAst.PCUICEnvironment.global_env =>
+                          Ok (assume_env_wellformed Σ);
+   template_transforms := [CertifyingInlining.template_inline should_inline ];
+   pcuic_args := {| optimize_prop_discr := true;
+                    extract_transforms :=
+                      [dearg_transform true true true true true] |} |}.
 
 Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
@@ -197,16 +199,17 @@ Instance ElmBoxes : ElmPrintConfig :=
 
 Definition general_wrapped (Σ : global_env) (pre post : string)
            (seeds : KernameSet.t)
-           (should_inline : list kername)
-           (ignore: list kername) (TT : list (kername * string)) : result string string :=
-  Σ <- extract_template_env
-        (extract_elm_within_coq (fun kn => existsb (eq_kername kn) should_inline))
-         Σ
-         seeds
-         (fun k => existsb (eq_kername k) ignore);;
+           (to_inline : list kername)
+           (ignore: list kername) (TT : list (kername * string)) : TemplateMonad string :=
+  let should_inline kn := existsb (eq_kername kn) to_inline in
+  let extract_ignore kn := existsb (eq_kername kn) ignore in
+  Σ <- extract_template_env_certifying_passes ret (extract_elm_within_coq should_inline) Σ seeds extract_ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
-  '(_, s) <- finish_print (print_env Σ TT_fun);;
-  ret (pre ++ nl ++ s ++ nl ++ post).
+  p <- tmEval lazy (finish_print (print_env Σ TT_fun)) ;;
+  match p with
+  | Ok (_,s) => tmEval lazy (pre ++ nl ++ s ++ nl ++ post)
+  | Err s => tmFail s
+  end.
 
 Record ElmMod :=
   { elmmd_extract : list ({T : Type & T})}.
@@ -277,28 +280,25 @@ Definition TT :=
   ].
 
 Definition to_inline :=
-  [<%% @setter_from_getter_Entry_name %%>
+  [<%% @SetterFromGetter %%>
+  ;<%% setter_from_getter_Entry_name %%>
   ;<%% setter_from_getter_Model_users %%>
-  ;<%%setter_from_getter_Model_errors %%>
-  ;<%%setter_from_getter_Model_currentEntry%%>
-  ;<%%setter_from_getter_Entry_password%%>
-  ;<%%setter_from_getter_Entry_passwordAgain%%>
+  ;<%% setter_from_getter_Model_errors %%>
+  ;<%% setter_from_getter_Model_currentEntry%%>
+  ;<%% setter_from_getter_Entry_password%%>
+  ;<%% setter_from_getter_Entry_passwordAgain%%>
   ].
 
 Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : TemplateMonad _ :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   seeds <- monad_map extract_def_name_exists m.(elmmd_extract);;
-  res <- tmEval lazy
-               (general_wrapped
-                  Σ
-                  (header_and_imports ++ nl ++ nl ++ preamble) ""
+  general_wrapped Σ (header_and_imports ++ nl ++ nl ++ preamble) ""
                   (KernameSetProp.of_list seeds)
                   to_inline
-                  (<%% @SetterFromGetter %%> :: map fst TT)
-                  TT);;
-  match res with
-  | Ok prog => tmMsg prog
-  | Err e => tmFail e
-  end.
+                  (map fst TT)
+                  TT.
 
-Redirect "examples/elm-web-extract/UserList.elm" MetaCoq Run (elm_extraction USER_FORM_APP TT).
+Time MetaCoq Run (t <- elm_extraction USER_FORM_APP TT;;
+                  tmDefinition "extracted_app" t).
+
+Redirect "examples/elm-web-extract/UserList.elm" MetaCoq Run (tmMsg extracted_app).

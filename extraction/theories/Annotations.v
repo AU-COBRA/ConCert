@@ -184,7 +184,7 @@ Definition global_decl_annots (decl : Ex.global_decl) : Type :=
 Definition env_annots (Σ : global_env) : Type :=
   bigprod (global_decl_annots ∘ snd) Σ.
 
-Definition annot_transform_type (t : Transform) :=
+Definition annot_transform_type (t : ExtractTransform) :=
   forall Σ (a : env_annots Σ),
     match t Σ with
     | Ok Σ => env_annots Σ

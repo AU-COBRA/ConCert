@@ -43,13 +43,13 @@ Arguments lmd_entry_point {_ _ _ _ _ _}.
 
 Definition cameligo_args :=
   {| optimize_prop_discr := true;
-     transforms := [Optimize.dearg_transform
-                      true
-                      false (* cannot have partially applied ctors *)
-                      true
-                      true
-                      true
-                    ] |}.
+     extract_transforms := [Optimize.dearg_transform
+                            true
+                            false (* cannot have partially applied ctors *)
+                            true
+                            true
+                            true
+                           ] |}.
 
 Import PCUICAst PCUICTyping.
 Definition annot_extract_env_cameligo

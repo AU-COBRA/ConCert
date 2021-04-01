@@ -32,6 +32,6 @@ Definition optimize_decl (p : kername * bool * global_decl) :=
 Definition optimize_env (Σ : global_env) : global_env :=
   map optimize_decl Σ.
 
-Definition transform : Transform :=
+Definition transform : ExtractTransform :=
   fun Σ =>
     Ok (timed "Substitution of top level fixes" (fun _ => optimize_env Σ)).

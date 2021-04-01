@@ -908,9 +908,10 @@ End FixEnv.
 Definition extract_rust_within_coq
            (should_inline : kername -> bool) : extract_template_env_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform true false false false false;
+          extract_transforms := [dearg_transform true false false false false;
                          ExpandBranches.transform;
                          Inlining.transform should_inline; (* before TopLevelFixes *)
                          TopLevelFixes.transform] |} |}.
