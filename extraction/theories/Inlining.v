@@ -1,6 +1,6 @@
 (* This implements a very rudimentary inlining pass without many heuristics.
    The pass is passed the name of definitions to be inlined and will inline
-   beta, and iota reduce those definitions. *)
+   beta, and iota reduce those definitions.  *)
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Optimize.
@@ -77,5 +77,5 @@ Definition inline_in_env (should_inline : kername -> bool) (Σ : global_env) : g
                         [] Σ in
   filter (fun '(kn, _, _) => negb (should_inline kn)) newΣ.
 
-Definition transform (should_inline : kername -> bool) : Transform :=
+Definition transform (should_inline : kername -> bool) : ExtractTransform :=
   fun Σ => Ok (timed "Inlining" (fun _ => inline_in_env should_inline Σ)).

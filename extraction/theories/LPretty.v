@@ -29,6 +29,13 @@ Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
 Import String.
 
+(* F# style piping notation for convenience *)
+Notation "f <| x" := (f x) (at level 32, left associativity, only parsing).
+(* i.e. f <| x <| y = (f <| x) <| y, and means (f x) y *)
+Notation "x |> f" := (f x) (at level 31, left associativity, only parsing).
+(* i.e. x |> f |> g = (x |> f) |> g, and means g (f x) *)
+
+
 Section print_term.
   Context (Σ : ExAst.global_env).
 
@@ -110,24 +117,27 @@ Section print_term.
   | TAny => "UnknownType"
   end.
 
-  Compute print_box_type "" []
-          (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1)).
-
-  Compute print_box_type "" []
-          (TApp (TApp (TApp (TApp (TInd (mkInd (MPfile [], "list") 0)) (TVar 0)) (TVar 1)) (TVar 2))(TVar 3)).
-
-
-  Definition print_ctor (prefix : string) (TT : env string) (ctor : ident × list box_type) :=
+  Definition print_ctor
+             (prefix : string)
+             (TT : env string)
+             (ctor : ident × list (name × box_type)) :=
     let (nm,tys) := ctor in
+    let nm := capitalize nm in
     match tys with
     | [] => prefix ++ nm
     | _ => prefix ++ nm ++ " of "
-                  ++ concat " * " (map (print_box_type prefix TT) tys)
+                  ++ concat " * " (map (print_box_type prefix TT ∘ snd) tys)
     end.
+  
+  Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
+    let (nm, ty) := proj in
+    prefix
+      ^ nm
+      ^ " : "
+      ^ print_box_type prefix TT ty.
 
-  Compute print_ctor "" []
-          ("blah",[TInd (mkInd (MPfile [], "nat") 0);
-                  (TApp (TApp (TInd (mkInd <%% prod %%> 0)) (TVar 0)) (TVar 1))]).
+  Compute print_proj "" []
+        ("blah",TInd (mkInd (MPfile [], "nat") 0)).
 
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
@@ -139,38 +149,20 @@ Section print_term.
         if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
         else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
              (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
-    "type " ++ params ++ uncapitalize ind_nm ++" = "
+    (* one-constructor inductives with non-empty ind_projs (projection identifiers) 
+       are assumed to be records *)
+    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+    | [build_record_ctor], _::_ =>
+      let '(_, ctors) := build_record_ctor in
+      let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
+      let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) projs_and_ctors in
+      "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
+              ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
+              ++  "}"
+    | _,_ => "type " ++ params ++ uncapitalize ind_nm ++" = "
             ++ nl
-            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors)).
-
-  Fixpoint print_liq_type (prefix : string) (TT : env string) (t : Ast.term) :=
-  let error := "Error (not_supported_type " ++ Pretty.print_term (Ast.empty_ext []) [] true t ++ ")" in
-  match t with
-  | Ast.tInd ind _ =>
-    let nm := string_of_kername ind.(inductive_mind) in
-    from_option (look TT nm) (prefix ++ ind.(inductive_mind).2)
-  | Ast.tApp (Ast.tInd ind _) [t1;t2] =>
-    (* a special case of products - infix *)
-    if eq_kername <%% prod %%> ind.(inductive_mind) then
-      parens false (print_liq_type prefix TT t1 ++ " * " ++ print_liq_type prefix TT t2)
-      else error
-  | Ast.tApp (Ast.tInd ind i) args =>
-    (* the usual - postfix - case of an applied type constructor *)
-    let nm := string_of_kername ind.(inductive_mind) in
-    let nm' := from_option (look TT nm) (prefix ++ ind.(inductive_mind).2) in
-    let printed_args := map (print_liq_type prefix TT) args in
-    (print_uncurried "" printed_args) ++ " " ++ nm'
-  | Ast.tApp (Ast.tConst nm _) args =>
-    (* similarly we do for constants to enable remapping of aliases to types *)
-    let cst_nm := string_of_kername nm in
-    let nm' := from_option (look TT cst_nm) (prefix ++ nm.2) in
-    let printed_args := map (print_liq_type prefix TT) args in
-    (print_uncurried "" printed_args) ++ " " ++ nm'
-  | Ast.tConst nm _ =>
-    let cst_nm := string_of_kername nm in
-    from_option (look TT cst_nm) (prefix ++ nm.2)
-  | _ => error
-  end.
+            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
+    end.
 
   Definition is_sort (t : Ast.term) :=
     match t with
@@ -286,6 +278,22 @@ Section print_term.
   Definition print_list_cons (f : term -> string) (t1 : term) (t2 : term) :=
     (f t1) ++ " :: " ++ (f t2).
 
+  Definition is_record_constr (t : term) : option ExAst.one_inductive_body := 
+    match t with
+    | tConstruct (mkInd mind j as ind) i =>
+      match lookup_ind_decl mind i with
+      | Some oib => if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors))
+                    then Some oib
+                    else None
+      | _ => None
+      end
+    | _ => None
+  end.
+
+  (* Definition print_record_proj (f : term -> string) (apps : term) (oib : ExAst.one_inductive_body) TT prefix :=
+   *)
+
+
   Definition app_args {A} (f : term -> A) :=
     fix go (t : term) := match t with
     | tApp t1 t2 => f t2 :: go t1
@@ -318,7 +326,7 @@ Section print_term.
   Definition print_pat (prefix : string) (TT : env string) (ctor : string) (pt : list string * string) :=
     let ctor_nm := from_option (look TT ctor) ((capitalize prefix) ++ ctor) in
     let print_parens := (Nat.ltb 1 (List.length pt.1)) in
-    print_uncurried ctor_nm (rev pt.1) ++ " -> " ++ pt.2.
+    print_uncurried (capitalize ctor_nm) (rev pt.1) ++ " -> " ++ pt.2.
 
 
   Definition print_transfer (args : list string) :=
@@ -382,29 +390,38 @@ Section print_term.
     | tConst c =>
       let cst_name := string_of_kername c in
       let nm := from_option (look TT cst_name) (prefix ++ c.2) in
-      parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+      if (nm =? "") then ""
+      else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
     | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
       if (nm =? "pair") then print_uncurried "" apps
-      else
       (* is it a cons ? *)
-        if (nm =? "cons") then
-          parens top (concat " :: " apps)
-        else
+      else if (nm =? "cons") then
+        parens top (concat " :: " apps)
       (* is it a transfer *)
-          if (nm =? "Act_transfer") then print_transfer apps
-          else
-            let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
-            parens top (print_uncurried nm' apps)
+      else if (nm =? "Act_transfer") then print_transfer apps
+      (* is it a record declaration? *)
+      else match is_record_constr b with
+        | Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
+        let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
+                                                  |> concat "; " in 
+        "{" ++ field_decls_printed ++ "}"
+        | None     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+                      parens top (print_uncurried nm' apps)
+        end
     | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
     end
   | tConst c =>
     let cst_name := string_of_kername c in
-    from_option (look TT cst_name) (prefix ++ c.2)
+    if cst_name =? ""
+    then ""
+    else from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l =>
     let nm := get_constr_name ind l in
-    from_option (look TT nm) ((capitalize prefix) ++ nm)
+    if nm =? "" 
+    then ""
+    else capitalize (from_option (look TT nm) ((capitalize prefix) ++ nm))
   | tCase (mkInd mind i as ind, nparam) t brs =>
     (* [if-then-else] is a special case *)
     if eq_kername mind <%% bool %%> then
@@ -465,11 +482,10 @@ Section print_term.
               ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
     end
   | tProj (mkInd mind i as ind, pars, k) c =>
-    (*NOTE: since records are not supported, projections are not very meaningful, curretnly*)
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => print_term prefix FT TT Γ false false c ++ ".(" ++ na ++ ")"
+      | Some (na, _) => print_term prefix FT TT Γ false false c ++ "." ++ na
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
                        ++ print_term prefix FT TT Γ true false c ++ ")"
@@ -495,6 +511,7 @@ Section print_term.
     | _ => "NotSupportedMutualFix"
     end
   | tCoFix l n => "NotSupportedCoFix"
+  | tPrim _ => "NotSupportedCoqPrimitive"
   end.
 
 End print_term.
@@ -655,14 +672,22 @@ Definition tez_ops :=
     ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b".
 
 Definition nat_ops :=
-       "let[@inline] eqN (a : nat ) (b : nat ) = a = b"
+      "let[@inline] addNat (i : nat) (j : nat) = i + j"
     ++ nl
-    ++ "let[@inline] lebN (a : nat ) (b : nat ) = a <= b"
+    ++ "let[@inline] mulNat (i : nat) (j : nat) = i * j"
     ++ nl
-    ++ "let[@inline] ltbN (a : nat ) (b : nat ) = a < b".
+    ++ "let[@inline] subNat (i : nat) (j : nat) = i - j"
+    ++ nl
+    ++ "let[@inline] leNat (i : nat) (j : nat) = i <= j"
+    ++ nl
+    ++ "let[@inline] ltNat (i : nat) (j : nat) = i < j"
+    ++ nl
+    ++ "let[@inline] eqNat (i : nat) (j : nat) = i = j".
 
 Definition bool_ops :=
-  "let[@inline] andb (a : bool ) (b : bool ) = a & b".
+     "let[@inline] andb (a : bool ) (b : bool ) = a & b"
+  ++ nl
+  ++ "let[@inline] orb (a : bool ) (b : bool ) = a || b".
 
 Definition time_ops :=
        "let[@inline] eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2"

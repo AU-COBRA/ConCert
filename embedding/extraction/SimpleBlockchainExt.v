@@ -34,8 +34,7 @@ Module AcornBlockchain.
     [\ record SimpleChain :=
        Build_chain { "Chain_height" : BaseTypes.Nat;
                      "Current_slot" : BaseTypes.Nat;
-                     "Finalized_height" : BaseTypes.Nat;
-                     "Account_balance" : Address -> Money } \].
+                     "Finalized_height" : BaseTypes.Nat } \].
 
   MetaCoq Unquote Inductive (global_to_tc SimpleChainAcorn).
 
@@ -50,6 +49,7 @@ Module AcornBlockchain.
            "Ctx_from" : Address;
            (* Address of the contract being called *)
            "Ctx_contract_address" : Address;
+           "Ctx_contract_balance" : Money;
            (* Amount of currency passed in call *)
            "Ctx_amount" : Money} \].
 

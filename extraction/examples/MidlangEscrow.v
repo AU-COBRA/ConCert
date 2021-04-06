@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Inlining.
@@ -27,7 +27,7 @@ Import MonadNotation.
 
 Open Scope string.
 
-Instance EscrowMidlangBoxes : MidlangPrintConfig :=
+Instance EscrowMidlangBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
      any_type_symbol := "()";
@@ -40,15 +40,15 @@ Definition TT_escrow : list (kername * string) :=
 Definition midlang_translation_map :=
   Eval compute in
         [(<%% @current_slot %%>, "current_slot");
-        (<%% @account_balance %%>, "account_balance");
         (<%% @address_eqb %%>, "Order.eq");
-        (<%% @ctx_amount %%>, "ctx_amount");
         (<%% @ctx_from %%>, "ctx_from");
+        (<%% @ctx_contract_address %%>, "ctx_contract_address");
+        (<%% @ctx_contract_balance %%>, "ctx_contract_balance");
+        (<%% @ctx_amount %%>, "ctx_amount");
         (<%% @Chain %%>, "ConCertChain");
         (<%% @ContractCallContext %%>, "ConCertCallContext");
         (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
         (<%% @ChainBase %%>, "ChainBaseWTF");
-        (<%% @ctx_contract_address %%>, "contract_address");
         (<%% @Amount %%>,"Z" )].
 
 Definition midlang_escrow_translate (name : kername) : option string :=
@@ -95,10 +95,11 @@ Definition extract_template_env_specialize
 
 Definition extract_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [Optimize.dearg_transform true true true true true;
-                         Inlining.transform should_inline] |} |}.
+          extract_transforms := [Optimize.dearg_transform true true true true true;
+                                Inlining.transform should_inline] |} |}.
 
 Definition escrow_extract :=
   Eval vm_compute in
@@ -126,9 +127,9 @@ Definition midlang_prelude :=
   "type ConCertCallContext = CCtx Unit";
   "type ConCertChain = CChain Unit";
   "ctx_from ctx = 0";
+  "ctx_contract_address _ = 0";
+  "ctx_contract_balance _ = (Zpos (XO XH))";
   "ctx_amount ctx = (Zpos (XO XH))";
-  "contract_address _ = 0";
-  "account_balance _ _ = (Zpos (XO XH))";
   "current_slot _ = O"].
 
 Definition escrow_result :=

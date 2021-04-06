@@ -48,6 +48,7 @@ From MetaCoq.Template Require TemplateMonad.
 
 Import PCUICEnvTyping.
 Import PCUICLookup.
+Import PCUICErrors.
 
 Local Open Scope string_scope.
 Import VectorDef.VectorNotations.
@@ -667,7 +668,7 @@ Next Obligation.
   now apply conv_arity_Is_conv_to_Arity in car.
 Qed.
 Next Obligation.
-  pose proof (PCUICSafeChecker.reduce_to_sort_complete _ _ (eq_sym eq)).
+  pose proof (PCUICSafeReduce.reduce_to_sort_complete _ _ (eq_sym eq)).
   clear eq.
   apply not_prod_or_sort_hnf in discr.
   destruct isT as [(u&typ)].
@@ -885,7 +886,7 @@ Next Obligation.
   destruct wfΣ as [wfΣu].
   sq.
   exists univ.
-  eapply type_reduction; [easy|exact typ|easy].
+  eapply type_reduction; [exact typ|easy].
 Qed.
 Next Obligation.
   reduce_term_sound; clear eq_hnf.
@@ -969,7 +970,11 @@ Proof.
       eapply isType_wf_local; eauto. }
     constructor.
     rewrite <- (PCUICSpine.subst_rel0_lift_id 0 (mkNormalArity ar_ctx univ)).
+    eapply validity in typ as typ_valid;auto.
+    destruct typ_valid as [u Hty].
     eapply type_App.
+    + eapply validity in typ as typ;auto.
+      eapply (PCUICWeakening.weakening _ _ [_] _ _ _ wflext Hty).
     + eapply (PCUICWeakening.weakening _ _ [_] _ _ _ wflext typ).
     + fold lift.
       eapply (type_Rel _ _ _ (vass na A)); auto.
@@ -1027,13 +1032,11 @@ Proof.
     assert (conv_context Σ (Γ,, vass na A) (Γ,, vass na' A')).
     { constructor; [reflexivity|].
       constructor; assumption. }
-    eapply context_conversion'; eauto.
-    1: now eapply typing_wf_local; eauto.
-    2: now apply conv_context_sym; eauto.
     eapply type_Cumul.
+    + eassumption.
     + eapply context_conversion; eauto.
       eapply typing_wf_local; eassumption.
-    + eassumption.
+      now apply conv_context_sym.
     + now eapply cumul_conv_ctx; eauto.
 Qed.
 
@@ -1211,7 +1214,13 @@ Proof.
   let erase_ind_ctor (p : (ident × P.term) × nat) (is_in : In p (P.ind_ctors oib)) :=
       let bt := erase_ind_ctor (proj1_sig ctx).π1 (proj1_sig ctx).π2 p.1.2 _ 0 ind_params in
       let '(ctor_args, _) := decompose_arr bt in
-      (p.1.1, ctor_args) in
+      let fix decomp_names ty :=
+          match ty with
+          | P.tProd na A B => binder_name na :: decomp_names B
+          | P.tLetIn na a A b => decomp_names b
+          | _ => []
+          end in
+      (p.1.1, combine (decomp_names p.1.2) ctor_args) in
 
   let ctors := map_In (P.ind_ctors oib) erase_ind_ctor in
 
@@ -1318,7 +1327,7 @@ Definition decl_deps (decl : global_decl) : KernameSet.t :=
     KernameSet.union (box_type_deps (cst_type body).2) seen
   | InductiveDecl mib =>
     let one_inductive_body_deps oib :=
-        let seen := fold_left (fun seen bt => KernameSet.union seen (box_type_deps bt))
+        let seen := fold_left (fun seen '(_, bt) => KernameSet.union seen (box_type_deps bt))
                               (flat_map snd (ind_ctors oib))
                               KernameSet.empty in
         fold_left (fun seen bt => KernameSet.union seen (box_type_deps bt))

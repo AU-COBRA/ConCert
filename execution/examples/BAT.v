@@ -171,7 +171,7 @@ Definition receive_bat (chain : Chain)
   let sender := ctx.(ctx_from) in
   let sender_payload := ctx.(ctx_amount) in
   let slot := chain.(current_slot) in
-  let contract_balance := chain.(account_balance) ctx.(ctx_contract_address) in
+  let contract_balance := ctx.(ctx_contract_balance) in
   let without_actions := option_map (fun new_state => (new_state, [])) in
   match maybe_msg with
   | Some create_tokens => without_actions (try_create_tokens sender sender_payload slot state)
@@ -195,17 +195,7 @@ Definition receive (chain : Chain)
   | _ => receive_bat chain ctx state maybe_msg
   end.
 
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; solve_contract_proper.	Qed.
-
-(* Not sure if this is the most succint and "pretty" proof, but it works. *)
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof. repeat intro; solve_contract_proper.
-Qed.
-
 Definition contract : Contract Setup Msg State :=
-  build_contract init init_proper receive receive_proper.
+  build_contract init receive.
 
 End BAT.

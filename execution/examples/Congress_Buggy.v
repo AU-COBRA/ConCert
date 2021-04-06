@@ -259,36 +259,8 @@ Definition receive
 
   end.
 
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; solve_contract_proper. Qed.
-
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof.
-  repeat intro.
-  subst.
-  unfold receive.
-  destruct y2; auto.
-  destruct m; auto.
-  - destruct FMap.mem; auto.
-    f_equal.
-    f_equal.
-    unfold add_proposal.
-    f_equal.
-    f_equal.
-    f_equal.
-    f_equal.
-    apply H.
-  - unfold do_finish_proposal.
-    cbn.
-    destruct FMap.find; auto.
-    rewrite H.
-    auto.
-Qed.
-
 Definition contract : Contract Setup Msg State :=
-  build_contract init init_proper receive receive_proper.
+  build_contract init receive.
 
 End CongressBuggy.
 (* We will show that this contract is buggy and does not satisfy the
@@ -319,16 +291,8 @@ Definition exploit_receive
     let again := finish_proposal 1 in
     Some (S state, [act_call (ctx_from ctx) 0 (serialize again)]).
 
-Instance exploit_init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) exploit_init.
-Proof. now subst. Qed.
-
-Instance exploit_receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) exploit_receive.
-Proof. now subst. Qed.
-
 Definition exploit_contract : Contract ExploitSetup ExploitMsg ExploitState :=
-  build_contract exploit_init exploit_init_proper exploit_receive exploit_receive_proper.
+  build_contract exploit_init exploit_receive.
 
 End ExploitContract.
 

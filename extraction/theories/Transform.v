@@ -2,29 +2,36 @@ From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import WcbvEvalAux.
 From Equations Require Import Equations.
+From MetaCoq.PCUIC Require PCUICAst PCUICWcbvEval.
 From MetaCoq.Template Require Import utils.
+From MetaCoq.Template Require Ast.
 
-Definition Transform := global_env -> result global_env string.
-Definition TransformCorrect (transform : Transform) : Type :=
+Definition Transform (A : Type) := A -> result A string.
+
+Definition TemplateTransform := Transform Ast.global_env.
+
+Definition ExtractTransform := Transform ExAst.global_env.
+
+Definition ExtractTransformCorrect (transform : ExtractTransform) : Type :=
   forall Σ Σopt kn ind c (wf := EWcbvEval.opt_wcbv_flags),
     transform Σ = Ok Σopt ->
     trans_env Σ e⊢ tConst kn ▷ tConstruct ind c ->
     trans_env Σopt e⊢ tConst kn ▷ tConstruct ind c.
 
-Definition CorrectTransform := ∑ t, TransformCorrect t.
+Definition CorrectExtractTransform := ∑ t, ExtractTransformCorrect t.
 
-Fixpoint compose_transforms (transforms : list Transform) : Transform :=
+Fixpoint compose_transforms {A : Type} (transforms : list (Transform A)) : Transform A :=
   match transforms with
   | [] => Ok
   | t :: transforms =>
-    fun Σ =>
+    fun Σ : A =>
       Σopt <- t Σ;;
       compose_transforms transforms Σopt
   end.
 
 Lemma compose_transforms_correct transforms :
-  All TransformCorrect transforms ->
-  TransformCorrect (compose_transforms transforms).
+  All ExtractTransformCorrect transforms ->
+  ExtractTransformCorrect (compose_transforms transforms).
 Proof.
   intros all Σ Σopt kn ind c wf success ev.
   subst wf.

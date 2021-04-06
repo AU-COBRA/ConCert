@@ -63,15 +63,17 @@ End printing.
 
 Definition opt_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          transforms := [dearg_transform true true false false false] |} |}.
+          extract_transforms := [dearg_transform true true false false false] |} |}.
 
 Definition no_opt_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := false;
-          transforms := [] |} |}.
+          extract_transforms := [] |} |}.
 
 Axiom does_not_happen : forall {A}, A.
 

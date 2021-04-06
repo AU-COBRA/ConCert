@@ -48,6 +48,13 @@ extraction/examples/elm-extract/src/
 extraction/examples/elm-extract/tests/
 extraction/examples/elm-extract/*.html
 
+extraction/examples/elm-web-extract/elm-stuff/
+extraction/examples/elm-web-extract/node_modules/
+extraction/examples/elm-web-extract/src/
+extraction/examples/elm-web-extract/tests/
+extraction/examples/elm-web-extract/*.html
+
+
 ## Liquidity tests
 extraction/examples/liquidity-extract/*
 extraction/examples/liquidity-extract/tests/*

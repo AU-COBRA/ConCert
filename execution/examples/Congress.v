@@ -251,37 +251,8 @@ Definition receive
 
   end.
 
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; solve_contract_proper. Qed.
-
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof.
-  repeat intro.
-  subst.
-  unfold receive.
-  destruct y2; auto.
-  destruct m; auto.
-  - destruct FMap.mem; auto.
-    f_equal.
-    f_equal.
-    unfold add_proposal.
-    f_equal.
-    f_equal.
-    f_equal.
-    f_equal.
-    apply H.
-  - unfold do_finish_proposal.
-    cbn.
-    destruct FMap.find; auto.
-    rewrite H.
-    auto.
-Qed.
-
 Definition contract : Contract Setup Msg State :=
-  build_contract init init_proper receive receive_proper.
-
+  build_contract init receive.
 
 Section Theories.
 Local Open Scope nat.

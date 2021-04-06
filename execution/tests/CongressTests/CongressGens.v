@@ -141,7 +141,7 @@ Definition finishable_proposals (state : Congress.State)
 
 Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GOpt Action :=
   let call contract_addr caller_addr msg :=
-    amount <- match env.(account_balance) caller_addr with
+    amount <- match env.(env_account_balances) caller_addr with
               | 0%Z => returnGenSome 0%Z
               | caller_balance => genToOpt (choose (0%Z, caller_balance))
               end ;;

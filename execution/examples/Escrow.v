@@ -95,8 +95,7 @@ Definition receive
   : option (State * list ActionBody) :=
   match msg, next_step state with
   | Some commit_money, buyer_commit =>
-    let item_price := (account_balance chain (ctx_contract_address ctx)
-                       - ctx_amount ctx) / 2 in
+    let item_price := (ctx_contract_balance ctx - ctx_amount ctx) / 2 in
     let expected := item_price * 2 in
     do if (ctx_from ctx =? buyer state)%address then Some tt else None;
     do if ctx_amount ctx =? expected then Some tt else None;
@@ -104,7 +103,7 @@ Definition receive
                <|last_action := current_slot chain|>, [])
 
   | Some confirm_item_received, buyer_confirm =>
-    let item_price := account_balance chain (ctx_contract_address ctx) / 4 in
+    let item_price := ctx_contract_balance ctx / 4 in
     do if (ctx_from ctx =? buyer state)%address then Some tt else None;
     do if ctx_amount ctx =? 0 then Some tt else None;
     let new_state :=
@@ -134,21 +133,14 @@ Definition receive
     do if ctx_amount ctx =? 0 then Some tt else None;
     do if (last_action state + 50 <? current_slot chain)%nat then None else Some tt;
     do if (ctx_from ctx =? seller state)%address then Some tt else None;
-    let balance := account_balance chain (ctx_contract_address ctx) in
+    let balance := ctx_contract_balance ctx in
     Some (state<|next_step := no_next_step|>, [act_transfer (seller state) balance])
 
   | _, _ => None
   end.
 
-Program Definition contract : Contract Setup Msg State :=
-  build_contract init _ receive _.
-Next Obligation. repeat intro; solve_contract_proper. Qed.
-Next Obligation.
-  repeat intro; solve_contract_proper.
-  cbn.
-  rewrite H.
-  easy.
-Qed.
+Definition contract : Contract Setup Msg State :=
+  build_contract init receive.
 
 Section Theories.
   Lemma no_self_calls bstate caddr :
@@ -285,13 +277,13 @@ Section Theories.
                          end) (outgoing_acts bstate caddr) = true /\
       match next_step cstate with
       | buyer_commit =>
-        account_balance bstate caddr = 2 * item_worth /\
+        env_account_balances bstate caddr = 2 * item_worth /\
         outgoing_acts bstate caddr = [] /\
         outgoing_txs trace caddr = [] /\
         inc_calls = []
 
       | buyer_confirm =>
-        account_balance bstate caddr = 4 * item_worth /\
+        env_account_balances bstate caddr = 4 * item_worth /\
         outgoing_acts bstate caddr = [] /\
         outgoing_txs trace caddr = [] /\
         inc_calls = [build_call_info buyer_addr (2 * item_worth) (Some commit_money)]
@@ -386,7 +378,7 @@ Section Theories.
         apply Z.eqb_eq in proper_amount.
         rewrite balance_eq in proper_amount.
         rewrite proper_amount.
-        replace (account_balance _ _) with (2 * item_worth + 2 * item_worth / 2 * 2) by lia.
+        replace (ctx_contract_balance _) with (2 * item_worth + 2 * item_worth / 2 * 2) by lia.
         rewrite <- Z.mul_comm.
         rewrite Z.div_mul by lia.
         repeat split; auto.
@@ -407,7 +399,7 @@ Section Theories.
         unfold txs_to, transfer_acts_to; cbn.
         apply Z.eqb_eq in zero_amount.
         rewrite zero_amount in *.
-        replace (account_balance _ _) with (4 * item_worth) in * by lia.
+        replace (ctx_contract_balance _) with (4 * item_worth) in * by lia.
         rewrite (Z.mul_comm 4).
         rewrite Z.div_mul by lia.
         destruct (Z.eqb_spec (2 * item_worth) 0); cbn in *; try lia.

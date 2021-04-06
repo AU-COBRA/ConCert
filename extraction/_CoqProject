@@ -13,10 +13,13 @@
 theories/Annotations.v
 theories/CameLIGOExtract.v
 theories/CameLIGOPretty.v
+theories/Certifying.v
 theories/CertifyingEta.v
+theories/CertifyingInlining.v
 theories/ClosedAux.v
 theories/Common.v
 theories/ConcordiumExtract.v
+theories/ElmExtract.v
 theories/Erasure.v
 theories/ErasureCorrectness.v
 theories/ExAst.v
@@ -27,7 +30,6 @@ theories/ExtractionCorrectness.v
 theories/Inlining.v
 theories/LPretty.v
 theories/LiquidityExtract.v
-theories/MidlangExtract.v
 theories/Optimize.v
 theories/OptimizeCorrectness.v
 theories/OptimizePropDiscr.v
@@ -51,11 +53,13 @@ examples/CounterDepCertifiedExtraction.v
 examples/CounterRefinementTypes.v
 examples/CrowdfundingCertifiedExtraction.v
 examples/ElmExtractTests.v
+examples/ElmExtractExamples.v
+examples/ElmForms.v
 examples/ErasureTests.v
+examples/ERC20LiquidityExtraction.v
 examples/ForPaper.v
 examples/MidlangCounterRefTypes.v
 examples/MidlangEscrow.v
-examples/MidlangExtractTests.v
 examples/RustCounter.v
 examples/RustExtractTests.v
 examples/RustInterp.v

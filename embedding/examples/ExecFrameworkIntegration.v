@@ -31,10 +31,10 @@ Next Obligation.
 Defined.
 
 Definition to_chain (sc : SimpleChain_coq) : Chain :=
-  let '(Build_chain_coq h s fh ab) := sc in build_chain h s fh ab.
+  let '(Build_chain_coq h s fh) := sc in build_chain h s fh.
 
 Definition of_chain (c : Chain) : SimpleChain_coq :=
-  let '(build_chain h s fh ab) := c in Build_chain_coq h s fh ab.
+  let '(build_chain h s fh) := c in Build_chain_coq h s fh.
 
 Definition to_action_body (sab : SimpleActionBody_coq) : ActionBody :=
   match sab with
@@ -42,10 +42,12 @@ Definition to_action_body (sab : SimpleActionBody_coq) : ActionBody :=
   end.
 
 Definition to_contract_call_context (scc : SimpleContractCallContext_coq) : ContractCallContext :=
-  let '(Build_ctx_coq from contr_addr am) := scc in build_ctx from contr_addr am.
+  let '(Build_ctx_coq from contr_addr contr_bal am) := scc in
+  build_ctx from contr_addr contr_bal am.
 
 Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext_coq :=
-  let '(build_ctx from contr_addr am) := cc in Build_ctx_coq from contr_addr am.
+  let '(build_ctx from contr_addr contr_bal am) := cc in
+  Build_ctx_coq from contr_addr contr_bal am.
 
 Import Serializable Prelude.Maps.
 
@@ -72,7 +74,7 @@ Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
   Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq):
-    Chain (Base:=CB) -> ContractCallContext (Base:=CB) -> Setup -> option State_coq
+    Chain -> ContractCallContext -> Setup -> option State_coq
     := fun c cc setup => Some (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
   Definition wrapped_init
@@ -96,41 +98,8 @@ Section Wrappers.
 
 End Wrappers.
 
-(** Taken from [Congress] *)
-Ltac solve_contract_proper :=
-  repeat
-    match goal with
-    | [ |- ?x _  = ?x _] => unfold x
-    | [ |- ?x _ _ = ?x _ _] => unfold x
-    | [ |- ?x _ _ _ = ?x _ _ _] => unfold x
-    | [ |- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
-    | [ |- ?x _ _ _ _ = ?x _ _ _ _] => unfold x
-    | [ |- ?x _ _ _ _ _ = ?x _ _ _ _ _] => unfold x
-    | [ |- Some _ = Some _] => f_equal
-    | [ |- pair _ _ = pair _ _] => f_equal
-    | [ |- (if ?x then _ else _) = (if ?x then _ else _)] => destruct x
-    | [ |- match ?x with | _ => _ end = match ?x with | _ => _ end ] => destruct x
-    | [H: ChainEquiv _ _ |- _] => rewrite H in *
-    | _ => subst; auto
-    end.
-
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) wrapped_init.
-Proof. repeat intro; solve_contract_proper. Qed.
-
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) wrapped_receive.
-Proof.
-  repeat intro. unfold wrapped_receive,receive_wrapper.
-  subst. destruct y2;auto.
-  f_equal.
-  unfold Receive.receive. destruct x,y;simpl in *.
-  inversion H;cbn in *;subst.
-  destruct m;solve_contract_proper.
-Qed.
-
 Definition cf_contract : Contract Setup Msg_coq State_coq :=
-  build_contract wrapped_init init_proper wrapped_receive receive_proper.
+  build_contract wrapped_init wrapped_receive.
 
 Definition cf_state (env : Environment) (address : Blockchain.Address) : option State_coq :=
   match (env_contract_states env address) with
@@ -253,7 +222,7 @@ Lemma undeployed_balance_0 (bstate : ChainState) addr :
   reachable bstate ->
   address_is_contract addr = true ->
   env_contracts bstate addr = None ->
-  (account_balance bstate addr = 0%Z).
+  (env_account_balances bstate addr = 0%Z).
 Proof.
   intros [trace] is_contract no_contract.
   rewrite (account_balance_trace _ trace); auto.
@@ -422,7 +391,7 @@ Theorem cf_backed bstate cf_addr lstate:
   reachable bstate ->
   env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->
   cf_state bstate cf_addr = Some lstate ->
-  (account_balance (env_chain bstate) cf_addr >=
+  (env_account_balances bstate cf_addr >=
    balance_coq lstate + sumZ act_body_amount (outgoing_acts bstate cf_addr)).
 Proof.
   cbn in *.
@@ -430,7 +399,7 @@ Proof.
   revert lstate.
   enough (H: exists lstate',
              cf_state bstate cf_addr = Some lstate' /\
-             (account_balance bstate cf_addr >=
+             (env_account_balances bstate cf_addr >=
               balance_coq lstate' + sumZ act_body_amount (outgoing_acts bstate cf_addr))).
   { intros. destruct H as [lstate' [? ?]].
     now replace lstate with lstate' by congruence. }
@@ -507,7 +476,7 @@ Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}
   builder_add_block prev hd acts = Ok new ->
   env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
   cf_state new cf_addr = Some lstate ->
-  (account_balance (env_chain new) cf_addr >= balance_coq lstate)%Z.
+  (env_account_balances new cf_addr >= balance_coq lstate)%Z.
 Proof.
   intros Hnew Hcf Hst.
   destruct ChainBuilder;cbn in *.
@@ -526,7 +495,7 @@ Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
   env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
   cf_state new cf_addr = Some lstate ->
   ~~ lstate.(done_coq) ->
-  (account_balance (env_chain new) cf_addr >= sum_map (lstate.(donations_coq)))%Z.
+  (env_account_balances new cf_addr >= sum_map (lstate.(donations_coq)))%Z.
 Proof.
   intros Hnew Hcf Hst Hdone.
   destruct ChainBuilder;cbn in *.

@@ -341,23 +341,6 @@ Definition receive_wrapper_no_calls (contract_name receive_name : string)
      "    }";
 "}" $>.
 
-Definition extract_def_name_exists {A : Type} (a : A) : TemplateMonad kername :=
-  a <- tmEval cbn a;;
-  quoted <- tmQuote a;;
-  let (head, args) := decompose_app quoted in
-  match head with
-  | tConstruct ind _ _ =>
-    if eq_kername ind.(Ast.BasicTC.inductive_mind)
-                        (MPfile ["Specif"; "Init"; "Coq"], "sigT")
-    then match nth_error args 3 with
-         | Some (tConst name _) => ret name
-         | Some t => tmFail ("Expected constant at second component, got " ++ string_of_term t)
-         | None => tmFail ("existT: Expected 4 arguments, found less")
-         end
-    else tmFail ("Expected constructor existT at head, got " ++ string_of_term head)
-  | _ => tmFail ("Expected constructor at head, got " ++ string_of_term head)
-  end.
-
 Definition rust_extraction {init_type receive_type : Type} (m : ConcordiumMod init_type receive_type) (remaps : remaps) (ind_attrs : ind_attr_map) (should_inline : kername -> bool) : TemplateMonad _ :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(concmd_init);;

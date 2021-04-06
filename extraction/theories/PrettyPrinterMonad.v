@@ -10,6 +10,8 @@ From MetaCoq.Template Require Import BasicAst.
 
 Import String.
 
+Import PCUICErrors.
+
 Import ListNotations.
 Import MonadNotation.
 Local Open Scope string.
