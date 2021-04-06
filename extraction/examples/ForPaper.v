@@ -4,7 +4,7 @@ From ConCert.Embedding Require Import MyEnv.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Erasure.
@@ -72,9 +72,10 @@ Definition erase_print (p : program) (opt : bool) : result string string :=
            end;;
   let args :=
     {| check_wf_env_func := check_wf_env_func extract_within_coq;
+       template_transforms := [];
        pcuic_args :=
          {| optimize_prop_discr := opt;
-            transforms := if opt then [dearg_transform true true false false false] else [] |} |} in
+            extract_transforms := if opt then [dearg_transform true true false false false] else [] |} |} in
   Σ <- extract_template_env
          args
          p.1

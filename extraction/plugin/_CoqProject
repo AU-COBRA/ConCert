@@ -41,6 +41,8 @@ src/extraction0.ml
 src/extraction0.mli
 src/fin.ml
 src/fin.mli
+src/floatOps.ml
+src/floatOps.mli
 src/init.ml
 src/init.mli
 src/inlining.ml
@@ -63,6 +65,8 @@ src/pCUICChecker.ml
 src/pCUICChecker.mli
 src/pCUICCumulativity.ml
 src/pCUICCumulativity.mli
+src/pCUICErrors.ml
+src/pCUICErrors.mli
 src/pCUICEquality.ml
 src/pCUICEquality.mli
 src/pCUICLiftSubst.ml
@@ -73,6 +77,8 @@ src/pCUICPosition.ml
 src/pCUICPosition.mli
 src/pCUICPretty.ml
 src/pCUICPretty.mli
+src/pCUICPrimitive.ml
+src/pCUICPrimitive.mli
 src/pCUICReduction.ml
 src/pCUICReduction.mli
 src/pCUICSafeChecker.ml
@@ -97,12 +103,18 @@ src/resultMonad.ml
 src/resultMonad.mli
 src/rustExtract.ml
 src/rustExtract.mli
+src/int63.ml
+src/int63.mli
+src/primFloat.ml
+src/primFloat.mli
 src/pluginExtract.ml
 src/pluginExtract.mli
 src/erasureFunction.ml
 src/erasureFunction.mli
 src/safeTemplateChecker.ml
 src/safeTemplateChecker.mli
+src/specFloat.ml
+src/specFloat.mli
 src/ssrbool.ml
 src/ssrbool.mli
 src/ssreflect.ml

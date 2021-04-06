@@ -33,6 +33,7 @@ Fixpoint expand_branches (t : term) : term :=
   | tProj p t => tProj p (expand_branches t)
   | tFix defs i => tFix (map (map_def expand_branches) defs) i
   | tCoFix defs i => tCoFix (map (map_def expand_branches) defs) i
+  | tPrim _ => t
   end.
 
 Definition expand_constant_body cst :=
@@ -48,5 +49,5 @@ Definition expand_decl d :=
 Definition expand_env (Σ : global_env) : global_env :=
   map (on_snd expand_decl) Σ.
 
-Definition transform : Transform :=
+Definition transform : ExtractTransform :=
   fun Σ => Ok (timed "Expansion of match branches" (fun _ => expand_env Σ)).

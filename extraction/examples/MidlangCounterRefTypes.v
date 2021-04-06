@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import MidlangExtract.
+From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
@@ -26,7 +26,7 @@ Import MonadNotation.
 
 Open Scope string.
 
-Instance MidlangBoxes : MidlangPrintConfig :=
+Instance MidlangBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
      any_type_symbol := "()";
@@ -34,7 +34,6 @@ Instance MidlangBoxes : MidlangPrintConfig :=
 
 Definition midlang_translation_map :=
   [(<%% @current_slot %%>, "current_slot");
-  (<%% @account_balance %%>, "account_balance");
   (<%% @address_eqb %%>, "address_eq");
   (<%% @ctx_amount %%>, "amount");
   (<%% @ctx_from %%>, "from");

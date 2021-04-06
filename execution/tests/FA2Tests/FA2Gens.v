@@ -144,11 +144,11 @@ Definition gTransfer (state : FA2Token.State)
 
 Local Close Scope N_scope.
 Local Open Scope Z_scope.
-Definition gCreateTokens (chain : Chain)
+Definition gCreateTokens (env : Environment)
                          (caller : Address)
                          (state : FA2Token.State)
                          : G (option (Z * FA2Token.Msg)) :=
-  let balance := chain.(account_balance) caller in
+  let balance := env.(env_account_balances) caller in
   bindGenOpt (liftM fst (sampleFMapOpt state.(assets)))
   (fun tokenid =>
     if 0 <? balance then
@@ -248,7 +248,7 @@ Definition gClientAction (env : Environment) : GOpt Action :=
   caller <- liftOptGen (gAddrWithout []) ;;
   msg <- gIsOperatorMsg ;;
   mk_call_fa2 caller fa2_caddr msg.
-  
+
 End FA2ClientGens.
 
 (* --------------------- FA2 Hook Generators --------------------- *)
@@ -271,9 +271,9 @@ Definition gFA2ChainTraceList max_acts_per_block cb length :=
 Definition token_reachableFrom (cb : ChainBuilder) pf : Checker :=
   reachableFrom_chaintrace cb (gFA2ChainTraceList 1) pf.
 
-Definition token_reachableFrom_implies_reachable {A} 
-                                                 (size : nat) 
-                                                 (cb : ChainBuilder) 
+Definition token_reachableFrom_implies_reachable {A}
+                                                 (size : nat)
+                                                 (cb : ChainBuilder)
                                                  (pf1 : ChainState -> option A)
                                                  pf2
                                                   : Checker :=

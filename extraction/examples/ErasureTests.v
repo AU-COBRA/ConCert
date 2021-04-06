@@ -21,6 +21,7 @@ Local Open Scope string_scope.
 Import String.
 Import ListNotations.
 Import MonadNotation.
+Import PCUICErrors.
 Set Equations Transparent.
 
 Local Existing Instance extraction_checker_flags.
@@ -151,7 +152,7 @@ Definition print_box_type (Σ : P.global_env) (tvars : list name) :=
                 | None => "'a" ++ string_of_nat i
                 end
     | TInd s =>
-      match @lookup_ind_decl (empty_ext Σ) s with
+      match @PCUICSafeRetyping.lookup_ind_decl (empty_ext Σ) s with
       | Checked (decl; oib; _) => oib.(P.ind_name)
       | TypeError te => "UndeclaredInductive("
                           ++ string_of_kername s.(inductive_mind)
@@ -414,7 +415,7 @@ Definition print_one_inductive_body
 
   let print_ctor '(ctor_name, ctor_types) :=
       nl ++ "| " ++ ctor_name ++
-         concat "" (map print_ctor_type ctor_types) in
+         concat "" (map (print_ctor_type ∘ snd) ctor_types) in
 
   "data "
     ++ ExAst.ind_name oib ++ concat "" (map (fun tvar => " " ++ print_name (tvar_name tvar))

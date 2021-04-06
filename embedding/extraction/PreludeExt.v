@@ -161,7 +161,7 @@ Definition init_wrapper {setup storage}
   let simple_ctx :=
       (Time_coq ch.(current_slot),
        ((ctx.(ctx_from)),
-        ((ctx.(ctx_amount), ch.(account_balance) ctx.(ctx_contract_address))))) in
+        ((ctx.(ctx_amount), ctx.(ctx_contract_balance))))) in
     init simple_ctx.
 
 

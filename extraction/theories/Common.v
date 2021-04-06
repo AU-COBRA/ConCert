@@ -24,7 +24,9 @@ Notation "<%% t %%>" :=
              | @Some _ ?kn => exact kn
              | _ => fail "not a name"
              end in quote_term t p)).
-             
+
+Import PCUICErrors.
+
 Definition result_of_typing_result
            {A}
            (Σ : PCUICAst.global_env_ext)
@@ -66,6 +68,23 @@ Definition extract_def_name {A : Type} (a : A) : TemplateMonad kername :=
   match head with
   | tConst name _ => ret name
   | _ => tmFail ("Expected constant at head, got " ++ string_of_term head)
+  end.
+
+Definition extract_def_name_exists {A : Type} (a : A) : TemplateMonad kername :=
+  a <- tmEval cbn a;;
+  quoted <- tmQuote a;;
+  let (head, args) := decompose_app quoted in
+  match head with
+  | tConstruct ind _ _ =>
+    if eq_kername ind.(inductive_mind)
+                        <%% sigT %%>
+    then match nth_error args 3 with
+         | Some (tConst name _) => ret name
+         | Some t => tmFail ("Expected constant at second component, got " ++ string_of_term t)
+         | None => tmFail ("existT: Expected 4 arguments, found less")
+         end
+    else tmFail ("Expected constructor existT at head, got " ++ string_of_term head)
+  | _ => tmFail ("Expected constructor at head, got " ++ string_of_term head)
   end.
 
 Notation "'unfolded' d" :=

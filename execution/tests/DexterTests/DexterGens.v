@@ -58,12 +58,12 @@ Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
   a <- g ;;
   returnGenSome a.
 
-Definition gAddTokensToReserve (c : Chain)
+Definition gAddTokensToReserve (env : Environment)
                                (state : FA2Token.State)
                                : GOpt (Address * Amount * Dexter.Msg) :=
   tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
   caller <- liftOptGen gAccountAddress ;;
-  amount <- liftOptGen (choose (0%Z, c.(account_balance) caller)) ;;
+  amount <- liftOptGen (choose (0%Z, env.(env_account_balances) caller)) ;;
   returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
 Definition gDexterAction (env : Environment) : GOpt Action :=
@@ -92,7 +92,7 @@ Definition gDexterChain max_acts_per_block cb length :=
 Definition token_reachableFrom max_acts_per_block cb pf : Checker :=
   reachableFrom_chaintrace cb (gDexterChain max_acts_per_block) pf.
 
-Definition token_reachableFrom_implies_reachable 
+Definition token_reachableFrom_implies_reachable
            {A} length max_acts_per_block cb (pf1 : ChainState -> option A) pf2 : Checker :=
   reachableFrom_implies_chaintracePropSized length cb (gDexterChain max_acts_per_block) pf1 pf2.
 

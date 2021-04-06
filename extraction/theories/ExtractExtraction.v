@@ -1,6 +1,9 @@
 (* This file is based on erasure/theories/Extraction.v from MetaCoq *)
 
 Require Import FSets ExtrOcamlBasic ExtrOcamlString ExtrOcamlZInt.
+From MetaCoq.Template Require Import MC_ExtrOCamlInt63.
+From Coq Require Import ExtrOCamlFloats.
+
 
 (* Ignore [Decimal.int] before the extraction issue is solved:
    https://github.com/coq/coq/issues/7017. *)
@@ -30,9 +33,7 @@ Extraction Inline Equations.Init.hidebody.
 Extraction Inline Equations.Prop.DepElim.solution_left.
 
 Extract Inductive Equations.Init.sigma => "( * )" ["(,)"].
-Extract Constant PCUICTyping.fix_guard => "(fun x -> true)".
-Extract Constant PCUICTyping.cofix_guard => "(fun x -> true)".
-Extract Constant PCUICTyping.ind_guard => "(fun x -> true)".
+Extract Constant PCUICTyping.guard_checking => "{ fix_guard = (fun _ _ _ -> true); cofix_guard = (fun _ _ _ -> true) }".
 Extract Constant PCUICSafeChecker.check_one_ind_body => "(fun _ _ _ _ _ _ _ -> ret envcheck_monad __)".
 Extract Constant timed =>
 "(fun c x ->

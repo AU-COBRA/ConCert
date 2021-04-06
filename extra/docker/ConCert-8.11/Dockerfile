@@ -7,10 +7,7 @@ RUN ["/bin/bash", "--login", "-c", "set -x \
   && opam repository add --all-switches --set-default iris-dev https://gitlab.mpi-sws.org/iris/opam.git \
   && opam update -y -u \
   && opam install -y -v -j ${NJOBS} coq-equations.1.2.1+8.11 coq-stdpp coq-quickchick \
-  && git clone https://github.com/MetaCoq/metacoq.git \
-  && cd metacoq \
-  && git checkout 77adb13585d2f357b78642c16b6c4da817f35eff \
-  && opam install -y -v -j ${NJOBS} . \
+  && opam pin -y -j ${NJOBS} add https://github.com/MetaCoq/metacoq.git#8d576c70957c0dce2053f2a7272b231f41c3d43f \
   && opam clean -a -c -s --logs \
   && opam config list \
   && opam list"]

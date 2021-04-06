@@ -497,15 +497,7 @@ Definition init (chain : Chain)
           operators := FMap.empty;
           tokens := setup.(setup_tokens) |}.
 
-Lemma init_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq) init.
-Proof. repeat intro; solve_contract_proper.	Qed.
-
-Lemma receive_proper :
-  Proper (ChainEquiv ==> eq ==> eq ==> eq ==> eq) receive.
-Proof. repeat intro; solve_contract_proper. Qed.
-
 Definition contract : Contract Setup Msg State :=
-  build_contract init init_proper receive receive_proper.
+  build_contract init receive.
 
 End FA2Token.

@@ -105,9 +105,8 @@ Module Counter.
             Derive Serializable msg_rect<Inc, Dec>.
 
   (** A contract instance used by the execution framework *)
-  Program Definition CounterContract :=
-    build_contract counter_init _ counter_receive _.
-  Next Obligation. easy. Qed.
+  Definition CounterContract :=
+    build_contract counter_init counter_receive.
 
 End Counter.
 

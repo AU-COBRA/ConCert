@@ -176,7 +176,7 @@ Proof.
     intros Γ a.
     induction a; [now constructor|].
     constructor; [|now eauto].
-    destruct r as ((? & ?) & ? & ? & ?).
+    destruct r as (? & ? & ? & ?).
     split; [|now auto].
     econstructor; eauto.
   - apply inversion_CoFix in X as (?&?&?&?&?&?&?); auto.
@@ -377,6 +377,7 @@ Proof.
     apply bigprod_map; [|exact ta.2].
     intros.
     exact (f _ All_nil _ X).
+  - exact (annot_mkApps ta argsa).
 Defined.
 
 Definition annot_dearg im cm {t : term} (ta : annots box_type t) : annots box_type (dearg im cm t) :=
@@ -386,7 +387,7 @@ Definition annot_debox_type_decl Σ {decl} (a : global_decl_annots box_type decl
   : global_decl_annots box_type (debox_type_decl Σ decl).
 Proof.
   unfold debox_type_decl.
-  destruct decl; [|exact a|exact a].
+  destruct decl;[|exact a|  (destruct o as [p|]; auto; destruct p;exact a)].
   cbn in *.
   (* we have removed type variables from inductives, so adjust type annotations similarly *)
   unfold constant_body_annots in *.
@@ -560,7 +561,7 @@ Proof.
 Defined.
 
 Definition annot_extract_pcuic_env params Σ wfΣ include ignore :
-  All (annot_transform_type box_type) (transforms params) ->
+  All (annot_transform_type box_type) (extract_transforms params) ->
   match extract_pcuic_env params Σ wfΣ include ignore with
   | Ok Σ => env_annots box_type Σ
   | _ => unit
@@ -576,15 +577,16 @@ Proof.
 Defined.
 
 Definition annot_extract_template_env params Σ include ignore :
-  All (annot_transform_type box_type) (transforms (pcuic_args params)) ->
+  All (annot_transform_type box_type) (extract_transforms (pcuic_args params)) ->
   match extract_template_env params Σ include ignore with
   | Ok Σ => env_annots box_type Σ
   | _ => unit
   end.
 Proof.
   intros all.
-  unfold extract_template_env.
-  destruct check_wf_env_func; [|exact tt].
+  unfold extract_template_env,extract_template_env_general, check_wf_and_extract.
+  cbn.
+  destruct check_wf_env_func; [|exact tt]. cbn.
   apply annot_extract_pcuic_env.
   exact all.
 Defined.

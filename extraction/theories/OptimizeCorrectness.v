@@ -438,6 +438,7 @@ Proof.
       now f_equal.
     + rewrite <- !Nat.add_succ_r in *.
       now apply IHX.
+  - reflexivity.
 Qed.
 
 Lemma masked_nil {X} mask :
@@ -734,6 +735,7 @@ Proof.
     cbn.
     f_equal.
     now rewrite p.
+  - apply lift_mkApps.
 Qed.
 
 Lemma lift_dearg n k t :
@@ -781,6 +783,7 @@ Proof.
     f_equal.
     rewrite <- !Nat.add_succ_r.
     now apply IHX.
+  - reflexivity.
 Qed.
 
 Lemma is_dead_lift_all k k' n t :
@@ -1231,6 +1234,7 @@ Proof.
     rewrite p by easy.
     split; [easy|].
     now apply IHX.
+  - eapply Forall_forallb;eauto.
 Qed.
 
 Lemma valid_dearg_mask_dearg mask t :
@@ -1368,6 +1372,7 @@ Proof.
     unfold map_def; cbn.
     f_equal.
     now apply (p _ _ []).
+  - rewrite subst_mkApps. now rewrite map_map.
 Qed.
 
 Lemma dearg_subst s k t :
@@ -1484,6 +1489,7 @@ Proof.
     propify.
     rewrite <- !Nat.add_succ_r.
     now rewrite p, IHX.
+  - reflexivity.
 Qed.
 
 Lemma is_expanded_aux_subst s n t k :
@@ -1528,6 +1534,7 @@ Proof.
     propify.
     rewrite <- !Nat.add_succ_r.
     now rewrite p, IHX.
+  - reflexivity.
 Qed.
 
 Lemma is_expanded_substl s n t :
@@ -3263,9 +3270,9 @@ Proof.
   unfold is_propositional_ind.
   rewrite !lookup_env_trans_env, lookup_env_debox_env_types.
   destruct lookup_env; cbn in *; [|reflexivity].
-  destruct g; cbn in *; auto.
-  rewrite !nth_error_map.
-  now destruct nth_error.
+  destruct g; cbn in *;auto.
+  * rewrite !nth_error_map. now destruct nth_error.
+  * destruct o;auto. now destruct p.
 Qed.
 
 Lemma eval_debox_env_types {wfl:WcbvFlags} Σ t v :
@@ -3281,8 +3288,9 @@ Proof.
     unfold declared_constant in *.
     rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
     destruct lookup_env; cbn in *; [|congruence].
-    destruct g; cbn in *; auto.
-    congruence.
+    destruct g; cbn in *;auto.
+    * congruence.
+    * destruct o;auto. now destruct p.
   - eapply eval_proj; eauto.
     now rewrite is_propositional_ind_trans_env_debox_env_types.
   - eapply eval_proj_prop; eauto.
@@ -3314,7 +3322,7 @@ Proof.
 Qed.
 
 Lemma dearg_transform_correct do_trim_const_masks do_trim_ctor_masks :
-  TransformCorrect (dearg_transform do_trim_const_masks do_trim_ctor_masks true true true).
+  ExtractTransformCorrect (dearg_transform do_trim_const_masks do_trim_ctor_masks true true true).
 Proof.
   red.
   intros Σ Σopt kn ind c opt ev.

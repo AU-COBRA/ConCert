@@ -159,9 +159,9 @@ Module CrowdfundingProperties.
   Qed.
 
   (** This lemma states that the only relevant part of the blockchain state is the current slot, because we check if the deadline have passed by comparing the deadline recoded in the internal state with the current slot number.*)
-  Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 bal1 bal2 msg st ctx :
-    Receive.receive (Build_chain_coq height1 cur_slot fheight1 bal1) ctx msg st  =
-    Receive.receive (Build_chain_coq height2 cur_slot fheight2 bal2) ctx msg st.
+  Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 msg st ctx :
+    Receive.receive (Build_chain_coq height1 cur_slot fheight1) ctx msg st  =
+    Receive.receive (Build_chain_coq height2 cur_slot fheight2) ctx msg st.
   Proof.
     destruct msg;
       simpl;

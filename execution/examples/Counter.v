@@ -80,8 +80,8 @@ Section Counter.
     Derive Serializable Msg_rect<Inc, Dec>.
 
   (** The counter contract *)
-  Program Definition counter_contract : Contract Z Msg State :=
-    build_contract counter_init _ counter_receive _.
+  Definition counter_contract : Contract Z Msg State :=
+    build_contract counter_init counter_receive.
 
 End Counter.
 
