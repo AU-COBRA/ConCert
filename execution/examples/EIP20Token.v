@@ -166,7 +166,7 @@ Definition transfer_from_allowances_update_correct (old_state new_state : State)
   let get_allowance state := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances)))) in
   let delegate_allowance_before := get_allowance old_state in
   let delegate_allowance_after := get_allowance new_state in 
-    Some (delegate_allowance_before =? delegate_allowance_before + tokens).
+    delegate_allowance_before =? delegate_allowance_after + tokens.
 
 Lemma add_is_partial_alter : forall (account : Address) (balances : FMap Address N) (f : N -> N),
   FMap.partial_alter (fun balance : option N => Some (f (with_default 0 balance))) account balances =
@@ -208,9 +208,8 @@ Proof.
   unfold receive in H. destruct_match in H.
   - (* case: ctx_amount > 0 *) congruence.
   - (* case: ctx_amount = 0 *) unfold try_transfer in H. unfold transfer_balance_update_correct.
-    destruct_match eqn:H1; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev; destruct_match eqn:H2 in H;
-      simpl in *; try congruence; apply N.ltb_ge in H2; destruct_address_eq; try discriminate; subst; try rewrite from_prev;
-      inversion H; simpl in *.
+    destruct_address_eq; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev; destruct_match eqn:H2 in H;
+    simpl in *; try congruence; apply N.ltb_ge in H2; subst; try rewrite from_prev; inversion H; simpl in *.
     + (* case: from =  to && find from = Some n && amount <= n *)
       rewrite FMap.find_partial_alter, FMap.find_add; try auto. simpl.
       now repeat rewrite N.sub_add, N.eqb_refl.
@@ -224,6 +223,46 @@ Proof.
       apply N.lt_eq_cases in H2. destruct H2; try lia. subst.
       rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
       apply N.eqb_refl.
+Qed.
+
+Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+  transfer_balance_update_correct prev_state new_state from to amount = true /\
+  transfer_from_allowances_update_correct prev_state new_state from ctx.(ctx_from) amount = true.
+Proof.
+  intros.
+  unfold receive in H. destruct_match in H.
+  - (* case: ctx_amount > 0 *) congruence.
+  - (* case: ctx_amount = 0 *) unfold try_transfer_from in H. split.
+    + (* proof of balance updated correct *)
+    unfold transfer_balance_update_correct.
+    destruct_address_eq; destruct (FMap.find from (balances prev_state)) eqn:from_bal_prev; cbn in *;
+      destruct_match eqn:from_alw_prev in H; cbn in *; try congruence;
+      destruct_match eqn:del_alw_prev in H; cbn in *; try congruence;
+      destruct_match eqn:H3 in H; cbn in *; try congruence;
+      apply Bool.orb_false_iff in H3 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4;
+      subst; try rewrite from_bal_prev; inversion H; cbn in *.
+      * (* case: from =  to && find from = Some n && amount <= n *)
+        rewrite FMap.find_partial_alter, FMap.find_add; try auto. simpl.
+        now repeat rewrite N.sub_add, N.eqb_refl.
+      * (* case: from =  to && find from = None   && amount = 0 *)
+        apply N.lt_eq_cases in H4. destruct H4; try lia. subst.
+        now rewrite FMap.find_partial_alter, FMap.find_add.
+      * (* case: from <> to && find from = Some n && amount <= n *)
+        rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
+        simpl. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
+      * (* case: from <> to && find from = None   && amount = 0 *)
+        apply N.lt_eq_cases in H4. destruct H4; try lia. subst.
+        rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
+        apply N.eqb_refl.
+    + (* proof of allowances updated correct *)
+      cbn in *.
+      destruct_match eqn:from_alw_prev in H; cbn in *; try congruence;
+      destruct_match eqn:del_alw_prev in H; cbn in *; try congruence;
+      destruct_match eqn:H3 in H; cbn in *; try congruence;
+      apply Bool.orb_false_iff in H3 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4;
+      subst; inversion H. cbn. clear H H1 H2. do 2 (rewrite FMap.find_add; cbn).
+      rewrite N.sub_add; auto. apply N.eqb_refl.
 Qed.
 
 Definition sum_balances' (state : EIP20Token.State) :=
