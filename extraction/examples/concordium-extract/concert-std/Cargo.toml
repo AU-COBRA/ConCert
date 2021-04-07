@@ -1,0 +1,17 @@
+[package]
+name = "concert-std"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+bumpalo = "3.5.0"
+concert-std-derive = { path = "../concert-std-derive" }
+immutable-map = "0.1.2"
+
+[dependencies.concordium-std]
+git = "https://github.com/jakobbotsch/concordium-rust-smart-contracts.git"
+branch = "main"
+default-features = false

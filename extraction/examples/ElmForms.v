@@ -104,8 +104,6 @@ Definition updateEntry : Msg -> Entry -> Entry :=
       model<| passwordAgain := newPassword |>
   end.
 
-Set Printing All.
-
 Definition emptyNameError := "Empty name!".
 Definition passwordsDoNotMatchError := "Passwords do not match!".
 Definition passwordIsTooShortError := "Password is too short!".
@@ -189,7 +187,8 @@ Definition extract_elm_within_coq (should_inline : kername -> bool) :=
    template_transforms := [CertifyingInlining.template_inline should_inline ];
    pcuic_args := {| optimize_prop_discr := true;
                     extract_transforms :=
-                      [dearg_transform true true true true true] |} |}.
+                      [dearg_transform (fun _ => None) true true true true true] |} |}.
+
 
 Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
