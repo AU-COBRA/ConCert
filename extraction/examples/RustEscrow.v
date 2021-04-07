@@ -16,7 +16,6 @@ Definition ESCROW_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "escrow"%string;
      concmd_init := @Escrow.init;
      concmd_receive := @Escrow.receive;
-     (* Extracting the example as well *)
      concmd_extra := []; |}.
 
 Definition null_remap : remapped_inductive :=
