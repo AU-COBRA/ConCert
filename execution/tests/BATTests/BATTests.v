@@ -25,8 +25,9 @@ Import LocalBlockchain.
 Existing Instance showBATState.
 
 Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
+Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
 
-Definition bat_setup := BAT.build_setup (20%N) ethFund creator 0 5 (3%N) (50%N) (40%N).
+Definition bat_setup := BAT.build_setup (20%N) ethFund batFund 0 5 (3%N) (100%N) (70%N).
 Definition deploy_bat := create_deployment 0 BAT.contract bat_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -45,7 +46,9 @@ Definition token_cb :=
 
 Module TestInfo <: BATGensInfo.
   Definition contract_addr := contract_base_addr.
-  Definition gAccount (c : Chain) := elems [person_1; person_2; person_3; person_4; person_5].
+  Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
+  Definition bat_addr := batFund.
+  Definition fund_addr := ethFund.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
 
