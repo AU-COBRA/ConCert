@@ -57,8 +57,7 @@ Definition gRefund (env : Environment) (state : BAT.State) : GOpt (Address * Msg
   let accounts := get_refundable_accounts state in
   if ((state.(isFinalized)
           || (Nat.leb current_slot state.(fundingEnd))
-          || (state.(tokenCreationMin) <=? (total_supply state))%N)
-)
+          || (state.(tokenCreationMin) <=? (total_supply state))%N))
   then
     returnGen None
   else 
