@@ -22,7 +22,7 @@ Arguments serialize : clear implicits.
 Definition serializeMsg := @serialize BAT.Msg _.
 
 Definition account_balance (env : Environment) (addr : Address) : Amount :=
-  (account_balance (env_chain env)) addr.
+  (env_account_balances env) addr.
 
 (*
   Generate create token requests on the form (from_addr, value, create_tokens)

@@ -202,7 +202,7 @@ Section Theories.
 Local Open Scope nat.
 
 Definition total_balance bstate accounts : Amount :=
-  let account_balance := account_balance (env_chain bstate) in
+  let account_balance := env_account_balances bstate in
     fold_left (fun a b => Z.add a (account_balance b)) accounts 0%Z.
 
 Lemma can_finalize : forall bstate caddr cstate accounts,
