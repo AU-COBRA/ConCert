@@ -139,6 +139,98 @@ Import Lia.
 Import Coq.Logic.FunctionalExtensionality.
 Notation "f 'o' g" := (compose f g) (at level 50).
 
+(* ------------------- EIP20 functions not payable ------------------- *)
+(* TODO improve proof to proving amount=0 *)
+Lemma EIP20_not_payable : forall prev_state new_state chain ctx msg new_acts,
+  receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
+    ((ctx_amount ctx) <= 0)%Z.
+Proof.
+  intros.
+  unfold receive in H. destruct_match eqn:amount in H.
+  - (* case: ctx_amount > 0 *) congruence.
+  - (* case: ctx_amount = 0 *) now rewrite Z.gtb_ltb, Z.ltb_ge in amount.
+Qed.
+
+Lemma receive_not_payable : forall prev_state new_state chain ctx msg new_acts,
+  receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
+    match msg with
+    | transfer to amount => option_map (fun new_state : State => (new_state, [])) (try_transfer (ctx_from ctx) to amount prev_state)
+    | transfer_from from to amount =>
+        option_map (fun new_state : State => (new_state, [])) (try_transfer_from (ctx_from ctx) from to amount prev_state)
+    | approve delegate amount =>
+        option_map (fun new_state : State => (new_state, [])) (try_approve (ctx_from ctx) delegate amount prev_state)
+    end = Some (new_state, new_acts).
+Proof.
+  intros.
+  apply EIP20_not_payable in H as H1.
+  unfold receive in H.
+  rewrite <- Z.ltb_ge, <- Z.gtb_ltb in H1.
+  now rewrite H1 in H.
+Qed.
+
+
+(* ------------------- EIP20 functions produce no acts ------------------- *)
+
+Lemma EIP20_no_acts : forall prev_state new_state chain ctx msg new_acts,
+  receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
+    new_acts = [].
+Proof.
+  intros.
+  apply receive_not_payable in H.
+    destruct_match in H;
+    match goal with
+    | H : context [ option_map (fun new_state : State => (new_state, [])) ?m = Some (new_state, new_acts) ] |- _ =>
+      destruct m; cbn in H; try congruence; now inversion H
+   end.
+Qed.
+
+Lemma receive_no_acts : forall prev_state new_state chain ctx msg new_acts,
+  receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
+    receive chain ctx prev_state (Some msg) = Some (new_state, []).
+Proof.
+  intros.
+  now apply EIP20_no_acts in H as H1.
+Qed.
+
+Ltac receive_simpl_step :=
+  match goal with
+  | H : receive _ _ _ (Some _) = Some (_, _) |- _ =>
+    apply receive_no_acts, receive_not_payable in H; cbn in H
+  | H : context[try_transfer] |- _ => unfold try_transfer in H
+  | H : context[try_transfer_from] |- _ => unfold try_transfer_from in H
+  | H : context[try_approve] |- _ => unfold try_approve in H
+  | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
+    let a := fresh "H" in
+    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  | H : option_map (fun s : State => (s, _)) (if ?m then _ else None) = Some _ |- _ =>
+    let a := fresh "H" in
+    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  | H : option_map (fun s : State => (s, _)) (if ?m then None else _) = Some _ |- _ =>
+    let a := fresh "H" in
+    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  end.
+
+Tactic Notation "receive_simpl" := repeat receive_simpl_step.
+
+Ltac FMap_simpl_step :=
+  match goal with
+    | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
+    | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
+    | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+    | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] =>rewrite FMap.elements_add_existing; eauto
+    | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
+    | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
+    | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
+    | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter
+    | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne; auto
+    | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne
+   end.
+
+Tactic Notation "FMap_simpl" := repeat (FMap_simpl_step; cbn).
+
+
+
 Definition transfer_balance_update_correct old_state new_state from to tokens :=
   let get_balance addr state := with_default 0 (FMap.find addr state.(balances)) in
   let from_balance_before := get_balance from old_state in
@@ -183,18 +275,17 @@ Qed.
 
 Lemma partial_alter_add_id : forall from to amount state v,
   from = to -> FMap.find from state.(balances) = Some v -> amount <= v ->
-  FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to
+   FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to
     (FMap.add from (v - amount) state.(balances)) = state.(balances).
 Proof.
   intros.
   subst.
   rewrite add_is_partial_alter_plus; try auto.
-  rewrite FMap.add_add. rewrite FMap.find_add. cbn.
-  rewrite N.sub_add.
-  - rewrite FMap.add_id.
-    + reflexivity.
-    + now setoid_rewrite H0.
-  - auto.
+  FMap_simpl.
+  rewrite N.sub_add; auto.
+  rewrite FMap.add_id.
+  - reflexivity.
+  - now setoid_rewrite H0.
 Qed.
 
 
@@ -206,23 +297,21 @@ Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to am
   transfer_balance_update_correct prev_state new_state ctx.(ctx_from) to amount = true.
 Proof.
   intros.
-  unfold receive in H. destruct_match in H.
-  - (* case: ctx_amount > 0 *) congruence.
-  - (* case: ctx_amount = 0 *) unfold try_transfer in H. unfold transfer_balance_update_correct.
-    destruct_address_eq; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev; destruct_match eqn:H2 in H;
-    cbn in *; try congruence; apply N.ltb_ge in H2; subst; try rewrite from_prev; inversion H; cbn in *.
-    + (* case: from =  to && find from = Some n && amount <= n *)
-      rewrite FMap.find_partial_alter, FMap.find_add; try auto. cbn.
+  receive_simpl.
+  unfold transfer_balance_update_correct.
+    destruct_address_eq; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev;
+    cbn in *; try congruence; apply N.ltb_ge in H0; subst; try rewrite from_prev; inversion H; cbn in *.
+    - (* case: from =  to && find from = Some n && amount <= n *) 
+      FMap_simpl.
       now repeat rewrite N.sub_add, N.eqb_refl.
-    + (* case: from =  to && find from = None   && amount = 0 *)
-      apply N.lt_eq_cases in H2. destruct H2; try lia. subst.
-      now rewrite FMap.find_partial_alter, FMap.find_add.
-    + (* case: from <> to && find from = Some n && amount <= n *)
-      rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
-      cbn. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
-    + (* case: from <> to && find from = None   && amount = 0 *)
-      apply N.lt_eq_cases in H2. destruct H2; try lia. subst.
-      rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
+    - (* case: from =  to && find from = None   && amount = 0 *)
+      apply N.lt_eq_cases in H0. destruct H0; try lia. subst. now FMap_simpl.
+    - (* case: from <> to && find from = Some n && amount <= n *)
+      FMap_simpl.
+      rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
+    - (* case: from <> to && find from = None   && amount = 0 *)
+      apply N.lt_eq_cases in H0. destruct H0; try lia. subst.
+      FMap_simpl.
       apply N.eqb_refl.
 Qed.
 
@@ -236,37 +325,29 @@ Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx 
   transfer_from_allowances_update_correct prev_state new_state from ctx.(ctx_from) amount = true.
 Proof.
   intros.
-  unfold receive in H. destruct_match in H.
-  - (* case: ctx_amount > 0 *) congruence.
-  - (* case: ctx_amount = 0 *) unfold try_transfer_from in H. split.
+  unfold transfer_balance_update_correct.
+  unfold transfer_from_allowances_update_correct.
+  receive_simpl.
+  apply Bool.orb_false_iff in H2 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4.
+  split.
     + (* proof of balance updated correct *)
-    unfold transfer_balance_update_correct.
-    destruct_address_eq; destruct (FMap.find from (balances prev_state)) eqn:from_bal_prev; cbn in *;
-      destruct_match eqn:from_alw_prev in H; cbn in *; try congruence;
-      destruct_match eqn:del_alw_prev in H; cbn in *; try congruence;
-      destruct_match eqn:H3 in H; cbn in *; try congruence;
-      apply Bool.orb_false_iff in H3 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4;
+    destruct_address_eq; destruct (FMap.find from (balances prev_state)) eqn:from_bal_prev;
       subst; try rewrite from_bal_prev; inversion H; cbn in *.
       * (* case: from =  to && find from = Some n && amount <= n *)
-        rewrite FMap.find_partial_alter, FMap.find_add; try auto. cbn.
+        FMap_simpl.
         now repeat rewrite N.sub_add, N.eqb_refl.
       * (* case: from =  to && find from = None   && amount = 0 *)
         apply N.lt_eq_cases in H4. destruct H4; try lia. subst.
-        now rewrite FMap.find_partial_alter, FMap.find_add.
+        now FMap_simpl.
       * (* case: from <> to && find from = Some n && amount <= n *)
-        rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
-        cbn. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
+        FMap_simpl.
+        rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
       * (* case: from <> to && find from = None   && amount = 0 *)
         apply N.lt_eq_cases in H4. destruct H4; try lia. subst.
-        rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
+        FMap_simpl.
         apply N.eqb_refl.
     + (* proof of allowances updated correct *)
-      cbn in *.
-      destruct_match eqn:from_alw_prev in H; cbn in *; try congruence;
-      destruct_match eqn:del_alw_prev in H; cbn in *; try congruence;
-      destruct_match eqn:H3 in H; cbn in *; try congruence;
-      apply Bool.orb_false_iff in H3 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4;
-      subst; inversion H. cbn. clear H H1 H2. do 2 (rewrite FMap.find_add; cbn).
+      inversion H. cbn. FMap_simpl.
       rewrite N.sub_add; auto. apply N.eqb_refl.
 Qed.
 
@@ -277,10 +358,8 @@ Definition try_approve_allowance_correct : forall prev_state new_state chain ctx
   approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
 Proof.
   intros.
-  unfold receive in H. destruct_match in H.
-  - (* case: ctx_amount > 0 *) congruence.
-  - (* case: ctx_amount = 0 *) unfold try_approve in H.
-    destruct_match eqn:from_allowance in H; inversion H; cbn; do 2 (rewrite FMap.find_add; cbn); apply N.eqb_refl.
+  receive_simpl.
+  destruct_match eqn:from_allowance in H; inversion H; cbn; FMap_simpl; apply N.eqb_refl.
 Qed.
 
 (* ------------------- Total supply never changes ------------------- *)
@@ -346,11 +425,8 @@ Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ct
   N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
 Proof.
   intros.
-  unfold receive in H.
-  unfold try_transfer in H.
-  destruct_match in H; cbn in *; try congruence.
-  destruct_match eqn:H1 in H; cbn in *; try congruence.
-  apply N.ltb_ge in H1.
+  receive_simpl.
+  apply N.ltb_ge in H0.
   inversion H.
   unfold sum_balances. cbn.
   now apply sumnat_FMap_add_sub.
@@ -361,12 +437,9 @@ Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state cha
   N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
 Proof.
   intros.
-  unfold receive in H.
-  unfold try_transfer_from in H.
-  do 3 (destruct_match in H; cbn in *; try congruence).
-  destruct_match eqn:H1 in H; cbn in *; try congruence.
-  apply Bool.orb_false_iff in H1 as [_ H1].
-  apply N.ltb_ge in H1.
+  receive_simpl.
+  apply Bool.orb_false_iff in H2 as [_ H2].
+  apply N.ltb_ge in H2.
   inversion H.
   unfold sum_balances. cbn.
   now apply sumnat_FMap_add_sub.
@@ -377,10 +450,8 @@ Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx
   N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
 Proof.
   intros.
-  unfold receive in H.
-  unfold try_approve in H.
-  do 2 (destruct_match in H; cbn in *; try congruence).
-  all: now inversion H.
+  receive_simpl.
+  destruct_match in H; cbn in H; try congruence; now inversion H.
 Qed.
 
 Lemma sum_balances_eq_init_supply block_state contract_addr (trace : ChainTrace empty_state block_state) :
@@ -392,33 +463,27 @@ Lemma sum_balances_eq_init_supply block_state contract_addr (trace : ChainTrace 
     /\ let init_val := init_amount deploy_info.(deployment_setup) in
       init_val = N.of_nat (sum_balances cstate).
 Proof.
-  contract_induction.
-  - intros. cbn in *. auto.
-  - intros. cbn in *. inversion init_some. unfold sum_balances. cbn in *. rewrite FMap.elements_add.
+  contract_induction; intros; try auto.
+  - inversion init_some. unfold sum_balances. cbn in *. rewrite FMap.elements_add.
     + rewrite FMap.elements_empty. cbn. lia.
     + auto.
-  - intros. cbn in *. auto.
-  - intros. cbn in *. destruct msg. destruct m. 
+  - cbn in receive_some. destruct msg. destruct m. 
     + apply try_transfer_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_transfer_from_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_approve_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + unfold receive in receive_some; destruct_match in receive_some; try congruence.
-  - intros. cbn in *. destruct msg. destruct m. 
+  - cbn in receive_some. destruct msg. destruct m. 
     + apply try_transfer_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_transfer_from_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_approve_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + unfold receive in receive_some; destruct_match in receive_some; try congruence.
-  - intros. cbn in *. auto.
-  - intros. cbn in *. auto.
-    instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
     instantiate (CallFacts := fun _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
 Qed.
-
-
 
 End Theories.
 End EIP20Token.
