@@ -160,6 +160,11 @@ Definition transfer_from_allowances_update_correct (old_state new_state : State)
   let delegate_allowance_after := get_allowance new_state in 
     delegate_allowance_before =? delegate_allowance_after + tokens.
 
+Definition approve_allowance_update_correct (new_state : State) (from delegate : Address) (tokens : TokenValue) :=
+  let get_allowance state := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances)))) in
+  let delegate_allowance_after := get_allowance new_state in
+    delegate_allowance_after =? tokens.
+
 Lemma add_is_partial_alter : forall (account : Address) (balances : FMap Address N) (f : N -> N),
   FMap.partial_alter (fun balance : option N => Some (f (with_default 0 balance))) account balances =
   FMap.add account (f (with_default 0 (FMap.find account balances))) balances.
@@ -184,13 +189,17 @@ Proof.
   intros.
   subst.
   rewrite add_is_partial_alter_plus; try auto.
-  rewrite FMap.add_add. rewrite FMap.find_add. simpl.
+  rewrite FMap.add_add. rewrite FMap.find_add. cbn.
   rewrite N.sub_add.
   - rewrite FMap.add_id.
     + reflexivity.
     + now setoid_rewrite H0.
   - auto.
 Qed.
+
+
+
+(* ------------------- Transfer updates correct ------------------- *)
 
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
@@ -201,21 +210,25 @@ Proof.
   - (* case: ctx_amount > 0 *) congruence.
   - (* case: ctx_amount = 0 *) unfold try_transfer in H. unfold transfer_balance_update_correct.
     destruct_address_eq; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev; destruct_match eqn:H2 in H;
-    simpl in *; try congruence; apply N.ltb_ge in H2; subst; try rewrite from_prev; inversion H; simpl in *.
+    cbn in *; try congruence; apply N.ltb_ge in H2; subst; try rewrite from_prev; inversion H; cbn in *.
     + (* case: from =  to && find from = Some n && amount <= n *)
-      rewrite FMap.find_partial_alter, FMap.find_add; try auto. simpl.
+      rewrite FMap.find_partial_alter, FMap.find_add; try auto. cbn.
       now repeat rewrite N.sub_add, N.eqb_refl.
     + (* case: from =  to && find from = None   && amount = 0 *)
       apply N.lt_eq_cases in H2. destruct H2; try lia. subst.
       now rewrite FMap.find_partial_alter, FMap.find_add.
     + (* case: from <> to && find from = Some n && amount <= n *)
       rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
-      simpl. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
+      cbn. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
     + (* case: from <> to && find from = None   && amount = 0 *)
       apply N.lt_eq_cases in H2. destruct H2; try lia. subst.
       rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
       apply N.eqb_refl.
 Qed.
+
+
+
+(* ------------------- Transfer_from updates correct ------------------- *)
 
 Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
@@ -235,14 +248,14 @@ Proof.
       apply Bool.orb_false_iff in H3 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4;
       subst; try rewrite from_bal_prev; inversion H; cbn in *.
       * (* case: from =  to && find from = Some n && amount <= n *)
-        rewrite FMap.find_partial_alter, FMap.find_add; try auto. simpl.
+        rewrite FMap.find_partial_alter, FMap.find_add; try auto. cbn.
         now repeat rewrite N.sub_add, N.eqb_refl.
       * (* case: from =  to && find from = None   && amount = 0 *)
         apply N.lt_eq_cases in H4. destruct H4; try lia. subst.
         now rewrite FMap.find_partial_alter, FMap.find_add.
       * (* case: from <> to && find from = Some n && amount <= n *)
         rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
-        simpl. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
+        cbn. rewrite N.sub_add; auto. now repeat rewrite N.eqb_refl.
       * (* case: from <> to && find from = None   && amount = 0 *)
         apply N.lt_eq_cases in H4. destruct H4; try lia. subst.
         rewrite FMap.find_partial_alter_ne, FMap.find_partial_alter, FMap.find_add, FMap.find_add_ne; try auto.
@@ -257,6 +270,21 @@ Proof.
       rewrite N.sub_add; auto. apply N.eqb_refl.
 Qed.
 
+(* ------------------- Approve updates correct ------------------- *)
+
+Definition try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+  approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
+Proof.
+  intros.
+  unfold receive in H. destruct_match in H.
+  - (* case: ctx_amount > 0 *) congruence.
+  - (* case: ctx_amount = 0 *) unfold try_approve in H.
+    destruct_match eqn:from_allowance in H; inversion H; cbn; do 2 (rewrite FMap.find_add; cbn); apply N.eqb_refl.
+Qed.
+
+(* ------------------- Total supply never changes ------------------- *)
+
 Definition sum_balances' (state : EIP20Token.State) :=
   let balances_list := (map snd o FMap.elements) state.(balances) in
     fold_left N.add balances_list 0%N.
@@ -268,14 +296,14 @@ Lemma sumnat_split : forall x y n m (l : list (Address * N)),
   sumnat (fun '(_, v) => N.to_nat v) ((y, n + m) :: l) =
   sumnat (fun '(_, v) => N.to_nat v) ((x, n) :: (y, m) :: l).
 Proof.
-  simpl. lia.
+  cbn. lia.
 Qed.
 
 Lemma sumnat_swap : forall x y n m (l : list (Address * N)),
   sumnat (fun '(_, v) => N.to_nat v) ((x, n) :: (y, m) :: l) =
   sumnat (fun '(_, v) => N.to_nat v) ((x, m) :: (y, n) :: l).
 Proof.
-  simpl. lia.
+  cbn. lia.
 Qed.
 
 Lemma sumnat_FMap_add_sub : forall from to amount (balances : FMap Address N),
@@ -291,12 +319,12 @@ Proof.
   rewrite add_is_partial_alter_plus; auto.
   destruct (address_eqb from to) eqn:from_to_eq;
     destruct (FMap.find from balances) eqn:from_prev;
-    destruct_address_eq; try discriminate; subst; simpl in *;
+    destruct_address_eq; try discriminate; subst; cbn in *;
     repeat match goal with
     | H : _ <= 0 |- _ => apply N.lt_eq_cases in H as [H | H]; try lia; subst
-    | |- context [ with_default _ (FMap.find to balances) ] => destruct (FMap.find to balances) eqn:to_prev; simpl
+    | |- context [ with_default _ (FMap.find to balances) ] => destruct (FMap.find to balances) eqn:to_prev; cbn
     | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
-    | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => simpl; rewrite H; f_equal; lia
+    | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
     | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
     | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
     | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] =>rewrite FMap.elements_add_existing; eauto
@@ -320,11 +348,11 @@ Proof.
   intros.
   unfold receive in H.
   unfold try_transfer in H.
-  destruct_match in H; simpl in *; try congruence.
-  destruct_match eqn:H1 in H; simpl in *; try congruence.
+  destruct_match in H; cbn in *; try congruence.
+  destruct_match eqn:H1 in H; cbn in *; try congruence.
   apply N.ltb_ge in H1.
   inversion H.
-  unfold sum_balances. simpl.
+  unfold sum_balances. cbn.
   now apply sumnat_FMap_add_sub.
 Qed.
 
@@ -335,12 +363,12 @@ Proof.
   intros.
   unfold receive in H.
   unfold try_transfer_from in H.
-  do 3 (destruct_match in H; simpl in *; try congruence).
-  destruct_match eqn:H1 in H; simpl in *; try congruence.
+  do 3 (destruct_match in H; cbn in *; try congruence).
+  destruct_match eqn:H1 in H; cbn in *; try congruence.
   apply Bool.orb_false_iff in H1 as [_ H1].
   apply N.ltb_ge in H1.
   inversion H.
-  unfold sum_balances. simpl.
+  unfold sum_balances. cbn.
   now apply sumnat_FMap_add_sub.
 Qed.
 
@@ -351,7 +379,7 @@ Proof.
   intros.
   unfold receive in H.
   unfold try_approve in H.
-  do 2 (destruct_match in H; simpl in *; try congruence).
+  do 2 (destruct_match in H; cbn in *; try congruence).
   all: now inversion H.
 Qed.
 
@@ -367,7 +395,7 @@ Proof.
   contract_induction.
   - intros. cbn in *. auto.
   - intros. cbn in *. inversion init_some. unfold sum_balances. cbn in *. rewrite FMap.elements_add.
-    + rewrite FMap.elements_empty. simpl. lia.
+    + rewrite FMap.elements_empty. cbn. lia.
     + auto.
   - intros. cbn in *. auto.
   - intros. cbn in *. destruct msg. destruct m. 
