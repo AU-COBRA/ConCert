@@ -201,18 +201,43 @@ Ltac receive_simpl_step :=
   match goal with
   | H : receive _ _ _ (Some _) = Some (_, _) |- _ =>
     apply receive_no_acts, receive_not_payable in H; cbn in H
+  | |- receive _ _ _ (Some _) = Some (_, _) =>
+    apply receive_no_acts, receive_not_payable; cbn
+  | H : context[receive] |- _ => unfold receive in H
+  | |- context[receive] => unfold receive
+  | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive; cbn in H
   | H : context[try_transfer] |- _ => unfold try_transfer in H
   | H : context[try_transfer_from] |- _ => unfold try_transfer_from in H
   | H : context[try_approve] |- _ => unfold try_approve in H
+  | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
+  | |- context[try_transfer] => unfold try_transfer
+  | |- context[try_transfer_from] => unfold try_transfer_from
+  | |- context[try_approve] => unfold try_approve
   | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
     let a := fresh "H" in
     destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-  | H : option_map (fun s : State => (s, _)) (if ?m then _ else None) = Some _ |- _ =>
-    let a := fresh "H" in
-    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-  | H : option_map (fun s : State => (s, _)) (if ?m then None else _) = Some _ |- _ =>
-    let a := fresh "H" in
-    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
+    match a with
+    | None =>
+      let a := fresh "H" in
+      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+    | _ => match b with
+           | None =>
+             let a := fresh "H" in
+             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+           | _ => idtac
+    end end
+  | H : (if ?m then ?a else ?b) = Some _ |- _ =>
+    match a with
+    | None =>
+      let a := fresh "H" in
+      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+    | _ => match b with
+           | None =>
+             let a := fresh "H" in
+             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+           | _ => idtac
+    end end
   end.
 
 Tactic Notation "receive_simpl" := repeat receive_simpl_step.
@@ -244,6 +269,21 @@ Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : 
 Proof.
   intros.
   apply fin_maps.partial_alter_ext. intros. now subst.
+Qed.
+
+
+
+(* ------------------- isSome function ------------------- *)
+
+Definition isSome {A : Type} (a : option A) := match a with | Some _ => true | None => false end.
+
+Lemma with_default_is_some : forall {A : Type} (x : option A) (y : A),
+  isSome x = false ->
+    with_default y x = y.
+Proof.
+  destruct x.
+  - discriminate.
+  - reflexivity.
 Qed.
 
 
@@ -351,7 +391,7 @@ Definition approve_allowance_update_correct (new_state : State) (from delegate :
 
 
 
-(* ------------------- Transfer updates correct ------------------- *)
+(* ------------------- Transfer correct ------------------- *)
 
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
@@ -402,6 +442,23 @@ Proof.
   intros.
   receive_simpl.
   inversion H. cbn. FMap_simpl.
+Qed.
+
+Lemma try_transfer_is_some : forall state chain ctx to amount,
+  (ctx_amount ctx >? 0)%Z = false ->
+  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) state.(balances)) = false)
+  \/ amount <= with_default 0 (FMap.find (ctx_from ctx)  state.(balances))
+    <-> isSome (receive chain ctx state (Some (transfer to amount))) = true.
+Proof.
+  split.
+  - intros. receive_simpl. rewrite H. destruct_match eqn:amount_from.
+    + destruct H0 as [[H1 H2] | H1].
+      * eapply with_default_is_some in H2. subst. now rewrite H2, N.ltb_irrefl in amount_from.
+      * now rewrite <- N.ltb_ge, amount_from in H1.
+    + reflexivity.
+  - intros. receive_simpl. rewrite H in H0. destruct_match eqn:amount_from in H0.
+    + discriminate.
+    + now apply N.ltb_ge in amount_from.
 Qed.
 
 
@@ -481,6 +538,32 @@ Proof.
   inversion H. cbn. FMap_simpl.
 Qed.
 
+Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
+  let get_allowance account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances))) in
+  (ctx_amount ctx >? 0)%Z = false ->
+  isSome (FMap.find from state.(allowances)) = true
+  /\ isSome (get_allowance (ctx_from ctx)) = true
+  /\ amount <= with_default 0 (FMap.find from state.(balances))
+  /\ amount <= with_default 0 (get_allowance (ctx_from ctx))
+    <-> isSome (receive chain ctx state (Some (transfer_from from to amount))) = true.
+Proof.
+  split.
+  - intros. receive_simpl. rewrite H. cbn. destruct_match.
+    + cbn in H0. destruct_match.
+      * destruct_match eqn:amount_from.
+        -- cbn in H0. do 2 rewrite <- N.ltb_ge in H0.
+           destruct H0 as [_ [_ [H0 H1]]].
+           now rewrite H0, H1 in amount_from.
+        -- reflexivity.
+      * now destruct H0 as [_ H0].
+    + now destruct H0 as [H0 _].
+  - intros. receive_simpl. rewrite H in H0. cbn in H0.
+    destruct_match in H0; cbn; try destruct_match in H0; cbn; try destruct_match eqn:amount_from in H0;
+      do 3 (try split); try easy; apply Bool.orb_false_iff in amount_from as [H1 H2].
+    + now apply N.ltb_ge in H2.
+    + now apply N.ltb_ge in H1.
+Qed.
+
 
 
 (* ------------------- Approve updates correct ------------------- *)
@@ -532,6 +615,16 @@ Proof.
   receive_simpl.
   unfold get_allowance.
   destruct_match in H;inversion H; cbn; FMap_simpl.
+Qed.
+
+Lemma try_approve_is_some : forall state chain ctx delegate amount,
+  (ctx_amount ctx >? 0)%Z = false <-> isSome (receive chain ctx state (Some (approve delegate amount))) = true.
+Proof.
+  split.
+  - intros. receive_simpl. rewrite H. now destruct_match.
+  - intros. receive_simpl. destruct_match eqn:amount_ctx in H.
+    + discriminate.
+    + reflexivity.
 Qed.
 
 
@@ -590,12 +683,12 @@ Proof.
     + apply try_transfer_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_transfer_from_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_approve_preserves_total_supply in receive_some. now rewrite <- receive_some.
-    + cbn in receive_some. unfold receive in receive_some. destruct_match in receive_some; congruence.
+    + receive_simpl.
   - destruct msg. destruct m.
     + apply try_transfer_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_transfer_from_preserves_total_supply in receive_some. now rewrite <- receive_some.
     + apply try_approve_preserves_total_supply in receive_some. now rewrite <- receive_some.
-    + cbn in receive_some. unfold receive in receive_some. destruct_match in receive_some; congruence.
+    + receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
     instantiate (CallFacts := fun _ _ _ => True).
@@ -629,7 +722,7 @@ Proof.
     + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
       apply try_approve_preserves_total_supply in receive_some.
       now rewrite <- balance_sum, <- IH.
-    + cbn in receive_some. unfold receive in receive_some. destruct_match in receive_some; congruence.
+    + receive_simpl.
   - destruct msg. destruct m.
     + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
       apply try_transfer_preserves_total_supply in receive_some.
@@ -640,7 +733,7 @@ Proof.
     + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
       apply try_approve_preserves_total_supply in receive_some.
       now rewrite <- balance_sum, <- IH.
-    + cbn in receive_some. unfold receive in receive_some. destruct_match in receive_some; congruence.
+    + receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
     instantiate (CallFacts := fun _ _ _ => True).
