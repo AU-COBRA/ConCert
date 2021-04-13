@@ -362,9 +362,6 @@ Proof.
   destruct_match eqn:from_allowance in H; inversion H; cbn; FMap_simpl; apply N.eqb_refl.
 Qed.
 
-Definition sum_balances' (state : EIP20Token.State) :=
-  let balances_list := (map snd o FMap.elements) state.(balances) in
-    fold_left N.add balances_list 0%N.
 
 Definition sum_balances (state : EIP20Token.State) :=
   sumnat (fun '(k, v) => N.to_nat v) (FMap.elements (balances state)).
