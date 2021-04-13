@@ -353,7 +353,7 @@ Qed.
 
 (* ------------------- Approve updates correct ------------------- *)
 
-Definition try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
+Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
   approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
 Proof.
