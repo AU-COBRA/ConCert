@@ -578,9 +578,8 @@ Qed.
 
 Lemma total_supply_eq_init_supply block_state contract_addr (trace : ChainTrace empty_state block_state) :
   env_contracts block_state contract_addr = Some (contract : WeakContract) ->
-  exists cstate call_info deploy_info,
-    incoming_calls Msg trace contract_addr = Some call_info
-    /\ contract_state block_state contract_addr = Some cstate
+  exists cstate deploy_info,
+    contract_state block_state contract_addr = Some cstate
     /\ deployment_info _ trace contract_addr = Some deploy_info
     /\ let init_supply := init_amount deploy_info.(deployment_setup) in
       init_supply = total_supply cstate.
@@ -609,7 +608,8 @@ Qed.
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
 
-Lemma sum_balances_eq_total_supply block_state contract_addr (trace : ChainTrace empty_state block_state) :
+Lemma sum_balances_eq_total_supply block_state contract_addr :
+  reachable block_state ->
   env_contracts block_state contract_addr = Some (contract : WeakContract) ->
   exists cstate,
     contract_state block_state contract_addr = Some cstate
