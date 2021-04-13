@@ -132,9 +132,12 @@ Section EIP20Token.
   Definition contract : Contract Setup Msg State :=
     build_contract init receive.
 
+
+
 Section Theories.
 
 Import Lia.
+Import Permutation.
 
 (* ------------------- EIP20 functions not payable ------------------- *)
 (* TODO improve proof to proving amount=0 *)
@@ -166,6 +169,7 @@ Proof.
 Qed.
 
 
+
 (* ------------------- EIP20 functions produce no acts ------------------- *)
 
 Lemma EIP20_no_acts : forall prev_state new_state chain ctx msg new_acts,
@@ -188,6 +192,10 @@ Proof.
   intros.
   now apply EIP20_no_acts in H as H1.
 Qed.
+
+
+
+(* ------------------- Tactic to simplify proof steps ------------------- *)
 
 Ltac receive_simpl_step :=
   match goal with
@@ -228,6 +236,93 @@ Tactic Notation "FMap_simpl" := repeat (FMap_simpl_step; cbn).
 
 
 
+(* ------------------- FMap partial alter is FMap add ------------------- *)
+
+Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : FMap Address N) (f : N -> N),
+  FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) account balances =
+  FMap.add account (with_default 0 (FMap.find account balances) + amount) balances.
+Proof.
+  intros.
+  apply fin_maps.partial_alter_ext. intros. now subst.
+Qed.
+
+
+
+(* ------------------- sumN function ------------------- *)
+
+Fixpoint sumN {A : Type} (f : A -> N) (xs : list A) : N :=
+  match xs with
+  | [] => 0
+  | x :: xs' => f x + sumN f xs'
+  end.
+
+Lemma sumN_permutation {A : Type} {f : A -> N} {xs ys : list A} (perm_eq : Permutation xs ys) :
+  sumN f xs = sumN f ys.
+Proof.
+  induction perm_eq; perm_simplify; lia.
+Qed.
+
+Instance sumN_perm_proper {A : Type} :
+  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
+Proof.
+  repeat intro. subst. now apply sumN_permutation.
+Qed.
+
+Lemma sumN_split : forall {A : Type} x y n m (l : list (A * N)),
+  sumN (fun '(_, v) => v) ((y, n + m) :: l) =
+  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l).
+Proof.
+  cbn. lia.
+Qed.
+
+Lemma sumN_swap : forall {A : Type} x y n m (l : list (A * N)),
+  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l) =
+  sumN (fun '(_, v) => v) ((x, m) :: (y, n) :: l).
+Proof.
+  cbn. lia.
+Qed.
+
+Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
+  amount <= with_default 0 (FMap.find from balances) ->
+    (sumN (fun '(_, v) => v) (FMap.elements balances)) =
+    (sumN(fun '(_, v) => v)
+       (FMap.elements
+          (FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) to
+             (FMap.add from (with_default 0 (FMap.find from balances) - amount) balances)))).
+Proof.
+  intros from to amount balances H.
+  rewrite add_is_partial_alter_plus; auto.
+  destruct (address_eqb from to) eqn:from_to_eq;
+    destruct (FMap.find from balances) eqn:from_prev;
+    destruct_address_eq; try discriminate; subst; cbn in *;
+    repeat match goal with
+    | H : _ <= 0 |- _ => apply N.lt_eq_cases in H as [H | H]; try lia; subst
+    | |- context [ with_default _ (FMap.find to balances) ] => destruct (FMap.find to balances) eqn:to_prev; cbn
+    | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
+    | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
+    | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+    | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] =>rewrite FMap.elements_add_existing; eauto
+    | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
+    | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
+    | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
+    | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((?x, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
+    | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?x _)) ] => rewrite fin_maps.map_to_list_delete; auto
+    | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
+    | |- context [ _ + 0 ] => rewrite N.add_0_r
+    | |- context [ 0 + _ ] => rewrite N.add_0_l
+    | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => rewrite sumN_split with (x:=t)
+    | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => rewrite <- sumN_split
+   end.
+Qed.
+
+Definition sum_balances (state : EIP20Token.State) :=
+  sumN (fun '(k, v) => v) (FMap.elements (balances state)).
+
+
+
+(* ------------------- Expected behvaiour of EIP20 functions ------------------- *)
+
 Definition transfer_balance_update_correct old_state new_state from to tokens :=
   let get_balance addr state := with_default 0 (FMap.find addr state.(balances)) in
   let from_balance_before := get_balance from old_state in
@@ -254,37 +349,6 @@ Definition approve_allowance_update_correct (new_state : State) (from delegate :
   let delegate_allowance_after := get_allowance new_state in
     delegate_allowance_after =? tokens.
 
-Lemma add_is_partial_alter : forall (account : Address) (balances : FMap Address N) (f : N -> N),
-  FMap.partial_alter (fun balance : option N => Some (f (with_default 0 balance))) account balances =
-  FMap.add account (f (with_default 0 (FMap.find account balances))) balances.
-Proof.
-  intros.
-  apply fin_maps.partial_alter_ext. intros. now subst.
-Qed.
-
-Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : FMap Address N) (f : N -> N),
-  FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) account balances =
-  FMap.add account (with_default 0 (FMap.find account balances) + amount) balances.
-Proof.
-  intros.
-  apply fin_maps.partial_alter_ext. intros. now subst.
-Qed.
-
-Lemma partial_alter_add_id : forall from to amount state v,
-  from = to -> FMap.find from state.(balances) = Some v -> amount <= v ->
-   FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to
-    (FMap.add from (v - amount) state.(balances)) = state.(balances).
-Proof.
-  intros.
-  subst.
-  rewrite add_is_partial_alter_plus; try auto.
-  FMap_simpl.
-  rewrite N.sub_add; auto.
-  rewrite FMap.add_id.
-  - reflexivity.
-  - now setoid_rewrite H0.
-Qed.
-
 
 
 (* ------------------- Transfer updates correct ------------------- *)
@@ -310,6 +374,34 @@ Proof.
       apply N.lt_eq_cases in H0. destruct H0; try lia. subst.
       FMap_simpl.
       apply N.eqb_refl.
+Qed.
+
+Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (total_supply prev_state) = (total_supply new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (allowances prev_state) = (allowances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) -> account <> to ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H. cbn. FMap_simpl.
 Qed.
 
 
@@ -346,143 +438,6 @@ Proof.
     + (* proof of allowances updated correct *)
       inversion H. cbn. FMap_simpl.
       rewrite N.sub_add; auto. apply N.eqb_refl.
-Qed.
-
-(* ------------------- Approve updates correct ------------------- *)
-
-Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
-  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
-  approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
-Proof.
-  intros.
-  receive_simpl.
-  destruct_match eqn:from_allowance in H; inversion H; cbn; FMap_simpl; apply N.eqb_refl.
-Qed.
-
-Fixpoint sumN {A : Type} (f : A -> N) (xs : list A) : N :=
-  match xs with
-  | [] => 0
-  | x :: xs' => f x + sumN f xs'
-  end.
-
-Import Permutation.
-
-Lemma sumN_permutation {A : Type} {f : A -> N} {xs ys : list A} (perm_eq : Permutation xs ys) :
-  sumN f xs = sumN f ys.
-Proof.
-  induction perm_eq; perm_simplify; lia.
-Qed.
-
-Instance sumN_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
-Proof.
-  repeat intro. subst. now apply sumN_permutation.
-Qed.
-
-Lemma sumN_split : forall {A : Type} x y n m (l : list (A * N)),
-  sumN (fun '(_, v) => v) ((y, n + m) :: l) =
-  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l).
-Proof.
-  cbn. lia.
-Qed.
-
-Lemma sumN_swap : forall {A : Type} x y n m (l : list (A * N)),
-  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l) =
-  sumN (fun '(_, v) => v) ((x, m) :: (y, n) :: l).
-Proof.
-  cbn. lia.
-Qed.
-
-Definition sum_balances (state : EIP20Token.State) :=
-  sumN (fun '(k, v) => v) (FMap.elements (balances state)).
-
-Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
-  amount <= with_default 0 (FMap.find from balances) ->
-    (sumN (fun '(_, v) => v) (FMap.elements balances)) =
-    (sumN(fun '(_, v) => v)
-       (FMap.elements
-          (FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) to
-             (FMap.add from (with_default 0 (FMap.find from balances) - amount) balances)))).
-Proof.
-  intros from to amount balances H.
-  rewrite add_is_partial_alter_plus; auto.
-  destruct (address_eqb from to) eqn:from_to_eq;
-    destruct (FMap.find from balances) eqn:from_prev;
-    destruct_address_eq; try discriminate; subst; cbn in *;
-    repeat match goal with
-    | H : _ <= 0 |- _ => apply N.lt_eq_cases in H as [H | H]; try lia; subst
-    | |- context [ with_default _ (FMap.find to balances) ] => destruct (FMap.find to balances) eqn:to_prev; cbn
-    | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
-    | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
-    | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-    | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] =>rewrite FMap.elements_add_existing; eauto
-    | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
-    | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
-    | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
-    | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((?x, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
-    | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?x _)) ] => rewrite fin_maps.map_to_list_delete; auto
-    | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
-    | |- context [ _ + 0 ] => rewrite N.add_0_r
-    | |- context [ 0 + _ ] => rewrite N.add_0_l
-    | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => rewrite sumN_split with (x:=t)
-    | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => rewrite <- sumN_split
-   end.
-Qed.
-
-Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
-  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
-    (sum_balances prev_state) = (sum_balances new_state).
-Proof.
-  intros.
-  receive_simpl.
-  apply N.ltb_ge in H0.
-  inversion H.
-  unfold sum_balances. cbn.
-  now apply sumN_FMap_add_sub.
-Qed.
-
-Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
-  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
-    (total_supply prev_state) = (total_supply new_state).
-Proof.
-  intros.
-  receive_simpl.
-  now inversion H.
-Qed.
-
-Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
-  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
-    (allowances prev_state) = (allowances new_state).
-Proof.
-  intros.
-  receive_simpl.
-  now inversion H.
-Qed.
-
-Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
-  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
-    forall account, account <> (ctx_from ctx) -> account <> to ->
-      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
-Proof.
-  intros.
-  receive_simpl.
-  inversion H. cbn. FMap_simpl.
-Qed.
-
-
-
-Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
-  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
-    (sum_balances prev_state) = (sum_balances new_state).
-Proof.
-  intros.
-  receive_simpl.
-  apply Bool.orb_false_iff in H2 as [_ H2].
-  apply N.ltb_ge in H2.
-  inversion H.
-  unfold sum_balances. cbn.
-  now apply sumN_FMap_add_sub.
 Qed.
 
 Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
@@ -528,13 +483,15 @@ Qed.
 
 
 
-Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
+(* ------------------- Approve updates correct ------------------- *)
+
+Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
-    (sum_balances prev_state) = (sum_balances new_state).
+  approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
 Proof.
   intros.
   receive_simpl.
-  destruct_match in H; now inversion H.
+  destruct_match eqn:from_allowance in H; inversion H; cbn; FMap_simpl; apply N.eqb_refl.
 Qed.
 
 Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -575,6 +532,44 @@ Proof.
   receive_simpl.
   unfold get_allowance.
   destruct_match in H;inversion H; cbn; FMap_simpl.
+Qed.
+
+
+
+(* ------------------- EIP20 functions preserve sum of balances ------------------- *)
+
+Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  apply N.ltb_ge in H0.
+  inversion H.
+  unfold sum_balances. cbn.
+  now apply sumN_FMap_add_sub.
+Qed.
+
+Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  apply Bool.orb_false_iff in H2 as [_ H2].
+  apply N.ltb_ge in H2.
+  inversion H.
+  unfold sum_balances. cbn.
+  now apply sumN_FMap_add_sub.
+Qed.
+
+Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  destruct_match in H; now inversion H.
 Qed.
 
 
