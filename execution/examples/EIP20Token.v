@@ -439,6 +439,27 @@ Proof.
   now inversion H.
 Qed.
 
+Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (allowances prev_state) = (allowances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) -> account <> to ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H. cbn. FMap_simpl.
+Qed.
+
+
+
 Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
@@ -461,6 +482,40 @@ Proof.
   now inversion H.
 Qed.
 
+Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> from -> account <> to ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H. cbn. FMap_simpl.
+Qed.
+
+Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> from ->
+      FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H. cbn. FMap_simpl.
+Qed.
+
+Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
+  let get_allowance state account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances))) in
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) ->
+      get_allowance prev_state account = get_allowance new_state account.
+Proof.
+  intros.
+  unfold get_allowance.
+  receive_simpl.
+  inversion H. cbn. FMap_simpl.
+Qed.
+
+
+
 Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
@@ -477,6 +532,37 @@ Proof.
   intros.
   receive_simpl.
   destruct_match in H; now inversion H.
+Qed.
+
+Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    (balances prev_state) = (balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  destruct_match in H; now inversion H.
+Qed.
+
+Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) ->
+      FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  destruct_match in H;inversion H; cbn; FMap_simpl.
+Qed.
+
+Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
+  let get_allowance state from := FMap.find from (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find (ctx_from ctx) state.(allowances))) in
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    forall account, account <> delegate ->
+      get_allowance prev_state account = get_allowance new_state account.
+Proof.
+  intros.
+  receive_simpl.
+  unfold get_allowance.
+  destruct_match in H;inversion H; cbn; FMap_simpl.
 Qed.
 
 
