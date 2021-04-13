@@ -382,22 +382,22 @@ Proof.
   repeat intro. subst. now apply sumN_permutation.
 Qed.
 
-Definition sum_balances (state : EIP20Token.State) :=
-  sumN (fun '(k, v) => v) (FMap.elements (balances state)).
-
-Lemma sumN_split : forall x y n m (l : list (Address * N)),
+Lemma sumN_split : forall {A : Type} x y n m (l : list (A * N)),
   sumN (fun '(_, v) => v) ((y, n + m) :: l) =
   sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l).
 Proof.
   cbn. lia.
 Qed.
 
-Lemma sumN_swap : forall x y n m (l : list (Address * N)),
+Lemma sumN_swap : forall {A : Type} x y n m (l : list (A * N)),
   sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l) =
   sumN (fun '(_, v) => v) ((x, m) :: (y, n) :: l).
 Proof.
   cbn. lia.
 Qed.
+
+Definition sum_balances (state : EIP20Token.State) :=
+  sumN (fun '(k, v) => v) (FMap.elements (balances state)).
 
 Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
   amount <= with_default 0 (FMap.find from balances) ->
