@@ -383,30 +383,29 @@ Proof.
 Qed.
 
 Definition sum_balances (state : EIP20Token.State) :=
-  sumnat (fun '(k, v) => N.to_nat v) (FMap.elements (balances state)).
+  sumN (fun '(k, v) => v) (FMap.elements (balances state)).
 
-Lemma sumnat_split : forall x y n m (l : list (Address * N)),
-  sumnat (fun '(_, v) => N.to_nat v) ((y, n + m) :: l) =
-  sumnat (fun '(_, v) => N.to_nat v) ((x, n) :: (y, m) :: l).
+Lemma sumN_split : forall x y n m (l : list (Address * N)),
+  sumN (fun '(_, v) => v) ((y, n + m) :: l) =
+  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l).
 Proof.
   cbn. lia.
 Qed.
 
-Lemma sumnat_swap : forall x y n m (l : list (Address * N)),
-  sumnat (fun '(_, v) => N.to_nat v) ((x, n) :: (y, m) :: l) =
-  sumnat (fun '(_, v) => N.to_nat v) ((x, m) :: (y, n) :: l).
+Lemma sumN_swap : forall x y n m (l : list (Address * N)),
+  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l) =
+  sumN (fun '(_, v) => v) ((x, m) :: (y, n) :: l).
 Proof.
   cbn. lia.
 Qed.
 
-Lemma sumnat_FMap_add_sub : forall from to amount (balances : FMap Address N),
+Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
   amount <= with_default 0 (FMap.find from balances) ->
-    N.of_nat (sumnat (fun '(_, v) => N.to_nat v) (FMap.elements balances)) =
-    N.of_nat
-      (sumnat (fun '(_, v) => N.to_nat v)
-         (FMap.elements
-            (FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) to
-               (FMap.add from (with_default 0 (FMap.find from balances) - amount) balances)))).
+    (sumN (fun '(_, v) => v) (FMap.elements balances)) =
+    (sumN(fun '(_, v) => v)
+       (FMap.elements
+          (FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) to
+             (FMap.add from (with_default 0 (FMap.find from balances) - amount) balances)))).
 Proof.
   intros from to amount balances H.
   rewrite add_is_partial_alter_plus; auto.
@@ -424,26 +423,26 @@ Proof.
     | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
     | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
     | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
-    | H : FMap.find ?x ?m = Some _ |- context [ sumnat _ ((?x, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
-    | H : FMap.find ?x _ = Some ?n |- context [ sumnat _ ((?x, ?n) :: FMap.elements (FMap.remove ?x _)) ] => rewrite fin_maps.map_to_list_delete; auto
-    | H : FMap.find ?x _ = Some ?n |- context [ sumnat _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumnat_swap, fin_maps.map_to_list_delete; auto
+    | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((?x, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
+    | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?x _)) ] => rewrite fin_maps.map_to_list_delete; auto
+    | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
     | |- context [ _ + 0 ] => rewrite N.add_0_r
     | |- context [ 0 + _ ] => rewrite N.add_0_l
-    | |- context [ sumnat _ ((?t, ?n + ?m) :: _) ] => rewrite sumnat_split with (x:=t)
-    | |- context [ sumnat _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => rewrite <- sumnat_split
+    | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => rewrite sumN_split with (x:=t)
+    | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => rewrite <- sumN_split
    end.
 Qed.
 
 Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
-    N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
+    (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros.
   receive_simpl.
   apply N.ltb_ge in H0.
   inversion H.
   unfold sum_balances. cbn.
-  now apply sumnat_FMap_add_sub.
+  now apply sumN_FMap_add_sub.
 Qed.
 
 Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
@@ -478,7 +477,7 @@ Qed.
 
 Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
-    N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
+    (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros.
   receive_simpl.
@@ -486,7 +485,7 @@ Proof.
   apply N.ltb_ge in H2.
   inversion H.
   unfold sum_balances. cbn.
-  now apply sumnat_FMap_add_sub.
+  now apply sumN_FMap_add_sub.
 Qed.
 
 Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
@@ -534,7 +533,7 @@ Qed.
 
 Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
-    N.of_nat (sum_balances prev_state) = N.of_nat (sum_balances new_state).
+    (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros.
   receive_simpl.
@@ -622,7 +621,7 @@ Lemma sum_balances_eq_total_supply block_state contract_addr (trace : ChainTrace
   env_contracts block_state contract_addr = Some (contract : WeakContract) ->
   exists cstate,
     contract_state block_state contract_addr = Some cstate
-    /\ (total_supply cstate) = N.of_nat (sum_balances cstate).
+    /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
   contract_induction; intros; try auto.
   - inversion init_some. unfold sum_balances. cbn.
