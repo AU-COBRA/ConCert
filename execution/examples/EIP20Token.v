@@ -362,6 +362,25 @@ Proof.
   destruct_match eqn:from_allowance in H; inversion H; cbn; FMap_simpl; apply N.eqb_refl.
 Qed.
 
+Fixpoint sumN {A : Type} (f : A -> N) (xs : list A) : N :=
+  match xs with
+  | [] => 0
+  | x :: xs' => f x + sumN f xs'
+  end.
+
+Import Permutation.
+
+Lemma sumN_permutation {A : Type} {f : A -> N} {xs ys : list A} (perm_eq : Permutation xs ys) :
+  sumN f xs = sumN f ys.
+Proof.
+  induction perm_eq; perm_simplify; lia.
+Qed.
+
+Instance sumN_perm_proper {A : Type} :
+  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
+Proof.
+  repeat intro. subst. now apply sumN_permutation.
+Qed.
 
 Definition sum_balances (state : EIP20Token.State) :=
   sumnat (fun '(k, v) => N.to_nat v) (FMap.elements (balances state)).
