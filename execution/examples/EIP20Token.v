@@ -134,10 +134,7 @@ Section EIP20Token.
 
 Section Theories.
 
-Import Program.Basics.
 Import Lia.
-Import Coq.Logic.FunctionalExtensionality.
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 (* ------------------- EIP20 functions not payable ------------------- *)
 (* TODO improve proof to proving amount=0 *)
