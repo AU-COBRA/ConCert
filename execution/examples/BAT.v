@@ -215,6 +215,57 @@ Definition approve d a := tokenMsg (EIP20Token.approve d a).
 
 
 
+
+(* ------------------- Tactic to simplify proof steps ------------------- *)
+
+Ltac receive_simpl_step :=
+  match goal with
+  | H : context[receive] |- _ => unfold receive in H
+  | |- context[receive] => unfold receive
+  | H : context[receive_bat] |- _ => unfold receive_bat in H
+  | |- context[receive_bat] => unfold receive_bat
+  | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
+  | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
+  | H : context[try_finalize] |- _ => unfold try_finalize in H; cbn in H
+  | |- context[try_finalize] => unfold try_finalize
+  | H : context[try_refund] |- _ => unfold try_refund in H; cbn in H
+  | |- context[try_refund] => unfold try_refund
+  | H : context[try_create_tokens] |- _ => unfold try_create_tokens in H; cbn in H
+  | |- context[try_create_tokens] => unfold try_create_tokens
+  | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
+    let a := fresh "H" in
+    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
+    let a := fresh "H" in
+    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
+    match a with
+    | None =>
+      let a := fresh "H" in
+      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+    | _ => match b with
+           | None =>
+             let a := fresh "H" in
+             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+           | _ => idtac
+    end end
+  | H : (if ?m then ?a else ?b) = Some _ |- _ =>
+    match a with
+    | None =>
+      let a := fresh "H" in
+      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+    | _ => match b with
+           | None =>
+             let a := fresh "H" in
+             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+           | _ => idtac
+    end end
+  end.
+
+Tactic Notation "receive_simpl" := repeat receive_simpl_step.
+
+
+
 (* ------------------- Transfer correct ------------------- *)
 
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
@@ -222,12 +273,10 @@ Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to am
   transfer_balance_update_correct (token_state prev_state) (token_state new_state) ctx.(ctx_from) to amount = true.
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_balance_correct; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_balance_correct; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
@@ -235,12 +284,10 @@ Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ct
     (total_supply prev_state) = (total_supply new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_preserves_total_supply; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_preserves_total_supply; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
@@ -248,12 +295,10 @@ Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx 
     (allowances prev_state) = (allowances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_preserves_allowances; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_preserves_allowances; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
@@ -262,12 +307,10 @@ Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain 
       FMap.find account (balances prev_state) = FMap.find account (balances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_preserves_other_balances; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_preserves_other_balances; eauto.
+  destruct p. subst. cbn. erewrite H2. f_equal.
 Qed.
 
 Lemma try_transfer_is_some : forall state chain ctx to amount,
@@ -292,12 +335,10 @@ Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx 
   transfer_from_allowances_update_correct (token_state prev_state) (token_state new_state) from ctx.(ctx_from) amount = true.
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_from_balance_correct; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_from_balance_correct; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
@@ -305,12 +346,10 @@ Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state cha
     (total_supply prev_state) = (total_supply new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_from_preserves_total_supply; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_from_preserves_total_supply; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state chain ctx from to amount new_acts,
@@ -319,13 +358,11 @@ Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state c
       FMap.find account (balances prev_state) = FMap.find account (balances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_from_preserves_other_balances.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-    all: auto.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_from_preserves_other_balances.
+  destruct p. subst. cbn. erewrite H2. f_equal.
+  all: auto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state chain ctx from to amount new_acts,
@@ -334,12 +371,10 @@ Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state
       FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_from_preserves_other_allowances; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_from_preserves_other_allowances; eauto.
+  destruct p. subst. cbn. erewrite H1. f_equal.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
@@ -348,12 +383,10 @@ Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state 
       get_allowance (token_state prev_state) from account = get_allowance (token_state new_state) from account.
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_from_preserves_other_allowance; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_from_preserves_other_allowance; eauto.
+  destruct p. subst. cbn. erewrite H1. f_equal.
 Qed.
 
 Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
@@ -380,12 +413,10 @@ Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx dele
   approve_allowance_update_correct (token_state new_state) ctx.(ctx_from) delegate amount = true.
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_approve_allowance_correct; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_approve_allowance_correct; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -393,12 +424,10 @@ Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx
     (total_supply prev_state) = (total_supply new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_approve_preserves_total_supply; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_approve_preserves_total_supply; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -406,12 +435,10 @@ Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx del
     (balances prev_state) = (balances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_approve_preserves_balances; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_approve_preserves_balances; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -420,12 +447,10 @@ Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain
       FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_approve_preserves_other_allowances; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_approve_preserves_other_allowances; eauto.
+  destruct p. subst. cbn. erewrite H1. f_equal.
 Qed.
 
 Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -434,12 +459,10 @@ Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain 
       get_allowance (token_state prev_state) (ctx_from ctx) account = get_allowance (token_state new_state) (ctx_from ctx) account.
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_approve_preserves_other_allowance; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_approve_preserves_other_allowance; eauto.
+  destruct p. subst. cbn. erewrite H1. f_equal.
 Qed.
 
 Lemma try_approve_is_some : forall state chain ctx delegate amount,
@@ -460,12 +483,10 @@ Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ct
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_preserves_balances_sum; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_preserves_balances_sum; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
@@ -473,12 +494,10 @@ Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state cha
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_transfer_from_preserves_balances_sum; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_transfer_from_preserves_balances_sum; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -486,12 +505,10 @@ Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros.
-  cbn in H.
-  destruct_match eqn:receive in H.
-  - inversion H.
-    eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
-    destruct p. subst. cbn. erewrite receive. f_equal.
-  - congruence.
+  receive_simpl.
+  inversion H.
+  eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
+  destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
 
