@@ -220,22 +220,22 @@ Existing Instance EIP20Token.sumN_perm_proper.
 
 
 
-(* ------------------- Tactic to simplify proof steps ------------------- *)
+(* ------------------- Tactics to simplify proof steps ------------------- *)
 
 Ltac receive_simpl_step :=
   match goal with
-  | H : context[receive] |- _ => unfold receive in H
+  | H : context[receive] |- _ => unfold receive in H; cbn in H
   | |- context[receive] => unfold receive
   | H : context[receive_bat] |- _ => unfold receive_bat in H
   | |- context[receive_bat] => unfold receive_bat
   | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
   | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
   | H : context[try_finalize] |- _ => unfold try_finalize in H; cbn in H
-  | |- context[try_finalize] => unfold try_finalize
+  | |- context[try_finalize] => unfold try_finalize; cbn
   | H : context[try_refund] |- _ => unfold try_refund in H; cbn in H
-  | |- context[try_refund] => unfold try_refund
+  | |- context[try_refund] => unfold try_refund; cbn
   | H : context[try_create_tokens] |- _ => unfold try_create_tokens in H; cbn in H
-  | |- context[try_create_tokens] => unfold try_create_tokens
+  | |- context[try_create_tokens] => unfold try_create_tokens; cbn
   | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
     let a := fresh "H" in
     destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
@@ -267,6 +267,13 @@ Ltac receive_simpl_step :=
   end.
 
 Tactic Notation "receive_simpl" := repeat receive_simpl_step.
+
+Ltac returnIf H :=
+  let G := fresh "G" in
+    unfold returnIf in H;
+    destruct_match eqn:G in H; try congruence;
+    clear H;
+    rename G into H.
 
 
 
@@ -476,6 +483,120 @@ Proof.
   cbn.
   destruct_match eqn:receive;
     now erewrite EIP20Token.try_approve_is_some, receive.
+Qed.
+
+
+
+(* ------------------- EIP20 functions only changes token_state ------------------- *)
+
+Lemma eip_only_changes_token_state : forall prev_state new_state chain ctx m new_acts,
+  receive chain ctx prev_state (Some (tokenMsg m)) = Some (new_state, new_acts) ->
+    prev_state<|token_state := (token_state new_state)|> = new_state.
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+
+
+(* ------------------- Create_tokens updates correct ------------------- *)
+
+Lemma try_create_tokens_balance_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    with_default 0 (FMap.find (ctx_from ctx) (balances prev_state)) =
+    with_default 0 (FMap.find (ctx_from ctx) (balances new_state)) - ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  cbn.
+  rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance;
+    setoid_rewrite from_balance; cbn;
+    rewrite FMap.find_add; cbn;
+    now rewrite N.add_sub.
+Qed.
+
+Lemma try_create_tokens_total_supply_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    (total_supply prev_state) =
+    (total_supply new_state) - ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  cbn.
+  now rewrite N.add_sub.
+Qed.
+
+Lemma try_create_tokens_preserves_other_balances : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  cbn.
+  rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  now rewrite FMap.find_add_ne.
+Qed.
+
+Lemma try_create_tokens_preserves_allowances : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    (allowances prev_state) = (allowances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_create_tokens_only_change_token_state : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    prev_state<|token_state := (token_state new_state)|> = new_state.
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_create_tokens_is_some : forall state chain ctx,
+  Z.lt 0 (ctx_amount ctx)
+  /\ (isFinalized state) = false
+  /\ ((fundingStart state) <= (current_slot chain))%nat
+  /\ ((current_slot chain) <= (fundingEnd state))%nat
+  /\ (total_supply state) + ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate state)) <= (tokenCreationCap state)
+    <-> isSome (receive chain ctx state (Some create_tokens)) = true.
+Proof.
+  split.
+  - intros. receive_simpl.
+    destruct H as [H1 [H2 [H3 [H4 H5]]]].
+    destruct_match eqn:match1. destruct_match eqn:match2. destruct_match eqn:match3.
+    + easy.
+    + returnIf match3.
+      rewrite N.ltb_lt in match3. lia.
+    + returnIf match2.
+      rewrite Z.leb_le in match2. lia.
+    + returnIf match1.
+      do 2 rewrite Bool.orb_true_iff in match1.
+      destruct match1 as [[H2' | H3'] | H4'].
+      * easy.
+      * rewrite Nat.ltb_lt in H3'. easy.
+      * rewrite Nat.ltb_lt in H4'. easy.
+  - intros. receive_simpl.
+    do 4 try split;
+      destruct_match eqn:H1 in H; cbn in H; try discriminate;
+      destruct_match eqn:H4 in H; cbn in H; try discriminate;
+      destruct_match eqn:H5 in H; cbn in H; try discriminate;
+      returnIf H1; returnIf H4; returnIf H5;
+      apply Bool.orb_false_iff in H1 as [H1 H3];
+      apply Bool.orb_false_iff in H1 as [H1 H2].
+    + now rewrite Z.leb_gt in H4.
+    + assumption.
+    + now apply Nat.ltb_ge in H2.
+    + now apply Nat.ltb_ge in H3.
+    + now apply N.ltb_ge in H5.
 Qed.
 
 
