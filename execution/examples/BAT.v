@@ -204,6 +204,7 @@ Section Theories.
 
 Notation isSome := EIP20Token.isSome.
 Notation sumN := EIP20Token.sumN.
+Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
 Notation get_allowance := EIP20Token.get_allowance.
 Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
 Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
@@ -224,7 +225,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_transfer_balance_correct.
+    eapply EIP20Token.try_transfer_balance_correct; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -237,7 +238,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_transfer_preserves_total_supply.
+    eapply EIP20Token.try_transfer_preserves_total_supply; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -250,7 +251,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_transfer_preserves_allowances.
+    eapply EIP20Token.try_transfer_preserves_allowances; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -294,7 +295,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_transfer_from_balance_correct.
+    eapply EIP20Token.try_transfer_from_balance_correct; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -307,7 +308,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_transfer_from_preserves_total_supply.
+    eapply EIP20Token.try_transfer_from_preserves_total_supply; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -382,7 +383,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_approve_allowance_correct.
+    eapply EIP20Token.try_approve_allowance_correct; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -395,7 +396,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_approve_preserves_total_supply.
+    eapply EIP20Token.try_approve_preserves_total_supply; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -408,7 +409,7 @@ Proof.
   cbn in H.
   destruct_match eqn:receive in H.
   - inversion H.
-    eapply EIP20Token.try_approve_preserves_balances.
+    eapply EIP20Token.try_approve_preserves_balances; eauto.
     destruct p. subst. cbn. erewrite receive. f_equal.
   - congruence.
 Qed.
@@ -448,6 +449,49 @@ Proof.
   cbn.
   destruct_match eqn:receive;
     now erewrite EIP20Token.try_approve_is_some, receive.
+Qed.
+
+
+
+(* ------------------- EIP20 functions preserve sum of balances ------------------- *)
+
+Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_preserves_balances_sum; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_from_preserves_balances_sum; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
 Qed.
 
 
