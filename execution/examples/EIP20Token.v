@@ -378,15 +378,16 @@ Definition transfer_balance_update_correct old_state new_state from to tokens :=
     (from_balance_before =? from_balance_after + tokens) &&
     (to_balance_before + tokens =? to_balance_after).
 
+Definition get_allowance state from delegate :=
+  with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state)))).
+
 Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
-  let get_allowance state := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances)))) in
-  let delegate_allowance_before := get_allowance old_state in
-  let delegate_allowance_after := get_allowance new_state in 
+  let delegate_allowance_before := get_allowance old_state from delegate in
+  let delegate_allowance_after := get_allowance new_state from delegate in 
     delegate_allowance_before =? delegate_allowance_after + tokens.
 
 Definition approve_allowance_update_correct (new_state : State) (from delegate : Address) (tokens : TokenValue) :=
-  let get_allowance state := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances)))) in
-  let delegate_allowance_after := get_allowance new_state in
+  let delegate_allowance_after := get_allowance new_state from delegate in
     delegate_allowance_after =? tokens.
 
 
@@ -446,8 +447,8 @@ Qed.
 
 Lemma try_transfer_is_some : forall state chain ctx to amount,
   (ctx_amount ctx >? 0)%Z = false ->
-  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) state.(balances)) = false)
-  \/ amount <= with_default 0 (FMap.find (ctx_from ctx)  state.(balances))
+  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) (balances state)) = false)
+  \/ amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
     <-> isSome (receive chain ctx state (Some (transfer to amount))) = true.
 Proof.
   split.
@@ -473,6 +474,7 @@ Proof.
   intros.
   unfold transfer_balance_update_correct.
   unfold transfer_from_allowances_update_correct.
+  unfold get_allowance.
   receive_simpl.
   apply Bool.orb_false_iff in H2 as [H3 H4]; apply N.ltb_ge in H3; apply N.ltb_ge in H4.
   split.
@@ -527,10 +529,9 @@ Proof.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
-  let get_allowance state account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances))) in
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     forall account, account <> (ctx_from ctx) ->
-      get_allowance prev_state account = get_allowance new_state account.
+      get_allowance prev_state from account = get_allowance new_state from account.
 Proof.
   intros.
   unfold get_allowance.
@@ -539,12 +540,12 @@ Proof.
 Qed.
 
 Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
-  let get_allowance account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from state.(allowances))) in
+  let get_allowance_ account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state))) in
   (ctx_amount ctx >? 0)%Z = false ->
-  isSome (FMap.find from state.(allowances)) = true
-  /\ isSome (get_allowance (ctx_from ctx)) = true
-  /\ amount <= with_default 0 (FMap.find from state.(balances))
-  /\ amount <= with_default 0 (get_allowance (ctx_from ctx))
+  isSome (FMap.find from (allowances state)) = true
+  /\ isSome (get_allowance_ (ctx_from ctx)) = true
+  /\ amount <= with_default 0 (FMap.find from (balances state))
+  /\ amount <= with_default 0 (get_allowance_ (ctx_from ctx))
     <-> isSome (receive chain ctx state (Some (transfer_from from to amount))) = true.
 Proof.
   split.
@@ -573,6 +574,7 @@ Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx dele
   approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
 Proof.
   intros.
+  unfold approve_allowance_update_correct, get_allowance.
   receive_simpl.
   destruct_match eqn:from_allowance in H; inversion H; cbn; FMap_simpl; apply N.eqb_refl.
 Qed.
@@ -606,10 +608,9 @@ Proof.
 Qed.
 
 Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
-  let get_allowance state from := FMap.find from (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find (ctx_from ctx) state.(allowances))) in
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     forall account, account <> delegate ->
-      get_allowance prev_state account = get_allowance new_state account.
+      get_allowance prev_state (ctx_from ctx) account = get_allowance new_state (ctx_from ctx) account.
 Proof.
   intros.
   receive_simpl.
