@@ -322,6 +322,13 @@ Proof.
   cbn. lia.
 Qed.
 
+Lemma sumN_add : forall {A : Type} x n (l : list (A * N)),
+  sumN (fun '(_, v) => v) l + n =
+  sumN (fun '(_, v) => v) ((x, n) :: l).
+Proof.
+  cbn. lia.
+Qed.
+
 Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
   amount <= with_default 0 (FMap.find from balances) ->
     (sumN (fun '(_, v) => v) (FMap.elements balances)) =
