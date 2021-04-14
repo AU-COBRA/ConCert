@@ -283,6 +283,94 @@ Qed.
 
 
 
+(* ------------------- Transfer_from updates correct ------------------- *)
+
+Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+  transfer_balance_update_correct (token_state prev_state) (token_state new_state) from to amount = true /\
+  transfer_from_allowances_update_correct (token_state prev_state) (token_state new_state) from ctx.(ctx_from) amount = true.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_from_balance_correct.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    (total_supply prev_state) = (total_supply new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_from_preserves_total_supply.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> from -> account <> to ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_from_preserves_other_balances.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+    all: auto.
+  - congruence.
+Qed.
+
+Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> from ->
+      FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_from_preserves_other_allowances; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
+  receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) ->
+      get_allowance (token_state prev_state) from account = get_allowance (token_state new_state) from account.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_from_preserves_other_allowance; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
+  let get_allowance_ account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state))) in
+  (ctx_amount ctx >? 0)%Z = false ->
+  isSome (FMap.find from (allowances state)) = true
+  /\ isSome (get_allowance_ (ctx_from ctx)) = true
+  /\ amount <= with_default 0 (FMap.find from (balances state))
+  /\ amount <= with_default 0 (get_allowance_ (ctx_from ctx))
+    <-> isSome (receive chain ctx state (Some (transfer_from from to amount))) = true.
+Proof.
+  intros.
+  unfold balances, allowances, get_allowance_. cbn.
+  destruct_match eqn:receive;
+    now erewrite EIP20Token.try_transfer_from_is_some, receive.
+Qed.
+
+
 Local Open Scope nat.
 
 Definition total_balance bstate accounts : Amount :=
