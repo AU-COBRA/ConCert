@@ -200,6 +200,8 @@ Definition contract : Contract Setup Msg State :=
 
 Section Theories.
 
+Import Lia.
+
 (* ------------------- Definitions from EIP20Token ------------------- *)
 
 Notation isSome := EIP20Token.isSome.
@@ -209,10 +211,12 @@ Notation get_allowance := EIP20Token.get_allowance.
 Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
 Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
 Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
+
 Definition transfer t a := tokenMsg (EIP20Token.transfer t a).
 Definition transfer_from f t a := tokenMsg (EIP20Token.transfer_from f t a).
 Definition approve d a := tokenMsg (EIP20Token.approve d a).
 
+Existing Instance EIP20Token.sumN_perm_proper.
 
 
 
@@ -510,6 +514,98 @@ Proof.
   eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
   destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
+
+Lemma try_create_tokens_preserves_balances_sum : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state) - ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  unfold EIP20Token.sum_balances. cbn in *. clear H H4 H5.
+  rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
+  - setoid_rewrite from_balance. cbn.
+    rewrite FMap.elements_add_existing; eauto.
+    rewrite EIP20Token.sumN_split with (x:=ctx_from ctx), EIP20Token.sumN_swap.
+    rewrite fin_maps.map_to_list_delete; auto. cbn.
+    now rewrite N.add_comm, N.add_sub.
+  - setoid_rewrite from_balance. cbn.
+    rewrite FMap.elements_add; auto. cbn.
+    now rewrite N.add_comm, N.add_sub.
+Qed.
+
+Lemma try_finalize_preserves_balances_sum : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_refund_preserves_balances_sum : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    (sum_balances prev_state) = (sum_balances new_state) + (with_default 0 (FMap.find (ctx_from ctx) (balances prev_state))).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H. unfold EIP20Token.sum_balances. cbn in *. clear H H5 H6.
+  rewrite FMap.elements_add_existing; eauto.
+  rewrite EIP20Token.sumN_add with (x:=ctx_from ctx), EIP20Token.sumN_swap.
+  rewrite fin_maps.map_to_list_delete; eauto.
+Qed.
+
+
+
+(* ------------------- Sum of balances always equals total supply ------------------- *)
+
+Lemma sum_balances_eq_total_supply block_state contract_addr :
+  reachable block_state ->
+  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state block_state contract_addr = Some cstate
+    /\ (total_supply cstate) = (sum_balances cstate).
+Proof.
+  contract_induction; intros; try auto.
+  - inversion init_some. unfold EIP20Token.sum_balances. cbn.
+    rewrite FMap.elements_add; auto.
+    rewrite FMap.elements_empty. cbn. lia.
+  - destruct msg. destruct m. destruct m.
+    + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
+      apply try_transfer_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + apply try_transfer_from_preserves_balances_sum in receive_some as balance_sum.
+      apply try_transfer_from_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
+      apply try_approve_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + admit.
+    + admit.
+    + admit.
+    + cbn in receive_some. congruence.
+  - destruct msg. destruct m. destruct m.
+    + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
+      apply try_transfer_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + apply try_transfer_from_preserves_balances_sum in receive_some as balance_sum.
+      apply try_transfer_from_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
+      apply try_approve_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + admit.
+    + admit.
+    + admit.
+    + cbn in receive_some. congruence.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Admitted.
 
 
 
