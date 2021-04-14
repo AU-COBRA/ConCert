@@ -371,6 +371,87 @@ Proof.
 Qed.
 
 
+
+(* ------------------- Approve updates correct ------------------- *)
+
+Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+  approve_allowance_update_correct (token_state new_state) ctx.(ctx_from) delegate amount = true.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_approve_allowance_correct.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    (total_supply prev_state) = (total_supply new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_approve_preserves_total_supply.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    (balances prev_state) = (balances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_approve_preserves_balances.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) ->
+      FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_approve_preserves_other_allowances; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
+  receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
+    forall account, account <> delegate ->
+      get_allowance (token_state prev_state) (ctx_from ctx) account = get_allowance (token_state new_state) (ctx_from ctx) account.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_approve_preserves_other_allowance; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_approve_is_some : forall state chain ctx delegate amount,
+  (ctx_amount ctx >? 0)%Z = false <-> isSome (receive chain ctx state (Some (approve delegate amount))) = true.
+Proof.
+  intros.
+  cbn.
+  destruct_match eqn:receive;
+    now erewrite EIP20Token.try_approve_is_some, receive.
+Qed.
+
+
+
 Local Open Scope nat.
 
 Definition total_balance bstate accounts : Amount :=
