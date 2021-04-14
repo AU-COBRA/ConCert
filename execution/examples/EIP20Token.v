@@ -471,7 +471,7 @@ Qed.
 
 
 
-(* ------------------- Transfer_from updates correct ------------------- *)
+(* ------------------- Transfer_from correct ------------------- *)
 
 Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
@@ -574,7 +574,7 @@ Qed.
 
 
 
-(* ------------------- Approve updates correct ------------------- *)
+(* ------------------- Approve correct ------------------- *)
 
 Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
