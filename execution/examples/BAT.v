@@ -212,11 +212,82 @@ Definition transfer t a := tokenMsg (EIP20Token.transfer t a).
 Definition transfer_from f t a := tokenMsg (EIP20Token.transfer_from f t a).
 Definition approve d a := tokenMsg (EIP20Token.approve d a).
 
+
+
+(* ------------------- Transfer correct ------------------- *)
+
+Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+  transfer_balance_update_correct (token_state prev_state) (token_state new_state) ctx.(ctx_from) to amount = true.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_balance_correct.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (total_supply prev_state) = (total_supply new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_preserves_total_supply.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    (allowances prev_state) = (allowances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_preserves_allowances.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
+  receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) -> account <> to ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match eqn:receive in H.
+  - inversion H.
+    eapply EIP20Token.try_transfer_preserves_other_balances; eauto.
+    destruct p. subst. cbn. erewrite receive. f_equal.
+  - congruence.
+Qed.
+
+Lemma try_transfer_is_some : forall state chain ctx to amount,
+  (ctx_amount ctx >? 0)%Z = false ->
+  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) (balances state)) = false)
+  \/ amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
+    <-> isSome (receive chain ctx state (Some (transfer to amount))) = true.
+Proof.
+  intros.
+  unfold balances. cbn.
+  destruct_match eqn:receive;
+    now erewrite EIP20Token.try_transfer_is_some, receive.
+Qed.
+
+
+
 Local Open Scope nat.
 
 Definition total_balance bstate accounts : Amount :=
   let account_balance := env_account_balances bstate in
-    fold_left (fun a b => Z.add a (account_balance b)) accounts 0%Z.
+    sumZ (fun acc => account_balance acc) accounts.
 
 Lemma can_finalize : forall bstate caddr cstate accounts,
   reachable bstate ->
