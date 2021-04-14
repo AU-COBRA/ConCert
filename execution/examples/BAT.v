@@ -199,6 +199,19 @@ Definition contract : Contract Setup Msg State :=
   build_contract init receive.
 
 Section Theories.
+
+(* ------------------- Definitions from EIP20Token ------------------- *)
+
+Notation isSome := EIP20Token.isSome.
+Notation sumN := EIP20Token.sumN.
+Notation get_allowance := EIP20Token.get_allowance.
+Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
+Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
+Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
+Definition transfer t a := tokenMsg (EIP20Token.transfer t a).
+Definition transfer_from f t a := tokenMsg (EIP20Token.transfer_from f t a).
+Definition approve d a := tokenMsg (EIP20Token.approve d a).
+
 Local Open Scope nat.
 
 Definition total_balance bstate accounts : Amount :=
