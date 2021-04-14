@@ -121,7 +121,7 @@ Definition try_create_tokens sender (sender_payload : Amount) current_slot state
   do _ <- returnIf (state.(tokenCreationCap) <? checkedSupply) ;
   let new_token_state : EIP20Token.State := {|
     EIP20Token.total_supply := checkedSupply;
-    EIP20Token.balances := FMap.add sender tokens (balances state);
+    EIP20Token.balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + tokens)) sender (balances state);
     EIP20Token.allowances := allowances state;
   |} in
   Some (state<|token_state := new_token_state|>).
