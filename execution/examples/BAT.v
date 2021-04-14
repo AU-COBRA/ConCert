@@ -601,6 +601,79 @@ Qed.
 
 
 
+(* ------------------- Create_tokens correct ------------------- *)
+
+Lemma try_finalize_isFinalized_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
+    (isFinalized prev_state) = false /\ (isFinalized new_state) = true.
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  split.
+  - returnIf H0.
+    now do 2 apply Bool.orb_false_iff in H0 as [H0 _].
+  - reflexivity.
+Qed.
+
+Lemma try_finalize_only_change_isFinalized : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
+    prev_state<|isFinalized := (isFinalized new_state)|> = new_state.
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_finalize_preserves_total_supply : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
+    (total_supply prev_state) = (total_supply new_state).
+Proof.
+  intros.
+  apply try_finalize_only_change_isFinalized in H.
+  now rewrite <- H.
+Qed.
+
+Lemma try_finalize_is_some : forall state chain ctx,
+  (isFinalized state) = false
+  /\ (ctx_from ctx) = (fundDeposit state)
+  /\ (tokenCreationMin state) <= (total_supply state)
+  /\ ((fundingEnd state) < (current_slot chain) \/ (tokenCreationCap state) = (total_supply state))%nat
+    <-> isSome (receive chain ctx state (Some finalize)) = true.
+Proof.
+  split.
+  - intros. receive_simpl.
+    destruct H as [H1 [H2 [H3 H4]]].
+    destruct_match eqn:match1. destruct_match eqn:match2.
+    + easy.
+    + returnIf match2.
+      apply Bool.andb_true_iff in match2 as [H4' H5'].
+      destruct H4 as [H4 | H5].
+      * now rewrite Nat.leb_le in H4'.
+      * now rewrite Bool.negb_true_iff, N.eqb_neq in H5'.
+    + returnIf match1.
+      do 2 rewrite Bool.orb_true_iff in match1.
+      destruct match1 as [[H1' | H2'] | H3'].
+      * easy.
+      * rewrite Bool.negb_true_iff in H2'. now destruct_address_eq.
+      * now rewrite N.ltb_lt in H3'.
+  - intros. receive_simpl.
+    do 3 try split;
+      destruct_match eqn:H1 in H; cbn in H; try discriminate;
+      destruct_match eqn:H4 in H; cbn in H; try discriminate;
+      returnIf H1; returnIf H4;
+      apply Bool.orb_false_iff in H1 as [H1 H3];
+      apply Bool.orb_false_iff in H1 as [H1 H2].
+    + assumption.
+    + now destruct_address_eq.
+    + now rewrite N.ltb_ge in H3.
+    + apply Bool.andb_false_iff in H4 as [H4 | H5].
+      * left. now rewrite Nat.leb_gt in H4.
+      * right. now rewrite Bool.negb_false_iff, N.eqb_eq in H5.
+Qed.
+
+
+
 (* ------------------- EIP20 functions preserve sum of balances ------------------- *)
 
 Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
