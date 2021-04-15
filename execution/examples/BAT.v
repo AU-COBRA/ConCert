@@ -601,7 +601,7 @@ Qed.
 
 
 
-(* ------------------- Create_tokens correct ------------------- *)
+(* ------------------- Finalize correct ------------------- *)
 
 Lemma try_finalize_isFinalized_correct : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
@@ -672,6 +672,112 @@ Proof.
       * right. now rewrite Bool.negb_false_iff, N.eqb_eq in H5.
 Qed.
 
+
+
+(* ------------------- Refund correct ------------------- *)
+
+Lemma try_refund_balance_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    with_default 0 (FMap.find (ctx_from ctx) (balances new_state)) = 0.
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  cbn.
+  now rewrite FMap.find_add.
+Qed.
+
+Lemma try_refund_total_supply_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    (total_supply prev_state) - (with_default 0 (FMap.find (ctx_from ctx) (balances prev_state))) =
+    (total_supply new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_refund_preserves_other_balances : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    forall account, account <> (ctx_from ctx) ->
+      FMap.find account (balances prev_state) = FMap.find account (balances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  inversion H.
+  cbn.
+  now rewrite FMap.find_add_ne.
+Qed.
+
+Lemma try_refund_preserves_allowances : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    (allowances prev_state) = (allowances new_state).
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_refund_only_change_token_state : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    prev_state<|token_state := (token_state new_state)|> = new_state.
+Proof.
+  intros.
+  receive_simpl.
+  now inversion H.
+Qed.
+
+Lemma try_crefund_is_some : forall state chain ctx,
+  (isFinalized state) = false
+  /\ ((fundingEnd state) < (current_slot chain))%nat
+  /\ (total_supply state) < (tokenCreationMin state)
+  /\ (ctx_from ctx) <> (batFundDeposit state)
+  /\ 0 < with_default 0 (FMap.find (ctx_from ctx) (balances state))
+    <-> isSome (receive chain ctx state (Some refund)) = true.
+Proof.
+  split.
+  - intros. receive_simpl.
+    destruct H as [H1 [H2 [H3 [H4 H5]]]].
+    destruct_match eqn:match1. destruct_match eqn:match2. destruct_match eqn:from_balance. destruct_match eqn:match3.
+    + easy.
+    + returnIf match3.
+      rewrite N.eqb_eq in match3.
+      now rewrite match3 in H5.
+    + easy.
+    + returnIf match2. now destruct_address_eq.
+    + returnIf match1.
+      do 2 rewrite Bool.orb_true_iff in match1.
+      destruct match1 as [[H1' | H2'] | H3'].
+      * congruence.
+      * now rewrite Nat.leb_le in H2'.
+      * now rewrite N.leb_le in H3'.
+  - intros. receive_simpl.
+    do 5 try split;
+      destruct_match eqn:H1 in H; cbn in H; try discriminate;
+      destruct_match eqn:H4 in H; cbn in H; try discriminate;
+      destruct_match eqn:from_balance in H; cbn in H; try discriminate;
+      destruct_match eqn:H5 in H; cbn in H; try discriminate;
+      returnIf H1; returnIf H4; returnIf H5;
+      apply Bool.orb_false_iff in H1 as [H1 H3];
+      apply Bool.orb_false_iff in H1 as [H1 H2].
+    + assumption.
+    + now apply Nat.leb_gt in H2.
+    + now apply N.leb_gt in H3.
+    + now destruct_address_eq.
+    + cbn. now rewrite N.eqb_neq in H5.
+Qed.
+
+Lemma try_refund_acts_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
+    new_acts = 
+    [act_transfer 
+      (ctx_from ctx) 
+      (Z.of_N (with_default 0 (FMap.find (ctx_from ctx) (balances prev_state)) / (tokenExchangeRate prev_state)))
+    ].
+Proof.
+  intros.
+  receive_simpl.
+Qed.
 
 
 (* ------------------- EIP20 functions preserve sum of balances ------------------- *)
