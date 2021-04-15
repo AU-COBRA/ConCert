@@ -670,6 +670,18 @@ Proof.
       * right. now rewrite Bool.negb_false_iff, N.eqb_eq in H5.
 Qed.
 
+Lemma try_finalize_acts_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
+    new_acts =
+    [act_transfer
+      (fundDeposit prev_state)
+      (ctx_contract_balance ctx)
+    ].
+Proof.
+  intros.
+  receive_simpl.
+Qed.
+
 
 
 (* ------------------- Refund correct ------------------- *)
@@ -767,9 +779,9 @@ Qed.
 
 Lemma try_refund_acts_correct : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
-    new_acts = 
-    [act_transfer 
-      (ctx_from ctx) 
+    new_acts =
+    [act_transfer
+      (ctx_from ctx)
       (Z.of_N (with_default 0 (FMap.find (ctx_from ctx) (balances prev_state)) / (tokenExchangeRate prev_state)))
     ].
 Proof.
