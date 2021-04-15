@@ -520,14 +520,12 @@ Qed.
 
 Lemma try_create_tokens_total_supply_correct : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
-    (total_supply prev_state) =
-    (total_supply new_state) - ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)).
+    (total_supply prev_state) + ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)) =
+    (total_supply new_state).
 Proof.
   intros.
   receive_simpl.
-  inversion H.
-  cbn.
-  now rewrite N.add_sub.
+  now inversion H.
 Qed.
 
 Lemma try_create_tokens_preserves_other_balances : forall prev_state new_state chain ctx new_acts,
@@ -815,9 +813,9 @@ Proof.
   destruct p. subst. cbn. erewrite H0. f_equal.
 Qed.
 
-Lemma try_create_tokens_preserves_balances_sum : forall prev_state new_state chain ctx new_acts,
+Lemma try_create_tokens_update_balances_sum : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
-    (sum_balances prev_state) = (sum_balances new_state) - ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)).
+    (sum_balances prev_state) + ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)) = (sum_balances new_state).
 Proof.
   intros.
   receive_simpl.
@@ -828,11 +826,11 @@ Proof.
   - setoid_rewrite from_balance. cbn.
     rewrite FMap.elements_add_existing; eauto.
     rewrite EIP20Token.sumN_split with (x:=ctx_from ctx), EIP20Token.sumN_swap.
-    rewrite fin_maps.map_to_list_delete; auto. cbn.
-    now rewrite N.add_comm, N.add_sub.
+    rewrite fin_maps.map_to_list_delete; auto.
+    now rewrite N.add_comm.
   - setoid_rewrite from_balance. cbn.
     rewrite FMap.elements_add; auto. cbn.
-    now rewrite N.add_comm, N.add_sub.
+    now rewrite N.add_comm.
 Qed.
 
 Lemma try_finalize_preserves_balances_sum : forall prev_state new_state chain ctx new_acts,
@@ -844,7 +842,7 @@ Proof.
   now inversion H.
 Qed.
 
-Lemma try_refund_preserves_balances_sum : forall prev_state new_state chain ctx new_acts,
+Lemma try_refund_update_balances_sum : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
     (sum_balances prev_state) = (sum_balances new_state) + (with_default 0 (FMap.find (ctx_from ctx) (balances prev_state))).
 Proof.
