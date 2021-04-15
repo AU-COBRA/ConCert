@@ -921,6 +921,27 @@ Qed.
 
 
 
+(* ------------------- Finalize cannot be undone ------------------- *)
+
+Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
+  (isFinalized prev_state) = true /\
+  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+    (isFinalized new_state) = true.
+Proof.
+  intros.
+  destruct H as [H receive].
+  destruct msg. destruct m.
+  - apply eip_only_changes_token_state in receive.
+    now rewrite <- receive.
+  - apply try_create_tokens_only_change_token_state in receive.
+    now rewrite <- receive.
+  - now apply try_finalize_isFinalized_correct in receive as [_ receive].
+  - apply try_refund_only_change_token_state in receive.
+    now rewrite <- receive.
+  - cbn in receive. congruence.
+Qed.
+
+
 Local Open Scope nat.
 
 Definition total_balance bstate accounts : Amount :=
