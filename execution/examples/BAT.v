@@ -879,9 +879,16 @@ Proof.
     + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
       apply try_approve_preserves_total_supply in receive_some.
       now rewrite <- balance_sum, <- IH.
-    + admit.
-    + admit.
-    + admit.
+    + apply try_create_tokens_update_balances_sum in receive_some as balance_sum.
+      apply try_create_tokens_total_supply_correct in receive_some.
+      now rewrite <- balance_sum, <- receive_some, N.add_cancel_r.
+    + apply try_finalize_preserves_balances_sum in receive_some as balance_sum.
+      apply try_finalize_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + apply try_refund_update_balances_sum in receive_some as balance_sum.
+      apply try_refund_total_supply_correct in receive_some.
+      rewrite IH in receive_some. rewrite <- receive_some, balance_sum.
+      now rewrite N.add_sub.
     + cbn in receive_some. congruence.
   - destruct msg. destruct m. destruct m.
     + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
@@ -893,9 +900,16 @@ Proof.
     + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
       apply try_approve_preserves_total_supply in receive_some.
       now rewrite <- balance_sum, <- IH.
-    + admit.
-    + admit.
-    + admit.
+    + apply try_create_tokens_update_balances_sum in receive_some as balance_sum.
+      apply try_create_tokens_total_supply_correct in receive_some.
+      now rewrite <- balance_sum, <- receive_some, N.add_cancel_r.
+    + apply try_finalize_preserves_balances_sum in receive_some as balance_sum.
+      apply try_finalize_preserves_total_supply in receive_some.
+      now rewrite <- balance_sum, <- IH.
+    + apply try_refund_update_balances_sum in receive_some as balance_sum.
+      apply try_refund_total_supply_correct in receive_some.
+      rewrite IH in receive_some. rewrite <- receive_some, balance_sum.
+      now rewrite N.add_sub.
     + cbn in receive_some. congruence.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
@@ -903,7 +917,7 @@ Proof.
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-Admitted.
+Qed.
 
 
 
