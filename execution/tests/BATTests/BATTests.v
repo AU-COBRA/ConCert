@@ -37,10 +37,10 @@ Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (act_transfer person_1 10);
-    build_act creator (act_transfer person_2 7);
-    build_act creator (act_transfer person_3 6);
-    build_act creator (act_transfer person_4 10);
+    build_act creator (Blockchain.act_transfer person_1 10);
+    build_act creator (Blockchain.act_transfer person_2 7);
+    build_act creator (Blockchain.act_transfer person_3 6);
+    build_act creator (Blockchain.act_transfer person_4 10);
     build_act creator deploy_bat
   ]).
 
@@ -134,7 +134,7 @@ Definition refund_correct old_state new_state cctx to (amount : Amount) :=
 
 Definition post_refund_correct cctx old_state (msg : BAT.Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
-  | (Some (new_state, [act_transfer to amount]), refund) =>
+  | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
     whenFail (show cctx ++ nl ++ show old_state ++ nl ++ show result_opt)
     (checker (refund_correct old_state new_state cctx to amount))
   (* if 'receive' failed, or msg is not a transfer_from
@@ -231,10 +231,10 @@ Definition deploy_bat' := create_deployment 0 BAT.contract bat_setup'.
 Definition token_cb' :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (act_transfer person_1 15);
-    build_act creator (act_transfer person_2 15);
-    build_act creator (act_transfer person_3 10);
-    build_act creator (act_transfer person_4 10);
+    build_act creator (Blockchain.act_transfer person_1 15);
+    build_act creator (Blockchain.act_transfer person_2 15);
+    build_act creator (Blockchain.act_transfer person_3 10);
+    build_act creator (Blockchain.act_transfer person_4 10);
     build_act creator deploy_bat'
   ]).
 
@@ -243,7 +243,7 @@ Definition final_is_final :=
     (fun _ _ post_trace => checker (fold_left (fun a (chainState : ChainState) => a && (is_finalized chainState) ) post_trace true))}.
 
 (* Check that once finalized it cannot be undone *)
-QuickChick final_is_final.
+(* QuickChick final_is_final. *)
 (* +++ Passed 10000 tests (9493 discards) *)
 
 
