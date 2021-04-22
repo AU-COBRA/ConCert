@@ -19,6 +19,7 @@ theories/Serializable.v
 
 -R examples ConCert.Execution.Examples
 examples/BAT.v
+examples/BAT_Fixed.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingTest.v
