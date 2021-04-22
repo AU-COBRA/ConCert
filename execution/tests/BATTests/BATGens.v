@@ -22,8 +22,6 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
-Definition serializeMsg := @serialize BAT.Msg _.
-
 Definition account_balance (env : Environment) (addr : Address) : Amount :=
   (env_account_balances env) addr.
 
@@ -79,10 +77,7 @@ Module EIP20 := EIP20Gens Info.
 (* Main generator. *)
 Definition gBATAction (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome {|
-      act_from := caller_addr;
-      act_body := act_call contract_addr value (serializeMsg msg)
-    |} in
+    returnGenSome (act_call caller_addr contract_addr value msg) in
   state <- returnGen (get_contract_state BAT.State env contract_addr) ;;
   backtrack [
     (* transfer *)

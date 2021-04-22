@@ -956,11 +956,73 @@ Qed.
 
 Local Open Scope nat.
 
+Import ResultMonad.
+Context  {ChainBuilder : ChainBuilderType}.
+Notation serializeMsg := (@serialize BAT.Msg _).
+Notation serializeState := (@serialize BAT.State _).
+
 Definition total_balance bstate accounts : Amount :=
   let account_balance := env_account_balances bstate in
     sumZ (fun acc => account_balance acc) accounts.
 
-Lemma can_finalize : forall bstate caddr cstate accounts,
+Definition next_trace_from_step {from mid to} (trace : ChainTrace from mid) (step : ChainStep mid to) : (ChainTrace from to) :=
+  ChainedList.snoc trace step.
+
+Definition block_header bstate slot creator reward : BlockHeader := 
+  {| block_height := S (chain_height bstate);
+      block_slot := slot;
+      block_finalized_height := finalized_height bstate;
+      block_creator := creator;
+      block_reward := reward; |}.
+
+Definition act_transfer from to amount : Action :=
+  {| act_from := from;
+     act_body := act_transfer to amount; |}.
+
+Definition act_call from to amount msg : Action :=
+  {| act_from := from;
+     act_body := act_call to amount (serializeMsg msg); |}.
+
+Definition finalize_act cstate caddr : Action :=
+  act_call (fundDeposit cstate) caddr 0%Z finalize.
+
+Definition finalize_transfer_act cstate env caddr : Action :=
+  act_transfer caddr (fundDeposit cstate) (env_account_balances env caddr).
+
+Lemma finalized_heigh_chain_step : forall from to,
+  finalized_height (chain_state_env from) < S (chain_height (chain_state_env from)) ->
+  ChainTrace from to ->
+  finalized_height to < S (chain_height to).
+Proof.
+  intros.
+  induction X.
+  - assumption.
+  - inversion l.
+    + inversion H1. inversion H3. rewrite chain_eq. cbn. lia.
+    + inversion X0.
+      * inversion H6. rewrite chain_eq. cbn. lia.
+      * inversion H8. rewrite chain_eq. cbn. lia.
+      * inversion H9. rewrite chain_eq. cbn. lia.
+    + destruct to. destruct mid. cbn in *. rewrite <- H0. apply IHX, H.
+Qed.
+
+Lemma trace_reachable : forall bstate (trace : ChainTrace empty_state bstate),
+  reachable bstate.
+Proof.
+  intros.
+  now unfold reachable.
+Qed.
+
+Lemma step_reachable : forall from to (step : ChainStep from to),
+  reachable from -> reachable to.
+Proof.
+  intros.
+  destruct H.
+  assert (H1 : ChainTrace empty_state to).
+  - econstructor; eauto.
+  - now unfold reachable.
+Qed.
+Lemma can_finalize'' : forall bstate caddr cstate accounts,
   reachable bstate ->
   env_contracts bstate caddr = Some (BAT.contract : WeakContract) ->
   contract_state bstate caddr = Some cstate ->
