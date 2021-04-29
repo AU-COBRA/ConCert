@@ -968,7 +968,7 @@ Definition total_balance bstate accounts : Amount :=
 Definition next_trace_from_step {from mid to} (trace : ChainTrace from mid) (step : ChainStep mid to) : (ChainTrace from to) :=
   ChainedList.snoc trace step.
 
-Definition block_header bstate slot creator reward : BlockHeader := 
+Definition block_header bstate slot creator reward : BlockHeader :=
   {| block_height := S (chain_height bstate);
       block_slot := slot;
       block_finalized_height := finalized_height bstate;
@@ -989,21 +989,22 @@ Definition finalize_act cstate caddr : Action :=
 Definition finalize_transfer_act cstate env caddr : Action :=
   act_transfer caddr (fundDeposit cstate) (env_account_balances env caddr).
 
-Lemma finalized_heigh_chain_step : forall from to,
-  finalized_height (chain_state_env from) < S (chain_height (chain_state_env from)) ->
-  ChainTrace from to ->
+Lemma finalized_heigh_chain_step : forall to,
+  reachable to ->
   finalized_height to < S (chain_height to).
 Proof.
   intros.
-  induction X.
-  - assumption.
-  - inversion l.
-    + inversion H1. inversion H3. rewrite chain_eq. cbn. lia.
-    + inversion X0.
-      * inversion H6. rewrite chain_eq. cbn. lia.
-      * inversion H8. rewrite chain_eq. cbn. lia.
-      * inversion H9. rewrite chain_eq. cbn. lia.
-    + destruct to. destruct mid. cbn in *. rewrite <- H0. apply IHX, H.
+  destruct H as [H].
+  remember empty_state.
+  induction H as [ | H from to trace IH step ]; subst.
+  - apply Nat.lt_0_1.
+  - inversion step as [ header _ valid_block _ env_eq | act _ new_acts _ eval _ | eq ].
+    + inversion valid_block. inversion env_eq. rewrite chain_eq. easy.
+    + inversion eval;
+      match goal with
+      | H : EnvironmentEquiv _ _ |- _ => inversion H; rewrite chain_eq; now apply IH
+      end.
+    + inversion eq. now apply IH.
 Qed.
 
 Lemma trace_reachable : forall bstate (trace : ChainTrace empty_state bstate),
@@ -1022,89 +1023,6 @@ Proof.
   - econstructor; eauto.
   - now unfold reachable.
 Qed.
-Lemma can_finalize_if_creation_min : forall (reward : Amount) (caddr creator : Address),
-  address_is_contract creator = false ->
-  (reward >= 0)%Z ->
-  (exists bstate cstate,
-    reachable bstate
-    /\ (chain_state_queue bstate) = []
-    /\ env_contracts bstate caddr = Some (BAT.contract : WeakContract)
-    /\ env_contract_states bstate caddr = Some (serializeState cstate)
-    /\ N.le (tokenCreationMin cstate) (total_supply cstate)
-    /\ address_is_contract (fundDeposit cstate) = false)
-      ->
-      exists bstate' cstate',
-        reachable bstate'
-        /\ env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
-        /\ env_contract_states bstate' caddr = Some (serializeState cstate')
-        /\ (isFinalized cstate') = true.
-Proof.
-  intros reward caddr creator Hcreator Hreward H.
-  destruct H as [bstate [cstate [H1 [H2 [H3 [H4 [H5 H6]]]]]]].
-  destruct (isFinalized cstate) eqn:finalized; try now (exists bstate, cstate; auto).
-  pose (header := block_header bstate (S (current_slot bstate + (fundingEnd cstate - current_slot (env_chain bstate)))) creator reward).
-  pose (bstate_with_act := (bstate<|chain_state_queue := (finalize_act cstate caddr) :: (chain_state_queue bstate)|>
-                                  <|chain_state_env := add_new_block_to_env header bstate|>)).
-  assert (step_with_act : ChainStep bstate bstate_with_act).
-  + apply step_block with (header0:=header).
-    * assumption.
-    * constructor.
-      -- reflexivity.
-      -- cbn. lia.
-      -- cbn. split. lia.
-         destruct H1.
-         eapply finalized_heigh_chain_step; eauto.
-         cbn. apply Nat.lt_0_1.
-      -- cbn. assumption.
-      -- cbn. assumption.
-    * cbn. rewrite H2. now apply list.Forall_singleton.
-    * now constructor.
-  + pose (header' := block_header bstate_with_act (S (current_slot bstate_with_act)) creator reward).
-    pose (cstate_finalized := cstate<|isFinalized := true|>).
-    pose (bstate_finalized := (bstate_with_act<|chain_state_queue := (finalize_transfer_act cstate bstate_with_act caddr)
-                                                                      :: (chain_state_queue bstate)|>
-                                              <|chain_state_env := set_contract_state caddr
-                                                  (serializeState cstate_finalized) (transfer_balance (fundDeposit cstate)
-                                                  caddr 0 (chain_state_env bstate_with_act))|>)).
-    assert (step_finalized : ChainStep bstate_with_act bstate_finalized).
-    * eapply step_action with (act:=(finalize_act cstate caddr)) (acts:=(chain_state_queue bstate)).
-      -- reflexivity.
-      -- cbn. unfold finalize_act.
-         eapply (eval_call _ _ 0 _ (Some (serializeMsg finalize)) _ _ _).
-        --- lia.
-        --- cbn. eapply account_balance_nonnegative, Z.ge_le in H1.
-            destruct_match.
-            ---- apply Z.add_nonneg_nonneg; eauto; lia.
-            ---- eauto.
-        --- eauto.
-        --- eauto.
-        --- reflexivity.
-        --- cbn. apply N.ltb_ge in H5.
-            assert (blocks_left_funding' : (S (current_slot bstate + (fundingEnd cstate - current_slot bstate)) <=? fundingEnd cstate) = false).
-            ---- destruct (fundingEnd cstate - current_slot bstate) eqn:blocks_left_funding.
-                ----- apply Nat.sub_0_le in blocks_left_funding. apply leb_correct_conv, le_lt_n_Sm. now rewrite Nat.add_0_r.
-                ----- apply Nat.add_sub_eq_nz in blocks_left_funding; auto. rewrite blocks_left_funding. apply leb_correct_conv, Nat.lt_succ_diag_r.
-            ---- rewrite 2!deserialize_serialize, finalized, address_eq_refl, H5, blocks_left_funding'. cbn. eauto.
-        --- eauto.
-        --- now constructor.
-     -- cbn. unfold finalize_transfer_act, act_transfer. rewrite H2. do 3 f_equal. cbn. destruct_address_eq; lia.
-    * exists bstate_finalized, cstate_finalized.
-      split.
-      -- eapply step_reachable; eauto. eapply step_reachable; eauto.
-      -- repeat split; try assumption.
-         cbn. now destruct_address_eq.
-Qed.
-
-(*
-    fst (fold_left (fun acts account =>
-if (0 <? ((tokenCreationMin deployed_cstate) - (snd acts)))%N
-then
-  let amount := (1 + (((tokenCreationMin deployed_cstate) - (snd acts)) / (tokenExchangeRate deployed_cstate)))%N in
-  ((act_call account caddr (Z.min (Z.of_N amount) (env_account_balances deployed_bstate account)) create_tokens) :: fst acts,
-              N.add (snd acts) (N.min amount (Z.to_N (env_account_balances deployed_bstate account))))
-else acts
-) accounts ([], total_supply deployed_cstate))
-*)
 
 Lemma N_le_add_distr : forall n m p,
  (n + m <= p)%N -> (n <= p)%N.
@@ -1124,6 +1042,66 @@ Proof.
     now apply Z.ge_le.
 Qed.
 
+Lemma can_finalize_if_creation_min : forall (reward : Amount) (caddr creator : Address),
+  address_is_contract creator = false ->
+  (reward >= 0)%Z ->
+  (exists bstate cstate,
+    reachable bstate
+    /\ (chain_state_queue bstate) = []
+    /\ env_contracts bstate caddr = Some (BAT.contract : WeakContract)
+    /\ env_contract_states bstate caddr = Some (serializeState cstate)
+    /\ N.le (tokenCreationMin cstate) (total_supply cstate)
+    /\ address_is_contract (fundDeposit cstate) = false)
+      ->
+      exists bstate' cstate',
+        reachable bstate'
+        /\ env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
+        /\ env_contract_states bstate' caddr = Some (serializeState cstate')
+        /\ (isFinalized cstate') = true.
+Proof.
+  intros reward caddr creator Hcreator Hreward
+    [bstate [cstate [bstate_reachable [bstate_queue [contract_deployed [deployed_state [creation_min fund_deposit_not_contract]]]]]]].
+  destruct (isFinalized cstate) eqn:finalized; try now (exists bstate, cstate; auto).
+  pose (header := block_header bstate (S (current_slot bstate + (fundingEnd cstate - current_slot (env_chain bstate)))) creator reward).
+  pose (bstate_with_act := (bstate<|chain_state_queue := (finalize_act cstate caddr) :: (chain_state_queue bstate)|>
+                                  <|chain_state_env := add_new_block_to_env header bstate|>)).
+  assert (step_with_act : ChainStep bstate bstate_with_act).
+  { apply step_block with (header0:=header); try easy.
+    - constructor; try easy.
+      + cbn. lia.
+      + split; try (cbn; lia). cbn.
+        now apply finalized_heigh_chain_step.
+    - cbn. rewrite bstate_queue.
+      now apply list.Forall_singleton.
+  }
+  pose (header' := block_header bstate_with_act (S (current_slot bstate_with_act)) creator reward).
+  pose (cstate_finalized := cstate<|isFinalized := true|>).
+  pose (bstate_finalized := (bstate_with_act<|chain_state_queue := (finalize_transfer_act cstate bstate_with_act caddr)
+                                                                   :: (chain_state_queue bstate)|>
+                                            <|chain_state_env := set_contract_state caddr
+                                                (serializeState cstate_finalized) (transfer_balance (fundDeposit cstate)
+                                                caddr 0 (chain_state_env bstate_with_act))|>)).
+  assert (step_finalized : ChainStep bstate_with_act bstate_finalized).
+  { eapply step_action; eauto.
+    - eapply eval_call with (amount:=0%Z) (msg:=(Some (serializeMsg finalize))); try easy.
+      + eapply account_balance_nonnegative, Z.ge_le in bstate_reachable.
+        cbn. destruct_match; eauto.
+        apply Z.add_nonneg_nonneg; lia.
+      + apply N.ltb_ge in creation_min. cbn.
+        assert (blocks_left_funding' : (S (current_slot bstate + (fundingEnd cstate - current_slot bstate)) <=? fundingEnd cstate) = false).
+        { destruct (fundingEnd cstate - current_slot bstate) eqn:blocks_left_funding.
+          - apply Nat.sub_0_le in blocks_left_funding. now apply leb_correct_conv.
+          - apply Nat.add_sub_eq_nz in blocks_left_funding; auto. now apply leb_correct_conv.
+        }
+        now rewrite 2!deserialize_serialize, finalized, address_eq_refl, creation_min, blocks_left_funding'.
+    - cbn. unfold finalize_transfer_act. repeat f_equal. cbn. now destruct_address_eq.
+  }
+  exists bstate_finalized, cstate_finalized.
+  split; try do 2 (eapply step_reachable; eauto).
+  repeat split; try assumption.
+  cbn. now destruct_address_eq.
+Qed.
+
 Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1134,11 +1112,8 @@ Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creat
     /\ env_contract_states deployed_bstate caddr = Some (serializeState deployed_cstate)
     /\ N.ge ((Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)))
     /\ N.le ((total_supply deployed_cstate) + (Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (tokenCreationCap deployed_cstate)
-    /\ (fundingStart deployed_cstate) < (fundingEnd deployed_cstate)
     /\ (fundingStart deployed_cstate) <= current_slot (env_chain deployed_bstate)
     /\ current_slot (env_chain deployed_bstate) <= (fundingEnd deployed_cstate)
-    /\ N.le (tokenCreationMin deployed_cstate) (tokenCreationCap deployed_cstate)
-    /\ True
     /\ address_is_contract (fundDeposit deployed_cstate) = false
     /\ isFinalized deployed_cstate = false
     /\ Forall (fun acc => Z.lt 0 (env_account_balances deployed_bstate acc)) accounts
@@ -1152,12 +1127,13 @@ Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creat
         /\ (isFinalized cstate) = true.
 Proof.
   induction accounts;
-    intros reward caddr creator Hcreator Hreward H;
-    destruct H as [deployed_bstate [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 [H15 H16]]]]]]]]]]]]]]]]].
+    intros reward caddr creator Hcreator Hreward [deployed_bstate [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]]].
   - eapply can_finalize_if_creation_min; eauto.
     apply N.ge_le, N.le_0_r, N.sub_0_le in H5.
     exists deployed_bstate, deployed_cstate; easy.
-  - pose (token_state_tmp := (token_state deployed_cstate)
+  - apply NoDup_cons_iff in H12 as [H12 H12'].
+    apply not_in_cons in H13 as [H13 H13'].
+    pose (token_state_tmp := (token_state deployed_cstate)
           <|EIP20Token.total_supply := ((total_supply deployed_cstate) + Z.to_N (env_account_balances deployed_bstate a) * tokenExchangeRate deployed_cstate)%N|>
           <|EIP20Token.balances := FMap.partial_alter
                                      (fun balance : option N =>
@@ -1171,112 +1147,59 @@ Proof.
                 map (fun acc => act_call acc caddr (env_account_balances deployed_bstate acc) create_tokens) accounts|>
           <|chain_state_env := set_contract_state caddr (serializeState cstate_tmp) 
                 (transfer_balance a caddr (env_account_balances deployed_bstate a) (chain_state_env deployed_bstate))|>)).
+    assert (total_balance_distr : forall state h t x, (reachable state -> Z.to_N (total_balance state (h :: t)) * x =
+      Z.to_N (env_account_balances state h) * x + Z.to_N (total_balance state t) * x)%N).
+    { intros. cbn.
+      rewrite Z2N.inj_add.
+      - now rewrite N.mul_add_distr_r.
+      - eapply account_balance_nonnegative in H. now apply Z.ge_le.
+      - now apply sum_balances_positive.
+    }
+    assert (total_balance_eq : (total_balance bstate_tmp accounts) = (total_balance deployed_bstate accounts)).
+    { unfold total_balance.
+      rewrite sumZ_map_id. symmetry.
+      rewrite sumZ_map_id. f_equal.
+      apply map_ext_in. intros. cbn.
+      now destruct_address_eq.
+    }
     assert (step_tmp: ChainStep deployed_bstate bstate_tmp).
-    + eapply step_action.
-      * rewrite H2. eauto.
-      * eapply (eval_call _ _ _ _ (Some (serializeMsg create_tokens)) _ _ _).
-        -- apply account_balance_nonnegative. eauto.
-        -- apply Z.le_refl.
-        -- eauto.
-        -- eauto.
-        -- unfold act_call. eauto.
-        -- cbn.
-           apply Nat.ltb_ge in H8. apply Nat.ltb_ge in H9.
-           apply Forall_inv, Z.leb_gt in H14.
-           rewrite 2!deserialize_serialize, H13, H8, H9, H14. cbn.
-           cbn in H6. rewrite Z2N.inj_add in H6.
-           --- rewrite N.mul_add_distr_r, N.add_assoc in H6.
-               apply N_le_add_distr, N.ltb_ge in H6.
-               rewrite H6. eauto.
-           --- eapply account_balance_nonnegative in H1 as nonnegative.
-               now apply Z.ge_le.
-           --- now apply sum_balances_positive.
-        -- eauto.
-        -- constructor.
-          --- reflexivity.
-          --- reflexivity.
-          --- reflexivity.
-          --- reflexivity.
-      * reflexivity.
-    + eapply IHaccounts.
-      * eauto.
-      * eauto.
-      * exists bstate_tmp, cstate_tmp.
-        split; try (eapply step_reachable; eauto).
-        repeat split.
-        -- cbn. apply NoDup_cons_iff in H15 as [H15 _].
-           apply map_ext_in. intros. f_equal. destruct_address_eq.
-           --- congruence.
-           --- congruence.
-           --- apply not_in_cons in H16 as [_ H16]. congruence.
-           --- reflexivity.
-        -- auto.
-        -- cbn. now rewrite address_eq_refl.
-        -- assert (H : (total_balance bstate_tmp accounts) = (total_balance deployed_bstate accounts)).
-          --- unfold total_balance. rewrite sumZ_map_id. symmetry. rewrite sumZ_map_id. f_equal.
-              apply map_ext_in. intros. cbn. 
-              apply NoDup_cons_iff in H15 as [H15 _].
-              apply not_in_cons in H16 as [_ H16].
-              destruct_address_eq.
-              ---- congruence.
-              ---- congruence.
-              ---- congruence.
-              ---- reflexivity.
-          --- rewrite H. cbn. apply N.le_ge, N.le_sub_le_add_r.
-              rewrite N.add_assoc, N.add_comm, N.add_assoc, <- N.mul_add_distr_r.
-              rewrite <- Z2N.inj_add.
-              ---- apply N.ge_le.
-                   replace (env_account_balances deployed_bstate a + total_balance deployed_bstate accounts)%Z
-                      with (total_balance deployed_bstate (a :: accounts))%Z by reflexivity.
-                   lia.
-              ---- eapply account_balance_nonnegative in H1 as nonnegative.
-                   now apply Z.ge_le.
-              ---- now apply sum_balances_positive.
-        -- assert (H : (total_balance bstate_tmp accounts) = (total_balance deployed_bstate accounts)).
-          --- unfold total_balance. rewrite sumZ_map_id. symmetry. rewrite sumZ_map_id. f_equal.
-              apply map_ext_in. intros. cbn. 
-              apply NoDup_cons_iff in H15 as [H15 _].
-              apply not_in_cons in H16 as [_ H16].
-              destruct_address_eq.
-              ---- congruence.
-              ---- congruence.
-              ---- congruence.
-              ---- reflexivity.
-          --- rewrite H. cbn.
-              rewrite <- N.add_assoc, <- N.mul_add_distr_r, <- Z2N.inj_add.
-              ---- apply N.ge_le.
-                   replace (env_account_balances deployed_bstate a + total_balance deployed_bstate accounts)%Z
-                      with (total_balance deployed_bstate (a :: accounts))%Z by reflexivity.
-                   lia.
-              ---- eapply account_balance_nonnegative in H1 as nonnegative.
-                   now apply Z.ge_le.
-              ---- now apply sum_balances_positive.
-        -- auto.
-        -- auto.
-        -- auto.
-        -- auto.
-        -- auto.
-        -- auto.
-        -- apply Forall_inv_tail, All_Forall.Forall_map in H14.
-           apply All_Forall.Forall_map_inv.
-           assert (H : map (env_account_balances bstate_tmp) accounts = map (env_account_balances deployed_bstate) accounts).
-           --- apply map_ext_in. intros. cbn.
-               apply NoDup_cons_iff in H15 as [H15 _].
-               apply not_in_cons in H16 as [_ H16].
-               destruct_address_eq.
-              ---- congruence.
-              ---- congruence.
-              ---- congruence.
-              ---- reflexivity.
-            --- now setoid_rewrite H.
-        -- now apply NoDup_cons_iff in H15 as [_ H15].
-        -- now apply not_in_cons in H16 as [_ H16].
+    { eapply step_action; eauto.
+      - clear Hreward.
+        eapply eval_call with (msg:=(Some (serializeMsg create_tokens))); eauto.
+        + apply account_balance_nonnegative. eauto.
+        + apply Z.le_refl.
+        + apply Nat.ltb_ge in H7. apply Nat.ltb_ge in H8.
+          apply Forall_inv, Z.leb_gt in H11.
+          rewrite total_balance_distr, N.add_assoc in H6; auto.
+          apply N_le_add_distr, N.ltb_ge in H6.
+          cbn.
+          now rewrite 2!deserialize_serialize, H10, H7, H8, H11, H6.
+        + now constructor.
+      - reflexivity.
+    }
+    eapply IHaccounts; eauto.
+    + exists bstate_tmp, cstate_tmp.
+      split; try (eapply step_reachable; eauto).
+      repeat split; auto.
+      * apply map_ext_in. intros. f_equal.
+        cbn. now destruct_address_eq.
+      * cbn. now rewrite address_eq_refl.
+      * rewrite total_balance_eq. apply N.le_ge, N.le_sub_le_add_r. cbn.
+        rewrite N.add_assoc, N.add_comm, N.add_assoc, <- total_balance_distr; auto.
+        now rewrite <- N.le_sub_le_add_r, N.ge_le.
+      * rewrite total_balance_eq. cbn.
+        now rewrite <- N.add_assoc, <- total_balance_distr.
+      * apply Forall_inv_tail, All_Forall.Forall_map in H11.
+        apply All_Forall.Forall_map_inv.
+        assert (H : map (env_account_balances bstate_tmp) accounts = map (env_account_balances deployed_bstate) accounts).
+        -- apply map_ext_in. intros. cbn. now destruct_address_eq.
+        -- now setoid_rewrite H.
 Qed.
 
-Lemma can_finalize_if_deployed : forall accounts (reward : Amount) (caddr creator : Address),
+Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
-  (exists deployed_bstate deployed_cstate,
+  (exists deployed_cstate,
     reachable deployed_bstate
     /\ (chain_state_queue deployed_bstate) = []
     /\ env_contracts deployed_bstate caddr = Some (BAT.contract : WeakContract)
@@ -1287,7 +1210,6 @@ Lemma can_finalize_if_deployed : forall accounts (reward : Amount) (caddr creato
     /\ (fundingStart deployed_cstate) <= current_slot (env_chain deployed_bstate)
     /\ current_slot (env_chain deployed_bstate) < (fundingEnd deployed_cstate)
     /\ N.le (tokenCreationMin deployed_cstate) (tokenCreationCap deployed_cstate)
-    /\ True
     /\ address_is_contract (fundDeposit deployed_cstate) = false
     /\ isFinalized deployed_cstate = false
     /\ Forall (fun acc => Z.lt 0 (env_account_balances deployed_bstate acc)) accounts
@@ -1302,11 +1224,9 @@ Lemma can_finalize_if_deployed : forall accounts (reward : Amount) (caddr creato
         /\ env_contract_states bstate caddr = Some (serializeState cstate)
         /\ (isFinalized cstate) = true.
 Proof.
-  intros accounts reward caddr creator Hcreator Hreward H.
-  destruct H as [deployed_bstate [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 [H15 [H17 [H18 H19]]]]]]]]]]]]]]]]]]].
-  eapply can_finalize_if_deployed'.
-  - eauto.
-  - eauto.
+  intros deployed_bstate accounts reward caddr creator Hcreator Hreward 
+    [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 [H15 [H17 H18]]]]]]]]]]]]]]]]].
+  eapply can_finalize_if_deployed'; eauto.
   - pose (header := block_header deployed_bstate (S (current_slot deployed_bstate)) creator reward).
     pose (bstate_with_acts := (deployed_bstate
         <|chain_state_queue :=
@@ -1314,116 +1234,45 @@ Proof.
           ++ (chain_state_queue deployed_bstate)|>
         <|chain_state_env := add_new_block_to_env header deployed_bstate|>)).
     assert (step_with_act : ChainStep deployed_bstate bstate_with_acts).
-    + apply step_block with (header0:=header).
-      * assumption.
-      * constructor.
-        -- reflexivity.
-        -- cbn. lia.
-        -- cbn. split. lia.
-           destruct H1.
-           eapply finalized_heigh_chain_step; eauto.
-           cbn. apply Nat.lt_0_1.
-        -- cbn. assumption.
-        -- cbn. assumption.
-      * apply All_Forall.In_Forall.
+    { apply step_block with (header0:=header); try easy.
+      - constructor; try easy.
+        split; try (cbn; lia). cbn.
+        now apply finalized_heigh_chain_step.
+      - apply All_Forall.In_Forall.
         intros. cbn in H.
         rewrite H2, app_nil_r, in_map_iff in H.
-        destruct H as [x' [H H']]. unfold act_is_from_account. rewrite <- H. cbn.
-        rewrite Forall_forall in H18. now apply H18 in H'.
-      * constructor.
-        -- reflexivity.
-        -- reflexivity.
-        -- reflexivity.
-        -- reflexivity.
-    + exists bstate_with_acts, deployed_cstate.
-      split.
-      * eapply step_reachable; eauto.
-      * repeat split; try reflexivity; try assumption.
-        -- cbn. rewrite H2, app_nil_r.
-           apply map_ext_in. intros.
-           f_equal. destruct_address_eq;
-           try reflexivity. congruence.
-        -- assert (H : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
-          --- unfold total_balance. rewrite sumZ_map_id. symmetry. rewrite sumZ_map_id. f_equal.
-              apply map_ext_in. intros. cbn.
-              destruct_address_eq.
-              ---- congruence.
-              ---- reflexivity.
-          --- now rewrite H.
-        -- assert (H : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
-          --- unfold total_balance. rewrite sumZ_map_id. symmetry. rewrite sumZ_map_id. f_equal.
-              apply map_ext_in. intros. cbn.
-              destruct_address_eq.
-              ---- congruence.
-              ---- reflexivity.
-          --- now rewrite H.
-        -- cbn. lia.
-        -- apply All_Forall.Forall_map in H14.
-           apply All_Forall.Forall_map_inv.
-           assert (H : map (env_account_balances bstate_with_acts) accounts = map (env_account_balances deployed_bstate) accounts).
-           --- apply map_ext_in. intros. cbn.
-               destruct_address_eq.
-               ---- congruence.
-               ---- reflexivity.
-            --- now setoid_rewrite H.
-        -- auto.
-        -- auto.
+        destruct H as [x' [H H']].
+        rewrite <- H.
+        rewrite Forall_forall in H17.
+        now apply H17 in H'.
+    }
+    assert (total_balance_eq : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
+    { unfold total_balance.
+      rewrite sumZ_map_id. symmetry.
+      rewrite sumZ_map_id. f_equal.
+      apply map_ext_in. intros. cbn.
+      now destruct_address_eq.
+    }
+    exists bstate_with_acts, deployed_cstate.
+    split.
+    + eapply step_reachable; eauto.
+    + repeat split; try reflexivity; try assumption.
+      * cbn. rewrite H2, app_nil_r.
+        apply map_ext_in. intros.
+        f_equal.
+        now destruct_address_eq.
+      * now rewrite total_balance_eq.
+      * now rewrite total_balance_eq.
+      * cbn. lia.
+      * apply All_Forall.Forall_map in H13.
+        apply All_Forall.Forall_map_inv.
+        assert (H : map (env_account_balances bstate_with_acts) accounts = map (env_account_balances deployed_bstate) accounts).
+        -- apply map_ext_in. intros. cbn.
+            now destruct_address_eq.
+        -- now setoid_rewrite H.
+      * auto.
+      * auto.
 Qed.
-
-Lemma can_finalize : forall (init_state : ChainState) accounts setup caddr,
-  reachable init_state ->
-  N.gt (Z.to_N (total_balance init_state accounts)) (((_tokenCreationMin setup) - (_batFund setup)) / (_tokenExchangeRate setup))
-  /\ (_fundingStart setup) < (_fundingEnd setup)
-  /\ current_slot (env_chain init_state) < (_fundingStart setup)
-  /\ N.le (_tokenCreationMin setup) (_tokenCreationCap setup)
-  /\ N.le (_batFund setup) (_tokenCreationMin setup) ->
-    exists bstate (trace : ChainTrace empty_state bstate) cstate deploy_info,
-      (chain_state_queue bstate) = []
-      /\ env_contracts bstate caddr = Some (BAT.contract : WeakContract)
-      /\ contract_state bstate caddr = Some cstate
-      /\ deployment_info _ trace caddr = Some deploy_info
-      /\ deploy_info.(deployment_setup) = setup ->
-        (isFinalized cstate) = true.
-Proof.
-  intros.
-  destruct H0 as [H1 [H2 [H3 [H4 H5]]]].
-Admitted.
-
-Lemma can_finalize' : forall (bstate : ChainState) caddr cstate accounts,
-  reachable bstate ->
-  env_contracts bstate caddr = Some (BAT.contract : WeakContract) ->
-  contract_state bstate caddr = Some cstate ->
-    cstate.(fundingStart) < cstate.(fundingEnd)
-    /\ current_slot (env_chain bstate) < fundingEnd cstate
-    /\ N.ge (Z.to_N (total_balance bstate accounts)) ((tokenCreationMin cstate) - (total_supply cstate)) ->
-      exists bstate_new cstate_new (trace : (ChainTrace bstate bstate_new)),
-        contract_state bstate_new caddr = Some cstate_new /\ isFinalized cstate_new = true.
-Proof.
-  contract_induction; intros.
-  - auto.
-  - admit.
-  - admit.
-Admitted.
-
-Lemma can_finalize'' : forall bstate caddr cstate accounts,
-  reachable bstate ->
-  env_contracts bstate caddr = Some (BAT.contract : WeakContract) ->
-  contract_state bstate caddr = Some cstate ->
-  cstate.(fundingStart) < cstate.(fundingEnd)
-    /\ current_slot (env_chain bstate) < fundingEnd cstate
-    /\ N.ge (Z.to_N (total_balance bstate accounts)) ((tokenCreationMin cstate) - (total_supply cstate)) ->
-      exists bstate_new cstate_new, reachable bstate_new /\ contract_state bstate_new caddr = Some cstate_new /\ isFinalized cstate_new = true.
-Proof.
-  contract_induction; intros; try auto.
-  - destruct H2 as [H3 [H4 H5]]. admit.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
-    unset_all; subst;cbn in *.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
-Admitted.
-
 
 End Theories.
 End BAT.
