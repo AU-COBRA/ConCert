@@ -1,4 +1,4 @@
-From ConCert Require Import Blockchain BAT.
+From ConCert Require Import Blockchain BAT_Fixed.
 From ConCert Require Import Serializable.
 From ConCert Require Import Containers.
 From ConCert.Execution.QCTests Require Import 
@@ -9,18 +9,20 @@ From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List ZArith. Import ListNotations.
 
-Module Type BATGensInfo.
+Module Type BATFixedGensInfo.
   Parameter contract_addr : Address.
   Parameter gAccount : Chain -> G Address.
   Parameter bat_addr : Address.
   Parameter fund_addr : Address.
-End BATGensInfo.
+End BATFixedGensInfo.
 
-Module BATGens (Info : BATGensInfo).
+Module BATFixedGens (Info : BATFixedGensInfo).
 Import Info.
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
+
+Definition serializeMsg := @serialize BAT_Fixed.Msg _.
 
 Definition account_balance (env : Environment) (addr : Address) : Amount :=
   (env_account_balances env) addr.
@@ -34,7 +36,7 @@ Definition get_refundable_accounts state : list (G (option Address)) :=
   Generate create token requests on the form (from_addr, value, create_tokens)
   Has chance to generate request from both existing and new accounts
 *)
-Definition gCreateTokens (env : Environment) (state : BAT.State) : GOpt (Address * Amount * Msg) :=
+Definition gCreateTokens (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Amount * Msg) :=
   let current_slot := current_slot (env_chain env) in
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
@@ -50,7 +52,7 @@ Definition gCreateTokens (env : Environment) (state : BAT.State) : GOpt (Address
       else
         returnGen None.
 
-Definition gRefund (env : Environment) (state : BAT.State) : GOpt (Address * Msg) :=
+Definition gRefund (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
   let accounts := get_refundable_accounts state in
   if ((state.(isFinalized)
@@ -62,7 +64,7 @@ Definition gRefund (env : Environment) (state : BAT.State) : GOpt (Address * Msg
     from_addr <- oneOf_ (returnGen None) accounts ;;
     returnGenSome (from_addr, refund).
 
-Definition gFinalize (env : Environment) (state : BAT.State) : GOpt (Address * Msg) :=
+Definition gFinalize (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
   if (state.(isFinalized) 
         || ((total_supply state) <? state.(tokenCreationMin))%N
@@ -77,8 +79,11 @@ Module EIP20 := EIP20Gens Info.
 (* Main generator. *)
 Definition gBATAction (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (act_call caller_addr contract_addr value msg) in
-  state <- returnGen (get_contract_state BAT.State env contract_addr) ;;
+    returnGenSome {|
+      act_from := caller_addr;
+      act_body := Blockchain.act_call contract_addr value (serializeMsg msg)
+    |} in
+  state <- returnGen (get_contract_state BAT_Fixed.State env contract_addr) ;;
   backtrack [
     (* transfer *)
     (2, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
@@ -116,4 +121,4 @@ Definition gBATAction (env : Environment) : GOpt Action :=
     )
   ].
 
-End BATGens.
+End BATFixedGens.

@@ -1,11 +1,11 @@
 From ConCert Require Import Blockchain.
-From ConCert Require Import BAT.
+From ConCert Require Import BAT_Fixed.
 From QuickChick Require Import QuickChick.
 
 From ConCert.Execution.QCTests Require Import
   TestUtils EIP20TokenPrinters.
 
-Section BATPrinters.
+Section BATFixedPrinters.
 Context `{Show Address}.
 Local Open Scope string_scope.
 
@@ -17,7 +17,7 @@ Instance showTokenValue : Show TokenValue :=
   show v := show v
 |}.
 
-Instance showMsg : Show BAT.Msg :=
+Instance showMsg : Show BAT_Fixed.Msg :=
 {|
   show m := match m with
             | tokenMsg msg => show msg
@@ -40,7 +40,7 @@ Instance showBATSetup : Show Setup :=
     "tokenCreationMin: " ++ show setup.(_tokenCreationMin) ++ "}"
 |}.
 
-Instance showBATState : Show BAT.State :=
+Instance showBATState : Show BAT_Fixed.State :=
 {|
   show s := "State{" ++
     "token_state: " ++ show s.(token_state) ++ sep ++
@@ -54,4 +54,4 @@ Instance showBATState : Show BAT.State :=
     "tokenCreationMin: " ++ show s.(tokenCreationMin) ++ "}"
 |}.
 
-End BATPrinters.
+End BATFixedPrinters.

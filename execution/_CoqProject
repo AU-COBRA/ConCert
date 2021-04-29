@@ -66,3 +66,7 @@ tests/iTokenBuggyTests/iTokenBuggyPrinters.v
 tests/iTokenBuggyTests/iTokenBuggyTests.v
 tests/BATTests/BATGens.v
 tests/BATTests/BATPrinters.v
+tests/BATTests/BATTests.v
+tests/BATTests/BAT_FixedGens.v
+tests/BATTests/BAT_FixedPrinters.v
+
