@@ -59,7 +59,7 @@ Definition ValidEntry :=
                    /\ entry.(password) =? entry.(passwordAgain)}.
 
 
-(** An entry with "raw "data we store in list of users *)
+(** An entry with "raw" data that we are going to use for defining valid stored entries *)
 Record StoredEntry :=
   { seName : string;
     sePassword : string }.
@@ -76,7 +76,7 @@ Definition seNames (l : list ValidStoredEntry) :=
 Record Model :=
   { (** A list of valid entries such with unique user names *)
     users : {l : list ValidStoredEntry | NoDup (seNames l)};
-    (** A list of erros after validation *)
+    (** A list of errors after validation *)
     errors : list string;
     (** Current user input *)
     currentEntry : Entry }.
@@ -119,6 +119,7 @@ Program Definition validateModel : Model -> list string
        map snd (filter (fun x => ~~ x.1) res).
 
 
+(* Messages for updating the current entry and adding the current entry to the list of users  *)
 Inductive StorageMsg :=
    Add
  | UpdateEntry (_ : Msg).
@@ -126,9 +127,12 @@ Inductive StorageMsg :=
 
 (** We translate the user input to the stored representation.
 Note that the transation only works for valid entries *)
-Program Definition toStoredEntry : ValidEntry -> StoredEntry
+Program Definition toValidStoredEntry : ValidEntry -> ValidStoredEntry
   := fun entry =>
        {| seName := entry.(name); sePassword := entry.(password) |}.
+Next Obligation.
+  destruct entry as [e He];destruct He as (? & ? & ?);cbn;auto.
+Qed.
 
 Hint Resolve -> eqb_neq : core.
 Hint Unfold nonEmptyString : core.
@@ -150,10 +154,12 @@ Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg
        match msg with
        | Add =>
          match validateModel model with
-         | [] => let newEntry : ValidStoredEntry :=
-                    toStoredEntry model.(currentEntry) in
-                 let newList := newEntry :: model.(users) in
-                (model<| users := newList |>, none)
+         | [] =>
+           let validEntry : ValidEntry := model.(currentEntry) in
+           let newValidStoredEntry : ValidStoredEntry :=
+                    toValidStoredEntry validEntry in
+           let newList := newValidStoredEntry :: model.(users) in
+           (model<| users := newList |>, none)
          | errs => (model<| errors := errs |>, none)
          end
        | UpdateEntry entryMsg =>
@@ -279,8 +285,7 @@ Definition TT :=
   ].
 
 Definition to_inline :=
-  [<%% @SetterFromGetter %%>
-  ;<%% setter_from_getter_Entry_name %%>
+  [<%% setter_from_getter_Entry_name %%>
   ;<%% setter_from_getter_Model_users %%>
   ;<%% setter_from_getter_Model_errors %%>
   ;<%% setter_from_getter_Model_currentEntry%%>
