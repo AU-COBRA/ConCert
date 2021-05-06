@@ -180,10 +180,10 @@ Definition receive_bat (chain : Chain)
   match maybe_msg with
   | Some create_tokens => without_actions (try_create_tokens sender sender_payload slot state)
   | Some refund =>
-        do _ <- returnIf (ctx.(ctx_amount) >? 0) ;
+        do _ <- returnIf (sender_payload >? 0) ;
         try_refund sender slot state
-  | Some finalize => 
-      do _ <- returnIf (ctx.(ctx_amount) >? 0) ;
+  | Some finalize =>
+      do _ <- returnIf (sender_payload >? 0) ;
       try_finalize sender slot contract_balance state
   | _ => None
   end.

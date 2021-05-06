@@ -32,22 +32,19 @@ Definition get_refundable_accounts state : list (G (option Address)) :=
   let filtered_balances := filter (fun x => (negb (address_eqb bat_addr (fst x))) && (0 <? (snd x))%N) balances_list in
     map returnGen (map Some (map fst filtered_balances)).
 
-(*
-  Generate create token requests on the form (from_addr, value, create_tokens)
-  Has chance to generate request from both existing and new accounts
-*)
 Definition gCreateTokens (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Amount * Msg) :=
   let current_slot := current_slot (env_chain env) in
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
-          || (Nat.ltb state.(fundingEnd) current_slot))
+          || (Nat.ltb state.(fundingEnd) current_slot)
+          || (N.leb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate)))
   then
     returnGen None
   else
       from_addr <- gAccount env ;;
       if (0 <? (account_balance env from_addr))%Z
       then
-        value <- (choose (1, (account_balance env from_addr)))%Z ;; 
+        value <- (choose (1, Z.min (account_balance env from_addr) (Z.of_N ((state.(tokenCreationCap) - (total_supply state)) / state.(tokenExchangeRate)))))%Z ;; 
         returnGenSome (from_addr, value, create_tokens)
       else
         returnGen None.
@@ -60,13 +57,13 @@ Definition gRefund (env : Environment) (state : BAT_Fixed.State) : GOpt (Address
           || (state.(tokenCreationMin) <=? (total_supply state))%N))
   then
     returnGen None
-  else 
+  else
     from_addr <- oneOf_ (returnGen None) accounts ;;
     returnGenSome (from_addr, refund).
 
 Definition gFinalize (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
-  if (state.(isFinalized) 
+  if (state.(isFinalized)
         || ((total_supply state) <? state.(tokenCreationMin))%N
         || ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))%N))
   then
@@ -75,6 +72,30 @@ Definition gFinalize (env : Environment) (state : BAT_Fixed.State) : GOpt (Addre
     returnGenSome (fund_addr, finalize).
 
 Module EIP20 := EIP20Gens Info.
+
+Definition gTransfer (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
+  if state.(isFinalized)
+  then
+    '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
+    returnGenSome (caller, tokenMsg msg)
+  else
+    returnGen None.
+
+Definition gApprove (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
+  if state.(isFinalized)
+  then
+    bindGenOpt (EIP20.gApprove (token_state state))
+        (fun '(caller, msg) => returnGenSome (caller, tokenMsg msg))
+  else
+    returnGen None.
+
+Definition gTransfer_from (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
+  if state.(isFinalized)
+  then
+    bindGenOpt (EIP20.gTransfer_from (token_state state))
+        (fun '(caller, msg) => returnGenSome (caller, tokenMsg msg))
+  else
+    returnGen None.
 
 (* Main generator. *)
 Definition gBATAction (env : Environment) : GOpt Action :=
@@ -86,19 +107,21 @@ Definition gBATAction (env : Environment) : GOpt Action :=
   state <- returnGen (get_contract_state BAT_Fixed.State env contract_addr) ;;
   backtrack [
     (* transfer *)
-    (2, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
-        call contract_addr caller (0%Z) (tokenMsg msg)
-    ) ;
-    (* transfer_from *)
-    (3, bindGenOpt (EIP20.gTransfer_from (token_state state))
+    (2, bindGenOpt (gTransfer env state)
         (fun '(caller, msg) =>
-          call contract_addr caller (0%Z) (tokenMsg msg)
+          call contract_addr caller (0%Z) msg
+        )
+    );
+    (* transfer_from *)
+    (3, bindGenOpt (gTransfer_from state)
+        (fun '(caller, msg) =>
+          call contract_addr caller (0%Z) msg
         )
     );
     (* approve *)
-    (2, bindGenOpt (EIP20.gApprove (token_state state))
+    (2, bindGenOpt (gApprove state)
         (fun '(caller, msg) =>
-          call contract_addr caller (0%Z) (tokenMsg msg)
+          call contract_addr caller (0%Z) msg
         )
     );
     (* create_tokens *)

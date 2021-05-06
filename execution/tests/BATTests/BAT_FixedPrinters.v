@@ -27,7 +27,7 @@ Instance showMsg : Show BAT_Fixed.Msg :=
             end
 |}.
 
-Instance showBATSetup : Show Setup :=
+Instance showBATSetup : Show BAT_Fixed.Setup :=
 {|
   show setup := "Setup{" ++
     "batFund: " ++ show setup.(_batFund) ++ sep ++
