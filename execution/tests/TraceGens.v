@@ -73,6 +73,71 @@ Section TraceGens.
       end in
     rec max_length init_lc.
 
+  (*
+    Alternative version of gAdd_block differs from above implementation in two ways
+    1) it adds an empty block when gActOptFromChainSized returns no acts instead of throwing an error
+    2) it passes gActOptFromChainSized the environment of the block the generated acts will be added 
+        to instead of the previous environment
+  *)
+  Definition gAdd_block_full_sized (cb : ChainBuilder)
+                          (gActOptFromChainSized : Environment -> nat -> GOpt Action)
+                          (act_depth : nat)
+                          (max_acts_per_block : nat)
+                          : G (result ChainBuilder AddBlockError) :=
+    let header :=
+      {| block_height := S (chain_height cb);
+        block_slot := S (current_slot cb);
+        block_finalized_height := finalized_height cb;
+        block_creator := creator;
+        block_reward := 50; |} in
+    let new_env := add_new_block_to_env header cb in
+    acts <- optToVector max_acts_per_block (gActOptFromChainSized new_env act_depth) ;;
+    returnGen (add_block cb acts).
+
+  (* Given a function from nat to a generator, try the generator on decreasing number until one returns Ok *)
+  Fixpoint try_decreasing {T E} (default : E) (n : nat) (g : nat -> G (result T E)) : G (result T E) :=
+      match n with
+      | 0 => returnGen (Err default)
+      | S n' =>
+        ma <- (g n) ;;
+        match ma with
+        | Err e => try_decreasing default n' g
+        | Ok r => returnGen (Ok r)
+        end
+      end.
+
+  (*
+    Alternative version of gChain differs from above implementation in three ways
+    1) It will generate blocks all the way to max_length if possible instead of stopping once an
+        empty block was hit. This is changed because some contracts may have certion slots (time periods)
+        where some actions are not allowed
+    2) It passes gActOptFromChainSized the environment of the block the generated acts will be added
+        to instead of the previous environment
+    3) It attempts to call gAdd_block' with decreasing max_acts_per_block.
+        This is done as some actions may not be called more than once, so if max_acts_per_block is larger than 1
+        and no other actions can be called at that moment then it would have failed
+  *)
+  Definition gChain_full_sized (init_lc : ChainBuilder)
+                    (gActOptFromChainSized : Environment -> nat -> GOpt Action)
+                    (max_length : nat)
+                    (act_depth : nat)
+                    (max_acts_per_block : nat)
+                    : G ChainBuilder :=
+    let gAdd_block' lc max_acts := gAdd_block_full_sized lc gActOptFromChainSized act_depth max_acts in
+    let default_error := action_evaluation_depth_exceeded in (* Not ideal approach, but it suffices for now *)
+    let try_twice g := backtrack_result default_error [(1, g);(1, g)] in
+    let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_twice (g n)) in
+    let fix rec n (lc : ChainBuilder) : G ChainBuilder :=
+      match n with
+      | 0 => returnGen lc
+      | S n => lc' <- try_decreasing (gAdd_block' lc) ;; (* heuristic: try twice for more expected robustness *)
+              match lc' with
+              | Ok lc' => rec n lc'
+              (* if no new chain could be generated without error, return the old chain *)
+              | err => returnGen lc
+              end
+      end in
+    rec max_length init_lc.
 
   Definition get_reachable {to} : ChainTrace empty_state to -> reachable to := fun t => inhabits t.
 
