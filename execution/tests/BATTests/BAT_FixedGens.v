@@ -35,21 +35,20 @@ Definition get_fundable_accounts env : list (G (option Address)) :=
   let filtered_accounts := filter (fun addr => (0 <? (account_balance env addr))%Z) accounts in
     map returnGen (map Some filtered_accounts).
 
-Definition gFund_amount env addr : G Z :=
-  if (1 <? account_balance env addr)%Z
-  then choose (1, (account_balance env addr) / 2)%Z (* Transfer between one and half the account balance if *)
-  else returnGen 1%Z. (* If balance is less than two transfer 1 to avoid invalid transfers of 0 *)
+Definition gFund_amount env state addr : G Z :=
+  (choose (1, Z.min (account_balance env addr) (Z.of_N ((state.(tokenCreationCap) - (total_supply state)) / state.(tokenExchangeRate)))))%Z.
 
 Definition gCreateTokens (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Amount * Msg) :=
   let current_slot := current_slot (env_chain env) in
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
-          || (Nat.ltb state.(fundingEnd) current_slot))
+          || (Nat.ltb state.(fundingEnd) current_slot) (* Funding can only happen in funding period *)
+          || (N.ltb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate))) (* No funding if cap was hit or we are too clos to it *)
   then
     returnGen None
   else
     from_addr <- oneOf_ (returnGen None) (get_fundable_accounts env) ;;
-    value <- bindGen (gFund_amount env from_addr) returnGenSome ;;
+    value <- bindGen (gFund_amount env state from_addr) returnGenSome ;;
     returnGenSome (from_addr, value, create_tokens).
 
 Definition gRefund (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
@@ -66,7 +65,7 @@ Definition gRefund (env : Environment) (state : BAT_Fixed.State) : GOpt (Address
 
 Definition gFinalize (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
-  if (state.(isFinalized) 
+  if (state.(isFinalized)
         || ((total_supply state) <? state.(tokenCreationMin))%N
         || ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))%N))
   then
