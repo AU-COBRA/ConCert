@@ -1,7 +1,7 @@
 From ConCert Require Import Blockchain BAT_Fixed.
 From ConCert Require Import Serializable.
 From ConCert Require Import Containers.
-From ConCert.Execution.QCTests Require Import 
+From ConCert.Execution.QCTests Require Import
   TestUtils EIP20TokenGens.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
@@ -9,20 +9,19 @@ From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List ZArith. Import ListNotations.
 
-Module Type BATFixedGensInfo.
+Module Type BATGensInfo.
   Parameter contract_addr : Address.
+  Parameter accounts : list Address.
   Parameter gAccount : Chain -> G Address.
   Parameter bat_addr : Address.
   Parameter fund_addr : Address.
-End BATFixedGensInfo.
+End BATGensInfo.
 
-Module BATFixedGens (Info : BATFixedGensInfo).
+Module BATGens (Info : BATGensInfo).
 Import Info.
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
-
-Definition serializeMsg := @serialize BAT_Fixed.Msg _.
 
 Definition account_balance (env : Environment) (addr : Address) : Amount :=
   (env_account_balances env) addr.
@@ -32,22 +31,26 @@ Definition get_refundable_accounts state : list (G (option Address)) :=
   let filtered_balances := filter (fun x => (negb (address_eqb bat_addr (fst x))) && (0 <? (snd x))%N) balances_list in
     map returnGen (map Some (map fst filtered_balances)).
 
+Definition get_fundable_accounts env : list (G (option Address)) :=
+  let filtered_accounts := filter (fun addr => (0 <? (account_balance env addr))%Z) accounts in
+    map returnGen (map Some filtered_accounts).
+
+Definition gFund_amount env addr : G Z :=
+  if (1 <? account_balance env addr)%Z
+  then choose (1, (account_balance env addr) / 2)%Z (* Transfer between one and half the account balance if *)
+  else returnGen 1%Z. (* If balance is less than two transfer 1 to avoid invalid transfers of 0 *)
+
 Definition gCreateTokens (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Amount * Msg) :=
   let current_slot := current_slot (env_chain env) in
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
-          || (Nat.ltb state.(fundingEnd) current_slot)
-          || (N.leb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate)))
+          || (Nat.ltb state.(fundingEnd) current_slot))
   then
     returnGen None
   else
-      from_addr <- gAccount env ;;
-      if (0 <? (account_balance env from_addr))%Z
-      then
-        value <- (choose (1, Z.min (account_balance env from_addr) (Z.of_N ((state.(tokenCreationCap) - (total_supply state)) / state.(tokenExchangeRate)))))%Z ;; 
-        returnGenSome (from_addr, value, create_tokens)
-      else
-        returnGen None.
+    from_addr <- oneOf_ (returnGen None) (get_fundable_accounts env) ;;
+    value <- bindGen (gFund_amount env from_addr) returnGenSome ;;
+    returnGenSome (from_addr, value, create_tokens).
 
 Definition gRefund (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
@@ -57,13 +60,13 @@ Definition gRefund (env : Environment) (state : BAT_Fixed.State) : GOpt (Address
           || (state.(tokenCreationMin) <=? (total_supply state))%N))
   then
     returnGen None
-  else
+  else 
     from_addr <- oneOf_ (returnGen None) accounts ;;
     returnGenSome (from_addr, refund).
 
 Definition gFinalize (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
-  if (state.(isFinalized)
+  if (state.(isFinalized) 
         || ((total_supply state) <? state.(tokenCreationMin))%N
         || ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))%N))
   then
@@ -100,10 +103,7 @@ Definition gTransfer_from (state : BAT_Fixed.State) : GOpt (Address * Msg) :=
 (* Main generator. *)
 Definition gBATAction (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome {|
-      act_from := caller_addr;
-      act_body := Blockchain.act_call contract_addr value (serializeMsg msg)
-    |} in
+    returnGenSome (build_act caller_addr (act_call contract_addr value ((@serialize BAT_Fixed.Msg _) msg))) in
   state <- returnGen (get_contract_state BAT_Fixed.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -131,17 +131,17 @@ Definition gBATAction (env : Environment) : GOpt Action :=
         )
     );
     (* refund *)
-    (10, bindGenOpt (gRefund env state)
+    (1, bindGenOpt (gRefund env state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
     );
     (* finalize *)
-    (10, bindGenOpt (gFinalize env state)
+    (1, bindGenOpt (gFinalize env state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
     )
   ].
 
-End BATFixedGens.
+End BATGens.
