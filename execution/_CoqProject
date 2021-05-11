@@ -69,4 +69,5 @@ tests/BATTests/BATPrinters.v
 tests/BATTests/BATTests.v
 tests/BATTests/BAT_FixedGens.v
 tests/BATTests/BAT_FixedPrinters.v
+tests/BATTests/BAT_FixedTests.v
 
