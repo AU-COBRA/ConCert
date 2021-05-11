@@ -20,14 +20,15 @@ Import ListNotations.
 Import BoundedN.Stdpp.
 Import LocalBlockchain.
 
-(* -------------------------- Tests of the BAT Implementation -------------------------- *)
+(* -------------------------- Tests of the BAT_Fixed Implementation -------------------------- *)
 
-Existing Instance showBATState.
+Existing Instance BAT_FixedPrinters.showBATState.
+Existing Instance BAT_FixedPrinters.showMsg.
 
 Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
 Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
 
-Definition bat_setup := BAT_Fixed.build_setup (20%N) ethFund batFund 0 5 (3%N) (100%N) (70%N).
+Definition bat_setup := BAT_Fixed.build_setup (20%N) ethFund batFund 1 7 (3%N) (100%N) (60%N).
 Definition deploy_bat := create_deployment 0 BAT_Fixed.contract bat_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -44,19 +45,26 @@ Definition token_cb :=
     build_act creator deploy_bat
   ]).
 
-Module TestInfo <: BATFixedGensInfo.
+Module TestInfo <: BATGensInfo.
   Definition contract_addr := contract_base_addr.
+  Definition accounts := [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
   Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
 End TestInfo.
-Module MG := BATFixedGens TestInfo. Import MG.
+Module MG := BATGens TestInfo. Import MG.
 
-Definition gTokenChain max_acts_per_block token_cb max_length := 
-  let act_depth := 1 in 
-  gChain token_cb
+Definition gTokenChain max_acts_per_block token_cb max_length :=
+  let act_depth := 1 in
+  gChain_full_sized token_cb
     (fun env act_depth => gBATAction env) max_length act_depth max_acts_per_block.
- Sample (gTokenChain 2 token_cb 7). *)
+(* Sample (gTokenChain 2 token_cb 7). *) (* Sample generator to see quality of generated chains *)
+
+Definition chainDebug max_acts_per_block token_cb max_length :=
+  let act_depth := 1 in
+  debug_gChain token_cb
+    (fun env act_depth => gBATActionValid env) max_length act_depth max_acts_per_block.
+(* QuickChick (chainDebug 1 token_cb 7). *) (* Debug generator to see if invalid call are generated *)
 
 Definition forAllTokenChainTraces n :=
   let max_acts_per_block := 2 in
@@ -65,7 +73,7 @@ Definition forAllTokenChainTraces n :=
 Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
   let trace_length := 7 in
-  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
+  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) BAT_Fixed.contract c P Q.
 
 Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
 Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
@@ -74,9 +82,9 @@ Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
 
 Local Open Scope N_scope.
 
-Definition msg_is_transfer (cstate : BAT.State) (msg : BAT.Msg) :=
+Definition msg_is_transfer_and_finalized (cstate : BAT_Fixed.State) (msg : BAT_Fixed.Msg) :=
   match msg with
-  | tokenMsg (EIP20Token.transfer _ _) => true
+  | tokenMsg (EIP20Token.transfer _ _) => cstate.(isFinalized)
   | _ => false
   end.
 
@@ -108,14 +116,14 @@ Definition post_transfer_correct cctx old_state msg (result_opt : option (State 
 
 (* Check that old EIP20 test works on BAT *)
 (* QuickChick (
-  {{msg_is_transfer}}
+  {{msg_is_transfer_and_finalized}}
   contract_base_addr
   {{post_transfer_correct}}
 ). *)
 
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition msg_is_refund (cstate : BAT.State) (msg : BAT.Msg) :=
+Definition msg_is_refund (cstate : BAT_Fixed.State) (msg : BAT_Fixed.Msg) :=
   match msg with
   | refund => true
   | _ => false
@@ -132,7 +140,7 @@ Definition refund_correct old_state new_state cctx to (amount : Amount) :=
     (amount =? eth_to_refund)%Z &&
     (eth_to_refund <=? contract_bal)%Z.
 
-Definition post_refund_correct cctx old_state (msg : BAT.Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_refund_correct cctx old_state (msg : BAT_Fixed.Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
     whenFail (show cctx ++ nl ++ show old_state ++ nl ++ show result_opt)
@@ -142,48 +150,13 @@ Definition post_refund_correct cctx old_state (msg : BAT.Msg) (result_opt : opti
   | _ => checker false
   end.
 
-(* False property: user that funded BAT can always refund if funding fails *)
+(* User that funded BAT can always refund if funding fails *)
 (* QuickChick (
   {{msg_is_refund}}
   contract_base_addr
   {{post_refund_correct}}
 ). *)
-
-(*
-Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 12%256 20)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 2, create_tokens)}];
-Block 3 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 12%256 5)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 15%256 0)}];
-Block 4 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 15%256 18)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 17%256 6)}];
-Block 5 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 5)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 15%256 5)}];
-Block 6 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 17%256 5)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 16%256 0)}];
-Block 7 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 11%256 19)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}];|}
-
-ChainState{env: Environment{chain: Chain{height: 7, current slot: 7, final height: 0}, contract states:...}, queue: Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 11%256 19)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}}
-On Msg: refund
-ContractCallContext{ctx_from: 12%256, ctx_contract_addr: 128%256, ctx_contract_balance: 2, ctx_amount: 0}
-State{token_state: State{total_supply: 26, balances: [15%256-->0; 11%256-->0; 17%256-->6; 13%256-->0; 16%256-->0; 12%256-->20], allowances: [17%256-->[15%256-->5]; 13%256-->[12%256-->5]; 12%256-->[15%256-->18]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 100, tokenCreationMin: 70}
-Some (State{token_state: State{total_supply: 6, balances: [15%256-->0; 11%256-->0; 17%256-->6; 13%256-->0; 16%256-->0; 12%256-->0], allowances: [17%256-->[15%256-->5]; 13%256-->[12%256-->5]; 12%256-->[15%256-->18]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 100, tokenCreationMin: 70},[(act_transfer 12%256, 6)])
-*)
-(* *** Failed after 44 tests and 0 shrinks. (0 discards) *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 Definition is_finalized :=
   fun cs => 
@@ -195,7 +168,7 @@ Definition is_finalized :=
 (* Check that it is possible to finalize *)
 (* QuickChick (token_cb ~~> is_finalized). *)
 (*
-Chain{| 
+Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
@@ -203,51 +176,30 @@ Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
 Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 15%256 1)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 6, create_tokens)}];
+Action{act_from: 13%256, act_body: (act_call 128%256, 5, create_tokens)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 10, create_tokens)}];
 Block 3 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 8, create_tokens)};
-Action{act_from: 15%256, act_body: (act_call 128%256, 0, transfer 15%256 1)}];
+Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)}];
 Block 4 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 17%256 12)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}];
 Block 5 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 11%256 12%256 4)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 3, create_tokens)}];
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 13%256 7)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 17%256 13)}];
 Block 6 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 11%256 14%256 2)};
-Action{act_from: 15%256, act_body: (act_call 128%256, 0, transfer 17%256 0)}];
-Block 7 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 14%256 0)};
-Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}];|}
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 15%256 8)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 11)}];|}
 
 Success - found witness satisfying the predicate!
-+++ Failed (as expected) after 126 tests and 0 shrinks. (0 discards)
++++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
 *)
 
-(* BAT setup where it is easier to finalize to avoid discards *)
-Definition bat_setup' := BAT.build_setup (20%N) ethFund batFund 0 8 (8%N) (2000%N) (50%N).
-Definition deploy_bat' := create_deployment 0 BAT.contract bat_setup'.
-Definition token_cb' :=
-  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
-  [
-    build_act creator (Blockchain.act_transfer person_1 15);
-    build_act creator (Blockchain.act_transfer person_2 15);
-    build_act creator (Blockchain.act_transfer person_3 10);
-    build_act creator (Blockchain.act_transfer person_4 10);
-    build_act creator deploy_bat'
-  ]).
-
 Definition final_is_final :=
-  {token_cb' ~~~> (fun cs => if (is_finalized cs) then Some true else None) ===> 
+  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None) ===> 
     (fun _ _ post_trace => checker (fold_left (fun a (chainState : ChainState) => a && (is_finalized chainState) ) post_trace true))}.
 
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
-(* +++ Passed 10000 tests (9493 discards) *)
-
-
-
+(* +++ Passed 10000 tests (7 discards) *)
 
 
 
