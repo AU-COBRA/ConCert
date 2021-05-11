@@ -139,6 +139,39 @@ Section TraceGens.
       end in
     rec max_length init_lc.
 
+  (* Checker for debugging Action generators.
+     Will accept if it successfully generates a chain of length `max_length with` `max_acts_per_block` acts in each block.
+     If at any point the generator outputs an action that cannot be executed then the checker rejects and shows the act
+     that made the chain generation fail.
+  *)
+  Definition debug_gChain `{Show (list Action)}
+                        (init_lc : ChainBuilder)
+                        (gActOptFromChainSized : Environment -> nat -> GOpt Action)
+                        (max_length : nat)
+                        (act_depth : nat)
+                        (max_acts_per_block : nat)
+                        : Checker :=
+  let new_env (env : ChainBuilder) :=
+    let header := {| block_height := S (chain_height env);
+        block_slot := S (current_slot env);
+        block_finalized_height := finalized_height env;
+        block_creator := creator;
+        block_reward := 50; |} in
+    add_new_block_to_env header env in
+  let fix rec n (lc : ChainBuilder) : Checker :=
+    match n with
+    | 0 => (checker true) (* If max_length was received without errors the checker should accept *)
+    | S n =>
+        acts <- optToVector max_acts_per_block (gActOptFromChainSized (new_env lc) act_depth) ;;
+        match (TraceGens.add_block lc acts) with
+            | Ok lc' => rec n lc'
+            (* If no new chain could be generated without error, the checker rejects and shows the
+               the chain and acts that made the generation fail *)
+            | err => whenFail ((show lc) ++ nl ++ (show acts)) (checker false)
+            end
+    end in
+  rec max_length init_lc.
+
   Definition get_reachable {to} : ChainTrace empty_state to -> reachable to := fun t => inhabits t.
 
   Definition gReachableFromTrace {to} (gtrace : G (ChainTrace empty_state to)) : G (reachable to) :=
