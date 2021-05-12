@@ -100,7 +100,7 @@ Definition get_chain_finalized (cb : ChainBuilder) : bool :=
 
 (* Verify hardness of finalizing BAToken.
    Goal is ~ 2/3 of generated chains are finalized *)
-(* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (chain_is_finalized cb) true)). *)
+(* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
 (*
   6693 : true
   3307 : false
