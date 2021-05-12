@@ -54,7 +54,7 @@ Module MG := BATGens TestInfo. Import MG.
 
 Definition gTokenChain max_acts_per_block token_cb max_length := 
   let act_depth := 1 in 
-  gChain token_cb
+  gChain_full_sized token_cb
     (fun env act_depth => gBATAction env) max_length act_depth max_acts_per_block.
 (* Sample (gTokenChain 2 token_cb 7). *)
 
