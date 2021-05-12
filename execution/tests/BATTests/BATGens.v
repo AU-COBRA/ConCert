@@ -51,6 +51,11 @@ Definition gCreateTokens (env : Environment) (state : BAT.State) : GOpt (Address
     value <- bindGen (gFund_amount env state from_addr) returnGenSome ;;
     returnGenSome (from_addr, value, create_tokens).
 
+Definition gCreateTokensInvalid (env : Environment) (state : BAT.State) : GOpt (Address * Amount * Msg) :=
+  from_addr <- oneOf_ (returnGen None) (get_fundable_accounts env) ;;
+  value <- bindGen (choose (1, account_balance env from_addr)%Z) returnGenSome ;;
+  returnGenSome (from_addr, value, create_tokens).
+
 Definition gRefund (env : Environment) (state : BAT.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
   let accounts := get_refundable_accounts state in
@@ -63,6 +68,10 @@ Definition gRefund (env : Environment) (state : BAT.State) : GOpt (Address * Msg
     from_addr <- oneOf_ (returnGen None) accounts ;;
     returnGenSome (from_addr, refund).
 
+Definition gRefundInvalid (env : Environment) (state : BAT.State) : G (Address * Msg) :=
+  from_addr <- gAccount env ;;
+  returnGen (from_addr, refund).
+
 Definition gFinalize (env : Environment) (state : BAT.State) : GOpt (Address * Msg) :=
   let current_slot := current_slot (env_chain env) in
   if (state.(isFinalized) 
@@ -73,12 +82,19 @@ Definition gFinalize (env : Environment) (state : BAT.State) : GOpt (Address * M
   else
     returnGenSome (fund_addr, finalize).
 
+Definition gFinalizeInvalid (env : Environment) (state : BAT.State) : G (Address * Msg) :=
+  from_addr <- gAccount env ;;
+  returnGen (from_addr, finalize).
+
 Module EIP20 := EIP20Gens Info.
 
-(* Main generator. *)
-Definition gBATAction (env : Environment) : GOpt Action :=
+(* BAT valid call generator 
+   Generator that will always return BAToken contract calls that are valid on their own,
+   i.e. guaranteed to be valid if it is the first action executed in the block.
+*)
+Definition gBATActionValid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (act_call caller_addr contract_addr value msg) in
+    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BAT.Msg _) msg))) in
   state <- returnGen (get_contract_state BAT.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -115,6 +131,78 @@ Definition gBATAction (env : Environment) : GOpt Action :=
           call contract_addr caller (0%Z) msg
         )
     )
+  ].
+
+(* BAT invalid call generator 
+   Generator likely to generate invalid BAToken contract calls.
+   It treats the BAToken code mostly as blackbox and only know the expected types of input
+    but does not make any assumptions/checks on which values will result in valid or invalid calls
+*)
+Definition gBATActionInvalid (env : Environment) : GOpt Action :=
+  let call contract_addr caller_addr value msg :=
+    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BAT.Msg _) msg))) in
+  state <- returnGen (get_contract_state BAT.State env contract_addr) ;;
+  backtrack [
+    (* transfer *)
+    (2, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
+        call contract_addr caller (0%Z) (tokenMsg msg)
+    ) ;
+    (* transfer_from *)
+    (3, bindGenOpt (EIP20.gTransfer_from (token_state state))
+        (fun '(caller, msg) =>
+          call contract_addr caller (0%Z) (tokenMsg msg)
+        )
+    );
+    (* approve *)
+    (2, bindGenOpt (EIP20.gApprove (token_state state))
+        (fun '(caller, msg) =>
+          call contract_addr caller (0%Z) (tokenMsg msg)
+        )
+    );
+    (* create_tokens *)
+    (5, bindGenOpt (gCreateTokensInvalid env state)
+        (fun '(caller, value, msg) =>
+          call contract_addr caller value msg
+        )
+    );
+    (* refund *)
+    (1, '(caller, msg) <- gRefundInvalid env state ;;
+        call contract_addr caller (0%Z) msg
+    );
+    (* finalize *)
+    (1, '(caller, msg) <- gFinalizeInvalid env state ;;
+        call contract_addr caller (0%Z) msg
+    )
+  ].
+
+(* BAT call generator
+   Has a 0.3% chance to attempt to generate an invalid contract call
+    More specifically it has:
+    - 0.06% chance of generating a valid call and then replacing the amount of money sent with that call.
+      For BAT contract this is likely to result in an invalid call as most contract calls on BAToken are 
+      not allowed to include money in them.
+    - 0.24% chance of using the invalid action generator. This generator is likely to generate an invalid call
+      since it treats the contract as a black box and thus does not check any of the expected requirements for
+      a contract call to be valid.
+    The reamaining 99.7% of the time it will generate a call that is guaranteed to be valid (only guaranteed to
+    be valid on its own, since the generator cannot know what other calls may be included in the same block and
+    which order they will be executed in)
+*)
+Definition gBATAction (env : Environment) : GOpt Action :=
+  state <- returnGen (get_contract_state BAT.State env contract_addr) ;;
+  freq [
+    (6, bindGenOpt (gBATActionValid env)
+        (fun '(action) =>
+          match action.(act_body) with
+          | Blockchain.act_transfer _ _ => returnGen None
+          | Blockchain.act_deploy _ _ _ => returnGen None
+          | Blockchain.act_call to _ msg =>
+            amount <- choose (0, account_balance env action.(act_from))%Z ;;
+            returnGenSome (build_act action.(act_from) (Blockchain.act_call to amount msg))
+          end
+        ));
+    (24, gBATActionInvalid env);
+    (970, gBATActionValid env)
   ].
 
 End BATGens.
