@@ -46,6 +46,7 @@ Definition token_cb :=
 
 Module TestInfo <: BATGensInfo.
   Definition contract_addr := contract_base_addr.
+  Definition accounts := [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
   Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
