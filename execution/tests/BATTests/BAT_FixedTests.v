@@ -313,7 +313,7 @@ Definition final_is_final :=
 
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
-(* +++ Passed 10000 tests (7 discards) *)
+(* +++ Passed 10000 tests (4294 discards) *)
 
 
 
