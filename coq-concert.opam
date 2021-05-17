@@ -1,0 +1,29 @@
+opam-version: "2.0"
+name: "ConCert"
+version: "dev"
+synopsis: "A framework for smart contract verification in Coq"
+description: """
+"""
+maintainer: "Danil Annenkov <danil.v.annenkov@gmail.com>"
+authors: "The COBRA team"
+license: "MIT License"
+homepage: ""
+bug-reports: ""
+dev-repo: "https://github.com/AU-COBRA/ConCert"
+depends: [
+  "ocaml" {>= "4.07.1"}
+  "coq" {>= "8.11" & < "8.12~"}
+  "coq-bignums" {= "8.11.0"}
+  "coq-quickchick" {= "1.3.2"}
+  "coq-metacoq" {= "concert"}
+  "coq-equations" {= "1.2.3+8.11"}
+  "coq-stdpp" {= "1.5.0"}
+]
+pin-depends : [
+  [ "coq-metacoq.concert" "github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447" ]
+]
+
+build: [
+  [make]
+]
+install: [make "install"]
