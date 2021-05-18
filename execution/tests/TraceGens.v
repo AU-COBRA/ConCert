@@ -397,4 +397,61 @@ Section TraceGens.
       (* combine it all with the forAllTraces checker combinator *)
       forAllChainState maxLength init_chain gTrace stepProp.
 
+  (* if pre tests true, then post tests true, for all tested execution traces *)
+  Definition pre_post_assertion_ {Setup Msg State prop : Type}
+                               `{Checkable prop}
+                               `{Serializable Msg}
+                               `{Serializable State}
+                               `{Serializable Setup}
+                               `{Show Msg}
+                                (maxLength : nat)
+                                (init_chain : ChainBuilder)
+                                (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                                (c : Contract Setup Msg State)
+                                (caddr : Address)
+                                (pre : State -> Msg -> bool)
+                                (post : Environment -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
+      let messages_of_acts acts  := fold_right (fun act acc =>
+          match act.(act_body) with
+          | act_call _ _ ser_msg =>
+            match @deserialize Msg _ ser_msg with
+            | Some msg => (act, msg) :: acc
+            | None => acc
+            end
+          | _ => acc
+          end
+        ) [] acts in
+      let post_helper '(env, cctx, post_state) cstate msg : Checker :=
+        whenFail
+          ("On Msg: " ++ show msg)
+          (checker (post env cctx cstate msg post_state)) in
+      let stepProp (cs : ChainState) :=
+        let env : Environment := cs.(chain_state_env) in
+        let msgs := messages_of_acts cs.(chain_state_queue) in
+        let execute_receive env caddr cstate act msg :=
+          let amount :=
+            match act.(act_body) with
+            | act_call _ amount _ => amount
+            | _ => 0%Z
+            end in
+          let new_balance :=
+              if (act.(act_from) =? caddr)%address then
+                env.(env_account_balances) caddr
+              else
+                (env.(env_account_balances) caddr + amount)%Z in
+          let cctx := build_ctx act.(act_from) caddr new_balance amount in
+          let new_state := c.(receive) env cctx cstate (Some msg) in
+          (env, cctx, new_state) in
+        match get_contract_state State env caddr with
+        (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
+        | Some cstate => (conjoin_map (fun '(act, msg) =>
+                          if pre cstate msg
+                          then (post_helper (execute_receive env caddr cstate act msg) cstate msg)
+                          else checker true (* TODO: should be discarded!*)
+                          ) msgs)
+        | None => checker true
+        end in
+      (* combine it all with the forAllTraces checker combinator *)
+      forAllChainState maxLength init_chain gTrace stepProp.
+
 End TraceGens.
