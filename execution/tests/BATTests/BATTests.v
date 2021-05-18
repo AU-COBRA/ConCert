@@ -79,7 +79,13 @@ Definition pre_post_assertion_token P c Q :=
   let trace_length := 7 in
   pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
 
+Definition pre_post_assertion_token_ P c Q :=
+  let max_acts_per_block := 2 in
+  let trace_length := 7 in
+  pre_post_assertion_ trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
+
 Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
+Notation "{{ P }} c {{ Q }}_" := (pre_post_assertion_token_ P c Q) ( at level 50).
 Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
 Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
   (reachableFrom_implies_chaintracePropSized 10 lc (gTokenChain 2) pf1 pf2) (at level 90, left associativity).
@@ -207,6 +213,26 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
 
 
 Local Open Scope N_scope.
+
+Definition fmap_subseteqb {A B} `{countable.Countable A}
+                          (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
+  let elements := FMap.elements fmap in
+  fold_left (fun b elem => 
+              match FMap.lookup (fst elem) fmap' with
+              | Some v => andb b (eqb (snd elem) v)
+              | None => false
+              end) elements true.
+
+Definition fmap_eqb {A B} `{countable.Countable A}
+                    (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
+  andb (fmap_subseteqb eqb fmap fmap') (fmap_subseteqb eqb fmap' fmap).
+
+Definition fmap_filter_eqb {A B} `{countable.Countable A}
+                           (excluded : A) (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
+  fmap_eqb eqb (FMap.remove excluded fmap) (FMap.remove excluded fmap').
+
+Definition get_balance (state : BAT.State) (addr : Address) :=
+  with_default 0 (FMap.find addr (balances state)).
 
 Definition msg_is_eip_msg (cstate : BAT.State) (msg : BAT.Msg) :=
   match msg with
@@ -369,6 +395,61 @@ Definition constants_unchanged (cctx : ContractCallContext) (old_state : State) 
 (* +++ Passed 10000 tests (0 discards) *)
 
 
+
+(* -------------------- create_tokens -------------------- *)
+Definition post_create_tokens_update_correct (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, []), create_tokens) =>
+    let amount := cctx.(ctx_amount) in
+    let from := cctx.(ctx_from) in
+    let balance_correct := N.eqb (get_balance new_state from) ((get_balance old_state from) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
+    let total_supply_correct := N.eqb (total_supply new_state) ((total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb balance_correct total_supply_correct))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Create_tokens updates output correct *)
+(* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{post_create_tokens_update_correct}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition create_tokens_valid env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), create_tokens) =>
+    let amount := cctx.(ctx_amount) in
+    let current_slot := env.(current_slot) in
+    let amount_valid := Z.leb 0 amount in
+    let is_finalized_valid := negb old_state.(isFinalized) in
+    let slot_valid := andb (old_state.(fundingStart) <=? current_slot)%nat (current_slot <=? old_state.(fundingEnd))%nat in
+    let new_token_amount_valid := (total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate)) <=? old_state.(tokenCreationCap) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb amount_valid (andb is_finalized_valid (andb slot_valid new_token_amount_valid))))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Create_tokens contract calls are valid *)
+(* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{create_tokens_valid}}_). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), create_tokens) =>
+    let amount := cctx.(ctx_amount) in
+    let from := cctx.(ctx_from) in
+    let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb from N.eqb (balances old_state) (balances new_state) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb is_finalized_unchanged (andb allowances_unchanged other_balances_unchanged)))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Create_tokens contract calls does not change anything they shouldnt *)
+(* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{post_create_tokens_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 Definition transfer_balance_update_correct old_state new_state from to tokens :=
   let get_balance addr state := with_default 0 (FMap.find addr (balances state)) in
