@@ -23,6 +23,7 @@ Import LocalBlockchain.
 (* -------------------------- Tests of the BAT Implementation -------------------------- *)
 
 Existing Instance showBATState.
+Existing Instance BATPrinters.showMsg.
 
 Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
 Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
@@ -68,6 +69,10 @@ Definition chainDebug max_acts_per_block token_cb max_length g :=
 Definition forAllTokenChainBuilders n :=
   let max_acts_per_block := 2 in
   forAllChainBuilder n token_cb (gTokenChain max_acts_per_block).
+
+Definition forAllTokenChainStates n :=
+  let max_acts_per_block := 2 in
+  forAllChainState n token_cb (gTokenChain max_acts_per_block).
 
 Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
@@ -203,11 +208,167 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
 
 Local Open Scope N_scope.
 
+Definition msg_is_eip_msg (cstate : BAT.State) (msg : BAT.Msg) :=
+  match msg with
+  | tokenMsg _ => true
+  | _ => false
+  end.
+
 Definition msg_is_transfer (cstate : BAT.State) (msg : BAT.Msg) :=
   match msg with
   | tokenMsg (EIP20Token.transfer _ _) => true
   | _ => false
   end.
+
+Definition msg_is_transfer_from (cstate : BAT.State) (msg : BAT.Msg) :=
+  match msg with
+  | tokenMsg (EIP20Token.transfer_from _ _ _) => true
+  | _ => false
+  end.
+
+Definition msg_is_approve (cstate : BAT.State) (msg : BAT.Msg) :=
+  match msg with
+  | tokenMsg (EIP20Token.transfer _ _) => true
+  | _ => false
+  end.
+
+Definition msg_is_create_tokens (cstate : BAT.State) (msg : BAT.Msg) :=
+  match msg with
+  | create_tokens => true
+  | _ => false
+  end.
+
+Definition msg_is_finalize (cstate : BAT.State) (msg : BAT.Msg) :=
+  match msg with
+  | finalize => true
+  | _ => false
+  end.
+
+Definition msg_is_refund (cstate : BAT.State) (msg : BAT.Msg) :=
+  match msg with
+  | refund => true
+  | _ => false
+  end.
+
+
+(* Checker failing if amount in a contract call context is not zero *)
+Definition amount_is_zero cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  (checker (cctx.(ctx_amount) =? 0)%Z).
+
+(* Checker failing if amount in a contract call context is 0 or negative *)
+Definition amount_is_positive cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  (checker (cctx.(ctx_amount) >? 0)%Z).
+
+(* Checker failing if result_opt contains actions *)
+Definition produces_no_actions (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (_, []), _) => checker true
+  | _ => checker false
+  end.
+
+(* Checker failing if result_opt contains less than or more than one action *)
+Definition produces_one_action (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (_, [a]), _) => checker true
+  | _ => checker false
+  end.
+
+
+(* Only create_tokens should be payable *)
+(* QuickChick (
+  {{fun state msg => negb (msg_is_create_tokens state msg)}}
+  contract_base_addr
+  {{amount_is_zero}}
+). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 2, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 5)}];
+Block 3 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 17%256 0)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)}];
+Block 4 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 13%256 2)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 11%256 13%256 0)}];
+Block 5 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 8, create_tokens)}];
+Block 6 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 14%256 5)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)}];
+Block 7 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 1, refund)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}];
+Block 8 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 11%256 0)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 12%256 0)}];|}
+
+ChainState{
+  env: Environment{chain: Chain{height: 7, current slot: 7, final height: 0}, contract states:...},
+  queue: Action{act_from: 14%256, act_body: (act_call 128%256, 1, refund)};
+         Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}}
+On Msg: refund
+*** Failed after 92 tests and 0 shrinks. (0 discards)
+*)
+
+(* Create_tokens should only accept calls with money in them *)
+(* QuickChick (
+  {{msg_is_create_tokens}}
+  contract_base_addr
+  {{amount_is_positive}}
+). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* EIP messages and create_tokens should not produce any actions *)
+(* QuickChick (
+  {{fun state msg => orb (msg_is_eip_msg state msg) (msg_is_create_tokens state msg)}}
+  contract_base_addr
+  {{produces_no_actions}}
+). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* refund and finalize should produce an actions *)
+(* QuickChick (
+  {{fun state msg => orb (msg_is_refund state msg) (msg_is_finalize state msg)}}
+  contract_base_addr
+  {{produces_one_action}}
+). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* Chcker failing if any constants in BAT states are changed *)
+Definition constants_unchanged (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), _) =>
+    let fund_deposit_check := address_eqb old_state.(fundDeposit) new_state.(fundDeposit) in
+    let bat_deposit_check := address_eqb old_state.(batFundDeposit) new_state.(batFundDeposit) in
+    let funding_start_check := Nat.eqb old_state.(fundingStart) new_state.(fundingStart) in
+    let funding_end_check := Nat.eqb old_state.(fundingEnd) new_state.(fundingEnd) in
+    let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
+    let creation_cap_check := N.eqb old_state.(tokenCreationCap) new_state.(tokenCreationCap) in
+    let creation_min_check := N.eqb old_state.(tokenCreationMin) new_state.(tokenCreationMin) in
+      checker (andb fund_deposit_check (andb bat_deposit_check (andb funding_start_check
+                (andb funding_end_check (andb exchange_rate_check (andb creation_cap_check creation_min_check))))))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+
+(* No contract calls modify constants *)
+(* QuickChick (
+  {{fun state msg => true}}
+  contract_base_addr
+  {{constants_unchanged}}
+). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+
 
 Definition transfer_balance_update_correct old_state new_state from to tokens :=
   let get_balance addr state := with_default 0 (FMap.find addr (balances state)) in
@@ -226,7 +387,7 @@ Definition transfer_balance_update_correct old_state new_state from to tokens :=
 
 Definition post_transfer_correct cctx old_state msg (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
-  | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
+  | (Some (new_state, []), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (transfer_balance_update_correct old_state new_state from to tokens))
@@ -243,12 +404,6 @@ Definition post_transfer_correct cctx old_state msg (result_opt : option (State 
 ). *)
 
 (* +++ Passed 10000 tests (0 discards) *)
-
-Definition msg_is_refund (cstate : BAT.State) (msg : BAT.Msg) :=
-  match msg with
-  | refund => true
-  | _ => false
-  end.
 
 Definition refund_correct old_state new_state cctx to (amount : Amount) :=
   let from := cctx.(ctx_from) in
