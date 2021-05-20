@@ -29,6 +29,7 @@ From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Erasure Require Import EAst EAstUtils.
 From ConCert.Utils Require Import StringExtra.
 
+
 Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
 Import String.
@@ -86,7 +87,7 @@ Section print_term.
     : box_type -> string :=
     fix go  (bt : box_type) :=
   match bt with
-  | TBox => "Box"
+  | TBox => "unit"
   | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " -> " ++ go codom
   | TApp t1 t2 =>
     let hd := get_tapp_hd t1 in
@@ -320,10 +321,14 @@ Section print_term.
         ++ nl
         ++ print_term (ctx ++ ctx' ++ ctx)%list true false (lam_body fdef.(dbody)).
 
-  Definition print_pat (prefix : string) (TT : env string) (ctor : string) (pt : list string * string) :=
-    let ctor_nm := from_option (look TT ctor) ((capitalize prefix) ++ ctor) in
-    let print_parens := (Nat.ltb 1 (List.length pt.1)) in
-    print_uncurried ctor_nm (rev pt.1) ++ " -> " ++ pt.2.
+  Definition print_pat (prefix : string) (TT : env string) (ctor : string) (infix : bool) (pt : list string * string) :=
+    let vars := rev pt.1 in
+    if infix then
+      concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
+    else
+      let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let print_parens := (Nat.ltb 1 (List.length pt.1)) in
+      print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
 
   Definition print_transfer (args : list string) :=
@@ -370,8 +375,13 @@ Section print_term.
   | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *)  ++ ")"
   | tLambda na body => fun '(bt, a) =>
     let na' := fresh_name ctx na t in
+    let (dom_tys, _) := ExAst.decompose_arr bt in
+    let dom_ty := match nth_error dom_tys 0 with
+                  | Some ty => print_box_type prefix TT ty
+                  | None => "LambdaError(NotAnArrowType)"
+                  end in
     parens top ("fun (" ++ string_of_name ctx na' ++ " : "
-                        ++ print_box_type prefix TT bt ++ ")"
+                        ++ dom_ty ++ ")"
                         ++ " -> " ++ print_term prefix FT TT (vass na' :: ctx) true false body a)
   | tLetIn na def body => fun '(bt, (vala, bodya)) =>
     let na' := fresh_name ctx na t in
@@ -481,72 +491,90 @@ Section print_term.
     let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ nm) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
     if nm_tt =? "[]" then
-      "([]:" ++ print_box_type prefix TT (bt) ++ ")"
+      "([]:" ++ print_box_type prefix TT bt ++ ")"
     else if nm_tt =? "None" then
-      "(None:" ++ print_box_type prefix TT (bt) ++ ")"
+      "(None:" ++ print_box_type prefix TT bt ++ ")"
     else if nm_tt =? "Map.empty" then
-      "(Map.empty: " ++ print_box_type prefix TT (bt) ++ ")"
+      "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
     else capitalize nm_tt
   | tCase (mkInd mind i as ind, nparam) t brs =>
-    (* [if-then-else] is a special case *)
-    if eq_kername mind <%% bool %%> then
-      match brs with
-      | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
-        parens top
-                ("if " ++ print_term prefix FT TT ctx true false t ta
-                       ++ " then " ++ print_term prefix FT TT ctx true false (snd b1) b1a
-                       ++ " else " ++ print_term prefix FT TT ctx true false (snd b2) b2a)
-      | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
-               ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
-      end
-    else
-      (* [list] is a special case *)
-      if eq_kername mind <%% list %%> then
+    let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
+          match arity return annots box_type br -> (_ * _) with
+          | S n =>
+            match br return annots box_type br -> (_ * _) with
+            | tLambda na B => fun '(bt, a) =>
+              let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
+              let (ps, b) := print_branch (vass na' :: ctx) n params B a in
+              (ps ++ [string_of_name ctx na'], b)%list
+            (* Assuming all case-branches have been expanded this should never happen: *)
+            | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
+          end
+          | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
+          end in
+
+    match brs with
+    | [] => fun '(bt, (ta, trs)) => (parens false ("failwith 0 : " ^ print_box_type prefix TT bt) ^ " (* absurd case *)")
+    | _ =>
+      (* [if-then-else] is a special case *)
+      if eq_kername mind <%% bool %%> then
         match brs with
         | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
-          let nil_case := "[] -> " ++ print_term prefix FT TT ctx false false b1.2 b1a in
-          let (cons_args, _) := Edecompose_lam b2.2 in
-          let cons_pat := concat " :: " (map (fun x => string_of_name ctx (fresh_name ctx x b2.2)) cons_args) in
-          let cons_ctx := rev (map vass cons_args) in
-          let cons_case tbody tbodya := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ ctx)%list false false tbody tbodya in
           parens top
-             ("match "
-             ++ print_term prefix FT TT ctx true false t ta
-                       ++ " with " ++ nl
-                       ++ concat (nl ++ " | ") [nil_case;(lam_body_annot_cont cons_case b2.2 b2a)])
+                  ("if " ++ print_term prefix FT TT ctx true false t ta
+                         ++ " then " ++ print_term prefix FT TT ctx true false (snd b1) b1a
+                         ++ " else " ++ print_term prefix FT TT ctx true false (snd b2) b2a)
         | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
-                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
+                 ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
         end
-    else
-    fun '(bt, (ta, trs)) =>
-    match lookup_ind_decl mind i with
-    | Some oib =>
-      let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
-        match arity return annots box_type br -> (_ * _) with
-        | S n =>
-          match br return annots box_type br -> (_ * _) with
-          | tLambda na B => fun '(bt, a) =>
-            let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
-            let (ps, b) := print_branch (vass na' :: ctx) n params B a in
-            (ps ++ [string_of_name ctx na'], b)%list
-          (* Assuming all case-branches have been expanded this should never happen: *)
-          | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
-        end
-        | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
-        end in
-      let brs := map_with_bigprod _ (fun br tra =>
-        print_branch ctx br.1 [] br.2 tra
-      ) brs trs in
-      let brs_ := combine brs oib.(ExAst.ind_ctors) in
-      let brs_printed : string := print_list (fun '(b, (na, _)) =>
-                            print_pat prefix TT (capitalize na) b) (nl ++ " | ") brs_ in
-       parens top
-              ("match " ++ print_term prefix FT TT ctx true false t ta
-                        ++ " with " ++ nl
-                        ++ brs_printed)
-    | None =>
-      "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
-              ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+      else
+        (* [list] is a special case *)
+      (*   if eq_kername mind <%% list %%> then *)
+      (*     match brs with *)
+      (*     | [b1;b2] => *)
+      (*       fun '(bt, (ta, (b1a, (b2a, _)))) => *)
+      (*         let nil_case := "[] -> " ++ print_term prefix FT TT ctx false false b1.2 b1a in *)
+      (*         let (args, _) := Edecompose_lam b2.2 in *)
+      (*         if #|args| <? 2 then "Error(MatchBranchedNotExpanded)" *)
+      (*         else *)
+      (*           let cons_args := firstn 2 args in *)
+      (*           let cons_pat := concat " :: " (map (fun x => string_of_name ctx (fresh_name ctx x b2.2)) cons_args) in *)
+      (*           let cons_ctx := rev (map vass cons_args) in *)
+      (*           let cons_case tbody tbodya := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ ctx)%list top inapp tbody tbodya in *)
+      (*           parens top *)
+      (*                  ("match " *)
+      (*                     ++ print_term prefix FT TT ctx true false t ta *)
+      (*                     ++ " with " ++ nl *)
+      (*                     ++ concat (nl ++ " | ") [nil_case;(lam_body_annot_cont cons_case b2.2 b2a)]) *)
+      (*     | _ => fun bt => "Error (Malformed pattern-mathing on bool: given " *)
+      (*             ++ string_of_nat (List.length brs) ++ " branches " ++ ")" *)
+      (*     end *)
+      (* else *)
+        fun '(bt, (ta, trs)) =>
+      match lookup_ind_decl mind i with
+      | Some oib =>
+        let brs :=
+            map_with_bigprod _ (fun br tra => print_branch ctx br.1 [] br.2 tra)
+                             brs
+                             trs in
+        let brs_ := combine brs oib.(ExAst.ind_ctors) in
+        let brs_printed : string :=
+            print_list (fun '(b, (na, _)) =>
+                          (* [list] is a special case *)
+                          if (eq_kername mind <%% list %%>) && (na =? "cons") then
+                            print_pat prefix TT "::" true b
+                          else if (eq_kername mind <%% list %%>) && (na =? "nil") then
+                            print_pat "" TT "[]" false b
+                          else
+                          print_pat prefix TT na false b)
+                       (nl ++ " | ") brs_ in
+         parens top
+                ("match " ++ print_term prefix FT TT ctx true false t ta
+                          ++ " with " ++ nl
+                          ++ brs_printed)
+      | None =>
+        "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
+                ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+      end
     end
   | tProj (mkInd mind i as ind, pars, k) c => fun bt =>
     match lookup_ind_decl mind i with
@@ -759,7 +787,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
     | Some r => ConstDecl (nm, r)
     | None =>  ConstDecl (nm, "print_global_decl ConstantDecl ERROR?")
     end
-  | ExAst.InductiveDecl mib => fun annot =>
+  | ExAst.InductiveDecl mib as d => fun annot =>
     match mib.(ExAst.ind_bodies) with
     | [oib] => TyDecl (nm, print_inductive prefix TT oib)
     | _ => TyDecl (nm,"Only non-mutual inductives are supported; " ++ string_of_kername nm)
@@ -776,8 +804,13 @@ Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
            (env : ExAst.global_env)
            : (env_annots box_type env) -> list (Decl (kername * string)) :=
   match env return (env_annots box_type env) -> list (Decl (kername * string)) with
-  | (kn, has_deps, decl) :: env' => fun '(a,b) =>
-    let printed :=
+  | (kn, has_deps, decl) :: env' =>
+    fun '(a,b) =>
+      (* Filtering out empty type declarations *)
+      (* TODO: possibly, move to extraction (requires modifications of the correctness proof) *)
+      if is_empty_type_decl decl then print_global_env prefix TT env' b
+      else
+        let printed :=
         (* only print decls for which the environment includes dependencies *)
         if has_deps then
           print_global_decl prefix TT kn env' decl a

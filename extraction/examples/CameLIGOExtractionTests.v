@@ -1,10 +1,15 @@
 (** * Extraction of various contracts to cameLIGO *)
 
 From Coq Require Import PeanoNat ZArith Notations.
+From Coq Require Import List Ascii String.
 
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
+From MetaCoq.Template Require Import All.
 
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Embedding.Extraction Require Import CrowdfundingData.
+From ConCert.Embedding.Extraction Require Import Crowdfunding.
 From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import Common Optimize.
@@ -12,15 +17,15 @@ From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution.Examples Require EIP20Token.
+From ConCert.Execution Require Import Containers.
+From ConCert.Utils Require Import RecordUpdate.
 
-From ConCert.Extraction Require Import Common.
-From ConCert.Embedding.Extraction Require Import PreludeExt.
-Require Import ConCert.Embedding.Extraction.CrowdfundingData.
-Require Import ConCert.Embedding.Extraction.Crowdfunding.
-From Coq Require Import List Ascii String.
+From stdpp Require gmap.
+
+
 Local Open Scope string_scope.
 
-From MetaCoq.Template Require Import All.
 Import MonadNotation.
 Open Scope Z.
 
@@ -45,6 +50,56 @@ Definition dummy_chain :=
         finalized_height = 0n;
         account_balance  = fun (a : address) -> 0n
       }".
+
+(* TODO: uncomment all [Redirect] commands once we set up the CI for CameLIGO *)
+
+Module SafeHead.
+  (** This module show how one can extract programs containing [false_rect] *)
+
+  Open Scope list.
+  Open Scope nat.
+
+  Program Definition safe_head (l : list nat) (non_empty : List.length l > 0) : nat :=
+    match l as l' return l' = l -> nat  with
+    | [] => (* this is an impossible case *)
+      (* NOTE: we use [False_rect] to have more control over the extracted code.
+       Leaving a hole for the whole branch potentially leads to polymoprhic
+       definitions in the extracted code, and these are not supported by CameLIGO.
+       In this case, one has to inspect the extracted code and inline such definitions *)
+      fun _ => False_rect _ _
+    | hd :: tl => fun _ => hd
+    end eq_refl.
+  Next Obligation.
+    intros;cbn in *;subst. inversion non_empty.
+  Qed.
+
+  Import Lia.
+
+  Program Definition head_of_list_2 (xs : list nat) := safe_head (0 :: 0 :: xs)  _.
+  Next Obligation.
+    intros. cbn. lia.
+  Qed.
+
+  (** We inline [False_rect] because this is a polymoprhic definition. *)
+  Definition safe_head_inline :=
+    [<%% False_rect %%>].
+
+  Definition TT_ctors := [("O","0n")].
+
+  Definition harness : string :=
+    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some (head_of_list_2 ([] : nat list)))".
+
+    Time MetaCoq Run
+         (t <- CameLIGO_extract_single
+                PREFIX
+                safe_head_inline
+                [] TT_ctors
+                ""
+                harness
+                head_of_list_2 ;;
+    tmDefinition "cameligo_safe_head" t).
+
+End SafeHead.
 
 Module Counter.
 
@@ -121,7 +176,6 @@ End Counter.
 Section CounterExtraction.
   Import Lia.
   Import Counter.
-  (* Require Coq.Numbers.BinNums. *)
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_counter : list (kername * string) :=
     [
@@ -143,19 +197,28 @@ Section CounterExtraction.
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
-  (* Time MetaCoq Run
-      (t <- CameLIGO_extraction PREFIX TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
+  Time MetaCoq Run
+      (t <- CameLIGO_extract PREFIX [] TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
         tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
 
-  Print cameLIGO_counter.
-  Definition printed := Eval vm_compute in cameLIGO_counter.
-    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/cameligo-extract/CounterCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  (* NOTE: running computations inside [TemplateMonad] is quite slow.
+     If we first prepare the environment for erasure in [TemplateMonad]
+     and run erasure/prining outside of it, it works ~4 times faster for this example *)
+
+  (** This command adds [cameLIGO_counter_prepared] to the environment,
+      which can be evaluated later *)
+  Time MetaCoq Run
+       (CameLIGO_prepare_extraction PREFIX [] TT_remap_counter TT_rename LIGO_COUNTER_MODULE).
+
+  Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
+
+  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  (* Redirect "examples/cameligo-extract/CounterCertifiedExtraction.ligo" *)
+  MetaCoq Run (tmMsg cameLIGO_counter_1).
 
 End CounterExtraction.
 
 Module Crowdfunding.
-  From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
   (* Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt. *)
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
   Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
@@ -263,28 +326,23 @@ Section CrowdfundingExtraction.
     ; ("tt", "()") ].
 
   Time MetaCoq Run
-  (t <- CameLIGO_extraction PREFIX TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE ;;
-    tmDefinition CF_MODULE.(lmd_module_name) t
-  ).
+       (CameLIGO_prepare_extraction PREFIX [] TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE).
 
-  Print cameLIGO_crowdfunding.
+  Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
-  Definition printed := Eval vm_compute in cameLIGO_crowdfunding.
-    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed).
+  MetaCoq Run (tmMsg cameLIGO_crowdfunding).
+
+  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  (* Redirect "examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" *)
+  MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
 End CrowdfundingExtraction.
 
-From ConCert.Execution.Examples Require EIP20Token.
-
 Section EIP20TokenExtraction.
   Import EIP20Token.
-  From ConCert.Utils Require Import RecordUpdate.
   Import RecordSetNotations.
-  Require Import Containers.
-  From stdpp Require gmap.
 
-    Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
+  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
     Some {| total_supply := setup.(init_amount);
             balances := FMap.add (EIP20Token.owner setup) (init_amount setup) FMap.empty;
             allowances := FMap.empty |}.
@@ -380,27 +438,22 @@ Section EIP20TokenExtraction.
     ; ("Monad_option", "()")
     ; ("tt", "()") ].
 
-  (* Time MetaCoq Run
-  (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE ;;
-    tmDefinition LIGO_EIP20Token_MODULE.(lmd_module_name) t
-  ).
+  Time MetaCoq Run
+  (CameLIGO_prepare_extraction PREFIX [] TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE).
 
-  Print cameLIGO_eip20token.
 
-  Definition printed := Eval vm_compute in cameLIGO_eip20token.
+  Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
+
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  (* Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
+  MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.
 
 
-
 Section TestExtractionPlayground.
   Import EIP20Token.
-  From ConCert.Utils Require Import RecordUpdate.
   Import RecordSetNotations.
-  Require Import Containers.
-  From stdpp Require gmap.
 
   Open Scope N_scope.
   Definition test_try_transfer (from : Address)
@@ -490,15 +543,13 @@ Section TestExtractionPlayground.
                         ++ CameLIGOPretty.printMain |}.
 
 
-  (* Time MetaCoq Run
-  (t <- CameLIGO_extraction PREFIX TT_remap_eip20token TT_rename_eip20token playground_module ;;
-    tmDefinition playground_module.(lmd_module_name) t
-  ).
+  Time MetaCoq Run
+  (CameLIGO_prepare_extraction PREFIX [] TT_remap_eip20token TT_rename_eip20token playground_module).
 
-  Print playground_mod.
+  Time Definition playground_mod := Eval vm_compute in playground_mod_prepared.
 
-  Definition printed := Eval vm_compute in playground_mod.
-    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" MetaCoq Run (tmMsg printed). *)
+  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  (* Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
+  MetaCoq Run (tmMsg playground_mod).
 
 End TestExtractionPlayground.
