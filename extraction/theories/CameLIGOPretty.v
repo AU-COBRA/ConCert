@@ -527,28 +527,6 @@ Section print_term.
                  ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
         end
       else
-        (* [list] is a special case *)
-      (*   if eq_kername mind <%% list %%> then *)
-      (*     match brs with *)
-      (*     | [b1;b2] => *)
-      (*       fun '(bt, (ta, (b1a, (b2a, _)))) => *)
-      (*         let nil_case := "[] -> " ++ print_term prefix FT TT ctx false false b1.2 b1a in *)
-      (*         let (args, _) := Edecompose_lam b2.2 in *)
-      (*         if #|args| <? 2 then "Error(MatchBranchedNotExpanded)" *)
-      (*         else *)
-      (*           let cons_args := firstn 2 args in *)
-      (*           let cons_pat := concat " :: " (map (fun x => string_of_name ctx (fresh_name ctx x b2.2)) cons_args) in *)
-      (*           let cons_ctx := rev (map vass cons_args) in *)
-      (*           let cons_case tbody tbodya := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ ctx)%list top inapp tbody tbodya in *)
-      (*           parens top *)
-      (*                  ("match " *)
-      (*                     ++ print_term prefix FT TT ctx true false t ta *)
-      (*                     ++ " with " ++ nl *)
-      (*                     ++ concat (nl ++ " | ") [nil_case;(lam_body_annot_cont cons_case b2.2 b2a)]) *)
-      (*     | _ => fun bt => "Error (Malformed pattern-mathing on bool: given " *)
-      (*             ++ string_of_nat (List.length brs) ++ " branches " ++ ")" *)
-      (*     end *)
-      (* else *)
         fun '(bt, (ta, trs)) =>
       match lookup_ind_decl mind i with
       | Some oib =>
