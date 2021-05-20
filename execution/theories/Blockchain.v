@@ -868,6 +868,7 @@ Ltac destruct_chain_step :=
     destruct step as
         [header queue_prev valid_header acts_from_accs env_eq|
          act acts new_acts queue_prev eval queue_new|
+         act acts new_acts bstate env_eq queue_prev queue_new act_from_acc no_eval|
          prev_next perm]
   end.
 
@@ -888,6 +889,7 @@ Proof.
   - destruct_chain_step.
     + rewrite_environment_equiv; cbn in *; auto.
     + destruct_action_eval; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
+    + now rewrite_environment_equiv.
     + intuition.
 Qed.
 
@@ -943,7 +945,7 @@ Proof.
   remember empty_state eqn:eq.
   induction trace;
     intros undeployed; rewrite eq in *; clear eq; cbn; auto.
-  destruct_chain_step; [|destruct_action_eval|];
+  destruct_chain_step; [|destruct_action_eval| |];
     try rewrite_environment_equiv;
     repeat
       match goal with
@@ -966,6 +968,8 @@ Proof.
     apply list.Forall_app.
     assert (contract <> to_addr) by congruence.
     split; [eapply new_acts_no_out_queue|eapply list.Forall_cons]; eauto.
+  - (* Invalid User Action *)
+    now apply Forall_inv_tail in IHtrace.
   - (* Permutation *)
     specialize_hypotheses.
     match goal with
@@ -1006,6 +1010,7 @@ Proof.
       cbn in *;
       destruct_address_eq;
       subst; try tauto; congruence.
+  - now rewrite_environment_equiv.
   - match goal with
     | [H: _ = _ |- _] => rewrite H in *; auto
     end.
@@ -1025,6 +1030,7 @@ Proof.
   - destruct_action_eval; rewrite_environment_equiv;
       cbn in *;
       destruct_address_eq; auto; subst; congruence.
+  - now rewrite_environment_equiv.
   - rewrite prev_next in *; auto.
 Qed.
 
@@ -1044,6 +1050,7 @@ Proof.
     rewrite (address_eq_sym caddr).
     destruct_address_eq; try discriminate.
     auto.
+  - now rewrite_environment_equiv.
   - rewrite <- prev_next; auto.
 Qed.
 
@@ -1165,6 +1172,8 @@ Proof.
       cbn.
       rewrite map_eq.
       subst; tauto.
+  - (* Invalid User Action *)
+    now rewrite_environment_equiv.
   - (* Permutation *)
     rewrite <- prev_next; auto.
 Qed.
@@ -1184,6 +1193,7 @@ Proof.
   - destruct_action_eval; rewrite_environment_equiv;
       cbn in *;
       destruct_address_eq; auto; subst; congruence.
+  - now rewrite_environment_equiv.
   - rewrite prev_next in *; auto.
 Qed.
 
@@ -1209,7 +1219,10 @@ Proof.
     destruct_action_eval; cbn; rewrite_environment_equiv; cbn.
     all: fold (created_blocks trace addr); rewrite IHtrace by auto.
     all: destruct_address_eq; cbn; lia.
-  - cbn.
+  - (* Invalid User Action *)
+    now rewrite_environment_equiv.
+  - (* Permutation *)
+    cbn.
     rewrite <- prev_next.
     auto.
 Qed.
@@ -1260,7 +1273,10 @@ Proof.
     pose proof (eval_amount_nonnegative eval).
     pose proof (eval_amount_le_account_balance eval).
     destruct_address_eq; subst; cbn in *; lia.
-  - now rewrite <- prev_next.
+  - (* Invalid User Action *)
+    now rewrite_environment_equiv.
+  - (* Permutation *)
+    now rewrite <- prev_next.
 Qed.
 
 Lemma wc_init_strong {Setup Msg State : Type}
@@ -1363,6 +1379,8 @@ Proof.
         as [state_strong [msg_strong [resp_state_strong [? [? [<- receive]]]]]].
       cbn in eq.
       rewrite deserialize_serialize in eq; congruence.
+  - (* Invalid User Action *)
+    now rewrite_environment_equiv.
   - (* Permutation *)
     rewrite prev_next in *.
     auto.
