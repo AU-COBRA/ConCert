@@ -1608,7 +1608,7 @@ Proof.
     intros; subst; try solve [cbn in *; congruence].
   specialize (establish_facts mid to ltac:(auto) ltac:(auto) tag_facts).
   destruct_chain_step;
-    [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv; cbn in *|].
+    [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv; cbn in *| |].
   - (* New block *)
     clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
     rewrite_environment_equiv.
@@ -1806,6 +1806,27 @@ Proof.
       * (* Irrelevant call. *)
         fold (outgoing_txs trace caddr).
         auto.
+  - (* Invalid User Action *)
+    rewrite_environment_equiv.
+    destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH); auto.
+    exists depinfo, cstate, inc_calls.
+    repeat split.
+    + assumption.
+    + now rewrite_environment_equiv.
+    + assumption.
+    + rewrite_environment_equiv.
+      assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
+      { unfold outgoing_acts.
+        setoid_rewrite queue_new.
+        setoid_rewrite queue_prev.
+        f_equal.
+        cbn.
+        unfold act_is_from_account in act_from_acc.
+        destruct_address_eq; easy.
+      }
+      rewrite outgoing_acts_eq in IH.
+      cbn.
+      now fold (outgoing_txs trace caddr).
   - (* Permutation *)
     rewrite prev_next in *.
     specialize_hypotheses.
