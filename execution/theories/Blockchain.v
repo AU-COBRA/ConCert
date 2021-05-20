@@ -1892,7 +1892,7 @@ Ltac destruct_chain_step :=
     destruct step as
         [header queue_prev valid_header acts_from_accs env_eq|
          act acts new_acts queue_prev eval queue_new|
-         act acts new_acts bstate env_eq queue_prev queue_new act_from_acc no_eval|
+         act acts new_acts new_bstate env_eq queue_prev queue_new act_from_acc no_eval|
          prev_next perm]
   end.
 
