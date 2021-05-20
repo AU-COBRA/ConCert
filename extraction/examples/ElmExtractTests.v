@@ -29,7 +29,7 @@ Definition no_check_args :=
      template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [dearg_transform true true false false false] |} |}.
+          extract_transforms := [dearg_transform (fun _ => None) true true false false false] |} |}.
 
 Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
   entry <- match p.2 with

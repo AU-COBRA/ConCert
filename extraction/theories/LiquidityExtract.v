@@ -64,14 +64,13 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
-            [dearg_transform true true true true true ] |} |}.
+            [dearg_transform (fun _ => None) true true true true true ] |} |}.
 
 Definition extract (to_inline :  kername -> bool)
            (seeds : KernameSet.t)
            (extract_ignore : kername -> bool)
            (Σ : global_env) : TemplateMonad ExAst.global_env
   := extract_template_env_certifying_passes ret (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
-
 
 Definition extract_specialize (to_inline :  kername -> bool)
            (seeds : KernameSet.t)
@@ -202,6 +201,7 @@ Definition liquidity_extract_args :=
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms := [dearg_transform
+                                 (fun _ => None)
                                  true
                                  false (* cannot have partially applied ctors *)
                                  true

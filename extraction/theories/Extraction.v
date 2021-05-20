@@ -122,6 +122,6 @@ Definition extract_within_coq : extract_template_env_params :=
      check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [dearg_transform true true true true true] |} |}.
+          extract_transforms := [dearg_transform (fun _ => None) true true true true true] |} |}.
 
 Definition extract_template_env_within_coq := extract_template_env extract_within_coq.

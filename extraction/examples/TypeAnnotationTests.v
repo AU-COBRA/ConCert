@@ -66,7 +66,7 @@ Definition opt_args :=
      template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [dearg_transform true true false false false] |} |}.
+          extract_transforms := [dearg_transform (fun _ => None) true true false false false] |} |}.
 
 Definition no_opt_args :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);

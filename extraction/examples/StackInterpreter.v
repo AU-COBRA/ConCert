@@ -54,14 +54,6 @@ Module Interpreter.
 
   Definition params := list instruction * ext_map.
 
-  Definition obs0 s := IObs (s, 0%Z).
-
-  Definition head_true_or_empty (l : list bool ) :=
-    match l with
-    | [] | true :: _ => true
-    | _ => false
-    end.
-
   Open Scope Z.
   Definition continue_ (i : Z) := (i =? 0)%Z.
   Definition one := 1%Z.
@@ -147,19 +139,19 @@ Example test_interp :
   let env  := FMap.of_list [(("blah", 0%Z), (ZVal 1))] in
   interp env [IPushZ 0; IObs ("blah", 0); IOp Add; IPushZ 1; IOp Equal] [] 0 =
   Some [BVal true].
-Proof. reflexivity. Qed.
+Proof. vm_compute. reflexivity. Qed.
 
 (** Input for the interpreter in Liquidity:
 ([IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf], (Map [])) *)
 Example test_interp_if_1 :
   interp FMap.empty [IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf] [] 0
   = Some [ZVal 1].
-Proof. reflexivity. Qed.
+Proof. vm_compute. reflexivity. Qed.
 
 Example test_interp_if_2 :
   interp FMap.empty [IPushZ 1; IPushZ 0; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf] [] 0
   = Some [ZVal (-1)].
-Proof. reflexivity. Qed.
+Proof. vm_compute. reflexivity. Qed.
 
 Example test_interp_nested_if_1 :
   interp FMap.empty [IPushZ 0;
@@ -179,7 +171,7 @@ Example test_interp_nested_if_1 :
                     IEndIf
                     ] [] 0
   = Some [ZVal 2].
-Proof. reflexivity. Qed.
+Proof. vm_compute. reflexivity. Qed.
 
 Example test_interp_nested_if_2 :
   interp FMap.empty [IPushB false;
@@ -196,7 +188,7 @@ Example test_interp_nested_if_2 :
                     IEndIf
                     ] [] 0
   = Some [ZVal (-1)].
-Proof. reflexivity. Qed.
+Proof. vm_compute. reflexivity. Qed.
 
 (*     let strike = 50.0
         nominal = 1000.0
@@ -242,7 +234,7 @@ Example run_call_option_out_the_money :
     let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 30));(("Maturity", 0%Z), (ZVal 90))] in
   interp env call_option [] 0
   = Some [ZVal 0].
-Proof. reflexivity. Qed.
+Proof. vm_compute. reflexivity. Qed.
 
 (* A bigger test program for running in try-liquidity with arithmetic operations, lookups and some [Ifs] *)
 
@@ -323,14 +315,14 @@ Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_int
 (* ------- CameLIGO extraction -------- *)
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 
-Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):= 
+Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):=
   (* prevent optimizations from deleting these arguments from receive_'s type signature *)
   let c_ := c in
   let ctx_ := ctx in
-  match msg with 
+  match msg with
   | Some msg => receive msg s
   | None => None
-  end.  
+  end.
 
 Definition TT_remap_ligo : list (kername * string) :=
   [   (* remapping types *)
@@ -358,7 +350,7 @@ Definition TT_remap_ligo : list (kername * string) :=
      ; remap <%% andb %%> "andb"
      ; remap <%% one %%> "1"].
 
-Definition dummy_chain := 
+Definition dummy_chain :=
       "type chain = {
         chain_height     : nat;
         current_slot     : nat;

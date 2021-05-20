@@ -61,7 +61,7 @@ Class RustPrintConfig :=
 
 Context `{RustPrintConfig}.
 
-Definition ind_attr_map := kername -> list string.
+Definition ind_attr_map := inductive -> string.
 
 Context (ind_attrs : ind_attr_map).
 
@@ -727,11 +727,8 @@ Definition print_mutual_inductive_body
 
        prefix;;
 
-       match nth_error (ind_attrs kn) i with
-       | Some attr => append attr;;
-                      append_nl
-       | None => append ""
-       end ;;
+       append (ind_attrs (mkInd kn i));;
+       append_nl;;
        append "pub enum ";;
        print_ind (mkInd kn i);;
 
@@ -768,10 +765,11 @@ Definition print_type_alias
            (nm : kername)
            (tvars : list type_var_info)
            (bt : box_type) : PrettyPrinter unit :=
+  let rname := ty_const_global_ident_of_kername nm in
   match remap_constant remaps nm with
-  | Some s => append s
+  | Some s => append (StringExtra.replace "##name##" rname s)
   | None =>
-    append ("type " ++ ty_const_global_ident_of_kername nm ++ "<");;
+    append ("type " ++ rname ++ "<");;
     Γrev <- monad_fold_left (fun Γ tvar => name <- fresh_ty_arg_name (tvar_name tvar) Γ;;
                                            ret (name :: Γ))
                           tvars [];;
@@ -838,20 +836,10 @@ Definition print_program : PrettyPrinter unit :=
   append_nl;;
   push_indent (sig_col + indent_size);;
 
-  append "struct Program<'a> {";;
+  append "struct Program {";;
   append_nl;;
   append "__alloc: bumpalo::Bump,";;
 
-  monad_fold_left (fun _ '(kn, has_deps, cst) =>
-                     if is_polymorphic cst then
-                       ret tt
-                     else
-                       append_nl;;
-                       append "__";;
-                       append (const_global_ident_of_kername kn);;
-                       append ": std::cell::Cell<std::option::Option<";;
-                       print_type [] (Ex.cst_type cst).2;;
-                       append ">>,") constants tt;;
   pop_indent;;
   append_nl;;
   append "}";;
@@ -860,7 +848,7 @@ Definition print_program : PrettyPrinter unit :=
      we print a way to create such a program. *)
   append_nl;;
   append_nl;;
-  append "impl<'a> Program<'a> {";;
+  append "impl<'a> Program {";;
 
   append_nl;;
   append "fn new() -> Self {";;
@@ -872,15 +860,6 @@ Definition print_program : PrettyPrinter unit :=
   push_indent (sig_col + 2*indent_size);;
   append_nl;;
   append "__alloc: bumpalo::Bump::new(),";;
-
-  monad_fold_left (fun _ '(kn, has_deps, cst) =>
-                     if is_polymorphic cst then
-                       ret tt
-                     else
-                       append_nl;;
-                       append "__";;
-                       append (const_global_ident_of_kername kn);;
-                       append ": std::cell::Cell::new(None),") constants tt;;
 
   pop_indent;;
   append_nl;;
@@ -906,12 +885,13 @@ Definition print_program : PrettyPrinter unit :=
 End FixEnv.
 
 Definition extract_rust_within_coq
+           (overridden_masks : kername -> option bitmask)
            (should_inline : kername -> bool) : extract_template_env_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
      template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [dearg_transform true false false false false;
-                         ExpandBranches.transform;
-                         Inlining.transform should_inline; (* before TopLevelFixes *)
-                         TopLevelFixes.transform] |} |}.
+          extract_transforms := [dearg_transform overridden_masks true false false false false;
+                                 ExpandBranches.transform;
+                                 Inlining.transform should_inline; (* before TopLevelFixes *)
+                                 TopLevelFixes.transform] |} |}.

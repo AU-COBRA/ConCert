@@ -25,6 +25,24 @@ Notation "<%% t %%>" :=
              | _ => fail "not a name"
              end in quote_term t p)).
 
+Definition to_globref (t : Ast.term) : option global_reference :=
+  match t with
+  | Ast.tConst kn _ => Some (ConstRef kn)
+  | Ast.tInd ind _ => Some (IndRef ind)
+  | Ast.tConstruct ind c _ => Some (ConstructRef ind c)
+  | _ => None
+  end.
+
+Notation "<! t !>" :=
+  (ltac:(let p y :=
+             let e := eval cbv in (to_globref y) in
+             match e with
+             | @Some _ (ConstRef ?kn) => exact (kn : kername)
+             | @Some _ (IndRef ?ind) => exact (ind : inductive)
+             | @Some _ (ConstructRef ?ind ?c) => exact ((ind, c) : kername * nat)
+             | _ => fail "not a globref"
+             end in quote_term t p)).
+
 Import PCUICErrors.
 
 Definition result_of_typing_result
