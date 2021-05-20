@@ -657,6 +657,16 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
       ActionEvaluation prev_bstate act next_bstate new_acts ->
       chain_state_queue next_bstate = new_acts ++ acts ->
       ChainStep prev_bstate next_bstate
+| step_action_invalid :
+    forall (act : Action)
+           (acts : list Action)
+           bstate new_acts,
+      EnvironmentEquiv prev_bstate next_bstate ->
+      chain_state_queue prev_bstate = act :: acts ->
+      chain_state_queue next_bstate = acts ->
+      act_is_from_account act ->
+      ~ inhabited (ActionEvaluation prev_bstate act bstate new_acts) ->
+      ChainStep prev_bstate next_bstate
 | step_permute :
       chain_state_env prev_bstate = chain_state_env next_bstate ->
       Permutation (chain_state_queue prev_bstate) (chain_state_queue next_bstate) ->
