@@ -6,14 +6,16 @@
 
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
-From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution.Examples Require Import Common.
+From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
 Import RecordSetNotations.
@@ -25,6 +27,7 @@ Section EIP20Token.
 
   Definition TokenValue := N.
   Open Scope N_scope.
+  Open Scope bool.
 
   Inductive Msg :=
   | transfer : Address -> TokenValue -> Msg
@@ -34,8 +37,8 @@ Section EIP20Token.
   Record State :=
     build_state {
         total_supply : TokenValue;
-  balances : FMap Address TokenValue;
-  allowances : FMap Address (FMap Address TokenValue)
+        balances : AddressMap.AddrMap TokenValue;
+        allowances : AddressMap.AddrMap (AddressMap.AddrMap TokenValue)
     }.
 
   Record Setup :=
@@ -64,49 +67,55 @@ Section EIP20Token.
        (ctx : ContractCallContext)
        (setup : Setup) : option State :=
     Some {| total_supply := setup.(init_amount);
-            balances := FMap.add setup.(owner) setup.(init_amount) FMap.empty;
-            allowances := FMap.empty |}.
+            balances := AddressMap.add setup.(owner) setup.(init_amount) AddressMap.empty;
+            allowances := AddressMap.empty |}.
+
+  Definition increment_balance (m : AddressMap.AddrMap TokenValue) (addr : Address) (inc : TokenValue) : AddressMap.AddrMap TokenValue :=
+    match AddressMap.find addr m with
+    | Some old => AddressMap.add addr (old + inc) m
+    | None => AddressMap.add addr inc m
+    end.
 
   (* Transfers <amount> tokens, if <from> has enough tokens to transfer *)
   Definition try_transfer (from : Address)
        (to : Address)
        (amount : TokenValue)
        (state : State) : option State :=
-    let from_balance := with_default 0 (FMap.find from state.(balances)) in
+    let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
     if from_balance <? amount
     then None
-    else let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-         let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in
+    else let new_balances := AddressMap.add from (from_balance - amount) state.(balances) in
+         let new_balances := increment_balance new_balances to amount in
          Some (state<|balances := new_balances|>).
 
 (* The delegate tries to transfer <amount> tokens from <from> to <to>.
    Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
-  Local Open Scope bool_scope.
+
   Definition try_transfer_from (delegate : Address)
        (from : Address)
        (to : Address)
        (amount : TokenValue)
        (state : State) : option State :=
-  do from_allowances_map <- FMap.find from state.(allowances) ;
-  do delegate_allowance <- FMap.find delegate from_allowances_map ;
-  let from_balance := with_default 0 (FMap.find from state.(balances)) in
+  do from_allowances_map <- AddressMap.find from state.(allowances) ;
+  do delegate_allowance <- AddressMap.find delegate from_allowances_map ;
+  let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
   if (delegate_allowance <? amount) || (from_balance <? amount)
   then None
-  else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
-       let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-       let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in
-       Some (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
+  else let new_allowances := AddressMap.add delegate (delegate_allowance - amount) from_allowances_map in
+       let new_balances := AddressMap.add from (from_balance - amount) state.(balances) in
+       let new_balances := increment_balance new_balances to amount in
+       Some (state<|balances := new_balances|><|allowances ::= AddressMap.add from new_allowances|>).
 
   (* The caller approves the delegate to transfer up to <amount> tokens on behalf of the caller *)
   Definition try_approve (caller : Address)
        (delegate : Address)
        (amount : TokenValue)
        (state : State) : option State :=
-    match FMap.find caller state.(allowances) with
+    match AddressMap.find caller state.(allowances) with
     | Some caller_allowances =>
-      Some (state<|allowances ::= FMap.add caller (FMap.add delegate amount caller_allowances) |>)
+      Some (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount caller_allowances) |>)
     | None =>
-      Some (state<|allowances ::= FMap.add caller (FMap.add delegate amount FMap.empty) |>)
+      Some (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount AddressMap.empty) |>)
     end.
 
   Open Scope Z_scope.
@@ -125,7 +134,7 @@ Section EIP20Token.
    | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
    | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
    (* transfer actions to this contract are not allowed *)
-         | None => None
+   | None => None
    end.
   Close Scope Z_scope.
 

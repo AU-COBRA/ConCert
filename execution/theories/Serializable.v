@@ -7,8 +7,10 @@ Require Import Monads.
 Require Import Containers.
 Require Import Automation.
 Require Import BoundedN.
+From Coq Require Import Ascii.
 From Coq Require Import List.
 From Coq Require Import Psatz.
+From Coq Require Import String.
 From Coq Require Import ZArith.
 From stdpp Require countable.
 
@@ -310,6 +312,30 @@ Next Obligation.
   destruct x; auto.
 Qed.
 
+Program Instance ascii_serializable : Serializable ascii :=
+  {| serialize a := serialize (Ascii.N_of_ascii a);
+     deserialize p := do p <- deserialize p;
+                      Some (Ascii.ascii_of_N p); |}.
+Next Obligation.
+  intros.
+  cbn.
+  rewrite deserialize_serialize.
+  apply f_equal.
+  apply ascii_N_embedding.
+Qed.
+
+Program Instance string_serializable : Serializable string :=
+  {| serialize s := serialize (list_ascii_of_string s);
+     deserialize p := do la <- deserialize p;
+                      Some (string_of_list_ascii la); |}.
+Next Obligation.
+  intros.
+  cbn.
+  rewrite deserialize_serialize.
+  apply f_equal.
+  apply string_of_list_ascii_of_string.
+Qed.
+
 Ltac make_serializer_case ty :=
   match ty with
   | ?T1 -> ?T2 =>
@@ -519,8 +545,9 @@ Section Countable.
        countable.decode := decode_sv;
        countable.decode_encode := decode_sv_encode_sv |}.
 
+  (* Low priority to always pick 'direct' EqDecision instances first *)
   Global Instance SerializableType_EqDecision
-         (A : Type) `{Serializable A} : stdpp.base.EqDecision A.
+         (A : Type) `{Serializable A} : stdpp.base.EqDecision A | 1000.
   Proof.
     intros a a'.
     destruct (stdpp.base.decide (serialize a = serialize a')) as [eq|neq].
@@ -548,8 +575,9 @@ Section Countable.
     now rewrite deserialize_serialize.
   Qed.
 
+  (* Low priority to always pick 'direct' Countable instances first *)
   Global Instance SerializableType_Countable {A : Type} `{Serializable A} :
-    countable.Countable A :=
+    countable.Countable A | 1000 :=
     {| countable.encode := encode_serializable_type;
        countable.decode := decode_serializable_type;
        countable.decode_encode := decode_serializable_type_encode_serializable_type; |}.

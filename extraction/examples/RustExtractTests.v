@@ -26,7 +26,7 @@ Instance RustConfig : RustPrintConfig :=
      any_type_symbol := "()";
      print_full_names := false |}.
 
-Definition default_attrs : ind_attr_map := fun _ => ["#[derive(Debug, Copy, Clone)]"].
+Definition default_attrs : ind_attr_map := fun _ => "#[derive(Debug, Clone)]".
 
 Definition extract (p : T.program) : result string string :=
   entry <- match p.2 with
@@ -35,7 +35,7 @@ Definition extract (p : T.program) : result string string :=
            | _ => Err "Expected program to be a tConst or tInd"
            end;;
   Σ <- extract_template_env
-         (extract_rust_within_coq (fun _ => false))
+         (extract_rust_within_coq (fun _ => None) (fun _ => false))
          p.1
          (KernameSet.singleton entry)
          (fun k => false);;
@@ -60,12 +60,12 @@ Module ex1.
 
   Example ex1_test :
     extract ex1 = Ok <$
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Sig<'a, A> {";
 "  exist(PhantomData<&'a A>, A)";
 "}";
 "";
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Nat<'a> {";
 "  O(PhantomData<&'a ()>),";
 "  S(PhantomData<&'a ()>, &'a Nat<'a>)";
@@ -108,12 +108,12 @@ Module ex2.
   MetaCoq Quote Recursively Definition ex2 := bar.
   Example ex2_test :
     extract ex2 = Ok <$
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Sig<'a, A> {";
 "  exist(PhantomData<&'a A>, A)";
 "}";
 "";
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Nat<'a> {";
 "  O(PhantomData<&'a ()>),";
 "  S(PhantomData<&'a ()>, &'a Nat<'a>)";
@@ -154,7 +154,7 @@ Module ex3.
 
   Example test :
     extract quoted = Ok <$
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Nat<'a> {";
 "  O(PhantomData<&'a ()>),";
 "  S(PhantomData<&'a ()>, &'a Nat<'a>)";
@@ -202,7 +202,7 @@ Module ex4.
 
   Example test :
     extract quoted = Ok <$
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Nat<'a> {";
 "  O(PhantomData<&'a ()>),";
 "  S(PhantomData<&'a ()>, &'a Nat<'a>)";
@@ -267,19 +267,19 @@ Module ex5.
 
   Example test :
     extract quoted = Ok <$
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Nat<'a> {";
 "  O(PhantomData<&'a ()>),";
 "  S(PhantomData<&'a ()>, &'a Nat<'a>)";
 "}";
 "";
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum T<'a> {";
 "  F1(PhantomData<&'a ()>, &'a Nat<'a>),";
 "  FS(PhantomData<&'a ()>, &'a Nat<'a>, &'a T<'a>)";
 "}";
 "";
-"#[derive(Debug, Copy, Clone)]";
+"#[derive(Debug, Clone)]";
 "pub enum Eq<'a, A> {";
 "  eq_refl(PhantomData<&'a A>)";
 "}";

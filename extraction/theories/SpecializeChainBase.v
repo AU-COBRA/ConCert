@@ -101,9 +101,9 @@ Section ChainBaseSpecialization.
       | tInd {| inductive_mind := name |} _
       | tConstruct {| inductive_mind := name |} _ _ =>
         if contains name specialized then
-          Err ("Unapplied '"
+          Err ("'"
                   ++ string_of_kername name
-                  ++ "' (or constructor) appears in term; this needs to be specialized")
+                  ++ "' (or constructor of this) appears unapplied in term; this needs to be specialized")
         else
           ret t
       | tCase (ind, npars) ret_ty disc brs =>
@@ -181,10 +181,15 @@ Section ChainBaseSpecialization.
                     | _ => false
                     end in
 
-      type <- specialize_type specialized kn [] remove (cst_type cst);;
+      type <- map_error
+                (fun s => "While specializing decl " ++ string_of_kername kn ++ " type: " ++ s)
+                (specialize_type specialized kn [] remove (cst_type cst));;
       body <- match cst_body cst with
-              | Some body => body <- specialize_body specialized kn [] remove body;;
-                              ret (Some body)
+              | Some body =>
+                body <- map_error
+                          (fun s => "While specializing decl " ++ string_of_kername kn ++ " body: " ++ s)
+                          (specialize_body specialized kn [] remove body);;
+                ret (Some body)
               | None => ret None
               end;;
 

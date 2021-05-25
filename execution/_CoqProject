@@ -23,6 +23,7 @@ examples/BAT_Fixed.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingTest.v
+examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
 examples/Counter.v
@@ -33,6 +34,7 @@ examples/Euler.v
 examples/FA2Interface.v
 examples/FA2Token.v
 examples/LocalBlockchainTests.v
+examples/StackInterpreter.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v

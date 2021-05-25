@@ -405,7 +405,7 @@ Section print_term.
       else match is_record_constr b with
         | Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
         let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
-                                                  |> concat "; " in 
+                                                  |> concat "; " in
         "{" ++ field_decls_printed ++ "}"
         | None     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
                       parens top (print_uncurried nm' apps)
@@ -700,10 +700,13 @@ Definition address_ops :=
   "let[@inline] eq_addr (a1 : address) (a2 : address) = a1 = a2".
 
 
+Definition address_map :=
+  "type 'a addrMap = (address, 'a) map".
+
 Definition LiquidityPrelude :=
   print_list id (nl ++ nl)
              [prod_ops; int_ops; tez_ops; nat_ops;
-             bool_ops; time_ops; address_ops].
+             bool_ops; time_ops; address_ops; address_map].
 
 Definition printWrapper (contract : string): string :=
   "let wrapper param (st : storage)"

@@ -1,0 +1,12 @@
+[package]
+name = "concert-std-derive"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.63", features = ["full", "extra-traits"] }
+quote = "=1.0.0"
+proc-macro2 = "1.0"

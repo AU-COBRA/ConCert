@@ -173,13 +173,14 @@ Definition restrict_env (Σ : global_env) (kns : list kername) : global_env :=
                        end) Σ.
 
 Definition eta_global_env
+           (overridden_masks : kername -> option bitmask)
            (trim_consts trim_inds : bool)
            (Σ : global_env) (seeds : KernameSet.t) (erasure_ignore : kername -> bool) :=
   let Σe :=
       erase_global_decls_deps_recursive
         (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
         seeds erasure_ignore in
-  let (const_masks, ind_masks) := analyze_env Σe in
+  let (const_masks, ind_masks) := analyze_env overridden_masks Σe in
   let const_masks := (if trim_consts then trim_const_masks else id) const_masks in
   let ind_masks := (if trim_inds then trim_ind_masks else id) ind_masks in
   let f cb :=
@@ -193,24 +194,29 @@ Definition eta_global_env
       end in
   let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
   map_constants_global_env id f Σ'.
+
 Definition eta_global_env_template
+           (overridden_masks : kername -> option bitmask)
            (trim_consts trim_inds : bool)
            (mpath : modpath)
            (Σ : global_env)
            (seeds : KernameSet.t) (erasure_ignore : kername -> bool)
   : TemplateMonad global_env :=
   let suffix := "_expanded" in
-  Σext <- tmEval lazy (eta_global_env trim_consts trim_inds Σ seeds erasure_ignore);;
+  Σext <- tmEval lazy (eta_global_env overridden_masks trim_consts trim_inds Σ seeds erasure_ignore);;
   gen_defs_and_proofs Σ Σext mpath suffix seeds;;
   ret Σext.
 
 (* Mainly for testing purposes *)
-Definition eta_expand_def {A} (trim_inds trim_consts : bool) (def : A) : TemplateMonad _ :=
+Definition eta_expand_def
+           {A}
+           (overridden_masks : kername -> option bitmask)
+           (trim_inds trim_consts : bool) (def : A) : TemplateMonad _ :=
   cur_mod <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
   kn <- extract_def_name def ;;
   eta_global_env_template
-    trim_inds trim_consts cur_mod p.1
+    overridden_masks trim_inds trim_consts cur_mod p.1
     (KernameSet.singleton kn) (fun _ => false).
 
 Module Examples.
@@ -229,6 +235,7 @@ Module Examples.
   Module Test1.
     MetaCoq Run (cur_mod <- tmCurrentModPath tt;;
                  eta_global_env_template
+                  (fun _ => None)
                    false false cur_mod
                    p_app_pair_syn.1
                    (KernameSet.singleton <%% Ex1.partial_app_pair %%>)
@@ -247,6 +254,7 @@ Module Examples.
   Set Printing Implicit.
   (** Expands the dependencies and adds the corresponding definitions *)
   MetaCoq Run (eta_expand_def
+                 (fun _ => None)
                  true true
                  Ex2.partial_app2).
 
@@ -264,7 +272,7 @@ Module Examples.
   Definition partial_app3 A B n m :=
     let f := miCtor1 A in f B bool n m I.
 
-  MetaCoq Run (eta_expand_def true true partial_app3).
+  MetaCoq Run (eta_expand_def (fun _ => None) true true partial_app3).
 
   Module Ex3.
   Definition inc_balance (st :  nat × nat) (new_balance : nat)
@@ -276,6 +284,7 @@ Module Examples.
   MetaCoq Run (cur_mod <- tmCurrentModPath tt;;
                p <- tmQuoteRecTransp Ex3.partial_inc_balance false ;;
                eta_global_env_template
+                 (fun _ => None)
                  true true
                  cur_mod
                  p.1
@@ -288,7 +297,7 @@ Module Examples.
     Definition papp_cons {A} (x : A) (xs : list A) := let my_cons := @cons in
                                                       my_cons A x xs.
 
-    MetaCoq Run (eta_expand_def false false papp_cons).
+    MetaCoq Run (eta_expand_def (fun _ => None) false false papp_cons).
   End Ex4.
 
   Module Ex5.
@@ -304,7 +313,7 @@ Module Examples.
       let f := odd_S 0 in
       f even_O.
 
-    MetaCoq Run (eta_expand_def false false papp_odd).
+    MetaCoq Run (eta_expand_def (fun _ => None) false false papp_odd).
 
     Inductive Expr (Annot : Type) :=
     | eNat : nat -> Expr Annot
@@ -319,7 +328,7 @@ Module Examples.
       let part_app := eApp _ (eFn unit "f" (eNat unit 0)) in
       part_app (eCons _ (eNat unit 0) (eNil _)).
 
-    MetaCoq Run (eta_expand_def false false  papp_expr).
+    MetaCoq Run (eta_expand_def (fun _ => None) false false  papp_expr).
   End Ex5.
 
   Module Ex_branches1.
@@ -410,6 +419,7 @@ Module Examples.
 
     MetaCoq Quote Recursively Definition match_ex1__ := match_ex1.
     MetaCoq Run (eta_expand_def
+                   (fun _ => None)
      (* We set the trimmig of masks to true, so the procedure does't not perform full expansion.
         That way we can test the expansion of branches *)
                    true true
@@ -431,7 +441,7 @@ Module Examples.
 
     MetaCoq Quote Definition sig_rect_syn := (unfolded sig_rect).
 
-    MetaCoq Run (eta_expand_def true true sig_rect).
+    MetaCoq Run (eta_expand_def (fun _ => None) true true sig_rect).
 
     MetaCoq Quote Definition sig_rect_expanded_syn := (unfolded Coq_Init_Specif_sig_rect_expanded).
 

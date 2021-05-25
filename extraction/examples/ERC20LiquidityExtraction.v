@@ -7,17 +7,21 @@ From MetaCoq.Erasure Require Import Loader.
 
 From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
-(* From ConCert.Embedding Require Import SimpleBlockchain. *)
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require Import LPretty
+From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require Import
      LiquidityExtract
      Common
      Optimize
-     SpecializeChainBase.
+     SpecializeChainBase
+     CertifyingInlining.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import EIP20Token.
+From ConCert.Execution.Examples Require Import Common.
+From ConCert.Utils Require Import RecordUpdate.
+
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
 
@@ -42,7 +46,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd"
   ; remap <%% option %%> "option"
-  ; remap <%% gmap.gmap %%> "map"
+  ; remap <%% @AddressMap.AddrMap %%> "addrMap"
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
   ; remap <%% @Address %%> "address"
@@ -72,73 +76,18 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% eqb_addr %%> "eq_addr"
   ].
 
-From ConCert.Execution.Examples Require EIP20Token.
-
 Section EIP20TokenExtraction.
   Import EIP20Token.
-  From ConCert.Utils Require Import RecordUpdate.
   Import RecordSetNotations.
   Require Import Containers.
   From stdpp Require gmap.
 
   Notation params := (ContractCallContext × option EIP20Token.Msg).
   Open Scope N_scope.
+  Open Scope bool.
 
-    (* A specialized version of FMap's partial alter, w.r.t. FMap Address N *)
-  Definition partial_alter_addr_int : string :=
-       "let partial_alter_addr_int (f : int option -> int option)" ++ nl
-    ++ "                           (k : address)" ++ nl
-    ++ "                           (m : (address,int) map) : (address,int) map =" ++ nl
-    ++ "  match Map.find k m with" ++ nl
-    ++ "    Some v -> Map.update k (f (Some v)) m" ++ nl
-    ++ "  | None -> Map.update k (f (None : int option)) m" ++ nl.
-
-  Definition test_try_transfer (from : Address)
-      (to_addr : Address)
-      (amountt : TokenValue)
-      (state : State) : option State :=
-    let from_balance := Extras.with_default 0 (FMap.find from state.(balances)) in
-    if from_balance <? amountt
-    then None
-    else let new_balances := FMap.add from (from_balance - amountt) state.(balances) in
-        let new_balances := FMap.partial_alter (fun balance => Some (Extras.with_default 0 balance + amountt)) to_addr new_balances in
-        Some ({|
-          balances := new_balances;
-          total_supply := state.(total_supply);
-          allowances := state.(allowances);
-        |}).
-
-  Open Scope bool_scope.
-  Definition test_try_transfer_from (delegate : Address)
-      (from : Address)
-      (to_addr : Address)
-      (amountt : TokenValue)
-      (state : State) : option State :=
-  match FMap.find from state.(allowances) with
-  | Some from_allowances_map =>
-  match FMap.find delegate from_allowances_map with
-  | Some delegate_allowance =>
-  let from_balance := Extras.with_default 0 (FMap.find from state.(balances)) in
-  if (delegate_allowance <? amountt) || (from_balance <? amountt)
-  then None
-  else let new_allowances := FMap.add delegate (delegate_allowance - amountt) from_allowances_map in
-      let new_balances := FMap.add from (from_balance - amountt) state.(balances) in
-      let new_balances := FMap.partial_alter (fun balance => Some (Extras.with_default 0 balance + amountt)) to_addr new_balances in
-      Some ({|
-        balances := new_balances;
-        allowances := FMap.add from new_allowances state.(allowances);
-        total_supply := state.(total_supply)|})
-  | _ => None
-  end
-  | _ => None
-  end.
-
-  Definition test_init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    Some {| total_supply := setup.(init_amount);
-            balances := FMap.empty;
-            allowances := FMap.empty |}.
-
-  Open Scope Z_scope.
+  (* We define a version of [receive] that has the right signature.
+     TODO: remove, once the [LiquidityMod] is fixed. *)
   Definition test_receive
       (ctx : ContractCallContext)
       (state : EIP20Token.State)
@@ -147,23 +96,26 @@ Section EIP20TokenExtraction.
     let sender := ctx.(ctx_from) in
     let without_actions := option_map (fun new_state => ([], new_state)) in
     match maybe_msg with
-    | Some (transfer to_addr amountt) => without_actions (test_try_transfer sender to_addr amountt state)
-    | Some (transfer_from from to_addr amountt) => without_actions (test_try_transfer_from sender from to_addr amountt state)
+    | Some (transfer to_addr amountt) => without_actions (try_transfer sender to_addr amountt state)
+    | Some (transfer_from from to_addr amountt) => without_actions (try_transfer_from sender from to_addr amountt state)
     (* 'approve' endpoint not included in this test *)
     | _ => None
     end.
-
+  
   Definition receive_wrapper
              (params : params)
              (st : State) : option (list ActionBody × State) :=
     test_receive params.1 st params.2.
 
+  (* The same as for [test_receive].
+     TODO: remove, once the [LiquidityMod] is fixed. *)
   Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    (* ensure extraction does not optimize unused ctx away *)
+    (* ensure extraction does not optimize unused ctx away
+       NOTE: can be dealt with in a better way using the mask-override mechanism of dearging *)
     let ctx_ := ctx in
     Some {| total_supply := setup.(init_amount);
-            balances := FMap.add (EIP20Token.owner setup) (init_amount setup) FMap.empty;
-            allowances := FMap.empty |}.
+            balances := AddressMap.add (EIP20Token.owner setup) (init_amount setup) AddressMap.empty;
+            allowances := AddressMap.empty |}.
   Open Scope Z_scope.
 
   Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
@@ -171,8 +123,7 @@ Section EIP20TokenExtraction.
       lmd_module_name := "liquidity_eip20token" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := LiquidityPrelude ++ nl 
-                  ++ partial_alter_addr_int;
+      lmd_prelude := LPretty.LiquidityPrelude;
 
       (* initial storage *)
       lmd_init := init ;
@@ -183,24 +134,17 @@ Section EIP20TokenExtraction.
       lmd_receive := receive_wrapper ;
 
       (* code for the entry point *)
-      lmd_entry_point := printWrapper (PREFIX ++ "receive_wrapper") ++ nl
-      ++ printMain |}.
+      lmd_entry_point := LPretty.printWrapper (PREFIX ++ "receive_wrapper") ++ nl
+      ++ LPretty.printMain |}.
 
   
   Definition TT_remap_eip20token : list (kername * string) :=
   TT_remap_default ++ [
     remap <%% @ContractCallContext %%> "(address * (address * int))"
   ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @stdpp.base.partial_alter %%> "partial_alter_addr_int"
-  ; remap <%% @stdpp.base.insert %%> "Map.add"
-  ; remap <%% @fin_maps.map_insert %%> "Map.add"
-  ; remap <%% @stdpp.base.Lookup %%> "Map.find"
-  ; remap <%% @gmap.gmap_lookup %%> "Map.find"
-  ; remap <%% @gmap.gmap_empty %%> "Map []"
-  ; remap <%% @stdpp.base.empty %%> ""
-  ; remap <%% @gmap.gmap_partial_alter %%> ""
-  ; remap <%% @address_eqdec %%> ""
-  ; remap <%% @address_countable %%> ""
+  ; remap <%% @AddressMap.add %%> "Map.add"
+  ; remap <%% @AddressMap.find %%> "Map.find"
+  ; remap <%% @AddressMap.empty %%> "(Map [])"
   ].
 
   Definition TT_rename_eip20token :=
@@ -211,18 +155,22 @@ Section EIP20TokenExtraction.
     ; ("tt", "()") ].
 
   Definition TT_inlines_eip20token : list kername := 
-    [   
-        <%% Monads.Monad_option %%>
-      ; <%% bool_rect %%>
-      ; <%% bool_rec %%>
-      ; <%% option_map %%>
-      ; <%% @Extras.with_default %%>
+    [
+      <%% Monads.Monad_option %%>
+    ; <%% @Monads.bind %%>
+    ; <%% @Monads.ret %%>
+    ; <%% bool_rect %%>
+    ; <%% bool_rec %%>
+    ; <%% option_map %%>
+    ; <%% @Extras.with_default %%>
 
-      ; <%% @stdpp.base.insert %%>
-      ; <%% @stdpp.base.empty %%>
-      ; <%% @stdpp.base.lookup %%>
+    ; <%% @setter_from_getter_State_balances %%>
+    ; <%% @setter_from_getter_State_total_supply %%>
+    ; <%% @setter_from_getter_State_allowances %%>
+    ; <%% @set_State_balances %%>
+    ; <%% @set_State_allowances%%>
     ].
-
+  
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
       tmDefinition EIP20Token_MODULE.(lmd_module_name) t).

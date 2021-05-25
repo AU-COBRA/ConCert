@@ -3,6 +3,7 @@ From MetaCoq Require Import utils.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 
+From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import RustExtract.
@@ -12,8 +13,6 @@ From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction.Examples Require Import CounterRefinementTypes.
-From ConCert.Extraction.Examples Require Import RustExtractTests.
 From ConCert.Utils Require Import StringExtra.
 
 Module ConcordiumRemap.
@@ -34,21 +33,32 @@ Definition remap_arith : list (kername * string) := Eval compute in
    ; remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }"
    ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }" ].
 
+Definition remap_blockchain_consts : list (kername * string) :=
+  [ remap <! @Address !> "type ##name##<'a> = concordium_std::Address;"
+  (* Ideally we would have two impls here for performance, but Rust does not support this.
+     https://github.com/rust-lang/rust/issues/62223 *)
+  ; remap <! @address_eqb !>
+          "fn ##name##(&'a self) -> impl Fn(concordium_std::Address) -> &'a dyn Fn(concordium_std::Address) -> bool { move |a| self.alloc(move |b| a == b) }" ].
 
 Definition remap_inline_bool_ops := Eval compute in
       [ remap <%% andb %%> "__andb!"
       ; remap <%% orb %%> "__orb!"].
 
+Definition remap_nat : remapped_inductive:=
+  {| re_ind_name := "u64";
+     re_ind_ctors := ["0"; "__nat_succ"];
+     re_ind_match := Some "__nat_elim!" |}.
+
 Definition remap_positive : remapped_inductive :=
   {| re_ind_name := "u64";
      re_ind_ctors := ["__pos_onebit"; "__pos_zerobit"; "1"];
-     re_ind_match := None
+     re_ind_match := Some "__pos_elim!"
   |}.
 
 Definition remap_Z : remapped_inductive :=
   {| re_ind_name := "i64";
      re_ind_ctors := ["0"; "__Z_frompos"; "__Z_fromneg"];
-     re_ind_match := None
+     re_ind_match := Some "__Z_elim!";
   |}.
 
 Definition remap_bool : remapped_inductive :=
@@ -56,7 +66,6 @@ Definition remap_bool : remapped_inductive :=
      re_ind_ctors := ["true"; "false"];
      re_ind_match := None
   |}.
-
 
 Definition remap_pair : remapped_inductive :=
   {| re_ind_name := "__pair";
@@ -76,16 +85,42 @@ Definition remap_unit : remapped_inductive :=
      re_ind_match := None
   |}.
 
-Definition remap_std_types :=
-  [ (<%% positive %%>, remap_positive)
-  ; (<%% Z %%>,  remap_Z)
-  ; (<%% bool %%>, remap_bool)
-  ; (<%% prod %%>, remap_pair)
-  ; (<%% option %%>, remap_option)
-  ; (<%% unit %%>, remap_unit)].
+Definition remap_string : remapped_inductive :=
+  {| re_ind_name := "&'a String";
+     re_ind_ctors := [];
+     re_ind_match := None |}.
 
-Definition lookup_inductive (TT_inductives : list (kername * remapped_inductive))  (ind : inductive) : option remapped_inductive :=
-  match find (fun '(key, _) => eq_kername key (inductive_mind ind)) TT_inductives with
+Definition remap_std_types :=
+  [ (<! nat !>, remap_nat)
+  ; (<! positive !>, remap_positive)
+  ; (<! Z !>,  remap_Z)
+  ; (<! bool !>, remap_bool)
+  ; (<! prod !>, remap_pair)
+  ; (<! option !>, remap_option)
+  ; (<! unit !>, remap_unit)
+  ; (<! string !>, remap_string) ].
+
+Definition remap_SerializedValue : remapped_inductive :=
+  {| re_ind_name := "&'a SerializedValue<'a>";
+     re_ind_ctors := ["__SerializedValue__Is__Opaque"];
+     re_ind_match := None |}.
+
+Definition remap_ActionBody : remapped_inductive :=
+  {| re_ind_name := "ActionBody<'a>";
+     re_ind_ctors := ["ActionBody::Transfer"; "ActionBody::Call"; "__Deploy__Is__Not__Supported"];
+     re_ind_match := None |}.
+
+Definition remap_blockchain_inductives : list (inductive * remapped_inductive) :=
+  [ (<! Serializable.SerializedValue !>, remap_SerializedValue);
+    (<! @ActionBody !>, remap_ActionBody) ].
+
+Definition ignored_concert :=
+  [ <%% Monads.Monad %%>; <%% @RecordSet.SetterFromGetter %%> ].
+
+Definition lookup_inductive
+           (TT_inductives : list (inductive * remapped_inductive))
+           (ind : inductive) : option remapped_inductive :=
+  match find (fun '(key, _) => eq_inductive key ind) TT_inductives with
   | Some (_, val) => Some val
   | None => None
   end.
@@ -93,7 +128,7 @@ Definition lookup_inductive (TT_inductives : list (kername * remapped_inductive)
 Definition build_remaps
            (TT_const : list (kername * string))
            (TT_const_inline : list (kername * string))
-           (TT_inductives : list (kername * remapped_inductive))
+           (TT_inductives : list (inductive * remapped_inductive))
   : remaps :=
   {| remap_inductive := lookup_inductive TT_inductives;
      remap_constant := lookup_const TT_const;
@@ -111,7 +146,9 @@ Module ConcordiumPreamble.
 "#![allow(unused_variables)]";
  "";
 "use concordium_std::*;";
+"use concert_std::{ActionBody, ConCertDeserial, ConCertSerial, SerializedValue};";
 "use core::marker::PhantomData;";
+"use immutable_map::TreeMap;";
 "";
 "fn __nat_succ(x: u64) -> u64 {";
 "  x.checked_add(1).unwrap()";
@@ -205,26 +242,31 @@ Module ConcordiumPreamble.
 "  f";
 "}";
 "";
-"type State = Storage<'static>;";
-"";
 "#[derive(Debug, PartialEq, Eq)]";
 "enum InitError {";
-"   ParseParams,";
-"   IError";
+"   DeserialParams,";
+"   SerialParams,";
+"   Error";
 "}";
 "";
-"impl From<ParseError> for InitError {";
-"    fn from(_: ParseError) -> Self { InitError::ParseParams }";
+"impl From<InitError> for concordium_std::Reject {";
+"  fn from(_ : InitError) -> Self {";
+"    ().into()";
+"  }";
 "}";
 "";
 "#[derive(Debug, PartialEq, Eq)]";
 "enum ReceiveError {";
-"    ParseParams,";
+"    DeserialMsg,";
+"    DeserialOldState,";
+"    SerialNewState,";
+"    ConvertActions, // Cannot convert ConCert actions to Concordium actions";
 "    Error";
 "}";
-"";
-"impl From<ParseError> for ReceiveError {";
-"    fn from(_: ParseError) -> Self { ReceiveError::ParseParams }";
+"impl From<ReceiveError> for concordium_std::Reject {";
+"  fn from(_ : ReceiveError) -> Self {";
+"    ().into()";
+"  }";
 "}"
 ];
 program_preamble := [
@@ -244,16 +286,12 @@ Record ConcordiumMod (init_type receive_type : Type) :=
   { concmd_contract_name : string ;
     concmd_init : init_type;
     concmd_receive : receive_type;
-    concmd_extra : list ({T : Type & T});
-    concmd_wrap_init : forall (contact_name init_name : string), string;
-    concmd_wrap_receive : forall (contact_name receive_name : string), string;}.
+    concmd_extra : list ({T : Type & T}); }.
 
 Arguments concmd_contract_name {_ _}.
 Arguments concmd_init {_ _}.
 Arguments concmd_receive {_ _}.
 Arguments concmd_extra {_ _}.
-Arguments concmd_wrap_init {_ _}.
-Arguments concmd_wrap_receive {_ _}.
 
 Definition get_fn_arg_type (Σ : Ex.global_env) (fn_name : kername) (n : nat)
   : result Ex.box_type string :=
@@ -266,7 +304,7 @@ Definition get_fn_arg_type (Σ : Ex.global_env) (fn_name : kername) (n : nat)
   | _ => Err "Init declaration must be a constant in the global environment"
   end.
 
-Definition specilize_extract_template_env
+Definition specialize_extract_template_env
            (params : extract_template_env_params)
            (Σ : global_env)
            (seeds : KernameSet.t)
@@ -277,84 +315,174 @@ Definition specilize_extract_template_env
   wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
+Local Instance RustConfig : RustPrintConfig :=
+  {| term_box_symbol := "()";
+     type_box_symbol := "()";
+     any_type_symbol := "()";
+     print_full_names := true |}.
 
 Definition extract_lines
            (seeds : KernameSet.t)
            (Σ : global_env)
            (remaps : remaps)
-           (ind_attrs : ind_attr_map)
+           (overridden_masks : kername -> option bitmask)
            (should_inline : kername -> bool) : result (list string) string :=
-  let without_deps kn :=
+  let should_ignore kn :=
       if remap_inductive remaps (mkInd kn 0) then true else
       if remap_constant remaps kn then true else
       if remap_inline_constant remaps kn then true else false in
-  Σ <- specilize_extract_template_env
-         (extract_rust_within_coq should_inline)
-         Σ seeds without_deps;;
-  let p :=  print_program Σ remaps ind_attrs in
-      (* TODO: wrappers to integrate with the Concordium infrastructure go here *)
+  Σ <- specialize_extract_template_env
+         (extract_rust_within_coq overridden_masks should_inline)
+         Σ seeds should_ignore;;
+  let attrs _ := "#[derive(Clone, ConCertSerial, ConCertDeserial)]" in
+  let p := print_program Σ remaps attrs in
   '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
   ret s.
 
 Open Scope string.
 
 Definition print_init_attrs (contract_name : string) : string :=
-  "#[init(contract = """ ++ contract_name ++ """" ++ ",  enable_logger)]".
+  "#[init(contract = """ ++ contract_name ++ """" ++ ", payable, enable_logger, low_level)]".
 
-Definition init_wrapper (contract_name init_name : string) :=
+Definition init_wrapper (contract_name : string) (init_name : kername) :=
   <$ print_init_attrs contract_name ;
-     "fn contract_init(ctx: &impl HasInitContext<()>,";
-     "                 logger: &mut impl HasLogger) -> Result<State, InitError> {";
-     "let v = ctx.parameter_cursor().get()?;";
-     "logger.log(&v);";
-     "let prg = Program::new();";
-     "let res = prg." ++ init_name ++ "((),v);";
-     "match res {";
-     "   Option::Some(init_v) => Ok(init_v),";
-     "   Option::None => Err(InitError::IError)";
-"    }";
+     "fn contract_init<StateError: Default>(";
+     "    ctx: &impl HasInitContext<()>,";
+     "    amount: concordium_std::Amount,";
+     "    logger: &mut impl HasLogger,";
+     "    state: &mut impl HasContractState<StateError>";
+     ") -> Result<(), InitError> {";
+     "    let prg = Program::new();";
+     "    let params =";
+     "        match <_>::concert_deserial(&mut ctx.parameter_cursor(), &prg.__alloc) {";
+     "            Ok(p) => p,";
+     "            Err(_) => return Err(InitError::DeserialParams)";
+     "        };";
+     "    let cchain =";
+     "        " ++ RustExtract.ty_const_global_ident_of_kername <%% Chain %%> ++ "::build_chain(";
+     "            PhantomData,";
+     "            0, // No chain height";
+     "            ctx.metadata().slot_time().timestamp_millis(),";
+     "            0 // No finalized height";
+     "        );";
+     "    let cctx =";
+     "        " ++ RustExtract.ty_const_global_ident_of_kername <%% @ContractCallContext %%> ++ "::build_ctx(";
+     "            PhantomData,";
+     "            Address::Account(ctx.init_origin()),";
+     "            Address::Contract(ContractAddress { index: 0, subindex: 0 }),";
+     "            amount.micro_gtu as i64,";
+     "            amount.micro_gtu as i64);";
+     "    let res = prg." ++ RustExtract.const_global_ident_of_kername init_name ++ "(&cchain, &cctx, params);";
+     "    match res {";
+     "        Option::Some(init_state) => {";
+     "            match init_state.concert_serial(state) {";
+     "                Ok(_) => Ok(()),";
+     "                Err(_) => Err(InitError::SerialParams)";
+     "            }";
+     "        }";
+     "        Option::None => Err(InitError::Error)";
+     "    }";
 "}" $>.
 
-Definition print_receive_attrs (contract_name receive_name : string) : string :=
-  "#[receive(contract = """ ++ contract_name ++
-                        """, name = """ ++ receive_name ++ """, payable, enable_logger)]".
+Definition list_name : string :=
+  RustExtract.ty_const_global_ident_of_kername <%% list %%>.
 
+Definition convert_actions : string :=
+  <$
+"fn convert_actions<A: HasActions>(acts: &" ++ list_name ++ "<ActionBody>) -> Result<A, ReceiveError> {";
+"  match acts {";
+"    &" ++ list_name ++ "::nil(_) => Ok(A::accept()),";
+"    &" ++ list_name ++ "::cons(_, hd, tl) => {";
+"      let cact =";
+"        if let ActionBody::Transfer(Address::Account(acc), amount) = hd {";
+"          let amount = convert::TryInto::try_into(amount).map_err(|_| ReceiveError::ConvertActions)?;";
+"          A::simple_transfer(&acc, Amount::from_micro_gtu(amount))";
+"        } else {";
+"          return Err(ReceiveError::ConvertActions) // Cannot handle call to contract through ConCert, use Concordium functions instead";
+"        };";
+"      Ok(cact.and_then(convert_actions(tl)?))";
+"    }";
+"  }";
+"}" $>.
 
+Definition print_receive_attrs (contract_name : string) (receive_name : kername) : string :=
+  "#[receive(contract = """ ++ contract_name ++ """" ++
+             ", name = """ ++ RustExtract.const_global_ident_of_kername receive_name ++ """" ++
+             ", payable, enable_logger, low_level)]".
 
-Definition receive_wrapper_no_calls (contract_name receive_name : string)
-  : string :=
+Definition receive_wrapper
+           (contract_name : string) (receive_name : kername) : string :=
   <$ print_receive_attrs contract_name receive_name;
-     "fn contract_receive<A: HasActions>(";
-     "   ctx: &impl HasReceiveContext<()>,";
-     "   amount: Amount,";
+     "fn contract_receive<A: HasActions, StateError: Default>(";
+     "    ctx: &impl HasReceiveContext<()>,";
+     "    amount: concordium_std::Amount,";
      "    logger: &mut impl HasLogger,";
-     "    state: &mut State )";
-     "    -> Result<A, ReceiveError> {";
+     "    state: &mut impl HasContractState<StateError>,";
+     ") -> Result<A, ReceiveError> {";
      "    let prg = Program::new();";
-     "    let msg = ctx.parameter_cursor().get()?;";
-     "    let res = prg." ++ receive_name ++ "(&msg,*state);";
+     "    let msg =";
+     "        match <_>::concert_deserial(&mut ctx.parameter_cursor(), &prg.__alloc) {";
+     "            Ok(m) => m,";
+     "            Err(_) => return Err(ReceiveError::DeserialMsg)";
+     "        };";
+     "    let old_state =";
+     "        match <_>::concert_deserial(state, &prg.__alloc) {";
+     "            Ok(s) => s,";
+     "            Err(_) => return Err(ReceiveError::DeserialOldState)";
+     "        };";
+     "    let cchain =";
+     "        " ++ RustExtract.ty_const_global_ident_of_kername <%% Chain %%> ++ "::build_chain(";
+     "            PhantomData,";
+     "            0, // No chain height";
+     "            ctx.metadata().slot_time().timestamp_millis(),";
+     "            0 // No finalized height";
+     "        );";
+     "    let cctx =";
+     "        " ++ RustExtract.ty_const_global_ident_of_kername <%% @ContractCallContext %%> ++ "::build_ctx(";
+     "            PhantomData,";
+     "            ctx.sender(),";
+     "            Address::Contract(ctx.self_address()),";
+     "            ctx.self_balance().micro_gtu as i64,";
+     "            amount.micro_gtu as i64);";
+     "    let res = prg." ++ RustExtract.const_global_ident_of_kername receive_name ++ "(&cchain, &cctx, old_state, msg);";
      "    match res {";
-     "        Option::Some(v) =>{";
-     "            *state = v.1;";
-     "            Ok(A::accept())},";
+     "        Option::Some((new_state, acts)) => {";
+     "            state.truncate(0);";
+     "            match new_state.concert_serial(state) {";
+     "                Ok(_) => convert_actions(acts),";
+     "                Err(_) => Err(ReceiveError::SerialNewState)";
+     "            }";
+     "        }";
      "        Option::None => Err(ReceiveError::Error)";
      "    }";
 "}" $>.
 
-Definition rust_extraction {init_type receive_type : Type} (m : ConcordiumMod init_type receive_type) (remaps : remaps) (ind_attrs : ind_attr_map) (should_inline : kername -> bool) : TemplateMonad _ :=
-  '(Σ,_) <- tmQuoteRecTransp m false ;;
+Definition print_lines (lines : list string) : TemplateMonad unit :=
+  monad_iter tmMsg lines.
+
+Definition concordium_extraction
+           {init_type receive_type : Type}
+           (m : ConcordiumMod init_type receive_type)
+           (remaps : remaps)
+           (should_inline : kername -> bool) : TemplateMonad _ :=
+  init_tm <- tmEval cbn m.(concmd_init);;
+  recv_tm <- tmEval cbn m.(concmd_receive);;
+  '(Σ,_) <- tmQuoteRecTransp (init_tm, recv_tm) false ;;
   init_nm <- extract_def_name m.(concmd_init);;
   receive_nm <- extract_def_name m.(concmd_receive);;
   extra <- monad_map extract_def_name_exists m.(concmd_extra);;
-  res <- tmEval lazy (extract_lines (KernameSetProp.of_list (init_nm :: receive_nm :: extra)) Σ remaps ind_attrs should_inline);;
+  let overridden_masks kn :=
+      if eq_kername kn init_nm || eq_kername kn receive_nm then
+        Some []
+      else
+        None in
+  res <- tmEval lazy (extract_lines
+                        (KernameSetProp.of_list (init_nm :: receive_nm :: extra))
+                        Σ remaps overridden_masks should_inline);;
   match res with
   | Ok lines =>
-    let init_wrapper :=
-        m.(concmd_wrap_init) m.(concmd_contract_name) init_nm.2 in
-    let receive_wrapper :=
-        m.(concmd_wrap_receive) m.(concmd_contract_name) receive_nm.2 in
-    tmEval lazy (String.concat nl lines ++ nl ++ nl
-                               ++ init_wrapper ++ nl ++ nl
-                               ++ receive_wrapper)
+    let init_wrapper := init_wrapper m.(concmd_contract_name) init_nm in
+    let receive_wrapper := receive_wrapper m.(concmd_contract_name) receive_nm in
+    print_lines (lines ++ [""; init_wrapper; ""; convert_actions; ""; receive_wrapper])
   | Err e => tmFail e
   end.
