@@ -659,13 +659,12 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
       ChainStep prev_bstate next_bstate
 | step_action_invalid :
     forall (act : Action)
-           (acts : list Action)
-           bstate new_acts,
+           (acts : list Action),
       EnvironmentEquiv prev_bstate next_bstate ->
       chain_state_queue prev_bstate = act :: acts ->
       chain_state_queue next_bstate = acts ->
       act_is_from_account act ->
-      ~ inhabited (ActionEvaluation prev_bstate act bstate new_acts) ->
+      (forall bstate new_acts, ~ inhabited (ActionEvaluation prev_bstate act bstate new_acts)) ->
       ChainStep prev_bstate next_bstate
 | step_permute :
       chain_state_env prev_bstate = chain_state_env next_bstate ->
@@ -868,7 +867,7 @@ Ltac destruct_chain_step :=
     destruct step as
         [header queue_prev valid_header acts_from_accs env_eq|
          act acts new_acts queue_prev eval queue_new|
-         act acts new_acts bstate env_eq queue_prev queue_new act_from_acc no_eval|
+         act acts env_eq queue_prev queue_new act_from_acc no_eval|
          prev_next perm]
   end.
 
@@ -1892,7 +1891,7 @@ Ltac destruct_chain_step :=
     destruct step as
         [header queue_prev valid_header acts_from_accs env_eq|
          act acts new_acts queue_prev eval queue_new|
-         act acts new_acts new_bstate env_eq queue_prev queue_new act_from_acc no_eval|
+         act acts env_eq queue_prev queue_new act_from_acc no_eval|
          prev_next perm]
   end.
 
