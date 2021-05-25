@@ -204,6 +204,28 @@ Qed.
 
 
 
+(* ------------------- FMap partial alter is FMap add ------------------- *)
+
+Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : FMap Address N) (f : N -> N),
+  FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) account balances =
+  FMap.add account (with_default 0 (FMap.find account balances) + amount) balances.
+Proof.
+  intros.
+  apply fin_maps.partial_alter_ext. intros. now subst.
+Qed.
+
+Lemma increment_balanace_is_partial_alter_plus : forall (addr : Address) amount (m : FMap Address N),
+  increment_balance m addr amount =
+  FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) addr m.
+Proof.
+  intros.
+  unfold increment_balance, AddressMap.add, AddressMap.find.
+  rewrite add_is_partial_alter_plus; auto.
+  destruct_match eqn:H; now try setoid_rewrite H.
+Qed.
+
+
+
 (* ------------------- Tactic to simplify proof steps ------------------- *)
 
 Ltac receive_simpl_step :=
@@ -222,29 +244,35 @@ Ltac receive_simpl_step :=
   | |- context[try_transfer] => unfold try_transfer
   | |- context[try_transfer_from] => unfold try_transfer_from
   | |- context[try_approve] => unfold try_approve
+  | H : context [ AddressMap.find _ _ ] |- _ => rewrite AddressMap_find_convertible in H
+  | H : context [ AddressMap.add _ _ _ ] |- _ =>  rewrite AddressMap_add_convertible in H
+  | H : context [ increment_balance _ _ _ ] |- _ => rewrite increment_balanace_is_partial_alter_plus in H
+  | |- context [ AddressMap.find _ _ ] => rewrite AddressMap_find_convertible
+  | |- context [ AddressMap.add _ _ _ ] => rewrite AddressMap_add_convertible
+  | |- context [ increment_balance _ _ _ ] => rewrite increment_balanace_is_partial_alter_plus
   | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
     let a := fresh "H" in
-    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+    destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
   | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
     match a with
     | None =>
       let a := fresh "H" in
-      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
     | _ => match b with
            | None =>
              let a := fresh "H" in
-             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+             destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
            | _ => idtac
     end end
   | H : (if ?m then ?a else ?b) = Some _ |- _ =>
     match a with
     | None =>
       let a := fresh "H" in
-      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
     | _ => match b with
            | None =>
              let a := fresh "H" in
-             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+             destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
            | _ => idtac
     end end
   end.
@@ -253,32 +281,26 @@ Tactic Notation "receive_simpl" := repeat receive_simpl_step.
 
 Ltac FMap_simpl_step :=
   match goal with
-    | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
+    | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => setoid_rewrite FMap.find_add
     | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
-    | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-    | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] =>rewrite FMap.elements_add_existing; eauto
-    | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
-    | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
+    | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => setoid_rewrite FMap.find_add_ne; eauto
+    | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => setoid_rewrite FMap.find_add_ne; eauto
+    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => setoid_rewrite FMap.elements_add_existing; eauto
+    | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => setoid_rewrite FMap.add_add
+    | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => setoid_rewrite FMap.elements_add; eauto
     | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
-    | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter
-    | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne; auto
-    | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne
+    | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter
+    | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne; auto
+    | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne
+    | H : context [ AddressMap.find _ _ ] |- _ => rewrite AddressMap_find_convertible in H
+    | H : context [ AddressMap.add _ _ _ ] |- _ =>  rewrite AddressMap_add_convertible in H
+    | H : context [ increment_balance _ _ _ ] |- _ => rewrite increment_balanace_is_partial_alter_plus in H
+    | |- context [ AddressMap.find _ _ ] => rewrite AddressMap_find_convertible
+    | |- context [ AddressMap.add _ _ _ ] =>  rewrite AddressMap_add_convertible
+    | |- context [ increment_balance _ _ _ ] => rewrite increment_balanace_is_partial_alter_plus
    end.
 
 Tactic Notation "FMap_simpl" := repeat (FMap_simpl_step; cbn).
-
-
-
-(* ------------------- FMap partial alter is FMap add ------------------- *)
-
-Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : FMap Address N) (f : N -> N),
-  FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) account balances =
-  FMap.add account (with_default 0 (FMap.find account balances) + amount) balances.
-Proof.
-  intros.
-  apply fin_maps.partial_alter_ext. intros. now subst.
-Qed.
 
 
 
@@ -415,11 +437,11 @@ Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to am
   transfer_balance_update_correct prev_state new_state ctx.(ctx_from) to amount = true.
 Proof.
   intros.
-  receive_simpl.
   unfold transfer_balance_update_correct.
+  receive_simpl.
     destruct_address_eq; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev;
     cbn in *; try congruence; apply N.ltb_ge in H0; subst; try rewrite from_prev; inversion H; cbn in *.
-    - (* case: from =  to && find from = Some n && amount <= n *) 
+    - (* case: from =  to && find from = Some n && amount <= n *)
       FMap_simpl.
       now repeat rewrite N.sub_add, N.eqb_refl.
     - (* case: from =  to && find from = None   && amount = 0 *)
@@ -471,7 +493,7 @@ Proof.
   - intros. receive_simpl. rewrite H. destruct_match eqn:amount_from.
     + destruct H0 as [[H1 H2] | H1].
       * eapply with_default_is_some in H2. subst. now rewrite H2, N.ltb_irrefl in amount_from.
-      * now rewrite <- N.ltb_ge, amount_from in H1.
+      * rewrite <- N.ltb_ge in H1. now setoid_rewrite amount_from in H1.
     + reflexivity.
   - intros. receive_simpl. rewrite H in H0. destruct_match eqn:amount_from in H0.
     + discriminate.
@@ -564,18 +586,21 @@ Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
   /\ amount <= with_default 0 (get_allowance_ (ctx_from ctx))
     <-> isSome (receive chain ctx state (Some (transfer_from from to amount))) = true.
 Proof.
-  split.
-  - intros. receive_simpl. rewrite H. cbn. destruct_match.
-    + cbn in H0. destruct_match.
+  split; intros; receive_simpl.
+  - rewrite H. cbn. destruct_match eqn:allowances_ctx; setoid_rewrite allowances_ctx in H0.
+    + destruct_match eqn:allowance_ctx; setoid_rewrite allowance_ctx in H0.
       * destruct_match eqn:amount_from.
-        -- cbn in H0. do 2 rewrite <- N.ltb_ge in H0.
+        -- do 2 rewrite <- N.ltb_ge in H0.
            destruct H0 as [_ [_ [H0 H1]]].
-           now rewrite H0, H1 in amount_from.
+           setoid_rewrite H0 in amount_from.
+           now setoid_rewrite H1 in amount_from.
         -- reflexivity.
       * now destruct H0 as [_ H0].
     + now destruct H0 as [H0 _].
-  - intros. receive_simpl. rewrite H in H0. cbn in H0.
-    destruct_match in H0; cbn; try destruct_match in H0; cbn; try destruct_match eqn:amount_from in H0;
+  - rewrite H in H0. cbn in H0.
+    destruct_match eqn:allowances_ctx in H0; setoid_rewrite allowances_ctx;
+    try (destruct_match eqn:allowance_ctx in H0; setoid_rewrite allowance_ctx);
+    try destruct_match eqn:amount_from in H0;
       do 3 (try split); try easy; apply Bool.orb_false_iff in amount_from as [H1 H2].
     + now apply N.ltb_ge in H2.
     + now apply N.ltb_ge in H1.
@@ -631,7 +656,7 @@ Proof.
   intros.
   receive_simpl.
   unfold get_allowance.
-  destruct_match in H;inversion H; cbn; FMap_simpl.
+  destruct_match eqn:allowances_from in H; setoid_rewrite allowances_from; inversion H; cbn; FMap_simpl.
 Qed.
 
 Lemma try_approve_is_some : forall state chain ctx delegate amount,
@@ -727,8 +752,8 @@ Lemma sum_balances_eq_total_supply block_state contract_addr :
 Proof.
   contract_induction; intros; try auto.
   - inversion init_some. unfold sum_balances. cbn.
-    rewrite FMap.elements_add; auto.
-    rewrite FMap.elements_empty. cbn. lia.
+    setoid_rewrite FMap.elements_add; auto.
+    setoid_rewrite FMap.elements_empty. cbn. lia.
   - destruct msg. destruct m.
     + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
       apply try_transfer_preserves_total_supply in receive_some.

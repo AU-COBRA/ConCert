@@ -533,11 +533,10 @@ Proof.
   intros.
   receive_simpl.
   inversion H.
-  cbn.
-  rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance;
-    setoid_rewrite from_balance; cbn;
-    rewrite FMap.find_add; cbn;
+    setoid_rewrite from_balance;
+    setoid_rewrite FMap.find_add; cbn;
     now rewrite N.add_sub.
 Qed.
 
@@ -559,9 +558,8 @@ Proof.
   intros.
   receive_simpl.
   inversion H.
-  cbn.
-  rewrite EIP20Token.add_is_partial_alter_plus; auto.
-  now rewrite FMap.find_add_ne.
+  setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  now setoid_rewrite FMap.find_add_ne.
 Qed.
 
 Lemma try_create_tokens_preserves_allowances : forall prev_state new_state chain ctx new_acts,
@@ -719,8 +717,7 @@ Proof.
   intros.
   receive_simpl.
   inversion H.
-  cbn.
-  now rewrite FMap.find_add.
+  now setoid_rewrite FMap.find_add.
 Qed.
 
 Lemma try_refund_total_supply_correct : forall prev_state new_state chain ctx new_acts,
@@ -741,8 +738,7 @@ Proof.
   intros.
   receive_simpl.
   inversion H.
-  cbn.
-  now rewrite FMap.find_add_ne.
+  now setoid_rewrite FMap.find_add_ne.
 Qed.
 
 Lemma try_refund_preserves_allowances : forall prev_state new_state chain ctx new_acts,
@@ -863,15 +859,15 @@ Proof.
   receive_simpl.
   inversion H.
   unfold EIP20Token.sum_balances. cbn in *. clear H H4 H5.
-  rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
-  - setoid_rewrite from_balance. cbn.
-    rewrite FMap.elements_add_existing; eauto.
+  - setoid_rewrite from_balance.
+    setoid_rewrite FMap.elements_add_existing; eauto.
     rewrite EIP20Token.sumN_split with (x:=ctx_from ctx), EIP20Token.sumN_swap.
     rewrite fin_maps.map_to_list_delete; auto.
     now rewrite N.add_comm.
-  - setoid_rewrite from_balance. cbn.
-    rewrite FMap.elements_add; auto. cbn.
+  - setoid_rewrite from_balance.
+    setoid_rewrite FMap.elements_add; auto.
     now rewrite N.add_comm.
 Qed.
 
@@ -890,8 +886,8 @@ Lemma try_refund_update_balances_sum : forall prev_state new_state chain ctx new
 Proof.
   intros.
   receive_simpl.
-  inversion H. unfold EIP20Token.sum_balances. cbn in *.
-  rewrite FMap.elements_add_existing; eauto.
+  inversion H. unfold EIP20Token.sum_balances.
+  setoid_rewrite FMap.elements_add_existing; eauto.
   rewrite EIP20Token.sumN_add with (x:=ctx_from ctx), EIP20Token.sumN_swap.
   rewrite fin_maps.map_to_list_delete; eauto.
 Qed.
@@ -911,8 +907,8 @@ Proof.
   - unfold Blockchain.init in init_some. cbn in *.
     destruct_match in init_some; try congruence.
     inversion init_some. unfold EIP20Token.sum_balances. cbn.
-    rewrite FMap.elements_add; auto.
-    rewrite FMap.elements_empty. cbn. lia.
+    setoid_rewrite FMap.elements_add; auto.
+    setoid_rewrite FMap.elements_empty. cbn. lia.
   - destruct msg. destruct m. destruct m.
     + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
       apply try_transfer_preserves_total_supply in receive_some.

@@ -25,3 +25,7 @@ End AddressMap.
 Lemma AddressMap_find_convertible  `{ChainBase} {V : Type} :
   AddressMap.find (V:=V) = FMap.find.
 Proof. reflexivity. Qed.
+
+Lemma AddressMap_add_convertible  `{ChainBase} {V : Type} :
+  AddressMap.add (V:=V) = FMap.add.
+Proof. reflexivity. Qed.
