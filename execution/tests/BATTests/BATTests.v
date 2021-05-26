@@ -234,19 +234,22 @@ Local Open Scope N_scope.
 Definition fmap_subseteqb {A B} `{countable.Countable A}
                           (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
   let elements := FMap.elements fmap in
-  fold_left (fun b elem => 
-              match FMap.lookup (fst elem) fmap' with
-              | Some v => andb b (eqb (snd elem) v)
-              | None => false
-              end) elements true.
+    fold_left (fun b elem => 
+                match FMap.lookup (fst elem) fmap' with
+                | Some v => andb b (eqb (snd elem) v)
+                | None => false
+                end) elements true.
 
 Definition fmap_eqb {A B} `{countable.Countable A}
                     (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
   andb (fmap_subseteqb eqb fmap fmap') (fmap_subseteqb eqb fmap' fmap).
 
 Definition fmap_filter_eqb {A B} `{countable.Countable A}
-                           (excluded : A) (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
-  fmap_eqb eqb (FMap.remove excluded fmap) (FMap.remove excluded fmap').
+                           (excluded : list A) (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
+  let map_filter m l := fold_left (fun map elem => FMap.remove elem map) l m in
+  let fmap_filtered := map_filter fmap excluded in
+  let fmap'_filtered := map_filter fmap' excluded in
+    fmap_eqb eqb fmap_filtered fmap'_filtered.
 
 Definition get_balance (state : BAT.State) (addr : Address) :=
   with_default 0 (FMap.find addr (balances state)).
@@ -464,7 +467,7 @@ Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : Sta
     let from := cctx.(ctx_from) in
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
     let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
-    let other_balances_unchanged := fmap_filter_eqb from N.eqb (balances old_state) (balances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb [from] N.eqb (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (andb is_finalized_unchanged
              (andb allowances_unchanged
@@ -657,7 +660,7 @@ Definition post_refund_safe (cctx : ContractCallContext) (old_state : State) (ms
     (* Refund should not change allowances *)
     let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
     (* Refund should not change other balances than the senders balance *)
-    let other_balances_unchanged := fmap_filter_eqb from N.eqb (balances old_state) (balances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb [from] N.eqb (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (andb is_finalized_unchanged
              (andb allowances_unchanged
