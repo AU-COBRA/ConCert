@@ -436,7 +436,6 @@ Definition create_tokens_valid env (cctx : ContractCallContext) (old_state : Sta
 Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
-    let amount := cctx.(ctx_amount) in
     let from := cctx.(ctx_from) in
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
     let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
