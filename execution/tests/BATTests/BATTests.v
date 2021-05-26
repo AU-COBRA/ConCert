@@ -106,13 +106,30 @@ Definition get_chain_finalized (cb : ChainBuilder) : bool :=
   | Some state => state.(isFinalized)
   | None => true
   end.
-
 (* Verify hardness of finalizing BAToken.
    Goal is ~ 2/3 of generated chains are finalized *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
 (*
   6386 : true
   3614 : false
+  +++ Passed 10000 tests (0 discards)
+*)
+
+(* Get chain length *)
+Definition get_chain_height (cb : ChainBuilder) : nat :=
+  cb.(builder_env).(chain_height).
+(* Check heigh chains produced by the chain generator
+   We want the average chain height to be close to full length
+   since this is a sign that the generator does not generate 
+   invalid requests so often that it affects chain quality *)
+(* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_height cb) true)). *)
+(*
+  9270 : 9
+  333 : 8
+  234 : 7
+  144 : 6
+  18 : 5
+  1 : 2
   +++ Passed 10000 tests (0 discards)
 *)
 
