@@ -274,7 +274,7 @@ Definition msg_is_transfer_from (cstate : BAT.State) (msg : BAT.Msg) :=
 
 Definition msg_is_approve (cstate : BAT.State) (msg : BAT.Msg) :=
   match msg with
-  | tokenMsg (EIP20Token.transfer _ _) => true
+  | tokenMsg (EIP20Token.approve _ _) => true
   | _ => false
   end.
 
