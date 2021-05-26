@@ -456,21 +456,18 @@ Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : Sta
 Definition post_finalize_update_correct env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
-    let from := cctx.(ctx_from) in
     let balance := cctx.(ctx_contract_balance) in
-    let from_correct := address_eqb from ethFund in
     let is_finalized_correct := Bool.eqb new_state.(isFinalized) true in
     let action_to_correct := address_eqb to ethFund in
     let action_amount_correct := Z.eqb amount balance in
     let action_to_valid := negb (address_is_contract to) in
     let action_amount_valid := Z.leb amount (env_account_balances env cctx.(ctx_contract_address)) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb from_correct
-             (andb is_finalized_correct
+    (checker (andb is_finalized_correct
              (andb action_to_correct
              (andb action_amount_correct
              (andb action_to_valid
-                   action_amount_valid))))))
+                   action_amount_valid)))))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
@@ -482,7 +479,10 @@ Definition post_finalize_update_correct env (cctx : ContractCallContext) (old_st
 Definition finalize_valid env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
+    let from := cctx.(ctx_from) in
     let current_slot := env.(current_slot) in
+    (* Only ethFund should be allowed to call finalize *)
+    let from_valid := address_eqb from ethFund in
     (* Finalization should only be allowed if contract not already finalized *)
     let is_finalized_valid := negb old_state.(isFinalized) in
     (* Finalization should only be allowed if funding period is over or we hit the token cap *)
@@ -490,9 +490,10 @@ Definition finalize_valid env (cctx : ContractCallContext) (old_state : State) (
     (* Finalization should only be allowed if token amount is within valid (tokenCreationMin, tokenCreationCap) range *)
     let total_supply_valid := andb (N.leb old_state.(tokenCreationMin) (total_supply old_state)) (N.leb (total_supply old_state) old_state.(tokenCreationCap)) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_valid
+    (checker (andb from_valid
+             (andb is_finalized_valid
              (andb can_finalize_valid
-                   total_supply_valid)))
+                   total_supply_valid))))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
