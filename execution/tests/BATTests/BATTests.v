@@ -816,6 +816,67 @@ Definition post_transfer_from_safe (env : Environment) (cctx : ContractCallConte
 
 
 
+(* -------------------- approve -------------------- *)
+Definition post_approve_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, []), tokenMsg (EIP20Token.approve delegate tokens)) =>
+    let from := cctx.(ctx_from) in
+    let delegate_allowance_after := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances new_state)))) in
+    let delefate_allowance_correct := delegate_allowance_after =? tokens in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker delefate_allowance_correct)
+  (* if 'receive' failed, or msg is not a approve
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Approve updates output correct *)
+(* QuickChick ({{msg_is_approve}} contract_base_addr {{post_approve_update_correct}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition approve_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
+    let amount := cctx.(ctx_amount) in
+    let amount_valid := Z.eqb amount 0 in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker amount_valid)
+  (* if 'receive' failed, or msg is not a approve
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Approve contract calls are valid *)
+(* QuickChick ({{msg_is_approve}} contract_base_addr {{approve_valid}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition post_approve_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
+    let from := cctx.(ctx_from) in
+    let from_allowances_before := with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances old_state)) in
+    let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances new_state)) in
+    let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
+    let other_allowances_unchanged := fmap_filter_eqb [from] (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb from_allowances_before from_allowances_after in
+    let balances_unchanged := fmap_eqb N.eqb (balances old_state) (balances new_state) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb is_finalized_unchanged
+             (andb total_supply_unchanged
+             (andb other_allowances_unchanged
+             (andb other_allowance_unchanged
+                   balances_unchanged)))))
+  (* if 'receive' failed, or msg is not a approve
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Approve contract calls does not change anything they shouldnt *)
+(* QuickChick ({{msg_is_approve}} contract_base_addr {{post_approve_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+
+
+
 
 
 Definition is_finalized :=
