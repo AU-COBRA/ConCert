@@ -379,13 +379,17 @@ Definition constants_unchanged (cctx : ContractCallContext) (old_state : State) 
     let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
     let creation_cap_check := N.eqb old_state.(tokenCreationCap) new_state.(tokenCreationCap) in
     let creation_min_check := N.eqb old_state.(tokenCreationMin) new_state.(tokenCreationMin) in
-      checker (andb fund_deposit_check (andb bat_deposit_check (andb funding_start_check
-                (andb funding_end_check (andb exchange_rate_check (andb creation_cap_check creation_min_check))))))
+      checker (andb fund_deposit_check
+              (andb bat_deposit_check
+              (andb funding_start_check
+              (andb funding_end_check
+              (andb exchange_rate_check
+              (andb creation_cap_check
+                    creation_min_check))))))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
   end.
-
 (* No contract calls modify constants *)
 (* QuickChick (
   {{fun state msg => true}}
@@ -405,7 +409,8 @@ Definition post_create_tokens_update_correct (cctx : ContractCallContext) (old_s
     let balance_correct := N.eqb (get_balance new_state from) ((get_balance old_state from) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
     let total_supply_correct := N.eqb (total_supply new_state) ((total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb balance_correct total_supply_correct))
+    (checker (andb balance_correct
+                   total_supply_correct))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
@@ -424,7 +429,10 @@ Definition create_tokens_valid env (cctx : ContractCallContext) (old_state : Sta
     let slot_valid := andb (old_state.(fundingStart) <=? current_slot)%nat (current_slot <=? old_state.(fundingEnd))%nat in
     let new_token_amount_valid := (total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate)) <=? old_state.(tokenCreationCap) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb amount_valid (andb is_finalized_valid (andb slot_valid new_token_amount_valid))))
+    (checker (andb amount_valid
+             (andb is_finalized_valid
+             (andb slot_valid
+                   new_token_amount_valid))))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
@@ -441,7 +449,9 @@ Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : Sta
     let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
     let other_balances_unchanged := fmap_filter_eqb from N.eqb (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_unchanged (andb allowances_unchanged other_balances_unchanged)))
+    (checker (andb is_finalized_unchanged
+             (andb allowances_unchanged
+                   other_balances_unchanged)))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
