@@ -675,43 +675,78 @@ Definition post_refund_safe (cctx : ContractCallContext) (old_state : State) (ms
 
 
 
-
-
-
-Definition transfer_balance_update_correct old_state new_state from to tokens :=
-  let get_balance addr state := with_default 0 (FMap.find addr (balances state)) in
-  let from_balance_before := get_balance from old_state in
-  let to_balance_before := get_balance to old_state in
-  let from_balance_after := get_balance from new_state in
-  let to_balance_after := get_balance to new_state in
-  (* if the transfer is a self-transfer, balances should remain unchained *)
-  if address_eqb from to
-  then
-    (from_balance_before =? from_balance_after) &&
-    (to_balance_before =? to_balance_after)
-  else
-    (from_balance_before =? from_balance_after + tokens) &&
-    (to_balance_before + tokens =? to_balance_after).
-
-Definition post_transfer_correct cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+(* -------------------- transfer -------------------- *)
+Definition post_transfer_update_correct (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
+    let from_balance_before := with_default 0 (FMap.find from (balances old_state)) in
+    let to_balance_before := with_default 0 (FMap.find to (balances old_state)) in
+    let from_balance_after := with_default 0 (FMap.find from (balances new_state)) in
+    let to_balance_after := with_default 0 (FMap.find to (balances new_state)) in
+    let from_to_same := address_eqb from to in
+    let from_balance_correct := if from_to_same
+                                then (from_balance_before =? from_balance_after)
+                                else (from_balance_before =? from_balance_after + tokens) in
+    let to_balance_correct :=   if from_to_same
+                                then (to_balance_before =? to_balance_after)
+                                else (to_balance_before + tokens =? to_balance_after) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (transfer_balance_update_correct old_state new_state from to tokens))
+    (checker (andb from_balance_correct
+                   to_balance_correct))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
   end.
-
-(* Check that old EIP20 test works on BAT *)
-(* QuickChick (
-  {{msg_is_transfer}}
-  contract_base_addr
-  {{post_transfer_correct}}
-). *)
-
+(* Transfer updates output correct *)
+(* QuickChick ({{msg_is_transfer}} contract_base_addr {{post_transfer_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
+
+Definition transfer_valid (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
+    let from := cctx.(ctx_from) in
+    let amount := cctx.(ctx_amount) in
+    let from_balance_before := with_default 0 (FMap.find from (balances old_state)) in
+    let from_balance_valid := N.leb tokens from_balance_before in
+    let amount_valid := Z.eqb amount 0 in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb amount_valid
+                   from_balance_valid))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Transfer contract calls are valid *)
+(* QuickChick ({{msg_is_transfer}} contract_base_addr {{transfer_valid}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition post_transfer_safe (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
+    let from := cctx.(ctx_from) in
+    let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb (balances old_state) (balances new_state) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb is_finalized_unchanged
+             (andb total_supply_unchanged
+             (andb allowances_unchanged
+                   other_balances_unchanged))))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Transfer contract calls does not change anything they shouldnt *)
+(* QuickChick ({{msg_is_transfer}} contract_base_addr {{post_transfer_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+
+
+
+
 
 
 
