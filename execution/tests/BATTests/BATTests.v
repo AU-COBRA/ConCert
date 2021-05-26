@@ -406,8 +406,7 @@ Definition constants_unchanged (cctx : ContractCallContext) (old_state : State) 
               (andb exchange_rate_check
               (andb creation_cap_check
                     creation_min_check))))))
-  (* if 'receive' failed, or msg is not a transfer_from
-     then just discard this test *)
+  (* if 'receive' failed then just discard this test *)
   | _ => checker false
   end.
 (* No contract calls modify constants *)
@@ -431,7 +430,7 @@ Definition post_create_tokens_update_correct (cctx : ContractCallContext) (old_s
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (andb balance_correct
                    total_supply_correct))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a create_tokens
      then just discard this test *)
   | _ => checker false
   end.
@@ -453,7 +452,7 @@ Definition create_tokens_valid env (cctx : ContractCallContext) (old_state : Sta
              (andb is_finalized_valid
              (andb slot_valid
                    new_token_amount_valid))))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a create_tokens
      then just discard this test *)
   | _ => checker false
   end.
@@ -472,7 +471,7 @@ Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : Sta
     (checker (andb is_finalized_unchanged
              (andb allowances_unchanged
                    other_balances_unchanged)))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a create_tokens
      then just discard this test *)
   | _ => checker false
   end.
@@ -498,7 +497,7 @@ Definition post_finalize_update_correct env (cctx : ContractCallContext) (old_st
              (andb action_amount_correct
              (andb action_to_valid
                    action_amount_valid)))))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
   end.
@@ -524,7 +523,7 @@ Definition finalize_valid env (cctx : ContractCallContext) (old_state : State) (
              (andb is_finalized_valid
              (andb can_finalize_valid
                    total_supply_valid))))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
   end.
@@ -545,7 +544,7 @@ Definition post_finalize_safe (cctx : ContractCallContext) (old_state : State) (
     (checker (andb allowances_unchanged
              (andb balances_unchanged
                    total_supply_unchanged)))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
   end.
@@ -582,7 +581,7 @@ Definition post_refund_update_correct env (cctx : ContractCallContext) (old_stat
              (andb action_amount_correct
              (andb action_to_valid
                    action_amount_valid))))))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
   end.
@@ -643,7 +642,7 @@ Definition refund_valid env (cctx : ContractCallContext) (old_state : State) (ms
              (andb current_slot_valid
              (andb total_supply_valid
                    balance_valid))))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
   end.
@@ -665,7 +664,7 @@ Definition post_refund_safe (cctx : ContractCallContext) (old_state : State) (ms
     (checker (andb is_finalized_unchanged
              (andb allowances_unchanged
                    other_balances_unchanged)))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
   end.
@@ -694,7 +693,7 @@ Definition post_transfer_update_correct (cctx : ContractCallContext) (old_state 
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (andb from_balance_correct
                    to_balance_correct))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a transfer
      then just discard this test *)
   | _ => checker false
   end.
@@ -713,7 +712,7 @@ Definition transfer_valid (cctx : ContractCallContext) (old_state : State) (msg 
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (andb amount_valid
                    from_balance_valid))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a transfer
      then just discard this test *)
   | _ => checker false
   end.
@@ -734,7 +733,7 @@ Definition post_transfer_safe (cctx : ContractCallContext) (old_state : State) (
              (andb total_supply_unchanged
              (andb allowances_unchanged
                    other_balances_unchanged))))
-  (* if 'receive' failed, or msg is not a transfer_from
+  (* if 'receive' failed, or msg is not a transfer
      then just discard this test *)
   | _ => checker false
   end.
