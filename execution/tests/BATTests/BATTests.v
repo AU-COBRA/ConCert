@@ -535,6 +535,124 @@ Definition post_finalize_safe (cctx : ContractCallContext) (old_state : State) (
 
 
 
+(* -------------------- refund -------------------- *)
+Definition post_refund_update_correct env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
+    let from := cctx.(ctx_from) in
+    let contract_balance := cctx.(ctx_contract_balance) in
+    let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
+    let from_bal_new := with_default 0 (FMap.find from (balances new_state)) in
+    let eth_to_refund := Z.of_N (from_bal_old / (tokenExchangeRate old_state)) in
+    (* Refund should subtract the refunded account balance from total_supply *)
+    let total_supply_correct := N.eqb (total_supply old_state) ((total_supply new_state) + from_bal_old) in
+    (* Refund should set the refunded account balance to 0 *)
+    let from_balance_correct := N.eqb from_bal_new 0 in
+    (* Refund shoul pay the refunded account *)
+    let action_to_correct := address_eqb from to in
+    (* Refund should pay account_balance / exchange_rate *)
+    let action_amount_correct := Z.eqb amount eth_to_refund in
+    let action_to_valid := negb (address_is_contract to) in
+    (* Contract should have enough money to refund *)
+    let action_amount_valid := Z.leb amount (env_account_balances env cctx.(ctx_contract_address)) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb total_supply_correct
+             (andb from_balance_correct
+             (andb action_to_correct
+             (andb action_amount_correct
+             (andb action_to_valid
+                   action_amount_valid))))))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* False property: Refund updates state correct and produces correct actions *)
+(* QuickChick ({{msg_is_refund}} contract_base_addr {{post_refund_update_correct}}_). *)
+(* Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 4, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 14%256 3)}];
+Block 3 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 11%256 3)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 3)}];
+Block 4 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 4, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 14%256 17%256 0)}];
+Block 5 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 16%256 0)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Block 6 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 11%256 7)}];
+Block 7 [
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, transfer 17%256 0)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 17%256 10)}];
+Block 8 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 15%256 12)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}];|}
+
+ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0}, contract states:...}, queue: Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 15%256 12)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}}
+On Msg: refund
+State{token_state: State{total_supply: 32, balances: [11%256-->15; 17%256-->17; 13%256-->0; 16%256-->0; 14%256-->0], allowances: [11%256-->[17%256-->10]; 14%256-->[17%256-->3]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 101, tokenCreationMin: 63}
+Some (State{token_state: State{total_supply: 17, balances: [11%256-->0; 17%256-->17; 13%256-->0; 16%256-->0; 14%256-->0], allowances: [11%256-->[17%256-->10]; 14%256-->[17%256-->3]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 101, tokenCreationMin: 63},[(act_transfer 11%256, 5)])
+*** Failed after 228 tests and 0 shrinks. (0 discards) *)
+
+Definition refund_valid env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), refund) =>
+    let current_slot := env.(current_slot) in
+    let from := cctx.(ctx_from) in
+    let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
+    (* Refund should only be allowed if contract not finalized *)
+    let is_finalized_valid := negb old_state.(isFinalized) in
+    (* Refund should only be allowed if funding period is over *)
+    let current_slot_valid := (old_state.(fundingEnd) <? current_slot)%nat in
+    (* Refund should only be allowed if contract did not hit minimum token goal *)
+    let total_supply_valid := N.ltb (total_supply old_state) old_state.(tokenCreationMin) in
+    (* Refund shoul only be allowed if sender has tokens *)
+    let balance_valid := N.ltb 0 from_bal_old in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb is_finalized_valid
+             (andb current_slot_valid
+             (andb total_supply_valid
+                   balance_valid))))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Refund contract calls are valid *)
+(* QuickChick ({{msg_is_refund}} contract_base_addr {{refund_valid}}_). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition post_refund_safe (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), refund) =>
+    let from := cctx.(ctx_from) in
+    (* Refund should not change isFinalized *)
+    let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    (* Refund should not change allowances *)
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    (* Refund should not change other balances than the senders balance *)
+    let other_balances_unchanged := fmap_filter_eqb from N.eqb (balances old_state) (balances new_state) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb is_finalized_unchanged
+             (andb allowances_unchanged
+                   other_balances_unchanged)))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Refund contract calls does not change anything they shouldnt *)
+(* QuickChick ({{msg_is_refund}} contract_base_addr {{post_refund_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
 
 
 
@@ -575,69 +693,7 @@ Definition post_transfer_correct cctx old_state msg (result_opt : option (State 
 
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition refund_correct old_state new_state cctx to (amount : Amount) :=
-  let from := cctx.(ctx_from) in
-  let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
-  let from_bal_new := with_default 0 (FMap.find from (balances new_state)) in
-  let eth_to_refund := Z.of_N (from_bal_old / (tokenExchangeRate old_state)) in
-  let contract_bal := (ctx_contract_balance cctx) in
-    (address_eqb from to) &&
-    (from_bal_new =? 0) &&
-    (amount =? eth_to_refund)%Z &&
-    (eth_to_refund <=? contract_bal)%Z.
 
-Definition post_refund_correct cctx old_state (msg : BAT.Msg) (result_opt : option (State * list ActionBody)) :=
-  match (result_opt, msg) with
-  | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
-    whenFail (show cctx ++ nl ++ show old_state ++ nl ++ show result_opt)
-    (checker (refund_correct old_state new_state cctx to amount))
-  (* if 'receive' failed, or msg is not a transfer_from
-     then just discard this test *)
-  | _ => checker false
-  end.
-
-(* False property: user that funded BAT can always refund if funding fails *)
-(* QuickChick (
-  {{msg_is_refund}}
-  contract_base_addr
-  {{post_refund_correct}}
-). *)
-
-(*
-Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 12%256 20)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 2, create_tokens)}];
-Block 3 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 12%256 5)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 15%256 0)}];
-Block 4 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 15%256 18)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 17%256 6)}];
-Block 5 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 5)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 15%256 5)}];
-Block 6 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 17%256 5)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 16%256 0)}];
-Block 7 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 11%256 19)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}];|}
-
-ChainState{env: Environment{chain: Chain{height: 7, current slot: 7, final height: 0}, contract states:...}, queue: Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 11%256 19)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}}
-On Msg: refund
-ContractCallContext{ctx_from: 12%256, ctx_contract_addr: 128%256, ctx_contract_balance: 2, ctx_amount: 0}
-State{token_state: State{total_supply: 26, balances: [15%256-->0; 11%256-->0; 17%256-->6; 13%256-->0; 16%256-->0; 12%256-->20], allowances: [17%256-->[15%256-->5]; 13%256-->[12%256-->5]; 12%256-->[15%256-->18]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 100, tokenCreationMin: 70}
-Some (State{token_state: State{total_supply: 6, balances: [15%256-->0; 11%256-->0; 17%256-->6; 13%256-->0; 16%256-->0; 12%256-->0], allowances: [17%256-->[15%256-->5]; 13%256-->[12%256-->5]; 12%256-->[15%256-->18]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 100, tokenCreationMin: 70},[(act_transfer 12%256, 6)])
-*)
-(* *** Failed after 44 tests and 0 shrinks. (0 discards) *)
 
 Definition is_finalized :=
   fun cs => 
