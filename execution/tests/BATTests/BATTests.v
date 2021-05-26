@@ -451,6 +451,85 @@ Definition post_create_tokens_safe (cctx : ContractCallContext) (old_state : Sta
 (* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{post_create_tokens_safe}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
+
+
+(* -------------------- finalize -------------------- *)
+Definition post_finalize_update_correct env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
+    let from := cctx.(ctx_from) in
+    let balance := cctx.(ctx_contract_balance) in
+    let from_correct := address_eqb from ethFund in
+    let is_finalized_correct := Bool.eqb new_state.(isFinalized) true in
+    let action_to_correct := address_eqb to ethFund in
+    let action_amount_correct := Z.eqb amount balance in
+    let action_to_valid := negb (address_is_contract to) in
+    let action_amount_valid := Z.leb amount (env_account_balances env cctx.(ctx_contract_address)) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb from_correct
+             (andb is_finalized_correct
+             (andb action_to_correct
+             (andb action_amount_correct
+             (andb action_to_valid
+                   action_amount_valid))))))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Finalize updates state correct and produces correct actions *)
+(* QuickChick ({{msg_is_finalize}} contract_base_addr {{post_finalize_update_correct}}_). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition finalize_valid env (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), finalize) =>
+    let current_slot := env.(current_slot) in
+    (* Finalization should only be allowed if contract not already finalized *)
+    let is_finalized_valid := negb old_state.(isFinalized) in
+    (* Finalization should only be allowed if funding period is over or we hit the token cap *)
+    let can_finalize_valid := orb (old_state.(fundingEnd) <? current_slot)%nat (N.eqb old_state.(tokenCreationCap) (total_supply old_state)) in
+    (* Finalization should only be allowed if token amount is within valid (tokenCreationMin, tokenCreationCap) range *)
+    let total_supply_valid := andb (N.leb old_state.(tokenCreationMin) (total_supply old_state)) (N.leb (total_supply old_state) old_state.(tokenCreationCap)) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb is_finalized_valid
+             (andb can_finalize_valid
+                   total_supply_valid)))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Finalize contract calls are valid *)
+(* QuickChick ({{msg_is_finalize}} contract_base_addr {{finalize_valid}}_). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition post_finalize_safe (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), finalize) =>
+    (* Finalize should not change allowances *)
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    (* Finalize should not change balances *)
+    let balances_unchanged := fmap_eqb N.eqb (balances old_state) (balances new_state) in
+    (* Finalize should not change total_supply *)
+    let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (andb allowances_unchanged
+             (andb balances_unchanged
+                   total_supply_unchanged)))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+(* Finalize contract calls does not change anything they shouldnt *)
+(* QuickChick ({{msg_is_finalize}} contract_base_addr {{post_finalize_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+
+
+
+
+
+
 Definition transfer_balance_update_correct old_state new_state from to tokens :=
   let get_balance addr state := with_default 0 (FMap.find addr (balances state)) in
   let from_balance_before := get_balance from old_state in
