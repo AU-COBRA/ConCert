@@ -608,12 +608,16 @@ Definition is_box_or_any (bt : box_type) : bool :=
 Definition analyze_constant
            (cst : constant_body)
            (inds : list (kername × mib_masks)) : bitmask × list (kername × mib_masks) :=
+  let '(doms, codom) := decompose_TArr (cst_type cst).2 in
   match cst_body cst with
   | Some body =>
-    let max_lams := #|(decompose_TArr (cst_type cst).2).1| in
+    let max_lams := #|doms| in
     let '(mask, (_, inds)) := analyze_top_level analyze ([], inds) max_lams body in
-    (mask, inds)
-  | None => (map is_box_or_any (decompose_TArr (cst_type cst).2).1, inds)
+    (* NOTE: if all the arguments are logical, we keep the first one in order to prevent contstans like [false_rect] to be evaluated eagerly in the extracted code *)
+    if forallb is_box_or_any doms then
+      (clear_bit 0 mask, inds)
+    else (mask, inds)
+  | None => (map is_box_or_any doms, inds)
   end.
 
 Record dearg_set := {
