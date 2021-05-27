@@ -253,7 +253,7 @@ Proof.
   - exists bstate.
     split; auto.
     now apply reachable_through_refl.
-  - destruct (act_decidable bstate a); auto.
+  - destruct (action_evaluation_decidable bstate a); auto.
     + destruct H4 as [mid_env [new_acts [action_evaluation]]].
       pose (mid := build_chain_state mid_env (new_acts ++ l)).
       assert (step : ChainStep bstate mid).
