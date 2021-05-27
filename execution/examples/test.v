@@ -23,7 +23,6 @@ Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 
 Import Logic.Decidable.
-Check decidable.
 
 Lemma reachable_empty_state :
   reachable empty_state.
@@ -86,13 +85,6 @@ Proof.
   intros.
   apply reachable_through_refl in H.
   eapply reachable_through_trans'; eauto.
-Qed.
-
-Lemma q : forall addr,
-  address_is_contract addr = true \/ address_is_contract addr = false.
-Proof.
-  intros.
-  destruct (address_is_contract addr); auto.
 Qed.
 
 Lemma deployable_address_decidable : forall bstate,
@@ -246,15 +238,6 @@ Admitted.
 Definition produces_no_new_acts act : Prop :=
   forall bstate bstate' new_acts, ActionEvaluation bstate act bstate' new_acts -> new_acts = [].
 
-Lemma q : forall {A} (P : A -> Prop),
-  ~ (exists x, P x) -> forall x, ~ (P x).
-Proof.
-  intros.
-  intro.
-  apply H.
-  now exists x.
-Qed.
-
 Lemma empty_queue : forall bstate (P : Environment -> Prop),
   reachable bstate ->
   Forall act_is_from_account (chain_state_queue bstate) ->
@@ -311,9 +294,5 @@ Proof.
         eapply reachable_through_trans; eauto.
       * auto.
 Qed.
-
-
-
-
 
 End Test.
