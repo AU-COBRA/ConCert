@@ -22,6 +22,7 @@ examples/BAT.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingTest.v
+examples/BuildUtils.v
 examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
