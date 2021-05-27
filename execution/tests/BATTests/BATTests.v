@@ -70,14 +70,10 @@ Definition forAllTokenChainBuilders n :=
   let max_acts_per_block := 2 in
   forAllChainBuilder n token_cb (gTokenChain max_acts_per_block).
 
-Definition forAllTokenChainStates n :=
-  let max_acts_per_block := 2 in
-  forAllChainState n token_cb (gTokenChain max_acts_per_block).
-
 Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
   let trace_length := 7 in
-  pre_post_assertion_ trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
+  pre_post_assertion_new trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
 
 Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
 Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
