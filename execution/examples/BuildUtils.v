@@ -1,28 +1,10 @@
-(*
-  Implementation of the Basic Attention Token.
-  Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
-*)
-From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
-From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import List.
-From Coq Require Import Lia.
-Require Import Serializable.
-Require Import Blockchain.
-
+From Coq Require Import ZArith List Lia Logic.Decidable.
 Import ListNotations.
-Import RecordSetNotations.
+From ConCert.Utils Require Import RecordUpdate.
+From ConCert Require Import Blockchain.
 
-Section Test.
+Section BuildUtils.
 Context {BaseTypes : ChainBase}.
-Set Primitive Projections.
-Set Nonrecursive Elimination Schemes.
-
-Import Logic.Decidable.
 
 Lemma reachable_empty_state :
   reachable empty_state.
@@ -271,6 +253,7 @@ Proof.
       inversion H5. subst.
       now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
 Qed.
+Close Scope Z_scope.
 
 Definition produces_no_new_acts act : Prop :=
   forall bstate bstate' new_acts, ActionEvaluation bstate act bstate' new_acts -> new_acts = [].
@@ -332,4 +315,4 @@ Proof.
       * auto.
 Qed.
 
-End Test.
+End BuildUtils.
