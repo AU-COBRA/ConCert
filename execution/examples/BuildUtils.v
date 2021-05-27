@@ -31,6 +31,22 @@ Proof.
   econstructor; eauto.
 Qed.
 
+Lemma finalized_heigh_chain_height : forall bstate,
+  reachable bstate ->
+  finalized_height bstate < S (chain_height bstate).
+Proof.
+  intros.
+  destruct H as [H].
+  remember empty_state.
+  induction H as [ | H from to trace IH step ]; subst.
+  - apply Nat.lt_0_1.
+  - destruct_chain_step. (*inversion step as [ header _ valid_block _ env_eq | act _ new_acts _ eval _ | eq ].*)
+    + inversion valid_header. now rewrite_environment_equiv.
+    + inversion eval; rewrite_environment_equiv; now apply IH.
+    + rewrite_environment_equiv. now apply IH.
+    + inversion prev_next. now apply IH.
+Qed.
+
 Lemma contract_states_deployed : forall to (addr : Address) (state : SerializedValue),
   reachable to ->
   env_contract_states to addr = Some state ->
@@ -42,42 +58,13 @@ Proof.
   remember empty_state.
   induction trace; intros.
   - subst. cbn in H0. congruence.
-  - destruct_chain_step.
-    + rewrite_environment_equiv.
-      apply IHtrace in H0 as [wc H0]; auto.
-      exists wc.
-      rewrite_environment_equiv. assumption.
-    + inversion eval.
-      * rewrite_environment_equiv.
-        apply IHtrace in H0 as [wc H0]; auto.
-        exists wc.
-        rewrite_environment_equiv. assumption.
-      * rewrite_environment_equiv. cbn in *.
-        destruct_address_eq.
-        -- subst. exists wc.
-           rewrite_environment_equiv. cbn.
-           destruct_address_eq; easy.
-        -- subst. apply IHtrace in H0 as [wc_new H0]; auto.
-           exists wc_new.
-           rewrite_environment_equiv. cbn.
-           destruct_address_eq; try easy.
-      * rewrite_environment_equiv. cbn in *.
-        clear H5.
-        destruct_address_eq.
-        -- subst. exists wc.
-           rewrite_environment_equiv. cbn.
-           destruct_address_eq; easy.
-        -- subst. apply IHtrace in H0 as [wc_new H0]; auto.
-           exists wc_new.
-           rewrite_environment_equiv. cbn.
-           destruct_address_eq; try easy.
-    + rewrite <- env_eq in *.
-      apply IHtrace in H0 as [wc H0]; auto.
-      exists wc.
-      rewrite_environment_equiv. assumption.
-    + rewrite prev_next in *. subst.
-      apply IHtrace in H0 as [wc H0]; auto.
-      exists wc. assumption.
+  - destruct_chain_step;
+      try inversion eval; subst;
+      (rewrite_environment_equiv || rewrite <- env_eq in * || rewrite prev_next in *);
+      try (apply IHtrace in H0 as [wc H0]; auto; exists wc; (now rewrite_environment_equiv || assumption));
+      clear H5; cbn in *; destruct_address_eq; subst;
+      ((apply IHtrace in H0 as [wc_new H0]; auto; exists wc_new) || exists wc);
+      rewrite_environment_equiv; cbn; destruct_address_eq; try easy.
 Qed.
 
 Definition reachable_through mid to := reachable mid /\ inhabited (ChainTrace mid to).
@@ -144,52 +131,18 @@ Proof.
   destruct H as [reachable [trace]].
   induction trace; intros.
   - exists cstate. assumption.
-  - destruct_chain_step.
-    + apply IHtrace in H0 as [new_cstate H0]; auto.
-      exists new_cstate.
-      rewrite_environment_equiv. cbn. assumption.
-    + inversion eval.
-      * apply IHtrace in H0 as [new_cstate H0]; auto.
-        exists new_cstate.
-        rewrite_environment_equiv. cbn. assumption.
-      * apply IHtrace in H0 as [new_cstate H0]; auto.
-        exists new_cstate.
-        rewrite_environment_equiv. cbn.
-        destruct_address_eq; auto. subst.
-        apply contract_states_deployed in H0 as [wc' H0].
-        -- congruence.
-        -- eapply reachable_trans; eauto.
-      * destruct (address_eqb addr to_addr) eqn:address_eq.
-        -- exists new_state.
-           rewrite_environment_equiv. cbn.
-           destruct_address_eq; easy.
-        -- apply IHtrace in H0 as [new_cstate H0]; auto.
-           exists new_cstate.
-           rewrite_environment_equiv. cbn.
-           destruct_address_eq; easy.
-    + apply IHtrace in H0 as [new_cstate H0]; auto.
-      exists new_cstate.
-      rewrite_environment_equiv. cbn. assumption.
-    + apply IHtrace in H0 as [new_cstate H0]; auto.
-      exists new_cstate.
-      inversion prev_next. cbn. assumption.
-Qed.  
-
-
-Lemma finalized_heigh_chain_height : forall bstate,
-  reachable bstate ->
-  finalized_height bstate < S (chain_height bstate).
-Proof.
-  intros.
-  destruct H as [H].
-  remember empty_state.
-  induction H as [ | H from to trace IH step ]; subst.
-  - apply Nat.lt_0_1.
-  - destruct_chain_step. (*inversion step as [ header _ valid_block _ env_eq | act _ new_acts _ eval _ | eq ].*)
-    + inversion valid_header. now rewrite_environment_equiv.
-    + inversion eval; rewrite_environment_equiv; now apply IH.
-    + rewrite_environment_equiv. now apply IH.
-    + inversion prev_next. now apply IH.
+  - destruct_chain_step;
+      try inversion eval; apply IHtrace in H0 as [new_cstate H0]; auto;
+      try (exists new_cstate; (rewrite_environment_equiv || inversion prev_next); cbn; assumption).
+    + exists new_cstate.
+      rewrite_environment_equiv. cbn.
+      destruct_address_eq; auto. subst.
+      apply contract_states_deployed in H0 as [wc' H0].
+      -- congruence.
+      -- eapply reachable_trans; eauto.
+    + destruct (address_eqb addr to_addr) eqn:address_eq; 
+        [exists new_state | exists new_cstate];
+        rewrite_environment_equiv; cbn; destruct_address_eq; easy.
 Qed.
 
 Axiom deployable_address_decidable : forall bstate wc setup act_from amount,
