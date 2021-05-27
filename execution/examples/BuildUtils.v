@@ -145,6 +145,48 @@ Proof.
         rewrite_environment_equiv; cbn; destruct_address_eq; easy.
 Qed.
 
+Lemma reachable_through_chain_height : forall from to,
+  reachable_through from to -> from.(chain_height) <= to.(chain_height).
+Proof.
+  intros.
+  destruct H as [reachable [trace]].
+  induction trace.
+  - auto.
+  - destruct_chain_step;
+      try inversion eval;
+      try now (rewrite_environment_equiv || inversion prev_next).
+    + rewrite_environment_equiv.
+      inversion valid_header. now cbn.
+Qed.
+
+Lemma reachable_through_current_slot : forall from to,
+  reachable_through from to -> from.(current_slot) <= to.(current_slot).
+Proof.
+  intros.
+  destruct H as [reachable [trace]].
+  induction trace.
+  - auto.
+  - destruct_chain_step;
+      try inversion eval;
+      try now (rewrite_environment_equiv || inversion prev_next).
+    + rewrite_environment_equiv.
+      inversion valid_header. now cbn.
+Qed.
+
+Lemma reachable_through_finalized_height : forall from to,
+  reachable_through from to -> from.(finalized_height) <= to.(finalized_height).
+Proof.
+  intros.
+  destruct H as [reachable [trace]].
+  induction trace.
+  - auto.
+  - destruct_chain_step;
+      try inversion eval;
+      try now (rewrite_environment_equiv || inversion prev_next).
+    + rewrite_environment_equiv.
+      inversion valid_header. now cbn.
+Qed.
+
 Axiom deployable_address_decidable : forall bstate wc setup act_from amount,
   reachable bstate ->
   decidable (exists addr state, address_is_contract addr = true 
