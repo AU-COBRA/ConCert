@@ -106,24 +106,64 @@ Proof.
   destruct act_body.
   - destruct (amount >=? 0) eqn:amount_positive.
     destruct (amount <=? env_account_balances bstate act_from) eqn:balance.
-    destruct (negb (address_is_contract to)) eqn:to_is_contract.
+    destruct (address_is_contract to) eqn:to_is_contract.
+    destruct (env_contracts bstate to) eqn:to_contract.
+    destruct (env_contract_states bstate to) eqn:contract_state.
+    pose (new_to_balance := if (address_eqb act_from to)
+                         then (env_account_balances bstate to)
+                         else (env_account_balances bstate to) + amount).
+    destruct (wc_receive w
+        (transfer_balance act_from to amount bstate)
+        (build_ctx act_from to new_to_balance amount)
+        s None) eqn:receive.
+    + destruct p.
+      pose (bstate' := (set_contract_state to s0
+                       (transfer_balance act_from to amount bstate))).
+      left.
+      exists bstate', (map (build_act to) l).
+      constructor. eapply eval_call with (msg := None).
+      * rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive. eauto.
+      * rewrite Z.leb_le in balance. eauto.
+      * eauto.
+      * eauto.
+      * reflexivity.
+      * assert (new_to_balance_eq : env_account_balances bstate' to = new_to_balance).
+        { cbn. unfold new_to_balance; destruct_address_eq; try congruence; lia. }
+        rewrite <- new_to_balance_eq in receive. eauto.
+      * reflexivity.
+      * constructor; reflexivity.
+    + right. intro.
+      destruct H0 as [bstate_new [new_acts [H0]]].
+      inversion H0; try congruence.
+      destruct msg; inversion H5. subst.
+      assert (new_to_balance_eq : env_account_balances bstate_new to_addr =
+                                  new_to_balance).
+      { inversion H8.
+        rewrite account_balances_eq.
+        unfold new_to_balance. cbn.
+        destruct_address_eq; try congruence; subst; lia.
+      }
+      now rewrite <- new_to_balance_eq in receive.
+    + right. intro.
+      destruct H0 as [bstate_new [new_acts [H0]]].
+      inversion H0; try congruence.
+      destruct msg; inversion H5. subst.
+      congruence.
+    + right. intro.
+      destruct H0 as [bstate_new [new_acts [H0]]].
+      inversion H0; try congruence.
+      destruct msg; inversion H5. subst.
+      congruence.
     + pose (bstate' := (transfer_balance act_from to amount bstate)).
       left.
       exists bstate', [].
       constructor. eapply eval_transfer.
       * rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive. eauto.
       * rewrite Z.leb_le in balance. eauto.
-      * rewrite <- Bool.negb_true_iff. eauto.
+      * eauto.
       * eauto.
       * constructor; reflexivity.
       * reflexivity.
-    + right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      * inversion H4. subst.
-        now rewrite H3 in to_is_contract.
-      * destruct msg; inversion H5. subst.
-        admit.
     + right. intro.
       destruct H0 as [bstate_new [new_acts [H0]]].
       inversion H0; try congruence.
@@ -197,12 +237,11 @@ Proof.
       now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
   - destruct (amount >=? 0) eqn:amount_positive.
     destruct (amount <=? env_account_balances bstate act_from) eqn:balance.
-    apply deployable_address_decidable in H as [[to [to_is_contract_addr to_not_deployed]] | no_deployable_addr].
-    destruct (wc_init c
-        (transfer_balance act_from to amount bstate)
-        (build_ctx act_from to amount amount)
-        setup) eqn:init.
-    + pose (bstate' := (set_contract_state to s
+    apply deployable_address_decidable
+      with (wc:=c) (setup:=setup) (act_from:=act_from) (amount:=amount)
+      in H.
+    destruct H as [[to [state [to_is_contract_addr [to_not_deployed init]]]] | no_deployable_addr].
+    + pose (bstate' := (set_contract_state to state
                        (add_contract to c
                        (transfer_balance act_from to amount bstate)))).
       left.
@@ -217,15 +256,10 @@ Proof.
       * constructor; reflexivity.
       * reflexivity.
     + right. intro.
-      destruct H as [bstate_new [new_acts [H]]].
-      inversion H; try congruence; try (destruct msg; inversion H4).
-      inversion H4. subst.
-      admit.
-    + right. intro.
       apply no_deployable_addr.
       destruct H as [bstate_new [new_acts [H]]].
       inversion H; try congruence; try (destruct msg; inversion H4).
-      now exists to_addr.
+      now exists to_addr, state.
     + right. intro.
       destruct H0 as [bstate_new [new_acts [H0]]].
       inversion H0; try congruence; try (destruct msg; inversion H5).
@@ -236,7 +270,7 @@ Proof.
       inversion H0; try congruence; try (destruct msg; inversion H5).
       inversion H5. subst.
       now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
-Admitted.
+Qed.
 
 Definition produces_no_new_acts act : Prop :=
   forall bstate bstate' new_acts, ActionEvaluation bstate act bstate' new_acts -> new_acts = [].
