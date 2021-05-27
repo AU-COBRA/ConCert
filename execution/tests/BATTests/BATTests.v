@@ -292,22 +292,22 @@ Definition msg_is_refund (cstate : BAT.State) (msg : BAT.Msg) :=
 
 
 (* Checker failing if amount in a contract call context is not zero *)
-Definition amount_is_zero (env : Environment) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition amount_is_zero (chain : Chain) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   (checker (cctx.(ctx_amount) =? 0)%Z).
 
 (* Checker failing if amount in a contract call context is 0 or negative *)
-Definition amount_is_positive (env : Environment) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition amount_is_positive (chain : Chain) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   (checker (cctx.(ctx_amount) >? 0)%Z).
 
 (* Checker failing if result_opt contains actions *)
-Definition produces_no_actions (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition produces_no_actions (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (_, []), _) => checker true
   | _ => checker false
   end.
 
 (* Checker failing if result_opt contains less than or more than one action *)
-Definition produces_one_action (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (_, [a]), _) => checker true
   | _ => checker false
@@ -383,7 +383,7 @@ On Msg: refund
 (* +++ Passed 10000 tests (0 discards) *)
 
 (* Chcker failing if any constants in BAT states are changed *)
-Definition constants_unchanged (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), _) =>
     let fund_deposit_check := address_eqb old_state.(fundDeposit) new_state.(fundDeposit) in
@@ -414,7 +414,7 @@ Definition constants_unchanged (env : Environment) (cctx : ContractCallContext) 
 
 
 (* -------------------- create_tokens -------------------- *)
-Definition post_create_tokens_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_create_tokens_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), create_tokens) =>
     let amount := cctx.(ctx_amount) in
@@ -432,11 +432,11 @@ Definition post_create_tokens_update_correct (env : Environment) (cctx : Contrac
 (* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{post_create_tokens_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition create_tokens_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
     let amount := cctx.(ctx_amount) in
-    let current_slot := env.(current_slot) in
+    let current_slot := chain.(current_slot) in
     let amount_valid := Z.leb 0 amount in
     let is_finalized_valid := negb old_state.(isFinalized) in
     let slot_valid := andb (old_state.(fundingStart) <=? current_slot)%nat (current_slot <=? old_state.(fundingEnd))%nat in
@@ -454,7 +454,7 @@ Definition create_tokens_valid (env : Environment) (cctx : ContractCallContext) 
 (* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{create_tokens_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_create_tokens_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
     let from := cctx.(ctx_from) in
@@ -476,7 +476,7 @@ Definition post_create_tokens_safe (env : Environment) (cctx : ContractCallConte
 
 
 (* -------------------- finalize -------------------- *)
-Definition post_finalize_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
     let balance := cctx.(ctx_contract_balance) in
@@ -484,7 +484,7 @@ Definition post_finalize_update_correct (env : Environment) (cctx : ContractCall
     let action_to_correct := address_eqb to ethFund in
     let action_amount_correct := Z.eqb amount balance in
     let action_to_valid := negb (address_is_contract to) in
-    let action_amount_valid := Z.leb amount (env_account_balances env cctx.(ctx_contract_address)) in
+    let action_amount_valid := Z.leb amount balance in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (andb is_finalized_correct
              (andb action_to_correct
@@ -499,11 +499,11 @@ Definition post_finalize_update_correct (env : Environment) (cctx : ContractCall
 (* QuickChick ({{msg_is_finalize}} contract_base_addr {{post_finalize_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition finalize_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
     let from := cctx.(ctx_from) in
-    let current_slot := env.(current_slot) in
+    let current_slot := chain.(current_slot) in
     (* Only ethFund should be allowed to call finalize *)
     let from_valid := address_eqb from ethFund in
     (* Finalization should only be allowed if contract not already finalized *)
@@ -525,7 +525,7 @@ Definition finalize_valid (env : Environment) (cctx : ContractCallContext) (old_
 (* QuickChick ({{msg_is_finalize}} contract_base_addr {{finalize_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_finalize_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_finalize_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
     (* Finalize should not change allowances *)
@@ -549,7 +549,7 @@ Definition post_finalize_safe (env : Environment) (cctx : ContractCallContext) (
 
 
 (* -------------------- refund -------------------- *)
-Definition post_refund_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
     let from := cctx.(ctx_from) in
@@ -567,8 +567,8 @@ Definition post_refund_update_correct (env : Environment) (cctx : ContractCallCo
     let action_amount_correct := Z.eqb amount eth_to_refund in
     let action_to_valid := negb (address_is_contract to) in
     (* Contract should have enough money to refund *)
-    let action_amount_valid := Z.leb amount (env_account_balances env cctx.(ctx_contract_address)) in
-    whenFail (show old_state ++ nl ++ show result_opt)
+    let action_amount_valid := Z.leb amount contract_balance in
+    whenFail (show old_state ++ nl ++ show cctx ++ nl ++ show result_opt)
     (checker (andb total_supply_correct
              (andb from_balance_correct
              (andb action_to_correct
@@ -581,46 +581,12 @@ Definition post_refund_update_correct (env : Environment) (cctx : ContractCallCo
   end.
 (* False property: Refund updates state correct and produces correct actions *)
 (* QuickChick ({{msg_is_refund}} contract_base_addr {{post_refund_update_correct}}). *)
-(* Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 4, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 14%256 3)}];
-Block 3 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 11%256 3)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 3)}];
-Block 4 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 4, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 14%256 17%256 0)}];
-Block 5 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 16%256 0)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)}];
-Block 6 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 11%256 7)}];
-Block 7 [
-Action{act_from: 16%256, act_body: (act_call 128%256, 0, transfer 17%256 0)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 17%256 10)}];
-Block 8 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 15%256 12)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}];|}
+(* +++ Passed 10000 tests (0 discards) *)
 
-ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0}, contract states:...}, queue: Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 15%256 12)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}}
-On Msg: refund
-State{token_state: State{total_supply: 32, balances: [11%256-->15; 17%256-->17; 13%256-->0; 16%256-->0; 14%256-->0], allowances: [11%256-->[17%256-->10]; 14%256-->[17%256-->3]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 101, tokenCreationMin: 63}
-Some (State{token_state: State{total_supply: 17, balances: [11%256-->0; 17%256-->17; 13%256-->0; 16%256-->0; 14%256-->0], allowances: [11%256-->[17%256-->10]; 14%256-->[17%256-->3]]}, isFinalized: false, fundDeposit: 16%256, batFundDeposit: 17%256, fundingStart: 0, fundingEnd: 5, tokenExchangeRate: 3, tokenCreationCap: 101, tokenCreationMin: 63},[(act_transfer 11%256, 5)])
-*** Failed after 228 tests and 0 shrinks. (0 discards) *)
-
-Definition refund_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), refund) =>
-    let current_slot := env.(current_slot) in
+    let current_slot := chain.(current_slot) in
     let from := cctx.(ctx_from) in
     let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
     (* Refund should only be allowed if contract not finalized *)
@@ -644,7 +610,7 @@ Definition refund_valid (env : Environment) (cctx : ContractCallContext) (old_st
 (* QuickChick ({{msg_is_refund}} contract_base_addr {{refund_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_refund_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_refund_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), refund) =>
     let from := cctx.(ctx_from) in
@@ -669,7 +635,7 @@ Definition post_refund_safe (env : Environment) (cctx : ContractCallContext) (ol
 
 
 (* -------------------- transfer -------------------- *)
-Definition post_transfer_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -695,7 +661,7 @@ Definition post_transfer_update_correct (env : Environment) (cctx : ContractCall
 (* QuickChick ({{msg_is_transfer}} contract_base_addr {{post_transfer_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -714,7 +680,7 @@ Definition transfer_valid (env : Environment) (cctx : ContractCallContext) (old_
 (* QuickChick ({{msg_is_transfer}} contract_base_addr {{transfer_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_transfer_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -738,7 +704,7 @@ Definition post_transfer_safe (env : Environment) (cctx : ContractCallContext) (
 
 
 (* -------------------- transfer_from -------------------- *)
-Definition post_transfer_from_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
@@ -768,7 +734,7 @@ Definition post_transfer_from_update_correct (env : Environment) (cctx : Contrac
 (* QuickChick ({{msg_is_transfer_from}} contract_base_addr {{post_transfer_from_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_from_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
@@ -789,7 +755,7 @@ Definition transfer_from_valid (env : Environment) (cctx : ContractCallContext) 
 (* QuickChick ({{msg_is_transfer_from}} contract_base_addr {{transfer_from_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_transfer_from_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
@@ -817,7 +783,7 @@ Definition post_transfer_from_safe (env : Environment) (cctx : ContractCallConte
 
 
 (* -------------------- approve -------------------- *)
-Definition post_approve_update_correct (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let from := cctx.(ctx_from) in
@@ -833,7 +799,7 @@ Definition post_approve_update_correct (env : Environment) (cctx : ContractCallC
 (* QuickChick ({{msg_is_approve}} contract_base_addr {{post_approve_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition approve_valid (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let amount := cctx.(ctx_amount) in
@@ -848,7 +814,7 @@ Definition approve_valid (env : Environment) (cctx : ContractCallContext) (old_s
 (* QuickChick ({{msg_is_approve}} contract_base_addr {{approve_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_approve_safe (env : Environment) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let from := cctx.(ctx_from) in
