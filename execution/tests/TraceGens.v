@@ -398,7 +398,7 @@ Section TraceGens.
       forAllChainState maxLength init_chain gTrace stepProp.
 
   (* Alternative version of pre_post_assertion_, changes are
-     1) also passes env to post condition
+     1) also passes chain to post condition
      2) executes msgs on correct env and cstate
   *)
   Definition pre_post_assertion_ {Setup Msg State prop : Type}
@@ -413,7 +413,7 @@ Section TraceGens.
                                 (c : Contract Setup Msg State)
                                 (caddr : Address)
                                 (pre : State -> Msg -> bool)
-                                (post : Environment -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
+                                (post : Chain -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
       let messages_of_acts acts  := fold_right (fun act acc =>
           match act.(act_body) with
           | act_call _ _ ser_msg =>
@@ -427,7 +427,7 @@ Section TraceGens.
       let post_helper '(env, cctx, post_state) cstate msg : Checker :=
         whenFail
           ("On Msg: " ++ show msg)
-          (checker (post env cctx cstate msg post_state)) in
+          (checker (post env.(env_chain) cctx cstate msg post_state)) in
       let stepProp (cs : ChainState) :=
         let env : Environment := cs.(chain_state_env) in
         let msgs := messages_of_acts cs.(chain_state_queue) in
@@ -443,25 +443,26 @@ Section TraceGens.
               else
                 (env.(env_account_balances) caddr + amount)%Z in
           let cctx := build_ctx act.(act_from) caddr new_balance amount in
-          let new_state := c.(receive) env cctx cstate (Some msg) in
+          let new_env := (transfer_balance act.(act_from) caddr amount env) in
+          let new_state := c.(receive) new_env cctx cstate (Some msg) in
           (env, cctx, new_state) in
-      let msgs_checkers (env : Environment) (caddr : Address) (cstate : State) (msgs : list (Action * Msg)) : list Checker :=
-        snd (snd (fold_left
-          (fun '(env, (cstate, checkers)) '(act, msg) =>
-            if pre cstate msg
-            then
-              let '(new_env, cctx, new_state) := (execute_receive env caddr cstate act msg) in
-                match new_state with
-                | Some (new_cstate, _) => (new_env, (new_cstate, (post_helper (new_env, cctx, new_state) cstate msg) :: checkers))
-                | _ => (env, (cstate, (post_helper (new_env, cctx, new_state) cstate msg) :: checkers))
-                end
-            else
-              let '(new_env, cctx, new_state) := (execute_receive env caddr cstate act msg) in
-                match new_state with
-                | Some (new_cstate, _) => (new_env, (new_cstate, (checker true) :: checkers)) (* TODO: should be discarded!*)
-                | _ => (env, (cstate, (checker true) :: checkers)) (* TODO: should be discarded!*)
-                end
-          ) msgs (env, (cstate, [])))) in
+        let msgs_checkers (env : Environment) (caddr : Address) (cstate : State) (msgs : list (Action * Msg)) : list Checker :=
+          snd (snd (fold_left
+            (fun '(env, (cstate, checkers)) '(act, msg) =>
+              if pre cstate msg
+              then
+                let '(new_env, cctx, new_state) := (execute_receive env caddr cstate act msg) in
+                  match new_state with
+                  | Some (new_cstate, _) => (new_env, (new_cstate, (post_helper (new_env, cctx, new_state) cstate msg) :: checkers))
+                  | _ => (env, (cstate, (post_helper (new_env, cctx, new_state) cstate msg) :: checkers))
+                  end
+              else
+                let '(new_env, cctx, new_state) := (execute_receive env caddr cstate act msg) in
+                  match new_state with
+                  | Some (new_cstate, _) => (new_env, (new_cstate, (checker true) :: checkers)) (* TODO: should be discarded!*)
+                  | _ => (env, (cstate, (checker true) :: checkers)) (* TODO: should be discarded!*)
+                  end
+            ) msgs (env, (cstate, [])))) in
         match get_contract_state State env caddr with
         (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
         | Some cstate => (conjoin (msgs_checkers env caddr cstate msgs))
