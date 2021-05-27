@@ -1,7 +1,7 @@
 (** * Extraction of various contracts to cameLIGO *)
 
 From Coq Require Import PeanoNat ZArith Notations.
-From Coq Require Import List Ascii String.
+From Coq Require Import List Ascii String Bool.
 
 From MetaCoq.Template Require Import All.
 
@@ -54,23 +54,24 @@ Definition dummy_chain :=
 (* TODO: uncomment all [Redirect] commands once we set up the CI for CameLIGO *)
 
 Module SafeHead.
-  (** This module show how one can extract programs containing [false_rect] *)
+  (** This module shows how one can extract programs containing [False_rect] *)
 
   Open Scope list.
   Open Scope nat.
 
+  (** We cannot make [safe_head] polymoprhic due to CameLIGO restrictions *)
   Program Definition safe_head (l : list nat) (non_empty : List.length l > 0) : nat :=
     match l as l' return l' = l -> nat  with
     | [] => (* this is an impossible case *)
       (* NOTE: we use [False_rect] to have more control over the extracted code.
        Leaving a hole for the whole branch potentially leads to polymoprhic
-       definitions in the extracted code, and these are not supported by CameLIGO.
+       definitions in the extracted code and type like [eq], since we would have to leave the whole goal branch transparent (use [Defined] instead of [Qed] ).
        In this case, one has to inspect the extracted code and inline such definitions *)
       fun _ => False_rect _ _
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    intros;cbn in *;subst. inversion non_empty.
+    intros. subst. inversion non_empty.
   Qed.
 
   Import Lia.
@@ -80,10 +81,11 @@ Module SafeHead.
     intros. cbn. lia.
   Qed.
 
-  (** We inline [False_rect] because this is a polymoprhic definition. *)
+  (** We inline [False_rect] and [False_rec] to make sure that no polymoprhic definitions are left *)
   Definition safe_head_inline :=
-    [<%% False_rect %%>].
+    [<%% False_rect %%>; <%% False_rec %%>].
 
+  Definition TT_consts := [ remap <%% @hd_error %%> "List.head_opt" ].
   Definition TT_ctors := [("O","0n")].
 
   Definition harness : string :=
@@ -93,11 +95,14 @@ Module SafeHead.
          (t <- CameLIGO_extract_single
                 PREFIX
                 safe_head_inline
-                [] TT_ctors
+                TT_consts TT_ctors
                 ""
                 harness
                 head_of_list_2 ;;
     tmDefinition "cameligo_safe_head" t).
+
+    (** Extraction results in fully functional CameLIGO code *)
+    MetaCoq Run (tmMsg cameligo_safe_head).
 
 End SafeHead.
 

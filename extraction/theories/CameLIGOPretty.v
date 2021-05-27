@@ -197,22 +197,24 @@ Section print_term.
     | _ => None
     end.
 
-  Definition is_fresh (ctx : context) (id : ident) :=
+  Definition is_fresh (Γ : context) (id : ident) :=
     List.forallb
       (fun decl =>
          match decl.(decl_name) with
-         | nNamed id' => negb (ident_eq id id')
+         | nNamed id' =>
+           (* NOTE: we compare the identifiers up to the capitalisation of the first letters *)
+           negb (ident_eq (uncapitalize id) (uncapitalize id'))
          | nAnon => true
-         end) ctx.
+         end) Γ.
 
   Fixpoint name_from_term (t : term) :=
     match t with
-    | tRel _ | tVar _ | tEvar _ _ => "H"
+    | tRel _ | tVar _ | tEvar _ _ => "h"
     | tLambda na t => "f"
     | tLetIn na b t' => name_from_term t'
     | tApp f _ => name_from_term f
     | tConst c => "x"
-    | _ => "U"
+    | _ => "u"
     end.
 
   Definition fresh_id_from ctx n id :=
@@ -240,6 +242,7 @@ Section print_term.
               | nNamed id => id
               end
     in
+    let id := uncapitalize id in
     if is_fresh ctx id then nNamed id
     else nNamed (fresh_id_from ctx 10 id).
 

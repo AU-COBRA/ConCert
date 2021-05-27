@@ -198,9 +198,6 @@ Module ElmExamples.
   (Preambule "Last")
   (main_and_test "Expect.equal (last (Cons 1 (Cons 10 Nil)) 0) 10").
 
-  Lemma O_gt_False : 0 > 0 -> False.
-  Proof. intros H;inversion H. Qed.
-
   Program Definition safe_head {A} (non_empty_list : {l : list A | length l > 0}) : A :=
     match non_empty_list as l' return l' = non_empty_list -> A  with
     | [] =>
@@ -216,22 +213,24 @@ Module ElmExamples.
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    intros. destruct non_empty_list as [l H1]. cbn in *;subst.
-    exact (O_gt_False H1).
+    intros.
+    destruct non_empty_list as [l H1];cbn in *;subst.
+    inversion H1.
   Qed.
 
-  Program Definition head_of_repeat_2 {A} (a : A) := safe_head (repeat a 2).
+  Program Definition head_of_repeat_plus_one {A} (n : nat) (a : A) : A
+    := safe_head (repeat a (1+n)).
   Next Obligation.
-    intros. cbn. auto.
+    intros. cbn. lia.
   Qed.
 
-  MetaCoq Run (t <- tmQuoteRecTransp (@head_of_repeat_2) false ;;
-               tmDefinition "head_of_repeat_2_syn" t).
+  MetaCoq Run (t <- tmQuoteRecTransp (@head_of_repeat_plus_one) false ;;
+               tmDefinition "head_of_repeat_plus_one_syn" t).
 
- Redirect "examples/elm-extract/SafeHead.elm"
- Compute general_wrapped head_of_repeat_2_syn
- (Preambule "SafeHead" ++ nl ++ elm_false_rec)
- (main_and_test "Expect.equal (head_of_repeat_2 1) 1")
- [] [].
+  Redirect "examples/elm-extract/SafeHead.elm"
+  Compute general_wrapped head_of_repeat_plus_one_syn
+  (Preambule "SafeHead" ++ nl ++ elm_false_rec)
+  (main_and_test "Expect.equal (head_of_repeat_plus_one (S O) 1) 1")
+  [] [].
 
 End ElmExamples.
