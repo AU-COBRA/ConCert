@@ -87,11 +87,14 @@ Proof.
   eapply reachable_through_trans'; eauto.
 Qed.
 
-Lemma deployable_address_decidable : forall bstate,
+Axiom deployable_address_decidable : forall bstate wc setup act_from amount,
   reachable bstate ->
-  decidable (exists addr, address_is_contract addr = true /\ env_contracts bstate addr = None).
-Proof.
-Admitted.
+  decidable (exists addr state, address_is_contract addr = true 
+            /\ env_contracts bstate addr = None
+            /\ wc_init wc
+                  (transfer_balance act_from addr amount bstate)
+                  (build_ctx act_from addr amount amount)
+                  setup = Some state).
 
 Open Scope Z_scope.
 Lemma action_evaluation_decidable : forall bstate act,
