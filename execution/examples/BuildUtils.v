@@ -69,6 +69,22 @@ Proof.
   eapply reachable_through_trans'; eauto.
 Qed.
 
+Lemma finalized_heigh_chain_height : forall bstate,
+  reachable bstate ->
+  finalized_height bstate < S (chain_height bstate).
+Proof.
+  intros.
+  destruct H as [H].
+  remember empty_state.
+  induction H as [ | H from to trace IH step ]; subst.
+  - apply Nat.lt_0_1.
+  - destruct_chain_step. (*inversion step as [ header _ valid_block _ env_eq | act _ new_acts _ eval _ | eq ].*)
+    + inversion valid_header. now rewrite_environment_equiv.
+    + inversion eval; rewrite_environment_equiv; now apply IH.
+    + rewrite_environment_equiv. now apply IH.
+    + inversion prev_next. now apply IH.
+Qed.
+
 Axiom deployable_address_decidable : forall bstate wc setup act_from amount,
   reachable bstate ->
   decidable (exists addr state, address_is_contract addr = true 
