@@ -67,6 +67,16 @@ Proof.
       rewrite_environment_equiv; cbn; destruct_address_eq; try easy.
 Qed.
 
+Lemma contract_states_addr_format : forall to (addr : Address) (state : SerializedValue),
+  reachable to ->
+  env_contract_states to addr = Some state ->
+  address_is_contract addr = true.
+Proof.
+  intros.
+  apply contract_states_deployed in H0 as [wc  H0]; auto.
+  eapply contract_addr_format; eauto.
+Qed.
+
 Definition reachable_through mid to := reachable mid /\ inhabited (ChainTrace mid to).
 
 Lemma reachable_through_refl : forall bstate,
