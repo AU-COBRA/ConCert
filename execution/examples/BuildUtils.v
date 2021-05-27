@@ -2,6 +2,7 @@ From Coq Require Import ZArith List Lia Logic.Decidable.
 Import ListNotations.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert Require Import Blockchain.
+Require Import Serializable.
 
 Section BuildUtils.
 Context {BaseTypes : ChainBase}.
@@ -28,6 +29,55 @@ Proof.
   inversion H.
   constructor.
   econstructor; eauto.
+Qed.
+
+Lemma contract_states_deployed : forall to (addr : Address) (state : SerializedValue),
+  reachable to ->
+  env_contract_states to addr = Some state ->
+  exists wc, env_contracts to addr = Some wc.
+Proof.
+  intros.
+  destruct H as [trace].
+  generalize dependent state.
+  remember empty_state.
+  induction trace; intros.
+  - subst. cbn in H0. congruence.
+  - destruct_chain_step.
+    + rewrite_environment_equiv.
+      apply IHtrace in H0 as [wc H0]; auto.
+      exists wc.
+      rewrite_environment_equiv. assumption.
+    + inversion eval.
+      * rewrite_environment_equiv.
+        apply IHtrace in H0 as [wc H0]; auto.
+        exists wc.
+        rewrite_environment_equiv. assumption.
+      * rewrite_environment_equiv. cbn in *.
+        destruct_address_eq.
+        -- subst. exists wc.
+           rewrite_environment_equiv. cbn.
+           destruct_address_eq; easy.
+        -- subst. apply IHtrace in H0 as [wc_new H0]; auto.
+           exists wc_new.
+           rewrite_environment_equiv. cbn.
+           destruct_address_eq; try easy.
+      * rewrite_environment_equiv. cbn in *.
+        clear H5.
+        destruct_address_eq.
+        -- subst. exists wc.
+           rewrite_environment_equiv. cbn.
+           destruct_address_eq; easy.
+        -- subst. apply IHtrace in H0 as [wc_new H0]; auto.
+           exists wc_new.
+           rewrite_environment_equiv. cbn.
+           destruct_address_eq; try easy.
+    + rewrite <- env_eq in *.
+      apply IHtrace in H0 as [wc H0]; auto.
+      exists wc.
+      rewrite_environment_equiv. assumption.
+    + rewrite prev_next in *. subst.
+      apply IHtrace in H0 as [wc H0]; auto.
+      exists wc. assumption.
 Qed.
 
 Definition reachable_through mid to := reachable mid /\ inhabited (ChainTrace mid to).
@@ -68,6 +118,63 @@ Proof.
   apply reachable_through_refl in H.
   eapply reachable_through_trans'; eauto.
 Qed.
+
+Lemma reachable_through_contract_deployed : forall from to addr wc,
+  reachable_through from to -> env_contracts from addr = Some wc ->
+    env_contracts to addr = Some wc.
+Proof.
+  intros.
+  destruct H as [reachable [trace]].
+  induction trace.
+  - assumption.
+  - destruct_chain_step; try inversion eval;
+      (rewrite_environment_equiv || inversion prev_next); 
+      try (apply IHtrace; assumption).
+    + cbn. destruct_address_eq; auto.
+      subst. rewrite IHtrace in H3; auto.
+      congruence.
+Qed.
+
+Lemma reachable_through_contract_state : forall from to addr cstate,
+  reachable_through from to -> env_contract_states from addr = Some cstate ->
+    exists new_cstate, env_contract_states to addr = Some new_cstate.
+Proof.
+  intros.
+  generalize dependent cstate.
+  destruct H as [reachable [trace]].
+  induction trace; intros.
+  - exists cstate. assumption.
+  - destruct_chain_step.
+    + apply IHtrace in H0 as [new_cstate H0]; auto.
+      exists new_cstate.
+      rewrite_environment_equiv. cbn. assumption.
+    + inversion eval.
+      * apply IHtrace in H0 as [new_cstate H0]; auto.
+        exists new_cstate.
+        rewrite_environment_equiv. cbn. assumption.
+      * apply IHtrace in H0 as [new_cstate H0]; auto.
+        exists new_cstate.
+        rewrite_environment_equiv. cbn.
+        destruct_address_eq; auto. subst.
+        apply contract_states_deployed in H0 as [wc' H0].
+        -- congruence.
+        -- eapply reachable_trans; eauto.
+      * destruct (address_eqb addr to_addr) eqn:address_eq.
+        -- exists new_state.
+           rewrite_environment_equiv. cbn.
+           destruct_address_eq; easy.
+        -- apply IHtrace in H0 as [new_cstate H0]; auto.
+           exists new_cstate.
+           rewrite_environment_equiv. cbn.
+           destruct_address_eq; easy.
+    + apply IHtrace in H0 as [new_cstate H0]; auto.
+      exists new_cstate.
+      rewrite_environment_equiv. cbn. assumption.
+    + apply IHtrace in H0 as [new_cstate H0]; auto.
+      exists new_cstate.
+      inversion prev_next. cbn. assumption.
+Qed.  
+
 
 Lemma finalized_heigh_chain_height : forall bstate,
   reachable bstate ->
