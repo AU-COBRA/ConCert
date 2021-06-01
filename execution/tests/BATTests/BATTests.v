@@ -107,11 +107,12 @@ Definition forAllChainState_implication {prop : Type}
   forAll (gTrace init_lc maxLength)
   (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
 
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) (at level 50).
 Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
 Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
   (reachableFrom_implies_chaintracePropSized 10 lc (gTokenChain 2) pf1 pf2) (at level 90, left associativity).
-Notation "'{{' P '}}' '==>' '{{' Q '}}'" := (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60).
+Notation "'{{' P '}}'" := (forAllTokenChainStates 7 P) (at level 60, no associativity).
+Notation "'{{' P '}}' '==>' '{{' Q '}}'" := (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60, left associativity).
+Notation "'{{' P '}}' c '{{' Q '}}'" := (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
 
 
 
@@ -892,7 +893,7 @@ Definition contract_balance_lower_bound (cs : ChainState) :=
    The number of refundable tokens is the total_supply - init_supply, i.e. all tokens created
     by users funding the project.
 *)
-(* QuickChick (forAllTokenChainStates 7 contract_balance_lower_bound). *)
+(* QuickChick ({{contract_balance_lower_bound}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 Definition contract_balance_lower_bound' (cs : ChainState) :=
@@ -915,7 +916,7 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
     there is a way that some of the initial supply can be refunded, which then it implies
     that there can be cases where a real user will not be able to get a refund should the funding fail.
 *)
-(* QuickChick (forAllTokenChainStates 7 contract_balance_lower_bound'). *)
+(* QuickChick ({{contract_balance_lower_bound'}}). *)
 (*
 Chain{|
 Block 1 [
@@ -1045,7 +1046,7 @@ Definition can_always_fully_refund (cs : ChainState) :=
    Thus if "contract_balance * exchange_rate <= total_supply - batFund_tokens" then it should be
     possible to withdraw the entire contract balance.
 *)
-(* QuickChick (forAllTokenChainStates 7 can_always_fully_refund). *)
+(* QuickChick ({{can_always_fully_refund}}). *)
 (*
 Chain{|
 Block 1 [
@@ -1292,7 +1293,7 @@ Definition total_supply_bounds (cs : ChainState) :=
     1) larger than or equal to the inital supply
     2) less than or equal to the funding cap
 *)
-(* QuickChick (forAllTokenChainStates 7 total_supply_bounds). *)
+(* QuickChick ({{total_supply_bounds}}). *)
 (*
 Chain{|
 Block 1 [
@@ -1439,7 +1440,7 @@ Definition total_supply_eq_sum_balances (cs : ChainState) :=
   end.
 (* Check that total supply of tokens is always equal
     to the sum of all token balances *)
-(* QuickChick (forAllTokenChainStates 7 total_supply_eq_sum_balances). *)
+(* QuickChick ({{total_supply_eq_sum_balances}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
@@ -1455,7 +1456,7 @@ Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
     is a multiple of exchange rate. We have seen that this isn't the
     case when refunding is allowed, thus we only test this property
     in the funding period *)
-(* QuickChick (forAllTokenChainStates 7 paid_tokens_modulo_exchange_rate). *)
+(* QuickChick ({{paid_tokens_modulo_exchange_rate}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
