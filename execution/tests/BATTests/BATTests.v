@@ -967,6 +967,58 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 (* +++ Passed 500 tests (2566 discards) *)
 
 
+Definition partially_funded_cb :=
+  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  [
+    build_act creator (Blockchain.act_transfer person_1 10);
+    build_act creator (Blockchain.act_transfer person_2 7);
+    build_act creator (Blockchain.act_transfer person_3 6);
+    build_act creator (Blockchain.act_transfer person_4 10);
+    build_act creator deploy_bat;
+    build_act person_1 (Blockchain.act_call contract_base_addr 1 ((@serialize BAT.Msg _) create_tokens))
+  ]).
+Definition is_fully_refunded :=
+  fun cs =>
+    let contract_balance := env_account_balances cs contract_base_addr in
+      match get_contract_state State cs contract_base_addr with
+      | Some state => (negb state.(isFinalized)) && (state.(fundingEnd) <? cs.(current_slot))%nat && Z.eqb contract_balance 0
+      | None => false
+      end.
+(* Check that it is possible to fully refund from a state
+    where at least one token was created
+    i.e. contract balance = 0 and token not funded.
+   Note that this does not mean that the correct people got refunds
+   the tests only states that all money put into the contract was
+   refunded, i.e. no money get stuck in the contract *)
+(* QuickChick (partially_funded_cb ~~> is_fully_refunded). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Block 2 [
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 14%256 3)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 4, create_tokens)}];
+Block 3 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 4, create_tokens)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 12%256 0)}];
+Block 4 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer_from 14%256 17%256 0)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 11%256 0)}];
+Block 5 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 3, create_tokens)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 2, create_tokens)}];
+Block 6 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}];|}
+
+Success - found witness satisfying the predicate!
++++ Failed (as expected) after 13 tests and 0 shrinks. (0 discards)
+*)
 
 
 Definition is_finalized :=
