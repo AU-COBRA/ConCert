@@ -1020,6 +1020,166 @@ Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 13 tests and 0 shrinks. (0 discards)
 *)
 
+Definition can_always_fully_refund (cs : ChainState) :=
+  let no_actions_from_contract := fold_left (fun b action => b && (negb (address_is_contract (act_from action)))) (chain_state_queue cs) true in
+  let contract_balance := env_account_balances cs contract_base_addr in
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate =>
+    let contract_balance_correct := Z.leb (contract_balance * Z.of_N cstate.(tokenExchangeRate)) (Z.of_N ((total_supply cstate) - initSupply)) in
+      if no_actions_from_contract
+      then
+        if cstate.(isFinalized)
+        then checker true
+        else checker contract_balance_correct
+      else checker true
+  | None => checker true
+  end.
+(* Above we showed that it is possible to completely empty the contract balance,
+    however the ideally it should always be possible to empty the contract balance.
+   If not then it would mean that money could get stuck contract implying that some
+    funded money may not be refundable.
+   We know that all accounts except batFund should be able to refund so the amount of balance
+    that we should be able to withdraw is the total number of tokens held by all accounts except
+    for those held by batFund (initial supply).
+   Thus if "contract_balance * exchange_rate <= total_supply - batFund_tokens" then it should be
+    possible to withdraw the entire contract balance.
+*)
+(* QuickChick (forAllTokenChainStates 7 can_always_fully_refund). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 17%256 4)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 3, create_tokens)}];
+Block 3 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 4, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 14%256 10)}];
+Block 4 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 17%256 13%256 3)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 14%256 11)}];
+Block 5 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 17%256 17%256 7)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Block 6 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 13%256 14%256 5)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
+
+ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: }
+*** Failed after 2 tests and 0 shrinks. (0 discards)
+*)
+(*
+  We can see from the above counter example that this property does not hold, but what goes wrong?
+  Looking at state before block 6 we have
+    contract_balance      = 3 + 4 + 1 = 8
+    total_supply          = 20 + 3*8  = 44
+    balance of account 14 = 3*3 + 1*3 = 12
+  Then account 13 transfer 5 to account 14 and the state is now
+    contract_balance      = 3 + 4 + 1     = 8
+    total_supply          = 20 + 3*8      = 44
+    balance of account 14 = 3*3 + 1*3 + 5 = 17
+  So far the condition holds since "(3*8) <= (44 - 20)"
+  Then account 14 asks for a refund after which the state is
+    contract_balance      = 3 + 4 + 1 - 5 = 3
+    total_supply          = 20 + 3*8 - 17 = 27
+    balance of account 14 = 3*3 + 1*3 + 5 = 0
+  Which leads to the condition not holding anymore since "(3*3 <= 27 -20)" does not hold
+  So we can see that it went wrong because it refunded 17 tokens and 17 % exhange_rate(3) = 2
+    so 2 tokens got deleted without being refunded and therefore the balance associated with
+    those 2 tokens and 1 other token in another account wont be able to be refunded.
+*)
+
+Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
+  match (chain_state_queue cs) with
+  | [] => true
+  | act :: _ =>
+    match act.(act_body) with
+    | Blockchain.act_call _ _ ser_msg =>
+      match @deserialize Msg _ ser_msg with
+      | Some (tokenMsg (EIP20Token.transfer _ amount)) => N.eqb 0 (N.modulo amount _exchangeRate)
+      | Some (tokenMsg (EIP20Token.transfer_from _ _ amount)) => N.eqb 0 (N.modulo amount _exchangeRate)
+      | _ => true
+      end
+    | _ => true
+    end
+  end.
+(* As shown above if a transfer of some amount where "amount % exchange_rate != 0" then
+    it is not possible to empty the contract balance.
+   We now test if it is possible when no such transfers occur
+*)
+(* QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2) only_transfers_modulo_exhange_rate can_always_fully_refund). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 4, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 14%256 12)}];
+Block 3 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 14%256 12)}];
+Block 4 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 2, create_tokens)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 15)}];
+Block 5 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 9)}];
+Block 6 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 5, refund)}];|}
+
+ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 16%256 2)}}
+*)
+(*
+  We see that the test fails since the contract allowed 5 to be paid on a refund call.
+  Those 5 are then not tied to any tokens and since refunding is the only way to withdraw
+    from the contract balance therefore those 5 cannot be withdrawn ever (assuming funding fails).
+*)
+
+Definition only_create_tokens_payable (cs : ChainState) : bool :=
+  match (chain_state_queue cs) with
+  | [] => true
+  | act :: _ =>
+    match act.(act_body) with
+    | Blockchain.act_call _ amount ser_msg =>
+      match @deserialize Msg _ ser_msg with
+      | Some (create_tokens) => true
+      | _ => Z.eqb amount 0
+      end
+    | _ => true
+    end
+  end.
+(* As shown above if a transfer of some amount where "amount % exchange_rate != 0" or
+    any other call than create_tokens is payable then it is not possible to empty the contract balance.
+   We now test if it is possible when no such transfers occur and only create_tokens call is payable.
+*)
+(*
+Extract Constant defNumTests    => "500".
+Extract Constant defNumDiscards => "20000".
+ QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2)
+            (fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs)
+            can_always_fully_refund).
+Extract Constant defNumTests    => "10000".
+Extract Constant defNumDiscards => "(2 * defNumTests)".
+*)
+(* +++ Passed 500 tests (14410 discards) *)
+
+
+
+
+
+
+
+
+
+
 
 Definition is_finalized :=
   fun cs => 
