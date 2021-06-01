@@ -27,8 +27,21 @@ Existing Instance BATPrinters.showMsg.
 
 Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
 Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
+Definition initSupply : N := 20%N.
+Definition _fundingStart := 0.
+Definition _fundingEnd := 5.
+Definition _exchangeRate := 3%N.
+Definition _tokenCap := 101%N.
+Definition _tokenMin := 63%N.
 
-Definition bat_setup := BAT.build_setup (20%N) ethFund batFund 0 5 (3%N) (101%N) (63%N).
+Definition bat_setup := BAT.build_setup initSupply
+                                        ethFund
+                                        batFund
+                                        _fundingStart
+                                        _fundingEnd
+                                        _exchangeRate
+                                        _tokenCap
+                                        _tokenMin.
 Definition deploy_bat := create_deployment 0 BAT.contract bat_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
