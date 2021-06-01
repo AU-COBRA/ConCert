@@ -1240,10 +1240,45 @@ Definition can_only_finalize_once :=
 (* +++ Passed 10000 tests (0 discards) *)
 
 
+Definition final_implies_total_supply_in_range :=
+  let total_supply_in_range cs :=
+    match get_contract_state State cs contract_base_addr with
+    | Some state => (_tokenMin <=? (total_supply state)) && ((total_supply state) <=? _tokenCap)
+    | None => false
+    end in
+  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
+            ===> (fun _ _ post_trace => checker
+                  (fold_left (fun a (chainState : ChainState) => a && (total_supply_in_range chainState) ) post_trace true))}.
+(* Check that once finalized then total supply of tokens is:
+    1) at least _tokenMin
+    2) no bigger than _tokenCap *)
+(* QuickChick final_implies_total_supply_in_range. *)
+(* +++ Passed 10000 tests (5620 discards) *)
 
+Definition final_implies_total_supply_constant :=
+  let get_satisfying_state trace := last trace empty_state in
+  let get_total_supply cs :=
+    match get_contract_state State cs contract_base_addr with
+    | Some state => total_supply state
+    | None => 0
+    end in
+  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
+            ===> (fun _ pre_trace post_trace =>
+                 let finalized_total_supply := get_total_supply (get_satisfying_state pre_trace) in
+                  checker
+                  (fold_left (fun a (chainState : ChainState) => a && (get_total_supply chainState =? finalized_total_supply) ) post_trace true))}.
+(* Check that once finalized then total supply of tokens does not change *)
+(* QuickChick final_implies_total_supply_constant. *)
+(* +++ Passed 10000 tests (5543 discards) *)
 
-
-
-
+Definition final_implies_contract_balance_is_zero :=
+  let contract_balance cs := env_account_balances cs contract_base_addr in
+  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
+            ===> (fun _ _ post_trace =>
+                    checker
+                    (fold_left (fun a (chainState : ChainState) => a && (0 =? contract_balance chainState)%Z) post_trace true))}.
+(* Check that once finalized then the contract balance is 0 *)
+(* QuickChick final_implies_contract_balance_is_zero. *)
+(* +++ Passed 10000 tests (5568 discards) *)
 
 
