@@ -178,10 +178,10 @@ Definition gBATActionInvalid (env : Environment) : GOpt Action :=
 (* BAT call generator
    Has a 7% chance to attempt to generate an invalid contract call
     More specifically it has:
-    - 0.2% chance of generating a valid call and then replacing the amount of money sent with that call.
+    - 0.5% chance of generating a valid call and then replacing the amount of money sent with that call.
       For BAT contract this is likely to result in an invalid call as most contract calls on BAToken are 
       not allowed to include money in them.
-    - 6.8% chance of using the invalid action generator. This generator is likely to generate an invalid call
+    - 6.5% chance of using the invalid action generator. This generator is likely to generate an invalid call
       since it treats the contract as a black box and thus does not check any of the expected requirements for
       a contract call to be valid.
     The reamaining 90% of the time it will generate a call that is guaranteed to be valid (only guaranteed to
@@ -191,7 +191,7 @@ Definition gBATActionInvalid (env : Environment) : GOpt Action :=
 Definition gBATAction (env : Environment) : GOpt Action :=
   state <- returnGen (get_contract_state BAT.State env contract_addr) ;;
   freq [
-    (2, bindGenOpt (gBATActionValid env)
+    (5, bindGenOpt (gBATActionValid env)
         (fun '(action) =>
           match action.(act_body) with
           | Blockchain.act_transfer _ _ => returnGen None
@@ -201,7 +201,7 @@ Definition gBATAction (env : Environment) : GOpt Action :=
             returnGenSome (build_act action.(act_from) (Blockchain.act_call to amount msg))
           end
         ));
-    (68, gBATActionInvalid env);
+    (65, gBATActionInvalid env);
     (930, gBATActionValid env)
   ].
 

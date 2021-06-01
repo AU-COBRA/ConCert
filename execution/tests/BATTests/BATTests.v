@@ -1285,3 +1285,174 @@ Definition final_implies_contract_balance_is_zero :=
 (* +++ Passed 10000 tests (5568 discards) *)
 
 
+
+(* -------------------- total_supply tests -------------------- *)
+Definition total_supply_bounds (cs : ChainState) :=
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate => checker ((initSupply <=? (total_supply cstate)) && ((total_supply cstate) <=? _tokenCap))
+  | None => checker true
+  end.
+(* Check that total supply of tokens is always
+    1) larger than or equal to the inital supply
+    2) less than or equal to the funding cap
+*)
+(* QuickChick (forAllTokenChainStates 7 total_supply_bounds). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 16%256 7)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 4, create_tokens)}];
+Block 3 [
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 12%256 8)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 9, create_tokens)}];
+Block 4 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, approve 14%256 4)}];
+Block 5 [
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 16%256 17%256 3)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 15%256 16)}];
+Block 6 [
+Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
+
+ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: Action{act_from: 128%256, act_body: (act_transfer 14%256, 9)}}
+*** Failed after 27 tests and 0 shrinks. (0 discards)
+*)
+(*
+  As we can see in the above counter example the property does not hold
+  If we look at the state at the end of block 5 we have
+    contract balance = 14
+    total supply     = 62
+    token balances:
+      17 --> 8
+      16 --> 4
+      15 --> 16
+      14 --> 27
+      12 --> 7
+  After that account 15 requests a refund, it can do so sinces funding end is block 5
+  and minimum limit for funding is 63. After refunding account 15 the state is
+    contract balance = 9
+    total supply     = 46
+    token balances:
+      17 --> 8
+      16 --> 4
+      15 --> 0
+      14 --> 27
+      12 --> 7
+  Next account 14 also requests a refund, after refunding the state is
+    contract balance = 0
+    total supply     = 19
+    token balances:
+      17 --> 8
+      16 --> 4
+      15 --> 0
+      14 --> 0
+      12 --> 7
+  Here the property breaks since initial supply is 20 and "20 <= 19" does not hold.
+  So it is possible for the total supply to drop under the inital supply
+  This is possible beacuse of a combination of the two problems
+    1) batFund can transfer tokens that are not supposed to be refundable to other accounts
+        that can then refund the tokens
+    2) When refunding accounts that have a token balance such that "tokens % exchange_rate != 0"
+        then some tokens are refunded without their blockchain balance being refunded
+  The "problem" is then that if batFund transfers an amount to another account then that amount
+  could potentially be refunded meaning that more tokens were refunded than created.
+  However in most cases they cannot be refunded because there wont be enough balance in the
+  contract to refund those tokens that batFund transfered. However if some account that has a
+  token balance such that "tokens % exchange_rate != 0" requests a refund then some
+  "tokens % exchange_rate" tokens will be deleted without withdrawing the associated blockchain
+  balance meaning that it is now possible to refund "tokens % exchange_rate" of the tokens that
+  batFund transfered that should not be refundable.
+*)
+
+(* We saw that the property does not hold always,
+    we now test if it holds when either batFund makes no transfers
+    or no transfers are of an amount such that "amount % exchange_rate != 0". *)
+(*
+Extract Constant defNumTests    => "5000".
+Extract Constant defNumDiscards => "30000".
+ QuickChick (forAllChainState_implication
+                7 token_cb (gTokenChain 2)
+                no_transfers_from_bat_fund
+                total_supply_bounds).
+Extract Constant defNumTests    => "10000".
+Extract Constant defNumDiscards => "(2 * defNumTests)".
+*)
+(* +++ Passed 5000 tests (13073 discards) *)
+(*
+Extract Constant defNumDiscards => "30000".
+ QuickChick (forAllChainState_implication
+                7 token_cb (gTokenChain 2)
+                only_transfers_modulo_exhange_rate
+                total_supply_bounds).
+Extract Constant defNumDiscards => "(2 * defNumTests)".
+*)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 5, create_tokens)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 2, create_tokens)}];
+Block 3 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 2, create_tokens)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Block 4 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 11%256 0)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 13%256 9)}];
+Block 5 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Block 6 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
+Action{act_from: 12%256, act_body: (act_call 128%256, 1, refund)}];
+Block 7 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer_from 17%256 13%256 3)}];
+Block 8 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 11%256 0)}];|}
+
+ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0}, contract states:...}, queue: }
+*** Failed after 298 tests and 0 shrinks. (8878 discards)
+*)
+(*
+  As we can see above the property also fails if refund is called with a non zero amount
+    and batFund made a transfer
+*)
+(*
+Extract Constant defNumTests    => "1000".
+Extract Constant defNumDiscards => "30000".
+ QuickChick (forAllChainState_implication
+                7 token_cb (gTokenChain 2)
+                (fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs)
+                total_supply_bounds).
+Extract Constant defNumTests    => "10000".
+Extract Constant defNumDiscards => "(2 * defNumTests)".
+*)
+(* +++ Passed 1000 tests (14182 discards) *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
