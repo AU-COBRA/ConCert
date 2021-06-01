@@ -93,11 +93,6 @@ Definition pre_post_assertion_token P c Q :=
   let trace_length := 7 in
   pre_post_assertion_new trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
 
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
-Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
-Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implies_chaintracePropSized 10 lc (gTokenChain 2) pf1 pf2) (at level 90, left associativity).
-
 Definition forAllChainState_implication {prop : Type}
                            `{Checkable prop}
                             (maxLength : nat)
@@ -111,6 +106,12 @@ Definition forAllChainState_implication {prop : Type}
      snd (fold_left (fun '(b, checkers) state => (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in 
   forAll (gTrace init_lc maxLength)
   (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
+
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) (at level 50).
+Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
+Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
+  (reachableFrom_implies_chaintracePropSized 10 lc (gTokenChain 2) pf1 pf2) (at level 90, left associativity).
+Notation "'{{' P '}}' '==>' '{{' Q '}}'" := (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60).
 
 
 
@@ -960,7 +961,7 @@ Definition no_transfers_from_bat_fund (cs : ChainState) : bool :=
 (*
 Extract Constant defNumTests    => "3000".
 Extract Constant defNumDiscards => "20000".
- QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2) no_transfers_from_bat_fund contract_balance_lower_bound').
+ QuickChick ({{no_transfers_from_bat_fund}} ==> {{contract_balance_lower_bound'}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
@@ -1111,7 +1112,7 @@ Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
     it is not possible to empty the contract balance.
    We now test if it is possible when no such transfers occur
 *)
-(* QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2) only_transfers_modulo_exhange_rate can_always_fully_refund). *)
+(* QuickChick ({{only_transfers_modulo_exhange_rate}} ==> {{can_always_fully_refund}}). *)
 (*
 Chain{|
 Block 1 [
@@ -1163,9 +1164,7 @@ Definition only_create_tokens_payable (cs : ChainState) : bool :=
 (*
 Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "20000".
- QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2)
-            (fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs)
-            can_always_fully_refund).
+ QuickChick ({{fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs}} ==> {{can_always_fully_refund}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
@@ -1374,20 +1373,14 @@ ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final heigh
 (*
 Extract Constant defNumTests    => "5000".
 Extract Constant defNumDiscards => "30000".
- QuickChick (forAllChainState_implication
-                7 token_cb (gTokenChain 2)
-                no_transfers_from_bat_fund
-                total_supply_bounds).
+ QuickChick ({{no_transfers_from_bat_fund}} ==> {{total_supply_bounds}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (* +++ Passed 5000 tests (13073 discards) *)
 (*
 Extract Constant defNumDiscards => "30000".
- QuickChick (forAllChainState_implication
-                7 token_cb (gTokenChain 2)
-                only_transfers_modulo_exhange_rate
-                total_supply_bounds).
+ QuickChick ({{only_transfers_modulo_exhange_rate}} ==> {{total_supply_bounds}}).
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (*
@@ -1430,10 +1423,7 @@ ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final heigh
 (*
 Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "30000".
- QuickChick (forAllChainState_implication
-                7 token_cb (gTokenChain 2)
-                (fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs)
-                total_supply_bounds).
+ QuickChick ({{fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs}} ==> {{total_supply_bounds}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
