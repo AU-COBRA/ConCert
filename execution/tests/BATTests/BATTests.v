@@ -1182,7 +1182,7 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 
 
 Definition is_finalized :=
-  fun cs => 
+  fun cs =>
     match get_contract_state State cs contract_base_addr with
     | Some state => state.(isFinalized)
     | None => false
@@ -1191,7 +1191,7 @@ Definition is_finalized :=
 (* Check that it is possible to finalize *)
 (* QuickChick (token_cb ~~> is_finalized). *)
 (*
-Chain{| 
+Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
@@ -1222,7 +1222,7 @@ Success - found witness satisfying the predicate!
 *)
 
 Definition final_is_final :=
-  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None) ===> 
+  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None) ===>
     (fun _ _ post_trace => checker (fold_left (fun a (chainState : ChainState) => a && (is_finalized chainState) ) post_trace true))}.
 
 (* Check that once finalized it cannot be undone *)
