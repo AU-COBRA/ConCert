@@ -1442,12 +1442,34 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (* +++ Passed 1000 tests (14182 discards) *)
 
+Definition total_supply_eq_sum_balances (cs : ChainState) :=
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate =>
+    let balances_list := (map snd o FMap.elements) (balances cstate) in
+    let balances_sum : N := fold_left N.add balances_list 0%N in
+      checker ((total_supply cstate) =? balances_sum)
+  | None => checker true
+  end.
+(* Check that total supply of tokens is always equal
+    to the sum of all token balances *)
+(* QuickChick (forAllTokenChainStates 7 total_supply_eq_sum_balances). *)
+(* +++ Passed 10000 tests (0 discards) *)
 
-
-
-
-
-
+Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate =>
+      let paid_tokens := (total_supply cstate) - initSupply in
+      if Nat.leb cs.(current_slot) _fundingEnd
+      then checker (0 =? N.modulo paid_tokens _exchangeRate)
+      else checker true
+  | None => checker true
+  end.
+(* We check that the total supply of tokens minus the inital supply
+    is a multiple of exchange rate. We have seen that this isn't the
+    case when refunding is allowed, thus we only test this property
+    in the funding period *)
+(* QuickChick (forAllTokenChainStates 7 paid_tokens_modulo_exchange_rate). *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 
 
