@@ -32,7 +32,7 @@ Definition _fundingStart := 0.
 Definition _fundingEnd := 5.
 Definition _exchangeRate := 3%N.
 Definition _tokenCap := 101%N.
-Definition _tokenMin := 63%N.
+Definition _tokenMin := 72%N.
 
 Definition bat_setup := BAT.build_setup initSupply
                                         ethFund
@@ -135,8 +135,8 @@ Definition get_chain_finalized (cb : ChainBuilder) : bool :=
    Goal is ~ 2/3 of generated chains are finalized *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
 (*
-  6386 : true
-  3614 : false
+  6877 : true
+  3123 : false
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -149,11 +149,13 @@ Definition get_chain_height (cb : ChainBuilder) : nat :=
    invalid requests so often that it affects chain quality *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_height cb) true)). *)
 (*
-  9270 : 9
-  333 : 8
-  234 : 7
-  144 : 6
-  18 : 5
+  9032 : 9
+  390 : 8
+  376 : 7
+  188 : 6
+  10 : 5
+  2 : 4
+  1 : 3
   1 : 2
   +++ Passed 10000 tests (0 discards)
 *)
@@ -218,37 +220,38 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
   end.
 
 (* Verify spread of tokens after funding period is over.
-   We do this to see it it possible to hit the funding cap. *)
+   We do this to see it it possible to hit the funding cap
+   and how easy it is to do. *)
 (* QuickChick (forAllTokenChainBuilders 6 (fun cb => collect (get_chain_tokens cb) true)). *)
 (*
-  603 : 68
-  590 : 65
-  580 : 71
-  555 : 74
-  533 : 80
-  530 : 59
-  516 : 62
-  493 : 77
-  468 : 83
-  452 : 56
-  450 : 86
-  424 : 89
-  359 : 53
-  346 : 101
-  345 : 95
-  343 : 50
-  333 : 92
-  312 : 98
-  289 : 47
-  243 : 44
-  186 : 41
-  165 : 38
-  91 : 35
-  64 : 32
-  50 : 29
-  33 : 26
-  13 : 23
-  5 : 20
+  919 : 101
+  716 : 86
+  686 : 89
+  642 : 98
+  633 : 83
+  623 : 92
+  619 : 80
+  616 : 95
+  595 : 77
+  535 : 74
+  528 : 71
+  528 : 68
+  404 : 65
+  387 : 62
+  313 : 0
+  311 : 59
+  247 : 56
+  202 : 53
+  174 : 50
+  124 : 47
+  68 : 44
+  54 : 41
+  33 : 38
+  24 : 35
+  10 : 32
+  5 : 29
+  3 : 26
+  1 : 23
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -958,13 +961,13 @@ Definition no_transfers_from_bat_fund (cs : ChainState) : bool :=
    We now test if the above property holds when no such transfers occur
 *)
 (*
-Extract Constant defNumTests    => "500".
+Extract Constant defNumTests    => "3000".
 Extract Constant defNumDiscards => "20000".
  QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2) no_transfers_from_bat_fund contract_balance_lower_bound').
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 500 tests (2566 discards) *)
+(* +++ Passed 3000 tests (7701 discards) *)
 
 
 Definition partially_funded_cb :=
@@ -1161,7 +1164,7 @@ Definition only_create_tokens_payable (cs : ChainState) : bool :=
    We now test if it is possible when no such transfers occur and only create_tokens call is payable.
 *)
 (*
-Extract Constant defNumTests    => "500".
+Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "20000".
  QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2)
             (fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs)
@@ -1169,7 +1172,7 @@ Extract Constant defNumDiscards => "20000".
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 500 tests (14410 discards) *)
+(* +++ Passed 1000 tests (13651 discards) *)
 
 
 
