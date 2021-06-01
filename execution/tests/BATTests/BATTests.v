@@ -1,15 +1,13 @@
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith Strings.String.
+Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
 
 From ConCert Require Import Blockchain.
-From ConCert Require Import LocalBlockchain.
 From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
 From ConCert Require Import Containers.
 From ConCert Require Import BAT.
-From ConCert Require Import ResultMonad.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
@@ -17,7 +15,6 @@ From ConCert.Execution.QCTests Require Import
 
 From Coq Require Import List.
 Import ListNotations.
-Import BoundedN.Stdpp.
 Import LocalBlockchain.
 
 (* -------------------------- Tests of the BAT Implementation -------------------------- *)
