@@ -1173,7 +1173,7 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 
 
 
-(* -------------------- contract balance tests -------------------- *)
+(* -------------------- finalization tests -------------------- *)
 Definition is_finalized :=
   fun cs =>
     match get_contract_state State cs contract_base_addr with
