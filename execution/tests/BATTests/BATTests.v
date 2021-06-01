@@ -1173,21 +1173,13 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 
 
 
-
-
-
-
-
-
-
-
+(* -------------------- contract balance tests -------------------- *)
 Definition is_finalized :=
   fun cs =>
     match get_contract_state State cs contract_base_addr with
     | Some state => state.(isFinalized)
     | None => false
     end.
-
 (* Check that it is possible to finalize *)
 (* QuickChick (token_cb ~~> is_finalized). *)
 (*
@@ -1222,13 +1214,30 @@ Success - found witness satisfying the predicate!
 *)
 
 Definition final_is_final :=
-  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None) ===>
-    (fun _ _ post_trace => checker (fold_left (fun a (chainState : ChainState) => a && (is_finalized chainState) ) post_trace true))}.
-
+  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
+            ===> (fun _ _ post_trace => checker (fold_left (fun a (chainState : ChainState) => a && (is_finalized chainState) ) post_trace true))}.
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
 (* +++ Passed 10000 tests (5512 discards) *)
 
+Definition can_only_finalize_once :=
+  let chain_gen := (gTokenChain 2) token_cb 7%nat in
+  let blocks cb := trace_states_step_block cb.(builder_trace) in
+  let is_finalize action :=
+    match action.(act_body) with
+    | Blockchain.act_call _ _ ser_msg =>
+      match @deserialize Msg _ ser_msg with
+      | Some finalize => 1
+      | _ => 0
+      end
+    | _ => 0
+    end in
+  let finalize_calls' block := fold_left (fun count action => count + is_finalize action) (chain_state_queue block) 0 in
+  let finalize_calls blocks := fold_left (fun count block => count + finalize_calls' block) blocks 0 in
+    forAll chain_gen (fun cb => checker (finalize_calls (blocks cb) <=? 1)).
+(* Check that it is not possible to finalize more than once *)
+(* QuickChick can_only_finalize_once. *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 
 
