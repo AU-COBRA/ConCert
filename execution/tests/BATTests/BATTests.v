@@ -83,6 +83,14 @@ Definition forAllTokenChainBuilders n :=
   let max_acts_per_block := 2 in
   forAllChainBuilder n token_cb (gTokenChain max_acts_per_block).
 
+Definition forAllTokenBlocks n :=
+  let max_acts_per_block := 2 in
+  forAllChainState n token_cb (gTokenChain max_acts_per_block).
+
+Definition forAllTokenChainStates n :=
+  let max_acts_per_block := 2 in
+  forAllChainState_ n token_cb (gTokenChain max_acts_per_block).
+
 Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
   let trace_length := 7 in
@@ -92,6 +100,20 @@ Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
 Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
 Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
   (reachableFrom_implies_chaintracePropSized 10 lc (gTokenChain 2) pf1 pf2) (at level 90, left associativity).
+
+Definition forAllChainState_implication {prop : Type}
+                           `{Checkable prop}
+                            (maxLength : nat)
+                            (init_lc : ChainBuilder)
+                            (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                            (pf : ChainState -> bool)
+                            (implied_prop : ChainState -> prop)
+                            : Checker :=
+  let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (implied_prop cs)) in
+  let map_implication (states : list ChainState) : list Checker :=
+     snd (fold_left (fun '(b, checkers) state => (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in 
+  forAll (gTrace init_lc maxLength)
+  (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
 
 
 
