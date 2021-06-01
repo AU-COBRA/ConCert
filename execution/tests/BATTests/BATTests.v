@@ -872,6 +872,99 @@ Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext) (old_s
 
 
 
+(* -------------------- contract balance tests -------------------- *)
+Definition contract_balance_lower_bound (cs : ChainState) :=
+  let contract_balance := env_account_balances cs contract_base_addr in
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate =>
+    let is_finalized := cstate.(isFinalized) in
+    let contract_balance_correct := Z.geb contract_balance (Z.of_N (((total_supply cstate) - initSupply) / cstate.(tokenExchangeRate))) in
+      if is_finalized
+      then checker true
+      else checker contract_balance_correct
+  | None => checker true
+  end.
+(* Contract balance should always be at least as big as the number of refundable tokens
+    divided by the exhange rate unless the token was successfully funded.
+   If this property does not hold then it implies that there can be cases where a user
+    will not be able to get a refund should the funding fail.
+   The number of refundable tokens is the total_supply - init_supply, i.e. all tokens created
+    by users funding the project.
+*)
+(* QuickChick (forAllTokenChainStates 7 contract_balance_lower_bound). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition contract_balance_lower_bound' (cs : ChainState) :=
+  let contract_balance := env_account_balances cs contract_base_addr in
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate =>
+    let is_finalized := cstate.(isFinalized) in
+    let bat_fund_balance := with_default 0 (FMap.find batFund (balances cstate)) in
+    let contract_balance_correct := Z.geb contract_balance (Z.of_N (((total_supply cstate) - bat_fund_balance) / cstate.(tokenExchangeRate))) in
+      if is_finalized
+      then checker true
+      else checker contract_balance_correct
+  | None => checker true
+  end.
+(* Since the initial supply belonging to the batFund address is not supposed to be refundable
+    we should have a stronger lower bound saying that the contract balance should always be
+    at least as big as the (total_supply - batFund_balance) / exhange_rate
+    unless the token was successfully funded.
+   If this property does not hold but the previous property holds then it implies that
+    there is a way that some of the initial supply can be refunded, which then it implies
+    that there can be cases where a real user will not be able to get a refund should the funding fail.
+*)
+(* QuickChick (forAllTokenChainStates 7 contract_balance_lower_bound'). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 5, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 19)}];|}
+
+ChainState{env: Environment{chain: Chain{height: 2, current slot: 2, final height: 0}, contract states:...}, queue: }
+*** Failed after 1 tests and 0 shrinks. (0 discards)
+*)
+(*
+  We can see from the above counter example that this property does not hold.
+  It breaks because batFund transfers tokens away from its account and those
+    tokens are not associated with any balance in the contract, and therefore
+    the recipient of those tokens will not be able to refund if all other accounts
+    have already refunded since there then wont be enough balance in the contract
+    to refund.
+*)
+
+Definition no_transfers_from_bat_fund (cs : ChainState) : bool :=
+  match (chain_state_queue cs) with
+  | [] => true
+  | act :: _ =>
+    match act.(act_body) with
+    | Blockchain.act_call _ _ ser_msg =>
+      match @deserialize Msg _ ser_msg with
+      | Some (tokenMsg (EIP20Token.transfer _ _)) => negb (address_eqb act.(act_from) batFund)
+      | Some (tokenMsg (EIP20Token.transfer_from from _ _)) => negb (address_eqb from batFund)
+      | _ => true
+      end
+    | _ => true
+    end
+  end.
+(* As shown above if a transfer from batFund occurs then
+    there are not always enough tokens to refund all users tokens.
+   We now test if the above property holds when no such transfers occur
+*)
+(*
+Extract Constant defNumTests    => "500".
+Extract Constant defNumDiscards => "20000".
+ QuickChick (forAllChainState_implication 7 token_cb (gTokenChain 2) no_transfers_from_bat_fund contract_balance_lower_bound').
+Extract Constant defNumTests    => "10000".
+Extract Constant defNumDiscards => "(2 * defNumTests)".
+*)
+(* +++ Passed 500 tests (2566 discards) *)
 
 
 
