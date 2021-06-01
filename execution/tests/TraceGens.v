@@ -494,7 +494,7 @@ Section TraceGens.
     let trace_list := trace_states_step_action trace in
     discard_empty trace_list (conjoin_map printOnFail).
 
-  Definition forAllChainState_ {prop : Type}
+  Definition forAllActionExecution {prop : Type}
                              `{Checkable prop}
                               (maxLength : nat)
                               (init_lc : ChainBuilder)
@@ -554,6 +554,17 @@ Section TraceGens.
           end
         | _ => checker true
         end in
-    forAllChainState_ maxLength init_chain gTrace stepProp.
+    forAllActionExecution maxLength init_chain gTrace stepProp.
+
+  Definition forAllChainState_ {prop : Type}
+                             `{Checkable prop}
+                              (maxLength : nat)
+                              (init_lc : ChainBuilder)
+                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                              (pf : ChainState -> prop)
+                              : Checker :=
+    let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
+    forAll (gTrace init_lc maxLength)
+    (fun cb => discard_empty (trace_states cb.(builder_trace)) (conjoin_map printOnFail)).
 
 End TraceGens.
