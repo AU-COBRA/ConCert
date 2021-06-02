@@ -58,7 +58,8 @@ Definition token_cb :=
 Module TestInfo <: BATGensInfo.
   Definition contract_addr := contract_base_addr.
   Definition accounts := [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
-  Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
+  Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2; 
+                                             person_3; person_4; person_5].
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
 End TestInfo.
@@ -103,7 +104,8 @@ Definition forAllChainState_implication {prop : Type}
                             : Checker :=
   let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (implied_prop cs)) in
   let map_implication (states : list ChainState) : list Checker :=
-     snd (fold_left (fun '(b, checkers) state => (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in 
+     snd (fold_left (fun '(b, checkers) state => 
+      (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in
   forAll (gTrace init_lc maxLength)
   (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
 
@@ -113,14 +115,20 @@ Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
     checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true) in
   let max_acts_per_block := 2%nat in
   let trace_length := 7%nat in
-  reachableFrom_implies_chaintracePropSized trace_length init_cb (gTokenChain max_acts_per_block) P' Q'.
+  reachableFrom_implies_chaintracePropSized trace_length init_cb
+                                            (gTokenChain max_acts_per_block) P' Q'.
 
-Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
+Notation "cb '~~>' pf" :=
+  (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
 Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
   (reachableFrom_implication lc pf1 pf2) (at level 90, left associativity).
 Notation "'{{' P '}}'" := (forAllTokenChainStates 7 P) (at level 60, no associativity).
-Notation "'{{' P '}}' '==>' '{{' Q '}}'" := (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60, left associativity).
-Notation "'{{' P '}}' c '{{' Q '}}'" := (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
+Notation "'{{' P '}}' '==>' '{{' Q '}}'" :=
+  (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60, left associativity).
+Notation "'{{' P '}}' c '{{' Q '}}'" :=
+  (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
+Notation "f '|||' g" := (fun a b => (f a b) || (g a b)) (at level 10).
+Notation "f '&&&' g" := (fun a => (f a) && (g a)) (at level 10).
 
 
 
@@ -202,7 +210,8 @@ Definition action_is_refund (action : Action) : bool :=
   end.
 
 (* Get last state before finalize/refund in a chain *)
-Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to) (default : ChainState) : ChainState :=
+Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to) 
+                                (default : ChainState) : ChainState :=
   match trace with
   | ChainedList.snoc trace' (Blockchain.step_action _ _ act _ _ _ _ _ as step) =>
     if action_is_finalize act
@@ -267,20 +276,22 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
 Local Open Scope N_scope.
 
 Definition fmap_subseteqb {A B} `{countable.Countable A}
-                          (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
+                          (eqb : B -> B -> bool) (fmap : FMap A B) 
+                          (fmap' : FMap A B) : bool :=
   let elements := FMap.elements fmap in
     fold_left (fun b elem => 
                 match FMap.lookup (fst elem) fmap' with
-                | Some v => andb b (eqb (snd elem) v)
+                | Some v => b && (eqb (snd elem) v)
                 | None => false
                 end) elements true.
 
 Definition fmap_eqb {A B} `{countable.Countable A}
                     (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
-  andb (fmap_subseteqb eqb fmap fmap') (fmap_subseteqb eqb fmap' fmap).
+  (fmap_subseteqb eqb fmap fmap') || (fmap_subseteqb eqb fmap' fmap).
 
 Definition fmap_filter_eqb {A B} `{countable.Countable A}
-                           (excluded : list A) (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
+                           (excluded : list A) (eqb : B -> B -> bool) 
+                           (fmap : FMap A B) (fmap' : FMap A B) : bool :=
   let map_filter m l := fold_left (fun map elem => FMap.remove elem map) l m in
   let fmap_filtered := map_filter fmap excluded in
   let fmap'_filtered := map_filter fmap' excluded in
@@ -333,22 +344,26 @@ Definition msg_is_refund (cstate : BAT.State) (msg : BAT.Msg) :=
 
 
 (* Checker failing if amount in a contract call context is not zero *)
-Definition amount_is_zero (chain : Chain) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition amount_is_zero (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                          (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   (checker (cctx.(ctx_amount) =? 0)%Z).
 
 (* Checker failing if amount in a contract call context is 0 or negative *)
-Definition amount_is_positive (chain : Chain) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition amount_is_positive (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                              (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   (checker (cctx.(ctx_amount) >? 0)%Z).
 
 (* Checker failing if result_opt contains actions *)
-Definition produces_no_actions (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition produces_no_actions (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (_, []), _) => checker true
   | _ => checker false
   end.
 
 (* Checker failing if result_opt contains less than or more than one action *)
-Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (_, [a]), _) => checker true
   | _ => checker false
@@ -409,7 +424,7 @@ On Msg: refund
 
 (* EIP messages and create_tokens should not produce any actions *)
 (* QuickChick (
-  {{fun state msg => orb (msg_is_eip_msg state msg) (msg_is_create_tokens state msg)}}
+  {{msg_is_eip_msg ||| msg_is_create_tokens}}
   contract_base_addr
   {{produces_no_actions}}
 ). *)
@@ -417,14 +432,15 @@ On Msg: refund
 
 (* refund and finalize should produce an actions *)
 (* QuickChick (
-  {{fun state msg => orb (msg_is_refund state msg) (msg_is_finalize state msg)}}
+  {{msg_is_refund ||| msg_is_finalize}}
   contract_base_addr
   {{produces_one_action}}
 ). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 (* Chcker failing if any constants in BAT states are changed *)
-Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), _) =>
     let fund_deposit_check := address_eqb old_state.(fundDeposit) new_state.(fundDeposit) in
@@ -434,13 +450,13 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
     let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
     let creation_cap_check := N.eqb old_state.(tokenCreationCap) new_state.(tokenCreationCap) in
     let creation_min_check := N.eqb old_state.(tokenCreationMin) new_state.(tokenCreationMin) in
-      checker (andb fund_deposit_check
-              (andb bat_deposit_check
-              (andb funding_start_check
-              (andb funding_end_check
-              (andb exchange_rate_check
-              (andb creation_cap_check
-                    creation_min_check))))))
+      checker (fund_deposit_check &&
+               bat_deposit_check &&
+               funding_start_check &&
+               funding_end_check &&
+               exchange_rate_check &&
+               creation_cap_check &&
+               creation_min_check)
   (* if 'receive' failed then just discard this test *)
   | _ => checker false
   end.
@@ -455,16 +471,22 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
 
 
 (* -------------------- create_tokens -------------------- *)
-Definition post_create_tokens_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_create_tokens_update_correct (chain : Chain) (cctx : ContractCallContext)
+                                             (old_state : State) (msg : Msg)
+                                             (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), create_tokens) =>
     let amount := cctx.(ctx_amount) in
     let from := cctx.(ctx_from) in
-    let balance_correct := N.eqb (get_balance new_state from) ((get_balance old_state from) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
-    let total_supply_correct := N.eqb (total_supply new_state) ((total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
+    let balance_correct :=
+      N.eqb (get_balance new_state from)
+      ((get_balance old_state from) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
+    let total_supply_correct :=
+      N.eqb (total_supply new_state)
+      ((total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb balance_correct
-                   total_supply_correct))
+    (checker (balance_correct &&
+              total_supply_correct))
   (* if 'receive' failed, or msg is not a create_tokens
      then just discard this test *)
   | _ => checker false
@@ -473,20 +495,23 @@ Definition post_create_tokens_update_correct (chain : Chain) (cctx : ContractCal
 (* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{post_create_tokens_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
     let amount := cctx.(ctx_amount) in
     let current_slot := chain.(current_slot) in
     let amount_valid := Z.leb 0 amount in
     let is_finalized_valid := negb old_state.(isFinalized) in
-    let slot_valid := andb (old_state.(fundingStart) <=? current_slot)%nat (current_slot <=? old_state.(fundingEnd))%nat in
-    let new_token_amount_valid := (total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate)) <=? old_state.(tokenCreationCap) in
+    let slot_valid := (old_state.(fundingStart) <=? current_slot)%nat &&
+                      (current_slot <=? old_state.(fundingEnd))%nat in
+    let new_token_amount_valid := (total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))
+                                  <=? old_state.(tokenCreationCap) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb amount_valid
-             (andb is_finalized_valid
-             (andb slot_valid
-                   new_token_amount_valid))))
+    (checker (amount_valid &&
+              is_finalized_valid &&
+              slot_valid &&
+              new_token_amount_valid))
   (* if 'receive' failed, or msg is not a create_tokens
      then just discard this test *)
   | _ => checker false
@@ -495,17 +520,20 @@ Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old
 (* QuickChick ({{msg_is_create_tokens}} contract_base_addr {{create_tokens_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                                   (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
     let from := cctx.(ctx_from) in
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
-    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
-    let other_balances_unchanged := fmap_filter_eqb [from] N.eqb (balances old_state) (balances new_state) in
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
+                                (allowances old_state) (allowances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb [from] N.eqb
+                                    (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_unchanged
-             (andb allowances_unchanged
-                   other_balances_unchanged)))
+    (checker (is_finalized_unchanged &&
+              allowances_unchanged &&
+              other_balances_unchanged))
   (* if 'receive' failed, or msg is not a create_tokens
      then just discard this test *)
   | _ => checker false
@@ -517,7 +545,8 @@ Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) 
 
 
 (* -------------------- finalize -------------------- *)
-Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                                        (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
     let balance := cctx.(ctx_contract_balance) in
@@ -527,11 +556,11 @@ Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallCont
     let action_to_valid := negb (address_is_contract to) in
     let action_amount_valid := Z.leb amount balance in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_correct
-             (andb action_to_correct
-             (andb action_amount_correct
-             (andb action_to_valid
-                   action_amount_valid)))))
+    (checker (is_finalized_correct &&
+              action_to_correct &&
+              action_amount_correct &&
+              action_to_valid &&
+              action_amount_valid))
   (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
@@ -540,7 +569,8 @@ Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallCont
 (* QuickChick ({{msg_is_finalize}} contract_base_addr {{post_finalize_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                          (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
     let from := cctx.(ctx_from) in
@@ -550,14 +580,17 @@ Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
     (* Finalization should only be allowed if contract not already finalized *)
     let is_finalized_valid := negb old_state.(isFinalized) in
     (* Finalization should only be allowed if funding period is over or we hit the token cap *)
-    let can_finalize_valid := orb (old_state.(fundingEnd) <? current_slot)%nat (N.eqb old_state.(tokenCreationCap) (total_supply old_state)) in
-    (* Finalization should only be allowed if token amount is within valid (tokenCreationMin, tokenCreationCap) range *)
-    let total_supply_valid := andb (N.leb old_state.(tokenCreationMin) (total_supply old_state)) (N.leb (total_supply old_state) old_state.(tokenCreationCap)) in
+    let can_finalize_valid := (old_state.(fundingEnd) <? current_slot)%nat ||
+                              (N.eqb old_state.(tokenCreationCap) (total_supply old_state)) in
+    (* Finalization should only be allowed if token amount
+        is within valid (tokenCreationMin, tokenCreationCap) range *)
+    let total_supply_valid := (N.leb old_state.(tokenCreationMin) (total_supply old_state)) &&
+                              (N.leb (total_supply old_state) old_state.(tokenCreationCap)) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb from_valid
-             (andb is_finalized_valid
-             (andb can_finalize_valid
-                   total_supply_valid))))
+    (checker (from_valid &&
+              is_finalized_valid &&
+              can_finalize_valid &&
+              total_supply_valid))
   (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
@@ -566,19 +599,21 @@ Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
 (* QuickChick ({{msg_is_finalize}} contract_base_addr {{finalize_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_finalize_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_finalize_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                              (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
     (* Finalize should not change allowances *)
-    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
+                                (allowances old_state) (allowances new_state) in
     (* Finalize should not change balances *)
     let balances_unchanged := fmap_eqb N.eqb (balances old_state) (balances new_state) in
     (* Finalize should not change total_supply *)
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb allowances_unchanged
-             (andb balances_unchanged
-                   total_supply_unchanged)))
+    (checker (allowances_unchanged &&
+              balances_unchanged &&
+              total_supply_unchanged))
   (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
@@ -590,7 +625,9 @@ Definition post_finalize_safe (chain : Chain) (cctx : ContractCallContext) (old_
 
 
 (* -------------------- refund -------------------- *)
-Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContext)
+                                      (old_state : State) (msg : Msg)
+                                      (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
     let from := cctx.(ctx_from) in
@@ -599,7 +636,8 @@ Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContex
     let from_bal_new := with_default 0 (FMap.find from (balances new_state)) in
     let eth_to_refund := Z.of_N (from_bal_old / (tokenExchangeRate old_state)) in
     (* Refund should subtract the refunded account balance from total_supply *)
-    let total_supply_correct := N.eqb (total_supply old_state) ((total_supply new_state) + from_bal_old) in
+    let total_supply_correct := N.eqb (total_supply old_state)
+                                ((total_supply new_state) + from_bal_old) in
     (* Refund should set the refunded account balance to 0 *)
     let from_balance_correct := N.eqb from_bal_new 0 in
     (* Refund shoul pay the refunded account *)
@@ -610,12 +648,12 @@ Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContex
     (* Contract should have enough money to refund *)
     let action_amount_valid := Z.leb amount contract_balance in
     whenFail (show old_state ++ nl ++ show cctx ++ nl ++ show result_opt)
-    (checker (andb total_supply_correct
-             (andb from_balance_correct
-             (andb action_to_correct
-             (andb action_amount_correct
-             (andb action_to_valid
-                   action_amount_valid))))))
+    (checker (total_supply_correct &&
+              from_balance_correct &&
+              action_to_correct &&
+              action_amount_correct &&
+              action_to_valid &&
+              action_amount_valid))
   (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
@@ -624,7 +662,8 @@ Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContex
 (* QuickChick ({{msg_is_refund}} contract_base_addr {{post_refund_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                        (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), refund) =>
     let current_slot := chain.(current_slot) in
@@ -639,10 +678,10 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
     (* Refund shoul only be allowed if sender has tokens *)
     let balance_valid := N.ltb 0 from_bal_old in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_valid
-             (andb current_slot_valid
-             (andb total_supply_valid
-                   balance_valid))))
+    (checker (is_finalized_valid &&
+              current_slot_valid &&
+              total_supply_valid &&
+              balance_valid))
   (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
@@ -651,20 +690,23 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
 (* QuickChick ({{msg_is_refund}} contract_base_addr {{refund_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_refund_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_refund_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                            (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), refund) =>
     let from := cctx.(ctx_from) in
     (* Refund should not change isFinalized *)
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
     (* Refund should not change allowances *)
-    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
+                                  (allowances old_state) (allowances new_state) in
     (* Refund should not change other balances than the senders balance *)
-    let other_balances_unchanged := fmap_filter_eqb [from] N.eqb (balances old_state) (balances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb [from] N.eqb
+                                      (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_unchanged
-             (andb allowances_unchanged
-                   other_balances_unchanged)))
+    (checker (is_finalized_unchanged &&
+              allowances_unchanged &&
+              other_balances_unchanged))
   (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
@@ -676,7 +718,9 @@ Definition post_refund_safe (chain : Chain) (cctx : ContractCallContext) (old_st
 
 
 (* -------------------- transfer -------------------- *)
-Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallContext)
+                                        (old_state : State) (msg : Msg)
+                                        (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -692,8 +736,8 @@ Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallCont
                                 then (to_balance_before =? to_balance_after)
                                 else (to_balance_before + tokens =? to_balance_after) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb from_balance_correct
-                   to_balance_correct))
+    (checker (from_balance_correct &&
+              to_balance_correct))
   (* if 'receive' failed, or msg is not a transfer
      then just discard this test *)
   | _ => checker false
@@ -702,7 +746,8 @@ Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallCont
 (* QuickChick ({{msg_is_transfer}} contract_base_addr {{post_transfer_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                          (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -711,8 +756,8 @@ Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
     let from_balance_valid := N.leb tokens from_balance_before in
     let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb amount_valid
-                   from_balance_valid))
+    (checker (amount_valid &&
+              from_balance_valid))
   (* if 'receive' failed, or msg is not a transfer
      then just discard this test *)
   | _ => checker false
@@ -721,19 +766,22 @@ Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
 (* QuickChick ({{msg_is_transfer}} contract_base_addr {{transfer_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                              (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
-    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
-    let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb (balances old_state) (balances new_state) in
+    let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
+                                  (allowances old_state) (allowances new_state) in
+    let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb
+                                      (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_unchanged
-             (andb total_supply_unchanged
-             (andb allowances_unchanged
-                   other_balances_unchanged))))
+    (checker (is_finalized_unchanged &&
+              total_supply_unchanged &&
+              allowances_unchanged &&
+              other_balances_unchanged))
   (* if 'receive' failed, or msg is not a transfer
      then just discard this test *)
   | _ => checker false
@@ -745,7 +793,9 @@ Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext) (old_
 
 
 (* -------------------- transfer_from -------------------- *)
-Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCallContext)
+                                             (old_state : State) (msg : Msg)
+                                             (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
@@ -753,8 +803,12 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
     let to_balance_before := with_default 0 (FMap.find to (balances old_state)) in
     let from_balance_after := with_default 0 (FMap.find from (balances new_state)) in
     let to_balance_after := with_default 0 (FMap.find to (balances new_state)) in
-    let delegate_allowance_before := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances old_state)))) in
-    let delegate_allowance_after := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances new_state)))) in
+    let delegate_allowance_before := with_default 0 (FMap.find delegate
+      (with_default (@FMap.empty (FMap Address TokenValue) _)
+                    (FMap.find from (allowances old_state)))) in
+    let delegate_allowance_after := with_default 0 (FMap.find delegate
+      (with_default (@FMap.empty (FMap Address TokenValue) _)
+                    (FMap.find from (allowances new_state)))) in
     let from_to_same := address_eqb from to in
     let from_balance_correct := if from_to_same
                                 then (from_balance_before =? from_balance_after)
@@ -762,11 +816,12 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
     let to_balance_correct :=   if from_to_same
                                 then (to_balance_before =? to_balance_after)
                                 else (to_balance_before + tokens =? to_balance_after) in
-    let delefate_allowance_correct := delegate_allowance_before =? delegate_allowance_after + tokens in
+    let delefate_allowance_correct := delegate_allowance_before =?
+                                      delegate_allowance_after + tokens in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb from_balance_correct
-             (andb to_balance_correct
-                 delefate_allowance_correct)))
+    (checker (from_balance_correct &&
+              to_balance_correct &&
+              delefate_allowance_correct))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
@@ -775,19 +830,22 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
 (* QuickChick ({{msg_is_transfer_from}} contract_base_addr {{post_transfer_from_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
     let amount := cctx.(ctx_amount) in
     let from_balance_before := with_default 0 (FMap.find from (balances old_state)) in
-    let delegate_allowance_before := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances old_state)))) in
+    let delegate_allowance_before := with_default 0 (FMap.find delegate
+      (with_default (@FMap.empty (FMap Address TokenValue) _)
+                    (FMap.find from (allowances old_state)))) in
     let from_balance_valid := N.leb tokens from_balance_before in
     let delegate_allowance_valid := N.leb tokens delegate_allowance_before in
     let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb amount_valid
-                   from_balance_valid))
+    (checker (amount_valid &&
+              from_balance_valid))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
@@ -796,23 +854,30 @@ Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old
 (* QuickChick ({{msg_is_transfer_from}} contract_base_addr {{transfer_from_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                                   (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
-    let from_allowances_before := with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances old_state)) in
-    let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances new_state)) in
+    let from_allowances_before := with_default (@FMap.empty (FMap Address TokenValue) _)
+                                               (FMap.find from (allowances old_state)) in
+    let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _)
+                                              (FMap.find from (allowances new_state)) in
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
-    let other_allowances_unchanged := fmap_filter_eqb [from] (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
-    let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb from_allowances_before from_allowances_after in
-    let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb (balances old_state) (balances new_state) in
+    let other_allowances_unchanged := fmap_filter_eqb [from]
+                                        (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
+                                        (allowances old_state) (allowances new_state) in
+    let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb
+                                      from_allowances_before from_allowances_after in
+    let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb
+                                      (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_unchanged
-             (andb total_supply_unchanged
-             (andb other_allowances_unchanged
-             (andb other_allowance_unchanged
-                   other_balances_unchanged)))))
+    (checker (is_finalized_unchanged &&
+              total_supply_unchanged &&
+              other_allowances_unchanged &&
+              other_allowance_unchanged &&
+              other_balances_unchanged))
   (* if 'receive' failed, or msg is not a transfer_from
      then just discard this test *)
   | _ => checker false
@@ -824,11 +889,15 @@ Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext) 
 
 
 (* -------------------- approve -------------------- *)
-Definition post_approve_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_update_correct (chain : Chain) (cctx : ContractCallContext)
+                                       (old_state : State) (msg : Msg)
+                                       (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, []), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let from := cctx.(ctx_from) in
-    let delegate_allowance_after := with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances new_state)))) in
+    let delegate_allowance_after := with_default 0 (FMap.find delegate
+      (with_default (@FMap.empty (FMap Address TokenValue) _)
+                    (FMap.find from (allowances new_state)))) in
     let delefate_allowance_correct := delegate_allowance_after =? tokens in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker delefate_allowance_correct)
@@ -840,7 +909,8 @@ Definition post_approve_update_correct (chain : Chain) (cctx : ContractCallConte
 (* QuickChick ({{msg_is_approve}} contract_base_addr {{post_approve_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                         (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let amount := cctx.(ctx_amount) in
@@ -855,23 +925,29 @@ Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state
 (* QuickChick ({{msg_is_approve}} contract_base_addr {{approve_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
+                             (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let from := cctx.(ctx_from) in
-    let from_allowances_before := with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances old_state)) in
-    let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances new_state)) in
+    let from_allowances_before := with_default (@FMap.empty (FMap Address TokenValue) _)
+                                               (FMap.find from (allowances old_state)) in
+    let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _)
+                                              (FMap.find from (allowances new_state)) in
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
-    let other_allowances_unchanged := fmap_filter_eqb [from] (fun fmap fmap' => fmap_eqb N.eqb fmap fmap') (allowances old_state) (allowances new_state) in
-    let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb from_allowances_before from_allowances_after in
+    let other_allowances_unchanged := fmap_filter_eqb [from]
+                                      (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
+                                      (allowances old_state) (allowances new_state) in
+    let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb
+                                      from_allowances_before from_allowances_after in
     let balances_unchanged := fmap_eqb N.eqb (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (andb is_finalized_unchanged
-             (andb total_supply_unchanged
-             (andb other_allowances_unchanged
-             (andb other_allowance_unchanged
-                   balances_unchanged)))))
+    (checker (is_finalized_unchanged &&
+              total_supply_unchanged &&
+              other_allowances_unchanged &&
+              other_allowance_unchanged &&
+              balances_unchanged))
   (* if 'receive' failed, or msg is not a approve
      then just discard this test *)
   | _ => checker false
@@ -888,7 +964,8 @@ Definition contract_balance_lower_bound (cs : ChainState) :=
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
     let is_finalized := cstate.(isFinalized) in
-    let contract_balance_correct := Z.geb contract_balance (Z.of_N (((total_supply cstate) - initSupply) / cstate.(tokenExchangeRate))) in
+    let contract_balance_correct := Z.geb contract_balance
+      (Z.of_N (((total_supply cstate) - initSupply) / cstate.(tokenExchangeRate))) in
       if is_finalized
       then checker true
       else checker contract_balance_correct
@@ -910,7 +987,8 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
   | Some cstate =>
     let is_finalized := cstate.(isFinalized) in
     let bat_fund_balance := with_default 0 (FMap.find batFund (balances cstate)) in
-    let contract_balance_correct := Z.geb contract_balance (Z.of_N (((total_supply cstate) - bat_fund_balance) / cstate.(tokenExchangeRate))) in
+    let contract_balance_correct := Z.geb contract_balance
+      (Z.of_N (((total_supply cstate) - bat_fund_balance) / cstate.(tokenExchangeRate))) in
       if is_finalized
       then checker true
       else checker contract_balance_correct
@@ -985,13 +1063,16 @@ Definition partially_funded_cb :=
     build_act creator (Blockchain.act_transfer person_3 6);
     build_act creator (Blockchain.act_transfer person_4 10);
     build_act creator deploy_bat;
-    build_act person_1 (Blockchain.act_call contract_base_addr 1 ((@serialize BAT.Msg _) create_tokens))
+    build_act person_1 (Blockchain.act_call contract_base_addr 1
+                                            ((@serialize BAT.Msg _) create_tokens))
   ]).
 Definition is_fully_refunded :=
   fun cs =>
     let contract_balance := env_account_balances cs contract_base_addr in
       match get_contract_state State cs contract_base_addr with
-      | Some state => (negb state.(isFinalized)) && (state.(fundingEnd) <? cs.(current_slot))%nat && Z.eqb contract_balance 0
+      | Some state => (negb state.(isFinalized)) &&
+                      (state.(fundingEnd) <? cs.(current_slot))%nat &&
+                      Z.eqb contract_balance 0
       | None => false
       end.
 (* Check that it is possible to fully refund from a state
@@ -1031,11 +1112,14 @@ Success - found witness satisfying the predicate!
 *)
 
 Definition can_always_fully_refund (cs : ChainState) :=
-  let no_actions_from_contract := fold_left (fun b action => b && (negb (address_is_contract (act_from action)))) (chain_state_queue cs) true in
+  let no_actions_from_contract :=
+    fold_left (fun b action => b && (negb (address_is_contract (act_from action))))
+              (chain_state_queue cs) true in
   let contract_balance := env_account_balances cs contract_base_addr in
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
-    let contract_balance_correct := Z.leb (contract_balance * Z.of_N cstate.(tokenExchangeRate)) (Z.of_N ((total_supply cstate) - initSupply)) in
+    let contract_balance_correct := Z.leb (contract_balance * Z.of_N cstate.(tokenExchangeRate))
+                                          (Z.of_N ((total_supply cstate) - initSupply)) in
       if no_actions_from_contract
       then
         if cstate.(isFinalized)
@@ -1110,8 +1194,10 @@ Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
     match act.(act_body) with
     | Blockchain.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
-      | Some (tokenMsg (EIP20Token.transfer _ amount)) => N.eqb 0 (N.modulo amount _exchangeRate)
-      | Some (tokenMsg (EIP20Token.transfer_from _ _ amount)) => N.eqb 0 (N.modulo amount _exchangeRate)
+      | Some (tokenMsg (EIP20Token.transfer _ amount)) =>
+          N.eqb 0 (N.modulo amount _exchangeRate)
+      | Some (tokenMsg (EIP20Token.transfer_from _ _ amount)) =>
+          N.eqb 0 (N.modulo amount _exchangeRate)
       | _ => true
       end
     | _ => true
@@ -1145,7 +1231,8 @@ Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 9)}];
 Block 6 [
 Action{act_from: 14%256, act_body: (act_call 128%256, 5, refund)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 16%256 2)}}
+ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...},
+  queue: Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 16%256 2)}}
 *)
 (*
   We see that the test fails since the contract allowed 5 to be paid on a refund call.
@@ -1173,7 +1260,8 @@ Definition only_create_tokens_payable (cs : ChainState) : bool :=
 (*
 Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "20000".
- QuickChick ({{fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs}} ==> {{can_always_fully_refund}}).
+ QuickChick ({{only_transfers_modulo_exhange_rate &&& only_create_tokens_payable}}
+              ==> {{can_always_fully_refund}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
@@ -1239,8 +1327,10 @@ Definition can_only_finalize_once :=
       end
     | _ => 0
     end in
-  let finalize_calls' block := fold_left (fun count action => count + is_finalize action) (chain_state_queue block) 0 in
-  let finalize_calls blocks := fold_left (fun count block => count + finalize_calls' block) blocks 0 in
+  let finalize_calls' block := fold_left (fun count action => count + is_finalize action)
+                                         (chain_state_queue block) 0 in
+  let finalize_calls blocks := fold_left (fun count block => count + finalize_calls' block)
+                                         blocks 0 in
     forAll chain_gen (fun cb => checker (finalize_calls (blocks cb) <=? 1)).
 (* Check that it is not possible to finalize more than once *)
 (* QuickChick can_only_finalize_once. *)
@@ -1250,7 +1340,8 @@ Definition can_only_finalize_once :=
 Definition final_implies_total_supply_in_range :=
   let total_supply_in_range cs :=
     match get_contract_state State cs contract_base_addr with
-    | Some state => (_tokenMin <=? (total_supply state)) && ((total_supply state) <=? _tokenCap)
+    | Some state => (_tokenMin <=? (total_supply state)) &&
+                    ((total_supply state) <=? _tokenCap)
     | None => false
     end in
   {token_cb ~~~> is_finalized ===> (fun _ cs => total_supply_in_range cs)}.
@@ -1286,7 +1377,8 @@ Definition final_implies_contract_balance_is_zero :=
 (* -------------------- total_supply tests -------------------- *)
 Definition total_supply_bounds (cs : ChainState) :=
   match get_contract_state State cs contract_base_addr with
-  | Some cstate => checker ((initSupply <=? (total_supply cstate)) && ((total_supply cstate) <=? _tokenCap))
+  | Some cstate => checker ((initSupply <=? (total_supply cstate)) &&
+                            ((total_supply cstate) <=? _tokenCap))
   | None => checker true
   end.
 (* Check that total supply of tokens is always
@@ -1318,7 +1410,9 @@ Block 6 [
 Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)};
 Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: Action{act_from: 128%256, act_body: (act_transfer 14%256, 9)}}
+ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, 
+                            contract states:...},
+           queue: Action{act_from: 128%256, act_body: (act_transfer 14%256, 9)}}
 *** Failed after 27 tests and 0 shrinks. (0 discards)
 *)
 (*
@@ -1414,7 +1508,9 @@ Block 8 [
 Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
 Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 11%256 0)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0}, contract states:...}, queue: }
+ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0},
+                            contract states:...},
+           queue: }
 *** Failed after 298 tests and 0 shrinks. (8878 discards)
 *)
 (*
@@ -1424,7 +1520,8 @@ ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final heigh
 (*
 Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "30000".
- QuickChick ({{fun cs => only_transfers_modulo_exhange_rate cs && only_create_tokens_payable cs}} ==> {{total_supply_bounds}}).
+ QuickChick ({{only_transfers_modulo_exhange_rate &&& only_create_tokens_payable}}
+             ==> {{total_supply_bounds}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
