@@ -371,11 +371,11 @@ Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old
 
 
 (* False property: Only create_tokens should be payable *)
-(* QuickChick (
+(* QuickChick (expectFailure (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
   contract_base_addr
   {{amount_is_zero}}
-). *)
+)). *)
 (*
 Chain{|
 Block 1 [
@@ -407,12 +407,22 @@ Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 11%256 0)};
 Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 12%256 0)}];|}
 
 ChainState{
-  env: Environment{chain: Chain{height: 7, current slot: 7, final height: 0}, contract states:...},
+  env: Environment{chain: Chain{height: 7, current slot: 7, final height: 0},
+                   contract states:...},
   queue: Action{act_from: 14%256, act_body: (act_call 128%256, 1, refund)};
          Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}}
 On Msg: refund
-*** Failed after 92 tests and 0 shrinks. (0 discards)
++++ Failed (as expected) after 229 tests and 0 shrinks. (0 discards)
 *)
+(* As we can see above refund is payable even though
+    it shouldn't be. We now check if the property holds
+    for all other messages than create_tokens and refund *)
+(* QuickChick (
+  {{fun state msg => negb ((msg_is_create_tokens ||| msg_is_refund) state msg)}}
+  contract_base_addr
+  {{amount_is_zero}}
+). *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 (* Create_tokens should only accept calls with money in them *)
 (* QuickChick (
@@ -1002,7 +1012,7 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
     there is a way that some of the initial supply can be refunded, which then it implies
     that there can be cases where a real user will not be able to get a refund should the funding fail.
 *)
-(* QuickChick ({{contract_balance_lower_bound'}}). *)
+(* QuickChick (expectFailure ({{contract_balance_lower_bound'}})). *)
 (*
 Chain{|
 Block 1 [
@@ -1016,7 +1026,7 @@ Action{act_from: 12%256, act_body: (act_call 128%256, 5, create_tokens)};
 Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 19)}];|}
 
 ChainState{env: Environment{chain: Chain{height: 2, current slot: 2, final height: 0}, contract states:...}, queue: }
-*** Failed after 1 tests and 0 shrinks. (0 discards)
++++ Failed (as expected) after 7 tests and 0 shrinks. (0 discards)
 *)
 (*
   We can see from the above counter example that this property does not hold.
@@ -1138,7 +1148,7 @@ Definition can_always_fully_refund (cs : ChainState) :=
    Thus if "contract_balance * exchange_rate <= total_supply - batFund_tokens" then it should be
     possible to withdraw the entire contract balance.
 *)
-(* QuickChick ({{can_always_fully_refund}}). *)
+(* QuickChick (expectFailure ({{can_always_fully_refund}})). *)
 (*
 Chain{|
 Block 1 [
@@ -1164,7 +1174,7 @@ Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 13%256 14
 Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
 
 ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: }
-*** Failed after 2 tests and 0 shrinks. (0 discards)
++++ Failed (as expected) after 4 tests and 0 shrinks. (0 discards)
 *)
 (*
   We can see from the above counter example that this property does not hold, but what goes wrong?
@@ -1385,7 +1395,7 @@ Definition total_supply_bounds (cs : ChainState) :=
     1) larger than or equal to the inital supply
     2) less than or equal to the funding cap
 *)
-(* QuickChick ({{total_supply_bounds}}). *)
+(* QuickChick (expectFailure ({{total_supply_bounds}})). *)
 (*
 Chain{|
 Block 1 [
@@ -1413,7 +1423,7 @@ Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
 ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, 
                             contract states:...},
            queue: Action{act_from: 128%256, act_body: (act_transfer 14%256, 9)}}
-*** Failed after 27 tests and 0 shrinks. (0 discards)
+*** Failed (as expected) after 27 tests and 0 shrinks. (0 discards)
 *)
 (*
   As we can see in the above counter example the property does not hold
@@ -1475,7 +1485,7 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 (* +++ Passed 5000 tests (13073 discards) *)
 (*
 Extract Constant defNumDiscards => "30000".
- QuickChick ({{only_transfers_modulo_exhange_rate}} ==> {{total_supply_bounds}}).
+ QuickChick (expectFailure ({{only_transfers_modulo_exhange_rate}} ==> {{total_supply_bounds}})).
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (*
@@ -1511,7 +1521,7 @@ Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 11%256 0)}];|}
 ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0},
                             contract states:...},
            queue: }
-*** Failed after 298 tests and 0 shrinks. (8878 discards)
++++ Failed (as expected) after 93 tests and 0 shrinks. (1340 discards)
 *)
 (*
   As we can see above the property also fails if refund is called with a non zero amount
