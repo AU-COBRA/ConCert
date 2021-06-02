@@ -21,24 +21,25 @@ Import LocalBlockchain.
 
 Existing Instance showBATState.
 Existing Instance BATPrinters.showMsg.
+Existing Instance showBATSetup.
 
 Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
 Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
 Definition initSupply : N := 20%N.
-Definition _fundingStart := 0.
-Definition _fundingEnd := 5.
-Definition _exchangeRate := 3%N.
-Definition _tokenCap := 101%N.
-Definition _tokenMin := 72%N.
+Definition fundingStart_ := 0.
+Definition fundingEnd_ := 5.
+Definition exchangeRate_ := 3%N.
+Definition tokenCap_ := 101%N.
+Definition tokenMin_ := 72%N.
 
 Definition bat_setup := BAT.build_setup initSupply
                                         ethFund
                                         batFund
-                                        _fundingStart
-                                        _fundingEnd
-                                        _exchangeRate
-                                        _tokenCap
-                                        _tokenMin.
+                                        fundingStart_
+                                        fundingEnd_
+                                        exchangeRate_
+                                        tokenCap_
+                                        tokenMin_.
 Definition deploy_bat := create_deployment 0 BAT.contract bat_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -62,6 +63,8 @@ Module TestInfo <: BATGensInfo.
                                              person_3; person_4; person_5].
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
+  Definition accounts_total_balance := 33%Z.
+  Definition trace_length := 7.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
 
@@ -1237,9 +1240,9 @@ Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
     | Blockchain.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some (tokenMsg (EIP20Token.transfer _ amount)) =>
-          N.eqb 0 (N.modulo amount _exchangeRate)
+          N.eqb 0 (N.modulo amount exchangeRate_)
       | Some (tokenMsg (EIP20Token.transfer_from _ _ amount)) =>
-          N.eqb 0 (N.modulo amount _exchangeRate)
+          N.eqb 0 (N.modulo amount exchangeRate_)
       | _ => true
       end
     | _ => true
@@ -1312,8 +1315,7 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 
 
 (* -------------------- finalization tests -------------------- *)
-Definition is_finalized :=
-  fun cs =>
+Definition is_finalized cs :=
     match get_contract_state State cs contract_base_addr with
     | Some state => state.(isFinalized)
     | None => false
@@ -1351,6 +1353,165 @@ Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 126 tests and 0 shrinks. (0 discards)
 *)
 
+Definition can_always_finalize check_setup:=
+  let build_init_cb setup :=
+    TraceGens.add_block (lcb_initial AddrSize)
+    [
+      build_act creator (Blockchain.act_transfer person_1 10);
+      build_act creator (Blockchain.act_transfer person_2 7);
+      build_act creator (Blockchain.act_transfer person_3 6);
+      build_act creator (Blockchain.act_transfer person_4 10);
+      build_act creator (create_deployment 0 BAT.contract setup)
+    ] in
+  forAll gBATSetup
+         (fun setup =>
+            match (build_init_cb setup) with
+            | ResultMonad.Ok init_cb => check_setup setup init_cb ==> (init_cb ~~> is_finalized)
+            | ResultMonad.Err _ => false ==> true
+            end).
+(* We would like that BAToken has the property that it is
+    always possible to successfully fund the token for any
+    setup used when deploying the token *)
+(*
+Extract Constant defNumTests    => "100".
+QuickChick (expectFailure (can_always_finalize (fun _ _ => true))).
+Extract Constant defNumTests    => "10000".
+*)
+(*
+Setup{
+  batFund: 24,
+  fundDeposit: 16%256,
+  batFundDeposit: 17%256,
+  fundingStart: 0,
+  fundingEnd: 0,
+  tokenExchangeRate: 3,
+  tokenCreationCap: 8,
+  tokenCreationMin: 22
+}
++++ Failed (as expected) after 2 tests and 0 shrinks. (0 discards)
+*)
+(* It is clear from the above that it is not possible
+    to fund the token for any setup.
+   It is clear that it failed since the fundingEnd
+   was eqaul to the slot in which the contract was deployed.
+   We now test if it is possible to always fund for setup
+   with a funding period that is not over before it is deployed.
+*)
+Definition funding_period_not_over (setup : Setup) cb :=
+  let current_slot := S (current_slot (env_chain cb)) in
+    Nat.leb current_slot setup.(_fundingEnd).
+(*
+Extract Constant defNumTests    => "100".
+QuickChick (expectFailure (can_always_finalize funding_period_not_over)).
+Extract Constant defNumTests    => "10000".
+*)
+(*
+Setup{
+  initSupply: 5,
+  fundDeposit: 16%256,
+  batFundDeposit: 17%256,
+  fundingStart: 4,
+  fundingEnd: 2,
+  tokenExchangeRate: 1,
+  tokenCreationCap: 13,
+  tokenCreationMin: 5
+}
++++ Failed (as expected) after 4 tests and 0 shrinks. (3 discards)
+*)
+(* From above we can see that asserting that funding period doesn't end
+   before deployment is not enough to guarantee that the token can be funded.
+   It is clear that it failed since the fundingEnd is less than fundingStart.
+   Meaning that the funding period is empty.
+*)
+Definition funding_period_non_empty (setup : Setup) :=
+    Nat.leb setup.(_fundingStart) setup.(_fundingEnd).
+(*
+Extract Constant defNumTests    => "200".
+QuickChick (expectFailure (can_always_finalize
+  (fun setup cb => (funding_period_not_over setup cb) &&
+                   (funding_period_non_empty setup)))).
+Extract Constant defNumTests    => "10000".
+*)
+(*
+Setup{
+  initSupply: 27,
+  fundDeposit: 16%256,
+  batFundDeposit: 17%256,
+  fundingStart: 5,
+  fundingEnd: 5,
+  tokenExchangeRate: 1,
+  tokenCreationCap: 3,
+  tokenCreationMin: 20
+}
++++ Failed (as expected) after 6 tests and 0 shrinks. (7 discards)
+*)
+(* From above we can see that our assertions on setup still does not
+   guarantee that the token can be funded.
+   It is clear that it failed since the initSupply is larger than
+   tokenCreationCap.
+*)
+Definition initial_supply_le_cap (setup : Setup) :=
+    N.leb setup.(_batFund) setup.(_tokenCreationCap).
+(*
+Extract Constant defNumTests    => "200".
+QuickChick (expectFailure (can_always_finalize
+  (fun setup cb => (funding_period_not_over setup cb) &&
+                   (funding_period_non_empty setup) &&
+                   (initial_supply_le_cap setup)))).
+Extract Constant defNumTests    => "10000".
+*)
+(*
+Setup{
+  initSupply: 16,
+  fundDeposit: 16%256,
+  batFundDeposit: 17%256,
+  fundingStart: 0,
+  fundingEnd: 6,
+  tokenExchangeRate: 0,
+  tokenCreationCap: 25,
+  tokenCreationMin: 7
+}
++++ Failed (as expected) after 7 tests and 0 shrinks. (27 discards)
+*)
+(* From above we can see that our assertions on setup still does not
+   guarantee that the token can be funded.
+   It is clear that it failed since the exchange rate is 0
+   meaning that no tokens can be created.
+*)
+Definition exchange_rate_non_zero (setup : Setup) :=
+    N.ltb 0 setup.(_tokenExchangeRate).
+(*
+Extract Constant defNumTests    => "200".
+QuickChick (expectFailure (can_always_finalize
+  (fun setup cb => (funding_period_not_over setup cb) &&
+                   (funding_period_non_empty setup) &&
+                   (initial_supply_le_cap setup) &&
+                   (exchange_rate_non_zero setup)))).
+Extract Constant defNumTests    => "10000".
+*)
+(*
+Setup{
+  initSupply: 27,
+  fundDeposit: 16%256,
+  batFundDeposit: 17%256,
+  fundingStart: 3,
+  fundingEnd: 3,
+  tokenExchangeRate: 17,
+  tokenCreationCap: 30,
+  tokenCreationMin: 28
+}
++++ Failed (as expected) after 4 tests and 0 shrinks. (14 discards)
+*)
+(* From above we can see that our assertions on setup still does not
+   guarantee that the token can be funded.
+   It is clear that it failed since
+   "tokenCreationCap - initSupply < tokenExchangeRate"
+   meaning that no tokens can be created.
+*)
+
+
+
+
 Definition final_is_final :=
   {token_cb ~~~> is_finalized ===> (fun _ cs => is_finalized cs)}.
 (* Check that once finalized it cannot be undone *)
@@ -1382,8 +1543,8 @@ Definition can_only_finalize_once :=
 Definition final_implies_total_supply_in_range :=
   let total_supply_in_range cs :=
     match get_contract_state State cs contract_base_addr with
-    | Some state => (_tokenMin <=? (total_supply state)) &&
-                    ((total_supply state) <=? _tokenCap)
+    | Some state => (tokenMin_ <=? (total_supply state)) &&
+                    ((total_supply state) <=? tokenCap_)
     | None => false
     end in
   {token_cb ~~~> is_finalized ===> (fun _ cs => total_supply_in_range cs)}.
@@ -1420,7 +1581,7 @@ Definition final_implies_contract_balance_is_zero :=
 Definition total_supply_bounds (cs : ChainState) :=
   match get_contract_state State cs contract_base_addr with
   | Some cstate => checker ((initSupply <=? (total_supply cstate)) &&
-                            ((total_supply cstate) <=? _tokenCap))
+                            ((total_supply cstate) <=? tokenCap_))
   | None => checker true
   end.
 (* Check that total supply of tokens is always
@@ -1586,8 +1747,8 @@ Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
       let paid_tokens := (total_supply cstate) - initSupply in
-      if Nat.leb cs.(current_slot) _fundingEnd
-      then checker (0 =? N.modulo paid_tokens _exchangeRate)
+      if Nat.leb cs.(current_slot) fundingEnd_
+      then checker (0 =? N.modulo paid_tokens exchangeRate_)
       else checker true
   | None => checker true
   end.

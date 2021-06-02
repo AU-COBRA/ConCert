@@ -12,6 +12,8 @@ From Coq Require Import List ZArith. Import ListNotations.
 Module Type BATGensInfo.
   Parameter contract_addr : Address.
   Parameter accounts : list Address.
+  Parameter accounts_total_balance : Z.
+  Parameter trace_length : nat.
   Parameter gAccount : Chain -> G Address.
   Parameter bat_addr : Address.
   Parameter fund_addr : Address.
@@ -204,5 +206,21 @@ Definition gBATAction (env : Environment) : GOpt Action :=
     (65, gBATActionInvalid env);
     (930, gBATActionValid env)
   ].
+
+Definition gBATSetup : G Setup :=
+  fundingStart <- choose (0, (trace_length - 1)) ;;
+  fundingEnd <- choose (0, (trace_length - 1)) ;;
+  exchangeRate <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  initSupply <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  tokenMin <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  tokenCap <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  returnGen (BAT.build_setup initSupply
+                             fund_addr
+                             bat_addr
+                             fundingStart
+                             fundingEnd
+                             exchangeRate
+                             tokenCap
+                             tokenMin).
 
 End BATGens.
