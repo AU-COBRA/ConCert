@@ -107,9 +107,17 @@ Definition forAllChainState_implication {prop : Type}
   forAll (gTrace init_lc maxLength)
   (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
 
+Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
+  let P' := fun cs => if P cs then Some true else None in
+  let Q' := fun _ pre_trace post_trace =>
+    checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true) in
+  let max_acts_per_block := 2%nat in
+  let trace_length := 7%nat in
+  reachableFrom_implies_chaintracePropSized trace_length init_cb (gTokenChain max_acts_per_block) P' Q'.
+
 Notation "cb '~~>' pf" := (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
 Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implies_chaintracePropSized 10 lc (gTokenChain 2) pf1 pf2) (at level 90, left associativity).
+  (reachableFrom_implication lc pf1 pf2) (at level 90, left associativity).
 Notation "'{{' P '}}'" := (forAllTokenChainStates 7 P) (at level 60, no associativity).
 Notation "'{{' P '}}' '==>' '{{' Q '}}'" := (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60, left associativity).
 Notation "'{{' P '}}' c '{{' Q '}}'" := (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
@@ -1214,8 +1222,7 @@ Success - found witness satisfying the predicate!
 *)
 
 Definition final_is_final :=
-  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
-            ===> (fun _ _ post_trace => checker (fold_left (fun a (chainState : ChainState) => a && (is_finalized chainState) ) post_trace true))}.
+  {token_cb ~~~> is_finalized ===> (fun _ cs => is_finalized cs)}.
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
 (* +++ Passed 10000 tests (5512 discards) *)
@@ -1246,9 +1253,7 @@ Definition final_implies_total_supply_in_range :=
     | Some state => (_tokenMin <=? (total_supply state)) && ((total_supply state) <=? _tokenCap)
     | None => false
     end in
-  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
-            ===> (fun _ _ post_trace => checker
-                  (fold_left (fun a (chainState : ChainState) => a && (total_supply_in_range chainState) ) post_trace true))}.
+  {token_cb ~~~> is_finalized ===> (fun _ cs => total_supply_in_range cs)}.
 (* Check that once finalized then total supply of tokens is:
     1) at least _tokenMin
     2) no bigger than _tokenCap *)
@@ -1262,21 +1267,16 @@ Definition final_implies_total_supply_constant :=
     | Some state => total_supply state
     | None => 0
     end in
-  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
-            ===> (fun _ pre_trace post_trace =>
-                 let finalized_total_supply := get_total_supply (get_satisfying_state pre_trace) in
-                  checker
-                  (fold_left (fun a (chainState : ChainState) => a && (get_total_supply chainState =? finalized_total_supply) ) post_trace true))}.
+  let finalized_total_supply trace := get_total_supply (get_satisfying_state trace) in
+  {token_cb ~~~> is_finalized
+            ===> (fun pre_trace cs => get_total_supply cs =? finalized_total_supply pre_trace)}.
 (* Check that once finalized then total supply of tokens does not change *)
 (* QuickChick final_implies_total_supply_constant. *)
 (* +++ Passed 10000 tests (5543 discards) *)
 
 Definition final_implies_contract_balance_is_zero :=
-  let contract_balance cs := env_account_balances cs contract_base_addr in
-  {token_cb ~~~> (fun cs => if (is_finalized cs) then Some true else None)
-            ===> (fun _ _ post_trace =>
-                    checker
-                    (fold_left (fun a (chainState : ChainState) => a && (0 =? contract_balance chainState)%Z) post_trace true))}.
+  let contract_balance_empty trace cs := Z.eqb (env_account_balances cs contract_base_addr) 0 in
+  {token_cb ~~~> is_finalized ===> contract_balance_empty}.
 (* Check that once finalized then the contract balance is 0 *)
 (* QuickChick final_implies_contract_balance_is_zero. *)
 (* +++ Passed 10000 tests (5568 discards) *)
