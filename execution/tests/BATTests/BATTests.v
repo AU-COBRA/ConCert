@@ -94,21 +94,6 @@ Definition pre_post_assertion_token P c Q :=
   let trace_length := 7 in
   pre_post_assertion_new trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
 
-Definition forAllChainState_implication {prop : Type}
-                           `{Checkable prop}
-                            (maxLength : nat)
-                            (init_lc : ChainBuilder)
-                            (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                            (pf : ChainState -> bool)
-                            (implied_prop : ChainState -> prop)
-                            : Checker :=
-  let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (implied_prop cs)) in
-  let map_implication (states : list ChainState) : list Checker :=
-     snd (fold_left (fun '(b, checkers) state => 
-      (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in
-  forAll (gTrace init_lc maxLength)
-  (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
-
 Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
   let P' := fun cs => if P cs then Some true else None in
   let Q' := fun _ pre_trace post_trace =>
@@ -453,11 +438,15 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
                                (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), _) =>
+    (* batFund and ethFund addresses should be constants *)
     let fund_deposit_check := address_eqb old_state.(fundDeposit) new_state.(fundDeposit) in
     let bat_deposit_check := address_eqb old_state.(batFundDeposit) new_state.(batFundDeposit) in
+    (* Funding start block and end block should be constants *)
     let funding_start_check := Nat.eqb old_state.(fundingStart) new_state.(fundingStart) in
     let funding_end_check := Nat.eqb old_state.(fundingEnd) new_state.(fundingEnd) in
+    (* Token exchange rate should be a constant *)
     let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
+    (* Minimum and maximum token limits should be constants *)
     let creation_cap_check := N.eqb old_state.(tokenCreationCap) new_state.(tokenCreationCap) in
     let creation_min_check := N.eqb old_state.(tokenCreationMin) new_state.(tokenCreationMin) in
       checker (fund_deposit_check &&
@@ -488,9 +477,11 @@ Definition post_create_tokens_update_correct (chain : Chain) (cctx : ContractCal
   | (Some (new_state, []), create_tokens) =>
     let amount := cctx.(ctx_amount) in
     let from := cctx.(ctx_from) in
+    (* The token balance of from should be increased by amount * exchangerate *)
     let balance_correct :=
       N.eqb (get_balance new_state from)
       ((get_balance old_state from) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
+    (* The total supply field should be increased by amount * exchangerate *)
     let total_supply_correct :=
       N.eqb (total_supply new_state)
       ((total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))) in
@@ -511,10 +502,15 @@ Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old
   | (Some (new_state, _), create_tokens) =>
     let amount := cctx.(ctx_amount) in
     let current_slot := chain.(current_slot) in
+    (* Create_tokens should only return some if amount is larger than zero *)
     let amount_valid := Z.leb 0 amount in
+    (* Create_tokens should be callable if the token is not finalized *)
     let is_finalized_valid := negb old_state.(isFinalized) in
+    (* Create_tokens should be callable if the current slot is in the funding period *)
     let slot_valid := (old_state.(fundingStart) <=? current_slot)%nat &&
                       (current_slot <=? old_state.(fundingEnd))%nat in
+    (* Create_tokens should be callable with an amount that does not cause
+        the total_supply to go over the max tokens cap *)
     let new_token_amount_valid := (total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))
                                   <=? old_state.(tokenCreationCap) in
     whenFail (show old_state ++ nl ++ show result_opt)
@@ -535,9 +531,12 @@ Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) 
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
     let from := cctx.(ctx_from) in
+    (* Create_tokens should not change whether or not the token is finalized *)
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    (* Create_tokens should not change the allowances of any accounts *)
     let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
                                 (allowances old_state) (allowances new_state) in
+    (* Create_tokens must only change the balance of the sender *)
     let other_balances_unchanged := fmap_filter_eqb [from] N.eqb
                                     (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
@@ -558,13 +557,17 @@ Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) 
 Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State)
                                         (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
+  (* finalize should produce a transfer action *)
   | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
-    let balance := cctx.(ctx_contract_balance) in
+    let contract_balance := cctx.(ctx_contract_balance) in
+    (* If finalize returns some then if the token should be finalized *)
     let is_finalized_correct := Bool.eqb new_state.(isFinalized) true in
+    (* The transfer action produced should transfer to the ethFund address *)
     let action_to_correct := address_eqb to ethFund in
-    let action_amount_correct := Z.eqb amount balance in
+    (* The transfer action produced should transfer the entire contract balance *)
+    let action_amount_correct := Z.eqb amount contract_balance in
     let action_to_valid := negb (address_is_contract to) in
-    let action_amount_valid := Z.leb amount balance in
+    let action_amount_valid := Z.leb amount contract_balance in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (is_finalized_correct &&
               action_to_correct &&
@@ -739,9 +742,13 @@ Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallCont
     let from_balance_after := with_default 0 (FMap.find from (balances new_state)) in
     let to_balance_after := with_default 0 (FMap.find to (balances new_state)) in
     let from_to_same := address_eqb from to in
+    (* Transfer must subtract the transfered tokens from the "from" address
+        if the "from <> to" otherwise the balance should remain the same *)
     let from_balance_correct := if from_to_same
                                 then (from_balance_before =? from_balance_after)
                                 else (from_balance_before =? from_balance_after + tokens) in
+    (* Transfer must add the transfered tokens from the "to" address
+        if the "from <> to" otherwise the balance should remain the same *)
     let to_balance_correct :=   if from_to_same
                                 then (to_balance_before =? to_balance_after)
                                 else (to_balance_before + tokens =? to_balance_after) in
@@ -763,7 +770,9 @@ Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
     let from := cctx.(ctx_from) in
     let amount := cctx.(ctx_amount) in
     let from_balance_before := with_default 0 (FMap.find from (balances old_state)) in
+    (* Transfer should only return some if "from" has enough tokens *)
     let from_balance_valid := N.leb tokens from_balance_before in
+    (* Transfer call must not be payable *)
     let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (amount_valid &&
@@ -781,10 +790,14 @@ Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext) (old_
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
+    (* Transfer should not change the finalization state of the token *)
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    (* Transfer should not change the total supply of tokens *)
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
+    (* Transfer must not change the allowances of any account *)
     let allowances_unchanged := fmap_eqb (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
                                   (allowances old_state) (allowances new_state) in
+    (* Transfer must only change the balance of from and to *)
     let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb
                                       (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
@@ -820,12 +833,17 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
       (with_default (@FMap.empty (FMap Address TokenValue) _)
                     (FMap.find from (allowances new_state)))) in
     let from_to_same := address_eqb from to in
+    (* Transfer_from must subtract the transfered tokens from the "from" address
+        if the "from <> to" otherwise the balance should remain the same *)
     let from_balance_correct := if from_to_same
                                 then (from_balance_before =? from_balance_after)
                                 else (from_balance_before =? from_balance_after + tokens) in
+    (* Transfer_from must add the transfered tokens to the "to" address
+        if the "from <> to" otherwise the balance should remain the same *)
     let to_balance_correct :=   if from_to_same
                                 then (to_balance_before =? to_balance_after)
                                 else (to_balance_before + tokens =? to_balance_after) in
+    (* Transfer_from must subtract the number of transfered tokens from the delegates allowance *)
     let delefate_allowance_correct := delegate_allowance_before =?
                                       delegate_allowance_after + tokens in
     whenFail (show old_state ++ nl ++ show result_opt)
@@ -850,8 +868,12 @@ Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old
     let delegate_allowance_before := with_default 0 (FMap.find delegate
       (with_default (@FMap.empty (FMap Address TokenValue) _)
                     (FMap.find from (allowances old_state)))) in
+    (* Transfer_from must only succeed if "from" has enough tokens *)
     let from_balance_valid := N.leb tokens from_balance_before in
+    (* Transfer_from must only succeed if "delegate" is allowed
+        to transfer the requested amount of tokens on behalf of "from" *)
     let delegate_allowance_valid := N.leb tokens delegate_allowance_before in
+    (* Tranfer_from must not be payable*)
     let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (amount_valid &&
@@ -873,13 +895,17 @@ Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext) 
                                                (FMap.find from (allowances old_state)) in
     let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _)
                                               (FMap.find from (allowances new_state)) in
+    (* Transfer_from must not change the finalization state of the token *)
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    (* Transfer_from must not change the total supply of tokens *)
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
+    (* Transfer_from must not change the allowances of other accounts than from *)
     let other_allowances_unchanged := fmap_filter_eqb [from]
                                         (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
                                         (allowances old_state) (allowances new_state) in
     let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb
                                       from_allowances_before from_allowances_after in
+    (* Transfer_from must not change the balances of other accounts than from and to *)
     let other_balances_unchanged := fmap_filter_eqb [from; to] N.eqb
                                       (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
@@ -908,6 +934,7 @@ Definition post_approve_update_correct (chain : Chain) (cctx : ContractCallConte
     let delegate_allowance_after := with_default 0 (FMap.find delegate
       (with_default (@FMap.empty (FMap Address TokenValue) _)
                     (FMap.find from (allowances new_state)))) in
+    (* Approve should update the allowance of "delegate" correctly *)
     let delefate_allowance_correct := delegate_allowance_after =? tokens in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker delefate_allowance_correct)
@@ -924,6 +951,7 @@ Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let amount := cctx.(ctx_amount) in
+    (* Approve must not be payable *)
     let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker amount_valid)
@@ -944,13 +972,17 @@ Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext) (old_s
                                                (FMap.find from (allowances old_state)) in
     let from_allowances_after := with_default (@FMap.empty (FMap Address TokenValue) _)
                                               (FMap.find from (allowances new_state)) in
+    (* Approve must not change the finalization state of the token *)
     let is_finalized_unchanged := Bool.eqb old_state.(isFinalized) new_state.(isFinalized) in
+    (* Transfer_from must not change the total supply of tokens *)
     let total_supply_unchanged := N.eqb (total_supply old_state) (total_supply new_state) in
+    (* Transfer_from must not change the allowances of other accounts than "delegate" *)
     let other_allowances_unchanged := fmap_filter_eqb [from]
                                       (fun fmap fmap' => fmap_eqb N.eqb fmap fmap')
                                       (allowances old_state) (allowances new_state) in
     let other_allowance_unchanged := fmap_filter_eqb [delegate] N.eqb
                                       from_allowances_before from_allowances_after in
+    (* Transfer_from must not change the balances of any accounts *)
     let balances_unchanged := fmap_eqb N.eqb (balances old_state) (balances new_state) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (is_finalized_unchanged &&
@@ -1565,11 +1597,5 @@ Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
     in the funding period *)
 (* QuickChick ({{paid_tokens_modulo_exchange_rate}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
-
-
-
-
-
 
 
