@@ -567,4 +567,19 @@ Section TraceGens.
     forAll (gTrace init_lc maxLength)
     (fun cb => discard_empty (trace_states cb.(builder_trace)) (conjoin_map printOnFail)).
 
+  Definition forAllChainState_implication {prop : Type}
+                             `{Checkable prop}
+                              (maxLength : nat)
+                              (init_lc : ChainBuilder)
+                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                              (pf : ChainState -> bool)
+                              (implied_prop : ChainState -> prop)
+                              : Checker :=
+    let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (implied_prop cs)) in
+    let map_implication (states : list ChainState) : list Checker :=
+       snd (fold_left (fun '(b, checkers) state => 
+        (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in
+    forAll (gTrace init_lc maxLength)
+    (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
+
 End TraceGens.
