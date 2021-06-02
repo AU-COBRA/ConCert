@@ -39,7 +39,7 @@ Definition gFund_amount env state addr : G Z :=
   (choose (1, Z.min (account_balance env addr) (Z.of_N ((state.(tokenCreationCap) - (total_supply state)) / state.(tokenExchangeRate)))))%Z.
 
 Definition gCreateTokens (env : Environment) (state : BAT.State) : GOpt (Address * Amount * Msg) :=
-  let current_slot := current_slot (env_chain env) in
+  let current_slot := S (current_slot (env_chain env)) in
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
           || (Nat.ltb state.(fundingEnd) current_slot) (* Funding can only happen in funding period *)
@@ -57,7 +57,7 @@ Definition gCreateTokensInvalid (env : Environment) (state : BAT.State) : GOpt (
   returnGenSome (from_addr, value, create_tokens).
 
 Definition gRefund (env : Environment) (state : BAT.State) : GOpt (Address * Msg) :=
-  let current_slot := current_slot (env_chain env) in
+  let current_slot := S (current_slot (env_chain env)) in
   let accounts := get_refundable_accounts state in
   if ((state.(isFinalized)
           || (Nat.leb current_slot state.(fundingEnd))
@@ -73,7 +73,7 @@ Definition gRefundInvalid (env : Environment) (state : BAT.State) : G (Address *
   returnGen (from_addr, refund).
 
 Definition gFinalize (env : Environment) (state : BAT.State) : GOpt (Address * Msg) :=
-  let current_slot := current_slot (env_chain env) in
+  let current_slot := S (current_slot (env_chain env)) in
   if (state.(isFinalized) 
         || ((total_supply state) <? state.(tokenCreationMin))%N
         || ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))%N))
