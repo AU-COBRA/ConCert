@@ -665,7 +665,7 @@ Definition wrap_typing_result
   | TypeError te => Err (f te)
   end.
 
-(** ** Erasure for types (PAPER: Figure 1) *)
+(** ** Erasure for types (PAPER: Figure 2) *)
 Equations(noeqns) erase_type
           (Γ : context)
           (erΓ : Vector.t tRel_kind #|Γ|)
