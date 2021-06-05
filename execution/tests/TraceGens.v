@@ -32,6 +32,68 @@ Section TraceGens.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
 
+  Fixpoint trace_blocks {from to} (trace : ChainTrace from to) : list (BlockHeader * list Action) :=
+    match trace with
+    | snoc trace' (Blockchain.step_block _ _ header _ _ _ _ as step) =>
+      trace_blocks trace' ++ [(header, chain_state_queue (snd (chainstep_states step)))]
+    | snoc trace' _ => trace_blocks trace'
+    | clnil => []
+    end.
+
+  Fixpoint build_chain_builder init_cb blocks : result ChainBuilder AddBlockError :=
+    match blocks with
+    | [] => Ok init_cb
+    | (header, acts) :: xs =>
+      let new_header :=
+        {| block_height := S (chain_height init_cb);
+          block_slot := header.(block_slot);
+          block_finalized_height := finalized_height init_cb;
+          block_creator := header.(block_creator);
+          block_reward := header.(block_reward); |} in
+      let new_block_result := builder_add_block init_cb new_header acts in
+        match new_block_result with
+        | Ok cb => build_chain_builder cb xs
+        | Err error => Err error
+        end
+    end.
+
+  Fixpoint rebuild_chains (shrunk_chains : list (list (BlockHeader * list Action))) init_cb : list ChainBuilder :=
+    match shrunk_chains with
+    | [] => []
+    | x :: xs =>
+      let chain_rebuild_result := build_chain_builder init_cb x in
+        match chain_rebuild_result with
+        | Ok cb => cb :: rebuild_chains xs init_cb
+        | Err error => rebuild_chains xs init_cb
+        end
+    end.
+
+  Fixpoint shrinkListAux_ {A} (l : list A) : list (list A) :=
+    match l with
+    | [] => []
+    | x :: xs => xs :: map (fun xs' : list A => x :: xs') (shrinkListAux_ xs)
+    end.
+
+  Fixpoint shrinkChainBuilderAux (blocks : list (BlockHeader * list Action)) : list (list (BlockHeader * list Action)) :=
+    match blocks with
+    | [] => []
+    | block :: blocks' =>
+      let '(header, acts) := block in
+      let acts_shrunk := shrinkListAux_ acts in
+      let block_shrunk := map (fun acts => (header, acts)) acts_shrunk in
+        (map (fun block' => block' :: blocks') block_shrunk) ++
+          map (fun xs => block :: xs) (shrinkChainBuilderAux blocks')
+    end.
+
+  Instance shrinkChainBuilder : Shrink ChainBuilder :=
+  {
+    shrink cb :=
+      let cb_blocks := trace_blocks cb.(builder_trace) in
+      let shrunk_blocks := shrinkChainBuilderAux cb_blocks in
+      let trimmed_blocks := map (fun l => filter (fun '(_, l') => 0 <? length l') l) shrunk_blocks in
+        rebuild_chains trimmed_blocks builder_initial
+  }.
+
   (* Adds a block with 50 money as reward. This will be used for all testing. *)
   Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
@@ -218,8 +280,8 @@ Section TraceGens.
                               (gTrace : ChainBuilder -> nat -> G ChainBuilder)
                               (pf : ChainBuilder -> prop)
                               : Checker :=
-    forAll (gTrace init_lc maxLength)
-    (fun cb => checker (pf cb)).
+    forAllShrink (gTrace init_lc maxLength)
+      shrink (fun cb => checker (pf cb)).
 
   (* Gathers all ChainStates from a ChainTrace in a list, appearing in order. *)
   (* Currently not tail-call optimized. Can be improved if needed. *)
@@ -258,7 +320,7 @@ Section TraceGens.
                               (gTrace : ChainBuilder -> nat -> G ChainBuilder)
                               (pf : ChainState -> prop)
                               : Checker :=
-    forAll (gTrace init_lc maxLength)
+    forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => ChainTrace_ChainTraceProp cb.(builder_trace) pf).
 
   (* Checker combinators on ChainTrace, asserting holds a property on
@@ -284,7 +346,7 @@ Section TraceGens.
           end
       | clnil  => checker true
       end in
-    forAll (gTrace init_lc maxLength)
+    forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => all_statepairs cb.(builder_trace) (last_cstate cb.(builder_trace))).
 
   (* Asserts that a boolean predicate holds for at least one ChainState in the given ChainTrace *)
@@ -317,7 +379,7 @@ Section TraceGens.
                         (reachable_prop : ChainState -> option A)
                         (implied_prop : A -> list ChainState -> list ChainState -> prop)
                         : Checker :=
-  forAll (gTrace init_cb maxLength)
+  forAllShrink (gTrace init_cb maxLength) shrink
   (fun cb =>
     let trace := cb.(builder_trace) in
     let reachable_prop_bool := isSome o reachable_prop in
@@ -496,7 +558,7 @@ Section TraceGens.
                               (gTrace : ChainBuilder -> nat -> G ChainBuilder)
                               (pf : Action -> list Action -> ChainState -> ChainState -> prop)
                               : Checker :=
-    forAll (gTrace init_lc maxLength)
+    forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => ChainTrace_ChainTraceProp_ cb.(builder_trace) pf).
 
   Definition pre_post_assertion_new {Setup Msg State prop : Type}
@@ -559,7 +621,7 @@ Section TraceGens.
                               (pf : ChainState -> prop)
                               : Checker :=
     let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
-    forAll (gTrace init_lc maxLength)
+    forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => discard_empty (trace_states cb.(builder_trace)) (conjoin_map printOnFail)).
 
   Definition forAllChainState_implication {prop : Type}
@@ -574,7 +636,7 @@ Section TraceGens.
     let map_implication (states : list ChainState) : list Checker :=
        snd (fold_left (fun '(b, checkers) state => 
         (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in
-    forAll (gTrace init_lc maxLength)
+    forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
 
 End TraceGens.
