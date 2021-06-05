@@ -80,6 +80,11 @@ Definition chainDebug max_acts_per_block token_cb max_length g :=
   debug_gChain token_cb
     (fun env act_depth => g env) max_length act_depth max_acts_per_block.
 
+Definition chainDebug_ max_acts_per_block token_cb max_length g :=
+  let act_depth := 1 in
+  debug_gChain_ token_cb
+    (fun env act_depth => g env) max_length act_depth max_acts_per_block.
+
 Definition forAllTokenChainBuilders n :=
   let max_acts_per_block := 2 in
   forAllChainBuilder n token_cb (gTokenChain max_acts_per_block).
@@ -127,6 +132,20 @@ Notation "f '&&&' g" := (fun a => (f a) && (g a)) (at level 10).
 
 (* Verify that gBATActionValid only produces valid actions *)
 (* QuickChick (chainDebug 1 token_cb 7 gBATActionValid). *)
+(* QuickChick (forAll (chainDebug_ 1 token_cb 7 gBATActionValid)
+            (fun l => collect l true)). *)
+(*
+8385 :
+363 : Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}
+358 : Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}
+350 : Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}
+336 : Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)}
+112 : Action{act_from: 16%256, act_body: (act_call 128%256, 0, refund)}
+96 : Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)}
++++ Passed 10000 tests (0 discards)
+*)
+
+
 
 (* Get value of isFinalized in last state of a chain *)
 Definition get_chain_finalized (cb : ChainBuilder) : bool :=
@@ -1595,23 +1614,23 @@ ChainState{
     total supply     = 23
     token balances:
       17 --> 18
-	  15 --> 3
-	  13 --> 2
+	    15 --> 3
+	    13 --> 2
   After that account 15 requests a refund, it can do so since funding end is block 5
-  and minimum limit for funding is 63. After refunding account 15 the state is
+  and minimum limit for funding is 72. After refunding account 15 the state is
     contract balance = 0
     total supply     = 20
     token balances:
       17 --> 18
-	  15 --> 0
-	  13 --> 2
+	    15 --> 0
+	    13 --> 2
   Next account 13 also requests a refund, after refunding the state is
     contract balance = 0
     total supply     = 18
     token balances:
       17 --> 18
-	  15 --> 0
-	  13 --> 0
+	    15 --> 0
+	    13 --> 0
   Here the property breaks since initial supply is 20 and "20 <= 18" does not hold.
   So it is possible for the total supply to drop under the inital supply
   This is possible beacuse of a combination of the two problems

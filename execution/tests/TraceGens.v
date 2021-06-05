@@ -208,23 +208,37 @@ Section TraceGens.
                         (act_depth : nat)
                         (max_acts_per_block : nat)
                         : Checker :=
-  let new_env (env : ChainBuilder) :=
-    let header := {| block_height := S (chain_height env);
-        block_slot := S (current_slot env);
-        block_finalized_height := finalized_height env;
-        block_creator := creator;
-        block_reward := 50; |} in
-    add_new_block_to_env header env in
   let fix rec n (lc : ChainBuilder) : Checker :=
     match n with
     | 0 => (checker true) (* If max_length was received without errors the checker should accept *)
     | S n =>
-        acts <- optToVector max_acts_per_block (gActOptFromChainSized (new_env lc) act_depth) ;;
+        acts <- optToVector max_acts_per_block (gActOptFromChainSized lc act_depth) ;;
         match (TraceGens.add_block lc acts) with
             | Ok lc' => rec n lc'
             (* If no new chain could be generated without error, the checker rejects and shows the
                the chain and acts that made the generation fail *)
             | err => whenFail ((show lc) ++ nl ++ (show acts)) (checker false)
+            end
+    end in
+  rec max_length init_lc.
+
+  Definition debug_gChain_
+                        (init_lc : ChainBuilder)
+                        (gActOptFromChainSized : Environment -> nat -> GOpt Action)
+                        (max_length : nat)
+                        (act_depth : nat)
+                        (max_acts_per_block : nat)
+                        : G (list Action) :=
+  let fix rec n (lc : ChainBuilder) : G (list Action) :=
+    match n with
+    | 0 => returnGen [] (* max_length was reached without any errors *)
+    | S n =>
+        acts <- optToVector max_acts_per_block (gActOptFromChainSized lc act_depth) ;;
+        match (TraceGens.add_block lc acts) with
+            | Ok lc' => rec n lc'
+            (* If no new chain could be generated without error, the checker rejects and shows the
+               the chain and acts that made the generation fail *)
+            | err => returnGen acts
             end
     end in
   rec max_length init_lc.
