@@ -357,7 +357,6 @@ Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old
   | _ => checker false
   end.
 
-
 (* False property: Only create_tokens should be payable *)
 (* QuickChick (expectFailure (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
@@ -367,40 +366,22 @@ Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old
 (*
 Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
 Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 2, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 5)}];
-Block 3 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 17%256 0)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)}];
 Block 4 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 13%256 2)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 11%256 13%256 0)}];
-Block 5 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 1, create_tokens)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 8, create_tokens)}];
+Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)}];
 Block 6 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 14%256 5)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)}];
-Block 7 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 1, refund)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}];
-Block 8 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 11%256 0)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer 12%256 0)}];|}
+Action{act_from: 13%256, act_body: (act_call 128%256, 3, refund)}];|}
 
 ChainState{
-  env: Environment{chain: Chain{height: 7, current slot: 7, final height: 0},
-                   contract states:...},
-  queue: Action{act_from: 14%256, act_body: (act_call 128%256, 1, refund)};
-         Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}}
+  env: Environment{
+    chain: Chain{height: 3, current slot: 6, final height: 0},
+    contract states:...
+  },
+  queue: Action{act_from: 13%256, act_body: (act_call 128%256, 3, refund)}
+}
 On Msg: refund
-+++ Failed (as expected) after 229 tests and 0 shrinks. (0 discards)
++++ Failed (as expected) after 13 tests and 15 shrinks. (0 discards)
 *)
 (* As we can see above refund is payable even though
     it shouldn't be. We now check if the property holds
@@ -1051,17 +1032,18 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
 (*
 Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 5, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 11%256 19)}];|}
+Block 6 [
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 16%256 14)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 2, current slot: 2, final height: 0}, contract states:...}, queue: }
-+++ Failed (as expected) after 7 tests and 0 shrinks. (0 discards)
+ChainState{
+  env: Environment{
+    chain: Chain{height: 2, current slot: 6, final height: 0},
+    contract states:...
+  },
+  queue:
+}
++++ Failed (as expected) after 2 tests and 16 shrinks. (0 discards)
 *)
 (*
   We can see from the above counter example that this property does not hold.
@@ -1188,48 +1170,41 @@ Definition can_always_fully_refund (cs : ChainState) :=
 Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 17%256 4)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 3, create_tokens)}];
-Block 3 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 4, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 14%256 10)}];
-Block 4 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 17%256 13%256 3)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 14%256 11)}];
 Block 5 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 17%256 17%256 7)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 1, create_tokens)}];
-Block 6 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 13%256 14%256 5)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
+Action{act_from: 11%256, act_body: (act_call 128%256, 2, create_tokens)}];
+Block 7 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 12%256 4)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...}, queue: }
-+++ Failed (as expected) after 4 tests and 0 shrinks. (0 discards)
+ChainState{
+	env: Environment{
+		chain: Chain{height: 3, current slot: 7, final height: 0},
+		contract states:...
+	},
+	queue:
+}
++++ Failed (as expected) after 8 tests and 13 shrinks. (0 discards)
 *)
 (*
   We can see from the above counter example that this property does not hold, but what goes wrong?
-  Looking at state before block 6 we have
-    contract_balance      = 3 + 4 + 1 = 8
-    total_supply          = 20 + 3*8  = 44
-    balance of account 14 = 3*3 + 1*3 = 12
-  Then account 13 transfer 5 to account 14 and the state is now
-    contract_balance      = 3 + 4 + 1     = 8
-    total_supply          = 20 + 3*8      = 44
-    balance of account 14 = 3*3 + 1*3 + 5 = 17
-  So far the condition holds since "(3*8) <= (44 - 20)"
-  Then account 14 asks for a refund after which the state is
-    contract_balance      = 3 + 4 + 1 - 5 = 3
-    total_supply          = 20 + 3*8 - 17 = 27
-    balance of account 14 = 3*3 + 1*3 + 5 = 0
-  Which leads to the condition not holding anymore since "(3*3 <= 27 -20)" does not hold
-  So we can see that it went wrong because it refunded 17 tokens and 17 % exhange_rate(3) = 2
-    so 2 tokens got deleted without being refunded and therefore the balance associated with
-    those 2 tokens and 1 other token in another account wont be able to be refunded.
+  Looking at state before block 5 we have
+	  contract_balance      			  = 2
+	  total_supply          = 20 + 3*2  = 26
+	  balance of account 11 = 3*2 	  = 6
+  Then account 11 transfer 4 to account 12 and the state is now
+	  contract_balance      			  = 2
+	  total_supply          = 20 + 3*2  = 26
+	  balance of account 11 = 3*2 - 4	  = 2
+  So far the condition holds since "(3*2) <= (26 - 20)"
+  Then account 11 asks for a refund after which the state is
+	  contract_balance      			  = 2
+	  total_supply          = 26 - 2    = 25
+	  balance of account 11 = 2 - 2     = 0
+  Which leads to the condition not holding anymore since "(3*2 <= 25 - 20)" does not hold
+  So we can see that it went wrong because it refunded 2 tokens and 2 % exhange_rate(3) = 2
+  so 2 tokens got deleted without being refunded and therefore the balance associated with
+  those 2 tokens and 1 other token in another account wont be able to be refunded.
 *)
 
 Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
@@ -1592,63 +1567,52 @@ Definition total_supply_bounds (cs : ChainState) :=
 (*
 Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
 Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 16%256 7)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 4, create_tokens)}];
-Block 3 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 12%256 8)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 9, create_tokens)}];
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 13%256 2)}];
 Block 4 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)};
-Action{act_from: 16%256, act_body: (act_call 128%256, 0, approve 14%256 4)}];
-Block 5 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, transfer_from 16%256 17%256 3)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 15%256 16)}];
+Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)}];
 Block 6 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 15%256 3)}];
+Block 7 [
 Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, refund)}];|}
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, 
-                            contract states:...},
-           queue: Action{act_from: 128%256, act_body: (act_transfer 14%256, 9)}}
-*** Failed (as expected) after 27 tests and 0 shrinks. (0 discards)
+ChainState{
+	env: Environment{
+		chain: Chain{height: 5, current slot: 7, final height: 0},
+		contract states:...
+	},
+	queue: Action{act_from: 128%256, act_body: (act_transfer 13%256, 0)}
+}
++++ Failed (as expected) after 26 tests and 11 shrinks. (0 discards)
 *)
 (*
   As we can see in the above counter example the property does not hold
-  If we look at the state at the end of block 5 we have
-    contract balance = 14
-    total supply     = 62
+  If we look at the state at the end of block 6 we have
+    contract balance = 1
+    total supply     = 23
     token balances:
-      17 --> 8
-      16 --> 4
-      15 --> 16
-      14 --> 27
-      12 --> 7
-  After that account 15 requests a refund, it can do so sinces funding end is block 5
+      17 --> 18
+	  15 --> 3
+	  13 --> 2
+  After that account 15 requests a refund, it can do so since funding end is block 5
   and minimum limit for funding is 63. After refunding account 15 the state is
-    contract balance = 9
-    total supply     = 46
-    token balances:
-      17 --> 8
-      16 --> 4
-      15 --> 0
-      14 --> 27
-      12 --> 7
-  Next account 14 also requests a refund, after refunding the state is
     contract balance = 0
-    total supply     = 19
+    total supply     = 20
     token balances:
-      17 --> 8
-      16 --> 4
-      15 --> 0
-      14 --> 0
-      12 --> 7
-  Here the property breaks since initial supply is 20 and "20 <= 19" does not hold.
+      17 --> 18
+	  15 --> 0
+	  13 --> 2
+  Next account 13 also requests a refund, after refunding the state is
+    contract balance = 0
+    total supply     = 18
+    token balances:
+      17 --> 18
+	  15 --> 0
+	  13 --> 0
+  Here the property breaks since initial supply is 20 and "20 <= 18" does not hold.
   So it is possible for the total supply to drop under the inital supply
   This is possible beacuse of a combination of the two problems
     1) batFund can transfer tokens that are not supposed to be refundable to other accounts
@@ -1684,37 +1648,25 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 (*
 Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
 Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 2 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 5, create_tokens)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 2, create_tokens)}];
-Block 3 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 2, create_tokens)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 15%256 3)}];
 Block 4 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 11%256 0)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, approve 13%256 9)}];
-Block 5 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)}];
-Block 6 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 1, refund)}];
+Action{act_from: 14%256, act_body: (act_call 128%256, 3, create_tokens)}];
 Block 7 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer_from 17%256 13%256 3)}];
+Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)}];
 Block 8 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, approve 11%256 0)}];|}
+Action{act_from: 14%256, act_body: (act_call 128%256, 2, refund)}];|}
 
-ChainState{env: Environment{chain: Chain{height: 8, current slot: 8, final height: 0},
-                            contract states:...},
-           queue: }
-+++ Failed (as expected) after 93 tests and 0 shrinks. (1340 discards)
+ChainState{
+  env: Environment{
+    chain: Chain{height: 5, current slot: 8, final height: 0},
+    contract states:...
+  },
+  queue:
+}
++++ Failed (as expected) after 949 tests and 9 shrinks. (12976 discards)
 *)
 (*
   As we can see above the property also fails if refund is called with a non zero amount
