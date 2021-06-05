@@ -196,49 +196,26 @@ Section TraceGens.
       end in
     rec max_length init_lc.
 
-  (* Checker for debugging Action generators.
-     Will accept if it successfully generates a chain of length `max_length with` `max_acts_per_block` acts in each block.
-     If at any point the generator outputs an action that cannot be executed then the checker rejects and shows the act
-     that made the chain generation fail.
-  *)
-  Definition debug_gChain `{Show (list Action)}
+  (* Generator that generates blocks of invalid actions.
+      It will return a ChainBuilder and a list of actions that will
+      cause an error if the actions are added as a new block to the ChainBuilder *)
+  Definition gInvalidAction
                         (init_lc : ChainBuilder)
                         (gActOptFromChainSized : Environment -> nat -> GOpt Action)
                         (max_length : nat)
                         (act_depth : nat)
                         (max_acts_per_block : nat)
-                        : Checker :=
-  let fix rec n (lc : ChainBuilder) : Checker :=
+                        : G (ChainBuilder * list Action) :=
+  let fix rec n (lc : ChainBuilder) : G (ChainBuilder * list Action) :=
     match n with
-    | 0 => (checker true) (* If max_length was received without errors the checker should accept *)
+    | 0 => returnGen (lc, []) (* max_length was reached without any errors *)
     | S n =>
         acts <- optToVector max_acts_per_block (gActOptFromChainSized lc act_depth) ;;
         match (TraceGens.add_block lc acts) with
             | Ok lc' => rec n lc'
             (* If no new chain could be generated without error, the checker rejects and shows the
                the chain and acts that made the generation fail *)
-            | err => whenFail ((show lc) ++ nl ++ (show acts)) (checker false)
-            end
-    end in
-  rec max_length init_lc.
-
-  Definition debug_gChain_
-                        (init_lc : ChainBuilder)
-                        (gActOptFromChainSized : Environment -> nat -> GOpt Action)
-                        (max_length : nat)
-                        (act_depth : nat)
-                        (max_acts_per_block : nat)
-                        : G (list Action) :=
-  let fix rec n (lc : ChainBuilder) : G (list Action) :=
-    match n with
-    | 0 => returnGen [] (* max_length was reached without any errors *)
-    | S n =>
-        acts <- optToVector max_acts_per_block (gActOptFromChainSized lc act_depth) ;;
-        match (TraceGens.add_block lc acts) with
-            | Ok lc' => rec n lc'
-            (* If no new chain could be generated without error, the checker rejects and shows the
-               the chain and acts that made the generation fail *)
-            | err => returnGen acts
+            | err => returnGen (lc, acts)
             end
     end in
   rec max_length init_lc.
