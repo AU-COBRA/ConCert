@@ -32,6 +32,9 @@ Section TraceGens.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
 
+  (* Deconstructs a ChainTrace to a list of blockheaders list of the minimum information
+      needed to reconstruct a ChainTrace, that being a list of block headers and
+      chain_state_queues from each step_block *)
   Fixpoint trace_blocks {from to} (trace : ChainTrace from to) : list (BlockHeader * list Action) :=
     match trace with
     | snoc trace' (Blockchain.step_block _ _ header _ _ _ _ as step) =>
@@ -40,20 +43,29 @@ Section TraceGens.
     | clnil => []
     end.
 
+  (* Reconstructs list of block information (blockheaders and queues) to a ChainBuilder.
+     It trims any empty blocks that can be removed without invalidating execution of
+     the remaining actions.
+     Also removes any actions that cannot be executed *)
   Fixpoint build_chain_builder (init_cb : ChainBuilder) blocks : result ChainBuilder AddBlockError :=
+    (* Instead of using the original header we need override height and finalized_height
+        since the blockchain requires that the height always grows by one and if we trim and keep the
+        height in the original header then the height would increase by two *)
     let new_header header :=
       {| block_height := S (chain_height init_cb);
         block_slot := header.(block_slot);
         block_finalized_height := finalized_height init_cb;
         block_creator := header.(block_creator);
         block_reward := header.(block_reward); |} in
+    (* Remove any actions that are no longer valid due to earlier actions
+        that could have been removed by the shrinker *)
     let try_remove_invalid_acts header acts blocks :=
       let valid_acts := fold_left (fun acts act =>
         match builder_add_block init_cb (new_header header) (acts ++ [act]) with
         | Ok cb => acts ++ [act]
         | Err error => acts
         end ) acts [] in
-      match builder_add_block init_cb (new_header header) valid_acts with
+      match builder_add_block init_cb (new_header header) valid_acts with (* TODO: also try to trim block here if valid_acts is empty *)
       | Ok cb => build_chain_builder cb blocks
       | Err error => Err error
       end in
@@ -62,6 +74,7 @@ Section TraceGens.
       | Ok cb => build_chain_builder cb blocks
       | Err error => try_remove_invalid_acts header acts blocks
       end in
+    (* Attempt to trim block *)
     let try_trim header blocks :=
       let trimmed_result := build_chain_builder init_cb blocks in
         match trimmed_result with
@@ -74,6 +87,7 @@ Section TraceGens.
     | (header, acts) :: xs => build_block header acts xs
     end.
 
+  (* Reconstruct list of ChainBuilders *)
   Fixpoint rebuild_chains (shrunk_chains : list (list (BlockHeader * list Action))) init_cb : list ChainBuilder :=
     match shrunk_chains with
     | [] => []
@@ -84,12 +98,14 @@ Section TraceGens.
       end
     end.
 
+  (* Alternative version of ordinary list shrinker that does not attempt to shrink list elements *)
   Fixpoint shrinkListAux_ {A} (l : list A) : list (list A) :=
     match l with
     | [] => []
     | x :: xs => xs :: map (fun xs' : list A => x :: xs') (shrinkListAux_ xs)
     end.
 
+  (* Shrink list of blocks by trying all combinations of removing one action *)
   Fixpoint shrinkChainBuilderAux (blocks : list (BlockHeader * list Action)) : list (list (BlockHeader * list Action)) :=
     match blocks with
     | [] => []
@@ -101,6 +117,8 @@ Section TraceGens.
           map (fun xs => block :: xs) (shrinkChainBuilderAux blocks')
     end.
 
+  (* Shrinker for ChainBuilders, it will only try to shrink the blocks and their action queues,
+     it will not attempt to shrink parameters of any actions *)
   Instance shrinkChainBuilder : Shrink ChainBuilder :=
   {
     shrink cb :=
