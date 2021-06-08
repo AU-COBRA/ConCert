@@ -47,10 +47,20 @@ Section TraceGens.
         block_finalized_height := finalized_height init_cb;
         block_creator := header.(block_creator);
         block_reward := header.(block_reward); |} in
+    let try_remove_invalid_acts header acts blocks :=
+      let valid_acts := fold_left (fun acts act =>
+        match builder_add_block init_cb (new_header header) (acts ++ [act]) with
+        | Ok cb => acts ++ [act]
+        | Err error => acts
+        end ) acts [] in
+      match builder_add_block init_cb (new_header header) valid_acts with
+      | Ok cb => build_chain_builder cb blocks
+      | Err error => Err error
+      end in
     let build_block header acts blocks :=
       match builder_add_block init_cb (new_header header) acts with
       | Ok cb => build_chain_builder cb blocks
-      | Err error => Err error
+      | Err error => try_remove_invalid_acts header acts blocks
       end in
     let try_trim header blocks :=
       let trimmed_result := build_chain_builder init_cb blocks in
