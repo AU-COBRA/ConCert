@@ -40,32 +40,38 @@ Section TraceGens.
     | clnil => []
     end.
 
-  Fixpoint build_chain_builder init_cb blocks : result ChainBuilder AddBlockError :=
+  Fixpoint build_chain_builder (init_cb : ChainBuilder) blocks : result ChainBuilder AddBlockError :=
+    let new_header header :=
+      {| block_height := S (chain_height init_cb);
+        block_slot := header.(block_slot);
+        block_finalized_height := finalized_height init_cb;
+        block_creator := header.(block_creator);
+        block_reward := header.(block_reward); |} in
+    let build_block header acts blocks :=
+      match builder_add_block init_cb (new_header header) acts with
+      | Ok cb => build_chain_builder cb blocks
+      | Err error => Err error
+      end in
+    let try_trim header blocks :=
+      let trimmed_result := build_chain_builder init_cb blocks in
+        match trimmed_result with
+        | Ok cb => Ok cb
+        | Err error => build_block header [] blocks
+        end in
     match blocks with
     | [] => Ok init_cb
-    | (header, acts) :: xs =>
-      let new_header :=
-        {| block_height := S (chain_height init_cb);
-          block_slot := header.(block_slot);
-          block_finalized_height := finalized_height init_cb;
-          block_creator := header.(block_creator);
-          block_reward := header.(block_reward); |} in
-      let new_block_result := builder_add_block init_cb new_header acts in
-        match new_block_result with
-        | Ok cb => build_chain_builder cb xs
-        | Err error => Err error
-        end
+    | (header, []) :: xs => try_trim header xs
+    | (header, acts) :: xs => build_block header acts xs
     end.
 
   Fixpoint rebuild_chains (shrunk_chains : list (list (BlockHeader * list Action))) init_cb : list ChainBuilder :=
     match shrunk_chains with
     | [] => []
-    | x :: xs =>
-      let chain_rebuild_result := build_chain_builder init_cb x in
-        match chain_rebuild_result with
-        | Ok cb => cb :: rebuild_chains xs init_cb
-        | Err error => rebuild_chains xs init_cb
-        end
+    | block :: blocks =>
+      match build_chain_builder init_cb block with
+      | Ok cb => cb :: rebuild_chains blocks init_cb
+      | Err error => rebuild_chains blocks init_cb
+      end
     end.
 
   Fixpoint shrinkListAux_ {A} (l : list A) : list (list A) :=
@@ -90,8 +96,7 @@ Section TraceGens.
     shrink cb :=
       let cb_blocks := trace_blocks cb.(builder_trace) in
       let shrunk_blocks := shrinkChainBuilderAux cb_blocks in
-      let trimmed_blocks := map (fun l => filter (fun '(_, l') => 0 <? length l') l) shrunk_blocks in
-        rebuild_chains trimmed_blocks builder_initial
+        rebuild_chains shrunk_blocks builder_initial
   }.
 
   (* Adds a block with 50 money as reward. This will be used for all testing. *)
