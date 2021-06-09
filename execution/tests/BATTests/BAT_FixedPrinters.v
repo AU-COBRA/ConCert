@@ -30,7 +30,7 @@ Instance showMsg : Show BAT_Fixed.Msg :=
 Instance showBATSetup : Show BAT_Fixed.Setup :=
 {|
   show setup := "Setup{" ++
-    "batFund: " ++ show setup.(_batFund) ++ sep ++
+    "initSupply: " ++ show setup.(_batFund) ++ sep ++
     "fundDeposit: " ++ show setup.(_fundDeposit) ++ sep ++
     "batFundDeposit: " ++ show setup.(_batFundDeposit) ++ sep ++
     "fundingStart: " ++ show setup.(_fundingStart) ++ sep ++
