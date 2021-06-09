@@ -550,6 +550,7 @@ Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
     let from := cctx.(ctx_from) in
+    let amount := cctx.(ctx_amount) in
     let current_slot := chain.(current_slot) in
     (* Only ethFund should be allowed to call finalize *)
     let from_valid := address_eqb from ethFund in
@@ -562,11 +563,14 @@ Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
         is within valid (tokenCreationMin, tokenCreationCap) range *)
     let total_supply_valid := (N.leb old_state.(tokenCreationMin) (total_supply old_state)) &&
                               (N.leb (total_supply old_state) old_state.(tokenCreationCap)) in
+    (* Finalize call must not be payable *)
+    let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (from_valid &&
               is_finalized_valid &&
               can_finalize_valid &&
-              total_supply_valid))
+              total_supply_valid &&
+              amount_valid))
   (* if 'receive' failed, or msg is not a finalize
      then just discard this test *)
   | _ => checker false
@@ -644,6 +648,7 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
   | (Some (new_state, _), refund) =>
     let current_slot := chain.(current_slot) in
     let from := cctx.(ctx_from) in
+    let amount := cctx.(ctx_amount) in
     let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
     (* Refund should only be allowed if contract not finalized *)
     let is_finalized_valid := negb old_state.(isFinalized) in
@@ -653,11 +658,14 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
     let total_supply_valid := N.ltb (total_supply old_state) old_state.(tokenCreationMin) in
     (* Refund shoul only be allowed if sender has tokens *)
     let balance_valid := N.ltb 0 from_bal_old in
+    (* Refund call must not be payable *)
+    let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (is_finalized_valid &&
               current_slot_valid &&
               total_supply_valid &&
-              balance_valid))
+              balance_valid &&
+              amount_valid))
   (* if 'receive' failed, or msg is not a refund
      then just discard this test *)
   | _ => checker false
