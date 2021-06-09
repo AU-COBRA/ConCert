@@ -88,6 +88,17 @@ Definition allowances (state : State) := state.(token_state).(EIP20Token.allowan
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
+  (* BAToken should not be deployable if one of the following conditions does not hold on "setup"
+     1. funding period is non empty
+     2. funding period does not start before the slot where the contract is deployed
+     3. minimum tokens to fund should not be less than the maximum tokens allowed
+     4. the initial supply of tokens should be less than the maximum tokens allowed
+     5. token exchange rate must be larger than 0
+     6. it must be possible to get over minimum token bound without going over maximum
+     For the last condition we check that "exchange rate <= token cap - token min", however this does exclude
+     a few possible configurations where the contract still works as intended, however these are not likely to
+     come up in real usecases.
+  *)
   do _ <- returnIf ((setup.(_fundingEnd) <=? setup.(_fundingStart))%nat
           || (setup.(_fundingStart) <? chain.(current_slot))%nat
           || (setup.(_tokenCreationCap) <? setup.(_tokenCreationMin))
