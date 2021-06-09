@@ -12,6 +12,8 @@ From Coq Require Import List ZArith. Import ListNotations.
 Module Type BATGensInfo.
   Parameter contract_addr : Address.
   Parameter accounts : list Address.
+  Parameter accounts_total_balance : Z.
+  Parameter trace_length : nat.
   Parameter gAccount : Chain -> G Address.
   Parameter bat_addr : Address.
   Parameter fund_addr : Address.
@@ -122,19 +124,19 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
   state <- returnGen (get_contract_state BAT_Fixed.State env contract_addr) ;;
   backtrack [
     (* transfer *)
-    (2, bindGenOpt (gTransfer env state)
+    (1, bindGenOpt (gTransfer env state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
     );
     (* transfer_from *)
-    (3, bindGenOpt (gTransfer_from state)
+    (2, bindGenOpt (gTransfer_from state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
     );
     (* approve *)
-    (2, bindGenOpt (gApprove state)
+    (1, bindGenOpt (gApprove state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
@@ -146,13 +148,13 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
         )
     );
     (* refund *)
-    (1, bindGenOpt (gRefund env state)
+    (10, bindGenOpt (gRefund env state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
     );
     (* finalize *)
-    (1, bindGenOpt (gFinalize env state)
+    (10, bindGenOpt (gFinalize env state)
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) msg
         )
@@ -170,17 +172,17 @@ Definition gBATActionInvalid (env : Environment) : GOpt Action :=
   state <- returnGen (get_contract_state BAT_Fixed.State env contract_addr) ;;
   backtrack [
     (* transfer *)
-    (2, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
+    (1, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
         call contract_addr caller (0%Z) (tokenMsg msg)
     ) ;
     (* transfer_from *)
-    (3, bindGenOpt (EIP20.gTransfer_from (token_state state))
+    (2, bindGenOpt (EIP20.gTransfer_from (token_state state))
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) (tokenMsg msg)
         )
     );
     (* approve *)
-    (2, bindGenOpt (EIP20.gApprove (token_state state))
+    (1, bindGenOpt (EIP20.gApprove (token_state state))
         (fun '(caller, msg) =>
           call contract_addr caller (0%Z) (tokenMsg msg)
         )
@@ -202,22 +204,22 @@ Definition gBATActionInvalid (env : Environment) : GOpt Action :=
   ].
 
 (* BAT call generator
-   Has a 0.3% chance to attempt to generate an invalid contract call
+   Has a 7% chance to attempt to generate an invalid contract call
     More specifically it has:
-    - 0.06% chance of generating a valid call and then replacing the amount of money sent with that call.
+    - 0.5% chance of generating a valid call and then replacing the amount of money sent with that call.
       For BAT contract this is likely to result in an invalid call as most contract calls on BAToken are 
       not allowed to include money in them.
-    - 0.24% chance of using the invalid action generator. This generator is likely to generate an invalid call
+    - 6.5% chance of using the invalid action generator. This generator is likely to generate an invalid call
       since it treats the contract as a black box and thus does not check any of the expected requirements for
       a contract call to be valid.
-    The reamaining 99.7% of the time it will generate a call that is guaranteed to be valid (only guaranteed to
+    The reamaining 90% of the time it will generate a call that is guaranteed to be valid (only guaranteed to
     be valid on its own, since the generator cannot know what other calls may be included in the same block and
     which order they will be executed in)
 *)
 Definition gBATAction (env : Environment) : GOpt Action :=
   state <- returnGen (get_contract_state BAT_Fixed.State env contract_addr) ;;
   freq [
-    (6, bindGenOpt (gBATActionValid env)
+    (5, bindGenOpt (gBATActionValid env)
         (fun '(action) =>
           match action.(act_body) with
           | act_transfer _ _ => returnGen None
@@ -227,8 +229,24 @@ Definition gBATAction (env : Environment) : GOpt Action :=
             returnGenSome (build_act action.(act_from) (act_call to amount msg))
           end
         ));
-    (24, gBATActionInvalid env);
-    (970, gBATActionValid env)
+    (65, gBATActionInvalid env);
+    (930, gBATActionValid env)
   ].
+
+Definition gBATSetup : G Setup :=
+  fundingStart <- choose (0, (trace_length - 1)) ;;
+  fundingEnd <- choose (0, (trace_length - 1)) ;;
+  exchangeRate <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  initSupply <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  tokenMin <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  tokenCap <- choose (0, Z.to_N accounts_total_balance)%N ;;
+  returnGen (BAT_Fixed.build_setup initSupply
+                             fund_addr
+                             bat_addr
+                             fundingStart
+                             fundingEnd
+                             exchangeRate
+                             tokenCap
+                             tokenMin).
 
 End BATGens.
