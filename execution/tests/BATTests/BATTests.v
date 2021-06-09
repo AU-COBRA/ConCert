@@ -1520,8 +1520,10 @@ Setup{
 (* From above we can see that our assertions on setup still does not
    guarantee that the token can be funded.
    It is clear that it failed since
-   "tokenCreationCap - initSupply < tokenExchangeRate"
-   meaning that no tokens can be created.
+   "tokenExchangeRate - (tokenCreationMin - initSupply % tokenExchangeRate) % tokenExchangeRate >
+      tokenCreationCap - tokenCreationMin"
+   The gap between tokenCreationCap and tokenCreationMin is so small that we cannot
+   hit tokenCreationMin without also going over tokenCreationCap.
 *)
 
 

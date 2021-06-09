@@ -91,7 +91,9 @@ Definition init (chain : Chain)
   do _ <- returnIf ((setup.(_fundingEnd) <=? setup.(_fundingStart))%nat
           || (setup.(_fundingStart) <? chain.(current_slot))%nat
           || (setup.(_tokenCreationCap) <? setup.(_tokenCreationMin))
-          || (setup.(_tokenCreationCap) <? setup.(_batFund))) ;
+          || (setup.(_tokenCreationCap) <? setup.(_batFund))
+          || (setup.(_tokenExchangeRate) =? 0)
+          || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))) ;
   let token_state := {|
       EIP20Token.balances := FMap.add setup.(_batFundDeposit) setup.(_batFund) FMap.empty;
       EIP20Token.total_supply := setup.(_batFund);
