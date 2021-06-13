@@ -128,7 +128,8 @@ Definition try_create_tokens sender (sender_payload : Amount) current_slot state
  (* early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
   do _ <- returnIf (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
-          || (Nat.ltb state.(fundingEnd) current_slot)) ;
+          || (Nat.ltb state.(fundingEnd) current_slot)
+          || (address_eqb sender state.(batFundDeposit))) ;
   (* here we deviate slightly from the reference implementation. They only check for = 0,
      but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
   do _ <- returnIf (Z.leb sender_payload 0) ;
@@ -220,7 +221,7 @@ Definition receive (chain : Chain)
 
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
-
+(*
 Section Theories.
 
 Import Lia.
@@ -994,5 +995,5 @@ Proof.
   - cbn in receive. congruence.
 Qed.
 
-End Theories.
+End Theories.*)
 End BATFixed.
