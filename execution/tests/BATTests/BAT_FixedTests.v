@@ -27,10 +27,10 @@ Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
 Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
 Definition initSupply : N := 20%N.
 Definition fundingStart_ := 1.
-Definition fundingEnd_ := 5.
+Definition fundingEnd_ := 4.
 Definition exchangeRate_ := 3%N.
 Definition tokenCap_ := 101%N.
-Definition tokenMin_ := 90%N.
+Definition tokenMin_ := 78%N.
 
 Definition bat_setup := BAT_Fixed.build_setup initSupply
                                         ethFund
@@ -53,6 +53,8 @@ Definition token_cb :=
     build_act creator (Blockchain.act_transfer person_2 7);
     build_act creator (Blockchain.act_transfer person_3 6);
     build_act creator (Blockchain.act_transfer person_4 10);
+    build_act creator (Blockchain.act_transfer ethFund 2);
+    build_act creator (Blockchain.act_transfer batFund 2);
     build_act creator deploy_bat
   ]).
 
@@ -63,7 +65,7 @@ Module TestInfo <: BATGensInfo.
                                             person_3; person_4; person_5].
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
-  Definition accounts_total_balance := 33%Z.
+  Definition accounts_total_balance := 37%Z.
   Definition trace_length := 7.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
@@ -155,8 +157,8 @@ Definition get_chain_finalized (cb : ChainBuilder) : bool :=
    Goal is ~ 2/3 of generated chains are finalized *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
 (*
-  6787 : true
-  3213 : false
+  7023 : true
+  2977 : false
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -169,14 +171,13 @@ Definition get_chain_height (cb : ChainBuilder) : nat :=
    invalid requests so often that it affects chain quality *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_height cb) true)). *)
 (*
-  9943 : 9
-  29 : 5
-  15 : 6
-  5 : 4
-  4 : 7
-  2 : 3
-  1 : 8
-  1 : 2
+  9954 : 9
+  19 : 4
+  11 : 5
+  9 : 6
+  3 : 7
+  3 : 3
+  1 : 1
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -245,24 +246,29 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
    and how easy it is to do. *)
 (* QuickChick (forAllTokenChainBuilders 6 (fun cb => collect (get_chain_tokens cb) true)). *)
 (*
-  3256 : 101
-  1565 : 98
-  1166 : 95
-  915 : 92
-  854 : 89
-  632 : 86
-  517 : 83
-  392 : 80
-  248 : 77
-  161 : 74
-  105 : 71
-  81 : 68
-  38 : 65
-  34 : 0
-  27 : 62
-  4 : 59
-  4 : 56
-  1 : 53
+  934 : 101
+  887 : 86
+  873 : 95
+  852 : 83
+  841 : 89
+  802 : 92
+  782 : 80
+  751 : 98
+  686 : 77
+  559 : 71
+  551 : 74
+  451 : 68
+  323 : 65
+  283 : 62
+  161 : 59
+  99 : 56
+  67 : 53
+  50 : 50
+  17 : 0
+  15 : 47
+  10 : 44
+  4 : 41
+  2 : 38
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -463,8 +469,11 @@ Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old
                                (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), create_tokens) =>
+    let from := cctx.(ctx_from) in
     let amount := cctx.(ctx_amount) in
     let current_slot := chain.(current_slot) in
+    (* batFund should not be allowed to call create_tokens *)
+    let from_valid := negb (address_eqb from batFund) in
     (* Create_tokens should only return some if amount is larger than zero *)
     let amount_valid := Z.leb 0 amount in
     (* Create_tokens should be callable if the token is not finalized *)
@@ -477,7 +486,8 @@ Definition create_tokens_valid (chain : Chain) (cctx : ContractCallContext) (old
     let new_token_amount_valid := (total_supply old_state) + (Z.to_N amount * old_state.(tokenExchangeRate))
                                   <=? old_state.(tokenCreationCap) in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (amount_valid &&
+    (checker (from_valid &&
+              amount_valid &&
               is_finalized_valid &&
               slot_valid &&
               new_token_amount_valid))
@@ -1084,8 +1094,9 @@ Definition can_always_fully_refund (cs : ChainState) :=
   let contract_balance := env_account_balances cs contract_base_addr in
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
+    let bat_fund_balance := with_default 0 (FMap.find batFund (balances cstate)) in
     let contract_balance_correct := Z.leb (contract_balance * Z.of_N cstate.(tokenExchangeRate))
-                                          (Z.of_N ((total_supply cstate) - initSupply)) in
+                                          (Z.of_N ((total_supply cstate) - bat_fund_balance)) in
       if no_actions_from_contract
       then
         if cstate.(isFinalized)
@@ -1173,7 +1184,7 @@ Definition final_is_final :=
   {token_cb ~~~> is_finalized ===> (fun _ cs => is_finalized cs)}.
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
-(* +++ Passed 10000 tests (4535 discards) *)
+(* +++ Passed 10000 tests (4377 discards) *)
 
 Definition can_only_finalize_once :=
   let chain_gen := (gTokenChain 2) token_cb 7%nat in
@@ -1209,7 +1220,7 @@ Definition final_implies_total_supply_in_range :=
     1) at least _tokenMin
     2) no bigger than _tokenCap *)
 (* QuickChick final_implies_total_supply_in_range. *)
-(* +++ Passed 10000 tests (4578 discards) *)
+(* +++ Passed 10000 tests (4234 discards) *)
 
 Definition final_implies_total_supply_constant :=
   let get_satisfying_state trace := last trace empty_state in
@@ -1223,14 +1234,14 @@ Definition final_implies_total_supply_constant :=
             ===> (fun pre_trace cs => get_total_supply cs =? finalized_total_supply pre_trace)}.
 (* Check that once finalized then total supply of tokens does not change *)
 (* QuickChick final_implies_total_supply_constant. *)
-(* +++ Passed 10000 tests (4501 discards) *)
+(* +++ Passed 10000 tests (4092 discards) *)
 
 Definition final_implies_contract_balance_is_zero :=
   let contract_balance_empty trace cs := Z.eqb (env_account_balances cs contract_base_addr) 0 in
   {token_cb ~~~> is_finalized ===> contract_balance_empty}.
 (* Check that once finalized then the contract balance is 0 *)
 (* QuickChick final_implies_contract_balance_is_zero. *)
-(* +++ Passed 10000 tests (4536 discards) *)
+(* +++ Passed 10000 tests (4147 discards) *)
 
 
 
