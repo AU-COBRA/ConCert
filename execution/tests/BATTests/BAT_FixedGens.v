@@ -33,9 +33,9 @@ Definition get_refundable_accounts state : list (G (option Address)) :=
   let filtered_balances := filter (fun x => (negb (address_eqb bat_addr (fst x))) && (0 <? (snd x))%N) balances_list in
     map returnGen (map Some (map fst filtered_balances)).
 
-Definition get_fundable_accounts env : list (G (option Address)) :=
-  let filtered_accounts := filter (fun addr => (0 <? (account_balance env addr))%Z) accounts in
-    map returnGen (map Some filtered_accounts).
+Definition get_fundable_accounts env : G (option Address) :=
+  let freq_accounts := map (fun addr => (Z.to_nat (account_balance env addr), returnGenSome addr)) accounts in
+    freq_ (returnGen None) freq_accounts.
 
 Definition gFund_amount env state addr : G Z :=
   (choose (1, Z.min (account_balance env addr) (Z.of_N ((state.(tokenCreationCap) - (total_supply state)) / state.(tokenExchangeRate)))))%Z.
@@ -45,16 +45,16 @@ Definition gCreateTokens (env : Environment) (state : BAT_Fixed.State) : GOpt (A
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
           || (Nat.ltb state.(fundingEnd) current_slot) (* Funding can only happen in funding period *)
-          || (N.ltb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate))) (* No funding if cap was hit or we are too clos to it *)
+          || (N.ltb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate))) (* No funding if cap was hit or we are too close to it *)
   then
     returnGen None
   else
-    from_addr <- oneOf_ (returnGen None) (get_fundable_accounts env) ;;
+    from_addr <- get_fundable_accounts env ;;
     value <- bindGen (gFund_amount env state from_addr) returnGenSome ;;
     returnGenSome (from_addr, value, create_tokens).
 
 Definition gCreateTokensInvalid (env : Environment) (state : BAT_Fixed.State) : GOpt (Address * Amount * Msg) :=
-  from_addr <- oneOf_ (returnGen None) (get_fundable_accounts env) ;;
+  from_addr <- get_fundable_accounts env ;;
   value <- bindGen (choose (1, account_balance env from_addr)%Z) returnGenSome ;;
   returnGenSome (from_addr, value, create_tokens).
 
