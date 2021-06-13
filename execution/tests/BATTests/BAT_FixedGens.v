@@ -34,7 +34,7 @@ Definition get_refundable_accounts state : list (G (option Address)) :=
     map returnGen (map Some (map fst filtered_balances)).
 
 Definition get_fundable_accounts env : G (option Address) :=
-  let freq_accounts := map (fun addr => (Z.to_nat (account_balance env addr), returnGenSome addr)) accounts in
+  let freq_accounts := map (fun addr => (if address_eqb addr bat_addr then 0 else Z.to_nat (account_balance env addr), returnGenSome addr)) accounts in
     freq_ (returnGen None) freq_accounts.
 
 Definition gFund_amount env state addr : G Z :=
