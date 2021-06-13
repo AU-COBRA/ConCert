@@ -30,7 +30,7 @@ Definition fundingStart_ := 0.
 Definition fundingEnd_ := 5.
 Definition exchangeRate_ := 3%N.
 Definition tokenCap_ := 101%N.
-Definition tokenMin_ := 72%N.
+Definition tokenMin_ := 75%N.
 
 Definition bat_setup := BAT.build_setup initSupply
                                         ethFund
@@ -53,17 +53,19 @@ Definition token_cb :=
     build_act creator (Blockchain.act_transfer person_2 7);
     build_act creator (Blockchain.act_transfer person_3 6);
     build_act creator (Blockchain.act_transfer person_4 10);
+    build_act creator (Blockchain.act_transfer ethFund 2);
+    build_act creator (Blockchain.act_transfer batFund 2);
     build_act creator deploy_bat
   ]).
 
 Module TestInfo <: BATGensInfo.
   Definition contract_addr := contract_base_addr.
   Definition accounts := [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
-  Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2; 
+  Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2;
                                              person_3; person_4; person_5].
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
-  Definition accounts_total_balance := 33%Z.
+  Definition accounts_total_balance := 37%Z.
   Definition trace_length := 7.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
@@ -178,8 +180,8 @@ Definition get_chain_finalized (cb : ChainBuilder) : bool :=
    Goal is ~ 2/3 of generated chains are finalized *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
 (*
-  6877 : true
-  3123 : false
+  6426 : true
+  3574 : false
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -192,14 +194,12 @@ Definition get_chain_height (cb : ChainBuilder) : nat :=
    invalid requests so often that it affects chain quality *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_height cb) true)). *)
 (*
-  9032 : 9
-  390 : 8
-  376 : 7
-  188 : 6
-  10 : 5
-  2 : 4
+  8497 : 9
+  691 : 8
+  586 : 7
+  219 : 6
+  6 : 5
   1 : 3
-  1 : 2
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -268,34 +268,34 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
    and how easy it is to do. *)
 (* QuickChick (forAllTokenChainBuilders 6 (fun cb => collect (get_chain_tokens cb) true)). *)
 (*
-  919 : 101
-  716 : 86
-  686 : 89
-  642 : 98
-  633 : 83
-  623 : 92
-  619 : 80
-  616 : 95
-  595 : 77
-  535 : 74
-  528 : 71
-  528 : 68
-  404 : 65
-  387 : 62
-  313 : 0
-  311 : 59
-  247 : 56
-  202 : 53
-  174 : 50
-  124 : 47
-  68 : 44
-  54 : 41
-  33 : 38
-  24 : 35
-  10 : 32
-  5 : 29
-  3 : 26
-  1 : 23
+  1001 : 101
+  735 : 98
+  693 : 95
+  661 : 86
+  643 : 83
+  636 : 89
+  625 : 92
+  615 : 80
+  560 : 77
+  557 : 74
+  514 : 71
+  460 : 68
+  403 : 65
+  347 : 62
+  312 : 0
+  271 : 59
+  225 : 56
+  200 : 53
+  162 : 50
+  122 : 47
+  84 : 44
+  66 : 41
+  34 : 38
+  34 : 35
+  18 : 32
+  14 : 29
+  6 : 26
+  2 : 23
   +++ Passed 10000 tests (0 discards)
 *)
 
@@ -428,6 +428,40 @@ On Msg: refund
     for all other messages than create_tokens and refund *)
 (* QuickChick (
   {{fun state msg => negb ((msg_is_create_tokens ||| msg_is_refund) state msg)}}
+  contract_base_addr
+  {{amount_is_zero}}
+). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
+Action{act_from: 10%256, act_body: (act_transfer 16%256, 2)};
+Action{act_from: 10%256, act_body: (act_transfer 17%256, 2)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 2 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 10, create_tokens)}];
+Block 4 [
+Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)}];
+Block 5 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 6, create_tokens)}];
+Block 6 [
+Action{act_from: 16%256, act_body: (act_call 128%256, 2, finalize)}];|}
+
+ChainState{env:
+  Environment{chain: Chain{height: 5, current slot: 6, final height: 0}, contract states:...},
+  queue: Action{act_from: 16%256, act_body: (act_call 128%256, 2, finalize)}
+}
+On Msg: finalize
+*** Failed after 2093 tests and 6 shrinks. (0 discards)
+*)
+(* As we can see above finalize is also payable even though
+    it shouldn't be. We now check if the property holds
+    for all other messages than create_tokens, refund and finalize *)
+(* QuickChick (
+  {{fun state msg => negb ((msg_is_create_tokens ||| msg_is_refund ||| msg_is_finalize) state msg)}}
   contract_base_addr
   {{amount_is_zero}}
 ). *)
@@ -1119,7 +1153,7 @@ Extract Constant defNumDiscards => "20000".
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 3000 tests (7701 discards) *)
+(* +++ Passed 3000 tests (7170 discards) *)
 
 
 Definition partially_funded_cb :=
@@ -1185,8 +1219,9 @@ Definition can_always_fully_refund (cs : ChainState) :=
   let contract_balance := env_account_balances cs contract_base_addr in
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
+    let bat_fund_balance := with_default 0 (FMap.find batFund (balances cstate)) in
     let contract_balance_correct := Z.leb (contract_balance * Z.of_N cstate.(tokenExchangeRate))
-                                          (Z.of_N ((total_supply cstate) - initSupply)) in
+                                          (Z.of_N ((total_supply cstate) - bat_fund_balance)) in
       if no_actions_from_contract
       then
         if cstate.(isFinalized)
@@ -1206,6 +1241,88 @@ Definition can_always_fully_refund (cs : ChainState) :=
     possible to withdraw the entire contract balance.
 *)
 (* QuickChick (expectFailure ({{can_always_fully_refund}})). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 17%256, 2)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 3 [
+Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)}];|}
+
+ChainState{
+  env: Environment{chain: Chain{height: 2, current slot: 3, final height: 0}, contract states:...},
+  queue: }
++++ Failed (as expected) after 1 tests and 7 shrinks. (0 discards)
+*)
+(*
+  We can see from the above counter example that this property does not hold
+  since batFund account is allowed to create_tokens and batFund should not be
+  able to refund then those money cannot be refunded (unless batFund can refund
+  which it should not be allowed to do).
+*)
+Definition no_batfund_create_tokens (cs : ChainState) : bool :=
+  match (chain_state_queue cs) with
+  | [] => true
+  | act :: _ =>
+    match act.(act_body) with
+    | Blockchain.act_call _ _ ser_msg =>
+      match @deserialize Msg _ ser_msg with
+      | Some (create_tokens) => negb (address_eqb act.(act_from) batFund)
+      | _ => true
+      end
+    | _ => true
+    end
+  end.
+(* As shown above if batFund creates tokens then
+   it might not be possible to empty the contract balance.
+   We now test if it is possible when batFund does not create tokens
+*)
+(* QuickChick ({{no_batfund_create_tokens}} ==> {{can_always_fully_refund}}). *)
+(*
+Chain{|
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 16%256, 2)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
+Block 3 [
+Action{act_from: 16%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, transfer 17%256 2)}];|}
+
+ChainState{
+  env: Environment{chain: Chain{height: 2, current slot: 3, final height: 0}, contract states:...},
+  queue: }
+*** Failed after 4 tests and 7 shrinks. (10 discards)
+*)
+(* We can see that the property does not hold because other accounts
+   can transfer tokens to batFund and if we assume that batFund tokens
+   cannot be refunded then those cannot be refunded either. And since
+   they came from a real user account they were attached to some contract
+   balance that thus cannot be refunded now.
+*)
+
+Definition no_transfers_to_batfund (cs : ChainState) : bool :=
+  match (chain_state_queue cs) with
+  | [] => true
+  | act :: _ =>
+    match act.(act_body) with
+    | Blockchain.act_call _ _ ser_msg =>
+      match @deserialize Msg _ ser_msg with
+      | Some (tokenMsg (EIP20Token.transfer to _)) =>
+          negb (address_eqb to batFund)
+      | Some (tokenMsg (EIP20Token.transfer_from _ to _)) =>
+          negb (address_eqb to batFund)
+      | _ => true
+      end
+    | _ => true
+    end
+  end.
+(* As shown above if tokens are transfered to batFund then
+   it might not be possible to empty the contract balance.
+   We now test if it is possible when batFund does not create tokens
+   and no tokens are transfered to batFund
+*)
+(* QuickChick ({{no_batfund_create_tokens &&&
+                 no_transfers_to_batfund}}
+              ==> {{can_always_fully_refund}}). *)
 (*
 Chain{|
 Block 1 [
@@ -1267,37 +1384,31 @@ Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
     it is not possible to empty the contract balance.
    We now test if it is possible when no such transfers occur
 *)
-(* QuickChick ({{only_transfers_modulo_exhange_rate}} ==> {{can_always_fully_refund}}). *)
+(* QuickChick ({{no_batfund_create_tokens &&&
+                 no_transfers_to_batfund &&&
+                 only_transfers_modulo_exhange_rate}}
+               ==> {{can_always_fully_refund}}). *)
 (*
 Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
 Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 2 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 4, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 14%256 12)}];
-Block 3 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 14%256 12)}];
-Block 4 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 2, create_tokens)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 15)}];
-Block 5 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 1, create_tokens)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 0, approve 17%256 9)}];
+Action{act_from: 14%256, act_body: (act_call 128%256, 4, create_tokens)}];
 Block 6 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 5, refund)}];|}
+Action{act_from: 14%256, act_body: (act_call 128%256, 3, refund)}];
+Block 8 [
+];|}
 
-ChainState{env: Environment{chain: Chain{height: 6, current slot: 6, final height: 0}, contract states:...},
-  queue: Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 16%256 2)}}
+ChainState{
+  env: Environment{chain: Chain{height: 4, current slot: 8, final height: 0}, contract states:...},
+  queue: }
+*** Failed after 459 tests and 8 shrinks. (19513 discards)
 *)
 (*
-  We see that the test fails since the contract allowed 5 to be paid on a refund call.
-  Those 5 are then not tied to any tokens and since refunding is the only way to withdraw
-    from the contract balance therefore those 5 cannot be withdrawn ever (assuming funding fails).
+  We see that the test fails since the contract allowed 3 to be paid on a refund call.
+  Those 3 are then not tied to any tokens and since refunding is the only way to withdraw
+    from the contract balance therefore those 3 cannot be withdrawn ever.
 *)
 
 Definition only_create_tokens_payable (cs : ChainState) : bool :=
@@ -1319,13 +1430,16 @@ Definition only_create_tokens_payable (cs : ChainState) : bool :=
 *)
 (*
 Extract Constant defNumTests    => "1000".
-Extract Constant defNumDiscards => "20000".
- QuickChick ({{only_transfers_modulo_exhange_rate &&& only_create_tokens_payable}}
+Extract Constant defNumDiscards => "45000".
+ QuickChick ({{no_batfund_create_tokens &&&
+               no_transfers_to_batfund &&&
+               only_transfers_modulo_exhange_rate &&&
+               only_create_tokens_payable}}
               ==> {{can_always_fully_refund}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 1000 tests (13651 discards) *)
+(* +++ Passed 1000 tests (32485 discards) *)
 
 
 
@@ -1344,28 +1458,26 @@ Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
 Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
 Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
+Action{act_from: 10%256, act_body: (act_transfer 16%256, 2)};
+Action{act_from: 10%256, act_body: (act_transfer 17%256, 2)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 15%256 1)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 6, create_tokens)}];
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 13%256 16)};
+Action{act_from: 11%256, act_body: (act_call 128%256, 9, create_tokens)}];
 Block 3 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 8, create_tokens)};
-Action{act_from: 15%256, act_body: (act_call 128%256, 0, transfer 15%256 1)}];
+Action{act_from: 16%256, act_body: (act_call 128%256, 1, create_tokens)};
+Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)}];
 Block 4 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 17%256 12)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 1, create_tokens)}];
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, approve 17%256 2)};
+Action{act_from: 14%256, act_body: (act_call 128%256, 8, create_tokens)}];
 Block 5 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 11%256 12%256 4)};
-Action{act_from: 14%256, act_body: (act_call 128%256, 3, create_tokens)}];
+Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)};
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 16%256 17%256 0)}];
 Block 6 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 11%256 14%256 2)};
-Action{act_from: 15%256, act_body: (act_call 128%256, 0, transfer 17%256 0)}];
-Block 7 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer 14%256 0)};
 Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}];|}
 
 Success - found witness satisfying the predicate!
-+++ Failed (as expected) after 126 tests and 0 shrinks. (0 discards)
++++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
 *)
 
 Definition can_always_finalize check_setup:=
@@ -1528,12 +1640,11 @@ Setup{
 
 
 
-
 Definition final_is_final :=
   {token_cb ~~~> is_finalized ===> (fun _ cs => is_finalized cs)}.
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
-(* +++ Passed 10000 tests (5512 discards) *)
+(* +++ Passed 10000 tests (6246 discards) *)
 
 Definition can_only_finalize_once :=
   let chain_gen := (gTokenChain 2) token_cb 7%nat in
@@ -1569,7 +1680,7 @@ Definition final_implies_total_supply_in_range :=
     1) at least _tokenMin
     2) no bigger than _tokenCap *)
 (* QuickChick final_implies_total_supply_in_range. *)
-(* +++ Passed 10000 tests (5620 discards) *)
+(* +++ Passed 10000 tests (6410 discards) *)
 
 Definition final_implies_total_supply_constant :=
   let get_satisfying_state trace := last trace empty_state in
@@ -1583,14 +1694,14 @@ Definition final_implies_total_supply_constant :=
             ===> (fun pre_trace cs => get_total_supply cs =? finalized_total_supply pre_trace)}.
 (* Check that once finalized then total supply of tokens does not change *)
 (* QuickChick final_implies_total_supply_constant. *)
-(* +++ Passed 10000 tests (5543 discards) *)
+(* +++ Passed 10000 tests (5950 discards) *)
 
 Definition final_implies_contract_balance_is_zero :=
   let contract_balance_empty trace cs := Z.eqb (env_account_balances cs contract_base_addr) 0 in
   {token_cb ~~~> is_finalized ===> contract_balance_empty}.
 (* Check that once finalized then the contract balance is 0 *)
 (* QuickChick final_implies_contract_balance_is_zero. *)
-(* +++ Passed 10000 tests (5568 discards) *)
+(* +++ Passed 10000 tests (6125 discards) *)
 
 
 
@@ -1681,7 +1792,7 @@ Extract Constant defNumDiscards => "30000".
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 5000 tests (13073 discards) *)
+(* +++ Passed 5000 tests (12112 discards) *)
 (*
 Extract Constant defNumDiscards => "30000".
  QuickChick (expectFailure ({{only_transfers_modulo_exhange_rate}} ==> {{total_supply_bounds}})).
@@ -1722,7 +1833,7 @@ Extract Constant defNumDiscards => "30000".
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 1000 tests (14182 discards) *)
+(* +++ Passed 1000 tests (11862 discards) *)
 
 Definition total_supply_eq_sum_balances (cs : ChainState) :=
   match get_contract_state State cs contract_base_addr with
