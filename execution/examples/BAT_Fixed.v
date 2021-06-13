@@ -221,7 +221,7 @@ Definition receive (chain : Chain)
 
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
-(*
+
 Section Theories.
 
 Import Lia.
@@ -600,11 +600,12 @@ Lemma try_create_tokens_is_some : forall state chain ctx,
   /\ ((fundingStart state) <= (current_slot chain))%nat
   /\ ((current_slot chain) <= (fundingEnd state))%nat
   /\ (total_supply state) + ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate state)) <= (tokenCreationCap state)
+  /\ (ctx_from ctx) <> (batFundDeposit state)
     <-> isSome (receive chain ctx state (Some create_tokens)) = true.
 Proof.
   split.
   - intros. receive_simpl.
-    destruct H as [H1 [H2 [H3 [H4 H5]]]].
+    destruct H as [H1 [H2 [H3 [H4 [H5 H6]]]]].
     destruct_match eqn:match1. destruct_match eqn:match2. destruct_match eqn:match3.
     + easy.
     + returnIf match3.
@@ -612,24 +613,27 @@ Proof.
     + returnIf match2.
       rewrite Z.leb_le in match2. lia.
     + returnIf match1.
-      do 2 rewrite Bool.orb_true_iff in match1.
-      destruct match1 as [[H2' | H3'] | H4'].
+      do 3 rewrite Bool.orb_true_iff in match1.
+      destruct match1 as [[[H2' | H3'] | H4'] | H5'].
       * easy.
       * rewrite Nat.ltb_lt in H3'. easy.
       * rewrite Nat.ltb_lt in H4'. easy.
+      * destruct_address_eq; easy.
   - intros. receive_simpl.
-    do 4 try split;
+    do 5 try split;
       destruct_match eqn:H1 in H; cbn in H; try discriminate;
       destruct_match eqn:H4 in H; cbn in H; try discriminate;
       destruct_match eqn:H5 in H; cbn in H; try discriminate;
       returnIf H1; returnIf H4; returnIf H5;
       apply Bool.orb_false_iff in H1 as [H1 H3];
-      apply Bool.orb_false_iff in H1 as [H1 H2].
+      apply Bool.orb_false_iff in H1 as [H1 H2];
+      apply Bool.orb_false_iff in H1 as [H1 H6].
     + now rewrite Z.leb_gt in H4.
     + assumption.
+    + now apply Nat.ltb_ge in H6.
     + now apply Nat.ltb_ge in H2.
-    + now apply Nat.ltb_ge in H3.
     + now apply N.ltb_ge in H5.
+    + destruct_address_eq; easy.
 Qed.
 
 
@@ -995,5 +999,5 @@ Proof.
   - cbn in receive. congruence.
 Qed.
 
-End Theories.*)
+End Theories.
 End BATFixed.
