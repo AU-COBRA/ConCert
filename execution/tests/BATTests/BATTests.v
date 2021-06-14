@@ -740,6 +740,8 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
     let current_slot := chain.(current_slot) in
     let from := cctx.(ctx_from) in
     let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
+    (* batFund should not be allowed a refund *)
+    let from_valid := negb (address_eqb from batFund) in
     (* Refund should only be allowed if contract not finalized *)
     let is_finalized_valid := negb old_state.(isFinalized) in
     (* Refund should only be allowed if funding period is over *)
@@ -749,7 +751,8 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
     (* Refund shoul only be allowed if sender has tokens *)
     let balance_valid := N.ltb 0 from_bal_old in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (is_finalized_valid &&
+    (checker (from_valid &&
+              is_finalized_valid &&
               current_slot_valid &&
               total_supply_valid &&
               balance_valid))

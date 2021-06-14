@@ -660,6 +660,8 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
     let from := cctx.(ctx_from) in
     let amount := cctx.(ctx_amount) in
     let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
+    (* batFund should not be allowed a refund *)
+    let from_valid := negb (address_eqb from batFund) in
     (* Refund should only be allowed if contract not finalized *)
     let is_finalized_valid := negb old_state.(isFinalized) in
     (* Refund should only be allowed if funding period is over *)
@@ -671,7 +673,8 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
     (* Refund call must not be payable *)
     let amount_valid := Z.eqb amount 0 in
     whenFail (show old_state ++ nl ++ show result_opt)
-    (checker (is_finalized_valid &&
+    (checker (from_valid &&
+              is_finalized_valid &&
               current_slot_valid &&
               total_supply_valid &&
               balance_valid &&
