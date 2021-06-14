@@ -151,12 +151,12 @@ Definition try_refund sender current_slot state :=
           || (state.(tokenCreationMin) <=? (total_supply state))) ;
   do sender_bats <- FMap.find sender (balances state) ;
   do _ <- returnIf (sender_bats =? 0) ;
-  let new_total_supply := (total_supply) state - sender_bats in
   (* convert tokens back to the currency of the blockchain, to be sent back to the sender address *)
   let amount_to_send := Z.of_N (sender_bats / state.(tokenExchangeRate)) in
+  let new_total_supply := (total_supply) state - sender_bats + (N.modulo sender_bats state.(tokenExchangeRate)) in
   let new_token_state : EIP20Token.State := {|
     EIP20Token.total_supply := new_total_supply;
-    EIP20Token.balances := FMap.add sender 0 (balances state);
+    EIP20Token.balances := FMap.add sender (N.modulo sender_bats state.(tokenExchangeRate)) (balances state);
     EIP20Token.allowances := allowances state;
   |} in
   let new_state := state<|token_state := new_token_state|> in
