@@ -41,6 +41,7 @@ Record State :=
     (* State from EIP20Token: *)
     token_state       : EIP20Token.State;
     (* State for BAT: *)
+    initSupply        : N;
     fundDeposit    		: Address;
     batFundDeposit 		: Address;
     isFinalized    		: bool;
@@ -102,18 +103,18 @@ Definition init (chain : Chain)
   do _ <- returnIf ((setup.(_fundingEnd) <=? setup.(_fundingStart))%nat
           || (setup.(_fundingStart) <? chain.(current_slot))%nat
           || (setup.(_tokenCreationCap) <? setup.(_tokenCreationMin))
-          || (setup.(_tokenCreationCap) <? setup.(_batFund))
           || (setup.(_tokenExchangeRate) =? 0)
           || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))) ;
   let token_state := {|
-      EIP20Token.balances := FMap.add setup.(_batFundDeposit) setup.(_batFund) FMap.empty;
-      EIP20Token.total_supply := setup.(_batFund);
+      EIP20Token.balances := FMap.empty;
+      EIP20Token.total_supply := 0;
       EIP20Token.allowances := FMap.empty;
     |} in
   Some {|
     (* EIP20Token initialisation: *)
     token_state := token_state;
     (* BAT initialisation: *)
+    initSupply := setup.(_batFund);
     isFinalized := false;
     fundDeposit := setup.(_fundDeposit);
     batFundDeposit := setup.(_batFundDeposit);
@@ -174,7 +175,13 @@ Definition try_finalize sender current_slot contract_balance state :=
   do _ <- returnIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) ;
   (* Send the currency of the contract back to the fund *)
   let send_act := act_transfer state.(fundDeposit) contract_balance in
-  let new_state := state<|isFinalized := true|> in
+  let new_token_state : EIP20Token.State := {|
+    EIP20Token.total_supply := (total_supply state) + state.(initSupply);
+    EIP20Token.balances := FMap.partial_alter
+      (fun balance => Some (with_default 0 balance + state.(initSupply))) state.(batFundDeposit) (balances state);
+    EIP20Token.allowances := allowances state;
+  |} in
+  let new_state := state<|isFinalized := true|><|token_state := new_token_state|> in
   Some (new_state, [send_act]).
 
 Open Scope Z_scope.
