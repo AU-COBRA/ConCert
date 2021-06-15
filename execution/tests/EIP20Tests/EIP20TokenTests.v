@@ -54,7 +54,7 @@ Definition gTokenChain max_acts_per_block token_cb max_length :=
 
 Definition forAllTokenChainTraces n :=
   let max_acts_per_block := 2 in
-  forAllChainState n token_cb (gTokenChain max_acts_per_block).
+  forAllBlocks n token_cb (gTokenChain max_acts_per_block).
 
 Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
@@ -87,7 +87,7 @@ Definition transfer_balance_update_correct old_state new_state from to tokens :=
     (from_balance_before =? from_balance_after + tokens) &&
     (to_balance_before + tokens =? to_balance_after).
 
-Definition post_transfer_correct cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_correct (chain : Chain) cctx old_state msg (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), transfer to tokens) =>
     let from := cctx.(ctx_from) in
@@ -145,15 +145,14 @@ Definition person_has_tokens person (n : N) :=
     | Some state => n =? (FMap_find_ person state.(balances) 0)
     | None => true (* trivial case *)
     end.
-    
+
 (* Notation "cb '~~>' pf" :=
   (reachableFrom_chaintrace cb (gTokenChain 2) pf)
   (at level 45, no associativity). *)
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
 
-(* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
-(* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
+(* QuickChick (token_cb ~~> person_has_tokens creator 0). *)
 
 (* QuickChick (token_reachableFrom_implies_reachable
   chain_with_token_deployed
