@@ -152,7 +152,8 @@ Definition person_has_tokens person (n : N) :=
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
 
-(* QuickChick (token_cb ~~> person_has_tokens creator 0). *)
+(* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
+(* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
 
 (* QuickChick (token_reachableFrom_implies_reachable
   chain_with_token_deployed

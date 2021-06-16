@@ -236,7 +236,7 @@ Definition post_transfer_correct (chain : Chain) (cctx : ContractCallContext) ol
   {{ msg_is_transfer }}
     token_contract_base_addr
   {{ post_transfer_correct }}
-  chain_with_token_deployed_without_hook). *)
+  chain_without_transfer_hook). *)
 (* 14 seconds, max size 7, 1 act per block *)
 (* +++ Passed 10000 tests (0 discards) *)
 
@@ -276,7 +276,7 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
   | None => checker true
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_token_deployed_with_hook 1 transfer_balances_correct). *)
+(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
@@ -343,7 +343,7 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
   | None => checker false
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_token_deployed_with_hook 10 transfer_satisfies_policy_P). *)
+(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
 
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
@@ -401,7 +401,7 @@ Definition post_last_update_operator_occurrence_takes_effect (chain : Chain) (cc
   {{msg_is_update_operator}}
   token_contract_base_addr
   {{post_last_update_operator_occurrence_takes_effect}}
-  chain_with_token_deployed_without_hook
+  chain_without_transfer_hook
 ). *)
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)
