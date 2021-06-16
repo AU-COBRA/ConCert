@@ -146,9 +146,12 @@ Definition person_has_tokens person (n : N) :=
     | None => true (* trivial case *)
     end.
 
-(* Notation "cb '~~>' pf" :=
+Notation "cb '~~>' pf" :=
   (reachableFrom_chaintrace cb (gTokenChain 2) pf)
-  (at level 45, no associativity). *)
+  (at level 45, no associativity).
+Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
+  (reachableFrom_implies_chaintracePropSized 3 lc (gTokenChain 2) pf1 pf2)
+  (at level 45, lc at next level, left associativity).
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
 
@@ -160,10 +163,6 @@ Definition person_has_tokens person (n : N) :=
   (person_has_tokens creator 10)
   (person_has_tokens creator 0)
 ). *)
-
-Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implies_chaintracePropSized 3 lc (gTokenChain 2) pf1 pf2)
-  (at level 90, left associativity).
 
 (* This (false) property says that from the initial chain where the token contract has been deployed,
    if there is a reachable state where the creator has 5 tokens, then any trace afterwards
