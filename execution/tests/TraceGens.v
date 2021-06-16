@@ -443,22 +443,25 @@ Section TraceGens.
           (env_from.(env_account_balances) caddr + amount)%Z in
       let cctx := build_ctx act.(act_from) caddr new_balance amount in
         match act.(act_body) with
-        | act_call _ _ ser_msg =>
-          match @deserialize Msg _ ser_msg with
-          | Some msg =>
-            match get_contract_state State env_from caddr with
-            | Some cstate_from =>
-              if pre cstate_from msg
-              then
-                match get_contract_state State env_to caddr with
-                | Some cstate_to => (post_helper env_from cctx cstate_to new_acts cstate_from msg)
-                | None => checker true
-                end
-              else checker true (* TODO: should be discarded!*)
+        | act_call to _ ser_msg =>
+          if address_eqb to caddr
+          then
+            match @deserialize Msg _ ser_msg with
+            | Some msg =>
+              match get_contract_state State env_from caddr with
+              | Some cstate_from =>
+                if pre cstate_from msg
+                then
+                  match get_contract_state State env_to caddr with
+                  | Some cstate_to => (post_helper env_from cctx cstate_to new_acts cstate_from msg)
+                  | None => checker true
+                  end
+                else checker true (* TODO: should be discarded!*)
+              | None => checker true
+              end
             | None => checker true
             end
-          | None => checker true
-          end
+          else checker true
         | _ => checker true
         end in
     forAllActionExecution maxLength init_chain gTrace stepProp.
