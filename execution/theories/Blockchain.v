@@ -1809,21 +1809,19 @@ Proof.
     rewrite_environment_equiv.
     destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH); auto.
     exists depinfo, cstate, inc_calls.
-    intuition.
-    + now rewrite_environment_equiv.
-    + rewrite_environment_equiv.
-      assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
-      { unfold outgoing_acts.
-        setoid_rewrite queue_new.
-        setoid_rewrite queue_prev.
-        f_equal.
-        cbn.
-        unfold act_is_from_account in act_from_acc.
-        destruct_address_eq; easy.
-      }
-      rewrite outgoing_acts_eq in IH.
+    repeat split; rewrite_environment_equiv; auto.
+    assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
+    { unfold outgoing_acts.
+      setoid_rewrite queue_new.
+      setoid_rewrite queue_prev.
+      f_equal.
       cbn.
-      now fold (outgoing_txs trace caddr).
+      unfold act_is_from_account in act_from_acc.
+      destruct_address_eq; easy.
+    }
+    rewrite outgoing_acts_eq in IH.
+    cbn.
+    now fold (outgoing_txs trace caddr).
   - (* Permutation *)
     rewrite prev_next in *.
     specialize_hypotheses.
