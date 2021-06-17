@@ -1809,10 +1809,8 @@ Proof.
     rewrite_environment_equiv.
     destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH); auto.
     exists depinfo, cstate, inc_calls.
-    repeat split.
-    + assumption.
+    intuition.
     + now rewrite_environment_equiv.
-    + assumption.
     + rewrite_environment_equiv.
       assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
       { unfold outgoing_acts.
