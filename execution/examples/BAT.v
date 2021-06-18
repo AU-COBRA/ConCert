@@ -994,13 +994,11 @@ Proof.
   remember empty_state.
   induction H as [ | H from to trace IH step ]; subst.
   - apply Nat.lt_0_1.
-  - inversion step as [ header _ valid_block _ env_eq | act _ new_acts _ eval _ | eq ].
-    + inversion valid_block. inversion env_eq. rewrite chain_eq. easy.
-    + inversion eval;
-      match goal with
-      | H : EnvironmentEquiv _ _ |- _ => inversion H; rewrite chain_eq; now apply IH
-      end.
-    + inversion eq. now apply IH.
+  - destruct_chain_step.
+    + inversion valid_header. now rewrite_environment_equiv.
+    + inversion eval; rewrite_environment_equiv; now apply IH.
+    + rewrite_environment_equiv. now apply IH.
+    + inversion prev_next. now apply IH.
 Qed.
 
 Lemma trace_reachable : forall bstate (trace : ChainTrace empty_state bstate),
