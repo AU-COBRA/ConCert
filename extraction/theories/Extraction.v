@@ -36,6 +36,18 @@ Import MonadNotation.
 
 Existing Instance extraction_checker_flags.
 
+(** We consider a type to be empty, if it is not mutual and has no constructors *)
+Definition is_empty_type_decl (d : ExAst.global_decl) : bool :=
+  match d with
+  | ExAst.ConstantDecl _ => false
+  | ExAst.InductiveDecl mib =>
+    match mib.(ExAst.ind_bodies) with
+    | oib :: _ => match oib.(ExAst.ind_ctors) with [] => true | _ => false end
+    | _ => false (* NOTE: this should not happen, the list of bodies should not be empty for a well-formed inductive  *)
+    end
+  | ExAst.TypeAliasDecl _ => false
+  end.
+
 Record extract_pcuic_params :=
   { (* Whether to remove discrimination (matches and projections) on things in Prop.
      Necessary to run the transforms. *)
@@ -49,7 +61,6 @@ Definition extract_pcuic_env
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
   let Σ := timed "Erasure" (fun _ => erase_global_decls_deps_recursive Σ wfΣ seeds ignore) in
-
   if optimize_prop_discr params then
     let Σ := timed "Removal of prop discrimination" (fun _ => OptimizePropDiscr.optimize_env Σ) in
     compose_transforms (extract_transforms params) Σ

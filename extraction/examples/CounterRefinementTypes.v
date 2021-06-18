@@ -27,7 +27,6 @@ Import Lia.
 
 Definition PREFIX := "coq_".
 
-(** We use parameterised modules (functors) to isolate proof terms from the extracted parts. Otherwise type cheking and erasing is taking too long *)
 Module CounterRefinementTypes.
 
   (** Enabling recursors for records allows for deriving [Serializable] instances. *)
@@ -64,12 +63,12 @@ Module CounterRefinementTypes.
     Zleb_ltb_to_prop. lia.
   Qed.
 
-  Definition counter (msg : msg) (st : storage)
+  Definition counter (Msg : msg) (st : storage)
     : option (Transaction * storage) :=
-    match msg with
+    match Msg with
     | Inc i =>
       match (bool_dec true (0 <? i)) with
-      | left h => Some (Transaction_none, proj1_sig (inc_counter st (exist _ i (eq_sym h))))
+      | left H => Some (Transaction_none, proj1_sig (inc_counter st (exist _ i (eq_sym H))))
       | right _ => None
       end
     | Dec i =>

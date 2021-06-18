@@ -71,7 +71,7 @@ Definition gCongressChain max_acts_per_block congress_cb max_length :=
     (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
 
 Definition forAllCongressChainTraces n :=
-  forAllChainState n congress_chain (gCongressChain 1).
+  forAllBlocks n congress_chain (gCongressChain 1).
 
 Definition pre_post_assertion_congress P c Q :=
   pre_post_assertion 5 congress_chain (gCongressChain 2) Congress.contract c P Q.
@@ -110,7 +110,8 @@ Instance receive_state_well_behaved_checkable {state : Congress.State}
                                               : Checkable (receive_state_well_behaved state msg new_state resp_acts).
 Proof. apply testDec. Qed.
 
-Definition receive_state_well_behaved_P (cctx : ContractCallContext)
+Definition receive_state_well_behaved_P (chain : Chain)
+                                        (cctx : ContractCallContext)
                                         (old_state : Congress.State)
                                         (msg : Congress.Msg)
                                         (result : option (Congress.State * list ActionBody)) :=
@@ -142,7 +143,7 @@ Definition state_proposals_proposed_in_valid (cs : ChainState) :=
   | Some state => checker (state_proposals_proposed_in_valid_P cs.(current_slot) state)
   | None => checker true
   end.
-  
+
 (* QuickChick (forAllCongressChainTraces 5 state_proposals_proposed_in_valid). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
