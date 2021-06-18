@@ -236,6 +236,38 @@ Axiom deployable_address_decidable : forall bstate wc setup act_from amount,
                   (build_ctx act_from addr amount amount)
                   setup = Some state).
 
+Ltac action_not_decidable :=
+  right; intro;
+  match goal with
+  | H : exists bstate new_acts, inhabited (ActionEvaluation _ _ bstate new_acts) |- False =>
+    destruct H as [bstate_new [new_acts [H]]];
+    inversion H; try congruence
+  end; repeat
+  match goal with
+  | H : {| act_from := _; act_body := _ |} = {| act_from := _; act_body := match ?msg with | Some _ => _ | None =>_ end |} |- False =>
+    destruct msg
+  | H : {| act_from := _; act_body := _ |} = {| act_from := _; act_body := _ |} |- False =>
+    inversion H; subst; clear H
+  end.
+
+Ltac action_decidable :=
+  left; do 2 eexists; constructor;
+  match goal with
+  | H : wc_receive _ _ _ _ ?m = Some _ |- _ => eapply (eval_call _ _ _ _ m)
+  | H : wc_init _ _ _ _ = Some _ |- _ => eapply eval_deploy
+  | H : context [act_transfer _ _] |- _ => eapply eval_transfer
+  end;
+  eauto; try now constructor.
+
+Ltac rewrite_balance :=
+  match goal with
+  | H := context [if (_ =? ?to)%address then _ else _ ],
+    H2 : Environment |- _ =>
+    assert (new_to_balance_eq : env_account_balances H2 to = H);
+    [ try rewrite_environment_equiv; cbn; unfold H; destruct_address_eq; try congruence; lia |
+    now rewrite <- new_to_balance_eq in *]
+  end.
+
 (* For any reachable state and an action it is decidable if it is
     possible to evaluate the action in the state *)
 Open Scope Z_scope.
@@ -245,13 +277,18 @@ Lemma action_evaluation_decidable : forall bstate act,
 Proof.
   intros.
   destruct act eqn:Hact.
-  destruct act_body.
+  destruct act_body;
+    (destruct (amount >=? 0) eqn:amount_positive;
+    [destruct (amount <=? env_account_balances bstate act_from) eqn:balance |
+      action_not_decidable; now rewrite Z.geb_leb, Z.leb_gt in amount_positive (* Eliminate cases where amount is negative *)];
+    [| action_not_decidable; now rewrite Z.leb_gt in balance ]); (* Eliminate cases where sender does not have enough balance *)
+  try (destruct (address_is_contract to) eqn:to_is_contract;
+    [destruct (env_contracts bstate to) eqn:to_contract;
+    [destruct (env_contract_states bstate to) eqn:contract_state |] |]);
+  try now action_not_decidable. (* Eliminate cases with obvious contradictions *)
+  all : rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive.
+  all : rewrite Z.leb_le in balance.
   - (* act_body = act_transfer to amount *)
-    destruct (amount >=? 0) eqn:amount_positive.
-    destruct (amount <=? env_account_balances bstate act_from) eqn:balance.
-    destruct (address_is_contract to) eqn:to_is_contract.
-    destruct (env_contracts bstate to) eqn:to_contract.
-    destruct (env_contract_states bstate to) eqn:contract_state.
     pose (new_to_balance := if (address_eqb act_from to)
                          then (env_account_balances bstate to)
                          else (env_account_balances bstate to) + amount).
@@ -263,81 +300,17 @@ Proof.
       destruct p.
       pose (bstate' := (set_contract_state to s0
                        (transfer_balance act_from to amount bstate))).
-      left.
-      exists bstate', (map (build_act to) l).
-      constructor. eapply eval_call with (msg := None).
-      * rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive. eauto.
-      * rewrite Z.leb_le in balance. eauto.
-      * eauto.
-      * eauto.
-      * reflexivity.
-      * assert (new_to_balance_eq : env_account_balances bstate' to = new_to_balance).
-        { cbn. unfold new_to_balance; destruct_address_eq; try congruence; lia. }
-        rewrite <- new_to_balance_eq in receive. eauto.
-      * reflexivity.
-      * constructor; reflexivity.
+      action_decidable.
+      rewrite_balance.
     + (* Case: act_transfer is not evaluable by eval_call
           because wc_receive returned None *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg; inversion H5. subst.
-      assert (new_to_balance_eq : env_account_balances bstate_new to_addr =
-                                  new_to_balance).
-      { inversion H8.
-        rewrite account_balances_eq.
-        unfold new_to_balance. cbn.
-        destruct_address_eq; try congruence; subst; lia.
-      }
-      now rewrite <- new_to_balance_eq in receive.
-    + (* Case: act_transfer is not evaluable by eval_call
-          because no contract state was stored at to addr *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg; inversion H5. subst.
-      congruence.
-    + (* Case: act_transfer is not evaluable by eval_call
-          because no contract was deployed at to addr *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg; inversion H5. subst.
-      congruence.
-    + (* Case: act_transfer is evaluable by eval_transfer *)
-      pose (bstate' := (transfer_balance act_from to amount bstate)).
-      left.
-      exists bstate', [].
-      constructor. eapply eval_transfer.
-      * rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive. eauto.
-      * rewrite Z.leb_le in balance. eauto.
-      * eauto.
-      * eauto.
-      * constructor; reflexivity.
-      * reflexivity.
-    + (* Case: act_transfer is not evaluable by eval_transfer or eval_call
-          because act_from does not have enough balance *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      * inversion H4. subst.
-        now rewrite Z.leb_gt in balance.
-      * destruct msg; inversion H5. subst.
-        now rewrite Z.leb_gt in balance.
-    + (* Case: act_transfer is not evaluable by eval_transfer or eval_call
-          because amount was negative *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      * inversion H4. subst.
-        now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
-      * destruct msg; inversion H5. subst.
-        now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
+      action_not_decidable.
+      rewrite_balance.
+  - (* act_body = act_transfer to amount *)
+    (* Case: act_transfer is evaluable by eval_transfer *)
+    pose (bstate' := (transfer_balance act_from to amount bstate)).
+    action_decidable.
   - (* act_body = act_call to amount msg *)
-    destruct (amount >=? 0) eqn:amount_positive.
-    destruct (amount <=? env_account_balances bstate act_from) eqn:balance.
-    destruct (env_contracts bstate to) eqn:contract.
-    destruct (env_contract_states bstate to) eqn:contract_state.
     pose (new_to_balance := if (address_eqb act_from to)
                          then (env_account_balances bstate to)
                          else (env_account_balances bstate to) + amount).
@@ -349,62 +322,17 @@ Proof.
       destruct p.
       pose (bstate' := (set_contract_state to s0
                        (transfer_balance act_from to amount bstate))).
-      left.
-      exists bstate', (map (build_act to) l).
-      constructor. eapply eval_call with (msg0 := Some msg).
-      * rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive. eauto.
-      * rewrite Z.leb_le in balance. eauto.
-      * eauto.
-      * eauto.
-      * reflexivity.
-      * assert (new_to_balance_eq : env_account_balances bstate' to = new_to_balance).
-        { cbn. unfold new_to_balance; destruct_address_eq; try congruence; lia. }
-        rewrite <- new_to_balance_eq in receive. eauto.
-      * reflexivity.
-      * constructor; reflexivity.
+      action_decidable.
+      rewrite_balance.
     + (* Case: act_call is not evaluable by eval_call
           because wc_receive returned None *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg0; inversion H5. subst.
-      assert (new_to_balance_eq : env_account_balances bstate_new to_addr =
-                                  new_to_balance).
-      { inversion H8.
-        rewrite account_balances_eq.
-        unfold new_to_balance. cbn.
-        destruct_address_eq; try congruence; subst; lia.
-      }
-      now rewrite <- new_to_balance_eq in receive.
-    + (* Case: act_call is not evaluable by eval_call
-          because no contract state was stored at to addr *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg0; inversion H5. now subst.
-    + (* Case: act_call is not evaluable by eval_call
-          because no contract was deployed at to addr *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg0; inversion H5. now subst.
-    + (* Case: act_call is not evaluable by eval_call
-          because act_from does not have enough balance *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg0; inversion H5. subst.
-      now rewrite Z.leb_gt in balance.
-    + (* Case: act_call is not evaluable by eval_call
-          because amount was negative *)
-       right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence.
-      destruct msg0; inversion H5. subst.
-      now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
+      action_not_decidable.
+      rewrite_balance.
+  - (* act_body = act_call to amount msg *)
+    (* Case: contradiction *)
+    action_not_decidable.
+    now apply contract_addr_format in H3; auto.
   - (* act_body = act_deploy amount c setup *)
-    destruct (amount >=? 0) eqn:amount_positive.
-    destruct (amount <=? env_account_balances bstate act_from) eqn:balance.
     apply deployable_address_decidable
       with (wc:=c) (setup:=setup) (act_from:=act_from) (amount:=amount)
       in H.
@@ -413,39 +341,13 @@ Proof.
       pose (bstate' := (set_contract_state to state
                        (add_contract to c
                        (transfer_balance act_from to amount bstate)))).
-      left.
-      exists bstate', [].
-      constructor. eapply eval_deploy.
-      * rewrite Z.geb_leb, <- Zge_is_le_bool in amount_positive. eauto.
-      * rewrite Z.leb_le in balance. eauto.
-      * eauto.
-      * eauto.
-      * reflexivity.
-      * eauto.
-      * constructor; reflexivity.
-      * reflexivity.
+      action_decidable.
     + (* Case: act_deploy is not evaluable by eval_deploy
           because no there is no available contract address
           that this contract can be deployed to *)
-      right. intro.
+      action_not_decidable.
       apply no_deployable_addr.
-      destruct H as [bstate_new [new_acts [H]]].
-      inversion H; try congruence; try (destruct msg; inversion H4).
-      now exists to_addr, state.
-    + (* Case: act_deploy is not evaluable by eval_deploy
-          because act_from does not have enough balance *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence; try (destruct msg; inversion H5).
-      inversion H5. subst.
-      now rewrite Z.leb_gt in balance.
-    + (* Case: act_deploy is not evaluable by eval_deploy
-          because amount was negative *)
-      right. intro.
-      destruct H0 as [bstate_new [new_acts [H0]]].
-      inversion H0; try congruence; try (destruct msg; inversion H5).
-      inversion H5. subst.
-      now rewrite Z.geb_leb, Z.leb_gt in amount_positive.
+      eauto.
 Qed.
 Close Scope Z_scope.
 
