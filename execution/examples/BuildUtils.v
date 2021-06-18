@@ -475,52 +475,38 @@ Proof.
   induction l; intros.
   - (* Case: queue is already empty, thus we are already done *)
     exists bstate.
-    split; auto.
+    intuition.
     now apply reachable_through_refl.
   - (* Case: queue contains at least one action, 
         thus we need to either discard or evaluate it *)
+    apply list.Forall_cons_1 in H0 as [H0 H0'].
+    apply list.Forall_cons_1 in H1 as [H1 H1'].
     destruct (action_evaluation_decidable bstate a); auto.
     + (* Case: the action is evaluable *)
       destruct H4 as [mid_env [new_acts [action_evaluation]]].
-      pose (mid := build_chain_state mid_env (new_acts ++ l)).
-      assert (step : ChainStep bstate mid).
-      { eapply step_action; eauto. }
-      apply Forall_inv in H1 as produces_no_acts.
-      apply produces_no_acts in action_evaluation as new_acts_eq.
-      subst. cbn in *.
+      pose (build_chain_state mid_env (new_acts ++ l)) as mid.
+      assert (step : ChainStep bstate mid) by (eapply step_action; eauto).
+      apply H1 in action_evaluation as new_acts_eq.
       eapply H3 with (bstate' := mid) in H2; eauto.
-      apply Forall_inv_tail in H0.
-      apply Forall_inv_tail in H1.
-      apply IHl in H2; eauto.
-      * destruct H2 as [to [reachable_through [P_to queue_to]]].
-        exists to.
-        split.
-        -- apply reachable_through_step in step; eauto.
-           eapply reachable_through_trans; eauto.
-        -- auto.
+      apply IHl in H2 as [to [reachable_through [P_to queue_to]]]; subst; eauto.
+      * exists to.
+        intuition.
+        apply reachable_through_step in step; eauto.
+        eapply reachable_through_trans; eauto.
       * eapply reachable_step; eauto.
     + (* Case: the action not is evaluable *)
-      pose (mid := bstate<| chain_state_queue := l |>).
+      pose (bstate<| chain_state_queue := l |>) as mid.
       assert (step : ChainStep bstate mid).
-      { eapply step_action_invalid.
-        -- reflexivity.
-        -- eauto.
-        -- eauto.
-        -- now apply Forall_inv in H0.
-        -- intros.
-           intro.
-           now apply H4.
+      { eapply step_action_invalid; try easy.
+        intros. apply H4.
+        now do 2 eexists.
       }
-      apply Forall_inv_tail in H0.
-      apply Forall_inv_tail in H1.
       apply reachable_step in step as reachable_mid; eauto.
-      apply IHl in reachable_mid; eauto.
-      destruct reachable_mid as [to [reachable_through [P_to queue_to]]].
+      apply IHl in reachable_mid as [to [reachable_through [P_to queue_to]]]; eauto.
       exists to.
-      split.
-      * apply reachable_through_step in step; eauto.
-        eapply reachable_through_trans; eauto.
-      * auto.
+      intuition.
+      apply reachable_through_step in step; eauto.
+      eapply reachable_through_trans; eauto.
 Qed.
 
 End BuildUtils.
