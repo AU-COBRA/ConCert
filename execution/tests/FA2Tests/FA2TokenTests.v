@@ -174,7 +174,7 @@ Definition gFA2ClientChain max_acts_per_block cb length :=
 (* Sample (gFA2TokenAction chain_with_transfer_hook). *)
 (* Sample (gFA2TokenChain 1 chain_with_transfer_hook 10). *)
 
-Definition forAllFA2Traces chain n := forAllChainState n chain (gFA2TokenChain 1).
+Definition forAllFA2Traces chain n := forAllBlocks n chain (gFA2TokenChain 1).
 Definition forAllFA2TracesStatePairs chain n := forAllChainStatePairs n chain (gFA2TokenChain 1).
 Notation "{{ P }} c {{ Q }} chain" := (pre_post_assertion 7 chain (gFA2TokenChain 1) FA2Token.contract c P Q)( at level 50).
 
@@ -220,7 +220,7 @@ Definition msg_is_transfer (cstate : FA2Token.State) (msg : FA2Token.Msg) :=
   | _ => false
   end.
 
-Definition post_transfer_correct (cctx : ContractCallContext) old_state msg (result_opt : option (FA2Token.State * list ActionBody)) :=
+Definition post_transfer_correct (chain : Chain) (cctx : ContractCallContext) old_state msg (result_opt : option (FA2Token.State * list ActionBody)) :=
   match result_opt with
   | Some (new_state, _) =>
     let transfers :=
@@ -382,7 +382,7 @@ Definition msg_is_update_operator (cstate : FA2Token.State) (msg : FA2Token.Msg)
   | _ => false
   end.
 
-Definition post_last_update_operator_occurrence_takes_effect (cctx : ContractCallContext)
+Definition post_last_update_operator_occurrence_takes_effect (chain : Chain) (cctx : ContractCallContext)
                                  (old_state : FA2Token.State)
                                  msg
                                  (result_opt : option (FA2Token.State * list ActionBody)) :=

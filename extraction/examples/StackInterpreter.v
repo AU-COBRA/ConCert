@@ -10,8 +10,9 @@ From MetaCoq.PCUIC Require Import TemplateToPCUIC PCUICTyping.
 From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require Import LPretty LiquidityExtract
-     Erasure Common.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require LPretty LiquidityExtract.
+From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Containers Blockchain.
 
 From Coq Require Import List Ascii String.
@@ -245,154 +246,167 @@ Compute List.length blah.
 Definition print_finmap_type (prefix ty_key ty_val : string) :=
   parens false (ty_key ++ "," ++ prefix ++ ty_val) ++ " map".
 
-(** A translation table for various constants we want to rename *)
-Definition TT_remap : list (kername * string) :=
-  [   (* remapping types *)
-       remap <%% Z %%> "int"
-     ; remap <%% bool %%> "bool"
-     ; remap <%% unit %%> "unit"
-     ; remap <%% option %%> "option"
-     ; remap <%% Amount %%> "tez"
-     ; remap <%% address_coq %%> "address"
-     ; remap <%% time_coq %%> "timestamp"
-     ; remap <%% list %%> "list"
-     ; remap <%% string %%> "string"
-     ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
-     ; remap <%% action %%> "operation"
-     (* remapping operations *)
-     ; remap <%% Z.add %%> "addInt"
-     ; remap <%% Z.mul %%> "mulInt"
-     ; remap <%% Z.sub %%> "subInt"
-     ; remap <%% Z.eqb %%> "eqInt"
-     ; remap <%% Z.leb %%> "leInt"
-     ; remap <%% Z.ltb %%> "ltInt"
-     ; remap <%% @lookup %%> "Map.find"
-     ; remap <%% @fst %%> "fst"
-     ; remap <%% @snd %%> "snd"
-     ; remap <%% andb %%> "andb"
-     ; remap <%% one %%> "1"].
+Module LiquidityInterp.
 
-Definition TT_rename : MyEnv.env string :=
-     (* constructors *)
-     [ ("Z0" ,"0")
-     ; ("nil", "[]")].
+  Import LiquidityExtract LPretty.
 
-Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
-  {| (* a name for the definition with the extracted code *)
-     lmd_module_name := "liquidity_interp" ;
+  (** A translation table for various constants we want to rename *)
+  Definition TT_remap : list (kername * string) :=
+    [   (* remapping types *)
+         remap <%% Z %%> "int"
+       ; remap <%% bool %%> "bool"
+       ; remap <%% unit %%> "unit"
+       ; remap <%% option %%> "option"
+       ; remap <%% Amount %%> "tez"
+       ; remap <%% address_coq %%> "address"
+       ; remap <%% time_coq %%> "timestamp"
+       ; remap <%% list %%> "list"
+       ; remap <%% string %%> "string"
+       ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
+       ; remap <%% action %%> "operation"
+       (* remapping operations *)
+       ; remap <%% Z.add %%> "addInt"
+       ; remap <%% Z.mul %%> "mulInt"
+       ; remap <%% Z.sub %%> "subInt"
+       ; remap <%% Z.eqb %%> "eqInt"
+       ; remap <%% Z.leb %%> "leInt"
+       ; remap <%% Z.ltb %%> "ltInt"
+       ; remap <%% @lookup %%> "Map.find"
+       ; remap <%% @fst %%> "fst"
+       ; remap <%% @snd %%> "snd"
+       ; remap <%% andb %%> "andb"
+       ; remap <%% one %%> "1"].
 
-     (* definitions of operations on ints, bools, pairs, ect. *)
-     lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops;
+  Definition TT_rename : MyEnv.env string :=
+       (* constructors *)
+       [ ("Z0" ,"0")
+       ; ("nil", "[]")].
 
-     lmd_init := init ;
+  Import LiquidityExtract.
 
-     lmd_init_prelude := "";
+  Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
+    {| (* a name for the definition with the extracted code *)
+       lmd_module_name := "liquidity_interp" ;
 
-     lmd_receive := receive ;
+       (* definitions of operations on ints, bools, pairs, ect. *)
+       lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops;
 
-     (* code for the entry point *)
-     lmd_entry_point :=
-           printWrapper (PREFIX ++ "receive")
-                        ++ nl
-                        ++ printMain |}.
+       lmd_init := init ;
 
-(** We run the extraction procedure inside the [TemplateMonad].
-    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
-    that removes application of boxes to constants and constructors. *)
+       lmd_init_prelude := "";
 
-Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] INTERP_MODULE ;;
-      tmDefinition INTERP_MODULE.(lmd_module_name) t
-     ).
+       lmd_receive := receive ;
 
-(** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
-Print liquidity_interp.
+       (* code for the entry point *)
+       lmd_entry_point :=
+             printWrapper (PREFIX ++ "receive")
+                          ++ nl
+                          ++ printMain |}.
 
-(** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/liquidity-extract/StackInterpreter.liq" Compute liquidity_interp.
-
-
-(* ------- CameLIGO extraction -------- *)
-From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
-
-Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):=
-  (* prevent optimizations from deleting these arguments from receive_'s type signature *)
-  let c_ := c in
-  let ctx_ := ctx in
-  match msg with
-  | Some msg => receive msg s
-  | None => None
-  end.
-
-Definition TT_remap_ligo : list (kername * string) :=
-  [   (* remapping types *)
-       remap <%% Z %%> "int"
-     ; remap <%% bool %%> "bool"
-     ; remap <%% unit %%> "unit"
-     ; remap <%% option %%> "option"
-     ; remap <%% Amount %%> "tez"
-     ; remap <%% address_coq %%> "address"
-     ; remap <%% time_coq %%> "timestamp"
-     ; remap <%% list %%> "list"
-     ; remap <%% string %%> "string"
-     ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
-     ; remap <%% action %%> "operation"
-     (* remapping operations *)
-     ; remap <%% Z.add %%> "addInt"
-     ; remap <%% Z.mul %%> "multInt"
-     ; remap <%% Z.sub %%> "subInt"
-     ; remap <%% Z.eqb %%> "eqInt"
-     ; remap <%% Z.leb %%> "leInt"
-     ; remap <%% Z.ltb %%> "ltInt"
-     ; remap <%% @lookup %%> "Map.find_opt"
-     ; remap <%% @fst %%> "fst"
-     ; remap <%% @snd %%> "snd"
-     ; remap <%% andb %%> "andb"
-     ; remap <%% one %%> "1"].
-
-Definition dummy_chain :=
-      "type chain = {
-        chain_height     : nat;
-        current_slot     : nat;
-        finalized_height : nat;
-        account_balance  : address -> nat
-      }"
-  ++ nl
-  ++ "let dummy_chain : chain = {
-        chain_height     = 0n;
-        current_slot     = 0n;
-        finalized_height = 0n;
-        account_balance  = fun (a : address) -> 0n
-      }".
-
-Definition LIGO_INTERP_MODULE : CameLIGOMod params SimpleCallCtx unit storage action :=
-  {| (* a name for the definition with the extracted code *)
-     lmd_module_name := "cameligo_interp" ;
-
-     (* definitions of operations on ints, bools, pairs, ect. *)
-     lmd_prelude := CameLIGOPrelude ++ nl
-                    ++ dummy_chain;
-
-     lmd_init := init ;
-
-     lmd_init_prelude := "";
-     lmd_receive_prelude := "";
-
-     lmd_receive := receive_ ;
-
-     (* code for the entry point *)
-     lmd_entry_point :=
-            CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list" CameLIGO_call_ctx
-                        ++ nl
-                        ++ CameLIGOPretty.printMain |}.
+  (** We run the extraction procedure inside the [TemplateMonad].
+      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+      that removes application of boxes to constants and constructors. *)
 
   Time MetaCoq Run
-  (t <- CameLIGO_extraction PREFIX TT_remap_ligo TT_rename LIGO_INTERP_MODULE ;;
-    tmDefinition LIGO_INTERP_MODULE.(lmd_module_name) t
-  ).
+       (t <- liquidity_extraction PREFIX TT_remap TT_rename [] INTERP_MODULE ;;
+        tmDefinition INTERP_MODULE.(lmd_module_name) t
+       ).
 
-  Print cameligo_interp.
+  (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
+  Print liquidity_interp.
 
-  Definition printed := Eval vm_compute in cameligo_interp.
-    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg printed).
+  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+  Redirect "examples/liquidity-extract/StackInterpreter.liq"
+  Compute liquidity_interp.
+
+End LiquidityInterp.
+
+Module CameLIGOInterp.
+
+  Import CameLIGOExtract CameLIGOPretty.
+
+  Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):=
+    (* prevent optimizations from deleting these arguments from receive_'s type signature *)
+    let c_ := c in
+    let ctx_ := ctx in
+    match msg with
+    | Some msg => receive msg s
+    | None => None
+    end.
+
+  Definition TT_remap_ligo : list (kername * string) :=
+    [   (* remapping types *)
+         remap <%% Z %%> "int"
+       ; remap <%% bool %%> "bool"
+       ; remap <%% unit %%> "unit"
+       ; remap <%% option %%> "option"
+       ; remap <%% Amount %%> "tez"
+       ; remap <%% address_coq %%> "address"
+       ; remap <%% time_coq %%> "timestamp"
+       ; remap <%% list %%> "list"
+       ; remap <%% string %%> "string"
+       ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
+       ; remap <%% action %%> "operation"
+       (* remapping operations *)
+       ; remap <%% Z.add %%> "addInt"
+       ; remap <%% Z.mul %%> "multInt"
+       ; remap <%% Z.sub %%> "subInt"
+       ; remap <%% Z.eqb %%> "eqInt"
+       ; remap <%% Z.leb %%> "leInt"
+       ; remap <%% Z.ltb %%> "ltInt"
+       ; remap <%% @lookup %%> "Map.find_opt"
+       ; remap <%% @fst %%> "fst"
+       ; remap <%% @snd %%> "snd"
+       ; remap <%% andb %%> "andb"
+       ; remap <%% one %%> "1"].
+
+  Definition TT_rename : MyEnv.env string :=
+       (* constructors *)
+       [ ("Z0" ,"0")].
+
+  Definition dummy_chain :=
+        "type chain = {
+          chain_height     : nat;
+          current_slot     : nat;
+          finalized_height : nat;
+          account_balance  : address -> nat
+        }"
+    ++ nl
+    ++ "let dummy_chain : chain = {
+          chain_height     = 0n;
+          current_slot     = 0n;
+          finalized_height = 0n;
+          account_balance  = fun (a : address) -> 0n
+        }".
+
+  Definition LIGO_INTERP_MODULE : CameLIGOMod params SimpleCallCtx unit storage action :=
+    {| (* a name for the definition with the extracted code *)
+       lmd_module_name := "cameligo_interp" ;
+
+       (* definitions of operations on ints, bools, pairs, ect. *)
+       lmd_prelude := CameLIGOPrelude ++ nl
+                      ++ dummy_chain;
+
+       lmd_init := init ;
+
+       lmd_init_prelude := "";
+       lmd_receive_prelude := "";
+
+       lmd_receive := receive_ ;
+
+       (* code for the entry point *)
+       lmd_entry_point :=
+              CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list" CameLIGO_call_ctx
+                          ++ nl
+                          ++ CameLIGOPretty.printMain |}.
+
+    Time MetaCoq Run
+    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename LIGO_INTERP_MODULE  ).
+
+    Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
+
+    Print cameligo_interp.
+      (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+    Redirect "examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg cameligo_interp).
+
+End CameLIGOInterp.

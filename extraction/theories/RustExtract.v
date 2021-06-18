@@ -535,15 +535,20 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
   | tConstruct ind i => print_constructor ind i []
 
   | tCase (ind, npars) discr brs =>
-    match remap_inductive remaps ind with
-    | Some rem =>
-      match re_ind_match rem with
-      | Some s => print_remapped_case print_term Γ ind discr brs s
+    match brs with
+    | [] =>
+      (* If it's a match on an empty type, we just panic, since we should never reach this code *)
+      append "panic!(""Absurd case!"")"
+    | _ =>
+      match remap_inductive remaps ind with
+      | Some rem =>
+        match re_ind_match rem with
+        | Some s => print_remapped_case print_term Γ ind discr brs s
+        | None => print_case print_term Γ ind npars discr brs
+        end
       | None => print_case print_term Γ ind npars discr brs
       end
-    | None => print_case print_term Γ ind npars discr brs
     end
-
   | tFix defs i =>
     (* Rust does not have recursive closures. Instead, we have to do a trick
        where we recurse through the heap: we first create a cell on the heap
@@ -820,6 +825,11 @@ Definition print_program : PrettyPrinter unit :=
       | Ex.ConstantDecl _ => true
       | _ => false
       end in
+
+  (* Filtering out empty type declarations *)
+  (* TODO: possibly, move to extraction (requires modifications of the correctness proof) *)
+  let Σ := filter (fun '(kn,d) => negb (is_empty_type_decl d)) Σ in
+
   ind_names <- print_decls_aux (filter (negb ∘ is_const) (List.rev Σ))
                                (append_nl;; append_nl);;
 

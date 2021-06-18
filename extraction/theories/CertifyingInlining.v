@@ -80,14 +80,20 @@ Section inlining.
   Fixpoint inline_aux (args : list term) (t : term) : term :=
     match t with
     | tApp hd args0 => inline_aux (map (inline_aux []) args0 ++ args) hd
-    | tCast t0 _ _ => inline_aux args t0
+    | tCast t0 _ _ =>
+      (* NOTE: removing casts leads to producing more definitions at the proof
+         generation phase, even for the cases when there isn't anything to
+         inline, because the structure of the term has changed.
+         We cannot determine at this point if we should inline something or
+         nothing at all, since [should_inline] is a function*)
+      inline_aux args t0
     | tConst kn u =>
       if should_inline kn then
         match lookup_env Σ kn with
         | Some (ConstantDecl cst) =>
           match cst_body cst with
           | Some body (* once told me *) =>
-            (* Often the first beta will expose an iota (record projection),
+            (* NOTE: Often the first beta will expose an iota (record projection),
                and the projected field is often a function, so we do another beta *)
             let (hd, args) := decompose_app (beta_body body args) in
             beta_body (iota_body hd) args
@@ -101,47 +107,6 @@ Section inlining.
     end.
 
   Definition inline : term -> term := inline_aux [].
-
-  (* Fixpoint inline (t : term) : term := *)
-  (*   match t with *)
-  (*   | tRel n => t *)
-  (*   | tVar id => t *)
-  (*   | tEvar ev args => *)
-  (*     tEvar ev (map inline args) *)
-  (*   | tSort s => t *)
-  (*   | tCast t kind ty => tCast (inline t) kind (inline v) *)
-  (*   | tProd na ty body => tProd na (inline ty) (inline body) *)
-  (*   | tLambda na ty body => tLambda na ty (inline body) *)
-  (*   | tLetIn na def def_ty body => tLetIn na (inline def) (inline def_ty) (inline body) *)
-
-  (*   | tApp hd args => *)
-  (*     let args := map inline args in *)
-  (*     match hd with *)
-  (*     | tConst kn u => *)
-  (*       if should_inline kn then *)
-  (*          inline_const kn u args *)
-  (*       else tApp (inline hd) args *)
-  (*     | _ => tApp (inline hd) args *)
-  (*     end *)
-  (*   | tConst kn u => *)
-  (*     if should_inline kn then *)
-  (*       inline_const kn u [] *)
-  (*     else t *)
-  (*   | tInd _ _ => t *)
-  (*   | tConstruct ind idx u => t *)
-  (*   | tCase ind_info type_info discr branches => *)
-  (*     tCase ind_info (inline type_info) (inline discr) *)
-  (*           (map (on_snd inline) branches) *)
-  (*   | tProj prj t0 => tProj prj (inline t0) *)
-  (*   | tFix mfix idx => *)
-  (*     let mfix' := map (map_def inline inline) mfix in *)
-  (*     tFix mfix' idx *)
-  (*   | tCoFix mfix idx => *)
-  (*     let mfix' := map (map_def inline inline) mfix in *)
-  (*     tCoFix mfix' idx *)
-  (*   | tInt _ => t *)
-  (*   | tFloat _ => t *)
-  (*   end. *)
 
   Definition inline_in_constant_body cst :=
     {| cst_type := cst_type cst;

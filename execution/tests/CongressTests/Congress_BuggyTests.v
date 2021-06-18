@@ -75,7 +75,7 @@ Definition gCongressChain max_acts_per_block congress_cb max_length :=
     (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
 
 Definition forAllCongressChainTraces n :=
-  forAllChainState n (snd unpacked_exploit_example) (gCongressChain 2).
+  forAllBlocks n (snd unpacked_exploit_example) (gCongressChain 2).
 
 Definition pre_post_assertion_congress P c Q :=
   pre_post_assertion 2 (snd unpacked_exploit_example) (gCongressChain 1) Congress_Buggy.contract c P Q.
@@ -97,7 +97,8 @@ Definition num_cacts_safe_P (msg : Congress_Buggy.Msg)
   num_cacts_in_state new_state + length resp_acts <=?
   num_cacts_in_state old_state + nr_cacts.
 
-Definition receive_state_well_behaved_P (cctx : ContractCallContext)
+Definition receive_state_well_behaved_P (chain : Chain)
+                                        (cctx : ContractCallContext)
                                         (old_state : Congress_Buggy.State)
                                         (msg : Congress_Buggy.Msg)
                                         (result : option (Congress_Buggy.State * list ActionBody)) :=

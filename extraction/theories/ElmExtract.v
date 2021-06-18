@@ -47,12 +47,19 @@ Section FixEnv.
 Context (Σ : Ex.global_env).
 Context (translate : kername -> option string).
 
-(* A printing config for Elm *)
+(** A printing config for Elm *)
 Class ElmPrintConfig :=
   { term_box_symbol : string;
     type_box_symbol : string;
     any_type_symbol : string;
+    false_elim_def : string;
     print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *) }.
+
+(** A default false_elim implementation as a forever spinning loop *)
+Definition elm_false_rec :=
+  String.concat nl
+                ["false_rec : () -> a";
+                "false_rec _ = false_rec ()"].
 
 
 Context `{ElmPrintConfig}.
@@ -289,7 +296,6 @@ Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter
     | _ => printer_fail "could not decompose branch for infix constructor"
   end.
 
-
 Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   match t with
   | tBox => append term_box_symbol
@@ -379,66 +385,69 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
   | tConstruct ind i => print_ind_ctor ind i
 
   | tCase (ind, npars) discriminee branches =>
-    case_col <- get_current_line_length;;
-    append "case ";;
-    print_parenthesized (parenthesize_case_discriminee discriminee)
-                        (print_term Γ discriminee);;
-    append " of";;
+    match branches with
+    | [] => append false_elim_def
+    | _ =>
+      case_col <- get_current_line_length;;
+      append "case ";;
+      print_parenthesized (parenthesize_case_discriminee discriminee)
+                          (print_term Γ discriminee);;
+      append " of";;
 
-    push_indent (case_col + indent_size);;
+      push_indent (case_col + indent_size);;
 
-    oib <- wrap_result (lookup_ind_decl ind) id;;
+      oib <- wrap_result (lookup_ind_decl ind) id;;
 
     (* Take care that this is structurally recursive... *)
-    (fix print_branches
-         (branches : list (nat * term))
-         (ctors : list (ident * list (name * Ex.box_type))) :=
-       match branches, ctors with
-       | [], [] => ret tt
-       | (arity, t) :: branches, (ctor_name, data) :: ctors =>
-         append_nl;;
+      (fix print_branches
+           (branches : list (nat * term))
+           (ctors : list (ident * list (name * Ex.box_type))) :=
+         match branches, ctors with
+         | [], [] => ret tt
+         | (arity, t) :: branches, (ctor_name, data) :: ctors =>
+           append_nl;;
 
-         ctor_indent <- get_indent;;
-         push_indent (ctor_indent + indent_size);;
+           ctor_indent <- get_indent;;
+           push_indent (ctor_indent + indent_size);;
 
-         let ctor_name := get_ctor_name ((inductive_mind ind).1, ctor_name) in
-         (* NOTE: if the constructor name is some operator in parenthesis, we apply a special prining procedure for infix constructors *)
-         match get_infix ctor_name with
-         | Some op => print_infix_match_branch print_term op Γ t
-         | None =>
-           append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
+           let ctor_name := get_ctor_name ((inductive_mind ind).1, ctor_name) in
+           (* NOTE: if the constructor name is some operator in parenthesis, we apply a special prining procedure for infix constructors *)
+           match get_infix ctor_name with
+           | Some op => print_infix_match_branch print_term op Γ t
+           | None =>
+             append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
 
-           (* In Coq, parameters are not part of branches. But erasure
+             (* In Coq, parameters are not part of branches. But erasure
             adds the parameters to each constructor, so we need to get those
             out of the way first. These won't have any uses so we just print _. *)
-           append (concat "" (map (fun _ => " _") (seq 0 npars)));;
+             append (concat "" (map (fun _ => " _") (seq 0 npars)));;
 
-           (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
-              match n with
-              | 0 =>
-                append " ->";;
-                append_nl;;
-                print_parenthesized (parenthesize_case_branch t) (print_term Γ t)
+             (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
+                match n with
+                | 0 =>
+                  append " ->";;
+                  append_nl;;
+                  print_parenthesized (parenthesize_case_branch t) (print_term Γ t)
 
-              | S n =>
-                match t with
-                | tLambda name t =>
-                  name <- fresh_ident name Γ;;
-                  append (" " ^ name);;
-                  print_branch n (name :: Γ) t
+                | S n =>
+                  match t with
+                  | tLambda name t =>
+                    name <- fresh_ident name Γ;;
+                    append (" " ^ name);;
+                    print_branch n (name :: Γ) t
 
-                | _ => printer_fail "could not decompose branch"
-                end
-              end) arity Γ t
-         end;;
+                  | _ => printer_fail "could not decompose branch"
+                  end
+                end) arity Γ t
+           end;;
 
-         pop_indent;;
-
-         print_branches branches ctors
+           pop_indent;;
+           print_branches branches ctors
        | _, _ => printer_fail "wrong number of case branches compared to inductive"
        end) branches (Ex.ind_ctors oib);;
 
-    pop_indent
+      pop_indent
+    end
 
   | tProj _ _ => printer_fail "tProj"
 
@@ -607,6 +616,10 @@ Definition print_env : PrettyPrinter (list (kername * string)) :=
   monad_iter push_use (map (fun '(kn, _, _) => get_fun_name kn) Σ);;
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
+
+  (* Filtering out empty type declarations *)
+  (* TODO: possibly, move to extraction (requires modifications of the correctness proof) *)
+  let Σ := filter (fun '(kn,d) => negb (is_empty_type_decl d)) Σ in
 
   names <- (fix f (l : list (kername * bool * global_decl)) prefix names :=
      match l with

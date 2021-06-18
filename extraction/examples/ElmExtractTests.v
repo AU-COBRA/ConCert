@@ -22,6 +22,7 @@ Instance StandardBoxes : ElmPrintConfig :=
   {| term_box_symbol := "□";
      type_box_symbol := "□";
      any_type_symbol := "𝕋";
+     false_elim_def := "false_rec ()";
      print_full_names := false |}.
 
 Definition no_check_args :=

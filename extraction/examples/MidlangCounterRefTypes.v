@@ -30,6 +30,7 @@ Instance MidlangBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
      any_type_symbol := "()";
+     false_elim_def := "false_rec ()";
      print_full_names := false |}.
 
 Definition midlang_translation_map :=

@@ -31,6 +31,7 @@ Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)
      any_type_symbol := "()"; (* unit type *)
+     false_elim_def := "false_rec ()"; (* predefined function *)
      print_full_names := false (* short names for readability *)|}.
 
 Definition general_wrapped (p : program) (pre post : string)
@@ -60,11 +61,6 @@ Module ElmExamples.
                   "import Test";
                   "import Html";
                   "import Expect exposing (Expectation)"].
-
-  Definition elm_false_rec :=
-    String.concat nl
-                  ["false_rec : () -> a";
-                   "false_rec _ = false_rec ()"].
 
   Definition main_and_test (test : string) :=
     "main = Html.text "++ parens false ("Debug.toString " ++ parens false test) ++ nl ++
@@ -119,9 +115,10 @@ Module ElmExamples.
     extract nth_syn = Ok result_nth.
   Proof. reflexivity. Qed.
 
-  Redirect "examples/elm-extract/Nth.elm" Compute wrapped nth_syn
-          (Preambule "Nth")
-          (main_and_test "Expect.equal (nth O (Cons 1 (Cons 0 Nil)) 0) 1").
+  Redirect "examples/elm-extract/Nth.elm"
+  Compute wrapped nth_syn
+  (Preambule "Nth")
+  (main_and_test "Expect.equal (nth O (Cons 1 (Cons 0 Nil)) 0) 1").
 
   MetaCoq Quote Recursively Definition map_syn := List.map.
   Definition result_map :=
@@ -141,9 +138,10 @@ Module ElmExamples.
        "  in";
        "  map2" $>.
 
-  Redirect "examples/elm-extract/Map.elm" Compute wrapped map_syn
-          (Preambule "Map")
-          (main_and_test "Expect.equal (map (\x->x+1) (Cons 1 (Cons 0 Nil))) (Cons 2 (Cons 1 Nil))").
+  Redirect "examples/elm-extract/Map.elm"
+  Compute wrapped map_syn
+  (Preambule "Map")
+  (main_and_test "Expect.equal (map (\x->x+1) (Cons 1 (Cons 0 Nil))) (Cons 2 (Cons 1 Nil))").
 
   Example ElmList_map :
     extract map_syn = Ok result_map.
@@ -167,9 +165,10 @@ Module ElmExamples.
       "  in";
       "  fold_left2" $>.
 
-  Redirect "examples/elm-extract/Fold.elm" Compute wrapped foldl_syn
-         (Preambule "Fold")
-         (main_and_test "(Expect.equal (fold_left (+) (Cons 1 (Cons 0 Nil)) 0)) 1").
+  Redirect "examples/elm-extract/Fold.elm"
+  Compute wrapped foldl_syn
+  (Preambule "Fold")
+  (main_and_test "(Expect.equal (fold_left (+) (Cons 1 (Cons 0 Nil)) 0)) 1").
 
   Example ElmList_foldl :
     extract foldl_syn = Ok result_foldl.
@@ -192,39 +191,46 @@ Module ElmExamples.
          (Preambule "Increment")
          (main_and_test "Expect.equal (inc_counter O (Exist (S O))) (Exist (S O))").
 
-
   MetaCoq Quote Recursively Definition last_syn := List.last.
 
-  Redirect "examples/elm-extract/Last.elm" Compute wrapped last_syn
-          (Preambule "Last")
-          (main_and_test "Expect.equal (last (Cons 1 (Cons 10 Nil)) 0) 10").
-
-
-  Lemma O_gt_False : 0 > 0 -> False.
-  Proof. intros H;inversion H. Qed.
+  Redirect "examples/elm-extract/Last.elm"
+  Compute wrapped last_syn
+  (Preambule "Last")
+  (main_and_test "Expect.equal (last (Cons 1 (Cons 10 Nil)) 0) 10").
 
   Program Definition safe_head {A} (non_empty_list : {l : list A | length l > 0}) : A :=
     match non_empty_list as l' return l' = non_empty_list -> A  with
-    | [] => fun _ => False_rect _ _
+    | [] =>
+      (* NOTE: we use [False_rect] to make the extracted code a bit nicer.
+         It's totally possible to leave the whole branch as an obligation,
+         the extraction will handle it.
+         However, if the whole branch is an abligation, the proof it should
+         be left transparent (using [Defined]), so the extraction could
+         produce reasonable code for it. If left opaque, it the body of
+         the obligation will be ignored by extraction producing no
+         corresponding definiton*)
+      fun _ => False_rect _ _
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    intros. destruct non_empty_list as [l H1]. cbn in *;subst.
-    apply O_gt_False;auto.
+    intros.
+    destruct non_empty_list as [l H1];cbn in *;subst.
+    inversion H1.
   Qed.
 
-  Program Definition head_of_repeat_2 {A} (a : A) := safe_head (repeat a 2).
+  Program Definition head_of_repeat_plus_one {A} (n : nat) (a : A) : A
+    := safe_head (repeat a (1+n)).
   Next Obligation.
-    intros. cbn. auto.
+    intros. cbn. lia.
   Qed.
 
-  MetaCoq Run (t <- tmQuoteRecTransp (@head_of_repeat_2) false ;;
-               tmDefinition "head_of_repeat_2_syn" t).
+  MetaCoq Run (t <- tmQuoteRecTransp (@head_of_repeat_plus_one) false ;;
+               tmDefinition "head_of_repeat_plus_one_syn" t).
 
   Redirect "examples/elm-extract/SafeHead.elm"
-           Compute general_wrapped head_of_repeat_2_syn
-          (Preambule "SafeHead" ++ nl ++ elm_false_rec)
-          (main_and_test "Expect.equal (head_of_repeat_2 1) 1")
-          [<%% False_rect %%>] [(<%% False_rect %%>, "false_rec ()")].
+  Compute general_wrapped head_of_repeat_plus_one_syn
+  (Preambule "SafeHead" ++ nl ++ elm_false_rec)
+  (main_and_test "Expect.equal (head_of_repeat_plus_one (S O) 1) 1")
+  [] [].
 
 End ElmExamples.

@@ -200,6 +200,7 @@ Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)
      any_type_symbol := "()"; (* unit type *)
+     false_elim_def := "false_rec ()";
      print_full_names := false |}.
 
 Definition general_wrapped (Σ : global_env) (pre post : string)
@@ -296,7 +297,7 @@ Definition to_inline :=
 Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : TemplateMonad _ :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   seeds <- monad_map extract_def_name_exists m.(elmmd_extract);;
-  general_wrapped Σ (header_and_imports ++ nl ++ nl ++ preamble) ""
+  general_wrapped Σ (header_and_imports ++ nl ++ nl ++ preamble ++ nl ++ nl ++ elm_false_rec) ""
                   (KernameSetProp.of_list seeds)
                   to_inline
                   (map fst TT)
