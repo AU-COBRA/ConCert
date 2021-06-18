@@ -148,6 +148,8 @@ Proof.
     now rewrite circulation_add_new_block.
   - (* New action *)
     erewrite eval_action_circulation_unchanged; eauto.
+  - (* Invalid User Action *)
+    intuition.
   - (* Permute queue *)
     intuition.
 Qed.
