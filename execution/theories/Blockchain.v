@@ -664,7 +664,7 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
       chain_state_queue prev_bstate = act :: acts ->
       chain_state_queue next_bstate = acts ->
       act_is_from_account act ->
-      (forall bstate new_acts, ~ inhabited (ActionEvaluation prev_bstate act bstate new_acts)) ->
+      (forall bstate new_acts, ActionEvaluation prev_bstate act bstate new_acts -> False) ->
       ChainStep prev_bstate next_bstate
 | step_permute :
       chain_state_env prev_bstate = chain_state_env next_bstate ->
@@ -1809,23 +1809,19 @@ Proof.
     rewrite_environment_equiv.
     destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH); auto.
     exists depinfo, cstate, inc_calls.
-    repeat split.
-    + assumption.
-    + now rewrite_environment_equiv.
-    + assumption.
-    + rewrite_environment_equiv.
-      assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
-      { unfold outgoing_acts.
-        setoid_rewrite queue_new.
-        setoid_rewrite queue_prev.
-        f_equal.
-        cbn.
-        unfold act_is_from_account in act_from_acc.
-        destruct_address_eq; easy.
-      }
-      rewrite outgoing_acts_eq in IH.
+    repeat split; rewrite_environment_equiv; auto.
+    assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
+    { unfold outgoing_acts.
+      setoid_rewrite queue_new.
+      setoid_rewrite queue_prev.
+      f_equal.
       cbn.
-      now fold (outgoing_txs trace caddr).
+      unfold act_is_from_account in act_from_acc.
+      destruct_address_eq; easy.
+    }
+    rewrite outgoing_acts_eq in IH.
+    cbn.
+    now fold (outgoing_txs trace caddr).
   - (* Permutation *)
     rewrite prev_next in *.
     specialize_hypotheses.
