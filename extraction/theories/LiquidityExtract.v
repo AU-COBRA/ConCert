@@ -10,14 +10,14 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
 
 From MetaCoq.Template Require Pretty.
 
-From ConCert.Execution Require Import Blockchain Serializable.
+From ConCert.Execution Require Import Blockchain Serializable Common.
 
 From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction CertifyingInlining Certifying SpecializeChainBase.
+     Common ExAst Erasure Optimize Extraction CertifyingInlining CertifyingBeta Certifying SpecializeChainBase.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -50,6 +50,15 @@ Arguments lmd_init_prelude {_ _ _ _ _}.
 Arguments lmd_receive {_ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _}.
 
+(* We override masks for *some* constants that have only logical parameters, like
+   [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
+   if all the parameters are logical. This is necessary because such definitions
+   might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
+   on how the elimination from the empty types is implemented.
+   However, for [AddressMap.empty] is completely safe to remove all arguments, since it's an abbreviation for a constructor.*)
+Definition overridden_masks (kn : kername) : option bitmask :=
+  if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
+  else None.
 
 (* Extract an environment with some minimal checks. This assumes the environment
    is well-formed (to make it computable from within Coq) but furthermore checks that the
@@ -64,7 +73,9 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
-            [dearg_transform (fun _ => None) true true true true true ] |} |}.
+            [dearg_transform overridden_masks true true true true true ]
+       |}
+  |}.
 
 Definition extract (to_inline :  kername -> bool)
            (seeds : KernameSet.t)
@@ -118,7 +129,6 @@ Definition printLiquidityDefs_
 Definition printLiquidityDefs := printLiquidityDefs_ extract.
 (* printing *with* chainbase specialization *)
 Definition printLiquidityDefs_specialize := printLiquidityDefs_ extract_specialize.
-
 
 Definition liquidity_ignore_default :=
   [

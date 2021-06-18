@@ -14,7 +14,7 @@ From MetaCoq.Template Require Pretty.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Utils Require Import RecordSet RecordUpdate StringExtra.
-From ConCert.Execution Require Import Blockchain Serializable.
+From ConCert.Execution Require Import Blockchain Serializable Common.
 
 From ConCert.Extraction Require Import CameLIGOPretty
      Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Utils SpecializeChainBase.
@@ -42,15 +42,25 @@ Arguments lmd_receive {_ _ _ _ _ _}.
 Arguments lmd_receive_prelude {_ _ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _ _}.
 
+(* We override masks for *some* constants that have only logical parameters, like
+   [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
+   if all the parameters are logical. This is necessary because such definitions
+   might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
+   on how the elimination from the empty types is implemented.
+   However, for [AddressMap.empty] is completely safe to remove all arguments, since it's an abbreviation for a constructor.*)
+Definition overridden_masks (kn : kername) : option bitmask :=
+  if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
+  else None.
+
 Definition cameligo_args :=
        {| optimize_prop_discr := true;
-               extract_transforms := [Optimize.dearg_transform
-                              (fun _ => None)
-                              true
-                              false (* cannot have partially applied ctors *)
-                              true
-                              true
-                              true] |}.
+          extract_transforms := [Optimize.dearg_transform
+                                   overridden_masks
+                                   true
+                                   false (* cannot have partially applied ctors *)
+                                   true
+                                   true
+                                   true] |}.
 
 Import PCUICAst PCUICTyping.
 Definition annot_extract_env_cameligo
@@ -103,7 +113,8 @@ Definition TT_remap_default : list (kername * string) :=
   [
     (* types *)
     remap <%% Z %%> "tez"
-  ; remap <%% N %%> "nat"
+  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] *)
+  ; remap <%% N %%> "int"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
   ; remap <%% unit %%> "unit"
@@ -219,7 +230,7 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
           (* map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in *)
         let res : string :=
             String.concat (nl ++ nl) (defs ++ (cons init_code nil)) in
-        (wrap_in_delimiters (String.concat (nl ++ nl) [prelude; res; entry_point])) |> inl
+        (wrap_in_delimiters (String.concat (nl ++ nl) [res; entry_point])) |> inl
       | None => inr "Error: Empty body for init"
       end
     | Some _ => inr "Error: init must be a constant"

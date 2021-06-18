@@ -412,6 +412,11 @@ Fixpoint debox_box_type_aux (args : list box_type) (bt : box_type) : box_type :=
   | TApp ty1 ty2 =>
     debox_box_type_aux (debox_box_type_aux [] ty2 :: args) ty1
   | TInd ind => dearg_single_bt (get_inductive_tvars ind) bt args
+  | TConst kn => match lookup_env Σ kn with
+                | Some (TypeAliasDecl (Some (vs, ty))) =>
+                  dearg_single_bt vs bt args
+                | _ => bt
+                end
   | _ => mkTApps bt args
   end.
 
@@ -450,7 +455,8 @@ Definition debox_type_decl (decl : global_decl) : global_decl :=
   | InductiveDecl mib => InductiveDecl (debox_type_mib mib)
   | TypeAliasDecl ta => match ta with
                        | Some (ty_vars, ty) =>
-                         TypeAliasDecl (Some (ty_vars, debox_box_type ty))
+                         TypeAliasDecl (Some (filter keep_tvar ty_vars,
+                                              reindex ty_vars (debox_box_type ty)))
                        | None => TypeAliasDecl None
                        end
   end.

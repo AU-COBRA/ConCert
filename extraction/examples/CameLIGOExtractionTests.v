@@ -344,14 +344,17 @@ Section CrowdfundingExtraction.
 End CrowdfundingExtraction.
 
 Section EIP20TokenExtraction.
+
   Import EIP20Token.
   Import RecordSetNotations.
 
+  Open Scope Z_scope.
+
   Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
     Some {| total_supply := setup.(init_amount);
-            balances := FMap.add (EIP20Token.owner setup) (init_amount setup) FMap.empty;
-            allowances := FMap.empty |}.
-  Open Scope Z_scope.
+            balances := Common.AddressMap.add (EIP20Token.owner setup) (init_amount setup) Common.AddressMap.empty;
+            allowances := Common.AddressMap.empty |}.
+
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
        (state : EIP20Token.State)
@@ -362,6 +365,88 @@ Section EIP20TokenExtraction.
     | None => None
     end.
   Close Scope Z_scope.
+
+  Definition LIGO_EIP20Token_MODULE : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
+  {| (* a name for the definition with the extracted code *)
+      lmd_module_name := "cameLIGO_eip20token" ;
+
+      (* definitions of operations on pairs and ints *)
+      lmd_prelude := CameLIGOPrelude ++ nl ++
+                     dummy_chain;
+
+      (* initial storage *)
+      lmd_init := init ;
+
+      (* NOTE: printed as local [let]-bound definitions in the init *)
+      lmd_init_prelude := "";
+
+      (* TODO: maybe not needed, [lmd_prelude] should be enough *)
+      lmd_receive_prelude := "";
+
+      (* the main functionality *)
+      lmd_receive := receive_ ;
+
+      (* code for the entry point *)
+      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
+                        ++ CameLIGOPretty.printMain |}.
+
+  Definition TT_remap_eip20token : list (kername * string) :=
+    TT_remap_default ++ [
+    (* TODO: is it of a correct type? *)
+    remap <%% @ContractCallContext %%> "(address * (address * int))"
+  ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+
+  ; remap <%% @ActionBody %%> "operation"
+
+  ; remap <%% @FMap %%> "map"
+  ; remap <%% @Common.AddressMap.add %%> "Map.add"
+  ; remap <%% @Common.AddressMap.find %%> "Map.find_opt"
+  ; remap <%% @Common.AddressMap.empty %%> "Map.empty"
+  ].
+
+  Definition TT_inlines_eip20token : list kername :=
+    [
+      <%% Monads.Monad_option %%>
+    ; <%% @Monads.bind %%>
+    ; <%% @Monads.ret %%>
+    ; <%% bool_rect %%>
+    ; <%% bool_rec %%>
+    ; <%% option_map %%>
+    ; <%% @Extras.with_default %%>
+
+    ; <%% @setter_from_getter_State_balances %%>
+    ; <%% @setter_from_getter_State_total_supply %%>
+    ; <%% @setter_from_getter_State_allowances %%>
+    ; <%% @set_State_balances %%>
+    ; <%% @set_State_allowances%%>
+    ; <%% @Common.AddressMap.AddrMap %%>
+    ].
+
+
+  Definition TT_rename_eip20token :=
+    [ ("Z0" ,"0tez")
+    ; ("N0", "0")
+    ; ("N1", "1")
+    ; ("nil", "[]")
+    ; ("tt", "()") ].
+
+  Time MetaCoq Run
+  (CameLIGO_prepare_extraction PREFIX TT_inlines_eip20token TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE).
+
+  Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
+
+    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  (* Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
+  MetaCoq Run (tmMsg cameLIGO_eip20token).
+
+End EIP20TokenExtraction.
+
+
+Section TestExtractionPlayground.
+  Import EIP20Token.
+  Import RecordSetNotations.
+
+  Open Scope N_scope.
 
   (* A specialized version of FMap's partial alter, w.r.t. FMap Address N *)
   Definition partial_alter_addr_nat : string :=
@@ -388,79 +473,9 @@ Section EIP20TokenExtraction.
        "let with_default_N (n : nat) (m : nat option) : n =" ++ nl
     ++ "  match m with" ++ nl
     ++ "    Some m -> m" ++ nl
-    ++ "  | None -> n".
-
-  Definition LIGO_EIP20Token_MODULE : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
-  {| (* a name for the definition with the extracted code *)
-      lmd_module_name := "cameLIGO_eip20token" ;
-
-      (* definitions of operations on pairs and ints *)
-      lmd_prelude := CameLIGOPrelude;
-
-      (* initial storage *)
-      lmd_init := init ;
-
-      lmd_init_prelude := "";
-
-      (* the main functionality *)
-      lmd_receive_prelude := partial_alter_addr_nat ++ nl ++
-      option_map_state_acts ++ nl ++
-      bind_option_state ++ nl ++
-      with_default_N;
-      lmd_receive := receive_ ;
-
-      (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
-                        ++ CameLIGOPretty.printMain |}.
-
-  Definition TT_remap_eip20token : list (kername * string) :=
-  [
-    remap <%% @ContractCallContext %%> "(adress * (address * int))"
-  ; remap <%% eqb_addr %%> "eq_addr"
-  ; remap <%% @Extras.with_default %%> "with_default_N"
-  ; remap <%% @Monads.bind %%> "bind_option_state"
-  ; remap <%% Monads.Monad_option %%> "()"
-
-  ; remap <%% @stdpp.base.insert %%> "Map.add"
-  ; remap <%% @stdpp.base.lookup %%> "Map.find_opt"
-  ; remap <%% @stdpp.base.empty %%> "Map.empty"
-  ; remap <%% @stdpp.base.partial_alter %%> "partial_alter_addr_nat"
-  ; remap <%% @gmap.gmap_partial_alter %%> ""
-  ; remap <%% @fin_maps.map_insert %%> ""
-  ; remap <%% @gmap.gmap_empty %%> ""
-  ; remap <%% @gmap.gmap_lookup %%> ""
-  ; remap <%% @address_eqdec %%> ""
-  ; remap <%% @address_countable %%> ""
-  ; remap <%% option_map %%> "option_map_state_acts"
-  ].
-
-  Definition TT_rename_eip20token :=
-    [ ("Z0" ,"0tez")
-    ; ("N0", "0n")
-    ; ("N1", "1n")
-    ; ("nil", "[]")
-      (* monad hack *)
-    ; ("Monad_option", "()")
-    ; ("tt", "()") ].
-
-  Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX [] TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE).
+++ "  | None -> n".
 
 
-  Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
-
-    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
-  MetaCoq Run (tmMsg cameLIGO_eip20token).
-
-End EIP20TokenExtraction.
-
-
-Section TestExtractionPlayground.
-  Import EIP20Token.
-  Import RecordSetNotations.
-
-  Open Scope N_scope.
   Definition test_try_transfer (from : Address)
        (to : Address)
        (amount : TokenValue)

@@ -12,6 +12,7 @@ From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import Loader.
+From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 
@@ -370,3 +371,128 @@ Module ex_infix1.
 "  in";
 "  map2" $>. reflexivity. Qed.
 End ex_infix1.
+
+Module recursor_ex.
+
+  Program Definition test {A B : Type} (f : A -> B) (xs : list A) : list B :=
+    list_rect (fun x => list B) [] (fun x _ rec => f x :: rec) xs.
+
+  Lemma test_is_map : @test = @map.
+  Proof. reflexivity. Qed.
+
+  Print test.
+
+  MetaCoq Quote Recursively Definition ex := @test.
+
+  Compute general_extract ex [] [].
+End recursor_ex.
+
+Module type_scheme_ex.
+
+  Definition general_extract_tc (p : program) (ignore: list kername) (TT : list (kername * string)) : TemplateMonad string :=
+  entry <- match p.2 with
+           | tConst kn _ => ret kn
+           | tInd ind _ => ret (inductive_mind ind)
+           | _ => tmFail "Expected program to be a tConst or tInd"
+           end;;
+  res <- tmEval lazy (extract_template_env
+                       no_check_args
+                       p.1
+                       (KernameSet.singleton entry)
+                       (fun k => existsb (eq_kername k) ignore));;
+  match res with
+  | Ok Σ =>
+    tmPrint Σ;;
+    let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
+    s <- tmEval lazy (finish_print (print_env Σ TT_fun));;
+    match s with
+    | Ok (_,s) => ret s
+    | Err s => tmFail s
+    end
+  | Err s => tmFail s
+  end.
+
+
+  (* A simple type abbreviation *)
+
+  Definition Arrow (A B : Type) := A -> B.
+
+  MetaCoq Quote Recursively Definition Arrow_syn := Arrow.
+
+  Example Arrow_test :
+    general_extract Arrow_syn [] [] = Ok "type alias Arrow a b = a -> b".
+  Proof. vm_compute. reflexivity. Qed.
+
+  Definition Triple (A B C : Type) := A * B * C.
+
+  MetaCoq Quote Recursively Definition Triple_syn := Triple.
+
+  MetaCoq Run (general_extract_tc Triple_syn [] []).
+
+  Example Triple_test :
+    general_extract Triple_syn [] [] = Ok <$
+"type Prod a b";
+"  = Pair a b";
+"";
+"type alias Triple a b c = Prod (Prod a b) c" $>.
+  Proof. vm_compute. reflexivity. Qed.
+
+  (* An example from Letouzey's thesis, Section 3.3.4 *)
+
+  Definition P (b : bool) : Set := if b then nat else bool.
+  Definition Sch3 : (bool -> Set) -> Set := fun X => X true -> X false.
+  Definition Sch3_applied := (fun X => X true -> X false) (fun b => if b then nat else bool).
+
+  MetaCoq Quote Recursively Definition Sch3_syn := Sch3.
+
+  Example Sch3_test :
+    general_extract Sch3_syn [] [] = Ok "type alias Sch3 x = x -> x".
+  Proof. vm_compute. reflexivity. Qed.
+
+  MetaCoq Quote Recursively Definition Sch3_applied_syn := Sch3_applied.
+
+  (* In this case, the application reduces to a type with no type parameters *)
+  Example Sch3_applied_test :
+    general_extract Sch3_applied_syn [] [] = Ok <$
+"type Bool";
+"  = True";
+"  | False";
+"";
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"type alias Sch3_applied = Nat -> Bool" $>.
+  Proof. vm_compute. reflexivity. Qed.
+
+  Definition vec (A : Type) (n : nat) := {xs : list A | length xs = n}.
+
+  Program Definition singleton_vec (n : nat) : vec nat 1 := [n].
+  Next Obligation. easy. Qed.
+
+  MetaCoq Quote Recursively Definition singleton_vec_syn := singleton_vec.
+
+  MetaCoq Run (general_extract_tc singleton_vec_syn [] []).
+
+  (* NOTE: the extracted code is not well-typed in Elm, because Elm's type aliases do not support unused type variables *)
+  Example singleton_vec_test:
+    general_extract singleton_vec_syn [] [] = Ok <$
+"type Nat";
+"  = O";
+"  | S Nat";
+"";
+"type Sig a";
+"  = Exist a";
+"";
+"type List a";
+"  = Nil";
+"  | Cons a (List a)";
+"";
+"type alias Vec a = Sig (List a)";
+"";
+"singleton_vec : Nat -> Vec Nat";
+"singleton_vec n =";
+"  Exist (Cons n Nil)" $>.
+  Proof. vm_compute. reflexivity. Qed.
+
+End type_scheme_ex.
