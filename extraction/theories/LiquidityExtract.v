@@ -160,6 +160,11 @@ Definition TT_remap_default : list (kername * string) :=
 
   (* operations *)
   ; remap <%% List.fold_left %%> "List.fold"
+  ; remap <%% Nat.add %%> "addNat"
+  ; remap <%% Nat.sub %%> "subNat"
+  ; remap <%% Nat.leb %%> "leNat"
+  ; remap <%% Nat.eqb %%> "eqNat"
+
   ; remap <%% Pos.add %%> "addNat"
   ; remap <%% Pos.sub %%> "subNat"
   ; remap <%% Pos.leb %%> "leNat"
@@ -208,25 +213,35 @@ Definition liquidity_extract_args :=
                                  true
                                  true] |} |}.
 
-Definition liquidity_simple_extract
+(** Extraction for testing purposes.
+    Simply prints the definitions and allows for appending a prelude and a
+    hand-written harness code to run the extracted definition.
+    The harness is just a piece of code with definitions
+    of [storage], [main], etc.*)
+Definition liquidity_extract_single
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
            (extract_deps : bool)
+           (prelude : string)
+           (harness : string)
            (p : program) : string + string :=
   match p.2 with
   | tConst kn _ =>
     let seeds := KernameSet.singleton kn in
-    let ignore := if extract_deps then fun _ => false else fun kn' => negb (eq_kername kn' kn)  in
     let TT :=
-      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+        (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+    let ignore := if extract_deps then fun kn => existsb (eq_kername kn) (map fst TT_defs) else fun kn' => negb (eq_kername kn' kn)  in
     match extract_template_env liquidity_extract_args p.1 seeds ignore with
     | Ok eΣ =>
+      (* filtering out empty type declarations *)
+      (* TODO: possibly, move to extraction (requires modifications of the correctness proof) *)
+      let eΣ := filter (fun '(_,_,d) => negb (is_empty_type_decl d)) eΣ in
       (* dependencies should be printed before the dependent definitions *)
       let ldef_list := List.rev (print_global_env "" TT eΣ) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in
-      inl (concat (nl ++ nl) defs) %list
+      inl (concat (nl ^ nl) (prelude :: defs ++ [harness]))
     | Err e => inr e
     end
   | _ => inr "Constant expected"

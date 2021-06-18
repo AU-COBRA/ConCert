@@ -69,7 +69,7 @@ Definition gTokenChain max_acts_per_block token_cb max_length :=
 (* 'forAll' checker for this iToken chain generator *)
 Definition forAllTokenChainTraces n :=
   let max_acts_per_block := 2 in
-  forAllChainState n token_cb (gTokenChain max_acts_per_block).
+  forAllBlocks n token_cb (gTokenChain max_acts_per_block).
 
 Instance genBuggyTokenChainSized : GenSized ChainBuilder := {
   arbitrarySized n := gTokenChain 5 token_cb n
@@ -134,10 +134,11 @@ Definition msg_is_not_mint_or_burn (state : iTokenBuggy.State) (msg : iTokenBugg
   | _ => true
   end.
 
-Definition sum_balances_unchanged (cctx : ContractCallContext) 
-                                  (old_state : State) 
-                                  (msg : Msg) 
-                                  (result_opt : option (State * list ActionBody)) 
+Definition sum_balances_unchanged (chain : Chain)
+                                  (cctx : ContractCallContext)
+                                  (old_state : State)
+                                  (msg : Msg)
+                                  (result_opt : option (State * list ActionBody))
                                   : Checker :=
   (* sum all entries in the balances field of a given iToken contract state *)
   let balances_sum s := s.(balances) |> FMap.elements 

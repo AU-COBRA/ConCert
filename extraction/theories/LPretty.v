@@ -7,13 +7,12 @@
 
 Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied.
 
-Another issue (mostly solved): constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
+Another issue: constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
 
-Records are currently not supported. Should be represented as iterated products.
-
-Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types. *)
+(TODO: CHECK THIS)
+Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types.  *)
 
 From Coq Require Import List Program String Ascii.
 From ConCert.Utils Require Import StringExtra.
@@ -93,7 +92,7 @@ Section print_term.
     : box_type -> string :=
     fix go  (bt : box_type) :=
   match bt with
-  | TBox => "Box"
+  | TBox => "unit"
   | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " → " ++ go codom
   | TApp t1 t2 =>
     let hd := get_tapp_hd t1 in
@@ -135,9 +134,6 @@ Section print_term.
       ^ nm
       ^ " : "
       ^ print_box_type prefix TT ty.
-
-  Compute print_proj "" []
-        ("blah",TInd (mkInd (MPfile [], "nat") 0)).
 
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
@@ -219,18 +215,20 @@ Section print_term.
     List.forallb
       (fun decl =>
          match decl.(decl_name) with
-         | nNamed id' => negb (ident_eq id id')
+         | nNamed id' =>
+           (* NOTE: we compare the identifiers up to the capitalisation of the first letters *)
+           negb (ident_eq (uncapitalize id) (uncapitalize id'))
          | nAnon => true
          end) Γ.
 
   Fixpoint name_from_term (t : term) :=
     match t with
-    | tRel _ | tVar _ | tEvar _ _ => "H"
+    | tRel _ | tVar _ | tEvar _ _ => "h"
     | tLambda na t => "f"
     | tLetIn na b t' => name_from_term t'
     | tApp f _ => name_from_term f
     | tConst c => "x"
-    | _ => "U"
+    | _ => "u"
     end.
 
   Definition fresh_id_from Γ n id :=
@@ -250,6 +248,7 @@ Section print_term.
               | nAnon => name_from_term t
               end
     in
+    let id := uncapitalize id in
     if is_fresh Γ id then nNamed id
     else nNamed (fresh_id_from Γ 10 id).
 
@@ -323,11 +322,14 @@ Section print_term.
     end
     in go [].
 
-  Definition print_pat (prefix : string) (TT : env string) (ctor : string) (pt : list string * string) :=
-    let ctor_nm := from_option (look TT ctor) ((capitalize prefix) ++ ctor) in
-    let print_parens := (Nat.ltb 1 (List.length pt.1)) in
-    print_uncurried (capitalize ctor_nm) (rev pt.1) ++ " -> " ++ pt.2.
-
+    Definition print_pat (prefix : string) (TT : env string) (ctor : string) (infix : bool) (pt : list string * string) :=
+    let vars := rev pt.1 in
+    if infix then
+      concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
+    else
+      let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let print_parens := (Nat.ltb 1 (List.length pt.1)) in
+      print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
   Definition print_transfer (args : list string) :=
     match args with
@@ -358,7 +360,7 @@ Section print_term.
     | Some {| decl_name := na |} =>
       match na with
       | nAnon => "Anonymous (" ++ string_of_nat n ++ ")"
-      | nNamed id => id
+      | nNamed id => uncapitalize id
       end
     | None => "UnboundRel(" ++ string_of_nat n ++ ")"
     end
@@ -389,9 +391,8 @@ Section print_term.
       end
     | tConst c =>
       let cst_name := string_of_kername c in
-      let nm := from_option (look TT cst_name) (prefix ++ c.2) in
-      if (nm =? "") then ""
-      else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+      let nm := from_option (look TT cst_name) (uncapitalize prefix ++ uncapitalize c.2) in
+      parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
     | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
@@ -414,72 +415,62 @@ Section print_term.
     end
   | tConst c =>
     let cst_name := string_of_kername c in
-    if cst_name =? ""
-    then ""
-    else from_option (look TT cst_name) (prefix ++ c.2)
+    from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l =>
     let nm := get_constr_name ind l in
-    if nm =? "" 
-    then ""
-    else capitalize (from_option (look TT nm) ((capitalize prefix) ++ nm))
+    from_option (look TT nm) (capitalize prefix ++ capitalize nm)
   | tCase (mkInd mind i as ind, nparam) t brs =>
-    (* [if-then-else] is a special case *)
-    if eq_kername mind <%% bool %%> then
-      match brs with
-      | [b1;b2] =>
-        parens top
-                ("if " ++ print_term prefix FT TT Γ true false t
-                       ++ " then " ++ print_term prefix FT TT Γ true false (snd b1)
-                       ++ " else " ++ print_term prefix FT TT Γ true false (snd b2))
-      | _ => "Error (Malformed pattern-mathing on bool: given "
-               ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
-      end
-    else
-      (* [list] is a special case *)
-      if eq_kername mind <%% list %%> then
+    match brs with
+    | [] => "failwith () (* absurd case *)"
+    | _ =>
+      (* [if-then-else] is a special case *)
+      if eq_kername mind <%% bool %%> then
         match brs with
         | [b1;b2] =>
-          let nil_case := "[] -> " ++ print_term prefix FT TT Γ false false b1.2 in
-          let (cons_args, _) := Edecompose_lam b2.2 in
-          let cons_body := lam_body b2.2 in
-          let cons_pat := concat " :: " (map (fun x => string_of_name (fresh_name Γ x b2.2)) cons_args) in
-          let cons_ctx := rev (map vass cons_args) in
-          let cons_case := cons_pat ++ " -> " ++ print_term prefix FT TT (cons_ctx ++ Γ)%list false false cons_body in
           parens top
-             ("match " ++ print_term prefix FT TT Γ true false t
-                       ++ " with " ++ nl
-                       ++ concat (nl ++ " | ") [nil_case;cons_case])
+                  ("if " ++ print_term prefix FT TT Γ true false t
+                         ++ " then " ++ print_term prefix FT TT Γ true false (snd b1)
+                         ++ " else " ++ print_term prefix FT TT Γ true false (snd b2))
         | _ => "Error (Malformed pattern-mathing on bool: given "
-                ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
+                 ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
         end
       else
-    match lookup_ind_decl mind i with
-    | Some oib =>
-      (* TODO: use [print_branch] to cover the special case of lists *)
-      let fix print_branch Γ arity params br {struct br} :=
-          match arity with
-            | 0 => (params, print_term prefix FT TT Γ false false br)
-            | S n =>
-              match br with
-              | tLambda na B =>
-                  let na' := fresh_name Γ na br in
-                  let (ps, b) := print_branch (vass na' :: Γ) n params B in
-                  (ps ++ [string_of_name na'], b)%list
-              | t => (params , print_term prefix FT TT Γ false false br)
-              end
-            end in
-      let brs := map (fun '(arity, br) =>
-                        print_branch Γ arity [] br) brs in
-      let brs := combine brs oib.(ExAst.ind_ctors) in
-      parens top
-             ("match " ++ print_term prefix FT TT Γ true false t
-                       ++ " with " ++ nl
-                       ++ print_list (fun '(b, (na, _)) =>
-                                        print_pat prefix TT na b)
-                       (nl ++ " | ") brs)
-    | None =>
-      "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
-              ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+      match lookup_ind_decl mind i with
+      | Some oib =>
+        let fix print_branch Γ arity params br {struct br} :=
+            match arity with
+              | 0 => (params, print_term prefix FT TT Γ false false br)
+              | S n =>
+                match br with
+                | tLambda na B =>
+                    let na' := fresh_name Γ na br in
+                    let (ps, b) := print_branch (vass na' :: Γ) n params B in
+                    (ps ++ [string_of_name na'], b)%list
+                | t => (params , print_term prefix FT TT Γ false false br)
+                end
+              end in
+        let brs := map (fun '(arity, br) =>
+                          print_branch Γ arity [] br) brs in
+        let brs := combine brs oib.(ExAst.ind_ctors) in
+        let brs_printed : string :=
+              print_list (fun '(b, (na, _)) =>
+                            (* [list] is a special case *)
+                            if (eq_kername mind <%% list %%>) && (na =? "cons") then
+                              print_pat prefix TT "::" true b
+                            else if (eq_kername mind <%% list %%>) && (na =? "nil") then
+                              print_pat "" TT "[]" false b
+                            else
+                            print_pat prefix TT na false b)
+                         (nl ++ " | ") brs in
+        parens top
+               ("match " ++ print_term prefix FT TT Γ true false t
+                         ++ " with " ++ nl
+                         ++ brs_printed)
+
+      | None =>
+        "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
+                ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+      end
     end
   | tProj (mkInd mind i as ind, pars, k) c =>
     match lookup_ind_decl mind i with
@@ -543,8 +534,8 @@ Definition print_decl (prefix : string)
   let (args,lam_body) := Edecompose_lam t in
   let targs := combine args (map (print_box_type prefix TT) tys) in
   let printed_targs :=
-      map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs in
-  let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
+      map (fun '(x,ty) => parens false (uncapitalize (string_of_name x) ++ " : " ++ ty)) targs in
+  let decl := uncapitalize prefix ++ uncapitalize decl_name ++ " " ++ concat " " printed_targs in
   let ctx := map (fun x => Build_context_decl x None) (rev args) in
   let modif := match modifier with
                | Some m => "%"++m
@@ -702,6 +693,9 @@ Definition address_ops :=
 
 Definition address_map :=
   "type 'a addrMap = (address, 'a) map".
+
+Definition false_elim_decl :=
+  "let false_elim (_ : unit) = failwith ()".
 
 Definition LiquidityPrelude :=
   print_list id (nl ++ nl)

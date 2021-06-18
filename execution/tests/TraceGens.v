@@ -87,7 +87,7 @@ Section TraceGens.
     | (header, acts) :: xs => build_block header acts xs
     end.
 
-  (* Reconstruct list of ChainBuilders *)
+  (* Reconstructs a list of ChainBuilders *)
   Fixpoint rebuild_chains (shrunk_chains : list (list (BlockHeader * list Action))) init_cb : list ChainBuilder :=
     match shrunk_chains with
     | [] => []
@@ -138,51 +138,10 @@ Section TraceGens.
     builder_add_block chain header acts.
 
   Definition gAdd_block (cb : ChainBuilder)
-                          (gActOptFromChainSized : Environment -> nat -> GOpt Action)
-                          (act_depth : nat)
-                          (max_acts_per_block : nat)
-                          : G (result ChainBuilder AddBlockError) :=
-    acts <- optToVector max_acts_per_block (gActOptFromChainSized cb act_depth) ;;
-    if (length acts) =? 0
-    then returnGen (Err action_evaluation_depth_exceeded)
-    else returnGen (add_block cb acts).
-
-  Definition gChain (init_lc : ChainBuilder)
-                    (gActOptFromChainSized : Environment -> nat -> GOpt Action)
-                    (max_length : nat)
-                    (act_depth : nat)
-                    (max_acts_per_block : nat)
-                    : G ChainBuilder :=
-    let gAdd_block' lc := gAdd_block lc gActOptFromChainSized act_depth max_acts_per_block in
-    let default_error := action_evaluation_depth_exceeded in (* Not ideal approach, but it suffices for now *)
-    let try_twice g := backtrack_result default_error [(1, g);(1, g)] in
-    let fix rec n (lc : ChainBuilder) : G ChainBuilder :=
-      match n with
-      | 0 => returnGen lc
-      | S n => lc' <- try_twice (gAdd_block' lc) ;; (* heuristic: try twice for more expected robustness *)
-              match lc' with
-              | Ok lc' => rec n lc'
-              (* if no new chain could be generated without error, return the old chain *)
-              | err => returnGen lc
-              end
-      end in
-    rec max_length init_lc.
-
-  (*
-    Alternative version of gAdd_block differs from above implementation in that it
-    adds an empty block when gActOptFromChainSized returns no acts instead of throwing an error
-  *)
-  Definition gAdd_block_full_sized (cb : ChainBuilder)
-                          (gActOptFromChainSized : Environment -> nat -> GOpt Action)
-                          (act_depth : nat)
-                          (max_acts_per_block : nat)
-                          : G (result ChainBuilder AddBlockError) :=
-    let header :=
-      {| block_height := S (chain_height cb);
-        block_slot := S (current_slot cb);
-        block_finalized_height := finalized_height cb;
-        block_creator := creator;
-        block_reward := 50; |} in
+                        (gActOptFromChainSized : Environment -> nat -> GOpt Action)
+                        (act_depth : nat)
+                        (max_acts_per_block : nat)
+                        : G (result ChainBuilder AddBlockError) :=
     acts <- optToVector max_acts_per_block (gActOptFromChainSized cb act_depth) ;;
     returnGen (add_block cb acts).
 
@@ -198,25 +157,18 @@ Section TraceGens.
         end
       end.
 
-  (*
-    Alternative version of gChain differs from above implementation in two ways
-    1) It will generate blocks all the way to max_length if possible instead of stopping once an
-        empty block was hit. This is changed because some contracts may have certion slots (time periods)
-        where some actions are not allowed
-    2) It attempts to call gAdd_block' with decreasing max_acts_per_block.
-        This is done as some actions may not be called more than once, so if max_acts_per_block is larger than 1
-        and no other actions can be called at that moment then it would have failed
-  *)
-  Definition gChain_full_sized (init_lc : ChainBuilder)
+  Definition gChain (init_lc : ChainBuilder)
                     (gActOptFromChainSized : Environment -> nat -> GOpt Action)
                     (max_length : nat)
                     (act_depth : nat)
                     (max_acts_per_block : nat)
                     : G ChainBuilder :=
-    let gAdd_block' lc max_acts := gAdd_block_full_sized lc gActOptFromChainSized act_depth max_acts in
+    let gAdd_block' lc max_acts := gAdd_block lc gActOptFromChainSized act_depth max_acts in
     let default_error := action_evaluation_depth_exceeded in (* Not ideal approach, but it suffices for now *)
     let try_twice g := backtrack_result default_error [(1, g);(1, g)] in
     let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_twice (g n)) in
+    (* Try decreasing max_acts_per_block, this is needed in some cases since there might be blocks
+        where it is not possible to generate max_acts_per_block number of valid actions *)
     let fix rec n (lc : ChainBuilder) : G ChainBuilder :=
       match n with
       | 0 => returnGen lc
@@ -246,8 +198,7 @@ Section TraceGens.
         acts <- optToVector max_acts_per_block (gActOptFromChainSized lc act_depth) ;;
         match (TraceGens.add_block lc acts) with
             | Ok lc' => rec n lc'
-            (* If no new chain could be generated without error, the checker rejects and shows the
-               the chain and acts that made the generation fail *)
+            (* If no new chain could be generated without error, return the trace and action list *)
             | err => returnGen (lc, acts)
             end
     end in
@@ -324,7 +275,17 @@ Section TraceGens.
     | clnil => []
     end.
 
-  (* Asserts that a ChainState property holds for all ChainStates in a ChainTrace  *)
+  (* Gather execution information for each step_action in a ChainTrace *)
+  Fixpoint trace_states_step_action {from to} (trace : ChainTrace from to) : list (Action * list Action * ChainState * ChainState) :=
+    match trace with
+    | snoc trace' (Blockchain.step_action _ _ act _ new_acts _ _ _ as step) =>
+      let '(from, to) := chainstep_states step in
+        trace_states_step_action trace' ++ [(act, new_acts, from, to)]
+    | snoc trace' _ => trace_states_step_action trace'
+    | clnil => []
+    end.
+
+  (* Asserts that a ChainState property holds for all step_block ChainStates in a ChainTrace  *)
   Definition ChainTrace_ChainTraceProp {prop : Type}
                                        {from to}
                                       `{Checkable prop}
@@ -337,7 +298,20 @@ Section TraceGens.
 
   (* -------------------- Checker combinators on traces --------------------  *)
 
+  (* Asserts that a ChainState property holds on all ChainStates in a ChainTrace *)
   Definition forAllChainState {prop : Type}
+                             `{Checkable prop}
+                              (maxLength : nat)
+                              (init_lc : ChainBuilder)
+                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                              (pf : ChainState -> prop)
+                              : Checker :=
+    let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
+    forAllShrink (gTrace init_lc maxLength) shrink
+    (fun cb => discard_empty (trace_states cb.(builder_trace)) (conjoin_map printOnFail)).
+
+  (* Asserts that a ChainState property holds on all step_block ChainStates in a ChainTrace *)
+  Definition forAllBlocks {prop : Type}
                              `{Checkable prop}
                               (maxLength : nat)
                               (init_lc : ChainBuilder)
@@ -372,6 +346,21 @@ Section TraceGens.
       end in
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => all_statepairs cb.(builder_trace) (last_cstate cb.(builder_trace))).
+
+  (* Asserts that property holds on all action evaluations *)
+  Definition forAllActionExecution {prop : Type}
+                             `{Checkable prop}
+                              (maxLength : nat)
+                              (init_lc : ChainBuilder)
+                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                              (pf : Action -> list Action -> ChainState -> ChainState -> prop)
+                              : Checker :=
+    let printOnFail x : Checker :=
+    let '(action, new_acts, cs_from, cs_to) := x in
+        whenFail (show cs_from) (checker (pf action new_acts cs_from cs_to)) in
+    let trace_list cb := trace_states_step_action cb.(builder_trace) in
+    forAllShrink (gTrace init_lc maxLength) shrink
+    (fun cb => discard_empty (trace_list cb) (conjoin_map printOnFail)).
 
   (* Asserts that a boolean predicate holds for at least one ChainState in the given ChainTrace *)
   Definition existsb_chaintrace {from to}
@@ -434,169 +423,6 @@ Section TraceGens.
                                 (c : Contract Setup Msg State)
                                 (caddr : Address)
                                 (pre : State -> Msg -> bool)
-                                (post : ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
-      let messages_of_acts acts  := fold_right (fun act acc =>
-          match act.(act_body) with
-          | act_call _ _ ser_msg =>
-            match @deserialize Msg _ ser_msg with
-            | Some msg => (act, msg) :: acc
-            | None => acc
-            end
-          | _ => acc
-          end
-        ) [] acts in
-      let post_helper '(cctx, post_state) cstate msg : Checker :=
-        whenFail
-          ("On Msg: " ++ show msg)
-          (checker (post cctx cstate msg post_state)) in
-      let stepProp (cs : ChainState) :=
-        let env : Environment := cs.(chain_state_env) in
-        let msgs := messages_of_acts cs.(chain_state_queue) in
-        let execute_receive env caddr cstate act msg :=
-          let amount :=
-            match act.(act_body) with
-            | act_call _ amount _ => amount
-            | _ => 0%Z
-            end in
-          let new_balance :=
-              if (act.(act_from) =? caddr)%address then
-                env.(env_account_balances) caddr
-              else
-                (env.(env_account_balances) caddr + amount)%Z in
-          let cctx := build_ctx act.(act_from) caddr new_balance amount in
-          let new_state := c.(receive) env cctx cstate (Some msg) in
-          (cctx, new_state) in
-        match get_contract_state State env caddr with
-        (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
-        | Some cstate => (conjoin_map (fun '(act, msg) =>
-                          if pre cstate msg
-                          then (post_helper (execute_receive env caddr cstate act msg) cstate msg)
-                          else checker true (* TODO: should be discarded!*)
-                          ) msgs)
-        | None => checker true
-        end in
-      (* combine it all with the forAllTraces checker combinator *)
-      forAllChainState maxLength init_chain gTrace stepProp.
-
-  (* Alternative version of pre_post_assertion_, changes are
-     1) also passes chain to post condition
-     2) executes msgs on correct env and cstate
-  *)
-  Definition pre_post_assertion_ {Setup Msg State prop : Type}
-                               `{Checkable prop}
-                               `{Serializable Msg}
-                               `{Serializable State}
-                               `{Serializable Setup}
-                               `{Show Msg}
-                                (maxLength : nat)
-                                (init_chain : ChainBuilder)
-                                (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                                (c : Contract Setup Msg State)
-                                (caddr : Address)
-                                (pre : State -> Msg -> bool)
-                                (post : Chain -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
-      let messages_of_acts acts  := fold_right (fun act acc =>
-          match act.(act_body) with
-          | act_call _ _ ser_msg =>
-            match @deserialize Msg _ ser_msg with
-            | Some msg => (act, msg) :: acc
-            | None => acc
-            end
-          | _ => acc
-          end
-        ) [] acts in
-      let post_helper '(env, cctx, post_state) cstate msg : Checker :=
-        whenFail
-          ("On Msg: " ++ show msg)
-          (checker (post env.(env_chain) cctx cstate msg post_state)) in
-      let stepProp (cs : ChainState) :=
-        let env : Environment := cs.(chain_state_env) in
-        let msgs := messages_of_acts cs.(chain_state_queue) in
-        let execute_receive env caddr cstate act msg :=
-          let amount :=
-            match act.(act_body) with
-            | act_call _ amount _ => amount
-            | _ => 0%Z
-            end in
-          let new_balance :=
-              if (act.(act_from) =? caddr)%address then
-                env.(env_account_balances) caddr
-              else
-                (env.(env_account_balances) caddr + amount)%Z in
-          let cctx := build_ctx act.(act_from) caddr new_balance amount in
-          let new_env := (transfer_balance act.(act_from) caddr amount env) in
-          let new_state := c.(receive) new_env cctx cstate (Some msg) in
-          (env, cctx, new_state) in
-        let msgs_checkers (env : Environment) (caddr : Address) (cstate : State) (msgs : list (Action * Msg)) : list Checker :=
-          snd (snd (fold_left
-            (fun '(env, (cstate, checkers)) '(act, msg) =>
-              if pre cstate msg
-              then
-                let '(new_env, cctx, new_state) := (execute_receive env caddr cstate act msg) in
-                  match new_state with
-                  | Some (new_cstate, _) => (new_env, (new_cstate, (post_helper (new_env, cctx, new_state) cstate msg) :: checkers))
-                  | _ => (env, (cstate, (post_helper (new_env, cctx, new_state) cstate msg) :: checkers))
-                  end
-              else
-                let '(new_env, cctx, new_state) := (execute_receive env caddr cstate act msg) in
-                  match new_state with
-                  | Some (new_cstate, _) => (new_env, (new_cstate, (checker true) :: checkers)) (* TODO: should be discarded!*)
-                  | _ => (env, (cstate, (checker true) :: checkers)) (* TODO: should be discarded!*)
-                  end
-            ) msgs (env, (cstate, [])))) in
-        match get_contract_state State env caddr with
-        (* test that executing receive on the messages that satisfy the precondition, also satisfy the postcondition *)
-        | Some cstate => (conjoin (msgs_checkers env caddr cstate msgs))
-        | None => checker true
-        end in
-      (* combine it all with the forAllTraces checker combinator *)
-      forAllChainState maxLength init_chain gTrace stepProp.
-
-  (* Gather execution information for each step_action in a ChainTrace *)
-  Fixpoint trace_states_step_action {from to} (trace : ChainTrace from to) : list (Action * list Action * ChainState * ChainState) :=
-    match trace with
-    | snoc trace' (Blockchain.step_action _ _ act _ new_acts _ _ _ as step) =>
-      let '(from, to) := chainstep_states step in
-        trace_states_step_action trace' ++ [(act, new_acts, from, to)]
-    | snoc trace' _ => trace_states_step_action trace'
-    | clnil => []
-    end.
-
-  (* Asserts that a ChainState property holds for all ChainStates in a ChainTrace  *)
-  Definition ChainTrace_ChainTraceProp_ {prop : Type}
-                                       {from to}
-                                      `{Checkable prop}
-                                       (trace : ChainTrace from to)
-                                       (pf : Action -> list Action -> ChainState -> ChainState -> prop)
-                                       : Checker :=
-    let printOnFail x : Checker :=
-      let '(action, new_acts, cs_from, cs_to) := x in
-        whenFail (show cs_from) (checker (pf action new_acts cs_from cs_to)) in
-    let trace_list := trace_states_step_action trace in
-    discard_empty trace_list (conjoin_map printOnFail).
-
-  Definition forAllActionExecution {prop : Type}
-                             `{Checkable prop}
-                              (maxLength : nat)
-                              (init_lc : ChainBuilder)
-                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                              (pf : Action -> list Action -> ChainState -> ChainState -> prop)
-                              : Checker :=
-    forAllShrink (gTrace init_lc maxLength) shrink
-    (fun cb => ChainTrace_ChainTraceProp_ cb.(builder_trace) pf).
-
-  Definition pre_post_assertion_new {Setup Msg State prop : Type}
-                               `{Checkable prop}
-                               `{Serializable Msg}
-                               `{Serializable State}
-                               `{Serializable Setup}
-                               `{Show Msg}
-                                (maxLength : nat)
-                                (init_chain : ChainBuilder)
-                                (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                                (c : Contract Setup Msg State)
-                                (caddr : Address)
-                                (pre : State -> Msg -> bool)
                                 (post : Chain -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
     let action_bodies actions := map (fun act => act.(act_body)) actions in
     let post_helper env cctx post_cstate new_acts cstate msg : Checker :=
@@ -617,37 +443,31 @@ Section TraceGens.
           (env_from.(env_account_balances) caddr + amount)%Z in
       let cctx := build_ctx act.(act_from) caddr new_balance amount in
         match act.(act_body) with
-        | act_call _ _ ser_msg =>
-          match @deserialize Msg _ ser_msg with
-          | Some msg =>
-            match get_contract_state State env_from caddr with
-            | Some cstate_from =>
-              if pre cstate_from msg
-              then
-                match get_contract_state State env_to caddr with
-                | Some cstate_to => (post_helper env_from cctx cstate_to new_acts cstate_from msg)
-                | None => checker true
-                end
-              else checker true (* TODO: should be discarded!*)
+        | act_call to _ ser_msg =>
+          if address_eqb to caddr
+          then
+            match @deserialize Msg _ ser_msg with
+            | Some msg =>
+              match get_contract_state State env_from caddr with
+              | Some cstate_from =>
+                if pre cstate_from msg
+                then
+                  match get_contract_state State env_to caddr with
+                  | Some cstate_to => (post_helper env_from cctx cstate_to new_acts cstate_from msg)
+                  | None => checker true
+                  end
+                else checker true (* TODO: should be discarded!*)
+              | None => checker true
+              end
             | None => checker true
             end
-          | None => checker true
-          end
+          else checker true
         | _ => checker true
         end in
     forAllActionExecution maxLength init_chain gTrace stepProp.
 
-  Definition forAllChainState_ {prop : Type}
-                             `{Checkable prop}
-                              (maxLength : nat)
-                              (init_lc : ChainBuilder)
-                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                              (pf : ChainState -> prop)
-                              : Checker :=
-    let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
-    forAllShrink (gTrace init_lc maxLength) shrink
-    (fun cb => discard_empty (trace_states cb.(builder_trace)) (conjoin_map printOnFail)).
-
+  (* For any ChainState in a ChainTrace if pf tests true on all previous ChainStates in the
+     ChainTrace then implied_prop tests true, for all tested execution traces*)
   Definition forAllChainState_implication {prop : Type}
                              `{Checkable prop}
                               (maxLength : nat)

@@ -201,7 +201,7 @@ Definition tokens_to_asset_correct_P env :=
   end.
 
 Definition tokens_to_asset_correct :=
-  forAllChainState 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+  forAllBlocks 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
 (* QuickChick tokens_to_asset_correct. *)
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
