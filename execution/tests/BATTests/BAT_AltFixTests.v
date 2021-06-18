@@ -73,7 +73,7 @@ Module MG := BATGens TestInfo. Import MG.
 (* chain generator *)
 Definition gTokenChain max_acts_per_block token_cb max_length :=
   let act_depth := 1 in
-  gChain_full_sized token_cb
+  gChain token_cb
     (fun env act_depth => gBATAction env) max_length act_depth max_acts_per_block.
 
 (* Generator for debugging Action generator *)
@@ -95,16 +95,16 @@ Definition forAllTokenChainBuilders n :=
 
 Definition forAllTokenBlocks n :=
   let max_acts_per_block := 2 in
-  forAllChainState n token_cb (gTokenChain max_acts_per_block).
+  forAllBlocks n token_cb (gTokenChain max_acts_per_block).
 
 Definition forAllTokenChainStates n :=
   let max_acts_per_block := 2 in
-  forAllChainState_ n token_cb (gTokenChain max_acts_per_block).
+  forAllChainState n token_cb (gTokenChain max_acts_per_block).
 
 Definition pre_post_assertion_token P c Q :=
   let max_acts_per_block := 2 in
   let trace_length := 7 in
-  pre_post_assertion_new trace_length token_cb (gTokenChain max_acts_per_block) BAT_AltFix.contract c P Q.
+  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) BAT_AltFix.contract c P Q.
 
 Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
   let P' := fun cs => if P cs then Some true else None in
