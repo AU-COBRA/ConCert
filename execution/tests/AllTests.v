@@ -6,7 +6,8 @@ From ConCert Require Import Blockchain.
 From ConCert.Execution.QCTests Require Import TraceGens TestUtils.
 From ConCert.Execution.QCTests Require
   CongressTests Congress_BuggyTests DexterTests EIP20TokenTests
-  EscrowTests FA2TokenTests iTokenBuggyTests BATTests.
+  EscrowTests FA2TokenTests iTokenBuggyTests BATTests
+  BAT_FixedTests.
 
 
 Module Congress.
@@ -306,3 +307,141 @@ QuickChick ({{total_supply_eq_sum_balances}}).
 QuickChick ({{paid_tokens_modulo_exchange_rate}}).
 (* +++ Passed 10000 tests (0 discards) *)
 End BAT.
+
+
+
+Module BAT_Fixed.
+Import BAT_FixedTests.
+Import TestInfo.
+
+QuickChick (
+  {{fun state msg => negb (msg_is_create_tokens state msg)}}
+  contract_addr
+  {{amount_is_zero}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{msg_is_create_tokens}}
+  contract_addr
+  {{amount_is_positive}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{msg_is_eip_msg ||| msg_is_create_tokens}}
+  contract_addr
+  {{produces_no_actions}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{msg_is_refund ||| msg_is_finalize}}
+  contract_addr
+  {{produces_one_action}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{fun state msg => true}}
+  contract_addr
+  {{constants_unchanged}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_create_tokens}} contract_addr {{post_create_tokens_update_correct}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_create_tokens}} contract_addr {{create_tokens_valid}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_create_tokens}} contract_addr {{post_create_tokens_safe}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_finalize}} contract_addr {{post_finalize_update_correct}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_finalize}} contract_addr {{finalize_valid}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_finalize}} contract_addr {{post_finalize_safe}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_refund}} contract_addr {{post_refund_update_correct}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_refund}} contract_addr {{refund_valid}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_refund}} contract_addr {{post_refund_safe}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_transfer}} contract_addr {{post_transfer_update_correct}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_transfer}} contract_addr {{transfer_valid}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_transfer}} contract_addr {{post_transfer_safe}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_transfer_from}} contract_addr {{post_transfer_from_update_correct}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_transfer_from}} contract_addr {{transfer_from_valid}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_transfer_from}} contract_addr {{post_transfer_from_safe}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_approve}} contract_addr {{post_approve_update_correct}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_approve}} contract_addr {{approve_valid}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{msg_is_approve}} contract_addr {{post_approve_safe}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{contract_balance_lower_bound}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{contract_balance_lower_bound'}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (partially_funded_cb ~~> is_fully_refunded).
+(* Success - found witness satisfying the predicate!
++++ Failed (as expected) after 140 tests and 0 shrinks. (0 discards) *)
+
+QuickChick ({{can_always_fully_refund}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (token_cb ~~> is_finalized).
+(* Success - found witness satisfying the predicate!
++++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards) *)
+
+QuickChick final_is_final.
+(* +++ Passed 10000 tests (4310 discards) *)
+
+QuickChick can_only_finalize_once.
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick final_implies_total_supply_in_range.
+(* +++ Passed 10000 tests (4281 discards) *)
+
+QuickChick final_implies_total_supply_constant.
+(* +++ Passed 10000 tests (4223 discards)) *)
+
+QuickChick final_implies_contract_balance_is_zero.
+(* +++ Passed 10000 tests (4153 discards) *)
+
+QuickChick ({{total_supply_bounds}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{total_supply_eq_sum_balances}}).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick ({{paid_tokens_modulo_exchange_rate}}).
+(* +++ Passed 10000 tests (0 discards) *)
+End BAT_Fixed.
+
