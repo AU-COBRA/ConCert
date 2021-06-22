@@ -1007,10 +1007,12 @@ Proof.
     now apply Z.ge_le.
 Qed.
 
-Lemma can_finalize_if_creation_min : forall (reward : Amount) (caddr creator : Address),
+Hint Resolve reachable_through_refl : core.
+
+Lemma can_finalize_if_creation_min : forall bstate (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
-  (exists bstate cstate,
+  (exists cstate,
     reachable bstate
     /\ (chain_state_queue bstate) = []
     /\ env_contracts bstate caddr = Some (BAT.contract : WeakContract)
@@ -1019,13 +1021,13 @@ Lemma can_finalize_if_creation_min : forall (reward : Amount) (caddr creator : A
     /\ address_is_contract (fundDeposit cstate) = false)
       ->
       exists bstate' cstate',
-        reachable bstate'
+        reachable_through bstate bstate'
         /\ env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
         /\ env_contract_states bstate' caddr = Some (serializeState cstate')
         /\ (isFinalized cstate') = true.
 Proof.
-  intros reward caddr creator Hcreator Hreward
-    [bstate [cstate [bstate_reachable [bstate_queue [contract_deployed [deployed_state [creation_min fund_deposit_not_contract]]]]]]].
+  intros bstate reward caddr creator Hcreator Hreward
+    [cstate [bstate_reachable [bstate_queue [contract_deployed [deployed_state [creation_min fund_deposit_not_contract]]]]]].
   destruct (isFinalized cstate) eqn:finalized; try now (exists bstate, cstate; auto).
   pose (header := block_header bstate (S (current_slot bstate + (fundingEnd cstate - current_slot (env_chain bstate)))) creator reward).
   pose (bstate_with_act := (bstate<|chain_state_queue := (finalize_act cstate caddr) :: (chain_state_queue bstate)|>
@@ -1063,15 +1065,15 @@ Proof.
   }
   exists bstate_finalized, cstate_finalized.
   split.
-  - eapply reachable_step. eapply reachable_step;eauto. eauto.
+  - eapply reachable_through_trans'. eapply reachable_through_step. all: eauto.
   - repeat split; try assumption.
     cbn. now destruct_address_eq.
 Qed.
 
-Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creator : Address),
+Lemma can_finalize_if_deployed' : forall accounts deployed_bstate (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
-  (exists deployed_bstate deployed_cstate,
+  (exists deployed_cstate,
     reachable deployed_bstate
     /\ (chain_state_queue deployed_bstate) = map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts
     /\ env_contracts deployed_bstate caddr = Some (BAT.contract : WeakContract)
@@ -1087,16 +1089,16 @@ Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creat
     /\ ~ In caddr accounts)
       ->
       exists bstate cstate,
-        reachable bstate
+        reachable_through deployed_bstate bstate
         /\ env_contracts bstate caddr = Some (BAT.contract : WeakContract)
         /\ env_contract_states bstate caddr = Some (serializeState cstate)
         /\ (isFinalized cstate) = true.
 Proof.
   induction accounts;
-    intros reward caddr creator Hcreator Hreward [deployed_bstate [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]]].
+    intros deployed_bstate reward caddr creator Hcreator Hreward [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]].
   - eapply can_finalize_if_creation_min; eauto.
     apply N.ge_le, N.le_0_r, N.sub_0_le in H5.
-    exists deployed_bstate, deployed_cstate; easy.
+    exists deployed_cstate; easy.
   - apply NoDup_cons_iff in H12 as [H12 H12'].
     apply not_in_cons in H13 as [H13 H13'].
     pose (token_state_tmp := (token_state deployed_cstate)
@@ -1143,8 +1145,9 @@ Proof.
         + now constructor.
       - reflexivity.
     }
-    eapply IHaccounts; eauto.
-    + exists bstate_tmp, cstate_tmp.
+    specialize (IHaccounts bstate_tmp reward caddr creator Hcreator Hreward).
+    destruct IHaccounts.
+    + exists cstate_tmp.
       split; try (eapply reachable_step; eauto).
       repeat split; auto.
       * apply map_ext_in. intros. unfold create_tokens_act.
@@ -1160,6 +1163,11 @@ Proof.
         assert (H : map (env_account_balances bstate_tmp) accounts = map (env_account_balances deployed_bstate) accounts).
         -- apply map_ext_in. intros. cbn. now destruct_address_eq.
         -- now setoid_rewrite H.
+    + destruct H as [cstate [IH1 [IH2 [IH3 IH4]]]].
+      exists x, cstate.
+      split; auto.
+      eapply reachable_through_trans.
+      apply reachable_through_step. all: eauto.
 Qed.
 
 Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amount) (caddr creator : Address),
@@ -1185,41 +1193,42 @@ Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amoun
     /\ ~ In creator accounts)
       ->
       exists bstate cstate,
-        reachable bstate
+        reachable_through deployed_bstate bstate
         /\ env_contracts bstate caddr = Some (BAT.contract : WeakContract)
         /\ env_contract_states bstate caddr = Some (serializeState cstate)
         /\ (isFinalized cstate) = true.
 Proof.
-  intros deployed_bstate accounts reward caddr creator Hcreator Hreward 
+  intros deployed_bstate accounts reward caddr creator Hcreator Hreward
     [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 [H15 [H17 H18]]]]]]]]]]]]]]]]].
-  eapply can_finalize_if_deployed'; eauto.
-  - pose (header := block_header deployed_bstate (S (current_slot deployed_bstate)) creator reward).
-    pose (bstate_with_acts := (deployed_bstate
+  pose (header := block_header deployed_bstate (S (current_slot deployed_bstate)) creator reward).
+  pose (bstate_with_acts := (deployed_bstate
         <|chain_state_queue :=
           (map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts)
           ++ (chain_state_queue deployed_bstate)|>
         <|chain_state_env := add_new_block_to_env header deployed_bstate|>)).
-    assert (step_with_act : ChainStep deployed_bstate bstate_with_acts).
-    { apply step_block with (header0:=header); try easy.
-      - constructor; try easy.
-        split; try (cbn; lia). cbn.
-        now apply finalized_heigh_chain_height.
-      - apply All_Forall.In_Forall.
-        intros. cbn in H.
-        rewrite H2, app_nil_r, in_map_iff in H.
-        destruct H as [x' [H H']].
-        rewrite <- H.
-        rewrite Forall_forall in H17.
-        now apply H17 in H'.
-    }
-    assert (total_balance_eq : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
-    { unfold total_balance.
-      rewrite sumZ_map_id. symmetry.
-      rewrite sumZ_map_id. f_equal.
-      apply map_ext_in. intros. cbn.
-      now destruct_address_eq.
-    }
-    exists bstate_with_acts, deployed_cstate.
+  assert (step_with_act : ChainStep deployed_bstate bstate_with_acts).
+  { apply step_block with (header0:=header); try easy.
+    - constructor; try easy.
+      split; try (cbn; lia). cbn.
+      now apply finalized_heigh_chain_height.
+    - apply All_Forall.In_Forall.
+      intros. cbn in H.
+      rewrite H2, app_nil_r, in_map_iff in H.
+      destruct H as [x' [H H']].
+      rewrite <- H.
+      rewrite Forall_forall in H17.
+      now apply H17 in H'.
+  }
+  assert (total_balance_eq : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
+  { unfold total_balance.
+    rewrite sumZ_map_id. symmetry.
+    rewrite sumZ_map_id. f_equal.
+    apply map_ext_in. intros. cbn.
+    now destruct_address_eq.
+  }
+  specialize (can_finalize_if_deployed' accounts bstate_with_acts reward caddr creator Hcreator Hreward).
+  intros [].
+  - exists deployed_cstate.
     split; try (eapply reachable_step; eauto).
     repeat split; try reflexivity; try assumption.
       * cbn. unfold create_tokens_act.
@@ -1236,8 +1245,11 @@ Proof.
         -- apply map_ext_in. intros. cbn.
             now destruct_address_eq.
         -- now setoid_rewrite H.
-      * auto.
-      * auto.
+  - destruct H as [cstate [IH1 [IH2 [IH3 IH4]]]].
+    exists x, cstate.
+    split; auto.
+    eapply reachable_through_trans.
+    apply reachable_through_step. all: eauto.
 Qed.
 
 End Theories.
