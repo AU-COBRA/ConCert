@@ -956,6 +956,7 @@ Import ResultMonad.
 Context  {ChainBuilder : ChainBuilderType}.
 Notation serializeMsg := (@serialize BAT.Msg _).
 Notation serializeState := (@serialize BAT.State _).
+From ConCert.Execution.Examples Require Import BuildUtils.
 
 Definition total_balance bstate accounts : Amount :=
   let account_balance := env_account_balances bstate in
@@ -970,7 +971,7 @@ Definition block_header bstate slot creator reward : BlockHeader :=
       block_finalized_height := finalized_height bstate;
       block_creator := creator;
       block_reward := reward; |}.
-
+(*
 Definition act_transfer from to amount : Action :=
   {| act_from := from;
      act_body := act_transfer to amount; |}.
@@ -978,45 +979,15 @@ Definition act_transfer from to amount : Action :=
 Definition act_call from to amount msg : Action :=
   {| act_from := from;
      act_body := act_call to amount (serializeMsg msg); |}.
-
+*)
 Definition finalize_act cstate caddr : Action :=
-  act_call (fundDeposit cstate) caddr 0%Z finalize.
+  build_act (fundDeposit cstate) (act_call caddr 0%Z (serializeMsg finalize)).
 
 Definition finalize_transfer_act cstate env caddr : Action :=
-  act_transfer caddr (fundDeposit cstate) (env_account_balances env caddr).
+  build_act caddr (act_transfer (fundDeposit cstate) (env_account_balances env caddr)).
 
-Lemma finalized_heigh_chain_step : forall to,
-  reachable to ->
-  finalized_height to < S (chain_height to).
-Proof.
-  intros.
-  destruct H as [H].
-  remember empty_state.
-  induction H as [ | H from to trace IH step ]; subst.
-  - apply Nat.lt_0_1.
-  - destruct_chain_step.
-    + inversion valid_header. now rewrite_environment_equiv.
-    + inversion eval; rewrite_environment_equiv; now apply IH.
-    + rewrite_environment_equiv. now apply IH.
-    + inversion prev_next. now apply IH.
-Qed.
-
-Lemma trace_reachable : forall bstate (trace : ChainTrace empty_state bstate),
-  reachable bstate.
-Proof.
-  intros.
-  now unfold reachable.
-Qed.
-
-Lemma step_reachable : forall from to (step : ChainStep from to),
-  reachable from -> reachable to.
-Proof.
-  intros.
-  destruct H.
-  assert (H1 : ChainTrace empty_state to).
-  - econstructor; eauto.
-  - now unfold reachable.
-Qed.
+Definition create_tokens_act env caddr sender : Action :=
+  build_act sender (act_call caddr (env_account_balances env sender) (serializeMsg create_tokens)).
 
 Lemma N_le_add_distr : forall n m p,
  (n + m <= p)%N -> (n <= p)%N.
@@ -1064,7 +1035,7 @@ Proof.
     - constructor; try easy.
       + cbn. lia.
       + split; try (cbn; lia). cbn.
-        now apply finalized_heigh_chain_step.
+        now apply finalized_heigh_chain_height.
     - cbn. rewrite bstate_queue.
       now apply list.Forall_singleton.
   }
@@ -1091,9 +1062,10 @@ Proof.
     - cbn. unfold finalize_transfer_act. repeat f_equal. cbn. now destruct_address_eq.
   }
   exists bstate_finalized, cstate_finalized.
-  split; try do 2 (eapply step_reachable; eauto).
-  repeat split; try assumption.
-  cbn. now destruct_address_eq.
+  split.
+  - eapply reachable_step. eapply reachable_step;eauto. eauto.
+  - repeat split; try assumption.
+    cbn. now destruct_address_eq.
 Qed.
 
 Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creator : Address),
@@ -1101,7 +1073,7 @@ Lemma can_finalize_if_deployed' : forall accounts (reward : Amount) (caddr creat
   (reward >= 0)%Z ->
   (exists deployed_bstate deployed_cstate,
     reachable deployed_bstate
-    /\ (chain_state_queue deployed_bstate) = map (fun acc => act_call acc caddr (env_account_balances deployed_bstate acc) create_tokens) accounts
+    /\ (chain_state_queue deployed_bstate) = map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts
     /\ env_contracts deployed_bstate caddr = Some (BAT.contract : WeakContract)
     /\ env_contract_states deployed_bstate caddr = Some (serializeState deployed_cstate)
     /\ N.ge ((Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)))
@@ -1138,7 +1110,7 @@ Proof.
     pose (cstate_tmp := deployed_cstate<|token_state := token_state_tmp|>).
     pose (bstate_tmp := (deployed_bstate
           <|chain_state_queue :=
-                map (fun acc => act_call acc caddr (env_account_balances deployed_bstate acc) create_tokens) accounts|>
+                map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts|>
           <|chain_state_env := set_contract_state caddr (serializeState cstate_tmp) 
                 (transfer_balance a caddr (env_account_balances deployed_bstate a) (chain_state_env deployed_bstate))|>)).
     assert (total_balance_distr : forall state h t x, (reachable state -> Z.to_N (total_balance state (h :: t)) * x =
@@ -1173,10 +1145,10 @@ Proof.
     }
     eapply IHaccounts; eauto.
     + exists bstate_tmp, cstate_tmp.
-      split; try (eapply step_reachable; eauto).
+      split; try (eapply reachable_step; eauto).
       repeat split; auto.
-      * apply map_ext_in. intros. f_equal.
-        cbn. now destruct_address_eq.
+      * apply map_ext_in. intros. unfold create_tokens_act.
+        f_equal. cbn. now destruct_address_eq.
       * cbn. now rewrite address_eq_refl.
       * rewrite total_balance_eq. apply N.le_ge, N.le_sub_le_add_r. cbn.
         rewrite N.add_assoc, N.add_comm, N.add_assoc, <- total_balance_distr; auto.
@@ -1224,14 +1196,14 @@ Proof.
   - pose (header := block_header deployed_bstate (S (current_slot deployed_bstate)) creator reward).
     pose (bstate_with_acts := (deployed_bstate
         <|chain_state_queue :=
-          (map (fun acc => act_call acc caddr (env_account_balances deployed_bstate acc) create_tokens) accounts) 
+          (map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts)
           ++ (chain_state_queue deployed_bstate)|>
         <|chain_state_env := add_new_block_to_env header deployed_bstate|>)).
     assert (step_with_act : ChainStep deployed_bstate bstate_with_acts).
     { apply step_block with (header0:=header); try easy.
       - constructor; try easy.
         split; try (cbn; lia). cbn.
-        now apply finalized_heigh_chain_step.
+        now apply finalized_heigh_chain_height.
       - apply All_Forall.In_Forall.
         intros. cbn in H.
         rewrite H2, app_nil_r, in_map_iff in H.
@@ -1248,12 +1220,12 @@ Proof.
       now destruct_address_eq.
     }
     exists bstate_with_acts, deployed_cstate.
-    split.
-    + eapply step_reachable; eauto.
-    + repeat split; try reflexivity; try assumption.
-      * cbn. rewrite H2, app_nil_r.
+    split; try (eapply reachable_step; eauto).
+    repeat split; try reflexivity; try assumption.
+      * cbn. unfold create_tokens_act.
+        rewrite H2, app_nil_r.
         apply map_ext_in. intros.
-        f_equal.
+        do 2 f_equal. cbn.
         now destruct_address_eq.
       * now rewrite total_balance_eq.
       * now rewrite total_balance_eq.
