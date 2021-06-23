@@ -809,7 +809,72 @@ Proof.
 Qed.
 
 
-(* ------------------- EIP20 functions preserve sum of balances ------------------- *)
+
+(* ------------------- Init correct ------------------- *)
+
+Lemma init_bat_balance_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    with_default 0 (FMap.find state.(batFundDeposit) (balances state)) = setup.(_batFund).
+Proof.
+  intros.
+  inversion H.
+  now setoid_rewrite FMap.find_add.
+Qed.
+
+Lemma init_other_balances_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    forall account, account <> state.(batFundDeposit) ->
+    with_default 0 (FMap.find account (balances state)) = 0.
+Proof.
+  intros.
+  inversion H.
+  cbn.
+  setoid_rewrite FMap.find_add_ne.
+  - now setoid_rewrite FMap.find_empty.
+  - subst. auto.
+Qed.
+
+Lemma init_allowances_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (allowances state) = FMap.empty.
+Proof.
+  intros.
+  now inversion H.
+Qed.
+
+Lemma init_isFinalized_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    state.(isFinalized) = false.
+Proof.
+  intros.
+  now inversion H.
+Qed.
+
+Lemma init_total_supply_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (total_supply state) = setup.(_batFund).
+Proof.
+  intros.
+  now inversion H.
+Qed.
+
+Lemma init_constants_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    state.(fundDeposit) = setup.(_fundDeposit)
+    /\ state.(batFundDeposit) = setup.(_batFundDeposit)
+    /\ state.(fundingStart) = setup.(_fundingStart)
+    /\ state.(fundingEnd) = setup.(_fundingEnd)
+    /\ state.(tokenExchangeRate) = setup.(_tokenExchangeRate)
+    /\ state.(tokenCreationCap) = setup.(_tokenCreationCap)
+    /\ state.(tokenCreationMin) = setup.(_tokenCreationMin).
+Proof.
+  intros.
+  now inversion H.
+Qed.
+
+
+
+(* ------------------- Functions preserve sum of balances ------------------- *)
 
 Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
@@ -885,6 +950,17 @@ Proof.
   rewrite fin_maps.map_to_list_delete; eauto.
 Qed.
 
+Lemma init_update_balances_sum : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (sum_balances state) = (total_supply state).
+Proof.
+  intros.
+  inversion H. unfold EIP20Token.sum_balances. subst. cbn.
+  setoid_rewrite FMap.elements_add; auto.
+  rewrite fin_maps.map_to_list_empty.
+  now apply N.add_0_r.
+Qed.
+
 
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
@@ -897,9 +973,7 @@ Lemma sum_balances_eq_total_supply block_state contract_addr :
     /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
   contract_induction; intros; try auto.
-  - inversion init_some. unfold EIP20Token.sum_balances. cbn.
-    setoid_rewrite FMap.elements_add; auto.
-    setoid_rewrite FMap.elements_empty. cbn. lia.
+  - now apply init_update_balances_sum in init_some.
   - destruct msg. destruct m. destruct m.
     + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
       apply try_transfer_preserves_total_supply in receive_some.
