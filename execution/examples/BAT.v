@@ -578,7 +578,7 @@ Lemma try_create_tokens_is_some : forall state chain ctx,
   /\ ((fundingStart state) <= (current_slot chain))%nat
   /\ ((current_slot chain) <= (fundingEnd state))%nat
   /\ (total_supply state) + ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate state)) <= (tokenCreationCap state)
-    <-> isSome (receive chain ctx state (Some create_tokens)) = true.
+    <-> exists x y, receive chain ctx state (Some create_tokens) = Some (x, y).
 Proof.
   split.
   - intros. receive_simpl.
@@ -595,19 +595,18 @@ Proof.
       * easy.
       * rewrite Nat.ltb_lt in H3'. easy.
       * rewrite Nat.ltb_lt in H4'. easy.
-  - intros. receive_simpl.
-    do 4 try split;
-      destruct_match eqn:H1 in H; cbn in H; try discriminate;
-      destruct_match eqn:H4 in H; cbn in H; try discriminate;
-      destruct_match eqn:H5 in H; cbn in H; try discriminate;
-      returnIf H1; returnIf H4; returnIf H5;
-      apply Bool.orb_false_iff in H1 as [H1 H3];
-      apply Bool.orb_false_iff in H1 as [H1 H2].
-    + now rewrite Z.leb_gt in H4.
+  - intros.
+    destruct H as [x [y H]].
+    receive_simpl.
+    returnIf H0; returnIf H1; returnIf H2.
+    apply Bool.orb_false_iff in H0 as [H0 H4];
+    apply Bool.orb_false_iff in H0 as [H0 H3].
+    repeat split.
+    + now rewrite Z.leb_gt in H1.
     + assumption.
-    + now apply Nat.ltb_ge in H2.
     + now apply Nat.ltb_ge in H3.
-    + now apply N.ltb_ge in H5.
+    + now apply Nat.ltb_ge in H4.
+    + now apply N.ltb_ge in H2.
 Qed.
 
 Lemma try_create_tokens_acts_correct : forall prev_state new_state chain ctx new_acts,
@@ -658,7 +657,7 @@ Lemma try_finalize_is_some : forall state chain ctx,
   /\ (ctx_from ctx) = (fundDeposit state)
   /\ (tokenCreationMin state) <= (total_supply state)
   /\ ((fundingEnd state) < (current_slot chain) \/ (tokenCreationCap state) = (total_supply state))%nat
-    <-> isSome (receive chain ctx state (Some finalize)) = true.
+    <-> exists x y, receive chain ctx state (Some finalize) = Some (x, y).
 Proof.
   split.
   - intros. receive_simpl.
@@ -676,17 +675,18 @@ Proof.
       * easy.
       * rewrite Bool.negb_true_iff in H2'. now destruct_address_eq.
       * now rewrite N.ltb_lt in H3'.
-  - intros. receive_simpl.
-    do 3 try split;
-      destruct_match eqn:H1 in H; cbn in H; try discriminate;
-      destruct_match eqn:H4 in H; cbn in H; try discriminate;
-      returnIf H1; returnIf H4;
-      apply Bool.orb_false_iff in H1 as [H1 H3];
-      apply Bool.orb_false_iff in H1 as [H1 H2].
+  - intros.
+    destruct H as [x [y H]].
+    receive_simpl.
+    returnIf H0.
+    returnIf H1.
+    apply Bool.orb_false_iff in H0 as [H0 H3].
+    apply Bool.orb_false_iff in H0 as [H0 H2].
+    repeat split.
     + assumption.
     + now destruct_address_eq.
     + now rewrite N.ltb_ge in H3.
-    + apply Bool.andb_false_iff in H4 as [H4 | H5].
+    + apply Bool.andb_false_iff in H1 as [H4 | H5].
       * left. now rewrite Nat.leb_gt in H4.
       * right. now rewrite Bool.negb_false_iff, N.eqb_eq in H5.
 Qed.
@@ -971,6 +971,7 @@ Proof.
     now rewrite <- receive.
   - cbn in receive. congruence.
 Qed.
+
 
 
 Local Open Scope nat.
