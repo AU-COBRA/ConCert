@@ -7,6 +7,21 @@ Require Import Serializable.
 Section BuildUtils.
 Context {BaseTypes : ChainBase}.
 
+Lemma wc_receive_to_receive : forall {Setup Msg State : Type}
+                                    `{Serializable Setup}
+                                    `{Serializable Msg}
+                                    `{Serializable State}
+                                    (contract : Contract Setup Msg State)
+                                    chain cctx cstate msg new_cstate new_acts,
+  contract.(receive) chain cctx cstate (Some msg) = Some (new_cstate, new_acts) ->
+  wc_receive contract chain cctx ((@serialize State _) cstate) (Some ((@serialize Msg _) msg)) = Some ((@serialize State _) new_cstate, new_acts).
+Proof.
+  intros.
+  cbn.
+  rewrite 2!deserialize_serialize.
+  now rewrite H2.
+Qed.
+
 (* The empty state is always reachable *)
 Lemma reachable_empty_state :
   reachable empty_state.

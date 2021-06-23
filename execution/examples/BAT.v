@@ -1078,13 +1078,21 @@ Proof.
       + eapply account_balance_nonnegative, Z.ge_le in bstate_reachable.
         cbn. destruct_match; eauto.
         apply Z.add_nonneg_nonneg; lia.
-      + apply N.ltb_ge in creation_min. cbn.
-        assert (blocks_left_funding' : (S (current_slot bstate + (fundingEnd cstate - current_slot bstate)) <=? fundingEnd cstate) = false).
-        { destruct (fundingEnd cstate - current_slot bstate) eqn:blocks_left_funding.
-          - apply Nat.sub_0_le in blocks_left_funding. now apply leb_correct_conv.
-          - apply Nat.add_sub_eq_nz in blocks_left_funding; auto. now apply leb_correct_conv.
-        }
-        now rewrite 2!deserialize_serialize, finalized, address_eq_refl, creation_min, blocks_left_funding'.
+      + apply wc_receive_to_receive.
+        assert (H : exists x y, Blockchain.receive contract (transfer_balance (fundDeposit cstate) caddr 0 bstate_with_act)
+          {|
+          ctx_from := fundDeposit cstate;
+          ctx_contract_address := caddr;
+          ctx_contract_balance := env_account_balances bstate_finalized caddr;
+          ctx_amount := 0 |} cstate (Some finalize) = Some (x, y)).
+        { apply try_finalize_is_some. repeat split; auto. cbn. left. lia. }
+        destruct H as [x [y H]].
+        apply try_finalize_isFinalized_correct in H as H2.
+        destruct H2 as [_ H2].
+        apply try_finalize_only_change_isFinalized in H as H3.
+        apply try_finalize_acts_correct in H as H4.
+        rewrite H, <- H3, H2. subst.
+        eauto.
     - cbn. unfold finalize_transfer_act. repeat f_equal. cbn. now destruct_address_eq.
   }
   exists bstate_finalized, cstate_finalized.
@@ -1160,12 +1168,13 @@ Proof.
         eapply eval_call with (msg:=(Some (serializeMsg create_tokens))); eauto.
         + apply account_balance_nonnegative. eauto.
         + apply Z.le_refl.
-        + apply Nat.ltb_ge in H7. apply Nat.ltb_ge in H8.
+        + apply wc_receive_to_receive.
+          apply Nat.ltb_ge in H7. apply Nat.ltb_ge in H8.
           apply Forall_inv, Z.leb_gt in H11.
           rewrite total_balance_distr, N.add_assoc in H6; auto.
           apply N_le_add_distr, N.ltb_ge in H6.
           cbn.
-          now rewrite 2!deserialize_serialize, H10, H7, H8, H11, H6.
+          now rewrite H10, H7, H8, H11, H6.
         + now constructor.
       - reflexivity.
     }
