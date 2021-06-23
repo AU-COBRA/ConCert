@@ -1114,15 +1114,7 @@ Definition block_header bstate slot creator reward : BlockHeader :=
       block_finalized_height := finalized_height bstate;
       block_creator := creator;
       block_reward := reward; |}.
-(*
-Definition act_transfer from to amount : Action :=
-  {| act_from := from;
-     act_body := act_transfer to amount; |}.
 
-Definition act_call from to amount msg : Action :=
-  {| act_from := from;
-     act_body := act_call to amount (serializeMsg msg); |}.
-*)
 Definition finalize_act cstate caddr : Action :=
   build_act (fundDeposit cstate) (act_call caddr 0%Z (serializeMsg finalize)).
 
