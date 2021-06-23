@@ -500,6 +500,21 @@ Qed.
 
 
 
+(* ------------------- EIP20 functions produces no acts ------------------- *)
+
+Lemma eip20_new_acts_correct : forall prev_state new_state chain ctx m new_acts,
+  receive chain ctx prev_state (Some (tokenMsg m)) = Some (new_state, new_acts) ->
+    new_acts = [].
+Proof.
+  intros.
+  receive_simpl.
+  destruct p.
+  apply EIP20Token.EIP20_no_acts in H0.
+  now inversion H.
+Qed.
+
+
+
 (* ------------------- Create_tokens correct ------------------- *)
 
 Lemma try_create_tokens_balance_correct : forall prev_state new_state chain ctx new_acts,
@@ -593,6 +608,14 @@ Proof.
     + now apply Nat.ltb_ge in H2.
     + now apply Nat.ltb_ge in H3.
     + now apply N.ltb_ge in H5.
+Qed.
+
+Lemma try_create_tokens_acts_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    new_acts = [].
+Proof.
+  intros.
+  receive_simpl.
 Qed.
 
 
