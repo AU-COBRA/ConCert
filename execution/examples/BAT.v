@@ -1095,6 +1095,7 @@ Qed.
 
 Local Open Scope nat.
 
+Require Import ZArith_base.
 Import ResultMonad.
 Context  {ChainBuilder : ChainBuilderType}.
 Notation serializeMsg := (@serialize BAT.Msg _).
@@ -1213,23 +1214,70 @@ Proof.
     cbn. now destruct_address_eq.
 Qed.
 
+Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate:=
+  let create_tokens_act sender amount := build_act sender (act_call caddr amount (serializeMsg create_tokens)) in
+    match accounts with
+    | [] => []
+    | acc :: accounts' =>
+      if (0 <? tokens_left)%N
+      then
+        let amount := (1 + ((tokens_left / exchange_rate)))%N in
+        let amount := N.min amount (Z.to_N (env_account_balances env acc)) in
+          (create_tokens_act acc (Z.of_N amount)) ::
+          create_token_acts env caddr accounts' (N.sub tokens_left (amount * exchange_rate)) exchange_rate
+      else
+        create_token_acts env caddr accounts' tokens_left exchange_rate
+    end.
+
+Lemma create_token_acts_cons : forall caddr env acc accounts tokens_left exchange_rate,
+  let create_tokens_act sender amount := build_act sender (act_call caddr amount (serializeMsg create_tokens)) in
+  let amount' := (1 + ((tokens_left / exchange_rate)))%N in
+  let amount := N.min amount' (Z.to_N (env_account_balances env acc)) in
+  let act := create_tokens_act acc (Z.of_N amount) in
+  (0 < tokens_left)%N ->
+  create_token_acts env caddr (acc :: accounts) tokens_left exchange_rate =
+  act :: (create_token_acts env caddr accounts (tokens_left - (amount * exchange_rate))) exchange_rate.
+Proof.
+  intros.
+  cbn.
+  apply N.ltb_lt in H.
+  rewrite H.
+  f_equal.
+Qed.
+
+Lemma create_token_acts_eq : forall caddr env1 env2 accounts tokens_left exchange_rate,
+  (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
+    create_token_acts env1 caddr accounts tokens_left exchange_rate =
+    create_token_acts env2 caddr accounts tokens_left exchange_rate.
+Proof.
+  induction accounts; intros.
+  - reflexivity.
+  - cbn.
+    rewrite H; [| apply in_eq].
+    now do 2 (rewrite <- IHaccounts; [| intros; now apply H, in_cons]).
+Qed.
+
 Lemma can_finalize_if_deployed' : forall accounts deployed_bstate (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
   (exists deployed_cstate,
     reachable deployed_bstate
-    /\ (chain_state_queue deployed_bstate) = map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts
+    /\ (chain_state_queue deployed_bstate) = create_token_acts deployed_bstate caddr accounts
+          ((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)) deployed_cstate.(tokenExchangeRate)
     /\ env_contracts deployed_bstate caddr = Some (BAT.contract : WeakContract)
     /\ env_contract_states deployed_bstate caddr = Some (serializeState deployed_cstate)
-    /\ N.ge ((Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)))
-    /\ N.le ((total_supply deployed_cstate) + (Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (tokenCreationCap deployed_cstate)
+    /\ N.le (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)))
+            ((Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate))
+    /\ (deployed_cstate.(tokenExchangeRate) <= deployed_cstate.(tokenCreationCap) - deployed_cstate.(tokenCreationMin))%N
     /\ (fundingStart deployed_cstate) <= current_slot (env_chain deployed_bstate)
     /\ current_slot (env_chain deployed_bstate) <= (fundingEnd deployed_cstate)
     /\ address_is_contract (fundDeposit deployed_cstate) = false
     /\ isFinalized deployed_cstate = false
     /\ Forall (fun acc => Z.lt 0 (env_account_balances deployed_bstate acc)) accounts
     /\ NoDup accounts
-    /\ ~ In caddr accounts)
+    /\ ~ In caddr accounts
+    /\ Forall (fun acc => address_is_contract acc = false) accounts
+    /\ deployed_cstate.(tokenExchangeRate) <> 0%N)
       ->
       exists bstate cstate,
         reachable_through deployed_bstate bstate
@@ -1238,26 +1286,14 @@ Lemma can_finalize_if_deployed' : forall accounts deployed_bstate (reward : Amou
         /\ (isFinalized cstate) = true.
 Proof.
   induction accounts;
-    intros deployed_bstate reward caddr creator Hcreator Hreward [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]].
+    intros deployed_bstate reward caddr creator Hcreator Hreward [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 H15]]]]]]]]]]]]]]].
   - eapply can_finalize_if_creation_min; eauto.
-    apply N.ge_le, N.le_0_r, N.sub_0_le in H5.
+    apply  N.le_0_r, N.sub_0_le in H5.
     exists deployed_cstate; easy.
   - apply NoDup_cons_iff in H12 as [H12 H12'].
     apply not_in_cons in H13 as [H13 H13'].
-    pose (token_state_tmp := (token_state deployed_cstate)
-          <|EIP20Token.total_supply := ((total_supply deployed_cstate) + Z.to_N (env_account_balances deployed_bstate a) * tokenExchangeRate deployed_cstate)%N|>
-          <|EIP20Token.balances := FMap.partial_alter
-                                     (fun balance : option N =>
-                                      Some
-                                        (with_default 0 balance +
-                                         Z.to_N (env_account_balances deployed_bstate a) * tokenExchangeRate deployed_cstate)%N) a
-                                     (balances deployed_cstate)|>).
-    pose (cstate_tmp := deployed_cstate<|token_state := token_state_tmp|>).
-    pose (bstate_tmp := (deployed_bstate
-          <|chain_state_queue :=
-                map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts|>
-          <|chain_state_env := set_contract_state caddr (serializeState cstate_tmp) 
-                (transfer_balance a caddr (env_account_balances deployed_bstate a) (chain_state_env deployed_bstate))|>)).
+    apply list.Forall_cons in H11 as [H11 H11'].
+    apply list.Forall_cons in H14 as [H14 H14'].
     assert (total_balance_distr : forall state h t x, (reachable state -> Z.to_N (total_balance state (h :: t)) * x =
       Z.to_N (env_account_balances state h) * x + Z.to_N (total_balance state t) * x)%N).
     { intros. cbn.
@@ -1266,52 +1302,134 @@ Proof.
       - eapply account_balance_nonnegative in H. now apply Z.ge_le.
       - now apply sum_balances_positive.
     }
-    assert (total_balance_eq : (total_balance bstate_tmp accounts) = (total_balance deployed_bstate accounts)).
-    { unfold total_balance.
-      rewrite sumZ_map_id. symmetry.
-      rewrite sumZ_map_id. f_equal.
-      apply map_ext_in. intros. cbn.
-      now destruct_address_eq.
+    assert (H18 : (forall n m p, p <= m -> n <= m - p -> n + p <= m)%N) by lia.
+    assert (H19 : (forall n m, (n / m) * m <= n)%N).
+    { intros.
+      rewrite N.div_mod' with (b:= m).
+      rewrite N.mul_comm.
+      apply N.le_add_r.
     }
-    assert (step_tmp: ChainStep deployed_bstate bstate_tmp).
-    { eapply step_action; eauto.
-      - clear Hreward.
-        eapply eval_call with (msg:=(Some (serializeMsg create_tokens))); eauto.
-        + apply account_balance_nonnegative. eauto.
-        + apply Z.le_refl.
-        + apply wc_receive_to_receive.
-          apply Nat.ltb_ge in H7. apply Nat.ltb_ge in H8.
-          apply Forall_inv, Z.leb_gt in H11.
-          rewrite total_balance_distr, N.add_assoc in H6; auto.
-          apply N_le_add_distr, N.ltb_ge in H6.
-          cbn.
-          now rewrite H10, H7, H8, H11, H6.
-        + now constructor.
-      - reflexivity.
+    assert (H20 : (forall n m, m <> 0 -> n - m <= (n / m) * m)%N).
+    { intros.
+      eapply N.add_le_mono_r.
+      rewrite N.mul_comm.
+      rewrite <- N.div_mod' with (b:= m).
+      apply H18.
+      - apply N.mod_le; auto.
+      - apply N.sub_le_mono_l.
+        apply N.lt_le_incl.
+        apply N.mod_lt; auto.
     }
-    specialize (IHaccounts bstate_tmp reward caddr creator Hcreator Hreward).
-    destruct IHaccounts.
-    + exists cstate_tmp.
-      split; try (eapply reachable_step; eauto).
-      repeat split; auto.
-      * apply map_ext_in. intros. unfold create_tokens_act.
-        f_equal. cbn. now destruct_address_eq.
-      * cbn. now rewrite address_eq_refl.
-      * rewrite total_balance_eq. apply N.le_ge, N.le_sub_le_add_r. cbn.
-        rewrite N.add_assoc, N.add_comm, N.add_assoc, <- total_balance_distr; auto.
-        now rewrite <- N.le_sub_le_add_r, N.ge_le.
-      * rewrite total_balance_eq. cbn.
-        now rewrite <- N.add_assoc, <- total_balance_distr.
-      * apply Forall_inv_tail, All_Forall.Forall_map in H11.
-        apply All_Forall.Forall_map_inv.
-        assert (H : map (env_account_balances bstate_tmp) accounts = map (env_account_balances deployed_bstate) accounts).
-        -- apply map_ext_in. intros. cbn. now destruct_address_eq.
-        -- now setoid_rewrite H.
-    + destruct H as [cstate [IH1 [IH2 [IH3 IH4]]]].
-      exists x, cstate.
+    destruct (tokenCreationMin deployed_cstate - total_supply deployed_cstate)%N eqn:tokens_left_to_fund.
+    + cbn in H2.
+      eapply IHaccounts; eauto.
+      eexists.
       split; auto.
-      eapply reachable_through_trans.
-      apply reachable_through_step. all: eauto.
+      repeat split; eauto.
+      * now rewrite tokens_left_to_fund.
+      * rewrite tokens_left_to_fund.
+        apply N.le_0_l.
+    + pose (created_amount := ((N.min (1 + (((tokenCreationMin deployed_cstate - total_supply deployed_cstate) / (tokenExchangeRate deployed_cstate))))
+                                      (Z.to_N (env_account_balances deployed_bstate a))))%N).
+      pose (token_state_tmp := (token_state deployed_cstate)
+            <|EIP20Token.total_supply := ((total_supply deployed_cstate) + (created_amount * tokenExchangeRate deployed_cstate))%N|>
+            <|EIP20Token.balances := FMap.partial_alter
+                                       (fun balance : option N =>
+                                        Some
+                                          (with_default 0 balance + (created_amount * tokenExchangeRate deployed_cstate))%N) a
+                                       (balances deployed_cstate)|>).
+      pose (cstate_tmp := deployed_cstate<|token_state := token_state_tmp|>).
+      pose (bstate_tmp := (deployed_bstate
+            <|chain_state_queue :=
+                  create_token_acts deployed_bstate caddr accounts
+                    ((tokenCreationMin cstate_tmp) - (total_supply cstate_tmp)) cstate_tmp.(tokenExchangeRate)|>
+            <|chain_state_env := set_contract_state caddr (serializeState cstate_tmp)
+                  (transfer_balance a caddr (Z.of_N created_amount) (chain_state_env deployed_bstate))|>)).
+      assert (total_balance_eq : (total_balance bstate_tmp accounts) = (total_balance deployed_bstate accounts)).
+      { unfold total_balance.
+        rewrite sumZ_map_id. symmetry.
+        rewrite sumZ_map_id. f_equal.
+        apply map_ext_in. intros. cbn.
+        now destruct_address_eq.
+      }
+      assert (step_tmp: ChainStep deployed_bstate bstate_tmp).
+      { eapply step_action; eauto.
+        - rewrite H2, create_token_acts_cons.
+          eauto. lia.
+        - clear Hreward.
+          eapply eval_call with (msg:=(Some (serializeMsg create_tokens))); eauto.
+          + apply Z.le_ge, N2Z.is_nonneg.
+          + nia.
+          + apply wc_receive_to_receive.
+            apply Nat.ltb_ge in H7.
+            apply Nat.ltb_ge in H8.
+            cbn.
+            rewrite H10, H7, H8, N2Z.inj_min, Z2N.id;
+              try (apply Z.ge_le, account_balance_nonnegative; auto).
+            cbn.
+            destruct_match eqn:match_amount; returnIf match_amount.
+            destruct_match eqn:match_cap; returnIf match_cap.
+            * eauto.
+            * apply N.ltb_lt in match_cap.
+              apply Z.leb_gt, Z.min_glb_lt_iff in match_amount as [].
+              rewrite <- tokens_left_to_fund in *.
+              rewrite Z2N.inj_min, N2Z.id, <- N.mul_min_distr_r, <- N.add_min_distr_l, N.min_glb_lt_iff in match_cap.
+              destruct match_cap.
+              apply N.lt_le_trans with (p := ((tokenCreationMin deployed_cstate) + tokenExchangeRate deployed_cstate)%N) in H16.
+              nia.
+              rewrite N.mul_add_distr_r, N.mul_1_l.
+              rewrite N.add_assoc, N.add_comm, N.add_assoc.
+              rewrite <- N.add_le_mono_r.
+              apply H18. lia.
+              now apply H19.
+            * apply Zle_bool_imp_le, Z.min_le in match_amount as [].
+              -- rewrite <- N2Z.inj_0 in H.
+                 now apply N2Z.inj_le, N_le_add_distr in H.
+              -- lia.
+          + rewrite <- tokens_left_to_fund.
+            constructor; auto.
+            * intros. cbn.
+              destruct_address_eq; try easy.
+              now rewrite Z2N.inj_min, N2Z.id.
+        - rewrite <- tokens_left_to_fund. cbn.
+          f_equal. lia.
+      }
+      specialize (IHaccounts bstate_tmp reward caddr creator Hcreator Hreward).
+      destruct IHaccounts.
+      * exists cstate_tmp.
+        split; try (eapply reachable_step; eauto).
+        repeat split; auto.
+        -- cbn. apply create_token_acts_eq.
+           intros. cbn. now destruct_address_eq.
+        -- cbn. now destruct_address_eq.
+        -- edestruct N.min_dec in created_amount.
+          --- cbn. rewrite e.
+              eapply N.le_trans; [| apply N.le_0_l].
+              rewrite N.mul_add_distr_r, N.mul_1_l.
+              apply N.le_0_r.
+              rewrite N.sub_add_distr.
+              rewrite N.sub_add_distr.
+              apply N.sub_0_le.
+              now apply H20.
+          --- 
+              rewrite <- tokens_left_to_fund in H5.
+           rewrite total_balance_distr, N.add_comm in H5; auto.
+           rewrite total_balance_eq.
+           apply N.le_sub_le_add_r in H5.
+           rewrite <- N.sub_add_distr in H5.
+           eapply N.le_trans; [| apply H5].
+           apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
+           lia.
+        -- apply All_Forall.Forall_map in H11'.
+           apply All_Forall.Forall_map_inv.
+           assert (H : map (env_account_balances bstate_tmp) accounts = map (env_account_balances deployed_bstate) accounts).
+          --- apply map_ext_in. intros. cbn. now destruct_address_eq.
+          --- now setoid_rewrite H.
+      * destruct H as [cstate [IH1 [IH2 [IH3 IH4]]]].
+        exists x, cstate.
+        split; auto.
+        eapply reachable_through_trans.
+        apply reachable_through_step. all: eauto.
 Qed.
 
 Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amount) (caddr creator : Address),
