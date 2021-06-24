@@ -1257,6 +1257,21 @@ Proof.
     now do 2 (rewrite <- IHaccounts; [| intros; now apply H, in_cons]).
 Qed.
 
+Lemma create_token_acts_is_account : forall caddr env accounts tokens_left exchange_rate,
+  Forall (fun acc : Address => address_is_contract acc = false) accounts ->
+    (forall x : Action, In x (create_token_acts env caddr accounts tokens_left exchange_rate) -> act_is_from_account x).
+Proof.
+  induction accounts; intros.
+  - inversion H0.
+  - cbn in H0.
+    apply list.Forall_cons in H as [H H'].
+    destruct_match in H0.
+    + destruct H0 as [].
+      * now subst.
+      * now eapply IHaccounts.
+    + now eapply IHaccounts.
+Qed.
+
 Lemma can_finalize_if_deployed' : forall accounts deployed_bstate (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1440,8 +1455,9 @@ Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amoun
     /\ (chain_state_queue deployed_bstate) = []
     /\ env_contracts deployed_bstate caddr = Some (BAT.contract : WeakContract)
     /\ env_contract_states deployed_bstate caddr = Some (serializeState deployed_cstate)
-    /\ N.ge ((Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)))
-    /\ N.le ((total_supply deployed_cstate) + (Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate)) (tokenCreationCap deployed_cstate)
+    /\ N.le (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)))
+            ((Z.to_N (total_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate))
+    /\ (deployed_cstate.(tokenExchangeRate) <= deployed_cstate.(tokenCreationCap) - deployed_cstate.(tokenCreationMin))%N
     /\ (fundingStart deployed_cstate) < (fundingEnd deployed_cstate)
     /\ (fundingStart deployed_cstate) <= current_slot (env_chain deployed_bstate)
     /\ current_slot (env_chain deployed_bstate) < (fundingEnd deployed_cstate)
@@ -1452,7 +1468,8 @@ Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amoun
     /\ NoDup accounts
     /\ ~ In caddr accounts
     /\ Forall (fun acc => address_is_contract acc = false) accounts
-    /\ ~ In creator accounts)
+    /\ ~ In creator accounts
+    /\ deployed_cstate.(tokenExchangeRate) <> 0%N)
       ->
       exists bstate cstate,
         reachable_through deployed_bstate bstate
@@ -1461,25 +1478,19 @@ Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amoun
         /\ (isFinalized cstate) = true.
 Proof.
   intros deployed_bstate accounts reward caddr creator Hcreator Hreward
-    [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 [H15 [H17 H18]]]]]]]]]]]]]]]]].
+    [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 [H15 [H17 [H18 H19]]]]]]]]]]]]]]]]]].
   pose (header := block_header deployed_bstate (S (current_slot deployed_bstate)) creator reward).
   pose (bstate_with_acts := (deployed_bstate
         <|chain_state_queue :=
-          (map (fun acc => create_tokens_act deployed_bstate caddr acc) accounts)
-          ++ (chain_state_queue deployed_bstate)|>
+          create_token_acts deployed_bstate caddr accounts
+          ((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)) deployed_cstate.(tokenExchangeRate)|>
         <|chain_state_env := add_new_block_to_env header deployed_bstate|>)).
   assert (step_with_act : ChainStep deployed_bstate bstate_with_acts).
   { apply step_block with (header0:=header); try easy.
     - constructor; try easy.
       split; try (cbn; lia). cbn.
       now apply finalized_heigh_chain_height.
-    - apply All_Forall.In_Forall.
-      intros. cbn in H.
-      rewrite H2, app_nil_r, in_map_iff in H.
-      destruct H as [x' [H H']].
-      rewrite <- H.
-      rewrite Forall_forall in H17.
-      now apply H17 in H'.
+    - now apply All_Forall.In_Forall, create_token_acts_is_account.
   }
   assert (total_balance_eq : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
   { unfold total_balance.
@@ -1493,12 +1504,8 @@ Proof.
   - exists deployed_cstate.
     split; try (eapply reachable_step; eauto).
     repeat split; try reflexivity; try assumption.
-      * cbn. unfold create_tokens_act.
-        rewrite H2, app_nil_r.
-        apply map_ext_in. intros.
-        do 2 f_equal. cbn.
-        now destruct_address_eq.
-      * now rewrite total_balance_eq.
+      * cbn. apply create_token_acts_eq.
+        intros. cbn. now destruct_address_eq.
       * now rewrite total_balance_eq.
       * cbn. lia.
       * apply All_Forall.Forall_map in H13.
@@ -1511,7 +1518,8 @@ Proof.
     exists x, cstate.
     split; auto.
     eapply reachable_through_trans.
-    apply reachable_through_step. all: eauto.
+    apply reachable_through_step.
+    all: eauto.
 Qed.
 
 End Theories.
