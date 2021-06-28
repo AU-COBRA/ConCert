@@ -91,7 +91,7 @@ Section print_term.
   Definition print_type_var (v : name) (i : nat) :=
     match v with
     | nNamed nm => "'" ++ uncapitalize nm
-    | nAnon => "annon_tvar" ++ string_of_nat i
+    | nAnon => "anon_tvar" ++ string_of_nat i
     end.
 
   
