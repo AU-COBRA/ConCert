@@ -1039,9 +1039,7 @@ Lemma sum_balances_eq_total_supply block_state contract_addr :
     contract_state block_state contract_addr = Some cstate
     /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
-  intros.
-  eapply deployed_implies_constants_valid in H0 as H1; auto.
-  contract_induction; intros; try auto.
+  contract_induction; intros; auto.
   - unfold Blockchain.init in init_some. cbn in *.
     destruct_match in init_some; try congruence.
     inversion init_some. unfold EIP20Token.sum_balances.
@@ -1068,7 +1066,8 @@ Proof.
       rewrite <- N.add_sub_swap, balance_sum, N.sub_add.
       now rewrite N.add_sub.
       apply add_le.
-      apply mod_le.
+      instantiate (CallFacts := fun _ _ cstate => cstate.(tokenExchangeRate) <> 0).
+      now apply N.mod_le.
       apply balance_le_sum_balances.
     + cbn in receive_some. congruence.
   - destruct msg. destruct m. destruct m.
@@ -1093,15 +1092,17 @@ Proof.
       rewrite <- N.add_sub_swap, balance_sum, N.sub_add.
       now rewrite N.add_sub.
       apply add_le.
-      apply mod_le.
+      now apply N.mod_le.
       apply balance_le_sum_balances.
     + cbn in receive_some. congruence.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
-    unset_all; subst;cbn in *.
+    unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
+    intros.
+    apply deployed_implies_constants_valid in H as H1; auto.
+    now destruct H1.
 Qed.
 
 
