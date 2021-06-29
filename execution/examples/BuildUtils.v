@@ -49,6 +49,10 @@ Proof.
   econstructor; eauto.
 Qed.
 
+Hint Resolve reachable_empty_state
+             reachable_trans
+             reachable_step : core.
+
 (* If a state is reachable then the finalized_height cannot be larger than the chain_height *)
 Lemma finalized_heigh_chain_height : forall bstate,
   reachable bstate ->
@@ -134,7 +138,7 @@ Proof.
   destruct H0 as [_ [trace_mid]].
   split; auto.
   constructor.
-  eapply ChainedList.clist_app; eauto.
+  now eapply ChainedList.clist_app.
 Qed.
 
 (* Reachable_through can also be constructed from ChainStep instead of a
@@ -144,8 +148,24 @@ Lemma reachable_through_step : forall from to,
 Proof.
   intros.
   apply reachable_through_refl in H.
-  eapply reachable_through_trans'; eauto.
+  now eapply reachable_through_trans'.
 Qed.
+
+(* Any ChainState that is reachable through another ChainState is reachable *)
+Lemma reachable_through_reachable : forall from to,
+  reachable_through from to -> reachable to.
+Proof.
+  intros.
+  destruct H as [[trace_from] [trace_to]].
+  constructor.
+  now eapply ChainedList.clist_app.
+Qed.
+
+Hint Resolve reachable_through_refl
+             reachable_through_trans'
+             reachable_through_trans
+             reachable_through_step
+             reachable_through_reachable : core.
 
 (* If a state has a contract deployed to some addr then any other state
     reachable through the first state must also have the same contract
@@ -393,7 +413,6 @@ Proof.
   - (* Case: queue is already empty, thus we are already done *)
     exists bstate.
     intuition.
-    now apply reachable_through_refl.
   - (* Case: queue contains at least one action, 
         thus we need to either discard or evaluate it *)
     apply list.Forall_cons_1 in H0 as [H0 H0'].
@@ -406,11 +425,9 @@ Proof.
       apply H1 in action_evaluation as new_acts_eq.
       eapply H3 with (bstate' := mid) in H2; eauto.
       apply IHl in H2 as [to [reachable_through [P_to queue_to]]]; subst; eauto.
-      * exists to.
-        intuition.
-        apply reachable_through_step in step; eauto.
-        eapply reachable_through_trans; eauto.
-      * eapply reachable_step; eauto.
+      exists to.
+      intuition.
+      eauto.
     + (* Case: the action not is evaluable *)
       pose (bstate<| chain_state_queue := l |>) as mid.
       assert (step : ChainStep bstate mid).
@@ -422,8 +439,30 @@ Proof.
       apply IHl in reachable_mid as [to [reachable_through [P_to queue_to]]]; eauto.
       exists to.
       intuition.
-      apply reachable_through_step in step; eauto.
-      eapply reachable_through_trans; eauto.
+      eauto.
 Qed.
 
 End BuildUtils.
+
+Global Hint Resolve reachable_through_refl
+             reachable_through_trans'
+             reachable_through_trans
+             reachable_through_step
+             reachable_through_reachable : core.
+
+Global Hint Resolve reachable_through_refl
+             reachable_through_trans'
+             reachable_through_trans
+             reachable_through_step
+             reachable_through_reachable : core.
+
+Ltac update_ term1 term2 H :=
+  match type of H with
+  | context G [ term1 ] =>
+    let h := fresh "H" in
+    let x := context G [ term2 ] in
+      assert x; [try (cbn; easy) | clear H; rename h into H]
+  end.
+
+Tactic Notation "update" constr(t1) "with" constr(t2) "in" hyp(H) := update_ t1 t2 H.
+Tactic Notation "update" constr(t2) "in" hyp(H) := let t1 := type of H in update_ t1 t2 H.
