@@ -224,7 +224,7 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
         let defs : list string :=
           ldef_const_list |> filter (negb ∘ (eq_kername init) ∘ fst)
                           |> map snd
-                          |> List.app [init_prelude] (* append const decls after receive prelude decls *)
+                          |> List.app [prelude] (* append const decls after receive prelude decls *)
                           |> List.app (map snd ldef_ty_list) (* append the above after ty decls*)
                           in
           (* map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in *)
