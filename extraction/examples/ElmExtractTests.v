@@ -437,6 +437,7 @@ Module type_scheme_ex.
 "type alias Triple a b c = Prod (Prod a b) c" $>.
   Proof. vm_compute. reflexivity. Qed.
 
+  Module LetouzeyExample.
   (* An example from Letouzey's thesis, Section 3.3.4 *)
 
   Definition P (b : bool) : Set := if b then nat else bool.
@@ -465,6 +466,11 @@ Module type_scheme_ex.
 "type alias Sch3_applied = Nat -> Bool" $>.
   Proof. vm_compute. reflexivity. Qed.
 
+  End LetouzeyExample.
+
+
+  (* [Vec] is a common example of using a type scheme to abbreviate a type *)
+
   Definition vec (A : Type) (n : nat) := {xs : list A | length xs = n}.
 
   Program Definition singleton_vec (n : nat) : vec nat 1 := [n].
@@ -474,7 +480,6 @@ Module type_scheme_ex.
 
   MetaCoq Run (general_extract_tc singleton_vec_syn [] []).
 
-  (* NOTE: the extracted code is not well-typed in Elm, because Elm's type aliases do not support unused type variables *)
   Example singleton_vec_test:
     general_extract singleton_vec_syn [] [] = Ok <$
 "type Nat";
