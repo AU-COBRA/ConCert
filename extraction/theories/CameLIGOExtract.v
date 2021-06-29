@@ -141,7 +141,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Z.eqb %%> "eqTez"
   ; remap <%% Z.gtb %%> "gtbTez"
   ; remap <%% N.add %%> "addInt"
-  ; remap <%% N.sub %%> "subInt"
+  ; remap <%% N.sub %%> "subIntTruncated"
   ; remap <%% N.leb %%> "leInt"
   ; remap <%% N.ltb %%> "ltInt"
   ; remap <%% N.eqb %%> "eqInt"

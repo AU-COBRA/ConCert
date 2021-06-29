@@ -795,6 +795,7 @@ Definition int_ops :=
   <$
   "[@inline] let addInt (i : int) (j : int) = i + j" ;
   "[@inline] let subInt (i : int) (j : int) = i - j" ;
+  "[@inline] let subIntTruncated (a : int) (b : int) = let res = a - b in if res < 0 then 0 else res" ;
   "[@inline] let multInt (i : int) (j : int) = i * j" ;
   "[@inline] let divInt (i : int) (j : int) = i / j" ;
   "[@inline] let leInt (i : int) (j : int) = i <= j" ;
