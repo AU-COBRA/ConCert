@@ -260,6 +260,26 @@ Section print_term.
   Definition print_list_cons (f : term -> string) (t1 : term) (t2 : term) :=
     (f t1) ++ " :: " ++ (f t2).
 
+  Definition is_record_constr (t : term) : option ExAst.one_inductive_body := 
+    match t with
+    | tConstruct (mkInd mind j as ind) i =>
+      match lookup_ind_decl mind i with
+      (* Check if it has only 1 constructor, and projections are specified *)
+      | Some oib => match ExAst.ind_projs oib, Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) with
+                    | _::_,true => Some oib
+                    | _,_ => None
+                    end
+      | _ => None
+      end
+    | _ => None
+  end.
+
+  Definition is_name_remapped nm TT := 
+    match (look TT nm) with
+    | Some nm' => true
+    | None => false
+    end.
+
   Definition app_args {A} (f : term -> A) :=
     fix go (t : term) := match t with
     | tApp t1 t2 => f t2 :: go t1
@@ -405,24 +425,6 @@ Section print_term.
           else parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
         | None => "UnboundRel(" ++ string_of_nat i ++ ")"
         end
-      | tProj (mkInd mind i as ind, pars, k) c =>
-        match lookup_ind_decl mind i with
-        | Some oib =>
-          match nth_error oib.(ExAst.ind_projs) k with
-          | Some (na, _) =>
-              if is_not_empty_const l then
-                parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
-              else (* if term is on the form (tApp t ""), then just print t *)
-                print_term prefix FT TT ctx false true f fa
-            | None =>
-            "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ")"
-                          (* ++ print_term prefix FT TT ctx true false b ba ++ ")" TODO: b should be replaced by c - but need to retrieve annotation first *)
-          end
-          | None =>
-          "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ")"
-                        (* ++ print_term prefix FT TT ctx true false b ba ++ ")" *)
-        end
-
       | tConst c =>
         let cst_name := string_of_kername c in
         let nm := from_option (look TT cst_name) (prefix ++ c.2) in
@@ -432,8 +434,6 @@ Section print_term.
         else if nm =? "snd" then
           (concat " " (map (parens true) apps)) ++ ".1"
         else if (nm =? "constructor") then
-          concat " " apps
-        else if (nm =? "") then
           concat " " apps
         (* ContractCallContext remappings *)
         else if (nm =? "ctx_from") then
@@ -456,20 +456,17 @@ Section print_term.
           print_transfer apps
         else if (nm =? "_") then
           fresh_id_from ctx 10 "a"
-        else
-          (* inductive constructors of 1 arg are treated as records *)
-          let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in
-          match lookup_ind_decl mind i with
-          | Some oib =>
-            if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) then
-              (* TODO: maybe need to capitalize projs here, to ensure consistency with get_constr_name *)
-              let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in
+        (* inductive constructors of 1 arg are treated as records *)
+        else match is_name_remapped nm TT, is_record_constr b with
+          | false, Some oib => 
+              let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
+              (* let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in *)
               let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
-                                                        |> concat "; " in
+                                                      |> concat "; " in
               "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
-            else parens top (print_uncurried nm' apps)
-          | _ => parens top (print_uncurried nm' apps)
-          end
+              | _,_     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+                           parens top (print_uncurried nm' apps)
+  end
       | _ => if is_not_empty_const l then
               parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
              else print_term prefix FT TT ctx false true f fa
@@ -480,7 +477,7 @@ Section print_term.
     from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l => fun bt =>
     let nm := get_constr_name ind l in
-    let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+    let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ (capitalize nm)) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
     if nm_tt =? "[]" then
       "([]:" ++ print_box_type prefix TT bt ++ ")"
@@ -488,7 +485,7 @@ Section print_term.
       "(None:" ++ print_box_type prefix TT bt ++ ")"
     else if nm_tt =? "Map.empty" then
       "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
-    else capitalize nm_tt
+    else nm_tt
   | tCase (mkInd mind i as ind, nparam) t brs =>
     let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
           match arity return annots box_type br -> (_ * _) with
