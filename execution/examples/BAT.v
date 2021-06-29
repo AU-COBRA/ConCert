@@ -1130,6 +1130,33 @@ Proof.
   - now apply sum_balances_positive.
 Qed.
 
+Lemma total_balance_eq : forall env1 env2 accounts,
+  (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
+    total_balance env1 accounts = total_balance env2 accounts.
+Proof.
+  intros.
+  unfold total_balance.
+  rewrite sumZ_map_id.
+  setoid_rewrite sumZ_map_id at 2.
+  f_equal.
+  now apply map_ext_in.
+Qed.
+
+Lemma forall_account_balances_eq : forall P accounts env1 env2,
+  (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
+  Forall (fun acc => P (env_account_balances env1 acc)) accounts <->
+  Forall (fun acc => P (env_account_balances env2 acc)) accounts.
+Proof.
+  intros.
+  assert (map_eq : map (env_account_balances env1) accounts = map (env_account_balances env2) accounts)
+    by now apply map_ext_in.
+  split;
+    intro;
+    apply All_Forall.Forall_map in H0;
+    apply All_Forall.Forall_map_inv;
+    now rewrite ? map_eq.
+Qed.
+
 Definition block_header bstate slot creator reward : BlockHeader :=
   {| block_height := S (chain_height bstate);
       block_slot := slot;
@@ -1376,13 +1403,6 @@ Proof.
                     ((tokenCreationMin cstate_tmp) - (total_supply cstate_tmp)) cstate_tmp.(tokenExchangeRate)|>
             <|chain_state_env := set_contract_state caddr (serializeState cstate_tmp)
                   (transfer_balance a caddr (Z.of_N created_amount) (chain_state_env deployed_bstate))|>)).
-      assert (total_balance_eq : (total_balance bstate_tmp accounts) = (total_balance deployed_bstate accounts)).
-      { unfold total_balance.
-        rewrite sumZ_map_id. symmetry.
-        rewrite sumZ_map_id. f_equal.
-        apply map_ext_in. intros. cbn.
-        now destruct_address_eq.
-      }
       assert (step_tmp: ChainStep deployed_bstate bstate_tmp).
       { eapply step_action; eauto.
         - rewrite H2, create_token_acts_cons.
@@ -1425,6 +1445,8 @@ Proof.
         - rewrite <- tokens_left_to_fund. cbn.
           f_equal. lia.
       }
+      assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate_tmp a = env_account_balances deployed_bstate a)
+        by (intros; cbn; now destruct_address_eq).
       specialize (IHaccounts bstate_tmp reward caddr creator Hcreator Hreward).
       destruct IHaccounts.
       * exists cstate_tmp.
@@ -1443,18 +1465,14 @@ Proof.
               apply N.sub_0_le.
               now apply N_le_div_mul.
           --- rewrite <- tokens_left_to_fund in H5.
-           rewrite total_balance_distr, N.add_comm in H5; auto.
-           rewrite total_balance_eq.
-           apply N.le_sub_le_add_r in H5.
-           rewrite <- N.sub_add_distr in H5.
-           eapply N.le_trans; [| apply H5].
-           apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
-           lia.
-        -- apply All_Forall.Forall_map in H11'.
-           apply All_Forall.Forall_map_inv.
-           assert (H : map (env_account_balances bstate_tmp) accounts = map (env_account_balances deployed_bstate) accounts).
-          --- apply map_ext_in. intros. cbn. now destruct_address_eq.
-          --- now setoid_rewrite H.
+              rewrite total_balance_distr, N.add_comm in H5; auto.
+              erewrite total_balance_eq by auto.
+              apply N.le_sub_le_add_r in H5.
+              rewrite <- N.sub_add_distr in H5.
+              eapply N.le_trans; [| apply H5].
+              apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
+              lia.
+        -- now erewrite forall_account_balances_eq.
       * destruct H as [cstate [IH1 [IH2 [IH3 IH4]]]].
         exists x, cstate.
         split; auto.
@@ -1506,13 +1524,8 @@ Proof.
       now apply finalized_heigh_chain_height.
     - now apply All_Forall.In_Forall, create_token_acts_is_account.
   }
-  assert (total_balance_eq : (total_balance bstate_with_acts accounts) = (total_balance deployed_bstate accounts)).
-  { unfold total_balance.
-    rewrite sumZ_map_id. symmetry.
-    rewrite sumZ_map_id. f_equal.
-    apply map_ext_in. intros. cbn.
-    now destruct_address_eq.
-  }
+  assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate_with_acts a = env_account_balances deployed_bstate a)
+    by (intros; cbn; now destruct_address_eq).
   specialize (can_finalize_if_deployed' accounts bstate_with_acts reward caddr creator Hcreator Hreward).
   intros [].
   - exists deployed_cstate.
@@ -1520,14 +1533,9 @@ Proof.
     repeat split; try reflexivity; try assumption.
       * cbn. apply create_token_acts_eq.
         intros. cbn. now destruct_address_eq.
-      * now rewrite total_balance_eq.
+      * now erewrite total_balance_eq.
       * cbn. lia.
-      * apply All_Forall.Forall_map in H12.
-        apply All_Forall.Forall_map_inv.
-        assert (H : map (env_account_balances bstate_with_acts) accounts = map (env_account_balances deployed_bstate) accounts).
-        -- apply map_ext_in. intros. cbn.
-            now destruct_address_eq.
-        -- now setoid_rewrite H.
+      * now erewrite forall_account_balances_eq.
   - destruct H as [cstate [IH1 [IH2 [IH3 IH4]]]].
     exists x, cstate.
     split; auto.
