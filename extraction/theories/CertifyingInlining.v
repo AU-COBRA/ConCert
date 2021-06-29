@@ -8,6 +8,7 @@ From Coq Require Import List String Bool Basics.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import CertifyingBeta.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import Certifying.
@@ -21,31 +22,6 @@ Section inlining.
   Context (should_inline : kername -> bool).
   Context (Σ : global_env).
 
-  Fixpoint beta_body (body : term) (args : list term) {struct args} : term :=
-    match args with
-    | [] => body
-    | a :: args =>
-      match body with
-      | tLambda na _ body => beta_body (body{0 := a}) args
-      | _ => mkApps body (a :: args)
-      end
-    end.
-
-  Definition iota_body (body : term) : term :=
-    match body with
-    | tCase (ind, pars, _) _ discr brs =>
-      let (hd, args) := decompose_app discr in
-      match hd with
-      | tConstruct _ c _ =>
-        match nth_error brs c with
-        | Some (_, br) => beta_body br (skipn pars args)
-        | None => body
-        end
-      | _ => body
-      end
-    | t => t
-    end.
-
   Definition inline_const (kn : kername) (u : Instance.t) (args : list term) : term :=
     let const := tConst kn u in
     match lookup_env Σ kn with
@@ -54,28 +30,12 @@ Section inlining.
       | Some body (* once told me *) =>
         (* Often the first beta will expose an iota (record projection),
                and the projected field is often a function, so we do another beta *)
-              let (hd, args) := decompose_app (beta_body body args) in
-              beta_body (iota_body hd) args
+        let (hd, args) := decompose_app (beta_body body args) in
+        beta_body (iota_body hd) args
       | None => tApp const args
       end
     | _ => tApp const args
     end.
-
-  Definition map_subterms (f : term -> term) (t : term) : term :=
-  match t with
-  | tEvar n ts => tEvar n (map f ts)
-  | tCast t kind ty => tCast (f t) kind (f ty)
-  | tProd na ty body => tProd na (f ty) (f body)
-  | tLambda na ty body => tLambda na (f ty) (f body)
-  | tLetIn na val ty body => tLetIn na (f val) (f ty) (f body)
-  | tApp hd arg => tApp (f hd) (map f arg)
-  | tCase p ty disc brs =>
-    tCase p (f ty) (f disc) (map (on_snd f) brs)
-  | tProj p t => tProj p (f t)
-  | tFix def i => tFix (map (map_def f f) def) i
-  | tCoFix def i => tCoFix (map (map_def f f) def) i
-  | t => t
-  end.
 
   Fixpoint inline_aux (args : list term) (t : term) : term :=
     match t with
@@ -93,10 +53,15 @@ Section inlining.
         | Some (ConstantDecl cst) =>
           match cst_body cst with
           | Some body (* once told me *) =>
-            (* NOTE: Often the first beta will expose an iota (record projection),
-               and the projected field is often a function, so we do another beta *)
             let (hd, args) := decompose_app (beta_body body args) in
-            beta_body (iota_body hd) args
+          (* NOTE: Often the first beta will expose an iota (record projection),
+             and the projected field is often a function, so we do another beta *)
+            let res := beta_body (iota_body hd) args in
+          (* NOTE: after we beta-reduced the function coming from projection,
+             it might intorduce new redexes. This is often the case when using
+             option monads. Therefore, we do a pass that find the redexes and
+             beta-reduces them further. *)
+            betared res
           | None => mkApps (tConst kn u) args
           end
         | _ => mkApps (tConst kn u) args
@@ -109,14 +74,34 @@ Section inlining.
   Definition inline : term -> term := inline_aux [].
 
   Definition inline_in_constant_body cst :=
-    {| cst_type := cst_type cst;
+    {| cst_type := inline (cst_type cst);
        cst_universes := cst_universes cst;
        cst_body := option_map inline (cst_body cst) |}.
+
+  Definition inline_oib (oib : one_inductive_body) :=
+    {| ind_name := oib.(ind_name);
+       ind_type := inline oib.(ind_type);
+       ind_kelim := oib.(ind_kelim);
+       ind_ctors := map (fun '(c_nm,c_ty,i) => (c_nm, inline c_ty,i)) oib.(ind_ctors);
+       ind_projs := map (fun '(p_nm, p_ty) => (p_nm, inline p_ty)) oib.(ind_projs);
+       ind_relevance := oib.(ind_relevance) |}.
+
+  Definition inline_context_decl (cd : context_decl) : context_decl :=
+    {| decl_name := cd.(decl_name);
+       decl_body := option_map inline cd.(decl_body);
+       decl_type := cd.(decl_type) |}.
 
   Definition inline_in_decl d :=
     match d with
     | ConstantDecl cst => ConstantDecl (inline_in_constant_body cst)
-    | _ => d
+    | InductiveDecl mib =>
+      InductiveDecl
+        {| ind_finite := mib.(ind_finite);
+           ind_npars := mib.(ind_npars);
+           ind_params :=map inline_context_decl mib.(ind_params);
+           ind_bodies := map inline_oib mib.(ind_bodies);
+           ind_universes := mib.(ind_universes);
+           ind_variance := mib.(ind_variance) |}
     end.
 
 End inlining.
@@ -206,4 +191,18 @@ Module Tests.
     Definition bar : nat -> nat := fun x => ((foo (x * 2)) : nat -> nat) x.
     MetaCoq Run (inline_def (fun kn => eq_kername <%% foo %%> kn) bar).
   End Ex5.
+
+  (* Inlining type aliases in inductives *)
+  Module Ex6.
+
+    Definition my_prod (A B : Type) : Type := A * B.
+
+    Inductive blah :=
+    | blah_ctor : my_prod nat bool -> blah.
+
+    Definition foo (p : my_prod nat bool) : blah := blah_ctor p.
+
+    MetaCoq Run (inline_def (fun kn => eq_kername <%% my_prod %%> kn) foo).
+  End Ex6.
+
 End Tests.

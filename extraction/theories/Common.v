@@ -1,5 +1,6 @@
 From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
+From MetaCoq.Template Require Import LiftSubst.
 From MetaCoq.Template Require Import AstUtils.
 From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Loader.
@@ -140,4 +141,45 @@ Fixpoint update_global_env (Σ : global_env) (Σup : global_env) : global_env :=
                     | None => (kn, gd) :: update_global_env Σ' Σup
                     end
   | [] => []
+  end.
+
+Definition map_subterms (f : term -> term) (t : term) : term :=
+  match t with
+  | tEvar n ts => tEvar n (map f ts)
+  | tCast t kind ty => tCast (f t) kind (f ty)
+  | tProd na ty body => tProd na (f ty) (f body)
+  | tLambda na ty body => tLambda na (f ty) (f body)
+  | tLetIn na val ty body => tLetIn na (f val) (f ty) (f body)
+  | tApp hd arg => tApp (f hd) (map f arg)
+  | tCase p ty disc brs =>
+    tCase p (f ty) (f disc) (map (on_snd f) brs)
+  | tProj p t => tProj p (f t)
+  | tFix def i => tFix (map (map_def f f) def) i
+  | tCoFix def i => tCoFix (map (map_def f f) def) i
+  | t => t
+  end.
+
+Fixpoint beta_body (body : term) (args : list term) {struct args} : term :=
+  match args with
+  | [] => body
+  | a :: args =>
+    match body with
+    | tLambda na _ body => beta_body (body{0 := a}) args
+    | _ => mkApps body (a :: args)
+    end
+  end.
+
+Definition iota_body (body : term) : term :=
+  match body with
+  | tCase (ind, pars, _) _ discr brs =>
+    let (hd, args) := decompose_app discr in
+    match hd with
+    | tConstruct _ c _ =>
+      match nth_error brs c with
+      | Some (_, br) => beta_body br (skipn pars args)
+      | None => body
+      end
+    | _ => body
+    end
+  | t => t
   end.

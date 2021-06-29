@@ -87,13 +87,20 @@ Section print_term.
     | TApp t1 t2 => get_tapp_hd t1
     | _ => bt
     end.
+  
+  Definition print_type_var (v : name) (i : nat) :=
+    match v with
+    | nNamed nm => "'" ++ uncapitalize nm
+    | nAnon => "anon_tvar" ++ string_of_nat i
+    end.
 
-  Definition print_box_type (prefix : string) (TT : env string)
+  
+  Definition print_box_type (prefix : string) (TT : env string) (vars : list name)
     : box_type -> string :=
     fix go  (bt : box_type) :=
   match bt with
   | TBox => "unit"
-  | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " → " ++ go codom
+  | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " -> " ++ go codom
   | TApp t1 t2 =>
     let hd := get_tapp_hd t1 in
     let args := map_targs go bt in
@@ -105,7 +112,10 @@ Section print_term.
       else parens false (print_uncurried "" args ++ " " ++ go hd)
     | _ => parens false (print_uncurried "" args ++ " " ++ go hd)
     end
-  | TVar i => "'a" ++ string_of_nat i (* TODO: pass context with type variables *)
+  | TVar i => match nth_error vars i with
+             | Some nm => print_type_var nm i
+             | None => "UnknownTypeVar(" ++ string_of_nat i ++ ")"
+             end
   | TInd s =>
     let full_ind_name := string_of_kername s.(inductive_mind) in
     uncapitalize (from_option (look TT full_ind_name) (prefix ++ s.(inductive_mind).2))
@@ -119,45 +129,48 @@ Section print_term.
   Definition print_ctor
              (prefix : string)
              (TT : env string)
+             (vars : list name)
              (ctor : ident × list (name × box_type)) :=
     let (nm,tys) := ctor in
     let nm := capitalize nm in
     match tys with
     | [] => prefix ++ nm
     | _ => prefix ++ nm ++ " of "
-                  ++ concat " * " (map (print_box_type prefix TT ∘ snd) tys)
+                  ++ concat " * " (map (print_box_type prefix TT vars ∘ snd) tys)
     end.
   
-  Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
+  Definition print_proj (prefix : string)
+             (TT : env string)
+             (vars : list name)
+             (proj : ident × box_type) : string :=
     let (nm, ty) := proj in
     prefix
       ^ nm
       ^ " : "
-      ^ print_box_type prefix TT ty.
+      ^ print_box_type prefix TT vars ty.
 
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
     let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
                               (prefix ++ oib.(ExAst.ind_name)) in
-    let print_type_var (i : nat) :=
-        "'a" ++ string_of_nat i in
+    let vars := map tvar_name oib.(ind_type_vars) in
     let params :=
         if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
-        else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
-             (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
+        else let ps := concat "," (mapi (fun i v => print_type_var v i) vars) in
+             (parens (Nat.ltb #|oib.(ind_type_vars)| 1) ps) ++ " " in
     (* one-constructor inductives with non-empty ind_projs (projection identifiers) 
        are assumed to be records *)
     match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
     | [build_record_ctor], _::_ =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) projs_and_ctors in
+      let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT vars (p.1, ty)) projs_and_ctors in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}"
     | _,_ => "type " ++ params ++ uncapitalize ind_nm ++" = "
             ++ nl
-            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
+            ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT vars p ++ nl) oib.(ExAst.ind_ctors))
     end.
 
   Definition is_sort (t : Ast.term) :=
@@ -528,11 +541,11 @@ Definition print_decl (prefix : string)
            (decl_name : string)
            (modifier : option string)
            (wrap : string -> string)
-           (ty : box_type)
+           (ty : list name × box_type)
            (t : term) :=
-  let (tys,_) := decompose_arr ty in
+  let (tys,_) := decompose_arr ty.2 in
   let (args,lam_body) := Edecompose_lam t in
-  let targs := combine args (map (print_box_type prefix TT) tys) in
+  let targs := combine args (map (print_box_type prefix TT ty.1) tys) in
   let printed_targs :=
       map (fun '(x,ty) => parens false (uncapitalize (string_of_name x) ++ " : " ++ ty)) targs in
   let decl := uncapitalize prefix ++ uncapitalize decl_name ++ " " ++ concat " " printed_targs in
@@ -555,7 +568,7 @@ Definition print_init (prefix : string)
   let ty := cst.(ExAst.cst_type) in
   let (tys,_) := decompose_arr ty.2 in
   let (args,lam_body) := Edecompose_lam b in
-  let targs_inner := combine args (map (print_box_type prefix TT) tys) in
+  let targs_inner := combine args (map (print_box_type prefix TT ty.1) tys) in
   let printed_targs_inner :=
       map (fun '(x,ty) => parens false (string_of_name x ++ " : " ++ ty)) targs_inner in
   let decl_inner := "inner " ++ concat " " printed_targs_inner in
@@ -589,7 +602,7 @@ Definition print_cst (prefix : string)
   | Some cst_body =>
     (* NOTE: ignoring the path part *)
     let (_, decl_name) := kn in
-    print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type).2 cst_body
+    print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type) cst_body
   | None => ""
   end.
 
@@ -608,9 +621,10 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
   | TypeAliasDecl (Some (params, ty)) =>
     let ta_nm := from_option (lookup TT (string_of_kername nm))
                              (prefix ++ nm.2) in
-    (nm, "type " ++ uncapitalize ta_nm
-                 ++ concat " " (map (string_of_name ∘ tvar_name) params) ++  " = "
-            ++ print_box_type prefix TT ty)
+    (nm, "type " ++ parens (Nat.ltb #|params| 1) (concat "," (mapi (fun i v => print_type_var v.(tvar_name) i) params))
+                 ++ " " ++ uncapitalize ta_nm
+                 ++  " = "
+            ++ print_box_type prefix TT (map tvar_name params) ty)
   | TypeAliasDecl None => (nm, "")
   end.
 

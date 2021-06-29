@@ -98,10 +98,10 @@ Section EIP20TokenExtraction.
     match maybe_msg with
     | Some (transfer to_addr amountt) => without_actions (try_transfer sender to_addr amountt state)
     | Some (transfer_from from to_addr amountt) => without_actions (try_transfer_from sender from to_addr amountt state)
-    (* 'approve' endpoint not included in this test *)
+   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
     | _ => None
     end.
-  
+
   Definition receive_wrapper
              (params : params)
              (st : State) : option (list ActionBody × State) :=
@@ -139,9 +139,11 @@ Section EIP20TokenExtraction.
 
   
   Definition TT_remap_eip20token : list (kername * string) :=
-  TT_remap_default ++ [
+    TT_remap_default ++ [
+    (* FIXME: it seems like the context type is wrong *)
     remap <%% @ContractCallContext %%> "(address * (address * int))"
   ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+  ; remap <%% gmap.gmap %%> "map"
   ; remap <%% @AddressMap.add %%> "Map.add"
   ; remap <%% @AddressMap.find %%> "Map.find"
   ; remap <%% @AddressMap.empty %%> "(Map [])"
@@ -169,6 +171,8 @@ Section EIP20TokenExtraction.
     ; <%% @setter_from_getter_State_allowances %%>
     ; <%% @set_State_balances %%>
     ; <%% @set_State_allowances%%>
+
+    ; <%% @Common.AddressMap.AddrMap %%>
     ].
   
   Time MetaCoq Run
@@ -176,7 +180,7 @@ Section EIP20TokenExtraction.
       tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
 
   Print liquidity_eip20token.
-
+  
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "./examples/liquidity-extract/liquidity_eip20token.liq" Compute liquidity_eip20token.
 

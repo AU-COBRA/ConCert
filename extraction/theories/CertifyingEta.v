@@ -420,8 +420,8 @@ Module Examples.
     MetaCoq Quote Recursively Definition match_ex1__ := match_ex1.
     MetaCoq Run (eta_expand_def
                    (fun _ => None)
-     (* We set the trimmig of masks to true, so the procedure does't not perform full expansion.
-        That way we can test the expansion of branches *)
+    (* We set the trimming of masks to true, so the procedure does't perform full expansion.
+       That way we can test the expansion of branches *)
                    true true
                    match_ex1).
 
