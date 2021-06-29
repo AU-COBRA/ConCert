@@ -294,17 +294,24 @@ Section print_term.
     match t with
     | tConstruct (mkInd mind j as ind) i =>
       match lookup_ind_decl mind i with
-      | Some oib => if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors))
-                    then Some oib
-                    else None
+      (* Check if it has only 1 constructor, and projections are specified *)
+      | Some oib => match ExAst.ind_projs oib, Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) with
+                    | _::_,true => Some oib
+                    | _,_ => None
+                    end
       | _ => None
       end
     | _ => None
   end.
 
+  Definition is_name_remapped nm TT := 
+    match (look TT nm) with
+    | Some nm' => true
+    | None => false
+    end.
+  
   (* Definition print_record_proj (f : term -> string) (apps : term) (oib : ExAst.one_inductive_body) TT prefix :=
    *)
-
 
   Definition app_args {A} (f : term -> A) :=
     fix go (t : term) := match t with
@@ -416,12 +423,12 @@ Section print_term.
       (* is it a transfer *)
       else if (nm =? "Act_transfer") then print_transfer apps
       (* is it a record declaration? *)
-      else match is_record_constr b with
-        | Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
+      else match is_name_remapped nm TT, is_record_constr b with
+        | false, Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
         let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
                                                   |> concat "; " in
         "{" ++ field_decls_printed ++ "}"
-        | None     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+        | _,_     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
                       parens top (print_uncurried nm' apps)
         end
     | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
