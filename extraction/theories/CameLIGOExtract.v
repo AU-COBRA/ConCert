@@ -220,11 +220,11 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
       match print_init prefix TT build_call_ctx init_prelude eΣ init_cst annots with
       | Some init_code =>
         (* filtering out the definition of [init] and projecting the code *)
-        (* and place prelude after type decls and before constant decls *)
+        (* and place init prelude after type decls and before constant decls *)
         let defs : list string :=
           ldef_const_list |> filter (negb ∘ (eq_kername init) ∘ fst)
                           |> map snd
-                          |> List.app [prelude] (* append const decls after receive prelude decls *)
+                          |> List.app [init_prelude] (* append const decls after receive prelude decls *)
                           |> List.app (map snd ldef_ty_list) (* append the above after ty decls*)
                           in
           (* map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in *)
