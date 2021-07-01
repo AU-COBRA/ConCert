@@ -276,6 +276,8 @@ Section print_term.
       end
     in aux n.
 
+  
+
   Definition fresh_name (Γ : context) (na : name) (t : term) :=
     let id := match na with
               | nNamed id => id
