@@ -59,7 +59,7 @@ Arguments lmd_entry_point {_ _ _ _ _}.
 Definition overridden_masks (kn : kername) : option bitmask :=
   if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
   else None.
-  
+
 (* Machinery for specializing chain base *)
 Definition extract_template_env_specialize
            (params : extract_template_env_params)
@@ -71,7 +71,6 @@ Definition extract_template_env_specialize
   Σ <- specialize_ChainBase_env Σ ;;
   wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
->>>>>>> liq extraction with chainbase
 
 (* Machinery for specializing chain base *)
 Definition extract_template_env_specialize
