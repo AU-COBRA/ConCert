@@ -1,19 +1,13 @@
-
-
 (** * Extraction of a counter contract with refinement types to Liquidity *)
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 
-From Coq Require Import PeanoNat ZArith Notations Bool.
+From Coq Require Import PeanoNat ZArith.
 
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert Require Import MyEnv.
-From ConCert.Extraction Require Import LPretty LiquidityExtract Common Extraction.
+From ConCert.Extraction Require Import LPretty LiquidityExtract Common.
 From ConCert.Execution Require Import Blockchain Common.
 
-From Coq Require Import List Ascii String.
+From Coq Require Import List String.
 Local Open Scope string_scope.
 
 From MetaCoq.Template Require Import All.
@@ -23,7 +17,6 @@ Import MonadNotation.
 Import AddressMap.
 
 Open Scope Z.
-
 
 Definition PREFIX := "".
 
@@ -45,12 +38,45 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @snd %%> "snd" ]. *)
   TT_remap_default ++ [
     remap <%% @ContractCallContext %%> "(address * (address * int))"
+  ; remap <%% @Chain %%> "(address * (address * address))" (* chain_height, current_slot, finalized_height *)
+  ; remap <%% @chain_height %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+  ; remap <%% @current_slot %%> "(fun c -> fst (snd c)" (* small hack, but valid since Chain is mapped to a tuple *)
+  ; remap <%% @finalized_height %%> "(fun c -> snd (snd c)" (* small hack, but valid since Chain is mapped to a tuple *)
   ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+  ; remap <%% @AddressMap.AddrMap %%> "addrMap"
   ; remap <%% @AddressMap.add %%> "Map.add"
   ; remap <%% @AddressMap.find %%> "Map.find"
+  ; remap <%% @AddressMap.values %%> "Map.to_list"
   ; remap <%% @AddressMap.empty %%> "(Map [])"
 
   ; remap <%% Nat.ltb %%> "ltbNat"
+
+  ; remap <%% BV.verify_secret_vote_proof %%> "verify_secret_vote_proof"
+  ; remap <%% @BV.make_signup_msg %%> "make_signup_msg"
+  ; remap <%% @BV.make_commit_msg %%> "make_commit_msg"
+  ; remap <%% @BV.make_vote_msg %%> "make_vote_msg"
+  ; remap <%% @BV.secret_vote_proof %%> "secret_vote_proof"
+  ; remap <%% @BV.secret_key_proof %%> "secret_key_proof"
+  ; remap <%% @BV.hash_sk_data %%> "hash_sk_data"
+  ; remap <%% @BV.hash_sv_data %%> "hash_sv_data"
+
+  ; remap <%% @BV.handle_signup %%> "handle_signup"
+  ; remap <%% @BV.handle_commit_to_vote %%> "handle_commit_to_vote"
+  ; remap <%% @BV.handle_submit_vote %%> "handle_submit_vote"
+  ; remap <%% @BV.handle_tally_votes %%> "handle_tally_votes"
+
+
+  ; remap <%% BoardroomVotingTest.modulus %%> "13"
+
+  ; remap <%% @BoardroomMath.BoardroomAxioms %%> "BoardroomAxioms"
+  ; remap <%% @BoardroomMath.Generator %%> "BoardroomAxioms"
+  ; remap <%% @BoardroomMath.DiscreteLog %%> "BoardroomAxioms"
+  
+  ; remap <%% @List.map %%> "map"
+  ; remap <%% @List.find %%> "find"
+  ; remap <%% @countable.encode %%> "TODO_encode"
+  ; remap <%% @Serializable.serialize %%> "TODO_serialize"
+  ; remap <%% @Serializable.deserialize %%> "TODO_deserialize"
   ].
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
 Definition TT_rename : list (string * string):=
@@ -71,11 +97,11 @@ Notation msg := (Chain × ContractCallContext × option BV.Msg).
 
 Definition receive_wrapper (msg : msg)
                            (st : BV.State) : option (list ActionBody * BV.State):= 
-  None.                           
-  (* match BV.boardroom_voting.(receive) msg.1 msg.2.1 st msg.2.2 with
+                           (* None. *)
+  match (run_contract_receiver BV.receive) msg.1 msg.2.1 st msg.2.2 with
   | Some (st, acts) => Some (acts, st)
   | None => None
-  end. *)
+  end.
 
 
 Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody :=
@@ -102,18 +128,45 @@ Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody :=
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 Require Import RecordSet.
+
+Definition inline_contract_monad_projection : list kername := 
+  [
+      <%% @chain_height %%>
+    ; <%% @current_slot %%>
+    ; <%% @finalized_height %%>
+    ; <%% @caller_addr %%>
+    ; <%% @my_addr %%>
+    ; <%% @my_balance %%>
+    ; <%% @call_amount %%>
+    ; <%% @deployment_setup %%>
+    ; <%% @reject_deployment %%>
+    ; <%% @accept_deployment %%>
+    ; <%% @call_msg %%>
+    ; <%% @my_state %%>
+    ; <%% @queue %%>
+    ; <%% @reject_call %%>
+    ; <%% @accept_call %%>
+    ; <%% @build_contract %%>
+  ].
+
+
 Definition to_inline : list kername := 
+  inline_contract_monad_projection
+  ++
   [
     <%% Monads.Monad_option %%>
+  (* ; <%% @Monads.MonadTrans %%> *)
   ; <%% @contract_initer_monad %%>
+  ; <%% @run_contract_initer %%>
   ; <%% @contract_receiver_monad %%>
   ; <%% @contract_reader_to_contract_initer %%>
   ; <%% @option_to_contract_initer %%>
   ; <%% @contract_reader_to_receiver %%>
   ; <%% @option_to_contract_receiver %%>
-  ; <%% @run_contract_initer %%>
-  ; <%% @ContractIniter %%>
-  ; <%% @ContractReader %%>
+
+  (* Dont work *)
+  (* ; <%% @ContractIniter %%> *)
+  (* ; <%% @ContractReader %%> *)
   
   ; <%% @Monads.bind %%>
   ; <%% @Monads.ret %%>
@@ -145,10 +198,10 @@ Definition to_inline : list kername :=
   ].
 
 
-Time MetaCoq Run
+(* Time MetaCoq Run
      (t <- liquidity_extraction_specialize PREFIX TT_remap TT_rename to_inline BV_MODULE ;;
       tmDefinition BV_MODULE.(lmd_module_name) t
-     ).
+     ). *)
 
 Print liquidity_boardroomvoting.
 

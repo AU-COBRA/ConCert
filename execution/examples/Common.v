@@ -17,6 +17,15 @@ Module AddressMap.
   Definition add  `{ChainBase} {V : Type} (addr : Address) (val : V) (m : AddrMap V) : AddrMap V :=
     FMap.add addr val m.
 
+  Definition values  `{ChainBase} {V : Type} (m : AddrMap V) : list V :=
+    FMap.values m.
+
+  Definition keys  `{ChainBase} {V : Type} (m : AddrMap V) : list Address :=
+    FMap.keys m.
+      
+  Definition of_list  `{ChainBase} {V : Type} (l : list (Address * V)) : AddrMap V :=
+    FMap.of_list l.
+
   Definition empty  `{ChainBase} {V : Type} : AddrMap V := FMap.empty.
 
 End AddressMap.
