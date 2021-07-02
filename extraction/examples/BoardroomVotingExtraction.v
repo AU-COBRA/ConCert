@@ -60,10 +60,10 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @BV.hash_sk_data %%> "hash_sk_data"
   ; remap <%% @BV.hash_sv_data %%> "hash_sv_data"
 
-  ; remap <%% @BV.handle_signup %%> "handle_signup"
-  ; remap <%% @BV.handle_commit_to_vote %%> "handle_commit_to_vote"
-  ; remap <%% @BV.handle_submit_vote %%> "handle_submit_vote"
-  ; remap <%% @BV.handle_tally_votes %%> "handle_tally_votes"
+  (* ; remap <%% @BV.handle_signup %%> "handle_signup" *)
+  (* ; remap <%% @BV.handle_commit_to_vote %%> "handle_commit_to_vote" *)
+  (* ; remap <%% @BV.handle_submit_vote %%> "handle_submit_vote" *)
+  (* ; remap <%% @BV.handle_tally_votes %%> "handle_tally_votes" *)
 
 
   ; remap <%% BoardroomVotingTest.modulus %%> "13"
@@ -163,9 +163,10 @@ Definition to_inline : list kername :=
   ; <%% @option_to_contract_initer %%>
   ; <%% @contract_reader_to_receiver %%>
   ; <%% @option_to_contract_receiver %%>
-
+  
+  ; <%% @ContractReceiver %%>
+  ; <%% @ContractIniter %%>
   (* Dont work *)
-  (* ; <%% @ContractIniter %%> *)
   (* ; <%% @ContractReader %%> *)
   
   ; <%% @Monads.bind %%>
@@ -196,7 +197,6 @@ Definition to_inline : list kername :=
   ; <%% @BV.set_VoterInfo_vote_hash %%>
   ; <%% @BV.set_VoterInfo_public_vote %%>
   ].
-
 
 (* Time MetaCoq Run
      (t <- liquidity_extraction_specialize PREFIX TT_remap TT_rename to_inline BV_MODULE ;;
