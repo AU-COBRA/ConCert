@@ -21,6 +21,14 @@ Definition COUNTER_MODULE : ConcordiumMod _ _ :=
      concmd_receive := @ConCert.Execution.Examples.Counter.counter_receive;
      concmd_extra := []; |}.
 
+(* NOTE: it is important to declare a priting config, otherwise MetaCoq evaluation tries to normalise a term with an unresolved instance and runs out of memory. *)
+Instance RustConfig : RustPrintConfig :=
+    {| term_box_symbol := "()";
+       type_box_symbol := "()";
+       any_type_symbol := "()";
+       print_full_names := false |}.
+
+Redirect "examples/concordium-extract/counter.rs"
 MetaCoq Run (concordium_extraction
                COUNTER_MODULE
                (ConcordiumRemap.build_remaps
