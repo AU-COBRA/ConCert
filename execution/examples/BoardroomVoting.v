@@ -179,7 +179,7 @@ Definition init : ContractIniterSetupState :=
 
 Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
 
-Definition handle_signup pk prf state caller cur_slot : ContractReceiver State Msg State := 
+Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
   do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
   do lift (if AddressMap.find caller (eligible_voters (setup state)) then Some tt else None);
   do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
