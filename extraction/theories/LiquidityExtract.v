@@ -10,14 +10,14 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
 
 From MetaCoq.Template Require Pretty.
 
-From ConCert.Execution Require Import Blockchain Serializable.
+From ConCert.Execution Require Import Blockchain Serializable Common.
 
 From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction CertifyingInlining Certifying SpecializeChainBase.
+     Common ExAst Erasure Optimize Extraction CertifyingInlining CertifyingBeta Certifying SpecializeChainBase.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
@@ -50,6 +50,27 @@ Arguments lmd_init_prelude {_ _ _ _ _}.
 Arguments lmd_receive {_ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _}.
 
+(* We override masks for *some* constants that have only logical parameters, like
+   [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
+   if all the parameters are logical. This is necessary because such definitions
+   might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
+   on how the elimination from the empty types is implemented.
+   However, for [AddressMap.empty] is completely safe to remove all arguments, since it's an abbreviation for a constructor.*)
+Definition overridden_masks (kn : kername) : option bitmask :=
+  if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
+  else None.
+
+(* Machinery for specializing chain base *)
+Definition extract_template_env_specialize
+           (params : extract_template_env_params)
+           (Σ : global_env)
+           (seeds : KernameSet.t)
+           (ignore : kername -> bool) : result ExAst.global_env string :=
+  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
+  let Σ := TemplateToPCUIC.trans_global_decls Σ in
+  Σ <- specialize_ChainBase_env Σ ;;
+  wfΣ <- check_wf_env_func params Σ;;
+  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
 (* Extract an environment with some minimal checks. This assumes the environment
    is well-formed (to make it computable from within Coq) but furthermore checks that the
@@ -64,7 +85,9 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
-            [dearg_transform (fun _ => None) true true true true true ] |} |}.
+            [dearg_transform overridden_masks true true true true true ]
+       |}
+  |}.
 
 Definition extract (to_inline :  kername -> bool)
            (seeds : KernameSet.t)
@@ -77,6 +100,7 @@ Definition extract_specialize (to_inline :  kername -> bool)
            (extract_ignore : kername -> bool)
            (Σ : global_env) : TemplateMonad ExAst.global_env
   := extract_template_env_certifying_passes specialize_ChainBase_env (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
+
 
 Definition printLiquidityDefs_
            (extract_env : (kername -> bool) -> KernameSet.t -> (kername -> bool) -> global_env -> TemplateMonad ExAst.global_env)
@@ -119,7 +143,6 @@ Definition printLiquidityDefs := printLiquidityDefs_ extract.
 (* printing *with* chainbase specialization *)
 Definition printLiquidityDefs_specialize := printLiquidityDefs_ extract_specialize.
 
-
 Definition liquidity_ignore_default :=
   [
     <%% prod %%>
@@ -138,7 +161,6 @@ Definition liquidity_ignore_default :=
     ; <%% @SerializedValue %%>
     ; <%% @SerializedType %%>
 ].
-
 
 
 Definition TT_remap_default : list (kername * string) :=
@@ -164,7 +186,6 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Nat.sub %%> "subNat"
   ; remap <%% Nat.leb %%> "leNat"
   ; remap <%% Nat.eqb %%> "eqNat"
-
   ; remap <%% Pos.add %%> "addNat"
   ; remap <%% Pos.sub %%> "subNat"
   ; remap <%% Pos.leb %%> "leNat"
@@ -175,11 +196,11 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Z.ltb %%> "ltTez"
   ; remap <%% Z.eqb %%> "eqTez"
   ; remap <%% Z.gtb %%> "gtbTez"
-  ; remap <%% N.add %%> "addNat"
-  ; remap <%% N.sub %%> "subNat"
-  ; remap <%% N.leb %%> "leNat"
-  ; remap <%% N.ltb %%> "ltNat"
-  ; remap <%% N.eqb %%> "eqNat"
+  ; remap <%% N.add %%> "addInt"
+  ; remap <%% N.sub %%> "subInt"
+  ; remap <%% N.leb %%> "leInt"
+  ; remap <%% N.ltb %%> "ltInt"
+  ; remap <%% N.eqb %%> "eqInt"
   ; remap <%% andb %%> "andb"
   ; remap <%% negb %%> "not"
   ; remap <%% orb %%> "orb"
@@ -251,7 +272,7 @@ Definition wrap_in_delimiters s :=
   String.concat nl ["";"(*START*)"; s; "(*END*)"].
 
 Definition liquidity_extraction_ {msg ctx params storage operation : Type}
-           (printLiquidityDefs : string ->
+           (printLiquidityDefs_ : string ->
                                  global_env ->
                                  env string ->
                                  list kername ->
@@ -265,10 +286,11 @@ Definition liquidity_extraction_ {msg ctx params storage operation : Type}
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(lmd_init);;
   receive_nm <- extract_def_name m.(lmd_receive);;
+  let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-  s <- printLiquidityDefs prefix Σ TT inline ignore
+  s <- printLiquidityDefs_ prefix Σ TT inline ignore
                          liquidity_call_ctx
                          m.(lmd_init_prelude)
                              init_nm receive_nm ;;
