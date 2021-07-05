@@ -141,7 +141,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Z.eqb %%> "eqTez"
   ; remap <%% Z.gtb %%> "gtbTez"
   ; remap <%% N.add %%> "addInt"
-  ; remap <%% N.sub %%> "subInt"
+  ; remap <%% N.sub %%> "subIntTruncated"
   ; remap <%% N.leb %%> "leInt"
   ; remap <%% N.ltb %%> "ltInt"
   ; remap <%% N.eqb %%> "eqInt"
@@ -220,7 +220,7 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
       match print_init prefix TT build_call_ctx init_prelude eΣ init_cst annots with
       | Some init_code =>
         (* filtering out the definition of [init] and projecting the code *)
-        (* and place prelude after type decls and before constant decls *)
+        (* and place init prelude after type decls and before constant decls *)
         let defs : list string :=
           ldef_const_list |> filter (negb ∘ (eq_kername init) ∘ fst)
                           |> map snd
