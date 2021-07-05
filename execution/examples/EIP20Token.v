@@ -22,7 +22,6 @@ Import RecordSetNotations.
 
 Section EIP20Token.
   Context {BaseTypes : ChainBase}.
-  Set Primitive Projections.
   Set Nonrecursive Elimination Schemes.
 
   Definition TokenValue := N.

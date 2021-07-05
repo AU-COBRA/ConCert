@@ -90,19 +90,19 @@ Module Counter.
   Definition counter_init (ch : Chain) (ctx : ContractCallContext) :=
     init_wrapper init ch ctx.
 
-          Definition counter_receive (chain : Chain) (ctx : ContractCallContext)
-                     (st : storage) (msg : option msg) : option (storage * list ActionBody)
-            := match msg with
-               | Some m => match counter m st with
-                          | Some res => Some (res.2,res.1)
-                          | None => None
-                          end
-               | None => None
-               end.
+  Definition counter_receive (chain : Chain) (ctx : ContractCallContext)
+              (st : storage) (msg : option msg) : option (storage * list ActionBody)
+    := match msg with
+        | Some m => match counter m st with
+                  | Some res => Some (res.2,res.1)
+                  | None => None
+                  end
+        | None => None
+        end.
 
-          (** Deriving the [Serializable] instances for the state and for the messages *)
-          Global Instance Msg_serializable : Serializable msg :=
-            Derive Serializable msg_rect<Inc, Dec>.
+  (** Deriving the [Serializable] instances for the state and for the messages *)
+  Global Instance Msg_serializable : Serializable msg :=
+    Derive Serializable msg_rect<Inc, Dec>.
 
   (** A contract instance used by the execution framework *)
   Definition CounterContract :=
