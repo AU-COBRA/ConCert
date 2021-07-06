@@ -24,11 +24,126 @@ Local Open Scope broom.
 Definition modulus : bigZ := 1552518092300708935130918131258481755631334049434514313202351194902966239949102107258669453876591642442910007680288864229150803718918046342632727613031282983744380820890196288509170691316593175367469551763119843371637221007210577919.
 Definition generator : bigZ := 2.
 *)
-Definition modulus : Z := 201697267445741585806196628073.
+(* Definition modulus : Z := 201697267445741585806196628073. *)
+Definition modulus : Z := 13.
 Definition generator : Z := 3.
 
 Axiom modulus_prime : prime modulus.
-Instance axioms : BoardroomAxioms Z := boardroom_axioms_Z modulus modulus_prime.
+
+Local Open Scope Z.
+Require Import Lia.
+Definition boardroom_axioms_Z : BoardroomAxioms Z.
+Proof.
+(* pose proof (prime_ge_2 _ modulus_prime).
+pose proof (modulus_prime). *)
+refine
+  {| elmeq a b := a mod modulus = b mod modulus;
+     elmeqb a b := a mod modulus =? b mod modulus;
+     zero := 0;
+     one := 1;
+     BoardroomMath.add a a' := (a + a') mod modulus;
+     mul a a' := (a * a') mod modulus;
+     opp a := modulus - a;
+     inv a := Zp.mod_inv a modulus;
+     pow a e := Zp.mod_pow a e modulus;
+     order := modulus;
+  |}; 
+  pose proof (prime_ge_2 _ modulus_prime);
+  pose proof (modulus_prime).
+  
+- intros x y; apply Z.eqb_spec.
+- lia.
+- constructor; auto.
+  now intros a a' a'' -> ->.
+- intros a a' aeq b b' beq.
+  autorewrite with zsimpl in *.
+  now rewrite Z.add_mod, aeq, beq, <- Z.add_mod by lia.
+- intros a a' aeq b b' beq.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mul_mod, aeq, beq, <- Z.mul_mod by lia.
+- intros a a' aeq.
+  autorewrite with zsimpl in *.
+  now rewrite Zminus_mod, aeq, <- Zminus_mod.
+- intros a a' aeq.
+  autorewrite with zsimpl in *.
+  now rewrite <- Zp.mod_inv_mod_idemp, aeq, Zp.mod_inv_mod_idemp.
+- intros a a' aeq e ? <-.
+  autorewrite with zsimpl in *.
+  now rewrite <- Zp.mod_pow_mod_idemp, aeq, Zp.mod_pow_mod_idemp.
+- intros a anp e e' eeq.
+  autorewrite with zsimpl in *.
+  rewrite <- (Zp.mod_pow_exp_mod _ e), <- (Zp.mod_pow_exp_mod _ e') by auto.
+  now rewrite eeq.
+- autorewrite with zsimpl in *.
+  now rewrite Z.mod_1_l, Z.mod_0_l by lia.
+- intros a b.
+  autorewrite with zsimpl in *.
+  now rewrite Z.add_comm.
+- intros a b c.
+  autorewrite with zsimpl in *.
+  rewrite !Z.mod_mod by lia.
+  rewrite Z.add_mod_idemp_l, Z.add_mod_idemp_r by lia.
+  apply f_equal2; lia.
+- intros a b.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mul_comm.
+- intros a b c.
+  autorewrite with zsimpl in *.
+  repeat (try rewrite Z.mul_mod_idemp_l; try rewrite Z.mul_mod_idemp_r); try lia.
+  now rewrite Z.mul_assoc.
+- intros a.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mod_mod by lia.
+- intros a.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mod_mod by lia.
+- intros a.
+  autorewrite with zsimpl in *.
+  rewrite Z.mod_mod by lia.
+  now rewrite Z.mul_1_l.
+- intros a.
+  autorewrite with zsimpl in *.
+  rewrite Z.mod_mod by lia.
+  replace (modulus - a + a)%Z with modulus by lia.
+  rewrite Z.mod_same, Z.mod_0_l; lia.
+- intros a anp.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mul_comm, Zp.mul_mod_inv by auto.
+- intros a b c.
+  autorewrite with zsimpl in *.
+  repeat (try rewrite Z.mul_mod_idemp_l;
+          try rewrite Z.mul_mod_idemp_r;
+          try rewrite Z.add_mod_idemp_l;
+          try rewrite Z.add_mod_idemp_r;
+          try rewrite Z.mod_mod); try lia.
+  apply f_equal2; lia.
+- intros a anp.
+  autorewrite with zsimpl in *.
+  cbn.
+  now rewrite Z.mod_1_l at 1 by lia.
+- intros a.
+  autorewrite with zsimpl in *.
+  now rewrite Zp.mod_pow_mod, Zp.mod_pow_1_r.
+- intros a ap0.
+  autorewrite with zsimpl in *.
+  rewrite (Zp.mod_pow_exp_opp _ 1) by auto.
+  rewrite Zp.mod_pow_1_r.
+  now rewrite Zp.mod_inv_mod_idemp.
+- intros a e e' ap0.
+  autorewrite with zsimpl in *.
+  now rewrite Zp.mod_pow_exp_plus by auto.
+- intros a b e ap0.
+  autorewrite with zsimpl in *.
+  now rewrite Zp.mod_pow_exp_mul.
+- intros a e ap0.
+  autorewrite with zsimpl in *.
+  auto.
+- intros a ap0.
+  autorewrite with zsimpl in *.
+  auto.
+Defined.
+
+Instance axioms_instance : BoardroomAxioms Z := boardroom_axioms_Z.
 
 Lemma generator_nonzero : generator !== 0.
 Proof. discriminate. Qed.
@@ -38,7 +153,7 @@ Axiom generator_is_generator :
     ~(z == 0) ->
     exists! (e : Z), (0 <= e < order - 1)%Z /\ pow generator e == z.
 
-Instance generator_instance : Generator axioms :=
+Instance generator_instance : Generator axioms_instance :=
   {| BoardroomMath.generator := generator;
      BoardroomMath.generator_nonzero := generator_nonzero;
      generator_generates := generator_is_generator; |}.
@@ -60,7 +175,7 @@ Definition svs : list bool :=
                          (seq 0 (num_parties - votes_for)).
 
 (* Compute the public keys for each party *)
-Definition pks : list Z :=
+Time Definition pks : list Z :=
   Eval vm_compute in map compute_public_key sks.
 
 Definition rks : list Z :=
