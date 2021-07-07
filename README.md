@@ -51,7 +51,10 @@ The [execution](execution/) subproject can be built independently via running `m
   Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters. CPP 2020.
 - ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732)
    Jakob Botsch Nielsen, Bas Spitters. 1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
-  
+
+## Videos
+A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLtiwJZcxuZ0-Hj64hganyt-WnaHSyA7Pn).
+
 ### Citing the papers
 ```
 @inproceedings{ConCert-extraction-testing,
