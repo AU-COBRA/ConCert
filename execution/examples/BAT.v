@@ -1225,6 +1225,7 @@ Lemma can_finalize_if_creation_min : forall bstate (reward : Amount) (caddr crea
     /\ address_is_contract (fundDeposit cstate) = false)
       ->
       exists bstate', reachable_through bstate bstate'
+        /\ (chain_state_queue bstate') = []
         /\ exists cstate',
         env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
         /\ env_contract_states bstate' caddr = Some (serializeState cstate')
@@ -1247,23 +1248,32 @@ Proof.
   update (S (fundingEnd cstate) <= current_slot bstate)%nat in slot_hit by
     (rewrite_environment_equiv; cbn; easy).
   update_all.
-  (* We can now evaluate the actuion we added giving us a ChainState where
+  (* We can now evaluate the action we added giving us a ChainState where
       the token is in its finalized state *)
-  eapply (evaluate_action BAT.contract _) in queue0; try easy.
-  - destruct queue0 as [bstate_finalized [reach'' [deployed_state' [queue' env_eq']]]].
-    exists bstate_finalized.
-    split; eauto.
-    exists (cstate<|isFinalized := true|>).
-    repeat split; eauto.
-    now rewrite_environment_equiv.
+  evaluate_action BAT.contract; try easy.
   - now apply account_balance_nonnegative.
-  - specialize (try_finalize_is_some cstate bstate) as [[x [y H]] _].
-    2: {
-      specialize try_finalize_isFinalized_correct as [_ H1]; eauto.
+  - specialize (try_finalize_is_some cstate bstate) as [[x [y H]] _]; cycle 1.
+    + specialize try_finalize_isFinalized_correct as [_ H1]; eauto.
       now erewrite <- (try_finalize_only_change_isFinalized _ _ _ _ _ H),
                    H1, (try_finalize_acts_correct _ _ _ _ _ H) in H.
-      }
-    1: eauto.
+    + eauto.
+  - cbn in *.
+    clear deployed_state.
+    update_all;
+      [rewrite queue; do 3 f_equal;repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+    (* Finally we need to evaluate the new transfer action that finalize produced *)
+    evaluate_transfer; try easy.
+    + destruct_address_eq;
+      try rewrite Z.add_0_r;
+      now apply account_balance_nonnegative.
+    + destruct_address_eq;
+      try rewrite Z.add_0_r;
+      apply Z.le_ge, Z.le_refl.
+    + exists bstate.
+      split; eauto.
+      split; eauto.
+      eexists.
+      now repeat split; try (rewrite_environment_equiv; cbn; eauto).
 Qed.
 
 Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate:=
@@ -1346,6 +1356,7 @@ Lemma can_finalize_if_deployed : forall deployed_bstate accounts (reward : Amoun
     /\ deployed_cstate.(tokenExchangeRate) <> 0)
       ->
       exists bstate, reachable_through deployed_bstate bstate
+        /\ (chain_state_queue bstate) = []
         /\ exists cstate,
         env_contracts bstate caddr = Some (BAT.contract : WeakContract)
         /\ env_contract_states bstate caddr = Some (serializeState cstate)
@@ -1397,9 +1408,8 @@ Proof.
       pose (cstate_tmp := deployed_cstate<|token_state := token_state_tmp|>).
       rewrite <- tokens_left_to_fund in *.
       clear Hreward.
-      eapply (evaluate_action BAT.contract _) in reach as H;
-        try easy; cycle 1.
-      * now rewrite queue, create_token_acts_cons by lia.
+      evaluate_action BAT.contract; try easy.
+      * now rewrite create_token_acts_cons by lia.
       * apply Z.le_ge, N2Z.is_nonneg.
       * nia.
       * apply Nat.ltb_ge in H7.
@@ -1426,12 +1436,11 @@ Proof.
          --- rewrite <- N2Z.inj_0 in H.
              now apply N2Z.inj_le, N_le_add_distr in H.
          --- lia.
-      * destruct H as [bstate_tmp [reach_tmp [deployed_state [queue_tmp env_eq]]]].
-        assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate_tmp a = env_account_balances bstate a)
+      * assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate0 a = env_account_balances bstate a)
           by (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
-        edestruct IHaccounts with (bstate := bstate_tmp) (deployed_cstate := cstate_tmp); eauto; try (rewrite_environment_equiv; eauto).
+        edestruct IHaccounts with (bstate := bstate0) (deployed_cstate := cstate_tmp); eauto; try (rewrite_environment_equiv; eauto).
         -- now rewrite deployed_state, Z2N.inj_min, N2Z.id.
-        -- rewrite queue_tmp. unfold cstate_tmp, token_state_tmp. cbn. fold created_amount.
+        -- rewrite queue0. unfold cstate_tmp, token_state_tmp. cbn. fold created_amount.
            rewrite N.sub_add_distr.
            apply create_token_acts_eq.
            intros. rewrite_environment_equiv. cbn. now destruct_address_eq.

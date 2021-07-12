@@ -541,7 +541,7 @@ Lemma evaluate_action : forall {Setup Msg State : Type}
   env_account_balances bstate from >= amount ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   env_contract_states bstate caddr = Some ((@serialize State _) cstate) ->
-  contract.(receive) (transfer_balance from caddr amount bstate)
+  Blockchain.receive contract (transfer_balance from caddr amount bstate)
                      (build_ctx from caddr (if (address_eqb from caddr)
                          then (env_account_balances bstate caddr)
                          else (env_account_balances bstate caddr) + amount) amount)
@@ -576,6 +576,33 @@ Proof.
     cbn.
     now destruct_address_eq.
 Qed.
+
+Lemma evaluate_transfer : forall bstate from to amount acts,
+  reachable bstate ->
+  chain_state_queue bstate = {| act_from := from;
+                                act_body := act_transfer to amount |} :: acts ->
+  amount >= 0 ->
+  env_account_balances bstate from >= amount ->
+  address_is_contract to = false ->
+    (exists bstate',
+       reachable_through bstate bstate'
+    /\ chain_state_queue bstate' = acts
+    /\ EnvironmentEquiv
+        bstate'
+        (transfer_balance from to amount bstate)).
+Proof.
+  intros.
+  apply Z.ge_le in H2.
+  pose (bstate' := (bstate<|chain_state_queue := acts|>
+                          <|chain_state_env := (transfer_balance from to amount bstate)|>)).
+  assert (step : ChainStep bstate bstate').
+  - eapply step_action with (new_acts := []); eauto.
+    eapply eval_transfer; eauto.
+    constructor; reflexivity.
+  - eexists bstate'.
+    split; eauto.
+    repeat split; eauto.
+Qed.
 Close Scope Z_scope.
 
 Lemma step_reachable_through_exists : forall from mid (P : ChainState -> Prop),
@@ -601,12 +628,21 @@ Global Hint Resolve reachable_through_refl
              reachable_through_step
              reachable_through_reachable : core.
 
-Local Ltac update_ term1 term2 H H':=
+Local Ltac update_fix term1 term2 H H_orig H' :=
+  match H with
+  | context G [ term1 ] =>
+    let x := context G [ term2 ] in
+      update_fix term1 term2 x H_orig H'
+  | _ =>
+    let h := fresh "H" in
+      assert H; [H' | clear H_orig; rename h into H_orig]
+  end.
+
+Local Ltac update_ term1 term2 H H' :=
   match type of H with
   | context G [ term1 ] =>
-    let h := fresh "H" in
     let x := context G [ term2 ] in
-      assert x; [H' | clear H; rename h into H]
+      update_fix term1 term2 x H H'
   end.
 
 Tactic Notation "update" constr(t1) "with" constr(t2) "in" hyp(H) := update_ t1 t2 H ltac:(try (cbn; easy)).
@@ -686,4 +722,33 @@ Ltac add_block acts_ slot_ :=
       specialize add_block with (acts:=acts_) (slot_incr:=slot_)
         as [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | apply Hqueue| | | | |]
+  end.
+
+Ltac evaluate_action contract_ :=
+  let new_bstate := fresh "bstate" in
+  let new_reach := fresh "reach" in
+  let new_deployed_state := fresh "deployed_state" in
+  let new_queue := fresh "queue" in
+  let new_env_eq := fresh "env_eq" in
+  match goal with
+  | Hqueue : (chain_state_queue ?bstate) = _,
+    Hreach : reachable ?bstate |-
+    exists bstate', reachable_through ?bstate bstate' /\ _ =>
+      specialize (evaluate_action contract_) as
+        [new_bstate [new_reach [new_deployed_state [new_queue new_env_eq]]]];
+      [apply Hreach | rewrite Hqueue | | | | | | ]
+  end.
+
+Ltac evaluate_transfer :=
+  let new_bstate := fresh "bstate" in
+  let new_reach := fresh "reach" in
+  let new_queue := fresh "queue" in
+  let new_env_eq := fresh "env_eq" in
+  match goal with
+  | Hqueue : (chain_state_queue ?bstate) = _,
+    Hreach : reachable ?bstate |-
+    exists bstate', reachable_through ?bstate bstate' /\ _ =>
+      specialize evaluate_transfer as
+        [new_bstate [new_reach [new_queue new_env_eq]]];
+      [apply Hreach | rewrite Hqueue | | | | ]
   end.
