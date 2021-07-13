@@ -385,6 +385,15 @@ Proof.
   now constructor.
 Qed.
 
+Lemma emptyable_cons : forall x l,
+  emptyable (x :: l) -> emptyable l.
+Proof.
+  intros x l [H H1].
+  apply Forall_inv_tail in H.
+  apply Forall_inv_tail in H1.
+  now constructor.
+Qed.
+
 (* For any reachable state it is possible to empty the chain_state_queue
     if the queue only contains action that satisfy the following
     1) the action is from a user and not a contract
@@ -393,11 +402,13 @@ Qed.
     the state with an empty queue if it can be proven that the property
     holds after evaluating any action.
 *)
-Lemma empty_queue : forall bstate (P : Environment -> Prop),
+Lemma empty_queue : forall bstate (P : ChainState -> Prop),
   reachable bstate ->
   emptyable (chain_state_queue bstate) ->
   P bstate ->
-  (forall (bstate bstate' : ChainState) act  new_acts, reachable bstate -> reachable bstate' -> P bstate -> inhabited (ActionEvaluation bstate act bstate' new_acts) -> P bstate' ) ->
+  (forall (bstate bstate' : ChainState) act acts, reachable bstate -> reachable bstate' -> P bstate ->
+    chain_state_queue bstate = act :: acts -> chain_state_queue bstate' = acts ->
+    (inhabited (ActionEvaluation bstate act bstate' []) \/ EnvironmentEquiv bstate bstate') -> P bstate' ) ->
     exists bstate', reachable_through bstate bstate' /\ P bstate' /\ (chain_state_queue bstate') = [].
 Proof.
   intros.
@@ -419,10 +430,13 @@ Proof.
       assert (step : ChainStep bstate mid) by (eapply step_action; eauto).
       apply H3 in action_evaluation as new_acts_eq.
       eapply H2 with (bstate' := mid) in H1; eauto.
+      subst.
       apply IHl in H1 as [to [reachable_through [P_to queue_to]]]; subst; eauto.
       exists to.
       intuition.
       eauto.
+      now subst.
+      now subst.
     + (* Case: the action not is evaluable *)
       pose (bstate<| chain_state_queue := l |>) as mid.
       assert (step : ChainStep bstate mid).
@@ -435,6 +449,8 @@ Proof.
       exists to.
       intuition.
       eauto.
+      eapply (H2 bstate mid); eauto.
+      now right.
 Qed.
 
 Lemma wc_receive_to_receive : forall {Setup Msg State : Type}
@@ -668,8 +684,6 @@ Global Hint Resolve reachable_through_refl
              reachable_through_step
              reachable_through_reachable : core.
 
-Global Hint Resolve empty_queue_is_emptyable : core.
-
 Local Ltac update_fix term1 term2 H H_orig H' :=
   match H with
   | context G [ term1 ] =>
@@ -735,6 +749,11 @@ Ltac update_all :=
       only_on_match ltac:(
         clear Henv_eq;
         clear dependent bstate1)
+  | Hreach : reachable_through ?bstate1 ?bstate2 |-
+    exists bstate3, reachable_through ?bstate1 bstate3 /\ _ =>
+      apply (step_reachable_through_exists bstate1 bstate2); auto;
+      update (reachable bstate2) in Hreach;
+      only_on_match ltac:(clear dependent bstate1)
   end.
 
 Ltac forward_time slot_ :=
