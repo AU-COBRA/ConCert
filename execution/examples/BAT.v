@@ -1537,10 +1537,11 @@ Proof.
       * now rewrite tokens_left_to_fund.
       * rewrite tokens_left_to_fund.
         apply N.le_0_l.
-    + destruct (0 <? env_account_balances bstate a)%Z eqn:balance_positive; cycle 1;
+    + rewrite <- tokens_left_to_fund in *.
+      clear Hreward.
+      destruct (0 <? env_account_balances bstate a)%Z eqn:balance_positive; cycle 1;
         [apply Z.ltb_ge in balance_positive | apply Z.ltb_lt in balance_positive].
-      { rewrite <- tokens_left_to_fund in *.
-        assert (amount_zero : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
+      { assert (amount_zero : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
         rewrite create_token_acts_cons, amount_zero, N.min_0_r, N.mul_0_l, N.sub_0_r in queue by lia.
         discard_invalid_action; eauto.
         - intros.
@@ -1564,18 +1565,6 @@ Proof.
             now exists x.
       }
 
-      pose (created_amount := N.min (1 + (((tokenCreationMin deployed_cstate - total_supply deployed_cstate) / (tokenExchangeRate deployed_cstate))))
-                                      (Z.to_N (env_account_balances bstate a))).
-      pose (token_state_tmp := (token_state deployed_cstate)
-            <|EIP20Token.total_supply := (total_supply deployed_cstate) + (created_amount * tokenExchangeRate deployed_cstate)|>
-            <|EIP20Token.balances := FMap.partial_alter
-                                       (fun balance : option N =>
-                                        Some
-                                          (with_default 0 balance + (created_amount * tokenExchangeRate deployed_cstate))) a
-                                       (balances deployed_cstate)|>).
-      pose (cstate_tmp := deployed_cstate<|token_state := token_state_tmp|>).
-      rewrite <- tokens_left_to_fund in *.
-      clear Hreward.
       evaluate_action BAT.contract; try easy.
       * now rewrite create_token_acts_cons by lia.
       * apply Z.le_ge, N2Z.is_nonneg.
@@ -1608,12 +1597,14 @@ Proof.
           (intro; rewrite Forall_forall in H11'; apply H11' in H; now apply contract_addr_format in H3).
         assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate0 a = env_account_balances bstate a)
           by (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
-        edestruct IHaccounts with (bstate := bstate0) (deployed_cstate := cstate_tmp); eauto; try (rewrite_environment_equiv; eauto).
-        -- rewrite queue0. unfold cstate_tmp, token_state_tmp. cbn. fold created_amount.
-           rewrite N.sub_add_distr.
+        edestruct IHaccounts;
+          only 12: (rewrite deployed_state; eauto);
+          try (rewrite_environment_equiv; eauto);
+          cbn; try rewrite Z2N.inj_min, N2Z.id.
+        -- rewrite queue0, N.sub_add_distr.
            apply create_token_acts_eq.
            intros. rewrite_environment_equiv. cbn. now destruct_address_eq.
-        -- edestruct N.min_dec in created_amount.
+        -- edestruct N.min_dec.
           --- cbn. rewrite e.
              eapply N.le_trans; [| apply N.le_0_l].
              rewrite N.mul_add_distr_r, N.mul_1_l.
@@ -1629,7 +1620,6 @@ Proof.
              eapply N.le_trans; [| apply H5].
              apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
              lia.
-        -- now rewrite deployed_state, Z2N.inj_min, N2Z.id.
         -- destruct H as [H H'].
            now exists x.
 Qed.
