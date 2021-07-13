@@ -1176,6 +1176,14 @@ Proof.
       now apply H, in_cons.
 Qed.
 
+Lemma total_balance_le : forall env1 env2 accounts,
+  (forall a, In a accounts -> env_account_balances env1 a <= env_account_balances env2 a)%Z ->
+    (total_balance env1 accounts <= total_balance env2 accounts)%Z.
+Proof.
+  intros.
+  now apply sumZ_le.
+Qed.
+
 Lemma sumZ_eq_ : forall {A} l (f g : A -> Z) a x,
   In a l -> (f a = g a + x)%Z ->
   NoDup l ->
@@ -1482,11 +1490,9 @@ Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr
     /\ ((fundingStart deployed_cstate) <= (current_slot (env_chain deployed_bstate)))%nat
     /\ ((current_slot (env_chain deployed_bstate)) < (fundingEnd deployed_cstate))%nat
     /\ address_is_contract (fundDeposit deployed_cstate) = false
-    /\ True
     /\ NoDup accounts
     /\ ~ In caddr accounts
     /\ Forall (fun acc => address_is_contract acc = false) accounts
-    /\ ~ In creator accounts
     /\ deployed_cstate.(tokenExchangeRate) <> 0)
       ->
       exists bstate, reachable_through deployed_bstate bstate
@@ -1497,19 +1503,28 @@ Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr
         /\ (isFinalized cstate) = true.
 Proof.
   intros deployed_bstate reward caddr creator Hcreator Hreward
-    [deployed_cstate [accounts [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 [H13 [H14 H15]]]]]]]]]]]]]]]].
+    [deployed_cstate [accounts [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]]].
   destruct (isFinalized deployed_cstate) eqn:finalized; [eexists; split; eauto|].
-
-  add_block (create_token_acts deployed_bstate caddr accounts
+  
+  
+  add_block (create_token_acts (deployed_bstate<|env_account_balances := add_balance creator reward deployed_bstate.(env_account_balances)|>) caddr accounts
           ((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)) deployed_cstate.(tokenExchangeRate)) 1%nat;
     only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | ].
   update ((current_slot bstate) <= (fundingEnd deployed_cstate))%nat in H8 by
     (rewrite_environment_equiv; cbn; lia).
-  update_all.
-  { rewrite queue. apply create_token_acts_eq. intros.
-    rewrite_environment_equiv. cbn. now destruct_address_eq.
+  update (setter_from_getter_Environment_env_account_balances
+             (fun _ : Address -> Amount => add_balance creator reward (env_account_balances deployed_bstate)) deployed_bstate)
+    with bstate.(chain_state_env) in queue by
+    (rewrite queue; apply create_token_acts_eq; intros; now rewrite_environment_equiv).
+  update deployed_bstate with bstate in H5.
+  { eapply N.le_trans; eauto.
+    apply N.mul_le_mono_r, Z2N.inj_le;
+      try now apply total_balance_positive.
+    apply (total_balance_le deployed_bstate).
+    intros. rewrite_environment_equiv. cbn.
+    destruct_address_eq; lia.
   }
-  { now erewrite total_balance_eq by (intros; rewrite_environment_equiv; cbn; now destruct_address_eq). }
+  update_all.
   generalize dependent bstate.
   generalize dependent deployed_cstate.
 
@@ -1517,10 +1532,9 @@ Proof.
   - apply N.le_0_r, N.sub_0_le in H5.
     specialize (can_finalize_if_creation_min bstate reward caddr creator).
     intros []; eauto.
-  - apply NoDup_cons_iff in H11 as [H11 H11'].
-    apply not_in_cons in H12 as [H12 H12'].
-    apply list.Forall_cons in H13 as [H13 H13'].
-    apply not_in_cons in H14 as [H14 H14'].
+  - apply NoDup_cons_iff in H10 as [H10 H10'].
+    apply not_in_cons in H11 as [H11 H11'].
+    apply list.Forall_cons in H12 as [H12 H12'].
     destruct (tokenCreationMin deployed_cstate - total_supply deployed_cstate) eqn:tokens_left_to_fund.
     + eapply IHaccounts; eauto.
       * now rewrite tokens_left_to_fund.
@@ -1548,14 +1562,14 @@ Proof.
             inversion H17. subst.
             now apply try_create_tokens_amount_correct in H19.
         }
-      edestruct IHaccounts with (bstate := bstate_tmp) (deployed_cstate := deployed_cstate); eauto; try (rewrite_environment_equiv; eauto).
-      * cbn. rewrite <- tokens_left_to_fund.
-        now apply create_token_acts_eq.
-      * rewrite total_balance_distr, N.add_comm in H5; eauto.
-        erewrite (total_balance_eq _ bstate) by reflexivity.
-        lia.
-      * destruct H as [H H'].
-        now exists x.
+        edestruct IHaccounts with (bstate := bstate_tmp) (deployed_cstate := deployed_cstate); eauto; try (rewrite_environment_equiv; eauto).
+        * cbn. rewrite <- tokens_left_to_fund.
+          now apply create_token_acts_eq.
+        * rewrite total_balance_distr, N.add_comm in H5; eauto.
+          erewrite (total_balance_eq _ bstate) by reflexivity.
+          lia.
+        * destruct H as [H H'].
+          now exists x.
       }
 
       pose (created_amount := N.min (1 + (((tokenCreationMin deployed_cstate - total_supply deployed_cstate) / (tokenExchangeRate deployed_cstate))))
@@ -1601,7 +1615,6 @@ Proof.
       * assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate0 a = env_account_balances bstate a)
           by (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
         edestruct IHaccounts with (bstate := bstate0) (deployed_cstate := cstate_tmp); eauto; try (rewrite_environment_equiv; eauto).
-        -- now rewrite deployed_state, Z2N.inj_min, N2Z.id.
         -- rewrite queue0. unfold cstate_tmp, token_state_tmp. cbn. fold created_amount.
            rewrite N.sub_add_distr.
            apply create_token_acts_eq.
@@ -1622,6 +1635,7 @@ Proof.
              eapply N.le_trans; [| apply H5].
              apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
              lia.
+        -- now rewrite deployed_state, Z2N.inj_min, N2Z.id.
         -- destruct H as [H H'].
            now exists x.
 Qed.
