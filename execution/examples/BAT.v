@@ -1505,8 +1505,7 @@ Proof.
   intros deployed_bstate reward caddr creator Hcreator Hreward
     [deployed_cstate [accounts [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]]].
   destruct (isFinalized deployed_cstate) eqn:finalized; [eexists; split; eauto|].
-  
-  
+
   add_block (create_token_acts (deployed_bstate<|env_account_balances := add_balance creator reward deployed_bstate.(env_account_balances)|>) caddr accounts
           ((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate)) deployed_cstate.(tokenExchangeRate)) 1%nat;
     only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | ].
@@ -1543,33 +1542,28 @@ Proof.
     + destruct (0 <? env_account_balances bstate a)%Z eqn:balance_positive; cycle 1;
         [apply Z.ltb_ge in balance_positive | apply Z.ltb_lt in balance_positive].
       { rewrite <- tokens_left_to_fund in *.
-        pose (bstate_tmp := bstate<| chain_state_queue := create_token_acts bstate caddr accounts (N.pos p) (tokenExchangeRate deployed_cstate)|>).
-        assert (step : ChainStep bstate bstate_tmp).
-        { eapply step_action_invalid; try easy.
-          - rewrite queue, create_token_acts_cons by lia.
-            assert (H' : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
-            rewrite H'; auto.
-            cbn. now rewrite N.min_0_r, N.mul_0_l, N.sub_0_r.
-          - assumption.
-          - intros.
-            destruct_action_eval;
-            [inversion e0 | inversion e1 | destruct msg; inversion e1; subst].
-            rewrite H3 in e. inversion e. subst.
-            apply wc_receive_strong in e2 as [prev_state' [msg' [new_state' [H16 [H17 [H18 H19]]]]]].
-            destruct_match in H17; try congruence.
-            cbn in H17.
-            rewrite deserialize_serialize in H17.
-            inversion H17. subst.
-            now apply try_create_tokens_amount_correct in H19.
-        }
-        edestruct IHaccounts with (bstate := bstate_tmp) (deployed_cstate := deployed_cstate); eauto; try (rewrite_environment_equiv; eauto).
-        * cbn. rewrite <- tokens_left_to_fund.
-          now apply create_token_acts_eq.
-        * rewrite total_balance_distr, N.add_comm in H5; eauto.
-          erewrite (total_balance_eq _ bstate) by reflexivity.
-          lia.
-        * destruct H as [H H'].
-          now exists x.
+        assert (amount_zero : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
+        rewrite create_token_acts_cons, amount_zero, N.min_0_r, N.mul_0_l, N.sub_0_r in queue by lia.
+        discard_invalid_action; eauto.
+        - intros.
+          destruct_action_eval;
+          [inversion e0 | inversion e1 | destruct msg; inversion e1; subst].
+          rewrite H3 in e. inversion e. subst.
+          apply wc_receive_strong in e2 as [prev_state' [msg' [new_state' [H16 [H17 [H18 H19]]]]]].
+          destruct_match in H17; try congruence.
+          cbn in H17.
+          rewrite deserialize_serialize in H17.
+          inversion H17. subst.
+          now apply try_create_tokens_amount_correct in H19.
+        - edestruct IHaccounts with (bstate := bstate0) (deployed_cstate := deployed_cstate); eauto; try (rewrite_environment_equiv; eauto).
+          + rewrite queue0.
+            apply create_token_acts_eq.
+            intros. now rewrite_environment_equiv.
+          + rewrite total_balance_distr, N.add_comm in H5; eauto.
+            erewrite (total_balance_eq _ bstate) by (intros; now rewrite_environment_equiv).
+            lia.
+          + destruct H as [H H'].
+            now exists x.
       }
 
       pose (created_amount := N.min (1 + (((tokenCreationMin deployed_cstate - total_supply deployed_cstate) / (tokenExchangeRate deployed_cstate))))

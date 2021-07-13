@@ -621,6 +621,28 @@ Proof.
     split; eauto.
     repeat split; eauto.
 Qed.
+
+Lemma discard_invalid_action : forall bstate act acts,
+  reachable bstate ->
+  chain_state_queue bstate = act :: acts ->
+  act_is_from_account act ->
+  (forall (bstate0 : Environment) (new_acts : list Action), ActionEvaluation bstate act bstate0 new_acts -> False) ->
+    (exists bstate',
+       reachable_through bstate bstate'
+    /\ chain_state_queue bstate' = acts
+    /\ EnvironmentEquiv
+        bstate'
+        bstate).
+Proof.
+  intros.
+  pose (bstate' := (bstate<|chain_state_queue := acts|>)).
+  assert (step : ChainStep bstate bstate').
+  - eapply step_action_invalid; eauto.
+    constructor; reflexivity.
+  - eexists bstate'.
+    split; eauto.
+    repeat split; eauto.
+Qed.
 Close Scope Z_scope.
 
 Lemma step_reachable_through_exists : forall from mid (P : ChainState -> Prop),
@@ -771,4 +793,18 @@ Ltac evaluate_transfer :=
       specialize evaluate_transfer as
         [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | rewrite Hqueue | | | | ]
+  end.
+
+Ltac discard_invalid_action :=
+  let new_bstate := fresh "bstate" in
+  let new_reach := fresh "reach" in
+  let new_queue := fresh "queue" in
+  let new_env_eq := fresh "env_eq" in
+  match goal with
+  | Hqueue : (chain_state_queue ?bstate) = _,
+    Hreach : reachable ?bstate |-
+    exists bstate', reachable_through ?bstate bstate' /\ _ =>
+      specialize discard_invalid_action as
+        [new_bstate [new_reach [new_queue new_env_eq]]];
+      [apply Hreach | rewrite Hqueue | | | ]
   end.
