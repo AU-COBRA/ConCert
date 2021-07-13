@@ -1491,7 +1491,6 @@ Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr
     /\ ((current_slot (env_chain deployed_bstate)) < (fundingEnd deployed_cstate))%nat
     /\ address_is_contract (fundDeposit deployed_cstate) = false
     /\ NoDup accounts
-    /\ ~ In caddr accounts
     /\ Forall (fun acc => address_is_contract acc = false) accounts
     /\ deployed_cstate.(tokenExchangeRate) <> 0)
       ->
@@ -1503,7 +1502,7 @@ Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr
         /\ (isFinalized cstate) = true.
 Proof.
   intros deployed_bstate reward caddr creator Hcreator Hreward
-    [deployed_cstate [accounts [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 [H12 H13]]]]]]]]]]]]]].
+    [deployed_cstate [accounts [H1 [H2 [H3 [H4 [H5 [H6 [H7 [H8 [H9 [H10 [H11 H12]]]]]]]]]]]]].
   destruct (isFinalized deployed_cstate) eqn:finalized; [eexists; split; eauto|].
 
   add_block (create_token_acts (deployed_bstate<|env_account_balances := add_balance creator reward deployed_bstate.(env_account_balances)|>) caddr accounts
@@ -1532,8 +1531,7 @@ Proof.
     specialize (can_finalize_if_creation_min bstate reward caddr creator).
     intros []; eauto.
   - apply NoDup_cons_iff in H10 as [H10 H10'].
-    apply not_in_cons in H11 as [H11 H11'].
-    apply list.Forall_cons in H12 as [H12 H12'].
+    apply list.Forall_cons in H11 as [H11 H11'].
     destruct (tokenCreationMin deployed_cstate - total_supply deployed_cstate) eqn:tokens_left_to_fund.
     + eapply IHaccounts; eauto.
       * now rewrite tokens_left_to_fund.
@@ -1606,7 +1604,9 @@ Proof.
          --- rewrite <- N2Z.inj_0 in H.
              now apply N2Z.inj_le, N_le_add_distr in H.
          --- lia.
-      * assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate0 a = env_account_balances bstate a)
+      * assert (caddr_not_in_accounts : ~ In caddr accounts) by
+          (intro; rewrite Forall_forall in H11'; apply H11' in H; now apply contract_addr_format in H3).
+        assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate0 a = env_account_balances bstate a)
           by (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
         edestruct IHaccounts with (bstate := bstate0) (deployed_cstate := cstate_tmp); eauto; try (rewrite_environment_equiv; eauto).
         -- rewrite queue0. unfold cstate_tmp, token_state_tmp. cbn. fold created_amount.
