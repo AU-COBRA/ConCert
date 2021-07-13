@@ -827,3 +827,27 @@ Ltac discard_invalid_action :=
         [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | rewrite Hqueue | | | ]
   end.
+
+Ltac empty_queue H :=
+  let new_bstate := fresh "bstate" in
+  let new_reach := fresh "reach" in
+  let new_queue := fresh "queue" in
+  let temp_H := fresh "H" in
+   match goal with
+  | Hempty : emptyable (chain_state_queue ?bstate),
+    Hreach : reachable ?bstate |-
+    exists bstate', reachable_through ?bstate bstate' /\ _ =>
+      pattern (bstate) in H;
+      match type of H with
+      | ?f bstate =>
+        specialize (empty_queue bstate f) as
+          [new_bstate [new_reach [temp_H new_queue]]];
+        [apply Hreach | apply Hempty | apply H |
+        clear H;
+        intros ?bstate_from ?bstate_to ?act ?acts ?reach_from ?reach_to
+          H ?queue_from ?queue_to [[?action_eval] | ?env_eq];
+          only 1: destruct_action_eval |
+        clear H; rename temp_H into H]
+      end
+  end.
+

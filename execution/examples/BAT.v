@@ -1586,7 +1586,6 @@ Proof.
            destruct_address_eq; try easy; lia).
 Qed.
 
-
 Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr creator : Address) accounts,
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1612,68 +1611,63 @@ Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr
         /\ env_contract_states bstate caddr = Some (serializeState cstate)
         /\ (isFinalized cstate) = true.
 Proof.
-  intros deployed_bstate reward caddr creator accounts Hcreator Hreward reach empty accounts_unique accounts_not_contracts H.
-  pattern (deployed_bstate) in H.
-  eapply empty_queue in H; cycle 1; eauto.
-  - clear H Hcreator Hreward reward.
-    intros bstate bstate' act acts reach_from reach_to
-      [deployed_cstate [H1 [H2 [H3 [H4 [H5 [H6 [H7 H8]]]]]]]] queue queue' [[action_eval] | env_eq]; only 1: destruct_action_eval.
-    + exists deployed_cstate.
+  intros deployed_bstate reward caddr creator accounts Hcreator Hreward reach' empty accounts_unique accounts_not_contracts H.
+  empty_queue H; destruct H as (cstate & H1 & H2 & H3 & H4 & H5 & H6 & H7 & H8).
+  - exists cstate.
+    repeat split; eauto;
+      try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+    eapply N.le_trans.
+    apply H3.
+    apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
+    eapply spendable_consume_act; eauto;
+      intros; rewrite_environment_equiv; subst;
+      cbn; destruct_address_eq; try easy; lia.
+  - exists cstate.
+    repeat split; eauto;
+      try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+    eapply N.le_trans.
+    apply H3.
+    apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
+    eapply spendable_consume_act; eauto;
+      intros; rewrite_environment_equiv; subst;
+      cbn; destruct_address_eq; try easy; lia.
+  - destruct (address_eqdec caddr to_addr).
+    + rewrite e5 in *.
+      rewrite H1 in e. inversion e. rewrite <- H0 in *.
+      rewrite H2 in e0. inversion e0. rewrite <- H9 in *.
+      apply wc_receive_strong in e2 as [prev_state' [msg' [new_state' [H16 [H17 [H18 H19]]]]]].
+      rewrite deserialize_serialize in H16. inversion H16. rewrite H10 in *.
+      apply receive_total_supply_increasing in H19 as total_supply_increasing; try (cbn; lia).
+      apply receive_preserves_constants in H19 as (H20 & H21 & H22 & H23 & H24 & H45 & H26).
+      repeat match goal with
+      | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+      end.
+      eexists new_state'.
+      repeat split; eauto;
+        try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+      eapply N.le_trans in H3; [| apply N.sub_le_mono_l, total_supply_increasing].
+      eapply N.le_trans.
+      apply H3.
+      apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
+      eapply spendable_consume_act; eauto;
+        intros; rewrite_environment_equiv; subst; destruct msg;
+        cbn; destruct_address_eq; try easy; lia.
+    + exists cstate.
       repeat split; eauto;
         try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
       eapply N.le_trans.
       apply H3.
       apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
       eapply spendable_consume_act; eauto;
-        intros; rewrite_environment_equiv; subst;
+        intros; rewrite_environment_equiv; subst; destruct msg;
         cbn; destruct_address_eq; try easy; lia.
-    + exists deployed_cstate.
-      repeat split; eauto;
-        try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
-      eapply N.le_trans.
-      apply H3.
-      apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-      eapply spendable_consume_act; eauto;
-        intros; rewrite_environment_equiv; subst;
-        cbn; destruct_address_eq; try easy; lia.
-    + destruct (address_eqdec caddr to_addr).
-      * rewrite e5 in *.
-        rewrite H1 in e. inversion e. rewrite <- H0 in *.
-        rewrite H2 in e0. inversion e0. rewrite <- H9 in *.
-        apply wc_receive_strong in e2 as [prev_state' [msg' [new_state' [H16 [H17 [H18 H19]]]]]].
-        rewrite deserialize_serialize in H16. inversion H16. rewrite H10 in *.
-        apply receive_total_supply_increasing in H19 as total_supply_increasing; try (cbn; lia).
-        apply receive_preserves_constants in H19 as (H20 & H21 & H22 & H23 & H24 & H45 & H26).
-        repeat match goal with
-        | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
-        end.
-        eexists new_state'.
-        repeat split; eauto;
-          try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
-        eapply N.le_trans in H3; [| apply N.sub_le_mono_l, total_supply_increasing].
-        eapply N.le_trans.
-        apply H3.
-        apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-        eapply spendable_consume_act; eauto;
-          intros; rewrite_environment_equiv; subst; destruct msg;
-          cbn; destruct_address_eq; try easy; lia.
-      * exists deployed_cstate.
-        repeat split; eauto;
-          try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
-        eapply N.le_trans.
-        apply H3.
-        apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-        eapply spendable_consume_act; eauto;
-          intros; rewrite_environment_equiv; subst; destruct msg;
-          cbn; destruct_address_eq; try easy; lia.
-    + exists deployed_cstate.
-      repeat split; eauto; try (rewrite_environment_equiv; cbn; easy).
-      eapply N.le_trans.
-      apply H3.
-      apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-      eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; lia.
-  - destruct H as (bstate & (reach' & (cstate & H1 & H2 & H3 & H4 & H5 & H6 & H7 & H8) & queue)).
-    update_all.
+  - exists cstate.
+    repeat split; eauto; try (rewrite_environment_equiv; cbn; easy).
+    eapply N.le_trans.
+    apply H3.
+    apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
+    eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; lia.
+  - update_all.
     rewrite spendable_eq_total_balance in H3; eauto.
 
     destruct (isFinalized cstate) eqn:finalized; [eexists; split; eauto|].
