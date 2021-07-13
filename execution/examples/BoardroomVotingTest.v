@@ -24,126 +24,28 @@ Local Open Scope broom.
 Definition modulus : bigZ := 1552518092300708935130918131258481755631334049434514313202351194902966239949102107258669453876591642442910007680288864229150803718918046342632727613031282983744380820890196288509170691316593175367469551763119843371637221007210577919.
 Definition generator : bigZ := 2.
 *)
-(* Definition modulus : Z := 201697267445741585806196628073. *)
-Definition modulus : Z := 13.
+Definition modulus : Z := 201697267445741585806196628073.
+Definition four := 4%nat.
+Definition seven := 7%nat.
+Definition _1234583932 := 1234583932.
+Definition _23241 := 23241.
+Definition _159338231 := 159338231.
+
+
+(* Definition modulus : Z := 13. *)
 Definition generator : Z := 3.
 
 Axiom modulus_prime : prime modulus.
+Import Lia.
+Module ZAxiomParams <: BoardroomAxiomsZParams.
+  Definition p := modulus.
+  Definition isprime := modulus_prime.
+  Program Definition prime_ge_2 : p >= 2.
+  Proof. easy. Defined.
+End ZAxiomParams.
+Module BVZAxioms := BoardroomAxiomsZ ZAxiomParams. Import BVZAxioms.
 
-Local Open Scope Z.
-Require Import Lia.
-Definition boardroom_axioms_Z : BoardroomAxioms Z.
-Proof.
-(* pose proof (prime_ge_2 _ modulus_prime).
-pose proof (modulus_prime). *)
-refine
-  {| elmeq a b := a mod modulus = b mod modulus;
-     elmeqb a b := a mod modulus =? b mod modulus;
-     zero := 0;
-     one := 1;
-     BoardroomMath.add a a' := (a + a') mod modulus;
-     mul a a' := (a * a') mod modulus;
-     opp a := modulus - a;
-     inv a := Zp.mod_inv a modulus;
-     pow a e := Zp.mod_pow a e modulus;
-     order := modulus;
-  |}; 
-  pose proof (prime_ge_2 _ modulus_prime);
-  pose proof (modulus_prime).
-  
-- intros x y; apply Z.eqb_spec.
-- lia.
-- constructor; auto.
-  now intros a a' a'' -> ->.
-- intros a a' aeq b b' beq.
-  autorewrite with zsimpl in *.
-  now rewrite Z.add_mod, aeq, beq, <- Z.add_mod by lia.
-- intros a a' aeq b b' beq.
-  autorewrite with zsimpl in *.
-  now rewrite Z.mul_mod, aeq, beq, <- Z.mul_mod by lia.
-- intros a a' aeq.
-  autorewrite with zsimpl in *.
-  now rewrite Zminus_mod, aeq, <- Zminus_mod.
-- intros a a' aeq.
-  autorewrite with zsimpl in *.
-  now rewrite <- Zp.mod_inv_mod_idemp, aeq, Zp.mod_inv_mod_idemp.
-- intros a a' aeq e ? <-.
-  autorewrite with zsimpl in *.
-  now rewrite <- Zp.mod_pow_mod_idemp, aeq, Zp.mod_pow_mod_idemp.
-- intros a anp e e' eeq.
-  autorewrite with zsimpl in *.
-  rewrite <- (Zp.mod_pow_exp_mod _ e), <- (Zp.mod_pow_exp_mod _ e') by auto.
-  now rewrite eeq.
-- autorewrite with zsimpl in *.
-  now rewrite Z.mod_1_l, Z.mod_0_l by lia.
-- intros a b.
-  autorewrite with zsimpl in *.
-  now rewrite Z.add_comm.
-- intros a b c.
-  autorewrite with zsimpl in *.
-  rewrite !Z.mod_mod by lia.
-  rewrite Z.add_mod_idemp_l, Z.add_mod_idemp_r by lia.
-  apply f_equal2; lia.
-- intros a b.
-  autorewrite with zsimpl in *.
-  now rewrite Z.mul_comm.
-- intros a b c.
-  autorewrite with zsimpl in *.
-  repeat (try rewrite Z.mul_mod_idemp_l; try rewrite Z.mul_mod_idemp_r); try lia.
-  now rewrite Z.mul_assoc.
-- intros a.
-  autorewrite with zsimpl in *.
-  now rewrite Z.mod_mod by lia.
-- intros a.
-  autorewrite with zsimpl in *.
-  now rewrite Z.mod_mod by lia.
-- intros a.
-  autorewrite with zsimpl in *.
-  rewrite Z.mod_mod by lia.
-  now rewrite Z.mul_1_l.
-- intros a.
-  autorewrite with zsimpl in *.
-  rewrite Z.mod_mod by lia.
-  replace (modulus - a + a)%Z with modulus by lia.
-  rewrite Z.mod_same, Z.mod_0_l; lia.
-- intros a anp.
-  autorewrite with zsimpl in *.
-  now rewrite Z.mul_comm, Zp.mul_mod_inv by auto.
-- intros a b c.
-  autorewrite with zsimpl in *.
-  repeat (try rewrite Z.mul_mod_idemp_l;
-          try rewrite Z.mul_mod_idemp_r;
-          try rewrite Z.add_mod_idemp_l;
-          try rewrite Z.add_mod_idemp_r;
-          try rewrite Z.mod_mod); try lia.
-  apply f_equal2; lia.
-- intros a anp.
-  autorewrite with zsimpl in *.
-  cbn.
-  now rewrite Z.mod_1_l at 1 by lia.
-- intros a.
-  autorewrite with zsimpl in *.
-  now rewrite Zp.mod_pow_mod, Zp.mod_pow_1_r.
-- intros a ap0.
-  autorewrite with zsimpl in *.
-  rewrite (Zp.mod_pow_exp_opp _ 1) by auto.
-  rewrite Zp.mod_pow_1_r.
-  now rewrite Zp.mod_inv_mod_idemp.
-- intros a e e' ap0.
-  autorewrite with zsimpl in *.
-  now rewrite Zp.mod_pow_exp_plus by auto.
-- intros a b e ap0.
-  autorewrite with zsimpl in *.
-  now rewrite Zp.mod_pow_exp_mul.
-- intros a e ap0.
-  autorewrite with zsimpl in *.
-  auto.
-- intros a ap0.
-  autorewrite with zsimpl in *.
-  auto.
-Defined.
-
-Instance axioms_instance : BoardroomAxioms Z := boardroom_axioms_Z.
+Existing Instance boardroom_axioms_Z.
 
 Lemma generator_nonzero : generator !== 0.
 Proof. discriminate. Qed.
@@ -153,19 +55,19 @@ Axiom generator_is_generator :
     ~(z == 0) ->
     exists! (e : Z), (0 <= e < order - 1)%Z /\ pow generator e == z.
 
-Instance generator_instance : Generator axioms_instance :=
+Instance generator_instance : Generator boardroom_axioms_Z :=
   {| BoardroomMath.generator := generator;
      BoardroomMath.generator_nonzero := generator_nonzero;
      generator_generates := generator_is_generator; |}.
 
-Definition num_parties : nat := 7.
-Definition votes_for : nat := 4.
+Definition num_parties : nat := seven.
+Definition votes_for : nat := four.
 
 (* a pseudo-random generator for secret keys *)
-Definition sk n := (Z.of_nat n + 1234583932) * (modulus - 23241)^159338231.
+Definition sk n := (Z.of_nat n + _1234583932) * (modulus - _23241)^_159338231.
 
 (* Make a list of secret keys, here starting at i=7 *)
-Definition sks : list Z := map sk (seq 7 num_parties).
+Definition sks : list Z := map sk (seq seven num_parties).
 
 (* Make a list of votes for each party *)
 Definition svs : list bool :=
@@ -183,8 +85,10 @@ Definition rks : list Z :=
 
 (* In this example we just use xor for the hash function, which is
    obviously not cryptographically secure. *)
+Definition oneN : N := 1%N.
+
 Definition hash_func (l : list positive) : positive :=
-  N.succ_pos (fold_right (fun p a => N.lxor (Npos p) a) 1%N l).
+  N.succ_pos (fold_left (fun a p => N.lxor (Npos p) a) l oneN).
 
   
 Definition AddrSize := (2^128)%N.
@@ -206,8 +110,12 @@ Module BV := BoardroomVoting Params. Import BV.
 
 (* Compute the signup messages that would be sent by each party.
    We just use the public key as the chosen randomness here. *)
-Definition signups : list Msg :=
-  Eval vm_compute in map (fun '(sk, pk, i) => make_signup_msg sk 5 i)
+Definition _3 := 3%nat.
+Definition _5 := 5.
+Definition _11 := 11.
+
+Time Definition signups : list Msg :=
+  Eval vm_compute in map (fun '(sk, pk, i) => make_signup_msg sk _5 i)
                              (zip (zip sks pks) (seq 0 (length sks))).
 
 (* Compute the submit_vote messages that would be sent by each party *)
@@ -231,19 +139,20 @@ Proof.
               constr:(cons (A z) tail)
     end in
   let num := eval compute in num_parties in
-  let tm := add_addr 11%Z num in
+  let tm := add_addr _11%Z num in
   let tm := eval vm_compute in tm in
   exact tm.
 Defined.
 
 Definition voters_map : AddrMap unit := AddressMap.of_list (map (fun a => (a, tt)) addrs).
 
+Definition five := 5%nat.
 
 Definition deploy_setup :=
   {| eligible_voters := voters_map;
-     finish_registration_by := 3;
+     finish_registration_by := _3;
      finish_commit_by := None;
-     finish_vote_by := 5;
+     finish_vote_by := five;
      registration_deposit := 0; |}.
 
 Local Open Scope list.

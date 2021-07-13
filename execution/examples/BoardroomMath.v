@@ -142,15 +142,15 @@ Proof.
   - apply inv_inv_l.
 Qed.
 
-Class Generator {A : Type} (field : BoardroomAxioms A) :=
-  build_generator {
+Class Generator {A : Type} (field : BoardroomAxioms A) := 
+  {
     generator : A;
     generator_nonzero : generator !== 0;
     generator_generates a : a !== 0 -> exists! e, 0 <= e < order - 1 /\ generator^e == a;
   }.
 
-Class DiscreteLog {A : Type} (field : BoardroomAxioms A) (g : Generator field) :=
-  build_log {
+Class DiscreteLog {A : Type} (field : BoardroomAxioms A) (g : Generator field) := 
+  {
     (* This is computationally intractable, but we still require it for ease of specification *)
     log : A -> Z;
     log_proper :> Proper (elmeq ==> expeq) log;
@@ -1822,4 +1822,128 @@ Module BigZp.
 End BigZp.
 
 
+
+Module Type BoardroomAxiomsZParams.
+  Parameter p : Z.
+  Parameter isprime : prime p.
+  Parameter prime_ge_2 : p >= 2.
+End BoardroomAxiomsZParams.
+
+Module BoardroomAxiomsZ (Params : BoardroomAxiomsZParams).
+Import Params.
+Local Open Scope Z_scope.
+Instance boardroom_axioms_Z : BoardroomAxioms Z.
+Proof.
+(* pose proof (prime_ge_2). *)
+(* pose proof (isprime). *)
+refine
+  {| elmeq a b := a mod p = b mod p;
+     elmeqb a b := a mod p =? b mod p;
+     zero := 0;
+     one := 1;
+     add a a' := (a + a') mod p;
+     mul a a' := (a * a') mod p;
+     opp a := p - a;
+     inv a := Zp.mod_inv a p;
+     pow a e := Zp.mod_pow a e p;
+     order := p;
+  |};
+  (* assert (p >= 2); apply prime_ge_2. ;
+  (assert (prime p); apply isprime). *)
+  pose proof (prime_ge_2);
+  pose proof (isprime).
+  
+- intros x y; apply Z.eqb_spec.
+- lia.
+- constructor; auto.
+  now intros a a' a'' -> ->.
+- intros a a' aeq b b' beq.
+  autorewrite with zsimpl in *.
+  now rewrite Z.add_mod, aeq, beq, <- Z.add_mod by lia.
+- intros a a' aeq b b' beq.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mul_mod, aeq, beq, <- Z.mul_mod by lia.
+- intros a a' aeq.
+  autorewrite with zsimpl in *.
+  now rewrite Zminus_mod, aeq, <- Zminus_mod.
+- intros a a' aeq.
+  autorewrite with zsimpl in *.
+  now rewrite <- Zp.mod_inv_mod_idemp, aeq, Zp.mod_inv_mod_idemp.
+- intros a a' aeq e ? <-.
+  autorewrite with zsimpl in *.
+  now rewrite <- Zp.mod_pow_mod_idemp, aeq, Zp.mod_pow_mod_idemp.
+- intros a anp e e' eeq.
+  autorewrite with zsimpl in *.
+  rewrite <- (Zp.mod_pow_exp_mod _ e), <- (Zp.mod_pow_exp_mod _ e') by auto.
+  now rewrite eeq.
+- autorewrite with zsimpl in *.
+  now rewrite Z.mod_1_l, Z.mod_0_l by lia.
+- intros a b.
+  autorewrite with zsimpl in *.
+  now rewrite Z.add_comm.
+- intros a b c.
+  autorewrite with zsimpl in *.
+  rewrite !Z.mod_mod by lia.
+  rewrite Z.add_mod_idemp_l, Z.add_mod_idemp_r by lia.
+  apply f_equal2; lia.
+- intros a b.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mul_comm.
+- intros a b c.
+  autorewrite with zsimpl in *.
+  repeat (try rewrite Z.mul_mod_idemp_l; try rewrite Z.mul_mod_idemp_r); try lia.
+  now rewrite Z.mul_assoc.
+- intros a.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mod_mod by lia.
+- intros a.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mod_mod by lia.
+- intros a.
+  autorewrite with zsimpl in *.
+  rewrite Z.mod_mod by lia.
+  now rewrite Z.mul_1_l.
+- intros a.
+  autorewrite with zsimpl in *.
+  rewrite Z.mod_mod by lia.
+  replace (p - a + a)%Z with p by lia.
+  rewrite Z.mod_same, Z.mod_0_l; lia.
+- intros a anp.
+  autorewrite with zsimpl in *.
+  now rewrite Z.mul_comm, Zp.mul_mod_inv by auto.
+- intros a b c.
+  autorewrite with zsimpl in *.
+  repeat (try rewrite Z.mul_mod_idemp_l;
+          try rewrite Z.mul_mod_idemp_r;
+          try rewrite Z.add_mod_idemp_l;
+          try rewrite Z.add_mod_idemp_r;
+          try rewrite Z.mod_mod); try lia.
+  apply f_equal2; lia.
+- intros a anp.
+  autorewrite with zsimpl in *.
+  cbn.
+  now rewrite Z.mod_1_l at 1 by lia.
+- intros a.
+  autorewrite with zsimpl in *.
+  now rewrite Zp.mod_pow_mod, Zp.mod_pow_1_r.
+- intros a ap0.
+  autorewrite with zsimpl in *.
+  rewrite (Zp.mod_pow_exp_opp _ 1) by auto.
+  rewrite Zp.mod_pow_1_r.
+  now rewrite Zp.mod_inv_mod_idemp.
+- intros a e e' ap0.
+  autorewrite with zsimpl in *.
+  now rewrite Zp.mod_pow_exp_plus by auto.
+- intros a b e ap0.
+  autorewrite with zsimpl in *.
+  now rewrite Zp.mod_pow_exp_mul.
+- intros a e ap0.
+  autorewrite with zsimpl in *.
+  auto.
+- intros a ap0.
+  autorewrite with zsimpl in *.
+  auto.
+Defined.
+
+End BoardroomAxiomsZ.
 

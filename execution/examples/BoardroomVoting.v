@@ -99,8 +99,12 @@ Import ContractMonads.
 
 Local Open Scope broom.
 
+Definition encodeA : A -> positive := countable.encode.
+Definition encodeNat : nat -> positive := countable.encode.
+
+
 Definition hash_sk_data (gv pk : A) (i : nat) : positive :=
-  H [countable.encode (generator : A); countable.encode gv; countable.encode pk; countable.encode i].
+  H [encodeA (generator : A); encodeA gv; encodeA pk; encodeNat i].
 
 (* This follows the original open vote protocol paper. It is a schnorr signature
      with the fiat-shamir heuristic applied. *)
@@ -117,7 +121,7 @@ Definition verify_secret_key_proof (pk : A) (i : nat) (proof : A * Z) : bool :=
   elmeqb gv (generator^r * (pk^z)).
 
 Definition hash_sv_data (i : nat) (pk rk a1 b1 a2 b2 : A) : positive :=
-  H (countable.encode i :: map countable.encode [pk; rk; a1; b1; a2; b2]).
+  H (encodeNat i :: map encodeA [pk; rk; a1; b1; a2; b2]).
 
 Definition secret_vote_proof (sk : Z) (rk : A) (sv : bool) (i : nat) (w r d : Z) : VoteProof :=
   let pk : A := compute_public_key sk in
@@ -156,7 +160,7 @@ Definition make_signup_msg (sk : Z) (v : Z) (i : nat) : Msg :=
 
 Definition make_commit_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) : Msg :=
   let pv := compute_public_vote (reconstructed_key pks my_index) sk sv in
-  commit_to_vote (H [countable.encode pv]).
+  commit_to_vote (H [encodeA pv]).
 
 Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) (w r d : Z) : Msg :=
   let rk := reconstructed_key pks my_index in
@@ -207,7 +211,7 @@ Definition handle_submit_vote v proof state caller cur_slot : ContractReceiverSt
   do lift (if finish_vote_by (setup state) <? cur_slot then None else Some tt)%nat;
   do inf <- lift (AddressMap.find caller (registered_voters state));
   do lift (if finish_commit_by (setup state) then
-             if (H [countable.encode v] =? vote_hash inf)%positive then Some tt else None
+             if (H [encodeA v] =? vote_hash inf)%positive then Some tt else None
            else
              Some tt);
   do lift (if verify_secret_vote_proof
