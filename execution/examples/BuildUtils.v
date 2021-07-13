@@ -376,6 +376,15 @@ Close Scope Z_scope.
 Definition produces_no_new_acts act : Prop :=
   forall bstate bstate' new_acts, ActionEvaluation bstate act bstate' new_acts -> new_acts = [].
 
+Definition emptyable queue : Prop :=
+  Forall act_is_from_account queue /\
+  Forall produces_no_new_acts queue.
+
+Lemma empty_queue_is_emptyable : emptyable [].
+Proof.
+  now constructor.
+Qed.
+
 (* For any reachable state it is possible to empty the chain_state_queue
     if the queue only contains action that satisfy the following
     1) the action is from a user and not a contract
@@ -386,13 +395,13 @@ Definition produces_no_new_acts act : Prop :=
 *)
 Lemma empty_queue : forall bstate (P : Environment -> Prop),
   reachable bstate ->
-  Forall act_is_from_account (chain_state_queue bstate) ->
-  Forall produces_no_new_acts (chain_state_queue bstate) ->
+  emptyable (chain_state_queue bstate) ->
   P bstate ->
-  (forall bstate act (bstate' : ChainState) new_acts, P bstate -> inhabited (ActionEvaluation bstate act bstate' new_acts) -> P bstate' ) ->
+  (forall (bstate bstate' : ChainState) act  new_acts, reachable bstate -> reachable bstate' -> P bstate -> inhabited (ActionEvaluation bstate act bstate' new_acts) -> P bstate' ) ->
     exists bstate', reachable_through bstate bstate' /\ P bstate' /\ (chain_state_queue bstate') = [].
 Proof.
   intros.
+  destruct H0 as [H0 H3].
   remember (chain_state_queue bstate).
   generalize dependent bstate.
   induction l; intros.
@@ -402,15 +411,15 @@ Proof.
   - (* Case: queue contains at least one action, 
         thus we need to either discard or evaluate it *)
     apply list.Forall_cons_1 in H0 as [H0 H0'].
-    apply list.Forall_cons_1 in H1 as [H1 H1'].
+    apply list.Forall_cons_1 in H3 as [H3 H3'].
     destruct (action_evaluation_decidable bstate a); auto.
     + (* Case: the action is evaluable *)
       destruct H4 as [mid_env [new_acts [action_evaluation]]].
       pose (build_chain_state mid_env (new_acts ++ l)) as mid.
       assert (step : ChainStep bstate mid) by (eapply step_action; eauto).
-      apply H1 in action_evaluation as new_acts_eq.
-      eapply H3 with (bstate' := mid) in H2; eauto.
-      apply IHl in H2 as [to [reachable_through [P_to queue_to]]]; subst; eauto.
+      apply H3 in action_evaluation as new_acts_eq.
+      eapply H2 with (bstate' := mid) in H1; eauto.
+      apply IHl in H1 as [to [reachable_through [P_to queue_to]]]; subst; eauto.
       exists to.
       intuition.
       eauto.
@@ -434,13 +443,22 @@ Lemma wc_receive_to_receive : forall {Setup Msg State : Type}
                                     `{Serializable State}
                                     (contract : Contract Setup Msg State)
                                     chain cctx cstate msg new_cstate new_acts,
-  contract.(receive) chain cctx cstate (Some msg) = Some (new_cstate, new_acts) ->
+  contract.(receive) chain cctx cstate (Some msg) = Some (new_cstate, new_acts) <->
   wc_receive contract chain cctx ((@serialize State _) cstate) (Some ((@serialize Msg _) msg)) = Some ((@serialize State _) new_cstate, new_acts).
 Proof.
-  intros.
-  cbn.
-  rewrite 2!deserialize_serialize.
-  now rewrite H2.
+  split; intros.
+  - cbn.
+    rewrite 2!deserialize_serialize.
+    now rewrite H2.
+  - apply wc_receive_strong in H2.
+    destruct H2 as [a [b [c [H3 [H4 [H5 H6]]]]]].
+    apply serialize_injective in H5. subst.
+    rewrite deserialize_serialize in H3.
+    inversion H3. subst.
+    destruct b eqn:Hmsg.
+    + cbn in H4.
+      now rewrite deserialize_serialize in H4.
+    + inversion H4.
 Qed.
 
 Open Scope Z_scope.
@@ -627,6 +645,8 @@ Global Hint Resolve reachable_through_refl
              reachable_through_trans
              reachable_through_step
              reachable_through_reachable : core.
+
+Global Hint Resolve empty_queue_is_emptyable : core.
 
 Local Ltac update_fix term1 term2 H H_orig H' :=
   match H with
