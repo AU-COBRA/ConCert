@@ -134,15 +134,15 @@ Section print_term.
       else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
            (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
     (* one-constructor inductives are interpreted/printed as records *)
-    match oib.(ExAst.ind_ctors) with
-    | [build_record_ctor] =>
+    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+    | [build_record_ctor], _::_ =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := projs_and_ctors |> map (fun '(p, (na, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) in
+      let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) projs_and_ctors in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}"
-    | _ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
+    | _,_ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
                    ++ nl ++ "  "
                    ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
     end.
@@ -185,8 +185,23 @@ Section print_term.
       end
     | _ => None
     end.
+  (* Certain names in CameLIGO are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
+  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
+     they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
+  Definition is_reserved_name (id : ident) (reserved : list ident) := 
+    List.existsb (ident_eq id) reserved.
+  
+  Definition ligo_reserved_names := 
+    [
+        "to"
+      ; "val"
+      ; "balance"
+      ; "continue"
+    ].
 
   Definition is_fresh (Γ : context) (id : ident) :=
+    negb (is_reserved_name id ligo_reserved_names)
+    &&
     List.forallb
       (fun decl =>
          match decl.(decl_name) with
@@ -339,6 +354,7 @@ Section print_term.
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
       let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
@@ -433,8 +449,9 @@ Section print_term.
           (concat " " (map (parens true) apps)) ++ ".0"
         else if nm =? "snd" then
           (concat " " (map (parens true) apps)) ++ ".1"
-        else if (nm =? "constructor") then
-          concat " " apps
+        (* Map Chain fields to record projections *)
+        else if (nm =? "chain_height") || (nm =? "current_slot") || (nm =? "finalized_height")  then
+          (concat " " (map (parens true) apps)) ++ "." ++ nm
         (* ContractCallContext remappings *)
         else if (nm =? "ctx_from") then
           "Tezos.sender"
@@ -446,13 +463,13 @@ Section print_term.
       | tConstruct (mkInd mind j as ind) i =>
         let nm := get_constr_name ind i in
         (* is it a pair ? *)
-        if (nm =? "pair") then
+        if ((uncapitalize nm) =? "pair") then
           print_uncurried "" apps
         (* is it a cons ? *)
         else if (nm =? "cons") then
           parens top (concat " :: " apps)
         (* is it a transfer *)
-        else if (nm =? "Act_transfer") then
+        else if (nm =? "act_transfer") then
           print_transfer apps
         else if (nm =? "_") then
           fresh_id_from ctx 10 "a"
@@ -464,9 +481,10 @@ Section print_term.
               let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
                                                       |> concat "; " in
               "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
-              | _,_     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
-                           parens top (print_uncurried nm' apps)
-  end
+          | _,_ => 
+              let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+              parens top (print_uncurried nm' apps)
+        end
       | _ => if is_not_empty_const l then
               parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
              else print_term prefix FT TT ctx false true f fa
@@ -484,7 +502,7 @@ Section print_term.
     else if nm_tt =? "None" then
       "(None:" ++ print_box_type prefix TT bt ++ ")"
     else if nm_tt =? "Map.empty" then
-      "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
+      "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"    
     else nm_tt
   | tCase (mkInd mind i as ind, nparam) t brs =>
     let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
@@ -810,10 +828,15 @@ Definition tez_ops :=
   "[@inline] let leTez (a : tez ) (b : tez ) = a <= b" ;
   "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b" ;
   "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b" ;
-  "[@inline] let eqTez (a : tez ) (b : tez ) = a = b"
-  $>.
+  "[@inline] let eqTez (a : tez ) (b : tez ) = a = b" ;
+  "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez" ;
+  "[@inline] let divTez (a : tez) (b : tez) : tez = natural_to_mutez (a/b)" ;
+  "[@inline] let multTez (n : tez) (m : tez) = (n/1tez) * m"
+    $>.
 Definition nat_ops :=
   <$
+  "[@inline] let addN (a : nat ) (b : nat ) = a + b" ;
+  "[@inline] let multN (a : nat ) (b : nat ) = a * b" ;
   "[@inline] let modN (a : nat ) (b : nat ) = a mod b" ;
   "[@inline] let divN (a : nat ) (b : nat ) = a / b" ;
   "[@inline] let eqN (a : nat ) (b : nat ) = a = b" ;
@@ -859,7 +882,7 @@ Definition CameLIGO_contractCallContext :=
 
 Definition printWrapper (contract parameter_name storage_name ctx : string): string :=
   <$
-  "type return = (operation) list * (storage option)" ;
+  "type return = (operation) list * (" ++ storage_name ++ " option)" ;
   "type parameter_wrapper =" ;
   "  Init of init_args_ty" ;
   "| Call of " ++ parameter_name ++ " option" ;
@@ -875,5 +898,5 @@ Definition printWrapper (contract parameter_name storage_name ctx : string): str
   "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))"
   $>.
 
-Definition printMain :=
-  "let main (action, st : parameter_wrapper * storage option) : return = wrapper (action, st)".
+Definition printMain (storage_name : string) :=
+  "let main (action, st : parameter_wrapper * " ++ storage_name ++ " option) : return = wrapper (action, st)".

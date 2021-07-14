@@ -58,6 +58,7 @@ examples/ElmExtractTests.v
 examples/ElmForms.v
 examples/ErasureTests.v
 examples/ERC20LiquidityExtraction.v
+examples/EscrowCameLIGOExtract.v
 examples/MidlangCounterRefTypes.v
 examples/MidlangEscrow.v
 examples/RustCounter.v

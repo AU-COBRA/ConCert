@@ -421,7 +421,7 @@ Section print_term.
       else if (nm =? "cons") then
         parens top (concat " :: " apps)
       (* is it a transfer *)
-      else if (nm =? "Act_transfer") then print_transfer apps
+      else if (nm =? "act_transfer") then print_transfer apps
       (* is it a record declaration? *)
       else match is_name_remapped nm TT, is_record_constr b with
         | false, Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
