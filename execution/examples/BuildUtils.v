@@ -7,7 +7,6 @@ Require Import Serializable.
 Section BuildUtils.
 Context {BaseTypes : ChainBase}.
 
-
 (* The empty state is always reachable *)
 Lemma reachable_empty_state :
   reachable empty_state.
@@ -850,4 +849,3 @@ Ltac empty_queue H :=
         clear H; rename temp_H into H]
       end
   end.
-

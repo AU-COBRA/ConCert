@@ -2,6 +2,7 @@
   Implementation of the Basic Attention Token.
   Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
 *)
+
 From Coq Require Import ZArith.
 From Coq Require Import Morphisms.
 Require Import Monads.
@@ -13,6 +14,9 @@ From Coq Require Import List.
 Require Import Serializable.
 Require Import Blockchain.
 Require EIP20Token.
+From ConCert.Execution.Examples Require Import BuildUtils.
+Require Import ZArith_base.
+Import ResultMonad.
 
 Import ListNotations.
 Import RecordSetNotations.
@@ -975,6 +979,8 @@ Qed.
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
 
+(* In any reachable state the sum of token balance
+    will be equal to the total supply of tokens *)
 Lemma sum_balances_eq_total_supply block_state contract_addr :
   reachable block_state ->
   env_contracts block_state contract_addr = Some (contract : WeakContract) ->
@@ -982,77 +988,57 @@ Lemma sum_balances_eq_total_supply block_state contract_addr :
     contract_state block_state contract_addr = Some cstate
     /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
-  contract_induction; intros; try auto.
-  - now apply init_update_balances_sum in init_some.
-  - destruct msg. destruct m. destruct m.
-    + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_transfer_from_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_from_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
-      apply try_approve_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_create_tokens_update_balances_sum in receive_some as balance_sum.
-      apply try_create_tokens_total_supply_correct in receive_some.
-      now rewrite <- balance_sum, <- receive_some, N.add_cancel_r.
-    + apply try_finalize_preserves_balances_sum in receive_some as balance_sum.
-      apply try_finalize_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
+  assert (H : forall prev_state new_state chain ctx msg new_acts,
+            total_supply prev_state = sum_balances prev_state ->
+            receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+            total_supply new_state = sum_balances new_state).
+  - intros prev_state new_state chain ctx msg new_acts IH receive_some.
+    destruct msg. destruct m. destruct m.
+    + now erewrite <- try_transfer_preserves_balances_sum,
+                   <- try_transfer_preserves_total_supply.
+    + now erewrite <- try_transfer_from_preserves_balances_sum,
+                   <- try_transfer_from_preserves_total_supply.
+    + now erewrite <- try_approve_preserves_balances_sum,
+                   <- try_approve_preserves_total_supply.
+    + now erewrite <- try_create_tokens_update_balances_sum,
+                   <- try_create_tokens_total_supply_correct; eauto.
+    + now erewrite <- try_finalize_preserves_balances_sum,
+                   <- try_finalize_preserves_total_supply.
     + apply try_refund_update_balances_sum in receive_some as balance_sum.
-      apply try_refund_total_supply_correct in receive_some.
-      rewrite IH in receive_some. rewrite <- receive_some, balance_sum.
-      now rewrite N.add_sub.
-    + cbn in receive_some. congruence.
-  - destruct msg. destruct m. destruct m.
-    + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_transfer_from_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_from_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
-      apply try_approve_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_create_tokens_update_balances_sum in receive_some as balance_sum.
-      apply try_create_tokens_total_supply_correct in receive_some.
-      now rewrite <- balance_sum, <- receive_some, N.add_cancel_r.
-    + apply try_finalize_preserves_balances_sum in receive_some as balance_sum.
-      apply try_finalize_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_refund_update_balances_sum in receive_some as balance_sum.
-      apply try_refund_total_supply_correct in receive_some.
-      rewrite IH in receive_some. rewrite <- receive_some, balance_sum.
-      now rewrite N.add_sub.
-    + cbn in receive_some. congruence.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
-    unset_all; subst;cbn in *.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
+      now apply try_refund_total_supply_correct in receive_some.
+    + now receive_simpl.
+  - contract_induction; intros; eauto.
+    + now apply init_update_balances_sum in init_some.
+    + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+      instantiate (DeployFacts := fun _ _ => True).
+      instantiate (CallFacts := fun _ _ _ => True).
+      unset_all; subst;cbn in *.
+      destruct_chain_step; auto.
+      destruct_action_eval; auto.
 Qed.
 
 
 
-(* ------------------- Constants are constant ------------------- *)
+(* ------------------- total supply can only grow before funding fails ------------------- *)
 
+(* If funding period is active or funding goal was hit then the
+    total supply of tokens cannot decrease *)
 Lemma receive_total_supply_increasing : forall prev_state new_state chain ctx msg new_acts,
-  ((current_slot chain) <= (fundingEnd prev_state))%nat ->
+  ((current_slot chain) <= (fundingEnd prev_state))%nat \/ tokenCreationMin prev_state <= total_supply prev_state->
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
        (total_supply prev_state) <= (total_supply new_state).
 Proof.
-  intros.
+  intros prev_state new_state chain ctx msg new_acts H receive_some.
   destruct msg. destruct m. destruct m.
-  - apply try_transfer_preserves_total_supply in H0. lia.
-  - apply try_transfer_from_preserves_total_supply in H0. lia.
-  - apply try_approve_preserves_total_supply in H0. lia.
-  - apply try_create_tokens_total_supply_correct in H0.
-    rewrite <- H0. apply N.le_add_r.
-  - apply try_finalize_preserves_total_supply in H0. lia.
-  - specialize try_refund_is_some as [_ H1].
-    rewrite H0 in H1. now destruct H1; eauto.
+  - apply try_transfer_preserves_total_supply in receive_some. lia.
+  - apply try_transfer_from_preserves_total_supply in receive_some. lia.
+  - apply try_approve_preserves_total_supply in receive_some. lia.
+  - apply try_create_tokens_total_supply_correct in receive_some.
+    rewrite <- receive_some. apply N.le_add_r.
+  - apply try_finalize_preserves_total_supply in receive_some. lia.
+  - specialize try_refund_is_some as [_ refund_implications].
+    rewrite receive_some in refund_implications.
+    now destruct refund_implications; eauto.
   - now receive_simpl.
 Qed.
 
@@ -1060,6 +1046,7 @@ Qed.
 
 (* ------------------- Constants are constant ------------------- *)
 
+(* Constants should never change after after receiving msg *)
 Lemma receive_preserves_constants : forall prev_state new_state chain ctx msg new_acts,
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
        prev_state.(fundDeposit) = new_state.(fundDeposit)
@@ -1070,11 +1057,12 @@ Lemma receive_preserves_constants : forall prev_state new_state chain ctx msg ne
     /\ prev_state.(tokenCreationCap) = new_state.(tokenCreationCap)
     /\ prev_state.(tokenCreationMin) = new_state.(tokenCreationMin).
 Proof.
-  intros.
+  intros prev_state new_state chain ctx msg new_acts receive_some.
   destruct msg. destruct m. destruct m.
-  all: receive_simpl; now inversion H.
+  all: receive_simpl; now inversion receive_some.
 Qed.
 
+(* Constants are always equal to the initial assignment *)
 Lemma constants_are_constant block_state contract_addr (trace : ChainTrace empty_state block_state) :
   env_contracts block_state contract_addr = Some (contract : WeakContract) ->
   exists cstate deploy_info,
@@ -1105,236 +1093,31 @@ Qed.
 
 (* ------------------- Finalize cannot be undone ------------------- *)
 
+(* Once the contract is in the finalized state it cannot leave it *)
 Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
   (isFinalized prev_state) = true /\
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
     (isFinalized new_state) = true.
 Proof.
-  intros.
-  destruct H as [H receive].
+  intros prev_state new_state chain ctx msg new_acts (finalized & receive_some).
   destruct msg. destruct m.
-  - apply eip_only_changes_token_state in receive.
-    now rewrite <- receive.
-  - apply try_create_tokens_only_change_token_state in receive.
-    now rewrite <- receive.
-  - now apply try_finalize_isFinalized_correct in receive as [_ receive].
-  - apply try_refund_only_change_token_state in receive.
-    now rewrite <- receive.
-  - cbn in receive. congruence.
+  - now rewrite <- (eip_only_changes_token_state _ _ _ _ _ _ receive_some).
+  - now rewrite <- (try_create_tokens_only_change_token_state _ _ _ _ _ receive_some).
+  - now apply try_finalize_isFinalized_correct in receive_some.
+  - now rewrite <- (try_refund_only_change_token_state _ _ _ _ _ receive_some).
+  - now receive_simpl.
 Qed.
 
 
 
-Require Import ZArith_base.
-Import ResultMonad.
+(* Utility definitions and lemmas *)
+
 Context  {ChainBuilder : ChainBuilderType}.
 Notation serializeMsg := (@serialize BAT.Msg _).
 Notation serializeState := (@serialize BAT.State _).
-From ConCert.Execution.Examples Require Import BuildUtils.
-
-Definition total_balance bstate accounts : Amount :=
-  let account_balance := env_account_balances bstate in
-    sumZ (fun acc => account_balance acc) accounts.
-
-Lemma sum_balances_positive : forall bstate accounts,
-  reachable bstate ->
-  (0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts)%Z.
-Proof.
-  intros.
-  induction accounts; cbn.
-  - lia.
-  - apply Z.add_nonneg_nonneg; auto.
-    eapply account_balance_nonnegative in H.
-    now apply Z.ge_le.
-Qed.
-
-Lemma total_balance_positive : forall bstate accounts,
-  reachable bstate -> 
-  (0 <= total_balance bstate accounts)%Z.
-Proof.
-  intros.
-  unfold total_balance.
-  now apply sum_balances_positive.
-Qed.
-
-Lemma total_balance_distr : forall state h t x,
-  reachable state ->
-  Z.to_N (total_balance state (h :: t)) * x =
-    Z.to_N (env_account_balances state h) * x +
-    Z.to_N (total_balance state t) * x.
-Proof.
-  intros.
-  cbn.
-  rewrite Z2N.inj_add.
-  - now rewrite N.mul_add_distr_r.
-  - eapply account_balance_nonnegative in H. now apply Z.ge_le.
-  - now apply sum_balances_positive.
-Qed.
-
-Lemma total_balance_eq : forall env1 env2 accounts,
-  (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
-    total_balance env1 accounts = total_balance env2 accounts.
-Proof.
-  intros.
-  unfold total_balance.
-  rewrite sumZ_map_id.
-  setoid_rewrite sumZ_map_id at 2.
-  f_equal.
-  now apply map_ext_in.
-Qed.
-
-Lemma sumZ_le : forall {A} l (f g : A -> Z),
-  (forall a, In a l -> f a <= g a)%Z ->
-  (sumZ f l <= sumZ g l)%Z.
-Proof.
-  intros.
-  induction l.
-  - apply Z.le_refl.
-  - cbn.
-    apply Z.add_le_mono.
-    + apply H, in_eq.
-    + apply IHl.
-      intros.
-      now apply H, in_cons.
-Qed.
-
-Lemma total_balance_le : forall env1 env2 accounts,
-  (forall a, In a accounts -> env_account_balances env1 a <= env_account_balances env2 a)%Z ->
-    (total_balance env1 accounts <= total_balance env2 accounts)%Z.
-Proof.
-  intros.
-  now apply sumZ_le.
-Qed.
-
-Lemma sumZ_eq_ : forall {A} l (f g : A -> Z) a x,
-  In a l -> (f a = g a + x)%Z ->
-  NoDup l ->
-  (forall b, In b l -> b <> a-> f b = g b)%Z ->
-  (sumZ f l - x = sumZ g l)%Z.
-Proof.
-  intros.
-  induction l.
-  - now apply in_nil in H.
-  - cbn.
-    apply NoDup_cons_iff in H1 as [H1 H1'].
-    apply in_inv in H as [H | H]; subst.
-    + rewrite H0. rewrite Z.add_comm.
-      rewrite Z.add_assoc.
-      rewrite Z.add_simpl_r.
-      rewrite Z.add_comm.
-      apply Zplus_eq_compat; auto.
-      rewrite sumZ_map_id.
-      setoid_rewrite sumZ_map_id at 2.
-      f_equal.
-      apply map_ext_in.
-      intros.
-      apply H2.
-      now apply in_cons.
-      now intro.
-    + rewrite H2.
-      * rewrite <- Z.add_sub_assoc.
-        apply Zplus_eq_compat; auto.
-        apply IHl; auto.
-        intros.
-        apply H2; auto.
-        now apply in_cons.
-      * apply in_eq.
-      * now intro.
-Qed.
-
-Lemma sumZ_eq : forall {A} l (f g : A -> Z) a b x,
-  In a l -> (f a = g a + x)%Z ->
-  In b l -> (f b = g b - x)%Z ->
-  a <> b ->
-  NoDup l ->
-  (forall c, In c l -> c <> a -> c <> b -> f c = g c)%Z ->
-  (sumZ f l = sumZ g l)%Z.
-Proof.
-  intros.
-  induction l.
-  - reflexivity.
-  - cbn.
-    apply NoDup_cons_iff in H4 as [H4 H4'].
-    apply in_inv in H as [H | H];
-    apply in_inv in H1 as [H1 | H1]; subst.
-    + congruence.
-    + rewrite H0.
-      eapply sumZ_eq_ in H1; eauto.
-      * now rewrite <- H1, Z.sub_opp_r.
-      * intros.
-        apply H5; auto.
-        now apply in_cons.
-        now intro.
-    + rewrite H2.
-      eapply sumZ_eq_ in H; eauto.
-      * now rewrite <- H.
-      * intros.
-        apply H5; auto.
-        now apply in_cons.
-        now intro.
-    + apply Zplus_eq_compat.
-      * apply H5;
-          (try now apply in_eq);
-          now intro.
-      * apply IHl; auto.
-        intros.
-        apply H5; auto.
-        now apply in_cons.
-Qed.
-
-Lemma total_balance_transfer_in : forall from to amount bstate bstate' accounts,
-  In to accounts ->
-  NoDup accounts ->
-  (amount >= 0)%Z ->
-  EnvironmentEquiv bstate' (transfer_balance from to amount bstate) ->
-  (total_balance bstate accounts <= total_balance bstate' accounts)%Z.
-Proof.
-  intros.
-  unfold total_balance.
-  destruct (address_eqdec from to).
-  - apply Z.eq_le_incl, total_balance_eq.
-    intros. rewrite_environment_equiv. cbn.
-    destruct_address_eq; easy.
-  - destruct (in_dec address_eqdec from accounts).
-    + eapply Z.eq_le_incl, (sumZ_eq accounts _ _ from to amount); eauto; intros;
-        rewrite_environment_equiv; cbn; destruct_address_eq; try easy.
-    + apply sumZ_le.
-      intros.
-      rewrite_environment_equiv. cbn.
-      destruct_address_eq; subst; try easy.
-      lia.
-Qed.
-
-Lemma forall_account_balances_eq : forall P accounts env1 env2,
-  (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
-  Forall (fun acc => P (env_account_balances env1 acc)) accounts <->
-  Forall (fun acc => P (env_account_balances env2 acc)) accounts.
-Proof.
-  intros.
-  assert (map_eq : map (env_account_balances env1) accounts = map (env_account_balances env2) accounts)
-    by now apply map_ext_in.
-  split;
-    intro;
-    apply All_Forall.Forall_map in H0;
-    apply All_Forall.Forall_map_inv;
-    now rewrite ? map_eq.
-Qed.
-
-Definition block_header bstate slot creator reward : BlockHeader :=
-  {| block_height := S (chain_height bstate);
-      block_slot := slot;
-      block_finalized_height := finalized_height bstate;
-      block_creator := creator;
-      block_reward := reward; |}.
 
 Definition finalize_act cstate caddr : Action :=
   build_act (fundDeposit cstate) (act_call caddr 0%Z (serializeMsg finalize)).
-
-Definition finalize_transfer_act cstate env caddr : Action :=
-  build_act caddr (act_transfer (fundDeposit cstate) (env_account_balances env caddr)).
-
-Definition create_tokens_act env caddr sender : Action :=
-  build_act sender (act_call caddr (env_account_balances env sender) (serializeMsg create_tokens)).
 
 Lemma N_le_add_distr : forall n m p,
  n + m <= p -> n <= p.
@@ -1376,78 +1159,181 @@ Qed.
 
 Hint Resolve N_le_add_distr N_le_sub N_div_mul_le N_le_div_mul : core.
 
-Lemma can_finalize_if_creation_min : forall bstate (reward : Amount) (caddr creator : Address),
-  address_is_contract creator = false ->
-  (reward >= 0)%Z ->
+(* sumZ over balances is always positive *)
+Lemma sum_balances_positive : forall bstate accounts,
   reachable bstate ->
-  (chain_state_queue bstate) = [] ->
-  (exists cstate,
-    env_contracts bstate caddr = Some (BAT.contract : WeakContract)
-    /\ env_contract_states bstate caddr = Some (serializeState cstate)
-    /\ (tokenCreationMin cstate) <= (total_supply cstate)
-    /\ address_is_contract (fundDeposit cstate) = false)
-      ->
-      exists bstate', reachable_through bstate bstate'
-        /\ chain_state_queue bstate' = []
-        /\ exists cstate',
-        env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
-        /\ env_contract_states bstate' caddr = Some (serializeState cstate')
-        /\ (isFinalized cstate') = true.
+  (0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts)%Z.
 Proof.
-  intros bstate reward caddr creator Hcreator Hreward bstate_reachable bstate_queue
-    [cstate [contract_deployed [deployed_state [creation_min fund_deposit_not_contract]]]].
-  (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
-  destruct (isFinalized cstate) eqn:finalized; [eexists; rewrite bstate_queue; split; eauto|].
-  (* Fast forward time/slot to "fundingEnd" so that we know for sure that the funding period is not active
-      in the next block *)
-  forward_time (cstate.(fundingEnd)); eauto.
-  (* forward_time gives us a new ChainState so we no longer need the old one therefore
-      we call update_all to replace all occurrences of the old ChainState with the new one *)
-  update_all.
-  (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
-     So now we can add a new block containing a finalize call *)
-  add_block [(finalize_act cstate caddr)] 1%nat; eauto.
-  (* The hypothesis "slot_hit" no longer holds so we have to update it manually before calling update_all *)
-  update (S (fundingEnd cstate) <= current_slot bstate)%nat in slot_hit by
-    (rewrite_environment_equiv; cbn; easy).
-  update_all.
-  (* We can now evaluate the action we added giving us a ChainState where
-      the token is in its finalized state *)
-  evaluate_action BAT.contract; try easy.
-  - now apply account_balance_nonnegative.
-  - specialize (try_finalize_is_some cstate bstate) as [[x [y H]] _]; cycle 1.
-    + specialize try_finalize_isFinalized_correct as [_ H1]; eauto.
-      now erewrite <- (try_finalize_only_change_isFinalized _ _ _ _ _ H),
-                   H1, (try_finalize_acts_correct _ _ _ _ _ H) in H.
-    + eauto.
-  - cbn in *.
-    clear deployed_state.
-    update_all;
-      [rewrite queue; do 3 f_equal;repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
-    (* Finally we need to evaluate the new transfer action that finalize produced *)
-    evaluate_transfer; try easy.
-    + destruct_address_eq;
-      try rewrite Z.add_0_r;
-      now apply account_balance_nonnegative.
-    + destruct_address_eq;
-      try rewrite Z.add_0_r;
-      apply Z.le_ge, Z.le_refl.
-    + exists bstate.
-      split; eauto.
-      rewrite queue0.
-      split; eauto.
-      eexists.
-      now repeat split; try (rewrite_environment_equiv; cbn; eauto).
+  intros.
+  induction accounts; cbn.
+  - lia.
+  - apply Z.add_nonneg_nonneg; auto.
+    apply Z.ge_le.
+    now apply account_balance_nonnegative.
 Qed.
 
+Lemma sumZ_le : forall {A} l (f g : A -> Z),
+  (forall a, In a l -> f a <= g a)%Z ->
+  (sumZ f l <= sumZ g l)%Z.
+Proof.
+  intros.
+  induction l.
+  - apply Z.le_refl.
+  - cbn.
+    apply Z.add_le_mono.
+    + apply H, in_eq.
+    + apply IHl.
+      intros.
+      now apply H, in_cons.
+Qed.
+
+(* Sums balances of a list of accounts *)
+Definition total_balance bstate accounts : Amount :=
+  let account_balance := env_account_balances bstate in
+    sumZ (fun acc => account_balance acc) accounts.
+
+(* Sum of balances is always positive *)
+Lemma total_balance_positive : forall bstate accounts,
+  reachable bstate -> 
+  (0 <= total_balance bstate accounts)%Z.
+Proof.
+  intros.
+  unfold total_balance.
+  now apply sum_balances_positive.
+Qed.
+
+Lemma total_balance_distr : forall state h t x,
+  reachable state ->
+  Z.to_N (total_balance state (h :: t)) * x =
+    Z.to_N (env_account_balances state h) * x +
+    Z.to_N (total_balance state t) * x.
+Proof.
+  intros.
+  cbn.
+  rewrite Z2N.inj_add.
+  - now rewrite N.mul_add_distr_r.
+  - apply Z.ge_le.
+    now apply account_balance_nonnegative.
+  - now apply sum_balances_positive.
+Qed.
+
+(* total balance equality if all accounts have equal balance *)
+Lemma total_balance_eq : forall env1 env2 accounts,
+  (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
+    total_balance env1 accounts = total_balance env2 accounts.
+Proof.
+  intros.
+  unfold total_balance.
+  rewrite sumZ_map_id.
+  setoid_rewrite sumZ_map_id at 2.
+  f_equal.
+  now apply map_ext_in.
+Qed.
+
+Lemma total_balance_le : forall env1 env2 accounts,
+  (forall a, In a accounts -> env_account_balances env1 a <= env_account_balances env2 a)%Z ->
+    (total_balance env1 accounts <= total_balance env2 accounts)%Z.
+Proof.
+  intros.
+  now apply sumZ_le.
+Qed.
+
+(* pending usage is the total balance that an account has allocated
+   in the pending actions.
+   Does not count actions with negative amount and caps the usage
+   at the balance limit of the account. *)
+Definition pending_usage bstate account : Amount :=
+  Z.min (sumZ (fun act => if address_eqb act.(act_from) account
+                         then Z.max 0 (act_amount act) 
+                         else 0%Z) bstate.(chain_state_queue))
+        (env_account_balances bstate account).
+
+(* Spendable blance is the balance of an account minus their pending
+   usage, i.e. the minimum amount that the account is guaranteed to have
+   available for usage next block. *)
+Definition spendable_balance (bstate : ChainState) accounts : Amount :=
+  let account_balance := env_account_balances bstate in
+    sumZ (fun acc => account_balance acc - pending_usage bstate acc)%Z accounts.
+
+(* Spendable balance is equal to total balance if there is no
+   pending actions left in the current block. *)
+Lemma spendable_eq_total_balance : forall bstate accounts,
+  reachable bstate ->
+  chain_state_queue bstate = [] ->
+  spendable_balance bstate accounts = total_balance bstate accounts.
+Proof.
+  intros bstate accounts reach queue.
+  unfold spendable_balance, total_balance, pending_usage.
+  rewrite queue. cbn.
+  rewrite sumZ_map_id.
+  setoid_rewrite sumZ_map_id at 2.
+  f_equal.
+  apply map_ext_in.
+  intros.
+  rewrite Z.min_l, Z.sub_0_r; auto.
+  apply Z.ge_le.
+  now apply account_balance_nonnegative.
+Qed.
+
+(* Spendable balance cannot decrease when consuming or discarding
+   actions from the queue. *)
+Lemma spendable_consume_act : forall (bstate1 bstate2 : ChainState) accounts act acts,
+  (env_account_balances bstate1 act.(act_from) <= env_account_balances bstate2 act.(act_from) + (Z.max 0 (act_amount act)))%Z ->
+  (forall a, In a accounts -> a <> act.(act_from) -> env_account_balances bstate1 a <= env_account_balances bstate2 a)%Z ->
+  chain_state_queue bstate1 = act :: acts ->
+  chain_state_queue bstate2 = acts ->
+  (spendable_balance bstate1 accounts <= spendable_balance bstate2 accounts)%Z.
+Proof.
+  intros bstate_from bstate_to accounts act acts
+         act_balance other_balances queue_from queue_to.
+  induction accounts.
+  - apply Z.le_refl.
+  - cbn.
+    apply Z.add_le_mono.
+    + destruct (address_eqdec a (act_from act));
+        unfold pending_usage; rewrite queue_from, queue_to; cbn.
+      * subst.
+        rewrite address_eq_refl.
+        lia.
+      * rewrite address_eq_ne; auto.
+        apply other_balances in n; try apply in_eq.
+        lia.
+    + apply IHaccounts.
+      intros.
+      apply other_balances; eauto.
+      now apply in_cons.
+Qed.
+
+(* Spendable balance is always positive *)
+Lemma spendable_balance_positive : forall bstate accounts,
+  reachable bstate ->
+  (0 <= spendable_balance bstate accounts)%Z.
+Proof.
+  intros.
+  unfold spendable_balance.
+  induction accounts.
+  - apply Z.le_refl.
+  - cbn.
+    apply Ztac.add_le;
+    unfold pending_usage in *;
+    lia.
+Qed.
+
+(* Function that generated create_token actions.
+   Will keep generating action untill all accounts given have been emptied of balance
+   or the token goal is hit. Also ensures that we do not hit the token creation cap
+   by only creation just enough to go over the token goal. *)
 Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate:=
   let create_tokens_act sender amount := build_act sender (act_call caddr amount (serializeMsg create_tokens)) in
     match accounts with
     | [] => []
     | acc :: accounts' =>
+      (* Dont produce any action for this account if tokens_left = 0 *)
       if 0 <? tokens_left
       then
         let amount := 1 + ((tokens_left / exchange_rate)) in
+        (* Choose the minimum amount of balance needed to hit tokens_left = 0 or all balance
+            if the account does not have enough balance to hit goal *)
         let amount := N.min amount (Z.to_N (env_account_balances env acc)) in
           (create_tokens_act acc (Z.of_N amount)) ::
           create_token_acts env caddr accounts' (N.sub tokens_left (amount * exchange_rate)) exchange_rate
@@ -1466,9 +1352,8 @@ Lemma create_token_acts_cons : forall caddr env acc accounts tokens_left exchang
 Proof.
   intros.
   cbn.
-  apply N.ltb_lt in H.
-  rewrite H.
-  f_equal.
+  destruct_match eqn:Htokens_left; eauto.
+  now apply N.ltb_nlt in Htokens_left.
 Qed.
 
 Lemma create_token_acts_eq : forall caddr env1 env2 accounts tokens_left exchange_rate,
@@ -1479,113 +1364,126 @@ Proof.
   induction accounts; intros.
   - reflexivity.
   - cbn.
-    rewrite H; [| apply in_eq].
-    now do 2 (rewrite <- IHaccounts; [| intros; now apply H, in_cons]).
+    rewrite H by apply in_eq.
+    now do 2 rewrite <- IHaccounts by (intros; now apply H, in_cons).
 Qed.
 
+(* All actions produced by create_token_acts are from accounts *)
 Lemma create_token_acts_is_account : forall caddr env accounts tokens_left exchange_rate,
   Forall (fun acc : Address => address_is_contract acc = false) accounts ->
     (forall x : Action, In x (create_token_acts env caddr accounts tokens_left exchange_rate) -> act_is_from_account x).
 Proof.
-  induction accounts; intros.
-  - inversion H0.
-  - cbn in H0.
-    apply list.Forall_cons in H as [H H'].
-    destruct_match in H0.
-    + destruct H0 as [].
-      * now subst.
-      * now eapply IHaccounts.
-    + now eapply IHaccounts.
+  induction accounts; intros ? ? is_address act HIn.
+  - inversion HIn.
+  - cbn in HIn.
+    apply list.Forall_cons in is_address as [is_address is_address'].
+    destruct_match in HIn. destruct HIn; subst.
+    all: eauto.
 Qed.
 
-Definition pending_usage bstate account : Amount :=
-  Z.min (sumZ (fun act => if address_eqb act.(act_from) account
-                         then Z.max 0 (act_amount act) 
-                         else 0%Z) bstate.(chain_state_queue))
-        (env_account_balances bstate account).
 
-Definition spendable_balance (bstate : ChainState) accounts : Amount :=
-  let account_balance := env_account_balances bstate in
-    sumZ (fun acc => account_balance acc - pending_usage bstate acc)%Z accounts.
 
-Lemma spendable_eq_total_balance : forall bstate accounts,
+(* ------------------- It is always possible to finalize ------------------- *)
+
+(* Prove that it is always possible to reach a state where the token is finalized if the funding
+   goal was reached *)
+Lemma can_finalize_if_creation_min : forall bstate (reward : Amount) (caddr creator : Address),
+  address_is_contract creator = false ->
+  (reward >= 0)%Z ->
   reachable bstate ->
-  chain_state_queue bstate = [] ->
-  spendable_balance bstate accounts = total_balance bstate accounts.
+  emptyable (chain_state_queue bstate) ->
+  (exists cstate,
+    env_contracts bstate caddr = Some (BAT.contract : WeakContract)
+    /\ env_contract_states bstate caddr = Some (serializeState cstate)
+    /\ (tokenCreationMin cstate) <= (total_supply cstate)
+    /\ address_is_contract (fundDeposit cstate) = false)
+      ->
+      exists bstate', reachable_through bstate bstate'
+        /\ emptyable (chain_state_queue bstate')
+        /\ exists cstate',
+        env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
+        /\ env_contract_states bstate' caddr = Some (serializeState cstate')
+        /\ (isFinalized cstate') = true.
 Proof.
-  intros.
-  unfold spendable_balance, total_balance, pending_usage.
-  rewrite H0. cbn.
-  rewrite sumZ_map_id.
-  setoid_rewrite sumZ_map_id at 2.
-  f_equal.
-  apply map_ext_in.
-  intros.
-  rewrite Z.min_l, Z.sub_0_r; auto.
-  apply Z.ge_le.
-  now apply account_balance_nonnegative.
+  intros bstate reward caddr creator Hcreator Hreward bstate_reachable bstate_queue H.
+  (* Empty the action queue so that we can add new blocks *)
+  empty_queue H; destruct H as (cstate & contract_deployed & contract_state & creation_min & fund_deposit_not_contract);
+    (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
+    only 3: destruct (address_eqdec caddr to_addr);
+    try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+         cbn; destruct_address_eq; try easy).
+  - (* Prove that H is preserved after calls to the contract *)
+    clear g l reward Hreward creator Hcreator bstate_queue bstate_reachable bstate e3 e1.
+    subst.
+    rewrite contract_deployed in e. inversion e. subst.
+    rewrite contract_state in e0. inversion e0. subst.
+    apply wc_receive_strong in e2 as
+      (prev_state' & msg' & new_state' & serialize_prev_state & _ & serialize_new_state & receive_some).
+    rewrite deserialize_serialize in serialize_prev_state. inversion serialize_prev_state. subst.
+    apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
+    apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ?).
+    repeat match goal with
+    | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+    end.
+    exists new_state'.
+    rewrite_environment_equiv; cbn; repeat split; eauto;
+    cbn; destruct_address_eq; try easy.
+    eapply N.le_trans; eauto.
+  - update_all.
+    (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
+    destruct (isFinalized cstate) eqn:finalized;
+      [eexists; rewrite queue; split; eauto; split; eauto; eapply empty_queue_is_emptyable |].
+    (* Fast forward time/slot to "fundingEnd" so that we know for sure that the funding period is not active
+        in the next block *)
+    forward_time (cstate.(fundingEnd)); eauto.
+    (* forward_time gives us a new ChainState so we no longer need the old one therefore
+        we call update_all to replace all occurrences of the old ChainState with the new one *)
+    update_all.
+    (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
+       So now we can add a new block containing a finalize call *)
+    add_block [(finalize_act cstate caddr)] 1%nat; eauto.
+    (* The hypothesis "slot_hit" no longer holds so we have to update it manually before calling update_all *)
+    update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
+      (rewrite_environment_equiv; cbn; easy).
+    update_all.
+    clear reward Hreward creator Hcreator.
+
+    (* We can now evaluate the action we added giving us a ChainState where
+        the token is in its finalized state *)
+    evaluate_action BAT.contract; try easy.
+    + (* Prove that there is enough balance to evaluate action *)
+      now apply account_balance_nonnegative.
+    + (* Prove that receive action returns Some *)
+      specialize (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
+      * specialize try_finalize_isFinalized_correct as [_ finalized_new_cstate]; eauto.
+        now erewrite <- (try_finalize_only_change_isFinalized _ _ _ _ _ receive_some),
+                     finalized_new_cstate, (try_finalize_acts_correct _ _ _ _ _ receive_some) in receive_some.
+      * eauto.
+    + cbn in *.
+      clear contract_state slot_hit creation_min.
+      update_all;
+        [rewrite queue0; do 3 f_equal;repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+      (* Finally we need to evaluate the new transfer action that finalize produced *)
+      evaluate_transfer; try easy.
+      * (* Prove that the transfer is nonnegative *)
+        destruct_address_eq;
+        try rewrite Z.add_0_r;
+        now apply account_balance_nonnegative.
+      * (* Prove that there is enough balance to evaluate the transfer *)
+        destruct_address_eq;
+        try rewrite Z.add_0_r;
+        apply Z.le_ge, Z.le_refl.
+      * exists bstate0.
+        split; eauto.
+        rewrite queue.
+        split; try apply empty_queue_is_emptyable.
+        eexists.
+        now repeat split; try (rewrite_environment_equiv; cbn; eauto).
 Qed.
 
-Lemma spendable_consume_act : forall (bstate1 bstate2 : ChainState) accounts act acts,
-  (env_account_balances bstate1 act.(act_from) <= env_account_balances bstate2 act.(act_from) + (Z.max 0 (act_amount act)))%Z ->
-  (forall a, In a accounts -> a <> act.(act_from) -> env_account_balances bstate1 a <= env_account_balances bstate2 a)%Z ->
-  chain_state_queue bstate1 = act :: acts ->
-  chain_state_queue bstate2 = acts ->
-  (spendable_balance bstate1 accounts <= spendable_balance bstate2 accounts)%Z.
-Proof.
-  intros.
-  induction accounts.
-  - apply Z.le_refl.
-  - cbn.
-    apply Z.add_le_mono.
-    + destruct (address_eqdec a (act_from act)).
-      * rewrite e. clear e. cbn.
-        unfold pending_usage.
-        rewrite H1, H2. cbn.
-        rewrite address_eq_refl.
-        lia.
-      * apply H0 in n as h3; try apply in_eq.
-        unfold pending_usage.
-        rewrite H1, H2. cbn.
-        rewrite address_eq_ne; auto.
-        lia.
-    + apply IHaccounts.
-      intros.
-      apply H0; eauto.
-      now apply in_cons.
-Qed.
-
-Lemma spendable_balance_positive : forall bstate accounts,
-  reachable bstate ->
-  (0 <= spendable_balance bstate accounts)%Z.
-Proof.
-  intros.
-  unfold spendable_balance.
-  induction accounts.
-  - apply Z.le_refl.
-  - cbn.
-    apply Ztac.add_le.
-    + apply Zle_minus_le_0.
-      unfold pending_usage.
-      lia.
-    + apply IHaccounts.
-Qed.
-
-Lemma spendable_balance_transfer_le : forall (bstate1 bstate2 : ChainState) from to amount accounts acts,
-  (amount >= 0)%Z ->
-  EnvironmentEquiv bstate2 (transfer_balance from to amount bstate1) ->
-  chain_state_queue bstate1 = {| act_from := from; act_body := act_transfer to amount |} :: acts ->
-  chain_state_queue bstate2 = acts ->
-    (spendable_balance bstate1 accounts <= spendable_balance bstate2 accounts)%Z.
-Proof.
-  intros.
-  destruct (in_dec address_eqdec from accounts); destruct (in_dec address_eqdec to accounts);
-    try (repeat split; eauto;
-         eapply spendable_consume_act; eauto;
-           intros; rewrite_environment_equiv; cbn;
-           destruct_address_eq; try easy; lia).
-Qed.
-
+(* Prove that it is always possible to reach a state where the token is finalized if there
+   is enough money in the blockchain and the contract constants were initialized with valid
+   values *)
 Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr creator : Address) accounts,
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1605,83 +1503,74 @@ Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr
     /\ deployed_cstate.(tokenExchangeRate) <> 0)
       ->
       exists bstate, reachable_through deployed_bstate bstate
-        /\ chain_state_queue bstate = []
+        /\ emptyable (chain_state_queue bstate)
         /\ exists cstate,
         env_contracts bstate caddr = Some (BAT.contract : WeakContract)
         /\ env_contract_states bstate caddr = Some (serializeState cstate)
         /\ (isFinalized cstate) = true.
 Proof.
   intros deployed_bstate reward caddr creator accounts Hcreator Hreward reach' empty accounts_unique accounts_not_contracts H.
-  empty_queue H; destruct H as (cstate & H1 & H2 & H3 & H4 & H5 & H6 & H7 & H8).
-  - exists cstate.
+  (* Empty the action queue so that we can add new blocks *)
+  empty_queue H; destruct H as
+    (cstate & contract_deployed & contract_state & enough_balance_to_fund &
+     can_hit_fund_min & funding_period_started & funding_period_not_over &
+     fund_deposit_not_contract & echange_rate_nonzero);
+    (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
+    only 3: destruct (address_eqdec caddr to_addr);
+    try now exists cstate;
+        repeat split; eauto;
+          try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq));
+        eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+        eapply spendable_consume_act; eauto;
+          intros; rewrite_environment_equiv; subst; (try destruct msg);
+          cbn; destruct_address_eq; try easy; lia.
+  - (* Prove that H is preserved after calls to the contract *)
+    clear l reward Hreward creator Hcreator empty reach' deployed_bstate e3 accounts_unique accounts_not_contracts.
+    subst.
+    rewrite contract_deployed in e. inversion e. subst.
+    rewrite contract_state in e0. inversion e0. subst.
+    apply wc_receive_strong in e2 as
+      (prev_state' & msg' & new_state' & serialize_prev_state & serialize_msg & serialize_new_state & receive_some).
+    rewrite deserialize_serialize in serialize_prev_state. inversion serialize_prev_state. subst.
+    apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
+    apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ?).
+    repeat match goal with
+    | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+    end.
+    eexists new_state'.
     repeat split; eauto;
       try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+    eapply N.le_trans in enough_balance_to_fund; [| apply N.sub_le_mono_l, total_supply_increasing].
     eapply N.le_trans.
-    apply H3.
+    apply enough_balance_to_fund.
     apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
     eapply spendable_consume_act; eauto;
-      intros; rewrite_environment_equiv; subst;
+      intros; rewrite_environment_equiv; subst; destruct msg;
       cbn; destruct_address_eq; try easy; lia.
-  - exists cstate.
-    repeat split; eauto;
-      try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
-    eapply N.le_trans.
-    apply H3.
-    apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-    eapply spendable_consume_act; eauto;
-      intros; rewrite_environment_equiv; subst;
-      cbn; destruct_address_eq; try easy; lia.
-  - destruct (address_eqdec caddr to_addr).
-    + rewrite e5 in *.
-      rewrite H1 in e. inversion e. rewrite <- H0 in *.
-      rewrite H2 in e0. inversion e0. rewrite <- H9 in *.
-      apply wc_receive_strong in e2 as [prev_state' [msg' [new_state' [H16 [H17 [H18 H19]]]]]].
-      rewrite deserialize_serialize in H16. inversion H16. rewrite H10 in *.
-      apply receive_total_supply_increasing in H19 as total_supply_increasing; try (cbn; lia).
-      apply receive_preserves_constants in H19 as (H20 & H21 & H22 & H23 & H24 & H45 & H26).
-      repeat match goal with
-      | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
-      end.
-      eexists new_state'.
-      repeat split; eauto;
-        try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
-      eapply N.le_trans in H3; [| apply N.sub_le_mono_l, total_supply_increasing].
-      eapply N.le_trans.
-      apply H3.
-      apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-      eapply spendable_consume_act; eauto;
-        intros; rewrite_environment_equiv; subst; destruct msg;
-        cbn; destruct_address_eq; try easy; lia.
-    + exists cstate.
-      repeat split; eauto;
-        try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
-      eapply N.le_trans.
-      apply H3.
-      apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-      eapply spendable_consume_act; eauto;
-        intros; rewrite_environment_equiv; subst; destruct msg;
-        cbn; destruct_address_eq; try easy; lia.
-  - exists cstate.
-    repeat split; eauto; try (rewrite_environment_equiv; cbn; easy).
-    eapply N.le_trans.
-    apply H3.
-    apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
-    eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; lia.
-  - update_all.
-    rewrite spendable_eq_total_balance in H3; eauto.
+  - (* Update goal and eleminate all occurrences of old ChainState *)
+    update_all.
+    (* Now that the queue is empty we can switch from using spendable_balance
+       to total_balance to simplify the proof *)
+    rewrite spendable_eq_total_balance in enough_balance_to_fund; eauto.
 
-    destruct (isFinalized cstate) eqn:finalized; [eexists; split; eauto|].
-
+    (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
+    destruct (isFinalized cstate) eqn:finalized;
+      [eexists; split; eauto; rewrite queue; split; eauto; apply empty_queue_is_emptyable |].
+    
+    (* Next add a new block containing enough create_tokens actions to reach funding goal *)
     add_block (create_token_acts (bstate<|env_account_balances := add_balance creator reward bstate.(env_account_balances)|>) caddr accounts
             ((tokenCreationMin cstate) - (total_supply cstate)) cstate.(tokenExchangeRate)) 1%nat;
       only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | ].
-    update ((current_slot bstate0) <= (fundingEnd cstate))%nat in H6 by
+    (* Prove that the funding period is still not over *)
+    update ((current_slot bstate0) <= (fundingEnd cstate))%nat in funding_period_not_over by
       (rewrite_environment_equiv; cbn; lia).
+    (* Prove that the environment in the new ChainState is correct *)
     update (setter_from_getter_Environment_env_account_balances
                (fun _ : Address -> Amount => add_balance creator reward (env_account_balances bstate)) bstate)
       with bstate0.(chain_state_env) in queue0 by
       (rewrite queue0; apply create_token_acts_eq; intros; now rewrite_environment_equiv).
-    update bstate with bstate0 in H3.
+    (* Prove that there is still enough balance in accounts to hit funding goal *)
+    update bstate with bstate0 in enough_balance_to_fund.
     { eapply N.le_trans; eauto.
       apply N.mul_le_mono_r, Z2N.inj_le;
         try now apply total_balance_positive.
@@ -1693,84 +1582,121 @@ Proof.
     generalize dependent bstate0.
     generalize dependent cstate.
 
+    (* Next we do induction on account to evaluate all the actions added to the queue *)
     induction accounts; intros.
-    + apply N.le_0_r, N.sub_0_le in H3.
+    + (* If the queue is empty then we know that the funding goal was hit
+          and can then apply can_finalize_if_creation_min *)
+      clear accounts_unique accounts_not_contracts can_hit_fund_min echange_rate_nonzero
+            finalized funding_period_not_over funding_period_started.
+      apply N.le_0_r, N.sub_0_le in enough_balance_to_fund.
       specialize (can_finalize_if_creation_min bstate0 reward caddr creator).
       intros []; eauto.
-    + apply NoDup_cons_iff in accounts_unique as [accounts_unique accounts_unique'].
+      rewrite queue0.
+      apply empty_queue_is_emptyable.
+    + clear reward Hreward creator Hcreator.
+      apply NoDup_cons_iff in accounts_unique as [accounts_unique accounts_unique'].
       apply list.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
+
+      (* Check if funding goal was alredy hit *)
       destruct (tokenCreationMin cstate - total_supply cstate) eqn:tokens_left_to_fund.
-      * eapply IHaccounts; eauto.
+      * (* If funding goal is reached then we know that create_token_acts will not
+            produce any more actions so the queue is actually empty.
+           Therefore we can directly apply the induction hypothesis *)
+        eapply IHaccounts; eauto.
        -- now rewrite tokens_left_to_fund.
        -- rewrite tokens_left_to_fund.
           apply N.le_0_l.
       * rewrite <- tokens_left_to_fund in *.
-        clear Hreward.
+        (* We check if the account balance is 0 *)
         destruct (0 <? env_account_balances bstate0 a)%Z eqn:balance_positive; cycle 1;
           [apply Z.ltb_ge in balance_positive | apply Z.ltb_lt in balance_positive].
-        { assert (amount_zero : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
+        { (* If account balance is 0 then we need to discard the action as it
+              cannot be evaluated *)
+          assert (amount_zero : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
           rewrite create_token_acts_cons, amount_zero, N.min_0_r, N.mul_0_l, N.sub_0_r in queue0 by lia.
           discard_invalid_action; eauto.
-          - intros.
+          - (* Prove that the action cannot be evaluated since create_tokens
+                requires to be called with amount > 0 *)
+            clear dependent accounts.
+            clear dependent cstate.
+            clear p reach0 accounts_not_contracts balance_positive.
+            intros.
             destruct_action_eval;
             [inversion e0 | inversion e1 | destruct msg; inversion e1; subst].
-            rewrite H1 in e. inversion e. subst.
-            apply wc_receive_strong in e2 as [prev_state' [msg' [new_state' [H16 [H17 [H18 H19]]]]]].
-            destruct_match in H17; try congruence.
-            cbn in H17.
-            rewrite deserialize_serialize in H17.
-            inversion H17. subst.
-            now apply try_create_tokens_amount_correct in H19.
-          - edestruct IHaccounts with (bstate0 := bstate) (cstate := cstate); eauto; try (rewrite_environment_equiv; eauto).
+            rewrite contract_deployed in e. inversion e. subst.
+            apply wc_receive_strong in e2 as
+              (prev_state' & msg' & new_state' & serialize_prev_state & serialize_msg & serialize_new_state & receive_some).
+            destruct_match in serialize_msg; try congruence.
+            cbn in serialize_msg.
+            rewrite deserialize_serialize in serialize_msg.
+            inversion serialize_msg. subst.
+            now apply try_create_tokens_amount_correct in receive_some.
+          - (* Apply induction hypothesis *)
+            edestruct IHaccounts with (bstate0 := bstate) (cstate := cstate) as []; eauto; try (rewrite_environment_equiv; eauto).
             + rewrite queue.
               apply create_token_acts_eq.
               intros. now rewrite_environment_equiv.
-            + rewrite total_balance_distr, N.add_comm in H3; eauto.
+            + rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
               erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv).
               lia.
-            + destruct H as [H H'].
-              now exists x.
+            + now exists x.
         }
 
-        evaluate_action BAT.contract; try easy.
-        -- now rewrite create_token_acts_cons by lia.
-        -- apply Z.le_ge, N2Z.is_nonneg.
-        -- nia.
-        -- apply Nat.ltb_ge in H5.
-           apply Nat.ltb_ge in H6.
+        (* Now we know that the action is valid we need to evaluate it *)
+        evaluate_action BAT.contract; try easy;
+          only 1-4: clear fund_deposit_not_contract accounts_not_contracts IHaccounts.
+        -- (* Prove that there is an action in the queue *)
+           now rewrite create_token_acts_cons by lia.
+        -- (* Prove that amount is nonnegative *)
+           apply Z.le_ge, N2Z.is_nonneg.
+        -- (* Prove that amount <= account balance *)
+           nia.
+        -- (* Prove that receive returns Some *)
+           clear dependent accounts.
+           clear contract_deployed contract_state.
+           apply Nat.ltb_ge in funding_period_started.
+           apply Nat.ltb_ge in funding_period_not_over.
            cbn.
-           rewrite finalized, H5, H6, N2Z.inj_min, Z2N.id;
+           rewrite finalized, funding_period_started, funding_period_not_over, N2Z.inj_min, Z2N.id;
              try (apply Z.ge_le, account_balance_nonnegative; eauto).
+           clear finalized funding_period_started funding_period_not_over.
            cbn.
            destruct_match eqn:match_amount; returnIf match_amount.
            destruct_match eqn:match_cap; returnIf match_cap; eauto.
-         --- apply N.ltb_lt in match_cap.
+         --- (* Prove contradiction between match_amount, match_cap and can_hit_fund_min *)
+             apply N.ltb_lt in match_cap.
              apply Z.leb_gt, Z.min_glb_lt_iff in match_amount as [].
              rewrite Z2N.inj_min, N2Z.id, <- N.mul_min_distr_r, <- N.add_min_distr_l, N.min_glb_lt_iff in match_cap.
              destruct match_cap.
-             apply N.lt_le_trans with (p := (tokenCreationMin cstate) + tokenExchangeRate cstate) in H9.
+             apply N.lt_le_trans with (p := (tokenCreationMin cstate) + tokenExchangeRate cstate) in H1.
              nia.
              rewrite N.mul_add_distr_r, N.mul_1_l.
              rewrite N.add_assoc, N.add_comm, N.add_assoc.
              rewrite <- N.add_le_mono_r.
              apply N_le_sub. lia.
              now apply N_div_mul_le.
-         --- apply Zle_bool_imp_le, Z.min_le in match_amount as [].
+         --- (* Prove contradiction between match_amount, balance_positive *)
+             apply Zle_bool_imp_le, Z.min_le in match_amount as [].
           ---- rewrite <- N2Z.inj_0 in H.
                now apply N2Z.inj_le, N_le_add_distr in H.
           ---- lia.
         -- assert (caddr_not_in_accounts : ~ In caddr accounts) by
-             (intro; rewrite Forall_forall in accounts_not_contracts'; apply accounts_not_contracts' in H; now apply contract_addr_format in H1).
-           assert (env_balances_eq : forall a, In a accounts -> env_account_balances bstate0 a = env_account_balances bstate a)
-             by (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
-           edestruct IHaccounts;
+             (intro; rewrite Forall_forall in accounts_not_contracts'; apply accounts_not_contracts' in H; now apply contract_addr_format in contract_deployed).
+           (* Apply induction hypothesis *)
+           edestruct IHaccounts as [];
+             clear IHaccounts accounts_not_contracts balance_positive queue0 tokens_left_to_fund p;
              only 12: (rewrite deployed_state; eauto);
              try (rewrite_environment_equiv; eauto);
-             cbn; try rewrite Z2N.inj_min, N2Z.id.
-         --- rewrite queue, N.sub_add_distr.
+             cbn; try rewrite Z2N.inj_min, N2Z.id;
+             clear deployed_state contract_deployed funding_period_started funding_period_not_over
+             can_hit_fund_min fund_deposit_not_contract finalized contract_state.
+         --- (* Prove that the queues of the two ChainStates are equivalent *)
+             rewrite queue, N.sub_add_distr.
              apply create_token_acts_eq.
              intros. rewrite_environment_equiv. cbn. now destruct_address_eq.
-         --- edestruct N.min_dec.
+         --- (* Prove that there still is enough balance to hit funding goal *)
+             clear queue accounts_not_contracts'.
+             edestruct N.min_dec.
           ---- cbn. rewrite e.
                eapply N.le_trans; [| apply N.le_0_l].
                rewrite N.mul_add_distr_r, N.mul_1_l.
@@ -1779,16 +1705,15 @@ Proof.
                rewrite N.sub_add_distr.
                apply N.sub_0_le.
                now apply N_le_div_mul.
-          ---- rewrite total_balance_distr, N.add_comm in H3; eauto.
+          ---- rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
                erewrite (total_balance_eq _ bstate0) by
                 (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
-               apply N.le_sub_le_add_r in H3.
-               rewrite <- N.sub_add_distr in H3.
-               eapply N.le_trans; [| apply H3].
+               apply N.le_sub_le_add_r in enough_balance_to_fund.
+               rewrite <- N.sub_add_distr in enough_balance_to_fund.
+               eapply N.le_trans; [| apply enough_balance_to_fund].
                apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
                lia.
-         --- destruct H as [H H'].
-             now exists x.
+         --- now exists x.
 Qed.
 
 End Theories.
