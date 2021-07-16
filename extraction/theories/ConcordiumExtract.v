@@ -29,9 +29,15 @@ Definition remap_arith : list (kername * string) := Eval compute in
    ; remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }"
    ; remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }"
    ; remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }"
+   ; remap <%% BinIntDef.Z.even %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() == 0 }"
+   ; remap <%% BinIntDef.Z.odd %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() != 0 }"
    ; remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }"
    ; remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }"
-   ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }" ].
+   ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }"
+   ; remap <%% Z.gtb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a > b }"
+   ; remap <%% Nat.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }"
+   ; remap <%% Nat.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }"
+   ; remap <%% Nat.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }"].
 
 Definition remap_blockchain_consts : list (kername * string) :=
   [ remap <! @Address !> "type ##name##<'a> = concordium_std::Address;"
@@ -242,31 +248,20 @@ Module ConcordiumPreamble.
 "  f";
 "}";
 "";
-"#[derive(Debug, PartialEq, Eq)]";
+"#[derive(Debug, PartialEq, Eq, Reject)]";
 "enum InitError {";
 "   DeserialParams,";
 "   SerialParams,";
 "   Error";
 "}";
 "";
-"impl From<InitError> for concordium_std::Reject {";
-"  fn from(_ : InitError) -> Self {";
-"    ().into()";
-"  }";
-"}";
-"";
-"#[derive(Debug, PartialEq, Eq)]";
+"#[derive(Debug, PartialEq, Eq, Reject)]";
 "enum ReceiveError {";
 "    DeserialMsg,";
 "    DeserialOldState,";
 "    SerialNewState,";
 "    ConvertActions, // Cannot convert ConCert actions to Concordium actions";
 "    Error";
-"}";
-"impl From<ReceiveError> for concordium_std::Reject {";
-"  fn from(_ : ReceiveError) -> Self {";
-"    ().into()";
-"  }";
 "}"
 ];
 program_preamble := [
@@ -309,43 +304,38 @@ Definition specialize_extract_template_env
            (Σ : global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
-  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
-  let Σ := TemplateToPCUIC.trans_global_decls Σ in
-  Σ <- SpecializeChainBase.specialize_ChainBase_env Σ ;;
-  wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
+  extract_template_env_general SpecializeChainBase.specialize_ChainBase_env
+                       params
+                       Σ
+                       seeds
+                       ignore.
 
-Local Instance RustConfig : RustPrintConfig :=
-  {| term_box_symbol := "()";
-     type_box_symbol := "()";
-     any_type_symbol := "()";
-     print_full_names := true |}.
+Section ConcordiumPrinting.
 
-Definition extract_lines
-           (seeds : KernameSet.t)
-           (Σ : global_env)
-           (remaps : remaps)
-           (overridden_masks : kername -> option bitmask)
-           (should_inline : kername -> bool) : result (list string) string :=
-  let should_ignore kn :=
-      if remap_inductive remaps (mkInd kn 0) then true else
-      if remap_constant remaps kn then true else
-      if remap_inline_constant remaps kn then true else false in
-  Σ <- specialize_extract_template_env
-         (extract_rust_within_coq overridden_masks should_inline)
-         Σ seeds should_ignore;;
-  let attrs _ := "#[derive(Clone, ConCertSerial, ConCertDeserial)]" in
-  let p := print_program Σ remaps attrs in
-  '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
-  ret s.
+  Context `{RustPrintConfig}.
 
-Open Scope string.
+  Definition extract_lines
+             (seeds : KernameSet.t)
+             (Σ : global_env)
+             (remaps : remaps)
+             (params : extract_template_env_params) : result (list string) string :=
+    let should_ignore kn :=
+        if remap_inductive remaps (mkInd kn 0) then true else
+        if remap_constant remaps kn then true else
+        if remap_inline_constant remaps kn then true else false in
+    Σ <- specialize_extract_template_env params Σ seeds should_ignore;;
+    let attrs _ := "#[derive(Clone, ConCertSerial, ConCertDeserial, PartialEq)]" in
+    let p := print_program Σ remaps attrs in
+    '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
+    ret s.
 
-Definition print_init_attrs (contract_name : string) : string :=
-  "#[init(contract = """ ++ contract_name ++ """" ++ ", payable, enable_logger, low_level)]".
+  Open Scope string.
 
-Definition init_wrapper (contract_name : string) (init_name : kername) :=
-  <$ print_init_attrs contract_name ;
+  Definition print_init_attrs (contract_name : string) : string :=
+    "#[init(contract = """ ++ contract_name ++ """" ++ ", payable, enable_logger, low_level)]".
+
+  Definition init_wrapper (contract_name : string) (init_name : kername) :=
+    <$ print_init_attrs contract_name ;
      "fn contract_init<StateError: Default>(";
      "    ctx: &impl HasInitContext<()>,";
      "    amount: concordium_std::Amount,";
@@ -384,10 +374,10 @@ Definition init_wrapper (contract_name : string) (init_name : kername) :=
      "    }";
 "}" $>.
 
-Definition list_name : string :=
-  RustExtract.ty_const_global_ident_of_kername <%% list %%>.
+  Definition list_name : string :=
+    RustExtract.ty_const_global_ident_of_kername <%% list %%>.
 
-Definition convert_actions : string :=
+  Definition convert_actions : string :=
   <$
 "fn convert_actions<A: HasActions>(acts: &" ++ list_name ++ "<ActionBody>) -> Result<A, ReceiveError> {";
 "  match acts {";
@@ -396,7 +386,7 @@ Definition convert_actions : string :=
 "      let cact =";
 "        if let ActionBody::Transfer(Address::Account(acc), amount) = hd {";
 "          let amount = convert::TryInto::try_into(amount).map_err(|_| ReceiveError::ConvertActions)?;";
-"          A::simple_transfer(&acc, Amount::from_micro_gtu(amount))";
+"          A::simple_transfer(&acc, concordium_std::Amount::from_micro_gtu(amount))";
 "        } else {";
 "          return Err(ReceiveError::ConvertActions) // Cannot handle call to contract through ConCert, use Concordium functions instead";
 "        };";
@@ -405,14 +395,14 @@ Definition convert_actions : string :=
 "  }";
 "}" $>.
 
-Definition print_receive_attrs (contract_name : string) (receive_name : kername) : string :=
-  "#[receive(contract = """ ++ contract_name ++ """" ++
-             ", name = """ ++ RustExtract.const_global_ident_of_kername receive_name ++ """" ++
-             ", payable, enable_logger, low_level)]".
+  Definition print_receive_attrs (contract_name : string) (receive_name : kername) : string :=
+    "#[receive(contract = """ ++ contract_name ++ """" ++
+              ", name = """ ++ RustExtract.const_global_ident_of_kername receive_name ++ """" ++
+              ", payable, enable_logger, low_level)]".
 
-Definition receive_wrapper
-           (contract_name : string) (receive_name : kername) : string :=
-  <$ print_receive_attrs contract_name receive_name;
+  Definition receive_wrapper
+             (contract_name : string) (receive_name : kername) : string :=
+    <$ print_receive_attrs contract_name receive_name;
      "fn contract_receive<A: HasActions, StateError: Default>(";
      "    ctx: &impl HasReceiveContext<()>,";
      "    amount: concordium_std::Amount,";
@@ -437,12 +427,19 @@ Definition receive_wrapper
      "            ctx.metadata().slot_time().timestamp_millis(),";
      "            0 // No finalized height";
      "        );";
+     "    let balance = if ctx.sender() != concordium_std::Address::Contract(ctx.self_address()) {";
+     "   // if the contract is not calling itself, we add amount to the current balance";
+     "   // as expeced by the ConCert execution model";
+     "   (ctx.self_balance().micro_gtu + amount.micro_gtu) as i64";
+     "    } else {";
+     "        ctx.self_balance().micro_gtu as i64";
+     "    };";
      "    let cctx =";
      "        " ++ RustExtract.ty_const_global_ident_of_kername <%% @ContractCallContext %%> ++ "::build_ctx(";
      "            PhantomData,";
      "            ctx.sender(),";
      "            Address::Contract(ctx.self_address()),";
-     "            ctx.self_balance().micro_gtu as i64,";
+     "            balance,";
      "            amount.micro_gtu as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername receive_name ++ "(&cchain, &cctx, old_state, msg);";
      "    match res {";
@@ -457,8 +454,8 @@ Definition receive_wrapper
      "    }";
 "}" $>.
 
-Definition print_lines (lines : list string) : TemplateMonad unit :=
-  monad_iter tmMsg lines.
+  Definition print_lines (lines : list string) : TemplateMonad unit :=
+    monad_iter tmMsg lines.
 
 Definition concordium_extraction
            {init_type receive_type : Type}
@@ -476,9 +473,10 @@ Definition concordium_extraction
         Some []
       else
         None in
-  res <- tmEval lazy (extract_lines
-                        (KernameSetProp.of_list (init_nm :: receive_nm :: extra))
-                        Σ remaps overridden_masks should_inline);;
+  let seeds := KernameSetProp.of_list (init_nm :: receive_nm :: extra) in
+  let params := extract_rust_within_coq overridden_masks should_inline in
+  Σ <- run_transforms Σ params;;
+  res <- tmEval lazy (extract_lines seeds Σ remaps params);;
   match res with
   | Ok lines =>
     let init_wrapper := init_wrapper m.(concmd_contract_name) init_nm in
@@ -486,3 +484,15 @@ Definition concordium_extraction
     print_lines (lines ++ [""; init_wrapper; ""; convert_actions; ""; receive_wrapper])
   | Err e => tmFail e
   end.
+
+End ConcordiumPrinting.
+
+Module DefaultPrintConfig.
+
+  Definition RustConfig : RustPrintConfig :=
+    {| term_box_symbol := "()";
+       type_box_symbol := "()";
+       any_type_symbol := "()";
+       print_full_names := true |}.
+
+End DefaultPrintConfig.

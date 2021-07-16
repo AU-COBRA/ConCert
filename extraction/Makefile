@@ -38,6 +38,13 @@ process-extraction-examples: theory
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
+test-extraction:
+	cd ./examples/elm-extract/; elm-test
+	cd ./examples/elm-web-extract/; elm make src/Main.elm
+	$(foreach file, $(wildcard ./examples/liquidity-extract/tests/*.liq), liquidity $(file);)
+	$(foreach dir, $(wildcard ./examples/concordium-extract/*-extracted), cd $(dir) && cargo concordium test && cd ../../..;)
+.PHONY: test-extraction
+
 clean-extraction-examples:
 	rm ./examples/elm-extract/*.elm.out
 	rm ./examples/elm-extract/tests/*.elm

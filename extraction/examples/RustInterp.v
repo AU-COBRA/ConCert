@@ -41,6 +41,13 @@ Import Blockchain.
 
 Open Scope list.
 
+Instance RustConfig : RustPrintConfig :=
+    {| term_box_symbol := "()";
+       type_box_symbol := "()";
+       any_type_symbol := "()";
+       print_full_names := false |}.
+
+Redirect "examples/concordium-extract/interp.rs"
 MetaCoq Run (concordium_extraction
                STACK_INTERP_MODULE
                (ConcordiumRemap.build_remaps

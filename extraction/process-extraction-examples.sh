@@ -4,6 +4,8 @@ ELM_PATH=./examples/elm-extract
 ELM_WEB_PATH=./examples/elm-web-extract
 LIQ_PATH=./examples/liquidity-extract
 MID_PATH=./examples/midlang-extract
+RUST_PATH=./examples/rust-extract
+CONCORDIUM_PATH=./examples/concordium-extract
 ELM_TESTS=$ELM_PATH/tests
 ELM_WEB_SRC=$ELM_WEB_PATH/src
 LIQ_TESTS=$LIQ_PATH/tests
@@ -40,4 +42,16 @@ for f in $MID_PATH/*.midlang.out;
 do
     echo $f "--->" $MID_TESTS/$(basename ${f%.out}) ;
     cp $f $MID_TESTS/$(basename ${f%.out})
+done
+
+echo "Processing Rust Concordium extraction"
+concordium_contracts="counter interp escrow"
+
+for f in ${concordium_contracts}
+do
+fname=$CONCORDIUM_PATH/${f}-extracted/src/lib.rs
+echo "removing previous extraction: " ${fname}
+rm -f ${fname}
+echo "Processing" ${f}.rs.out
+cat $CONCORDIUM_PATH/${f}.rs.out $CONCORDIUM_PATH/${f}-extracted/src/tests.rs > $CONCORDIUM_PATH/${f}-extracted/src/lib.rs
 done
