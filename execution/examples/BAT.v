@@ -1119,6 +1119,9 @@ Notation serializeState := (@serialize BAT.State _).
 Definition finalize_act cstate caddr : Action :=
   build_act (fundDeposit cstate) (act_call caddr 0%Z (serializeMsg finalize)).
 
+Definition deploy_act setup contract from : Action :=
+  build_act from (act_deploy 0%Z contract ((@serialize Setup _) setup)).
+
 Lemma N_le_add_distr : forall n m p,
  n + m <= p -> n <= p.
 Proof.
@@ -1482,8 +1485,7 @@ Proof.
 Qed.
 
 (* Prove that it is always possible to reach a state where the token is finalized if there
-   is enough money in the blockchain and the contract constants were initialized with valid
-   values *)
+   is enough money in the blockchain and the contract constants have valid values *)
 Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr creator : Address) accounts,
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1714,6 +1716,86 @@ Proof.
                apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
                lia.
          --- now exists x.
+Qed.
+
+Lemma can_deploy_and_finalize : forall bstate (reward : Amount) (caddr creator : Address) accounts setup,
+  address_is_contract creator = false ->
+  (reward >= 0)%Z ->
+  reachable bstate ->
+  chain_state_queue bstate = [] ->
+  NoDup accounts ->
+  Forall (fun acc => address_is_contract acc = false) accounts ->
+  address_is_contract caddr = true ->
+  env_contracts bstate caddr = None ->
+  (((_tokenCreationMin setup) - (_batFund setup))) <=
+            ((Z.to_N (spendable_balance bstate accounts)) * (_tokenExchangeRate setup)) ->
+  setup.(_tokenExchangeRate) <= setup.(_tokenCreationCap) - setup.(_tokenCreationMin) ->
+  ((_fundingStart setup) < (_fundingEnd setup))%nat ->
+  (S (current_slot (env_chain bstate)) < (_fundingStart setup))%nat ->
+  address_is_contract (_fundDeposit setup) = false ->
+  setup.(_tokenExchangeRate) <> 0 ->
+  exists bstate',
+    reachable_through bstate bstate'
+    /\ emptyable (chain_state_queue bstate')
+    /\ exists cstate,
+    env_contracts bstate' caddr = Some (BAT.contract : WeakContract)
+    /\ env_contract_states bstate' caddr = Some (serializeState cstate)
+    /\ (isFinalized cstate) = true.
+Proof.
+  intros bstate reward caddr creator accounts setup
+         Hcreator Hreward bstate_reachable bstate_queue
+         accounts_unique
+         accounts_not_contracts
+         caddr_is_contract
+         contract_not_deployed
+         enough_balance_to_fund
+         can_hit_fund_min
+         funding_period_nonempty
+         funding_period_not_started
+         fund_deposit_not_contract
+         echange_rate_nonzero.
+
+  add_block [(deploy_act setup BAT.contract creator)] 1%nat; eauto.
+  update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
+    (rewrite_environment_equiv; cbn; lia).
+  update bstate with bstate0 in enough_balance_to_fund by
+    (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+     unfold spendable_balance, pending_usage; rewrite queue, bstate_queue; apply sumZ_le;
+     intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+  update_all.
+
+  deploy_contract BAT.contract; eauto; try lia; try now apply account_balance_nonnegative.
+  specialize constants_are_constant as (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ?); eauto.
+  unfold contract_state in deployed_state'. cbn in deployed_state'.
+  rewrite deployed_state, deserialize_serialize in deployed_state'.
+  inversion deployed_state'. rewrite <- H7 in *. clear H7 deployed_state'.
+  rewrite deploy_info in deploy_info'.
+  inversion deploy_info'. rewrite <- H7 in *. clear H7 deploy_info'.
+  cbn in *.
+  repeat match goal with
+  | H : _ cstate =  _ setup |- _=> rewrite <- H in *; clear H
+  end.
+  update (_batFund setup) with (total_supply cstate) in enough_balance_to_fund by
+    (eapply N.le_trans; [apply N.sub_le_mono_l, N.eq_le_incl | apply enough_balance_to_fund]; now rewrite Heqcstate).
+  update bstate0 with bstate in enough_balance_to_fund by
+    (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+     eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; subst; cbn; destruct_address_eq; try easy; lia).
+  clear dependent trace.
+  update_all.
+
+  forward_time_exact (cstate.(fundingStart)); eauto.
+  update bstate with bstate0 in enough_balance_to_fund by
+    (inversion header_valid;
+     eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+     unfold spendable_balance, pending_usage; rewrite queue, queue0; apply sumZ_le;
+     intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+  clear funding_period_not_started.
+  update_all.
+  
+  eapply can_finalize_if_deployed; eauto.
+  - rewrite queue. apply empty_queue_is_emptyable.
+  - eexists.
+    intuition.
 Qed.
 
 End Theories.

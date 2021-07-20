@@ -476,6 +476,26 @@ Proof.
     + inversion H4.
 Qed.
 
+Lemma wc_init_to_init : forall {Setup Msg State : Type}
+                               `{Serializable Setup}
+                               `{Serializable Msg}
+                               `{Serializable State}
+                               (contract : Contract Setup Msg State)
+                               chain cctx cstate setup,
+  contract.(init) chain cctx setup = Some cstate <->
+  wc_init contract chain cctx ((@serialize Setup _) setup) = Some ((@serialize State _) cstate).
+Proof.
+  split; intros.
+  - cbn.
+    rewrite deserialize_serialize.
+    now rewrite H2.
+  - apply wc_init_strong in H2.
+    destruct H2 as (setup_strong & result_strong & serialize_setup & serialize_result & init_some).
+    apply serialize_injective in serialize_result. subst.
+    rewrite deserialize_serialize in serialize_setup.
+    now inversion serialize_setup.
+Qed.
+
 Open Scope Z_scope.
 Lemma add_block : forall bstate reward creator acts slot_incr,
   reachable bstate ->
@@ -496,7 +516,7 @@ Lemma add_block : forall bstate reward creator acts slot_incr,
           block_reward := reward; |} bstate)).
 Proof.
   intros.
-  pose (header := 
+  pose (header :=
     {| block_height := S (chain_height bstate);
        block_slot := current_slot bstate + slot_incr;
        block_finalized_height := finalized_height bstate;
@@ -517,6 +537,31 @@ Proof.
   constructor; try reflexivity.
 Qed.
 
+Lemma forward_time_exact : forall bstate reward creator slot,
+  reachable bstate ->
+  chain_state_queue bstate = [] ->
+  address_is_contract creator = false ->
+  reward >= 0 ->
+  (current_slot bstate < slot)%nat ->
+    (exists bstate' header,
+       reachable_through bstate bstate'
+    /\ IsValidNextBlock header bstate
+    /\ (slot = current_slot bstate')%nat
+    /\ chain_state_queue bstate' = []
+    /\ EnvironmentEquiv
+        bstate'
+        (add_new_block_to_env header bstate)).
+Proof.
+  intros.
+  eapply add_block with (slot_incr := (slot - current_slot bstate)%nat) in H1 as H4; try easy.
+  destruct H4 as [bstate_with_act [reach [queue env_eq]]].
+  do 2 eexists.
+  split; eauto.
+  do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
+  - now apply finalized_heigh_chain_height.
+  - rewrite_environment_equiv. cbn. lia.
+Qed.
+
 Lemma forward_time : forall bstate reward creator slot,
   reachable bstate ->
   chain_state_queue bstate = [] ->
@@ -524,6 +569,7 @@ Lemma forward_time : forall bstate reward creator slot,
   reward >= 0 ->
     (exists bstate' header,
        reachable_through bstate bstate'
+    /\ IsValidNextBlock header bstate
     /\ (slot <= current_slot bstate')%nat
     /\ chain_state_queue bstate' = []
     /\ EnvironmentEquiv
@@ -532,32 +578,18 @@ Lemma forward_time : forall bstate reward creator slot,
 Proof.
   intros.
   destruct (slot - current_slot bstate)%nat eqn:H3.
-  - apply NPeano.Nat.sub_0_le in H3.
-    exists bstate.
-    exists {| block_height := chain_height bstate;
-       block_slot := current_slot bstate;
-       block_finalized_height := finalized_height bstate;
-       block_creator := creator;
-       block_reward := 0; |}.
-    split; eauto.
-    split; eauto.
-    split; eauto.
-    constructor; eauto.
-    + destruct bstate.
-      destruct chain_state_env.
-      destruct env_chain.
-      reflexivity.
-    + intro.
-      cbn.
-      now destruct_address_eq.
-  - eapply add_block with (slot_incr := S n) in H1; try easy.
-    destruct H1 as [bstate_with_act [reach [queue env_eq]]].
+  - eapply add_block with (slot_incr := 1%nat) in H1 as H4; try easy.
+    destruct H4 as [bstate_with_act [reach [queue env_eq]]].
     do 2 eexists.
     split; eauto.
+    do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
+    + now apply finalized_heigh_chain_height.
+    + apply NPeano.Nat.sub_0_le in H3.
+      rewrite_environment_equiv. cbn. lia.
+  - specialize forward_time_exact with (slot := slot) as (bstate' & header & reach & header_valid & slot_hit & queue & env_eq); try easy.
+    do 2 eexists.
     split; eauto.
-    rewrite_environment_equiv.
-    cbn.
-    lia.
+    intuition.
 Qed.
 
 Lemma evaluate_action : forall {Setup Msg State : Type}
@@ -658,6 +690,79 @@ Proof.
     split; eauto.
     repeat split; eauto.
 Qed.
+
+Lemma deploy_contract : forall {Setup Msg State : Type}
+                              `{Serializable Setup}
+                              `{Serializable Msg}
+                              `{Serializable State}
+                               (contract : Contract Setup Msg State)
+                               bstate from caddr amount acts setup cstate,
+  reachable bstate ->
+  chain_state_queue bstate = {| act_from := from;
+                                act_body := act_deploy amount contract ((@serialize Setup _) setup) |} :: acts ->
+  amount >= 0 ->
+  env_account_balances bstate from >= amount ->
+  address_is_contract caddr = true ->
+  env_contracts bstate caddr = None ->
+  Blockchain.init contract
+        (transfer_balance from caddr amount bstate)
+        (build_ctx from caddr amount amount)
+        setup = Some cstate ->
+    (exists bstate' (trace : ChainTrace empty_state bstate'),
+       reachable_through bstate bstate'
+    /\ env_contracts bstate' caddr = Some (contract : WeakContract)
+    /\ env_contract_states bstate' caddr = Some ((@serialize State _) cstate)
+    /\ deployment_info Setup trace caddr = Some (build_deployment_info from amount setup)
+    /\ chain_state_queue bstate' = acts
+    /\ EnvironmentEquiv
+        bstate'
+        (set_contract_state caddr ((@serialize State _) cstate)
+        (add_contract caddr contract
+        (transfer_balance from caddr amount bstate)))).
+Proof.
+  intros.
+  apply Z.ge_le in H5.
+  pose (bstate' := (bstate<|chain_state_queue := acts|>
+                          <|chain_state_env :=
+                            (set_contract_state caddr ((@serialize State _) cstate)
+                            (add_contract caddr contract
+                            (transfer_balance from caddr amount bstate)))|>)).
+  assert (step : ChainStep bstate bstate').
+  - eapply step_action with (new_acts := []); eauto.
+    eapply eval_deploy; eauto.
+    + now apply wc_init_to_init in H8.
+    + constructor; reflexivity.
+  - exists bstate'.
+    destruct H2 as [H2].
+    exists (ChainedList.snoc H2 step).
+    split; eauto.
+    repeat split; eauto;
+    try (cbn; now destruct_address_eq).
+    cbn. destruct step; try congruence.
+    + destruct a; try congruence.
+      * subst.
+        rewrite H3 in e.
+        inversion e. subst.
+        destruct_address_eq.
+        -- now rewrite deserialize_serialize.
+        -- inversion e5.
+           cbn in contracts_eq.
+           specialize (contracts_eq caddr).
+           rewrite address_eq_refl in contracts_eq.
+           now rewrite address_eq_ne in contracts_eq.
+      * cbn in *. subst.
+        rewrite H3 in e.
+        inversion e.
+        destruct msg; congruence.
+    + exfalso. eapply f.
+      rewrite H3 in e0.
+      inversion e0.
+      eapply eval_deploy; eauto.
+      * now apply wc_init_to_init in H8.
+      * constructor; reflexivity.
+    + rewrite e in H7.
+      cbn in H7. now destruct_address_eq.
+Qed.
 Close Scope Z_scope.
 
 Lemma step_reachable_through_exists : forall from mid (P : ChainState -> Prop),
@@ -715,6 +820,7 @@ Local Ltac update_chainstate bstate1 bstate2 :=
   match goal with
   | H : reachable bstate1 |- _ => clear H
   | H : chain_state_queue bstate1 = _ |- _ => clear H
+  | H : IsValidNextBlock _ bstate1.(chain_state_env).(env_chain) |- _ => clear H
   | H : reachable_through bstate1 bstate2 |- _ =>
       update (reachable bstate2) in H
   | H : env_contracts bstate1.(chain_state_env) _ = Some _ |- _ =>
@@ -738,7 +844,7 @@ Ltac update_all :=
       update_chainstate bstate1 bstate2;
       only_on_match ltac:(
         clear Henv_eq;
-        try clear header;
+        (try clear dependent header);
         clear dependent bstate1)
   | Hreach : reachable_through ?bstate1 ?bstate2,
     Henv_eq : EnvironmentEquiv ?bstate2.(chain_state_env) _ |-
@@ -758,6 +864,7 @@ Ltac update_all :=
 Ltac forward_time slot_ :=
   let new_bstate := fresh "bstate" in
   let new_header := fresh "header" in
+  let new_header_valid := fresh "header_valid" in
   let new_reach := fresh "reach" in
   let new_queue := fresh "queue" in
   let new_env_eq := fresh "env_eq" in
@@ -767,7 +874,23 @@ Ltac forward_time slot_ :=
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
       specialize (forward_time bstate) with (slot := slot_)
-        as [new_bstate [new_header [new_reach [new_slot_hit [new_queue new_env_eq]]]]]
+        as [new_bstate [new_header [new_reach [new_header_valid [new_slot_hit [new_queue new_env_eq]]]]]]
+  end.
+
+Ltac forward_time_exact slot_ :=
+  let new_bstate := fresh "bstate" in
+  let new_header := fresh "header" in
+  let new_header_valid := fresh "header_valid" in
+  let new_reach := fresh "reach" in
+  let new_queue := fresh "queue" in
+  let new_env_eq := fresh "env_eq" in
+  let new_slot_hit := fresh "slot_hit" in
+  match goal with
+  | Hqueue : (chain_state_queue ?bstate) = [],
+    Hreach : reachable ?bstate |-
+    exists bstate', reachable_through ?bstate bstate' /\ _ =>
+      specialize (forward_time_exact bstate) with (slot := slot_)
+        as [new_bstate [new_header [new_reach [new_header_valid [new_slot_hit [new_queue new_env_eq]]]]]]
   end.
 
 Ltac add_block acts_ slot_ :=
@@ -848,4 +971,32 @@ Ltac empty_queue H :=
           only 1: destruct_action_eval |
         clear H; rename temp_H into H]
       end
+  end.
+
+Ltac deploy_contract contract_ :=
+  let new_bstate := fresh "bstate" in
+  let new_reach := fresh "reach" in
+  let new_deployed_state := fresh "deployed_state" in
+  let new_contract_deployed := fresh "contract_deployed" in
+  let new_queue := fresh "queue" in
+  let new_env_eq := fresh "env_eq" in
+  let new_cstate := fresh "cstate" in
+  let contract_not_deployed := fresh "trace" in
+  let deploy_info := fresh "deploy_info" in
+  match goal with
+  | Hqueue : (chain_state_queue ?bstate) = _,
+    Hreach : reachable ?bstate,
+    Haddress : address_is_contract ?caddr = true,
+    Hdeployed : env_contracts ?bstate.(chain_state_env) ?caddr = None |-
+    exists bstate', reachable_through ?bstate bstate' /\ _ =>
+      specialize (deploy_contract contract_) as
+        (new_bstate & trace & new_reach & new_contract_deployed &
+          new_deployed_state & deploy_info & new_queue & new_env_eq);
+      [apply Hreach | rewrite Hqueue | | |
+       apply Haddress | apply Hdeployed | |
+       clear Haddress Hdeployed;
+       match type of new_deployed_state with
+       | env_contract_states _ _ = Some ((@serialize _ _) ?state) => remember state as new_cstate
+       end
+       ]
   end.
