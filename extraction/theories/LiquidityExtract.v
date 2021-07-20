@@ -321,6 +321,64 @@ Definition liquidity_extraction_ {msg ctx params storage operation : Type}
     tmEval lazy
            (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).
 
+Definition unwrap_string_sum (s : string + string) : string :=
+  match s with
+  | inl v => v
+  | inr v => v
+  end.
+Definition is_empty {A} (xs : list A) :=
+  match xs with
+  | [] => true
+  | _ => false
+  end.
+
+Definition quote_and_preprocess {Base : ChainBase}
+           {msg ctx params storage operation : Type}
+           (inline : list kername)
+           (m : LiquidityMod msg ctx params storage operation)
+  : TemplateMonad (TemplateEnvironment.global_env * kername * kername) :=
+   (* we compute with projections before quoting to avoid unnecessary dependencies to be quoted *)
+   init <- tmEval cbn m.(lmd_init);;
+   receive <-tmEval cbn m.(lmd_receive);;
+  '(Σ,_) <- tmQuoteRecTransp (init,receive) false ;;
+  init_nm <- extract_def_name m.(lmd_init);;
+  receive_nm <- extract_def_name m.(lmd_receive);;
+  Σ <-
+  (if is_empty inline then ret Σ
+   else
+     let to_inline kn := existsb (eq_kername kn) inline in
+     Σcert <- tmEval lazy (inline_in_env to_inline Σ) ;;
+     mpath <- tmCurrentModPath tt;;
+     Certifying.gen_defs_and_proofs Σ Σcert mpath "_cert_pass"
+                                    (KernameSetProp.of_list [init_nm;receive_nm]);;
+     ret Σcert);;
+  ret (Σ, init_nm,receive_nm).
+
+(** Runs all the necessary steps in [TemplateMonad] and adds a definition
+    [<module_name>_prepared] to the Coq environment.
+    The definition consist of a call to erasure and pretty-printing for further
+    evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
+    which is much faster than running the computations inside [TemplateMonad]. *)
+Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation : Type}
+           (prefix : string)
+           (TT_defs : list (kername *  string))
+           (TT_ctors : MyEnv.env string)
+           (inline : list kername)
+           (m : LiquidityMod msg ctx params storage operation)
+           (Σ : TemplateEnvironment.global_env)
+           (init_nm : kername)
+           (receive_nm : kername) :=
+  let TT_defs := (TT_defs ++ TT_remap_default)%list in
+  let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
+  let TT :=
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+  s <- printLiquidityDefs_specialize prefix Σ TT inline ignore
+                         liquidity_call_ctx
+                         m.(lmd_init_prelude)
+                             init_nm receive_nm ;;
+    tmEval lazy
+           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).
+
 (* Liquidity extraction *without* chainbase specialization *)
 Definition liquidity_extraction {msg ctx params storage operation : Type} := @liquidity_extraction_ msg ctx params storage operation printLiquidityDefs.
 (* Liquidity extraction *with* chainbase specialization *)

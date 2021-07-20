@@ -375,6 +375,7 @@ Section print_term.
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
       let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
@@ -728,7 +729,15 @@ Definition int_ops :=
     ++ nl
     ++ "let[@inline] ltInt (i : int) (j : int) = i < j"
     ++ nl
-    ++ "let[@inline] eqInt (i : int) (j : int) = i = j".
+    ++ "let[@inline] eqInt (i : int) (j : int) = i = j"
+    ++ nl
+    ++ "let[@inline] modInt(a : int)(b : int) : int = match a/b with | Some (_, r) -> int r | None -> 0"
+    ++ nl
+    ++ "let rec powIntAcc((a,b,acc) : int*int*int) =
+        if b <= 0 then acc
+        else powIntAcc(a, (b-1), acc * a)"
+    ++ nl
+    ++ "let powInt(a : int)(b : int) = powIntAcc(a,b,1)".
 
 Definition tez_ops :=
        "let[@inline] addTez (n : tez) (m : tez) = n + m"
@@ -758,6 +767,8 @@ Definition nat_ops :=
     ++ "let[@inline] leNat (i : nat) (j : nat) = i <= j"
     ++ nl
     ++ "let[@inline] ltNat (i : nat) (j : nat) = i < j"
+    ++ nl
+    ++ "let[@inline] lxorNat (i : nat) (j : nat) = i lxor j"
     ++ nl
     ++ "let[@inline] eqNat (i : nat) (j : nat) = i = j".
 
