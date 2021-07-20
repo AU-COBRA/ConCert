@@ -831,8 +831,9 @@ Definition tez_ops :=
   "[@inline] let eqTez (a : tez ) (b : tez ) = a = b" ;
   "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez" ;
   "[@inline] let divTez (a : tez) (b : tez) : tez = natural_to_mutez (a/b)" ;
-  "[@inline] let multTez (n : tez) (m : tez) = (n/1tez) * m"
-    $>.
+  "[@inline] let multTez (n : tez) (m : tez) = (n/1tez) * m";
+  "[@inline] let evenTez (i : tez) = (i mod 2n) = 0tez"
+  $>.
 Definition nat_ops :=
   <$
   "[@inline] let addN (a : nat ) (b : nat ) = a + b" ;

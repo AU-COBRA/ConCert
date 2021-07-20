@@ -1,6 +1,4 @@
-(** * Extraction of Escrow to CameLIGO *)
-
-Section Escrow.
+(** * Extraction of Escrow to CameLIGO and liquidity*)
 
 From Coq Require Import List.
 From Coq Require Import Morphisms.
@@ -159,7 +157,7 @@ From MetaCoq.Erasure Require Import Loader.
 From ConCert Require Import MyEnv.
 (* From ConCert.Embedding Require Import Notations CustomTactics. *)
 (* From ConCert.Embedding.Extraction Require Import PreludeExt. *)
-From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract Common Extraction.
+From ConCert.Extraction Require Import Common Extraction.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 (* From ConCert.Embedding.Extraction Require Import PreludeExt. *)
 
@@ -179,87 +177,90 @@ Open Scope Z.
 
 Definition PREFIX := "".
 
+Section EscrowCameLIGOExtraction.
+  From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 
-Definition contractcallcontextDef := "type cctx = (address * (address * (tez * tez)))".
+  Definition contractcallcontextDef := "type cctx = (address * (address * (tez * tez)))".
 
-(** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-Definition TT_remap_ligo : list (kername * string) :=
-  [
-    remap <%% Amount %%> "tez"
-  ; remap <%% Nat.add %%> "addN"
-  ; remap <%% Nat.ltb %%> "ltbN"
-  ; remap <%% Nat.mul %%> "multN"
-  ; remap <%% Z.add %%> "addTez"
-  ; remap <%% Z.mul %%> "multTez"
-  ; remap <%% Z.sub %%> "subTez"
-  ; remap <%% Z.leb %%> "leTez"
-  ; remap <%% Z.ltb %%> "ltTez"
-  ; remap <%% Z.div %%> "divTez"
-  ; remap <%% Z.eqb %%> "eqTez"
-  ; remap <%% Z %%> "tez"
+  (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
+  Definition TT_remap_ligo : list (kername * string) :=
+    [
+      remap <%% Amount %%> "tez"
+    ; remap <%% Nat.add %%> "addN"
+    ; remap <%% Nat.ltb %%> "ltbN"
+    ; remap <%% Nat.mul %%> "multN"
+    ; remap <%% Z.add %%> "addTez"
+    ; remap <%% Z.mul %%> "multTez"
+    ; remap <%% Z.sub %%> "subTez"
+    ; remap <%% Z.leb %%> "leTez"
+    ; remap <%% Z.ltb %%> "ltTez"
+    ; remap <%% Z.div %%> "divTez"
+    ; remap <%% Z.even %%> "evenTez"
+    ; remap <%% Z.eqb %%> "eqTez"
+    ; remap <%% Z %%> "tez"
 
-  ; remap <%% @ActionBody %%> "operation"
-  ; remap <%% @ContractCallContext %%> "cctx"
-  ; remap <%% @current_slot %%> "current_slot" (* small hack to avoid generating the definition of current_slot *)
-  ; remap <%% @ctx_from %%> "(fun (c : cctx) -> c.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @ctx_contract_address %%> "(fun (c : cctx) -> c.1.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @ctx_contract_balance %%> "(fun (c : cctx) -> c.1.1.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @ctx_amount %%> "(fun (c : cctx) -> c.1.1.1)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @address_eqb %%> "eq_addr"
+    ; remap <%% @ActionBody %%> "operation"
+    ; remap <%% @ContractCallContext %%> "cctx"
+    ; remap <%% @current_slot %%> "current_slot" (* small hack to avoid generating the definition of current_slot *)
+    ; remap <%% @ctx_from %%> "(fun (c : cctx) -> c.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+    ; remap <%% @ctx_contract_address %%> "(fun (c : cctx) -> c.1.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+    ; remap <%% @ctx_contract_balance %%> "(fun (c : cctx) -> c.1.1.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+    ; remap <%% @ctx_amount %%> "(fun (c : cctx) -> c.1.1.1)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+    ; remap <%% @address_eqb %%> "eq_addr"
 
-  ; remap <%% _2 %%> "2tez"
-  ; remap <%% _3 %%> "3tez"
-  ; remap <%% _4 %%> "4tez"
-  ; remap <%% _50 %%> "50n"
+    ; remap <%% _2 %%> "2tez"
+    ; remap <%% _3 %%> "3tez"
+    ; remap <%% _4 %%> "4tez"
+    ; remap <%% _50 %%> "50n"
 
-  ; remap <%% @List.fold_left %%> "List.fold"
-  ; remap <%% @List.map %%> "List.map"
-  ; remap <%% @List.find %%> "List.find"
-  ; remap <%% @List.length %%> "List.length"
-  ; remap <%% @List.app %%> "List.append"
-  ].
-(** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-Definition TT_rename_ligo : list (string * string):=
- 
-  [ ("Some", "Some")
-  ; ("None", "None")
-  ; ("Zpos" ,"%int")
-  ; ("Npos" ,"(fun (n:nat) -> n)")
-  ; ("Zneg" ,"-")
-  ; ("Z0" ,"0tez")
-  ; ("N0" ,"0")
-  ; ("xH" ,"0")
-  ; ("1" ,"1")
-  ; ("nil", "[]")
-  ; ("true", "true")
-  ; ("tt", "()")
-  ].
+    ; remap <%% @List.fold_left %%> "List.fold"
+    ; remap <%% @List.map %%> "List.map"
+    ; remap <%% @List.find %%> "List.find"
+    ; remap <%% @List.length %%> "List.length"
+    ; remap <%% @List.app %%> "List.append"
+    ].
+  (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
+  Definition TT_rename_ligo : list (string * string):=
+
+    [ ("Some", "Some")
+    ; ("None", "None")
+    ; ("Zpos" ,"int")
+    ; ("Npos" ,"(fun (n:nat) -> n)")
+    ; ("Zneg" ,"-")
+    ; ("Z0" ,"0tez")
+    ; ("N0" ,"0")
+    ; ("xH" ,"0")
+    ; ("1" ,"1")
+    ; ("nil", "[]")
+    ; ("true", "true")
+    ; ("tt", "()")
+    ].
+    
+  Definition dummy_chain :=
+        "type chain = {
+          chain_height     : nat;
+          current_slot     : nat;
+          finalized_height : nat;
+        }"
+    ++ nl
+    ++ "let dummy_chain : chain = {
+          chain_height     = Tezos.level;
+          current_slot     = Tezos.level;
+          finalized_height = Tezos.level;
+        }".
+
+  Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State := 
+    EscrowCameLIGOExtract.init (snd s) cctx (fst s).
   
-Definition dummy_chain :=
-      "type chain = {
-        chain_height     : nat;
-        current_slot     : nat;
-        finalized_height : nat;
-      }"
-  ++ nl
-  ++ "let dummy_chain : chain = {
-        chain_height     = Tezos.level;
-        current_slot     = Tezos.level;
-        finalized_height = Tezos.level;
-      }".
-
-  Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Escrow.Setup * Chain) : option Escrow.State := 
-    Escrow.init (snd s) cctx (fst s).
-  
-  Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (msg : option Escrow.Msg) : option (list ActionBody * Escrow.State) :=
-    match Escrow.receive c cctx s msg with
+  Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (msg : option Msg) : option (list ActionBody * State) :=
+    match EscrowCameLIGOExtract.receive c cctx s msg with
     | Some (s, acts) => Some (acts, s)
     | None => None
     end.
   
   Definition callctx := "(Tezos.sender, (Tezos.sender, (Tezos.amount, Tezos.balance)))".
 
-  Definition ESCROW_MODULE_LIGO : CameLIGOMod Escrow.Msg ContractCallContext (Escrow.Setup * Chain) Escrow.State ActionBody :=
+  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext (Setup * Chain) State ActionBody :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_escrow" ;
 
@@ -295,19 +296,19 @@ Definition dummy_chain :=
     ; <%% option_map %%>
     ; <%% @Extras.with_default %%>
   
-    ; <%% @Escrow.setter_from_getter_State_last_action %%>
-    ; <%% @Escrow.setter_from_getter_State_next_step %%>
-    ; <%% @Escrow.setter_from_getter_State_seller %%>
-    ; <%% @Escrow.setter_from_getter_State_buyer %%>
-    ; <%% @Escrow.setter_from_getter_State_seller_withdrawable %%>
-    ; <%% @Escrow.setter_from_getter_State_buyer_withdrawable %%>
+    ; <%% @setter_from_getter_State_last_action %%>
+    ; <%% @setter_from_getter_State_next_step %%>
+    ; <%% @setter_from_getter_State_seller %%>
+    ; <%% @setter_from_getter_State_buyer %%>
+    ; <%% @setter_from_getter_State_seller_withdrawable %%>
+    ; <%% @setter_from_getter_State_buyer_withdrawable %%>
 
-    ; <%% @Escrow.set_State_last_action %%>
-    ; <%% @Escrow.set_State_next_step %%>
-    ; <%% @Escrow.set_State_seller %%>
-    ; <%% @Escrow.set_State_buyer %%>
-    ; <%% @Escrow.set_State_seller_withdrawable %%>
-    ; <%% @Escrow.set_State_buyer_withdrawable %%>
+    ; <%% @set_State_last_action %%>
+    ; <%% @set_State_next_step %%>
+    ; <%% @set_State_seller %%>
+    ; <%% @set_State_buyer %%>
+    ; <%% @set_State_seller_withdrawable %%>
+    ; <%% @set_State_buyer_withdrawable %%>
 
     ].
   Time MetaCoq Run
@@ -317,6 +318,7 @@ Definition dummy_chain :=
 
   MetaCoq Run (tmMsg cameLIGO_escrow).
   
-  Redirect "examples/liquidity-extract/EscrowRefinementTypes.mligo" Compute cameLIGO_escrow.
+  Redirect "examples/cameligo-extract/EscrowExtract.mligo" Compute cameLIGO_escrow.
     
-End CameLIGOExtractionSetup.
+End EscrowCameLIGOExtraction.
+
