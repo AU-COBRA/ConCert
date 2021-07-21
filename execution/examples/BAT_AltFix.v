@@ -1072,6 +1072,55 @@ Qed.
 
 
 
+(* ------------------- Constants are constant ------------------- *)
+
+(* Constants should never change after after receiving msg *)
+Lemma receive_preserves_constants : forall prev_state new_state chain ctx msg new_acts,
+  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+       prev_state.(fundDeposit) = new_state.(fundDeposit)
+    /\ prev_state.(batFundDeposit) = new_state.(batFundDeposit)
+    /\ prev_state.(fundingStart) = new_state.(fundingStart)
+    /\ prev_state.(fundingEnd) = new_state.(fundingEnd)
+    /\ prev_state.(tokenExchangeRate) = new_state.(tokenExchangeRate)
+    /\ prev_state.(tokenCreationCap) = new_state.(tokenCreationCap)
+    /\ prev_state.(tokenCreationMin) = new_state.(tokenCreationMin)
+    /\ prev_state.(initSupply) = new_state.(initSupply).
+Proof.
+  intros prev_state new_state chain ctx msg new_acts receive_some.
+  destruct msg. destruct m. destruct m.
+  all: receive_simpl; now inversion receive_some.
+Qed.
+
+(* Constants are always equal to the initial assignment *)
+Lemma constants_are_constant block_state contract_addr (trace : ChainTrace empty_state block_state) :
+  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+  exists cstate deploy_info,
+    contract_state block_state contract_addr = Some cstate
+    /\ deployment_info _ trace contract_addr = Some deploy_info
+    /\ let setup := deploy_info.(deployment_setup) in
+         cstate.(fundDeposit) = setup.(_fundDeposit)
+      /\ cstate.(batFundDeposit) = setup.(_batFundDeposit)
+      /\ cstate.(fundingStart) = setup.(_fundingStart)
+      /\ cstate.(fundingEnd) = setup.(_fundingEnd)
+      /\ cstate.(tokenExchangeRate) = setup.(_tokenExchangeRate)
+      /\ cstate.(tokenCreationCap) = setup.(_tokenCreationCap)
+      /\ cstate.(tokenCreationMin) = setup.(_tokenCreationMin)
+      /\ cstate.(initSupply) = setup.(_batFund).
+Proof.
+  contract_induction; intros; auto.
+  - now apply init_constants_correct in init_some.
+  - now apply receive_preserves_constants in receive_some.
+  - now apply receive_preserves_constants in receive_some.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Qed.
+
+
+
 (* ------------------- Finalize cannot be undone ------------------- *)
 (* Once the contract is in the finalized state it cannot leave it *)
 Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
