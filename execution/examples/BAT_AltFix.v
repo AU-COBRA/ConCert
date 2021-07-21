@@ -738,7 +738,7 @@ Proof.
   now inversion H.
 Qed.
 
-Lemma try_crefund_is_some : forall state chain ctx,
+Lemma try_refund_is_some : forall state chain ctx,
   (ctx_amount ctx >? 0)%Z = false
   /\ (isFinalized state) = false
   /\ ((fundingEnd state) < (current_slot chain))%nat
