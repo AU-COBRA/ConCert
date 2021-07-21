@@ -1,21 +1,23 @@
 Global Set Warnings "-extraction-logical-axiom".
-
-Require Import ZArith.
-From QuickChick Require Import QuickChick. Import QcNotation.
-
-From ConCert Require Import Blockchain.
-From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN.
-From ConCert Require Import Containers.
-From ConCert Require Import BAT_AltFix.
-Require Import Extras.
-
-From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters BAT_AltFixPrinters BAT_AltFixGens TraceGens.
-
-From Coq Require Import List.
+From QuickChick Require Import QuickChick.
+Import QcNotation.
+From ConCert Require Import Blockchain
+                            LocalBlockchain
+                            Serializable
+                            BoundedN
+                            Containers
+                            Extras
+                            TestUtils
+                            ChainPrinters
+                            SerializablePrinters
+                            BATCommon
+                            BAT_AltFix
+                            BAT_AltFixPrinters
+                            BAT_AltFixGens
+                            TraceGens.
+From Coq Require Import ZArith_base List.
 Import ListNotations.
-Import LocalBlockchain.
+
 
 (* -------------------------- Tests of the BAT Implementation -------------------------- *)
 
@@ -32,14 +34,14 @@ Definition exchangeRate_ := 3%N.
 Definition tokenCap_ := 81%N.
 Definition tokenMin_ := 43%N.
 
-Definition bat_setup := BAT_AltFix.build_setup initSupply_
-                                        ethFund
-                                        batFund
-                                        fundingStart_
-                                        fundingEnd_
-                                        exchangeRate_
-                                        tokenCap_
-                                        tokenMin_.
+Definition bat_setup := BATCommon.build_setup initSupply_
+                                              ethFund
+                                              batFund
+                                              fundingStart_
+                                              fundingEnd_
+                                              exchangeRate_
+                                              tokenCap_
+                                              tokenMin_.
 Definition deploy_bat := create_deployment 0 BAT_AltFix.contract bat_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -153,7 +155,7 @@ Notation "f '&&&' g" := (fun a => (f a) && (g a)) (at level 10).
 
 (* Get value of isFinalized in last state of a chain *)
 Definition get_chain_finalized (cb : ChainBuilder) : bool :=
-  match get_contract_state BAT_AltFix.State cb.(builder_env) contract_base_addr with
+  match get_contract_state BATCommon.State cb.(builder_env) contract_base_addr with
   | Some state => state.(isFinalized)
   | None => true
   end.
@@ -194,7 +196,7 @@ Definition action_is_finalize (action : Action) : bool :=
   | Blockchain.act_call to _ msg =>
     if (address_eqb to contract_base_addr)
     then
-      match @deserialize BAT_AltFix.Msg _ msg with
+      match @deserialize BATCommon.Msg _ msg with
       | Some finalize => true
       | Some _ => false
       | None => false
@@ -211,7 +213,7 @@ Definition action_is_refund (action : Action) : bool :=
   | Blockchain.act_call to _ msg =>
     if (address_eqb to contract_base_addr)
     then
-      match @deserialize BAT_AltFix.Msg _ msg with
+      match @deserialize BATCommon.Msg _ msg with
       | Some refund => true
       | Some _ => false
       | None => false
@@ -241,7 +243,7 @@ Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to)
 (* Get the number of tokens in last state before finalize/refund in a chain *)
 Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
   let cs := get_last_funding_state cb.(builder_trace) empty_state in
-  match get_contract_state BAT_AltFix.State cs contract_base_addr with
+  match get_contract_state BATCommon.State cs contract_base_addr with
   | Some state => (total_supply state)
   | None => 0%N
   end.
@@ -308,46 +310,46 @@ Definition fmap_filter_eqb {A B} `{countable.Countable A}
   let fmap'_filtered := map_filter fmap' excluded in
     fmap_eqb eqb fmap_filtered fmap'_filtered.
 
-Definition get_balance (state : BAT_AltFix.State) (addr : Address) :=
+Definition get_balance (state : BATCommon.State) (addr : Address) :=
   with_default 0 (FMap.find addr (balances state)).
 
-Definition msg_is_eip_msg (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_eip_msg (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | tokenMsg _ => true
   | _ => false
   end.
 
-Definition msg_is_transfer (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_transfer (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | tokenMsg (EIP20Token.transfer _ _) => true
   | _ => false
   end.
 
-Definition msg_is_transfer_from (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_transfer_from (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | tokenMsg (EIP20Token.transfer_from _ _ _) => true
   | _ => false
   end.
 
-Definition msg_is_approve (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_approve (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | tokenMsg (EIP20Token.approve _ _) => true
   | _ => false
   end.
 
-Definition msg_is_create_tokens (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_create_tokens (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | create_tokens => true
   | _ => false
   end.
 
-Definition msg_is_finalize (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_finalize (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | finalize => true
   | _ => false
   end.
 
-Definition msg_is_refund (cstate : BAT_AltFix.State) (msg : BAT_AltFix.Msg) :=
+Definition msg_is_refund (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
   match msg with
   | refund => true
   | _ => false
@@ -417,16 +419,15 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
                                (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), _) =>
-    (* initSupply should be constant *)
-    let exchange_rate_check := N.eqb old_state.(initSupply) new_state.(initSupply) in
     (* batFund and ethFund addresses should be constants *)
     let fund_deposit_check := address_eqb old_state.(fundDeposit) new_state.(fundDeposit) in
     let bat_deposit_check := address_eqb old_state.(batFundDeposit) new_state.(batFundDeposit) in
     (* Funding start block and end block should be constants *)
     let funding_start_check := Nat.eqb old_state.(fundingStart) new_state.(fundingStart) in
     let funding_end_check := Nat.eqb old_state.(fundingEnd) new_state.(fundingEnd) in
-    (* Token exchange rate should be a constant *)
+    (* Token exchange rate  and initSupply should be constants *)
     let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
+    let init_supply_check := N.eqb old_state.(initSupply) new_state.(initSupply) in
     (* Minimum and maximum token limits should be constants *)
     let creation_cap_check := N.eqb old_state.(tokenCreationCap) new_state.(tokenCreationCap) in
     let creation_min_check := N.eqb old_state.(tokenCreationMin) new_state.(tokenCreationMin) in
@@ -435,6 +436,7 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
                funding_start_check &&
                funding_end_check &&
                exchange_rate_check &&
+               init_supply_check &&
                creation_cap_check &&
                creation_min_check)
   (* if 'receive' failed then just discard this test *)
@@ -551,10 +553,10 @@ Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallCont
     let action_amount_valid := Z.leb amount contract_balance in
     (* The token balance of batFund should be increased by initSupply *)
     let balance_correct :=
-      N.eqb (get_balance new_state batFund) ((get_balance old_state batFund) + initSupply_) in
+      N.eqb (get_balance new_state batFund) ((get_balance old_state batFund) + (initSupply old_state)) in
     (* The total supply field should be increased by initSupply *)
     let total_supply_correct :=
-      N.eqb (total_supply new_state) ((total_supply old_state) + initSupply_) in
+      N.eqb (total_supply new_state) ((total_supply old_state) + (initSupply old_state)) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (is_finalized_correct &&
               action_to_correct &&
@@ -1015,7 +1017,7 @@ Definition partially_funded_cb :=
     build_act creator (Blockchain.act_transfer person_4 10);
     build_act creator deploy_bat;
     build_act person_1 (Blockchain.act_call contract_base_addr 1
-                                            ((@serialize BAT_AltFix.Msg _) create_tokens))
+                                            ((@serialize BATCommon.Msg _) create_tokens))
   ]).
 Definition is_fully_refunded :=
   fun cs =>
@@ -1183,8 +1185,8 @@ Definition can_only_finalize_once :=
 Definition final_implies_total_supply_in_range :=
   let total_supply_in_range cs :=
     match get_contract_state State cs contract_base_addr with
-    | Some state => (tokenMin_ + initSupply_ <=? (total_supply state)) &&
-                    ((total_supply state) <=? tokenCap_ + initSupply_)
+    | Some state => (tokenMin_ + (initSupply state) <=? (total_supply state)) &&
+                    ((total_supply state) <=? tokenCap_ + (initSupply state))
     | None => false
     end in
   {token_cb ~~~> is_finalized ===> (fun _ cs => total_supply_in_range cs)}.
@@ -1251,7 +1253,7 @@ Definition total_supply_eq_sum_balances (cs : ChainState) :=
 Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
-      let paid_tokens := (total_supply cstate) - initSupply_ in
+      let paid_tokens := (total_supply cstate) - (initSupply cstate) in
       if cstate.(isFinalized)
       then checker (0 =? N.modulo paid_tokens exchangeRate_)
       else checker (0 =? N.modulo (total_supply cstate) exchangeRate_)

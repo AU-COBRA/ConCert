@@ -2,90 +2,28 @@
   Implementation of the Basic Attention Token.
   Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
 *)
-From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
-From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From Coq Require Import ZArith
+                        Morphisms
+                        List
+                        Lia.
+Import ListNotations.
+From ConCert Require Import Monads
+                            Extras
+                            Containers
+                            Automation
+                            RecordUpdate
+                            Serializable
+                            Blockchain
+                            BATCommon
+                            BuildUtils.
+Import RecordSetNotations.
 Require EIP20Token.
 
-Import ListNotations.
-Import RecordSetNotations.
 
 Section BATAltFix.
 Context {BaseTypes : ChainBase}.
-Set Primitive Projections.
-Set Nonrecursive Elimination Schemes.
 
-Definition TokenValue := EIP20Token.TokenValue.
 Open Scope N_scope.
-
-Inductive Msg :=
-  (* Message types from the EIP20/ERC20 Standard Token: *)
-  | tokenMsg : EIP20Token.Msg -> Msg
-  (* Message types specific for BAT: *)
-  (* create_tokens acceps the currency of the chain and converts it to BAT according to the pre-specified exchange rate *)
-  | create_tokens : Msg
-  (* finalize ends the funding period and sends the chain currency home to the pre-specified fund deposit address. Only callable by this address *)
-  | finalize : Msg
-  (* Allows contributors to recover their ether in the case of a failed funding campaign. *)
-  | refund : Msg.
-
-Record State :=
-  build_state {
-    (* State from EIP20Token: *)
-    token_state       : EIP20Token.State;
-    (* State for BAT: *)
-    initSupply        : N;
-    fundDeposit    		: Address;
-    batFundDeposit 		: Address;
-    isFinalized    		: bool;
-    fundingStart   		: nat;
-    fundingEnd	 	 		: nat;
-    tokenExchangeRate : N;
-    tokenCreationCap 	: N;
-    tokenCreationMin 	: N;
-  }.
-
-Record Setup :=
-  build_setup {
-    _batFund						: N;
-    _fundDeposit 				: Address;
-    _batFundDeposit 		: Address;
-    _fundingStart	  		: nat;
-    _fundingEnd					: nat;
-    (* In the reference implementation, the fields below are constants, but we allow setting them at initialisation, in order to test out different values. *)
-    _tokenExchangeRate  : N;
-    _tokenCreationCap 	: N;
-    _tokenCreationMin 	: N;
-  }.
-
-MetaCoq Run (make_setters State).
-MetaCoq Run (make_setters Setup).
-
-Section Serialization.
-
-Global Instance setup_serializable : Serializable Setup :=
-  Derive Serializable Setup_rect <build_setup>.
-
-Global Instance msg_serializable : Serializable Msg :=
-  Derive Serializable Msg_rect <tokenMsg, create_tokens, finalize, refund>.
-
-Global Instance state_serializable : Serializable State :=
-  Derive Serializable State_rect <build_state>.
-
-End Serialization.
-
-Definition returnIf (cond : bool) := if cond then None else Some tt.
-Definition total_supply (state : State) := state.(token_state).(EIP20Token.total_supply).
-Definition balances (state : State) := state.(token_state).(EIP20Token.balances).
-Definition allowances (state : State) := state.(token_state).(EIP20Token.allowances).
-
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
@@ -225,28 +163,9 @@ Definition receive (chain : Chain)
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
 
+
+
 Section Theories.
-
-Import Lia.
-
-(* ------------------- Definitions from EIP20Token ------------------- *)
-
-Notation isSome := EIP20Token.isSome.
-Notation sumN := EIP20Token.sumN.
-Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
-Notation get_allowance := EIP20Token.get_allowance.
-Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
-Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
-Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
-
-Definition transfer t a := tokenMsg (EIP20Token.transfer t a).
-Definition transfer_from f t a := tokenMsg (EIP20Token.transfer_from f t a).
-Definition approve d a := tokenMsg (EIP20Token.approve d a).
-
-Existing Instance EIP20Token.sumN_perm_proper.
-
-
-
 (* ------------------- Tactics to simplify proof steps ------------------- *)
 
 Ltac receive_simpl_step :=
@@ -294,13 +213,6 @@ Ltac receive_simpl_step :=
   end.
 
 Tactic Notation "receive_simpl" := repeat receive_simpl_step.
-
-Ltac returnIf H :=
-  let G := fresh "G" in
-    unfold returnIf in H;
-    destruct_match eqn:G in H; try congruence;
-    clear H;
-    rename G into H.
 
 
 
@@ -975,59 +887,6 @@ Proof.
     destruct_action_eval; auto.
 Qed.
 
-(* Stronger version of N.mod_le.
-   N.mod_le requires that b <> 0, however
-   it is possible to prove the same without
-   that assumption *)
-Lemma mod_le : forall a b, a mod b <= a.
-Proof.
-  intros a b. destruct (N.le_gt_cases b a).
-  - unfold N.modulo. unfold N.div_eucl.
-    destruct a.
-    + apply N.le_0_l.
-    + destruct b.
-      * apply N.le_refl.
-      * apply N.le_trans with (N.pos p0); auto.
-        apply N.lt_le_incl.
-        apply N.pos_div_eucl_remainder. lia.
-  - rewrite N.lt_eq_cases; right.
-    apply N.mod_small; auto.
-Qed.
-
-Lemma add_le : forall n m p,
-  n <= m -> n <= p + m.
-Proof.
- lia.
-Qed.
-
-Lemma sumN_in_le : forall {A} x (f : A -> N) l,
-  In x l -> f x <= sumN f l.
-Proof.
-  intros.
-  induction l.
-  - inversion H.
-  - apply in_inv in H as [H | H].
-    + cbn. subst.
-      rewrite N.add_comm.
-      apply add_le, N.le_refl.
-    + cbn.
-      now apply add_le, IHl.
-Qed.
-
-(* The balance of a single account is always less than
-   or equal to the sum of all balances *)
-Lemma balance_le_sum_balances : forall addr state,
-  with_default 0 (FMap.find addr (balances state)) <= sum_balances state.
-Proof.
-  intros.
-  unfold EIP20Token.sum_balances.
-  destruct (FMap.find addr (balances state)) eqn:balance.
-  - cbn. apply FMap.In_elements in balance.
-    apply sumN_in_le with (f:= fun '(_, v) => v) in balance.
-    now eapply N.le_trans.
-  - apply N.le_0_l.
-Qed.
-
 
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
@@ -1065,7 +924,7 @@ Proof.
       rewrite IH in receive_some. rewrite <- receive_some.
       rewrite <- N.add_sub_swap, balance_sum, N.sub_add.
       now rewrite N.add_sub.
-      apply add_le.
+      apply N_add_le.
       instantiate (CallFacts := fun _ _ cstate => cstate.(tokenExchangeRate) <> 0).
       now apply N.mod_le.
       apply balance_le_sum_balances.
@@ -1091,7 +950,7 @@ Proof.
       rewrite IH in receive_some. rewrite <- receive_some.
       rewrite <- N.add_sub_swap, balance_sum, N.sub_add.
       now rewrite N.add_sub.
-      apply add_le.
+      apply N_add_le.
       now apply N.mod_le.
       apply balance_le_sum_balances.
     + cbn in receive_some. congruence.

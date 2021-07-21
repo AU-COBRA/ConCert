@@ -18,6 +18,7 @@ theories/ResultMonad.v
 theories/Serializable.v
 
 -R examples ConCert.Execution.Examples
+examples/BATCommon.v
 examples/BAT.v
 examples/BAT_Fixed.v
 examples/BAT_AltFix.v

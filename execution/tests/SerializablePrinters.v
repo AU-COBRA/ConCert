@@ -35,7 +35,7 @@ Global Instance showSerializedValue : Show SerializedValue :=
     match @deserialize EIP20Token.Msg _ v with
     | Some v => show v
     | None =>
-    match @deserialize BAT.Msg _ v with
+    match @deserialize BATCommon.Msg _ v with
     | Some v => show v
     | None =>
     match @deserialize Escrow.Msg _ v with

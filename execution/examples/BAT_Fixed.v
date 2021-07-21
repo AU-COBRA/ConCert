@@ -2,89 +2,28 @@
   Implementation of the Basic Attention Token.
   Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
 *)
-From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
-From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From Coq Require Import ZArith
+                        Morphisms
+                        List
+                        Lia.
+Import ListNotations.
+From ConCert Require Import Monads
+                            Extras
+                            Containers
+                            Automation
+                            RecordUpdate
+                            Serializable
+                            Blockchain
+                            BATCommon
+                            BuildUtils.
+Import RecordSetNotations.
 Require EIP20Token.
 
-Import ListNotations.
-Import RecordSetNotations.
 
 Section BATFixed.
 Context {BaseTypes : ChainBase}.
-Set Primitive Projections.
-Set Nonrecursive Elimination Schemes.
 
-Definition TokenValue := EIP20Token.TokenValue.
 Open Scope N_scope.
-
-Inductive Msg :=
-  (* Message types from the EIP20/ERC20 Standard Token: *)
-  | tokenMsg : EIP20Token.Msg -> Msg
-  (* Message types specific for BAT: *)
-  (* create_tokens acceps the currency of the chain and converts it to BAT according to the pre-specified exchange rate *)
-  | create_tokens : Msg
-  (* finalize ends the funding period and sends the chain currency home to the pre-specified fund deposit address. Only callable by this address *)
-  | finalize : Msg
-  (* Allows contributors to recover their ether in the case of a failed funding campaign. *)
-  | refund : Msg.
-
-Record State :=
-  build_state {
-    (* State from EIP20Token: *)
-    token_state       : EIP20Token.State;
-    (* State for BAT: *)
-    fundDeposit    		: Address;
-    batFundDeposit 		: Address;
-    isFinalized    		: bool;
-    fundingStart   		: nat;
-    fundingEnd	 	 		: nat;
-    tokenExchangeRate : N;
-    tokenCreationCap 	: N;
-    tokenCreationMin 	: N;
-  }.
-
-Record Setup :=
-  build_setup {
-    _batFund						: N;
-    _fundDeposit 				: Address;
-    _batFundDeposit 		: Address;
-    _fundingStart	  		: nat;
-    _fundingEnd					: nat;
-    (* In the reference implementation, the fields below are constants, but we allow setting them at initialisation, in order to test out different values. *)
-    _tokenExchangeRate  : N;
-    _tokenCreationCap 	: N;
-    _tokenCreationMin 	: N;
-  }.
-
-MetaCoq Run (make_setters State).
-MetaCoq Run (make_setters Setup).
-
-Section Serialization.
-
-Global Instance setup_serializable : Serializable Setup :=
-  Derive Serializable Setup_rect <build_setup>.
-
-Global Instance msg_serializable : Serializable Msg :=
-  Derive Serializable Msg_rect <tokenMsg, create_tokens, finalize, refund>.
-
-Global Instance state_serializable : Serializable State :=
-  Derive Serializable State_rect <build_state>.
-
-End Serialization.
-
-Definition returnIf (cond : bool) := if cond then None else Some tt.
-Definition total_supply (state : State) := state.(token_state).(EIP20Token.total_supply).
-Definition balances (state : State) := state.(token_state).(EIP20Token.balances).
-Definition allowances (state : State) := state.(token_state).(EIP20Token.allowances).
-
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
@@ -114,6 +53,7 @@ Definition init (chain : Chain)
     (* EIP20Token initialisation: *)
     token_state := token_state;
     (* BAT initialisation: *)
+    initSupply := setup.(_batFund);
     isFinalized := false;
     fundDeposit := setup.(_fundDeposit);
     batFundDeposit := setup.(_batFundDeposit);
@@ -222,28 +162,9 @@ Definition receive (chain : Chain)
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
 
+
+
 Section Theories.
-
-Import Lia.
-
-(* ------------------- Definitions from EIP20Token ------------------- *)
-
-Notation isSome := EIP20Token.isSome.
-Notation sumN := EIP20Token.sumN.
-Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
-Notation get_allowance := EIP20Token.get_allowance.
-Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
-Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
-Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
-
-Definition transfer t a := tokenMsg (EIP20Token.transfer t a).
-Definition transfer_from f t a := tokenMsg (EIP20Token.transfer_from f t a).
-Definition approve d a := tokenMsg (EIP20Token.approve d a).
-
-Existing Instance EIP20Token.sumN_perm_proper.
-
-
-
 (* ------------------- Tactics to simplify proof steps ------------------- *)
 
 Ltac receive_simpl_step :=
@@ -291,13 +212,6 @@ Ltac receive_simpl_step :=
   end.
 
 Tactic Notation "receive_simpl" := repeat receive_simpl_step.
-
-Ltac returnIf H :=
-  let G := fresh "G" in
-    unfold returnIf in H;
-    destruct_match eqn:G in H; try congruence;
-    clear H;
-    rename G into H.
 
 
 

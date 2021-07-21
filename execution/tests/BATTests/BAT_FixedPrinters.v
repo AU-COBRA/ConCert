@@ -1,9 +1,9 @@
-From ConCert Require Import Blockchain.
-From ConCert Require Import BAT_Fixed.
+From ConCert Require Import Blockchain
+                            BATCommon
+                            TestUtils
+                            EIP20TokenPrinters.
 From QuickChick Require Import QuickChick.
 
-From ConCert.Execution.QCTests Require Import
-  TestUtils EIP20TokenPrinters.
 
 Section BATFixedPrinters.
 Context `{Show Address}.
@@ -17,7 +17,7 @@ Instance showTokenValue : Show TokenValue :=
   show v := show v
 |}.
 
-Instance showMsg : Show BAT_Fixed.Msg :=
+Instance showMsg : Show BATCommon.Msg :=
 {|
   show m := match m with
             | tokenMsg msg => show msg
@@ -27,7 +27,7 @@ Instance showMsg : Show BAT_Fixed.Msg :=
             end
 |}.
 
-Instance showBATSetup : Show BAT_Fixed.Setup :=
+Instance showBATSetup : Show BATCommon.Setup :=
 {|
   show setup := "Setup{" ++
     "initSupply: " ++ show setup.(_batFund) ++ sep ++
@@ -40,9 +40,10 @@ Instance showBATSetup : Show BAT_Fixed.Setup :=
     "tokenCreationMin: " ++ show setup.(_tokenCreationMin) ++ "}"
 |}.
 
-Instance showBATState : Show BAT_Fixed.State :=
+Instance showBATState : Show BATCommon.State :=
 {|
   show s := "State{" ++
+    "initSupply: " ++ show s.(initSupply) ++ sep ++
     "token_state: " ++ show s.(token_state) ++ sep ++
     "isFinalized: " ++ show s.(isFinalized) ++ sep ++
     "fundDeposit: " ++ show s.(fundDeposit) ++ sep ++

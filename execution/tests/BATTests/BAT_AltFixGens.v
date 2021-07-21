@@ -1,13 +1,16 @@
-From ConCert Require Import Blockchain BAT_AltFix.
-From ConCert Require Import Serializable.
-From ConCert Require Import Containers.
-From ConCert.Execution.QCTests Require Import 
-  TestUtils EIP20TokenGens.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
+From ConCert Require Import Blockchain
+                            BATCommon
+                            Serializable
+                            Containers
+                            TestUtils
+                            EIP20TokenGens.
+From QuickChick Require Import QuickChick.
+Import QcNotation.
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
-From Coq Require Import List ZArith. Import ListNotations.
+From Coq Require Import List ZArith.
+Import ListNotations.
+
 
 Module Type BATGensInfo.
   Parameter contract_addr : Address.
@@ -40,7 +43,7 @@ Definition get_fundable_accounts env : G (option Address) :=
 Definition gFund_amount env state addr : G Z :=
   (choose (1, Z.min (account_balance env addr) (Z.of_N ((state.(tokenCreationCap) - (total_supply state)) / state.(tokenExchangeRate)))))%Z.
 
-Definition gCreateTokens (env : Environment) (state : BAT_AltFix.State) : GOpt (Address * Amount * Msg) :=
+Definition gCreateTokens (env : Environment) (state : BATCommon.State) : GOpt (Address * Amount * Msg) :=
   let current_slot := S (current_slot (env_chain env)) in
   if (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
@@ -53,12 +56,12 @@ Definition gCreateTokens (env : Environment) (state : BAT_AltFix.State) : GOpt (
     value <- bindGen (gFund_amount env state from_addr) returnGenSome ;;
     returnGenSome (from_addr, value, create_tokens).
 
-Definition gCreateTokensInvalid (env : Environment) (state : BAT_AltFix.State) : GOpt (Address * Amount * Msg) :=
+Definition gCreateTokensInvalid (env : Environment) (state : BATCommon.State) : GOpt (Address * Amount * Msg) :=
   from_addr <- get_fundable_accounts env ;;
   value <- bindGen (choose (1, account_balance env from_addr)%Z) returnGenSome ;;
   returnGenSome (from_addr, value, create_tokens).
 
-Definition gRefund (env : Environment) (state : BAT_AltFix.State) : GOpt (Address * Msg) :=
+Definition gRefund (env : Environment) (state : BATCommon.State) : GOpt (Address * Msg) :=
   let current_slot := S (current_slot (env_chain env)) in
   let accounts := get_refundable_accounts state in
   if ((state.(isFinalized)
@@ -70,11 +73,11 @@ Definition gRefund (env : Environment) (state : BAT_AltFix.State) : GOpt (Addres
     from_addr <- oneOf_ (returnGen None) accounts ;;
     returnGenSome (from_addr, refund).
 
-Definition gRefundInvalid (env : Environment) (state : BAT_AltFix.State) : G (Address * Msg) :=
+Definition gRefundInvalid (env : Environment) (state : BATCommon.State) : G (Address * Msg) :=
   from_addr <- gAccount env ;;
   returnGen (from_addr, refund).
 
-Definition gFinalize (env : Environment) (state : BAT_AltFix.State) : GOpt (Address * Msg) :=
+Definition gFinalize (env : Environment) (state : BATCommon.State) : GOpt (Address * Msg) :=
   let current_slot := S (current_slot (env_chain env)) in
   if (state.(isFinalized) 
         || ((total_supply state) <? state.(tokenCreationMin))%N
@@ -84,7 +87,7 @@ Definition gFinalize (env : Environment) (state : BAT_AltFix.State) : GOpt (Addr
   else
     returnGenSome (fund_addr, finalize).
 
-Definition gFinalizeInvalid (env : Environment) (state : BAT_AltFix.State) : G (Address * Msg) :=
+Definition gFinalizeInvalid (env : Environment) (state : BATCommon.State) : G (Address * Msg) :=
   from_addr <- gAccount env ;;
   returnGen (from_addr, finalize).
 
@@ -96,8 +99,8 @@ Module EIP20 := EIP20Gens Info.
 *)
 Definition gBATActionValid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BAT_AltFix.Msg _) msg))) in
-  state <- returnGen (get_contract_state BAT_AltFix.State env contract_addr) ;;
+    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+  state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
     (1, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
@@ -142,8 +145,8 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
 *)
 Definition gBATActionInvalid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BAT_AltFix.Msg _) msg))) in
-  state <- returnGen (get_contract_state BAT_AltFix.State env contract_addr) ;;
+    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+  state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
     (1, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
@@ -191,7 +194,7 @@ Definition gBATActionInvalid (env : Environment) : GOpt Action :=
     which order they will be executed in)
 *)
 Definition gBATAction (env : Environment) : GOpt Action :=
-  state <- returnGen (get_contract_state BAT_AltFix.State env contract_addr) ;;
+  state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   freq [
     (5, bindGenOpt (gBATActionValid env)
         (fun '(action) =>
@@ -214,7 +217,7 @@ Definition gBATSetup : G Setup :=
   initSupply <- choose (0, Z.to_N accounts_total_balance)%N ;;
   tokenMin <- choose (0, Z.to_N accounts_total_balance)%N ;;
   tokenCap <- choose (0, Z.to_N accounts_total_balance)%N ;;
-  returnGen (BAT_AltFix.build_setup initSupply
+  returnGen (BATCommon.build_setup initSupply
                              fund_addr
                              bat_addr
                              fundingStart
