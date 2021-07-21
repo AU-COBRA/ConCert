@@ -1047,6 +1047,31 @@ Qed.
 
 
 
+(* ------------------- total supply can only grow before funding fails ------------------- *)
+
+(* If funding period is active or funding goal was hit then the
+    total supply of tokens cannot decrease *)
+Lemma receive_total_supply_increasing : forall prev_state new_state chain ctx msg new_acts,
+  ((current_slot chain) <= (fundingEnd prev_state))%nat \/ tokenCreationMin prev_state <= total_supply prev_state->
+  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+       (total_supply prev_state) <= (total_supply new_state).
+Proof.
+  intros prev_state new_state chain ctx msg new_acts H receive_some.
+  destruct msg. destruct m. destruct m.
+  - apply try_transfer_preserves_total_supply in receive_some. lia.
+  - apply try_transfer_from_preserves_total_supply in receive_some. lia.
+  - apply try_approve_preserves_total_supply in receive_some. lia.
+  - apply try_create_tokens_total_supply_correct in receive_some.
+    rewrite <- receive_some. apply N.le_add_r.
+  - apply try_finalize_total_supply_correct in receive_some. lia.
+  - specialize try_refund_is_some as [_ refund_implications].
+    rewrite receive_some in refund_implications.
+    now destruct refund_implications; eauto.
+  - now receive_simpl.
+Qed.
+
+
+
 (* ------------------- Finalize cannot be undone ------------------- *)
 (* Once the contract is in the finalized state it cannot leave it *)
 Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
