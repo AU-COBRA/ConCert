@@ -942,6 +942,17 @@ Proof.
   now rewrite N.add_comm, N.add_sub.
 Qed.
 
+Lemma init_preserves_balances_sum : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (sum_balances state) = (total_supply state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  inversion H. unfold EIP20Token.sum_balances. subst. cbn.
+  reflexivity.
+Qed.
+
 
 
 (* ------------------- init validation ------------------- *)

@@ -874,7 +874,7 @@ Proof.
   rewrite fin_maps.map_to_list_delete; eauto.
 Qed.
 
-Lemma init_update_balances_sum : forall state chain ctx setup,
+Lemma init_preserves_balances_sum : forall state chain ctx setup,
   init chain ctx setup = Some (state) ->
     (sum_balances state) = (total_supply state).
 Proof.
@@ -918,7 +918,7 @@ Proof.
       now apply try_refund_total_supply_correct in receive_some.
     + now receive_simpl.
   - contract_induction; intros; eauto.
-    + now apply init_update_balances_sum in init_some.
+    + now apply init_preserves_balances_sum in init_some.
     + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
       instantiate (CallFacts := fun _ _ _ => True).

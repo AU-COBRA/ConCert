@@ -934,6 +934,19 @@ Proof.
   rewrite fin_maps.map_to_list_delete; eauto.
 Qed.
 
+Lemma init_preserves_balances_sum : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (sum_balances state) = (total_supply state).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  inversion H. unfold EIP20Token.sum_balances. subst. cbn.
+  setoid_rewrite FMap.elements_add; auto.
+  rewrite fin_maps.map_to_list_empty.
+  now apply N.add_0_r.
+Qed.
+
 
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
