@@ -949,6 +949,49 @@ Qed.
 
 
 
+(* ------------------- init validation ------------------- *)
+
+Lemma deployed_implies_constants_valid block_state contract_addr :
+  reachable block_state ->
+  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state block_state contract_addr = Some cstate
+    /\ (cstate.(fundingStart) < cstate.(fundingEnd))%nat
+    /\ cstate.(tokenCreationMin) <= cstate.(tokenCreationCap)
+    /\ cstate.(initSupply) <= cstate.(tokenCreationCap)
+    /\ cstate.(tokenExchangeRate) <> 0
+    /\ cstate.(tokenExchangeRate) <= cstate.(tokenCreationCap) - cstate.(tokenCreationMin).
+Proof.
+  contract_induction; intros; try auto.
+  - unfold Blockchain.init in init_some. cbn in *.
+    destruct_match eqn:H in init_some ; try congruence.
+    returnIf H.
+    apply Bool.orb_false_iff in H as [H H6].
+    apply Bool.orb_false_iff in H as [H H5].
+    apply Bool.orb_false_iff in H as [H H4].
+    apply Bool.orb_false_iff in H as [H H7].
+    apply Bool.orb_false_iff in H as [H2 H8].
+    inversion init_some. cbn.
+    repeat split.
+    + now apply leb_complete_conv in H2.
+    + now apply N.ltb_ge in H7.
+    + now apply N.ltb_ge in H4.
+    + now apply N.eqb_neq in H5.
+    + now apply N.ltb_ge in H6.
+  - destruct msg. destruct m. destruct m.
+    all: receive_simpl; now inversion receive_some.
+  - destruct msg. destruct m. destruct m.
+    all: receive_simpl; now inversion receive_some.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    unset_all; subst; cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Qed.
+
+
+
 (* ------------------- Sum of balances always equals total supply ------------------- *)
 
 Lemma sum_balances_eq_total_supply block_state contract_addr :
