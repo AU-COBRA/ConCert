@@ -175,7 +175,7 @@ Module Counter.
 
         (* code for the entry point *)
         lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" CameLIGO_call_ctx ++ nl
-                          ++ CameLIGOPretty.printMain |}.
+                          ++ CameLIGOPretty.printMain "storage" |}.
 
 End Counter.
 Section CounterExtraction.
@@ -203,7 +203,7 @@ Section CounterExtraction.
       that removes application of boxes to constants and constructors. *)
 
   Time MetaCoq Run
-      (t <- CameLIGO_extract PREFIX [] TT_remap_counter TT_rename LIGO_COUNTER_MODULE ;;
+      (t <- CameLIGO_extract PREFIX [] TT_remap_counter TT_rename CameLIGO_call_ctx LIGO_COUNTER_MODULE ;;
         tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
 
   (* NOTE: running computations inside [TemplateMonad] is quite slow.
@@ -213,7 +213,7 @@ Section CounterExtraction.
   (** This command adds [cameLIGO_counter_prepared] to the environment,
       which can be evaluated later *)
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction PREFIX [] TT_remap_counter TT_rename LIGO_COUNTER_MODULE).
+       (CameLIGO_prepare_extraction PREFIX [] TT_remap_counter TT_rename CameLIGO_call_ctx LIGO_COUNTER_MODULE).
 
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
@@ -254,6 +254,7 @@ Module Crowdfunding.
     end.
 
   Open Scope string_scope.
+  Definition simple_ctx := "((timestamp * (address * (tez * tez))) * msg_coq)".
 
   Definition CF_MODULE :
     CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
@@ -287,11 +288,11 @@ Module Crowdfunding.
       (* code for the entry point *)
       lmd_entry_point :=
         CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive")
-                                    "((timestamp * (address * (tez * tez))) * msg_coq)"
+                                    simple_ctx
                                     "storage"
                                     CameLIGO_call_ctx
                                     ++ nl
-                        ++ CameLIGOPretty.printMain |}.
+                        ++ CameLIGOPretty.printMain simple_ctx |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -331,7 +332,7 @@ Section CrowdfundingExtraction.
     ; ("tt", "()") ].
 
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction PREFIX [] TT_remap_crowdfunding TT_rename_crowdfunding CF_MODULE).
+       (CameLIGO_prepare_extraction PREFIX [] TT_remap_crowdfunding TT_rename_crowdfunding simple_ctx CF_MODULE).
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
@@ -388,7 +389,7 @@ Section EIP20TokenExtraction.
 
       (* code for the entry point *)
       lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
-                        ++ CameLIGOPretty.printMain |}.
+                        ++ CameLIGOPretty.printMain CameLIGO_contractCallContext|}.
 
   Definition TT_remap_eip20token : list (kername * string) :=
     TT_remap_default ++ [
@@ -431,7 +432,7 @@ Section EIP20TokenExtraction.
     ; ("tt", "()") ].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX TT_inlines_eip20token TT_remap_eip20token TT_rename_eip20token LIGO_EIP20Token_MODULE).
+  (CameLIGO_prepare_extraction PREFIX TT_inlines_eip20token TT_remap_eip20token TT_rename_eip20token CameLIGO_contractCallContext LIGO_EIP20Token_MODULE).
 
   Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
 
@@ -560,11 +561,11 @@ Section TestExtractionPlayground.
 
       (* code for the entry point *)
       lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
-                        ++ CameLIGOPretty.printMain |}.
+                        ++ CameLIGOPretty.printMain CameLIGO_contractCallContext|}.
 
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX [] TT_remap_eip20token TT_rename_eip20token playground_module).
+  (CameLIGO_prepare_extraction PREFIX [] TT_remap_eip20token TT_rename_eip20token CameLIGO_contractCallContext playground_module).
 
   Time Definition playground_mod := Eval vm_compute in playground_mod_prepared.
 
