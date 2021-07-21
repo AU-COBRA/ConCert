@@ -105,6 +105,7 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
     ; <%% @ctx_from %%>
     ; <%% @ctx_amount %%>
     ; <%% @ctx_contract_address %%>
+    ; <%% @ctx_contract_balance %%>
     ; <%% @SerializedValue %%>
     ; <%% @SerializedType %%>
   ].
@@ -126,7 +127,6 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
   ; remap <%% @Address %%> "address"
-  (* ; remap <%% @ContractCallContext %%> "(adress * (address * int))" *)
 
   (* operations *)
   ; remap <%% List.fold_left %%> "List.fold"
@@ -191,7 +191,6 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
            (receive : kername)
            (m : CameLIGOMod msg ctx params storage operation)
   : string + string :=
-  let prelude := m.(lmd_prelude) in
   let init_prelude := m.(lmd_init_prelude) in
   let entry_point := m.(lmd_entry_point) in
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
@@ -224,13 +223,11 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
         let defs : list string :=
           ldef_const_list |> filter (negb ∘ (eq_kername init) ∘ fst)
                           |> map snd
-                          |> List.app [prelude] (* append const decls after receive prelude decls *)
                           |> List.app (map snd ldef_ty_list) (* append the above after ty decls*)
                           in
-          (* map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in *)
         let res : string :=
             String.concat (nl ++ nl) (defs ++ (cons init_code nil)) in
-        (wrap_in_delimiters (String.concat (nl ++ nl) [res; entry_point])) |> inl
+        (wrap_in_delimiters (String.concat (nl ++ nl) [m.(lmd_prelude); res; entry_point])) |> inl
       | None => inr "Error: Empty body for init"
       end
     | Some _ => inr "Error: init must be a constant"
@@ -278,6 +275,7 @@ Definition CameLIGO_prepare_extraction {Base : ChainBase} {msg ctx params storag
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
+           (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := TT_defs ++ TT_remap_default in
@@ -286,7 +284,7 @@ Definition CameLIGO_prepare_extraction {Base : ChainBase} {msg ctx params storag
   let res := unwrap_string_sum (printCameLIGODefs prefix
                                                   Σ
                                                   TT_defs TT_ctors
-                                                  CameLIGO_call_ctx
+                                                  build_call_ctx
                                                   init_nm receive_nm
                                                   m) in
   tmDefinition (m.(lmd_module_name) ^ "_prepared") res.
@@ -298,6 +296,7 @@ Definition CameLIGO_extract {Base : ChainBase} {msg ctx params storage operation
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
+           (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := TT_defs ++ TT_remap_default in
@@ -307,7 +306,7 @@ Definition CameLIGO_extract {Base : ChainBase} {msg ctx params storage operation
              (printCameLIGODefs prefix
                                 Σ
                                 TT_defs TT_ctors
-                                CameLIGO_call_ctx
+                                build_call_ctx
                                 init_nm receive_nm
                                 m) ;;
   match p with
