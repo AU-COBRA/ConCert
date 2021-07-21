@@ -791,6 +791,68 @@ Proof.
 Qed.
 
 
+
+(* ------------------- Init correct ------------------- *)
+
+Lemma init_bat_balances_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (balances state) = FMap.empty.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  now inversion H.
+Qed.
+
+Lemma init_allowances_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (allowances state) = FMap.empty.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  now inversion H.
+Qed.
+
+Lemma init_isFinalized_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    state.(isFinalized) = false.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  now inversion H.
+Qed.
+
+Lemma init_total_supply_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    (total_supply state) = 0.
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  now inversion H.
+Qed.
+
+Lemma init_constants_correct : forall state chain ctx setup,
+  init chain ctx setup = Some (state) ->
+    state.(fundDeposit) = setup.(_fundDeposit)
+    /\ state.(batFundDeposit) = setup.(_batFundDeposit)
+    /\ state.(fundingStart) = setup.(_fundingStart)
+    /\ state.(fundingEnd) = setup.(_fundingEnd)
+    /\ state.(tokenExchangeRate) = setup.(_tokenExchangeRate)
+    /\ state.(tokenCreationCap) = setup.(_tokenCreationCap)
+    /\ state.(tokenCreationMin) = setup.(_tokenCreationMin)
+    /\ state.(initSupply) = setup.(_batFund).
+Proof.
+  intros.
+  cbn in H.
+  destruct_match in H; try congruence.
+  now inversion H.
+Qed.
+
+
+
 (* ------------------- EIP20 functions preserve sum of balances ------------------- *)
 
 Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,

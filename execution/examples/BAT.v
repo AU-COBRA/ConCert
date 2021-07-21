@@ -752,7 +752,6 @@ Lemma init_other_balances_correct : forall state chain ctx setup,
 Proof.
   intros.
   inversion H.
-  cbn.
   setoid_rewrite FMap.find_add_ne.
   - now setoid_rewrite FMap.find_empty.
   - subst. auto.
