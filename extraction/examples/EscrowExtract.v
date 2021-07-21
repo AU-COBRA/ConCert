@@ -123,18 +123,22 @@ Definition receive
   | Some withdraw, withdrawals =>
     if ctx_amount ctx =? 0 then
       let from := ctx_from ctx in
-      do '(to_pay, new_state) <-
-        match from =? buyer state, from =? seller state with
+      match
+        (match from =? buyer state, from =? seller state with
         | true, _ => Some (buyer_withdrawable state, state<|buyer_withdrawable := 0|>)
         | _, true => Some (seller_withdrawable state, state<|seller_withdrawable := 0|>)
         | _, _ => None
-        end%address;
-      if 0 <? to_pay then
+        end%address)
+      with 
+      | Some (to_pay, new_state) => 
+        if 0 <? to_pay then
         let new_state := if (buyer_withdrawable new_state =? 0) && (seller_withdrawable new_state =? 0)
                          then new_state<|next_step := no_next_step|>
                          else new_state in
         Some (new_state, [act_transfer (ctx_from ctx) to_pay])
       else None
+      | None => None
+      end
     else None
   | Some withdraw, buyer_commit =>
     if (ctx_amount ctx =? 0)
@@ -177,7 +181,7 @@ Open Scope Z.
 
 Definition PREFIX := "".
 
-Section EscrowCameLIGOExtraction.
+Section EscrowExtraction.
   From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 
   Definition contractcallcontextDef := "type cctx = (address * (address * (tez * tez)))".
@@ -250,10 +254,10 @@ Section EscrowCameLIGOExtraction.
         }".
 
   Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State := 
-    EscrowCameLIGOExtract.init (snd s) cctx (fst s).
-  
+    EscrowExtract.init (snd s) cctx (fst s).
+    
   Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (msg : option Msg) : option (list ActionBody * State) :=
-    match EscrowCameLIGOExtract.receive c cctx s msg with
+    match EscrowExtract.receive c cctx s msg with
     | Some (s, acts) => Some (acts, s)
     | None => None
     end.
@@ -271,7 +275,7 @@ Section EscrowCameLIGOExtraction.
       lmd_init := escrow_init_wrapper ;
 
       (* no extra operations in [init] are required *)
-      lmd_init_prelude := "" ;
+      lmd_init_prelude := "";
 
       (* the main functionality *)
       lmd_receive := escrow_receive ;
@@ -320,5 +324,144 @@ Section EscrowCameLIGOExtraction.
   
   Redirect "examples/cameligo-extract/EscrowExtract.mligo" Compute cameLIGO_escrow.
     
-End EscrowCameLIGOExtraction.
+End EscrowExtraction.
 
+Module EscrowLiquidityExtraction.
+  From ConCert.Extraction Require Import LPretty LiquidityExtract.
+  (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
+
+  
+  Definition chainDef := "type chain = (nat * (nat * nat))".
+  Definition storageDef := "type storage = state".
+  Definition contractcallcontextDef := "type cctx = (timestamp * (address * (tez * tez)))".
+  Notation "'msg'" := ((Msg * ContractCallContext) * Chain)%type.
+
+  Definition liquidity_escrow_receive (m : msg) (s : State) := 
+    match EscrowExtract.receive m.2 m.1.2 s (Some m.1.1) with
+    | Some (s, acts) => Some (acts, s)
+    | None => None
+    end.
+  
+  Definition ESCROW_MODULE_LIQUIDITY : LiquidityMod msg ContractCallContext (Setup * Chain) State ActionBody :=
+    {| (* a name for the definition with the extracted code *)
+      lmd_module_name := "liquidity_escrow" ;
+
+      (* definitions of operations on pairs and ints *)
+      lmd_prelude := concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
+
+      (* initial storage *)
+      lmd_init := escrow_init_wrapper;
+
+      lmd_init_prelude := 
+           nl ++ "let evenTez (i : tez) = match i/2tz with | Some (_, r) -> r=0tz | None -> false in"
+        ++ nl ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
+        ++ nl ++ "let eq_addr (a1 : address) (a2 : address) = a1 = a2 in"
+        ++ nl ++ "let andb (a : bool ) (b : bool ) = a & b in"
+        ++ nl;
+
+      (* the main functionality *)
+      lmd_receive := liquidity_escrow_receive ;
+
+      (* code for the entry point *)
+      lmd_entry_point :=   storageDef ++ nl 
+                        ++ printWrapper (PREFIX ++ "liquidity_escrow_receive") ++ nl
+                        ++ printMain |}.
+
+
+ (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
+  Definition TT_remap_liquidity : list (kername * string) :=
+    [
+      remap <%% Amount %%> "tez"
+    ; remap <%% Nat.add %%> "addNat"
+    ; remap <%% Nat.ltb %%> "ltNat"
+    ; remap <%% Nat.mul %%> "multNat"
+    ; remap <%% Z.add %%> "addTez"
+    ; remap <%% Z.mul %%> "multTez"
+    ; remap <%% Z.sub %%> "subTez"
+    ; remap <%% Z.leb %%> "leTez"
+    ; remap <%% Z.ltb %%> "ltTez"
+    ; remap <%% Z.div %%> "divTez"
+    ; remap <%% Z.even %%> "evenTez"
+    ; remap <%% Z.eqb %%> "eqTez"
+    ; remap <%% Z %%> "tez"
+
+    ; remap <%% @ActionBody %%> "operation"
+    ; remap <%% @ContractCallContext %%> "cctx"
+    ; remap <%% @chain_height %%> "(fun (c : chain) -> c.(0))"
+    ; remap <%% @current_slot %%> "(fun (c : chain) -> c.(1).(0))"
+    ; remap <%% @finalized_height %%> "(fun (c : chain) -> c.(1).(1))"
+    ; remap <%% @ctx_from %%> "(fun (c : cctx) -> c.(1).(0))"
+    ; remap <%% @ctx_contract_address %%> "(fun (c : cctx) -> c.(0))"
+    ; remap <%% @ctx_contract_balance %%> "(fun (c : cctx) -> c.(1).(1).(0))"
+    ; remap <%% @ctx_amount %%> "(fun (c : cctx) -> c.(1).(1).(1))"
+    ; remap <%% @address_eqb %%> "eq_addr"
+
+    ; remap <%% _2 %%> "2p"
+    ; remap <%% _3 %%> "3p"
+    ; remap <%% _4 %%> "4p"
+    ; remap <%% _50 %%> "50p"
+
+    ; remap <%% @List.fold_left %%> "List.fold"
+    ; remap <%% @List.map %%> "List.map"
+    ; remap <%% @List.find %%> "List.find"
+    ; remap <%% @List.length %%> "List.length"
+    ; remap <%% @List.app %%> "List.append"
+    ].
+  (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
+  Definition TT_rename_liquidity : list (string * string):=
+
+    [ ("Some", "Some")
+    ; ("None", "None")
+    ; ("Zpos" ,"int")
+    ; ("Npos" ,"(fun (n:nat) -> n)")
+    ; ("Zneg" ,"-")
+    ; ("Z0" ,"0tz")
+    ; ("N0" ,"0")
+    ; ("xH" ,"0")
+    ; ("1" ,"1")
+    ; ("nil", "[]")
+    ; ("true", "true")
+    ; ("tt", "()")
+    ].
+
+  Definition to_inline : list kername := 
+    [
+      <%% Monads.Monad_option %%>
+    ; <%% @Monads.bind %%>
+    ; <%% @Monads.ret %%>
+    ; <%% @Monads.lift %%>
+    ; <%% bool_rect %%>
+    ; <%% bool_rec %%>
+    ; <%% option_map %%>
+    ; <%% @Extras.with_default %%>
+
+    (* necessary because liquidity doesn't allow calls to other functions in init for some reason *)
+    ; <%% @EscrowExtract.init %%>
+
+    ; <%% @setter_from_getter_State_last_action %%>
+    ; <%% @setter_from_getter_State_next_step %%>
+    ; <%% @setter_from_getter_State_seller %%>
+    ; <%% @setter_from_getter_State_buyer %%>
+    ; <%% @setter_from_getter_State_seller_withdrawable %%>
+    ; <%% @setter_from_getter_State_buyer_withdrawable %%>
+
+    ; <%% @set_State_last_action %%>
+    ; <%% @set_State_next_step %%>
+    ; <%% @set_State_seller %%>
+    ; <%% @set_State_buyer %%>
+    ; <%% @set_State_seller_withdrawable %%>
+    ; <%% @set_State_buyer_withdrawable %%>
+
+    ].
+    
+  Time MetaCoq Run
+      (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
+        tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
+      ).
+
+  Print liquidity_escrow.
+
+  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+  Redirect "examples/liquidity-extract/escrow.liq" Compute liquidity_escrow.
+  
+End EscrowLiquidityExtraction.
