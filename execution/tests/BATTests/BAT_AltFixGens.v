@@ -79,7 +79,7 @@ Definition gRefundInvalid (env : Environment) (state : BATCommon.State) : G (Add
 
 Definition gFinalize (env : Environment) (state : BATCommon.State) : GOpt (Address * Msg) :=
   let current_slot := S (current_slot (env_chain env)) in
-  if (state.(isFinalized) 
+  if (state.(isFinalized)
         || ((total_supply state) <? state.(tokenCreationMin))%N
         || ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))%N))
   then
@@ -99,7 +99,7 @@ Module EIP20 := EIP20Gens Info.
 *)
 Definition gBATActionValid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+    returnGenSome (build_act caller_addr (act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -145,7 +145,7 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
 *)
 Definition gBATActionInvalid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr (Blockchain.act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+    returnGenSome (build_act caller_addr (act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -199,11 +199,11 @@ Definition gBATAction (env : Environment) : GOpt Action :=
     (5, bindGenOpt (gBATActionValid env)
         (fun '(action) =>
           match action.(act_body) with
-          | Blockchain.act_transfer _ _ => returnGen None
-          | Blockchain.act_deploy _ _ _ => returnGen None
-          | Blockchain.act_call to _ msg =>
+          | act_transfer _ _ => returnGen None
+          | act_deploy _ _ _ => returnGen None
+          | act_call to _ msg =>
             amount <- choose (0, account_balance env action.(act_from))%Z ;;
-            returnGenSome (build_act action.(act_from) (Blockchain.act_call to amount msg))
+            returnGenSome (build_act action.(act_from) (act_call to amount msg))
           end
         ));
     (65, gBATActionInvalid env);
