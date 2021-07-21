@@ -997,6 +997,8 @@ Qed.
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
 
+(* In any reachable state the sum of token balance
+    will be equal to the total supply of tokens *)
 Lemma sum_balances_eq_total_supply block_state contract_addr :
   reachable block_state ->
   env_contracts block_state contract_addr = Some (contract : WeakContract) ->
@@ -1004,53 +1006,23 @@ Lemma sum_balances_eq_total_supply block_state contract_addr :
     contract_state block_state contract_addr = Some cstate
     /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
-  contract_induction; intros; auto.
-  - unfold Blockchain.init in init_some. cbn in *.
-    destruct_match in init_some; try congruence.
-    inversion init_some. unfold EIP20Token.sum_balances.
-    now setoid_rewrite FMap.elements_empty.
-  - destruct msg. destruct m. destruct m.
-    + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_transfer_from_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_from_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
-      apply try_approve_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_create_tokens_update_balances_sum in receive_some as balance_sum.
-      apply try_create_tokens_total_supply_correct in receive_some.
-      now rewrite <- balance_sum, <- receive_some, N.add_cancel_r.
-    + apply try_finalize_preserves_balances_sum in receive_some as balance_sum.
-      apply try_finalize_total_supply_correct in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_refund_update_balances_sum in receive_some as balance_sum.
-      apply try_refund_total_supply_correct in receive_some.
-      rewrite IH in receive_some. rewrite <- receive_some.
-      rewrite <- N.add_sub_swap, balance_sum, N.sub_add.
-      now rewrite N.add_sub.
-      apply N_add_le.
-      instantiate (CallFacts := fun _ _ cstate => cstate.(tokenExchangeRate) <> 0).
-      now apply N.mod_le.
-      apply balance_le_sum_balances.
-    + cbn in receive_some. congruence.
-  - destruct msg. destruct m. destruct m.
-    + apply try_transfer_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_transfer_from_preserves_balances_sum in receive_some as balance_sum.
-      apply try_transfer_from_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_approve_preserves_balances_sum in receive_some as balance_sum.
-      apply try_approve_preserves_total_supply in receive_some.
-      now rewrite <- balance_sum, <- IH.
-    + apply try_create_tokens_update_balances_sum in receive_some as balance_sum.
-      apply try_create_tokens_total_supply_correct in receive_some.
-      now rewrite <- balance_sum, <- receive_some, N.add_cancel_r.
-    + apply try_finalize_preserves_balances_sum in receive_some as balance_sum.
-      apply try_finalize_total_supply_correct in receive_some.
-      now rewrite <- balance_sum, <- IH.
+  assert (H : forall prev_state new_state chain ctx msg new_acts,
+            total_supply prev_state = sum_balances prev_state ->
+            receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+            prev_state.(tokenExchangeRate) <> 0 ->
+            total_supply new_state = sum_balances new_state).
+  - intros prev_state new_state chain ctx msg new_acts IH receive_some exchange_rate_nonzero.
+    destruct msg. destruct m. destruct m.
+    + now erewrite <- try_transfer_preserves_balances_sum,
+                   <- try_transfer_preserves_total_supply.
+    + now erewrite <- try_transfer_from_preserves_balances_sum,
+                   <- try_transfer_from_preserves_total_supply.
+    + now erewrite <- try_approve_preserves_balances_sum,
+                   <- try_approve_preserves_total_supply.
+    + now erewrite <- try_create_tokens_update_balances_sum,
+                   <- try_create_tokens_total_supply_correct; eauto.
+    + erewrite <- try_finalize_preserves_balances_sum,
+               <- try_finalize_total_supply_correct; eauto. lia.
     + apply try_refund_update_balances_sum in receive_some as balance_sum.
       apply try_refund_total_supply_correct in receive_some.
       rewrite IH in receive_some. rewrite <- receive_some.
@@ -1059,37 +1031,36 @@ Proof.
       apply N_add_le.
       now apply N.mod_le.
       apply balance_le_sum_balances.
-    + cbn in receive_some. congruence.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    unset_all; subst.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
-    intros.
-    apply deployed_implies_constants_valid in H as H1; auto.
-    now destruct H1.
+    + now receive_simpl.
+  - contract_induction; intros;
+      only 1: instantiate (CallFacts := fun _ _ cstate => cstate.(tokenExchangeRate) <> 0); eauto.
+    + now apply init_preserves_balances_sum in init_some.
+    + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+      instantiate (DeployFacts := fun _ _ => True).
+      unset_all; subst.
+      destruct_chain_step; auto.
+      destruct_action_eval; auto.
+      intros.
+      apply deployed_implies_constants_valid in H0 as H2; auto.
+      now destruct H2.
 Qed.
 
 
 
 (* ------------------- Finalize cannot be undone ------------------- *)
-
+(* Once the contract is in the finalized state it cannot leave it *)
 Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
   (isFinalized prev_state) = true /\
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
     (isFinalized new_state) = true.
 Proof.
-  intros.
-  destruct H as [H receive].
+  intros prev_state new_state chain ctx msg new_acts (finalized & receive_some).
   destruct msg. destruct m.
-  - apply eip_only_changes_token_state in receive.
-    now rewrite <- receive.
-  - apply try_create_tokens_only_change_token_state in receive.
-    now rewrite <- receive.
-  - now apply try_finalize_isFinalized_correct in receive as [_ receive].
-  - apply try_refund_only_change_token_state in receive.
-    now rewrite <- receive.
-  - cbn in receive. congruence.
+  - now rewrite <- (eip_only_changes_token_state _ _ _ _ _ _ receive_some).
+  - now rewrite <- (try_create_tokens_only_change_token_state _ _ _ _ _ receive_some).
+  - now apply try_finalize_isFinalized_correct in receive_some.
+  - now rewrite <- (try_refund_only_change_token_state _ _ _ _ _ receive_some).
+  - now receive_simpl.
 Qed.
 
 End Theories.
