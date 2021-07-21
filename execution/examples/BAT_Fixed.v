@@ -564,6 +564,24 @@ Proof.
     + now destruct_address_eq.
 Qed.
 
+Lemma try_create_tokens_acts_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    new_acts = [].
+Proof.
+  intros.
+  receive_simpl.
+Qed.
+
+Lemma try_create_tokens_amount_correct : forall prev_state new_state chain ctx new_acts,
+  receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
+    Z.lt 0 ctx.(ctx_amount).
+Proof.
+  intros.
+  receive_simpl.
+  returnIf H1.
+  now apply Z.leb_gt in H1.
+Qed.
+
 
 
 (* ------------------- Finalize correct ------------------- *)
