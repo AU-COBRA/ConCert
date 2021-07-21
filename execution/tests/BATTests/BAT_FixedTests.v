@@ -10,20 +10,20 @@ From ConCert Require Import Blockchain
                             TestUtils
                             ChainPrinters
                             SerializablePrinters
+                            TraceGens
                             BATCommon
-                            BAT_Fixed
-                            BAT_FixedPrinters
+                            BATPrinters
                             BAT_FixedGens
-                            TraceGens.
+                            BAT_Fixed.
 From Coq Require Import ZArith_base List.
 Import ListNotations.
 
 
 (* -------------------------- Tests of the BAT_Fixed Implementation -------------------------- *)
 
-Existing Instance BAT_FixedPrinters.showBATState.
-Existing Instance BAT_FixedPrinters.showMsg.
-Existing Instance BAT_FixedPrinters.showBATSetup.
+Existing Instance BATPrinters.showBATState.
+Existing Instance BATPrinters.showMsg.
+Existing Instance BATPrinters.showBATSetup.
 
 Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
 Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.

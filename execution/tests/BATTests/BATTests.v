@@ -10,11 +10,11 @@ From ConCert Require Import Blockchain
                             TestUtils
                             ChainPrinters
                             SerializablePrinters
+                            TraceGens
                             BATCommon
-                            BAT
                             BATPrinters
                             BATGens
-                            TraceGens.
+                            BAT.
 From Coq Require Import ZArith_base List.
 Import ListNotations.
 
