@@ -1122,6 +1122,7 @@ Qed.
 
 
 (* ------------------- Finalize cannot be undone ------------------- *)
+
 (* Once the contract is in the finalized state it cannot leave it *)
 Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
   (isFinalized prev_state) = true /\
@@ -1135,6 +1136,432 @@ Proof.
   - now apply try_finalize_isFinalized_correct in receive_some.
   - now rewrite <- (try_refund_only_change_token_state _ _ _ _ _ receive_some).
   - now receive_simpl.
+Qed.
+
+
+
+(* ------------------- It is always possible to finalize ------------------- *)
+
+(* Prove that it is always possible to reach a state where the token is finalized if the funding
+   goal was reached *)
+Lemma can_finalize_if_creation_min : forall bstate (reward : Amount) (caddr creator : Address),
+  address_is_contract creator = false ->
+  (reward >= 0)%Z ->
+  reachable bstate ->
+  emptyable (chain_state_queue bstate) ->
+  (exists cstate,
+    env_contracts bstate caddr = Some (BATAltFix.contract : WeakContract)
+    /\ env_contract_states bstate caddr = Some (serializeState cstate)
+    /\ (tokenCreationMin cstate) <= (total_supply cstate)
+    /\ address_is_contract (fundDeposit cstate) = false)
+      ->
+      exists bstate', reachable_through bstate bstate'
+        /\ emptyable (chain_state_queue bstate')
+        /\ exists cstate',
+        env_contracts bstate' caddr = Some (BATAltFix.contract : WeakContract)
+        /\ env_contract_states bstate' caddr = Some (serializeState cstate')
+        /\ (isFinalized cstate') = true.
+Proof.
+  intros bstate reward caddr creator Hcreator Hreward bstate_reachable bstate_queue H.
+  (* Empty the action queue so that we can add new blocks *)
+  empty_queue H; destruct H as (cstate & contract_deployed & contract_state & creation_min & fund_deposit_not_contract);
+    (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
+    only 3: destruct (address_eqdec caddr to_addr);
+    try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+         cbn; destruct_address_eq; try easy).
+  - (* Prove that H is preserved after calls to the contract *)
+    clear g l reward Hreward creator Hcreator bstate_queue bstate_reachable bstate e3 e1.
+    subst.
+    rewrite contract_deployed in e. inversion e. subst.
+    rewrite contract_state in e0. inversion e0. subst.
+    apply wc_receive_strong in e2 as
+      (prev_state' & msg' & new_state' & serialize_prev_state & _ & serialize_new_state & receive_some).
+    setoid_rewrite deserialize_serialize in serialize_prev_state. inversion serialize_prev_state. subst.
+    apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
+    apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ? & ?).
+    repeat match goal with
+    | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+    end.
+    exists new_state'.
+    rewrite_environment_equiv; cbn; repeat split; eauto;
+    cbn; destruct_address_eq; try easy.
+    eapply N.le_trans; eauto.
+  - update_all.
+    (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
+    destruct (isFinalized cstate) eqn:finalized;
+      [eexists; rewrite queue; split; eauto; split; eauto; eapply empty_queue_is_emptyable |].
+    (* Fast forward time/slot to "fundingEnd" so that we know for sure that the funding period is not active
+        in the next block *)
+    forward_time (cstate.(fundingEnd)); eauto.
+    (* forward_time gives us a new ChainState so we no longer need the old one therefore
+        we call update_all to replace all occurrences of the old ChainState with the new one *)
+    update_all.
+    (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
+       So now we can add a new block containing a finalize call *)
+    add_block [(finalize_act cstate caddr)] 1%nat; eauto.
+    (* The hypothesis "slot_hit" no longer holds so we have to update it manually before calling update_all *)
+    update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
+      (rewrite_environment_equiv; cbn; easy).
+    update_all.
+    clear reward Hreward creator Hcreator.
+
+    (* We can now evaluate the action we added giving us a ChainState where
+        the token is in its finalized state *)
+    evaluate_action BATAltFix.contract; try easy.
+    + (* Prove that there is enough balance to evaluate action *)
+      now apply account_balance_nonnegative.
+    + (* Prove that receive action returns Some *)
+      specialize (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
+      * rewrite receive_some.
+        now receive_simpl.
+      * easy.
+    + cbn in *.
+      clear contract_state slot_hit creation_min.
+      update_all;
+        [rewrite queue0; do 3 f_equal;repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+      (* Finally we need to evaluate the new transfer action that finalize produced *)
+      evaluate_transfer; try easy.
+      * (* Prove that the transfer is nonnegative *)
+        destruct_address_eq;
+        try rewrite Z.add_0_r;
+        now apply account_balance_nonnegative.
+      * (* Prove that there is enough balance to evaluate the transfer *)
+        destruct_address_eq;
+        try rewrite Z.add_0_r;
+        apply Z.le_ge, Z.le_refl.
+      * exists bstate0.
+        split; eauto.
+        rewrite queue.
+        split; try apply empty_queue_is_emptyable.
+        eexists.
+        now repeat split; try (rewrite_environment_equiv; cbn; eauto).
+Qed.
+
+(* Prove that it is always possible to reach a state where the token is finalized if there
+   is enough money in the blockchain and the contract constants have valid values *)
+Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr creator : Address) accounts,
+  address_is_contract creator = false ->
+  (reward >= 0)%Z ->
+  reachable deployed_bstate ->
+  emptyable (chain_state_queue deployed_bstate) ->
+  NoDup accounts ->
+  Forall (fun acc => address_is_contract acc = false) accounts ->
+  (exists deployed_cstate,
+    env_contracts deployed_bstate caddr = Some (BATAltFix.contract : WeakContract)
+    /\ env_contract_states deployed_bstate caddr = Some (serializeState deployed_cstate)
+    /\ (((tokenCreationMin deployed_cstate) - (total_supply deployed_cstate))) <=
+            ((Z.to_N (spendable_balance deployed_bstate accounts)) * (tokenExchangeRate deployed_cstate))
+    /\ ((fundingStart deployed_cstate) <= (current_slot (env_chain deployed_bstate)))%nat
+    /\ ((current_slot (env_chain deployed_bstate)) < (fundingEnd deployed_cstate))%nat
+    /\ address_is_contract (fundDeposit deployed_cstate) = false)
+      ->
+      exists bstate, reachable_through deployed_bstate bstate
+        /\ emptyable (chain_state_queue bstate)
+        /\ exists cstate,
+        env_contracts bstate caddr = Some (BATAltFix.contract : WeakContract)
+        /\ env_contract_states bstate caddr = Some (serializeState cstate)
+        /\ (isFinalized cstate) = true.
+Proof.
+  intros deployed_bstate reward caddr creator accounts Hcreator Hreward reach' empty accounts_unique accounts_not_contracts H.
+  (* Empty the action queue so that we can add new blocks *)
+  empty_queue H; destruct H as
+    (cstate & contract_deployed & contract_state & enough_balance_to_fund &
+     funding_period_started & funding_period_not_over & fund_deposit_not_contract);
+    (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
+    only 3: destruct (address_eqdec caddr to_addr);
+    try now exists cstate;
+        repeat split; eauto;
+          try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq));
+        eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+        eapply spendable_consume_act; eauto;
+          intros; rewrite_environment_equiv; subst; (try destruct msg);
+          cbn; destruct_address_eq; try easy; lia.
+  - (* Prove that H is preserved after calls to the contract *)
+    clear l reward Hreward creator Hcreator empty reach' deployed_bstate e3 accounts_unique accounts_not_contracts.
+    subst.
+    rewrite contract_deployed in e. inversion e. subst.
+    rewrite contract_state in e0. inversion e0. subst.
+    apply wc_receive_strong in e2 as
+      (prev_state' & msg' & new_state' & serialize_prev_state & serialize_msg & serialize_new_state & receive_some).
+    setoid_rewrite deserialize_serialize in serialize_prev_state. inversion serialize_prev_state. subst.
+    apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
+    apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ? & ?).
+    repeat match goal with
+    | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+    end.
+    eexists new_state'.
+    repeat split; eauto;
+      try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+    eapply N.le_trans in enough_balance_to_fund; [| apply N.sub_le_mono_l, total_supply_increasing].
+    eapply N.le_trans.
+    apply enough_balance_to_fund.
+    apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
+    eapply spendable_consume_act; eauto;
+      intros; rewrite_environment_equiv; subst; destruct msg;
+      cbn; destruct_address_eq; try easy; lia.
+  - (* Update goal and eleminate all occurrences of old ChainState *)
+    update_all.
+    (* Now that the queue is empty we can switch from using spendable_balance
+       to total_balance to simplify the proof *)
+    rewrite spendable_eq_total_balance in enough_balance_to_fund; eauto.
+
+    (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
+    destruct (isFinalized cstate) eqn:finalized;
+      [eexists; split; eauto; rewrite queue; split; eauto; apply empty_queue_is_emptyable |].
+
+    (* Next add a new block containing enough create_tokens actions to reach funding goal *)
+    add_block (create_token_acts (bstate<|env_account_balances := add_balance creator reward bstate.(env_account_balances)|>) caddr accounts
+            ((tokenCreationMin cstate) - (total_supply cstate)) cstate.(tokenExchangeRate)) 1%nat;
+      only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | ].
+    (* Prove that the funding period is still not over *)
+    update ((current_slot bstate0) <= (fundingEnd cstate))%nat in funding_period_not_over by
+      (rewrite_environment_equiv; cbn; lia).
+    (* Prove that the environment in the new ChainState is correct *)
+    update (setter_from_getter_Environment_env_account_balances
+               (fun _ : Address -> Amount => add_balance creator reward (env_account_balances bstate)) bstate)
+      with bstate0.(chain_state_env) in queue0 by
+      (rewrite queue0; apply create_token_acts_eq; intros; now rewrite_environment_equiv).
+    (* Prove that there is still enough balance in accounts to hit funding goal *)
+    update bstate with bstate0 in enough_balance_to_fund.
+    { eapply N.le_trans; eauto.
+      apply N.mul_le_mono_r, Z2N.inj_le;
+        try now apply total_balance_positive.
+      apply (total_balance_le bstate).
+      intros. rewrite_environment_equiv. cbn.
+      destruct_address_eq; lia.
+    }
+    update_all.
+    generalize dependent bstate0.
+    generalize dependent cstate.
+
+    (* Next we do induction on account to evaluate all the actions added to the queue *)
+    induction accounts; intros.
+    + (* If the queue is empty then we know that the funding goal was hit
+          and can then apply can_finalize_if_creation_min *)
+      clear accounts_unique accounts_not_contracts finalized
+            funding_period_not_over funding_period_started.
+      apply N.le_0_r, N.sub_0_le in enough_balance_to_fund.
+      specialize (can_finalize_if_creation_min bstate0 reward caddr creator).
+      intros []; eauto.
+      rewrite queue0.
+      apply empty_queue_is_emptyable.
+    + clear reward Hreward creator Hcreator.
+      apply NoDup_cons_iff in accounts_unique as [accounts_unique accounts_unique'].
+      apply list.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
+
+      (* Check if funding goal was alredy hit *)
+      destruct (tokenCreationMin cstate - total_supply cstate) eqn:tokens_left_to_fund.
+      * (* If funding goal is reached then we know that create_token_acts will not
+            produce any more actions so the queue is actually empty.
+           Therefore we can directly apply the induction hypothesis *)
+        eapply IHaccounts; eauto.
+       -- now rewrite tokens_left_to_fund.
+       -- rewrite tokens_left_to_fund.
+          apply N.le_0_l.
+      * rewrite <- tokens_left_to_fund in *.
+        (* We check if the account balance is 0 *)
+        destruct (0 <? env_account_balances bstate0 a)%Z eqn:balance_positive; cycle 1;
+          [apply Z.ltb_ge in balance_positive | apply Z.ltb_lt in balance_positive].
+        { (* If account balance is 0 then we need to discard the action as it
+              cannot be evaluated *)
+          assert (amount_zero : (forall x, x <= 0 -> Z.to_N x = 0%N)%Z) by lia.
+          rewrite create_token_acts_cons, amount_zero, N.min_0_r, N.mul_0_l, N.sub_0_r in queue0 by lia.
+          discard_invalid_action; eauto.
+          - (* Prove that the action cannot be evaluated since create_tokens
+                requires to be called with amount > 0 *)
+            clear dependent accounts.
+            clear dependent cstate.
+            clear p reach0 accounts_not_contracts balance_positive.
+            intros.
+            destruct_action_eval;
+            [inversion e0 | inversion e1 | destruct msg; inversion e1; subst].
+            rewrite contract_deployed in e. inversion e. subst.
+            apply wc_receive_strong in e2 as
+              (prev_state' & msg' & new_state' & serialize_prev_state & serialize_msg & serialize_new_state & receive_some).
+            destruct_match in serialize_msg; try congruence.
+            cbn in serialize_msg.
+            setoid_rewrite deserialize_serialize in serialize_msg.
+            inversion serialize_msg. subst.
+            now apply try_create_tokens_amount_correct in receive_some.
+          - (* Apply induction hypothesis *)
+            edestruct IHaccounts with (bstate0 := bstate) (cstate := cstate) as []; eauto; try (rewrite_environment_equiv; eauto).
+            + rewrite queue.
+              apply create_token_acts_eq.
+              intros. now rewrite_environment_equiv.
+            + rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
+              erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv).
+              lia.
+            + now exists x.
+        }
+
+        specialize deployed_implies_constants_valid as
+            (cstate' & contract_state' & _ & _ & echange_rate_nonzero & can_hit_fund_min); eauto.
+        cbn in contract_state'.
+        rewrite contract_state in contract_state'.
+        setoid_rewrite deserialize_serialize in contract_state'. inversion contract_state'.
+        rewrite <- H0 in *. clear H0.
+
+        (* Now we know that the action is valid we need to evaluate it *)
+        evaluate_action BATAltFix.contract; try easy;
+          only 1-4: clear fund_deposit_not_contract accounts_not_contracts IHaccounts.
+        -- (* Prove that there is an action in the queue *)
+           now rewrite create_token_acts_cons by lia.
+        -- (* Prove that amount is nonnegative *)
+           apply Z.le_ge, N2Z.is_nonneg.
+        -- (* Prove that amount <= account balance *)
+           nia.
+        -- (* Prove that receive returns Some *)
+           clear dependent accounts.
+           clear contract_state.
+           apply Nat.ltb_ge in funding_period_started.
+           apply Nat.ltb_ge in funding_period_not_over.
+           cbn.
+           rewrite finalized, funding_period_started, funding_period_not_over, N2Z.inj_min, Z2N.id;
+             try (apply Z.ge_le, account_balance_nonnegative; eauto).
+           clear finalized funding_period_started funding_period_not_over.
+           cbn.
+           destruct_match eqn:match_amount; returnIf match_amount.
+           destruct_match eqn:match_cap; returnIf match_cap; eauto.
+         --- (* Prove contradiction between match_amount, match_cap and can_hit_fund_min *)
+             apply N.ltb_lt in match_cap.
+             apply Z.leb_gt, Z.min_glb_lt_iff in match_amount as [].
+             rewrite Z2N.inj_min, N2Z.id, <- N.mul_min_distr_r, <- N.add_min_distr_l, N.min_glb_lt_iff in match_cap.
+             destruct match_cap.
+             apply N.lt_le_trans with (p := (tokenCreationMin cstate) + tokenExchangeRate cstate) in H1.
+             nia.
+             rewrite N.mul_add_distr_r, N.mul_1_l.
+             rewrite N.add_assoc, N.add_comm, N.add_assoc.
+             rewrite <- N.add_le_mono_r.
+             apply N_le_sub. lia.
+             now apply N_div_mul_le.
+         --- (* Prove contradiction between match_amount, balance_positive *)
+             apply Zle_bool_imp_le, Z.min_le in match_amount as [].
+          ---- rewrite <- N2Z.inj_0 in H.
+               now apply N2Z.inj_le, N_le_add_distr in H.
+          ---- lia.
+        -- assert (caddr_not_in_accounts : ~ In caddr accounts) by
+             (intro; rewrite Forall_forall in accounts_not_contracts'; apply accounts_not_contracts' in H; now apply contract_addr_format in contract_deployed).
+           (* Apply induction hypothesis *)
+           edestruct IHaccounts as [];
+             clear IHaccounts accounts_not_contracts balance_positive queue0 tokens_left_to_fund p can_hit_fund_min;
+             only 10: (rewrite deployed_state; eauto);
+             try (rewrite_environment_equiv; eauto);
+             cbn; try rewrite Z2N.inj_min, N2Z.id;
+             clear deployed_state contract_deployed funding_period_started funding_period_not_over
+                   fund_deposit_not_contract finalized contract_state.
+         --- (* Prove that the queues of the two ChainStates are equivalent *)
+             rewrite queue, N.sub_add_distr.
+             apply create_token_acts_eq.
+             intros. rewrite_environment_equiv. cbn. now destruct_address_eq.
+         --- (* Prove that there still is enough balance to hit funding goal *)
+             clear queue accounts_not_contracts'.
+             edestruct N.min_dec.
+          ---- cbn. rewrite e.
+               eapply N.le_trans; [| apply N.le_0_l].
+               rewrite N.mul_add_distr_r, N.mul_1_l.
+               apply N.le_0_r.
+               rewrite N.sub_add_distr.
+               rewrite N.sub_add_distr.
+               apply N.sub_0_le.
+               now apply N_le_div_mul.
+          ---- rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
+               erewrite (total_balance_eq _ bstate0) by
+                (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
+               apply N.le_sub_le_add_r in enough_balance_to_fund.
+               rewrite <- N.sub_add_distr in enough_balance_to_fund.
+               eapply N.le_trans; [| apply enough_balance_to_fund].
+               apply N.sub_le_mono_l, N.add_le_mono_l, N.mul_le_mono_r.
+               lia.
+         --- now exists x.
+Qed.
+
+Lemma can_deploy_and_finalize : forall bstate (reward : Amount) (caddr creator : Address) accounts setup,
+  address_is_contract creator = false ->
+  (reward >= 0)%Z ->
+  reachable bstate ->
+  chain_state_queue bstate = [] ->
+  NoDup accounts ->
+  Forall (fun acc => address_is_contract acc = false) accounts ->
+  address_is_contract caddr = true ->
+  env_contracts bstate caddr = None ->
+  (((_tokenCreationMin setup))) <=
+            ((Z.to_N (spendable_balance bstate accounts)) * (_tokenExchangeRate setup)) ->
+  setup.(_tokenExchangeRate) <= setup.(_tokenCreationCap) - setup.(_tokenCreationMin) ->
+  ((_fundingStart setup) < (_fundingEnd setup))%nat ->
+  (S (current_slot (env_chain bstate)) < (_fundingStart setup))%nat ->
+  address_is_contract (_fundDeposit setup) = false ->
+  setup.(_tokenExchangeRate) <> 0 ->
+  exists bstate',
+    reachable_through bstate bstate'
+    /\ emptyable (chain_state_queue bstate')
+    /\ exists cstate,
+    env_contracts bstate' caddr = Some (BATAltFix.contract : WeakContract)
+    /\ env_contract_states bstate' caddr = Some (serializeState cstate)
+    /\ (isFinalized cstate) = true.
+Proof.
+  intros bstate reward caddr creator accounts setup
+         Hcreator Hreward bstate_reachable bstate_queue
+         accounts_unique
+         accounts_not_contracts
+         caddr_is_contract
+         contract_not_deployed
+         enough_balance_to_fund
+         can_hit_fund_min
+         funding_period_nonempty
+         funding_period_not_started
+         fund_deposit_not_contract
+         echange_rate_nonzero.
+
+  add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto.
+  update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
+    (rewrite_environment_equiv; cbn; lia).
+  update bstate with bstate0 in enough_balance_to_fund by
+    (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+     unfold spendable_balance, pending_usage; rewrite queue, bstate_queue; apply sumZ_le;
+     intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+  update_all.
+
+  deploy_contract BATAltFix.contract; eauto; try lia; try now apply account_balance_nonnegative.
+  { (* Prove that init returns some *)
+    cbn.
+    destruct_match eqn:requirements; eauto.
+    returnIf requirements.
+    repeat apply Bool.orb_prop in requirements as [requirements | requirements].
+    - now apply Nat.leb_le in requirements.
+    - now apply Nat.ltb_lt in requirements.
+    - now apply N.ltb_lt in requirements.
+    - now apply N.eqb_eq in requirements.
+    - now apply N.ltb_lt in requirements.
+  }
+  specialize constants_are_constant as (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
+  unfold contract_state in deployed_state'. cbn in deployed_state'.
+  rewrite deployed_state, deserialize_serialize in deployed_state'.
+  inversion deployed_state'. rewrite <- H8 in *. clear H8 deployed_state'.
+  rewrite deploy_info in deploy_info'.
+  inversion deploy_info'. rewrite <- H8 in *. clear H8 deploy_info'.
+  cbn in *.
+  repeat match goal with
+  | H : _ cstate =  _ setup |- _=> rewrite <- H in *; clear H
+  end.
+  update bstate0 with bstate in enough_balance_to_fund by
+    (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+     eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; subst; cbn; destruct_address_eq; try easy; lia).
+  clear dependent trace.
+  update_all.
+
+  forward_time_exact (cstate.(fundingStart)); eauto.
+  update bstate with bstate0 in enough_balance_to_fund by
+    (inversion header_valid;
+     eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
+     unfold spendable_balance, pending_usage; rewrite queue, queue0; apply sumZ_le;
+     intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+  clear funding_period_not_started.
+  update_all.
+
+  eapply can_finalize_if_deployed; eauto.
+  - rewrite queue. apply empty_queue_is_emptyable.
+  - eexists.
+    intuition.
 Qed.
 
 End Theories.
