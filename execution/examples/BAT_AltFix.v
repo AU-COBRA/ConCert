@@ -900,8 +900,9 @@ Proof.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
   - setoid_rewrite from_balance.
     setoid_rewrite FMap.elements_add_existing; eauto.
-    rewrite EIP20Token.sumN_split with (x:=ctx_from ctx), EIP20Token.sumN_swap.
-    rewrite fin_maps.map_to_list_delete; auto.
+    erewrite sumN_split with (x := (ctx_from ctx, _)) (y:= (ctx_from ctx, _)) by eauto.
+    rewrite sumN_swap.
+    rewrite fin_maps.map_to_list_delete; eauto.
     now rewrite N.add_comm.
   - setoid_rewrite from_balance.
     setoid_rewrite FMap.elements_add; auto.
@@ -920,7 +921,8 @@ Proof.
   destruct (FMap.find (batFundDeposit prev_state) (balances prev_state)) eqn:from_balance.
   - setoid_rewrite from_balance.
     setoid_rewrite FMap.elements_add_existing; eauto.
-    rewrite EIP20Token.sumN_split with (x:=ctx_from ctx), EIP20Token.sumN_swap.
+    erewrite sumN_split with (x := ((batFundDeposit prev_state), _)) (y:= ((batFundDeposit prev_state), _)) by eauto.
+    rewrite sumN_swap.
     rewrite fin_maps.map_to_list_delete; auto.
     now rewrite N.add_comm.
   - setoid_rewrite from_balance.
@@ -937,7 +939,8 @@ Proof.
   receive_simpl.
   inversion H. unfold EIP20Token.sum_balances. clear H H5 H6.
   setoid_rewrite FMap.elements_add_existing; eauto.
-  rewrite EIP20Token.sumN_add with (x:=ctx_from ctx), EIP20Token.sumN_swap.
+  change n with ((fun '(_, v) => v) (ctx_from ctx, n)).
+  rewrite sumN_inv, sumN_swap.
   rewrite fin_maps.map_to_list_delete; eauto. cbn.
   now rewrite N.add_comm, N.add_sub.
 Qed.

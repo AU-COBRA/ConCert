@@ -93,10 +93,10 @@ Global Coercion serializeState : State >-> SerializedValue.
 Global Coercion serializeSetup : Setup >-> SerializedValue.
 
 Definition finalize_act cstate caddr : Action :=
-  build_act (fundDeposit cstate) (act_call caddr 0%Z finalize).
+  build_act (fundDeposit cstate) (act_call caddr 0 finalize).
 
 Definition deploy_act setup contract from : Action :=
-  build_act from (act_deploy 0%Z contract setup).
+  build_act from (act_deploy 0 contract setup).
 
 (* Utility definitions and lemmas *)
 Open Scope N_scope.
@@ -104,7 +104,8 @@ Open Scope N_scope.
    N.mod_le requires that b <> 0, however
    it is possible to prove the same without
    that assumption *)
-Lemma N_mod_le : forall a b, a mod b <= a.
+Lemma N_mod_le : forall a b,
+  a mod b <= a.
 Proof.
   intros a b. destruct (N.le_gt_cases b a).
   - unfold N.modulo. unfold N.div_eucl.
@@ -163,20 +164,6 @@ Proof.
     apply N.mod_lt; auto.
 Qed.
 
-Lemma sumN_in_le : forall {A} x (f : A -> N) l,
-  In x l -> f x <= EIP20Token.sumN f l.
-Proof.
-  intros.
-  induction l.
-  - inversion H.
-  - apply in_inv in H as [H | H].
-    + cbn. subst.
-      rewrite N.add_comm.
-      apply N_add_le, N.le_refl.
-    + cbn.
-      now apply N_add_le, IHl.
-Qed.
-
 (* The balance of a single account is always less than
    or equal to the sum of all balances *)
 Lemma balance_le_sum_balances : forall addr state,
@@ -191,32 +178,17 @@ Proof.
   - apply N.le_0_l.
 Qed.
 
+
+Local Open Scope Z_scope.
 (* sumZ over balances is always positive *)
 Lemma sum_balances_positive : forall bstate accounts,
   reachable bstate ->
-  (0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts)%Z.
+  0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts.
 Proof.
   intros.
-  induction accounts; cbn.
-  - lia.
-  - apply Z.add_nonneg_nonneg; auto.
-    apply Z.ge_le.
-    now apply account_balance_nonnegative.
-Qed.
-
-Lemma sumZ_le : forall {A} l (f g : A -> Z),
-  (forall a, In a l -> f a <= g a)%Z ->
-  (sumZ f l <= sumZ g l)%Z.
-Proof.
-  intros.
-  induction l.
-  - apply Z.le_refl.
-  - cbn.
-    apply Z.add_le_mono.
-    + apply H, in_eq.
-    + apply IHl.
-      intros.
-      now apply H, in_cons.
+  apply sumZ_nonnegative.
+  intros account _.
+  now apply Z.ge_le, account_balance_nonnegative.
 Qed.
 
 (* Sums balances of a list of accounts *)
@@ -227,12 +199,12 @@ Definition total_balance bstate accounts : Amount :=
 (* Sum of balances is always positive *)
 Lemma total_balance_positive : forall bstate accounts,
   reachable bstate -> 
-  (0 <= total_balance bstate accounts)%Z.
+  0 <= total_balance bstate accounts.
 Proof.
   intros.
-  unfold total_balance.
   now apply sum_balances_positive.
 Qed.
+Local Close Scope Z_scope.
 
 Lemma total_balance_distr : forall state h t x,
   reachable state ->
@@ -255,16 +227,13 @@ Lemma total_balance_eq : forall env1 env2 accounts,
     total_balance env1 accounts = total_balance env2 accounts.
 Proof.
   intros.
-  unfold total_balance.
-  rewrite sumZ_map_id.
-  setoid_rewrite sumZ_map_id at 2.
-  f_equal.
-  now apply map_ext_in.
+  now apply sumZ_eq.
 Qed.
 
+Local Open Scope Z_scope.
 Lemma total_balance_le : forall env1 env2 accounts,
-  (forall a, In a accounts -> env_account_balances env1 a <= env_account_balances env2 a)%Z ->
-    (total_balance env1 accounts <= total_balance env2 accounts)%Z.
+  (forall a, In a accounts -> env_account_balances env1 a <= env_account_balances env2 a) ->
+    total_balance env1 accounts <= total_balance env2 accounts.
 Proof.
   intros.
   now apply sumZ_le.
@@ -277,7 +246,7 @@ Qed.
 Definition pending_usage bstate account : Amount :=
   Z.min (sumZ (fun act => if address_eqb act.(act_from) account
                          then Z.max 0 (act_amount act) 
-                         else 0%Z) bstate.(chain_state_queue))
+                         else 0) bstate.(chain_state_queue))
         (env_account_balances bstate account).
 
 (* Spendable blance is the balance of an account minus their pending
@@ -285,7 +254,7 @@ Definition pending_usage bstate account : Amount :=
    available for usage next block. *)
 Definition spendable_balance (bstate : ChainState) accounts : Amount :=
   let account_balance := env_account_balances bstate in
-    sumZ (fun acc => account_balance acc - pending_usage bstate acc)%Z accounts.
+    sumZ (fun acc => account_balance acc - pending_usage bstate acc) accounts.
 
 (* Spendable balance is equal to total balance if there is no
    pending actions left in the current block. *)
@@ -297,24 +266,20 @@ Proof.
   intros bstate accounts reach queue.
   unfold spendable_balance, total_balance, pending_usage.
   rewrite queue. cbn.
-  rewrite sumZ_map_id.
-  setoid_rewrite sumZ_map_id at 2.
-  f_equal.
-  apply map_ext_in.
+  erewrite sumZ_eq. eauto.
   intros.
   rewrite Z.min_l, Z.sub_0_r; auto.
-  apply Z.ge_le.
-  now apply account_balance_nonnegative.
+  now apply Z.ge_le, account_balance_nonnegative.
 Qed.
 
 (* Spendable balance cannot decrease when consuming or discarding
    actions from the queue. *)
 Lemma spendable_consume_act : forall (bstate1 bstate2 : ChainState) accounts act acts,
-  (env_account_balances bstate1 act.(act_from) <= env_account_balances bstate2 act.(act_from) + (Z.max 0 (act_amount act)))%Z ->
-  (forall a, In a accounts -> a <> act.(act_from) -> env_account_balances bstate1 a <= env_account_balances bstate2 a)%Z ->
+  env_account_balances bstate1 act.(act_from) <= env_account_balances bstate2 act.(act_from) + (Z.max 0 (act_amount act)) ->
+  (forall a, In a accounts -> a <> act.(act_from) -> env_account_balances bstate1 a <= env_account_balances bstate2 a) ->
   chain_state_queue bstate1 = act :: acts ->
   chain_state_queue bstate2 = acts ->
-  (spendable_balance bstate1 accounts <= spendable_balance bstate2 accounts)%Z.
+  spendable_balance bstate1 accounts <= spendable_balance bstate2 accounts.
 Proof.
   intros bstate_from bstate_to accounts act acts
          act_balance other_balances queue_from queue_to.
@@ -339,17 +304,16 @@ Qed.
 (* Spendable balance is always positive *)
 Lemma spendable_balance_positive : forall bstate accounts,
   reachable bstate ->
-  (0 <= spendable_balance bstate accounts)%Z.
+  0 <= spendable_balance bstate accounts.
 Proof.
   intros.
-  unfold spendable_balance.
-  induction accounts.
-  - apply Z.le_refl.
-  - cbn.
-    apply Ztac.add_le;
-    unfold pending_usage in *;
-    lia.
+  apply sumZ_nonnegative.
+  intros.
+  unfold pending_usage.
+  rewrite <- Z.sub_max_distr_l, Z.sub_diag.
+  apply Z.le_max_r.
 Qed.
+Local Close Scope Z_scope.
 
 (* Function that generated create_token actions.
    Will keep generating action untill all accounts given have been emptied of balance
@@ -418,14 +382,11 @@ End BATCommon.
 
 (* ------------------- Definitions from EIP20Token ------------------- *)
 Notation isSome := EIP20Token.isSome.
-Notation sumN := EIP20Token.sumN.
 Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
 Notation get_allowance := EIP20Token.get_allowance.
 Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
 Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
 Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
-
-Existing Instance EIP20Token.sumN_perm_proper.
 
 Ltac returnIf H :=
   let G := fresh "G" in

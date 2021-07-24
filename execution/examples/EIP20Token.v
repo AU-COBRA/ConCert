@@ -42,8 +42,8 @@ Section EIP20Token.
 
   Record Setup :=
     build_setup {
-  owner : Address;
-  init_amount : TokenValue;
+      owner : Address;
+      init_amount : TokenValue;
     }.
 
   MetaCoq Run (make_setters State).
@@ -89,7 +89,6 @@ Section EIP20Token.
 
 (* The delegate tries to transfer <amount> tokens from <from> to <to>.
    Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
-
   Definition try_transfer_from (delegate : Address)
        (from : Address)
        (to : Address)
@@ -148,15 +147,16 @@ Import Lia.
 Import Permutation.
 
 (* ------------------- EIP20 functions not payable ------------------- *)
-(* TODO improve proof to proving amount=0 *)
 Lemma EIP20_not_payable : forall prev_state new_state chain ctx msg new_acts,
   receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
     ((ctx_amount ctx) <= 0)%Z.
 Proof.
   intros.
   unfold receive in H. destruct_match eqn:amount in H.
-  - (* case: ctx_amount > 0 *) congruence.
-  - (* case: ctx_amount = 0 *) now rewrite Z.gtb_ltb, Z.ltb_ge in amount.
+  - (* case: ctx_amount > 0 *)
+    congruence.
+  - (* case: ctx_amount = 0 *)
+    now rewrite Z.gtb_ltb, Z.ltb_ge in amount.
 Qed.
 
 Lemma receive_not_payable : forall prev_state new_state chain ctx msg new_acts,
@@ -186,11 +186,7 @@ Lemma EIP20_no_acts : forall prev_state new_state chain ctx msg new_acts,
 Proof.
   intros.
   apply receive_not_payable in H.
-    destruct_match in H;
-    match goal with
-    | H : context [ option_map (fun new_state : State => (new_state, [])) ?m = Some (new_state, new_acts) ] |- _ =>
-      destruct m; cbn in H; try congruence; now inversion H
-   end.
+  destruct_match in H; unfold option_map in H; now destruct_match in H.
 Qed.
 
 Lemma receive_no_acts : forall prev_state new_state chain ctx msg new_acts,
@@ -198,7 +194,7 @@ Lemma receive_no_acts : forall prev_state new_state chain ctx msg new_acts,
     receive chain ctx prev_state (Some msg) = Some (new_state, []).
 Proof.
   intros.
-  now apply EIP20_no_acts in H as H1.
+  now erewrite <- EIP20_no_acts.
 Qed.
 
 
@@ -210,7 +206,7 @@ Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : 
   FMap.add account (with_default 0 (FMap.find account balances) + amount) balances.
 Proof.
   intros.
-  apply fin_maps.partial_alter_ext. intros. now subst.
+  now apply fin_maps.partial_alter_ext.
 Qed.
 
 Lemma increment_balanace_is_partial_alter_plus : forall (addr : Address) amount (m : FMap Address N),
@@ -220,7 +216,7 @@ Proof.
   intros.
   unfold increment_balance, AddressMap.add, AddressMap.find.
   rewrite add_is_partial_alter_plus; auto.
-  destruct_match eqn:H; now try setoid_rewrite H.
+  destruct_match eqn:H; now setoid_rewrite H.
 Qed.
 
 
@@ -320,44 +316,9 @@ Qed.
 
 (* ------------------- sumN function ------------------- *)
 
-Fixpoint sumN {A : Type} (f : A -> N) (xs : list A) : N :=
-  match xs with
-  | [] => 0
-  | x :: xs' => f x + sumN f xs'
-  end.
 
-Lemma sumN_permutation {A : Type} {f : A -> N} {xs ys : list A} (perm_eq : Permutation xs ys) :
-  sumN f xs = sumN f ys.
-Proof.
-  induction perm_eq; perm_simplify; lia.
-Qed.
 
-Instance sumN_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
-Proof.
-  repeat intro. subst. now apply sumN_permutation.
-Qed.
 
-Lemma sumN_split : forall {A : Type} x y n m (l : list (A * N)),
-  sumN (fun '(_, v) => v) ((y, n + m) :: l) =
-  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l).
-Proof.
-  cbn. lia.
-Qed.
-
-Lemma sumN_swap : forall {A : Type} x y n m (l : list (A * N)),
-  sumN (fun '(_, v) => v) ((x, n) :: (y, m) :: l) =
-  sumN (fun '(_, v) => v) ((x, m) :: (y, n) :: l).
-Proof.
-  cbn. lia.
-Qed.
-
-Lemma sumN_add : forall {A : Type} x n (l : list (A * N)),
-  sumN (fun '(_, v) => v) l + n =
-  sumN (fun '(_, v) => v) ((x, n) :: l).
-Proof.
-  cbn. lia.
-Qed.
 
 Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
   amount <= with_default 0 (FMap.find from balances) ->
@@ -379,18 +340,19 @@ Proof.
     | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
     | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
     | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] =>rewrite FMap.elements_add_existing; eauto
+    | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add_existing; eauto
     | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
     | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
     | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
-    | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((?x, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
+    | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((_, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
     | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?x _)) ] => rewrite fin_maps.map_to_list_delete; auto
     | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
     | |- context [ _ + 0 ] => rewrite N.add_0_r
     | |- context [ 0 + _ ] => rewrite N.add_0_l
-    | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => rewrite sumN_split with (x:=t)
-    | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => rewrite <- sumN_split
+    | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x:= (t, n)) (y := (_, m)) by lia
+    | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => erewrite <- sumN_split with (z := (_, n + m - n)) by lia
    end.
+   Unshelve. eauto.
 Qed.
 
 Definition sum_balances (state : EIP20Token.State) :=
