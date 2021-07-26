@@ -104,20 +104,22 @@ Open Scope N_scope.
    N.mod_le requires that b <> 0, however
    it is possible to prove the same without
    that assumption *)
-Lemma N_mod_le : forall a b,
-  a mod b <= a.
+Lemma N_mod_le : forall n m,
+  n mod m <= n.
 Proof.
-  intros a b. destruct (N.le_gt_cases b a).
-  - unfold N.modulo. unfold N.div_eucl.
-    destruct a.
+  intros.
+  destruct (N.le_gt_cases m n).
+  - unfold N.modulo, N.div_eucl.
+    destruct_match.
     + apply N.le_0_l.
-    + destruct b.
+    + destruct_match.
       * apply N.le_refl.
-      * apply N.le_trans with (N.pos p0); auto.
-        apply N.lt_le_incl.
-        apply N.pos_div_eucl_remainder. lia.
-  - rewrite N.lt_eq_cases; right.
-    apply N.mod_small; auto.
+      * eapply N.le_trans.
+        now apply N.lt_le_incl, N.pos_div_eucl_remainder.
+        apply H.
+  - rewrite N.lt_eq_cases.
+    right.
+    now apply N.mod_small.
 Qed.
 
 Lemma N_add_le : forall n m p,
@@ -144,8 +146,7 @@ Lemma N_div_mul_le : forall n m,
   (n / m) * m <= n.
 Proof.
   intros.
-  rewrite N.div_mod' with (b:= m).
-  rewrite N.mul_comm.
+  erewrite N.div_mod', N.mul_comm.
   apply N.le_add_r.
 Qed.
 
@@ -155,13 +156,12 @@ Lemma N_le_div_mul : forall n m,
 Proof.
   intros.
   eapply N.add_le_mono_r.
-  rewrite N.mul_comm.
-  rewrite <- N.div_mod' with (b:= m).
+  rewrite N.mul_comm, <- N.div_mod'.
   apply N_le_sub.
-  - apply N.mod_le; auto.
-  - apply N.sub_le_mono_l.
-    apply N.lt_le_incl.
-    apply N.mod_lt; auto.
+  - now apply N.mod_le.
+  - now apply N.sub_le_mono_l,
+              N.lt_le_incl,
+              N.mod_lt.
 Qed.
 
 (* The balance of a single account is always less than
@@ -170,14 +170,11 @@ Lemma balance_le_sum_balances : forall addr state,
   with_default 0 (FMap.find addr (balances state)) <= EIP20Token.sum_balances (token_state state).
 Proof.
   intros.
-  unfold EIP20Token.sum_balances.
-  destruct (FMap.find addr (balances state)) eqn:balance.
-  - cbn. apply FMap.In_elements in balance.
-    apply sumN_in_le with (f:= fun '(_, v) => v) in balance.
-    now eapply N.le_trans.
+  destruct FMap.find eqn:balance.
+  - eapply FMap.In_elements, sumN_in_le in balance.
+    eapply N.le_trans; cycle 1; eauto.
   - apply N.le_0_l.
 Qed.
-
 
 Local Open Scope Z_scope.
 (* sumZ over balances is always positive *)
@@ -185,7 +182,7 @@ Lemma sum_balances_positive : forall bstate accounts,
   reachable bstate ->
   0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts.
 Proof.
-  intros.
+  intros bstate accounts reach.
   apply sumZ_nonnegative.
   intros account _.
   now apply Z.ge_le, account_balance_nonnegative.
@@ -201,7 +198,7 @@ Lemma total_balance_positive : forall bstate accounts,
   reachable bstate -> 
   0 <= total_balance bstate accounts.
 Proof.
-  intros.
+  intros bstate accounts reach.
   now apply sum_balances_positive.
 Qed.
 Local Close Scope Z_scope.
@@ -212,12 +209,11 @@ Lemma total_balance_distr : forall state h t x,
     Z.to_N (env_account_balances state h) * x +
     Z.to_N (total_balance state t) * x.
 Proof.
-  intros.
+  intros state h t x reach.
   cbn.
   rewrite Z2N.inj_add.
   - now rewrite N.mul_add_distr_r.
-  - apply Z.ge_le.
-    now apply account_balance_nonnegative.
+  - now apply Z.ge_le, account_balance_nonnegative.
   - now apply sum_balances_positive.
 Qed.
 
@@ -288,11 +284,12 @@ Proof.
   - cbn.
     apply Z.add_le_mono.
     + destruct (address_eqdec a (act_from act));
-        unfold pending_usage; rewrite queue_from, queue_to; cbn.
+        unfold pending_usage;
+        rewrite queue_from, queue_to; cbn.
       * subst.
         rewrite address_eq_refl.
         lia.
-      * rewrite address_eq_ne; auto.
+      * rewrite address_eq_ne by auto.
         apply other_balances in n; try apply in_eq.
         lia.
     + apply IHaccounts.
@@ -303,7 +300,6 @@ Qed.
 
 (* Spendable balance is always positive *)
 Lemma spendable_balance_positive : forall bstate accounts,
-  reachable bstate ->
   0 <= spendable_balance bstate accounts.
 Proof.
   intros.
@@ -357,11 +353,11 @@ Lemma create_token_acts_eq : forall caddr env1 env2 accounts tokens_left exchang
     create_token_acts env1 caddr accounts tokens_left exchange_rate =
     create_token_acts env2 caddr accounts tokens_left exchange_rate.
 Proof.
-  induction accounts; intros.
+  induction accounts; intros tokens_left exchange_rate env_eq.
   - reflexivity.
   - cbn.
-    rewrite H by apply in_eq.
-    now do 2 rewrite <- IHaccounts by (intros; now apply H, in_cons).
+    rewrite env_eq by apply in_eq.
+    now do 2 rewrite <- IHaccounts by (intros; now apply env_eq, in_cons).
 Qed.
 
 (* All actions produced by create_token_acts are from accounts *)
@@ -373,7 +369,8 @@ Proof.
   - inversion HIn.
   - cbn in HIn.
     apply list.Forall_cons in is_address as [is_address is_address'].
-    destruct_match in HIn. destruct HIn; subst.
+    destruct_match in HIn.
+    destruct HIn; subst.
     all: eauto.
 Qed.
 Close Scope N_scope.
