@@ -18,20 +18,17 @@ Qed.
 Lemma reachable_trans : forall from to,
   reachable from -> ChainTrace from to -> reachable to.
 Proof.
-  intros.
-  inversion H.
+  intros from to [trace_from] trace_to.
   constructor.
-  eapply ChainedList.clist_app; eauto.
+  now eapply ChainedList.clist_app.
 Qed.
 
 (* Transitivity property of reachable and ChainStep *)
 Lemma reachable_step : forall from to,
   reachable from -> ChainStep from to -> reachable to.
 Proof.
-  intros.
-  inversion H.
-  constructor.
-  econstructor; eauto.
+  intros from to [trace_from] step.
+  now do 2 econstructor.
 Qed.
 
 Hint Resolve reachable_empty_state
@@ -43,16 +40,16 @@ Lemma finalized_heigh_chain_height : forall bstate,
   reachable bstate ->
   finalized_height bstate < S (chain_height bstate).
 Proof.
-  intros.
-  destruct H as [H].
+  intros bstate [trace].
   remember empty_state.
-  induction H as [ | H from to trace IH step ]; subst.
+  induction trace as [ | Heq from to trace IH step ]; subst.
   - apply Nat.lt_0_1.
-  - destruct_chain_step. (*inversion step as [ header _ valid_block _ env_eq | act _ new_acts _ eval _ | eq ].*)
-    + inversion valid_header. now rewrite_environment_equiv.
-    + inversion eval; rewrite_environment_equiv; now apply IH.
-    + rewrite_environment_equiv. now apply IH.
-    + inversion prev_next. now apply IH.
+  - destruct_chain_step; try rewrite_environment_equiv.
+    + now inversion valid_header.
+    + inversion eval;
+        now rewrite_environment_equiv.
+    + now apply IH.
+    + now inversion prev_next.
 Qed.
 
 (* If a state is reachable and contract state is stored on an address 
@@ -62,19 +59,20 @@ Lemma contract_states_deployed : forall to (addr : Address) (state : SerializedV
   env_contract_states to addr = Some state ->
   exists wc, env_contracts to addr = Some wc.
 Proof.
-  intros.
-  destruct H as [trace].
+  intros to addr state [trace].
   generalize dependent state.
   remember empty_state.
-  induction trace; intros.
-  - subst. cbn in H0. congruence.
+  induction trace as [ | Heq from to trace IH step ];
+    subst; intros state contract_state.
+  - cbn in contract_state.
+    congruence.
   - destruct_chain_step;
-      try inversion eval; subst;
-      (rewrite_environment_equiv || rewrite <- env_eq in * || rewrite prev_next in *);
-      try (apply IHtrace in H0 as [wc H0]; auto; exists wc; (now rewrite_environment_equiv || assumption));
-      clear H5; cbn in *; destruct_address_eq; subst;
-      ((apply IHtrace in H0 as [wc_new H0]; auto; exists wc_new) || exists wc);
-      rewrite_environment_equiv; cbn; destruct_address_eq; try easy.
+      only 2: inversion eval as [? ? ? _ _ _ act_eq env_eq _ |
+                                 ? ? ? ? ? ? _ _ _ _ act_eq _ env_eq _ |
+                                 ? ? ? _ ? ? ? _ _ _ _ deployed_state act_eq _ _ env_eq ]; subst;
+      (rewrite_environment_equiv || rewrite <- env_eq in * || rewrite <- prev_next in *);
+      (setoid_rewrite env_eq || setoid_rewrite <- env_eq || idtac); cbn in *;
+      destruct_address_eq; now subst.
 Qed.
 
 (* If a state is reachable and contract state is stored on an address 
@@ -84,9 +82,9 @@ Lemma contract_states_addr_format : forall to (addr : Address) (state : Serializ
   env_contract_states to addr = Some state ->
   address_is_contract addr = true.
 Proof.
-  intros.
-  apply contract_states_deployed in H0 as [wc  H0]; auto.
-  eapply contract_addr_format; eauto.
+  intros to addr state reach_to deployed_state.
+  apply contract_states_deployed in deployed_state as [wc  contract_deployed]; auto.
+  now eapply contract_addr_format.
 Qed.
 
 (* A state `to` is reachable through `mid` if `mid` is reachable and there exists a trace
@@ -98,7 +96,7 @@ Definition reachable_through mid to := reachable mid /\ inhabited (ChainTrace mi
 Lemma reachable_through_refl : forall bstate,
   reachable bstate -> reachable_through bstate bstate.
 Proof.
-  intros.
+  intros bstate reach.
   split; auto.
   do 2 constructor.
 Qed.
@@ -107,22 +105,17 @@ Qed.
 Lemma reachable_through_trans' : forall from mid to,
   reachable_through from mid -> ChainStep mid to -> reachable_through from to.
 Proof.
-  intros.
-  destruct H as [reachable [trace]].
-  split; auto.
-  constructor.
-  econstructor; eauto.
+  intros from mid to [reach [trace]] step.
+  repeat (econstructor; eauto).
 Qed.
 
 (* Transitivity property of reachable_through *)
 Lemma reachable_through_trans : forall from mid to,
   reachable_through from mid -> reachable_through mid to -> reachable_through from to.
 Proof.
-  intros.
-  destruct H as [reachable_from [trace_from]].
-  destruct H0 as [_ [trace_mid]].
-  split; auto.
-  constructor.
+  intros from mid to [[trace_from] [trace_mid]] [_ [trace_to]].
+  do 2 constructor.
+  assumption.
   now eapply ChainedList.clist_app.
 Qed.
 
@@ -131,8 +124,8 @@ Qed.
 Lemma reachable_through_step : forall from to,
   reachable from -> ChainStep from to -> reachable_through from to.
 Proof.
-  intros.
-  apply reachable_through_refl in H.
+  intros from to reach_from step.
+  apply reachable_through_refl in reach_from.
   now eapply reachable_through_trans'.
 Qed.
 
@@ -140,8 +133,7 @@ Qed.
 Lemma reachable_through_reachable : forall from to,
   reachable_through from to -> reachable to.
 Proof.
-  intros.
-  destruct H as [[trace_from] [trace_to]].
+  intros from to [[trace_from] [trace_to]].
   constructor.
   now eapply ChainedList.clist_app.
 Qed.
@@ -159,16 +151,16 @@ Lemma reachable_through_contract_deployed : forall from to addr wc,
   reachable_through from to -> env_contracts from addr = Some wc ->
     env_contracts to addr = Some wc.
 Proof.
-  intros.
-  destruct H as [reachable [trace]].
-  induction trace.
+  intros from to addr wc [reach [trace]] deployed.
+  induction trace as [ | from mid to trace IH step ].
   - assumption.
-  - destruct_chain_step; try inversion eval;
-      (rewrite_environment_equiv || inversion prev_next); 
-      try (apply IHtrace; assumption).
-    + cbn. destruct_address_eq; auto.
-      subst. rewrite IHtrace in H3; auto.
-      congruence.
+  - destruct_chain_step; only 2: inversion eval as
+      [? ? ? _ _ _ _ env_eq _ |
+       ? ? ? ? _ ? _ _ _ not_deployed _ _ env_eq _ |
+       ? ? ? _ _ _ ? _ _ _ _ _ _ _ _ env_eq ];
+      (rewrite_environment_equiv || inversion prev_next); cbn;
+      destruct_address_eq; subst; try easy.
+    now rewrite IH in not_deployed by assumption.
 Qed.
 
 (* If a state has a contract state on some addr then any other state
@@ -178,68 +170,64 @@ Lemma reachable_through_contract_state : forall from to addr cstate,
   reachable_through from to -> env_contract_states from addr = Some cstate ->
     exists new_cstate, env_contract_states to addr = Some new_cstate.
 Proof.
-  intros.
+  intros from to addr cstate [reachable [trace]] deployed_state.
   generalize dependent cstate.
-  destruct H as [reachable [trace]].
-  induction trace; intros.
-  - exists cstate. assumption.
+  induction trace as [ | from mid to trace IH step ];
+    intros cstate deployed_state.
+  - now eexists.
   - destruct_chain_step;
-      try inversion eval; apply IHtrace in H0 as [new_cstate H0]; auto;
-      try (exists new_cstate; (rewrite_environment_equiv || inversion prev_next); cbn; assumption).
-    + exists new_cstate.
-      rewrite_environment_equiv. cbn.
-      destruct_address_eq; auto. subst.
-      apply contract_states_deployed in H0 as [wc' H0].
-      -- congruence.
-      -- eapply reachable_trans; eauto.
-    + destruct (address_eqb addr to_addr) eqn:address_eq; 
-        [exists new_state | exists new_cstate];
-        rewrite_environment_equiv; cbn; destruct_address_eq; easy.
+      only 2: inversion eval as
+        [? ? ? _ _ _ _ env_eq _ |
+         ? ? ? ? _ ? _ _ _ _ _ _ env_eq _ |
+         ? ? ? _ _ _ ? _ _ _ _ _ _ _ _ env_eq ];
+      (rewrite_environment_equiv || inversion prev_next || idtac);
+      (setoid_rewrite env_eq || setoid_rewrite <- env_eq || idtac);
+      cbn in *; destruct_address_eq; now subst.
 Qed.
 
 (* If a state is reachable through another state then it cannot have a lower chain height *)
 Lemma reachable_through_chain_height : forall from to,
   reachable_through from to -> from.(chain_height) <= to.(chain_height).
 Proof.
-  intros.
-  destruct H as [reachable [trace]].
-  induction trace.
-  - auto.
+  intros from to [reachable [trace]].
+  induction trace as [ | from mid to trace IH step ].
+  - apply le_refl.
   - destruct_chain_step;
-      try inversion eval;
+      only 2: inversion eval;
       try now (rewrite_environment_equiv || inversion prev_next).
     + rewrite_environment_equiv.
-      inversion valid_header. now cbn.
+      inversion valid_header.
+      now cbn.
 Qed.
 
 (* If a state is reachable through another state then it cannot have a lower current slot *)
 Lemma reachable_through_current_slot : forall from to,
   reachable_through from to -> from.(current_slot) <= to.(current_slot).
 Proof.
-  intros.
-  destruct H as [reachable [trace]].
-  induction trace.
-  - auto.
+  intros from to [reachable [trace]].
+  induction trace as [ | from mid to trace IH step ].
+  - apply le_refl.
   - destruct_chain_step;
-      try inversion eval;
+      only 2: inversion eval;
       try now (rewrite_environment_equiv || inversion prev_next).
     + rewrite_environment_equiv.
-      inversion valid_header. now cbn.
+      inversion valid_header.
+      now cbn.
 Qed.
 
 (* If a state is reachable through another state then it cannot have a lower finalized height *)
 Lemma reachable_through_finalized_height : forall from to,
   reachable_through from to -> from.(finalized_height) <= to.(finalized_height).
 Proof.
-  intros.
-  destruct H as [reachable [trace]].
-  induction trace.
-  - auto.
+  intros from to [reachable [trace]].
+  induction trace as [ | from mid to trace IH step ].
+  - apply le_refl.
   - destruct_chain_step;
-      try inversion eval;
+      only 2: inversion eval;
       try now (rewrite_environment_equiv || inversion prev_next).
     + rewrite_environment_equiv.
-      inversion valid_header. now cbn.
+      inversion valid_header.
+      now cbn.
 Qed.
 
 (* This axiom states that for any reachable state and any contract it is
@@ -260,8 +248,15 @@ Ltac action_not_decidable :=
   right; intro;
   match goal with
   | H : exists bstate new_acts, inhabited (ActionEvaluation _ _ bstate new_acts) |- False =>
-    destruct H as [bstate_new [new_acts [H]]];
-    inversion H; try congruence
+    destruct H as [bstate_new [new_acts [action_evaluation]]];
+    inversion action_evaluation as
+        [?from_addr ?to_addr ?amount amount_nonnegative enough_balance
+          to_addr_not_contract act_eq env_eq new_acts_eq |
+         ?from_addr ?to_addr ?amount wc ?setup state amount_nonnegative
+          enough_balance to_addr_contract not_deployed act_eq init_some env_eq new_acts_eq |
+         ?from_addr ?to_addr ?amount wc ?msg prev_state new_state resp_acts
+          amount_nonnegative enough_balance deployed deployed_state act_eq receive_some new_acts_eq env_eq ];
+      try congruence
   end; repeat
   match goal with
   | H : {| act_from := _; act_body := _ |} = {| act_from := _; act_body := match ?msg with | Some _ => _ | None =>_ end |} |- False =>
@@ -295,7 +290,7 @@ Lemma action_evaluation_decidable : forall bstate act,
   reachable bstate ->
   decidable (exists bstate' new_acts, inhabited (ActionEvaluation bstate act bstate' new_acts)).
 Proof.
-  intros.
+  intros bstate act reach.
   destruct act eqn:Hact.
   destruct act_body;
     (destruct (amount >=? 0) eqn:amount_positive;
@@ -351,12 +346,12 @@ Proof.
   - (* act_body = act_call to amount msg *)
     (* Case: contradiction *)
     action_not_decidable.
-    now apply contract_addr_format in H3; auto.
+    now apply contract_addr_format in deployed; auto.
   - (* act_body = act_deploy amount c setup *)
     apply deployable_address_decidable
       with (wc:=c) (setup:=setup) (act_from:=act_from) (amount:=amount)
-      in H.
-    destruct H as [[to [state [to_is_contract_addr [to_not_deployed init]]]] | no_deployable_addr].
+      in reach.
+    destruct reach as [[to [state [to_is_contract_addr [to_not_deployed init]]]] | no_deployable_addr].
     + (* Case: act_deploy is evaluable by eval_deploy *)
       pose (bstate' := (set_contract_state to state
                        (add_contract to c
@@ -375,22 +370,25 @@ Close Scope Z_scope.
 Definition produces_no_new_acts act : Prop :=
   forall bstate bstate' new_acts, ActionEvaluation bstate act bstate' new_acts -> new_acts = [].
 
+(* Property on a ChainState queue stating all actions are from accounts and produces
+    no new actions when evaluated. This ensures that the queue can be emptied successfully *)
 Definition emptyable queue : Prop :=
   Forall act_is_from_account queue /\
   Forall produces_no_new_acts queue.
 
+(* An empty queue is always emptyable *)
 Lemma empty_queue_is_emptyable : emptyable [].
 Proof.
   now constructor.
 Qed.
 
+(* A subset of a emptyable queu is also emptyable *)
 Lemma emptyable_cons : forall x l,
   emptyable (x :: l) -> emptyable l.
 Proof.
-  intros x l [H H1].
-  apply Forall_inv_tail in H.
-  apply Forall_inv_tail in H1.
-  now constructor.
+  intros x l [acts_from_account no_new_acts].
+  apply Forall_inv_tail in acts_from_account.
+  now apply Forall_inv_tail in no_new_acts.
 Qed.
 
 (* For any reachable state it is possible to empty the chain_state_queue
@@ -410,48 +408,42 @@ Lemma empty_queue : forall bstate (P : ChainState -> Prop),
     (inhabited (ActionEvaluation bstate act bstate' []) \/ EnvironmentEquiv bstate bstate') -> P bstate' ) ->
     exists bstate', reachable_through bstate bstate' /\ P bstate' /\ (chain_state_queue bstate') = [].
 Proof.
-  intros.
-  destruct H0 as [H0 H3].
-  remember (chain_state_queue bstate).
+  intros bstate P reach [acts_from_account no_new_acts].
+  remember (chain_state_queue bstate) as queue.
   generalize dependent bstate.
-  induction l; intros.
+  induction queue; intros bstate reach Hqueue_eq HP HP_preserved.
   - (* Case: queue is already empty, thus we are already done *)
-    exists bstate.
-    intuition.
+    now eexists.
   - (* Case: queue contains at least one action, 
         thus we need to either discard or evaluate it *)
-    apply list.Forall_cons_1 in H0 as [H0 H0'].
-    apply list.Forall_cons_1 in H3 as [H3 H3'].
-    destruct (action_evaluation_decidable bstate a); auto.
+    apply list.Forall_cons_1 in acts_from_account as [act_from_a acts_from_account].
+    apply list.Forall_cons_1 in no_new_acts as [no_new_acts_from_a no_new_acts].
+    destruct (action_evaluation_decidable bstate a) as
+      [[mid_env [new_acts [action_evaluation]]] | no_action_evaluation]; auto.
     + (* Case: the action is evaluable *)
-      destruct H4 as [mid_env [new_acts [action_evaluation]]].
-      pose (build_chain_state mid_env (new_acts ++ l)) as mid.
-      assert (step : ChainStep bstate mid) by (eapply step_action; eauto).
-      apply H3 in action_evaluation as new_acts_eq.
-      eapply H2 with (bstate' := mid) in H1; eauto.
-      subst.
-      apply IHl in H1 as [to [reachable_through [P_to queue_to]]]; subst; eauto.
-      exists to.
-      intuition.
-      eauto.
-      now subst.
-      now subst.
+      pose (build_chain_state mid_env (new_acts ++ queue)) as mid.
+      assert (step : ChainStep bstate mid) by (now eapply step_action).
+      apply no_new_acts_from_a in action_evaluation as new_acts_eq; subst.
+      eapply HP_preserved with (bstate' := mid) in HP; eauto.
+      apply IHqueue in HP as [to [reachable_through [P_to queue_to]]]; subst; eauto.
+      now exists to.
     + (* Case: the action not is evaluable *)
-      pose (bstate<| chain_state_queue := l |>) as mid.
+      pose (bstate<| chain_state_queue := queue |>) as mid.
       assert (step : ChainStep bstate mid).
       { eapply step_action_invalid; try easy.
-        intros. apply H4.
+        intros. apply no_action_evaluation.
         now do 2 eexists.
       }
       apply reachable_step in step as reachable_mid; eauto.
-      apply IHl in reachable_mid as [to [reachable_through [P_to queue_to]]]; eauto.
+      apply IHqueue in reachable_mid as [to [reachable_through [P_to queue_to]]]; eauto.
       exists to.
       intuition.
       eauto.
-      eapply (H2 bstate mid); eauto.
+      eapply (HP_preserved bstate mid); eauto.
       now right.
 Qed.
 
+(* wc_receive and contract receive are equivalent *)
 Lemma wc_receive_to_receive : forall {Setup Msg State : Type}
                                     `{Serializable Setup}
                                     `{Serializable Msg}
@@ -461,21 +453,21 @@ Lemma wc_receive_to_receive : forall {Setup Msg State : Type}
   contract.(receive) chain cctx cstate (Some msg) = Some (new_cstate, new_acts) <->
   wc_receive contract chain cctx ((@serialize State _) cstate) (Some ((@serialize Msg _) msg)) = Some ((@serialize State _) new_cstate, new_acts).
 Proof.
-  split; intros.
+  split; intros receive_some.
   - cbn.
-    rewrite 2!deserialize_serialize.
-    now rewrite H2.
-  - apply wc_receive_strong in H2.
-    destruct H2 as [a [b [c [H3 [H4 [H5 H6]]]]]].
-    apply serialize_injective in H5. subst.
-    rewrite deserialize_serialize in H3.
-    inversion H3. subst.
-    destruct b eqn:Hmsg.
-    + cbn in H4.
-      now rewrite deserialize_serialize in H4.
-    + inversion H4.
+    now rewrite 2!deserialize_serialize, receive_some.
+  - apply wc_receive_strong in receive_some as
+      (prev_state' & msg' & new_state' & prev_state_eq & msg_eq & new_state_eq & receive_some).
+    apply serialize_injective in new_state_eq. subst.
+    rewrite deserialize_serialize in prev_state_eq.
+    inversion prev_state_eq. subst.
+    destruct msg' eqn:Hmsg.
+    + cbn in msg_eq.
+      now rewrite deserialize_serialize in msg_eq.
+    + inversion msg_eq.
 Qed.
 
+(* wc_init and contract init are equivalent *)
 Lemma wc_init_to_init : forall {Setup Msg State : Type}
                                `{Serializable Setup}
                                `{Serializable Msg}
@@ -485,18 +477,18 @@ Lemma wc_init_to_init : forall {Setup Msg State : Type}
   contract.(init) chain cctx setup = Some cstate <->
   wc_init contract chain cctx ((@serialize Setup _) setup) = Some ((@serialize State _) cstate).
 Proof.
-  split; intros.
+  split; intros init_some.
   - cbn.
-    rewrite deserialize_serialize.
-    now rewrite H2.
-  - apply wc_init_strong in H2.
-    destruct H2 as (setup_strong & result_strong & serialize_setup & serialize_result & init_some).
+    now rewrite deserialize_serialize, init_some.
+  - apply wc_init_strong in init_some as
+      (setup_strong & result_strong & serialize_setup & serialize_result & init_some).
     apply serialize_injective in serialize_result. subst.
     rewrite deserialize_serialize in serialize_setup.
     now inversion serialize_setup.
 Qed.
 
 Open Scope Z_scope.
+(* Lemma showing that there exists a future ChainState with an added block *)
 Lemma add_block : forall bstate reward creator acts slot_incr,
   reachable bstate ->
   chain_state_queue bstate = [] ->
@@ -515,7 +507,8 @@ Lemma add_block : forall bstate reward creator acts slot_incr,
           block_creator := creator;
           block_reward := reward; |} bstate)).
 Proof.
-  intros.
+  intros bstate reward creator acts slot_incr reach queue creator_not_contract
+    reward_positive slot_incr_positive acts_from_accounts.
   pose (header :=
     {| block_height := S (chain_height bstate);
        block_slot := current_slot bstate + slot_incr;
@@ -537,6 +530,8 @@ Proof.
   constructor; try reflexivity.
 Qed.
 
+(* Lemma showing that there exists a future ChainState with the
+    same contract states where the current slot is <slot> *)
 Lemma forward_time_exact : forall bstate reward creator slot,
   reachable bstate ->
   chain_state_queue bstate = [] ->
@@ -552,9 +547,10 @@ Lemma forward_time_exact : forall bstate reward creator slot,
         bstate'
         (add_new_block_to_env header bstate)).
 Proof.
-  intros.
-  eapply add_block with (slot_incr := (slot - current_slot bstate)%nat) in H1 as H4; try easy.
-  destruct H4 as [bstate_with_act [reach [queue env_eq]]].
+  intros bstate reward creator slot reach queue
+    creator_not_contract reward_positive slot_not_hit.
+  eapply add_block with (slot_incr := (slot - current_slot bstate)%nat) in reach as new_block; try easy.
+  destruct new_block as [bstate_with_act [reach' [queue' env_eq]]].
   do 2 eexists.
   split; eauto.
   do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
@@ -562,6 +558,8 @@ Proof.
   - rewrite_environment_equiv. cbn. lia.
 Qed.
 
+(* Lemma showing that there exists a future ChainState with the
+    same contract states where the current slot is at least <slot> *)
 Lemma forward_time : forall bstate reward creator slot,
   reachable bstate ->
   chain_state_queue bstate = [] ->
@@ -576,22 +574,27 @@ Lemma forward_time : forall bstate reward creator slot,
         bstate'
         (add_new_block_to_env header bstate)).
 Proof.
-  intros.
-  destruct (slot - current_slot bstate)%nat eqn:H3.
-  - eapply add_block with (slot_incr := 1%nat) in H1 as H4; try easy.
-    destruct H4 as [bstate_with_act [reach [queue env_eq]]].
+  intros bstate reward creator slot reach queue
+    creator_not_contract reward_positive.
+  destruct (slot - current_slot bstate)%nat eqn:slot_hit.
+  - eapply add_block with (slot_incr := 1%nat) in reach as new_block; try easy.
+    destruct new_block as [bstate_with_act [reach' [queue' env_eq]]].
     do 2 eexists.
     split; eauto.
     do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
     + now apply finalized_heigh_chain_height.
-    + apply NPeano.Nat.sub_0_le in H3.
+    + apply NPeano.Nat.sub_0_le in slot_hit.
       rewrite_environment_equiv. cbn. lia.
-  - specialize forward_time_exact with (slot := slot) as (bstate' & header & reach & header_valid & slot_hit & queue & env_eq); try easy.
+  - specialize forward_time_exact with (slot := slot) as
+      (bstate' & header & reach' & header_valid & slot_hit' & queue' & env_eq);
+      try easy.
     do 2 eexists.
     split; eauto.
     intuition.
 Qed.
 
+(* Lemma showing that there exists a future ChainState
+    where the contract call is evaluated *)
 Lemma evaluate_action : forall {Setup Msg State : Type}
                               `{Serializable Setup}
                               `{Serializable Msg}
@@ -619,8 +622,9 @@ Lemma evaluate_action : forall {Setup Msg State : Type}
         bstate'
         (set_contract_state caddr ((@serialize State _) new_cstate) (transfer_balance from caddr amount bstate))).
 Proof.
-  intros.
-  apply Z.ge_le in H5.
+  intros ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?
+    reach queue amount_nonnegative enough_balance%Z.ge_le
+    deployed deployed_state receive_some.
   pose (new_to_balance := if (address_eqb from caddr)
                          then (env_account_balances bstate caddr)
                          else (env_account_balances bstate caddr) + amount).
@@ -633,7 +637,7 @@ Proof.
   - eapply step_action; eauto.
     eapply eval_call with (msg0:= Some ((@serialize Msg _) msg)); eauto.
     + rewrite new_to_balance_eq.
-      now apply wc_receive_to_receive in H8.
+      now apply wc_receive_to_receive in receive_some.
     + constructor; reflexivity.
   - exists bstate'.
     split; eauto.
@@ -642,6 +646,8 @@ Proof.
     now destruct_address_eq.
 Qed.
 
+(* Lemma showing that there exists a future ChainState
+    where the transfer action is evaluated *)
 Lemma evaluate_transfer : forall bstate from to amount acts,
   reachable bstate ->
   chain_state_queue bstate = {| act_from := from;
@@ -656,8 +662,8 @@ Lemma evaluate_transfer : forall bstate from to amount acts,
         bstate'
         (transfer_balance from to amount bstate)).
 Proof.
-  intros.
-  apply Z.ge_le in H2.
+  intros bstate from to amount acts reach queue
+    amount_nonnegative enough_balance%Z.ge_le to_not_contract.
   pose (bstate' := (bstate<|chain_state_queue := acts|>
                           <|chain_state_env := (transfer_balance from to amount bstate)|>)).
   assert (step : ChainStep bstate bstate').
@@ -669,6 +675,9 @@ Proof.
     repeat split; eauto.
 Qed.
 
+(* Lemma showing that if an action in the queue is invalid then
+    there exists a future ChainState witht the same environment
+    where that action is discarded *)
 Lemma discard_invalid_action : forall bstate act acts,
   reachable bstate ->
   chain_state_queue bstate = act :: acts ->
@@ -681,7 +690,7 @@ Lemma discard_invalid_action : forall bstate act acts,
         bstate'
         bstate).
 Proof.
-  intros.
+  intros bstate act acts reach queue act_from_account no_action_evaluation.
   pose (bstate' := (bstate<|chain_state_queue := acts|>)).
   assert (step : ChainStep bstate bstate').
   - eapply step_action_invalid; eauto.
@@ -691,6 +700,8 @@ Proof.
     repeat split; eauto.
 Qed.
 
+(* Lemma showing that there exists a future ChainState
+    where the contract is deployed *)
 Lemma deploy_contract : forall {Setup Msg State : Type}
                               `{Serializable Setup}
                               `{Serializable Msg}
@@ -720,8 +731,9 @@ Lemma deploy_contract : forall {Setup Msg State : Type}
         (add_contract caddr contract
         (transfer_balance from caddr amount bstate)))).
 Proof.
-  intros.
-  apply Z.ge_le in H5.
+  intros ? ? ? ? ? ? ? ? ? ? ? ? ? ?
+    reach queue amount_nonnegative enough_balance%Z.ge_le
+    caddr_is_contract not_deployed init_some.
   pose (bstate' := (bstate<|chain_state_queue := acts|>
                           <|chain_state_env :=
                             (set_contract_state caddr ((@serialize State _) cstate)
@@ -730,38 +742,40 @@ Proof.
   assert (step : ChainStep bstate bstate').
   - eapply step_action with (new_acts := []); eauto.
     eapply eval_deploy; eauto.
-    + now apply wc_init_to_init in H8.
+    + now apply wc_init_to_init in init_some.
     + constructor; reflexivity.
   - exists bstate'.
-    destruct H2 as [H2].
-    exists (ChainedList.snoc H2 step).
+    destruct reach as [trace].
+    exists (ChainedList.snoc trace step).
     split; eauto.
     repeat split; eauto;
     try (cbn; now destruct_address_eq).
-    cbn. destruct step; try congruence.
-    + destruct a; try congruence.
-      * subst.
-        rewrite H3 in e.
-        inversion e. subst.
-        destruct_address_eq.
+    cbn. destruct step as
+        [_ queue_prev _ _ _ |
+         ? ? ? queue_prev eval _ |
+         ? ? env_eq queue_prev _ _ no_action_eval |
+         prev_next _]; try congruence.
+    + destruct eval as
+        [? ? ? _ _ _ act_eq _ _ |
+         ? ? ? ? ?setup state _ _ _ ?not_deployed act_eq ?init_some env_eq _ |
+         ? ? ? _ ?msg _ _ _ _ _ _ _ act_eq _ _ _ ];
+        try congruence; cbn in *; subst; rewrite queue in queue_prev; inversion queue_prev; subst.
+      * destruct_address_eq.
         -- now rewrite deserialize_serialize.
-        -- inversion e5.
+        -- inversion env_eq.
            cbn in contracts_eq.
            specialize (contracts_eq caddr).
-           rewrite address_eq_refl in contracts_eq.
-           now rewrite address_eq_ne in contracts_eq.
-      * cbn in *. subst.
-        rewrite H3 in e.
-        inversion e.
-        destruct msg; congruence.
-    + exfalso. eapply f.
-      rewrite H3 in e0.
-      inversion e0.
+           now rewrite address_eq_refl, address_eq_ne in contracts_eq.
+      * now destruct msg.
+    + exfalso. eapply no_action_eval.
+      rewrite queue in queue_prev.
+      inversion queue_prev.
       eapply eval_deploy; eauto.
-      * now apply wc_init_to_init in H8.
-      * constructor; reflexivity.
-    + rewrite e in H7.
-      cbn in H7. now destruct_address_eq.
+      * now apply wc_init_to_init in init_some.
+      * now constructor.
+    + rewrite prev_next in not_deployed.
+      cbn in not_deployed.
+      now destruct_address_eq.
 Qed.
 Close Scope Z_scope.
 
@@ -798,6 +812,8 @@ Local Ltac update_fix term1 term2 H H_orig H' :=
       assert H; [H' | clear H_orig; rename h into H_orig]
   end.
 
+(* Replaces all occurrences of <term1> with <term2> in hypothesis <H>
+    using tactic <H'> to prove the old hypothesis implies the updated *)
 Local Ltac update_ term1 term2 H H' :=
   match type of H with
   | context G [ term1 ] =>
@@ -835,6 +851,8 @@ Local Ltac update_chainstate bstate1 bstate2 :=
   end;
   only_on_match ltac:(progress update_chainstate bstate1 bstate2).
 
+(* Tactic for updating goal and all occurences of an old ChainState
+    after adding a future ChainState to the environment. *)
 Ltac update_all :=
   match goal with
   | Hreach : reachable_through ?bstate1 ?bstate2,
