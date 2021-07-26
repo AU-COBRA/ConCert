@@ -43,7 +43,6 @@ The [execution](execution/) subproject can be built independently via running `m
 ## Papers
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf). Danil Annenkov, Mikkel Milo and Bas Spitters. ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21
 - ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
-- ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
 - ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138) Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. CPP'21.
 - ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Coq Workshop 2020.
