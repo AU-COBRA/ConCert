@@ -108,7 +108,7 @@ Lemma N_mod_le : forall n m,
   n mod m <= n.
 Proof.
   intros.
-  destruct (N.le_gt_cases m n).
+  edestruct N.le_gt_cases.
   - unfold N.modulo, N.div_eucl.
     destruct_match.
     + apply N.le_0_l.
@@ -182,7 +182,7 @@ Lemma sum_balances_positive : forall bstate accounts,
   reachable bstate ->
   0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts.
 Proof.
-  intros bstate accounts reach.
+  intros * reach.
   apply sumZ_nonnegative.
   intros account _.
   now apply Z.ge_le, account_balance_nonnegative.
@@ -198,7 +198,7 @@ Lemma total_balance_positive : forall bstate accounts,
   reachable bstate -> 
   0 <= total_balance bstate accounts.
 Proof.
-  intros bstate accounts reach.
+  intros * reach.
   now apply sum_balances_positive.
 Qed.
 Local Close Scope Z_scope.
@@ -209,7 +209,7 @@ Lemma total_balance_distr : forall state h t x,
     Z.to_N (env_account_balances state h) * x +
     Z.to_N (total_balance state t) * x.
 Proof.
-  intros state h t x reach.
+  intros * reach.
   cbn.
   rewrite Z2N.inj_add.
   - now rewrite N.mul_add_distr_r.
@@ -259,7 +259,7 @@ Lemma spendable_eq_total_balance : forall bstate accounts,
   chain_state_queue bstate = [] ->
   spendable_balance bstate accounts = total_balance bstate accounts.
 Proof.
-  intros bstate accounts reach queue.
+  intros * reach queue.
   unfold spendable_balance, total_balance, pending_usage.
   rewrite queue. cbn.
   erewrite sumZ_eq. eauto.
@@ -277,20 +277,19 @@ Lemma spendable_consume_act : forall (bstate1 bstate2 : ChainState) accounts act
   chain_state_queue bstate2 = acts ->
   spendable_balance bstate1 accounts <= spendable_balance bstate2 accounts.
 Proof.
-  intros bstate_from bstate_to accounts act acts
-         act_balance other_balances queue_from queue_to.
+  intros * act_balance other_balances queue_from queue_to.
   induction accounts.
   - apply Z.le_refl.
   - cbn.
     apply Z.add_le_mono.
-    + destruct (address_eqdec a (act_from act));
+    + edestruct address_eqdec as [from_eq | from_neq];
         unfold pending_usage;
         rewrite queue_from, queue_to; cbn.
-      * subst.
+      * rewrite from_eq.
         rewrite address_eq_refl.
         lia.
       * rewrite address_eq_ne by auto.
-        apply other_balances in n; try apply in_eq.
+        apply other_balances in from_neq; try apply in_eq.
         lia.
     + apply IHaccounts.
       intros.
@@ -353,7 +352,7 @@ Lemma create_token_acts_eq : forall caddr env1 env2 accounts tokens_left exchang
     create_token_acts env1 caddr accounts tokens_left exchange_rate =
     create_token_acts env2 caddr accounts tokens_left exchange_rate.
 Proof.
-  induction accounts; intros tokens_left exchange_rate env_eq.
+  induction accounts; intros * env_eq.
   - reflexivity.
   - cbn.
     rewrite env_eq by apply in_eq.
@@ -365,7 +364,7 @@ Lemma create_token_acts_is_account : forall caddr env accounts tokens_left excha
   Forall (fun acc : Address => address_is_contract acc = false) accounts ->
     (forall x : Action, In x (create_token_acts env caddr accounts tokens_left exchange_rate) -> act_is_from_account x).
 Proof.
-  induction accounts; intros ? ? is_address act HIn.
+  induction accounts; intros * is_address act HIn.
   - inversion HIn.
   - cbn in HIn.
     apply list.Forall_cons in is_address as [is_address is_address'].

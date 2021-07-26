@@ -18,7 +18,7 @@ Qed.
 Lemma reachable_trans : forall from to,
   reachable from -> ChainTrace from to -> reachable to.
 Proof.
-  intros from to [trace_from] trace_to.
+  intros * [trace_from] trace_to.
   constructor.
   now eapply ChainedList.clist_app.
 Qed.
@@ -27,7 +27,7 @@ Qed.
 Lemma reachable_step : forall from to,
   reachable from -> ChainStep from to -> reachable to.
 Proof.
-  intros from to [trace_from] step.
+  intros * [trace_from] step.
   now do 2 econstructor.
 Qed.
 
@@ -59,7 +59,7 @@ Lemma contract_states_deployed : forall to (addr : Address) (state : SerializedV
   env_contract_states to addr = Some state ->
   exists wc, env_contracts to addr = Some wc.
 Proof.
-  intros to addr state [trace].
+  intros * [trace].
   generalize dependent state.
   remember empty_state.
   induction trace as [ | Heq from to trace IH step ];
@@ -82,8 +82,8 @@ Lemma contract_states_addr_format : forall to (addr : Address) (state : Serializ
   env_contract_states to addr = Some state ->
   address_is_contract addr = true.
 Proof.
-  intros to addr state reach_to deployed_state.
-  apply contract_states_deployed in deployed_state as [wc  contract_deployed]; auto.
+  intros * reach_to deployed_state.
+  apply contract_states_deployed in deployed_state as [wc contract_deployed]; auto.
   now eapply contract_addr_format.
 Qed.
 
@@ -105,7 +105,7 @@ Qed.
 Lemma reachable_through_trans' : forall from mid to,
   reachable_through from mid -> ChainStep mid to -> reachable_through from to.
 Proof.
-  intros from mid to [reach [trace]] step.
+  intros * [reach [trace]] step.
   repeat (econstructor; eauto).
 Qed.
 
@@ -113,7 +113,7 @@ Qed.
 Lemma reachable_through_trans : forall from mid to,
   reachable_through from mid -> reachable_through mid to -> reachable_through from to.
 Proof.
-  intros from mid to [[trace_from] [trace_mid]] [_ [trace_to]].
+  intros * [[trace_from] [trace_mid]] [_ [trace_to]].
   do 2 constructor.
   assumption.
   now eapply ChainedList.clist_app.
@@ -124,7 +124,7 @@ Qed.
 Lemma reachable_through_step : forall from to,
   reachable from -> ChainStep from to -> reachable_through from to.
 Proof.
-  intros from to reach_from step.
+  intros * reach_from step.
   apply reachable_through_refl in reach_from.
   now eapply reachable_through_trans'.
 Qed.
@@ -133,7 +133,7 @@ Qed.
 Lemma reachable_through_reachable : forall from to,
   reachable_through from to -> reachable to.
 Proof.
-  intros from to [[trace_from] [trace_to]].
+  intros * [[trace_from] [trace_to]].
   constructor.
   now eapply ChainedList.clist_app.
 Qed.
@@ -151,7 +151,7 @@ Lemma reachable_through_contract_deployed : forall from to addr wc,
   reachable_through from to -> env_contracts from addr = Some wc ->
     env_contracts to addr = Some wc.
 Proof.
-  intros from to addr wc [reach [trace]] deployed.
+  intros * [reach [trace]] deployed.
   induction trace as [ | from mid to trace IH step ].
   - assumption.
   - destruct_chain_step; only 2: inversion eval as
@@ -170,7 +170,7 @@ Lemma reachable_through_contract_state : forall from to addr cstate,
   reachable_through from to -> env_contract_states from addr = Some cstate ->
     exists new_cstate, env_contract_states to addr = Some new_cstate.
 Proof.
-  intros from to addr cstate [reachable [trace]] deployed_state.
+  intros * [reachable [trace]] deployed_state.
   generalize dependent cstate.
   induction trace as [ | from mid to trace IH step ];
     intros cstate deployed_state.
@@ -189,7 +189,7 @@ Qed.
 Lemma reachable_through_chain_height : forall from to,
   reachable_through from to -> from.(chain_height) <= to.(chain_height).
 Proof.
-  intros from to [reachable [trace]].
+  intros * [reachable [trace]].
   induction trace as [ | from mid to trace IH step ].
   - apply le_refl.
   - destruct_chain_step;
@@ -204,7 +204,7 @@ Qed.
 Lemma reachable_through_current_slot : forall from to,
   reachable_through from to -> from.(current_slot) <= to.(current_slot).
 Proof.
-  intros from to [reachable [trace]].
+  intros * [reachable [trace]].
   induction trace as [ | from mid to trace IH step ].
   - apply le_refl.
   - destruct_chain_step;
@@ -219,7 +219,7 @@ Qed.
 Lemma reachable_through_finalized_height : forall from to,
   reachable_through from to -> from.(finalized_height) <= to.(finalized_height).
 Proof.
-  intros from to [reachable [trace]].
+  intros * [reachable [trace]].
   induction trace as [ | from mid to trace IH step ].
   - apply le_refl.
   - destruct_chain_step;
@@ -290,7 +290,7 @@ Lemma action_evaluation_decidable : forall bstate act,
   reachable bstate ->
   decidable (exists bstate' new_acts, inhabited (ActionEvaluation bstate act bstate' new_acts)).
 Proof.
-  intros bstate act reach.
+  intros * reach.
   destruct act eqn:Hact.
   destruct act_body;
     (destruct (amount >=? 0) eqn:amount_positive;
@@ -386,7 +386,7 @@ Qed.
 Lemma emptyable_cons : forall x l,
   emptyable (x :: l) -> emptyable l.
 Proof.
-  intros x l [acts_from_account no_new_acts].
+  intros * [acts_from_account no_new_acts].
   apply Forall_inv_tail in acts_from_account.
   now apply Forall_inv_tail in no_new_acts.
 Qed.
@@ -408,7 +408,7 @@ Lemma empty_queue : forall bstate (P : ChainState -> Prop),
     (inhabited (ActionEvaluation bstate act bstate' []) \/ EnvironmentEquiv bstate bstate') -> P bstate' ) ->
     exists bstate', reachable_through bstate bstate' /\ P bstate' /\ (chain_state_queue bstate') = [].
 Proof.
-  intros bstate P reach [acts_from_account no_new_acts].
+  intros * reach [acts_from_account no_new_acts].
   remember (chain_state_queue bstate) as queue.
   generalize dependent bstate.
   induction queue; intros bstate reach Hqueue_eq HP HP_preserved.
@@ -418,8 +418,8 @@ Proof.
         thus we need to either discard or evaluate it *)
     apply list.Forall_cons_1 in acts_from_account as [act_from_a acts_from_account].
     apply list.Forall_cons_1 in no_new_acts as [no_new_acts_from_a no_new_acts].
-    destruct (action_evaluation_decidable bstate a) as
-      [[mid_env [new_acts [action_evaluation]]] | no_action_evaluation]; auto.
+    edestruct action_evaluation_decidable as
+      [[mid_env [new_acts [action_evaluation]]] | no_action_evaluation]; eauto.
     + (* Case: the action is evaluable *)
       pose (build_chain_state mid_env (new_acts ++ queue)) as mid.
       assert (step : ChainStep bstate mid) by (now eapply step_action).
@@ -507,7 +507,7 @@ Lemma add_block : forall bstate reward creator acts slot_incr,
           block_creator := creator;
           block_reward := reward; |} bstate)).
 Proof.
-  intros bstate reward creator acts slot_incr reach queue creator_not_contract
+  intros * reach queue creator_not_contract
     reward_positive slot_incr_positive acts_from_accounts.
   pose (header :=
     {| block_height := S (chain_height bstate);
@@ -574,8 +574,7 @@ Lemma forward_time : forall bstate reward creator slot,
         bstate'
         (add_new_block_to_env header bstate)).
 Proof.
-  intros bstate reward creator slot reach queue
-    creator_not_contract reward_positive.
+  intros * reach queue creator_not_contract reward_positive.
   destruct (slot - current_slot bstate)%nat eqn:slot_hit.
   - eapply add_block with (slot_incr := 1%nat) in reach as new_block; try easy.
     destruct new_block as [bstate_with_act [reach' [queue' env_eq]]].
@@ -622,8 +621,7 @@ Lemma evaluate_action : forall {Setup Msg State : Type}
         bstate'
         (set_contract_state caddr ((@serialize State _) new_cstate) (transfer_balance from caddr amount bstate))).
 Proof.
-  intros ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?
-    reach queue amount_nonnegative enough_balance%Z.ge_le
+  intros * reach queue amount_nonnegative enough_balance%Z.ge_le
     deployed deployed_state receive_some.
   pose (new_to_balance := if (address_eqb from caddr)
                          then (env_account_balances bstate caddr)
@@ -662,8 +660,7 @@ Lemma evaluate_transfer : forall bstate from to amount acts,
         bstate'
         (transfer_balance from to amount bstate)).
 Proof.
-  intros bstate from to amount acts reach queue
-    amount_nonnegative enough_balance%Z.ge_le to_not_contract.
+  intros * reach queue amount_nonnegative enough_balance%Z.ge_le to_not_contract.
   pose (bstate' := (bstate<|chain_state_queue := acts|>
                           <|chain_state_env := (transfer_balance from to amount bstate)|>)).
   assert (step : ChainStep bstate bstate').
@@ -690,7 +687,7 @@ Lemma discard_invalid_action : forall bstate act acts,
         bstate'
         bstate).
 Proof.
-  intros bstate act acts reach queue act_from_account no_action_evaluation.
+  intros * reach queue act_from_account no_action_evaluation.
   pose (bstate' := (bstate<|chain_state_queue := acts|>)).
   assert (step : ChainStep bstate bstate').
   - eapply step_action_invalid; eauto.
@@ -731,8 +728,7 @@ Lemma deploy_contract : forall {Setup Msg State : Type}
         (add_contract caddr contract
         (transfer_balance from caddr amount bstate)))).
 Proof.
-  intros ? ? ? ? ? ? ? ? ? ? ? ? ? ?
-    reach queue amount_nonnegative enough_balance%Z.ge_le
+  intros * reach queue amount_nonnegative enough_balance%Z.ge_le
     caddr_is_contract not_deployed init_some.
   pose (bstate' := (bstate<|chain_state_queue := acts|>
                           <|chain_state_env :=
@@ -784,7 +780,7 @@ Lemma step_reachable_through_exists : forall from mid (P : ChainState -> Prop),
   (exists to : ChainState, reachable_through mid to /\ P to) ->
   (exists to : ChainState, reachable_through from to /\ P to).
 Proof.
-  intros from mid P reach [to [reach_ HP]].
+  intros * reach [to [reach_ HP]].
   now exists to.
 Qed.
 
