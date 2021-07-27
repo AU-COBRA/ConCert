@@ -197,6 +197,7 @@ Section print_term.
       ; "val"
       ; "balance"
       ; "continue"
+      ; "hash"
     ].
 
   Definition is_fresh (Γ : context) (id : ident) :=
@@ -493,17 +494,19 @@ Section print_term.
     end
   | tConst c => fun bt =>
     let cst_name := string_of_kername c in
-    from_option (look TT cst_name) (prefix ++ c.2)
+    let nm_tt := from_option (look TT cst_name) (prefix ++ c.2) in
+    if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
+      "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
+    else
+      nm_tt  
   | tConstruct ind l => fun bt =>
     let nm := get_constr_name ind l in
     let nm_tt := from_option (look TT nm) (capitalize (prefix ++ nm)) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
-    if nm_tt =? "[]" then
+    if (nm_tt =? "[]") || (nm_tt =? "nil") then
       "([]:" ++ print_box_type prefix TT bt ++ ")"
     else if nm_tt =? "None" then
       "(None:" ++ print_box_type prefix TT bt ++ ")"
-    else if nm_tt =? "Map.empty" then
-      "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"    
     else nm_tt
   | tCase (mkInd mind i as ind, nparam) t brs =>
     let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
@@ -817,6 +820,7 @@ Definition int_ops :=
   "[@inline] let subIntTruncated (a : int) (b : int) = let res = a - b in if res < 0 then 0 else res" ;
   "[@inline] let multInt (i : int) (j : int) = i * j" ;
   "[@inline] let divInt (i : int) (j : int) = i / j" ;
+  "[@inline] let modInt (a : int)(b : int) : int = int (a mod b)" ;
   "[@inline] let leInt (i : int) (j : int) = i <= j" ;
   "[@inline] let ltInt (i : int) (j : int) = i < j" ;
   "[@inline] let eqInt (i : int) (j : int) = i = j"

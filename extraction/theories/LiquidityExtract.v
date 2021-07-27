@@ -72,30 +72,6 @@ Definition extract_template_env_specialize
   wfΣ <- check_wf_env_func params Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
-(* Machinery for specializing chain base *)
-Definition extract_template_env_specialize
-           (params : extract_template_env_params)
-           (Σ : global_env)
-           (seeds : KernameSet.t)
-           (ignore : kername -> bool) : result ExAst.global_env string :=
-  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
-  let Σ := TemplateToPCUIC.trans_global_decls Σ in
-  Σ <- specialize_ChainBase_env Σ ;;
-  wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
-
-(* Machinery for specializing chain base *)
-Definition extract_template_env_specialize
-           (params : extract_template_env_params)
-           (Σ : global_env)
-           (seeds : KernameSet.t)
-           (ignore : kername -> bool) : result ExAst.global_env string :=
-  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
-  let Σ := TemplateToPCUIC.trans_global_decls Σ in
-  Σ <- specialize_ChainBase_env Σ ;;
-  wfΣ <- check_wf_env_func params Σ;;
-  extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
-
 (* Extract an environment with some minimal checks. This assumes the environment
    is well-formed (to make it computable from within Coq) but furthermore checks that the
    erased context is closed, expanded and that the masks are valid before dearging.
@@ -109,7 +85,8 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
-            [dearg_transform overridden_masks true true true false true ]
+            (* TODO: a 'false' second-last arg disables fully expanded environments - only for boardroomvoting *)
+            [dearg_transform overridden_masks true true true true true ]
        |}
   |}.
 

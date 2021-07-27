@@ -32,16 +32,16 @@ End BoardroomParams.
 
 Module BoardroomVoting (Params : BoardroomParams).
 Import Params.
-(* Existing Instance ser. *)
-(* Existing Instance axioms. *)
-(* Existing Instance gen. *)
-(* Existing Instance discr_log. *)
 Existing Instance Base.
 
 Definition A := Z.
 Definition elmeqb (a b : A) := a mod prime =? b mod prime.
 Definition mod_inv (a : Z) (p : Z) : Z :=
-  fst (egcd a p) mod p.
+  let x := (egcd a p) in
+  (fst x) mod p.
+
+Definition amount_eqb (a b : Amount) : bool := Z.eqb a b.
+
 
 Fixpoint mod_pow_pos_aux (a : Z) (x : positive) (m : Z) (r : Z) : Z :=
   match x with
@@ -60,8 +60,8 @@ Definition mod_pow (a x p : Z) : Z :=
   | Zneg x => mod_inv (mod_pow_pos a x p) p
   end.
 
-Definition add_p a a' := (a + a') mod prime.
-Definition mul_p a a' := (a * a') mod prime.
+Definition add_p a b := (a + b) mod prime.
+Definition mul_p a b := (a * b) mod prime.
 Definition opp_p a := prime - a.
 Definition inv_p a := mod_inv a prime.
 Definition pow_p a e := mod_pow a e prime.
@@ -219,7 +219,6 @@ Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) (w
   submit_vote (compute_public_vote rk sk sv)
               (secret_vote_proof sk rk sv my_index w r d).
 
-(* A necessary aliasing to make extraction work *)
 Definition ContractIniterSetupState := ContractIniter Setup State.
 
 Definition init : ContractIniterSetupState :=
@@ -234,29 +233,37 @@ Definition init : ContractIniterSetupState :=
        tally := None; |}.
 
 Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
+Definition isSome {A} (a : option A) := match a with Some _ => true | None => false end.
+
+Definition isNone {A} (a : option A) := match a with Some _ => false | None => true end.
+Definition onePos := 1%positive .
+Definition twoZ : Z := 2.
 
 Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
   do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
   do lift (if AddressMap.find caller (eligible_voters (setup state)) then Some tt else None);
   do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
   do amt <- lift call_amount;
-  do lift (if (amt =? (registration_deposit (setup state)))%Z then Some tt else None);
-  do lift (if Z.of_nat (length (public_keys state)) <? order - 2 then Some tt else None);
+  do lift (if (amount_eqb amt  (registration_deposit (setup state)))%Z then Some tt else None);
+  do lift (if Z.of_nat (length (public_keys state)) <? order - twoZ then Some tt else None);
   let index := length (public_keys state) in
   do lift (if verify_secret_key_proof pk index prf then Some tt else None);
   let inf := {| voter_index := index;
-                vote_hash := 1%positive;
+                vote_hash := onePos;
                 public_vote := 0; |} in
-  let new_state := state<|registered_voters ::= AddressMap.add caller inf|>
-                        <|public_keys ::= fun l => l ++ [pk]|> in
+  let new_state := {| owner := state.(owner);
+                      registered_voters := AddressMap.add caller inf state.(registered_voters);
+                      public_keys := state.(public_keys) ++ [pk];
+                      setup := state.(setup);
+                      tally := state.(tally);
+                  |} in
   accept_call new_state.
 
-
-Definition handle_commit_to_vote hash state caller cur_slot : ContractReceiverStateMsgState := 
+Definition handle_commit_to_vote hash_ state caller cur_slot : ContractReceiverStateMsgState := 
   do commit_by <- lift (finish_commit_by (setup state));
   do lift (if commit_by <? cur_slot then None else Some tt)%nat;
   do inf <- lift (AddressMap.find caller (registered_voters state));
-  let inf := inf<|vote_hash := hash|> in
+  let inf := inf<|vote_hash := hash_|> in
   accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
 
 Definition handle_submit_vote v proof state caller cur_slot : ContractReceiverStateMsgState :=
@@ -278,12 +285,13 @@ Definition handle_submit_vote v proof state caller cur_slot : ContractReceiverSt
 Fixpoint bruteforce_tally_aux
           (n : nat)
           (votes_product : A) : option nat :=
-  if pow_p generator (Z.of_nat n) =? votes_product then
+  if generator ^ (Z.of_nat n) =? votes_product then
     Some n
   else
-    if (n =? 0)%nat then None
-    else bruteforce_tally_aux (pred n) votes_product
-    %nat.
+    match n with
+    | 0 => None
+    | S n => bruteforce_tally_aux n votes_product
+    end%nat.
 
 Definition bruteforce_tally (votes : list A) : option nat :=
   bruteforce_tally_aux (length votes) (prod votes).
@@ -306,7 +314,7 @@ Definition receive : ContractReceiverStateMsgState :=
   do msg <- call_msg >>= lift;
   match msg with
   | signup pk prf => handle_signup pk prf state caller cur_slot
-  | commit_to_vote hash => handle_commit_to_vote hash state caller cur_slot
+  | commit_to_vote hash_ => handle_commit_to_vote hash_ state caller cur_slot
   | submit_vote v proof => handle_submit_vote v proof state caller cur_slot
   | tally_votes => handle_tally_votes state cur_slot
   end.
@@ -380,35 +388,6 @@ Definition SignupOrderAssumption
 
 Local Open Scope nat.
 
-Lemma no_outgoing bstate caddr :
-  reachable bstate ->
-  env_contracts bstate caddr = Some (boardroom_voting : WeakContract) ->
-  outgoing_acts bstate caddr = [].
-Proof.
-  intros.
-  apply (lift_outgoing_acts_nil boardroom_voting); try easy.
-  intros.
-  destruct msg as [msg|]; cbn -[Nat.ltb] in *; try congruence.
-  destruct msg.
-  - destruct (_ <? _); cbn in *; try congruence.
-    destruct (AddressMap.find _ _); cbn in *; try congruence.
-    destruct (AddressMap.find _ _); cbn in *; try congruence.
-    destruct (_ =? _)%Z; cbn in *; try congruence.
-    destruct (_ <? _)%Z; cbn in *; try congruence.
-    destruct (verify_secret_key_proof _ _ _); cbn in *; congruence.
-  - destruct (finish_commit_by _); cbn -[Nat.ltb] in *; try congruence.
-    destruct (_ <? _); cbn in *; try congruence.
-    destruct (AddressMap.find _ _); cbn in *; congruence.
-  - destruct (_ <? _); cbn in *; try congruence.
-    destruct (AddressMap.find _ _); cbn in *; try congruence.
-    destruct (if finish_commit_by _ then _ else _); cbn in *; try congruence.
-    destruct (verify_secret_vote_proof _ _ _ _); cbn in *; congruence.
-  - destruct (_ <? _); cbn in *; try congruence.
-    destruct (tally _); cbn in *; try congruence.
-    destruct (existsb _ _); cbn in *; try congruence.
-    destruct (bruteforce_tally _); cbn in *; congruence.
-Qed.
-
 Lemma Permutation_modify k vold vnew (m : AddrMap VoterInfo) :
   FMap.find k m = Some vold ->
   voter_index vold = voter_index vnew ->
@@ -460,464 +439,6 @@ Proof.
     destruct H1; lia.
 Qed.
 
-Local Open Scope broom.
-(* Lemma elmeqb_eq (a a' : A) :
-  (a =? a') = true <-> a == a'.
-Proof.
-  destruct (elmeqb_spec a a'); [tauto|].
-  split; congruence.
-Qed.
-
-Hint Resolve
-     pow_nonzero generator_nonzero int_domain generator_nonzero compute_public_key_unit
-     reconstructed_key_unit
-  : broom.
-Lemma verify_secret_key_proof_spec sk v i :
-  verify_secret_key_proof (compute_public_key sk) i (secret_key_proof sk v i) = true.
-Proof with auto with broom.
-  cbn.
-  apply elmeqb_eq.
-  apply log_both...
-  rewrite log_pow...
-  rewrite log_mul...
-  unfold "exp=".
-  assert (order - 1 <> 0)%Z by (pose proof order_ge_2; lia).
-  rewrite Z.add_mod...
-  rewrite !log_pow...
-  rewrite log_generator.
-  rewrite !Z.mul_1_r.
-  unfold compute_public_key.
-  rewrite <- Z.mul_mod_idemp_r...
-  rewrite log_pow...
-  rewrite log_generator.
-  rewrite Z.mul_1_r.
-  rewrite Z.mul_mod_idemp_r...
-  rewrite <- Z.add_mod...
-  f_equal.
-  lia.
-Qed.
-
-Lemma verify_secret_vote_proof_spec sk pks sv i w r d :
-  All (fun pk => pk !== 0) pks ->
-  verify_secret_vote_proof
-    (compute_public_key sk)
-    (reconstructed_key pks i)
-    (compute_public_vote (reconstructed_key pks i) sk sv)
-    i
-    (secret_vote_proof sk (reconstructed_key pks i) sv i w r d) = true.
-Proof.
-  intros all_units.
-  set (rk := reconstructed_key pks i).
-  unfold verify_secret_vote_proof, secret_vote_proof.
-  cbn.
-  destruct sv.
-  - set (h := hash_sv_data _ _ _ _ _ _ _).
-    rewrite Zplus_minus.
-    rewrite Pos.eqb_refl, !elmeqb_refl.
-    cbn.
-    unfold compute_public_key.
-    rewrite pow_pow by (auto with broom).
-    rewrite <- pow_plus by (auto with broom).
-    rewrite Z.sub_add.
-    rewrite elmeqb_refl.
-    cbn.
-    unfold compute_public_vote.
-    rewrite <- (mul_assoc (rk^sk)).
-    rewrite (mul_comm generator).
-    rewrite inv_inv_l by (auto with broom).
-    rewrite (mul_comm (rk^sk)), mul_1_l.
-    rewrite pow_pow by (subst rk; auto with broom).
-    rewrite <- pow_plus by (subst rk; auto with broom).
-    rewrite Z.sub_add.
-    now rewrite elmeqb_refl.
-  - set (h := hash_sv_data _ _ _ _ _ _ _).
-    rewrite Z.sub_add.
-    rewrite Pos.eqb_refl, !elmeqb_refl.
-    cbn.
-    unfold compute_public_key.
-    rewrite pow_pow by (auto with broom).
-    rewrite <- pow_plus by (auto with broom).
-    rewrite Z.sub_add.
-    rewrite elmeqb_refl.
-    cbn.
-    unfold compute_public_vote.
-    rewrite (mul_comm (rk^sk)), mul_1_l.
-    rewrite pow_pow by (subst rk; auto with broom).
-    rewrite <- pow_plus by (subst rk; auto with broom).
-    rewrite Z.sub_add.
-    now rewrite elmeqb_refl.
-Qed.
-
-Definition has_tallied (calls : list (ContractCallInfo Msg)) : bool :=
-  existsb (fun c => match Blockchain.call_msg c with
-                    | Some tally_votes => true
-                    | _ => false
-                    end) calls.
-
-Theorem boardroom_voting_correct_strong
-        (bstate : ChainState)
-        (caddr : Address)
-        (trace : ChainTrace empty_state bstate)
-        (parties : Address -> SecretVoterInfo)
-        (pks : list A) :
-    env_contracts bstate caddr = Some (boardroom_voting : WeakContract) ->
-    exists (cstate : State)
-           (depinfo : DeploymentInfo Setup)
-           (inc_calls : list (ContractCallInfo Msg)),
-      deployment_info Setup trace caddr = Some depinfo /\
-      contract_state bstate caddr = Some cstate /\
-      incoming_calls Msg trace caddr = Some inc_calls /\
-
-      finish_registration_by (setup cstate) < finish_vote_by (setup cstate) /\
-
-      (Blockchain.current_slot bstate < finish_vote_by (setup cstate) ->
-       has_tallied inc_calls = false) /\
-
-      length (public_keys cstate) = FMap.size (registered_voters cstate) /\
-      public_keys cstate = map snd (signups inc_calls) /\
-
-      (Z.of_nat (length (public_keys cstate)) < order - 1)%Z /\
-
-      (MsgAssumption pks parties inc_calls ->
-       SignupOrderAssumption pks parties inc_calls ->
-       (finish_registration_by (setup cstate) < Blockchain.current_slot bstate ->
-        length pks = length (signups inc_calls)) ->
-
-       Permutation (map (fun '(_, v) => voter_index v)
-                        (FMap.elements (registered_voters cstate)))
-                   (seq 0 (length (public_keys cstate))) /\
-
-       Permutation (FMap.keys (registered_voters cstate))
-                   (map fst (signups inc_calls)) /\
-
-       (forall addr inf,
-           FMap.find addr (registered_voters cstate) = Some inf ->
-           voter_index inf < length (public_keys cstate) /\
-           voter_index inf = svi_index (parties addr) /\
-           nth_error (public_keys cstate) (voter_index inf) =
-           Some (compute_public_key (svi_sk (parties addr))) /\
-           (public_vote inf == zero \/
-            public_vote inf = compute_public_vote
-                                (reconstructed_key pks (voter_index inf))
-                                (svi_sk (parties addr))
-                                (svi_sv (parties addr)))) /\
-       ((has_tallied inc_calls = false ->
-         tally cstate = None) /\
-        (has_tallied inc_calls = true ->
-         tally cstate = Some (sumnat (fun party => if svi_sv (parties party) then 1 else 0)%nat
-                                     (map fst (signups inc_calls)))))).
-Proof.
-  contract_induction; intros; unfold AddrMap in *.
-  - [AddBlockFacts]: exact (fun _ old_slot _ _ new_slot _ => old_slot < new_slot).
-    subst AddBlockFacts.
-    cbn in facts.
-    destruct_and_split; try tauto.
-    + eauto with lia.
-    + intros; eauto with lia.
-  - cbn -[Nat.ltb] in *.
-    destruct (_ <? _) eqn:ltb; [|congruence].
-    apply Nat.ltb_lt in ltb.
-    inversion_clear init_some.
-    cbn.
-    split; auto.
-    split; auto.
-    split; [symmetry; apply FMap.size_empty|].
-    split; [auto|].
-    pose proof order_ge_2.
-    split; [lia|].
-    intros _ _ _.
-    unfold FMap.keys.
-    unfold AddrMap in *.
-    unfold AddressMap.empty in *.
-    rewrite @FMap.elements_empty.
-    split; [auto|].
-    split; [auto|].
-    split; [|easy].
-    intros ? ? find.
-    now rewrite @FMap.find_empty in find.
-  - auto.
-  - cbn -[Nat.ltb] in receive_some.
-    destruct msg as [msg|]; cbn -[Nat.ltb] in *; [|congruence].
-    destruct msg.
-    unfold AddressMap.add in *. unfold AddressMap.find in *.
-    + (* signup *)
-      destruct (_ <? _)%nat eqn:intime in receive_some; cbn -[Nat.ltb] in *; [congruence|].
-      apply Nat.ltb_ge in intime.
-      destruct (FMap.find _ _) in receive_some; cbn in *; [|congruence].
-      destruct (FMap.find _ _) eqn:new in receive_some; cbn in *; [congruence|].
-      destruct (_ =? _)%Z in receive_some; cbn in *; [|congruence].
-      destruct (_ <? _)%Z eqn:lt in receive_some; cbn in *; [|congruence].
-      destruct (verify_secret_key_proof _ _ _) eqn:verify_zkp in receive_some;
-        cbn in *; [|congruence].
-      inversion_clear receive_some.
-      cbn.
-      split; [lia|].
-      split; [tauto|].
-      split.
-      unfold AddrMap in *.
-      { rewrite app_length, FMap.size_add_new by auto; cbn; lia. }
-      apply Z.ltb_lt in lt.
-      rewrite app_length in *.
-      cbn.
-      fold (has_tallied prev_inc_calls).
-      fold (signups prev_inc_calls).
-      rewrite app_length, map_app; cbn.
-      split; [destruct_and_split; congruence|].
-      split; [lia|].
-      intros [signup_assum msg_assum] order_assum num_signups_assum.
-      destruct IH as (reg_lt & cur_lt & _ & pks_signups & _ & IH).
-      unshelve epose proof (IH _ _ _) as IH.
-      * auto.
-      * rewrite seq_app in order_assum.
-        rewrite zip_app in order_assum by (now rewrite seq_length).
-        apply All_app in order_assum.
-        tauto.
-      * intros.
-        lia.
-      * split.
-        { destruct IH as (perm & _).
-          cbn.
-          unfold AddrMap in *.
-          rewrite FMap.elements_add by auto.
-          cbn.
-          rewrite seq_app.
-          cbn.
-          perm_simplify. }
-        split.
-        { destruct IH as (_ & perm & _).
-          rewrite map_app.
-          unfold FMap.keys.
-          rewrite FMap.elements_add by auto.
-          cbn.
-          perm_simplify. }
-
-        split; cycle 1.
-        {
-          split; [easy|].
-          intros tallied.
-          specialize (cur_lt ltac:(lia)).
-          congruence.
-        }
-        intros addr inf find_add.
-        destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
-        unfold AddrMap in *.
-        -- rewrite (FMap.find_add (ctx_from ctx)) in find_add.
-           inversion_clear find_add.
-           cbn.
-           unfold make_signup_msg in signup_assum.
-           rewrite nth_error_snoc.
-           rewrite seq_app, zip_app in order_assum by (now rewrite seq_length).
-           apply All_app in order_assum.
-           cbn in order_assum.
-           destruct order_assum as [_ []].
-           split; [lia|].
-           rewrite pks_signups, map_length.
-           split; [symmetry; tauto|].
-           split; [congruence|].
-           left; easy.
-        -- unfold AddrMap in *.
-           rewrite FMap.find_add_ne in find_add by auto.
-           destruct IH as (_ & _ & IH & _).
-           specialize (IH _ _ find_add).
-           split; [lia|].
-           now rewrite nth_error_app1 by lia.
-    + (* commit_to_vote *)
-      destruct (finish_commit_by _); cbn -[Nat.ltb] in *; [|congruence].
-      destruct (_ <? _); cbn in *; [congruence|].
-      unfold AddressMap.find in *.
-      destruct (FMap.find _ _) eqn:found; cbn in *; [|congruence].
-      inversion_clear receive_some; cbn.
-      split; [lia|].
-      split; [tauto|].
-      split.
-      unfold AddressMap.add.
-      unfold AddrMap in *.
-      {  rewrite FMap.size_add_existing by congruence; tauto. }
-      split; [tauto|].
-      split; [tauto|].
-      intros [_ msg_assum] order_assum num_signups_assum.
-      destruct IH as (_ & _ & len_pks & _ & _ & IH).
-      specialize (IH msg_assum order_assum num_signups_assum).
-      setoid_rewrite (FMap.keys_already _ _ _ _ found).
-      split.
-      {
-        destruct IH as (perm & _).
-        rewrite len_pks in *.
-        apply Permutation_modify with (vold := v); auto.
-      }
-      split; [tauto|].
-      split; [|tauto].
-      intros addr inf find_add.
-      unfold AddressMap.add in *.
-      destruct IH as (_ & _ & IH & _).
-      destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
-      * unfold AddrMap in *.  rewrite FMap.find_add in find_add.
-        inversion_clear find_add; cbn.
-        auto.
-      * unfold AddrMap in *; rewrite FMap.find_add_ne in find_add by auto.
-        auto.
-    + (* submit_vote *)
-      destruct (_ <? _); cbn -[Nat.ltb] in *; [congruence|].
-      unfold AddressMap.find in *. 
-      destruct (FMap.find _ _) eqn:found; cbn in *; [|congruence].
-      destruct (if finish_commit_by _ then _ else _); cbn in *; [|congruence].
-      destruct (verify_secret_vote_proof _ _ _ _); cbn in *; [|congruence].
-      inversion_clear receive_some; cbn.
-      split; [lia|].
-      split; [tauto|].
-      unfold AddressMap.add in *.
-      unfold AddrMap in *; rewrite FMap.size_add_existing by congruence.
-      split; [tauto|].
-      split; [tauto|].
-      split; [tauto|].
-      intros [vote_assum msg_assum] order_assum num_signups_assum.
-      destruct IH as (_ & _ & len_pks & _ & _ & IH).
-      specialize (IH msg_assum order_assum num_signups_assum).
-      setoid_rewrite (FMap.keys_already _ _ _ _ found).
-      split.
-      { destruct IH as (perm & _).
-        rewrite len_pks in *.
-        apply Permutation_modify with (vold := v0); auto. }
-      split; [tauto|].
-      split; [|tauto].
-      intros addr inf find_add.
-      destruct IH as (_ & _ & IH & _).
-      destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
-      * rewrite FMap.find_add in find_add.
-        inversion_clear find_add; cbn.
-        specialize (IH _ _ found).
-        repeat split; try tauto.
-        right.
-        unfold make_vote_msg in *.
-        inversion vote_assum.
-        destruct_hyps.
-        replace (svi_index (parties (ctx_from ctx))) with (voter_index v0) by congruence.
-        easy.
-      * rewrite FMap.find_add_ne in find_add by auto.
-        auto.
-    + (* tally_votes *)
-      destruct (_ <? _) eqn:intime; cbn in *; [congruence|].
-      destruct (tally prev_state); cbn in *; [congruence|].
-      destruct (existsb _ _) eqn:all_voted; cbn in *; [congruence|].
-      destruct (bruteforce_tally _) eqn:bruteforce; cbn -[Nat.ltb] in *; [|congruence].
-      inversion_clear receive_some; cbn.
-      apply Nat.ltb_ge in intime.
-      split; [lia|].
-      split; [intros; lia|].
-      split; [tauto|].
-      split; [tauto|].
-      split; [tauto|].
-      intros (_ & msg_assum) order_assum num_signups_assum.
-      split; [tauto|].
-      split; [tauto|].
-      split; [tauto|].
-      split; [easy|].
-      intros _.
-      apply f_equal.
-      destruct IH as (finish_before_vote & _ & len_pks & pks_signups & party_count & IH).
-      specialize (IH msg_assum order_assum num_signups_assum).
-      destruct IH as (perm & perm' & addrs & _).
-      unfold AddressMap.values in *. 
-      unfold FMap.values in bruteforce.
-      rewrite map_map in bruteforce.
-      rewrite (map_ext_in _ (fun '(_, v) => public_vote v)) in bruteforce
-        by (now intros []).
-      rewrite (bruteforce_tally_correct
-                    (FMap.elements (registered_voters prev_state))
-                    (fun '(_, v) => voter_index v)
-                    (fun '(addr, _) => svi_sk (parties addr))
-                    (public_keys prev_state)
-                    (fun kvp => svi_sv (parties (fst kvp)))
-                    (fun '(_, v) => public_vote v)) in bruteforce.
-      * inversion bruteforce.
-        rewrite <- (sumnat_map fst (fun a => if svi_sv (parties a) then 1 else 0))%nat.
-        now rewrite perm'.
-      * unfold AddrMap in *; now rewrite FMap.length_elements, <- len_pks.
-      * unfold AddrMap in *; now rewrite FMap.length_elements, <- len_pks.
-      * auto.
-      * intros [k v] kvpin.
-        apply FMap.In_elements in kvpin.
-        specialize (addrs _ _ kvpin).
-        tauto.
-      * intros [k v] kvpin.
-        rewrite existsb_forallb in all_voted.
-        apply Bool.negb_false_iff in all_voted.
-        rewrite forallb_forall in all_voted.
-        unshelve epose proof (all_voted v _) as all_voted.
-        {
-          apply in_map_iff.
-          exists (k, v).
-          tauto.
-        }
-        apply Bool.negb_true_iff in all_voted.
-        destruct (elmeqb_spec (public_vote v) zero); [congruence|].
-        apply FMap.In_elements in kvpin.
-        specialize (addrs _ _ kvpin).
-        cbn.
-        destruct addrs as (_ & _ & _ & []); [easy|].
-        fold (signups prev_inc_calls) (SignupOrderAssumption pks parties prev_inc_calls) in *.
-        rewrite pks_signups.
-        specialize (num_signups_assum ltac:(lia)).
-        now rewrite (all_signups pks parties) by auto.
-  - [CallFacts]: exact (fun _ ctx _ => ctx_from ctx <> ctx_contract_address ctx).
-    subst CallFacts; cbn in *; congruence.
-  - auto.
-  - [DeployFacts]: exact (fun _ _ => True).
-    unset_all; subst; cbn in *.
-    destruct_chain_step; auto.
-    + destruct valid_header; auto.
-    + destruct_action_eval; auto.
-      intros.
-      pose proof (no_outgoing _ _ from_reachable H0).
-      unfold outgoing_acts in H2.
-      rewrite queue_prev in H2.
-      cbn in H2.
-      destruct (address_eqb_spec (act_from act) to_addr); cbn in *; try congruence.
-      subst act; cbn in *; congruence.
-Qed.
-
-Theorem boardroom_voting_correct
-        (bstate : ChainState)
-        (caddr : Address)
-        (trace : ChainTrace empty_state bstate)
-        (* list of all public keys, in the order of signups *)
-        (pks : list A)
-        (* function mapping a party to information about him *)
-        (parties : Address -> SecretVoterInfo) :
-    env_contracts bstate caddr = Some (boardroom_voting : WeakContract) ->
-    exists (cstate : State)
-           (depinfo : DeploymentInfo Setup)
-           (inc_calls : list (ContractCallInfo Msg)),
-      deployment_info Setup trace caddr = Some depinfo /\
-      contract_state bstate caddr = Some cstate /\
-      incoming_calls Msg trace caddr = Some inc_calls /\
-
-      (* assuming that the message sent were created with the
-          functions provided by this smart contract *)
-      MsgAssumption pks parties inc_calls ->
-
-      (* ..and that people signed up in the order given by 'index'
-          and 'pks' *)
-      SignupOrderAssumption pks parties inc_calls ->
-
-      (* ..and that the correct number of people register *)
-      (finish_registration_by (setup cstate) < Blockchain.current_slot bstate ->
-       length pks = length (signups inc_calls)) ->
-
-      (* then if we have not tallied yet, the tally is none *)
-      ((has_tallied inc_calls = false -> tally cstate = None) /\
-       (* or if we have tallied yet, the tally is correct *)
-       (has_tallied inc_calls = true ->
-        tally cstate = Some (sumnat (fun party => if svi_sv (parties party) then 1 else 0)%nat
-                                    (map fst (signups inc_calls))))).
-Proof.
-  intros deployed.
-  destruct (boardroom_voting_correct_strong bstate caddr trace parties pks deployed)
-    as (cstate & depinfo & inc_calls & P).
-  exists cstate, depinfo, inc_calls.
-  tauto.
-Qed.
-*)
 End Theories.
 
 End BoardroomVoting.
