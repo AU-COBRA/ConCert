@@ -969,6 +969,7 @@ Ltac empty_queue H :=
   let new_reach := fresh "reach" in
   let new_queue := fresh "queue" in
   let temp_H := fresh "H" in
+  let temp_eval := fresh "eval" in
    match goal with
   | Hempty : emptyable (chain_state_queue ?bstate),
     Hreach : reachable ?bstate |-
@@ -981,8 +982,14 @@ Ltac empty_queue H :=
         [apply Hreach | apply Hempty | apply H |
         clear H;
         intros ?bstate_from ?bstate_to ?act ?acts ?reach_from ?reach_to
-          H ?queue_from ?queue_to [[?action_eval] | ?env_eq];
-          only 1: destruct_action_eval |
+          H ?queue_from ?queue_to [[temp_eval] | ?env_eq];
+          only 1: destruct temp_eval as
+            [?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
+              ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
+             ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
+              ?enough_balance ?to_addr_contract ?not_deployed ?act_eq ?init_some ?env_eq ?new_acts_eq |
+             ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
+              ?amount_nonnegative ?enough_balance ?deployed ?deployed_state ?act_eq ?receive_some ?new_acts_eq ?env_eq ] |
         clear H; rename temp_H into H]
       end
   end.

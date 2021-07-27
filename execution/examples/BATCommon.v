@@ -385,8 +385,17 @@ Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_all
 Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
 
 Ltac returnIf H :=
-  let G := fresh "G" in
-    unfold returnIf in H;
-    destruct_match eqn:G in H; try congruence;
-    clear H;
-    rename G into H.
+  match type of H with
+  | returnIf _ = None =>
+    let G := fresh "G" in
+      unfold returnIf in H;
+      destruct_match eqn:G in H; try congruence;
+      clear H;
+      rename G into H
+  | returnIf _ = Some ?u =>
+    let G := fresh "G" in
+      unfold returnIf in H;
+      destruct_match eqn:G in H; try congruence;
+      clear H u;
+      rename G into H
+  end.
