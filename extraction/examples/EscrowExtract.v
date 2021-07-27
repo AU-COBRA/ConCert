@@ -1,5 +1,23 @@
 (** * Extraction of Escrow to CameLIGO and liquidity*)
 
+From Coq Require Import PeanoNat ZArith Notations Bool.
+
+From MetaCoq.Template Require Import Loader.
+From MetaCoq.Erasure Require Import Loader.
+
+From ConCert Require Import MyEnv.
+From ConCert.Extraction Require Import Common Extraction.
+From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution.Examples Require Import Common.
+  From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
+
+From Coq Require Import List Ascii String.
+Require ContractMonads.
+
+From MetaCoq.Template Require Import All.
+
+
 From Coq Require Import List.
 From Coq Require Import Morphisms.
 From Coq Require Import ZArith.
@@ -15,58 +33,15 @@ From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
 Import RecordSetNotations.
+From ConCert.Execution Require Import Escrow.
 
 Section Escrow.
-Context `{Base : ChainBase}.
+Context `{ChainBase}.
 Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 
-Record Setup :=
-  build_setup {
-      setup_buyer : Address;
-    }.
-
-Inductive NextStep :=
-(* Waiting for buyer to commit itemvalue * 2 *)
-| buyer_commit
-(* Waiting for buyer to confirm item received *)
-| buyer_confirm
-(* Waiting for buyer and seller to withdraw their funds. *)
-| withdrawals
-(* No next step, sale is done. *)
-| no_next_step.
-
-Record State :=
-  build_state {
-      last_action : nat;
-      next_step : NextStep;
-      seller : Address;
-      buyer : Address;
-      seller_withdrawable : Amount;
-      buyer_withdrawable : Amount;
-    }.
-
-Inductive Msg :=
-| commit_money
-| confirm_item_received
-| withdraw.
-
-MetaCoq Run (make_setters State).
-
-Global Instance Setup_serializable : Serializable Setup :=
-  Derive Serializable Setup_rect<build_setup>.
-
-Global Instance NextStep_serializable : Serializable NextStep :=
-  Derive Serializable NextStep_rect<buyer_commit, buyer_confirm, withdrawals, no_next_step>.
-
-Global Instance State_serializable : Serializable State :=
-  Derive Serializable State_rect<build_state>.
-
-Global Instance Msg_serializable : Serializable Msg :=
-  Derive Serializable Msg_rect<commit_money, confirm_item_received, withdraw>.
-
 (* workaround for extraction *)
-Definition _50 : nat := 50.
+Definition deadline : nat := 50.
 Definition _4 : Z := 4.
 Definition _3 : Z := 3.
 Definition _2 : Z := 2.
@@ -142,7 +117,7 @@ Definition receive
     else None
   | Some withdraw, buyer_commit =>
     if (ctx_amount ctx =? 0)
-       && negb (last_action state + _50 <? current_slot chain)%nat
+       && negb (last_action state + deadline <? current_slot chain)%nat
        && (ctx_from ctx =? seller state)%address then
       let balance := ctx_contract_balance ctx in
       Some (state<|next_step := no_next_step|>, [act_transfer (seller state) balance])
@@ -153,36 +128,16 @@ Definition receive
 End Escrow.
 
 
-From Coq Require Import PeanoNat ZArith Notations Bool.
-
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert Require Import MyEnv.
-(* From ConCert.Embedding Require Import Notations CustomTactics. *)
-(* From ConCert.Embedding.Extraction Require Import PreludeExt. *)
-From ConCert.Extraction Require Import Common Extraction.
-From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
-(* From ConCert.Embedding.Extraction Require Import PreludeExt. *)
-
-From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Examples Require Import Common.
-
-From Coq Require Import List Ascii String.
-Local Open Scope string_scope.
-Require ContractMonads.
-
-From MetaCoq.Template Require Import All.
-
 Import ListNotations.
 Import MonadNotation.
-
+Import CameLIGOExtract.
+Import CameLIGOPretty.
 Open Scope Z.
+Local Open Scope string_scope.
 
 Definition PREFIX := "".
 
 Section EscrowExtraction.
-  From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 
   Definition contractcallcontextDef := "type cctx = (address * (address * (tez * tez)))".
 
@@ -215,7 +170,7 @@ Section EscrowExtraction.
     ; remap <%% _2 %%> "2tez"
     ; remap <%% _3 %%> "3tez"
     ; remap <%% _4 %%> "4tez"
-    ; remap <%% _50 %%> "50n"
+    ; remap <%% deadline %%> "50n"
 
     ; remap <%% @List.fold_left %%> "List.fold"
     ; remap <%% @List.map %%> "List.map"
@@ -269,7 +224,7 @@ Section EscrowExtraction.
       lmd_module_name := "cameligo_escrow" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl [CameLIGOPrelude; dummy_chain; contractcallcontextDef];
+      lmd_prelude := String.concat nl [CameLIGOPrelude; dummy_chain; contractcallcontextDef];
 
       (* initial storage *)
       lmd_init := escrow_init_wrapper ;
@@ -319,10 +274,8 @@ Section EscrowExtraction.
   (CameLIGO_prepare_extraction PREFIX to_inline TT_remap_ligo TT_rename_ligo callctx ESCROW_MODULE_LIGO).
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
-
-  MetaCoq Run (tmMsg cameLIGO_escrow).
-  
-  Redirect "examples/cameligo-extract/EscrowExtract.mligo" Compute cameLIGO_escrow.
+  Print cameLIGO_escrow.
+  Redirect "examples/cameligo-extract/EscrowExtract.mligo" MetaCoq Run (tmMsg cameLIGO_escrow).
     
 End EscrowExtraction.
 
@@ -347,7 +300,7 @@ Module EscrowLiquidityExtraction.
       lmd_module_name := "liquidity_escrow" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
+      lmd_prelude := String.concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
 
       (* initial storage *)
       lmd_init := escrow_init_wrapper;
@@ -399,7 +352,7 @@ Module EscrowLiquidityExtraction.
     ; remap <%% _2 %%> "2p"
     ; remap <%% _3 %%> "3p"
     ; remap <%% _4 %%> "4p"
-    ; remap <%% _50 %%> "50p"
+    ; remap <%% deadline %%> "50p"
 
     ; remap <%% @List.fold_left %%> "List.fold"
     ; remap <%% @List.map %%> "List.map"
@@ -462,6 +415,6 @@ Module EscrowLiquidityExtraction.
   Print liquidity_escrow.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "examples/liquidity-extract/escrow.liq" Compute liquidity_escrow.
+  Redirect "examples/liquidity-extract/escrow.liq" MetaCoq Run (tmMsg liquidity_escrow).
   
 End EscrowLiquidityExtraction.

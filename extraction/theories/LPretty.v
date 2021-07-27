@@ -11,7 +11,6 @@ Another issue: constructors accept only one argument, so we have to uncurry (pac
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
 
-(TODO: CHECK THIS)
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types.  *)
 
 From Coq Require Import List Program String Ascii.
@@ -171,7 +170,8 @@ Section print_term.
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}"
     (* otherwise, one-constructor inductives are printed as aliases since liquidity doesn't allow inductives with 1 constructor.  *)
-    | [(_,[ctor])], _ => "type " ++ params ++ uncapitalize ind_nm ++" = " ++  print_box_type prefix TT vars ctor.2
+    | [build_record_ctor], _ => "type " ++ params ++ uncapitalize ind_nm ++" = " 
+                                  ++ concat " * " (map (print_box_type prefix TT vars ∘ snd) build_record_ctor.2)
     
     | _,_ => "type " ++ params ++ uncapitalize ind_nm ++" = "
             ++ nl
@@ -325,23 +325,10 @@ Section print_term.
     | _ => None
   end.
 
-  (* Definition is_one_constructor_inductive_and_not_record (t : term) := 
-    match t with
-    | tConstruct (mkInd mind j as ind) i =>
-      match lookup_ind_decl mind i with
-      | Some oib => match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
-                    | [build_record_ctor], _::_::_ => false (* it is a record *)
-                    | [(_,[_])],_  => true
-                    | _,_ => false
-                    end
-      | None => false
-      end
-    | _ => false
-    end. *)
   Definition is_one_constructor_inductive_and_not_record (oib : ExAst.one_inductive_body) := 
     match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
-    | [build_record_ctor], _::_::_ => false (* it is a record *)
-    | [(_,[_])],_  => true
+    | [_], _::_::_ => false (* it is a record because it has projections, and one constructor *)
+    | [_],_  => true
     | _,_ => false
     end.  
 
@@ -351,9 +338,6 @@ Section print_term.
     | None => false
     end.
   
-  (* Definition print_record_proj (f : term -> string) (apps : term) (oib : ExAst.one_inductive_body) TT prefix :=
-   *)
-
   Definition app_args {A} (f : term -> A) :=
     fix go (t : term) := match t with
     | tApp t1 t2 => f t2 :: go t1
