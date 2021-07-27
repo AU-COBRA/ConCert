@@ -482,7 +482,8 @@ Section print_term.
                                                       |> concat "; " in
               "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
           | _,_ => 
-              let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+              (* constructors must be capitalized *)
+              let nm' := from_option (look TT nm) (capitalize (prefix ++ nm)) in
               parens top (print_uncurried nm' apps)
         end
       | _ => if is_not_empty_const l then
@@ -495,7 +496,7 @@ Section print_term.
     from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l => fun bt =>
     let nm := get_constr_name ind l in
-    let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ (capitalize nm)) in
+    let nm_tt := from_option (look TT nm) (capitalize (prefix ++ nm)) in
     (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
     if nm_tt =? "[]" then
       "([]:" ++ print_box_type prefix TT bt ++ ")"
