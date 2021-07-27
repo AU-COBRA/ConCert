@@ -524,7 +524,7 @@ Proof.
       lia.
     + rewrite Z.leb_le in sender_amount.
       lia.
-    + do 2 rewrite Bool.orb_true_iff in match_requirements.
+    + rewrite !Bool.orb_true_iff in match_requirements.
       now destruct match_requirements as
         [[finalized | funding_not_started%Nat.ltb_lt] | funding_over%Nat.ltb_lt].
   - intros (new_state & new_acts & receive_some).
@@ -534,7 +534,7 @@ Proof.
     rename H1 into cap_hit.
     rewrite Z.leb_gt in sender_amount.
     apply N.ltb_ge in cap_hit.
-    do 2 rewrite Bool.orb_false_iff in match_requirements.
+    rewrite !Bool.orb_false_iff in match_requirements.
     destruct match_requirements as
       ((not_finalized & funding_started%Nat.ltb_ge) & funding_not_over%Nat.ltb_ge).
     intuition.
@@ -609,7 +609,7 @@ Proof.
     + apply Bool.andb_true_iff in funding_over_check as
         (funding_not_over%Nat.leb_le & cap_not_hit%Bool.negb_true_iff%N.eqb_neq).
       now destruct funding_over.
-    + do 2 rewrite Bool.orb_true_iff in requirements_check.
+    + rewrite !Bool.orb_true_iff in requirements_check.
       destruct requirements_check as
         [[finalized | sender_not_funddeposit%Bool.negb_true_iff] | min_not_hit%N.ltb_lt]; try easy.
       * now destruct_address_eq.
@@ -617,7 +617,7 @@ Proof.
     receive_simpl.
     rename H into requirements_check.
     rename H0 into funding_over_check.
-    do 2 rewrite Bool.orb_false_iff in requirements_check.
+    rewrite !Bool.orb_false_iff in requirements_check.
     destruct requirements_check as
       ((not_finalized & sender_funddeposit) & min_hit%N.ltb_ge).
     repeat split; eauto.
@@ -711,7 +711,7 @@ Proof.
       now rewrite from_balance_check in balance_not_zero.
     + easy.
     + now destruct_address_eq.
-    + do 2 rewrite Bool.orb_true_iff in requirements_check.
+    + rewrite !Bool.orb_true_iff in requirements_check.
       now destruct requirements_check as
         [[finalized | funding_active%Nat.leb_le] | min_hit%N.leb_le].
   - intros receive_some.
@@ -720,7 +720,7 @@ Proof.
     rename H0 into sender_check.
     rename H1 into from_balance.
     rename H2 into from_balance_check.
-    do 2 rewrite Bool.orb_false_iff in requirements_check.
+    rewrite !Bool.orb_false_iff in requirements_check.
     destruct requirements_check as
       ((not_finalized & funding_over%Nat.leb_gt) & min_not_hit%N.leb_gt).
     repeat split; try auto.

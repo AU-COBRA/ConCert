@@ -565,7 +565,7 @@ Proof.
       lia.
     + rewrite Z.leb_le in sender_amount.
       lia.
-    + do 3 rewrite Bool.orb_true_iff in match_requirements.
+    + rewrite !Bool.orb_true_iff in match_requirements.
       destruct match_requirements as
         [[[finalized | funding_not_started%Nat.ltb_lt] | funding_over%Nat.ltb_lt] | sender_batfund]; try easy.
       now destruct_address_eq.
@@ -576,7 +576,7 @@ Proof.
     rename H1 into cap_hit.
     rewrite Z.leb_gt in sender_amount.
     apply N.ltb_ge in cap_hit.
-    do 3 rewrite Bool.orb_false_iff in match_requirements.
+    rewrite !Bool.orb_false_iff in match_requirements.
     destruct match_requirements as
       (((not_finalized & funding_started%Nat.ltb_ge) & funding_not_over%Nat.ltb_ge) & sender_not_batfund).
     intuition.
@@ -654,7 +654,7 @@ Proof.
     + apply Bool.andb_true_iff in funding_over_check as
         (funding_not_over%Nat.leb_le & cap_not_hit%Bool.negb_true_iff%N.eqb_neq).
       now destruct funding_over.
-    + do 2 rewrite Bool.orb_true_iff in requirements_check.
+    + rewrite !Bool.orb_true_iff in requirements_check.
       destruct requirements_check as
         [[finalized | sender_not_funddeposit%Bool.negb_true_iff] | min_not_hit%N.ltb_lt]; try easy.
       * now destruct_address_eq.
@@ -663,7 +663,7 @@ Proof.
     rename H into amount_check.
     rename H0 into requirements_check.
     rename H1 into funding_over_check.
-    do 2 rewrite Bool.orb_false_iff in requirements_check.
+    rewrite !Bool.orb_false_iff in requirements_check.
     destruct requirements_check as
       ((not_finalized & sender_funddeposit) & min_hit%N.ltb_ge).
     repeat split; eauto.
@@ -759,7 +759,7 @@ Proof.
       now rewrite from_balance_check in balance_not_zero.
     + easy.
     + now destruct_address_eq.
-    + do 2 rewrite Bool.orb_true_iff in requirements_check.
+    + rewrite !Bool.orb_true_iff in requirements_check.
       now destruct requirements_check as
         [[finalized | funding_active%Nat.leb_le] | min_hit%N.leb_le].
   - intros receive_some.
@@ -769,7 +769,7 @@ Proof.
     rename H1 into sender_check.
     rename H2 into from_balance.
     rename H3 into from_balance_check.
-    do 2 rewrite Bool.orb_false_iff in requirements_check.
+    rewrite !Bool.orb_false_iff in requirements_check.
     destruct requirements_check as
       ((not_finalized & funding_over%Nat.leb_gt) & min_not_hit%N.leb_gt).
     repeat split; try auto.
@@ -1041,7 +1041,7 @@ Proof.
     + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
       instantiate (CallFacts := fun _ _ _ => True).
-      unset_all; subst;cbn in *.
+      unset_all; subst; cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
 Qed.
@@ -1421,8 +1421,9 @@ Proof.
             (cstate' & contract_state' & _ & _ & _ & echange_rate_nonzero & can_hit_fund_min); eauto.
         cbn in contract_state'.
         rewrite contract_state in contract_state'.
-        setoid_rewrite deserialize_serialize in contract_state'. inversion contract_state'.
-        rewrite <- H0 in *. clear H0.
+        setoid_rewrite deserialize_serialize in contract_state'.
+        inversion contract_state'. subst cstate'.
+        clear contract_state'.
 
         (* Now we know that the action is valid we need to evaluate it *)
         evaluate_action BATFixed.contract; try easy;
@@ -1551,7 +1552,8 @@ Proof.
      intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
   update_all.
 
-  deploy_contract BATFixed.contract; eauto; try lia; try now apply account_balance_nonnegative.
+  deploy_contract BATFixed.contract; eauto; try lia;
+    try now apply account_balance_nonnegative.
   { (* Prove that init returns some *)
     cbn.
     destruct_match eqn:requirements; eauto.
@@ -1564,7 +1566,8 @@ Proof.
     - now apply N.eqb_eq in requirements.
     - now apply N.ltb_lt in requirements.
   }
-  specialize constants_are_constant as (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
+  specialize constants_are_constant as
+    (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
   unfold contract_state in deployed_state'. cbn in deployed_state'.
   rewrite deployed_state, deserialize_serialize in deployed_state'.
   inversion deployed_state'. subst cstate'. clear deployed_state'.
