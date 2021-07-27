@@ -11,7 +11,6 @@ Another issue: constructors accept only one argument, so we have to uncurry (pac
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
 
-(TODO: CHECK THIS)
 Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types.  *)
 
 From Coq Require Import List Program String Ascii.
@@ -149,6 +148,7 @@ Section print_term.
       ^ " : "
       ^ print_box_type prefix TT vars ty.
 
+
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
     let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
@@ -158,16 +158,21 @@ Section print_term.
         if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
         else let ps := concat "," (mapi (fun i v => print_type_var v i) vars) in
              (parens (Nat.ltb #|oib.(ind_type_vars)| 1) ps) ++ " " in
-    (* one-constructor inductives with non-empty ind_projs (projection identifiers) 
+    (* one-constructor inductives with non-empty ind_projs (projection identifiers)
+       and > 1 projections 
        are assumed to be records *)
     match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
-    | [build_record_ctor], _::_ =>
+    | [build_record_ctor], _::_::_ =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
       let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT vars (p.1, ty)) projs_and_ctors in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}"
+    (* otherwise, one-constructor inductives are printed as aliases since liquidity doesn't allow inductives with 1 constructor.  *)
+    | [build_record_ctor], _ => "type " ++ params ++ uncapitalize ind_nm ++" = " 
+                                  ++ concat " * " (map (print_box_type prefix TT vars ∘ snd) build_record_ctor.2)
+    
     | _,_ => "type " ++ params ++ uncapitalize ind_nm ++" = "
             ++ nl
             ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT vars p ++ nl) oib.(ExAst.ind_ctors))
@@ -224,7 +229,23 @@ Section print_term.
     | _ => None
     end.
 
+  (* Certain names in Liquidity are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
+  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
+     they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
+  Definition is_reserved_name (id : ident) (reserved : list ident) := 
+    List.existsb (ident_eq id) reserved.
+  
+  Definition liquidity_reserved_names := 
+    [
+        "to"
+      ; "val"
+      ; "balance"
+      ; "continue"
+    ].
+
   Definition is_fresh (Γ : context) (id : ident) :=
+    negb (is_reserved_name id liquidity_reserved_names)
+    &&
     List.forallb
       (fun decl =>
          match decl.(decl_name) with
@@ -294,9 +315,9 @@ Section print_term.
     match t with
     | tConstruct (mkInd mind j as ind) i =>
       match lookup_ind_decl mind i with
-      (* Check if it has only 1 constructor, and projections are specified *)
+      (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
       | Some oib => match ExAst.ind_projs oib, Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) with
-                    | _::_,true => Some oib
+                    | _::_::_,true => Some oib
                     | _,_ => None
                     end
       | _ => None
@@ -304,15 +325,19 @@ Section print_term.
     | _ => None
   end.
 
+  Definition is_one_constructor_inductive_and_not_record (oib : ExAst.one_inductive_body) := 
+    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+    | [_], _::_::_ => false (* it is a record because it has projections, and one constructor *)
+    | [_],_  => true
+    | _,_ => false
+    end.  
+
   Definition is_name_remapped nm TT := 
     match (look TT nm) with
     | Some nm' => true
     | None => false
     end.
   
-  (* Definition print_record_proj (f : term -> string) (apps : term) (oib : ExAst.one_inductive_body) TT prefix :=
-   *)
-
   Definition app_args {A} (f : term -> A) :=
     fix go (t : term) := match t with
     | tApp t1 t2 => f t2 :: go t1
@@ -412,7 +437,12 @@ Section print_term.
     | tConst c =>
       let cst_name := string_of_kername c in
       let nm := from_option (look TT cst_name) (uncapitalize prefix ++ uncapitalize c.2) in
-      parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+      if nm =? "fst" then
+        (concat " " (map (parens true) apps)) ++ ".(0)"
+      else if nm =? "snd" then
+        (concat " " (map (parens true) apps)) ++ ".(1)"
+      else
+        parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
     | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
@@ -421,7 +451,7 @@ Section print_term.
       else if (nm =? "cons") then
         parens top (concat " :: " apps)
       (* is it a transfer *)
-      else if (nm =? "Act_transfer") then print_transfer apps
+      else if (nm =? "act_transfer") then print_transfer apps
       (* is it a record declaration? *)
       else match is_name_remapped nm TT, is_record_constr b with
         | false, Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
@@ -437,8 +467,16 @@ Section print_term.
     let cst_name := string_of_kername c in
     from_option (look TT cst_name) (prefix ++ c.2)
   | tConstruct ind l =>
-    let nm := get_constr_name ind l in
-    from_option (look TT nm) (capitalize prefix ++ capitalize nm)
+    (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
+    match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
+    (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
+    | Some oib => if is_one_constructor_inductive_and_not_record oib then ""
+                  else let nm := get_constr_name ind l in
+                       from_option (look TT nm) (capitalize prefix ++ capitalize nm)
+    | None =>
+      let nm := get_constr_name ind l in
+      from_option (look TT nm) (capitalize prefix ++ capitalize nm)
+    end
   | tCase (mkInd mind i as ind, nparam) t brs =>
     match brs with
     | [] => "failwith () (* absurd case *)"
@@ -453,10 +491,19 @@ Section print_term.
                          ++ " else " ++ print_term prefix FT TT Γ true false (snd b2))
         | _ => "Error (Malformed pattern-mathing on bool: given "
                  ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
-        end
-      else
-      match lookup_ind_decl mind i with
+        end    
+      else match lookup_ind_decl mind i with
       | Some oib =>
+        (* pairs are unfolded directly *)
+        (* if eq_kername mind <%% prod %%> then
+            
+              parens top
+                      ("let "
+                            ++ " = " ++ print_term prefix FT TT Γ true false t
+                            ++ " in " ++ print_term prefix FT TT Γ true false (snd b))
+            | _ => "Error (Malformed pattern-mathing on bool: given "
+                    ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
+          end *)
         let fix print_branch Γ arity params br {struct br} :=
             match arity with
               | 0 => (params, print_term prefix FT TT Γ false false br)
@@ -479,10 +526,16 @@ Section print_term.
                               print_pat prefix TT "::" true b
                             else if (eq_kername mind <%% list %%>) && (na =? "nil") then
                               print_pat "" TT "[]" false b
+                            else if (eq_kername mind <%% prod %%>) then
+                              "let (" ++ concat "," (rev' b.1) ++ ") = " ++ print_term prefix FT TT Γ true false t ++ " in "
+                              ++ b.2
                             else
                             print_pat prefix TT na false b)
                          (nl ++ " | ") brs in
-        parens top
+        (* products are unfolded on the spot because pattern matching on pairs is not allowed in liquidity *)
+        if eq_kername mind <%% prod %%> then
+          parens top brs_printed
+        else parens top
                ("match " ++ print_term prefix FT TT Γ true false t
                          ++ " with " ++ nl
                          ++ brs_printed)
@@ -496,7 +549,10 @@ Section print_term.
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => print_term prefix FT TT Γ false false c ++ "." ++ na
+      | Some (na, _) => (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the projection *)
+                        if is_one_constructor_inductive_and_not_record oib then
+                          print_term prefix FT TT Γ false false c
+                        else print_term prefix FT TT Γ false false c ++ "." ++ na
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
                        ++ print_term prefix FT TT Γ true false c ++ ")"
@@ -681,7 +737,14 @@ Definition tez_ops :=
     ++ nl
     ++ "let[@inline] ltTez (a : tez ) (b : tez ) =  a < b"
     ++ nl
-    ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b".
+    ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b"
+    ++ nl
+    ++ "let[@inline] evenTez (i : tez) = match i/2tz with | Some (_, r) -> r=0tz | None -> false"
+    ++ nl 
+    ++ "let[@inline] divTez (a : tez) (b : nat) : tez = match a/b with Some(d,_) -> d | None -> 0tz"
+    ++ nl 
+    ++ "let[@inline] multTez (n : tez) (m : nat) : tez = n * m".
+
 
 Definition nat_ops :=
       "let[@inline] addNat (i : nat) (j : nat) = i + j"

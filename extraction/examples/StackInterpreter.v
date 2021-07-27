@@ -398,10 +398,10 @@ Module CameLIGOInterp.
        lmd_entry_point :=
               CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list" CameLIGO_call_ctx
                           ++ nl
-                          ++ CameLIGOPretty.printMain |}.
+                          ++ CameLIGOPretty.printMain CameLIGO_call_ctx |}.
 
     Time MetaCoq Run
-    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename LIGO_INTERP_MODULE  ).
+    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename CameLIGO_call_ctx LIGO_INTERP_MODULE  ).
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
