@@ -66,6 +66,36 @@ Module ElmExamples.
     "main = Html.text "++ parens false ("Debug.toString " ++ parens false test) ++ nl ++
     "suite = Test.test (Debug.toString 1)" ++ parens false ("\ _ -> " ++ test).
 
+  (* [safe_pred] example is inspired by Letozey's A New Extraction for Coq *)
+  Definition safe_pred (n:nat) (not_zero : O<>n) : {p :nat | n=(S p)} :=
+    match n as n0 return (n0 = n -> _ -> _ )with
+    | O => fun heq h => False_rect _ (ltac:(cbn;intros;easy))
+    | S m => fun heq h => exist (fun p : nat => S m = S p) m  (ltac:(cbn;intros;easy))
+    end eq_refl not_zero.
+
+  Program Definition safe_pred_full := safe_pred 1 (ltac:(easy)).
+  Program Definition safe_pred_partial := safe_pred 1.
+
+  MetaCoq Run (t <- tmQuoteRecTransp safe_pred_full false ;;
+               tmDefinition "safe_pred_full_syn" t).
+
+  (* In fully applied case the last argument of [safe_pred] is removed*)
+  Redirect "examples/elm-extract/SafePredFull.elm"
+  Compute general_wrapped safe_pred_full_syn
+  (Preambule "SafePredFull" ++ nl ++ elm_false_rec)
+  (main_and_test "Expect.equal safe_pred_full (Exist O)")
+  [] [].
+
+  MetaCoq Run (t <- tmQuoteRecTransp safe_pred_partial false ;;
+               tmDefinition "safe_pred_partial_syn" t).
+
+  Redirect "examples/elm-extract/SafePredPartial.elm"
+  Compute general_wrapped safe_pred_partial_syn
+  (Preambule "SafePredPartial" ++ nl ++ elm_false_rec)
+  (main_and_test "Expect.equal (safe_pred_partial ()) (Exist O)")
+  [] [].
+
+
   MetaCoq Quote Recursively Definition rev_syn := List.rev.
 
   Definition ackermann := Eval compute in ack.
