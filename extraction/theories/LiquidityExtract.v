@@ -120,12 +120,13 @@ Definition printLiquidityDefs_
   let ignore_extract kn := List.existsb (eq_kername kn) ignore in
   eΣ <- extract_env should_inline seeds ignore_extract Σ ;;
   (* dependencies should be printed before the dependent definitions *)
-  let ldef_list := List.rev (print_global_env prefix TT eΣ) in
+  let projs := get_projections eΣ in
+  let ldef_list := List.rev (print_global_env prefix TT eΣ projs) in
   (* filtering empty strings corresponding to the ignored definitions *)
   let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
   match ExAst.lookup_env eΣ init with
     | Some (ExAst.ConstantDecl init_cst) =>
-      match print_init prefix TT build_call_ctx init_prelude eΣ init_cst with
+      match print_init prefix TT projs build_call_ctx init_prelude eΣ init_cst with
       | Some init_code =>
         (* filtering out the definition of [init] and projecting the code *)
         let defs :=
@@ -257,9 +258,11 @@ Definition liquidity_extract_single
     | Ok eΣ =>
       (* filtering out empty type declarations *)
       (* TODO: possibly, move to extraction (requires modifications of the correctness proof) *)
+      let projs := get_projections eΣ in
+
       let eΣ := filter (fun '(_,_,d) => negb (is_empty_type_decl d)) eΣ in
       (* dependencies should be printed before the dependent definitions *)
-      let ldef_list := List.rev (print_global_env "" TT eΣ) in
+      let ldef_list := List.rev (print_global_env "" TT eΣ projs) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in
