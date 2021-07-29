@@ -130,10 +130,10 @@ Definition TT_remap_default : list (kername * string) :=
 
   (* operations *)
   ; remap <%% List.fold_left %%> "List.fold"
-  ; remap <%% Pos.add %%> "addNat"
-  ; remap <%% Pos.sub %%> "subNat"
-  ; remap <%% Pos.leb %%> "leNat"
-  ; remap <%% Pos.eqb %%> "eqNat"
+  ; remap <%% Pos.add %%> "addN"
+  ; remap <%% Pos.sub %%> "subN"
+  ; remap <%% Pos.leb %%> "leN"
+  ; remap <%% Pos.eqb %%> "eqN"
   ; remap <%% Z.add %%> "addTez"
   ; remap <%% Z.sub %%> "subTez"
   ; remap <%% Z.leb %%> "leTez"

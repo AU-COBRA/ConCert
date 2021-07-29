@@ -18,27 +18,36 @@ Require Import Extras.
 Require Import BoardroomMath.
 Require Import Monads.
 Require Import Serializable.
+Require Import Common. Import AddressMap.
 
 Import ListNotations.
 Import RecordSetNotations.
 Import BoardroomMathNotations.
 
-Section BoardroomVoting.
-Context `{Base : ChainBase}.
 
-Context {A : Type}.
-Context (H : list positive -> positive).
-Context {ser : Serializable A}.
-Context {axioms : BoardroomAxioms A}.
-Context {gen : Generator _}.
-Context {discr_log : DiscreteLog _ _}.
+Module Type BoardroomParams.
+  Parameter A : Type.
+  Parameter H : list positive -> positive.
+  Parameter ser : Serializable A.
+  Parameter axioms : BoardroomAxioms A.
+  Parameter gen : Generator axioms.
+  Parameter discr_log : DiscreteLog axioms gen.
+  Parameter Base : ChainBase.
+End BoardroomParams.
+
+Module BoardroomVoting (Params : BoardroomParams).
+Import Params.
+Existing Instance ser.
+Existing Instance axioms.
+Existing Instance gen.
+Existing Instance discr_log.
+Existing Instance Base.
 
 (* Allow us to automatically derive Serializable instances *)
 Set Nonrecursive Elimination Schemes.
-
 Record Setup :=
   build_setup {
-    eligible_voters : FMap Address unit;
+    eligible_voters : AddrMap unit;
     finish_registration_by : nat;
     finish_commit_by : option nat;
     finish_vote_by : nat;
@@ -56,7 +65,7 @@ Record VoterInfo :=
 Record State :=
   build_state {
     owner : Address;
-    registered_voters : FMap Address VoterInfo;
+    registered_voters : AddrMap VoterInfo;
     public_keys : list A;
     setup : Setup;
     tally : option nat;
@@ -90,8 +99,12 @@ Import ContractMonads.
 
 Local Open Scope broom.
 
+Definition encodeA : A -> positive := countable.encode.
+Definition encodeNat : nat -> positive := countable.encode.
+
+
 Definition hash_sk_data (gv pk : A) (i : nat) : positive :=
-  H [countable.encode (generator : A); countable.encode gv; countable.encode pk; countable.encode i].
+  H [encodeA (generator : A); encodeA gv; encodeA pk; encodeNat i].
 
 (* This follows the original open vote protocol paper. It is a schnorr signature
      with the fiat-shamir heuristic applied. *)
@@ -108,7 +121,7 @@ Definition verify_secret_key_proof (pk : A) (i : nat) (proof : A * Z) : bool :=
   elmeqb gv (generator^r * (pk^z)).
 
 Definition hash_sv_data (i : nat) (pk rk a1 b1 a2 b2 : A) : positive :=
-  H (countable.encode i :: map countable.encode [pk; rk; a1; b1; a2; b2]).
+  H (encodeNat i :: map encodeA [pk; rk; a1; b1; a2; b2]).
 
 Definition secret_vote_proof (sk : Z) (rk : A) (sv : bool) (i : nat) (w r d : Z) : VoteProof :=
   let pk : A := compute_public_key sk in
@@ -147,79 +160,90 @@ Definition make_signup_msg (sk : Z) (v : Z) (i : nat) : Msg :=
 
 Definition make_commit_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) : Msg :=
   let pv := compute_public_vote (reconstructed_key pks my_index) sk sv in
-  commit_to_vote (H [countable.encode pv]).
+  commit_to_vote (H [encodeA pv]).
 
 Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) (w r d : Z) : Msg :=
   let rk := reconstructed_key pks my_index in
   submit_vote (compute_public_vote rk sk sv)
               (secret_vote_proof sk rk sv my_index w r d).
 
-Definition init : ContractIniter Setup State :=
+(* A necessary aliasing to make extraction work *)
+Definition ContractIniterSetupState := ContractIniter Setup State.
+
+Definition init : ContractIniterSetupState :=
   do owner <- lift caller_addr;
   do setup <- deployment_setup;
   do lift (if finish_registration_by setup <? finish_vote_by setup then Some tt else None)%nat;
   accept_deployment
     {| owner := owner;
-       registered_voters := FMap.empty;
+       registered_voters := AddressMap.empty;
        public_keys := [];
        setup := setup;
        tally := None; |}.
 
-Definition receive : ContractReceiver State Msg State :=
+Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
+
+Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
+  do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
+  do lift (if AddressMap.find caller (eligible_voters (setup state)) then Some tt else None);
+  do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
+  do amt <- lift call_amount;
+  do lift (if (amt =? (registration_deposit (setup state)))%Z then Some tt else None);
+  do lift (if Z.of_nat (length (public_keys state)) <? order - 2 then Some tt else None);
+  let index := length (public_keys state) in
+  do lift (if verify_secret_key_proof pk index prf then Some tt else None);
+  let inf := {| voter_index := index;
+                vote_hash := 1%positive;
+                public_vote := zero; |} in
+  let new_state := state<|registered_voters ::= AddressMap.add caller inf|>
+                        <|public_keys ::= fun l => l ++ [pk]|> in
+  accept_call new_state.
+
+
+Definition handle_commit_to_vote hash state caller cur_slot : ContractReceiverStateMsgState := 
+  do commit_by <- lift (finish_commit_by (setup state));
+  do lift (if commit_by <? cur_slot then None else Some tt)%nat;
+  do inf <- lift (AddressMap.find caller (registered_voters state));
+  let inf := inf<|vote_hash := hash|> in
+  accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
+
+Definition handle_submit_vote v proof state caller cur_slot : ContractReceiverStateMsgState :=
+  do lift (if finish_vote_by (setup state) <? cur_slot then None else Some tt)%nat;
+  do inf <- lift (AddressMap.find caller (registered_voters state));
+  do lift (if finish_commit_by (setup state) then
+             if (H [encodeA v] =? vote_hash inf)%positive then Some tt else None
+           else
+             Some tt);
+  do lift (if verify_secret_vote_proof
+                (nth (voter_index inf) (public_keys state) 0)
+                (reconstructed_key (public_keys state) (voter_index inf))
+                v
+                (voter_index inf)
+                proof then Some tt else None);
+  let inf := inf<|public_vote := v|> in
+  accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
+
+Definition handle_tally_votes state cur_slot : ContractReceiverStateMsgState :=
+  do lift (if cur_slot <? finish_vote_by (setup state) then None else Some tt)%nat;
+  do lift (match tally state with | Some _ => None | None => Some tt end);
+  let voters := AddressMap.values (registered_voters state) in
+  do lift (if existsb
+                (fun vi => if elmeqb (public_vote vi) zero then true else false)
+                voters then None else Some tt);
+  let votes := map public_vote voters in
+  do res <- lift (bruteforce_tally votes);
+  accept_call (state<|tally := Some res|>).
+
+Definition receive : ContractReceiverStateMsgState :=
   do state <- my_state;
   do caller <- lift caller_addr;
   do cur_slot <- lift current_slot;
   do msg <- call_msg >>= lift;
   match msg with
-  | signup pk prf =>
-    do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
-    do lift (if FMap.find caller (eligible_voters (setup state)) then Some tt else None);
-    do lift (if FMap.find caller (registered_voters state) then None else Some tt);
-    do amt <- lift call_amount;
-    do lift (if (amt =? (registration_deposit (setup state)))%Z then Some tt else None);
-    do lift (if Z.of_nat (length (public_keys state)) <? order - 2 then Some tt else None);
-    let index := length (public_keys state) in
-    do lift (if verify_secret_key_proof pk index prf then Some tt else None);
-    let inf := {| voter_index := index;
-                  vote_hash := 1%positive;
-                  public_vote := zero; |} in
-    let new_state := state<|registered_voters ::= FMap.add caller inf|>
-                          <|public_keys ::= fun l => l ++ [pk]|> in
-    accept_call new_state
-
-  | commit_to_vote hash =>
-    do commit_by <- lift (finish_commit_by (setup state));
-    do lift (if commit_by <? cur_slot then None else Some tt)%nat;
-    do inf <- lift (FMap.find caller (registered_voters state));
-    let inf := inf<|vote_hash := hash|> in
-    accept_call (state<|registered_voters ::= FMap.add caller inf|>)
-
-  | submit_vote v proof =>
-    do lift (if finish_vote_by (setup state) <? cur_slot then None else Some tt)%nat;
-    do inf <- lift (FMap.find caller (registered_voters state));
-    do lift (if finish_commit_by (setup state) then
-               if (H [countable.encode v] =? vote_hash inf)%positive then Some tt else None
-             else
-               Some tt);
-    do lift (if verify_secret_vote_proof
-                  (nth (voter_index inf) (public_keys state) 0)
-                  (reconstructed_key (public_keys state) (voter_index inf))
-                  v
-                  (voter_index inf)
-                  proof then Some tt else None);
-    let inf := inf<|public_vote := v|> in
-    accept_call (state<|registered_voters ::= FMap.add caller inf|>)
-
-  | tally_votes =>
-    do lift (if cur_slot <? finish_vote_by (setup state) then None else Some tt)%nat;
-    do lift (match tally state with | Some _ => None | None => Some tt end);
-    let voters := FMap.values (registered_voters state) in
-    do lift (if existsb
-                  (fun vi => if elmeqb (public_vote vi) zero then true else false)
-                  voters then None else Some tt);
-    let votes := map public_vote voters in
-    do res <- lift (bruteforce_tally votes);
-    accept_call (state<|tally := Some res|>)
+  | signup pk prf => handle_signup pk prf state caller cur_slot
+  | commit_to_vote hash => handle_commit_to_vote hash state caller cur_slot
+  | submit_vote v proof => handle_submit_vote v proof state caller cur_slot
+  | tally_votes => handle_tally_votes state cur_slot
   end.
 
 Definition boardroom_voting : Contract Setup Msg State :=
@@ -302,16 +326,16 @@ Proof.
   destruct msg as [msg|]; cbn -[Nat.ltb] in *; try congruence.
   destruct msg.
   - destruct (_ <? _); cbn in *; try congruence.
-    destruct (FMap.find _ _); cbn in *; try congruence.
-    destruct (FMap.find _ _); cbn in *; try congruence.
+    destruct (AddressMap.find _ _); cbn in *; try congruence.
+    destruct (AddressMap.find _ _); cbn in *; try congruence.
     destruct (_ =? _)%Z; cbn in *; try congruence.
     destruct (_ <? _)%Z; cbn in *; try congruence.
     destruct (verify_secret_key_proof _ _ _); cbn in *; congruence.
   - destruct (finish_commit_by _); cbn -[Nat.ltb] in *; try congruence.
     destruct (_ <? _); cbn in *; try congruence.
-    destruct (FMap.find _ _); cbn in *; congruence.
+    destruct (AddressMap.find _ _); cbn in *; congruence.
   - destruct (_ <? _); cbn in *; try congruence.
-    destruct (FMap.find _ _); cbn in *; try congruence.
+    destruct (AddressMap.find _ _); cbn in *; try congruence.
     destruct (if finish_commit_by _ then _ else _); cbn in *; try congruence.
     destruct (verify_secret_vote_proof _ _ _ _); cbn in *; congruence.
   - destruct (_ <? _); cbn in *; try congruence.
@@ -320,7 +344,7 @@ Proof.
     destruct (bruteforce_tally _); cbn in *; congruence.
 Qed.
 
-Lemma Permutation_modify k vold vnew (m : FMap Address VoterInfo) :
+Lemma Permutation_modify k vold vnew (m : AddrMap VoterInfo) :
   FMap.find k m = Some vold ->
   voter_index vold = voter_index vnew ->
   Permutation (map (fun '(_, v) => voter_index v)
@@ -332,6 +356,7 @@ Lemma Permutation_modify k vold vnew (m : FMap Address VoterInfo) :
     (seq 0 (FMap.size m)).
 Proof.
   intros find_some index old_perm.
+  unfold AddrMap in *.
   rewrite <- old_perm.
   rewrite <- (FMap.add_id _ _ _ find_some) at 2.
   rewrite <- (FMap.add_remove k vold).
@@ -367,7 +392,7 @@ Proof.
     destruct a, p.
     cbn in *.
     split; [|tauto].
-    destruct H0; lia.
+    destruct H1; lia.
 Qed.
 
 Local Open Scope broom.
@@ -517,7 +542,7 @@ Theorem boardroom_voting_correct_strong
          tally cstate = Some (sumnat (fun party => if svi_sv (parties party) then 1 else 0)%nat
                                      (map fst (signups inc_calls)))))).
 Proof.
-  contract_induction; intros.
+  contract_induction; intros; unfold AddrMap in *.
   - [AddBlockFacts]: exact (fun _ old_slot _ _ new_slot _ => old_slot < new_slot).
     subst AddBlockFacts.
     cbn in facts.
@@ -537,16 +562,19 @@ Proof.
     split; [lia|].
     intros _ _ _.
     unfold FMap.keys.
-    rewrite FMap.elements_empty.
+    unfold AddrMap in *.
+    unfold AddressMap.empty in *.
+    rewrite @FMap.elements_empty.
     split; [auto|].
     split; [auto|].
     split; [|easy].
     intros ? ? find.
-    now rewrite FMap.find_empty in find.
+    now rewrite @FMap.find_empty in find.
   - auto.
   - cbn -[Nat.ltb] in receive_some.
     destruct msg as [msg|]; cbn -[Nat.ltb] in *; [|congruence].
     destruct msg.
+    unfold AddressMap.add in *. unfold AddressMap.find in *.
     + (* signup *)
       destruct (_ <? _)%nat eqn:intime in receive_some; cbn -[Nat.ltb] in *; [congruence|].
       apply Nat.ltb_ge in intime.
@@ -561,6 +589,7 @@ Proof.
       split; [lia|].
       split; [tauto|].
       split.
+      unfold AddrMap in *.
       { rewrite app_length, FMap.size_add_new by auto; cbn; lia. }
       apply Z.ltb_lt in lt.
       rewrite app_length in *.
@@ -583,6 +612,7 @@ Proof.
       * split.
         { destruct IH as (perm & _).
           cbn.
+          unfold AddrMap in *.
           rewrite FMap.elements_add by auto.
           cbn.
           rewrite seq_app.
@@ -605,6 +635,7 @@ Proof.
         }
         intros addr inf find_add.
         destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
+        unfold AddrMap in *.
         -- rewrite (FMap.find_add (ctx_from ctx)) in find_add.
            inversion_clear find_add.
            cbn.
@@ -619,7 +650,8 @@ Proof.
            split; [symmetry; tauto|].
            split; [congruence|].
            left; easy.
-        -- rewrite FMap.find_add_ne in find_add by auto.
+        -- unfold AddrMap in *.
+           rewrite FMap.find_add_ne in find_add by auto.
            destruct IH as (_ & _ & IH & _).
            specialize (IH _ _ find_add).
            split; [lia|].
@@ -627,12 +659,15 @@ Proof.
     + (* commit_to_vote *)
       destruct (finish_commit_by _); cbn -[Nat.ltb] in *; [|congruence].
       destruct (_ <? _); cbn in *; [congruence|].
+      unfold AddressMap.find in *.
       destruct (FMap.find _ _) eqn:found; cbn in *; [|congruence].
       inversion_clear receive_some; cbn.
       split; [lia|].
       split; [tauto|].
       split.
-      { rewrite FMap.size_add_existing by congruence; tauto. }
+      unfold AddressMap.add.
+      unfold AddrMap in *.
+      {  rewrite FMap.size_add_existing by congruence; tauto. }
       split; [tauto|].
       split; [tauto|].
       intros [_ msg_assum] order_assum num_signups_assum.
@@ -648,22 +683,25 @@ Proof.
       split; [tauto|].
       split; [|tauto].
       intros addr inf find_add.
+      unfold AddressMap.add in *.
       destruct IH as (_ & _ & IH & _).
       destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
-      * rewrite FMap.find_add in find_add.
+      * unfold AddrMap in *.  rewrite FMap.find_add in find_add.
         inversion_clear find_add; cbn.
         auto.
-      * rewrite FMap.find_add_ne in find_add by auto.
+      * unfold AddrMap in *; rewrite FMap.find_add_ne in find_add by auto.
         auto.
     + (* submit_vote *)
       destruct (_ <? _); cbn -[Nat.ltb] in *; [congruence|].
+      unfold AddressMap.find in *. 
       destruct (FMap.find _ _) eqn:found; cbn in *; [|congruence].
       destruct (if finish_commit_by _ then _ else _); cbn in *; [|congruence].
       destruct (verify_secret_vote_proof _ _ _ _); cbn in *; [|congruence].
       inversion_clear receive_some; cbn.
       split; [lia|].
       split; [tauto|].
-      rewrite FMap.size_add_existing by congruence.
+      unfold AddressMap.add in *.
+      unfold AddrMap in *; rewrite FMap.size_add_existing by congruence.
       split; [tauto|].
       split; [tauto|].
       split; [tauto|].
@@ -714,6 +752,7 @@ Proof.
       destruct IH as (finish_before_vote & _ & len_pks & pks_signups & party_count & IH).
       specialize (IH msg_assum order_assum num_signups_assum).
       destruct IH as (perm & perm' & addrs & _).
+      unfold AddressMap.values in *. 
       unfold FMap.values in bruteforce.
       rewrite map_map in bruteforce.
       rewrite (map_ext_in _ (fun '(_, v) => public_vote v)) in bruteforce
@@ -728,8 +767,8 @@ Proof.
       * inversion bruteforce.
         rewrite <- (sumnat_map fst (fun a => if svi_sv (parties a) then 1 else 0))%nat.
         now rewrite perm'.
-      * now rewrite FMap.length_elements, <- len_pks.
-      * now rewrite FMap.length_elements, <- len_pks.
+      * unfold AddrMap in *; now rewrite FMap.length_elements, <- len_pks.
+      * unfold AddrMap in *; now rewrite FMap.length_elements, <- len_pks.
       * auto.
       * intros [k v] kvpin.
         apply FMap.In_elements in kvpin.

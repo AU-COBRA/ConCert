@@ -136,3 +136,28 @@ Definition extract_within_coq : extract_template_env_params :=
           extract_transforms := [dearg_transform (fun _ => None) true true true true true] |} |}.
 
 Definition extract_template_env_within_coq := extract_template_env extract_within_coq.
+Print ExAst.one_inductive_body.
+(* returns a list of constructor names and the name of the inductive associated *)
+Definition get_projections (env : ExAst.global_env) : list (ident * ExAst.one_inductive_body) :=
+  let get_projs (d : ExAst.global_decl) : list (ident * ExAst.one_inductive_body) :=
+    match d with
+    | ExAst.InductiveDecl mind => 
+      (* We assume no mutually inductive definitions *)
+      match mind.(ExAst.ind_bodies) with
+      (* pair every constructor with the inductive's name *)
+      | [oib] => 
+        match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+        (* case 1-ind with primitive projections *)
+        | [ctor],_::_ => map (fun '(na, _) => (na, oib)) oib.(ExAst.ind_projs)
+        (*case 1-ind without primitive projections *)
+        | [(_,ctor_args)],[] => 
+          (* let is_named '(nm,_) := match nm with nNamed _ => true | _ => false end in *)
+          (* let named_args := filter is_named ctor_args in *)
+          map (fun '(na, _) =>(string_of_name na, oib)) ctor_args
+        | _,_ => []
+        end
+      | _ => []
+      end
+    | _ => []
+    end in
+  List.concat (List.map (fun p => get_projs p.2) env).

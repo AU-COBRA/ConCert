@@ -148,7 +148,18 @@ Section print_term.
       ^ " : "
       ^ print_box_type prefix TT vars ty.
 
+  Definition is_one_constructor_inductive_and_not_record (oib : ExAst.one_inductive_body) := 
+    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+    | [_], _::_::_ => false (* it is a record because it has projections, and one constructor *)
+    (* 1-inductive that's not a record *)
+    | [(_, [_])],_  => true
+    (* record without primitive projections; 1-inductive with > args in its constructor *)
+    | [_],[]  => false
+    | _,_ => false
+    end.  
+    
 
+  Print ExAst.one_inductive_body.
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
     let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
@@ -158,6 +169,11 @@ Section print_term.
         if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
         else let ps := concat "," (mapi (fun i v => print_type_var v i) vars) in
              (parens (Nat.ltb #|oib.(ind_type_vars)| 1) ps) ++ " " in
+    let print_record projs_and_ctors := 
+      let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT vars (p.1, ty)) projs_and_ctors in
+      "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
+            ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
+            ++  "}" in
     (* one-constructor inductives with non-empty ind_projs (projection identifiers)
        and > 1 projections 
        are assumed to be records *)
@@ -165,14 +181,16 @@ Section print_term.
     | [build_record_ctor], _::_::_ =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT vars (p.1, ty)) projs_and_ctors in
-      "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
-              ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
-              ++  "}"
-    (* otherwise, one-constructor inductives are printed as aliases since liquidity doesn't allow inductives with 1 constructor.  *)
-    | [build_record_ctor], _ => "type " ++ params ++ uncapitalize ind_nm ++" = " 
-                                  ++ concat " * " (map (print_box_type prefix TT vars ∘ snd) build_record_ctor.2)
-    
+      print_record projs_and_ctors
+      (* otherwise, one-constructor inductives are printed as aliases since liquidity doesn't allow inductives with 1 constructor.  *)
+      | [(_, [ctor_arg])], _ => "type " ++ params ++ uncapitalize ind_nm ++" = " 
+      ++ concat " * " (map (print_box_type prefix TT vars ∘ snd) [ctor_arg])
+      (* otherwise, the record might be defined without primitive projections. Hence, we look for "projections" in the constructor *)
+      | [(_,ctor_args)],[] =>
+      let projs := map (fun '(nm, bt) => (string_of_name nm, bt)) ctor_args in
+      let projs_and_ctors := combine projs ctor_args in
+      print_record projs_and_ctors
+
     | _,_ => "type " ++ params ++ uncapitalize ind_nm ++" = "
             ++ nl
             ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT vars p ++ nl) oib.(ExAst.ind_ctors))
@@ -276,6 +294,8 @@ Section print_term.
       end
     in aux n.
 
+  
+
   Definition fresh_name (Γ : context) (na : name) (t : term) :=
     let id := match na with
               | nNamed id => id
@@ -311,25 +331,33 @@ Section print_term.
   Definition print_list_cons (f : term -> string) (t1 : term) (t2 : term) :=
     (f t1) ++ " :: " ++ (f t2).
 
-  Definition is_record_constr (t : term) : option ExAst.one_inductive_body := 
+  Definition is_record_constr (t : term) 
+                              (projs : list (ident * ExAst.one_inductive_body))
+                              : option ExAst.one_inductive_body := 
     match t with
     | tConstruct (mkInd mind j as ind) i =>
       match lookup_ind_decl mind i with
       (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
-      | Some oib => match ExAst.ind_projs oib, Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) with
-                    | _::_::_,true => Some oib
-                    | _,_ => None
-                    end
+      | Some oib => if is_one_constructor_inductive_and_not_record oib
+                    then None
+                    else if Nat.eqb 1 (List.length oib.(ExAst.ind_ctors))
+                    then Some oib
+                    else None
       | _ => None
       end
+    | tConst kn => option_map snd (List.find (fun p => string_of_kername kn =? p.1) projs)
     | _ => None
   end.
 
-  Definition is_one_constructor_inductive_and_not_record (oib : ExAst.one_inductive_body) := 
+Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident := 
     match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
-    | [_], _::_::_ => false (* it is a record because it has projections, and one constructor *)
-    | [_],_  => true
-    | _,_ => false
+    (* it is a record because it has projections, and one constructor *)
+    | [_], _::_::_ => map fst oib.(ExAst.ind_projs) 
+    (* 1-inductive that's not a record *)
+    | [(_, projs)],_  => projs |> map fst 
+                               |> map string_of_name 
+    (* record without primitive projections; 1-inductive with > args in its constructor *)
+    | _,_ => []
     end.  
 
   Definition is_name_remapped nm TT := 
@@ -373,6 +401,7 @@ Section print_term.
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
       let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
@@ -397,7 +426,15 @@ Section print_term.
 
       [t] - a term to be printed.
    *)
-  Fixpoint print_term (prefix : string) (FT : list string) (TT : env string) (Γ : context) (top : bool) (inapp : bool) (t : term) {struct t} :=
+  Fixpoint print_term (projs : list (ident * ExAst.one_inductive_body))
+                      (prefix : string) 
+                      (FT : list string)
+                      (TT : env string)
+                      (Γ : context)
+                      (top : bool)
+                      (inapp : bool)
+                      (t : term) {struct t} :=
+  let print_term := print_term projs in
   match t with
   | tBox => "()" (* boxes become the contructor of the [unit] type *)
   | tRel n =>
@@ -441,8 +478,16 @@ Section print_term.
         (concat " " (map (parens true) apps)) ++ ".(0)"
       else if nm =? "snd" then
         (concat " " (map (parens true) apps)) ++ ".(1)"
-      else
-        parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+      (* check if it is a record projection *)
+      else 
+        match List.find (fun '(na,_) => na =? nm) projs with
+        | Some (proj_na, oib) => 
+          (* check if it's a 1-ind with *)
+          if is_one_constructor_inductive_and_not_record oib then
+            concat " " (map (parens true) apps)
+          else (concat " " (map (parens true) apps)) ++ "." ++ proj_na
+        | None => parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+        end
     | tConstruct ind i =>
       let nm := get_constr_name ind i in
       (* is it a pair ? *)
@@ -453,14 +498,34 @@ Section print_term.
       (* is it a transfer *)
       else if (nm =? "act_transfer") then print_transfer apps
       (* is it a record declaration? *)
-      else match is_name_remapped nm TT, is_record_constr b with
+          (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
+      else match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
+      | Some oib => (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *) 
+                    if is_one_constructor_inductive_and_not_record oib then 
+                      print_term prefix FT TT Γ false false l
+                    else 
+                      match is_name_remapped nm TT, is_record_constr b projs with
+                      | false, Some oib =>
+                        let projs : list ident := get_record_projs oib in
+                        let projs_and_apps := combine projs apps in 
+                        let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
+                                                                  |> concat "; " in
+                        "{" ++ field_decls_printed ++ "}"
+                      | _,_ => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+                                parens top (print_uncurried nm' apps)
+                      end
+      | None => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+                parens top (print_uncurried nm' apps)
+      end
+      
+      (* else match is_name_remapped nm TT, is_record_constr b projs with
         | false, Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
         let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
                                                   |> concat "; " in
         "{" ++ field_decls_printed ++ "}"
         | _,_     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
                       parens top (print_uncurried nm' apps)
-        end
+        end *)
     | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
     end
   | tConst c =>
@@ -469,7 +534,7 @@ Section print_term.
   | tConstruct ind l =>
     (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
-    (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
+    (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *) 
     | Some oib => if is_one_constructor_inductive_and_not_record oib then ""
                   else let nm := get_constr_name ind l in
                        from_option (look TT nm) (capitalize prefix ++ capitalize nm)
@@ -494,16 +559,6 @@ Section print_term.
         end    
       else match lookup_ind_decl mind i with
       | Some oib =>
-        (* pairs are unfolded directly *)
-        (* if eq_kername mind <%% prod %%> then
-            
-              parens top
-                      ("let "
-                            ++ " = " ++ print_term prefix FT TT Γ true false t
-                            ++ " in " ++ print_term prefix FT TT Γ true false (snd b))
-            | _ => "Error (Malformed pattern-mathing on bool: given "
-                    ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
-          end *)
         let fix print_branch Γ arity params br {struct br} :=
             match arity with
               | 0 => (params, print_term prefix FT TT Γ false false br)
@@ -601,6 +656,7 @@ Fixpoint get_fix_names (t : term) : list name :=
 Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (Σ : ExAst.global_env)
+           (projs : list (ident * ExAst.one_inductive_body)) 
            (decl_name : string)
            (modifier : option string)
            (wrap : string -> string)
@@ -618,10 +674,11 @@ Definition print_decl (prefix : string)
                | None => ""
                end in
   "let" ++ modif ++ " " ++ decl ++ " = "
-        ++ wrap (LPretty.print_term Σ prefix [] TT ctx true false lam_body).
+        ++ wrap (LPretty.print_term Σ projs prefix [] TT ctx true false lam_body).
 
 Definition print_init (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
+           (projs : list (ident * ExAst.one_inductive_body)) (* record projections and the record names they project *)
            (build_call_ctx : string) (* a string that corresponds to a call contex *)
            (init_prelude : string) (* operations available in the [init] as local definitions.
                                       Liquidity does not allow to refer to global definitions in [init]*)
@@ -639,7 +696,7 @@ Definition print_init (prefix : string)
   let wrap t := "match " ++ t ++ " with Some v -> v | None -> failwith ()" in
   let let_inner :=
       "let " ++ decl_inner ++ " = "
-             ++ LPretty.print_term Σ prefix [] TT ctx true false lam_body
+             ++ LPretty.print_term Σ projs prefix [] TT ctx true false lam_body
              ++ " in" in
   (* ignore the first argument because it's a call context *)
   let printed_targs_outer := tl printed_targs_inner in
@@ -660,22 +717,31 @@ Definition print_cst (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (Σ : ExAst.global_env)
            (kn : kername)
-           (cst : ExAst.constant_body) : string :=
+           (cst : ExAst.constant_body) 
+           (projs : list (ident * ExAst.one_inductive_body)) 
+           : string :=
   match cst.(ExAst.cst_body) with
   | Some cst_body =>
     (* NOTE: ignoring the path part *)
     let (_, decl_name) := kn in
-    print_decl prefix TT Σ decl_name None id cst.(ExAst.cst_type) cst_body
+    print_decl prefix TT Σ projs decl_name None id cst.(ExAst.cst_type) cst_body
   | None => ""
   end.
 
 Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
            (nm : kername)
            (Σ : ExAst.global_env)
-           (d : ExAst.global_decl) : kername * string :=
+           (d : ExAst.global_decl) 
+           (projs : list (ident * ExAst.one_inductive_body)) 
+           : kername * string :=
   match d with
   | ExAst.ConstantDecl cst =>
-      (nm, print_cst prefix TT Σ nm cst)
+      (* don't print record projection definitions *)
+      if List.existsb (fun p => nm.2 =? p.1) projs
+      then (nm, "")
+      (* (nm, "projs: " ++ nm.2 ++ " : " ++ String.concat ";" (map fst projs )) *)
+      else 
+      (nm, print_cst prefix TT Σ nm cst projs)
   | ExAst.InductiveDecl mib =>
     match mib.(ExAst.ind_bodies) with
     | [oib] => (nm, print_inductive prefix TT oib)
@@ -692,16 +758,18 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
   end.
 
 Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
-           (Σ : ExAst.global_env) : list (kername * string) :=
+           (Σ : ExAst.global_env)
+           (projs : list (ident * ExAst.one_inductive_body)) 
+           : list (kername * string) :=
   match Σ with
   | (kn, has_deps, decl) :: Σ' =>
     let printed :=
         (* only print decls for which the environment includes dependencies *)
         if has_deps then
-          print_global_decl prefix TT kn Σ' decl
+          print_global_decl prefix TT kn Σ' decl projs
         else
           (kn, "") in
-    printed :: print_global_env prefix TT Σ'
+    printed :: print_global_env prefix TT Σ' projs
   | [] => []
   end.
 
@@ -726,7 +794,15 @@ Definition int_ops :=
     ++ nl
     ++ "let[@inline] ltInt (i : int) (j : int) = i < j"
     ++ nl
-    ++ "let[@inline] eqInt (i : int) (j : int) = i = j".
+    ++ "let[@inline] eqInt (i : int) (j : int) = i = j"
+    ++ nl
+    ++ "let[@inline] modInt(a : int)(b : int) : int = match a/b with | Some (_, r) -> int r | None -> 0"
+    ++ nl
+    ++ "let rec powIntAcc((a,b,acc) : int*int*int) =
+        if b <= 0 then acc
+        else powIntAcc(a, (b-1), acc * a)"
+    ++ nl
+    ++ "let powInt(a : int)(b : int) = powIntAcc(a,b,1)".
 
 Definition tez_ops :=
        "let[@inline] addTez (n : tez) (m : tez) = n + m"
@@ -756,6 +832,8 @@ Definition nat_ops :=
     ++ "let[@inline] leNat (i : nat) (j : nat) = i <= j"
     ++ nl
     ++ "let[@inline] ltNat (i : nat) (j : nat) = i < j"
+    ++ nl
+    ++ "let[@inline] lxorNat (i : nat) (j : nat) = i lxor j"
     ++ nl
     ++ "let[@inline] eqNat (i : nat) (j : nat) = i = j".
 

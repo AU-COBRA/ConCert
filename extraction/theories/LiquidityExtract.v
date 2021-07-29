@@ -85,6 +85,7 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
+            (* TODO: a 'false' second-last arg disables fully expanded environments - only for boardroomvoting *)
             [dearg_transform overridden_masks true true true true true ]
        |}
   |}.
@@ -119,12 +120,13 @@ Definition printLiquidityDefs_
   let ignore_extract kn := List.existsb (eq_kername kn) ignore in
   eΣ <- extract_env should_inline seeds ignore_extract Σ ;;
   (* dependencies should be printed before the dependent definitions *)
-  let ldef_list := List.rev (print_global_env prefix TT eΣ) in
+  let projs := get_projections eΣ in
+  let ldef_list := List.rev (print_global_env prefix TT eΣ projs) in
   (* filtering empty strings corresponding to the ignored definitions *)
   let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
   match ExAst.lookup_env eΣ init with
     | Some (ExAst.ConstantDecl init_cst) =>
-      match print_init prefix TT build_call_ctx init_prelude eΣ init_cst with
+      match print_init prefix TT projs build_call_ctx init_prelude eΣ init_cst with
       | Some init_code =>
         (* filtering out the definition of [init] and projecting the code *)
         let defs :=
@@ -166,8 +168,8 @@ Definition liquidity_ignore_default :=
 Definition TT_remap_default : list (kername * string) :=
   [
     (* types *)
-    remap <%% Z %%> "tez"
-  ; remap <%% N %%> "nat"
+    (* remap <%% Z %%> "tez" *)
+    remap <%% N %%> "nat"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
   ; remap <%% unit %%> "unit"
@@ -190,12 +192,12 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Pos.sub %%> "subNat"
   ; remap <%% Pos.leb %%> "leNat"
   ; remap <%% Pos.eqb %%> "eqNat"
-  ; remap <%% Z.add %%> "addTez"
+  (* ; remap <%% Z.add %%> "addTez"
   ; remap <%% Z.sub %%> "subTez"
   ; remap <%% Z.leb %%> "leTez"
   ; remap <%% Z.ltb %%> "ltTez"
   ; remap <%% Z.eqb %%> "eqTez"
-  ; remap <%% Z.gtb %%> "gtbTez"
+  ; remap <%% Z.gtb %%> "gtbTez" *)
   ; remap <%% N.add %%> "addInt"
   ; remap <%% N.sub %%> "subInt"
   ; remap <%% N.leb %%> "leInt"
@@ -209,8 +211,8 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @stdpp.base.insert %%> "Map.add"
   ; remap <%% @stdpp.base.lookup %%> "Map.find_opt"
   ; remap <%% @stdpp.base.empty %%> "Map.empty"
-  ; remap <%% @address_eqdec %%> ""
-  ; remap <%% @address_countable %%> ""
+  (* ; remap <%% @address_eqdec %%> "" *)
+  (* ; remap <%% @address_countable %%> "" *)
   ].
 
 (* We assume the structure of the context from the [PreludeExt]:
@@ -256,9 +258,11 @@ Definition liquidity_extract_single
     | Ok eΣ =>
       (* filtering out empty type declarations *)
       (* TODO: possibly, move to extraction (requires modifications of the correctness proof) *)
+      let projs := get_projections eΣ in
+
       let eΣ := filter (fun '(_,_,d) => negb (is_empty_type_decl d)) eΣ in
       (* dependencies should be printed before the dependent definitions *)
-      let ldef_list := List.rev (print_global_env "" TT eΣ) in
+      let ldef_list := List.rev (print_global_env "" TT eΣ projs) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in
@@ -291,6 +295,64 @@ Definition liquidity_extraction_ {msg ctx params storage operation : Type}
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   s <- printLiquidityDefs_ prefix Σ TT inline ignore
+                         liquidity_call_ctx
+                         m.(lmd_init_prelude)
+                             init_nm receive_nm ;;
+    tmEval lazy
+           (wrap_in_delimiters (concat (nl ++ nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).
+
+Definition unwrap_string_sum (s : string + string) : string :=
+  match s with
+  | inl v => v
+  | inr v => v
+  end.
+Definition is_empty {A} (xs : list A) :=
+  match xs with
+  | [] => true
+  | _ => false
+  end.
+
+Definition quote_and_preprocess {Base : ChainBase}
+           {msg ctx params storage operation : Type}
+           (inline : list kername)
+           (m : LiquidityMod msg ctx params storage operation)
+  : TemplateMonad (TemplateEnvironment.global_env * kername * kername) :=
+   (* we compute with projections before quoting to avoid unnecessary dependencies to be quoted *)
+   init <- tmEval cbn m.(lmd_init);;
+   receive <-tmEval cbn m.(lmd_receive);;
+  '(Σ,_) <- tmQuoteRecTransp (init,receive) false ;;
+  init_nm <- extract_def_name m.(lmd_init);;
+  receive_nm <- extract_def_name m.(lmd_receive);;
+  Σ <-
+  (if is_empty inline then ret Σ
+   else
+     let to_inline kn := existsb (eq_kername kn) inline in
+     Σcert <- tmEval lazy (inline_in_env to_inline Σ) ;;
+     mpath <- tmCurrentModPath tt;;
+     Certifying.gen_defs_and_proofs Σ Σcert mpath "_cert_pass"
+                                    (KernameSetProp.of_list [init_nm;receive_nm]);;
+     ret Σcert);;
+  ret (Σ, init_nm,receive_nm).
+
+(** Runs all the necessary steps in [TemplateMonad] and adds a definition
+    [<module_name>_prepared] to the Coq environment.
+    The definition consist of a call to erasure and pretty-printing for further
+    evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
+    which is much faster than running the computations inside [TemplateMonad]. *)
+Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation : Type}
+           (prefix : string)
+           (TT_defs : list (kername *  string))
+           (TT_ctors : MyEnv.env string)
+           (inline : list kername)
+           (m : LiquidityMod msg ctx params storage operation)
+           (Σ : TemplateEnvironment.global_env)
+           (init_nm : kername)
+           (receive_nm : kername) :=
+  let TT_defs := (TT_defs ++ TT_remap_default)%list in
+  let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
+  let TT :=
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+  s <- printLiquidityDefs_specialize prefix Σ TT inline ignore
                          liquidity_call_ctx
                          m.(lmd_init_prelude)
                              init_nm receive_nm ;;
