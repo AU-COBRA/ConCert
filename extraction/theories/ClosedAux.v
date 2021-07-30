@@ -2,7 +2,6 @@ From ConCert.Extraction Require Import Utils.
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import List.
-From Coq Require Import Psatz.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.

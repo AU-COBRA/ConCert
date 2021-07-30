@@ -10,6 +10,8 @@ From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import CertifyingEta.
+From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction.Examples Require Import ElmExtractTests.
 From ConCert.Extraction.Examples Require Import Ack.
@@ -87,13 +89,25 @@ Module ElmExamples.
   [] [].
 
   MetaCoq Run (t <- tmQuoteRecTransp safe_pred_partial false ;;
+               mpath <- tmCurrentModPath tt;;
+               Σeta <- run_transforms_list t.1
+                 [template_eta (fun _ => None) true true [<%% @safe_pred_partial %%>] (fun _ => false)] ;;
+               Σeta <- tmEval lazy (SafeTemplateChecker.fix_global_env_universes Σeta);;
+
+
+               Certifying.gen_defs_and_proofs t.1 Σeta mpath "_cert_pass"
+                                              (KernameSet.singleton <%% @safe_pred_partial %%> )).
+
+  MetaCoq Run (t <- tmQuoteRecTransp ConCert_Extraction_Examples_ElmExtractExamples_ElmExamples_safe_pred_partial_cert_pass false;;
                tmDefinition "safe_pred_partial_syn" t).
+
+  (* After eta-expansion the main [safe_pred_partial] is guarded by a lambda *)
 
   Redirect "examples/elm-extract/SafePredPartial.elm"
   Compute general_wrapped safe_pred_partial_syn
-  (Preambule "SafePredPartial" ++ nl ++ elm_false_rec)
-  (main_and_test "Expect.equal (safe_pred_partial ()) (Exist O)")
-  [] [].
+          (Preambule "SafePredPartial" ++ nl ++ elm_false_rec)
+          (main_and_test "Expect.equal (conCert_Extraction_Examples_ElmExtractExamples_ElmExamples_safe_pred_partial_cert_pass ()) (Exist O)")
+          [] [].
 
 
   MetaCoq Quote Recursively Definition rev_syn := List.rev.
