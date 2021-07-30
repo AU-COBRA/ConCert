@@ -63,7 +63,9 @@ Definition TT_rename :=
   [ ("Z0" ,"0DUN")
   ; ("nil", "[]")
   ; ("mnil", "Map []")
-  ; ("tt", "()") ].
+  ; ("tt", "()")
+  ; ("true", "true")
+  ; ("false", "false")].
 
 Definition printWrapperAndMain :=
   "let wrapper (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = match receive msg st (Current.time (), (Current.sender (), (Current.amount (), Current.balance ()))) with

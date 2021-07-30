@@ -105,6 +105,7 @@ Section LiquidityExtractionSetup.
     ; remap <%% Z %%> "int"
     ; remap <%% nat %%> "key_hash" (* type of account addresses*)
     ; remap <%% Transaction %%> "operation list"
+    ; remap <%% Transaction_none %%> "[]"
     ; remap <%% @fst %%> "fst"
     ; remap <%% @snd %%> "snd" ].
 

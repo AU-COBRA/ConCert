@@ -18,10 +18,14 @@ Require Import Extras Egcd Euler.
 Require Import Monads.
 Require Import Serializable.
 Require Import Common. Import AddressMap.
+From ConCert.Execution.Examples Require BoardroomVoting.
 
 Import ListNotations.
 Import RecordSetNotations.
 
+Module BR := BoardroomVoting.BoardroomVoting.
+
+About BR.Msg.
 
 Module Type BoardroomParams.
   Parameter H : list positive -> positive.
@@ -76,8 +80,6 @@ Module BoardroomMathNotations.
   Infix "+" := add_p : broom.
   Infix "*" := mul_p : broom.
   Infix "^" := pow_p : broom.
-  (* Notation "a 'exp=' b" := (expeq a b) (at level 70) : broom. *)
-  (* Notation "a 'exp<>' b" := (~(expeq a b)) (at level 70) : broom. *)
 End BoardroomMathNotations.
 
 Import BoardroomMathNotations.

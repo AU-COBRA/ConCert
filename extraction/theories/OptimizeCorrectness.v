@@ -9,7 +9,6 @@ From Coq Require Import Bool.
 From Coq Require Import Btauto.
 From Coq Require Import String.
 From Coq Require Import List.
-From Coq Require Import Psatz.
 From Coq Require Import RelationClasses.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAstUtils.

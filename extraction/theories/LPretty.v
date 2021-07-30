@@ -255,7 +255,8 @@ Section print_term.
   
   Definition liquidity_reserved_names := 
     [
-        "to"
+       "to"
+      ; "from"
       ; "val"
       ; "balance"
       ; "continue"
@@ -395,7 +396,16 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
     end
     in go [].
 
-    Definition print_pat (prefix : string) (TT : env string) (ctor : string) (infix : bool) (pt : list string * string) :=
+  Fixpoint fresh_names (Γ : context) (vs : list name) : context * list name :=
+    match vs with
+    | [] => (Γ, [])
+    | v :: vs0 => let Γ0 := vass v :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
+                  let '(Γ1, vs1) := fresh_names Γ0 vs0 in
+                  (Γ1, fresh_name Γ v (tVar "dummy") :: vs1)
+    end.
+
+  (* [print_pat] expects that the names in pt.1 are already checked for freshness *)
+  Definition print_pat (Γ : context) (prefix : string) (TT : env string) (ctor : string) (infix : bool) (pt : list string * string) : string:=
     let vars := rev pt.1 in
     if infix then
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
@@ -490,13 +500,24 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
         end
     | tConstruct ind i =>
       let nm := get_constr_name ind i in
+      (* is it an natural number literal? *)
+      if (nm =? "Z") || (nm =? "S") then
+        from_option (option_map (fun x => string_of_nat x ++ "p") (nat_syn_to_nat t)) "Error(Not a natural number literal)"
+      else
+        (* is it an integer number literal? *)
+        (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
+        let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
+        let units := if (Z_remapped =? "tez") || (Z_remapped =? "dun") then "tz" else "" in
+        if (nm =? "Z0") || (nm =? "Zpos") || (nm =? "Zneg") then
+          from_option (option_map (fun x => string_of_Z x ++ units) (Z_syn_to_Z t)) "Error(Not an integer literal)"
+        else
       (* is it a pair ? *)
       if (nm =? "pair") then print_uncurried "" apps
       (* is it a cons ? *)
       else if (nm =? "cons") then
         parens top (concat " :: " apps)
       (* is it a transfer *)
-      else if (nm =? "act_transfer") then print_transfer apps
+      else if (uncapitalize nm =? "act_transfer") then print_transfer apps
       (* is it a record declaration? *)
           (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
       else match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
@@ -556,7 +577,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
                          ++ " else " ++ print_term prefix FT TT Γ true false (snd b2))
         | _ => "Error (Malformed pattern-mathing on bool: given "
                  ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
-        end    
+        end
       else match lookup_ind_decl mind i with
       | Some oib =>
         let fix print_branch Γ arity params br {struct br} :=
@@ -578,14 +599,14 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
               print_list (fun '(b, (na, _)) =>
                             (* [list] is a special case *)
                             if (eq_kername mind <%% list %%>) && (na =? "cons") then
-                              print_pat prefix TT "::" true b
+                              print_pat Γ prefix TT "::" true b
                             else if (eq_kername mind <%% list %%>) && (na =? "nil") then
-                              print_pat "" TT "[]" false b
+                              print_pat Γ "" TT "[]" false b
                             else if (eq_kername mind <%% prod %%>) then
                               "let (" ++ concat "," (rev' b.1) ++ ") = " ++ print_term prefix FT TT Γ true false t ++ " in "
                               ++ b.2
                             else
-                            print_pat prefix TT na false b)
+                            print_pat Γ prefix TT na false b)
                          (nl ++ " | ") brs in
         (* products are unfolded on the spot because pattern matching on pairs is not allowed in liquidity *)
         if eq_kername mind <%% prod %%> then
@@ -652,7 +673,6 @@ Fixpoint get_fix_names (t : term) : list name :=
   | _ => []
   end.
 
-
 Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* tranlation table *)
            (Σ : ExAst.global_env)
@@ -664,11 +684,11 @@ Definition print_decl (prefix : string)
            (t : term) :=
   let (tys,_) := decompose_arr ty.2 in
   let (args,lam_body) := Edecompose_lam t in
+  let (ctx, args) := fresh_names [] args in
   let targs := combine args (map (print_box_type prefix TT ty.1) tys) in
   let printed_targs :=
       map (fun '(x,ty) => parens false (uncapitalize (string_of_name x) ++ " : " ++ ty)) targs in
   let decl := uncapitalize prefix ++ uncapitalize decl_name ++ " " ++ concat " " printed_targs in
-  let ctx := map (fun x => Build_context_decl x None) (rev args) in
   let modif := match modifier with
                | Some m => "%"++m
                | None => ""
@@ -813,13 +833,21 @@ Definition tez_ops :=
     ++ nl
     ++ "let[@inline] ltTez (a : tez ) (b : tez ) =  a < b"
     ++ nl
+    ++ "let[@inline] gtTez (a : tez ) (b : tez ) =  a > b"
+    ++ nl
     ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b"
     ++ nl
     ++ "let[@inline] evenTez (i : tez) = match i/2tz with | Some (_, r) -> r=0tz | None -> false"
+    ++ nl
+    ++ "let tez_to_nat (a : tez) : nat =" ++ nl
+    ++ "let (n, _) = match a / 1DUN with"  ++ nl
+    ++ "| Some qr -> qr"  ++ nl
+    ++ "| None -> failwith () (* impossible case *)"  ++ nl
+    ++ "in n"
+    ++ nl
+    ++ "let[@inline] divTez (a : tez) (b : tez) : tez = match a/(tez_to_nat b) with Some(d,_) -> d | None -> 0tz"
     ++ nl 
-    ++ "let[@inline] divTez (a : tez) (b : nat) : tez = match a/b with Some(d,_) -> d | None -> 0tz"
-    ++ nl 
-    ++ "let[@inline] multTez (n : tez) (m : nat) : tez = n * m".
+    ++ "let[@inline] multTez (n : tez) (m : tez) : tez = n * tez_to_nat m".
 
 
 Definition nat_ops :=

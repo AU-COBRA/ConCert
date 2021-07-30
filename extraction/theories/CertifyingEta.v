@@ -175,7 +175,9 @@ Definition restrict_env (Σ : global_env) (kns : list kername) : global_env :=
 Definition eta_global_env
            (overridden_masks : kername -> option bitmask)
            (trim_consts trim_inds : bool)
-           (Σ : global_env) (seeds : KernameSet.t) (erasure_ignore : kername -> bool) :=
+           (Σ : global_env)
+           (seeds : KernameSet.t)
+           (erasure_ignore : kername -> bool) :=
   let Σe :=
       erase_global_decls_deps_recursive
         (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
@@ -218,6 +220,21 @@ Definition eta_expand_def
   eta_global_env_template
     overridden_masks trim_inds trim_consts cur_mod p.1
     (KernameSet.singleton kn) (fun _ => false).
+
+Definition template_eta
+           (overriden_masks : kername -> option bitmask)
+           (trim_consts trim_inds : bool)
+           (seeds : list kername)
+           (erasure_ignore : kername -> bool)
+  : Transform.TemplateTransform :=
+  let seeds := KernameSetProp.of_list seeds in
+  fun Σ => Ok (Utils.timed "Eta-expand"
+                        (fun _ => eta_global_env overriden_masks
+                                              trim_consts
+                                              trim_inds
+                                              Σ
+                                              seeds
+                                              erasure_ignore)).
 
 Module Examples.
 

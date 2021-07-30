@@ -4,7 +4,6 @@ From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import Eqdep_dec.
 From Coq Require Import List.
-From Coq Require Import Psatz.
 From Coq Require Import String.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAst.
