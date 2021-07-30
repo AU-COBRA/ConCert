@@ -218,7 +218,7 @@ Section CounterExtraction.
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/cameligo-extract/CounterCertifiedExtraction.ligo" *)
+  (* Redirect "examples/extracted-code/cameligo-extract/CounterCertifiedExtraction.ligo" *)
   MetaCoq Run (tmMsg cameLIGO_counter_1).
 
 End CounterExtraction.
@@ -339,7 +339,7 @@ Section CrowdfundingExtraction.
   MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" *)
+  (* Redirect "examples/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" *)
   MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
 End CrowdfundingExtraction.
@@ -437,7 +437,7 @@ Section EIP20TokenExtraction.
   Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
 
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
+  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
   MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.
@@ -570,7 +570,7 @@ Section TestExtractionPlayground.
   Time Definition playground_mod := Eval vm_compute in playground_mod_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
+  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
   MetaCoq Run (tmMsg playground_mod).
 
 End TestExtractionPlayground.

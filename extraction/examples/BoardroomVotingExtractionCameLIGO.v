@@ -361,4 +361,4 @@ Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroo
 
 Print cameLIGO_boardroomvoting. 
 
-Redirect "examples/cameligo-extract/BoardroomVoting.mligo" MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)
+Redirect "examples/extracted-code/cameligo-extract/BoardroomVoting.mligo" MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)

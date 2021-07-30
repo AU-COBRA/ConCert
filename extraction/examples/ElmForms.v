@@ -306,4 +306,4 @@ Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : Template
 Time MetaCoq Run (t <- elm_extraction USER_FORM_APP TT;;
                   tmDefinition "extracted_app" t).
 
-Redirect "examples/elm-web-extract/UserList.elm" MetaCoq Run (tmMsg extracted_app).
+Redirect "examples/extracted-code/elm-web-extract/UserList.elm" MetaCoq Run (tmMsg extracted_app).

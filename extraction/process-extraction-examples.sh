@@ -1,14 +1,16 @@
 #!/bin/bash
 
-ELM_PATH=./examples/elm-extract
-ELM_WEB_PATH=./examples/elm-web-extract
-LIQ_PATH=./examples/liquidity-extract
-MID_PATH=./examples/midlang-extract
-RUST_PATH=./examples/rust-extract
-CONCORDIUM_PATH=./examples/concordium-extract
+ELM_PATH=./examples/extracted-code/elm-extract
+ELM_WEB_PATH=./examples/extracted-code/elm-web-extract
+LIQ_PATH=./examples/extracted-code/liquidity-extract
+LIGO_PATH=./examples/extracted-code/cameligo-extract
+MID_PATH=./examples/extracted-code/midlang-extract
+RUST_PATH=./examples/extracted-code/rust-extract
+CONCORDIUM_PATH=./examples/extracted-code/concordium-extract
 ELM_TESTS=$ELM_PATH/tests
 ELM_WEB_SRC=$ELM_WEB_PATH/src
 LIQ_TESTS=$LIQ_PATH/tests
+LIGO_TESTS=$LIGO_PATH/tests
 MID_TESTS=$MID_PATH/tests
 
 rm $ELM_TESTS/*.elm
@@ -36,6 +38,14 @@ do
     echo $f "--->" $LIQ_TESTS/$(basename ${f%.out}) ;
     sed -n 's/ *"//;/\(*START*\)/,/\(*END*\)/p' $f > $LIQ_TESTS/$(basename ${f%.out})
 done
+
+echo "Processing LIGO extraction"
+for f in $LIGO_PATH/*.liq.out;
+do
+    echo $f "--->" $LIGO_TESTS/$(basename ${f%.out}) ;
+    sed -n 's/ *"//;/\(*START*\)/,/\(*END*\)/p' $f > $LIGO_TESTS/$(basename ${f%.out})
+done
+
 
 echo "Processing Midlang extraction"
 for f in $MID_PATH/*.midlang.out;

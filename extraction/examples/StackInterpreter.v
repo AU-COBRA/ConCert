@@ -1,4 +1,4 @@
-(** * Extraction of an interpreter **)
+(** * Extraction of an interpreter for a stack based DSL **)
 
 From Coq Require Import PeanoNat ZArith Notations Bool.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
@@ -316,8 +316,8 @@ Module LiquidityInterp.
   Print liquidity_interp.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "examples/liquidity-extract/StackInterpreter.liq"
-  Compute liquidity_interp.
+  Redirect "examples/extracted-code/liquidity-extract/StackInterpreter.liq"
+  MetaCoq Run (tmMsg liquidity_interp).
 
 End LiquidityInterp.
 
@@ -407,6 +407,7 @@ Module CameLIGOInterp.
 
     Print cameligo_interp.
       (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-    Redirect "examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg cameligo_interp).
+    Redirect "examples/extracted-code/cameligo-extract/stackinterpreter.ligo"
+    MetaCoq Run (tmMsg cameligo_interp).
 
 End CameLIGOInterp.

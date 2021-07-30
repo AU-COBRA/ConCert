@@ -82,7 +82,7 @@ Module ElmExamples.
                tmDefinition "safe_pred_full_syn" t).
 
   (* In fully applied case the last argument of [safe_pred] is removed*)
-  Redirect "examples/elm-extract/SafePredFull.elm"
+  Redirect "examples/extracted-code/elm-extract/SafePredFull.elm"
   Compute general_wrapped safe_pred_full_syn
   (Preambule "SafePredFull" ++ nl ++ elm_false_rec)
   (main_and_test "Expect.equal safe_pred_full (Exist O)")
@@ -103,7 +103,7 @@ Module ElmExamples.
 
   (* After eta-expansion the main [safe_pred_partial] is guarded by a lambda *)
 
-  Redirect "examples/elm-extract/SafePredPartial.elm"
+  Redirect "examples/extracted-code/elm-extract/SafePredPartial.elm"
   Compute general_wrapped safe_pred_partial_syn
           (Preambule "SafePredPartial" ++ nl ++ elm_false_rec)
           (main_and_test "Expect.equal (conCert_Extraction_Examples_ElmExtractExamples_ElmExamples_safe_pred_partial_cert_pass ()) (Exist O)")
@@ -117,12 +117,12 @@ Module ElmExamples.
   MetaCoq Run (t <- tmQuoteRecTransp ackermann false ;;
                tmDefinition "ackermann_syn" t).
 
-  Redirect "examples/elm-extract/Ackermann.elm"
+  Redirect "examples/extracted-code/elm-extract/Ackermann.elm"
   Compute wrapped ackermann_syn
           (Preambule "Ackermann")
           (main_and_test "Expect.equal (ackermann (Pair (S (S (S O))) (S (S (S O))))) (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S O)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))").
 
-  Redirect "examples/elm-extract/Rev.elm"
+  Redirect "examples/extracted-code/elm-extract/Rev.elm"
            Compute wrapped rev_syn
            (Preambule "Rev")
            (main_and_test "Expect.equal (rev (Cons 3 (Cons 2 (Cons 1 (Cons 0 Nil))))) (Cons 0 (Cons 1 (Cons 2 (Cons 3 Nil))))").
@@ -159,7 +159,7 @@ Module ElmExamples.
     extract nth_syn = Ok result_nth.
   Proof. reflexivity. Qed.
 
-  Redirect "examples/elm-extract/Nth.elm"
+  Redirect "examples/extracted-code/elm-extract/Nth.elm"
   Compute wrapped nth_syn
   (Preambule "Nth")
   (main_and_test "Expect.equal (nth O (Cons 1 (Cons 0 Nil)) 0) 1").
@@ -182,7 +182,7 @@ Module ElmExamples.
        "  in";
        "  map2" $>.
 
-  Redirect "examples/elm-extract/Map.elm"
+  Redirect "examples/extracted-code/elm-extract/Map.elm"
   Compute wrapped map_syn
   (Preambule "Map")
   (main_and_test "Expect.equal (map (\x->x+1) (Cons 1 (Cons 0 Nil))) (Cons 2 (Cons 1 Nil))").
@@ -209,7 +209,7 @@ Module ElmExamples.
       "  in";
       "  fold_left2" $>.
 
-  Redirect "examples/elm-extract/Fold.elm"
+  Redirect "examples/extracted-code/elm-extract/Fold.elm"
   Compute wrapped foldl_syn
   (Preambule "Fold")
   (main_and_test "(Expect.equal (fold_left (+) (Cons 1 (Cons 0 Nil)) 0)) 1").
@@ -230,14 +230,14 @@ Module ElmExamples.
   MetaCoq Run (t <- tmQuoteRecTransp inc_counter false ;;
                tmDefinition "inc_counter_syn" t).
 
-  Redirect "examples/elm-extract/Increment.elm"
+  Redirect "examples/extracted-code/elm-extract/Increment.elm"
   Compute wrapped inc_counter_syn
          (Preambule "Increment")
          (main_and_test "Expect.equal (inc_counter O (Exist (S O))) (Exist (S O))").
 
   MetaCoq Quote Recursively Definition last_syn := List.last.
 
-  Redirect "examples/elm-extract/Last.elm"
+  Redirect "examples/extracted-code/elm-extract/Last.elm"
   Compute wrapped last_syn
   (Preambule "Last")
   (main_and_test "Expect.equal (last (Cons 1 (Cons 10 Nil)) 0) 10").
@@ -271,7 +271,7 @@ Module ElmExamples.
   MetaCoq Run (t <- tmQuoteRecTransp (@head_of_repeat_plus_one) false ;;
                tmDefinition "head_of_repeat_plus_one_syn" t).
 
-  Redirect "examples/elm-extract/SafeHead.elm"
+  Redirect "examples/extracted-code/elm-extract/SafeHead.elm"
   Compute general_wrapped head_of_repeat_plus_one_syn
   (Preambule "SafeHead" ++ nl ++ elm_false_rec)
   (main_and_test "Expect.equal (head_of_repeat_plus_one (S O) 1) 1")

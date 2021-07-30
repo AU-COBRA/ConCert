@@ -39,17 +39,18 @@ process-extraction-examples: theory
 .PHONY: process-extraction-examples
 
 test-extraction:
-	cd ./examples/elm-extract/; elm-test
-	cd ./examples/elm-web-extract/; elm make src/Main.elm
-	$(foreach file, $(wildcard ./examples/liquidity-extract/tests/*.liq), liquidity $(file);)
-	$(foreach dir, $(wildcard ./examples/concordium-extract/*-extracted), cd $(dir) && cargo concordium test && cd ../../..;)
+	cd ./examples/extracted-code/elm-extract/; elm-test
+	cd ./examples/extracted-code/elm-web-extract/; elm make src/Main.elm
+	$(foreach file, $(wildcard ./examples/extracted-code/liquidity-extract/tests/*.liq), liquidity $(file);)
+	$(foreach dir, $(wildcard ./examples/extracted-code/concordium-extract/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
+	$(foreach file, $(wildcard ./examples/extracted-code/cameligo-extract/tests/*.mligo), ligo compile-contract $(file) main;)
 .PHONY: test-extraction
 
 clean-extraction-examples:
-	rm ./examples/elm-extract/*.elm.out
-	rm ./examples/elm-extract/tests/*.elm
-	rm ./examples/liquidity-extract/*.liq.out
-	rm ./examples/liquidity-extract/tests/*.liq
-	rm ./examples/midlang-extract/*.midlang.out
+	rm ./examples/extracted-code/elm-extract/*.elm.out
+	rm ./examples/extracted-code/elm-extract/tests/*.elm
+	rm ./examples/extracted-code/liquidity-extract/*.liq.out
+	rm ./examples/extracted-code/liquidity-extract/tests/*.liq
+	rm ./examples/extracted-code/midlang-extract/*.midlang.out
 	rm ./examples/*.vo # to force recompilation of examples (a bit ad-hoc though)
 .PHONY: clean-extraction-examples

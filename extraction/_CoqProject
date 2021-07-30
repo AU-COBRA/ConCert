@@ -53,7 +53,7 @@ examples/BoardroomVotingExtractionLiquidity.v
 examples/CameLIGOExtractionTests.v
 examples/CounterCertifiedExtraction.v
 examples/CounterDepCertifiedExtraction.v
-examples/CounterRefinementTypes.v
+examples/CounterSubsetTypes.v
 examples/CrowdfundingCertifiedExtraction.v
 examples/ElmExtractExamples.v
 examples/ElmExtractTests.v
