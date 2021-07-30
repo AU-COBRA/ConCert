@@ -1,4 +1,4 @@
-(** * Extraction of a counter contract with refinement types to Liquidity *)
+(** * Extraction of a counter contract with subset types to Liquidity and CameLIGO *)
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 
@@ -156,7 +156,8 @@ Time MetaCoq Run
 Print liquidity_counter.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/liquidity-extract/CounterRefinementTypes.liq" Compute liquidity_counter.
+Redirect "examples/extracted-code/liquidity-extract/CounterRefinementTypes.liq"
+MetaCoq Run (tmMsg liquidity_counter).
 
 
 
@@ -261,6 +262,7 @@ Definition dummy_chain :=
 
   MetaCoq Run (tmMsg cameLIGO_counter).
   
-  Redirect "examples/cameligo-extract/CounterRefinementTypes.mligo" Compute cameLIGO_counter.
+  Redirect "examples/extracted-code/cameligo-extract/CounterRefinementTypes.mligo"
+  MetaCoq Run (tmMsg cameLIGO_counter).
     
 End CameLIGOExtractionSetup.

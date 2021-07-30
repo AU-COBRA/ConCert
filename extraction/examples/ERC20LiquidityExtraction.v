@@ -182,7 +182,7 @@ Section EIP20TokenExtraction.
 
   
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "./examples/liquidity-extract/liquidity_eip20token.liq"
+  Redirect "./examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
   Compute liquidity_eip20token.
 
 
