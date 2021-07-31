@@ -40,10 +40,10 @@ do
 done
 
 echo "Processing LIGO extraction"
-for f in $LIGO_PATH/*.liq.out;
+for f in $LIGO_PATH/*.mligo.out;
 do
     echo $f "--->" $LIGO_TESTS/$(basename ${f%.out}) ;
-    sed -n 's/ *"//;/\(*START*\)/,/\(*END*\)/p' $f > $LIGO_TESTS/$(basename ${f%.out})
+    cp ${f} $LIGO_TESTS/$(basename ${f%.out})
 done
 
 

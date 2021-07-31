@@ -407,7 +407,7 @@ Module CameLIGOInterp.
 
     Print cameligo_interp.
       (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-    Redirect "examples/extracted-code/cameligo-extract/stackinterpreter.ligo"
+    Redirect "examples/extracted-code/cameligo-extract/StackInterpreter.mligo"
     MetaCoq Run (tmMsg cameligo_interp).
 
 End CameLIGOInterp.
