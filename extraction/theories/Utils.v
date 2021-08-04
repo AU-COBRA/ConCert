@@ -1,7 +1,6 @@
 From Coq Require Import Arith.
 From Coq Require Import Bool.
 From Coq Require Import List.
-From Coq Require Import Psatz.
 From Equations Require Import Equations.
 From MetaCoq Require Import utils.
 From MetaCoq.Template Require Import BasicAst.

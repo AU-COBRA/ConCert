@@ -423,11 +423,11 @@ Section TraceGens.
                                 (c : Contract Setup Msg State)
                                 (caddr : Address)
                                 (pre : State -> Msg -> bool)
-                                (post : Chain -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
+                                (post : Environment -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=
     let action_bodies actions := map (fun act => act.(act_body)) actions in
     let post_helper env cctx post_cstate new_acts cstate msg : Checker :=
       whenFail ("On Msg: " ++ show msg)
-               (checker (post env.(env_chain) cctx cstate msg (Some (post_cstate, action_bodies new_acts)))) in
+               (checker (post env cctx cstate msg (Some (post_cstate, action_bodies new_acts)))) in
     let stepProp (act : Action) (new_acts : list Action) (cs_from : ChainState) (cs_to : ChainState) :=
       let env_from : Environment := cs_from.(chain_state_env) in
       let env_to : Environment := cs_to.(chain_state_env) in

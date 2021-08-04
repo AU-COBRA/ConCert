@@ -6,7 +6,7 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ExpandBranches.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import Inlining.
+From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
@@ -898,10 +898,9 @@ Definition extract_rust_within_coq
            (overridden_masks : kername -> option bitmask)
            (should_inline : kername -> bool) : extract_template_env_params :=
   {| check_wf_env_func := check_wf_env_func extract_within_coq;
-     template_transforms := [];
+     template_transforms := [template_inline should_inline];
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms := [dearg_transform overridden_masks true false false false false;
                                  ExpandBranches.transform;
-                                 Inlining.transform should_inline; (* before TopLevelFixes *)
                                  TopLevelFixes.transform] |} |}.

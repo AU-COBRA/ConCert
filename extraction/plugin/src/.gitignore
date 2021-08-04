@@ -1,5 +1,9 @@
 byte.ml
 byte.mli
+certifyingBeta.ml
+certifyingBeta.mli
+certifyingInlining.ml
+certifyingInlining.mli
 closedAux.ml
 closedAux.mli
 common1.ml

@@ -1,10 +1,8 @@
 [package]
 name = "interp"
 version = "0.1.0"
-authors = []
+authors = ["Cobra"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
 default = ["std"]
@@ -12,8 +10,10 @@ default = ["std"]
 std = ["concordium-std/std"]
 
 [dependencies]
+concert-std = { path = "../concert-std" }
 bumpalo = "3.5.0"
 immutable-map = "0.1.2"
+
 
 [dependencies.concordium-std]
 git = "https://github.com/Concordium/concordium-rust-smart-contracts.git"
@@ -31,5 +31,3 @@ crate-type = ["cdylib", "rlib"]
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = 3
-# Don't unwind on panics, just trap.
-# panic = "abort"

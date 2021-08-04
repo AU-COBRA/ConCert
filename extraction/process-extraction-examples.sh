@@ -1,12 +1,16 @@
 #!/bin/bash
 
-ELM_PATH=./examples/elm-extract
-ELM_WEB_PATH=./examples/elm-web-extract
-LIQ_PATH=./examples/liquidity-extract
-MID_PATH=./examples/midlang-extract
+ELM_PATH=./examples/extracted-code/elm-extract
+ELM_WEB_PATH=./examples/extracted-code/elm-web-extract
+LIQ_PATH=./examples/extracted-code/liquidity-extract
+LIGO_PATH=./examples/extracted-code/cameligo-extract
+MID_PATH=./examples/extracted-code/midlang-extract
+RUST_PATH=./examples/extracted-code/rust-extract
+CONCORDIUM_PATH=./examples/extracted-code/concordium-extract
 ELM_TESTS=$ELM_PATH/tests
 ELM_WEB_SRC=$ELM_WEB_PATH/src
 LIQ_TESTS=$LIQ_PATH/tests
+LIGO_TESTS=$LIGO_PATH/tests
 MID_TESTS=$MID_PATH/tests
 
 rm $ELM_TESTS/*.elm
@@ -35,9 +39,29 @@ do
     sed -n 's/ *"//;/\(*START*\)/,/\(*END*\)/p' $f > $LIQ_TESTS/$(basename ${f%.out})
 done
 
+echo "Processing LIGO extraction"
+for f in $LIGO_PATH/*.mligo.out;
+do
+    echo $f "--->" $LIGO_TESTS/$(basename ${f%.out}) ;
+    cp ${f} $LIGO_TESTS/$(basename ${f%.out})
+done
+
+
 echo "Processing Midlang extraction"
 for f in $MID_PATH/*.midlang.out;
 do
     echo $f "--->" $MID_TESTS/$(basename ${f%.out}) ;
     cp $f $MID_TESTS/$(basename ${f%.out})
+done
+
+echo "Processing Rust Concordium extraction"
+concordium_contracts="counter interp escrow"
+
+for f in ${concordium_contracts}
+do
+fname=$CONCORDIUM_PATH/${f}-extracted/src/lib.rs
+echo "removing previous extraction: " ${fname}
+rm -f ${fname}
+echo "Processing" ${f}.rs.out
+cat $CONCORDIUM_PATH/${f}.rs.out $CONCORDIUM_PATH/${f}-extracted/src/tests.rs > $CONCORDIUM_PATH/${f}-extracted/src/lib.rs
 done

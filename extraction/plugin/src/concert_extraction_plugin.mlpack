@@ -62,7 +62,8 @@ Erasure
 ExpandBranches
 Optimize
 OptimizePropDiscr
-Inlining
+CertifyingBeta
+CertifyingInlining
 TopLevelFixes
 PrettyPrinterMonad
 Extraction0

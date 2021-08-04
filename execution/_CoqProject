@@ -21,6 +21,7 @@ theories/Serializable.v
 examples/BAT.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
+examples/BoardroomVotingZ.v
 examples/BoardroomVotingTest.v
 examples/Common.v
 examples/Congress.v

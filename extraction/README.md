@@ -6,7 +6,11 @@ the name suggests, contains examples of smart contracts and programs extracted u
 and tests for our extensions to the certified erasure.
 
 After building the project (running `make` from the project's root), the folders
-`examples/liquidity-extract/tests` and `examples/elm-extract/tests` are populated with the extracted code.
+`examples/*-extract/` are populated with the extracted code.
+
+The extraction can be tested (compiled and run for the targets that has tests).
+Use `make test-extraction` after the project is compiled.
+Note that running this step requires additional compilers installed (see below).
 
 Compiling Liquidity code:
 install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html).
@@ -16,6 +20,15 @@ Compiling Elm code:
 install the [Elm compiler](https://guide.elm-lang.org/install/elm.html).
 Running Elm tests also requires `elm-explorations/test` package (see the required dependencies in
 `examples/elm-extract/elm.json`)
+
+Compiling Rust code with the Concordium infrastructure:
+
+* requres `cargo` and the Rust compiler;
+* download `cargo-concordium`: http://developer.concordium.software/en/mainnet/net/installation/downloads.html#cargo-concordium
+* add the directory with `cargo-concordium` to `PATH`;
+* install `cargo`;
+* use `cargo concordium build`;
+* read the details here: http://developer.concordium.software/en/mainnet/smart-contracts/guides/setup-tools.html#setup-tools
 
 Some highlights from `theories`:
 
@@ -27,7 +40,10 @@ Some highlights from `theories`:
 * `theories/ExtractionCorrectness.v` -- Top-level correctness theorem relating the stages.
 * `theories/Optimize.v` -- Optimisations (dead argument elimination, logical parameters elimination) on `λ□` terms.
 * `theories/OptimizeCorrectness.v` -- Correctness of optimisation (dead argument elimination).
-* `theories/CertifyingEta.v` -- A eta-expansion procedure which generated proofs of equality of between the result and the original.
+* `theories/CertifyingEta.v` -- An eta-expansion procedure.
+* `theories/CertifyingInlinig.v` -- An inlining procedure.
+* `theories/CertifyingBeta.v` -- A procedure that finds an evalues redexes (if the reduction leads to new redexes, these are not reduced further)
+* `theories/Certifying.v` -- proof-generating procedure; it is used to generate proofs after running inlining/eta-expansion/etc.
 * `theories/LPretty.v` -- Pretty-printer for Liquidity from `λ□`.
 * `theories/Liquidity.v` -- A pretty printer that works directly on the deep embedding of `λsmart` language.
 * `theories/LiquidityExtract.v` - A high-level interface to Liquidity extraction.
