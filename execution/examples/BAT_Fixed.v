@@ -1162,6 +1162,79 @@ Qed.
 
 
 
+(* ------------------- Cannot finalize if goal not hit ------------------- *)
+
+Lemma no_finalization_before_goal block_state contract_addr :
+  reachable block_state ->
+  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state block_state contract_addr = Some cstate
+    /\ (total_supply cstate < tokenCreationMin cstate -> isFinalized cstate = false).
+Proof.
+  contract_induction; intros; auto.
+  - now eapply init_isFinalized_correct.
+  - destruct msg. destruct m.
+    + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
+      destruct m.
+      * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite supply_unchanged, <- finalized_unchanged in *.
+      * apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite supply_unchanged, <- finalized_unchanged in *.
+      * apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite supply_unchanged, <- finalized_unchanged in *.
+    + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
+      rewrite <- finalized_unchanged in *.
+      receive_simpl.
+      rename H0 into requirements_check.
+      now rewrite !Bool.orb_false_iff in requirements_check.
+    + receive_simpl.
+      inversion receive_some as [supply_unchanged].
+      rewrite <- supply_unchanged in *.
+      rename H1 into requirements_check.
+      rewrite !Bool.orb_false_iff in requirements_check.
+      now destruct requirements_check as (_ & goal_hit%N.ltb_nlt).
+    + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
+      rewrite <- finalized_unchanged in *.
+      receive_simpl.
+      rename H1 into requirements_check.
+      now rewrite !Bool.orb_false_iff in requirements_check.
+    + now receive_simpl.
+  - destruct msg. destruct m.
+    + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
+      destruct m.
+      * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite supply_unchanged, <- finalized_unchanged in *.
+      * apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite supply_unchanged, <- finalized_unchanged in *.
+      * apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite supply_unchanged, <- finalized_unchanged in *.
+    + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
+      rewrite <- finalized_unchanged in *.
+      receive_simpl.
+      rename H0 into requirements_check.
+      now rewrite !Bool.orb_false_iff in requirements_check.
+    + receive_simpl.
+      inversion receive_some as [supply_unchanged].
+      rewrite <- supply_unchanged in *.
+      rename H1 into requirements_check.
+      rewrite !Bool.orb_false_iff in requirements_check.
+      now destruct requirements_check as (_ & goal_hit%N.ltb_nlt).
+    + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
+      rewrite <- finalized_unchanged in *.
+      receive_simpl.
+      rename H1 into requirements_check.
+      now rewrite !Bool.orb_false_iff in requirements_check.
+    + now receive_simpl.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Qed.
+
+
+
 (* ------------------- It is always possible to finalize ------------------- *)
 
 (* Prove that it is always possible to reach a state where the token is finalized if the funding
