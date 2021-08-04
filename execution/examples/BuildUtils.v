@@ -1,4 +1,4 @@
-From Coq Require Import ZArith List Lia Logic.Decidable.
+From Coq Require Import ZArith List Lia Logic.Decidable Permutation.
 Import ListNotations.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert Require Import Blockchain.
@@ -692,6 +692,30 @@ Proof.
   assert (step : ChainStep bstate bstate').
   - eapply step_action_invalid; eauto.
     constructor; reflexivity.
+  - eexists bstate'.
+    split; eauto.
+    repeat split; eauto.
+Qed.
+
+(* Lemma showing that for any permutation of the queue there
+    exists a future ChainState witht the same environment
+    end the queue permuted *)
+Lemma permute_queue : forall bstate acts acts_permuted,
+  reachable bstate ->
+  chain_state_queue bstate = acts ->
+  Permutation acts acts_permuted ->
+    (exists bstate',
+       reachable_through bstate bstate'
+    /\ chain_state_queue bstate' = acts_permuted
+    /\ EnvironmentEquiv
+        bstate'
+        bstate).
+Proof.
+  intros * reach queue perm.
+  pose (bstate' := (bstate<|chain_state_queue := acts_permuted|>)).
+  assert (step : ChainStep bstate bstate').
+  - eapply step_permute; auto.
+    now rewrite queue.
   - eexists bstate'.
     split; eauto.
     repeat split; eauto.
