@@ -1613,6 +1613,8 @@ Lemma can_deploy_and_finalize : forall bstate (reward : Amount) (caddr creator :
   setup.(_tokenExchangeRate) <> 0 ->
   setup.(_batFund) <= setup.(_tokenCreationCap) ->
   ~ In setup.(_batFundDeposit) accounts ->
+  setup.(_batFundDeposit) <> caddr ->
+  setup.(_fundDeposit) <> caddr ->
   exists bstate',
     reachable_through bstate bstate'
     /\ emptyable (chain_state_queue bstate')
@@ -1635,7 +1637,9 @@ Proof.
          fund_deposit_not_contract
          echange_rate_nonzero
          init_supply_le_cap
-         batfund_not_in_accounts.
+         batfund_not_in_accounts
+         batfund_not_caddr
+         ethfund_not_caddr.
 
   add_block [(deploy_act setup BATFixed.contract creator)] 1%nat; eauto.
   update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
@@ -1659,6 +1663,8 @@ Proof.
     - now apply N.ltb_lt in requirements.
     - now apply N.eqb_eq in requirements.
     - now apply N.ltb_lt in requirements.
+    - now destruct_address_eq.
+    - now destruct_address_eq.
   }
   specialize constants_are_constant as
     (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
