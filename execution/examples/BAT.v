@@ -1555,5 +1555,55 @@ Proof.
     intuition.
 Qed.
 
+
+
+(* ------------------- Refund guarantee ------------------- *)
+
+(* The BAToken contract should guarantee that all tokens (except for the free initSupply given to batFundDeposit)
+    can be fully refunded. However as shown in the property based tests this is not the case so we can only prove
+    a weaker result stating that refund msgs can always be consumed. This does not guarantee refunding as the
+    proof does not state that the new actions produced by refund entrypoint can be evaluated. Thus it is not
+    guaranteed that the state changes will be applied *)
+Lemma weak_refund_guarantee : forall bstate cstate caddr account acts,
+  let refund_act := build_act account (act_call caddr 0 refund) in
+  reachable bstate ->
+  env_contracts bstate caddr = Some (BAT.contract : WeakContract) ->
+  env_contract_states bstate caddr = Some (serialize cstate) ->
+  chain_state_queue bstate = refund_act :: acts ->
+  (fundingEnd cstate < current_slot bstate)%nat -> (* funding period is over *)
+  total_supply cstate < tokenCreationMin cstate -> (* funding failed *)
+  account <> batFundDeposit cstate -> (* sender is not batFundDeposit *)
+  0 < with_default 0 (FMap.find account (balances cstate)) -> (* account owns some tokens *)
+  exists new_bstate new_acts, chain_state_queue new_bstate = new_acts ++ acts /\ inhabited (ActionEvaluation bstate refund_act new_bstate new_acts).
+Proof.
+  intros * reach deployed deployed_state queue funding_over funding_failed account_not_batfund has_tokens.
+  subst refund_act.
+  eapply no_finalization_before_goal in reach as not_finalized; eauto.
+  destruct not_finalized as (cstate' & deployed_state' & not_finalized).
+  cbn in deployed_state'.
+  rewrite deployed_state, deserialize_serialize in deployed_state'.
+  inversion deployed_state'.
+  subst cstate'. clear deployed_state'.
+  eexists {| chain_state_env := _; chain_state_queue := _ |}.
+  eexists.
+  split; cycle 1.
+  - constructor.
+    eapply eval_call with (msg := Some _); eauto.
+    + lia.
+    + now apply Z.ge_le, account_balance_nonnegative.
+    + specialize try_refund_is_some as [[new_cstate [resp_acts receive_some]] _]; cycle 1.
+      * apply wc_receive_to_receive.
+        rewrite receive_some.
+        receive_simpl.
+        rename H1 into account_balance_some.
+        symmetry in receive_some.
+        update n with (with_default 0 (FMap.find account (balances cstate))) in receive_some by
+          now rewrite account_balance_some.
+        apply receive_some.
+      * repeat split; eauto.
+    + now constructor.
+  - eauto.
+Qed.
+
 End Theories.
 End BAT.
