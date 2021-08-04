@@ -456,6 +456,20 @@ Qed.
 
 
 
+(* ------------------- EIP20 functions not payable ------------------- *)
+
+Lemma eip20_not_payable : forall prev_state new_state chain ctx m new_acts,
+  receive chain ctx prev_state (Some (tokenMsg m)) = Some (new_state, new_acts) ->
+    (ctx_amount ctx <= 0)%Z.
+Proof.
+  intros * receive_some.
+  receive_simpl.
+  destruct p.
+  now eapply EIP20Token.EIP20_not_payable.
+Qed.
+
+
+
 (* ------------------- EIP20 functions produces no acts ------------------- *)
 
 Lemma eip20_new_acts_correct : forall prev_state new_state chain ctx m new_acts,
@@ -755,7 +769,7 @@ Lemma try_refund_is_some : forall state chain ctx,
   /\ ((fundingEnd state) < (current_slot chain))%nat
   /\ (total_supply state) < (tokenCreationMin state)
   /\ 0 < with_default 0 (FMap.find (ctx_from ctx) (balances state))
-    <-> isSome (receive chain ctx state (Some refund)) = true.
+    <-> exists x y, receive chain ctx state (Some refund) = Some (x, y).
 Proof.
   split.
   - intros (amount_zero & not_finalized & funding_over & min_not_hit & balance_not_zero).
@@ -771,7 +785,7 @@ Proof.
     + rewrite !Bool.orb_true_iff in requirements_check.
       now destruct requirements_check as
         [[finalized | funding_active%Nat.leb_le] | min_hit%N.leb_le].
-  - intros receive_some.
+  - intros (new_state & new_acts & receive_some).
     receive_simpl.
     rename H into amount_check.
     rename H0 into requirements_check.
