@@ -1,6 +1,7 @@
 From Coq Require Import List
                         ZArith_base
-                        Lia.
+                        Lia
+                        Permutation.
 Import ListNotations.
 From ConCert Require Import RecordUpdate
                             Extras
@@ -174,6 +175,32 @@ Proof.
   - eapply FMap.In_elements, sumN_in_le in balance.
     eapply N.le_trans; cycle 1; eauto.
   - apply N.le_0_l.
+Qed.
+
+Lemma balance_le_sum_balances_ne : forall addr1 addr2 state,
+  addr1 <> addr2 ->
+  with_default 0 (FMap.find addr1 (balances state)) <=
+  EIP20Token.sum_balances (token_state state) - with_default 0 (FMap.find addr2 (balances state)).
+Proof.
+  intros * addr_ne.
+  destruct (FMap.find addr2) eqn:balance_addr1.
+  - unfold EIP20Token.sum_balances.
+    erewrite sumN_permutation by
+     now eapply Permutation_sym, (fin_maps.map_to_list_delete _ _ n).
+    cbn.
+    rewrite N.add_comm, <- N.add_sub_assoc, N.sub_diag, N.add_0_r by auto.
+    destruct (FMap.find addr1 (FMap.remove addr2 (balances state))) eqn:balance_addr2.
+    + cbn.
+      erewrite sumN_permutation by
+        now eapply Permutation_sym, (fin_maps.map_to_list_delete _ _ t).
+      setoid_rewrite FMap.find_remove_ne in balance_addr2; auto.
+      setoid_rewrite balance_addr2. cbn.
+      lia.
+    + setoid_rewrite FMap.find_remove_ne in balance_addr2; auto.
+      setoid_rewrite balance_addr2. cbn.
+      apply N.le_0_l.
+  - rewrite N.sub_0_r. cbn.
+    apply balance_le_sum_balances.
 Qed.
 
 Local Open Scope Z_scope.
