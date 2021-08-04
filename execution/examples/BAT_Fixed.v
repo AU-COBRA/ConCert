@@ -43,7 +43,9 @@ Definition init (chain : Chain)
           || (setup.(_tokenCreationCap) <? setup.(_tokenCreationMin))
           || (setup.(_tokenCreationCap) <? setup.(_batFund))
           || (setup.(_tokenExchangeRate) =? 0)
-          || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))) ;
+          || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))
+          || address_eqb setup.(_batFundDeposit) ctx.(ctx_contract_address)
+          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) ;
   let token_state := {|
       EIP20Token.balances := FMap.add setup.(_batFundDeposit) setup.(_batFund) FMap.empty;
       EIP20Token.total_supply := setup.(_batFund);
@@ -988,7 +990,9 @@ Lemma deployed_implies_constants_valid block_state contract_addr :
     /\ cstate.(tokenCreationMin) <= cstate.(tokenCreationCap)
     /\ cstate.(initSupply) <= cstate.(tokenCreationCap)
     /\ cstate.(tokenExchangeRate) <> 0
-    /\ cstate.(tokenExchangeRate) <= cstate.(tokenCreationCap) - cstate.(tokenCreationMin).
+    /\ cstate.(tokenExchangeRate) <= cstate.(tokenCreationCap) - cstate.(tokenCreationMin)
+    /\ cstate.(batFundDeposit) <> contract_addr
+    /\ cstate.(fundDeposit) <> contract_addr.
 Proof.
   contract_induction; intros; try auto.
   - unfold Blockchain.init in init_some. cbn in *.
@@ -996,8 +1000,9 @@ Proof.
     returnIf setup_check.
     rewrite !Bool.orb_false_iff in setup_check.
     destruct setup_check as
-      (((((funding_period_nonempty & funding_not_started) & funding_goal) &
-      init_supply_le_cap) & exchange_rate_nonzero) & can_hit_min).
+      (((((((funding_period_nonempty & funding_not_started) & funding_goal) &
+      init_supply_le_cap) & exchange_rate_nonzero) & can_hit_min) &
+      contract_ne_batfund) & contract_ne_ethfund).
     inversion init_some. cbn.
     repeat split.
     + now apply leb_complete_conv in funding_period_nonempty.
@@ -1005,6 +1010,8 @@ Proof.
     + now apply N.ltb_ge in init_supply_le_cap.
     + now apply N.eqb_neq in exchange_rate_nonzero.
     + now apply N.ltb_ge in can_hit_min.
+    + now destruct_address_eq.
+    + now destruct_address_eq.
   - destruct msg. destruct m. destruct m.
     all: receive_simpl; now inversion receive_some.
   - destruct msg. destruct m. destruct m.
