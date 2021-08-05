@@ -1,6 +1,7 @@
-(** * Extraction of a counter contract with refinement types to Liquidity *)
+(** * Extraction of the Boardroom voting contract CameLIGO *)
 
-(** The contract uses refinement types to specify some functional correctness properties *)
+(** We provide a configuration required for the contract extraction:
+    additional remappings, definitions to inline, etc. *)
 
 From Coq Require Import PeanoNat ZArith.
 
