@@ -42,7 +42,9 @@ Definition init (chain : Chain)
           || (setup.(_fundingStart) <? chain.(current_slot))%nat
           || (setup.(_tokenCreationCap) <? setup.(_tokenCreationMin))
           || (setup.(_tokenExchangeRate) =? 0)
-          || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))) ;
+          || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))
+          || address_eqb setup.(_batFundDeposit) ctx.(ctx_contract_address)
+          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) ;
   let token_state := {|
       EIP20Token.balances := FMap.empty;
       EIP20Token.total_supply := 0;
@@ -989,7 +991,9 @@ Lemma deployed_implies_constants_valid block_state contract_addr :
     /\ (cstate.(fundingStart) < cstate.(fundingEnd))%nat
     /\ cstate.(tokenCreationMin) <= cstate.(tokenCreationCap)
     /\ cstate.(tokenExchangeRate) <> 0
-    /\ cstate.(tokenExchangeRate) <= cstate.(tokenCreationCap) - cstate.(tokenCreationMin).
+    /\ cstate.(tokenExchangeRate) <= cstate.(tokenCreationCap) - cstate.(tokenCreationMin)
+    /\ cstate.(batFundDeposit) <> contract_addr
+    /\ cstate.(fundDeposit) <> contract_addr.
 Proof.
   contract_induction; intros; try auto.
   - unfold Blockchain.init in init_some. cbn in *.
@@ -997,14 +1001,16 @@ Proof.
     returnIf setup_check.
     rewrite !Bool.orb_false_iff in setup_check.
     destruct setup_check as
-      ((((funding_period_nonempty & funding_not_started) & funding_goal) &
-      exchange_rate_nonzero) & can_hit_min).
+      ((((((funding_period_nonempty & funding_not_started) & funding_goal) &
+      exchange_rate_nonzero) & can_hit_min) & contract_ne_batfund) & contract_ne_ethfund).
     inversion init_some. cbn.
     repeat split.
     + now apply leb_complete_conv in funding_period_nonempty.
     + now apply N.ltb_ge in funding_goal.
     + now apply N.eqb_neq in exchange_rate_nonzero.
     + now apply N.ltb_ge in can_hit_min.
+    + now destruct_address_eq.
+    + now destruct_address_eq.
   - destruct msg. destruct m. destruct m.
     all: receive_simpl; now inversion receive_some.
   - destruct msg. destruct m. destruct m.
@@ -1609,6 +1615,8 @@ Lemma can_deploy_and_finalize : forall bstate (reward : Amount) (caddr creator :
   (S (current_slot (env_chain bstate)) < (_fundingStart setup))%nat ->
   address_is_contract (_fundDeposit setup) = false ->
   setup.(_tokenExchangeRate) <> 0 ->
+  setup.(_batFundDeposit) <> caddr ->
+  setup.(_fundDeposit) <> caddr ->
   exists bstate',
     reachable_through bstate bstate'
     /\ emptyable (chain_state_queue bstate')
@@ -1629,7 +1637,9 @@ Proof.
         funding_period_nonempty
         funding_period_not_started
         fund_deposit_not_contract
-        echange_rate_nonzero.
+        echange_rate_nonzero
+        batfund_not_caddr
+        ethfund_not_caddr.
 
   add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto.
   update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
@@ -1652,6 +1662,8 @@ Proof.
     - now apply N.ltb_lt in requirements.
     - now apply N.eqb_eq in requirements.
     - now apply N.ltb_lt in requirements.
+    - now destruct_address_eq.
+    - now destruct_address_eq.
   }
   specialize constants_are_constant as
     (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
@@ -1683,6 +1695,282 @@ Proof.
   - rewrite queue. apply empty_queue_is_emptyable.
   - eexists.
     intuition.
+Qed.
+
+
+
+(* ------------------- BAToken never calls itself ------------------- *)
+
+(* Proof similar to the no_self_calls proof in Escrow contract *)
+Lemma bat_no_self_calls bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  Forall (fun act_body =>
+    match act_body with
+    | act_transfer to _ => (to =? caddr)%address = false
+    | _ => False
+    end) (outgoing_acts bstate caddr).
+Proof.
+  contract_induction; intros; auto.
+  - now inversion IH.
+  - apply Forall_app; split; auto.
+    clear IH.
+    instantiate (CallFacts := fun _ ctx state => fundDeposit state <> ctx_contract_address ctx).
+    destruct msg. destruct m.
+    + now erewrite eip20_new_acts_correct by eauto.
+    + receive_simpl.
+      now inversion receive_some.
+    + receive_simpl.
+      inversion_clear receive_some.
+      constructor; auto.
+      now destruct_address_eq.
+    + receive_simpl.
+      inversion_clear receive_some.
+      constructor; auto.
+      now destruct_address_eq.
+    + now receive_simpl.
+  - inversion_clear IH as [|? ? head_not_me tail_not_me].
+    apply Forall_app; split; auto.
+    clear tail_not_me.
+    destruct head; try contradiction.
+    destruct action_facts as [? _].
+    now destruct_address_eq.
+  - now rewrite <- perm.
+  - instantiate (DeployFacts := fun _ _ => True).
+    instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros cstate contract_deployed deployed_state.
+    cbn.
+    apply deployed_implies_constants_valid in contract_deployed as
+      (cstate' & deployed_state' & _ & _ & _ & _ & _ & ethfund_not_caddr); auto.
+    rewrite deployed_state' in deployed_state.
+    now inversion deployed_state.
+Qed.
+
+Lemma bat_no_self_calls' : forall bstate from_addr to_addr amount msg acts,
+  reachable bstate ->
+  env_contracts bstate to_addr = Some (contract : WeakContract) ->
+  chain_state_queue bstate = {| act_from := from_addr; act_body :=
+    match msg with
+    | Some msg => act_call to_addr amount msg
+    | None => act_transfer to_addr amount
+    end |} :: acts ->
+  from_addr <> to_addr.
+Proof.
+  intros * reach deployed queue.
+  apply bat_no_self_calls in deployed as no_self_calls; auto.
+  unfold outgoing_acts in no_self_calls.
+  rewrite queue in no_self_calls.
+  cbn in no_self_calls.
+  destruct_address_eq; auto.
+  inversion_clear no_self_calls as [|? ? hd _].
+  destruct msg.
+  * congruence.
+  * now rewrite address_eq_refl in hd.
+Qed.
+
+
+
+(* ------------------- No outgoing acts produces while funding ------------------- *)
+
+Lemma funding_period_no_acts : forall bstate caddr,
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate
+    /\ (isFinalized cstate = false /\
+        ((current_slot bstate <= fundingEnd cstate)%nat \/ tokenCreationMin cstate <= total_supply cstate) ->
+        outgoing_acts bstate caddr = []).
+Proof.
+  contract_induction; intros; auto; try rename H into not_finalized.
+  - specialize (IH not_finalized).
+    discriminate.
+  - instantiate (CallFacts := fun _ ctx state =>
+        ctx_from ctx <> ctx_contract_address ctx /\
+        total_supply state = sum_balances state).
+    destruct facts as (_ & supply_eq_sum_balances).
+    destruct msg. destruct m.
+    + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
+      apply eip20_new_acts_correct in receive_some as no_new_acts.
+      destruct m.
+      * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
+        rewrite <- supply_unchanged, <- finalized_unchanged in not_finalized.
+        now rewrite IH, no_new_acts.
+      * apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
+        rewrite <- supply_unchanged, <- finalized_unchanged in not_finalized.
+        now rewrite IH, no_new_acts.
+      * apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
+        rewrite <- supply_unchanged, <- finalized_unchanged in not_finalized.
+        now rewrite IH, no_new_acts.
+    + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
+      apply try_create_tokens_acts_correct in receive_some as no_new_acts.
+      specialize try_create_tokens_is_some as (_ & (_ & _ & _ & funding_active & _)); eauto.
+      rewrite  <- finalized_unchanged in not_finalized.
+      destruct not_finalized as [not_finalized _].
+      rewrite no_new_acts, IH; auto.
+    + apply try_finalize_isFinalized_correct in receive_some as finalized.
+      now destruct not_finalized as [not_finalized _].
+    + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
+      apply try_refund_total_supply_correct in receive_some as new_supply.
+      specialize try_refund_is_some as
+        (_ & (_ & _ & funding_over%lt_not_le & goal_not_hit & _)); eauto.
+      destruct not_finalized as [_ [funding_not_over | goal_hit]].
+      * now rewrite <- finalized_unchanged in funding_not_over.
+      * rewrite <- new_supply, <- finalized_unchanged in goal_hit.
+        cbn in goal_hit.
+        eapply N.le_trans with (n := tokenCreationMin prev_state) (p := total_supply prev_state) in goal_hit; try lia.
+        apply N_sub_add_mod.
+        rewrite supply_eq_sum_balances.
+        apply balance_le_sum_balances.
+    + now receive_simpl.
+  - now destruct facts.
+  - apply IH in not_finalized. subst.
+    now apply Permutation.Permutation_nil in perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros cstate contract_deployed deployed_state.
+    subst. cbn.
+    split.
+    + now eapply bat_no_self_calls'.
+    + specialize sum_balances_eq_total_supply as
+        (cstate' & deployed_state' & ?); eauto.
+      rewrite deployed_state' in deployed_state.
+      inversion deployed_state.
+      now subst cstate'.
+Qed.
+
+
+
+(* ------------------- Contract balance bound ------------------- *)
+
+Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  let effective_balance := (env_account_balances bstate caddr - (sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr)))%Z in
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate deploy_info,
+    contract_state bstate caddr = Some cstate
+    /\ deployment_info Setup trace caddr = Some deploy_info
+    /\ (isFinalized cstate = true -> effective_balance = 0)%Z
+    /\ (isFinalized cstate = false ->
+      (effective_balance - deploy_info.(deployment_amount)) * (Z.of_N cstate.(tokenExchangeRate)) =
+      (Z.of_N (total_supply cstate)))%Z.
+Proof.
+  intros *.
+  unfold effective_balance.
+  contract_induction; intros; auto; try destruct IH as [IH_finalized IH_funding].
+  - cbn in *.
+    destruct_match in init_some; try congruence.
+    inversion init_some. cbn.
+    split; intros.
+    + discriminate.
+    + lia.
+  - cbn in *.
+    split; intros.
+    + now rewrite <- IH_finalized by assumption.
+    + now rewrite <- IH_funding by assumption.
+  - instantiate (CallFacts := fun _ ctx state =>
+      (0 <= ctx_amount ctx)%Z /\
+      tokenExchangeRate state <> 0 /\
+      total_supply state = sum_balances state /\
+      ctx_from ctx <> ctx_contract_address ctx).
+    destruct facts as (ctx_amount_positive &
+                       exchange_rate_nonzero &
+                       supply_eq_sum_balances & _).
+    clear CallFacts AddBlockFacts DeployFacts effective_balance tag prev_inc_calls prev_out_txs.
+    destruct msg. destruct m.
+    + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
+      apply eip20_new_acts_correct in receive_some as no_new_acts.
+      apply eip20_not_payable in receive_some as not_payable.
+      apply Z.le_antisymm in ctx_amount_positive; auto.
+      rewrite ctx_amount_positive, Z.sub_0_r in IH_finalized, IH_funding.
+      destruct m.
+      * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite no_new_acts, <- supply_unchanged, <- finalized_unchanged.
+      * apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite no_new_acts, <- supply_unchanged, <- finalized_unchanged.
+      * apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
+        now rewrite no_new_acts, <- supply_unchanged, <- finalized_unchanged.
+    + apply try_create_tokens_amount_correct in receive_some as payable.
+      receive_simpl.
+      inversion receive_some.
+      subst. cbn in *.
+      clear receive_some.
+      rename H into requirements_check.
+      rewrite !Bool.orb_false_iff in requirements_check.
+      destruct requirements_check as ((not_finalized & _) & _).
+      split; intros finalized_state.
+      * congruence.
+      * now apply IH_funding in finalized_state.
+    + receive_simpl.
+      inversion receive_some.
+      subst. cbn in *.
+      clear receive_some.
+      rename H into not_payable.
+      rewrite Z.gtb_ltb, Z.ltb_ge in not_payable.
+      apply Z.le_antisymm in ctx_amount_positive; auto.
+      rewrite ctx_amount_positive, Z.sub_0_r in IH_finalized, IH_funding.
+      split; intros finalized_state.
+      * rewrite Z.sub_add_distr, Z.sub_diag, Z.sub_0_l, <- Z.opp_0, Z.opp_inj_wd.
+        rename H0 into requirements_check.
+        rewrite !Bool.orb_false_iff in requirements_check.
+        destruct requirements_check as ((not_finalized & _) & funding_hit%N.ltb_ge).
+        assert (H : isFinalized prev_state = false /\
+                    ((current_slot bstate <= fundingEnd prev_state)%nat \/
+                    tokenCreationMin prev_state <= total_supply prev_state) -> prev_out_queue = []) by admit.
+        now rewrite H.
+      * congruence.
+    + receive_simpl.
+      inversion receive_some.
+      subst. cbn in *.
+      clear receive_some.
+      rename H into not_payable.
+      rewrite Z.gtb_ltb, Z.ltb_ge in not_payable.
+      apply Z.le_antisymm in ctx_amount_positive; auto.
+      rewrite ctx_amount_positive, Z.sub_0_r in IH_finalized, IH_funding.
+      rename H0 into requirements_check.
+      rename H1 into from_balance.
+      rewrite !Bool.orb_false_iff in requirements_check.
+      destruct requirements_check as ((finalized_sate & _) & _).
+      split; intros finalized_state.
+      * congruence.
+      * apply IH_funding in finalized_state.
+        rewrite <- Z.sub_add_distr, <- Z.add_assoc, Z.add_comm, !Z.sub_add_distr, Z.mul_sub_distr_r, <- N2Z.inj_mul.
+        setoid_rewrite finalized_state.
+        rewrite supply_eq_sum_balances in *.
+        specialize N_div_mod as ?.
+        specialize N_mod_le as ?.
+        specialize (balance_le_sum_balances (ctx_from ctx) prev_state) as ?.
+        rewrite from_balance in *.
+        specialize N_sub_mod_le as ?.
+        rewrite H, <- N2Z.inj_sub, N2Z.inj_add, (N2Z.inj_sub _ n); auto.
+        rewrite <- Z.sub_sub_distr, <- N2Z.inj_sub, <- N2Z.inj_sub; auto.
+        all:  now eapply N.le_trans.
+    + now receive_simpl.
+  - now destruct facts.
+  - now erewrite sumZ_permutation in IH_finalized, IH_funding by eauto.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros cstate contract_deployed deployed_state.
+    subst. cbn.
+    repeat split.
+    + now apply Z.ge_le.
+    + specialize deployed_implies_constants_valid as
+        (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _); eauto.
+      rewrite deployed_state' in deployed_state.
+      now inversion deployed_state.
+    + specialize sum_balances_eq_total_supply as
+        (cstate' & deployed_state' & ?); eauto.
+      rewrite deployed_state' in deployed_state.
+      inversion deployed_state.
+      now subst cstate'.
+    + now eapply bat_no_self_calls'.
 Qed.
 
 End Theories.

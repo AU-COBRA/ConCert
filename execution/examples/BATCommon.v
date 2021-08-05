@@ -123,6 +123,27 @@ Proof.
     now apply N.mod_small.
 Qed.
 
+Lemma N_sub_add_mod : forall n m p,
+  n <= p -> p - n + n mod m <= p.
+Proof.
+  intros.
+  specialize (N_mod_le n m) as mod_le.
+  apply N.le_trans with (m := p - n + n).
+  - lia.
+  - now rewrite N.sub_add.
+Qed.
+
+Lemma N_div_mod : forall n m,
+  n / m * m = n - n mod m.
+Proof.
+  intros.
+  symmetry.
+  apply N.add_sub_eq_r.
+  symmetry.
+  rewrite N.mul_comm.
+  apply N.div_mod'.
+Qed.
+
 Lemma N_add_le : forall n m p,
   n <= m -> n <= p + m.
 Proof.
@@ -149,6 +170,14 @@ Proof.
   intros.
   erewrite N.div_mod', N.mul_comm.
   apply N.le_add_r.
+Qed.
+
+Lemma N_sub_mod_le : forall n m,
+  n - n mod m <= n.
+Proof.
+  intros.
+  rewrite <- N_div_mod.
+  apply N_div_mul_le.
 Qed.
 
 Lemma N_le_div_mul : forall n m,

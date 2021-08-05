@@ -2141,7 +2141,7 @@ Proof.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
     intros cstate contract_deployed deployed_state.
-    cbn.
+    subst. cbn.
     repeat split.
     + now apply Z.ge_le.
     + apply total_supply_lower_bound in contract_deployed as
@@ -2170,16 +2170,7 @@ Proof.
         now rewrite batfund_balance.
       rewrite sum_eq_total.
       now apply balance_le_sum_balances_ne.
-    + apply bat_no_self_calls in contract_deployed as no_self_calls; auto.
-      unfold outgoing_acts in no_self_calls.
-      rewrite queue_prev in no_self_calls.
-      subst act.
-      cbn in no_self_calls.
-      destruct_address_eq; auto.
-      inversion_clear no_self_calls as [|? ? hd _].
-      destruct msg.
-      * congruence.
-      * now rewrite address_eq_refl in hd.
+    + now eapply bat_no_self_calls'.
 Qed.
 
 End Theories.
