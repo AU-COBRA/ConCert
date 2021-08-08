@@ -2244,6 +2244,82 @@ Proof.
       rewrite sum_eq_total.
       now apply balance_le_sum_balances_ne.
     + now eapply bat_no_self_calls'.
+Admitted.
+
+
+
+(* ------------------- outgoing acts are valid ------------------- *)
+
+(* Prove that all outgoing acts produced by the contract can be evaluated *)
+Lemma outgoing_acts_evaluable : forall bstate caddr,
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  Forall (fun act_body => receiver_can_receive_transfer bstate act_body) (outgoing_acts bstate caddr) ->
+  Forall (fun act_body => exists bstate_new, inhabited (ActionEvaluation bstate (build_act caddr act_body) bstate_new [])) (outgoing_acts bstate caddr).
+Proof.
+  intros * reach deployed can_receive_funds.
+  assert (trace := reach).
+  destruct trace as [trace].
+  specialize contract_balance_bound as
+    (cstate & dep_info & deployed_state & deployed_info &
+    contract_balance_bound_finalized & contract_balance_bound); eauto.
+  apply deployment_amount_nonnegative in deployed_info as dep_amount_nonnegative.
+  specialize deployed_implies_constants_valid as
+    (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _); eauto.
+  rewrite deployed_state in deployed_state'.
+  inversion deployed_state'.
+  subst cstate'. clear deployed_state'.
+  eapply outgoing_acts_are_transfers in reach as acts_are_transfers; eauto.
+  eapply outgoing_acts_positive_amount in reach as acts_amount_positive; eauto.
+  apply Forall_forall.
+  intros act HIn.
+  eapply Forall_forall in acts_are_transfers; eauto.
+  eapply Forall_forall in acts_amount_positive as act_amount_positive; eauto.
+  eapply Forall_forall in can_receive_funds; eauto.
+  destruct act; try now exfalso.
+  clear acts_are_transfers.
+  assert (enough_balance : (act_body_amount (act_transfer to amount) <= env_account_balances bstate caddr)%Z).
+  { destruct (isFinalized cstate).
+    - apply Zminus_eq in contract_balance_bound_finalized; auto.
+      rewrite contract_balance_bound_finalized.
+      apply sumZ_in_le; eauto.
+      now apply Forall_forall.
+    - apply Z_div_mult in contract_balance_bound; auto; try lia.
+      eapply Z.add_cancel_r in contract_balance_bound.
+      rewrite Z.sub_add, <- N2Z.inj_div in contract_balance_bound.
+      assert (H : (forall n m p, 0 <= p -> n - m = p -> m <= n)%Z).
+      { intros. subst p. now apply Z.le_0_sub. }
+      apply H in contract_balance_bound.
+      -- eapply Z.le_trans; try apply contract_balance_bound.
+         apply sumZ_in_le; eauto.
+         now apply Forall_forall.
+      -- apply Z.add_nonneg_nonneg; auto.
+         apply N2Z.is_nonneg.
+  }
+  destruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some )].
+  - eexists.
+    constructor.
+    eapply eval_transfer; auto.
+    + now apply Z.le_ge.
+    + now replace amount with (act_body_amount (act_transfer to amount)); auto.
+    + assumption.
+    + now constructor.
+  - eexists.
+    constructor.
+    eapply eval_call with (msg := None); eauto; cycle -1.
+    + now constructor.
+    + apply Z.le_ge.
+      apply act_amount_positive.
+    + cbn.
+      replace (env_account_balances (set_contract_state to new_state (transfer_balance caddr to amount bstate)) to)
+        with (((env_account_balances bstate to) + amount)%Z).
+      * apply receive_some.
+      * apply bat_no_self_calls in deployed; auto.
+        eapply Forall_forall in deployed; eauto.
+        cbn in *.
+        destruct_address_eq; easy.
+    + eauto.
+  Unshelve. auto.
 Qed.
 
 End Theories.
