@@ -591,6 +591,34 @@ Proof.
   now apply map_ext_in.
 Qed.
 
+Lemma sumZ_in_le : forall {A} (x : A) (f : A -> Z) (l : list A),
+  (forall y, In y l -> 0 <= f y) ->
+  In x l ->
+  f x <= sumZ f l.
+Proof.
+  intros * f_positive Hin.
+  induction l.
+  - inversion Hin.
+  - apply in_inv in Hin  as [Hin | Hin].
+    + cbn. subst.
+      rewrite <- (Z.add_0_r (f x)).
+      apply Z.add_le_mono.
+      * lia.
+      * apply sumZ_nonnegative.
+        intros.
+        apply f_positive.
+        now apply in_cons.
+    + cbn.
+      rewrite <- (Z.add_0_l (f x)).
+      apply Z.add_le_mono.
+      * apply f_positive.
+        apply in_eq.
+      * apply IHl; auto.
+        intros.
+        apply f_positive.
+        now apply in_cons.
+Qed.
+
 Lemma firstn_map {A B} (f : A -> B) n l :
   firstn n (map f l) = map f (firstn n l).
 Proof.
