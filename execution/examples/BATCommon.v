@@ -1,5 +1,5 @@
 From Coq Require Import List
-                        ZArith_base
+                        ZArith
                         Lia
                         Permutation.
 Import ListNotations.
@@ -233,6 +233,16 @@ Proof.
 Qed.
 
 Local Open Scope Z_scope.
+Lemma Z_div_mult : forall n m p,
+  p <> 0 ->
+  n * p = m ->
+  n = m / p.
+Proof.
+  intros.
+  subst.
+  now rewrite Z_div_mult_full.
+Qed.
+
 (* sumZ over balances is always positive *)
 Lemma sum_balances_positive : forall bstate accounts,
   reachable bstate ->

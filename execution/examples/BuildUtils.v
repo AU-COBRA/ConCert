@@ -1,7 +1,7 @@
 From Coq Require Import ZArith List Lia Logic.Decidable Permutation.
 Import ListNotations.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert Require Import Blockchain.
+From ConCert Require Import Blockchain Automation.
 Require Import Serializable.
 
 Section BuildUtils.
@@ -229,6 +229,37 @@ Proof.
       inversion valid_header.
       now cbn.
 Qed.
+
+(* Initial contract balance will always be positive in reachable states *)
+Lemma deployment_amount_nonnegative : forall {Setup : Type} `{Serializable Setup}
+                                      bstate caddr dep_info
+                                      (trace : ChainTrace empty_state bstate),
+  deployment_info Setup trace caddr = Some dep_info ->
+  (0 <= dep_info.(deployment_amount))%Z.
+Proof.
+  intros * deployment_info_some.
+  remember empty_state.
+  induction trace; subst.
+  - inversion deployment_info_some.
+  - destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    cbn in deployment_info_some.
+    destruct_address_eq; auto.
+    destruct_match in deployment_info_some;
+      try congruence.
+    inversion_clear deployment_info_some.
+    now apply Z.ge_le.
+Qed.
+
+Definition receiver_can_receive_transfer (bstate : ChainState) act_body :=
+  match act_body with
+  | act_transfer to _ => address_is_contract to = false \/
+    (exists wc state,
+      env_contracts bstate to = Some wc /\
+      env_contract_states bstate to = Some state /\
+      forall (bstate_new : ChainState) ctx, exists new_state, wc_receive wc bstate_new ctx state None = Some (new_state, []))
+  | _ => True
+  end.
 
 (* This axiom states that for any reachable state and any contract it is
     decidable wether or there is an address where the contract can be deployed to.
