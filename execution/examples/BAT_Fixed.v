@@ -1702,9 +1702,9 @@ Qed.
 
 
 
-(* ------------------- BAToken never calls itself ------------------- *)
+(* ------------------- BAToken outgoing acts facts ------------------- *)
 
-(* Proof similar to the no_self_calls proof in Escrow contract *)
+(* BAToken never calls itself *)
 Lemma bat_no_self_calls bstate caddr :
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -1772,6 +1772,79 @@ Proof.
   destruct msg.
   * congruence.
   * now rewrite address_eq_refl in hd.
+Qed.
+
+(* BAToken only produces transfer acts *)
+Lemma outgoing_acts_are_transfers : forall bstate caddr,
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  Forall (fun act_body =>
+    match act_body with
+    | act_transfer _ _ => True
+    | _ => False
+    end) (outgoing_acts bstate caddr).
+Proof.
+  intros * reach deployed.
+  apply (lift_outgoing_acts_prop contract); auto.
+  intros * receive_some.
+  destruct msg; try discriminate.
+  destruct m.
+  - (* m = EIP msg *)
+    now erewrite eip20_new_acts_correct.
+  - (* m = create_tokens *)
+    now erewrite try_create_tokens_acts_correct.
+  - (* m = finalize *)
+    now erewrite try_finalize_acts_correct.
+  - (* m = refund *)
+    now erewrite try_refund_acts_correct.
+Qed.
+
+(* BAToken only produces transfer acts *)
+Lemma outgoing_acts_positive_amount : forall bstate caddr,
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  Forall (fun act_body => 0 <= act_body_amount act_body)%Z (outgoing_acts bstate caddr).
+Proof.
+  contract_induction; intros; auto.
+  - now inversion IH.
+  - instantiate (CallFacts := fun _ ctx _ =>
+      (0 <= (ctx_contract_balance ctx))%Z /\
+      ctx_from ctx <> ctx_contract_address ctx).
+    destruct facts as (contract_balance_positive & _).
+    destruct msg; try discriminate.
+    destruct m.
+    + (* m = EIP msg *)
+      apply eip20_new_acts_correct in receive_some.
+      now subst.
+    + (* m = create_tokens *)
+      apply try_create_tokens_acts_correct in receive_some.
+      now subst.
+    + (* m = finalize *)
+      apply try_finalize_acts_correct in receive_some.
+      subst.
+      now constructor.
+    + (* m = refund *)
+      apply try_refund_acts_correct in receive_some.
+      subst.
+      constructor; auto.
+      apply N2Z.is_nonneg.
+  - now destruct facts.
+  - eapply forall_respects_permutation; eauto.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros cstate contract_deployed _. cbn.
+    subst. cbn.
+    split.
+    + (* Prove call fact: 0 <= ctx_contract_balance ctx *)
+      destruct_address_eq; subst; try easy.
+      * lia.
+      * apply Z.add_nonneg_nonneg; try lia.
+        now apply Z.ge_le, account_balance_nonnegative.
+    + (* Prove call fact: ctx_from ctx <> ctx_contract_address ctx *)
+      now eapply bat_no_self_calls'.
 Qed.
 
 
