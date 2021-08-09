@@ -948,7 +948,7 @@ Proof.
     + now apply init_preserves_balances_sum in init_some.
     + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ => True).
       unset_all; subst;cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
@@ -1022,7 +1022,7 @@ Proof.
   - now apply receive_preserves_constants in receive_some.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1114,7 +1114,7 @@ Proof.
     + now receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
