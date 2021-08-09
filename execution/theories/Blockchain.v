@@ -1410,7 +1410,8 @@ Lemma contract_induction
       (CallFacts :
          forall (chain : Chain)
                 (ctx : ContractCallContext)
-                (cstate : State), Prop)
+                (cstate : State)
+                (outgoing_actions : list ActionBody), Prop)
       (P : forall (chain_height : nat)
                   (current_slot : nat)
                   (finalized_height : nat)
@@ -1446,6 +1447,7 @@ Lemma contract_induction
           CallFacts
             new_state
             (build_ctx from to (env_account_balances new_state to) amount) cstate
+            (outgoing_acts bstate_from to)
       | _ => Logic.True
       end) ->
 
@@ -1503,7 +1505,7 @@ Lemma contract_induction
           prev_out_queue prev_inc_calls prev_out_txs
           new_state new_acts
           (from_other : ctx_from ctx <> ctx_contract_address ctx)
-          (facts : CallFacts chain ctx prev_state)
+          (facts : CallFacts chain ctx prev_state prev_out_queue)
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
                   (ctx_contract_address ctx) dep_info prev_state
                   (ctx_contract_balance ctx - ctx_amount ctx)
@@ -1527,7 +1529,7 @@ Lemma contract_induction
           head prev_out_queue prev_inc_calls prev_out_txs
           new_state new_acts
           (from_self : ctx_from ctx = ctx_contract_address ctx)
-          (facts : CallFacts chain ctx prev_state)
+          (facts : CallFacts chain ctx prev_state (head :: prev_out_queue))
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
                   (ctx_contract_address ctx) dep_info prev_state
                   (ctx_contract_balance ctx)
@@ -1991,7 +1993,7 @@ Ltac contract_induction :=
        evar (DeployFacts : forall (chain : Chain)
                                   (ctx : ContractCallContext), Prop);
        evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
-                                (cstate : State), Prop);
+                                (cstate : State) (outgoing_actions : list ActionBody), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
        cbv [P]; clear P; cycle 1).
 
@@ -2041,7 +2043,7 @@ Proof.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
     instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.

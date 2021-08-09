@@ -51,4 +51,4 @@ Extract Constant shiftr => "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a >> 
 
 From ConCert.Extraction Require Import ExtrRustBasic.
 From ConCert.Extraction Require Import ExtrRustUncheckedArith.
-Redirect "../examples/rust-extract/BernsteinYangTermination.rs" ConCert Extract W.
+Redirect "../examples/extracted-code/rust-extract/BernsteinYangTermination.rs" ConCert Extract W.

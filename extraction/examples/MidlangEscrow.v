@@ -145,4 +145,4 @@ Definition result :=
   | Err err => tmFail err
   end.
 
-Redirect "examples/midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.
+Redirect "examples/extracted-code/midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.

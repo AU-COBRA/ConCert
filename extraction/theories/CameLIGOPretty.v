@@ -134,15 +134,15 @@ Section print_term.
       else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
            (parens (Nat.eqb #|oib.(ind_type_vars)| 1) ps) ++ " " in
     (* one-constructor inductives are interpreted/printed as records *)
-    match oib.(ExAst.ind_ctors) with
-    | [build_record_ctor] =>
+    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+    | [build_record_ctor], _::_ =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := projs_and_ctors |> map (fun '(p, (na, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) in
+      let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) projs_and_ctors in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}"
-    | _ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
+    | _,_ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
                    ++ nl ++ "  "
                    ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
     end.
@@ -185,8 +185,24 @@ Section print_term.
       end
     | _ => None
     end.
+  (* Certain names in CameLIGO are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
+  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
+     they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
+  Definition is_reserved_name (id : ident) (reserved : list ident) := 
+    List.existsb (ident_eq id) reserved.
+  
+  Definition ligo_reserved_names := 
+    [
+        "to"
+      ; "val"
+      ; "balance"
+      ; "continue"
+      ; "hash"
+    ].
 
   Definition is_fresh (Γ : context) (id : ident) :=
+    negb (is_reserved_name id ligo_reserved_names)
+    &&
     List.forallb
       (fun decl =>
          match decl.(decl_name) with
@@ -339,9 +355,24 @@ Section print_term.
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
       let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
+  Definition print_num_literal (TT : env string) (t : term) : option string :=
+    match nat_syn_to_nat t with
+    | Some n =>(* is it an natural number literal? *)
+      Some (string_of_nat n ^ "n")
+    | None => match Z_syn_to_Z t with
+             | Some z =>
+               (* is it an integer number literal? *)
+               (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
+               let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
+               let units := if Z_remapped =? "tez" then "tez" else "" in
+               Some (string_of_Z z ^ units)
+             | None => None
+             end
+    end.
 
   Definition print_transfer (args : list string) :=
     match args with
@@ -372,230 +403,251 @@ Section print_term.
                       (inapp : bool)
                       (t : term)
                       {struct t} : annots box_type t -> string :=
-  match t return annots box_type t -> string with
-  | tBox => fun bt => "()" (* boxes become the contructor of the [unit] type *)
-  | tRel n => fun bt =>
-    match nth_error ctx n with
-    | Some {| decl_name := na |} =>
-      match na with
-      | nAnon => "Anonymous (" ++ string_of_nat n ++ ")"
-      | nNamed id => id
-      end
-    | None => "UnboundRel(" ++ string_of_nat n ++ ")"
-    end
-  | tVar n => fun bt => "Var(" ++ n ++ ")"
-  | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *)  ++ ")"
-  | tLambda na body => fun '(bt, a) =>
-    let na' := fresh_name ctx na t in
-    let (dom_tys, _) := ExAst.decompose_arr bt in
-    let dom_ty := match nth_error dom_tys 0 with
-                  | Some ty => print_box_type prefix TT ty
-                  | None => "LambdaError(NotAnArrowType)"
-                  end in
-    parens top ("fun (" ++ string_of_name ctx na' ++ " : "
-                        ++ dom_ty ++ ")"
-                        ++ " -> " ++ print_term prefix FT TT (vass na' :: ctx) true false body a)
-  | tLetIn na def body => fun '(bt, (vala, bodya)) =>
-    let na' := fresh_name ctx na t in
-    parens top ("let " ++ string_of_name ctx na' ++
-                      " = " ++ print_term prefix FT TT ctx true false def vala ++ " in " ++ nl ++
-                      print_term prefix FT TT (vdef na' def :: ctx) true false body bodya)
-  | tApp f l as t => fun '(bt, (fa, la)) =>
-    let is_not_empty_const := fun t =>
-      match t with
-      | tApp t1 (tConst c as t2) =>
-        let cst_name := string_of_kername c in
-        let nm := from_option (look TT cst_name) (prefix ++ c.2) in
-        if nm =? "" then false
-        else true
-      | _ => true end in
-    let apps := rev (app_args_annot_empty_filtered (fun '(t; a) => print_term prefix FT TT ctx false false t a) (fun '(t';_) => is_not_empty_const t') t (bt, (fa, la))) in
-    let '((b;ba),argas) := Edecompose_app_annot f fa in
-    match apps with
-    | [] => print_term prefix FT TT ctx false true f fa
-    | _ =>
-      match b with
-        (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
-      | tRel i =>
-        match nth_error ctx i with
-        | Some d =>
-          let nm := (string_of_name ctx d.(decl_name)) in
-          if List.in_dec String.string_dec nm FT
-          then parens top (print_uncurried nm apps)
-          else parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
-        | None => "UnboundRel(" ++ string_of_nat i ++ ")"
+    match t return annots box_type t -> string with
+    | tBox => fun bt => "()" (* boxes become the contructor of the [unit] type *)
+    | tRel n => fun bt =>
+      match nth_error ctx n with
+      | Some {| decl_name := na |} =>
+        match na with
+        | nAnon => "Anonymous (" ++ string_of_nat n ++ ")"
+        | nNamed id => id
         end
-      | tConst c =>
-        let cst_name := string_of_kername c in
-        let nm := from_option (look TT cst_name) (prefix ++ c.2) in
-        (* primitive projections instead of 'fst' and 'snd' *)
-        if nm =? "fst" then
-          (concat " " (map (parens true) apps)) ++ ".0"
-        else if nm =? "snd" then
-          (concat " " (map (parens true) apps)) ++ ".1"
-        else if (nm =? "constructor") then
-          concat " " apps
-        (* ContractCallContext remappings *)
-        else if (nm =? "ctx_from") then
-          "Tezos.sender"
-        else if (nm =? "ctx_contract_address") then
-          "Tezos.self_address"
-        else if (nm =? "ctx_amount") then
-          "Tezos.amount"
-        else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
-      | tConstruct (mkInd mind j as ind) i =>
-        let nm := get_constr_name ind i in
-        (* is it a pair ? *)
-        if (nm =? "pair") then
-          print_uncurried "" apps
-        (* is it a cons ? *)
-        else if (nm =? "cons") then
-          parens top (concat " :: " apps)
-        (* is it a transfer *)
-        else if (nm =? "Act_transfer") then
-          print_transfer apps
-        else if (nm =? "_") then
-          fresh_id_from ctx 10 "a"
-        (* inductive constructors of 1 arg are treated as records *)
-        else match is_name_remapped nm TT, is_record_constr b with
-          | false, Some oib => 
-              let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
-              (* let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in *)
-              let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
-                                                      |> concat "; " in
-              "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
-              | _,_     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
-                           parens top (print_uncurried nm' apps)
-  end
-      | _ => if is_not_empty_const l then
-              parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
-             else print_term prefix FT TT ctx false true f fa
+      | None => "UnboundRel(" ++ string_of_nat n ++ ")"
       end
-    end
-  | tConst c => fun bt =>
-    let cst_name := string_of_kername c in
-    from_option (look TT cst_name) (prefix ++ c.2)
-  | tConstruct ind l => fun bt =>
-    let nm := get_constr_name ind l in
-    let nm_tt := from_option (look TT nm) ((capitalize prefix) ++ (capitalize nm)) in
-    (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
-    if nm_tt =? "[]" then
-      "([]:" ++ print_box_type prefix TT bt ++ ")"
-    else if nm_tt =? "None" then
-      "(None:" ++ print_box_type prefix TT bt ++ ")"
-    else if nm_tt =? "Map.empty" then
-      "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
-    else nm_tt
-  | tCase (mkInd mind i as ind, nparam) t brs =>
-    let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
-          match arity return annots box_type br -> (_ * _) with
-          | S n =>
-            match br return annots box_type br -> (_ * _) with
-            | tLambda na B => fun '(bt, a) =>
-              let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
-              let (ps, b) := print_branch (vass na' :: ctx) n params B a in
-              (ps ++ [string_of_name ctx na'], b)%list
-            (* Assuming all case-branches have been expanded this should never happen: *)
-            | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
+    | tVar n => fun bt => "Var(" ++ n ++ ")"
+    | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *)  ++ ")"
+    | tLambda na body => fun '(bt, a) =>
+      let na' := fresh_name ctx na t in
+      let (dom_tys, _) := ExAst.decompose_arr bt in
+      let dom_ty := match nth_error dom_tys 0 with
+                    | Some ty => print_box_type prefix TT ty
+                    | None => "LambdaError(NotAnArrowType)"
+                    end in
+      parens top ("fun (" ++ string_of_name ctx na' ++ " : "
+                          ++ dom_ty ++ ")"
+                          ++ " -> " ++ print_term prefix FT TT (vass na' :: ctx) true false body a)
+    | tLetIn na def body => fun '(bt, (vala, bodya)) =>
+      let na' := fresh_name ctx na t in
+      parens top ("let " ++ string_of_name ctx na' ++
+                        " = " ++ print_term prefix FT TT ctx true false def vala ++ " in " ++ nl ++
+                        print_term prefix FT TT (vdef na' def :: ctx) true false body bodya)
+    | tApp f l as t => fun '(bt, (fa, la)) =>
+      let is_not_empty_const := fun t =>
+        match t with
+        | tApp t1 (tConst c as t2) =>
+          let cst_name := string_of_kername c in
+          let nm := from_option (look TT cst_name) (prefix ++ c.2) in
+          if nm =? "" then false
+          else true
+        | _ => true end in
+      let apps := rev (app_args_annot_empty_filtered (fun '(t; a) => print_term prefix FT TT ctx false false t a) (fun '(t';_) => is_not_empty_const t') t (bt, (fa, la))) in
+      let '((b;ba),argas) := Edecompose_app_annot f fa in
+      match apps with
+      | [] => print_term prefix FT TT ctx false true f fa
+      | _ =>
+        match b with
+          (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
+        | tRel i =>
+          match nth_error ctx i with
+          | Some d =>
+            let nm := (string_of_name ctx d.(decl_name)) in
+            if List.in_dec String.string_dec nm FT
+            then parens top (print_uncurried nm apps)
+            else parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
+          | None => "UnboundRel(" ++ string_of_nat i ++ ")"
           end
-          | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
-          end in
+        | tConst c =>
+          let cst_name := string_of_kername c in
+          let nm := from_option (look TT cst_name) (prefix ++ c.2) in
+          (* primitive projections instead of 'fst' and 'snd' *)
+          if nm =? "fst" then
+            (concat " " (map (parens true) apps)) ++ ".0"
+          else if nm =? "snd" then
+            (concat " " (map (parens true) apps)) ++ ".1"
+          (* Map Chain fields to record projections *)
+          else if (nm =? "chain_height") || (nm =? "current_slot") || (nm =? "finalized_height")  then
+            (concat " " (map (parens true) apps)) ++ "." ++ nm
+          (* ContractCallContext remappings *)
+          else if (nm =? "ctx_from") then
+            "Tezos.sender"
+          else if (nm =? "ctx_contract_address") then
+            "Tezos.self_address"
+          else if (nm =? "ctx_amount") then
+            "Tezos.amount"
+          else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
+        | tConstruct (mkInd mind j as ind) i =>
+          let nm := get_constr_name ind i in
+          (* match print_num_literal TT t with *)
+          (* | Some s => s *)
+          (* | None => *)
+            (* is it an natural number literal? *)
+            if (nm =? "Z") || (nm =? "S") then
+              from_option (option_map (fun x => string_of_nat x ++ "n") (nat_syn_to_nat t)) "Error(Not a natural number literal)"
+            else
 
-    match brs with
-    | [] => fun '(bt, (ta, trs)) => (parens false ("failwith 0 : " ^ print_box_type prefix TT bt) ^ " (* absurd case *)")
-    | _ =>
-      (* [if-then-else] is a special case *)
-      if eq_kername mind <%% bool %%> then
-        match brs with
-        | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
-          parens top
-                  ("if " ++ print_term prefix FT TT ctx true false t ta
-                         ++ " then " ++ print_term prefix FT TT ctx true false (snd b1) b1a
-                         ++ " else " ++ print_term prefix FT TT ctx true false (snd b2) b2a)
-        | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
-                 ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
+            (* is it an integer number literal? *)
+            (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
+            let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
+            let units := if Z_remapped =? "tez" then "tez" else "" in
+            if (nm =? "Z0") || (nm =? "Zpos") || (nm =? "Zneg") then
+              from_option (option_map (fun x => string_of_Z x ++ units) (Z_syn_to_Z t)) "Error(Not an integer literal)"
+            else
+              (* is it a pair ? *)
+            if ((uncapitalize nm) =? "pair") then
+              print_uncurried "" apps
+            (* is it a cons ? *)
+            else if (nm =? "cons") then
+              parens top (concat " :: " apps)
+            (* is it a transfer *)
+            else if (nm =? "act_transfer") then
+              print_transfer apps
+            else if (nm =? "_") then
+              fresh_id_from ctx 10 "a"
+            (* inductive constructors of 1 arg are treated as records *)
+            else match is_name_remapped nm TT, is_record_constr b with
+              | false, Some oib => 
+                  let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
+                  (* let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in *)
+                  let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
+                                                          |> concat "; " in
+                  "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
+              | _,_ => 
+                  (* constructors must be capitalized *)
+                  let nm' := from_option (look TT nm) (capitalize (prefix ++ nm)) in
+                  parens top (print_uncurried nm' apps)
+                 end
+          (* end *)
+        | _ => if is_not_empty_const l then
+                parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
+               else print_term prefix FT TT ctx false true f fa
         end
+      end
+    | tConst c => fun bt =>
+      let cst_name := string_of_kername c in
+      let nm_tt := from_option (look TT cst_name) (prefix ++ c.2) in
+      if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
+        "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
       else
-        fun '(bt, (ta, trs)) =>
+        nm_tt  
+    | tConstruct ind l => fun bt =>
+      let nm := get_constr_name ind l in
+      let nm_tt := from_option (look TT nm) (capitalize (prefix ++ nm)) in
+      (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
+      if (nm_tt =? "[]") || (nm_tt =? "nil") then
+        "([]:" ++ print_box_type prefix TT bt ++ ")"
+      else if nm_tt =? "None" then
+        "(None:" ++ print_box_type prefix TT bt ++ ")"
+      else nm_tt
+    | tCase (mkInd mind i as ind, nparam) t brs =>
+      let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
+            match arity return annots box_type br -> (_ * _) with
+            | S n =>
+              match br return annots box_type br -> (_ * _) with
+              | tLambda na B => fun '(bt, a) =>
+                let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
+                let (ps, b) := print_branch (vass na' :: ctx) n params B a in
+                (ps ++ [string_of_name ctx na'], b)%list
+              (* Assuming all case-branches have been expanded this should never happen: *)
+              | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
+            end
+            | 0 => fun bt => (params , print_term prefix FT TT ctx false false br bt)
+            end in
+
+      match brs with
+      | [] => fun '(bt, (ta, trs)) => (parens false ("failwith 0 : " ^ print_box_type prefix TT bt) ^ " (* absurd case *)")
+      | _ =>
+        (* [if-then-else] is a special case *)
+        if eq_kername mind <%% bool %%> then
+          match brs with
+          | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
+            parens top
+                    ("if " ++ print_term prefix FT TT ctx true false t ta
+                           ++ " then " ++ print_term prefix FT TT ctx true false (snd b1) b1a
+                           ++ " else " ++ print_term prefix FT TT ctx true false (snd b2) b2a)
+          | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
+                   ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
+          end
+        else
+          fun '(bt, (ta, trs)) =>
+        match lookup_ind_decl mind i with
+        | Some oib =>
+          let brs :=
+              map_with_bigprod _ (fun br tra => print_branch ctx br.1 [] br.2 tra)
+                               brs
+                               trs in
+          let brs_ := combine brs oib.(ExAst.ind_ctors) in
+          let brs_printed : string :=
+              print_list (fun '(b, (na, _)) =>
+                            (* [list] is a special case *)
+                            if (eq_kername mind <%% list %%>) && (na =? "cons") then
+                              print_pat prefix TT "::" true b
+                            else if (eq_kername mind <%% list %%>) && (na =? "nil") then
+                              print_pat "" TT "[]" false b
+                            else
+                            print_pat prefix TT na false b)
+                         (nl ++ " | ") brs_ in
+           parens top
+                  ("match " ++ print_term prefix FT TT ctx true false t ta
+                            ++ " with " ++ nl
+                            ++ brs_printed)
+        | None =>
+          "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
+                  ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+        end
+      end
+    | tProj (mkInd mind i as ind, pars, k) c => fun bt =>
       match lookup_ind_decl mind i with
       | Some oib =>
-        let brs :=
-            map_with_bigprod _ (fun br tra => print_branch ctx br.1 [] br.2 tra)
-                             brs
-                             trs in
-        let brs_ := combine brs oib.(ExAst.ind_ctors) in
-        let brs_printed : string :=
-            print_list (fun '(b, (na, _)) =>
-                          (* [list] is a special case *)
-                          if (eq_kername mind <%% list %%>) && (na =? "cons") then
-                            print_pat prefix TT "::" true b
-                          else if (eq_kername mind <%% list %%>) && (na =? "nil") then
-                            print_pat "" TT "[]" false b
-                          else
-                          print_pat prefix TT na false b)
-                       (nl ++ " | ") brs_ in
-         parens top
-                ("match " ++ print_term prefix FT TT ctx true false t ta
-                          ++ " with " ++ nl
-                          ++ brs_printed)
+        match nth_error oib.(ExAst.ind_projs) k with
+        | Some (na, _) => print_term prefix FT TT ctx false false c bt.2 ++ "." ++ na
+        | None => "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
+                  ++ print_term prefix FT TT ctx true false c bt.2 ++ ")"
+        end
       | None =>
-        "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
-                ++ string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+        "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
+                       ++ print_term prefix FT TT ctx true false c bt.2 ++ ")"
       end
-    end
-  | tProj (mkInd mind i as ind, pars, k) c => fun bt =>
-    match lookup_ind_decl mind i with
-    | Some oib =>
-      match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => print_term prefix FT TT ctx false false c bt.2 ++ "." ++ na
-      | None => "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                ++ print_term prefix FT TT ctx true false c bt.2 ++ ")"
-      end
-    | None =>
-      "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                     ++ print_term prefix FT TT ctx true false c bt.2 ++ ")"
-    end
-  | tFix [fix_decl] n => fun '(bt, (fixa, _)) => (* NOTE: We assume that the fixpoints are not mutual *)
-      (* Given an arrow type, prints the arguments in a curried way *)
-      let print_args_curried prefix TT ctx bt args :=
-        let (tys,_) := decompose_arr bt  in
-        let targs := combine args (map (print_box_type prefix TT) tys) in
-        targs
-          |> map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty) )
-          |> concat " " in
-      let fix_name := string_of_name ctx fix_decl.(dname) in
-      let body := fix_decl.(dbody) in
-      let '(args, (lam_body; body_annot)) := Edecompose_lam_annot body fixa in
+    | tFix [fix_decl] n => fun '(bt, (fixa, _)) => (* NOTE: We assume that the fixpoints are not mutual *)
+        (* Given an arrow type, prints the arguments in a curried way *)
+        let print_args_curried prefix TT ctx bt args :=
+          let (tys,_) := decompose_arr bt  in
+          let targs := combine args (map (print_box_type prefix TT) tys) in
+          targs
+            |> map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty) )
+            |> concat " " in
+        let fix_name := string_of_name ctx fix_decl.(dname) in
+        let body := fix_decl.(dbody) in
+        let '(args, (lam_body; body_annot)) := Edecompose_lam_annot body fixa in
 
-      let sargs := map (string_of_name ctx) args in
-      let sargs_typed := print_args_curried prefix TT ctx bt args in
-      let fix_call :=
-          "fun " ++ sargs_typed ++ " -> "
-                 ++ print_uncurried fix_name sargs in
-      let FT' := fix_name :: FT in
-
-      let print_def_annot (ctx : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
-        fun btt =>
-        let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
-        let fix_name := string_of_name ctx (fdef.(dname)) in
-        let (tys,ret_ty) := decompose_arr bt  in
-        let '(args,(lam_body; body_annot)) := Edecompose_lam_annot (fdef.(dbody)) btt in
-        let ctx := rev (map vass args) in
         let sargs := map (string_of_name ctx) args in
-        let tys_printed := map (print_box_type prefix TT) tys in
-        let sargs_uncurried := parens false (concat ", " sargs ++ " : " ++ concat " * " tys_printed) in
-        let ret_ty_printed := print_box_type prefix TT ret_ty in
-            string_of_name ctx fdef.(dname) ++ " " ++ sargs_uncurried  ++
-            " : " ++ ret_ty_printed ++ " = "
-            ++ nl
-            ++ lam_body_annot_cont (fun body body_annot => print_term prefix FT' TT (ctx ++ ctx' ++ ctx)%list true false body body_annot) fdef.(dbody) btt
-      in
-      parens top ("let rec " ++ print_def_annot ctx fix_decl fixa ++ nl ++
-                             " in " ++ fix_call)
-  | tFix [] _ => fun _ => "FixWithNoBody"
-  | tFix _ _ => fun _ => "NotSupportedMutualFix"
-  | tCoFix l n => fun _ => "NotSupportedCoFix"
-  | tPrim _ => fun _ => "NotSupportedCoqPrimitive"
+        let sargs_typed := print_args_curried prefix TT ctx bt args in
+        let fix_call :=
+            "fun " ++ sargs_typed ++ " -> "
+                   ++ print_uncurried fix_name sargs in
+        let FT' := fix_name :: FT in
+
+        let print_def_annot (ctx : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
+          fun btt =>
+          let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
+          let fix_name := string_of_name ctx (fdef.(dname)) in
+          let (tys,ret_ty) := decompose_arr bt  in
+          let '(args,(lam_body; body_annot)) := Edecompose_lam_annot (fdef.(dbody)) btt in
+          let ctx := rev (map vass args) in
+          let sargs := map (string_of_name ctx) args in
+          let tys_printed := map (print_box_type prefix TT) tys in
+          let sargs_uncurried := parens false (concat ", " sargs ++ " : " ++ concat " * " tys_printed) in
+          let ret_ty_printed := print_box_type prefix TT ret_ty in
+              string_of_name ctx fdef.(dname) ++ " " ++ sargs_uncurried  ++
+              " : " ++ ret_ty_printed ++ " = "
+              ++ nl
+              ++ lam_body_annot_cont (fun body body_annot => print_term prefix FT' TT (ctx ++ ctx' ++ ctx)%list true false body body_annot) fdef.(dbody) btt
+        in
+        parens top ("let rec " ++ print_def_annot ctx fix_decl fixa ++ nl ++
+                               " in " ++ fix_call)
+    | tFix [] _ => fun _ => "FixWithNoBody"
+    | tFix _ _ => fun _ => "NotSupportedMutualFix"
+    | tCoFix l n => fun _ => "NotSupportedCoFix"
+    | tPrim _ => fun _ => "NotSupportedCoqPrimitive"
   end.
 
 End print_term.
@@ -798,6 +850,7 @@ Definition int_ops :=
   "[@inline] let subIntTruncated (a : int) (b : int) = let res = a - b in if res < 0 then 0 else res" ;
   "[@inline] let multInt (i : int) (j : int) = i * j" ;
   "[@inline] let divInt (i : int) (j : int) = i / j" ;
+  "[@inline] let modInt (a : int)(b : int) : int = int (a mod b)" ;
   "[@inline] let leInt (i : int) (j : int) = i <= j" ;
   "[@inline] let ltInt (i : int) (j : int) = i < j" ;
   "[@inline] let eqInt (i : int) (j : int) = i = j"
@@ -810,10 +863,16 @@ Definition tez_ops :=
   "[@inline] let leTez (a : tez ) (b : tez ) = a <= b" ;
   "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b" ;
   "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b" ;
-  "[@inline] let eqTez (a : tez ) (b : tez ) = a = b"
+  "[@inline] let eqTez (a : tez ) (b : tez ) = a = b" ;
+  "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez" ;
+  "[@inline] let divTez (a : tez) (b : tez) : tez = natural_to_mutez (a/b)" ;
+  "[@inline] let multTez (n : tez) (m : tez) = (n/1tez) * m";
+  "[@inline] let evenTez (i : tez) = (i mod 2n) = 0tez"
   $>.
 Definition nat_ops :=
   <$
+  "[@inline] let addN (a : nat ) (b : nat ) = a + b" ;
+  "[@inline] let multN (a : nat ) (b : nat ) = a * b" ;
   "[@inline] let modN (a : nat ) (b : nat ) = a mod b" ;
   "[@inline] let divN (a : nat ) (b : nat ) = a / b" ;
   "[@inline] let eqN (a : nat ) (b : nat ) = a = b" ;
@@ -859,7 +918,7 @@ Definition CameLIGO_contractCallContext :=
 
 Definition printWrapper (contract parameter_name storage_name ctx : string): string :=
   <$
-  "type return = (operation) list * (storage option)" ;
+  "type return = (operation) list * (" ++ storage_name ++ " option)" ;
   "type parameter_wrapper =" ;
   "  Init of init_args_ty" ;
   "| Call of " ++ parameter_name ++ " option" ;
@@ -875,5 +934,5 @@ Definition printWrapper (contract parameter_name storage_name ctx : string): str
   "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))"
   $>.
 
-Definition printMain :=
-  "let main (action, st : parameter_wrapper * storage option) : return = wrapper (action, st)".
+Definition printMain (storage_name : string) :=
+  "let main (action, st : parameter_wrapper * " ++ storage_name ++ " option) : return = wrapper (action, st)".

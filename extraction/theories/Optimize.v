@@ -10,7 +10,6 @@ From Coq Require Import Ascii.
 From Coq Require Import Bool.
 From Coq Require Import List.
 From Coq Require Import PArith.
-From Coq Require Import Psatz.
 From Coq Require Import String.
 From Coq Require VectorDef.
 From Equations Require Import Equations.

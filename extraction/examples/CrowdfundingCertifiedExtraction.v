@@ -63,7 +63,9 @@ Definition TT_rename :=
   [ ("Z0" ,"0DUN")
   ; ("nil", "[]")
   ; ("mnil", "Map []")
-  ; ("tt", "()") ].
+  ; ("tt", "()")
+  ; ("true", "true")
+  ; ("false", "false")].
 
 Definition printWrapperAndMain :=
   "let wrapper (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = match receive msg st (Current.time (), (Current.sender (), (Current.amount (), Current.balance ()))) with
@@ -124,4 +126,4 @@ Time MetaCoq Run
 Print liquidity_crowdfunding.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.
+Redirect "examples/extracted-code/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.

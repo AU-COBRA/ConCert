@@ -40,9 +40,7 @@ uninstall: all
 .PHONY: uninstall
 
 test-extraction:
-	cd ./extraction/examples/elm-extract/; elm-test
-	cd ./extraction/examples/elm-web-extract/; elm make src/Main.elm
-	$(foreach file, $(wildcard ./extraction/examples/liquidity-extract/tests/*.liq), liquidity $(file);)
+	+make -C extraction test-extraction
 .PHONY: test-extraction
 
 process-extraction-examples:

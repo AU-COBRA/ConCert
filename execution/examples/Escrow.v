@@ -15,6 +15,7 @@ deadline. The economic rationality shows up in our assumption that the seller
 will confirm he has received the item to get his own funds back. *)
 
 From Coq Require Import List.
+From Coq Require Import Bool.
 From Coq Require Import Morphisms.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
@@ -123,12 +124,10 @@ Definition receive
        end%address;
     do if to_pay >? 0 then Some tt else None;
     let new_state :=
-        match buyer_withdrawable new_state, seller_withdrawable new_state with
-        | 0, 0 => new_state<|next_step := no_next_step|>
-        | _, _ => new_state
-        end in
+        if (buyer_withdrawable new_state =? 0) && (seller_withdrawable new_state =? 0)
+        then new_state<|next_step := no_next_step|>
+        else new_state in
     Some (new_state, [act_transfer (ctx_from ctx) to_pay])
-
   | Some withdraw, buyer_commit =>
     do if ctx_amount ctx =? 0 then Some tt else None;
     do if (last_action state + 50 <? current_slot chain)%nat then None else Some tt;
@@ -187,7 +186,7 @@ Section Theories.
       destruct_address_eq; congruence.
     - now rewrite <- perm.
     - instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ => True).
       instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       unset_all; subst; cbn in *.
       destruct_chain_step; auto.
@@ -457,9 +456,6 @@ Section Theories.
               do 2 (split; [tauto|]).
               lia.
             ++ (* Seller still has more to withdraw, next_step is still withdrawals *)
-              replace (match seller_withdrawable prev_state with _ => _ end)
-                with (prev_state <| buyer_withdrawable := 0 |>)
-                by (destruct_match; cbn in *; try congruence).
               cbn.
               rewrite prev_next_step.
               repeat rewrite transfer_acts_to_cons.
@@ -492,9 +488,6 @@ Section Theories.
               do 2 (split; [tauto|]).
               lia.
             ++ (* Buyer still has more to withdraw, next_step is still withdrawals *)
-              replace (match buyer_withdrawable prev_state with _ => _ end)
-                with (prev_state <| seller_withdrawable := 0 |>)
-                by (destruct_match; cbn in *; try congruence).
               cbn.
               rewrite prev_next_step.
               repeat rewrite transfer_acts_to_cons.
@@ -509,7 +502,7 @@ Section Theories.
       + (* None *)
         congruence.
     - (* Self call *)
-      instantiate (CallFacts := fun _ ctx _ => ctx_from ctx <> ctx_contract_address ctx);
+      instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx);
         subst CallFacts; cbn in *; congruence.
     - (* Permuting queue *)
       do 5 (split; try tauto).
