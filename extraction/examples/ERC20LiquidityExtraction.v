@@ -124,25 +124,26 @@ Section EIP20TokenExtraction.
 
       (* definitions of operations on pairs and ints *)
       lmd_prelude := LPretty.LiquidityPrelude;
+                       
 
       (* initial storage *)
       lmd_init := init ;
 
-      lmd_init_prelude := "type storage = state" ++ nl;
+      lmd_init_prelude := "";
 
       (* the main functionality *)
       lmd_receive := receive_wrapper ;
 
       (* code for the entry point *)
-      lmd_entry_point := LPretty.printWrapper (PREFIX ++ "receive_wrapper") ++ nl
+      lmd_entry_point := "type storage = state" ++ nl
+                          ++ LPretty.printWrapper (PREFIX ++ "receive_wrapper") ++ nl
       ++ LPretty.printMain |}.
 
-  
+
   Definition TT_remap_eip20token : list (kername * string) :=
     TT_remap_default ++ [
-    (* FIXME: it seems like the context type is wrong *)
-    remap <%% @ContractCallContext %%> "(address * (address * int))"
-  ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+    remap <%% @ContractCallContext %%> "(timestamp * (address * (tez * tez)))"
+  ; remap <%% @ctx_from %%> "(fun x -> x.(1).(0))" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
   ; remap <%% gmap.gmap %%> "map"
   ; remap <%% @AddressMap.add %%> "Map.add"
   ; remap <%% @AddressMap.find %%> "Map.find"
@@ -179,10 +180,10 @@ Section EIP20TokenExtraction.
       (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
       tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
 
-  Print liquidity_eip20token.
   
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "./examples/liquidity-extract/liquidity_eip20token.liq" Compute liquidity_eip20token.
+  Redirect "./examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
+  Compute liquidity_eip20token.
 
 
 End EIP20TokenExtraction.

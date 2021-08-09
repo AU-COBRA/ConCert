@@ -12,6 +12,6 @@ concert-std-derive = { path = "../concert-std-derive" }
 immutable-map = "0.1.2"
 
 [dependencies.concordium-std]
-git = "https://github.com/jakobbotsch/concordium-rust-smart-contracts.git"
+git = "https://github.com/Concordium/concordium-rust-smart-contracts.git"
 branch = "main"
 default-features = false

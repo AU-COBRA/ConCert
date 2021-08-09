@@ -20,7 +20,7 @@ From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.
 Import RecordSetNotations.
-Close Scope string_scope. 
+Close Scope string_scope.
 
 Section TestSetup.
   (* Fix seller and buyer *)

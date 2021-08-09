@@ -8,6 +8,7 @@ From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.PCUIC Require PCUICAst.
+From MetaCoq.Erasure Require EAst.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 
 (** Extracts a constant name, inductive name or returns None *)
@@ -183,3 +184,80 @@ Definition iota_body (body : term) : term :=
     end
   | t => t
   end.
+
+Fixpoint nat_syn_to_nat (t : EAst.term) : option nat :=
+  match t with
+  | EAst.tApp (EAst.tConstruct ind i) t0 =>
+    if eq_kername ind.(inductive_mind) <%% nat %%> then
+      match i with
+      | 1 => match nat_syn_to_nat t0 with
+            | Some v => Some (S v)
+            | None => None
+            end
+      | _ => None
+      end
+    else None
+  | EAst.tConstruct {| inductive_mind := <%% nat %%>; inductive_ind := 0 |} 0 =>
+    Some 0
+  | _ => None
+  end.
+
+Definition _xI :=
+  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 0.
+
+Definition _xO :=
+  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 1.
+
+Definition _xH :=
+  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 2.
+
+Definition _Zneg :=   EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2.
+
+Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
+  match t with
+  | EAst.tApp (EAst.tConstruct ind i) t0 =>
+    if eq_kername ind.(inductive_mind) <%% positive %%> then
+      match i with
+      | 0 => match pos_syn_to_nat_aux (n + n) t0 with
+            | Some v => Some (1 + v)
+            | None => None
+            end
+      | 1 => pos_syn_to_nat_aux (n + n) t0
+      | _ => None
+      end
+    else None
+  | EAst.tApp _xO t0 => pos_syn_to_nat_aux (n + n) t0
+  | EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 2 => Some n
+  | _ => None
+  end.
+
+Definition pos_syn_to_nat := pos_syn_to_nat_aux 1.
+
+Example pos_syn_to_nat_5 :
+  pos_syn_to_nat (EAst.tApp _xI (EAst.tApp _xO _xH)) = Some 5.
+Proof. reflexivity. Qed.
+
+Definition Z_syn_to_Z (t : EAst.term) : option Z :=
+  match t with
+  | EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0 => Some 0%Z
+  | EAst.tApp (EAst.tConstruct ind i) t0 =>
+    if eq_kername ind.(inductive_mind) <%% Z %%> then
+      match i with
+      | 1 => match pos_syn_to_nat t0 with
+            | Some v => Some (Z.of_nat v)
+            | None => None
+            end
+      | 2 => match (pos_syn_to_nat t0) with
+            | Some v => Some (-(Z.of_nat v))%Z
+            | None => None
+            end
+      | _ => None
+      end
+    else None
+  | _ => None
+  end.
+
+
+Example Z_syn_to_Z_minus_5 :
+  Z_syn_to_Z (EAst.tApp _Zneg (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some (-5)%Z.
+Proof. reflexivity. Qed.

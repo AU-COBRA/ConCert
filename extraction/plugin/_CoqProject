@@ -11,6 +11,10 @@
 
 src/byte.ml
 src/byte.mli
+src/certifyingBeta.ml
+src/certifyingBeta.mli
+src/certifyingInlining.ml
+src/certifyingInlining.mli
 src/closedAux.ml
 src/closedAux.mli
 src/common1.ml
@@ -45,8 +49,6 @@ src/floatOps.ml
 src/floatOps.mli
 src/init.ml
 src/init.mli
-src/inlining.ml
-src/inlining.mli
 src/kernames.ml
 src/kernames.mli
 src/monad_utils.ml

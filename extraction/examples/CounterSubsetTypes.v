@@ -1,4 +1,4 @@
-(** * Extraction of a counter contract with refinement types to Liquidity *)
+(** * Extraction of a counter contract with subset types to Liquidity and CameLIGO *)
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 
@@ -105,6 +105,7 @@ Section LiquidityExtractionSetup.
     ; remap <%% Z %%> "int"
     ; remap <%% nat %%> "key_hash" (* type of account addresses*)
     ; remap <%% Transaction %%> "operation list"
+    ; remap <%% Transaction_none %%> "[]"
     ; remap <%% @fst %%> "fst"
     ; remap <%% @snd %%> "snd" ].
 
@@ -155,7 +156,8 @@ Time MetaCoq Run
 Print liquidity_counter.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/liquidity-extract/CounterRefinementTypes.liq" Compute liquidity_counter.
+Redirect "examples/extracted-code/liquidity-extract/CounterRefinementTypes.liq"
+MetaCoq Run (tmMsg liquidity_counter).
 
 
 
@@ -245,7 +247,7 @@ Definition dummy_chain :=
                                       "storage" 
                                       CameLIGO_call_ctx 
                                       ++ nl
-                                      ++ CameLIGOPretty.printMain |}.
+                                      ++ CameLIGOPretty.printMain CameLIGO_call_ctx |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -254,12 +256,13 @@ Definition dummy_chain :=
   Definition to_inline_ligo := [<%% bool_rect %%>; <%% bool_rec %%>].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX to_inline_ligo TT_remap_ligo TT_rename_ligo COUNTER_MODULE_LIGO).
+  (CameLIGO_prepare_extraction PREFIX to_inline_ligo TT_remap_ligo TT_rename_ligo CameLIGO_call_ctx COUNTER_MODULE_LIGO).
 
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
   MetaCoq Run (tmMsg cameLIGO_counter).
   
-  Redirect "examples/liquidity-extract/CounterRefinementTypes.mligo" Compute cameLIGO_counter.
+  Redirect "examples/extracted-code/cameligo-extract/CounterRefinementTypes.mligo"
+  MetaCoq Run (tmMsg cameLIGO_counter).
     
 End CameLIGOExtractionSetup.

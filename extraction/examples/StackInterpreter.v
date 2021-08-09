@@ -1,4 +1,4 @@
-(** * Extraction of an interpreter **)
+(** * Extraction of an interpreter for a stack based DSL **)
 
 From Coq Require Import PeanoNat ZArith Notations Bool.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
@@ -316,8 +316,8 @@ Module LiquidityInterp.
   Print liquidity_interp.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "examples/liquidity-extract/StackInterpreter.liq"
-  Compute liquidity_interp.
+  Redirect "examples/extracted-code/liquidity-extract/StackInterpreter.liq"
+  MetaCoq Run (tmMsg liquidity_interp).
 
 End LiquidityInterp.
 
@@ -398,15 +398,16 @@ Module CameLIGOInterp.
        lmd_entry_point :=
               CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list" CameLIGO_call_ctx
                           ++ nl
-                          ++ CameLIGOPretty.printMain |}.
+                          ++ CameLIGOPretty.printMain CameLIGO_call_ctx |}.
 
     Time MetaCoq Run
-    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename LIGO_INTERP_MODULE  ).
+    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename CameLIGO_call_ctx LIGO_INTERP_MODULE  ).
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
     Print cameligo_interp.
       (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-    Redirect "examples/cameligo-extract/stackinterpreter.ligo" MetaCoq Run (tmMsg cameligo_interp).
+    Redirect "examples/extracted-code/cameligo-extract/StackInterpreter.mligo"
+    MetaCoq Run (tmMsg cameligo_interp).
 
 End CameLIGOInterp.

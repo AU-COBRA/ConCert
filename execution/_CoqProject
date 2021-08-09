@@ -24,6 +24,7 @@ examples/BAT_Fixed.v
 examples/BAT_AltFix.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
+examples/BoardroomVotingZ.v
 examples/BoardroomVotingTest.v
 examples/BuildUtils.v
 examples/Common.v
