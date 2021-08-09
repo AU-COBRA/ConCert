@@ -763,7 +763,7 @@ Proof.
     + receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -803,7 +803,7 @@ Proof.
     + receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
