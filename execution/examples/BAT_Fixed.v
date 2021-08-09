@@ -2119,7 +2119,7 @@ Proof.
     split; intros.
     + now rewrite <- IH_finalized by assumption.
     + now rewrite <- IH_funding by assumption.
-  - instantiate (CallFacts := fun _ ctx state _ =>
+  - instantiate (CallFacts := fun chain ctx state out_acts =>
       (0 <= ctx_amount ctx)%Z /\
       initSupply state <= total_supply state /\
       tokenExchangeRate state <> 0 /\
@@ -2127,12 +2127,16 @@ Proof.
         N.modulo (with_default 0 (FMap.find ctx.(ctx_from) (balances state))) state.(tokenExchangeRate) = 0) /\
       (isFinalized state = false -> ctx_from ctx <> batFundDeposit state ->
         (with_default 0 (FMap.find ctx.(ctx_from) (balances state))) <= total_supply state - initSupply state) /\
+      (isFinalized state = false /\
+                    ((current_slot chain <= fundingEnd state)%nat \/
+                    tokenCreationMin state <= total_supply state) -> out_acts = []) /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (ctx_amount_positive &
                        supply_bound &
                        exchange_rate_nonzero &
                        tokens_modulo_exchange_rate &
                        tokens_bound &
+                       funding_no_outgoing_acts &
                        _).
     clear CallFacts AddBlockFacts DeployFacts effective_balance.
     destruct msg. destruct m.
@@ -2174,10 +2178,7 @@ Proof.
         rename H0 into requirements_check.
         rewrite !Bool.orb_false_iff in requirements_check.
         destruct requirements_check as ((not_finalized & _) & funding_hit%N.ltb_ge).
-        assert (H : isFinalized prev_state = false /\
-                    ((current_slot bstate <= fundingEnd prev_state)%nat \/
-                    tokenCreationMin prev_state <= total_supply prev_state) -> prev_out_queue = []) by admit.
-        now rewrite H.
+        now rewrite funding_no_outgoing_acts.
       * congruence.
     + receive_simpl.
       inversion receive_some.
@@ -2243,8 +2244,11 @@ Proof.
         now rewrite batfund_balance.
       rewrite sum_eq_total.
       now apply balance_le_sum_balances_ne.
+    + intros.
+      specialize funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
+      now apply no_acts.
     + now eapply bat_no_self_calls'.
-Admitted.
+Qed.
 
 
 
