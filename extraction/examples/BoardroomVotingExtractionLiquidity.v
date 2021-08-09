@@ -1,3 +1,8 @@
+(** * Extraction of the Boardroom voting contract Liquidity *)
+
+(** NOTE: Currently does not compile due to some restrictions on closures in Liquidity *)
+
+
 From Coq Require Import PeanoNat ZArith.
 
 From ConCert.Extraction Require Import LPretty LiquidityExtract Common.

@@ -794,7 +794,7 @@ Proof.
         rewrite pks_signups.
         specialize (num_signups_assum ltac:(lia)).
         now rewrite (all_signups pks parties) by auto.
-  - [CallFacts]: exact (fun _ ctx _ => ctx_from ctx <> ctx_contract_address ctx).
+  - [CallFacts]: exact (fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx).
     subst CallFacts; cbn in *; congruence.
   - auto.
   - [DeployFacts]: exact (fun _ _ => True).
