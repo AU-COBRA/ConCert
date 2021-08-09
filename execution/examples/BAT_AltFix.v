@@ -1017,7 +1017,7 @@ Proof.
     all: receive_simpl; now inversion receive_some.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst; cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1064,7 +1064,7 @@ Proof.
       apply balance_le_sum_balances.
     + now receive_simpl.
   - contract_induction; intros;
-      only 1: instantiate (CallFacts := fun _ _ cstate => cstate.(tokenExchangeRate) <> 0); eauto.
+      only 1: instantiate (CallFacts := fun _ _ cstate _ => cstate.(tokenExchangeRate) <> 0); eauto.
     + now apply init_preserves_balances_sum in init_some.
     + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
@@ -1144,7 +1144,7 @@ Proof.
   - now apply receive_preserves_constants in receive_some.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst; cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1238,7 +1238,7 @@ Proof.
     + now receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1715,7 +1715,7 @@ Proof.
   - now inversion IH.
   - apply Forall_app; split; auto.
     clear IH.
-    instantiate (CallFacts := fun _ ctx state => fundDeposit state <> ctx_contract_address ctx).
+    instantiate (CallFacts := fun _ ctx state _ => fundDeposit state <> ctx_contract_address ctx).
     destruct msg. destruct m.
     + now erewrite eip20_new_acts_correct by eauto.
     + receive_simpl.
@@ -1804,7 +1804,7 @@ Lemma outgoing_acts_positive_amount : forall bstate caddr,
 Proof.
   contract_induction; intros; auto.
   - now inversion IH.
-  - instantiate (CallFacts := fun _ ctx _ =>
+  - instantiate (CallFacts := fun _ ctx _ _ =>
       (0 <= (ctx_contract_balance ctx))%Z /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (contract_balance_positive & _).
@@ -1860,7 +1860,7 @@ Proof.
   contract_induction; intros; auto; try rename H into not_finalized.
   - specialize (IH not_finalized).
     discriminate.
-  - instantiate (CallFacts := fun _ ctx state =>
+  - instantiate (CallFacts := fun _ ctx state _ =>
         ctx_from ctx <> ctx_contract_address ctx /\
         total_supply state = sum_balances state).
     destruct facts as (_ & supply_eq_sum_balances).
@@ -1945,7 +1945,7 @@ Proof.
     split; intros.
     + now rewrite <- IH_finalized by assumption.
     + now rewrite <- IH_funding by assumption.
-  - instantiate (CallFacts := fun _ ctx state =>
+  - instantiate (CallFacts := fun _ ctx state _ =>
       (0 <= ctx_amount ctx)%Z /\
       tokenExchangeRate state <> 0 /\
       total_supply state = sum_balances state /\
