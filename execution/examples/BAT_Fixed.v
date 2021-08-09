@@ -1018,7 +1018,7 @@ Proof.
     all: receive_simpl; now inversion receive_some.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst; cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1061,7 +1061,7 @@ Proof.
     + now apply init_preserves_balances_sum in init_some.
     + instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ => True).
       unset_all; subst; cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
@@ -1135,7 +1135,7 @@ Proof.
   - now apply receive_preserves_constants in receive_some.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1227,7 +1227,7 @@ Proof.
     + now receive_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1718,7 +1718,7 @@ Proof.
   - now inversion IH.
   - apply Forall_app; split; auto.
     clear IH.
-    instantiate (CallFacts := fun _ ctx state => fundDeposit state <> ctx_contract_address ctx).
+    instantiate (CallFacts := fun _ ctx state _ => fundDeposit state <> ctx_contract_address ctx).
     destruct msg. destruct m.
     + now erewrite eip20_new_acts_correct by eauto.
     + receive_simpl.
@@ -1807,7 +1807,7 @@ Lemma outgoing_acts_positive_amount : forall bstate caddr,
 Proof.
   contract_induction; intros; auto.
   - now inversion IH.
-  - instantiate (CallFacts := fun _ ctx _ =>
+  - instantiate (CallFacts := fun _ ctx _ _ =>
       (0 <= (ctx_contract_balance ctx))%Z /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (contract_balance_positive & _).
@@ -1885,7 +1885,7 @@ Proof.
       now rewrite <- balance_preserved.
       specialize try_refund_is_some as (_ & (_ & _ & _ & _ & from_not_batfund & _)); eauto.
     + now receive_simpl.
-  - now instantiate (CallFacts := fun _ ctx _ => ctx_from ctx <> ctx_contract_address ctx).
+  - now instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx).
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
     unset_all; subst.
@@ -1914,7 +1914,7 @@ Proof.
     destruct_match in init_some; try congruence.
     inversion_clear init_some. cbn.
     apply N.le_refl.
-  - instantiate (CallFacts := fun _ ctx state =>
+  - instantiate (CallFacts := fun _ ctx state _ =>
       total_supply state = sum_balances state /\
       (isFinalized state = false -> FMap.find state.(batFundDeposit) (balances state) = Some state.(initSupply)) /\
       ctx_from ctx <> ctx_contract_address ctx).
@@ -1982,7 +1982,7 @@ Proof.
   contract_induction; intros; auto; try rename H into not_finalized.
   - specialize (IH not_finalized).
     discriminate.
-  - instantiate (CallFacts := fun _ ctx _ => ctx_from ctx <> ctx_contract_address ctx).
+  - instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx).
     destruct msg. destruct m.
     + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
       apply eip20_new_acts_correct in receive_some as no_new_acts.
@@ -2046,7 +2046,7 @@ Proof.
     destruct_match in init_some; try congruence.
     inversion init_some. subst. cbn in *.
     setoid_rewrite FMap.find_add_ne; auto.
-  - instantiate (CallFacts := fun _ ctx state =>
+  - instantiate (CallFacts := fun _ ctx state _ =>
       tokenExchangeRate state <> 0 /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (exchange_rate_nonzero & _).
@@ -2119,7 +2119,7 @@ Proof.
     split; intros.
     + now rewrite <- IH_finalized by assumption.
     + now rewrite <- IH_funding by assumption.
-  - instantiate (CallFacts := fun _ ctx state =>
+  - instantiate (CallFacts := fun _ ctx state _ =>
       (0 <= ctx_amount ctx)%Z /\
       initSupply state <= total_supply state /\
       tokenExchangeRate state <> 0 /\
