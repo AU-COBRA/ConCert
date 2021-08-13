@@ -108,13 +108,16 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
     ; <%% @ctx_contract_balance %%>
     ; <%% @SerializedValue %%>
     ; <%% @SerializedType %%>
+    ; <%% chain_height %%>
+    ; <%% current_slot %%>
+    ; <%% finalized_height %%>
   ].
 
 Definition TT_remap_default : list (kername * string) :=
   [
     (* types *)
     remap <%% Z %%> "tez"
-  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] *)
+  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use trancated subtraction *)
   ; remap <%% N %%> "int"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
@@ -127,19 +130,30 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
   ; remap <%% @Address %%> "address"
+  ; remap <%% @ActionBody %%> "operation"
+  ; remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
 
-  (* operations *)
-  ; remap <%% List.fold_left %%> "List.fold"
+
+  (* operations on numbers and currency [tez] *)
+  ; remap <%% Nat.add %%> "addN"
+  ; remap <%% Nat.leb %%> "lebN"
+  ; remap <%% Nat.ltb %%> "ltbN"
+  ; remap <%% Nat.mul %%> "multN"
+
   ; remap <%% Pos.add %%> "addN"
   ; remap <%% Pos.sub %%> "subN"
+  ; remap <%% Pos.mul %%> "multN"
   ; remap <%% Pos.leb %%> "leN"
   ; remap <%% Pos.eqb %%> "eqN"
   ; remap <%% Z.add %%> "addTez"
   ; remap <%% Z.sub %%> "subTez"
+  ; remap <%% Z.mul %%> "multTez"
+  ; remap <%% Z.div %%> "divTez"
   ; remap <%% Z.leb %%> "leTez"
   ; remap <%% Z.ltb %%> "ltTez"
   ; remap <%% Z.eqb %%> "eqTez"
   ; remap <%% Z.gtb %%> "gtbTez"
+  ; remap <%% Z.even %%> "evenTez"
   ; remap <%% N.add %%> "addInt"
   ; remap <%% N.sub %%> "subIntTruncated"
   ; remap <%% N.leb %%> "leInt"
@@ -149,28 +163,27 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% negb %%> "not"
   ; remap <%% orb %%> "orb"
 
-  (* Maps *)
+  (* address *)
+  ; remap <%% @address_eqb %%> "eq_addr"
+
+  (* lists *)
+  ; remap <%% @List.fold_left %%> "List.fold"
+  ; remap <%% @List.map %%> "List.map"
+  ; remap <%% @List.find %%> "List.find"
+  ; remap <%% @List.length %%> "List.length"
+  ; remap <%% @List.app %%> "List.append"
+
+  (* maps *)
   ; remap <%% @stdpp.base.insert %%> "Map.add"
   ; remap <%% @stdpp.base.lookup %%> "Map.find_opt"
   ; remap <%% @stdpp.base.empty %%> "Map.empty"
-  ; remap <%% @address_eqdec %%> ""
-  ; remap <%% @address_countable %%> ""
-  ].
 
-Definition CameLIGO_rename_default :=
-  [
-      ("to", "to_")
-    ; ("amount", "amount_")
-    ; ("continue", "continue_")
+  (* call context *)
+  ; remap <%% @ctx_from %%> "ctx_from"
+  ; remap <%% @ctx_contract_address %%> "ctx_contract_address"
+  ; remap <%% @ctx_contract_balance %%> "ctx_contract_balance"
+  ; remap <%% @ctx_amount %%> "ctx_amount"
   ].
-
-(* We assume the structure of the context from the [PreludeExt]:
-  current_time , sender_addr, sent_amount, acc_balance *)
-Definition CameLIGO_call_ctx :=
-  "(Tezos.now,
-   (Tezos.sender,
-   (Tezos.amount,
-    Tezos.balance)))".
 
 Definition wrap_in_delimiters s :=
   String.concat nl [""; s].
@@ -197,7 +210,7 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
   let TT_defs := TT_defs ++ TT_remap_default in
   let ignore := (map fst TT_defs ++ CameLIGO_ignore_default)%list in
   let TT :=
-      (CameLIGO_rename_default ++ TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   match annot_extract_template_env_specalize Σ seeds ignore with
   | Ok (eΣ; annots) =>
     (* dependencies should be printed before the dependent definitions *)
@@ -280,7 +293,7 @@ Definition CameLIGO_prepare_extraction {Base : ChainBase} {msg ctx params storag
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := TT_defs ++ TT_remap_default in
   let TT :=
-      (CameLIGO_rename_default ++ TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   let res := unwrap_string_sum (printCameLIGODefs prefix
                                                   Σ
                                                   TT_defs TT_ctors
@@ -301,7 +314,7 @@ Definition CameLIGO_extract {Base : ChainBase} {msg ctx params storage operation
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := TT_defs ++ TT_remap_default in
   let TT :=
-      (CameLIGO_rename_default ++ TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+      (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
              (printCameLIGODefs prefix
                                 Σ
@@ -321,7 +334,7 @@ Definition simple_def_print prefix TT_defs TT_ctors seeds prelude harness Σ
   : string + string :=
   let TT_defs := TT_defs ++ TT_remap_default in
   let ignore := map fst TT_defs in
-  let TT := (CameLIGO_rename_default ++ TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
+  let TT := (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   match annot_extract_template_env_specalize Σ seeds ignore with
   | Ok annot_env =>
   let '(eΣ; annots) := annot_env in

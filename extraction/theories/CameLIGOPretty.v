@@ -102,6 +102,8 @@ Section print_term.
   | TAny => "UnknownType"
   end.
 
+  Definition print_ctor_name (prefix : string) (nm : string) :=
+    capitalize (prefix ^ nm).
 
   Definition print_ctor
              (prefix : string)
@@ -109,26 +111,24 @@ Section print_term.
              (ctor : ident × list (name × box_type)) :=
     let (nm,tys) := ctor in
     (* cameligo constructors must start with a capital letter *)
-    let nm := capitalize nm in
+    let nm := print_ctor_name prefix nm in
     match tys with
-    | [] => prefix ++ nm
-    | _ => prefix ++ nm ++ " of "
-                  ++ parens false <| concat " * " (map (print_box_type prefix TT ∘ snd) tys)
+    | [] => nm
+    | _ => let ctor_type := parens false <| concat " * " (map (print_box_type prefix TT ∘ snd) tys)
+          in nm ^ " of " ^ ctor_type
     end.
 
   Definition print_proj (prefix : string) (TT : env string) (proj : ident × box_type) : string :=
-  let (nm, ty) := proj in
-    prefix
-      ^ nm
-      ^ " : "
-      ^ print_box_type prefix TT ty.
+    let (nm, ty) := proj in
+    let nm := prefix ^ nm in
+    nm ^ " : " ^ print_box_type prefix TT ty.
 
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
     let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
                               (prefix ++ oib.(ExAst.ind_name)) in
     let print_type_var (i : nat) :=
-        "a_" ++ string_of_nat i in
+        "'a" ++ string_of_nat i in
     let params :=
       if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
       else let ps := concat "," (mapi (fun i _ => print_type_var i) oib.(ind_type_vars)) in
@@ -138,13 +138,13 @@ Section print_term.
     | [build_record_ctor], _::_ =>
       let '(_, ctors) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj (capitalize prefix) TT (p.1, ty)) projs_and_ctors in
+      let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj prefix TT (p.1, ty)) projs_and_ctors in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
               ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
               ++  "}"
     | _,_ => "type " ++ params ++ uncapitalize ind_nm ++ " = "
                    ++ nl ++ "  "
-                   ++ concat "| " (map (fun p => print_ctor (capitalize prefix) TT p ++ nl) oib.(ExAst.ind_ctors))
+                   ++ concat "| " (map (fun p => print_ctor prefix TT p ++ nl) oib.(ExAst.ind_ctors))
     end.
 
   Definition is_sort (t : Ast.term) :=
@@ -185,6 +185,7 @@ Section print_term.
       end
     | _ => None
     end.
+
   (* Certain names in CameLIGO are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
   (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
      they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
@@ -195,9 +196,11 @@ Section print_term.
     [
         "to"
       ; "val"
+      ; "amount"
       ; "balance"
       ; "continue"
       ; "hash"
+      ; "sender"
     ].
 
   Definition is_fresh (Γ : context) (id : ident) :=
@@ -250,6 +253,17 @@ Section print_term.
     let id := uncapitalize id in
     if is_fresh ctx id then nNamed id
     else nNamed (fresh_id_from ctx 10 id).
+
+  Fixpoint fresh_names (Γ : context) (vs : list name) : context * list name :=
+    match vs with
+    | [] => (Γ, [])
+    | v :: vs0 =>
+      let nm := fresh_name Γ v (tVar "dummy") in
+      let Γ0 := vass nm :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
+      let '(Γ1, vs1) := fresh_names Γ0 vs0 in
+      (Γ1, nm :: vs1)
+    end.
+
 
   Definition get_constr_name (ind : inductive) (i : nat) :=
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
@@ -354,24 +368,38 @@ Section print_term.
     if infix then
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
-      let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let ctor_nm := from_option (look TT ctor) (print_ctor_name prefix ctor) in
       let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
 
   Definition print_num_literal (TT : env string) (t : term) : option string :=
+    (* is it an natural number literal? *)
     match nat_syn_to_nat t with
-    | Some n =>(* is it an natural number literal? *)
-      Some (string_of_nat n ^ "n")
-    | None => match Z_syn_to_Z t with
-             | Some z =>
-               (* is it an integer number literal? *)
-               (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
-               let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
-               let units := if Z_remapped =? "tez" then "tez" else "" in
-               Some (string_of_Z z ^ units)
-             | None => None
-             end
+    | Some n => Some (string_of_nat n ^ "n")
+    | None =>
+      (* is it an positive binary number [positive] literal? *)
+      match pos_syn_to_nat t with
+      | Some k => Some (string_of_nat k ^ "n")
+      | None => (* is it an binary natural number [N] literal? *)
+        match N_syn_to_nat t with
+        | Some m =>
+          (* NOTE: we check whether [N] is remapped to [int], if it's NOT, we add "n", since we consider it a natural number *)
+          let N_remapped := from_option (look TT (string_of_kername <%% N %%>)) "" in
+          let units := if N_remapped =? "int" then "" else "n" in
+          Some (string_of_nat m ^ units)
+        | None =>
+          (* is it an integer number [Z] literal? *)
+          match Z_syn_to_Z t with
+          | Some z =>
+            (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
+            let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
+            let units := if Z_remapped =? "tez" then "tez" else "" in
+            Some (string_of_Z z ^ units)
+          | None => None
+          end
+        end
+      end
     end.
 
   Definition print_transfer (args : list string) :=
@@ -477,46 +505,34 @@ Section print_term.
           else parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
         | tConstruct (mkInd mind j as ind) i =>
           let nm := get_constr_name ind i in
-          (* match print_num_literal TT t with *)
-          (* | Some s => s *)
-          (* | None => *)
-            (* is it an natural number literal? *)
-            if (nm =? "Z") || (nm =? "S") then
-              from_option (option_map (fun x => string_of_nat x ++ "n") (nat_syn_to_nat t)) "Error(Not a natural number literal)"
-            else
-
-            (* is it an integer number literal? *)
-            (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
-            let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
-            let units := if Z_remapped =? "tez" then "tez" else "" in
-            if (nm =? "Z0") || (nm =? "Zpos") || (nm =? "Zneg") then
-              from_option (option_map (fun x => string_of_Z x ++ units) (Z_syn_to_Z t)) "Error(Not an integer literal)"
-            else
-              (* is it a pair ? *)
-            if ((uncapitalize nm) =? "pair") then
+             (* is it a pair ? *)
+            if (uncapitalize nm =? "pair") then
               print_uncurried "" apps
             (* is it a cons ? *)
-            else if (nm =? "cons") then
+            else if (uncapitalize nm =? "cons") then
               parens top (concat " :: " apps)
             (* is it a transfer *)
-            else if (nm =? "act_transfer") then
+            else if (uncapitalize nm =? "act_transfer") then
               print_transfer apps
             else if (nm =? "_") then
               fresh_id_from ctx 10 "a"
             (* inductive constructors of 1 arg are treated as records *)
-            else match is_name_remapped nm TT, is_record_constr b with
-              | false, Some oib => 
+            else
+              match print_num_literal TT t with
+              | Some s => s
+              | None =>
+                match is_name_remapped nm TT, is_record_constr b with
+                | false, Some oib => 
                   let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
-                  (* let nm' := capitalize <| from_option (look TT nm) ((capitalize prefix) ++ nm) in *)
                   let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
                                                           |> concat "; " in
                   "({" ++ field_decls_printed ++ "}: " ++ print_box_type prefix TT bt ++ ")"
-              | _,_ => 
+                | _,_ => 
                   (* constructors must be capitalized *)
-                  let nm' := from_option (look TT nm) (capitalize (prefix ++ nm)) in
+                  let nm' := from_option (look TT nm) (print_ctor_name prefix nm) in
                   parens top (print_uncurried nm' apps)
-                 end
-          (* end *)
+                end
+              end
         | _ => if is_not_empty_const l then
                 parens (top || inapp) (print_term prefix FT TT ctx false true f fa ++ " " ++ print_term prefix FT TT ctx false false l la)
                else print_term prefix FT TT ctx false true f fa
@@ -525,19 +541,24 @@ Section print_term.
     | tConst c => fun bt =>
       let cst_name := string_of_kername c in
       let nm_tt := from_option (look TT cst_name) (prefix ++ c.2) in
+      (* empty maps require type annotations *)
       if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
         "(Map.empty: " ++ print_box_type prefix TT bt ++ ")"
       else
-        nm_tt  
+        nm_tt
     | tConstruct ind l => fun bt =>
       let nm := get_constr_name ind l in
-      let nm_tt := from_option (look TT nm) (capitalize (prefix ++ nm)) in
-      (* print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
-      if (nm_tt =? "[]") || (nm_tt =? "nil") then
+      match print_num_literal TT t with
+      | Some lit => lit
+      | None =>
+        let nm_tt := from_option (look TT nm) (print_ctor_name prefix nm) in
+     (* NOTE: print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
+        if (uncapitalize nm =? "nil") && (eq_kername ind.(inductive_mind) <%% list %%>) then
         "([]:" ++ print_box_type prefix TT bt ++ ")"
-      else if nm_tt =? "None" then
-        "(None:" ++ print_box_type prefix TT bt ++ ")"
-      else nm_tt
+        else if (nm =? "None") && (eq_kername ind.(inductive_mind) <%% option %%>) then
+               "(" ++ nm_tt ++ ":" ++ print_box_type prefix TT bt ++ ")"
+             else nm_tt
+      end
     | tCase (mkInd mind i as ind, nparam) t brs =>
       let fix print_branch ctx arity params (br : term) {struct br} : annots box_type br -> (_ * _) :=
             match arity return annots box_type br -> (_ * _) with
@@ -678,8 +699,8 @@ Definition print_decl (prefix : string)
             :=
   let (tys,_) := decompose_arr ty in
   let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
+  let (ctx, args) := fresh_names [] args in
   let targs := combine args (map (print_box_type prefix TT) tys) in
-  let ctx := map (fun x => Build_context_decl x None) (rev args) in
   let printed_targs :=
       map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
   let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
@@ -904,19 +925,62 @@ Definition get_contract_def :=
   "  | None -> (failwith (""Contract not found."") : unit contract)"
   $>.
 
+Definition CameLIGO_call_ctx_type_name : string := "cctx".
+
+Definition CameLIGO_call_ctx_type :=
+<$ "(* ConCert's call context *)"
+; "type " ^ CameLIGO_call_ctx_type_name ^ " = {"
+; "  ctx_from_ : address;"
+; "  ctx_contract_address_ : address;"
+; "  ctx_contract_balance_ : tez;"
+; "  ctx_amount_ : tez"
+; "}"
+$>.
+
+Definition CameLIGO_call_ctx_instance :=
+<$"(* a call context instance with fields filled in with required data *)"
+; "let cctx_instance : " ^ CameLIGO_call_ctx_type_name ^ "= "
+; "{ ctx_from_ = Tezos.sender;"
+; "  ctx_contract_address_ = Tezos.self_address;"
+; "  ctx_contract_balance_ = Tezos.balance;"
+; "  ctx_amount_ = Tezos.balance"
+; "}"
+; ""
+; "(* projections as functions *)"
+; "let ctx_from (c : " ^ CameLIGO_call_ctx_type_name ^ ") = c.ctx_from_"
+; "let ctx_contract_address (c : " ^ CameLIGO_call_ctx_type_name ^ ") = c.ctx_contract_address_"
+; "let ctx_contract_balance (c : " ^ CameLIGO_call_ctx_type_name ^ ") = c.ctx_contract_balance_"
+; "let ctx_amount_ (c : " ^ CameLIGO_call_ctx_type_name ^ ") = c.ctx_amount_"
+$>.
+
+Definition dummy_chain :=
+<$ (* ConCert's Chain type and its isntance. Currently we map all fields to Tezos.level *)
+"type chain = {"
+; "  chain_height     : nat;"
+; "  current_slot     : nat;"
+; "  finalized_height : nat;"
+; "}"
+; ""
+; "let dummy_chain : chain = {"
+; "chain_height     = Tezos.level;"
+; "current_slot     = Tezos.level;"
+; "finalized_height = Tezos.level;"
+; "}"
+$>.
+
+Definition CameLIGO_Chain_CallContext :=
+<$ CameLIGO_call_ctx_type
+; CameLIGO_call_ctx_instance
+; dummy_chain
+$>.
 
 Definition CameLIGOPrelude :=
   print_list id (nl ++ nl)
              [int_ops; tez_ops; nat_ops;
-             bool_ops; time_ops; address_ops;
-             get_contract_def].
+              bool_ops; time_ops; address_ops;
+              get_contract_def; CameLIGO_Chain_CallContext].
 
-Definition CameLIGO_contractCallContext :=
-  "(Tezos.sender,
-   (Tezos.self_address,
-    Tezos.amount)))".
-
-Definition printWrapper (contract parameter_name storage_name ctx : string): string :=
+Definition printWrapper (contract parameter_name storage_name : string): string :=
   <$
   "type return = (operation) list * (" ++ storage_name ++ " option)" ;
   "type parameter_wrapper =" ;
@@ -928,7 +992,7 @@ Definition printWrapper (contract parameter_name storage_name ctx : string): str
   "    Init init_args -> (([]: operation list), Some (init init_args))" ;
   "  | Call p -> (" ;
   "    match st with" ;
-  "      Some st -> (match (" ++ contract ++ " dummy_chain " ++ ctx ++ " st p) with   " ;
+  "      Some st -> (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
   "                    Some v -> (v.0, Some v.1)" ;
   "                  | None -> (failwith ("""") : return))" ;
   "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))"

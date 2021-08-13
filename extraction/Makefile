@@ -38,19 +38,47 @@ process-extraction-examples: theory
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
-test-extraction:
+LIQUIDITY_SRC_DIR=./examples/extracted-code/liquidity-extract/tests
+LIQUIDITYFILES=$(wildcard $(LIQUIDITY_SRC_DIR)/*.liq)
+LIQUIDITY_DIST=$(patsubst $(LIQUIDITY_SRC_DIR)/%.liq,$(LIQUIDITY_SRC_DIR)/%.tz,$(LIQUIDITYFILES))
+
+LIGO_SRC_DIR=./examples/extracted-code/cameligo-extract/tests
+LIGOFILES=$(wildcard $(LIGO_SRC_DIR)/*.mligo)
+LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
+
+test-extraction: test-elm test-liquidity test-ligo test-concordium
+
+test-concordium:
+	$(foreach dir, $(wildcard ./examples/extracted-code/concordium-extract/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
+
+test-elm:
 	cd ./examples/extracted-code/elm-extract/; elm-test
 	cd ./examples/extracted-code/elm-web-extract/; elm make src/Main.elm
-	$(foreach file, $(wildcard ./examples/extracted-code/liquidity-extract/tests/*.liq), liquidity $(file);)
-	$(foreach dir, $(wildcard ./examples/extracted-code/concordium-extract/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
-	$(foreach file, $(wildcard ./examples/extracted-code/cameligo-extract/tests/*.mligo), ligo compile-contract $(file) main;)
-.PHONY: test-extraction
 
-clean-extraction-examples:
+test-liquidity: clean-compiled-liquidity $(LIQUIDITY_DIST)
+
+$(LIQUIDITY_SRC_DIR)/%.tz:
+	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@
+
+
+test-ligo: clean-comiped-ligo $(LIGO_DIST)
+
+$(LIGO_SRC_DIR)/%.tz:
+	ligo compile-contract $(LIGO_SRC_DIR)/$*.mligo main --output-file=$@ --warn=false
+
+clean-comiped-ligo:
+	rm ./examples/extracted-code/cameligo-extract/tests/*.tz -f
+
+clean-compiled-liquidity:
+	rm ./examples/extracted-code/liquidity-extract/tests/*.tz -f
+
+clean-extraction-examples: clean-comiped-ligo clean-compiled-liquidity
 	rm ./examples/extracted-code/elm-extract/*.elm.out
 	rm ./examples/extracted-code/elm-extract/tests/*.elm
 	rm ./examples/extracted-code/liquidity-extract/*.liq.out
 	rm ./examples/extracted-code/liquidity-extract/tests/*.liq
 	rm ./examples/extracted-code/midlang-extract/*.midlang.out
+	rm ./examples/extracted-code/cameligo-extract/tests/*.mligo
 	rm ./examples/*.vo # to force recompilation of examples (a bit ad-hoc though)
-.PHONY: clean-extraction-examples
+
+.PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-elm test-liquidity test-ligo test-extraction
