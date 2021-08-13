@@ -1,6 +1,6 @@
 (** * Extraction of the Boardroom voting contract Liquidity *)
 
-(** NOTE: Currently does not compile due to some restrictions on closures in Liquidity *)
+(** NOTE: Currently does not compile due to some restrictions on closures in Liquidity. Moreover, the printing of literals might need adjustments. *)
 
 
 From Coq Require Import PeanoNat ZArith.
@@ -287,8 +287,8 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% Euler.prod %%> "prod"
 
   ; remap <%% hash_func %%> "hash_func"
-  ; remap <%% oneN %%> "1p"
-  ; remap <%% onePos %%> "1p"
+  (* ; remap <%% oneN %%> "1p" *)
+  (* ; remap <%% onePos %%> "1p" *)
   ; remap <%% four %%> "4p"
   ; remap <%% seven %%> "7p"
   ; remap <%% _1234583932 %%> "1234583932"

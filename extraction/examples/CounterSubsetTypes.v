@@ -156,7 +156,7 @@ Time MetaCoq Run
 Print liquidity_counter.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/extracted-code/liquidity-extract/CounterRefinementTypes.liq"
+(* Redirect "examples/extracted-code/liquidity-extract/CounterRefinementTypes.liq" *)
 MetaCoq Run (tmMsg liquidity_counter).
 
 
@@ -164,42 +164,43 @@ MetaCoq Run (tmMsg liquidity_counter).
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 Module CameLIGOExtractionSetup.
   
+  Definition init (ctx : ContractCallContext) (setup : Z) : option storage :=
+    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    Some setup.
 
   (** [sig] and [exist] becomes just wrappers *)
-  Definition sig_def_ligo := "type sig_ = int".
-  Definition exist_def_ligo := "let exist_ (a:int) = a".
+  Definition sig_def_ligo := "type 'a sig_ = a".
+  Definition exist_def_ligo := "let exist_ (a : int) = a".
 
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_ligo : list (kername * string) :=
     [
-      remap <%% address_coq %%> "address"
-    ; remap <%% time_coq %%> "timestamp"
+      remap <%% address %%> "address"
     ; remap <%% Z.add %%> "addInt"
     ; remap <%% Z.sub %%> "subInt"
     ; remap <%% Z.leb %%> "leInt"
     ; remap <%% Z.ltb %%> "ltInt"
-    ; remap <%% sig %%> "sig_" (* remapping [sig] to the wrapper *)
-    ; remap <%% @proj1_sig %%> "(fun (x:sig_) -> x)" (* this is a safe because of the way we define sig_, but ad-hoc optimisation*)
+    ; remap <%% sig %%> "sig_" (* remapping [sig] to the wrapper. *)
+    (* TODO: once polymorhic types are implemented in CameLIGO, we will be able to extract [sig] as it is *)
+    ; remap <%% @proj1_sig %%> "(fun (x:sig_) -> x)" (* NOTE: currently, the code will not compile, see notes about polymorphism below *)
     ; remap <%% Z %%> "int"
     ; remap <%% Transaction %%> "operation list"
     ].
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
   Definition TT_rename_ligo : list (string * string):=
-    [ ("Some", "Some")
-    ; ("None", "None")
-    ; ("Z0" ,"0")
-    ; ("nil", "[]")
-    ; ("true", "true")
-    ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
+    [ ("true", "true")
+    ; ("false", "false")
+    ; ("exist", "exist_")
     ; (string_of_kername <%% storage %%>, "storage")  (* we add [storage] so it is printed without the prefix *)
     ; (string_of_kername <%% @ActionBody %%>, "operation") (* Same for ActionBody *) 
-    ; (string_of_kername <%% @Chain %%>, "chain") (* Same for Chain *) 
+    ; (string_of_kername <%% @Chain %%>, "chain") (* Same for Chain *)
+    ; ("Some", "Some")
+    ; ("None", "None")
     ].
-    
 
   Definition counter_wrapper (c : Chain) 
-                             (ctx : SimpleCallCtx)
+                             (ctx : ContractCallContext)
                              (s : storage)
                              (m : option msg) := 
     let c_ := c in
@@ -245,9 +246,8 @@ Definition dummy_chain :=
       lmd_entry_point := printWrapper (PREFIX ++ "counter_wrapper") 
                                       (PREFIX ++"msg") 
                                       "storage" 
-                                      CameLIGO_call_ctx 
                                       ++ nl
-                                      ++ CameLIGOPretty.printMain CameLIGO_call_ctx |}.
+                                      ++ CameLIGOPretty.printMain "storage" |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -256,13 +256,22 @@ Definition dummy_chain :=
   Definition to_inline_ligo := [<%% bool_rect %%>; <%% bool_rec %%>].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX to_inline_ligo TT_remap_ligo TT_rename_ligo CameLIGO_call_ctx COUNTER_MODULE_LIGO).
+  (CameLIGO_prepare_extraction PREFIX to_inline_ligo TT_remap_ligo TT_rename_ligo "cctx_instance" COUNTER_MODULE_LIGO).
 
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
+
+  (** NOTE: CameLIGO does not support polymorphic types.
+   Therefore, the resulting code doesn't compile as it is, but
+   one the MR is merged https://gitlab.com/ligolang/ligo/-/merge_requests/1173,
+   we will be able to extract [sig] without any remapping.
+   In the meantime, it [sig_] can be manually specialised to [int] and all applications
+   [int sig_] can be replaced with just [sig_] *)
+
   MetaCoq Run (tmMsg cameLIGO_counter).
-  
-  Redirect "examples/extracted-code/cameligo-extract/CounterRefinementTypes.mligo"
+
+  (* TODO: uncomment this once CameLIGO supports polymoprhic types *)
+  (* Redirect "examples/extracted-code/cameligo-extract/CounterSubsetTypes.mligo" *)
   MetaCoq Run (tmMsg cameLIGO_counter).
     
 End CameLIGOExtractionSetup.

@@ -197,8 +197,10 @@ Fixpoint nat_syn_to_nat (t : EAst.term) : option nat :=
       | _ => None
       end
     else None
-  | EAst.tConstruct {| inductive_mind := <%% nat %%>; inductive_ind := 0 |} 0 =>
-    Some 0
+  | EAst.tConstruct ind 0 =>
+    if eq_kername ind.(inductive_mind) <%% nat %%> then
+      Some 0
+    else None
   | _ => None
   end.
 
@@ -211,7 +213,15 @@ Definition _xO :=
 Definition _xH :=
   EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 2.
 
-Definition _Zneg :=   EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2.
+Definition _N0 := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 0.
+
+Definition _Npos := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 1.
+
+Definition _Z0 :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0.
+
+Definition _Zpos :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 1.
+
+Definition _Zneg :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2.
 
 Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
   match t with
@@ -227,7 +237,9 @@ Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
       end
     else None
   | EAst.tApp _xO t0 => pos_syn_to_nat_aux (n + n) t0
-  | EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 2 => Some n
+  | EAst.tConstruct ind 2 =>
+    if eq_kername ind.(inductive_mind) <%% positive %%> then Some n
+    else None
   | _ => None
   end.
 
@@ -237,9 +249,38 @@ Example pos_syn_to_nat_5 :
   pos_syn_to_nat (EAst.tApp _xI (EAst.tApp _xO _xH)) = Some 5.
 Proof. reflexivity. Qed.
 
+Definition N_syn_to_nat (t : EAst.term) : option nat :=
+  match t with
+  | EAst.tConstruct ind 0 =>
+    if eq_kername ind.(inductive_mind) <%% N %%> then Some 0
+    else None
+  | EAst.tApp (EAst.tConstruct ind 1) t0 =>
+    if eq_kername ind.(inductive_mind) <%% N %%> then
+      match pos_syn_to_nat t0 with
+      | Some v => Some v
+      | None => None
+      end
+    else None
+  | _ => None
+  end.
+
+Example N_syn_to_nat_0 :
+  N_syn_to_nat _N0 = Some 0.
+Proof. reflexivity. Qed.
+
+Example N_syn_to_nat_5 :
+  N_syn_to_nat (EAst.tApp _Npos (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some 5.
+Proof. reflexivity. Qed.
+
+Example N_syn_to_nat_fail :
+  N_syn_to_nat (EAst.tApp _Npos (EAst.tApp _xI (EAst.tVar ""))) = None.
+Proof. reflexivity. Qed.
+
 Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   match t with
-  | EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0 => Some 0%Z
+  | EAst.tConstruct ind 0 =>
+    if eq_kername ind.(inductive_mind) <%% Z %%> then Some 0%Z
+    else None
   | EAst.tApp (EAst.tConstruct ind i) t0 =>
     if eq_kername ind.(inductive_mind) <%% Z %%> then
       match i with
@@ -257,7 +298,18 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   | _ => None
   end.
 
+Example Z_syn_to_Z_0 :
+  Z_syn_to_Z _Z0 = Some 0%Z.
+Proof. reflexivity. Qed.
+
+Example Z_syn_to_Z_5 :
+  Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some 5%Z.
+Proof. reflexivity. Qed.
 
 Example Z_syn_to_Z_minus_5 :
   Z_syn_to_Z (EAst.tApp _Zneg (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some (-5)%Z.
+Proof. reflexivity. Qed.
+
+Example Z_syn_to_Z_fail :
+  Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar ""))) = None.
 Proof. reflexivity. Qed.

@@ -55,76 +55,19 @@ Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (
 
 Module EscrowCameLIGOExtraction.
 
-  Definition contractcallcontextDef := "type cctx = (address * (address * (tez * tez)))".
-
-  (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-  Definition TT_remap_ligo : list (kername * string) :=
-    [
-     remap <%% Nat.add %%> "addN"
-    ; remap <%% Nat.ltb %%> "ltbN"
-    ; remap <%% Nat.mul %%> "multN"
-    ; remap <%% Z.add %%> "addTez"
-    ; remap <%% Z.mul %%> "multTez"
-    ; remap <%% Z.sub %%> "subTez"
-    ; remap <%% Z.leb %%> "leTez"
-    ; remap <%% Z.ltb %%> "ltTez"
-    ; remap <%% Z.div %%> "divTez"
-    ; remap <%% Z.even %%> "evenTez"
-    ; remap <%% Z.eqb %%> "eqTez"
-
-    ; remap <%% @ActionBody %%> "operation"
-    ; remap <%% @ContractCallContext %%> "cctx"
-    ; remap <%% @current_slot %%> "current_slot" (* small hack to avoid generating the definition of current_slot *)
-    ; remap <%% @ctx_from %%> "(fun (c : cctx) -> c.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-    ; remap <%% @ctx_contract_address %%> "(fun (c : cctx) -> c.1.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-    ; remap <%% @ctx_contract_balance %%> "(fun (c : cctx) -> c.1.1.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-    ; remap <%% @ctx_amount %%> "(fun (c : cctx) -> c.1.1.1)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-    ; remap <%% @address_eqb %%> "eq_addr"
-
-    ; remap <%% @List.fold_left %%> "List.fold"
-    ; remap <%% @List.map %%> "List.map"
-    ; remap <%% @List.find %%> "List.find"
-    ; remap <%% @List.length %%> "List.length"
-    ; remap <%% @List.app %%> "List.append"
-    ].
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
   Definition TT_rename_ligo : list (string * string):=
-
-    [ ("Some", "Some")
-    ; ("None", "None")
-    ; ("Zpos" ,"int")
-    ; ("Npos" ,"(fun (n:nat) -> n)")
-    ; ("Zneg" ,"-")
-    ; ("Z0" ,"0tez")
-    ; ("N0" ,"0")
-    ; ("xH" ,"0")
-    ; ("1" ,"1")
-    ; ("nil", "[]")
-    ; ("true", "true")
+    [ ("true", "true")
+    ; ("false", "false")
     ; ("tt", "()")
     ].
-    
-  Definition dummy_chain :=
-        "type chain = {
-          chain_height     : nat;
-          current_slot     : nat;
-          finalized_height : nat;
-        }"
-    ++ nl
-    ++ "let dummy_chain : chain = {
-          chain_height     = Tezos.level;
-          current_slot     = Tezos.level;
-          finalized_height = Tezos.level;
-        }".
-  
-  Definition callctx := "(Tezos.sender, (Tezos.sender, (Tezos.amount, Tezos.balance)))".
 
   Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext (Setup * Chain) State ActionBody :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_escrow" ;
 
-      (* definitions of operations on pairs and ints *)
-      lmd_prelude := String.concat nl [CameLIGOPrelude; dummy_chain; contractcallcontextDef];
+      (* definitions of operations on numbers, call context, etc. *)
+      lmd_prelude := CameLIGOPrelude;
 
       (* initial storage *)
       lmd_init := escrow_init_wrapper ;
@@ -137,16 +80,13 @@ Module EscrowCameLIGOExtraction.
 
       lmd_receive_prelude := "";
       (* code for the entry point *)
-      lmd_entry_point := printWrapper (PREFIX ++ "escrow_receive") 
-                                      (PREFIX ++"msg") 
-                                      "state" 
-                                      callctx 
-                                      ++ nl
-                                      ++ CameLIGOPretty.printMain "state" |}.
+      lmd_entry_point :=
+        printWrapper (PREFIX ++ "escrow_receive") (PREFIX ++"msg") "state" 
+                     ++ nl
+                     ++ CameLIGOPretty.printMain "state" |}.
 
   Definition to_inline : list kername := 
-    [
-      <%% Monads.Monad_option %%>
+    [ <%% Monads.Monad_option %%>
     ; <%% @Monads.bind %%>
     ; <%% @Monads.ret %%>
     ; <%% @Monads.lift %%>
@@ -154,7 +94,7 @@ Module EscrowCameLIGOExtraction.
     ; <%% bool_rec %%>
     ; <%% option_map %%>
     ; <%% @Extras.with_default %%>
-  
+
     ; <%% @setter_from_getter_State_last_action %%>
     ; <%% @setter_from_getter_State_next_step %%>
     ; <%% @setter_from_getter_State_seller %%>
@@ -168,11 +108,11 @@ Module EscrowCameLIGOExtraction.
     ; <%% @set_State_buyer %%>
     ; <%% @set_State_seller_withdrawable %%>
     ; <%% @set_State_buyer_withdrawable %%>
-
     ].
 
+
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX to_inline TT_remap_ligo TT_rename_ligo callctx ESCROW_MODULE_LIGO).
+  (CameLIGO_prepare_extraction PREFIX to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO).
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 

@@ -316,8 +316,8 @@ Module LiquidityInterp.
   Print liquidity_interp.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "examples/extracted-code/liquidity-extract/StackInterpreter.liq"
-  MetaCoq Run (tmMsg liquidity_interp).
+  (* Redirect "examples/extracted-code/liquidity-extract/StackInterpreter.liq" *)
+  (* MetaCoq Run (tmMsg liquidity_interp). *)
 
 End LiquidityInterp.
 
@@ -325,7 +325,13 @@ Module CameLIGOInterp.
 
   Import CameLIGOExtract CameLIGOPretty.
 
-  Definition receive_ (c : Chain) (ctx : SimpleCallCtx) (s : storage) (msg : option params):=
+  Definition init (ctx : ContractCallContext) (setup : unit) : option storage :=
+    let ctx0 := ctx in
+    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
+    Some [].
+
+
+  Definition receive_ (c : Chain) (ctx : ContractCallContext) (s : storage) (msg : option params):=
     (* prevent optimizations from deleting these arguments from receive_'s type signature *)
     let c_ := c in
     let ctx_ := ctx in
@@ -379,7 +385,7 @@ Module CameLIGOInterp.
           account_balance  = fun (a : address) -> 0n
         }".
 
-  Definition LIGO_INTERP_MODULE : CameLIGOMod params SimpleCallCtx unit storage action :=
+  Definition LIGO_INTERP_MODULE : CameLIGOMod params ContractCallContext unit storage action :=
     {| (* a name for the definition with the extracted code *)
        lmd_module_name := "cameligo_interp" ;
 
@@ -396,12 +402,12 @@ Module CameLIGOInterp.
 
        (* code for the entry point *)
        lmd_entry_point :=
-              CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list" CameLIGO_call_ctx
-                          ++ nl
-                          ++ CameLIGOPretty.printMain CameLIGO_call_ctx |}.
+         CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list"
+                                     ++ nl
+                                     ++ CameLIGOPretty.printMain "storage" |}.
 
     Time MetaCoq Run
-    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename CameLIGO_call_ctx LIGO_INTERP_MODULE  ).
+    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename "cctx_instance" LIGO_INTERP_MODULE).
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 

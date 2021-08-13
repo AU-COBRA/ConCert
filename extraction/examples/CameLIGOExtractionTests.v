@@ -1,4 +1,4 @@
-(** * Extraction of various contracts to cameLIGO *)
+(** * Extraction of various contracts to CameLIGO *)
 
 From Coq Require Import PeanoNat ZArith Notations.
 From Coq Require Import List Ascii String Bool.
@@ -20,6 +20,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.Examples Require EIP20Token.
 From ConCert.Execution Require Import Containers.
 From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Utils Require Import StringExtra.
 
 From stdpp Require gmap.
 
@@ -35,23 +36,6 @@ Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
   | Some a => f a
   | None => None
   end.
-
-Definition dummy_chain :=
-      "type chain = {
-        chain_height     : nat;
-        current_slot     : nat;
-        finalized_height : nat;
-        account_balance  : address -> nat
-      }"
-  ++ nl
-  ++ "let dummy_chain : chain = {
-        chain_height     = 0n;
-        current_slot     = 0n;
-        finalized_height = 0n;
-        account_balance  = fun (a : address) -> 0n
-      }".
-
-(* TODO: uncomment all [Redirect] commands once we set up the CI for CameLIGO *)
 
 Module SafeHead.
   (** This module shows how one can extract programs containing [False_rect] *)
@@ -102,6 +86,7 @@ Module SafeHead.
     tmDefinition "cameligo_safe_head" t).
 
     (** Extraction results in fully functional CameLIGO code *)
+    Redirect "examples/extracted-code/cameligo-extract/SafeHead.mligo"
     MetaCoq Run (tmMsg cameligo_safe_head).
 
 End SafeHead.
@@ -117,7 +102,7 @@ Module Counter.
   Definition operation := ActionBody.
   Definition storage := Z × address.
 
-  Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
+  Definition init (ctx : ContractCallContext) (setup : Z * address) : option storage :=
     let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Some setup.
 
@@ -144,7 +129,7 @@ Module Counter.
       else None
     end.
 
-  Definition counter (c : Chain) (ctx : SimpleCallCtx) st msg :=
+  Definition counter (c : Chain) (ctx : ContractCallContext) st msg :=
     (* avoid erasing c and ctx arguments *)
     let c_ := c in
     let ctx_ := ctx in
@@ -174,8 +159,9 @@ Module Counter.
         lmd_receive := counter;
 
         (* code for the entry point *)
-        lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" CameLIGO_call_ctx ++ nl
-                          ++ CameLIGOPretty.printMain "storage" |}.
+        lmd_entry_point :=
+          CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" ++ nl
+          ++ CameLIGOPretty.printMain "storage" |}.
 
 End Counter.
 Section CounterExtraction.
@@ -183,81 +169,85 @@ Section CounterExtraction.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_counter : list (kername * string) :=
-    [
-      remap <%% Amount %%> "tez"
-    ; remap <%% address_coq %%> "address"
+    [ remap <%% address_coq %%> "address"
     ; remap <%% time_coq %%> "timestamp"
     ; remap <%% nat %%> "address"
+    ; remap <%% operation %%> "operation"
     ].
-
-  (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-  Definition TT_rename :=
-    [ ("Some", "Some")
-    ; ("None", "None")
-    ; ("Z0" ,"0")
-    ; ("xH" ,"1n")
-    ; ("nil", "[]") ].
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
-  Time MetaCoq Run
-      (t <- CameLIGO_extract PREFIX [] TT_remap_counter TT_rename CameLIGO_call_ctx LIGO_COUNTER_MODULE ;;
-        tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t).
+  (* NOTE: running computations inside [TemplateMonad] is quite slow. That's why we comment out this code and use a different way below *)
 
-  (* NOTE: running computations inside [TemplateMonad] is quite slow.
-     If we first prepare the environment for erasure in [TemplateMonad]
+  (* Time MetaCoq Run *)
+  (*     (t <- CameLIGO_extract PREFIX [] TT_remap_counter [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
+  (*       tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t). *)
+
+
+  (*  If we first prepare the environment for erasure in [TemplateMonad]
      and run erasure/prining outside of it, it works ~4 times faster for this example *)
 
   (** This command adds [cameLIGO_counter_prepared] to the environment,
       which can be evaluated later *)
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction PREFIX [] TT_remap_counter TT_rename CameLIGO_call_ctx LIGO_COUNTER_MODULE).
+       (CameLIGO_prepare_extraction PREFIX [] TT_remap_counter [] "cctx_instance" LIGO_COUNTER_MODULE).
 
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/extracted-code/cameligo-extract/CounterCertifiedExtraction.ligo" *)
+  Redirect "examples/extracted-code/cameligo-extract/CounterCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_counter_1).
 
 End CounterExtraction.
 
 Module Crowdfunding.
-  (* Import PreludeExt CrowdfundingData Crowdfunding SimpleBlockchainExt. *)
+
+  Local Program Instance CB : ChainBase :=
+  build_chain_base nat Nat.eqb _ _ _ _ Nat.odd. (* Odd addresses are addresses of contracts :) *)
+Next Obligation.
+  eapply NPeano.Nat.eqb_spec.
+Defined.
+
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
-  Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
-  Definition crowdfunding_init (ctx : SimpleCallCtx)
+
+  Definition crowdfunding_init (ctx : ContractCallContext)
             (setup : (time_coq × Z × address_coq)) : option storage :=
-    if ctx.2.2.1 =? 0 then Some (setup, (Maps.mnil, false)) else None.
-    (* (unfolded Init.init) setup ctx. *)
-    Open Scope Z.
-    Import ListNotations.
-    Import AcornBlockchain.
-    Import MonadNotation.
-    Import CrowdfundingContract.
-    Import Validate.
-    Import Receive.
+    if ctx.(ctx_amount) =? 0 then Some (setup, (Maps.mnil, false)) else None.
+
+  Open Scope Z.
+  Import ListNotations.
+  Import AcornBlockchain.
+  Import MonadNotation.
+  Import CrowdfundingContract.
+  Import Validate.
+  Import Receive.
+
+  Definition to_simple_ctx_addr (addr : Blockchain.Address) : address_coq :=
+    if address_is_contract addr then ContractAddr_coq addr else
+      UserAddr_coq addr.
 
   Definition crowdfunding_receive_inner
-            (params : params)
+            (c : Chain)
+            (ctx : ContractCallContext)
+            (params : msg_coq)
             (st : storage) : option (list SimpleActionBody_coq × storage) :=
-    receive params.2 st params.1.
+    receive params st
+            (Time_coq c.(current_slot),
+             (to_simple_ctx_addr ctx.(ctx_from),
+             (ctx.(ctx_amount),
+             ctx.(ctx_contract_balance)))).
 
-  Definition crowdfunding_receive (c : Chain) (ctx : SimpleCallCtx) st msg :=
-    (* prevent them from getting erased *)
-    let c_ := c in
-    let ctx_ := ctx in
+  Definition crowdfunding_receive (c : Chain) (ctx : ContractCallContext) st msg :=
     match msg with
-    | Some msg => crowdfunding_receive_inner msg st
+    | Some msg => crowdfunding_receive_inner c ctx msg st
     | None => None
     end.
 
-  Open Scope string_scope.
-  Definition simple_ctx := "((timestamp * (address * (tez * tez))) * msg_coq)".
 
   Definition CF_MODULE :
-    CameLIGOMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
+    CameLIGOMod _ _ (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_crowdfunding" ;
 
@@ -267,7 +257,6 @@ Module Crowdfunding.
           ++ nl
           ++ dummy_chain
           ++ nl
-          ++ "type storage = ((timestamp * (tez * address)) * ((address,tez) map * bool))"
           ++ nl
           ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)"
           ++ nl
@@ -287,12 +276,11 @@ Module Crowdfunding.
 
       (* code for the entry point *)
       lmd_entry_point :=
-        CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive")
-                                    simple_ctx
+        "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive")
+                                    "msg_coq"
                                     "storage"
-                                    CameLIGO_call_ctx
                                     ++ nl
-                        ++ CameLIGOPretty.printMain simple_ctx |}.
+                                    ++ CameLIGOPretty.printMain "storage" |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -313,33 +301,33 @@ Section CrowdfundingExtraction.
 
   [  (* types *)
     remap <%% address_coq %%> "address"
-  ; remap <%% time_coq %%> "timestamp"
   ; remap <%% SimpleActionBody_coq %%> "operation"
   ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
 
+  (* simple addresses and the execution layer addresses are treated as the same *)
+  ; remap <%% to_simple_ctx_addr %%> "(fun (x : address) -> x)"
+
   (* operations *)
-  ; remap <%% ltb_time %%> "ltb_time"
-  ; remap <%% leb_time %%> "leb_time"
   ; remap <%% eqb_addr %%> "eq_addr"
   ; remap <%% Maps.add_map %%> "Map.add"
   ; remap <%% lookup_map' %%> "Map.find_opt"
   ].
 
   Definition TT_rename_crowdfunding :=
-    [ ("Z0" ,"0tez")
-    ; ("nil", "[]")
-    ; ("mnil", "Map.empty")
-    ; ("tt", "()") ].
+    [ ("mnil", "(Map.empty : (address,tez) map)")
+    ; ("true", "true")
+    ; ("false", "false")
+    ; ("tt", "()")].
 
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction PREFIX [] TT_remap_crowdfunding TT_rename_crowdfunding simple_ctx CF_MODULE).
+       (CameLIGO_prepare_extraction PREFIX [] TT_remap_crowdfunding TT_rename_crowdfunding "cctx_instance" CF_MODULE).
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
   MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.ligo" *)
+  Redirect "examples/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
 End CrowdfundingExtraction.
@@ -352,6 +340,7 @@ Section EIP20TokenExtraction.
   Open Scope Z_scope.
 
   Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
+    let ctx_ := ctx in
     Some {| total_supply := setup.(init_amount);
             balances := Common.AddressMap.add (EIP20Token.owner setup) (init_amount setup) Common.AddressMap.empty;
             allowances := Common.AddressMap.empty |}.
@@ -372,8 +361,7 @@ Section EIP20TokenExtraction.
       lmd_module_name := "cameLIGO_eip20token" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := CameLIGOPrelude ++ nl ++
-                     dummy_chain;
+      lmd_prelude := CameLIGOPrelude;
 
       (* initial storage *)
       lmd_init := init ;
@@ -388,15 +376,14 @@ Section EIP20TokenExtraction.
       lmd_receive := receive_ ;
 
       (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
-                        ++ CameLIGOPretty.printMain CameLIGO_contractCallContext|}.
+      lmd_entry_point :=
+        CameLIGOPretty.printWrapper "receive_" "msg" "state" ++ nl
+        ++ CameLIGOPretty.printMain "state"|}.
 
   Definition TT_remap_eip20token : list (kername * string) :=
     TT_remap_default ++ [
-    (* TODO: is it of a correct type? *)
-    remap <%% @ContractCallContext %%> "(address * (address * int))"
-  ; remap <%% @ctx_from %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-
+    remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
+  ; remap <%% @ctx_from %%> "ctx_from"
   ; remap <%% @ActionBody %%> "operation"
 
   ; remap <%% @FMap %%> "map"
@@ -429,148 +416,17 @@ Section EIP20TokenExtraction.
     ; ("N0", "0")
     ; ("N1", "1")
     ; ("nil", "[]")
+    ; ("true", "true")
+    ; ("false", "false")
     ; ("tt", "()") ].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX TT_inlines_eip20token TT_remap_eip20token TT_rename_eip20token CameLIGO_contractCallContext LIGO_EIP20Token_MODULE).
+  (CameLIGO_prepare_extraction PREFIX TT_inlines_eip20token TT_remap_eip20token TT_rename_eip20token "cctx_instance" LIGO_EIP20Token_MODULE).
 
   Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
 
-    (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
+  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.
-
-
-Section TestExtractionPlayground.
-  Import EIP20Token.
-  Import RecordSetNotations.
-
-  Open Scope N_scope.
-
-  (* A specialized version of FMap's partial alter, w.r.t. FMap Address N *)
-  Definition partial_alter_addr_nat : string :=
-       "let partial_alter_addr_nat (f : nat option -> nat option)" ++ nl
-    ++ "                           (k : address)" ++ nl
-    ++ "                           (m : (address,nat) map) : (address,nat) map =" ++ nl
-    ++ "  match Map.find_opt k m with" ++ nl
-    ++ "    Some v -> Map.update k (f v) m" ++ nl
-    ++ "  | None -> Map.update k (f (None : nat option)) m" ++ nl.
-
-  Definition option_map_state_acts : string :=
-       "let option_map_state_acts (f : state -> (state * operation list)) (o : state option) =" ++ nl
-    ++ "  match o with" ++ nl
-    ++ "    Some a -> Some (f a)" ++ nl
-    ++ "    | None -> (None : (state * operation list))".
-
-  Definition bind_option_state : string :=
-       "let bind_option_state (a, b, c : unit) (m : state option) (f : state -> state option) : state option =" ++ nl
-    ++ "match m with" ++ nl
-    ++ "    Some a -> f a" ++ nl
-    ++ "  | None -> (None : state option)".
-
-  Definition with_default_N : string :=
-       "let with_default_N (n : nat) (m : nat option) : n =" ++ nl
-    ++ "  match m with" ++ nl
-    ++ "    Some m -> m" ++ nl
-++ "  | None -> n".
-
-
-  Definition test_try_transfer (from : Address)
-       (to : Address)
-       (amount : TokenValue)
-       (state : State) : option State :=
-    let from_balance := Extras.with_default 0 (FMap.find from state.(balances)) in
-    if from_balance <? amount
-    then None
-    else let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-         let new_balances := FMap.partial_alter (fun balance => Some (Extras.with_default 0 balance + amount)) to new_balances in
-         Some ({|
-          balances := new_balances;
-          total_supply := state.(total_supply);
-          allowances := state.(allowances);
-        |}).
-  Open Scope bool_scope.
-  Definition test_try_transfer_from (delegate : Address)
-       (from : Address)
-       (to : Address)
-       (amount : TokenValue)
-       (state : State) : option State :=
-  match FMap.find from state.(allowances) with
-  | Some from_allowances_map =>
-  match FMap.find delegate from_allowances_map with
-  | Some delegate_allowance =>
-  let from_balance := Extras.with_default 0 (FMap.find from state.(balances)) in
-  if (delegate_allowance <? amount) || (from_balance <? amount)
-  then None
-  else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
-       let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-       let new_balances := FMap.partial_alter (fun balance => Some (Extras.with_default 0 balance + amount)) to new_balances in
-       Some ({|
-        balances := new_balances;
-        allowances := FMap.add from new_allowances state.(allowances);
-        total_supply := state.(total_supply)|})
-  | _ => None
-  end
-  | _ => None
-  end.
-
-  Definition test_init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    Some {| total_supply := setup.(init_amount);
-            balances := FMap.empty;
-            allowances := FMap.empty |}.
-  Open Scope Z_scope.
-  Definition test_receive (chain : Chain)
-       (ctx : ContractCallContext)
-       (state : EIP20Token.State)
-       (maybe_msg : option EIP20Token.Msg)
-    : option (list ActionBody * EIP20Token.State) :=
-    let chain_ := chain in
-    let sender := ctx.(ctx_from) in
-    let without_actions := option_map (fun new_state => ([], new_state)) in
-    match maybe_msg with
-    | Some (transfer to amount) => without_actions (test_try_transfer sender to amount state)
-    | Some (transfer_from from to amount) => without_actions (test_try_transfer_from sender from to amount state)
-    (* Other endpoints are not included in this extraction test *)
-    | _ => None
-    end.
-
-  Close Scope Z_scope.
-  Close Scope N_scope.
-
-  Definition playground_module : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
-  {| (* a name for the definition with the extracted code *)
-      lmd_module_name := "playground_mod" ;
-
-      (* definitions of operations on pairs and ints *)
-      lmd_prelude := CameLIGOPrelude;
-
-      (* initial storage *)
-      lmd_init := test_init;
-
-      lmd_init_prelude := "";
-
-      (* the main functionality *)
-      lmd_receive_prelude := partial_alter_addr_nat ++ nl ++
-      option_map_state_acts ++ nl ++
-      bind_option_state ++ nl ++
-      with_default_N;
-
-      lmd_receive := test_receive ;
-
-      (* code for the entry point *)
-      lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "eip20token") "msg" "state" CameLIGO_contractCallContext ++ nl
-                        ++ CameLIGOPretty.printMain CameLIGO_contractCallContext|}.
-
-
-  Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX [] TT_remap_eip20token TT_rename_eip20token CameLIGO_contractCallContext playground_module).
-
-  Time Definition playground_mod := Eval vm_compute in playground_mod_prepared.
-
-  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.ligo" *)
-  MetaCoq Run (tmMsg playground_mod).
-
-End TestExtractionPlayground.
