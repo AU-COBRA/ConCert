@@ -10,8 +10,7 @@ Liquidity allows only tail-recursive calls and recursive functions must have onl
 Another issue: constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
-
-Printing polymoprhic definitions is not supported currently (due to the need of removing redundant types from the type scheme). But the machinery is there, just need to switch to erased types.  *)
+ *)
 
 From Coq Require Import List Program String Ascii.
 From ConCert.Utils Require Import StringExtra.
@@ -399,9 +398,11 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
   Fixpoint fresh_names (Γ : context) (vs : list name) : context * list name :=
     match vs with
     | [] => (Γ, [])
-    | v :: vs0 => let Γ0 := vass v :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
-                  let '(Γ1, vs1) := fresh_names Γ0 vs0 in
-                  (Γ1, fresh_name Γ v (tVar "dummy") :: vs1)
+    | v :: vs0 =>
+      let nm := fresh_name Γ v (tVar "dummy") in
+      let Γ0 := vass nm :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
+      let '(Γ1, vs1) := fresh_names Γ0 vs0 in
+      (Γ1, nm :: vs1)
     end.
 
   (* [print_pat] expects that the names in pt.1 are already checked for freshness *)

@@ -25,8 +25,6 @@ Import RecordSetNotations.
 
 Module BR := BoardroomVoting.BoardroomVoting.
 
-About BR.Msg.
-
 Module Type BoardroomParams.
   Parameter H : list positive -> positive.
   Parameter prime : Z.
@@ -238,7 +236,6 @@ Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
 Definition isSome {A} (a : option A) := match a with Some _ => true | None => false end.
 
 Definition isNone {A} (a : option A) := match a with Some _ => false | None => true end.
-Definition onePos := 1%positive .
 Definition twoZ : Z := 2.
 
 Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
@@ -247,11 +244,11 @@ Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsg
   do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
   do amt <- lift call_amount;
   do lift (if (amount_eqb amt  (registration_deposit (setup state)))%Z then Some tt else None);
-  do lift (if Z.of_nat (length (public_keys state)) <? order - twoZ then Some tt else None);
+  do lift (if Z.of_nat (length (public_keys state)) <? order - 2 then Some tt else None);
   let index := length (public_keys state) in
   do lift (if verify_secret_key_proof pk index prf then Some tt else None);
   let inf := {| voter_index := index;
-                vote_hash := onePos;
+                vote_hash := 1;
                 public_vote := 0; |} in
   let new_state := {| owner := state.(owner);
                       registered_voters := AddressMap.add caller inf state.(registered_voters);
