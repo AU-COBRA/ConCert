@@ -46,6 +46,12 @@ Fixpoint sumnat {A : Type} (f : A -> nat) (xs : list A) : nat :=
   | x :: xs' => f x + sumnat f xs'
   end.
 
+Fixpoint sumN {A : Type} (f : A -> N) (xs : list A) : N :=
+  match xs with
+  | [] => 0
+  | x :: xs' => f x + sumN f xs'
+  end.
+
 Lemma sumnat_permutation
       {A : Type} {f : A -> nat} {xs ys : list A}
       (perm_eq : Permutation xs ys) :
@@ -551,6 +557,68 @@ Proof.
   now rewrite IHl.
 Qed.
 
+Lemma sumZ_le : forall {A} (f g : A -> Z) (xs : list A),
+  (forall x, In x xs -> f x <= g x) ->
+  sumZ f xs <= sumZ g xs.
+Proof.
+  intros A f g xs Hle.
+  induction xs as [|x' xs IH].
+  - apply Z.le_refl.
+  - apply Z.add_le_mono.
+    + apply Hle, in_eq.
+    + apply IH.
+      intros.
+      now apply Hle, in_cons.
+Qed.
+
+Lemma sumZ_nonnegative : forall {A} (f : A -> Z) (l : list A),
+  (forall x, In x l -> 0 <= f x) ->
+  0 <= sumZ f l.
+Proof.
+  intros.
+  erewrite <- sumZ_zero.
+  now apply sumZ_le.
+Qed.
+
+Lemma sumZ_eq : forall {A} (f g : A -> Z) (l : list A),
+  (forall x, In x l -> f x = g x) ->
+  sumZ f l = sumZ g l.
+Proof.
+  intros.
+  rewrite sumZ_map_id.
+  setoid_rewrite sumZ_map_id at 2.
+  f_equal.
+  now apply map_ext_in.
+Qed.
+
+Lemma sumZ_in_le : forall {A} (x : A) (f : A -> Z) (l : list A),
+  (forall y, In y l -> 0 <= f y) ->
+  In x l ->
+  f x <= sumZ f l.
+Proof.
+  intros * f_positive Hin.
+  induction l.
+  - inversion Hin.
+  - apply in_inv in Hin  as [Hin | Hin].
+    + cbn. subst.
+      rewrite <- (Z.add_0_r (f x)).
+      apply Z.add_le_mono.
+      * lia.
+      * apply sumZ_nonnegative.
+        intros.
+        apply f_positive.
+        now apply in_cons.
+    + cbn.
+      rewrite <- (Z.add_0_l (f x)).
+      apply Z.add_le_mono.
+      * apply f_positive.
+        apply in_eq.
+      * apply IHl; auto.
+        intros.
+        apply f_positive.
+        now apply in_cons.
+Qed.
+
 Lemma firstn_map {A B} (f : A -> B) n l :
   firstn n (map f l) = map f (firstn n l).
 Proof.
@@ -675,4 +743,87 @@ Proof.
   apply f_equal; apply IH.
   intros a ain.
   apply all; right; auto.
+Qed.
+
+
+
+Local Open Scope N.
+Lemma sumN_permutation {A : Type} {f : A -> N} {xs ys : list A} (perm_eq : Permutation xs ys) :
+  sumN f xs = sumN f ys.
+Proof.
+  induction perm_eq; perm_simplify; lia.
+Qed.
+
+Instance sumN_perm_proper {A : Type} :
+  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
+Proof.
+  repeat intro. subst. now apply sumN_permutation.
+Qed.
+
+Lemma sumN_map {A B : Type} (f : A -> B) (g : B -> N) (xs : list A) :
+  sumN g (map f xs) =
+  sumN (fun a => g (f a)) xs.
+Proof.
+  induction xs as [|hd tl IH]; auto.
+  cbn.
+  now rewrite IH.
+Qed.
+
+Lemma sumN_map_id {A} (f : A -> N) l :
+  sumN f l = sumN id (map f l).
+Proof.
+  induction l; cbn; auto.
+  unfold id.
+  now rewrite IHl.
+Qed.
+
+Lemma sumN_app
+      {A : Type} {f : A -> N} {xs ys : list A} :
+  sumN f (xs ++ ys) = sumN f xs + sumN f ys.
+Proof.
+  revert ys.
+  induction xs as [| x xs IH]; intros ys; auto.
+  cbn.
+  rewrite IH.
+  lia.
+Qed.
+
+Lemma sumN_split : forall {A : Type} (f : A -> N) (x y z : A) (xs : list A),
+  f z = f x + f y ->
+  sumN f (z :: xs) =
+  sumN f (x :: y :: xs).
+Proof.
+  cbn. lia.
+Qed.
+
+Lemma sumN_swap : forall {A : Type} (f : A -> N) (x y : A) (xs : list A),
+  sumN f (x :: y :: xs) =
+  sumN f (y :: x :: xs).
+Proof.
+  intros.
+  apply sumN_permutation, perm_swap.
+Qed.
+
+Lemma sumN_in_le : forall {A : Type} (f : A -> N) (x : A) (xs : list A),
+  In x xs -> f x <= sumN f xs.
+Proof.
+  intros A f x xs HIn.
+  induction xs.
+  - inversion HIn.
+  - apply in_inv in HIn as [Heq | HIn].
+    + cbn.
+      subst.
+      lia.
+    + cbn.
+      rewrite IHxs by assumption.
+      lia.
+Qed.
+
+Lemma sumN_inv : forall {A : Type} (f : A -> N) (x : A) (xs : list A),
+  sumN f xs + f x =
+  sumN f (x :: xs).
+Proof.
+  intros.
+  cbn.
+  now rewrite N.add_comm.
 Qed.
