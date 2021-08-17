@@ -23,8 +23,8 @@ Import LocalBlockchain.
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
 Existing Instance showTokenState.
-
-Definition token_setup := EIP20Token.build_setup creator (100%N).
+Definition init_supply := (100%N).
+Definition token_setup := EIP20Token.build_setup creator init_supply.
 Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_setup.
 
 Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -66,9 +66,73 @@ Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
 Local Open Scope N_scope.
 Extract Constant defNumDiscards => "(3 * defNumTests)".
 
-Definition msg_is_transfer (cstate : EIP20Token.State) (msg : EIP20Token.Msg) :=
+Definition post_not_payable (chain : Chain) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (_, _), _) =>
+    (checker (cctx.(ctx_amount) =? 0)%Z)
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+
+(* QuickChick (
+  {{fun _ _ => true}}
+  contract_base_addr
+  {{post_not_payable}}
+). *)
+
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+Definition post_no_new_acts (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (_, new_acts), _) =>
+    match new_acts with
+    | [] => checker true
+    | _ => checker false
+    end
+  | _ => checker false
+  end.
+
+(* QuickChick (
+  {{fun _ _ => true}}
+  contract_base_addr
+  {{post_no_new_acts}}
+). *)
+
+(* +++ Passed 10000 tests (0 discards) *)
+
+Definition post_total_supply_constant (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), _) =>
+    checker (old_state.(total_supply) =? new_state.(total_supply))
+  | _ => checker false
+  end.
+
+(* QuickChick (
+  {{fun _ _ => true}}
+  contract_base_addr
+  {{post_total_supply_constant}}
+). *)
+
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+Definition msg_is_transfer (cstate : EIP20Token.State) (msg : EIP20Token.Msg) : bool :=
   match msg with
   | transfer _ _ => true
+  | _ => false
+  end.
+
+Definition msg_is_transfer_from (cstate : EIP20Token.State) (msg : EIP20Token.Msg) : bool :=
+  match msg with
+  | transfer_from _ _ _ => true
+  | _ => false
+  end.
+
+Definition msg_is_approve (cstate : EIP20Token.State) (msg : EIP20Token.Msg) : bool :=
+  match msg with
+  | approve _ _ => true
   | _ => false
   end.
 
@@ -106,8 +170,62 @@ Definition post_transfer_correct (chain : Chain) cctx old_state msg (result_opt 
 
 (* +++ Passed 10000 tests (0 discards) *)
 
-(* One key property: the sum of the balances is always equal to the initial supply *)
-Definition sum_balances_eq_init_supply (state : EIP20Token.State) :=
+
+Definition get_allowance state from delegate :=
+  with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state)))).
+
+Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
+  let delegate_allowance_before := get_allowance old_state from delegate in
+  let delegate_allowance_after := get_allowance new_state from delegate in 
+    delegate_allowance_before =? delegate_allowance_after + tokens.
+
+Definition post_transfer_from_correct (chain : Chain) cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), transfer_from from to tokens) =>
+    let sender := cctx.(ctx_from) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker ((transfer_balance_update_correct old_state new_state from to tokens) &&
+              (transfer_from_allowances_update_correct old_state new_state from sender tokens)))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+
+(* QuickChick (
+  {{msg_is_transfer_from}}
+  contract_base_addr
+  {{post_transfer_from_correct}}
+). *)
+
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+Definition approve_allowance_update_correct (new_state : State) (from delegate : Address) (tokens : TokenValue) :=
+  let delegate_allowance_after := get_allowance new_state from delegate in
+    delegate_allowance_after =? tokens.
+
+Definition post_approve_correct (chain : Chain) cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), approve delegate tokens) =>
+    let from := cctx.(ctx_from) in
+    whenFail (show old_state ++ nl ++ show result_opt)
+    (checker (approve_allowance_update_correct new_state from delegate tokens))
+  (* if 'receive' failed, or msg is not a transfer_from
+     then just discard this test *)
+  | _ => checker false
+  end.
+
+(* QuickChick (
+  {{msg_is_transfer_from}}
+  contract_base_addr
+  {{post_transfer_from_correct}}
+). *)
+
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+(* One key property: the sum of the balances is always equal to the total supply *)
+Definition sum_balances_eq_total_supply (state : EIP20Token.State) :=
   let balances_list := (map snd o FMap.elements) state.(balances) in
   let balances_sum : N := fold_left N.add balances_list 0%N in
   balances_sum =? state.(total_supply).
@@ -118,9 +236,17 @@ Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs :
   | None => checker true (* trivially true case *) 
   end.
 
-(* QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_init_supply)). *)
+(* QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_total_supply)). *)
 (* coqtop-stdout:+++ Passed 10000 tests (1570 discards) *)
 (* 8 seconds *)
+
+(* One key property: the total supply is always equal to the initial supply *)
+Definition init_supply_eq_total_supply (state : EIP20Token.State) :=
+  init_supply =? state.(total_supply).
+
+(* QuickChick (forAllTokenChainTraces 5 (checker_get_state init_supply_eq_total_supply)). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
 
 (* INVALID PROPERTY: accounts may allow multiple other accounts to transfer tokens, but the actual transfer ensures that
    no more tokens are sent than the balance of the sender. *)
@@ -332,5 +458,3 @@ Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 12%256 8)}];|}
 
 *** Failed after 1 tests and 0 shrinks. (216 discards)
 *)
-
-(* Definition transfer_from_reduces_balance_correctly_P := TODO... *)
