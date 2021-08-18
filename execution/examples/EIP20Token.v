@@ -148,7 +148,7 @@ Import Permutation.
 
 (* receive only returns Some if the sender amount is zero *)
 Lemma EIP20_not_payable : forall prev_state new_state chain ctx msg new_acts,
-  receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
+  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
     ((ctx_amount ctx) <= 0)%Z.
 Proof.
   intros * receive_some.
@@ -185,12 +185,12 @@ Qed.
 
 (* receive never produces any new_acts *)
 Lemma EIP20_no_acts : forall prev_state new_state chain ctx msg new_acts,
-  receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
+  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
     new_acts = [].
 Proof.
-  intros * receive_some%receive_not_payable.
-  unfold option_map in receive_some.
-  now do 2 destruct_match in receive_some.
+  intros * receive_some.
+  unfold receive, option_map in receive_some.
+  repeat destruct_match in receive_some; try congruence.
 Qed.
 
 Lemma receive_no_acts : forall prev_state new_state chain ctx msg new_acts,
@@ -199,6 +199,18 @@ Lemma receive_no_acts : forall prev_state new_state chain ctx msg new_acts,
 Proof.
   intros.
   now erewrite <- EIP20_no_acts.
+Qed.
+
+
+
+(* ------------------- Default entrypoint always fail ------------------- *)
+
+Lemma default_none : forall prev_state chain ctx,
+  receive chain ctx prev_state None = None.
+Proof.
+  intros.
+  unfold receive.
+  now destruct_match.
 Qed.
 
 
@@ -735,6 +747,21 @@ Proof.
   receive_simpl.
   destruct_match in receive_some;
     now inversion receive_some.
+Qed.
+
+
+
+(* ------------------- Contract never produces any actions ------------------- *)
+
+Lemma lift_outgoing_acts_nil : forall (bstate : ChainState) (caddr : Address),
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  outgoing_acts bstate caddr = [].
+Proof.
+  intros * reach deployed.
+  apply (lift_outgoing_acts_nil contract); eauto.
+  intros.
+  now eapply EIP20_no_acts.
 Qed.
 
 
