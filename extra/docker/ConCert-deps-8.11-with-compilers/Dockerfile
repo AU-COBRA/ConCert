@@ -26,3 +26,12 @@ RUN rustup target add wasm32-unknown-unknown \
 
 # install LIGO v0.22.0
 RUN curl -L -O https://gitlab.com/ligolang/ligo/-/jobs/1476886966/artifacts/raw/ligo && sudo chmod +x ./ligo && sudo cp ./ligo /usr/local/bin
+
+# install Elm 0.19.1
+
+RUN curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/binary-for-linux-64-bit.gz \
+    && gunzip elm.gz \
+    && sudo chmod +x elm \
+    && sudo mv elm /usr/local/bin/ \
+    && sudo apt install npm -y \
+    && sudo npm install -g elm-test

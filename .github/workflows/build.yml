@@ -14,9 +14,8 @@ jobs:
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
-        make test-extraction && \
-        make html &&\
-        make clean-extraction-out-files
+        make clean-extraction-out-files && \
+        make html
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
@@ -25,3 +24,6 @@ jobs:
       with:
         name: Extracted-code
         path: extraction/examples/extracted-code
+    - name: Test extraction
+      run: |
+        make test-extraction
