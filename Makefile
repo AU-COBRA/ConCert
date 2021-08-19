@@ -47,6 +47,11 @@ process-extraction-examples:
 	+make -C extraction process-extraction-examples
 .PHONY: process-extraction-examples
 
+
+clean-extraction-out-files:
+	+make -C extraction clean-extraction-out-files
+.PHONY: clean-extraction-out-files
+
 clean-extraction-examples:
 	+make -C extraction clean-extraction-examples
 .PHONY: clean-extraction-examples

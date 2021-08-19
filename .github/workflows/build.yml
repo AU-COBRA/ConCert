@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: aucobra/concert:deps-coq-8.11
+    container: aucobra/concert:deps-coq-8.11-with-compilers
     steps:
     - run: sudo chown -R coq:coq .
     - uses: actions/checkout@v2
@@ -14,16 +14,14 @@ jobs:
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
-        make html
+        make test-extraction && \
+        make html &&\
+        make clean-extraction-out-files
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
         path: docs/
     - uses: actions/upload-artifact@v2
       with:
-        name: liquidity-extraction
-        path: extraction/examples/liquidity-extract/tests/
-    - uses: actions/upload-artifact@v2
-      with:
-        name: elm-extraction
-        path: extraction/examples/elm-extract/
+        name: Extracted-code
+        path: extraction/examples/extracted-code
