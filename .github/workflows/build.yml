@@ -15,8 +15,10 @@ jobs:
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
         make process-extraction-examples && \
+        make test-extraction && \
         make clean-extraction-out-files && \
-        make html
+        make clean-compiled-extraction && \
+        make html && \
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
@@ -32,6 +34,3 @@ jobs:
         user-email: danil.v.annenkov@gmail.com
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
-    - name: Test extraction
-      run: |
-        make test-extraction
