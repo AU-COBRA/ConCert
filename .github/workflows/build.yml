@@ -22,7 +22,7 @@ jobs:
         name: Documentation
         path: docs/
     - name: Push to the extraction repository
-      uses: AU-COBRA/extraction-resutls@main
+      uses: cpina/github-action-push-to-another-repository@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
