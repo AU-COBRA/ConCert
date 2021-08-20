@@ -1,4 +1,4 @@
-all: theory process-extraction-examples plugin
+all: theory plugin
 .PHONY: all
 
 CoqMakefile: _CoqProject
@@ -81,9 +81,9 @@ clean-extraction-out-files:
 	rm ./examples/extracted-code/midlang-extract/*.midlang.out -f
 
 clean-extraction-examples: clean-comiped-ligo clean-compiled-liquidity clean-extraction-out-files
-	rm ./examples/extracted-code/elm-extract/tests/*.elm
-	rm ./examples/extracted-code/liquidity-extract/tests/*.liq
-	rm ./examples/extracted-code/cameligo-extract/tests/*.mligo
+	rm ./examples/extracted-code/elm-extract/tests/*.elm -f
+	rm ./examples/extracted-code/liquidity-extract/tests/*.liq -f
+	rm ./examples/extracted-code/cameligo-extract/tests/*.mligo -f
 
 
-.PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-elm test-liquidity test-ligo test-extraction
+.PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-elm test-liquidity test-ligo test-extraction clean-extraction-out-files

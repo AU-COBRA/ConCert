@@ -110,14 +110,15 @@ Module EscrowCameLIGOExtraction.
     ; <%% @set_State_buyer_withdrawable %%>
     ].
 
+  (* TODO: uncomment! *)
 
-  Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO).
+  (* Time MetaCoq Run *)
+  (* (CameLIGO_prepare_extraction PREFIX to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO). *)
 
-  Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
+  (* Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared. *)
 
-  Redirect "examples/extracted-code/cameligo-extract/EscrowExtract.mligo"
-  MetaCoq Run (tmMsg cameLIGO_escrow).
+  (* Redirect "examples/extracted-code/cameligo-extract/EscrowExtract.mligo" *)
+  (* MetaCoq Run (tmMsg cameLIGO_escrow). *)
 
 End EscrowCameLIGOExtraction.
 
@@ -246,14 +247,14 @@ Module EscrowLiquidityExtraction.
     ].
 
   Import MonadNotation.
-  
-  Time MetaCoq Run
-      (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
-        tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
-      ).
+  (* TODO: uncomment! *)  
+  (* Time MetaCoq Run *)
+  (*     (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;; *)
+  (*       tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t *)
+  (*     ). *)
 
-  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "examples/extracted-code/liquidity-extract/escrow.liq"
-  MetaCoq Run (tmMsg liquidity_escrow).
+  (* (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *) *)
+  (* Redirect "examples/extracted-code/liquidity-extract/escrow.liq" *)
+  (* MetaCoq Run (tmMsg liquidity_escrow). *)
   
 End EscrowLiquidityExtraction.
