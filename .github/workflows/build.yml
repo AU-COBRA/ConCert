@@ -14,16 +14,24 @@ jobs:
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
+        make process-extraction-examples && \
         make clean-extraction-out-files && \
         make html
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
         path: docs/
-    - uses: actions/upload-artifact@v2
+    - name: Push to the extraction repository
+      uses: AU-COBRA/extraction-resutls@main
+      env:
+        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
-        name: Extracted-code
-        path: extraction/examples/extracted-code
+        source-directory: 'extraction/examples/extracted-code'
+        destination-github-username: 'AU-COBRA'
+        destination-repository-name: 'extraction-resutls'
+        user-email: danil.v.annenkov@gmail.com
+        commit-message: See ORIGIN_COMMIT from $GITHUB_REF
+        target-branch: main
     - name: Test extraction
       run: |
         make test-extraction
