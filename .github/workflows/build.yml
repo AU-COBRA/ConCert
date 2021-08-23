@@ -20,8 +20,8 @@ jobs:
       run: |
         export HOME=/home/coq && \
         env && \
-        opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
+        opam switch && \
         sudo make test-extraction && \
         sudo make clean-extraction-out-files && \
         sudo make clean-compiled-extraction
