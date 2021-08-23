@@ -18,10 +18,9 @@ jobs:
         make html
     - name: Test extraction
       run: |
-        sudo chown -R coq:coq . && \
-        make test-extraction && \
-        make clean-extraction-out-files && \
-        make clean-compiled-extraction
+        sudo make test-extraction && \
+        sudo make clean-extraction-out-files && \
+        sudo make clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
