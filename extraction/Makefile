@@ -108,6 +108,7 @@ clean-extraction-sources:
 .PHONY:clean-extraction-sources
 
 clean-extraction-examples: clean-compiled-extraction clean-extraction-out-files clean-extraction-sources
+	rm ./examples/*.vo # to force recompilation of examples (a bit ad-hoc though)
 
 
 .PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-elm test-liquidity test-ligo test-extraction clean-extraction-out-files

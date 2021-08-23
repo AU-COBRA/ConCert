@@ -15,13 +15,7 @@ jobs:
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
         make process-extraction-examples && \
-        make html
-    - name: Test extraction
-      run: |
-        export HOME=/home/coq && \
-        env && \
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        opam switch && \
+        make html && \
         sudo make test-extraction && \
         sudo make clean-extraction-out-files && \
         sudo make clean-compiled-extraction
