@@ -13,11 +13,6 @@ LIQ_TESTS=$LIQ_PATH/tests
 LIGO_TESTS=$LIGO_PATH/tests
 MID_TESTS=$MID_PATH/tests
 
-rm $ELM_TESTS/*.elm
-rm $LIQ_TESTS/*.liq
-rm $LIQ_TESTS/*.tz
-rm $MID_TESTS/*.midlang
-
 echo "Processing Elm extraction"
 for f in $ELM_PATH/*.elm.out;
 do

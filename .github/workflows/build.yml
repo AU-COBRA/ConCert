@@ -18,6 +18,7 @@ jobs:
         make html
     - name: Test extraction
       run: |
+        sudo chown -R coq:coq . && \
         make test-extraction && \
         make clean-extraction-out-files && \
         make clean-compiled-extraction
