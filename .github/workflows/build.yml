@@ -18,6 +18,7 @@ jobs:
         make html
     - name: Test extraction
       run: |
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         sudo make test-extraction && \
         sudo make clean-extraction-out-files && \
         sudo make clean-compiled-extraction
