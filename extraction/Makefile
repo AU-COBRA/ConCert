@@ -65,7 +65,7 @@ test-elm:
 test-liquidity: clean-compiled-liquidity $(LIQUIDITY_DIST)
 
 $(LIQUIDITY_SRC_DIR)/%.tz:
-	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@
+	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@ 2>> $(LIQUIDITY_DIR)/liquidity.log
 
 
 test-ligo: clean-comiped-ligo $(LIGO_DIST)

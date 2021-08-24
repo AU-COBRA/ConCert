@@ -35,3 +35,9 @@ RUN curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/b
     && sudo mv elm /usr/local/bin/ \
     && sudo apt install npm -y \
     && sudo npm install -g elm-test
+
+# configuring git to use https
+
+RUN git config --global url."https://github.com/".insteadOf git@github.com: && git config --global url."https://".insteadOf git://
+
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true

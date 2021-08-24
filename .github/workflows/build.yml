@@ -16,13 +16,17 @@ jobs:
         make && \
         make process-extraction-examples && \
         make html && \
-        sudo make test-extraction && \
-        sudo make clean-extraction-out-files && \
-        sudo make clean-compiled-extraction
+        make test-extraction && \
+        make clean-extraction-out-files && \
+        make clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
         path: docs/
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Liquidity logs
+        path: extraction/examples/extracted-code/liquidity-extract/liquidity.log
     - name: Push to the extraction repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
