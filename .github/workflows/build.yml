@@ -16,9 +16,9 @@ jobs:
         make && \
         make process-extraction-examples && \
         make html && \
-        sudo make test-extraction && \
-        sudo make clean-extraction-out-files && \
-        sudo make clean-compiled-extraction
+        make test-extraction && \
+        make clean-extraction-out-files && \
+        make clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
