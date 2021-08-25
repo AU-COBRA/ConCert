@@ -56,7 +56,7 @@ ELM_WEB_APP_DIR=./examples/extracted-code/elm-web-extract
 test-extraction: test-elm test-liquidity test-ligo test-concordium
 
 test-concordium:
-	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), whereis cargo && ls -l /home/coq/.cargo/bin/cargo && whoami && cd $(dir) && cargo concordium test && cd ../../../..;)
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), whereis cargo && ls -l $(dir) && whoami && cd $(dir) && /home/coq/.cargo/bin/cargo concordium test && cd ../../../..;)
 
 test-elm:
 	cd $(ELM_DIR); elm-test
