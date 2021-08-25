@@ -10,6 +10,7 @@ jobs:
     - name: Build
       run: |
         export HOME=/home/coq && \
+        PATH=/home/coq/.cargo/bin:$PATH
         env && \
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
