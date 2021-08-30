@@ -50,13 +50,18 @@ LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
 
 CONCORDIUM_DIR=./examples/extracted-code/concordium-extract
 
+RUST_DIR=./examples/extracted-code/rust-extract
+
 ELM_DIR=./examples/extracted-code/elm-extract
 ELM_WEB_APP_DIR=./examples/extracted-code/elm-web-extract
 
-test-extraction: test-elm test-liquidity test-ligo test-concordium
+test-extraction: test-elm test-liquidity test-ligo test-concordium test-rust
 
-test-concordium:
-	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), ls -l $(dir)/src && cd $(dir) && cargo concordium test && cd ../../../..;)
+test-concordium: clean-compiled-concordium
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
+
+test-rust: clean-compiled-rust
+	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), cd $(dir) && cargo run && cd ../../../..;)
 
 test-elm:
 	cd $(ELM_DIR); elm-test
@@ -84,6 +89,11 @@ clean-compiled-concordium:
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm $(dir)/target -f -r;)
 .PHONY: clean-compiled-concordium
 
+clean-compiled-rust:
+	rm $(RUST_DIR)/concert-std/target -f -r
+	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm $(dir)/target -f -r;)
+.PHONY: clean-compiled-rust
+
 clean-compiled-elm:
 	rm $(ELM_WEB_APP_DIR)/elm-stuff -f -r
 	rm $(ELM_WEB_APP_DIR)/index.html -f -r
@@ -98,6 +108,8 @@ clean-extraction-out-files:
 	rm $(ELM_DIR)/*.elm.out -f
 	rm $(LIQUIDITY_DIR)/*.liq.out -f
 	rm $(LIGO_DIR)/*.mligo.out -f
+	rm $(CONCORDIUM_DIR)/*.rs.out -f
+	rm $(RUST_DIR)/*.rs.out -f
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm $(dir)/*.rs.out -f -r;)
 
 clean-extraction-sources:

@@ -152,15 +152,7 @@ Definition extract_lines
          p.1
          (KernameSet.singleton entry)
          without_deps;;
-  let p :=
-      names <- print_program Σ remaps default_attrs;;
-      append_nl;;
-      append "fn main() {";;
-      append_nl;;
-      let name := const_global_ident_of_kername entry in
-      append ("  print!(""{:?}"", Program::new()." ++ name ++ "())");;
-      append_nl;;
-      append "}" in
+  let p := print_program Σ remaps default_attrs in
   '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
   ret s.
 
