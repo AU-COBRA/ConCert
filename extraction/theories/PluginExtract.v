@@ -22,7 +22,6 @@ Instance plugin_extract_preamble : Preamble :=
 "#![allow(unused_imports)]";
 "#![allow(non_snake_case)]";
 "#![allow(unused_variables)]";
-"#![feature(unsigned_abs)]";
 "";
 "use std::marker::PhantomData;";
 "";

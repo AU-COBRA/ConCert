@@ -176,15 +176,14 @@ Section EIP20TokenExtraction.
     ; <%% @Common.AddressMap.AddrMap %%>
     ].
 
-  (* TODO: uncomment!*)
-  (* Time MetaCoq Run *)
-  (*     (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;; *)
-  (*     tmDefinition EIP20Token_MODULE.(lmd_module_name) t). *)
+  Time MetaCoq Run
+      (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
+      tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
 
   
-  (* (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *) *)
-  (* Redirect "./examples/extracted-code/liquidity-extract/liquidity_eip20token.liq" *)
-  (* Compute liquidity_eip20token. *)
+  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
+  Redirect "./examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
+  Compute liquidity_eip20token.
 
 
 End EIP20TokenExtraction.
