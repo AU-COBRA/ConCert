@@ -40,3 +40,4 @@ jobs:
         user-name: annenkov
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
+      if: github.event_name != 'pull_request'
