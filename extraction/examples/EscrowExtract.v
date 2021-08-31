@@ -110,7 +110,6 @@ Module EscrowCameLIGOExtraction.
     ; <%% @set_State_buyer_withdrawable %%>
     ].
 
-
   Time MetaCoq Run
   (CameLIGO_prepare_extraction PREFIX to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO).
 
@@ -246,7 +245,7 @@ Module EscrowLiquidityExtraction.
     ].
 
   Import MonadNotation.
-  
+
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
         tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
