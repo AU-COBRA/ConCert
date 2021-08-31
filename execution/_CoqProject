@@ -31,6 +31,8 @@ examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
 examples/Counter.v
+examples/Dexter2FA12.v
+examples/Dexter2CPMM.v
 examples/EIP20Token.v
 examples/Egcd.v
 examples/Escrow.v
