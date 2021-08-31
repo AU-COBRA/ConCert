@@ -1,4 +1,4 @@
-all: theory process-extraction-examples plugin
+all: theory plugin
 .PHONY: all
 
 CoqMakefile: _CoqProject
@@ -38,19 +38,89 @@ process-extraction-examples: theory
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
-test-extraction:
-	cd ./examples/extracted-code/elm-extract/; elm-test
-	cd ./examples/extracted-code/elm-web-extract/; elm make src/Main.elm
-	$(foreach file, $(wildcard ./examples/extracted-code/liquidity-extract/tests/*.liq), liquidity $(file);)
-	$(foreach dir, $(wildcard ./examples/extracted-code/concordium-extract/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
-	$(foreach file, $(wildcard ./examples/extracted-code/cameligo-extract/tests/*.mligo), ligo compile-contract $(file) main;)
-.PHONY: test-extraction
+LIQUIDITY_DIR=./examples/extracted-code/liquidity-extract
+LIQUIDITY_SRC_DIR=$(LIQUIDITY_DIR)/tests
+LIQUIDITYFILES=$(wildcard $(LIQUIDITY_SRC_DIR)/*.liq)
+LIQUIDITY_DIST=$(patsubst $(LIQUIDITY_SRC_DIR)/%.liq,$(LIQUIDITY_SRC_DIR)/%.tz,$(LIQUIDITYFILES))
 
-clean-extraction-examples:
-	rm ./examples/extracted-code/elm-extract/*.elm.out
-	rm ./examples/extracted-code/elm-extract/tests/*.elm
-	rm ./examples/extracted-code/liquidity-extract/*.liq.out
-	rm ./examples/extracted-code/liquidity-extract/tests/*.liq
-	rm ./examples/extracted-code/midlang-extract/*.midlang.out
+LIGO_DIR=./examples/extracted-code/cameligo-extract
+LIGO_SRC_DIR=$(LIGO_DIR)/tests
+LIGOFILES=$(wildcard $(LIGO_SRC_DIR)/*.mligo)
+LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
+
+CONCORDIUM_DIR=./examples/extracted-code/concordium-extract
+
+RUST_DIR=./examples/extracted-code/rust-extract
+
+ELM_DIR=./examples/extracted-code/elm-extract
+ELM_WEB_APP_DIR=./examples/extracted-code/elm-web-extract
+
+test-extraction: test-elm test-liquidity test-ligo test-concordium test-rust
+
+test-concordium: clean-compiled-concordium
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
+
+test-rust: clean-compiled-rust
+	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), cd $(dir) && cargo run && cd ../../../..;)
+
+test-elm:
+	cd $(ELM_DIR); elm-test
+	cd $(ELM_WEB_APP_DIR); elm make src/Main.elm
+
+test-liquidity: clean-compiled-liquidity $(LIQUIDITY_DIST)
+
+$(LIQUIDITY_SRC_DIR)/%.tz:
+	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@ 2>> $(LIQUIDITY_DIR)/liquidity.log
+
+
+test-ligo: clean-comiped-ligo $(LIGO_DIST)
+
+$(LIGO_SRC_DIR)/%.tz:
+	ligo compile-contract $(LIGO_SRC_DIR)/$*.mligo main --output-file=$@ --warn=false
+
+clean-comiped-ligo:
+	rm ./examples/extracted-code/cameligo-extract/tests/*.tz -f
+
+clean-compiled-liquidity:
+	rm ./examples/extracted-code/liquidity-extract/tests/*.tz -f
+
+clean-compiled-concordium:
+	rm $(CONCORDIUM_DIR)/concert-std/target -f -r
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm $(dir)/target -f -r;)
+.PHONY: clean-compiled-concordium
+
+clean-compiled-rust:
+	rm $(RUST_DIR)/concert-std/target -f -r
+	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm $(dir)/target -f -r;)
+.PHONY: clean-compiled-rust
+
+clean-compiled-elm:
+	rm $(ELM_WEB_APP_DIR)/elm-stuff -f -r
+	rm $(ELM_WEB_APP_DIR)/index.html -f -r
+	rm $(ELM_DIR)/elm-stuff -f -r
+.PHONY: clean-comliped-elm
+
+clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-concordium
+.PHONY: clean-compiled-extraction
+
+clean-extraction-out-files:
+	rm $(ELM_WEB_APP_DIR)/*.elm.out -f
+	rm $(ELM_DIR)/*.elm.out -f
+	rm $(LIQUIDITY_DIR)/*.liq.out -f
+	rm $(LIGO_DIR)/*.mligo.out -f
+	rm $(CONCORDIUM_DIR)/*.rs.out -f
+	rm $(RUST_DIR)/*.rs.out -f
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm $(dir)/*.rs.out -f -r;)
+
+clean-extraction-sources:
+	rm $(ELM_DIR)/tests/*.elm -f
+	rm $(ELM_WEB_DIR)/src/*.elm -f
+	rm $(LIQUIDITY_DIR)/*.liq -f
+	rm $(LIGO_DIR)/*.mligo -f
+.PHONY:clean-extraction-sources
+
+clean-extraction-examples: clean-compiled-extraction clean-extraction-out-files clean-extraction-sources
 	rm ./examples/*.vo # to force recompilation of examples (a bit ad-hoc though)
-.PHONY: clean-extraction-examples
+
+
+.PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-elm test-liquidity test-ligo test-extraction clean-extraction-out-files

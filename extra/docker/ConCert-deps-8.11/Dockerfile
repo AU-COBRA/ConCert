@@ -1,7 +1,6 @@
 FROM coqorg/coq:8.11
 
-LABEL maintainer="jakob.botsch.nielsen@gmail.com"
-
+# build dependencies
 RUN ["/bin/bash", "--login", "-c", "set -x \
   && eval $(opam env --switch=${COMPILER_EDGE} --set-switch) \
   && opam repository add --all-switches --set-default iris-dev https://gitlab.mpi-sws.org/iris/opam.git \

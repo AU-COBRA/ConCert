@@ -13,11 +13,6 @@ LIQ_TESTS=$LIQ_PATH/tests
 LIGO_TESTS=$LIGO_PATH/tests
 MID_TESTS=$MID_PATH/tests
 
-rm $ELM_TESTS/*.elm
-rm $LIQ_TESTS/*.liq
-rm $LIQ_TESTS/*.tz
-rm $MID_TESTS/*.midlang
-
 echo "Processing Elm extraction"
 for f in $ELM_PATH/*.elm.out;
 do
@@ -57,11 +52,29 @@ done
 echo "Processing Rust Concordium extraction"
 concordium_contracts="counter interp escrow"
 
+CONCORDIUM_SUFFIX=extracted/src/lib.rs
+CONCORDIUM_TESTS=extracted/src/tests.rs
+
 for f in ${concordium_contracts}
 do
-fname=$CONCORDIUM_PATH/${f}-extracted/src/lib.rs
-echo "removing previous extraction: " ${fname}
-rm -f ${fname}
-echo "Processing" ${f}.rs.out
-cat $CONCORDIUM_PATH/${f}.rs.out $CONCORDIUM_PATH/${f}-extracted/src/tests.rs > $CONCORDIUM_PATH/${f}-extracted/src/lib.rs
+    fname=$CONCORDIUM_PATH/${f}-${CONCORDIUM_SUFFIX}
+    echo "removing previous extraction: " ${fname}
+    rm -f ${fname}
+    echo "Processing ${CONCORDIUM_PATH}/${f}.rs.out + tests.rs --> ${fname}"
+    cat $CONCORDIUM_PATH/${f}.rs.out $CONCORDIUM_PATH/${f}-${CONCORDIUM_TESTS} > ${fname}
+done
+
+RUST_SUFFIX=extracted/src/main.rs
+
+rust_examples="BernsteinYangTermination"
+echo "Processing Rust extraction"
+for f in ${rust_examples}
+do
+    src_rust_fname=$RUST_PATH/${f}.rs.out
+    tgt_rust_fname=$RUST_PATH/${f}-${RUST_SUFFIX}
+    main_rust_name=$RUST_PATH/${f}.main
+    echo "removing previous extraction: " ${tgt_rust_fname}
+    rm -f ${tgt_rust_fname}
+    echo Processing $src_rust_fname "--->" $tgt_rust_fname
+    cat $src_rust_fname $main_rust_name | sed "/^Debug/d" > $tgt_rust_fname
 done

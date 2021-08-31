@@ -26,17 +26,10 @@ From ConCert.Execution.Examples Require Import BoardroomVotingZ.
 (* In this example we just use xor for the hash function, which is
    obviously not cryptographically secure. *)
 Definition modulus : Z := 201697267445741585806196628073.
-Definition four := 4%nat.
-Definition seven := 7%nat.
-Definition _1234583932 := 1234583932.
-Definition _23241 := 23241.
-Definition _159338231 := 159338231.
-Definition oneN : N := 1%N.
-Definition Z3 : Z := 3.
-Definition generator : Z := Z3.
+Definition generator : Z := 3.
 
 Definition hash_func (l : list positive) : positive :=
-  N.succ_pos (fold_left (fun a p => N.lxor (Npos p) a) l oneN).
+  N.succ_pos (fold_left (fun a p => N.lxor (Npos p) a) l 1%N).
 
   (* Instance Base : ChainBase := LocalChainBase AddrSize. *)
 Definition AddrSize := (2^128)%N.
@@ -49,28 +42,6 @@ Module Params <: BoardroomParams.
   Definition generator := generator.
 End Params.  
 Module BV := BoardroomVoting Params. Import BV.
-
-(* Compute the signup messages that would be sent by each party.
-   We just use the public key as the chosen randomness here. *)
-Definition _3 := 3%nat.
-Definition _5 := 5.
-Definition _11 := 11.
-
-Definition num_parties : nat := seven.
-Definition votes_for : nat := four.
-
-(* a pseudo-random generator for secret keys *)
-Definition sk n := (Z.of_nat n + _1234583932) * (modulus - _23241)^_159338231.
-
-(* Make a list of secret keys, here starting at i=7 *)
-Definition sks : list Z := map sk (seq seven num_parties).
-
-(* Make a list of votes for each party *)
-Definition svs : list bool :=
-  Eval compute in map (fun _ => true)
-                      (seq 0 votes_for)
-                  ++ map (fun _ => false)
-                         (seq 0 (num_parties - votes_for)).
 
 (* Get string representation of modulus, and remap it. This way we avoid having the extraction compute the number. *)
 Definition modulus_ := StringExtra.string_of_Z modulus.
@@ -145,9 +116,6 @@ Definition existsb_def :=
   | a :: l0 -> (if (f a) then true else (existsb (l0)))
   in fun (l: voterInfo list) -> existsb (l) in existsb)".
 
-Definition dummy_chain :=
-"let dummy_chain : (nat * (nat * nat)) = (Tezos.level, (Tezos.level, Tezos.level))".
-
 Definition hash_func_def := "let hash_func (l :  (nat) list) = addN 1n (List.fold_left (fun (a, p : nat * nat) -> Bitwise.xor p a) 1n l)".
 
 Definition callctx := "(Tezos.sender,(Tezos.self_address,(Tezos.amount,Tezos.balance)))".
@@ -158,7 +126,7 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext setupWchain BV.Sta
     lmd_module_name := "cameligo_boardroomvoting" ;
 
     (* definitions of operations on pairs and ints *)
-    lmd_prelude := concat nl [CameLIGOPretty.CameLIGOPrelude; extra_ops; dummy_chain; hash_func_def];
+    lmd_prelude := concat nl [CameLIGOPretty.CameLIGOPrelude; extra_ops; hash_func_def];
 
     (* initial storage *)
     lmd_init := init_wrapper;
@@ -174,7 +142,6 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext setupWchain BV.Sta
     lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "receive_wrapper")
                         "msg"
                         "state"
-                        callctx
                         ++ nl
                         ++ CameLIGOPretty.printMain "state" |}.
 
@@ -260,10 +227,10 @@ Definition to_inline : list kername :=
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 Definition TT_remap : list (kername * string) :=
-  [
-    remap <%% Amount %%> "tez"
-  ; remap <%% BV.amount_eqb %%> "eqTez"
+  [ remap <%% BV.amount_eqb %%> "eqTez"
   ; remap <%% positive %%> "nat"
+  (* By default, [Z] is remapped to [tez] along with the operations.
+     We override this behavior in the case of Boardroom voting *)
   ; remap <%% Z %%> "int"
   ; remap <%% Z.of_nat %%> "int"
   ; remap <%% Z.add %%> "addInt"
@@ -288,34 +255,13 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @List.skipn %%> "skipn"
   ; remap <%% Euler.prod %%> "prod"
 
-  ; remap <%% oneN %%> "1n"
-  ; remap <%% onePos %%> "1n"
-  ; remap <%% Z3 %%> "3"
-  ; remap <%% four %%> "4n"
-  ; remap <%% seven %%> "7n"
-  ; remap <%% _1234583932 %%> "1234583932"
-  ; remap <%% _23241 %%> "23241"
-  ; remap <%% _159338231 %%> "159338231"
-  ; remap <%% _5 %%> "5"
-  ; remap <%% _3 %%> "3n"
-  ; remap <%% _11 %%> "11"
-  ; remap <%% twoZ %%> "2"
   ; remap <%% @ActionBody %%> "operation"
-  ; remap <%% @ContractCallContext %%> "(address * (address * (tez * tez)))"
-  ; remap <%% @Chain %%> "(nat * (nat * nat))" (* chain_height, current_slot, finalized_height *)
-  ; remap <%% @chain_height %%> "fst" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @Blockchain.current_slot %%> "(fun (c:(nat * (nat * nat))) -> c.1.0)" (* small hack, but valid since Chain is mapped to a tuple *)
-  ; remap <%% @finalized_height %%> "(fun (c:(nat * (nat * nat))) -> snd (snd c)" (* small hack, but valid since Chain is mapped to a tuple *)
-  ; remap <%% @ctx_from %%> "(fun (c:(address * (address * (tez * tez)))) -> c.0)" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @ctx_amount %%> "(fun (c:(address * (address * (tez * tez)))) -> c.1.1.1)" 
-  ; remap <%% @ctx_contract_address %%> "(fun (c:(address * (address * (tez * tez)))) -> c.1.0)" 
-  ; remap <%% @ctx_contract_balance %%> "(fun (c:(address * (address * (tez * tez)))) -> c.1.1.0)" 
   ; remap <%% @AddressMap.add %%> "Map.add"
   ; remap <%% @AddressMap.find %%> "Map.find_opt"
   ; remap <%% @AddressMap.of_list %%> "Map.of_list"
   ; remap <%% @AddressMap.values %%> (* only way to obtain values is via fold - specialized to voterInfo*)
-  "(fun (v:(address, voterInfo) map) -> 
-    Map.fold (fun (acc, (_,info) : voterInfo list * (address * voterInfo)) -> info :: acc) 
+  "(fun (v:(address, voterInfo) map) ->
+    Map.fold (fun (acc, (_,info) : voterInfo list * (address * voterInfo)) -> info :: acc)
     v ([]: voterInfo list))"
   ; remap <%% @AddressMap.keys %%> "Map.keys"
   ; remap <%% @AddressMap.empty %%> "Map.empty"
@@ -323,7 +269,6 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% modulus %%> modulus_
   ; remap <%% BV.encodeA %%> "unsafe_int_to_nat"
   ; remap <%% BV.encodeNat %%> ""
-  
 
   ; remap <%% @List.fold_left %%> "List.fold_left"
   ; remap <%% @List.map %%> "List.map"
@@ -335,31 +280,20 @@ Definition TT_remap : list (kername * string) :=
 Definition TT_rename : list (string * string):=
   [ ("Some", "Some")
   ; ("None", "None")
-  ; ("Zpos" ,"int")
-  ; ("Npos" ,"")
-  ; ("Zneg" ,"-")
-  ; ("Z0" ,"0")
-  ; ("0" ,"0n")
-  ; ("N0" ,"0n")
-  ; ("xH" ,"0")
-  ; ("1" ,"1")
-  ; ("2" ,"2n")
+  ; ("Zpos" ,"int") (* [int] is an embedding of natutal numbers to integers in CameLIGO *)
   ; ("S" ,"1n +")
-  ; ("nil", "[]")
   ; ("true", "true")
   ; ("false", "false")
   ; ("hash", "hash_")
-  ; (string_of_kername <%% BV.State %%>, "state")  (* we add [storage] so it is printed without the prefix *) 
+  ; (string_of_kername <%% BV.State %%>, "state")  (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
 
-  
-(* Time MetaCoq Run (
-  CameLIGO_prepare_extraction PREFIX to_inline TT_remap TT_rename callctx BV_MODULE
-  ).
+(* NOTE: the extraction process takes ~15 min. We comment out these lines to avoid the recompiling it for each build *)
+
+(* Time MetaCoq Run (CameLIGO_prepare_extraction PREFIX to_inline TT_remap TT_rename "cctx_instance" BV_MODULE).
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
-Print cameLIGO_boardroomvoting. 
-
-Redirect "examples/extracted-code/cameligo-extract/BoardroomVoting.mligo" MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)
+Redirect "examples/extracted-code/cameligo-extract/BoardroomVoting.mligo"
+MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)
