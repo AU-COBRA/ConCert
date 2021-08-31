@@ -753,7 +753,7 @@ Qed.
 
 (* ------------------- Contract never produces any actions ------------------- *)
 
-Lemma lift_outgoing_acts_nil : forall (bstate : ChainState) (caddr : Address),
+Lemma outgoing_acts_nil : forall (bstate : ChainState) (caddr : Address),
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   outgoing_acts bstate caddr = [].
