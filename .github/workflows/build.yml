@@ -3,27 +3,40 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: aucobra/concert:deps-coq-8.11
+    container: aucobra/concert:deps-coq-8.11-with-compilers
     steps:
     - run: sudo chown -R coq:coq .
     - uses: actions/checkout@v2
     - name: Build
       run: |
         export HOME=/home/coq && \
+        PATH=/home/coq/.cargo/bin:$PATH
         env && \
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
-        make html
+        make process-extraction-examples && \
+        make html && \
+        make test-extraction && \
+        make clean-extraction-out-files && \
+        make clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
         path: docs/
     - uses: actions/upload-artifact@v2
       with:
-        name: liquidity-extraction
-        path: extraction/examples/liquidity-extract/tests/
-    - uses: actions/upload-artifact@v2
+        name: Liquidity logs
+        path: extraction/examples/extracted-code/liquidity-extract/liquidity.log
+    - name: Push to the extraction repository
+      uses: cpina/github-action-push-to-another-repository@main
+      env:
+        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
-        name: elm-extraction
-        path: extraction/examples/elm-extract/
+        source-directory: 'extraction/examples/extracted-code'
+        destination-github-username: 'AU-COBRA'
+        destination-repository-name: 'extraction-resutls'
+        user-email: danil.v.annenkov@gmail.com
+        user-name: annenkov
+        commit-message: See ORIGIN_COMMIT from $GITHUB_REF
+        target-branch: main
