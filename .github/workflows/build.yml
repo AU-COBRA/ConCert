@@ -28,15 +28,15 @@ jobs:
       with:
         name: Liquidity logs
         path: extraction/examples/extracted-code/liquidity-extract/liquidity.log
-    # - name: Push to the extraction repository
-    #   uses: cpina/github-action-push-to-another-repository@main
-    #   env:
-    #     API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
-    #   with:
-    #     source-directory: 'extraction/examples/extracted-code'
-    #     destination-github-username: 'AU-COBRA'
-    #     destination-repository-name: 'extraction-resutls'
-    #     user-email: danil.v.annenkov@gmail.com
-    #     user-name: annenkov
-    #     commit-message: See ORIGIN_COMMIT from $GITHUB_REF
-    #     target-branch: main
+    - name: Push to the extraction repository
+      uses: cpina/github-action-push-to-another-repository@main
+      env:
+        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+      with:
+        source-directory: 'extraction/examples/extracted-code'
+        destination-github-username: 'AU-COBRA'
+        destination-repository-name: 'extraction-resutls'
+        user-email: danil.v.annenkov@gmail.com
+        user-name: annenkov
+        commit-message: See ORIGIN_COMMIT from $GITHUB_REF
+        target-branch: main
