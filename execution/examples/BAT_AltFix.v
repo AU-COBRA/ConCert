@@ -983,19 +983,19 @@ Qed.
 
 (* ------------------- init validation ------------------- *)
 
-Lemma deployed_implies_constants_valid block_state contract_addr :
-  reachable block_state ->
-  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+Lemma deployed_implies_constants_valid bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
   exists cstate,
-    contract_state block_state contract_addr = Some cstate
+    contract_state bstate caddr = Some cstate
     /\ (cstate.(fundingStart) < cstate.(fundingEnd))%nat
     /\ cstate.(tokenCreationMin) <= cstate.(tokenCreationCap)
     /\ cstate.(tokenExchangeRate) <> 0
     /\ cstate.(tokenExchangeRate) <= cstate.(tokenCreationCap) - cstate.(tokenCreationMin)
-    /\ cstate.(batFundDeposit) <> contract_addr
-    /\ cstate.(fundDeposit) <> contract_addr.
+    /\ cstate.(batFundDeposit) <> caddr
+    /\ cstate.(fundDeposit) <> caddr.
 Proof.
-  contract_induction; intros; try auto.
+  contract_induction; intros; auto.
   - unfold Blockchain.init in init_some. cbn in *.
     destruct_match eqn:setup_check in init_some; try congruence.
     returnIf setup_check.
@@ -1029,11 +1029,11 @@ Qed.
 
 (* In any reachable state the sum of token balance
     will be equal to the total supply of tokens *)
-Lemma sum_balances_eq_total_supply block_state contract_addr :
-  reachable block_state ->
-  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+Lemma sum_balances_eq_total_supply bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
   exists cstate,
-    contract_state block_state contract_addr = Some cstate
+    contract_state bstate caddr = Some cstate
     /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
   assert (receive_sum_balances_eq_total_supply :
@@ -1123,11 +1123,11 @@ Proof.
 Qed.
 
 (* Constants are always equal to the initial assignment *)
-Lemma constants_are_constant block_state contract_addr (trace : ChainTrace empty_state block_state) :
-  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
-  exists cstate deploy_info,
-    contract_state block_state contract_addr = Some cstate
-    /\ deployment_info _ trace contract_addr = Some deploy_info
+Lemma constants_are_constant bstate caddr (trace : ChainTrace empty_state bstate) :
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists deploy_info cstate,
+    deployment_info _ trace caddr = Some deploy_info
+    /\ contract_state bstate caddr = Some cstate
     /\ let setup := deploy_info.(deployment_setup) in
          cstate.(fundDeposit) = setup.(_fundDeposit)
       /\ cstate.(batFundDeposit) = setup.(_batFundDeposit)
@@ -1138,16 +1138,12 @@ Lemma constants_are_constant block_state contract_addr (trace : ChainTrace empty
       /\ cstate.(tokenCreationMin) = setup.(_tokenCreationMin)
       /\ cstate.(initSupply) = setup.(_batFund).
 Proof.
-  contract_induction; intros; auto.
-  - now apply init_constants_correct in init_some.
-  - now apply receive_preserves_constants in receive_some.
-  - now apply receive_preserves_constants in receive_some.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
-    unset_all; subst; cbn in *.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
+  apply (lift_dep_info_contract_state_prop contract);
+    intros *; clear trace bstate caddr.
+  - intros init_some.
+    now apply init_constants_correct in init_some.
+  - intros IH receive_some.
+    now apply receive_preserves_constants in receive_some.
 Qed.
 
 
@@ -1173,16 +1169,19 @@ Qed.
 
 (* ------------------- Cannot finalize if goal not hit ------------------- *)
 
-Lemma no_finalization_before_goal block_state contract_addr :
-  reachable block_state ->
-  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+Lemma no_finalization_before_goal bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
   exists cstate,
-    contract_state block_state contract_addr = Some cstate
+    contract_state bstate caddr = Some cstate
     /\ (total_supply cstate < tokenCreationMin cstate -> isFinalized cstate = false).
 Proof.
-  contract_induction; intros; auto.
-  - now eapply init_isFinalized_correct.
-  - destruct msg. destruct m.
+  apply (lift_contract_state_prop contract);
+    intros *; clear bstate caddr.
+  - intros init_some ?.
+    now eapply init_isFinalized_correct.
+  - intros IH receive_some ?.
+    destruct msg. destruct m.
     + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
       destruct m.
       * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
@@ -1209,39 +1208,6 @@ Proof.
       rename H1 into requirements_check.
       now rewrite !Bool.orb_false_iff in requirements_check.
     + now receive_simpl.
-  - destruct msg. destruct m.
-    + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
-      destruct m.
-      * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
-        now rewrite supply_unchanged, <- finalized_unchanged in *.
-      * apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
-        now rewrite supply_unchanged, <- finalized_unchanged in *.
-      * apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
-        now rewrite supply_unchanged, <- finalized_unchanged in *.
-    + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
-      rewrite <- finalized_unchanged in *.
-      receive_simpl.
-      rename H0 into requirements_check.
-      now rewrite !Bool.orb_false_iff in requirements_check.
-    + receive_simpl.
-      inversion receive_some as [supply_unchanged].
-      rewrite <- supply_unchanged in *.
-      rename H1 into requirements_check.
-      rewrite !Bool.orb_false_iff in requirements_check.
-      cbn in *.
-      now destruct requirements_check as (_ & goal_hit%N.ltb_nlt).
-    + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
-      rewrite <- finalized_unchanged in *.
-      receive_simpl.
-      rename H1 into requirements_check.
-      now rewrite !Bool.orb_false_iff in requirements_check.
-    + now receive_simpl.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
-    unset_all; subst;cbn in *.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
 Qed.
 
 
@@ -1666,7 +1632,7 @@ Proof.
     - now destruct_address_eq.
   }
   specialize constants_are_constant as
-    (cstate' & dep_info & deployed_state' & deploy_info' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
+    (dep_info & cstate' & deploy_info' & deployed_state' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
   unfold contract_state in deployed_state'. cbn in deployed_state'.
   rewrite deployed_state, deserialize_serialize in deployed_state'.
   inversion deployed_state'. subst cstate'. clear deployed_state'.

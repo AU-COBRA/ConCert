@@ -1136,12 +1136,16 @@ Lemma sum_balances_eq_total_supply : forall bstate caddr,
     contract_state bstate caddr = Some cstate
     /\ total_supply cstate = sum_balances cstate.
 Proof.
-  contract_induction; intros; auto.
-  - unfold sum_balances.
+  intros * reach deployed.
+  apply (lift_contract_state_prop contract);
+    intros *; auto; clear reach deployed bstate caddr.
+  - intros init_some.
+    unfold sum_balances.
     erewrite init_total_supply_correct, init_balances_correct; eauto.
     rewrite FMap.elements_add, FMap.elements_empty by auto.
     now cbn.
-  - destruct msg. destruct m.
+  - intros IH receive_some.
+    destruct msg. destruct m.
     + erewrite <- try_transfer_preserves_total_supply; eauto.
       rename t into param.
       unfold sum_balances.
@@ -1149,13 +1153,11 @@ Proof.
       cbn.
       rename H1 into enough_balance.
       apply N.ltb_ge in enough_balance.
-      clear tag ctx_amount_zero g g0 H facts from_other new_acts new_state dep_info ctx
-          prev_out_queue prev_inc_calls prev_out_txs trace caddr AddBlockFacts DeployFacts
-          CallFacts chain bstate.
+      clear ctx_amount_zero g g0 H ctx chain new_cstate.
       destruct (address_eqb_spec param.(from) param.(to)) as
         [<-| from_to_ne];
-        destruct (FMap.find (from param) (tokens prev_state)) eqn:from_balance;
-        destruct (FMap.find (to param) (tokens prev_state)) eqn:to_balance;
+        destruct (FMap.find (from param) (tokens cstate)) eqn:from_balance;
+        destruct (FMap.find (to param) (tokens cstate)) eqn:to_balance;
           cbn in enough_balance;
           repeat match goal with
             | H : ?x = ?y |- context [ ?x ] => rewrite H
@@ -1183,19 +1185,17 @@ Proof.
       unfold sum_balances.
       receive_simpl.
       cbn.
-      clear tag ctx_amount_zero H facts from_other new_acts new_state dep_info ctx
-          prev_out_queue prev_inc_calls prev_out_txs trace caddr AddBlockFacts DeployFacts
-          CallFacts chain bstate.
+      clear ctx_amount_zero H new_cstate ctx chain.
       rename H0 into enough_balance.
       apply Z.ltb_ge in enough_balance.
-      destruct (FMap.find (target param) (tokens prev_state)) eqn:target_balance; cbn.
-      * specialize (balance_le_sum_balances param.(target) prev_state) as n_le_supply.
+      destruct (FMap.find (target param) (tokens cstate)) eqn:target_balance; cbn.
+      * assert (N_add_sub_move : forall n m p, p <= n -> n - p = m -> n = m + p) by lia.
+        specialize (balance_le_sum_balances param.(target) cstate) as n_le_supply.
         rewrite target_balance in n_le_supply.
         cbn in n_le_supply.
         rewrite FMap.elements_add_existing by eauto.
         cbn.
         rewrite N.add_comm.
-        assert (N_add_sub_move : forall n m p, p <= n -> n - p = m -> n = m + p) by lia.
         apply N_add_sub_move; try lia.
         rewrite <- Zabs2N.abs_N_nonneg by assumption.
         rewrite <- Zabs2N.inj_sub by (split; [assumption | lia]).
@@ -1211,15 +1211,6 @@ Proof.
     + now apply try_get_balance_preserves_state in receive_some.
     + now apply try_get_total_supply_preserves_state in receive_some.
     + now rewrite default_entrypoint_none in receive_some.
-  - now instantiate (CallFacts := fun _ ctx _ _ =>  ctx_from ctx <> ctx_contract_address ctx).
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    unset_all; subst.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
-    intros.
-    subst. cbn.
-    now eapply no_self_calls'.
   Unshelve. all : destruct param; eauto.
 Qed.
 

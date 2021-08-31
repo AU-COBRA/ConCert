@@ -768,51 +768,45 @@ Qed.
 
 (* ------------------- Total supply always equals inial supply ------------------- *)
 
-Lemma total_supply_eq_init_supply block_state contract_addr (trace : ChainTrace empty_state block_state) :
-  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
-  exists cstate deploy_info,
-    contract_state block_state contract_addr = Some cstate
-    /\ deployment_info _ trace contract_addr = Some deploy_info
+Lemma total_supply_eq_init_supply bstate caddr (trace : ChainTrace empty_state bstate) :
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists deploy_info cstate,
+    deployment_info _ trace caddr = Some deploy_info
+    /\ contract_state bstate caddr = Some cstate
     /\ let init_supply := init_amount deploy_info.(deployment_setup) in
       init_supply = total_supply cstate.
 Proof.
-  contract_induction; intros; try auto.
-  - now inversion init_some.
-  - destruct msg. destruct m.
+  apply (lift_dep_info_contract_state_prop contract); intros *.
+  - intros init_some.
+    now inversion init_some.
+  - intros IH receive_some.
+    destruct msg. destruct m.
     + now apply try_transfer_preserves_total_supply in receive_some.
     + now apply try_transfer_from_preserves_total_supply in receive_some.
     + now apply try_approve_preserves_total_supply in receive_some.
     + receive_simpl.
-  - destruct msg. destruct m.
-    + now apply try_transfer_preserves_total_supply in receive_some.
-    + now apply try_transfer_from_preserves_total_supply in receive_some.
-    + now apply try_approve_preserves_total_supply in receive_some.
-    + receive_simpl.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
-    unset_all; subst;cbn in *.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
 Qed.
 
 
 
 (* ------------------- Sum of balances always equals total supply ------------------- *)
 
-Lemma sum_balances_eq_total_supply block_state contract_addr :
-  reachable block_state ->
-  env_contracts block_state contract_addr = Some (contract : WeakContract) ->
+Lemma sum_balances_eq_total_supply bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
   exists cstate,
-    contract_state block_state contract_addr = Some cstate
+    contract_state bstate caddr = Some cstate
     /\ (total_supply cstate) = (sum_balances cstate).
 Proof.
-  contract_induction; intros; try auto.
-  - inversion init_some. clear H0.
-    unfold sum_balances. cbn.
+  intros.
+  apply (lift_contract_state_prop contract); eauto; intros *.
+  - intros init_some.
+    inversion_clear init_some.
+    unfold sum_balances.
     setoid_rewrite FMap.elements_add; auto.
     setoid_rewrite FMap.elements_empty. cbn. lia.
-  - destruct msg. destruct m.
+  - intros IH receive_some.
+    destruct msg. destruct m.
     + now erewrite try_transfer_preserves_balances_sum,
         try_transfer_preserves_total_supply in IH.
     + now erewrite try_transfer_from_preserves_balances_sum,
@@ -820,20 +814,6 @@ Proof.
     + now erewrite try_approve_preserves_balances_sum,
         try_approve_preserves_total_supply in IH.
     + receive_simpl.
-  - destruct msg. destruct m.
-    + now erewrite try_transfer_preserves_balances_sum,
-        try_transfer_preserves_total_supply in IH.
-    + now erewrite try_transfer_from_preserves_balances_sum,
-        try_transfer_from_preserves_total_supply in IH.
-    + now erewrite try_approve_preserves_balances_sum,
-        try_approve_preserves_total_supply in IH.
-    + receive_simpl.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
-    unset_all; subst;cbn in *.
-    destruct_chain_step; auto.
-    destruct_action_eval; auto.
 Qed.
 
 End Theories.
