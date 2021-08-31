@@ -37,5 +37,6 @@ jobs:
         destination-github-username: 'AU-COBRA'
         destination-repository-name: 'extraction-resutls'
         user-email: danil.v.annenkov@gmail.com
+        user-name: annenkov
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
