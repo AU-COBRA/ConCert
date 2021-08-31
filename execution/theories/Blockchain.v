@@ -2067,4 +2067,64 @@ Proof.
   erewrite (H3 _ _ _ _ _ acts); [constructor|eassumption].
 Qed.
 
+(** If some property [P] holds for all contract states in the output of the receive function,
+  the property can be lifted to all contract states for all reachabile states. *)
+Lemma lift_contract_state_prop {P : State -> Prop}
+      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
+  (forall chain ctx setup result,
+      contract.(init) chain ctx setup = Some result ->
+      P result) ->
+  (forall chain ctx cstate msg new_cstate acts,
+      P cstate ->
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      P new_cstate) ->
+  reachable bstate ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate addr = Some cstate
+    /\ P cstate.
+Proof.
+  intros Hinit Hreceive Hreach.
+  contract_induction; intros; cbn in *; auto.
+  - now eapply Hinit.
+  - now eapply Hreceive.
+  - now eapply Hreceive.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
+    instantiate (DeployFacts := fun _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
+Qed.
+
+Lemma lift_dep_info_contract_state_prop {P : DeploymentInfo Setup -> State -> Prop}
+      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address)
+      (trace : ChainTrace empty_state bstate) :
+  (forall chain ctx setup result,
+      contract.(init) chain ctx setup = Some result ->
+      P (build_deployment_info (ctx_from ctx) (ctx_amount ctx) setup)
+        result) ->
+  (forall chain ctx cstate msg new_cstate acts dep,
+      P dep cstate ->
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      P dep new_cstate) ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  exists dep cstate,
+      deployment_info Setup trace addr = Some dep /\
+      contract_state bstate addr = Some cstate /\
+      P dep cstate.
+Proof.
+  intros Hinit Hreceive.
+  contract_induction; intros; cbn in *; auto.
+  - now eapply Hinit.
+  - now eapply Hreceive.
+  - now eapply Hreceive.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
+    instantiate (DeployFacts := fun _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
+Qed.
+
 End LiftTransactionProp.
