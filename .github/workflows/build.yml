@@ -40,4 +40,5 @@ jobs:
         user-name: annenkov
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
-      if: github.event_name != 'pull_request'
+      # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
+      if: github.event_name != 'pull_request' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
