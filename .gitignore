@@ -65,6 +65,9 @@ extraction/examples/extracted-code/midlang-extract/tests/*
 extraction/examples/extracted-code/cameligo-extract/*
 extraction/examples/extracted-code/cameligo-extract/tests/*
 
+**/src/lib.rs
+**/src/main.rs
+
 .coq-native/
 .csdp.cache
 .lia.cache
