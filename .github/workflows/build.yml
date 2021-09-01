@@ -39,5 +39,5 @@ jobs:
         user-email: danil.v.annenkov@gmail.com
         user-name: annenkov
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
-        target-branch: main
+        target-branch: journal-2021
       if: github.event_name != 'pull_request'
