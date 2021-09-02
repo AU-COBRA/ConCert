@@ -30,6 +30,7 @@ plugin: theory
 %: CoqMakefile force
 	+@make -f CoqMakefile $@
 force: ;
+all: theory process-extraction-examples
 
 # Do not forward these files
 Makefile _CoqProject: ;

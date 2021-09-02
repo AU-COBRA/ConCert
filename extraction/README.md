@@ -5,12 +5,13 @@ Contains an implementation of extraction based on the certified erasure provided
 the name suggests, contains examples of smart contracts and programs extracted using our development
 and tests for our extensions to the certified erasure.
 
-After building the project (running `make` from the project's root), the folders
-`examples/*-extract/` are populated with the extracted code.
+After building the project (running `make` from the project's root, or running `make` in this folder), the folders
+`examples/extracted-code/*-extract/` are populated with the extracted code.
 
-The extraction can be tested (compiled and run for the targets that has tests).
+The extraction can be tested (compiled and run for the targets that have tests).
 Use `make test-extraction` after the project is compiled.
-Note that running this step requires additional compilers installed (see below).
+Note that running this step locally requires additional compilers installed (see below).
+Alternatively, the required compilers are available in the docker image `aucobra/concert:deps-coq-8.11-with-compilers`.
 
 Compiling Liquidity code:
 install the [Liquidity compiler](https://www.liquidity-lang.org/doc/installation/index.html).
@@ -23,12 +24,17 @@ Running Elm tests also requires `elm-explorations/test` package (see the require
 
 Compiling Rust code with the Concordium infrastructure:
 
-* requres `cargo` and the Rust compiler;
+* requires `cargo` and the Rust compiler;
 * download `cargo-concordium`: http://developer.concordium.software/en/mainnet/net/installation/downloads.html#cargo-concordium
 * add the directory with `cargo-concordium` to `PATH`;
 * install `cargo`;
-* use `cargo concordium build`;
+* use `cargo concordium test` to build and run tests (if tests are available);
 * read the details here: http://developer.concordium.software/en/mainnet/smart-contracts/guides/setup-tools.html#setup-tools
+
+## Extraction results
+
+As part of the CI, the extraction results from the `examples/extracted-code/*-extract/` directories are compiled (and tested, for the targets with tests).
+Moreover, the extracted source code is pushed to another repository https://github.com/AU-COBRA/extraction-resutls, so one can always browse through the code produced by the last successful build.
 
 Some highlights from `theories`:
 

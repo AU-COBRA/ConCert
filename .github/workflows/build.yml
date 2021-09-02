@@ -15,7 +15,6 @@ jobs:
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make && \
-        make process-extraction-examples && \
         make html && \
         make test-extraction && \
         make clean-extraction-out-files && \
