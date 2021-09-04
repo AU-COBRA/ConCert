@@ -1990,7 +1990,7 @@ Ltac generalize_contract_statement :=
 
 Ltac contract_induction :=
   generalize_contract_statement_with_post
-    ltac:(fun _ _ _ is_deployed Setup Msg State P =>
+    ltac:(fun bstate caddr _ is_deployed Setup Msg State P =>
        revert is_deployed;
        let AddBlockFacts := fresh "AddBlockFacts" in
        let DeployFacts := fresh "DeployFacts" in
@@ -2004,7 +2004,7 @@ Ltac contract_induction :=
        evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
                                 (cstate : State) (outgoing_actions : list ActionBody), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
-       cbv [P]; clear P; cycle 1).
+       cbv [P]; clear P; cycle 1; clear dependent bstate; clear dependent caddr).
 
 Global Notation "'Please' 'prove' 'your' 'facts'" := TagFacts (at level 100, only printing).
 Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'addition' 'of' 'a' 'block'"
