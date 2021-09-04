@@ -1071,9 +1071,8 @@ Proof.
       unset_all; subst.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
-      intros.
-      rename H into deployed.
-      now apply deployed_implies_constants_valid in deployed as [].
+      intros ? contract_deployed ?.
+      now apply deployed_implies_constants_valid in contract_deployed as [].
 Qed.
 
 
@@ -1707,12 +1706,10 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros ? contract_deployed ?.
     cbn.
-    apply deployed_implies_constants_valid in contract_deployed as
-      (cstate' & deployed_state' & _ & _ & _ & _ & _ & ethfund_not_caddr); auto.
-    rewrite deployed_state' in deployed_state.
-    now inversion deployed_state.
+    now apply deployed_implies_constants_valid in contract_deployed as
+      (cstate' & deployed_cstate' & _ & _ & _ & _ & _ & ethfund_not_caddr).
 Qed.
 
 Lemma bat_no_self_calls' : forall bstate from_addr to_addr amount msg acts,
@@ -1872,15 +1869,12 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros ? contract_deployed ?.
     subst. cbn.
     split.
     + now eapply bat_no_self_calls'.
-    + specialize sum_balances_eq_total_supply as
-        (cstate' & deployed_state' & ?); eauto.
-      rewrite deployed_state' in deployed_state.
-      inversion deployed_state.
-      now subst cstate'.
+    + now specialize sum_balances_eq_total_supply as
+        (? & ? & ?).
 Qed.
 
 
@@ -1997,19 +1991,14 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros ? contract_deployed ?.
     subst. cbn.
     repeat split.
     + now apply Z.ge_le.
-    + specialize deployed_implies_constants_valid as
-        (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _); eauto.
-      rewrite deployed_state' in deployed_state.
-      now inversion deployed_state.
-    + specialize sum_balances_eq_total_supply as
-        (cstate' & deployed_state' & ?); eauto.
-      rewrite deployed_state' in deployed_state.
-      inversion deployed_state.
-      now subst cstate'.
+    + now specialize deployed_implies_constants_valid as
+        (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _).
+    + now specialize sum_balances_eq_total_supply as
+        (cstate' & deployed_state' & ?).
     + intros.
       specialize funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
       now apply no_acts.

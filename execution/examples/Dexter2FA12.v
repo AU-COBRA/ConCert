@@ -1078,7 +1078,7 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros.
     subst. cbn.
     split.
     + now apply Z.ge_le.

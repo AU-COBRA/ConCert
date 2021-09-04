@@ -1702,12 +1702,10 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros ? contract_deployed ?.
     cbn.
-    apply deployed_implies_constants_valid in contract_deployed as
-      (cstate' & deployed_state' & _ & _ & _ & _ & _ & _ & ethfund_not_caddr); auto.
-    rewrite deployed_state' in deployed_state.
-    now inversion deployed_state.
+    now apply deployed_implies_constants_valid in contract_deployed as
+      (cstate' & deployed_state' & _ & _ & _ & _ & _ & _ & ethfund_not_caddr).
 Qed.
 
 Lemma bat_no_self_calls' : forall bstate from_addr to_addr amount msg acts,
@@ -1903,18 +1901,15 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros ? contract_deployed deployed_cstate.
     subst. cbn.
     repeat split.
-    + apply sum_balances_eq_total_supply in contract_deployed as
-        (cstate' & deployed_state' & ?); auto.
-      rewrite deployed_state' in deployed_state.
-      inversion deployed_state.
-      now subst cstate'.
+    + now apply sum_balances_eq_total_supply in contract_deployed as
+        (cstate' & deployed_state' & ?).
     + apply no_init_supply_refund in contract_deployed as
-        (cstate' & deployed_state' & ?); auto.
-      rewrite deployed_state' in deployed_state.
-      inversion deployed_state.
+        (cstate' & deployed_cstate' & ?); auto.
+      rewrite deployed_cstate' in deployed_cstate.
+      inversion deployed_cstate.
       now subst cstate'.
     + now eapply bat_no_self_calls'.
 Qed.
@@ -1973,7 +1968,7 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros.
     subst. cbn.
     now eapply bat_no_self_calls'.
 Qed.
@@ -2032,13 +2027,11 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros ? contract_deployed ?.
     subst. cbn.
     split.
-    * specialize deployed_implies_constants_valid as
-        (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _); eauto.
-      rewrite deployed_state' in deployed_state.
-      now inversion deployed_state.
+    * now specialize deployed_implies_constants_valid as
+        (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _).
     * now eapply bat_no_self_calls'.
 Qed.
 
@@ -2166,32 +2159,28 @@ Proof.
     unset_all; subst.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
-    intros cstate contract_deployed deployed_state.
+    intros cstate contract_deployed deployed_cstate.
     subst. cbn.
     repeat split.
     + now apply Z.ge_le.
-    + apply total_supply_lower_bound in contract_deployed as
-        (cstate' & deployed_state' & ?); auto.
-      rewrite deployed_state' in deployed_state.
-      now inversion deployed_state.
-    + apply deployed_implies_constants_valid in contract_deployed as
-      (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _); auto.
-      rewrite deployed_state' in deployed_state.
-      now inversion deployed_state.
+    + now apply total_supply_lower_bound in contract_deployed as
+        (cstate' & deployed_state' & ?).
+    + now apply deployed_implies_constants_valid in contract_deployed as
+      (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _).
     + intros not_finalized from_not_batfund.
-      specialize token_balances_divisible as (cstate' & deployed_state' & ?); eauto.
-      rewrite deployed_state in deployed_state'.
-      inversion deployed_state'.
+      specialize token_balances_divisible as (cstate' & deployed_cstate' & ?); eauto.
+      rewrite deployed_cstate in deployed_cstate'.
+      inversion deployed_cstate'.
       now subst cstate'.
     + intros not_finalized from_not_batfund.
-      specialize no_init_supply_refund as (cstate' & deployed_state' & batfund_balance); eauto.
-      rewrite deployed_state in deployed_state'.
-      inversion deployed_state'.
-      subst cstate'. clear deployed_state'.
-      specialize sum_balances_eq_total_supply as (cstate' & deployed_state' & sum_eq_total); eauto.
-      rewrite deployed_state in deployed_state'.
-      inversion deployed_state'.
-      subst cstate'. clear deployed_state'.
+      specialize no_init_supply_refund as (cstate' & deployed_cstate' & batfund_balance); eauto.
+      rewrite deployed_cstate in deployed_cstate'.
+      inversion deployed_cstate'.
+      subst cstate'. clear deployed_cstate'.
+      specialize sum_balances_eq_total_supply as (cstate' & deployed_cstate' & sum_eq_total); eauto.
+      rewrite deployed_cstate in deployed_cstate'.
+      inversion deployed_cstate'.
+      subst cstate'. clear deployed_cstate'.
       replace (initSupply cstate) with (with_default 0 (FMap.find (batFundDeposit cstate) (balances cstate))) by
         now rewrite batfund_balance.
       rewrite sum_eq_total.
