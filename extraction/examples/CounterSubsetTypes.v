@@ -153,10 +153,8 @@ Time MetaCoq Run
       tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 
-Print liquidity_counter.
-
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-(* Redirect "examples/extracted-code/liquidity-extract/CounterRefinementTypes.liq" *)
+Redirect "examples/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
 MetaCoq Run (tmMsg liquidity_counter).
 
 
