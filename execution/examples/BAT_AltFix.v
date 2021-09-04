@@ -1917,7 +1917,7 @@ Proof.
                        exchange_rate_nonzero &
                        supply_eq_sum_balances &
                        funding_no_outgoing_acts & _).
-    clear CallFacts AddBlockFacts DeployFacts effective_balance tag prev_inc_calls prev_out_txs.
+    clear CallFacts AddBlockFacts DeployFacts tag prev_inc_calls prev_out_txs.
     destruct msg. destruct m.
     + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
       apply eip20_new_acts_correct in receive_some as no_new_acts.

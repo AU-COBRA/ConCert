@@ -2083,7 +2083,7 @@ Proof.
                        tokens_bound &
                        funding_no_outgoing_acts &
                        _).
-    clear CallFacts AddBlockFacts DeployFacts effective_balance.
+    clear CallFacts AddBlockFacts DeployFacts.
     destruct msg. destruct m.
     + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
       apply eip20_new_acts_correct in receive_some as no_new_acts.
