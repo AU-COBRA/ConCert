@@ -1895,7 +1895,16 @@ Ltac destruct_chain_step :=
 
 Ltac destruct_action_eval :=
   match goal with
-  | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
+  | [eval: ActionEvaluation _ _ _ _ |- _] =>
+    destruct eval as
+      [?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
+        ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
+       ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
+        ?enough_balance ?to_addr_contract ?not_deployed
+        ?act_eq ?init_some ?env_eq ?new_acts_eq |
+       ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
+        ?amount_nonnegative ?enough_balance ?deployed ?deployed_state ?act_eq
+        ?receive_some ?new_acts_eq ?env_eq ]
   end.
 
 Ltac rewrite_environment_equiv :=
