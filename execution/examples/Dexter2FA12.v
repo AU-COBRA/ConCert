@@ -1,13 +1,13 @@
 From Coq Require Import ZArith Bool Lia.
 From Coq Require Import Morphisms.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
 Import ListNotations.
 Import RecordSetNotations.
 
