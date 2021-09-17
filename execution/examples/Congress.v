@@ -265,13 +265,14 @@ Lemma rules_valid bstate caddr :
     contract_state bstate caddr = Some cstate /\
     validate_rules cstate.(state_rules) = true.
 Proof.
-  assert (valid_after_recv:
-            forall chain ctx prev_state msg new_state new_acts,
-              receive chain ctx prev_state msg = Some (new_state, new_acts) ->
-              validate_rules (state_rules prev_state) = true ->
-              validate_rules (state_rules new_state) = true).
-  {
-    intros ? ? ? ? ? ? receive valid_prev.
+  intros.
+  apply (lift_contract_state_prop contract); intros *; auto.
+  - intros init_some.
+    cbn in init_some.
+    unfold Congress.init in init_some.
+    destruct_match eqn:validate_succeeds in init_some; try congruence.
+    now inversion_clear init_some.
+  - intros valid_prev receive.
     destruct msg as [[]|]; cbn in *;
       try solve [
             repeat
@@ -293,20 +294,6 @@ Proof.
       destruct (FMap.find _ _); cbn in *; try congruence.
       now inversion_clear receive.
     + now inversion receive; subst.
-  }
-
-  contract_induction; intros; cbn in *; auto.
-  - unfold Congress.init in init_some.
-    destruct_match eqn:validate_succeeds in init_some; try congruence.
-    now inversion_clear init_some.
-  - eauto.
-  - eauto.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
 Qed.
 
 Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Congress.Msg)) :=
