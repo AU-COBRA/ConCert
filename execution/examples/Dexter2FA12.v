@@ -1,3 +1,16 @@
+(* This file contains an implementation of Dexter2 liquidity contract
+https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/lqt_fa12.mligo
+In addition this file contains proof of functional correctness w.r.t the
+informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/docs/informal-spec/dexter2-lqt-fa12.md
+
+This contract is an extension of a basic FA1.2 token contract with
+an extra entrypoint that allows an admin to mint and burn tokens.
+It is used in the Dexter2 exchange paired with an instance of the
+Dexter2 CPMM contract. The purpose of this contract is to keep track
+of ownership of the exchanges funds. An user who owns x% of the supply
+of liquidity tokens owns x% of the exchanges trading reserve.
+*)
+
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Containers.
