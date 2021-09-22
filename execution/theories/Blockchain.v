@@ -1887,15 +1887,24 @@ Ltac destruct_chain_step :=
   match goal with
   | [step: ChainStep _ _ |- _] =>
     destruct step as
-        [header queue_prev valid_header acts_from_accs env_eq|
-         act acts new_acts queue_prev eval queue_new|
-         act acts env_eq queue_prev queue_new act_from_acc no_eval|
-         prev_next perm]
+        [?header ?queue_prev ?valid_header ?acts_from_accs ?env_eq|
+         ?act ?acts ?new_acts ?queue_prev ?eval ?queue_new|
+         ?act ?acts ?env_eq ?queue_prev ?queue_new ?act_from_acc ?no_eval|
+         ?prev_next ?perm]
   end.
 
 Ltac destruct_action_eval :=
   match goal with
-  | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
+  | [eval: ActionEvaluation _ _ _ _ |- _] =>
+    destruct eval as
+      [?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
+        ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
+       ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
+        ?enough_balance ?to_addr_contract ?not_deployed
+        ?act_eq ?init_some ?env_eq ?new_acts_eq |
+       ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
+        ?amount_nonnegative ?enough_balance ?deployed ?deployed_state ?act_eq
+        ?receive_some ?new_acts_eq ?env_eq ]
   end.
 
 Ltac rewrite_environment_equiv :=
@@ -1981,7 +1990,7 @@ Ltac generalize_contract_statement :=
 
 Ltac contract_induction :=
   generalize_contract_statement_with_post
-    ltac:(fun _ _ _ is_deployed Setup Msg State P =>
+    ltac:(fun bstate caddr _ is_deployed Setup Msg State P =>
        revert is_deployed;
        let AddBlockFacts := fresh "AddBlockFacts" in
        let DeployFacts := fresh "DeployFacts" in
@@ -1995,7 +2004,7 @@ Ltac contract_induction :=
        evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
                                 (cstate : State) (outgoing_actions : list ActionBody), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
-       cbv [P]; clear P; cycle 1).
+       cbv [P]; clear P; cycle 1; clear dependent bstate; clear dependent caddr).
 
 Global Notation "'Please' 'prove' 'your' 'facts'" := TagFacts (at level 100, only printing).
 Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'addition' 'of' 'a' 'block'"
@@ -2065,6 +2074,66 @@ Proof.
   apply (lift_outgoing_acts_prop contract); auto.
   intros.
   erewrite (H3 _ _ _ _ _ acts); [constructor|eassumption].
+Qed.
+
+(** If some property [P] holds for all contract states in the output of the receive function,
+  the property can be lifted to all contract states for all reachabile states. *)
+Lemma lift_contract_state_prop {P : State -> Prop}
+      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
+  (forall chain ctx setup result,
+      contract.(init) chain ctx setup = Some result ->
+      P result) ->
+  (forall chain ctx cstate msg new_cstate acts,
+      P cstate ->
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      P new_cstate) ->
+  reachable bstate ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate addr = Some cstate
+    /\ P cstate.
+Proof.
+  intros Hinit Hreceive Hreach.
+  contract_induction; intros; cbn in *; auto.
+  - now eapply Hinit.
+  - now eapply Hreceive.
+  - now eapply Hreceive.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
+    instantiate (DeployFacts := fun _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
+Qed.
+
+Lemma lift_dep_info_contract_state_prop {P : DeploymentInfo Setup -> State -> Prop}
+      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address)
+      (trace : ChainTrace empty_state bstate) :
+  (forall chain ctx setup result,
+      contract.(init) chain ctx setup = Some result ->
+      P (build_deployment_info (ctx_from ctx) (ctx_amount ctx) setup)
+        result) ->
+  (forall chain ctx cstate msg new_cstate acts dep,
+      P dep cstate ->
+      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      P dep new_cstate) ->
+  env_contracts bstate addr = Some (contract : WeakContract) ->
+  exists dep cstate,
+      deployment_info Setup trace addr = Some dep /\
+      contract_state bstate addr = Some cstate /\
+      P dep cstate.
+Proof.
+  intros Hinit Hreceive.
+  contract_induction; intros; cbn in *; auto.
+  - now eapply Hinit.
+  - now eapply Hreceive.
+  - now eapply Hreceive.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
+    instantiate (DeployFacts := fun _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    unset_all; subst.
+    destruct step; auto.
+    destruct a; auto.
 Qed.
 
 End LiftTransactionProp.
