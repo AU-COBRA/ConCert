@@ -913,7 +913,26 @@ Proof.
   eauto.
 Qed.
 
+Ltac try_solve_acts_correct :=
+  match goal with
+  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    first [apply try_transfer_new_acts_correct in H
+          |apply try_approve_new_acts_correct in H
+          |apply try_mint_or_burn_new_acts_correct in H
+          |apply try_get_allowance_new_acts_correct in H
+          |apply try_get_balance_new_acts_correct in H
+          |apply try_get_total_supply_new_acts_correct in H ];
+    subst;eauto
+  end.
 
+Ltac try_solve_preserves_state :=
+  match goal with
+  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    first [apply try_get_allowance_preserves_state in H
+          |apply try_get_balance_preserves_state in H
+          |apply try_get_total_supply_preserves_state in H];
+    subst;eauto
+  end.
 
 (* ------------------- Outgoing acts facts ------------------- *)
 
@@ -928,24 +947,15 @@ Lemma no_self_calls bstate caddr :
     | _ => False
     end) (outgoing_acts bstate caddr).
 Proof.
-  contract_induction; intros; auto.
+  contract_induction; intros; cbn in *; auto.
   - now inversion IH.
   - apply Forall_app; split; auto.
     clear IH.
-    destruct msg. destruct m.
-    + now erewrite try_transfer_new_acts_correct by eauto.
-    + now erewrite try_approve_new_acts_correct by eauto.
-    + now erewrite try_mint_or_burn_new_acts_correct by eauto.
-    + erewrite try_get_allowance_new_acts_correct by eauto.
-      constructor; auto.
-      now destruct_address_eq.
-    + erewrite try_get_balance_new_acts_correct by eauto.
-      constructor; auto.
-      now destruct_address_eq.
-    + erewrite try_get_total_supply_new_acts_correct by eauto.
-      constructor; auto.
-      now destruct_address_eq.
-    + now rewrite default_entrypoint_none in receive_some.
+    destruct msg.
+    + destruct m;
+        (try_solve_acts_correct;
+         try (constructor;now destruct_address_eq)).
+    + receive_simpl.
   - inversion_clear IH as [|? ? head_not_me tail_not_me].
     destruct head;
       try contradiction;
@@ -987,20 +997,9 @@ Lemma new_acts_amount_zero : forall prev_state chain ctx msg new_state new_acts,
     sumZ (fun act => act_body_amount act) new_acts = 0%Z.
 Proof.
   intros * receive_some.
-  destruct msg. destruct m.
-  - apply try_transfer_new_acts_correct in receive_some.
-    now subst.
-  - apply try_approve_new_acts_correct in receive_some.
-    now subst.
-  - apply try_mint_or_burn_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_allowance_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_balance_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_total_supply_new_acts_correct in receive_some.
-    now subst.
-  - now rewrite default_entrypoint_none in receive_some.
+  destruct msg.
+  - destruct m;try_solve_acts_correct.
+  - receive_simpl.
 Qed.
 
 Lemma outgoing_acts_amount_zero : forall bstate caddr,
@@ -1010,21 +1009,10 @@ Lemma outgoing_acts_amount_zero : forall bstate caddr,
 Proof.
   intros * reach deployed.
   apply (lift_outgoing_acts_prop contract); auto.
-  intros * receive_some.
-  destruct msg. destruct m.
-  - apply try_transfer_new_acts_correct in receive_some.
-    now subst.
-  - apply try_approve_new_acts_correct in receive_some.
-    now subst.
-  - apply try_mint_or_burn_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_allowance_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_balance_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_total_supply_new_acts_correct in receive_some.
-    now subst.
-  - now rewrite default_entrypoint_none in receive_some.
+  intros * receive_some; cbn in *.
+  destruct msg.
+  - destruct m;try_solve_acts_correct.
+  - receive_simpl.
 Qed.
 
 (* contract only produces call acts *)
@@ -1039,23 +1027,11 @@ Lemma outgoing_acts_are_calls : forall bstate caddr,
 Proof.
   intros * reach deployed.
   apply (lift_outgoing_acts_prop contract); auto.
-  intros * receive_some.
-  destruct msg. destruct m.
-  - apply try_transfer_new_acts_correct in receive_some.
-    now subst.
-  - apply try_approve_new_acts_correct in receive_some.
-    now subst.
-  - apply try_mint_or_burn_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_allowance_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_balance_new_acts_correct in receive_some.
-    now subst.
-  - apply try_get_total_supply_new_acts_correct in receive_some.
-    now subst.
-  - now rewrite default_entrypoint_none in receive_some.
+  intros * receive_some; cbn in *.
+  destruct msg.
+  - destruct m; try_solve_acts_correct.
+  - receive_simpl.
 Qed.
-
 
 (* ------------------- Contract balance facts ------------------- *)
 
@@ -1068,7 +1044,7 @@ Lemma contract_balance_bound' : forall bstate caddr (trace : ChainTrace empty_st
     /\ effective_balance = deploy_info.(deployment_amount).
 Proof.
   intros.
-  unfold effective_balance.
+  subst effective_balance.
   contract_induction; intros; auto.
   - cbn.
     lia.
@@ -1156,7 +1132,7 @@ Proof.
     rewrite FMap.elements_add, FMap.elements_empty by auto.
     now cbn.
   - intros IH receive_some.
-    destruct msg. destruct m.
+    destruct msg. destruct m;cbn in *.
     + erewrite <- try_transfer_preserves_total_supply; eauto.
       rename t into param.
       unfold sum_balances.
@@ -1169,8 +1145,8 @@ Proof.
         [<-| from_to_ne];
         destruct (FMap.find (from param) (tokens cstate)) eqn:from_balance;
         destruct (FMap.find (to param) (tokens cstate)) eqn:to_balance;
-          cbn in enough_balance;
-          repeat match goal with
+        destruct param;cbn in *;
+          unshelve (repeat match goal with
             | H : ?x = ?y |- context [ ?x ] => rewrite H
             | H : _ <= 0 |- _ => apply N.lt_eq_cases in H as [H | H]; try lia; subst
             | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
@@ -1188,7 +1164,7 @@ Proof.
             | |- context [ sumN _ ((?x, ?m - ?n) :: (_, ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n + m - n))
             | |- context [ with_default _ None ] => unfold with_default
             | |- context [ with_default _ (Some _) ] => unfold with_default
-           end; try easy.
+           end); try easy.
     + erewrite <- try_approve_preserves_total_supply; eauto.
       unfold sum_balances.
       erewrite <- try_approve_preserves_balances; eauto.
@@ -1218,11 +1194,10 @@ Proof.
         unfold sum_balances in IH.
         rewrite <- IH.
         now rewrite <- Zabs2N.id, N2Z.inj_add, Z2N.id.
-    + now apply try_get_allowance_preserves_state in receive_some.
-    + now apply try_get_balance_preserves_state in receive_some.
-    + now apply try_get_total_supply_preserves_state in receive_some.
+    + try_solve_preserves_state.
+    + try_solve_preserves_state.
+    + try_solve_preserves_state.
     + now rewrite default_entrypoint_none in receive_some.
-  Unshelve. all : destruct param; eauto.
 Qed.
 
 Lemma token_balance_le_total_supply : forall bstate caddr,
