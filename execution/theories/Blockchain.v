@@ -137,7 +137,9 @@ Record Chain :=
 
 Record ContractCallContext :=
   build_ctx {
-    (* Address sending the funds *)
+    (* Address that initiated the transaction (never a contract) *)
+    ctx_origin : Address;
+    (* Address of the immediate account that sent the call (can be a contract or a user account) *)
     ctx_from : Address;
     (* Address of the contract being called *)
     ctx_contract_address : Address;
@@ -182,6 +184,7 @@ Definition wc_receive (wc : WeakContract) :=
 
 Record Action :=
   build_act {
+    act_origin : Address;
     act_from : Address;
     act_body : ActionBody;
   }.
@@ -422,6 +425,7 @@ Note that there can be multiple ways to execute an action. For example, if
 the action says to deploy a contract, the implementation is responsible for
 selecting which address the new contract should get. *)
 Inductive ActionEvaluation
+          (origin : Address)
           (prev_env : Environment) (act : Action)
           (new_env : Environment) (new_acts : list Action) : Type :=
   | eval_transfer :
@@ -430,12 +434,12 @@ Inductive ActionEvaluation
         amount >= 0 ->
         amount <= env_account_balances prev_env from_addr ->
         address_is_contract to_addr = false ->
-        act = build_act from_addr (act_transfer to_addr amount) ->
+        act = build_act origin from_addr (act_transfer to_addr amount) ->
         EnvironmentEquiv
           new_env
           (transfer_balance from_addr to_addr amount prev_env) ->
         new_acts = [] ->
-        ActionEvaluation prev_env act new_env new_acts
+        ActionEvaluation origin prev_env act new_env new_acts
   | eval_deploy :
       forall (from_addr to_addr : Address)
              (amount : Amount)
@@ -446,11 +450,11 @@ Inductive ActionEvaluation
       amount <= env_account_balances prev_env from_addr ->
       address_is_contract to_addr = true ->
       env_contracts prev_env to_addr = None ->
-      act = build_act from_addr (act_deploy amount wc setup) ->
+      act = build_act origin from_addr (act_deploy amount wc setup) ->
       wc_init
         wc
         (transfer_balance from_addr to_addr amount prev_env)
-        (build_ctx from_addr to_addr amount amount)
+        (build_ctx from_addr from_addr to_addr amount amount)
         setup = Some state ->
       EnvironmentEquiv
         new_env
@@ -458,7 +462,7 @@ Inductive ActionEvaluation
            to_addr state (add_contract
                        to_addr wc (transfer_balance from_addr to_addr amount prev_env))) ->
       new_acts = [] ->
-      ActionEvaluation prev_env act new_env new_acts
+      ActionEvaluation origin prev_env act new_env new_acts
   | eval_call :
       forall (from_addr to_addr : Address)
              (amount : Amount)
@@ -471,7 +475,7 @@ Inductive ActionEvaluation
       amount <= env_account_balances prev_env from_addr ->
       env_contracts prev_env to_addr = Some wc ->
       env_contract_states prev_env to_addr = Some prev_state ->
-      act = build_act from_addr
+      act = build_act origin from_addr
                       (match msg with
                        | None => act_transfer to_addr amount
                        | Some msg => act_call to_addr amount msg
@@ -479,23 +483,24 @@ Inductive ActionEvaluation
       wc_receive
         wc
         (transfer_balance from_addr to_addr amount prev_env)
-        (build_ctx from_addr to_addr (env_account_balances new_env to_addr) amount)
+        (build_ctx origin from_addr to_addr (env_account_balances new_env to_addr) amount)
         prev_state
         msg = Some (new_state, resp_acts) ->
-      new_acts = map (build_act to_addr) resp_acts ->
+      new_acts = map (build_act origin to_addr) resp_acts ->
       EnvironmentEquiv
         new_env
         (set_contract_state to_addr new_state (transfer_balance from_addr to_addr amount prev_env)) ->
-      ActionEvaluation prev_env act new_env new_acts.
+      ActionEvaluation origin prev_env act new_env new_acts.
 
-Global Arguments eval_transfer {_ _ _ _}.
-Global Arguments eval_deploy {_ _ _ _}.
-Global Arguments eval_call {_ _ _ _}.
+Global Arguments eval_transfer {_ _ _ _ _}.
+Global Arguments eval_deploy {_ _ _ _ _}.
+Global Arguments eval_call {_ _ _ _ _}.
 
 Section Accessors.
-Context {pre : Environment} {act : Action}
+Context {origin : Address}
+        {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        (eval : ActionEvaluation pre act post new_acts).
+        (eval : ActionEvaluation origin pre act post new_acts).
 
 Definition eval_from : Address :=
   match eval with
@@ -520,9 +525,10 @@ Definition eval_amount : Amount :=
 End Accessors.
 
 Section Theories.
-Context {pre : Environment} {act : Action}
+Context {origin : Address}
+        {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        (eval : ActionEvaluation pre act post new_acts).
+        (eval : ActionEvaluation origin pre act post new_acts).
 
 Lemma account_balance_post (addr : Address) :
   env_account_balances post addr =
