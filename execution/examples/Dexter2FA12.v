@@ -971,13 +971,17 @@ Proof.
     destruct_action_eval; auto.
 Qed.
 
-Lemma no_self_calls' : forall bstate from_addr to_addr amount msg acts,
+Lemma no_self_calls' : forall bstate origin origin_valid from_addr to_addr amount msg acts,
   reachable bstate ->
   env_contracts bstate to_addr = Some (contract : WeakContract) ->
-  chain_state_queue bstate = {| act_from := from_addr; act_body :=
-    match msg with
-    | Some msg => act_call to_addr amount msg
-    | None => act_transfer to_addr amount
+  chain_state_queue bstate =
+  {| act_origin := origin;
+     act_origin_valid := origin_valid;
+     act_from := from_addr;
+     act_body :=
+       match msg with
+       | Some msg => act_call to_addr amount msg
+       | None => act_transfer to_addr amount
     end |} :: acts ->
   from_addr <> to_addr.
 Proof.
@@ -1069,7 +1073,10 @@ Proof.
     subst. cbn.
     split.
     + now apply Z.ge_le.
-    + now eapply no_self_calls'.
+    + match goal with
+      | [H : act = _ |- _] => rewrite H in *
+      end.
+      now eapply no_self_calls'.
 Qed.
 
 Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),

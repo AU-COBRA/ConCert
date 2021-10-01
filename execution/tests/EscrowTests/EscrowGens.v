@@ -32,11 +32,13 @@ Definition gAccountWithBalance (e : Env) (gAccOpt : GOpt Address) : GOpt (Addres
   returnGenSome (addr, e.(env_account_balances) addr).
 
 Definition gEscrowMsg (e : Env) : GOpt Action :=
-  let call caller amount msg :=
-  returnGenSome {|
-    act_from := caller;
-    act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
-  |} in
+  let call caller caller_is_user amount msg :=
+      returnGenSome {|
+          act_origin := caller;
+          act_origin_valid := caller_is_user;
+          act_from := caller;
+          act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
+        |} in
   state <- returnGen (get_contract_state Escrow.State e contract_addr) ;;
   let buyer := state.(buyer) in
   let seller := state.(seller) in
@@ -48,13 +50,17 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
         (* amount <- choose (0%Z, e.(account_balance) buyer) ;; *)
         if e.(env_account_balances) buyer <? 2
         then returnGen None
-        else call buyer 2 commit_money
+        else
+          p <- validate_origin buyer ;;
+          call buyer p 2 commit_money
     ) ;
     (* confirm received item *)
-    (1%nat, call buyer 0 confirm_item_received) ;
+    (1%nat, p <- validate_origin buyer ;;
+          call buyer p 0 confirm_item_received) ;
     (* withdraw money *)
     (1%nat, addr <- elems [seller; buyer] ;;
-            call addr 0 withdraw
+            p <- validate_origin addr ;;
+            call addr p 0 withdraw
     )
   ].
 
@@ -63,10 +69,12 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
    This should lead to much fewer discards during testing, but at the cost of the generator being more complex
    and less "blackbox-like" *)
 Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
-  let call caller amount msg :=
-  returnGenSome {|
-    act_from := caller;
-    act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
+  let call caller caller_is_user amount msg :=
+      returnGenSome {|
+          act_origin := caller;
+          act_origin_valid := caller_is_user;
+          act_from := caller;
+          act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
   |} in
   state <- returnGen (get_contract_state Escrow.State e contract_addr) ;;
   let buyer := state.(buyer) in
@@ -76,15 +84,25 @@ Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
   | buyer_commit => backtrack [
                       (2%nat, if e.(env_account_balances) buyer <? 2
                               then returnGen None
-                              else call buyer 2 commit_money
+                              else
+                                p <- validate_origin buyer ;;
+                                call buyer p 2 commit_money
                       );
-                      (1%nat, call seller 0 withdraw)
+                     (1%nat,
+                      p <- validate_origin seller ;;
+                      call seller p 0 withdraw)
                     ]
-  | buyer_confirm => call buyer 0 confirm_item_received
+  | buyer_confirm =>
+    p <- validate_origin buyer ;;
+    call buyer p 0 confirm_item_received
   | _ => if 0 <? state.(buyer_withdrawable)
-         then call buyer 0 withdraw
+        then
+          p <- validate_origin buyer ;;
+          call buyer p 0 withdraw
          else if 0 <? state.(seller_withdrawable)
-         then call seller 0 withdraw
+              then
+                p <- validate_origin seller ;;
+                call seller p 0 withdraw
          else returnGen None
   end.
 

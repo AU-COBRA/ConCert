@@ -44,6 +44,8 @@ Module AcornBlockchain.
   Definition SimpleContractCallContextAcorn : global_dec :=
     [\ record SimpleContractCallContext :=
        Build_ctx {
+           (* Address initiating the transaction *)
+           "Ctx_origin" : Address;
            (* Address sending the funds *)
            "Ctx_from" : Address;
            (* Address of the contract being called *)

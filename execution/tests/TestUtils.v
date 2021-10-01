@@ -32,6 +32,12 @@ Definition person_4 : Address :=
 Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
 
+Fixpoint validate_origin (a : Address) : GOpt (address_is_contract a = false) :=
+  match (Bool.bool_dec (address_is_contract a) true ) with
+  | left _ => ret None
+  | right p => ret (Some (Bool.not_true_is_false _ p))
+  end.
+
 Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
 
 (* Misc utility functions *)

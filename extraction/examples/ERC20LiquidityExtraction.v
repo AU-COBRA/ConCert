@@ -86,8 +86,8 @@ Section EIP20TokenExtraction.
   Open Scope N_scope.
   Open Scope bool.
 
-  (* We define a version of [receive] that has the right signature.
-     TODO: remove, once the [LiquidityMod] is fixed. *)
+  (* We define a version of [receive] that has the right signature. *)
+  (* TODO: remove, once the [LiquidityMod] is fixed. *)
   Definition test_receive
       (ctx : ContractCallContext)
       (state : EIP20Token.State)
@@ -118,13 +118,20 @@ Section EIP20TokenExtraction.
             allowances := AddressMap.empty |}.
   Open Scope Z_scope.
 
+  Definition printERC20Wrapper (contract : string): string :=
+  "let wrapper param (st : storage)"
+        ++ " = "
+        ++ "match " ++ contract ++ " (" ++ liquidity_call_ctx ++ ", param) st" ++ " with"
+        ++ "| Some v -> v"
+        ++ "| None -> failwith ()".
+
   Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_eip20token" ;
 
       (* definitions of operations on pairs and ints *)
       lmd_prelude := LPretty.LiquidityPrelude;
-                       
+
 
       (* initial storage *)
       lmd_init := init ;
@@ -136,7 +143,7 @@ Section EIP20TokenExtraction.
 
       (* code for the entry point *)
       lmd_entry_point := "type storage = state" ++ nl
-                          ++ LPretty.printWrapper (PREFIX ++ "receive_wrapper") ++ nl
+                          ++ printERC20Wrapper (PREFIX ++ "receive_wrapper") ++ nl
       ++ LPretty.printMain |}.
 
 

@@ -441,7 +441,7 @@ Section TraceGens.
           env_from.(env_account_balances) caddr
         else
           (env_from.(env_account_balances) caddr + amount)%Z in
-      let cctx := build_ctx act.(act_from) caddr new_balance amount in
+      let cctx := build_ctx act.(act_origin) act.(act_from) caddr new_balance amount in
         match act.(act_body) with
         | act_call to _ ser_msg =>
           if address_eqb to caddr

@@ -42,12 +42,12 @@ Definition to_action_body (sab : SimpleActionBody_coq) : ActionBody :=
   end.
 
 Definition to_contract_call_context (scc : SimpleContractCallContext_coq) : ContractCallContext :=
-  let '(Build_ctx_coq from contr_addr contr_bal am) := scc in
-  build_ctx from contr_addr contr_bal am.
+  let '(Build_ctx_coq origin from contr_addr contr_bal am) := scc in
+  build_ctx origin from contr_addr contr_bal am.
 
 Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext_coq :=
-  let '(build_ctx from contr_addr contr_bal am) := cc in
-  Build_ctx_coq from contr_addr contr_bal am.
+  let '(build_ctx origin from contr_addr contr_bal am) := cc in
+  Build_ctx_coq origin from contr_addr contr_bal am.
 
 Import Serializable Prelude.Maps.
 

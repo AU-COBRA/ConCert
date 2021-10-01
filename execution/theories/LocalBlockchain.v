@@ -89,6 +89,8 @@ Section ExecuteActions.
     lc<|lc_contract_state ::= FMap.add addr state|>.
 
   Definition send_or_call
+             (origin : Address)
+             (origin_valid : address_is_contract origin = false)
              (from to : Address)
              (amount : Amount)
              (msg : option SerializedValue)
@@ -106,14 +108,15 @@ Section ExecuteActions.
     | Some wc =>
       do state <- result_of_option (env_contract_states lc to) internal_error;
       let lc := transfer_balance from to amount lc in
-      let ctx := build_ctx from to (env_account_balances lc to) amount in
+      let ctx := build_ctx origin from to (env_account_balances lc to) amount in
       do '(new_state, new_actions) <- result_of_option (wc_receive wc lc ctx state msg)
                                                        receive_failed;
       let lc := set_contract_state to new_state lc in
-      Ok (map (build_act to) new_actions, lc)
+      Ok (map (build_act origin origin_valid to) new_actions, lc)
     end.
 
   Definition deploy_contract
+             (origin : Address)
              (from : Address)
              (amount : Amount)
              (wc : WeakContract)
@@ -128,7 +131,7 @@ Section ExecuteActions.
        | None => Ok tt
        end;
     let lc := transfer_balance from contract_addr amount lc in
-    let ctx := build_ctx from contract_addr amount amount in
+    let ctx := build_ctx origin from contract_addr amount amount in
     do state <- result_of_option (wc_init wc lc ctx setup) init_failed;
     let lc := add_contract contract_addr wc lc in
     let lc := set_contract_state contract_addr state lc in
@@ -139,12 +142,12 @@ Section ExecuteActions.
   Definition execute_action (act : Action) (lc : LocalChain) :
     result (list Action * LocalChain) ActionEvaluationError :=
     match act with
-    | build_act from (act_transfer to amount) =>
-      send_or_call from to amount None lc
-    | build_act from (act_deploy amount wc setup) =>
-      deploy_contract from amount wc setup lc
-    | build_act from (act_call to amount msg) =>
-      send_or_call from to amount (Some msg) lc
+    | build_act origin origin_valid from (act_transfer to amount) =>
+      send_or_call origin origin_valid from to amount None lc
+    | build_act origin origin_valid from (act_deploy amount wc setup) =>
+      deploy_contract origin from amount wc setup lc
+    | build_act origin origin_valid from (act_call to amount msg) =>
+      send_or_call origin origin_valid from to amount (Some msg) lc
     end.
 
   Fixpoint execute_actions
@@ -237,13 +240,13 @@ Section ExecuteActions.
     lia.
   Qed.
 
-  Lemma send_or_call_step from to amount msg act lc_before new_acts lc_after :
-    send_or_call from to amount msg lc_before = Ok (new_acts, lc_after) ->
-    act = build_act from (match msg with
-                          | None => act_transfer to amount
-                          | Some msg => act_call to amount msg
-                          end) ->
-    ActionEvaluation lc_before act lc_after new_acts.
+  Lemma send_or_call_step origin origin_valid from to amount msg act lc_before new_acts lc_after :
+    send_or_call origin origin_valid from to amount msg lc_before = Ok (new_acts, lc_after) ->
+    act = build_act origin origin_valid from (match msg with
+                                              | None => act_transfer to amount
+                                              | Some msg => act_call to amount msg
+                                              end) ->
+    ActionEvaluation origin origin_valid lc_before act lc_after new_acts.
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
@@ -289,10 +292,10 @@ Section ExecuteActions.
     end.
   Qed.
 
-  Lemma deploy_contract_step from amount wc setup act lc_before new_acts lc_after :
-    deploy_contract from amount wc setup lc_before = Ok (new_acts, lc_after) ->
-    act = build_act from (act_deploy amount wc setup) ->
-    ActionEvaluation lc_before act lc_after new_acts.
+  Lemma deploy_contract_step origin origin_valid from amount wc setup act lc_before new_acts lc_after :
+    deploy_contract origin from amount wc setup lc_before = Ok (new_acts, lc_after) ->
+    act = build_act origin origin_valid from (act_deploy amount wc setup) ->
+    ActionEvaluation origin origin_valid lc_before act lc_after new_acts.
   Proof.
     intros dep act_eq.
     unfold deploy_contract in dep.
@@ -319,11 +322,11 @@ Section ExecuteActions.
         (lc_before : LocalChain)
         (lc_after : LocalChain) :
     execute_action act lc_before = Ok (new_acts, lc_after) ->
-    ActionEvaluation lc_before act lc_after new_acts.
+    ActionEvaluation (act_origin act) (act_origin_valid act) lc_before act lc_after new_acts.
   Proof.
     intros exec.
     unfold execute_action in exec.
-    destruct act as [from body].
+    destruct act as [orig orig_valid from body].
     Hint Resolve send_or_call_step deploy_contract_step : core.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Defined.
@@ -401,16 +404,19 @@ Proof.
 Qed.
 
 Definition find_invalid_root_action (actions : list Action) : option Action :=
-  find (fun act => address_is_contract (act_from act)) actions.
+  find (fun act => negb (address_eqb (act_origin act) (act_from act))) actions.
 
 Lemma validate_actions_valid actions :
   find_invalid_root_action actions = None ->
-  Forall act_is_from_account actions.
+  Forall (fun act => address_eqb (act_origin act) (act_from act) = true) actions.
 Proof.
   intros find_none.
   unfold find_invalid_root_action in find_none.
   specialize (List.find_none _ _ find_none) as all_nin.
-  now apply Forall_forall in all_nin.
+  cbn in *.
+  assert (all_nin0 : forall x, In x actions -> (act_origin x =? act_from x)%address = true).
+  { intros. now apply ssrbool.negbFE. }
+  now apply Forall_forall in all_nin0.
 Qed.
 
 Definition add_new_block (header : BlockHeader) (lc : LocalChain) : LocalChain :=
@@ -447,7 +453,7 @@ Definition add_block_exec
            (actions : list Action) : result LocalChain AddBlockError :=
   do (if validate_header header lc then Ok tt else Err invalid_header);
   do (match find_invalid_root_action actions with
-      | Some act => Err (invalid_root_action act)
+      | Some act => Err (origin_from_mismatch act)
       | None => Ok tt
       end);
   let lc := add_new_block header lc in
@@ -468,7 +474,7 @@ Proof.
   subst lcopt.
   cbn -[execute_actions] in exec.
   destruct (validate_header _) eqn:validate; [|cbn in *; congruence].
-  destruct (find_invalid_root_action _) eqn:invalid_root_act; [cbn in *; congruence|].
+  destruct (find_invalid_root_action _) eqn:invalid_root_act1; [cbn in *; congruence|].
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Ok {| lcb_lc := lc; lcb_trace := _ |}).
   cbn -[execute_actions] in exec.

@@ -32,11 +32,13 @@ Proof.
 Qed.
 
 Lemma eval_action_from_to_same
+      {origin : Address}
+      {origin_valid : address_is_contract origin = false}
       {pre : Environment}
       {act : Action}
       {post : Environment}
       {new_acts : list Action}
-      (eval : ActionEvaluation pre act post new_acts) :
+      (eval : ActionEvaluation origin origin_valid pre act post new_acts) :
   eval_from eval = eval_to eval ->
   circulation post = circulation pre.
 Proof.
@@ -45,18 +47,20 @@ Proof.
   induction (elements Address) as [| x xs IH].
   - reflexivity.
   - cbn in *.
-    rewrite IH, (account_balance_post eval), from_eq_to.
+    rewrite IH, (account_balance_post _ eval), from_eq_to.
     lia.
 Qed.
 
 Hint Resolve eval_action_from_to_same : core.
 
 Lemma eval_action_circulation_unchanged
+      {origin : Address}
+      {origin_valid : address_is_contract origin = false}
       {pre : Environment}
       {act : Action}
       {post : Environment}
       {new_acts : list Action} :
-  ActionEvaluation pre act post new_acts ->
+  ActionEvaluation origin origin_valid pre act post new_acts ->
   circulation post = circulation pre.
 Proof.
   intros eval.
@@ -67,8 +71,8 @@ Proof.
   unfold circulation.
   rewrite 2!(sumZ_permutation perm).
   cbn.
-  rewrite (account_balance_post_to eval from_neq_to).
-  rewrite (account_balance_post_from eval from_neq_to).
+  rewrite (account_balance_post_to _ eval from_neq_to).
+  rewrite (account_balance_post_from _ eval from_neq_to).
   enough (sumZ (env_account_balances pre) suf = sumZ (env_account_balances post) suf)
     by lia.
 
@@ -79,7 +83,7 @@ Proof.
   { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); intuition. }
 
   clear perm perm_set.
-  pose proof (account_balance_post_irrelevant eval) as balance_irrel.
+  pose proof (account_balance_post_irrelevant _ eval) as balance_irrel.
   induction suf as [| x xs IH]; auto.
   cbn in *.
   rewrite IH, balance_irrel; auto.

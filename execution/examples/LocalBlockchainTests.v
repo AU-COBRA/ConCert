@@ -55,7 +55,7 @@ Section LocalBlockchainTests.
 
   (* Creator transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
-    unpack_result (add_block chain2 [build_act creator (act_transfer person_1 10)]).
+    unpack_result (add_block chain2 [build_act creator eq_refl creator (act_transfer person_1 10)]).
 
   Compute (env_account_balances chain3 person_1).
   Compute (env_account_balances chain3 creator).
@@ -72,7 +72,7 @@ Section LocalBlockchainTests.
     create_deployment 5 Congress.contract setup.
 
   Definition chain4 : ChainBuilder :=
-    unpack_result (add_block chain3 [build_act person_1 deploy_congress]).
+    unpack_result (add_block chain3 [build_act person_1 eq_refl person_1 deploy_congress]).
 
   Definition congress_1 : Address :=
     match outgoing_txs (builder_trace chain4) person_1 with
@@ -114,8 +114,8 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (add_member p)).
 
   Definition chain5 : ChainBuilder :=
-    let acts := [build_act person_1 (add_person person_1);
-                 build_act person_1 (add_person person_2)] in
+    let acts := [build_act person_1 eq_refl person_1 (add_person person_1);
+                 build_act person_1 eq_refl person_1 (add_person person_2)] in
     unpack_result (add_block chain4 acts).
 
   Compute (FMap.elements (congress_state chain5).(members)).
@@ -127,7 +127,7 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (create_proposal [cact_transfer person_3 3])).
 
   Definition chain6 : ChainBuilder :=
-    unpack_result (add_block chain5 [build_act person_1 create_proposal_call]).
+    unpack_result (add_block chain5 [build_act person_1 eq_refl person_1 create_proposal_call]).
 
   Compute (FMap.elements (congress_state chain6).(proposals)).
 
@@ -136,7 +136,8 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (vote_for_proposal 1)).
 
   Definition chain7 : ChainBuilder :=
-    let acts := [build_act person_1 vote_proposal; build_act person_2 vote_proposal] in
+    let acts := [build_act person_1 eq_refl person_1 vote_proposal;
+                 build_act person_2 eq_refl person_2 vote_proposal] in
     unpack_result (add_block chain6 acts).
 
   Compute (FMap.elements (congress_state chain7).(proposals)).
@@ -146,7 +147,7 @@ Section LocalBlockchainTests.
     congress_ifc.(send) 0 (Some (finish_proposal 1)).
 
   Definition chain8 : ChainBuilder :=
-    unpack_result (add_block chain7 [build_act person_3 finish_proposal]).
+    unpack_result (add_block chain7 [build_act person_3 eq_refl person_3 finish_proposal]).
 
   Compute (FMap.elements (congress_state chain8).(proposals)).
   (* Balances before: *)

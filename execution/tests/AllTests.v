@@ -34,12 +34,12 @@ End Congress.
 Module Congress_Buggy.
 Import Congress_BuggyTests.
 
-QuickChick (
+QuickChick (expectFailure (
   {{fun _ _ => true}}
   congress_caddr
   {{receive_state_well_behaved_P}}
-).
-(* *** Failed after 10 tests and 1 shrinks. (0 discards) *)
+)).
+(* *** Failed (as expected) after 10 tests and 1 shrinks. (0 discards) *)
 End Congress_Buggy.
 
 
@@ -48,8 +48,8 @@ End Congress_Buggy.
 Module Dexter.
 Import DexterTests.
 
-QuickChick tokens_to_asset_correct.
-(* *** Failed after 1 tests and 1 shrinks. (0 discards) *)
+QuickChick (expectFailure tokens_to_asset_correct).
+(* *** Failed (as expected) after 1 tests and 1 shrinks. (0 discards) *)
 End Dexter.
 
 
@@ -68,8 +68,8 @@ QuickChick (
 QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_init_supply)).
 (* +++ Passed 10000 tests (0 discards) *)
 
-QuickChick (sum_allowances_le_init_supply_P 5).
-(* *** Failed after 21 tests and 8 shrinks. (0 discards) *)
+QuickChick (expectFailure (sum_allowances_le_init_supply_P 5)).
+(* *** Failed (as expected) after 21 tests and 8 shrinks. (0 discards) *)
 
 QuickChick (token_cb ~~> (person_has_tokens person_3 12)).
 (* Success - found witness satisfying the predicate!
@@ -97,8 +97,8 @@ QuickChick (
   }
 ).*)
 
-QuickChick reapprove_transfer_from_safe_P.
-(* *** Failed after 1 tests and 4 shrinks. (14 discards) *)
+QuickChick (expectFailure reapprove_transfer_from_safe_P).
+(* *** Failed (as expected) after 1 tests and 4 shrinks. (14 discards) *)
 End EIP20Token.
 
 
@@ -127,26 +127,22 @@ Import TestInfo.
 QuickChick (forAll gUniqueAddrPair (fun p => isSomeCheck p (fun '(addr1, addr2) => negb (address_eqb addr1 addr2)))).
 (* +++ Passed 10000 tests (0 discards) *)
 
-(* Test doesn't work *)(*
 QuickChick (
   {{ msg_is_transfer }}
     token_contract_base_addr
   {{ post_transfer_correct }}
-  chain_without_transfer_hook).*)
+  chain_without_transfer_hook).
 
-(* Test doesn't work *)(*
-QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct).*)
+QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct).
 
-(* Test doesn't work *)(*
-QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P).*)
+QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P).
 
-(* Test doesn't work *)(*
 QuickChick (
   {{msg_is_update_operator}}
   token_contract_base_addr
   {{post_last_update_operator_occurrence_takes_effect}}
   chain_without_transfer_hook
-).*)
+).
 End FA2Token.
 
 
@@ -154,16 +150,16 @@ End FA2Token.
 Module iTokenBuggy.
 Import iTokenBuggyTests.
 
-QuickChick token_supply_preserved.
-(* *** Failed after 5 tests and 1000 shrinks. (0 discards) *)
+QuickChick (expectFailure token_supply_preserved).
+(* *** Failed (as expected) after 5 tests and 1000 shrinks. (0 discards) *)
 
-QuickChick (forAllTokenChainTraces 4 (checker_get_state sum_balances_eq_init_supply_checker)).
-(* *** Failed after 1 tests and 7 shrinks. (0 discards) *)
+QuickChick (expectFailure (forAllTokenChainTraces 4 (checker_get_state sum_balances_eq_init_supply_checker))).
+(* *** Failed (as expected) after 1 tests and 7 shrinks. (0 discards) *)
 
-QuickChick (
+QuickChick (expectFailure (
   {{msg_is_not_mint_or_burn}}
   token_caddr
   {{sum_balances_unchanged}}
-).
-(* *** Failed after 3 tests and 8 shrinks. (0 discards) *)
+)).
+(* *** Failed (as expected) after 3 tests and 8 shrinks. (0 discards) *)
 End iTokenBuggy.

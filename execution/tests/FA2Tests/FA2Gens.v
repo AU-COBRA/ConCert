@@ -194,16 +194,19 @@ Definition gUpdateOperators (chain : Chain)
 
 
 Definition gFA2TokenAction (env : Environment) : GOpt Action :=
-  let mk_call caller_addr amount msg :=
-    returnGenSome {|
-      act_from := caller_addr;
-      act_body := act_call fa2_contract_addr amount (serialize FA2Token.Msg _ msg)
+  let mk_call caller_addr caller_addr_is_user amount msg :=
+      returnGenSome {|
+          act_origin := caller_addr;
+          act_origin_valid := caller_addr_is_user;
+          act_from := caller_addr;
+          act_body := act_call fa2_contract_addr amount (serialize FA2Token.Msg _ msg)
     |} in
   fa2_state <- returnGen (get_contract_state FA2Token.State env fa2_contract_addr) ;;
   backtrack [
     (* transfer tokens *)
     (4, '(caller, trx) <- gTransfer fa2_state 4 ;;
-        mk_call caller 0%Z trx
+        p <- validate_origin caller ;;
+        mk_call caller p 0%Z trx
     ) ;
     (* create tokens *)
     (1, let has_balance amount := Z.ltb 0 amount in
@@ -212,12 +215,14 @@ Definition gFA2TokenAction (env : Environment) : GOpt Action :=
         (* caller <- liftM fst (sampleFMapOpt_filter lc.(lc_account_balances)
                             (fun p => (is_not_contract_addr (fst p)) && (has_balance (snd p)))) ;; *)
         '(amount, msg) <- gCreateTokens env caller fa2_state ;;
-        mk_call caller amount msg
+        p <- validate_origin caller ;;
+        mk_call caller p amount msg
     ) ;
     (* update operators *)
     (2, caller <- liftOptGen (gAddrWithout []) ;;
         upd <- gUpdateOperators env fa2_state 2 ;;
-        mk_call caller 0%Z upd
+        p <- validate_origin caller ;;
+        mk_call caller p 0%Z upd
     )
   ].
 End FA2ContractGens.
@@ -238,16 +243,19 @@ Definition gIsOperatorMsg : G (option ClientMsg) :=
     returnGenSome (client_other_msg (Call_fa2_is_operator params)).
 
 Definition gClientAction (env : Environment) : GOpt Action :=
-  let mk_call_fa2 caller fa2_caddr msg :=
-    returnGenSome {|
-      act_from := caller;
-      act_body := act_call fa2_client_addr 0%Z (serialize ClientMsg _ msg)
-    |} in
+  let mk_call_fa2 caller caller_is_user fa2_caddr msg :=
+      returnGenSome {|
+          act_origin := caller;
+          act_origin_valid := caller_is_user;
+          act_from := caller;
+          act_body := act_call fa2_client_addr 0%Z (serialize ClientMsg _ msg)
+        |} in
   state <- returnGen (get_contract_state ClientState env fa2_client_addr) ;;
   let fa2_caddr := state.(fa2_caddr) in
   caller <- liftOptGen (gAddrWithout []) ;;
   msg <- gIsOperatorMsg ;;
-  mk_call_fa2 caller fa2_caddr msg.
+  p <- validate_origin caller ;;
+  mk_call_fa2 caller p fa2_caddr msg.
 
 End FA2ClientGens.
 

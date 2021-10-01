@@ -525,7 +525,9 @@ Section Theories.
            as all.
       unfold outgoing_acts in *.
       rewrite queue_prev in *.
-      subst act; cbn in all.
+      match goal with
+      | [H : act = _ |- _] => rewrite H in *
+      end; cbn in all.
       destruct_address_eq; cbn in *; auto.
       inversion_clear all as [|? ? hd _].
       destruct msg.
