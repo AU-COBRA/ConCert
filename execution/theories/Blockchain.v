@@ -1433,24 +1433,25 @@ Proof.
   intros [trace].
   remember empty_state; induction trace;subst; cbn in *; try constructor.
   destruct_chain_step.
-  - (* New block, use IH *)
+  - (* New block, use the fact that [act_origin] is the same as [act_from]
+       and [act_from] is an account address*)
     now apply origin_is_account.
   - (* Action evaluation *)
     destruct_action_eval; subst;
-    rewrite queue_new in *;
-    rewrite queue_prev in *;
-    cbn in *;
-    specialize_hypotheses; inversion IHtrace;subst; try easy.
+      rewrite queue_new in *;
+      rewrite queue_prev in *;
+      cbn in *;
+      specialize_hypotheses;
+      inversion IHtrace;subst; try easy.
     apply Forall_app. split.
-    * apply All_Forall.Forall_map. unfold act_origin_is_account in *;cbn in *.
-      clear e2 queue_new.
-      induction resp_acts;auto.
+    * apply All_Forall.Forall_map.
+      apply Forall_forall; easy.
     * auto.
   - (* Invalid User Action *)
-    rewrite queue_new in *; rewrite queue_prev in *;cbn in *.
-    specialize_hypotheses; inversion IHtrace;subst; easy.
+    rewrite queue_new in *; rewrite queue_prev in *; cbn in *.
+    specialize_hypotheses; inversion IHtrace; subst; easy.
   - (* Permutation *)
-    eapply forall_respects_permutation;eauto.
+    eapply forall_respects_permutation; eauto.
 Qed.
 
 Inductive TagFacts := tag_facts.
