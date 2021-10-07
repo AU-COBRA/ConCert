@@ -146,18 +146,6 @@ Defined.
 
 Definition voters_map : AddrMap unit := AddressMap.of_list (map (fun a => (a, tt)) addrs).
 
-Fixpoint validate_addrs (xs : list Address) : list {a : Address | address_is_contract a = false} :=
-  match xs with
-  | [] => []
-  | a :: tail => match (Bool.bool_dec (address_is_contract a) true ) with
-               | left _ => []
-               | right p => exist _ a (Bool.not_true_is_false _ p) :: validate_addrs tail
-               end
-  end.
-
-Definition user_addrs : list {a : Address | address_is_contract a = false} :=
-  validate_addrs addrs.
-
 Definition five := 5%nat.
 
 Definition deploy_setup :=
@@ -180,15 +168,15 @@ Program Definition boardroom_example : option nat :=
              block_reward := 50; |} in
       option_of_result (builder_add_block chain next_header acts) in
   do chain <- add_block chain [];
-  let dep := build_act creator _ creator (create_deployment 0 boardroom_voting deploy_setup) in
+  let dep := build_act creator creator (create_deployment 0 boardroom_voting deploy_setup) in
   do chain <- add_block chain [dep];
   do caddr <- hd_error (AddressMap.keys (lc_contracts (lcb_lc chain)));
-  let send addr m := build_act (proj1_sig addr) (proj2_sig addr) addr (act_call caddr 0 (serialize m)) in
-  let calls := map (fun '(addr, m) => send addr m) (zip user_addrs signups) in
+  let send addr m := build_act addr addr (act_call caddr 0 (serialize m)) in
+  let calls := map (fun '(addr, m) => send addr m) (zip addrs signups) in
   do chain <- add_block chain calls;
-  let votes := map (fun '(addr, m) => send addr m) (zip user_addrs votes) in
+  let votes := map (fun '(addr, m) => send addr m) (zip addrs votes) in
   do chain <- add_block chain votes;
-  let tally := build_act creator _ creator (act_call caddr 0 (serialize tally_votes)) in
+  let tally := build_act creator creator (act_call caddr 0 (serialize tally_votes)) in
   do chain <- add_block chain [tally];
   do state <- contract_state (lcb_lc chain) caddr;
   BV.tally state.

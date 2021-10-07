@@ -90,7 +90,6 @@ Section ExecuteActions.
 
   Definition send_or_call
              (origin : Address)
-             (origin_valid : address_is_contract origin = false)
              (from to : Address)
              (amount : Amount)
              (msg : option SerializedValue)
@@ -112,7 +111,7 @@ Section ExecuteActions.
       do '(new_state, new_actions) <- result_of_option (wc_receive wc lc ctx state msg)
                                                        receive_failed;
       let lc := set_contract_state to new_state lc in
-      Ok (map (build_act origin origin_valid to) new_actions, lc)
+      Ok (map (build_act origin to) new_actions, lc)
     end.
 
   Definition deploy_contract
@@ -142,12 +141,12 @@ Section ExecuteActions.
   Definition execute_action (act : Action) (lc : LocalChain) :
     result (list Action * LocalChain) ActionEvaluationError :=
     match act with
-    | build_act origin origin_valid from (act_transfer to amount) =>
-      send_or_call origin origin_valid from to amount None lc
-    | build_act origin origin_valid from (act_deploy amount wc setup) =>
+    | build_act origin from (act_transfer to amount) =>
+      send_or_call origin from to amount None lc
+    | build_act origin from (act_deploy amount wc setup) =>
       deploy_contract origin from amount wc setup lc
-    | build_act origin origin_valid from (act_call to amount msg) =>
-      send_or_call origin origin_valid from to amount (Some msg) lc
+    | build_act origin from (act_call to amount msg) =>
+      send_or_call origin  from to amount (Some msg) lc
     end.
 
   Fixpoint execute_actions
@@ -240,13 +239,13 @@ Section ExecuteActions.
     lia.
   Qed.
 
-  Lemma send_or_call_step origin origin_valid from to amount msg act lc_before new_acts lc_after :
-    send_or_call origin origin_valid from to amount msg lc_before = Ok (new_acts, lc_after) ->
-    act = build_act origin origin_valid from (match msg with
-                                              | None => act_transfer to amount
-                                              | Some msg => act_call to amount msg
-                                              end) ->
-    ActionEvaluation origin origin_valid lc_before act lc_after new_acts.
+  Lemma send_or_call_step origin from to amount msg act lc_before new_acts lc_after :
+    send_or_call origin from to amount msg lc_before = Ok (new_acts, lc_after) ->
+    act = build_act origin from (match msg with
+                                 | None => act_transfer to amount
+                                 | Some msg => act_call to amount msg
+                                 end) ->
+    ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros sent act_eq.
     unfold send_or_call in sent.
@@ -262,7 +261,7 @@ Section ExecuteActions.
       destruct (wc_receive wc _ _ _ _) as [[new_state resp_acts]|] eqn:receive;
         [|cbn in *; congruence].
       Hint Resolve gtb_le ltb_ge : core.
-      apply (eval_call from to amount wc msg prev_state new_state resp_acts);
+      apply (eval_call origin from to amount wc msg prev_state new_state resp_acts);
         try solve [cbn in *; auto; congruence].
       + cbn in sent.
         inversion_clear sent.
@@ -274,7 +273,7 @@ Section ExecuteActions.
       destruct (address_is_contract to) eqn:addr_format; cbn in *; try congruence.
       destruct msg; cbn in *; try congruence.
       assert (new_acts = []) by congruence; subst new_acts.
-      apply (eval_transfer from to amount); auto.
+      apply (eval_transfer origin from to amount); auto.
       inversion sent; subst; now apply transfer_balance_equiv.
   Defined.
 
@@ -292,10 +291,10 @@ Section ExecuteActions.
     end.
   Qed.
 
-  Lemma deploy_contract_step origin origin_valid from amount wc setup act lc_before new_acts lc_after :
+  Lemma deploy_contract_step origin from amount wc setup act lc_before new_acts lc_after :
     deploy_contract origin from amount wc setup lc_before = Ok (new_acts, lc_after) ->
-    act = build_act origin origin_valid from (act_deploy amount wc setup) ->
-    ActionEvaluation origin origin_valid lc_before act lc_after new_acts.
+    act = build_act origin from (act_deploy amount wc setup) ->
+    ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros dep act_eq.
     unfold deploy_contract in dep.
@@ -311,7 +310,7 @@ Section ExecuteActions.
     cbn in dep.
     assert (new_acts = []) by congruence; subst new_acts.
     Hint Resolve get_new_contract_addr_is_contract_addr : core.
-    apply (eval_deploy from contract_addr amount wc setup state); eauto.
+    apply (eval_deploy origin from contract_addr amount wc setup state); eauto.
     inversion dep; subst lc_after.
     now apply set_contract_state_equiv, add_contract_equiv, transfer_balance_equiv.
   Defined.
@@ -322,11 +321,11 @@ Section ExecuteActions.
         (lc_before : LocalChain)
         (lc_after : LocalChain) :
     execute_action act lc_before = Ok (new_acts, lc_after) ->
-    ActionEvaluation (act_origin act) (act_origin_valid act) lc_before act lc_after new_acts.
+    ActionEvaluation lc_before act lc_after new_acts.
   Proof.
     intros exec.
     unfold execute_action in exec.
-    destruct act as [orig orig_valid from body].
+    destruct act as [orig from body].
     Hint Resolve send_or_call_step deploy_contract_step : core.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Defined.
@@ -403,20 +402,34 @@ Proof.
   lia.
 Qed.
 
-Definition find_invalid_root_action (actions : list Action) : option Action :=
+Definition find_origin_neq_from (actions : list Action) : option Action :=
   find (fun act => negb (address_eqb (act_origin act) (act_from act))) actions.
 
-Lemma validate_actions_valid actions :
-  find_invalid_root_action actions = None ->
+Lemma validate_origin_neq_from_valid actions :
+  find_origin_neq_from actions = None ->
   Forall (fun act => address_eqb (act_origin act) (act_from act) = true) actions.
 Proof.
   intros find_none.
-  unfold find_invalid_root_action in find_none.
+  unfold find_origin_neq_from in find_none.
   specialize (List.find_none _ _ find_none) as all_nin.
   cbn in *.
   assert (all_nin0 : forall x, In x actions -> (act_origin x =? act_from x)%address = true).
   { intros. now apply ssrbool.negbFE. }
   now apply Forall_forall in all_nin0.
+Qed.
+
+Definition find_invalid_root_action (actions : list Action) : option Action :=
+  find (fun act => address_is_contract (act_from act)) actions.
+
+Lemma validate_actions_valid actions :
+  find_invalid_root_action actions = None ->
+  Forall (fun act => act_is_from_account act) actions.
+Proof.
+  intros find_none.
+  unfold find_invalid_root_action in find_none.
+  specialize (List.find_none _ _ find_none) as all_nin.
+  unfold act_is_from_account.
+  now apply Forall_forall in all_nin.
 Qed.
 
 Definition add_new_block (header : BlockHeader) (lc : LocalChain) : LocalChain :=
@@ -452,8 +465,12 @@ Definition add_block_exec
            (header : BlockHeader)
            (actions : list Action) : result LocalChain AddBlockError :=
   do (if validate_header header lc then Ok tt else Err invalid_header);
-  do (match find_invalid_root_action actions with
+  do (match find_origin_neq_from actions with
       | Some act => Err (origin_from_mismatch act)
+      | None => Ok tt
+      end);
+  do (match find_invalid_root_action actions with
+      | Some act => Err (invalid_root_action act)
       | None => Ok tt
       end);
   let lc := add_new_block header lc in
@@ -474,14 +491,15 @@ Proof.
   subst lcopt.
   cbn -[execute_actions] in exec.
   destruct (validate_header _) eqn:validate; [|cbn in *; congruence].
-  destruct (find_invalid_root_action _) eqn:invalid_root_act1; [cbn in *; congruence|].
+  destruct (find_origin_neq_from _) eqn:no_origin_neq_from;[cbn in *; congruence|].
+  destruct (find_invalid_root_action _) eqn:no_invalid_root_act; [cbn in *; congruence|].
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Ok {| lcb_lc := lc; lcb_trace := _ |}).
   cbn -[execute_actions] in exec.
 
   refine (execute_actions_trace _ _ _ _ _ _ exec).
   refine (snoc prev_lcb_trace _).
-  Hint Resolve validate_header_valid validate_actions_valid : core.
+  Hint Resolve validate_header_valid validate_actions_valid validate_origin_neq_from_valid : core.
   eapply step_block; eauto.
   apply add_new_block_equiv.
   reflexivity.

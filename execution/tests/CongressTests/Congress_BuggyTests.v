@@ -45,7 +45,7 @@ Definition exploit_example : option (Address * ChainBuilder) :=
              block_finalized_height := finalized_height chain;
              block_creator := creator;
              block_reward := 50; |} in
-      let acts := map (build_act creator eq_refl creator) act_bodies in
+      let acts := map (build_act creator creator) act_bodies in
       option_of_result (builder_add_block chain next_header acts) in
   (* Get some money on the creator *)
   (* Deploy congress and exploit contracts *)

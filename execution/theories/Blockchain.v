@@ -185,7 +185,6 @@ Definition wc_receive (wc : WeakContract) :=
 Record Action :=
   build_act {
     act_origin : Address;
-    act_origin_valid : address_is_contract act_origin = false;
     act_from : Address;
     act_body : ActionBody;
   }.
@@ -426,24 +425,22 @@ Note that there can be multiple ways to execute an action. For example, if
 the action says to deploy a contract, the implementation is responsible for
 selecting which address the new contract should get. *)
 Inductive ActionEvaluation
-          (origin : Address)
-          (origin_valid : address_is_contract origin = false)
           (prev_env : Environment) (act : Action)
           (new_env : Environment) (new_acts : list Action) : Type :=
   | eval_transfer :
-      forall (from_addr to_addr : Address)
+      forall (origin from_addr to_addr : Address)
              (amount : Amount),
         amount >= 0 ->
         amount <= env_account_balances prev_env from_addr ->
         address_is_contract to_addr = false ->
-        act = build_act origin origin_valid from_addr (act_transfer to_addr amount) ->
+        act = build_act origin from_addr (act_transfer to_addr amount) ->
         EnvironmentEquiv
           new_env
           (transfer_balance from_addr to_addr amount prev_env) ->
         new_acts = [] ->
-        ActionEvaluation origin origin_valid prev_env act new_env new_acts
+        ActionEvaluation prev_env act new_env new_acts
   | eval_deploy :
-      forall (from_addr to_addr : Address)
+      forall (origin from_addr to_addr : Address)
              (amount : Amount)
              (wc : WeakContract)
              (setup : SerializedValue)
@@ -452,7 +449,7 @@ Inductive ActionEvaluation
       amount <= env_account_balances prev_env from_addr ->
       address_is_contract to_addr = true ->
       env_contracts prev_env to_addr = None ->
-      act = build_act origin origin_valid from_addr (act_deploy amount wc setup) ->
+      act = build_act origin from_addr (act_deploy amount wc setup) ->
       wc_init
         wc
         (transfer_balance from_addr to_addr amount prev_env)
@@ -464,9 +461,9 @@ Inductive ActionEvaluation
            to_addr state (add_contract
                        to_addr wc (transfer_balance from_addr to_addr amount prev_env))) ->
       new_acts = [] ->
-      ActionEvaluation origin origin_valid prev_env act new_env new_acts
+      ActionEvaluation prev_env act new_env new_acts
   | eval_call :
-      forall (from_addr to_addr : Address)
+      forall (origin from_addr to_addr : Address)
              (amount : Amount)
              (wc : WeakContract)
              (msg : option SerializedValue)
@@ -477,7 +474,7 @@ Inductive ActionEvaluation
       amount <= env_account_balances prev_env from_addr ->
       env_contracts prev_env to_addr = Some wc ->
       env_contract_states prev_env to_addr = Some prev_state ->
-      act = build_act origin origin_valid from_addr
+      act = build_act origin from_addr
                       (match msg with
                        | None => act_transfer to_addr amount
                        | Some msg => act_call to_addr amount msg
@@ -488,42 +485,48 @@ Inductive ActionEvaluation
         (build_ctx origin from_addr to_addr (env_account_balances new_env to_addr) amount)
         prev_state
         msg = Some (new_state, resp_acts) ->
-      new_acts = map (build_act origin origin_valid to_addr) resp_acts ->
+      new_acts = map (build_act origin to_addr) resp_acts ->
       EnvironmentEquiv
         new_env
         (set_contract_state to_addr new_state (transfer_balance from_addr to_addr amount prev_env)) ->
-      ActionEvaluation origin origin_valid prev_env act new_env new_acts.
+      ActionEvaluation prev_env act new_env new_acts.
 
-Global Arguments eval_transfer {_ _ _ _ _ _}.
-Global Arguments eval_deploy {_ _ _ _ _ _}.
-Global Arguments eval_call {_ _ _ _ _ _}.
+Global Arguments eval_transfer {_ _ _ _ }.
+Global Arguments eval_deploy {_ _ _ _ }.
+Global Arguments eval_call {_ _ _ _}.
 
 Section Accessors.
 Context {origin : Address}
         {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        {origin_valid : address_is_contract origin = false}
-        (eval : ActionEvaluation origin origin_valid pre act post new_acts).
+        (eval : ActionEvaluation pre act post new_acts).
+
+Definition eval_origin : Address :=
+  match eval with
+  | eval_transfer origin _ _ _ _ _ _ _ _ _
+  | eval_deploy origin _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  | eval_call origin _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => origin
+  end.
 
 Definition eval_from : Address :=
   match eval with
-  | eval_transfer from _ _ _ _ _ _ _ _
-  | eval_deploy from _ _ _ _ _ _ _ _ _ _ _ _ _
-  | eval_call from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
+  | eval_transfer _ from _ _ _ _ _ _ _ _
+  | eval_deploy _ from _ _ _ _ _ _ _ _ _ _ _ _ _
+  | eval_call _ from _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => from
   end.
 
 Definition eval_to : Address :=
   match eval with
-  | eval_transfer _ to _ _ _ _ _ _ _
-  | eval_deploy _ to _ _ _ _ _ _ _ _ _ _ _ _
-  | eval_call _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
+  | eval_transfer _ _ to _ _ _ _ _ _ _
+  | eval_deploy _ _ to _ _ _ _ _ _ _ _ _ _ _ _
+  | eval_call _ _ to _ _ _ _ _ _ _ _ _ _ _ _ _ _ => to
   end.
 
 Definition eval_amount : Amount :=
   match eval with
-  | eval_transfer _ _ amount _ _ _ _ _ _
-  | eval_deploy _ _ amount _ _ _ _ _ _ _ _ _ _ _
-  | eval_call _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
+  | eval_transfer _ _ _ amount _ _ _ _ _ _
+  | eval_deploy _ _ _ amount _ _ _ _ _ _ _ _ _ _ _
+  | eval_call _ _ _ amount _ _ _ _ _ _ _ _ _ _ _ _ _ => amount
   end.
 End Accessors.
 
@@ -531,8 +534,7 @@ Section Theories.
 Context {origin : Address}
         {pre : Environment} {act : Action}
         {post : Environment} {new_acts : list Action}
-        (origin_valid : address_is_contract origin = false)
-        (eval : ActionEvaluation origin origin_valid pre act post new_acts).
+        (eval : ActionEvaluation pre act post new_acts).
 
 Lemma account_balance_post (addr : Address) :
   env_account_balances post addr =
@@ -630,6 +632,13 @@ Local Open Scope nat.
 Definition act_is_from_account (act : Action) : Prop :=
   address_is_contract (act_from act) = false.
 
+Definition act_origin_is_account (act : Action) : Prop :=
+  address_is_contract (act_origin act) = false.
+
+Definition act_origin_is_eq_from (act : Action) : Prop :=
+  address_eqb (act_origin act) (act_from act) = true.
+
+
 Record IsValidNextBlock (header : BlockHeader) (chain : Chain) : Prop :=
   build_is_valid_next_block {
     valid_height : block_height header = S (chain_height chain);
@@ -654,8 +663,8 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
     forall (header : BlockHeader),
       chain_state_queue prev_bstate = [] ->
       IsValidNextBlock header prev_bstate ->
-      Forall (fun act => address_eqb (act_origin act) (act_from act) = true)
-             (chain_state_queue next_bstate) ->
+      Forall act_is_from_account (chain_state_queue next_bstate) ->
+      Forall act_origin_is_eq_from (chain_state_queue next_bstate) ->
       EnvironmentEquiv
         next_bstate
         (add_new_block_to_env header prev_bstate) ->
@@ -665,7 +674,7 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
            (acts : list Action)
            (new_acts : list Action),
       chain_state_queue prev_bstate = act :: acts ->
-      ActionEvaluation (act_origin act) (act_origin_valid act) prev_bstate act next_bstate new_acts ->
+      ActionEvaluation prev_bstate act next_bstate new_acts ->
       chain_state_queue next_bstate = new_acts ++ acts ->
       ChainStep prev_bstate next_bstate
 | step_action_invalid :
@@ -675,26 +684,24 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
       chain_state_queue prev_bstate = act :: acts ->
       chain_state_queue next_bstate = acts ->
       act_is_from_account act ->
-      (forall bstate new_acts, ActionEvaluation (act_origin act) (act_origin_valid act) prev_bstate act bstate new_acts -> False) ->
+      (forall bstate new_acts, ActionEvaluation prev_bstate act bstate new_acts -> False) ->
       ChainStep prev_bstate next_bstate
 | step_permute :
       chain_state_env prev_bstate = chain_state_env next_bstate ->
       Permutation (chain_state_queue prev_bstate) (chain_state_queue next_bstate) ->
       ChainStep prev_bstate next_bstate.
 
-Lemma origin_from_eq_not_contract acts :
-  Forall (fun act => address_eqb (act_origin act) (act_from act) = true) acts ->
-  Forall act_is_from_account acts.
+Lemma origin_is_account acts :
+  Forall act_is_from_account acts ->
+  Forall act_origin_is_eq_from acts ->
+  Forall act_origin_is_account acts.
 Proof.
   intros Hall.
-  induction Hall as [| a Ha].
-  + constructor.
-  + constructor.
-    ** specialize (address_eqb_spec (act_origin a) (act_from a)) as Haddr.
-       destruct Haddr;try congruence.
-       destruct a. unfold act_is_from_account. cbn in *.
-       easy.
-    ** auto.
+  induction Hall as [| a Ha];intros Hall0;auto.
+  inversion Hall0;subst.
+  constructor;auto.
+  specialize (address_eqb_spec (act_origin a) (act_from a)) as Haddr;
+    unfold act_origin_is_eq_from in *; destruct Haddr;easy.
 Qed.
 
 
@@ -740,16 +747,15 @@ Record Tx :=
       tx_body : TxBody;
   }.
 
-Definition eval_tx {origin : Address} {pre : Environment} {act : Action}
+Definition eval_tx {pre : Environment} {act : Action}
                    {post : Environment} {new_acts : list Action}
-                   {origin_valid : address_is_contract origin = false}
-                   (step : ActionEvaluation origin origin_valid pre act post new_acts) : Tx :=
+                   (step : ActionEvaluation pre act post new_acts) : Tx :=
   match step with
-  | eval_transfer from to amount _ _ _ _ _ _ =>
+  | eval_transfer _ from to amount _ _ _ _ _ _ =>
     build_tx from to amount tx_empty
-  | eval_deploy from to amount wc setup _ _ _ _ _ _ _ _ _ =>
+  | eval_deploy _ from to amount wc setup _ _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_deploy wc setup)
-  | eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ _ =>
+  | eval_call _ from to amount _ msg _ _ _ _ _ _ _ _ _ _ _ =>
     build_tx from to amount (tx_call msg)
   end.
 
@@ -796,7 +802,7 @@ Fixpoint incoming_calls
   match trace with
   | snoc trace' step =>
     match step with
-    | step_action _ _ _ _ _ _ (eval_call from to amount _ msg _ _ _ _ _ _ _ _ _ _ _) _ =>
+    | step_action _ _ _ _ _ _ (eval_call _ from to amount _ msg _ _ _ _ _ _ _ _ _ _ _) _ =>
       if (to =? caddr)%address then
         (* If there is a message it should deserialize correctly,
            otherwise the entire operation returns None. *)
@@ -838,7 +844,7 @@ Fixpoint deployment_info
   match trace with
   | snoc trace' step =>
     match step with
-    | step_action _ _ _ _ _ _ (eval_deploy from to amount _ setup _ _ _ _ _ _ _ _ _) _ =>
+    | step_action _ _ _ _ _ _ (eval_deploy _ from to amount _ setup _ _ _ _ _ _ _ _ _) _ =>
       if (to =? caddr)%address then
         do setup <- deserialize setup;
         Some (build_deployment_info from amount setup)
@@ -854,7 +860,7 @@ Fixpoint trace_blocks {from to : ChainState}
   match trace with
   | snoc trace' step =>
     match step with
-    | step_block _ _ header _ _ _ _ =>
+    | step_block _ _ header _ _ _ _ _ =>
       header :: trace_blocks trace'
     | _ => trace_blocks trace'
     end
@@ -901,7 +907,7 @@ Ltac destruct_chain_step :=
 
 Ltac destruct_action_eval :=
   match goal with
-  | [eval: ActionEvaluation _ _ _ _ _ _ |- _] => destruct eval
+  | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
   end.
 
 Lemma contract_addr_format {to} (addr : Address) (wc : WeakContract) :
@@ -920,9 +926,9 @@ Proof.
     + intuition.
 Qed.
 
-Lemma new_acts_no_out_queue orig orig_valid addr1 addr2 new_acts resp_acts :
+Lemma new_acts_no_out_queue orig addr1 addr2 new_acts resp_acts :
   addr1 <> addr2 ->
-  new_acts = map (build_act orig orig_valid addr2) resp_acts ->
+  new_acts = map (build_act orig addr2) resp_acts ->
   Forall (fun a => (act_from a =? addr1)%address = false) new_acts.
 Proof.
   intros neq ?; subst.
@@ -982,7 +988,10 @@ Proof.
     cbn in *.
   - (* New block *)
     match goal with
-    | [H: Forall _ _ |- _] => apply origin_from_eq_not_contract in H; induction H
+    | [H: Forall act_is_from_account _ |- _] => induction H
+    end;
+    match goal with
+    | [H: Forall act_origin_is_eq_from _ |- _] => inversion H
     end; constructor; auto; destruct_address_eq; congruence.
   - (* Transfer step, just use IH *)
     eapply list.Forall_cons; eauto.
@@ -1296,9 +1305,9 @@ Proof.
     inversion valid_header.
     destruct_address_eq; lia.
   - (* Action evaluation *)
-    rewrite (account_balance_post _ eval addr).
-    pose proof (eval_amount_nonnegative _ eval).
-    pose proof (eval_amount_le_account_balance _ eval).
+    rewrite (account_balance_post eval addr).
+    pose proof (eval_amount_nonnegative eval).
+    pose proof (eval_amount_le_account_balance eval).
     destruct_address_eq; subst; cbn in *; lia.
   - (* Invalid User Action *)
     now rewrite_environment_equiv.
@@ -1387,7 +1396,6 @@ Proof.
     rewrite_environment_equiv; auto.
   - (* Action evaluation *)
     destruct_action_eval; subst; rewrite_environment_equiv; cbn in *.
-    (*destruct_action_eval; rewrite_environment_equiv; cbn in *.*)
     + (* Transfer, use IH *)
       auto.
     + (* Deployment *)
@@ -1411,6 +1419,38 @@ Proof.
   - (* Permutation *)
     rewrite prev_next in *.
     auto.
+Qed.
+
+Lemma origin_is_always_account
+          {Setup Msg State : Type}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
+          {bstate : ChainState} :
+  reachable bstate ->
+  Forall act_origin_is_account (chain_state_queue bstate).
+Proof.
+  intros [trace].
+  remember empty_state; induction trace;subst; cbn in *; try constructor.
+  destruct_chain_step.
+  - (* New block, use IH *)
+    now apply origin_is_account.
+  - (* Action evaluation *)
+    destruct_action_eval; subst;
+    rewrite queue_new in *;
+    rewrite queue_prev in *;
+    cbn in *;
+    specialize_hypotheses; inversion IHtrace;subst; try easy.
+    apply Forall_app. split.
+    * apply All_Forall.Forall_map. unfold act_origin_is_account in *;cbn in *.
+      clear e2 queue_new.
+      induction resp_acts;auto.
+    * auto.
+  - (* Invalid User Action *)
+    rewrite queue_new in *; rewrite queue_prev in *;cbn in *.
+    specialize_hypotheses; inversion IHtrace;subst; easy.
+  - (* Permutation *)
+    eapply forall_respects_permutation;eauto.
 Qed.
 
 Inductive TagFacts := tag_facts.
@@ -1456,18 +1496,18 @@ Lemma contract_induction
           (from_reachable : reachable bstate_from)
           (tag : TagFacts),
       match step with
-      | step_block _ _ header _ _ _ _ =>
+      | step_block _ _ header _ _ _ _ _ =>
         AddBlockFacts (chain_height bstate_from)
                       (current_slot bstate_from)
                       (finalized_height bstate_from)
                       (block_height header)
                       (block_slot header)
                       (block_finalized_height header)
-      | step_action _ _ act _ _ _ (eval_deploy from to amount _ _ _ _ _ _ _ _ _ _ _) _ =>
+      | step_action _ _ act _ _ _ (eval_deploy _ from to amount _ _ _ _ _ _ _ _ _ _ _) _ =>
         DeployFacts
           (transfer_balance from to amount bstate_from)
           (build_ctx (act_origin act) from to amount amount)
-      | step_action _ _ act _ _ _ (eval_call from to amount _ _ _ _ _ _ _ _ _ _ _ _ _) _ =>
+      | step_action _ _ act _ _ _ (eval_call _ from to amount _ _ _ _ _ _ _ _ _ _ _ _ _) _ =>
         let new_state := transfer_balance from to amount bstate_from in
         forall (cstate : State),
           env_contracts bstate_from to = Some (contract : WeakContract) ->
@@ -1650,8 +1690,7 @@ Proof.
     inversion valid_header.
     cbn in *.
     destruct_address_eq; try congruence.
-    Hint Resolve origin_from_eq_not_contract : hdb.
-    rewrite outgoing_acts_after_block_nil by auto with hdb.
+    rewrite outgoing_acts_after_block_nil by auto.
     unfold outgoing_acts in *; rewrite queue_prev in *; cbn in *.
     eapply add_block_case; try constructor.
     + apply establish_facts.
@@ -1721,14 +1760,11 @@ Proof.
       rewrite queue_prev in queue_ne_to.
       inversion_clear queue_ne_to as [|? ? from_ne_to rest_ne_to].
       cbn in from_ne_to.
-      match goal with
-      | [ H : act = _ |- _ ] => rewrite H in *;clear H
-      end.
       cbn in *.
       rewrite (address_eq_ne from_addr to_addr) by (destruct_address_eq; auto).
       rewrite Forall_false_filter_nil by assumption.
       rewrite undeployed_contract_no_out_txs, undeployed_contract_balance_0 by auto.
-      remember (build_ctx (act_origin act) _ _ _ _) as ctx.
+      remember (build_ctx _ _ _ _ _) as ctx.
       replace from_addr with (ctx_from ctx) by (subst; auto).
       replace to_addr with (ctx_contract_address ctx) by (subst; auto).
       replace amount with (ctx_amount ctx) by (subst; auto).
@@ -1939,14 +1975,14 @@ Ltac destruct_chain_step :=
 
 Ltac destruct_action_eval :=
   match goal with
-  | [eval: ActionEvaluation _ _ _ _ _ _ |- _] =>
+  | [eval: ActionEvaluation _ _ _ _ |- _] =>
     destruct eval as
-      [?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
-        ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
-       ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
+      [?origin ?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
+       ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
+       ?origin ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
         ?enough_balance ?to_addr_contract ?not_deployed
         ?act_eq ?init_some ?env_eq ?new_acts_eq |
-       ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
+       ?origin ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
         ?amount_nonnegative ?enough_balance ?deployed ?deployed_state ?act_eq
         ?receive_some ?new_acts_eq ?env_eq ]
   end.

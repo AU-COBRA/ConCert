@@ -8,7 +8,7 @@ From Coq Require Import ZArith Strings.String.
 From Coq Require Import List. Import ListNotations.
 Import BoundedN.Stdpp.
 
-Let Base := TestUtils.LocalChainBase.
+Definition Base := TestUtils.LocalChainBase.
 
 Close Scope address_scope.
 Open Scope list_scope.
@@ -174,7 +174,7 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
       match trace with
       | snoc trace' step =>
       match step with
-      | Blockchain.step_block _ _ _ _ _ _ _ =>
+      | Blockchain.step_block _ _ _ _ _ _ _ _ =>
           let '(_, next_bstate) := chainstep_states step in
           showChainTrace trace' ++ nl ++
           "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++

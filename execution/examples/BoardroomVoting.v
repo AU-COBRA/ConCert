@@ -808,10 +808,8 @@ Proof.
       rewrite queue_prev in H2.
       cbn in H2.
       destruct (address_eqb_spec (act_from act) to_addr); cbn in *; try congruence.
-      match goal with
-      | [ H : act = _ |- _ ] => rewrite H in *
-      end.
-      cbn in *; congruence.
+      subst.
+      cbn in *. congruence.
 Qed.
 
 Theorem boardroom_voting_correct

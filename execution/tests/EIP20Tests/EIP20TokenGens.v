@@ -76,10 +76,9 @@ Definition gTransfer_from (state : EIP20Token.State) : GOpt (Address * Msg) :=
 Local Close Scope N_scope.
 (* Main generator. *)
 Definition gEIP20TokenAction (env : Environment) : GOpt Action :=
-  let call contract_addr caller_addr caller_addr_is_user msg :=
+  let call contract_addr caller_addr msg :=
       returnGenSome {|
           act_origin := caller_addr;
-          act_origin_valid := caller_addr_is_user;
           act_from := caller_addr;
           act_body := act_call contract_addr 0%Z (serializeMsg msg)
         |} in
@@ -87,22 +86,19 @@ Definition gEIP20TokenAction (env : Environment) : GOpt Action :=
   backtrack [
     (* transfer *)
       (2, '(caller, msg) <- gTransfer env state ;;
-          p <- validate_origin caller ;;
-          call contract_addr caller p msg
+          call contract_addr caller msg
     ) ;
     (* transfer_from *)
     (3, bindGenOpt (gTransfer_from state)
         (fun '(caller, msg) =>
-          p <- validate_origin caller ;;
-          call contract_addr caller p msg
+          call contract_addr caller msg
 
         )
     );
     (* approve *)
     (2, bindGenOpt (gApprove state)
         (fun '(caller, msg) =>
-          p <- validate_origin caller ;;
-          call contract_addr caller p msg
+          call contract_addr caller msg
         )
     )
   ].

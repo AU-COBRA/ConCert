@@ -91,36 +91,36 @@ Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
 Definition chain_with_token_deployed_with_hook : ChainBuilder :=
   unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator eq_refl creator (act_transfer person_1 10);
-    build_act creator eq_refl creator (act_transfer person_2 10);
-    build_act creator eq_refl creator (act_transfer person_3 10);
-    build_act creator eq_refl creator deploy_fa2token_with_transfer_hook;
-    build_act creator eq_refl creator deploy_fa2token_client;
-    build_act creator eq_refl creator deploy_fa2hook
+    build_act creator creator (act_transfer person_1 10);
+    build_act creator creator (act_transfer person_2 10);
+    build_act creator creator (act_transfer person_3 10);
+    build_act creator creator deploy_fa2token_with_transfer_hook;
+    build_act creator creator deploy_fa2token_client;
+    build_act creator creator deploy_fa2hook
   ]).
 
 Definition chain_with_token_deployed_without_hook : ChainBuilder :=
   unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator eq_refl creator (act_transfer person_1 10);
-    build_act creator eq_refl creator (act_transfer person_2 10);
-    build_act creator eq_refl creator (act_transfer person_3 10);
-    build_act creator eq_refl creator deploy_fa2token_without_transfer_hook;
-    build_act creator eq_refl creator deploy_fa2token_client
+    build_act creator creator (act_transfer person_1 10);
+    build_act creator creator (act_transfer person_2 10);
+    build_act creator creator (act_transfer person_3 10);
+    build_act creator creator deploy_fa2token_without_transfer_hook;
+    build_act creator creator deploy_fa2token_client
   ]).
 
 Definition chain_without_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_without_hook
   [
-    build_act person_1 eq_refl person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 eq_refl person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
   ]).
 
 Definition chain_with_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_with_hook
   [
-    build_act person_1 eq_refl person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 eq_refl person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
   ]).
 
 Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'.
@@ -344,7 +344,7 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
   end.
 
 (* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
-(* coqtop-stdout:+++ Passed 10000 tests (2432 discards) *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
   let (param, is_remove) := match op with
@@ -397,11 +397,11 @@ Definition post_last_update_operator_occurrence_takes_effect (chain : Chain) (cc
   | None => checker false
   end.
 
-(* QuickChick (
-  {{msg_is_update_operator}}
-  token_contract_base_addr
-  {{post_last_update_operator_occurrence_takes_effect}}
-  chain_without_transfer_hook
-). *)
+(* QuickChick ( *)
+(*   {{msg_is_update_operator}} *)
+(*   token_contract_base_addr *)
+(*   {{post_last_update_operator_occurrence_takes_effect}} *)
+(*   chain_without_transfer_hook *)
+(* ). *)
 (* 40 secs, max length 7: *)
-(* coqtop-stdout:+++ Passed 10000 tests (65772 discards) *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)

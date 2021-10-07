@@ -104,13 +104,13 @@ Definition chain0 : ChainBuilder :=
 Definition chain1 : ChainBuilder :=
   unpack_result (TraceGens.add_block chain0
   [
-    build_act creator eq_refl creator (act_transfer person_1 10) ;
-    build_act creator eq_refl creator deploy_fa2token ;
-    build_act creator eq_refl creator deploy_dexter ;
-    build_act creator eq_refl creator deploy_exploit ;
-    build_act person_1 eq_refl person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act creator eq_refl creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
-    build_act person_1 eq_refl person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
+    build_act creator creator (act_transfer person_1 10) ;
+    build_act creator creator deploy_fa2token ;
+    build_act creator creator deploy_dexter ;
+    build_act creator creator deploy_exploit ;
+    build_act person_1 person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
+    build_act creator creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
+    build_act person_1 person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
                                                                                       add_operator (add_operator_all person_1 dexter_caddr)])))
   ]).
 
@@ -131,23 +131,17 @@ Module TestInfo <: DexterTestsInfo.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
-Definition call_dexter owner_addr owner_addr_not_contract :=
+Definition call_dexter owner_addr :=
   let dummy_descriptor := {|
     transfer_descr_fa2 := fa2_caddr;
     transfer_descr_batch := [];
     transfer_descr_operator := dexter_caddr;
   |} in
-  build_act owner_addr owner_addr_not_contract owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
+  build_act owner_addr owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
 
 Definition gExploitAction : GOpt Action :=
   bindGen (elems [person_1; person_2; person_3])
-          (fun addr => bindGen (validate_origin addr)
-                            (fun p_opt =>
-                               match p_opt with
-                               | Some p => returnGenSome (call_dexter addr p)
-                               | None => returnGen None
-                               end)
-  ).
+          (fun addr => returnGenSome (call_dexter addr)).
 
 Definition gExploitChainTraceList max_acts_per_block cb length :=
   gChain cb (fun cb _ => gExploitAction) length 1 max_acts_per_block.

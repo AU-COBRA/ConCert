@@ -48,10 +48,10 @@ Definition token_caddr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator eq_refl creator (act_transfer person_1 0);
-    build_act creator eq_refl creator (act_transfer person_2 0);
-    build_act creator eq_refl creator (act_transfer person_3 0);
-    build_act creator eq_refl creator deploy_iToken
+    build_act creator creator (act_transfer person_1 0);
+    build_act creator creator (act_transfer person_2 0);
+    build_act creator creator (act_transfer person_3 0);
+    build_act creator creator deploy_iToken
   ]).
 
 Module TestInfo <: iTokenBuggyGensInfo.

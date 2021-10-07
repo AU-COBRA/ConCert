@@ -37,8 +37,8 @@ Section TestSetup.
   Definition escrow_chain : ChainBuilder :=
     unpack_result (TraceGens.add_block (lcb_initial AddrSize)
     [
-      build_act seller eq_refl seller (act_transfer buyer 10);
-      build_act seller eq_refl seller (deploy_escrow 2)
+      build_act seller seller (act_transfer buyer 10);
+      build_act seller seller (deploy_escrow 2)
     ]).
     
 End TestSetup.

@@ -34,10 +34,10 @@ Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator eq_refl creator (act_transfer person_1 0);
-    build_act creator eq_refl creator (act_transfer person_2 0);
-    build_act creator eq_refl creator (act_transfer person_3 0);
-    build_act creator eq_refl creator deploy_eip20token
+    build_act creator creator (act_transfer person_1 0);
+    build_act creator creator (act_transfer person_2 0);
+    build_act creator creator (act_transfer person_3 0);
+    build_act creator creator deploy_eip20token
   ]).
 
 Module TestInfo <: EIP20GensInfo.
@@ -137,7 +137,7 @@ Definition sum_allowances_le_init_supply_P maxLength :=
   forAllChainState maxLength token_cb (gTokenChain 2)
     (checker_get_state sum_allowances_le_init_supply).
 
-(* QuickChick (sum_allowances_le_init_supply_P 5). *)
+(* QuickChick (expectFailure (sum_allowances_le_init_supply_P 5)). *)
 
 Definition person_has_tokens person (n : N) :=
   fun cs => 

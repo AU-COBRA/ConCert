@@ -62,10 +62,9 @@ Definition gBurn (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
 Local Close Scope N_scope.
 (* Main generator. *)
 Definition giTokenBuggyAction (env : Environment) : GOpt Action :=
-  let call caller_addr caller_addr_is_user contract_addr msg :=
+  let call caller_addr contract_addr msg :=
       returnGenSome {|
           act_origin := caller_addr;
-          act_origin_valid := caller_addr_is_user;
           act_from := caller_addr;
           act_body := act_call contract_addr 0%Z (serializeMsg msg)
         |} in
@@ -73,23 +72,19 @@ Definition giTokenBuggyAction (env : Environment) : GOpt Action :=
   backtrack [
     (* mint *)
     (1, '(caller, msg) <- gMint env state ;;
-        p <- validate_origin caller ;;
-        call caller p contract_addr msg
+        call caller contract_addr msg
     ) ;
     (* burn *)
     (1, '(caller, msg) <- gBurn state ;;
-        p <- validate_origin caller ;;
-        call caller p contract_addr msg
+        call caller contract_addr msg
     ) ;
     (* transfer_from *)
     (4, '(caller, msg) <- gTransfer_from state ;;
-        p <- validate_origin caller ;;
-        call caller p contract_addr msg
+        call caller contract_addr msg
     );
     (* approve *)
     (2, '(caller, msg) <- gApprove state ;;
-        p <- validate_origin caller ;;
-        call caller p contract_addr msg
+        call caller contract_addr msg
     )
   ].
 

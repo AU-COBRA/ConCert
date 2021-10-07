@@ -68,23 +68,20 @@ Definition gAddTokensToReserve (env : Environment)
 
 (* NOTE: all call considered top-level calls (from users) *)
 Definition gDexterAction (env : Environment) : GOpt Action :=
-  let mk_call caller_addr caller_addr_is_user amount msg :=
+  let mk_call caller_addr amount msg :=
     returnGenSome {|
       act_origin := caller_addr;
-      act_origin_valid := caller_addr_is_user;
       act_from := caller_addr;
       act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg)
     |} in
   fa2_state <- returnGen (get_contract_state FA2Token.State env fa2_contract_addr) ;;
   backtrack [
    (1, '(caller, amount, msg) <- gAddTokensToReserve env fa2_state ;;
-        p <- validate_origin caller ;;
-        mk_call caller p amount msg
+        mk_call caller amount msg
     ) ;
     (2, caller <- gAccountAddrWithout [fa2_contract_addr; dexter_contract_addr] ;;
         '(_, msg) <- gTokenExchange fa2_state ;;
-        p <- validate_origin caller ;;
-        mk_call caller p 0%Z msg
+        mk_call caller 0%Z msg
     )
   ].
 
