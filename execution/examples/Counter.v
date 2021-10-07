@@ -189,9 +189,7 @@ Proof.
     { apply lift_outgoing_acts_nil with (contract := counter_contract);eauto.
       intros. eapply (receive_produces_no_calls (chain:=chain) (ctx:=ctx));eauto. apply H. }
     unfold outgoing_acts in *. rewrite queue_prev in *.
-    match goal with
-    | [H : act = _ |- _] => rewrite H in *
-    end;cbn in Hempty.
+    subst act;cbn in Hempty.
     now destruct_address_eq.
 Qed.
 
