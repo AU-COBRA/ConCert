@@ -89,13 +89,21 @@ Definition bindCallerIsOwnerOpt {A : Type}
 Definition try_gNewOwner state calling_addr contract_addr : GOpt Address:=
   bindCallerIsOwnerOpt state calling_addr contract_addr (gCongressMember_without_caller state calling_addr contract_addr).
 
+Fixpoint validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
+  match (Bool.bool_dec (address_is_contract a) true ) with
+  | left _ => ret None
+  | right p => ret (Some (Bool.not_true_is_false _ p))
+  end.
+
 Definition vote_proposal (caddr : Address)
                          (members_and_proposals : FMap Address (list ProposalId))
-                         (call : Address -> Address -> Msg -> GOpt Action)
+                         (call : forall (caddr : Address) (origin : Address),
+                             address_is_contract origin = false -> Msg -> GOpt Action)
                          (vote : ProposalId -> Msg):=
   '(member, pids) <- sampleFMapOpt members_and_proposals ;;
+  p <- validate_addr member ;;
   pid <- elems_opt pids ;;
-  call caddr member (vote pid).
+  call caddr member p (vote pid).
 
 (* Returns a mapping to proposals which have been discussed long enough, according to the
    current rules in the given congress' state *)
@@ -140,12 +148,12 @@ Definition lc_contract_members_and_proposals_with_votes (state : Congress_Buggy.
     else FMap.empty.
 
 Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GOpt Action :=
-  let call contract_addr caller_addr msg :=
+  let call contract_addr caller_addr caller_addr_is_user msg :=
     amount <- match env.(env_account_balances) caller_addr with
               | 0%Z => returnGenSome 0%Z
               | caller_balance => genToOpt (choose (0%Z, caller_balance))
               end ;;
-    returnGenSome (build_act caller_addr
+    returnGenSome (build_act caller_addr caller_addr
       (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg)))) in
   congress_state <- returnGen (get_contract_state Congress_Buggy.State env caddr) ;;
   let members := (map fst o FMap.elements) congress_state.(members) in
@@ -156,19 +164,23 @@ Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GO
       (* transfer_ownership *)
       (1, members <- elems_opt (congressContractsMembers_nonowners congress_state) ;;
           new_owner <- (try_gNewOwner congress_state owner caddr) ;;
-          call caddr owner (transfer_ownership new_owner)
+          p <- validate_addr owner ;;
+          call caddr owner p (transfer_ownership new_owner)
       ) ;
       (* change_rules *)
       (1, rules <- genToOpt (gRulesSized 4) ;;
-          (call caddr owner (change_rules rules))
+          p <- validate_addr owner ;;
+          call caddr owner p (change_rules rules)
       ) ;
       (* add_member *)
       (2, addr <- returnGen (try_newCongressMember congress_state caddr 10) ;;
-          call caddr owner (add_member addr)
+          p <- validate_addr owner ;;
+          call caddr owner p (add_member addr)
       ) ;
       (* remove_member *)
       (1, member <- elems_opt members ;;
-          call caddr owner (remove_member member)
+          p <- validate_addr owner ;;
+          call caddr owner p (remove_member member)
       ) ;
       (* vote_for_proposal *)
       (* Requirements:
@@ -187,7 +199,8 @@ Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GO
          - only contract owner can finish proposals
          - the debating period must have passed *)
       (2, '(pid, _) <- sampleFMapOpt (finishable_proposals congress_state env.(current_slot)) ;;
-           call caddr owner (finish_proposal pid)
+          p <- validate_addr owner ;;
+          call caddr owner p (finish_proposal pid)
       )
     ]
   | S fuel' => backtrack [
@@ -206,7 +219,8 @@ Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GO
       | act_call caddr amount msg =>
         member <- elems_opt members ;;
         let ca := cact_call caddr amount msg in
-        call caddr member (create_proposal [ca])
+        p <- validate_addr member ;;
+        call caddr member p (create_proposal [ca])
       | _ => returnGenSome act
       end)
   ]

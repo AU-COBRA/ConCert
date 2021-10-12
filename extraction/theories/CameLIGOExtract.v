@@ -179,6 +179,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @stdpp.base.empty %%> "Map.empty"
 
   (* call context *)
+  ; remap <%% @ctx_origin %%> "ctx_origin"
   ; remap <%% @ctx_from %%> "ctx_from"
   ; remap <%% @ctx_contract_address %%> "ctx_contract_address"
   ; remap <%% @ctx_contract_balance %%> "ctx_contract_balance"

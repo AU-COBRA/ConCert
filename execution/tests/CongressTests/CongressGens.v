@@ -117,8 +117,6 @@ Definition bindCallerIsOwnerOpt {A : Type}
 
 Definition try_gNewOwner state calling_addr contract_addr : GOpt Address:=
   bindCallerIsOwnerOpt state calling_addr contract_addr (gCongressMember_without_caller state calling_addr contract_addr).
-
-
 Definition vote_proposal (caddr : Address)
                          (members_and_proposals : FMap Address (list ProposalId))
                          (call : Address -> Address -> Msg -> GOpt Action)
@@ -139,13 +137,14 @@ Definition finishable_proposals (state : Congress.State)
   then pids_map_filtered
   else FMap.empty.
 
+(* NOTE: all call considered top-level calls (from users) *)
 Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GOpt Action :=
   let call contract_addr caller_addr msg :=
     amount <- match env.(env_account_balances) caller_addr with
               | 0%Z => returnGenSome 0%Z
               | caller_balance => genToOpt (choose (0%Z, caller_balance))
               end ;;
-    returnGenSome (build_act caller_addr
+    returnGenSome (build_act caller_addr caller_addr
       (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg)))) in
   congress_state <- returnGen (get_contract_state Congress.State env caddr) ;;
   let members := (map fst o FMap.elements) congress_state.(members) in
@@ -187,11 +186,11 @@ Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GO
          - only contract owner can finish proposals
          - the debating period must have passed *)
       (2, '(pid, _) <- sampleFMapOpt (finishable_proposals congress_state env.(current_slot)) ;;
-           call caddr owner (finish_proposal pid)
+          call caddr owner (finish_proposal pid)
       )
     ]
   | S fuel' => backtrack [
-    (3, GCongressAction env fuel' caddr) ;
+    (3, GCongressAction env fuel'  caddr) ;
     (* add_proposal *)
     (1,
       (* recurse. Msg is converted to a SerializedType using 'serialize' *)

@@ -971,13 +971,16 @@ Proof.
     destruct_action_eval; auto.
 Qed.
 
-Lemma no_self_calls' : forall bstate from_addr to_addr amount msg acts,
+Lemma no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
   reachable bstate ->
   env_contracts bstate to_addr = Some (contract : WeakContract) ->
-  chain_state_queue bstate = {| act_from := from_addr; act_body :=
-    match msg with
-    | Some msg => act_call to_addr amount msg
-    | None => act_transfer to_addr amount
+  chain_state_queue bstate =
+  {| act_origin := origin;
+     act_from := from_addr;
+     act_body :=
+       match msg with
+       | Some msg => act_call to_addr amount msg
+       | None => act_transfer to_addr amount
     end |} :: acts ->
   from_addr <> to_addr.
 Proof.

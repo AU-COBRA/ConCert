@@ -930,6 +930,7 @@ Definition CameLIGO_call_ctx_type_name : string := "cctx".
 Definition CameLIGO_call_ctx_type :=
 <$ "(* ConCert's call context *)"
 ; "type " ^ CameLIGO_call_ctx_type_name ^ " = {"
+; "  ctx_origin_ : address;"
 ; "  ctx_from_ : address;"
 ; "  ctx_contract_address_ : address;"
 ; "  ctx_contract_balance_ : tez;"
@@ -940,7 +941,8 @@ $>.
 Definition CameLIGO_call_ctx_instance :=
 <$"(* a call context instance with fields filled in with required data *)"
 ; "let cctx_instance : " ^ CameLIGO_call_ctx_type_name ^ "= "
-; "{ ctx_from_ = Tezos.sender;"
+; "{ ctx_origin_ = Tezos.source;"
+; "  ctx_from_ = Tezos.sender;"
 ; "  ctx_contract_address_ = Tezos.self_address;"
 ; "  ctx_contract_balance_ = Tezos.balance;"
 ; "  ctx_amount_ = Tezos.balance"

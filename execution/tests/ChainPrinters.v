@@ -8,7 +8,7 @@ From Coq Require Import ZArith Strings.String.
 From Coq Require Import List. Import ListNotations.
 Import BoundedN.Stdpp.
 
-Let Base := TestUtils.LocalChainBase.
+Definition Base := TestUtils.LocalChainBase.
 
 Close Scope address_scope.
 Open Scope list_scope.
@@ -156,6 +156,7 @@ Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
   show err := match err with
               | invalid_header => "invalid_header"
               | invalid_root_action act => "invalid_root_action: " ++ show act
+              | origin_from_mismatch act => "origin_from_mismatch: " ++ show act
               | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded"
               | action_evaluation_error act eval_error =>
                 "action_evaluation_error for " ++ show act ++ " with error: " ++ show eval_error
@@ -173,7 +174,7 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
       match trace with
       | snoc trace' step =>
       match step with
-      | Blockchain.step_block _ _ _ _ _ _ _ =>
+      | Blockchain.step_block _ _ _ _ _ _ _ _ =>
           let '(_, next_bstate) := chainstep_states step in
           showChainTrace trace' ++ nl ++
           "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++

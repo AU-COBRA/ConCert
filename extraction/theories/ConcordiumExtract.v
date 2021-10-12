@@ -359,6 +359,7 @@ Section ConcordiumPrinting.
      "        " ++ RustExtract.ty_const_global_ident_of_kername <%% @ContractCallContext %%> ++ "::build_ctx(";
      "            PhantomData,";
      "            Address::Account(ctx.init_origin()),";
+     "            Address::Account(ctx.init_origin()),";
      "            Address::Contract(ContractAddress { index: 0, subindex: 0 }),";
      "            amount.micro_gtu as i64,";
      "            amount.micro_gtu as i64);";
@@ -437,6 +438,7 @@ Section ConcordiumPrinting.
      "    let cctx =";
      "        " ++ RustExtract.ty_const_global_ident_of_kername <%% @ContractCallContext %%> ++ "::build_ctx(";
      "            PhantomData,";
+     "            Address::Account(ctx.invoker()),";
      "            ctx.sender(),";
      "            Address::Contract(ctx.self_address()),";
      "            balance,";

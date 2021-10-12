@@ -37,7 +37,7 @@ Section TraceGens.
       chain_state_queues from each step_block *)
   Fixpoint trace_blocks {from to} (trace : ChainTrace from to) : list (BlockHeader * list Action) :=
     match trace with
-    | snoc trace' (Blockchain.step_block _ _ header _ _ _ _ as step) =>
+    | snoc trace' (Blockchain.step_block _ _ header _ _ _ _ _ as step) =>
       trace_blocks trace' ++ [(header, chain_state_queue (snd (chainstep_states step)))]
     | snoc trace' _ => trace_blocks trace'
     | clnil => []
@@ -269,7 +269,7 @@ Section TraceGens.
   (* Variant that only gathers ChainStates of step_block steps in the trace. *)
   Fixpoint trace_states_step_block {from to} (trace : ChainTrace from to) : list ChainState :=
     match trace with
-    | snoc trace' (Blockchain.step_block _ _ _ _ _ _ _ as step) =>
+    | snoc trace' (Blockchain.step_block _ _ _ _ _ _ _ _ as step) =>
       trace_states_step_block trace' ++ [snd (chainstep_states step)]
     | snoc trace' _ => trace_states_step_block trace'
     | clnil => []
@@ -336,7 +336,7 @@ Section TraceGens.
       match trace with
       | snoc trace' step =>
         match step with
-        | Blockchain.step_block _ _ _ _ _ _ _ =>
+        | Blockchain.step_block _ _ _ _ _ _ _ _ =>
           (* next_bstate has acts, bstate_before_step_block has no acts *)
           let '(bstate_before_step_block, next_bstate) := chainstep_states step in
           conjoin [(checker (pf next_bstate prev_bstate)); all_statepairs trace' bstate_before_step_block]
@@ -441,7 +441,7 @@ Section TraceGens.
           env_from.(env_account_balances) caddr
         else
           (env_from.(env_account_balances) caddr + amount)%Z in
-      let cctx := build_ctx act.(act_from) caddr new_balance amount in
+      let cctx := build_ctx act.(act_origin) act.(act_from) caddr new_balance amount in
         match act.(act_body) with
         | act_call to _ ser_msg =>
           if address_eqb to caddr

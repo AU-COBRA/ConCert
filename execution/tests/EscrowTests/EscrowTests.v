@@ -37,8 +37,8 @@ Section TestSetup.
   Definition escrow_chain : ChainBuilder :=
     unpack_result (TraceGens.add_block (lcb_initial AddrSize)
     [
-      build_act creator (act_transfer buyer 10);
-      build_act seller (deploy_escrow 2)
+      build_act seller seller (act_transfer buyer 10);
+      build_act seller seller (deploy_escrow 2)
     ]).
     
 End TestSetup.
@@ -264,7 +264,7 @@ Discarded: 20000 *)
 (* +++ Passed 10000 tests (0 discards) *)
 (* Or alternatively we can just write: *)
 (* QuickChick escrow_correct_P. *)
-(* +++ Passed 10000 tests (40 discards) *)
+(* +++ Passed 10000 tests  (40 discards) *)
 (* Not sure where the 40 discards come from, but it's an acceptable amount for sure... *)
 
 (* Note that we are implicitly using the "better" generator here to generate arbitrary ChainTraces *)
