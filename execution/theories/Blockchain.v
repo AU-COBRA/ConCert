@@ -741,6 +741,7 @@ Inductive TxBody :=
 
 Record Tx :=
   build_tx {
+      tx_origin : Address;
       tx_from : Address;
       tx_to : Address;
       tx_amount : Amount;
@@ -751,12 +752,12 @@ Definition eval_tx {pre : Environment} {act : Action}
                    {post : Environment} {new_acts : list Action}
                    (step : ActionEvaluation pre act post new_acts) : Tx :=
   match step with
-  | eval_transfer _ from to amount _ _ _ _ _ _ =>
-    build_tx from to amount tx_empty
-  | eval_deploy _ from to amount wc setup _ _ _ _ _ _ _ _ _ =>
-    build_tx from to amount (tx_deploy wc setup)
-  | eval_call _ from to amount _ msg _ _ _ _ _ _ _ _ _ _ _ =>
-    build_tx from to amount (tx_call msg)
+  | eval_transfer origin from to amount _ _ _ _ _ _ =>
+    build_tx origin from to amount tx_empty
+  | eval_deploy origin from to amount wc setup _ _ _ _ _ _ _ _ _ =>
+    build_tx origin from to amount (tx_deploy wc setup)
+  | eval_call origin from to amount _ msg _ _ _ _ _ _ _ _ _ _ _ =>
+    build_tx origin from to amount (tx_call msg)
   end.
 
 Fixpoint trace_txs {from to : ChainState} (trace : ChainTrace from to) : list Tx :=
@@ -784,12 +785,14 @@ Definition outgoing_txs
 Record ContractCallInfo (Msg : Type) :=
   build_call_info
   {
+    call_origin : Address;
     call_from : Address;
     call_amount : Amount;
     call_msg : option Msg;
   }.
 
 Global Arguments build_call_info {_}.
+Global Arguments call_origin {_}.
 Global Arguments call_from {_}.
 Global Arguments call_amount {_}.
 Global Arguments call_msg {_}.
@@ -802,7 +805,7 @@ Fixpoint incoming_calls
   match trace with
   | snoc trace' step =>
     match step with
-    | step_action _ _ _ _ _ _ (eval_call _ from to amount _ msg _ _ _ _ _ _ _ _ _ _ _) _ =>
+    | step_action _ _ _ _ _ _ (eval_call origin from to amount _ msg _ _ _ _ _ _ _ _ _ _ _) _ =>
       if (to =? caddr)%address then
         (* If there is a message it should deserialize correctly,
            otherwise the entire operation returns None. *)
@@ -815,7 +818,7 @@ Fixpoint incoming_calls
                      | None => Some None
                      end;
         do tl <- incoming_calls Msg trace' caddr;
-        Some (build_call_info from amount hd_msg :: tl)
+        Some (build_call_info origin from amount hd_msg :: tl)
       else
         incoming_calls Msg trace' caddr
     | _ => incoming_calls Msg trace' caddr
@@ -826,12 +829,14 @@ Fixpoint incoming_calls
 Record DeploymentInfo (Setup : Type) :=
   build_deployment_info
   {
+    deployment_origin : Address;
     deployment_from : Address;
     deployment_amount : Amount;
     deployment_setup : Setup;
   }.
 
 Global Arguments build_deployment_info {_}.
+Global Arguments deployment_origin {_}.
 Global Arguments deployment_from {_}.
 Global Arguments deployment_amount {_}.
 Global Arguments deployment_setup {_}.
@@ -844,10 +849,10 @@ Fixpoint deployment_info
   match trace with
   | snoc trace' step =>
     match step with
-    | step_action _ _ _ _ _ _ (eval_deploy _ from to amount _ setup _ _ _ _ _ _ _ _ _) _ =>
+    | step_action _ _ _ _ _ _ (eval_deploy origin from to amount _ setup _ _ _ _ _ _ _ _ _) _ =>
       if (to =? caddr)%address then
         do setup <- deserialize setup;
-        Some (build_deployment_info from amount setup)
+        Some (build_deployment_info origin from amount setup)
       else
         deployment_info Setup trace' caddr
     | _ => deployment_info Setup trace' caddr
@@ -1173,8 +1178,8 @@ Proof.
       subst.
       cbn in *.
       destruct (deserialize setup); cbn in *; try congruence.
-      remember (build_deployment_info _ _ _) as depinfo.
-      remember (build_tx _ _ _ _) as deptx.
+      remember (build_deployment_info _ _ _ _) as depinfo.
+      remember (build_tx _ _ _ _ _) as deptx.
       destruct IH as [IH _]; auto.
       specialize (IH ltac:(auto)).
       fold (incoming_txs trace caddr).
@@ -1196,8 +1201,8 @@ Proof.
                       [prev_call_txs [dep_tx
                                         [depinfo_eq [inc_calls_eq
                                                        [inc_txs_eq [map_eq ?]]]]]]]].
-      remember (build_tx _ _ _ _) as new_tx.
-      remember (build_call_info _ _ _) as new_call.
+      remember (build_tx _ _ _ _ _) as new_tx.
+      remember (build_call_info _ _ _ _) as new_call.
       exists depinfo, (new_call :: inc_calls), (new_tx :: prev_call_txs), dep_tx.
       split; auto.
       split; auto.
@@ -1504,18 +1509,18 @@ Lemma contract_induction
                       (block_height header)
                       (block_slot header)
                       (block_finalized_height header)
-      | step_action _ _ act _ _ _ (eval_deploy _ from to amount _ _ _ _ _ _ _ _ _ _ _) _ =>
+      | step_action _ _ act _ _ _ (eval_deploy origin from to amount _ _ _ _ _ _ _ _ _ _ _) _ =>
         DeployFacts
           (transfer_balance from to amount bstate_from)
-          (build_ctx (act_origin act) from to amount amount)
-      | step_action _ _ act _ _ _ (eval_call _ from to amount _ _ _ _ _ _ _ _ _ _ _ _ _) _ =>
+          (build_ctx origin from to amount amount)
+      | step_action _ _ act _ _ _ (eval_call origin from to amount _ _ _ _ _ _ _ _ _ _ _ _ _) _ =>
         let new_state := transfer_balance from to amount bstate_from in
         forall (cstate : State),
           env_contracts bstate_from to = Some (contract : WeakContract) ->
           contract_state bstate_from to = Some cstate ->
           CallFacts
             new_state
-            (build_ctx (act_origin act) from to (env_account_balances new_state to) amount) cstate
+            (build_ctx origin from to (env_account_balances new_state to) amount) cstate
             (outgoing_acts bstate_from to)
       | _ => Logic.True
       end) ->
@@ -1541,7 +1546,7 @@ Lemma contract_induction
         (current_slot chain)
         (finalized_height chain)
         (ctx_contract_address ctx)
-        (build_deployment_info (ctx_from ctx) (ctx_amount ctx) setup)
+        (build_deployment_info (ctx_origin ctx) (ctx_from ctx) (ctx_amount ctx) setup)
         result
         (ctx_amount ctx)
         []
@@ -1590,7 +1595,7 @@ Lemma contract_induction
         new_state
         (ctx_contract_balance ctx)
         (new_acts ++ prev_out_queue)
-        (build_call_info (ctx_from ctx) (ctx_amount ctx) msg :: prev_inc_calls)
+        (build_call_info (ctx_origin ctx) (ctx_from ctx) (ctx_amount ctx) msg :: prev_inc_calls)
         prev_out_txs) ->
 
   (* Recursive call *)
@@ -1625,8 +1630,9 @@ Lemma contract_induction
         new_state
         (ctx_contract_balance ctx)
         (new_acts ++ prev_out_queue)
-        (build_call_info (ctx_from ctx) (ctx_amount ctx) msg :: prev_inc_calls)
-        (build_tx (ctx_from ctx)
+        (build_call_info (ctx_origin ctx) (ctx_from ctx) (ctx_amount ctx) msg :: prev_inc_calls)
+        (build_tx (ctx_origin ctx)
+                  (ctx_from ctx)
                   (ctx_contract_address ctx)
                   (ctx_amount ctx)
                   (tx_call (match head with
@@ -1740,7 +1746,7 @@ Proof.
         destruct (wc_init_strong H) as (setup_strong & result_strong & deser_setup_eq & <- & init)
       end.
       rewrite deser_setup_eq in *.
-      exists (build_deployment_info from_addr amount setup_strong),
+      exists (build_deployment_info origin from_addr amount setup_strong),
              result_strong,
              [].
       rewrite_environment_equiv; cbn.
@@ -1766,6 +1772,7 @@ Proof.
       rewrite Forall_false_filter_nil by assumption.
       rewrite undeployed_contract_no_out_txs, undeployed_contract_balance_0 by auto.
       remember (build_ctx _ _ _ _ _) as ctx.
+      replace origin with (ctx_origin ctx) by (subst; auto).
       replace from_addr with (ctx_from ctx) by (subst; auto).
       replace to_addr with (ctx_contract_address ctx) by (subst; auto).
       replace amount with (ctx_amount ctx) by (subst; auto).
@@ -1817,7 +1824,7 @@ Proof.
       cbn in *.
       replace prev_state_strong with cstate in * by congruence; clear prev_state_strong.
       exists depinfo, resp_state_strong.
-      exists (build_call_info from_addr amount msg_strong :: inc_calls).
+      exists (build_call_info origin from_addr amount msg_strong :: inc_calls).
       rewrite_environment_equiv.
       cbn.
       rewrite address_eq_refl.
@@ -2192,7 +2199,7 @@ Lemma lift_dep_info_contract_state_prop {P : DeploymentInfo Setup -> State -> Pr
       (trace : ChainTrace empty_state bstate) :
   (forall chain ctx setup result,
       contract.(init) chain ctx setup = Some result ->
-      P (build_deployment_info (ctx_from ctx) (ctx_amount ctx) setup)
+      P (build_deployment_info (ctx_origin ctx) (ctx_from ctx) (ctx_amount ctx) setup)
         result) ->
   (forall chain ctx cstate msg new_cstate acts dep,
       P dep cstate ->

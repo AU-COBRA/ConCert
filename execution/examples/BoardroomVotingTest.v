@@ -156,7 +156,7 @@ Definition deploy_setup :=
      registration_deposit := 0; |}.
 
 Local Open Scope list.
-Program Definition boardroom_example : option nat :=
+Definition boardroom_example : option nat :=
   let chain : ChainBuilder := builder_initial in
   let creator : Address := A 10 in
   let add_block (chain : ChainBuilder) (acts : list Action) :=
