@@ -1,15 +1,13 @@
 (** Proofs of correctness *)
 
-From MetaCoq Require Import utils.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils
-     PCUICLiftSubst PCUICWcbvEval PCUICTyping.
+     PCUICLiftSubst PCUICTyping.
 
-From ConCert Require Import CustomTactics MyEnv
+From ConCert.Embedding Require Import CustomTactics MyEnv
      EnvSubst Ast EvalE PCUICFacts  PCUICTranslate
      PCUICCorrectnessAux Wf Misc.
 
-
-From Coq Require Import String List.
+From Coq Require Import List.
 
 Import ListNotations ssrbool Basics Lia.
 Import NamelessSubst.
@@ -322,11 +320,10 @@ Proof.
                apply All_skipn.
                apply All_map.
                now eapply All_term_closed_of_val.
-           *** rewrite rev_length. rewrite combine_length.
+           *** rewrite List.rev_length. rewrite combine_length.
                rewrite map_length. rewrite Hci'.
                rewrite PeanoNat.Nat.eqb_eq in Hnparams.
-               rewrite skipn_length. rewrite map_length.
-               lia.
+               rewrite skipn_length; rewrite map_length;lia.
            *** rewrite PeanoNat.Nat.eqb_eq in Hnparams.
                assert (Hlen_pl0 :
                          #|pVars pt| = #|combine (rev (pVars pt)) (rev l2)|)
@@ -355,9 +352,7 @@ Proof.
                  eauto with hints.
                ****  eapply All_app_inv;eauto. apply All_rev.
                      eapply All_env_ok;eauto with hints. now apply All_skipn.
-               ****
-                     (* rewrite <- combine_rev by (subst;auto). *)
-                     unfold fun_prod,id.
+               ****  unfold fun_prod,id.
                      rewrite map_app. subst nparams.
                      remember (rev (combine (pVars pt) (skipn #|l0| l2))) as l_rev.
                      assert (Hlrev : #|pVars pt| = #|exprs l_rev|).

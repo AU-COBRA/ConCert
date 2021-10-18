@@ -12,7 +12,6 @@ of the trading reserves, this way user are incentivised to add funds to the rese
 *)
 
 From ConCert.Execution Require Import Monads.
-From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.

@@ -3,23 +3,22 @@
    - the next_step field satisfies a certain ordering (e.g. buyer_commit -> buyer_confirm -> withdrawals)
 *)
 
-From ConCert Require Import Blockchain LocalBlockchain Escrow EscrowExtras.
-From ConCert Require Import Serializable.
-From ConCert Require Import ResultMonad.
-From ConCert Require Import BoundedN.
-From ConCert Require Import Extras.
-From ConCert Require Import ChainedList.
-From ConCert Require Import Containers.
+From ConCert.Execution Require Import Blockchain LocalBlockchain Escrow EscrowExtras.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import ChainedList.
 Require Import ZArith.
 
-From QuickChick Require Import QuickChick. Import QcNotation.
+From QuickChick Require Import QuickChick.
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters TraceGens EscrowPrinters EscrowGens.
+  TestUtils SerializablePrinters TraceGens EscrowGens.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-From Coq Require Import ZArith.
+
 Import ListNotations.
 Import RecordSetNotations.
+Import QcNotation.
+
 Close Scope string_scope.
 
 Section TestSetup.

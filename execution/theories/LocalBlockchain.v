@@ -6,12 +6,10 @@ execution order, while the other uses a breadth-first execution order. *)
 
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
-From Coq Require Import Morphisms.
 Require Import Automation.
 Require Import Blockchain.
 Require Import BoundedN.
 Require Import ChainedList.
-Require Import Circulation.
 Require Import Containers.
 Require Import Extras.
 Require Import Monads.
@@ -20,7 +18,6 @@ Require Import Serializable.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Psatz.
-From stdpp Require countable.
 
 Import RecordSetNotations.
 Import ListNotations.
@@ -239,6 +236,8 @@ Section ExecuteActions.
     lia.
   Qed.
 
+  Local Hint Resolve gtb_le ltb_ge : core.
+
   Lemma send_or_call_step origin from to amount msg act lc_before new_acts lc_after :
     send_or_call origin from to amount msg lc_before = Ok (new_acts, lc_after) ->
     act = build_act origin from (match msg with
@@ -260,7 +259,6 @@ Section ExecuteActions.
       cbn -[lc_to_env] in *.
       destruct (wc_receive wc _ _ _ _) as [[new_state resp_acts]|] eqn:receive;
         [|cbn in *; congruence].
-      Hint Resolve gtb_le ltb_ge : core.
       apply (eval_call origin from to amount wc msg prev_state new_state resp_acts);
         try solve [cbn in *; auto; congruence].
       + cbn in sent.
@@ -291,6 +289,7 @@ Section ExecuteActions.
     end.
   Qed.
 
+  Local Hint Resolve get_new_contract_addr_is_contract_addr : core.
   Lemma deploy_contract_step origin from amount wc setup act lc_before new_acts lc_after :
     deploy_contract origin from amount wc setup lc_before = Ok (new_acts, lc_after) ->
     act = build_act origin from (act_deploy amount wc setup) ->
@@ -309,12 +308,12 @@ Section ExecuteActions.
     destruct (wc_init _ _ _ _) as [state|] eqn:recv; [|cbn in *; congruence].
     cbn in dep.
     assert (new_acts = []) by congruence; subst new_acts.
-    Hint Resolve get_new_contract_addr_is_contract_addr : core.
     apply (eval_deploy origin from contract_addr amount wc setup state); eauto.
     inversion dep; subst lc_after.
     now apply set_contract_state_equiv, add_contract_equiv, transfer_balance_equiv.
   Defined.
 
+  Local Hint Resolve send_or_call_step deploy_contract_step : core.
   Lemma execute_action_step
         (act : Action)
         (new_acts : list Action)
@@ -326,9 +325,12 @@ Section ExecuteActions.
     intros exec.
     unfold execute_action in exec.
     destruct act as [orig from body].
-    Hint Resolve send_or_call_step deploy_contract_step : core.
     destruct body as [to amount|to amount msg|amount wc setup]; eauto.
   Defined.
+
+  Hint Constructors ChainStep : core.
+  Hint Constructors ChainedList : core.
+  Hint Unfold ChainTrace : core.
 
   Lemma execute_actions_trace count acts (lc lc_final : LocalChain) df
         (trace : ChainTrace empty_state (build_chain_state lc acts)) :
@@ -342,9 +344,6 @@ Section ExecuteActions.
       destruct (execute_action x lc) as [[new_acts lc_after]|] eqn:exec_once;
         cbn in *; try congruence.
       set (step := execute_action_step _ _ _ _ exec_once).
-      Hint Constructors ChainStep : core.
-      Hint Constructors ChainedList : core.
-      Hint Unfold ChainTrace : core.
       refine (IH _ _ _ _ exec).
       destruct df.
       + (* depth-first case *)
@@ -476,6 +475,8 @@ Definition add_block_exec
   let lc := add_new_block header lc in
   execute_actions 1000 actions lc depth_first.
 
+Local Hint Resolve validate_header_valid validate_actions_valid validate_origin_neq_from_valid : core.
+
 (* Adds a block to the chain by executing the specified chain actions.
    Returns the new chain if the execution succeeded (for instance,
    transactions need enough funds, contracts should not reject, etc. *)
@@ -499,7 +500,6 @@ Proof.
 
   refine (execute_actions_trace _ _ _ _ _ _ exec).
   refine (snoc prev_lcb_trace _).
-  Hint Resolve validate_header_valid validate_actions_valid validate_origin_neq_from_valid : core.
   eapply step_block; eauto.
   apply add_new_block_equiv.
   reflexivity.

@@ -5,11 +5,7 @@
 *)
 
 From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
 From Coq Require Import List.
-
-From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.

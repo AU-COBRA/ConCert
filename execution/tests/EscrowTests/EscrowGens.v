@@ -2,17 +2,16 @@
    Main functions of interest: gEscrowMsg and gEscrowMsgBetter.
 *)
 
-From ConCert Require Import Blockchain Escrow.
-From ConCert Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Escrow.
 From ConCert.Execution.QCTests Require Import TestUtils TraceGens.
 
 Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
-Require Import Containers.
 
 Module Type EscrowGensInfo.
   Parameter contract_addr : Address.
@@ -114,4 +113,4 @@ Module DummyTestInfo <: EscrowGensInfo.
   Definition gAccount := returnGen zero_address.
   Definition gAccountWithout (ws : list Address) := returnGenSome zero_address.
 End DummyTestInfo.
-Module MG := EscrowGens.EscrowGens DummyTestInfo. Import MG.
+Module MG := EscrowGens DummyTestInfo. Import MG.

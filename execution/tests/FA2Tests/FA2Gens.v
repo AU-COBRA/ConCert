@@ -290,4 +290,4 @@ Module DummyTestInfo <: FA2TestsInfo.
   Definition gAddrWithout (ws : list Address) := returnGen zero_address.
   Definition gUniqueAddrPair : GOpt (Address * Address) := returnGen None.
 End DummyTestInfo.
-Module MG := FA2Gens.FA2Gens DummyTestInfo. Import MG.
+Module MG := FA2Gens DummyTestInfo. Import MG.

@@ -221,7 +221,7 @@ Record ElmMod :=
   { elmmd_extract : list ({T : Type & T})}.
 
 Definition USER_FORM_APP : ElmMod :=
-  {| elmmd_extract := [ existT _  updateModel; existT _ initModel] |}.
+  {| elmmd_extract := [ existT _ _ updateModel; existT _ _ initModel] |}.
 
 Definition header_and_imports : string :=
 <$ "module Main exposing (main)"

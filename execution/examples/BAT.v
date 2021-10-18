@@ -3,11 +3,9 @@
   Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
 *)
 From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
 Require Import Monads.
 Require Import Extras.
 Require Import Containers.
-Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 Require Import Serializable.

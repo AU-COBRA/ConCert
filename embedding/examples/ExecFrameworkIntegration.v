@@ -1,15 +1,12 @@
 (** * Integration with the execution framework, properties of [crowdfunding] *)
 Require Import String Basics ZArith.
 From ConCert.Embedding Require Import Misc Notations PCUICtoTemplate
-     PCUICTranslate CustomTactics SimpleBlockchain Prelude.
+     PCUICTranslate CustomTactics SimpleBlockchain.
 
 From ConCert.Embedding.Examples Require Import Crowdfunding CrowdfundingData.
 
 Require Import List.
-Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
-Require Import Morphisms.
-Require Import Permutation.
 Require Import Program.Tactics.
 
 From ConCert.Execution Require Import Blockchain Automation Extras ResultMonad.
@@ -385,6 +382,7 @@ Proof.
 Qed.
 
 Local Open Scope Z.
+Hint Resolve cf_balance_consistent crowfunding_donations_non_negative : core.
 (** ** The actual contract balance is consistent with the local state *)
 Theorem cf_backed bstate cf_addr lstate:
   let acts := chain_state_queue bstate in
@@ -467,7 +465,6 @@ Proof.
     destruct step; auto.
     destruct a; auto.
     intros.
-    Hint Resolve cf_balance_consistent crowfunding_donations_non_negative : core.
     split; eauto.
 Qed.
 

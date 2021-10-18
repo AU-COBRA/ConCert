@@ -4,7 +4,6 @@ From ConCert Require Import Containers.
 From ConCert.Execution.QCTests Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List ZArith. Import ListNotations.
 

@@ -1,6 +1,6 @@
 (* This file is based on erasure/theories/Extraction.v from MetaCoq *)
-
 Require Import FSets ExtrOcamlBasic ExtrOcamlString ExtrOcamlZInt.
+
 From MetaCoq.Template Require Import MC_ExtrOCamlInt63.
 From Coq Require Import ExtrOCamlFloats.
 
@@ -16,7 +16,6 @@ Extraction Blacklist
 Set Warnings "-extraction-opaque-accessed".
 Set Warnings "-extraction-reserved-identifier".
 
-From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import PluginExtract.
 From ConCert.Extraction Require Import Utils.
 

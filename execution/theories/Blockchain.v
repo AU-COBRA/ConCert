@@ -63,7 +63,6 @@ From Coq Require Import List.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
-From Coq Require Import Setoid.
 Require Import Automation.
 Require Import ChainedList.
 Require Import Extras.
@@ -71,7 +70,6 @@ Require Import Monads.
 Require Import ResultMonad.
 Require Import Serializable.
 From ConCert.Utils Require Import RecordUpdate.
-From stdpp Require countable.
 
 Import ListNotations.
 
@@ -1018,6 +1016,10 @@ Proof.
     end.
 Qed.
 
+Local Hint Resolve contracts_post_pre_none : core.
+Local Hint Unfold reachable : core.
+
+
 (* With this lemma proven, we can show that the (perhaps seemingly stronger)
 fact, that an undeployed contract has no outgoing txs, holds. *)
 Lemma undeployed_contract_no_out_txs
@@ -1032,8 +1034,6 @@ Proof.
   - (* New block *)
     rewrite_environment_equiv; auto.
   - (* In these steps we will use that the queue did not contain txs to the contract. *)
-    Hint Resolve contracts_post_pre_none : core.
-    Hint Unfold reachable : core.
     subst.
     cbn.
     pose proof

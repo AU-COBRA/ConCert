@@ -1,8 +1,6 @@
 (** * λsmart language definition  *)
 Require MetaCoq.Template.All.
-Require Import MetaCoq.Template.LiftSubst MetaCoq.Template.utils.
 
-Require Import Bool.
 Require Import String List.
 
 From ConCert.Embedding Require Import MyEnv.

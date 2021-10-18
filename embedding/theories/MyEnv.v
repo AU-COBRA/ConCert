@@ -2,7 +2,7 @@
 
 Require Import String List PeanoNat Coq.micromega.Lia.
 
-From ConCert Require Import CustomTactics.
+From ConCert.Embedding Require Import CustomTactics.
 
 Import ListNotations.
 

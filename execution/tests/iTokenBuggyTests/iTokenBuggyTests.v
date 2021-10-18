@@ -1,6 +1,6 @@
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith Strings.String.
+Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
 
 From ConCert Require Import Blockchain.
@@ -8,11 +8,9 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
 From ConCert Require Import Containers.
 From ConCert Require Import iTokenBuggy.
-From ConCert Require Import ResultMonad.
-Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters iTokenBuggyPrinters iTokenBuggyGens TraceGens.
+  TestUtils iTokenBuggyPrinters iTokenBuggyGens TraceGens.
 
 From Coq Require Import List. 
 Import ListNotations.

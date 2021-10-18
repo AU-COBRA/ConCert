@@ -18,9 +18,10 @@ From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import ZArith Bool Lia List.
+From Coq Require Import ZArith Bool List.
 Import ListNotations.
 
+Import Lia.
 
 Section LQTFA12.
 Context {BaseTypes : ChainBase}.

@@ -1,7 +1,7 @@
-From ConCert Require Import Blockchain LocalBlockchain.
-From ConCert Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
 From QuickChick Require Import QuickChick.
-From ConCert.Execution.QCTests Require Import ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers TestContracts DexterPrinters EscrowPrinters iTokenBuggyPrinters.
+From ConCert.Execution.QCTests Require Import ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers DexterPrinters EscrowPrinters iTokenBuggyPrinters.
 Local Open Scope string_scope.
 
 Existing Instance EIP20TokenPrinters.showMsg.

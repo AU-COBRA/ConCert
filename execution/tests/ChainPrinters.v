@@ -1,10 +1,10 @@
-From ConCert Require Import Blockchain LocalBlockchain TestUtils.
-From ConCert Require Import Serializable. Import SerializedType.
-From ConCert Require Import BoundedN ChainedList ResultMonad.
+From ConCert.Execution Require Import Blockchain LocalBlockchain TestUtils.
+From ConCert.Execution Require Import Serializable. Import SerializedType.
+From ConCert.Execution Require Import BoundedN ChainedList ResultMonad.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 
-From Coq Require Import ZArith Strings.String.
+From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 Import BoundedN.Stdpp.
 

@@ -6,13 +6,9 @@ constructing a contract that actually exploits this version of the
 Congress and then just asking Coq to compute. *)
 
 From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-From Coq Require Import Permutation.
-Require Import Automation.
 Require Import Blockchain.
 Require Import BoundedN.
-Require Import ChainedList.
 Require Import Containers.
 Require Import Extras.
 Require Import Monads.

@@ -565,7 +565,7 @@ Section print_term.
             | S n =>
               match br return annots box_type br -> (_ * _) with
               | tLambda na B => fun '(bt, a) =>
-                let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
+                let na' := fresh_name ctx na br in
                 let (ps, b) := print_branch (vass na' :: ctx) n params B a in
                 (ps ++ [string_of_name ctx na'], b)%list
               (* Assuming all case-branches have been expanded this should never happen: *)
