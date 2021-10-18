@@ -1,6 +1,6 @@
 (** * Some facts not found in the standard library *)
 
-From ConCert Require Import CustomTactics.
+From ConCert.Embedding Require Import CustomTactics.
 From MetaCoq Require Import utils.
 Require Import List.
 

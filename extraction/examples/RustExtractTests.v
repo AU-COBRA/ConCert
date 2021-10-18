@@ -1,19 +1,11 @@
 (** * Tests for extraction to Rust *)
-From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import RustExtract.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
-From ConCert.Extraction Require Import TopLevelFixes.
-From Coq Require Import Arith.
-From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import Loader.
-From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 
 Import PrettyPrinterMonad.
@@ -58,7 +50,7 @@ Definition extract (p : T.program) : result string string :=
   ret s.
 
 Module ex1.
-  Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
+  Definition foo : { n : nat | n = 0 } := exist 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex1 := bar.
 
@@ -107,7 +99,7 @@ End ex1.
 
 Module ex2.
   Definition only_in_type := 5.
-  Definition foo : { n : nat | only_in_type = 5 } := exist _ 0 eq_refl.
+  Definition foo : { n : nat | only_in_type = 5 } := exist 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex2 := bar.
   Example ex2_test :
@@ -317,9 +309,10 @@ Module SafeHead.
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    intros.
-    destruct non_empty_list as [l H1];cbn in *;subst.
-    inversion H1.
+    cbn in *;subst.
+    match goal with
+    | H : 0 > 0 |- _ => inversion H
+    end.
   Qed.
 
   Program Definition head_of_repeat_plus_one {A} (n : nat) (a : A) : A

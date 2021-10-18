@@ -68,12 +68,12 @@ Module CounterRefinementTypes.
     match msg with
     | Inc i =>
       match (bool_dec true (0 <? i)) with
-      | left H => Some (Transaction_none, proj1_sig (inc_counter st (exist _ i (eq_sym H))))
+      | left H => Some (Transaction_none, proj1_sig (inc_counter st (exist i (eq_sym H))))
       | right _ => None
       end
     | Dec i =>
       match (bool_dec true (0 <? i)) with
-      | left h => Some (Transaction_none, proj1_sig (dec_counter st (exist _ i (eq_sym h))))
+      | left h => Some (Transaction_none, proj1_sig (dec_counter st (exist i (eq_sym h))))
       | right _ => None
       end
     end.

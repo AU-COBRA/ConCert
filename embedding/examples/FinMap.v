@@ -1,13 +1,11 @@
 (** * Finite maps  *)
 
-Require Import FMaps FMapWeakList.
-Require Import String Basics.
-Require Import List.
-Require Import PeanoNat.
+Require Import FMaps.
+Require Import String.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
-From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate EvalE.
+From ConCert.Embedding Require Import Ast Notations PCUICTranslate PCUICtoTemplate EvalE.
 From ConCert.Embedding Require Import Utils.
 
 Import MonadNotation.

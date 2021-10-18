@@ -1,6 +1,6 @@
 (** * A place for various tactic used for the development*)
 
-Require Import Lia ZArith List.
+Require Import Lia ZArith.
 
 (** ** Tactics taken from the Software Foundations' LibTactics.v *)
 

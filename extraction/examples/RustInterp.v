@@ -7,10 +7,8 @@ From ConCert.Execution.Examples Require Import StackInterpreter.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 
-From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.

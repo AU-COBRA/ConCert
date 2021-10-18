@@ -52,7 +52,7 @@ Definition extract (p : program) : result string string :=
   general_extract p [] [].
 
 Module ex1.
-  Definition foo : { n : nat | n = 0 } := exist _ 0 eq_refl.
+  Definition foo : { n : nat | n = 0 } := exist 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex1 := bar.
 
@@ -83,7 +83,7 @@ End ex1.
 
 Module ex2.
   Definition only_in_type := 5.
-  Definition foo : { n : nat | only_in_type = 5 } := exist _ 0 eq_refl.
+  Definition foo : { n : nat | only_in_type = 5 } := exist 0 eq_refl.
   Definition bar := proj1_sig foo.
   MetaCoq Quote Recursively Definition ex2 := bar.
   Example ex2_test :
@@ -474,7 +474,6 @@ Module type_scheme_ex.
   Definition vec (A : Type) (n : nat) := {xs : list A | length xs = n}.
 
   Program Definition singleton_vec (n : nat) : vec nat 1 := [n].
-  Next Obligation. easy. Qed.
 
   MetaCoq Quote Recursively Definition singleton_vec_syn := singleton_vec.
 

@@ -4,7 +4,7 @@ From MetaCoq.Template Require Import All.
 Require Import String List.
 Require Import Morphisms Setoid Bool.
 
-From ConCert Require Import CustomTactics Misc MyEnv Ast
+From ConCert.Embedding Require Import CustomTactics Misc MyEnv Ast
      EvalE PCUICTranslate EnvSubst Wf.
 
 Import Basics.
@@ -173,7 +173,7 @@ Section Values.
 
   Hint Resolve iclosed_ty_m_n iclosed_ty_0 iclosed_m_n iclosed_n_0 : facts.
 
-  Hint Unfold is_true.
+  Hint Unfold is_true : facts.
 
   Lemma iclosed_ty_env_ok n ρ ty : iclosed_ty n ty -> ty_env_ok n ρ ty.
   Proof.
@@ -400,7 +400,7 @@ Qed.
   Qed.
 
 
-  Hint Resolve subst_env_i_ty_empty.
+  Hint Resolve subst_env_i_ty_empty : facts.
 
   Lemma subst_env_i_empty :
     forall (e : expr) (k : nat), e = subst_env_i_aux k [] e.
@@ -410,7 +410,7 @@ Qed.
     + simpl. destruct (Nat.leb k n);eauto.
     + simpl.
       apply f_equal4;eauto with facts.
-      rewrite map_id_f;eauto.
+      rewrite map_id_f;eauto with facts.
       rewrite <- map_id at 1.
       eapply forall_map_spec.
       eapply Forall_impl;eauto. intros p Hp;cbn in *. destruct p; rewrite <-Hp;eauto.

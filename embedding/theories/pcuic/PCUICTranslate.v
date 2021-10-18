@@ -1,10 +1,11 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
-Require ZArith.
-Require Import String List.
+
 From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
-From MetaCoq.Template Require Import BasicAst utils monad_utils MCString Loader.
+From MetaCoq.Template Require Import BasicAst Loader.
 From ConCert.Embedding Require Import Ast Notations Misc MyEnv.
 From ConCert.Utils Require StringExtra.
+
+From Coq Require Import List.
 
 Module P := PCUICAst.
 Import MonadNotation.
@@ -108,7 +109,7 @@ Definition trans_branch (params : list type)(bs : list (pat * term))
   match o_pt_e with
     | Some pt_e => if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
                     let vars_tys := combine (fst pt_e).(pVars) (map type_to_term tys) in
-                    (length (fst pt_e).(pVars), pat_to_lam (snd pt_e) (List.rev tparams) vars_tys)
+                    (length (fst pt_e).(pVars), pat_to_lam (snd pt_e) (rev tparams) vars_tys)
                   else (0, tVar (nm ++ ": arity does not match")%string)
     | None => dummy
   end.

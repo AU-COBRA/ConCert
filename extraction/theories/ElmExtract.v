@@ -1,26 +1,10 @@
-From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import Containers.
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Erasure.
+
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Utils Require Import StringExtra.
 
-From Coq Require Import Arith.
 From Coq Require Import Ascii.
-From Coq Require Import List.
-From Coq Require Import NArith.
-From Coq Require Import PArith.
-From Coq Require Import String.
-From Coq Require Import ZArith.
-
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
-From MetaCoq.Template Require Import All.
-From MetaCoq.Erasure Require Import Loader EAst EAstUtils ETyping.
 
 Import StringExtra.
 Import String.

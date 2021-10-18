@@ -72,7 +72,7 @@ Module ElmExamples.
   Definition safe_pred (n:nat) (not_zero : O<>n) : {p :nat | n=(S p)} :=
     match n as n0 return (n0 = n -> _ -> _ )with
     | O => fun heq h => False_rect _ (ltac:(cbn;intros;easy))
-    | S m => fun heq h => exist (fun p : nat => S m = S p) m  (ltac:(cbn;intros;easy))
+    | S m => fun heq h => exist m eq_refl
     end eq_refl not_zero.
 
   Program Definition safe_pred_full := safe_pred 1 (ltac:(easy)).
@@ -222,9 +222,8 @@ Module ElmExamples.
     {new_st : nat | st <? new_st} :=
     st + inc.
   Next Obligation.
-    intros ? inc0. unfold is_true in *.
-    destruct inc0;simpl.
-    rewrite NPeano.Nat.ltb_lt in *. lia.
+    unfold is_true in *.
+    rewrite Nat.ltb_lt in *. lia.
   Qed.
 
   MetaCoq Run (t <- tmQuoteRecTransp inc_counter false ;;
@@ -257,9 +256,7 @@ Module ElmExamples.
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    intros.
-    destruct non_empty_list as [l H1];cbn in *;subst.
-    inversion H1.
+    intros. lia.
   Qed.
 
   Program Definition head_of_repeat_plus_one {A} (n : nat) (a : A) : A

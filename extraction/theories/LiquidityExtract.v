@@ -1,25 +1,15 @@
-From Coq Require Import PeanoNat ZArith.
 
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require ErasureFunction.
-From MetaCoq.Template Require Import Kernames config.
-From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
-     SafeTemplateChecker.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
-     TemplateToPCUIC.
-
-From MetaCoq.Template Require Pretty.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.PCUIC Require Import PCUICAst.
 
 From ConCert.Execution Require Import Blockchain Serializable Common.
 
 From ConCert.Embedding Require Import MyEnv.
-From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import SimpleBlockchain.
 
 From ConCert.Extraction Require Import LPretty
-     Common ExAst Erasure Optimize Extraction CertifyingInlining CertifyingBeta Certifying SpecializeChainBase.
+     Common Optimize Extraction CertifyingInlining SpecializeChainBase.
 
-From Coq Require Import List Ascii String.
+From Coq Require Import List String.
 Local Open Scope string_scope.
 
 From MetaCoq.Template Require Import All.

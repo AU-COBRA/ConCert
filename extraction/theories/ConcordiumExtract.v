@@ -1,4 +1,3 @@
-From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.

@@ -1,16 +1,10 @@
 (** * Definitions below are used in the extracted plugin *)
 
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import ExpandBranches.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import Inlining.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import TopLevelFixes.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import RustExtract.
 From MetaCoq.Template Require Import Kernames.
