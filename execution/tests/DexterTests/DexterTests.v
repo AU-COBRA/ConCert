@@ -1,19 +1,21 @@
-From ConCert Require Import Blockchain FA2Token FA2Interface Dexter.
-From ConCert Require Import Serializable.
-From ConCert Require Import Extras.
-From ConCert Require Import Containers.
-From ConCert Require Import BoundedN.
-From ConCert Require Import ResultMonad.
-Require Import Monads.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution.Examples Require Import FA2Token FA2Interface.
+From ConCert.Execution.QCTests Require Import Dexter.
+
 Require Import ZArith.
 
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ConCert.Execution.QCTests Require Import
-  TestUtils TraceGens DexterGens.
+From QuickChick Require Import QuickChick.
+From ConCert.Execution.QCTests Require Import TestUtils DexterGens.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-From Coq Require Import Morphisms.
 
+Import QcNotation.
 Import ListNotations.
 Import RecordSetNotations.
 
@@ -118,8 +120,6 @@ Definition dexter_state env := get_contract_state Dexter.State env dexter_caddr.
 Definition token_state env := get_contract_state FA2Token.State env fa2_caddr.
 Definition explit_state env := get_contract_state ExploitContractState env exploit_caddr.
 
-From ConCert.Execution.QCTests Require Import DexterGens.
-
 Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
@@ -144,7 +144,7 @@ Definition gExploitAction : GOpt Action :=
           (fun addr => returnGenSome (call_dexter addr)).
 
 Definition gExploitChainTraceList max_acts_per_block cb length :=
-  gChain cb (fun cb _ => gExploitAction) length 1 max_acts_per_block.
+  TraceGens.gChain cb (fun cb _ => gExploitAction) length 1 max_acts_per_block.
 
 (* Sample (gExploitAction). *)
 (* Sample (gExploitChainTraceList 1 chain1 1). *)
@@ -200,7 +200,7 @@ Definition tokens_to_asset_correct_P env :=
   end.
 
 Definition tokens_to_asset_correct :=
-  forAllBlocks 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+  TraceGens.forAllBlocks 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
    Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)

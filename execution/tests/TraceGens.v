@@ -9,21 +9,21 @@
 
 Global Set Warnings "-extraction-logical-axiom".
 
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ConCert Require Import Blockchain.
-From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN.
-From ConCert Require Import ResultMonad.
-From ConCert Require Import ChainedList.
+From QuickChick Require Import QuickChick.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import ChainedList.
 
 From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters .
 
-From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
 
+Import QcNotation.
 Import BoundedN.Stdpp.
 Import ListNotations.
 

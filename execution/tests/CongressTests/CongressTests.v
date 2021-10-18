@@ -1,7 +1,6 @@
-From ConCert Require Import Blockchain LocalBlockchain Congress.
+From ConCert Require Import Blockchain Congress.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList ResultMonad.
-Require Import Extras.
+From ConCert Require Import BoundedN ResultMonad.
 
 From ConCert.Execution.QCTests Require Import
   TestUtils CongressGens TraceGens SerializablePrinters.
@@ -11,8 +10,6 @@ Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Strings.BinaryString.
-From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
 

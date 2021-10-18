@@ -1,19 +1,11 @@
 From Coq Require Import List.
-From Coq Require Import Morphisms.
-From Coq Require Import Orders.
 From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
-From Coq Require Import Mergesort.
-From Coq Require Program.
 From ConCert.Utils Require Import RecordUpdate.
-Require Import Automation.
 Require Import Blockchain.
-Require Import BoundedN.
 Require Import Containers.
-From stdpp Require countable.
-Require ContractMonads.
 Require Import Extras Egcd Euler.
 Require Import Monads.
 Require Import Serializable.

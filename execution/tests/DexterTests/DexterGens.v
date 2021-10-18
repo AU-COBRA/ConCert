@@ -1,7 +1,6 @@
-From ConCert Require Import Blockchain FA2Token FA2Interface Dexter.
+From ConCert Require Import Blockchain FA2Token Dexter.
 From ConCert Require Import Serializable.
 From ConCert Require Import Containers.
-From ConCert Require Import BoundedN.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ConCert.Execution.QCTests Require Import
@@ -107,4 +106,4 @@ Module DummyTestInfo <: DexterTestsInfo.
   Definition gAccountAddress := returnGen zero_address.
   Definition gAccountAddrWithout (w : list Address) := returnGenSome zero_address.
 End DummyTestInfo.
-Module MG := DexterGens.DexterGens DummyTestInfo. Import MG.
+Module MG := DexterGens DummyTestInfo. Import MG.

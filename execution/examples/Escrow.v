@@ -16,7 +16,6 @@ will confirm he has received the item to get his own funds back. *)
 
 From Coq Require Import List.
 From Coq Require Import Bool.
-From Coq Require Import Morphisms.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
