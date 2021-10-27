@@ -175,27 +175,28 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
 
   Record transfer_spec (params : CIS1_transfer_params)
          (prev_st next_st : Storage)
-         (token_id : TokenID)
          (ret_ops : list ActionBody) : Prop :=
     { transfer_other_balances_preserved :
-        forall addr token_id, ~ In addr (transfer_from params)
-                              -> ~ In addr (transfer_to params)
-                              -> get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
+        forall addr token_id,
+          ~ In addr (transfer_from params) ->
+          ~ In addr (transfer_to params)   ->
+          get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
+
       transfer_token_ids_preserved :
-        forall token_id, token_id_exists prev_st token_id = true ->
-                         token_id_exists next_st token_id = true;
+        forall token_id,
+          token_id_exists prev_st token_id = true ->
+          token_id_exists next_st token_id = true;
+
       transfer_dec_inc :
-        forall (p : forall token_id, token_id_exists prev_st token_id = true),
-          Forall (fun tp =>
-                    transfer_single_spec
-                      prev_st
-                      next_st
-                      tp.(cis1_td_token_id)
-                      (p tp.(cis1_td_token_id))
-                      (transfer_token_ids_preserved _ (p tp.(cis1_td_token_id)))
-                      tp.(cis1_td_from)
-                      tp.(cis1_td_to)
-                      tp.(cis1_td_amount)) params.(cis_tr_transfers)
+        compose_transfers prev_st next_st params.(cis_tr_transfers)
+                         (fun st1 st2 x p q =>
+                            transfer_single_spec
+                              st1
+                              st2
+                              x.(cis1_td_token_id) p q
+                              x.(cis1_td_from)
+                              x.(cis1_td_to)
+                              x.(cis1_td_amount))
     }.
 
   Arguments transfer_token_ids_preserved {_ _ _ _}.
@@ -568,26 +569,42 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
     eapply transfer_single_spec_preserves_balances;eauto.
   Qed.
 
-  Lemma transfer_preserves_balances params prev_st next_st token_id ops
-        (p : token_id_exists prev_st token_id)
-        (tr_spec : transfer_spec params prev_st next_st ops) :
-    (∀ token_id : TokenID, token_id_exists prev_st token_id = true) ->
-    NoDup (get_owners prev_st token_id) ->
-    NoDup (get_owners next_st token_id) ->
-    sum_balances next_st token_id (tr_spec.(transfer_token_ids_preserved) _ p) (get_owners next_st token_id) =
-    sum_balances prev_st token_id p (get_owners prev_st token_id).
-  Proof.
-    intros Htoken Hnd1 Hnd2.
-    destruct tr_spec as [H1 H2 H3]. cbn.
-    specialize (H3 Htoken).
-    induction (cis_tr_transfers params).
-    + admit.
-    + inversion H3;subst. clear H3.
-      destruct a as [token_id0 amount from to];cbn in *.
-    eapply transfer_single_spec_preserves_balances with (amount:=amount) (from:=from) (to:=to);eauto.
-    intros.
-    symmetry. apply H1.
-    intros ?.
+  (* Fixpoint compose_sum_balances *)
+  (*          (params : CIS1_transfer_data) *)
+  (*          (init_st final_st : Storage) *)
+  (*          (init_owners final_owners: list Address) := *)
+  (*   match params with *)
+  (*   | [] => True *)
+  (*   | pr :: ps => *)
+  (*     exists next_st, *)
+  (*     let token_id := pr.(cis1_td_token_id) in *)
+  (*     sum_balances init_st token_id p init_owners = sum_balances next_st token_id q owners2 /\ *)
+  (*     compose_sum_balances ps init_st final_st init_owners final_owners *)
+  (*   end. *)
+
+
+  (* Lemma transfer_preserves_balances params prev_st next_st ops *)
+  (*       (tr_spec : transfer_spec params prev_st next_st ops) : *)
+  (*   let owners1 := get_owners prev_st token_id in *)
+  (*   let owners2 := get_owners next_st token_id in *)
+  (*   NoDup owners1 -> *)
+  (*   NoDup owners2 -> *)
+  (*   exists p q, *)
+  (*   sum_balances next_st token_id q owners2 = *)
+  (*   sum_balances prev_st token_id p owners1. *)
+
+  (* Proof. *)
+  (*   intros Htoken Hnd1 Hnd2. *)
+  (*   destruct tr_spec as [H1 H2 H3]. cbn. *)
+  (*   specialize (H3 Htoken). *)
+  (*   induction (cis_tr_transfers params). *)
+  (*   + admit. *)
+  (*   + inversion H3;subst. clear H3. *)
+  (*     destruct a as [token_id0 amount from to];cbn in *. *)
+  (*   eapply transfer_single_spec_preserves_balances with (amount:=amount) (from:=from) (to:=to);eauto. *)
+  (*   intros. *)
+  (*   symmetry. apply H1. *)
+  (*   intros ?. *)
 
 
   Record balanceOf_spec
@@ -599,7 +616,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
         forall addr, get_operators prev_st addr = get_operators next_st addr;
 
       balanceOf_balances_preserved :
-        forall token_id addr, get_balance prev_st token_id addr = get_balance prev_st token_id addr;
+        forall token_id addr, get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr;
 
       balanceOf_callback :
         match monad_map (fun q => get_balance prev_st q.(cis1_bo_query_token_id) q.(cis1_bo_query_address)) params.(cis1_bo_query) with
@@ -612,3 +629,21 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
         | None => False
         end
     }.
+
+  Lemma balanceOf_preserves_balances params prev_st next_st token_id ops
+    (p : token_id_exists prev_st token_id)
+    (q : token_id_exists next_st token_id)
+    (spec : balanceOf_spec params prev_st next_st ops) :
+    let owners1 := get_owners prev_st token_id in
+    let owners2 := get_owners next_st token_id in
+    NoDup owners1 ->
+    NoDup owners2 ->
+    sum_balances next_st token_id q owners2 =
+    sum_balances prev_st token_id p owners1.
+  Proof.
+    intros ?? Hnodup1 Hnodup2.
+    destruct spec as [H1 H2 H3]. clear H3.
+    apply sum_of_balances_eq_extensional;auto.
+    intros. now apply same_owners.
+    intros. now apply get_balance_opt_total.
+  Qed.
