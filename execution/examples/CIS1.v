@@ -640,3 +640,5 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     intros. apply same_owners. Set Printing All. apply H2.
     intros. now apply get_balance_opt_total.
   Qed.
+
+End CIS1Balances.
