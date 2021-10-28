@@ -23,6 +23,7 @@ examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingZ.v
 examples/BoardroomVotingTest.v
+examples/CIS1.v
 examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
