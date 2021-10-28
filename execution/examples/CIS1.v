@@ -629,15 +629,13 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     (spec : balanceOf_spec params prev_st next_st ops) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
-    NoDup owners1 ->
-    NoDup owners2 ->
     sum_balances next_st token_id q owners2 =
     sum_balances prev_st token_id p owners1.
   Proof.
-    intros ?? Hnodup1 Hnodup2.
+    intros ??.
     destruct spec as [H1 H2 H3]. clear H3.
-    apply sum_of_balances_eq_extensional;auto.
-    intros. apply same_owners. Set Printing All. apply H2.
+    apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
+    intros. now apply same_owners.
     intros. now apply get_balance_opt_total.
   Qed.
 
