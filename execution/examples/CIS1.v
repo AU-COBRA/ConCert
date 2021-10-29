@@ -5,6 +5,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
 From MetaCoq.Template Require Import monad_utils.
 
+From Coq Require Import Basics.
 From Coq Require Import List.
 From Coq Require Import JMeq.
 From Coq Require Import ZArith.
@@ -33,13 +34,40 @@ Definition transfer_to `{ChainBase} : CIS1_transfer_params -> list Address :=
 Definition transfer_from `{ChainBase} : CIS1_transfer_params -> list Address :=
   fun params => map cis1_td_from params.(cis_tr_transfers).
 
-Inductive CIS1_operatorUpdate :=
+Inductive CIS1_updateOperator_kind :=
   cis1_ou_remove_operator
 | cis1_ou_add_operator.
 
+Definition is_remove_operator (k : CIS1_updateOperator_kind) : bool :=
+  match k with
+  | cis1_ou_remove_operator => true
+  | _ => false
+  end.
+
+Definition is_add_operator (k : CIS1_updateOperator_kind) : bool :=
+  match k with
+  | cis1_ou_add_operator => true
+  | _ => false
+  end.
+
+Record CIS1_updateOperator_updates `{ChainBase} :=
+  { cis1_ou_updates : CIS1_updateOperator_kind;
+    cis1_ou_operator_address : Address }.
+
 Record CIS1_updateOperator_params `{ChainBase} :=
-  { cis1_ou_update : CIS1_operatorUpdate;
-    cis1_ou_address : Address }.
+  { cis1_ou_params : list CIS1_updateOperator_updates }.
+
+Open Scope program_scope.
+
+Definition operators_to_add `{ChainBase} (params : CIS1_updateOperator_params) : list Address:=
+  let add_operator_updates :=
+      filter (is_add_operator ∘ cis1_ou_updates) params.(cis1_ou_params) in
+  map cis1_ou_operator_address add_operator_updates.
+
+Definition operators_to_remove `{ChainBase} (params : CIS1_updateOperator_params) : list Address:=
+  let remove_operator_updates :=
+      filter (is_remove_operator ∘ cis1_ou_updates) params.(cis1_ou_params) in
+  map cis1_ou_operator_address remove_operator_updates.
 
 Record CIS1_balanceOf_query `{ChainBase} :=
  { cis1_bo_query_token_id : TokenID;
@@ -188,6 +216,49 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
 
   Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (p : token_id_exists st token_id) (owners : list Address) :=
     fold_right (fun addr s => get_balance_total st token_id p addr + s) 0 owners.
+
+  Record updateOperator_spec `{ChainBase}
+         (ctx : ContractCallContext)
+         (params : CIS1_updateOperator_params)
+         (prev_st next_st : Storage)
+         (ret_ops : list ActionBody) :=
+    { updateOperator_balances_preserved : forall addr token_id,
+        get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
+
+      (* All operators "to add" are recorded for the caller *)
+      updateOperator_add : forall addr,
+          In addr (operators_to_add params) ->
+          In addr (get_operators next_st ctx.(ctx_from));
+
+      (* All operators "to remove" are removed (not present) for the caller *)
+      updateOperator_remove : forall addr,
+        In addr (operators_to_remove params) ->
+        ~ In addr (get_operators next_st ctx.(ctx_from));
+    }.
+
+    Record balanceOf_spec
+           `{ChainBase}
+           (params : CIS1_balanceOf_params)
+           (prev_st next_st : Storage)
+           (ret_ops : list ActionBody) : Prop :=
+    { balanceOf_operators_preserved:
+        forall addr, get_operators next_st addr = get_operators prev_st addr;
+
+      balanceOf_balances_preserved :
+        forall token_id addr, get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr;
+
+      balanceOf_callback :
+        match monad_map (fun q => get_balance prev_st q.(cis1_bo_query_token_id) q.(cis1_bo_query_address)) params.(cis1_bo_query) with
+        (** CIS1: The contract function MUST reject if any of the queries fail *)
+        | Some balances =>
+          let serialize_balances := map serialize balances in
+          (* NOTE: It's assumed that the receiving contract accepts messages of type [TokenType] *)
+          let ops := map (act_call params.(cis1_bo_result_address) 0%Z) serialize_balances in
+          ret_ops = ops
+        | None => False
+        end
+    }.
+
 
   End CIS1Axioms.
 
@@ -592,35 +663,26 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
   (*   symmetry. apply H1. *)
   (*   intros ?. *)
 
-
-  Record balanceOf_spec
-         `{ChainBase}
-         (params : CIS1_balanceOf_params)
-         (prev_st next_st : Storage)
-         (ret_ops : list ActionBody) : Prop :=
-
-    { balanceOf_operators_preserved:
-        forall addr, get_operators next_st addr = get_operators prev_st addr;
-
-      balanceOf_balances_preserved :
-        forall token_id addr, get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr;
-
-      balanceOf_callback :
-        match monad_map (fun q => get_balance prev_st q.(cis1_bo_query_token_id) q.(cis1_bo_query_address)) params.(cis1_bo_query) with
-        (** CIS1: The contract function MUST reject if any of the queries fail *)
-        | Some balances =>
-          let serialize_balances := map serialize balances in
-          (* NOTE: It's assumed that the receiving contract accepts messages of type [TokenType] *)
-          let ops := map (act_call params.(cis1_bo_result_address) 0%Z) serialize_balances in
-          ret_ops = ops
-        | None => False
-        end
-    }.
-
   Lemma balanceOf_preserves_balances `{ChainBase} params prev_st next_st token_id ops
     (p : token_id_exists prev_st token_id)
     (q : token_id_exists next_st token_id)
     (spec : balanceOf_spec params prev_st next_st ops) :
+    let owners1 := get_owners prev_st token_id in
+    let owners2 := get_owners next_st token_id in
+    sum_balances next_st token_id q owners2 =
+    sum_balances prev_st token_id p owners1.
+  Proof.
+    intros ??.
+    destruct spec as [H1 H2 H3]. clear H3.
+    apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
+    intros. now apply same_owners.
+    intros. now apply get_balance_opt_total.
+  Qed.
+
+  Lemma updateOperator_preserves_balances `{ChainBase} params prev_st next_st token_id ops ctx
+    (p : token_id_exists prev_st token_id)
+    (q : token_id_exists next_st token_id)
+    (spec : updateOperator_spec ctx params prev_st next_st ops) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
     sum_balances next_st token_id q owners2 =
