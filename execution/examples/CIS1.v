@@ -5,18 +5,12 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
 From MetaCoq.Template Require Import monad_utils.
 
-From stdpp Require Import sets.
-From stdpp Require Import base.
-From stdpp Require Import mapset.
-From stdpp Require Import fin_sets.
-
 From Coq Require Import List.
 From Coq Require Import JMeq.
 From Coq Require Import ZArith.
 
 Import ListNotations.
 
-Definition AddrSet `{ChainBase} := (mapset (Containers.FMap Address)).
 
 (* NOTE: In CIS1 it's an n-byte sequence, where 0 <= n <= 256.
    We model it as an unbounded number [nat] *)
@@ -205,11 +199,11 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
 
   Program Definition addr_eq_dec `{ChainBase} (a1 a2 : Address) : {a1 = a2} + {a1 <> a2} :=
     match address_eqb_spec a1 a2 with
-    | ReflectT _ p => left p
-    | ReflectF _ p => right p
+    | ssrbool.ReflectT _ p => left p
+    | ssrbool.ReflectF _ p => right p
     end.
 
-  Lemma not_in_remove_same {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l : list A) (x : A):
+  Lemma not_in_remove_same {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A):
     not (In x l) -> remove eq_dec x l = l.
   Proof.
     induction l.
@@ -262,7 +256,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
   Qed.
 
 
-  Lemma not_in_remove {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l : list A) (x y : A):
+  Lemma not_in_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A):
     not (In x l) -> ~ In x (remove eq_dec y l).
   Proof.
     induction l.
@@ -272,7 +266,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
   Qed.
 
 
-  Lemma remove_remove {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l : list A) (x y : A) :
+  Lemma remove_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
     ~ In x (remove eq_dec y (remove eq_dec x l)).
   Proof.
     induction l;auto;simpl in *.
@@ -281,7 +275,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     intuition;simpl in *.
   Qed.
 
-  Lemma neq_not_removed {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l : list A) (x y : A) :
+  Lemma neq_not_removed {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
     x <> y -> In x l -> In x (remove eq_dec y l).
   Proof.
     induction l;intros Hneq Hin; auto;simpl in *.
@@ -293,7 +287,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
   Hint Constructors NoDup : hints.
   Hint Resolve remove_In not_in_remove_same not_in_remove remove_remove neq_not_removed : hints.
 
-  Lemma NoDup_remove `{ChainBase} {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l : list A) (x : A) :
+  Lemma NoDup_remove `{ChainBase} {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A) :
     NoDup l -> NoDup (remove eq_dec x l).
   Proof.
     induction l;intros H0;auto;simpl.
@@ -302,7 +296,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
 
   Hint Resolve NoDup_remove : hints.
 
-  Lemma In_remove {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l : list A) (x y : A) :
+  Lemma In_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
     x <> y -> In x (remove eq_dec y l) -> In x l.
   Proof.
     induction l;intros Hneq Hin; auto;simpl in *.
@@ -312,7 +306,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
 
   Hint Resolve In_remove : hints.
 
-  Lemma remove_extensional {A : Type} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (l1 l2 : list A) (y : A) :
+  Lemma remove_extensional {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l1 l2 : list A) (y : A) :
     (forall x, In x l1 <-> In x l2 ) -> (forall x, In x (remove eq_dec y l1) <-> In x (remove eq_dec y l2)).
   Proof.
     intros H x.
@@ -375,7 +369,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     apply sum_balances_extensional;auto.
   Qed.
 
-  Fixpoint remove_all {A} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (to_remove : list A) (xs : list A) :=
+  Fixpoint remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :=
     match to_remove with
     | [] => xs
     | x :: tl => remove eq_dec x (remove_all eq_dec tl xs)
@@ -383,7 +377,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
 
   Hint Constructors Forall.
 
-  Lemma remove_all_In {A} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (to_remove : list A) (xs : list A) :
+  Lemma remove_all_In {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :
     Forall (fun x => ~ In x (remove_all eq_dec to_remove xs)) to_remove.
   Proof.
     revert dependent xs.
@@ -394,12 +388,12 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     apply (not_in_remove _ _ _ _ H HH).
   Qed.
 
-  Lemma In_remove_all {A} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (to_remove : list A) (xs : list A) (x : A):
+  Lemma In_remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
     ~ (In x to_remove) -> In x (remove_all eq_dec to_remove xs) -> In x xs.
   Proof.
     Admitted.
 
-  Lemma remove_all_not_in_to_remove {A} (eq_dec : ∀ x y : A, {x = y} + {x ≠ y}) (to_remove : list A) (xs : list A) (x : A):
+  Lemma remove_all_not_in_to_remove {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
     ~ (In x to_remove) -> In x xs -> In x (remove_all eq_dec to_remove xs).
   Proof.
     intros H1 H2.
