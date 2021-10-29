@@ -50,24 +50,14 @@ Definition is_add_operator (k : CIS1_updateOperator_kind) : bool :=
   | _ => false
   end.
 
-Record CIS1_updateOperator_updates `{ChainBase} :=
-  { cis1_ou_updates : CIS1_updateOperator_kind;
+Record CIS1_updateOperator_update `{ChainBase} :=
+  { cis1_ou_update_kind : CIS1_updateOperator_kind;
     cis1_ou_operator_address : Address }.
 
 Record CIS1_updateOperator_params `{ChainBase} :=
-  { cis1_ou_params : list CIS1_updateOperator_updates }.
+  { cis1_ou_params : list CIS1_updateOperator_update }.
 
 Open Scope program_scope.
-
-Definition operators_to_add `{ChainBase} (params : CIS1_updateOperator_params) : list Address:=
-  let add_operator_updates :=
-      filter (is_add_operator ∘ cis1_ou_updates) params.(cis1_ou_params) in
-  map cis1_ou_operator_address add_operator_updates.
-
-Definition operators_to_remove `{ChainBase} (params : CIS1_updateOperator_params) : list Address:=
-  let remove_operator_updates :=
-      filter (is_remove_operator ∘ cis1_ou_updates) params.(cis1_ou_params) in
-  map cis1_ou_operator_address remove_operator_updates.
 
 Record CIS1_balanceOf_query `{ChainBase} :=
  { cis1_bo_query_token_id : TokenID;
@@ -217,6 +207,33 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
   Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (p : token_id_exists st token_id) (owners : list Address) :=
     fold_right (fun addr s => get_balance_total st token_id p addr + s) 0 owners.
 
+  Definition updateOperator_single_spec  `{ChainBase} (ctx : ContractCallContext) (prev_st next_st : Storage) (p : CIS1_updateOperator_update) : Prop :=
+    match p.(cis1_ou_update_kind) with
+    | cis1_ou_remove_operator =>
+      let addr := p.(cis1_ou_operator_address) in
+      (* operators, all operators, apart from [addr] remain the same in both states *)
+      (forall addr0, addr0 <> addr ->
+                In addr0 (get_operators prev_st ctx.(ctx_from)) <->
+                In addr0 (get_operators next_st ctx.(ctx_from))) /\
+      (* an operator "to remove" is removed (not present) for the caller *)
+      ~ In addr (get_operators next_st ctx.(ctx_from))
+    | cis1_ou_add_operator =>
+      let addr := p.(cis1_ou_operator_address) in
+      (* operators, all operators, apart from [addr] remain the same in both states *)
+      (forall addr0, addr0 <> addr ->
+                In addr0 (get_operators prev_st ctx.(ctx_from)) <->
+                In addr0 (get_operators next_st ctx.(ctx_from))) /\
+      (* an operator "to add" is recorded for the caller *)
+      In addr (get_operators next_st ctx.(ctx_from))
+    end.
+
+  Fixpoint compose_uptadeOperator_specs `{ChainBase} (ctx : ContractCallContext) (st final_st : Storage) (updates : list CIS1_updateOperator_update) :=
+    match updates with
+    | [] => st = final_st
+    | p :: ps => exists next_st, updateOperator_single_spec ctx st next_st p /\
+                     compose_uptadeOperator_specs ctx next_st final_st ps
+    end.
+
   Record updateOperator_spec `{ChainBase}
          (ctx : ContractCallContext)
          (params : CIS1_updateOperator_params)
@@ -225,15 +242,8 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
     { updateOperator_balances_preserved : forall addr token_id,
         get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
 
-      (* All operators "to add" are recorded for the caller *)
-      updateOperator_add : forall addr,
-          In addr (operators_to_add params) ->
-          In addr (get_operators next_st ctx.(ctx_from));
-
-      (* All operators "to remove" are removed (not present) for the caller *)
-      updateOperator_remove : forall addr,
-        In addr (operators_to_remove params) ->
-        ~ In addr (get_operators next_st ctx.(ctx_from));
+      updateOperator_add_remove :
+        compose_uptadeOperator_specs ctx prev_st next_st params.(cis1_ou_params)
     }.
 
     Record balanceOf_spec
@@ -259,6 +269,56 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
         end
     }.
 
+    (* Sanity check for the batch operator update spec *)
+    Lemma compose_updateOperator_add_add :
+    forall `{ChainBase} (ctx : ContractCallContext)
+      (prev_st : Storage) (next_st : Storage) (addr1 addr2 : Address),
+      let add_addr1 := {| cis1_ou_update_kind := cis1_ou_add_operator;
+                         cis1_ou_operator_address := addr1 |} in
+      let add_addr2 := {| cis1_ou_update_kind := cis1_ou_add_operator;
+                            cis1_ou_operator_address := addr2 |} in
+      compose_uptadeOperator_specs ctx prev_st next_st [add_addr1; add_addr2] ->
+      In addr1 (get_operators next_st ctx.(ctx_from)).
+   Proof.
+     intros ? ? ? ? ? ? ? ? H. simpl in *.
+     destruct H as [st1 [Hst1 [st2 [Hst2 Heq]]]]. subst. cbn in *.
+     destruct Hst1. destruct Hst2 as [H2 ?].
+     destruct (address_eqb_spec addr1 addr2);subst;auto.
+     apply H2;auto.
+   Qed.
+
+  Lemma compose_updateOperator_add_remove_same :
+    forall `{ChainBase} (ctx : ContractCallContext)
+      (prev_st : Storage) (next_st : Storage) (addr : Address),
+      let add_addr := {| cis1_ou_update_kind := cis1_ou_add_operator;
+                         cis1_ou_operator_address := addr |} in
+      let remove_addr := {| cis1_ou_update_kind := cis1_ou_remove_operator;
+                            cis1_ou_operator_address := addr |} in
+      compose_uptadeOperator_specs ctx prev_st next_st [add_addr; remove_addr] ->
+      ~ In addr (get_operators next_st ctx.(ctx_from)).
+   Proof.
+     intros ? ? ? ? ? ? ? H. simpl in *.
+     destruct H as [st1 [Hst1 [st2 [Hst2 Heq]]]]. subst. cbn in *.
+     destruct Hst2.
+     assumption.
+   Qed.
+
+   Lemma compose_updateOperator_remove_one_remove_another :
+    forall `{ChainBase} (ctx : ContractCallContext)
+      (prev_st : Storage) (next_st : Storage) (addr1 addr2 : Address),
+      addr1 <> addr2 ->
+      let remove_addr := {| cis1_ou_update_kind := cis1_ou_remove_operator;
+                            cis1_ou_operator_address := addr1 |} in
+      let add_addr := {| cis1_ou_update_kind := cis1_ou_add_operator;
+                         cis1_ou_operator_address := addr2 |} in
+      compose_uptadeOperator_specs ctx prev_st next_st [remove_addr; add_addr] ->
+      ~ In addr1 (get_operators next_st ctx.(ctx_from)).
+   Proof.
+     intros ? ? ? ? ? ? Hneq ? ? H. simpl in *.
+     destruct H as [st1 [Hst1 [st2 [Hst2 Heq]]]]. subst. cbn in *.
+     destruct Hst1. destruct Hst2 as [H2 ?].
+     intro. specialize (H2 _ Hneq). easy.
+   Qed.
 
   End CIS1Axioms.
 
@@ -689,7 +749,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     sum_balances prev_st token_id p owners1.
   Proof.
     intros ??.
-    destruct spec as [H1 H2 H3]. clear H3.
+    destruct spec as [H1 H2].
     apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
     intros. now apply same_owners.
     intros. now apply get_balance_opt_total.
