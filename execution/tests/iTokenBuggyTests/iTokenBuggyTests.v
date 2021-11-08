@@ -1,6 +1,6 @@
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith Strings.String.
+Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
 
 From ConCert Require Import Blockchain.
@@ -8,11 +8,9 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN.
 From ConCert Require Import Containers.
 From ConCert Require Import iTokenBuggy.
-From ConCert Require Import ResultMonad.
-Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters iTokenBuggyPrinters iTokenBuggyGens TraceGens.
+  TestUtils iTokenBuggyPrinters iTokenBuggyGens TraceGens.
 
 From Coq Require Import List. 
 Import ListNotations.
@@ -48,10 +46,10 @@ Definition token_caddr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (act_transfer person_1 0);
-    build_act creator (act_transfer person_2 0);
-    build_act creator (act_transfer person_3 0);
-    build_act creator deploy_iToken
+    build_act creator creator (act_transfer person_1 0);
+    build_act creator creator (act_transfer person_2 0);
+    build_act creator creator (act_transfer person_3 0);
+    build_act creator creator deploy_iToken
   ]).
 
 Module TestInfo <: iTokenBuggyGensInfo.
@@ -118,10 +116,10 @@ Conjecture token_supply_preserved : forall sig_to : {to | reachable to},
   let to := proj1_sig sig_to in
   get_state sum_balances_eq_init_supply to = true.
 
-(* QuickChick token_supply_preserved. *)
+(* QuickChick (expectFailure token_supply_preserved). *)
 (* Or alternatively, for better output: *)
-(* QuickChick (forAllTokenChainTraces 4 (checker_get_state sum_balances_eq_init_supply_checker)). *)
-(* *** Failed after 5 tests and 1000 shrinks. (0 discards) *)
+(* QuickChick (expectFailure (forAllTokenChainTraces 4 (checker_get_state sum_balances_eq_init_supply_checker))). *)
+(* *** Failed (as expected) after 5 tests and 1000 shrinks. (0 discards) *)
 (* Action{act_from: 11%256, act_body: (act_call 128%256, 0, withdraw)}}
 balances_sum: 12
 total_supply: 10
@@ -149,10 +147,12 @@ Definition sum_balances_unchanged (chain : Chain)
   | None => false ==> true
   end.
 
-(* QuickChick (
-  {{msg_is_not_mint_or_burn}}
-  token_caddr
-  {{sum_balances_unchanged}}
-). *)
-(* *** Failed after 1 tests and 0 shrinks. (0 discards)
+(*
+QuickChick (expectFailure (
+                {{msg_is_not_mint_or_burn}}
+                  token_caddr
+                  {{sum_balances_unchanged}}
+           )).
+*)
+(* *** Failed (as expected) after 1 tests and 0 shrinks. (0 discards)
        On Msg: transfer_from 13%256 13%256 1 *)

@@ -1,13 +1,13 @@
 (**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
-Require Import String ZArith Basics.
+Require Import String ZArith.
 From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate Utils MyEnv TranslationUtils Prelude.
+     PCUICTranslate MyEnv TranslationUtils Prelude.
 
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt CrowdfundingData.
 
-Require Import List PeanoNat ssrbool.
+Require Import List.
 
 Import ListNotations.
 From MetaCoq.Template Require Import All.

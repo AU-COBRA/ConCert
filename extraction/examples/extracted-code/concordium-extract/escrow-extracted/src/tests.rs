@@ -118,6 +118,7 @@ mod tests {
         let init_balance = 10;
         let slot_time = Timestamp::from_timestamp_millis(11);
         ctx.set_metadata_slot_time(slot_time);
+        ctx.set_invoker(buyer_addr);
         ctx.set_sender(Address::Account(buyer_addr));
         ctx.set_self_address(self_addr);
         ctx.set_self_balance(concordium_std::Amount::from_micro_gtu(init_balance));

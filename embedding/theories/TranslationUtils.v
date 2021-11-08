@@ -1,7 +1,6 @@
 Require Import String Basics.
-From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate MyEnv.
+From ConCert.Embedding Require Import Ast PCUICTranslate PCUICtoTemplate MyEnv.
 Require Import List.
-Require Import PeanoNat.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 

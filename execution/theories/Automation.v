@@ -1,6 +1,6 @@
 (* This file implements various helper tactics *)
 
-From Coq Require Import Eqdep List Omega Permutation.
+From Coq Require Import Eqdep List Permutation.
 Import ListNotations.
 
 Lemma Permutation_app_middle {A : Type} (xs l1 l2 l3 l4 : list A) :

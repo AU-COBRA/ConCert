@@ -2,17 +2,16 @@
    Main functions of interest: gEscrowMsg and gEscrowMsgBetter.
 *)
 
-From ConCert Require Import Blockchain Escrow.
-From ConCert Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Escrow.
 From ConCert.Execution.QCTests Require Import TestUtils TraceGens.
 
 Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
-Require Import Containers.
 
 Module Type EscrowGensInfo.
   Parameter contract_addr : Address.
@@ -33,10 +32,11 @@ Definition gAccountWithBalance (e : Env) (gAccOpt : GOpt Address) : GOpt (Addres
 
 Definition gEscrowMsg (e : Env) : GOpt Action :=
   let call caller amount msg :=
-  returnGenSome {|
-    act_from := caller;
-    act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
-  |} in
+      returnGenSome {|
+          act_origin := caller;
+          act_from := caller;
+          act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
+        |} in
   state <- returnGen (get_contract_state Escrow.State e contract_addr) ;;
   let buyer := state.(buyer) in
   let seller := state.(seller) in
@@ -48,7 +48,8 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
         (* amount <- choose (0%Z, e.(account_balance) buyer) ;; *)
         if e.(env_account_balances) buyer <? 2
         then returnGen None
-        else call buyer 2 commit_money
+        else
+          call buyer 2 commit_money
     ) ;
     (* confirm received item *)
     (1%nat, call buyer 0 confirm_item_received) ;
@@ -64,9 +65,10 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
    and less "blackbox-like" *)
 Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
   let call caller amount msg :=
-  returnGenSome {|
-    act_from := caller;
-    act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
+      returnGenSome {|
+          act_origin := caller;
+          act_from := caller;
+          act_body := act_call contract_addr amount (@serialize Escrow.Msg _ msg)
   |} in
   state <- returnGen (get_contract_state Escrow.State e contract_addr) ;;
   let buyer := state.(buyer) in
@@ -76,15 +78,19 @@ Definition gEscrowMsgBetter (e : Env) : GOpt Action :=
   | buyer_commit => backtrack [
                       (2%nat, if e.(env_account_balances) buyer <? 2
                               then returnGen None
-                              else call buyer 2 commit_money
+                              else
+                                call buyer 2 commit_money
                       );
-                      (1%nat, call seller 0 withdraw)
+                     (1%nat,
+                      call seller 0 withdraw)
                     ]
   | buyer_confirm => call buyer 0 confirm_item_received
   | _ => if 0 <? state.(buyer_withdrawable)
-         then call buyer 0 withdraw
+        then
+          call buyer 0 withdraw
          else if 0 <? state.(seller_withdrawable)
-         then call seller 0 withdraw
+              then
+                call seller 0 withdraw
          else returnGen None
   end.
 
@@ -107,4 +113,4 @@ Module DummyTestInfo <: EscrowGensInfo.
   Definition gAccount := returnGen zero_address.
   Definition gAccountWithout (ws : list Address) := returnGenSome zero_address.
 End DummyTestInfo.
-Module MG := EscrowGens.EscrowGens DummyTestInfo. Import MG.
+Module MG := EscrowGens DummyTestInfo. Import MG.

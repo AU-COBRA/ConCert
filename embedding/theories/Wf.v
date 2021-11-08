@@ -1,6 +1,5 @@
 (** * Well-formedness conditions *)
 
-Require Import List Bool Relations Morphisms ssrbool.
 Require Import MetaCoq.Template.utils.
 
 From ConCert.Embedding Require Import Ast EnvSubst EvalE MyEnv.

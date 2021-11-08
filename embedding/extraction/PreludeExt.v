@@ -2,14 +2,14 @@
 
 (** Extends Prelude from Embedding with new definitions required for extraction *)
 
-Require Import String ZArith Basics.
+Require Import String ZArith.
 From ConCert.Embedding Require Import Ast CustomTactics Notations
-     PCUICTranslate PCUICtoTemplate TranslationUtils MyEnv Prelude.
+     PCUICTranslate TranslationUtils Prelude.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Execution Require Import Blockchain.
 Require Import List.
 
-From MetaCoq.Template Require Import All Loader.
+From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
 

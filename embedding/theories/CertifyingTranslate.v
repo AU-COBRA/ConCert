@@ -2,7 +2,7 @@
 
 (** Proving that concrete expressions translate correctly *)
 
-From ConCert Require Import Ast EvalE Notations EnvSubst PCUICTranslate PCUICtoTemplate CustomTactics.
+From ConCert.Embedding Require Import Ast EvalE Notations EnvSubst PCUICTranslate PCUICtoTemplate.
 From Coq Require Import Basics String List.
 
 Import ListNotations.

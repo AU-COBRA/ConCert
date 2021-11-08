@@ -4,7 +4,6 @@ From Coq Require Import NArith ZArith.
 Require Import Monads.
 Require Import Finite.
 Require Import Extras.
-Require Import Automation.
 From Coq Require Import Eqdep_dec.
 From Coq Require Import List.
 From Coq Require Import Psatz.
@@ -70,7 +69,7 @@ Module BoundedN.
     decide equality.
   Qed.
 
-  Hint Resolve to_N_inj : core.
+  Local Hint Resolve to_N_inj : core.
 
   Lemma eqb_spec {bound : N} (a b : BoundedN bound) :
     Bool.reflect (a = b) (eqb a b).

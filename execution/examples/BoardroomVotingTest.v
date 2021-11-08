@@ -168,15 +168,15 @@ Definition boardroom_example : option nat :=
              block_reward := 50; |} in
       option_of_result (builder_add_block chain next_header acts) in
   do chain <- add_block chain [];
-  let dep := build_act creator (create_deployment 0 boardroom_voting deploy_setup) in
+  let dep := build_act creator creator (create_deployment 0 boardroom_voting deploy_setup) in
   do chain <- add_block chain [dep];
   do caddr <- hd_error (AddressMap.keys (lc_contracts (lcb_lc chain)));
-  let send addr m := build_act addr (act_call caddr 0 (serialize m)) in
+  let send addr m := build_act addr addr (act_call caddr 0 (serialize m)) in
   let calls := map (fun '(addr, m) => send addr m) (zip addrs signups) in
   do chain <- add_block chain calls;
   let votes := map (fun '(addr, m) => send addr m) (zip addrs votes) in
   do chain <- add_block chain votes;
-  let tally := build_act creator (act_call caddr 0 (serialize tally_votes)) in
+  let tally := build_act creator creator (act_call caddr 0 (serialize tally_votes)) in
   do chain <- add_block chain [tally];
   do state <- contract_state (lcb_lc chain) caddr;
   BV.tally state.

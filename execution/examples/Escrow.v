@@ -16,7 +16,6 @@ will confirm he has received the item to get his own funds back. *)
 
 From Coq Require Import List.
 From Coq Require Import Bool.
-From Coq Require Import Morphisms.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
@@ -285,23 +284,23 @@ Section Theories.
         env_account_balances bstate caddr = 4 * item_worth /\
         outgoing_acts bstate caddr = [] /\
         outgoing_txs trace caddr = [] /\
-        inc_calls = [build_call_info buyer_addr (2 * item_worth) (Some commit_money)]
+        exists origin, inc_calls = [build_call_info origin buyer_addr (2 * item_worth) (Some commit_money)]
 
       | withdrawals =>
         buyer_confirmed inc_calls buyer_addr = true /\
-        filter (fun c => negb (call_amount c =? 0)%Z ) inc_calls =
-        [build_call_info buyer_addr (2 * item_worth) (Some commit_money)] /\
+        (exists origin, filter (fun c => negb (call_amount c =? 0)%Z ) inc_calls =
+        [build_call_info origin buyer_addr (2 * item_worth) (Some commit_money)]) /\
         money_to trace caddr seller_addr + seller_withdrawable cstate = 3 * item_worth /\
         money_to trace caddr buyer_addr + buyer_withdrawable cstate = 1 * item_worth
 
       | no_next_step =>
         buyer_confirmed inc_calls buyer_addr = true /\
-        filter (fun c => negb (call_amount c =? 0)%Z) inc_calls =
-        [build_call_info buyer_addr (2 * item_worth) (Some commit_money)] /\
+        (exists origin, filter (fun c => negb (call_amount c =? 0)%Z) inc_calls =
+        [build_call_info origin buyer_addr (2 * item_worth) (Some commit_money)]) /\
         money_to trace caddr seller_addr = 3 * item_worth /\
         money_to trace caddr buyer_addr = 1 * item_worth \/
 
-        inc_calls = [build_call_info seller_addr 0 (Some withdraw)] /\
+        (exists origin, inc_calls = [build_call_info origin seller_addr 0 (Some withdraw)]) /\
         money_to trace caddr seller_addr = 2 * item_worth /\
         money_to trace caddr buyer_addr = 0
       end.
@@ -380,7 +379,7 @@ Section Theories.
         replace (ctx_contract_balance _) with (2 * item_worth + 2 * item_worth / 2 * 2) by lia.
         rewrite <- Z.mul_comm.
         rewrite Z.div_mul by lia.
-        repeat split; auto.
+        repeat split;eauto.
         lia.
       + (* Some confirm_item_received *)
         destruct_match in receive_some; cbn in *; try congruence.
@@ -391,7 +390,9 @@ Section Theories.
         inversion_clear receive_some.
         cbn.
         do 4 (split; try tauto).
-        destruct IH as [deployed_even [? [<- [<- [_ [_ [balance_eq [-> [-> ->]]]]]]]]].
+        destruct IH as [deployed_even [? [<- [<- [_ [_ [balance_eq [-> [-> H]]]]]]]]].
+        destruct H as [origin Hcalls].
+        rewrite Hcalls.
         rewrite address_eq_refl.
         cbn.
         split; auto.
@@ -402,7 +403,7 @@ Section Theories.
         rewrite (Z.mul_comm 4).
         rewrite Z.div_mul by lia.
         destruct (Z.eqb_spec (2 * item_worth) 0); cbn in *; try lia.
-        repeat split; lia.
+        repeat split; eauto;lia.
       + (* Some withdraw. Can be sent while next_step is either
            commit_money or withdrawals. *)
         destruct_match eqn:prev_next_step in receive_some;
@@ -425,7 +426,7 @@ Section Theories.
           cbn.
           rewrite address_eq_refl, address_eq_ne by auto.
           cbn.
-          split; auto; lia.
+          split; eauto; lia.
         * (* next_step was withdrawals, so either seller or buyer is withdrawing money.
              This might put us into next_step = no_next_step. *)
           destruct (ctx_amount ctx =? 0) eqn:zero_amount in receive_some;
@@ -449,11 +450,11 @@ Section Theories.
               repeat rewrite transfer_acts_to_cons.
               fold (buyer_confirmed prev_inc_calls
                                     (setup_buyer (deployment_setup dep_info))).
-              destruct IH as [_ [_ [<- [-> [? [_ [-> [-> [? ?]]]]]]]]].
+              destruct IH as [_ [_ [<- [-> [? [_ [-> [[? ->] [? ?]]]]]]]]].
               rewrite address_eq_refl.
               rewrite address_eq_ne by assumption.
               cbn.
-              do 2 (split; [tauto|]).
+              do 2 (split; [eauto|]).
               lia.
             ++ (* Seller still has more to withdraw, next_step is still withdrawals *)
               cbn.
@@ -461,11 +462,11 @@ Section Theories.
               repeat rewrite transfer_acts_to_cons.
               fold (buyer_confirmed prev_inc_calls
                                     (setup_buyer (deployment_setup dep_info))).
-              destruct IH as [_ [_ [<- [-> [? [_ [-> [-> [? ?]]]]]]]]].
+              destruct IH as [_ [_ [<- [-> [? [_ [-> [[? ->] [? ?]]]]]]]]].
               rewrite address_eq_refl.
               rewrite address_eq_ne by assumption.
               cbn.
-              do 2 (split; try tauto).
+              do 2 (split; eauto).
               lia.
           -- (* Seller withdrawing. Todo: generalize and clean up. *)
             cbn in *.
@@ -481,11 +482,11 @@ Section Theories.
               repeat rewrite transfer_acts_to_cons.
               fold (buyer_confirmed prev_inc_calls
                                     (setup_buyer (deployment_setup dep_info))).
-              destruct IH as [_ [_ [<- [<- [? [_ [-> [-> [? ?]]]]]]]]].
+              destruct IH as [_ [_ [<- [<- [? [_ [-> [[? ->] [? ?]]]]]]]]].
               rewrite address_eq_refl.
               rewrite address_eq_ne by auto.
               cbn.
-              do 2 (split; [tauto|]).
+              do 2 (split; eauto).
               lia.
             ++ (* Buyer still has more to withdraw, next_step is still withdrawals *)
               cbn.
@@ -493,11 +494,11 @@ Section Theories.
               repeat rewrite transfer_acts_to_cons.
               fold (buyer_confirmed prev_inc_calls
                                     (setup_buyer (deployment_setup dep_info))).
-              destruct IH as [_ [_ [<- [<- [? [_ [-> [-> [? ?]]]]]]]]].
+              destruct IH as [_ [_ [<- [<- [? [_ [-> [[? ->] [? ?]]]]]]]]].
               rewrite address_eq_refl.
               rewrite address_eq_ne by auto.
               cbn.
-              do 2 (split; [tauto|]).
+              do 2 (split; eauto).
               lia.
       + (* None *)
         congruence.
@@ -623,14 +624,15 @@ Section Theories.
 
     destruct IH as [IH | IH]; [left|right].
     - split; [tauto|].
-      remember (build_call_info _ _ (Some commit_money)) as commitment.
+      destruct IH as [_ [[origin HH] ?]].
+      remember (build_call_info _ _ _ (Some commit_money)) as commitment.
       assert (Hsum :
                 forall f,
                   sumZ call_amount (filter f inc_calls) =
                   sumZ call_amount (filter f [commitment])).
       {
         intros f.
-        destruct IH as [_ [<- ?]].
+        rewrite <- HH.
         clear -inc_calls.
         induction inc_calls as [|hd tl IH']; auto.
         cbn.
@@ -644,9 +646,8 @@ Section Theories.
       rewrite 2!Hsum; clear Hsum; subst commitment; cbn in *.
       rewrite address_eq_refl, address_eq_ne by auto.
       cbn.
-      destruct IH as [_ [_ [? ?]]].
       split; lia.
-    - destruct IH as [-> IH].
+    - destruct IH as [[? ->] IH].
       cbn.
       rewrite address_eq_refl, address_eq_ne by auto.
       cbn.

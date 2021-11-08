@@ -1,6 +1,5 @@
 From Coq Require Import FunctionalExtensionality.
 From Coq Require Import List.
-From Coq Require Import Morphisms.
 Require Import Blockchain.
 Require Import Monads.
 Require Import Serializable.

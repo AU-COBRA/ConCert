@@ -5,12 +5,9 @@ and then show that it does not send out more transactions than
 expected from the number of created proposals. *)
 
 From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-From Coq Require Import Permutation.
 Require Import Automation.
 Require Import Blockchain.
-Require Import ChainedList.
 Require Import Containers.
 Require Import Extras.
 Require Import Monads.
@@ -265,13 +262,14 @@ Lemma rules_valid bstate caddr :
     contract_state bstate caddr = Some cstate /\
     validate_rules cstate.(state_rules) = true.
 Proof.
-  assert (valid_after_recv:
-            forall chain ctx prev_state msg new_state new_acts,
-              receive chain ctx prev_state msg = Some (new_state, new_acts) ->
-              validate_rules (state_rules prev_state) = true ->
-              validate_rules (state_rules new_state) = true).
-  {
-    intros ? ? ? ? ? ? receive valid_prev.
+  intros.
+  apply (lift_contract_state_prop contract); intros *; auto.
+  - intros init_some.
+    cbn in init_some.
+    unfold Congress.init in init_some.
+    destruct_match eqn:validate_succeeds in init_some; try congruence.
+    now inversion_clear init_some.
+  - intros valid_prev receive.
     destruct msg as [[]|]; cbn in *;
       try solve [
             repeat
@@ -293,20 +291,6 @@ Proof.
       destruct (FMap.find _ _); cbn in *; try congruence.
       now inversion_clear receive.
     + now inversion receive; subst.
-  }
-
-  contract_induction; intros; cbn in *; auto.
-  - unfold Congress.init in init_some.
-    destruct_match eqn:validate_succeeds in init_some; try congruence.
-    now inversion_clear init_some.
-  - eauto.
-  - eauto.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
 Qed.
 
 Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Congress.Msg)) :=
@@ -335,6 +319,8 @@ Ltac remember_new_proposal :=
   | [|- context[FMap.add _ ?p]] => remember p as new_proposal
   end.
 
+Hint Resolve FMap.find_remove : core.
+
 Lemma add_proposal_cacts cacts chain state :
   num_cacts_in_state (add_proposal cacts chain state) <=
   num_cacts_in_state state + length cacts.
@@ -344,7 +330,6 @@ Proof.
   destruct (FMap.find (next_proposal_id state) (proposals state)) as [proposal|] eqn:find.
   - remember_new_proposal.
     rewrite <- (FMap.add_remove (next_proposal_id state) new_proposal).
-    Hint Resolve FMap.find_remove : core.
     rewrite <- (FMap.add_id _ _ _ find) at 1.
     rewrite <- (FMap.add_remove (next_proposal_id state) proposal).
     repeat rewrite FMap.elements_add; auto.
@@ -374,6 +359,8 @@ Proof.
   subst; reflexivity.
 Qed.
 
+Hint Resolve FMap.find_remove : core.
+
 Lemma do_retract_vote_cacts_preserved addr pid state new_state :
   do_retract_vote addr pid state = Some new_state ->
   num_cacts_in_state new_state = num_cacts_in_state state.
@@ -389,7 +376,6 @@ Proof.
   rewrite <- (FMap.add_id pid p (proposals state)) at 1; auto.
   rewrite <- (FMap.add_remove pid p).
   rewrite <- (FMap.add_remove pid new_proposal).
-  Hint Resolve FMap.find_remove : core.
   repeat rewrite FMap.elements_add; auto.
   subst; reflexivity.
 Qed.

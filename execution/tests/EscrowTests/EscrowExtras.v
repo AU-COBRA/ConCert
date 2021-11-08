@@ -1,6 +1,4 @@
 From Coq Require Import Arith ZArith.
-From Coq Require Import Bool.
-From Equations Require Import Equations.
 
 Ltac propify :=
   unfold is_true in *;

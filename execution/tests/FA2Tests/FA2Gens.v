@@ -195,9 +195,10 @@ Definition gUpdateOperators (chain : Chain)
 
 Definition gFA2TokenAction (env : Environment) : GOpt Action :=
   let mk_call caller_addr amount msg :=
-    returnGenSome {|
-      act_from := caller_addr;
-      act_body := act_call fa2_contract_addr amount (serialize FA2Token.Msg _ msg)
+      returnGenSome {|
+          act_origin := caller_addr;
+          act_from := caller_addr;
+          act_body := act_call fa2_contract_addr amount (serialize FA2Token.Msg _ msg)
     |} in
   fa2_state <- returnGen (get_contract_state FA2Token.State env fa2_contract_addr) ;;
   backtrack [
@@ -239,10 +240,11 @@ Definition gIsOperatorMsg : G (option ClientMsg) :=
 
 Definition gClientAction (env : Environment) : GOpt Action :=
   let mk_call_fa2 caller fa2_caddr msg :=
-    returnGenSome {|
-      act_from := caller;
-      act_body := act_call fa2_client_addr 0%Z (serialize ClientMsg _ msg)
-    |} in
+      returnGenSome {|
+          act_origin := caller;
+          act_from := caller;
+          act_body := act_call fa2_client_addr 0%Z (serialize ClientMsg _ msg)
+        |} in
   state <- returnGen (get_contract_state ClientState env fa2_client_addr) ;;
   let fa2_caddr := state.(fa2_caddr) in
   caller <- liftOptGen (gAddrWithout []) ;;
@@ -288,4 +290,4 @@ Module DummyTestInfo <: FA2TestsInfo.
   Definition gAddrWithout (ws : list Address) := returnGen zero_address.
   Definition gUniqueAddrPair : GOpt (Address * Address) := returnGen None.
 End DummyTestInfo.
-Module MG := FA2Gens.FA2Gens DummyTestInfo. Import MG.
+Module MG := FA2Gens DummyTestInfo. Import MG.

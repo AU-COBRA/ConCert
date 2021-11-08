@@ -1,5 +1,5 @@
 From Coq Require Import String List.
-From ConCert Require Import Ast.
+From ConCert.Embedding Require Import Ast.
 
 (** * Notations for the deep embeding *)
 
