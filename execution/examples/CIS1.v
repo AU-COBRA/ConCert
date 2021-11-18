@@ -107,7 +107,6 @@ Module Type CIS1Data (cis1_types : CIS1Types).
     fun st token_id addr => if token_id_exists st token_id then
                               match get_balance_opt st token_id addr with
                               | Some bal => Some bal
-  (* CIS1 (currently in PR #14): The balance of an address not owning any amount of a token type SHOULD be treated as having a balance of zero*)
                               | None => Some 0
                               end
                             else None.
@@ -187,8 +186,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
 
       transfer_token_ids_preserved :
         forall token_id,
-          token_id_exists prev_st token_id = true ->
-          token_id_exists next_st token_id = true;
+          token_id_exists prev_st token_id =  token_id_exists next_st token_id;
 
       transfer_dec_inc :
         compose_transfers prev_st next_st params.(cis_tr_transfers)
@@ -204,8 +202,15 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
 
   Arguments transfer_token_ids_preserved {_ _ _ _}.
 
-  Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (p : token_id_exists st token_id) (owners : list Address) :=
-    fold_right (fun addr s => get_balance_total st token_id p addr + s) 0 owners.
+  (** Get the balance and return zero if [get_balance] returns [None] *)
+  Definition get_balance_default `{ChainBase} : Storage -> TokenID -> Address -> TokenAmount :=
+    fun st token_id addr => match get_balance st token_id addr with
+                         | Some amount => amount
+                         | None => 0
+                         end.
+
+  Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (owners : list Address) :=
+    fold_right (fun addr s => get_balance_default st token_id addr + s) 0 owners.
 
   Definition updateOperator_single_spec  `{ChainBase} (ctx : ContractCallContext) (prev_st next_st : Storage) (p : CIS1_updateOperator_update) : Prop :=
     match p.(cis1_ou_update_kind) with
@@ -343,10 +348,10 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
       destruct (eq_dec x a);intuition;congruence.
   Qed.
 
-  Lemma remove_owner `{ChainBase} st token_id p (owners : list Address) (owner : Address) :
-    In owner owners \/ get_balance_total st token_id p owner = 0 ->
+  Lemma remove_owner `{ChainBase} st token_id (owners : list Address) (owner : Address) :
+    In owner owners \/ get_balance_default st token_id owner = 0 ->
     NoDup owners ->
-    sum_balances st token_id p owners = get_balance_total st token_id p owner + sum_balances st token_id p (remove addr_eq_dec owner owners).
+    sum_balances st token_id owners = get_balance_default st token_id owner + sum_balances st token_id (remove addr_eq_dec owner owners).
   Proof.
     intros Hin.
     destruct Hin as [Hin | Hbal].
@@ -368,24 +373,23 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
       simpl. destruct (addr_eq_dec owner a);subst;simpl;easy.
   Qed.
 
-  Lemma sum_of_other_balances_eq `{ChainBase} from to addrs prev_st next_st token_id p q :
-    (forall addr, addr <> from -> addr <> to -> get_balance_total next_st token_id p addr = get_balance_total prev_st token_id q addr) ->
+  Lemma sum_of_other_balances_eq `{ChainBase} from to addrs prev_st next_st token_id :
+    (forall addr, addr <> from -> addr <> to -> get_balance_default next_st token_id addr = get_balance_default prev_st token_id addr) ->
     ~ In from addrs ->
     ~ In to addrs ->
-    sum_balances next_st token_id p addrs = sum_balances prev_st token_id q addrs.
+    sum_balances next_st token_id addrs = sum_balances prev_st token_id addrs.
   Proof.
     intros Hbal Hform Hto.
     induction addrs;simpl in *;intuition;auto.
   Qed.
 
-  Lemma sum_of_balances_eq `{ChainBase} addrs prev_st next_st token_id p q :
-    (forall addr, In addr addrs ->get_balance_total next_st token_id p addr = get_balance_total prev_st token_id q addr) ->
-    sum_balances next_st token_id p addrs = sum_balances prev_st token_id q addrs.
+  Lemma sum_of_balances_eq `{ChainBase} addrs prev_st next_st token_id :
+    (forall addr, In addr addrs ->get_balance_default next_st token_id addr = get_balance_default prev_st token_id addr) ->
+    sum_balances next_st token_id addrs = sum_balances prev_st token_id addrs.
   Proof.
     intros Hbal.
     induction addrs;simpl in *;intuition;auto.
   Qed.
-
 
   Lemma not_in_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A):
     not (In x l) -> ~ In x (remove eq_dec y l).
@@ -454,11 +458,11 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
 
   Hint Resolve remove_extensional : hints.
 
-  Lemma sum_balances_extensional `{ChainBase} st token_id p owners1 owners2 :
+  Lemma sum_balances_extensional `{ChainBase} st token_id owners1 owners2 :
     NoDup owners1 ->
     NoDup owners2 ->
     (forall addr, In addr owners1 <-> In addr owners2) ->
-    sum_balances st token_id p owners1 = sum_balances st token_id p owners2.
+    sum_balances st token_id owners1 = sum_balances st token_id owners2.
   Proof.
     intros Hnodup1 Hnodup2 Hiff.
     revert dependent owners2.
@@ -488,12 +492,12 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
            intuition.
   Qed.
 
-  Lemma sum_of_balances_eq_extensional `{ChainBase} owners1 owners2 prev_st next_st token_id p q :
+  Lemma sum_of_balances_eq_extensional `{ChainBase} owners1 owners2 prev_st next_st token_id :
     NoDup owners1 ->
     NoDup owners2 ->
     (forall addr, In addr owners1 <-> In addr owners2) ->
-    (forall addr, In addr owners1 -> get_balance_total next_st token_id p addr = get_balance_total prev_st token_id q addr) ->
-    sum_balances next_st token_id p owners1 = sum_balances prev_st token_id q owners2.
+    (forall addr, In addr owners1 -> get_balance_default next_st token_id addr = get_balance_default prev_st token_id addr) ->
+    sum_balances next_st token_id owners1 = sum_balances prev_st token_id owners2.
   Proof.
     intros.
     erewrite sum_of_balances_eq by eauto.
@@ -558,6 +562,20 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
       inversion H;try congruence.
   Qed.
 
+  Lemma get_balance_opt_default `{ChainBase} next_st prev_st token_id addr :
+    token_id_exists prev_st token_id = token_id_exists next_st token_id ->
+    get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr ->
+    get_balance_default next_st token_id addr = get_balance_default prev_st token_id addr.
+  Proof.
+    intros Hids Hopt.
+    unfold get_balance_default,get_balance.
+    rewrite Hids.
+    destruct (token_id_exists next_st token_id);auto.
+    destruct (get_balance_opt next_st token_id addr) eqn:Heq1;
+    destruct (get_balance_opt prev_st token_id addr) eqn:Heq2;auto;
+      inversion H;try congruence.
+  Qed.
+
   Lemma same_owners_remove_all  `{ChainBase} token_id addrs next_st prev_st :
     (forall addr1, ~ In addr1 addrs ->
     get_balance_opt next_st token_id addr1 = get_balance_opt prev_st token_id addr1) ->
@@ -592,7 +610,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
            apply get_owners_balances in Hin;destruct Hin;congruence.
   Qed.
 
-  Lemma in_owners_or_zero_balance  `{ChainBase} st token_id owner p :
+  Lemma in_owners_or_zero_balance_total  `{ChainBase} st token_id owner p :
     In owner (get_owners st token_id) \/ get_balance_total st token_id p owner = 0.
   Proof.
     assert (Hdec : forall (a1 a2 : Address), a1 = a2 \/ a1 <> a2).
@@ -605,7 +623,29 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     easy.
   Qed.
 
-  Hint Resolve in_owners_or_zero_balance get_owners_no_dup : hints.
+  Lemma in_owners_or_zero_balance_default  `{ChainBase} st token_id owner :
+    In owner (get_owners st token_id) \/ get_balance_default st token_id owner = 0.
+  Proof.
+    assert (Hdec : forall (a1 a2 : Address), a1 = a2 \/ a1 <> a2).
+    { intros. destruct (addr_eq_dec a1 a2);auto. }
+    destruct (ListDec.In_decidable Hdec owner (get_owners st token_id)) as [Hin_addrs | Hnotin_addrs];subst;auto.
+    right. unfold get_balance_default,get_balance.
+    destruct (token_id_exists st token_id);auto.
+    cbn.
+    destruct (get_balance_opt st token_id owner) eqn:Heq;auto.
+    assert (In owner (get_owners st token_id)) by (apply get_owners_balances;eauto).
+    easy.
+  Qed.
+
+
+  Hint Resolve in_owners_or_zero_balance_total in_owners_or_zero_balance_default get_owners_no_dup : hints.
+
+  Lemma get_balance_total_get_balance_default `{ChainBase} st token_id p owner:
+    get_balance_total st token_id p owner = get_balance_default st token_id owner.
+  Proof.
+    unfold get_balance_total, get_balance_default, get_balance. rewrite p. cbn.
+    now destruct (get_balance_opt st token_id _).
+  Qed.
 
   Lemma transfer_single_spec_preserves_balances
         `{ChainBase}
@@ -617,43 +657,47 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     (forall addr, addr <> from -> addr <> to -> get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) ->
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
-    sum_balances next_st token_id q owners2 =
-    sum_balances prev_st token_id p owners1.
+    sum_balances next_st token_id owners2 =
+    sum_balances prev_st token_id owners1.
   Proof.
     intros Hother_balances ? ?.
     destruct spec as [H1 H2].
     destruct (address_eqb_spec from to) as [Haddr | Haddr].
     + subst.
       rewrite remove_owner with (st := prev_st) (owner := to)
-        by (subst owners1;auto with hints).
+         by (subst owners1;auto with hints).
       rewrite remove_owner with (st := next_st) (owner := to)
         by (subst owners2;auto with hints).
       assert (HH :
-                sum_balances next_st token_id q (remove addr_eq_dec to owners2) =
-                sum_balances prev_st token_id p (remove addr_eq_dec to owners1)).
+                sum_balances next_st token_id (remove addr_eq_dec to owners2) =
+                sum_balances prev_st token_id (remove addr_eq_dec to owners1)).
       { apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
         intros addr.
         apply same_owners_remove_all with (addrs:=[to]);intros;cbn in *;intuition;eauto.
-        intros addr H0. apply get_balance_opt_total;auto.
+        intros addr H0. unfold is_true in *.
+        apply get_balance_opt_default;try congruence.
         destruct (address_eqb_spec addr to);subst. exfalso;apply (remove_In _ _ _ H0).
         eauto. }
+      repeat rewrite get_balance_total_get_balance_default in H1, H2.
       lia.
     + rewrite remove_owner with (st := prev_st) (owner := from)
         by (subst owners1;auto with hints).
       rewrite remove_owner with (st := prev_st) (owner := to)
-        by (assert (In to owners1 \/ get_balance_total prev_st token_id p to = 0); subst owners1;auto with hints;intuition;auto with hints).
+        by (assert (In to owners1 \/ get_balance_default prev_st token_id to = 0); subst owners1;auto with hints;intuition;auto with hints).
       rewrite remove_owner with (st := next_st) (owner := from)
         by (subst owners2;auto with hints).
       rewrite remove_owner with (st := next_st) (owner := to)
-        by (assert (In to owners2 \/ get_balance_total next_st token_id q to = 0);
+        by (assert (In to owners2 \/ get_balance_default next_st token_id to = 0);
             subst owners2;auto with hints;intuition;auto with hints).
+      repeat rewrite get_balance_total_get_balance_default in H1, H2.
       rewrite H2. rewrite H1.
       assert (HH :
-                sum_balances next_st token_id q (remove addr_eq_dec to (remove addr_eq_dec from owners2)) =
-              sum_balances prev_st token_id p (remove addr_eq_dec to (remove addr_eq_dec from owners1))).
+                sum_balances next_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners2)) =
+              sum_balances prev_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners1))).
       { apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
         apply same_owners_remove_all with (addrs:=[to;from]);intros;cbn in *;intuition;eauto.
-        intros addr H0. apply get_balance_opt_total;auto.
+        intros addr H0. unfold is_true in *.
+        apply get_balance_opt_default;try congruence.
         destruct (address_eqb_spec addr to);subst. exfalso;apply (remove_In _ _ _ H0).
         destruct (address_eqb_spec addr from);subst. apply In_remove in H0; auto. exfalso;apply (remove_In _ _ _ H0).
         eauto. }
@@ -674,15 +718,13 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     let owners2 := get_owners next_st token_id in
     NoDup owners1 ->
     NoDup owners2 ->
-    exists p q,
-    sum_balances next_st token_id q owners2 =
-    sum_balances prev_st token_id p owners1.
+    sum_balances next_st token_id owners2 =
+    sum_balances prev_st token_id owners1.
   Proof.
     intros ? Hother_balances ? ? Hnodup1 Hnodup2.
     cbn in spec.
     destruct spec as [st [p [q [Hspec Hst_eq]]]].
     subst.
-    exists p. exists q.
     eapply transfer_single_spec_preserves_balances;eauto.
   Qed.
 
