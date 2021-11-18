@@ -244,7 +244,11 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
          (params : CIS1_updateOperator_params)
          (prev_st next_st : Storage)
          (ret_ops : list ActionBody) :=
-    { updateOperator_balances_preserved : forall addr token_id,
+    { updateOperator_token_ids_preserved :
+        forall token_id,
+          token_id_exists prev_st token_id =  token_id_exists next_st token_id;
+
+      updateOperator_balances_preserved : forall addr token_id,
         get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
 
       updateOperator_add_remove :
@@ -257,7 +261,11 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
            (prev_st next_st : Storage)
            (ret_ops : list ActionBody) : Prop :=
     { balanceOf_operators_preserved:
-        forall addr, get_operators next_st addr = get_operators prev_st addr;
+      forall addr, get_operators next_st addr = get_operators prev_st addr;
+
+      balanceOf_token_ids_preserved :
+        forall token_id,
+          token_id_exists prev_st token_id =  token_id_exists next_st token_id;
 
       balanceOf_balances_preserved :
         forall token_id addr, get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr;
@@ -766,35 +774,31 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
   (*   intros ?. *)
 
   Lemma balanceOf_preserves_balances `{ChainBase} params prev_st next_st token_id ops
-    (p : token_id_exists prev_st token_id)
-    (q : token_id_exists next_st token_id)
     (spec : balanceOf_spec params prev_st next_st ops) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
-    sum_balances next_st token_id q owners2 =
-    sum_balances prev_st token_id p owners1.
+    sum_balances next_st token_id owners2 =
+    sum_balances prev_st token_id owners1.
   Proof.
     intros ??.
-    destruct spec as [H1 H2 H3]. clear H3.
+    destruct spec as [H1 H2 H3 H4]. clear H4.
     apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
     intros. now apply same_owners.
-    intros. now apply get_balance_opt_total.
+    intros. now apply get_balance_opt_default.
   Qed.
 
   Lemma updateOperator_preserves_balances `{ChainBase} params prev_st next_st token_id ops ctx
-    (p : token_id_exists prev_st token_id)
-    (q : token_id_exists next_st token_id)
     (spec : updateOperator_spec ctx params prev_st next_st ops) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
-    sum_balances next_st token_id q owners2 =
-    sum_balances prev_st token_id p owners1.
+    sum_balances next_st token_id owners2 =
+    sum_balances prev_st token_id owners1.
   Proof.
     intros ??.
-    destruct spec as [H1 H2].
+    destruct spec as [H1 H2 H3].
     apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
     intros. now apply same_owners.
-    intros. now apply get_balance_opt_total.
+    intros. now apply get_balance_opt_default.
   Qed.
 
 End CIS1Balances.
