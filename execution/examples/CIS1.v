@@ -151,6 +151,16 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
     let next_from := get_balance_total next_st token_id q from in
     let prev_to := get_balance_total prev_st token_id p to in
     let next_to := get_balance_total next_st token_id q to in
+    (* the balances that are not [to] and [from] (for the token with [token_id]) remain unchanged *)
+    (forall addr, addr <> from ->
+             addr <> to ->
+             get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) /\
+    (* the balances of all other tokens (not equal to [token_id]) remain unchanged for all addresses *)
+    (forall addr other_token_id, other_token_id <> token_id ->
+                            get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) /\
+    (* Token ids are preserved by a single transfer *)
+    (forall token_id,
+      token_id_exists prev_st token_id =  token_id_exists next_st token_id) /\
     prev_from = next_from + amount /\
     next_to = prev_to + amount.
 
@@ -178,16 +188,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
          (params : CIS1_transfer_params)
          (prev_st next_st : Storage)
          (ret_ops : list ActionBody) : Prop :=
-    { transfer_other_balances_preserved :
-        forall addr token_id,
-          ~ In addr (transfer_from params) ->
-          ~ In addr (transfer_to params)   ->
-          get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
-
-      transfer_token_ids_preserved :
-        forall token_id,
-          token_id_exists prev_st token_id =  token_id_exists next_st token_id;
-
+    {
       transfer_dec_inc :
         compose_transfers prev_st next_st params.(cis_tr_transfers)
                          (fun st1 st2 x p q =>
@@ -200,7 +201,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
                               x.(cis1_td_amount))
     }.
 
-  Arguments transfer_token_ids_preserved {_ _ _ _}.
+  (* Arguments transfer_token_ids_preserved {_ _ _ _}. *)
 
   (** Get the balance and return zero if [get_balance] returns [None] *)
   Definition get_balance_default `{ChainBase} : Storage -> TokenID -> Address -> TokenAmount :=
@@ -655,21 +656,74 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     now destruct (get_balance_opt st token_id _).
   Qed.
 
-  Lemma transfer_single_spec_preserves_balances
-        `{ChainBase}
+  (** We can recover a statement for the whole "batch" of transfers from the transfers spec where
+      the same property is assumed for each transfer in the batch *)
+  Lemma transfer_token_ids_preserved `{ChainBase} transfers prev_st next_st ops :
+      let params := Build_CIS1_transfer_params _ transfers in
+      transfer_spec params prev_st next_st ops ->
+      forall token_id,
+        token_id_exists prev_st token_id =  token_id_exists next_st token_id.
+  Proof.
+    revert dependent prev_st.
+    induction transfers.
+    - intros prev_st ? Htr token_id;subst params.
+      destruct Htr. cbn in *;now subst.
+    - intros prev_st ? Htr token_id;subst params.
+      destruct Htr as [H1]. cbn in *.
+      destruct H1 as [st [p [q [Hsingle Htrs]]]].
+      transitivity (token_id_exists st token_id).
+      * destruct Hsingle as [HH0 [HH1 [HH2 HH3]]].
+        easy.
+      * apply IHtransfers. easy.
+  Qed.
+
+  (* NOTE: should work in the same way as for token_ids, but the statement needs to be adjusted a bit *)
+  (* Lemma transfer_other_balances_preserved `{ChainBase} transfers prev_st next_st ops : *)
+  (*   let params := Build_CIS1_transfer_params _ transfers in *)
+  (*   transfer_spec params prev_st next_st ops -> *)
+  (*   forall addr token_id, *)
+  (*     ~ In addr (transfer_from params) -> *)
+  (*     ~ In addr (transfer_to params)   -> *)
+  (*   get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr. *)
+  (* Proof. *)
+  (*   revert dependent next_st. *)
+  (*   induction transfers. *)
+  (*   - intros next_st ? Htr addr token_id;subst params. *)
+  (*     destruct Htr. cbn in *;now subst. *)
+  (*   - intros next_st ? Htr ? ? Hfrom Hto;subst params. *)
+  (*     destruct Htr as [H1 H2]. cbn in *. *)
+  (*     destruct H2 as [st [p [q [Hsingle Htrs]]]]. *)
+  (*     transitivity (get_balance_opt st token_id addr). *)
+  (*     destruct Hsingle. *)
+  (*     assert ( addr <> cis1_td_from a /\ ~ (In addr (map cis1_td_from transfers))) by firstorder. *)
+  (*     assert (addr <> cis1_td_to a /\ ~ (In addr (map cis1_td_to transfers))) by firstorder. *)
+  (*     symmetry;apply H0. *)
+
+
+    Lemma transfer_single_spec_sufficient_funds `{ChainBase}
         prev_st next_st token_id from to amount
         (p : token_id_exists prev_st token_id)
         (q : token_id_exists next_st token_id)
         (spec : transfer_single_spec prev_st next_st token_id p q from to amount) :
-    (* the balances that are not [to] and [from] remain unchanged *)
-    (forall addr, addr <> from -> addr <> to -> get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) ->
+    get_balance_total prev_st token_id p from >= amount.
+  Proof.
+    destruct spec as [H1 [H2 H3]].
+    lia.
+  Qed.
+
+  Lemma transfer_single_spec_preserves_balances `{ChainBase}
+        prev_st next_st token_id from to amount
+        (p : token_id_exists prev_st token_id)
+        (q : token_id_exists next_st token_id)
+        (spec : transfer_single_spec prev_st next_st token_id p q from to amount) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
     sum_balances next_st token_id owners2 =
     sum_balances prev_st token_id owners1.
   Proof.
-    intros Hother_balances ? ?.
-    destruct spec as [H1 H2].
+    intros ??.
+    destruct spec as [Hother_balances [H1 [H2 [H3 H4]]]].
+    unfold transfer_single_spec in *.
     destruct (address_eqb_spec from to) as [Haddr | Haddr].
     + subst.
       rewrite remove_owner with (st := prev_st) (owner := to)
@@ -686,7 +740,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
         apply get_balance_opt_default;try congruence.
         destruct (address_eqb_spec addr to);subst. exfalso;apply (remove_In _ _ _ H0).
         eauto. }
-      repeat rewrite get_balance_total_get_balance_default in H1, H2.
+      repeat rewrite get_balance_total_get_balance_default in H3, H4.
       lia.
     + rewrite remove_owner with (st := prev_st) (owner := from)
         by (subst owners1;auto with hints).
@@ -697,8 +751,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
       rewrite remove_owner with (st := next_st) (owner := to)
         by (assert (In to owners2 \/ get_balance_default next_st token_id to = 0);
             subst owners2;auto with hints;intuition;auto with hints).
-      repeat rewrite get_balance_total_get_balance_default in H1, H2.
-      rewrite H2. rewrite H1.
+      repeat rewrite get_balance_total_get_balance_default in H3, H4.
+      rewrite H3. rewrite H4.
       assert (HH :
                 sum_balances next_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners2)) =
               sum_balances prev_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners1))).
@@ -713,7 +767,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
   Qed.
 
   (* NOTE: The same lemma as above, but stated using composition of transfers.
-    (in this case it's just one-transfer composition) *)
+    (in this case it's just a one-transfer composition) *)
   Lemma transfer_single_spec_compose_preserves_balances
         `{ChainBase}
         prev_st next_st pr
@@ -724,54 +778,50 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     (forall addr, addr <> pr.(cis1_td_from) -> addr <> pr.(cis1_td_to) -> get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) ->
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
-    NoDup owners1 ->
-    NoDup owners2 ->
     sum_balances next_st token_id owners2 =
     sum_balances prev_st token_id owners1.
   Proof.
-    intros ? Hother_balances ? ? Hnodup1 Hnodup2.
+    intros ? Hother_balances ? ?.
     cbn in spec.
     destruct spec as [st [p [q [Hspec Hst_eq]]]].
     subst.
     eapply transfer_single_spec_preserves_balances;eauto.
   Qed.
 
-  (* Fixpoint compose_sum_balances *)
-  (*          (params : CIS1_transfer_data) *)
-  (*          (init_st final_st : Storage) *)
-  (*          (init_owners final_owners: list Address) := *)
-  (*   match params with *)
-  (*   | [] => True *)
-  (*   | pr :: ps => *)
-  (*     exists next_st, *)
-  (*     let token_id := pr.(cis1_td_token_id) in *)
-  (*     sum_balances init_st token_id p init_owners = sum_balances next_st token_id q owners2 /\ *)
-  (*     compose_sum_balances ps init_st final_st init_owners final_owners *)
-  (*   end. *)
+  Fixpoint compose_sum_balances `{ChainBase}
+           (params : list CIS1_transfer_data)
+           (init_st final_st : Storage)  :=
+    match params with
+    | [] => init_st = final_st
+    | pr :: ps =>
+      exists next_st,
+        let token_id := pr.(cis1_td_token_id) in
+        let owners1 := get_owners init_st token_id in
+        let owners2 := get_owners next_st token_id in
+      sum_balances init_st token_id owners1 = sum_balances next_st token_id owners2 /\
+      compose_sum_balances ps next_st final_st
+    end.
 
 
-  (* Lemma transfer_preserves_balances params prev_st next_st ops *)
-  (*       (tr_spec : transfer_spec params prev_st next_st ops) : *)
-  (*   let owners1 := get_owners prev_st token_id in *)
-  (*   let owners2 := get_owners next_st token_id in *)
-  (*   NoDup owners1 -> *)
-  (*   NoDup owners2 -> *)
-  (*   exists p q, *)
-  (*   sum_balances next_st token_id q owners2 = *)
-  (*   sum_balances prev_st token_id p owners1. *)
-
-  (* Proof. *)
-  (*   intros Htoken Hnd1 Hnd2. *)
-  (*   destruct tr_spec as [H1 H2 H3]. cbn. *)
-  (*   specialize (H3 Htoken). *)
-  (*   induction (cis_tr_transfers params). *)
-  (*   + admit. *)
-  (*   + inversion H3;subst. clear H3. *)
-  (*     destruct a as [token_id0 amount from to];cbn in *. *)
-  (*   eapply transfer_single_spec_preserves_balances with (amount:=amount) (from:=from) (to:=to);eauto. *)
-  (*   intros. *)
-  (*   symmetry. apply H1. *)
-  (*   intros ?. *)
+  (* NOTE: A version of the statement that we might need to generalise, so it actually
+     talks about the sum over _all_ token ids. Currently, it uses [compose_sum_balances] that
+     says that the sum of all balances for each token id in a batch of transfers is preserved *)
+  Lemma transfer_preserves_balances `{ChainBase} prev_st next_st ops
+        transfers
+        (tr_spec : transfer_spec (Build_CIS1_transfer_params _ transfers) prev_st next_st ops) :
+      compose_sum_balances transfers prev_st next_st.
+  Proof.
+    destruct tr_spec as [H1 H2 H3].
+    revert dependent prev_st.
+    revert dependent next_st.
+    induction transfers;intros.
+    - now cbn in *.
+    - cbn in *.
+      destruct H1 as [st [p [q [Hsingle Htrs]]]].
+      eexists. split.
+      + symmetry. now eapply transfer_single_spec_preserves_balances with (next_st0 := st).
+      + apply IHtransfers;auto.
+  Qed.
 
   Lemma balanceOf_preserves_balances `{ChainBase} params prev_st next_st token_id ops
     (spec : balanceOf_spec params prev_st next_st ops) :
