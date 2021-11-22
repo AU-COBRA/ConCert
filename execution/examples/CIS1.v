@@ -519,8 +519,6 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     | x :: tl => remove eq_dec x (remove_all eq_dec tl xs)
     end.
 
-  Hint Constructors Forall.
-
   Lemma remove_all_In {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :
     Forall (fun x => ~ In x (remove_all eq_dec to_remove xs)) to_remove.
   Proof.
