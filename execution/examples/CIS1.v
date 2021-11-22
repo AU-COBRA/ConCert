@@ -11,6 +11,7 @@ From Coq Require Import JMeq.
 From Coq Require Import ZArith.
 
 Import ListNotations.
+Import MonadNotation.
 
 
 (* NOTE: In CIS1 it's an n-byte sequence, where 0 <= n <= 256.
@@ -256,6 +257,22 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
         compose_uptadeOperator_specs ctx prev_st next_st params.(cis1_ou_params)
     }.
 
+
+  (** CIS1: The parameter for the callback receive function is a list of pairs, where each pair is a query and an amount of tokens.*)
+  Definition balanceOf_callback_type `{ChainBase} : Type := list (TokenID * Address * TokenAmount).
+
+  (** CIS1: The contract function MUST reject if any of the queries fail.
+
+  The [get_balance] function returns [None] (fails) if the token id is unknown. We combine the calls to [get_balance] using [monad_map] where the monad is the [option] monad.
+   *)
+  Definition get_balances `{ChainBase} (st : Storage) (params : CIS1_balanceOf_params) : option balanceOf_callback_type :=
+    monad_map
+      (fun q =>
+         let addr := q.(cis1_bo_query_address) in
+         let token_id := q.(cis1_bo_query_token_id) in
+         balance <- get_balance st token_id addr;;
+         Some (token_id, addr, balance)) params.(cis1_bo_query).
+
     Record balanceOf_spec
            `{ChainBase}
            (params : CIS1_balanceOf_params)
@@ -271,22 +288,22 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
       balanceOf_balances_preserved :
         forall token_id addr, get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr;
 
+     (** NOTE: It's assumed that the receiving contract accepts messages of type [balanceOf_callback_type] *)
       balanceOf_callback :
-        match monad_map (fun q => get_balance prev_st q.(cis1_bo_query_token_id) q.(cis1_bo_query_address)) params.(cis1_bo_query) with
-        (** CIS1: The contract function MUST reject if any of the queries fail *)
-        | Some balances =>
-          let serialize_balances := map serialize balances in
-          (* NOTE: It's assumed that the receiving contract accepts messages of type [TokenType] *)
-          let ops := map (act_call params.(cis1_bo_result_address) 0%Z) serialize_balances in
-          ret_ops = ops
+      match get_balances prev_st params with
+        | Some query_results =>
+          let serialized_query_results := serialize query_results in
+          let op := act_call params.(cis1_bo_result_address) 0%Z serialized_query_results in
+          ret_ops = [op]
         | None => False
         end
     }.
 
-    (* Sanity check for the batch operator update spec *)
-    Lemma compose_updateOperator_add_add :
+  (** Sanity checks for the batch operator update spec *)
+
+  Lemma compose_updateOperator_add_add :
     forall `{ChainBase} (ctx : ContractCallContext)
-      (prev_st : Storage) (next_st : Storage) (addr1 addr2 : Address),
+           (prev_st : Storage) (next_st : Storage) (addr1 addr2 : Address),
       let add_addr1 := {| cis1_ou_update_kind := cis1_ou_add_operator;
                          cis1_ou_operator_address := addr1 |} in
       let add_addr2 := {| cis1_ou_update_kind := cis1_ou_add_operator;
