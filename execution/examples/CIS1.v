@@ -157,7 +157,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
              get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) /\
     (* the balances of all other tokens (not equal to [token_id]) remain unchanged for all addresses *)
     (forall addr other_token_id, other_token_id <> token_id ->
-                            get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) /\
+                            get_balance_opt next_st other_token_id addr = get_balance_opt prev_st other_token_id addr) /\
     (* Token ids are preserved by a single transfer *)
     (forall token_id,
       token_id_exists prev_st token_id =  token_id_exists next_st token_id) /\
@@ -768,7 +768,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
 
   (* NOTE: The same lemma as above, but stated using composition of transfers.
     (in this case it's just a one-transfer composition) *)
-  Lemma transfer_single_spec_compose_preserves_balances
+  Lemma transfer_single_spec_compose_preserves_sum_balances
         `{ChainBase}
         prev_st next_st pr
         (spec :
@@ -788,42 +788,33 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     eapply transfer_single_spec_preserves_balances;eauto.
   Qed.
 
-  Fixpoint compose_sum_balances `{ChainBase}
-           (params : list CIS1_transfer_data)
-           (init_st final_st : Storage)  :=
-    match params with
-    | [] => init_st = final_st
-    | pr :: ps =>
-      exists next_st,
-        let token_id := pr.(cis1_td_token_id) in
-        let owners1 := get_owners init_st token_id in
-        let owners2 := get_owners next_st token_id in
-      sum_balances init_st token_id owners1 = sum_balances next_st token_id owners2 /\
-      compose_sum_balances ps next_st final_st
-    end.
-
-
-  (* NOTE: A version of the statement that we might need to generalise, so it actually
-     talks about the sum over _all_ token ids. Currently, it uses [compose_sum_balances] that
-     says that the sum of all balances for each token id in a batch of transfers is preserved *)
-  Lemma transfer_preserves_balances `{ChainBase} prev_st next_st ops
-        transfers
+  Lemma transfer_preserves_sum_of_balances `{ChainBase} prev_st next_st ops transfers token_id
         (tr_spec : transfer_spec (Build_CIS1_transfer_params _ transfers) prev_st next_st ops) :
-      compose_sum_balances transfers prev_st next_st.
+    let owners1 := get_owners prev_st token_id in
+    let owners2 := get_owners next_st token_id in
+    sum_balances prev_st token_id owners1 = sum_balances next_st token_id owners2.
   Proof.
-    destruct tr_spec as [H1 H2 H3].
+    destruct tr_spec as [H1].
     revert dependent prev_st.
     revert dependent next_st.
     induction transfers;intros.
-    - now cbn in *.
+    - cbn in *. now subst.
     - cbn in *.
       destruct H1 as [st [p [q [Hsingle Htrs]]]].
-      eexists. split.
-      + symmetry. now eapply transfer_single_spec_preserves_balances with (next_st0 := st).
-      + apply IHtransfers;auto.
+      transitivity (sum_balances st token_id (get_owners st token_id)).
+      + destruct (Nat.eq_dec token_id a.(cis1_td_token_id)).
+        * subst. symmetry.
+          now eapply transfer_single_spec_preserves_balances with (next_st0 := st).
+        * destruct Hsingle as [? [HH [? ?]]].
+          apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
+          ** intros. repeat rewrite get_owners_balances.
+             now rewrite HH.
+          ** intros.
+          apply get_balance_opt_default;symmetry;auto.
+      + now apply IHtransfers.
   Qed.
 
-  Lemma balanceOf_preserves_balances `{ChainBase} params prev_st next_st token_id ops
+  Lemma balanceOf_preserves_sum_of_balances `{ChainBase} params prev_st next_st token_id ops
     (spec : balanceOf_spec params prev_st next_st ops) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
@@ -837,7 +828,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     intros. now apply get_balance_opt_default.
   Qed.
 
-  Lemma updateOperator_preserves_balances `{ChainBase} params prev_st next_st token_id ops ctx
+  Lemma updateOperator_preserves_sum_of_balances `{ChainBase} params prev_st next_st token_id ops ctx
     (spec : updateOperator_spec ctx params prev_st next_st ops) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in
