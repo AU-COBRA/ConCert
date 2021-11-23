@@ -29,27 +29,15 @@ Record CIS1_transfer_data `{ChainBase} :=
 Record CIS1_transfer_params `{ChainBase} :=
   { cis_tr_transfers : list CIS1_transfer_data }.
 
-Definition transfer_to `{ChainBase} : CIS1_transfer_params -> list Address :=
-  fun params => map cis1_td_to params.(cis_tr_transfers).
+Definition transfer_to `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
+  fun params => map (fun x => (x.(cis1_td_token_id), x.(cis1_td_to))) params.(cis_tr_transfers).
 
-Definition transfer_from `{ChainBase} : CIS1_transfer_params -> list Address :=
-  fun params => map cis1_td_from params.(cis_tr_transfers).
+Definition transfer_from `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
+  fun params => map (fun x => (x.(cis1_td_token_id), x.(cis1_td_from))) params.(cis_tr_transfers).
 
 Inductive CIS1_updateOperator_kind :=
   cis1_ou_remove_operator
 | cis1_ou_add_operator.
-
-Definition is_remove_operator (k : CIS1_updateOperator_kind) : bool :=
-  match k with
-  | cis1_ou_remove_operator => true
-  | _ => false
-  end.
-
-Definition is_add_operator (k : CIS1_updateOperator_kind) : bool :=
-  match k with
-  | cis1_ou_add_operator => true
-  | _ => false
-  end.
 
 Record CIS1_updateOperator_update `{ChainBase} :=
   { cis1_ou_update_kind : CIS1_updateOperator_kind;
@@ -131,6 +119,8 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
   Import cis1_types.
   Import cis1_data.
 
+  (** ** Contract functions *)
+
   (** CIS1: A smart contract implementing CIS1 MUST export three functions [transfer], [updateOperator] and [balanceOf]. *)
 
   Axiom supports_transfer : exists msg, get_CIS1_entry_point msg = Some CIS1_transfer.
@@ -139,6 +129,9 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
 
   Axiom supports_blanceOf : exists msg, get_CIS1_entry_point msg = Some CIS1_balanceOf.
 
+  (** *** Transfer *)
+
+  (** A specification for a single transfer of a particular token id between [from] and [to]. *)
   Definition transfer_single_spec
              `{ChainBase}
              (prev_st next_st : Storage)
@@ -148,23 +141,25 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
              (from : Address)
              (to : Address)
              (amount : TokenAmount) : Prop :=
+    (**  *)
     let prev_from := get_balance_total prev_st token_id p from in
     let next_from := get_balance_total next_st token_id q from in
     let prev_to := get_balance_total prev_st token_id p to in
     let next_to := get_balance_total next_st token_id q to in
-    (* the balances that are not [to] and [from] (for the token with [token_id]) remain unchanged *)
+    (** The balances that are not [to] and [from] (for the token with [token_id]) remain unchanged *)
     (forall addr, addr <> from ->
              addr <> to ->
              get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) /\
-    (* the balances of all other tokens (not equal to [token_id]) remain unchanged for all addresses *)
+    (** The balances of all other tokens that are not equal to [token_id] remain unchanged for all addresses *)
     (forall addr other_token_id, other_token_id <> token_id ->
                             get_balance_opt next_st other_token_id addr = get_balance_opt prev_st other_token_id addr) /\
-    (* Token ids are preserved by a single transfer *)
+    (** Token ids are preserved by a single transfer *)
     (forall token_id,
       token_id_exists prev_st token_id =  token_id_exists next_st token_id) /\
     prev_from = next_from + amount /\
     next_to = prev_to + amount.
 
+  (** CIS1: The list of transfers MUST be executed in order. *)
   Fixpoint compose_transfers
            `{ChainBase}
            (init_st : Storage)
@@ -179,6 +174,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
     match params with
     | [] => init_st = final_st
     | pr :: ps =>
+     (** NOTE: we require that for each transfer, the updated state [st] becomes the initial state for the next transfer *)
       exists (st : Storage)
         (p: token_id_exists init_st pr.(cis1_td_token_id) = true)
         (q : token_id_exists st pr.(cis1_td_token_id) = true),
@@ -202,8 +198,6 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
                               x.(cis1_td_amount))
     }.
 
-  (* Arguments transfer_token_ids_preserved {_ _ _ _}. *)
-
   (** Get the balance and return zero if [get_balance] returns [None] *)
   Definition get_balance_default `{ChainBase} : Storage -> TokenID -> Address -> TokenAmount :=
     fun st token_id addr => match get_balance st token_id addr with
@@ -218,15 +212,15 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
     match p.(cis1_ou_update_kind) with
     | cis1_ou_remove_operator =>
       let addr := p.(cis1_ou_operator_address) in
-      (* operators, all operators, apart from [addr] remain the same in both states *)
+      (** All operators, apart from [addr] remain the same in both states *)
       (forall addr0, addr0 <> addr ->
                 In addr0 (get_operators prev_st ctx.(ctx_from)) <->
                 In addr0 (get_operators next_st ctx.(ctx_from))) /\
-      (* an operator "to remove" is removed (not present) for the caller *)
+      (** An operator "to remove" is removed (not present) for the caller *)
       ~ In addr (get_operators next_st ctx.(ctx_from))
     | cis1_ou_add_operator =>
       let addr := p.(cis1_ou_operator_address) in
-      (* operators, all operators, apart from [addr] remain the same in both states *)
+      (** All operators, apart from [addr] remain the same in both states *)
       (forall addr0, addr0 <> addr ->
                 In addr0 (get_operators prev_st ctx.(ctx_from)) <->
                 In addr0 (get_operators next_st ctx.(ctx_from))) /\
@@ -234,6 +228,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
       In addr (get_operators next_st ctx.(ctx_from))
     end.
 
+  (** CIS1: The list of updates MUST be executed in order. *)
   Fixpoint compose_uptadeOperator_specs `{ChainBase} (ctx : ContractCallContext) (st final_st : Storage) (updates : list CIS1_updateOperator_update) :=
     match updates with
     | [] => st = final_st
@@ -692,27 +687,37 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
       * apply IHtransfers. easy.
   Qed.
 
-  (* NOTE: should work in the same way as for token_ids, but the statement needs to be adjusted a bit *)
-  (* Lemma transfer_other_balances_preserved `{ChainBase} transfers prev_st next_st ops : *)
-  (*   let params := Build_CIS1_transfer_params _ transfers in *)
-  (*   transfer_spec params prev_st next_st ops -> *)
-  (*   forall addr token_id, *)
-  (*     ~ In addr (transfer_from params) -> *)
-  (*     ~ In addr (transfer_to params)   -> *)
-  (*   get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr. *)
-  (* Proof. *)
-  (*   revert dependent next_st. *)
-  (*   induction transfers. *)
-  (*   - intros next_st ? Htr addr token_id;subst params. *)
-  (*     destruct Htr. cbn in *;now subst. *)
-  (*   - intros next_st ? Htr ? ? Hfrom Hto;subst params. *)
-  (*     destruct Htr as [H1 H2]. cbn in *. *)
-  (*     destruct H2 as [st [p [q [Hsingle Htrs]]]]. *)
-  (*     transitivity (get_balance_opt st token_id addr). *)
-  (*     destruct Hsingle. *)
-  (*     assert ( addr <> cis1_td_from a /\ ~ (In addr (map cis1_td_from transfers))) by firstorder. *)
-  (*     assert (addr <> cis1_td_to a /\ ~ (In addr (map cis1_td_to transfers))) by firstorder. *)
-  (*     symmetry;apply H0. *)
+
+  (** The balances of all token-address pairs NOT mentioned in the transfer batch remain unchanged *)
+  Lemma transfer_other_balances_preserved `{ChainBase} transfers prev_st next_st ops :
+    let params := Build_CIS1_transfer_params _ transfers in
+    transfer_spec params prev_st next_st ops ->
+    forall addr token_id,
+      ~ In (token_id, addr) (transfer_from params) ->
+      ~ In (token_id, addr) (transfer_to params)   ->
+    get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr.
+  Proof.
+    revert dependent next_st.
+    revert dependent prev_st.
+    induction transfers.
+    - intros prev_st next_st ? Htr addr token_id.
+      destruct Htr. cbn in *;now subst.
+    - intros prev_st next_st ? Htr ? ? Hfrom Hto.
+      destruct Htr as [H1].
+      destruct H1 as [st [p [q [Hsingle Htrs]]]].
+      assert ((token_id, addr) <> (a.(cis1_td_token_id), a.(cis1_td_from)) /\ ~ (In (token_id,addr) (transfer_from params))) by firstorder.
+        assert ((token_id, addr) <> (a.(cis1_td_token_id), a.(cis1_td_to)) /\ ~ (In (token_id,addr) (transfer_to params))) by firstorder.
+      clear Hto. clear Hfrom.
+      transitivity (get_balance_opt st token_id addr).
+      * destruct Hsingle as [Hbal_not_addr [Hbal_other_tokens [? ?]]].
+        cbn in *.
+        destruct (Nat.eq_dec token_id a.(cis1_td_token_id)).
+        ** assert (addr <> a.(cis1_td_to)) by firstorder.
+           assert (addr <> a.(cis1_td_from)) by firstorder.
+           subst. symmetry. now apply Hbal_not_addr.
+        ** now symmetry.
+      * cbn in *. now apply IHtransfers.
+  Qed.
 
 
     Lemma transfer_single_spec_sufficient_funds `{ChainBase}
