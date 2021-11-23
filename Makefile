@@ -67,8 +67,11 @@ html: all
 		--with-header extra/header.html --with-footer extra/footer.html \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
+		-R execution/examples ConCert.Execution.Examples \
 		-R embedding/theories ConCert.Embedding \
+		-R embedding/examples ConCert.Embedding.Examples \
 		-R extraction/theories ConCert.Extraction \
-		-d docs `find . -type f -wholename "*theories/*" -name "*.v"`
+		-R extraction/examples ConCert.Extraction.Examples \
+		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" \) -name "*.v"`
 	cp extra/resources/* docs
 .PHONY: html
