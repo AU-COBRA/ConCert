@@ -1,67 +1,68 @@
-(** * Concordium's CIS-1 http://proposals.concordium.software/CIS/cis-1.html *)
+(** * Concordium's CIS1 *)
+
+(** See the original CIS1 standard: http://proposals.concordium.software/CIS/cis-1.html *)
+
+(**
+ The formalisation defines module types that specify what functionality should be
+ provided by a function that implements the standard.
+
+Covered by the formalisation:
+
+- Specifications of [transfer], [balanceOf] and [operatorUpdate].
+
+- Proofs that these functions peserve the sum of all balances for all token ids. The properties hold for any contract that satisfies the CIS1 specification defined in this formalisation.
+
+ Not covered by the fomalisation:
+
+ - Concordium serialisation.
+
+ - Logging the events (logs are currently not supported by ConCert).
+
+
+The approach to formalisation is inspired by Murdoch Gabbay, Arvid Jakobsson, Kristina Sojakova. Money grows on (proof-)trees: the formal FA1.2 ledger standard.
+
+
+The CIS1 standard is, however, more general:
+
+- the standard allows for multiple tokens on obe contracts, which makes it possible to define both fungible and non-fungible tokens;
+
+- the transfers happen in batch mode.
+
+ *)
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Standards.CIS1 Require Import CIS1Utils.
+
 From MetaCoq.Template Require Import monad_utils.
 
 From Coq Require Import Basics.
 From Coq Require Import List.
-From Coq Require Import JMeq.
 From Coq Require Import ZArith.
 
 Import ListNotations.
 Import MonadNotation.
+Import RemoveProperties.
 
+(** ** General types *)
 
-(* NOTE: In CIS1 it's an n-byte sequence, where 0 <= n <= 256.
+(** NOTE: In CIS1 it's an n-byte sequence, where 0 <= n <= 256.
    We model it as an unbounded number [nat] *)
 Definition TokenID := nat.
+
 Definition TokenAmount := nat.
-
-(* NOTE: not handling additional data at the moment *)
-Record CIS1_transfer_data `{ChainBase} :=
-  { cis1_td_token_id : TokenID;
-    cis1_td_amount   : TokenAmount;
-    cis1_td_from     : Address;
-    cis1_td_to       : Address }.
-
-Record CIS1_transfer_params `{ChainBase} :=
-  { cis_tr_transfers : list CIS1_transfer_data }.
-
-Definition transfer_to `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
-  fun params => map (fun x => (x.(cis1_td_token_id), x.(cis1_td_to))) params.(cis_tr_transfers).
-
-Definition transfer_from `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
-  fun params => map (fun x => (x.(cis1_td_token_id), x.(cis1_td_from))) params.(cis_tr_transfers).
-
-Inductive CIS1_updateOperator_kind :=
-  cis1_ou_remove_operator
-| cis1_ou_add_operator.
-
-Record CIS1_updateOperator_update `{ChainBase} :=
-  { cis1_ou_update_kind : CIS1_updateOperator_kind;
-    cis1_ou_operator_address : Address }.
-
-Record CIS1_updateOperator_params `{ChainBase} :=
-  { cis1_ou_params : list CIS1_updateOperator_update }.
 
 Open Scope program_scope.
 
-Record CIS1_balanceOf_query `{ChainBase} :=
- { cis1_bo_query_token_id : TokenID;
-   cis1_bo_query_address  : Address }.
-
-Record CIS1_balanceOf_params `{ChainBase} :=
-  { cis1_bo_query : list CIS1_balanceOf_query;
-    cis1_bo_result_address : Address;
-    cis1_bo_result_address_is_contract : address_is_contract cis1_bo_result_address = true}.
-
+(** Supported entry points *)
 Inductive CIS1_entry_points :=
 | CIS1_transfer
 | CIS1_updateOperator
 | CIS1_balanceOf.
 
+
+(** Abstract types of messages and storage (the contract's state) *)
 Module Type CIS1Types.
 
   Parameter Msg : Type.
@@ -69,7 +70,9 @@ Module Type CIS1Types.
 
 End CIS1Types.
 
-Module Type CIS1Data (cis1_types : CIS1Types).
+(** A module type that defines a view interface. The interface specifies functions for
+    observing the contract's state. These functions are used to defined the specification.  *)
+Module Type CIS1View (cis1_types : CIS1Types).
 
   Import cis1_types.
 
@@ -112,12 +115,12 @@ Module Type CIS1Data (cis1_types : CIS1Types).
     destruct (get_balance_opt st token_id addr);congruence))
     end eq_refl.
 
-End CIS1Data.
+End CIS1View.
 
-Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types).
+Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
 
   Import cis1_types.
-  Import cis1_data.
+  Import cis1_view.
 
   (** ** Contract functions *)
 
@@ -130,6 +133,26 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
   Axiom supports_blanceOf : exists msg, get_CIS1_entry_point msg = Some CIS1_balanceOf.
 
   (** *** Transfer *)
+
+  (** **** Parameter *)
+
+  (** NOTE: not handling additional data at the moment *)
+  Record CIS1_transfer_data `{ChainBase} :=
+  { cis1_td_token_id : TokenID;
+    cis1_td_amount   : TokenAmount;
+    cis1_td_from     : Address;
+    cis1_td_to       : Address }.
+
+  Record CIS1_transfer_params `{ChainBase} :=
+    { cis_tr_transfers : list CIS1_transfer_data }.
+
+  Definition transfer_to `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
+    fun params => map (fun x => (x.(cis1_td_token_id), x.(cis1_td_to))) params.(cis_tr_transfers).
+
+  Definition transfer_from `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
+  fun params => map (fun x => (x.(cis1_td_token_id), x.(cis1_td_from))) params.(cis_tr_transfers).
+
+  (** **** Requirements *)
 
   (** A specification for a single transfer of a particular token id between [from] and [to]. *)
   Definition transfer_single_spec
@@ -181,12 +204,12 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
       single_transfer init_st st pr p q /\ compose_transfers st final_st ps single_transfer
     end.
 
+  (** A specification for the batch transfer *)
   Record transfer_spec `{ChainBase}
          (params : CIS1_transfer_params)
          (prev_st next_st : Storage)
          (ret_ops : list ActionBody) : Prop :=
-    {
-      transfer_dec_inc :
+    { transfer_dec_inc :
         compose_transfers prev_st next_st params.(cis_tr_transfers)
                          (fun st1 st2 x p q =>
                             transfer_single_spec
@@ -205,9 +228,23 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
                          | None => 0
                          end.
 
-  Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (owners : list Address) :=
-    fold_right (fun addr s => get_balance_default st token_id addr + s) 0 owners.
+  (** *** updateOperator *)
 
+  (** **** Parameter *)
+  Inductive CIS1_updateOperator_kind :=
+    cis1_ou_remove_operator
+  | cis1_ou_add_operator.
+
+  Record CIS1_updateOperator_update `{ChainBase} :=
+    { cis1_ou_update_kind : CIS1_updateOperator_kind;
+      cis1_ou_operator_address : Address }.
+
+  Record CIS1_updateOperator_params `{ChainBase} :=
+    { cis1_ou_params : list CIS1_updateOperator_update }.
+
+  (** **** Requirements *)
+
+  (** A specification for the update of a single operator *)
   Definition updateOperator_single_spec  `{ChainBase} (ctx : ContractCallContext) (prev_st next_st : Storage) (p : CIS1_updateOperator_update) : Prop :=
     match p.(cis1_ou_update_kind) with
     | cis1_ou_remove_operator =>
@@ -236,6 +273,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
                      compose_uptadeOperator_specs ctx next_st final_st ps
     end.
 
+  (** A specification of the batch operatior update *)
   Record updateOperator_spec `{ChainBase}
          (ctx : ContractCallContext)
          (params : CIS1_updateOperator_params)
@@ -253,12 +291,28 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
     }.
 
 
+  (** *** balanceOf *)
+
+  (** **** Parameter *)
+
+  Record CIS1_balanceOf_query `{ChainBase} :=
+    { cis1_bo_query_token_id : TokenID;
+      cis1_bo_query_address  : Address }.
+
+  Record CIS1_balanceOf_params `{ChainBase} :=
+    { cis1_bo_query : list CIS1_balanceOf_query;
+      cis1_bo_result_address : Address;
+      cis1_bo_result_address_is_contract : address_is_contract cis1_bo_result_address = true}.
+
   (** CIS1: The parameter for the callback receive function is a list of pairs, where each pair is a query and an amount of tokens.*)
   Definition balanceOf_callback_type `{ChainBase} : Type := list (TokenID * Address * TokenAmount).
 
+  (** **** Requirements *)
+
   (** CIS1: The contract function MUST reject if any of the queries fail.
 
-  The [get_balance] function returns [None] (fails) if the token id is unknown. We combine the calls to [get_balance] using [monad_map] where the monad is the [option] monad.
+  The [get_balance] function returns [None] (fails) if the token id is unknown.
+  We combine the calls to [get_balance] using [monad_map] where the monad is the [option] monad.
    *)
   Definition get_balances `{ChainBase} (st : Storage) (params : CIS1_balanceOf_params) : option balanceOf_callback_type :=
     monad_map
@@ -268,11 +322,11 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
          balance <- get_balance st token_id addr;;
          Some (token_id, addr, balance)) params.(cis1_bo_query).
 
-    Record balanceOf_spec
-           `{ChainBase}
-           (params : CIS1_balanceOf_params)
-           (prev_st next_st : Storage)
-           (ret_ops : list ActionBody) : Prop :=
+  Record balanceOf_spec
+         `{ChainBase}
+         (params : CIS1_balanceOf_params)
+         (prev_st next_st : Storage)
+         (ret_ops : list ActionBody) : Prop :=
     { balanceOf_operators_preserved:
       forall addr, get_operators next_st addr = get_operators prev_st addr;
 
@@ -294,7 +348,19 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
         end
     }.
 
+  End CIS1Axioms.
+
+(** ** CIS1 properties  *)
+
+(** *** Operator updates *)
+
+Module CIS1Operators (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
+       (cis1_axioms : CIS1Axioms cis1_types cis1_view).
+
   (** Sanity checks for the batch operator update spec *)
+
+  Import cis1_types cis1_view cis1_axioms.
+  Import Lia.
 
   Lemma compose_updateOperator_add_add :
     forall `{ChainBase} (ctx : ContractCallContext)
@@ -346,28 +412,27 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types
      intro. specialize (H2 _ Hneq). easy.
    Qed.
 
-  End CIS1Axioms.
+End CIS1Operators.
 
-Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
-       (cis1_axioms : CIS1Axioms cis1_types cis1_data).
 
-  Import cis1_types cis1_data cis1_axioms.
+(** *** Balances *)
+Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
+       (cis1_axioms : CIS1Axioms cis1_types cis1_view).
+
+  (** In this module we prove properties related to the preservation of the sum of all balances for all token ids.
+   These properties follow directly from the specification. That means, in particular, that all the contracts that satisfy the specification will automatically satisfy all the properties we prove here. *)
+
+  Import cis1_types cis1_view cis1_axioms.
   Import Lia.
 
-  Program Definition addr_eq_dec `{ChainBase} (a1 a2 : Address) : {a1 = a2} + {a1 <> a2} :=
+  Definition addr_eq_dec `{ChainBase} (a1 a2 : Address) : {a1 = a2} + {a1 <> a2} :=
     match address_eqb_spec a1 a2 with
     | ssrbool.ReflectT _ p => left p
     | ssrbool.ReflectF _ p => right p
     end.
 
-  Lemma not_in_remove_same {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A):
-    not (In x l) -> remove eq_dec x l = l.
-  Proof.
-    induction l.
-    + auto.
-    + intros Hnotin. cbn in *.
-      destruct (eq_dec x a);intuition;congruence.
-  Qed.
+  Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (owners : list Address) :=
+    fold_right (fun addr s => get_balance_default st token_id addr + s) 0 owners.
 
   Lemma remove_owner `{ChainBase} st token_id (owners : list Address) (owner : Address) :
     In owner owners \/ get_balance_default st token_id owner = 0 ->
@@ -412,71 +477,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     induction addrs;simpl in *;intuition;auto.
   Qed.
 
-  Lemma not_in_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A):
-    not (In x l) -> ~ In x (remove eq_dec y l).
-  Proof.
-    induction l.
-    + auto.
-    + intros Hnotin. cbn in *.
-      destruct (eq_dec y a);cbn in *;intuition;auto.
-  Qed.
 
-
-  Lemma remove_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
-    ~ In x (remove eq_dec y (remove eq_dec x l)).
-  Proof.
-    induction l;auto;simpl in *.
-    destruct (eq_dec x a);subst;intuition;simpl in *.
-    destruct (eq_dec y a);subst;intuition;simpl in *.
-    intuition;simpl in *.
-  Qed.
-
-  Lemma neq_not_removed {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
-    x <> y -> In x l -> In x (remove eq_dec y l).
-  Proof.
-    induction l;intros Hneq Hin; auto;simpl in *.
-    destruct Hin.
-    + subst. destruct (eq_dec y x);subst; try congruence. now cbn.
-    + destruct (eq_dec y a);subst; try congruence; now cbn.
-  Qed.
-
-  Hint Constructors NoDup : hints.
   Hint Resolve remove_In not_in_remove_same not_in_remove remove_remove neq_not_removed : hints.
-
-  Lemma NoDup_remove `{ChainBase} {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A) :
-    NoDup l -> NoDup (remove eq_dec x l).
-  Proof.
-    induction l;intros H0;auto;simpl.
-    inversion H0; destruct (eq_dec x a);subst;intuition;simpl in *;eauto with hints.
-  Qed.
-
-  Hint Resolve NoDup_remove : hints.
-
-  Lemma In_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
-    x <> y -> In x (remove eq_dec y l) -> In x l.
-  Proof.
-    induction l;intros Hneq Hin; auto;simpl in *.
-    subst. destruct (eq_dec y a);subst;cbn in *; auto;intuition;auto.
-  Qed.
-
-
-  Hint Resolve In_remove : hints.
-
-  Lemma remove_extensional {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l1 l2 : list A) (y : A) :
-    (forall x, In x l1 <-> In x l2 ) -> (forall x, In x (remove eq_dec y l1) <-> In x (remove eq_dec y l2)).
-  Proof.
-    intros H x.
-    split.
-    + intros Hin.
-      destruct (eq_dec x y);subst.
-      * exfalso. apply (remove_In _ _ _ Hin).
-      * destruct (H x);intuition;eauto with hints.
-    + intros Hin.
-      destruct (eq_dec x y);subst.
-      * exfalso. apply (remove_In _ _ _ Hin).
-      * destruct (H x);intuition;eauto with hints.
-  Qed.
-
   Hint Resolve remove_extensional : hints.
 
   Lemma sum_balances_extensional `{ChainBase} st token_id owners1 owners2 :
@@ -524,35 +526,6 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
     erewrite sum_of_balances_eq by eauto.
     apply sum_balances_extensional;auto.
   Qed.
-
-  Fixpoint remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :=
-    match to_remove with
-    | [] => xs
-    | x :: tl => remove eq_dec x (remove_all eq_dec tl xs)
-    end.
-
-  Lemma remove_all_In {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :
-    Forall (fun x => ~ In x (remove_all eq_dec to_remove xs)) to_remove.
-  Proof.
-    revert dependent xs.
-    induction to_remove;simpl;auto.
-    constructor;eauto with hints.
-    eapply (list.Forall_impl _ _ _ (IHto_remove xs)).
-    intros x H HH.
-    apply (not_in_remove _ _ _ _ H HH).
-  Qed.
-
-  Lemma In_remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
-    ~ (In x to_remove) -> In x (remove_all eq_dec to_remove xs) -> In x xs.
-  Proof.
-    Admitted.
-
-  Lemma remove_all_not_in_to_remove {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
-    ~ (In x to_remove) -> In x xs -> In x (remove_all eq_dec to_remove xs).
-  Proof.
-    intros H1 H2.
-    induction to_remove;auto.
-    Admitted.
 
   Lemma same_owners `{ChainBase}  token_id addr next_st prev_st :
     get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr ->
@@ -719,8 +692,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
       * cbn in *. now apply IHtransfers.
   Qed.
 
-
-    Lemma transfer_single_spec_sufficient_funds `{ChainBase}
+  Lemma transfer_single_spec_sufficient_funds `{ChainBase}
         prev_st next_st token_id from to amount
         (p : token_id_exists prev_st token_id)
         (q : token_id_exists next_st token_id)
@@ -784,28 +756,6 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_data : CIS1Data cis1_types)
         destruct (address_eqb_spec addr from);subst. apply In_remove in H0; auto. exfalso;apply (remove_In _ _ _ H0).
         eauto. }
       lia.
-  Qed.
-
-  (* NOTE: The same lemma as above, but stated using composition of transfers.
-    (in this case it's just a one-transfer composition) *)
-  Lemma transfer_single_spec_compose_preserves_sum_balances
-        `{ChainBase}
-        prev_st next_st pr
-        (spec :
-           compose_transfers prev_st next_st [pr]
-                             (fun st1 st2 x p q => transfer_single_spec st1 st2 x.(cis1_td_token_id) p q x.(cis1_td_from) x.(cis1_td_to) x.(cis1_td_amount))) :
-    let token_id := pr.(cis1_td_token_id) in
-    (forall addr, addr <> pr.(cis1_td_from) -> addr <> pr.(cis1_td_to) -> get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr) ->
-    let owners1 := get_owners prev_st token_id in
-    let owners2 := get_owners next_st token_id in
-    sum_balances next_st token_id owners2 =
-    sum_balances prev_st token_id owners1.
-  Proof.
-    intros ? Hother_balances ? ?.
-    cbn in spec.
-    destruct spec as [st [p [q [Hspec Hst_eq]]]].
-    subst.
-    eapply transfer_single_spec_preserves_balances;eauto.
   Qed.
 
   Lemma transfer_preserves_sum_of_balances `{ChainBase} prev_st next_st ops transfers token_id

@@ -68,10 +68,11 @@ html: all
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/examples ConCert.Execution.Examples \
+		-R execution/standards ConCert.Execution.Standards \
 		-R embedding/theories ConCert.Embedding \
 		-R embedding/examples ConCert.Embedding.Examples \
 		-R extraction/theories ConCert.Extraction \
 		-R extraction/examples ConCert.Extraction.Examples \
-		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" \) -name "*.v"`
+		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*standards/*" \) -name "*.v"`
 	cp extra/resources/* docs
 .PHONY: html
