@@ -763,6 +763,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
         * eapply IHtransfers;firstorder.
   Qed.
 
+  (** If the properties of the single transfer holds (the transfer succeeds), then
+      we can conclude that if has been enough tokens for the transfer. *)
   Lemma transfer_single_spec_sufficient_funds `{ChainBase}
         prev_st next_st token_id from to amount
         (p : token_id_exists prev_st token_id)
@@ -774,6 +776,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
     lia.
   Qed.
 
+  (** An important lemma for the main result. The spec for a single transfer ensures that for a
+      particular [token_id] the sum of balances is preserved for all owners for one transfer
+      of an [amount] between [from] and [to]. *)
   Lemma transfer_single_spec_preserves_balances `{ChainBase}
         prev_st next_st token_id from to amount
         (p : token_id_exists prev_st token_id)
