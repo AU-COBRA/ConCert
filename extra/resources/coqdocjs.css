@@ -105,11 +105,6 @@ html, body {
   padding:0;
 }
 
-body {
-  display: flex;
-  flex-direction: column
-}
-
 #content {
   flex: 1;
   overflow: auto;
@@ -140,12 +135,13 @@ body {
   width:100%;
   padding: 0;
   margin: 0;
-  display: flex;
   align-items: center;
   background-color: rgb(21,57,105);
   color: white;
   font-weight: bold;
   overflow: hidden;
+  position: fixed;
+  display: flex;
 }
 
 
@@ -242,4 +238,22 @@ div.doc {
 
 span.command:hover {
   background-color: inherit;
+}
+
+.doc {
+  font-family: 'IBM Plex Serif', 'PT Serif', 'Merriweather', 'DejaVu Serif', serif;
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+h,h1,h2,h3 {
+    padding-bottom: 10px;
+}
+
+.id[type="var"]  {
+    color : #1b0177;
+}
+
+.id[type="keyword"] {
+    color: #c5000;
 }
