@@ -257,3 +257,7 @@ h,h1,h2,h3 {
 .id[type="keyword"] {
     color: #c5000;
 }
+
+.paragraph {
+    margin: 6px 0px;
+}

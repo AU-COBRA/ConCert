@@ -10,7 +10,9 @@ Covered by the formalisation:
 
 - Specifications of [transfer], [balanceOf] and [operatorUpdate].
 
-- Proofs that these functions peserve the sum of all balances for all token ids. The properties hold for any contract that satisfies the CIS1 specification defined in this formalisation.
+- Simple properties of [operatorUpdate].
+
+- Our main result: we prove that [transfer], [balanceOf] and [operatorUpdate] preserve the sum of all balances for all token ids. The properties hold for any contract that satisfies the CIS1 specification defined in this formalisation.
 
 Not covered by the fomalisation:
 
@@ -21,14 +23,19 @@ Not covered by the fomalisation:
 - Metadata.
 
 
-The approach to formalisation is inspired by Murdoch Gabbay, Arvid Jakobsson, Kristina Sojakova. Money grows on (proof-)trees: the formal FA1.2 ledger standard.
+The approach to formalisation is inspired by Murdoch Gabbay, Arvid Jakobsson, Kristina Sojakova. "Money grows on (proof-)trees: the formal FA1.2 ledger standard."
 
 
 The CIS1 standard is, however, more general:
 
-- the standard allows for multiple tokens on obe contracts, which makes it possible to define both fungible and non-fungible tokens;
+- the standard allows for multiple tokens on a single contract, which makes it possible to define both fungible and non-fungible tokens;
 
 - the transfers happen in batch mode.
+
+Notation:
+
+- definitions that correspond to the standard directly are prefixed with "CIS1:"
+- important remarks are prefixed with "NOTE:"
 
  *)
 
@@ -49,7 +56,7 @@ Import RemoveProperties.
 
 (** * General types *)
 
-(** NOTE: In CIS1 it's an n-byte sequence, where 0 <= n <= 256.
+(** NOTE: In CIS1 it's an n-byte sequence, where 0 ≤ n ≤ 256.
    We model it as an unbounded number [nat] *)
 Definition TokenID := nat.
 
@@ -97,7 +104,7 @@ End CIS1Types.
 (** * Views *)
 
 (** A module type that defines a view interface. The interface specifies functions for
-    observing the contract's state. These functions are used to defined the specification.  *)
+    observing the contract's state. These functions are used to define the specification.  *)
 Module Type CIS1View (cis1_types : CIS1Types).
 
   Import cis1_types.
@@ -112,7 +119,7 @@ Module Type CIS1View (cis1_types : CIS1Types).
 
   Axiom get_owners_no_dup : forall `{ChainBase} st token_id, NoDup (get_owners st token_id).
 
-  (** Owners determined by their balances *)
+  (** Owners are determined by their balances *)
   Axiom get_owners_balances : forall `{ChainBase} st owner token_id,
     In owner (get_owners st token_id) <->
     exists balance, get_balance_opt st token_id owner = Some balance.
@@ -241,8 +248,8 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
   (** A receive hook call is valid if the call parameters are deserialised to a [CIS1_receiver_receive_hook]
       constructor with appropriate data *)
   Definition is_valid_receive_hook `{cb : ChainBase} (p : receive_hook_params) (serialized_params : SerializedValue) : Prop :=
-    exists (Msg : Type) (sMsg : Serializable Msg) (msg : @CIS1ReceiverMsg Msg sMsg cb), deserialize serialized_params =
-                                                                            Some (@CIS1_receiver_receive_hook Msg sMsg _  p).
+    exists (Msg : Type) (sMsg : Serializable Msg) (msg : @CIS1ReceiverMsg Msg sMsg cb),
+      deserialize serialized_params = Some (@CIS1_receiver_receive_hook Msg sMsg _  p).
 
   (** A specification for the batch transfer *)
   Record transfer_spec `{ChainBase}
