@@ -14,12 +14,12 @@ Covered by the formalisation:
 
 - Our main result: we prove that [transfer], [balanceOf] and [operatorUpdate] preserve the sum of all balances for all token ids. The properties hold for any contract that satisfies the CIS1 specification defined in this formalisation.
 
-Not covered by the fomalisation:
+Not covered by the formalisation:
 
 - Concordium serialisation.
-
+- The spec of [operatorOf].
+- Behavior of operators/checking ownership before transfers is not captured in the spec.
 - Logging the events (logs are currently not supported by ConCert).
-
 - Metadata.
 
 
@@ -29,7 +29,6 @@ The approach to formalisation is inspired by Murdoch Gabbay, Arvid Jakobsson, Kr
 The CIS1 standard is, however, more general:
 
 - the standard allows for multiple tokens on a single contract, which makes it possible to define both fungible and non-fungible tokens;
-
 - the transfers happen in batch mode.
 
 Notation:
@@ -64,12 +63,6 @@ Definition TokenAmount := nat.
 
 Open Scope program_scope.
 
-(** Supported entry points *)
-Inductive CIS1_entry_points :=
-| CIS1_transfer
-| CIS1_updateOperator
-| CIS1_balanceOf.
-
 (** CIS1:
 <<
 ReceiveHookParameter ::= (id: TokenID) (amount: TokenAmount) (from: Address)
@@ -79,7 +72,7 @@ ReceiveHookParameter ::= (id: TokenID) (amount: TokenAmount) (from: Address)
 (** NOTE: there is no notion of a contract name in ConCert; [AdditionalData] is not handled at the moment *)
 Definition receive_hook_params `{ChainBase} : Type := TokenID * TokenAmount * Address.
 
-(** All addresses owning tokens must supoort the following interface, since all receiving
+(** All addresses owning tokens must support the following interface, since all receiving
     addresses are notified with a receive hook. The rest of the functionality is captured
     by the [other_msg] constructor *)
 Inductive CIS1ReceiverMsg (Msg : Type) `{Serializable Msg} `{ChainBase} :=
@@ -99,6 +92,8 @@ Module Type CIS1Types.
   Parameter Msg : Type.
   Parameter Storage : Type.
 
+  Parameter contract_receive : forall `{ChainBase}, Chain -> ContractCallContext -> Storage -> option Msg -> option (Storage * list ActionBody).
+
 End CIS1Types.
 
 (** * Views *)
@@ -108,8 +103,6 @@ End CIS1Types.
 Module Type CIS1View (cis1_types : CIS1Types).
 
   Import cis1_types.
-
-  Parameter get_CIS1_entry_point : Msg -> option CIS1_entry_points.
 
   Parameter get_balance_opt : forall `{ChainBase}, Storage -> TokenID -> Address -> option TokenAmount.
 
@@ -159,27 +152,61 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
 
   (** * Contract functions *)
 
+  (** First, we specify data types that represent input parameters for all entry points  *)
+
+  (** NOTE: not handling additional data at the moment *)
+  Record CIS1_transfer_data `{ChainBase} :=
+    { cis1_td_token_id : TokenID;
+      cis1_td_amount   : TokenAmount;
+      cis1_td_from     : Address;
+      cis1_td_to       : Address }.
+
+  Record CIS1_transfer_params `{ChainBase} :=
+    { cis_tr_transfers : list CIS1_transfer_data }.
+
+  Inductive CIS1_updateOperator_kind :=
+    cis1_ou_remove_operator
+  | cis1_ou_add_operator.
+
+  Record CIS1_updateOperator_update `{ChainBase} :=
+    { cis1_ou_update_kind : CIS1_updateOperator_kind;
+      cis1_ou_operator_address : Address }.
+
+  Record CIS1_updateOperator_params `{ChainBase} :=
+    { cis1_ou_params : list CIS1_updateOperator_update }.
+
+  Record CIS1_balanceOf_query `{ChainBase} :=
+    { cis1_bo_query_token_id : TokenID;
+      cis1_bo_query_address  : Address }.
+
+  Record CIS1_balanceOf_params `{ChainBase} :=
+    { cis1_bo_query : list CIS1_balanceOf_query;
+      cis1_bo_result_address : Address;
+      cis1_bo_result_address_is_contract : address_is_contract cis1_bo_result_address = true}.
+
   (** CIS1: A smart contract implementing CIS1 MUST export three functions [transfer], [updateOperator] and [balanceOf]. *)
 
-  Axiom supports_transfer : exists msg, get_CIS1_entry_point msg = Some CIS1_transfer.
+  Inductive CIS1_entry_points `{ChainBase} :=
+  | CIS1_transfer (params : CIS1_transfer_params)
+  | CIS1_updateOperator (params : CIS1_updateOperator_params)
+  | CIS1_balanceOf (params : CIS1_balanceOf_params).
 
-  Axiom supports_updateOperator : exists msg, get_CIS1_entry_point msg = Some CIS1_transfer.
+  (** We require that it is possible to convert betwee the entry point and the input data specified
+      by the standard and the actual type of messages accepted by a particular contract *)
+  Parameter get_CIS1_entry_point : forall `{ChainBase}, Msg -> option CIS1_entry_points.
+  Parameter get_contract_msg : forall `{ChainBase}, CIS1_entry_points -> Msg.
 
-  Axiom supports_blanceOf : exists msg, get_CIS1_entry_point msg = Some CIS1_balanceOf.
+  (** This axiom captures the intuition that a contact that implements CIS1 can handle _at least_
+      [CIS1_entry_points].  *)
+  Axiom left_inverse_get_CIS1_entry_point :
+    forall `{ChainBase} (entry_point : CIS1_entry_points),
+      get_CIS1_entry_point (get_contract_msg entry_point) = Some entry_point.
 
   (** ** Transfer *)
 
   (** *** Parameter *)
 
-  (** NOTE: not handling additional data at the moment *)
-  Record CIS1_transfer_data `{ChainBase} :=
-  { cis1_td_token_id : TokenID;
-    cis1_td_amount   : TokenAmount;
-    cis1_td_from     : Address;
-    cis1_td_to       : Address }.
-
-  Record CIS1_transfer_params `{ChainBase} :=
-    { cis_tr_transfers : list CIS1_transfer_data }.
+  (** The parameters for [transfer] are specified by [CIS1_transfer_params] *)
 
   (** Some utils for getting data from the parameters. *)
   Definition transfer_to `{ChainBase} : CIS1_transfer_params -> list (TokenID * Address) :=
@@ -191,7 +218,6 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
   Definition get_receive_hook_params `{ChainBase} (params : list CIS1_transfer_data)
   : list (Address * receive_hook_params) :=
   map (fun x => (x.(cis1_td_to), (x.(cis1_td_token_id), x.(cis1_td_amount), x.(cis1_td_from)))) params.
-
 
   (** *** Requirements *)
 
@@ -219,7 +245,9 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
     (** Token ids are preserved by a single transfer *)
     (forall token_id,
         token_id_exists prev_st token_id =  token_id_exists next_st token_id) /\
-    (** CIS1: A transfer MUST non-strictly decrease the balance of the from address and non-strictly increase the balance of the to address *)
+    (** CIS1: A transfer MUST non-strictly decrease the balance of the from address and non-strictly increase the balance of the to address.
+
+CIS1: A transfer of some amount of a token type MUST only transfer the exact amount of the given token type between balances. *)
     prev_from = next_from + amount /\
     next_to = prev_to + amount.
 
@@ -268,7 +296,8 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
                               x.(cis1_td_to)
                                   x.(cis1_td_amount));
 
-      (** CIS1: A transfer of any amount of a token type to a contract address MUST call receive hook function on the receiving smart contract with a receive hook parameter. *)
+      (** CIS1: A transfer of any amount of a token type to a contract address MUST call receive
+                hook function on the receiving smart contract with a receive hook parameter. *)
       transfer_receive_hook_calls :
       (** We consider only transfers to addresses that are contracts *)
       let transfers_to_contracts := filter (fun x => address_is_contract x.(cis1_td_to)) params.(cis_tr_transfers) in
@@ -284,16 +313,8 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
   (** ** updateOperator *)
 
   (** *** Parameter *)
-  Inductive CIS1_updateOperator_kind :=
-    cis1_ou_remove_operator
-  | cis1_ou_add_operator.
 
-  Record CIS1_updateOperator_update `{ChainBase} :=
-    { cis1_ou_update_kind : CIS1_updateOperator_kind;
-      cis1_ou_operator_address : Address }.
-
-  Record CIS1_updateOperator_params `{ChainBase} :=
-    { cis1_ou_params : list CIS1_updateOperator_update }.
+  (** The parameters for [updateOperator] are specified by [CIS1_updateOperator_params] *)
 
   (** *** Requirements *)
 
@@ -348,14 +369,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
 
   (** *** Parameter *)
 
-  Record CIS1_balanceOf_query `{ChainBase} :=
-    { cis1_bo_query_token_id : TokenID;
-      cis1_bo_query_address  : Address }.
-
-  Record CIS1_balanceOf_params `{ChainBase} :=
-    { cis1_bo_query : list CIS1_balanceOf_query;
-      cis1_bo_result_address : Address;
-      cis1_bo_result_address_is_contract : address_is_contract cis1_bo_result_address = true}.
+  (** The parameters for [balanceOf] are specified by [CIS1_balanceOf_params] *)
 
   (** CIS1: The parameter for the callback receive function is a list of pairs, where each pair is a query and an amount of tokens.*)
   Definition balanceOf_callback_type `{ChainBase} : Type := list (TokenID * Address * TokenAmount).
@@ -401,6 +415,28 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
         end
     }.
 
+  (** ** Full specification of [receive] *)
+
+  (** The contract's [receive] function satisfies the CIS1 standard if for each entry points it
+      satisfies the corresponding specification. *)
+  Axiom receive_spec :
+    forall `{ChainBase}
+      (receive_func : Chain -> ContractCallContext -> Storage -> option Msg
+                      -> option (Storage * list ActionBody))
+      (chain : Chain)
+      (ctx : ContractCallContext)
+      (entry : CIS1_entry_points)
+      (msg : Msg)
+      (prev_st next_st : Storage)
+      (ops : list ActionBody),
+      get_CIS1_entry_point msg = Some entry ->
+      receive_func chain ctx prev_st (Some msg) = Some (next_st, ops) ->
+      match entry with
+      | CIS1_transfer params => transfer_spec params prev_st next_st ops
+      | CIS1_updateOperator params => updateOperator_spec ctx params prev_st next_st ops
+      | CIS1_balanceOf params => balanceOf_spec params prev_st next_st ops
+      end.
+
   End CIS1Axioms.
 
 (** * CIS1 properties  *)
@@ -412,7 +448,7 @@ Module CIS1Operators (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
 
   (** Sanity checks for the batch operator update spec *)
 
-  (** NOTE: the properties could be extended further, if more gurantees about uperator updates are
+  (** NOTE: the properties could be extended further, if more guarantees about operator updates are
       required from the standard *)
 
   Import cis1_types cis1_view cis1_axioms.
