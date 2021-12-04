@@ -688,7 +688,7 @@ Fixpoint get_fix_names (t : term) : list name :=
   end.
 
 Definition print_decl (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : MyEnv.env string) (* translation table *)
            (env : ExAst.global_env)
            (decl_name : string)
            (modifier : option string)
@@ -708,7 +708,7 @@ Definition print_decl (prefix : string)
           ++ wrap (CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot).
 
 Definition print_init (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : MyEnv.env string) (* translation table *)
            (build_call_ctx : string) (* a string that corresponds to a call contex *)
            (init_prelude : string) (* operations available in the [init] as local definitions.
                                       CameLIGO does not allow to refer to global definitions in [init]*)
@@ -792,7 +792,7 @@ Definition print_init (prefix : string)
   end.
 
 Definition print_cst (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : MyEnv.env string) (* translation table *)
            (env : ExAst.global_env)
            (kn : kername)
            (cst : ExAst.constant_body)
