@@ -360,8 +360,8 @@ Section ConcordiumPrinting.
      "            Address::Account(ctx.init_origin()),";
      "            Address::Account(ctx.init_origin()),";
      "            Address::Contract(ContractAddress { index: 0, subindex: 0 }),";
-     "            amount.micro_gtu as i64,";
-     "            amount.micro_gtu as i64);";
+     "            amount.micro_ccd as i64,";
+     "            amount.micro_ccd as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername init_name ++ "(&cchain, &cctx, params);";
      "    match res {";
      "        Option::Some(init_state) => {";
@@ -386,7 +386,7 @@ Section ConcordiumPrinting.
 "      let cact =";
 "        if let ActionBody::Transfer(Address::Account(acc), amount) = hd {";
 "          let amount = convert::TryInto::try_into(amount).map_err(|_| ReceiveError::ConvertActions)?;";
-"          A::simple_transfer(&acc, concordium_std::Amount::from_micro_gtu(amount))";
+"          A::simple_transfer(&acc, concordium_std::Amount::from_micro_ccd(amount))";
 "        } else {";
 "          return Err(ReceiveError::ConvertActions) // Cannot handle call to contract through ConCert, use Concordium functions instead";
 "        };";
@@ -430,9 +430,9 @@ Section ConcordiumPrinting.
      "    let balance = if ctx.sender() != concordium_std::Address::Contract(ctx.self_address()) {";
      "   // if the contract is not calling itself, we add amount to the current balance";
      "   // as expeced by the ConCert execution model";
-     "   (ctx.self_balance().micro_gtu + amount.micro_gtu) as i64";
+     "   (ctx.self_balance().micro_ccd + amount.micro_ccd) as i64";
      "    } else {";
-     "        ctx.self_balance().micro_gtu as i64";
+     "        ctx.self_balance().micro_ccd as i64";
      "    };";
      "    let cctx =";
      "        " ++ RustExtract.ty_const_global_ident_of_kername <%% @ContractCallContext %%> ++ "::build_ctx(";
@@ -441,7 +441,7 @@ Section ConcordiumPrinting.
      "            ctx.sender(),";
      "            Address::Contract(ctx.self_address()),";
      "            balance,";
-     "            amount.micro_gtu as i64);";
+     "            amount.micro_ccd as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername receive_name ++ "(&cchain, &cctx, old_state, msg);";
      "    match res {";
      "        Option::Some((new_state, acts)) => {";
