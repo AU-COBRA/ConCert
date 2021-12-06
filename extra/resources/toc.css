@@ -1,6 +1,6 @@
 .toc {
     background: #fefefe;
-    width: 200px;
+    width: 250px;
     position: fixed;
     border: 1px solid #ddd;
     color: #333;
@@ -54,4 +54,8 @@
    left: 0;
    right: 0;
    border-top: 2px solid transparent;
+}
+
+.jstoc-hidden {
+    display: none;
 }
