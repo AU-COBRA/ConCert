@@ -75,5 +75,9 @@ html: all
 		-R extraction/theories ConCert.Extraction \
 		-R extraction/examples ConCert.Extraction.Examples \
 		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*standards/*" \) -name "*.v"`
-	cp extra/resources/* docs
+	cp extra/resources/coqdocjs/*.js docs
+	cp extra/resources/coqdocjs/*.css docs
+	cp extra/resources/toc/*.js docs
+	cp extra/resources/toc/*.css docs
+
 .PHONY: html
