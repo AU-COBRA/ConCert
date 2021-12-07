@@ -7,7 +7,7 @@ Import ListNotations.
 Module RemoveProperties.
 
   Lemma not_in_remove_same {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A):
-    not (In x l) -> remove eq_dec x l = l.
+    ~ In x l -> remove eq_dec x l = l.
   Proof.
     induction l.
     + auto.
@@ -16,14 +16,13 @@ Module RemoveProperties.
   Qed.
 
     Lemma not_in_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A):
-    not (In x l) -> ~ In x (remove eq_dec y l).
+    ~ In x l -> ~ In x (remove eq_dec y l).
   Proof.
     induction l.
     + auto.
     + intros Hnotin. cbn in *.
       destruct (eq_dec y a);cbn in *;intuition;auto.
   Qed.
-
 
   Lemma remove_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
     ~ In x (remove eq_dec y (remove eq_dec x l)).
@@ -32,6 +31,13 @@ Module RemoveProperties.
     destruct (eq_dec x a);subst;intuition;simpl in *.
     destruct (eq_dec y a);subst;intuition;simpl in *.
     intuition;simpl in *.
+  Qed.
+
+  Lemma In_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
+    x <> y -> In x (remove eq_dec y l) -> In x l.
+  Proof.
+    induction l;intros Hneq Hin; auto;simpl in *.
+    subst. destruct (eq_dec y a);subst;cbn in *; auto;intuition;auto.
   Qed.
 
   Lemma neq_not_removed {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
@@ -44,7 +50,7 @@ Module RemoveProperties.
   Qed.
 
   Hint Constructors NoDup : hints.
-  Hint Resolve remove_In not_in_remove_same not_in_remove remove_remove neq_not_removed : hints.
+  Hint Resolve In_remove remove_In not_in_remove_same not_in_remove remove_remove neq_not_removed : hints.
 
   Fixpoint remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :=
     match to_remove with
@@ -66,15 +72,15 @@ Module RemoveProperties.
   Lemma In_remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
     ~ (In x to_remove) -> In x (remove_all eq_dec to_remove xs) -> In x xs.
   Proof.
-    Admitted.
+    induction to_remove;cbn in *;intuition;eauto with hints.
+  Qed.
 
   Lemma remove_all_not_in_to_remove {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
     ~ (In x to_remove) -> In x xs -> In x (remove_all eq_dec to_remove xs).
   Proof.
     intros H1 H2.
-    induction to_remove;auto.
-    Admitted.
-
+    induction to_remove;cbn in *;intuition;eauto with hints.
+  Qed.
 
   Lemma NoDup_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A) :
     NoDup l -> NoDup (remove eq_dec x l).
@@ -84,14 +90,6 @@ Module RemoveProperties.
   Qed.
 
   Hint Resolve NoDup_remove : hints.
-
-  Lemma In_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
-    x <> y -> In x (remove eq_dec y l) -> In x l.
-  Proof.
-    induction l;intros Hneq Hin; auto;simpl in *.
-    subst. destruct (eq_dec y a);subst;cbn in *; auto;intuition;auto.
-  Qed.
-
 
   Hint Resolve In_remove : hints.
 
