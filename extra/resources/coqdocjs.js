@@ -1,5 +1,5 @@
 var coqdocjs = coqdocjs || {};
-(function(){
+(function (){
 
 function replace(s){
   var m;
@@ -40,7 +40,7 @@ function replInTextNodes() {
 
 function replNodes() {
   toArray(document.getElementsByClassName("id")).forEach(function(node){
-    if (["var", "variable", "keyword", "notation", "definition", "inductive"].indexOf(node.getAttribute("type"))>=0){
+      if (["var", "variable", "keyword", "notation", "definition", "inductive", "tactic"].indexOf(node.getAttribute("type"))>=0){
       var text = node.textContent;
       var replText = replace(text);
       if(text != replText) {

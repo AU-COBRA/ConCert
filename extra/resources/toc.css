@@ -1,0 +1,61 @@
+.toc {
+    background: #fefefe;
+    width: 250px;
+    position: fixed;
+    border: 1px solid #ddd;
+    color: #333;
+    margin-top: 55px;
+    line-height: 2;
+}
+
+.toc-header {
+    font-size: 18px;
+    position: fixed;
+    margin-top: 25px;
+}
+
+.toc a {
+    color: #333;
+}
+
+.toc .toc-h1 {
+    font-size: 16px;
+}
+
+.toc .toc-h2 {
+    margin-left: 10px;
+    font-size: 14px;
+}
+.toc .toc-h3 {
+    margin-left: 20px;
+    font-size: 12px;
+}
+.toc-visible {
+    color: #000;
+    font-weight: bold;
+}
+.toc.right {
+    right: 0
+}
+
+.section {
+   position: relative;
+   border-top: 42px solid transparent; /* navbar height +2 */
+   margin: -30px 0 0;
+   -webkit-background-clip: padding-box;
+   -moz-background-clip: padding;
+   background-clip: padding-box;
+}
+
+.section:before {
+   content: "";
+   position: absolute;
+   top: -2px;
+   left: 0;
+   right: 0;
+   border-top: 2px solid transparent;
+}
+
+.jstoc-hidden {
+    display: none;
+}
