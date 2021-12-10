@@ -17,6 +17,10 @@ theories/Monads.v
 theories/ResultMonad.v
 theories/Serializable.v
 
+-R standards/cis1 ConCert.Execution.Standards.CIS1
+standards/cis1/CIS1Spec.v
+standards/cis1/CIS1Utils.v
+
 -R examples ConCert.Execution.Examples
 examples/BAT.v
 examples/BoardroomMath.v

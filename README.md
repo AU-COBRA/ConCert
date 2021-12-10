@@ -47,6 +47,11 @@ The project consists of three subprojects: `embedding`, `execution`, and `extrac
 Each subproject has its own `_CoqProject` file and `Makefile`.
 The `Makefile` in the root folder dispatches the calls to the corresponding subproject.
 
+## Documentation
+
+The [project documentation in HTML format](https://au-cobra.github.io/ConCert/toc.html) is generated for each build.
+We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE)) and local table of contents by [TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).
+
 ## Papers
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf). Danil Annenkov, Mikkel Milo and Bas Spitters. ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21
 - ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
