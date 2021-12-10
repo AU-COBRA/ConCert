@@ -72,7 +72,10 @@ Section print_term.
     | _ => bt
     end.
 
-  Definition print_box_type (prefix : string) (TT : env string)
+  (** The [for_ctor] flag tells the type printer whether the type is used in a
+      constructor or in a fucntion, since the syntax is different for these two cases in
+      CameLIGO *)
+  Definition print_box_type_aux (for_ctor : bool) (prefix : string) (TT : env string)
     : box_type -> string :=
     fix go  (bt : box_type) :=
   match bt with
@@ -91,7 +94,8 @@ Section print_term.
       else print_uncurried "" args ++ " " ++ go hd
     | _ => print_uncurried "" args ++ " " ++ go hd
     end
-  | TVar i => "a" ++ string_of_nat i (* TODO: pass context with type variables *)
+  | TVar i => let type_var_prefix := if for_ctor then "'" else "_" in
+             type_var_prefix ++ "a" ++ string_of_nat i (* TODO: pass context with type variables *)
   | TInd s =>
     let full_ind_name := string_of_kername s.(inductive_mind) in
     uncapitalize (from_option (look TT full_ind_name) (prefix ++ s.(inductive_mind).2))
@@ -102,6 +106,9 @@ Section print_term.
   | TAny => "UnknownType"
   end.
 
+  Definition print_box_type := print_box_type_aux false.
+  Definition print_ctor_box_type := print_box_type_aux true.
+  
   Definition print_ctor_name (prefix : string) (nm : string) :=
     capitalize (prefix ^ nm).
 
@@ -114,7 +121,7 @@ Section print_term.
     let nm := print_ctor_name prefix nm in
     match tys with
     | [] => nm
-    | _ => let ctor_type := parens false <| concat " * " (map (print_box_type prefix TT ∘ snd) tys)
+    | _ => let ctor_type := parens (#|tys| <=? 1) <| concat " * " (map (print_ctor_box_type prefix TT ∘ snd) tys)
           in nm ^ " of " ^ ctor_type
     end.
 
@@ -168,13 +175,6 @@ Section print_term.
       (n :: ns, b)
   | _ => ([], t)
   end.
-
-  (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
-  Fixpoint lam_body (t : term) : term :=
-    match t with
-    | tLambda n b => lam_body b
-    | _ => t
-    end.
 
   Definition lookup_ind_decl ind i :=
     match ExAst.lookup_env Σ ind with
@@ -351,17 +351,6 @@ Section print_term.
       end
     end
     in go [].
-
-  Definition print_def (print_term : context -> bool -> bool -> term -> string) (ctx : context) (fdef : def  term) :=
-    let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
-    let fix_name := string_of_name ctx (fdef.(dname)) in
-    let (args, _) := Edecompose_lam (fdef.(dbody)) in
-    let ctx := rev (map vass args) in
-    let sargs := print_uncurried "" (map (string_of_name ctx) args) in
-    string_of_name ctx fdef.(dname)
-        ++ " " ++ sargs  ++ " = "
-        ++ nl
-        ++ print_term (ctx ++ ctx' ++ ctx)%list true false (lam_body fdef.(dbody)).
 
   Definition print_pat (prefix : string) (TT : env string) (ctor : string) (infix : bool) (pt : list string * string) :=
     let vars := rev pt.1 in
@@ -687,6 +676,13 @@ Fixpoint get_fix_names (t : term) : list name :=
   | _ => []
   end.
 
+Fixpoint decompose_arr_n (n : nat) (bt : box_type) : list box_type × box_type :=
+  match n, bt with
+  | S m, TArr dom cod =>
+      let (args, res) := decompose_arr_n m cod in (dom :: args, res)
+  | _,_ => ([], bt)
+  end.
+
 Definition print_decl (prefix : string)
            (TT : MyEnv.env string) (* translation table *)
            (env : ExAst.global_env)
@@ -697,14 +693,15 @@ Definition print_decl (prefix : string)
            (t : term)
            (ta : annots box_type t)
             :=
-  let (tys,_) := decompose_arr ty in
   let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
   let (ctx, args) := fresh_names [] args in
+  let (tys,res_ty) := decompose_arr_n #|args| ty in
   let targs := combine args (map (print_box_type prefix TT) tys) in
   let printed_targs :=
-      map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
+    map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
+  let printed_res_ty := print_box_type prefix TT res_ty in
   let decl := prefix ++ decl_name ++ " " ++ concat " " printed_targs in
-    "let" ++ " " ++ decl ++ " = "
+    "let" ++ " " ++ decl ++ " : " ++ printed_res_ty ++ " = "
           ++ wrap (CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot).
 
 Definition print_init (prefix : string)
@@ -956,8 +953,8 @@ Definition CameLIGO_call_ctx_instance :=
 $>.
 
 Definition dummy_chain :=
-<$ (* ConCert's Chain type and its isntance. Currently we map all fields to Tezos.level *)
-"type chain = {"
+<$ "(* ConCert's Chain type and its instance. Currently we map all fields to Tezos.level *)"
+;"type chain = {"
 ; "  chain_height     : nat;"
 ; "  current_slot     : nat;"
 ; "  finalized_height : nat;"
