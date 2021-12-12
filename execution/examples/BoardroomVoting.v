@@ -1,18 +1,12 @@
 From Coq Require Import List.
-From Coq Require Import Morphisms.
-From Coq Require Import Orders.
 From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
-From Coq Require Import Mergesort.
-From Coq Require Program.
 From ConCert.Utils Require Import RecordUpdate.
 Require Import Automation.
 Require Import Blockchain.
-Require Import BoundedN.
 Require Import Containers.
-From stdpp Require countable.
 Require ContractMonads.
 Require Import Extras.
 Require Import BoardroomMath.
@@ -808,7 +802,8 @@ Proof.
       rewrite queue_prev in H2.
       cbn in H2.
       destruct (address_eqb_spec (act_from act) to_addr); cbn in *; try congruence.
-      subst act; cbn in *; congruence.
+      subst.
+      cbn in *. congruence.
 Qed.
 
 Theorem boardroom_voting_correct

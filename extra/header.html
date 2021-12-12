@@ -2,9 +2,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
-<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link href="coqdoc.css" rel="stylesheet" type="text/css" />
 <link href="coqdocjs.css" rel="stylesheet" type="text/css"/>
+<link href="toc.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="config.js"></script>
 <script type="text/javascript" src="coqdocjs.js"></script>
 </head>
@@ -18,8 +20,12 @@
     <span class="button" id="toggle-proofs"></span>
 
     <span class="right">
-      <a href="https://github.com/annenkov/ConCert" target="_balnk">Project Page</a>
+      <a href="toc.html">Table of contents</a>
+      <a href="https://github.com/AU-COBRA/ConCert" target="_balnk">Project Page</a>
     </span>
 </div>
-    <div id="content" tabindex="-1" onblur="document.getElementById('content').focus()">
+  <div id="content" tabindex="-1" onblur="document.getElementById('content').focus()">
+    <div id="js-toc-header" class="toc-header">Contents:</div>
+    <div id="js-toc" class="toc" data-toc="h1,h2,h3,h4" data-toc-container="doc">
+    </div>
     <div id="main">

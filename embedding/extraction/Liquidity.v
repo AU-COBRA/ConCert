@@ -1,6 +1,6 @@
-From Coq Require Import List String Basics ZArith Bool.
+From Coq Require Import List String Basics Bool.
 From ConCert.Embedding Require Import Ast
-     Notations Utils Prelude SimpleBlockchain MyEnv.
+     Notations Prelude MyEnv.
 
 Import ListNotations.
 

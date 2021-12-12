@@ -17,6 +17,10 @@ theories/Monads.v
 theories/ResultMonad.v
 theories/Serializable.v
 
+-R standards/cis1 ConCert.Execution.Standards.CIS1
+standards/cis1/CIS1Spec.v
+standards/cis1/CIS1Utils.v
+
 -R examples ConCert.Execution.Examples
 examples/BATCommon.v
 examples/BAT.v
@@ -31,8 +35,8 @@ examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
 examples/Counter.v
-examples/Dexter2FA12.v
 examples/Dexter2CPMM.v
+examples/Dexter2FA12.v
 examples/EIP20Token.v
 examples/Egcd.v
 examples/Escrow.v

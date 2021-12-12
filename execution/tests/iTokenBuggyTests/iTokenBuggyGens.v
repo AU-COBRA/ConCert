@@ -4,7 +4,6 @@ From ConCert Require Import Containers.
 From ConCert.Execution.QCTests Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List ZArith. Import ListNotations.
 
@@ -62,28 +61,29 @@ Definition gBurn (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
 Local Close Scope N_scope.
 (* Main generator. *)
 Definition giTokenBuggyAction (env : Environment) : GOpt Action :=
-  let call contract_addr caller_addr msg :=
-    returnGenSome {|
-      act_from := caller_addr;
-      act_body := act_call contract_addr 0%Z (serializeMsg msg)
-    |} in
+  let call caller_addr contract_addr msg :=
+      returnGenSome {|
+          act_origin := caller_addr;
+          act_from := caller_addr;
+          act_body := act_call contract_addr 0%Z (serializeMsg msg)
+        |} in
   state <- returnGen (get_contract_state iTokenBuggy.State env contract_addr) ;;
   backtrack [
     (* mint *)
     (1, '(caller, msg) <- gMint env state ;;
-         call contract_addr caller msg
+        call caller contract_addr msg
     ) ;
     (* burn *)
     (1, '(caller, msg) <- gBurn state ;;
-         call contract_addr caller msg
+        call caller contract_addr msg
     ) ;
     (* transfer_from *)
     (4, '(caller, msg) <- gTransfer_from state ;;
-         call contract_addr caller msg
+        call caller contract_addr msg
     );
     (* approve *)
     (2, '(caller, msg) <- gApprove state ;;
-         call contract_addr caller msg
+        call caller contract_addr msg
     )
   ].
 

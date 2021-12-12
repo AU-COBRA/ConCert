@@ -51,13 +51,13 @@ Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (Blockchain.act_transfer person_1 10);
-    build_act creator (Blockchain.act_transfer person_2 7);
-    build_act creator (Blockchain.act_transfer person_3 6);
-    build_act creator (Blockchain.act_transfer person_4 10);
-    build_act creator (Blockchain.act_transfer ethFund 2);
-    build_act creator (Blockchain.act_transfer batFund 2);
-    build_act creator deploy_bat
+    build_act creator creator (Blockchain.act_transfer person_1 10);
+    build_act creator creator (Blockchain.act_transfer person_2 7);
+    build_act creator creator (Blockchain.act_transfer person_3 6);
+    build_act creator creator (Blockchain.act_transfer person_4 10);
+    build_act creator creator (Blockchain.act_transfer ethFund 2);
+    build_act creator creator (Blockchain.act_transfer batFund 2);
+    build_act creator creator deploy_bat
   ]).
 
 Module TestInfo <: BATGensInfo.
@@ -1166,12 +1166,12 @@ Extract Constant defNumDiscards => "(2 * defNumTests)".
 Definition partially_funded_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (Blockchain.act_transfer person_1 10);
-    build_act creator (Blockchain.act_transfer person_2 7);
-    build_act creator (Blockchain.act_transfer person_3 6);
-    build_act creator (Blockchain.act_transfer person_4 10);
-    build_act creator deploy_bat;
-    build_act person_1 (Blockchain.act_call contract_base_addr 1
+    build_act creator creator (Blockchain.act_transfer person_1 10);
+    build_act creator creator (Blockchain.act_transfer person_2 7);
+    build_act creator creator (Blockchain.act_transfer person_3 6);
+    build_act creator creator (Blockchain.act_transfer person_4 10);
+    build_act creator creator deploy_bat;
+    build_act person_1 person_1 (Blockchain.act_call contract_base_addr 1
                                             ((@serialize BATCommon.Msg _) create_tokens))
   ]).
 Definition is_fully_refunded :=
@@ -1491,11 +1491,11 @@ Definition can_always_finalize check_setup:=
   let build_init_cb setup :=
     TraceGens.add_block (lcb_initial AddrSize)
     [
-      build_act creator (Blockchain.act_transfer person_1 10);
-      build_act creator (Blockchain.act_transfer person_2 7);
-      build_act creator (Blockchain.act_transfer person_3 6);
-      build_act creator (Blockchain.act_transfer person_4 10);
-      build_act creator (create_deployment 0 BAT.contract setup)
+      build_act creator creator (Blockchain.act_transfer person_1 10);
+      build_act creator creator (Blockchain.act_transfer person_2 7);
+      build_act creator creator (Blockchain.act_transfer person_3 6);
+      build_act creator creator (Blockchain.act_transfer person_4 10);
+      build_act creator creator (create_deployment 0 BAT.contract setup)
     ] in
   forAll gBATSetup
          (fun setup =>

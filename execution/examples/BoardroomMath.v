@@ -1,12 +1,11 @@
-From Coq Require Import List.
 From Coq Require Import Morphisms.
-From Coq Require Import PArith.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
 From Coq Require Import SetoidTactics.
 From Coq Require Import Field.
 From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
+From Bignums Require Import BigZ.
 Import List.
 
 Require Import Egcd.
@@ -336,6 +335,7 @@ Section WithBoardroomAxioms.
   Lemma compute_public_key_unit sk :
     compute_public_key sk !== 0.
   Proof. apply pow_nonzero, generator_nonzero. Qed.
+  
   Hint Resolve compute_public_key_unit : core.
 
   Lemma compute_public_keys_units sks :
@@ -343,6 +343,7 @@ Section WithBoardroomAxioms.
   Proof.
     induction sks as [|sk sks IH]; cbn; auto.
   Qed.
+  
   Hint Resolve compute_public_keys_units : core.
 
   Lemma reconstructed_key_unit pks i :
@@ -371,8 +372,8 @@ Section WithBoardroomAxioms.
   Qed.
 
   Hint Resolve
-       compute_public_key_unit compute_public_keys_units
-       reconstructed_key_unit compute_public_vote_unit : core.
+          compute_public_key_unit compute_public_keys_units
+          reconstructed_key_unit compute_public_vote_unit : core.
 
   Lemma log_prod (l : list A) :
     All (fun a => a !== 0) l ->
@@ -1073,6 +1074,7 @@ Module Zp.
     pose proof (prime_mult _ isprime _ _ pdiv) as onediv.
     destruct onediv as [div|div]; apply Z.mod_divide in div; lia.
   Qed.
+
   Hint Resolve mul_mod_nonzero : core.
 
   Lemma mod_mod_nonzero a p :
@@ -1087,6 +1089,7 @@ Module Zp.
     - rewrite Z.mod_mod by auto.
       auto.
   Qed.
+
   Hint Resolve mod_mod_nonzero : core.
 
   Lemma mod_pow_pos_aux_nonzero a x p r :
@@ -1100,6 +1103,7 @@ Module Zp.
     revert a r.
     induction x; intros a r ap0 rp0; cbn; auto.
   Qed.
+  
   Hint Resolve mod_pow_pos_aux_nonzero : core.
 
   Lemma mod_pow_pos_nonzero a x p :
@@ -1112,7 +1116,9 @@ Module Zp.
     pose proof (prime_ge_2 _ isprime).
     now rewrite Z.mod_1_l by lia.
   Qed.
+
   Hint Resolve mod_pow_pos_nonzero : core.
+
   Lemma mod_inv_nonzero a p :
     prime p ->
     a mod p <> 0 ->
@@ -1126,7 +1132,9 @@ Module Zp.
     rewrite mul_mod_inv in iszero by auto.
     rewrite Z.mul_0_r, Z.mod_0_l in iszero; easy.
   Qed.
+
   Hint Resolve mod_inv_nonzero : core.
+
   Lemma mod_pow_nonzero a x p :
     prime p ->
     a mod p <> 0 ->
@@ -1139,7 +1147,9 @@ Module Zp.
     - apply mod_inv_nonzero; auto.
       rewrite mod_pow_pos_mod; auto.
   Qed.
+
   Hint Resolve mod_pow_nonzero : core.
+
   Lemma mod_pow_pos_mod_nonzero a x p :
     mod_pow_pos a x p <> 0 ->
     mod_pow_pos a x p mod p <> 0.
@@ -1160,6 +1170,7 @@ Module Zp.
     pose proof (prime_ge_2 _ isprime).
     now rewrite Z.mod_1_l by lia.
   Qed.
+
   Hint Resolve mod_pow_pos_mod_nonzero mod_inv_mod_nonzero mod_pow_mod_nonzero one_nonzero : core.
 
   Lemma mod_inv_mod_idemp a p :
@@ -1573,7 +1584,6 @@ Module Zp.
 End Zp.
 
 Module BigZp.
-  From Bignums Require Import BigZ.
   Local Open Scope bigZ.
   Fixpoint mod_pow_pos_aux (a : bigZ) (x : positive) (m : bigZ) (r : bigZ) : bigZ :=
     match x with

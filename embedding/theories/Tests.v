@@ -1,8 +1,7 @@
 (** * Various examples of using notations and conversion to the shallow embedding *)
 
-From ConCert Require Import Ast Notations PCUICTranslate PCUICtoTemplate.
+From ConCert.Embedding Require Import Ast Notations PCUICTranslate PCUICtoTemplate.
 From Coq Require Import Basics String List.
-From MetaCoq Require Import Loader.
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.

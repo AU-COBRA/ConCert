@@ -1,14 +1,11 @@
-From ConCert Require Import Blockchain FA2Token FA2Interface.
-From ConCert Require Import Serializable.
-From Coq Require Import Morphisms.
-
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
+From ConCert.Execution Require Import Blockchain FA2Token FA2Interface.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Monads.
 From ConCert.Utils Require Import RecordUpdate.
+
 From Coq Require Import List.
-Require Import ZArith.
+From Coq Require Import ZArith.
+
 Import ListNotations.
 Import RecordSetNotations.
 

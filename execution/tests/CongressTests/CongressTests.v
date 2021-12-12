@@ -1,7 +1,6 @@
-From ConCert Require Import Blockchain LocalBlockchain Congress.
+From ConCert Require Import Blockchain Congress.
 From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ChainedList ResultMonad.
-Require Import Extras.
+From ConCert Require Import BoundedN ResultMonad.
 
 From ConCert.Execution.QCTests Require Import
   TestUtils CongressGens TraceGens SerializablePrinters.
@@ -11,8 +10,6 @@ Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Strings.BinaryString.
-From Coq Require Import Morphisms.
 From Coq Require Import Program.Basics.
 Require Import Containers.
 
@@ -22,7 +19,7 @@ Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Definition chain1 : ChainBuilder := builder_initial.
 Definition chain2 : ChainBuilder := unpack_result (add_block chain1 []).
 Definition chain3 : ChainBuilder := unpack_result
-  (add_block chain2 [build_act creator (act_transfer person_1 10)]).
+  (add_block chain2 [build_act creator creator (act_transfer person_1 10)]).
 
 Definition setup_rules :=
   {| min_vote_count_permille := 200; (* 20% of congress needs to vote *)
@@ -33,7 +30,7 @@ Definition setup := Congress.build_setup setup_rules.
 Definition deploy_congress : ActionBody :=
   create_deployment 5 Congress.contract setup.
 Definition chain4 : ChainBuilder :=
-  unpack_result (add_block chain3 [build_act person_1 deploy_congress]).
+  unpack_result (add_block chain3 [build_act person_1 person_1 deploy_congress]).
 Definition congress_1 : Address :=
   match outgoing_txs (builder_trace chain4) person_1 with
   | tx :: _ => tx_to tx
@@ -54,13 +51,13 @@ end.
 Definition add_person p :=
   congress_ifc.(send) 0 (Some (add_member p)).
 Definition chain5 : ChainBuilder :=
-  let acts := [build_act person_1 (add_person person_1);
-                build_act person_1 (add_person person_2)] in
+  let acts := [build_act person_1 person_1 (add_person person_1);
+               build_act person_1 person_1 (add_person person_2)] in
   unpack_result (add_block chain4 acts).
 Definition create_proposal_call :=
   congress_ifc.(send) 0 (Some (create_proposal [cact_transfer person_3 3])).
 Definition chain6 : ChainBuilder :=
-  unpack_result (add_block chain5 [build_act person_1 create_proposal_call]).
+  unpack_result (add_block chain5 [build_act person_1 person_1 create_proposal_call]).
 
 Definition congress_chain := chain5.
 Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
@@ -121,11 +118,11 @@ Definition receive_state_well_behaved_P (chain : Chain)
   | _ => false
   end.
 
-(* QuickChick (
-  {{fun _ _ => true}}
-  congress_caddr
-  {{receive_state_well_behaved_P}}
-). *)
+(* QuickChick ( *)
+(*   {{fun _ _ => true}} *)
+(*   congress_caddr *)
+(*   {{receive_state_well_behaved_P}} *)
+(* ). *)
 
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 

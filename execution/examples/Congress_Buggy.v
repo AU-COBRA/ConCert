@@ -6,13 +6,9 @@ constructing a contract that actually exploits this version of the
 Congress and then just asking Coq to compute. *)
 
 From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-From Coq Require Import Permutation.
-Require Import Automation.
 Require Import Blockchain.
 Require Import BoundedN.
-Require Import ChainedList.
 Require Import Containers.
 Require Import Extras.
 Require Import Monads.
@@ -318,7 +314,7 @@ Section Theories.
                block_finalized_height := finalized_height chain;
                block_creator := creator;
                block_reward := 50; |} in
-        let acts := map (build_act creator) act_bodies in
+        let acts := map (build_act creator creator) act_bodies in
         option_of_result (builder_add_block chain next_header acts) in
     (* Get some money on the creator *)
     do chain <- add_block chain [];

@@ -1,8 +1,7 @@
 (* In this file we prove that the circulation of any blockchain implementing our
 semantics is as expected: the sum of all rewards paid out in blocks. *)
 From Coq Require Import List Permutation ZArith Psatz Morphisms.
-Require Import Automation Blockchain Extras Finite ChainedList.
-From ConCert.Utils Require Import RecordSet.
+Require Import Automation Blockchain Extras Finite.
 Import ListNotations.
 
 Section Circulation.
@@ -49,7 +48,7 @@ Proof.
     lia.
 Qed.
 
-Hint Resolve eval_action_from_to_same : core.
+Local Hint Resolve eval_action_from_to_same : core.
 
 Lemma eval_action_circulation_unchanged
       {pre : Environment}
@@ -85,7 +84,7 @@ Proof.
   rewrite IH, balance_irrel; auto.
 Qed.
 
-Hint Resolve eval_action_circulation_unchanged : core.
+Local Hint Resolve eval_action_circulation_unchanged : core.
 
 Instance circulation_proper :
   Proper (EnvironmentEquiv ==> eq) circulation.
@@ -138,7 +137,7 @@ Qed.
 Lemma step_circulation {prev next} (step : ChainStep prev next) :
   circulation next =
   match step with
-  | step_block _ _ header _ _ _ _ =>
+  | step_block _ _ header _ _ _ _ _ =>
     circulation prev + block_reward header
   | _ => circulation prev
   end%Z.

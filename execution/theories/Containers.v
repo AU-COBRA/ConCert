@@ -1,12 +1,8 @@
 (* This file provides an interface for std++'s finite maps *)
 
 From Coq Require Import List.
-From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From stdpp Require gmap.
-Require Import Monads.
-Require Import BoundedN.
-Require Import Automation.
 Import ListNotations.
 
 Notation FMap := gmap.gmap.

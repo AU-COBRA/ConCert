@@ -1,29 +1,16 @@
-From Coq Require Import PeanoNat ZArith.
 
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Erasure.
-From MetaCoq.Erasure Require ErasureFunction.
-From MetaCoq.Template Require Import Kernames config.
-From MetaCoq.SafeChecker Require Import PCUICSafeReduce PCUICSafeChecker
-     SafeTemplateChecker.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping
-     TemplateToPCUIC.
-
-From MetaCoq.Template Require Pretty.
+From MetaCoq.Template Require Import Kernames.
 
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.
-From ConCert.Utils Require Import RecordSet RecordUpdate StringExtra.
 From ConCert.Execution Require Import Blockchain Serializable Common.
 
 From ConCert.Extraction Require Import CameLIGOPretty
-     Common ExAst Erasure Optimize Extraction TypeAnnotations Annotations Utils SpecializeChainBase.
+     Common ExAst Optimize Extraction TypeAnnotations Annotations Utils SpecializeChainBase.
 
-From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
 
 From MetaCoq.Template Require Import All.
-From MetaCoq.PCUIC Require PCUICAst PCUICTyping.
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
   { lmd_module_name : string ;
@@ -179,6 +166,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @stdpp.base.empty %%> "Map.empty"
 
   (* call context *)
+  ; remap <%% @ctx_origin %%> "ctx_origin"
   ; remap <%% @ctx_from %%> "ctx_from"
   ; remap <%% @ctx_contract_address %%> "ctx_contract_address"
   ; remap <%% @ctx_contract_balance %%> "ctx_contract_balance"

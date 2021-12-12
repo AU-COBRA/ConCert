@@ -1,7 +1,7 @@
 (** * A simply-typed version of the blockchain execution environment  *)
 (* We develop some blockchain infrastructure relevant for the contract execution. *)
-Require Import String ZArith Basics.
-From ConCert.Embedding Require Import Ast Notations Prelude PCUICTranslate TranslationUtils.
+Require Import String.
+From ConCert.Embedding Require Import Ast Notations PCUICTranslate TranslationUtils.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 Require Import List.

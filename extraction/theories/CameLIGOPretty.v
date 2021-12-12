@@ -565,7 +565,7 @@ Section print_term.
             | S n =>
               match br return annots box_type br -> (_ * _) with
               | tLambda na B => fun '(bt, a) =>
-                let na' := CameLIGOPretty.print_term.fresh_name ctx na br in
+                let na' := fresh_name ctx na br in
                 let (ps, b) := print_branch (vass na' :: ctx) n params B a in
                 (ps ++ [string_of_name ctx na'], b)%list
               (* Assuming all case-branches have been expanded this should never happen: *)
@@ -688,7 +688,7 @@ Fixpoint get_fix_names (t : term) : list name :=
   end.
 
 Definition print_decl (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : MyEnv.env string) (* translation table *)
            (env : ExAst.global_env)
            (decl_name : string)
            (modifier : option string)
@@ -708,7 +708,7 @@ Definition print_decl (prefix : string)
           ++ wrap (CameLIGOPretty.print_term env prefix [] TT ctx true false lam_body body_annot).
 
 Definition print_init (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : MyEnv.env string) (* translation table *)
            (build_call_ctx : string) (* a string that corresponds to a call contex *)
            (init_prelude : string) (* operations available in the [init] as local definitions.
                                       CameLIGO does not allow to refer to global definitions in [init]*)
@@ -792,7 +792,7 @@ Definition print_init (prefix : string)
   end.
 
 Definition print_cst (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : MyEnv.env string) (* translation table *)
            (env : ExAst.global_env)
            (kn : kername)
            (cst : ExAst.constant_body)
@@ -930,6 +930,7 @@ Definition CameLIGO_call_ctx_type_name : string := "cctx".
 Definition CameLIGO_call_ctx_type :=
 <$ "(* ConCert's call context *)"
 ; "type " ^ CameLIGO_call_ctx_type_name ^ " = {"
+; "  ctx_origin_ : address;"
 ; "  ctx_from_ : address;"
 ; "  ctx_contract_address_ : address;"
 ; "  ctx_contract_balance_ : tez;"
@@ -940,7 +941,8 @@ $>.
 Definition CameLIGO_call_ctx_instance :=
 <$"(* a call context instance with fields filled in with required data *)"
 ; "let cctx_instance : " ^ CameLIGO_call_ctx_type_name ^ "= "
-; "{ ctx_from_ = Tezos.sender;"
+; "{ ctx_origin_ = Tezos.source;"
+; "  ctx_from_ = Tezos.sender;"
 ; "  ctx_contract_address_ = Tezos.self_address;"
 ; "  ctx_contract_balance_ = Tezos.balance;"
 ; "  ctx_amount_ = Tezos.balance"

@@ -5,14 +5,12 @@ type can be converted from and to this format. *)
 
 Require Import Monads.
 Require Import Containers.
-Require Import Automation.
 Require Import BoundedN.
 From Coq Require Import Ascii.
 From Coq Require Import List.
 From Coq Require Import Psatz.
 From Coq Require Import String.
 From Coq Require Import ZArith.
-From stdpp Require countable.
 
 Import ListNotations.
 

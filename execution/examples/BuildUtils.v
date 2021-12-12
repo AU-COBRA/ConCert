@@ -67,12 +67,10 @@ Proof.
   - cbn in contract_state.
     congruence.
   - destruct_chain_step;
-      only 2: inversion eval as [? ? ? _ _ _ act_eq env_eq _ |
-                                 ? ? ? ? ? ? _ _ _ _ act_eq _ env_eq _ |
-                                 ? ? ? _ ? ? ? _ _ _ _ deployed_state act_eq _ _ env_eq ]; subst;
+      only 2: destruct_action_eval; subst;
       (rewrite_environment_equiv || rewrite <- env_eq in * || rewrite <- prev_next in *);
       (setoid_rewrite env_eq || setoid_rewrite <- env_eq || idtac); cbn in *;
-      destruct_address_eq; now subst.
+      destruct_address_eq; try now subst.
 Qed.
 
 (* If a state is reachable and contract state is stored on an address 
@@ -154,10 +152,8 @@ Proof.
   intros * [reach [trace]] deployed.
   induction trace as [ | from mid to trace IH step ].
   - assumption.
-  - destruct_chain_step; only 2: inversion eval as
-      [? ? ? _ _ _ _ env_eq _ |
-       ? ? ? ? _ ? _ _ _ not_deployed _ _ env_eq _ |
-       ? ? ? _ _ _ ? _ _ _ _ _ _ _ _ env_eq ];
+  - destruct_chain_step;
+      only 2: destruct_action_eval;
       (rewrite_environment_equiv || inversion prev_next); cbn;
       destruct_address_eq; subst; try easy.
     now rewrite IH in not_deployed by assumption.
@@ -176,13 +172,10 @@ Proof.
     intros cstate deployed_state.
   - now eexists.
   - destruct_chain_step;
-      only 2: inversion eval as
-        [? ? ? _ _ _ _ env_eq _ |
-         ? ? ? ? _ ? _ _ _ _ _ _ env_eq _ |
-         ? ? ? _ _ _ ? _ _ _ _ _ _ _ _ env_eq ];
-      (rewrite_environment_equiv || inversion prev_next || idtac);
+      only 2: destruct_action_eval;
+      (rewrite_environment_equiv || inversion_clear prev_next || idtac);
       (setoid_rewrite env_eq || setoid_rewrite <- env_eq || idtac);
-      cbn in *; destruct_address_eq; now subst.
+      cbn in *; destruct_address_eq; try now subst.
 Qed.
 
 (* If a state is reachable through another state then it cannot have a lower chain height *)
@@ -266,13 +259,13 @@ Definition receiver_can_receive_transfer (bstate : ChainState) act_body :=
    This is not provable in general with the assumption ChainBase makes about
     addresses and the function address_is_contract. However this should be
     provable in any sensible instance of ChainBase *)
-Axiom deployable_address_decidable : forall bstate wc setup act_from amount,
+Axiom deployable_address_decidable : forall bstate wc setup act_origin act_from amount,
   reachable bstate ->
   decidable (exists addr state, address_is_contract addr = true 
             /\ env_contracts bstate addr = None
             /\ wc_init wc
                   (transfer_balance act_from addr amount bstate)
-                  (build_ctx act_from addr amount amount)
+                  (build_ctx act_origin act_from addr amount amount)
                   setup = Some state).
 
 Ltac action_not_decidable :=
@@ -281,25 +274,25 @@ Ltac action_not_decidable :=
   | H : exists bstate new_acts, inhabited (ActionEvaluation _ _ bstate new_acts) |- False =>
     destruct H as [bstate_new [new_acts [action_evaluation]]];
     inversion action_evaluation as
-        [?from_addr ?to_addr ?amount amount_nonnegative enough_balance
+        [?origin ?from_addr ?to_addr ?amount amount_nonnegative enough_balance
           to_addr_not_contract act_eq env_eq new_acts_eq |
-         ?from_addr ?to_addr ?amount wc ?setup state amount_nonnegative
+         ?origin ?from_addr ?to_addr ?amount wc ?setup state amount_nonnegative
           enough_balance to_addr_contract not_deployed act_eq init_some env_eq new_acts_eq |
-         ?from_addr ?to_addr ?amount wc ?msg prev_state new_state resp_acts
+         ?origin ?from_addr ?to_addr ?amount wc ?msg prev_state new_state resp_acts
           amount_nonnegative enough_balance deployed deployed_state act_eq receive_some new_acts_eq env_eq ];
       try congruence
   end; repeat
   match goal with
-  | H : {| act_from := _; act_body := _ |} = {| act_from := _; act_body := match ?msg with | Some _ => _ | None =>_ end |} |- False =>
+  | H : {| act_origin := _; act_from := _; act_body := _ |} = {| act_origin := _; act_from := _; act_body := match ?msg with | Some _ => _ | None =>_ end |} |- False =>
     destruct msg
-  | H : {| act_from := _; act_body := _ |} = {| act_from := _; act_body := _ |} |- False =>
+  | H : {| act_origin := _; act_from := _; act_body := _ |} = {| act_origin := _; act_from := _; act_body := _ |} |- False =>
     inversion H; subst; clear H
   end.
 
 Ltac action_decidable :=
   left; do 2 eexists; constructor;
   match goal with
-  | H : wc_receive _ _ _ _ ?m = Some _ |- _ => eapply (eval_call _ _ _ _ m)
+  | H : wc_receive _ _ _ _ ?m = Some _ |- _ => eapply (eval_call _ _ _ _ _ m)
   | H : wc_init _ _ _ _ = Some _ |- _ => eapply eval_deploy
   | H : context [act_transfer _ _] |- _ => eapply eval_transfer
   end;
@@ -340,7 +333,7 @@ Proof.
                          else (env_account_balances bstate to) + amount).
     destruct (wc_receive w
         (transfer_balance act_from to amount bstate)
-        (build_ctx act_from to new_to_balance amount)
+        (build_ctx act_origin act_from to new_to_balance amount)
         s None) eqn:receive.
     + (* Case: act_transfer is evaluable by eval_call *)
       destruct p.
@@ -362,7 +355,7 @@ Proof.
                          else (env_account_balances bstate to) + amount).
     destruct (wc_receive w
         (transfer_balance act_from to amount bstate)
-        (build_ctx act_from to new_to_balance amount)
+        (build_ctx act_origin act_from to new_to_balance amount)
         s (Some msg)) eqn:receive.
     + (* Case: act_call is evaluable by eval_call *)
       destruct p.
@@ -380,7 +373,8 @@ Proof.
     now apply contract_addr_format in deployed; auto.
   - (* act_body = act_deploy amount c setup *)
     apply deployable_address_decidable
-      with (wc:=c) (setup:=setup) (act_from:=act_from) (amount:=amount)
+      with (wc:=c) (setup:=setup) (act_origin:=act_origin)
+      (act_from:=act_from) (amount:=amount)
       in reach.
     destruct reach as [[to [state [to_is_contract_addr [to_not_deployed init]]]] | no_deployable_addr].
     + (* Case: act_deploy is evaluable by eval_deploy *)
@@ -527,6 +521,7 @@ Lemma add_block : forall bstate reward creator acts slot_incr,
   reward >= 0->
   (slot_incr > 0)%nat ->
   Forall act_is_from_account acts ->
+  Forall act_origin_is_eq_from acts ->
     (exists bstate',
        reachable_through bstate bstate'
     /\ chain_state_queue bstate' = acts
@@ -539,7 +534,8 @@ Lemma add_block : forall bstate reward creator acts slot_incr,
           block_reward := reward; |} bstate)).
 Proof.
   intros * reach queue creator_not_contract
-    reward_positive slot_incr_positive acts_from_accounts.
+    reward_positive slot_incr_positive
+    acts_from_accounts origins_from_accounts.
   pose (header :=
     {| block_height := S (chain_height bstate);
        block_slot := current_slot bstate + slot_incr;
@@ -630,24 +626,25 @@ Lemma evaluate_action : forall {Setup Msg State : Type}
                               `{Serializable Msg}
                               `{Serializable State}
                                (contract : Contract Setup Msg State)
-                               bstate from caddr amount msg acts new_acts
+                               bstate origin from caddr amount msg acts new_acts
                                cstate new_cstate,
   reachable bstate ->
   chain_state_queue bstate = {| act_from := from;
+                                act_origin := origin;
                                 act_body := act_call caddr amount ((@serialize Msg _) msg) |} :: acts ->
   amount >= 0 ->
   env_account_balances bstate from >= amount ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   env_contract_states bstate caddr = Some ((@serialize State _) cstate) ->
   Blockchain.receive contract (transfer_balance from caddr amount bstate)
-                     (build_ctx from caddr (if (address_eqb from caddr)
+                     (build_ctx origin from caddr (if (address_eqb from caddr)
                          then (env_account_balances bstate caddr)
                          else (env_account_balances bstate caddr) + amount) amount)
                      cstate (Some msg) = Some (new_cstate, new_acts) ->
     (exists bstate',
        reachable_through bstate bstate'
     /\ env_contract_states bstate' caddr = Some ((@serialize State _) new_cstate)
-    /\ chain_state_queue bstate' = (map (build_act caddr) new_acts) ++ acts
+    /\ chain_state_queue bstate' = (map (build_act origin caddr) new_acts) ++ acts
     /\ EnvironmentEquiv
         bstate'
         (set_contract_state caddr ((@serialize State _) new_cstate) (transfer_balance from caddr amount bstate))).
@@ -657,7 +654,7 @@ Proof.
   pose (new_to_balance := if (address_eqb from caddr)
                          then (env_account_balances bstate caddr)
                          else (env_account_balances bstate caddr) + amount).
-  pose (bstate' := (bstate<|chain_state_queue := (map (build_act caddr) new_acts) ++ acts|>
+  pose (bstate' := (bstate<|chain_state_queue := (map (build_act origin caddr) new_acts) ++ acts|>
                           <|chain_state_env := set_contract_state caddr ((@serialize State _) new_cstate)
                                                   (transfer_balance from caddr amount bstate)|>)).
   assert (new_to_balance_eq : env_account_balances bstate' caddr = new_to_balance) by
@@ -677,9 +674,10 @@ Qed.
 
 (* Lemma showing that there exists a future ChainState
     where the transfer action is evaluated *)
-Lemma evaluate_transfer : forall bstate from to amount acts,
+Lemma evaluate_transfer : forall bstate origin from to amount acts,
   reachable bstate ->
   chain_state_queue bstate = {| act_from := from;
+                                act_origin := origin;
                                 act_body := act_transfer to amount |} :: acts ->
   amount >= 0 ->
   env_account_balances bstate from >= amount ->
@@ -759,9 +757,10 @@ Lemma deploy_contract : forall {Setup Msg State : Type}
                               `{Serializable Msg}
                               `{Serializable State}
                                (contract : Contract Setup Msg State)
-                               bstate from caddr amount acts setup cstate,
+                               bstate origin from caddr amount acts setup cstate,
   reachable bstate ->
   chain_state_queue bstate = {| act_from := from;
+                                act_origin := origin;
                                 act_body := act_deploy amount contract ((@serialize Setup _) setup) |} :: acts ->
   amount >= 0 ->
   env_account_balances bstate from >= amount ->
@@ -769,13 +768,13 @@ Lemma deploy_contract : forall {Setup Msg State : Type}
   env_contracts bstate caddr = None ->
   Blockchain.init contract
         (transfer_balance from caddr amount bstate)
-        (build_ctx from caddr amount amount)
+        (build_ctx origin from caddr amount amount)
         setup = Some cstate ->
     (exists bstate' (trace : ChainTrace empty_state bstate'),
        reachable_through bstate bstate'
     /\ env_contracts bstate' caddr = Some (contract : WeakContract)
     /\ env_contract_states bstate' caddr = Some ((@serialize State _) cstate)
-    /\ deployment_info Setup trace caddr = Some (build_deployment_info from amount setup)
+    /\ deployment_info Setup trace caddr = Some (build_deployment_info origin from amount setup)
     /\ chain_state_queue bstate' = acts
     /\ EnvironmentEquiv
         bstate'
@@ -802,14 +801,14 @@ Proof.
     repeat split; eauto;
     try (cbn; now destruct_address_eq).
     cbn. destruct step as
-        [_ queue_prev _ _ _ |
+        [_ queue_prev _ _ _ _ |
          ? ? ? queue_prev eval _ |
          ? ? env_eq queue_prev _ _ no_action_eval |
          prev_next _]; try congruence.
     + destruct eval as
-        [? ? ? _ _ _ act_eq _ _ |
-         ? ? ? ? ?setup state _ _ _ ?not_deployed act_eq ?init_some env_eq _ |
-         ? ? ? _ ?msg _ _ _ _ _ _ _ act_eq _ _ _ ];
+        [? ? ? ? _ _ _ act_eq _ _ |
+         ? ? ? ? ? ?setup state _ _ _ ?not_deployed act_eq ?init_some env_eq _ |
+         ? ? ? ? _ ?msg _ _ _ _ _ _ _ act_eq _ _ _ ];
         try congruence; cbn in *; subst; rewrite queue in queue_prev; inversion queue_prev; subst.
       * destruct_address_eq.
         -- now rewrite deserialize_serialize.
@@ -973,7 +972,7 @@ Ltac add_block acts_ slot_ :=
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
       specialize add_block with (acts:=acts_) (slot_incr:=slot_)
         as [new_bstate [new_reach [new_queue new_env_eq]]];
-      [apply Hreach | apply Hqueue| | | | |]
+      [apply Hreach | apply Hqueue| | | | | |]
   end.
 
 Ltac evaluate_action contract_ :=
@@ -1039,11 +1038,11 @@ Ltac empty_queue H :=
         intros ?bstate_from ?bstate_to ?act ?acts ?reach_from ?reach_to
           H ?queue_from ?queue_to [[temp_eval] | ?env_eq];
           only 1: destruct temp_eval as
-            [?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
+            [?origin ?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
               ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
-             ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
+             ?origin ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
               ?enough_balance ?to_addr_contract ?not_deployed ?act_eq ?init_some ?env_eq ?new_acts_eq |
-             ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
+             ?origin ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
               ?amount_nonnegative ?enough_balance ?deployed ?deployed_state ?act_eq ?receive_some ?new_acts_eq ?env_eq ] |
         clear H; rename temp_H into H]
       end

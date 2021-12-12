@@ -67,7 +67,7 @@ mod tests {
 
         // call the init function
         // amount must be even for init to succeed
-        let out = contract_init(&ctx, Amount::from_micro_gtu(amount), &mut logger, &mut st);
+        let out = contract_init(&ctx, Amount::from_micro_ccd(amount), &mut logger, &mut st);
 
         let res = match out {
             Ok(res) => res,
@@ -118,9 +118,10 @@ mod tests {
         let init_balance = 10;
         let slot_time = Timestamp::from_timestamp_millis(11);
         ctx.set_metadata_slot_time(slot_time);
+        ctx.set_invoker(buyer_addr);
         ctx.set_sender(Address::Account(buyer_addr));
         ctx.set_self_address(self_addr);
-        ctx.set_self_balance(concordium_std::Amount::from_micro_gtu(init_balance));
+        ctx.set_self_balance(concordium_std::Amount::from_micro_ccd(init_balance));
         let mut st = ContractStateTest::open(data_st);
         let v : ConCert_Execution_Examples_Escrow_State =
             ConCert_Execution_Examples_Escrow_State::build_state
@@ -136,7 +137,7 @@ mod tests {
         // set up the logger so we can intercept and analyze them at the end.
         let mut logger = LogRecorder::init();
         let res: Result<ActionsTree, _> =
-            contract_receive(&ctx, Amount::from_micro_gtu(amount), &mut logger, &mut st);
+            contract_receive(&ctx, Amount::from_micro_ccd(amount), &mut logger, &mut st);
         let actions = match res {
             Err(e) => fail!("Contract receive failed, but it should not have: {:?}",e),
             Ok(actions) => actions,

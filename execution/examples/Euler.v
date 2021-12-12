@@ -2,7 +2,6 @@ From Coq Require Import List.
 From Coq Require Import Morphisms.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
-From Coq Require Import Sorted.
 From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
 Require Import Extras.

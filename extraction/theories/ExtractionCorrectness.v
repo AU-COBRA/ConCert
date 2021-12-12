@@ -1,31 +1,22 @@
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import ClosedAux.
-From ConCert.Extraction Require Import Erasure.
+
 From ConCert.Extraction Require Import ErasureCorrectness.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import OptimizeCorrectness.
-From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import WcbvEvalAux.
-From Coq Require Import Arith.
-From Coq Require Import List.
-From Coq Require Import String.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import ErasureCorrectness.
 From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import Extract.
-From MetaCoq.Erasure Require Import Prelim.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICInversion.
-From MetaCoq.PCUIC Require PCUICWcbvEval.
 From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import utils.
 
 Open Scope string.
 

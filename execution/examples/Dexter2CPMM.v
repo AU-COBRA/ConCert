@@ -1,16 +1,25 @@
-From Coq Require Import ZArith Lia.
-From Coq Require Import Morphisms.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-Require Import Automation.
+(* This file contains an implementation of the Dexter2 CPMM contract
+https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo
+In addition this file contains proof of functional correctness w.r.t the
+informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/docs/informal-spec/dexter2-cpmm.md
+
+This contract is an implementation of a Constant Product Market Maker (CPMM).
+When paired with a FA1.2 or FA2 token contract and a Dexter2 liquidity contract,
+this contract serves as a decentralized exchange allowing users to trade between
+XTZ and tokens. Additionally users can also add or withdraw funds from the
+exchanges trading reserves. Traders pay a 0.3% fee, the fee goes to the owners
+of the trading reserves, this way user are incentivised to add funds to the reserves.
+*)
+
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From ConCert.Execution.Examples Require Import FA2Token FA2Interface Dexter2FA12.
+From Coq Require Import ZArith List.
 Import ListNotations.
-Import RecordSetNotations.
-Require Import FA2Token FA2Interface Dexter2FA12.
+
 
 
 Section Dexter.

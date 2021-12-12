@@ -1,13 +1,9 @@
-From ConCert.Execution Require Blockchain.
 From ConCert.Execution.Examples Require Counter.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import RustExtract.
 From Coq Require Import Bool.
-From Coq Require Import List.
 From Coq Require Import String.
-From Coq Require Import ZArith.
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.

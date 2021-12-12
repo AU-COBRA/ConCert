@@ -7,7 +7,7 @@ jobs:
     steps:
     - run: sudo chown -R coq:coq .
     - uses: actions/checkout@v2
-    - name: Build
+    - name: Build and test extraction
       run: |
         export HOME=/home/coq && \
         PATH=/home/coq/.cargo/bin:$PATH
@@ -41,3 +41,11 @@ jobs:
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
       if: github.event_name != 'pull_request' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
+    - name: Deploy the docs to GitHub Pages
+      if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      uses: crazy-max/ghaction-github-pages@v2
+      with:
+        target_branch: gh-pages
+        build_dir: docs
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

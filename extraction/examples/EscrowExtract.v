@@ -5,12 +5,18 @@ From Coq Require Import PeanoNat ZArith Notations Bool.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Erasure Require Import Loader.
 
-From ConCert Require Import MyEnv.
-From ConCert.Extraction Require Import Common Extraction.
+From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.Examples Require Import Common.
-  From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Extraction Require Import Common Extraction.
+From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
+From ConCert.Utils Require Import RecordUpdate.
 
 From Coq Require Import List Ascii String.
 Require ContractMonads.
@@ -21,13 +27,6 @@ From Coq Require Import List.
 From Coq Require Import Morphisms.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
-Require Import Automation.
-Require Import Blockchain.
-Require Import Extras.
-Require Import Monads.
-Require Import ResultMonad.
-Require Import Serializable.
-From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
 Import RecordSetNotations.

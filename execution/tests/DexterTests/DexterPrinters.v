@@ -1,6 +1,5 @@
 From ConCert Require Import Blockchain.
-From ConCert Require Import Dexter FA2Token.
-From ConCert Require Import Serializable.
+From ConCert Require Import Dexter.
 From ConCert.Execution.QCTests Require Import TestUtils FA2Printers.
 From QuickChick Require Import QuickChick.
 

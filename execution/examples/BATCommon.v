@@ -94,10 +94,10 @@ Global Coercion serializeState : State >-> SerializedValue.
 Global Coercion serializeSetup : Setup >-> SerializedValue.
 
 Definition finalize_act cstate caddr : Action :=
-  build_act (fundDeposit cstate) (act_call caddr 0 finalize).
+  build_act (fundDeposit cstate) (fundDeposit cstate) (act_call caddr 0 finalize).
 
 Definition deploy_act setup contract from : Action :=
-  build_act from (act_deploy 0 contract setup).
+  build_act from from (act_deploy 0 contract setup).
 
 (* Utility definitions and lemmas *)
 Open Scope N_scope.
@@ -381,7 +381,7 @@ Local Close Scope Z_scope.
    or the token goal is hit. Also ensures that we do not hit the token creation cap
    by only creation just enough to go over the token goal. *)
 Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate:=
-  let create_tokens_act sender amount := build_act sender (act_call caddr amount create_tokens) in
+  let create_tokens_act sender amount := build_act sender sender (act_call caddr amount create_tokens) in
     match accounts with
     | [] => []
     | acc :: accounts' =>
@@ -399,7 +399,7 @@ Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchan
     end.
 
 Lemma create_token_acts_cons : forall caddr env acc accounts tokens_left exchange_rate,
-  let create_tokens_act sender amount := build_act sender (act_call caddr amount create_tokens) in
+  let create_tokens_act sender amount := build_act sender sender (act_call caddr amount create_tokens) in
   let amount' := 1 + ((tokens_left / exchange_rate)) in
   let amount := N.min amount' (Z.to_N (env_account_balances env acc)) in
   let act := create_tokens_act acc (Z.of_N amount) in
@@ -437,6 +437,19 @@ Proof.
     destruct_match in HIn.
     destruct HIn; subst.
     all: eauto.
+Qed.
+
+(* All actions produced by create_token_acts have same sender and origin *)
+Lemma create_token_acts_origin_correct: forall accounts (env : Environment) caddr tokens_left exchange_rate,
+  Forall act_origin_is_eq_from (create_token_acts env caddr accounts tokens_left exchange_rate).
+Proof.
+  induction accounts; intros *.
+  - now cbn.
+  - cbn.
+    destruct_match; auto.
+    apply list.Forall_cons.
+    intuition.
+    apply address_eq_refl.
 Qed.
 Close Scope N_scope.
 

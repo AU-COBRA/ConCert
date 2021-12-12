@@ -22,7 +22,7 @@ Import NamelessSubst.
 Local Set Keyed Unification.
 
 (* [Bool.trans_eq_bool] kills performance, so we remove it *)
-Remove Hints Bool.trans_eq_bool.
+Remove Hints Bool.trans_eq_bool : core.
 
 Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.
@@ -579,7 +579,7 @@ Lemma pat_to_lam_app_par l params args t v Σ  :
   All PcbvCurr.value args ->
   forallb (closedn 0) args ->
   #|l| = #|args| ->
-  Σ |- subst (rev args) 0 t ⇓ v ->
+  Σ |- subst (List.rev args) 0 t ⇓ v ->
   Σ |- mkApps (lpat_to_lam t params l) args ⇓ v .
 Proof.
   - revert dependent args. revert t v params.
@@ -1061,7 +1061,7 @@ Proof.
              prop_to_leb_ltb. now rewrite H.
 Qed.
 
-Hint Resolve subst_env_ty_compose_1.
+Hint Resolve subst_env_ty_compose_1 : hints.
 
 Lemma subst_env_compose_1 :
   forall (nm : Ast.ename) (e e1: expr) k (ρ : env expr),
@@ -1100,8 +1100,8 @@ Proof.
              rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
              remember (S n) as n'. remember (S m) as m'. simpl.
              prop_to_leb_ltb. now rewrite H.
-  + destruct p. simpl. rewrite map_map. f_equal;eauto. f_equal.
-    eapply map_ext. intros;eapply subst_env_ty_compose_1;eauto.
+  + destruct p. simpl. rewrite map_map. f_equal;eauto with hints. f_equal.
+    eapply map_ext. intros;eapply subst_env_ty_compose_1;eauto with hints.
     rewrite map_map. simpl.
     eapply forall_map_spec;eauto.
     eapply Forall_impl;eauto.

@@ -1,6 +1,5 @@
 (** * Convertion from values back to expressions through the environment substitution *)
-Require Import List Bool Relations Morphisms ssrbool PeanoNat.
-Require Import MetaCoq.Template.utils.
+Require Import List Relations Morphisms ssrbool PeanoNat.
 
 From ConCert.Embedding Require Import EvalE Ast CustomTactics Misc MyEnv.
 

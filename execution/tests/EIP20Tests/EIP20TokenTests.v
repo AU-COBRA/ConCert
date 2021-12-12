@@ -34,10 +34,10 @@ Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
   [
-    build_act creator (act_transfer person_1 0);
-    build_act creator (act_transfer person_2 0);
-    build_act creator (act_transfer person_3 0);
-    build_act creator deploy_eip20token
+    build_act creator creator (act_transfer person_1 0);
+    build_act creator creator (act_transfer person_2 0);
+    build_act creator creator (act_transfer person_3 0);
+    build_act creator creator deploy_eip20token
   ]).
 
 Module TestInfo <: EIP20GensInfo.
@@ -236,9 +236,9 @@ Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs :
   | None => checker true (* trivially true case *) 
   end.
 
-(* QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_total_supply)). *)
-(* coqtop-stdout:+++ Passed 10000 tests (1570 discards) *)
-(* 8 seconds *)
+(* Time QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_init_supply)). *)
+(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+(* 9 seconds *)
 
 (* One key property: the total supply is always equal to the initial supply *)
 Definition init_supply_eq_total_supply (state : EIP20Token.State) :=
@@ -263,7 +263,7 @@ Definition sum_allowances_le_init_supply_P maxLength :=
   forAllChainState maxLength token_cb (gTokenChain 2)
     (checker_get_state sum_allowances_le_init_supply).
 
-(* QuickChick (sum_allowances_le_init_supply_P 5). *)
+(* QuickChick (expectFailure (sum_allowances_le_init_supply_P 5)). *)
 
 Definition person_has_tokens person (n : N) :=
   fun cs => 
@@ -280,6 +280,8 @@ Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
   (at level 45, lc at next level, left associativity).
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
+
+(* TODO: check if the properties below make sense now, some of the definitions seems to be missing, e.g. [chain_with_token_deployed] *)
 
 (* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
 (* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)

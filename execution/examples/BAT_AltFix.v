@@ -1274,7 +1274,7 @@ Proof.
     update_all.
     (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
        So now we can add a new block containing a finalize call *)
-    add_block [(finalize_act cstate caddr)] 1%nat; eauto.
+    add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list.Forall_singleton, address_eq_refl.
     (* The hypothesis "slot_hit" no longer holds so we have to update it manually before calling update_all *)
     update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
       (rewrite_environment_equiv; cbn; easy).
@@ -1393,7 +1393,7 @@ Proof.
     (* Next add a new block containing enough create_tokens actions to reach funding goal *)
     add_block (create_token_acts (bstate<|env_account_balances := add_balance creator reward bstate.(env_account_balances)|>) caddr accounts
             ((tokenCreationMin cstate) - (total_supply cstate)) cstate.(tokenExchangeRate)) 1%nat;
-      only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | ].
+      only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | apply create_token_acts_origin_correct |].
     (* Prove that the funding period is still not over *)
     update ((current_slot bstate0) <= (fundingEnd cstate))%nat in funding_period_not_over by
       (rewrite_environment_equiv; cbn; lia).
@@ -1454,14 +1454,8 @@ Proof.
             clear dependent cstate.
             clear p reach0 accounts_not_contracts balance_positive.
             intros * eval.
-            destruct eval as
-            [?from_addr ?to_addr ?amount ?amount_nonnegative ?enough_balance
-              ?to_addr_not_contract ?act_eq ?env_eq ?new_acts_eq |
-              ?from_addr ?to_addr ?amount ?wc ?setup ?state ?amount_nonnegative
-              ?enough_balance ?to_addr_contract ?not_deployed ?act_eq ?init_some ?env_eq ?new_acts_eq |
-              ?from_addr ?to_addr ?amount ?wc ?msg ?prev_state ?new_state ?resp_acts
-              ?amount_nonnegative ?enough_balance ?deployed ?deployed_state ?act_eq ?receive_some ?new_acts_eq ?env_eq ];
-            try destruct msg; inversion act_eq; subst.
+            destruct_action_eval;
+              try destruct msg; inversion act_eq; subst.
             rewrite contract_deployed in deployed.
             inversion deployed. subst.
             clear deployed.
@@ -1606,7 +1600,7 @@ Proof.
         batfund_not_caddr
         ethfund_not_caddr.
 
-  add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto.
+  add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto. apply list.Forall_singleton, address_eq_refl.
   update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
     (rewrite_environment_equiv; cbn; lia).
   update bstate with bstate0 in enough_balance_to_fund by
@@ -1712,14 +1706,18 @@ Proof.
       (cstate' & deployed_cstate' & _ & _ & _ & _ & _ & ethfund_not_caddr).
 Qed.
 
-Lemma bat_no_self_calls' : forall bstate from_addr to_addr amount msg acts,
+Lemma bat_no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
   reachable bstate ->
   env_contracts bstate to_addr = Some (contract : WeakContract) ->
-  chain_state_queue bstate = {| act_from := from_addr; act_body :=
-    match msg with
-    | Some msg => act_call to_addr amount msg
-    | None => act_transfer to_addr amount
-    end |} :: acts ->
+  chain_state_queue bstate = {|
+    act_origin := origin;
+    act_from := from_addr;
+    act_body :=
+      match msg with
+      | Some msg => act_call to_addr amount msg
+      | None => act_transfer to_addr amount
+      end
+  |} :: acts ->
   from_addr <> to_addr.
 Proof.
   intros * reach deployed queue.
@@ -2014,7 +2012,8 @@ Lemma outgoing_acts_evaluable : forall bstate caddr,
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   Forall (fun act_body => receiver_can_receive_transfer bstate act_body) (outgoing_acts bstate caddr) ->
-  Forall (fun act_body => exists bstate_new, inhabited (ActionEvaluation bstate (build_act caddr act_body) bstate_new [])) (outgoing_acts bstate caddr).
+  Forall (fun act_body => forall origin, exists bstate_new,
+    inhabited (ActionEvaluation bstate (build_act origin caddr act_body) bstate_new [])) (outgoing_acts bstate caddr).
 Proof.
   intros * reach deployed can_receive_funds.
   assert (trace := reach).
@@ -2055,6 +2054,7 @@ Proof.
       -- apply Z.add_nonneg_nonneg; auto.
          apply N2Z.is_nonneg.
   }
+  intros origin.
   destruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some )].
   - eexists.
     constructor.

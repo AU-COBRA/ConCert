@@ -1,11 +1,11 @@
 (** * Data types for the crowdfunding contract *)
 
-Require Import String ZArith Basics.
+Require Import String.
 From ConCert.Embedding Require Import Ast Notations PCUICTranslate Prelude SimpleBlockchain Utils TranslationUtils.
-Require Import List PeanoNat ssrbool.
+Require Import List.
 
 Import ListNotations.
-From MetaCoq.Template Require Import All Loader.
+From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
 Import BaseTypes.

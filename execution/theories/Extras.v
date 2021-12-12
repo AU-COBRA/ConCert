@@ -5,7 +5,6 @@ From Coq Require Import List.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-From Coq Require Import Eqdep_dec.
 Require Import Automation.
 Import ListNotations.
 
@@ -119,12 +118,13 @@ Proof.
   induction l; auto; cbn in *; lia.
 Qed.
 
+Local Hint Resolve in_or_app : core.
+
 Lemma incl_split {A : Type} (l m n : list A) :
   incl (l ++ m) n -> incl l n /\ incl m n.
 Proof.
   intros H.
   unfold incl in *.
-  Hint Resolve in_or_app : core.
   auto.
 Qed.
 

@@ -1,12 +1,8 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-
-From Coq Require Import Ascii.
-From Coq Require Import Bool.
 From Coq Require Import List.
 From Coq Require Import Notations.
-From Coq Require Import PeanoNat.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 

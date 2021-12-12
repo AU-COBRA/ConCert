@@ -3,11 +3,9 @@
   The implementation is essentially a port of https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
 *)
 From Coq Require Import ZArith.
-From Coq Require Import Morphisms.
 From Coq Require Import List.
-
-From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.

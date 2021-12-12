@@ -1,15 +1,12 @@
 (** * Integration with the execution framework, properties of [crowdfunding] *)
 Require Import String Basics ZArith.
 From ConCert.Embedding Require Import Misc Notations PCUICtoTemplate
-     PCUICTranslate CustomTactics SimpleBlockchain Prelude.
+     PCUICTranslate CustomTactics SimpleBlockchain.
 
 From ConCert.Embedding.Examples Require Import Crowdfunding CrowdfundingData.
 
 Require Import List.
-Require Import PeanoNat.
 Require Import Coq.ssr.ssrbool.
-Require Import Morphisms.
-Require Import Permutation.
 Require Import Program.Tactics.
 
 From ConCert.Execution Require Import Blockchain Automation Extras ResultMonad.
@@ -42,12 +39,12 @@ Definition to_action_body (sab : SimpleActionBody_coq) : ActionBody :=
   end.
 
 Definition to_contract_call_context (scc : SimpleContractCallContext_coq) : ContractCallContext :=
-  let '(Build_ctx_coq from contr_addr contr_bal am) := scc in
-  build_ctx from contr_addr contr_bal am.
+  let '(Build_ctx_coq origin from contr_addr contr_bal am) := scc in
+  build_ctx origin from contr_addr contr_bal am.
 
 Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext_coq :=
-  let '(build_ctx from contr_addr contr_bal am) := cc in
-  Build_ctx_coq from contr_addr contr_bal am.
+  let '(build_ctx origin from contr_addr contr_bal am) := cc in
+  Build_ctx_coq origin from contr_addr contr_bal am.
 
 Import Serializable Prelude.Maps.
 
@@ -385,6 +382,7 @@ Proof.
 Qed.
 
 Local Open Scope Z.
+Hint Resolve cf_balance_consistent crowfunding_donations_non_negative : core.
 (** ** The actual contract balance is consistent with the local state *)
 Theorem cf_backed bstate cf_addr lstate:
   let acts := chain_state_queue bstate in
@@ -467,7 +465,6 @@ Proof.
     destruct step; auto.
     destruct a; auto.
     intros.
-    Hint Resolve cf_balance_consistent crowfunding_donations_non_negative : core.
     split; eauto.
 Qed.
 
