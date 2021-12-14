@@ -56,19 +56,19 @@ Record mintOrBurn_param :=
 Record getAllowance_param :=
   build_getAllowance_param{
     request : (Address * Address);
-    allowance_callbak : callback N
+    allowance_callback : callback N
 }.
 
 Record getBalance_param :=
   build_getBalance_param{
     owner_ : Address;
-    balance_callbak : callback N
+    balance_callback : callback N
 }.
 
 Record getTotalSupply_param :=
   build_getTotalSupply_param{
     request_ : unit;
-    supply_callbak : callback N
+    supply_callback : callback N
 }.
 
 Record State :=
