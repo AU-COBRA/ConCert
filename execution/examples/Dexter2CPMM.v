@@ -323,7 +323,7 @@ Definition set_lqt_address (chain : Chain) (ctx : ContractCallContext)
 
 Definition update_token_pool (chain : Chain) (ctx : ContractCallContext)
                              (state : State) : result :=
-  do _ <- returnIf (address_is_contract ctx.(ctx_from)) ; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
+  do _ <- returnIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) ; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
   do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
   do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
   let balance_of_request :=
@@ -909,12 +909,12 @@ Qed.
 Lemma update_token_pool_is_some : forall prev_state chain ctx,
   (ctx_amount ctx <= 0)%Z /\
   prev_state.(selfIsUpdatingTokenPool) = false /\
-  address_is_contract ctx.(ctx_from) = false
+  ctx.(ctx_from) = ctx.(ctx_origin)
   <->
   exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts).
 Proof.
   split.
-  - intros (amount_zero & not_updating & sender_not_contract).
+  - intros (amount_zero & not_updating & sender_eq_origin).
     do 2 eexists.
     receive_simpl.
     destruct_match eqn:sender_check.
@@ -924,11 +924,14 @@ Proof.
     + now rewrite not_updating in updating_check.
     + receive_simpl.
       now apply Z.ltb_ge in amount_zero.
-    + now rewrite sender_not_contract in sender_check.
+    + now rewrite sender_eq_origin, address_eq_refl in sender_check.
   - intros (new_state & new_acts & receive_some).
     receive_simpl.
     rename H0 into ctx_amount_zero.
-    now apply Z.ltb_ge in ctx_amount_zero.
+    rename H into sender_eq_origin.
+    apply Z.ltb_ge in ctx_amount_zero.
+    apply Bool.negb_false_iff in sender_eq_origin.
+    now destruct_address_eq.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
@@ -1037,31 +1040,6 @@ Proof.
   apply add_liquidity_state_eq in receive_some.
   now subst.
 Qed.
-
-(* add_liquidity should produce two acts
-    1: an call action to the token contract requesting <tokens_deposited> tokens to be moved from <owner> to this contract
-    2: an call action to the lqt contract requsting <lqt_minted> tokens to be minted to <owner>
- *)
-Lemma add_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
-  let lqt_minted := Z.to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
-  let tokens_deposited := ceildiv_ (Z.to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
-  receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
-    new_acts =
-    [
-      (act_call prev_state.(tokenAddress) 0%Z
-        (serialize (FA2Token.msg_transfer
-        [build_transfer param.(owner) ctx.(ctx_contract_address) prev_state.(tokenId) tokens_deposited None])));
-      (act_call prev_state.(lqtAddress) 0%Z
-        (serialize (Dexter2FA12.msg_mint_or_burn {| target := param.(owner); quantity := Z.of_N lqt_minted|})))
-    ].
-Proof.
-  intros * receive_some.
-  receive_simpl.
-  math_convert.
-  unfold token_transfer.
-  repeat f_equal.
-  give_up.
-Abort.
 
 (* In the informal specification it is stated that tokens should be trasnfered from owner,
     but in the implementation it is trasnfered from the sender.
