@@ -28,6 +28,11 @@ Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
 
+(* Null address that will newer contain contracts *)
+Parameter null_address : Address.
+Axiom null_address_not_contract : address_is_contract null_address = false.
+
+
 (* ---------------------------------------------------------------------- *)
 (* Type Synonyms                                                          *)
 (* ---------------------------------------------------------------------- *)
@@ -145,8 +150,7 @@ Record State :=
     manager : Address;
     tokenAddress : Address;
     tokenId : token_id;
-    lqtAddress : Address;
-    nullAddress : Address
+    lqtAddress : Address
   }.
 
 Record Setup :=
@@ -154,8 +158,7 @@ Record Setup :=
     lqtTotal_ : N;
     manager_ : Address;
     tokenAddress_ : Address;
-    tokenId_ : token_id;
-    nullAddress_ : Address
+    tokenId_ : token_id
   }.
 
 MetaCoq Run (make_setters State).
@@ -201,7 +204,7 @@ Opaque sub.
 Definition set_delegate_call (addr : option Address) : list ActionBody := [].
 
 Definition mint_or_burn (state : State) (target : Address) (quantitiy : Z) : option ActionBody :=
-    do _ <- returnIf (address_eqb state.(lqtAddress) state.(nullAddress)) ; (* error lqtAddress not set *)
+    do _ <- returnIf (address_eqb state.(lqtAddress) null_address) ; (* error lqtAddress not set *)
     Some (act_call state.(lqtAddress) 0%Z
         (serialize (Dexter2FA12.msg_mint_or_burn
         (Dexter2FA12.build_mintOrBurn_param quantitiy target)))).
@@ -318,7 +321,7 @@ Definition set_lqt_address (chain : Chain) (ctx : ContractCallContext)
   do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
   do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
   do _ <- returnIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
-  do _ <- returnIf (negb (address_eqb state.(lqtAddress) state.(nullAddress))) ; (* error_LQT_ADDRESS_ALREADY_SET *)
+  do _ <- returnIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
     Some (state<| lqtAddress := new_lqt_address |>, []).
 
 Definition update_token_pool (chain : Chain) (ctx : ContractCallContext)
@@ -416,8 +419,7 @@ Definition init (chain : Chain)
     manager := setup.(manager_);
     tokenAddress := setup.(tokenAddress_);
     tokenId := setup.(tokenId_);
-    lqtAddress := setup.(nullAddress_);
-    nullAddress := setup.(nullAddress_)
+    lqtAddress := null_address
   |}.
 
 Definition contract : Contract Setup Msg State :=
@@ -791,7 +793,7 @@ Lemma set_lqt_address_is_some : forall prev_state chain ctx new_lqt_address,
   (ctx_amount ctx <= 0)%Z /\
   prev_state.(selfIsUpdatingTokenPool) = false /\
   ctx.(ctx_from) = prev_state.(manager) /\
-  prev_state.(lqtAddress) = prev_state.(nullAddress)
+  prev_state.(lqtAddress) = null_address
   <->
   exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
 Proof.
@@ -1073,7 +1075,7 @@ Lemma add_liquidity_is_some : forall prev_state chain ctx param,
   tokens_deposited <= param.(maxTokensDeposited)  /\
   param.(minLqtMinted) <= lqt_minted /\
   prev_state.(xtzPool) <> 0 /\
-  prev_state.(lqtAddress) <> prev_state.(nullAddress)
+  prev_state.(lqtAddress) <> null_address
   <->
   exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts).
 Proof.
@@ -1184,7 +1186,7 @@ Lemma remove_liquidity_is_some : forall prev_state chain ctx param,
   xtz_withdrawn <= prev_state.(xtzPool) /\
   param.(lqtBurned) <= prev_state.(lqtTotal) /\
   address_is_contract param.(liquidity_to) = false /\
-  prev_state.(lqtAddress) <> prev_state.(nullAddress)
+  prev_state.(lqtAddress) <> null_address
   <->
   exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts).
 Proof.
@@ -1532,8 +1534,7 @@ Lemma init_state_eq : forall chain ctx setup state,
       freezeBaker := false;
       manager := setup.(manager_);
       tokenAddress := setup.(tokenAddress_);
-      lqtAddress := setup.(nullAddress_);
-      nullAddress := setup.(nullAddress_);
+      lqtAddress := null_address;
       tokenId := setup.(tokenId_)
     |}.
 Proof.
@@ -1550,8 +1551,7 @@ Lemma init_correct : forall chain ctx setup state,
     freezeBaker state = false /\
     manager state = setup.(manager_) /\
     tokenAddress state = setup.(tokenAddress_) /\
-    lqtAddress state = setup.(nullAddress_) /\
-    nullAddress state = setup.(nullAddress_) /\
+    lqtAddress state = null_address /\
     tokenId state = setup.(tokenId_).
 Proof.
   intros * init_some.
