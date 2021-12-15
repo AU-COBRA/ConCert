@@ -159,7 +159,14 @@ Global Instance setup_serializable : Serializable Setup :=
 
 End Serialization.
 
+Definition maybe (n : N) : option N := if n =? 0 then None else Some n.
 Definition returnIf (cond : bool) := if cond then None else Some tt.
+Definition mapUpdate {K A : Type} `{countable.Countable K}
+                     (key : K) (value : option A) (map : FMap K A) : FMap K A :=
+  match value with
+  | Some n => FMap.add key n map
+  | None => FMap.remove key map
+  end.
 
 (* Transfers <amount> tokens, if <from> has enough tokens to transfer
     and <sender> is allowed to send that much on behalf of <from> *)
@@ -173,16 +180,16 @@ Definition try_transfer (sender : Address) (param : transfer_param) (state : Sta
       let allowance_key := (param.(from), sender) in
       let authorized_value := with_default 0 (FMap.find allowance_key allowances_) in
         do _ <- returnIf (authorized_value <? param.(value)) ; (* NotEnoughAllowance *)
-        Some (FMap.add allowance_key (authorized_value - param.(value)) allowances_)
+        Some (mapUpdate allowance_key (maybe (authorized_value - param.(value))) allowances_)
     ) ;
   do tokens_ <- (* Update from balance *)
     (let from_balance := with_default 0 (FMap.find param.(from) tokens_) in
       do _ <- returnIf (from_balance <? param.(value)) ; (* NotEnoughBalance *)
-      Some (FMap.add param.(from) (from_balance - param.(value)) tokens_)
+      Some (mapUpdate param.(from) (maybe (from_balance - param.(value))) tokens_)
     ) ;
   let tokens_ :=
     let to_balance := with_default 0 (FMap.find param.(to) tokens_) in
-      FMap.add param.(to) (to_balance + param.(value)) tokens_ in
+      mapUpdate param.(to) (maybe (to_balance + param.(value))) tokens_ in
     Some (state<|tokens := tokens_|>
                <|allowances := allowances_|>).
 
@@ -192,7 +199,7 @@ Definition try_approve (sender : Address) (param : approve_param) (state : State
   let allowance_key := (sender, param.(spender)) in
   let previous_value := with_default 0 (FMap.find allowance_key allowances_) in
   do _ <- returnIf (andb (0 <? previous_value) (0 <? param.(value_))) ; (* UnsafeAllowanceChange *)
-  let allowances_ := FMap.add allowance_key param.(value_) allowances_ in
+  let allowances_ := mapUpdate allowance_key (maybe param.(value_)) allowances_ in
     Some (state<|allowances := allowances_|>).
 
 (* If <quantitiy> is positive
@@ -205,7 +212,7 @@ Definition try_mint_or_burn (sender : Address) (param : mintOrBurn_param) (state
   let old_balance := with_default 0 (FMap.find param.(target) tokens_) in
   let new_balance := (Z.of_N old_balance + param.(quantity))%Z in
   do _ <- returnIf (new_balance <? 0)%Z ; (* Cannot burn more than the target's balance. *)
-  let tokens_ := FMap.add param.(target) (Z.to_N new_balance) tokens_ in
+  let tokens_ := mapUpdate param.(target) (maybe (Z.to_N new_balance)) tokens_ in
   let total_supply_ := Z.abs_N (Z.of_N state.(total_supply) + param.(quantity))%Z in
     Some (state<|tokens := tokens_|>
                <|total_supply := total_supply_|>).
@@ -393,6 +400,64 @@ Definition transfer_balance_update_correct old_state new_state from to amount :=
     (from_balance_before =? from_balance_after + amount) &&
     (to_balance_before + amount =? to_balance_after).
 
+
+
+
+Lemma map_update_idemp : forall {K A : Type} `{countable.Countable K}
+                     (key : K) (n m : option A) (map : FMap K A),
+  (mapUpdate key n (mapUpdate key m map)) = (mapUpdate key n map).
+Proof.
+  intros.
+  destruct n;
+  destruct m; cbn.
+  - now rewrite FMap.add_add.
+  - now rewrite FMap.add_remove.
+  - apply fin_maps.delete_insert_delete.
+  - apply fin_maps.delete_idemp.
+Qed.
+
+Lemma find_update_ne : forall {K A: Type} `{countable.Countable K}
+                     (key1 key2 : K) (n: option A) (map : FMap K A),
+  key1 <> key2 ->
+  FMap.find key1 (mapUpdate key2 n map) =
+  FMap.find key1 map.
+Proof.
+  intros.
+  destruct n; cbn.
+  - now rewrite FMap.find_add_ne.
+  - now rewrite FMap.find_remove_ne.
+Qed.
+
+Lemma find_update_eq : forall {K A: Type} `{countable.Countable K}
+                     (key1 : K) (n : option A) (map : FMap K A),
+  FMap.find key1 (mapUpdate key1 n map) = n.
+Proof.
+  intros.
+  destruct n; cbn.
+  - now rewrite !FMap.find_add.
+  - now rewrite !FMap.find_remove.
+Qed.
+
+Lemma maybe_cases : forall n,
+  (maybe n = None /\ n = 0) \/ maybe n = Some n.
+Proof.
+  now destruct n.
+Qed.
+
+Lemma maybe_sub_add : forall n value,
+  value <= n ->
+  (maybe (with_default 0 (maybe (n - value)) + value) = None /\ n = 0) \/
+  maybe (with_default 0 (maybe (n - value)) + value) = Some n.
+Proof.
+  intros.
+  specialize (maybe_cases (n - value0)) as [[-> n_eq_value] | ->]; cbn.
+  - rewrite N.sub_0_le in n_eq_value.
+    erewrite (N.le_antisymm _ n) by eassumption.
+    apply maybe_cases.
+  - rewrite N.sub_add by auto.
+    apply maybe_cases.
+Qed.
+
 (* try_transfer correctly moves <amount> from <from> to <to> *)
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
@@ -407,18 +472,33 @@ Proof.
   destruct_match eqn:from_to_eqb.
   - (* from = to *)
     destruct (address_eqb_spec param.(from) param.(to)) as [<-|]; auto.
-    rewrite !FMap.find_add.
-    cbn.
-    rewrite !N.sub_add; auto.
-    now setoid_rewrite N.eqb_refl.
+    rewrite !map_update_idemp.
+    rewrite !find_update_eq.
+    destruct (FMap.find (from param) (tokens prev_state)) eqn:from_prev; cbn.
+    + cbn in enough_balance.
+      now apply maybe_sub_add in enough_balance as [[-> ->] | ->]; rewrite N.eqb_refl.
+    + rewrite N.add_0_l.
+      apply N.le_0_r in enough_balance.
+      now rewrite enough_balance.
   - (* from <> to *)
     destruct (address_eqb_spec param.(from) param.(to)) as [| from_to_eq]; auto.
-    rewrite FMap.find_add_ne; auto.
-    rewrite ?FMap.find_add.
-    rewrite FMap.find_add_ne; auto.
-    cbn.
-    rewrite !N.sub_add; auto.
-    now setoid_rewrite N.eqb_refl.
+    rewrite !find_update_ne by auto.
+    rewrite !find_update_eq by auto.
+    rewrite !find_update_ne by auto.
+    destruct (FMap.find (from param) (tokens prev_state)) eqn:from_prev; cbn;
+      [| apply N.le_0_r in enough_balance; rewrite enough_balance];
+    destruct (FMap.find (to param) (tokens prev_state)) eqn:to_prev; cbn;
+    rewrite ?N.add_0_l, ?N.add_0_r, ?N.sub_add, ?N.eqb_refl by auto;
+    rewrite andb_true_iff, ?N.eqb_eq;
+    cbn in enough_balance.
+    * specialize (maybe_cases (n - value param)) as [[-> ?H] | ->];
+      specialize (maybe_cases (n0 + value param)) as [[-> ?H] | ->];
+      cbn; lia.
+    * specialize (maybe_cases (n - value param)) as [[-> ?H] | ->];
+      specialize (maybe_cases (value param)) as [[-> ?H] | ->];
+      cbn; lia.
+    * now specialize (maybe_cases n) as [[-> ?H] | ->].
+    * auto.
 Qed.
 
 Definition transfer_allowances_update_correct old_state new_state sender from amount :=
@@ -451,10 +531,17 @@ Proof.
     receive_simpl.
     rename H0 into enough_allowance.
     rewrite N.ltb_ge in enough_allowance.
-    rewrite FMap.find_add.
-    cbn.
-    rewrite N.sub_add; auto.
-    now rewrite N.eqb_refl.
+    rewrite find_update_eq.
+    destruct (FMap.find (from param, ctx_from ctx) (allowances prev_state)) eqn:from_prev; cbn.
+    + unfold maybe.
+      destruct (n - value param =? 0) eqn:n_eq_value; cbn.
+      * apply Neqb_ok in n_eq_value.
+        rewrite N.sub_0_le in n_eq_value.
+        erewrite (N.le_antisymm n _) by eassumption.
+        now rewrite !N.eqb_refl.
+      * now rewrite N.sub_add, N.eqb_refl.
+    + apply N.le_0_r in enough_allowance.
+      now rewrite enough_allowance.
 Qed.
 
 (* try_transfer does not produce any new actions *)
@@ -484,7 +571,7 @@ Proof.
   intros * receive_some account account_not_from account_not_to.
   receive_simpl.
   cbn.
-  rewrite !FMap.find_add_ne; auto.
+  now rewrite !find_update_ne.
 Qed.
 
 (* try_transfer only modifies the <sender> and <from> allowances *)
@@ -502,8 +589,8 @@ Proof.
     now inversion_clear allowance_eq.
   - (* from <> sender *)
     destruct_match in allowance_eq;
-      inversion_clear allowance_eq;
-      rewrite !FMap.find_add_ne; auto.
+      inversion_clear allowance_eq.
+    now rewrite !find_update_ne.
 Qed.
 
 (* If the requirements are met then then receive on transfer msg must succeed and
@@ -572,13 +659,13 @@ Qed.
 (* try_approve correctly sets allowance of (<sender>, <spender>) to <value_> *)
 Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
-    FMap.find (ctx.(ctx_from), param.(spender)) (allowances new_state) = Some param.(value_).
+    FMap.find (ctx.(ctx_from), param.(spender)) (allowances new_state) = maybe param.(value_).
 Proof.
   intros * receive_some.
   receive_simpl.
   clear H ctx_amount_zero.
   cbn.
-  now rewrite FMap.find_add.
+  now rewrite !find_update_eq.
 Qed.
 
 (* try_approve does not produce any new actions *)
@@ -600,7 +687,7 @@ Proof.
   receive_simpl.
   clear H ctx_amount_zero.
   cbn.
-  now rewrite FMap.find_add_ne.
+  now rewrite find_update_ne.
 Qed.
 
 (* try_approve does not change total supply of tokens *)
@@ -662,9 +749,13 @@ Proof.
   clear ctx_amount_zero H.
   rewrite Z.ltb_ge in enough_tokens.
   cbn.
-  rewrite FMap.find_add.
-  cbn.
-  now rewrite Z2N.id.
+  rewrite find_update_eq.
+  unfold maybe.
+  destruct (Z.to_N (Z.of_N (with_default 0 (FMap.find (target param) (tokens prev_state))) + quantity param) =? 0) eqn:eq_zero; cbn.
+  - apply Neqb_ok in eq_zero.
+    lia.
+  - rewrite <- Z2N.id by lia.
+    lia.
 Qed.
 
 (* try_mint_or_burn correctly updates total_supply *)
@@ -704,7 +795,7 @@ Proof.
   intros * receive_some account account_not_target.
   receive_simpl.
   cbn.
-  rewrite FMap.find_add_ne; auto.
+  now rewrite find_update_ne.
 Qed.
 
 (* try_mint_or_burn does not change allowances *)
@@ -1147,6 +1238,7 @@ Proof.
       clear ctx_amount_zero g g0 H ctx chain new_cstate.
       destruct (address_eqb_spec param.(from) param.(to)) as
         [<-| from_to_ne];
+        [rewrite find_update_eq | rewrite find_update_ne by auto];
         destruct (FMap.find (from param) (tokens cstate)) eqn:from_balance;
         destruct (FMap.find (to param) (tokens cstate)) eqn:to_balance;
         destruct param;cbn in *;
@@ -1157,6 +1249,8 @@ Proof.
             | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
             | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
             | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+            | H : ?x <> ?y |- context [ FMap.find ?x (FMap.remove ?y _) ] => rewrite FMap.find_remove_ne; eauto
+            | H : ?y <> ?x |- context [ FMap.find ?x (FMap.remove ?y _) ] => rewrite FMap.find_remove_ne; eauto
             | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add_existing; eauto
             | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
             | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
@@ -1168,6 +1262,23 @@ Proof.
             | |- context [ sumN _ ((?x, ?m - ?n) :: (_, ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n + m - n))
             | |- context [ with_default _ None ] => unfold with_default
             | |- context [ with_default _ (Some _) ] => unfold with_default
+            | |- context [ mapUpdate _ None _ ] => unfold mapUpdate
+            | |- context [ mapUpdate _ (Some _) _ ] => unfold mapUpdate
+            | |- context [ 0 + _ ] => rewrite N.add_0_l
+            | |- context [ _ + 0 ] => rewrite N.add_0_r
+            | |- context [ 0 - _ ] => rewrite N.sub_0_l
+            | |- context [ _ - 0 ] => rewrite N.sub_0_r
+            | H : ?x <= ?y, G : ?y - ?x = 0 |- _ => rewrite N.sub_0_le in G; apply N.le_antisymm in G
+            | H : ?x + ?y = 0 |- _ => apply N.eq_add_0 in H as []
+            | H : ?x = 0 |- _ => subst x
+            | |- context [ mapUpdate ?k _ (mapUpdate ?k _ _) ] => rewrite map_update_idemp
+            | H : ?y <= ?x |- context [ maybe (with_default 0 (maybe (?x - ?y)) + ?y) ] => apply maybe_sub_add in H as [[-> ->] | ->]
+            | H : FMap.find ?x ?m = Some 0 |- context [ FMap.elements (FMap.remove ?x _) ] =>
+                rewrite <- N.add_0_r; change 0 with ((fun '(_, v) => v) (x, 0)); rewrite sumN_inv; rewrite fin_maps.map_to_list_delete
+            | H : FMap.find ?k ?m = None |- context [ FMap.remove ?k _ ] => rewrite fin_maps.delete_notin
+            | |- context [ maybe _ ] => specialize maybe_cases as [[-> ?H] | ->]
+            | H : ?y <> ?x |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?y _)) ] =>
+                cbn; rewrite N.add_comm; change n with ((fun '(_, v) => v) (y, n)); rewrite sumN_inv
            end); try easy.
     + erewrite <- try_approve_preserves_total_supply; eauto.
       unfold sum_balances.
@@ -1184,20 +1295,34 @@ Proof.
         specialize (balance_le_sum_balances param.(target) cstate) as n_le_supply.
         rewrite target_balance in n_le_supply.
         cbn in n_le_supply.
-        rewrite FMap.elements_add_existing by eauto.
-        cbn.
-        rewrite N.add_comm.
-        apply N_add_sub_move; try lia.
-        rewrite <- Zabs2N.abs_N_nonneg by assumption.
-        rewrite <- Zabs2N.inj_sub by (split; [assumption | lia]).
-        rewrite Z.add_add_simpl_r_r, Zabs2N.inj_sub, !Zabs2N.id by lia.
-        apply N.add_sub_eq_r.
-        change n with ((fun '(_, v) => v) (target param, n)).
-        now rewrite sumN_inv, fin_maps.map_to_list_delete by assumption.
-      * rewrite FMap.elements_add by auto. cbn.
+        specialize maybe_cases as [[-> quantity_eq] | ->]; cbn.
+       -- cbn in *.
+          rewrite <- N2Z.id in quantity_eq.
+          apply Z2N.inj in quantity_eq; auto.
+          rewrite Z.add_move_0_l in quantity_eq.
+          rewrite quantity_eq, Zabs2N.abs_N_nonneg, Z.add_opp_r, Z2N.inj_sub.
+          apply N.add_sub_eq_l.
+          rewrite !N2Z.id, N.add_comm.
+          change n with ((fun '(_, v) => v) (target param, n)).
+          now rewrite sumN_inv, fin_maps.map_to_list_delete by assumption.
+          all: lia.
+       -- rewrite FMap.elements_add_existing by eauto.
+          cbn.
+          rewrite N.add_comm.
+          apply N_add_sub_move; try lia.
+          rewrite <- Zabs2N.abs_N_nonneg by assumption.
+          rewrite <- Zabs2N.inj_sub by (split; [assumption | lia]).
+          rewrite Z.add_add_simpl_r_r, Zabs2N.inj_sub, !Zabs2N.id by lia.
+          apply N.add_sub_eq_r.
+          change n with ((fun '(_, v) => v) (target param, n)).
+          now rewrite sumN_inv, fin_maps.map_to_list_delete by assumption.
+      * specialize maybe_cases as [[-> quantity_eq] | ->]; cbn;
         unfold sum_balances in IH.
-        rewrite <- IH.
-        now rewrite <- Zabs2N.id, N2Z.inj_add, Z2N.id.
+       -- rewrite fin_maps.delete_notin by auto.
+          cbn in *.
+          lia.
+       -- rewrite FMap.elements_add by auto. cbn in *.
+          lia.
     + try_solve_preserves_state.
     + try_solve_preserves_state.
     + try_solve_preserves_state.
