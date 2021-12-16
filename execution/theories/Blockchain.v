@@ -902,7 +902,7 @@ Ltac destruct_chain_step :=
   match goal with
   | [step: ChainStep _ _ |- _] =>
     destruct step as
-        [header queue_prev valid_header acts_from_accs env_eq|
+        [header queue_prev valid_header acts_from_accs origin_correct env_eq|
          act acts new_acts queue_prev eval queue_new|
          act acts env_eq queue_prev queue_new act_from_acc no_eval|
          prev_next perm]
@@ -1975,7 +1975,7 @@ Ltac destruct_chain_step :=
   match goal with
   | [step: ChainStep _ _ |- _] =>
     destruct step as
-        [?header ?queue_prev ?valid_header ?acts_from_accs ?env_eq|
+        [?header ?queue_prev ?valid_header ?acts_from_accs ?origin_correct ?env_eq|
          ?act ?acts ?new_acts ?queue_prev ?eval ?queue_new|
          ?act ?acts ?env_eq ?queue_prev ?queue_new ?act_from_acc ?no_eval|
          ?prev_next ?perm]
