@@ -1,5 +1,6 @@
 (** * Definitions shared among the examples *)
 
+From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
@@ -63,3 +64,22 @@ Proof.
     now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
 Qed.
 Close Scope N_scope.
+
+
+Definition throwIf (cond : bool) := if cond then None else Some tt.
+
+Ltac destruct_throw_if H :=
+  match type of H with
+  | throwIf _ = None =>
+    let G := fresh "G" in
+      unfold throwIf in H;
+      destruct_match eqn:G in H; try congruence;
+      clear H;
+      rename G into H
+  | throwIf _ = Some ?u =>
+    let G := fresh "G" in
+      unfold throwIf in H;
+      destruct_match eqn:G in H; try congruence;
+      clear H u;
+      rename G into H
+  end.
