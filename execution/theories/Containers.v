@@ -34,6 +34,13 @@ Module FMap.
   Definition values {K V : Type} `{countable.Countable K} (m : FMap K V) : list V :=
     map snd (elements m).
 
+  Definition update {K V : Type} `{countable.Countable K}
+                     (key : K) (value : option V) (map : FMap K V) : FMap K V :=
+    match value with
+    | Some n => FMap.add key n map
+    | None => FMap.remove key map
+    end.
+
   Section Theories.
     Context {K V : Type} `{countable.Countable K}.
 
@@ -237,6 +244,38 @@ Module FMap.
     Proof.
       apply base.NoDup_ListNoDup.
       apply fin_maps.NoDup_fst_map_to_list.
+    Qed.
+
+    Lemma map_update_idemp : forall (key : K) (n m : option V) (map : FMap K V),
+      update key n (update key m map) = update key n map.
+    Proof.
+      intros.
+      destruct n;
+      destruct m; cbn.
+      - apply add_add.
+      - apply add_remove.
+      - apply fin_maps.delete_insert_delete.
+      - apply fin_maps.delete_idemp.
+    Qed.
+
+    Lemma find_update_ne : forall (key1 key2 : K) (n: option V) (map : FMap K V),
+      key1 <> key2 ->
+      FMap.find key1 (update key2 n map) =
+      FMap.find key1 map.
+    Proof.
+      intros.
+      destruct n; cbn.
+      - rewrite find_add_ne; auto.
+      - rewrite find_remove_ne; auto.
+    Qed.
+
+    Lemma find_update_eq : forall (key1 : K) (n : option V) (map : FMap K V),
+      FMap.find key1 (update key1 n map) = n.
+    Proof.
+      intros.
+      destruct n; cbn.
+      - now rewrite !find_add.
+      - now rewrite !find_remove.
     Qed.
   End Theories.
 End FMap.
