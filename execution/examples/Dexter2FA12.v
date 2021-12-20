@@ -10,19 +10,17 @@ Dexter2 CPMM contract. The purpose of this contract is to keep track
 of ownership of the exchanges funds. An user who owns x% of the supply
 of liquidity tokens owns x% of the exchanges trading reserve.
 *)
-
-From ConCert.Execution Require Import Monads.
-From ConCert.Execution Require Import Extras.
-From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Common.
-From ConCert.Execution Require Import Automation.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import ZArith Bool List.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Common.
+From Coq Require Import ZArith Bool List Lia.
 Import ListNotations.
 
-Import Lia.
 
 Section LQTFA12.
 Context {BaseTypes : ChainBase}.
@@ -160,8 +158,6 @@ Global Instance setup_serializable : Serializable Setup :=
 
 End Serialization.
 
-Definition returnIf (cond : bool) := if cond then None else Some tt.
-
 
 (* Transfers <amount> tokens, if <from> has enough tokens to transfer
     and <sender> is allowed to send that much on behalf of <from> *)
@@ -174,12 +170,12 @@ Definition try_transfer (sender : Address) (param : transfer_param) (state : Sta
     else
       let allowance_key := (param.(from), sender) in
       let authorized_value := with_default 0 (FMap.find allowance_key allowances_) in
-        do _ <- returnIf (authorized_value <? param.(value)) ; (* NotEnoughAllowance *)
+        do _ <- throwIf (authorized_value <? param.(value)) ; (* NotEnoughAllowance *)
         Some (FMap.update allowance_key (maybe (authorized_value - param.(value))) allowances_)
     ) ;
   do tokens_ <- (* Update from balance *)
     (let from_balance := with_default 0 (FMap.find param.(from) tokens_) in
-      do _ <- returnIf (from_balance <? param.(value)) ; (* NotEnoughBalance *)
+      do _ <- throwIf (from_balance <? param.(value)) ; (* NotEnoughBalance *)
       Some (FMap.update param.(from) (maybe (from_balance - param.(value))) tokens_)
     ) ;
   let tokens_ :=
@@ -193,7 +189,7 @@ Definition try_approve (sender : Address) (param : approve_param) (state : State
   let allowances_ := state.(allowances) in
   let allowance_key := (sender, param.(spender)) in
   let previous_value := with_default 0 (FMap.find allowance_key allowances_) in
-  do _ <- returnIf (andb (0 <? previous_value) (0 <? param.(value_))) ; (* UnsafeAllowanceChange *)
+  do _ <- throwIf (andb (0 <? previous_value) (0 <? param.(value_))) ; (* UnsafeAllowanceChange *)
   let allowances_ := FMap.update allowance_key (maybe param.(value_)) allowances_ in
     Some (state<|allowances := allowances_|>).
 
@@ -202,11 +198,11 @@ Definition try_approve (sender : Address) (param : approve_param) (state : State
    else removes <quantity> tokens from <target>.
    Can only be called by <admin> *)
 Definition try_mint_or_burn (sender : Address) (param : mintOrBurn_param) (state : State) : option State :=
-  do _ <- returnIf (negb (address_eqb sender state.(admin))) ;
+  do _ <- throwIf (negb (address_eqb sender state.(admin))) ;
   let tokens_ := state.(tokens) in
   let old_balance := with_default 0 (FMap.find param.(target) tokens_) in
   let new_balance := (Z.of_N old_balance + param.(quantity))%Z in
-  do _ <- returnIf (new_balance <? 0)%Z ; (* Cannot burn more than the target's balance. *)
+  do _ <- throwIf (new_balance <? 0)%Z ; (* Cannot burn more than the target's balance. *)
   let tokens_ := FMap.update param.(target) (maybe (Z.to_N new_balance)) tokens_ in
   let total_supply_ := Z.abs_N (Z.of_N state.(total_supply) + param.(quantity))%Z in
     Some (state<|tokens := tokens_|>
@@ -307,18 +303,8 @@ Ltac receive_simpl_step :=
       inversion H
   | H : None = Some _ |- _ =>
       inversion H
-  | H : returnIf _ = None |- _ =>
-    let G := fresh "G" in
-      unfold returnIf in H;
-      destruct_match eqn:G in H; try congruence;
-      clear H;
-      rename G into H
-  | H : returnIf _ = Some ?u |- _ =>
-    let G := fresh "G" in
-      unfold returnIf in H;
-      destruct_match eqn:G in H; try congruence;
-      clear H u;
-      rename G into H
+  | H : throwIf _ = None |- _ => destruct_throw_if H
+  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
   | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
     let a := fresh "H" in
     destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence

@@ -11,15 +11,18 @@ exchanges trading reserves. Traders pay a 0.3% fee, the fee goes to the owners
 of the trading reserves, this way user are incentivised to add funds to the reserves.
 *)
 
-From ConCert.Execution Require Import Monads.
-From ConCert.Execution Require Import Automation.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution.Examples Require Import FA2Token FA2Interface Dexter2FA12.
-From Coq Require Import ZArith List.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Execution.Examples Require Import FA2Interface.
+From ConCert.Execution.Examples Require Import Dexter2FA12.
+From Coq Require Import ZArith.
+From Coq Require Import List.
 Import ListNotations.
-
 
 
 Section Dexter.
@@ -183,9 +186,8 @@ End Serialization.
 Definition result : Type := option (State * list ActionBody).
 Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
 Definition isSome {A : Type} (a : option A) := negb (isNone a).
-Definition returnIf (cond : bool) := if cond then None else Some tt.
-Definition sub (n m : N) : option N := do _ <- returnIf (n <? m) ; Some (n - m).
-Definition div (n m : N) : option N := do _ <- returnIf (m =? 0) ; Some (n / m).
+Definition sub (n m : N) : option N := do _ <- throwIf (n <? m) ; Some (n - m).
+Definition div (n m : N) : option N := do _ <- throwIf (m =? 0) ; Some (n / m).
 Definition ceildiv (n m : N) : option N :=
   if N.modulo n m =? 0
   then div n m
@@ -204,7 +206,7 @@ Opaque sub.
 Definition set_delegate_call (addr : option Address) : list ActionBody := [].
 
 Definition mint_or_burn (state : State) (target : Address) (quantitiy : Z) : option ActionBody :=
-    do _ <- returnIf (address_eqb state.(lqtAddress) null_address) ; (* error lqtAddress not set *)
+    do _ <- throwIf (address_eqb state.(lqtAddress) null_address) ; (* error lqtAddress not set *)
     Some (act_call state.(lqtAddress) 0%Z
         (serialize (Dexter2FA12.msg_mint_or_burn
         (Dexter2FA12.build_mintOrBurn_param quantitiy target)))).
@@ -226,12 +228,12 @@ Definition xtz_transfer (to : Address) (amount : Z) : option ActionBody :=
 Definition add_liquidity (chain : Chain) (ctx : ContractCallContext)
                          (state : State) (param : add_liquidity_param)
                          : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (param.(add_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (param.(add_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
   do lqt_minted <- div ((Z.to_N ctx.(ctx_amount)) * state.(lqtTotal)) state.(xtzPool) ; (* error_DIV_by_0 *)
   do tokens_deposited <- ceildiv ((Z.to_N ctx.(ctx_amount)) * state.(tokenPool)) state.(xtzPool) ; (* error_DIV_by_0 *)
-  do _ <- returnIf (param.(maxTokensDeposited) <? tokens_deposited) ; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
-  do _ <- returnIf (lqt_minted <? param.(minLqtMinted)) ; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
+  do _ <- throwIf (param.(maxTokensDeposited) <? tokens_deposited) ; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
+  do _ <- throwIf (lqt_minted <? param.(minLqtMinted)) ; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
   let new_state := state<| lqtTotal := state.(lqtTotal) + lqt_minted |>
                         <| tokenPool := state.(tokenPool) + tokens_deposited |>
                         <| xtzPool := state.(xtzPool) + (Z.to_N ctx.(ctx_amount))|> in
@@ -242,13 +244,13 @@ Definition add_liquidity (chain : Chain) (ctx : ContractCallContext)
 Definition remove_liquidity (chain : Chain) (ctx : ContractCallContext)
                             (state : State) (param : remove_liquidity_param)
                             : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (param.(remove_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
   do xtz_withdrawn <-  div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
   do tokens_withdrawn <- div (param.(lqtBurned) * state.(tokenPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
-  do _ <- returnIf (xtz_withdrawn <? param.(minXtzWithdrawn)) ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
-  do _ <- returnIf (tokens_withdrawn <? param.(minTokensWithdrawn)) ; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
+  do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn)) ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
+  do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) ; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
   do new_lqtPool <- sub state.(lqtTotal) param.(lqtBurned) ; (* error_CANNOT_BURN_MORE_THAN_THE_TOTAL_AMOUNT_OF_LQT *)
   do new_tokenPool <- sub state.(tokenPool) tokens_withdrawn ; (* error_TOKEN_POOL_MINUS_TOKENS_WITHDRAWN_IS_NEGATIVE *)
   do new_xtzPool <- sub state.(xtzPool) xtz_withdrawn ; (* mutez subtraction run time error *)
@@ -263,12 +265,12 @@ Definition remove_liquidity (chain : Chain) (ctx : ContractCallContext)
 Definition xtz_to_token (chain : Chain) (ctx : ContractCallContext)
                         (state : State) (param : xtz_to_token_param)
                         : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (param.(xtt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (param.(xtt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
   do tokens_bought <- div
     ((Z.to_N ctx.(ctx_amount)) * 997 * state.(tokenPool))
       (state.(xtzPool) * 1000 + ((Z.to_N ctx.(ctx_amount)) * 997)) ; (* error_DIV_by_0 *)
-  do _ <- returnIf (tokens_bought <? param.(minTokensBought)) ; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
+  do _ <- throwIf (tokens_bought <? param.(minTokensBought)) ; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
   do new_tokenPool <- sub state.(tokenPool) tokens_bought ; (* error_TOKEN_POOL_MINUS_TOKENS_BOUGHT_IS_NEGATIVE *)
   let new_state := state<| xtzPool := state.(xtzPool) + (Z.to_N ctx.(ctx_amount)) |>
                         <| tokenPool := new_tokenPool |> in
@@ -278,13 +280,13 @@ Definition xtz_to_token (chain : Chain) (ctx : ContractCallContext)
 Definition token_to_xtz (chain : Chain) (ctx : ContractCallContext)
                         (state : State) (param : token_to_xtz_param)
                         : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (param.(ttx_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (param.(ttx_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
   do xtz_bought <- div
     (param.(tokensSold) * 997 * state.(xtzPool))
       (state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) ; (* error_DIV_by_0 *)
-  do _ <- returnIf (xtz_bought <? param.(minXtzBought)) ; (* error_XTZ_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_BOUGHT *)
+  do _ <- throwIf (xtz_bought <? param.(minXtzBought)) ; (* error_XTZ_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_BOUGHT *)
   do new_xtzPool <- sub state.(xtzPool) xtz_bought ; (* mutez subtraction run time error *)
   let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) param.(tokensSold) in
   do op_tez <- xtz_transfer param.(xtz_to) (Z.of_N xtz_bought) ;
@@ -294,41 +296,41 @@ Definition token_to_xtz (chain : Chain) (ctx : ContractCallContext)
 
 Definition default_ (chain : Chain) (ctx : ContractCallContext)
                     (state : State) : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
   let new_state := state<| xtzPool := state.(xtzPool) + Z.to_N ctx.(ctx_amount) |> in
     Some (new_state, []).
 
 Definition set_baker (chain : Chain) (ctx : ContractCallContext)
                      (state : State) (param : set_baker_param)
                      : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
-  do _ <- returnIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
-  do _ <- returnIf (state.(freezeBaker)) ; (* error_BAKER_PERMANENTLY_FROZEN *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
+  do _ <- throwIf (state.(freezeBaker)) ; (* error_BAKER_PERMANENTLY_FROZEN *)
     Some (state<| freezeBaker := param.(freezeBaker_) |>, set_delegate_call param.(baker)).
 
 Definition set_manager (chain : Chain) (ctx : ContractCallContext)
                        (state : State) (new_manager : Address)
                        : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
-  do _ <- returnIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
     Some (state<| manager := new_manager |>, []).
 
 Definition set_lqt_address (chain : Chain) (ctx : ContractCallContext)
                            (state : State) (new_lqt_address : Address)
                            : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
-  do _ <- returnIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
-  do _ <- returnIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
+  do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
     Some (state<| lqtAddress := new_lqt_address |>, []).
 
 Definition update_token_pool (chain : Chain) (ctx : ContractCallContext)
                              (state : State) : result :=
-  do _ <- returnIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) ; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
+  do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) ; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
   let balance_of_request :=
     FA2Interface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
   let balance_of_param :=
@@ -340,9 +342,9 @@ Definition update_token_pool (chain : Chain) (ctx : ContractCallContext)
 Definition update_token_pool_internal (chain : Chain) (ctx : ContractCallContext)
                                       (state : State) (token_pool : update_token_pool_internal_)
                                       : result :=
-  do _ <- returnIf ((negb state.(selfIsUpdatingTokenPool)) ||
+  do _ <- throwIf ((negb state.(selfIsUpdatingTokenPool)) ||
                     (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) ; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
   do token_pool <-
     match token_pool with
     | [] => None (* error_INVALID_FA2_BALANCE_RESPONSE *)
@@ -354,9 +356,9 @@ Definition update_token_pool_internal (chain : Chain) (ctx : ContractCallContext
 Definition token_to_token (chain : Chain) (ctx : ContractCallContext)
                           (state : State) (param : token_to_token_param)
                           : result :=
-  do _ <- returnIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-  do _ <- returnIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
-  do _ <- returnIf (param.(ttt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+  do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+  do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
+  do _ <- throwIf (param.(ttt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
   do xtz_bought <- div
     (param.(tokensSold_) * 997 * state.(xtzPool))
       (state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) ; (* error_DIV_by_0 *)
@@ -431,22 +433,6 @@ Section Theories.
 (* Tactics and facts about helper functions                               *)
 (* ---------------------------------------------------------------------- *)
 
-Ltac returnIf H :=
-  match type of H with
-  | returnIf _ = None =>
-    let G := fresh "G" in
-      unfold returnIf in H;
-      destruct_match eqn:G in H; try congruence;
-      clear H;
-      rename G into H
-  | returnIf _ = Some ?u =>
-    let G := fresh "G" in
-      unfold returnIf in H;
-      destruct_match eqn:G in H; try congruence;
-      clear H u;
-      rename G into H
-  end.
-
 Transparent div.
 Transparent ceildiv.
 Transparent ceildiv_.
@@ -459,7 +445,7 @@ Proof.
   cbn in div_some.
   destruct_match eqn:m_not_zero in div_some;
     try congruence.
-  returnIf m_not_zero.
+  destruct_throw_if m_not_zero.
   now apply N.eqb_neq in m_not_zero.
 Qed.
 
@@ -471,7 +457,7 @@ Proof.
   cbn in div_some.
   destruct_match eqn:m_zero in div_some;
     try congruence.
-  returnIf m_zero.
+  destruct_throw_if m_zero.
   now apply N.eqb_eq in m_zero.
 Qed.
 Opaque div.
@@ -517,7 +503,7 @@ Proof.
   cbn in sub_some.
   destruct_match eqn:m_le_n in sub_some;
     try congruence.
-  returnIf m_le_n.
+  destruct_throw_if m_le_n.
   now rewrite <- N.ltb_ge.
 Qed.
 
@@ -529,7 +515,7 @@ Proof.
   cbn in sub_some.
   destruct_match eqn:n_lt_m in sub_some;
     try congruence.
-  returnIf n_lt_m.
+  destruct_throw_if n_lt_m.
   now apply N.ltb_lt.
 Qed.
 Opaque sub.
@@ -594,8 +580,8 @@ Ltac receive_simpl_step :=
       inversion H
   | H : None = Some _ |- _ =>
       inversion H
-  | H : returnIf _ = None |- _ => returnIf H
-  | H : returnIf _ = Some ?u |- _ => returnIf H
+  | H : throwIf _ = None |- _ => destruct_throw_if H
+  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
   | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
     let a := fresh "H" in
     destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
