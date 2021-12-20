@@ -191,7 +191,7 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
   | CIS1_updateOperator (params : CIS1_updateOperator_params)
   | CIS1_balanceOf (params : CIS1_balanceOf_params).
 
-  (** We require that it is possible to convert betwee the entry point and the input data specified
+  (** We require that it is possible to convert between the entry point and the input data specified
       by the standard and the actual type of messages accepted by a particular contract *)
   Parameter get_CIS1_entry_point : forall `{ChainBase}, Msg -> option CIS1_entry_points.
   Parameter get_contract_msg : forall `{ChainBase}, CIS1_entry_points -> Msg.
@@ -852,7 +852,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
 
   (** The prove our main result about the CIS1 standard with relation to the token balances.
       Namely, we prove that all the supported entry points preserve the sum of balances for all
-      token types. The results hold for any contrac that complies with the abstract interface
+      token types. The results hold for any contract that complies with the abstract interface
       of the CIS1 standard. *)
 
   Lemma transfer_preserves_sum_of_balances `{ChainBase} prev_st next_st ops transfers token_id
