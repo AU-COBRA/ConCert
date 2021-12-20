@@ -1514,5 +1514,67 @@ Proof.
     + receive_simpl.
 Qed.
 
+
+
+(* ------------------- Total supply correct ------------------- *)
+
+Open Scope Z_scope.
+Definition mintedOrBurnedTokens (msg : option Msg) : Z :=
+  match msg with
+  | Some (msg_mint_or_burn param) => param.(quantity)
+  | _ => 0
+  end.
+
+Lemma total_supply_correct : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate depinfo inc_calls,
+    contract_state bstate caddr = Some cstate /\
+    deployment_info Setup trace caddr = Some depinfo /\
+    incoming_calls Msg trace caddr = Some inc_calls /\
+    let initial_tokens := initial_pool (deployment_setup depinfo) in
+    Z.of_N cstate.(total_supply) = (Z.of_N initial_tokens) + sumZ (fun callInfo => mintedOrBurnedTokens callInfo.(call_msg)) inc_calls.
+Proof.
+  contract_induction;
+    intros; auto.
+  - erewrite init_total_supply_correct by eauto.
+    now cbn.
+  - instantiate (CallFacts := fun _ ctx state _ =>
+      total_supply state = sum_balances state /\
+      ctx_from ctx <> ctx_contract_address ctx).
+    destruct facts as (balances_eq_total_supply & _).
+    cbn.
+    rewrite Z.add_shuffle3, <- IH.
+    clear tag IH AddBlockFacts DeployFacts CallFacts dep_info
+      prev_out_queue prev_inc_calls prev_out_txs.
+    unfold Blockchain.receive in receive_some.
+    cbn in receive_some.
+    destruct msg. destruct m.
+    + now erewrite <- try_transfer_preserves_total_supply.
+    + now erewrite <- try_approve_preserves_total_supply.
+    + cbn.
+      apply try_mint_or_burn_total_supply_correct in receive_some.
+      * lia.
+      * rewrite balances_eq_total_supply.
+        apply balance_le_sum_balances.
+    + eapply try_get_allowance_preserves_state in receive_some.
+      now subst.
+    + eapply try_get_balance_preserves_state in receive_some.
+      now subst.
+    + eapply try_get_total_supply_preserves_state in receive_some.
+      now subst.
+    + receive_simpl.
+  - now destruct facts.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros.
+    subst. cbn.
+    split.
+    + now specialize sum_balances_eq_total_supply as (? & ? & ?).
+    + now eapply no_self_calls'.
+Qed.
+
 End Theories.
 End LQTFA12.
