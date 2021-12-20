@@ -14,6 +14,7 @@ of liquidity tokens owns x% of the exchanges trading reserve.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Common.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
@@ -159,7 +160,6 @@ Global Instance setup_serializable : Serializable Setup :=
 
 End Serialization.
 
-Definition maybe (n : N) : option N := if n =? 0 then None else Some n.
 Definition returnIf (cond : bool) := if cond then None else Some tt.
 
 
@@ -261,28 +261,6 @@ Definition contract : Contract Setup Msg State :=
 
 
 Section Theories.
-
-Lemma maybe_cases : forall n,
-  (maybe n = None /\ n = 0) \/ (maybe n = Some n /\ n > 0).
-Proof.
-  destruct n.
-  - auto.
-  - now right.
-Qed.
-
-Lemma maybe_sub_add : forall n value,
-  value <= n ->
-  (maybe (with_default 0 (maybe (n - value)) + value) = None /\ n = 0) \/
-  maybe (with_default 0 (maybe (n - value)) + value) = Some n.
-Proof.
-  intros.
-  specialize (maybe_cases (n - value0)) as [[-> n_eq_value] | [-> _]]; cbn.
-  - rewrite N.sub_0_le in n_eq_value.
-    erewrite (N.le_antisymm _ n) by eassumption.
-    now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
-  - rewrite N.sub_add by auto.
-    now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
-Qed.
 
 (* receive only returns Some if the sender amount is zero *)
 Lemma contract_not_payable : forall prev_state new_state chain ctx msg new_acts,
