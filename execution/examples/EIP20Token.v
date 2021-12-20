@@ -1,9 +1,14 @@
-(*
+(** * EIP20 Token Implementation *)
+(**
   This file contains an implementation of the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
-  The implementation is essentially a port of https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
+  
+  The implementation is essentially a port of
+  https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
 *)
 From Coq Require Import ZArith.
 From Coq Require Import List.
+From Coq Require Import Lia.
+From Coq Require Import Permutation.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
@@ -16,6 +21,7 @@ From ConCert.Utils Require Import RecordUpdate.
 Import ListNotations.
 Import RecordSetNotations.
 
+(** * Contract types *)
 Section EIP20Token.
   Context {BaseTypes : ChainBase}.
   Set Nonrecursive Elimination Schemes.
@@ -42,6 +48,7 @@ Section EIP20Token.
       init_amount : TokenValue;
     }.
 
+  (* begin hide *)
   MetaCoq Run (make_setters State).
   MetaCoq Run (make_setters Setup).
 
@@ -57,7 +64,11 @@ Section EIP20Token.
       Derive Serializable State_rect <build_state>.
 
   End Serialization.
+  (* end hide *)
 
+(** * Contract functions *)
+  (** ** init *)
+  (** Initialize contract storage *)
   Definition init (chain : Chain)
        (ctx : ContractCallContext)
        (setup : Setup) : option State :=
@@ -71,7 +82,8 @@ Section EIP20Token.
     | None => AddressMap.add addr inc m
     end.
 
-  (* Transfers <amount> tokens, if <from> has enough tokens to transfer *)
+  (** ** transfer *)
+  (** Transfers [amount] tokens, if [from] has enough tokens to transfer *)
   Definition try_transfer (from : Address)
        (to : Address)
        (amount : TokenValue)
@@ -82,9 +94,10 @@ Section EIP20Token.
     else let new_balances := AddressMap.add from (from_balance - amount) state.(balances) in
          let new_balances := increment_balance new_balances to amount in
          Some (state<|balances := new_balances|>).
-
-(* The delegate tries to transfer <amount> tokens from <from> to <to>.
-   Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
+  
+  (** ** transfer_from *)
+  (** The delegate tries to transfer [amount] tokens from [from] to [to].
+      Succeeds if [from] has indeed allowed the delegate to spend at least [amount] tokens on its behalf. *)
   Definition try_transfer_from (delegate : Address)
        (from : Address)
        (to : Address)
@@ -100,7 +113,8 @@ Section EIP20Token.
        let new_balances := increment_balance new_balances to amount in
        Some (state<|balances := new_balances|><|allowances ::= AddressMap.add from new_allowances|>).
 
-  (* The caller approves the delegate to transfer up to <amount> tokens on behalf of the caller *)
+  (** ** approve *)
+  (** The caller approves the delegate to transfer up to [amount] tokens on behalf of the caller *)
   Definition try_approve (caller : Address)
        (delegate : Address)
        (amount : TokenValue)
@@ -112,6 +126,8 @@ Section EIP20Token.
       Some (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount AddressMap.empty) |>)
     end.
 
+  (** ** receive *)
+  (** Contract entrypoint function *)
   Open Scope Z_scope.
   Definition receive (chain : Chain)
        (ctx : ContractCallContext)
@@ -120,14 +136,14 @@ Section EIP20Token.
     : option (State * list ActionBody) :=
     let sender := ctx.(ctx_from) in
     let without_actions := option_map (fun new_state => (new_state, [])) in
-    (* Only allow calls with no money attached *)
+    (** Only allow calls with no money attached *)
     if ctx.(ctx_amount) >? 0
     then None
     else match maybe_msg with
    | Some (transfer to amount) => without_actions (try_transfer sender to amount state)
    | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
    | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-   (* transfer actions to this contract are not allowed *)
+   (** transfer actions to this contract are not allowed *)
    | None => None
    end.
   Close Scope Z_scope.
@@ -136,15 +152,12 @@ Section EIP20Token.
     build_contract init receive.
 
 
-
+(** * Properties *)
 Section Theories.
 
-Import Lia.
-Import Permutation.
+(** ** EIP20 functions not payable *)
 
-(* ------------------- EIP20 functions not payable ------------------- *)
-
-(* receive only returns Some if the sender amount is zero *)
+(** [receive] only returns Some if the sender amount is zero *)
 Lemma EIP20_not_payable : forall prev_state new_state chain ctx msg new_acts,
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
     ((ctx_amount ctx) <= 0)%Z.
@@ -158,7 +171,7 @@ Proof.
     now rewrite Z.gtb_ltb, Z.ltb_ge in amount.
 Qed.
 
-(* Lemma for simplifying the receive function by eliminating the case
+(** Lemma for simplifying the [receive] function by eliminating the case
     where sender amount is larger than zero *)
 Lemma receive_not_payable : forall prev_state new_state chain ctx msg new_acts,
   receive chain ctx prev_state (Some msg) = Some (new_state, new_acts) ->
@@ -179,9 +192,9 @@ Qed.
 
 
 
-(* ------------------- EIP20 functions produce no acts ------------------- *)
+(** ** EIP20 functions produce no acts *)
 
-(* receive never produces any new_acts *)
+(** [receive] never produces any [new_acts] *)
 Lemma EIP20_no_acts : forall prev_state new_state chain ctx msg new_acts,
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
     new_acts = [].
@@ -201,8 +214,7 @@ Qed.
 
 
 
-(* ------------------- Default entrypoint always fail ------------------- *)
-
+(** Default entrypoint always fail *)
 Lemma default_none : forall prev_state chain ctx,
   receive chain ctx prev_state None = None.
 Proof.
@@ -213,8 +225,8 @@ Qed.
 
 
 
-(* ------------------- FMap partial alter is FMap add ------------------- *)
-
+(* begin hide *)
+(* FMap partial alter is FMap add *)
 Lemma add_is_partial_alter_plus : forall (account : Address) amount (balances : FMap Address N) (f : N -> N),
   FMap.partial_alter (fun balance : option N => Some (with_default 0 balance + amount)) account balances =
   FMap.add account (with_default 0 (FMap.find account balances) + amount) balances.
@@ -236,8 +248,7 @@ Qed.
 
 
 
-(* ------------------- Tactic to simplify proof steps ------------------- *)
-
+(* Tactic to simplify proof steps *)
 Ltac receive_simpl_step :=
   match goal with
   | H : receive _ _ _ (Some _) = Some (_, _) |- _ =>
@@ -314,8 +325,7 @@ Tactic Notation "FMap_simpl" := repeat (FMap_simpl_step; cbn).
 
 
 
-(* ------------------- isSome function ------------------- *)
-
+(* isSome function *)
 Definition isSome {A : Type} (a : option A) := match a with | Some _ => true | None => false end.
 
 (* if x is None then with_default is equal to default element *)
@@ -328,8 +338,7 @@ Qed.
 
 
 
-(* ------------------- sumN function ------------------- *)
-
+(* sumN function *)
 (* sumN of balances is the same after transfer changes if sender has enough balance *)
 Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
   amount <= with_default 0 (FMap.find from balances) ->
@@ -369,18 +378,18 @@ Qed.
 (* sum of all balances in the token state *)
 Definition sum_balances (state : EIP20Token.State) :=
   sumN (fun '(k, v) => v) (FMap.elements (balances state)).
+(* end hide *)
 
 
 
-(* ------------------- Expected behvaiour of EIP20 functions ------------------- *)
-
+(** ** Expected behvaiour of EIP20 functions *)
 Definition transfer_balance_update_correct old_state new_state from to tokens :=
   let get_balance addr state := with_default 0 (FMap.find addr state.(balances)) in
   let from_balance_before := get_balance from old_state in
   let to_balance_before := get_balance to old_state in
   let from_balance_after := get_balance from new_state in
   let to_balance_after := get_balance to new_state in
-  (* if the transfer is a self-transfer, balances should remain unchained *)
+  (** if the transfer is a self-transfer, balances should remain unchained *)
   if address_eqb from to
   then
     (from_balance_before =? from_balance_after) &&
@@ -403,9 +412,9 @@ Definition approve_allowance_update_correct (new_state : State) (from delegate :
 
 
 
-(* ------------------- Transfer correct ------------------- *)
+(** ** Transfer correct *)
 
-(* try_transfer correctly moves <amount> from <sender> to <to> *)
+(** [try_transfer] correctly moves [amount] from [sender] to [to] *)
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
   transfer_balance_update_correct prev_state new_state ctx.(ctx_from) to amount = true.
@@ -434,7 +443,7 @@ Proof.
       apply N.eqb_refl.
 Qed.
 
-(* try_transfer does not change the total supply of tokens *)
+(** [try_transfer] does not change the total supply of tokens *)
 Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
     (total_supply prev_state) = (total_supply new_state).
@@ -444,7 +453,7 @@ Proof.
   now inversion receive_some.
 Qed.
 
-(* try_transfer does not change allowances *)
+(** [try_transfer] does not change allowances *)
 Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
     (allowances prev_state) = (allowances new_state).
@@ -454,7 +463,7 @@ Proof.
   now inversion receive_some.
 Qed.
 
-(* try_transfer only modifies the <sender> and <to> balances *)
+(** [try_transfer] only modifies the [sender] and [to] balances *)
 Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
     forall account, account <> (ctx_from ctx) -> account <> to ->
@@ -467,7 +476,7 @@ Proof.
   FMap_simpl.
 Qed.
 
-(* If the requirements are met then then receive on transfer msg must succeed and
+(** If the requirements are met then then receive on transfer msg must succeed and
     if receive on transfer msg succeeds then requirements must hold *)
 Lemma try_transfer_is_some : forall state chain ctx to amount,
   (ctx_amount ctx >? 0)%Z = false ->
@@ -491,9 +500,9 @@ Qed.
 
 
 
-(* ------------------- Transfer_from correct ------------------- *)
+(** ** Transfer_from correct *)
 
-(* try_transfer_from correctly updates balance and allowance *)
+(** [try_transfer_from] correctly updates balance and allowance *)
 Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
   transfer_balance_update_correct prev_state new_state from to amount = true /\
@@ -535,7 +544,7 @@ Proof.
       apply N.eqb_refl.
 Qed.
 
-(* try_transfer_from does not change total supply of tokens *)
+(** [try_transfer_from] does not change total supply of tokens *)
 Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     (total_supply prev_state) = (total_supply new_state).
@@ -545,7 +554,7 @@ Proof.
   now inversion receive_some.
 Qed.
 
-(* try_transfer_from only changes <from> and <to> balances *)
+(** [try_transfer_from] only changes [from] and [to] balances *)
 Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     forall account, account <> from -> account <> to ->
@@ -558,7 +567,7 @@ Proof.
   FMap_simpl.
 Qed.
 
-(* try_transfer_from only changes allowance map of <from> *)
+(** [try_transfer_from] only changes allowance map of [from] *)
 Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     forall account, account <> from ->
@@ -571,7 +580,7 @@ Proof.
   FMap_simpl.
 Qed.
 
-(* try_transfer_from only changes allowance of <sender> *)
+(** [try_transfer_from] only changes allowance of [sender] *)
 Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     forall account, account <> (ctx_from ctx) ->
@@ -585,7 +594,7 @@ Proof.
   FMap_simpl.
 Qed.
 
-(* If the requirements are met then then receive on transfer_from msg must succeed and
+(** If the requirements are met then then receive on transfer_from msg must succeed and
     if receive on transfer_from msg succeeds then requirements must hold *)
 Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
   let get_allowance_ account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state))) in
@@ -623,9 +632,9 @@ Qed.
 
 
 
-(* ------------------- Approve correct ------------------- *)
+(** ** Approve correct *)
 
-(* try_approve correctly replaces allowance *)
+(** [try_approve] correctly replaces allowance *)
 Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
   approve_allowance_update_correct new_state ctx.(ctx_from) delegate amount = true.
@@ -638,7 +647,7 @@ Proof.
     FMap_simpl; apply N.eqb_refl.
 Qed.
 
-(* try_approve does not change total supply of tokens *)
+(** [try_approve] does not change total supply of tokens *)
 Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     (total_supply prev_state) = (total_supply new_state).
@@ -649,7 +658,7 @@ Proof.
     now inversion receive_some.
 Qed.
 
-(* try_approve does not change balances *)
+(** [try_approve] does not change balances *)
 Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     (balances prev_state) = (balances new_state).
@@ -660,7 +669,7 @@ Proof.
     now inversion receive_some.
 Qed.
 
-(* try_approve does not change allowances map of other addresses *)
+(** [try_approve] does not change allowances map of other addresses *)
 Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     forall account, account <> (ctx_from ctx) ->
@@ -673,7 +682,7 @@ Proof.
     cbn; FMap_simpl.
 Qed.
 
-(* try_approve does not change allowance of other addresses *)
+(** [try_approve] does not change allowance of other addresses *)
 Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     forall account, account <> delegate ->
@@ -688,7 +697,7 @@ Proof.
     cbn; FMap_simpl.
 Qed.
 
-(* If the requirements are met then then receive on approve msg must succeed and
+(** If the requirements are met then then receive on approve msg must succeed and
     if receive on approve msg succeeds then requirements must hold *)
 Lemma try_approve_is_some : forall state chain ctx delegate amount,
   (ctx_amount ctx >? 0)%Z = false <-> isSome (receive chain ctx state (Some (approve delegate amount))) = true.
@@ -703,9 +712,9 @@ Qed.
 
 
 
-(* ------------------- EIP20 functions preserve sum of balances ------------------- *)
+(** ** EIP20 functions preserve sum of balances *)
 
-(* sum of all balances remain the same after proccessing transfer msg *)
+(** Sum of all balances remain the same after proccessing transfer msg *)
 Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
     (sum_balances prev_state) = (sum_balances new_state).
@@ -719,7 +728,7 @@ Proof.
   now apply sumN_FMap_add_sub.
 Qed.
 
-(* sum of all balances remain the same after proccessing transfer_from msg *)
+(** Sum of all balances remain the same after proccessing transfer_from msg *)
 Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
     (sum_balances prev_state) = (sum_balances new_state).
@@ -736,7 +745,7 @@ Proof.
   now apply sumN_FMap_add_sub.
 Qed.
 
-(* sum of all balances remain the same after approve transfer msg *)
+(** Sum of all balances remain the same after approve transfer msg *)
 Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
     (sum_balances prev_state) = (sum_balances new_state).
@@ -749,8 +758,7 @@ Qed.
 
 
 
-(* ------------------- Contract never produces any actions ------------------- *)
-
+(** ** Contract never produces any actions *)
 Lemma outgoing_acts_nil : forall (bstate : ChainState) (caddr : Address),
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -764,8 +772,7 @@ Qed.
 
 
 
-(* ------------------- Total supply always equals inial supply ------------------- *)
-
+(** ** Total supply always equals inial supply *)
 Lemma total_supply_eq_init_supply bstate caddr (trace : ChainTrace empty_state bstate) :
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   exists deploy_info cstate,
@@ -787,8 +794,7 @@ Qed.
 
 
 
-(* ------------------- Sum of balances always equals total supply ------------------- *)
-
+(** ** Sum of balances always equals total supply *)
 Lemma sum_balances_eq_total_supply bstate caddr :
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
