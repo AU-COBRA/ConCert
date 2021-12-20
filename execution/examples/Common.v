@@ -38,6 +38,10 @@ Lemma AddressMap_find_convertible  `{ChainBase} {V : Type} :
   AddressMap.find (V:=V) = FMap.find.
 Proof. reflexivity. Qed.
 
+Lemma AddressMap_add_convertible  `{ChainBase} {V : Type} :
+  AddressMap.add (V:=V) = FMap.add.
+Proof. reflexivity. Qed.
+
 
 Open Scope N_scope.
 Definition maybe (n : N) : option N := if n =? 0 then None else Some n.
