@@ -1,6 +1,9 @@
-From ConCert.Execution Require Import Blockchain FA2Token FA2Interface.
-From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Utils Require Import RecordUpdate.
 
 From Coq Require Import List.
@@ -8,6 +11,7 @@ From Coq Require Import ZArith.
 
 Import ListNotations.
 Import RecordSetNotations.
+
 
 Section FA2Client.
 Context {BaseTypes : ChainBase}.
@@ -136,8 +140,6 @@ Definition hook_init (chain : Chain)
     hook_policy := setup.(hook_policy_);
   |}.
 
-Definition returnIf (cond : bool) := if cond then None else Some tt.
-
 Definition check_transfer_permissions (tr : transfer_descriptor)
                                       (operator : Address)
                                       (state : HookState)
@@ -157,8 +159,8 @@ Definition on_hook_receive_transfer (caller : Address)
                                     (param : transfer_descriptor_param)
                                     (state : HookState)
                                     : option (list ActionBody) :=
-  do _ <- returnIf (negb (address_eqb caller state.(hook_fa2_caddr))) ;
-  do _ <- returnIf (negb (address_eqb param.(transfer_descr_fa2) state.(hook_fa2_caddr))) ;
+  do _ <- throwIf (negb (address_eqb caller state.(hook_fa2_caddr))) ;
+  do _ <- throwIf (negb (address_eqb param.(transfer_descr_fa2) state.(hook_fa2_caddr))) ;
   let operator := param.(transfer_descr_operator) in
   let check_transfer_iterator tr acc :=
     do _ <- check_transfer_permissions tr operator state ;
@@ -173,7 +175,7 @@ Definition try_update_permission_policy (caller : Address)
                                     (new_policy : permissions_descriptor)
                                     (state : HookState)
                                     : (option HookState) :=
-  do _ <- returnIf (negb (address_eqb caller state.(hook_owner))) ;
+  do _ <- throwIf (negb (address_eqb caller state.(hook_owner))) ;
   Some (state<| hook_policy := new_policy |>).
 
 Definition hook_receive (chain : Chain)
