@@ -1,16 +1,19 @@
 (* A token-asset exchange contract based on Dexter *)
-
-From Coq Require Import ZArith.
-Require Import Monads.
-From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From Coq Require Import Program.Basics.
+From Coq Require Import ZArith.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Execution.Examples Require Import FA2Interface.
+From ConCert.Utils Require Import RecordUpdate.
+
 Import ListNotations.
 Import RecordSetNotations.
-From Coq Require Import Program.Basics.
+
 Notation "f 'o' g" := (compose f g) (at level 50).
-Require Import FA2Token FA2Interface.
 
 
 (* A liquidity exchange contract inspired by the Dexter contract.
@@ -70,7 +73,6 @@ Global Instance state_serializable : Serializable State :=
 
 End Serialization.
 
-Definition returnIf (cond : bool) := if cond then None else Some tt.
 Definition address_not_eqb a b := negb (address_eqb a b).
 
 Definition begin_exchange_tokens_to_assets (caller : Address)
@@ -78,7 +80,7 @@ Definition begin_exchange_tokens_to_assets (caller : Address)
                                            (dexter_caddr : Address)
                                            (state : State)
                                            : option (State * (list ActionBody)) :=
-  (* do _ <- returnIf (address_not_eqb caller params.(exchange_owner)) ; *)
+  (* do _ <- throwIf (address_not_eqb caller params.(exchange_owner)) ; *)
   (* send out callbacks to check owner token balance, and dexter contract token balance
      to determine if:
      1. owner has sufficient tokens to exchange
@@ -118,13 +120,13 @@ Definition receive_balance_response (responses : list balance_of_response)
                                     (dexter_asset_reserve : Amount)
                                     (state : State)
                                     : option (State * list ActionBody) :=
-  do _ <- returnIf (negb (length responses =? 2)) ;
+  do _ <- throwIf (negb (length responses =? 2)) ;
   do trx_owner_balance_response <- nth_error responses 0 ;
   do dexter_balance_response <- nth_error responses 1 ;
-  do _ <- returnIf (address_not_eqb dexter_caddr dexter_balance_response.(request).(owner)) ;
+  do _ <- throwIf (address_not_eqb dexter_caddr dexter_balance_response.(request).(owner)) ;
   do related_exchange <- last (map Some state.(ongoing_exchanges)) None ;
   (* check if transfer owner has enough tokens to perform the exchange *)
-  do _ <- returnIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) ;
+  do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) ;
   let dexter_token_reserve := dexter_balance_response.(balance) in
   let tokens_to_sell := Z.of_N related_exchange.(tokens_sold) in
   let tokens_price := getInputPrice tokens_to_sell (Z.of_N dexter_token_reserve) dexter_asset_reserve in
