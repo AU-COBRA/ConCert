@@ -1,16 +1,31 @@
-From Coq Require Import List
-                        ZArith
-                        Lia
-                        Permutation.
-Import ListNotations.
-From ConCert Require Import RecordUpdate
-                            Extras
-                            Containers
-                            Automation
-                            Serializable
-                            Blockchain.
+(** * Basic Attention Token *)
+(** This file contains type definitions, utility functions and lemmas for the Basic Attention Token contract.
+
+    The implementation of the Basic Attention Token is a ported of
+    https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
+
+    Definitions and lemmas defined in this file are used in three different implementations of the Basic Attention Token contract.
+    - [ConCert.Execution.Examples.BAT] Classical implementation
+    - [ConCert.Execution.Examples.BAT_Fixed] An implementation of the Basic Attention Token contract that fixes some bugs in the original implementation
+    - [ConCert.Execution.Examples.BAT_AltFix] An alternative implementation of the Basic Attention Token contract that fixes some bugs in the original implementation
+
+    The BAT contract is a combination of a EIP20 token contract and a crowdsale contract.
+    The types and definitions in this file extends the EIP20 contract implemented in [ConCert.Execution.Examples.EIP20Token].
+*)
+From Coq Require Import Lia.
+From Coq Require Import List.
+From Coq Require Import Permutation.
+From Coq Require Import ZArith.
+From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require EIP20Token.
 Import RecordSetNotations.
-Require EIP20Token.
+Import ListNotations.
+
 
 
 Section BATCommon.
@@ -22,21 +37,21 @@ Set Nonrecursive Elimination Schemes.
 Definition TokenValue := EIP20Token.TokenValue.
 
 Inductive Msg :=
-  (* Message types from the EIP20/ERC20 Standard Token: *)
+  (** Message types from the EIP20/ERC20 Standard Token: *)
   | tokenMsg : EIP20Token.Msg -> Msg
-  (* Message types specific for BAT: *)
-  (* create_tokens acceps the currency of the chain and converts it to BAT according to the pre-specified exchange rate *)
+  (** Message types specific for BAT: *)
+  (** create_tokens acceps the currency of the chain and converts it to BAT according to the pre-specified exchange rate *)
   | create_tokens : Msg
-  (* finalize ends the funding period and sends the chain currency home to the pre-specified fund deposit address. Only callable by this address *)
+  (** finalize ends the funding period and sends the chain currency home to the pre-specified fund deposit address. Only callable by this address *)
   | finalize : Msg
-  (* Allows contributors to recover their ether in the case of a failed funding campaign. *)
+  (** Allows contributors to recover their ether in the case of a failed funding campaign. *)
   | refund : Msg.
 
 Record State :=
   build_state {
-    (* State from EIP20Token: *)
+    (** State from EIP20Token: *)
     token_state       : EIP20Token.State;
-    (* State for BAT: *)
+    (** State for BAT: *)
     initSupply        : N;
     fundDeposit    		: Address;
     batFundDeposit 		: Address;
@@ -55,12 +70,13 @@ Record Setup :=
     _batFundDeposit 		: Address;
     _fundingStart	  		: nat;
     _fundingEnd					: nat;
-    (* In the reference implementation, the fields below are constants, but we allow setting them at initialisation, in order to test out different values. *)
+    (** In the reference implementation, the fields below are constants, but we allow setting them at initialisation, in order to test out different values. *)
     _tokenExchangeRate  : N;
     _tokenCreationCap 	: N;
     _tokenCreationMin 	: N;
   }.
 
+(* begin hide *)
 MetaCoq Run (make_setters State).
 MetaCoq Run (make_setters Setup).
 
@@ -76,8 +92,8 @@ Global Instance state_serializable : Serializable State :=
   Derive Serializable State_rect <build_state>.
 
 End Serialization.
+(* end hide *)
 
-Definition returnIf (cond : bool) := if cond then None else Some tt.
 Definition total_supply (state : State) := state.(token_state).(EIP20Token.total_supply).
 Definition balances (state : State) := state.(token_state).(EIP20Token.balances).
 Definition allowances (state : State) := state.(token_state).(EIP20Token.allowances).
@@ -99,12 +115,12 @@ Definition finalize_act cstate caddr : Action :=
 Definition deploy_act setup contract from : Action :=
   build_act from from (act_deploy 0 contract setup).
 
-(* Utility definitions and lemmas *)
+(** Utility definitions and lemmas *)
 Open Scope N_scope.
-(* Stronger version of N.mod_le.
-   N.mod_le requires that b <> 0, however
-   it is possible to prove the same without
-   that assumption *)
+(** Stronger version of N.mod_le.
+    N.mod_le requires that b <> 0, however
+    it is possible to prove the same without
+    that assumption *)
 Lemma N_mod_le : forall n m,
   n mod m <= n.
 Proof.
@@ -194,8 +210,8 @@ Proof.
               N.mod_lt.
 Qed.
 
-(* The balance of a single account is always less than
-   or equal to the sum of all balances *)
+(** The balance of a single account is always less than
+    or equal to the sum of all balances *)
 Lemma balance_le_sum_balances : forall addr state,
   with_default 0 (FMap.find addr (balances state)) <= EIP20Token.sum_balances (token_state state).
 Proof.
@@ -243,7 +259,7 @@ Proof.
   now rewrite Z_div_mult_full.
 Qed.
 
-(* sumZ over balances is always positive *)
+(** [sumZ] over balances is always positive *)
 Lemma sum_balances_positive : forall bstate accounts,
   reachable bstate ->
   0 <= sumZ (fun acc : Address => env_account_balances bstate acc) accounts.
@@ -254,12 +270,12 @@ Proof.
   now apply Z.ge_le, account_balance_nonnegative.
 Qed.
 
-(* Sums balances of a list of accounts *)
+(** Sums balances of a list of accounts *)
 Definition total_balance bstate accounts : Amount :=
   let account_balance := env_account_balances bstate in
     sumZ (fun acc => account_balance acc) accounts.
 
-(* Sum of balances is always positive *)
+(** Sum of balances is always positive *)
 Lemma total_balance_positive : forall bstate accounts,
   reachable bstate -> 
   0 <= total_balance bstate accounts.
@@ -283,7 +299,7 @@ Proof.
   - now apply sum_balances_positive.
 Qed.
 
-(* total balance equality if all accounts have equal balance *)
+(** Total balance equality if all accounts have equal balance *)
 Lemma total_balance_eq : forall env1 env2 accounts,
   (forall a, In a accounts -> env_account_balances env1 a = env_account_balances env2 a) ->
     total_balance env1 accounts = total_balance env2 accounts.
@@ -301,25 +317,25 @@ Proof.
   now apply sumZ_le.
 Qed.
 
-(* pending usage is the total balance that an account has allocated
-   in the pending actions.
-   Does not count actions with negative amount and caps the usage
-   at the balance limit of the account. *)
+(** Pending usage is the total balance that an account has allocated
+    in the pending actions.
+    Does not count actions with negative amount and caps the usage
+    at the balance limit of the account. *)
 Definition pending_usage bstate account : Amount :=
   Z.min (sumZ (fun act => if address_eqb act.(act_from) account
                          then Z.max 0 (act_amount act) 
                          else 0) bstate.(chain_state_queue))
         (env_account_balances bstate account).
 
-(* Spendable blance is the balance of an account minus their pending
-   usage, i.e. the minimum amount that the account is guaranteed to have
-   available for usage next block. *)
+(** Spendable blance is the balance of an account minus their pending
+    usage, i.e. the minimum amount that the account is guaranteed to have
+    available for usage next block. *)
 Definition spendable_balance (bstate : ChainState) accounts : Amount :=
   let account_balance := env_account_balances bstate in
     sumZ (fun acc => account_balance acc - pending_usage bstate acc) accounts.
 
-(* Spendable balance is equal to total balance if there is no
-   pending actions left in the current block. *)
+(** Spendable balance is equal to total balance if there is no
+    pending actions left in the current block. *)
 Lemma spendable_eq_total_balance : forall bstate accounts,
   reachable bstate ->
   chain_state_queue bstate = [] ->
@@ -334,8 +350,8 @@ Proof.
   now apply Z.ge_le, account_balance_nonnegative.
 Qed.
 
-(* Spendable balance cannot decrease when consuming or discarding
-   actions from the queue. *)
+(** Spendable balance cannot decrease when consuming or discarding
+    actions from the queue. *)
 Lemma spendable_consume_act : forall (bstate1 bstate2 : ChainState) accounts act acts,
   env_account_balances bstate1 act.(act_from) <= env_account_balances bstate2 act.(act_from) + (Z.max 0 (act_amount act)) ->
   (forall a, In a accounts -> a <> act.(act_from) -> env_account_balances bstate1 a <= env_account_balances bstate2 a) ->
@@ -363,7 +379,7 @@ Proof.
       now apply in_cons.
 Qed.
 
-(* Spendable balance is always positive *)
+(** Spendable balance is always positive *)
 Lemma spendable_balance_positive : forall bstate accounts,
   0 <= spendable_balance bstate accounts.
 Proof.
@@ -376,20 +392,20 @@ Proof.
 Qed.
 Local Close Scope Z_scope.
 
-(* Function that generated create_token actions.
-   Will keep generating action untill all accounts given have been emptied of balance
-   or the token goal is hit. Also ensures that we do not hit the token creation cap
-   by only creation just enough to go over the token goal. *)
+(** Function that generated create_token actions.
+    Will keep generating action untill all accounts given have been emptied of balance
+    or the token goal is hit. Also ensures that we do not hit the token creation cap
+    by only creation just enough to go over the token goal. *)
 Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate:=
   let create_tokens_act sender amount := build_act sender sender (act_call caddr amount create_tokens) in
     match accounts with
     | [] => []
     | acc :: accounts' =>
-      (* Dont produce any action for this account if tokens_left = 0 *)
+      (** Dont produce any action for this account if tokens_left = 0 *)
       if 0 <? tokens_left
       then
         let amount := 1 + ((tokens_left / exchange_rate)) in
-        (* Choose the minimum amount of balance needed to hit tokens_left = 0 or all balance
+        (** Choose the minimum amount of balance needed to hit tokens_left = 0 or all balance
             if the account does not have enough balance to hit goal *)
         let amount := N.min amount (Z.to_N (env_account_balances env acc)) in
           (create_tokens_act acc (Z.of_N amount)) ::
@@ -425,7 +441,7 @@ Proof.
     now do 2 rewrite <- IHaccounts by (intros; now apply env_eq, in_cons).
 Qed.
 
-(* All actions produced by create_token_acts are from accounts *)
+(** All actions produced by create_token_acts are from accounts *)
 Lemma create_token_acts_is_account : forall caddr env accounts tokens_left exchange_rate,
   Forall (fun acc : Address => address_is_contract acc = false) accounts ->
     (forall x : Action, In x (create_token_acts env caddr accounts tokens_left exchange_rate) -> act_is_from_account x).
@@ -439,7 +455,7 @@ Proof.
     all: eauto.
 Qed.
 
-(* All actions produced by create_token_acts have same sender and origin *)
+(** All actions produced by create_token_acts have same sender and origin *)
 Lemma create_token_acts_origin_correct: forall accounts (env : Environment) caddr tokens_left exchange_rate,
   Forall act_origin_is_eq_from (create_token_acts env caddr accounts tokens_left exchange_rate).
 Proof.
@@ -455,7 +471,7 @@ Close Scope N_scope.
 
 End BATCommon.
 
-(* ------------------- Definitions from EIP20Token ------------------- *)
+(** Definitions from EIP20Token *)
 Notation isSome := EIP20Token.isSome.
 Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
 Notation get_allowance := EIP20Token.get_allowance.
@@ -463,18 +479,3 @@ Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_c
 Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
 Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.
 
-Ltac returnIf H :=
-  match type of H with
-  | returnIf _ = None =>
-    let G := fresh "G" in
-      unfold returnIf in H;
-      destruct_match eqn:G in H; try congruence;
-      clear H;
-      rename G into H
-  | returnIf _ = Some ?u =>
-    let G := fresh "G" in
-      unfold returnIf in H;
-      destruct_match eqn:G in H; try congruence;
-      clear H u;
-      rename G into H
-  end.

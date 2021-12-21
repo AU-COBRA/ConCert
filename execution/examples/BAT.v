@@ -1,28 +1,40 @@
-(*
-  Implementation of the Basic Attention Token.
-  Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
+(** * Basic Attention Token contract *)
+(** Implementation of the Basic Attention Token.
+    Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
+
+    This file contains contract function definitions and proofs.
+    All contract types and utility functions are defined in [ConCert.Execution.Examples.BATCommon].
+
+    The BAT contract is a combination of a EIP20 token contract and a crowdsale contract.
+    This implementation extends the EIP20 contract implemented in [ConCert.Execution.Examples.EIP20Token].
 *)
-From Coq Require Import ZArith.
 From Coq Require Import Lia.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From Coq Require Import ZArith.
+From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Execution Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import BATCommon.
+From ConCert.Execution.Examples Require Import BuildUtils.
+From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require EIP20Token.
 Import RecordSetNotations.
-Require EIP20Token.
 Import ListNotations.
-From ConCert Require Import Automation.
-From ConCert Require Import BATCommon.
-From ConCert Require Import BuildUtils.
 
 
+(** * Contract functions *)
 Section BAT.
 Context {BaseTypes : ChainBase}.
 
 Open Scope N_scope.
+(** ** Init *)
+(** This function only gets called once when contract is deployed.
+    Will set up the initial storage state of the contract.
+*)
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
@@ -32,9 +44,9 @@ Definition init (chain : Chain)
       EIP20Token.allowances := FMap.empty;
     |} in
   Some {|
-    (* EIP20Token initialisation: *)
+    (** EIP20Token initialisation: *)
     token_state := token_state;
-    (* BAT initialisation: *)
+    (** BAT initialisation: *)
     initSupply := setup.(_batFund);
     isFinalized := false;
     fundDeposit := setup.(_fundDeposit);
@@ -46,18 +58,20 @@ Definition init (chain : Chain)
     tokenCreationMin := setup.(_tokenCreationMin);
   |}.
 
+(** ** Create Tokens *)
+(** This entrypoint allows users to fund the crowdsale in return for tokens *)
 Definition try_create_tokens sender (sender_payload : Amount) current_slot state :=
  (* early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
-  do _ <- returnIf (state.(isFinalized)
+  do _ <- throwIf (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
           || (Nat.ltb state.(fundingEnd) current_slot)) ;
-  (* here we deviate slightly from the reference implementation. They only check for = 0,
-     but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
-  do _ <- returnIf (Z.leb sender_payload 0) ;
-  (* Note: this conversion from Z to N is safe because by assumption sender_payload > 0 *)
+  (** Here we deviate slightly from the reference implementation. They only check for = 0,
+      but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
+  do _ <- throwIf (Z.leb sender_payload 0) ;
+  (** Note: this conversion from Z to N is safe because by assumption sender_payload > 0 *)
   let tokens := (Z.to_N sender_payload) * state.(tokenExchangeRate) in
   let checkedSupply := (total_supply state) + tokens in
-  do _ <- returnIf (state.(tokenCreationCap) <? checkedSupply) ;
+  do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) ;
   let new_token_state : EIP20Token.State := {|
     EIP20Token.total_supply := checkedSupply;
     EIP20Token.balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + tokens)) sender (balances state);
@@ -65,17 +79,21 @@ Definition try_create_tokens sender (sender_payload : Amount) current_slot state
   |} in
   Some (state<|token_state := new_token_state|>).
 
+(** ** Refund *)
+(** This entrypoint can be called if crowdsale is not successfully funded.
+    Users calling this entrypoint will have their tokens removed and get their money refunded.
+*)
 Definition try_refund sender current_slot state :=
-  (* early return if funding is finalized, or funding period is NOT over, or if total supply exceeds or is equal to the minimum fund tokens. *)
-  do _ <- returnIf (state.(isFinalized)
+  (** Early return if funding is finalized, or funding period is NOT over, or if total supply exceeds or is equal to the minimum fund tokens. *)
+  do _ <- throwIf (state.(isFinalized)
           || (Nat.leb current_slot state.(fundingEnd))
           || (state.(tokenCreationMin) <=? (total_supply state))) ;
-  (* Don't allow the the batFundDeposit account to refund *)
-  do _ <- returnIf (address_eqb sender state.(batFundDeposit)) ;
+  (** Don't allow the the batFundDeposit account to refund *)
+  do _ <- throwIf (address_eqb sender state.(batFundDeposit)) ;
   do sender_bats <- FMap.find sender (balances state) ;
-  do _ <- returnIf (sender_bats =? 0) ;
+  do _ <- throwIf (sender_bats =? 0) ;
   let new_total_supply := (total_supply) state - sender_bats in
-  (* convert tokens back to the currency of the blockchain, to be sent back to the sender address *)
+  (** Convert tokens back to the currency of the blockchain, to be sent back to the sender address *)
   let amount_to_send := Z.of_N (sender_bats / state.(tokenExchangeRate)) in
   let new_token_state : EIP20Token.State := {|
     EIP20Token.total_supply := new_total_supply;
@@ -86,21 +104,29 @@ Definition try_refund sender current_slot state :=
   let send_act := act_transfer sender amount_to_send in
     Some (new_state, [send_act]).
 
+(** ** Finalize *)
+(** This entrypoint will end the crowdsale and pay out the money to the owner.
+    Can only be called if funding was successful.
+*)
 Definition try_finalize sender current_slot contract_balance state :=
-  (* early return if funding is finalized, or if sender is NOT the fund deposit address,
-     or if the total token supply is less than the minimum required amount,
-     or if it is too early to end funding and the total token supply has not reached the cap.
-    Note: the last requirement makes it possible to end a funding early if the cap has been reached.
+  (** Early return if funding is finalized, or if sender is NOT the fund deposit address,
+      or if the total token supply is less than the minimum required amount,
+      or if it is too early to end funding and the total token supply has not reached the cap.
+      Note: the last requirement makes it possible to end a funding early if the cap has been reached.
   *)
-  do _ <- returnIf (state.(isFinalized) ||
+  do _ <- throwIf (state.(isFinalized) ||
                    (negb (address_eqb sender state.(fundDeposit))) ||
                    ((total_supply state) <? state.(tokenCreationMin))) ;
-  do _ <- returnIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) ;
-  (* Send the currency of the contract back to the fund *)
+  do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) ;
+  (** Send the currency of the contract back to the fund *)
   let send_act := act_transfer state.(fundDeposit) contract_balance in
   let new_state := state<|isFinalized := true|> in
   Some (new_state, [send_act]).
 
+(** ** Receive *)
+(** This is the main entrypoint function.
+    All contract calls will be handled by this function
+*)
 Open Scope Z_scope.
 Definition receive_bat (chain : Chain)
                     (ctx : ContractCallContext)
@@ -120,7 +146,7 @@ Definition receive_bat (chain : Chain)
   end.
 Close Scope Z_scope.
 
-(* Composes EIP20Token.receive and receive_bat by first executing EIP20Token.receive (if the message is an EIP20 message),
+(** Composes EIP20Token.receive and receive_bat by first executing EIP20Token.receive (if the message is an EIP20 message),
    and otherwise executes receive_bat *)
 Definition receive (chain : Chain)
                     (ctx : ContractCallContext)
@@ -139,8 +165,10 @@ Definition contract : Contract Setup Msg State :=
 
 
 
+(** * Contract properties *)
 Section Theories.
-(* ------------------- Tactics to simplify proof steps ------------------- *)
+(* begind hide *)
+(* Tactics to simplify proof steps *)
 
 Ltac receive_simpl_step :=
   match goal with
@@ -156,7 +184,7 @@ Ltac receive_simpl_step :=
   | |- context[try_refund] => unfold try_refund; cbn
   | H : context[try_create_tokens] |- _ => unfold try_create_tokens in H; cbn in H
   | |- context[try_create_tokens] => unfold try_create_tokens; cbn
-  | H : returnIf _ = _ |- _ => returnIf H
+  | H : throwIf _ = _ |- _ => destruct_throw_if H
   | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
     let a := fresh "H" in
     destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
@@ -191,10 +219,11 @@ Ltac receive_simpl_step :=
   end.
 
 Tactic Notation "receive_simpl" := repeat receive_simpl_step.
+(* end hide *)
 
 
 
-(* ------------------- Transfer correct ------------------- *)
+(** ** Transfer correct *)
 
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
@@ -259,7 +288,7 @@ Qed.
 
 
 
-(* ------------------- Transfer_from correct ------------------- *)
+(** ** Transfer_from correct *)
 
 Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
@@ -342,7 +371,7 @@ Qed.
 
 
 
-(* ------------------- Approve correct ------------------- *)
+(** ** Approve correct *)
 
 Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
@@ -417,7 +446,7 @@ Qed.
 
 
 
-(* ------------------- EIP20 functions only changes token_state ------------------- *)
+(** ** EIP20 functions only changes token_state *)
 
 Lemma eip_only_changes_token_state : forall prev_state new_state chain ctx m new_acts,
   receive chain ctx prev_state (Some (tokenMsg m)) = Some (new_state, new_acts) ->
@@ -430,7 +459,7 @@ Qed.
 
 
 
-(* ------------------- EIP20 functions not payable ------------------- *)
+(** ** EIP20 functions not payable *)
 
 Lemma eip20_not_payable : forall prev_state new_state chain ctx m new_acts,
   receive chain ctx prev_state (Some (tokenMsg m)) = Some (new_state, new_acts) ->
@@ -443,7 +472,8 @@ Proof.
 Qed.
 
 
-(* ------------------- EIP20 functions produces no acts ------------------- *)
+
+(** ** EIP20 functions produces no acts *)
 
 Lemma eip20_new_acts_correct : forall prev_state new_state chain ctx m new_acts,
   receive chain ctx prev_state (Some (tokenMsg m)) = Some (new_state, new_acts) ->
@@ -459,7 +489,7 @@ Qed.
 
 
 
-(* ------------------- Create_tokens correct ------------------- *)
+(** ** Create_tokens correct *)
 
 Lemma try_create_tokens_balance_correct : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some create_tokens) = Some (new_state, new_acts) ->
@@ -528,9 +558,9 @@ Proof.
   - intros (amount_positive & not_finalized &
       funding_started & funding_not_over & cap_not_hit).
     receive_simpl.
-    destruct_match eqn:match_requirements; returnIf match_requirements.
-    destruct_match eqn:sender_amount; returnIf sender_amount.
-    destruct_match eqn:cap_hit; returnIf cap_hit.
+    destruct_match eqn:match_requirements; destruct_throw_if match_requirements.
+    destruct_match eqn:sender_amount; destruct_throw_if sender_amount.
+    destruct_match eqn:cap_hit; destruct_throw_if cap_hit.
     + eauto.
     + rewrite N.ltb_lt in cap_hit.
       lia.
@@ -572,7 +602,7 @@ Qed.
 
 
 
-(* ------------------- Finalize correct ------------------- *)
+(** ** Finalize correct *)
 
 Lemma try_finalize_isFinalized_correct : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some finalize) = Some (new_state, new_acts) ->
@@ -615,8 +645,8 @@ Proof.
   split.
   - intros * (not_finalized & sender_funddeposit & min_hit & funding_over).
     receive_simpl.
-    destruct_match eqn:requirements_check; returnIf requirements_check.
-    destruct_match eqn:funding_over_check; returnIf funding_over_check.
+    destruct_match eqn:requirements_check; destruct_throw_if requirements_check.
+    destruct_match eqn:funding_over_check; destruct_throw_if funding_over_check.
     + easy.
     + apply Bool.andb_true_iff in funding_over_check as
         (funding_not_over%Nat.leb_le & cap_not_hit%Bool.negb_true_iff%N.eqb_neq).
@@ -652,7 +682,7 @@ Qed.
 
 
 
-(* ------------------- Refund correct ------------------- *)
+(** ** Refund correct *)
 
 Lemma try_refund_balance_correct : forall prev_state new_state chain ctx new_acts,
   receive chain ctx prev_state (Some refund) = Some (new_state, new_acts) ->
@@ -714,10 +744,10 @@ Proof.
   split.
   - intros (not_finalized & funding_over & min_not_hit & sender_not_batfund & balance_not_zero).
     receive_simpl.
-    destruct_match eqn:requirements_check; returnIf requirements_check.
-    destruct_match eqn:sender_check; returnIf sender_check.
+    destruct_match eqn:requirements_check; destruct_throw_if requirements_check.
+    destruct_match eqn:sender_check; destruct_throw_if sender_check.
     destruct_match eqn:from_balance.
-    destruct_match eqn:from_balance_check; returnIf from_balance_check.
+    destruct_match eqn:from_balance_check; destruct_throw_if from_balance_check.
     + easy.
     + rewrite N.eqb_eq in from_balance_check.
       now rewrite from_balance_check in balance_not_zero.
@@ -754,7 +784,7 @@ Qed.
 
 
 
-(* ------------------- Init correct ------------------- *)
+(** ** Init correct *)
 
 Lemma init_bat_balance_correct : forall state chain ctx setup,
   init chain ctx setup = Some (state) ->
@@ -818,7 +848,7 @@ Qed.
 
 
 
-(* ------------------- Functions preserve sum of balances ------------------- *)
+(** ** Functions preserve sum of balances *)
 
 Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
@@ -912,9 +942,9 @@ Qed.
 
 
 
-(* ------------------- Sum of balances always equals total supply ------------------- *)
+(** ** Sum of balances always equals total supply *)
 
-(* In any reachable state the sum of token balance
+(** In any reachable state the sum of token balance
     will be equal to the total supply of tokens *)
 Lemma sum_balances_eq_total_supply bstate caddr :
   reachable bstate ->
@@ -947,9 +977,9 @@ Qed.
 
 
 
-(* ------------------- total supply can only grow before funding fails ------------------- *)
+(** ** Total supply can only grow before funding fails *)
 
-(* If funding period is active or funding goal was hit then the
+(** If funding period is active or funding goal was hit then the
     total supply of tokens cannot decrease *)
 Lemma receive_total_supply_increasing : forall prev_state new_state chain ctx msg new_acts,
   ((current_slot chain) <= (fundingEnd prev_state))%nat \/ tokenCreationMin prev_state <= total_supply prev_state->
@@ -972,9 +1002,9 @@ Qed.
 
 
 
-(* ------------------- Constants are constant ------------------- *)
+(** ** Constants are constant *)
 
-(* Constants should never change after after receiving msg *)
+(** Constants should never change after after receiving msg *)
 Lemma receive_preserves_constants : forall prev_state new_state chain ctx msg new_acts,
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
        prev_state.(fundDeposit) = new_state.(fundDeposit)
@@ -991,7 +1021,7 @@ Proof.
   all: receive_simpl; now inversion receive_some.
 Qed.
 
-(* Constants are always equal to the initial assignment *)
+(** Constants are always equal to the initial assignment *)
 Lemma constants_are_constant bstate caddr (trace : ChainTrace empty_state bstate) :
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   exists deploy_info cstate,
@@ -1016,9 +1046,9 @@ Qed.
 
 
 
-(* ------------------- Finalize cannot be undone ------------------- *)
+(** ** Finalize cannot be undone *)
 
-(* Once the contract is in the finalized state it cannot leave it *)
+(** Once the contract is in the finalized state it cannot leave it *)
 Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
   (isFinalized prev_state) = true /\
   receive chain ctx prev_state msg = Some (new_state, new_acts) ->
@@ -1035,7 +1065,7 @@ Qed.
 
 
 
-(* ------------------- Cannot finalize if goal not hit ------------------- *)
+(** ** Cannot finalize if goal not hit *)
 
 Lemma no_finalization_before_goal bstate caddr :
   reachable bstate ->
@@ -1080,10 +1110,10 @@ Qed.
 
 
 
-(* ------------------- It is always possible to finalize ------------------- *)
+(** ** It is always possible to finalize *)
 
-(* Prove that it is always possible to reach a state where the token is finalized if the funding
-   goal was reached *)
+(** Prove that it is always possible to reach a state where the token is finalized if the funding
+    goal was reached *)
 Lemma can_finalize_if_creation_min : forall bstate (reward : Amount) (caddr creator : Address),
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1184,8 +1214,8 @@ Proof.
         now repeat split; try (rewrite_environment_equiv; cbn; eauto).
 Qed.
 
-(* Prove that it is always possible to reach a state where the token is finalized if there
-   is enough money in the blockchain and the contract constants have valid values *)
+(** Prove that it is always possible to reach a state where the token is finalized if there
+    is enough money in the blockchain and the contract constants have valid values *)
 Lemma can_finalize_if_deployed : forall deployed_bstate (reward : Amount) (caddr creator : Address) accounts,
   address_is_contract creator = false ->
   (reward >= 0)%Z ->
@@ -1372,8 +1402,8 @@ Proof.
              try (apply Z.ge_le, account_balance_nonnegative; eauto).
            clear finalized funding_period_started funding_period_not_over.
            cbn.
-           destruct_match eqn:match_amount; returnIf match_amount.
-           destruct_match eqn:match_cap; returnIf match_cap; eauto.
+           destruct_match eqn:match_amount; destruct_throw_if match_amount.
+           destruct_match eqn:match_cap; destruct_throw_if match_cap; eauto.
          --- (* Prove contradiction between match_amount, match_cap and can_hit_fund_min *)
              apply N.ltb_lt in match_cap.
              apply Z.leb_gt, Z.min_glb_lt_iff in match_amount as [min_left min_right].
@@ -1509,9 +1539,9 @@ Qed.
 
 
 
-(* ------------------- Refund guarantee ------------------- *)
+(** ** Refund guarantee *)
 
-(* The BAToken contract should guarantee that all tokens (except for the free initSupply given to batFundDeposit)
+(** The BAToken contract should guarantee that all tokens (except for the free initSupply given to batFundDeposit)
     can be fully refunded. However as shown in the property based tests this is not the case so we can only prove
     a weaker result stating that refund msgs can always be consumed. This does not guarantee refunding as the
     proof does not state that the new actions produced by refund entrypoint can be evaluated. Thus it is not
