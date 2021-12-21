@@ -1,15 +1,19 @@
-From Coq Require Import ZArith.
-Require Import Monads.
-Require Import Extras.
-Require Import Containers.
-From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From Coq Require Import Program.Basics.
+From Coq Require Import ZArith.
+From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Common.
+
 Import ListNotations.
 Import RecordSetNotations.
-From Coq Require Import Program.Basics.
+
 Notation "f 'o' g" := (compose f g) (at level 50).
+
 
 Require Import FA2Interface.
 
@@ -118,7 +122,6 @@ Global Instance state_serializable : Serializable State :=
 
 End Serialization.
 
-Definition returnIf (cond : bool) := if cond then None else Some tt.
 
 Definition address_balance (token_id : token_id)
                            (addr : Address)
@@ -180,10 +183,10 @@ Definition transfer_check_permissions (caller : Address)
   (* if caller is owner of transfer, then check policy if self_transfer is allowed *)
   if (address_eqb caller params.(from_))
   then
-    returnIf (policy_disallows_self_transfer policy)
+    throwIf (policy_disallows_self_transfer policy)
   else
     (* check if policy allows operator transfer *)
-    do _ <- returnIf (policy_disallows_operator_transfer policy) ;
+    do _ <- throwIf (policy_disallows_operator_transfer policy) ;
     do operators_map <- FMap.find params.(from_) state.(operators) ;
     do op_tokens <- FMap.find caller operators_map ;
     (* check if operator has permission to transfer the given token_id type *)
@@ -349,7 +352,7 @@ Definition update_operators (caller : Address)
                             (state : State)
                             : option State :=
   (* If policy doesn't allow operator transfer, then this operation fails *)
-  do _ <- returnIf (policy_disallows_operator_transfer state.(permission_policy)) ;
+  do _ <- throwIf (policy_disallows_operator_transfer state.(permission_policy)) ;
   let exec_add params (state_opt : option State) : option State :=
     do state_ <- state_opt ;
     (* only the owner of the token is allowed to update their operators *)
@@ -386,7 +389,7 @@ Definition get_is_operator_response_callback (caller : Address)
                                              (state : State)
                                              : option (State * list ActionBody) :=
   (* if policy doesn't allow operator transfers, then this operation will fail *)
-  do _ <- returnIf (policy_disallows_operator_transfer state.(permission_policy)) ;
+  do _ <- throwIf (policy_disallows_operator_transfer state.(permission_policy)) ;
   let operator_params := params.(is_operator_operator) in
   let operator_tokens_opt := get_owner_operator_tokens operator_params.(op_param_owner) operator_params.(op_param_operator) in
   let is_operator_result := match operator_tokens_opt state with
@@ -407,7 +410,7 @@ Definition try_set_transfer_hook (caller : Address)
                                  (state : State)
                                  : option State :=
   (* only owner can set transfer hook *)
-  do _ <- returnIf (negb (address_eqb caller state.(fa2_owner))) ;
+  do _ <- throwIf (negb (address_eqb caller state.(fa2_owner))) ;
   Some (state<| transfer_hook_addr :=  Some params.(hook_addr)|>
              <| permission_policy  := params.(hook_permissions_descriptor) |>).
 
@@ -434,7 +437,7 @@ Definition try_create_tokens (caller : Address)
   let exchange_rate := 100%Z in
   do ledger <- FMap.find tokenid state.(assets) ;
   (* only allow amounts > 0 *)
-  do _ <- returnIf (Z.leb amount 0%Z) ;
+  do _ <- throwIf (Z.leb amount 0%Z) ;
   let amount := Z.to_N (amount * exchange_rate) in
   let caller_bal := with_default 0 (FMap.find caller ledger.(balances)) in
   let new_balances := FMap.add caller (caller_bal + amount) ledger.(balances) in
