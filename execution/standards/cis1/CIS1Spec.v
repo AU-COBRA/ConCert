@@ -69,7 +69,7 @@ ReceiveHookParameter ::= (id: TokenID) (amount: TokenAmount) (from: Address)
                          (contract: ContractName) (data: AdditionalData).
 >> *)
 
-(** NOTE: there is no notion of a contract name in ConCert; [AdditionalData] is not handled at the moment *)
+(** NOTE: there is no notion of the contract name in ConCert; [AdditionalData] is not handled at the moment *)
 Definition receive_hook_params `{ChainBase} : Type := TokenID * TokenAmount * Address.
 
 (** All addresses owning tokens must support the following interface, since all receiving
@@ -89,10 +89,8 @@ Global Instance CIS1ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializabl
 (** Abstract types of messages and storage (the contract's state) *)
 Module Type CIS1Types.
 
-  Parameter Msg : Type.
-  Parameter Storage : Type.
-
-  Parameter contract_receive : forall `{ChainBase}, Chain -> ContractCallContext -> Storage -> option Msg -> option (Storage * list ActionBody).
+  Parameter Msg : forall `{ChainBase}, Type.
+  Parameter Storage : forall `{ChainBase}, Type.
 
 End CIS1Types.
 
@@ -104,51 +102,66 @@ Module Type CIS1View (cis1_types : CIS1Types).
 
   Import cis1_types.
 
-  Parameter get_balance_opt : forall `{ChainBase}, Storage -> TokenID -> Address -> option TokenAmount.
+  Section CISViewDefs.
 
-  Parameter get_operators : forall `{ChainBase}, Storage -> Address -> list Address.
+    Context `{ChainBase}.
 
-  Parameter get_owners : forall `{ChainBase}, Storage -> TokenID -> list Address.
+    Parameter get_balance_opt : Storage -> TokenID -> Address -> option TokenAmount.
 
-  Axiom get_owners_no_dup : forall `{ChainBase} st token_id, NoDup (get_owners st token_id).
+    Parameter get_operators : Storage -> Address -> list Address.
 
-  (** Owners are determined by their balances *)
-  Axiom get_owners_balances : forall `{ChainBase} st owner token_id,
-    In owner (get_owners st token_id) <->
-    exists balance, get_balance_opt st token_id owner = Some balance.
+    Parameter get_owners :  Storage -> TokenID -> list Address.
 
-  Parameter token_id_exists : Storage -> TokenID -> bool.
+    Axiom get_owners_no_dup : forall st token_id, NoDup (get_owners st token_id).
 
-  Parameter get_token_ids : Storage -> list TokenID.
+    (** Owners are determined by their balances *)
+    Axiom get_owners_balances : forall st owner token_id,
+        In owner (get_owners st token_id) <->
+          exists balance, get_balance_opt st token_id owner = Some balance.
+
+    Parameter token_id_exists : Storage -> TokenID -> bool.
+  End CISViewDefs.
+
+End CIS1View.
+
+
+(** Definition of extra functions, based on [CIS1View] *)
+Module CIS1ViewExtra (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
+
+  Import cis1_types.
+  Import cis1_view.
 
   Definition get_balance `{ChainBase} : Storage -> TokenID -> Address -> option TokenAmount :=
-    fun st token_id addr => if token_id_exists st token_id then
+      fun st token_id addr => if token_id_exists st token_id then
                               match get_balance_opt st token_id addr with
                               | Some bal => Some bal
                               | None => Some 0
                               end
                             else None.
 
-  Definition get_balance_total `{ChainBase}
-             (st : Storage)
-             (token_id : TokenID)
-             (p : token_id_exists st token_id = true)
-             (addr : Address) : TokenAmount :=
-    let o := get_balance st token_id addr in
-    match o as o' return (o' = o -> _) with
-    | Some bal => fun _ => bal
-    | None => fun heq => False_rect _ (ltac:(intros;subst o; unfold get_balance in *;rewrite p in *;
-    destruct (get_balance_opt st token_id addr);congruence))
-    end eq_refl.
+    Definition get_balance_total `{ChainBase}
+               (st : Storage)
+               (token_id : TokenID)
+               (p : token_id_exists st token_id = true)
+               (addr : Address) : TokenAmount :=
+      let o := get_balance st token_id addr in
+      match o as o' return (o' = o -> _) with
+      | Some bal => fun _ => bal
+      | None => fun heq =>
+                 False_rect _ (ltac:(intros;subst o; unfold get_balance in *;rewrite p in *;
+                                     destruct (get_balance_opt st token_id addr);congruence))
+      end eq_refl.
+End CIS1ViewExtra.
 
-End CIS1View.
-
-(** The module below specifies an abstract interface of the CIS1 token along with the properties
-    that must be satisfied by each entry point required by the standard. *)
-Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
+(** The module below specifies an abstract interface of the CIS1 token along with the
+    properties that must be satisfied by each entry point required by the standard. *)
+Module CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
 
   Import cis1_types.
   Import cis1_view.
+
+  Module VExtra := CIS1ViewExtra cis1_types cis1_view.
+  Import VExtra.
 
   (** * Contract functions *)
 
@@ -190,17 +203,6 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
   | CIS1_transfer (params : CIS1_transfer_params)
   | CIS1_updateOperator (params : CIS1_updateOperator_params)
   | CIS1_balanceOf (params : CIS1_balanceOf_params).
-
-  (** We require that it is possible to convert between the entry point and the input data specified
-      by the standard and the actual type of messages accepted by a particular contract *)
-  Parameter get_CIS1_entry_point : forall `{ChainBase}, Msg -> option CIS1_entry_points.
-  Parameter get_contract_msg : forall `{ChainBase}, CIS1_entry_points -> Msg.
-
-  (** This axiom captures the intuition that a contact that implements CIS1 can handle _at least_
-      [CIS1_entry_points].  *)
-  Axiom left_inverse_get_CIS1_entry_point :
-    forall `{ChainBase} (entry_point : CIS1_entry_points),
-      get_CIS1_entry_point (get_contract_msg entry_point) = Some entry_point.
 
   (** ** Transfer *)
 
@@ -248,8 +250,9 @@ Module Type CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types
     (** CIS1: A transfer MUST non-strictly decrease the balance of the from address and non-strictly increase the balance of the to address.
 
 CIS1: A transfer of some amount of a token type MUST only transfer the exact amount of the given token type between balances. *)
-    prev_from = next_from + amount /\
-    next_to = prev_to + amount.
+    (from <> to -> prev_from = next_from + amount /\ next_to = prev_to + amount) /\
+    (** if the [from] and [to] addresses coincide, the transfer does not change the balance for this address *)
+    (from = to -> amount <= prev_from /\ prev_from = next_from).
 
   (** CIS1: The list of transfers MUST be executed in order. *)
   Fixpoint compose_transfers
@@ -276,8 +279,8 @@ CIS1: A transfer of some amount of a token type MUST only transfer the exact amo
   (** A receive hook call is valid if the call parameters are deserialised to a [CIS1_receiver_receive_hook]
       constructor with appropriate data *)
   Definition is_valid_receive_hook `{cb : ChainBase} (p : receive_hook_params) (serialized_params : SerializedValue) : Prop :=
-    exists (Msg : Type) (sMsg : Serializable Msg) (msg : @CIS1ReceiverMsg Msg sMsg cb),
-      deserialize serialized_params = Some (@CIS1_receiver_receive_hook Msg sMsg _  p).
+    exists (Msg : Type) (sMsg : Serializable Msg),
+      deserialize serialized_params = Some (@CIS1_receiver_receive_hook Msg sMsg _ p).
 
   (** A specification for the batch transfer *)
   Record transfer_spec `{ChainBase}
@@ -301,13 +304,9 @@ CIS1: A transfer of some amount of a token type MUST only transfer the exact amo
       transfer_receive_hook_calls :
       (** We consider only transfers to addresses that are contracts *)
       let transfers_to_contracts := filter (fun x => address_is_contract x.(cis1_td_to)) params.(cis_tr_transfers) in
-      Forall (fun '(op,(to_addr, params)) =>
-                exists val,
-                  op = act_call to_addr 0%Z val /\
-                 is_valid_receive_hook params val)
-             (combine ret_ops (get_receive_hook_params transfers_to_contracts)) /\
-      ret_ops = map (fun '(to_addr, params) => act_call to_addr 0 (serialize params))
-                    (get_receive_hook_params transfers_to_contracts)
+      Forall2 (fun op '(to_addr, params) =>
+                 exists val, op = act_call to_addr 0%Z val /\ is_valid_receive_hook params val)
+                 ret_ops (get_receive_hook_params transfers_to_contracts)
     }.
 
   (** ** updateOperator *)
@@ -415,14 +414,36 @@ CIS1: A transfer of some amount of a token type MUST only transfer the exact amo
         end
     }.
 
-  (** ** Full specification of [receive] *)
+End CIS1Axioms.
+
+(** ** Full specification of [receive] *)
+Module Type CIS1ReceiveSpec (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
+
+  Import cis1_types.
+  Import cis1_view.
+
+  Module cis1_axioms := CIS1Axioms cis1_types cis1_view.
+  Import cis1_axioms.
+
+  (** We require that it is possible to convert betwee the entry point and the input data specified
+      by the standard and the actual type of messages accepted by a particular contract *)
+  Parameter get_CIS1_entry_point : forall `{ChainBase}, Msg -> option CIS1_entry_points.
+  Parameter get_contract_msg : forall `{ChainBase}, CIS1_entry_points -> Msg.
+
+  (** This axiom captures the intuition that a contact that implements CIS1 can handle _at least_
+      [CIS1_entry_points].  *)
+  Axiom left_inverse_get_CIS1_entry_point :
+    forall `{ChainBase} (entry_point : CIS1_entry_points),
+      get_CIS1_entry_point (get_contract_msg entry_point) = Some entry_point.
+
+
+  Parameter contract_receive : forall `{ChainBase}, Chain -> ContractCallContext -> Storage -> option Msg -> option (Storage * list ActionBody).
+
 
   (** The contract's [receive] function satisfies the CIS1 standard if for each entry points it
       satisfies the corresponding specification. *)
   Axiom receive_spec :
     forall `{ChainBase}
-      (receive_func : Chain -> ContractCallContext -> Storage -> option Msg
-                      -> option (Storage * list ActionBody))
       (chain : Chain)
       (ctx : ContractCallContext)
       (entry : CIS1_entry_points)
@@ -430,21 +451,23 @@ CIS1: A transfer of some amount of a token type MUST only transfer the exact amo
       (prev_st next_st : Storage)
       (ops : list ActionBody),
       get_CIS1_entry_point msg = Some entry ->
-      receive_func chain ctx prev_st (Some msg) = Some (next_st, ops) ->
+      contract_receive chain ctx prev_st (Some msg) = Some (next_st, ops) ->
       match entry with
       | CIS1_transfer params => transfer_spec params prev_st next_st ops
       | CIS1_updateOperator params => updateOperator_spec ctx params prev_st next_st ops
       | CIS1_balanceOf params => balanceOf_spec params prev_st next_st ops
       end.
 
-  End CIS1Axioms.
+End CIS1ReceiveSpec.
 
 (** * CIS1 properties  *)
 
 (** ** Operator updates *)
 
-Module CIS1Operators (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
-       (cis1_axioms : CIS1Axioms cis1_types cis1_view).
+Module CIS1Operators (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
+
+  Module cis1_axioms := CIS1Axioms cis1_types cis1_view.
+  Import cis1_axioms.
 
   (** Sanity checks for the batch operator update spec *)
 
@@ -508,8 +531,10 @@ End CIS1Operators.
 
 
 (** ** Balances *)
-Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
-       (cis1_axioms : CIS1Axioms cis1_types cis1_view).
+Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
+
+  Module cis1_axioms := CIS1Axioms cis1_types cis1_view.
+  Import cis1_axioms.
 
   (** In this module we prove properties related to the preservation of the sum of all balances for
       all token ids.
@@ -519,6 +544,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
       prove here. *)
 
   Import cis1_types cis1_view cis1_axioms.
+
+  Import VExtra.
+
   Import Lia.
 
   (* begin hide *)
@@ -711,6 +739,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
     now destruct (get_balance_opt st token_id _).
   Qed.
 
+  Hint Constructors transfer_spec : hints.
+
   (** We can recover a statement for the whole "batch" of transfers from the transfers spec where
       the same property is assumed for each transfer in the batch *)
   Lemma transfer_token_ids_preserved `{ChainBase} transfers prev_st next_st ops :
@@ -730,14 +760,11 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
       destruct Htrans as [st [p [q [Hsingle Htrs]]]].
       transitivity (token_id_exists st token_id).
       * now destruct Hsingle as [HH0 [HH1 [HH2 HH3]]].
-      * eapply IHtransfers;eauto.
-        constructor. apply Htrs. cbn.
-        destruct Hcalls as [Hforall Hops].
-        destruct (address_is_contract (cis1_td_to a)).
-        ** subst. now inversion Hforall;subst.
-        ** easy.
+      * destruct (address_is_contract (cis1_td_to a)).
+        ** inversion Hcalls;subst.
+           eapply IHtransfers;eauto with hints.
+        ** eapply IHtransfers;eauto with hints.
   Qed.
-
 
   (** The balances of all token-address pairs NOT mentioned in the transfer batch remain unchanged
   *)
@@ -770,11 +797,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
            subst. symmetry. now apply Hbal_not_addr.
         * now symmetry.
       + cbn in *.
-        destruct Hcalls as [Hforall Hops].
-        destruct (address_is_contract (cis1_td_to a)).
-        * subst;inversion Hforall.
-           eapply IHtransfers;firstorder.
-        * eapply IHtransfers;firstorder.
+        destruct (address_is_contract (cis1_td_to a));
+          inversion Hcalls;
+          eapply IHtransfers;firstorder.
   Qed.
 
   (** If the properties of the single transfer holds (the transfer succeeds), then
@@ -786,8 +811,10 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
         (spec : transfer_single_spec prev_st next_st token_id p q from to amount) :
     get_balance_total prev_st token_id p from >= amount.
   Proof.
-    destruct spec as [H1 [H2 H3]].
-    lia.
+    destruct spec as [H1 [H2 [H3 [H4 H5]]]].
+    destruct (address_eqb_spec from to) as [| Hneq].
+    * subst. specialize (H5 eq_refl). lia.
+    * specialize (H4 Hneq). lia.
   Qed.
 
   (** An important lemma for the main result. The spec for a single transfer ensures that for a
@@ -823,6 +850,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
         destruct (address_eqb_spec addr to);subst. exfalso;apply (remove_In _ _ _ H0).
         eauto. }
       repeat rewrite get_balance_total_get_balance_default in H3, H4.
+      specialize (H4 eq_refl).
       lia.
     + rewrite remove_owner with (st := prev_st) (owner := from)
         by (subst owners1;auto with hints).
@@ -833,8 +861,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
       rewrite remove_owner with (st := next_st) (owner := to)
         by (assert (In to owners2 \/ get_balance_default next_st token_id to = 0);
             subst owners2;auto with hints;intuition;auto with hints).
-      repeat rewrite get_balance_total_get_balance_default in H3, H4.
-      rewrite H3. rewrite H4.
+      specialize (H3 Haddr). destruct H3 as [Hfrom Hto].
+      repeat rewrite get_balance_total_get_balance_default in Hfrom,Hto.
+      rewrite Hfrom. rewrite Hto.
       assert (HH :
                 sum_balances next_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners2)) =
               sum_balances prev_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners1))).
@@ -880,11 +909,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types)
           ** intros.
           apply get_balance_opt_default;symmetry;auto.
       + cbn in *.
-        destruct Hcalls as [Hforall Hops].
-        destruct (address_is_contract (cis1_td_to a)).
-        ** subst;inversion Hforall.
-           eapply IHtransfers;firstorder.
-        ** eapply IHtransfers;firstorder.
+        destruct (address_is_contract (cis1_td_to a));
+          inversion Hcalls;
+          eapply IHtransfers;firstorder.
   Qed.
 
   Lemma balanceOf_preserves_sum_of_balances `{ChainBase} params prev_st next_st token_id ops

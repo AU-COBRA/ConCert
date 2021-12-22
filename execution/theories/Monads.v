@@ -52,3 +52,26 @@ Proof.
   - intros; cbn.
     destruct t; auto.
 Qed.
+
+Fixpoint monad_map {A B} {m : Type -> Type} `{Monad m} (f : A -> m B) (xs : list A) : m (list B) :=
+  match xs with
+  | nil => ret nil
+  | cons x xs' =>
+      do v <- f x;
+      do vs <- monad_map f  xs';
+      ret (cons v vs)
+  end.
+
+Fixpoint monad_foldr {A B} {m : Type -> Type} `{Monad m} (f : A -> B -> m A) (a : A) (xs : list B) : m A :=
+  match xs with
+  | nil => ret a
+  | cons x xs' => do v <- monad_foldr f a xs';
+                  f v x
+  end.
+
+Fixpoint monad_foldl {A B} {m : Type -> Type} `{Monad m} (f : A -> B -> m A) (a : A) (xs : list B) : m A :=
+  match xs with
+  | nil => ret a
+  | cons x xs' => do v <- f a x;
+                  monad_foldl f v xs'
+  end.
