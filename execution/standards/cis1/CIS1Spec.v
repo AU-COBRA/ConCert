@@ -40,17 +40,15 @@ Notation:
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Monads.
 From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Standards.CIS1 Require Import CIS1Utils.
-
-From MetaCoq.Template Require Import monad_utils.
 
 From Coq Require Import Basics.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 
 Import ListNotations.
-Import MonadNotation.
 Import RemoveProperties.
 
 (** * General types *)
@@ -385,7 +383,7 @@ CIS1: A transfer of some amount of a token type MUST only transfer the exact amo
       (fun q =>
          let addr := q.(cis1_bo_query_address) in
          let token_id := q.(cis1_bo_query_token_id) in
-         balance <- get_balance st token_id addr;;
+         do balance <- get_balance st token_id addr;
          Some (token_id, addr, balance)) params.(cis1_bo_query).
 
   Record balanceOf_spec
@@ -806,8 +804,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       we can conclude that if has been enough tokens for the transfer. *)
   Lemma transfer_single_spec_sufficient_funds `{ChainBase}
         prev_st next_st token_id from to amount
-        (p : token_id_exists prev_st token_id)
-        (q : token_id_exists next_st token_id)
+        (p : token_id_exists prev_st token_id = true)
+        (q : token_id_exists next_st token_id = true)
         (spec : transfer_single_spec prev_st next_st token_id p q from to amount) :
     get_balance_total prev_st token_id p from >= amount.
   Proof.
@@ -822,8 +820,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       of an [amount] between [from] and [to]. *)
   Lemma transfer_single_spec_preserves_balances `{ChainBase}
         prev_st next_st token_id from to amount
-        (p : token_id_exists prev_st token_id)
-        (q : token_id_exists next_st token_id)
+        (p : token_id_exists prev_st token_id = true)
+        (q : token_id_exists next_st token_id = true)
         (spec : transfer_single_spec prev_st next_st token_id p q from to amount) :
     let owners1 := get_owners prev_st token_id in
     let owners2 := get_owners next_st token_id in

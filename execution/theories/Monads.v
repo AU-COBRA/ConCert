@@ -1,4 +1,6 @@
-(* This file defines some helpful notations for monads. *)
+(** This file defines some helpful notations for monads. *)
+From Coq Require Import List.
+From Coq Require Import Basics.
 
 Class Monad (m : Type -> Type) : Type :=
 build_monad {
@@ -61,6 +63,15 @@ Fixpoint monad_map {A B} {m : Type -> Type} `{Monad m} (f : A -> m B) (xs : list
       do vs <- monad_map f  xs';
       ret (cons v vs)
   end.
+
+Lemma monad_map_map {A B Z} {m : Type -> Type} `{Monad m}
+      (f : A -> m B) (g : Z -> A) (xs : list Z) :
+  monad_map f (map g xs) = monad_map (compose f g) xs.
+Proof.
+  induction xs.
+  - easy.
+  - cbn. now rewrite IHxs.
+Qed.
 
 Fixpoint monad_foldr {A B} {m : Type -> Type} `{Monad m} (f : A -> B -> m A) (a : A) (xs : list B) : m A :=
   match xs with

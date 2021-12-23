@@ -421,6 +421,24 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
 
     Definition contract_receive := wccd_receive.
 
+    Lemma get_balances_wccd_balanceOf next_st c query send_results_to :
+      to_cis1_balanceOf_params query send_results_to = Some c ->
+      get_balances next_st c = Some (wccd_balanceOf query next_st).
+    Proof.
+      intros Hparams.
+      unfold to_cis1_balanceOf_params in *.
+      destruct (Bool.bool_dec (address_is_contract send_results_to)) eqn:Haddr;
+        inversion Hparams;subst;clear Hparams.
+      cbn.
+      revert dependent next_st.
+      revert dependent send_results_to.
+      induction query.
+      - now intros ? ? ? Hparams;cbn in *.
+      - intros. cbn.
+        erewrite IHquery;eauto.
+        now destruct (get_balance_opt _ _).
+    Qed.
+
     Theorem receive_spec :
     forall (chain : Chain)
       (ctx : ContractCallContext)
@@ -437,7 +455,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       end.
     Proof.
       intros ? ? ? ? ? ? ? Hep Hreceive.
-      destruct msg;cbn;inversion Hep;subst;clear Hep;try easy.
+      destruct msg;cbn;inversion Hep as [HH];subst;clear Hep;try easy.
       + simpl in *.
         destruct (wccd_transfer _ _) eqn:Htr;try congruence.
         inversion Hreceive;subst;clear Hreceive.
@@ -473,8 +491,28 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
                  **** eapply IHparams;eauto.
              *** eapply IHparams;eauto.
       + simpl in *.
-        admit.
-      + admit.
+        destruct (address_is_contract send_results_to) eqn:Haddr;
+          inversion Hreceive;subst;clear Hreceive;cbn in *.
+        destruct (to_cis1_balanceOf_params _ _) eqn:Hto_cis1;inversion HH;subst;clear HH.
+        constructor;subst;auto.
+        erewrite get_balances_wccd_balanceOf;eauto.
+        cbn. repeat f_equal.
+        unfold to_cis1_balanceOf_params in *.
+        destruct (Bool.bool_dec (address_is_contract send_results_to)) eqn:HH;
+          now inversion Hto_cis1.
+      + cbn in *.
+        destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
+        constructor;intros;cbn in *;auto.
+        * destruct (token_id =? TOKEN_ID_WCCD);cbn;auto.
+          unfold get_balance_opt.
+          destruct (address_eqb_spec addr ctx.(ctx_from)).
+          ** subst.
+             rewrite Haddr.
+             unfold AddressMap.find,AddressMap.add.
+             now rewrite FMap.find_add with (m:=prev_st).
+          ** unfold AddressMap.find,AddressMap.add.
+             now rewrite fin_maps.lookup_insert_ne.
+        * admit.
     Admitted.
 
   End WccdReceiveDefs.
