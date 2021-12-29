@@ -31,9 +31,12 @@ Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
 
 (* Dummy implementation of callbacks. *)
-Record callback (A : Type) := {
-  blob : option A;
+Record callback := {
+  return_addr : Address;
 }.
+
+Definition callback_addr (c : callback) : Address := c.(return_addr).
+Coercion callback_addr : callback >-> Address.
 
 Record transfer_param :=
   build_transfer_param{
@@ -57,19 +60,19 @@ Record mintOrBurn_param :=
 Record getAllowance_param :=
   build_getAllowance_param{
     request : (Address * Address);
-    allowance_callback : callback N
+    allowance_callback : callback
 }.
 
 Record getBalance_param :=
   build_getBalance_param{
     owner_ : Address;
-    balance_callback : callback N
+    balance_callback : callback
 }.
 
 Record getTotalSupply_param :=
   build_getTotalSupply_param{
     request_ : unit;
-    supply_callback : callback N
+    supply_callback : callback
 }.
 
 Record State :=
@@ -117,8 +120,8 @@ MetaCoq Run (make_setters Setup).
 
 Section Serialization.
 
-Instance callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) :=
-Derive Serializable (callback_rect A) <(Build_callback A)>.
+Instance callback_serializable : Serializable callback :=
+Derive Serializable callback_rect <Build_callback>.
 
 Global Instance transfer_param_serializable : Serializable transfer_param :=
   Derive Serializable transfer_param_rect <build_transfer_param>.
@@ -219,19 +222,19 @@ Definition try_mint_or_burn (sender : Address) (param : mintOrBurn_param) (state
 (** Get the quantity that [snd request] is allowed to spend on behalf of [fst request] *)
 Definition try_get_allowance (sender : Address) (param : getAllowance_param) (state : State) : list ActionBody :=
   let value := with_default 0 (FMap.find param.(request) state.(allowances)) in
-    [act_call sender 0 (serialize (receive_allowance value))].
+    [act_call param.(allowance_callback) 0 (serialize (receive_allowance value))].
 
 (** ** Get balance *)
 (** Get the quantity of tokens belonging to [owner] *)
 Definition try_get_balance (sender : Address) (param : getBalance_param) (state : State) : list ActionBody :=
   let value := with_default 0 (FMap.find param.(owner_) state.(tokens)) in
-    [act_call sender 0 (serialize (receive_balance_of value))].
+    [act_call param.(balance_callback) 0 (serialize (receive_balance_of value))].
 
 (** ** Get total supply *)
 (** Get the total supply of tokens *)
 Definition try_get_total_supply (sender : Address) (param : getTotalSupply_param) (state : State) : list ActionBody :=
   let value := state.(total_supply) in
-    [act_call sender 0 (serialize (receive_total_supply value))].
+    [act_call param.(supply_callback) 0 (serialize (receive_total_supply value))].
 
 (** ** Init *)
 (** Initalize contract storage *)
@@ -839,7 +842,7 @@ Qed.
 Lemma try_get_allowance_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts) ->
     new_acts = [
-      act_call ctx.(ctx_from) 0%Z (serialize
+      act_call param.(allowance_callback) 0%Z (serialize
         (receive_allowance (with_default 0 (FMap.find param.(request) (allowances prev_state)))))
     ].
 Proof.
@@ -880,7 +883,7 @@ Qed.
 Lemma try_get_balance_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts) ->
     new_acts = [
-      act_call ctx.(ctx_from) 0%Z (serialize
+      act_call param.(balance_callback) 0%Z (serialize
         (receive_balance_of (with_default 0 (FMap.find param.(owner_) (tokens prev_state)))))
     ].
 Proof.
@@ -921,7 +924,7 @@ Qed.
 Lemma try_get_total_supply_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts) ->
     new_acts = [
-      act_call ctx.(ctx_from) 0%Z (serialize
+      act_call param.(supply_callback) 0%Z (serialize
         (receive_total_supply prev_state.(total_supply)))
     ].
 Proof.
@@ -1025,32 +1028,36 @@ Ltac try_solve_preserves_state :=
 
 
 (** ** Outgoing acts facts *)
-(** Contract never calls itself *)
-Lemma no_self_calls bstate caddr :
+(** If contract emits self calls then they are for the receive entrypoints (which do not exits) *)
+Lemma only_getter_self_calls bstate caddr :
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   Forall (fun act_body =>
     match act_body with
-    | act_transfer to _
-    | act_call to _ _ => (to =? caddr)%address = false
+    | act_transfer to _ => False
+    | act_call to _ msg => to = caddr ->
+        (exists n, msg = serialize (receive_allowance n)) \/
+        (exists n, msg = serialize (receive_balance_of n)) \/
+        (exists n, msg = serialize (receive_total_supply n))
     | _ => False
     end) (outgoing_acts bstate caddr).
 Proof.
   contract_induction; intros; cbn in *; auto.
   - now inversion IH.
   - apply Forall_app; split; auto.
-    clear IH.
     destruct msg.
     + destruct m;
-        (try_solve_acts_correct;
-         try (constructor;now destruct_address_eq)).
+        try_solve_acts_correct.
     + receive_simpl.
   - inversion_clear IH as [|? ? head_not_me tail_not_me].
     destruct head;
-      try contradiction;
-      destruct action_facts;
+      try contradiction.
+    destruct action_facts as (? & ? & ? & ?).
+    subst.
+    destruct head_not_me as [[] | [[] | []]]; auto;
       subst;
-      now rewrite address_eq_refl in head_not_me.
+      receive_simpl;
+      inversion receive_some.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
@@ -1060,7 +1067,8 @@ Proof.
     destruct_action_eval; auto.
 Qed.
 
-Lemma no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
+(** Contract never calls itself *)
+Lemma no_self_calls : forall bstate origin from_addr to_addr amount msg acts ctx prev_state new_state resp_acts,
   reachable bstate ->
   env_contracts bstate to_addr = Some (contract : WeakContract) ->
   chain_state_queue bstate =
@@ -1071,17 +1079,21 @@ Lemma no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
        | Some msg => act_call to_addr amount msg
        | None => act_transfer to_addr amount
     end |} :: acts ->
+  wc_receive contract bstate ctx prev_state msg = Some (new_state, resp_acts) ->
   from_addr <> to_addr.
 Proof.
-  intros * reach deployed queue.
-  apply no_self_calls in deployed as no_self_calls; auto.
+  intros * reach deployed queue receive_some.
+  apply only_getter_self_calls in deployed as no_self_calls; auto.
   unfold outgoing_acts in no_self_calls.
   rewrite queue in no_self_calls.
   cbn in no_self_calls.
   destruct_address_eq; auto.
   inversion_clear no_self_calls as [|? ? hd _].
-  destruct msg;
-    now rewrite address_eq_refl in hd.
+  destruct msg; auto.
+  destruct hd as [[] | [[] | []]];
+    auto; subst;
+    eapply wc_receive_strong in receive_some as (_ & ? & _ & _ & msg_correct & _);
+    now destruct_match in msg_correct.
 Qed.
 
 (** The contract never produces actions carrying money *)
@@ -1163,7 +1175,10 @@ Proof.
     subst. cbn.
     split.
     + now apply Z.ge_le.
-    + now eapply no_self_calls'.
+    + rewrite deployed in H.
+      inversion H.
+      subst.
+      now eapply no_self_calls.
 Qed.
 
 Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1513,7 +1528,10 @@ Proof.
     subst. cbn.
     split.
     + now specialize sum_balances_eq_total_supply as (? & ? & ?).
-    + now eapply no_self_calls'.
+    + rewrite deployed in H.
+      inversion H.
+      subst.
+      now eapply no_self_calls.
 Qed.
 
 End Theories.
