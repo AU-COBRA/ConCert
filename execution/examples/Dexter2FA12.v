@@ -1479,6 +1479,9 @@ Definition mintedOrBurnedTokens (msg : option Msg) : Z :=
   | _ => 0
   end.
 
+Definition callFrom (addr : Address) (call_info : ContractCallInfo Msg) : bool :=
+  (call_info.(call_from) =? addr)%address.
+
 (** [total_supply] is equal to the initial tokens + minted tokens - burned tokens *)
 Lemma total_supply_correct : forall bstate caddr (trace : ChainTrace empty_state bstate),
   env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -1487,7 +1490,7 @@ Lemma total_supply_correct : forall bstate caddr (trace : ChainTrace empty_state
     deployment_info Setup trace caddr = Some depinfo /\
     incoming_calls Msg trace caddr = Some inc_calls /\
     let initial_tokens := initial_pool (deployment_setup depinfo) in
-    Z.of_N cstate.(total_supply) = (Z.of_N initial_tokens) + sumZ (fun callInfo => mintedOrBurnedTokens callInfo.(call_msg)) inc_calls.
+    Z.of_N cstate.(total_supply) = (Z.of_N initial_tokens) + sumZ (fun callInfo => mintedOrBurnedTokens callInfo.(call_msg)) (filter (callFrom cstate.(admin)) inc_calls).
 Proof.
   contract_induction;
     intros; auto.
@@ -1497,26 +1500,29 @@ Proof.
       total_supply state = sum_balances state /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (balances_eq_total_supply & _).
-    cbn.
-    rewrite Z.add_shuffle3, <- IH.
-    clear tag IH AddBlockFacts DeployFacts CallFacts dep_info
-      prev_out_queue prev_inc_calls prev_out_txs.
+    erewrite <- admin_constant; eauto.
+    unfold callFrom in *.
     unfold Blockchain.receive in receive_some.
-    cbn in receive_some.
+    cbn in *.
     destruct msg. destruct m.
-    + now erewrite <- try_transfer_preserves_total_supply.
-    + now erewrite <- try_approve_preserves_total_supply.
+    + erewrite <- try_transfer_preserves_total_supply; eauto.
+      now destruct_address_eq; cbn; rewrite IH.
+    + erewrite <- try_approve_preserves_total_supply; eauto.
+      now destruct_address_eq; cbn; rewrite IH.
     + cbn.
-      apply try_mint_or_burn_total_supply_correct in receive_some.
-      * lia.
+      apply try_mint_or_burn_total_supply_correct in receive_some as state_eq.
+      * rewrite <- state_eq, IH.
+        specialize (try_mint_or_burn_is_some) as (_ & (_ & <- & _)); eauto.
+        rewrite address_eq_refl.
+        cbn. lia.
       * rewrite balances_eq_total_supply.
         apply balance_le_sum_balances.
     + eapply try_get_allowance_preserves_state in receive_some.
-      now subst.
+      now destruct_address_eq; subst.
     + eapply try_get_balance_preserves_state in receive_some.
-      now subst.
+      now destruct_address_eq; subst.
     + eapply try_get_total_supply_preserves_state in receive_some.
-      now subst.
+      now destruct_address_eq; subst.
     + receive_simpl.
   - now destruct facts.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
