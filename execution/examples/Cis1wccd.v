@@ -126,7 +126,7 @@ Section WccdToken.
 
   (** * updateOperator *)
 
-  Definition add_remove (param : OpUpdateKind * Address) (operators : list Address) :=
+  Definition add_remove (operators : list Address) (param : OpUpdateKind * Address)  :=
     let '(updateKind,addr) := param in
     match updateKind with
     | opAdd => addr :: operators
@@ -138,7 +138,7 @@ Section WccdToken.
     (* NOTE: in contrast to the Concordium's implementation, we do not
        allow to add operators to non-existing addresses *)
     do owner_data <- AddressMap.find owner prev_st;
-    let updated_owner_data := owner_data<| wccd_operators := fold_right add_remove owner_data.(wccd_operators) params |> in
+    let updated_owner_data := owner_data<| wccd_operators := fold_left add_remove params owner_data.(wccd_operators)  |> in
     ret (AddressMap.add owner updated_owner_data prev_st).
 
   (** * Wccd receive *)
@@ -501,10 +501,11 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         destruct (Bool.bool_dec (address_is_contract send_results_to)) eqn:HH;
           now inversion Hto_cis1.
       + cbn in *.
-        destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
+        unfold setter_from_getter_AddressState_wccd_operators,set_AddressState_wccd_operators in *.
         constructor;intros;cbn in *;auto.
         * destruct (token_id =? TOKEN_ID_WCCD);cbn;auto.
           unfold get_balance_opt.
+          destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
           destruct (address_eqb_spec addr ctx.(ctx_from)).
           ** subst.
              rewrite Haddr.
@@ -512,8 +513,55 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
              now rewrite FMap.find_add with (m:=prev_st).
           ** unfold AddressMap.find,AddressMap.add.
              now rewrite fin_maps.lookup_insert_ne.
-        * admit.
-    Admitted.
-
+        * destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
+          destruct a as [bal ops];cbn in *.
+          revert dependent ops.
+          revert dependent prev_st.
+          induction params;intros prev_st ops Haddr.
+          ** cbn.
+             unfold AddressMap.add,AddressMap.find in *.
+             now symmetry;apply FMap.add_id.
+          ** cbn.
+             unfold AddressMap.add,AddressMap.find in *.
+             destruct a as [ok oaddr];cbn in *.
+             unfold updateOperator_single_spec;cbn.
+             destruct ok;cbn in *.
+             *** set (st := FMap.add (ctx_from ctx)
+                                     {| wccd_balance := bal;
+                                       wccd_operators := oaddr :: ops |} prev_st).
+                 exists st. split.
+                 **** split.
+                      ***** intros.
+                      subst st. unfold WccdView.get_operators,AddressMap.find.
+                      rewrite Haddr. rewrite FMap.find_add with (m:=prev_st).
+                      cbn.
+                      split; intros;auto. destruct H1;subst;congruence.
+                      ***** subst st. unfold WccdView.get_operators,AddressMap.find.
+                      now rewrite FMap.find_add with (m:=prev_st);cbn.
+                 **** set (ops' :=  oaddr :: ops).
+                      specialize (IHparams st ops'). subst ops' st;cbn in *.
+                      repeat rewrite FMap.add_add with (m:=prev_st)in IHparams.
+                      apply IHparams.
+                      now rewrite FMap.find_add with (m:=prev_st).
+             *** set (st := FMap.add (ctx_from ctx)
+                                     {| wccd_balance := bal;
+                                        wccd_operators := remove address_eqdec oaddr ops |} prev_st).
+                 exists st. split.
+                 **** split.
+                      (* the cases are essentially just properties of [remove], which we
+                         prove using the [hint] database *)
+                      ***** intros.
+                      subst st. unfold WccdView.get_operators,AddressMap.find.
+                      rewrite Haddr. rewrite FMap.find_add with (m:=prev_st).
+                      cbn.
+                      split; intros;eauto with hints.
+                      ***** subst st. unfold WccdView.get_operators,AddressMap.find.
+                      rewrite FMap.find_add with (m:=prev_st);cbn;auto with hints.
+                 **** set (ops' :=  remove address_eqdec oaddr ops).
+                      specialize (IHparams st ops'). subst ops' st;cbn in *.
+                      repeat rewrite FMap.add_add with (m:=prev_st)in IHparams.
+                      apply IHparams.
+                      now rewrite FMap.find_add with (m:=prev_st).
+    Qed.
   End WccdReceiveDefs.
 End WccdReceiveSpec.
