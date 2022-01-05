@@ -5,6 +5,7 @@
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
+From Coq Require Import Logic.Eqdep_dec.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
@@ -24,14 +25,17 @@ Section WccdToken.
   Context {BaseTypes : ChainBase}.
   Set Nonrecursive Elimination Schemes.
 
-  Definition TOKEN_ID_WCCD : TokenID := 0.
+  (** Similarly to the Concordium implemention we use the smallest token id type, because
+      the contract hold tokens of only one type *)
+  Definition TokenID := unit.
 
   Open Scope bool.
 
   (** * Entry points *)
 
   Record wccd_transfer_params :=
-    { wccd_td_amount   : TokenAmount;
+    { wccd_td_token_id : TokenID;
+      wccd_td_amount   : TokenAmount;
       wccd_td_from     : Address;
       wccd_td_to       : Address }.
 
@@ -100,7 +104,6 @@ Section WccdToken.
              (amount : TokenAmount)
              (from to : Address)
              (prev_st : State) : option State :=
-    do requireTrue (token_id =? TOKEN_ID_WCCD);
     do st <- decrement_balance prev_st from amount;
     ret (increment_balance st to amount).
 
@@ -109,7 +112,7 @@ Section WccdToken.
   Definition wccd_transfer (transfers : list wccd_transfer_params) (prev_st : State)
     : option State :=
     monad_foldl (fun acc x =>
-                   wccd_transfer_single TOKEN_ID_WCCD x.(wccd_td_amount) x.(wccd_td_from) x.(wccd_td_to) acc)
+                   wccd_transfer_single tt x.(wccd_td_amount) x.(wccd_td_from) x.(wccd_td_to) acc)
                 prev_st transfers.
 
   (** * balanceOf *)
@@ -122,7 +125,7 @@ Section WccdToken.
 
   Definition wccd_balanceOf (query : list Address) (st : State)
     : list (TokenID * Address * TokenAmount) :=
-    map (fun addr => (TOKEN_ID_WCCD, addr, with_default TOKEN_ID_WCCD (get_balance_opt addr st))) query.
+    map (fun addr => (tt, addr, with_default 0 (get_balance_opt addr st))) query.
 
   (** * updateOperator *)
 
@@ -152,8 +155,7 @@ Section WccdToken.
         let contract_accounts := filter (fun x => address_is_contract x.(wccd_td_to)) params in
         let mk_callback_data x :=
           serialize
-            (CIS1_receiver_receive_hook unit
-            (TOKEN_ID_WCCD,x.(wccd_td_amount), x.(wccd_td_from))) in
+            (tt,x.(wccd_td_amount), x.(wccd_td_from)) in
         let ops := map (fun x => act_call x.(wccd_td_to) 0 (mk_callback_data x)) contract_accounts in
         ret (next_st, ops)
     | Some (wccd_msg_balanceOf query send_to) =>
@@ -186,6 +188,16 @@ Module WccdTypes <: CIS1Types.
 
   Definition Storage `{ChainBase} := State.
 
+  Definition TokenID := TokenID.
+
+  Definition serializable_token_id : Serializable TokenID := _.
+
+  Definition token_id_eqb (id1 id2 : TokenID) := true.
+
+  Lemma  token_id_eqb_spec :
+    forall (a b : TokenID), Bool.reflect (a = b) (token_id_eqb a b).
+  Proof. intros. constructor. now destruct a,b. Qed.
+
 End WccdTypes.
 
 Module WccdView <: CIS1View WccdTypes.
@@ -197,7 +209,6 @@ Module WccdView <: CIS1View WccdTypes.
     Context `{ChainBase}.
 
     Definition get_balance_opt st (token_id : TokenID) addr :=
-      do requireTrue (token_id =? TOKEN_ID_WCCD);
       get_balance_opt addr st.
 
     Definition get_operators (st : Storage) (addr : Address) :=
@@ -207,14 +218,11 @@ Module WccdView <: CIS1View WccdTypes.
       end.
 
     Definition get_owners : Storage -> TokenID -> list Address :=
-      fun st token_id => if (token_id =? TOKEN_ID_WCCD) then
-                           FMap.keys st
-                         else [].
+      fun st token_id =>  FMap.keys st.
 
     Lemma get_owners_no_dup : forall st token_id, NoDup (get_owners st token_id).
     Proof.
-      intros. unfold get_owners.
-      destruct (_ =? _);[apply FMap.NoDup_keys | constructor ].
+      intros. unfold get_owners;apply FMap.NoDup_keys.
     Qed.
 
     Lemma In_keys_In_elements_iff {K V : Type} `{countable.Countable K} (m : FMap K V) (k : K) :
@@ -245,7 +253,6 @@ Module WccdView <: CIS1View WccdTypes.
       split.
       + intros Hin. unfold get_owners in *.
         unfold get_balance_opt,Cis1wccd.get_balance_opt.
-        destruct (_ =? _);try inversion Hin.
         apply In_keys_In_elements_iff in Hin.
         destruct Hin as [a_st HH].
         exists a_st.(wccd_balance).
@@ -256,7 +263,6 @@ Module WccdView <: CIS1View WccdTypes.
         destruct Hex as [b Hb].
         unfold get_owners, FMap.keys.
         unfold get_balance_opt,Cis1wccd.get_balance_opt in *.
-        destruct (_ =? _);try inversion Hb.
         destruct (AddressMap.find owner st) eqn:Heq;try congruence.
         unfold AddressMap.find in *.
         apply FMap.In_elements in Heq.
@@ -264,9 +270,7 @@ Module WccdView <: CIS1View WccdTypes.
         eauto.
     Qed.
 
-    Definition token_id_exists (st : Storage) (token_id : TokenID) : bool :=
-      token_id =? TOKEN_ID_WCCD.
-
+    Definition token_id_exists (st : Storage) (token_id : TokenID) : bool := true.
 
   End WccdViewDefs.
 End WccdView.
@@ -283,12 +287,13 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
 
     Context `{ChainBase}.
 
+    (** Converting to the CIS1 standard parameters *)
     Definition to_cis1_transfer_data (p : wccd_transfer_params) : CIS1_transfer_data :=
-      let '(Build_wccd_transfer_params amt from_addr to_addr) := p in
-      {| cis1_td_token_id := TOKEN_ID_WCCD;
+      let '(Build_wccd_transfer_params token_id amt from_addr to_addr) := p in
+      {| cis1_td_token_id := token_id;
          cis1_td_amount := amt;
          cis1_td_from := from_addr;
-        cis1_td_to := to_addr |}.
+         cis1_td_to := to_addr |}.
 
     Definition to_cis1_updateOperator_kind (op : OpUpdateKind) : CIS1_updateOperator_kind :=
       match op with
@@ -300,7 +305,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       : option CIS1_balanceOf_params :=
       match Bool.bool_dec (address_is_contract send_to) true with
       | left p =>
-          Some {|cis1_bo_query := map (fun addr => Build_CIS1_balanceOf_query _ TOKEN_ID_WCCD addr) query;
+          Some {|cis1_bo_query := map (fun addr => Build_CIS1_balanceOf_query _ tt addr) query;
                  cis1_bo_result_address := send_to;
                  cis1_bo_result_address_is_contract := p |}
       | right _ => None
@@ -324,13 +329,56 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
               | wccd_msg_burn amount => None
               end.
 
-    Definition get_contract_msg :  CIS1_entry_points -> Msg.
-    Admitted.
+    (** Converting _from_ the CIS1 standard parameters *)
+
+    Definition from_cis1_transfer_data (p : CIS1_transfer_data) : wccd_transfer_params  :=
+      let '(Build_CIS1_transfer_data _ token_id amt from_addr to_addr) := p in
+      {| wccd_td_token_id := tt;
+         wccd_td_amount := amt;
+         wccd_td_from := from_addr;
+         wccd_td_to := to_addr |}.
+
+    Definition from_cis1_updateOperator_kind (op : CIS1_updateOperator_kind) : OpUpdateKind :=
+      match op with
+      | cis1_ou_remove_operator => opDelete
+      | cis1_ou_add_operator => opAdd
+      end.
+
+    Definition from_cis1_balanceOf_params (query : CIS1_balanceOf_params)
+      :  list Address :=
+      map cis1_bo_query_address query.(cis1_bo_query).
+
+    Definition get_contract_msg : CIS1_entry_points -> Msg :=
+      fun ep => match ep with
+             | CIS1_transfer params =>
+                 wccd_msg_transfer (map from_cis1_transfer_data params.(cis_tr_transfers))
+             | CIS1_updateOperator params =>
+                 let p := map (fun p => (from_cis1_updateOperator_kind p.(cis1_ou_update_kind), p.(cis1_ou_operator_address))) params.(cis1_ou_params) in
+                 wccd_msg_updateOperator p
+             | CIS1_balanceOf params =>
+                 wccd_msg_balanceOf (from_cis1_balanceOf_params params)
+                                    params.(cis1_bo_result_address)
+             end.
 
     Lemma left_inverse_get_CIS1_entry_point (entry_point : CIS1_entry_points) :
       get_CIS1_entry_point (get_contract_msg entry_point) = Some entry_point.
     Proof.
-      Admitted.
+      destruct entry_point;cbn.
+      + destruct params as [xs]. repeat f_equal.
+        induction xs;auto.
+        cbn. destruct a as [tid ? ?];cbn in *. destruct tid. repeat f_equal;auto.
+      + destruct params as [xs]. repeat f_equal.
+        rewrite map_map.
+        induction xs;auto.
+        destruct a as [ok ?];cbn in *. destruct ok; repeat f_equal;auto.
+      + destruct params as [xs send_to p];cbn in *.
+        unfold to_cis1_balanceOf_params.
+        destruct (Bool.bool_dec (address_is_contract send_to) true) eqn:Heq;repeat f_equal.
+        * induction xs;cbn in *;auto.
+          destruct a as [tid ?];destruct tid;cbn;now repeat f_equal.
+        * apply UIP_dec. apply Bool.bool_dec.
+        * congruence.
+    Qed.
 
     Lemma inctement_balance_find_ne st addr1 addr2 amt :
       addr1 <> addr2 ->
@@ -345,10 +393,10 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
 
     Import Lia.
 
-    Lemma wccd_transfer_single_cis1 (amt : TokenAmount) (from_addr to_addr : Address)
+    Lemma wccd_transfer_single_cis1 (token_id : TokenID) (amt : TokenAmount) (from_addr to_addr : Address)
           (prev_st st : State) :
-        wccd_transfer_single TOKEN_ID_WCCD amt from_addr to_addr prev_st = Some st ->
-        transfer_single_spec prev_st st TOKEN_ID_WCCD eq_refl eq_refl from_addr to_addr amt.
+        wccd_transfer_single token_id amt from_addr to_addr prev_st = Some st ->
+        transfer_single_spec prev_st st token_id eq_refl eq_refl from_addr to_addr amt.
     Proof.
       intros Haddr.
       cbn in *.
@@ -364,22 +412,19 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         rewrite inctement_balance_find_ne by assumption.
         unfold AddressMap.find,AddressMap.add.
         now erewrite fin_maps.lookup_insert_ne.
-      + intros. unfold setter_from_getter_AddressState_wccd_balance,set_AddressState_wccd_balance.
-        unfold WccdView.get_balance_opt, get_balance_opt.
-        unfold requireTrue in Heq.
-        destruct (_ =? _) eqn:Heq1;auto;cbn. now rewrite Nat.eqb_eq in Heq1.
+      + intros. now destruct other_token_id,token_id.
       + repeat rewrite get_balance_total_get_balance_default.
         repeat unfold setter_from_getter_AddressState_wccd_balance,
           set_AddressState_wccd_balance,increment_balance.
         unfold get_balance_default,cis1_axioms.VExtra.get_balance in *. cbn.
         unfold setter_from_getter_AddressState_wccd_balance,set_AddressState_wccd_balance.
         destruct (AddressMap.find to_addr _) eqn:Haddr.
-        * unfold get_balance_opt,AddressMap.find,AddressMap.add in *.
+        * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
           rewrite Hv.
           rewrite FMap.add_commute with (m:=prev_st) by auto.
           rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st));cbn.
           lia.
-        * unfold get_balance_opt,AddressMap.find,AddressMap.add in *.
+        * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
           rewrite FMap.add_commute with (m:=prev_st) by auto.
           rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st)).
           cbn. rewrite Hv. unfold requireTrue in Heq.
@@ -390,12 +435,12 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         unfold get_balance_default,cis1_axioms.VExtra.get_balance in *. cbn.
         unfold setter_from_getter_AddressState_wccd_balance,set_AddressState_wccd_balance.
         destruct (AddressMap.find to_addr _) eqn:Haddr.
-        * unfold get_balance_opt,AddressMap.find,AddressMap.add in *.
+        * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
           rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st));cbn.
           rewrite FMap.find_add_ne with (m:=prev_st) in Haddr by auto.
           unfold FMap.find in *.
           now rewrite Haddr.
-        * unfold get_balance_opt,AddressMap.find,AddressMap.add in *.
+        * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
           rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st));cbn.
           rewrite FMap.find_add_ne with (m:=prev_st) in Haddr by auto.
           unfold FMap.find in *.
@@ -405,13 +450,13 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
           set_AddressState_wccd_balance,increment_balance.
         unfold get_balance_default,cis1_axioms.VExtra.get_balance in *. cbn.
         unfold setter_from_getter_AddressState_wccd_balance,set_AddressState_wccd_balance.
-        unfold get_balance_opt. now rewrite Hv.
+        unfold WccdView.get_balance_opt,get_balance_opt. now rewrite Hv.
       + subst.
         repeat rewrite get_balance_total_get_balance_default.
         repeat unfold setter_from_getter_AddressState_wccd_balance,
           set_AddressState_wccd_balance,increment_balance.
         unfold get_balance_default,cis1_axioms.VExtra.get_balance in *. cbn.
-        unfold get_balance_opt.
+        unfold WccdView.get_balance_opt,get_balance_opt.
         rewrite Hv.
         unfold AddressMap.find,AddressMap.add.
         rewrite FMap.find_add with (m:=prev_st);cbn.
@@ -436,6 +481,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       - now intros ? ? ? Hparams;cbn in *.
       - intros. cbn.
         erewrite IHquery;eauto.
+        unfold WccdView.get_balance_opt.
         now destruct (get_balance_opt _ _).
     Qed.
 
@@ -468,7 +514,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
           ** intros prev_st next_st Hreceive.
              cbn -[wccd_transfer_single] in *.
              destruct (wccd_transfer_single _ _ _ _ _) as [st |] eqn:Haddr;try congruence.
-             destruct a as [amt from_addr to_addr];cbn.
+             destruct a as [tid amt from_addr to_addr];cbn.
              simpl in *.
              exists st, eq_refl, eq_refl.
              split.
@@ -481,13 +527,16 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
           ** intros;cbn;auto.
           ** intros;cbn -[wccd_transfer_single] in *.
              destruct (wccd_transfer_single _ _ _ _ _) as [st |] eqn:Haddr;try congruence.
-             destruct a as [amt from_addr to_addr];cbn.
+             destruct a as [token_id amt addr];cbn.
              destruct (address_is_contract _).
              *** constructor;simpl in *.
                  eexists. split.
                  **** reflexivity.
-                 **** exists unit. eexists.
+                 **** destruct token_id.
+                      exists (TokenID * TokenAmount * Address)%type. exists _. exists id.
+                      eexists. split.
                       apply deserialize_serialize.
+                      reflexivity.
                  **** eapply IHparams;eauto.
              *** eapply IHparams;eauto.
       + simpl in *.
@@ -503,8 +552,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       + cbn in *.
         unfold setter_from_getter_AddressState_wccd_operators,set_AddressState_wccd_operators in *.
         constructor;intros;cbn in *;auto.
-        * destruct (token_id =? TOKEN_ID_WCCD);cbn;auto.
-          unfold get_balance_opt.
+        * unfold WccdView.get_balance_opt,get_balance_opt.
           destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
           destruct (address_eqb_spec addr ctx.(ctx_from)).
           ** subst.

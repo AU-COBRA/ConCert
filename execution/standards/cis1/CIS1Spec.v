@@ -22,6 +22,9 @@ Not covered by the formalisation:
 - Logging the events (logs are currently not supported by ConCert).
 - Metadata.
 
+Other differences:
+
+- updateOperator is a bit more strict than in the actual standard: it does not allow for updating non-existing accounts.
 
 The approach to formalisation is inspired by Murdoch Gabbay, Arvid Jakobsson, Kristina Sojakova. "Money grows on (proof-)trees: the formal FA1.2 ledger standard."
 
@@ -53,10 +56,7 @@ Import RemoveProperties.
 
 (** * General types *)
 
-(** NOTE: In CIS1 it's an n-byte sequence, where 0 ≤ n ≤ 256.
-   We model it as an unbounded number [nat] *)
-Definition TokenID := nat.
-
+(** NOTE: In CIS1 it's an unsigned 64 bit integer. We model it as an unbounded number [nat] *)
 Definition TokenAmount := nat.
 
 Open Scope program_scope.
@@ -67,30 +67,50 @@ ReceiveHookParameter ::= (id: TokenID) (amount: TokenAmount) (from: Address)
                          (contract: ContractName) (data: AdditionalData).
 >> *)
 
-(** NOTE: there is no notion of the contract name in ConCert; [AdditionalData] is not handled at the moment *)
-Definition receive_hook_params `{ChainBase} : Type := TokenID * TokenAmount * Address.
-
-(** All addresses owning tokens must support the following interface, since all receiving
-    addresses are notified with a receive hook. The rest of the functionality is captured
-    by the [other_msg] constructor *)
-Inductive CIS1ReceiverMsg (Msg : Type) `{Serializable Msg} `{ChainBase} :=
-| CIS1_receiver_receive_hook : receive_hook_params -> CIS1ReceiverMsg Msg
-| CIS1_receiver_other_msg : Msg -> CIS1ReceiverMsg Msg.
-
-(* begin hide *)
-Global Instance CIS1ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} `{cb : ChainBase} : Serializable (@CIS1ReceiverMsg Msg serMsg _) :=
-  Derive Serializable (@CIS1ReceiverMsg_rect Msg serMsg cb) <
-    (@CIS1_receiver_receive_hook Msg serMsg cb),
-    (@CIS1_receiver_other_msg Msg serMsg cb)>.
-(* end hide *)
-
-(** Abstract types of messages and storage (the contract's state) *)
+(** Abstract types of messages, storage (the contract's state) and token ids *)
 Module Type CIS1Types.
 
   Parameter Msg : forall `{ChainBase}, Type.
   Parameter Storage : forall `{ChainBase}, Type.
 
+  (** NOTE: In CIS1 it's an n-byte sequence, where 0 ≤ n ≤ 256.
+      We model it as an arbitrary serializable type with decidable equality *)
+  Parameter TokenID : Type.
+
+  Axiom serializable_token_id : Serializable TokenID.
+
+  Parameter token_id_eqb : TokenID -> TokenID -> bool.
+
+  Axiom token_id_eqb_spec :
+      forall (a b : TokenID), Bool.reflect (a = b) (token_id_eqb a b).
+
 End CIS1Types.
+
+Module ReceiveHook (cis1_types : CIS1Types).
+
+  Import cis1_types.
+
+  Existing Instance serializable_token_id.
+
+  (** NOTE: there is no notion of the contract name in ConCert; [AdditionalData] is not
+      handled at the moment *)
+  Definition receive_hook_params `{ChainBase} : Type := TokenID * TokenAmount * Address.
+
+  (** All addresses owning tokens must support the following interface, since all receiving
+      addresses are notified with a receive hook. The rest of the functionality is captured
+      by the [other_msg] constructor *)
+  Inductive CIS1ReceiverMsg (Msg : Type) `{Serializable Msg} `{ChainBase} :=
+  | CIS1_receiver_receive_hook : receive_hook_params -> CIS1ReceiverMsg Msg
+  | CIS1_receiver_other_msg : Msg -> CIS1ReceiverMsg Msg.
+
+  (* begin hide *)
+  Global Instance CIS1ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} `{cb : ChainBase} : Serializable (@CIS1ReceiverMsg Msg serMsg _) :=
+    Derive Serializable (@CIS1ReceiverMsg_rect Msg serMsg cb) <
+      (@CIS1_receiver_receive_hook Msg serMsg cb),
+      (@CIS1_receiver_other_msg Msg serMsg cb)>.
+  (* end hide *)
+End ReceiveHook.
+
 
 (** * Views *)
 
@@ -160,6 +180,9 @@ Module CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
 
   Module VExtra := CIS1ViewExtra cis1_types cis1_view.
   Import VExtra.
+
+  Module RH := ReceiveHook cis1_types.
+  Import RH.
 
   (** * Contract functions *)
 
@@ -277,8 +300,8 @@ CIS1: A transfer of some amount of a token type MUST only transfer the exact amo
   (** A receive hook call is valid if the call parameters are deserialised to a [CIS1_receiver_receive_hook]
       constructor with appropriate data *)
   Definition is_valid_receive_hook `{cb : ChainBase} (p : receive_hook_params) (serialized_params : SerializedValue) : Prop :=
-    exists (Msg : Type) (sMsg : Serializable Msg),
-      deserialize serialized_params = Some (@CIS1_receiver_receive_hook Msg sMsg _ p).
+    exists (Msg : Type) (sMsg : Serializable Msg) (f : Msg -> receive_hook_params) (msg : Msg),
+      deserialize serialized_params = Some msg /\ f msg = p.
 
   (** A specification for the batch transfer *)
   Record transfer_spec `{ChainBase}
@@ -789,7 +812,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       transitivity (get_balance_opt st token_id addr).
       + destruct Hsingle as [Hbal_not_addr [Hbal_other_tokens [? ?]]].
         cbn in *.
-        destruct (Nat.eq_dec token_id a.(cis1_td_token_id)).
+        destruct (token_id_eqb_spec token_id a.(cis1_td_token_id)).
         * assert (addr <> a.(cis1_td_to)) by firstorder.
            assert (addr <> a.(cis1_td_from)) by firstorder.
            subst. symmetry. now apply Hbal_not_addr.
@@ -897,7 +920,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     - cbn in *.
       destruct Htr as [st [p [q [Hsingle Htrs]]]].
       transitivity (sum_balances st token_id (get_owners st token_id)).
-      + destruct (Nat.eq_dec token_id a.(cis1_td_token_id)).
+      + destruct (token_id_eqb_spec token_id a.(cis1_td_token_id)).
         * subst. symmetry.
           now eapply transfer_single_spec_preserves_balances with (next_st0 := st).
         * destruct Hsingle as [? [HH [? ?]]].
