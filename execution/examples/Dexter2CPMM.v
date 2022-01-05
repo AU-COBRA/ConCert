@@ -15,6 +15,7 @@
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
@@ -23,6 +24,7 @@ From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Execution.Examples Require Import Dexter2FA12.
 From Coq Require Import ZArith.
 From Coq Require Import List.
+From Coq Require Import Lia.
 Import ListNotations.
 
 
@@ -38,6 +40,9 @@ Open Scope N_scope.
 (* Null address that will newer contain contracts *)
 Parameter null_address : Address.
 Axiom null_address_not_contract : address_is_contract null_address = false.
+Axiom deserialize_injctive : forall x y,
+  @deserialize Dexter2FA12.Msg _ x = Some y ->
+  x = serialize y.
 
 Definition update_token_pool_internal_ := list FA2Interface.balance_of_response.
 Definition token_id := FA2Interface.token_id.
@@ -334,6 +339,7 @@ Definition set_lqt_address (chain : Chain) (ctx : ContractCallContext)
   do _ <- throwIf (0 <? ctx.(ctx_amount))%Z ; (* error_AMOUNT_MUST_BE_ZERO *)
   do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
   do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
+  do _ <- throwIf (address_eqb new_lqt_address ctx.(ctx_contract_address)) ; (* lqt contract cannot be this contract *)
     Some (state<| lqtAddress := new_lqt_address |>, []).
 
 (** ** Update token pool *)
@@ -784,19 +790,22 @@ Lemma set_lqt_address_is_some : forall prev_state chain ctx new_lqt_address,
   (ctx_amount ctx <= 0)%Z /\
   prev_state.(selfIsUpdatingTokenPool) = false /\
   ctx.(ctx_from) = prev_state.(manager) /\
-  prev_state.(lqtAddress) = null_address
+  prev_state.(lqtAddress) = null_address /\
+  new_lqt_address <> ctx.(ctx_contract_address)
   <->
   exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
 Proof.
   split.
-  - intros (amount_zero & not_updating & sender_is_manager & lqt_address_not_set).
+  - intros (amount_zero & not_updating & sender_is_manager & lqt_address_not_set & not_self).
     do 2 eexists.
     receive_simpl.
     destruct_match eqn:updating_check.
     destruct_match eqn:amount_check.
     destruct_match eqn:sender_check.
     destruct_match eqn:lqt_check.
+    destruct_match eqn:self_check.
     + reflexivity.
+    + now destruct_address_eq.
     + now rewrite lqt_address_not_set, address_eq_refl in lqt_check.
     + now rewrite sender_is_manager, address_eq_refl in sender_check.
     + receive_simpl.
@@ -886,7 +895,7 @@ Lemma update_token_pool_new_acts_correct : forall chain ctx prev_state new_state
   receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
     new_acts = [
       act_call prev_state.(tokenAddress) 0%Z (serialize
-        (msg_balance_of (Build_balance_of_param 
+        (FA2Token.msg_balance_of (Build_balance_of_param 
           ([Build_balance_of_request ctx.(ctx_contract_address) prev_state.(tokenId)])
           (FA2Interface.Build_callback _ None))))
     ].
@@ -1545,6 +1554,1534 @@ Lemma init_is_some : forall chain ctx setup,
 Proof.
   intros.
   eauto.
+Qed.
+
+
+
+(* begin hide *)
+Ltac split_hypotheses :=
+  match goal with
+  | [ H : _ /\ _ |- _ ] => destruct H as []
+  end.
+
+Ltac rewrite_acts_correct :=
+  match goal with
+  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    first [apply set_baker_new_acts_correct in H as new_acts_eq
+          |apply set_manager_new_acts_correct in H as new_acts_eq
+          |apply set_lqt_address_new_acts_correct in H as new_acts_eq
+          |apply default_new_acts_correct in H as new_acts_eq
+          |apply update_token_pool_new_acts_correct in H as new_acts_eq
+          |apply update_token_pool_internal_new_acts_correct in H as new_acts_eq
+          |apply add_liquidity_new_acts_correct in H as new_acts_eq
+          |apply remove_liquidity_new_acts_correct in H as new_acts_eq
+          |apply xtz_to_token_new_acts_correct in H as new_acts_eq
+          |apply token_to_xtz_new_acts_correct in H as new_acts_eq
+          |apply token_to_token_new_acts_correct in H as new_acts_eq ];
+    subst
+  end.
+
+Ltac rewrite_state_eq :=
+  match goal with
+  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    first [apply set_baker_state_eq in H as new_acts_eq
+          |apply set_manager_state_eq in H as new_acts_eq
+          |apply set_lqt_address_state_eq in H as new_acts_eq
+          |apply default_state_eq in H as new_acts_eq
+          |apply update_token_pool_state_eq in H as new_acts_eq
+          |apply update_token_pool_internal_state_eq in H as new_acts_eq
+          |apply add_liquidity_state_eq in H as new_acts_eq
+          |apply remove_liquidity_state_eq in H as new_acts_eq
+          |apply xtz_to_token_state_eq in H as new_acts_eq
+          |apply token_to_xtz_state_eq in H as new_acts_eq
+          |apply token_to_token_state_eq in H as new_acts_eq ];
+    subst
+  end.
+
+Ltac rewrite_receive_is_some :=
+  match goal with
+  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    first [specialize set_baker_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize set_manager_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize set_lqt_address_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize default_entrypoint_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize update_token_pool_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize update_token_pool_internal_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize add_liquidity_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize remove_liquidity_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize xtz_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize token_to_xtz_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+          |specialize token_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |] ];
+    repeat split_hypotheses; subst
+  end.
+(* end hide *)
+
+
+
+(** [lqtAddress] must point to another contract *)
+Lemma lqt_addr_not_caddr bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+    lqtAddress cstate <> caddr.
+Proof.
+  contract_induction; intros; cbn in *; auto.
+  - instantiate (DeployFacts := fun _ ctx =>
+      address_is_contract ctx.(ctx_contract_address) = true).
+    unfold DeployFacts in facts.
+    apply init_correct in init_some as (? & ? & ? & ? & ? & ? & ? & -> & _).
+    intro.
+    now rewrite <- H6, null_address_not_contract in facts.
+  - cbn in *.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_state_eq;
+      auto.
+    now rewrite_receive_is_some.
+  - cbn in *.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_state_eq;
+      auto.
+    now rewrite_receive_is_some.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Qed.
+
+
+
+(** ** Outgoing acts facts *)
+(** If contract emits self calls then they are for the XtzToToken entrypoint or default entrypoint *)
+Lemma self_calls bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+    (tokenAddress cstate <> caddr ->
+    lqtAddress cstate <> caddr ->
+    Forall (fun act_body =>
+      match act_body with
+      | act_transfer to _ => True
+      | act_call to _ msg => to = caddr ->
+          exists p, msg = serialize (FA2Token.other_msg (XtzToToken p))
+      | _ => False
+      end) (outgoing_acts bstate caddr)).
+Proof.
+  contract_induction; intros; cbn in *; auto.
+  - now apply list.Forall_cons in IH as [_ IH].
+  - instantiate (CallFacts := fun _ ctx state _ =>
+      lqtAddress state <> ctx_contract_address ctx).
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_acts_correct;
+      rewrite_state_eq;
+      try (apply Forall_app; split);
+      try apply IH; auto;
+      rewrite ?list.Forall_cons, ?list.Forall_nil;
+      try easy.
+  - destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_acts_correct;
+      rewrite_state_eq;
+      try (apply Forall_app; split);
+      apply list.Forall_cons in IH as [? IH];
+      try apply IH; auto;
+      rewrite ?list.Forall_cons, ?list.Forall_nil;
+      try easy.
+  - now rewrite <- perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros.
+    subst.
+    specialize lqt_addr_not_caddr as (? & deployed_state' & ?); eauto.
+    cbn in *.
+    rewrite deployed_state in H0.
+    rewrite deployed_state in deployed_state'.
+    rewrite H0 in deployed_state'.
+    now inversion deployed_state'.
+Qed.
+
+Local Open Scope Z_scope.
+Lemma call_amount_zero bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+    Forall (fun act_body =>
+      match act_body with
+      | act_transfer _ amount => True
+      | act_call _ amount msg => amount = 0 \/ exists p, msg = serialize (FA2Token.other_msg (XtzToToken p))
+      | act_deploy amount _ _ => amount = 0
+      end) (outgoing_acts bstate caddr).
+Proof.
+  intros.
+  apply (lift_outgoing_acts_prop contract); auto.
+  intros * receive_some.
+  cbn in receive_some.
+    destruct msg.
+    + destruct m; try destruct d;
+        try (now receive_simpl);
+        rewrite_acts_correct;
+        rewrite ?list.Forall_cons, list.Forall_nil;
+        intuition.
+        now right.
+    + now receive_simpl.
+Qed.
+
+Lemma no_contract_deployment bstate caddr :
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+    Forall (fun act_body =>
+      match act_body with
+      | act_deploy amount _ _ => False
+      | _ => True
+      end) (outgoing_acts bstate caddr).
+Proof.
+  intros.
+  apply (lift_outgoing_acts_prop contract); auto.
+  intros * receive_some.
+  cbn in receive_some.
+  destruct msg; try destruct m; try destruct d;
+    try (now receive_simpl);
+    rewrite_acts_correct; auto.
+  now cbv.
+Qed.
+
+
+
+(** ** Contract balance facts *)
+Lemma contract_balance_correct' : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  let effective_balance := (env_account_balances bstate caddr - (sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr)))%Z in
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate deploy_info,
+    contract_state bstate caddr = Some cstate /\
+    deployment_info Setup trace caddr = Some deploy_info /\
+     (deploy_info.(deployment_amount) = 0%Z -> Z.of_N (xtzPool cstate) = effective_balance).
+Proof.
+  intros.
+  subst effective_balance.
+  contract_induction; intros; auto.
+  - cbn in *.
+    apply init_correct in init_some as (_ & ? & _).
+    lia.
+  - cbn in IH.
+    lia.
+  - instantiate (CallFacts := fun _ ctx _ _ =>
+      (0 <= ctx_amount ctx)%Z).
+    unfold CallFacts in facts.
+    cbn in receive_some.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      try rewrite_acts_correct;
+      try rewrite_state_eq;
+      try rewrite_receive_is_some;
+      try match goal with
+      | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
+      end;
+      cbn;
+      try lia.
+  - unfold CallFacts in facts.
+    cbn in receive_some.
+    destruct head;
+      auto;
+      cbn in IH;
+      destruct action_facts as (? & ? & ?);
+      subst;
+    try destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      try rewrite_acts_correct;
+      try rewrite_state_eq;
+      try rewrite_receive_is_some;
+      try match goal with
+      | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
+      end;
+      cbn;
+      try lia.
+  - now erewrite sumZ_permutation in IH by eauto.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros.
+    subst. cbn.
+    now apply Z.ge_le.
+Qed.
+
+Definition no_transfers (queue : list ActionBody) :=
+  Forall (fun act_body =>
+    match act_body with
+    | act_transfer to _ => False
+    | act_call to _ msg => forall p, msg <> serialize (FA2Token.other_msg (XtzToToken p))
+    | _ => True
+    end) queue.
+
+Lemma contract_balance_correct : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate deploy_info,
+    contract_state bstate caddr = Some cstate /\
+    deployment_info Setup trace caddr = Some deploy_info /\
+     (deploy_info.(deployment_amount) = 0%Z ->
+      no_transfers (outgoing_acts bstate caddr) ->
+        Z.of_N (xtzPool cstate) = env_account_balances bstate caddr).
+Proof.
+  intros * deployed.
+  eapply contract_balance_correct' in deployed as balance_correct.
+  destruct balance_correct as (cstate & deploy_info & deployed_state & ? & balance_correct).
+  eapply call_amount_zero in deployed as amount_zero; try now constructor.
+  do 2 eexists.
+  intuition.
+  rewrite balance_correct by auto.
+  clear balance_correct.
+  rename H1 into no_transfer.
+  unfold no_transfers in no_transfer.
+  assert (sum_zero : sumZ (fun act : ActionBody => act_body_amount act) (outgoing_acts bstate caddr) = 0%Z).
+  - induction outgoing_acts; auto.
+    apply list.Forall_cons in no_transfer as (no_transfer & no_transfers).
+    apply list.Forall_cons in amount_zero as (amount_zero & amounts_zero).
+    destruct a; auto; cbn; rewrite IHl by auto;
+      clear IHl no_transfers amounts_zero.
+    + now destruct amount_zero as [-> | []].
+    + now subst.
+  - lia.
+Qed.
+
+Lemma xtz_pool_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  let effective_balance := (env_account_balances bstate caddr - (sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr)))%Z in
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+     Z.of_N (xtzPool cstate) <= effective_balance.
+Proof.
+  intros.
+  subst effective_balance.
+  contract_induction; intros; auto.
+  - instantiate (DeployFacts := fun _ ctx =>
+      (0 <= ctx_amount ctx)%Z).
+    unfold DeployFacts in facts.
+    cbn in *.
+    apply init_correct in init_some as (_ & -> & _).
+    lia.
+  - cbn in IH.
+    lia.
+  - instantiate (CallFacts := fun _ ctx _ _ =>
+      (0 <= ctx_amount ctx)%Z).
+    unfold CallFacts in facts.
+    cbn in receive_some.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      try rewrite_acts_correct;
+      try rewrite_state_eq;
+      try rewrite_receive_is_some;
+      try match goal with
+      | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
+      end;
+      cbn;
+      try lia.
+  - unfold CallFacts in facts.
+    cbn in receive_some.
+    destruct head;
+      auto;
+      cbn in IH;
+      destruct action_facts as (? & ? & ?);
+      subst;
+    try destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      try rewrite_acts_correct;
+      try rewrite_state_eq;
+      try rewrite_receive_is_some;
+      try match goal with
+      | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
+      end;
+      cbn;
+      try lia.
+  - now erewrite sumZ_permutation in IH by eauto.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    + cbn.
+      lia.
+    + intros.
+      subst. cbn.
+      now apply Z.ge_le.
+Qed.
+
+Lemma transfer_bound bstate caddr :
+  let transfered_balance := sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr) in
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+    transfered_balance <= env_account_balances bstate caddr.
+Proof.
+  intros.
+  subst transfered_balance.
+  contract_induction; intros; cbn in *; auto.
+  - instantiate (DeployFacts := fun _ ctx =>
+      (0 <= ctx_amount ctx)%Z).
+    auto.
+  - lia.
+  - instantiate (CallFacts := fun _ ctx state out_acts =>
+      (0 <= ctx_amount ctx)%Z /\
+      Z.of_N (xtzPool state) <= ctx_contract_balance ctx- sumZ (fun act => act_body_amount act) out_acts).
+    destruct facts.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_acts_correct;
+      try rewrite_receive_is_some;
+      try match goal with
+      | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
+      end;
+      cbn;
+      try lia.
+  - destruct facts.
+    destruct head;
+      auto;
+      cbn in IH;
+      destruct action_facts as (? & ? & ?);
+      subst.
+    + receive_simpl.
+      cbn in *.
+      lia.
+    + try destruct msg; try destruct m; try destruct d;
+        try (now receive_simpl);
+        rewrite_acts_correct;
+        try rewrite_receive_is_some;
+        try match goal with
+        | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
+        end;
+        cbn in *;
+        try lia.
+  - now rewrite <- perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    + cbn.
+      lia.
+    + intros.
+      subst. cbn.
+      split.
+      * now apply Z.ge_le.
+      * apply (account_balance_nonnegative _ to_addr) in from_reachable as ?H.
+        destruct from_reachable.
+        specialize xtz_pool_bound as (? & deployed_state' & ?); eauto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        rewrite deployed_state in H0.
+        rewrite H0 in deployed_state'.
+        inversion deployed_state'.
+        subst.
+        destruct_address_eq; try easy; lia.
+Qed.
+
+
+
+(** ** Total supply correct *)
+Definition mintedOrBurnedTokens_acts (act_body : ActionBody) : Z :=
+  match act_body with
+  | act_call _ _ msg_serialized =>
+    match @deserialize Dexter2FA12.Msg msg_serializable msg_serialized with
+    | Some msg => mintedOrBurnedTokens (Some msg)
+    | _ => 0
+    end
+  | _ => 0
+  end.
+
+Definition mintedOrBurnedTokens_tx (tx : Tx) : Z :=
+  match tx.(tx_body) with
+  | tx_call (Some msg_serialized) =>
+    match @deserialize Dexter2FA12.Msg msg_serializable msg_serialized with
+    | Some msg => mintedOrBurnedTokens (Some msg)
+    | _ => 0
+    end
+  | _ => 0
+  end.
+
+Definition txCallTo (addr : Address) (tx : Tx) : bool :=
+  match tx.(tx_body) with
+  | tx_call _ => (tx.(tx_to) =? addr)%address
+  | _ => false
+  end.
+
+Definition actTo (addr : Address) (act : ActionBody) : bool :=
+  match act with
+  | act_transfer to _ => (to =? addr)%address
+  | act_call to _ _ => (to =? addr)%address
+  | _ => false
+  end.
+
+Lemma deserialize_balance_of_ne_mint_or_burn : forall n m,
+  @deserialize Dexter2FA12.Msg msg_serializable (serialize (FA2Token.msg_balance_of n)) <>
+  Some (Dexter2FA12.msg_mint_or_burn m).
+Proof.
+  intros.
+  Transparent serialize deserialize.
+  cbn.
+  rewrite !Nat2Z.id.
+  now destruct_match.
+  Opaque serialize deserialize.
+Qed.
+
+Lemma outgoing_acts_no_mint_before_set_lqt_addr : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+      (cstate.(lqtAddress) = null_address ->
+        Forall (fun act_body =>
+          match act_body with
+          | act_call _ _ msg =>
+            match @deserialize Dexter2FA12.Msg msg_serializable msg with
+            | Some (msg_mint_or_burn _) => False
+            | _ => True
+            end
+          | _ => True
+          end) (outgoing_acts bstate caddr)).
+Proof.
+  intros * trace deployed.
+  remember empty_state.
+  induction trace.
+  - now subst.
+  - subst.
+    apply deployed_contract_state_typed in deployed as deployed_state.
+    + destruct deployed_state as (state & deployed_state).
+      exists state.
+      split; auto.
+      assert (reach : reachable to) by (constructor; now econstructor).
+      destruct_chain_step.
+      * (* Step block *)
+        intros.
+        cbn in *.
+        rewrite outgoing_acts_after_block_nil; auto.
+        eapply contract_addr_format; eauto.
+      * destruct_action_eval.
+       -- (* Action transfer *)
+          destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+          cbn in *.
+          rewrite deployed_state in deployed_state'.
+          inversion deployed_state'.
+          intros lqtAddr.
+          subst.
+          unfold outgoing_acts in *.
+          rewrite queue_prev, queue_new in *.
+          cbn in *.
+          destruct_address_eq; auto.
+          apply sum_eq in lqtAddr.
+          now inversion lqtAddr.
+       -- (* Action deploy *)
+          rewrite_environment_equiv.
+          cbn in *.
+          intros lqtAddr.
+          destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
+        --- (* Deploy contract *)
+            rewrite outgoing_acts_after_deploy_nil; auto.
+            rewrite queue_new.
+            subst.
+            apply undeployed_contract_no_out_queue in not_deployed; auto.
+         ---- rewrite queue_prev in not_deployed.
+              now apply list.Forall_cons in not_deployed as [].
+         ---- now constructor.
+        --- (* Deploy other contract *)
+            destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            subst.
+            unfold outgoing_acts in *.
+            rewrite queue_prev, queue_new in *.
+            cbn in *.
+            destruct_address_eq; auto.
+            apply sum_eq in lqtAddr.
+            now inversion lqtAddr.
+       -- (* Action call *)
+          destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+          cbn in *.
+          intros lqtAddr.
+          destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
+        --- (* Call contract *)
+            assert (forall_filter_cons : forall P (Q : Action -> ActionBody) R x l, Forall P (map Q (filter R (x :: l))) -> Forall P (map Q (filter R l))).
+            { intros. cbn in H.
+              destruct_match in H; auto.
+              now eapply Forall_inv_tail.
+            }
+            rewrite deployed in deployed0.
+            inversion deployed0.
+            rewrite deployed_state0 in deployed_state'.
+            subst.
+            apply wc_receive_strong in receive_some as
+              (prev_state' & msg' & new_state' & serialize_prev_state & _ & serialize_new_state & receive_some).
+            cbn in receive_some.
+            rewrite <- serialize_new_state, deserialize_serialize in deployed_state.
+            inversion deployed_state.
+            rewrite serialize_prev_state in deployed_state'.
+            inversion deployed_state'.
+            subst.
+            clear deployed_state deployed_state' deployed_state0 deployed0 serialize_prev_state.
+            destruct msg'; try destruct m; try destruct d;
+              try (now receive_simpl);
+              rewrite_acts_correct;
+              rewrite_state_eq;
+              try (apply sum_eq in lqtAddr as lqtAddr'; clear sum_eq);
+              unfold outgoing_acts in *;
+              rewrite queue_prev, queue_new in *;
+              try apply forall_filter_cons in lqtAddr';
+              auto;
+              cbn;
+              rewrite ?address_eq_refl;
+              cbn;
+              rewrite ?list.Forall_cons;
+              repeat split; try easy;
+              try now rewrite_receive_is_some.
+            destruct_match eqn:H; auto.
+            destruct m; auto.
+            now apply deserialize_balance_of_ne_mint_or_burn in H.
+        --- (* Call other contract *)
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            subst.
+            unfold outgoing_acts in *.
+            rewrite queue_prev, queue_new in *.
+            cbn in *.
+            apply sum_eq in lqtAddr.
+            clear sum_eq.
+            rewrite filter_app, map_app, <- Forall_app.
+            split; auto.
+            rewrite Extras.filter_map.
+            cbn.
+            rewrite address_eq_ne, filter_false by auto.
+            now cbn.
+            destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
+         ---- rewrite address_eq_refl in lqtAddr.
+              now inversion lqtAddr.
+         ---- now rewrite address_eq_ne in lqtAddr by auto.
+      * (* Invalid action *)
+        intros lqtAddr.
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+          try rewrite_environment_equiv; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        inversion deployed_state'.
+        subst.
+        unfold outgoing_acts in *.
+        rewrite queue_prev in *.
+        apply sum_eq in lqtAddr.
+        clear sum_eq.
+        cbn in *.
+        destruct_address_eq; auto.
+        now inversion lqtAddr.
+      * (* Permutation *)
+        intros lqtAddr.
+        inversion prev_next.
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+          rewrite prev_next in *; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        inversion deployed_state'.
+        subst.
+        apply sum_eq in lqtAddr.
+        clear sum_eq.
+        unfold outgoing_acts in *.
+        eapply Permutation_filter in perm.
+        eapply Permutation.Permutation_map in perm.
+        eapply forall_respects_permutation; eauto.
+  + constructor.
+    now econstructor.
+Qed.
+
+Lemma outgoing_acts_all_mint_same_dest : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+      Forall (fun act_body =>
+        match act_body with
+        | act_call to _ msg_serialized =>
+          match @deserialize Dexter2FA12.Msg msg_serializable msg_serialized with
+          | Some (msg_mint_or_burn _) => to = lqtAddress cstate
+          | _ => True
+          end
+        | _ => True
+        end
+      ) (outgoing_acts bstate caddr).
+Proof.
+  contract_induction;
+    intros; auto.
+  - cbn.
+    now apply list.Forall_cons in IH as [].
+  - instantiate (CallFacts := fun _ _ state out_acts =>
+      state.(lqtAddress) = null_address ->
+        Forall (fun act_body =>
+          match act_body with
+          | act_call _ _ msg =>
+            match @deserialize Dexter2FA12.Msg msg_serializable msg with
+            | Some (msg_mint_or_burn _) => False
+            | _ => True
+            end
+          | _ => True
+          end) out_acts).
+    unfold CallFacts in facts.
+    cbn in receive_some.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_acts_correct;
+      rewrite_state_eq;
+      apply Forall_app;
+      split; auto;
+      rewrite ?list.Forall_cons, ?list.Forall_nil;
+      try easy.
+    + cbn.
+      repeat split; auto.
+      now rewrite deserialize_serialize.
+    + cbn.
+      repeat split; auto.
+      now rewrite deserialize_serialize.
+    + rewrite_receive_is_some.
+      apply facts in H2.
+      apply All_Forall.In_Forall.
+      intros act act_in.
+      eapply Forall_forall in H2; eauto.
+      destruct act; auto.
+      destruct_match; auto.
+      destruct m; auto.
+    + cbn.
+      destruct_match eqn:contradiction; auto.
+      destruct m; auto.
+      now apply deserialize_balance_of_ne_mint_or_burn in contradiction.
+  - apply list.Forall_cons in IH as [].
+    unfold CallFacts in facts.
+    cbn in receive_some.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_acts_correct;
+      rewrite_state_eq;
+      apply Forall_app;
+      split; auto;
+      rewrite ?list.Forall_cons, ?list.Forall_nil;
+      try easy.
+    + cbn.
+      repeat split; auto.
+      now rewrite deserialize_serialize.
+    + cbn.
+      repeat split; auto.
+      now rewrite deserialize_serialize.
+    + rewrite_receive_is_some.
+      apply facts, Forall_inv_tail in H4.
+      apply All_Forall.In_Forall.
+      intros act act_in.
+      eapply Forall_forall in H4; eauto.
+      destruct act; auto.
+      destruct_match; auto.
+      destruct m; auto.
+    + cbn.
+      destruct_match eqn:contradiction; auto.
+      destruct m; auto.
+      now apply deserialize_balance_of_ne_mint_or_burn in contradiction.
+  - now rewrite <- perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    unset_all; subst.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+    intros state' deployed' deployed_state'. cbn.
+    rewrite deployed in deployed'.
+    inversion deployed'.
+    subst.
+    destruct from_reachable as [trace].
+    clear deployed'.
+    specialize outgoing_acts_no_mint_before_set_lqt_addr as (state & state_deployed & ?); eauto.
+    rewrite deployed_state' in state_deployed.
+    now inversion state_deployed.
+Qed.
+
+Lemma outgoing_acts_sum_filter_eq : forall bstate caddr,
+  reachable bstate ->
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+      sumZ mintedOrBurnedTokens_acts (filter (actTo cstate.(lqtAddress)) (outgoing_acts bstate caddr)) =
+      sumZ mintedOrBurnedTokens_acts (outgoing_acts bstate caddr).
+Proof. 
+  intros * [trace] deployed.
+  apply outgoing_acts_all_mint_same_dest in deployed as mint_or_burn_to_lqt_addr; auto.
+  destruct mint_or_burn_to_lqt_addr as (cstate & deployed_state & mint_or_burn_to_lqt_addr).
+  exists cstate.
+  split; auto.
+  clear trace deployed deployed_state.
+  induction outgoing_acts.
+  - reflexivity.
+  - apply list.Forall_cons in mint_or_burn_to_lqt_addr as [mint_or_burn_to_lqt_addr IH%IHl].
+    clear IHl.
+    cbn.
+    rewrite <- IH. clear IH.
+    destruct a eqn:H; cbn; destruct_address_eq; auto.
+    destruct_match; auto.
+    now destruct_match.
+Qed.
+
+Lemma outgoing_txs_no_mint_before_set_lqt_addr : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+      (cstate.(lqtAddress) = null_address ->
+        Forall (fun tx =>
+          match tx.(tx_body) with
+          | tx_call (Some msg) =>
+            match @deserialize Dexter2FA12.Msg msg_serializable msg with
+            | Some (msg_mint_or_burn _) => False
+            | _ => True
+            end
+          | _ => True
+          end) (outgoing_txs trace caddr)).
+Proof.
+  intros * deployed.
+  remember empty_state.
+  induction trace.
+  - now subst.
+  - subst.
+    apply deployed_contract_state_typed in deployed as deployed_state.
+    + destruct deployed_state as (state & deployed_state).
+      exists state.
+      split; auto.
+      assert (reach : reachable to) by (constructor; now econstructor).
+      destruct_chain_step.
+      * (* Step block *)
+        intros.
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        inversion deployed_state'.
+        now subst.
+      * destruct_action_eval.
+       -- (* Action transfer *)
+          destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+          cbn in *.
+          rewrite deployed_state in deployed_state'.
+          inversion deployed_state'.
+          intros lqtAddr.
+          subst.
+          destruct_address_eq; auto.
+          apply sum_eq in lqtAddr.
+          apply Forall_cons; auto.
+          now inversion lqtAddr.
+       -- (* Action deploy *)
+          rewrite_environment_equiv.
+          cbn in *.
+          intros lqtAddr.
+          destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
+        --- (* Deploy contract *)
+            specialize undeployed_contract_no_out_txs as H; auto.
+            unfold outgoing_txs in H.
+            destruct_address_eq;
+              try apply Forall_cons; cbn; auto;
+              rewrite H; auto.
+        --- (* Deploy other contract *)
+            destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            subst.
+            destruct_address_eq; auto.
+            apply sum_eq in lqtAddr.
+            apply Forall_cons; auto.
+            now inversion lqtAddr.
+       -- (* Action call *)
+          destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+          cbn in *.
+          intros lqtAddr.
+          destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
+        --- (* Call contract *)
+            rewrite deployed in deployed0.
+            inversion deployed0.
+            subst.
+            apply wc_receive_strong in receive_some as
+              (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+            cbn in receive_some.
+            rewrite <- serialize_new_state, deserialize_serialize in deployed_state.
+            inversion deployed_state.
+            rewrite deployed_state0, serialize_prev_state in deployed_state'.
+            inversion deployed_state'.
+            subst.
+            clear deployed0 deployed_state deployed_state'.
+            assert (lqt_addr_preserved : lqtAddress state' = lqtAddress state \/ exists a, msg' = Some (FA2Token.other_msg (SetLqtAddress a))).
+            { destruct msg'; try destruct m; try destruct d;
+                try (now receive_simpl);
+                rewrite_state_eq.
+            }
+            destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
+        ---- (* Self call *)
+              rewrite address_eq_refl.
+              edestruct outgoing_acts_no_mint_before_set_lqt_addr as (cstate & deployed_state' & out_acts_forall); eauto.
+              cbn in deployed_state'.
+              rewrite deployed_state0, serialize_prev_state in deployed_state'.
+              inversion deployed_state'.
+              subst. clear deployed_state'.
+              unfold outgoing_acts in out_acts_forall.
+              rewrite queue_prev in out_acts_forall.
+              cbn in out_acts_forall.
+              rewrite address_eq_refl in out_acts_forall.
+              cbn in out_acts_forall.
+              apply Forall_cons. cbn.
+              { destruct lqt_addr_preserved as [lqt_addr_preserved | lqt_addr_preserved]; auto.
+                - rewrite <- lqt_addr_preserved in lqtAddr.
+                  apply Forall_inv in out_acts_forall; auto.
+                  destruct msg; auto.
+                - destruct lqt_addr_preserved as [? lqt_addr_preserved].
+                  rewrite lqt_addr_preserved in receive_some.
+                  rewrite_receive_is_some.
+                  apply Forall_inv in out_acts_forall; auto.
+                  destruct msg; auto.
+              }
+              destruct lqt_addr_preserved as [lqt_addr_preserved | lqt_addr_preserved];
+                try now rewrite <- lqt_addr_preserved in lqtAddr.
+              destruct lqt_addr_preserved as [? lqt_addr_preserved].
+              rewrite lqt_addr_preserved in receive_some.
+              now rewrite_receive_is_some.
+        ---- (* Call by other contract *)
+            rewrite address_eq_ne by auto.
+            destruct lqt_addr_preserved as [lqt_addr_preserved | lqt_addr_preserved];
+              try now rewrite <- lqt_addr_preserved in lqtAddr.
+            destruct lqt_addr_preserved as [? lqt_addr_preserved].
+            rewrite lqt_addr_preserved in receive_some.
+            now rewrite_receive_is_some.
+        --- (* Call other contract *)
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            subst. clear deployed_state'.
+            destruct_address_eq; auto.
+            subst.
+            apply Forall_cons; auto.
+            edestruct outgoing_acts_no_mint_before_set_lqt_addr as (cstate & deployed_state' & out_acts_forall); eauto.
+            cbn in deployed_state'.
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            subst. clear deployed_state'.
+            unfold outgoing_acts in out_acts_forall.
+            rewrite queue_prev in out_acts_forall.
+            cbn in out_acts_forall.
+            rewrite address_eq_refl in out_acts_forall.
+            cbn in out_acts_forall.
+            apply Forall_inv in out_acts_forall; auto.
+            destruct msg; auto.
+      * (* Invalid action *)
+        intros lqtAddr.
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+          try rewrite_environment_equiv; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        inversion deployed_state'.
+        now subst.
+      * (* Permutation *)
+        intros lqtAddr.
+        inversion prev_next.
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+          rewrite prev_next in *; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        inversion deployed_state'.
+        now subst.
+  + constructor.
+    now econstructor.
+Qed.
+
+Lemma outgoing_txs_all_mint_same_dest : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+      Forall (fun tx =>
+        match tx.(tx_body) with
+        | tx_call (Some msg) =>
+          match @deserialize Dexter2FA12.Msg msg_serializable msg with
+          | Some (msg_mint_or_burn _) => tx.(tx_to) = lqtAddress cstate
+          | _ => True
+          end
+        | _ => True
+        end
+      ) (outgoing_txs trace caddr).
+Proof.
+  intros * deployed.
+  remember empty_state.
+  induction trace.
+  - now subst.
+  - subst.
+    apply deployed_contract_state_typed in deployed as deployed_state.
+    + destruct deployed_state as (state & deployed_state).
+      exists state.
+      split; auto.
+      destruct_chain_step.
+      * (* Step block *)
+        rewrite_environment_equiv.
+        destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        now inversion deployed_state'.
+      * destruct_action_eval.
+       -- (* Action transfer *)
+          destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+          cbn in *.
+          rewrite deployed_state in deployed_state'.
+          inversion deployed_state'.
+          clear deployed_state'.
+          subst.
+          destruct_address_eq; auto.
+          apply list.Forall_cons.
+          now split.
+       -- (* Action deploy *)
+          rewrite_environment_equiv.
+          cbn in *.
+          destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
+        --- (* Deploy contract *)
+            eapply undeployed_contract_no_out_txs in not_deployed; auto.
+            unfold outgoing_txs in not_deployed.
+            rewrite not_deployed.
+            destruct_address_eq; auto.
+            now apply list.Forall_cons.
+        --- (* Deploy other contract *)
+            destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            clear deployed_state'.
+            subst.
+            destruct_address_eq; auto.
+            now apply list.Forall_cons.
+       -- (* Action call *)
+          destruct IHtrace as (state' & deployed_state' & sum_eq);
+            try rewrite_environment_equiv; auto.
+          cbn in *.
+          destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
+        --- (* Call contract *)
+            rewrite deployed in deployed0.
+            inversion deployed0.
+            (*rewrite deployed_state0 in deployed_state'.*)
+            subst.
+            apply wc_receive_strong in receive_some as
+              (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+            cbn in receive_some.
+            rewrite <- serialize_new_state, deserialize_serialize in deployed_state.
+            inversion deployed_state.
+            rewrite deployed_state0, serialize_prev_state in deployed_state'.
+            inversion deployed_state'.
+            subst.
+            clear deployed0 deployed_state deployed_state'.
+            assert (lqt_addr_preserved : lqtAddress state' = lqtAddress state \/ exists a, msg' = Some (FA2Token.other_msg (SetLqtAddress a))).
+            { destruct msg'; try destruct m; try destruct d;
+                try (now receive_simpl);
+                rewrite_state_eq.
+            }
+            destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
+        ---- (* Self call *)
+              rewrite address_eq_refl.
+              apply Forall_cons. cbn.
+              { destruct lqt_addr_preserved as [<- | lqt_addr_preserved]; auto.
+                - edestruct outgoing_acts_all_mint_same_dest as (cstate & deployed_state' & out_acts_forall); eauto.
+                  cbn in deployed_state'.
+                  rewrite deployed_state0, serialize_prev_state in deployed_state'.
+                  inversion deployed_state'.
+                  subst. clear deployed_state'.
+                  unfold outgoing_acts in out_acts_forall.
+                  rewrite queue_prev in out_acts_forall.
+                  cbn in out_acts_forall.
+                  rewrite address_eq_refl in out_acts_forall.
+                  cbn in out_acts_forall.
+                  apply Forall_inv in out_acts_forall.
+                  now destruct msg.
+                - edestruct outgoing_acts_no_mint_before_set_lqt_addr as (cstate & deployed_state' & out_acts_forall); eauto.
+                  cbn in deployed_state'.
+                  rewrite deployed_state0, serialize_prev_state in deployed_state'.
+                  inversion deployed_state'.
+                  subst. clear deployed_state'.
+                  unfold outgoing_acts in out_acts_forall.
+                  rewrite queue_prev in out_acts_forall.
+                  cbn in out_acts_forall.
+                  rewrite address_eq_refl in out_acts_forall.
+                  cbn in out_acts_forall.
+                  destruct lqt_addr_preserved as [? lqt_addr_preserved].
+                  rewrite lqt_addr_preserved in receive_some.
+                  rewrite_receive_is_some.
+                  apply Forall_inv in out_acts_forall; auto.
+                  destruct msg; auto.
+                  destruct_match; auto.
+                  now destruct m.
+              }
+              destruct lqt_addr_preserved as [<- | lqt_addr_preserved]; auto.
+              destruct lqt_addr_preserved as [? lqt_addr_preserved].
+              rewrite lqt_addr_preserved in receive_some.
+              rewrite_receive_is_some.
+              edestruct outgoing_txs_no_mint_before_set_lqt_addr as (cstate & deployed_state' & out_acts_forall); eauto.
+              cbn in deployed_state'.
+              rewrite deployed_state0, serialize_prev_state in deployed_state'.
+              inversion deployed_state'.
+              subst. clear deployed_state'.
+              apply out_acts_forall in H2.
+              clear out_acts_forall.
+              apply All_Forall.In_Forall.
+              intros act act_in.
+              eapply Forall_forall in H2; eauto.
+              destruct_match; auto.
+              destruct msg0; auto.
+              destruct_match; auto.
+              now destruct_match.
+        ---- (* Call by other contract *)
+            rewrite address_eq_ne by auto.
+            destruct lqt_addr_preserved as [<- | lqt_addr_preserved]; auto.
+            destruct lqt_addr_preserved as [? lqt_addr_preserved].
+            rewrite lqt_addr_preserved in receive_some.
+            rewrite_receive_is_some.
+            edestruct outgoing_txs_no_mint_before_set_lqt_addr as (cstate & deployed_state' & out_acts_forall); eauto.
+            cbn in deployed_state'.
+            rewrite deployed_state0, serialize_prev_state in deployed_state'.
+            inversion deployed_state'.
+            subst. clear deployed_state'.
+            apply out_acts_forall in H2.
+            clear out_acts_forall.
+            apply All_Forall.In_Forall.
+            intros act act_in.
+            eapply Forall_forall in H2; eauto.
+            destruct_match; auto.
+            destruct msg0; auto.
+            destruct_match; auto.
+            now destruct_match.
+        --- (* Call other contract *)
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            clear deployed_state'.
+            subst.
+            destruct_address_eq; auto.
+            apply list.Forall_cons.
+            split; auto.
+            cbn.
+            edestruct outgoing_acts_all_mint_same_dest as (cstate & deployed_state' & out_acts_forall); eauto.
+            cbn in deployed_state'.
+            rewrite deployed_state in deployed_state'.
+            inversion deployed_state'.
+            subst. clear deployed_state'.
+            unfold outgoing_acts in out_acts_forall.
+            rewrite queue_prev in out_acts_forall.
+            cbn in out_acts_forall.
+            rewrite address_eq_refl in out_acts_forall.
+            cbn in out_acts_forall.
+            apply Forall_inv in out_acts_forall.
+            now destruct msg.
+      * (* Invalid action *)
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+          try rewrite_environment_equiv; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        now inversion deployed_state'.
+      * (* Permutation *)
+        inversion prev_next.
+        destruct IHtrace as (state' & deployed_state' & sum_eq);
+          rewrite prev_next in *; auto.
+        cbn in *.
+        rewrite deployed_state in deployed_state'.
+        now inversion deployed_state'.
+  + constructor.
+    now econstructor.
+Qed.
+
+Lemma outgoing_txs_sum_filter_eq : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate,
+    contract_state bstate caddr = Some cstate /\
+      sumZ mintedOrBurnedTokens_tx (filter (txCallTo cstate.(lqtAddress)) (outgoing_txs trace caddr)) =
+      sumZ mintedOrBurnedTokens_tx (outgoing_txs trace caddr).
+Proof. 
+  intros * deployed.
+  apply (outgoing_txs_all_mint_same_dest _ _ trace) in deployed as mint_or_burn_to_lqt_addr; auto.
+  destruct mint_or_burn_to_lqt_addr as (cstate & deployed_state & mint_or_burn_to_lqt_addr).
+  exists cstate.
+  split; auto.
+  clear deployed deployed_state.
+  induction (outgoing_txs trace caddr).
+  - reflexivity.
+  - apply list.Forall_cons in mint_or_burn_to_lqt_addr as [mint_or_burn_to_lqt_addr IH%IHl].
+    clear IHl.
+    cbn.
+    rewrite <- IH. clear IH.
+    destruct a eqn:H.
+    destruct tx_body eqn:H1;
+      auto.
+    destruct_match eqn:H2; auto.
+    cbn in *.
+    do 3 (destruct_match; auto).
+    now destruct_address_eq.
+Qed.
+
+(** [lqtTotal] is equal to the initial tokens + minted tokens - burned tokens *)
+Lemma lqt_total_correct' : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate depinfo,
+    contract_state bstate caddr = Some cstate /\
+    deployment_info Setup trace caddr = Some depinfo /\
+    let initial_tokens := lqtTotal_ (deployment_setup depinfo) in
+    Z.of_N cstate.(lqtTotal) = (Z.of_N initial_tokens) + sumZ mintedOrBurnedTokens_acts (outgoing_acts bstate caddr)
+      + sumZ mintedOrBurnedTokens_tx (outgoing_txs trace caddr).
+Proof.
+  contract_induction;
+    intros; auto.
+  - cbn in *.
+    now apply init_correct in init_some.
+  - rewrite IH.
+    cbn.
+    rewrite <- 3!Z.add_assoc.
+    rewrite Z.add_cancel_l.
+    rewrite Z.add_shuffle3.
+    rewrite Z.add_cancel_l.
+    rewrite Z.add_cancel_r.
+    unfold mintedOrBurnedTokens_tx.
+    destruct out_act.
+    + now destruct tx_act_match as [_ [_ [-> | ->]]].
+    + now destruct tx_act_match as [_ [_ ->]].
+    + now destruct tx_act_match as [_ ->].
+  - cbn in receive_some.
+    destruct msg; try destruct m; try destruct d;
+      try (now receive_simpl);
+      rewrite_acts_correct;
+      rewrite_state_eq;
+      rewrite_receive_is_some;
+      cbn;
+      try rewrite deserialize_serialize;
+      destruct_match eqn:msg_deserialized;
+        try now inversion msg_deserialized;
+        cbn;
+        try lia.
+    destruct_match; try lia.
+    now apply deserialize_balance_of_ne_mint_or_burn in msg_deserialized.
+  - destruct head;
+      auto;
+      cbn in IH;
+      destruct action_facts as (? & ? & ?);
+      subst.
+    + now receive_simpl.
+    + cbn in receive_some.
+      destruct msg; try destruct m; try destruct d;
+        try (now receive_simpl);
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
+        cbn;
+        try rewrite deserialize_serialize;
+        destruct_match eqn:msg_deserialized;
+          try now inversion msg_deserialized;
+          cbn;
+          try lia.
+      * destruct_match; try lia.
+        now apply deserialize_balance_of_ne_mint_or_burn in msg_deserialized.
+      * destruct_match eqn:msg_deserialized0;
+          try now inversion msg_deserialized0.
+  - now rewrite <- perm.
+  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
+    instantiate (DeployFacts := fun _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ => True).
+    unset_all; subst;cbn in *.
+    destruct_chain_step; auto.
+    destruct_action_eval; auto.
+Qed.
+
+(** [lqtTotal] is equal to the initial tokens + minted tokens - burned tokens *)
+Lemma lqt_total_correct : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists cstate depinfo,
+    contract_state bstate caddr = Some cstate /\
+    deployment_info Setup trace caddr = Some depinfo /\
+    let initial_tokens := lqtTotal_ (deployment_setup depinfo) in
+    Z.of_N cstate.(lqtTotal) = (Z.of_N initial_tokens) + sumZ mintedOrBurnedTokens_acts (filter (actTo cstate.(lqtAddress)) (outgoing_acts bstate caddr))
+      + sumZ mintedOrBurnedTokens_tx (filter (txCallTo cstate.(lqtAddress)) (outgoing_txs trace caddr)).
+Proof.
+  intros * deployed.
+  eapply lqt_total_correct' in deployed as lqt_correct.
+  apply outgoing_acts_sum_filter_eq in deployed as act_filter_eq; try easy.
+  destruct lqt_correct as (cstate & depinfo & deployed_state & deployment_info & lqt_correct).
+  destruct act_filter_eq as (cstate' & deployed_state' & act_filter_eq).
+  rewrite deployed_state in deployed_state'.
+  inversion deployed_state'.
+  clear deployed_state'. subst.
+  do 2 eexists.
+  intuition.
+  rewrite act_filter_eq.
+  apply (outgoing_txs_sum_filter_eq _ _ trace) in deployed as tx_filter_eq.
+  destruct tx_filter_eq as (cstate & deployed_state' & tx_filter_eq).
+  rewrite deployed_state in deployed_state'.
+  inversion deployed_state'.
+  clear deployed_state'. subst.
+  rewrite tx_filter_eq.
+  apply lqt_correct.
+Qed.
+Local Close Scope Z_scope.
+
+Lemma deployed_incoming_calls_typed : forall bstate caddr {Setup Msg State : Type}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
+          {contract : Contract Setup Msg State}
+          (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = Some (contract : WeakContract) ->
+  exists inc_calls, 
+    incoming_calls Msg trace caddr = Some inc_calls.
+Proof.
+  intros * deployed.
+  remember empty_state.
+  induction trace; eauto; subst.
+  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto.
+  - cbn in *.
+    destruct_address_eq; eauto.
+    now rewrite undeployed_contract_no_in_calls.
+  - cbn in *.
+    destruct IHtrace as [? IH]; auto.
+    rewrite IH.
+    clear IH.
+    destruct_address_eq; eauto.
+    subst.
+    rewrite deployed in deployed0.
+    inversion deployed0.
+    subst. clear deployed0.
+    apply wc_receive_strong in receive_some as
+      (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+    cbn in receive_some.
+    destruct msg';
+      try rewrite msg_ser; eauto.
+    cbn in msg_ser.
+    destruct msg; eauto.
+    now rewrite msg_ser.
+  - now rewrite prev_next in *.
+Qed.
+
+Lemma undeployed_contract_no_state : forall bstate caddr (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr = None ->
+  env_contract_states bstate caddr = None.
+Proof.
+  intros * trace not_deployed.
+  remember empty_state.
+  induction trace; subst; auto.
+  destruct_chain_step; try destruct_action_eval;
+    try rewrite_environment_equiv; auto;
+    cbn in *;
+    try now destruct_address_eq;
+    try now rewrite prev_next in *.
+Qed.
+
+Lemma no_outgoing_txs_to_undeployed_contract : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr_main = Some (contract : WeakContract) ->
+  env_contracts bstate caddr_lqt = None ->
+    filter (txCallTo caddr_lqt) (outgoing_txs trace caddr_main) = [].
+Proof.
+  intros * deployed_main not_deployed_lqt.
+  remember empty_state.
+  induction trace; subst; try discriminate.
+  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto; cbn in *.
+  - now destruct_address_eq.
+  - destruct_address_eq; try easy; subst; cbn;
+      eapply undeployed_contract_no_out_txs in not_deployed; auto;
+      unfold outgoing_txs in not_deployed;
+      now rewrite not_deployed.
+  - destruct_address_eq; auto.
+    cbn.
+    now destruct_address_eq.
+  - now rewrite prev_next in *.
+Qed.
+
+Lemma no_incoming_calls_from_undeployed_contract : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr_main = None ->
+  address_is_contract caddr_main = true ->
+  env_contracts bstate caddr_lqt = Some (Dexter2FA12.contract : WeakContract) ->
+  exists inc_calls,
+    incoming_calls Dexter2FA12.Msg trace caddr_lqt = Some inc_calls /\
+    filter (callFrom caddr_main) inc_calls = [].
+Proof.
+  intros * not_deployed_main main_contract deployed_lqt.
+  remember empty_state.
+  induction trace; subst; try discriminate.
+  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto; cbn in *.
+  - destruct_address_eq; try easy; subst; cbn.
+    now rewrite undeployed_contract_no_in_calls by auto.
+  - destruct_address_eq; auto.
+    subst.
+    rewrite deployed_lqt in deployed.
+    inversion deployed.
+    subst. clear deployed.
+    apply wc_receive_strong in receive_some as
+      (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+    cbn in receive_some.
+    destruct IHtrace as (? & calls & ?); auto.
+    apply undeployed_contract_no_out_queue in not_deployed_main; try easy.
+    rewrite queue_prev in not_deployed_main.
+    destruct msg';
+      [cbn in msg_ser; destruct msg; try easy|];
+      rewrite msg_ser;
+      rewrite calls;
+      eexists;
+      split; eauto;
+      unfold callFrom; cbn;
+      destruct_address_eq; auto;
+      subst;
+      apply Forall_inv in not_deployed_main;
+      now rewrite address_eq_refl in not_deployed_main.
+  - now rewrite prev_next in *.
+Qed.
+
+Definition contract_call_info_to_tx `{X : Type} `{Serializable X} (caddr : Address) (call_info : ContractCallInfo X) : Tx :=
+  let body :=
+    match call_info.(call_msg) with
+    | Some (msg) => tx_call (Some (serialize msg))
+    | None => tx_call None
+    end in
+  {|
+    tx_origin := call_info.(call_origin);
+    tx_from := call_info.(call_from);
+    tx_to := caddr;
+    tx_amount := call_info.(call_amount);
+    tx_body := body
+  |}.
+
+Definition tx_to_contract_call_info `{X : Type} `{Serializable X} (tx : Tx) : option (ContractCallInfo X) :=
+  match tx.(tx_body) with
+  | tx_call None => Some
+    {|
+      call_origin := tx.(tx_origin);
+      call_from := tx.(tx_from);
+      call_amount := tx.(tx_amount);
+      call_msg := None
+    |}
+  | tx_call (Some m) => Some
+    {|
+      call_origin := tx.(tx_origin);
+      call_from := tx.(tx_from);
+      call_amount := tx.(tx_amount);
+      call_msg := @deserialize X _ m
+    |}
+  | _ => None
+  end.
+
+Lemma incomming_eq_outgoing : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr_main = Some (contract : WeakContract) ->
+  env_contracts bstate caddr_lqt = Some (Dexter2FA12.contract : WeakContract) ->
+  exists inc_calls,
+    incoming_calls Dexter2FA12.Msg trace caddr_lqt = Some inc_calls /\
+    (filter (txCallTo caddr_lqt) (outgoing_txs trace caddr_main)) =
+    map (contract_call_info_to_tx caddr_lqt) (filter (callFrom caddr_main) inc_calls).
+Proof.
+  intros * deployed_main deployed_lqt.
+  remember empty_state.
+  induction trace; subst; try discriminate.
+  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto.
+  - cbn in *.
+    destruct_address_eq; auto.
+  - cbn in *.
+    destruct_address_eq; auto; subst;
+      try (apply MCOption.some_inj in deployed_main; subst);
+      try (apply MCOption.some_inj in deployed_lqt; rewrite deployed_lqt in *; clear deployed_lqt);
+      try (rewrite undeployed_contract_no_in_calls by auto);
+      try (eapply undeployed_contract_no_out_txs in not_deployed as no_txs; eauto;
+            unfold outgoing_txs in no_txs; rewrite no_txs); cbn;
+      try (eapply no_outgoing_txs_to_undeployed_contract in not_deployed as no_txs; eauto;
+            unfold outgoing_txs in no_txs; rewrite no_txs);
+      try (eapply no_incoming_calls_from_undeployed_contract in not_deployed as (calls & inc_calls_eq & calls_eq); eauto;
+        exists calls; now rewrite inc_calls_eq, calls_eq);
+      try now exists [].
+  - cbn in *.
+    destruct_address_eq; subst; auto.
+    + rewrite deployed_lqt in deployed.
+      inversion deployed.
+      subst. clear deployed.
+      apply wc_receive_strong in receive_some as
+        (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+      cbn in receive_some.
+      destruct IHtrace as (? & calls & IH); auto.
+      destruct msg' eqn:H;
+        [cbn in msg_ser; destruct msg eqn:H1; try easy|];
+        rewrite msg_ser;
+        rewrite calls;
+        eexists;
+        split; eauto.
+      * unfold callFrom in *; cbn.
+        rewrite !address_eq_refl.
+        cbn.
+        rewrite <- IH.
+        unfold contract_call_info_to_tx. cbn.
+        do 4 f_equal.
+        now apply deserialize_injctive.
+      * unfold callFrom in *; cbn.
+        rewrite !address_eq_refl.
+        cbn.
+        now rewrite <- IH.
+    + rewrite deployed_lqt in deployed.
+      inversion deployed.
+      subst. clear deployed.
+      apply wc_receive_strong in receive_some as
+        (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+      cbn in receive_some.
+      destruct IHtrace as (? & calls & ?); auto.
+      destruct msg';
+        [cbn in msg_ser; destruct msg; try easy|];
+        rewrite msg_ser;
+        rewrite calls;
+        eexists;
+        split; eauto;
+        unfold callFrom; cbn;
+        now destruct_address_eq.
+    + cbn.
+      now rewrite address_eq_ne.
+  - cbn in *.
+    now rewrite prev_next in *.
+Qed.
+
+Lemma mintedOrBurnedTokens_call_eq_tx : forall call_info addr,
+  (fun callInfo => mintedOrBurnedTokens callInfo.(call_msg)) call_info =
+  (fun callInfo => mintedOrBurnedTokens_tx (contract_call_info_to_tx addr callInfo)) call_info.
+Proof.
+  intros.
+  destruct call_info.
+  destruct call_msg.
+  - cbn.
+    now rewrite deserialize_serialize.
+  - reflexivity.
+Qed.
+
+(** [lqtTotal] is equal to the initial tokens + minted tokens - burned tokens *)
+Lemma lqt_pool_correct : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
+  env_contracts bstate caddr_main = Some (contract : WeakContract) ->
+  env_contracts bstate caddr_lqt = Some (Dexter2FA12.contract : WeakContract) ->
+  exists state_main state_lqt depinfo_main depinfo_lqt,
+    contract_state bstate caddr_main = Some state_main /\
+    contract_state bstate caddr_lqt = Some state_lqt /\
+    deployment_info Setup trace caddr_main = Some depinfo_main /\
+    deployment_info Dexter2FA12.Setup trace caddr_lqt = Some depinfo_lqt /\
+    let initial_tokens_main := lqtTotal_ (deployment_setup depinfo_main) in
+    let initial_tokens_lqt := initial_pool (deployment_setup depinfo_lqt) in
+    (state_main.(lqtAddress) = caddr_lqt ->
+     state_lqt.(admin) = caddr_main ->
+    initial_tokens_main = initial_tokens_lqt ->
+    filter (actTo state_main.(lqtAddress)) (outgoing_acts bstate caddr_main) = [] ->
+      state_main.(lqtTotal) = state_lqt.(total_supply)).
+Proof.
+  intros * deployed_main deployed_lqt.
+  apply (lqt_total_correct _ _ trace) in deployed_main as main_correct.
+  destruct main_correct as (state_main & depinfo_main & deployed_state_main & deploy_info_main & main_correct).
+  apply (total_supply_correct _ _ trace) in deployed_lqt as lqt_correct.
+  destruct lqt_correct as (state_lqt & depinfo_lqt & inc_calls_lqt & deployed_state_lqt & deploy_info_lqt & inc_acts_lqt & lqt_correct).
+  specialize (incomming_eq_outgoing) as (? & inc_acts_lqt' & calls_eq); eauto.
+  rewrite inc_acts_lqt in inc_acts_lqt'.
+  inversion inc_acts_lqt'.
+  subst. clear inc_acts_lqt'.
+  do 4 eexists.
+  repeat split; eauto.
+  cbn.
+  intros addr_main_eq addr_lqt_eq init_pool_eq no_waiting_mint_acts.
+  apply N2Z.inj.
+  rewrite main_correct, lqt_correct, init_pool_eq, no_waiting_mint_acts, addr_main_eq, addr_lqt_eq.
+  rewrite Z.add_0_r, Z.add_cancel_l.
+  rewrite calls_eq, sumZ_map.
+  apply sumZ_eq.
+  intros.
+  now rewrite <- mintedOrBurnedTokens_call_eq_tx.
 Qed.
 
 End Theories.
