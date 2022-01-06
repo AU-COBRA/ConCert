@@ -268,9 +268,11 @@ Module CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     (** Token ids are preserved by a single transfer *)
     (forall token_id,
         token_id_exists prev_st token_id =  token_id_exists next_st token_id) /\
-    (** CIS1: A transfer MUST non-strictly decrease the balance of the from address and non-strictly increase the balance of the to address.
+    (** CIS1: A transfer MUST non-strictly decrease the balance of the from address and
+        non-strictly increase the balance of the to address.
 
-CIS1: A transfer of some amount of a token type MUST only transfer the exact amount of the given token type between balances. *)
+CIS1: A transfer of some amount of a token type MUST only transfer the exact amount of
+the given token type between balances. *)
     (from <> to -> prev_from = next_from + amount /\ next_to = prev_to + amount) /\
     (** if the [from] and [to] addresses coincide, the transfer does not change the balance for this address *)
     (from = to -> amount <= prev_from /\ prev_from = next_from).

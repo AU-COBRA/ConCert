@@ -1,6 +1,8 @@
 (**
   This file contains an implementation of the example token that complies with the Concordium's CIS1 standard.
   The development is inspired by the Rust implementation: https://github.com/Concordium/concordium-rust-smart-contracts/tree/main/examples/cis1-wccd
+
+  We also show that the implementation of the token complies with our formalisation of the CIS1 standard.
 *)
 
 From Coq Require Import ZArith.
@@ -45,13 +47,13 @@ Section WccdToken.
 
   Inductive Msg :=
   | wccd_msg_transfer (params : list wccd_transfer_params)
-  | wccd_msg_balanceOf (query : list Address)
-                   (send_results_to : Address)
+  | wccd_msg_balanceOf (query : list Address) (send_results_to : Address)
   | wccd_msg_updateOperator (params : list (OpUpdateKind * Address))
   | wccd_msg_mint (receiver : Address)
   | wccd_msg_burn (amount : TokenAmount).
 
   (** * Contract's state *)
+
   (** The state tracked for each address.*)
   Record AddressState := {
         wccd_balance:   TokenAmount;
@@ -83,13 +85,12 @@ Section WccdToken.
 
   End Serialization.
 
-  (** Transfer *)
+  (** * Transfer *)
 
   Definition increment_balance (st : State) (addr : Address) (inc : TokenAmount) : State :=
     match AddressMap.find addr st with
     | Some old => AddressMap.add addr (old<| wccd_balance := old.(wccd_balance) + inc |>) st
-    | None => AddressMap.add addr {| wccd_balance := inc
-                                   ; wccd_operators := [] |} st
+    | None => AddressMap.add addr {| wccd_balance := inc ; wccd_operators := [] |} st
     end.
 
   Definition decrement_balance (st : State) (addr : Address) (dec : TokenAmount) : option State :=
@@ -136,27 +137,33 @@ Section WccdToken.
     | opDelete => remove address_eqdec addr operators
     end.
 
+  (** NOTE: in contrast to the Concordium's implementation, we do not
+      allow to add operators to non-existing addresses *)
   Definition wccd_updateOperator (owner : Address) (params : list (OpUpdateKind * Address)) (prev_st : State)
     : option State :=
-    (* NOTE: in contrast to the Concordium's implementation, we do not
-       allow to add operators to non-existing addresses *)
     do owner_data <- AddressMap.find owner prev_st;
     let updated_owner_data := owner_data<| wccd_operators := fold_left add_remove params owner_data.(wccd_operators)  |> in
     ret (AddressMap.add owner updated_owner_data prev_st).
 
-  (** * Wccd receive *)
+  (** * wccd receive *)
 
-  (* We dispatch on a message of type [Msg] and call the corresponding functions with received parameters *)
-  Definition wccd_receive (chain : Chain) (ctx : ContractCallContext) (prev_st : State) (msg : option Msg) :
-    option (State * list ActionBody) :=
+  (** We dispatch on a message of type [Msg] and call the corresponding functions with received parameters *)
+  Definition wccd_receive
+             (chain : Chain)
+             (ctx : ContractCallContext)
+             (prev_st : State)
+             (msg : option Msg)
+    : option (State * list ActionBody) :=
     match msg with
     | Some (wccd_msg_transfer params) =>
         do next_st <- wccd_transfer params prev_st;
-        let contract_accounts := filter (fun x => address_is_contract x.(wccd_td_to)) params in
-        let mk_callback_data x :=
-          serialize
-            (tt,x.(wccd_td_amount), x.(wccd_td_from)) in
-        let ops := map (fun x => act_call x.(wccd_td_to) 0 (mk_callback_data x)) contract_accounts in
+        let contract_accounts :=
+          filter (fun x => address_is_contract x.(wccd_td_to)) params in
+        let mk_callback x :=
+        (* NOTE: we assume that the receiving contract accepts messages of type
+           (TokenID * TokenAmount * Address) *)
+          act_call x.(wccd_td_to) 0 (serialize (tt,x.(wccd_td_amount), x.(wccd_td_from))) in
+        let ops := map mk_callback contract_accounts in
         ret (next_st, ops)
     | Some (wccd_msg_balanceOf query send_to) =>
         let balances := wccd_balanceOf query prev_st in
@@ -166,13 +173,13 @@ Section WccdToken.
         do next_st <- wccd_updateOperator ctx.(ctx_from) params prev_st;
         ret (next_st, [])
     | Some (wccd_msg_mint receiver) =>
-        (** Check that the sender is not the receiver *)
+        (* Check that the sender is not the receiver *)
         do requireTrue (negb (address_eqb receiver ctx.(ctx_from)));
         let next_st := increment_balance prev_st receiver (Z.to_nat ctx.(ctx_amount)) in
-        (** NOTE: we only update the state and do not notify the receiver *)
+        (* NOTE: we only update the state and do not notify the receiver *)
         ret (next_st,[])
     | Some (wccd_msg_burn amt) =>
-        (** Check that the sender is not the receiver *)
+        (* Check that the sender is not the receiver *)
         do next_st <- decrement_balance prev_st ctx.(ctx_from) amt;
         ret (next_st, [act_transfer ctx.(ctx_from) (Z.of_nat amt)])
     | None => None
@@ -180,7 +187,7 @@ Section WccdToken.
 
 End WccdToken.
 
-(** * Wccd token complies with CIS1 *)
+(** * wccd complies with CIS1 *)
 
 Module WccdTypes <: CIS1Types.
 
@@ -287,7 +294,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
 
     Context `{ChainBase}.
 
-    (** Converting to the CIS1 standard parameters *)
+    (** Converting _to_ the CIS1 standard parameters *)
     Definition to_cis1_transfer_data (p : wccd_transfer_params) : CIS1_transfer_data :=
       let '(Build_wccd_transfer_params token_id amt from_addr to_addr) := p in
       {| cis1_td_token_id := token_id;
@@ -485,6 +492,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         now destruct (get_balance_opt _ _).
     Qed.
 
+    (** ** Receive specification *)
     Theorem receive_spec :
     forall (chain : Chain)
       (ctx : ContractCallContext)
