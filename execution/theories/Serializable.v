@@ -62,12 +62,13 @@ Proof.
 Defined.
 
 (* Defines that a type can be serialized into SerializedValue and deserialized from it,
-   and that deserializing is a left inverse of serialziing. *)
+   and that deserializing is a left inverse of serializing. *)
 Class Serializable (ty : Type) :=
   build_serializable {
     serialize : ty -> SerializedValue;
     deserialize : SerializedValue -> option ty;
     deserialize_serialize x : deserialize (serialize x) = Some x;
+    dd x y : deserialize x = Some y -> x = serialize y
   }.
 
 Global Opaque serialize deserialize deserialize_serialize.
@@ -82,54 +83,148 @@ Proof.
   now rewrite eq.
 Qed.
 
+Lemma q {T : Type} `{Serializable T} x y :
+  deserialize x <> deserialize y ->
+  x <> y.
+Proof.
+  intros * deser_ne.
+  contradict deser_ne.
+  subst.
+  reflexivity.
+Qed.
+
+Lemma q0 {T : Type} `{Serializable T} x y :
+  deserialize x <> Some y ->
+  x <> serialize y.
+Proof.
+  intros * deser_ne.
+  contradict deser_ne.
+  subst.
+  apply deserialize_serialize.
+Qed.
+
+Lemma q1 {T : Type} `{Serializable T} x y :
+  x = serialize y ->
+  deserialize x = Some y.
+Proof.
+  intros * eq.
+  rewrite eq, deserialize_serialize.
+  reflexivity.
+Qed.
+
 Program Instance unit_serializable : Serializable unit :=
   {| serialize u := build_ser_value ser_unit u;
      deserialize := extract_ser_value ser_unit; |}.
-Solve Obligations with reflexivity.
+Next Obligation. reflexivity. Qed.
+Next Obligation.
+  intros * deser_some.
+  destruct x as [ty val].
+  destruct ty;
+    now inversion_clear deser_some.
+Qed.
 
 Program Instance int_serializable : Serializable Z :=
   {| serialize i := build_ser_value ser_int i;
      deserialize := extract_ser_value ser_int; |}.
-Solve Obligations with reflexivity.
+Next Obligation. reflexivity. Qed.
+Next Obligation.
+  intros * deser_some.
+  destruct x as [ty val].
+  destruct ty;
+    now inversion_clear deser_some.
+Qed.
 
 Program Instance bool_serializable : Serializable bool :=
   {| serialize b := build_ser_value ser_bool b;
      deserialize := extract_ser_value ser_bool; |}.
-Solve Obligations with reflexivity.
+Next Obligation. reflexivity. Qed.
+Next Obligation.
+  intros * deser_some.
+  destruct x as [ty val].
+  destruct ty;
+    now inversion_clear deser_some.
+Qed.
 
 Program Instance nat_serializable : Serializable nat :=
   {| serialize n := serialize (Z.of_nat n);
-     deserialize z := do z' <- deserialize z; Some (Z.to_nat z'); |}.
+     deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_nat z'); |}.
 Next Obligation.
   intros x.
   cbn.
   rewrite deserialize_serialize.
   cbn.
   rewrite Nat2Z.id.
+  specialize (Nat2Z.is_nonneg x) as H.
+  apply Z.ltb_ge in H.
+  rewrite H.
+  reflexivity.
+Qed.
+Next Obligation.
+  intros * deser_some.
+  cbn in *.
+  apply dd.
+  destruct (deserialize x);
+    inversion deser_some.
+  destruct (z <? 0)%Z eqn:H;
+    inversion deser_some.
+  apply Z.ltb_ge in H.
+  rewrite Z2Nat.id by assumption.
   reflexivity.
 Qed.
 
 Program Instance N_serializable : Serializable N :=
   {| serialize n := serialize (Z.of_N n);
-     deserialize z := do z' <- deserialize z; Some (Z.to_N z'); |}.
+     deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_N z'); |}.
 Next Obligation.
   intros x.
   cbn.
   rewrite deserialize_serialize.
   cbn.
   rewrite N2Z.id.
+  specialize (N2Z.is_nonneg x) as H.
+  apply Z.ltb_ge in H.
+  rewrite H.
+  reflexivity.
+Qed.
+Next Obligation.
+  intros * deser_some.
+  cbn in *.
+  apply dd.
+  destruct (deserialize x);
+    inversion deser_some.
+  destruct (z <? 0)%Z eqn:H;
+    inversion deser_some.
+  apply Z.ltb_ge in H.
+  rewrite Z2N.id by assumption.
   reflexivity.
 Qed.
 
 Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
-     deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
+     deserialize z := do z' <- deserialize z; if (0 <? z')%Z then Some (Z.to_pos z') else None; |}.
 Next Obligation. auto. Qed.
+Next Obligation.
+  intros * deser_some.
+  cbn in *.
+  apply dd.
+  destruct (deserialize x);
+    inversion deser_some.
+  destruct (0 <? z)%Z eqn:H;
+    inversion deser_some.
+  apply Z.ltb_lt in H.
+  rewrite Z2Pos.id by assumption.
+  reflexivity.
+Qed.
 
 Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;
      deserialize v := Some v; |}.
-Solve Obligations with reflexivity.
+Next Obligation. reflexivity. Qed.
+Next Obligation.
+  intros.
+  cbn in *.
+  now inversion H.
+Qed.
 
 Program Instance BoundedN_equivalence {bound : N} : Serializable (BoundedN bound) :=
   {| serialize bn := serialize (countable.encode bn);
@@ -143,6 +238,8 @@ Next Obligation.
   cbn.
   now rewrite countable.decode_encode.
 Qed.
+Next Obligation.
+Admitted.
 
 (* Program Instance generates an insane amount of obligations for sums,
    so we define it by ourselves. *)
@@ -176,10 +273,30 @@ Section Sum.
     destruct s as [a | b]; cbn; rewrite deserialize_serialize; reflexivity.
   Qed.
 
+  Lemma dd_sum x (s : A + B)
+    : deserialize_sum x = Some s -> x = serialize_sum s.
+  Proof.
+    unfold serialize_sum, deserialize_sum.
+    destruct x as [ty val].
+    intros deser_some.
+    destruct ty;
+      try discriminate.
+    destruct ty1;
+      try discriminate.
+    destruct val.
+    destruct i; cbn in *;
+      destruct deserialize eqn:deser_a_some;
+      try discriminate;
+      inversion_clear deser_some;
+      apply dd in deser_a_some as <-;
+      reflexivity.
+  Qed.
+
   Global Instance sum_serializable : Serializable (A + B) :=
     {| serialize := serialize_sum;
        deserialize := deserialize_sum;
-       deserialize_serialize := deserialize_serialize_sum; |}.
+       deserialize_serialize := deserialize_serialize_sum;
+       dd := dd_sum |}.
 End Sum.
 
 Section Product.
@@ -209,10 +326,31 @@ Section Product.
     reflexivity.
   Qed.
 
+  Lemma dd_product x (p : A * B)
+    : deserialize_product x = Some p -> x = serialize_product p.
+  Proof.
+    unfold serialize_product, deserialize_product.
+    destruct x as [ty val].
+    intros deser_some.
+    destruct ty;
+      try discriminate.
+    destruct val.
+    cbn in *.
+    destruct deserialize eqn:deser_a_some in deser_some;
+      try discriminate.
+    destruct deserialize eqn:deser_b_some in deser_some;
+      try discriminate.
+    inversion_clear deser_some.
+    apply dd in deser_a_some as <-.
+    apply dd in deser_b_some as <-.
+    reflexivity.
+  Qed.
+
   Global Instance product_serializable : Serializable (A * B) :=
     {| serialize := serialize_product;
        deserialize := deserialize_product;
-       deserialize_serialize := deserialize_serialize_product; |}.
+       deserialize_serialize := deserialize_serialize_product;
+       dd := dd_product |}.
 End Product.
 
 Section List.
@@ -249,11 +387,47 @@ Section List.
       rewrite deserialize_serialize.
       reflexivity.
   Qed.
+  
+  Lemma dd_list x (l : list A)
+    : deserialize_list x = Some l -> x = serialize_list l.
+  Proof.
+    unfold serialize_product, deserialize_product.
+    destruct x as [ty val]. cbn.
+    generalize dependent ty.
+    induction l as [| hd tl IHl];
+      intros * deser_some;
+      cbn in *.
+    - destruct ty;
+        try discriminate.
+      + now destruct val.
+      + destruct val.
+        repeat match  goal with
+        | H : match ?x with | Some _ => _ | None => _ end = _ |- _ => destruct x
+        end;
+        discriminate.
+    - destruct ty;
+        try discriminate.
+      destruct val.
+      destruct deserialize eqn:deser_hd_some in deser_some;
+        try discriminate.
+      match goal with
+      | H : match ?x with | Some _ => _ | None => _ end = _ |- _ => destruct x eqn:H1
+      end;
+      try discriminate.
+      inversion deser_some. subst.
+      apply dd in deser_hd_some as <-.
+      cbn.
+      apply IHl in H1.
+      unfold serialize_list in H1.
+      rewrite <- H1.
+      reflexivity.
+  Qed.
 
   Global Instance list_serializable : Serializable (list A) :=
     {| serialize := serialize_list;
        deserialize := deserialize_list;
-       deserialize_serialize := deserialize_serialize_list; |}.
+       deserialize_serialize := deserialize_serialize_list;
+       dd := dd_list |}.
 End List.
 
 Program Instance map_serializable
