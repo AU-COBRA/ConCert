@@ -2025,6 +2025,7 @@ Proof.
   Transparent serialize deserialize.
   cbn.
   rewrite !Nat2Z.id.
+  destruct (Z.of_nat 3 <? 0); auto.
   now destruct_match.
   Opaque serialize deserialize.
 Qed.
