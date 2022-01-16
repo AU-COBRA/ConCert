@@ -62,7 +62,7 @@ Proof.
 Defined.
 
 (* Defines that a type can be serialized into SerializedValue and deserialized from it,
-   and that deserializing is a left inverse of serialziing. *)
+   and that deserializing is a left inverse of serializing. *)
 Class Serializable (ty : Type) :=
   build_serializable {
     serialize : ty -> SerializedValue;
@@ -99,32 +99,38 @@ Solve Obligations with reflexivity.
 
 Program Instance nat_serializable : Serializable nat :=
   {| serialize n := serialize (Z.of_nat n);
-     deserialize z := do z' <- deserialize z; Some (Z.to_nat z'); |}.
+     deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_nat z'); |}.
 Next Obligation.
   intros x.
   cbn.
   rewrite deserialize_serialize.
   cbn.
   rewrite Nat2Z.id.
+  specialize (Nat2Z.is_nonneg x) as H.
+  apply Z.ltb_ge in H.
+  rewrite H.
   reflexivity.
 Qed.
 
 Program Instance N_serializable : Serializable N :=
   {| serialize n := serialize (Z.of_N n);
-     deserialize z := do z' <- deserialize z; Some (Z.to_N z'); |}.
+     deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_N z'); |}.
 Next Obligation.
   intros x.
   cbn.
   rewrite deserialize_serialize.
   cbn.
   rewrite N2Z.id.
+  specialize (N2Z.is_nonneg x) as H.
+  apply Z.ltb_ge in H.
+  rewrite H.
   reflexivity.
 Qed.
 
 Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
-     deserialize z := do z' <- deserialize z; Some (Z.to_pos z'); |}.
-Next Obligation. auto. Qed.
+     deserialize z := do z' <- deserialize z; if (0 <? z')%Z then Some (Z.to_pos z') else None; |}.
+Solve Obligations with auto.
 
 Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;
@@ -313,11 +319,15 @@ Qed.
 Program Instance ascii_serializable : Serializable ascii :=
   {| serialize a := serialize (Ascii.N_of_ascii a);
      deserialize p := do p <- deserialize p;
-                      Some (Ascii.ascii_of_N p); |}.
+                      if (p <? 256)%N then Some (Ascii.ascii_of_N p)
+                      else None; |}.
 Next Obligation.
   intros.
   cbn.
   rewrite deserialize_serialize.
+  specialize (N_ascii_bounded x) as H.
+  apply N.ltb_lt in H.
+  rewrite H.
   apply f_equal.
   apply ascii_N_embedding.
 Qed.
