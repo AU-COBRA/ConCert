@@ -85,17 +85,17 @@ Qed.
 Program Instance unit_serializable : Serializable unit :=
   {| serialize u := build_ser_value ser_unit u;
      deserialize := extract_ser_value ser_unit; |}.
-Next Obligation. reflexivity. Qed.
+Solve Obligations with reflexivity.
 
 Program Instance int_serializable : Serializable Z :=
   {| serialize i := build_ser_value ser_int i;
      deserialize := extract_ser_value ser_int; |}.
-Next Obligation. reflexivity. Qed.
+Solve Obligations with reflexivity.
 
 Program Instance bool_serializable : Serializable bool :=
   {| serialize b := build_ser_value ser_bool b;
      deserialize := extract_ser_value ser_bool; |}.
-Next Obligation. reflexivity. Qed.
+Solve Obligations with reflexivity.
 
 Program Instance nat_serializable : Serializable nat :=
   {| serialize n := serialize (Z.of_nat n);
@@ -130,12 +130,12 @@ Qed.
 Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
      deserialize z := do z' <- deserialize z; if (0 <? z')%Z then Some (Z.to_pos z') else None; |}.
-Next Obligation. auto. Qed.
+Solve Obligations with auto.
 
 Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;
      deserialize v := Some v; |}.
-Next Obligation. reflexivity. Qed.
+Solve Obligations with reflexivity.
 
 Program Instance BoundedN_equivalence {bound : N} : Serializable (BoundedN bound) :=
   {| serialize bn := serialize (countable.encode bn);
