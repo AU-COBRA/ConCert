@@ -48,6 +48,7 @@ theories/WcbvEvalAux.v
 
 -Q examples ConCert.Extraction.Examples
 examples/Ack.v
+examples/Dexter2Extract.v
 examples/BoardroomVotingExtractionCameLIGO.v
 examples/BoardroomVotingExtractionLiquidity.v
 examples/CameLIGOExtractionTests.v

@@ -11,6 +11,7 @@ From ConCert Require Import MyEnv.
 From ConCert.Embedding Require Import Notations CustomTactics.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require Import LPretty LiquidityExtract Common Extraction.
+From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 
 From Coq Require Import List Ascii String.
@@ -24,8 +25,6 @@ Import MonadNotation.
 Open Scope Z.
 
 Import Lia.
-
-Definition PREFIX := "coq_".
 
 Module CounterRefinementTypes.
 
@@ -84,6 +83,8 @@ Import CounterRefinementTypes.
 
 Section LiquidityExtractionSetup.
 
+  Definition PREFIX := "coq_".
+  
   (** [sig] and [exist] becomes just wrappers *)
   Definition sig_def := "type 'a sig_ = 'a".
   Definition exist_def := "let exist_ a = a".
@@ -158,10 +159,14 @@ Redirect "examples/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
 MetaCoq Run (tmMsg liquidity_counter).
 
 
-
-From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
 Module CameLIGOExtractionSetup.
-  
+
+  Import CameLIGOPretty CameLIGOExtract.
+
+  (** Exposing a printing configuration for CameLIGO*)
+  Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
+
+
   Definition init (ctx : ContractCallContext) (setup : Z) : option storage :=
     let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Some setup.
@@ -207,28 +212,14 @@ Module CameLIGOExtractionSetup.
     | Some m => counter m s
     | None => None
     end.
-  
-Definition dummy_chain :=
-      "type chain = {
-        chain_height     : nat;
-        current_slot     : nat;
-        finalized_height : nat;
-        account_balance  : address -> nat
-      }"
-  ++ nl
-  ++ "let dummy_chain : chain = {
-        chain_height     = 0n;
-        current_slot     = 0n;
-        finalized_height = 0n;
-        account_balance  = fun (a : address) -> 0n
-      }".
 
+ 
   Definition COUNTER_MODULE_LIGO : CameLIGOMod msg _ Z storage ActionBody :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_counter" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl [CameLIGOPrelude; sig_def_ligo; exist_def_ligo; dummy_chain];
+      lmd_prelude := concat nl [CameLIGOPrelude; sig_def_ligo; exist_def_ligo];
 
       (* initial storage *)
       lmd_init := init ;
@@ -241,11 +232,10 @@ Definition dummy_chain :=
 
       lmd_receive_prelude := "";
       (* code for the entry point *)
-      lmd_entry_point := printWrapper (PREFIX ++ "counter_wrapper") 
-                                      (PREFIX ++"msg") 
-                                      "storage" 
-                                      ++ nl
-                                      ++ CameLIGOPretty.printMain "storage" |}.
+      lmd_entry_point := print_default_entry_point
+                           <%% counter_wrapper %%>
+                           <%% msg %%>
+                           <%% storage %%> |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
