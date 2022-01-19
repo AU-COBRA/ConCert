@@ -40,7 +40,7 @@ Import CameLIGOPretty.
 Open Scope Z.
 Local Open Scope string_scope.
 
-Definition PREFIX := "".
+Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State :=
     Examples.Escrow.init (snd s) cctx (fst s).
@@ -80,7 +80,7 @@ Module EscrowCameLIGOExtraction.
       lmd_receive_prelude := "";
       (* code for the entry point *)
       lmd_entry_point :=
-        printWrapper (PREFIX ++ "escrow_receive") (PREFIX ++"msg") "state" 
+        printWrapper "escrow_receive" "msg" "state" 
                      ++ nl
                      ++ CameLIGOPretty.printMain "state" |}.
 
@@ -110,7 +110,7 @@ Module EscrowCameLIGOExtraction.
     ].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO).
+  (CameLIGO_prepare_extraction to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO).
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
@@ -120,6 +120,8 @@ Module EscrowCameLIGOExtraction.
 End EscrowCameLIGOExtraction.
 
 Module EscrowLiquidityExtraction.
+  Definition PREFIX := "".
+  
   From ConCert.Extraction Require Import LPretty LiquidityExtract.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 

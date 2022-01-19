@@ -23,8 +23,6 @@ From MetaCoq.Template Require Import All.
 Import ListNotations.
 Import MonadNotation.
 
-Definition PREFIX := "".
-
 Definition map_key_type := (string * Z).
 Definition action := ActionBody.
 
@@ -243,10 +241,12 @@ Definition blah := [IPushZ 100; IPushZ 200; IOp Add; IPushZ 200; IOp Add;IPushZ 
 (* Just add the global environment (Map [(("blah", 0), (ZVal 0))])) *)
 Compute List.length blah.
 
-Definition print_finmap_type (prefix ty_key ty_val : string) :=
-  parens false (ty_key ++ "," ++ prefix ++ ty_val) ++ " map".
+Definition print_finmap_type (ty_key ty_val : string) :=
+  parens false (ty_key ++ "," ++ ty_val) ++ " map".
 
 Module LiquidityInterp.
+
+  Definition PREFIX := "".
 
   Import LiquidityExtract LPretty.
 
@@ -262,7 +262,7 @@ Module LiquidityInterp.
        ; remap <%% time_coq %%> "timestamp"
        ; remap <%% list %%> "list"
        ; remap <%% string %%> "string"
-       ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
+       ; remap <%% ext_map %%> (print_finmap_type "string * int" "value")
        ; remap <%% action %%> "operation"
        (* remapping operations *)
        ; remap <%% Z.add %%> "addInt"
@@ -324,6 +324,7 @@ End LiquidityInterp.
 Module CameLIGOInterp.
 
   Import CameLIGOExtract CameLIGOPretty.
+  Existing Instance PrintConfShortNames.PrintWithShortNames.
 
   Definition init (ctx : ContractCallContext) (setup : unit) : option storage :=
     let ctx0 := ctx in
@@ -351,7 +352,7 @@ Module CameLIGOInterp.
        ; remap <%% time_coq %%> "timestamp"
        ; remap <%% list %%> "list"
        ; remap <%% string %%> "string"
-       ; remap <%% ext_map %%> (print_finmap_type PREFIX "string * int" "value")
+       ; remap <%% ext_map %%> (print_finmap_type "string * int" "value")
        ; remap <%% action %%> "operation"
        (* remapping operations *)
        ; remap <%% Z.add %%> "addInt"
@@ -366,32 +367,12 @@ Module CameLIGOInterp.
        ; remap <%% andb %%> "andb"
        ; remap <%% one %%> "1"].
 
-  Definition TT_rename : MyEnv.env string :=
-       (* constructors *)
-       [ ("Z0" ,"0")].
-
-  Definition dummy_chain :=
-        "type chain = {
-          chain_height     : nat;
-          current_slot     : nat;
-          finalized_height : nat;
-          account_balance  : address -> nat
-        }"
-    ++ nl
-    ++ "let dummy_chain : chain = {
-          chain_height     = 0n;
-          current_slot     = 0n;
-          finalized_height = 0n;
-          account_balance  = fun (a : address) -> 0n
-        }".
-
   Definition LIGO_INTERP_MODULE : CameLIGOMod params ContractCallContext unit storage action :=
     {| (* a name for the definition with the extracted code *)
        lmd_module_name := "cameligo_interp" ;
 
        (* definitions of operations on ints, bools, pairs, ect. *)
-       lmd_prelude := CameLIGOPrelude ++ nl
-                      ++ dummy_chain;
+       lmd_prelude := CameLIGOPrelude;
 
        lmd_init := init ;
 
@@ -402,17 +383,17 @@ Module CameLIGOInterp.
 
        (* code for the entry point *)
        lmd_entry_point :=
-         CameLIGOPretty.printWrapper (PREFIX ++ "receive_") "params" "value list"
+         CameLIGOPretty.printWrapper "receive_" "params" "value list"
                                      ++ nl
                                      ++ CameLIGOPretty.printMain "storage" |}.
 
     Time MetaCoq Run
-    (CameLIGO_prepare_extraction PREFIX [] TT_remap_ligo TT_rename "cctx_instance" LIGO_INTERP_MODULE).
+    (CameLIGO_prepare_extraction [] TT_remap_ligo TT_rename_ctors_default "cctx_instance" LIGO_INTERP_MODULE).
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
     Print cameligo_interp.
-      (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
+  (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
     Redirect "examples/extracted-code/cameligo-extract/StackInterpreter.mligo"
     MetaCoq Run (tmMsg cameligo_interp).
 
