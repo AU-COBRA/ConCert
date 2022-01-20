@@ -28,14 +28,23 @@ Open Scope Z.
 (** Exposing a printing configuration *)
 Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
 
+Import RecordSetNotations.
+
+
+(** Serialisation plays no role in the extraction result, therfore we defining instances
+    using the opaque ascription of module types to speedup the extraction *)
+Module DSInstancesOpaque : Dexter2CPMM.Dexter2Serializable := Dexter2CPMM.DSInstances.
+
+Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque.
+
 Section Dexter2Extraction.
 
   Context `{ChainBase}.
 
-  Import Dexter2CPMM.
-  Import RecordSetNotations.
-
   Open Scope Z_scope.
+
+  Import DEX2Extract.
+  Import Dexter2CPMM.
 
   Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
     let ctx_ := ctx in
@@ -51,12 +60,15 @@ Section Dexter2Extraction.
         lqtAddress := null_address
       |}.
 
+  Set Printing All.
+
+  Print DEX2Extract.call_to_token.
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
        (state : State)
-       (maybe_msg : option Msg)
+       (maybe_msg : option DEX2Extract.Msg)
     : option (list ActionBody * State) :=
-    match receive chain ctx state maybe_msg with
+    match DEX2Extract.receive chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
@@ -152,7 +164,7 @@ Section Dexter2Extraction.
   ; remap <%% N.leb %%> "lebN"
   ; remap <%% N.ltb %%> "ltbN"
   ; remap <%% N.eqb %%> "eqN"
-  ; remap <%% Dexter2CPMM.div %%> "divN_opt"
+  ; remap <%% div %%> "divN_opt"
   ; remap <%% N.modulo %%> "moduloN"
   ; remap <%% N.sub %%> "subOption"
   ; remap <%% Z.to_N %%> "mutez_to_natural"
@@ -179,7 +191,7 @@ Section Dexter2Extraction.
 
   ; remap <%% @null_address %%> "(""tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU"" : address)"
   ; remap <%% @Serializable %%> "" (* FIXME: workaround; should be ignored instead *)
-  ; remap <%% @DexterMsg_serializable %%> "" (* FIXME: workaround; should be ignored instead *)
+  ; remap <%% @DSInstancesOpaque.DexterMsg_serializable %%> "" (* FIXME: workaround; should be ignored instead *)
    ].
 
   Definition TT_remap_all :=
@@ -197,16 +209,12 @@ Section Dexter2Extraction.
   Time MetaCoq Run
   (CameLIGO_prepare_extraction TT_inlines_dexter2 TT_remap_all TT_rename_ctors_default "cctx_instance" LIGO_DEXTER2_MODULE).
 
-  (* Time MetaCoq Run *)
-  (* (CameLIGO_prepare_extraction [] TT_remap_dexter2 TT_rename_dexter2 "cctx_instance" LIGO_DEXTER2_MODULE). *)
-
-
   Time Definition cameLIGO_dexter2 := Eval vm_compute in cameLIGO_dexter2_prepared.
 
   MetaCoq Run (tmMsg cameLIGO_dexter2).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  (* Redirect "examples/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo" *)
-  (* MetaCoq Run (tmMsg cameLIGO_dexter2). *)
+  Redirect "examples/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
+  MetaCoq Run (tmMsg cameLIGO_dexter2).
 
 End Dexter2Extraction.

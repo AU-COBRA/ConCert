@@ -188,7 +188,7 @@ Section PPTerm.
 
   Definition print_proj (TT : env string) (proj : ident × box_type) : string :=
     let (nm, ty) := proj in
-    nm ^ " : " ^ print_box_type TT ty.
+    nm ^ " : " ^ print_ind_box_type TT ty.
 
   Definition print_type_params (vs : list type_var_info) : string :=
     if (Nat.eqb #|vs| 0) then ""
@@ -724,6 +724,13 @@ Section PPLigo.
 
   Context `{CameLIGOPrintConfig}.
 
+  Fixpoint decompose_arr_n (n : nat) (bt : box_type) : list box_type × box_type :=
+  match n, bt with
+  | S m, TArr dom cod =>
+      let (args, res) := decompose_arr_n m cod in (dom :: args, res)
+  | _,_ => ([], bt)
+  end.
+  
   Definition print_decl
              (TT : MyEnv.env string) (* translation table *)
              (env : ExAst.global_env)
@@ -733,14 +740,15 @@ Section PPLigo.
              (t : term)
              (ta : annots box_type t)
     :=
-    let (tys,_) := decompose_arr ty in
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
     let (ctx, args) := fresh_names [] args in
+    let (tys,res_ty) := decompose_arr_n #|args| ty in
     let targs := combine args (map (print_box_type TT) tys) in
     let printed_targs :=
-        map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
+      map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
+    let printed_res_ty := print_box_type TT res_ty in
     let decl := print_const_name decl_kn ++ concat " " printed_targs in
-      "let" ++ " " ++ decl ++ " = "
+    "let" ++ " " ++ decl ++ " : " ++ printed_res_ty ++ " = "
             ++ wrap (print_term env [] TT ctx true false lam_body body_annot).
 
   Definition print_init
