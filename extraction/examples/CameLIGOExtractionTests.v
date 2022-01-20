@@ -30,7 +30,8 @@ Local Open Scope string_scope.
 Import MonadNotation.
 Open Scope Z.
 
-Definition PREFIX := "".
+Existing Instance PrintConfShortNames.PrintWithShortNames.
+
 Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
   match a with
   | Some a => f a
@@ -47,10 +48,10 @@ Module SafeHead.
   Program Definition safe_head (l : list nat) (non_empty : List.length l > 0) : nat :=
     match l as l' return l' = l -> nat  with
     | [] => (* this is an impossible case *)
-      (* NOTE: we use [False_rect] to have more control over the extracted code.
-       Leaving a hole for the whole branch potentially leads to polymoprhic
-       definitions in the extracted code and type like [eq], since we would have to leave the whole goal branch transparent (use [Defined] instead of [Qed] ).
-       In this case, one has to inspect the extracted code and inline such definitions *)
+      (* NOTE: we use [False_rect] to have more control over the extracted code. *)
+      (* Leaving a hole for the whole branch potentially leads to polymoprhic *)
+      (* definitions in the extracted code and type like [eq], since we would have to leave the whole goal branch transparent (use [Defined] instead of [Qed] ). *)
+      (* In this case, one has to inspect the extracted code and inline such definitions *)
       fun _ => False_rect _ _
     | hd :: tl => fun _ => hd
     end eq_refl.
@@ -77,9 +78,9 @@ Module SafeHead.
 
     Time MetaCoq Run
          (t <- CameLIGO_extract_single
-                PREFIX
                 safe_head_inline
-                TT_consts TT_ctors
+                TT_consts
+                (TT_ctors ++ TT_rename_ctors_default)
                 ""
                 harness
                 head_of_list_2 ;;
@@ -144,7 +145,6 @@ Module Counter.
 
         (* and a test address *)
         lmd_prelude := CameLIGOPrelude ++ nl
-                       ++ dummy_chain ++ nl
                        ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)";
 
         (* initial storage *)
@@ -160,7 +160,7 @@ Module Counter.
 
         (* code for the entry point *)
         lmd_entry_point :=
-          CameLIGOPretty.printWrapper (PREFIX ++ "counter") "msg" "storage" ++ nl
+          CameLIGOPretty.printWrapper ("counter") "msg" "storage" ++ nl
           ++ CameLIGOPretty.printMain "storage" |}.
 
 End Counter.
@@ -175,24 +175,24 @@ Section CounterExtraction.
     ; remap <%% operation %%> "operation"
     ].
 
-  (** We run the extraction procedure inside the [TemplateMonad].
-      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
-      that removes application of boxes to constants and constructors. *)
+  (** We run the extraction procedure inside the [TemplateMonad]. *)
+  (*       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure *)
+  (*       that removes application of boxes to constants and constructors. *)
 
-  (* NOTE: running computations inside [TemplateMonad] is quite slow. That's why we comment out this code and use a different way below *)
+  (** NOTE: running computations inside [TemplateMonad] is quite slow. That's why we comment out this code and use a different way below *)
 
   (* Time MetaCoq Run *)
-  (*     (t <- CameLIGO_extract PREFIX [] TT_remap_counter [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
+  (*     (t <- CameLIGO_extract [] TT_remap_counter [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
   (*       tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t). *)
 
 
-  (*  If we first prepare the environment for erasure in [TemplateMonad]
-     and run erasure/prining outside of it, it works ~4 times faster for this example *)
+  (*  If we first prepare the environment for erasure in [TemplateMonad] *)
+  (*      and run erasure/prining outside of it, it works ~4 times faster for this example *)
 
-  (** This command adds [cameLIGO_counter_prepared] to the environment,
-      which can be evaluated later *)
+  (** This command adds [cameLIGO_counter_prepared] to the environment, *)
+  (*       which can be evaluated later *)
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction PREFIX [] TT_remap_counter [] "cctx_instance" LIGO_COUNTER_MODULE).
+       (CameLIGO_prepare_extraction [] TT_remap_counter TT_rename_ctors_default "cctx_instance" LIGO_COUNTER_MODULE).
 
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
@@ -255,8 +255,6 @@ Defined.
       lmd_prelude :=
         CameLIGOPrelude
           ++ nl
-          ++ dummy_chain
-          ++ nl
           ++ nl
           ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)"
           ++ nl
@@ -276,7 +274,7 @@ Defined.
 
       (* code for the entry point *)
       lmd_entry_point :=
-        "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ CameLIGOPretty.printWrapper (PREFIX ++ "crowdfunding_receive")
+        "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ CameLIGOPretty.printWrapper ("crowdfunding_receive")
                                     "msg_coq"
                                     "storage"
                                     ++ nl
@@ -313,14 +311,13 @@ Section CrowdfundingExtraction.
   ; remap <%% lookup_map' %%> "Map.find_opt"
   ].
 
-  Definition TT_rename_crowdfunding :=
-    [ ("mnil", "(Map.empty : (address,tez) map)")
-    ; ("true", "true")
-    ; ("false", "false")
-    ; ("tt", "()")].
+  (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
+  Definition TT_rename :=
+    [ ("nil", "[]");
+      ("mnil", "Map.empty") ].
 
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction PREFIX [] TT_remap_crowdfunding TT_rename_crowdfunding "cctx_instance" CF_MODULE).
+       (CameLIGO_prepare_extraction [] TT_remap_crowdfunding (TT_rename ++ TT_rename_ctors_default) "cctx_instance" CF_MODULE).
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
@@ -410,23 +407,15 @@ Section EIP20TokenExtraction.
     ; <%% @Common.AddressMap.AddrMap %%>
     ].
 
-
-  Definition TT_rename_eip20token :=
-    [ ("Z0" ,"0tez")
-    ; ("N0", "0")
-    ; ("N1", "1")
-    ; ("nil", "[]")
-    ; ("true", "true")
-    ; ("false", "false")
-    ; ("tt", "()") ].
-
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction PREFIX TT_inlines_eip20token TT_remap_eip20token TT_rename_eip20token "cctx_instance" LIGO_EIP20Token_MODULE).
+  (CameLIGO_prepare_extraction TT_inlines_eip20token TT_remap_eip20token TT_rename_ctors_default "cctx_instance" LIGO_EIP20Token_MODULE).
 
   Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo"
+  (* TODO: uncomment, once this fix https://gitlab.com/ligolang/ligo/-/merge_requests/1452 makes it
+     into a release version. *)
+  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo" *)
   MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.

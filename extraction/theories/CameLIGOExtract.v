@@ -3,6 +3,7 @@ From MetaCoq.Template Require Import Kernames.
 
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.
+From ConCert.Extraction Require Import CertifyingEta.
 From ConCert.Execution Require Import Blockchain Serializable Common.
 
 From ConCert.Extraction Require Import CameLIGOPretty
@@ -80,8 +81,6 @@ Program Definition annot_extract_template_env_specalize
 Definition CameLIGO_ignore_default {Base : ChainBase} :=
   [
       <%% prod %%>
-    ; <%% @Chain %%>
-    ; <%% @ActionBody %%>
     ; <%% @ChainBase %%>
     ; <%% axiomatized_ChainBase %%>
     ; <%% Amount %%>
@@ -89,10 +88,6 @@ Definition CameLIGO_ignore_default {Base : ChainBase} :=
     ; <%% @address_eqdec %%>
     ; <%% @address_countable %%>
     ; <%% @ContractCallContext %%>
-    ; <%% @ctx_from %%>
-    ; <%% @ctx_amount %%>
-    ; <%% @ctx_contract_address %%>
-    ; <%% @ctx_contract_balance %%>
     ; <%% @SerializedValue %%>
     ; <%% @SerializedType %%>
     ; <%% chain_height %%>
@@ -171,7 +166,22 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @ctx_contract_address %%> "ctx_contract_address"
   ; remap <%% @ctx_contract_balance %%> "ctx_contract_balance"
   ; remap <%% @ctx_amount %%> "ctx_amount"
+
+  (* blockchain infrastructure *)
+  ; remap <%% @ActionBody %%> "operation"
+  ; remap <%% @Chain %%> "chain"
+  ; remap <%% @chain_height %%> "chain_height"
+  ; remap <%% @current_slot %%> "current_slot"
+  ; remap <%% @finalized_height %%> "finalized_height"
   ].
+
+Definition TT_rename_ctors_default : list (string * string) :=
+  [ ("nil", "[]")
+  ; ("true", "true")
+  ; ("false", "false")
+  ; ("Some", "Some")
+  ; ("None", "None")
+  ; ("tt", "()")].
 
 Definition wrap_in_delimiters s :=
   String.concat nl [""; s].
@@ -182,8 +192,12 @@ Definition is_empty {A} (xs : list A) :=
   | _ => false
   end.
 
-Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params storage operation : Type}
-           (prefix : string)
+Section LigoExtract.
+
+  Context `{ChainBase}
+          `{CameLIGOPrintConfig}.
+  
+Definition printCameLIGODefs {msg ctx params storage operation : Type}
            (Σ : TemplateEnvironment.global_env)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -202,7 +216,7 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
   match annot_extract_template_env_specalize Σ seeds ignore with
   | Ok (eΣ; annots) =>
     (* dependencies should be printed before the dependent definitions *)
-    let ldef_list := List.rev (print_global_env prefix TT eΣ annots) in
+    let ldef_list := List.rev (print_global_env TT eΣ annots) in
     (* filtering empty strings corresponding to the ignored definitions *)
     let not_empty_str := (negb ∘ (String.eqb "") ∘ snd) in
 
@@ -217,7 +231,7 @@ Definition printCameLIGODefs `{ChainBase} {Base : ChainBase} {msg ctx params sto
     (* look for init function *)
     match bigprod_find (fun '(k, _, _) _ => eq_kername k init) annots with
     | Some ((_, ExAst.ConstantDecl init_cst); annots) =>
-      match print_init prefix TT build_call_ctx init_prelude eΣ init_cst annots with
+      match print_init TT build_call_ctx init_prelude eΣ init_cst annots with
       | Some init_code =>
         (* filtering out the definition of [init] and projecting the code *)
         (* and place init prelude after type decls and before constant decls *)
@@ -271,8 +285,7 @@ Definition quote_and_preprocess {Base : ChainBase}
     The definition consist of a call to erasure and pretty-printing for further
     evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
     which is much faster than running the computations inside [TemplateMonad]. *)
-Definition CameLIGO_prepare_extraction {Base : ChainBase} {msg ctx params storage operation : Type}
-           (prefix : string)
+Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -282,9 +295,7 @@ Definition CameLIGO_prepare_extraction {Base : ChainBase} {msg ctx params storag
   let TT_defs := TT_defs ++ TT_remap_default in
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-  let res := unwrap_string_sum (printCameLIGODefs prefix
-                                                  Σ
-                                                  TT_defs TT_ctors
+  let res := unwrap_string_sum (printCameLIGODefs Σ TT_defs TT_ctors
                                                   build_call_ctx
                                                   init_nm receive_nm
                                                   m) in
@@ -292,8 +303,7 @@ Definition CameLIGO_prepare_extraction {Base : ChainBase} {msg ctx params storag
 
 (** Bundles together quoting, inlining, erasure and pretty-printing.
     Convenient to use, but might be slow, becase performance of [tmEval lazy] is not great. *)
-Definition CameLIGO_extract {Base : ChainBase} {msg ctx params storage operation : Type}
-           (prefix : string)
+Definition CameLIGO_extract {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -304,9 +314,7 @@ Definition CameLIGO_extract {Base : ChainBase} {msg ctx params storage operation
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
-             (printCameLIGODefs prefix
-                                Σ
-                                TT_defs TT_ctors
+             (printCameLIGODefs Σ TT_defs TT_ctors
                                 build_call_ctx
                                 init_nm receive_nm
                                 m) ;;
@@ -318,16 +326,16 @@ Definition CameLIGO_extract {Base : ChainBase} {msg ctx params storage operation
   end.
 
 (** A simplified erasure/prinitng intended moslty for testing purposes *)
-Definition simple_def_print prefix TT_defs TT_ctors seeds prelude harness Σ
+Definition simple_def_print `{ChainBase} TT_defs TT_ctors seeds prelude harness Σ
   : string + string :=
   let TT_defs := TT_defs ++ TT_remap_default in
-  let ignore := map fst TT_defs in
+  let ignore := (map fst TT_defs ++ CameLIGO_ignore_default)%list in
   let TT := (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   match annot_extract_template_env_specalize Σ seeds ignore with
   | Ok annot_env =>
   let '(eΣ; annots) := annot_env in
       (* dependencies should be printed before the dependent definitions *)
-  let ldef_list := List.rev (print_global_env prefix TT eΣ annots) in
+  let ldef_list := List.rev (print_global_env TT eΣ annots) in
     (* filtering empty strings corresponding to the ignored definitions *)
     let not_empty_str := (negb ∘ (String.eqb "") ∘ snd) in
 
@@ -368,8 +376,7 @@ Definition quote_and_preprocess_one_def {A}
     hand-written harness code to run the extracted definition.
     The harness is just a piece of code with definitions
     of [storage], [main], etc.*)
-Definition CameLIGO_extract_single {A}
-           (prefix : string)
+Definition CameLIGO_extract_single `{ChainBase} {A}
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -378,11 +385,10 @@ Definition CameLIGO_extract_single {A}
            (def : A) : TemplateMonad string :=
   '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
   let seeds := KernameSetProp.of_list [def_nm] in
-  tmEval lazy (unwrap_string_sum (simple_def_print prefix TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
+  tmEval lazy (unwrap_string_sum (simple_def_print TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
 
 (** Similar to [CameLIGO_prepare_extraction], but for a single definition  *)
-Definition CameLIGO_prepare_extraction_single {A}
-           (prefix : string)
+Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
@@ -391,4 +397,6 @@ Definition CameLIGO_prepare_extraction_single {A}
            (def : A) : TemplateMonad string :=
     '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
     let seeds := KernameSetProp.of_list [def_nm] in
-    tmDefinition (def_nm.2 ^ "_prepared") (unwrap_string_sum (simple_def_print prefix TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
+    tmDefinition (def_nm.2 ^ "_prepared") (unwrap_string_sum (simple_def_print TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
+
+End LigoExtract.
