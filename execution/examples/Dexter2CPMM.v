@@ -370,7 +370,6 @@ Module Dexter2 (SI : Dexter2Serializable).
     do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
     do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
     do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
-    do _ <- throwIf (address_eqb new_lqt_address ctx.(ctx_contract_address)) ; (* lqt contract cannot be this contract *)
       Some (state<| lqtAddress := new_lqt_address |>, []).
 
   (** ** Update token pool *)
@@ -884,23 +883,20 @@ Section Theories.
     (ctx_amount ctx <= 0)%Z /\
     prev_state.(selfIsUpdatingTokenPool) = false /\
     ctx.(ctx_from) = prev_state.(manager) /\
-    prev_state.(lqtAddress) = null_address /\
-    new_lqt_address <> ctx.(ctx_contract_address)
+    prev_state.(lqtAddress) = null_address
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
   Proof.
     split.
-    - intros (amount_zero & not_updating & sender_is_manager & lqt_address_not_set & not_self).
+    - intros (amount_zero & not_updating & sender_is_manager & lqt_address_not_set).
       do 2 eexists.
       receive_simpl.
       destruct_match eqn:updating_check.
       destruct_match eqn:amount_check.
       destruct_match eqn:sender_check.
       destruct_match eqn:lqt_check.
-      destruct_match eqn:self_check.
       + reflexivity.
       + now destruct_address_eq.
-      + now rewrite lqt_address_not_set, address_eq_refl in lqt_check.
       + now rewrite sender_is_manager, address_eq_refl in sender_check.
       + receive_simpl.
         now apply Z.ltb_ge in amount_zero.
@@ -1688,64 +1684,26 @@ Section Theories.
 
 
 
-  (** [lqtAddress] must point to another contract *)
-  Lemma lqt_addr_not_caddr bstate caddr :
-    reachable bstate ->
-    env_contracts bstate caddr = Some (contract : WeakContract) ->
-    exists cstate,
-      contract_state bstate caddr = Some cstate /\
-      lqtAddress cstate <> caddr.
-  Proof.
-    contract_induction; intros; cbn in *; auto.
-    - instantiate (DeployFacts := fun _ ctx =>
-        address_is_contract ctx.(ctx_contract_address) = true).
-      unfold DeployFacts in facts.
-      apply init_correct in init_some as (_ & _ & _ & _ & _ & _ & _ & -> & _).
-      intro address_eq.
-      now rewrite <- address_eq, null_address_not_contract in facts.
-    - cbn in *.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        rewrite_state_eq;
-        auto.
-      now rewrite_receive_is_some.
-    - cbn in *.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        rewrite_state_eq;
-        auto.
-      now rewrite_receive_is_some.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ => True).
-      unset_all; subst;cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
-  Qed.
-
-
-
   (** ** Outgoing acts facts *)
   (** If contract emits self calls then they are for the XtzToToken entrypoint or default entrypoint *)
-  Lemma self_calls bstate caddr :
+  Lemma self_calls' bstate caddr :
     reachable bstate ->
     env_contracts bstate caddr = Some (contract : WeakContract) ->
     exists cstate,
       contract_state bstate caddr = Some cstate /\
       (tokenAddress cstate <> caddr ->
-      lqtAddress cstate <> caddr ->
       Forall (fun act_body =>
         match act_body with
         | act_transfer to _ => True
         | act_call to _ msg => to = caddr ->
-            exists p, msg = serialize (FA2Token.other_msg (XtzToToken p))
+            (exists p, msg = serialize (FA2Token.other_msg (XtzToToken p))) \/
+            (exists p, msg = serialize (msg_mint_or_burn p))
         | _ => False
         end) (outgoing_acts bstate caddr)).
   Proof.
     contract_induction; intros; cbn in *; auto.
     - now apply list.Forall_cons in IH as [_ IH].
-    - instantiate (CallFacts := fun _ ctx state _ =>
-        lqtAddress state <> ctx_contract_address ctx).
-      destruct msg; try destruct m; try destruct d;
+    - destruct msg; try destruct m; try destruct d;
         try (now receive_simpl);
         rewrite_acts_correct;
         rewrite_state_eq;
@@ -1765,17 +1723,10 @@ Section Theories.
     - now rewrite <- perm.
     - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ => True).
       unset_all; subst;cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
-      intros ? ? deployed_state_.
-      subst.
-      specialize lqt_addr_not_caddr as (? & deployed_state' & ?); eauto.
-      cbn in *.
-      rewrite deployed_state in deployed_state_.
-      rewrite deployed_state in deployed_state'.
-      rewrite deployed_state_ in deployed_state'.
-      now inversion deployed_state'.
   Qed.
 
   Local Open Scope Z_scope.
