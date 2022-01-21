@@ -176,6 +176,8 @@ Module Type Dexter2Serializable.
   End DS.
 End Dexter2Serializable.
 
+(** * Contract functions *)
+
 Module Dexter2 (SI : Dexter2Serializable).
 
   Import SI.
@@ -197,9 +199,12 @@ Module Dexter2 (SI : Dexter2Serializable).
     Context `{BaseTypes : ChainBase}.
     Open Scope N_scope.
 
-    (** * Contract functions *)
-
     (** ** Helper functions *)
+
+    (** [Amount] is defined as an alias to [Z]. We use these conversion function to mark
+        the places explicitly where the conversion from amounts happens. *)
+    Definition amount_to_N : Amount -> N := Z.to_N.
+    Definition N_to_amount : N -> Amount := Z.of_N.
 
     Definition result : Type := option (State * list ActionBody).
     Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
@@ -232,8 +237,9 @@ Module Dexter2 (SI : Dexter2Serializable).
     Definition Msg := @FA2Token.FA2ReceiverMsg BaseTypes DexterMsg _.
 
   Definition call_liquidity_token (addr : Address) (amt : N) (msg : Dexter2FA12.Msg) :=
-    act_call addr (Z.of_N amt) (serialize msg).
+    act_call addr (N_to_amount amt) (serialize msg).
 
+  (** Note that [quantity] is allowed to be negative. In this case it correspons to burning *)
   Definition mint_or_burn (state : State) (target : Address) (quantitiy : Z) : option ActionBody :=
       do _ <- throwIf (address_eqb state.(lqtAddress) null_address) ; (* error lqtAddress not set *)
       Some (call_liquidity_token state.(lqtAddress)
@@ -242,7 +248,7 @@ Module Dexter2 (SI : Dexter2Serializable).
                                     (Dexter2FA12.build_mintOrBurn_param quantitiy target))).
 
   Definition call_to_token (token_addr : Address) (amt : N) (msg : FA2Token.Msg) :=
-    act_call token_addr (Z.of_N amt) (serialize msg).
+    act_call token_addr (N_to_amount amt) (serialize msg).
     
   Definition token_transfer (state : State) (from to : Address) (amount : N) : ActionBody :=
     call_to_token state.(tokenAddress)
@@ -253,7 +259,7 @@ Module Dexter2 (SI : Dexter2Serializable).
   Definition xtz_transfer (to : Address) (amount : N) : option ActionBody :=
     if address_is_contract to
     then None (* error_INVALID_TO_ADDRESS *)
-    else Some (act_transfer to (Z.of_N amount)).
+    else Some (act_transfer to (N_to_amount amount)).
 
 
   (** ** Add liquidity *)
@@ -262,13 +268,13 @@ Module Dexter2 (SI : Dexter2Serializable).
                            : result :=
     do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
     do _ <- throwIf (param.(add_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-    do lqt_minted <- div ((Z.to_N ctx.(ctx_amount)) * state.(lqtTotal)) state.(xtzPool) ; (* error_DIV_by_0 *)
-    do tokens_deposited <- ceildiv ((Z.to_N ctx.(ctx_amount)) * state.(tokenPool)) state.(xtzPool) ; (* error_DIV_by_0 *)
+    do lqt_minted <- div ((amount_to_N ctx.(ctx_amount)) * state.(lqtTotal)) state.(xtzPool) ; (* error_DIV_by_0 *)
+    do tokens_deposited <- ceildiv ((amount_to_N ctx.(ctx_amount)) * state.(tokenPool)) state.(xtzPool) ; (* error_DIV_by_0 *)
     do _ <- throwIf (param.(maxTokensDeposited) <? tokens_deposited) ; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
     do _ <- throwIf (lqt_minted <? param.(minLqtMinted)) ; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
     let new_state := state<| lqtTotal := state.(lqtTotal) + lqt_minted |>
                           <| tokenPool := state.(tokenPool) + tokens_deposited |>
-                          <| xtzPool := state.(xtzPool) + (Z.to_N ctx.(ctx_amount))|> in
+                          <| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount))|> in
     let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) tokens_deposited in
     do op_lqt <- mint_or_burn state param.(owner) (Z.of_N lqt_minted) ;
     Some (new_state, [op_token; op_lqt]).
@@ -309,11 +315,11 @@ Module Dexter2 (SI : Dexter2Serializable).
     do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
     do _ <- throwIf (param.(xtt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
     do tokens_bought <- div
-      ((Z.to_N ctx.(ctx_amount)) * 997 * state.(tokenPool))
-        (state.(xtzPool) * 1000 + ((Z.to_N ctx.(ctx_amount)) * 997)) ; (* error_DIV_by_0 *)
+      ((amount_to_N ctx.(ctx_amount)) * 997 * state.(tokenPool))
+        (state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ; (* error_DIV_by_0 *)
     do _ <- throwIf (tokens_bought <? param.(minTokensBought)) ; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
     do new_tokenPool <- sub state.(tokenPool) tokens_bought ; (* error_TOKEN_POOL_MINUS_TOKENS_BOUGHT_IS_NEGATIVE *)
-    let new_state := state<| xtzPool := state.(xtzPool) + (Z.to_N ctx.(ctx_amount)) |>
+    let new_state := state<| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount)) |>
                           <| tokenPool := new_tokenPool |> in
     let op := token_transfer state ctx.(ctx_contract_address) param.(tokens_to) tokens_bought in
     Some (new_state, [op]).
@@ -340,7 +346,7 @@ Module Dexter2 (SI : Dexter2Serializable).
   Definition default_ (chain : Chain) (ctx : ContractCallContext)
                       (state : State) : result :=
     do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    let new_state := state<| xtzPool := state.(xtzPool) + Z.to_N ctx.(ctx_amount) |> in
+    let new_state := state<| xtzPool := state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> in
       Some (new_state, []).
 
   (** ** Set baker *)
@@ -402,7 +408,7 @@ Module Dexter2 (SI : Dexter2Serializable).
 
   Definition call_to_other_token (token_addr : Address) (amount : N)
              (msg : @FA2Token.FA2ReceiverMsg _ DexterMsg _) :=
-    act_call token_addr (Z.of_N amount) (serialize msg).
+    act_call token_addr (N_to_amount amount) (serialize msg).
 
   (** ** Tokens to tokens *)
   Definition token_to_token (chain : Chain) (ctx : ContractCallContext)
@@ -544,6 +550,8 @@ Import DEX2.
 Section Theories.
   Context `{ChainBase}.
   Open Scope N_scope.
+  Global Arguments amount_to_N /.
+  
   (* Tactics and facts about helper functions (omitted) *)
   (* begin hide *)
   Transparent div.
@@ -913,7 +921,7 @@ Section Theories.
   (** [default_] only changes [xtzPool] in state *)
   Lemma default_state_eq : forall prev_state new_state chain ctx new_acts,
     receive chain ctx prev_state None = Some (new_state, new_acts) ->
-      prev_state<| xtzPool := prev_state.(xtzPool) + Z.to_N (ctx.(ctx_amount)) |> = new_state.
+      prev_state<| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
     receive_simpl.
@@ -921,7 +929,7 @@ Section Theories.
 
   Lemma default_correct : forall prev_state new_state chain ctx new_acts,
     receive chain ctx prev_state None = Some (new_state, new_acts) ->
-      new_state.(xtzPool) = prev_state.(xtzPool) + Z.to_N (ctx.(ctx_amount)).
+      new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
   Proof.
     intros * receive_some.
     apply default_state_eq in receive_some.
@@ -1105,12 +1113,12 @@ Section Theories.
   (** ** Add liquidity correct *)
   (** [add_liquidity] only changes [lqtTotal], [tokenPool] and [xtzPool] in state *)
   Lemma add_liquidity_state_eq : forall prev_state new_state chain ctx new_acts param,
-    let lqt_minted := Z.to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
-    let tokens_deposited := ceildiv_ (Z.to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
+    let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
+    let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
     receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
       prev_state<| lqtTotal := prev_state.(lqtTotal) +  lqt_minted |>
                 <| tokenPool := prev_state.(tokenPool) + tokens_deposited |>
-                <| xtzPool := prev_state.(xtzPool) + Z.to_N ctx.(ctx_amount) |> = new_state.
+                <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
     receive_simpl.
@@ -1119,9 +1127,9 @@ Section Theories.
 
   Lemma add_liquidity_correct : forall prev_state new_state chain ctx new_acts param,
     receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
-      new_state.(lqtTotal) = prev_state.(lqtTotal) + Z.to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) /\
-      new_state.(tokenPool) = prev_state.(tokenPool) + ceildiv_ (Z.to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) /\
-      new_state.(xtzPool) = prev_state.(xtzPool) + Z.to_N ctx.(ctx_amount).
+      new_state.(lqtTotal) = prev_state.(lqtTotal) + amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) /\
+      new_state.(tokenPool) = prev_state.(tokenPool) + ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) /\
+      new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
   Proof.
     intros * receive_some.
     apply add_liquidity_state_eq in receive_some.
@@ -1133,8 +1141,8 @@ Section Theories.
       For this we assume that the implementation is correct over the informal specification since
       that is what other formalizations seem to have assumed *)
   Lemma add_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
-    let lqt_minted := Z.to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
-    let tokens_deposited := ceildiv_ (Z.to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
+    let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
+    let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
     receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
       new_acts =
       [
@@ -1153,8 +1161,8 @@ Section Theories.
   (** If the requirements are met then then receive on add_liquidity msg must succeed and
       if receive on add_liquidity msg succeeds then requirements must hold *)
   Lemma add_liquidity_is_some : forall prev_state chain ctx param,
-    let lqt_minted := Z.to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
-    let tokens_deposited := ceildiv_ (Z.to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
+    let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
+    let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
     prev_state.(selfIsUpdatingTokenPool) = false /\
     (current_slot chain < param.(add_deadline))%nat /\
     tokens_deposited <= param.(maxTokensDeposited)  /\
@@ -1168,7 +1176,7 @@ Section Theories.
     - intros (not_updating & deadline_not_hit & max_tokens_not_hit &
               enough_minted & xtzPool_not_zero & lqt_addr_set).
       unfold receive.
-      cbn.
+      cbn in *.
       destruct_match eqn:updating_check.
       destruct_match eqn:deadline_check.
       destruct_match eqn:div_check; math_convert.
@@ -1238,7 +1246,7 @@ Section Theories.
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
           [build_transfer ctx.(ctx_contract_address) param.(liquidity_to) prev_state.(tokenId) tokens_withdrawn None])));
-        (act_transfer param.(liquidity_to) (Z.of_N xtz_withdrawn))
+        (act_transfer param.(liquidity_to) (N_to_amount xtz_withdrawn))
       ].
   Proof.
     intros * receive_some.
@@ -1276,7 +1284,7 @@ Section Theories.
               tokens_withdrawn_le_total & xtz_withdrawn_le_total & lqt_burned_le_total &
               to_not_contract & lqt_addr_set).
       unfold receive.
-      cbn.
+      cbn in *.
       destruct_match eqn:updating_check.
       destruct_match eqn:deadline_check.
       destruct_match eqn:ctx_amount_check.
@@ -1314,11 +1322,11 @@ Section Theories.
   (** ** XTZ to token correct *)
   (** [xtz_to_token] only changes [tokenPool] and [xtzPool] in state *)
   Lemma xtz_to_token_state_eq : forall prev_state new_state chain ctx new_acts param,
-    let tokens_bought := ((Z.to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
-                            (prev_state.(xtzPool) * 1000 + ((Z.to_N ctx.(ctx_amount)) * 997)) in
+    let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
+                            (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
     receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) - tokens_bought |>
-                <| xtzPool := prev_state.(xtzPool) + Z.to_N ctx.(ctx_amount) |> = new_state.
+                <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
     receive_simpl.
@@ -1327,9 +1335,9 @@ Section Theories.
 
   Lemma xtz_to_token_correct : forall prev_state new_state chain ctx new_acts param,
     receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
-      new_state.(tokenPool) = prev_state.(tokenPool) -  (((Z.to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
-                            (prev_state.(xtzPool) * 1000 + ((Z.to_N ctx.(ctx_amount)) * 997)) ) /\
-      new_state.(xtzPool) = prev_state.(xtzPool) + Z.to_N ctx.(ctx_amount).
+      new_state.(tokenPool) = prev_state.(tokenPool) -  (((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
+                            (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ) /\
+      new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
   Proof.
     intros * receive_some.
     apply xtz_to_token_state_eq in receive_some.
@@ -1340,8 +1348,8 @@ Section Theories.
   - A call action to token contract transferring [tokens_bought] from this contract to [tokens_to]
   *)
   Lemma xtz_to_token_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
-    let tokens_bought := ((Z.to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
-                            (prev_state.(xtzPool) * 1000 + ((Z.to_N ctx.(ctx_amount)) * 997)) in
+    let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
+                            (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
     receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
       new_acts =
       [
@@ -1358,8 +1366,8 @@ Section Theories.
   (** If the requirements are met then then receive on xtz_to_token msg must succeed and
       if receive on xtz_to_token msg succeeds then requirements must hold *)
   Lemma xtz_to_token_is_some : forall prev_state chain ctx param,
-    let tokens_bought := ((Z.to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
-                            (prev_state.(xtzPool) * 1000 + ((Z.to_N ctx.(ctx_amount)) * 997)) in
+    let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
+                            (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
     prev_state.(selfIsUpdatingTokenPool) = false /\
     (current_slot chain < param.(xtt_deadline))%nat /\
     (prev_state.(xtzPool) <> 0 \/ (0 < ctx.(ctx_amount))%Z) /\
@@ -1372,7 +1380,7 @@ Section Theories.
     - intros (not_updating & deadline_not_hit & not_zero &
               enough_tokens_bought & tokens_bought_le_total).
       unfold receive.
-      cbn.
+      cbn in *.
       destruct_match eqn:updating_check.
       destruct_match eqn:deadline_check.
       destruct_match eqn:xtz_div_check; math_convert; try easy.
@@ -1428,7 +1436,7 @@ Section Theories.
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
           [build_transfer ctx.(ctx_from) ctx.(ctx_contract_address) prev_state.(tokenId) param.(tokensSold) None])));
-        (act_transfer param.(xtz_to) (Z.of_N xtz_bought))
+        (act_transfer param.(xtz_to) (N_to_amount xtz_bought))
       ].
   Proof.
     intros * receive_some.
@@ -1527,7 +1535,7 @@ Section Theories.
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
           [build_transfer ctx.(ctx_from) ctx.(ctx_contract_address) prev_state.(tokenId) param.(tokensSold_) None])));
-        (act_call param.(outputDexterContract) (Z.of_N xtz_bought)
+        (act_call param.(outputDexterContract) (N_to_amount xtz_bought)
           (serialize ((FA2Token.other_msg (XtzToToken
           {| tokens_to := param.(to_);
              minTokensBought := param.(minTokensBought_);
