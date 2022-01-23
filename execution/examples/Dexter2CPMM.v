@@ -22,6 +22,7 @@ From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Examples Require Import FA2Token.
 From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Execution.Examples Require Import Dexter2FA12.
+From ConCert.Execution.Examples Require Import SerializableUtil.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Lia.
@@ -2061,6 +2062,9 @@ Section Theories.
     cbn.
     rewrite !Nat2Z.id.
     destruct (Z.of_nat 3 <? 0); auto.
+    cbn.
+    destruct_match; try discriminate.
+    destruct p.
     now destruct_match.
     Opaque serialize deserialize.
   Qed.
@@ -3082,9 +3086,34 @@ Section Theories.
     - reflexivity.
   Qed.
 
+  Lemma deserialize_lqt_token_msg_right_inverse : forall x (y : Dexter2FA12.Msg),
+    (forall x' (y' : Address), deserialize x' = Some y' -> x' = serialize y') ->
+    deserialize x = Some y ->
+    x = serialize y.
+  Proof.
+    intros * address_right_inverse deser_some.
+    Transparent deserialize serialize.
+    cbn in *.
+    Local Hint Resolve deserialize_nat_right_inverse
+                       deserialize_N_right_inverse
+                       deserialize_int_right_inverse
+                       deserialize_unit_right_inverse
+                       deserialize_serialized_value_right_inverse : deser.
+    repeat (try match goal with
+    | H : match _ with Some _ => _ | None => _ end = Some _ |- _ = _ => let H2 := fresh "H" in destruct_match eqn:H2 in H; [| discriminate]
+    | H : match ?x with 0%nat => _ | S _ => _ end = Some _ |- _ = _ => destruct x; [| try discriminate]
+    | H : (let (_, _) := ?p in _) = Some _ |- _ = _ => destruct p
+    | H : Some _ = Some _ |- _ = _ => inversion_clear H
+    | H : extract_ser_value _ _ = @Some (interp_type ser_unit) ?i |- _ = _ => apply deserialize_unit_right_inverse in H as ->; destruct i
+    | H : @deserialize_product _ _ _ _ _ = Some _ |- _ = _ => apply deserialize_product_right_inverse in H as ->; try clear H
+    | |- forall _ _, _ -> _ => intros * deser_some; cbn in *
+    end; auto with deser).
+    Opaque deserialize serialize.
+  Qed.
+
   (** [lqtTotal] is equal to the initial tokens + minted tokens - burned tokens *)
   Lemma lqt_pool_correct : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
-    (forall x (y : Dexter2FA12.Msg), deserialize x = Some y -> x = serialize y) ->
+    (forall x (y : Address), deserialize x = Some y -> x = serialize y) ->
     env_contracts bstate caddr_main = Some (contract : WeakContract) ->
     env_contracts bstate caddr_lqt = Some (Dexter2FA12.contract : WeakContract) ->
     exists state_main state_lqt depinfo_main depinfo_lqt,
@@ -3106,20 +3135,21 @@ Section Theories.
     apply (total_supply_correct _ _ trace) in deployed_lqt as lqt_correct.
     destruct lqt_correct as (state_lqt & depinfo_lqt & inc_calls_lqt & deployed_state_lqt & deploy_info_lqt & inc_acts_lqt & lqt_correct).
     specialize (incomming_eq_outgoing) as (? & inc_acts_lqt' & calls_eq); eauto.
-    setoid_rewrite inc_acts_lqt in inc_acts_lqt'.
-    inversion inc_acts_lqt'.
-    subst. clear inc_acts_lqt'.
-    do 4 eexists.
-    repeat split; eauto.
-    cbn.
-    intros addr_main_eq addr_lqt_eq init_pool_eq no_waiting_mint_acts.
-    apply N2Z.inj.
-    rewrite main_correct, lqt_correct, init_pool_eq, no_waiting_mint_acts, addr_main_eq, addr_lqt_eq.
-    rewrite Z.add_0_r, Z.add_cancel_l.
-    rewrite calls_eq, sumZ_map.
-    apply sumZ_eq.
-    intros.
-    now rewrite <- mintedOrBurnedTokens_call_eq_tx.
+    - intros. apply deserialize_lqt_token_msg_right_inverse; auto.
+    - setoid_rewrite inc_acts_lqt in inc_acts_lqt'.
+      inversion inc_acts_lqt'.
+      subst. clear inc_acts_lqt'.
+      do 4 eexists.
+      repeat split; eauto.
+      cbn.
+      intros addr_main_eq addr_lqt_eq init_pool_eq no_waiting_mint_acts.
+      apply N2Z.inj.
+      rewrite main_correct, lqt_correct, init_pool_eq, no_waiting_mint_acts, addr_main_eq, addr_lqt_eq.
+      rewrite Z.add_0_r, Z.add_cancel_l.
+      rewrite calls_eq, sumZ_map.
+      apply sumZ_eq.
+      intros.
+      now rewrite <- mintedOrBurnedTokens_call_eq_tx.
   Qed.
 
 End Theories.

@@ -377,7 +377,9 @@ Ltac make_deserializer_case ty :=
     constr:(fun builder sv =>
               do '(a, sv) <- (deserialize sv : option (T1 * SerializedValue));
               rest (builder a) sv)
-  | ?T => constr:(fun (value : T) (sv : SerializedValue) => Some value)
+  | ?T => constr:(fun (value : T) (sv : SerializedValue) =>
+              do _ <- (deserialize sv : option unit);
+              Some value)
   end.
 
 Ltac make_deserializer_aux ctors rty :=
