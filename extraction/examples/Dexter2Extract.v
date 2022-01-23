@@ -167,7 +167,8 @@ Section Dexter2Extraction.
   ; remap <%% div %%> "divN_opt"
   ; remap <%% N.modulo %%> "moduloN"
   ; remap <%% N.sub %%> "subOption"
-  ; remap <%% Z.to_N %%> "mutez_to_natural"
+  ; remap <%% N_to_amount %%> "natural_to_mutez"
+  ; remap <%% amount_to_N %%> "mutez_to_natural"
   ; remap <%% Z.of_N %%> "z_of_N"
   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)"
 ].
