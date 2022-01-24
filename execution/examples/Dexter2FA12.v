@@ -19,6 +19,7 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require Import InterContractCommunication.
 From Coq Require Import ZArith Bool List Lia.
 Import ListNotations.
 
@@ -1478,9 +1479,6 @@ Definition mintedOrBurnedTokens (msg : option Msg) : Z :=
   | Some (msg_mint_or_burn param) => param.(quantity)
   | _ => 0
   end.
-
-Definition callFrom (addr : Address) (call_info : ContractCallInfo Msg) : bool :=
-  (call_info.(call_from) =? addr)%address.
 
 (** [total_supply] is equal to the initial tokens + minted tokens - burned tokens *)
 Lemma total_supply_correct : forall bstate caddr (trace : ChainTrace empty_state bstate),
