@@ -147,7 +147,6 @@ Module Type Dexter2Serializable.
     Axiom xtz_to_token_param_serializable : Serializable xtz_to_token_param.
     Existing Instance xtz_to_token_param_serializable.
 
-
     Axiom token_to_xtz_param_serializable : Serializable token_to_xtz_param.
     Existing Instance token_to_xtz_param_serializable.
 
@@ -553,7 +552,7 @@ Section Theories.
   Context {BaseTypes : ChainBase}.
   Open Scope N_scope.
   Global Arguments amount_to_N /.
-  
+
   (* Tactics and facts about helper functions (omitted) *)
   (* begin hide *)
   Transparent div.
@@ -906,16 +905,14 @@ Section Theories.
       destruct_match eqn:sender_check.
       destruct_match eqn:lqt_check.
       + reflexivity.
-      + now destruct_address_eq.
+      + now rewrite lqt_address_not_set, address_eq_refl in lqt_check.
       + now rewrite sender_is_manager, address_eq_refl in sender_check.
       + receive_simpl.
         now apply Z.ltb_ge in amount_zero.
       + now rewrite not_updating in updating_check.
     - intros (new_state & new_acts & receive_some).
       receive_simpl.
-      rename H0 into ctx_amount_zero.
-      rename H2 into lqt_address_not_set.
-      apply Z.ltb_ge in ctx_amount_zero.
+      rewrite Z.ltb_ge in *.
       repeat split; auto;
         now destruct_address_eq.
   Qed.
@@ -1044,6 +1041,7 @@ Section Theories.
         | _ => fail "No match on list of balance_of_response"
         end
     end.
+
 
 
   (** ** Update token pool internal correct *)
