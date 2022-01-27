@@ -2923,4 +2923,176 @@ Section Theories.
       now rewrite <- mintedOrBurnedTokens_call_eq_tx.
   Qed.
 
+
+
+  (** ** Token pool correct *)
+  From ConCert.Execution Require Import Containers.
+  Definition StepNotPermute {from to} (step : ChainStep from to) : Prop :=
+    match step with
+    | step_permute _ _ _ _ => False
+    | _ => True
+    end.
+
+  Fixpoint DFSExecution {from to : ChainState} (trace : ChainTrace from to) : Prop :=
+    match trace with
+    | ChainedList.snoc trace' step => StepNotPermute step /\ DFSExecution trace'
+    | _ => True
+    end.
+
+  Definition receivedTokens receiver token_id (msg : option FA2Token.Msg) : N :=
+    match msg with
+    | Some (FA2Token.msg_transfer transfers) => sumN (fun transfer =>
+          if andb (transfer.(FA2Interface.to_) =? receiver)%address
+                  (transfer.(transfer_token_id) =? token_id)
+          then transfer.(amount)
+          else 0
+      ) transfers
+    | _ => 0
+    end.
+
+  Definition receivedTokens_acts receiver token_id (act_body : ActionBody) : N :=
+    match act_body with
+    | act_call _ _ msg_serialized =>
+      match @deserialize FA2Token.Msg FA2Token.msg_serializable msg_serialized with
+      | Some msg => receivedTokens receiver token_id (Some msg)
+      | _ => 0
+      end
+    | _ => 0
+    end.
+
+  Definition receivedTokens_tx receiver token_id (tx : Tx) : N :=
+    match tx.(tx_body) with
+    | tx_call (Some msg_serialized) =>
+      match @deserialize FA2Token.Msg FA2Token.msg_serializable msg_serialized with
+      | Some msg => receivedTokens receiver token_id (Some msg)
+      | _ => 0
+      end
+    | _ => 0
+    end.
+
+  Definition transferredTokens from token_id (msg : option FA2Token.Msg) : N :=
+    match msg with
+    | Some (FA2Token.msg_transfer transfers) => sumN (fun transfer =>
+          if andb (transfer.(FA2Interface.from_) =? from)%address
+                  (transfer.(transfer_token_id) =? token_id)
+          then transfer.(amount)
+          else 0
+      ) transfers
+    | _ => 0
+    end.
+
+  Definition transferredTokens_acts from token_id (act_body : ActionBody) : N :=
+    match act_body with
+    | act_call _ _ msg_serialized =>
+      match @deserialize FA2Token.Msg FA2Token.msg_serializable msg_serialized with
+      | Some msg => transferredTokens from token_id (Some msg)
+      | _ => 0
+      end
+    | _ => 0
+    end.
+
+  Definition transferredTokens_tx from token_id (tx : Tx) : N :=
+    match tx.(tx_body) with
+    | tx_call (Some msg_serialized) =>
+      match @deserialize FA2Token.Msg FA2Token.msg_serializable msg_serialized with
+      | Some msg => transferredTokens from token_id (Some msg)
+      | _ => 0
+      end
+    | _ => 0
+    end.
+
+  Lemma permutation_filter_split : forall {A : Type} (l : list A) (pred : A -> bool),
+    Permutation.Permutation l ((filter pred l) ++ (filter (fun x => negb (pred x)) l)).
+  Proof.
+    intros.
+    induction l; auto.
+    cbn.
+    destruct (pred a); cbn; auto.
+    now apply Permutation.Permutation_cons_app.
+  Qed.
+(*
+  Axiom fa2_token_bound : forall bstate caddr caddr_token (trace : ChainTrace empty_state bstate),
+    env_contracts bstate caddr = Some (contract : WeakContract) ->
+    exists state,
+      contract_state bstate caddr = Some state /\
+      state.(tokenPool) =
+      (* tokens received *)
+      sumN (fun call => receivedTokens addr token_id call) (filter (callFrom addr) inc_calls) -
+      (* tokens transferred by owner *)
+      sumN (fun call => transferredTokens addr token_id call) (filter (callFrom addr) inc_calls).*)
+
+  Axiom fa2_token_bound : forall bstate caddr addr token_id (trace : ChainTrace empty_state bstate),
+    env_contracts bstate caddr = Some (FA2Token.contract : WeakContract) ->
+    exists state inc_calls,
+      contract_state bstate caddr = Some state /\
+      incoming_calls FA2Token.Msg trace caddr = Some inc_calls /\
+      (* tokens received *)
+      sumN (fun call => receivedTokens addr token_id call.(call_msg)) inc_calls -
+      (* tokens transferred *)
+      sumN (fun call => transferredTokens addr token_id call.(call_msg)) inc_calls
+      <= address_balance token_id addr state.
+
+
+  (** [tokenPool] is less than or equal to the actual token balance of the contract *)
+  Lemma token_pool_correct : forall bstate caddr_main caddr_token (trace : ChainTrace empty_state bstate),
+    DFSExecution trace ->
+    env_contracts bstate caddr_main = Some (contract : WeakContract) ->
+    env_contracts bstate caddr_token = Some (FA2Token.contract : WeakContract) ->
+    exists state_main state_token,
+      contract_state bstate caddr_main = Some state_main /\
+      contract_state bstate caddr_token = Some state_token /\
+      (state_main.(tokenAddress) = caddr_token ->
+      filter (actTo state_main.(tokenAddress)) (outgoing_acts bstate caddr_main) = [] ->
+        state_main.(tokenPool) <= address_balance state_main.(tokenId) caddr_main state_token).
+  Proof.
+    intros * dfs deployed_main deployed_fa2.
+    eapply fa2_token_bound in deployed_fa2 as token_bound.
+    destruct token_bound as (state_fa2 & inc_calls_fa2 & deployed_state_fa2 & inc_acts_fa2 & token_bound).
+    setoid_rewrite sumN_permutation in token_bound; try apply permutation_filter_split.
+    rewrite !sumN_app in token_bound.
+
+    do 2 eexists.
+    split. admit.
+    split; eauto.
+    intros.
+    eapply N.le_trans; [| eauto].
+    assert (H1 : forall state_main, sumN (fun call : ContractCallInfo FA2Token.Msg => transferredTokens caddr_main (tokenId state_main) (call_msg call))
+   (filter (fun x : ContractCallInfo FA2Token.Msg => negb (callFrom state_main.(tokenAddress) x)) inc_calls_fa2) = 0) by admit.
+    setoid_rewrite H1 at 2.
+    rewrite H in *.
+    clear H H1 token_bound.
+    rewrite N.add_0_r.
+
+   
+    
+    
+    specialize incomming_eq_outgoing as incoming_eq.
+    edestruct incoming_eq as (? & inc_acts_lqt' & calls_eq); eauto. admit.
+    
+    
+    apply (lqt_total_correct _ _ trace) in deployed_main as main_correct.
+    destruct main_correct as (state_main & depinfo_main & deployed_state_main & deploy_info_main & main_correct).
+    apply (total_supply_correct _ _ trace) in deployed_lqt as lqt_correct.
+    destruct lqt_correct as (state_lqt & depinfo_lqt & inc_calls_lqt & deployed_state_lqt & deploy_info_lqt & inc_acts_lqt & lqt_correct).
+    specialize incomming_eq_outgoing as incoming_eq.
+    edestruct incoming_eq as (? & inc_acts_lqt' & calls_eq);
+      [| apply deployed_main | apply deployed_lqt |].
+    - intros. eapply deserialize_lqt_token_msg_right_inverse; auto.
+    - setoid_rewrite inc_acts_lqt in inc_acts_lqt'.
+      inversion inc_acts_lqt'.
+      subst. clear inc_acts_lqt'.
+      do 4 eexists.
+      repeat split; eauto.
+      cbn.
+      intros addr_main_eq addr_lqt_eq init_pool_eq no_waiting_mint_acts.
+      apply N2Z.inj.
+      rewrite main_correct, lqt_correct, init_pool_eq, no_waiting_mint_acts, addr_main_eq, addr_lqt_eq.
+      rewrite Z.add_0_r, Z.add_cancel_l.
+      rewrite calls_eq, sumZ_map.
+      apply sumZ_eq.
+      intros.
+      now rewrite <- mintedOrBurnedTokens_call_eq_tx.
+  Qed.
+
+
 End Theories.
