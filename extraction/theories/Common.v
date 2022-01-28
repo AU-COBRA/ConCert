@@ -223,13 +223,14 @@ Definition _Zpos :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_i
 
 Definition _Zneg :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2.
 
+Print Pos.to_nat.
 Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
   match t with
   | EAst.tApp (EAst.tConstruct ind i) t0 =>
     if eq_kername ind.(inductive_mind) <%% positive %%> then
       match i with
       | 0 => match pos_syn_to_nat_aux (n + n) t0 with
-            | Some v => Some (1 + v)
+            | Some v => Some (n + v)
             | None => None
             end
       | 1 => pos_syn_to_nat_aux (n + n) t0
@@ -245,10 +246,6 @@ Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
 
 Definition pos_syn_to_nat := pos_syn_to_nat_aux 1.
 
-Example pos_syn_to_nat_5 :
-  pos_syn_to_nat (EAst.tApp _xI (EAst.tApp _xO _xH)) = Some 5.
-Proof. reflexivity. Qed.
-
 Definition N_syn_to_nat (t : EAst.term) : option nat :=
   match t with
   | EAst.tConstruct ind 0 =>
@@ -263,18 +260,6 @@ Definition N_syn_to_nat (t : EAst.term) : option nat :=
     else None
   | _ => None
   end.
-
-Example N_syn_to_nat_0 :
-  N_syn_to_nat _N0 = Some 0.
-Proof. reflexivity. Qed.
-
-Example N_syn_to_nat_5 :
-  N_syn_to_nat (EAst.tApp _Npos (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some 5.
-Proof. reflexivity. Qed.
-
-Example N_syn_to_nat_fail :
-  N_syn_to_nat (EAst.tApp _Npos (EAst.tApp _xI (EAst.tVar ""))) = None.
-Proof. reflexivity. Qed.
 
 Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   match t with
@@ -297,19 +282,3 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
     else None
   | _ => None
   end.
-
-Example Z_syn_to_Z_0 :
-  Z_syn_to_Z _Z0 = Some 0%Z.
-Proof. reflexivity. Qed.
-
-Example Z_syn_to_Z_5 :
-  Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some 5%Z.
-Proof. reflexivity. Qed.
-
-Example Z_syn_to_Z_minus_5 :
-  Z_syn_to_Z (EAst.tApp _Zneg (EAst.tApp _xI (EAst.tApp _xO _xH))) = Some (-5)%Z.
-Proof. reflexivity. Qed.
-
-Example Z_syn_to_Z_fail :
-  Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar ""))) = None.
-Proof. reflexivity. Qed.
