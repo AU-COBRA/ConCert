@@ -3,6 +3,23 @@ From ConCert.Execution Require Import Serializable.
 From Coq Require Import List.
 Import ListNotations.
 
+Ltac trace_induction :=
+  match goal with
+  | trace : ChainTrace empty_state ?bstate |- _ =>
+    remember empty_state;
+    induction trace as [| * IH step];
+    match goal with
+    | H : ?x = empty_state |- _ => subst x
+    end;
+    [try discriminate |
+    specialize (IH eq_refl) as IH;
+    destruct_chain_step; try destruct_action_eval;
+    match goal with
+    | env_eq : (chain_state_env ?x) = (chain_state_env ?y) |- _ => try rewrite env_eq in *
+    | env_eq : EnvironmentEquiv _ _ |- _ => try rewrite env_eq in *; try setoid_rewrite env_eq
+    end]; auto
+  end.
+
 Section InterContractCommunication.
 Context {BaseTypes : ChainBase}.
 
@@ -29,18 +46,16 @@ Lemma deployed_incoming_calls_typed : forall bstate caddr {Setup Msg State : Typ
           {contract : Contract Setup Msg State}
           (trace : ChainTrace empty_state bstate),
   env_contracts bstate caddr = Some (contract : WeakContract) ->
-  exists inc_calls, 
+  exists inc_calls,
     incoming_calls Msg trace caddr = Some inc_calls.
 Proof.
   intros * deployed.
-  remember empty_state.
-  induction trace; eauto; subst.
-  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto.
-  - cbn in *.
+  trace_induction; cbn in *.
+  - (* Contract deployment *)
     destruct_address_eq; eauto.
     now rewrite undeployed_contract_no_in_calls.
-  - cbn in *.
-    destruct IHtrace as [? IH]; auto.
+  - (* Contract call *)
+    destruct IH as [? IH]; auto.
     rewrite IH.
     clear IH.
     destruct_address_eq; eauto.
@@ -56,7 +71,6 @@ Proof.
     cbn in msg_ser.
     destruct msg; eauto.
     now rewrite msg_ser.
-  - now rewrite prev_next in *.
 Qed.
 
 Lemma undeployed_contract_no_state : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -64,13 +78,8 @@ Lemma undeployed_contract_no_state : forall bstate caddr (trace : ChainTrace emp
   env_contract_states bstate caddr = None.
 Proof.
   intros * trace not_deployed.
-  remember empty_state.
-  induction trace; subst; auto.
-  destruct_chain_step; try destruct_action_eval;
-    try rewrite_environment_equiv; auto;
-    cbn in *;
-    try now destruct_address_eq;
-    try now rewrite prev_next in *.
+  trace_induction; cbn in *;
+    now destruct_address_eq.
 Qed.
 
 Lemma no_outgoing_txs_to_undeployed_contract : forall bstate caddrA caddrB
@@ -85,18 +94,11 @@ Lemma no_outgoing_txs_to_undeployed_contract : forall bstate caddrA caddrB
     filter (txCallTo caddrB) (outgoing_txs trace caddrA) = [].
 Proof.
   intros * deployedA not_deployedB.
-  remember empty_state.
-  induction trace; subst; try discriminate.
-  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto; cbn in *.
-  - now destruct_address_eq.
-  - destruct_address_eq; try easy; subst; cbn;
-      eapply undeployed_contract_no_out_txs in not_deployed; auto;
-      unfold outgoing_txs in not_deployed;
-      now rewrite not_deployed.
-  - destruct_address_eq; auto.
-    cbn.
-    now destruct_address_eq.
-  - now rewrite prev_next in *.
+  trace_induction;
+    repeat (cbn in *; destruct_address_eq); try easy; subst;
+    eapply undeployed_contract_no_out_txs in not_deployed; auto;
+    unfold outgoing_txs in not_deployed;
+    now rewrite not_deployed.
 Qed.
 
 Lemma no_incoming_calls_from_undeployed_contract : forall bstate caddrA caddrB
@@ -114,20 +116,16 @@ Lemma no_incoming_calls_from_undeployed_contract : forall bstate caddrA caddrB
     filter (callFrom caddrA) inc_calls = [].
 Proof.
   intros * not_deployedA A_is_contract deployedB.
-  remember empty_state.
-  induction trace; subst; try discriminate.
-  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto; cbn in *.
-  - destruct_address_eq; try easy; subst; cbn.
-    now rewrite undeployed_contract_no_in_calls by auto.
-  - destruct_address_eq; auto.
-    subst.
-    rewrite deployedB in deployed.
+  trace_induction; cbn in *;
+    destruct_address_eq; try easy; subst.
+  - now rewrite undeployed_contract_no_in_calls by auto.
+  - rewrite deployedB in deployed.
     inversion deployed.
     subst. clear deployed.
     apply wc_receive_strong in receive_some as
       (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
     cbn in receive_some.
-    destruct IHtrace as (? & calls & ?); auto.
+    destruct IH as (? & calls & ?); auto.
     apply undeployed_contract_no_out_queue in not_deployedA; try easy.
     rewrite queue_prev in not_deployedA.
     destruct msg';
@@ -141,7 +139,6 @@ Proof.
       subst;
       apply Forall_inv in not_deployedA;
       now rewrite address_eq_refl in not_deployedA.
-  - now rewrite prev_next in *.
 Qed.
 
 Definition contract_call_info_to_tx `{X : Type} `{Serializable X} (caddr : Address) (call_info : ContractCallInfo X) : Tx :=
@@ -193,13 +190,9 @@ Lemma incomming_eq_outgoing : forall bstate caddrA caddrB
     map (contract_call_info_to_tx caddrB) (filter (callFrom caddrA) inc_calls).
 Proof.
   intros * deserialize_right_inverse deployedA deployedB.
-  remember empty_state.
-  induction trace; subst; try discriminate.
-  destruct_chain_step; try destruct_action_eval; try rewrite_environment_equiv; auto.
-  - cbn in *.
-    destruct_address_eq; auto.
-  - cbn in *.
-    destruct_address_eq; auto; subst;
+  trace_induction; cbn in *.
+  - destruct_address_eq; auto.
+  - destruct_address_eq; auto; subst;
       try (apply MCOption.some_inj in deployedA; subst);
       try (apply MCOption.some_inj in deployedB; rewrite deployedB in *; clear deployedB);
       try (rewrite undeployed_contract_no_in_calls by auto);
@@ -211,15 +204,14 @@ Proof.
         destruct not_deployed as (calls & inc_calls_eq & calls_eq);
         exists calls; now rewrite inc_calls_eq, calls_eq);
       try now exists [].
-  - cbn in *.
-    destruct_address_eq; subst; auto.
+  - destruct_address_eq; subst; auto.
     + rewrite deployedB in deployed.
       inversion deployed.
       subst. clear deployed.
       apply wc_receive_strong in receive_some as
         (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
       cbn in receive_some.
-      destruct IHtrace as (? & calls & IH); auto.
+      destruct IH as (? & calls & IH); auto.
       destruct msg';
         [cbn in msg_ser; destruct msg; try easy|];
         setoid_rewrite msg_ser;
@@ -243,7 +235,7 @@ Proof.
       apply wc_receive_strong in receive_some as
         (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
       cbn in receive_some.
-      destruct IHtrace as (? & calls & ?); auto.
+      destruct IH as (? & calls & ?); auto.
       destruct msg';
         [cbn in msg_ser; destruct msg; try easy|];
         setoid_rewrite msg_ser;
@@ -254,7 +246,5 @@ Proof.
         now destruct_address_eq.
     + cbn.
       now rewrite address_eq_ne.
-  - cbn in *.
-    now rewrite prev_next in *.
 Qed.
 End InterContractCommunication.

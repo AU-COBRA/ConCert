@@ -2071,6 +2071,32 @@ Section Theories.
             end) (outgoing_acts bstate caddr)).
   Proof.
     intros * trace deployed.
+    trace_induction; cbn in *.
+    - (* Step block *)
+      destruct IH as (state & deployed_state & IH); auto.
+      rewrite outgoing_acts_after_block_nil; eauto.
+      eapply contract_addr_format; eauto.
+      now constructor.
+    - (* Action transfer *)
+      destruct IH as (state & deployed_state & sum_eq); auto.
+      eexists.
+      split; eauto.
+      intros lqtAddr.
+      subst.
+      unfold outgoing_acts in *.
+      rewrite queue_prev, queue_new in *.
+      cbn in *.
+      destruct_address_eq; auto.
+      apply sum_eq in lqtAddr.
+      now inversion lqtAddr.
+    - (* Action deploy *)
+      destruct IH as (state & deployed_state & sum_eq); auto.
+      eexists.
+      split; eauto.
+    - (* Action call *)
+    - (* Invalid action *)
+    - (* Permutation *)
+
     remember empty_state.
     induction trace.
     - now subst.
