@@ -2055,6 +2055,14 @@ Section Theories.
     Opaque serialize deserialize.
   Qed.
 
+  Lemma forall_filter_cons : forall P (Q : Action -> ActionBody) R x l,
+    Forall P (map Q (filter R (x :: l))) -> Forall P (map Q (filter R l)).
+  Proof.
+    intros * forall_l. cbn in forall_l.
+    destruct_match in forall_l; auto.
+    now eapply Forall_inv_tail.
+  Qed.
+
   Lemma outgoing_acts_no_mint_before_set_lqt_addr : forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
     exists cstate,
@@ -2073,179 +2081,124 @@ Section Theories.
     intros * trace deployed.
     trace_induction; cbn in *.
     - (* Step block *)
-      destruct IH as (state & deployed_state & IH); auto.
+      destruct IH as (state & deployed_state & IH).
       rewrite outgoing_acts_after_block_nil; eauto.
       eapply contract_addr_format; eauto.
       now constructor.
     - (* Action transfer *)
-      destruct IH as (state & deployed_state & sum_eq); auto.
+      destruct IH as (state & deployed_state & sum_eq).
       eexists.
       split; eauto.
       intros lqtAddr.
       subst.
+      apply sum_eq in lqtAddr.
+      clear sum_eq.
       unfold outgoing_acts in *.
       rewrite queue_prev, queue_new in *.
-      cbn in *.
-      destruct_address_eq; auto.
-      apply sum_eq in lqtAddr.
-      now inversion lqtAddr.
+      now apply forall_filter_cons in lqtAddr.
     - (* Action deploy *)
-      destruct IH as (state & deployed_state & sum_eq); auto.
+      destruct (address_eqb_spec caddr to_addr) as [<-|].
+      + (* Deploy this contract *)
+        inversion deployed.
+        subst. clear deployed IH.
+        apply wc_init_strong in init_some as (setup' & state' & _ & deployed_state' & init_some).
+        subst.
+        rewrite deserialize_serialize.
+        eexists.
+        split; eauto.
+        intros lqtAddr.
+        rewrite outgoing_acts_after_deploy_nil; auto.
+        rewrite queue_new.
+        apply undeployed_contract_no_out_queue in not_deployed; auto.
+        * rewrite queue_prev in not_deployed.
+          now apply list.Forall_cons in not_deployed.
+        * now constructor.
+      + (* Deploy other contract *)
+        destruct IH as (state' & deployed_state' & sum_eq); auto.
+        eexists.
+        split; eauto.
+        subst.
+        intros lqtAddr.
+        apply sum_eq in lqtAddr.
+        clear sum_eq.
+        unfold outgoing_acts in *.
+        rewrite queue_prev, queue_new in *.
+        now apply forall_filter_cons in lqtAddr.
+    - (* Action call *)
+      destruct IH as (state & deployed_state' & sum_eq).
+      destruct (address_eqb_spec caddr to_addr) as [<-|].
+      + (* Call this contract *)
+        rewrite deployed in deployed0.
+        inversion deployed0.
+        subst. clear deployed0.
+        apply wc_receive_strong in receive_some as
+          (prev_state' & msg' & new_state' & serialize_prev_state & _ & serialize_new_state & receive_some).
+        cbn in receive_some.
+        rewrite <- serialize_new_state, deserialize_serialize.
+        rewrite deployed_state, serialize_prev_state in deployed_state'.
+        inversion deployed_state'. subst.
+        clear deployed_state' serialize_prev_state.
+        eexists.
+        split; eauto.
+        intros lqtAddr.
+        destruct msg'; try destruct m; try destruct d;
+          try (now receive_simpl);
+          rewrite_acts_correct;
+          rewrite_state_eq;
+          try (apply sum_eq in lqtAddr as lqtAddr'; clear sum_eq);
+          unfold outgoing_acts in *;
+          rewrite queue_prev, queue_new in *;
+          try apply forall_filter_cons in lqtAddr';
+          auto;
+          cbn;
+          rewrite ?address_eq_refl;
+          cbn;
+          rewrite ?list.Forall_cons;
+          repeat split; try easy;
+          rewrite_receive_is_some;
+          try easy.
+        * subst.
+          now eapply forall_filter_cons.
+        * destruct_match eqn:match_deser; auto.
+          destruct m; auto.
+          now apply deserialize_balance_of_ne_mint_or_burn in match_deser.
+      + (* Call other contract *)
+        eexists.
+        split; eauto.
+        intros lqtAddr.
+        apply sum_eq in lqtAddr.
+        clear sum_eq.
+        unfold outgoing_acts in *.
+        rewrite queue_prev, queue_new in *.
+        apply forall_filter_cons in lqtAddr.
+        subst.
+        rewrite filter_app, map_app, <- Forall_app.
+        split; auto.
+        rewrite Extras.filter_map.
+        cbn.
+        rewrite address_eq_ne, filter_false by auto.
+        now cbn.
+    - (* Invalid action *)
+      destruct IH as (state & deployed_state & sum_eq).
       eexists.
       split; eauto.
-    - (* Action call *)
-    - (* Invalid action *)
+      intros lqtAddr.
+      unfold outgoing_acts in *.
+      rewrite queue_prev, <- queue_new in *.
+      apply sum_eq in lqtAddr.
+      clear sum_eq.
+      now apply forall_filter_cons in lqtAddr.
     - (* Permutation *)
-
-    remember empty_state.
-    induction trace.
-    - now subst.
-    - subst.
-      apply deployed_contract_state_typed in deployed as deployed_state.
-      + destruct deployed_state as (state & deployed_state).
-        exists state.
-        split; auto.
-        assert (reach : reachable to) by (constructor; now econstructor).
-        destruct_chain_step.
-        * (* Step block *)
-          intros.
-          cbn in *.
-          rewrite outgoing_acts_after_block_nil; auto.
-          eapply contract_addr_format; eauto.
-        * destruct_action_eval.
-         -- (* Action transfer *)
-            destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
-            cbn in *.
-            rewrite deployed_state in deployed_state'.
-            inversion deployed_state'.
-            intros lqtAddr.
-            subst.
-            unfold outgoing_acts in *.
-            rewrite queue_prev, queue_new in *.
-            cbn in *.
-            destruct_address_eq; auto.
-            apply sum_eq in lqtAddr.
-            now inversion lqtAddr.
-         -- (* Action deploy *)
-            rewrite_environment_equiv.
-            cbn in *.
-            intros lqtAddr.
-            destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
-          --- (* Deploy contract *)
-              rewrite outgoing_acts_after_deploy_nil; auto.
-              rewrite queue_new.
-              subst.
-              apply undeployed_contract_no_out_queue in not_deployed; auto.
-           ---- rewrite queue_prev in not_deployed.
-                now apply list.Forall_cons in not_deployed as [].
-           ---- now constructor.
-          --- (* Deploy other contract *)
-              destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
-              rewrite deployed_state in deployed_state'.
-              inversion deployed_state'.
-              subst.
-              unfold outgoing_acts in *.
-              rewrite queue_prev, queue_new in *.
-              cbn in *.
-              destruct_address_eq; auto.
-              apply sum_eq in lqtAddr.
-              now inversion lqtAddr.
-         -- (* Action call *)
-            destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
-            cbn in *.
-            intros lqtAddr.
-            destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
-          --- (* Call contract *)
-              assert (forall_filter_cons : forall P (Q : Action -> ActionBody) R x l, Forall P (map Q (filter R (x :: l))) -> Forall P (map Q (filter R l))).
-              { intros * forall_l. cbn in forall_l.
-                destruct_match in forall_l; auto.
-                now eapply Forall_inv_tail.
-              }
-              rewrite deployed in deployed0.
-              inversion deployed0.
-              rewrite deployed_state0 in deployed_state'.
-              subst.
-              apply wc_receive_strong in receive_some as
-                (prev_state' & msg' & new_state' & serialize_prev_state & _ & serialize_new_state & receive_some).
-              cbn in receive_some.
-              rewrite <- serialize_new_state, deserialize_serialize in deployed_state.
-              inversion deployed_state.
-              rewrite serialize_prev_state in deployed_state'.
-              inversion deployed_state'.
-              subst.
-              clear deployed_state deployed_state' deployed_state0 deployed0 serialize_prev_state.
-              destruct msg'; try destruct m; try destruct d;
-                try (now receive_simpl);
-                rewrite_acts_correct;
-                rewrite_state_eq;
-                try (apply sum_eq in lqtAddr as lqtAddr'; clear sum_eq);
-                unfold outgoing_acts in *;
-                rewrite queue_prev, queue_new in *;
-                try apply forall_filter_cons in lqtAddr';
-                auto;
-                cbn;
-                rewrite ?address_eq_refl;
-                cbn;
-                rewrite ?list.Forall_cons;
-                repeat split; try easy;
-                try now rewrite_receive_is_some.
-              destruct_match eqn:H; auto.
-              destruct m; auto.
-              now apply deserialize_balance_of_ne_mint_or_burn in H.
-          --- (* Call other contract *)
-              rewrite deployed_state in deployed_state'.
-              inversion deployed_state'.
-              subst.
-              unfold outgoing_acts in *.
-              rewrite queue_prev, queue_new in *.
-              cbn in *.
-              apply sum_eq in lqtAddr.
-              clear sum_eq.
-              rewrite filter_app, map_app, <- Forall_app.
-              split; auto.
-              rewrite Extras.filter_map.
-              cbn.
-              rewrite address_eq_ne, filter_false by auto.
-              now cbn.
-              destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
-           ---- rewrite address_eq_refl in lqtAddr.
-                now inversion lqtAddr.
-           ---- now rewrite address_eq_ne in lqtAddr by auto.
-        * (* Invalid action *)
-          intros lqtAddr.
-          destruct IHtrace as (state' & deployed_state' & sum_eq);
-            try rewrite_environment_equiv; auto.
-          cbn in *.
-          rewrite deployed_state in deployed_state'.
-          inversion deployed_state'.
-          subst.
-          unfold outgoing_acts in *.
-          rewrite queue_prev in *.
-          apply sum_eq in lqtAddr.
-          clear sum_eq.
-          cbn in *.
-          destruct_address_eq; auto.
-          now inversion lqtAddr.
-        * (* Permutation *)
-          intros lqtAddr.
-          inversion prev_next.
-          destruct IHtrace as (state' & deployed_state' & sum_eq);
-            rewrite prev_next in *; auto.
-          cbn in *.
-          rewrite deployed_state in deployed_state'.
-          inversion deployed_state'.
-          subst.
-          apply sum_eq in lqtAddr.
-          clear sum_eq.
-          unfold outgoing_acts in *.
-          eapply Permutation_filter in perm.
-          eapply Permutation.Permutation_map in perm.
-          eapply forall_respects_permutation; eauto.
-    + constructor.
-      now econstructor.
-  Qed.
+      destruct IH as (state & deployed_state & sum_eq).
+      eexists.
+      split; eauto.
+      intros lqtAddr.
+      apply sum_eq in lqtAddr.
+      clear sum_eq.
+      eapply Permutation_filter in perm.
+      eapply Permutation.Permutation_map in perm.
+      eapply forall_respects_permutation; eauto.
+Qed.
 
   Lemma outgoing_acts_all_mint_same_dest : forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -2532,9 +2485,8 @@ Section Theories.
           now subst.
         * (* Permutation *)
           intros lqtAddr.
-          inversion prev_next.
           destruct IHtrace as (state' & deployed_state' & sum_eq);
-            rewrite prev_next in *; auto.
+            rewrite env_eq in *; auto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
           inversion deployed_state'.
@@ -2729,9 +2681,8 @@ Section Theories.
           rewrite deployed_state in deployed_state'.
           now inversion deployed_state'.
         * (* Permutation *)
-          inversion prev_next.
           destruct IHtrace as (state' & deployed_state' & sum_eq);
-            rewrite prev_next in *; auto.
+            rewrite env_eq in *; auto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
           now inversion deployed_state'.

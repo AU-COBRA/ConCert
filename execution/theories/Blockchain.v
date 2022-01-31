@@ -678,14 +678,14 @@ Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
 | step_action_invalid :
     forall (act : Action)
            (acts : list Action),
-      EnvironmentEquiv prev_bstate next_bstate ->
+      EnvironmentEquiv next_bstate prev_bstate ->
       chain_state_queue prev_bstate = act :: acts ->
       chain_state_queue next_bstate = acts ->
       act_is_from_account act ->
       (forall bstate new_acts, ActionEvaluation prev_bstate act bstate new_acts -> False) ->
       ChainStep prev_bstate next_bstate
 | step_permute :
-      chain_state_env prev_bstate = chain_state_env next_bstate ->
+      EnvironmentEquiv next_bstate prev_bstate ->
       Permutation (chain_state_queue prev_bstate) (chain_state_queue next_bstate) ->
       ChainStep prev_bstate next_bstate.
 
@@ -905,7 +905,7 @@ Ltac destruct_chain_step :=
         [header queue_prev valid_header acts_from_accs origin_correct env_eq|
          act acts new_acts queue_prev eval queue_new|
          act acts env_eq queue_prev queue_new act_from_acc no_eval|
-         prev_next perm]
+         env_eq perm]
   end.
 
 Ltac destruct_action_eval :=
@@ -922,11 +922,9 @@ Proof.
   remember empty_state eqn:eq.
   induction trace; rewrite eq in *; clear eq.
   - cbn in *; congruence.
-  - destruct_chain_step.
-    + rewrite_environment_equiv; cbn in *; auto.
+  - destruct_chain_step;
+      try now rewrite_environment_equiv.
     + destruct_action_eval; rewrite_environment_equiv; cbn in *; destruct_address_eq; subst; auto.
-    + now rewrite_environment_equiv.
-    + intuition.
 Qed.
 
 Lemma new_acts_no_out_queue orig addr1 addr2 new_acts resp_acts :
@@ -1010,10 +1008,7 @@ Proof.
     now apply Forall_inv_tail in IHtrace.
   - (* Permutation *)
     specialize_hypotheses.
-    match goal with
-    | [prev_eq_new: _ = _, perm: Permutation _ _ |- _] =>
-      now rewrite prev_eq_new in *; rewrite <- perm; auto
-    end.
+    now rewrite <- perm.
 Qed.
 
 Local Hint Resolve contracts_post_pre_none : core.
@@ -1030,9 +1025,7 @@ Lemma undeployed_contract_no_out_txs
 Proof.
   intros is_contract undeployed.
   remember empty_state; induction trace; subst; cbn; auto.
-  destruct_chain_step.
-  - (* New block *)
-    rewrite_environment_equiv; auto.
+  destruct_chain_step; try now rewrite_environment_equiv.
   - (* In these steps we will use that the queue did not contain txs to the contract. *)
     subst.
     cbn.
@@ -1051,10 +1044,6 @@ Proof.
       cbn in *;
       destruct_address_eq;
       try tauto; try congruence.
-  - now rewrite_environment_equiv.
-  - match goal with
-    | [H: _ = _ |- _] => rewrite H in *; auto
-    end.
 Qed.
 
 Lemma undeployed_contract_no_in_txs
@@ -1065,14 +1054,10 @@ Lemma undeployed_contract_no_in_txs
 Proof.
   intros is_contract undeployed.
   remember empty_state; induction trace; subst; cbn; auto.
-  destruct_chain_step.
-  - (* New block *)
-    rewrite_environment_equiv; auto.
+  destruct_chain_step; try now rewrite_environment_equiv.
   - destruct_action_eval; rewrite_environment_equiv;
       cbn in *;
       destruct_address_eq; auto; subst; congruence.
-  - now rewrite_environment_equiv.
-  - rewrite prev_next in *; auto.
 Qed.
 
 Lemma deployment_info_some
@@ -1082,17 +1067,13 @@ Lemma deployment_info_some
   env_contracts to caddr <> None.
 Proof.
   remember empty_state; induction trace as [|? ? ? ? IH]; subst; cbn in *; try tauto.
-  destruct_chain_step.
-  - rewrite_environment_equiv.
-    auto.
+  destruct_chain_step; try now rewrite_environment_equiv.
   - destruct_action_eval; rewrite_environment_equiv; auto.
     (* Deploy *)
     cbn in *.
     rewrite (address_eq_sym caddr).
     destruct_address_eq; try discriminate.
     auto.
-  - now rewrite_environment_equiv.
-  - rewrite <- prev_next; auto.
 Qed.
 
 Lemma deployment_info_addr_format
@@ -1158,10 +1139,7 @@ Proof.
 
   remember empty_state; induction trace as [|? ? ? ? IH]; subst; cbn in *;
     try tauto.
-  destruct_chain_step; cbn in *.
-  - (* Add new block *)
-    rewrite_environment_equiv.
-    auto.
+  destruct_chain_step; cbn in *; try now rewrite_environment_equiv.
   - (* Evaluation *)
     destruct_action_eval; cbn in *; rewrite_environment_equiv.
     + (* Transfer *)
@@ -1213,10 +1191,6 @@ Proof.
       cbn.
       rewrite map_eq.
       subst; tauto.
-  - (* Invalid User Action *)
-    now rewrite_environment_equiv.
-  - (* Permutation *)
-    rewrite <- prev_next; auto.
 Qed.
 
 Lemma undeployed_contract_no_in_calls
@@ -1228,14 +1202,10 @@ Proof.
   unfold incoming_calls.
   intros undeployed.
   remember empty_state; induction trace; subst; cbn in *; auto.
-  destruct_chain_step.
-  - (* New block *)
-    rewrite_environment_equiv; auto.
+  destruct_chain_step; try now rewrite_environment_equiv.
   - destruct_action_eval; rewrite_environment_equiv;
       cbn in *;
       destruct_address_eq; auto; subst; congruence.
-  - now rewrite_environment_equiv.
-  - rewrite prev_next in *; auto.
 Qed.
 
 Local Open Scope Z.
@@ -1263,9 +1233,7 @@ Proof.
   - (* Invalid User Action *)
     now rewrite_environment_equiv.
   - (* Permutation *)
-    cbn.
-    rewrite <- prev_next.
-    auto.
+    now rewrite_environment_equiv.
 Qed.
 
 Lemma contract_no_created_blocks state (trace : ChainTrace empty_state state) addr :
@@ -1317,7 +1285,7 @@ Proof.
   - (* Invalid User Action *)
     now rewrite_environment_equiv.
   - (* Permutation *)
-    now rewrite <- prev_next.
+    now rewrite_environment_equiv.
 Qed.
 
 Lemma wc_init_strong {Setup Msg State : Type}
@@ -1396,9 +1364,7 @@ Proof.
   unfold contract_state in *.
   (* Show that eq is a contradiction. *)
   remember empty_state; induction trace; subst; cbn in *; try congruence.
-  destruct_chain_step.
-  - (* New block, use IH *)
-    rewrite_environment_equiv; auto.
+  destruct_chain_step; try now rewrite_environment_equiv.
   - (* Action evaluation *)
     destruct_action_eval; subst; rewrite_environment_equiv; cbn in *.
     + (* Transfer, use IH *)
@@ -1419,11 +1385,6 @@ Proof.
         as [state_strong [msg_strong [resp_state_strong [? [? [<- receive]]]]]].
       cbn in eq.
       rewrite deserialize_serialize in eq; congruence.
-  - (* Invalid User Action *)
-    now rewrite_environment_equiv.
-  - (* Permutation *)
-    rewrite prev_next in *.
-    auto.
 Qed.
 
 Lemma origin_is_always_account
@@ -1912,10 +1873,11 @@ Proof.
     cbn.
     now fold (outgoing_txs trace caddr).
   - (* Permutation *)
-    rewrite prev_next in *.
+    rewrite_environment_equiv.
     specialize_hypotheses.
     destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH).
     exists depinfo, cstate, inc_calls.
+    rewrite_environment_equiv.
     cbn.
     repeat split; auto.
     unfold outgoing_acts in *.
@@ -1978,7 +1940,7 @@ Ltac destruct_chain_step :=
         [?header ?queue_prev ?valid_header ?acts_from_accs ?origin_correct ?env_eq|
          ?act ?acts ?new_acts ?queue_prev ?eval ?queue_new|
          ?act ?acts ?env_eq ?queue_prev ?queue_new ?act_from_acc ?no_eval|
-         ?prev_next ?perm]
+         ?env_eq ?perm]
   end.
 
 Ltac destruct_action_eval :=

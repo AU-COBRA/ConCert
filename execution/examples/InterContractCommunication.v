@@ -1,3 +1,4 @@
+From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From Coq Require Import List.
@@ -6,18 +7,18 @@ Import ListNotations.
 Ltac trace_induction :=
   match goal with
   | trace : ChainTrace empty_state ?bstate |- _ =>
+    cbn;
     remember empty_state;
     induction trace as [| * IH step];
     match goal with
     | H : ?x = empty_state |- _ => subst x
     end;
     [try discriminate |
-    specialize (IH eq_refl) as IH;
     destruct_chain_step; try destruct_action_eval;
     match goal with
-    | env_eq : (chain_state_env ?x) = (chain_state_env ?y) |- _ => try rewrite env_eq in *
     | env_eq : EnvironmentEquiv _ _ |- _ => try rewrite env_eq in *; try setoid_rewrite env_eq
-    end]; auto
+    end;
+    repeat (specialize (IH ltac:(auto)))]; auto
   end.
 
 Section InterContractCommunication.
@@ -55,10 +56,11 @@ Proof.
     destruct_address_eq; eauto.
     now rewrite undeployed_contract_no_in_calls.
   - (* Contract call *)
-    destruct IH as [? IH]; auto.
+    destruct IH as [? IH].
     rewrite IH.
     clear IH.
-    destruct_address_eq; eauto.
+    destruct (address_eqb_spec caddr to_addr) as [<-|];
+      try rewrite ?address_eq_refl, ?address_eq_ne; eauto.
     subst.
     rewrite deployed in deployed0.
     inversion deployed0.
@@ -117,7 +119,7 @@ Lemma no_incoming_calls_from_undeployed_contract : forall bstate caddrA caddrB
 Proof.
   intros * not_deployedA A_is_contract deployedB.
   trace_induction; cbn in *;
-    destruct_address_eq; try easy; subst.
+    destruct_address_eq; subst; try easy.
   - now rewrite undeployed_contract_no_in_calls by auto.
   - rewrite deployedB in deployed.
     inversion deployed.
@@ -125,7 +127,7 @@ Proof.
     apply wc_receive_strong in receive_some as
       (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
     cbn in receive_some.
-    destruct IH as (? & calls & ?); auto.
+    destruct IH as (? & calls & ?).
     apply undeployed_contract_no_out_queue in not_deployedA; try easy.
     rewrite queue_prev in not_deployedA.
     destruct msg';
@@ -211,7 +213,7 @@ Proof.
       apply wc_receive_strong in receive_some as
         (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
       cbn in receive_some.
-      destruct IH as (? & calls & IH); auto.
+      destruct IH as (? & calls & IH).
       destruct msg';
         [cbn in msg_ser; destruct msg; try easy|];
         setoid_rewrite msg_ser;
@@ -235,7 +237,7 @@ Proof.
       apply wc_receive_strong in receive_some as
         (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
       cbn in receive_some.
-      destruct IH as (? & calls & ?); auto.
+      destruct IH as (? & calls & ?).
       destruct msg';
         [cbn in msg_ser; destruct msg; try easy|];
         setoid_rewrite msg_ser;
