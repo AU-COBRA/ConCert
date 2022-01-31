@@ -391,7 +391,6 @@ Lemma Permutation_modify k vold vnew (m : AddrMap VoterInfo) :
     (seq 0 (FMap.size m)).
 Proof.
   intros find_some index old_perm.
-  unfold AddrMap in *.
   rewrite <- old_perm.
   rewrite <- (FMap.add_id _ _ _ find_some) at 2.
   rewrite <- (FMap.add_remove k vold).

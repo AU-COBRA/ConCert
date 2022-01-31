@@ -524,7 +524,7 @@ Module DSInstances <: Dexter2Serializable.
                                             TokenToToken>.
 
     Global Instance Dexter2FA12_Msg_serialize `{ChainBase} : Serializable Dexter2FA12.Msg :=
-      msg_serializable.
+      D2LqtSInstances.msg_serializable.
 
     Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
       Derive Serializable Setup_rect <build_setup>.

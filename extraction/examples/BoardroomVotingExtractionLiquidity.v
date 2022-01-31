@@ -308,7 +308,6 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @ctx_amount %%> "(fun c -> c.(1).(1).(1))" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
   ; remap <%% @ctx_contract_address %%> "(fun c -> c.(1).(0))" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
   ; remap <%% @ctx_contract_balance %%> "(fun c -> c.(1).(1).(0))" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% @AddressMap.AddrMap %%> "addrMap"
   ; remap <%% @AddressMap.add %%> "Map.add"
   ; remap <%% @AddressMap.find %%> "Map.find"
   ; remap <%% @AddressMap.of_list %%> "Map.of_list"
