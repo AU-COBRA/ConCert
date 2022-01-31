@@ -404,7 +404,6 @@ Section EIP20TokenExtraction.
     ; <%% @setter_from_getter_State_allowances %%>
     ; <%% @set_State_balances %%>
     ; <%% @set_State_allowances%%>
-    ; <%% @Common.AddressMap.AddrMap %%>
     ].
 
   Time MetaCoq Run

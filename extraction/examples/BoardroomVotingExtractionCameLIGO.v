@@ -222,7 +222,6 @@ Definition to_inline : list kername :=
   ; <%% @BV.set_VoterInfo_vote_hash %%>
   ; <%% @BV.set_VoterInfo_public_vote %%>
 
-  ; <%% @Common.AddressMap.AddrMap %%>
   ].
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
