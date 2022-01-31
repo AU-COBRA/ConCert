@@ -35,7 +35,7 @@ Local Open Scope string.
 Import MonadNotation.
 
 Existing Instance extraction_checker_flags.
-
+--
 (** We consider a type to be empty, if it is not mutual and has no constructors *)
 Definition is_empty_type_decl (d : ExAst.global_decl) : bool :=
   match d with
@@ -139,7 +139,7 @@ Definition extract_within_coq : extract_template_env_params :=
           extract_transforms := [dearg_transform (fun _ => None) true true true true true] |} |}.
 
 Definition extract_template_env_within_coq := extract_template_env extract_within_coq.
-Print ExAst.one_inductive_body.
+
 (* returns a list of constructor names and the name of the inductive associated *)
 Definition get_projections (env : ExAst.global_env) : list (ident * ExAst.one_inductive_body) :=
   let get_projs (d : ExAst.global_decl) : list (ident * ExAst.one_inductive_body) :=

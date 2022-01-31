@@ -350,7 +350,6 @@ Lemma Permutation_modify k vold vnew (m : AddrMap VoterInfo) :
     (seq 0 (FMap.size m)).
 Proof.
   intros find_some index old_perm.
-  unfold AddrMap in *.
   rewrite <- old_perm.
   rewrite <- (FMap.add_id _ _ _ find_some) at 2.
   rewrite <- (FMap.add_remove k vold).
@@ -477,6 +476,8 @@ Proof.
     now rewrite elmeqb_refl.
 Qed.
 
+Local Set Keyed Unification.
+
 Definition has_tallied (calls : list (ContractCallInfo Msg)) : bool :=
   existsb (fun c => match Blockchain.call_msg c with
                     | Some tally_votes => true
@@ -536,7 +537,7 @@ Theorem boardroom_voting_correct_strong
          tally cstate = Some (sumnat (fun party => if svi_sv (parties party) then 1 else 0)%nat
                                      (map fst (signups inc_calls)))))).
 Proof.
-  contract_induction; intros; unfold AddrMap in *.
+  contract_induction; intros.
   - [AddBlockFacts]: exact (fun _ old_slot _ _ new_slot _ => old_slot < new_slot).
     subst AddBlockFacts.
     cbn in facts.
@@ -556,7 +557,6 @@ Proof.
     split; [lia|].
     intros _ _ _.
     unfold FMap.keys.
-    unfold AddrMap in *.
     unfold AddressMap.empty in *.
     rewrite @FMap.elements_empty.
     split; [auto|].
@@ -583,7 +583,6 @@ Proof.
       split; [lia|].
       split; [tauto|].
       split.
-      unfold AddrMap in *.
       { rewrite app_length, FMap.size_add_new by auto; cbn; lia. }
       apply Z.ltb_lt in lt.
       rewrite app_length in *.
@@ -606,7 +605,6 @@ Proof.
       * split.
         { destruct IH as (perm & _).
           cbn.
-          unfold AddrMap in *.
           rewrite FMap.elements_add by auto.
           cbn.
           rewrite seq_app.
@@ -618,7 +616,7 @@ Proof.
           unfold FMap.keys.
           rewrite FMap.elements_add by auto.
           cbn.
-          perm_simplify. }
+          now perm_simplify. }
 
         split; cycle 1.
         {
@@ -629,7 +627,6 @@ Proof.
         }
         intros addr inf find_add.
         destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
-        unfold AddrMap in *.
         -- rewrite (FMap.find_add (ctx_from ctx)) in find_add.
            inversion_clear find_add.
            cbn.
@@ -644,8 +641,7 @@ Proof.
            split; [symmetry; tauto|].
            split; [congruence|].
            left; easy.
-        -- unfold AddrMap in *.
-           rewrite FMap.find_add_ne in find_add by auto.
+        -- rewrite FMap.find_add_ne in find_add by auto.
            destruct IH as (_ & _ & IH & _).
            specialize (IH _ _ find_add).
            split; [lia|].
@@ -660,7 +656,6 @@ Proof.
       split; [tauto|].
       split.
       unfold AddressMap.add.
-      unfold AddrMap in *.
       {  rewrite FMap.size_add_existing by congruence; tauto. }
       split; [tauto|].
       split; [tauto|].
@@ -680,10 +675,10 @@ Proof.
       unfold AddressMap.add in *.
       destruct IH as (_ & _ & IH & _).
       destruct (address_eqb_spec addr (ctx_from ctx)) as [->|].
-      * unfold AddrMap in *.  rewrite FMap.find_add in find_add.
+      * rewrite FMap.find_add in find_add.
         inversion_clear find_add; cbn.
         auto.
-      * unfold AddrMap in *; rewrite FMap.find_add_ne in find_add by auto.
+      * rewrite FMap.find_add_ne in find_add by auto.
         auto.
     + (* submit_vote *)
       destruct (_ <? _); cbn -[Nat.ltb] in *; [congruence|].
@@ -694,8 +689,7 @@ Proof.
       inversion_clear receive_some; cbn.
       split; [lia|].
       split; [tauto|].
-      unfold AddressMap.add in *.
-      unfold AddrMap in *; rewrite FMap.size_add_existing by congruence.
+      rewrite FMap.size_add_existing by congruence.
       split; [tauto|].
       split; [tauto|].
       split; [tauto|].
@@ -760,9 +754,9 @@ Proof.
                     (fun '(_, v) => public_vote v)) in bruteforce.
       * inversion bruteforce.
         rewrite <- (sumnat_map fst (fun a => if svi_sv (parties a) then 1 else 0))%nat.
-        now rewrite perm'.
-      * unfold AddrMap in *; now rewrite FMap.length_elements, <- len_pks.
-      * unfold AddrMap in *; now rewrite FMap.length_elements, <- len_pks.
+        now setoid_rewrite perm'.
+      * now rewrite FMap.length_elements, <- len_pks.
+      * now rewrite FMap.length_elements, <- len_pks.
       * auto.
       * intros [k v] kvpin.
         apply FMap.In_elements in kvpin.
