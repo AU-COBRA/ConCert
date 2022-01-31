@@ -597,6 +597,8 @@ Proof.
   FMap_simpl.
 Qed.
 
+Set Keyed Unification.
+
 (** If the requirements are met then then receive on transfer_from msg must succeed and
     if receive on transfer_from msg succeeds then requirements must hold *)
 Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
@@ -615,22 +617,24 @@ Proof.
             sender_allowance &
             from_enough_balance%N.ltb_ge &
             sender_enough_allowance%N.ltb_ge).
-    destruct_match eqn:allowances_ctx; setoid_rewrite allowances_ctx in sender_allowance; auto.
-    setoid_rewrite allowances_ctx in sender_enough_allowance.
-    cbn in *. clear from_allowances_some.
-    destruct_match eqn:allowance_ctx; setoid_rewrite allowance_ctx in sender_allowance; auto.
-    setoid_rewrite allowance_ctx in sender_enough_allowance.
+    destruct_match eqn:allowances_ctx;cbn in *;auto.
+    clear from_allowances_some.
+    destruct_match eqn:allowance_ctx; rewrite allowance_ctx in sender_allowance; auto.
+    rewrite allowance_ctx in sender_enough_allowance.
     cbn in *. clear sender_allowance.
     destruct_match eqn:amount_from; auto.
-    setoid_rewrite from_enough_balance in amount_from.
-    now setoid_rewrite sender_enough_allowance in amount_from.
+    rewrite from_enough_balance in amount_from.
+    now rewrite sender_enough_allowance in amount_from.
   - intros receive_some.
-    destruct_match eqn:allowances_ctx in receive_some; setoid_rewrite allowances_ctx; try discriminate.
-    destruct_match eqn:allowance_ctx in receive_some; setoid_rewrite allowance_ctx; try discriminate.
+    (* destruct_match eqn:allowances_ctx in receive_some; rewrite allowances_ctx; try discriminate. *)
+    destruct_match eqn:allowances_ctx in receive_some; try discriminate.
+    (* destruct_match eqn:allowance_ctx in receive_some; rewrite allowance_ctx; try discriminate. *)
+    destruct_match eqn:allowance_ctx in receive_some; try discriminate.
     destruct_match eqn:amount_from in receive_some; try discriminate.
+    cbn in *.
     apply Bool.orb_false_iff in amount_from as
-      (from_enough_balance%N.ltb_ge & sender_enough_allowance%N.ltb_ge).
-    intuition.
+        (from_enough_balance%N.ltb_ge & sender_enough_allowance%N.ltb_ge).
+    now rewrite allowance_ctx.
 Qed.
 
 
@@ -695,7 +699,6 @@ Proof.
   receive_simpl.
   unfold get_allowance.
   destruct_match eqn:allowances_from in receive_some;
-    setoid_rewrite allowances_from;
     inversion receive_some;
     cbn; FMap_simpl.
 Qed.

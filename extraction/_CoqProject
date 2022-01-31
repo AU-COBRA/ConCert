@@ -31,6 +31,7 @@ theories/ExtractionCorrectness.v
 theories/Inlining.v
 theories/LPretty.v
 theories/LiquidityExtract.v
+theories/NumLiteralTests.v
 theories/Optimize.v
 theories/OptimizeCorrectness.v
 theories/OptimizePropDiscr.v

@@ -12,7 +12,9 @@ This definitions is more extraction-friendly. *)
 
 Module AddressMap.
 
-  Definition AddrMap `{ChainBase} := FMap Address.
+  Notation AddrMap := (FMap Address).
+
+  (* Definition AddrMap `{ChainBase} := FMap Address. *)
 
   Definition find `{ChainBase} {V : Type} (addr : Address) (m : AddrMap V) : option V :=
     FMap.find addr m.
@@ -25,11 +27,14 @@ Module AddressMap.
 
   Definition keys  `{ChainBase} {V : Type} (m : AddrMap V) : list Address :=
     FMap.keys m.
-      
+
   Definition of_list  `{ChainBase} {V : Type} (l : list (Address * V)) : AddrMap V :=
     FMap.of_list l.
 
   Definition empty  `{ChainBase} {V : Type} : AddrMap V := FMap.empty.
+
+  Definition update `{ChainBase} {V : Type} (addr : Address) (val : option V) (m : AddrMap V) : AddrMap V :=
+    FMap.update addr val m.
 
 End AddressMap.
 

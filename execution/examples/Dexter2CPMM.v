@@ -525,7 +525,7 @@ Module DSInstances <: Dexter2Serializable.
                                             TokenToToken>.
 
     Global Instance Dexter2FA12_Msg_serialize `{ChainBase} : Serializable Dexter2FA12.Msg :=
-      Dexter2FA12.msg_serializable.
+      D2LqtSInstances.msg_serializable.
 
     Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
       Derive Serializable Setup_rect <build_setup>.
@@ -2022,7 +2022,7 @@ Section Theories.
   Definition mintedOrBurnedTokens_acts (act_body : ActionBody) : Z :=
     match act_body with
     | act_call _ _ msg_serialized =>
-      match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg_serialized with
+      match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg_serialized with
       | Some msg => mintedOrBurnedTokens (Some msg)
       | _ => 0
       end
@@ -2032,7 +2032,7 @@ Section Theories.
   Definition mintedOrBurnedTokens_tx (tx : Tx) : Z :=
     match tx.(tx_body) with
     | tx_call (Some msg_serialized) =>
-      match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg_serialized with
+      match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg_serialized with
       | Some msg => mintedOrBurnedTokens (Some msg)
       | _ => 0
       end
@@ -2040,7 +2040,7 @@ Section Theories.
     end.
 
   Lemma deserialize_balance_of_ne_mint_or_burn : forall n m,
-    @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable (serialize (FA2Token.msg_balance_of n)) <>
+    @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable (serialize (FA2Token.msg_balance_of n)) <>
     Some (Dexter2FA12.msg_mint_or_burn m).
   Proof.
     intros.
@@ -2071,7 +2071,7 @@ Section Theories.
           Forall (fun act_body =>
             match act_body with
             | act_call _ _ msg =>
-              match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg with
+              match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg with
               | Some (msg_mint_or_burn _) => False
               | _ => True
               end
@@ -2207,7 +2207,7 @@ Qed.
         Forall (fun act_body =>
           match act_body with
           | act_call to _ msg_serialized =>
-            match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg_serialized with
+            match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg_serialized with
             | Some (msg_mint_or_burn _) => to = lqtAddress cstate
             | _ => True
             end
@@ -2224,7 +2224,7 @@ Qed.
           Forall (fun act_body =>
             match act_body with
             | act_call _ _ msg =>
-              match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg with
+              match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg with
               | Some (msg_mint_or_burn _) => False
               | _ => True
               end
@@ -2337,7 +2337,7 @@ Qed.
           Forall (fun tx =>
             match tx.(tx_body) with
             | tx_call (Some msg) =>
-              match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg with
+              match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg with
               | Some (msg_mint_or_burn _) => False
               | _ => True
               end
@@ -2502,7 +2502,7 @@ Qed.
         Forall (fun tx =>
           match tx.(tx_body) with
           | tx_call (Some msg) =>
-            match @deserialize Dexter2FA12.Msg Dexter2FA12.msg_serializable msg with
+            match @deserialize Dexter2FA12.Msg D2LqtSInstances.msg_serializable msg with
             | Some (msg_mint_or_burn _) => tx.(tx_to) = lqtAddress cstate
             | _ => True
             end
@@ -2861,7 +2861,7 @@ Qed.
   Lemma lqt_pool_correct : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
     (forall x (y : Address), deserialize x = Some y -> x = serialize y) ->
     env_contracts bstate caddr_main = Some (contract : WeakContract) ->
-    env_contracts bstate caddr_lqt = Some (Dexter2FA12.contract : WeakContract) ->
+    env_contracts bstate caddr_lqt = Some (DEX2LQT.contract : WeakContract) ->
     exists state_main state_lqt depinfo_main depinfo_lqt,
       contract_state bstate caddr_main = Some state_main /\
       contract_state bstate caddr_lqt = Some state_lqt /\

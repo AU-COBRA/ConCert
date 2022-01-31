@@ -46,7 +46,6 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd"
   ; remap <%% option %%> "option"
-  ; remap <%% @AddressMap.AddrMap %%> "addrMap"
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
   ; remap <%% @Address %%> "address"
@@ -180,7 +179,6 @@ Section EIP20TokenExtraction.
     ; <%% @set_State_balances %%>
     ; <%% @set_State_allowances%%>
 
-    ; <%% @Common.AddressMap.AddrMap %%>
     ].
 
   Time MetaCoq Run
