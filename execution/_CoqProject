@@ -42,6 +42,8 @@ examples/FA2Token.v
 examples/LocalBlockchainTests.v
 examples/StackInterpreter.v
 examples/Cis1wccd.v
+examples/SerializableUtil.v
+examples/InterContractCommunication.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v

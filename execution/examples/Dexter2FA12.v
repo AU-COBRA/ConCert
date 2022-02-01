@@ -19,6 +19,7 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require Import InterContractCommunication.
 From Coq Require Import ZArith Bool List Lia.
 Import ListNotations.
 
@@ -33,9 +34,12 @@ Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
 
 (* Dummy implementation of callbacks. *)
-Record callback (A : Type) := {
-  blob : option A;
+Record callback := {
+  return_addr : Address;
 }.
+
+Definition callback_addr (c : callback) : Address := c.(return_addr).
+Coercion callback_addr : callback >-> Address.
 
 Record transfer_param :=
   build_transfer_param{
@@ -59,19 +63,19 @@ Record mintOrBurn_param :=
 Record getAllowance_param :=
   build_getAllowance_param{
     request : (Address * Address);
-    allowance_callback : callback N
+    allowance_callback : callback
 }.
 
 Record getBalance_param :=
   build_getBalance_param{
     owner_ : Address;
-    balance_callback : callback N
+    balance_callback : callback
 }.
 
 Record getTotalSupply_param :=
   build_getTotalSupply_param{
     request_ : unit;
-    supply_callback : callback N
+    supply_callback : callback
 }.
 
 Record State :=
@@ -125,7 +129,7 @@ Module Type Dexter2LqtSerializable.
 
     Context `{ChainBase}.
 
-    Axiom callback_serializable : forall {A : Type} `{serA : Serializable A}, Serializable (callback A).
+    Axiom callback_serializable : Serializable callback.
 
     Axiom transfer_param_serializable : Serializable transfer_param.
 
@@ -153,11 +157,10 @@ End Dexter2LqtSerializable.
 Module D2LqtSInstances <: Dexter2LqtSerializable.
 
   Section Serialization.
-
     Context `{ChainBase}.
 
-    Instance  callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) :=
-    Derive Serializable (callback_rect A) <(Build_callback A)>.
+    Instance  callback_serializable : Serializable callback :=
+    Derive Serializable callback_rect <Build_callback>.
 
     Instance transfer_param_serializable : Serializable transfer_param :=
       Derive Serializable transfer_param_rect <build_transfer_param>.
@@ -200,8 +203,8 @@ Module D2LqtSInstances <: Dexter2LqtSerializable.
   End Serialization.
 
 End D2LqtSInstances.
-
 (* end hide *)
+
 
 (** * Contract functions *)
 Module Dexter2Lqt (SI : Dexter2LqtSerializable).
@@ -297,19 +300,19 @@ Definition receive_total_supply_ n := @receive_total_supply unit _ n.
 (** Get the quantity that [snd request] is allowed to spend on behalf of [fst request] *)
 Definition try_get_allowance (sender : Address) (param : getAllowance_param) (state : State) : list ActionBody :=
   let value := with_default 0 (find_allowance param.(request) state.(allowances)) in
-    [mk_callback sender (receive_allowance_ value)].
+    [mk_callback param.(allowance_callback) (receive_allowance_ value)].
 
 (** ** Get balance *)
 (** Get the quantity of tokens belonging to [owner] *)
 Definition try_get_balance (sender : Address) (param : getBalance_param) (state : State) : list ActionBody :=
   let value := with_default 0 (AddressMap.find param.(owner_) state.(tokens)) in
-    [mk_callback sender (receive_balance_of_ value)].
+    [mk_callback param.(balance_callback) (receive_balance_of_ value)].
 
 (** ** Get total supply *)
 (** Get the total supply of tokens *)
 Definition try_get_total_supply (sender : Address) (param : getTotalSupply_param) (state : State) : list ActionBody :=
   let value := state.(total_supply) in
-    [mk_callback sender (receive_total_supply_ value)].
+    [mk_callback param.(supply_callback) (receive_total_supply_ value)].
 
 (** ** Init *)
 (** Initalize contract storage *)
@@ -349,7 +352,6 @@ Definition contract : Contract Setup Msg State :=
 End Dexter2Lqt.
 
 Module DEX2LQT := Dexter2Lqt D2LqtSInstances.
-
 Import DEX2LQT.
 
 (** * Properties *)
@@ -930,7 +932,7 @@ Qed.
 Lemma try_get_allowance_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts) ->
     new_acts = [
-      act_call ctx.(ctx_from) 0%Z (serialize
+      act_call param.(allowance_callback) 0%Z (serialize
         (receive_allowance (with_default 0 (FMap.find param.(request) (allowances prev_state)))))
     ].
 Proof.
@@ -971,7 +973,7 @@ Qed.
 Lemma try_get_balance_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts) ->
     new_acts = [
-      act_call ctx.(ctx_from) 0%Z (serialize
+      act_call param.(balance_callback) 0%Z (serialize
         (receive_balance_of (with_default 0 (FMap.find param.(owner_) (tokens prev_state)))))
     ].
 Proof.
@@ -1011,7 +1013,7 @@ Qed.
 Lemma try_get_total_supply_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
   receive chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts) ->
     new_acts = [
-      act_call ctx.(ctx_from) 0%Z (serialize
+      act_call param.(supply_callback) 0%Z (serialize
         (receive_total_supply prev_state.(total_supply)))
     ].
 Proof.
@@ -1114,32 +1116,37 @@ Ltac try_solve_preserves_state :=
 
 
 (** ** Outgoing acts facts *)
-(** Contract never calls itself *)
-Lemma no_self_calls bstate caddr :
+(** If contract emits self calls then they are for the receive entrypoints (which do not exits) *)
+Lemma only_getter_self_calls bstate caddr :
   reachable bstate ->
   env_contracts bstate caddr = Some (contract : WeakContract) ->
   Forall (fun act_body =>
     match act_body with
-    | act_transfer to _
-    | act_call to _ _ => (to =? caddr)%address = false
+    | act_transfer to _ => False
+    | act_call to _ msg => to = caddr ->
+        (exists n, msg = serialize (receive_allowance n)) \/
+        (exists n, msg = serialize (receive_balance_of n)) \/
+        (exists n, msg = serialize (receive_total_supply n))
     | _ => False
     end) (outgoing_acts bstate caddr).
 Proof.
   contract_induction; intros; auto.
   - now inversion IH.
   - apply Forall_app; split; auto.
-    clear IH.  simpl in *.
+    clear IH. simpl in *.
     destruct msg.
     + destruct m;
-        (try_solve_acts_correct;
-         try (constructor;now destruct_address_eq)).
+        try_solve_acts_correct.
     + receive_simpl.
   - inversion_clear IH as [|? ? head_not_me tail_not_me].
     destruct head;
-      try contradiction;
-      destruct action_facts;
+      try contradiction.
+    destruct action_facts as (? & ? & ? & ?).
+    subst.
+    destruct head_not_me as [[] | [[] | []]]; auto;
       subst;
-      now rewrite address_eq_refl in head_not_me.
+      receive_simpl;
+      inversion receive_some.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
@@ -1149,7 +1156,8 @@ Proof.
     destruct_action_eval; auto.
 Qed.
 
-Lemma no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
+(** Contract never calls itself *)
+Lemma no_self_calls : forall bstate origin from_addr to_addr amount msg acts ctx prev_state new_state resp_acts,
   reachable bstate ->
   env_contracts bstate to_addr = Some (contract : WeakContract) ->
   chain_state_queue bstate =
@@ -1160,17 +1168,21 @@ Lemma no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
        | Some msg => act_call to_addr amount msg
        | None => act_transfer to_addr amount
     end |} :: acts ->
+  wc_receive contract bstate ctx prev_state msg = Some (new_state, resp_acts) ->
   from_addr <> to_addr.
 Proof.
-  intros * reach deployed queue.
-  apply no_self_calls in deployed as no_self_calls; auto.
+  intros * reach deployed queue receive_some.
+  apply only_getter_self_calls in deployed as no_self_calls; auto.
   unfold outgoing_acts in no_self_calls.
   rewrite queue in no_self_calls.
   cbn in no_self_calls.
   destruct_address_eq; auto.
   inversion_clear no_self_calls as [|? ? hd _].
-  destruct msg;
-    now rewrite address_eq_refl in hd.
+  destruct msg; auto.
+  destruct hd as [[] | [[] | []]];
+    auto; subst;
+    eapply wc_receive_strong in receive_some as (_ & ? & _ & _ & msg_correct & _);
+    now destruct_match in msg_correct.
 Qed.
 
 (** The contract never produces actions carrying money *)
@@ -1253,7 +1265,11 @@ Proof.
     subst. cbn.
     split.
     + now apply Z.ge_le.
-    + now eapply no_self_calls'.
+    + rewrite deployed in *.
+      match goal with
+      | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
+      end.
+      now eapply no_self_calls.
 Qed.
 
 Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1558,7 +1574,7 @@ Lemma total_supply_correct : forall bstate caddr (trace : ChainTrace empty_state
     deployment_info Setup trace caddr = Some depinfo /\
     incoming_calls Msg trace caddr = Some inc_calls /\
     let initial_tokens := initial_pool (deployment_setup depinfo) in
-    Z.of_N cstate.(total_supply) = (Z.of_N initial_tokens) + sumZ (fun callInfo => mintedOrBurnedTokens callInfo.(call_msg)) inc_calls.
+    Z.of_N cstate.(total_supply) = (Z.of_N initial_tokens) + sumZ (fun callInfo => mintedOrBurnedTokens callInfo.(call_msg)) (filter (callFrom cstate.(admin)) inc_calls).
 Proof.
   contract_induction;
     intros; auto.
@@ -1567,26 +1583,29 @@ Proof.
       total_supply state = sum_balances state /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (balances_eq_total_supply & _).
-    cbn.
-    rewrite Z.add_shuffle3, <- IH.
-    clear tag IH AddBlockFacts DeployFacts CallFacts dep_info
-      prev_out_queue prev_inc_calls prev_out_txs.
+    unfold callFrom in *.
     unfold Blockchain.receive in receive_some.
-    simpl in receive_some.
+    erewrite <- admin_constant; eauto.
+    simpl in *.
     destruct msg. destruct m.
-    + now erewrite <- try_transfer_preserves_total_supply.
-    + now erewrite <- try_approve_preserves_total_supply.
+    + erewrite <- try_transfer_preserves_total_supply; eauto.
+      now destruct_address_eq; cbn; rewrite IH.
+    + erewrite <- try_approve_preserves_total_supply; eauto.
+      now destruct_address_eq; cbn; rewrite IH.
     + cbn.
-      apply try_mint_or_burn_total_supply_correct in receive_some.
-      * lia.
+      apply try_mint_or_burn_total_supply_correct in receive_some as state_eq.
+      * rewrite <- state_eq, IH.
+        specialize (try_mint_or_burn_is_some) as (_ & (_ & <- & _)); eauto.
+        rewrite address_eq_refl.
+        cbn. lia.
       * rewrite balances_eq_total_supply.
         apply balance_le_sum_balances.
     + eapply try_get_allowance_preserves_state in receive_some.
-      now subst.
+      now destruct_address_eq; subst.
     + eapply try_get_balance_preserves_state in receive_some.
-      now subst.
+      now destruct_address_eq; subst.
     + eapply try_get_total_supply_preserves_state in receive_some.
-      now subst.
+      now destruct_address_eq; subst.
     + receive_simpl.
   - now destruct facts.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
@@ -1598,7 +1617,11 @@ Proof.
     subst. cbn.
     split.
     + now specialize sum_balances_eq_total_supply as (? & ? & ?).
-    + now eapply no_self_calls'.
+    + rewrite deployed in *.
+      match goal with
+      | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
+      end.
+      now eapply no_self_calls.
 Qed.
 
 End Theories.
