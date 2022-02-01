@@ -479,23 +479,26 @@ Qed.
 (** If the requirements are met then then receive on transfer msg must succeed and
     if receive on transfer msg succeeds then requirements must hold *)
 Lemma try_transfer_is_some : forall state chain ctx to amount,
-  (ctx_amount ctx >? 0)%Z = false ->
-  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) (balances state)) = false)
-  \/ amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
+  (ctx_amount ctx <= 0)%Z /\
+  amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
     <-> isSome (receive chain ctx state (Some (transfer to amount))) = true.
 Proof.
-  intros * amount_positive.
+  intros.
   split.
-  - intros [(amount_zero & sender_balance_some) | sender_enough_balance];
+  - intros (amount_positive & sender_enough_balance);
     receive_simpl; destruct_match eqn:amount_from; auto.
-    + subst.
-      now erewrite with_default_is_some, N.ltb_irrefl by assumption.
+    + now apply Z.gtb_lt in amount_from.
     + rewrite <- N.ltb_ge in sender_enough_balance.
       now setoid_rewrite sender_enough_balance.
-  - intros receive_some. receive_simpl. rewrite amount_positive in receive_some.
+  - intros receive_some.
+    receive_simpl.
+    destruct_match eqn:amount_positive in receive_some;
+      try now inversion receive_some.
     destruct_match eqn:amount_from in receive_some.
     + discriminate.
-    + now apply N.ltb_ge in amount_from.
+    + apply N.ltb_ge in amount_from.
+      rewrite Z.gtb_ltb in amount_positive.
+      now apply Z.ltb_ge in amount_positive.
 Qed.
 
 

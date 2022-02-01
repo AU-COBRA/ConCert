@@ -353,6 +353,10 @@ Section ExecuteActions.
         cut (ChainTrace
               empty_state
               (build_chain_state lc_after (new_acts ++ xs))); eauto.
+        intros.
+        econstructor; eauto.
+        constructor; eauto.
+        constructor; eauto.
   Defined.
 End ExecuteActions.
 
