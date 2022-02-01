@@ -304,13 +304,12 @@ Proof.
 Qed.
 
 Lemma try_transfer_is_some : forall state chain ctx to amount,
-  (ctx_amount ctx >? 0)%Z = false ->
   (isFinalized state) = true ->
-  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) (balances state)) = false)
-  \/ amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
+  (ctx_amount ctx <= 0)%Z /\
+  amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
     <-> isSome (receive chain ctx state (Some (transfer to amount))) = true.
 Proof.
-  intros * sender_amount_zero finalized.
+  intros * finalized.
   unfold balances. cbn.
   rewrite finalized. cbn.
   destruct_match eqn:receive;

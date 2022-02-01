@@ -49,7 +49,7 @@ Proof.
     + inversion eval;
         now rewrite_environment_equiv.
     + now apply IH.
-    + now inversion prev_next.
+    + now inversion env_eq.
 Qed.
 
 (* If a state is reachable and contract state is stored on an address 
@@ -743,8 +743,9 @@ Proof.
   intros * reach queue perm.
   pose (bstate' := (bstate<|chain_state_queue := acts_permuted|>)).
   assert (step : ChainStep bstate bstate').
-  - eapply step_permute; auto.
-    now rewrite queue.
+  - eapply step_permute.
+    + econstructor; eauto.
+    + now rewrite queue.
   - eexists bstate'.
     split; eauto.
     repeat split; eauto.
@@ -823,7 +824,7 @@ Proof.
       eapply eval_deploy; eauto.
       * now apply wc_init_to_init in init_some.
       * now constructor.
-    + rewrite prev_next in not_deployed.
+    + rewrite <- prev_next in not_deployed.
       cbn in not_deployed.
       now destruct_address_eq.
 Qed.

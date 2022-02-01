@@ -275,12 +275,11 @@ Proof.
 Qed.
 
 Lemma try_transfer_is_some : forall state chain ctx to amount,
-  (ctx_amount ctx >? 0)%Z = false ->
-  (amount = 0 /\ isSome (FMap.find (ctx_from ctx) (balances state)) = false)
-  \/ amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
+  (ctx_amount ctx <= 0)%Z /\
+  amount <= with_default 0 (FMap.find (ctx_from ctx) (balances state))
     <-> isSome (receive chain ctx state (Some (transfer to amount))) = true.
 Proof.
-  intros * amount_zero.
+  intros.
   unfold balances. cbn.
   destruct_match eqn:receive;
     now erewrite EIP20Token.try_transfer_is_some, receive.
