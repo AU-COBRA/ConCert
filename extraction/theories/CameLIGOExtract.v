@@ -201,6 +201,7 @@ Definition printCameLIGODefs {msg ctx params storage operation : Type}
            (Σ : TemplateEnvironment.global_env)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
+           (extra_ignore : list kername)
            (build_call_ctx : string)
            (init : kername)
            (receive : kername)
@@ -210,7 +211,7 @@ Definition printCameLIGODefs {msg ctx params storage operation : Type}
   let entry_point := m.(lmd_entry_point) in
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
   let TT_defs := TT_defs ++ TT_remap_default in
-  let ignore := (map fst TT_defs ++ CameLIGO_ignore_default)%list in
+  let ignore := (map fst TT_defs ++ CameLIGO_ignore_default ++ extra_ignore)%list in
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   match annot_extract_template_env_specalize Σ seeds ignore with
@@ -289,13 +290,14 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
+           (extra_ignore : list kername)
            (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := TT_defs ++ TT_remap_default in
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
-  let res := unwrap_string_sum (printCameLIGODefs Σ TT_defs TT_ctors
+  let res := unwrap_string_sum (printCameLIGODefs Σ TT_defs TT_ctors extra_ignore
                                                   build_call_ctx
                                                   init_nm receive_nm
                                                   m) in
@@ -307,6 +309,7 @@ Definition CameLIGO_extract {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
            (TT_ctors : MyEnv.env string)
+           (extra_ignore : list kername)
            (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
@@ -314,7 +317,7 @@ Definition CameLIGO_extract {msg ctx params storage operation : Type}
   let TT :=
       (TT_ctors ++ map (fun '(kn,d) => (string_of_kername kn, d)) TT_defs)%list in
   p <- tmEval lazy
-             (printCameLIGODefs Σ TT_defs TT_ctors
+             (printCameLIGODefs Σ TT_defs TT_ctors extra_ignore
                                 build_call_ctx
                                 init_nm receive_nm
                                 m) ;;
