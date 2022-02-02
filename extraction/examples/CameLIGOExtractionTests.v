@@ -414,7 +414,7 @@ Section EIP20TokenExtraction.
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   (* TODO: uncomment, once this fix https://gitlab.com/ligolang/ligo/-/merge_requests/1452 makes it
      into a release version. *)
-  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo" *)
+  Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.
