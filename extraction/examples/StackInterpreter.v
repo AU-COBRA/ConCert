@@ -388,7 +388,7 @@ Module CameLIGOInterp.
                                      ++ CameLIGOPretty.printMain "storage" |}.
 
     Time MetaCoq Run
-    (CameLIGO_prepare_extraction [] TT_remap_ligo TT_rename_ctors_default "cctx_instance" LIGO_INTERP_MODULE).
+    (CameLIGO_prepare_extraction [] TT_remap_ligo TT_rename_ctors_default [] "cctx_instance" LIGO_INTERP_MODULE).
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 

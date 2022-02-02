@@ -100,17 +100,10 @@ Module EscrowCameLIGOExtraction.
     ; <%% @setter_from_getter_State_buyer %%>
     ; <%% @setter_from_getter_State_seller_withdrawable %%>
     ; <%% @setter_from_getter_State_buyer_withdrawable %%>
-
-    ; <%% @set_State_last_action %%>
-    ; <%% @set_State_next_step %%>
-    ; <%% @set_State_seller %%>
-    ; <%% @set_State_buyer %%>
-    ; <%% @set_State_seller_withdrawable %%>
-    ; <%% @set_State_buyer_withdrawable %%>
     ].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction to_inline [] TT_rename_ligo "cctx_instance" ESCROW_MODULE_LIGO).
+  (CameLIGO_prepare_extraction to_inline [] TT_rename_ligo [] "cctx_instance" ESCROW_MODULE_LIGO).
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
