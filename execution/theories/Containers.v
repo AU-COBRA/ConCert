@@ -96,7 +96,7 @@ Module FMap.
 
     Lemma add_remove k v (m : FMap K V) :
       add k v (remove k m) = add k v m.
-    Proof. apply fin_maps.insert_delete. Qed.
+    Proof. apply fin_maps.insert_delete_insert. Qed.
 
     Lemma add_add k v v' (m : FMap K V) :
       add k v (add k v' m) = add k v m.
