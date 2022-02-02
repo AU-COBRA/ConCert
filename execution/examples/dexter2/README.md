@@ -2,7 +2,7 @@
 
 Formalisation of the Dexter 2 decentralised exchange based on the informal spec https://gitlab.com/dexter2tz/dexter2tz/-/tree/master/docs/informal-spec
 
-Consist of the following parts.
+The development consists of the following parts.
 
 ## Dexter 2 Liquidity Token
 

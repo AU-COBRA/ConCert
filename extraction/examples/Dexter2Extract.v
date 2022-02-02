@@ -1,4 +1,4 @@
-(** * Extraction of Dexter 2 to CameLIGO *)
+(** Extraction of Dexter 2 to CameLIGO *)
 
 From Coq Require Import PeanoNat ZArith Notations.
 From Coq Require Import List Ascii String Bool.
@@ -20,7 +20,6 @@ From ConCert.Utils Require Import StringExtra.
 
 Local Open Scope string_scope.
 
-(* Import MonadNotation. *)
 Open Scope Z.
 
 (** Printing configuration *)
@@ -31,42 +30,42 @@ Instance dexter2_print_config : CameLIGOPrintConfig :=
      print_type_name := PrintConfAddModuleNames.print_ind_type_name_;
      print_const_name := snd |}.
 
-Import RecordSetNotations.
+(** * Common extraction setup *)
 
-
-  Definition call_to_token_ligo : string :=
-    <$ "let call_to_token (addr : address) (amt : nat) (msg : _msg) : operation =" ;
-       "  let token_ : _msg contract =";
-       "  match (Tezos.get_contract_opt (addr) : _msg contract option) with";
-       "    Some contract -> contract";
-       "  | None -> (failwith ""Contract not found."" : _msg contract) in";
-       "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
+Definition call_to_token_ligo : string :=
+  <$ "let call_to_token (addr : address) (amt : nat) (msg : _msg) : operation =" ;
+     "  let token_ : _msg contract =";
+     "  match (Tezos.get_contract_opt (addr) : _msg contract option) with";
+     "    Some contract -> contract";
+     "  | None -> (failwith ""Contract not found."" : _msg contract) in";
+     "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
 Definition mk_callback_ligo : string :=
   "[@inline] let mk_callback (addr : address) (msg : _msg) : operation = call_to_token addr 0n msg".
 
-  (** Next two definition are borrowed from the actual Dexter 2 implementation
-       https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo *)
-  Definition natural_to_mutez_ligo : string :=
-    "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez".
+(** Next two definition are borrowed from the actual Dexter 2 implementation
+     https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo *)
+Definition natural_to_mutez_ligo : string :=
+  "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez".
 
-  Definition mutez_to_natural_ligo : string :=
-    "[@inline] let mutez_to_natural (a: tez): nat = a / 1mutez".
+Definition mutez_to_natural_ligo : string :=
+  "[@inline] let mutez_to_natural (a: tez): nat = a / 1mutez".
 
-  (** We change the signature of the original definition slightly, so it takes a [nat] and converts
-      in to [tez]. We also return [operation option] instead of failing *)
-  Definition xtz_transfer_ligo : string :=
-    <$ "let xtz_transfer (to_ : address) (amount_ : nat) : operation option =";
-       "  match (Tezos.get_contract_opt to_ : unit contract option) with";
-       "    | None -> None";
-       "    | Some c -> Some (Tezos.transaction () (natural_to_mutez amount_) c)" $>.
+(** We change the signature of the original definition slightly, so it takes a [nat] and converts
+    in to [tez]. We also return [operation option] instead of failing *)
+Definition xtz_transfer_ligo : string :=
+  <$ "let xtz_transfer (to_ : address) (amount_ : nat) : operation option =";
+     "  match (Tezos.get_contract_opt to_ : unit contract option) with";
+     "    | None -> None";
+     "    | Some c -> Some (Tezos.transaction () (natural_to_mutez amount_) c)" $>.
 
-  Definition subNatTruncated_ligo : string :=
-    "let subNTruncated (n : nat) (m : nat) : nat = if n < m then 0n else abs (n-m)".
+Definition subNatTruncated_ligo : string :=
+  "let subNTruncated (n : nat) (m : nat) : nat = if n < m then 0n else abs (n-m)".
 
-  Definition edivNatTrancated_ligo : string :=
-    "let edivTruncated (a : nat) (b : nat) = match ediv a b with Some v -> v | None -> (0n,0n)".
+Definition edivNatTrancated_ligo : string :=
+  "let edivTruncated (a : nat) (b : nat) = match ediv a b with Some v -> v | None -> (0n,0n)".
 
+(** Remapping arithmetic operations *)
 Definition TT_remap_arith : list (kername * string) :=
 [   remap <%% Z %%> "int"
   ; remap <%% N %%> "nat"
@@ -93,9 +92,8 @@ Definition TT_remap_arith : list (kername * string) :=
   ; remap <%% Z.to_N %%> "abs"
 ].
 
-  Definition addrMap_ligo := "type 'a addrMap = (address, 'a) map".
-
-  Definition TT_remap_dexter2 : list (kername * string) :=
+(** Remapping key-value maps *)
+Definition TT_remap_dexter2 : list (kername * string) :=
    [
     remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
   ; remap <%% @FMap %%> "map"
@@ -110,7 +108,8 @@ Definition TT_remap_arith : list (kername * string) :=
   ; remap <%% @address_eqb %%> "eq_addr"
    ].
 
-  Definition TT_inlines_dexter2 : list kername :=
+(** Definitions to inline *)
+Definition TT_inlines_dexter2 : list kername :=
     [
       <%% Monads.Monad_option %%>
     ; <%% @Monads.bind %%>
@@ -126,6 +125,9 @@ Definition TT_remap_arith : list (kername * string) :=
     ; <%% @Dexter2CPMM.setter_from_getter_State_freezeBaker %%>
     ; <%% @Dexter2CPMM.setter_from_getter_State_manager %%>
     ; <%% @Dexter2CPMM.setter_from_getter_State_lqtAddress %%> ].
+
+
+(** * Extracting Liquidity Token *)
 
 Module Dexter2LqtExtraction.
 
@@ -227,6 +229,8 @@ Module Dexter2LqtExtraction.
   End D2LqtE.
 End Dexter2LqtExtraction.
 
+
+(** * Extracting the Main Contract *)
 Module Dexter2Extraction.
 
 (** Serialisation plays no role in the extraction result, therfore we defining instances
