@@ -182,7 +182,7 @@ Section CounterExtraction.
   (** NOTE: running computations inside [TemplateMonad] is quite slow. That's why we comment out this code and use a different way below *)
 
   (* Time MetaCoq Run *)
-  (*     (t <- CameLIGO_extract [] TT_remap_counter [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
+  (*     (t <- CameLIGO_extract [] TT_remap_counter [] [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
   (*       tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t). *)
 
 
@@ -192,7 +192,7 @@ Section CounterExtraction.
   (** This command adds [cameLIGO_counter_prepared] to the environment, *)
   (*       which can be evaluated later *)
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction [] TT_remap_counter TT_rename_ctors_default "cctx_instance" LIGO_COUNTER_MODULE).
+       (CameLIGO_prepare_extraction [] TT_remap_counter TT_rename_ctors_default [] "cctx_instance" LIGO_COUNTER_MODULE).
 
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
@@ -317,7 +317,7 @@ Section CrowdfundingExtraction.
       ("mnil", "Map.empty") ].
 
   Time MetaCoq Run
-       (CameLIGO_prepare_extraction [] TT_remap_crowdfunding (TT_rename ++ TT_rename_ctors_default) "cctx_instance" CF_MODULE).
+       (CameLIGO_prepare_extraction [] TT_remap_crowdfunding (TT_rename ++ TT_rename_ctors_default) [] "cctx_instance" CF_MODULE).
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
@@ -407,14 +407,14 @@ Section EIP20TokenExtraction.
     ].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction TT_inlines_eip20token TT_remap_eip20token TT_rename_ctors_default "cctx_instance" LIGO_EIP20Token_MODULE).
+  (CameLIGO_prepare_extraction TT_inlines_eip20token TT_remap_eip20token TT_rename_ctors_default [] "cctx_instance" LIGO_EIP20Token_MODULE).
 
   Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   (* TODO: uncomment, once this fix https://gitlab.com/ligolang/ligo/-/merge_requests/1452 makes it
      into a release version. *)
-  (* Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo" *)
+  Redirect "examples/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.

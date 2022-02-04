@@ -12,6 +12,7 @@ theories/Containers.v
 theories/ContractMonads.v
 theories/Extras.v
 theories/Finite.v
+theories/InterContractCommunication.v
 theories/LocalBlockchain.v
 theories/Monads.v
 theories/ResultMonad.v
@@ -31,8 +32,6 @@ examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
 examples/Counter.v
-examples/Dexter2CPMM.v
-examples/Dexter2FA12.v
 examples/EIP20Token.v
 examples/Egcd.v
 examples/Escrow.v
@@ -43,7 +42,8 @@ examples/LocalBlockchainTests.v
 examples/StackInterpreter.v
 examples/Cis1wccd.v
 examples/SerializableUtil.v
-examples/InterContractCommunication.v
+examples/dexter2/Dexter2CPMM.v
+examples/dexter2/Dexter2FA12.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v

@@ -18,8 +18,8 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import Common.
-From ConCert.Execution.Examples Require Import InterContractCommunication.
 From Coq Require Import ZArith Bool List Lia.
 Import ListNotations.
 
