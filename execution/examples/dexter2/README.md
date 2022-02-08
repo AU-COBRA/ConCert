@@ -17,6 +17,20 @@ This contract is an implementation of a Constant Product Market Maker (CPMM), th
 
 [Dexter2CPMM.v](Dexter2CPMM.v) contains the implementation along with the proofs of functional correctness properties and proofs of inter-contract invariants.
 
+Important lemmas:
+
+* `contract_balance_correct` - XTZ pool correct (`xtzPool` should always be equal to the actual XTZ held by the main contract)
+
+* `transfer_bound` - Transfers valid (the contract never attempts to transfer more XTZ than it holds).
+
+* `lqt_pool_correct_interface` - Liquidity total correct (`lqtTotal` of the main contract is equal to `total_supply` of the liquidity token). Proved for any liquidity token that satisfies the `LqtTokenInterface`)
+
+* `lqt_pool_correct_lqt_fa12` - Liquidity total correct for the our verified implementation of the liquidity token given in [Dexter2FA12.v](Dexter2FA12.v).
+
+# Inter-contract communication reasoning
+
+Lemmas and tactics for [reasoning about communicating contracts](../../theories/InterContractCommunication.v)
+
 # Code extraction to CameLIGO
 
 See [the extraction setup](../../../extraction/examples/Dexter2Extract.v)
