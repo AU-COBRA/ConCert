@@ -25,6 +25,34 @@ After completing the procedures above, run `make` to build the development, and 
 The documentation will be located in the docs folder after `make html`.
 
 
+## Using the Docker image
+
+Requires Docker installation. Docker is available for different platforms (Mac, Windows, Linux). Read the instructions [here](https://docs.docker.com/get-docker/).
+
+After installing Docker, fetch the image using the following Docker command in the terminal:
+
+```
+docker pull aucobra/concert:itp2022
+```
+
+One can connect to the image in the interactive mode using the following command:
+
+```
+docker run -it aucobra/concert:itp2022
+```
+
+The command will run a terminal session in the image's Ubuntu installation.
+
+The image comes with the Emacs editor allowing to step through the development.
+
+Run the following, after connecting to the image in the interactive mode to load the main Dexter contract to Emacs:
+
+```
+cd ConCert
+eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+emacs ./execution/examples/dexter2/Dexter2CPMM.v
+```
+
 ## Structure of the project
 
 Each folder contains a separate README file with more details.
@@ -39,6 +67,11 @@ It also features *certifying*(proof-generating) pre-processing steps and verifie
 Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose languages Elm and Rust as targets.
 Pretty-printers to these languages are implemented directly in Coq.
 One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard extraction of Coq (currently, it is possible for extraction to Rust).
+
+## Dexter 2 formalisation
+
+The [execution/examples/dexter2](execution/examples/dexter2/) folder contains implementation and proofs related to the Dexter 2 exchange.
+The folder also contains a README file describing the contents.
 
 
 ## Notes for developers
