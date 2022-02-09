@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: aucobra/concert:deps-coq-8.11-with-compilers-ligo-0.31.0
+    container: aucobra/concert:deps-coq-8.11-with-compilers-ligo-0.34.0
     steps:
     - run: sudo chown -R coq:coq .
     - uses: actions/checkout@v2

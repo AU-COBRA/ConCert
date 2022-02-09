@@ -18,8 +18,8 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import Common.
-From ConCert.Execution.Examples Require Import InterContractCommunication.
 From Coq Require Import ZArith Bool List Lia.
 Import ListNotations.
 
@@ -120,6 +120,34 @@ MetaCoq Run (make_setters getBalance_param).
 MetaCoq Run (make_setters getTotalSupply_param).
 MetaCoq Run (make_setters State).
 MetaCoq Run (make_setters Setup).
+(* end hide *)
+
+Definition mintedOrBurnedTokens (msg : option Msg) : Z :=
+  match msg with
+  | Some (msg_mint_or_burn param) => param.(quantity)
+  | _ => 0
+  end.
+
+Class LqtTokenInterface
+      `{Serializable State}
+      `{Serializable Msg}
+      `{Serializable Setup} :=
+  { lqt_contract : Contract Setup Msg State;
+
+    lqt_total_supply_correct :
+    forall  (bstate : ChainState) (caddr : Address)
+       (trace : ChainTrace empty_state bstate),
+      env_contracts bstate caddr = Some (lqt_contract : WeakContract) ->
+      exists (cstate : State) (depinfo : DeploymentInfo Setup)
+        (inc_calls : list (ContractCallInfo Msg)),
+          contract_state bstate caddr = Some cstate /\
+          deployment_info Setup trace caddr = Some depinfo /\
+          incoming_calls Msg trace caddr = Some inc_calls /\
+          (let initial_tokens := initial_pool (deployment_setup depinfo) in
+           Z.of_N (total_supply cstate) =
+             (Z.of_N initial_tokens +
+                sumZ (fun callInfo  => mintedOrBurnedTokens (call_msg callInfo))
+                     (filter (callFrom (admin cstate)) inc_calls))%Z) }.
 
 End LQTFA12Types.
 
@@ -1560,11 +1588,6 @@ Qed.
 (** ** Total supply correct *)
 
 Open Scope Z_scope.
-Definition mintedOrBurnedTokens (msg : option Msg) : Z :=
-  match msg with
-  | Some (msg_mint_or_burn param) => param.(quantity)
-  | _ => 0
-  end.
 
 (** [total_supply] is equal to the initial tokens + minted tokens - burned tokens *)
 Lemma total_supply_correct : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1623,5 +1646,12 @@ Proof.
       end.
       now eapply no_self_calls.
 Qed.
+
+Instance LqtFA12Token : LqtTokenInterface :=
+  { lqt_contract := DEX2LQT.contract;
+    lqt_total_supply_correct := total_supply_correct }.
+
+Arguments lqt_contract {_ _ _ _} _.
+Arguments lqt_total_supply_correct {_ _ _ _} _.
 
 End Theories.

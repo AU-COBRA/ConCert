@@ -234,7 +234,7 @@ Module CameLIGOExtractionSetup.
   Definition to_inline_ligo := [<%% bool_rect %%>; <%% bool_rec %%>; <%% @proj1_sig %%>].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction to_inline_ligo TT_remap_ligo TT_rename_ligo "cctx_instance" COUNTER_MODULE_LIGO).
+  (CameLIGO_prepare_extraction to_inline_ligo TT_remap_ligo TT_rename_ligo [] "cctx_instance" COUNTER_MODULE_LIGO).
 
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
