@@ -965,7 +965,7 @@ Section PPLigo.
   ; "  ctx_from_ = Tezos.sender;"
   ; "  ctx_contract_address_ = Tezos.self_address;"
   ; "  ctx_contract_balance_ = Tezos.balance;"
-  ; "  ctx_amount_ = Tezos.balance"
+  ; "  ctx_amount_ = Tezos.amount"
   ; "}"
   ; ""
   ; "(* context projections as functions *)"

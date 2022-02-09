@@ -1,4 +1,4 @@
-FROM aucobra/concert:deps-coq-8.11
+FROM aucobra/concert:deps-coq-8.11-with-compilers-ligo-0.34.0
 
 LABEL maintainer="Cobra Team"
 
