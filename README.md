@@ -17,7 +17,7 @@ To set up a switch with the necessary dependencies run the following commands fr
 opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install -j 4 coq.8.11.2 coq-bignums coq-stdpp coq-quickchick
+opam install -j 4 coq.8.11.2 coq-bignums coq-stdpp.1.5.0 coq-quickchick
 opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447
 ```
 

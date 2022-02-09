@@ -18,11 +18,11 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Examples Require Import FA2Token.
 From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Execution.Examples Require Import Dexter2FA12.
-From ConCert.Execution.Examples Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import SerializableUtil.
 From Coq Require Import ZArith.
 From Coq Require Import List.
@@ -233,7 +233,6 @@ Module Dexter2 (SI : Dexter2Serializable).
 
     (** Null address that will newer contain contracts *)
     Parameter null_address : Address.
-    Axiom null_address_not_contract : address_is_contract null_address = false.
 
     Definition Msg := @FA2Token.FA2ReceiverMsg BaseTypes DexterMsg _.
 
@@ -2857,47 +2856,74 @@ Qed.
     Opaque deserialize serialize.
   Qed.
 
-  (** [lqtTotal] is equal to the initial tokens + minted tokens - burned tokens *)
-  Lemma lqt_pool_correct : forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
-    (forall x (y : Address), deserialize x = Some y -> x = serialize y) ->
-    env_contracts bstate caddr_main = Some (contract : WeakContract) ->
-    env_contracts bstate caddr_lqt = Some (DEX2LQT.contract : WeakContract) ->
-    exists state_main state_lqt depinfo_main depinfo_lqt,
-      contract_state bstate caddr_main = Some state_main /\
-      contract_state bstate caddr_lqt = Some state_lqt /\
-      deployment_info Setup trace caddr_main = Some depinfo_main /\
-      deployment_info Dexter2FA12.Setup trace caddr_lqt = Some depinfo_lqt /\
-      let initial_tokens_main := lqtTotal_ (deployment_setup depinfo_main) in
-      let initial_tokens_lqt := initial_pool (deployment_setup depinfo_lqt) in
-      (state_main.(lqtAddress) = caddr_lqt ->
-       state_lqt.(admin) = caddr_main ->
-      initial_tokens_main = initial_tokens_lqt ->
-      filter (actTo state_main.(lqtAddress)) (outgoing_acts bstate caddr_main) = [] ->
-        state_main.(lqtTotal) = state_lqt.(total_supply)).
-  Proof.
-    intros * ? deployed_main deployed_lqt.
-    apply (lqt_total_correct _ _ trace) in deployed_main as main_correct.
-    destruct main_correct as (state_main & depinfo_main & deployed_state_main & deploy_info_main & main_correct).
-    apply (total_supply_correct _ _ trace) in deployed_lqt as lqt_correct.
-    destruct lqt_correct as (state_lqt & depinfo_lqt & inc_calls_lqt & deployed_state_lqt & deploy_info_lqt & inc_acts_lqt & lqt_correct).
-    specialize incomming_eq_outgoing as incoming_eq.
-    edestruct incoming_eq as (? & inc_acts_lqt' & calls_eq);
-      [| apply deployed_main | apply deployed_lqt |].
-    - intros. eapply deserialize_lqt_token_msg_right_inverse; auto.
-    - setoid_rewrite inc_acts_lqt in inc_acts_lqt'.
-      inversion inc_acts_lqt'.
-      subst. clear inc_acts_lqt'.
-      do 4 eexists.
-      repeat split; eauto.
-      cbn.
-      intros addr_main_eq addr_lqt_eq init_pool_eq no_waiting_mint_acts.
-      apply N2Z.inj.
-      rewrite main_correct, lqt_correct, init_pool_eq, no_waiting_mint_acts, addr_main_eq, addr_lqt_eq.
-      rewrite Z.add_0_r, Z.add_cancel_l.
-      rewrite calls_eq, sumZ_map.
-      apply sumZ_eq.
-      intros.
-      now rewrite <- mintedOrBurnedTokens_call_eq_tx.
-  Qed.
 
+  (** ** lqtTotal/total_supply invariant *)
+  Section LqtPoolCorrect.
+
+    Arguments lqt_contract {_ _ _ _} _.
+    Arguments lqt_total_supply_correct {_ _ _ _} _.
+
+    (** [lqtTotal] of the main contract is equal to [total_supply] of the liquidity token *)
+    (** We define the statement for the liquidity token interface contract interface.
+        [LqtTokenInterface]. That is, for any contract with correct signature satisfying
+        an additional correctness property, namely [total_supply] is equal to the initial
+        tokens + minted tokens - burned tokens *)
+    Definition lqtTotal_total_supply_invariant (i_lqt_contract : LqtTokenInterface) : Prop :=
+      forall bstate caddr_main caddr_lqt (trace : ChainTrace empty_state bstate),
+      env_contracts bstate caddr_main = Some (contract : WeakContract) ->
+      env_contracts bstate caddr_lqt = Some (i_lqt_contract.(lqt_contract) : WeakContract) ->
+      exists state_main state_lqt depinfo_main depinfo_lqt,
+        contract_state bstate caddr_main = Some state_main /\
+        contract_state bstate caddr_lqt = Some state_lqt /\
+        deployment_info Setup trace caddr_main = Some depinfo_main /\
+        deployment_info Dexter2FA12.Setup trace caddr_lqt = Some depinfo_lqt /\
+        let initial_tokens_main := lqtTotal_ (deployment_setup depinfo_main) in
+        let initial_tokens_lqt := initial_pool (deployment_setup depinfo_lqt) in
+        (state_main.(lqtAddress) = caddr_lqt ->
+         state_lqt.(admin) = caddr_main ->
+        initial_tokens_main = initial_tokens_lqt ->
+        filter (actTo state_main.(lqtAddress)) (outgoing_acts bstate caddr_main) = [] ->
+          state_main.(lqtTotal) = state_lqt.(total_supply)).
+
+    (** We prove that the invariant hold for any contract satisfying the interface *)
+    Lemma lqt_pool_correct_interface :
+      forall (i_lqt_contract : LqtTokenInterface), (* for any correct liquidity token *)
+         (forall x (y : Address), deserialize x = Some y -> x = serialize y) -> (* a technical condition for serialisation *)
+        lqtTotal_total_supply_invariant i_lqt_contract.
+    Proof.
+      intros ? ? ? ? ? ? deployed_main deployed_lqt.
+      apply (lqt_total_correct _ _ trace) in deployed_main as main_correct.
+      destruct main_correct as (state_main & depinfo_main & deployed_state_main & deploy_info_main & main_correct).
+      apply (lqt_total_supply_correct _ _ _ trace) in deployed_lqt as lqt_correct.
+      destruct lqt_correct as (state_lqt & depinfo_lqt & inc_calls_lqt & deployed_state_lqt & deploy_info_lqt & inc_acts_lqt & lqt_correct).
+      specialize incomming_eq_outgoing as incoming_eq.
+      edestruct incoming_eq as (? & inc_acts_lqt' & calls_eq);
+        [| apply deployed_main | apply deployed_lqt |].
+      - intros. eapply deserialize_lqt_token_msg_right_inverse; auto.
+      - setoid_rewrite inc_acts_lqt in inc_acts_lqt'.
+        inversion inc_acts_lqt'.
+        subst. clear inc_acts_lqt'.
+        do 4 eexists.
+        repeat split; eauto.
+        cbn.
+        intros addr_main_eq addr_lqt_eq init_pool_eq no_waiting_mint_acts.
+        apply N2Z.inj.
+        rewrite main_correct, lqt_correct, init_pool_eq, no_waiting_mint_acts, addr_main_eq, addr_lqt_eq.
+        rewrite Z.add_0_r, Z.add_cancel_l.
+        rewrite calls_eq, sumZ_map.
+        apply sumZ_eq.
+        intros.
+        now rewrite <- mintedOrBurnedTokens_call_eq_tx.
+    Qed.
+  End LqtPoolCorrect.
+
+  (** Now, we prove that the concrete implemention of the liquidity token satisfies the
+      inter-contract invariant *)
+  Theorem lqt_pool_correct_lqt_fa12 :
+    (forall x (y : Address), deserialize x = Some y -> x = serialize y) ->
+    lqtTotal_total_supply_invariant Dexter2FA12.LqtFA12Token.
+  Proof.
+    apply lqt_pool_correct_interface.
+  Qed.
+  
 End Theories.

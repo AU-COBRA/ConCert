@@ -77,7 +77,7 @@ $(LIQUIDITY_SRC_DIR)/%.tz:
 test-ligo: clean-comiped-ligo $(LIGO_DIST)
 
 $(LIGO_SRC_DIR)/%.tz:
-	ligo compile contract $(LIGO_SRC_DIR)/$*.mligo -e main -o $@ --warn false
+	ligo compile contract $(LIGO_SRC_DIR)/$*.mligo -e main -o $@ --no-warn
 
 clean-comiped-ligo:
 	rm ./examples/extracted-code/cameligo-extract/tests/*.tz -f

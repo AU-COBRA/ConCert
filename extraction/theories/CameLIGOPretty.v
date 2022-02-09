@@ -385,21 +385,7 @@ Section PPTerm.
   Definition app_args_annot {A} (f : (∑t, annots box_type t) -> A) :=
     fix go (t : term) : annots box_type t -> list A :=
     match t with
-    | tApp t1 (tConst c as t2) => fun '(bt, (hda, arga)) =>
-      let cst_name := string_of_kername c in
-      if cst_name =? "" then go t1 hda
-      else (f (t2; arga)) :: go t1 hda
     | tApp t1 t2 => fun '(bt, (hda, arga)) => (f (t2; arga)) :: go t1 hda
-    | _ => fun _ => []
-    end.
-
-  Definition app_args_annot_empty_filtered {A} (f : (∑t, annots box_type t) -> A) (h : (∑t, annots box_type t) -> bool) :=
-    fix go (t : term) : annots box_type t -> list A :=
-    match t with
-    | tApp t1 t2 => fun '(bt, (hda, arga)) =>
-      if h (t2;arga) then
-        (f (t2; arga)) :: go t1 hda
-      else go t1 hda
     | _ => fun _ => []
     end.
 
@@ -513,16 +499,7 @@ Section PPTerm.
                         " = " ++ print_term  FT TT ctx true false def vala ++ " in " ++ nl ++
                         print_term  FT TT (vdef na' def :: ctx) true false body bodya)
     | tApp f l as t => fun '(bt, (fa, la)) =>
-      let is_not_empty_const := fun t =>
-        match t with
-        | tApp t1 (tConst c as t2) =>
-          let cst_name := string_of_kername c in
-          let nm := from_option (look TT cst_name) c.2 in
-          if nm =? "" then false
-          else true
-        | _ => true end in
-      (* FIXME: remove filtering of the arguments *)
-      let apps := rev (app_args_annot_empty_filtered (fun '(t; a) => print_term  FT TT ctx false false t a) (fun '(t';_) => is_not_empty_const t') t (bt, (fa, la))) in
+      let apps := rev (app_args_annot (fun '(t; a) => print_term  FT TT ctx false false t a) t (bt, (fa, la))) in
       let '((b;ba),argas) := Edecompose_app_annot f fa in
       match apps with
       | [] => print_term  FT TT ctx false true f fa
@@ -577,9 +554,7 @@ Section PPTerm.
                   parens top (print_uncurried nm' apps)
                 end
               end
-        | _ => if is_not_empty_const l then
-                parens (top || inapp) (print_term  FT TT ctx false true f fa ++ " " ++ print_term  FT TT ctx false false l la)
-               else print_term  FT TT ctx false true f fa
+        | _ => parens (top || inapp) (print_term  FT TT ctx false true f fa ++ " " ++ print_term  FT TT ctx false false l la)
         end
       end
     | tConst c => fun bt =>
@@ -990,7 +965,7 @@ Section PPLigo.
   ; "  ctx_from_ = Tezos.sender;"
   ; "  ctx_contract_address_ = Tezos.self_address;"
   ; "  ctx_contract_balance_ = Tezos.balance;"
-  ; "  ctx_amount_ = Tezos.balance"
+  ; "  ctx_amount_ = Tezos.amount"
   ; "}"
   ; ""
   ; "(* context projections as functions *)"
