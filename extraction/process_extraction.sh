@@ -8,10 +8,12 @@ then
   for i in *.ml*
   do
     newi=`echo $i | cut -b 1 | tr '[:upper:]' '[:lower:]'``echo $i | cut -b 2-`;
+	tmp="${i}.tmp"
     if [ $i != $newi ]
     then
       echo "Moving " $i "to" $newi;
-      mv $i $newi;
+	  mv $i $tmp;
+      mv $tmp $newi;
     fi
   done
 
