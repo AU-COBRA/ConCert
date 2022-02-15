@@ -8,12 +8,12 @@ then
   for i in *.ml*
   do
     newi=`echo $i | cut -b 1 | tr '[:upper:]' '[:lower:]'``echo $i | cut -b 2-`;
-	tmp="${i}.tmp"
+    tmp="${i}.tmp"
     if [ $i != $newi ]
     then
       echo "Moving " $i "to" $newi;
       # Move in two steps to circumvent a bug on case insensitive file systems
-	    mv $i $tmp;
+      mv $i $tmp;
       mv $tmp $newi;
     fi
   done
