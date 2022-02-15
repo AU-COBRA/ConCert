@@ -12,7 +12,8 @@ then
     if [ $i != $newi ]
     then
       echo "Moving " $i "to" $newi;
-	  mv $i $tmp;
+      # Move in two steps to circumvent a bug on case insensitive file systems
+	    mv $i $tmp;
       mv $tmp $newi;
     fi
   done
