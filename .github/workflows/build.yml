@@ -61,12 +61,12 @@ jobs:
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
-      if: github.event_name != 'pull_request' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
+      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
     - name: Build documentation
-      if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      if: github.event_name != 'push' && github.ref == 'refs/heads/master'
       run: make -j2 html
     - name: Deploy the docs to GitHub Pages
-      if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v2
       with:
         target_branch: gh-pages
