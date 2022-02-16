@@ -11,18 +11,26 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Build and test extraction
+    - name: Setup opam switch
       run: |
         export HOME=/home/coq && \
         PATH=/home/coq/.cargo/bin:$PATH
         env && \
         opam switch && \
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        make -j2 && \
-        make -j2 html && \
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+    - name: Build execution
+      run: make -j2 execution
+    - name: Build embedding
+      run: make -j2 embedding
+    - name: Build extraction
+      run: make -j2 extraction
+    - name: Test extraction
+      run: |
         make -j2 test-extraction && \
         make -j2 clean-extraction-out-files && \
         make -j2 clean-compiled-extraction
+    - name: Build documentation
+      run: make -j2 html
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
