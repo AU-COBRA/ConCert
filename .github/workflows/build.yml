@@ -18,11 +18,11 @@ jobs:
         env && \
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        make && \
-        make html && \
-        make test-extraction && \
-        make clean-extraction-out-files && \
-        make clean-compiled-extraction
+        make -j2 && \
+        make -j2 html && \
+        make -j2 test-extraction && \
+        make -j2 clean-extraction-out-files && \
+        make -j2 clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
         name: Documentation
