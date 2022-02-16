@@ -11,6 +11,21 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
+    - name: Set file modification times
+      run: |
+        for f in $(git ls-tree -r -t --full-name --name-only HEAD); do
+            touch -d $(git log --pretty=format:%cI -1 "HEAD" -- "$f") "$f";
+        done
+    - name: Cache build outputs
+      uses: actions/cache@v2
+      with:
+        path: |
+          **/*.vo
+          **/*.glob
+          !extraction/**/*.vo
+          !extraction/**/*.glob
+        key: build-output-${{ hashFiles('**/Dockerfile') }}-${{ github.sha }}
+        restore-keys: build-output-${{ hashFiles('**/Dockerfile') }}-
     - name: Setup opam switch
       run: |
         export HOME=/home/coq && \
