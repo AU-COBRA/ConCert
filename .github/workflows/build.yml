@@ -26,24 +26,18 @@ jobs:
           !extraction/**/*.glob
         key: build-output-${{ hashFiles('**/Dockerfile') }}-${{ github.sha }}
         restore-keys: build-output-${{ hashFiles('**/Dockerfile') }}-
-    - name: Setup opam switch
+    - name: Build
       run: |
-        export HOME=/home/coq && \
+        export HOME=/home/coq
         PATH=/home/coq/.cargo/bin:$PATH
-        env && \
-        opam switch && \
+        env
+        opam switch
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
-    - name: Build execution
-      run: make -j2 execution
-    - name: Build embedding
-      run: make -j2 embedding
-    - name: Build extraction
-      run: make -j2 extraction
-    - name: Test extraction
-      run: |
-        make -j2 test-extraction && \
-        make -j2 clean-extraction-out-files && \
+        make -j2
+        make -j2 test-extraction
+        make -j2 clean-extraction-out-files
         make -j2 clean-compiled-extraction
+        make -j2 html
     - uses: actions/upload-artifact@v2
       with:
         name: Liquidity logs
@@ -62,9 +56,6 @@ jobs:
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
       if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-    - name: Build documentation
-      if: github.event_name != 'push' && github.ref == 'refs/heads/master'
-      run: make -j2 html
     - name: Deploy the docs to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v2
