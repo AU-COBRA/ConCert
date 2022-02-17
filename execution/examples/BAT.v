@@ -171,55 +171,62 @@ Section Theories.
 (* begind hide *)
 (* Tactics to simplify proof steps *)
 
-Ltac receive_simpl_step :=
+Ltac destruct_match_some m H :=
+  let a := fresh "H" in
+    destruct m eqn:a in H;
+    try setoid_rewrite a;
+    cbn in H; cbn;
+    try congruence.
+
+Tactic Notation "destruct_match_some" constr(m) "in" hyp(H) :=
+  destruct_match_some m H.
+
+Ltac contract_simpl_step :=
   match goal with
   | H : context[receive] |- _ => unfold receive in H; cbn in H
-  | |- context[receive] => unfold receive
-  | H : context[receive_bat] |- _ => unfold receive_bat in H
-  | |- context[receive_bat] => unfold receive_bat
+  | |- context[receive] => unfold receive; cbn
+  | H : context[init] |- _ => unfold init in H; cbn in H
+  | |- context[init] => unfold init; cbn
   | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
   | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
-  | H : context[try_finalize] |- _ => unfold try_finalize in H; cbn in H
-  | |- context[try_finalize] => unfold try_finalize; cbn
-  | H : context[try_refund] |- _ => unfold try_refund in H; cbn in H
-  | |- context[try_refund] => unfold try_refund; cbn
-  | H : context[try_create_tokens] |- _ => unfold try_create_tokens in H; cbn in H
-  | |- context[try_create_tokens] => unfold try_create_tokens; cbn
-  | H : throwIf _ = _ |- _ => destruct_throw_if H
-  | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-    let a := fresh "H" in
-    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
+  | H : context[Blockchain.init] |- _ => unfold Blockchain.init in H; cbn in H
+  | |- context[Blockchain.init] => unfold Blockchain.init; cbn
+  | H : throwIf _ = None |- _ => destruct_throw_if H
+  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
+  | H : Some _ = Some _ |- _ =>
+      inversion H; clear H; subst
+  | H : _ match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
+      destruct_match_some m in H
   | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-    let a := fresh "H" in
-    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-  | H : isSome (match ?m with | Some _ => _ | None => None end) = _ |- _ =>
-    let a := fresh "H" in
-    destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-  | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
-    match a with
-    | None =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-    | _ => match b with
-           | None =>
-             let a := fresh "H" in
-             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-           | _ => idtac
-    end end
-  | H : (if ?m then ?a else ?b) = Some _ |- _ =>
-    match a with
-    | None =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-    | _ => match b with
-           | None =>
-             let a := fresh "H" in
-             destruct m eqn:a in H; try rewrite a; cbn in *; try congruence
-           | _ => idtac
-    end end
+      destruct_match_some m in H
+  | H : _ (if ?m then None else _) = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : _ (if ?m then _ else None) = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : (if ?m then None else _) = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : (if ?m then _ else None) = Some _ |- _ =>
+      destruct_match_some m in H
   end.
 
-Tactic Notation "receive_simpl" := repeat receive_simpl_step.
+Tactic Notation "contract_simpl" := repeat contract_simpl_step.
+
+Ltac destruct_message :=
+  repeat match goal with
+  | msg : option Msg |- _ => destruct msg
+  | msg : Msg |- _ => destruct msg
+  | msg : EIP20Token.Msg |- _ => destruct msg
+  | H : Blockchain.receive _ _ _ _ None = Some _ |- _ => now contract_simpl
+  | H : receive _ _ _ None = Some _ |- _ => now contract_simpl
+  end.
+
+Ltac destruct_message' :=
+  repeat match goal with
+  | msg : option Msg |- _ => destruct msg
+  | msg : Msg |- _ => destruct msg
+  | H : Blockchain.receive _ _ _ _ None = Some _ |- _ => now contract_simpl
+  | H : receive _ _ _ None = Some _ |- _ => now contract_simpl
+  end.
 (* end hide *)
 
 
@@ -231,11 +238,9 @@ Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to am
   transfer_balance_update_correct (token_state prev_state) (token_state new_state) ctx.(ctx_from) to amount = true.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_balance_correct; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_balance_correct; eauto.
 Qed.
 
 Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
@@ -243,11 +248,9 @@ Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ct
     (total_supply prev_state) = (total_supply new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_preserves_total_supply; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_preserves_total_supply; eauto.
 Qed.
 
 Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
@@ -255,11 +258,9 @@ Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx 
     (allowances prev_state) = (allowances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_preserves_allowances; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_preserves_allowances; eauto.
 Qed.
 
 Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
@@ -268,11 +269,9 @@ Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain 
       FMap.find account (balances prev_state) = FMap.find account (balances new_state).
 Proof.
   intros * receive_some account account_not_sender account_not_to.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_preserves_other_balances; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_preserves_other_balances; eauto.
 Qed.
 
 Lemma try_transfer_is_some : forall state chain ctx to amount,
@@ -296,11 +295,9 @@ Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx 
   transfer_from_allowances_update_correct (token_state prev_state) (token_state new_state) from ctx.(ctx_from) amount = true.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_from_balance_correct; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_from_balance_correct; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
@@ -308,11 +305,9 @@ Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state cha
     (total_supply prev_state) = (total_supply new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_from_preserves_total_supply; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_from_preserves_total_supply; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state chain ctx from to amount new_acts,
@@ -321,11 +316,9 @@ Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state c
       FMap.find account (balances prev_state) = FMap.find account (balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_from_preserves_other_balances.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_from_preserves_other_balances; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state chain ctx from to amount new_acts,
@@ -334,11 +327,9 @@ Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state
       FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_from_preserves_other_allowances; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_from_preserves_other_allowances; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
@@ -347,11 +338,9 @@ Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state 
       get_allowance (token_state prev_state) from account = get_allowance (token_state new_state) from account.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_from_preserves_other_allowance; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_from_preserves_other_allowance; eauto.
 Qed.
 
 Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
@@ -378,11 +367,9 @@ Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx dele
   approve_allowance_update_correct (token_state new_state) ctx.(ctx_from) delegate amount = true.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_approve_allowance_correct; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_approve_allowance_correct; eauto.
 Qed.
 
 Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -390,11 +377,9 @@ Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx
     (total_supply prev_state) = (total_supply new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_approve_preserves_total_supply; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_approve_preserves_total_supply; eauto.
 Qed.
 
 Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -402,11 +387,9 @@ Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx del
     (balances prev_state) = (balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_approve_preserves_balances; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_approve_preserves_balances; eauto.
 Qed.
 
 Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -415,11 +398,9 @@ Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain
       FMap.find account (allowances prev_state) = FMap.find account (allowances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_approve_preserves_other_allowances; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_approve_preserves_other_allowances; eauto.
 Qed.
 
 Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -428,11 +409,9 @@ Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain 
       get_allowance (token_state prev_state) (ctx_from ctx) account = get_allowance (token_state new_state) (ctx_from ctx) account.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_approve_preserves_other_allowance; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_approve_preserves_other_allowance; eauto.
 Qed.
 
 Lemma try_approve_is_some : forall state chain ctx delegate amount,
@@ -453,8 +432,7 @@ Lemma eip_only_changes_token_state : forall prev_state new_state chain ctx m new
     prev_state<|token_state := (token_state new_state)|> = new_state.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 
@@ -466,7 +444,7 @@ Lemma eip20_not_payable : forall prev_state new_state chain ctx m new_acts,
     (ctx_amount ctx <= 0)%Z.
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
   destruct p.
   now eapply EIP20Token.EIP20_not_payable.
 Qed.
@@ -480,11 +458,9 @@ Lemma eip20_new_acts_correct : forall prev_state new_state chain ctx m new_acts,
     new_acts = [].
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
   destruct p.
-  eapply EIP20Token.EIP20_no_acts.
-  inversion receive_some.
-  now subst.
+  now eapply EIP20Token.EIP20_no_acts.
 Qed.
 
 
@@ -497,8 +473,7 @@ Lemma try_create_tokens_balance_correct : forall prev_state new_state chain ctx 
     with_default 0 (FMap.find (ctx_from ctx) (balances new_state)) - ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
+  contract_simpl.
   setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance;
     setoid_rewrite from_balance;
@@ -512,8 +487,7 @@ Lemma try_create_tokens_total_supply_correct : forall prev_state new_state chain
     (total_supply new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_create_tokens_preserves_other_balances : forall prev_state new_state chain ctx new_acts,
@@ -522,8 +496,7 @@ Lemma try_create_tokens_preserves_other_balances : forall prev_state new_state c
       FMap.find account (balances prev_state) = FMap.find account (balances new_state).
 Proof.
   intros * receive_some account account_not_sender.
-  receive_simpl.
-  inversion receive_some.
+  contract_simpl.
   setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
   now setoid_rewrite FMap.find_add_ne.
 Qed.
@@ -533,8 +506,7 @@ Lemma try_create_tokens_preserves_allowances : forall prev_state new_state chain
     (allowances prev_state) = (allowances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_create_tokens_only_change_token_state : forall prev_state new_state chain ctx new_acts,
@@ -542,8 +514,7 @@ Lemma try_create_tokens_only_change_token_state : forall prev_state new_state ch
     prev_state<|token_state := (token_state new_state)|> = new_state.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_create_tokens_is_some : forall state chain ctx,
@@ -557,7 +528,7 @@ Proof.
   split.
   - intros (amount_positive & not_finalized &
       funding_started & funding_not_over & cap_not_hit).
-    receive_simpl.
+    contract_simpl.
     destruct_match eqn:match_requirements; destruct_throw_if match_requirements.
     destruct_match eqn:sender_amount; destruct_throw_if sender_amount.
     destruct_match eqn:cap_hit; destruct_throw_if cap_hit.
@@ -570,7 +541,7 @@ Proof.
       now destruct match_requirements as
         [[finalized | funding_not_started%Nat.ltb_lt] | funding_over%Nat.ltb_lt].
   - intros (new_state & new_acts & receive_some).
-    receive_simpl.
+    contract_simpl.
     rename H into match_requirements.
     rename H0 into sender_amount.
     rename H1 into cap_hit.
@@ -587,7 +558,7 @@ Lemma try_create_tokens_acts_correct : forall prev_state new_state chain ctx new
     new_acts = [].
 Proof.
   intros.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 Lemma try_create_tokens_amount_correct : forall prev_state new_state chain ctx new_acts,
@@ -595,9 +566,8 @@ Lemma try_create_tokens_amount_correct : forall prev_state new_state chain ctx n
     Z.lt 0 ctx.(ctx_amount).
 Proof.
   intros.
-  receive_simpl.
-  rename H1 into sender_amount.
-  now apply Z.leb_gt in sender_amount.
+  contract_simpl.
+  now rewrite Z.leb_gt in *.
 Qed.
 
 
@@ -609,8 +579,7 @@ Lemma try_finalize_isFinalized_correct : forall prev_state new_state chain ctx n
     (isFinalized prev_state) = false /\ (isFinalized new_state) = true.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
+  contract_simpl.
   rename H0 into requirements_check.
   split.
   - now do 2 apply Bool.orb_false_iff in requirements_check as [requirements_check _].
@@ -622,8 +591,7 @@ Lemma try_finalize_only_change_isFinalized : forall prev_state new_state chain c
     prev_state<|isFinalized := (isFinalized new_state)|> = new_state.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_finalize_preserves_total_supply : forall prev_state new_state chain ctx new_acts,
@@ -645,7 +613,7 @@ Lemma try_finalize_is_some : forall state chain ctx,
 Proof.
   split.
   - intros * (amount_zero & not_finalized & sender_funddeposit & min_hit & funding_over).
-    receive_simpl.
+    contract_simpl.
     destruct_match eqn:amount_check; destruct_throw_if amount_check.
     destruct_match eqn:requirements_check; destruct_throw_if requirements_check.
     destruct_match eqn:funding_over_check; destruct_throw_if funding_over_check.
@@ -658,7 +626,7 @@ Proof.
         [[finalized | sender_not_funddeposit%Bool.negb_true_iff] | min_not_hit%N.ltb_lt]; try easy.
       * now destruct_address_eq.
   - intros (new_state & new_acts & receive_some).
-    receive_simpl.
+    contract_simpl.
     rename H into amount_check.
     rename H0 into requirements_check.
     rename H1 into funding_over_check.
@@ -680,7 +648,7 @@ Lemma try_finalize_acts_correct : forall prev_state new_state chain ctx new_acts
     ].
 Proof.
   intros.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 
@@ -692,8 +660,7 @@ Lemma try_refund_balance_correct : forall prev_state new_state chain ctx new_act
     with_default 0 (FMap.find (ctx_from ctx) (balances new_state)) = 0.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
+  contract_simpl.
   now setoid_rewrite FMap.find_add.
 Qed.
 
@@ -703,8 +670,7 @@ Lemma try_refund_total_supply_correct : forall prev_state new_state chain ctx ne
     (total_supply new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_refund_preserves_other_balances : forall prev_state new_state chain ctx new_acts,
@@ -713,8 +679,7 @@ Lemma try_refund_preserves_other_balances : forall prev_state new_state chain ct
       FMap.find account (balances prev_state) = FMap.find account (balances new_state).
 Proof.
   intros * receive_some account account_not_sender.
-  receive_simpl.
-  inversion receive_some.
+  contract_simpl.
   now setoid_rewrite FMap.find_add_ne.
 Qed.
 
@@ -723,8 +688,7 @@ Lemma try_refund_preserves_allowances : forall prev_state new_state chain ctx ne
     (allowances prev_state) = (allowances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_refund_only_change_token_state : forall prev_state new_state chain ctx new_acts,
@@ -732,8 +696,7 @@ Lemma try_refund_only_change_token_state : forall prev_state new_state chain ctx
     prev_state<|token_state := (token_state new_state)|> = new_state.
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_refund_is_some : forall state chain ctx,
@@ -747,7 +710,7 @@ Lemma try_refund_is_some : forall state chain ctx,
 Proof.
   split.
   - intros (amount_zero & not_finalized & funding_over & min_not_hit & sender_not_batfund & balance_not_zero).
-    receive_simpl.
+    contract_simpl.
     destruct_match eqn:amount_check; destruct_throw_if amount_check.
     destruct_match eqn:requirements_check; destruct_throw_if requirements_check.
     destruct_match eqn:sender_check; destruct_throw_if sender_check.
@@ -762,7 +725,7 @@ Proof.
       now destruct requirements_check as
         [[finalized | funding_active%Nat.leb_le] | min_hit%N.leb_le].
   - intros (new_cstate & new_acts & receive_some).
-    receive_simpl.
+    contract_simpl.
     rename H into amount_check.
     rename H0 into requirements_check.
     rename H1 into sender_check.
@@ -785,7 +748,7 @@ Lemma try_refund_acts_correct : forall prev_state new_state chain ctx new_acts,
     ].
 Proof.
   intros.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 
@@ -797,7 +760,7 @@ Lemma init_bat_balance_correct : forall state chain ctx setup,
     with_default 0 (FMap.find state.(batFundDeposit) (balances state)) = setup.(_batFund).
 Proof.
   intros * init_some.
-  inversion init_some.
+  contract_simpl.
   now setoid_rewrite FMap.find_add.
 Qed.
 
@@ -807,10 +770,8 @@ Lemma init_other_balances_correct : forall state chain ctx setup,
     with_default 0 (FMap.find account (balances state)) = 0.
 Proof.
   intros * init_some account account_not_funddeposit.
-  inversion init_some.
-  setoid_rewrite FMap.find_add_ne.
-  - now setoid_rewrite FMap.find_empty.
-  - now subst.
+  contract_simpl.
+  now setoid_rewrite FMap.find_add_ne.
 Qed.
 
 Lemma init_allowances_correct : forall state chain ctx setup,
@@ -818,7 +779,7 @@ Lemma init_allowances_correct : forall state chain ctx setup,
     (allowances state) = FMap.empty.
 Proof.
   intros * init_some.
-  now inversion init_some.
+  now contract_simpl.
 Qed.
 
 Lemma init_isFinalized_correct : forall state chain ctx setup,
@@ -826,7 +787,7 @@ Lemma init_isFinalized_correct : forall state chain ctx setup,
     state.(isFinalized) = false.
 Proof.
   intros * init_some.
-  now inversion init_some.
+  now contract_simpl.
 Qed.
 
 Lemma init_total_supply_correct : forall state chain ctx setup,
@@ -834,7 +795,7 @@ Lemma init_total_supply_correct : forall state chain ctx setup,
     (total_supply state) = setup.(_batFund).
 Proof.
   intros * init_some.
-  now inversion init_some.
+  now contract_simpl.
 Qed.
 
 Lemma init_constants_correct : forall state chain ctx setup,
@@ -849,7 +810,7 @@ Lemma init_constants_correct : forall state chain ctx setup,
     /\ state.(initSupply) = setup.(_batFund).
 Proof.
   intros * init_some.
-  now inversion init_some.
+  now contract_simpl.
 Qed.
 
 
@@ -861,11 +822,9 @@ Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ct
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_preserves_balances_sum; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_preserves_balances_sum; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
@@ -873,11 +832,9 @@ Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state cha
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_transfer_from_preserves_balances_sum; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_transfer_from_preserves_balances_sum; eauto.
 Qed.
 
 Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -885,11 +842,9 @@ Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
+  contract_simpl.
   destruct p.
-  subst. now cbn.
+  eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
 Qed.
 
 Lemma try_create_tokens_update_balances_sum : forall prev_state new_state chain ctx new_acts,
@@ -897,9 +852,8 @@ Lemma try_create_tokens_update_balances_sum : forall prev_state new_state chain 
     (sum_balances prev_state) + ((Z.to_N (ctx_amount ctx)) * (tokenExchangeRate prev_state)) = (sum_balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
-  unfold EIP20Token.sum_balances. cbn in *. clear H H3 H4.
+  contract_simpl.
+  unfold EIP20Token.sum_balances. cbn in *.
   setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
   - setoid_rewrite from_balance.
@@ -916,8 +870,7 @@ Lemma try_finalize_preserves_balances_sum : forall prev_state new_state chain ct
     (sum_balances prev_state) = (sum_balances new_state).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  now inversion receive_some.
+  now contract_simpl.
 Qed.
 
 Lemma try_refund_update_balances_sum : forall prev_state new_state chain ctx new_acts,
@@ -925,8 +878,7 @@ Lemma try_refund_update_balances_sum : forall prev_state new_state chain ctx new
     (sum_balances prev_state) = (sum_balances new_state) + (with_default 0 (FMap.find (ctx_from ctx) (balances prev_state))).
 Proof.
   intros * receive_some.
-  receive_simpl.
-  inversion receive_some.
+  contract_simpl.
   unfold EIP20Token.sum_balances.
   setoid_rewrite FMap.elements_add_existing; eauto.
   change n with ((fun '(_, v) => v) (ctx_from ctx, n)).
@@ -938,7 +890,7 @@ Lemma init_preserves_balances_sum : forall state chain ctx setup,
     (sum_balances state) = (total_supply state).
 Proof.
   intros * receive_some.
-  inversion receive_some.
+  contract_simpl.
   unfold EIP20Token.sum_balances.
   subst. cbn.
   setoid_rewrite FMap.elements_add; auto.
@@ -965,7 +917,7 @@ Proof.
   - intros init_some.
     now apply init_preserves_balances_sum in init_some.
   - intros IH receive_some.
-    destruct msg. destruct m. destruct m.
+    destruct_message.
     + now erewrite <- try_transfer_preserves_balances_sum,
                    <- try_transfer_preserves_total_supply.
     + now erewrite <- try_transfer_from_preserves_balances_sum,
@@ -978,7 +930,6 @@ Proof.
                    <- try_finalize_preserves_total_supply.
     + apply try_refund_update_balances_sum in receive_some as balance_sum.
       now apply try_refund_total_supply_correct in receive_some.
-    + now receive_simpl.
 Qed.
 
 
@@ -993,7 +944,7 @@ Lemma receive_total_supply_increasing : forall prev_state new_state chain ctx ms
        (total_supply prev_state) <= (total_supply new_state).
 Proof.
   intros * funding_active receive_some.
-  destruct msg. destruct m. destruct m.
+  destruct_message.
   - apply try_transfer_preserves_total_supply in receive_some. lia.
   - apply try_transfer_from_preserves_total_supply in receive_some. lia.
   - apply try_approve_preserves_total_supply in receive_some. lia.
@@ -1002,8 +953,7 @@ Proof.
   - apply try_finalize_preserves_total_supply in receive_some. lia.
   - specialize try_refund_is_some as [_ refund_implications].
     rewrite receive_some in refund_implications.
-    now destruct refund_implications; eauto.
-  - now receive_simpl.
+    now destruct refund_implications.
 Qed.
 
 
@@ -1023,8 +973,7 @@ Lemma receive_preserves_constants : forall prev_state new_state chain ctx msg ne
     /\ prev_state.(initSupply) = new_state.(initSupply).
 Proof.
   intros * receive_some.
-  destruct msg. destruct m. destruct m.
-  all: receive_simpl; now inversion receive_some.
+  destruct_message; now contract_simpl.
 Qed.
 
 (** Constants are always equal to the initial assignment *)
@@ -1061,12 +1010,11 @@ Lemma final_is_final : forall prev_state new_state chain ctx msg new_acts,
     (isFinalized new_state) = true.
 Proof.
   intros * (finalized & receive_some).
-  destruct msg. destruct m.
+  destruct_message'.
   - now rewrite <- (eip_only_changes_token_state _ _ _ _ _ _ receive_some).
   - now rewrite <- (try_create_tokens_only_change_token_state _ _ _ _ _ receive_some).
   - now apply try_finalize_isFinalized_correct in receive_some.
   - now rewrite <- (try_refund_only_change_token_state _ _ _ _ _ receive_some).
-  - now receive_simpl.
 Qed.
 
 
@@ -1086,32 +1034,28 @@ Proof.
   - intros ? init_some.
     now eapply init_isFinalized_correct.
   - intros IH receive_some ?.
-    destruct msg. destruct m.
-    + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
-      destruct m.
-      * apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
-        now rewrite supply_unchanged, <- finalized_unchanged in *.
-      * apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
-        now rewrite supply_unchanged, <- finalized_unchanged in *.
-      * apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
-        now rewrite supply_unchanged, <- finalized_unchanged in *.
+    destruct_message;
+      try apply eip_only_changes_token_state in receive_some as finalized_unchanged.
+    + apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
+      now rewrite supply_unchanged, <- finalized_unchanged in *.
+    + apply try_transfer_from_preserves_total_supply in receive_some as supply_unchanged.
+      now rewrite supply_unchanged, <- finalized_unchanged in *.
+    + apply try_approve_preserves_total_supply in receive_some as supply_unchanged.
+      now rewrite supply_unchanged, <- finalized_unchanged in *.
     + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
       rewrite <- finalized_unchanged in *.
-      receive_simpl.
+      contract_simpl.
       rename H0 into requirements_check.
       now rewrite !Bool.orb_false_iff in requirements_check.
-    + receive_simpl.
-      inversion receive_some as [supply_unchanged].
-      rewrite <- supply_unchanged in *.
+    + contract_simpl.
       rename H1 into requirements_check.
       rewrite !Bool.orb_false_iff in requirements_check.
       now destruct requirements_check as (_ & goal_hit%N.ltb_nlt).
     + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
       rewrite <- finalized_unchanged in *.
-      receive_simpl.
+      contract_simpl.
       rename H1 into requirements_check.
       now rewrite !Bool.orb_false_iff in requirements_check.
-    + now receive_simpl.
 Qed.
 
 
@@ -1582,12 +1526,10 @@ Proof.
     + specialize try_refund_is_some as [[new_cstate [resp_acts receive_some]] _]; cycle 1.
       * apply wc_receive_to_receive.
         rewrite receive_some.
-        receive_simpl.
+        contract_simpl.
         rename H1 into account_balance_some.
-        symmetry in receive_some.
-        update n with (with_default 0 (FMap.find account (balances cstate))) in receive_some by
-          now rewrite account_balance_some.
-        apply receive_some.
+        replace n with (with_default 0 (FMap.find account (balances cstate))); auto.
+        now rewrite account_balance_some.
       * repeat split; eauto.
     + now constructor.
   - eauto.
