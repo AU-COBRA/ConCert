@@ -6,6 +6,7 @@
 theories/Automation.v
 theories/Blockchain.v
 theories/BoundedN.v
+theories/BuildUtils.v
 theories/ChainedList.v
 theories/Circulation.v
 theories/Containers.v
@@ -31,7 +32,6 @@ examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingZ.v
 examples/BoardroomVotingTest.v
-examples/BuildUtils.v
 examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v

@@ -16,12 +16,12 @@ From Coq Require Import ZArith.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import BuildUtils.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import BATCommon.
-From ConCert.Execution.Examples Require Import BuildUtils.
 From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Examples Require EIP20Token.
 Import RecordSetNotations.
