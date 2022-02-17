@@ -1,7 +1,7 @@
-From ConCert Require Import Blockchain
-                            BATCommon
-                            TestUtils
-                            EIP20TokenPrinters.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution.Examples Require Import BATCommon.
+From ConCert.Execution.QCTests Require Import EIP20TokenPrinters.
+From ConCert.Execution.QCTests Require Import TestUtils.
 From QuickChick Require Import QuickChick.
 
 
