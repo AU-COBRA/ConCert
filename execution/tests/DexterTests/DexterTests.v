@@ -19,7 +19,7 @@ Import QcNotation.
 Import ListNotations.
 Import RecordSetNotations.
 
-(* The policy which allows both owners and operators to transfer tokens. *)
+(* the policy which allows both owners and operators to transfer tokens. *)
 Definition policy_all : permissions_descriptor := {|
   descr_self := self_transfer_permitted;
   descr_operator := operator_transfer_permitted;
