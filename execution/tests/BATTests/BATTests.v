@@ -399,71 +399,9 @@ Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old
   | _ => checker false
   end.
 
-(* False property: Only create_tokens should be payable *)
-(* QuickChick (expectFailure (
+(* Only create_tokens should be payable *)
+(* QuickChick (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
-  contract_base_addr
-  {{amount_is_zero}}
-)). *)
-(*
-Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 4 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)}];
-Block 6 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 3, refund)}];|}
-
-ChainState{
-  env: Environment{
-    chain: Chain{height: 3, current slot: 6, final height: 0},
-    contract states:...
-  },
-  queue: Action{act_from: 13%256, act_body: (act_call 128%256, 3, refund)}
-}
-On Msg: refund
-+++ Failed (as expected) after 13 tests and 15 shrinks. (0 discards)
-*)
-(* As we can see above refund is payable even though
-    it shouldn't be. We now check if the property holds
-    for all other messages than create_tokens and refund *)
-(* QuickChick (
-  {{fun state msg => negb ((msg_is_create_tokens ||| msg_is_refund) state msg)}}
-  contract_base_addr
-  {{amount_is_zero}}
-). *)
-(*
-Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 11%256, 10)};
-Action{act_from: 10%256, act_body: (act_transfer 12%256, 7)};
-Action{act_from: 10%256, act_body: (act_transfer 13%256, 6)};
-Action{act_from: 10%256, act_body: (act_transfer 16%256, 2)};
-Action{act_from: 10%256, act_body: (act_transfer 17%256, 2)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 10, create_tokens)}];
-Block 4 [
-Action{act_from: 13%256, act_body: (act_call 128%256, 3, create_tokens)};
-Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)}];
-Block 5 [
-Action{act_from: 12%256, act_body: (act_call 128%256, 6, create_tokens)}];
-Block 6 [
-Action{act_from: 16%256, act_body: (act_call 128%256, 2, finalize)}];|}
-
-ChainState{env:
-  Environment{chain: Chain{height: 5, current slot: 6, final height: 0}, contract states:...},
-  queue: Action{act_from: 16%256, act_body: (act_call 128%256, 2, finalize)}
-}
-On Msg: finalize
-*** Failed after 2093 tests and 6 shrinks. (0 discards)
-*)
-(* As we can see above finalize is also payable even though
-    it shouldn't be. We now check if the property holds
-    for all other messages than create_tokens, refund and finalize *)
-(* QuickChick (
-  {{fun state msg => negb ((msg_is_create_tokens ||| msg_is_refund ||| msg_is_finalize) state msg)}}
   contract_base_addr
   {{amount_is_zero}}
 ). *)
@@ -1238,7 +1176,7 @@ Definition can_always_fully_refund (cs : ChainState) :=
   | None => checker true
   end.
 (* Above we showed that it is possible to completely empty the contract balance,
-    however the ideally it should always be possible to empty the contract balance.
+    however ideally it should always be possible to empty the contract balance.
    If not then it would mean that money could get stuck contract implying that some
     funded money may not be refundable.
    We know that all accounts except batFund should be able to refund so the amount of balance
@@ -1391,62 +1329,16 @@ Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
     it is not possible to empty the contract balance.
    We now test if it is possible when no such transfers occur
 *)
-(* QuickChick ({{no_batfund_create_tokens &&&
-                 no_transfers_to_batfund &&&
-                 only_transfers_modulo_exhange_rate}}
-               ==> {{can_always_fully_refund}}). *)
-(*
-Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 4, create_tokens)}];
-Block 6 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 3, refund)}];
-Block 8 [
-];|}
-
-ChainState{
-  env: Environment{chain: Chain{height: 4, current slot: 8, final height: 0}, contract states:...},
-  queue: }
-*** Failed after 459 tests and 8 shrinks. (19513 discards)
-*)
-(*
-  We see that the test fails since the contract allowed 3 to be paid on a refund call.
-  Those 3 are then not tied to any tokens and since refunding is the only way to withdraw
-    from the contract balance therefore those 3 cannot be withdrawn ever.
-*)
-
-Definition only_create_tokens_payable (cs : ChainState) : bool :=
-  match (chain_state_queue cs) with
-  | [] => true
-  | act :: _ =>
-    match act.(act_body) with
-    | Blockchain.act_call _ amount ser_msg =>
-      match @deserialize Msg _ ser_msg with
-      | Some (create_tokens) => true
-      | _ => Z.eqb amount 0
-      end
-    | _ => true
-    end
-  end.
-(* As shown above if a transfer of some amount where "amount % exchange_rate != 0" or
-    any other call than create_tokens is payable then it is not possible to empty the contract balance.
-   We now test if it is possible when no such transfers occur and only create_tokens call is payable.
-*)
 (*
 Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "45000".
  QuickChick ({{no_batfund_create_tokens &&&
-               no_transfers_to_batfund &&&
-               only_transfers_modulo_exhange_rate &&&
-               only_create_tokens_payable}}
-              ==> {{can_always_fully_refund}}).
+                 no_transfers_to_batfund &&&
+                 only_transfers_modulo_exhange_rate}}
+               ==> {{can_always_fully_refund}}).
 Extract Constant defNumTests    => "10000".
-Extract Constant defNumDiscards => "(2 * defNumTests)".
-*)
-(* +++ Passed 1000 tests (32485 discards) *)
+Extract Constant defNumDiscards => "(2 * defNumTests)". *)
+(* +++ Passed 1000 tests (34031 discards) *)
 
 
 
@@ -1799,43 +1691,11 @@ Extract Constant defNumDiscards => "30000".
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
-(* +++ Passed 5000 tests (12112 discards) *)
-(*
-Extract Constant defNumDiscards => "30000".
- QuickChick (expectFailure ({{only_transfers_modulo_exhange_rate}} ==> {{total_supply_bounds}})).
-Extract Constant defNumDiscards => "(2 * defNumTests)".
-*)
-(*
-Chain{|
-Block 1 [
-Action{act_from: 10%256, act_body: (act_transfer 14%256, 10)};
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
-Block 2 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 15%256 3)}];
-Block 4 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 3, create_tokens)}];
-Block 7 [
-Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)}];
-Block 8 [
-Action{act_from: 14%256, act_body: (act_call 128%256, 2, refund)}];|}
-
-ChainState{
-  env: Environment{
-    chain: Chain{height: 5, current slot: 8, final height: 0},
-    contract states:...
-  },
-  queue:
-}
-+++ Failed (as expected) after 949 tests and 9 shrinks. (12976 discards)
-*)
-(*
-  As we can see above the property also fails if refund is called with a non zero amount
-    and batFund made a transfer
-*)
+(* +++ Passed 5000 tests (11879 discards) *)
 (*
 Extract Constant defNumTests    => "1000".
 Extract Constant defNumDiscards => "30000".
- QuickChick ({{only_transfers_modulo_exhange_rate &&& only_create_tokens_payable}}
+ QuickChick ({{only_transfers_modulo_exhange_rate}}
              ==> {{total_supply_bounds}}).
 Extract Constant defNumTests    => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
@@ -1870,5 +1730,3 @@ Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
     in the funding period *)
 (* QuickChick ({{paid_tokens_modulo_exchange_rate}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
-

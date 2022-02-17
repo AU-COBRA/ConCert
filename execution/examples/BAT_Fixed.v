@@ -161,14 +161,11 @@ Definition receive_bat (chain : Chain)
   let slot := chain.(current_slot) in
   let contract_balance := ctx.(ctx_contract_balance) in
   let without_actions := option_map (fun new_state => (new_state, [])) in
+  let not_payable x := do _ <- throwIf (sender_payload >? 0) ; x in
   match maybe_msg with
   | Some create_tokens => without_actions (try_create_tokens sender sender_payload slot state)
-  | Some refund =>
-        do _ <- throwIf (sender_payload >? 0) ;
-        try_refund sender slot state
-  | Some finalize =>
-      do _ <- throwIf (sender_payload >? 0) ;
-      try_finalize sender slot contract_balance state
+  | Some refund => not_payable (try_refund sender slot state)
+  | Some finalize => not_payable (try_finalize sender slot contract_balance state)
   | _ => None
   end.
 Close Scope Z_scope.

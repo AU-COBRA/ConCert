@@ -138,10 +138,11 @@ Definition receive_bat (chain : Chain)
   let slot := chain.(current_slot) in
   let contract_balance := ctx.(ctx_contract_balance) in
   let without_actions := option_map (fun new_state => (new_state, [])) in
+  let not_payable x := do _ <- throwIf (sender_payload >? 0) ; x in
   match maybe_msg with
   | Some create_tokens => without_actions (try_create_tokens sender sender_payload slot state)
-  | Some refund => try_refund sender slot state
-  | Some finalize => try_finalize sender slot contract_balance state
+  | Some refund => not_payable (try_refund sender slot state)
+  | Some finalize => not_payable (try_finalize sender slot contract_balance state)
   | _ => None
   end.
 Close Scope Z_scope.
@@ -610,7 +611,7 @@ Proof.
   intros * receive_some.
   receive_simpl.
   inversion receive_some.
-  rename H into requirements_check.
+  rename H0 into requirements_check.
   split.
   - now do 2 apply Bool.orb_false_iff in requirements_check as [requirements_check _].
   - reflexivity.
@@ -635,15 +636,17 @@ Proof.
 Qed.
 
 Lemma try_finalize_is_some : forall state chain ctx,
-  (isFinalized state) = false
+  (ctx_amount ctx >? 0)%Z = false
+  /\ (isFinalized state) = false
   /\ (ctx_from ctx) = (fundDeposit state)
   /\ (tokenCreationMin state) <= (total_supply state)
   /\ ((fundingEnd state) < (current_slot chain) \/ (tokenCreationCap state) = (total_supply state))%nat
     <-> exists x y, receive chain ctx state (Some finalize) = Some (x, y).
 Proof.
   split.
-  - intros * (not_finalized & sender_funddeposit & min_hit & funding_over).
+  - intros * (amount_zero & not_finalized & sender_funddeposit & min_hit & funding_over).
     receive_simpl.
+    destruct_match eqn:amount_check; destruct_throw_if amount_check.
     destruct_match eqn:requirements_check; destruct_throw_if requirements_check.
     destruct_match eqn:funding_over_check; destruct_throw_if funding_over_check.
     + easy.
@@ -656,8 +659,9 @@ Proof.
       * now destruct_address_eq.
   - intros (new_state & new_acts & receive_some).
     receive_simpl.
-    rename H into requirements_check.
-    rename H0 into funding_over_check.
+    rename H into amount_check.
+    rename H0 into requirements_check.
+    rename H1 into funding_over_check.
     rewrite !Bool.orb_false_iff in requirements_check.
     destruct requirements_check as
       ((not_finalized & sender_funddeposit) & min_hit%N.ltb_ge).
@@ -733,7 +737,8 @@ Proof.
 Qed.
 
 Lemma try_refund_is_some : forall state chain ctx,
-  (isFinalized state) = false
+  (ctx_amount ctx >? 0)%Z = false
+  /\ (isFinalized state) = false
   /\ ((fundingEnd state) < (current_slot chain))%nat
   /\ (total_supply state) < (tokenCreationMin state)
   /\ (ctx_from ctx) <> (batFundDeposit state)
@@ -741,8 +746,9 @@ Lemma try_refund_is_some : forall state chain ctx,
     <-> exists x y, receive chain ctx state (Some refund) = Some (x, y).
 Proof.
   split.
-  - intros (not_finalized & funding_over & min_not_hit & sender_not_batfund & balance_not_zero).
+  - intros (amount_zero & not_finalized & funding_over & min_not_hit & sender_not_batfund & balance_not_zero).
     receive_simpl.
+    destruct_match eqn:amount_check; destruct_throw_if amount_check.
     destruct_match eqn:requirements_check; destruct_throw_if requirements_check.
     destruct_match eqn:sender_check; destruct_throw_if sender_check.
     destruct_match eqn:from_balance.
@@ -755,12 +761,13 @@ Proof.
     + rewrite !Bool.orb_true_iff in requirements_check.
       now destruct requirements_check as
         [[finalized | funding_active%Nat.leb_le] | min_hit%N.leb_le].
-  - intros (new_state & new_acts & receive_some).
+  - intros (new_cstate & new_acts & receive_some).
     receive_simpl.
-    rename H into requirements_check.
-    rename H0 into sender_check.
-    rename H1 into from_balance.
-    rename H2 into from_balance_check.
+    rename H into amount_check.
+    rename H0 into requirements_check.
+    rename H1 into sender_check.
+    rename H2 into from_balance.
+    rename H3 into from_balance_check.
     rewrite !Bool.orb_false_iff in requirements_check.
     destruct requirements_check as
       ((not_finalized & funding_over%Nat.leb_gt) & min_not_hit%N.leb_gt).
@@ -920,7 +927,7 @@ Proof.
   intros * receive_some.
   receive_simpl.
   inversion receive_some.
-  unfold EIP20Token.sum_balances. clear H H4 H5.
+  unfold EIP20Token.sum_balances.
   setoid_rewrite FMap.elements_add_existing; eauto.
   change n with ((fun '(_, v) => v) (ctx_from ctx, n)).
   now rewrite sumN_inv, sumN_swap, fin_maps.map_to_list_delete.
@@ -1096,13 +1103,13 @@ Proof.
     + receive_simpl.
       inversion receive_some as [supply_unchanged].
       rewrite <- supply_unchanged in *.
-      rename H0 into requirements_check.
+      rename H1 into requirements_check.
       rewrite !Bool.orb_false_iff in requirements_check.
       now destruct requirements_check as (_ & goal_hit%N.ltb_nlt).
     + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
       rewrite <- finalized_unchanged in *.
       receive_simpl.
-      rename H0 into requirements_check.
+      rename H1 into requirements_check.
       now rewrite !Bool.orb_false_iff in requirements_check.
     + now receive_simpl.
 Qed.
@@ -1190,7 +1197,7 @@ Proof.
       * specialize try_finalize_isFinalized_correct as [_ finalized_new_cstate]; eauto.
         now erewrite <- (try_finalize_only_change_isFinalized _ _ _ _ _ receive_some),
                      finalized_new_cstate, (try_finalize_acts_correct _ _ _ _ _ receive_some) in receive_some.
-      * eauto.
+      * repeat split; eauto.
     + cbn in *.
       clear contract_state slot_hit creation_min.
       update_all;
