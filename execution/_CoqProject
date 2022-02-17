@@ -45,7 +45,6 @@ examples/FA2Token.v
 examples/LocalBlockchainTests.v
 examples/StackInterpreter.v
 examples/Cis1wccd.v
-examples/SerializableUtil.v
 examples/dexter2/Dexter2CPMM.v
 examples/dexter2/Dexter2FA12.v
 

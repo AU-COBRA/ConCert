@@ -23,7 +23,6 @@ From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Examples Require Import FA2Token.
 From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Execution.Examples Require Import Dexter2FA12.
-From ConCert.Execution.Examples Require Import SerializableUtil.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Lia.
