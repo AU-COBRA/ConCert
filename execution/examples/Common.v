@@ -105,10 +105,10 @@ Tactic Notation "destruct_match_some" constr(m) "in" hyp(H) :=
 
 Ltac contract_simpl_step receive init :=
   match goal with
-  | H : context[receive] |- _ => unfold receive in H; cbn in H
-  | |- context[receive] => unfold receive; cbn
-  | H : context[init] |- _ => unfold init in H; cbn in H
-  | |- context[init] => unfold init; cbn
+  | H : context[receive] |- _ => try (unfold receive in H); cbn in H
+  | |- context[receive] => try (unfold receive); cbn
+  | H : context[init] |- _ => try (unfold init in H); cbn in H
+  | |- context[init] => try (unfold init); cbn
   | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
   | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
   | H : context[Blockchain.init] |- _ => unfold Blockchain.init in H; cbn in H
