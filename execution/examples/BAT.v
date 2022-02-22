@@ -164,57 +164,11 @@ Definition receive (chain : Chain)
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
 
-
-
 (** * Contract properties *)
 Section Theories.
 (* begind hide *)
 (* Tactics to simplify proof steps *)
-
-Ltac destruct_match_some m H :=
-  let a := fresh "H" in
-    destruct m eqn:a in H;
-    try setoid_rewrite a;
-    cbn in H; cbn;
-    try congruence.
-
-Tactic Notation "destruct_match_some" constr(m) "in" hyp(H) :=
-  destruct_match_some m H.
-
-Ltac contract_simpl_step :=
-  match goal with
-  | H : context[receive] |- _ => unfold receive in H; cbn in H
-  | |- context[receive] => unfold receive; cbn
-  | H : context[init] |- _ => unfold init in H; cbn in H
-  | |- context[init] => unfold init; cbn
-  | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
-  | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
-  | H : context[Blockchain.init] |- _ => unfold Blockchain.init in H; cbn in H
-  | |- context[Blockchain.init] => unfold Blockchain.init; cbn
-  | p : (_ * list ActionBody) |- _ => destruct p
-  | H : throwIf _ = None |- _ => destruct_throw_if H
-  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
-  | H : Some _ = Some _ |- _ =>
-      inversion H; clear H; subst
-  | H : _ match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-      destruct_match_some m in H
-  | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-      destruct_match_some m in H
-  | H : _ (if ?m then None else _) = Some _ |- _ =>
-      destruct_match_some m in H
-  | H : _ (if ?m then _ else None) = Some _ |- _ =>
-      destruct_match_some m in H
-  | H : (if ?m then None else _) = Some _ |- _ =>
-      destruct_match_some m in H
-  | H : (if ?m then _ else None) = Some _ |- _ =>
-      destruct_match_some m in H
-  | |- context [_ (match ?m with Some _ => _ | None => _ end) = Some _] =>
-      destruct m eqn:?H
-  | |- context [match ?m with Some _ => _ | None => _ end = Some _] =>
-      destruct m eqn:?H
-  end.
-
-Tactic Notation "contract_simpl" := repeat contract_simpl_step.
+Tactic Notation "contract_simpl" := contract_simpl receive init.
 
 Ltac destruct_message :=
   repeat match goal with
@@ -549,10 +503,8 @@ Lemma try_finalize_isFinalized_correct : forall prev_state new_state chain ctx n
 Proof.
   intros * receive_some.
   contract_simpl.
-  rename H0 into requirements_check.
-  split.
-  - now do 2 apply Bool.orb_false_iff in requirements_check as [requirements_check _].
-  - reflexivity.
+  split; auto.
+  now autorewrite with BoolElim in *.
 Qed.
 
 Lemma try_finalize_only_change_isFinalized : forall prev_state new_state chain ctx new_acts,
@@ -667,7 +619,7 @@ Proof.
     destruct_or_hyps;
     subst; cbn in *;
     try easy;
-    try now destruct_address_eq.
+    now destruct_address_eq.
 Qed.
 
 Lemma try_refund_acts_correct : forall prev_state new_state chain ctx new_acts,
