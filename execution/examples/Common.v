@@ -92,3 +92,48 @@ Ltac destruct_throw_if H :=
       clear H u;
       rename G into H
   end.
+
+Ltac destruct_match_some m H :=
+  let a := fresh "H" in
+    destruct m eqn:a in H;
+    try setoid_rewrite a;
+    cbn in H; cbn;
+    try congruence.
+
+Tactic Notation "destruct_match_some" constr(m) "in" hyp(H) :=
+  destruct_match_some m H.
+
+Ltac contract_simpl_step receive init :=
+  match goal with
+  | H : context[receive] |- _ => unfold receive in H; cbn in H
+  | |- context[receive] => unfold receive; cbn
+  | H : context[init] |- _ => unfold init in H; cbn in H
+  | |- context[init] => unfold init; cbn
+  | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
+  | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
+  | H : context[Blockchain.init] |- _ => unfold Blockchain.init in H; cbn in H
+  | |- context[Blockchain.init] => unfold Blockchain.init; cbn
+  | p : (_ * list ActionBody) |- _ => destruct p
+  | H : throwIf _ = None |- _ => destruct_throw_if H
+  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
+  | H : Some _ = Some _ |- _ =>
+      inversion H; clear H; subst
+  | H : _ match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : _ (if ?m then None else _) = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : _ (if ?m then _ else None) = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : (if ?m then None else _) = Some _ |- _ =>
+      destruct_match_some m in H
+  | H : (if ?m then _ else None) = Some _ |- _ =>
+      destruct_match_some m in H
+  | |- context [_ (match ?m with Some _ => _ | None => _ end) = Some _] =>
+      destruct m eqn:?H
+  | |- context [match ?m with Some _ => _ | None => _ end = Some _] =>
+      destruct m eqn:?H
+  end.
+
+Tactic Notation "contract_simpl" constr(r) constr(i) := repeat contract_simpl_step r i.
