@@ -207,8 +207,6 @@ Module Dexter2 (SI : Dexter2Serializable).
     Definition N_to_amount : N -> Amount := Z.of_N.
 
     Definition result : Type := option (State * list ActionBody).
-    Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
-    Definition isSome {A : Type} (a : option A) := negb (isNone a).
     Definition sub (n m : N) : option N := do _ <- throwIf (n <? m) ; Some (n - m).
     Definition div (n m : N) : option N := do _ <- throwIf (m =? 0) ; Some (n / m).
     Definition ceildiv (n m : N) : option N :=
@@ -640,38 +638,7 @@ Section Theories.
   Qed.
   Opaque sub.
 
-  Lemma isSome_some : forall {A : Type} (x : option A) (y : A),
-    x = Some y -> isSome x = true.
-  Proof.
-    intros.
-    now subst.
-  Qed.
 
-  Lemma isSome_none : forall {A : Type} (x : option A),
-    x = None -> isSome x = false.
-  Proof.
-    intros.
-    now subst.
-  Qed.
-
-  Lemma isSome_exists : forall {A : Type} (x : option A),
-    isSome x = true <-> exists y : A, x = Some y.
-  Proof.
-    split.
-    - now destruct x eqn:x_eq.
-    - intros (y & x_eq).
-      now eapply isSome_some.
-  Qed.
-
-  Lemma isSome_not_exists : forall {A : Type} (x : option A),
-    isSome x = false <-> forall y : A, x <> Some y.
-  Proof.
-    split.
-    - now destruct x eqn:x_eq.
-    - intros x_eq.
-      eapply isSome_none.
-      now destruct x.
-  Qed.
 
   Ltac math_convert_step :=
     match goal with

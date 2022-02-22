@@ -325,19 +325,6 @@ Tactic Notation "FMap_simpl" := repeat (FMap_simpl_step; cbn).
 
 
 
-(* isSome function *)
-Definition isSome {A : Type} (a : option A) := match a with | Some _ => true | None => false end.
-
-(* if x is None then with_default is equal to default element *)
-Lemma with_default_is_some : forall {A : Type} (x : option A) (y : A),
-  isSome x = false ->
-    with_default y x = y.
-Proof.
-  now destruct x.
-Qed.
-
-
-
 (* sumN function *)
 (* sumN of balances is the same after transfer changes if sender has enough balance *)
 Lemma sumN_FMap_add_sub : forall from to amount (balances : FMap Address N),
