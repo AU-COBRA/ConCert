@@ -22,10 +22,6 @@ Import ListNotations.
 
 (* -------------------------- Tests of the BAT Implementation -------------------------- *)
 
-Existing Instance BATPrinters.showBATState.
-Existing Instance BATPrinters.showMsg.
-Existing Instance BATPrinters.showBATSetup.
-
 Definition fundingStart_ := 0.
 Definition fundingEnd_ := 5.
 Definition tokenCap_ := 101%N.

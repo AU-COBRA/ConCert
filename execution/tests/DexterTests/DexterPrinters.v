@@ -1,10 +1,8 @@
-From ConCert Require Import Blockchain.
-From ConCert Require Import Dexter.
-From ConCert.Execution.QCTests Require Import TestUtils FA2Printers.
+From ConCert Require Import Blockchain Serializable.
+From ConCert Require Import Dexter FA2Token.
+From ConCert.Execution.QCTests Require Import TestUtils FA2Printers SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
-Section DexterPrinters.
-Context `{Show Address}.
 Local Open Scope string_scope.
 
 Instance showDexterExchangeParam : Show Dexter.exchange_param :=
@@ -24,7 +22,6 @@ Instance showDexterMsgMsg : Show Dexter.DexterMsg :=
             end
 |}.
 
-Existing Instance showFA2ReceiverMsg.
 Instance showDexterMsg : Show Dexter.Msg :=
 {|
   show m := show m
@@ -45,4 +42,9 @@ Instance showDexterSetup : Show Dexter.Setup :=
             ++ "}"
 |}.
 
-End DexterPrinters.
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg <
+    FA2Token.Msg,
+    Dexter.Msg,
+    TestContracts.ClientMsg,
+    TestContracts.TransferHookMsg >.

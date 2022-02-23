@@ -1,12 +1,10 @@
 From ConCert Require Import Blockchain.
 From ConCert Require Import FA2Interface FA2Token.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils TestContracts.
+From ConCert.Execution.QCTests Require Import TestUtils TestContracts SerializablePrinters.
 From QuickChick Require Import QuickChick.
 Local Open Scope string_scope.
 
-Section FA2PrintersSec.
-Context `{Show Address}.
 
 Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
 {|
@@ -338,4 +336,5 @@ Instance showFA2TransferHookContractSetup : Show HookSetup :=
             ++ "}"
 |}.
 
-End FA2PrintersSec.
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < FA2Token.Msg, TestContracts.ClientMsg, TestContracts.TransferHookMsg >.

@@ -1,12 +1,10 @@
 (* Show instances for the Escrow types. Necessary for QuickChick testing. *)
 
-From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Blockchain Serializable.
 From ConCert.Execution Require Import Escrow.
-From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
-Section EscrowPrinters.
-Context `{Show Address}.
 Local Open Scope string_scope.
 
 Derive Show for NextStep.
@@ -28,4 +26,5 @@ Instance showEscrowState : Show Escrow.State :=
               "buyer_withdrawable: " ++ show s.(buyer_withdrawable) ++ "}"
 |}.
 
-End EscrowPrinters.
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < Msg >.

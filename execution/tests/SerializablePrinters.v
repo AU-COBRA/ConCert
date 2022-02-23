@@ -2,21 +2,9 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From QuickChick Require Import QuickChick.
 From ConCert.Execution.QCTests Require Import 
-  ChainPrinters CongressPrinters EIP20TokenPrinters FA2Printers TestContracts 
-  DexterPrinters EscrowPrinters iTokenBuggyPrinters BATPrinters.
+  ChainPrinters.
 Local Open Scope string_scope.
 
-Existing Instance EIP20TokenPrinters.showMsg.
-Existing Instance CongressPrinters.showMsg.
-Existing Instance showFA2TokenMsg.
-Existing Instance showDexterMsg.
-Existing Instance showDexterMsgMsg.
-Existing Instance showFA2ClientContractMsg.
-Existing Instance showTransferHookMsg.
-Existing Instance iTokenBuggyPrinters.showMsg.
-Existing Instance BATPrinters.showMsg.
-(* Existing Instance showEscrowMsg. *)
-(* Currently we hack it to always deserialize to some known Msg types *)
 
 Ltac make_show ts :=
   match ts with
@@ -41,21 +29,9 @@ Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
         exact {| show := s' |}
      end))
     (at level 0, c0, cn at level 9, only parsing).
-
-Global Instance showSerializedValue : Show SerializedValue :=
-  Derive Show Msg <
-    FA2Token.Msg,
-    Dexter.Msg,
-    TestContracts.ClientMsg,
-    TestContracts.TransferHookMsg,
-    EIP20Token.Msg,
-    BATCommon.Msg,
-    Escrow.Msg,
-    iTokenBuggy.Msg,
-    Congress.Msg >.
 Close Scope string_scope.
 
-Instance showChainTraceSigT : Show {to : ChainState & ChainTrace empty_state to} :=
+Instance showChainTraceSigT `{Show SerializedValue} : Show {to : ChainState & ChainTrace empty_state to} :=
 {|
   show a := show (projT2 a)
 |}.

@@ -11,7 +11,7 @@ Require Import ZArith.
 
 From QuickChick Require Import QuickChick.
 From ConCert.Execution.QCTests Require Import
-  TestUtils SerializablePrinters TraceGens EscrowGens.
+  TestUtils EscrowPrinters TraceGens EscrowGens.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 

@@ -1,6 +1,6 @@
 From ConCert Require Import Blockchain Congress_Buggy.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters SerializablePrinters.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 (* From ExtLib.Structures Require Import Monads. *)
@@ -85,3 +85,6 @@ Instance showState : Show Congress_Buggy.State :=
             ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
             ++ "members: " ++ show (members s) ++ "}"
 |}.
+
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < Congress_Buggy.Msg >.

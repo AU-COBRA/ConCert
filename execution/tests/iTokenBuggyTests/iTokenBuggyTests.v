@@ -25,18 +25,6 @@ Notation "f <| x" := (f x) (at level 91, left associativity, only parsing).
 Notation "x |> f" := (f x) (at level 31, left associativity, only parsing).
 (* i.e. x |> f |> g = (x |> f) |> g, and means g (f x) *)
 
-Existing Instance showTokenState.
-Existing Instance iTokenBuggyPrinters.showMsg.
-
-Open Scope string_scope.
-Global Instance showSerializedValue : Show SerializedValue :=
-{|
-    show v := match @deserialize iTokenBuggy.Msg _ v with
-    | Some v => show v
-    | None => "<FAILED DESERIALIZATION>"
-    end
-|}.
-Close Scope string_scope.
 Definition token_setup := iTokenBuggy.build_setup creator (100%N).
 Definition deploy_iToken := create_deployment 0 iTokenBuggy.contract token_setup.
 Definition token_caddr := BoundedN.of_Z_const AddrSize 128%Z.
