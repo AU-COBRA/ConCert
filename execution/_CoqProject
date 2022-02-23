@@ -80,6 +80,7 @@ tests/iTokenBuggyTests/iTokenBuggyPrinters.v
 tests/iTokenBuggyTests/iTokenBuggyTests.v
 tests/BATTests/BATGens.v
 tests/BATTests/BATPrinters.v
+tests/BATTests/BATTestCommon.v
 tests/BATTests/BATTests.v
 tests/BATTests/BAT_FixedTests.v
 tests/BATTests/BAT_AltFixTests.v

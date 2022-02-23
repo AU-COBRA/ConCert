@@ -10,6 +10,7 @@ From ConCert.Execution.Examples Require Import BATCommon.
 From ConCert.Execution.Examples Require Import BAT.
 From ConCert.Execution.QCTests Require Import BATGens.
 From ConCert.Execution.QCTests Require Import BATPrinters.
+From ConCert.Execution.QCTests Require Import BATTestCommon.
 From ConCert.Execution.QCTests Require Import ChainPrinters.
 From ConCert.Execution.QCTests Require Import SerializablePrinters.
 From ConCert.Execution.QCTests Require Import TestUtils.
@@ -25,12 +26,8 @@ Existing Instance BATPrinters.showBATState.
 Existing Instance BATPrinters.showMsg.
 Existing Instance BATPrinters.showBATSetup.
 
-Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
-Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
-Definition initSupply_ : N := 20%N.
 Definition fundingStart_ := 0.
 Definition fundingEnd_ := 5.
-Definition exchangeRate_ := 3%N.
 Definition tokenCap_ := 101%N.
 Definition tokenMin_ := 75%N.
 
@@ -43,8 +40,6 @@ Definition bat_setup := BATCommon.build_setup initSupply_
                                               tokenCap_
                                               tokenMin_.
 Definition deploy_bat := create_deployment 0 BAT.contract bat_setup.
-
-Let contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
@@ -61,6 +56,8 @@ Definition token_cb :=
   ]).
 
 Module TestInfo <: BATGensInfo.
+  Definition initial_chain := token_cb.
+  Definition contract := BAT.contract.
   Definition contract_addr := contract_base_addr.
   Definition accounts := [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
   Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2;
@@ -74,63 +71,6 @@ Module TestInfo <: BATGensInfo.
   Definition eip20_transactions_before_finalized := true.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
-
-(* chain generator *)
-Definition gTokenChain max_acts_per_block token_cb max_length :=
-  let act_depth := 1 in
-  gChain token_cb
-    (fun env act_depth => gBATAction env) max_length act_depth max_acts_per_block.
-
-(* Generator for debugging Action generator *)
-Definition gInvalidActions max_acts_per_block token_cb max_length g :=
-  let act_depth := 1 in
-  gInvalidAction token_cb
-    (fun env act_depth => g env) max_length act_depth max_acts_per_block.
-
-Definition forAllInvalidActions n g P :=
-  let max_acts_per_block := 1 in
-  forAll (gInvalidActions max_acts_per_block token_cb n g)
-    (fun '(cb, acts) => if length acts =? 0
-                        then checker true
-                        else disjoin (map (fun act => P cb act) acts)).
-
-Definition forAllTokenChainBuilders n :=
-  let max_acts_per_block := 2 in
-  forAllChainBuilder n token_cb (gTokenChain max_acts_per_block).
-
-Definition forAllTokenBlocks n :=
-  let max_acts_per_block := 2 in
-  forAllBlocks n token_cb (gTokenChain max_acts_per_block).
-
-Definition forAllTokenChainStates n :=
-  let max_acts_per_block := 2 in
-  forAllChainState n token_cb (gTokenChain max_acts_per_block).
-
-Definition pre_post_assertion_token P c Q :=
-  let max_acts_per_block := 2 in
-  let trace_length := 7 in
-  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) BAT.contract c P Q.
-
-Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
-  let P' := fun cs => if P cs then Some true else None in
-  let Q' := fun _ pre_trace post_trace =>
-    checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true) in
-  let max_acts_per_block := 2%nat in
-  let trace_length := 7%nat in
-  reachableFrom_implies_chaintracePropSized trace_length init_cb
-                                            (gTokenChain max_acts_per_block) P' Q'.
-
-Notation "cb '~~>' pf" :=
-  (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
-Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implication lc pf1 pf2) (at level 90, left associativity).
-Notation "'{{' P '}}'" := (forAllTokenChainStates 7 P) (at level 60, no associativity).
-Notation "'{{' P '}}' '==>' '{{' Q '}}'" :=
-  (forAllChainState_implication 7 token_cb (gTokenChain 2) P Q) (at level 60, left associativity).
-Notation "'{{' P '}}' c '{{' Q '}}'" :=
-  (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
-Notation "f '|||' g" := (fun a b => (f a b) || (g a b)) (at level 10).
-Notation "f '&&&' g" := (fun a => (f a) && (g a)) (at level 10).
 
 
 
@@ -175,12 +115,7 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-(* Get value of isFinalized in last state of a chain *)
-Definition get_chain_finalized (cb : ChainBuilder) : bool :=
-  match get_contract_state BATCommon.State cb.(builder_env) contract_base_addr with
-  | Some state => state.(isFinalized)
-  | None => true
-  end.
+
 (* Verify hardness of finalizing BAToken.
    Goal is ~ 2/3 of generated chains are finalized *)
 (* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
@@ -190,9 +125,6 @@ Definition get_chain_finalized (cb : ChainBuilder) : bool :=
   +++ Passed 10000 tests (0 discards)
 *)
 
-(* Get chain length *)
-Definition get_chain_height (cb : ChainBuilder) : nat :=
-  cb.(builder_env).(chain_height).
 (* Check heigh chains produced by the chain generator
    We want the average chain height to be close to full length
    since this is a sign that the generator does not generate 
@@ -207,66 +139,6 @@ Definition get_chain_height (cb : ChainBuilder) : nat :=
   1 : 3
   +++ Passed 10000 tests (0 discards)
 *)
-
-(* Check if an action is finalize *)
-Definition action_is_finalize (action : Action) : bool :=
-  match action.(act_body) with
-  | Blockchain.act_transfer _ _ => false
-  | Blockchain.act_deploy _ _ _ => false
-  | Blockchain.act_call to _ msg =>
-    if (address_eqb to contract_base_addr)
-    then
-      match @deserialize BATCommon.Msg _ msg with
-      | Some finalize => true
-      | Some _ => false
-      | None => false
-      end
-    else
-      false
-  end.
-
-(* Check if an action is refund *)
-Definition action_is_refund (action : Action) : bool :=
-  match action.(act_body) with
-  | Blockchain.act_transfer _ _ => false
-  | Blockchain.act_deploy _ _ _ => false
-  | Blockchain.act_call to _ msg =>
-    if (address_eqb to contract_base_addr)
-    then
-      match @deserialize BATCommon.Msg _ msg with
-      | Some refund => true
-      | Some _ => false
-      | None => false
-      end
-    else
-      false
-  end.
-
-(* Get last state before finalize/refund in a chain *)
-Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to) 
-                                (default : ChainState) : ChainState :=
-  match trace with
-  | ChainedList.snoc trace' (Blockchain.step_action _ _ act _ _ _ _ _ as step) =>
-    if action_is_finalize act
-    then
-      fst (chainstep_states step)
-    else
-      if action_is_refund act
-      then
-        get_last_funding_state trace' (fst (chainstep_states step))
-      else
-        get_last_funding_state trace' default
-  | ChainedList.snoc trace' _ => get_last_funding_state trace' default
-  | ChainedList.clnil => default
-  end.
-
-(* Get the number of tokens in last state before finalize/refund in a chain *)
-Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
-  let cs := get_last_funding_state cb.(builder_trace) empty_state in
-  match get_contract_state BATCommon.State cs contract_base_addr with
-  | Some state => (total_supply state)
-  | None => 0%N
-  end.
 
 (* Verify spread of tokens after funding period is over.
    We do this to see it it possible to hit the funding cap
@@ -307,101 +179,6 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
 
 
 Local Open Scope N_scope.
-
-Definition fmap_subseteqb {A B} `{countable.Countable A}
-                          (eqb : B -> B -> bool) (fmap : FMap A B) 
-                          (fmap' : FMap A B) : bool :=
-  let elements := FMap.elements fmap in
-    fold_left (fun b elem => 
-                match FMap.lookup (fst elem) fmap' with
-                | Some v => b && (eqb (snd elem) v)
-                | None => false
-                end) elements true.
-
-Definition fmap_eqb {A B} `{countable.Countable A}
-                    (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
-  (fmap_subseteqb eqb fmap fmap') || (fmap_subseteqb eqb fmap' fmap).
-
-Definition fmap_filter_eqb {A B} `{countable.Countable A}
-                           (excluded : list A) (eqb : B -> B -> bool) 
-                           (fmap : FMap A B) (fmap' : FMap A B) : bool :=
-  let map_filter m l := fold_left (fun map elem => FMap.remove elem map) l m in
-  let fmap_filtered := map_filter fmap excluded in
-  let fmap'_filtered := map_filter fmap' excluded in
-    fmap_eqb eqb fmap_filtered fmap'_filtered.
-
-Definition get_balance (state : BATCommon.State) (addr : Address) :=
-  with_default 0 (FMap.find addr (balances state)).
-
-Definition msg_is_eip_msg (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | tokenMsg _ => true
-  | _ => false
-  end.
-
-Definition msg_is_transfer (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | tokenMsg (EIP20Token.transfer _ _) => true
-  | _ => false
-  end.
-
-Definition msg_is_transfer_from (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | tokenMsg (EIP20Token.transfer_from _ _ _) => true
-  | _ => false
-  end.
-
-Definition msg_is_approve (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | tokenMsg (EIP20Token.approve _ _) => true
-  | _ => false
-  end.
-
-Definition msg_is_create_tokens (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | create_tokens => true
-  | _ => false
-  end.
-
-Definition msg_is_finalize (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | finalize => true
-  | _ => false
-  end.
-
-Definition msg_is_refund (cstate : BATCommon.State) (msg : BATCommon.Msg) :=
-  match msg with
-  | refund => true
-  | _ => false
-  end.
-
-
-(* Checker failing if amount in a contract call context is not zero *)
-Definition amount_is_zero (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                          (msg : Msg) (result_opt : option (State * list ActionBody)) :=
-  (checker (cctx.(ctx_amount) =? 0)%Z).
-
-(* Checker failing if amount in a contract call context is 0 or negative *)
-Definition amount_is_positive (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                              (msg : Msg) (result_opt : option (State * list ActionBody)) :=
-  (checker (cctx.(ctx_amount) >? 0)%Z).
-
-(* Checker failing if result_opt contains actions *)
-Definition produces_no_actions (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
-  match (result_opt, msg) with
-  | (Some (_, []), _) => checker true
-  | _ => checker false
-  end.
-
-(* Checker failing if result_opt contains less than or more than one action *)
-Definition produces_one_action (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
-  match (result_opt, msg) with
-  | (Some (_, [a]), _) => checker true
-  | _ => checker false
-  end.
-
 (* Only create_tokens should be payable *)
 (* QuickChick (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
@@ -1076,20 +853,6 @@ ChainState{
     to refund.
 *)
 
-Definition no_transfers_from_bat_fund (cs : ChainState) : bool :=
-  match (chain_state_queue cs) with
-  | [] => true
-  | act :: _ =>
-    match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
-      match @deserialize Msg _ ser_msg with
-      | Some (tokenMsg (EIP20Token.transfer _ _)) => negb (address_eqb act.(act_from) batFund)
-      | Some (tokenMsg (EIP20Token.transfer_from from _ _)) => negb (address_eqb from batFund)
-      | _ => true
-      end
-    | _ => true
-    end
-  end.
 (* As shown above if a transfer from batFund occurs then
     there are not always enough tokens to refund all users tokens.
    We now test if the above property holds when no such transfers occur
@@ -1115,15 +878,6 @@ Definition partially_funded_cb :=
     build_act person_1 person_1 (Blockchain.act_call contract_base_addr 1
                                             ((@serialize BATCommon.Msg _) create_tokens))
   ]).
-Definition is_fully_refunded :=
-  fun cs =>
-    let contract_balance := env_account_balances cs contract_base_addr in
-      match get_contract_state State cs contract_base_addr with
-      | Some state => (negb state.(isFinalized)) &&
-                      (state.(fundingEnd) <? cs.(current_slot))%nat &&
-                      Z.eqb contract_balance 0
-      | None => false
-      end.
 (* Check that it is possible to fully refund from a state
     where at least one token was created
     i.e. contract balance = 0 and token not funded.
@@ -1208,19 +962,7 @@ ChainState{
   able to refund then those money cannot be refunded (unless batFund can refund
   which it should not be allowed to do).
 *)
-Definition no_batfund_create_tokens (cs : ChainState) : bool :=
-  match (chain_state_queue cs) with
-  | [] => true
-  | act :: _ =>
-    match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
-      match @deserialize Msg _ ser_msg with
-      | Some (create_tokens) => negb (address_eqb act.(act_from) batFund)
-      | _ => true
-      end
-    | _ => true
-    end
-  end.
+
 (* As shown above if batFund creates tokens then
    it might not be possible to empty the contract balance.
    We now test if it is possible when batFund does not create tokens
@@ -1247,22 +989,6 @@ ChainState{
    balance that thus cannot be refunded now.
 *)
 
-Definition no_transfers_to_batfund (cs : ChainState) : bool :=
-  match (chain_state_queue cs) with
-  | [] => true
-  | act :: _ =>
-    match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
-      match @deserialize Msg _ ser_msg with
-      | Some (tokenMsg (EIP20Token.transfer to _)) =>
-          negb (address_eqb to batFund)
-      | Some (tokenMsg (EIP20Token.transfer_from _ to _)) =>
-          negb (address_eqb to batFund)
-      | _ => true
-      end
-    | _ => true
-    end
-  end.
 (* As shown above if tokens are transfered to batFund then
    it might not be possible to empty the contract balance.
    We now test if it is possible when batFund does not create tokens
@@ -1312,22 +1038,6 @@ ChainState{
   those 2 tokens and 1 other token in another account wont be able to be refunded.
 *)
 
-Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
-  match (chain_state_queue cs) with
-  | [] => true
-  | act :: _ =>
-    match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
-      match @deserialize Msg _ ser_msg with
-      | Some (tokenMsg (EIP20Token.transfer _ amount)) =>
-          N.eqb 0 (N.modulo amount exchangeRate_)
-      | Some (tokenMsg (EIP20Token.transfer_from _ _ amount)) =>
-          N.eqb 0 (N.modulo amount exchangeRate_)
-      | _ => true
-      end
-    | _ => true
-    end
-  end.
 (* As shown above if a transfer of some amount where "amount % exchange_rate != 0" then
     it is not possible to empty the contract balance.
    We now test if it is possible when no such transfers occur
@@ -1346,11 +1056,7 @@ Extract Constant defNumDiscards => "(2 * defNumTests)". *)
 
 
 (* -------------------- finalization tests -------------------- *)
-Definition is_finalized cs :=
-    match get_contract_state State cs contract_base_addr with
-    | Some state => state.(isFinalized)
-    | None => false
-    end.
+
 (* Check that it is possible to finalize *)
 (* QuickChick (token_cb ~~> is_finalized). *)
 (*
@@ -1426,9 +1132,7 @@ Setup{
    We now test if it is possible to always fund for setup
    with a funding period that is not over before it is deployed.
 *)
-Definition funding_period_not_over (setup : Setup) cb :=
-  let current_slot := S (current_slot (env_chain cb)) in
-    Nat.leb current_slot setup.(_fundingEnd).
+
 (*
 Extract Constant defNumTests    => "100".
 QuickChick (expectFailure (can_always_finalize funding_period_not_over)).
@@ -1452,8 +1156,7 @@ Setup{
    It is clear that it failed since the fundingEnd is less than fundingStart.
    Meaning that the funding period is empty.
 *)
-Definition funding_period_non_empty (setup : Setup) :=
-    Nat.leb setup.(_fundingStart) setup.(_fundingEnd).
+
 (*
 Extract Constant defNumTests    => "200".
 QuickChick (expectFailure (can_always_finalize
@@ -1479,8 +1182,7 @@ Setup{
    It is clear that it failed since the initSupply is larger than
    tokenCreationCap.
 *)
-Definition initial_supply_le_cap (setup : Setup) :=
-    N.leb setup.(_batFund) setup.(_tokenCreationCap).
+
 (*
 Extract Constant defNumTests    => "200".
 QuickChick (expectFailure (can_always_finalize
@@ -1507,8 +1209,7 @@ Setup{
    It is clear that it failed since the exchange rate is 0
    meaning that no tokens can be created.
 *)
-Definition exchange_rate_non_zero (setup : Setup) :=
-    N.ltb 0 setup.(_tokenExchangeRate).
+
 (*
 Extract Constant defNumTests    => "200".
 QuickChick (expectFailure (can_always_finalize
