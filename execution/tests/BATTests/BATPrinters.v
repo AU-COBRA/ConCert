@@ -51,4 +51,4 @@ Instance showBATState : Show BATCommon.State :=
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
-  Derive Show Msg < BATCommon.Msg >.
+  Derive Show Msg < BATCommon.Msg, BATCommon.Setup >.

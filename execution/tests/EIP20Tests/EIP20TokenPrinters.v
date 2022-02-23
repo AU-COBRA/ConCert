@@ -33,4 +33,4 @@ Instance showTokenState : Show EIP20Token.State :=
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
-  Derive Show Msg < Msg >.
+  Derive Show Msg < Msg, Setup >.

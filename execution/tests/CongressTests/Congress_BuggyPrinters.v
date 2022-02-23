@@ -87,4 +87,4 @@ Instance showState : Show Congress_Buggy.State :=
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
-  Derive Show Msg < Congress_Buggy.Msg >.
+  Derive Show Msg < Msg, Setup >.

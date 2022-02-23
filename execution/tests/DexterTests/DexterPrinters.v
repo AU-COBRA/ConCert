@@ -46,5 +46,5 @@ Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,
     Dexter.Msg,
-    TestContracts.ClientMsg,
-    TestContracts.TransferHookMsg >.
+    FA2Token.Setup,
+    Dexter.Setup >.

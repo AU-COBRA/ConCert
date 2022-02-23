@@ -337,4 +337,10 @@ Instance showFA2TransferHookContractSetup : Show HookSetup :=
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
-  Derive Show Msg < FA2Token.Msg, TestContracts.ClientMsg, TestContracts.TransferHookMsg >.
+  Derive Show Msg <
+    FA2Token.Msg,
+    TestContracts.ClientMsg,
+    TestContracts.TransferHookMsg,
+    FA2Token.Setup,
+    TestContracts.ClientSetup,
+    TestContracts.HookSetup >.

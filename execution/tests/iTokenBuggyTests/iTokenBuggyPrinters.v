@@ -29,4 +29,4 @@ Instance showTokenState : Show iTokenBuggy.State :=
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
-  Derive Show Msg < Msg >.
+  Derive Show Msg < Msg, Setup >.
