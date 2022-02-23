@@ -109,7 +109,7 @@ Definition fmap_subseteqb {A B} `{countable.Countable A}
 
 Definition fmap_eqb {A B} `{countable.Countable A}
                     (eqb : B -> B -> bool) (fmap : FMap A B) (fmap' : FMap A B) : bool :=
-  (fmap_subseteqb eqb fmap fmap') || (fmap_subseteqb eqb fmap' fmap).
+  (fmap_subseteqb eqb fmap fmap') && (fmap_subseteqb eqb fmap' fmap).
 
 Definition fmap_filter_eqb {A B} `{countable.Countable A}
                            (excluded : list A) (eqb : B -> B -> bool) 
