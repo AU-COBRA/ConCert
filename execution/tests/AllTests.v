@@ -1,13 +1,20 @@
 Set Warnings "-extraction-inside-module".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-Require Import BinNat.
+From Coq Require Import BinNat.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.QCTests Require Import TraceGens TestUtils.
-From ConCert.Execution.QCTests Require
-  CongressTests Congress_BuggyTests DexterTests EIP20TokenTests
-  EscrowTests FA2TokenTests iTokenBuggyTests BATTests
-  BAT_FixedTests BAT_AltFixTests.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require CongressTests.
+From ConCert.Execution.QCTests Require Congress_BuggyTests.
+From ConCert.Execution.QCTests Require DexterTests.
+From ConCert.Execution.QCTests Require EIP20TokenTests.
+From ConCert.Execution.QCTests Require EscrowTests.
+From ConCert.Execution.QCTests Require FA2TokenTests.
+From ConCert.Execution.QCTests Require iTokenBuggyTests.
+From ConCert.Execution.QCTests Require BATTests.
+From ConCert.Execution.QCTests Require BAT_FixedTests.
+From ConCert.Execution.QCTests Require BAT_AltFixTests.
 
 
 Module Congress.
@@ -47,7 +54,6 @@ End Congress_Buggy.
 
 
 
-(* DexterTests *)
 Module Dexter.
 Import DexterTests.
 
@@ -62,13 +68,51 @@ Import EIP20TokenTests.
 Import TestInfo.
 
 QuickChick (
+  {{fun _ _ => true}}
+  contract_addr
+  {{post_not_payable}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{fun _ _ => true}}
+  contract_addr
+  {{post_no_new_acts}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{fun _ _ => true}}
+  contract_addr
+  {{post_total_supply_constant}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
   {{msg_is_transfer}}
   contract_addr
   {{post_transfer_correct}}
 ).
 (* +++ Passed 10000 tests (0 discards) *)
 
-QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_init_supply)).
+QuickChick (
+  {{msg_is_transfer_from}}
+  contract_addr
+  {{post_transfer_from_correct}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (
+  {{msg_is_approve}}
+  contract_addr
+  {{post_approve_correct}}
+).
+(* +++ Passed 10000 tests (0 discards) *)
+
+QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_total_supply)).
+(* Passed 10000 tests (0 discards) *)
+
+QuickChick (forAllTokenChainTraces 5 (checker_get_state init_supply_eq_total_supply)).
 (* +++ Passed 10000 tests (0 discards) *)
 
 QuickChick (expectFailure (sum_allowances_le_init_supply_P 5)).
@@ -135,10 +179,13 @@ QuickChick (
     token_contract_base_addr
   {{ post_transfer_correct }}
   chain_without_transfer_hook).
+(* +++ Passed 10000 tests (0 discards) *)
 
 QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct).
+(* +++ Passed 10000 tests (0 discards) *)
 
 QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P).
+(* +++ Passed 10000 tests (0 discards) *)
 
 QuickChick (
   {{msg_is_update_operator}}
@@ -146,6 +193,7 @@ QuickChick (
   {{post_last_update_operator_occurrence_takes_effect}}
   chain_without_transfer_hook
 ).
+(* +++ Passed 10000 tests (0 discards) *)
 End FA2Token.
 
 
@@ -173,12 +221,12 @@ Module BAT.
 Import BATTests.
 Import TestInfo.
 
-QuickChick (expectFailure (
+QuickChick (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
   contract_addr
   {{amount_is_zero}}
-)).
-(* +++ Failed (as expected) after 65 tests and 9 shrinks. (0 discards) *)
+).
+(* +++ Passed 10000 tests (0 discards) *)
 
 QuickChick (
   {{msg_is_create_tokens}}

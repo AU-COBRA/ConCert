@@ -204,7 +204,7 @@ Definition approve_allowance_update_correct (new_state : State) (from delegate :
   let delegate_allowance_after := get_allowance new_state from delegate in
     delegate_allowance_after =? tokens.
 
-Definition post_approve_correct (chain : Chain) cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_correct (chain : Chain) cctx (old_state : State) msg (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), approve delegate tokens) =>
     let from := cctx.(ctx_from) in
@@ -216,9 +216,9 @@ Definition post_approve_correct (chain : Chain) cctx old_state msg (result_opt :
   end.
 
 (* QuickChick (
-  {{msg_is_transfer_from}}
+  {{msg_is_approve}}
   contract_base_addr
-  {{post_transfer_from_correct}}
+  {{post_approve_correct}}
 ). *)
 
 (* +++ Passed 10000 tests (0 discards) *)
@@ -236,7 +236,7 @@ Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs :
   | None => checker true (* trivially true case *) 
   end.
 
-(* Time QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_init_supply)). *)
+(* Time QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_total_supply)). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 (* 9 seconds *)
 
