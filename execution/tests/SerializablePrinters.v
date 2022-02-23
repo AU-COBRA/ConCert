@@ -18,45 +18,41 @@ Existing Instance BATPrinters.showMsg.
 (* Existing Instance showEscrowMsg. *)
 (* Currently we hack it to always deserialize to some known Msg types *)
 
+Ltac make_show ts :=
+  match ts with
+  | (?t, ?tail) =>
+    let rest := make_show tail in
+    constr:(
+      fun (v : SerializedValue) =>
+        match @deserialize t _ v with
+        | Some v => show v
+        | None => rest v
+        end)
+  | tt => constr:(fun (v : SerializedValue) => "<FAILED DESERIALIZATION>")
+  end.
+
+Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
+  (let pairs := pair c0 .. (pair cn tt) .. in
+   ltac:(
+     match goal with
+     | [pairs := ?x |- _] => 
+      let s := make_show x in
+      let s' := eval cbn beta in s in
+        exact {| show := s' |}
+     end))
+    (at level 0, c0, cn at level 9, only parsing).
+
 Global Instance showSerializedValue : Show SerializedValue :=
-{|
-  show v := match @deserialize FA2Token.Msg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize Dexter.Msg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize TestContracts.ClientMsg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize TestContracts.TransferHookMsg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize EIP20Token.Msg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize BATCommon.Msg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize Escrow.Msg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize iTokenBuggy.Msg _ v with
-    | Some v => show v
-    | None =>
-    match @deserialize Congress.Msg _ v with
-    | Some v => show v
-    | None => "<FAILED DESERIALIZATION>"
-    end
-    end
-    end
-    end
-    end
-    end
-    end
-    end
-    end
-|}.
+  Derive Show Msg <
+    FA2Token.Msg,
+    Dexter.Msg,
+    TestContracts.ClientMsg,
+    TestContracts.TransferHookMsg,
+    EIP20Token.Msg,
+    BATCommon.Msg,
+    Escrow.Msg,
+    iTokenBuggy.Msg,
+    Congress.Msg >.
 Close Scope string_scope.
 
 Instance showChainTraceSigT : Show {to : ChainState & ChainTrace empty_state to} :=
