@@ -8,7 +8,7 @@ From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import BATCommon.
 From ConCert.Execution.Examples Require Import BAT_Fixed.
-From ConCert.Execution.QCTests Require Import BAT_FixedGens.
+From ConCert.Execution.QCTests Require Import BATGens.
 From ConCert.Execution.QCTests Require Import BATPrinters.
 From ConCert.Execution.QCTests Require Import ChainPrinters.
 From ConCert.Execution.QCTests Require Import SerializablePrinters.
@@ -69,6 +69,9 @@ Module TestInfo <: BATGensInfo.
   Definition fund_addr := ethFund.
   Definition accounts_total_balance := 37%Z.
   Definition trace_length := 7.
+  Definition bat_addr_refundable := false.
+  Definition bat_addr_fundable := false.
+  Definition eip20_transactions_before_finalized := false.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
 

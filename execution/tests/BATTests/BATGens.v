@@ -21,6 +21,9 @@ Module Type BATGensInfo.
   Parameter gAccount : Chain -> G Address.
   Parameter bat_addr : Address.
   Parameter fund_addr : Address.
+  Parameter bat_addr_refundable : bool.
+  Parameter bat_addr_fundable : bool.
+  Parameter eip20_transactions_before_finalized : bool.
 End BATGensInfo.
 
 Module BATGens (Info : BATGensInfo).
@@ -34,11 +37,11 @@ Definition account_balance (env : Environment) (addr : Address) : Amount :=
 
 Definition get_refundable_accounts state : list (G (option Address)) :=
   let balances_list := FMap.elements (balances state) in
-  let filtered_balances := filter (fun x => (negb (address_eqb bat_addr (fst x))) && (0 <? (snd x))%N) balances_list in
+  let filtered_balances := filter (fun x => (bat_addr_refundable || (negb (address_eqb bat_addr (fst x)))) && (0 <? (snd x))%N) balances_list in
     map returnGen (map Some (map fst filtered_balances)).
 
 Definition get_fundable_accounts env : G (option Address) :=
-  let freq_accounts := map (fun addr => (Z.to_nat (account_balance env addr), returnGenSome addr)) accounts in
+  let freq_accounts := map (fun addr => (if bat_addr_fundable || (negb (address_eqb addr bat_addr)) then Z.to_nat (account_balance env addr) else 0, returnGenSome addr)) accounts in
     freq_ (returnGen None) freq_accounts.
 
 Definition gFund_amount env state addr : G Z :=
@@ -94,6 +97,30 @@ Definition gFinalizeInvalid (env : Environment) (state : BATCommon.State) : G (A
 
 Module EIP20 := EIP20Gens Info.
 
+Definition gTransfer (env : Environment) (state : BATCommon.State) : GOpt (Address * Msg) :=
+  if eip20_transactions_before_finalized || state.(isFinalized)
+  then
+    '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
+    returnGenSome (caller, tokenMsg msg)
+  else
+    returnGen None.
+
+Definition gApprove (state : BATCommon.State) : GOpt (Address * Msg) :=
+  if eip20_transactions_before_finalized || state.(isFinalized)
+  then
+    bindGenOpt (EIP20.gApprove (token_state state))
+        (fun '(caller, msg) => returnGenSome (caller, tokenMsg msg))
+  else
+    returnGen None.
+
+Definition gTransfer_from (state : BATCommon.State) : GOpt (Address * Msg) :=
+  if eip20_transactions_before_finalized || state.(isFinalized)
+  then
+    bindGenOpt (EIP20.gTransfer_from (token_state state))
+        (fun '(caller, msg) => returnGenSome (caller, tokenMsg msg))
+  else
+    returnGen None.
+
 (* BAT valid call generator 
    Generator that will always return BAToken contract calls that are valid on their own,
    i.e. guaranteed to be valid if it is the first action executed in the block.
@@ -104,19 +131,21 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
-    (1, '(caller, msg) <- EIP20.gTransfer env (token_state state) ;;
-        call contract_addr caller (0%Z) (tokenMsg msg)
-    ) ;
-    (* transfer_from *)
-    (2, bindGenOpt (EIP20.gTransfer_from (token_state state))
+    (1, bindGenOpt (gTransfer env state)
         (fun '(caller, msg) =>
-          call contract_addr caller (0%Z) (tokenMsg msg)
+          call contract_addr caller (0%Z) msg
+        )
+    );
+    (* transfer_from *)
+    (2, bindGenOpt (gTransfer_from state)
+        (fun '(caller, msg) =>
+          call contract_addr caller (0%Z) msg
         )
     );
     (* approve *)
-    (1, bindGenOpt (EIP20.gApprove (token_state state))
+    (1, bindGenOpt (gApprove state)
         (fun '(caller, msg) =>
-          call contract_addr caller (0%Z) (tokenMsg msg)
+          call contract_addr caller (0%Z) msg
         )
     );
     (* create_tokens *)

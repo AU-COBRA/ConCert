@@ -69,6 +69,9 @@ Module TestInfo <: BATGensInfo.
   Definition fund_addr := ethFund.
   Definition accounts_total_balance := 37%Z.
   Definition trace_length := 7.
+  Definition bat_addr_refundable := false.
+  Definition bat_addr_fundable := true.
+  Definition eip20_transactions_before_finalized := true.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
 
