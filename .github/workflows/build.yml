@@ -14,6 +14,7 @@ jobs:
         env && \
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
+        git config --global http.postBuffer 1048576000 && \
         make && \
         make html && \
         make test-extraction && \
