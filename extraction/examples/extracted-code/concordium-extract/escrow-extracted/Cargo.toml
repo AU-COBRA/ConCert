@@ -17,12 +17,12 @@ immutable-map = "0.1.2"
 
 [dependencies.concordium-std]
 git = "https://github.com/Concordium/concordium-rust-smart-contracts.git"
-branch = "main"
+rev = "21b027b5a136c3ff8d939d64a53a91fb21e4da49"
 default-features = false
 
 [dev-dependencies.concordium-std]
 git = "https://github.com/Concordium/concordium-rust-smart-contracts.git"
-branch = "main"
+rev = "21b027b5a136c3ff8d939d64a53a91fb21e4da49"
 features = ["std"] # std is needed because testing depends on std.
 
 [lib]
