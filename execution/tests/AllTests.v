@@ -12,6 +12,7 @@ From ConCert.Execution.QCTests Require EIP20TokenTests.
 From ConCert.Execution.QCTests Require EscrowTests.
 From ConCert.Execution.QCTests Require FA2TokenTests.
 From ConCert.Execution.QCTests Require iTokenBuggyTests.
+From ConCert.Execution.QCTests Require BATTestCommon.
 From ConCert.Execution.QCTests Require BATTests.
 From ConCert.Execution.QCTests Require BAT_FixedTests.
 From ConCert.Execution.QCTests Require BAT_AltFixTests.
@@ -220,6 +221,8 @@ End iTokenBuggy.
 Module BAT.
 Import BATTests.
 Import TestInfo.
+Import MG.
+Import BATTestCommon.
 
 QuickChick (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
@@ -357,6 +360,8 @@ End BAT.
 Module BAT_Fixed.
 Import BAT_FixedTests.
 Import TestInfo.
+Import MG.
+Import BATTestCommon.
 
 QuickChick (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
@@ -494,6 +499,8 @@ End BAT_Fixed.
 Module BAT_AltFix.
 Import BAT_AltFixTests.
 Import TestInfo.
+Import MG.
+Import BATTestCommon.
 
 QuickChick (
   {{fun state msg => negb (msg_is_create_tokens state msg)}}
