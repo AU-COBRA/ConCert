@@ -131,6 +131,7 @@ Module Counter.
 
   Definition counter (c : Chain) (ctx : ContractCallContext) st msg :=
     (* avoid erasing c and ctx arguments *)
+    (** TODO: should be done by overriding masks instead *)
     let c_ := c in
     let ctx_ := ctx in
     match msg with

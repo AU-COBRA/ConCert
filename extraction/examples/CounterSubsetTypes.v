@@ -167,8 +167,9 @@ Module CameLIGOExtractionSetup.
     Some setup.
 
   (** [sig] and [exist] becomes just wrappers *)
-  Definition sig_def_ligo := "type 'a sig_ = a".
-  Definition exist_def_ligo := "let exist_ (a : int) = a".
+  Definition sig_def_ligo := "type 'a sig_ = 'a".
+  Definition exist_def_ligo := "let exist_ (a : _a) : _a = a".
+  Definition id_func_def_ligo := "let id_func (a : _a) : _a = a".
 
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_ligo : list (kername * string) :=
@@ -179,8 +180,7 @@ Module CameLIGOExtractionSetup.
     ; remap <%% Z.leb %%> "leInt"
     ; remap <%% Z.ltb %%> "ltInt"
     ; remap <%% sig %%> "sig_" (* remapping [sig] to the wrapper. *)
-    (* TODO: once polymorhic types are implemented in CameLIGO, we will be able to extract [sig] as it is *)
-    ; remap <%% @proj1_sig %%> "(fun (x:sig_) -> x)" (* NOTE: currently, the code will not compile, see notes about polymorphism below *)
+    ; remap <%% @proj1_sig %%> "id_func" (* NOTE: the code wil compile only starting with v0.31.0 of LIGO compiler, since it supports polymorphism *)
     ; remap <%% Z %%> "int"
     ; remap <%% Transaction %%> "operation list"
     ].
@@ -228,7 +228,11 @@ Definition dummy_chain :=
       lmd_module_name := "cameligo_counter" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl [CameLIGOPrelude; sig_def_ligo; exist_def_ligo; dummy_chain];
+      lmd_prelude := concat nl [CameLIGOPrelude;
+                                sig_def_ligo;
+                                exist_def_ligo;
+                                id_func_def_ligo;
+                                dummy_chain];
 
       (* initial storage *)
       lmd_init := init ;
@@ -259,17 +263,16 @@ Definition dummy_chain :=
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
 
-  (** NOTE: CameLIGO does not support polymorphic types.
-   Therefore, the resulting code doesn't compile as it is, but
-   one the MR is merged https://gitlab.com/ligolang/ligo/-/merge_requests/1173,
-   we will be able to extract [sig] without any remapping.
-   In the meantime, it [sig_] can be manually specialised to [int] and all applications
-   [int sig_] can be replaced with just [sig_] *)
+  (** NOTE: the MR add some support for polymorphism
+      https://gitlab.com/ligolang/ligo/-/merge_requests/1294 It is available starting from
+      v0.31.0 of LIGO compiler It would be also possible to extract [sig] without any
+      remapping, since new versions of LIGO also support data types with a single
+      constructor. *)
 
   MetaCoq Run (tmMsg cameLIGO_counter).
 
-  (* TODO: uncomment this once CameLIGO supports polymoprhic types *)
+  (* Note: compiles with LIGO v0.31.0 or above *)
   (* Redirect "examples/extracted-code/cameligo-extract/CounterSubsetTypes.mligo" *)
   MetaCoq Run (tmMsg cameLIGO_counter).
-    
+
 End CameLIGOExtractionSetup.
