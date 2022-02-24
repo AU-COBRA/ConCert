@@ -384,7 +384,7 @@ Module Dexter2 (SI : Dexter2Serializable).
     let balance_of_request :=
       FA2Interface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
     let balance_of_param :=
-      FA2Interface.Build_balance_of_param [balance_of_request] (FA2Interface.Build_callback _ None) in
+      FA2Interface.Build_balance_of_param [balance_of_request] (FA2Interface.Build_callback _ None ctx.(ctx_contract_address)) in
     let op := call_to_token state.(tokenAddress) 0 (FA2Token.msg_balance_of balance_of_param) in
       Some (state<| selfIsUpdatingTokenPool := true |>, [op]).
 
@@ -896,7 +896,7 @@ Section Theories.
         act_call prev_state.(tokenAddress) 0%Z (serialize
           (msg_balance_of (Build_balance_of_param 
             ([Build_balance_of_request ctx.(ctx_contract_address) prev_state.(tokenId)])
-            (FA2Interface.Build_callback _ None))))
+            (FA2Interface.Build_callback _ None ctx.(ctx_contract_address)))))
       ].
   Proof.
     intros * receive_some.
