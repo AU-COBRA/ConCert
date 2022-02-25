@@ -272,7 +272,7 @@ Definition dummy_chain :=
   MetaCoq Run (tmMsg cameLIGO_counter).
 
   (* Note: compiles with LIGO v0.31.0 or above *)
-  (* Redirect "examples/extracted-code/cameligo-extract/CounterSubsetTypes.mligo" *)
+  Redirect "examples/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
   MetaCoq Run (tmMsg cameLIGO_counter).
 
 End CameLIGOExtractionSetup.
