@@ -6,6 +6,7 @@
 theories/Automation.v
 theories/Blockchain.v
 theories/BoundedN.v
+theories/BuildUtils.v
 theories/ChainedList.v
 theories/Circulation.v
 theories/Containers.v
@@ -23,7 +24,10 @@ standards/cis1/CIS1Spec.v
 standards/cis1/CIS1Utils.v
 
 -R examples ConCert.Execution.Examples
+examples/BATCommon.v
 examples/BAT.v
+examples/BAT_Fixed.v
+examples/BAT_AltFix.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingZ.v
@@ -41,7 +45,6 @@ examples/FA2Token.v
 examples/LocalBlockchainTests.v
 examples/StackInterpreter.v
 examples/Cis1wccd.v
-examples/SerializableUtil.v
 examples/dexter2/Dexter2CPMM.v
 examples/dexter2/Dexter2FA12.v
 
@@ -75,3 +78,9 @@ tests/iTokenBuggyTests/iTokenBuggy.v
 tests/iTokenBuggyTests/iTokenBuggyGens.v
 tests/iTokenBuggyTests/iTokenBuggyPrinters.v
 tests/iTokenBuggyTests/iTokenBuggyTests.v
+tests/BATTests/BATGens.v
+tests/BATTests/BATPrinters.v
+tests/BATTests/BATTestCommon.v
+tests/BATTests/BATTests.v
+tests/BATTests/BAT_FixedTests.v
+tests/BATTests/BAT_AltFixTests.v

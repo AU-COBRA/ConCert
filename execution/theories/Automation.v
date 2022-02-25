@@ -215,6 +215,12 @@ Ltac unset_all :=
       pose proof (eq_refl : var = body); clearbody var
     end.
 
+Ltac destruct_or_hyps :=
+  repeat
+      match goal with
+      | [H: _ \/ _ |- _] => destruct H
+      end.
+
 Ltac destruct_hyps :=
   repeat
     match goal with

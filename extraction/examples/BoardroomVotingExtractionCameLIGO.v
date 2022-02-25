@@ -198,8 +198,6 @@ Definition to_inline : list kername :=
   ; <%% bool_rect %%>
   ; <%% bool_rec %%>
   ; <%% option_map %%>
-  ; <%% @BV.isSome %%>
-  ; <%% @isNone %%>
   ; <%% @Extras.with_default %%>
 
   ; <%% @BV.setter_from_getter_State_owner %%>

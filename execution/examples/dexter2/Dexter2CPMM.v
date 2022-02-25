@@ -23,7 +23,6 @@ From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Examples Require Import FA2Token.
 From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Execution.Examples Require Import Dexter2FA12.
-From ConCert.Execution.Examples Require Import SerializableUtil.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Lia.
@@ -208,8 +207,6 @@ Module Dexter2 (SI : Dexter2Serializable).
     Definition N_to_amount : N -> Amount := Z.of_N.
 
     Definition result : Type := option (State * list ActionBody).
-    Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
-    Definition isSome {A : Type} (a : option A) := negb (isNone a).
     Definition sub (n m : N) : option N := do _ <- throwIf (n <? m) ; Some (n - m).
     Definition div (n m : N) : option N := do _ <- throwIf (m =? 0) ; Some (n / m).
     Definition ceildiv (n m : N) : option N :=
@@ -641,38 +638,7 @@ Section Theories.
   Qed.
   Opaque sub.
 
-  Lemma isSome_some : forall {A : Type} (x : option A) (y : A),
-    x = Some y -> isSome x = true.
-  Proof.
-    intros.
-    now subst.
-  Qed.
 
-  Lemma isSome_none : forall {A : Type} (x : option A),
-    x = None -> isSome x = false.
-  Proof.
-    intros.
-    now subst.
-  Qed.
-
-  Lemma isSome_exists : forall {A : Type} (x : option A),
-    isSome x = true <-> exists y : A, x = Some y.
-  Proof.
-    split.
-    - now destruct x eqn:x_eq.
-    - intros (y & x_eq).
-      now eapply isSome_some.
-  Qed.
-
-  Lemma isSome_not_exists : forall {A : Type} (x : option A),
-    isSome x = false <-> forall y : A, x <> Some y.
-  Proof.
-    split.
-    - now destruct x eqn:x_eq.
-    - intros x_eq.
-      eapply isSome_none.
-      now destruct x.
-  Qed.
 
   Ltac math_convert_step :=
     match goal with
@@ -686,54 +652,30 @@ Section Theories.
 
   Tactic Notation "math_convert" := repeat math_convert_step.
 
-  Ltac receive_simpl_step :=
-    match goal with
-    | H : Blockchain.receive _ _ _ _ _ = Some (_, _) |- _ =>
-        unfold Blockchain.receive in H; cbn in H
-    | H : receive _ _ _ _ = Some (_, _) |- _ =>
-        unfold receive in H;
-        cbn in H
-    | |- receive _ _ _ _ = _ =>
-        unfold receive; cbn
-    | H : Some _ = Some _ |- _ =>
-        inversion_clear H
-    | H : Some _ = None |- _ =>
-        inversion H
-    | H : None = Some _ |- _ =>
-        inversion H
-    | H : throwIf _ = None |- _ => destruct_throw_if H
-    | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
-    | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-    | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-    | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
-      match a with
-      | None =>
-        let a := fresh "H" in
-        destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-      | _ => match b with
-             | None =>
-               let a := fresh "H" in
-               destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-             | _ => idtac
-      end end
-    | H : (if ?m then ?a else ?b) = Some _ |- _ =>
-      match a with
-      | None =>
-        let a := fresh "H" in
-        destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-      | _ => match b with
-             | None =>
-               let a := fresh "H" in
-               destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-             | _ => idtac
-      end end
+  Tactic Notation "contract_simpl" :=
+    repeat (unfold call_to_token,call_to_other_token;contract_simpl_step receive init).
+
+  Ltac destruct_message :=
+    repeat match goal with
+    | msg : option Msg |- _ => destruct msg
+    | msg : Msg |- _ => destruct msg
+    | msg : DexterMsg |- _ => destruct msg
+    | H : Blockchain.receive _ _ _ _ (Some (receive_total_supply_param _)) = Some _ |- _ => now contract_simpl
+    | H : receive _ _ _ (Some (receive_total_supply_param _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_metadata_callback _)) = Some _ |- _ => now contract_simpl
+    | H : receive _ _ _ (Some (receive_metadata_callback _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_is_operator _)) = Some _ |- _ => now contract_simpl
+    | H : receive _ _ _ (Some (receive_is_operator _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_permissions_descriptor _)) = Some _ |- _ => now contract_simpl
+    | H : receive _ _ _ (Some (receive_permissions_descriptor _)) = Some _ |- _ => now contract_simpl
     end.
 
-  Tactic Notation "receive_simpl" := repeat (unfold call_to_token,call_to_other_token;receive_simpl_step).
+  Hint Rewrite N.ltb_lt N.ltb_ge
+    Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt 
+    Z.ltb_ge Z.ltb_lt
+    Bool.orb_true_iff Bool.orb_false_iff
+    Bool.andb_true_iff Bool.andb_false_iff
+    Bool.negb_false_iff Bool.negb_true_iff : BoolElim.
   (* end hide *)
 
 
@@ -745,7 +687,7 @@ Section Theories.
       prev_state<| freezeBaker := param.(freezeBaker_) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma set_baker_freeze_baker_correct : forall prev_state new_state chain ctx new_acts param,
@@ -763,7 +705,7 @@ Section Theories.
       new_acts = set_delegate_call param.(baker).
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on set_baker msg must succeed and
@@ -776,24 +718,12 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_is_manager & not_frozen).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:frozen_check.
-      + reflexivity.
-      + now rewrite not_frozen in frozen_check.
-      + now rewrite sender_is_manager, address_eq_refl in sender_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -806,7 +736,7 @@ Section Theories.
       prev_state<| manager := new_manager |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma set_manager_manager_correct : forall prev_state new_state chain ctx new_acts new_manager,
@@ -824,7 +754,7 @@ Section Theories.
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on set_manager msg must succeed and
@@ -836,22 +766,12 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_is_manager).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:sender_check.
-      + reflexivity.
-      + now rewrite sender_is_manager, address_eq_refl in sender_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -864,7 +784,7 @@ Section Theories.
       prev_state<| lqtAddress := new_lqt_address |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma set_lqt_address_correct : forall prev_state new_state chain ctx new_acts new_lqt_address,
@@ -882,7 +802,7 @@ Section Theories.
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on set_lqt_address msg must succeed and
@@ -895,25 +815,13 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_is_manager & lqt_address_not_set).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:lqt_check.
-      + reflexivity.
-      + now rewrite lqt_address_not_set, address_eq_refl in lqt_check.
-      + now rewrite sender_is_manager, address_eq_refl in sender_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      repeat split; auto;
-        now destruct_address_eq.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -925,7 +833,7 @@ Section Theories.
       prev_state<| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma default_correct : forall prev_state new_state chain ctx new_acts,
@@ -943,7 +851,7 @@ Section Theories.
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on None msg must succeed and
@@ -953,15 +861,10 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state None = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros not_updating.
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      + reflexivity.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
+    split;
+      intros;
+      destruct_hyps;
+      now contract_simpl.
   Qed.
 
 
@@ -973,7 +876,7 @@ Section Theories.
       prev_state<| selfIsUpdatingTokenPool := true |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma update_token_pool_correct : forall prev_state new_state chain ctx new_acts,
@@ -997,7 +900,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    now receive_simpl.
+    now contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on update_token_pool msg must succeed and
@@ -1009,22 +912,12 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_eq_origin).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:updating_check.
-      + reflexivity.
-      + now rewrite not_updating in updating_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite sender_eq_origin, address_eq_refl in sender_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      rewrite Bool.negb_false_iff in *.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -1054,7 +947,7 @@ Section Theories.
                                 end |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now invert_responses_Some.
   Qed.
 
@@ -1073,7 +966,7 @@ Section Theories.
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on update_token_pool_internal msg must succeed and
@@ -1086,28 +979,15 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & updating & sender_is_token_contract & responses_not_empty).
-      unfold receive. cbn.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:response.
-      destruct_match eqn:response_check in response.
-      + congruence.
-      + eauto.
-      + now destruct_match in response.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite updating, sender_is_token_contract, address_eq_refl in sender_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Bool.orb_false_iff in *.
-      rewrite Bool.negb_false_iff in *.
-      rewrite Z.ltb_ge in *.
-      invert_responses_Some;subst.
-      repeat split;auto.
-      + easy.
-      + now destruct_address_eq.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl; eauto;
+      destruct responses;
+      autorewrite with BoolElim in *;
+      destruct_or_hyps;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -1123,7 +1003,7 @@ Section Theories.
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1156,7 +1036,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1174,33 +1054,14 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & max_tokens_not_hit &
-              enough_minted & xtzPool_not_zero & lqt_addr_set).
-      unfold receive.
-      cbn in *.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:div_check; math_convert.
-      destruct_match eqn:ceildiv_check; math_convert.
-      destruct_match eqn:max_tokens_check.
-      destruct_match eqn:min_lqt_check.
-      destruct_match eqn:mint_act; try congruence;
-      destruct_match eqn:lqt_addr_set_check in mint_act; try congruence.
-      + eauto.
-      + now apply address_eq_ne in lqt_addr_set.
-      + now apply N.ltb_ge in enough_minted.
-      + now apply N.ltb_ge in max_tokens_not_hit.
-      + congruence.
-      + congruence.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge in *.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      unfold amount_to_N in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -1217,7 +1078,7 @@ Section Theories.
                 <| xtzPool := prev_state.(xtzPool) - xtz_withdrawn |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert;cbv.
   Qed.
 
@@ -1252,7 +1113,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     math_convert.
     unfold xtz_transfer in *.
     destruct_match in *; try congruence.
@@ -1280,43 +1141,17 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & ctx_amount_zero &
-              lqtPool_not_zero & enough_xtz_withdrawn & enough_tokens_withdrawn &
-              tokens_withdrawn_le_total & xtz_withdrawn_le_total & lqt_burned_le_total &
-              to_not_contract & lqt_addr_set).
-      unfold receive.
-      cbn in *.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:ctx_amount_check.
-      destruct_match eqn:xtz_div_check; math_convert; try easy.
-      destruct_match eqn:tokens_div_check; math_convert; try easy.
-      destruct_match eqn:min_xtz_check.
-      destruct_match eqn:min_tokens_check.
-      destruct_match eqn:burned_check; math_convert; try easy.
-      destruct_match eqn:token_pool_check; math_convert; try easy.
-      destruct_match eqn:xtz_pool_check; math_convert; try easy.
-      destruct_match eqn:mint_act; try congruence;
-      destruct_match eqn:lqt_addr_set_check in mint_act; try congruence.
-      destruct_match eqn:transfer_act.
-      + eauto.
-      + unfold xtz_transfer in transfer_act.
-        now rewrite to_not_contract in transfer_act.
-      + now apply address_eq_ne in lqt_addr_set.
-      + now apply N.ltb_ge in enough_tokens_withdrawn.
-      + now apply N.ltb_ge in enough_xtz_withdrawn.
-      + now apply Z.ltb_ge in ctx_amount_zero.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge,Z.ltb_ge in *.
-      unfold xtz_transfer in *.
-      destruct_match in *; try congruence.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      try easy;
+      try now destruct_address_eq.
+    all :
+      unfold xtz_transfer in *;
+      destruct_match in *;
       now destruct_address_eq.
   Qed.
 
@@ -1331,7 +1166,7 @@ Section Theories.
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1361,7 +1196,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1378,25 +1213,15 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & not_zero &
-              enough_tokens_bought & tokens_bought_le_total).
-      unfold receive.
-      cbn in *.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:xtz_div_check; math_convert; try easy.
-      destruct_match eqn:min_tokens_check.
-      destruct_match eqn:token_pool_check; math_convert; try easy.
-      + now apply N.ltb_ge in enough_tokens_bought.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge in *.
-      now repeat split.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      unfold amount_to_N in *;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -1410,7 +1235,7 @@ Section Theories.
                 <| xtzPool := prev_state.(xtzPool) - xtz_bought |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1442,7 +1267,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     math_convert.
     unfold xtz_transfer in *. 
     destruct_match in *; try congruence.
@@ -1466,35 +1291,18 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & ctx_amount_zero &
-              enough_xtz_bought & not_zero & to_not_contract &
-              xtz_bought_le_total).
-      unfold receive.
-      cbn.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:div_check; math_convert; try easy.
-      destruct_match eqn:min_xtz_check.
-      destruct_match eqn:xtz_pool_check; math_convert; try easy.
-      destruct_match eqn:transfer_act.
-      + eauto.
-      + unfold xtz_transfer in transfer_act.
-        now rewrite to_not_contract in transfer_act.
-      + now apply N.ltb_ge in enough_xtz_bought.
-      + now apply Z.ltb_ge in ctx_amount_zero.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge,Z.ltb_ge in *.
-      unfold xtz_transfer in *.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      try easy;
+      try now destruct_address_eq.
+    all :
+      unfold xtz_transfer in *;
       destruct_match in *;
-        try congruence.
-      now repeat split.
+      now destruct_address_eq.
   Qed.
 
 
@@ -1509,7 +1317,7 @@ Section Theories.
                 <| xtzPool := prev_state.(xtzPool) - xtz_bought |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1545,7 +1353,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1562,25 +1370,14 @@ Section Theories.
     <->
     exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & ctx_amount_zero &
-              xtz_bought_le_total & not_zero).
-      unfold receive.
-      cbn.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:div_check; math_convert; try easy.
-      destruct_match eqn:xtz_pool_check; math_convert; try easy.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now apply Z.ltb_ge in ctx_amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,Z.ltb_ge in *.
-      now repeat split.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -1601,7 +1398,7 @@ Section Theories.
       |}.
   Proof.
     intros * init_some.
-    now inversion init_some.
+    now contract_simpl.
   Qed.
 
   Lemma init_correct : forall chain ctx setup state,
@@ -1625,18 +1422,12 @@ Section Theories.
   Lemma init_is_some : forall chain ctx setup,
     exists state, init chain ctx setup = state.
   Proof.
-    intros.
     eauto.
   Qed.
 
 
 
   (* begin hide *)
-  Ltac split_hypotheses :=
-    match goal with
-    | [ H : _ /\ _ |- _ ] => destruct H as []
-    end.
-
   Ltac rewrite_acts_correct :=
     match goal with
     | [ H : receive _ _ _ _ = Some _ |- _ ] =>
@@ -1685,7 +1476,7 @@ Section Theories.
             |specialize xtz_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize token_to_xtz_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize token_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |] ];
-      repeat split_hypotheses; subst
+      destruct_hyps; subst
     end.
   (* end hide *)
 
@@ -1710,16 +1501,14 @@ Section Theories.
   Proof.
     contract_induction; intros; cbn in *; auto.
     - now apply list.Forall_cons in IH as [_ IH].
-    - destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+    - destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         try (apply Forall_app; split);
         try apply IH; auto;
         rewrite ?list.Forall_cons, ?list.Forall_nil;
         try easy.
-    - destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+    - destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         try (apply Forall_app; split);
@@ -1751,14 +1540,10 @@ Section Theories.
     apply (lift_outgoing_acts_prop contract); auto.
     intros * receive_some.
     cbn in receive_some.
-      destruct msg.
-      + destruct m; try destruct d;
-          try (now receive_simpl);
-          rewrite_acts_correct;
-          rewrite ?list.Forall_cons, list.Forall_nil;
-          intuition.
-          now right.
-      + now receive_simpl.
+    destruct_message;
+      rewrite_acts_correct;
+      rewrite ?list.Forall_cons, list.Forall_nil;
+      easy.
   Qed.
 
   Lemma no_contract_deployment bstate caddr :
@@ -1774,8 +1559,7 @@ Section Theories.
     apply (lift_outgoing_acts_prop contract); auto.
     intros * receive_some.
     cbn in receive_some.
-    destruct msg; try destruct m; try destruct d;
-      try (now receive_simpl);
+    destruct_message;
       rewrite_acts_correct; auto.
     now cbv.
   Qed.
@@ -1803,11 +1587,10 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z).
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1821,11 +1604,10 @@ Section Theories.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst;
-      try destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1903,11 +1685,10 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z).
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1921,11 +1702,10 @@ Section Theories.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst;
-      try destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1963,10 +1743,9 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z /\
         Z.of_N (xtzPool state) <= ctx_contract_balance ctx- sumZ (fun act => act_body_amount act) out_acts).
       destruct facts.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
         rewrite_acts_correct;
-        try rewrite_receive_is_some;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1979,13 +1758,12 @@ Section Theories.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst.
-      + receive_simpl.
+      + contract_simpl.
         cbn in *.
         lia.
-      + try destruct msg; try destruct m; try destruct d;
-          try (now receive_simpl);
+      + destruct_message;
           rewrite_acts_correct;
-          try rewrite_receive_is_some;
+          rewrite_receive_is_some;
           unfold N_to_amount in *;
           try match goal with
           | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -2140,8 +1918,7 @@ Section Theories.
         eexists.
         split; eauto.
         intros lqtAddr.
-        destruct msg'; try destruct m; try destruct d;
-          try (now receive_simpl);
+        destruct_message;
           rewrite_acts_correct;
           rewrite_state_eq;
           try (apply sum_eq in lqtAddr as lqtAddr'; clear sum_eq);
@@ -2231,8 +2008,7 @@ Qed.
             end) out_acts).
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         apply Forall_app;
@@ -2260,8 +2036,7 @@ Qed.
     - apply list.Forall_cons in IH as [].
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         apply Forall_app;
@@ -2415,10 +2190,7 @@ Qed.
               subst.
               clear deployed0 deployed_state deployed_state'.
               assert (lqt_addr_preserved : lqtAddress state' = lqtAddress state \/ exists a, msg' = Some (FA2Token.other_msg (SetLqtAddress a))).
-              { destruct msg'; try destruct m; try destruct d;
-                  try (now receive_simpl);
-                  rewrite_state_eq.
-              }
+              { destruct_message; now rewrite_state_eq. }
               destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
           ---- (* Self call *)
                 rewrite address_eq_refl.
@@ -2575,10 +2347,7 @@ Qed.
               subst.
               clear deployed0 deployed_state deployed_state'.
               assert (lqt_addr_preserved : lqtAddress state' = lqtAddress state \/ exists a, msg' = Some (FA2Token.other_msg (SetLqtAddress a))).
-              { destruct msg'; try destruct m; try destruct d;
-                  try (now receive_simpl);
-                  rewrite_state_eq.
-              }
+              { destruct_message; now rewrite_state_eq. }
               destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
           ---- (* Self call *)
                 rewrite address_eq_refl.
@@ -2744,8 +2513,8 @@ Qed.
       + now destruct tx_act_match as [_ [_ ->]].
       + now destruct tx_act_match as [_ ->].
     - cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
+        try (now contract_simpl);
         rewrite_acts_correct;
         rewrite_state_eq;
         rewrite_receive_is_some;
@@ -2762,10 +2531,10 @@ Qed.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst.
-      + now receive_simpl.
+      + now contract_simpl.
       + cbn in receive_some.
-        destruct msg; try destruct m; try destruct d;
-          try (now receive_simpl);
+        destruct_message;
+          try (now contract_simpl);
           rewrite_acts_correct;
           rewrite_state_eq;
           rewrite_receive_is_some;

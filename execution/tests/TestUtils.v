@@ -42,9 +42,6 @@ Open Scope string_scope.
 
 Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 
-Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
-Definition isSome {A : Type} (a : option A) := negb (isNone a).
-
 Definition string_of_FMap {A B : Type}
                          `{countable.Countable A}
                          `{base.EqDecision A}
