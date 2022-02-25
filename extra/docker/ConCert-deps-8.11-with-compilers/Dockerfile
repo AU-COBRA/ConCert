@@ -1,4 +1,4 @@
-FROM aucobra/concert:deps-coq-8.11
+FROM aucobra/concert:deps-coq-8.11-2
 
 LABEL maintainer="The COBRA Team"
 

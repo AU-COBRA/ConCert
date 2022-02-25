@@ -17,7 +17,7 @@ To set up a switch with the necessary dependencies run the following commands fr
 opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install . --deps-only
+opam install ./coq-concert.opam --deps-only
 ```
 
 After completing the procedures above, run `make` to build the development, and `make html` to build the documentation. 
