@@ -827,3 +827,51 @@ Proof.
   cbn.
   now rewrite N.add_comm.
 Qed.
+
+
+Definition isSome {A : Type} (a : option A) := match a with | Some _ => true | None => false end.
+Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
+
+Lemma with_default_is_some : forall {A : Type} (x : option A) (y : A),
+  isSome x = false ->
+    with_default y x = y.
+Proof.
+  now destruct x.
+Qed.
+
+Lemma isSome_some : forall {A : Type} (x : option A) (y : A),
+  x = Some y -> isSome x = true.
+Proof.
+  intros.
+  now subst.
+Qed.
+
+Lemma isSome_none : forall {A : Type} (x : option A),
+  x = None -> isSome x = false.
+Proof.
+  intros.
+  now subst.
+Qed.
+
+Lemma isSome_exists : forall {A : Type} (x : option A),
+  isSome x = true <-> exists y : A, x = Some y.
+Proof.
+  split.
+  - intros. 
+    destruct x; eauto.
+    discriminate.
+  - intros (y & x_eq).
+    eapply isSome_some.
+    eauto.
+Qed.
+
+Lemma isSome_not_exists : forall {A : Type} (x : option A),
+  isSome x = false <-> forall y : A, x <> Some y.
+Proof.
+  split.
+  - now destruct x eqn:x_eq.
+  - intros x_eq.
+    eapply isSome_none.
+    destruct x; auto.
+    congruence.
+Qed.

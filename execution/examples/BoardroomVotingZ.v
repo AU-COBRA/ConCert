@@ -225,9 +225,6 @@ Definition init : ContractIniterSetupState :=
        tally := None; |}.
 
 Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
-Definition isSome {A} (a : option A) := match a with Some _ => true | None => false end.
-
-Definition isNone {A} (a : option A) := match a with Some _ => false | None => true end.
 Definition twoZ : Z := 2.
 
 Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
