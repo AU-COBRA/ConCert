@@ -3,26 +3,41 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: aucobra/concert:deps-coq-8.11-with-compilers-ligo-0.34.0
+    container:
+      image: aucobra/concert:deps-coq-8.11-with-compilers-ligo-0.34.0
+      options: --user root
     steps:
-    - run: sudo chown -R coq:coq .
-    - uses: actions/checkout@v2
-    - name: Build and test extraction
+    - name: Checkout branch ${{ github.ref_name }}
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set file modification times
+      run: |
+        for f in $(git ls-tree -r -t --full-name --name-only HEAD); do
+            touch -d $(git log --pretty=format:%cI -1 "HEAD" -- "$f") "$f";
+        done
+    - name: Cache build outputs
+      uses: actions/cache@v2
+      with:
+        path: |
+          **/*.vo
+          **/*.glob
+          !extraction/**/*.vo
+          !extraction/**/*.glob
+        key: build-output-${{ hashFiles('**/Dockerfile') }}-${{ github.sha }}
+        restore-keys: build-output-${{ hashFiles('**/Dockerfile') }}-
+    - name: Build
       run: |
         export HOME=/home/coq && \
         PATH=/home/coq/.cargo/bin:$PATH
         env && \
         opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        make && \
-        make html && \
-        make test-extraction && \
-        make clean-extraction-out-files && \
-        make clean-compiled-extraction
-    - uses: actions/upload-artifact@v2
-      with:
-        name: Documentation
-        path: docs/
+        make -j2 && \
+        make -j2 html && \
+        make -j2 test-extraction && \
+        make -j2 clean-extraction-out-files && \
+        make -j2 clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
         name: Liquidity logs
@@ -40,9 +55,9 @@ jobs:
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
-      if: github.event_name != 'pull_request' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
+      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
     - name: Deploy the docs to GitHub Pages
-      if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v2
       with:
         target_branch: gh-pages
