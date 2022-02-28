@@ -18,7 +18,11 @@ Definition token_id := N.
 (* Dummy implementation of callbacks. *)
 Record callback (A : Type) := {
   blob : option A;
+  return_addr : Address;
 }.
+
+Definition callback_addr {A : Type} (c : callback A) : Address := c.(return_addr A).
+Global Coercion callback_addr : callback >-> Address.
 
 Record transfer :=
   build_transfer {
@@ -28,6 +32,7 @@ Record transfer :=
     amount : N;
     sender_callback_addr : option Address;
 }.
+
 Record balance_of_request := {
   owner : Address;
   bal_req_token_id : token_id;

@@ -235,7 +235,7 @@ Definition gIsOperatorMsg : G (option ClientMsg) :=
   op_tokens <- elems_opt [all_tokens ; some_tokens [0%N]] ;;
   let params := Build_is_operator_param
       (Build_operator_param addr1 addr2 op_tokens)
-      (Build_callback is_operator_response None) in
+      (Build_callback is_operator_response None fa2_client_addr) in
     returnGenSome (client_other_msg (Call_fa2_is_operator params)).
 
 Definition gClientAction (env : Environment) : GOpt Action :=

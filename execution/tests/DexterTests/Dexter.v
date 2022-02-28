@@ -75,7 +75,7 @@ End Serialization.
 
 Definition address_not_eqb a b := negb (address_eqb a b).
 
-Definition begin_exchange_tokens_to_assets (caller : Address)
+Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                            (params : exchange_param)
                                            (dexter_caddr : Address)
                                            (state : State)
@@ -96,7 +96,7 @@ Definition begin_exchange_tokens_to_assets (caller : Address)
   |} in
   let act := {|
     bal_requests := [owner_balance_param; dexter_balance_param];
-    bal_callback := Build_callback _ None;
+    bal_callback := Build_callback _ None ctx.(ctx_contract_address);
   |} in
   let ser_msg := @serialize _ _ (msg_balance_of act) in
   let acts := [act_call state.(fa2_caddr) 0%Z ser_msg] in
@@ -156,7 +156,7 @@ Definition create_tokens (tokenid : token_id)
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
-                    (ctx : ContractCallContext)
+                   (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
                    : option (State * list ActionBody) :=
@@ -166,7 +166,7 @@ Definition receive (chain : Chain)
   let amount := ctx.(ctx_amount) in
   match maybe_msg with
   | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
-  | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets sender params caddr state
+  | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets ctx params caddr state
   | Some (other_msg (add_to_tokens_reserve tokenid)) => create_tokens tokenid amount state
   | _ => None
   end.
