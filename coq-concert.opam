@@ -13,7 +13,7 @@ depends: [
   "ocaml" {>= "4.07.1"}
   "coq" {>= "8.11" & < "8.12~"}
   "coq-bignums" {= "8.11.0"}
-  "coq-quickchick" {= "1.5.1"}
+  "coq-quickchick" {= "1.6.0"}
   "coq-metacoq-template" {pinned}
   "coq-metacoq-pcuic" {pinned}
   "coq-metacoq-safechecker" {pinned}
