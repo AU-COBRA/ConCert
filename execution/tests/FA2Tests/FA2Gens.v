@@ -5,7 +5,7 @@ From ConCert Require Import Containers.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ConCert.Execution.QCTests Require Import
-  TestUtils TraceGens TestContracts SerializablePrinters.
+  TestUtils TraceGens TestContracts FA2Printers.
 From Coq Require Import ZArith List.
 Import ListNotations.
 (* For monad notations *)

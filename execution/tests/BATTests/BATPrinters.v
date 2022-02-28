@@ -1,16 +1,11 @@
-From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Blockchain Serializable.
 From ConCert.Execution.Examples Require Import BATCommon.
 From ConCert.Execution.QCTests Require Import EIP20TokenPrinters.
-From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
 
-Section BATPrinters.
-Context `{Show Address}.
 Local Open Scope string_scope.
-
-Existing Instance EIP20TokenPrinters.showMsg.
-Existing Instance EIP20TokenPrinters.showTokenState.
 
 Instance showTokenValue : Show TokenValue :=
 {|
@@ -55,4 +50,5 @@ Instance showBATState : Show BATCommon.State :=
     "tokenCreationMin: " ++ show s.(tokenCreationMin) ++ "}"
 |}.
 
-End BATPrinters.
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < BATCommon.Msg, BATCommon.Setup >.

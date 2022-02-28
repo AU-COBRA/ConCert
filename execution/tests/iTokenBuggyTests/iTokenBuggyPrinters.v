@@ -1,13 +1,10 @@
-From ConCert Require Import Blockchain.
+From ConCert Require Import Blockchain Serializable.
 From ConCert Require Import iTokenBuggy.
-From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
-Section iTokenBuggyPrinters.
-Context `{Show Address}.
+
 Local Open Scope string_scope.
-
-
 Instance showMsg : Show Msg :=
 {|
   show m := match m with
@@ -31,4 +28,5 @@ Instance showTokenState : Show iTokenBuggy.State :=
                ++ "allowances: " ++ show s.(allowances) ++ "}"
 |}.
 
-End iTokenBuggyPrinters.
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < Msg, Setup >.

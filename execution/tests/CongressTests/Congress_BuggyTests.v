@@ -13,7 +13,7 @@ From ConCert Require Import Congress_Buggy.
 Require Import ResultMonad.
 Require Import Extras.
 
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_BuggyGens Congress_BuggyPrinters SerializablePrinters TraceGens.
+From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_BuggyGens Congress_BuggyPrinters TraceGens.
 Close Scope monad_scope.
 
 From ConCert Require Import Monads.

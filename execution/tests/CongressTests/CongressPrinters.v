@@ -1,6 +1,6 @@
 From ConCert Require Import Blockchain Congress.
 From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import List. Import ListNotations.
@@ -9,9 +9,6 @@ Open Scope string_scope.
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
-
-Section CongressPrinters.
-Context `{Show Address}.
 
 Instance showRules : Show Rules :=
 {|
@@ -87,5 +84,6 @@ Instance showState : Show Congress.State :=
             ++ "next_proposal_id: " ++ show (next_proposal_id s) ++ sep
             ++ "members: " ++ show (members s) ++ "}"
 |}.
-  
-End CongressPrinters.
+
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < Msg, Setup >.

@@ -3,7 +3,7 @@ From ConCert Require Import Serializable.
 From ConCert Require Import BoundedN ResultMonad.
 
 From ConCert.Execution.QCTests Require Import
-  TestUtils CongressGens TraceGens SerializablePrinters.
+  TestUtils CongressGens CongressPrinters TraceGens.
 
 Require Import ZArith.
 

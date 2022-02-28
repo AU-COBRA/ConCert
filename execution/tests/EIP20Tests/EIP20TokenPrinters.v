@@ -1,10 +1,8 @@
-From ConCert Require Import Blockchain.
+From ConCert Require Import Blockchain Serializable.
 From ConCert Require Import EIP20Token.
-From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
-Section EIP20TokenPrinters.
-Context `{Show Address}.
 Local Open Scope string_scope.
 
 Instance showTokenValue : Show TokenValue :=
@@ -34,4 +32,5 @@ Instance showTokenState : Show EIP20Token.State :=
                ++ "allowances: " ++ show s.(allowances) ++ "}"
 |}.
 
-End EIP20TokenPrinters.
+Instance showSerializedMsg : Show SerializedValue :=
+  Derive Show Msg < Msg, Setup >.

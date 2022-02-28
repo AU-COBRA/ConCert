@@ -10,7 +10,7 @@ Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters TraceGens FA2Printers TestContracts.
+  TestUtils ChainPrinters TraceGens TestContracts.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 Import ListNotations.
@@ -112,15 +112,15 @@ Definition chain_with_token_deployed_without_hook : ChainBuilder :=
 Definition chain_without_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_without_hook
   [
-    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N))) ;
+    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N)))
   ]).
 
 Definition chain_with_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_with_hook
   [
-    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize _ _ (msg_create_tokens 0%N)))
+    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N))) ;
+    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N)))
   ]).
 
 Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'.
@@ -134,7 +134,7 @@ Definition call_client_is_op_act :=
       (Build_operator_param zero_address zero_address all_tokens)
       (Build_callback is_operator_response None) in
   let msg := client_other_msg (Call_fa2_is_operator params) in
-  act_call client_contract_addr 0%Z (serialize ClientMsg _ msg).
+  act_call client_contract_addr 0%Z (serialize msg).
 
 Definition token_state (cs : Environment) := get_contract_state FA2Token.State cs token_contract_base_addr.
 Definition client_state (cs : Environment) := get_contract_state ClientState cs client_contract_addr.

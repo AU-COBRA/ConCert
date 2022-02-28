@@ -13,7 +13,7 @@ From ConCert Require Import ResultMonad.
 Require Import Extras.
 
 From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters SerializablePrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
+  TestUtils ChainPrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
 
 From Coq Require Import List.
 Import ListNotations.
@@ -22,7 +22,6 @@ Import LocalBlockchain.
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
-Existing Instance showTokenState.
 Definition init_supply := (100%N).
 Definition token_setup := EIP20Token.build_setup creator init_supply.
 Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_setup.
