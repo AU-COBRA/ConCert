@@ -658,7 +658,7 @@ Proof.
 Qed.
 
 
-Hint Resolve forallb_type_to_term_closed.
+Hint Resolve forallb_type_to_term_closed : core.
 
 Lemma expr_closed_term_closed e n Σ:
   genv_ok Σ ->
@@ -1145,7 +1145,7 @@ Proof.
 Qed.
 
 Remove Hints iclosed_n_geq: hints.
-Remove Hints Bool.absurd_eq_true.
+Remove Hints Bool.absurd_eq_true : core.
 
 Open Scope nat.
 
@@ -1405,7 +1405,7 @@ Proof.
   apply All_snd_combine.
 Qed.
 
-Hint Constructors All.
+Hint Constructors All : core.
 
 Lemma eval_ge_val_ok n ρ Σ e v :
   AllEnv (ge_val_ok Σ) ρ ->

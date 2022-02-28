@@ -16,6 +16,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import Common Extraction.
 From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
+From ConCert.Extraction Require LPretty LiquidityExtract.
 From ConCert.Utils Require Import RecordUpdate.
 
 From Coq Require Import List Ascii String.
@@ -115,7 +116,7 @@ End EscrowCameLIGOExtraction.
 Module EscrowLiquidityExtraction.
   Definition PREFIX := "".
   
-  From ConCert.Extraction Require Import LPretty LiquidityExtract.
+  Import LPretty LiquidityExtract.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 
   

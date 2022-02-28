@@ -117,8 +117,6 @@ Definition is_contract (addr: address_coq) :=
   | UserAddr_coq _ => false
   end.
 
-Print Instances countable.Countable.
-
 Definition encode_addr (addr: address_coq) : nat + nat :=
   match addr with
   | ContractAddr_coq x => inl x

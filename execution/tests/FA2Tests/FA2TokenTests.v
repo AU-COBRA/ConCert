@@ -12,6 +12,7 @@ From ExtLib.Structures Require Import Functor Applicative.
 From ConCert.Execution.QCTests Require Import
   TestUtils ChainPrinters TraceGens TestContracts.
 From ConCert.Utils Require Import RecordUpdate.
+From ExtLib.Structures Require Monads.
 From Coq Require Import List.
 Import ListNotations.
 Import RecordSetNotations.
@@ -143,7 +144,7 @@ From ConCert.Execution.QCTests Require Import FA2Gens.
 
 
 Module TestInfo <: FA2TestsInfo.
-  From ExtLib.Structures Require Import Monads.
+  Import Monads.
   Import MonadNotation. Open Scope monad_scope.
 
   Definition fa2_contract_addr := token_contract_base_addr.

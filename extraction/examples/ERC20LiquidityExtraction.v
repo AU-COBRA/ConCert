@@ -18,13 +18,14 @@ From ConCert.Extraction Require Import
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import EIP20Token.
+From ConCert.Execution Require EIP20Token.
+From ConCert.Execution Require Containers.
 From ConCert.Execution.Examples Require Import Common.
 From ConCert.Utils Require Import RecordUpdate.
 
 From Coq Require Import List Ascii String.
 Local Open Scope string_scope.
-
+From stdpp Require gmap.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
@@ -78,8 +79,7 @@ Definition TT_remap_default : list (kername * string) :=
 Section EIP20TokenExtraction.
   Import EIP20Token.
   Import RecordSetNotations.
-  Require Import Containers.
-  From stdpp Require gmap.
+  Import Containers.
 
   Notation params := (ContractCallContext × option EIP20Token.Msg).
   Open Scope N_scope.

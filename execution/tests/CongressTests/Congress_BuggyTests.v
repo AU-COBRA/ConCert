@@ -28,7 +28,7 @@ Close Scope address_scope.
 
 (* -------------------------- Tests of the Buggy Congress Implementation -------------------------- *)
 
-Let creator := BoundedN.of_Z_const AddrSize 10.
+Definition creator := BoundedN.of_Z_const AddrSize 10.
 
 Definition rules := {|
   min_vote_count_permille := 200;
