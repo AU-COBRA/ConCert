@@ -1,6 +1,4 @@
-From Coq Require Import Basics.
 From Coq Require Import List.
-From Coq Require Import ZArith.
 
 Import ListNotations.
 
