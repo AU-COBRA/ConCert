@@ -6,7 +6,7 @@ expected from the number of created proposals. *)
 
 From Coq Require Import ZArith.
 From Coq Require Import Psatz.
-Require Import Automation.
+From ConCert.Utils Require Import Automation.
 Require Import Blockchain.
 Require Import Containers.
 Require Import Extras.

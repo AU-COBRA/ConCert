@@ -12,8 +12,8 @@
     of the trading reserves, this way user are incentivised to add funds to the reserves.
 *)
 
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.

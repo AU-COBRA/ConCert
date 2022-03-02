@@ -3,7 +3,10 @@
    - the next_step field satisfies a certain ordering (e.g. buyer_commit -> buyer_confirm -> withdrawals)
 *)
 
-From ConCert.Execution Require Import Blockchain LocalBlockchain Escrow EscrowExtras.
+From ConCert.Utils Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution Require Import Escrow.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.

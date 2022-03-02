@@ -8,7 +8,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import Common Optimize.
 From ConCert.Extraction Require Import LPretty LiquidityExtract.
-From ConCert.Execution Require Import Automation.
+From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.

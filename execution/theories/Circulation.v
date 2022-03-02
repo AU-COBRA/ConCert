@@ -1,7 +1,8 @@
 (* In this file we prove that the circulation of any blockchain implementing our
 semantics is as expected: the sum of all rewards paid out in blocks. *)
 From Coq Require Import List Permutation ZArith Psatz Morphisms.
-Require Import Automation Blockchain Extras Finite.
+From ConCert.Utils Require Import Automation.
+Require Import Blockchain Extras Finite.
 Import ListNotations.
 
 Section Circulation.

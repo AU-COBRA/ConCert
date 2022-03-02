@@ -63,12 +63,12 @@ From Coq Require Import List.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
-Require Import Automation.
 Require Import ChainedList.
 Require Import Extras.
 Require Import Monads.
 Require Import ResultMonad.
 Require Import Serializable.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.

@@ -3,8 +3,8 @@ From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
-Require Import Automation.
 Require Import Blockchain.
 Require Import Containers.
 Require ContractMonads.

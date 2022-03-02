@@ -14,11 +14,11 @@ From ConCert.Embedding Require Import MyEnv CustomTactics.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import Common Optimize.
 From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
-From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.Examples Require EIP20Token.
 From ConCert.Execution Require Import Containers.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import StringExtra.
 

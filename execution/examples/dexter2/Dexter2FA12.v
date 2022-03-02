@@ -11,8 +11,8 @@
     of ownership of the exchanges funds. An user who owns x% of the supply
     of liquidity tokens owns x% of the exchanges trading reserve.
 *)
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.

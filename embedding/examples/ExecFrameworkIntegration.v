@@ -9,7 +9,8 @@ Require Import List.
 Require Import Coq.ssr.ssrbool.
 Require Import Program.Tactics.
 
-From ConCert.Execution Require Import Blockchain Automation Extras ResultMonad.
+From ConCert.Utils Require Import Automation.
+From ConCert.Execution Require Import Blockchain Extras ResultMonad.
 
 Import ListNotations.
 

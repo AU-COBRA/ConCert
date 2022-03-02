@@ -3,8 +3,8 @@
 From Coq Require Import Morphisms ZArith Basics.
 From Coq Require Import List.
 
+From ConCert.Utils Require Import Automation.
 Require Import Extras.
-Require Import Automation.
 Require Import Serializable.
 Require Import Blockchain.
 

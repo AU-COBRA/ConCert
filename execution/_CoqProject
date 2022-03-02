@@ -3,7 +3,6 @@
 -R ../utils/theories ConCert.Utils
 
 -R theories ConCert.Execution
-theories/Automation.v
 theories/Blockchain.v
 theories/BoundedN.v
 theories/BuildUtils.v
@@ -63,7 +62,6 @@ tests/DexterTests/DexterTests.v
 tests/EIP20Tests/EIP20TokenGens.v
 tests/EIP20Tests/EIP20TokenPrinters.v
 tests/EIP20Tests/EIP20TokenTests.v
-tests/EscrowTests/EscrowExtras.v
 tests/EscrowTests/EscrowGens.v
 tests/EscrowTests/EscrowPrinters.v
 tests/EscrowTests/EscrowTests.v

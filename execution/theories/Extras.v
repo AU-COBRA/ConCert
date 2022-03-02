@@ -5,7 +5,7 @@ From Coq Require Import List.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
 From Coq Require Import Psatz.
-Require Import Automation.
+From ConCert.Utils Require Import Automation.
 Import ListNotations.
 
 Fixpoint map_option {A B : Type} (f : A -> option B) (l : list A)

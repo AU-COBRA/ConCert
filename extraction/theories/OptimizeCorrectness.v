@@ -1,3 +1,4 @@
+From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.

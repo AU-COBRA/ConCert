@@ -2,14 +2,8 @@ From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import List.
-From Equations Require Import Equations.
-From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import ELiftSubst.
 
-Set Equations Transparent.
-
-Import ListNotations.
 Module Ex := ExAst.
 
 Section annots.

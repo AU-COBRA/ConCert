@@ -1,6 +1,6 @@
 (** * Definitions shared among the examples *)
 
-From ConCert.Execution Require Import Automation.
+From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.

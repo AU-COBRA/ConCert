@@ -6,7 +6,6 @@ execution order, while the other uses a breadth-first execution order. *)
 
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
-Require Import Automation.
 Require Import Blockchain.
 Require Import BoundedN.
 Require Import ChainedList.
@@ -15,6 +14,7 @@ Require Import Extras.
 Require Import Monads.
 Require Import ResultMonad.
 Require Import Serializable.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 From Coq Require Import List.
 From Coq Require Import Psatz.

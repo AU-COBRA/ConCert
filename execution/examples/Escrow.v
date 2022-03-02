@@ -19,7 +19,7 @@ From Coq Require Import Bool.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
-Require Import Automation.
+From ConCert.Utils Require Import Automation.
 Require Import Blockchain.
 Require Import Extras.
 Require Import Monads.
