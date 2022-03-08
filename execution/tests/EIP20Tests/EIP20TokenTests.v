@@ -1,21 +1,24 @@
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith Strings.String.
 From QuickChick Require Import QuickChick. Import QcNotation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution.Examples Require Import EIP20Token.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import ChainPrinters.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTests Require Import EIP20TokenPrinters.
+From ConCert.Execution.QCTests Require Import EIP20TokenGens.
 
-From ConCert Require Import Blockchain.
-From ConCert Require Import LocalBlockchain.
-From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN.
-From ConCert Require Import Containers.
-From ConCert Require Import EIP20Token.
-From ConCert Require Import ResultMonad.
-Require Import Extras.
-
-From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters EIP20TokenPrinters EIP20TokenGens TraceGens.
-
+From Coq Require Import ZArith.
+From Coq Require Import Strings.String.
 From Coq Require Import List.
+
 Import ListNotations.
 Import BoundedN.Stdpp.
 Import LocalBlockchain.

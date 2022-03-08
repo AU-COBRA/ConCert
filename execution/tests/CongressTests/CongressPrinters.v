@@ -1,6 +1,8 @@
-From ConCert Require Import Blockchain Congress.
-From ConCert Require Import Serializable.
-From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Congress.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import SerializablePrinters.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import List. Import ListNotations.

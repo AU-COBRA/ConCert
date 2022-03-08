@@ -1,8 +1,10 @@
 (* Show instances for the Escrow types. Necessary for QuickChick testing. *)
 
-From ConCert.Execution Require Import Blockchain Serializable.
-From ConCert.Execution Require Import Escrow.
-From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Escrow.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
 Local Open Scope string_scope.

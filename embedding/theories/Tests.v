@@ -1,7 +1,12 @@
 (** * Various examples of using notations and conversion to the shallow embedding *)
 
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate PCUICtoTemplate.
-From Coq Require Import Basics String List.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import PCUICtoTemplate.
+From Coq Require Import Basics.
+From Coq Require Import String.
+From Coq Require Import List.
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.

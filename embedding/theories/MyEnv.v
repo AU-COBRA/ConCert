@@ -1,6 +1,9 @@
 (** * Evaluation environments *)
 
-Require Import String List PeanoNat Coq.micromega.Lia.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import PeanoNat.
+From Coq Require Import Lia.
 
 From ConCert.Embedding Require Import CustomTactics.
 

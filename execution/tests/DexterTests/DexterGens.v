@@ -1,10 +1,13 @@
-From ConCert Require Import Blockchain FA2Token Dexter.
-From ConCert Require Import Serializable.
-From ConCert Require Import Containers.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Execution.QCTests Require Import Dexter.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ConCert.Execution.QCTests Require Import
-  TestUtils TraceGens DexterPrinters.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTests Require Import DexterPrinters.
 From Coq Require Import ZArith List. Import ListNotations.
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.

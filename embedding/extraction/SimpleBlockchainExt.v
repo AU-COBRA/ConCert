@@ -1,15 +1,17 @@
 (** * A simply-typed version of the blockchain execution environment  *)
 (* We develop some blockchain infrastructure relevant for the contract execution. *)
-Require Import String.
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate TranslationUtils.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-Require Import List.
+From Coq Require Import String.
+From Coq Require Import List.
 
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
-
 Import ListNotations.
 Import BaseTypes.
 Open Scope list.

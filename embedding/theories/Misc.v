@@ -2,10 +2,10 @@
 
 From ConCert.Embedding Require Import CustomTactics.
 From MetaCoq Require Import utils.
-Require Import List.
+From Coq Require Import List.
+From Coq Require Import Lia.
 
 Import ListNotations.
-Import Lia.
 
 Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D :=
   fun x => (f (fst x), g (snd x)).

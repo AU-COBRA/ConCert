@@ -1,11 +1,15 @@
 (** * Finite maps  *)
 
-Require Import FMaps.
-Require Import String.
+From Coq Require Import FMaps.
+From Coq Require Import String.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate PCUICtoTemplate EvalE.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import PCUICtoTemplate.
+From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import Utils.
 
 Import MonadNotation.

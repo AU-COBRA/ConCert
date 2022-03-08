@@ -1,22 +1,30 @@
 (**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
-Require Import String ZArith.
-From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate MyEnv TranslationUtils Prelude.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import TranslationUtils.
+From ConCert.Embedding Require Import Prelude.
 
 From ConCert.Embedding.Extraction Require Import Liquidity.
-From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt CrowdfundingData.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
+From ConCert.Embedding.Extraction Require Import CrowdfundingData.
 
-Require Import List.
+From Coq Require Import String.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+From Coq Require Import Lia.
 
-Import ListNotations.
 From MetaCoq.Template Require Import All.
 
+Import ListNotations.
 Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 
-Import Lia.
 
 (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
 

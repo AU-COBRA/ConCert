@@ -1,18 +1,25 @@
-From ConCert Require Import Blockchain LocalBlockchain FA2Token FA2Interface.
-From ConCert Require Import Serializable.
-From ConCert Require Import ResultMonad.
-From ConCert Require Import Extras.
-From ConCert Require Import Containers.
-From ConCert Require Import BoundedN.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Execution.Examples Require Import FA2Interface.
+From ConCert.Utils Require Import RecordUpdate.
 Global Set Warnings "-extraction-logical-axiom".
-Require Import ZArith Strings.String.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
-From ConCert.Execution.QCTests Require Import
-  TestUtils ChainPrinters TraceGens TestContracts.
-From ConCert.Utils Require Import RecordUpdate.
+From ExtLib.Structures Require Import Functor.
+From ExtLib.Structures Require Import Applicative.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import ChainPrinters.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTests Require Import TestContracts.
 From ExtLib.Structures Require Monads.
+From Coq Require Import Strings.String.
+From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
 Import RecordSetNotations.

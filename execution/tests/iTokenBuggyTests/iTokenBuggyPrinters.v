@@ -1,6 +1,8 @@
-From ConCert Require Import Blockchain Serializable.
-From ConCert Require Import iTokenBuggy.
-From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import SerializablePrinters.
+From ConCert.Execution.QCTests Require Import iTokenBuggy.
 From QuickChick Require Import QuickChick.
 
 

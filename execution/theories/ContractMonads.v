@@ -1,8 +1,8 @@
 From Coq Require Import FunctionalExtensionality.
 From Coq Require Import List.
-Require Import Blockchain.
-Require Import Monads.
-Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
 Import ListNotations.
 
 Section ContractMonads.

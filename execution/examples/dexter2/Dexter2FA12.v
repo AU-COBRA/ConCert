@@ -20,7 +20,10 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import Common.
-From Coq Require Import ZArith Bool List Lia.
+From Coq Require Import ZArith.
+From Coq Require Import Bool.
+From Coq Require Import List.
+From Coq Require Import Lia.
 Import ListNotations.
 
 Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.

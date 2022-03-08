@@ -1,11 +1,13 @@
-From ConCert Require Import Blockchain EIP20Token.
-From ConCert Require Import Serializable.
-From ConCert Require Import Containers.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import EIP20Token.
 From ConCert.Execution.QCTests Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
-From Coq Require Import List ZArith. Import ListNotations.
+From Coq Require Import List. Import ListNotations.
+From Coq Require Import ZArith.
 
 Module Type EIP20GensInfo.
   Parameter contract_addr : Address.

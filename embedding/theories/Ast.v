@@ -1,7 +1,8 @@
 (** * λsmart language definition  *)
 Require MetaCoq.Template.All.
 
-Require Import String List.
+From Coq Require Import String.
+From Coq Require Import List.
 
 From ConCert.Embedding Require Import MyEnv.
 

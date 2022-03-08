@@ -1,20 +1,27 @@
 (** * Lemmas about the environment substitutions, closedness, etc. on expressions *)
-
 From MetaCoq.Template Require Import All.
-Require Import String List.
-Require Import Morphisms Setoid Bool.
 
-From ConCert.Embedding Require Import CustomTactics Misc MyEnv Ast
-     EvalE PCUICTranslate EnvSubst Wf.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import Wf.
 
-Import Basics.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import Morphisms.
+From Coq Require Import Setoid.
+From Coq Require Import Bool.
+From Coq Require Import Basics.
+From Coq Require Import Lia.
+From Coq Require Import Nat.
+
 Open Scope program_scope.
-
 Open Scope string_scope.
 Import ListNotations.
-Import Lia.
-Import Nat.
-
 Import NamelessSubst.
 
 Hint Unfold expr_eval_n expr_eval_i : facts.

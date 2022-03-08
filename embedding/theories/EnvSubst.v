@@ -1,7 +1,15 @@
 (** * Convertion from values back to expressions through the environment substitution *)
-Require Import List Relations Morphisms ssrbool PeanoNat.
+From Coq Require Import List.
+From Coq Require Import Relations.
+From Coq Require Import Morphisms.
+From Coq Require Import ssrbool.
+From Coq Require Import PeanoNat.
 
-From ConCert.Embedding Require Import EvalE Ast CustomTactics Misc MyEnv.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import MyEnv.
 
 (** ** Substitution for the nameless representation *)
 Module NamelessSubst.

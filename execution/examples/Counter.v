@@ -1,12 +1,13 @@
 (** * Counter *)
 
-From Coq Require Import Morphisms ZArith Basics.
+From Coq Require Import Morphisms.
+From Coq Require Import ZArith.
 From Coq Require Import List.
-
+From Coq Require Import Basics.
 From ConCert.Utils Require Import Automation.
-Require Import Extras.
-Require Import Serializable.
-Require Import Blockchain.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
 
 Import ListNotations.
 

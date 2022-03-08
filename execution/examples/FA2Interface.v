@@ -1,10 +1,10 @@
 From Coq Require Import ZArith.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-From ConCert.Utils Require Import RecordUpdate.
 Import RecordSetNotations.
 
 Section FA2Interface.

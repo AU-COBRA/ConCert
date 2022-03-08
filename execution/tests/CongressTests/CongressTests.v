@@ -1,17 +1,19 @@
-From ConCert Require Import Blockchain Congress.
-From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN ResultMonad.
-
-From ConCert.Execution.QCTests Require Import
-  TestUtils CongressGens CongressPrinters TraceGens.
-
-Require Import ZArith.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Congress.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTests Require Import CongressGens.
+From ConCert.Execution.QCTests Require Import CongressPrinters.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
+From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
-Require Import Containers.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.

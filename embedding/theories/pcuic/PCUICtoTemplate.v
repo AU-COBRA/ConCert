@@ -1,5 +1,7 @@
 (** * Almost one-to-one tranlsation of PCUIC to Template Coq kernel AST *)
-From Coq Require Import Bool String List.
+From Coq Require Import Bool.
+From Coq Require Import String.
+From Coq Require Import List.
 From MetaCoq.Template Require Import All.
      (* config utils AstUtils BasicAst Ast. *)
 From MetaCoq.PCUIC Require Export PCUICToTemplate.

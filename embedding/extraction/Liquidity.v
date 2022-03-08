@@ -1,6 +1,11 @@
-From Coq Require Import List String Basics Bool.
-From ConCert.Embedding Require Import Ast
-     Notations Prelude MyEnv.
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import Basics.
+From Coq Require Import Bool.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import Prelude.
+From ConCert.Embedding Require Import MyEnv.
 
 Import ListNotations.
 

@@ -1,19 +1,23 @@
 (** * Data types for the crowdfunding contract tailored for extraction *)
 
-Require Import String.
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate Utils TranslationUtils.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import Utils.
+From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Prelude.
-From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 
-Require Import List.
+From Coq Require Import String.
+From Coq Require Import List.
 
-Import ListNotations.
 From MetaCoq.Template Require Import All.
 
+Import ListNotations.
 Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
-
 
 Import AcornBlockchain.
 Import PreludeExt.Maps.

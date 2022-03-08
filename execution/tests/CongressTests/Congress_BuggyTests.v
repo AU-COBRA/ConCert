@@ -1,24 +1,31 @@
 Global Set Warnings "-extraction-logical-axiom".
 
-Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor Applicative.
+From ExtLib.Structures Require Import Functor.
+From ExtLib.Structures Require Import Applicative.
 
-From ConCert Require Import Blockchain.
-From ConCert Require Import LocalBlockchain.
-From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN.
-From ConCert Require Import Containers.
-From ConCert Require Import Congress_Buggy.
-Require Import ResultMonad.
-Require Import Extras.
-
-From ConCert.Execution.QCTests Require Import TestUtils ChainPrinters Congress_BuggyGens Congress_BuggyPrinters TraceGens.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution.Examples Require Import Congress_Buggy.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTests Require Import ChainPrinters.
+From ConCert.Execution.QCTests Require Import Congress_BuggyGens.
+From ConCert.Execution.QCTests Require Import Congress_BuggyPrinters.
+From ConCert.Utils Require Import RecordUpdate.
 Close Scope monad_scope.
 
-From ConCert Require Import Monads.
-From ConCert.Utils Require Import RecordUpdate.
-From Coq Require Import List Int BinInt FunInd.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+From Coq Require Import Int.
+From Coq Require Import BinInt.
+From Coq Require Import FunInd.
 
 Import BoundedN.Stdpp.
 Import LocalBlockchain.

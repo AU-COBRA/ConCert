@@ -1,6 +1,10 @@
-From ConCert.Execution Require Import Blockchain LocalBlockchain TestUtils.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable. Import SerializedType.
-From ConCert.Execution Require Import BoundedN ChainedList ResultMonad.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import ChainedList.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution.QCTests Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 

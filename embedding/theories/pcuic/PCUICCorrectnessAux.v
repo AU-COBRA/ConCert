@@ -1,13 +1,28 @@
 (** * Auxillary lemmas for the soundness proof. *)
-From MetaCoq.Template Require Import MCList utils.
+From MetaCoq.Template Require Import MCList.
+From MetaCoq.Template Require Import utils.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICTyping.
+From MetaCoq.PCUIC Require Import PCUICClosed.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICWcbvEval.
 
-Require Import PeanoNat.
+From Coq Require Import PeanoNat.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import Basics.
 
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyping PCUICClosed  PCUICLiftSubst PCUICWcbvEval.
-
-Require Import String List Basics.
-
-From ConCert.Embedding Require Import CustomTactics Misc MyEnv EnvSubst Ast EvalE PCUICFacts PCUICTranslate Wf.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import PCUICFacts.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import Wf.
 
 
 Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i Σ n ρ e) (at level 100).
