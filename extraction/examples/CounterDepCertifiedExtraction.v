@@ -3,34 +3,28 @@
 (** A version of the counter contract that uses propositions to restrict the input.
     We also demonstrate how one can use the certifying eta-expansion to make sure
     that constants and constructors are applied to all logial arguments *)
-From Coq Require Import PeanoNat ZArith Notations Bool.
 
-From MetaCoq.Template Require Import Kernames Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert Require Import MyEnv.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Extraction Require Import LiquidityExtract LPretty
-     Common CertifyingEta Optimize OptimizeCorrectness Extraction.
+From ConCert.Extraction Require Import LiquidityExtract.
+From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import CertifyingEta.
+From Coq Require Import ZArith.
+From Coq Require Import Bool.
+From Coq Require Import String.
 
-From Coq Require Import List Ascii String.
-Local Open Scope string_scope.
-
-From MetaCoq.Template Require Import All.
-
-Import ListNotations.
 Import MonadNotation.
 
+Local Open Scope string_scope.
 Open Scope Z.
-
-Import Lia.
 
 Definition PREFIX := "coq_".
 
 Module Counter.
-
 
   Notation address := nat.
 

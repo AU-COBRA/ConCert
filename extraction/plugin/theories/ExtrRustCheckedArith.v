@@ -1,7 +1,4 @@
-From Coq Require Import Arith.
 From Coq Require Import Extraction.
-From Coq Require Import NArith.
-From Coq Require Import PArith.
 From Coq Require Import ZArith.
 
 Extract Inductive nat => "u64" ["0" "__nat_succ"] "__nat_elim!".

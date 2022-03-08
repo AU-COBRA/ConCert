@@ -1,26 +1,18 @@
 (** * Extraction of an interpreter for a stack based DSL **)
-
-From Coq Require Import PeanoNat ZArith Notations Bool.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker SafeTemplateChecker.
-
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-From MetaCoq.PCUIC Require Import TemplateToPCUIC PCUICTyping.
-
-From ConCert Require Import MyEnv.
+From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require LPretty LiquidityExtract.
-From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
-From ConCert.Execution Require Import Containers Blockchain.
-
-From Coq Require Import List Ascii String.
+From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityExtract.
+From ConCert.Extraction Require CameLIGOPretty.
+From ConCert.Extraction Require CameLIGOExtract.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Blockchain.
+From Coq Require Import Notations.
+From Coq Require Import String.
+From Coq Require Import ZArith.
 Local Open Scope string_scope.
-
-From MetaCoq.Template Require Import All.
-
-Import ListNotations.
 Import MonadNotation.
 
 Definition map_key_type := (string * Z).

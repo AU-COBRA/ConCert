@@ -1,13 +1,11 @@
 
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
-
 From Coq Require Import Ascii.
-
-Import StringExtra.
-Import String.
+From Coq Require Import String.
+From ConCert.Utils Require Import StringExtra.
+From ConCert.Extraction Require Import PrettyPrinterMonad.
 
 Module P := MetaCoq.PCUIC.PCUICAst.
 Module PT := MetaCoq.PCUIC.PCUICTyping.
@@ -18,11 +16,6 @@ Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.ErasureFunction.
 Module Ex := ConCert.Extraction.ExAst.
 
-Import PrettyPrinterMonad.
-Import ListNotations.
-Import MonadNotation.
-
-Local Open Scope list.
 Local Open Scope string.
 
 Local Definition indent_size := 2.

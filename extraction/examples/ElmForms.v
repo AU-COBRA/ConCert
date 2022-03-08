@@ -5,32 +5,20 @@ a list after validating the input data. We use the Coq version of
 refinement types (a type with a predicate) to express the fact that
 the list of users contains only valid data. *)
 
-From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ElmExtract.
-From ConCert.Extraction Require Import ElmExtractTests.
 From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import Certifying.
 From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Utils Require Import RecordUpdate.
-
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import Arith.
-From Coq Require Import Lia.
-From Coq Require Import ssreflect ssrbool.
-From Coq Require Import Program.Program.
-
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
+From Coq Require Import ssrbool.
 
 Open Scope string.
 
@@ -147,7 +135,7 @@ Tactic Notation "destruct_validation" :=
   destruct (password _ =? passwordAgain _)
            eqn: passwords_eq;
   destruct (8 <=? String.length (password _))
-           eqn:password_long_enough;tryfalse.
+           eqn:password_long_enough;try discriminate.
 
 Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg
   := fun msg model =>

@@ -4,18 +4,20 @@
     we terms are equal to the originals. Since eta-conversion is part of the
     Coq's conversion, the proof is essentially [eq_refl].
     All dependencies are also expanded.*)
+From Coq Require Import List.
+From Coq Require Import PeanoNat.
+From Coq Require Import Bool.
+From Coq Require Import String.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import All.
+From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import Certifying.
 
-From Coq Require Import List PeanoNat Bool Ascii String.
-From MetaCoq.Template Require Import Kernames All Ast.
-From ConCert.Extraction Require Import
-     Erasure Optimize Common ResultMonad Extraction Certifying.
-From ConCert.Utils Require StringExtra.
-
-Open Scope string.
 Open Scope nat.
-
-Import Template.Ast.
-Import ListNotations.
 Import MonadNotation.
 
 Section Eta.

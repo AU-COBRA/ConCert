@@ -1,19 +1,9 @@
 From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import Ascii.
-From Coq Require Import List.
-From Coq Require Import String.
-From MetaCoq Require Import monad_utils.
-From MetaCoq Require Import MCString.
 From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
-From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.SafeChecker Require Import PCUICErrors.
+From Coq Require Import Ascii.
+From Coq Require Import String.
 
-Import String.
-
-Import PCUICErrors.
-
-Import ListNotations.
-Import MonadNotation.
 Local Open Scope string.
 
 Record PrettyPrinterState :=

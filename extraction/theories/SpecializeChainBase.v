@@ -14,21 +14,12 @@
      a (N.to_nat n).
 
    Note: Only specializes ChainBase when it is the very first abstraction.  *)
-
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
-From MetaCoq.Template Require Import BasicAst.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import utils.
 
-Import MonadNotation.
 Local Open Scope string.
 
 Definition ChainBase_kername : kername :=

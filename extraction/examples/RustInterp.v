@@ -2,17 +2,13 @@ From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
-
 From ConCert.Execution.Examples Require Import StackInterpreter.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Utils Require Import StringExtra.
-
 From MetaCoq.Template Require Import All.
-
-Import MonadNotation.
-Import Printing.
 
 Open Scope string.
 Module SI := StackInterpreter.
@@ -34,8 +30,6 @@ Definition STACK_INTERP_MODULE : ConcordiumMod _ _ :=
      concmd_receive := @SI.receive;
      (* Extracting the example as well *)
      concmd_extra := [@existT _ (fun T : Type => T) _ ex1]; |}.
-
-Import Blockchain.
 
 Open Scope list.
 

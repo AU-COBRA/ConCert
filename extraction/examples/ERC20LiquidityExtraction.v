@@ -1,37 +1,20 @@
 (** * Extraction of a simple counter contract *)
 
-From Coq Require Import PeanoNat ZArith Notations.
-
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert.Embedding Require Import MyEnv CustomTactics.
+From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require LPretty.
-From ConCert.Extraction Require Import
-     LiquidityExtract
-     Common
-     Optimize
-     SpecializeChainBase
-     CertifyingInlining.
-From ConCert.Utils Require Import Automation.
-From ConCert.Execution Require Import Serializable.
+From ConCert.Extraction Require Import LiquidityExtract.
+From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require EIP20Token.
-From ConCert.Execution Require Containers.
 From ConCert.Execution.Examples Require Import Common.
-From ConCert.Utils Require Import RecordUpdate.
+From Coq Require Import String.
+From Coq Require Import ZArith.
 
-From Coq Require Import List Ascii String.
-Local Open Scope string_scope.
-From stdpp Require gmap.
-From MetaCoq.Template Require Import All.
-
-Import ListNotations.
 Import MonadNotation.
 
-Open Scope Z.
+Local Open Scope string_scope.
 
 Definition PREFIX := "".
 
@@ -78,8 +61,6 @@ Definition TT_remap_default : list (kername * string) :=
 
 Section EIP20TokenExtraction.
   Import EIP20Token.
-  Import RecordSetNotations.
-  Import Containers.
 
   Notation params := (ContractCallContext × option EIP20Token.Msg).
   Open Scope N_scope.
@@ -184,11 +165,9 @@ Section EIP20TokenExtraction.
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
       tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
-
   
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "./examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
   Compute liquidity_eip20token.
-
 
 End EIP20TokenExtraction.

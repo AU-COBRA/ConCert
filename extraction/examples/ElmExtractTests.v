@@ -6,17 +6,11 @@ From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
-From Coq Require Import Arith.
-From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 
-Import MonadNotation.
 Local Open Scope string.
 
 Instance StandardBoxes : ElmPrintConfig :=

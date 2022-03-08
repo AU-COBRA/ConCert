@@ -6,15 +6,14 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Inlining.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Execution.Examples Require Import Escrow.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import All.
 From Coq Require Import List.
 From Coq Require Import String.
 
-From MetaCoq.Template Require Import Kernames All.
-
-Import ListNotations.
 Import MonadNotation.
-
 Open Scope string.
 
 Instance EscrowMidlangBoxes : ElmPrintConfig :=
@@ -70,8 +69,6 @@ Definition ignored_concert_types :=
          <%% @ContractCallContext %%>;
          <%% @SerializedValue %%>;
          <%% @RecordSet.SetterFromGetter %%>].
-
-Import ResultMonad.
 
 Definition extract_template_env_specialize
            (params : extract_template_env_params)

@@ -2,21 +2,20 @@
 
 (** NOTE: Currently does not compile due to some restrictions on closures in Liquidity. Moreover, the printing of literals might need adjustments. *)
 
-
-From Coq Require Import PeanoNat ZArith.
-
-From ConCert.Extraction Require Import LPretty LiquidityExtract Common.
-From ConCert.Execution Require Import Blockchain Common LocalBlockchain.
-
-From Coq Require Import List String.
-Local Open Scope string_scope.
-
 From MetaCoq.Template Require Import All.
+From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityExtract.
+From ConCert.Extraction Require Import Common.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import LocalBlockchain.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+From Coq Require Import String.
 
-Import ListNotations.
 Import MonadNotation.
-Import AddressMap.
 
+Local Open Scope string_scope.
 Open Scope Z.
 
 Definition PREFIX := "".

@@ -1,27 +1,21 @@
 (** * Extraction of a simple counter contract *)
 
-From Coq Require Import PeanoNat ZArith Notations.
-
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert.Embedding Require Import MyEnv CustomTactics.
+From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require Import LPretty LiquidityExtract Common Optimize.
+From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityExtract.
+From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-From Coq Require Import List Ascii String.
-Local Open Scope string_scope.
+From Coq Require Import String.
+From Coq Require Import Lia.
+From Coq Require Import ZArith.
 
-From MetaCoq.Template Require Import All.
-
-Import ListNotations.
-Import AcornBlockchain.
 Import MonadNotation.
 
+Local Open Scope string_scope.
 Open Scope Z.
 
 Definition PREFIX := "".
@@ -112,8 +106,6 @@ End Counter.
 
 Import Counter.
 
-Import Lia.
-
 Lemma inc_correct state n m :
   0 <= m ->
   state.1 = n ->
@@ -122,7 +114,7 @@ Lemma inc_correct state n m :
 Proof.
   intros Hm Hn.
   eexists. split.
-  - simpl. destruct ?; Zleb_ltb_to_prop;auto;lia.
+  - simpl. destruct ?; propify;auto;lia.
   - simpl. congruence.
 Qed.
 
@@ -134,11 +126,9 @@ Lemma dec_correct state n m :
 Proof.
   intros Hm Hn.
   eexists. split.
-  - simpl. destruct ?; Zleb_ltb_to_prop;auto;lia.
+  - simpl. destruct ?; propify;auto;lia.
   - simpl. congruence.
 Qed.
-
-Import Counter.
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 Definition TT_remap : list (kername * string) :=

@@ -1,47 +1,18 @@
 (** * Extraction of Escrow to CameLIGO and liquidity*)
 
-From Coq Require Import PeanoNat ZArith Notations Bool.
-
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert.Embedding Require Import MyEnv.
+From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Examples Require Import Common.
-From ConCert.Utils Require Import Automation.
-From ConCert.Execution Require Import Extras.
-From ConCert.Execution Require Import Monads.
-From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Extraction Require Import Common Extraction.
-From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
-From ConCert.Extraction Require LPretty LiquidityExtract.
-From ConCert.Utils Require Import RecordUpdate.
-
-From Coq Require Import List Ascii String.
-Require ContractMonads.
-
-From MetaCoq.Template Require Import All.
-
-From Coq Require Import List.
-From Coq Require Import Morphisms.
-From Coq Require Import ZArith.
-From Coq Require Import Permutation.
-
-Import ListNotations.
-Import RecordSetNotations.
 From ConCert.Execution Require Import Escrow.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require CameLIGOPretty.
+From ConCert.Extraction Require CameLIGOExtract.
+From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityExtract.
+From Coq Require Import String.
+From Coq Require Import ZArith.
 
-Open Scope Z.
-Open Scope bool_scope.
-
-Import CameLIGOExtract.
-Import CameLIGOPretty.
-Open Scope Z.
 Local Open Scope string_scope.
-
-Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State :=
     Examples.Escrow.init (snd s) cctx (fst s).
@@ -54,6 +25,9 @@ Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (
 
 
 Module EscrowCameLIGOExtraction.
+  Import CameLIGOExtract.
+  Import CameLIGOPretty.
+  Existing Instance PrintConfShortNames.PrintWithShortNames.
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
   Definition TT_rename_ligo : list (string * string):=
@@ -116,7 +90,8 @@ End EscrowCameLIGOExtraction.
 Module EscrowLiquidityExtraction.
   Definition PREFIX := "".
   
-  Import LPretty LiquidityExtract.
+  Import LPretty.
+  Import LiquidityExtract.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 
   
@@ -249,5 +224,5 @@ Module EscrowLiquidityExtraction.
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "examples/extracted-code/liquidity-extract/escrow.liq"
   MetaCoq Run (tmMsg liquidity_escrow).
-  
+
 End EscrowLiquidityExtraction.

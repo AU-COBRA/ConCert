@@ -1,17 +1,20 @@
-
-From MetaCoq.Template Require Import Kernames.
-
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.
-From ConCert.Extraction Require Import CertifyingEta.
-From ConCert.Execution Require Import Blockchain Serializable Common.
-
-From ConCert.Extraction Require Import CameLIGOPretty
-     Common ExAst Optimize Extraction TypeAnnotations Annotations Utils SpecializeChainBase.
-
-Local Open Scope string_scope.
-
+From ConCert.Extraction Require Import CameLIGOPretty.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import ExAst.
+From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import TypeAnnotations.
+From ConCert.Extraction Require Import Annotations.
+From ConCert.Extraction Require Import Utils.
+From ConCert.Extraction Require Import SpecializeChainBase.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
+
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
   { lmd_module_name : string ;

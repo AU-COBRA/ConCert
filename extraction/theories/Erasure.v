@@ -1,59 +1,35 @@
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Utils Require Import StringExtra.
-From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import Arith.
-From Coq Require Import Ascii.
-From Coq Require Import Bool.
-From Coq Require Import List.
-From Coq Require Import String.
-From Coq Require VectorDef.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EArities.
 From MetaCoq.Erasure Require Import EAstUtils.
-From MetaCoq.Erasure Require Import Extract.
-From MetaCoq.Erasure Require Import Prelim.
 From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICArities.
-From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICCanonicity.
 From MetaCoq.PCUIC Require Import PCUICConfluence.
 From MetaCoq.PCUIC Require Import PCUICContextConversion.
 From MetaCoq.PCUIC Require Import PCUICContexts.
 From MetaCoq.PCUIC Require Import PCUICConversion.
-From MetaCoq.PCUIC Require Import PCUICCumulativity.
-From MetaCoq.PCUIC Require Import PCUICElimination.
-From MetaCoq.PCUIC Require Import PCUICGeneration.
 From MetaCoq.PCUIC Require Import PCUICInductiveInversion.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICNormal.
-From MetaCoq.PCUIC Require Import PCUICPrincipality.
-From MetaCoq.PCUIC Require Import PCUICReduction.
 From MetaCoq.PCUIC Require Import PCUICSN.
 From MetaCoq.PCUIC Require Import PCUICSR.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICSubstitution.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICValidity.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.SafeChecker Require Import PCUICSafeReduce.
 From MetaCoq.SafeChecker Require Import PCUICSafeRetyping.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import config.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import utils.
-From MetaCoq.Template Require TemplateMonad.
 
 Import PCUICEnvTyping.
-Import PCUICLookup.
 Import PCUICErrors.
 
-Local Open Scope string_scope.
 Import VectorDef.VectorNotations.
-Import ListNotations.
-Import MonadNotation.
 Set Equations Transparent.
 
 Module P := PCUICAst.

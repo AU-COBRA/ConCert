@@ -1,33 +1,25 @@
 (** * Extraction of various contracts to CameLIGO *)
 
-From Coq Require Import PeanoNat ZArith Notations.
-From Coq Require Import List Ascii String Bool.
-
+From Coq Require Import ZArith.
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import Lia.
 From MetaCoq.Template Require Import All.
-
 From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Embedding.Extraction Require Import CrowdfundingData.
 From ConCert.Embedding.Extraction Require Import Crowdfunding.
-From ConCert.Embedding Require Import MyEnv CustomTactics.
-From ConCert.Embedding Require Import Notations.
-From ConCert.Extraction Require Import Common Optimize.
-From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
-From ConCert.Execution Require Import Serializable.
+From ConCert.Embedding.Extraction Require SimpleBlockchainExt.
+From ConCert.Embedding.Extraction Require CrowdfundingData.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import CameLIGOPretty.
+From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Examples Require EIP20Token.
 From ConCert.Execution Require Import Containers.
-From ConCert.Utils Require Import Automation.
-From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Utils Require Import StringExtra.
-
-From stdpp Require gmap.
-
-
-Local Open Scope string_scope.
+From ConCert.Execution.Examples Require EIP20Token.
 
 Import MonadNotation.
+
+Local Open Scope string_scope.
 Open Scope Z.
 
 Existing Instance PrintConfShortNames.PrintWithShortNames.
@@ -58,8 +50,6 @@ Module SafeHead.
   Next Obligation.
     intros. subst. inversion non_empty.
   Qed.
-
-  Import Lia.
 
   Program Definition head_of_list_2 (xs : list nat) := safe_head (0 :: 0 :: xs)  _.
   Next Obligation.
@@ -165,7 +155,6 @@ Module Counter.
 
 End Counter.
 Section CounterExtraction.
-  Import Lia.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_counter : list (kername * string) :=
@@ -217,12 +206,9 @@ Defined.
     if ctx.(ctx_amount) =? 0 then Some (setup, (Maps.mnil, false)) else None.
 
   Open Scope Z.
-  Import ListNotations.
-  Import AcornBlockchain.
-  Import MonadNotation.
-  Import CrowdfundingContract.
-  Import Validate.
-  Import Receive.
+  Import SimpleBlockchainExt.AcornBlockchain.
+  Import CrowdfundingData.
+  Import CrowdfundingContract.Receive.
 
   Definition to_simple_ctx_addr (addr : Blockchain.Address) : address_coq :=
     if address_is_contract addr then ContractAddr_coq addr else
@@ -289,11 +275,9 @@ End Crowdfunding.
 Section CrowdfundingExtraction.
 
   Import Crowdfunding.
-  Import CrowdfundingContract.
-  Import Validate.
-  Import Receive.
-  Import SimpleBlockchainExt.
-  Import AcornBlockchain.
+  Import SimpleBlockchainExt.AcornBlockchain.
+  Import CrowdfundingData.
+  Import CrowdfundingContract.Receive.
 
   Definition TT_remap_crowdfunding : list (kername * string) :=
 
@@ -332,7 +316,6 @@ End CrowdfundingExtraction.
 Section EIP20TokenExtraction.
 
   Import EIP20Token.
-  Import RecordSetNotations.
 
   Open Scope Z_scope.
 

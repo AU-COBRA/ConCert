@@ -1,13 +1,13 @@
 (** * Term and proof generation for the certifying transforms *)
-From Coq Require Import List PeanoNat Bool Ascii String.
-From MetaCoq.Template Require Import Kernames All Ast Reflect Checker.
-From ConCert.Extraction Require Import ResultMonad.
+From Coq Require Import List.
+From Coq Require Import Ascii.
+From Coq Require Import String.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import All.
+From MetaCoq.Template Require Import Checker.
 From ConCert.Utils Require StringExtra.
 
-
 Open Scope string.
-
-Import ListNotations.
 Import MonadNotation.
 
 Definition get_def_name (name : kername) : string :=

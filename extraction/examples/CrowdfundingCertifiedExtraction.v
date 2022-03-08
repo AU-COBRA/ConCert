@@ -1,31 +1,27 @@
 (** * Extraction of a crowdfunding contract *)
 
-Require Import String ZArith Basics.
-From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate PCUICtoTemplate Utils MyEnv.
-
-From ConCert.Extraction Require Import LiquidityExtract LPretty Common.
-From ConCert.Embedding.Extraction Require Import PreludeExt SimpleBlockchainExt.
+From Coq Require Import ZArith.
+From Coq Require Import String.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Extraction Require Import LiquidityExtract.
+From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import Common.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 (* These imports need to be like this or coqdep gets confused since there exists
    these modules in ConCert.Embedding.Examples as well.
    https://github.com/coq/coq/issues/9080 *)
 Require Import ConCert.Embedding.Extraction.CrowdfundingData.
 Require Import ConCert.Embedding.Extraction.Crowdfunding.
-
-From Coq Require Import List Ascii String.
-Local Open Scope string_scope.
-
 From MetaCoq.Template Require Import All.
 
-Import ListNotations.
 Import AcornBlockchain.
 Import MonadNotation.
-
-Open Scope Z.
-
 Import CrowdfundingContract.
-Import Validate.
 Import Receive.
+
+Local Open Scope string_scope.
+Open Scope Z.
 
 Definition PREFIX := "".
 

@@ -2,29 +2,25 @@
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 
-From Coq Require Import PeanoNat ZArith Notations Bool.
-
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Erasure Require Import Loader.
-
-From ConCert Require Import MyEnv.
-From ConCert.Embedding Require Import Notations CustomTactics.
-From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require Import LPretty LiquidityExtract Common Extraction.
-From ConCert.Extraction Require CameLIGOPretty CameLIGOExtract.
-From ConCert.Execution Require Import Blockchain.
-
-From Coq Require Import List Ascii String.
-Local Open Scope string_scope.
-
 From MetaCoq.Template Require Import All.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Extraction Require CameLIGOExtract.
+From ConCert.Extraction Require CameLIGOPretty.
+From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityExtract.
+From ConCert.Extraction Require Import Common.
+From ConCert.Utils Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From Coq Require Import ZArith.
+From Coq Require Import Bool.
+From Coq Require Import String.
+From Coq Require Import Lia.
 
-Import ListNotations.
 Import MonadNotation.
 
+Local Open Scope string_scope.
 Open Scope Z.
-
-Import Lia.
 
 Module CounterRefinementTypes.
 
@@ -50,7 +46,7 @@ Module CounterRefinementTypes.
   Next Obligation.
     intros st inc. unfold is_true in *.
     destruct inc;simpl.
-    Zleb_ltb_to_prop. lia.
+    propify. lia.
   Qed.
 
   Program Definition dec_counter (st : storage) (dec : {z : Z | 0 <? z}) :
@@ -59,7 +55,7 @@ Module CounterRefinementTypes.
   Next Obligation.
     intros st dec. unfold is_true in *.
     destruct dec;simpl.
-    Zleb_ltb_to_prop. lia.
+    propify. lia.
   Qed.
 
   Definition counter (msg : msg) (st : storage)
@@ -82,6 +78,9 @@ End CounterRefinementTypes.
 Import CounterRefinementTypes.
 
 Section LiquidityExtractionSetup.
+
+  Import LPretty.
+  Import LiquidityExtract.
 
   Definition PREFIX := "coq_".
   
@@ -146,18 +145,16 @@ Section LiquidityExtractionSetup.
 
   Definition to_inline := [<%% bool_rect %%>; <%% bool_rec %%>].
 
+  Time MetaCoq Run
+      (t <- liquidity_extraction PREFIX TT_remap TT_rename to_inline COUNTER_MODULE ;;
+        tmDefinition COUNTER_MODULE.(lmd_module_name) t
+      ).
+
+  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler*)
+  Redirect "examples/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
+  MetaCoq Run (tmMsg liquidity_counter).
+
 End LiquidityExtractionSetup.
-
-
-Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename to_inline COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) t
-     ).
-
-(** We redirect the extraction result for later processing and compiling with the Liquidity compiler*)
-Redirect "examples/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
-MetaCoq Run (tmMsg liquidity_counter).
-
 
 Module CameLIGOExtractionSetup.
 
@@ -242,5 +239,5 @@ Module CameLIGOExtractionSetup.
 
   Redirect "examples/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
   MetaCoq Run (tmMsg cameLIGO_counter).
-    
+
 End CameLIGOExtractionSetup.

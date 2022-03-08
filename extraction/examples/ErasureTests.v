@@ -1,26 +1,14 @@
 From ConCert.Extraction Require Import Erasure.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
-From Coq Require Import Ascii.
-From Coq Require Import Bool.
-From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import TemplateToPCUIC.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.SafeChecker Require Import SafeTemplateChecker.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import config.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import utils.
 
 Local Open Scope string_scope.
 Import String.
-Import ListNotations.
-Import MonadNotation.
 Import PCUICErrors.
 Set Equations Transparent.
 

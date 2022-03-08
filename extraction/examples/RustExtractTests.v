@@ -9,7 +9,6 @@ From MetaCoq.Template Require Import Kernames.
 From MetaCoq Require Import utils.
 
 Import PrettyPrinterMonad.
-Import MonadNotation.
 Local Open Scope string.
 
 Instance RustConfig : RustPrintConfig :=

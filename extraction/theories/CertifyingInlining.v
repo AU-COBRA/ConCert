@@ -2,20 +2,18 @@
 
 (** Essentially, just an adaptaion of the inlining pass on the erased representation.
  After the pass is applied we generate proofs that the original and the transformed terms are equal in the theory of Coq. The proofs are just by [eq_refl], since the terms are convertible *)
-
-From Coq Require Import List String Bool Basics.
-
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import Bool.
 From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CertifyingBeta.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import Certifying.
+From MetaCoq.Template Require Import All.
+From MetaCoq.Template Require Import Kernames.
 
-From MetaCoq.Template Require Import All Kernames.
-
-Import ListNotations.
 Import MonadNotation.
 
 Section inlining.
