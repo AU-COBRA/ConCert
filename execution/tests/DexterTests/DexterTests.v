@@ -5,14 +5,15 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Extras.
-From ConCert.Execution.Examples Require Import FA2Token FA2Interface.
-From ConCert.Execution.QCTests Require Import Dexter.
-
-Require Import ZArith.
+From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Execution.Examples Require Import FA2Interface.
+From ConCert.Utils Require Import RecordUpdate.
 
 From QuickChick Require Import QuickChick.
-From ConCert.Execution.QCTests Require Import TestUtils DexterGens.
-From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import Dexter.
+From ConCert.Execution.QCTests Require Import DexterGens.
+From Coq Require Import ZArith.
 From Coq Require Import List.
 
 Import QcNotation.

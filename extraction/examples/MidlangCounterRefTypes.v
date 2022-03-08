@@ -8,14 +8,13 @@ From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import All.
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
-From MetaCoq.Template Require Import Kernames All.
-
 Import MonadNotation.
-
 Open Scope string.
 
 Instance MidlangBoxes : ElmPrintConfig :=

@@ -1,13 +1,11 @@
-From Coq Require Import BinNums ZArith.
-From Coq Require Import String.
 
+From Coq Require Import ZArith.
+From Coq Require Import String.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
-
+From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Erasure Require EAst.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 
 
 Example pos_syn_to_nat_5 :
@@ -44,7 +42,7 @@ Example Z_syn_to_Z_fail :
   Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar ""))) = None.
 Proof. reflexivity. Qed.
 
-Import MonadNotation ResultMonad Core.
+Import MonadNotation Core.
 Open Scope monad_scope.
 
 Definition extract_ (p : program) :=

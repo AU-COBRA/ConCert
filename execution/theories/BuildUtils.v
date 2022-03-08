@@ -3,8 +3,8 @@ From Coq Require Import List.
 From Coq Require Import Logic.Decidable.
 From Coq Require Import ZArith.
 Import ListNotations.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 

@@ -5,11 +5,10 @@ From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 
-
-Require Import ZArith.
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
 
+From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Program.Basics.
 

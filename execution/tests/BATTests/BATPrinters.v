@@ -1,7 +1,9 @@
-From ConCert.Execution Require Import Blockchain Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import BATCommon.
 From ConCert.Execution.QCTests Require Import EIP20TokenPrinters.
-From ConCert.Execution.QCTests Require Import TestUtils SerializablePrinters.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import SerializablePrinters.
 From QuickChick Require Import QuickChick.
 
 

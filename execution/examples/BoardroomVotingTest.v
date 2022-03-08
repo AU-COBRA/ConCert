@@ -1,17 +1,17 @@
 From Coq Require Import Cyclic31.
 From Coq Require Import List.
 From Coq Require Import Znumtheory.
-Require Import Blockchain.
-Require Import BoardroomMath.
-Require Import BoardroomVoting.
-Require Import BoundedN.
-Require Import Containers.
-Require Import Extras.
-Require Import LocalBlockchain.
-Require Import Monads.
-Require Import ResultMonad.
-Require Import Serializable.
-Require Import Common. Import AddressMap.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import BoardroomMath.
+From ConCert.Execution.Examples Require Import BoardroomVoting.
+From ConCert.Execution.Examples Require Import Common. Import AddressMap.
 
 Import ListNotations.
 Import BoardroomMathNotations.

@@ -19,12 +19,12 @@ From Coq Require Import Bool.
 From Coq Require Import ZArith.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
-Require Import Automation.
-Require Import Blockchain.
-Require Import Extras.
-Require Import Monads.
-Require Import ResultMonad.
-Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.

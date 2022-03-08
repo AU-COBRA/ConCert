@@ -1,15 +1,24 @@
 (** * Integration with the execution framework, properties of [crowdfunding] *)
-Require Import String Basics ZArith.
-From ConCert.Embedding Require Import Misc Notations PCUICtoTemplate
-     PCUICTranslate CustomTactics SimpleBlockchain.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICtoTemplate.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import SimpleBlockchain.
+From ConCert.Embedding.Examples Require Import Crowdfunding.
+From ConCert.Embedding.Examples Require Import CrowdfundingData.
 
-From ConCert.Embedding.Examples Require Import Crowdfunding CrowdfundingData.
+From Coq Require Import String.
+From Coq Require Import Basics.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+From Coq Require Import ssrbool.
+From Coq Require Import Program.Tactics.
 
-Require Import List.
-Require Import Coq.ssr.ssrbool.
-Require Import Program.Tactics.
-
-From ConCert.Execution Require Import Blockchain Automation Extras ResultMonad.
+From ConCert.Utils Require Import Automation.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
 

@@ -2,14 +2,12 @@ From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import LiftSubst.
 From MetaCoq.Template Require Import AstUtils.
-From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import utils.
-From MetaCoq.PCUIC Require PCUICAst.
 From MetaCoq.Erasure Require EAst.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
+Import PCUICErrors.
 
 (** Extracts a constant name, inductive name or returns None *)
 Definition to_kername (t : Ast.term) : option kername :=
@@ -44,8 +42,6 @@ Notation "<! t !>" :=
              | @Some _ (ConstructRef ?ind ?c) => exact ((ind, c) : kername * nat)
              | _ => fail "not a globref"
              end in quote_term t p)).
-
-Import PCUICErrors.
 
 Definition result_of_typing_result
            {A}
@@ -223,7 +219,6 @@ Definition _Zpos :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_i
 
 Definition _Zneg :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2.
 
-Print Pos.to_nat.
 Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
   match t with
   | EAst.tApp (EAst.tConstruct ind i) t0 =>

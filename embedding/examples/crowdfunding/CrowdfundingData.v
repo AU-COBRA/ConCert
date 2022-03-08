@@ -1,8 +1,14 @@
 (** * Data types for the crowdfunding contract *)
 
-Require Import String.
-From ConCert.Embedding Require Import Ast Notations PCUICTranslate Prelude SimpleBlockchain Utils TranslationUtils.
-Require Import List.
+From Coq Require Import String.
+From Coq Require Import List.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import Prelude.
+From ConCert.Embedding Require Import SimpleBlockchain.
+From ConCert.Embedding Require Import Utils.
+From ConCert.Embedding Require Import TranslationUtils.
 
 Import ListNotations.
 From MetaCoq.Template Require Import All.

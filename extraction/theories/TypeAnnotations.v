@@ -4,19 +4,14 @@ From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import OptimizePropDiscr.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import List.
 From Coq Require Import VectorDef.
 From Equations Require Import Equations.
-From MetaCoq.Erasure Require Import EArities.
 From MetaCoq.Erasure Require Import Extract.
-From MetaCoq.Erasure Require ErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
-From MetaCoq.PCUIC Require Import PCUICGeneration.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICValidity.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
@@ -24,7 +19,6 @@ From MetaCoq.SafeChecker Require Import PCUICSafeRetyping.
 From MetaCoq.Template Require Import Kernames.
 
 Import VectorNotations.
-Import ListNotations.
 
 Open Scope list.
 Set Equations Transparent.

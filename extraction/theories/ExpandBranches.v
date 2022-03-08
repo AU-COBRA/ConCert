@@ -1,10 +1,8 @@
-From Coq Require Import Arith.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Utils.
 From MetaCoq.Erasure Require Import ELiftSubst.
-From MetaCoq.Template Require Import utils.
 
 Fixpoint expand_branch (ar : nat) (body : term) : term :=
   match ar with

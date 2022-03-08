@@ -1,8 +1,13 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
 
-From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
-From MetaCoq.Template Require Import BasicAst Loader.
-From ConCert.Embedding Require Import Ast Notations Misc MyEnv.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Template Require Import Loader.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import MyEnv.
 From ConCert.Utils Require StringExtra.
 
 From Coq Require Import List.

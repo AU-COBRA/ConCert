@@ -4,12 +4,14 @@ From Coq Require Import Znumtheory.
 From Coq Require Import Permutation.
 From Coq Require Import Psatz.
 From ConCert.Utils Require Import RecordUpdate.
-Require Import Blockchain.
-Require Import Containers.
-Require Import Extras Egcd Euler.
-Require Import Monads.
-Require Import Serializable.
-Require Import Common. Import AddressMap.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Egcd.
+From ConCert.Execution.Examples Require Import Euler.
+From ConCert.Execution.Examples Require Import Common. Import AddressMap.
 From ConCert.Execution.Examples Require BoardroomVoting.
 
 Import ListNotations.

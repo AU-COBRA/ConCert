@@ -1,6 +1,7 @@
 (** * A place for various tactic used for the development*)
 
-Require Import Lia ZArith.
+From Coq Require Import Lia.
+From Coq Require Import ZArith.
 
 (** ** Tactics taken from the Software Foundations' LibTactics.v *)
 

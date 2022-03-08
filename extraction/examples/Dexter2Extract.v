@@ -1,26 +1,20 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
-From Coq Require Import PeanoNat ZArith Notations.
-From Coq Require Import List Ascii String Bool.
-
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import ZArith.
 From MetaCoq.Template Require Import All.
-
-From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import MyEnv CustomTactics.
-From ConCert.Embedding Require Import Notations.
-From ConCert.Extraction Require Import Common Optimize.
-From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import CameLIGOPretty.
+From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.Examples Require Dexter2CPMM.
 From ConCert.Execution Require Import Containers.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution Require Import Monads.
 From ConCert.Utils Require Import StringExtra.
 
 Local Open Scope string_scope.
-
-Open Scope Z.
 
 (** Printing configuration *)
 
@@ -227,7 +221,6 @@ Module Dexter2LqtExtraction.
   Redirect "examples/extracted-code/cameligo-extract/dexter2fa12.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
-
   End D2LqtE.
 End Dexter2LqtExtraction.
 
@@ -340,5 +333,4 @@ Section D2E.
            MetaCoq Run (tmMsg cameLIGO_dexter2).
 
 End D2E.
-
 End Dexter2Extraction.

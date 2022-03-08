@@ -1,22 +1,20 @@
 
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.PCUIC Require Import PCUICAst.
-
-From ConCert.Execution Require Import Blockchain Serializable Common.
-
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Common.
 From ConCert.Embedding Require Import MyEnv.
-
-From ConCert.Extraction Require Import LPretty
-     Common Optimize Extraction CertifyingInlining SpecializeChainBase.
-
-From Coq Require Import List String.
-Local Open Scope string_scope.
-
+From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import CertifyingInlining.
+From ConCert.Extraction Require Import SpecializeChainBase.
+From ConCert.Extraction Require Import ResultMonad.
+From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 
-Import ListNotations.
-Import MonadNotation.
-Import ResultMonad.
 
 Definition to_constant_decl (gd : option Ast.global_decl) :=
   match gd with

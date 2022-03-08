@@ -1,10 +1,7 @@
-From Coq Require Import Arith.
 From Coq Require Import Ascii.
 From Coq Require Import List.
 From Coq Require Import NArith.
-From Coq Require Import PArith.
 From Coq Require Import String.
-From Coq Require Import ZArith.
 
 Import ListNotations.
 Local Open Scope string.

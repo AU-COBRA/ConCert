@@ -3,14 +3,14 @@ implementation, showing that everything computes from within Coq. It
 also contains specializations of the results proven in Congress.v to
 our particular implementations of blockchains. *)
 
-Require Import Monads.
-Require Import Blockchain.
-Require Import LocalBlockchain.
-Require Import Congress.
-Require Import Containers.
-Require Import BoundedN.
-Require Import ResultMonad.
-Require Import Serializable.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution Require Import Congress.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Serializable.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.

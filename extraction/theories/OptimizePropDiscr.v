@@ -1,9 +1,7 @@
 (* Pass that removes discrimination (matches and projections) on things in Prop.
    This uses MetaCoq's optimization but adapted to run on our environments. *)
-
 From ConCert.Extraction Require Import ExAst.
 From MetaCoq.Erasure Require Import EOptimizePropDiscr.
-From MetaCoq.Erasure Require Import EWcbvEval.
 
 Definition optimize_constant_body Σ cst :=
   {| cst_type := cst_type cst;

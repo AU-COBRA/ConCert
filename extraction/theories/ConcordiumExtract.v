@@ -1,7 +1,7 @@
 From MetaCoq Require Import utils.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
-
+From ConCert.Utils Require Import StringExtra.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
@@ -12,7 +12,6 @@ From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
-From ConCert.Utils Require Import StringExtra.
 
 Module ConcordiumRemap.
 

@@ -2,26 +2,22 @@
 
 (** We provide a configuration required for the contract extraction:
     additional remappings, definitions to inline, etc. *)
-
-From Coq Require Import PeanoNat ZArith.
-
-From ConCert.Extraction Require Import LPretty CameLIGOExtract Common.
-From ConCert.Execution Require Import Blockchain Common LocalBlockchain.
-
-From Coq Require Import List String.
-Local Open Scope string_scope.
-
+    
 From MetaCoq.Template Require Import All.
+From ConCert.Extraction Require Import CameLIGOExtract.
+From ConCert.Extraction Require Import Common.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution.Examples Require Import BoardroomVotingZ.
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import ZArith.
 
-Import ListNotations.
-Import MonadNotation.
-Import AddressMap.
-
+Local Open Scope string_scope.
 Open Scope Z.
 
 Definition PREFIX := "".
-
-From ConCert.Execution.Examples Require Import BoardroomVotingZ.
 
 (* In this example we just use xor for the hash function, which is
    obviously not cryptographically secure. *)

@@ -16,8 +16,8 @@ From Coq Require Import Lia.
 From Coq Require Import List.
 From Coq Require Import Permutation.
 From Coq Require Import ZArith.
+From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.

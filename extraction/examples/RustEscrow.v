@@ -5,7 +5,6 @@ From Coq Require Import Bool.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
 
 Definition ESCROW_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "escrow"%string;

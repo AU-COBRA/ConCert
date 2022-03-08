@@ -4,26 +4,18 @@
 
 (** Warning: this file does not work in the interactive mode due to the problems with paths for [Redirect].
     We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
+From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ElmExtract.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingEta.
-From ConCert.Extraction Require Import CertifyingInlining.
-From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction.Examples Require Import ElmExtractTests.
 From ConCert.Extraction.Examples Require Import Ack.
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import Arith.
-From Coq Require Import Lia.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq Require Import monad_utils.
 From MetaCoq Require Import utils.
 
 Import MonadNotation.

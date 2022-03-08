@@ -2,7 +2,10 @@
 
 Require Import MetaCoq.Template.utils.
 
-From ConCert.Embedding Require Import Ast EnvSubst EvalE MyEnv.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import MyEnv.
 
 Import NamelessSubst.
 

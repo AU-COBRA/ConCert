@@ -1,10 +1,19 @@
-From Coq Require Import List String ZArith.
-From ConCert.Embedding Require Import Utils Notations Ast MyEnv PCUICTranslate
-     TranslationUtils  SimpleBlockchain Prelude.
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import ZArith.
+From ConCert.Embedding Require Import Utils.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import TranslationUtils.
+From ConCert.Embedding Require Import  SimpleBlockchain.
+From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From MetaCoq.Template Require Import All.
-Import ListNotations MonadNotation.
+Import ListNotations.
+Import MonadNotation.
 
 Module Counter.
   Import AcornBlockchain.

@@ -2,10 +2,15 @@
 
 (** Definitions of basic of data types required for the crowdfunding contract along with notations for developing contract using the deep embedding *)
 
-Require Import String ZArith.
-From ConCert.Embedding Require Import Ast CustomTactics Notations
-     PCUICTranslate TranslationUtils Utils.
-Require Import List.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import TranslationUtils.
+From ConCert.Embedding Require Import Utils.
+From Coq Require Import String.
+From Coq Require Import ZArith.
+From Coq Require Import List.
 
 From MetaCoq.Template Require Import All.
 

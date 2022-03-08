@@ -5,12 +5,12 @@ From Coq Require Import SetoidTactics.
 From Coq Require Import Field.
 From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
+From Coq Require Import List.
 From Bignums Require Import BigZ.
-Import List.
 
-Require Import Egcd.
-Require Import Euler.
-Require Import Extras.
+From ConCert.Execution Require Import Egcd.
+From ConCert.Execution Require Import Euler.
+From ConCert.Execution Require Import Extras.
 Import ListNotations.
 
 Local Open Scope Z.

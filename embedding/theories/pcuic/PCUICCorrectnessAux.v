@@ -1,13 +1,28 @@
 (** * Auxillary lemmas for the soundness proof. *)
-From MetaCoq.Template Require Import MCList utils.
+From MetaCoq.Template Require Import MCList.
+From MetaCoq.Template Require Import utils.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICTyping.
+From MetaCoq.PCUIC Require Import PCUICClosed.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICWcbvEval.
 
-Require Import PeanoNat.
+From Coq Require Import PeanoNat.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import Basics.
 
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICLiftSubst PCUICTyping PCUICClosed  PCUICLiftSubst PCUICWcbvEval.
-
-Require Import String List Basics.
-
-From ConCert.Embedding Require Import CustomTactics Misc MyEnv EnvSubst Ast EvalE PCUICFacts PCUICTranslate Wf.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import PCUICFacts.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import Wf.
 
 
 Notation "'eval' ( n , Σ , ρ , e )"  := (expr_eval_i Σ n ρ e) (at level 100).
@@ -658,7 +673,7 @@ Proof.
 Qed.
 
 
-Hint Resolve forallb_type_to_term_closed.
+Hint Resolve forallb_type_to_term_closed : core.
 
 Lemma expr_closed_term_closed e n Σ:
   genv_ok Σ ->
@@ -1145,7 +1160,7 @@ Proof.
 Qed.
 
 Remove Hints iclosed_n_geq: hints.
-Remove Hints Bool.absurd_eq_true.
+Remove Hints Bool.absurd_eq_true : core.
 
 Open Scope nat.
 
@@ -1405,7 +1420,7 @@ Proof.
   apply All_snd_combine.
 Qed.
 
-Hint Constructors All.
+Hint Constructors All : core.
 
 Lemma eval_ge_val_ok n ρ Σ e v :
   AllEnv (ge_val_ok Σ) ρ ->

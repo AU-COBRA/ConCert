@@ -1,9 +1,5 @@
-From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.Erasure Require Export EAst.
 From MetaCoq.Erasure Require EPretty.
-
-Import ListNotations.
 
 Inductive box_type :=
 | TBox

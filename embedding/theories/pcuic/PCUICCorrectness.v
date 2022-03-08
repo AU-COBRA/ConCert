@@ -1,15 +1,27 @@
 (** Proofs of correctness *)
 
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils
-     PCUICLiftSubst PCUICTyping.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICTyping.
 
-From ConCert.Embedding Require Import CustomTactics MyEnv
-     EnvSubst Ast EvalE PCUICFacts  PCUICTranslate
-     PCUICCorrectnessAux Wf Misc.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import PCUICFacts.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import PCUICCorrectnessAux.
+From ConCert.Embedding Require Import Wf.
+From ConCert.Embedding Require Import Misc.
 
 From Coq Require Import List.
+From Coq Require Import Basics.
+From Coq Require Import Lia.
+From Coq Require Import ssrbool.
 
-Import ListNotations ssrbool Basics Lia.
+Import ListNotations.
 Import NamelessSubst.
 
 Local Set Keyed Unification.

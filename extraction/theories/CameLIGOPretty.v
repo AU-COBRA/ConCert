@@ -6,22 +6,20 @@
 (** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of CameLIGO, or some times, lack of proper support.
 
 CameLIGO allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied. *)
-
-From Coq Require Import List Program String Ascii.
-From ConCert.Extraction Require Import Utils ExAst Common.
+From ConCert.Extraction Require Import Utils.
+From ConCert.Extraction Require Import ExAst.
+From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Annotations.
-From ConCert.Extraction Require Import TypeAnnotations.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Embedding Require Import MyEnv Ast.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Erasure Require Import EAst EAstUtils.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import Ast.
+From MetaCoq.Erasure Require Import EAst.
+From MetaCoq.Erasure Require Import EAstUtils.
 From ConCert.Utils Require Import StringExtra.
 
 
-Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
-Import String.
+From Coq Require Import String.
 
 (* F# style piping notation *)
 Notation "f <| x" := (f x) (at level 32, left associativity, only parsing).

@@ -6,9 +6,6 @@ From Coq Require Import Bool.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
-Import Printing.
-
 Open Scope string.
 
 Definition COUNTER_MODULE : ConcordiumMod _ _ :=

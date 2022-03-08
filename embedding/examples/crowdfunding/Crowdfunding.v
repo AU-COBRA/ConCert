@@ -1,12 +1,20 @@
 (**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
-Require Import String ZArith.
-From ConCert.Embedding Require Import Ast Notations CustomTactics
-     PCUICTranslate Prelude SimpleBlockchain TranslationUtils.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import Prelude.
+From ConCert.Embedding Require Import SimpleBlockchain.
+From ConCert.Embedding Require Import TranslationUtils.
 
 From ConCert.Embedding.Examples Require Import CrowdfundingData.
 
-Require Import List ssrbool.
+From Coq Require Import String.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+From Coq Require Import ssrbool.
+From Coq Require Import Lia.
 
 Import ListNotations.
 From MetaCoq.Template Require Import All.
@@ -14,8 +22,6 @@ From MetaCoq.Template Require Import All.
 Import MonadNotation.
 Import BaseTypes StdLib.
 Open Scope list.
-
-Import Lia.
 
 Import Prelude.Maps.
 

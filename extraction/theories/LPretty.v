@@ -11,18 +11,15 @@ Another issue: constructors accept only one argument, so we have to uncurry (pac
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
  *)
-
-From Coq Require Import List Program String Ascii.
+From Coq Require Import Ascii.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Embedding Require Import MyEnv Ast.
-From MetaCoq.Template Require Import utils Loader Environment.
-From MetaCoq.Template Require Pretty.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Erasure Require Import EAst EAstUtils ETyping EPretty.
+From ConCert.Embedding Require Import MyEnv.
+From ConCert.Embedding Require Import Ast.
+From MetaCoq.Erasure Require Import EAst.
+From MetaCoq.Erasure Require Import EAstUtils.
 
-Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
 Import String.
 
@@ -156,9 +153,8 @@ Section print_term.
     | [_],[]  => false
     | _,_ => false
     end.  
-    
 
-  Print ExAst.one_inductive_body.
+
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
     let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))

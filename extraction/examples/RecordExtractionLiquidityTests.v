@@ -1,21 +1,10 @@
-From Coq Require Import PeanoNat ZArith Notations.
-From Coq Require Import List Ascii String Bool.
-
+From Coq Require Import String.
 From MetaCoq.Template Require Import All.
-
 From ConCert.Embedding Require Import Notations.
-(* From ConCert.Embedding Require Import MyEnv CustomTactics. *)
-From ConCert.Embedding Require Import Notations.
-From ConCert.Extraction Require Import Common Optimize.
-From ConCert.Extraction Require Import LPretty LiquidityExtract.
-From ConCert.Execution Require Import Automation.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import Blockchain.
-From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import LiquidityExtract.
 
 Local Open Scope string_scope.
-
-Import MonadNotation.
 
 Definition PREFIX := "".
 Definition TT_defs := 

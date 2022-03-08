@@ -1,36 +1,15 @@
 From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import List.
-From Coq Require Import Permutation.
-From Coq Require Import String.
 From Equations Require Import Equations.
-From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import EDeps.
-From MetaCoq.Erasure Require Import ErasureCorrectness.
-From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.Erasure Require Import ESubstitution.
-From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import Extract.
 From MetaCoq.Erasure Require Import ErasureFunction.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
-From MetaCoq.PCUIC Require Import PCUICInduction.
-From MetaCoq.PCUIC Require Import PCUICInversion.
-From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICSR.
 From MetaCoq.PCUIC Require Import PCUICTyping.
-From MetaCoq.PCUIC Require Import PCUICWcbvEval.
-From MetaCoq.PCUIC Require Import PCUICWeakeningEnv.
-From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import utils.
-
-Open Scope string.
-
-Import ListNotations.
 
 Module P := PCUICAst.
 Module E := EAst.

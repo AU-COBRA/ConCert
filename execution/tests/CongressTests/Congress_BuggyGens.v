@@ -1,15 +1,15 @@
-From ConCert Require Import Blockchain Congress_Buggy.
-From ConCert Require Import Serializable.
-From ConCert Require Import BoundedN.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Examples Require Import Congress_Buggy.
 From ConCert.Execution.QCTests Require Import TestUtils.
-
-Require Import ZArith.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
 
+From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
-Require Import Containers.
 
 Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
