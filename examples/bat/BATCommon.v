@@ -22,7 +22,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require EIP20Token.
+From ConCert.Examples.EIP20 Require EIP20Token.
 Import RecordSetNotations.
 Import ListNotations.
 

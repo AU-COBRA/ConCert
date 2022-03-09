@@ -15,3 +15,15 @@ eip20/EIP20TokenPrinters.v
 eip20/EIP20TokenTests.v
 eip20/EIP20LiquidityExtraction.v
 eip20/EIP20CameLIGOExtraction.v
+
+-Q bat ConCert.Examples.BAT
+bat/BATCommon.v
+bat/BAT.v
+bat/BAT_Fixed.v
+bat/BAT_AltFix.v
+bat/BATPrinters.v
+bat/BATGens.v
+bat/BATTestCommon.v
+bat/BATTests.v
+bat/BAT_FixedTests.v
+bat/BAT_AltFixTests.v
