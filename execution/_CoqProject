@@ -23,10 +23,6 @@ standards/cis1/CIS1Spec.v
 standards/cis1/CIS1Utils.v
 
 -R examples ConCert.Execution.Examples
-examples/BATCommon.v
-examples/BAT.v
-examples/BAT_Fixed.v
-examples/BAT_AltFix.v
 examples/BoardroomMath.v
 examples/BoardroomVoting.v
 examples/BoardroomVotingZ.v
@@ -35,7 +31,6 @@ examples/Common.v
 examples/Congress.v
 examples/Congress_Buggy.v
 examples/Counter.v
-examples/EIP20Token.v
 examples/Egcd.v
 examples/Escrow.v
 examples/Euler.v
@@ -59,9 +54,6 @@ tests/DexterTests/Dexter.v
 tests/DexterTests/DexterGens.v
 tests/DexterTests/DexterPrinters.v
 tests/DexterTests/DexterTests.v
-tests/EIP20Tests/EIP20TokenGens.v
-tests/EIP20Tests/EIP20TokenPrinters.v
-tests/EIP20Tests/EIP20TokenTests.v
 tests/EscrowTests/EscrowGens.v
 tests/EscrowTests/EscrowPrinters.v
 tests/EscrowTests/EscrowTests.v
@@ -76,9 +68,3 @@ tests/iTokenBuggyTests/iTokenBuggy.v
 tests/iTokenBuggyTests/iTokenBuggyGens.v
 tests/iTokenBuggyTests/iTokenBuggyPrinters.v
 tests/iTokenBuggyTests/iTokenBuggyTests.v
-tests/BATTests/BATGens.v
-tests/BATTests/BATPrinters.v
-tests/BATTests/BATTestCommon.v
-tests/BATTests/BATTests.v
-tests/BATTests/BAT_FixedTests.v
-tests/BATTests/BAT_AltFixTests.v

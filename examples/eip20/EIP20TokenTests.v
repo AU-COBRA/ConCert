@@ -8,12 +8,12 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.Examples Require Import EIP20Token.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import ChainPrinters.
 From ConCert.Execution.QCTests Require Import TraceGens.
-From ConCert.Execution.QCTests Require Import EIP20TokenPrinters.
-From ConCert.Execution.QCTests Require Import EIP20TokenGens.
+From ConCert.Examples Require Import EIP20Token.
+From ConCert.Examples Require Import EIP20TokenPrinters.
+From ConCert.Examples Require Import EIP20TokenGens.
 
 From Coq Require Import ZArith.
 From Coq Require Import Strings.String.

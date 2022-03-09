@@ -17,11 +17,16 @@ extraction: utils execution embedding
 	+make -C extraction
 .PHONY: extraction
 
+examples: utils execution embedding extraction
+	+make -C examples
+.PHONY: examples
+
 clean:
 	+make -C utils clean
 	+make -C execution clean
 	+make -C embedding clean
 	+make -C extraction clean
+	+make -C examples clean
 	rm -rf docs
 .PHONY: clean
 

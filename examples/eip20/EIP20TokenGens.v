@@ -1,7 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import EIP20Token.
+From ConCert.Examples Require Import EIP20Token.
 From ConCert.Execution.QCTests Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.

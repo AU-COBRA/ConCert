@@ -7,7 +7,7 @@ From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require EIP20Token.
+From ConCert.Examples Require EIP20Token.
 From ConCert.Execution.Examples Require Import Common.
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -167,7 +167,7 @@ Section EIP20TokenExtraction.
       tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
   
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "./examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
+  Redirect "../extraction/examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
   Compute liquidity_eip20token.
 
 End EIP20TokenExtraction.

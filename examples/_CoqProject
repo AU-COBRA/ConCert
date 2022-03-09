@@ -1,0 +1,17 @@
+-R ../utils/theories ConCert.Utils
+-R ../execution/theories ConCert.Execution
+-R ../execution/examples ConCert.Execution.Examples
+-R ../execution/standards/cis1 ConCert.Execution.Standards.CIS1
+-R ../execution/tests ConCert.Execution.QCTests
+-R ../embedding/theories ConCert.Embedding
+-R ../embedding/extraction ConCert.Embedding.Extraction
+-R ../extraction/theories ConCert.Extraction
+-R ../extraction/plugin/theories ConCert.Extraction
+
+-Q eip20 ConCert.Examples.EIP20
+eip20/EIP20Token.v
+eip20/EIP20TokenGens.v
+eip20/EIP20TokenPrinters.v
+eip20/EIP20TokenTests.v
+eip20/EIP20LiquidityExtraction.v
+eip20/EIP20CameLIGOExtraction.v
