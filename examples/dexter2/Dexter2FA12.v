@@ -19,7 +19,7 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
-From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution Require Import Common.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 From Coq Require Import List.

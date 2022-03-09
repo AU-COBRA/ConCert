@@ -9,8 +9,9 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Examples Require Dexter2CPMM.
 From ConCert.Execution Require Import Containers.
+From ConCert.Examples.Dexter2 Require Dexter2CPMM.
+From ConCert.Examples.Dexter2 Require Dexter2FA12.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import StringExtra.
 
@@ -218,7 +219,7 @@ Module Dexter2LqtExtraction.
   MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/extracted-code/cameligo-extract/dexter2fa12.mligo"
+  Redirect "../extraction/examples/extracted-code/cameligo-extract/dexter2fa12.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
   End D2LqtE.
@@ -329,7 +330,7 @@ Section D2E.
   MetaCoq Run (tmMsg cameLIGO_dexter2).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
+  Redirect "../extraction/examples/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2).
 
 End D2E.

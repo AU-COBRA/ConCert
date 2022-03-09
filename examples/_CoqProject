@@ -27,3 +27,8 @@ bat/BATTestCommon.v
 bat/BATTests.v
 bat/BAT_FixedTests.v
 bat/BAT_AltFixTests.v
+
+-Q dexter2 ConCert.Examples.Dexter2
+dexter2/Dexter2FA12.v
+dexter2/Dexter2CPMM.v
+dexter2/Dexter2Extract.v
