@@ -48,10 +48,6 @@ tests/CongressTests/CongressTests.v
 tests/CongressTests/Congress_BuggyGens.v
 tests/CongressTests/Congress_BuggyPrinters.v
 tests/CongressTests/Congress_BuggyTests.v
-tests/DexterTests/Dexter.v
-tests/DexterTests/DexterGens.v
-tests/DexterTests/DexterPrinters.v
-tests/DexterTests/DexterTests.v
 tests/EscrowTests/EscrowGens.v
 tests/EscrowTests/EscrowPrinters.v
 tests/EscrowTests/EscrowTests.v

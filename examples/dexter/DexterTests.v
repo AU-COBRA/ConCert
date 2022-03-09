@@ -11,8 +11,8 @@ From ConCert.Utils Require Import RecordUpdate.
 
 From QuickChick Require Import QuickChick.
 From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import Dexter.
-From ConCert.Execution.QCTests Require Import DexterGens.
+From ConCert.Examples.Dexter Require Import Dexter.
+From ConCert.Examples.Dexter Require Import DexterGens.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 
