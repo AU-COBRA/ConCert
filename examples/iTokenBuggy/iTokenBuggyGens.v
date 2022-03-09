@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import iTokenBuggy.
+From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.

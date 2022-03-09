@@ -8,9 +8,9 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import TraceGens.
-From ConCert.Execution.QCTests Require Import iTokenBuggy.
-From ConCert.Execution.QCTests Require Import iTokenBuggyPrinters.
-From ConCert.Execution.QCTests Require Import iTokenBuggyGens.
+From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
+From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyPrinters.
+From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyGens.
 
 From Coq Require Import ZArith.
 From Coq Require Import List. 

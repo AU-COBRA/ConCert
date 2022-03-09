@@ -58,7 +58,3 @@ tests/FA2Tests/TestContracts.v
 tests/SerializablePrinters.v
 tests/TestUtils.v
 tests/TraceGens.v
-tests/iTokenBuggyTests/iTokenBuggy.v
-tests/iTokenBuggyTests/iTokenBuggyGens.v
-tests/iTokenBuggyTests/iTokenBuggyPrinters.v
-tests/iTokenBuggyTests/iTokenBuggyTests.v

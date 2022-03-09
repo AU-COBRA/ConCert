@@ -38,3 +38,9 @@ dexter/Dexter.v
 dexter/DexterPrinters.v
 dexter/DexterGens.v
 dexter/DexterTests.v
+
+-Q iTokenBuggy ConCert.Examples.iTokenBuggy
+iTokenBuggy/iTokenBuggy.v
+iTokenBuggy/iTokenBuggyGens.v
+iTokenBuggy/iTokenBuggyPrinters.v
+iTokenBuggy/iTokenBuggyTests.v
