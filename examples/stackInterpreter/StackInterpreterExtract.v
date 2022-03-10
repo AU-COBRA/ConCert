@@ -308,7 +308,7 @@ Module LiquidityInterp.
   Print liquidity_interp.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  (* Redirect "examples/extracted-code/liquidity-extract/StackInterpreter.liq" *)
+  (* Redirect "../extraction/examples/extracted-code/liquidity-extract/StackInterpreter.liq" *)
   (* MetaCoq Run (tmMsg liquidity_interp). *)
 
 End LiquidityInterp.
@@ -386,7 +386,7 @@ Module CameLIGOInterp.
 
     Print cameligo_interp.
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-    Redirect "examples/extracted-code/cameligo-extract/StackInterpreter.mligo"
+    Redirect "../extraction/examples/extracted-code/cameligo-extract/StackInterpreter.mligo"
     MetaCoq Run (tmMsg cameligo_interp).
 
 End CameLIGOInterp.

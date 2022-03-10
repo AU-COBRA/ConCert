@@ -67,6 +67,4 @@ examples/RecordExtractionLiquidityTests.v
 examples/RustCounter.v
 examples/RustEscrow.v
 examples/RustExtractTests.v
-examples/RustInterp.v
-examples/StackInterpreter.v
 examples/TypeAnnotationTests.v

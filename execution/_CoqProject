@@ -31,7 +31,6 @@ examples/Egcd.v
 examples/Escrow.v
 examples/Euler.v
 examples/LocalBlockchainTests.v
-examples/StackInterpreter.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v

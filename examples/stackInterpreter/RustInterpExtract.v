@@ -2,7 +2,7 @@ From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
-From ConCert.Execution.Examples Require Import StackInterpreter.
+From ConCert.Examples.StackInterpreter Require Import StackInterpreter.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Printing.
@@ -39,7 +39,7 @@ Instance RustConfig : RustPrintConfig :=
        any_type_symbol := "()";
        print_full_names := false |}.
 
-Redirect "examples/extracted-code/concordium-extract/interp.rs"
+Redirect "../extraction/examples/extracted-code/concordium-extract/interp.rs"
 MetaCoq Run (concordium_extraction
                STACK_INTERP_MODULE
                (ConcordiumRemap.build_remaps

@@ -56,3 +56,8 @@ fa2/TestContracts.v
 cis1/CIS1Spec.v
 cis1/CIS1Utils.v
 cis1/Cis1wccd.v
+
+-Q stackInterpreter ConCert.Examples.StackInterpreter
+stackInterpreter/StackInterpreter.v
+stackInterpreter/RustInterpExtract.v
+stackInterpreter/StackInterpreterExtract.v
