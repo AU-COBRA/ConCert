@@ -1,4 +1,4 @@
-all: examples
+all: examples process-extraction-examples
 .PHONY: all
 
 CoqMakefile: _CoqProject
@@ -28,3 +28,7 @@ force: ;
 
 # Do not forward these files
 Makefile _CoqProject: ;
+
+process-extraction-examples: examples
+	cd ../extraction && ./process-extraction-examples.sh
+.PHONY: process-extraction-examples

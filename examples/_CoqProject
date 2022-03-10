@@ -1,6 +1,5 @@
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
--R ../execution/examples ConCert.Execution.Examples
 -R ../execution/tests ConCert.Execution.QCTests
 -R ../embedding/theories ConCert.Embedding
 -R ../embedding/extraction ConCert.Embedding.Extraction
@@ -27,6 +26,14 @@ bat/BATTests.v
 bat/BAT_FixedTests.v
 bat/BAT_AltFixTests.v
 
+-Q fa2 ConCert.Examples.FA2
+fa2/FA2Interface.v
+fa2/FA2Token.v
+fa2/TestContracts.v
+fa2/FA2Printers.v
+fa2/FA2Gens.v
+fa2/FA2TokenTests.v
+
 -Q dexter2 ConCert.Examples.Dexter2
 dexter2/Dexter2FA12.v
 dexter2/Dexter2CPMM.v
@@ -43,14 +50,6 @@ iTokenBuggy/iTokenBuggy.v
 iTokenBuggy/iTokenBuggyGens.v
 iTokenBuggy/iTokenBuggyPrinters.v
 iTokenBuggy/iTokenBuggyTests.v
-
--Q fa2 ConCert.Examples.FA2
-fa2/FA2Interface.v
-fa2/FA2Token.v
-fa2/FA2Gens.v
-fa2/FA2Printers.v
-fa2/FA2TokenTests.v
-fa2/TestContracts.v
 
 -Q cis1 ConCert.Examples.CIS1
 cis1/CIS1Spec.v

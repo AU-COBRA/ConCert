@@ -31,7 +31,8 @@ Module AddressMap.
   Definition of_list  `{ChainBase} {V : Type} (l : list (Address * V)) : AddrMap V :=
     FMap.of_list l.
 
-  Definition empty  `{ChainBase} {V : Type} : AddrMap V := FMap.empty.
+  Definition empty  `{ChainBase} {V : Type} : AddrMap V :=
+    FMap.empty.
 
   Definition update `{ChainBase} {V : Type} (addr : Address) (val : option V) (m : AddrMap V) : AddrMap V :=
     FMap.update addr val m.
