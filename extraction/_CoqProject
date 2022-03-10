@@ -60,11 +60,8 @@ examples/ElmExtractExamples.v
 examples/ElmExtractTests.v
 examples/ElmForms.v
 examples/ErasureTests.v
-examples/EscrowExtract.v
 examples/MidlangCounterRefTypes.v
-examples/MidlangEscrow.v
 examples/RecordExtractionLiquidityTests.v
 examples/RustCounter.v
-examples/RustEscrow.v
 examples/RustExtractTests.v
 examples/TypeAnnotationTests.v

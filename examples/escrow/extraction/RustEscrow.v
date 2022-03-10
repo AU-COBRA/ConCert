@@ -1,6 +1,6 @@
-From ConCert.Execution.Examples Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
+From ConCert.Examples.Escrow Require Import Escrow.
 From Coq Require Import Bool.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
@@ -20,7 +20,7 @@ Definition should_inline kn :=
 (* NOTE: it is important to declare a priting config, otherwise MetaCoq evaluation tries to normalise a term with an unresolved instance and runs out of memory. *)
 Existing Instance DefaultPrintConfig.RustConfig.
 
-Redirect "examples/extracted-code/concordium-extract/escrow.rs"
+Redirect "../extraction/examples/extracted-code/concordium-extract/escrow.rs"
 MetaCoq Run (concordium_extraction
                ESCROW_MODULE
                (ConcordiumRemap.build_remaps

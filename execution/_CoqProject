@@ -26,14 +26,10 @@ examples/BoardroomVotingTest.v
 examples/Common.v
 examples/Counter.v
 examples/Egcd.v
-examples/Escrow.v
 examples/Euler.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v
-tests/EscrowTests/EscrowGens.v
-tests/EscrowTests/EscrowPrinters.v
-tests/EscrowTests/EscrowTests.v
 tests/SerializablePrinters.v
 tests/TestUtils.v
 tests/TraceGens.v

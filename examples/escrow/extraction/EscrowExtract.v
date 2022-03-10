@@ -3,7 +3,7 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Escrow.
+From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
@@ -15,10 +15,10 @@ From Coq Require Import ZArith.
 Local Open Scope string_scope.
 
 Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State :=
-    Examples.Escrow.init (snd s) cctx (fst s).
+    Escrow.init (snd s) cctx (fst s).
 
 Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (msg : option Msg) : option (list ActionBody * State) :=
-    match Examples.Escrow.receive c cctx s msg with
+    match Escrow.receive c cctx s msg with
     | Some (s, acts) => Some (acts, s)
     | None => None
     end.
@@ -82,7 +82,7 @@ Module EscrowCameLIGOExtraction.
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
-  Redirect "examples/extracted-code/cameligo-extract/EscrowExtract.mligo"
+  Redirect "../extraction/examples/extracted-code/cameligo-extract/EscrowExtract.mligo"
   MetaCoq Run (tmMsg cameLIGO_escrow).
 
 End EscrowCameLIGOExtraction.
@@ -222,7 +222,7 @@ Module EscrowLiquidityExtraction.
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "examples/extracted-code/liquidity-extract/escrow.liq"
+  Redirect "../extraction/examples/extracted-code/liquidity-extract/escrow.liq"
   MetaCoq Run (tmMsg liquidity_escrow).
 
 End EscrowLiquidityExtraction.

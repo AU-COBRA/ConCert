@@ -5,17 +5,17 @@ From Coq Require Import BinNat.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.QCTests Require Import TraceGens.
 From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require CongressTests.
-From ConCert.Execution.QCTests Require Congress_BuggyTests.
-From ConCert.Execution.QCTests Require DexterTests.
-From ConCert.Execution.QCTests Require EIP20TokenTests.
-From ConCert.Execution.QCTests Require EscrowTests.
-From ConCert.Execution.QCTests Require FA2TokenTests.
-From ConCert.Execution.QCTests Require iTokenBuggyTests.
-From ConCert.Execution.QCTests Require BATTestCommon.
-From ConCert.Execution.QCTests Require BATTests.
-From ConCert.Execution.QCTests Require BAT_FixedTests.
-From ConCert.Execution.QCTests Require BAT_AltFixTests.
+From ConCert.Examples.Congress Require CongressTests.
+From ConCert.Examples.Congress Require Congress_BuggyTests.
+From ConCert.Examples.Dexter Require DexterTests.
+From ConCert.Examples.EIP20 Require EIP20TokenTests.
+From ConCert.Examples.Escrow Require EscrowTests.
+From ConCert.Examples.FA2 Require FA2TokenTests.
+From ConCert.Examples.iTokenBuggy Require iTokenBuggyTests.
+From ConCert.Examples.BAT Require BATTestCommon.
+From ConCert.Examples.BAT Require BATTests.
+From ConCert.Examples.BAT Require BAT_FixedTests.
+From ConCert.Examples.BAT Require BAT_AltFixTests.
 
 
 Module Congress.

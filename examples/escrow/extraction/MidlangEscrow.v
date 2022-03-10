@@ -7,7 +7,7 @@ From ConCert.Extraction Require Import Inlining.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Execution.Examples Require Import Escrow.
+From ConCert.Examples.Escrow Require Import Escrow.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From Coq Require Import List.
@@ -132,4 +132,4 @@ Definition result :=
   | Err err => tmFail err
   end.
 
-Redirect "examples/extracted-code/midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.
+Redirect "../extraction/examples/extracted-code/midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.

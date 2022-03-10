@@ -72,3 +72,12 @@ congress/tests/CongressTests.v
 congress/tests/Congress_BuggyGens.v
 congress/tests/Congress_BuggyPrinters.v
 congress/tests/Congress_BuggyTests.v
+
+-Q escrow ConCert.Examples.Escrow
+escrow/Escrow.v
+escrow/tests/EscrowGens.v
+escrow/tests/EscrowPrinters.v
+escrow/tests/EscrowTests.v
+escrow/extraction/EscrowExtract.v
+escrow/extraction/MidlangEscrow.v
+escrow/extraction/RustEscrow.v

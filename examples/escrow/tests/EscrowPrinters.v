@@ -2,9 +2,9 @@
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import Escrow.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import SerializablePrinters.
+From ConCert.Examples.Escrow Require Import Escrow.
 From QuickChick Require Import QuickChick.
 
 Local Open Scope string_scope.
