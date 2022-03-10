@@ -1,7 +1,6 @@
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
 -R ../execution/examples ConCert.Execution.Examples
--R ../execution/standards/cis1 ConCert.Execution.Standards.CIS1
 -R ../execution/tests ConCert.Execution.QCTests
 -R ../embedding/theories ConCert.Embedding
 -R ../embedding/extraction ConCert.Embedding.Extraction
@@ -52,3 +51,8 @@ fa2/FA2Gens.v
 fa2/FA2Printers.v
 fa2/FA2TokenTests.v
 fa2/TestContracts.v
+
+-Q cis1 ConCert.Examples.CIS1
+cis1/CIS1Spec.v
+cis1/CIS1Utils.v
+cis1/Cis1wccd.v

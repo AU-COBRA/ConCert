@@ -13,8 +13,8 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Examples Require Import Common.
-From ConCert.Execution.Standards.CIS1 Require Import CIS1Spec.
+From ConCert.Execution Require Import Common.
+From ConCert.Examples.CIS1 Require Import CIS1Spec.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
