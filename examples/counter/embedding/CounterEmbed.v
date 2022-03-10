@@ -7,7 +7,7 @@ From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import TranslationUtils.
-From ConCert.Embedding Require Import  SimpleBlockchain.
+From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt.

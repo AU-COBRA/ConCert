@@ -1,4 +1,4 @@
-From ConCert.Execution.Examples Require Counter.
+From ConCert.Examples.Counter Require Counter.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Extraction Require Import RustExtract.
@@ -10,8 +10,8 @@ Open Scope string.
 
 Definition COUNTER_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "counter";
-     concmd_init := @ConCert.Execution.Examples.Counter.counter_init;
-     concmd_receive := @ConCert.Execution.Examples.Counter.counter_receive;
+     concmd_init := @ConCert.Examples.Counter.Counter.counter_init;
+     concmd_receive := @ConCert.Examples.Counter.Counter.counter_receive;
      concmd_extra := []; |}.
 
 (* NOTE: it is important to declare a priting config, otherwise MetaCoq evaluation tries to normalise a term with an unresolved instance and runs out of memory. *)
@@ -21,7 +21,7 @@ Instance RustConfig : RustPrintConfig :=
        any_type_symbol := "()";
        print_full_names := false |}.
 
-Redirect "examples/extracted-code/concordium-extract/counter.rs"
+Redirect "../extraction/examples/extracted-code/concordium-extract/counter.rs"
 MetaCoq Run (concordium_extraction
                COUNTER_MODULE
                (ConcordiumRemap.build_remaps

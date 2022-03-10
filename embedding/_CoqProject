@@ -27,7 +27,6 @@ theories/pcuic/PCUICTranslate.v
 theories/pcuic/PCUICtoTemplate.v
 
 -Q extraction ConCert.Embedding.Extraction
-extraction/Counter.v
 extraction/Crowdfunding.v
 extraction/CrowdfundingData.v
 extraction/Liquidity.v

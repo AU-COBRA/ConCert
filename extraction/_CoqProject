@@ -50,16 +50,11 @@ theories/WcbvEvalAux.v
 -Q examples ConCert.Extraction.Examples
 examples/Ack.v
 examples/CameLIGOExtractionTests.v
-examples/CounterCertifiedExtraction.v
-examples/CounterDepCertifiedExtraction.v
-examples/CounterSubsetTypes.v
 examples/CrowdfundingCertifiedExtraction.v
 examples/ElmExtractExamples.v
 examples/ElmExtractTests.v
 examples/ElmForms.v
 examples/ErasureTests.v
-examples/MidlangCounterRefTypes.v
 examples/RecordExtractionLiquidityTests.v
-examples/RustCounter.v
 examples/RustExtractTests.v
 examples/TypeAnnotationTests.v

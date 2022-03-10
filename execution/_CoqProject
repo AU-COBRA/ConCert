@@ -20,7 +20,6 @@ theories/Serializable.v
 
 -R examples ConCert.Execution.Examples
 examples/Common.v
-examples/Counter.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v
