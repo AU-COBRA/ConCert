@@ -3,11 +3,11 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import Congress.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import TraceGens.
-From ConCert.Execution.QCTests Require Import CongressGens.
-From ConCert.Execution.QCTests Require Import CongressPrinters.
+From ConCert.Examples.Congress Require Import Congress.
+From ConCert.Examples.Congress Require Import CongressGens.
+From ConCert.Examples.Congress Require Import CongressPrinters.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.

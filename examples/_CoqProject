@@ -61,3 +61,14 @@ cis1/Cis1wccd.v
 stackInterpreter/StackInterpreter.v
 stackInterpreter/RustInterpExtract.v
 stackInterpreter/StackInterpreterExtract.v
+
+-Q congress ConCert.Examples.Congress
+congress/Congress.v
+congress/Congress_Buggy.v
+congress/LocalBlockchainTests.v
+congress/tests/CongressGens.v
+congress/tests/CongressPrinters.v
+congress/tests/CongressTests.v
+congress/tests/Congress_BuggyGens.v
+congress/tests/Congress_BuggyPrinters.v
+congress/tests/Congress_BuggyTests.v

@@ -1,9 +1,9 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import Congress_Buggy.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import ChainPrinters.
 From ConCert.Execution.QCTests Require Import SerializablePrinters.
+From ConCert.Examples.Congress Require Import Congress_Buggy.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 (* From ExtLib.Structures Require Import Monads. *)

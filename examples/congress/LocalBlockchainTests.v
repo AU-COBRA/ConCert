@@ -6,11 +6,11 @@ our particular implementations of blockchains. *)
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import LocalBlockchain.
-From ConCert.Execution Require Import Congress.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Examples.Congress Require Import Congress.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.

@@ -24,22 +24,13 @@ examples/BoardroomVoting.v
 examples/BoardroomVotingZ.v
 examples/BoardroomVotingTest.v
 examples/Common.v
-examples/Congress.v
-examples/Congress_Buggy.v
 examples/Counter.v
 examples/Egcd.v
 examples/Escrow.v
 examples/Euler.v
-examples/LocalBlockchainTests.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v
-tests/CongressTests/CongressGens.v
-tests/CongressTests/CongressPrinters.v
-tests/CongressTests/CongressTests.v
-tests/CongressTests/Congress_BuggyGens.v
-tests/CongressTests/Congress_BuggyPrinters.v
-tests/CongressTests/Congress_BuggyTests.v
 tests/EscrowTests/EscrowGens.v
 tests/EscrowTests/EscrowPrinters.v
 tests/EscrowTests/EscrowTests.v
