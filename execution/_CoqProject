@@ -19,14 +19,8 @@ theories/ResultMonad.v
 theories/Serializable.v
 
 -R examples ConCert.Execution.Examples
-examples/BoardroomMath.v
-examples/BoardroomVoting.v
-examples/BoardroomVotingZ.v
-examples/BoardroomVotingTest.v
 examples/Common.v
 examples/Counter.v
-examples/Egcd.v
-examples/Euler.v
 
 -R tests ConCert.Execution.QCTests
 tests/ChainPrinters.v

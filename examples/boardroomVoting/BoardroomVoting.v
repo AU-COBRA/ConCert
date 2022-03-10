@@ -11,8 +11,8 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require ContractMonads.
-From ConCert.Execution.Examples Require Import BoardroomMath.
-From ConCert.Execution.Examples Require Import Common. Import AddressMap.
+From ConCert.Execution Require Import Common. Import AddressMap.
+From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 
 Import ListNotations.
 Import RecordSetNotations.

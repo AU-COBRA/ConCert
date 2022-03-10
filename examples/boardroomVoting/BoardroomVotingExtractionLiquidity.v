@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Common.
 From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import String.
@@ -20,7 +21,6 @@ Open Scope Z.
 
 Definition PREFIX := "".
 
-From ConCert.Execution.Examples Require Import BoardroomVotingZ.
 
 (* In this example we just use xor for the hash function, which is
    obviously not cryptographically secure. *)
@@ -352,4 +352,4 @@ Definition TT_rename : list (string * string):=
   ).
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/extracted-code/liquidity-extract/BoardroomVoting.liq" MetaCoq Run (tmMsg liquidity_boardroomvoting). *)
+Redirect "../extraction/examples/extracted-code/liquidity-extract/BoardroomVoting.liq" MetaCoq Run (tmMsg liquidity_boardroomvoting). *)

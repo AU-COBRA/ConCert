@@ -9,9 +9,9 @@ From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import BoardroomMath.
-From ConCert.Execution.Examples Require Import BoardroomVoting.
-From ConCert.Execution.Examples Require Import Common. Import AddressMap.
+From ConCert.Execution Require Import Common. Import AddressMap.
+From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
+From ConCert.Examples.BoardroomVoting Require Import BoardroomVoting.
 
 Import ListNotations.
 Import BoardroomMathNotations.

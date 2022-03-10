@@ -9,10 +9,10 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import Egcd.
-From ConCert.Execution.Examples Require Import Euler.
-From ConCert.Execution.Examples Require Import Common. Import AddressMap.
-From ConCert.Execution.Examples Require BoardroomVoting.
+From ConCert.Execution Require Import Common. Import AddressMap.
+From ConCert.Examples.BoardroomVoting Require Import Egcd.
+From ConCert.Examples.BoardroomVoting Require Import Euler.
+From ConCert.Examples.BoardroomVoting Require BoardroomVoting.
 
 Import ListNotations.
 Import RecordSetNotations.

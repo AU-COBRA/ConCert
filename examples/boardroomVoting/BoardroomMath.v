@@ -8,8 +8,8 @@ From Coq Require Import Znumtheory.
 From Coq Require Import List.
 From Bignums Require Import BigZ.
 
-From ConCert.Execution Require Import Egcd.
-From ConCert.Execution Require Import Euler.
+From ConCert.Examples.BoardroomVoting Require Import Egcd.
+From ConCert.Examples.BoardroomVoting Require Import Euler.
 From ConCert.Execution Require Import Extras.
 Import ListNotations.
 

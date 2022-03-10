@@ -9,7 +9,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Common.
 From ConCert.Execution Require Import LocalBlockchain.
-From ConCert.Execution.Examples Require Import BoardroomVotingZ.
+From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -288,5 +288,5 @@ Definition TT_rename : list (string * string):=
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
-Redirect "examples/extracted-code/cameligo-extract/BoardroomVoting.mligo"
+Redirect "../extraction/examples/extracted-code/cameligo-extract/BoardroomVoting.mligo"
 MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)
