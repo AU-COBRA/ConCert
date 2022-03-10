@@ -44,3 +44,11 @@ iTokenBuggy/iTokenBuggy.v
 iTokenBuggy/iTokenBuggyGens.v
 iTokenBuggy/iTokenBuggyPrinters.v
 iTokenBuggy/iTokenBuggyTests.v
+
+-Q fa2 ConCert.Examples.FA2
+fa2/FA2Interface.v
+fa2/FA2Token.v
+fa2/FA2Gens.v
+fa2/FA2Printers.v
+fa2/FA2TokenTests.v
+fa2/TestContracts.v

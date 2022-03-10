@@ -34,8 +34,6 @@ examples/Counter.v
 examples/Egcd.v
 examples/Escrow.v
 examples/Euler.v
-examples/FA2Interface.v
-examples/FA2Token.v
 examples/LocalBlockchainTests.v
 examples/StackInterpreter.v
 examples/Cis1wccd.v
@@ -51,10 +49,6 @@ tests/CongressTests/Congress_BuggyTests.v
 tests/EscrowTests/EscrowGens.v
 tests/EscrowTests/EscrowPrinters.v
 tests/EscrowTests/EscrowTests.v
-tests/FA2Tests/FA2Gens.v
-tests/FA2Tests/FA2Printers.v
-tests/FA2Tests/FA2TokenTests.v
-tests/FA2Tests/TestContracts.v
 tests/SerializablePrinters.v
 tests/TestUtils.v
 tests/TraceGens.v

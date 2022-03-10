@@ -5,18 +5,18 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.Examples Require Import FA2Token.
-From ConCert.Execution.Examples Require Import FA2Interface.
+From ConCert.Execution.QCTests Require Import TestUtils.
+From ConCert.Execution.QCTests Require Import ChainPrinters.
+From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Examples.FA2 Require Import FA2Token.
+From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import TestContracts.
 From ConCert.Utils Require Import RecordUpdate.
 Global Set Warnings "-extraction-logical-axiom".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor.
 From ExtLib.Structures Require Import Applicative.
-From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import ChainPrinters.
-From ConCert.Execution.QCTests Require Import TraceGens.
-From ConCert.Execution.QCTests Require Import TestContracts.
 From ExtLib.Structures Require Monads.
 From Coq Require Import Strings.String.
 From Coq Require Import ZArith.
@@ -147,8 +147,7 @@ Definition call_client_is_op_act :=
 Definition token_state (cs : Environment) := get_contract_state FA2Token.State cs token_contract_base_addr.
 Definition client_state (cs : Environment) := get_contract_state ClientState cs client_contract_addr.
 
-From ConCert.Execution.QCTests Require Import FA2Gens.
-
+From ConCert.Examples.FA2 Require Import FA2Gens.
 
 Module TestInfo <: FA2TestsInfo.
   Import Monads.

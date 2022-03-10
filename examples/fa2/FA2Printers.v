@@ -1,10 +1,10 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import FA2Interface.
-From ConCert.Execution.Examples Require Import FA2Token.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import SerializablePrinters.
-From ConCert.Execution.QCTests Require Import TestContracts.
+From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2Token.
+From ConCert.Examples.FA2 Require Import TestContracts.
 From QuickChick Require Import QuickChick.
 Local Open Scope string_scope.
 

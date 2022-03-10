@@ -1,7 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution.Examples Require Import FA2Token.
+From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterPrinters.
 

@@ -2,14 +2,14 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import FA2Token.
-From ConCert.Execution.Examples Require Import FA2Interface.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import TraceGens.
-From ConCert.Execution.QCTests Require Import TestContracts.
-From ConCert.Execution.QCTests Require Import FA2Printers.
+From ConCert.Examples.FA2 Require Import FA2Token.
+From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2Printers.
+From ConCert.Examples.FA2 Require Import TestContracts.
+
+From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.

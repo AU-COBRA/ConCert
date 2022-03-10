@@ -7,7 +7,8 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution Require Import Common.
+From ConCert.Examples.FA2 Require Import FA2Interface.
 
 Import ListNotations.
 Import RecordSetNotations.
@@ -15,7 +16,6 @@ Import RecordSetNotations.
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 
-Require Import FA2Interface.
 
 Section FA2Token.
 Context {BaseTypes : ChainBase}.

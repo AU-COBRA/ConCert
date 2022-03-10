@@ -6,8 +6,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Common.
-From ConCert.Execution.Examples Require Import FA2Token.
-From ConCert.Execution.Examples Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2Token.
+From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
