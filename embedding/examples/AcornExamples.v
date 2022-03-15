@@ -4,7 +4,6 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
-From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import TranslationUtils.
 From Coq Require Import ZArith.
 From Coq Require Import Basics.

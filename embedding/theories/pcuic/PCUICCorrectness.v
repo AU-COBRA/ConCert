@@ -4,9 +4,7 @@ From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICTyping.
-
 From ConCert.Embedding Require Import CustomTactics.
-From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.
@@ -15,7 +13,7 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICCorrectnessAux.
 From ConCert.Embedding Require Import Wf.
 From ConCert.Embedding Require Import Misc.
-
+From ConCert.Utils Require Import Env.
 From Coq Require Import List.
 From Coq Require Import Basics.
 From Coq Require Import Lia.

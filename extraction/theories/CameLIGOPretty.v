@@ -11,10 +11,10 @@ From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import Extraction.
-From ConCert.Embedding Require Import MyEnv.
-From ConCert.Embedding Require Import Ast.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
+From ConCert.Utils Require Import Env.
+From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
 
 
@@ -90,7 +90,7 @@ Section PPTerm.
   Context `{CameLIGOPrintConfig}.
   Context (Σ : ExAst.global_env).
 
-  Definition look (e : MyEnv.env string) (s : string) : option string :=
+  Definition look (e : env string) (s : string) : option string :=
     lookup e s.
 
   Definition is_rel (t : Ast.term) :=
@@ -161,11 +161,10 @@ Section PPTerm.
   | TVar i => print_type_var for_ind i (* TODO: pass context with type variables *)
   | TInd s =>
     let full_ind_name := string_of_kername s.(inductive_mind) in
-    from_option (look TT full_ind_name)
-                (print_type_name s.(inductive_mind))
+    with_default (print_type_name s.(inductive_mind)) (look TT full_ind_name)
   | TConst s =>
     let full_cst_name := string_of_kername s in
-    from_option (look TT full_cst_name) (print_type_name s)
+    with_default (print_type_name s) (look TT full_cst_name)
   | TAny => "UnknownType"
   end.
 
@@ -198,8 +197,8 @@ Section PPTerm.
   
   Definition print_inductive (ind_kn : kername) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
-    let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
-                              (print_type_name (ind_kn.1, oib.(ExAst.ind_name))) in
+    let ind_nm := with_default (print_type_name (ind_kn.1, oib.(ExAst.ind_name))) 
+                               (lookup TT oib.(ExAst.ind_name)) in
     (* one-constructor inductives are interpreted/printed as records *)
     match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
     | [build_record_ctor], _::_ =>
@@ -407,7 +406,7 @@ Section PPTerm.
     if infix then
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
-      let ctor_nm := from_option (look TT ctor) (print_ctor_name (ind_kn.1, ctor)) in
+      let ctor_nm := with_default (print_ctor_name (ind_kn.1, ctor)) (look TT ctor) in
       let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
@@ -424,7 +423,7 @@ Section PPTerm.
         match N_syn_to_nat t with
         | Some m =>
           (* NOTE: we check whether [N] is remapped to [int], if it's NOT, we add "n", since we consider it a natural number *)
-          let N_remapped := from_option (look TT (string_of_kername <%% N %%>)) "" in
+          let N_remapped := with_default "" (look TT (string_of_kername <%% N %%>)) in
           let units := if N_remapped =? "int" then "" else "n" in
           Some (string_of_nat m ^ units)
         | None =>
@@ -432,7 +431,7 @@ Section PPTerm.
           match Z_syn_to_Z t with
           | Some z =>
             (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
-            let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
+            let Z_remapped := with_default "" (look TT (string_of_kername <%% Z %%>)) in
             let units := if Z_remapped =? "tez" then "tez" else "" in
             Some (string_of_Z z ^ units)
           | None => None
@@ -515,7 +514,7 @@ Section PPTerm.
           end
         | tConst c =>
           let cst_name := string_of_kername c in
-          let nm := from_option (look TT cst_name) (print_const_name c) in
+          let nm := with_default (print_const_name c) (look TT cst_name) in
           (* primitive projections instead of 'fst' and 'snd' *)
           if nm =? "fst" then
             (concat " " (map (parens true) apps)) ++ ".0"
@@ -548,7 +547,7 @@ Section PPTerm.
                   "({" ++ field_decls_printed ++ "}: " ++ print_box_type  TT bt ++ ")"
                 | _,_ => 
                   (* constructors must be capitalized *)
-                  let nm' := from_option (look TT nm) (print_ctor_name (mind.1, nm)) in
+                  let nm' := with_default (print_ctor_name (mind.1, nm)) (look TT nm) in
                   parens top (print_uncurried nm' apps)
                 end
               end
@@ -557,7 +556,7 @@ Section PPTerm.
       end
     | tConst c => fun bt =>
       let cst_name := string_of_kername c in
-      let nm_tt := from_option (look TT cst_name) (print_const_name c) in
+      let nm_tt := with_default (print_const_name c) (look TT cst_name) in
       (* empty maps require type annotations *)
       if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
         "(Map.empty: " ++ print_box_type  TT bt ++ ")"
@@ -569,7 +568,7 @@ Section PPTerm.
       match print_num_literal TT t with
       | Some lit => lit
       | None =>
-        let nm_tt := from_option (look TT nm) (print_ctor_name (ind.(inductive_mind).1, nm)) in
+        let nm_tt := with_default (print_ctor_name (ind.(inductive_mind).1, nm)) (look TT nm) in
         (* NOTE: print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
         (* FIXME: this looks ad-hoc and should be controlled in remapping instead *)
         if (uncapitalize nm =? "nil") && (eq_kername ind.(inductive_mind) <%% list %%>) then
@@ -705,7 +704,7 @@ Section PPLigo.
   end.
   
   Definition print_decl
-             (TT : MyEnv.env string) (* translation table *)
+             (TT : env string) (* translation table *)
              (env : ExAst.global_env)
              (decl_kn : kername)
              (wrap : string -> string)
@@ -725,7 +724,7 @@ Section PPLigo.
             ++ wrap (print_term env [] TT ctx true false lam_body body_annot).
 
   Definition print_init
-             (TT : MyEnv.env string) (* translation table *)
+             (TT : env string) (* translation table *)
              (build_call_ctx : string) (* a string that corresponds to a call contex *)
              (init_prelude : string) (* operations available in the [init] as local definitions.
                                         CameLIGO does not allow to refer to global definitions in [init]*)
@@ -809,7 +808,7 @@ Section PPLigo.
     end.
 
   Definition print_cst
-             (TT : MyEnv.env string) (* translation table *)
+             (TT : env string) (* translation table *)
              (env : ExAst.global_env)
              (kn : kername)
              (cst : ExAst.constant_body)
@@ -832,7 +831,7 @@ Section PPLigo.
   Global Arguments TyDecl {_}.
   Global Arguments ConstDecl {_}.
 
-  Definition print_global_decl (TT : MyEnv.env string)
+  Definition print_global_decl (TT : env string)
              (nm : kername)
              (env : ExAst.global_env)
              (d : ExAst.global_decl) :
@@ -849,12 +848,12 @@ Section PPLigo.
       | _ => TyDecl (nm,"Only non-mutual inductives are supported; " ++ string_of_kername nm)
       end
     | TypeAliasDecl (Some (params, ty)) => fun annot =>
-      let ta_nm := from_option (lookup TT (string_of_kername nm)) (print_type_name nm) in
+      let ta_nm := with_default (print_type_name nm) (lookup TT (string_of_kername nm)) in
       TyDecl (nm, print_type_declaration ta_nm params (print_box_type TT ty))
     | TypeAliasDecl None => fun _ => TyDecl (nm, "")
   end.
 
-  Fixpoint print_global_env (TT : MyEnv.env string)
+  Fixpoint print_global_env (TT : env string)
              (env : ExAst.global_env)
              : (env_annots box_type env) -> list (Decl (kername * string)) :=
     match env return (env_annots box_type env) -> list (Decl (kername * string)) with

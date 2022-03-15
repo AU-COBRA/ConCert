@@ -12,6 +12,7 @@ From ConCert.Extraction Require Import TypeAnnotations.
 From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import SpecializeChainBase.
+From ConCert.Utils Require Import Env.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
 
@@ -203,7 +204,7 @@ Section LigoExtract.
 Definition printCameLIGODefs {msg ctx params storage operation : Type}
            (Σ : TemplateEnvironment.global_env)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extra_ignore : list kername)
            (build_call_ctx : string)
            (init : kername)
@@ -292,7 +293,7 @@ Definition quote_and_preprocess {Base : ChainBase}
 Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extra_ignore : list kername)
            (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
@@ -311,7 +312,7 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
 Definition CameLIGO_extract {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extra_ignore : list kername)
            (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
@@ -385,7 +386,7 @@ Definition quote_and_preprocess_one_def {A}
 Definition CameLIGO_extract_single `{ChainBase} {A}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (prelude : string)
            (harness: string)
            (def : A) : TemplateMonad string :=
@@ -397,7 +398,7 @@ Definition CameLIGO_extract_single `{ChainBase} {A}
 Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (prelude : string)
            (harness: string)
            (def : A) : TemplateMonad string :=

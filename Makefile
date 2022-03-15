@@ -13,7 +13,7 @@ embedding: utils execution
 	+make -C embedding
 .PHONY: embedding
 
-extraction: utils execution embedding
+extraction: utils execution
 	+make -C extraction
 .PHONY: extraction
 

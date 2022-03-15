@@ -12,7 +12,6 @@ theories/CustomTactics.v
 theories/EnvSubst.v
 theories/EvalE.v
 theories/Misc.v
-theories/MyEnv.v
 theories/Notations.v
 theories/Prelude.v
 theories/SimpleBlockchain.v

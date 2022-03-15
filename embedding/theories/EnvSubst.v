@@ -4,13 +4,12 @@ From Coq Require Import Relations.
 From Coq Require Import Morphisms.
 From Coq Require Import ssrbool.
 From Coq Require Import PeanoNat.
-
+From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import Misc.
-From ConCert.Embedding Require Import MyEnv.
 
 (** ** Substitution for the nameless representation *)
 Module NamelessSubst.

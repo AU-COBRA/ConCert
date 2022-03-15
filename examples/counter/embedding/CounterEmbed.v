@@ -4,13 +4,13 @@ From Coq Require Import ZArith.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import Ast.
-From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
+From ConCert.Utils Require Import Env.
 From MetaCoq.Template Require Import All.
 Import ListNotations.
 Import MonadNotation.

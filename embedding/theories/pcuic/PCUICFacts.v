@@ -1,15 +1,13 @@
 (** * Lemmas about the environment substitutions, closedness, etc. on expressions *)
 From MetaCoq.Template Require Import All.
-
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import Misc.
-From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Wf.
-
+From ConCert.Utils Require Import Env.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import Morphisms.

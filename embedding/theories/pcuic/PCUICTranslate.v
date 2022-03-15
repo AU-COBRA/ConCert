@@ -7,7 +7,7 @@ From MetaCoq.Template Require Import Loader.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import Misc.
-From ConCert.Embedding Require Import MyEnv.
+From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Extras.
 From ConCert.Utils Require StringExtra.
 

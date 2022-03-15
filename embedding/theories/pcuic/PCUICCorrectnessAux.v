@@ -8,15 +8,13 @@ From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICClosed.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICWcbvEval.
-
 From Coq Require Import PeanoNat.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import Basics.
-
+From ConCert.Utils Require Import Env.
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import Misc.
-From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.
