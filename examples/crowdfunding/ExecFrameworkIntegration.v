@@ -5,8 +5,8 @@ From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import SimpleBlockchain.
-From ConCert.Embedding.Examples Require Import Crowdfunding.
-From ConCert.Embedding.Examples Require Import CrowdfundingData.
+From ConCert.Examples.Crowdfunding Require Import Crowdfunding.
+From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
 
 From Coq Require Import String.
 From Coq Require Import Basics.

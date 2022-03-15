@@ -7,11 +7,10 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Prelude.
-
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
-From ConCert.Embedding.Extraction Require Import CrowdfundingData.
+From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
 
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -106,7 +105,7 @@ Module CrowdfundingContract.
  (** ** AST of the [receive] function *)
  Module Receive.
 
-   Import CrowdfundingData.Notations.
+   Import CrowdfundingDataExt.Notations.
    Import Validate.
    Import StdLib.
 

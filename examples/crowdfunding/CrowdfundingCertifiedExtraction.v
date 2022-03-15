@@ -8,11 +8,8 @@ From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
-(* These imports need to be like this or coqdep gets confused since there exists
-   these modules in ConCert.Embedding.Examples as well.
-   https://github.com/coq/coq/issues/9080 *)
-Require Import ConCert.Embedding.Extraction.CrowdfundingData.
-Require Import ConCert.Embedding.Extraction.Crowdfunding.
+From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
+From ConCert.Examples.Crowdfunding Require Import CrowdfundingExt.
 From MetaCoq.Template Require Import All.
 
 Import AcornBlockchain.
@@ -122,4 +119,4 @@ Time MetaCoq Run
 Print liquidity_crowdfunding.
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "examples/extracted-code/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.
+Redirect "../extraction/examples/extracted-code/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.

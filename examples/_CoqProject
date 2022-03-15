@@ -100,3 +100,12 @@ counter/extraction/CounterSubsetTypes.v
 counter/extraction/MidlangCounterRefTypes.v
 counter/extraction/RustCounter.v
 counter/extraction/CameLIGOCounter.v
+
+-Q crowdfunding ConCert.Examples.Crowdfunding
+crowdfunding/CrowdfundingData.v
+crowdfunding/Crowdfunding.v
+crowdfunding/ExecFrameworkIntegration.v
+crowdfunding/CrowdfundingDataExt.v
+crowdfunding/CrowdfundingExt.v
+crowdfunding/CrowdfundingCameLIGO.v
+crowdfunding/CrowdfundingCertifiedExtraction.v

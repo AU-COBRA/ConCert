@@ -49,7 +49,6 @@ theories/WcbvEvalAux.v
 -Q examples ConCert.Extraction.Examples
 examples/Ack.v
 examples/CameLIGOExtractionTests.v
-examples/CrowdfundingCertifiedExtraction.v
 examples/ElmExtractExamples.v
 examples/ElmExtractTests.v
 examples/ElmForms.v
