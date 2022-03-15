@@ -1,9 +1,9 @@
 (** * Definitions shared among the examples *)
 
 From ConCert.Utils Require Import Automation.
+From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Extras.
 From Coq Require Import ZArith.
 
 (** A type of  finite maps (dictionaries) with addresses as keys.

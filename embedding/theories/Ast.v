@@ -164,12 +164,6 @@ Definition resolve_constr (Σ : global_env) (ind_name constr_name : BasicTC.iden
   | None => None
   end.
 
-Definition from_option {A : Type} ( o : option A) (default : A) :=
-  match o with
-  | None => default
-  | Some v => v
-  end.
-
 Definition bump_indices (l : list (ename * nat)) (n : nat) :=
   map (fun '(x,y) => (x, n+y)) l.
 

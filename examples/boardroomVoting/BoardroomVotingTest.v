@@ -1,10 +1,10 @@
 From Coq Require Import Cyclic31.
 From Coq Require Import List.
 From Coq Require Import Znumtheory.
+From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.

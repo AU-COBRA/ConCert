@@ -6,8 +6,8 @@ From Coq Require Import ZArith.
 From Coq Require Import Psatz.
 From Coq Require Import Morphisms.
 From ConCert.Utils Require Import Automation.
+From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Finite.
 Import ListNotations.
 

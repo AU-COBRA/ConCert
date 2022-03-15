@@ -1,7 +1,6 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
@@ -11,6 +10,7 @@ From ConCert.Execution.QCTests Require Import TraceGens.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Examples.FA2 Require Import TestContracts.
+From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 Global Set Warnings "-extraction-logical-axiom".
 

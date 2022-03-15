@@ -10,7 +10,6 @@ theories/ChainedList.v
 theories/Circulation.v
 theories/Containers.v
 theories/ContractMonads.v
-theories/Extras.v
 theories/Finite.v
 theories/InterContractCommunication.v
 theories/LocalBlockchain.v

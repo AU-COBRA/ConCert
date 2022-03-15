@@ -1,6 +1,6 @@
+From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.QCTests Require Import TestUtils.
 From ConCert.Execution.QCTests Require Import TraceGens.

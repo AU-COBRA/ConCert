@@ -18,10 +18,10 @@ Fixpoint map_option {A B : Type} (f : A -> option B) (l : list A)
   | [] => []
   end.
 
-Definition with_default {A : Type} (a : A) (o : option A) : A :=
+Definition with_default {A : Type} (default : A) (o : option A) : A :=
   match o with
   | Some v => v
-  | None => a
+  | None => default
   end.
 
 Definition unpack_option {A : Type} (a : option A) :=
@@ -837,6 +837,12 @@ Lemma with_default_is_some : forall {A : Type} (x : option A) (y : A),
     with_default y x = y.
 Proof.
   now destruct x.
+Qed.
+
+Lemma with_default_indep {A} (o : option A) d  d' v :
+  o = Some v -> with_default d o = with_default d' o.
+Proof.
+  intros;subst;easy.
 Qed.
 
 Lemma isSome_some : forall {A : Type} (x : option A) (y : A),

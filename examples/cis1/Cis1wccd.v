@@ -10,12 +10,12 @@ From Coq Require Import List.
 From Coq Require Import Logic.Eqdep_dec.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Common.
 From ConCert.Examples.CIS1 Require Import CIS1Spec.
 From ConCert.Utils Require Import RecordUpdate.
+From ConCert.Utils Require Import Extras.
 
 Import ListNotations.
 Import RecordSetNotations.

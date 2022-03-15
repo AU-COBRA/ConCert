@@ -12,10 +12,10 @@
     of liquidity tokens owns x% of the exchanges trading reserve.
 *)
 From ConCert.Utils Require Import Automation.
+From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.

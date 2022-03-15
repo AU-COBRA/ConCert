@@ -73,19 +73,6 @@ Proof.
 Qed.
 
 
-Definition from_option {A : Type} ( o : option A) (default : A) :=
-  match o with
-  | None => default
-  | Some v => v
-  end.
-
-
-Lemma from_option_indep {A} (o : option A) d  d' v :
-  o = Some v -> from_option o d = from_option o d'.
-Proof.
-  intros;subst;easy.
-Qed.
-
 Section CombineProp.
 
   Lemma combine_app : forall A B (l2 l2': list B) (l1 l1' : list A),

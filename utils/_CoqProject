@@ -1,5 +1,6 @@
 -R theories ConCert.Utils
 theories/Automation.v
+theories/Extras.v
 theories/RecordSet.v
 theories/RecordUpdate.v
 theories/StringExtra.v
