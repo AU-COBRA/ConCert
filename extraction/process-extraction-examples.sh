@@ -66,7 +66,7 @@ done
 
 RUST_SUFFIX=extracted/src/main.rs
 
-rust_examples="BernsteinYangTermination"
+rust_examples="BernsteinYangTermination Ack Even"
 echo "Processing Rust extraction"
 for f in ${rust_examples}
 do
