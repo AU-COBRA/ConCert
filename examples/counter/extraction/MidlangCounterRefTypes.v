@@ -169,4 +169,4 @@ Definition midlang_counter :=
   | Err s => tmFail s
   end.
 
-Redirect "../extraction/examples/extracted-code/midlang-extract/MidlangCounterRefTypes.midlang" MetaCoq Run midlang_counter.
+Redirect "../extraction/tests/extracted-code/midlang-extract/MidlangCounterRefTypes.midlang" MetaCoq Run midlang_counter.

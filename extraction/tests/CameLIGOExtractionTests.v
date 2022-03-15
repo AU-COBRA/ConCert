@@ -67,7 +67,7 @@ Module SafeHead.
     tmDefinition "cameligo_safe_head" t).
 
     (** Extraction results in fully functional CameLIGO code *)
-    Redirect "examples/extracted-code/cameligo-extract/SafeHead.mligo"
+    Redirect "tests/extracted-code/cameligo-extract/SafeHead.mligo"
     MetaCoq Run (tmMsg cameligo_safe_head).
 
 End SafeHead.

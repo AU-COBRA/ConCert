@@ -288,5 +288,5 @@ Definition TT_rename : list (string * string):=
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
-Redirect "../extraction/examples/extracted-code/cameligo-extract/BoardroomVoting.mligo"
+Redirect "../extraction/tests/extracted-code/cameligo-extract/BoardroomVoting.mligo"
 MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)

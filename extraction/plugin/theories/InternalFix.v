@@ -35,5 +35,5 @@ Definition even_odd (n : nat) : bool := even n.
 From ConCert.Extraction Require Import ExtrRustBasic.
 From ConCert.Extraction Require Import ExtrRustUncheckedArith.
 
-Redirect "../examples/extracted-code/rust-extract/Ack.rs" ConCert Extract ack.
-Redirect "../examples/extracted-code/rust-extract/Even.rs" ConCert Extract even.
+Redirect "../tests/extracted-code/rust-extract/Ack.rs" ConCert Extract ack.
+Redirect "../tests/extracted-code/rust-extract/Even.rs" ConCert Extract even.

@@ -219,7 +219,7 @@ Module Dexter2LqtExtraction.
   MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/examples/extracted-code/cameligo-extract/dexter2fa12.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2fa12.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
   End D2LqtE.
@@ -330,7 +330,7 @@ Section D2E.
   MetaCoq Run (tmMsg cameLIGO_dexter2).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/examples/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2).
 
 End D2E.

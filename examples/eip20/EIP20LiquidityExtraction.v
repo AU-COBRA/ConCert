@@ -167,7 +167,7 @@ Section EIP20TokenExtraction.
       tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
   
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/examples/extracted-code/liquidity-extract/liquidity_eip20token.liq"
+  Redirect "../extraction/tests/extracted-code/liquidity-extract/liquidity_eip20token.liq"
   Compute liquidity_eip20token.
 
 End EIP20TokenExtraction.

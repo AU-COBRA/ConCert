@@ -20,7 +20,7 @@ Definition should_inline kn :=
 (* NOTE: it is important to declare a priting config, otherwise MetaCoq evaluation tries to normalise a term with an unresolved instance and runs out of memory. *)
 Existing Instance DefaultPrintConfig.RustConfig.
 
-Redirect "../extraction/examples/extracted-code/concordium-extract/escrow.rs"
+Redirect "../extraction/tests/extracted-code/concordium-extract/escrow.rs"
 MetaCoq Run (concordium_extraction
                ESCROW_MODULE
                (ConcordiumRemap.build_remaps

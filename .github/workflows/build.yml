@@ -25,13 +25,13 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: Liquidity logs
-        path: extraction/examples/extracted-code/liquidity-extract/liquidity.log
+        path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
     - name: Push to the extraction repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
-        source-directory: 'extraction/examples/extracted-code'
+        source-directory: 'extraction/tests/extracted-code'
         destination-github-username: 'AU-COBRA'
         destination-repository-name: 'extraction-resutls'
         user-email: danil.v.annenkov@gmail.com

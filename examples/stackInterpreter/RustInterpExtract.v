@@ -39,7 +39,7 @@ Instance RustConfig : RustPrintConfig :=
        any_type_symbol := "()";
        print_full_names := false |}.
 
-Redirect "../extraction/examples/extracted-code/concordium-extract/interp.rs"
+Redirect "../extraction/tests/extracted-code/concordium-extract/interp.rs"
 MetaCoq Run (concordium_extraction
                STACK_INTERP_MODULE
                (ConcordiumRemap.build_remaps

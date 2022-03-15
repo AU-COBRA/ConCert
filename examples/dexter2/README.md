@@ -19,5 +19,5 @@ This contract is an implementation of a Constant Product Market Maker (CPMM), th
 
 # Code extraction to CameLIGO
 
-See [the extraction setup](../../../extraction/examples/Dexter2Extract.v)
+See [the extraction setup](../../../extraction/tests/Dexter2Extract.v)
 

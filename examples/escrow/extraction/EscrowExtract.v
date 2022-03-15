@@ -82,7 +82,7 @@ Module EscrowCameLIGOExtraction.
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
-  Redirect "../extraction/examples/extracted-code/cameligo-extract/EscrowExtract.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo"
   MetaCoq Run (tmMsg cameLIGO_escrow).
 
 End EscrowCameLIGOExtraction.
@@ -222,7 +222,7 @@ Module EscrowLiquidityExtraction.
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/examples/extracted-code/liquidity-extract/escrow.liq"
+  Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq"
   MetaCoq Run (tmMsg liquidity_escrow).
 
 End EscrowLiquidityExtraction.

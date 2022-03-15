@@ -39,22 +39,22 @@ process-extraction-examples: theory
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
-LIQUIDITY_DIR=./examples/extracted-code/liquidity-extract
+LIQUIDITY_DIR=./tests/extracted-code/liquidity-extract
 LIQUIDITY_SRC_DIR=$(LIQUIDITY_DIR)/tests
 LIQUIDITYFILES=$(wildcard $(LIQUIDITY_SRC_DIR)/*.liq)
 LIQUIDITY_DIST=$(patsubst $(LIQUIDITY_SRC_DIR)/%.liq,$(LIQUIDITY_SRC_DIR)/%.tz,$(LIQUIDITYFILES))
 
-LIGO_DIR=./examples/extracted-code/cameligo-extract
+LIGO_DIR=./tests/extracted-code/cameligo-extract
 LIGO_SRC_DIR=$(LIGO_DIR)/tests
 LIGOFILES=$(wildcard $(LIGO_SRC_DIR)/*.mligo)
 LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
 
-CONCORDIUM_DIR=./examples/extracted-code/concordium-extract
+CONCORDIUM_DIR=./tests/extracted-code/concordium-extract
 
-RUST_DIR=./examples/extracted-code/rust-extract
+RUST_DIR=./tests/extracted-code/rust-extract
 
-ELM_DIR=./examples/extracted-code/elm-extract
-ELM_WEB_APP_DIR=./examples/extracted-code/elm-web-extract
+ELM_DIR=./tests/extracted-code/elm-extract
+ELM_WEB_APP_DIR=./tests/extracted-code/elm-web-extract
 
 test-extraction: test-elm test-liquidity test-ligo test-concordium test-rust
 
@@ -80,10 +80,10 @@ $(LIGO_SRC_DIR)/%.tz:
 	ligo compile contract $(LIGO_SRC_DIR)/$*.mligo -e main -o $@ --no-warn
 
 clean-comiped-ligo:
-	rm ./examples/extracted-code/cameligo-extract/tests/*.tz -f
+	rm ./tests/extracted-code/cameligo-extract/tests/*.tz -f
 
 clean-compiled-liquidity:
-	rm ./examples/extracted-code/liquidity-extract/tests/*.tz -f
+	rm ./tests/extracted-code/liquidity-extract/tests/*.tz -f
 
 clean-compiled-concordium:
 	rm $(CONCORDIUM_DIR)/concert-std/target -f -r

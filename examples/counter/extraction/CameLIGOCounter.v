@@ -122,7 +122,7 @@ Section CounterExtraction.
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/examples/extracted-code/cameligo-extract/CounterCertifiedExtraction.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_counter_1).
 
 End CounterExtraction.

@@ -151,7 +151,7 @@ Section LiquidityExtractionSetup.
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler*)
-  Redirect "../extraction/examples/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
+  Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
   MetaCoq Run (tmMsg liquidity_counter).
 
 End LiquidityExtractionSetup.
@@ -237,7 +237,7 @@ Module CameLIGOExtractionSetup.
 
   MetaCoq Run (tmMsg cameLIGO_counter).
 
-  Redirect "../extraction/examples/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
   MetaCoq Run (tmMsg cameLIGO_counter).
 
 End CameLIGOExtractionSetup.

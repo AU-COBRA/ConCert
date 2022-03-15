@@ -78,7 +78,7 @@ html: all
 		-R embedding/theories ConCert.Embedding \
 		-R embedding/examples ConCert.Embedding.Examples \
 		-R extraction/theories ConCert.Extraction \
-		-R extraction/examples ConCert.Extraction.Examples \
+		-R extraction/tests ConCert.Extraction.Tests \
 		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*standards/*" \) -name "*.v"`
 	cp extra/resources/coqdocjs/*.js docs
 	cp extra/resources/coqdocjs/*.css docs

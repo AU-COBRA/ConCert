@@ -137,7 +137,7 @@ Section CrowdfundingExtraction.
   MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/examples/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
 End CrowdfundingExtraction.

@@ -352,4 +352,4 @@ Definition TT_rename : list (string * string):=
   ).
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "../extraction/examples/extracted-code/liquidity-extract/BoardroomVoting.liq" MetaCoq Run (tmMsg liquidity_boardroomvoting). *)
+Redirect "../extraction/tests/extracted-code/liquidity-extract/BoardroomVoting.liq" MetaCoq Run (tmMsg liquidity_boardroomvoting). *)
