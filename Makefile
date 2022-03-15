@@ -73,12 +73,12 @@ html: all
 		--toc \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
-		-R execution/examples ConCert.Execution.Examples \
-		-R execution/standards ConCert.Execution.Standards.CIS1 \
 		-R embedding/theories ConCert.Embedding \
 		-R embedding/examples ConCert.Embedding.Examples \
 		-R extraction/theories ConCert.Extraction \
+		-R extraction/plugin ConCert.Extraction \
 		-R extraction/tests ConCert.Extraction.Tests \
+		-R examples ConCert.Examples \
 		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*standards/*" \) -name "*.v"`
 	cp extra/resources/coqdocjs/*.js docs
 	cp extra/resources/coqdocjs/*.css docs

@@ -9,6 +9,7 @@ From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Utils Require Import Env.
 From Coq Require Import Notations.
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -269,7 +270,7 @@ Module LiquidityInterp.
        ; remap <%% andb %%> "andb"
        ; remap <%% one %%> "1"].
 
-  Definition TT_rename : MyEnv.env string :=
+  Definition TT_rename : env string :=
        (* constructors *)
        [ ("Z0" ,"0")
        ; ("nil", "[]")].
