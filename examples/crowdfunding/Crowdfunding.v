@@ -2,12 +2,12 @@
 
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
+From ConCert.Utils Require Import Automation.
 
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -297,7 +297,7 @@ reached within a deadline *)
     induction m.
     + simpl;lia.
     + simpl in *. inv_andb H.
-      specialize (IHm H0). Zleb_ltb_to_prop. lia.
+      specialize (IHm H0). propify. lia.
   Qed.
 
   Lemma sum_map_add_in m : forall n0 (v' v : Z) k,
@@ -464,11 +464,10 @@ reached within a deadline *)
       * simpl in *. inversion Hlook.
         inv_andb H1. rewrite Nat.eqb_eq in *;subst.
         subst;split_andb;auto.
-        Zleb_ltb_to_prop;lia.
+        propify;lia.
       * simpl in *.
-        inv_andb H1. Zleb_ltb_to_prop.
-        split_andb;auto. now Zleb_ltb_to_prop.
-        rewrite IHm;auto.
+        inv_andb H1.
+        now propify.
   Qed.
 
   Lemma non_neg_add_not_in m : forall (v' : Z) k,
@@ -478,16 +477,15 @@ reached within a deadline *)
       map_forallb (Z.leb 0%Z) (add_map k v' m).
   Proof.
     induction m;intros ? ? Hnneg Hlook H;subst.
-    + simpl in *. split_andb;now Zleb_ltb_to_prop.
+    + simpl in *. split_andb;now propify.
     + simpl in *. destruct (k =? n) eqn:Hkn.
       * simpl in *.
         inv_andb H. rewrite Nat.eqb_eq in *;subst.
         subst;split_andb;auto.
-        Zleb_ltb_to_prop;lia.
+        propify;lia.
       * simpl in *.
-        inv_andb H. Zleb_ltb_to_prop.
-        split_andb;auto. now Zleb_ltb_to_prop.
-        rewrite IHm;auto.
+        inv_andb H.
+        now propify.
   Qed.
 
   Lemma non_neg_add_0 m k :
@@ -500,9 +498,8 @@ reached within a deadline *)
       * simpl in *.
         now inv_andb H.
       * simpl in *.
-        inv_andb H. Zleb_ltb_to_prop.
-        split_andb;auto. now Zleb_ltb_to_prop.
-        rewrite IHm;auto.
+        inv_andb H.
+        now propify.
   Qed.
 
   (** All the entries in the table of contributions contain non-negative amounts  *)

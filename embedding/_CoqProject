@@ -8,7 +8,6 @@
 -Q theories ConCert.Embedding
 theories/Ast.v
 theories/CertifyingTranslate.v
-theories/CustomTactics.v
 theories/EnvSubst.v
 theories/EvalE.v
 theories/Misc.v

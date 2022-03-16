@@ -8,7 +8,6 @@ From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import Ast.
-From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import Misc.
 
 (** ** Substitution for the nameless representation *)
@@ -137,7 +136,7 @@ Module NamelessSubst.
            assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
            subst. simpl. reflexivity.
       * destruct a.
-        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
+        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; try discriminate; exists n2; reflexivity).
         destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
         subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
         apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.

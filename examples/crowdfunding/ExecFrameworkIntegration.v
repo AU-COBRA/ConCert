@@ -3,7 +3,6 @@ From ConCert.Embedding Require Import Misc.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import PCUICTranslate.
-From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Examples.Crowdfunding Require Import Crowdfunding.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
@@ -163,7 +162,7 @@ Proof.
     instantiate (AddBlockFacts := fun _ old_slot _ _ new_slot _ => new_slot > old_slot);
       subst AddBlockFacts; cbn in facts.
     unfold deadline_passed in *. unfold is_true in *.
-    rewrite Bool.negb_true_iff in *. leb_ltb_to_prop. lia.
+    rewrite Bool.negb_true_iff in *. propify. lia.
   - intros before_deadline.
     inversion_clear init_some.
     reflexivity.
