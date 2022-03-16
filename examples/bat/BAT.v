@@ -19,7 +19,7 @@ From ConCert.Execution Require Import BuildUtils.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.EIP20 Require EIP20Token.
 Import RecordSetNotations.

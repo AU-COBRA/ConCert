@@ -1,5 +1,5 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.

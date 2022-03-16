@@ -19,7 +19,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
-From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.

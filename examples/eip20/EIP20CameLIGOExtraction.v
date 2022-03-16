@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require ContractCommon.
 From ConCert.Examples Require EIP20Token.
 
 Local Open Scope string_scope.
@@ -22,8 +23,8 @@ Section EIP20TokenExtraction.
   Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
     let ctx_ := ctx in
     Some {| total_supply := setup.(init_amount);
-            balances := Common.AddressMap.add (EIP20Token.owner setup) (init_amount setup) Common.AddressMap.empty;
-            allowances := Common.AddressMap.empty |}.
+            balances := ContractCommon.AddressMap.add (EIP20Token.owner setup) (init_amount setup) ContractCommon.AddressMap.empty;
+            allowances := ContractCommon.AddressMap.empty |}.
 
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
@@ -66,9 +67,9 @@ Section EIP20TokenExtraction.
   ; remap <%% @ActionBody %%> "operation"
 
   ; remap <%% @FMap %%> "map"
-  ; remap <%% @Common.AddressMap.add %%> "Map.add"
-  ; remap <%% @Common.AddressMap.find %%> "Map.find_opt"
-  ; remap <%% @Common.AddressMap.empty %%> "Map.empty"
+  ; remap <%% @ContractCommon.AddressMap.add %%> "Map.add"
+  ; remap <%% @ContractCommon.AddressMap.find %%> "Map.find_opt"
+  ; remap <%% @ContractCommon.AddressMap.empty %%> "Map.empty"
   ].
 
   Definition TT_inlines_eip20token : list kername :=

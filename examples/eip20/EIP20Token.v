@@ -13,7 +13,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.

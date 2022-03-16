@@ -43,7 +43,7 @@ Notation:
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Monads.
-From ConCert.Execution Require Import Common.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.CIS1 Require Import CIS1Utils.
 
 From Coq Require Import Basics.
