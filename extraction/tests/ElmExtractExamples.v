@@ -98,7 +98,7 @@ Module ElmExamples.
   Redirect "tests/extracted-code/elm-extract/SafePredPartial.elm"
   Compute general_wrapped safe_pred_partial_syn
           (Preambule "SafePredPartial" ++ nl ++ elm_false_rec)
-          (main_and_test "Expect.equal (ConCert_Extraction_Tests_ElmExtractExamples_ElmExamples_safe_pred_partial_cert_pass ()) (Exist O)")
+          (main_and_test "Expect.equal (conCert_Extraction_Tests_ElmExtractExamples_ElmExamples_safe_pred_partial_cert_pass ()) (Exist O)")
           [] [].
 
 
