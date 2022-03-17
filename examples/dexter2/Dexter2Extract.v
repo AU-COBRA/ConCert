@@ -10,6 +10,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require ContractCommon.
 From ConCert.Examples.Dexter2 Require Dexter2CPMM.
 From ConCert.Examples.Dexter2 Require Dexter2FA12.
 From ConCert.Utils Require Import RecordUpdate.
@@ -92,10 +93,10 @@ Definition TT_remap_dexter2 : list (kername * string) :=
    [
     remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
   ; remap <%% @FMap %%> "map"
-  ; remap <%% @Common.AddressMap.add %%> "Map.add"
-  ; remap <%% @Common.AddressMap.find %%> "Map.find_opt"
-  ; remap <%% @Common.AddressMap.empty %%> "Map.empty"
-  ; remap <%% @Common.AddressMap.update %%> "Map.update"
+  ; remap <%% @ContractCommon.AddressMap.add %%> "Map.add"
+  ; remap <%% @ContractCommon.AddressMap.find %%> "Map.find_opt"
+  ; remap <%% @ContractCommon.AddressMap.empty %%> "Map.empty"
+  ; remap <%% @ContractCommon.AddressMap.update %%> "Map.update"
   ; remap <%% @FMap.add %%> "Map.add"
   ; remap <%% @FMap.find %%> "Map.find_opt"
   ; remap <%% @FMap.empty %%> "Map.empty"
@@ -157,7 +158,7 @@ Module Dexter2LqtExtraction.
   Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
     let ctx_ := ctx in
     Some {|
-        tokens := Common.AddressMap.add setup.(lqt_provider) setup.(initial_pool) Common.AddressMap.empty;
+        tokens := ContractCommon.AddressMap.add setup.(lqt_provider) setup.(initial_pool) ContractCommon.AddressMap.empty;
         allowances := empty_allowance;
         admin := setup.(admin_);
         total_supply := setup.(initial_pool);
