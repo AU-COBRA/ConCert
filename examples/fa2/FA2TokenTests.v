@@ -4,9 +4,9 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import ChainPrinters.
-From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Examples.FA2 Require Import TestContracts.

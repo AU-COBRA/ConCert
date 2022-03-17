@@ -6,8 +6,8 @@ From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterPrinters.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.QCTest Require Import TraceGens.
 From Coq Require Import ZArith List. Import ListNotations.
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.

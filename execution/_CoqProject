@@ -18,8 +18,8 @@ theories/ResultMonad.v
 theories/Serializable.v
 theories/ContractCommon.v
 
--R tests ConCert.Execution.QCTests
-tests/ChainPrinters.v
-tests/SerializablePrinters.v
-tests/TestUtils.v
-tests/TraceGens.v
+-R test ConCert.Execution.QCTest
+test/ChainPrinters.v
+test/SerializablePrinters.v
+test/TestUtils.v
+test/TraceGens.v

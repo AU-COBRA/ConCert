@@ -11,10 +11,10 @@ From ConCert.Examples.BAT Require Import BAT_Fixed.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.BAT Require Import BATTestCommon.
-From ConCert.Execution.QCTests Require Import ChainPrinters.
-From ConCert.Execution.QCTests Require Import SerializablePrinters.
-From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.QCTest Require Import SerializablePrinters.
+From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.QCTest Require Import TraceGens.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.
 Import ListNotations.

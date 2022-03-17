@@ -4,9 +4,9 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
-From ConCert.Execution.QCTests Require Import ChainPrinters.
-From ConCert.Execution.QCTests Require Import TestUtils.
-From ConCert.Execution.QCTests Require Import TraceGens.
+From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.QCTest Require Import TraceGens.
 From QuickChick Require Import QuickChick.
 Import QcNotation.
 From ExtLib.Structures Require Import Monads.
