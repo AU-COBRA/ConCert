@@ -80,48 +80,46 @@ $(LIGO_SRC_DIR)/%.tz:
 	ligo compile contract $(LIGO_SRC_DIR)/$*.mligo -e main -o $@ --no-warn
 
 clean-comiped-ligo:
-	rm ./tests/extracted-code/cameligo-extract/tests/*.tz -f
+	rm -f ./tests/extracted-code/cameligo-extract/tests/*.tz
 
 clean-compiled-liquidity:
-	rm ./tests/extracted-code/liquidity-extract/tests/*.tz -f
+	rm -f ./tests/extracted-code/liquidity-extract/tests/*.tz
 
 clean-compiled-concordium:
-	rm $(CONCORDIUM_DIR)/concert-std/target -f -r
-	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm $(dir)/target -f -r;)
+	rm -f -r $(CONCORDIUM_DIR)/concert-std/target
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/target;)
 .PHONY: clean-compiled-concordium
 
 clean-compiled-rust:
-	rm $(RUST_DIR)/concert-std/target -f -r
-	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm $(dir)/target -f -r;)
+	rm -f -r $(RUST_DIR)/concert-std/target
+	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm -f -r $(dir)/target;)
 .PHONY: clean-compiled-rust
 
 clean-compiled-elm:
-	rm $(ELM_WEB_APP_DIR)/elm-stuff -f -r
-	rm $(ELM_WEB_APP_DIR)/index.html -f -r
-	rm $(ELM_DIR)/elm-stuff -f -r
+	rm -f -r $(ELM_WEB_APP_DIR)/elm-stuff
+	rm -f -r $(ELM_WEB_APP_DIR)/index.html
+	rm -f -r $(ELM_DIR)/elm-stuff
 .PHONY: clean-comliped-elm
 
 clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-concordium
 .PHONY: clean-compiled-extraction
 
 clean-extraction-out-files:
-	rm $(ELM_WEB_APP_DIR)/*.elm.out -f
-	rm $(ELM_DIR)/*.elm.out -f
-	rm $(LIQUIDITY_DIR)/*.liq.out -f
-	rm $(LIGO_DIR)/*.mligo.out -f
-	rm $(CONCORDIUM_DIR)/*.rs.out -f
-	rm $(RUST_DIR)/*.rs.out -f
-	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm $(dir)/*.rs.out -f -r;)
+	rm -f $(ELM_WEB_APP_DIR)/*.elm.out
+	rm -f $(ELM_DIR)/*.elm.out
+	rm -f $(LIQUIDITY_DIR)/*.liq.out
+	rm -f $(LIGO_DIR)/*.mligo.out
+	rm -f $(CONCORDIUM_DIR)/*.rs.out
+	rm -f $(RUST_DIR)/*.rs.out
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/*.rs.out;)
 
 clean-extraction-sources:
-	rm $(ELM_DIR)/tests/*.elm -f
-	rm $(ELM_WEB_DIR)/src/*.elm -f
-	rm $(LIQUIDITY_DIR)/*.liq -f
-	rm $(LIGO_DIR)/*.mligo -f
+	rm -f $(ELM_DIR)/tests/*.elm
+	rm -f $(ELM_WEB_DIR)/src/*.elm
+	rm -f $(LIQUIDITY_DIR)/*.liq
+	rm -f $(LIGO_DIR)/*.mligo
 .PHONY:clean-extraction-sources
 
 clean-extraction-examples: clean-compiled-extraction clean-extraction-out-files clean-extraction-sources
-	rm ./examples/*.vo # to force recompilation of examples (a bit ad-hoc though)
-
-
+	rm ./tests/*.vo # to force recompilation of examples (a bit ad-hoc though)
 .PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-elm test-liquidity test-ligo test-extraction clean-extraction-out-files
