@@ -1,4 +1,3 @@
-
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
@@ -41,29 +40,23 @@ Definition elm_false_rec :=
 
 Context `{ElmPrintConfig}.
 
-Definition option_get {A} (o : option A) (default : A) : A :=
-  match o with
-  | Some a => a
-  | None => default
-  end.
-
 Definition get_fun_name (name : kername) : string :=
   let get_name kn := if print_full_names then
                        replace_char "." "_" (string_of_kername name)
                      else name.2 in
   option_get
-    (translate name)
-    (uncapitalize (get_name name)).
+    (uncapitalize (get_name name))
+    (translate name).
 
 Definition get_ty_name (name : kername) : string :=
   option_get
-    (translate name)
-    (capitalize (replace_char "." "_" name.2)).
+    (capitalize (replace_char "." "_" name.2))
+    (translate name).
 
 Definition get_ctor_name (name : kername) : string :=
   option_get
-    (translate name)
-    (capitalize name.2).
+    (capitalize name.2)
+    (translate name).
 
 Definition get_ident_name (name : ident) : string :=
   uncapitalize (remove_char "'" (replace_char "." "_" name)).

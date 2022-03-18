@@ -4,12 +4,11 @@ From Coq Require Import Relations.
 From Coq Require Import Morphisms.
 From Coq Require Import ssrbool.
 From Coq Require Import PeanoNat.
-
+From ConCert.Utils Require Import Env.
+From ConCert.Utils Require Import Extras.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import Ast.
-From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import Misc.
-From ConCert.Embedding Require Import MyEnv.
 
 (** ** Substitution for the nameless representation *)
 Module NamelessSubst.
@@ -36,7 +35,7 @@ Module NamelessSubst.
         tyApp ty1' ty2'
       | tyVar nm => ty
       | tyRel i => if Nat.leb k i then
-                    from_option (lookup_ty ρ (i-k)) (tyRel i) else tyRel i
+                    with_default (tyRel i) (lookup_ty ρ (i-k)) else tyRel i
       | tyArr ty1 ty2 =>
         let ty2' := subst_env_i_ty k ρ ty2 in
         let ty1' := subst_env_i_ty k ρ ty1 in
@@ -48,7 +47,7 @@ Module NamelessSubst.
   Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
     match e with
     | eRel i => if Nat.leb k i then
-                 from_option (lookup_i ρ (i-k)) (eRel i) else eRel i
+                 with_default (eRel i) (lookup_i ρ (i-k)) else eRel i
     | eVar nm  => eVar nm
     | eLambda nm ty b => eLambda nm (subst_env_i_ty k ρ ty) (subst_env_i_aux (1+k) ρ b)
     | eTyLam nm b => eTyLam nm (subst_env_i_aux (1+k) ρ b)
@@ -137,7 +136,7 @@ Module NamelessSubst.
            assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
            subst. simpl. reflexivity.
       * destruct a.
-        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; tryfalse; exists n2; reflexivity).
+        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; try discriminate; exists n2; reflexivity).
         destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
         subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
         apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.
@@ -149,7 +148,7 @@ Module NamelessSubst.
            simpl in *. unfold inst_env_i,subst_env_i in *. simpl in *.
            rewrite <- H2. replace (n2 - 0) with n2 by lia.
            apply lookup_i_of_val_env in H1.
-           now eapply from_option_indep.
+           now eapply with_default_indep.
   Qed.
 
 End NamelessSubst.

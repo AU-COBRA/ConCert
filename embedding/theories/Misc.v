@@ -1,6 +1,6 @@
 (** * Some facts not found in the standard library *)
 
-From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Utils Require Import Automation.
 From MetaCoq Require Import utils.
 From Coq Require Import List.
 From Coq Require Import Lia.
@@ -48,7 +48,7 @@ Lemma forallb_impl_inner {A} {p q} {l : list A} :
 Proof.
   revert p q.
   induction l;simpl;intros p q Hfa H;auto.
-  inv_andb Hfa. split_andb;try eapply IHl;eauto.
+  now propify.
 Qed.
 
 Lemma Forall_In {A} x (xs : list A) P :
@@ -69,22 +69,9 @@ Lemma forallb_In {A} x (xs : list A) p :
 Proof.
   revert x.
   induction xs;intros x Hin Hfa;auto.
-  simpl in *. inv_andb Hfa;intuition;subst;auto.
+  simpl in *. propify;intuition;subst;auto.
 Qed.
 
-
-Definition from_option {A : Type} ( o : option A) (default : A) :=
-  match o with
-  | None => default
-  | Some v => v
-  end.
-
-
-Lemma from_option_indep {A} (o : option A) d  d' v :
-  o = Some v -> from_option o d = from_option o d'.
-Proof.
-  intros;subst;easy.
-Qed.
 
 Section CombineProp.
 
@@ -93,7 +80,7 @@ Section CombineProp.
     combine (l1 ++ l1') (l2 ++ l2') = combine l1 l2 ++ combine l1' l2'.
   Proof.
     induction l2.
-    + simpl. intros l2' l1 l1' Heq. destruct l1;tryfalse;reflexivity.
+    + simpl. intros l2' l1 l1' Heq. destruct l1;try discriminate;reflexivity.
     + simpl. intros l2' l1 l1' Heq. destruct l1;cbn; inversion Heq.
       simpl. apply f_equal2;eauto.
   Qed.

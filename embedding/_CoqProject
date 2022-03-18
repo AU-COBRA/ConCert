@@ -8,11 +8,9 @@
 -Q theories ConCert.Embedding
 theories/Ast.v
 theories/CertifyingTranslate.v
-theories/CustomTactics.v
 theories/EnvSubst.v
 theories/EvalE.v
 theories/Misc.v
-theories/MyEnv.v
 theories/Notations.v
 theories/Prelude.v
 theories/SimpleBlockchain.v
@@ -27,9 +25,6 @@ theories/pcuic/PCUICTranslate.v
 theories/pcuic/PCUICtoTemplate.v
 
 -Q extraction ConCert.Embedding.Extraction
-extraction/Counter.v
-extraction/Crowdfunding.v
-extraction/CrowdfundingData.v
 extraction/Liquidity.v
 extraction/PreludeExt.v
 extraction/SimpleBlockchainExt.v
@@ -37,7 +32,4 @@ extraction/SimpleBlockchainExt.v
 -Q examples ConCert.Embedding.Examples
 examples/AcornExamples.v
 examples/Demo.v
-examples/ExecFrameworkIntegration.v
 examples/FinMap.v
-examples/crowdfunding/Crowdfunding.v
-examples/crowdfunding/CrowdfundingData.v

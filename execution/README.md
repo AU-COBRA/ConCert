@@ -24,17 +24,17 @@ is equal to the sum of the rewards handed out in blocks.
 
 ### Smart contract implementations
 
-The [examples](examples) folder contains various smart contracts along with
+The [examples](../examples) folder contains various smart contracts along with
 proofs of their properties.
 
-In [Counter.v](examples/Counter.v) we implement a simple counter contract that
+In [Counter.v](../examples/counter/Counter.v) we implement a simple counter contract that
 serves as a tutorial on how one can use ConCert to develop and verify smart
 contracts.
 
-In [EIP20Token.v](examples/EIP20Token.v) we implement the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
+In [EIP20Token.v](../examples/eip20/EIP20Token.v) we implement the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
 EIP 20 is a standard interface for tokens - customizable assets for blockchains.
 
-In [Congress.v](examples/Congress.v) we implement the _Congress_ contract, a
+In [Congress.v](../examples/congress/Congress.v) we implement the _Congress_ contract, a
 simplified version of the DAO, which does complex dynamic interactions with the
 blockchain and other contracts deployed on the blockchain. We specify and prove
 a property about this contract at the end of this file. This property is
@@ -58,13 +58,13 @@ proposals up to this point. This is an approximation of the fact that any
 outgoing transaction should correspond to some proposal created and discussed in
 the past.
 
-In [Congress_Buggy.v](examples/Congress_Buggy.v) we try the opposite: we take
+In [Congress_Buggy.v](../examples/congress/Congress_Buggy.v) we try the opposite: we take
 the same contract as above, but introduce a reentrancy issue into it. We then
 formally prove that this version of the Congress does _not_ satisfy the property
 proven for the other version. This is proven by using one of our implementations
 of our semantics and just asking Coq to compute.
 
-In [Escrow.v](examples/Escrow.v) we verify functional correctness of an escrow
+In [Escrow.v](../examples/escrow/Escrow.v) we verify functional correctness of an escrow
 contract based on the
 [safe remote purchase](https://solidity.readthedocs.io/en/v0.6.1/solidity-by-example.html#safe-remote-purchase)
 example in the Solidity documentation. This contract works by financially
@@ -111,7 +111,7 @@ Note that the second point above is for the case where the buyer never commits
 any money to the escrow, in which case the seller is allowed to withdraw his own
 commitment after a deadline.
 
-In [BoardroomVoting.v](examples/BoardroomVoting.v) we verify functional
+In [BoardroomVoting.v](../examples/boardroomVoting/BoardroomVoting.v) we verify functional
 correctness of a private boardroom voting contract based on [1] under some
 simplifying assumptions. In particular we do not verify anything about the
 zero-knowledge proofs required to make sure that everyone participates correctly
@@ -186,13 +186,13 @@ Here `make_signup_msg` and `make_vote_msg` are the functions provided by the
 smart contract and could potentially be extracted with the rest of the smart
 contract to have functionally verified boardroom voting contract with privacy.
 
-In [LocalBlockchainTests.v](examples/LocalBlockchainTests.v) we test that Coq is
+In [LocalBlockchainTests.v](../examples/congress/LocalBlockchainTests.v) we test that Coq is
 able to compute with the Congress by deploying it and interacting with it using
 one of our implementations of blockchains. We also specialize the proof shown
 about to our actual implementations of the execution layer described above.
 
 ### Property-based Testing of Smart Contracts with QuickChick
-The [tests](tests/) folder contains tests of some of the contracts from the [examples](examples/) folder. Input generators for the contract under test can be found in files ending in 'Gens.v', and the QuickChick properties/tests can be found in files ending in 'Tests.v'. [TraceGens.v](tests/TraceGens.v) contains key generator combinators for deriving "arbitrary" input generators of blockchain execution traces for a given smart contract, along with QuickChick `Checker`s that define the kind of properties we can test. The simplest example is the [EIP20Tests](tests/EIP20Tests/). Here, we primarily test functional correctness of the EIP20 Token, namely the three properties
+Tests can be found in the [examples](../examples/) folder. Input generators for the contract under test can be found in files ending in 'Gens.v', and the QuickChick properties/tests can be found in files ending in 'Tests.v'. [TraceGens.v](test/TraceGens.v) contains key generator combinators for deriving "arbitrary" input generators of blockchain execution traces for a given smart contract, along with QuickChick `Checker`s that define the kind of properties we can test. The simplest example is the [EIP20Tests](../examples/eip20/). Here, we primarily test functional correctness of the EIP20 Token, namely the three properties:
 
 ```coq
 balances_sum = state.(total_supply).
@@ -209,7 +209,7 @@ The second property states that the combined allowances (as provided by the `app
 
 The third property is a hoare-triple on the `receive` function of the token contract, stating that if there is an incoming `transfer` message, then the balances are updated correct according to the `transfer` message. We also test a similar property for `transfer_from` messages.
 
-In [EIP20Tests/EIP20TokenBuggyTests.v](tests/EIP20Tests/EIP20TokenBuggyTests.v) we test an implementation which has a bug in the `transfer_from` method, similar to the one discovered in the [iToken](https://bzx.network/blog/incident) contract. The bug allows an attacker to create (mint) arbitrary tokens for themselves by performing self-transfers. When testing this implementation against the first property above, QuickChick reports a counterexample - an execution trace leading to a violation of the property. 
+In [iTokenBuggy/iTokenBuggyTests.v](../examples/iTokenBuggy/iTokenBuggyTests.v) we test an implementation which has a bug in the `transfer_from` method, similar to the one discovered in the [iToken](https://bzx.network/blog/incident) contract. The bug allows an attacker to create (mint) arbitrary tokens for themselves by performing self-transfers. When testing this implementation against the first property above, QuickChick reports a counterexample - an execution trace leading to a violation of the property. 
 
 
 The testing framework was developed as part of a Master's Thesis  at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).

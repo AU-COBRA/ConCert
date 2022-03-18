@@ -1,0 +1,111 @@
+-R ../utils/theories ConCert.Utils
+-R ../execution/theories ConCert.Execution
+-R ../execution/test ConCert.Execution.QCTest
+-R ../embedding/theories ConCert.Embedding
+-R ../embedding/extraction ConCert.Embedding.Extraction
+-R ../extraction/theories ConCert.Extraction
+-R ../extraction/plugin/theories ConCert.Extraction
+
+-Q eip20 ConCert.Examples.EIP20
+eip20/EIP20Token.v
+eip20/EIP20TokenGens.v
+eip20/EIP20TokenPrinters.v
+eip20/EIP20TokenTests.v
+eip20/EIP20LiquidityExtraction.v
+eip20/EIP20CameLIGOExtraction.v
+
+-Q bat ConCert.Examples.BAT
+bat/BATCommon.v
+bat/BAT.v
+bat/BAT_Fixed.v
+bat/BAT_AltFix.v
+bat/BATPrinters.v
+bat/BATGens.v
+bat/BATTestCommon.v
+bat/BATTests.v
+bat/BAT_FixedTests.v
+bat/BAT_AltFixTests.v
+
+-Q fa2 ConCert.Examples.FA2
+fa2/FA2Interface.v
+fa2/FA2Token.v
+fa2/TestContracts.v
+fa2/FA2Printers.v
+fa2/FA2Gens.v
+fa2/FA2TokenTests.v
+
+-Q dexter2 ConCert.Examples.Dexter2
+dexter2/Dexter2FA12.v
+dexter2/Dexter2CPMM.v
+dexter2/Dexter2Extract.v
+
+-Q dexter ConCert.Examples.Dexter
+dexter/Dexter.v
+dexter/DexterPrinters.v
+dexter/DexterGens.v
+dexter/DexterTests.v
+
+-Q iTokenBuggy ConCert.Examples.iTokenBuggy
+iTokenBuggy/iTokenBuggy.v
+iTokenBuggy/iTokenBuggyGens.v
+iTokenBuggy/iTokenBuggyPrinters.v
+iTokenBuggy/iTokenBuggyTests.v
+
+-Q cis1 ConCert.Examples.CIS1
+cis1/CIS1Spec.v
+cis1/CIS1Utils.v
+cis1/Cis1wccd.v
+
+-Q stackInterpreter ConCert.Examples.StackInterpreter
+stackInterpreter/StackInterpreter.v
+stackInterpreter/RustInterpExtract.v
+stackInterpreter/StackInterpreterExtract.v
+
+-Q congress ConCert.Examples.Congress
+congress/Congress.v
+congress/Congress_Buggy.v
+congress/LocalBlockchainTests.v
+congress/tests/CongressGens.v
+congress/tests/CongressPrinters.v
+congress/tests/CongressTests.v
+congress/tests/Congress_BuggyGens.v
+congress/tests/Congress_BuggyPrinters.v
+congress/tests/Congress_BuggyTests.v
+
+-Q escrow ConCert.Examples.Escrow
+escrow/Escrow.v
+escrow/tests/EscrowGens.v
+escrow/tests/EscrowPrinters.v
+escrow/tests/EscrowTests.v
+escrow/extraction/EscrowExtract.v
+escrow/extraction/MidlangEscrow.v
+escrow/extraction/RustEscrow.v
+
+-Q boardroomVoting ConCert.Examples.BoardroomVoting
+boardroomVoting/BoardroomMath.v
+boardroomVoting/BoardroomVoting.v
+boardroomVoting/BoardroomVotingZ.v
+boardroomVoting/BoardroomVotingTest.v
+boardroomVoting/Egcd.v
+boardroomVoting/Euler.v
+boardroomVoting/BoardroomVotingExtractionCameLIGO.v
+boardroomVoting/BoardroomVotingExtractionLiquidity.v
+
+-Q counter ConCert.Examples.Counter
+counter/Counter.v
+counter/embedding/CounterEmbed.v
+counter/extraction/CounterCertifiedExtraction.v
+counter/extraction/CounterDepCertifiedExtraction.v
+counter/extraction/CounterSubsetTypes.v
+counter/extraction/MidlangCounterRefTypes.v
+counter/extraction/RustCounter.v
+counter/extraction/CameLIGOCounter.v
+
+-Q crowdfunding ConCert.Examples.Crowdfunding
+crowdfunding/CrowdfundingData.v
+crowdfunding/Crowdfunding.v
+crowdfunding/ExecFrameworkIntegration.v
+crowdfunding/CrowdfundingDataExt.v
+crowdfunding/CrowdfundingExt.v
+crowdfunding/CrowdfundingCameLIGO.v
+crowdfunding/CrowdfundingCertifiedExtraction.v

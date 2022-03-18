@@ -1,7 +1,7 @@
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
-From ConCert.Embedding Require Import MyEnv.
+From ConCert.Utils Require Import Env.
 From Coq Require Import String.
 From Coq Require Import Basics.
 From Coq Require Import List.

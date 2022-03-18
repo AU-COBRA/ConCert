@@ -3,11 +3,11 @@
 (** Definitions of basic of data types required for the crowdfunding contract along with notations for developing contract using the deep embedding *)
 
 From ConCert.Embedding Require Import Ast.
-From ConCert.Embedding Require Import CustomTactics.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Utils.
+From ConCert.Utils Require Import Automation.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 From Coq Require Import List.
@@ -97,8 +97,8 @@ Module Maps.
     p v = true.
   Proof.
     revert k v p.
-    induction m;intros;tryfalse;simpl in *.
-    inv_andb H. destruct (_ =? _);auto.
+    induction m;intros;try discriminate;simpl in *.
+    propify. destruct (_ =? _);auto.
     * now inversion H0;subst.
     * easy.
   Qed.

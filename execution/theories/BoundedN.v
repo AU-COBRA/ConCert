@@ -2,7 +2,7 @@
 efficient to compute with. *)
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Finite.
-From ConCert.Execution Require Import Extras.
+From ConCert.Utils Require Import Extras.
 From Coq Require Import NArith.
 From Coq Require Import ZArith.
 From Coq Require Import Eqdep_dec.

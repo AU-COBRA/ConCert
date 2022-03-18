@@ -242,6 +242,9 @@ Ltac destruct_and_split :=
     | [|- _ /\ _] => split
     end.
 
+Tactic Notation "tryfalse" :=
+  try solve [ elimtype False; try solve [assumption | discriminate | congruence ]].
+
 Ltac propify :=
   unfold is_true in *;
   repeat

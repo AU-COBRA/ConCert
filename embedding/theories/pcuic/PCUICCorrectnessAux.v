@@ -8,15 +8,13 @@ From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICClosed.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICWcbvEval.
-
 From Coq Require Import PeanoNat.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import Basics.
-
-From ConCert.Embedding Require Import CustomTactics.
+From ConCert.Utils Require Import Automation.
+From ConCert.Utils Require Import Env.
 From ConCert.Embedding Require Import Misc.
-From ConCert.Embedding Require Import MyEnv.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.
@@ -211,7 +209,7 @@ Proof.
   + simpl. constructor. apply tInd_atom.
   + simpl. now constructor.
   + simpl. now constructor.
-  + simpl in *. inv_andb Hc.
+  + simpl in *. propify. destruct_hyps.
     erewrite decompose_inductive_mkApps by eauto.
     rewrite <- mkApps_unfold.
     eapply PcbvCurr.value_app.
@@ -258,9 +256,7 @@ Proof.
     destruct (eval_type_i _ _ ty1) eqn:Hty1;tryfalse.
     destruct (decompose_inductive _) eqn:Hind;tryfalse.
     inversion He;subst;clear He. simpl.
-    split_andb.
-    * eapply IHty1; eauto.
-    * eapply IHty2; eauto.
+    now propify.
   + tryfalse.
   + simpl in *. destruct (n0 <=? n) eqn:Hn0;tryfalse.
     destruct (lookup_i ρ (n - n0)) eqn:Hlook;tryfalse. destruct v;tryfalse.
@@ -269,9 +265,8 @@ Proof.
     destruct (eval_type_i _ _ ty2) eqn:Hty2;tryfalse.
     destruct (eval_type_i _ _ ty1) eqn:Hty1;tryfalse.
     inversion He;subst.
-    simpl;split_andb.
-    * eapply IHty1; eauto.
-    * eapply IHty2; eauto.
+    simpl.
+    now propify.
 Qed.
 
 Lemma type_eval_value Σ ρ ty ty_v n :
@@ -363,7 +358,7 @@ Lemma type_to_term_closed ty n :
 Proof.
   revert n.
   induction ty;intros n0 H;simpl in *;
-    try (inv_andb H; split_andb);auto with hints.
+    propify; destruct_hyps; auto with hints.
 Qed.
 
 
@@ -376,13 +371,13 @@ Lemma type_to_term_subst Σ ty k e (nm : string) :
   (type_to_term ty) {k:=t⟦e⟧Σ} = type_to_term (subst_env_i_ty k ([(nm,e)]) ty).
 Proof.
   revert k e.
-  induction ty;intros k e0 Hok Hce Hct;simpl in *;try inv_andb Hct; try inv_andb Hok;
+  induction ty;intros k e0 Hok Hce Hct;simpl in *;propify;
     auto with hints;intuition.
   + destruct (k <=? n);auto.
     destruct (n - k) eqn:Hnk.
     * cbn in *. destruct e0;tryfalse;cbn in *.
          now rewrite lift_closed by auto with hints.
-    * cbn in *. unfold is_true in *; leb_ltb_to_prop. lia.
+    * cbn in *. unfold is_true in *; propify. lia.
   + f_equal;auto.
     rewrite <- IHty2 by auto.
     rewrite commut_lift_subst_rec by lia.
@@ -400,16 +395,17 @@ Proof.
   + destruct (eval_type_i _ _ ty2) eqn:Heq2;tryfalse.
     destruct (eval_type_i _ _ ty1) eqn:Heq1;tryfalse.
     destruct (decompose_inductive t0) eqn:Hde;tryfalse.
-    inversion H1;subst;clear H1. inv_andb Hc.
+    inversion H1;subst;clear H1. propify. destruct_hyps.
     simpl. f_equal;eauto.
   + destruct (k <=? n) eqn:Hkn.
     * destruct (n - k) eqn:Hnk;simpl in *;tryfalse.
-      unfold is_true in *;leb_ltb_to_prop. lia.
+      unfold is_true in *;propify. lia.
     * inversion H1;subst;clear H1;auto.
   + destruct (eval_type_i _ _ ty2) eqn:Heq2;tryfalse.
     destruct (eval_type_i _ _ ty1) eqn:Heq1;tryfalse.
     inversion H1;subst;clear H1.
-    inv_andb Hc. simpl. rewrite commut_lift_subst. repeat f_equal;eauto.
+    propify. destruct_hyps. simpl.
+    rewrite commut_lift_subst. repeat f_equal;eauto.
 Qed.
 
 Hint Resolve -> length_zero_iff_nil : hints.
@@ -430,7 +426,7 @@ Proof.
   + easy.
   + destruct a as [nm ty].
     inversion Htys;subst;clear Htys.
-    simpl. split_andb.
+    simpl. propify. split.
     * apply closedn_subst0.
       ** now apply All_forallb.
       ** easy.
@@ -579,7 +575,8 @@ Lemma subst_closed_map ts1 ts2 k :
 Proof.
   intros H. revert dependent k. revert ts1.
   induction ts2;intros;auto.
-  simpl in *. inv_andb H. f_equal;eauto with hints.
+  simpl in *. propify. destruct_hyps.
+  f_equal;eauto with hints.
 Qed.
 
 
@@ -606,8 +603,9 @@ Proof.
       destruct args as [ | a1 args1] using MCList.rev_ind;tryfalse;clear IHargs1.
       apply All_app in Hval. destruct Hval as [Hargs Ha].
       inversion Ha;subst;clear Ha.
-      rewrite forallb_app in Hc. inv_andb Hc. simpl in *.
-      inv_andb H0.
+      rewrite forallb_app in Hc.
+      simpl in *.
+      propify. destruct_hyps.
       assert (#|l| = #|args1|).
       { rewrite app_length in Heq. simpl in Heq. lia. }
       clear Heq.
@@ -617,7 +615,7 @@ Proof.
       eapply PcbvCurr.eval_beta;eauto with hints.
       eapply IHl;eauto with hints. simpl. econstructor;simpl;eauto.
       unfold subst1.
-      rewrite PCUICCSubst.closed_subst by auto.
+      rewrite PCUICCSubst.closed_subst; auto.
       now rewrite <- subst_app_simpl.
 Qed.
 
@@ -649,7 +647,7 @@ Proof.
   revert dependent cs.
   induction Σ;intros;tryfalse.
   cbn in *. destruct a. cbn in *.
-  destruct (e0 =? ind);now inv_andb Hgeok.
+  destruct (e0 =? ind);now propify.
 Qed.
 
 Lemma constrs_ok_in s c (cs : list constr) nparam :
@@ -668,8 +666,10 @@ Lemma forallb_type_to_term_closed ts n :
 Proof.
   revert n.
   induction ts;intros;auto.
-  cbn in *. inv_andb H. split_andb;eauto with hints.
-  eapply IHts;eauto.
+  cbn in *.
+  propify.
+  destruct_hyps.
+  split;eauto with hints.
 Qed.
 
 
@@ -683,7 +683,7 @@ Proof.
   induction e using expr_ind_case;intros n1 Hgeok Hc;auto.
   + (* eLambda*)
     simpl in *. rewrite Bool.andb_true_iff.
-    inv_andb Hc.
+    propify. destruct_hyps.
     split;auto with hints.
   + (* eTyLam *)
     simpl in *. destruct Hc. auto.
@@ -703,7 +703,7 @@ Proof.
     destruct (resolve_inductive Σ i) eqn:Hres;auto.
     destruct ((_ =? _)%nat) eqn:Hnparams.
     simpl.
-    repeat split_andb;eauto with hints.
+    propify; repeat split;eauto with hints.
       * eapply closedn_mkApps;eauto.
       * rewrite forallb_map. unfold Basics.compose,test_snd,trans_branch.
         apply forallb_Forall. apply Forall_forall. intros x Hin.
@@ -715,7 +715,7 @@ Proof.
         rewrite in_map_iff in Hin'.
         destruct Hin' as [x Htmp]. destruct x as [pt1 e2].
         destruct Htmp as [He1 Hin'']. inversion He1;subst;clear He1.
-        rewrite Nat.eqb_eq in Hnparams. subst. destruct p as [np cs]. simpl in *.
+        subst. destruct p as [np cs]. simpl in *.
         assert (Hcs : forallb (constr_ok np) cs) by now eapply genv_ok_constrs_ok.
         assert (Htys :forallb (iclosed_ty np) (map snd tys)) by now eapply constrs_ok_in.
         unfold resolve_inductive in *. destruct (lookup_global _ _);tryfalse. destruct g.
@@ -736,8 +736,8 @@ Proof.
         specialize (Forall_In _ _ _ Hin'' H) as Hfa'. simpl in Hfa'. easy.
       * trivial.
   + simpl in *.
-    rewrite Bool.andb_true_r in *. unfold test_def. simpl.
-    repeat rewrite Bool.andb_true_iff in *.
+    unfold test_def. simpl.
+    propify.
     repeat split;eauto with hints;
       try apply type_to_term_closed;intuition.
   + simpl in *. eauto with hints.
@@ -794,7 +794,7 @@ Lemma forallb_In_snd {A B} (l : list (A * B)) (p : B -> bool) (a : A * B) :
 Proof.
   intros H Hin.
   induction l;tryfalse;simpl in *.
-  inv_andb H. destruct Hin;subst;auto.
+  propify. now destruct Hin.
 Qed.
 
 Lemma forallb_snd {A B} (p : B -> bool) (l1 : list A) (l2 : list B) :
@@ -802,7 +802,7 @@ Lemma forallb_snd {A B} (p : B -> bool) (l1 : list A) (l2 : list B) :
 Proof.
   revert l1.
   induction l2;intros;destruct l1;auto.
-  simpl in *;inv_andb H. split_andb;eauto. eapply IHl2;eauto.
+  simpl in *;propify. now destruct_and_split.
 Qed.
 
 Lemma inc_subst_closed ts t n :
@@ -812,7 +812,7 @@ Proof.
   revert t n.
   induction ts;intros t n H.
   + reflexivity.
-  + simpl in *. inv_andb H. destruct a. repeat f_equal; eauto with hints.
+  + simpl in *. propify. destruct_hyps. repeat f_equal; eauto with hints.
     eapply IHts;eauto. unfold is_true; rewrite forallb_forall in *.
     intros. eapply (closed_upwards (k:=n)); eauto with hints.
 Qed.
@@ -828,7 +828,7 @@ Proof.
   intros e0 Σ n1 nm args Hc Hca Hok.
   induction args.
   + easy.
-  + simpl in *. inv_andb Hca. inv_andb Hok. f_equal.
+  + simpl in *. propify. destruct_hyps. f_equal.
     * apply type_to_term_subst;eauto.
     * eauto.
 Qed.
@@ -866,19 +866,19 @@ Proof.
     reflexivity.
   + (* eLambda *)
     cbn in *. unfold subst1.
-    inv_andb Hc. inv_andb Hok.
+    propify. destruct_hyps.
     erewrite <- type_to_term_subst with (nm:=nm);eauto with hints.
     f_equal. eapply IHe;eauto.
   + (* eTyLam *)
     cbn in *;f_equal;auto.
   + (* eLetIn *)
     cbn in *.
-    unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+    unfold is_true in *; propify.
     rewrite type_to_term_subst with (nm:=nm);intuition;eauto with hints.
   + (* eApp *)
     change ((t⟦ eApp e1 e2 ⟧ Σ)) with ((mkApps (t⟦e1⟧Σ) [t⟦e2⟧Σ])) in *.
     cbn -[mkApps] in *. unfold is_true in *.
-    repeat rewrite  Bool.andb_true_iff in *. destruct Hc as [Hce1 Hce2].
+    propify. destruct Hc as [Hce1 Hce2].
     rewrite subst_mkApps.
     change (tApp t⟦e1.[[(nm, e0)]] n1⟧Σ t⟦e2.[[(nm, e0)]] n1⟧ Σ) with
         (mkApps t⟦e1.[[(nm, e0)]] n1⟧Σ [t⟦e2.[[(nm, e0)]] n1⟧ Σ]).
@@ -891,7 +891,7 @@ Proof.
     reflexivity.
   + (* eCase *)
     cbn in *. destruct p as [ind tys]. unfold is_true in *;simpl in *.
-    repeat rewrite Bool.andb_true_iff in *. destruct Hc as [Hce1 Hce2].
+    propify. destruct Hc as [Hce1 Hce2].
     destruct (resolve_inductive Σ ind) eqn:Hres;auto.
     rewrite map_length. destruct (_ =? _)%nat eqn:Hnparams.
       cbn.
@@ -977,9 +977,9 @@ Lemma subst_env_ty_closed_n_eq n m ty ρ :
   subst_env_i_ty (m + n) ρ ty = ty.
 Proof.
   revert n m ρ.
-  induction ty;intros;simpl in *;unfold is_true in *;repeat rewrite Bool.andb_true_iff in *;intuition;eauto.
+  induction ty;intros;simpl in *;unfold is_true in *;propify;intuition;eauto.
   + f_equal. now replace (S (m + n)) with (m + S n) by lia.
-  + destruct (Nat.leb (m + n0)) eqn:Hmn1; leb_ltb_to_prop;try lia;easy.
+  + destruct (Nat.leb (m + n0)) eqn:Hmn1; propify;try lia;easy.
 Qed.
 
 Hint Resolve subst_env_ty_closed_n_eq : hints.
@@ -989,7 +989,7 @@ Lemma map_subst_env_ty_closed n m ρ l0 :
   map (subst_env_i_ty (m + n) ρ) l0 = l0.
 Proof.
   intros H. revert dependent n. revert m ρ. induction l0;intros m ρ n Hc;simpl;auto.
-  simpl in *. inv_andb Hc. f_equal; eauto with hints.
+  simpl in *. propify. destruct_hyps. f_equal; eauto with hints.
 Qed.
 
 Lemma subst_env_i_closed_n_eq :
@@ -999,8 +999,8 @@ Lemma subst_env_i_closed_n_eq :
 Proof.
   intros e.
   induction e using expr_ind_case;intros n1 m1 ρ Hc;simpl in *;
-    repeat rewrite Bool.andb_true_iff in *;eauto with hints.
-  + simpl in *. destruct (Nat.leb (m1 + n1)) eqn:Hmn1; leb_ltb_to_prop;try lia;easy.
+    propify;eauto with hints.
+  + simpl in *. destruct (Nat.leb (m1 + n1)) eqn:Hmn1; propify;try lia;easy.
   + simpl in *. f_equal. eapply subst_env_ty_closed_n_eq;intuition.
     now replace (S (m1 + n1)) with (m1 + S n1) by lia.
   + simpl in *. f_equal. replace (S (m1 + n1)) with (m1 + S n1) by lia. easy.
@@ -1042,9 +1042,8 @@ Proof.
   destruct n.
   * reflexivity.
   * simpl. destruct (k <=? n) eqn:Hkn.
-    ** unfold lookup_ty. simpl. leb_ltb_to_prop. assert (k <= S n) by lia.
-       prop_to_leb_ltb. rewrite H.
-       leb_ltb_to_prop.
+    ** unfold lookup_ty. simpl. propify. assert (k <= S n) by lia.
+       destruct_match eqn:H0; try now propify.
        assert (Hneq : S n - k <> 0) by lia.
        rewrite <- PeanoNat.Nat.eqb_neq in Hneq. rewrite Hneq.
        replace (S n - k - 1) with (n - k) by lia.
@@ -1057,14 +1056,14 @@ Proof.
            **** assert (iclosed_ty 0 t0).
                 { destruct e;tryfalse. now inversion He;subst. }
                 symmetry. eapply subst_env_ty_closed_n_eq with (m:=0). now eapply iclosed_ty_0.
-           **** simpl. unfold lookup_ty in *. simpl. prop_to_leb_ltb. rewrite H.
+           **** simpl. unfold lookup_ty in *. rewrite H0.
                 destruct k;auto;tryfalse.
                 rewrite Nat.eqb_neq in *. simpl. assert (n-k<>0) by lia.
                 destruct (n - k =? 0)%nat eqn:HH;tryfalse;auto. rewrite Nat.eqb_eq in *.
-                leb_ltb_to_prop. lia.
-       *** remember (S n) as m. simpl.
-           prop_to_leb_ltb. rewrite H. unfold lookup_ty in *. simpl. now rewrite Hneq.
-    ** leb_ltb_to_prop.
+                propify. lia.
+       *** remember (S n) as m. simpl. rewrite H0.
+           unfold lookup_ty in *. simpl. now rewrite Hneq.
+    ** propify.
          assert (HkSn :  S n <= k) by lia.
          case HkSn.
          *** rewrite PeanoNat.Nat.leb_refl. simpl.
@@ -1073,7 +1072,7 @@ Proof.
          *** intros m Hm. assert (H : S n < S m) by lia.
              rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
              remember (S n) as n'. remember (S m) as m'. simpl.
-             prop_to_leb_ltb. now rewrite H.
+             now rewrite H.
 Qed.
 
 Hint Resolve subst_env_ty_compose_1 : hints.
@@ -1088,14 +1087,13 @@ Proof.
   intros nm.
   unfold inst_env_i,subst_env_i in *. simpl in *.
   induction e using expr_ind_case;intros e' k ρ Hfc Hc;
-    simpl in *; repeat rewrite Bool.andb_true_iff in *;try f_equal;auto with hints.
+    simpl in *; propify;try f_equal;auto with hints.
   + simpl. destruct n.
     * reflexivity.
     * simpl;destruct (Nat.leb k n) eqn:Hkn.
-      ** leb_ltb_to_prop.
+      ** propify.
          assert (k <= S n) by lia.
-         prop_to_leb_ltb. rewrite H.
-         leb_ltb_to_prop.
+         destruct_match eqn:H0; try now propify.
          assert (Hneq : S n - k <> 0) by lia.
          rewrite <- PeanoNat.Nat.eqb_neq in Hneq. rewrite Hneq.
          replace (S n - k - 1) with (n - k) by lia.
@@ -1104,8 +1102,8 @@ Proof.
          *** simpl. symmetry. apply subst_env_i_closed_eq.
              eapply (All_lookup_i _ _ _ (fun x => iclosed_n 0 x) Hfc Hl).
          *** remember (S n) as m. simpl.
-             prop_to_leb_ltb. rewrite H. now rewrite Hneq.
-      ** leb_ltb_to_prop.
+             rewrite H0. now rewrite Hneq.
+      ** propify.
          assert (HkSn :  S n <= k) by lia.
          case HkSn.
          *** rewrite PeanoNat.Nat.leb_refl. simpl.
@@ -1114,7 +1112,7 @@ Proof.
          *** intros m Hm. assert (H : S n < S m) by lia.
              rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
              remember (S n) as n'. remember (S m) as m'. simpl.
-             prop_to_leb_ltb. now rewrite H.
+             now rewrite H.
   + destruct p. simpl. rewrite map_map. f_equal;eauto with hints. f_equal.
     eapply map_ext. intros;eapply subst_env_ty_compose_1;eauto with hints.
     rewrite map_map. simpl.
@@ -1184,15 +1182,13 @@ Lemma ty_env_ok_app_rec :
 Proof.
   induction ty;intros;auto.
   + simpl in *. now replace (S (n + #|ρ1|)) with (S n + #|ρ1|) by lia.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
-    intuition.
+  + simpl in *. unfold is_true in *. now propify.
   + cbn -[lookup_i] in *. destruct (n0 + #|ρ1| <=? n) eqn:Hn.
-    * assert (Hleb : n0 <=? n = true) by (leb_ltb_to_prop; lia).
+    * assert (Hleb : n0 <=? n = true) by (propify; lia).
       rewrite Hleb in *. replace (n - (n0 + #|ρ1|)) with ((n - n0) - #|ρ1|) by lia.
-      rewrite lookup_i_app in H by (leb_ltb_to_prop; lia). easy.
+      rewrite lookup_i_app in H by (propify; lia). easy.
     * destruct (n0 <=? n) eqn:Hn0;auto.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
-    intuition.
+  + simpl in *. unfold is_true in *. now propify.
 Qed.
 
 Hint Resolve ty_env_ok_app_rec : hints.
@@ -1211,7 +1207,7 @@ Lemma ty_expr_env_ok_app_rec :
     ty_expr_env_ok ρ2 (n + #|ρ1|) e.
 Proof.
   induction e using expr_ind_case;intros ? ? ? Hok;simpl in *;unfold is_true in *;
-    repeat rewrite Bool.andb_true_iff in *;eauto with hints.
+    propify;eauto with hints.
   + replace (S (n0 + #|ρ1|)) with (S n0 + #|ρ1|) by lia.
     intuition.
     now apply ty_env_ok_app_rec.
@@ -1239,13 +1235,12 @@ Lemma iclosed_ty_expr_env_ok :
 Proof.
   intros. revert dependent n. revert ρ.
   induction e using expr_elim_case;intros ?? Hc;eauto.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+  + simpl in *. unfold is_true in *. propify.
     intuition. eapply iclosed_ty_env_ok;eauto.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+  + simpl in *. unfold is_true in *. propify.
     intuition. eapply iclosed_ty_env_ok;eauto.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
-    intuition.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+  + simpl in *. unfold is_true in *. now propify.
+  + simpl in *. unfold is_true in *. propify.
     intuition;eauto with hints.
     eapply forallb_impl_inner;intros;eauto; now apply iclosed_ty_env_ok.
     now apply iclosed_ty_env_ok.
@@ -1253,7 +1248,7 @@ Proof.
     eapply All_impl_inner. apply X. simpl in *.
     eapply All_impl. apply H0. intros.
     simpl in *. easy.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+  + simpl in *. unfold is_true in *. propify.
     intuition;now apply iclosed_ty_env_ok.
   + now apply iclosed_ty_env_ok.
 Qed.
@@ -1267,11 +1262,11 @@ Proof.
   induction ty;intros k ρ1 ρ2 Hok Hall;auto.
   + simpl in *. replace (S (k + #|ρ1|)) with (S k + #|ρ1|) by lia.
     eapply IHty;eauto.
-  + simpl in *. unfold is_true in *; repeat rewrite Bool.andb_true_iff in *;intuition.
+  + simpl in *. unfold is_true in *; now propify.
   + cbn -[lookup_i] in *. destruct (k + #|ρ1| <=? n) eqn:Hn.
-    * assert (Hleb : k <=? n = true) by (leb_ltb_to_prop; lia).
+    * assert (Hleb : k <=? n = true) by (propify; lia).
       rewrite Hleb in *. replace (n - (k + #|ρ1|)) with ((n - k) - #|ρ1|) by lia.
-      assert (#|ρ1| <= n - k) by (leb_ltb_to_prop;lia).
+      assert (#|ρ1| <= n - k) by (propify; lia).
       rewrite lookup_i_app in Hok by assumption.
       unfold lookup_ty.
       destruct (lookup_i ρ2 (n - k - #|ρ1|)) eqn:Hlook.
@@ -1280,11 +1275,11 @@ Proof.
          eapply iclosed_ty_env_ok.
          now eapply iclosed_ty_0.
       ** simpl. destruct (k<=? n);auto. rewrite lookup_i_length_false;auto.
-         leb_ltb_to_prop;auto.
+         propify;auto.
     * simpl in *;destruct (k <=? n) eqn:Hn0;auto.
-      rewrite lookup_i_nth_error in *. rewrite nth_error_app1 in Hok by (leb_ltb_to_prop;lia).
+      rewrite lookup_i_nth_error in *. rewrite nth_error_app1 in Hok by (propify;lia).
       destruct (nth_error ρ1 (n - k)) eqn:Hnth;auto.
-  + simpl in *. unfold is_true in *; repeat rewrite Bool.andb_true_iff in *;intuition.
+  + simpl in *. unfold is_true in *; now propify.
 Qed.
 
 Lemma ty_expr_env_ok_subst_env k ρ1 ρ2 e :
@@ -1300,17 +1295,16 @@ Proof.
     eapply All_lookup_i in X;eauto. simpl.
     eapply iclosed_ty_expr_env_ok.
     now eapply iclosed_n_0.
-  + simpl in *. inv_andb H. split_andb.
+  + simpl in *. propify. destruct_hyps. split.
     now eapply ty_env_ok_subst_env.
     replace (S (k + #|ρ1|)) with (S k + #|ρ1|) by lia.
     eapply IHe;eauto.
   + simpl in *. eapply IHe;eauto.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+  + simpl in *. unfold is_true in *. propify.
     intuition. eapply ty_env_ok_subst_env;eauto.
-  + simpl in *. unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
-    intuition.
+  + simpl in *. unfold is_true in *. now propify.
   + simpl in *. destruct p. simpl in *.
-    unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+    unfold is_true in *. propify.
     intuition;eauto with hints.
     * rewrite forallb_map. eapply forallb_impl_inner;eauto.
       intros. eapply ty_env_ok_subst_env;eauto.
@@ -1323,7 +1317,7 @@ Proof.
       replace (#|pVars x.1| + (k + #|ρ1|)) with (#|pVars x.1| + k + #|ρ1|) by lia.
       eapply H;eauto.
   + simpl in *.
-    unfold is_true in *. repeat rewrite Bool.andb_true_iff in *.
+    unfold is_true in *. propify.
     intuition;eapply ty_env_ok_subst_env;eauto.
   + eapply ty_env_ok_subst_env;eauto.
 Qed.
@@ -1448,12 +1442,12 @@ Proof.
       assert (ge_val_ok Σ (vConstr i e l)) by eauto.
       assert (ge_val_ok Σ v0) by eauto.
       simpl in *. destruct (resolve_constr Σ i e);eauto.
-      simpl in *. rewrite forallb_app. split_andb;try split_andb;eauto.
+      simpl in *. rewrite forallb_app. cbn. propify. split;eauto.
     * assert (ge_val_ok Σ (vClos e _ cmLam t t0 _)) by eauto.
       assert (ge_val_ok Σ v0) by eauto.
       simpl in *.
       eapply IHn with (ρ:=(e0, v0) :: e);eauto with hints.
-      apply forallb_All. simpl. now split_andb.
+      apply forallb_All. simpl. now propify.
     * destruct v0;tryfalse.
       remember (e # [e4 ~> _] # [ e0 ~> _]) as ρ'.
       eapply IHn with (e:=e3) (ρ:=ρ'); try eapply He0;eauto.
@@ -1465,7 +1459,7 @@ Proof.
       assert (ge_val_ok Σ v0) by eauto.
       simpl in *.
       eapply IHn with (ρ:=(e0, v0) :: e);eauto with hints.
-      apply forallb_All. simpl. now split_andb.
+      apply forallb_All. simpl. now propify.
     * destruct (expr_eval_general _ _ _ _ e2) eqn:He2;tryfalse.
   + destruct (resolve_constr Σ i e) eqn:Hres;tryfalse. inversion He.
     simpl. now rewrite Hres.
@@ -1482,7 +1476,7 @@ Proof.
     destruct (match_pat e0 _ tys _ _) eqn:Hpm;tryfalse.
     destruct p as [assign e2].
     apply pat_match_succeeds in Hpm. destruct Hpm as [pt Htmp].
-    destructs Htmp. subst.
+    destruct_hyps. subst.
     assert (Hok_constr : ge_val_ok Σ (vConstr i _ l1))
       by now eapply IHn with (e:=e).
     simpl in Hok_constr. destruct (resolve_constr Σ i e0) eqn:Hres';tryfalse.
@@ -1513,15 +1507,6 @@ Proof.
   intros Hok. now apply All_rev.
 Qed.
 
-
-Ltac apply_eq H n :=
-  match number_to_nat n with
-  | 0 => eapply equates_0;[eapply H | ]
-  | 1 => eapply equates_1;[eapply H | ]
-  | 2 => eapply equates_2;[eapply H | | ]
-  | 3 => eapply equates_3;[eapply H | | ]
-  | 4 => eapply equates_4;[eapply H | | ]
-  end.
 
 Lemma val_ok_ge_val_ok Σ v:
   val_ok Σ v -> ge_val_ok Σ v.
@@ -1573,7 +1558,7 @@ Proof.
   + simpl in *.
     destruct (eval_type_i n ρ ty2) eqn:Hty2;tryfalse.
     destruct (eval_type_i n ρ ty1) eqn:Hty1;tryfalse.
-    split_andb;eauto.
+    now propify.
   + tryfalse.
   + simpl in *.
     destruct (n0 <=? n) eqn:Hn0;auto.
@@ -1584,7 +1569,7 @@ Proof.
   + simpl in *.
     destruct (eval_type_i n ρ ty2) eqn:Hty2;tryfalse.
     destruct (eval_type_i n ρ ty1) eqn:Hty1;tryfalse.
-    split_andb;eauto.
+    now propify.
 Qed.
 
 
@@ -1596,10 +1581,9 @@ Proof.
   induction n;intros Σ e ρ v0 Hc He;tryfalse.
   + destruct e;eauto.
     * simpl in *. destruct (eval_type_i 0 _ _) eqn:Ht0;simpl in *;tryfalse.
-      inversion He;subst;clear He. split_andb.
+      inversion He;subst;clear He. propify. destruct_and_split.
       ** now eapply eval_ty_env_ok.
-      ** unfold is_true; repeat rewrite Bool.andb_true_iff in *.
-         destruct (valid_env ρ 1 e0) eqn:Hve0;tryfalse.
+      ** destruct (valid_env ρ 1 e0) eqn:Hve0;tryfalse.
          now eapply valid_env_ty_expr_env_ok.
     * simpl in *. destruct (valid_env _ _ _) eqn:Hve0;tryfalse. inversion He;subst;clear He.
       now eapply valid_env_ty_expr_env_ok.
@@ -1614,10 +1598,10 @@ Proof.
       ** eapply IHn;eauto.
       ** eapply eval_ty_env_ok;eauto.
       ** now eapply ty_expr_env_ok_app_rec with (n:=0) (ρ1:=[(e1,of_val_i v)]).
-    * simpl in *. inv_andb Hc.
+    * simpl in *. propify.
       destruct (eval (n, Σ, ρ, e2)) eqn:He2;tryfalse.
       destruct (eval (n, Σ, ρ, e1)) eqn:He1;tryfalse.
-      destruct v1;inversion He;subst;tryfalse;split_andb; eapply IHn;eauto.
+      destruct v1;inversion He;subst;tryfalse;propify;destruct_and_split; eapply IHn;eauto.
     * simpl in *.
       destruct p.
       destruct (forallb (fun x : pat × expr => valid_env ρ #|pVars x.1| x.2) l) eqn:Hl;tryfalse.
@@ -1647,9 +1631,9 @@ Proof.
       destruct (eval_type_i 0 ρ t) eqn:Ht;tryfalse.
       destruct (eval_type_i 0 ρ t0) eqn:Ht0;tryfalse.
       cbn in *. inversion He.
-      unfold is_true in *;
-        repeat rewrite  Bool.andb_true_iff in *. intuition.
-      now eapply eval_ty_env_ok. now eapply eval_ty_env_ok.
+      unfold is_true in *; propify. destruct_and_split.
+      now eapply eval_ty_env_ok.
+      now eapply eval_ty_env_ok.
       now eapply valid_env_ty_expr_env_ok.
     * simpl in *.
       destruct (eval_type_i 0 ρ _) eqn:Ht0;tryfalse.
@@ -1678,21 +1662,22 @@ Proof.
     destruct (eval_type_i 0 ρ _) eqn:He_ty;tryfalse. simpl in *.
     destruct (valid_env ρ 1 e0);tryfalse.
     inversion He.
-    inv_andb Hc. inv_andb Hty_ok.
+    propify. destruct_hyps.
     constructor;eauto with hints;subst.
   + unfold expr_eval_i in *. simpl. simpl in He,Hc.
     destruct (valid_env _ _ _) eqn:Hve;tryfalse. inversion He;subst. constructor;eauto.
   + unfold expr_eval_i in *. simpl. simpl in He,Hc.
     destruct (expr_eval_general _ _ _ _ e2) eqn:He1;tryfalse.
     destruct (eval_type_i 0 ρ _) eqn:He_ty;tryfalse. simpl in *.
-    unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+    unfold is_true in *;propify.
     destruct Hc as [[??]?].
     destruct Hty_ok as [[??]?].
     assert (env_ok Σ ((e1, v0) :: ρ)) by (eauto 6 with hints).
     assert (ty_expr_env_ok (exprs (ρ # [e1 ~> v0])) 0 e3) by
         (eapply eval_ty_expr_env_ok;eauto with hints).
     eapply IHn with (ρ:=ρ # [e1 ~> v0]);eauto with hints.
-  + simpl in Hc. inv_andb Hc.
+  + simpl in Hc. simpl in Hty_ok. propify.
+    destruct_hyps.
     autounfold with facts in *. simpl in He.
     destruct (expr_eval_general _ _ _ _ e2) eqn:He2;tryfalse.
     destruct (expr_eval_general _ _ _ _ e1) eqn:He1;tryfalse.
@@ -1700,7 +1685,9 @@ Proof.
     * inversion_clear He.
       assert (Hge_ok : ge_val_ok Σ (vConstr i _ l)) by
           (eapply eval_ge_val_ok;[now apply env_ok_ForallEnv_ge_val_ok | eauto]).
-      assert (Hok_constr : val_ok Σ (vConstr i e l)) by eauto with hints.
+      assert (Hok_constr : val_ok Σ (vConstr i e l)).
+      { cbn in *. propify. destruct_hyps.
+        clear H2. now eapply IHn. }
       simpl in Hge_ok. destruct (resolve_constr Σ i _) eqn:Hres;tryfalse.
       inversion Hok_constr. subst. clear Hok_constr.
       econstructor;eauto. apply All_app_inv;eauto with hints.
@@ -1713,10 +1700,11 @@ Proof.
     * destruct v0;tryfalse.
       assert (Hok_fix : val_ok Σ (vClos e _ (cmFix _) t t0 _)) by
           (eapply IHn with (ρ:=ρ) (e:=e1);eauto with hints).
-      inversion Hok_fix;subst.
+      inversion Hok_fix;subst. cbn in *.
       eapply IHn with (ρ:=((_, vConstr i _ l) :: (_, vClos e _ (cmFix _) t t0 _) :: e));
         eauto 8 with hints.
-    * simpl in *. unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+      eapply eval_ty_expr_env_ok;eauto.
+    * simpl in *. unfold is_true in *;propify.
       assert (Hok_v0 : val_ok Σ v0) by now eapply IHn.
       assert (Hok_lam : val_ok Σ ((vTyClos _ _ _))) by now eapply IHn with (e:=e1).
       inversion Hok_lam. subst. clear Hok_lam.
@@ -1726,7 +1714,7 @@ Proof.
     destruct (resolve_constr _ _ _) eqn:Hres;inversion He;tryfalse;eauto with hints.
   + tryfalse.
   + unfold expr_eval_i in *. simpl. simpl in He.
-    simpl in Hc. unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+    simpl in Hc. unfold is_true in *;propify.
     destruct p as [ind e1].
     destruct (forallb (fun x : pat × expr => valid_env _ _ _) l) eqn:Hl;tryfalse.
     destruct (eval_type_i _ _ _) eqn:Hety;tryfalse. simpl in *.
@@ -1739,7 +1727,7 @@ Proof.
     destruct (match_pat _ _ _ _) eqn:Hpm;tryfalse.
     destruct p as [assign e2].
     apply pat_match_succeeds in Hpm. destruct Hpm as [pt Htmp].
-    destructs Htmp. subst. destruct Hc as [[[??]?]?].
+    destruct_hyps. subst.
     assert (ty_expr_env_ok (exprs ρ) 0 e = true) by now eapply eval_ty_expr_env_ok.
     assert (Hok_constr : val_ok Σ (vConstr i e0 l1)) by (eapply IHn with (ρ:=ρ)(e:=e);eauto).
     inversion Hok_constr;subst;clear Hok_constr.
@@ -1750,12 +1738,12 @@ Proof.
     assert (iclosed_n #|rev (combine (pVars pt) (skipn n1 l1)) ++ ρ| e2 = true).
     { rewrite app_length. rewrite rev_length,combine_length,skipn_length.
       replace (min #|pVars pt| (#|l1| - n1)) with #|pVars pt| by lia.
-      now specialize (find_forallb _ H H5) as Hc. }
+      now specialize (find_forallb _ H H4) as Hc. }
     eapply IHn with (ρ := (rev (combine (pVars pt) (skipn n1 l1)) ++ ρ));eauto.
     eapply eval_ty_expr_env_ok with (ρ := (rev (combine (pVars pt) (skipn n1 l1)) ++ ρ));eauto.
     apply env_ok_concat;auto.
   + unfold expr_eval_i in *. simpl in *.
-    unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+    unfold is_true in *;propify.
     destruct (valid_env _ _ _);tryfalse.
     destruct (eval_type_i _ _ t) eqn:Hty;tryfalse;simpl in *.
     destruct (eval_type_i _ _ t0) eqn:Hty0;tryfalse;simpl in *.
@@ -2048,9 +2036,9 @@ Proof.
   revert n ρ.
   induction ty;intros;
     unfold is_true in *;simpl in *;
-    repeat rewrite  Bool.andb_true_iff in *;intuition;
+    propify;intuition;
       try (now f_equal).
-  assert (Hn0 : n0 <=? n = false) by (leb_ltb_to_prop;lia).
+  assert (Hn0 : n0 <=? n = false) by (propify;lia).
   now rewrite Hn0.
 Qed.
 
