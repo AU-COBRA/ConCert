@@ -16,7 +16,7 @@ mod tests {
     fn test_read_init_data() {
         let buyer_addr = AccountAddress([0u8; 32]);
         let setup =
-            ConCert_Execution_Examples_Escrow_Setup::build_setup(PhantomData,
+            ConCert_Examples_Escrow_Escrow_Setup::build_setup(PhantomData,
                                                                  Address::Account(buyer_addr));
         match std::fs::File::create("escrow_init_data.bin") {
             Ok(mut f) => {
@@ -27,7 +27,7 @@ mod tests {
                             Ok(v) => {
                                 let prg = Program::new();
                                 let mut cur = Cursor::new(v);
-                                match <ConCert_Execution_Examples_Escrow_Setup>::concert_deserial(&mut cur, &prg.__alloc) {
+                                match <ConCert_Examples_Escrow_Escrow_Setup>::concert_deserial(&mut cur, &prg.__alloc) {
                                     Ok(p) => {
                                         claim_eq!(p, setup, "Wrong deserial result");
                                     },
@@ -53,7 +53,7 @@ mod tests {
         let mut st = ContractStateTest::open(data);
         let mut ctx = InitContextTest::empty();
         let setup =
-            ConCert_Execution_Examples_Escrow_Setup::build_setup(PhantomData,
+            ConCert_Examples_Escrow_Escrow_Setup::build_setup(PhantomData,
                                                                  Address::Account(buyer_addr));
         let param_bytes = concert_std::to_bytes(&setup);
         ctx.set_parameter(&param_bytes);
@@ -76,12 +76,12 @@ mod tests {
         claim_eq!(res, ());
         let arena = bumpalo::Bump::new();
         st.seek(SeekFrom::Start(0)).expect("Seek failed");
-        let deserial_state : ConCert_Execution_Examples_Escrow_State = <_>::concert_deserial(&mut st, &arena).expect("Deserialisation failed");
+        let deserial_state : ConCert_Examples_Escrow_Escrow_State = <_>::concert_deserial(&mut st, &arena).expect("Deserialisation failed");
         let res =  match deserial_state {
-            ConCert_Execution_Examples_Escrow_State::build_state(_, last_action, next_step, seller, buyer, seller_withdrawable, buyer_withdrawable) => {
+            ConCert_Examples_Escrow_Escrow_State::build_state(_, last_action, next_step, seller, buyer, seller_withdrawable, buyer_withdrawable) => {
                 claim_eq!(last_action, slot_time.timestamp_millis(), "Wrong last_action:{:?}",last_action);
                 match next_step {
-                    ConCert_Execution_Examples_Escrow_NextStep::buyer_commit(PhantomData) => (),
+                    ConCert_Examples_Escrow_Escrow_NextStep::buyer_commit(PhantomData) => (),
                     _ => fail!("Wrong next_step"),
                 }
                 match seller {
@@ -107,7 +107,7 @@ mod tests {
         let mut ctx = ReceiveContextTest::empty();
         let prg = Program::new();
         let mut data : Vec<u8> = Vec::new();
-        let params = Option::Some(&ConCert_Execution_Examples_Escrow_Msg::commit_money(PhantomData));
+        let params = Option::Some(&ConCert_Examples_Escrow_Escrow_Msg::commit_money(PhantomData));
         params.concert_serial(&mut data).expect("Serialisation failed");
         ctx.set_parameter(&data);
         let data_st : Vec<u8> = Vec::new();
@@ -123,11 +123,11 @@ mod tests {
         ctx.set_self_address(self_addr);
         ctx.set_self_balance(concordium_std::Amount::from_micro_ccd(init_balance));
         let mut st = ContractStateTest::open(data_st);
-        let v : ConCert_Execution_Examples_Escrow_State =
-            ConCert_Execution_Examples_Escrow_State::build_state
+        let v : ConCert_Examples_Escrow_Escrow_State =
+            ConCert_Examples_Escrow_Escrow_State::build_state
             (PhantomData,
              0,
-             &ConCert_Execution_Examples_Escrow_NextStep::buyer_commit(PhantomData),
+             &ConCert_Examples_Escrow_Escrow_NextStep::buyer_commit(PhantomData),
              Address::Account(seller_addr),
              Address::Account(buyer_addr),
              0,
@@ -145,12 +145,12 @@ mod tests {
         claim_eq!(actions, ActionsTree::Accept, "Contract receive produced incorrect actions.");
         let arena = bumpalo::Bump::new();
         st.seek(SeekFrom::Start(0)).expect("Seek failed");
-        let deserial_state : ConCert_Execution_Examples_Escrow_State = <_>::concert_deserial(&mut st, &arena).expect("Deserialisation failed");
+        let deserial_state : ConCert_Examples_Escrow_Escrow_State = <_>::concert_deserial(&mut st, &arena).expect("Deserialisation failed");
         let res =  match deserial_state {
-            ConCert_Execution_Examples_Escrow_State::build_state(_, last_action, next_step, seller, buyer, seller_withdrawable, buyer_withdrawable) => {
+            ConCert_Examples_Escrow_Escrow_State::build_state(_, last_action, next_step, seller, buyer, seller_withdrawable, buyer_withdrawable) => {
                 claim_eq!(last_action, slot_time.timestamp_millis(), "Wrong last_action:{:?}",last_action);
                 match next_step {
-                    ConCert_Execution_Examples_Escrow_NextStep::buyer_confirm(PhantomData) => (),
+                    ConCert_Examples_Escrow_Escrow_NextStep::buyer_confirm(PhantomData) => (),
                     _ => fail!("Wrong next_step"),
                 }
                 match seller {
