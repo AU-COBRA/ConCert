@@ -34,6 +34,9 @@ fa2/FA2Printers.v
 fa2/FA2Gens.v
 fa2/FA2TokenTests.v
 
+-Q fa1_2 ConCert.Examples.FA1_2
+fa1_2/FA1_2.v
+
 -Q dexter2 ConCert.Examples.Dexter2
 dexter2/Dexter2FA12.v
 dexter2/Dexter2CPMM.v
