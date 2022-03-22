@@ -63,7 +63,9 @@ Definition subNatTruncated_ligo : string :=
 Definition edivNatTrancated_ligo : string :=
   "let edivTruncated (a : nat) (b : nat) = match ediv a b with Some v -> v | None -> (0n,0n)".
 
-(** Remapping arithmetic operations *)
+(** Remapping arithmetic operations. *)
+(** We override the default remappings of aritmetic operations since it remaps [Z] to
+    [tez], and [N] to [int], which is not sutable for our purposes. *)
 Definition TT_remap_arith : list (kername * string) :=
 [   remap <%% Z %%> "int"
   ; remap <%% N %%> "nat"

@@ -106,6 +106,9 @@ Definition TT_remap_default : list (kername * string) :=
     (* types *)
     remap <%% Z %%> "tez"
   (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use trancated subtraction *)
+  (* FIXME: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
+     [int]. However, [Z] is also used as the type of currency, that could lead to clashes
+     in the extracted code. *)
   ; remap <%% N %%> "int"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
