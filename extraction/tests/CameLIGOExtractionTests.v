@@ -20,6 +20,36 @@ Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
   | None => None
   end.
 
+Module FoldLeft.
+
+  Definition foldL {A B : Type} (f : A -> B -> A) : list B -> A -> A :=
+    fix foldL (l : list B) (a0 : A) {struct l} : A :=
+      match l with
+      | [] => a0
+      | b :: t => foldL t (f a0 b)
+      end.
+
+  Definition sum (xs : list nat) := foldL Nat.add xs 0.
+
+  Definition harness : string :=
+    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some (sum ([1,2,3])))".
+
+  Time MetaCoq Run
+       (t <- CameLIGO_extract_single
+              []
+              []
+              TT_rename_ctors_default
+              ""
+              harness
+              sum ;;
+        tmDefinition "cameligo_sum" t).
+
+    (** Extraction results in fully functional CameLIGO code *)
+    (* Redirect "tests/extracted-code/cameligo-extract/SafeHead.mligo" *)
+    MetaCoq Run (tmMsg cameligo_sum).
+
+End FoldLeft.
+
 Module SafeHead.
   (** This module shows how one can extract programs containing [False_rect] *)
 

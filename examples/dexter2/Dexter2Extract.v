@@ -29,15 +29,17 @@ Instance dexter2_print_config : CameLIGOPrintConfig :=
 (** * Common extraction setup *)
 
 Definition call_to_token_ligo : string :=
-  <$ "let call_to_token (addr : address) (amt : nat) (msg : _msg) : operation =" ;
-     "  let token_ : _msg contract =";
-     "  match (Tezos.get_contract_opt (addr) : _msg contract option) with";
+  <$ "let call_to_token (type msg) (addr : address) (amt : nat) (msg : msg) : operation =" ;
+     "  let token_ : msg contract =";
+     "  match (Tezos.get_contract_opt (addr) : msg contract option) with";
      "    Some contract -> contract";
-     "  | None -> (failwith ""Contract not found."" : _msg contract) in";
+     "  | None -> (failwith ""Contract not found."" : msg contract) in";
      "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
+Compute call_to_token_ligo.
+
 Definition mk_callback_ligo : string :=
-  "[@inline] let mk_callback (addr : address) (msg : _msg) : operation = call_to_token addr 0n msg".
+  "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
 (** Next two definition are borrowed from the actual Dexter 2 implementation
      https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo *)

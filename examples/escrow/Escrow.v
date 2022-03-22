@@ -89,13 +89,17 @@ Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup)
   do if Z.even (ctx_amount ctx) then Some tt else None;
   Some (build_state (current_slot chain) buyer_commit seller buyer 0 0).
 
+Definition subAmountOption (n m : Amount) : option Amount :=
+  if n <? m then None else Some (n - m).
+
 Definition receive
            (chain : Chain) (ctx : ContractCallContext)
            (state : State) (msg : option Msg)
   : option (State * list ActionBody) :=
   match msg, next_step state with
   | Some commit_money, buyer_commit =>
-    let item_price := (ctx_contract_balance ctx - ctx_amount ctx) / 2 in
+    do diff_ <- subAmountOption (ctx_contract_balance ctx) (ctx_amount ctx) ;
+    let item_price := diff_ / 2 in
     let expected := item_price * 2 in
     do if (ctx_from ctx =? buyer state)%address then Some tt else None;
     do if ctx_amount ctx =? expected then Some tt else None;
@@ -155,7 +159,8 @@ Section Theories.
       clear IH.
       unfold receive in receive_some.
       destruct_match as [[]|] in receive_some; try congruence.
-      + destruct_match in receive_some; try congruence.
+      + destruct_match in receive_some; try congruence;cbn in *.
+        destruct_match in receive_some; cbn in *; try congruence.
         destruct_match in receive_some; cbn in *; try congruence.
         destruct_match in receive_some; cbn in *; try congruence.
         inversion_clear receive_some; auto.
@@ -365,6 +370,8 @@ Section Theories.
       destruct msg as [[| |]|].
       + (* Some commit_money *)
         destruct (next_step prev_state); try congruence.
+        unfold subAmountOption in *.
+        destruct (ctx_contract_balance ctx <? ctx_amount ctx);cbn in *; try congruence.
         destruct (address_eqb_spec (ctx_from ctx) (buyer prev_state)) as [->|];
           cbn in *; try congruence.
         destruct (ctx_amount ctx =? _) eqn:proper_amount in receive_some;

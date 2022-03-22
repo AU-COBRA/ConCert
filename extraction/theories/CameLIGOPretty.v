@@ -107,9 +107,17 @@ Section PPTerm.
   for "Coq.ZArith.BinInt.Z.add" returns "add" *)
   Definition unqual_name nm := last (tokenize "." nm) ("Error (Malformed_qualified_name)").
 
-  Definition print_uncurried (s : string) (args : list string) :=
+  Definition print_uncurried (args : list string) :=
+    let arg_len := #|args| in
+    if (arg_len =? 0)%nat then
+      ""
+    else
+      let no_parens := (#|args| =? 1)%nat in
+      parens (no_parens) (concat ", " args).
+  
+  Definition print_uncurried_app (s : string) (args : list string) :=
     let print_parens := (Nat.ltb 0 (List.length args)) in
-    s ++ " " ++ parens ((negb print_parens)) (concat ", " args).
+    s ++ " " ++ print_uncurried args.
 
   Definition is_arr (bt : box_type) : bool :=
   match bt with
@@ -136,7 +144,7 @@ Section PPTerm.
       in CameLIGO *)
 
   Definition print_type_var (for_ind : bool) (i : nat) :=
-    let type_var_prefix := if for_ind then "'" else "_" in
+    let type_var_prefix := if for_ind then "'" else "" in
     type_var_prefix ++ "a" ++ string_of_nat i.
 
   Definition print_box_type_aux (for_ind : bool) (TT : env string)
@@ -155,8 +163,8 @@ Section PPTerm.
         parens false (concat " * " args)
 
       (* inductives are printed with args prefix style, e.g. "int option" *)
-      else print_uncurried "" args ++ " " ++ go hd
-    | _ => print_uncurried "" args ++ " " ++ go hd
+      else print_uncurried args ++ " " ++ go hd
+    | _ => print_uncurried args ++ " " ++ go hd
     end
   | TVar i => print_type_var for_ind i (* TODO: pass context with type variables *)
   | TInd s =>
@@ -169,8 +177,7 @@ Section PPTerm.
   end.
 
   Definition print_box_type := print_box_type_aux false.
-  Definition print_ind_box_type := print_box_type_aux true.
-  
+  Definition print_ind_box_type := print_box_type_aux true. 
   Definition print_ctor
              (TT : env string)
              (ind_kn : kername)
@@ -298,15 +305,9 @@ Section PPTerm.
         else aux i'
       end
     in aux n.
-  (* ligo doesn't support wildcard *)
-  Definition string_of_name ctx (na : name) : string :=
-    match na with
-    | nAnon => fresh_id_from ctx 10 "a"
-    | nNamed "_" => fresh_id_from ctx 10 "a"
-    | nNamed n => n
-    end.
 
-  Definition fresh_name (ctx : context) (na : name) (t : term) :=
+  (* NOTE: ligo doesn't support wildcard *)
+  Definition fresh_string_name (ctx : context) (na : name) : string :=
     let id := match na with
               | nNamed "_" => "a"
               | nAnon => "a"
@@ -314,19 +315,18 @@ Section PPTerm.
               end
     in
     let id := uncapitalize id in
-    if is_fresh ctx id then nNamed id
-    else nNamed (fresh_id_from ctx 10 id).
+    if is_fresh ctx id then id
+    else fresh_id_from ctx (List.length ctx) id.
 
-  Fixpoint fresh_names (Γ : context) (vs : list name) : context * list name :=
+  Fixpoint fresh_string_names (Γ : context) (vs : list name) : context * list string :=
     match vs with
     | [] => (Γ, [])
     | v :: vs0 =>
-      let nm := fresh_name Γ v (tVar "dummy") in
-      let Γ0 := vass nm :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
-      let '(Γ1, vs1) := fresh_names Γ0 vs0 in
+      let nm := fresh_string_name Γ v in
+      let Γ0 := vass (nNamed nm) :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
+      let '(Γ1, vs1) := fresh_string_names Γ0 vs0 in
       (Γ1, nm :: vs1)
     end.
-
 
   Definition get_constr_name (ind : inductive) (i : nat) :=
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
@@ -394,8 +394,8 @@ Section PPTerm.
     | S n =>
       match branch with
       | tLambda na B =>
-        let na' := fresh_name ctx na branch in
-        go (vass na' :: ctx) n B
+        let na' := fresh_string_name ctx na in
+        go (vass (nNamed na') :: ctx) n B
       | t => []
       end
     end
@@ -409,7 +409,7 @@ Section PPTerm.
       let ctor_nm := with_default (print_ctor_name (ind_kn.1, ctor)) (look TT ctor) in
       let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
-      print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
+      print_uncurried_app ctor_nm vars ++ " -> " ++ pt.2.
 
   Definition print_num_literal (TT : env string) (t : term) : option string :=
     (* is it an natural number literal? *)
@@ -449,9 +449,7 @@ Section PPTerm.
 
   (** ** The pretty-printer *)
 
-  (** [FT] - list of fixpoint names. Used to determine if uncurrying is needed for an applied variable (if it corresponds to a recursive call). The initial value is an empty list. Once we fit a fixpoint case, we add the fixpoint name to [FT], so all the recursive calls in the fixpoint body are packed into a tuple.
-
-      [TT] - translation table allowing for remapping constants and constructors to CameLIGO primitives, if required.
+  (**  [TT] - translation table allowing for remapping constants and constructors to CameLIGO primitives, if required.
 
       [ctx] - context that gets updated when we go under lambda, let, pattern or fixpoint.
 
@@ -460,8 +458,7 @@ Section PPTerm.
       [t] - a term to be printed.
    *)
 
-  Fixpoint print_term (FT : list string)
-                      (TT : env string)
+  Fixpoint print_term (TT : env string)
                       (ctx : context)
                       (top : bool)
                       (inapp : bool)
@@ -481,37 +478,27 @@ Section PPTerm.
     | tVar n => fun bt => "Var(" ++ n ++ ")"
     | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *)  ++ ")"
     | tLambda na body => fun '(bt, a) =>
-      let na' := fresh_name ctx na t in
+      let na' := fresh_string_name ctx na in
       let (dom_tys, _) := ExAst.decompose_arr bt in
       let dom_ty := match nth_error dom_tys 0 with
                     | Some ty => print_box_type TT ty
                     | None => "LambdaError(NotAnArrowType)"
                     end in
-      parens top ("fun (" ++ string_of_name ctx na' ++ " : "
+      parens top ("fun (" ++ na' ++ " : "
                           ++ dom_ty ++ ")"
-                          ++ " -> " ++ print_term  FT TT (vass na' :: ctx) true false body a)
+                          ++ " -> " ++ print_term TT (vass (nNamed na') :: ctx) true false body a)
     | tLetIn na def body => fun '(bt, (vala, bodya)) =>
-      let na' := fresh_name ctx na t in
-      parens top ("let " ++ string_of_name ctx na' ++
-                        " = " ++ print_term  FT TT ctx true false def vala ++ " in " ++ nl ++
-                        print_term  FT TT (vdef na' def :: ctx) true false body bodya)
+      let na' := fresh_string_name ctx na in
+      parens top ("let " ++ na' ++
+                        " = " ++ print_term TT ctx true false def vala ++ " in " ++ nl ++
+                        print_term TT (vdef (nNamed na') def :: ctx) true false body bodya)
     | tApp f l as t => fun '(bt, (fa, la)) =>
-      let apps := rev (app_args_annot (fun '(t; a) => print_term  FT TT ctx false false t a) t (bt, (fa, la))) in
+      let apps := rev (app_args_annot (fun '(t; a) => print_term TT ctx false false t a) t (bt, (fa, la))) in
       let '((b;ba),argas) := Edecompose_app_annot f fa in
       match apps with
-      | [] => print_term  FT TT ctx false true f fa
+      | [] => print_term TT ctx false true f fa
       | _ =>
           match b with
-          (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
-        | tRel i =>
-          match nth_error ctx i with
-          | Some d =>
-            let nm := (string_of_name ctx d.(decl_name)) in
-            if List.in_dec String.string_dec nm FT
-            then parens top (print_uncurried nm apps)
-            else parens (top || inapp) (print_term  FT TT ctx false true f fa ++ " " ++ print_term  FT TT ctx false false l la)
-          | None => "UnboundRel(" ++ string_of_nat i ++ ")"
-          end
         | tConst c =>
           let cst_name := string_of_kername c in
           let nm := with_default (print_const_name c) (look TT cst_name) in
@@ -525,7 +512,7 @@ Section PPTerm.
           let nm := get_constr_name ind i in
              (* is it a pair ? *)
             if (uncapitalize nm =? "pair") then
-              print_uncurried "" apps
+              print_uncurried apps
             (* is it a cons ? *)
             else if (uncapitalize nm =? "cons") then
               parens top (concat " :: " apps)
@@ -546,18 +533,19 @@ Section PPTerm.
                                                           |> concat "; " in
                   "({" ++ field_decls_printed ++ "}: " ++ print_box_type  TT bt ++ ")"
                 | _,_ => 
-                  (* constructors must be capitalized *)
                   let nm' := with_default (print_ctor_name (mind.1, nm)) (look TT nm) in
-                  parens top (print_uncurried nm' apps)
+                  (* constructors take a single argument (uncurried), so we wrap the args into a tuple *)
+                  parens top (print_uncurried_app nm' apps)
                 end
               end
-        | _ => parens (top || inapp) (print_term  FT TT ctx false true f fa ++ " " ++ print_term  FT TT ctx false false l la)
+        | _ => parens (top || inapp) (print_term TT ctx false true f fa ++ " " ++ print_term TT ctx false false l la)
         end
       end
     | tConst c => fun bt =>
       let cst_name := string_of_kername c in
       let nm_tt := with_default (print_const_name c) (look TT cst_name) in
-      (* empty maps require type annotations *)
+      (* NOTE: empty maps require type annotations *)
+      (* FIXME: this looks ad-hoc and should be controlled in remapping instead *)
       if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
         "(Map.empty: " ++ print_box_type  TT bt ++ ")"
       else
@@ -584,13 +572,13 @@ Section PPTerm.
             | S n =>
               match br return annots box_type br -> (_ * _) with
               | tLambda na B => fun '(bt, a) =>
-                let na' := fresh_name ctx na br in
-                let (ps, b) := print_branch (vass na' :: ctx) n params B a in
-                (ps ++ [string_of_name ctx na'], b)%list
+                let na' := fresh_string_name ctx na in
+                let (ps, b) := print_branch (vass (nNamed na') :: ctx) n params B a in
+                (ps ++ [na'], b)%list
               (* Assuming all case-branches have been expanded this should never happen: *)
               | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
             end
-            | 0 => fun bt => (params , print_term FT TT ctx false false br bt)
+            | 0 => fun bt => (params , print_term TT ctx false false br bt)
             end in
 
       match brs with
@@ -601,9 +589,9 @@ Section PPTerm.
           match brs with
           | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
             parens top
-                    ("if " ++ print_term  FT TT ctx true false t ta
-                           ++ " then " ++ print_term  FT TT ctx true false (snd b1) b1a
-                           ++ " else " ++ print_term  FT TT ctx true false (snd b2) b2a)
+                    ("if " ++ print_term TT ctx true false t ta
+                           ++ " then " ++ print_term TT ctx true false (snd b1) b1a
+                           ++ " else " ++ print_term TT ctx true false (snd b2) b2a)
           | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
                    ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
           end
@@ -627,7 +615,7 @@ Section PPTerm.
                             print_pat TT mind na false b)
                          (nl ++ " | ") brs_ in
            parens top
-                  ("match " ++ print_term  FT TT ctx true false t ta
+                  ("match " ++ print_term TT ctx true false t ta
                             ++ " with " ++ nl
                             ++ brs_printed)
         | None =>
@@ -639,51 +627,31 @@ Section PPTerm.
       match lookup_ind_decl mind i with
       | Some oib =>
         match nth_error oib.(ExAst.ind_projs) k with
-        | Some (na, _) => print_term  FT TT ctx false false c bt.2 ++ "." ++ na
+        | Some (na, _) => print_term TT ctx false false c bt.2 ++ "." ++ na
         | None => "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                  ++ print_term  FT TT ctx true false c bt.2 ++ ")"
+                  ++ print_term TT ctx true false c bt.2 ++ ")"
         end
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                       ++ print_term  FT TT ctx true false c bt.2 ++ ")"
+                       ++ print_term TT ctx true false c bt.2 ++ ")"
       end
     | tFix [fix_decl] n => fun '(bt, (fixa, _)) => (* NOTE: We assume that the fixpoints are not mutual *)
-        (* Given an arrow type, prints the arguments in a curried way *)
-        let print_args_curried  TT ctx bt args :=
-          let (tys,_) := decompose_arr bt  in
-          let targs := combine args (map (print_box_type  TT) tys) in
-          targs
-            |> map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty) )
-            |> concat " " in
-        let fix_name := string_of_name ctx fix_decl.(dname) in
+        let (tys,ret_ty) := decompose_arr bt in
+        let fix_name := fresh_string_name ctx fix_decl.(dname) in
         let body := fix_decl.(dbody) in
-        let '(args, (lam_body; body_annot)) := Edecompose_lam_annot body fixa in
-
-        let sargs := map (string_of_name ctx) args in
-        let sargs_typed := print_args_curried  TT ctx bt args in
-        let fix_call :=
-            "fun " ++ sargs_typed ++ " -> "
-                   ++ print_uncurried fix_name sargs in
-        let FT' := fix_name :: FT in
-
-        let print_def_annot (ctx : context) (fdef : def  term) : annots box_type fdef.(dbody) -> string   :=
-          fun btt =>
-          let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
-          let fix_name := string_of_name ctx (fdef.(dname)) in
-          let (tys,ret_ty) := decompose_arr bt  in
-          let '(args,(lam_body; body_annot)) := Edecompose_lam_annot (fdef.(dbody)) btt in
-          let ctx := rev (map vass args) in
-          let sargs := map (string_of_name ctx) args in
-          let tys_printed := map (print_box_type  TT) tys in
-          let sargs_uncurried := parens false (concat ", " sargs ++ " : " ++ concat " * " tys_printed) in
-          let ret_ty_printed := print_box_type  TT ret_ty in
-              string_of_name ctx fdef.(dname) ++ " " ++ sargs_uncurried  ++
-              " : " ++ ret_ty_printed ++ " = "
-              ++ nl
-              ++ lam_body_annot_cont (fun body body_annot => print_term  FT' TT (ctx ++ ctx' ++ ctx)%list true false body body_annot) fdef.(dbody) btt
-        in
-        parens top ("let rec " ++ print_def_annot ctx fix_decl fixa ++ nl ++
-                               " in " ++ fix_call)
+        let '(args, _) := Edecompose_lam_annot body fixa in
+        (* NOTE: adding the fix variable to the context *)
+        let ctx := vass (nNamed fix_name) :: ctx in
+        let sret_ty := print_box_type TT ret_ty in
+        let (ctx, sargs) := fresh_string_names ctx args in
+        let targs := combine sargs (map (print_box_type TT) tys) in
+        let sargs_typed := concat " " (map (fun '(x,ty) => parens false (x ++ " : " ++ ty)) targs) in
+        let fix_call := parens false (fix_name ^ " : " ^ print_box_type TT bt) in
+        (* NOTE: we cannot directly use the result of decomposing with [Edecompose_lam_annot] beause the guardedness check cannot see through it  *)
+        let fix_body := lam_body_annot_cont (fun body body_annot => print_term TT ctx true false body body_annot) fix_decl.(dbody) fixa in
+        parens top ("let rec " ++ fix_name ^ " " ^ sargs_typed ^ " : " ^ sret_ty ^ " = " ^ nl ^
+                      fix_body ^ nl ^
+                    " in " ^ fix_call)
     | tFix [] _ => fun _ => "FixWithNoBody"
     | tFix _ _ => fun _ => "NotSupportedMutualFix"
     | tCoFix l n => fun _ => "NotSupportedCoFix"
@@ -702,26 +670,37 @@ Section PPLigo.
       let (args, res) := decompose_arr_n m cod in (dom :: args, res)
   | _,_ => ([], bt)
   end.
+
+  (* INVARIANT: the names are distinct *)
+  Definition print_forall (ty_ctx : list string) : string :=
+    let binders := concat " " ty_ctx in
+    parens false ("type " ++ binders).
+
+  Example print_forall_ex :
+    let (_, tys) := fresh_string_names [] [nNamed "a"; nNamed "b"; nAnon] in
+    print_forall tys = "(type a b a0)".
+  Proof. reflexivity. Qed.
   
   Definition print_decl
              (TT : env string) (* translation table *)
              (env : ExAst.global_env)
              (decl_kn : kername)
              (wrap : string -> string)
-             (ty : box_type)
+             (ty_in_ctx : list name * box_type)
              (t : term)
              (ta : annots box_type t)
     :=
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
-    let (ctx, args) := fresh_names [] args in
+    let (ctx, args) := fresh_string_names [] args in
+    let '(ty_ctx, ty) := ty_in_ctx in
     let (tys,res_ty) := decompose_arr_n #|args| ty in
     let targs := combine args (map (print_box_type TT) tys) in
     let printed_targs :=
-      map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs in
+      map (fun '(x,ty) => parens false (x ^ " : " ^ ty)) targs in
     let printed_res_ty := print_box_type TT res_ty in
-    let decl := print_const_name decl_kn ++ concat " " printed_targs in
-    "let" ++ " " ++ decl ++ " : " ++ printed_res_ty ++ " = "
-            ++ wrap (print_term env [] TT ctx true false lam_body body_annot).
+    let decl := print_const_name decl_kn ^ concat " " printed_targs in
+    "let" ^ " " ^ decl ^ " : " ^ printed_res_ty ^ " = " ^ nl
+    ^ wrap (print_term env TT ctx true false lam_body body_annot).
 
   Definition print_init
              (TT : env string) (* translation table *)
@@ -739,10 +718,10 @@ Section PPLigo.
       let '(args,(lam_body; body_annot)) := Edecompose_lam_annot b cstAnnot in
       let ty := cst.(ExAst.cst_type) in
       let (tys,inner_ret_ty) := decompose_arr ty.2 in
-      let targs_inner := combine args (map (print_box_type TT) tys) in
-      let ctx := map (fun x => Build_context_decl x None) (rev args) in
+      let '(ctx, sargs) := fresh_string_names [] args in
+      let targs_inner := combine sargs (map (print_box_type TT) tys) in
       let printed_targs_inner :=
-          map (fun '(x,ty) => parens false (string_of_name ctx x ++ " : " ++ ty)) targs_inner in
+          map (fun '(x,ty) => parens false (x ++ " : " ++ ty)) targs_inner in
       let decl_inner := "inner " ++ concat " " printed_targs_inner in
       let printed_inner_ret_ty := print_box_type TT inner_ret_ty in
       let printed_outer_ret_ty :=
@@ -759,19 +738,19 @@ Section PPLigo.
         "| None -> (failwith (""""): " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
-                ++ print_term env [] TT ctx true false lam_body body_annot
+                ++ print_term env TT ctx true false lam_body body_annot
                 ++ " in" in
       (* if init takes no parameters, we give it a unit parameter  *)
       let printed_targs_outer := match printed_targs_inner with
-                                 | _::[] | [] => let arg_name := fresh_name ctx nAnon tBox in
-                                         [parens false (string_of_name ctx arg_name ++ " : unit")]
+                                 | _::[] | [] => let arg_name := fresh_string_name ctx nAnon in
+                                         [parens false (arg_name ++ " : unit")]
                                  | _::xs => xs
                                  end in
       (* ignore the first argument because it's a call context *)
       let decl_outer :=
         "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
       let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
-      let inner_app := "inner " ++ concat " " ( "ctx" :: map (string_of_name ctx) (tl args)) in
+      let inner_app := "inner " ++ concat " " ( "ctx" :: tl sargs) in
       let init_args_ty := "type init_args_ty = " ++
         match tys with
         | _::[] => "unit"
@@ -818,8 +797,7 @@ Section PPLigo.
                                               | None => unit
                                               end -> option string with
     | Some cst_body => fun annot =>
-      (* NOTE: ignoring the path part *)
-      Some <| print_decl TT env kn id cst.(ExAst.cst_type).2 cst_body annot
+      Some <| print_decl TT env kn id cst.(ExAst.cst_type) cst_body annot
     | None => fun _ => None
     end.
 
@@ -892,7 +870,7 @@ Section PPLigo.
   Definition tez_ops :=
     <$
     "[@inline] let addTez (n : tez) (m : tez) = n + m" ;
-    "[@inline] let subTez (n : tez) (m : tez) = n - m" ;
+    "[@inline] let subTez (n : tez) (m : tez) : tez option = n - m" ;
     "[@inline] let leTez (a : tez ) (b : tez ) = a <= b" ;
     "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b" ;
     "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b" ;

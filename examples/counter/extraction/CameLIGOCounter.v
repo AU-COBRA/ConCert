@@ -57,6 +57,7 @@ Module Counter.
     end.
 
   Definition counter (c : Chain) (ctx : ContractCallContext) st msg :=
+    (* TODO: we should override masks instead *)
     (* avoid erasing c and ctx arguments *)
     let c_ := c in
     let ctx_ := ctx in
@@ -94,7 +95,17 @@ Section CounterExtraction.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_counter : list (kername * string) :=
-    [ remap <%% address_coq %%> "address"
+    [ remap <%% Z %%> "int"
+    ; remap <%% Z.add %%> "addInt"
+    ; remap <%% Z.sub %%> "subInt"
+    ; remap <%% Z.mul %%> "multInt"
+    ; remap <%% Z.leb %%> "leInt"
+    ; remap <%% Z.ltb %%> "ltInt"
+    ; remap <%% Z.eqb %%> "eqInt"
+    ; remap <%% Z.gtb %%> "gtbInt"
+    ; remap <%% Z.even %%> "evenInt"
+    ; remap <%% Z.abs_N %%> "abs"
+    ; remap <%% address_coq %%> "address"
     ; remap <%% time_coq %%> "timestamp"
     ; remap <%% nat %%> "address"
     ; remap <%% operation %%> "operation"
