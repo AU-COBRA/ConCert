@@ -138,124 +138,6 @@ Section PPTerm.
     | _ => bt
     end.
 
-
-  (** The [for_ind] flag tells the type printer whether the type is used in an inductive
-      type definition or in a fucntion, since the syntax is different for these two cases
-      in CameLIGO *)
-
-  Definition print_type_var (for_ind : bool) (i : nat) :=
-    let type_var_prefix := if for_ind then "'" else "" in
-    type_var_prefix ++ "a" ++ string_of_nat i.
-
-  Definition print_box_type_aux (for_ind : bool) (TT : env string)
-    : box_type -> string :=
-    fix go  (bt : box_type) :=
-  match bt with
-  | TBox => "unit"
-  | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " -> " ++ go codom
-  | TApp t1 t2 =>
-    let hd := get_tapp_hd t1 in
-    let args := map_targs go bt in
-    match hd with
-    | TInd ind =>
-      (* a special case of products - infix *)
-      if eq_kername <%% prod %%> ind.(inductive_mind) then
-        parens false (concat " * " args)
-
-      (* inductives are printed with args prefix style, e.g. "int option" *)
-      else print_uncurried args ++ " " ++ go hd
-    | _ => print_uncurried args ++ " " ++ go hd
-    end
-  | TVar i => print_type_var for_ind i (* TODO: pass context with type variables *)
-  | TInd s =>
-    let full_ind_name := string_of_kername s.(inductive_mind) in
-    with_default (print_type_name s.(inductive_mind)) (look TT full_ind_name)
-  | TConst s =>
-    let full_cst_name := string_of_kername s in
-    with_default (print_type_name s) (look TT full_cst_name)
-  | TAny => "UnknownType"
-  end.
-
-  Definition print_box_type := print_box_type_aux false.
-  Definition print_ind_box_type := print_box_type_aux true. 
-  Definition print_ctor
-             (TT : env string)
-             (ind_kn : kername)
-             (ctor : ident × list (name × box_type)) :=
-    let (nm,tys) := ctor in
-    let nm := print_ctor_name (ind_kn.1, nm) in
-    match tys with
-    | [] => nm
-    | _ => let ctor_type := parens (#|tys| <=? 1) <| concat " * " (map (print_ind_box_type TT ∘ snd) tys)
-           in nm ^ " of " ^ ctor_type
-    end.
-
-  Definition print_proj (TT : env string) (proj : ident × box_type) : string :=
-    let (nm, ty) := proj in
-    nm ^ " : " ^ print_ind_box_type TT ty.
-
-  Definition print_type_params (vs : list type_var_info) : string :=
-    if (Nat.eqb #|vs| 0) then ""
-      else (let ps := concat "," (mapi (fun i _ => print_type_var true i) vs) in
-            (parens (Nat.eqb #|vs| 1) ps ^ " ")).
-
-  Definition print_type_declaration (nm : string) (params : list type_var_info) (body : string) : string :=
-    "type " ^ print_type_params params ^ nm ^ " = " ^ body.
-  
-  Definition print_inductive (ind_kn : kername) (TT : env string)
-             (oib : ExAst.one_inductive_body) :=
-    let ind_nm := with_default (print_type_name (ind_kn.1, oib.(ExAst.ind_name))) 
-                               (lookup TT oib.(ExAst.ind_name)) in
-    (* one-constructor inductives are interpreted/printed as records *)
-    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
-    | [build_record_ctor], _::_ =>
-      let '(_, ctors) := build_record_ctor in
-      let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
-      let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj TT (p.1, ty)) projs_and_ctors in
-      let body :=
-        <$ "{";
-             concat (";" ^ nl) projs_and_ctors_printed;
-           "}" $> in
-      print_type_declaration ind_nm oib.(ind_type_vars) body
-    | _,_ =>
-        let body :=
-          <$ "";
-             "  " ^ concat "| " (map (fun p => print_ctor TT ind_kn p ^ nl) oib.(ExAst.ind_ctors)) $> in
-        print_type_declaration ind_nm oib.(ind_type_vars) body
-    end.
-
-  Definition is_sort (t : Ast.term) :=
-    match t with
-    | Ast.tSort _ => true
-    | _ => false
-    end.
-
-  Definition is_prod (t : Ast.term) :=
-    match t with
-    | Ast.tProd _ _ _ => true
-    | _ => false
-    end.
-
-  Open Scope bool.
-
-  Fixpoint Edecompose_lam (t : term) : (list name) × term :=
-  match t with
-  | tLambda n b =>
-      let (ns, b) := Edecompose_lam b in
-      (n :: ns, b)
-  | _ => ([], t)
-  end.
-
-  Definition lookup_ind_decl ind i :=
-    match ExAst.lookup_env Σ ind with
-    | Some (ExAst.InductiveDecl {| ExAst.ind_bodies := l |}) =>
-      match nth_error l i with
-      | Some body => Some body
-      | None => None
-      end
-    | _ => None
-    end.
-
   (* Certain names in CameLIGO are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
   (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
      they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
@@ -326,6 +208,134 @@ Section PPTerm.
       let Γ0 := vass (nNamed nm) :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
       let '(Γ1, vs1) := fresh_string_names Γ0 vs0 in
       (Γ1, nm :: vs1)
+    end.
+  
+  (** The [for_ind] flag tells the type printer whether the type is used in an inductive
+      type definition or in a fucntion, since the syntax is different for these two cases
+      in CameLIGO *)
+  Definition print_type_var_name (for_ind : bool) (var_name : string) :=
+    let type_var_prefix := if for_ind then "'" else "" in
+    type_var_prefix ++ var_name.
+
+  (** Resolve a type level (index) into a variable name and print it *)
+  (* INVARIANT: the names in the context are distinct *)
+  Definition print_type_var (ty_ctx : list string) (for_ind : bool) (i : nat) :=
+    match nth_error ty_ctx i with
+    | Some var => print_type_var_name for_ind var
+    | None => "UnboundTypeVar"
+    end.
+
+  Definition print_box_type_aux (for_ind : bool) (ty_ctx : list string) (TT : env string)
+    : box_type -> string :=
+    fix go (bt : box_type) :=
+  match bt with
+  | TBox => "unit"
+  | TArr dom codom => parens (negb (is_arr dom)) (go dom) ++ " -> " ++ go codom
+  | TApp t1 t2 =>
+    let hd := get_tapp_hd t1 in
+    let args := map_targs go bt in
+    match hd with
+    | TInd ind =>
+      (* a special case of products - infix *)
+      if eq_kername <%% prod %%> ind.(inductive_mind) then
+        parens false (concat " * " args)
+
+      (* inductives are printed with args prefix style, e.g. "int option" *)
+      else print_uncurried args ++ " " ++ go hd
+    | _ => print_uncurried args ++ " " ++ go hd
+    end
+  | TVar i => print_type_var ty_ctx for_ind i (* TODO: pass context with type variables *)
+  | TInd s =>
+    let full_ind_name := string_of_kername s.(inductive_mind) in
+    with_default (print_type_name s.(inductive_mind)) (look TT full_ind_name)
+  | TConst s =>
+    let full_cst_name := string_of_kername s in
+    with_default (print_type_name s) (look TT full_cst_name)
+  | TAny => "UnknownType"
+  end.
+
+  Definition print_box_type := print_box_type_aux false.
+  Definition print_ind_box_type := print_box_type_aux true. 
+  Definition print_ctor
+             (TT : env string)
+             (ind_kn : kername)
+             (ty_ctx : list string)
+             (ctor : ident × list (name × box_type)) :=
+    let (nm,tys) := ctor in
+    let nm := print_ctor_name (ind_kn.1, nm) in
+    match tys with
+    | [] => nm
+    | _ => let ctor_type := parens (#|tys| <=? 1) <| concat " * " (map (print_ind_box_type ty_ctx TT ∘ snd) tys)
+           in nm ^ " of " ^ ctor_type
+    end.
+
+  Definition print_proj (TT : env string) (ty_ctx : list string) (proj : ident × box_type) : string :=
+    let (nm, ty) := proj in
+    nm ^ " : " ^ print_ind_box_type ty_ctx TT ty.
+
+  Definition print_type_params (ty_ctx : list string) : string :=
+    if (Nat.eqb #|ty_ctx| 0) then ""
+    else
+      let ps := concat "," (map (print_type_var_name true) ty_ctx) in
+      parens (Nat.eqb #|ty_ctx| 1) ps ^ " ".
+
+  Definition print_type_declaration (nm : string) (ty_ctx : list string) (body : string) : string :=
+    "type " ^ print_type_params ty_ctx ^ nm ^ " = " ^ body.
+  
+  Definition print_inductive (ind_kn : kername) (TT : env string)
+             (oib : ExAst.one_inductive_body) :=
+    let ind_nm := with_default (print_type_name (ind_kn.1, oib.(ExAst.ind_name))) 
+                               (lookup TT oib.(ExAst.ind_name)) in
+    (* a context of type variable names, potentially renamed to avoid clashes *)
+    let '(_, type_params_ctx) := fresh_string_names [] (map tvar_name oib.(ind_type_vars)) in
+    (* one-constructor inductives are interpreted/printed as records *)
+    match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
+    | [build_record_ctor], _::_ =>
+      let '(_, ctors) := build_record_ctor in
+      let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
+      let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj TT type_params_ctx (p.1, ty)) projs_and_ctors in
+      let body :=
+        <$ "{";
+           concat (";" ^ nl) projs_and_ctors_printed;
+           "}" $> in
+      print_type_declaration ind_nm type_params_ctx body
+    | _,_ =>
+        let body :=
+          <$ "";
+             "  " ^ concat "| " (map (fun p => print_ctor TT ind_kn type_params_ctx p ^ nl) oib.(ExAst.ind_ctors)) $> in
+        print_type_declaration ind_nm type_params_ctx body
+    end.
+
+  Definition is_sort (t : Ast.term) :=
+    match t with
+    | Ast.tSort _ => true
+    | _ => false
+    end.
+
+  Definition is_prod (t : Ast.term) :=
+    match t with
+    | Ast.tProd _ _ _ => true
+    | _ => false
+    end.
+
+  Open Scope bool.
+
+  Fixpoint Edecompose_lam (t : term) : (list name) × term :=
+  match t with
+  | tLambda n b =>
+      let (ns, b) := Edecompose_lam b in
+      (n :: ns, b)
+  | _ => ([], t)
+  end.
+
+  Definition lookup_ind_decl ind i :=
+    match ExAst.lookup_env Σ ind with
+    | Some (ExAst.InductiveDecl {| ExAst.ind_bodies := l |}) =>
+      match nth_error l i with
+      | Some body => Some body
+      | None => None
+      end
+    | _ => None
     end.
 
   Definition get_constr_name (ind : inductive) (i : nat) :=
@@ -449,17 +459,24 @@ Section PPTerm.
 
   (** ** The pretty-printer *)
 
-  (**  [TT] - translation table allowing for remapping constants and constructors to CameLIGO primitives, if required.
+  (** [TT] - translation table allowing for remapping constants and constructors to
+  CameLIGO primitives, if required.
 
-      [ctx] - context that gets updated when we go under lambda, let, pattern or fixpoint.
+      [ctx] - context that gets updated when we go under lambda, let, pattern or
+      fixpoint.
+
+      [ty_ctx] - context of type variables. Note that we don't update it, meaning that
+      polymorphic definitions can be only top-level for now. To allow local polymoprhic
+      definitions (not sure whether these are supported in LIGO), we need to update type
+      annotations, so they provide type context as well.
 
       [top,inapp] - flags used to determine how to print parenthesis.
 
-      [t] - a term to be printed.
-   *)
+      [t] - a term to be printed.  *)
 
   Fixpoint print_term (TT : env string)
                       (ctx : context)
+                      (ty_ctx : list string)
                       (top : bool)
                       (inapp : bool)
                       (t : term)
@@ -481,22 +498,22 @@ Section PPTerm.
       let na' := fresh_string_name ctx na in
       let (dom_tys, _) := ExAst.decompose_arr bt in
       let dom_ty := match nth_error dom_tys 0 with
-                    | Some ty => print_box_type TT ty
+                    | Some ty => print_box_type ty_ctx TT ty
                     | None => "LambdaError(NotAnArrowType)"
                     end in
       parens top ("fun (" ++ na' ++ " : "
                           ++ dom_ty ++ ")"
-                          ++ " -> " ++ print_term TT (vass (nNamed na') :: ctx) true false body a)
+                          ++ " -> " ++ print_term TT (vass (nNamed na') :: ctx) ty_ctx true false body a)
     | tLetIn na def body => fun '(bt, (vala, bodya)) =>
       let na' := fresh_string_name ctx na in
       parens top ("let " ++ na' ++
-                        " = " ++ print_term TT ctx true false def vala ++ " in " ++ nl ++
-                        print_term TT (vdef (nNamed na') def :: ctx) true false body bodya)
+                        " = " ++ print_term TT ctx ty_ctx true false def vala ++ " in " ++ nl ++
+                        print_term TT (vdef (nNamed na') def :: ctx) ty_ctx true false body bodya)
     | tApp f l as t => fun '(bt, (fa, la)) =>
-      let apps := rev (app_args_annot (fun '(t; a) => print_term TT ctx false false t a) t (bt, (fa, la))) in
+      let apps := rev (app_args_annot (fun '(t; a) => print_term TT ctx ty_ctx false false t a) t (bt, (fa, la))) in
       let '((b;ba),argas) := Edecompose_app_annot f fa in
       match apps with
-      | [] => print_term TT ctx false true f fa
+      | [] => print_term TT ctx ty_ctx false true f fa
       | _ =>
           match b with
         | tConst c =>
@@ -531,14 +548,14 @@ Section PPTerm.
                   let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
                   let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
                                                           |> concat "; " in
-                  "({" ++ field_decls_printed ++ "}: " ++ print_box_type  TT bt ++ ")"
+                  "({" ++ field_decls_printed ++ "}: " ++ print_box_type ty_ctx TT bt ++ ")"
                 | _,_ => 
                   let nm' := with_default (print_ctor_name (mind.1, nm)) (look TT nm) in
                   (* constructors take a single argument (uncurried), so we wrap the args into a tuple *)
                   parens top (print_uncurried_app nm' apps)
                 end
               end
-        | _ => parens (top || inapp) (print_term TT ctx false true f fa ++ " " ++ print_term TT ctx false false l la)
+        | _ => parens (top || inapp) (print_term TT ctx ty_ctx false true f fa ++ " " ++ print_term TT ctx ty_ctx false false l la)
         end
       end
     | tConst c => fun bt =>
@@ -547,7 +564,7 @@ Section PPTerm.
       (* NOTE: empty maps require type annotations *)
       (* FIXME: this looks ad-hoc and should be controlled in remapping instead *)
       if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
-        "(Map.empty: " ++ print_box_type  TT bt ++ ")"
+        "(Map.empty: " ++ print_box_type ty_ctx TT bt ++ ")"
       else
         nm_tt
     | tConstruct
@@ -560,10 +577,10 @@ Section PPTerm.
         (* NOTE: print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
         (* FIXME: this looks ad-hoc and should be controlled in remapping instead *)
         if (uncapitalize nm =? "nil") && (eq_kername ind.(inductive_mind) <%% list %%>) then
-        "([]:" ++ print_box_type  TT bt ++ ")"
+        "([]:" ++ print_box_type ty_ctx TT bt ++ ")"
         else if ((nm =? "None") && (eq_kername ind.(inductive_mind) <%% option %%>)) ||
              (nm_tt =? "Map.empty") then
-               "(" ++ nm_tt ++ ":" ++ print_box_type  TT bt ++ ")"
+               "(" ++ nm_tt ++ ":" ++ print_box_type ty_ctx TT bt ++ ")"
              else nm_tt
       end
     | tCase (mkInd mind i as ind, nparam) t brs =>
@@ -578,20 +595,20 @@ Section PPTerm.
               (* Assuming all case-branches have been expanded this should never happen: *)
               | t => fun btt => (params , "ERROR: unexpected wildcard branch - currently not supported")
             end
-            | 0 => fun bt => (params , print_term TT ctx false false br bt)
+            | 0 => fun bt => (params , print_term TT ctx ty_ctx false false br bt)
             end in
 
       match brs with
-      | [] => fun '(bt, (ta, trs)) => (parens false ("failwith 0 : " ^ print_box_type  TT bt) ^ " (* absurd case *)")
+      | [] => fun '(bt, (ta, trs)) => (parens false ("failwith 0 : " ^ print_box_type ty_ctx TT bt) ^ " (* absurd case *)")
       | _ =>
         (* [if-then-else] is a special case *)
         if eq_kername mind <%% bool %%> then
           match brs with
           | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
             parens top
-                    ("if " ++ print_term TT ctx true false t ta
-                           ++ " then " ++ print_term TT ctx true false (snd b1) b1a
-                           ++ " else " ++ print_term TT ctx true false (snd b2) b2a)
+                    ("if " ++ print_term TT ctx ty_ctx true false t ta
+                           ++ " then " ++ print_term TT ctx ty_ctx true false (snd b1) b1a
+                           ++ " else " ++ print_term TT ctx ty_ctx true false (snd b2) b2a)
           | _ => fun bt => "Error (Malformed pattern-mathing on bool: given "
                    ++ string_of_nat (List.length brs) ++ " branches " ++ ")"
           end
@@ -615,7 +632,7 @@ Section PPTerm.
                             print_pat TT mind na false b)
                          (nl ++ " | ") brs_ in
            parens top
-                  ("match " ++ print_term TT ctx true false t ta
+                  ("match " ++ print_term TT ctx ty_ctx true false t ta
                             ++ " with " ++ nl
                             ++ brs_printed)
         | None =>
@@ -627,13 +644,13 @@ Section PPTerm.
       match lookup_ind_decl mind i with
       | Some oib =>
         match nth_error oib.(ExAst.ind_projs) k with
-        | Some (na, _) => print_term TT ctx false false c bt.2 ++ "." ++ na
+        | Some (na, _) => print_term TT ctx ty_ctx false false c bt.2 ++ "." ++ na
         | None => "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                  ++ print_term TT ctx true false c bt.2 ++ ")"
+                  ++ print_term TT ctx ty_ctx true false c bt.2 ++ ")"
         end
       | None =>
         "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
-                       ++ print_term TT ctx true false c bt.2 ++ ")"
+                       ++ print_term TT ctx ty_ctx true false c bt.2 ++ ")"
       end
     | tFix [fix_decl] n => fun '(bt, (fixa, _)) => (* NOTE: We assume that the fixpoints are not mutual *)
         let (tys,ret_ty) := decompose_arr bt in
@@ -642,13 +659,13 @@ Section PPTerm.
         let '(args, _) := Edecompose_lam_annot body fixa in
         (* NOTE: adding the fix variable to the context *)
         let ctx := vass (nNamed fix_name) :: ctx in
-        let sret_ty := print_box_type TT ret_ty in
+        let sret_ty := print_box_type ty_ctx TT ret_ty in
         let (ctx, sargs) := fresh_string_names ctx args in
-        let targs := combine sargs (map (print_box_type TT) tys) in
+        let targs := combine sargs (map (print_box_type ty_ctx TT) tys) in
         let sargs_typed := concat " " (map (fun '(x,ty) => parens false (x ++ " : " ++ ty)) targs) in
-        let fix_call := parens false (fix_name ^ " : " ^ print_box_type TT bt) in
+        let fix_call := parens false (fix_name ^ " : " ^ print_box_type ty_ctx TT bt) in
         (* NOTE: we cannot directly use the result of decomposing with [Edecompose_lam_annot] beause the guardedness check cannot see through it  *)
-        let fix_body := lam_body_annot_cont (fun body body_annot => print_term TT ctx true false body body_annot) fix_decl.(dbody) fixa in
+        let fix_body := lam_body_annot_cont (fun body body_annot => print_term TT ctx ty_ctx true false body body_annot) fix_decl.(dbody) fixa in
         parens top ("let rec " ++ fix_name ^ " " ^ sargs_typed ^ " : " ^ sret_ty ^ " = " ^ nl ^
                       fix_body ^ nl ^
                     " in " ^ fix_call)
@@ -671,16 +688,23 @@ Section PPLigo.
   | _,_ => ([], bt)
   end.
 
-  (* INVARIANT: the names are distinct *)
+  (* INVARIANT: the names in the contexts are distinct *)
   Definition print_forall (ty_ctx : list string) : string :=
-    let binders := concat " " ty_ctx in
-    parens false ("type " ++ binders).
+    match ty_ctx with
+    | [] => ""
+    | _ => let binders := concat " " ty_ctx in
+          parens false ("type " ++ binders)
+    end.
 
   Example print_forall_ex :
     let (_, tys) := fresh_string_names [] [nNamed "a"; nNamed "b"; nAnon] in
     print_forall tys = "(type a b a0)".
   Proof. reflexivity. Qed.
-  
+
+  Example print_forall_empty :
+    print_forall [] = "".
+  Proof. reflexivity. Qed.
+
   Definition print_decl
              (TT : env string) (* translation table *)
              (env : ExAst.global_env)
@@ -693,15 +717,19 @@ Section PPLigo.
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
     let (ctx, args) := fresh_string_names [] args in
     let '(ty_ctx, ty) := ty_in_ctx in
+    let '(_, forall_abstractions) := fresh_string_names [] ty_ctx in
     let (tys,res_ty) := decompose_arr_n #|args| ty in
-    let targs := combine args (map (print_box_type TT) tys) in
+    let targs := combine args (map (print_box_type forall_abstractions TT) tys) in
     let printed_targs :=
       map (fun '(x,ty) => parens false (x ^ " : " ^ ty)) targs in
-    let printed_res_ty := print_box_type TT res_ty in
-    let decl := print_const_name decl_kn ^ concat " " printed_targs in
+    let printed_res_ty := print_box_type forall_abstractions TT res_ty in
+    let printed_forall := print_forall forall_abstractions in
+    let decl := print_const_name decl_kn ^ printed_forall ^ " " ^ concat " " printed_targs in
     "let" ^ " " ^ decl ^ " : " ^ printed_res_ty ^ " = " ^ nl
-    ^ wrap (print_term env TT ctx true false lam_body body_annot).
+    ^ wrap (print_term env TT ctx forall_abstractions true false lam_body body_annot).
 
+  (* NOTE: we assume that [init] is not a polymoprhic function, so we use an empty type
+    context when printing types *)
   Definition print_init
              (TT : env string) (* translation table *)
              (build_call_ctx : string) (* a string that corresponds to a call contex *)
@@ -719,18 +747,18 @@ Section PPLigo.
       let ty := cst.(ExAst.cst_type) in
       let (tys,inner_ret_ty) := decompose_arr ty.2 in
       let '(ctx, sargs) := fresh_string_names [] args in
-      let targs_inner := combine sargs (map (print_box_type TT) tys) in
+      let targs_inner := combine sargs (map (print_box_type [] TT) tys) in
       let printed_targs_inner :=
           map (fun '(x,ty) => parens false (x ++ " : " ++ ty)) targs_inner in
       let decl_inner := "inner " ++ concat " " printed_targs_inner in
-      let printed_inner_ret_ty := print_box_type TT inner_ret_ty in
+      let printed_inner_ret_ty := print_box_type [] TT inner_ret_ty in
       let printed_outer_ret_ty :=
         match inner_ret_ty with
         | TApp (TInd ind) t1 =>
           if eq_kername <%% option %%> ind.(inductive_mind) then
-            print_box_type TT t1
-          else print_box_type TT inner_ret_ty
-        | _ => print_box_type TT inner_ret_ty
+            print_box_type [] TT t1
+          else print_box_type [] TT inner_ret_ty
+        | _ => print_box_type [] TT inner_ret_ty
         end in
       let wrap t :=
         "match " ++ t ++ " with" ++ nl ++
@@ -738,7 +766,7 @@ Section PPLigo.
         "| None -> (failwith (""""): " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
-                ++ print_term env TT ctx true false lam_body body_annot
+                ++ print_term env TT ctx [] true false lam_body body_annot
                 ++ " in" in
       (* if init takes no parameters, we give it a unit parameter  *)
       let printed_targs_outer := match printed_targs_inner with
@@ -755,7 +783,7 @@ Section PPLigo.
         match tys with
         | _::[] => "unit"
         | [] => "unit"
-        | _::_ => tl tys |> map (print_box_type TT)
+        | _::_ => tl tys |> map (print_box_type [] TT)
                          |> concat " * "
       end in
       let init_wrapper_args_printed tys :=
@@ -797,7 +825,7 @@ Section PPLigo.
                                               | None => unit
                                               end -> option string with
     | Some cst_body => fun annot =>
-      Some <| print_decl TT env kn id cst.(ExAst.cst_type) cst_body annot
+      Some (print_decl TT env kn id cst.(ExAst.cst_type) cst_body annot)
     | None => fun _ => None
     end.
 
@@ -825,9 +853,11 @@ Section PPLigo.
       | [oib] => TyDecl (nm, print_inductive nm TT oib)
       | _ => TyDecl (nm,"Only non-mutual inductives are supported; " ++ string_of_kername nm)
       end
-    | TypeAliasDecl (Some (params, ty)) => fun annot =>
-      let ta_nm := with_default (print_type_name nm) (lookup TT (string_of_kername nm)) in
-      TyDecl (nm, print_type_declaration ta_nm params (print_box_type TT ty))
+    | TypeAliasDecl (Some (params, ty)) =>
+        fun annot =>
+          let ta_nm := with_default (print_type_name nm) (lookup TT (string_of_kername nm)) in
+          let (_,ty_ctx) := fresh_string_names [] (map tvar_name params) in
+      TyDecl (nm, print_type_declaration ta_nm ty_ctx (print_box_type ty_ctx TT ty))
     | TypeAliasDecl None => fun _ => TyDecl (nm, "")
   end.
 

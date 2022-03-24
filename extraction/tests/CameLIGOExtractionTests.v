@@ -29,17 +29,24 @@ Module FoldLeft.
       | b :: t => foldL t (f a0 b)
       end.
 
-  Definition sum (xs : list nat) := foldL Nat.add xs 0.
+  Fixpoint foldLAlt {A B : Type} (f : A -> B -> A) (l : list B) (a0 : A) : A :=
+      match l with
+      | [] => a0
+      | b :: t => foldLAlt f t (f a0 b)
+      end.
+
+
+  Definition sum (xs : list nat) := foldLAlt Nat.add xs 0.
 
   Definition harness : string :=
-    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some (sum ([1,2,3])))".
+    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some (sum ([1n;2n;3n])))".
 
   Time MetaCoq Run
        (t <- CameLIGO_extract_single
               []
               []
               TT_rename_ctors_default
-              ""
+              "let addN (n : nat) (m : nat) = n + m"
               harness
               sum ;;
         tmDefinition "cameligo_sum" t).
