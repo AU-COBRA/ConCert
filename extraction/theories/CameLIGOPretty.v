@@ -155,10 +155,16 @@ Section PPTerm.
       ; "sender"
     ].
 
+  (* NOTE: We should probably add more validation rules *)
+  Definition ligo_valid_type_var (tv : string) : bool :=
+    match String.index 0 "'" tv with
+    | Some _ => false
+    | None => true
+    end.
+
   Definition is_fresh (Γ : context) (id : ident) :=
     negb (is_reserved_name id ligo_reserved_names)
-    &&
-    List.forallb
+    && List.forallb
       (fun decl =>
          match decl.(decl_name) with
          | nNamed id' =>
@@ -197,9 +203,12 @@ Section PPTerm.
               end
     in
     let id := uncapitalize id in
-    if is_fresh ctx id then id
-    else fresh_id_from ctx (List.length ctx) id.
-
+    if ligo_valid_type_var id then
+      if is_fresh ctx id then id
+      else
+        fresh_id_from ctx (List.length ctx) id
+    else fresh_id_from ctx (List.length ctx) "a".
+  
   Fixpoint fresh_string_names (Γ : context) (vs : list name) : context * list string :=
     match vs with
     | [] => (Γ, [])
@@ -278,7 +287,7 @@ Section PPTerm.
     else
       let ps := concat "," (map (print_type_var_name true) ty_ctx) in
       parens (Nat.eqb #|ty_ctx| 1) ps ^ " ".
-
+  
   Definition print_type_declaration (nm : string) (ty_ctx : list string) (body : string) : string :=
     "type " ^ print_type_params ty_ctx ^ nm ^ " = " ^ body.
   

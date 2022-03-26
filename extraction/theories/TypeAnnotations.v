@@ -50,31 +50,43 @@ Section annotate.
   Proof. all: now depelim wf. Qed.
 
 
+  (** Determines whether a type var should be created on the base of [last_var_level].
+      Returns the corresponding entry of [tRel_kind] and the next type var level. *)
   Definition type_flag_to_tRel_kind {Γ T}
-             (tf : type_flag Σ Γ T) (var_l : nat) : tRel_kind :=
+             (tf : type_flag Σ Γ T)
+             (last_var_level : option nat) : tRel_kind * option nat :=
     match tf with
     | {| is_logical := false; conv_ar := inl _ |} =>
         (* non-logical arity becomes a type var *)
-        RelTypeVar var_l
-    | _ => RelOther
+        match last_var_level with
+        | Some last_vl =>
+            let next_vl := 1 + last_vl in
+            (RelTypeVar next_vl, Some next_vl)
+        | None => (RelTypeVar 0, Some 0)
+        end
+    | _ => (RelOther, last_var_level)
     end.
 
-
+  (** Traverse the erased context to get the last type variable level (the last one was
+      added on top of the context, so it's the first hit.) *)
+  Equations get_last_type_var {n} (vs : Vector.t Erasure.tRel_kind n) : option nat :=
+    get_last_type_var []%vector := None;
+    get_last_type_var (RelTypeVar i :: _)%vector := Some i;
+    get_last_type_var (_ :: vs0)%vector := get_last_type_var vs0.
 
   Equations? (noeqns) context_to_erased
            (Γ0 : context)
-           (var_ind : nat)
+           (var_level : option nat)
            (mfix : list (def term))
            (wt : Forall (fun d => ∥ isType Σ Γ0 (dtype d) ∥) mfix) : Vector.t tRel_kind #|mfix| :=
     context_to_erased _ _ [] _ := []%vector;
-    context_to_erased Γ0 vi (d :: Γ1) _ :=
-      let i := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ0 (dtype d) _) (#|Γ0| + vi) in
-      (i :: context_to_erased Γ0 (1+vi) Γ1 _)%vector.
+    context_to_erased Γ0 vl (d :: Γ1) _ :=
+      let '(i, next_vl) := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ0 (dtype d) _) vl in
+      (i :: context_to_erased Γ0 next_vl Γ1 _)%vector.
   Proof.
     - inversion wt;subst;eauto.
-    - subst i. inversion wt;subst;eauto.
+    - inversion wt;subst;eauto.
   Qed.
-
 
   Equations? (noeqns) annotate_defs
            Γ
@@ -105,7 +117,12 @@ Program Definition erase_type_of Γ erΓ t (wt : welltyped Σ Γ t) : box_type :
   if conv_ar flag then
     TBox
   else
-    (erase_type_aux Σ wfextΣ Γ erΓ ty _ None).2.
+    let next_type_var :=
+      match get_last_type_var erΓ with
+      | Some tv => 1 + tv
+      | None => 0
+      end in
+    (erase_type_aux Σ wfextΣ Γ erΓ ty _ (Some next_type_var)).2.
 Next Obligation.
   destruct wfextΣ as [[]].
   now constructor.
@@ -165,9 +182,9 @@ induction l.
 Defined.
 
 Definition rev_mapi_app_length {A B} {f : nat -> A -> B} (l1 : list A) (l2 : list B) :
-  #|l1| + #|l2| = #|List.rev (mapi f l1) ++ l2|.
+  #|List.rev l1| + #|l2| = #|List.rev (mapi f l1) ++ l2|.
 transitivity (#|List.rev (mapi f l1)| + #|l2|).
-rewrite rev_length_transparent.
+repeat rewrite rev_length_transparent.
 unfold mapi. rewrite mapi_length_transparent;reflexivity.
 apply app_length_transparent.
 Defined.
@@ -190,23 +207,29 @@ annot bt (E.tRel _) _ _ _ => bt;
 annot bt (E.tVar _) _ _ _ => bt;
 annot bt (E.tEvar _ ets) t wt er => !;
 annot bt (E.tLambda na eB) (tLambda na' A B) wt er =>
-  let erΓ1 := (type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ A _) #|Γ| :: erΓ)%vector in
+  let last_vl := get_last_type_var erΓ in
+  let (i, _) := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ A _) last_vl in
+  let erΓ1 := (i :: erΓ)%vector in
   (bt, annotate_types (Γ,, vass na' A) erΓ1 B _ eB _);
 annot bt (E.tLetIn na eb eb') (tLetIn na' b ty b') wt er =>
-  let erΓ1 := (type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ ty _) #|Γ| :: erΓ)%vector in
-  (bt, (annotate_types Γ _ b _ eb _, annotate_types (Γ,, vdef na' b ty) erΓ1 b' _ eb' _));
+  let last_vl := get_last_type_var erΓ in
+  let (i, _) := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ ty _) last_vl in
+  let erΓ1 := (i :: erΓ)%vector in
+  (bt, (annotate_types Γ erΓ b _ eb _, annotate_types (Γ,, vdef na' b ty) erΓ1 b' _ eb' _));
 annot bt (E.tApp ehd earg) (tApp hd arg) wt er =>
-  (bt, (annotate_types Γ _ hd _ ehd _, annotate_types Γ _ arg _ earg _));
+  (bt, (annotate_types Γ erΓ hd _ ehd _, annotate_types Γ erΓ arg _ earg _));
 annot bt (E.tConst _) _ wt er => bt;
 annot bt (E.tConstruct _ _) _ wt er => bt;
 annot bt (E.tCase _ ediscr ebrs) (tCase _ _ discr brs) wt er =>
-  (bt, (annotate_types Γ _ discr _ ediscr _, annotate_branches annotate_types Γ erΓ brs ebrs _));
+  (bt, (annotate_types Γ erΓ discr _ ediscr _, annotate_branches annotate_types Γ erΓ brs ebrs _));
 annot bt (E.tProj _ et) (tProj _ t) wt er => (bt, annotate_types Γ erΓ t _ et _);
 annot bt (E.tFix edefs _) (tFix defs _) wt er =>
-  let erΓ1 := Vector.append (context_to_erased Γ 0 defs _) erΓ in
+  let last_vl := get_last_type_var erΓ in
+  let erΓ1 := Vector.append (context_to_erased Γ last_vl (List.rev defs) _) erΓ in
   (bt, annotate_defs annotate_types (Γ,,, fix_context defs) (VectorEq.cast erΓ1 (rev_mapi_app_length _ _)) defs edefs _);
 annot bt (E.tCoFix edefs _) (tCoFix defs _) wt er =>
-  let erΓ1 := Vector.append (context_to_erased Γ 0 defs _) erΓ in
+  let last_vl := get_last_type_var erΓ in
+  let erΓ1 := Vector.append (context_to_erased Γ last_vl (List.rev defs) _) erΓ in
   (bt, annotate_defs annotate_types (Γ,,, fix_context defs) (VectorEq.cast erΓ1 (rev_mapi_app_length _ _)) defs edefs _);
 annot bt _ _ wt er => !
 }.
@@ -219,13 +242,13 @@ Proof.
     now apply inversion_Evar in X.
   - apply inversion_Lambda in X as (? & ? & ? & ? & ?); auto.
     constructor;econstructor; eauto.
-  - apply inversion_Lambda in t0 as (? & ? & ? & ? & ?); auto.
+  - apply inversion_Lambda in X as (? & ? & ? & ? & ?); auto.
     econstructor; eauto.
   - apply inversion_LetIn in X as (?&?&?&?&?&?); auto.
     constructor;econstructor; eauto.
-  - apply inversion_LetIn in t0 as (?&?&?&?&?&?); auto.
+  - apply inversion_LetIn in X as (?&?&?&?&?&?); auto.
     econstructor; eauto.
-  - apply inversion_LetIn in t0 as (?&?&?&?&?&?); auto.
+  - apply inversion_LetIn in X as (?&?&?&?&?&?); auto.
     econstructor; eauto.
   - apply inversion_App in X as (?&?&?&?&?&?); auto.
     econstructor; eauto.
@@ -248,6 +271,7 @@ Proof.
   - apply inversion_Proj in X as (?&?&?&?&?&?&?&?&?); auto.
     econstructor; eauto.
   - apply inversion_Fix in X as (?&?&?&?&?&?&?); auto.
+    apply rev_Forall.
     apply All_Forall.
     eapply All_impl. apply a.
     intros. cbn in *;now constructor.
@@ -266,6 +290,7 @@ Proof.
     split; [|now auto].
     econstructor; eauto.
   - apply inversion_CoFix in X as (?&?&?&?&?&?&?); auto.
+    apply rev_Forall.
     apply All_Forall.
     eapply All_impl. apply a.
     intros. cbn in *;now constructor.

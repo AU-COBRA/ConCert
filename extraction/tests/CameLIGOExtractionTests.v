@@ -22,6 +22,9 @@ Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
 
 Module FoldLeft.
 
+  (** We test how the annotation machinery passes the context with erased variables to
+      the annotate the type of the fixpoint, which doesn't abstract over the type
+      parameters itself. *)
   Definition foldL {A B : Type} (f : A -> B -> A) : list B -> A -> A :=
     fix foldL (l : list B) (a0 : A) {struct l} : A :=
       match l with
@@ -29,17 +32,10 @@ Module FoldLeft.
       | b :: t => foldL t (f a0 b)
       end.
 
-  Fixpoint foldLAlt {A B : Type} (f : A -> B -> A) (l : list B) (a0 : A) : A :=
-      match l with
-      | [] => a0
-      | b :: t => foldLAlt f t (f a0 b)
-      end.
+  Definition sum (xs : list nat) := foldL Nat.add xs 0.
 
-
-  Definition sum (xs : list nat) := foldLAlt Nat.add xs 0.
-
-  Definition harness : string :=
-    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some (sum ([1n;2n;3n])))".
+  Definition harness (sum_func : string) : string :=
+    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some ( " ++ sum_func ++ "([1n;2n;3n])))".
 
   Time MetaCoq Run
        (t <- CameLIGO_extract_single
@@ -47,13 +43,39 @@ Module FoldLeft.
               []
               TT_rename_ctors_default
               "let addN (n : nat) (m : nat) = n + m"
-              harness
+              (harness "sum")
               sum ;;
         tmDefinition "cameligo_sum" t).
 
     (** Extraction results in fully functional CameLIGO code *)
-    (* Redirect "tests/extracted-code/cameligo-extract/SafeHead.mligo" *)
+    Redirect "tests/extracted-code/cameligo-extract/FoldL.mligo"
     MetaCoq Run (tmMsg cameligo_sum).
+
+  (** This definition is different from [foldL]. The type abstractions are part of the
+      fixpoint, and not binded by lambdas. Therefore, the type parameters are not
+      eliminated by optimisations. We test here another property, however, namely, how
+      the annotation machinery handles polymophism when the node has a polymoprhic type. *)
+  Fixpoint foldLAlt {A B : Type} (f : A -> B -> A) (l : list B) (a0 : A) : A :=
+      match l with
+      | [] => a0
+      | b :: t => foldLAlt f t (f a0 b)
+      end.
+
+  Definition sumAlt (xs : list nat) := foldLAlt Nat.add xs 0.
+
+    Time MetaCoq Run
+       (t <- CameLIGO_extract_single
+              []
+              []
+              TT_rename_ctors_default
+              "let addN (n : nat) (m : nat) = n + m"
+              (harness "sumAlt")
+              sumAlt ;;
+        tmDefinition "cameligo_sumAlt" t).
+
+    (** Extraction results in fully functional CameLIGO code *)
+    Redirect "tests/extracted-code/cameligo-extract/FoldLAlt.mligo"
+    MetaCoq Run (tmMsg cameligo_sumAlt).
 
 End FoldLeft.
 

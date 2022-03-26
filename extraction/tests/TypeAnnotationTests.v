@@ -43,7 +43,7 @@ Section printing.
     | tRel i => fun bt => print_name (nth i Γ nAnon) ^ " : " ^ print_box_type bt
     | tLambda na body =>
       fun '(bt, a) =>
-        "(" ^ print_name na ^ " -> (" ^ print_term_annotated (na :: Γ) body a ^ ")) : "
+        "(λ " ^ print_name na ^ " -> (" ^ print_term_annotated (na :: Γ) body a ^ ")) : "
         ^ print_box_type bt
     | tLetIn na val body =>
       fun '(bt, (vala, bodya)) =>
@@ -119,7 +119,7 @@ Module ex2.
 
   Example test_no_opt :
     extract_no_opt ex =
-    "(((proj1_sig : □ → □ → sig 𝕋 □ → 𝕋) (□ : □) : □ → sig nat □ → nat) (□ : □) : sig nat □ → nat) (foo : sig nat □) : nat".
+    "(((proj1_sig : □ → □ → sig 'a0 □ → 'a0) (□ : □) : □ → sig nat □ → nat) (□ : □) : sig nat □ → nat) (foo : sig nat □) : nat".
   Proof. vm_compute. reflexivity. Qed.
 
   Example test_opt :
@@ -140,7 +140,7 @@ Module ex3.
 
   Example test_opt :
     extract_opt ex =
-    "(foo : (□ → nat → nat) → nat) ((_ -> (bar : nat → nat)) : □ → nat → nat) : nat".
+    "(foo : (□ → nat → nat) → nat) ((λ _ -> (bar : nat → nat)) : □ → nat → nat) : nat".
   Proof. vm_compute. reflexivity. Qed.
 End ex3.
 
@@ -149,7 +149,7 @@ Module ex4.
   MetaCoq Quote Recursively Definition ex := foo.
 
   Example test_no_opt :
-    extract_no_opt ex = "(None : □ → option 𝕋) (□ : □) : option nat".
+    extract_no_opt ex = "(None : □ → option 'a0) (□ : □) : option nat".
   Proof. vm_compute. reflexivity. Qed.
 
   Example test_opt :
@@ -162,10 +162,34 @@ Module ex5.
   MetaCoq Quote Recursively Definition ex := foo.
 
   Example test_no_opt :
-    extract_no_opt ex = "(((cons : □ → 𝕋 → list 𝕋 → list 𝕋) (□ : □) : nat → list nat → list nat) (O : nat) : list nat → list nat) ((nil : □ → list 𝕋) (□ : □) : list nat) : list nat".
+    extract_no_opt ex = "(((cons : □ → 'a0 → list 'a0 → list 'a0) (□ : □) : nat → list nat → list nat) (O : nat) : list nat → list nat) ((nil : □ → list 'a0) (□ : □) : list nat) : list nat".
   Proof. vm_compute. reflexivity. Qed.
 
   Example test_opt :
     extract_opt ex = "((cons : nat → list nat → list nat) (O : nat) : list nat → list nat) (nil : list nat) : list nat".
   Proof. vm_compute. reflexivity. Qed.
 End ex5.
+
+Module ex6.
+  Definition poly_func {A0 A1 : Set} (a : A0) (b : A1) : A1 :=
+    let inner (a : A0) : A1 := b in
+    inner a.
+
+  MetaCoq Quote Recursively Definition ex := @poly_func.
+
+  Example test_no_opt :
+    extract_no_opt ex =
+      "(λ A0 -> ((λ A1 -> ((λ a -> ((λ b -> " ^
+        "((let inner := ((λ a -> (b : 'a1)) : 'a0 → 'a1) in" ^ nl ^
+          "(inner : 'a0 → 'a1) (a : 'a0) : 'a1) : 'a1)) : 'a1 → 'a1)) : 'a0 → 'a1 → 'a1))" ^
+            " : □ → 'a0 → 'a1 → 'a1)) : □ → □ → 'a0 → 'a1 → 'a1".
+  Proof. vm_compute. reflexivity. Qed.
+
+  Example test_opt :
+    extract_opt ex =
+      "(λ a -> ((λ b -> " ^
+        "((let inner := ((λ a -> (b : 'a1)) : 'a0 → 'a1) in" ^ nl ^
+          "(inner : 'a0 → 'a1) (a : 'a0) : 'a1) : 'a1)) : 'a1 → 'a1)) : 'a0 → 'a1 → 'a1".
+  Proof. vm_compute. reflexivity. Qed.
+
+End ex6.
