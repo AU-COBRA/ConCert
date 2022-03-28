@@ -36,6 +36,8 @@ Module EscrowCameLIGOExtraction.
     ; ("tt", "()")
     ].
 
+  Definition TT_remap_ligo : list (kername * string) := [ remap <%% subAmountOption %%> "subTez" ].
+  
   Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext (Setup * Chain) State ActionBody :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_escrow" ;
@@ -78,11 +80,11 @@ Module EscrowCameLIGOExtraction.
     ].
 
   Time MetaCoq Run
-  (CameLIGO_prepare_extraction to_inline [] TT_rename_ligo [] "cctx_instance" ESCROW_MODULE_LIGO).
+  (CameLIGO_prepare_extraction to_inline TT_remap_ligo TT_rename_ligo [] "cctx_instance" ESCROW_MODULE_LIGO).
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo"
+  (* Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo" *)
   MetaCoq Run (tmMsg cameLIGO_escrow).
 
 End EscrowCameLIGOExtraction.
@@ -216,13 +218,13 @@ Module EscrowLiquidityExtraction.
 
   Import MonadNotation.
 
-  Time MetaCoq Run
-      (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
-        tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
-      ).
+  (* Time MetaCoq Run *)
+  (*     (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;; *)
+  (*       tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t *)
+  (*     ). *)
 
-  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq"
-  MetaCoq Run (tmMsg liquidity_escrow).
+  (* (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *) *)
+  (* Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq" *)
+  (* MetaCoq Run (tmMsg liquidity_escrow). *)
 
 End EscrowLiquidityExtraction.

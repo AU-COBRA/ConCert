@@ -6,7 +6,7 @@ Inductive box_type :=
 | TAny
 | TArr (dom : box_type) (codom : box_type)
 | TApp (_ : box_type) (_ : box_type)
-| TVar (_ : nat) (* Index of type variable *)
+| TVar (_ : nat) (* Level of type variable *)
 | TInd (_ : inductive)
 | TConst (_ : kername).
 

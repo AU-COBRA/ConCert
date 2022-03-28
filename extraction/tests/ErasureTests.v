@@ -1,4 +1,4 @@
-From ConCert.Extraction Require Import Erasure.
+From ConCert.Extraction Require Import Erasure TypeAnnotations.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Utils Require Import StringExtra.
 From MetaCoq.PCUIC Require Import PCUICAst.
@@ -349,7 +349,72 @@ Example ex27_test :
   erase_and_print_type id ex27 = ("", "idT nat → idT nat").
 Proof. vm_compute. reflexivity. Qed.
 
+(* the type of [proj1_sig] *)
+MetaCoq Quote Recursively Definition ex28 := (forall (A : Type) (P : A -> Prop), {x : A | P x} -> A).
+Example ex28_test :
+  erase_and_print_type id ex28 =
+    ("A", "□ → □ → sig A □ → A").
+Proof. vm_compute. reflexivity. Qed.
+
+
 End erase_type_tests.
+
+
+Import PCUICSafeRetyping.
+
+Program Definition type_of_program (p : Ast.program) : term :=
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
+  type_of (empty_ext Σ) _ _ [] (trans p.2) _.
+Next Obligation.  Admitted.
+Next Obligation.  Admitted.
+Next Obligation.  Admitted.
+
+
+Program Definition erase_type_of_program (p : Ast.program) : P.global_env * box_type :=
+  let p := fix_program_universes p in
+  let Σ := trans_global_decls p.1 in
+  (Σ, erase_type_of (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _).
+Next Obligation.  Admitted.
+Next Obligation.  Admitted.
+
+Definition erase_and_print_type_of
+           {cf : checker_flags}
+           (after_erasure : box_type -> box_type)
+           (p : Ast.program) : string :=
+  let '(Σ, bt) :=  erase_type_of_program p in
+  (erase_type_tests.print_box_type Σ [] bt).
+
+Program Definition erase_type_program' (p : Ast.global_env * P.term) : P.global_env * ((list name) * box_type) :=
+  let Σ := trans_global_decls p.1 in
+  (Σ, erase_type_aux (empty_ext Σ) _ [] (Vector.nil _) p.2 _ (Some 0)).
+Next Obligation.  Admitted.
+Next Obligation.  Admitted.
+
+
+Fixpoint foldLAlt {A B : Type} (f : A -> B -> A) (l : list B) (a0 : A) : A :=
+      match l with
+      | [] => a0
+      | b :: t => foldLAlt f t (f a0 b)
+      end.
+
+MetaCoq Quote Recursively Definition ex28 := @foldLAlt.
+
+Compute type_of_program ex28.
+Compute match erase_type_program' (ex28.1, type_of_program ex28) with
+        | (Σ, bt) => erase_type_tests.print_box_type Σ bt.1 bt.2
+        end.
+
+Definition poly_func {A B : Set} (a : A) (b : B) : A :=
+    let inner {B : Set} (b : B) : A := a in
+    inner b.
+
+MetaCoq Quote Recursively Definition blah := @poly_func.
+
+Compute type_of_program blah.
+Compute erase_type_of_program blah.
+Compute erase_and_print_type_of id blah.
+
 
 Module erase_ind_arity_tests.
 Program Definition erase_arity_program (p : Ast.program) : list type_var_info :=

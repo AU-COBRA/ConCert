@@ -306,11 +306,11 @@ Module LiquidityInterp.
        ).
 
   (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
-  Print liquidity_interp.
+  MetaCoq Run (tmMsg liquidity_interp).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  (* Redirect "../extraction/tests/extracted-code/liquidity-extract/StackInterpreter.liq" *)
-  (* MetaCoq Run (tmMsg liquidity_interp). *)
+  Redirect "../extraction/tests/extracted-code/liquidity-extract/StackInterpreter.liq"
+  MetaCoq Run (tmMsg liquidity_interp).
 
 End LiquidityInterp.
 
@@ -385,7 +385,7 @@ Module CameLIGOInterp.
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
-    Print cameligo_interp.
+    MetaCoq Run (tmMsg cameligo_interp).
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
     Redirect "../extraction/tests/extracted-code/cameligo-extract/StackInterpreter.mligo"
     MetaCoq Run (tmMsg cameligo_interp).

@@ -34,32 +34,75 @@ Proof. now sq. Qed.
 Section annotate.
   Context {A : Type}.
   Context (annotate_types :
-             forall Γ t (Ht : welltyped Σ Γ t) et (er : erases Σ Γ t et), annots A et).
+             forall Γ (erΓ : Vector.t tRel_kind #|Γ|) t (Ht : welltyped Σ Γ t) et (er : erases Σ Γ t et), annots A et).
 
   Equations? (noeqns) annotate_branches
            Γ
+           (erΓ : Vector.t tRel_kind #|Γ|)
            (brs : list (nat × term))
            (ebrs : list (nat × E.term))
            (wf : Forall2 (fun '(_, t) '(_, et) => welltyped Σ Γ t /\ erases Σ Γ t et) brs ebrs)
     : bigprod (annots A ∘ snd) ebrs by struct ebrs :=
-    annotate_branches Γ _ [] _ := tt;
-    annotate_branches Γ ((_, t) :: brs) ((_, et) :: ebrs) wf :=
-      (annotate_types Γ t _ et _, annotate_branches Γ brs ebrs _);
-    annotate_branches _ _ _ _ := !.
+    annotate_branches Γ _ _ [] _ := tt;
+    annotate_branches Γ _ ((_, t) :: brs) ((_, et) :: ebrs) wf :=
+      (annotate_types Γ _ t _ et _, annotate_branches Γ _ brs ebrs _);
+    annotate_branches _ _ _ _ _ := !.
   Proof. all: now depelim wf. Qed.
+
+
+  (** Determines whether a type var should be created on the base of [last_var_level].
+      Returns the corresponding entry of [tRel_kind] and the next type var level. *)
+  Definition type_flag_to_tRel_kind {Γ T}
+             (tf : type_flag Σ Γ T)
+             (last_var_level : option nat) : tRel_kind * option nat :=
+    match tf with
+    | {| is_logical := false; conv_ar := inl _ |} =>
+        (* non-logical arity becomes a type var *)
+        match last_var_level with
+        | Some last_vl =>
+            let next_vl := 1 + last_vl in
+            (RelTypeVar next_vl, Some next_vl)
+        | None => (RelTypeVar 0, Some 0)
+        end
+    | _ => (RelOther, last_var_level)
+    end.
+
+  (** Traverse the erased context to get the last type variable level (the last one was
+      added on top of the context, so it's the first hit.) *)
+  Equations get_last_type_var {n} (vs : Vector.t Erasure.tRel_kind n) : option nat :=
+    get_last_type_var []%vector := None;
+    get_last_type_var (RelTypeVar i :: _)%vector := Some i;
+    get_last_type_var (_ :: vs0)%vector := get_last_type_var vs0.
+
+  Equations? (noeqns) context_to_erased
+           (Γ0 : context)
+           (var_level : option nat)
+           (mfix : list (def term))
+           (wt : Forall (fun d => ∥ isType Σ Γ0 (dtype d) ∥) mfix) : Vector.t tRel_kind #|mfix| :=
+    context_to_erased _ _ [] _ := []%vector;
+    context_to_erased Γ0 vl (d :: Γ1) _ :=
+      let '(i, next_vl) := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ0 (dtype d) _) vl in
+      (i :: context_to_erased Γ0 next_vl Γ1 _)%vector.
+  Proof.
+    - inversion wt;subst;eauto.
+    - inversion wt;subst;eauto.
+  Qed.
 
   Equations? (noeqns) annotate_defs
            Γ
+           (erΓ : Vector.t tRel_kind #|Γ|)
            (defs : list (def term))
            (edefs : list (E.def E.term))
            (wf : Forall2 (fun d ed => welltyped Σ Γ (dbody d) /\ erases Σ Γ (dbody d) (E.dbody ed))
                          defs edefs)
     : bigprod (annots A ∘ E.dbody) edefs by struct edefs :=
-    annotate_defs Γ _ [] _ := tt;
-    annotate_defs Γ (d :: defs) (ed :: edefs) wf :=
-      (annotate_types Γ (dbody d) _ (E.dbody ed) _, annotate_defs Γ defs edefs _);
-    annotate_defs _ _ _ _ := !.
-  Proof. all: now depelim wf. Qed.
+    annotate_defs Γ _ _ [] _ := tt;
+    annotate_defs Γ _ (d :: defs) (ed :: edefs) wf :=
+      (annotate_types Γ erΓ (dbody d) _ (E.dbody ed) _, annotate_defs Γ erΓ defs edefs _);
+    annotate_defs _ _ _ _ _ := !.
+  Proof.
+    all: now depelim wf.
+  Qed.
 End annotate.
 
 Fixpoint vec_repeat {A} (a : A) (n : nat) : Vector.t A n :=
@@ -68,13 +111,18 @@ Fixpoint vec_repeat {A} (a : A) (n : nat) : Vector.t A n :=
   | S n => (a :: vec_repeat a n)%vector
   end.
 
-Program Definition erase_type_of Γ t (wt : welltyped Σ Γ t) : box_type :=
+Program Definition erase_type_of Γ erΓ t (wt : welltyped Σ Γ t) : box_type :=
   let ty := type_of Σ wfΣ _ Γ t wt in
   let flag := flag_of_type Σ wfextΣ Γ ty _ in
   if conv_ar flag then
     TBox
   else
-    (erase_type_aux Σ wfextΣ Γ (vec_repeat RelOther #|Γ|) ty _ None).2.
+    let next_type_var :=
+      match get_last_type_var erΓ with
+      | Some tv => 1 + tv
+      | None => 0
+      end in
+    (erase_type_aux Σ wfextΣ Γ erΓ ty _ (Some next_type_var)).2.
 Next Obligation.
   destruct wfextΣ as [[]].
   now constructor.
@@ -95,13 +143,60 @@ Next Obligation.
   eapply validity_term in typ; eauto using sq.
 Qed.
 
+Lemma Forall_mapi:
+  forall {A B : Type} {n} (P : B -> Prop) (f : nat -> A -> B)
+    (l : list A),
+  Forall ( fun x => forall i : nat, P (f i x)) l ->
+  Forall P (mapi_rec f l n).
+Proof.
+  intros A B n P f l H.
+  revert dependent n.
+  induction l; intros n.
+  - constructor.
+  - cbn. inversion H;subst. constructor;auto.
+Qed.
+
+Definition app_length_transparent {A} (l1 l2 : list A) :
+  #|l1| + #|l2| = #|l1 ++ l2|.
+induction l1.
+- reflexivity.
+- cbn. now rewrite IHl1.
+Defined.
+
+Definition mapi_length_transparent {A B} {f : nat -> A -> B} (l : list A) : forall n, #|mapi_rec f l n| = #|l|.
+induction l;intros.
+- reflexivity.
+- cbn. now rewrite IHl.
+Defined.
+
+Definition Sn_plus_one_transparent {n} : S n = n + 1.
+now induction n. Defined.
+
+(* NOTE: borrowed from metacoq's MCList. There it's defined for some other [rev] *)
+Definition rev_length_transparent {A} (l : list A) :
+  #|List.rev l| = #|l|.
+induction l.
+  - reflexivity.
+  - cbn. rewrite <- app_length_transparent.
+    cbn. rewrite IHl. symmetry. apply Sn_plus_one_transparent.
+Defined.
+
+Definition rev_mapi_app_length {A B} {f : nat -> A -> B} (l1 : list A) (l2 : list B) :
+  #|List.rev l1| + #|l2| = #|List.rev (mapi f l1) ++ l2|.
+transitivity (#|List.rev (mapi f l1)| + #|l2|).
+repeat rewrite rev_length_transparent.
+unfold mapi. rewrite mapi_length_transparent;reflexivity.
+apply app_length_transparent.
+Defined.
+
 Equations? (noeqns) annotate_types
          (Γ : context)
+         (erΓ : Vector.t tRel_kind #|Γ|)
          (t : term) (wt : welltyped Σ Γ t)
          (et : E.term)
          (er : erases Σ Γ t et) : annots box_type et by struct et :=
 (* For some reason 'with' hangs forever so we need 'where' here *)
-annotate_types Γ t wt et er := annot (erase_type_of Γ t wt) et t wt er
+annotate_types Γ erΓ t wt et er := annot (erase_type_of Γ erΓ t wt) et t wt er
 where annot
         (bt : box_type)
         (et : E.term)
@@ -111,30 +206,46 @@ annot bt E.tBox _ _ _ => bt;
 annot bt (E.tRel _) _ _ _ => bt;
 annot bt (E.tVar _) _ _ _ => bt;
 annot bt (E.tEvar _ ets) t wt er => !;
-annot bt (E.tLambda na eB) (tLambda na' A B) wt er => (bt, annotate_types (Γ,, vass na' A) B _ eB _);
+annot bt (E.tLambda na eB) (tLambda na' A B) wt er =>
+  let last_vl := get_last_type_var erΓ in
+  let (i, _) := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ A _) last_vl in
+  let erΓ1 := (i :: erΓ)%vector in
+  (bt, annotate_types (Γ,, vass na' A) erΓ1 B _ eB _);
 annot bt (E.tLetIn na eb eb') (tLetIn na' b ty b') wt er =>
-  (bt, (annotate_types Γ b _ eb _, annotate_types (Γ,, vdef na' b ty) b' _ eb' _));
+  let last_vl := get_last_type_var erΓ in
+  let (i, _) := type_flag_to_tRel_kind (flag_of_type Σ wfextΣ Γ ty _) last_vl in
+  let erΓ1 := (i :: erΓ)%vector in
+  (bt, (annotate_types Γ erΓ b _ eb _, annotate_types (Γ,, vdef na' b ty) erΓ1 b' _ eb' _));
 annot bt (E.tApp ehd earg) (tApp hd arg) wt er =>
-  (bt, (annotate_types Γ hd _ ehd _, annotate_types Γ arg _ earg _));
+  (bt, (annotate_types Γ erΓ hd _ ehd _, annotate_types Γ erΓ arg _ earg _));
 annot bt (E.tConst _) _ wt er => bt;
 annot bt (E.tConstruct _ _) _ wt er => bt;
 annot bt (E.tCase _ ediscr ebrs) (tCase _ _ discr brs) wt er =>
-  (bt, (annotate_types Γ discr _ ediscr _, annotate_branches annotate_types Γ brs ebrs _));
-annot bt (E.tProj _ et) (tProj _ t) wt er => (bt, annotate_types Γ t _ et _);
+  (bt, (annotate_types Γ erΓ discr _ ediscr _, annotate_branches annotate_types Γ erΓ brs ebrs _));
+annot bt (E.tProj _ et) (tProj _ t) wt er => (bt, annotate_types Γ erΓ t _ et _);
 annot bt (E.tFix edefs _) (tFix defs _) wt er =>
-  (bt, annotate_defs annotate_types (Γ,,, fix_context defs) defs edefs _);
+  let last_vl := get_last_type_var erΓ in
+  let erΓ1 := Vector.append (context_to_erased Γ last_vl (List.rev defs) _) erΓ in
+  (bt, annotate_defs annotate_types (Γ,,, fix_context defs) (VectorEq.cast erΓ1 (rev_mapi_app_length _ _)) defs edefs _);
 annot bt (E.tCoFix edefs _) (tCoFix defs _) wt er =>
-  (bt, annotate_defs annotate_types (Γ,,, fix_context defs) defs edefs _);
+  let last_vl := get_last_type_var erΓ in
+  let erΓ1 := Vector.append (context_to_erased Γ last_vl (List.rev defs) _) erΓ in
+  (bt, annotate_defs annotate_types (Γ,,, fix_context defs) (VectorEq.cast erΓ1 (rev_mapi_app_length _ _)) defs edefs _);
 annot bt _ _ wt er => !
 }.
 Proof.
   all: try solve [inversion er; auto].
-  all: destruct wt.
-  all: destruct wfextΣ as [[]].
+  all: try destruct wt.
+  all: try destruct wfextΣ as [[]].
+  all: try subst erΓ1.
   - depelim er.
     now apply inversion_Evar in X.
   - apply inversion_Lambda in X as (? & ? & ? & ? & ?); auto.
+    constructor;econstructor; eauto.
+  - apply inversion_Lambda in X as (? & ? & ? & ? & ?); auto.
     econstructor; eauto.
+  - apply inversion_LetIn in X as (?&?&?&?&?&?); auto.
+    constructor;econstructor; eauto.
   - apply inversion_LetIn in X as (?&?&?&?&?&?); auto.
     econstructor; eauto.
   - apply inversion_LetIn in X as (?&?&?&?&?&?); auto.
@@ -160,6 +271,11 @@ Proof.
   - apply inversion_Proj in X as (?&?&?&?&?&?&?&?&?); auto.
     econstructor; eauto.
   - apply inversion_Fix in X as (?&?&?&?&?&?&?); auto.
+    apply rev_Forall.
+    apply All_Forall.
+    eapply All_impl. apply a.
+    intros. cbn in *;now constructor.
+  - apply inversion_Fix in t1 as (?&?&?&?&?&?&?); auto.
     depelim er.
     clear -a0 X.
     eapply All2_All_mix_left in X; eauto.
@@ -174,6 +290,11 @@ Proof.
     split; [|now auto].
     econstructor; eauto.
   - apply inversion_CoFix in X as (?&?&?&?&?&?&?); auto.
+    apply rev_Forall.
+    apply All_Forall.
+    eapply All_impl. apply a.
+    intros. cbn in *;now constructor.
+  - apply inversion_CoFix in t1 as (?&?&?&?&?&?&?); auto.
     depelim er.
     clear -a0 X.
     eapply All2_All_mix_left in X; eauto.
@@ -181,7 +302,7 @@ Proof.
     revert X.
     generalize (Γ,,, fix_context defs).
     clear Γ.
-    intros Γ a.
+    intros Γ1 a.
     induction a; [now constructor|].
     constructor; [|now eauto].
     destruct r as (? & ? & ? & ?).
@@ -204,7 +325,7 @@ Proof.
   - destruct cst; cbn.
     destruct cst_body; [|exact tt].
     cbn.
-    apply (annotate_types [] t); [|apply ErasureFunction.erases_erase].
+    apply (annotate_types [] []%vector t); [|apply ErasureFunction.erases_erase].
     cbn in *.
     destruct wt.
     econstructor; eauto.

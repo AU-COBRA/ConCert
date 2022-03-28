@@ -82,6 +82,8 @@ Program Definition annot_extract_template_env_specalize
   wfe <-check_wf_env_func extract_within_coq e;;
   annot_extract_env_cameligo e wfe seeds ignore.
 
+
+
 Definition CameLIGO_ignore_default {Base : ChainBase} :=
   [
       <%% prod %%>
@@ -104,6 +106,9 @@ Definition TT_remap_default : list (kername * string) :=
     (* types *)
     remap <%% Z %%> "tez"
   (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use trancated subtraction *)
+  (* FIXME: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
+     [int]. However, [Z] is also used as the type of currency, that could lead to clashes
+     in the extracted code. *)
   ; remap <%% N %%> "int"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
@@ -132,7 +137,11 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Pos.leb %%> "leN"
   ; remap <%% Pos.eqb %%> "eqN"
   ; remap <%% Z.add %%> "addTez"
-  ; remap <%% Z.sub %%> "subTez"
+  (* FIXME: subtraction of tez returns option in LIGO now We should
+     not use Z.sub directly, but a similar operation that returns
+     [option Z] instead. For now, it can be provided and remapped by
+     each contract, but ideally it should be in some central place. *)
+  (* ; remap <%% Z.sub %%> "subTez" *)
   ; remap <%% Z.mul %%> "multTez"
   ; remap <%% Z.div %%> "divTez"
   ; remap <%% Z.leb %%> "leTez"
