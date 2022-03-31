@@ -1,14 +1,8 @@
 (* Computation needed to show termination of the Bernstein-Yang modular inversion algorithm *)
 
 From ConCert.Extraction Require Import Loader.
-From Coq Require Import Arith.
 From Coq Require Import Bool.
-From Coq Require Import Extraction.
-From Coq Require Import List.
-From Coq Require Import Program.
 From Coq Require Import ZArith.
-
-Import ListNotations.
 
 Import Z.
 Local Open Scope Z.
@@ -51,4 +45,4 @@ Extract Constant shiftr => "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a >> 
 
 From ConCert.Extraction Require Import ExtrRustBasic.
 From ConCert.Extraction Require Import ExtrRustUncheckedArith.
-Redirect "../examples/extracted-code/rust-extract/BernsteinYangTermination.rs" ConCert Extract W.
+Redirect "../tests/extracted-code/rust-extract/BernsteinYangTermination.rs" ConCert Extract W.

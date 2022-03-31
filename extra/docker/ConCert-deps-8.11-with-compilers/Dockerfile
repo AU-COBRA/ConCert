@@ -24,8 +24,8 @@ RUN rustup target add wasm32-unknown-unknown \
    && sudo chmod +x cargo-concordium_1.0.0 \
    && sudo cp cargo-concordium_1.0.0 /usr/local/bin/cargo-concordium
 
-# install LIGO v0.34.0
-RUN curl -L -O https://gitlab.com/ligolang/ligo/-/jobs/1992156467/artifacts/raw/ligo && sudo chmod +x ./ligo && sudo cp ./ligo /usr/local/bin
+# install LIGO v0.38.1
+RUN curl -L -O https://gitlab.com/ligolang/ligo/-/jobs/2217283618/artifacts/raw/ligo && sudo chmod +x ./ligo && sudo cp ./ligo /usr/local/bin
 
 # install Elm 0.19.1
 

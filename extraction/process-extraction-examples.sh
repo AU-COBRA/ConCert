@@ -1,12 +1,12 @@
 #!/bin/bash
 
-ELM_PATH=./examples/extracted-code/elm-extract
-ELM_WEB_PATH=./examples/extracted-code/elm-web-extract
-LIQ_PATH=./examples/extracted-code/liquidity-extract
-LIGO_PATH=./examples/extracted-code/cameligo-extract
-MID_PATH=./examples/extracted-code/midlang-extract
-RUST_PATH=./examples/extracted-code/rust-extract
-CONCORDIUM_PATH=./examples/extracted-code/concordium-extract
+ELM_PATH=./tests/extracted-code/elm-extract
+ELM_WEB_PATH=./tests/extracted-code/elm-web-extract
+LIQ_PATH=./tests/extracted-code/liquidity-extract
+LIGO_PATH=./tests/extracted-code/cameligo-extract
+MID_PATH=./tests/extracted-code/midlang-extract
+RUST_PATH=./tests/extracted-code/rust-extract
+CONCORDIUM_PATH=./tests/extracted-code/concordium-extract
 ELM_TESTS=$ELM_PATH/tests
 ELM_WEB_SRC=$ELM_WEB_PATH/src
 LIQ_TESTS=$LIQ_PATH/tests
@@ -66,7 +66,7 @@ done
 
 RUST_SUFFIX=extracted/src/main.rs
 
-rust_examples="BernsteinYangTermination"
+rust_examples="BernsteinYangTermination Ack Even"
 echo "Processing Rust extraction"
 for f in ${rust_examples}
 do

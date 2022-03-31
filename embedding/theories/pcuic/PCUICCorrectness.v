@@ -1,15 +1,25 @@
 (** Proofs of correctness *)
 
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils
-     PCUICLiftSubst PCUICTyping.
-
-From ConCert.Embedding Require Import CustomTactics MyEnv
-     EnvSubst Ast EvalE PCUICFacts  PCUICTranslate
-     PCUICCorrectnessAux Wf Misc.
-
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.PCUIC Require Import PCUICTyping.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import PCUICFacts.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import PCUICCorrectnessAux.
+From ConCert.Embedding Require Import Wf.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Utils Require Import Automation.
+From ConCert.Utils Require Import Env.
 From Coq Require Import List.
+From Coq Require Import Basics.
+From Coq Require Import Lia.
+From Coq Require Import ssrbool.
 
-Import ListNotations ssrbool Basics Lia.
+Import ListNotations.
 Import NamelessSubst.
 
 Local Set Keyed Unification.
@@ -29,7 +39,7 @@ Proof.
   revert dependent e2.
   revert dependent e1.
   induction n.
-  - intros;tryfalse.
+  - now intros.
   - intros e1 e2 ρ v Hgeok Hρ_ok He Henv Hc;destruct e1.
     + (* eRel *) simpl in *. autounfold with facts in *. simpl in *.
       destruct (lookup_i ρ n0) as [v1| ] eqn:Hlookup;tryfalse; simpl in He;inversion He;subst.
@@ -46,7 +56,7 @@ Proof.
     + (* eLambda *)
       subst. simpl in *.
       destruct (eval_type_i 0 ρ t) eqn:Hty;tryfalse;simpl in *.
-      destruct (valid_env ρ 1 e1) eqn:He1;tryfalse. inv_andb Hc.
+      destruct (valid_env ρ 1 e1) eqn:He1;tryfalse. propify.
       inversion He;subst;simpl;eauto with hints.
       erewrite eval_type_i_subst_env;eauto.
       rewrite subst_env_ty_closed_n_eq with (n:=0) (m:=0);eauto with hints.
@@ -163,7 +173,7 @@ Proof.
           assert (closed tfix).
           { rewrite H. apply expr_closed_term_closed;auto.
             inversion Hok_fix;subst.
-            simpl. repeat split_andb;eauto with hints. }
+            simpl. propify;split; eauto with hints. }
           repeat rewrite PCUICCSubst.closed_subst by auto.
           rewrite simpl_subst_k by auto.
           clear Heqtfix. subst tfix.
@@ -197,7 +207,7 @@ Proof.
           rewrite PCUICCSubst.closed_subst by auto.
           assert (AllEnv (iclosed_n 0) [(n0, args); (e2, efix)]).
           { subst;repeat constructor;unfold compose;simpl.
-            now eapply vars_to_apps_iclosed_n. repeat split_andb;eauto with hints. }
+            now eapply vars_to_apps_iclosed_n. propify;split;eauto with hints. }
 
           rewrite <- subst_app_simpl. simpl.
 
@@ -209,7 +219,7 @@ Proof.
             (simpl; eauto using vars_to_apps_iclosed_n with hints).
           cbn.
           now repeat rewrite subst_env_i_ty_closed_0_eq by auto.
-          repeat split_andb;eauto with hints.
+          propify;split;eauto with hints.
       * rename e0 into n0.
         assert (Hv0 : Σ2 |- t⟦e1_2 .[ exprs ρ]⟧ Σ1 ⇓ t⟦ of_val_i v0 ⟧ Σ1)
           by eauto with hints.

@@ -1,8 +1,10 @@
 (** * Well-formedness conditions *)
 
-Require Import MetaCoq.Template.utils.
-
-From ConCert.Embedding Require Import Ast EnvSubst EvalE MyEnv.
+From MetaCoq.Template Require Import utils.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Utils Require Import Env.
 
 Import NamelessSubst.
 

@@ -4,10 +4,6 @@
 
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
--R ../execution/examples ConCert.Execution.Examples
--R ../embedding/theories ConCert.Embedding
--R ../embedding/examples ConCert.Embedding.Examples
--R ../embedding/extraction ConCert.Embedding.Extraction
 
 -Q theories ConCert.Extraction
 theories/Annotations.v
@@ -47,28 +43,13 @@ theories/TypeAnnotations.v
 theories/Utils.v
 theories/WcbvEvalAux.v
 
--Q examples ConCert.Extraction.Examples
-examples/Ack.v
-examples/BoardroomVotingExtractionCameLIGO.v
-examples/BoardroomVotingExtractionLiquidity.v
-examples/CameLIGOExtractionTests.v
-examples/CounterCertifiedExtraction.v
-examples/CounterDepCertifiedExtraction.v
-examples/CounterSubsetTypes.v
-examples/CrowdfundingCertifiedExtraction.v
-examples/Dexter2Extract.v
-examples/ElmExtractExamples.v
-examples/ElmExtractTests.v
-examples/ElmForms.v
-examples/ErasureTests.v
-examples/ERC20LiquidityExtraction.v
-examples/EscrowExtract.v
-examples/MidlangCounterRefTypes.v
-examples/MidlangEscrow.v
-examples/RecordExtractionLiquidityTests.v
-examples/RustCounter.v
-examples/RustEscrow.v
-examples/RustExtractTests.v
-examples/RustInterp.v
-examples/StackInterpreter.v
-examples/TypeAnnotationTests.v
+-Q tests ConCert.Extraction.Tests
+tests/Ack.v
+tests/CameLIGOExtractionTests.v
+tests/ElmExtractExamples.v
+tests/ElmExtractTests.v
+tests/ElmForms.v
+tests/ErasureTests.v
+tests/RecordExtractionLiquidityTests.v
+tests/RustExtractTests.v
+tests/TypeAnnotationTests.v

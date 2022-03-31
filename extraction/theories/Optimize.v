@@ -1,39 +1,9 @@
 From ConCert.Extraction Require Import ClosedAux.
-From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Utils.
-From Coq Require Import Arith.
-From Coq Require Import Ascii.
-From Coq Require Import Bool.
-From Coq Require Import List.
-From Coq Require Import PArith.
-From Coq Require Import String.
-From Coq Require VectorDef.
-From Equations Require Import Equations.
-From MetaCoq.Erasure Require Import EArities.
-From MetaCoq.Erasure Require Import EAstUtils.
-From MetaCoq.Erasure Require Import EInduction.
 From MetaCoq.Erasure Require Import ELiftSubst.
-From MetaCoq.Erasure Require Import Extract.
-From MetaCoq.Erasure Require Import EWcbvEval.
-From MetaCoq.Erasure Require Import Prelim.
-From MetaCoq.Erasure Require ErasureFunction.
-From MetaCoq.Template Require Import config.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import utils.
-From MetaCoq Require Import PCUICGeneration.
-
-Local Open Scope string_scope.
-Import ListNotations.
-Import MonadNotation.
-Set Equations Transparent.
-
-Import EAstUtils.
-Import Erasure.
-Import ExAst.
 
 Definition map_subterms (f : term -> term) (t : term) : term :=
   match t with

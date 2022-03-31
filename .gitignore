@@ -42,28 +42,28 @@ _opam/
 *.mligo
 
 ## Elm tests
-extraction/examples/extracted-code/elm-extract/elm-stuff/
-extraction/examples/extracted-code/elm-extract/node_modules/
-extraction/examples/extracted-code/elm-extract/src/
-extraction/examples/extracted-code/elm-extract/tests/
-extraction/examples/extracted-code/elm-extract/*.html
+extraction/tests/extracted-code/elm-extract/elm-stuff/
+extraction/tests/extracted-code/elm-extract/node_modules/
+extraction/tests/extracted-code/elm-extract/src/
+extraction/tests/extracted-code/elm-extract/tests/
+extraction/tests/extracted-code/elm-extract/*.html
 
-extraction/examples/extracted-code/elm-web-extract/elm-stuff/
-extraction/examples/extracted-code/elm-web-extract/node_modules/
-extraction/examples/extracted-code/elm-web-extract/src/
-extraction/examples/extracted-code/elm-web-extract/tests/
-extraction/examples/extracted-code/elm-web-extract/*.html
+extraction/tests/extracted-code/elm-web-extract/elm-stuff/
+extraction/tests/extracted-code/elm-web-extract/node_modules/
+extraction/tests/extracted-code/elm-web-extract/src/
+extraction/tests/extracted-code/elm-web-extract/tests/
+extraction/tests/extracted-code/elm-web-extract/*.html
 
 
 ## Liquidity tests
-extraction/examples/extracted-code/liquidity-extract/*
-extraction/examples/extracted-code/liquidity-extract/tests/*
-extraction/examples/extracted-code/midlang-extract/*
-extraction/examples/extracted-code/midlang-extract/tests/*
+extraction/tests/extracted-code/liquidity-extract/*
+extraction/tests/extracted-code/liquidity-extract/tests/*
+extraction/tests/extracted-code/midlang-extract/*
+extraction/tests/extracted-code/midlang-extract/tests/*
 
 ## CameLIGO tests
-extraction/examples/extracted-code/cameligo-extract/*
-extraction/examples/extracted-code/cameligo-extract/tests/*
+extraction/tests/extracted-code/cameligo-extract/*
+extraction/tests/extracted-code/cameligo-extract/tests/*
 
 **/src/lib.rs
 **/src/main.rs

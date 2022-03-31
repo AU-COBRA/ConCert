@@ -1,9 +1,10 @@
 (* This file formalizes a bounded natural number type which is
 efficient to compute with. *)
-From Coq Require Import NArith ZArith.
-Require Import Monads.
-Require Import Finite.
-Require Import Extras.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Finite.
+From ConCert.Utils Require Import Extras.
+From Coq Require Import NArith.
+From Coq Require Import ZArith.
 From Coq Require Import Eqdep_dec.
 From Coq Require Import List.
 From Coq Require Import Psatz.

@@ -1,15 +1,14 @@
 (** * Interpreter for the λsmart langage *)
 
 (** This version of the interpreter supports polymorhic types *)
-From ConCert.Embedding Require Import Ast MyEnv.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Utils Require Import Env.
 
 (* TODO: we use definition of monads from Template Coq,
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
-
-
-(* We need some definitions like [All] from utils *)Require Import MetaCoq.Template.utils.
-
+(* We need some definitions like [All] from utils *)
+From MetaCoq.Template Require Import utils.
 
 Import ListNotations.
 Import MonadNotation.

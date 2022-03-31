@@ -1,6 +1,12 @@
-From Coq Require Import List String Basics Bool.
-From ConCert.Embedding Require Import Ast
-     Notations Prelude MyEnv.
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import Basics.
+From Coq Require Import Bool.
+From ConCert.Utils Require Extras.
+From ConCert.Utils Require Import Env.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import Prelude.
 
 Import ListNotations.
 
@@ -40,7 +46,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   | tyInd nm =>
     (* ignore module path on prining *)
     let (_, nm') := PCUICTranslate.kername_of_string nm in
-    from_option (look TT nm) nm'
+    Extras.with_default nm' (look TT nm)
   | tyForall x b => "forall " ++ "'" ++ x ++ liquidifyTy TT b
   (* is it a product? *)
   | tyApp ty1 ty2 =>
@@ -60,7 +66,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
 
 Definition printRecord (TT : env string) (c : constr) :=
   let '(_, args) := c in
-  let tmp := map (fun '(nm, ty) => ofType (from_option nm "") (liquidifyTy TT ty)) args in
+  let tmp := map (fun '(nm, ty) => ofType (Extras.with_default "" nm) (liquidifyTy TT ty)) args in
   inCurly (sep " ; " tmp).
 
 Definition is_nil {A} (l : list A) : bool :=
@@ -80,7 +86,7 @@ Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
     let (_, nm') := PCUICTranslate.kername_of_string nm in
     "type " ++ nm' ++ " = " ++
     if is_record then
-      from_option (head (map (printRecord TT) ctors)) "Not a Record!"
+      Extras.with_default "Not a Record!" (head (map (printRecord TT) ctors))
     else
       fold_right
         (fun '(nm, ctor_info) s => "| " ++ nm  ++ printCtorTy TT ctor_info ++ newLine ++ s) "" ctors
@@ -192,7 +198,7 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
   | eConst cst =>
     (* ignore module path *)
     let (_, cst') := PCUICTranslate.kername_of_string cst in
-    from_option (look TT cst) cst'
+    Extras.with_default cst' (look TT cst)
   | eCase (ind,_) _ d bs =>
     match bs with
     | [b1;b2] => (* Handling if-then-else *)

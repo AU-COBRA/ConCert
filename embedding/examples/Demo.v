@@ -1,7 +1,12 @@
 (** * Simple examples on how to use our framework  **)
-Require Import String Basics.
-Require Import List.
-From ConCert.Embedding Require Import Ast Notations EvalE PCUICtoTemplate PCUICTranslate.
+From Coq Require Import String.
+From Coq Require Import Basics.
+From Coq Require Import List.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import PCUICtoTemplate.
+From ConCert.Embedding Require Import PCUICTranslate.
 From MetaCoq.Template Require Import monad_utils.
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).

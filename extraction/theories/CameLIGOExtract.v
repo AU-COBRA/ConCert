@@ -1,17 +1,21 @@
-
-From MetaCoq.Template Require Import Kernames.
-
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ContractCommon.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.
-From ConCert.Extraction Require Import CertifyingEta.
-From ConCert.Execution Require Import Blockchain Serializable Common.
-
-From ConCert.Extraction Require Import CameLIGOPretty
-     Common ExAst Optimize Extraction TypeAnnotations Annotations Utils SpecializeChainBase.
-
-Local Open Scope string_scope.
-
+From ConCert.Extraction Require Import CameLIGOPretty.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import ExAst.
+From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import TypeAnnotations.
+From ConCert.Extraction Require Import Annotations.
+From ConCert.Extraction Require Import Utils.
+From ConCert.Extraction Require Import SpecializeChainBase.
+From ConCert.Utils Require Import Env.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
+
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
   { lmd_module_name : string ;
@@ -78,6 +82,8 @@ Program Definition annot_extract_template_env_specalize
   wfe <-check_wf_env_func extract_within_coq e;;
   annot_extract_env_cameligo e wfe seeds ignore.
 
+
+
 Definition CameLIGO_ignore_default {Base : ChainBase} :=
   [
       <%% prod %%>
@@ -100,6 +106,9 @@ Definition TT_remap_default : list (kername * string) :=
     (* types *)
     remap <%% Z %%> "tez"
   (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use trancated subtraction *)
+  (* FIXME: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
+     [int]. However, [Z] is also used as the type of currency, that could lead to clashes
+     in the extracted code. *)
   ; remap <%% N %%> "int"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
@@ -128,7 +137,11 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% Pos.leb %%> "leN"
   ; remap <%% Pos.eqb %%> "eqN"
   ; remap <%% Z.add %%> "addTez"
-  ; remap <%% Z.sub %%> "subTez"
+  (* FIXME: subtraction of tez returns option in LIGO now We should
+     not use Z.sub directly, but a similar operation that returns
+     [option Z] instead. For now, it can be provided and remapped by
+     each contract, but ideally it should be in some central place. *)
+  (* ; remap <%% Z.sub %%> "subTez" *)
   ; remap <%% Z.mul %%> "multTez"
   ; remap <%% Z.div %%> "divTez"
   ; remap <%% Z.leb %%> "leTez"
@@ -200,7 +213,7 @@ Section LigoExtract.
 Definition printCameLIGODefs {msg ctx params storage operation : Type}
            (Σ : TemplateEnvironment.global_env)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extra_ignore : list kername)
            (build_call_ctx : string)
            (init : kername)
@@ -289,7 +302,7 @@ Definition quote_and_preprocess {Base : ChainBase}
 Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extra_ignore : list kername)
            (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
@@ -308,7 +321,7 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
 Definition CameLIGO_extract {msg ctx params storage operation : Type}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extra_ignore : list kername)
            (build_call_ctx : string)
            (m : CameLIGOMod msg ctx params storage operation) :=
@@ -382,7 +395,7 @@ Definition quote_and_preprocess_one_def {A}
 Definition CameLIGO_extract_single `{ChainBase} {A}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (prelude : string)
            (harness: string)
            (def : A) : TemplateMonad string :=
@@ -394,7 +407,7 @@ Definition CameLIGO_extract_single `{ChainBase} {A}
 Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (inline : list kername)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (prelude : string)
            (harness: string)
            (def : A) : TemplateMonad string :=

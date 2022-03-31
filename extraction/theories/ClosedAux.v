@@ -1,18 +1,10 @@
+From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import Utils.
-From Coq Require Import Arith.
-From Coq Require Import Bool.
-From Coq Require Import List.
-From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import EInduction.
 From MetaCoq.Erasure Require Import ELiftSubst.
-From MetaCoq.Erasure Require Import EWcbvEval.
-From MetaCoq.Template Require Import utils.
-
-Import ListNotations.
-Set Equations Transparent.
 
 Lemma closedn_mkApps k hd args :
   closedn k hd ->

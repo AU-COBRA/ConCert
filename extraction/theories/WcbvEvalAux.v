@@ -1,21 +1,12 @@
-From ConCert.Extraction Require Import Utils.
+From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import ClosedAux.
-From Coq Require Import Arith.
-From Coq Require Import Bool.
-From Coq Require Import Eqdep_dec.
-From Coq Require Import List.
-From Coq Require Import String.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
-From MetaCoq.Erasure Require Import EInduction.
-From MetaCoq.Erasure Require Import EInversion.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
-From MetaCoq.Template Require Import utils.
 
-Import ListNotations.
 Set Equations Transparent.
 
 Notation "Σ 'e⊢' s ▷ t" := (eval Σ s t) (at level 50, s, t at next level) : type_scope.

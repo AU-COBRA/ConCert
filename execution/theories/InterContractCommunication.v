@@ -1,6 +1,6 @@
 (** Properties and tactics related to two communicating contracts *)
 
-From ConCert.Execution Require Import Automation.
+From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From Coq Require Import List.

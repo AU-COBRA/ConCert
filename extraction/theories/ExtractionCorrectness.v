@@ -15,12 +15,7 @@ From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICInversion.
-From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
-
-Open Scope string.
-
-Import ListNotations.
 
 Module P := PCUICAst.
 Module E := EAst.

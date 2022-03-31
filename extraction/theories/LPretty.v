@@ -11,18 +11,15 @@ Another issue: constructors accept only one argument, so we have to uncurry (pac
 
 Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
  *)
-
-From Coq Require Import List Program String Ascii.
+From Coq Require Import Ascii.
+From ConCert.Utils Require Import Env.
+From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ExAst.
-From ConCert.Embedding Require Import MyEnv Ast.
-From MetaCoq.Template Require Import utils Loader Environment.
-From MetaCoq.Template Require Pretty.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Erasure Require Import EAst EAstUtils ETyping EPretty.
+From MetaCoq.Erasure Require Import EAst.
+From MetaCoq.Erasure Require Import EAstUtils.
 
-Import monad_utils.MonadNotation.
 Local Open Scope string_scope.
 Import String.
 
@@ -36,7 +33,7 @@ Notation "x |> f" := (f x) (at level 31, left associativity, only parsing).
 Section print_term.
   Context (Σ : ExAst.global_env).
 
-  Definition look (e : MyEnv.env string) (s : string) : option string :=
+  Definition look (e : env string) (s : string) : option string :=
     lookup e s.
 
   Definition is_rel (t : Ast.term) :=
@@ -116,11 +113,10 @@ Section print_term.
              end
   | TInd s =>
     let full_ind_name := string_of_kername s.(inductive_mind) in
-    uncapitalize (from_option (look TT full_ind_name) (prefix ++ s.(inductive_mind).2))
+    uncapitalize (with_default (prefix ++ s.(inductive_mind).2) (look TT full_ind_name))
   | TConst s =>
     let full_cst_name := string_of_kername s in
-    uncapitalize (from_option (look TT full_cst_name) (prefix ++ s.2))
-
+    uncapitalize (with_default (prefix ++ s.2) (look TT full_cst_name))
   | TAny => "UnknownType"
   end.
 
@@ -156,13 +152,11 @@ Section print_term.
     | [_],[]  => false
     | _,_ => false
     end.  
-    
 
-  Print ExAst.one_inductive_body.
+
   Definition print_inductive (prefix : string) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
-    let ind_nm := from_option (lookup TT oib.(ExAst.ind_name))
-                              (prefix ++ oib.(ExAst.ind_name)) in
+    let ind_nm := with_default (prefix ++ oib.(ExAst.ind_name)) (lookup TT oib.(ExAst.ind_name)) in
     let vars := map tvar_name oib.(ind_type_vars) in
     let params :=
         if (Nat.eqb #|oib.(ind_type_vars)| 0) then ""
@@ -411,7 +405,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
     if infix then
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
-      let ctor_nm := from_option (look TT ctor) (capitalize prefix ++ capitalize ctor) in
+      let ctor_nm := with_default (capitalize prefix ++ capitalize ctor) (look TT ctor) in
       let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length pt.1)) in
       print_uncurried ctor_nm vars ++ " -> " ++ pt.2.
@@ -484,7 +478,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
       end
     | tConst c =>
       let cst_name := string_of_kername c in
-      let nm := from_option (look TT cst_name) (uncapitalize prefix ++ uncapitalize c.2) in
+      let nm := with_default (uncapitalize prefix ++ uncapitalize c.2) (look TT cst_name) in
       if nm =? "fst" then
         (concat " " (map (parens true) apps)) ++ ".(0)"
       else if nm =? "snd" then
@@ -503,14 +497,14 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
       let nm := get_constr_name ind i in
       (* is it an natural number literal? *)
       if (nm =? "Z") || (nm =? "S") then
-        from_option (option_map (fun x => string_of_nat x ++ "p") (nat_syn_to_nat t)) "Error(Not a natural number literal)"
+        with_default "Error(Not a natural number literal)" (option_map (fun x => string_of_nat x ++ "p") (nat_syn_to_nat t))
       else
         (* is it an integer number literal? *)
         (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
-        let Z_remapped := from_option (look TT (string_of_kername <%% Z %%>)) "" in
+        let Z_remapped := with_default "" (look TT (string_of_kername <%% Z %%>)) in
         let units := if (Z_remapped =? "tez") || (Z_remapped =? "dun") then "tz" else "" in
         if (nm =? "Z0") || (nm =? "Zpos") || (nm =? "Zneg") then
-          from_option (option_map (fun x => string_of_Z x ++ units) (Z_syn_to_Z t)) "Error(Not an integer literal)"
+          with_default "Error(Not an integer literal)" (option_map (fun x => string_of_Z x ++ units) (Z_syn_to_Z t))
         else
       (* is it a pair ? *)
       if (nm =? "pair") then print_uncurried "" apps
@@ -533,10 +527,10 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
                         let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
                                                                   |> concat "; " in
                         "{" ++ field_decls_printed ++ "}"
-                      | _,_ => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+                      | _,_ => let nm' := with_default ((capitalize prefix) ++ nm) (look TT nm) in
                                 parens top (print_uncurried nm' apps)
                       end
-      | None => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+      | None => let nm' := with_default ((capitalize prefix) ++ nm) (look TT nm) in
                 parens top (print_uncurried nm' apps)
       end
       
@@ -545,24 +539,24 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list ident :=
         let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
                                                   |> concat "; " in
         "{" ++ field_decls_printed ++ "}"
-        | _,_     => let nm' := from_option (look TT nm) ((capitalize prefix) ++ nm) in
+        | _,_     => let nm' := with_default (look TT nm) ((capitalize prefix) ++ nm) in
                       parens top (print_uncurried nm' apps)
         end *)
     | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
     end
   | tConst c =>
     let cst_name := string_of_kername c in
-    from_option (look TT cst_name) (prefix ++ c.2)
+    with_default (prefix ++ c.2) (look TT cst_name)
   | tConstruct ind l =>
     (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *) 
     | Some oib => if is_one_constructor_inductive_and_not_record oib then ""
                   else let nm := get_constr_name ind l in
-                       from_option (look TT nm) (capitalize prefix ++ capitalize nm)
+                       with_default (capitalize prefix ++ capitalize nm) (look TT nm)
     | None =>
       let nm := get_constr_name ind l in
-      from_option (look TT nm) (capitalize prefix ++ capitalize nm)
+      with_default (capitalize prefix ++ capitalize nm) (look TT nm)
     end
   | tCase (mkInd mind i as ind, nparam) t brs =>
     match brs with
@@ -675,7 +669,7 @@ Fixpoint get_fix_names (t : term) : list name :=
   end.
 
 Definition print_decl (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : env string) (* tranlation table *)
            (Σ : ExAst.global_env)
            (projs : list (ident * ExAst.one_inductive_body)) 
            (decl_name : string)
@@ -698,7 +692,7 @@ Definition print_decl (prefix : string)
         ++ wrap (LPretty.print_term Σ projs prefix [] TT ctx true false lam_body).
 
 Definition print_init (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : env string) (* tranlation table *)
            (projs : list (ident * ExAst.one_inductive_body)) (* record projections and the record names they project *)
            (build_call_ctx : string) (* a string that corresponds to a call contex *)
            (init_prelude : string) (* operations available in the [init] as local definitions.
@@ -735,7 +729,7 @@ Definition print_init (prefix : string)
 
 
 Definition print_cst (prefix : string)
-           (TT : MyEnv.env string) (* tranlation table *)
+           (TT : env string) (* tranlation table *)
            (Σ : ExAst.global_env)
            (kn : kername)
            (cst : ExAst.constant_body) 
@@ -749,7 +743,7 @@ Definition print_cst (prefix : string)
   | None => ""
   end.
 
-Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
+Definition print_global_decl (prefix : string) (TT : env string)
            (nm : kername)
            (Σ : ExAst.global_env)
            (d : ExAst.global_decl) 
@@ -769,8 +763,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
     | _ => (nm,"Only non-mutual inductives are supported")
     end
   | TypeAliasDecl (Some (params, ty)) =>
-    let ta_nm := from_option (lookup TT (string_of_kername nm))
-                             (prefix ++ nm.2) in
+    let ta_nm := with_default (prefix ++ nm.2) (lookup TT (string_of_kername nm)) in
     (nm, "type " ++ parens (Nat.ltb #|params| 1) (concat "," (mapi (fun i v => print_type_var v.(tvar_name) i) params))
                  ++ " " ++ uncapitalize ta_nm
                  ++  " = "
@@ -778,7 +771,7 @@ Definition print_global_decl (prefix : string) (TT : MyEnv.env string)
   | TypeAliasDecl None => (nm, "")
   end.
 
-Fixpoint print_global_env (prefix : string) (TT : MyEnv.env string)
+Fixpoint print_global_env (prefix : string) (TT : env string)
            (Σ : ExAst.global_env)
            (projs : list (ident * ExAst.one_inductive_body)) 
            : list (kername * string) :=

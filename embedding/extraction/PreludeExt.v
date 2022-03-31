@@ -2,17 +2,21 @@
 
 (** Extends Prelude from Embedding with new definitions required for extraction *)
 
-Require Import String ZArith.
-From ConCert.Embedding Require Import Ast CustomTactics Notations
-     PCUICTranslate TranslationUtils Prelude.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import TranslationUtils.
+From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Execution Require Import Blockchain.
-Require Import List.
+From ConCert.Utils Require Import Automation.
+From Coq Require Import String.
+From Coq Require Import ZArith.
+From Coq Require Import List.
 
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
-
 Import ListNotations.
 Import BaseTypes.
 Open Scope list.
@@ -116,8 +120,6 @@ Definition is_contract (addr: address_coq) :=
   | ContractAddr_coq _ => true
   | UserAddr_coq _ => false
   end.
-
-Print Instances countable.Countable.
 
 Definition encode_addr (addr: address_coq) : nat + nat :=
   match addr with
@@ -243,15 +245,14 @@ Module Maps.
     p v = true.
   Proof.
     revert k v p.
-    induction m;intros;tryfalse;simpl in *.
-    inv_andb H. destruct (eqb_addr _ _);auto.
+    induction m;intros;try discriminate;simpl in *.
+    propify. destruct (eqb_addr _ _);auto.
     * now inversion H0;subst.
     * easy.
   Qed.
 
 
   (** Notations for functions on finite maps *)
-
 
   Notation "'MNil'" := [| {eConstr Map "mnil"} |]
                          (in custom expr at level 0).

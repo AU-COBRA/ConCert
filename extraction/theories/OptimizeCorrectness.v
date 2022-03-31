@@ -1,31 +1,20 @@
+From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import WcbvEvalAux.
-From Coq Require Import Arith.
-From Coq Require Import Bool.
 From Coq Require Import Btauto.
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import RelationClasses.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import EInduction.
-From MetaCoq.Erasure Require Import EInversion.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import ETyping.
-From MetaCoq.Template Require Import utils.
 
-Import ListNotations.
-
-Import EAstUtils.
-Import Erasure.
 Import ExAst.
-Import ConCert.Extraction.Utils.
 
 Lemma lookup_env_trans_env Σ kn :
   ETyping.lookup_env (trans_env Σ) kn =

@@ -1,7 +1,6 @@
 (* This implements an optimization that changes top level fixpoints to use
    tConst instead. For example, the environment [("Foo", tFix [{| dbody := tRel 0 |}] 0)]
    is instead changed into something like [("Foo", tConst "Foo")]. *)
-From Coq Require Import Arith.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.

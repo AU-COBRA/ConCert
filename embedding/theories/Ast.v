@@ -1,9 +1,8 @@
 (** * λsmart language definition  *)
-Require MetaCoq.Template.All.
-
-Require Import String List.
-
-From ConCert.Embedding Require Import MyEnv.
+From MetaCoq.Template Require All.
+From Coq Require Import String.
+From Coq Require Import List.
+From ConCert.Utils Require Import Env.
 
 Import ListNotations.
 
@@ -161,12 +160,6 @@ Definition resolve_constr (Σ : global_env) (ind_name constr_name : BasicTC.iden
     | None => None
     end
   | None => None
-  end.
-
-Definition from_option {A : Type} ( o : option A) (default : A) :=
-  match o with
-  | None => default
-  | Some v => v
   end.
 
 Definition bump_indices (l : list (ename * nat)) (n : nat) :=

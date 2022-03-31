@@ -2,8 +2,15 @@
 
 (** Proving that concrete expressions translate correctly *)
 
-From ConCert.Embedding Require Import Ast EvalE Notations EnvSubst PCUICTranslate PCUICtoTemplate.
-From Coq Require Import Basics String List.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import EvalE.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import EnvSubst.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import PCUICtoTemplate.
+From Coq Require Import Basics.
+From Coq Require Import String.
+From Coq Require Import List.
 
 Import ListNotations.
 Import NamelessSubst.

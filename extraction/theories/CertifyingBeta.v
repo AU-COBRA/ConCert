@@ -1,15 +1,13 @@
-From Coq Require Import List String Bool Basics.
-
+From Coq Require Import List.
+From Coq Require Import String.
 From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import Certifying.
+From MetaCoq.Template Require Import All.
+From MetaCoq.Template Require Import Kernames.
 
-From MetaCoq.Template Require Import All Kernames.
-
-Import ListNotations.
 Import MonadNotation.
 
 Section betared.

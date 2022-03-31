@@ -2,7 +2,7 @@
 thought of as the proof-relevant transitive reflexive closure of
 a relation. That is, each link (element) has a "from" point that
 must match the previous element's "to" point. *)
-Require Import Automation.
+From ConCert.Utils Require Import Automation.
 Section ChainedList.
 Context {Point : Type} {Link : Point -> Point -> Type}.
 

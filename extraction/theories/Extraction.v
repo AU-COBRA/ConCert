@@ -1,38 +1,18 @@
 (* This file provides the main function for invoking our extraction. *)
-
-From ConCert.Extraction Require Import ClosedAux.
-From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Erasure.
-From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import OptimizeCorrectness.
 From ConCert.Extraction Require OptimizePropDiscr.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import Certifying.
-
-From Coq Require Import List.
-From Coq Require Import String.
-From MetaCoq.Erasure Require Import ELiftSubst.
-From MetaCoq.Erasure Require Import ErasureFunction.
-From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import config.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import utils.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import TemplateToPCUIC.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.SafeChecker Require Import SafeTemplateChecker.
-
-Local Open Scope bool.
-Local Open Scope string.
-Import MonadNotation.
 
 Existing Instance extraction_checker_flags.
 --

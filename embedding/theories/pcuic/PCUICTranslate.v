@@ -1,8 +1,14 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
 
-From MetaCoq.PCUIC Require Import PCUICAst PCUICLiftSubst.
-From MetaCoq.Template Require Import BasicAst Loader.
-From ConCert.Embedding Require Import Ast Notations Misc MyEnv.
+From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaCoq.PCUIC Require Import PCUICLiftSubst.
+From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Template Require Import Loader.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import Misc.
+From ConCert.Utils Require Import Env.
+From ConCert.Utils Require Extras.
 From ConCert.Utils Require StringExtra.
 
 From Coq Require Import List.
@@ -256,7 +262,7 @@ Proof. reflexivity. Qed.
 Fixpoint add_prefix_ty (ty : type) (ps : env string) :=
   match ty with
   | tyInd nm =>
-    let p := Ast.from_option (lookup ps nm) "" in
+    let p := Extras.with_default "" (lookup ps nm) in
     tyInd (p ++ nm)%string
   | tyForall nm ty1 => tyForall nm (add_prefix_ty ty1 ps)
   | tyApp ty1 ty2 => tyApp (add_prefix_ty ty1 ps) (add_prefix_ty ty2 ps)
@@ -274,13 +280,13 @@ Fixpoint add_prefix (e : expr) (ps : env string) :=
                                  (add_prefix e2 ps)
   | eApp e1 e2 => eApp (add_prefix e1 ps) (add_prefix e2 ps)
   | eConstr ind_nm ctor_nm =>
-    let p := Ast.from_option (lookup ps ind_nm) "" in
+    let p := Extras.with_default "" (lookup ps ind_nm) in
     eConstr (p ++ ind_nm)%string ctor_nm
   | eConst nm =>
-    let p := Ast.from_option (lookup ps nm) "" in
+    let p := Extras.with_default "" (lookup ps nm) in
     eConst (p ++ nm)%string
   | eCase (ind_nm, tys) ty e1 brs =>
-    let p := Ast.from_option (lookup ps ind_nm) "" in
+    let p := Extras.with_default "" (lookup ps ind_nm) in
     eCase ((p ++ ind_nm)%string, map (fun ty => add_prefix_ty ty ps) tys)
           (add_prefix_ty ty ps)
           (add_prefix e1 ps)
@@ -296,7 +302,7 @@ Fixpoint add_prefix (e : expr) (ps : env string) :=
 Definition add_prefix_gd (gd : global_dec) (ps : env string) :=
   match gd with
   | gdInd nm i ctors b =>
-    let p := Ast.from_option (lookup ps nm) "" in
+    let p := Extras.with_default "" (lookup ps nm) in
     let ctors' :=
         map (fun '(c_nm, tys) =>
                (c_nm, map (on_snd (fun ty => add_prefix_ty ty ps)) tys)) ctors in

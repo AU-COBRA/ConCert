@@ -1,14 +1,17 @@
 (** * Examples of library code and contracts originating from the actual Acorn implementation  *)
-Require Import ZArith Basics.
-Require Import String.
-From ConCert.Embedding Require Import Ast Notations CustomTactics PCUICTranslate PCUICtoTemplate MyEnv TranslationUtils.
-Require Import List.
-Require Import PeanoNat.
-Import ListNotations.
+From ConCert.Embedding Require Import Ast.
+From ConCert.Embedding Require Import Notations.
+From ConCert.Embedding Require Import PCUICTranslate.
+From ConCert.Embedding Require Import PCUICtoTemplate.
+From ConCert.Embedding Require Import TranslationUtils.
+From Coq Require Import ZArith.
+From Coq Require Import Basics.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import PeanoNat.
 From MetaCoq.Template Require Import All.
 
 Import MonadNotation.
-
 Import ListNotations.
 
 Open Scope list.

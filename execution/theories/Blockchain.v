@@ -58,17 +58,17 @@ where these implementations need to prove that they satisfy our semantics.
 *)
 
 
-From Coq Require Import Arith ZArith.
+From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
-Require Import Automation.
-Require Import ChainedList.
-Require Import Extras.
-Require Import Monads.
-Require Import ResultMonad.
-Require Import Serializable.
+From ConCert.Execution Require Import ChainedList.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Utils Require Import Automation.
+From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.

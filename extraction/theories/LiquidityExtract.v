@@ -1,22 +1,20 @@
 
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.PCUIC Require Import PCUICAst.
-
-From ConCert.Execution Require Import Blockchain Serializable Common.
-
-From ConCert.Embedding Require Import MyEnv.
-
-From ConCert.Extraction Require Import LPretty
-     Common Optimize Extraction CertifyingInlining SpecializeChainBase.
-
-From Coq Require Import List String.
-Local Open Scope string_scope.
-
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ContractCommon.
+From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import Optimize.
+From ConCert.Extraction Require Import Extraction.
+From ConCert.Extraction Require Import CertifyingInlining.
+From ConCert.Extraction Require Import SpecializeChainBase.
+From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Utils Require Import Env.
+From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 
-Import ListNotations.
-Import MonadNotation.
-Import ResultMonad.
 
 Definition to_constant_decl (gd : option Ast.global_decl) :=
   match gd with
@@ -96,7 +94,7 @@ Definition extract_specialize (to_inline :  kername -> bool)
 Definition printLiquidityDefs_
            (extract_env : (kername -> bool) -> KernameSet.t -> (kername -> bool) -> global_env -> TemplateMonad ExAst.global_env)
            (prefix : string) (Σ : global_env)
-           (TT : MyEnv.env string)
+           (TT : env string)
            (inline : list kername)
            (ignore : list kername)
            (build_call_ctx : string)
@@ -233,7 +231,7 @@ Definition liquidity_extract_args :=
     of [storage], [main], etc.*)
 Definition liquidity_extract_single
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (extract_deps : bool)
            (prelude : string)
            (harness : string)
@@ -274,7 +272,7 @@ Definition liquidity_extraction_ {msg ctx params storage operation : Type}
                                  string -> string -> kername -> kername -> TemplateMonad string)
            (prefix : string)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (inline : list kername)
            (m : LiquidityMod msg ctx params storage operation) : TemplateMonad string :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
@@ -332,7 +330,7 @@ Definition quote_and_preprocess {Base : ChainBase}
 Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation : Type}
            (prefix : string)
            (TT_defs : list (kername *  string))
-           (TT_ctors : MyEnv.env string)
+           (TT_ctors : env string)
            (inline : list kername)
            (m : LiquidityMod msg ctx params storage operation)
            (Σ : TemplateEnvironment.global_env)

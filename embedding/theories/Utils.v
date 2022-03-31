@@ -1,4 +1,5 @@
-From Coq Require Import String List.
+From Coq Require Import String.
+From Coq Require Import List.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
