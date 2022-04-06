@@ -12,7 +12,7 @@ From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import Utils.
 
-Import MonadNotation.
+Import MCMonadNotation.
 Import BaseTypes.
 Import StdLib.
 Open Scope list.

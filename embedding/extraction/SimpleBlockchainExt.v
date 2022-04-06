@@ -11,7 +11,7 @@ From Coq Require Import List.
 
 From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
+Import MCMonadNotation.
 Import ListNotations.
 Import BaseTypes.
 Open Scope list.

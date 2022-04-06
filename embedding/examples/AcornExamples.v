@@ -1,4 +1,5 @@
 (** * Examples of library code and contracts originating from the actual Acorn implementation  *)
+From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.
@@ -9,9 +10,8 @@ From Coq Require Import Basics.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import PeanoNat.
-From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
+Import MCMonadNotation.
 Import ListNotations.
 
 Open Scope list.
