@@ -43,7 +43,7 @@ Import NamelessSubst.
 Local Set Keyed Unification.
 
 (* [Bool.trans_eq_bool] kills performance, so we remove it *)
-Remove Hints Bool.trans_eq_bool : core.
+#[global] Remove Hints Bool.trans_eq_bool : core.
 
 Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.
@@ -168,7 +168,7 @@ Fixpoint ge_val_ok Σ v : bool:=
   | vTy ty => true
   end.
 
-Hint Constructors PcbvCurr.value : hints.
+#[export] Hint Constructors PcbvCurr.value : hints.
 
 Lemma decompose_inductive_mkApps ty ind args :
   decompose_inductive ty = Some (ind, args) ->
@@ -227,7 +227,7 @@ Proof.
   + constructor;eauto.
 Qed.
 
-Hint Constructors ty_val : hints.
+#[export] Hint Constructors ty_val : hints.
 
 Lemma env_ok_lookup_ty_val ty i Σ ρ :
   env_ok Σ ρ ->
@@ -358,7 +358,7 @@ Proof.
 Qed.
 
 
-Hint Resolve lift_1_closed : hints.
+#[export] Hint Resolve lift_1_closed : hints.
 
 Lemma type_to_term_closed ty n :
   iclosed_ty n ty ->
@@ -370,7 +370,7 @@ Proof.
 Qed.
 
 
-Hint Resolve type_to_term_closed : hints.
+#[export] Hint Resolve type_to_term_closed : hints.
 
 Lemma type_to_term_subst_par_rec Σ ty k ρ :
   ty_env_ok k ρ ty ->
@@ -433,61 +433,18 @@ Proof.
     rewrite commut_lift_subst. repeat f_equal;eauto.
 Qed.
 
-Hint Resolve -> length_zero_iff_nil : hints.
-Hint Resolve <- length_zero_iff_nil : hints.
-Hint Resolve type_to_term_subst : hints.
-Hint Resolve type_to_term_closed : hints.
+#[export] Hint Resolve -> length_zero_iff_nil : hints.
+#[export] Hint Resolve <- length_zero_iff_nil : hints.
+#[export] Hint Resolve type_to_term_subst : hints.
+#[export] Hint Resolve type_to_term_closed : hints.
 
-Hint Unfold compose : hints.
-
-Lemma closedn_pat_to_lam tys e0 n ty_params :
-  All ((closedn (n+#|ty_params|)) ∘ snd) tys ->
-  All (closedn n) ty_params ->
-  closedn (#|tys| + n) e0 ->
-  closedn n (pat_to_lam e0 ty_params tys).
-Proof.
-  revert n ty_params.
-  induction tys;intros n params Htys Hty_params Hc.
-  + easy.
-  + destruct a as [nm ty].
-    inversion Htys;subst;clear Htys.
-    simpl. propify. split.
-    * apply closedn_subst0.
-      ** now apply All_forallb.
-      ** easy.
-    * eapply IHtys;eauto.
-      ** eapply (All_impl X). intros. cbn. rewrite map_length. unfold compose in *.
-         eapply (closed_upwards (k:=(n + #|params|)));eauto.
-      ** eapply All_map. eapply (All_impl Hty_params);auto with hints.
-      ** now replace (#|tys| + S n) with (S #|tys| + n) by lia.
-Qed.
+#[export] Hint Unfold compose : hints.
 
 Fixpoint inc_subst (ts : list (string * term)) n (u : term) : list (string * term) :=
   match ts with
   | [] => []
   | (nm, t0) :: ts0 => (nm, t0 {n:=u}) :: inc_subst ts0 (1+n) u
   end.
-
-Lemma subst_pat_to_lam t u n tys params :
-  (pat_to_lam t params tys) {n:=u} =
-  pat_to_lam (t {#|tys|+n := u}) (map (subst1 u n) params) (inc_subst tys (#|params|+n) u).
-Proof.
-  simpl.
-  revert dependent n. revert params.
-  induction tys;intros params n.
-  + simpl. reflexivity.
-  + destruct a; simpl.
-    f_equal.
-    * rewrite distr_subst. f_equal.
-    * remember (map (lift0 1) params) as params'.
-      replace (#|params|) with #|params'| by (subst;apply map_length).
-      replace (S (#|tys| + n)) with (#|tys|+S n) by lia.
-      rewrite IHtys. f_equal.
-      subst; repeat rewrite map_map. eapply map_ext.
-      ** intros t1. rewrite commut_lift_subst_rec.
-         now replace (S n) with (n+1) by lia. lia.
-      ** subst. f_equal. lia.
-Qed.
 
 Fixpoint nsubst (ts : list term) (n : nat) (t :term) :=
   match ts with
@@ -507,20 +464,6 @@ Proof.
   rewrite subst_closedn by auto. easy.
 Qed.
 
-Definition lpat_to_lam : term -> list term -> list (string * term) -> term
-  := fix rec body ty_params tys :=
-       match tys with
-         [] => body
-       | (n,ty) :: tys' =>
-         (* NOTE: we need to substitute the parameters into the type
-         of each lambda representing a pattern binder. Since each
-         lambda introduces a binder, we need also to lift free
-         variables in [ty_params] *)
-         let lam_type := subst (map (lift0 #|tys'|) ty_params) 0 ty in
-         rec (tLambda (aRelevant (nNamed n)) lam_type body) ty_params tys'
-       end.
-
-
 Lemma map_lift0 xs : map (lift0 0) xs = xs.
 Proof.
   induction xs;auto.
@@ -533,30 +476,6 @@ Proof.
   simpl. unfold compose.
   rewrite simpl_lift by lia.
   f_equal;eauto.
-Qed.
-
-Lemma pat_to_lam_unfold b tys n ty params :
-  lpat_to_lam b params (tys ++ [(n,ty)]) =
-  tLambda (aRelevant (nNamed n)) (subst0 params ty) (lpat_to_lam b (map (lift0 1) params) tys).
-Proof.
-  revert b params.
-  induction tys;intros.
-  + simpl.
-    now rewrite map_lift0.
-  + destruct a; simpl in *.
-    rewrite <- IHtys.
-    rewrite map_map. rewrite simpl_lift_map. rewrite app_length.
-    reflexivity.
-Qed.
-
-Lemma pat_to_lam_rev tys b params :
-  pat_to_lam b params tys = lpat_to_lam b params (rev tys).
-Proof.
-  revert params.
-  induction tys;intros.
-  + easy.
-  + simpl. destruct a;simpl. rewrite IHtys.
-    now rewrite pat_to_lam_unfold.
 Qed.
 
 (* TODO : use this lemma in all places where this inversion is needed *)
@@ -580,7 +499,7 @@ Proof.
   intros;eapply closed_upwards;eauto;lia.
 Qed.
 
-Hint Resolve closed_upwards0 subst_closedn : hints.
+#[export] Hint Resolve closed_upwards0 subst_closedn : hints.
 
 Lemma nsubst_app ts t0 t1 :
   closed t0 ->
@@ -611,39 +530,6 @@ Ltac destr_args args := let args0 := fresh "args0" in
 
 Notation "P <--> Q" := (Logic.BiImpl P Q) (at level 100).
 
-(* NOTE: this solves the "evaluation in one go" issue in [eCase]*)
-Lemma pat_to_lam_app_par l params args t v Σ  :
-  All PcbvCurr.value args ->
-  forallb (closedn 0) args ->
-  #|l| = #|args| ->
-  Σ |- subst (List.rev args) 0 t ⇓ v ->
-  Σ |- mkApps (lpat_to_lam t params l) args ⇓ v.
-Proof.
-  - revert dependent args. revert t v params.
-    induction l; intros t0 v params args Hval Hc Heq He.
-    + destr_args args. cbn in *.
-      now rewrite subst_empty in *.
-      (* now repeat rewrite app_nil_r in *. *)
-    + destruct a;simpl in *.
-      destruct args as [ | a1 args1] using MCList.rev_ind;tryfalse;clear IHargs1.
-      apply All_app in Hval. destruct Hval as [Hargs Ha].
-      inversion Ha;subst;clear Ha.
-      rewrite forallb_app in Hc.
-      simpl in *.
-      propify. destruct_hyps.
-      assert (#|l| = #|args1|).
-      { rewrite app_length in Heq. simpl in Heq. lia. }
-      clear Heq.
-      rewrite mkApps_unfold in *.
-      rewrite rev_unit in *. cbn in He.
-      assert (Σ |- a1 ⇓ a1) by (eapply PcbvCurr.value_final;eauto).
-      eapply PcbvCurr.eval_beta;eauto with hints.
-      eapply IHl;eauto with hints. simpl. econstructor;simpl;eauto.
-      unfold subst1.
-      rewrite PCUICCSubst.closed_subst; auto.
-      now rewrite <- subst_app_simpl.
-Qed.
-
 Lemma closed_mkApps n t1 t2 :
   closedn n (mkApps t1 [t2]) = true <->
   closedn n t1 = true /\ closedn n t2 = true.
@@ -658,8 +544,8 @@ Proof.
     rewrite closedn_mkApps;auto. simpl. rewrite Bool.andb_true_r in *. now rewrite H.
 Qed.
 
-Hint Resolve <- closed_mkApps : hints.
-Hint Resolve -> closed_mkApps : hints.
+#[export] Hint Resolve <- closed_mkApps : hints.
+#[export] Hint Resolve -> closed_mkApps : hints.
 
 Lemma genv_ok_constrs_ok Σ ind cs nparam:
   genv_ok Σ ->
@@ -698,7 +584,7 @@ Proof.
 Qed.
 
 
-Hint Resolve forallb_type_to_term_closed : core.
+#[export] Hint Resolve forallb_type_to_term_closed : core.
 
 Lemma closedn_ctx_branches n tys vs :
   #|vs| = #|tys| ->
@@ -806,22 +692,22 @@ Proof.
 Qed.
 
 
-Hint Resolve
+#[export] Hint Resolve
      PeanoNat.Nat.compare_eq
      Compare_dec.nat_compare_Lt_lt
      Compare_dec.nat_compare_Gt_gt
      Compare_dec.leb_correct_conv
      PeanoNat.Nat.leb_refl : facts.
-Hint Resolve
+#[export] Hint Resolve
      -> PeanoNat.Nat.ltb_lt : facts.
-Hint Resolve
+#[export] Hint Resolve
      -> PeanoNat.Nat.leb_le : facts.
 
-Hint Constructors val_ok Forall : hints.
-Hint Unfold snd env_ok AllEnv compose : hints.
+#[export] Hint Constructors val_ok Forall : hints.
+#[export] Hint Unfold snd env_ok AllEnv compose : hints.
 
-Hint Resolve 1 subst_env_iclosed_n_inv subst_env_iclosed_0_inv: hints.
-Hint Resolve 1 subst_env_iclosed_n subst_env_iclosed_0 : hints.
+#[export] Hint Resolve 1 subst_env_iclosed_n_inv subst_env_iclosed_0_inv: hints.
+#[export] Hint Resolve 1 subst_env_iclosed_n subst_env_iclosed_0 : hints.
 
 Lemma option_to_res_ok {A} (o : option A) s v:
   option_to_res o s = Ok v ->
@@ -1045,7 +931,7 @@ Proof.
   + destruct (Nat.leb (m + n0)) eqn:Hmn1; propify;try lia;easy.
 Qed.
 
-Hint Resolve subst_env_ty_closed_n_eq : hints.
+#[export] Hint Resolve subst_env_ty_closed_n_eq : hints.
 
 Lemma map_subst_env_ty_closed n m ρ l0 :
   forallb (iclosed_ty n) l0 ->
@@ -1138,7 +1024,7 @@ Proof.
              now rewrite H.
 Qed.
 
-Hint Resolve subst_env_ty_compose_1 : hints.
+#[export] Hint Resolve subst_env_ty_compose_1 : hints.
 
 Lemma subst_env_compose_1 :
   forall (nm : Ast.ename) (e e1: expr) k (ρ : env expr),
@@ -1254,8 +1140,8 @@ Proof.
   + simpl in *. unfold is_true in *. now propify.
 Qed.
 
-Hint Resolve ty_env_ok_app_rec : hints.
-Hint Resolve subst_env_compose_1 : hints.
+#[export] Hint Resolve ty_env_ok_app_rec : hints.
+#[export] Hint Resolve subst_env_compose_1 : hints.
 
 Hint Extern 2 (iclosed_n _ (snd _) = _) => simpl : hints.
 Hint Extern 2 (_ .[_] = _)=> simpl;eapply subst_env_compose_1 with (k:=0) : hints.
@@ -1385,7 +1271,7 @@ Proof.
   + eapply ty_env_ok_subst_env;eauto.
 Qed.
 
-Hint Resolve ty_expr_env_ok_app_rec : hints.
+#[export] Hint Resolve ty_expr_env_ok_app_rec : hints.
 
 (** ** Environment substitution commutes with PCUIC substitution (In the paper: Lemma 1.) *)
 Lemma subst_term_subst_env_par_rec :
@@ -1477,7 +1363,7 @@ Proof.
   apply All_snd_combine.
 Qed.
 
-Hint Constructors All : core.
+#[export] Hint Constructors All : core.
 
 Lemma eval_ge_val_ok n ρ Σ e v :
   AllEnv (ge_val_ok Σ) ρ ->
@@ -1599,7 +1485,7 @@ Proof.
     * now eapply IHρ.
 Qed.
 
-Hint Resolve eval_ty_closed type_eval_value : hints.
+#[export] Hint Resolve eval_ty_closed type_eval_value : hints.
 
 Lemma Forall_monad_map_some {A B} {f} {xs : list A} {ys : list B} :
   monad_utils.monad_map f xs = Ok ys -> Forall (fun x => exists v, f x = Ok v) xs.
@@ -1703,7 +1589,7 @@ Proof.
       now eapply eval_ty_env_ok.
 Qed.
 
-Hint Resolve eval_ty_expr_env_ok eval_ty_env_ok : hints.
+#[export] Hint Resolve eval_ty_expr_env_ok eval_ty_env_ok : hints.
 
 (** ** Evaluation gives well-formed values (In the paper: Lemma 2) *)
 Lemma eval_val_ok n ρ Σ e v :
@@ -1872,7 +1758,7 @@ Proof.
   induction l;constructor;auto.
 Qed.
 
-Hint Resolve eval_val_ok of_value_closed : hints.
+#[export] Hint Resolve eval_val_ok of_value_closed : hints.
 
 Lemma closed_exprs n (ρ : env val) Σ :
   env_ok Σ ρ ->
@@ -1888,7 +1774,7 @@ Proof.
       now apply IHρ.
 Qed.
 
-Hint Resolve closed_exprs : hints.
+#[export] Hint Resolve closed_exprs : hints.
 
 Lemma app_inv1 {A} (l l1 l2 : list A) : l ++ l1 = l ++ l2 -> l1 = l2.
 Proof.
@@ -1946,7 +1832,7 @@ Proof.
   induction n;simpl in *;intros l H;destruct l eqn:H1;inversion H;eauto.
 Qed.
 
-Hint Resolve env_ok_concat All_env_ok rev_env_ok : hints.
+#[export] Hint Resolve env_ok_concat All_env_ok rev_env_ok : hints.
 
 Lemma of_val_closed_0 e ρ :
   All (fun e0 : string * expr => iclosed_n 0 (snd e0) = true) (exprs ρ) ->
@@ -1957,10 +1843,10 @@ Proof.
   eauto with hints.
 Qed.
 
-Hint Resolve map_length of_val_closed_0 val_ok_ge_val_ok rev_length
+#[export] Hint Resolve map_length of_val_closed_0 val_ok_ge_val_ok rev_length
   subst_env_compose_1 subst_env_compose_2 : hints.
 
-Hint Constructors PcbvCurr.value : hints.
+#[export] Hint Constructors PcbvCurr.value : hints.
 
 Open Scope string.
 
@@ -1981,7 +1867,7 @@ Proof.
   intros. now apply closed_exprs_len_iff.
 Qed.
 
-Hint Resolve 0 closed_exprs_len_r2l : hints.
+#[export] Hint Resolve 0 closed_exprs_len_r2l : hints.
 
 Hint Extern 1 (iclosed_n (#|_|) _ = _) =>
 eapply closed_exprs_len_iff with (n:=0) : hints.
@@ -1990,9 +1876,9 @@ Definition not_stuck : term -> bool :=
   fun t => let (f, args) := decompose_app t in
          negb (PcbvCurr.isStuckFix f args).
 
-Hint Constructors PcbvCurr.eval : hints.
+#[export] Hint Constructors PcbvCurr.eval : hints.
 
-Hint Resolve PcbvCurr.value_final : hints.
+#[export] Hint Resolve PcbvCurr.value_final : hints.
 
 Lemma vars_to_apps_constr_not_lambda ind cn l Σ:
   ~~ isLambda (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
@@ -2020,7 +1906,7 @@ Proof.
   + simpl. now simpl_vars_to_apps.
 Qed.
 
-Hint Resolve vars_to_apps_iclosed_n vars_to_apps_constr_not_lambda
+#[export] Hint Resolve vars_to_apps_iclosed_n vars_to_apps_constr_not_lambda
      vars_to_apps_constr_not_fix_app vars_to_apps_constr_not_arity : hints.
 
 Lemma negb_and_to_orb a b :
@@ -2030,9 +1916,9 @@ Proof.
   destruct a,b;intuition;auto.
 Qed.
 
-Hint Resolve negb_and_to_orb : hints.
+#[export] Hint Resolve negb_and_to_orb : hints.
 
-Hint Constructors All2 : hints.
+#[export] Hint Constructors All2 : hints.
 
 Lemma All_value_of_val:
   forall (Σ1 : global_env)
@@ -2113,7 +1999,7 @@ Proof.
   now eapply iclosed_ty_0.
 Qed.
 
-Hint Resolve eval_ty_expr_env_ok subst_env_i_ty_closed_0_eq : hints.
+#[export] Hint Resolve eval_ty_expr_env_ok subst_env_i_ty_closed_0_eq : hints.
 
 Lemma subst_term_subst_env_2 :
   forall (Σ : global_env) (e e1 e2 : expr) (nm1 nm2 : ename) (k : nat),
@@ -2127,4 +2013,51 @@ Proof.
   intros.
   change ([t⟦ e1 ⟧Σ; t⟦ e2 ⟧Σ]) with (map (fun x => t⟦ x.2 ⟧Σ) [(nm1,e1); (nm2,e2)]).
   eapply subst_term_subst_env_par;eauto.
+Qed.
+
+#[local] Hint Constructors assumption_context : hints.
+
+Lemma assumption_context_subst :
+  forall ctx ts n, assumption_context ctx ->
+                   assumption_context (subst_context ts n ctx).
+Proof.
+  intros ctx ts n0 Hctx.
+  induction Hctx;auto with hints.
+  * unfold subst_context;cbn.
+    rewrite mapi_rec_app,rev_app_distr.
+    apply PCUICClosed.assumption_context_app_inv;cbn;auto.
+    constructor; auto with hints.
+Qed.
+
+Lemma assumption_context_map_vass :
+  forall {A} xs (f : A -> aname),
+    assumption_context (map (fun '(nm, t) => vass (f nm) t) xs).
+Proof.
+  induction xs as [| x xs0];cbn;try destruct x;auto with hints.
+Qed.
+
+Lemma subst_instance_type_to_term :
+  forall ty, subst_instance [] (type_to_term ty) = type_to_term ty.
+Proof.
+  intros ty.
+  induction ty;cbn;auto.
+  * now rewrite IHty.
+  * now rewrite IHty1,IHty2.
+  * rewrite PCUICUnivSubst.subst_instance_lift.
+    now rewrite IHty1,IHty2.
+Qed.
+
+Lemma All_subst_instance_type_to_term ctx :
+  assumption_context ctx ->
+  All (fun t => exists ty, BasicTC.decl_type t = type_to_term ty) ctx ->
+  All (fun x => map_decl (subst_instance []) x = x) ctx.
+Proof.
+  intros Hassump Hall.
+  induction Hall;eauto with hints.
+  unfold map_decl;cbn.
+  constructor;cbn;auto.
+  + inversion Hassump;subst.
+    destruct p as [ty Hty]. cbn in *. subst.
+    now rewrite subst_instance_type_to_term.
+  + apply IHHall. now inversion Hassump.
 Qed.

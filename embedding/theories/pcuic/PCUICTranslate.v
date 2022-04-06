@@ -92,21 +92,6 @@ Fixpoint type_to_term (ty : type) : term :=
   end
 where "T⟦ ty ⟧ " := (type_to_term ty).
 
-(** Translating patterns to iterated lambdas *)
-Definition pat_to_lam (body : term)
-          :  list term -> list (ename * term) -> term :=
-  fix rec ty_params tys :=
-    match tys with
-      [] => body
-    | (n,ty) :: tys' =>
-      (* NOTE: we need to substitute the parameters into the type of
-      each lambda representing a pattern binder. Since each lambda
-      introduces a binder, we need also to lift free variables in
-      [ty_params] *)
-      let lam_type := subst ty_params 0 ty in
-      tLambda (aRelevant (nNamed (TCString.of_string n))) lam_type (rec (map (lift0 1) ty_params) tys')
-    end.
-
 (** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
 Definition etrans_branch (params : list type)(bs : list (pat * term))
            (c : constr) : branch term :=
@@ -162,10 +147,6 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
          pparams := map type_to_term params;
          pcontext := [vass (aRelevant (nNamed "a"%bs)) pty];
          preturn := lift0 1 (type_to_term ty2) |} in
-      (* tLambda (aRelevant nAnon) *)
-      (*                       (mkApps (tInd (mkInd (kername_of_string nm) 0) []) *)
-      (*                               (map type_to_term params)) *)
-      (*                       (lift0 1 (type_to_term ty2)) in *)
     match (resolve_inductive Σ nm) with
     | Some v =>
       if Nat.eqb (fst v) #|params| then

@@ -25,34 +25,28 @@ Import NamelessSubst.
 
 Local Set Keyed Unification.
 
-(* TODO: move to Aux*)
+#[local]
+ Hint Resolve assumption_context_subst
+              assumption_context_map_vass
+              PCUICSigmaCalculus.context_assumptions_context : hints.
 
-#[local] Hint Constructors assumption_context : hints.
+(** All contructors of inductives available in the λ-smart environment are available in
+    the PCUIC environment. *)
+(** Eventually, we can translate the whole λ-smart environment, we have a function that
+    does if for inductives [trans_global_dec] and we use it precisely to unquote
+    inductives.But it returns [mutual_inductive_entry] and we need
+    [mutual_inductive_body] *)
+Definition genv_sync (Σ1 : list global_dec) (Σ2 : PCUICEnvironment.global_env ) :=
+  forall ind_name c nparams i ci,
+    resolve_constr Σ1 ind_name c = Some (nparams, i, ci) ->
+    { x | let '(mib, oib, cb) := x in declared_constructor Σ2 (mkInd (kername_of_string ind_name) 0, i) mib oib cb}.
 
-Lemma assumption_context_subst :
-  forall ctx ts n, assumption_context ctx ->
-                   assumption_context (subst_context ts n ctx).
-Proof.
-  intros ctx ts n0 Hctx.
-  induction Hctx;auto with hints.
-  * unfold subst_context;cbn.
-    rewrite mapi_rec_app,rev_app_distr.
-    apply PCUICClosed.assumption_context_app_inv;cbn;auto.
-    constructor; auto with hints.
-Qed.
-
-Lemma assumption_context_map_vass :
-  forall {A} xs (f : A -> aname),
-    assumption_context (map (fun '(nm, t) => vass (f nm) t) xs).
-Proof.
-  induction xs as [| x xs0];cbn;try destruct x;auto with hints.
-Qed.
-
-#[local] Hint Resolve assumption_context_subst assumption_context_map_vass : hints.
+Notation "Σ1 ⋈ Σ2 " := (genv_sync Σ1 Σ2) (at level 20).
 
 (** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2
         (e1 e2 : expr) (v : val) :
+  Σ1 ⋈ Σ2 ->
   genv_ok Σ1 ->
   env_ok Σ1 ρ ->
   eval(n, Σ1, ρ, e1) = Ok v ->
@@ -66,7 +60,7 @@ Proof.
   revert dependent e1.
   induction n.
   - now intros.
-  - intros e1 e2 ρ v Hgeok Hρ_ok He Henv Hc;destruct e1.
+  - intros e1 e2 ρ v Hsync Hgeok Hρ_ok He Henv Hc;destruct e1.
     + (* eRel *) simpl in *. autounfold with facts in *. simpl in *.
       destruct (lookup_i ρ n0) as [v1| ] eqn:Hlookup;tryfalse; simpl in He;inversion He;subst.
       destruct (Nat.ltb n0 (length ρ)) eqn:Hn0.
@@ -285,6 +279,7 @@ Proof.
       inversion He.
     + (* eCase *)
       unfold expr_eval_i in He. destruct p.
+
       (* dealing with the interpreter *)
       unfold is_true in Hc;subst;simpl in Hc;repeat rewrite  Bool.andb_true_iff in *.
       simpl in *.
@@ -321,12 +316,12 @@ Proof.
       (* Exploiting the fact that pattern-matching succeeds *)
       apply pat_match_succeeds in Hpat.
       destruct Hpat as [pt [Hfnd [Hci [Hl0 Hl2]]]].
+      destruct (Hsync _ _ _ _ _ HresC) as [x Hctor_decl].
+      destruct x as [[mib oib] cb].
+
+      (* Constructing PCUIC eval derivation for the pattern-matching case *)
       eapply PcbvCurr.eval_iota;eauto.
       * now eapply map_nth_error.
-      * unfold declared_constructor;cbn.
-        unfold declared_inductive, declared_minductive;cbn.
-         (* looking up in [Σ2] should give an inducive repated to the one in [Σ1] *)
-        admit.
       * cbn. rewrite map_length.
         unfold etrans_branch.
         unfold fun_prod,id;cbn.
@@ -338,7 +333,8 @@ Proof.
         assert (Heq : (#|pVars v2.1| =? #|remove_proj c|)%nat) by (propify;lia).
         rewrite Heq;cbn.
         assert (Hvass : forall xs, context_assumptions (map (fun '(nm, ty) => vass (aRelevant (nNamed (TCString.of_string nm))) ty) xs) = #|xs|).
-        {intros xs; induction xs;cbn;auto. destruct (_: string * term);cbn. congruence. }
+        { intros;rewrite PCUICSigmaCalculus.context_assumptions_context by auto with hints.
+          now rewrite map_length. }
         rewrite Hvass. rewrite combine_length, map_length.
         lia.
       * unfold iota_red in *. simpl in *.
@@ -363,22 +359,10 @@ Proof.
         inversion Hok_constr;subst;clear Hok_constr.
 
         remember (map (map_decl (subst_instance [])) _ ) as g.
-
-        assert (Hsub_inst : forall ty, subst_instance [] (type_to_term ty) = type_to_term ty).
-        { induction ty;cbn;auto.
-          * now rewrite IHty.
-          * now rewrite IHty1,IHty2.
-          * rewrite PCUICUnivSubst.subst_instance_lift.
-            now rewrite IHty1,IHty2. }
-
-        assert (Hsub_map : forall tys0 vs,
-                   #|vs| = #|tys0| ->
-         map (map_decl (subst_instance [])) (map (fun '(nm, ty) => vass (aRelevant (nNamed (TCString.of_string nm))) ty) (combine vs (map type_to_term tys0))) = map (fun '(nm, ty) => vass (aRelevant (nNamed (TCString.of_string nm))) ty) (combine vs (map type_to_term tys0))).
-        { induction tys0;intros vs Hvs;cbn;destruct vs;inversion Hvs;subst;cbn; auto.
-          f_equal;auto. unfold map_decl. cbn. apply f_equal3;auto.
-        }
-
-        rewrite Hsub_map in Heqg by (now propify).
+        rewrite <- map_combine_snd_funprod in Heqg.
+        rewrite All_map_id in Heqg by
+            (apply All_subst_instance_type_to_term;eauto with hints;
+             repeat apply All_map;cbn;eauto using All_refl).
 
         rewrite PCUICSigmaCalculus.subst_extended_subst;cbn.
 
@@ -399,7 +383,9 @@ Proof.
         rewrite Hext_subst by assumption.
         rewrite map_rev with (l:=reln _ _ _).
 
-        assert (Hvass_eq : context_assumptions g = #|g|) by now apply PCUICSigmaCalculus.context_assumptions_context.
+        assert (Hvass_eq : context_assumptions g = #|g|) by
+          now apply PCUICSigmaCalculus.context_assumptions_context.
+
         change (reln [] 0 g) with (to_extended_list_k g 0).
         rewrite <- PCUICSubstitution.to_extended_list_k_map_subst by lia.
 
@@ -407,7 +393,7 @@ Proof.
 
         erewrite PCUICInstConv.subst_id with (s:=rev (_));eauto.
         2: { rewrite rev_length. rewrite to_extended_list_k_length. rewrite Hvass_eq.
-             subst g. rewrite map_length, combine_length, map_length.
+             subst g. repeat rewrite map_length. rewrite combine_length.
              replace (min #|pVars v2.1| #|remove_proj c|) with (#|pVars v2.1|) by lia.
              rewrite PCUICSigmaCalculus.context_assumptions_context.
              * rewrite subst_context_length.
@@ -424,7 +410,7 @@ Proof.
                    (subst_context (rev (map (fun x : type => T⟦ subst_env_i_ty 0 (exprs ρ) x ⟧) l0)) 0 g)) = #|pVars v2.1|).
         { rewrite PCUICSigmaCalculus.context_assumptions_context by auto with hints.
           rewrite subst_context_length. subst g.
-          repeat rewrite map_length. rewrite combine_length,map_length.
+          repeat rewrite map_length. rewrite combine_length.
           replace #|remove_proj c| with #|pVars v2.1| by (propify;lia).
           now replace (min #|pVars v2.1| #|pVars v2.1|) with #|pVars v2.1| by lia.
         }
@@ -549,14 +535,15 @@ Proof.
       erewrite eval_type_i_subst_env by eauto.
       eapply Wcvb_type_to_term_eval;eauto with hints.
       eapply closed_exprs;eauto.
-Admitted.
+Qed.
 
 (** ** Soundness for closed epxressions (In the paper: Corollary 2)*)
 Corollary expr_to_term_sound_closed (n : nat) Σ1 Σ2
           (e : expr) (v : val) :
+  Σ1 ⋈ Σ2 ->
   genv_ok Σ1 ->
-  eval(n, Σ1, [], e) = Ok v ->
   iclosed_n 0 e = true ->
+  eval(n, Σ1, [], e) = Ok v ->
   Σ2 |- t⟦e⟧Σ1 ⇓ t⟦of_val_i v⟧Σ1.
 Proof.
   intros.
@@ -570,13 +557,14 @@ Definition terminates_expr Σ1 (e : expr) : Prop :=
 (** ** Adequacy for terminating programs (In the paper: Theorem 3) *)
 Theorem adequacy_terminating Σ1 Σ2
         (e : expr) (t : term) :
+  Σ1 ⋈ Σ2 ->
   genv_ok Σ1 ->
   terminates_expr Σ1 e ->
-  Σ2 |- t⟦e⟧Σ1 ⇓ t ->
   iclosed_n 0 e = true ->
+  Σ2 |- t⟦e⟧Σ1 ⇓ t ->
   exists v, t = t⟦of_val_i v⟧Σ1.
 Proof.
-  intros Hgok Hterm Hcvb Hclosed.
+  intros Hsync Hgok Hterm Hcvb Hclosed.
   destruct Hterm as (n & v &?).
   assert (Hcbv1 : Σ2 |- t⟦ e ⟧Σ1 ⇓ t⟦ of_val_i v ⟧ Σ1)
     by (eapply expr_to_term_sound_closed;eauto).
