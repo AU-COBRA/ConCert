@@ -531,6 +531,20 @@ Qed.
 Admitted.
   End Values.
 
+  Section MapProperties.
+
+    Context {A : Type}
+            {B : Type}
+            {C : Type}
+            {D : Type}.
+
+    Lemma map_funprod_id (f : B -> D) (l : list (A * B)) :
+      map fst l = map fst (map (fun_prod id f) l).
+    Proof.
+      induction l;cbn;f_equal;auto.
+    Qed.
+  End MapProperties.
+
   Section FindLookupProperties.
 
   Context {A : Type}
@@ -631,6 +645,36 @@ Admitted.
       destruct ab as [a b];simpl in *.
       inversion Hmap;subst.
     destruct (p (fst p0));simpl in *;eauto;tryfalse.
+  Qed.
+
+  Lemma find_some_fst_map_snd {p} {f : A * B -> C} (l: list (A * B)) (v1 : A * B):
+    find (p ∘ fst) l = Some v1 ->
+     {v2 | find (p ∘ fst) (map (fun x => (fst x, f x)) l) = Some v2
+              × fst v1 = fst v2
+              × f v1 = snd v2 }.
+  Proof.
+    revert v1.
+    induction l as [ | ab l'];intros v1 Hfnd.
+    + easy.
+    + unfold compose,id in *;simpl in *.
+      destruct (p ab.1);inversion Hfnd;subst;simpl in *;eauto.
+  Qed.
+
+  Lemma find_some_fst {p} (l1: list (A * B)) ( l2 : list (A * C)) v1:
+    map fst l1 = map fst l2 ->
+    find (p ∘ fst) l1 = Some v1 ->
+    exists v2, find (p ∘ fst) l2 = Some v2
+               /\ fst v1 = fst v1.
+  Proof.
+    revert dependent l2.
+    revert v1.
+    induction l1 as [ | ab l1'];intros v1 l2 Hmap Hfnd.
+    + destruct l2;simpl in *;easy.
+    + destruct l2;simpl in *;tryfalse.
+      unfold compose,id in *;simpl in *.
+      destruct ab as [a b];simpl in *.
+      inversion Hmap;subst.
+      destruct (p (fst p0));inversion Hfnd;subst;simpl in *;eauto;tryfalse.
   Qed.
 
 End FindLookupProperties.

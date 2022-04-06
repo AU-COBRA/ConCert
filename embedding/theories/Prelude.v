@@ -1,6 +1,7 @@
 (** * Prelude -- definitions of basic of data types*)
 
 (** Definitions of basic of data types required for the crowdfunding contract along with notations for developing contract using the deep embedding *)
+From MetaCoq.Template Require Import All.
 
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -12,9 +13,7 @@ From Coq Require Import String.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 
-From MetaCoq.Template Require Import All.
-
-Import MonadNotation.
+Import MCMonadNotation.
 
 Import ListNotations.
 Import BaseTypes.
@@ -23,6 +22,7 @@ Open Scope list.
 (** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
 Module Maps.
   Open Scope nat.
+  Open Scope string.
 
   MetaCoq Run
           ( mp_ <- tmCurrentModPath tt ;;
@@ -61,7 +61,7 @@ Module Maps.
   Proof.
     induction m.
     + simpl. now rewrite PeanoNat.Nat.eqb_refl.
-    + simpl. destruct (k =? n) eqn:Heq.
+    + simpl. destruct (k =? n)%nat eqn:Heq.
       * simpl. now rewrite PeanoNat.Nat.eqb_refl.
       * simpl. now rewrite Heq.
   Qed.
@@ -98,7 +98,7 @@ Module Maps.
   Proof.
     revert k v p.
     induction m;intros;try discriminate;simpl in *.
-    propify. destruct (_ =? _);auto.
+    propify. destruct (_ =? _)%nat;auto.
     * now inversion H0;subst.
     * easy.
   Qed.

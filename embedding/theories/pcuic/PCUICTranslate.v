@@ -12,16 +12,19 @@ From ConCert.Utils Require Extras.
 From ConCert.Utils Require StringExtra.
 
 From Coq Require Import List.
+From Coq Require Import String.
+
+Module TCString := bytestring.String.
 
 Module P := PCUICAst.
-Import MonadNotation.
+Import MCMonadNotation.
 Import ListNotations.
 
 (** ** Translation of types *)
 
 Reserved Notation "T⟦ ty ⟧ " (at level 5).
 
-Fixpoint mdots (prefix : modpath) (l : list string) :=
+Fixpoint mdots (prefix : modpath) (l : list MCString.string) :=
   match l with
   | [] => prefix
   | h :: tl => mdots (MPdot prefix h) tl
@@ -33,8 +36,8 @@ Definition modpath_of_string (s : string) : modpath :=
   let fpath_mod := StringExtra.str_split "#" s in
   let fpath := hd "" fpath_mod in
   let module := hd "" (tl fpath_mod) in
-  let fpath_items := rev (StringExtra.str_split "/" fpath) in
-  let mod_items := StringExtra.str_split "." module in
+  let fpath_items := map TCString.of_string (rev (StringExtra.str_split "/" fpath)) in
+  let mod_items := map TCString.of_string (StringExtra.str_split "." module) in
   let fp := MPfile fpath_items in
   if module =? "" then fp
   else mdots fp mod_items.
@@ -43,33 +46,33 @@ Definition modpath_of_string (s : string) : modpath :=
  E.g. "Path/To/File#ModuleName.NestedModuleName@FunctionName" *)
 Definition kername_of_string (s : string) : kername :=
   let qualified_name := StringExtra.str_split "@" s in
-  if Nat.eqb (length qualified_name) 1
+  if Nat.eqb (List.length qualified_name) 1
   then (* unqualified name was given*)
-    (MPfile [], (hd "" qualified_name))
+    (MPfile [], TCString.of_string (hd "" qualified_name))
   else let path := hd "" qualified_name in
-       let name := hd "" (tl qualified_name) in
+       let name := TCString.of_string (hd "" (tl qualified_name)) in
        (modpath_of_string path, name).
 
 (** The priting functions below are similar to the ones from MetaCoq, but we use different separators for different parts of the [kername] *)
 
 Definition string_of_dirpath (dp : dirpath) : string :=
-  String.concat "/" (rev dp).
+  TCString.to_string (String.concat "/" (rev dp)).
 
 Fixpoint string_of_modpath (mp : modpath) : string :=
   match mp with
   | MPfile dp => string_of_dirpath dp
   | MPbound dp id _ =>
     (* currently not supported by the parser *)
-    (string_of_dirpath dp ++ "$" ++ id)%string
+    (string_of_dirpath dp ++ "$" ++ (TCString.to_string id))%string
   | MPdot mp0 id =>
     match mp0 with
-    | MPfile _ => (string_of_modpath mp0 ++ "#" ++ id)%string
-    | _ => (string_of_modpath mp0 ++ "." ++ id)%string
+    | MPfile _ => (string_of_modpath mp0 ++ "#" ++ (TCString.to_string id))%string
+    | _ => (string_of_modpath mp0 ++ "." ++ (TCString.to_string id))%string
     end
   end.
 
 Definition string_of_kername (kn : kername) :=
-  (string_of_modpath kn.1 ++ "@" ++ kn.2)%string.
+  (string_of_modpath kn.1 ++ "@" ++ TCString.to_string kn.2)%string.
 
 Definition aRelevant (n : name) :=
   {| binder_name := n; binder_relevance := Relevant |}.
@@ -78,12 +81,12 @@ Definition aRelevant (n : name) :=
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd (kername_of_string i) 0) []
-  | tyForall nm ty => tProd (aRelevant (nNamed nm)) (tSort Universe.type0) T⟦ty⟧
-  | tyVar nm => tVar nm
+  | tyForall nm ty => tProd (aRelevant (nNamed (TCString.of_string nm))) (tSort Universe.type0) T⟦ty⟧
+  | tyVar nm => tVar (TCString.of_string nm)
   | tyApp ty1 ty2 => tApp T⟦ty1⟧ T⟦ty2⟧
   | tyArr ty1 ty2 =>
     (* NOTE: we have to lift indices for the codomain,
-       since in Coq arrows are Pi types and introduce an binder *)
+       since in Coq arrows are Pi types and introduce a binder *)
     tProd (aRelevant nAnon) T⟦ty1⟧ (lift0 1 T⟦ty2⟧)
   | tyRel i => tRel i
   end
@@ -91,8 +94,8 @@ where "T⟦ ty ⟧ " := (type_to_term ty).
 
 (** Translating patterns to iterated lambdas *)
 Definition pat_to_lam (body : term)
-          :  list term -> list (BasicTC.ident * term) -> term :=
-  (fix rec ty_params tys :=
+          :  list term -> list (ename * term) -> term :=
+  fix rec ty_params tys :=
     match tys with
       [] => body
     | (n,ty) :: tys' =>
@@ -101,23 +104,31 @@ Definition pat_to_lam (body : term)
       introduces a binder, we need also to lift free variables in
       [ty_params] *)
       let lam_type := subst ty_params 0 ty in
-      tLambda (aRelevant (nNamed n)) lam_type (rec (map (lift0 1) ty_params) tys')
-    end).
+      tLambda (aRelevant (nNamed (TCString.of_string n))) lam_type (rec (map (lift0 1) ty_params) tys')
+    end.
 
 (** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
-Definition trans_branch (params : list type)(bs : list (pat * term))
-           (c : constr) :=
+Definition etrans_branch (params : list type)(bs : list (pat * term))
+           (c : constr) : branch term :=
   let nm  := fst c in
   let tys := remove_proj c in
   let tparams := map type_to_term params in
   let o_pt_e := find (fun x =>(fst x).(pName) =? nm) bs in
-  let dummy := (0, tVar (nm ++ ": not found")%string) in
+  let dummy := tVar (TCString.of_string (nm ++ ": not found"))%string in
   match o_pt_e with
-    | Some pt_e => if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
-                    let vars_tys := combine (fst pt_e).(pVars) (map type_to_term tys) in
-                    (length (fst pt_e).(pVars), pat_to_lam (snd pt_e) (rev tparams) vars_tys)
-                  else (0, tVar (nm ++ ": arity does not match")%string)
-    | None => dummy
+  | Some pt_e =>
+      if (Nat.eqb #|(fst pt_e).(pVars)| #|tys|) then
+        let bctx :=
+          map (fun '(nm,ty) => vass (aRelevant (nNamed (TCString.of_string nm)))ty)
+                      (combine (fst pt_e).(pVars) (map type_to_term tys)) in
+        {| bcontext := bctx ;
+           bbody := snd pt_e|}
+        (* (List.length (fst pt_e).(pVars), pat_to_lam (snd pt_e) (rev tparams) vars_tys) *)
+      else
+        {| bcontext := [];
+           bbody := tVar (TCString.of_string (nm ++ ": arity does not match"))%string |}
+  | None => {| bcontext := [] ;
+               bbody:= dummy |}
   end.
 
 Open Scope list.
@@ -130,10 +141,10 @@ Reserved Notation "t⟦ e ⟧ Σ" (at level 5).
 Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
   match e with
   | eRel i => tRel i
-  | eVar nm => tVar nm
-  | eLambda nm ty b => tLambda (aRelevant (nNamed nm)) T⟦ty⟧ t⟦b⟧Σ
-  | eTyLam nm b => tLambda (aRelevant (nNamed nm)) (tSort Universe.type0) t⟦b⟧Σ
-  | eLetIn nm e1 ty e2 => tLetIn (aRelevant (nNamed nm)) t⟦e1⟧Σ T⟦ty⟧ t⟦e2⟧Σ
+  | eVar nm => tVar (TCString.of_string nm)
+  | eLambda nm ty b => tLambda (aRelevant (nNamed (TCString.of_string nm))) T⟦ty⟧ t⟦b⟧Σ
+  | eTyLam nm b => tLambda (aRelevant (nNamed (TCString.of_string nm))) (tSort Universe.type0) t⟦b⟧Σ
+  | eLetIn nm e1 ty e2 => tLetIn (aRelevant (nNamed (TCString.of_string nm))) t⟦e1⟧Σ T⟦ty⟧ t⟦e2⟧Σ
   | eApp e1 e2 => tApp t⟦e1⟧Σ t⟦e2⟧Σ
   | eConstr i t =>
     match (resolve_constr Σ i t) with
@@ -142,20 +153,31 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
     end
   | eConst nm => tConst (kername_of_string nm) []
   | eCase nm_i ty2 e bs =>
-    let (nm, params) := nm_i in
-    let typeInfo := tLambda (aRelevant nAnon)
-                            (mkApps (tInd (mkInd (kername_of_string nm) 0) [])
-                                    (map type_to_term params))
-                            (lift0 1 (type_to_term ty2)) in
+      let (nm, params) := nm_i in
+      let ctx := map (fun x => vass (aRelevant nAnon) (type_to_term x)) params in
+      let pty := (mkApps (tInd (mkInd (kername_of_string nm) 0) [])
+                         (to_extended_list ctx)) in
+    let pinfo :=
+      {| puinst := [];
+         pparams := map type_to_term params;
+         pcontext := [vass (aRelevant (nNamed "a"%bs)) pty];
+         preturn := lift0 1 (type_to_term ty2) |} in
+      (* tLambda (aRelevant nAnon) *)
+      (*                       (mkApps (tInd (mkInd (kername_of_string nm) 0) []) *)
+      (*                               (map type_to_term params)) *)
+      (*                       (lift0 1 (type_to_term ty2)) in *)
     match (resolve_inductive Σ nm) with
     | Some v =>
       if Nat.eqb (fst v) #|params| then
         let cs := snd v in
         let tbs := map (fun_prod id (expr_to_term Σ)) bs in
-        let branches := map (trans_branch params tbs) cs in
-        tCase (mkInd (kername_of_string nm) 0, fst v) typeInfo t⟦e⟧Σ branches
-      else tVar "Case: number of params doesn't match with the definition"
-    | None => tVar (nm ++ "not found")%string
+        let branches := map (etrans_branch params tbs) cs in
+        let ci := {| ci_ind := mkInd (kername_of_string nm) 0;
+                     ci_npar := fst v;
+                     ci_relevance := Relevant |} in
+        tCase ci pinfo t⟦e⟧Σ branches
+      else tVar (TCString.of_string "Case: number of params doesn't match with the definition")
+    | None => tVar (TCString.of_string (nm ++ "not found")%string)
     end
   | eFix nm nv ty1 ty2 b =>
     let tty1 := T⟦ty1⟧ in
@@ -163,8 +185,8 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
     let ty := tProd (aRelevant nAnon) tty1 (lift0 1 tty2) in
     (* NOTE: we have to lift the indices in [tty1] because [tRel 0]
              corresponds to the recursive call *)
-    let body := tLambda (aRelevant (nNamed nv)) (lift0 1 tty1) t⟦b⟧Σ in
-    tFix [(mkdef _ (aRelevant (nNamed nm)) ty body 0)] 0
+    let body := tLambda (aRelevant (nNamed (TCString.of_string nv))) (lift0 1 tty1) t⟦b⟧Σ in
+    tFix [(mkdef _ (aRelevant (nNamed (TCString.of_string nm))) ty body 0)] 0
   | eTy ty => T⟦ty⟧
   end
 where "t⟦ e ⟧ Σ":= (expr_to_term Σ e).
@@ -215,7 +237,7 @@ Definition trans_one_constr (ind_name : ename) (nparam : nat) (c : constr) : ter
 
 Fixpoint gen_params n := match n with
                          | O => []
-                         | S n' => let nm := ("A" ++ string_of_nat n)%string in
+                         | S n' => let nm := ("A" ++ string_of_nat n)%bs in
                                   let decl := LocalAssum (tSort Universe.type0) in
                                   gen_params n' ++ [(nm,decl)]
                          end.
@@ -233,12 +255,13 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
                          unqualified_nm) cs;
           mind_entry_lc := map (trans_one_constr nm nparam) cs |}
     in
-   {| mind_entry_record := if r then (Some (Some unqualified_nm)) else None;
-      mind_entry_finite := if r then BiFinite else Finite;
-      mind_entry_params := gen_params nparam;
-      mind_entry_inds := [oie];
-      mind_entry_universes := Monomorphic_ctx ContextSet.empty;
-      mind_entry_private := None;|}
+   let mie := {| mind_entry_record := if r then (Some (Some unqualified_nm)) else None;
+                mind_entry_finite := if r then BiFinite else Finite;
+                mind_entry_params := gen_params nparam;
+                mind_entry_inds := [oie];
+                mind_entry_universes := Monomorphic_ctx;
+                mind_entry_private := None;|} in
+   mie
   end.
 
 (** Extracts a constant name, inductive name or returns None *)

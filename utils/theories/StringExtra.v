@@ -207,6 +207,8 @@ Definition last_index_of (c : ascii) (s : string) : option nat :=
          f s (S index) result
      end) s 0%nat None.
 
+Local Open Scope N.
+
 Definition is_letter (c : ascii) : bool :=
   let n := N_of_ascii c in
   (65 (* A *) <=? n) && (n <=? 90 (* Z *)) ||
