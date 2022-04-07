@@ -43,6 +43,7 @@ Definition token_id := FA2Interface.token_id.
 Definition token_contract_transfer := FA2Interface.transfer.
 Definition balance_of := FA2Interface.balance_of_response.
 Definition mintOrBurn := Dexter2FA12.mintOrBurn_param.
+Definition baker_address := option Address.
 
 (** ** Entrypoint types *)
 
@@ -89,7 +90,7 @@ Record token_to_token_param :=
 
 Record set_baker_param :=
   build_set_baker_param{
-    baker : option Address;
+    baker : baker_address;
     freezeBaker_ : bool
 }.
 
@@ -188,7 +189,7 @@ Module Type NullAddress.
     Parameter null_address : Address.
 
     (** Place holder for tezos set delegate operation *)
-    Parameter set_delegate_call : option Address -> list ActionBody.
+    Parameter set_delegate_call : baker_address -> list ActionBody.
     Axiom delegate_call : forall addr, Forall (fun action => 
       match action with
       | act_transfer _ _ => False
@@ -560,7 +561,7 @@ Module NullAddressAxiom <: NullAddress.
     Existing Instance BaseTypes.
 
     Parameter null_address : Address.
-    Parameter set_delegate_call : option Address -> list ActionBody.
+    Parameter set_delegate_call : baker_address -> list ActionBody.
     Axiom delegate_call : forall addr, Forall (fun action => 
       match action with
       | act_transfer _ _ => False
@@ -669,7 +670,7 @@ Section Theories.
   Qed.
   Opaque sub.
 
-  Lemma set_delegate_call_nil : forall (addr : option Address),
+  Lemma set_delegate_call_nil : forall (addr : baker_address),
     set_delegate_call addr = [].
   Proof.
     intros.

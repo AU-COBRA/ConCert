@@ -264,6 +264,7 @@ Section D2E.
    ; remap <%% amount_to_N %%> "mutez_to_natural"
    ; remap <%% div %%> "divN_opt"
    ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)"
+   ; remap <%% @baker_address %%> "key_hash option"
    ; remap <%% set_delegate_call %%> "(fun (x : key_hash option) -> [Tezos.set_delegate x])" ].
 
   Definition TT_remap_all :=
