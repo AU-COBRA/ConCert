@@ -36,8 +36,6 @@ Definition call_to_token_ligo : string :=
      "  | None -> (failwith ""Contract not found."" : msg contract) in";
      "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
-Compute call_to_token_ligo.
-
 Definition mk_callback_ligo : string :=
   "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
@@ -265,7 +263,8 @@ Section D2E.
    ; remap <%% N_to_amount %%> "natural_to_mutez"
    ; remap <%% amount_to_N %%> "mutez_to_natural"
    ; remap <%% div %%> "divN_opt"
-   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)" ].
+   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)"
+   ; remap <%% set_delegate_call %%> "(fun (x : key_hash option) -> [Tezos.set_delegate x])" ].
 
   Definition TT_remap_all :=
     (TT_remap_arith ++ TT_remap_dexter2 ++ TT_Dexter2_CPMM)%list.
