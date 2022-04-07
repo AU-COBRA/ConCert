@@ -26,7 +26,7 @@ Open Scope N_scope.
 (* Any contract that wants to receive callback messages from the FA2 contract
    should have this type as its Msg type. The contract may have other endpoints,
    as composed in the 'other_msg' constructor *)
-Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
+Inductive FA2ReceiverMsg {Msg' : Type} :=
   | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
   | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
   | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
@@ -35,7 +35,7 @@ Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
   | other_msg : Msg' -> FA2ReceiverMsg.
 
 (* Transfer hook contracts of the FA2 Contract should use this type as their Msg type *)
-Inductive FA2TransferHook {Msg : Type} `{Serializable Msg} :=
+Inductive FA2TransferHook {Msg : Type} :=
   | transfer_hook : transfer_descriptor_param -> FA2TransferHook
   | hook_other_msg : Msg -> FA2TransferHook.
 
@@ -85,19 +85,19 @@ Section Serialization.
 Global Instance setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect <build_setup>.
 
-Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2ReceiverMsg Msg serMsg) :=
-  Derive Serializable (@FA2ReceiverMsg_rect Msg serMsg) <
-    (@receive_balance_of_param Msg serMsg),
-    (@receive_total_supply_param Msg serMsg),
-    (@receive_metadata_callback Msg serMsg),
-    (@receive_is_operator Msg serMsg),
-    (@receive_permissions_descriptor Msg serMsg),
-    (@other_msg Msg serMsg)>.
+Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA2ReceiverMsg Msg) :=
+  Derive Serializable (@FA2ReceiverMsg_rect Msg) <
+    (@receive_balance_of_param Msg),
+    (@receive_total_supply_param Msg),
+    (@receive_metadata_callback Msg),
+    (@receive_is_operator Msg),
+    (@receive_permissions_descriptor Msg),
+    (@other_msg Msg)>.
 
-Global Instance FA2TransferHook_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2TransferHook Msg serMsg) :=
-  Derive Serializable (@FA2TransferHook_rect Msg serMsg) <
-    (@transfer_hook  Msg serMsg),
-    (@hook_other_msg Msg serMsg)>.
+Global Instance FA2TransferHook_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA2TransferHook Msg) :=
+  Derive Serializable (@FA2TransferHook_rect Msg) <
+    (@transfer_hook  Msg),
+    (@hook_other_msg Msg)>.
 
 Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) := callback_serializable.
 

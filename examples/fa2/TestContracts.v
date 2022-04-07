@@ -34,7 +34,7 @@ Global Instance FA2ClientMsg_serializable : Serializable FA2ClientMsg :=
     Call_fa2_metadata_callback,
     Call_fa2_permissions_descriptor>.
 
-Definition ClientMsg := @FA2ReceiverMsg BaseTypes FA2ClientMsg _.
+Definition ClientMsg := @FA2ReceiverMsg BaseTypes FA2ClientMsg.
 
 Record ClientState :=
   build_clientstate {
@@ -103,7 +103,7 @@ Global Instance FA2TransferHookMsg_serializable : Serializable FA2TransferHookMs
   Derive Serializable FA2TransferHookMsg_rect <
     set_permission_policy>.
 
-Definition TransferHookMsg := @FA2TransferHook BaseTypes FA2TransferHookMsg _.
+Definition TransferHookMsg := @FA2TransferHook BaseTypes FA2TransferHookMsg.
 
 Record HookState :=
   build_hookstate {

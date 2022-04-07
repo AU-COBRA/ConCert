@@ -135,7 +135,7 @@ Definition chain_without_transfer_hook := unpack_result chain_without_transfer_h
 Definition chain_with_transfer_hook := unpack_result chain_with_transfer_hook'.
 
 
-Definition client_other_msg := @other_msg _ FA2ClientMsg _.
+Definition client_other_msg := @other_msg _ FA2ClientMsg.
 
 Definition call_client_is_op_act :=
   let params := Build_is_operator_param

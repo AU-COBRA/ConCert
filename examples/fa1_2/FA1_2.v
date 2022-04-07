@@ -122,7 +122,7 @@ Module Type FA12Serializable.
 
     Axiom getTotalSupply_param_serializable : Serializable getTotalSupply_param.
 
-    Axiom  FA12ReceiverMsg_serializable : forall {Msg : Type} `{serMsg : Serializable Msg}, Serializable (@FA12ReceiverMsg Msg).
+    Axiom  FA12ReceiverMsg_serializable : forall {Msg : Type} `{Serializable Msg}, Serializable (@FA12ReceiverMsg Msg).
 
     Axiom msg_serializable : Serializable Msg.
 
@@ -154,7 +154,7 @@ Module FA12SInstances <: FA12Serializable.
     Instance getTotalSupply_param_serializable : Serializable getTotalSupply_param :=
       Derive Serializable getTotalSupply_param_rect <build_getTotalSupply_param>.
 
-    Instance FA12ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA12ReceiverMsg Msg) :=
+    Instance FA12ReceiverMsg_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA12ReceiverMsg Msg) :=
       Derive Serializable (@FA12ReceiverMsg_rect Msg) <
         (@receive_allowance Msg),
         (@receive_balance_of Msg),

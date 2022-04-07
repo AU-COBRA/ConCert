@@ -164,7 +164,7 @@ Module Type Dexter2Serializable.
     Axiom setup_serializable : Serializable Setup.
     Existing Instance setup_serializable.
 
-    Axiom ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg DexterMsg_serializable).
+    Axiom ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg).
     Existing Instance ClientMsg_serializable.
 
     Axiom state_serializable : Serializable State.
@@ -231,7 +231,7 @@ Module Dexter2 (SI : Dexter2Serializable).
     (** Null address that will newer contain contracts *)
     Parameter null_address : Address.
 
-    Definition Msg := @FA2Token.FA2ReceiverMsg BaseTypes DexterMsg _.
+    Definition Msg := @FA2Token.FA2ReceiverMsg BaseTypes DexterMsg.
 
   Definition call_liquidity_token (addr : Address) (amt : N) (msg : Dexter2FA12.Msg) :=
     act_call addr (N_to_amount amt) (serialize msg).
@@ -404,7 +404,7 @@ Module Dexter2 (SI : Dexter2Serializable).
     Some (new_state, []).
 
   Definition call_to_other_token (token_addr : Address) (amount : N)
-             (msg : @FA2Token.FA2ReceiverMsg _ DexterMsg _) :=
+             (msg : @FA2Token.FA2ReceiverMsg _ DexterMsg) :=
     act_call token_addr (N_to_amount amount) (serialize msg).
 
   (** ** Tokens to tokens *)
@@ -526,7 +526,7 @@ Module DSInstances <: Dexter2Serializable.
     Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
       Derive Serializable Setup_rect <build_setup>.
 
-    Global Instance ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg BaseTypes DexterMsg _) :=
+    Global Instance ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg BaseTypes DexterMsg) :=
       fun _ => @FA2Token.FA2ReceiverMsg_serializable _ _ _.
 
     Global Instance state_serializable `{ChainBase} : Serializable State :=
