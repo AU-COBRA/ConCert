@@ -173,7 +173,7 @@ Module Dexter2LqtExtraction.
        (state : State)
        (maybe_msg : option Dexter2FA12.Msg)
     : option (list ActionBody * State) :=
-    match DEX2LQTExtract.receive chain ctx state maybe_msg with
+    match DEX2LQTExtract.receive_lqt chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
