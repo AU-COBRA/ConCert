@@ -233,7 +233,7 @@ End FA2ContractGens.
 (* The generators for this section assume that 'fa2_client_addr' is an address to an fa2 client contract
   with message type ClientMsg *)
 Section FA2ClientGens.
-Let client_other_msg := @other_msg _ FA2ClientMsg _.
+Let client_other_msg := @other_msg _ FA2ClientMsg.
 
 Definition gIsOperatorMsg : G (option ClientMsg) :=
  '(addr1, addr2) <- gUniqueAddrPair ;;

@@ -43,7 +43,7 @@ Inductive DexterMsg :=
 Global Instance DexterMsg_serializable : Serializable DexterMsg :=
   Derive Serializable DexterMsg_rect <tokens_to_asset, add_to_tokens_reserve>.
 
-Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg _.
+Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg.
 
 
 Record State :=

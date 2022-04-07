@@ -11,7 +11,7 @@ Local Open Scope string_scope.
 
 Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
 {|
-  show v := "callback"
+  show v := "return address: " ++ show v.(return_addr A)
 |}.
 
 Instance showFA2InterfaceTransfer : Show FA2Interface.transfer :=
@@ -209,7 +209,7 @@ Instance showFA2Interfaceset_hook_param : Show FA2Interface.set_hook_param :=
 Instance showFA2ReceiverMsg {Msg : Type}
                            `{serMsg : Serializable Msg}
                            `{Show Msg}
-                           : Show (@FA2ReceiverMsg _ Msg serMsg) :=
+                           : Show (@FA2ReceiverMsg _ Msg) :=
 {|
   show m := match m with
             | receive_balance_of_param param => "receive_balance_of_param " ++ show param
@@ -224,7 +224,7 @@ Instance showFA2ReceiverMsg {Msg : Type}
 Instance showFA2TransferHook {Msg : Type}
                             `{serMsg : Serializable Msg}
                             `{Show Msg}
-                             : Show (@FA2TransferHook _ Msg serMsg) :=
+                             : Show (@FA2TransferHook _ Msg) :=
 {|
   show m := match m with
             | transfer_hook param => "transferhook " ++ show param

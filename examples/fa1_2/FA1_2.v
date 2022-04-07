@@ -80,7 +80,7 @@ Record Setup :=
 (* Any contract that wants to receive callback messages from the FA1.2 liquidity contract
    should have this type as its Msg type. The contract may have other endpoints,
    as composed in the 'other_msg' constructor. *)
-Inductive FA12ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
+Inductive FA12ReceiverMsg {Msg' : Type} :=
   | receive_allowance : N ->  FA12ReceiverMsg
   | receive_balance_of : N -> FA12ReceiverMsg
   | receive_total_supply : N -> FA12ReceiverMsg
@@ -122,7 +122,7 @@ Module Type FA12Serializable.
 
     Axiom getTotalSupply_param_serializable : Serializable getTotalSupply_param.
 
-    Axiom  FA12ReceiverMsg_serializable : forall {Msg : Type} `{serMsg : Serializable Msg}, Serializable (@FA12ReceiverMsg Msg serMsg).
+    Axiom FA12ReceiverMsg_serializable : forall {Msg : Type} `{Serializable Msg}, Serializable (@FA12ReceiverMsg Msg).
 
     Axiom msg_serializable : Serializable Msg.
 
@@ -136,7 +136,7 @@ Module FA12SInstances <: FA12Serializable.
   Section Serialization.
     Context `{ChainBase}.
 
-    Instance  callback_serializable : Serializable callback :=
+    Instance callback_serializable : Serializable callback :=
     Derive Serializable callback_rect <Build_callback>.
 
     Instance transfer_param_serializable : Serializable transfer_param :=
@@ -154,12 +154,12 @@ Module FA12SInstances <: FA12Serializable.
     Instance getTotalSupply_param_serializable : Serializable getTotalSupply_param :=
       Derive Serializable getTotalSupply_param_rect <build_getTotalSupply_param>.
 
-    Instance FA12ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA12ReceiverMsg Msg serMsg) :=
-      Derive Serializable (@FA12ReceiverMsg_rect Msg serMsg) <
-        (@receive_allowance Msg serMsg),
-        (@receive_balance_of Msg serMsg),
-        (@receive_total_supply Msg serMsg),
-        (@other_msg Msg serMsg)>.
+    Instance FA12ReceiverMsg_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA12ReceiverMsg Msg) :=
+      Derive Serializable (@FA12ReceiverMsg_rect Msg) <
+        (@receive_allowance Msg),
+        (@receive_balance_of Msg),
+        (@receive_total_supply Msg),
+        (@other_msg Msg)>.
 
     Instance msg_serializable : Serializable Msg :=
       Derive Serializable Msg_rect <transfer,
@@ -243,12 +243,12 @@ Definition try_approve (sender : Address) (param : approve_param) (state : State
   let allowances_ := update_allowance allowance_key (maybe param.(value_)) allowances_ in
     Some (state<|allowances := allowances_|>).
 
-Definition mk_callback (to_addr : Address) (msg : @FA12ReceiverMsg unit _) :=
+Definition mk_callback (to_addr : Address) (msg : @FA12ReceiverMsg unit) :=
   act_call to_addr 0 (serialize msg).
 
-Definition receive_allowance_ n := @receive_allowance unit _ n.
-Definition receive_balance_of_ n := @receive_balance_of unit _ n.
-Definition receive_total_supply_ n := @receive_total_supply unit _ n.
+Definition receive_allowance_ n := @receive_allowance unit n.
+Definition receive_balance_of_ n := @receive_balance_of unit n.
+Definition receive_total_supply_ n := @receive_total_supply unit n.
 
 (** ** Get allowance *)
 (** Get the quantity that [snd request] is allowed to spend on behalf of [fst request] *)

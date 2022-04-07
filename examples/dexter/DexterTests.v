@@ -91,7 +91,7 @@ End ExplotContract.
 Definition deploy_exploit : @ActionBody LocalChainBase := create_deployment 0 exploit_contract tt.
 Definition exploit_caddr : Address := BoundedN.of_Z_const AddrSize 130%Z.
 
-Definition dexter_other_msg := @other_msg _ DexterMsg _.
+Definition dexter_other_msg := @other_msg _ DexterMsg.
 
 Definition add_operator_all owner operator := {|
   op_param_owner := owner;

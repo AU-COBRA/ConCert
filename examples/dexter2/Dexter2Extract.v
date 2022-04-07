@@ -36,8 +36,6 @@ Definition call_to_token_ligo : string :=
      "  | None -> (failwith ""Contract not found."" : msg contract) in";
      "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
-Compute call_to_token_ligo.
-
 Definition mk_callback_ligo : string :=
   "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
@@ -173,7 +171,7 @@ Module Dexter2LqtExtraction.
        (state : State)
        (maybe_msg : option Dexter2FA12.Msg)
     : option (list ActionBody * State) :=
-    match DEX2LQTExtract.receive chain ctx state maybe_msg with
+    match DEX2LQTExtract.receive_lqt chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
@@ -238,7 +236,7 @@ Module Dexter2Extraction.
     using the opaque ascription of module types to speedup the extraction *)
 Module DSInstancesOpaque : Dexter2CPMM.Dexter2Serializable := Dexter2CPMM.DSInstances.
 
-Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque.
+Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque Dexter2CPMM.NullAddressAxiom.
 
 Open Scope Z_scope.
 
@@ -246,7 +244,7 @@ Import DEX2Extract.
 Import Dexter2CPMM.
 
 Section D2E.
-  Context `{ChainBase}.
+  Existing Instance BaseTypes.
 
   Definition extra_ignore :=
    [ <%% @Serializable %%>
@@ -265,7 +263,9 @@ Section D2E.
    ; remap <%% N_to_amount %%> "natural_to_mutez"
    ; remap <%% amount_to_N %%> "mutez_to_natural"
    ; remap <%% div %%> "divN_opt"
-   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)" ].
+   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)"
+   ; remap <%% @baker_address %%> "key_hash option"
+   ; remap <%% set_delegate_call %%> "(fun (x : key_hash option) -> [Tezos.set_delegate x])" ].
 
   Definition TT_remap_all :=
     (TT_remap_arith ++ TT_remap_dexter2 ++ TT_Dexter2_CPMM)%list.
@@ -287,9 +287,9 @@ Section D2E.
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
        (state : State)
-       (maybe_msg : option DEX2Extract.Msg)
+       (maybe_msg : option Dexter2CPMM.Msg)
     : option (list ActionBody * State) :=
-    match DEX2Extract.receive chain ctx state maybe_msg with
+    match DEX2Extract.receive_cpmm chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
