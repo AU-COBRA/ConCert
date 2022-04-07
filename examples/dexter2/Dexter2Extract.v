@@ -289,7 +289,7 @@ Section D2E.
        (state : State)
        (maybe_msg : option Dexter2CPMM.Msg)
     : option (list ActionBody * State) :=
-    match DEX2Extract.receive chain ctx state maybe_msg with
+    match DEX2Extract.receive_cpmm chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
