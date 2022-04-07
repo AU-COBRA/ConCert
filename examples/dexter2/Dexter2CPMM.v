@@ -179,11 +179,22 @@ Module Type Dexter2Serializable.
   End DS.
 End Dexter2Serializable.
 
-(** * Contract functions *)
+Module Type NullAddress.
+  Section NullAddress.
+    Parameter BaseTypes : ChainBase.
+    Existing Instance BaseTypes.
 
-Module Dexter2 (SI : Dexter2Serializable).
+    (** Null address that will newer contain contracts *)
+    Parameter null_address : Address.
+  End NullAddress.
+End NullAddress.
+
+
+(** * Contract functions *)
+Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 
   Import SI.
+  Export NAddr.
 
   Existing Instance add_liquidity_param_serializable.
   Existing Instance remove_liquidity_param_serializable.
@@ -197,9 +208,9 @@ Module Dexter2 (SI : Dexter2Serializable).
   Existing Instance ClientMsg_serializable.
   Existing Instance state_serializable.
   Existing Instance FA2Token_Msg_serializable.
+  Existing Instance BaseTypes.
 
   Section DexterDefs.
-    Context `{BaseTypes : ChainBase}.
     Open Scope N_scope.
 
     (** ** Helper functions *)
@@ -231,8 +242,6 @@ Module Dexter2 (SI : Dexter2Serializable).
     Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.
     Global Arguments non_zero_amount _ /. (* always unfold, if applied *)
 
-    (** Null address that will newer contain contracts *)
-    Parameter null_address : Address.
 
     Definition call_liquidity_token (addr : Address) (amt : N) (msg : Dexter2FA12.Msg) :=
       act_call addr (N_to_amount amt) (serialize msg).
@@ -539,14 +548,22 @@ Module DSInstances <: Dexter2Serializable.
 End DSInstances.
   (* end hide *)
 
-(** Instantiating the implementaion with required instances for serialisation/deserialisation *)
-Module DEX2 := Dexter2 DSInstances.
+Module NullAddressAxiom <: NullAddress.
+  Section NAddr.
+    Parameter BaseTypes : ChainBase.
+    Existing Instance BaseTypes.
 
+    Parameter null_address : Address.
+  End NAddr.
+End NullAddressAxiom.
+
+(** Instantiating the implementaion with required instances for serialisation/deserialisation *)
+Module DEX2 := Dexter2 DSInstances NullAddressAxiom.
 Import DEX2.
 
 (** * Properties *)
 Section Theories.
-  Context {BaseTypes : ChainBase}.
+  Existing Instance BaseTypes.
   Open Scope N_scope.
   Global Arguments amount_to_N /.
 

@@ -238,7 +238,7 @@ Module Dexter2Extraction.
     using the opaque ascription of module types to speedup the extraction *)
 Module DSInstancesOpaque : Dexter2CPMM.Dexter2Serializable := Dexter2CPMM.DSInstances.
 
-Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque.
+Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque Dexter2CPMM.NullAddressAxiom.
 
 Open Scope Z_scope.
 
@@ -246,7 +246,7 @@ Import DEX2Extract.
 Import Dexter2CPMM.
 
 Section D2E.
-  Context `{ChainBase}.
+  Existing Instance BaseTypes.
 
   Definition extra_ignore :=
    [ <%% @Serializable %%>
