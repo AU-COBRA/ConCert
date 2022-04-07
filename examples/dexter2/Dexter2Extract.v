@@ -287,7 +287,7 @@ Section D2E.
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
        (state : State)
-       (maybe_msg : option DEX2Extract.Msg)
+       (maybe_msg : option Dexter2CPMM.Msg)
     : option (list ActionBody * State) :=
     match DEX2Extract.receive chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
