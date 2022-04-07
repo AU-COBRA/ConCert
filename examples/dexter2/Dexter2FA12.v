@@ -190,7 +190,7 @@ Module D2LqtSInstances <: Dexter2LqtSerializable.
   Section Serialization.
     Context `{ChainBase}.
 
-    Instance  callback_serializable : Serializable callback :=
+    Instance callback_serializable : Serializable callback :=
     Derive Serializable callback_rect <Build_callback>.
 
     Instance transfer_param_serializable : Serializable transfer_param :=
@@ -250,7 +250,7 @@ Existing Instance mintOrBurn_param_serializable.
 Existing Instance getAllowance_param_serializable.
 Existing Instance getBalance_param_serializable.
 Existing Instance getTotalSupply_param_serializable.
-Existing Instance  FA12ReceiverMsg_serializable.
+Existing Instance FA12ReceiverMsg_serializable.
 Existing Instance msg_serializable.
 Existing Instance state_serializable.
 Existing Instance setup_serializable.

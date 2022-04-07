@@ -122,7 +122,7 @@ Module Type FA12Serializable.
 
     Axiom getTotalSupply_param_serializable : Serializable getTotalSupply_param.
 
-    Axiom  FA12ReceiverMsg_serializable : forall {Msg : Type} `{Serializable Msg}, Serializable (@FA12ReceiverMsg Msg).
+    Axiom FA12ReceiverMsg_serializable : forall {Msg : Type} `{Serializable Msg}, Serializable (@FA12ReceiverMsg Msg).
 
     Axiom msg_serializable : Serializable Msg.
 
@@ -136,7 +136,7 @@ Module FA12SInstances <: FA12Serializable.
   Section Serialization.
     Context `{ChainBase}.
 
-    Instance  callback_serializable : Serializable callback :=
+    Instance callback_serializable : Serializable callback :=
     Derive Serializable callback_rect <Build_callback>.
 
     Instance transfer_param_serializable : Serializable transfer_param :=
