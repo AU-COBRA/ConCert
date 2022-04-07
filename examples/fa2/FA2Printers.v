@@ -11,7 +11,7 @@ Local Open Scope string_scope.
 
 Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
 {|
-  show v := "callback"
+  show v := "return address: " ++ show v.(return_addr A)
 |}.
 
 Instance showFA2InterfaceTransfer : Show FA2Interface.transfer :=
