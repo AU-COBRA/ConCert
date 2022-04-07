@@ -186,6 +186,15 @@ Module Type NullAddress.
 
     (** Null address that will newer contain contracts *)
     Parameter null_address : Address.
+
+    (** Place holder for tezos set delegate operation *)
+    Parameter set_delegate_call : option Address -> list ActionBody.
+    Axiom delegate_call : forall addr, Forall (fun action => 
+      match action with
+      | act_transfer _ _ => False
+      | act_call _ _ _ => False
+      | act_deploy _ _ _ => False
+      end) (set_delegate_call addr).
   End NullAddress.
 End NullAddress.
 
@@ -235,9 +244,6 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
     Opaque ceildiv_.
     Opaque div.
     Opaque sub.
-
-    (** Place holder for tezos set delegate operation *)
-    Definition set_delegate_call (addr : option Address) : list ActionBody := [].
 
     Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.
     Global Arguments non_zero_amount _ /. (* always unfold, if applied *)
@@ -554,6 +560,13 @@ Module NullAddressAxiom <: NullAddress.
     Existing Instance BaseTypes.
 
     Parameter null_address : Address.
+    Parameter set_delegate_call : option Address -> list ActionBody.
+    Axiom delegate_call : forall addr, Forall (fun action => 
+      match action with
+      | act_transfer _ _ => False
+      | act_call _ _ _ => False
+      | act_deploy _ _ _ => False
+      end) (set_delegate_call addr).
   End NAddr.
 End NullAddressAxiom.
 
@@ -655,6 +668,17 @@ Section Theories.
     now apply N.ltb_lt.
   Qed.
   Opaque sub.
+
+  Lemma set_delegate_call_nil : forall (addr : option Address),
+    set_delegate_call addr = [].
+  Proof.
+    intros.
+    pose proof (delegate_call addr).
+    destruct set_delegate_call; auto.
+    apply Forall_inv in H.
+    now destruct a.
+  Qed.
+
 
 
 
@@ -1449,7 +1473,8 @@ Section Theories.
   Ltac rewrite_acts_correct :=
     match goal with
     | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
-      first [apply set_baker_new_acts_correct in H as new_acts_eq
+      first [apply set_baker_new_acts_correct in H as new_acts_eq;
+              rewrite set_delegate_call_nil in new_acts_eq
             |apply set_manager_new_acts_correct in H as new_acts_eq
             |apply set_lqt_address_new_acts_correct in H as new_acts_eq
             |apply default_new_acts_correct in H as new_acts_eq
@@ -1459,7 +1484,7 @@ Section Theories.
             |apply remove_liquidity_new_acts_correct in H as new_acts_eq
             |apply xtz_to_token_new_acts_correct in H as new_acts_eq
             |apply token_to_xtz_new_acts_correct in H as new_acts_eq
-            |apply token_to_token_new_acts_correct in H as new_acts_eq ];
+            |apply token_to_token_new_acts_correct in H as new_acts_eq];
       subst
     end.
 
@@ -1579,7 +1604,6 @@ Section Theories.
     cbn in receive_some.
     destruct_message;
       rewrite_acts_correct; auto.
-    now cbv.
   Qed.
 
 
@@ -2534,7 +2558,7 @@ Qed.
       destruct_message;
         try (now contract_simpl);
         rewrite_acts_correct;
-        rewrite_state_eq;
+        rewrite_state_eq; auto;
         rewrite_receive_is_some;
         cbn;
         try rewrite deserialize_serialize;
@@ -2554,7 +2578,7 @@ Qed.
         destruct_message;
           try (now contract_simpl);
           rewrite_acts_correct;
-          rewrite_state_eq;
+          rewrite_state_eq; auto;
           rewrite_receive_is_some;
           cbn;
           try rewrite deserialize_serialize;
