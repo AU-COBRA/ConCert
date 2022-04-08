@@ -1,6 +1,5 @@
 (* A token-asset exchange contract based on Dexter *)
 From Coq Require Import List.
-From Coq Require Import Program.Basics.
 From Coq Require Import ZArith.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
@@ -12,7 +11,6 @@ From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
 
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 
 (* A liquidity exchange contract inspired by the Dexter contract.

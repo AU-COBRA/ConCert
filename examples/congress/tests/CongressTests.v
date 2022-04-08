@@ -13,9 +13,8 @@ From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Program.Basics.
 
-Notation "f 'o' g" := (compose f g) (at level 50).
+
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 Definition chain1 : ChainBuilder := builder_initial.

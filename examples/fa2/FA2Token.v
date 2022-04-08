@@ -1,5 +1,4 @@
 From Coq Require Import List.
-From Coq Require Import Program.Basics.
 From Coq Require Import ZArith.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
@@ -11,8 +10,6 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Interface.
 
 Import ListNotations.
-
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 
 
