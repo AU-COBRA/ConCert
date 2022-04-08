@@ -5,9 +5,9 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TraceGens.
@@ -21,7 +21,6 @@ From Coq Require Import List.
 
 Import ListNotations.
 Import BoundedN.Stdpp.
-Import LocalBlockchain.
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 

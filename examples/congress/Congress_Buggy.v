@@ -14,6 +14,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.QCTest Require LocalBlockchain.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
@@ -294,8 +295,6 @@ End ExploitContract.
 
 (* With this defined we can give the counterexample with relative ease. We use a
 concrete implementation of a blockchain for this. *)
-Require LocalBlockchain.
-
 Section Theories.
   Import LocalBlockchain.
 

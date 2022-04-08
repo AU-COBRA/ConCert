@@ -8,7 +8,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.

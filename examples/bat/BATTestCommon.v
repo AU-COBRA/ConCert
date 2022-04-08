@@ -4,11 +4,11 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
+From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import SerializablePrinters.
 From ConCert.Execution.QCTest Require Import TestUtils.

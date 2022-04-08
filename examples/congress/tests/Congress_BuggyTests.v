@@ -5,12 +5,12 @@ From ExtLib.Structures Require Import Functor.
 From ExtLib.Structures Require Import Applicative.
 
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
@@ -28,7 +28,6 @@ From Coq Require Import BinInt.
 From Coq Require Import FunInd.
 
 Import BoundedN.Stdpp.
-Import LocalBlockchain.
 Import ListNotations.
 
 Close Scope address_scope.

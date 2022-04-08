@@ -1,9 +1,9 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TraceGens.
