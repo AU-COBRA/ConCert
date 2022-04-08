@@ -34,7 +34,7 @@ Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
 
 Definition test_chain_addrs_3 := [person_1; person_2; person_3].
-Definition test_chain_addrs := test_chain_addrs_3 ++ [person_4; person_5].
+Definition test_chain_addrs_5 := test_chain_addrs_3 ++ [person_4; person_5].
 
 Definition empty_chain := lcb_initial AddrSize.
 Definition get_contracts (chain : LocalChainBuilder AddrSize ) := lc_contracts (lcb_lc chain).
@@ -214,31 +214,70 @@ Definition sample2UniqueFMapOpt
     )
   ).
 
-(* Although the type is GOpt ...) it will never generate None values.
-   Perhaps this is where we should use generators with property proof relevance? Future work... *)
-Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
-  n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
-  returnGen (@decode_bounded bound (Pos.of_nat n)).
+Section AddressGenerators.
+  (* Although the type is GOpt ...) it will never generate None values.
+    Perhaps this is where we should use generators with property proof relevance? Future work... *)
+  Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
+    n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
+    returnGen (@decode_bounded bound (Pos.of_nat n)).
 
-Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
-  bn <- gBoundedNOpt AddrSize ;;
-  returnGen match bn with
-    | Some b => b
-    (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
-        n <= AddrSized. **)
-    | None => BoundedN.of_Z_const AddrSize 0
-  end.
+  Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
+    bn <- gBoundedNOpt AddrSize ;;
+    returnGen match bn with
+      | Some b => b
+      (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
+          n <= AddrSized. **)
+      | None => BoundedN.of_Z_const AddrSize 0
+    end.
 
-Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
-  {|
-    arbitrary := gBoundedN
-  |}.
+  Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) := {|
+      arbitrary := gBoundedN
+    |}.
 
-Instance genAddress : Gen (@Address LocalChainBase) :=
-  {|
-    (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
-    arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
-  |}.
+  Global Instance genAddress : Gen (@Address LocalChainBase) := {|
+      (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
+      arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
+    |}.
+  
+  (* Generator that returns random addresses from the input list.
+     Returns [default] if the list is empty *)
+  Definition gAddress_ (default : Address) (addrs : list Address) : G Address :=
+    elems_ default addrs.
+
+  (* Generator that returns random addresses from the input list.
+     Returns [zero_address] if the list is empty *)
+  Definition gAddress (addrs : list Address) : G Address :=
+    gAddress_ zero_address addrs.
+  
+  (* Generator that returns random addresses from the [test_chain_addrs_3] *)
+  Definition gTestAddrs3 : G Address :=
+    gAddress test_chain_addrs_3.
+  
+  (* Generator that returns random addresses from the [test_chain_addrs_5] *)
+  Definition gTestAddrs5 : G Address :=
+    gAddress test_chain_addrs_5.
+  
+  (* Generator that returns random addresses in the user address space *)
+  Definition gUserAddress : GOpt Address :=
+    bindGen (choose (0, (@ContractAddrBase AddrSize)-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
+  
+  (* Generator that returns random addresses in the contract address space *)
+  Definition gContractAddress : GOpt Address :=
+    bindGen (choose ((@ContractAddrBase AddrSize), AddrSize-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
+  
+  (* Generator that returns random addresses from [addrs] that are not in [ws].
+     Returns [zero_address] if the are no such addresses *)
+  Definition gAddrWithout (ws addrs : list Address) :=
+    let addrs_ := filter (fun a => negb (existsb (address_eqb a) ws)) addrs in   
+    elems_ zero_address addrs_.
+  
+  (* Generator that returns unique pairs of addresses from [addrs] *)
+  Definition gUniqueAddrPair (addrs : list Address) : GOpt (Address * Address) :=
+    addr1 <- elems_opt addrs ;;
+    let addrs_ := filter (fun a => negb (address_eqb addr1 a)) addrs in   
+    addr2 <- elems_opt addrs_ ;;
+    returnGenSome (addr1, addr2).
+End AddressGenerators.
 
 (* Helper generator and show instance for arbitrary FMaps *)
 
