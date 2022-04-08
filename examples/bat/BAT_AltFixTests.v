@@ -55,9 +55,8 @@ Module TestInfo <: BATGensInfo.
   Definition initial_chain := token_cb.
   Definition contract := BAT_AltFix.contract.
   Definition contract_addr := contract_base_addr.
-  Definition accounts := [batFund; ethFund; person_1; person_2; person_3; person_4; person_5].
-  Definition gAccount (c : Chain) := elems [batFund; ethFund; person_1; person_2;
-                                             person_3; person_4; person_5].
+  Definition accounts := [batFund; ethFund] ++ test_chain_addrs.
+  Definition gAccount (c : Chain) := elems_ zero_address accounts.
   Definition bat_addr := batFund.
   Definition fund_addr := ethFund.
   Definition accounts_total_balance := 37%Z.
