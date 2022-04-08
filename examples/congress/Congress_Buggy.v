@@ -300,7 +300,7 @@ Section Theories.
 
   Let AddrSize := (2^128)%N.
   Instance Base : ChainBase := LocalChainBase AddrSize.
-  Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+  Instance Builder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
   Open Scope nat.
   Definition exploit_example : option (Address * Builder) :=

@@ -93,7 +93,7 @@ Definition hash_func (l : list positive) : positive :=
   
 Definition AddrSize := (2^128)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
-Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
 Module Params <: BoardroomParams.
   Definition A : Type := Z.
