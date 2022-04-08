@@ -19,7 +19,6 @@ From Coq Require Import Permutation.
 From Coq Require Import List.
 From Coq Require Import Psatz.
 
-Import RecordSetNotations.
 Import ListNotations.
 
 Section LocalBlockchain.

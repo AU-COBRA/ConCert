@@ -10,7 +10,7 @@ From Coq Require Import List.
 From Coq Require Import ZArith.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 
 Section FA2Client.

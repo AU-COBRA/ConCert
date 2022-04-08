@@ -15,7 +15,7 @@ From ConCert.Execution Require Import ContractCommon. Import AddressMap.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 
 Module Type BoardroomParams.

@@ -11,7 +11,6 @@ From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
 
 Notation "f 'o' g" := (compose f g) (at level 50).
 

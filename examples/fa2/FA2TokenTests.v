@@ -22,7 +22,6 @@ From Coq Require Import Strings.String.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
-Import RecordSetNotations.
 Close Scope address_scope.
 
 (** example policies *)

@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Section FA2Interface.
 Context {BaseTypes : ChainBase}.

@@ -15,7 +15,7 @@ From ConCert.Examples.BoardroomVoting Require Import Euler.
 From ConCert.Examples.BoardroomVoting Require BoardroomVoting.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Module BR := BoardroomVoting.BoardroomVoting.
 

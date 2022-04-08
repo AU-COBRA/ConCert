@@ -19,7 +19,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 (** * Contract types *)
 Section EIP20Token.

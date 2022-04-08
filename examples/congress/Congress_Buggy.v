@@ -19,7 +19,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Section CongressBuggy.
 Context {BaseTypes : ChainBase}.

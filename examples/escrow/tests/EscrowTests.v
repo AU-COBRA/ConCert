@@ -21,7 +21,6 @@ From Coq Require Import ZArith.
 From Coq Require Import List.
 
 Import ListNotations.
-Import RecordSetNotations.
 Import QcNotation.
 
 Close Scope string_scope.

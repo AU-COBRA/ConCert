@@ -18,7 +18,7 @@ From Coq Require Import List.
 
 Import QcNotation.
 Import ListNotations.
-Import RecordSetNotations.
+
 
 (* the policy which allows both owners and operators to transfer tokens. *)
 Definition policy_all : permissions_descriptor := {|

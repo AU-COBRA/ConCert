@@ -18,7 +18,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import Extras.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Definition requireTrue (cond : bool) :=
   if cond then Some tt else None.
