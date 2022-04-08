@@ -20,6 +20,5 @@ theories/ContractCommon.v
 -R test ConCert.Execution.QCTest
 test/LocalBlockchain.v
 test/ChainPrinters.v
-test/SerializablePrinters.v
 test/TestUtils.v
 test/TraceGens.v
