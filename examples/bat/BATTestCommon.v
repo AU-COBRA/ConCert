@@ -10,7 +10,7 @@ From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
-From ConCert.Execution.QCTest Require Import SerializablePrinters.
+From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
 From Coq Require Import List.

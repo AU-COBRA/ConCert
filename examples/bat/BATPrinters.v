@@ -3,7 +3,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
 From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import SerializablePrinters.
+From ConCert.Execution.QCTest Require Import ChainPrinters.
 From QuickChick Require Import QuickChick.
 
 Local Open Scope string_scope.
