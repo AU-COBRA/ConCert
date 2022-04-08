@@ -35,7 +35,7 @@ Section TestSetup.
   |}.
 
   Definition deploy_escrow amount := create_deployment amount Escrow.contract escrow_setup.
-  Definition escrow_contract_addr : Address := BoundedN.of_Z_const AddrSize 128%Z.
+  Definition escrow_contract_addr : Address := contract_base_addr.
   (* The initial blockchain with the escrow contract deployed, and with buyer balance = 10 *)
   Definition escrow_chain : ChainBuilder :=
     unpack_result (TraceGens.add_block (lcb_initial AddrSize)
@@ -50,10 +50,6 @@ End TestSetup.
     an EscrowGensInfo module. *)
 Module TestInfo <: EscrowGensInfo.
   Definition contract_addr := escrow_contract_addr.
-  Definition gAccount := elems_ person_1 test_chain_addrs.
-  Definition gAccountWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
-    elems_opt addrs.
 End TestInfo.
 Module MG := EscrowGens.EscrowGens TestInfo. Import MG.
 Section TestGenInstances.

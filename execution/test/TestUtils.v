@@ -32,6 +32,8 @@ Definition person_4 : Address :=
   BoundedN.of_Z_const AddrSize 14.
 Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
+Definition contract_base_addr : Address :=
+  BoundedN.of_Z_const AddrSize (Z.of_N (@ContractAddrBase AddrSize)).
 
 Definition test_chain_addrs_3 := [person_1; person_2; person_3].
 Definition test_chain_addrs_5 := test_chain_addrs_3 ++ [person_4; person_5].

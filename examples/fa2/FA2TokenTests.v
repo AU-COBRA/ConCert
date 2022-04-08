@@ -155,18 +155,7 @@ Module TestInfo <: FA2TestsInfo.
   Definition fa2_contract_addr := token_contract_base_addr.
   Definition fa2_client_addr := client_contract_addr.
   Definition fa2_hook_addr := fa2hook_contract_addr.
-  Definition gAddrWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
-    elems_ zero_address addrs.
-  Definition gUniqueAddrPair : GOpt (Address * Address) :=
-    addr1 <- elems_opt test_chain_addrs ;;
-    let addrs := filter (fun a => negb (address_eqb addr1 a)) test_chain_addrs in   
-    addr2 <- elems_opt addrs ;;
-    returnGenSome (addr1, addr2).
-  
-  (* A quick little sanity check that gUniqueAddrPair generator indeed always generates unique pairs *)
-  (* QuickChick (forAll gUniqueAddrPair (fun p => isSomeCheck p (fun '(addr1, addr2) => negb (address_eqb addr1 addr2)))). *)
-  (* +++ Passed 10000 tests (0 discards) *)
+  Definition accounts := test_chain_addrs_5.
 End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 

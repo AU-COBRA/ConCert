@@ -125,10 +125,7 @@ Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
   Definition exploit_contract_addr := exploit_caddr.
-  Definition gAccountAddress := elems_ person_1 test_chain_addrs.
-  Definition gAccountAddrWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in
-    elems_opt addrs.
+  Definition accounts := test_chain_addrs_5.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
@@ -141,8 +138,7 @@ Definition call_dexter owner_addr :=
   build_act owner_addr owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
 
 Definition gExploitAction : GOpt Action :=
-  bindGen (elems_ zero_address test_chain_addrs_3)
-          (fun addr => returnGenSome (call_dexter addr)).
+  bindGen gTestAddrs3 (fun addr => returnGenSome (call_dexter addr)).
 
 Definition gExploitChainTraceList max_acts_per_block cb length :=
   TraceGens.gChain cb (fun cb _ => gExploitAction) length 1 max_acts_per_block.

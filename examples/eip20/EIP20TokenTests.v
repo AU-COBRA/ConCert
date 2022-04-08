@@ -28,8 +28,6 @@ Definition init_supply := (100%N).
 Definition token_setup := EIP20Token.build_setup creator init_supply.
 Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_setup.
 
-Definition contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
-
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
@@ -43,7 +41,7 @@ Definition token_cb :=
 
 Module TestInfo <: EIP20GensInfo.
   Definition contract_addr := contract_base_addr.
-  Definition gAccount := elems_ zero_address test_chain_addrs.
+  Definition gAccount := gTestAddrs5.
 End TestInfo.
 Module MG := EIP20Gens TestInfo. Import MG.
 

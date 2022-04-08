@@ -19,8 +19,7 @@ Module Type DexterTestsInfo.
   Parameter fa2_contract_addr : Address.
   Parameter dexter_contract_addr : Address.
   Parameter exploit_contract_addr : Address.
-  Parameter gAccountAddress : G Address.
-  Parameter gAccountAddrWithout : list Address -> GOpt Address.
+  Parameter accounts : list Address.
 End DexterTestsInfo.
 
 Module DexterGens (Info : DexterTestsInfo).
@@ -66,7 +65,7 @@ Definition gAddTokensToReserve (env : Environment)
                                (state : FA2Token.State)
                                : GOpt (Address * Amount * Dexter.Msg) :=
   tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
-  caller <- liftOptGen gAccountAddress ;;
+  caller <- liftOptGen (gAddress accounts) ;;
   amount <- liftOptGen (choose (0%Z, env.(env_account_balances) caller)) ;;
   returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
@@ -83,7 +82,7 @@ Definition gDexterAction (env : Environment) : GOpt Action :=
    (1, '(caller, amount, msg) <- gAddTokensToReserve env fa2_state ;;
         mk_call caller amount msg
     ) ;
-    (2, caller <- gAccountAddrWithout [fa2_contract_addr; dexter_contract_addr] ;;
+    (2, caller <- bindGen (gAddrWithout [fa2_contract_addr; dexter_contract_addr] accounts) (fun x => returnGenSome x) ;;
         '(_, msg) <- gTokenExchange fa2_state ;;
         mk_call caller 0%Z msg
     )

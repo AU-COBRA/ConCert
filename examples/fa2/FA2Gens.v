@@ -21,8 +21,7 @@ Module Type FA2TestsInfo.
   Parameter fa2_contract_addr : Address.
   Parameter fa2_client_addr : Address.
   Parameter fa2_hook_addr : Address.
-  Parameter gAddrWithout : list Address -> G Address.
-  Parameter gUniqueAddrPair : GOpt (Address * Address).
+  Parameter accounts : list Address.
 End FA2TestsInfo.
 
 Module FA2Gens (Info : FA2TestsInfo).
@@ -61,7 +60,7 @@ Definition gTransferCallerFromTo (state : FA2Token.State)
   let policy := state.(permission_policy) in
   let gSelfTransfer :=
     caller <- gAccountWithTokens ;;
-    to <- liftOptGen (gAddrWithout [caller]) ;;
+    to <- liftOptGen (gAddrWithout [caller] accounts) ;;
     returnGenSome (caller, caller, to) in
   let gOperatorTransfer :=
     (* make sure caller is an operator, with the given tokenid *)
@@ -74,7 +73,7 @@ Definition gTransferCallerFromTo (state : FA2Token.State)
                                 (existsb op_tokens_contains_tokenid (FMap.values op_tokens_map)) in
     '(from, ops_map) <- sampleFMapOpt_filter state.(operators) (fun p => (owner_has_tokens (fst p)) && (filter_ (snd p))) ;;
     '(caller, _) <- sampleFMapOpt_filter ops_map (fun p => op_tokens_contains_tokenid (snd p)) ;;
-    to <- liftOptGen (gAddrWithout [caller; from]) ;;
+    to <- liftOptGen (gAddrWithout [caller; from] accounts) ;;
     returnGenSome (from, from, to) in
   match (policy.(descr_self), policy.(descr_operator)) with
   | (self_transfer_permitted, operator_transfer_denied) => gSelfTransfer
@@ -166,8 +165,8 @@ Local Close Scope Z_scope.
 Definition gOperatorParam (chain : Chain)
                           (state : FA2Token.State)
                           : G (option operator_param) :=
-  owner <- liftOptGen (gAddrWithout []) ;;
-  addr <-  liftOptGen (gAddrWithout [owner]) ;;
+  owner <- liftOptGen (gAddress accounts) ;;
+  addr <-  liftOptGen (gAddrWithout [owner] accounts) ;;
   tokenid <- liftM fst (sampleFMapOpt state.(tokens)) ;;
   tokens <- (elems [Some all_tokens; Some (some_tokens [tokenid])]) ;;
   returnGenSome {|
@@ -214,14 +213,14 @@ Definition gFA2TokenAction (env : Environment) : GOpt Action :=
     (* create tokens *)
     (1, let has_balance amount := Z.ltb 0 amount in
         let is_not_contract_addr addr := negb (address_is_contract addr) in
-        caller <- liftOptGen (gAddrWithout []) ;;
+        caller <- liftOptGen (gAddress accounts) ;;
         (* caller <- liftM fst (sampleFMapOpt_filter lc.(lc_account_balances)
                             (fun p => (is_not_contract_addr (fst p)) && (has_balance (snd p)))) ;; *)
         '(amount, msg) <- gCreateTokens env caller fa2_state ;;
         mk_call caller amount msg
     ) ;
     (* update operators *)
-    (2, caller <- liftOptGen (gAddrWithout []) ;;
+    (2, caller <- liftOptGen (gAddress accounts) ;;
         upd <- gUpdateOperators env fa2_state 2 ;;
         mk_call caller 0%Z upd
     )
@@ -236,7 +235,7 @@ Section FA2ClientGens.
 Let client_other_msg := @other_msg _ FA2ClientMsg.
 
 Definition gIsOperatorMsg : G (option ClientMsg) :=
- '(addr1, addr2) <- gUniqueAddrPair ;;
+ '(addr1, addr2) <- gUniqueAddrPair accounts ;;
   op_tokens <- elems_opt [all_tokens ; some_tokens [0%N]] ;;
   let params := Build_is_operator_param
       (Build_operator_param addr1 addr2 op_tokens)
@@ -252,7 +251,7 @@ Definition gClientAction (env : Environment) : GOpt Action :=
         |} in
   state <- returnGen (get_contract_state ClientState env fa2_client_addr) ;;
   let fa2_caddr := state.(fa2_caddr) in
-  caller <- liftOptGen (gAddrWithout []) ;;
+  caller <- liftOptGen (gAddress accounts) ;;
   msg <- gIsOperatorMsg ;;
   mk_call_fa2 caller fa2_caddr msg.
 

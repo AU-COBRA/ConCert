@@ -16,8 +16,6 @@ From Coq Require Import List. Import ListNotations.
 
 Module Type EscrowGensInfo.
   Parameter contract_addr : Address.
-  Parameter gAccount : G Address.
-  Parameter gAccountWithout : list Address -> GOpt Address.
 End EscrowGensInfo.
 
 Module EscrowGens (Info : EscrowGensInfo).
