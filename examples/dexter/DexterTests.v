@@ -79,7 +79,7 @@ Definition exploit_receive (chain : Chain)
                                     tokens_sold := 200%N;
                                     callback_addr := caddr;
                                   |}) in
-                                  Some (state + 1, [act_call dexter_caddr 0%Z (serialize _ _ token_exchange_msg)])
+                                  Some (state + 1, [act_call dexter_caddr 0%Z (serialize token_exchange_msg)])
   | _ => Some (state, [])
   end.
 
@@ -111,9 +111,9 @@ Definition chain1 : ChainBuilder :=
     build_act creator creator deploy_fa2token ;
     build_act creator creator deploy_dexter ;
     build_act creator creator deploy_exploit ;
-    build_act person_1 person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act creator creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
-    build_act person_1 person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
+    build_act person_1 person_1 (act_call fa2_caddr 10%Z (serialize (msg_create_tokens 0%N))) ;
+    build_act creator creator (act_call dexter_caddr 10%Z (serialize (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
+    build_act person_1 person_1 (act_call fa2_caddr 0%Z  (serialize (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
                                                                                       add_operator (add_operator_all person_1 dexter_caddr)])))
   ]).
 
@@ -141,7 +141,7 @@ Definition call_dexter owner_addr :=
   build_act owner_addr owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
 
 Definition gExploitAction : GOpt Action :=
-  bindGen (elems [person_1; person_2; person_3])
+  bindGen (elems_ zero_address test_chain_addrs_3)
           (fun addr => returnGenSome (call_dexter addr)).
 
 Definition gExploitChainTraceList max_acts_per_block cb length :=

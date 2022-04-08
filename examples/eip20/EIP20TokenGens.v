@@ -11,7 +11,7 @@ From Coq Require Import ZArith.
 
 Module Type EIP20GensInfo.
   Parameter contract_addr : Address.
-  Parameter gAccount : Chain -> G Address.
+  Parameter gAccount : G Address.
 End EIP20GensInfo.
 
 Module EIP20Gens (Info : EIP20GensInfo).
@@ -39,7 +39,7 @@ Definition gTransfer (env : Environment) (state : EIP20Token.State) : G (Address
   match sample with
   | Some (addr, balance) =>
     transfer_amount <- choose (0%N, balance) ;;
-    account <- gAccount env ;;
+    account <- gAccount ;;
     randomize_mk_gen (addr, transfer account transfer_amount)
   (* if the contract state contains no accounts, just transfer 0 tokens between two arbitrary accounts *)
   | None => from_addr <- arbitrary ;;

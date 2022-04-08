@@ -20,7 +20,7 @@ Module Type BATGensInfo.
   Parameter contract : Contract BATCommon.Setup BATCommon.Msg BATCommon.State.
   Parameter initial_chain : ChainBuilder.
   Parameter trace_length : nat.
-  Parameter gAccount : Chain -> G Address.
+  Parameter gAccount : G Address.
   Parameter contract_addr : Address.
   Parameter accounts : list Address.
   Parameter accounts_total_balance : Z.
@@ -83,7 +83,7 @@ Definition gRefund (env : Environment) (state : BATCommon.State) : GOpt (Address
     returnGenSome (from_addr, refund).
 
 Definition gRefundInvalid (env : Environment) (state : BATCommon.State) : G (Address * Msg) :=
-  from_addr <- gAccount env ;;
+  from_addr <- gAccount ;;
   returnGen (from_addr, refund).
 
 Definition gFinalize (env : Environment) (state : BATCommon.State) : GOpt (Address * Msg) :=
@@ -97,7 +97,7 @@ Definition gFinalize (env : Environment) (state : BATCommon.State) : GOpt (Addre
     returnGenSome (fund_addr, finalize).
 
 Definition gFinalizeInvalid (env : Environment) (state : BATCommon.State) : G (Address * Msg) :=
-  from_addr <- gAccount env ;;
+  from_addr <- gAccount ;;
   returnGen (from_addr, finalize).
 
 Module EIP20 := EIP20Gens Info.

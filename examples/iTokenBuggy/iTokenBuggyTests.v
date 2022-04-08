@@ -43,7 +43,7 @@ Definition token_cb :=
 
 Module TestInfo <: iTokenBuggyGensInfo.
   Definition contract_addr := token_caddr.
-  Definition gAccount (c : Chain) := elems [person_1; person_2; person_3].
+  Definition gAccount := elems_ zero_address test_chain_addrs_3.
 End TestInfo.
 Module MG := iTokenBuggyGens TestInfo. Import MG.
 

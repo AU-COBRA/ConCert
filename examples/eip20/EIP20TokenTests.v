@@ -43,7 +43,7 @@ Definition token_cb :=
 
 Module TestInfo <: EIP20GensInfo.
   Definition contract_addr := contract_base_addr.
-  Definition gAccount (c : Chain) := elems_ zero_address accounts.
+  Definition gAccount := elems_ zero_address test_chain_addrs.
 End TestInfo.
 Module MG := EIP20Gens TestInfo. Import MG.
 

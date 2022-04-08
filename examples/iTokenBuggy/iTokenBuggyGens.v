@@ -11,7 +11,7 @@ From Coq Require Import ZArith.
 
 Module Type iTokenBuggyGensInfo.
   Parameter contract_addr : Address.
-  Parameter gAccount : Chain -> G Address.
+  Parameter gAccount : G Address.
 End iTokenBuggyGensInfo.
 
 Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
@@ -49,9 +49,9 @@ Definition gTransfer_from (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
             else choose (0, N.min allowance allower_balance)) ;;
   returnGenSome (delegate, transfer_from allower receiver  amount).
 
-Definition gMint c (state : iTokenBuggy.State) : GOpt (Address * Msg) := 
+Definition gMint (c : Environment) (state : iTokenBuggy.State) : GOpt (Address * Msg) := 
  (* '(addr, _) <- sampleFMapOpt state.(balances) ;; *)
-  addr <- gAccount c ;;
+  addr <- gAccount ;;
   amount <- choose (0, 2) ;; (* fix nr of minted tokens to 0, 1, or 2*)
   returnGenSome (addr, mint amount ).
 

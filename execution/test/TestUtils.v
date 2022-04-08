@@ -33,7 +33,8 @@ Definition person_4 : Address :=
 Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
 
-Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
+Definition test_chain_addrs_3 := [person_1; person_2; person_3].
+Definition test_chain_addrs := test_chain_addrs_3 ++ [person_4; person_5].
 
 Definition empty_chain := lcb_initial AddrSize.
 Definition get_contracts (chain : LocalChainBuilder AddrSize ) := lc_contracts (lcb_lc chain).
