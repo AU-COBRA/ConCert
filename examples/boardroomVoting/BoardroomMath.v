@@ -91,6 +91,8 @@ Class BoardroomAxioms {A : Type} :=
 
 Arguments BoardroomAxioms : clear implicits.
 
+Declare Scope broom.
+Declare Scope broom_scope.
 Delimit Scope broom_scope with broom.
 
 Module BoardroomMathNotations.
@@ -106,7 +108,7 @@ Module BoardroomMathNotations.
   Notation "a 'exp<>' b" := (~(expeq a b)) (at level 70) : broom.
 End BoardroomMathNotations.
 
-Import BoardroomMathNotations.
+Export BoardroomMathNotations.
 Local Open Scope broom.
 
 Global Instance oeq_equivalence {A : Type} (field : BoardroomAxioms A) : Equivalence expeq.

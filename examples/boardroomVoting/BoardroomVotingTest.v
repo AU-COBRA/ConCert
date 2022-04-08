@@ -14,7 +14,6 @@ From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVoting.
 
 Import ListNotations.
-Import BoardroomMathNotations.
 
 
 Local Open Scope Z.

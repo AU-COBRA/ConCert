@@ -16,7 +16,6 @@ From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 
 Import ListNotations.
 Import RecordSetNotations.
-Import BoardroomMathNotations.
 
 
 Module Type BoardroomParams.

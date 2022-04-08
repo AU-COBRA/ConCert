@@ -62,6 +62,8 @@ Definition opp_p a := prime - a.
 Definition inv_p a := mod_inv a prime.
 Definition pow_p a e := mod_pow a e prime.
 Definition order := prime.
+Declare Scope broom.
+Declare Scope broom_scope.
 Delimit Scope broom_scope with broom.
 
 Module BoardroomMathNotations.
