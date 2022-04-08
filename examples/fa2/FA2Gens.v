@@ -287,12 +287,3 @@ Definition token_reachableFrom_implies_reachable {A}
   reachableFrom_implies_chaintracePropSized size cb (gFA2ChainTraceList 1) pf1 pf2.
 
 End FA2Gens.
-
-Module DummyTestInfo <: FA2TestsInfo.
-  Definition fa2_contract_addr := zero_address.
-  Definition fa2_client_addr := zero_address.
-  Definition fa2_hook_addr := zero_address.
-  Definition gAddrWithout (ws : list Address) := returnGen zero_address.
-  Definition gUniqueAddrPair : GOpt (Address * Address) := returnGen None.
-End DummyTestInfo.
-Module MG := FA2Gens DummyTestInfo. Import MG.

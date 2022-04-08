@@ -90,9 +90,3 @@ Definition giTokenBuggyAction (env : Environment) : GOpt Action :=
   ].
 
 End iTokenBuggyGens.
-
-Module DummyTestInfo <: iTokenBuggyGensInfo.
-  Definition contract_addr := zero_address.
-  Definition gAccount (e : Chain) := returnGen zero_address.
-End DummyTestInfo.
-Module MG := iTokenBuggyGens DummyTestInfo. Import MG.

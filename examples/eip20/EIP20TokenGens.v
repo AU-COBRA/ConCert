@@ -105,9 +105,3 @@ Definition gEIP20TokenAction (env : Environment) : GOpt Action :=
   ].
 
 End EIP20Gens.
-
-Module DummyTestInfo <: EIP20GensInfo.
-  Definition contract_addr := zero_address.
-  Definition gAccount (e : Chain) := returnGen zero_address.
-End DummyTestInfo.
-Module MG := EIP20Gens DummyTestInfo. Import MG.

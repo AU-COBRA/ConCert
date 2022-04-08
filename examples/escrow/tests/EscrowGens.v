@@ -108,10 +108,3 @@ Definition gEscrowTraceBetter cb length :=
   gChain cb (fun e _ => gEscrowMsgBetter e) length max_act_depth max_acts_per_block.
 
 End EscrowGens.
-
-Module DummyTestInfo <: EscrowGensInfo.
-  Definition contract_addr := zero_address.
-  Definition gAccount := returnGen zero_address.
-  Definition gAccountWithout (ws : list Address) := returnGenSome zero_address.
-End DummyTestInfo.
-Module MG := EscrowGens DummyTestInfo. Import MG.

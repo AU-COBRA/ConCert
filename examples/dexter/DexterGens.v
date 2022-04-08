@@ -103,12 +103,3 @@ Definition token_reachableFrom_implies_reachable
   reachableFrom_implies_chaintracePropSized length cb (gDexterChain max_acts_per_block) pf1 pf2.
 
 End DexterGens.
-
-Module DummyTestInfo <: DexterTestsInfo.
-  Definition fa2_contract_addr := zero_address.
-  Definition dexter_contract_addr := zero_address.
-  Definition exploit_contract_addr := zero_address.
-  Definition gAccountAddress := returnGen zero_address.
-  Definition gAccountAddrWithout (w : list Address) := returnGenSome zero_address.
-End DummyTestInfo.
-Module MG := DexterGens DummyTestInfo. Import MG.
