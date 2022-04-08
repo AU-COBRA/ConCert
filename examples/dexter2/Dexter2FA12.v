@@ -305,7 +305,7 @@ Definition try_approve (sender : Address) (param : approve_param) (state : State
     Some (state<|allowances := allowances_|>).
 
 (** ** Mint or burn *)
-(** If [quantitiy] is positive
+(** If [quantity] is positive
     then creates [quantity] tokens and gives them to [target]
     else removes [quantity] tokens from [target].
     Can only be called by [admin] *)

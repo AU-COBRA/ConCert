@@ -129,7 +129,7 @@ Section TraceGens.
         rebuild_chains shrunk_blocks builder_initial
   }.
 
-  (* Adds a block with 50 money as reward. This will be used for all testing. *)
+  (* Adds a block with miner reward of 50. This is used for all testing *)
   Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
         {| block_height := S (chain_height chain);
