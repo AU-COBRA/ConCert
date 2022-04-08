@@ -16,8 +16,9 @@ Import SerializedType.
 Import BoundedN.Stdpp.
 
 Global Definition AddrSize := (2^8)%N.
+Global Definition DepthFirst := true.
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
-Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize DepthFirst.
 Notation "f 'o' g" := (compose f g) (at level 50).
 
 Definition creator : Address :=
