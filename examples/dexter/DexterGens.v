@@ -8,7 +8,9 @@ From ConCert.Examples.Dexter Require Import DexterPrinters.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
-From Coq Require Import ZArith List. Import ListNotations.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+Import ListNotations.
 (* For monad notations *)
 From ExtLib.Structures Require Import Monads.
 Import MonadNotation. Open Scope monad_scope.

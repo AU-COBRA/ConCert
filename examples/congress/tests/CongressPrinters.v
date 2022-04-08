@@ -5,7 +5,7 @@ From ConCert.Execution.QCTest Require Import SerializablePrinters.
 From ConCert.Examples.Congress Require Import Congress.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
-From Coq Require Import List. Import ListNotations.
+From Coq Require Import List.
 Open Scope string_scope.
 
 Arguments SerializedValue : clear implicits.
@@ -34,7 +34,7 @@ Definition string_of_ca (str_of_msg : Msg -> string) ca :=
 
 Instance showSetup : Show Setup :=
 {|
-  show := show o setup_rules
+  show v := show (setup_rules v)
 |}.
 
 (* Ugly fuel hack :/ *)
