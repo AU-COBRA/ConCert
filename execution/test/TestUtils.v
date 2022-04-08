@@ -4,13 +4,10 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution.QCTest Require Import LocalBlockchain.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-Import MonadNotation. Open Scope monad_scope.
-
+From QuickChick Require Import QuickChick.
+Import QcNotation. Import MonadNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Program.Basics.
 
 Import SerializedType.
 Import BoundedN.Stdpp.
@@ -19,7 +16,7 @@ Global Definition AddrSize := (2^8)%N.
 Global Definition DepthFirst := true.
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize DepthFirst.
-Notation "f 'o' g" := (compose f g) (at level 50).
+Notation "f 'o' g" := (Program.Basics.compose f g) (at level 50).
 
 Definition zero_address : Address :=
   BoundedN.of_Z_const AddrSize 0.
@@ -37,6 +34,9 @@ Definition person_5 : Address :=
   BoundedN.of_Z_const AddrSize 15.
 
 Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
+
+Definition empty_chain := lcb_initial AddrSize.
+Definition get_contracts (chain : LocalChainBuilder AddrSize ) := lc_contracts (lcb_lc chain).
 
 (* Misc utility functions *)
 Open Scope list_scope.
