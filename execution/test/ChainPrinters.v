@@ -18,6 +18,9 @@ Close Scope address_scope.
 Open Scope list_scope.
 Open Scope string_scope.
 
+
+Definition sep : string := ", ".
+
 (* Derive Show for positive. *)
 Derive Show for SerializedType.
 
@@ -166,10 +169,6 @@ Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
                 "action_evaluation_error for " ++ show act ++ " with error: " ++ show eval_error
               end
 |}.
-
-(* retrieves the previous and next state of a ChainStep *)
-Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) :=
-  (prev_bstate, next_bstate).
 
 Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace from to) :=
 {|

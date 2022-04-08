@@ -21,6 +21,8 @@ Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize DepthFirst.
 Notation "f 'o' g" := (compose f g) (at level 50).
 
+Definition zero_address : Address :=
+  BoundedN.of_Z_const AddrSize 0.
 Definition creator : Address :=
   BoundedN.of_Z_const AddrSize 10.
 Definition person_1 : Address :=
@@ -39,8 +41,6 @@ Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5
 (* Misc utility functions *)
 Open Scope list_scope.
 Open Scope string_scope.
-
-Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 
 Definition string_of_FMap {A B : Type}
                          `{countable.Countable A}
@@ -125,11 +125,12 @@ Fixpoint backtrack_result_fix {T E} (default : E) (fuel : nat) (gs : list (nat *
 Definition backtrack_result {T E} (default : E) (gs : list (nat * G (result T E))) : G (result T E) :=
   backtrack_result_fix default (length gs) gs.
 
+(* retrieves the previous and next state of a ChainStep *)
+Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) :=
+  (prev_bstate, next_bstate).
 
 (* Utils for Show instances *)
 Open Scope string_scope.
-
-Definition sep : string := ", ".
 Derive Show for unit.
 
 Definition deserialize_to_string {ty : Type}
