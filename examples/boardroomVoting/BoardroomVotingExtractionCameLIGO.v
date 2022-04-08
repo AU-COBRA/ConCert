@@ -33,7 +33,7 @@ Instance Base : ChainBase := LocalBlockchain.LocalChainBase AddrSize.
 
 Module Params <: BoardroomParams.
   Definition H : list positive -> positive := hash_func.
-  Definition Base := Base .
+  Definition Base := Base.
   Definition prime := modulus.
   Definition generator := generator.
 End Params.  

@@ -10,7 +10,6 @@ From ConCert.Examples.BAT Require Import BAT_Fixed.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.BAT Require Import BATTestCommon.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TestUtils.
@@ -40,7 +39,7 @@ Definition deploy_bat := create_deployment 0 BAT_Fixed.contract bat_setup.
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
-  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
     build_act creator creator (Blockchain.act_transfer person_1 10);
     build_act creator creator (Blockchain.act_transfer person_2 7);
@@ -808,7 +807,7 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
 (* +++ Passed 10000 tests (0 discards) *)
 
 Definition partially_funded_cb :=
-  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
     build_act creator creator (Blockchain.act_transfer person_1 10);
     build_act creator creator (Blockchain.act_transfer person_2 7);
@@ -923,7 +922,7 @@ Success - found witness satisfying the predicate!
 
 Definition can_always_finalize check_setup :=
   let build_init_cb setup :=
-    TraceGens.add_block (lcb_initial AddrSize)
+    TraceGens.add_block empty_chain
     [
       build_act creator creator (Blockchain.act_transfer person_1 10);
       build_act creator creator (Blockchain.act_transfer person_2 7);

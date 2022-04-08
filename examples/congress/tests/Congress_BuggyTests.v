@@ -10,7 +10,6 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monads.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
@@ -59,7 +58,7 @@ Definition exploit_example : option (Address * ChainBuilder) :=
   let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
   let dep_exploit := create_deployment 0 exploit_contract tt in
   do chain <- add_block chain [dep_congress; dep_exploit];
-  let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
+  let contracts := map fst (FMap.elements (get_contracts chain)) in
   let exploit := nth 0 contracts creator in
   let congress := nth 1 contracts creator in
   (* Add creator to congress *)

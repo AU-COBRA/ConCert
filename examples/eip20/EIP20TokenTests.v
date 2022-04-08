@@ -7,7 +7,6 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TraceGens.
@@ -31,7 +30,7 @@ Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_se
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
-  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
     build_act creator creator (act_transfer person_1 0);
     build_act creator creator (act_transfer person_2 0);

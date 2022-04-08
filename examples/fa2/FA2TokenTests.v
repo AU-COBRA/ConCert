@@ -3,7 +3,6 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TraceGens.
@@ -96,7 +95,7 @@ Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
 
 
 Definition chain_with_token_deployed_with_hook : ChainBuilder :=
-  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  unpack_result (TraceGens.add_block empty_chain
   [
     build_act creator creator (act_transfer person_1 10);
     build_act creator creator (act_transfer person_2 10);
@@ -107,7 +106,7 @@ Definition chain_with_token_deployed_with_hook : ChainBuilder :=
   ]).
 
 Definition chain_with_token_deployed_without_hook : ChainBuilder :=
-  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  unpack_result (TraceGens.add_block empty_chain
   [
     build_act creator creator (act_transfer person_1 10);
     build_act creator creator (act_transfer person_2 10);

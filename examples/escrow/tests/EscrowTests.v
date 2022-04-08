@@ -8,7 +8,6 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Examples.Escrow Require Import Escrow.
@@ -38,7 +37,7 @@ Section TestSetup.
   Definition escrow_contract_addr : Address := contract_base_addr.
   (* The initial blockchain with the escrow contract deployed, and with buyer balance = 10 *)
   Definition escrow_chain : ChainBuilder :=
-    unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+    unpack_result (TraceGens.add_block empty_chain
     [
       build_act seller seller (act_transfer buyer 10);
       build_act seller seller (deploy_escrow 2)
