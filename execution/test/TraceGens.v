@@ -18,7 +18,6 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ChainedList.
 
 From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
 
 Import MonadNotation. Open Scope monad_scope.
 

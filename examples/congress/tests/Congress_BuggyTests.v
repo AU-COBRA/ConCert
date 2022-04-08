@@ -12,7 +12,6 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 From ConCert.Examples.Congress Require Import Congress_BuggyGens.
 From ConCert.Examples.Congress Require Import Congress_BuggyPrinters.

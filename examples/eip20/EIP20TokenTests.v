@@ -8,7 +8,6 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Examples Require Import EIP20Token.
 From ConCert.Examples Require Import EIP20TokenPrinters.
