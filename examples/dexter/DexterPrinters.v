@@ -1,6 +1,5 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2Printers.

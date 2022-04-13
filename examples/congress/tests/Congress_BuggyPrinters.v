@@ -1,6 +1,5 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import ChainPrinters.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 

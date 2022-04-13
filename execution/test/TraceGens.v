@@ -16,7 +16,6 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ChainedList.
-
 From ConCert.Execution.QCTest Require Import TestUtils.
 
 Import MonadNotation. Open Scope monad_scope.
