@@ -9,7 +9,6 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.
@@ -53,15 +52,11 @@ End TestInfo.
 Module MG := EscrowGens.EscrowGens TestInfo. Import MG.
 Section TestGenInstances.
   
-  Definition forAllEscrowChainBuilder gEscrowTrace length cb := 
-    forAllChainBuilder length cb gEscrowTrace .
-  
   (* For automation *)
   Global Instance gEscrowChainBuilder : GenSized ChainBuilder := 
   {|
     arbitrarySized := gEscrowTraceBetter escrow_chain
   |}.
-  Global Instance shrinkChainBuilder : Shrink ChainBuilder := {| shrink a := [a] |}.
 
 End TestGenInstances.
 

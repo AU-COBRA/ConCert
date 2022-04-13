@@ -8,7 +8,6 @@ From ConCert.Execution.QCTest Require Import TestUtils.
 From ConCert.Execution.QCTest Require Import TraceGens.
 From ConCert.Examples.Escrow Require Import Escrow.
 
-
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import ZArith.
@@ -105,4 +104,6 @@ Definition gEscrowTraceBetter cb length :=
   let max_acts_per_block := 1 in
   gChain cb (fun e _ => gEscrowMsgBetter e) length max_act_depth max_acts_per_block.
 
+Definition forAllEscrowChainBuilder `{Show ChainBuilder} gEscrowTrace length (cb : ChainBuilder) := 
+  forAllChainBuilder length cb gEscrowTrace.
 End EscrowGens.

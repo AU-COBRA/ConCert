@@ -1,5 +1,5 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Serializable. Import SerializedType.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.

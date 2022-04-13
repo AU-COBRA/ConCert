@@ -9,7 +9,6 @@ Import QcNotation. Import MonadNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 
-Import SerializedType.
 Import BoundedN.Stdpp.
 
 Global Definition AddrSize := (2^8)%N.
