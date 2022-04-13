@@ -305,7 +305,7 @@ Section Theories.
   Open Scope nat.
   Definition exploit_example : option (Address * Builder) :=
     let chain := builder_initial in
-    let creator := addr_of_Z 10 in
+    let creator := BoundedN.of_Z_const AddrSize 10 in
     let add_block (chain : Builder) act_bodies :=
         let next_header :=
             {| block_height := S (chain_height chain);
