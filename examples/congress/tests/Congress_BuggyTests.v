@@ -8,8 +8,8 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monads.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import TestUtils.
+From ConCert.Execution.Test Require Import TraceGens.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 From ConCert.Examples.Congress Require Import Congress_BuggyGens.
 From ConCert.Examples.Congress Require Import Congress_BuggyPrinters.

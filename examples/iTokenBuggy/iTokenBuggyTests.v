@@ -3,8 +3,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import TestUtils.
+From ConCert.Execution.Test Require Import TraceGens.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyPrinters.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyGens.

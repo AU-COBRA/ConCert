@@ -9,7 +9,7 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon. Import AddressMap.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVoting.
 

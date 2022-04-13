@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples Require Import EIP20Token.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 Import MonadNotation. Open Scope monad_scope.

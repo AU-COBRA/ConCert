@@ -8,7 +8,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import TestUtils.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.
 Import ListNotations.

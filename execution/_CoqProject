@@ -17,7 +17,7 @@ theories/ResultMonad.v
 theories/Serializable.v
 theories/ContractCommon.v
 
--R test ConCert.Execution.QCTest
+-R test ConCert.Execution.Test
 test/LocalBlockchain.v
 test/ChainPrinters.v
 test/TestUtils.v

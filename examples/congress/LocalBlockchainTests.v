@@ -9,7 +9,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.Congress Require Import Congress.
 From Coq Require Import List.
 From Coq Require Import ZArith.

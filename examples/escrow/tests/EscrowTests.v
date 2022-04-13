@@ -8,7 +8,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import TestUtils.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.

@@ -2,7 +2,7 @@
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.Test Require Import ChainPrinters.
 From ConCert.Examples.Escrow Require Import Escrow.
 From QuickChick Require Import QuickChick.
 

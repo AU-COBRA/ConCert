@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import TestUtils.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 
 From QuickChick Require Import QuickChick. Import QcNotation.

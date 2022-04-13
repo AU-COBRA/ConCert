@@ -3,7 +3,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution.QCTest Require Import LocalBlockchain.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From QuickChick Require Import QuickChick.
 Import QcNotation. Import MonadNotation.
 From Coq Require Import ZArith.

@@ -4,8 +4,8 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterPrinters.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import TestUtils.
+From ConCert.Execution.Test Require Import TraceGens.
 From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List.
