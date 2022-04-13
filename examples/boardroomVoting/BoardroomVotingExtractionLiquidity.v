@@ -89,7 +89,7 @@ Definition receive_wrapper (msg : msg)
   | None => None
   end.
 
-Definition dummy_init : init_ctx -> BV.Setup -> option BV.State := fun _ _ => None .
+Definition dummy_init : init_ctx -> BV.Setup -> option BV.State := fun _ _ => None.
 
 Definition dummy_receive : msg -> BV.State -> option (list ActionBody × BV.State) := 
   fun m s  => 

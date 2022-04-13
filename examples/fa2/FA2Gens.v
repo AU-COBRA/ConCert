@@ -43,7 +43,7 @@ Definition policy_allows_self_transfer (policy : permissions_descriptor) : bool 
   match policy.(descr_self) with
   | self_transfer_permitted => true
   | self_transfer_denied => false
-  end .
+  end.
 
 Local Open Scope N_scope.
 

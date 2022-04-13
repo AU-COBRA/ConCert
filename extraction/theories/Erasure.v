@@ -53,7 +53,7 @@ Instance WellFounded_term_rel : WellFounded term_rel :=
 Lemma sq_red_transitivity {Γ A} B {C} :
   ∥red Σ Γ A B∥ ->
   ∥red Σ Γ B C∥ ->
-  ∥red Σ Γ A C∥ .
+  ∥red Σ Γ A C∥.
 Proof.
   intros.
   sq.

@@ -83,7 +83,7 @@ Definition deploy_fa2hook := create_deployment 0 hook_contract fa2hook_setup.
 Definition fa2hook_contract_addr : Address := addr_of_Z 130%Z.
 
 Definition deploy_fa2token_with_transfer_hook : @ActionBody LocalChainBase :=
-  create_deployment 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr)) .
+  create_deployment 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr)).
 Definition deploy_fa2token_without_transfer_hook : @ActionBody LocalChainBase :=
   create_deployment 0 FA2Token.contract (token_setup None).
 

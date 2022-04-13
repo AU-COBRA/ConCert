@@ -102,7 +102,7 @@ Module Params <: BoardroomParams.
   Definition gen : Generator axioms := _.
   Axiom d : DiscreteLog axioms gen.
   Definition discr_log : DiscreteLog axioms gen := d.
-  Definition Base := Base .
+  Definition Base := Base.
 End Params.
 
 Module BV := BoardroomVoting Params. Import BV.
