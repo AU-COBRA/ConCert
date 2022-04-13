@@ -1,5 +1,3 @@
-Global Set Warnings "-extraction-logical-axiom".
-
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.

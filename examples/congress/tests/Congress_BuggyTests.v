@@ -1,5 +1,3 @@
-Global Set Warnings "-extraction-logical-axiom".
-
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor.
 From ExtLib.Structures Require Import Applicative.
@@ -32,7 +30,7 @@ Close Scope address_scope.
 
 (* -------------------------- Tests of the Buggy Congress Implementation -------------------------- *)
 
-Definition creator := BoundedN.of_Z_const AddrSize 10.
+Definition creator := addr_of_Z 10.
 
 Definition rules := {|
   min_vote_count_permille := 200;
@@ -71,7 +69,7 @@ Definition exploit_example : option (Address * ChainBuilder) :=
 Definition unpacked_exploit_example : Address * ChainBuilder :=
   unpack_option exploit_example.
 
-Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
+Definition congress_caddr := addr_of_Z 128%Z.
 
 Definition gCongressChain max_acts_per_block congress_cb max_length := 
   let act_depth := 2 in 

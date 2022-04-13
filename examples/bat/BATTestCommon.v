@@ -13,9 +13,9 @@ From Coq Require Import List.
 From Coq Require Import ZArith_base.
 Import ListNotations.
 
-Definition contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
-Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
-Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
+Definition contract_base_addr := addr_of_Z 128%Z.
+Definition ethFund : Address := addr_of_Z 16%Z.
+Definition batFund : Address := addr_of_Z 17%Z.
 Definition initSupply_ : N := 20%N.
 Definition exchangeRate_ := 3%N.
 

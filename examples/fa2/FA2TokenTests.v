@@ -10,7 +10,6 @@ From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Examples.FA2 Require Import TestContracts.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
-Global Set Warnings "-extraction-logical-axiom".
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 From ExtLib.Structures Require Import Functor.
@@ -75,13 +74,13 @@ Definition token_setup (hook_addr : option Address): FA2Token.Setup := {|
 
 |}.
 
-Definition token_contract_base_addr : Address := BoundedN.of_Z_const AddrSize 128%Z.
+Definition token_contract_base_addr : Address := addr_of_Z 128%Z.
 Definition fa2hook_setup : HookSetup := {|
   hook_fa2_caddr_ := token_contract_base_addr;
   hook_policy_ := policy_self_only;
 |}.
 Definition deploy_fa2hook := create_deployment 0 hook_contract fa2hook_setup.
-Definition fa2hook_contract_addr : Address := BoundedN.of_Z_const AddrSize 130%Z.
+Definition fa2hook_contract_addr : Address := addr_of_Z 130%Z.
 
 Definition deploy_fa2token_with_transfer_hook : @ActionBody LocalChainBase :=
   create_deployment 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr)) .
@@ -90,7 +89,7 @@ Definition deploy_fa2token_without_transfer_hook : @ActionBody LocalChainBase :=
 
 Definition token_client_setup := build_clientsetup token_contract_base_addr.
 Definition deploy_fa2token_client : @ActionBody LocalChainBase := create_deployment 0 client_contract token_client_setup.
-Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
+Definition client_contract_addr : Address := addr_of_Z 129%Z.
 
 
 Definition chain_with_token_deployed_with_hook : ChainBuilder :=

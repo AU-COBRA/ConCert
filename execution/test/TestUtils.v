@@ -17,22 +17,17 @@ Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize DepthFirst.
 Notation "f 'o' g" := (Program.Basics.compose f g) (at level 50).
 
-Definition zero_address : Address :=
-  BoundedN.of_Z_const AddrSize 0.
-Definition creator : Address :=
-  BoundedN.of_Z_const AddrSize 10.
-Definition person_1 : Address :=
-  BoundedN.of_Z_const AddrSize 11.
-Definition person_2 : Address :=
-  BoundedN.of_Z_const AddrSize 12.
-Definition person_3 : Address :=
-  BoundedN.of_Z_const AddrSize 13.
-Definition person_4 : Address :=
-  BoundedN.of_Z_const AddrSize 14.
-Definition person_5 : Address :=
-  BoundedN.of_Z_const AddrSize 15.
-Definition contract_base_addr : Address :=
-  BoundedN.of_Z_const AddrSize (Z.of_N (@ContractAddrBase AddrSize)).
+Definition addr_of_Z (x : Z) := BoundedN.of_Z_const AddrSize x.
+Definition addr_of_N (x : N) := BoundedN.of_Z_const AddrSize (Z.of_N x).
+
+Definition zero_address : Address := addr_of_Z 0.
+Definition creator : Address := addr_of_Z 10.
+Definition person_1 : Address := addr_of_Z 11.
+Definition person_2 : Address := addr_of_Z 12.
+Definition person_3 : Address := addr_of_Z 13.
+Definition person_4 : Address := addr_of_Z 14.
+Definition person_5 : Address := addr_of_Z 15.
+Definition contract_base_addr : Address := addr_of_N (@ContractAddrBase AddrSize).
 
 Definition test_chain_addrs_3 := [person_1; person_2; person_3].
 Definition test_chain_addrs_5 := test_chain_addrs_3 ++ [person_4; person_5].

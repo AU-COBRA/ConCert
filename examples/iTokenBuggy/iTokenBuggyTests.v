@@ -1,7 +1,4 @@
-Global Set Warnings "-extraction-logical-axiom".
-
 From QuickChick Require Import QuickChick. Import QcNotation.
-
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
@@ -27,7 +24,7 @@ Notation "x |> f" := (f x) (at level 31, left associativity, only parsing).
 
 Definition token_setup := iTokenBuggy.build_setup creator (100%N).
 Definition deploy_iToken := create_deployment 0 iTokenBuggy.contract token_setup.
-Definition token_caddr := BoundedN.of_Z_const AddrSize 128%Z.
+Definition token_caddr := addr_of_Z 128%Z.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)

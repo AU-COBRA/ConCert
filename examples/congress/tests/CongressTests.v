@@ -61,7 +61,7 @@ Definition chain6 : ChainBuilder :=
   unpack_result (add_block chain5 [build_act person_1 person_1 create_proposal_call]).
 
 Definition congress_chain := chain5.
-Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
+Definition congress_caddr := addr_of_Z 128%Z.
 
 Definition gCongressChain max_acts_per_block congress_cb max_length := 
   let act_depth := 2 in 

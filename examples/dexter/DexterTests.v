@@ -42,7 +42,7 @@ Definition token_setup : FA2Token.Setup := {|
 |}.
 
 Definition deploy_fa2token : @ActionBody LocalChainBase := create_deployment 0 FA2Token.contract token_setup.
-Definition fa2_caddr : Address := BoundedN.of_Z_const AddrSize 128%Z.
+Definition fa2_caddr : Address := addr_of_Z 128%Z.
 
 Definition dexter_setup : Dexter.Setup := {|
   fa2_caddr_ := fa2_caddr;
@@ -50,7 +50,7 @@ Definition dexter_setup : Dexter.Setup := {|
 
 (* The Dexter contract gets 30 chain assets initially *)
 Definition deploy_dexter : @ActionBody LocalChainBase := create_deployment 30 Dexter.contract dexter_setup.
-Definition dexter_caddr : Address := BoundedN.of_Z_const AddrSize 129%Z.
+Definition dexter_caddr : Address := addr_of_Z 129%Z.
 
 Section ExplotContract.
 Definition ExploitContractMsg := fa2_token_sender.
@@ -89,7 +89,7 @@ build_contract exploit_init exploit_receive.
 End ExplotContract.
 
 Definition deploy_exploit : @ActionBody LocalChainBase := create_deployment 0 exploit_contract tt.
-Definition exploit_caddr : Address := BoundedN.of_Z_const AddrSize 130%Z.
+Definition exploit_caddr : Address := addr_of_Z 130%Z.
 
 Definition dexter_other_msg := @other_msg _ DexterMsg.
 
