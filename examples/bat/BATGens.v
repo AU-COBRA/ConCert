@@ -1,18 +1,14 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
-From ConCert.Execution.Test Require Import TestUtils.
-From ConCert.Execution.Test Require Import TraceGens.
-From QuickChick Require Import QuickChick.
-Import QcNotation.
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.
+Import MonadNotation.
 
 
 Module Type BATGensInfo.

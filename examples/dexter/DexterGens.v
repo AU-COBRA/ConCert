@@ -1,18 +1,14 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterPrinters.
-From ConCert.Execution.Test Require Import TestUtils.
-From ConCert.Execution.Test Require Import TraceGens.
-From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
-(* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
+Import MonadNotation.
 
 Module Type DexterTestsInfo.
   Parameter fa2_contract_addr : Address.

@@ -1,9 +1,8 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
-From ConCert.Execution.Test Require Import ChainPrinters.
-From QuickChick Require Import QuickChick.
 
 Local Open Scope string_scope.
 

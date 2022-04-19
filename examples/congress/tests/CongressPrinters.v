@@ -1,9 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.Test Require Import ChainPrinters.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import List.
 Open Scope string_scope.
 

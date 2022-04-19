@@ -1,32 +1,18 @@
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor.
-From ExtLib.Structures Require Import Applicative.
-
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monads.
-From ConCert.Execution.Test Require Import TestUtils.
-From ConCert.Execution.Test Require Import TraceGens.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 From ConCert.Examples.Congress Require Import Congress_BuggyGens.
 From ConCert.Examples.Congress Require Import Congress_BuggyPrinters.
 From ConCert.Utils Require Import Extras.
-From ConCert.Utils Require Import RecordUpdate.
-Close Scope monad_scope.
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
-From Coq Require Import Int.
-From Coq Require Import BinInt.
-From Coq Require Import FunInd.
-
-Import BoundedN.Stdpp.
 Import ListNotations.
 
-Close Scope address_scope.
 
 (* -------------------------- Tests of the Buggy Congress Implementation -------------------------- *)
 

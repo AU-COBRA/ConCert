@@ -22,3 +22,4 @@ test/LocalBlockchain.v
 test/ChainPrinters.v
 test/TestUtils.v
 test/TraceGens.v
+test/QCTest.v

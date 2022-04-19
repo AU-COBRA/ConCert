@@ -1,9 +1,8 @@
 Set Warnings "-extraction-inside-module".
 
-From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import BinNat.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Test Require Import TestUtils.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require CongressTests.
 From ConCert.Examples.Congress Require Congress_BuggyTests.
 From ConCert.Examples.Dexter Require DexterTests.

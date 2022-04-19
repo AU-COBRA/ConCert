@@ -5,23 +5,16 @@
 
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.Test Require Import TestUtils.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.
-From ConCert.Utils Require Import RecordUpdate.
-
-From QuickChick Require Import QuickChick.
 From Coq Require Import ZArith.
 From Coq Require Import List.
-
 Import ListNotations.
-Import QcNotation.
 
-Close Scope string_scope.
 
 Section TestSetup.
   (* Fix seller and buyer *)

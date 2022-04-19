@@ -1,14 +1,12 @@
-From QuickChick Require Import QuickChick.
-Import QcNotation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
-From ConCert.Execution.Test Require Import TestUtils.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.
 Import ListNotations.
