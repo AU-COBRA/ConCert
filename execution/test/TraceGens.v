@@ -312,12 +312,12 @@ Section TraceGens.
 
   (* Asserts that a ChainState property holds on all step_block ChainStates in a ChainTrace *)
   Definition forAllBlocks {prop : Type}
-                             `{Checkable prop}
-                              (maxLength : nat)
-                              (init_lc : ChainBuilder)
-                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                              (pf : ChainState -> prop)
-                              : Checker :=
+                          `{Checkable prop}
+                          (maxLength : nat)
+                          (init_lc : ChainBuilder)
+                          (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                          (pf : ChainState -> prop)
+                          : Checker :=
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => ChainTrace_ChainTraceProp cb.(builder_trace) pf).
 
@@ -411,16 +411,14 @@ Section TraceGens.
 
   Open Scope string_scope.
   (* if pre tests true, then post tests true, for all tested execution traces *)
-  Definition pre_post_assertion {Setup Msg State prop : Type}
+  Definition pre_post_assertion {Msg State prop : Type}
                                `{Checkable prop}
                                `{Serializable Msg}
                                `{Serializable State}
-                               `{Serializable Setup}
                                `{Show Msg}
                                 (maxLength : nat)
                                 (init_chain : ChainBuilder)
                                 (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                                (c : Contract Setup Msg State)
                                 (caddr : Address)
                                 (pre : State -> Msg -> bool)
                                 (post : Environment -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=

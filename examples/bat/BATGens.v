@@ -12,8 +12,6 @@ Import MonadNotation.
 
 
 Module Type BATGensInfo.
-  Parameter contract : Contract BATCommon.Setup BATCommon.Msg BATCommon.State.
-  Parameter initial_chain : ChainBuilder.
   Parameter trace_length : nat.
   Parameter gAccount : G Address.
   Parameter contract_addr : Address.
@@ -255,60 +253,5 @@ Definition gBATSetup : G Setup :=
                              exchangeRate
                              tokenCap
                              tokenMin).
-
-(* chain generator *)
-Definition gTokenChain max_acts_per_block token_cb max_length :=
-  let act_depth := 1 in
-  gChain token_cb
-    (fun env act_depth => gBATAction env) max_length act_depth max_acts_per_block.
-
-(* Generator for debugging Action generator *)
-Definition gInvalidActions max_acts_per_block token_cb max_length g :=
-  let act_depth := 1 in
-  gInvalidAction token_cb
-    (fun env act_depth => g env) max_length act_depth max_acts_per_block.
-
-Definition forAllInvalidActions n g P :=
-  let max_acts_per_block := 1 in
-  forAll (gInvalidActions max_acts_per_block initial_chain n g)
-    (fun '(cb, acts) => if length acts =? 0
-                        then checker true
-                        else disjoin (map (fun act => P cb act) acts)).
-
-Definition forAllTokenChainBuilders n :=
-  let max_acts_per_block := 2 in
-  forAllChainBuilder n initial_chain (gTokenChain max_acts_per_block).
-
-Definition forAllTokenBlocks n :=
-  let max_acts_per_block := 2 in
-  forAllBlocks n initial_chain (gTokenChain max_acts_per_block).
-
-Definition forAllTokenChainStates n :=
-  let max_acts_per_block := 2 in
-  forAllChainState n initial_chain (gTokenChain max_acts_per_block).
-
-Definition pre_post_assertion_token P c Q :=
-  let max_acts_per_block := 2 in
-  let trace_length := 7 in
-  pre_post_assertion trace_length initial_chain (gTokenChain max_acts_per_block) contract c P Q.
-
-Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
-  let P' := fun cs => if P cs then Some true else None in
-  let Q' := fun _ pre_trace post_trace =>
-    checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true) in
-  let max_acts_per_block := 2%nat in
-  let trace_length := 7%nat in
-  reachableFrom_implies_chaintracePropSized trace_length init_cb
-                                            (gTokenChain max_acts_per_block) P' Q'.
-
-Notation "cb '~~>' pf" :=
-  (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
-Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implication lc pf1 pf2) (at level 90, left associativity).
-Notation "'{{' P '}}'" := (forAllTokenChainStates 7 P) (at level 60, no associativity).
-Notation "'{{' P '}}' '==>' '{{' Q '}}'" :=
-  (forAllChainState_implication 7 initial_chain (gTokenChain 2) P Q) (at level 60, left associativity).
-Notation "'{{' P '}}' c '{{' Q '}}'" :=
-  (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
 
 End BATGens.

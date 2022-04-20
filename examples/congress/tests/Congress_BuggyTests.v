@@ -57,7 +57,14 @@ Definition unpacked_exploit_example : Address * ChainBuilder :=
 
 Definition congress_caddr := addr_of_Z 128%Z.
 
-Definition gCongressChain max_acts_per_block congress_cb max_length := 
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := (fun env => GCongressAction env act_depth congress_caddr).
+  Definition init_cb := (snd unpacked_exploit_example).
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+(* Sample gChain. *)
+
+(* Definition gCongressChain max_acts_per_block congress_cb max_length := 
   let act_depth := 2 in 
   gChain congress_cb
     (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
@@ -67,7 +74,7 @@ Definition forAllCongressChainTraces n :=
 
 Definition pre_post_assertion_congress P c Q :=
   pre_post_assertion 2 (snd unpacked_exploit_example) (gCongressChain 1) Congress_Buggy.contract c P Q.
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50). *)
 
 Local Close Scope Z_scope.
 
@@ -96,11 +103,11 @@ Definition receive_state_well_behaved_P (chain : Chain)
   | _ => checker false
   end.
 
-(* QuickChick ( *)
-(*   {{fun _ _ => true}} *)
-(*   congress_caddr *)
-(*   {{receive_state_well_behaved_P}} *)
-(* ). *)
+(* QuickChick (
+  {{fun _ _ => true}}
+  congress_caddr
+  {{receive_state_well_behaved_P}}
+). *)
 
 (* 
 Chain{| 

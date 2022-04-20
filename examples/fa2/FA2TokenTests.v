@@ -146,19 +146,13 @@ Module TestInfo <: FA2TestsInfo.
 End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
-Definition gFA2TokenChain max_acts_per_block cb length := 
-  gChain cb (fun cb _ => gFA2TokenAction cb) length 1 max_acts_per_block.
-
-Definition gFA2ClientChain max_acts_per_block cb length := 
-  gChain cb (fun cb _ => gClientAction cb) length 1 max_acts_per_block.
-
-
-(* Sample (gFA2TokenAction chain_with_transfer_hook). *)
-(* Sample (gFA2TokenChain 1 chain_with_transfer_hook 10). *)
-
-Definition forAllFA2Traces chain n := forAllBlocks n chain (gFA2TokenChain 1).
-Definition forAllFA2TracesStatePairs chain n := forAllChainStatePairs n chain (gFA2TokenChain 1).
-Notation "{{ P }} c {{ Q }} chain" := (pre_post_assertion 7 chain (gFA2TokenChain 1) FA2Token.contract c P Q)( at level 50).
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := gFA2TokenAction.
+  Definition init_cb := chain_with_transfer_hook.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+Extract Constant max_acts_per_block => "1".
+(* Sample gChain. *)
 
 Local Open Scope Z_scope.
 Definition transfer_state_update_correct prev_state next_state transfers :=
@@ -214,11 +208,11 @@ Definition post_transfer_correct (chain : Chain) (cctx : ContractCallContext) ol
   | None => checker false
   end.
 
-(* QuickChick ( *)
-(*   {{ msg_is_transfer }} *)
-(*     token_contract_base_addr *)
-(*   {{ post_transfer_correct }} *)
-(*   chain_without_transfer_hook). *)
+(* QuickChick (
+  {{ msg_is_transfer }}
+    token_contract_base_addr
+  {{ post_transfer_correct }}
+  chain_without_transfer_hook). *)
 (* 14 seconds, max size 7, 1 act per block *)
 (* +++ Passed 10000 tests (0 discards) *)
 
@@ -258,7 +252,7 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
   | None => checker true
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct). *)
+(* QuickChick (forAllChainStatePairs transfer_balances_correct). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
@@ -325,7 +319,7 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
   | None => checker false
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
+(* QuickChick (forAllChainStatePairs transfer_satisfies_policy_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
@@ -379,11 +373,11 @@ Definition post_last_update_operator_occurrence_takes_effect (chain : Chain) (cc
   | None => checker false
   end.
 
-(* QuickChick ( *)
-(*   {{msg_is_update_operator}} *)
-(*   token_contract_base_addr *)
-(*   {{post_last_update_operator_occurrence_takes_effect}} *)
-(*   chain_without_transfer_hook *)
-(* ). *)
+(* QuickChick (
+  {{msg_is_update_operator}}
+  token_contract_base_addr
+  {{post_last_update_operator_occurrence_takes_effect}}
+  chain_without_transfer_hook
+). *)
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)

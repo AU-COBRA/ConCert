@@ -39,26 +39,12 @@ Module TestInfo <: iTokenBuggyGensInfo.
 End TestInfo.
 Module MG := iTokenBuggyGens TestInfo. Import MG.
 
-Definition gTokenChain max_acts_per_block token_cb max_length := 
-  let act_depth := 1 in 
-  gChain token_cb
-    (fun env act_depth => giTokenBuggyAction env) max_length act_depth max_acts_per_block.
-(* Sample (gTokenChain 2 token_cb 7).  *)
-
-(* 'forAll' checker for this iToken chain generator *)
-Definition forAllTokenChainTraces n :=
-  let max_acts_per_block := 2 in
-  forAllBlocks n token_cb (gTokenChain max_acts_per_block).
-
-Instance genBuggyTokenChainSized : GenSized ChainBuilder := {
-  arbitrarySized n := gTokenChain 5 token_cb n
-}.
-
-Definition pre_post_assertion_token P c Q :=
-  let max_acts_per_block := 2 in
-  let trace_length := 4 in
-  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) iTokenBuggy.contract c P Q.
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := giTokenBuggyAction.
+  Definition init_cb := token_cb.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+(* Sample gChain. *)
 
 Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker := 
   match get_contract_state iTokenBuggy.State cs token_caddr with
@@ -93,13 +79,17 @@ Definition sum_balances_eq_init_supply (state : iTokenBuggy.State) : bool :=
                                        |> fold_right N.add 0 in
   balances_sum =? state.(total_supply).
 
+Instance genBuggyTokenChainSized : GenSized ChainBuilder := {
+  arbitrarySized n := gChain_ token_cb n
+}.
+
 Conjecture token_supply_preserved : forall sig_to : {to | reachable to}, 
   let to := proj1_sig sig_to in
   get_state sum_balances_eq_init_supply to = true.
 
 (* QuickChick (expectFailure token_supply_preserved). *)
 (* Or alternatively, for better output: *)
-(* QuickChick (expectFailure (forAllTokenChainTraces 4 (checker_get_state sum_balances_eq_init_supply_checker))). *)
+(* QuickChick (expectFailure (forAllBlocks (checker_get_state sum_balances_eq_init_supply_checker))). *)
 (* *** Failed (as expected) after 5 tests and 1000 shrinks. (0 discards) *)
 (* Action{act_from: 11%256, act_body: (act_call 128%256, 0, withdraw)}}
 balances_sum: 12

@@ -46,8 +46,6 @@ Definition token_cb :=
   ]).
 
 Module TestInfo <: BATGensInfo.
-  Definition initial_chain := token_cb.
-  Definition contract := BAT.contract.
   Definition contract_addr := contract_base_addr.
   Definition accounts := [batFund; ethFund] ++ test_chain_addrs_5.
   Definition gAccount := gAddress accounts.
@@ -61,16 +59,22 @@ Module TestInfo <: BATGensInfo.
 End TestInfo.
 Module MG := BATGens TestInfo. Import MG.
 
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := gBATAction.
+  Definition init_cb := token_cb.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+
 
 
 (* Test generators *)
 
 (* Sample generator to see quality of generated chains *)
-(* Sample (gTokenChain 2 token_cb 7). *)
+(* Sample gChain. *)
 
 (* Unless something is wrong witht he contract it should be
     the case that gBATActionValid only produces valid actions *)
-(* QuickChick (forAll (gInvalidActions 1 token_cb 7 gBATActionValid)
+(* QuickChick (forAll (gInvalidActions gBATActionValid)
             (fun x => collect (snd x) true)). *)
 (*
 8385 :
@@ -100,14 +104,14 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
     | None => checker true
     end.
 (* This test shows that all failed acts are because there isn't enough balance to refund *)
-(* QuickChick (forAllInvalidActions 7 gBATActionValid not_enough_balance_to_refund). *)
+(* QuickChick (forAllInvalidActions gBATActionValid not_enough_balance_to_refund). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
 
 (* Verify hardness of finalizing BAToken.
    Goal is ~ 2/3 of generated chains are finalized *)
-(* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_finalized cb) true)). *)
+(* QuickChick (forAllChainBuilders (fun cb => collect (get_chain_finalized cb) true)). *)
 (*
   6426 : true
   3574 : false
@@ -118,7 +122,7 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
    We want the average chain height to be close to full length
    since this is a sign that the generator does not generate 
    invalid requests so often that it affects chain quality *)
-(* QuickChick (forAllTokenChainBuilders 8 (fun cb => collect (get_chain_height cb) true)). *)
+(* QuickChick (forAllChainBuilders (fun cb => collect (get_chain_height cb) true)). *)
 (*
   8497 : 9
   691 : 8
@@ -132,7 +136,7 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
 (* Verify spread of tokens after funding period is over.
    We do this to see it it possible to hit the funding cap
    and how easy it is to do. *)
-(* QuickChick (forAllTokenChainBuilders 6 (fun cb => collect (get_chain_tokens cb) true)). *)
+(* QuickChick (forAllChainBuilders (fun cb => collect (get_chain_tokens cb) true)). *)
 (*
   1001 : 101
   735 : 98
@@ -1233,13 +1237,14 @@ Setup{
 
 
 Definition final_is_final :=
-  {token_cb ~~~> is_finalized ===> (fun _ cs => is_finalized cs)}.
+  token_cb ~~~> bool_to_option is_finalized ===>
+    checkForAllStatesInTrace (fun _ cs => is_finalized cs).
 (* Check that once finalized it cannot be undone *)
 (* QuickChick final_is_final. *)
 (* +++ Passed 10000 tests (6246 discards) *)
 
 Definition can_only_finalize_once :=
-  let chain_gen := (gTokenChain 2) token_cb 7%nat in
+  let chain_gen := gChain in
   let blocks cb := trace_states_step_block cb.(builder_trace) in
   let is_finalize action :=
     match action.(act_body) with
@@ -1267,7 +1272,8 @@ Definition final_implies_total_supply_in_range :=
                     ((total_supply state) <=? tokenCap_)
     | None => false
     end in
-  {token_cb ~~~> is_finalized ===> (fun _ cs => total_supply_in_range cs)}.
+  token_cb ~~~> bool_to_option is_finalized ===>
+    checkForAllStatesInTrace (fun _ cs => total_supply_in_range cs).
 (* Check that once finalized then total supply of tokens is:
     1) at least _tokenMin
     2) no bigger than _tokenCap *)
@@ -1282,15 +1288,16 @@ Definition final_implies_total_supply_constant :=
     | None => 0
     end in
   let finalized_total_supply trace := get_total_supply (get_satisfying_state trace) in
-  {token_cb ~~~> is_finalized
-            ===> (fun pre_trace cs => get_total_supply cs =? finalized_total_supply pre_trace)}.
+  token_cb ~~~> bool_to_option is_finalized ===>
+    checkForAllStatesInTrace (fun pre_trace cs => get_total_supply cs =? finalized_total_supply pre_trace).
 (* Check that once finalized then total supply of tokens does not change *)
 (* QuickChick final_implies_total_supply_constant. *)
 (* +++ Passed 10000 tests (5950 discards) *)
 
 Definition final_implies_contract_balance_is_zero :=
   let contract_balance_empty trace cs := Z.eqb (env_account_balances cs contract_base_addr) 0 in
-  {token_cb ~~~> is_finalized ===> contract_balance_empty}.
+    token_cb ~~~> bool_to_option is_finalized ===>
+      checkForAllStatesInTrace contract_balance_empty.
 (* Check that once finalized then the contract balance is 0 *)
 (* QuickChick final_implies_contract_balance_is_zero. *)
 (* +++ Passed 10000 tests (6125 discards) *)
