@@ -11,8 +11,8 @@ From Coq Require Import List. Import ListNotations.
 
 Import BoundedN.Stdpp.
 
-Global Definition AddrSize := (2^8)%N.
-Global Definition DepthFirst := true.
+Global Definition AddrSize : N := (2^8)%N.
+Global Definition DepthFirst : bool := true.
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
 Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize DepthFirst.
 Notation "f 'o' g" := (Program.Basics.compose f g) (at level 50).

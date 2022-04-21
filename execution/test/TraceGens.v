@@ -28,7 +28,6 @@ Import BoundedN.Stdpp.
 Import ListNotations.
 
 Section TraceGens.
-  Context  {ChainBuilder : ChainBuilderType}.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
 

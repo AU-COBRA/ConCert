@@ -6,10 +6,20 @@ From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 
+(** * Test parameters *)
+(** These determine the behaviour of the chain trace generators.
+    The following parameters are available.
+    - max_trace_length: This determines the maximum number of blocks that will be added to the trace by the generator. Default value is 7.
+    - max_acts_per_block: Defines the maximum number of actions that the generator will add per block. Default value is 2.
+    - act_depth
+    - DepthFirst: A boolean value denoting whether actions are executed in a depth first order (true) or breadth first order (false). Default value is true.
+    - AddrSize: The total number of valid addresses in the blockchain. The first half of the address space is reserved for user accounts while the secound half is reserved for smart contracts. Default value is 256.
+    
+    These values can be overwritten between tests by: << Extract Constant max_trace_length => "3" >>
+*)
 Definition max_trace_length : nat := 7.
 Definition max_acts_per_block : nat := 2.
 Definition act_depth : nat := 3.
-Definition depth_first : bool := true.
 
 Declare Scope qc_test_scope.
 
