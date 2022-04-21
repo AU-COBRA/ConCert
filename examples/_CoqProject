@@ -40,6 +40,7 @@ fa2/FA2TokenTests.v
 
 -Q fa1_2 ConCert.Examples.FA1_2
 fa1_2/FA1_2.v
+#fa1_2/FA1_2Correct.v
 
 -Q dexter2 ConCert.Examples.Dexter2
 dexter2/Dexter2FA12.v
