@@ -8,6 +8,7 @@
 
 -Q eip20 ConCert.Examples.EIP20
 eip20/EIP20Token.v
+eip20/EIP20TokenCorrect.v
 eip20/EIP20TokenGens.v
 eip20/EIP20TokenPrinters.v
 eip20/EIP20TokenTests.v
