@@ -20,6 +20,9 @@ bat/BATCommon.v
 bat/BAT.v
 bat/BATFixed.v
 bat/BATAltFix.v
+bat/BATCorrect.v
+bat/BATFixedCorrect.v
+bat/BATAltFixCorrect.v
 bat/BATPrinters.v
 bat/BATGens.v
 bat/BATTestCommon.v
