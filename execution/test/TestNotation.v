@@ -11,6 +11,8 @@ Definition max_acts_per_block : nat := 2.
 Definition act_depth : nat := 3.
 Definition depth_first : bool := true.
 
+Declare Scope qc_test_scope.
+
 Module Type TestNotationParameters.
   Parameter gAction : (Environment -> GOpt Action).
   Parameter init_cb : ChainBuilder.
@@ -54,14 +56,20 @@ Module TestNotations (p : TestNotationParameters).
       checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true).
 
   Notation "cb '~~>' pf" :=
-    (reachableFrom_chaintrace cb gChain_ pf) (at level 45, left associativity).
+    (reachableFrom_chaintrace cb gChain_ pf) (at level 45, left associativity) : qc_test_scope.
   Notation "lc '~~~>' pf1 '===>' pf2" :=
-    (reachableFrom_implies_chaintracePropSized max_trace_length lc gChain_ pf1 pf2) (at level 45, pf1 at next level, left associativity).
-  Notation "'{{' P '}}'" := (forAllChainState max_trace_length init_cb gChain_ P) (at level 60, no associativity).
+    (reachableFrom_implies_chaintracePropSized max_trace_length lc gChain_ pf1 pf2)
+    (at level 45, pf1 at next level, left associativity) : qc_test_scope.
+  Notation "'{{' P '}}'" :=
+    (forAllChainState max_trace_length init_cb gChain_ P) (at level 60, no associativity) : qc_test_scope.
   Notation "'{{' P '}}' '==>' '{{' Q '}}'" :=
-    (forAllChainState_implication max_trace_length init_cb gChain_ P Q) (at level 60, left associativity).
+    (forAllChainState_implication max_trace_length init_cb gChain_ P Q)
+    (at level 60, left associativity) : qc_test_scope.
   Notation "'{{' P '}}' c '{{' Q '}}'" :=
-    (pre_post_assertion max_trace_length init_cb gChain_ c P Q) (at level 60, c at next level, no associativity).
+    (pre_post_assertion max_trace_length init_cb gChain_ c P Q)
+    (at level 60, c at next level, no associativity) : qc_test_scope.
   Notation "'{{' P '}}' c '{{' Q '}}' chain" :=
-    (pre_post_assertion max_trace_length chain gChain_ c P Q) (at level 60, c at next level, chain at next level, no associativity).
+    (pre_post_assertion max_trace_length chain gChain_ c P Q)
+    (at level 60, c at next level, chain at next level, no associativity) : qc_test_scope.
 End TestNotations.
+Open Scope qc_test_scope.
