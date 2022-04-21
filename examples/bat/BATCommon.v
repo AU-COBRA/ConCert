@@ -473,6 +473,3 @@ End BATCommon.
 (** Definitions from EIP20Token *)
 Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
 Notation get_allowance := EIP20Token.get_allowance.
-Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
-Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
-Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.

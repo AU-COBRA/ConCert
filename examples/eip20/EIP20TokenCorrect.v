@@ -216,9 +216,6 @@ Proof.
    Unshelve. eauto.
 Qed.
 
-(* sum of all balances in the token state *)
-Definition sum_balances (state : EIP20Token.State) :=
-  sumN (fun '(k, v) => v) (FMap.elements (balances state)).
 (* end hide *)
 
 
@@ -238,9 +235,6 @@ Definition transfer_balance_update_correct old_state new_state from to tokens :=
   else
     (from_balance_before =? from_balance_after + tokens) &&
     (to_balance_before + tokens =? to_balance_after).
-
-Definition get_allowance state from delegate :=
-  with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state)))).
 
 Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
   let delegate_allowance_before := get_allowance old_state from delegate in

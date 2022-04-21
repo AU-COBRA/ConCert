@@ -10,6 +10,7 @@ From Coq Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
@@ -145,5 +146,13 @@ Section EIP20Token.
 
   Definition contract : Contract Setup Msg State :=
     build_contract init receive.
+
+  (* sum of all balances in the token state *)
+  Definition sum_balances (state : EIP20Token.State) :=
+    sumN (fun '(k, v) => v) (FMap.elements (balances state)).
+
+  Definition get_allowance state from delegate :=
+    with_default 0 (FMap.find delegate (with_default
+      (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state)))).
 
 End EIP20Token.

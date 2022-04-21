@@ -22,6 +22,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.EIP20 Require EIP20Token.
+From ConCert.Examples.EIP20 Require EIP20TokenCorrect.
 Import ListNotations.
 
 
@@ -192,11 +193,12 @@ Hint Rewrite N.ltb_lt N.ltb_ge N.leb_le N.leb_gt N.eqb_eq N.eqb_neq
 
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx to amount new_acts,
   receive chain ctx prev_state (Some (transfer to amount)) = Some (new_state, new_acts) ->
-  transfer_balance_update_correct (token_state prev_state) (token_state new_state) ctx.(ctx_from) to amount = true.
+  EIP20TokenCorrect.transfer_balance_update_correct (token_state prev_state) (token_state new_state)
+    ctx.(ctx_from) to amount = true.
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_balance_correct; eauto.
+  eapply EIP20TokenCorrect.try_transfer_balance_correct; eauto.
 Qed.
 
 Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx to amount new_acts,
@@ -205,7 +207,7 @@ Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ct
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_preserves_total_supply; eauto.
+  eapply EIP20TokenCorrect.try_transfer_preserves_total_supply; eauto.
 Qed.
 
 Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx to amount new_acts,
@@ -214,7 +216,7 @@ Lemma try_transfer_preserves_allowances : forall prev_state new_state chain ctx 
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_preserves_allowances; eauto.
+  eapply EIP20TokenCorrect.try_transfer_preserves_allowances; eauto.
 Qed.
 
 Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx to amount new_acts,
@@ -224,7 +226,7 @@ Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain 
 Proof.
   intros * receive_some account account_not_sender account_not_to.
   contract_simpl.
-  eapply EIP20Token.try_transfer_preserves_other_balances; eauto.
+  eapply EIP20TokenCorrect.try_transfer_preserves_other_balances; eauto.
 Qed.
 
 Lemma try_transfer_is_some : forall state chain ctx to amount,
@@ -235,7 +237,7 @@ Proof.
   intros.
   unfold balances. cbn.
   destruct_match eqn:receive;
-    now erewrite EIP20Token.try_transfer_is_some, receive.
+    now erewrite EIP20TokenCorrect.try_transfer_is_some, receive.
 Qed.
 
 
@@ -244,12 +246,12 @@ Qed.
 
 Lemma try_transfer_from_balance_correct : forall prev_state new_state chain ctx from to amount new_acts,
   receive chain ctx prev_state (Some (transfer_from from to amount)) = Some (new_state, new_acts) ->
-  transfer_balance_update_correct (token_state prev_state) (token_state new_state) from to amount = true /\
-  transfer_from_allowances_update_correct (token_state prev_state) (token_state new_state) from ctx.(ctx_from) amount = true.
+  EIP20TokenCorrect.transfer_balance_update_correct (token_state prev_state) (token_state new_state) from to amount = true /\
+  EIP20TokenCorrect.transfer_from_allowances_update_correct (token_state prev_state) (token_state new_state) from ctx.(ctx_from) amount = true.
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_from_balance_correct; eauto.
+  eapply EIP20TokenCorrect.try_transfer_from_balance_correct; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state chain ctx from to amount new_acts,
@@ -258,7 +260,7 @@ Lemma try_transfer_from_preserves_total_supply : forall prev_state new_state cha
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_from_preserves_total_supply; eauto.
+  eapply EIP20TokenCorrect.try_transfer_from_preserves_total_supply; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state chain ctx from to amount new_acts,
@@ -268,7 +270,7 @@ Lemma try_transfer_from_preserves_other_balances : forall prev_state new_state c
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_from_preserves_other_balances; eauto.
+  eapply EIP20TokenCorrect.try_transfer_from_preserves_other_balances; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state chain ctx from to amount new_acts,
@@ -278,7 +280,7 @@ Lemma try_transfer_from_preserves_other_allowances : forall prev_state new_state
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_from_preserves_other_allowances; eauto.
+  eapply EIP20TokenCorrect.try_transfer_from_preserves_other_allowances; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state chain ctx from to amount new_acts,
@@ -288,7 +290,7 @@ Lemma try_transfer_from_preserves_other_allowance : forall prev_state new_state 
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_from_preserves_other_allowance; eauto.
+  eapply EIP20TokenCorrect.try_transfer_from_preserves_other_allowance; eauto.
 Qed.
 
 Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
@@ -303,7 +305,7 @@ Proof.
   intros * amount_zero.
   unfold balances, allowances, get_allowance_. cbn.
   destruct_match eqn:receive;
-    now erewrite EIP20Token.try_transfer_from_is_some, receive.
+    now erewrite EIP20TokenCorrect.try_transfer_from_is_some, receive.
 Qed.
 
 
@@ -312,11 +314,11 @@ Qed.
 
 Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx delegate amount new_acts,
   receive chain ctx prev_state (Some (approve delegate amount)) = Some (new_state, new_acts) ->
-  approve_allowance_update_correct (token_state new_state) ctx.(ctx_from) delegate amount = true.
+  EIP20TokenCorrect.approve_allowance_update_correct (token_state new_state) ctx.(ctx_from) delegate amount = true.
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_approve_allowance_correct; eauto.
+  eapply EIP20TokenCorrect.try_approve_allowance_correct; eauto.
 Qed.
 
 Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -325,7 +327,7 @@ Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_approve_preserves_total_supply; eauto.
+  eapply EIP20TokenCorrect.try_approve_preserves_total_supply; eauto.
 Qed.
 
 Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -334,7 +336,7 @@ Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx del
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_approve_preserves_balances; eauto.
+  eapply EIP20TokenCorrect.try_approve_preserves_balances; eauto.
 Qed.
 
 Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -344,7 +346,7 @@ Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_approve_preserves_other_allowances; eauto.
+  eapply EIP20TokenCorrect.try_approve_preserves_other_allowances; eauto.
 Qed.
 
 Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -354,7 +356,7 @@ Lemma try_approve_preserves_other_allowance : forall prev_state new_state chain 
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_approve_preserves_other_allowance; eauto.
+  eapply EIP20TokenCorrect.try_approve_preserves_other_allowance; eauto.
 Qed.
 
 Lemma try_approve_is_some : forall state chain ctx delegate amount,
@@ -363,7 +365,7 @@ Proof.
   intros.
   cbn.
   destruct_match eqn:receive;
-    now erewrite EIP20Token.try_approve_is_some, receive.
+    now erewrite EIP20TokenCorrect.try_approve_is_some, receive.
 Qed.
 
 
@@ -388,7 +390,7 @@ Lemma eip20_not_payable : forall prev_state new_state chain ctx m new_acts,
 Proof.
   intros * receive_some.
   contract_simpl.
-  now eapply EIP20Token.EIP20_not_payable.
+  now eapply EIP20TokenCorrect.EIP20_not_payable.
 Qed.
 
 
@@ -401,7 +403,7 @@ Lemma eip20_new_acts_correct : forall prev_state new_state chain ctx m new_acts,
 Proof.
   intros * receive_some.
   contract_simpl.
-  now eapply EIP20Token.EIP20_no_acts.
+  now eapply EIP20TokenCorrect.EIP20_no_acts.
 Qed.
 
 
@@ -415,7 +417,7 @@ Lemma try_create_tokens_balance_correct : forall prev_state new_state chain ctx 
 Proof.
   intros * receive_some.
   contract_simpl.
-  setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance;
     setoid_rewrite from_balance;
     setoid_rewrite FMap.find_add; cbn;
@@ -438,7 +440,7 @@ Lemma try_create_tokens_preserves_other_balances : forall prev_state new_state c
 Proof.
   intros * receive_some account account_not_sender.
   contract_simpl.
-  setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
   now setoid_rewrite FMap.find_add_ne.
 Qed.
 
@@ -705,7 +707,7 @@ Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ct
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_preserves_balances_sum; eauto.
+  eapply EIP20TokenCorrect.try_transfer_preserves_balances_sum; eauto.
 Qed.
 
 Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
@@ -714,7 +716,7 @@ Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state cha
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_transfer_from_preserves_balances_sum; eauto.
+  eapply EIP20TokenCorrect.try_transfer_from_preserves_balances_sum; eauto.
 Qed.
 
 Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx delegate amount new_acts,
@@ -723,7 +725,7 @@ Lemma try_approve_preserves_balances_sum : forall prev_state new_state chain ctx
 Proof.
   intros * receive_some.
   contract_simpl.
-  eapply EIP20Token.try_approve_preserves_balances_sum; eauto.
+  eapply EIP20TokenCorrect.try_approve_preserves_balances_sum; eauto.
 Qed.
 
 Lemma try_create_tokens_update_balances_sum : forall prev_state new_state chain ctx new_acts,
@@ -733,7 +735,7 @@ Proof.
   intros * receive_some.
   contract_simpl.
   unfold EIP20Token.sum_balances. cbn in *.
-  setoid_rewrite EIP20Token.add_is_partial_alter_plus; auto.
+  setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
   - setoid_rewrite from_balance.
     setoid_rewrite FMap.elements_add_existing; eauto.
