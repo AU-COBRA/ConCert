@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
-From ConCert.Examples.BAT Require Import BAT_Fixed.
+From ConCert.Examples.BAT Require Import BATFixed.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.BAT Require Import BATTestCommon.
@@ -14,7 +14,7 @@ From Coq Require Import ZArith_base.
 Import ListNotations.
 
 
-(* -------------------------- Tests of the BAT_Fixed Implementation -------------------------- *)
+(* -------------------------- Tests of the BATFixed Implementation -------------------------- *)
 
 Definition fundingStart_ := 1.
 Definition fundingEnd_ := 4.
@@ -29,7 +29,7 @@ Definition bat_setup := BATCommon.build_setup initSupply_
                                               exchangeRate_
                                               tokenCap_
                                               tokenMin_.
-Definition deploy_bat := create_deployment 0 BAT_Fixed.contract bat_setup.
+Definition deploy_bat := create_deployment 0 BATFixed.contract bat_setup.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
@@ -927,7 +927,7 @@ Definition can_always_finalize check_setup :=
       build_act creator creator (Blockchain.act_transfer person_2 7);
       build_act creator creator (Blockchain.act_transfer person_3 6);
       build_act creator creator (Blockchain.act_transfer person_4 10);
-      build_act creator creator (create_deployment 0 BAT_Fixed.contract setup)
+      build_act creator creator (create_deployment 0 BATFixed.contract setup)
     ] in
   forAll gBATSetup
          (fun setup =>

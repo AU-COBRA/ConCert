@@ -18,14 +18,14 @@ eip20/EIP20CameLIGOExtraction.v
 -Q bat ConCert.Examples.BAT
 bat/BATCommon.v
 bat/BAT.v
-bat/BAT_Fixed.v
-bat/BAT_AltFix.v
+bat/BATFixed.v
+bat/BATAltFix.v
 bat/BATPrinters.v
 bat/BATGens.v
 bat/BATTestCommon.v
 bat/BATTests.v
-bat/BAT_FixedTests.v
-bat/BAT_AltFixTests.v
+bat/BATFixedTests.v
+bat/BATAltFixTests.v
 
 -Q fa2 ConCert.Examples.FA2
 fa2/FA2Interface.v
