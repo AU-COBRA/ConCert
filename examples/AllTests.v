@@ -18,6 +18,7 @@ From ConCert.Examples.BAT Require BAT_AltFixTests.
 
 Module Congress.
   Import CongressTests.
+  Import TN.
 
   QuickChick (
     {{fun _ _ => true}}
@@ -26,7 +27,7 @@ Module Congress.
   ).
   (* +++ Passed 10000 tests (0 discards) *)
 
-  QuickChick (forAllCongressChainTraces 5 state_proposals_proposed_in_valid).
+  QuickChick (forAllBlocks state_proposals_proposed_in_valid).
   (* +++ Passed 10000 tests (0 discards) *)
 
   QuickChick (chain5 ~~> congress_has_votes_on_some_proposal).
@@ -42,6 +43,7 @@ End Congress.
 
 Module Congress_Buggy.
   Import Congress_BuggyTests.
+  Import TN.
 
   QuickChick (expectFailure (
     {{fun _ _ => true}}
@@ -65,6 +67,7 @@ End Dexter.
 Module EIP20Token.
   Import EIP20TokenTests.
   Import TestInfo.
+  Import TN.
 
   QuickChick (
     {{fun _ _ => true}}
@@ -108,13 +111,13 @@ Module EIP20Token.
   ).
   (* +++ Passed 10000 tests (0 discards) *)
 
-  QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_total_supply)).
+  QuickChick (forAllBlocks (checker_get_state sum_balances_eq_total_supply)).
   (* Passed 10000 tests (0 discards) *)
 
-  QuickChick (forAllTokenChainTraces 5 (checker_get_state init_supply_eq_total_supply)).
+  QuickChick (forAllBlocks (checker_get_state init_supply_eq_total_supply)).
   (* +++ Passed 10000 tests (0 discards) *)
 
-  QuickChick (expectFailure (sum_allowances_le_init_supply_P 5)).
+  QuickChick (expectFailure (sum_allowances_le_init_supply_P)).
   (* *** Failed (as expected) after 21 tests and 8 shrinks. (0 discards) *)
 
   QuickChick (token_cb ~~> (person_has_tokens person_3 12)).
@@ -138,7 +141,7 @@ Module EIP20Token.
   QuickChick (
     {
       chain_with_token_deployed
-      ~~> (person_has_tokens creator 5 o next_lc_of_lcstep)
+      ~~~> (person_has_tokens creator 5 o next_lc_of_lcstep)
       ===> (fun _ _ post_trace => isSome (person_has_tokens creator 10 (last_state post_trace)))
     }
   ).*)
@@ -169,9 +172,7 @@ End Escrow.
 Module FA2Token.
   Import FA2TokenTests.
   Import TestInfo.
-
-  QuickChick (forAll gUniqueAddrPair (fun p => isSomeCheck p (fun '(addr1, addr2) => negb (address_eqb addr1 addr2)))).
-  (* +++ Passed 10000 tests (0 discards) *)
+  Import TN.
 
   QuickChick (
     {{ msg_is_transfer }}
@@ -180,10 +181,10 @@ Module FA2Token.
     chain_without_transfer_hook).
   (* +++ Passed 10000 tests (0 discards) *)
 
-  QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct).
+  QuickChick (forAllChainStatePairs transfer_balances_correct).
   (* +++ Passed 10000 tests (0 discards) *)
 
-  QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P).
+  QuickChick (forAllChainStatePairs transfer_satisfies_policy_P).
   (* +++ Passed 10000 tests (0 discards) *)
 
   QuickChick (
@@ -199,11 +200,12 @@ End FA2Token.
 
 Module iTokenBuggy.
   Import iTokenBuggyTests.
+  Import TN.
 
   QuickChick (expectFailure token_supply_preserved).
   (* *** Failed (as expected) after 5 tests and 1000 shrinks. (0 discards) *)
 
-  QuickChick (expectFailure (forAllTokenChainTraces 4 (checker_get_state sum_balances_eq_init_supply_checker))).
+  QuickChick (expectFailure (forAllBlocks (checker_get_state sum_balances_eq_init_supply_checker))).
   (* *** Failed (as expected) after 1 tests and 7 shrinks. (0 discards) *)
 
   QuickChick (expectFailure (
@@ -219,7 +221,7 @@ End iTokenBuggy.
 Module BAT.
   Import BATTests.
   Import TestInfo.
-  Import MG.
+  Import MG TN.
   Import BATTestCommon.
 
   QuickChick (
@@ -358,7 +360,7 @@ End BAT.
 Module BAT_Fixed.
   Import BAT_FixedTests.
   Import TestInfo.
-  Import MG.
+  Import MG TN.
   Import BATTestCommon.
 
   QuickChick (
@@ -497,7 +499,7 @@ End BAT_Fixed.
 Module BAT_AltFix.
   Import BAT_AltFixTests.
   Import TestInfo.
-  Import MG.
+  Import MG TN.
   Import BATTestCommon.
 
   QuickChick (
