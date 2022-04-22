@@ -45,6 +45,8 @@ fa1_2/FA1_2Correct.v
 -Q dexter2 ConCert.Examples.Dexter2
 dexter2/Dexter2FA12.v
 dexter2/Dexter2CPMM.v
+dexter2/Dexter2FA12Correct.v
+dexter2/Dexter2CPMMCorrect.v
 dexter2/Dexter2Extract.v
 
 -Q dexter ConCert.Examples.Dexter
