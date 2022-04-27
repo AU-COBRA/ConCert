@@ -1,8 +1,8 @@
 (** * Dexter 2 FA1.2 Liquidity token contract *)
 (** This file contains an implementation of Dexter2 liquidity contract
-    https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/lqt_fa12.mligo
+    https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/lqt_fa12.mligo
     In addition this file contains proof of functional correctness w.r.t the
-    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/docs/informal-spec/dexter2-lqt-fa12.md
+    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/docs/informal-spec/dexter2-lqt-fa12.md
 
     This contract is an extension of a basic FA1.2 token contract with
     an extra entrypoint that allows an admin to mint and burn tokens.
@@ -20,8 +20,10 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import Common.
-From Coq Require Import ZArith Bool List Lia.
-Import ListNotations.
+From Coq Require Import Bool.
+From Coq Require Import List. Import ListNotations.
+From Coq Require Import Lia.
+From Coq Require Import ZArith_base.
 
 Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.
 
@@ -29,9 +31,8 @@ Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.
 
 Section LQTFA12Types.
 Context {BaseTypes : ChainBase}.
-Set Primitive Projections.
-Set Nonrecursive Elimination Schemes.
 Open Scope N_scope.
+Set Nonrecursive Elimination Schemes.
 
 (* Dummy implementation of callbacks. *)
 Record callback := {
@@ -96,7 +97,7 @@ Record Setup :=
 (* Any contract that wants to receive callback messages from the FA1.2 liquidity contract
    should have this type as its Msg type. The contract may have other endpoints,
    as composed in the 'other_msg' constructor. *)
-Inductive FA12ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
+Inductive FA12ReceiverMsg {Msg' : Type} :=
   | receive_allowance : N ->  FA12ReceiverMsg
   | receive_balance_of : N -> FA12ReceiverMsg
   | receive_total_supply : N -> FA12ReceiverMsg
@@ -171,7 +172,7 @@ Module Type Dexter2LqtSerializable.
 
     Axiom getTotalSupply_param_serializable : Serializable getTotalSupply_param.
 
-    Axiom  FA12ReceiverMsg_serializable : forall {Msg : Type} `{serMsg : Serializable Msg}, Serializable (@FA12ReceiverMsg Msg serMsg).
+    Axiom FA12ReceiverMsg_serializable : forall {Msg : Type} `{Serializable Msg}, Serializable (@FA12ReceiverMsg Msg).
 
     Axiom msg_serializable : Serializable Msg.
 
@@ -187,7 +188,7 @@ Module D2LqtSInstances <: Dexter2LqtSerializable.
   Section Serialization.
     Context `{ChainBase}.
 
-    Instance  callback_serializable : Serializable callback :=
+    Instance callback_serializable : Serializable callback :=
     Derive Serializable callback_rect <Build_callback>.
 
     Instance transfer_param_serializable : Serializable transfer_param :=
@@ -208,12 +209,12 @@ Module D2LqtSInstances <: Dexter2LqtSerializable.
     Instance getTotalSupply_param_serializable : Serializable getTotalSupply_param :=
       Derive Serializable getTotalSupply_param_rect <build_getTotalSupply_param>.
 
-    Instance FA12ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA12ReceiverMsg Msg serMsg) :=
-      Derive Serializable (@FA12ReceiverMsg_rect Msg serMsg) <
-        (@receive_allowance Msg serMsg),
-        (@receive_balance_of Msg serMsg),
-        (@receive_total_supply Msg serMsg),
-        (@other_msg Msg serMsg)>.
+    Instance FA12ReceiverMsg_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA12ReceiverMsg Msg) :=
+      Derive Serializable (@FA12ReceiverMsg_rect Msg) <
+        (@receive_allowance Msg),
+        (@receive_balance_of Msg),
+        (@receive_total_supply Msg),
+        (@other_msg Msg)>.
 
     Instance msg_serializable : Serializable Msg :=
       Derive Serializable Msg_rect <msg_transfer,
@@ -247,7 +248,7 @@ Existing Instance mintOrBurn_param_serializable.
 Existing Instance getAllowance_param_serializable.
 Existing Instance getBalance_param_serializable.
 Existing Instance getTotalSupply_param_serializable.
-Existing Instance  FA12ReceiverMsg_serializable.
+Existing Instance FA12ReceiverMsg_serializable.
 Existing Instance msg_serializable.
 Existing Instance state_serializable.
 Existing Instance setup_serializable.
@@ -302,7 +303,7 @@ Definition try_approve (sender : Address) (param : approve_param) (state : State
     Some (state<|allowances := allowances_|>).
 
 (** ** Mint or burn *)
-(** If [quantitiy] is positive
+(** If [quantity] is positive
     then creates [quantity] tokens and gives them to [target]
     else removes [quantity] tokens from [target].
     Can only be called by [admin] *)
@@ -317,12 +318,12 @@ Definition try_mint_or_burn (sender : Address) (param : mintOrBurn_param) (state
     Some (state<|tokens := tokens_|>
                <|total_supply := total_supply_|>).
 
-Definition mk_callback (to_addr : Address) (msg : @FA12ReceiverMsg unit _) :=
+Definition mk_callback (to_addr : Address) (msg : @FA12ReceiverMsg unit) :=
   act_call to_addr 0 (serialize msg).
 
-Definition receive_allowance_ n := @receive_allowance unit _ n.
-Definition receive_balance_of_ n := @receive_balance_of unit _ n.
-Definition receive_total_supply_ n := @receive_total_supply unit _ n.
+Definition receive_allowance_ n := @receive_allowance unit n.
+Definition receive_balance_of_ n := @receive_balance_of unit n.
+Definition receive_total_supply_ n := @receive_total_supply unit n.
 
 (** ** Get allowance *)
 (** Get the quantity that [snd request] is allowed to spend on behalf of [fst request] *)
@@ -344,7 +345,7 @@ Definition try_get_total_supply (sender : Address) (param : getTotalSupply_param
 
 (** ** Init *)
 (** Initalize contract storage *)
-Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup) : option State :=
+Definition init_lqt (chain : Chain) (ctx : ContractCallContext) (setup : Setup) : option State :=
   Some {|
     tokens := AddressMap.add setup.(lqt_provider) setup.(initial_pool) AddressMap.empty;
     allowances := empty_allowance;
@@ -355,7 +356,7 @@ Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup) : op
 (** ** Receive *)
 (** Contract main entrypoint *)
 Open Scope Z_scope.
-Definition receive (chain : Chain) (ctx : ContractCallContext)
+Definition receive_lqt (chain : Chain) (ctx : ContractCallContext)
                    (state : State) (maybe_msg : option Msg)
                     : option (State * list ActionBody) :=
   let sender := ctx.(ctx_from) in
@@ -374,7 +375,7 @@ Definition receive (chain : Chain) (ctx : ContractCallContext)
 Close Scope Z_scope.
 
 Definition contract : Contract Setup Msg State :=
-  build_contract init receive.
+  build_contract init_lqt receive_lqt.
 
   End DexterLqtDefs.
 End Dexter2Lqt.
@@ -382,11 +383,11 @@ End Dexter2Lqt.
 Module DEX2LQT := Dexter2Lqt D2LqtSInstances.
 Import DEX2LQT.
 
+
 (** * Properties *)
 Section Theories.
 
 Context `{ChainBase}.
-
 Open Scope N_scope.
 
 (* begin hide *)
@@ -404,13 +405,13 @@ Set Keyed Unification.
 (* end hide *)
 
 (** ** Contract rejects money *)
-(** [receive] only returns Some if the sender amount is zero *)
+(** [receive_lqt] only returns Some if the sender amount is zero *)
 Lemma contract_not_payable : forall prev_state new_state chain ctx msg new_acts,
-  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state msg = Some (new_state, new_acts) ->
     ((ctx_amount ctx) <= 0)%Z.
 Proof.
   intros * receive_some.
-  unfold receive, throwIf in receive_some;cbn in receive_some.
+  unfold receive_lqt, throwIf in receive_some;cbn in receive_some.
   destruct (0 <? _)%Z eqn:amount in receive_some.
   - (* case: ctx_amount > 0 *)
     congruence.
@@ -420,10 +421,10 @@ Qed.
 
 Lemma contract_not_payable' : forall prev_state chain ctx msg,
   (0 < (ctx_amount ctx))%Z ->
-    receive chain ctx prev_state msg = None.
+    receive_lqt chain ctx prev_state msg = None.
 Proof.
   intros * ctx_amount_positive.
-  unfold receive,throwIf;cbn.
+  unfold receive_lqt,throwIf;cbn.
   destruct (0 <? _)%Z eqn:amount.
   - (* case: ctx_amount > 0 *)
     reflexivity.
@@ -432,66 +433,31 @@ Proof.
 Qed.
 
 (* begin hide *)
-Ltac receive_simpl_step :=
-  match goal with
-  | H : Blockchain.receive _ _ _ _ _ = Some (_, _) |- _ =>
-      unfold Blockchain.receive in H; cbn in H
-  | H : receive _ _ _ _ = Some (_, _) |- _ =>
-      (* apply contract_not_payable in H as ctx_amount_zero; *)
-      (* apply Z.ltb_ge in ctx_amount_zero; *)
-      (* unfold receive in H; *)
-      cbn in H
-  | |- receive _ _ _ _ = _ =>
-      unfold receive; cbn
-  | H : Some _ = Some _ |- _ =>
-      inversion_clear H
-  | H : Some _ = None |- _ =>
-      inversion H
-  | H : None = Some _ |- _ =>
-      inversion H
-  | H : throwIf _ = None |- _ => destruct_throw_if H
-  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
-  | H : (0 <? ctx_amount _)%Z = false |- _ => apply Z.ltb_ge in H as ctx_amount_zero
-  | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-    let a := fresh "H" in
-    destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-  | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
-    match a with
-    | None =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-    | _ => match b with
-           | None =>
-             let a := fresh "H" in
-             destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-           | _ => idtac
-    end end
-  | H : (if ?m then ?a else ?b) = Some _ |- _ =>
-    match a with
-    | None =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-    | _ => match b with
-           | None =>
-             let a := fresh "H" in
-             destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-           | _ => idtac
-    end end
+Tactic Notation "contract_simpl" := contract_simpl receive_lqt init_lqt.
+
+Ltac destruct_message :=
+  repeat match goal with
+  | msg : option Msg |- _ => destruct msg
+  | msg : Msg |- _ => destruct msg
+  | H : Blockchain.receive _ _ _ _ None = Some _ |- _ => now contract_simpl
+  | H : receive_lqt _ _ _ None = Some _ |- _ => now contract_simpl
   end.
 
-Tactic Notation "receive_simpl" := repeat receive_simpl_step.
+Hint Rewrite N.ltb_lt N.ltb_ge
+  Z.ltb_ge Z.ltb_lt
+  Bool.andb_true_iff Bool.andb_false_iff : BoolElim.
 (* end hide *)
 
 
 
 (* Admin cannot be changed *)
 Lemma admin_constant : forall prev_state new_state chain ctx new_acts msg,
-  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state msg = Some (new_state, new_acts) ->
     admin prev_state = admin new_state.
 Proof.
   intros * receive_some.
-  destruct msg. destruct m.
-  all : now receive_simpl.
+  destruct_message;
+    now contract_simpl.
 Qed.
 
 
@@ -499,10 +465,10 @@ Qed.
 (** ** Default entrypoint correct *)
 (* Default entrypoint should never succeed *)
 Lemma default_entrypoint_none : forall prev_state chain ctx,
-  receive chain ctx prev_state None = None.
+  receive_lqt chain ctx prev_state None = None.
 Proof.
   intros *.
-  receive_simpl.
+  contract_simpl.
   now destruct_match.
 Qed.
 
@@ -526,11 +492,11 @@ Definition transfer_balance_update_correct old_state new_state from to amount :=
 
 (** [try_transfer] correctly moves [amount] from [from] to [to] *)
 Lemma try_transfer_balance_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
   transfer_balance_update_correct prev_state new_state param.(from) param.(to) param.(value) = true.
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
   match goal with
     [ H : with_default 0 _ <? _ = false |- _ ] => rename H into enough_balance
   end.
@@ -581,11 +547,11 @@ Definition transfer_allowances_update_correct old_state new_state sender from am
 
 (** [try_transfer] correctly subtracts [amount] from allowances if [sender] is not [from] *)
 Lemma try_transfer_allowance_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
   transfer_allowances_update_correct prev_state new_state ctx.(ctx_from) param.(from) param.(value) = true.
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
   unfold transfer_allowances_update_correct.
   cbn.
   destruct_match eqn:sender_from_eqb.
@@ -596,7 +562,7 @@ Proof.
     inversion_clear allowances_eq.
     now rewrite N.eqb_refl.
   - (* sender <> from *)
-    receive_simpl.
+    contract_simpl.
     match goal with
     [ H : with_default 0 (FMap.find _ (allowances _)) <? _ = false |- _ ] => rename H into enough_allowance
     end.
@@ -605,7 +571,7 @@ Proof.
     destruct (FMap.find (from param, ctx_from ctx) (allowances prev_state)) eqn:from_prev; cbn.
     + unfold maybe.
       destruct (n - value param =? 0) eqn:n_eq_value; cbn.
-      * apply Neqb_ok in n_eq_value.
+      * apply N.eqb_eq in n_eq_value.
         rewrite N.sub_0_le in n_eq_value.
         erewrite (N.le_antisymm n _) by eassumption.
         now rewrite !N.eqb_refl.
@@ -616,42 +582,42 @@ Qed.
 
 (** [try_transfer] does not produce any new actions *)
 Lemma try_transfer_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
     new_acts = [].
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 (** [try_transfer] does not change the total supply of tokens *)
 Lemma try_transfer_preserves_total_supply : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
     total_supply prev_state = total_supply new_state.
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 (** [try_transfer] only modifies the [from] and [to] balances *)
 Lemma try_transfer_preserves_other_balances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
     forall account, account <> param.(from) -> account <> param.(to) ->
       FMap.find account (tokens prev_state) = FMap.find account (tokens new_state).
 Proof.
   intros * receive_some account account_not_from account_not_to.
-  receive_simpl.
+  contract_simpl.
   cbn.
   now rewrite !FMap.find_update_ne.
 Qed.
 
 (** [try_transfer] only modifies the [sender] and [from] allowances *)
 Lemma try_transfer_preserves_other_allowances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
     forall allowance_key, allowance_key <> (param.(from), ctx.(ctx_from)) ->
       FMap.find allowance_key (allowances prev_state) = FMap.find allowance_key (allowances new_state).
 Proof.
   intros * receive_some account allowance_key_ne.
-  receive_simpl.
+  contract_simpl.
   cbn.
   match goal with
     [ H : _ = Some _ |- _ ] => rename H into allowance_eq
@@ -668,27 +634,27 @@ Qed.
 (** [try_transfer] removes empty entries from allowances map *)
 Lemma try_transfer_remove_empty_allowances : forall prev_state new_state chain ctx new_acts param,
   (forall n, FMap.find (param.(from), ctx.(ctx_from)) (allowances prev_state) = Some n -> n > 0) ->
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
     forall n, FMap.find (param.(from), ctx.(ctx_from)) (allowances new_state) = Some n -> n > 0.
 Proof.
   intros * IH receive_some *.
-  receive_simpl.
+  contract_simpl.
   destruct_match in *.
-  - now receive_simpl.
-  - receive_simpl.
+  - now contract_simpl.
+  - contract_simpl.
     rewrite !FMap.find_update_eq.
     now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
 Qed.
 
 (** [try_transfer] removes empty entries from balance map *)
 Lemma try_transfer_remove_empty_balances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_transfer param)) = Some (new_state, new_acts) ->
     forall n,
     (FMap.find param.(from) (tokens new_state) = Some n -> n > 0) /\
     (FMap.find param.(to) (tokens new_state) = Some n -> n > 0).
 Proof.
   intros * receive_some *.
-  receive_simpl.
+  contract_simpl.
   rewrite N.ltb_ge in *.
   destruct (address_eqb_spec param.(from) param.(to)) as [<-|]; auto.
   - rewrite !FMap.find_update_eq.
@@ -707,7 +673,7 @@ Lemma try_transfer_is_some : forall state chain ctx param,
   param.(value) <= with_default 0 (FMap.find param.(from) (tokens state)) /\
   (param.(from) <> ctx.(ctx_from) ->
     param.(value) <= with_default 0 (FMap.find (param.(from), ctx.(ctx_from)) (allowances state)))
-    <-> exists new_state new_acts, receive chain ctx state (Some (msg_transfer param)) = Some (new_state, new_acts).
+    <-> exists new_state new_acts, receive_lqt chain ctx state (Some (msg_transfer param)) = Some (new_state, new_acts).
 Proof.
   split.
   - intros (amount_zero & enough_balance & enough_allowance).
@@ -723,34 +689,34 @@ Proof.
       inversion_clear allowances_eq.
       now inversion_clear new_balance.
     + (* enough balances contradiction *)
-      receive_simpl.
+      contract_simpl.
       apply N.ltb_lt in enough_balance_check.
       now apply N.le_ngt in enough_balance.
     + (* case: no contradictions *)
       inversion_clear allowances_eq.
       now inversion_clear new_balance.
     + (* enough balances contradiction *)
-      receive_simpl.
+      contract_simpl.
       apply N.ltb_lt in enough_balance_check.
       now apply N.le_ngt in enough_balance.
     + (* enough allowance contradiction *)
-      receive_simpl.
+      contract_simpl.
       apply N.ltb_lt in enough_allowance_check.
       destruct (address_eqb_spec ctx.(ctx_from) param.(from)) as [| sender_from_ne]; try discriminate.
       now apply not_eq_sym, enough_allowance, N.le_ngt in sender_from_ne.
   - intros (new_state & new_acts & receive_some).
-    receive_simpl.
+    contract_simpl.
     rewrite Z.ltb_ge in *.
     split; try assumption.
     rewrite N.ltb_ge in *.
     destruct_match eqn:sender_from_eqb in *.
       destruct (address_eqb_spec ctx.(ctx_from) param.(from)) as
-        [send_from_eq | sender_from_ne];receive_simpl;try discriminate.
+        [send_from_eq | sender_from_ne];contract_simpl;try discriminate.
     +  (* sender = from *)
        now split.
     + (* sender <> from *)
       destruct_match eqn:enough_allowance in *; try congruence.
-      receive_simpl.
+      contract_simpl.
       now apply N.ltb_ge in enough_allowance.
 Qed.
 
@@ -759,61 +725,61 @@ Qed.
 (** ** Approve correct *)
 (** [try_approve] correctly sets allowance of [(sender, spender)] to [value_] *)
 Lemma try_approve_allowance_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
     FMap.find (ctx.(ctx_from), param.(spender)) (allowances new_state) = maybe param.(value_).
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
   cbn.
   now rewrite !FMap.find_update_eq.
 Qed.
 
 (** [try_approve] does not produce any new actions *)
 Lemma try_approve_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
     new_acts = [].
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 (** [try_approve] does not change allowances map of other addresses *)
 Lemma try_approve_preserves_other_allowances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
     forall allowance_key, allowance_key <> (ctx.(ctx_from), param.(spender)) ->
       FMap.find allowance_key (allowances prev_state) = FMap.find allowance_key (allowances new_state).
 Proof.
   intros * receive_some allowance_key allowance_key_ne.
-  receive_simpl.
+  contract_simpl.
   cbn.
   now rewrite FMap.find_update_ne.
 Qed.
 
 (** [try_approve] does not change total supply of tokens *)
 Lemma try_approve_preserves_total_supply : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
     total_supply prev_state = total_supply new_state.
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** [try_approve] does not change balances *)
 Lemma try_approve_preserves_balances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
     tokens prev_state = tokens new_state.
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** [try_approve] removes empty entries from allowances map *)
 Lemma try_approve_remove_empty_allowances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_approve param)) = Some (new_state, new_acts) ->
     forall n, FMap.find (ctx.(ctx_from), param.(spender)) (allowances new_state) = Some n -> n > 0.
 Proof.
   intros * IH receive_some *.
-  receive_simpl.
+  contract_simpl.
   cbn.
   rewrite FMap.find_update_eq.
   now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
@@ -824,23 +790,13 @@ Qed.
 Lemma try_approve_is_some : forall state chain ctx param,
   (ctx_amount ctx <= 0)%Z /\
   (with_default 0 (FMap.find (ctx.(ctx_from), param.(spender)) (allowances state)) = 0 \/ param.(value_) = 0)
-    <-> exists new_state new_acts, receive chain ctx state (Some (msg_approve param)) = Some (new_state, new_acts).
+    <-> exists new_state new_acts, receive_lqt chain ctx state (Some (msg_approve param)) = Some (new_state, new_acts).
 Proof.
-  split.
-  - intros (amount_zero & safe_approval).
-    do 2 eexists.
-    receive_simpl.
-    rewrite <- Z.ltb_ge in amount_zero.
-    rewrite amount_zero;cbn.
-    destruct_match eqn:safe_approval_check; eauto.
-    receive_simpl.
-    apply andb_prop in safe_approval_check as
-      (?%N.ltb_lt & ?%N.ltb_lt).
-    now destruct safe_approval.
-  - intros (new_state & new_acts & receive_some).
-    receive_simpl.
-    split. now rewrite Z.ltb_ge in *.
-    now rewrite andb_false_iff in *;repeat rewrite N.ltb_ge in *.
+  split;
+    intros;
+    destruct_hyps;
+    contract_simpl;
+    now autorewrite with BoolElim in *.
 Qed.
 
 
@@ -848,19 +804,19 @@ Qed.
 (** ** Mint or burn correct *)
 (** [try_mint_or_burn] correctly mints/burns [amount] from/to [target] *)
 Lemma try_mint_or_burn_balance_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
     (Z.of_N (with_default 0%N (FMap.find param.(target) (tokens prev_state))) + param.(quantity) =
     Z.of_N (with_default 0%N (FMap.find param.(target) (tokens new_state))))%Z.
 Proof.
   intros * receive_some.
-  receive_simpl.
+  contract_simpl.
   rewrite Z.ltb_ge in *.
   cbn.
   rewrite FMap.find_update_eq.
   unfold maybe.
   unfold FMap.find in *. (* NOTE: after using AddressMap, unification fails sometime, unless we unfold [FMap.find] and other definitions. *)
   destruct (Z.to_N (Z.of_N (with_default 0 _) + quantity param) =? 0) eqn:eq_zero; cbn.
-  - apply Neqb_ok in eq_zero. unfold FMap.find in *.
+  - apply N.eqb_eq in eq_zero. unfold FMap.find in *.
     lia.
   - rewrite <- Z2N.id by lia.
     lia.
@@ -869,12 +825,12 @@ Qed.
 (** [try_mint_or_burn] correctly updates [total_supply] *)
 Lemma try_mint_or_burn_total_supply_correct : forall prev_state new_state chain ctx new_acts param,
   with_default 0 (FMap.find param.(target) (tokens prev_state)) <= total_supply prev_state ->
-  receive chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
     (Z.of_N prev_state.(total_supply) + param.(quantity) =
     Z.of_N new_state.(total_supply))%Z.
 Proof.
   intros * balance_le_total_supply receive_some.
-  receive_simpl.
+  contract_simpl.
   rewrite Z.ltb_ge in *.
   cbn.
   rewrite N2Z.inj_abs_N, Z.abs_eq;auto.
@@ -884,41 +840,41 @@ Qed.
 
 (** [try_mint_or_burn] produces no new actions *)
 Lemma try_mint_or_burn_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
     new_acts = [].
 Proof.
   intros.
-  receive_simpl.
+  contract_simpl.
 Qed.
 
 (** [try_mint_or_burn] only modifies the [target] balance *)
 Lemma try_mint_or_burn_preserves_other_balances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
     forall account, account <> param.(target) ->
       FMap.find account (tokens prev_state) = FMap.find account (tokens new_state).
 Proof.
   intros * receive_some account account_not_target.
-  receive_simpl.
+  contract_simpl.
   cbn.
   now rewrite FMap.find_update_ne.
 Qed.
 
 (** [try_mint_or_burn] does not change allowances *)
 Lemma try_mint_or_burn_preserves_allowances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
       allowances prev_state = allowances new_state.
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** [try_mint_or_burn] removes empty entries from balance map *)
 Lemma try_mint_or_burn_remove_empty_balances : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts) ->
     forall n, FMap.find param.(target) (tokens new_state) = Some n -> n > 0.
 Proof.
   intros * receive_some *.
-  receive_simpl.
+  contract_simpl.
   rewrite Z.ltb_ge in *.
   cbn.
   rewrite FMap.find_update_eq.
@@ -931,25 +887,15 @@ Lemma try_mint_or_burn_is_some : forall state chain ctx param,
   (ctx_amount ctx <= 0)%Z /\
   ctx.(ctx_from) = state.(admin) /\
   (0 <= Z.of_N (with_default 0%N (FMap.find param.(target) (tokens state))) + param.(quantity))%Z
-    <-> exists new_state new_acts, receive chain ctx state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts).
+    <-> exists new_state new_acts, receive_lqt chain ctx state (Some (msg_mint_or_burn param)) = Some (new_state, new_acts).
 Proof.
-  split.
-  - intros (amount_zero & from_admin & enough_balance).
-    do 2 eexists.
-    receive_simpl.
-    apply Z.ltb_ge in amount_zero.
-    rewrite amount_zero.
-    destruct_address_eq; try congruence.
-    clear e from_admin. cbn.
-    destruct_match eqn:enough_balance_check; eauto.
-    receive_simpl.
-    unfold FMap.find in *.
-    now apply Z.ltb_lt in enough_balance_check.
-  - intros (new_state & new_acts & receive_some).
-    receive_simpl.
-    split; try now rewrite Z.ltb_ge in *.
-    split; try now destruct_address_eq.
-    now apply Z.ltb_ge.
+  split;
+    intros;
+    destruct_hyps;
+    contract_simpl;
+    autorewrite with BoolElim in *;
+    try easy;
+    now destruct_address_eq.
 Qed.
 
 
@@ -958,39 +904,36 @@ Qed.
 (** [try_get_allowance] produces a callback to the correct contract with
     the requested allowance, the call should carry no balance *)
 Lemma try_get_allowance_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts) ->
     new_acts = [
       act_call param.(allowance_callback) 0%Z (serialize
         (receive_allowance (with_default 0 (FMap.find param.(request) (allowances prev_state)))))
     ].
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** [try_get_allowance] does not modify state *)
 Lemma try_get_allowance_preserves_state : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts) ->
     prev_state = new_state.
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** If the requirements are met then then receive on get_allowance msg must succeed and
     if receive on get_allowance msg succeeds then requirements must hold *)
 Lemma try_get_allowance_is_some : forall prev_state chain ctx param,
   (ctx_amount ctx <= 0)%Z <->
-  exists new_state new_acts, receive chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts).
+  exists new_state new_acts, receive_lqt chain ctx prev_state (Some (msg_get_allowance param)) = Some (new_state, new_acts).
 Proof.
-  split.
-  - intros amount_zero.
-    cbn.
-    apply Z.ltb_ge in amount_zero.
-    now rewrite amount_zero.
-  - intros (new_state & new_acts & receive_some).
-    receive_simpl.
-    now rewrite Z.ltb_ge in *.
+  split;
+    intros;
+    destruct_hyps;
+    contract_simpl;
+    now autorewrite with BoolElim in *.
 Qed.
 
 
@@ -999,38 +942,36 @@ Qed.
 (** [try_get_balance] produces a callback to the correct contract with
     the requested balance, the call should carry no balance *)
 Lemma try_get_balance_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts) ->
     new_acts = [
       act_call param.(balance_callback) 0%Z (serialize
         (receive_balance_of (with_default 0 (FMap.find param.(owner_) (tokens prev_state)))))
     ].
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** [try_get_balance] does not modify state *)
 Lemma try_get_balance_preserves_state : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts) ->
     prev_state = new_state.
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** If the requirements are met then then receive on get_balance msg must succeed and
     if receive on get_balance msg succeeds then requirements must hold *)
 Lemma try_get_balance_is_some : forall prev_state chain ctx param,
   (ctx_amount ctx <= 0)%Z <->
-  exists new_state new_acts, receive chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts).
+  exists new_state new_acts, receive_lqt chain ctx prev_state (Some (msg_get_balance param)) = Some (new_state, new_acts).
 Proof.
-  split.
-  - intros amount_zero.
-    unfold receive.
-    rewrite <- Z.ltb_ge in *;cbn.
-    now rewrite amount_zero.
-  - intros (new_state & new_acts & receive_some).
-    now receive_simpl.
+  split;
+    intros;
+    destruct_hyps;
+    contract_simpl;
+    now autorewrite with BoolElim in *.
 Qed.
 
 
@@ -1039,38 +980,36 @@ Qed.
 (** [try_get_total_supply] produces a callback to the correct contract with
     the total supply of tokens, the call should carry no balance *)
 Lemma try_get_total_supply_new_acts_correct : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts) ->
     new_acts = [
       act_call param.(supply_callback) 0%Z (serialize
         (receive_total_supply prev_state.(total_supply)))
     ].
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** [try_get_total_supply] does not modify state *)
 Lemma try_get_total_supply_preserves_state : forall prev_state new_state chain ctx new_acts param,
-  receive chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts) ->
     prev_state = new_state.
 Proof.
   intros * receive_some.
-  now receive_simpl.
+  now contract_simpl.
 Qed.
 
 (** If the requirements are met then then receive on get_total_supply msg must succeed and
     if receive on get_total_supply msg succeeds then requirements must hold *)
 Lemma try_get_total_supply_is_some : forall prev_state chain ctx param,
   (ctx_amount ctx <= 0)%Z <->
-  exists new_state new_acts, receive chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts).
+  exists new_state new_acts, receive_lqt chain ctx prev_state (Some (msg_get_total_supply param)) = Some (new_state, new_acts).
 Proof.
-  split.
-  - intros amount_zero.
-    cbn.
-    apply Z.ltb_ge in amount_zero.
-    now rewrite amount_zero.
-  - intros (new_state & new_acts & receive_some).
-    now receive_simpl.
+  split;
+    intros;
+    destruct_hyps;
+    contract_simpl;
+    now autorewrite with BoolElim in *.
 Qed.
 
 
@@ -1078,7 +1017,7 @@ Qed.
 (** ** Init correct *)
 (** After initalization no accounts should hold tokens *)
 Lemma init_balances_correct : forall chain ctx setup state,
-  init chain ctx setup = Some state ->
+  init_lqt chain ctx setup = Some state ->
     state.(tokens) = FMap.add setup.(lqt_provider) setup.(initial_pool) FMap.empty.
 Proof.
   intros * init_some.
@@ -1087,7 +1026,7 @@ Qed.
 
 (** After initalization no allowances should be set *)
 Lemma init_allowances_correct : forall chain ctx setup state,
-  init chain ctx setup = Some state ->
+  init_lqt chain ctx setup = Some state ->
     state.(allowances) = FMap.empty.
 Proof.
   intros * init_some.
@@ -1095,7 +1034,7 @@ Proof.
 Qed.
 
 Lemma init_admin_correct : forall chain ctx setup state,
-  init chain ctx setup = Some state ->
+  init_lqt chain ctx setup = Some state ->
     state.(admin) = setup.(admin_).
 Proof.
   intros * init_some.
@@ -1103,7 +1042,7 @@ Proof.
 Qed.
 
 Lemma init_total_supply_correct : forall chain ctx setup state,
-  init chain ctx setup = Some state ->
+  init_lqt chain ctx setup = Some state ->
     state.(total_supply) = setup.(initial_pool).
 Proof.
   intros * init_some.
@@ -1112,7 +1051,7 @@ Qed.
 
 (** initialization should always succeed *)
 Lemma init_is_some : forall chain ctx setup,
-  exists state, init chain ctx setup = state.
+  exists state, init_lqt chain ctx setup = state.
 Proof.
   intros.
   eauto.
@@ -1121,7 +1060,7 @@ Qed.
 (* begin hide *)
 Ltac try_solve_acts_correct :=
   match goal with
-  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+  | [ H : receive_lqt _ _ _ _ = Some _ |- _ ] =>
     first [apply try_transfer_new_acts_correct in H
           |apply try_approve_new_acts_correct in H
           |apply try_mint_or_burn_new_acts_correct in H
@@ -1133,7 +1072,7 @@ Ltac try_solve_acts_correct :=
 
 Ltac try_solve_preserves_state :=
   match goal with
-  | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+  | [ H : receive_lqt _ _ _ _ = Some _ |- _ ] =>
     first [apply try_get_allowance_preserves_state in H
           |apply try_get_balance_preserves_state in H
           |apply try_get_total_supply_preserves_state in H];
@@ -1165,7 +1104,7 @@ Proof.
     destruct msg.
     + destruct m;
         try_solve_acts_correct.
-    + receive_simpl.
+    + contract_simpl.
   - inversion_clear IH as [|? ? head_not_me tail_not_me].
     destruct head;
       try contradiction.
@@ -1173,8 +1112,7 @@ Proof.
     subst.
     destruct head_not_me as [[] | [[] | []]]; auto;
       subst;
-      receive_simpl;
-      inversion receive_some.
+      now contract_simpl.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
@@ -1215,13 +1153,13 @@ Qed.
 
 (** The contract never produces actions carrying money *)
 Lemma new_acts_amount_zero : forall prev_state chain ctx msg new_state new_acts,
-  receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+  receive_lqt chain ctx prev_state msg = Some (new_state, new_acts) ->
     sumZ (fun act => act_body_amount act) new_acts = 0%Z.
 Proof.
   intros * receive_some.
   destruct msg.
   - destruct m;try_solve_acts_correct.
-  - receive_simpl.
+  - contract_simpl.
 Qed.
 
 Lemma outgoing_acts_amount_zero : forall bstate caddr,
@@ -1234,7 +1172,7 @@ Proof.
   intros * receive_some. simpl in *.
   destruct msg.
   - destruct m;try_solve_acts_correct.
-  - receive_simpl.
+  - contract_simpl.
 Qed.
 
 (** Contract only produces contract call actions *)
@@ -1252,7 +1190,7 @@ Proof.
   intros * receive_some; simpl in *.
   destruct msg.
   - destruct m; try_solve_acts_correct.
-  - receive_simpl.
+  - contract_simpl.
 Qed.
 
 
@@ -1364,7 +1302,7 @@ Proof.
     + erewrite <- try_transfer_preserves_total_supply; eauto.
       rename t into param.
       unfold sum_balances.
-      receive_simpl.
+      contract_simpl.
       cbn.
       rewrite N.ltb_ge in *.
       destruct (address_eqb_spec param.(from) param.(to)) as
@@ -1416,7 +1354,7 @@ Proof.
       erewrite <- try_approve_preserves_balances; eauto.
     + rename m into param.
       unfold sum_balances.
-      receive_simpl.
+      contract_simpl.
       cbn.
       rewrite Z.ltb_ge in *.
       destruct (FMap.find (target param) _) eqn:target_balance; cbn.
@@ -1527,7 +1465,7 @@ Proof.
       now subst.
     + apply try_get_total_supply_preserves_state in receive_some.
       now subst.
-    + receive_simpl.
+    + contract_simpl.
 Qed.
 
 (** The [allowances] map never stores entries of zero *)
@@ -1580,7 +1518,7 @@ Proof.
       now subst.
     + apply try_get_total_supply_preserves_state in receive_some.
       now subst.
-    + receive_simpl.
+    + contract_simpl.
 Qed.
 
 
@@ -1629,7 +1567,7 @@ Proof.
       now destruct_address_eq; subst.
     + eapply try_get_total_supply_preserves_state in receive_some.
       now destruct_address_eq; subst.
-    + receive_simpl.
+    + contract_simpl.
   - now destruct facts.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
