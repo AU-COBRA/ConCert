@@ -12,8 +12,8 @@ From ConCert.Examples.FA2 Require FA2TokenTests.
 From ConCert.Examples.iTokenBuggy Require iTokenBuggyTests.
 From ConCert.Examples.BAT Require BATTestCommon.
 From ConCert.Examples.BAT Require BATTests.
-From ConCert.Examples.BAT Require BAT_FixedTests.
-From ConCert.Examples.BAT Require BAT_AltFixTests.
+From ConCert.Examples.BAT Require BATFixedTests.
+From ConCert.Examples.BAT Require BATAltFixTests.
 
 
 Module Congress.
@@ -357,8 +357,8 @@ End BAT.
 
 
 
-Module BAT_Fixed.
-  Import BAT_FixedTests.
+Module BATFixed.
+  Import BATFixedTests.
   Import TestInfo.
   Import MG TN.
   Import BATTestCommon.
@@ -492,12 +492,12 @@ Module BAT_Fixed.
 
   QuickChick ({{paid_tokens_modulo_exchange_rate}}).
   (* +++ Passed 10000 tests (0 discards) *)
-End BAT_Fixed.
+End BATFixed.
 
 
 
-Module BAT_AltFix.
-  Import BAT_AltFixTests.
+Module BATAltFix.
+  Import BATAltFixTests.
   Import TestInfo.
   Import MG TN.
   Import BATTestCommon.
@@ -628,4 +628,4 @@ Module BAT_AltFix.
 
   QuickChick ({{paid_tokens_modulo_exchange_rate}}).
   (* +++ Passed 10000 tests (0 discards) *)
-End BAT_AltFix.
+End BATAltFix.

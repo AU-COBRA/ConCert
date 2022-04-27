@@ -10,7 +10,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require ContractCommon.
-From ConCert.Examples Require EIP20Token.
+From ConCert.Examples.EIP20 Require EIP20Token.
 
 Local Open Scope string_scope.
 

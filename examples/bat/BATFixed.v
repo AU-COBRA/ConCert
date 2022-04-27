@@ -1,13 +1,14 @@
 (** * Basic Attention Token contract *)
-(** Implementation of the Basic Attention Token.
-    Ported from https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
+(** This implementation of the Basic Attention Token is a based on
+    https://github.com/brave-intl/basic-attention-token-crowdsale/blob/66c886cc4bfb0493d9e7980f392ca7921ef1e7fc/contracts/BAToken.sol
+    The implementation includes some minor changes that fixes bugs present in the original Solidity implementation.
 
     This file contains contract function definitions.
     All contract types and utility functions are defined in [ConCert.Examples.BAT.BATCommon].
-    Proofs for this contract can be found in [ConCert.Examples.BAT.BATCorrect].
+    Proofs for this contract can be found in [ConCert.Examples.BAT.BATFixedCorrect].
 
     The BAT contract is a combination of a EIP20 token contract and a crowdsale contract.
-    This implementation extends the EIP20 contract implemented in [ConCert.Execution.Examples.EIP20Token].
+    This implementation extends the EIP20 contract implemented in [ConCert.Examples.EIP20.EIP20Token].
 *)
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith_base.
@@ -23,7 +24,7 @@ From ConCert.Examples.EIP20 Require EIP20Token.
 
 
 (** * Contract functions *)
-Section BAT.
+Section BATFixed.
 Context {BaseTypes : ChainBase}.
 
 Open Scope N_scope.
@@ -34,6 +35,25 @@ Open Scope N_scope.
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
+  (** BAToken should not be deployable if one of the following conditions does not hold on [setup]
+      - funding period is non empty
+      - funding period does not start before the slot where the contract is deployed
+      - minimum tokens to fund should not be less than the maximum tokens allowed
+      - the initial supply of tokens should be less than the maximum tokens allowed
+      - token exchange rate must be larger than 0
+      - it must be possible to get over minimum token bound without going over maximum
+      For the last condition we check that [tokenExchangeRate <= tokenCreationCap - tokenCreationMin], however this does exclude
+      a few possible configurations where the contract still works as intended, however these are not likely to
+      come up in real usecases.
+  *)
+  do _ <- throwIf ((setup.(_fundingEnd) <=? setup.(_fundingStart))%nat
+          || (setup.(_fundingStart) <? chain.(current_slot))%nat
+          || (setup.(_tokenCreationCap) <? setup.(_tokenCreationMin))
+          || (setup.(_tokenCreationCap) <? setup.(_batFund))
+          || (setup.(_tokenExchangeRate) =? 0)
+          || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))
+          || address_eqb setup.(_batFundDeposit) ctx.(ctx_contract_address)
+          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) ;
   let token_state := {|
       EIP20Token.balances := FMap.add setup.(_batFundDeposit) setup.(_batFund) FMap.empty;
       EIP20Token.total_supply := setup.(_batFund);
@@ -57,10 +77,11 @@ Definition init (chain : Chain)
 (** ** Create Tokens *)
 (** This entrypoint allows users to fund the crowdsale in return for tokens *)
 Definition try_create_tokens sender (sender_payload : Amount) current_slot state :=
- (* early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
+ (** Early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
   do _ <- throwIf (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
-          || (Nat.ltb state.(fundingEnd) current_slot)) ;
+          || (Nat.ltb state.(fundingEnd) current_slot)
+          || (address_eqb sender state.(batFundDeposit))) ;
   (** Here we deviate slightly from the reference implementation. They only check for = 0,
       but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
   do _ <- throwIf (Z.leb sender_payload 0) ;
@@ -144,14 +165,16 @@ Definition receive_bat (chain : Chain)
 Close Scope Z_scope.
 
 (** Composes EIP20Token.receive and receive_bat by first executing EIP20Token.receive (if the message is an EIP20 message),
-   and otherwise executes receive_bat *)
+    and otherwise executes receive_bat *)
 Definition receive (chain : Chain)
                     (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
                    : option (State * list ActionBody) :=
   match maybe_msg with
-  | Some (tokenMsg msg) => do res <- EIP20Token.receive chain ctx state.(token_state) (Some msg) ;
+  | Some (tokenMsg msg) =>
+                     do _ <- throwIf (negb (isFinalized state)) ;
+                     do res <- EIP20Token.receive chain ctx state.(token_state) (Some msg) ;
                      let new_state := state<|token_state := fst res|> in
                          Some (new_state, snd res)
   | _ => receive_bat chain ctx state maybe_msg
@@ -160,4 +183,4 @@ Definition receive (chain : Chain)
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
 
-End BAT.
+End BATFixed.

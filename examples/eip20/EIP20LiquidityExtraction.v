@@ -7,7 +7,7 @@ From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Examples Require EIP20Token.
+From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Execution Require Import ContractCommon.
 From Coq Require Import String.
 From Coq Require Import ZArith.

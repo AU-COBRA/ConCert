@@ -8,6 +8,7 @@
 
 -Q eip20 ConCert.Examples.EIP20
 eip20/EIP20Token.v
+eip20/EIP20TokenCorrect.v
 eip20/EIP20TokenGens.v
 eip20/EIP20TokenPrinters.v
 eip20/EIP20TokenTests.v
@@ -17,14 +18,17 @@ eip20/EIP20CameLIGOExtraction.v
 -Q bat ConCert.Examples.BAT
 bat/BATCommon.v
 bat/BAT.v
-bat/BAT_Fixed.v
-bat/BAT_AltFix.v
+bat/BATFixed.v
+bat/BATAltFix.v
+bat/BATCorrect.v
+bat/BATFixedCorrect.v
+bat/BATAltFixCorrect.v
 bat/BATPrinters.v
 bat/BATGens.v
 bat/BATTestCommon.v
 bat/BATTests.v
-bat/BAT_FixedTests.v
-bat/BAT_AltFixTests.v
+bat/BATFixedTests.v
+bat/BATAltFixTests.v
 
 -Q fa2 ConCert.Examples.FA2
 fa2/FA2Interface.v
@@ -36,10 +40,13 @@ fa2/FA2TokenTests.v
 
 -Q fa1_2 ConCert.Examples.FA1_2
 fa1_2/FA1_2.v
+fa1_2/FA1_2Correct.v
 
 -Q dexter2 ConCert.Examples.Dexter2
 dexter2/Dexter2FA12.v
 dexter2/Dexter2CPMM.v
+dexter2/Dexter2FA12Correct.v
+dexter2/Dexter2CPMMCorrect.v
 dexter2/Dexter2Extract.v
 
 -Q dexter ConCert.Examples.Dexter

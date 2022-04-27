@@ -3,9 +3,9 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
-From ConCert.Examples Require Import EIP20Token.
-From ConCert.Examples Require Import EIP20TokenPrinters.
-From ConCert.Examples Require Import EIP20TokenGens.
+From ConCert.Examples.EIP20 Require Import EIP20Token.
+From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
+From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
