@@ -24,11 +24,11 @@ Running Elm tests also requires `elm-explorations/test` package (see the require
 Compiling Rust code with the Concordium infrastructure:
 
 * requires `cargo` and the Rust compiler;
-* download `cargo-concordium`: http://developer.concordium.software/en/mainnet/net/installation/downloads.html#cargo-concordium
+* download `cargo-concordium`: https://developer.concordium.software/en/mainnet/net/installation/downloads.html#cargo-concordium
 * add the directory with `cargo-concordium` to `PATH`;
 * install `cargo`;
 * use `cargo concordium test` to build and run tests (if tests are available);
-* read the details here: http://developer.concordium.software/en/mainnet/smart-contracts/guides/setup-tools.html#setup-tools
+* read the details here: https://developer.concordium.software/en/mainnet/smart-contracts/guides/setup-tools.html#setup-tools
 
 ## Extraction results
 

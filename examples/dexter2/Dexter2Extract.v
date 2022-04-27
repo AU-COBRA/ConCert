@@ -40,7 +40,7 @@ Definition mk_callback_ligo : string :=
   "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
 (** Next two definition are borrowed from the actual Dexter 2 implementation
-     https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo *)
+     https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo *)
 Definition natural_to_mutez_ligo : string :=
   "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez".
 
