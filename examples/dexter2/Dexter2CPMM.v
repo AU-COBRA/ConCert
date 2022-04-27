@@ -1,8 +1,8 @@
 (** * Dexter 2 CPMM contract *)
 (** This file contains an implementation of the Dexter2 CPMM contract
-    https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo
+    https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo
     In addition this file contains proof of functional correctness w.r.t the
-    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/docs/informal-spec/dexter2-cpmm.md
+    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/docs/informal-spec/dexter2-cpmm.md
 
     This contract is an implementation of a Constant Product Market Maker (CPMM).
     When paired with a FA1.2 or FA2 token contract and a Dexter2 liquidity contract,

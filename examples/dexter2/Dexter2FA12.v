@@ -1,8 +1,8 @@
 (** * Dexter 2 FA1.2 Liquidity token contract *)
 (** This file contains an implementation of Dexter2 liquidity contract
-    https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/lqt_fa12.mligo
+    https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/lqt_fa12.mligo
     In addition this file contains proof of functional correctness w.r.t the
-    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/docs/informal-spec/dexter2-lqt-fa12.md
+    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/docs/informal-spec/dexter2-lqt-fa12.md
 
     This contract is an extension of a basic FA1.2 token contract with
     an extra entrypoint that allows an admin to mint and burn tokens.
