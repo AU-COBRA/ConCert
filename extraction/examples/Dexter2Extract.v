@@ -1,26 +1,22 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
-From Coq Require Import PeanoNat ZArith Notations.
-From Coq Require Import List Ascii String Bool.
-
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import ZArith.
 From MetaCoq.Template Require Import All.
-
-From ConCert.Embedding Require Import Notations.
-From ConCert.Embedding Require Import MyEnv CustomTactics.
-From ConCert.Embedding Require Import Notations.
-From ConCert.Extraction Require Import Common Optimize.
-From ConCert.Extraction Require Import CameLIGOPretty CameLIGOExtract.
+From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import CameLIGOPretty.
+From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution.Examples Require Dexter2CPMM.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution.Examples Require Common.
+From ConCert.Execution.Examples Require Dexter2CPMM.
+From ConCert.Execution.Examples Require Dexter2FA12.
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Execution Require Import Monads.
 From ConCert.Utils Require Import StringExtra.
 
 Local Open Scope string_scope.
-
-Open Scope Z.
 
 (** Printing configuration *)
 
@@ -33,18 +29,18 @@ Instance dexter2_print_config : CameLIGOPrintConfig :=
 (** * Common extraction setup *)
 
 Definition call_to_token_ligo : string :=
-  <$ "let call_to_token (addr : address) (amt : nat) (msg : _msg) : operation =" ;
-     "  let token_ : _msg contract =";
-     "  match (Tezos.get_contract_opt (addr) : _msg contract option) with";
+  <$ "let call_to_token (type msg) (addr : address) (amt : nat) (msg : msg) : operation =" ;
+     "  let token_ : msg contract =";
+     "  match (Tezos.get_contract_opt (addr) : msg contract option) with";
      "    Some contract -> contract";
-     "  | None -> (failwith ""Contract not found."" : _msg contract) in";
+     "  | None -> (failwith ""Contract not found."" : msg contract) in";
      "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
 Definition mk_callback_ligo : string :=
-  "[@inline] let mk_callback (addr : address) (msg : _msg) : operation = call_to_token addr 0n msg".
+  "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
 (** Next two definition are borrowed from the actual Dexter 2 implementation
-     https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo *)
+     https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo *)
 Definition natural_to_mutez_ligo : string :=
   "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez".
 
@@ -65,7 +61,9 @@ Definition subNatTruncated_ligo : string :=
 Definition edivNatTrancated_ligo : string :=
   "let edivTruncated (a : nat) (b : nat) = match ediv a b with Some v -> v | None -> (0n,0n)".
 
-(** Remapping arithmetic operations *)
+(** Remapping arithmetic operations. *)
+(** We override the default remappings of aritmetic operations since it remaps [Z] to
+    [tez], and [N] to [int], which is not sutable for our purposes. *)
 Definition TT_remap_arith : list (kername * string) :=
 [   remap <%% Z %%> "int"
   ; remap <%% N %%> "nat"
@@ -173,7 +171,7 @@ Module Dexter2LqtExtraction.
        (state : State)
        (maybe_msg : option Dexter2FA12.Msg)
     : option (list ActionBody * State) :=
-    match DEX2LQTExtract.receive chain ctx state maybe_msg with
+    match DEX2LQTExtract.receive_lqt chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
@@ -224,9 +222,8 @@ Module Dexter2LqtExtraction.
   MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/extracted-code/cameligo-extract/dexter2fa12.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2fa12.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
-
 
   End D2LqtE.
 End Dexter2LqtExtraction.
@@ -239,7 +236,7 @@ Module Dexter2Extraction.
     using the opaque ascription of module types to speedup the extraction *)
 Module DSInstancesOpaque : Dexter2CPMM.Dexter2Serializable := Dexter2CPMM.DSInstances.
 
-Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque.
+Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque Dexter2CPMM.NullAddressAxiom.
 
 Open Scope Z_scope.
 
@@ -247,7 +244,7 @@ Import DEX2Extract.
 Import Dexter2CPMM.
 
 Section D2E.
-  Context `{ChainBase}.
+  Existing Instance BaseTypes.
 
   Definition extra_ignore :=
    [ <%% @Serializable %%>
@@ -266,7 +263,9 @@ Section D2E.
    ; remap <%% N_to_amount %%> "natural_to_mutez"
    ; remap <%% amount_to_N %%> "mutez_to_natural"
    ; remap <%% div %%> "divN_opt"
-   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)" ].
+   ; remap <%% non_zero_amount %%> "(fun (x : tez) -> 0tez < x)"
+   ; remap <%% @baker_address %%> "key_hash option"
+   ; remap <%% set_delegate_call %%> "(fun (x : key_hash option) -> [Tezos.set_delegate x])" ].
 
   Definition TT_remap_all :=
     (TT_remap_arith ++ TT_remap_dexter2 ++ TT_Dexter2_CPMM)%list.
@@ -288,9 +287,9 @@ Section D2E.
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
        (state : State)
-       (maybe_msg : option DEX2Extract.Msg)
+       (maybe_msg : option Dexter2CPMM.Msg)
     : option (list ActionBody * State) :=
-    match DEX2Extract.receive chain ctx state maybe_msg with
+    match DEX2Extract.receive_cpmm chain ctx state maybe_msg with
     | Some x => Some (x.2, x.1)
     | None => None
     end.
@@ -336,9 +335,8 @@ Section D2E.
   MetaCoq Run (tmMsg cameLIGO_dexter2).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "examples/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
            MetaCoq Run (tmMsg cameLIGO_dexter2).
 
 End D2E.
-
 End Dexter2Extraction.
