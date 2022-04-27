@@ -1,11 +1,11 @@
 From Coq Require Import ZArith.
 From Coq Require Import List.
-Require Import Serializable.
-Require Import Blockchain.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import Blockchain.
+From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-From ConCert.Utils Require Import RecordUpdate.
-Import RecordSetNotations.
+
 
 Section FA2Interface.
 Context {BaseTypes : ChainBase}.
@@ -18,7 +18,11 @@ Definition token_id := N.
 (* Dummy implementation of callbacks. *)
 Record callback (A : Type) := {
   blob : option A;
+  return_addr : Address;
 }.
+
+Definition callback_addr {A : Type} (c : callback A) : Address := c.(return_addr A).
+Global Coercion callback_addr : callback >-> Address.
 
 Record transfer :=
   build_transfer {
@@ -28,6 +32,7 @@ Record transfer :=
     amount : N;
     sender_callback_addr : option Address;
 }.
+
 Record balance_of_request := {
   owner : Address;
   bal_req_token_id : token_id;
@@ -65,7 +70,7 @@ Record token_metadata_param := {
 
 Inductive operator_tokens  :=
   | all_tokens : operator_tokens
-  | some_tokens : list token_id -> operator_tokens (* a set could be used here instead of list?*) .
+  | some_tokens : list token_id -> operator_tokens. (* a set could be used here instead of list?*)
 
 Record operator_param := {
   op_param_owner : Address;
