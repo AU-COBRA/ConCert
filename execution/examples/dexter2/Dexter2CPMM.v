@@ -1,8 +1,8 @@
 (** * Dexter 2 CPMM contract *)
 (** This file contains an implementation of the Dexter2 CPMM contract
-    https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/dexter.mligo
+    https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo
     In addition this file contains proof of functional correctness w.r.t the
-    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/master/docs/informal-spec/dexter2-cpmm.md
+    informal specification https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/docs/informal-spec/dexter2-cpmm.md
 
     This contract is an implementation of a Constant Product Market Maker (CPMM).
     When paired with a FA1.2 or FA2 token contract and a Dexter2 liquidity contract,
@@ -11,23 +11,22 @@
     exchanges trading reserves. Traders pay a 0.3% fee, the fee goes to the owners
     of the trading reserves, this way user are incentivised to add funds to the reserves.
 *)
-
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import SerializableUtil.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution.Examples Require Import Common.
 From ConCert.Execution.Examples Require Import FA2Token.
 From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Execution.Examples Require Import Dexter2FA12.
-From ConCert.Execution.Examples Require Import SerializableUtil.
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Coq Require Import ZArith_base.
+From Coq Require Import List. Import ListNotations.
 From Coq Require Import Lia.
-Import ListNotations.
+
 
 
 (** * Contract types *)
@@ -44,6 +43,7 @@ Definition token_id := FA2Interface.token_id.
 Definition token_contract_transfer := FA2Interface.transfer.
 Definition balance_of := FA2Interface.balance_of_response.
 Definition mintOrBurn := Dexter2FA12.mintOrBurn_param.
+Definition baker_address := option Address.
 
 (** ** Entrypoint types *)
 
@@ -90,7 +90,7 @@ Record token_to_token_param :=
 
 Record set_baker_param :=
   build_set_baker_param{
-    baker : option Address;
+    baker : baker_address;
     freezeBaker_ : bool
 }.
 
@@ -104,6 +104,9 @@ Inductive DexterMsg :=
 | SetLqtAddress : Address -> DexterMsg
 | UpdateTokenPool : DexterMsg
 | TokenToToken : token_to_token_param -> DexterMsg.
+
+Definition Msg := @FA2Token.FA2ReceiverMsg _ DexterMsg.
+
 
 (** ** Storage types *)
 
@@ -165,7 +168,7 @@ Module Type Dexter2Serializable.
     Axiom setup_serializable : Serializable Setup.
     Existing Instance setup_serializable.
 
-    Axiom ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg DexterMsg_serializable).
+    Axiom ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg).
     Existing Instance ClientMsg_serializable.
 
     Axiom state_serializable : Serializable State.
@@ -177,11 +180,31 @@ Module Type Dexter2Serializable.
   End DS.
 End Dexter2Serializable.
 
-(** * Contract functions *)
+Module Type NullAddress.
+  Section NullAddress.
+    Parameter BaseTypes : ChainBase.
+    Existing Instance BaseTypes.
 
-Module Dexter2 (SI : Dexter2Serializable).
+    (** Null address that will newer contain contracts *)
+    Parameter null_address : Address.
+
+    (** Place holder for tezos set delegate operation *)
+    Parameter set_delegate_call : baker_address -> list ActionBody.
+    Axiom delegate_call : forall addr, Forall (fun action => 
+      match action with
+      | act_transfer _ _ => False
+      | act_call _ _ _ => False
+      | act_deploy _ _ _ => False
+      end) (set_delegate_call addr).
+  End NullAddress.
+End NullAddress.
+
+
+(** * Contract functions *)
+Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 
   Import SI.
+  Export NAddr.
 
   Existing Instance add_liquidity_param_serializable.
   Existing Instance remove_liquidity_param_serializable.
@@ -195,9 +218,9 @@ Module Dexter2 (SI : Dexter2Serializable).
   Existing Instance ClientMsg_serializable.
   Existing Instance state_serializable.
   Existing Instance FA2Token_Msg_serializable.
+  Existing Instance BaseTypes.
 
   Section DexterDefs.
-    Context `{BaseTypes : ChainBase}.
     Open Scope N_scope.
 
     (** ** Helper functions *)
@@ -208,8 +231,6 @@ Module Dexter2 (SI : Dexter2Serializable).
     Definition N_to_amount : N -> Amount := Z.of_N.
 
     Definition result : Type := option (State * list ActionBody).
-    Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
-    Definition isSome {A : Type} (a : option A) := negb (isNone a).
     Definition sub (n m : N) : option N := do _ <- throwIf (n <? m) ; Some (n - m).
     Definition div (n m : N) : option N := do _ <- throwIf (m =? 0) ; Some (n / m).
     Definition ceildiv (n m : N) : option N :=
@@ -225,265 +246,258 @@ Module Dexter2 (SI : Dexter2Serializable).
     Opaque div.
     Opaque sub.
 
-    (** Place holder for tezos set delegate operation *)
-    Definition set_delegate_call (addr : option Address) : list ActionBody := [].
-
     Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.
     Global Arguments non_zero_amount _ /. (* always unfold, if applied *)
 
-    (** Null address that will newer contain contracts *)
-    Parameter null_address : Address.
 
-    Definition Msg := @FA2Token.FA2ReceiverMsg BaseTypes DexterMsg _.
+    Definition call_liquidity_token (addr : Address) (amt : N) (msg : Dexter2FA12.Msg) :=
+      act_call addr (N_to_amount amt) (serialize msg).
 
-  Definition call_liquidity_token (addr : Address) (amt : N) (msg : Dexter2FA12.Msg) :=
-    act_call addr (N_to_amount amt) (serialize msg).
+    (** Note that [quantity] is allowed to be negative. In this case it correspons to burning *)
+    Definition mint_or_burn (state : State) (target : Address) (quantitiy : Z) : option ActionBody :=
+        do _ <- throwIf (address_eqb state.(lqtAddress) null_address) ; (* error lqtAddress not set *)
+        Some (call_liquidity_token state.(lqtAddress)
+                                  0
+                                  (Dexter2FA12.msg_mint_or_burn
+                                      (Dexter2FA12.build_mintOrBurn_param quantitiy target))).
 
-  (** Note that [quantity] is allowed to be negative. In this case it correspons to burning *)
-  Definition mint_or_burn (state : State) (target : Address) (quantitiy : Z) : option ActionBody :=
-      do _ <- throwIf (address_eqb state.(lqtAddress) null_address) ; (* error lqtAddress not set *)
-      Some (call_liquidity_token state.(lqtAddress)
-                                 0
-                                 (Dexter2FA12.msg_mint_or_burn
-                                    (Dexter2FA12.build_mintOrBurn_param quantitiy target))).
+    Definition call_to_token (token_addr : Address) (amt : N) (msg : FA2Token.Msg) :=
+      act_call token_addr (N_to_amount amt) (serialize msg).
 
-  Definition call_to_token (token_addr : Address) (amt : N) (msg : FA2Token.Msg) :=
-    act_call token_addr (N_to_amount amt) (serialize msg).
+    Definition token_transfer (state : State) (from to : Address) (amount : N) : ActionBody :=
+      call_to_token state.(tokenAddress)
+                    0
+                    (FA2Token.msg_transfer
+                      [FA2Interface.build_transfer from to state.(tokenId) amount None]).
 
-  Definition token_transfer (state : State) (from to : Address) (amount : N) : ActionBody :=
-    call_to_token state.(tokenAddress)
-                  0
-                  (FA2Token.msg_transfer
-                     [FA2Interface.build_transfer from to state.(tokenId) amount None]).
-
-  Definition xtz_transfer (to : Address) (amount : N) : option ActionBody :=
-    if address_is_contract to
-    then None (* error_INVALID_TO_ADDRESS *)
-    else Some (act_transfer to (N_to_amount amount)).
+    Definition xtz_transfer (to : Address) (amount : N) : option ActionBody :=
+      if address_is_contract to
+      then None (* error_INVALID_TO_ADDRESS *)
+      else Some (act_transfer to (N_to_amount amount)).
 
 
-  (** ** Add liquidity *)
-  Definition add_liquidity (chain : Chain) (ctx : ContractCallContext)
-                           (state : State) (param : add_liquidity_param)
-                           : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (param.(add_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-    do lqt_minted <- div ((amount_to_N ctx.(ctx_amount)) * state.(lqtTotal)) state.(xtzPool) ; (* error_DIV_by_0 *)
-    do tokens_deposited <- ceildiv ((amount_to_N ctx.(ctx_amount)) * state.(tokenPool)) state.(xtzPool) ; (* error_DIV_by_0 *)
-    do _ <- throwIf (param.(maxTokensDeposited) <? tokens_deposited) ; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
-    do _ <- throwIf (lqt_minted <? param.(minLqtMinted)) ; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
-    let new_state := state<| lqtTotal := state.(lqtTotal) + lqt_minted |>
-                          <| tokenPool := state.(tokenPool) + tokens_deposited |>
-                          <| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount))|> in
-    let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) tokens_deposited in
-    do op_lqt <- mint_or_burn state param.(owner) (Z.of_N lqt_minted) ;
-    Some (new_state, [op_token; op_lqt]).
+    (** ** Add liquidity *)
+    Definition add_liquidity (chain : Chain) (ctx : ContractCallContext)
+                            (state : State) (param : add_liquidity_param)
+                            : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(add_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do lqt_minted <- div ((amount_to_N ctx.(ctx_amount)) * state.(lqtTotal)) state.(xtzPool) ; (* error_DIV_by_0 *)
+      do tokens_deposited <- ceildiv ((amount_to_N ctx.(ctx_amount)) * state.(tokenPool)) state.(xtzPool) ; (* error_DIV_by_0 *)
+      do _ <- throwIf (param.(maxTokensDeposited) <? tokens_deposited) ; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
+      do _ <- throwIf (lqt_minted <? param.(minLqtMinted)) ; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
+      let new_state := state<| lqtTotal := state.(lqtTotal) + lqt_minted |>
+                            <| tokenPool := state.(tokenPool) + tokens_deposited |>
+                            <| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount))|> in
+      let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) tokens_deposited in
+      do op_lqt <- mint_or_burn state param.(owner) (Z.of_N lqt_minted) ;
+      Some (new_state, [op_token; op_lqt]).
 
-  (** ** Remove liquidity *)
-  Definition remove_liquidity (chain : Chain) (ctx : ContractCallContext)
-                              (state : State) (param : remove_liquidity_param)
+    (** ** Remove liquidity *)
+    Definition remove_liquidity (chain : Chain) (ctx : ContractCallContext)
+                                (state : State) (param : remove_liquidity_param)
+                                : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do xtz_withdrawn <-  div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
+      do tokens_withdrawn <- div (param.(lqtBurned) * state.(tokenPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
+      do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn)) ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
+      do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) ; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
+      do new_lqtPool <- sub state.(lqtTotal) param.(lqtBurned) ; (* error_CANNOT_BURN_MORE_THAN_THE_TOTAL_AMOUNT_OF_LQT *)
+      do new_tokenPool <- sub state.(tokenPool) tokens_withdrawn ; (* error_TOKEN_POOL_MINUS_TOKENS_WITHDRAWN_IS_NEGATIVE *)
+      do new_xtzPool <- sub state.(xtzPool) xtz_withdrawn ; (* mutez subtraction run time error *)
+      do op_lqt <- mint_or_burn state ctx.(ctx_from) (0 - (Z.of_N param.(lqtBurned)))%Z ;
+      let op_token := token_transfer state ctx.(ctx_contract_address) param.(liquidity_to) tokens_withdrawn in
+      do opt_xtz <- xtz_transfer param.(liquidity_to) xtz_withdrawn ;
+      let new_state :=
+        {| tokenPool :=  new_tokenPool;
+          xtzPool := new_xtzPool;
+          lqtTotal := new_lqtPool;
+          selfIsUpdatingTokenPool := state.(selfIsUpdatingTokenPool);
+          freezeBaker := state.(freezeBaker);
+          manager := state.(manager);
+          tokenAddress := state.(tokenAddress);
+          tokenId := state.(tokenId);
+          lqtAddress := state.(lqtAddress) |} in
+      Some (new_state, [op_lqt; op_token; opt_xtz]).
+
+    (** ** XTZ to tokens *)
+    Definition xtz_to_token (chain : Chain) (ctx : ContractCallContext)
+                            (state : State) (param : xtz_to_token_param)
+                            : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(xtt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do tokens_bought <- div
+        ((amount_to_N ctx.(ctx_amount)) * 997 * state.(tokenPool))
+          (state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ; (* error_DIV_by_0 *)
+      do _ <- throwIf (tokens_bought <? param.(minTokensBought)) ; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
+      do new_tokenPool <- sub state.(tokenPool) tokens_bought ; (* error_TOKEN_POOL_MINUS_TOKENS_BOUGHT_IS_NEGATIVE *)
+      let new_state := state<| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount)) |>
+                            <| tokenPool := new_tokenPool |> in
+      let op := token_transfer state ctx.(ctx_contract_address) param.(tokens_to) tokens_bought in
+      Some (new_state, [op]).
+
+    (** ** Tokes to XTZ *)
+    Definition token_to_xtz (chain : Chain) (ctx : ContractCallContext)
+                            (state : State) (param : token_to_xtz_param)
+                            : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(ttx_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do xtz_bought <- div
+        (param.(tokensSold) * 997 * state.(xtzPool))
+          (state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) ; (* error_DIV_by_0 *)
+      do _ <- throwIf (xtz_bought <? param.(minXtzBought)) ; (* error_XTZ_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_BOUGHT *)
+      do new_xtzPool <- sub state.(xtzPool) xtz_bought ; (* mutez subtraction run time error *)
+      let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) param.(tokensSold) in
+      do op_tez <- xtz_transfer param.(xtz_to) xtz_bought ;
+      let new_state := state<| tokenPool := state.(tokenPool) + param.(tokensSold) |>
+                            <| xtzPool := new_xtzPool |> in
+      Some (new_state, [op_token; op_tez]).
+
+    (** ** Default entrypoint *)
+    Definition default_ (chain : Chain) (ctx : ContractCallContext)
+                        (state : State) : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      let new_state := state<| xtzPool := state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> in
+        Some (new_state, []).
+
+    (** ** Set baker *)
+    Definition set_baker (chain : Chain) (ctx : ContractCallContext)
+                        (state : State) (param : set_baker_param)
+                        : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
+      do _ <- throwIf (state.(freezeBaker)) ; (* error_BAKER_PERMANENTLY_FROZEN *)
+        Some (state<| freezeBaker := param.(freezeBaker_) |>, set_delegate_call param.(baker)).
+
+    (** ** Set manager *)
+    Definition set_manager (chain : Chain) (ctx : ContractCallContext)
+                          (state : State) (new_manager : Address)
+                          : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
+        Some (state<| manager := new_manager |>, []).
+
+    (** ** Set liquidity address *)
+    Definition set_lqt_address (chain : Chain) (ctx : ContractCallContext)
+                              (state : State) (new_lqt_address : Address)
                               : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do xtz_withdrawn <-  div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
-    do tokens_withdrawn <- div (param.(lqtBurned) * state.(tokenPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
-    do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn)) ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
-    do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) ; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
-    do new_lqtPool <- sub state.(lqtTotal) param.(lqtBurned) ; (* error_CANNOT_BURN_MORE_THAN_THE_TOTAL_AMOUNT_OF_LQT *)
-    do new_tokenPool <- sub state.(tokenPool) tokens_withdrawn ; (* error_TOKEN_POOL_MINUS_TOKENS_WITHDRAWN_IS_NEGATIVE *)
-    do new_xtzPool <- sub state.(xtzPool) xtz_withdrawn ; (* mutez subtraction run time error *)
-    do op_lqt <- mint_or_burn state ctx.(ctx_from) (0 - (Z.of_N param.(lqtBurned)))%Z ;
-    let op_token := token_transfer state ctx.(ctx_contract_address) param.(liquidity_to) tokens_withdrawn in
-    do opt_xtz <- xtz_transfer param.(liquidity_to) xtz_withdrawn ;
-    let new_state :=
-      {| tokenPool :=  new_tokenPool;
-         xtzPool := new_xtzPool;
-         lqtTotal := new_lqtPool;
-         selfIsUpdatingTokenPool := state.(selfIsUpdatingTokenPool);
-         freezeBaker := state.(freezeBaker);
-         manager := state.(manager);
-         tokenAddress := state.(tokenAddress);
-         tokenId := state.(tokenId);
-         lqtAddress := state.(lqtAddress) |} in
-    Some (new_state, [op_lqt; op_token; opt_xtz]).
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
+      do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
+        Some (state<| lqtAddress := new_lqt_address |>, []).
 
-  (** ** XTZ to tokens *)
-  Definition xtz_to_token (chain : Chain) (ctx : ContractCallContext)
-                          (state : State) (param : xtz_to_token_param)
-                          : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (param.(xtt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-    do tokens_bought <- div
-      ((amount_to_N ctx.(ctx_amount)) * 997 * state.(tokenPool))
-        (state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ; (* error_DIV_by_0 *)
-    do _ <- throwIf (tokens_bought <? param.(minTokensBought)) ; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
-    do new_tokenPool <- sub state.(tokenPool) tokens_bought ; (* error_TOKEN_POOL_MINUS_TOKENS_BOUGHT_IS_NEGATIVE *)
-    let new_state := state<| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount)) |>
-                          <| tokenPool := new_tokenPool |> in
-    let op := token_transfer state ctx.(ctx_contract_address) param.(tokens_to) tokens_bought in
-    Some (new_state, [op]).
+    (** ** Update token pool *)
+    Definition update_token_pool (chain : Chain) (ctx : ContractCallContext)
+                                (state : State) : result :=
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) ; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
+      let balance_of_request :=
+        FA2Interface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
+      let balance_of_param :=
+        FA2Interface.Build_balance_of_param [balance_of_request] (FA2Interface.Build_callback _ None ctx.(ctx_contract_address)) in
+      let op := call_to_token state.(tokenAddress) 0 (FA2Token.msg_balance_of balance_of_param) in
+        Some (state<| selfIsUpdatingTokenPool := true |>, [op]).
 
-  (** ** Tokes to XTZ *)
-  Definition token_to_xtz (chain : Chain) (ctx : ContractCallContext)
-                          (state : State) (param : token_to_xtz_param)
-                          : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (param.(ttx_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do xtz_bought <- div
-      (param.(tokensSold) * 997 * state.(xtzPool))
-        (state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) ; (* error_DIV_by_0 *)
-    do _ <- throwIf (xtz_bought <? param.(minXtzBought)) ; (* error_XTZ_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_BOUGHT *)
-    do new_xtzPool <- sub state.(xtzPool) xtz_bought ; (* mutez subtraction run time error *)
-    let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) param.(tokensSold) in
-    do op_tez <- xtz_transfer param.(xtz_to) xtz_bought ;
-    let new_state := state<| tokenPool := state.(tokenPool) + param.(tokensSold) |>
-                          <| xtzPool := new_xtzPool |> in
-    Some (new_state, [op_token; op_tez]).
-
-  (** ** Default entrypoint *)
-  Definition default_ (chain : Chain) (ctx : ContractCallContext)
-                      (state : State) : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    let new_state := state<| xtzPool := state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> in
+    (** ** Update token pool internal *)
+    Definition update_token_pool_internal (chain : Chain) (ctx : ContractCallContext)
+                                          (state : State) (token_pool : update_token_pool_internal_)
+                                          : result :=
+      do _ <- throwIf ((negb state.(selfIsUpdatingTokenPool)) ||
+                        (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) ; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do token_pool <-
+        match token_pool with
+        | [] => None (* error_INVALID_FA2_BALANCE_RESPONSE *)
+        | x :: xs => Some x.(balance)
+        end ;
+      let new_state := state<| tokenPool := token_pool |><| selfIsUpdatingTokenPool := false |> in
       Some (new_state, []).
 
-  (** ** Set baker *)
-  Definition set_baker (chain : Chain) (ctx : ContractCallContext)
-                       (state : State) (param : set_baker_param)
-                       : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
-    do _ <- throwIf (state.(freezeBaker)) ; (* error_BAKER_PERMANENTLY_FROZEN *)
-      Some (state<| freezeBaker := param.(freezeBaker_) |>, set_delegate_call param.(baker)).
+    Definition call_to_other_token (token_addr : Address) (amount : N)
+              (msg : @FA2Token.FA2ReceiverMsg _ DexterMsg) :=
+      act_call token_addr (N_to_amount amount) (serialize msg).
 
-  (** ** Set manager *)
-  Definition set_manager (chain : Chain) (ctx : ContractCallContext)
-                         (state : State) (new_manager : Address)
-                         : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
-      Some (state<| manager := new_manager |>, []).
+    (** ** Tokens to tokens *)
+    Definition token_to_token (chain : Chain) (ctx : ContractCallContext)
+                              (state : State) (param : token_to_token_param)
+                              : result :=
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (param.(ttt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do xtz_bought <- div
+        (param.(tokensSold_) * 997 * state.(xtzPool))
+          (state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) ; (* error_DIV_by_0 *)
+      do new_xtzPool <- sub state.(xtzPool) xtz_bought ; (* mutez subtraction run time error *)
+      let new_state := state<| tokenPool := state.(tokenPool) + param.(tokensSold_) |>
+                            <| xtzPool := new_xtzPool |> in
+      let op1 := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) param.(tokensSold_) in
+      let op2 := call_to_other_token
+                  param.(outputDexterContract)
+                  xtz_bought
+                  (FA2Token.other_msg (XtzToToken {|
+                                            tokens_to := param.(to_);
+                                            minTokensBought := param.(minTokensBought_);
+                                            xtt_deadline := param.(ttt_deadline)
+                                          |})) in 
+      Some (new_state, [op1; op2]).
 
-  (** ** Set liquidity address *)
-  Definition set_lqt_address (chain : Chain) (ctx : ContractCallContext)
-                             (state : State) (new_lqt_address : Address)
-                             : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) ; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
-    do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) ; (* error_LQT_ADDRESS_ALREADY_SET *)
-      Some (state<| lqtAddress := new_lqt_address |>, []).
+    (** ** Receive *)
+    Definition receive_cpmm (chain : Chain)
+                      (ctx : ContractCallContext)
+                      (state : State)
+                      (maybe_msg : option Msg)
+                      : result :=
+      match maybe_msg with
+      | Some (FA2Token.other_msg (AddLiquidity param)) =>
+          add_liquidity chain ctx state param
+      | Some (FA2Token.other_msg (RemoveLiquidity param)) =>
+          remove_liquidity chain ctx state param
+      | Some (FA2Token.other_msg (SetBaker param)) =>
+          set_baker chain ctx state param
+      | Some (FA2Token.other_msg (SetManager param)) =>
+          set_manager chain ctx state param
+      | Some (FA2Token.other_msg (SetLqtAddress param)) =>
+          set_lqt_address chain ctx state param
+      | None =>
+          default_ chain ctx state
+      | Some (FA2Token.other_msg UpdateTokenPool) =>
+          update_token_pool chain ctx state
+      | Some (FA2Token.other_msg (XtzToToken param)) =>
+          xtz_to_token chain ctx state param
+      | Some (FA2Token.other_msg (TokenToXtz param)) =>
+          token_to_xtz chain ctx state param
+      | Some (FA2Token.other_msg (TokenToToken param)) =>
+          token_to_token chain ctx state param
+      | Some (FA2Token.receive_balance_of_param responses) =>
+          update_token_pool_internal chain ctx state responses
+      | _ => None
+      end.
 
-  (** ** Update token pool *)
-  Definition update_token_pool (chain : Chain) (ctx : ContractCallContext)
-                               (state : State) : result :=
-    do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) ; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
-    let balance_of_request :=
-      FA2Interface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
-    let balance_of_param :=
-      FA2Interface.Build_balance_of_param [balance_of_request] (FA2Interface.Build_callback _ None) in
-    let op := call_to_token state.(tokenAddress) 0 (FA2Token.msg_balance_of balance_of_param) in
-      Some (state<| selfIsUpdatingTokenPool := true |>, [op]).
+    (** ** Init *)
+    Definition init_cpmm (chain : Chain)
+                    (ctx : ContractCallContext)
+                    (setup : Setup) : option State :=
+      Some {|
+        tokenPool := 0;
+        xtzPool := 0;
+        lqtTotal := setup.(lqtTotal_);
+        selfIsUpdatingTokenPool := false;
+        freezeBaker := false;
+        manager := setup.(manager_);
+        tokenAddress := setup.(tokenAddress_);
+        tokenId := setup.(tokenId_);
+        lqtAddress := null_address
+      |}.
 
-  (** ** Update token pool internal *)
-  Definition update_token_pool_internal (chain : Chain) (ctx : ContractCallContext)
-                                        (state : State) (token_pool : update_token_pool_internal_)
-                                        : result :=
-    do _ <- throwIf ((negb state.(selfIsUpdatingTokenPool)) ||
-                      (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) ; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do token_pool <-
-      match token_pool with
-      | [] => None (* error_INVALID_FA2_BALANCE_RESPONSE *)
-      | x :: xs => Some x.(balance)
-      end ;
-    let new_state := state<| tokenPool := token_pool |><| selfIsUpdatingTokenPool := false |> in
-    Some (new_state, []).
-
-  Definition call_to_other_token (token_addr : Address) (amount : N)
-             (msg : @FA2Token.FA2ReceiverMsg _ DexterMsg _) :=
-    act_call token_addr (N_to_amount amount) (serialize msg).
-
-  (** ** Tokens to tokens *)
-  Definition token_to_token (chain : Chain) (ctx : ContractCallContext)
-                            (state : State) (param : token_to_token_param)
-                            : result :=
-    do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-    do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
-    do _ <- throwIf (param.(ttt_deadline) <=? chain.(current_slot))%nat ; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-    do xtz_bought <- div
-      (param.(tokensSold_) * 997 * state.(xtzPool))
-        (state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) ; (* error_DIV_by_0 *)
-    do new_xtzPool <- sub state.(xtzPool) xtz_bought ; (* mutez subtraction run time error *)
-    let new_state := state<| tokenPool := state.(tokenPool) + param.(tokensSold_) |>
-                          <| xtzPool := new_xtzPool |> in
-    let op1 := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) param.(tokensSold_) in
-    let op2 := call_to_other_token
-                 param.(outputDexterContract)
-                 xtz_bought
-                 (FA2Token.other_msg (XtzToToken {|
-                                          tokens_to := param.(to_);
-                                          minTokensBought := param.(minTokensBought_);
-                                          xtt_deadline := param.(ttt_deadline)
-                                        |})) in 
-    Some (new_state, [op1; op2]).
-
-  (** ** Receive *)
-  Definition receive (chain : Chain)
-                     (ctx : ContractCallContext)
-                     (state : State)
-                     (maybe_msg : option Msg)
-                     : result :=
-    match maybe_msg with
-    | Some (FA2Token.other_msg (AddLiquidity param)) =>
-        add_liquidity chain ctx state param
-    | Some (FA2Token.other_msg (RemoveLiquidity param)) =>
-        remove_liquidity chain ctx state param
-    | Some (FA2Token.other_msg (SetBaker param)) =>
-        set_baker chain ctx state param
-    | Some (FA2Token.other_msg (SetManager param)) =>
-        set_manager chain ctx state param
-    | Some (FA2Token.other_msg (SetLqtAddress param)) =>
-        set_lqt_address chain ctx state param
-    | None =>
-        default_ chain ctx state
-    | Some (FA2Token.other_msg UpdateTokenPool) =>
-        update_token_pool chain ctx state
-    | Some (FA2Token.other_msg (XtzToToken param)) =>
-        xtz_to_token chain ctx state param
-    | Some (FA2Token.other_msg (TokenToXtz param)) =>
-        token_to_xtz chain ctx state param
-    | Some (FA2Token.other_msg (TokenToToken param)) =>
-        token_to_token chain ctx state param
-    | Some (FA2Token.receive_balance_of_param responses) =>
-        update_token_pool_internal chain ctx state responses
-    | _ => None
-    end.
-
-  (** ** Init *)
-  Definition init (chain : Chain)
-                  (ctx : ContractCallContext)
-                  (setup : Setup) : option State :=
-    Some {|
-      tokenPool := 0;
-      xtzPool := 0;
-      lqtTotal := setup.(lqtTotal_);
-      selfIsUpdatingTokenPool := false;
-      freezeBaker := false;
-      manager := setup.(manager_);
-      tokenAddress := setup.(tokenAddress_);
-      tokenId := setup.(tokenId_);
-      lqtAddress := null_address
-    |}.
-
-  Definition contract : Contract Setup Msg State :=
-    build_contract init receive.
+    Definition contract : Contract Setup Msg State :=
+      build_contract init_cpmm receive_cpmm.
 
   End DexterDefs.
 End Dexter2.
@@ -529,7 +543,7 @@ Module DSInstances <: Dexter2Serializable.
     Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
       Derive Serializable Setup_rect <build_setup>.
 
-    Global Instance ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg BaseTypes DexterMsg _) :=
+    Global Instance ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg BaseTypes DexterMsg) :=
       fun _ => @FA2Token.FA2ReceiverMsg_serializable _ _ _.
 
     Global Instance state_serializable `{ChainBase} : Serializable State :=
@@ -541,14 +555,29 @@ Module DSInstances <: Dexter2Serializable.
 End DSInstances.
   (* end hide *)
 
-(** Instantiating the implementaion with required instances for serialisation/deserialisation *)
-Module DEX2 := Dexter2 DSInstances.
+Module NullAddressAxiom <: NullAddress.
+  Section NAddr.
+    Parameter BaseTypes : ChainBase.
+    Existing Instance BaseTypes.
 
+    Parameter null_address : Address.
+    Parameter set_delegate_call : baker_address -> list ActionBody.
+    Axiom delegate_call : forall addr, Forall (fun action => 
+      match action with
+      | act_transfer _ _ => False
+      | act_call _ _ _ => False
+      | act_deploy _ _ _ => False
+      end) (set_delegate_call addr).
+  End NAddr.
+End NullAddressAxiom.
+
+(** Instantiating the implementaion with required instances for serialisation/deserialisation *)
+Module DEX2 := Dexter2 DSInstances NullAddressAxiom.
 Import DEX2.
 
-  (** * Properties *)
+(** * Properties *)
 Section Theories.
-  Context {BaseTypes : ChainBase}.
+  Existing Instance BaseTypes.
   Open Scope N_scope.
   Global Arguments amount_to_N /.
 
@@ -641,38 +670,18 @@ Section Theories.
   Qed.
   Opaque sub.
 
-  Lemma isSome_some : forall {A : Type} (x : option A) (y : A),
-    x = Some y -> isSome x = true.
+  Lemma set_delegate_call_nil : forall (addr : baker_address),
+    set_delegate_call addr = [].
   Proof.
     intros.
-    now subst.
+    pose proof (delegate_call addr).
+    destruct set_delegate_call; auto.
+    apply Forall_inv in H.
+    now destruct a.
   Qed.
 
-  Lemma isSome_none : forall {A : Type} (x : option A),
-    x = None -> isSome x = false.
-  Proof.
-    intros.
-    now subst.
-  Qed.
 
-  Lemma isSome_exists : forall {A : Type} (x : option A),
-    isSome x = true <-> exists y : A, x = Some y.
-  Proof.
-    split.
-    - now destruct x eqn:x_eq.
-    - intros (y & x_eq).
-      now eapply isSome_some.
-  Qed.
 
-  Lemma isSome_not_exists : forall {A : Type} (x : option A),
-    isSome x = false <-> forall y : A, x <> Some y.
-  Proof.
-    split.
-    - now destruct x eqn:x_eq.
-    - intros x_eq.
-      eapply isSome_none.
-      now destruct x.
-  Qed.
 
   Ltac math_convert_step :=
     match goal with
@@ -686,54 +695,30 @@ Section Theories.
 
   Tactic Notation "math_convert" := repeat math_convert_step.
 
-  Ltac receive_simpl_step :=
-    match goal with
-    | H : Blockchain.receive _ _ _ _ _ = Some (_, _) |- _ =>
-        unfold Blockchain.receive in H; cbn in H
-    | H : receive _ _ _ _ = Some (_, _) |- _ =>
-        unfold receive in H;
-        cbn in H
-    | |- receive _ _ _ _ = _ =>
-        unfold receive; cbn
-    | H : Some _ = Some _ |- _ =>
-        inversion_clear H
-    | H : Some _ = None |- _ =>
-        inversion H
-    | H : None = Some _ |- _ =>
-        inversion H
-    | H : throwIf _ = None |- _ => destruct_throw_if H
-    | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
-    | H : option_map (fun s : State => (s, _)) match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-    | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
-      let a := fresh "H" in
-      destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-    | H : option_map (fun s : State => (s, _)) (if ?m then ?a else ?b) = Some _ |- _ =>
-      match a with
-      | None =>
-        let a := fresh "H" in
-        destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-      | _ => match b with
-             | None =>
-               let a := fresh "H" in
-               destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-             | _ => idtac
-      end end
-    | H : (if ?m then ?a else ?b) = Some _ |- _ =>
-      match a with
-      | None =>
-        let a := fresh "H" in
-        destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-      | _ => match b with
-             | None =>
-               let a := fresh "H" in
-               destruct m eqn:a in H; try setoid_rewrite a; cbn in *; try congruence
-             | _ => idtac
-      end end
+  Tactic Notation "contract_simpl" :=
+    repeat (unfold call_to_token,call_to_other_token;contract_simpl_step receive_cpmm init_cpmm).
+
+  Ltac destruct_message :=
+    repeat match goal with
+    | msg : option Msg |- _ => destruct msg
+    | msg : Msg |- _ => destruct msg
+    | msg : DexterMsg |- _ => destruct msg
+    | H : Blockchain.receive _ _ _ _ (Some (receive_total_supply_param _)) = Some _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_total_supply_param _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_metadata_callback _)) = Some _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_metadata_callback _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_is_operator _)) = Some _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_is_operator _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_permissions_descriptor _)) = Some _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_permissions_descriptor _)) = Some _ |- _ => now contract_simpl
     end.
 
-  Tactic Notation "receive_simpl" := repeat (unfold call_to_token,call_to_other_token;receive_simpl_step).
+  Hint Rewrite N.ltb_lt N.ltb_ge
+    Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt 
+    Z.ltb_ge Z.ltb_lt
+    Bool.orb_true_iff Bool.orb_false_iff
+    Bool.andb_true_iff Bool.andb_false_iff
+    Bool.negb_false_iff Bool.negb_true_iff : BoolElim.
   (* end hide *)
 
 
@@ -741,15 +726,15 @@ Section Theories.
   (** ** Set baker correct *)
   (** [set_baker] only changes [freezeBaker] in state *)
   Lemma set_baker_state_eq : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
       prev_state<| freezeBaker := param.(freezeBaker_) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma set_baker_freeze_baker_correct : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
       new_state.(freezeBaker) = param.(freezeBaker_).
   Proof.
     intros * receive_some.
@@ -759,11 +744,11 @@ Section Theories.
 
   (** [set_baker] produces no new_acts *)
   Lemma set_baker_new_acts_correct : forall chain ctx prev_state param new_state new_acts,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
       new_acts = set_delegate_call param.(baker).
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on set_baker msg must succeed and
@@ -774,26 +759,14 @@ Section Theories.
     ctx.(ctx_from) = prev_state.(manager) /\
     prev_state.(freezeBaker) = false
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_is_manager & not_frozen).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:frozen_check.
-      + reflexivity.
-      + now rewrite not_frozen in frozen_check.
-      + now rewrite sender_is_manager, address_eq_refl in sender_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -802,15 +775,15 @@ Section Theories.
   (** ** Set manager correct *)
   (** [set_manager] only changes [manager] in state *)
   Lemma set_manager_state_eq : forall prev_state new_state chain ctx new_acts new_manager,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
       prev_state<| manager := new_manager |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma set_manager_manager_correct : forall prev_state new_state chain ctx new_acts new_manager,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
       new_state.(manager) = new_manager.
   Proof.
     intros * receive_some.
@@ -820,11 +793,11 @@ Section Theories.
 
   (** [set_manager] produces no new_acts *)
   Lemma set_manager_new_acts_correct : forall chain ctx prev_state new_manager new_state new_acts,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on set_manager msg must succeed and
@@ -834,24 +807,14 @@ Section Theories.
     prev_state.(selfIsUpdatingTokenPool) = false /\
     ctx.(ctx_from) = prev_state.(manager)
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_is_manager).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:sender_check.
-      + reflexivity.
-      + now rewrite sender_is_manager, address_eq_refl in sender_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -860,15 +823,15 @@ Section Theories.
   (** ** Set liquidity address correct *)
   (** [set_lqt_address] only changes [lqtAddress] in state *)
   Lemma set_lqt_address_state_eq : forall prev_state new_state chain ctx new_acts new_lqt_address,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
       prev_state<| lqtAddress := new_lqt_address |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma set_lqt_address_correct : forall prev_state new_state chain ctx new_acts new_lqt_address,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
       new_state.(lqtAddress) = new_lqt_address.
   Proof.
     intros * receive_some.
@@ -878,11 +841,11 @@ Section Theories.
 
   (** [set_lqt_address] produces no new_acts *)
   Lemma set_lqt_address_new_acts_correct : forall chain ctx prev_state new_lqt_address new_state new_acts,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on set_lqt_address msg must succeed and
@@ -893,27 +856,15 @@ Section Theories.
     ctx.(ctx_from) = prev_state.(manager) /\
     prev_state.(lqtAddress) = null_address
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_is_manager & lqt_address_not_set).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:lqt_check.
-      + reflexivity.
-      + now rewrite lqt_address_not_set, address_eq_refl in lqt_check.
-      + now rewrite sender_is_manager, address_eq_refl in sender_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      repeat split; auto;
-        now destruct_address_eq.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -921,15 +872,15 @@ Section Theories.
   (** ** Default entrypoint correct *)
   (** [default_] only changes [xtzPool] in state *)
   Lemma default_state_eq : forall prev_state new_state chain ctx new_acts,
-    receive chain ctx prev_state None = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state None = Some (new_state, new_acts) ->
       prev_state<| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma default_correct : forall prev_state new_state chain ctx new_acts,
-    receive chain ctx prev_state None = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state None = Some (new_state, new_acts) ->
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
   Proof.
     intros * receive_some.
@@ -939,11 +890,11 @@ Section Theories.
 
   (** [default_] produces no new_acts *)
   Lemma default_new_acts_correct : forall chain ctx prev_state new_state new_acts,
-    receive chain ctx prev_state None = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state None = Some (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on None msg must succeed and
@@ -951,17 +902,12 @@ Section Theories.
   Lemma default_entrypoint_is_some : forall prev_state chain ctx,
     prev_state.(selfIsUpdatingTokenPool) = false
     <->
-    exists new_state new_acts, receive chain ctx prev_state None = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state None = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros not_updating.
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:updating_check.
-      + reflexivity.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
+    split;
+      intros;
+      destruct_hyps;
+      now contract_simpl.
   Qed.
 
 
@@ -969,15 +915,15 @@ Section Theories.
   (** ** Update token pool correct *)
   (** [update_token_pool] only changes [selfIsUpdatingTokenPool] in state *)
   Lemma update_token_pool_state_eq : forall prev_state new_state chain ctx new_acts,
-    receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
       prev_state<| selfIsUpdatingTokenPool := true |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   Lemma update_token_pool_correct : forall prev_state new_state chain ctx new_acts,
-    receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
       new_state.(selfIsUpdatingTokenPool) = true.
   Proof.
     intros * receive_some.
@@ -988,16 +934,16 @@ Section Theories.
   (** [update_token_pool] produces an call act with amount = 0, calling
       the token contract with a balance of request *)
   Lemma update_token_pool_new_acts_correct : forall chain ctx prev_state new_state new_acts,
-    receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
       new_acts = [
         act_call prev_state.(tokenAddress) 0%Z (serialize
           (msg_balance_of (Build_balance_of_param 
             ([Build_balance_of_request ctx.(ctx_contract_address) prev_state.(tokenId)])
-            (FA2Interface.Build_callback _ None))))
+            (FA2Interface.Build_callback _ None ctx.(ctx_contract_address)))))
       ].
   Proof.
     intros * receive_some.
-    now receive_simpl.
+    now contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on update_token_pool msg must succeed and
@@ -1007,24 +953,14 @@ Section Theories.
     prev_state.(selfIsUpdatingTokenPool) = false /\
     ctx.(ctx_from) = ctx.(ctx_origin)
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & not_updating & sender_eq_origin).
-      do 2 eexists.
-      receive_simpl.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:updating_check.
-      + reflexivity.
-      + now rewrite not_updating in updating_check.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite sender_eq_origin, address_eq_refl in sender_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Z.ltb_ge in *.
-      rewrite Bool.negb_false_iff in *.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -1046,7 +982,7 @@ Section Theories.
   (** ** Update token pool internal correct *)
   (** [update_token_pool_internal] only changes [selfIsUpdatingTokenPool] and [tokenPool] in state *)
   Lemma update_token_pool_internal_state_eq : forall prev_state new_state chain ctx new_acts responses,
-    receive chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
       prev_state<| selfIsUpdatingTokenPool := false |>
                 <| tokenPool := match responses with
                                 | [] => 0
@@ -1054,12 +990,12 @@ Section Theories.
                                 end |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now invert_responses_Some.
   Qed.
 
   Lemma update_token_pool_internal_update_correct : forall prev_state new_state chain ctx new_acts responses,
-    receive chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
       new_state.(selfIsUpdatingTokenPool) = false.
   Proof.
     intros * receive_some.
@@ -1069,11 +1005,11 @@ Section Theories.
 
   (** [update_token_pool_internal] produces no new actions *)
   Lemma update_token_pool_internal_new_acts_correct : forall chain ctx prev_state new_state new_acts responses,
-    receive chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
   Qed.
 
   (** If the requirements are met then then receive on update_token_pool_internal msg must succeed and
@@ -1084,30 +1020,17 @@ Section Theories.
     ctx.(ctx_from) = prev_state.(tokenAddress) /\
     responses <> []
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (amount_zero & updating & sender_is_token_contract & responses_not_empty).
-      unfold receive. cbn.
-      destruct_match eqn:sender_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:response.
-      destruct_match eqn:response_check in response.
-      + congruence.
-      + eauto.
-      + now destruct_match in response.
-      + receive_simpl.
-        now apply Z.ltb_ge in amount_zero.
-      + now rewrite updating, sender_is_token_contract, address_eq_refl in sender_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      rewrite Bool.orb_false_iff in *.
-      rewrite Bool.negb_false_iff in *.
-      rewrite Z.ltb_ge in *.
-      invert_responses_Some;subst.
-      repeat split;auto.
-      + easy.
-      + now destruct_address_eq.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl; eauto;
+      destruct responses;
+      autorewrite with BoolElim in *;
+      destruct_or_hyps;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -1117,18 +1040,18 @@ Section Theories.
   Lemma add_liquidity_state_eq : forall prev_state new_state chain ctx new_acts param,
     let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
     let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
       prev_state<| lqtTotal := prev_state.(lqtTotal) +  lqt_minted |>
                 <| tokenPool := prev_state.(tokenPool) + tokens_deposited |>
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
   Lemma add_liquidity_correct : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
       new_state.(lqtTotal) = prev_state.(lqtTotal) + amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) /\
       new_state.(tokenPool) = prev_state.(tokenPool) + ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) /\
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
@@ -1145,7 +1068,7 @@ Section Theories.
   Lemma add_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
     let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -1156,7 +1079,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1172,35 +1095,16 @@ Section Theories.
     prev_state.(xtzPool) <> 0 /\
     prev_state.(lqtAddress) <> null_address
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & max_tokens_not_hit &
-              enough_minted & xtzPool_not_zero & lqt_addr_set).
-      unfold receive.
-      cbn in *.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:div_check; math_convert.
-      destruct_match eqn:ceildiv_check; math_convert.
-      destruct_match eqn:max_tokens_check.
-      destruct_match eqn:min_lqt_check.
-      destruct_match eqn:mint_act; try congruence;
-      destruct_match eqn:lqt_addr_set_check in mint_act; try congruence.
-      + eauto.
-      + now apply address_eq_ne in lqt_addr_set.
-      + now apply N.ltb_ge in enough_minted.
-      + now apply N.ltb_ge in max_tokens_not_hit.
-      + congruence.
-      + congruence.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge in *.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      unfold amount_to_N in *;
+      try easy;
       now destruct_address_eq.
   Qed.
 
@@ -1211,18 +1115,18 @@ Section Theories.
   Lemma remove_liquidity_state_eq : forall prev_state new_state chain ctx new_acts param,
     let xtz_withdrawn := (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal) in
     let tokens_withdrawn := (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
       prev_state<| lqtTotal := prev_state.(lqtTotal) - param.(lqtBurned) |>
                 <| tokenPool := prev_state.(tokenPool) - tokens_withdrawn |>
                 <| xtzPool := prev_state.(xtzPool) - xtz_withdrawn |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert;cbv.
   Qed.
 
   Lemma remove_liquidity_correct : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
       new_state.(lqtTotal) = prev_state.(lqtTotal) - param.(lqtBurned) /\
       new_state.(tokenPool) = prev_state.(tokenPool) -  (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal).
@@ -1240,7 +1144,7 @@ Section Theories.
   Lemma remove_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let xtz_withdrawn := (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal) in
     let tokens_withdrawn := (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(lqtAddress) 0%Z
@@ -1252,7 +1156,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     math_convert.
     unfold xtz_transfer in *.
     destruct_match in *; try congruence.
@@ -1278,45 +1182,19 @@ Section Theories.
     address_is_contract param.(liquidity_to) = false /\
     prev_state.(lqtAddress) <> null_address
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & ctx_amount_zero &
-              lqtPool_not_zero & enough_xtz_withdrawn & enough_tokens_withdrawn &
-              tokens_withdrawn_le_total & xtz_withdrawn_le_total & lqt_burned_le_total &
-              to_not_contract & lqt_addr_set).
-      unfold receive.
-      cbn in *.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:ctx_amount_check.
-      destruct_match eqn:xtz_div_check; math_convert; try easy.
-      destruct_match eqn:tokens_div_check; math_convert; try easy.
-      destruct_match eqn:min_xtz_check.
-      destruct_match eqn:min_tokens_check.
-      destruct_match eqn:burned_check; math_convert; try easy.
-      destruct_match eqn:token_pool_check; math_convert; try easy.
-      destruct_match eqn:xtz_pool_check; math_convert; try easy.
-      destruct_match eqn:mint_act; try congruence;
-      destruct_match eqn:lqt_addr_set_check in mint_act; try congruence.
-      destruct_match eqn:transfer_act.
-      + eauto.
-      + unfold xtz_transfer in transfer_act.
-        now rewrite to_not_contract in transfer_act.
-      + now apply address_eq_ne in lqt_addr_set.
-      + now apply N.ltb_ge in enough_tokens_withdrawn.
-      + now apply N.ltb_ge in enough_xtz_withdrawn.
-      + now apply Z.ltb_ge in ctx_amount_zero.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge,Z.ltb_ge in *.
-      unfold xtz_transfer in *.
-      destruct_match in *; try congruence.
-      repeat split; auto.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      try easy;
+      try now destruct_address_eq.
+    all :
+      unfold xtz_transfer in *;
+      destruct_match in *;
       now destruct_address_eq.
   Qed.
 
@@ -1326,17 +1204,17 @@ Section Theories.
   Lemma xtz_to_token_state_eq : forall prev_state new_state chain ctx new_acts param,
     let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
                             (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) - tokens_bought |>
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
   Lemma xtz_to_token_correct : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
       new_state.(tokenPool) = prev_state.(tokenPool) -  (((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
                             (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ) /\
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
@@ -1352,7 +1230,7 @@ Section Theories.
   Lemma xtz_to_token_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
                             (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -1361,7 +1239,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1376,27 +1254,17 @@ Section Theories.
     param.(minTokensBought) <= tokens_bought /\
     tokens_bought <= prev_state.(tokenPool)
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & not_zero &
-              enough_tokens_bought & tokens_bought_le_total).
-      unfold receive.
-      cbn in *.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:xtz_div_check; math_convert; try easy.
-      destruct_match eqn:min_tokens_check.
-      destruct_match eqn:token_pool_check; math_convert; try easy.
-      + now apply N.ltb_ge in enough_tokens_bought.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge in *.
-      now repeat split.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      unfold amount_to_N in *;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
@@ -1405,17 +1273,17 @@ Section Theories.
   Lemma token_to_xtz_state_eq : forall prev_state new_state chain ctx new_acts param,
     let xtz_bought := (param.(tokensSold) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) + param.(tokensSold) |>
                 <| xtzPool := prev_state.(xtzPool) - xtz_bought |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
   Lemma token_to_xtz_correct : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
       new_state.(tokenPool) = prev_state.(tokenPool) + param.(tokensSold) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - ((param.(tokensSold) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold) * 997))).
@@ -1432,7 +1300,7 @@ Section Theories.
   Lemma token_to_xtz_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let xtz_bought := (param.(tokensSold) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -1442,7 +1310,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     math_convert.
     unfold xtz_transfer in *. 
     destruct_match in *; try congruence.
@@ -1464,37 +1332,20 @@ Section Theories.
     address_is_contract param.(xtz_to) = false /\
     xtz_bought <= prev_state.(xtzPool)
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & ctx_amount_zero &
-              enough_xtz_bought & not_zero & to_not_contract &
-              xtz_bought_le_total).
-      unfold receive.
-      cbn.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:div_check; math_convert; try easy.
-      destruct_match eqn:min_xtz_check.
-      destruct_match eqn:xtz_pool_check; math_convert; try easy.
-      destruct_match eqn:transfer_act.
-      + eauto.
-      + unfold xtz_transfer in transfer_act.
-        now rewrite to_not_contract in transfer_act.
-      + now apply N.ltb_ge in enough_xtz_bought.
-      + now apply Z.ltb_ge in ctx_amount_zero.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,N.ltb_ge,Z.ltb_ge in *.
-      unfold xtz_transfer in *.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      try easy;
+      try now destruct_address_eq.
+    all :
+      unfold xtz_transfer in *;
       destruct_match in *;
-        try congruence.
-      now repeat split.
+      now destruct_address_eq.
   Qed.
 
 
@@ -1504,17 +1355,17 @@ Section Theories.
   Lemma token_to_token_state_eq : forall prev_state new_state chain ctx new_acts param,
     let xtz_bought := (param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) + param.(tokensSold_) |>
                 <| xtzPool := prev_state.(xtzPool) - xtz_bought |> = new_state.
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
   Lemma token_to_token_correct : forall prev_state new_state chain ctx new_acts param,
-    receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
       new_state.(tokenPool) = prev_state.(tokenPool) + param.(tokensSold_) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - ((param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold_) * 997))).
@@ -1531,7 +1382,7 @@ Section Theories.
   Lemma token_to_token_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let xtz_bought := (param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) in
-    receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -1545,7 +1396,7 @@ Section Theories.
       ].
   Proof.
     intros * receive_some.
-    receive_simpl.
+    contract_simpl.
     now math_convert.
   Qed.
 
@@ -1560,34 +1411,23 @@ Section Theories.
     xtz_bought <= prev_state.(xtzPool) /\
     (prev_state.(tokenPool) <> 0 \/ param.(tokensSold_) <> 0)
     <->
-    exists new_state new_acts, receive chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts).
   Proof.
-    split.
-    - intros (not_updating & deadline_not_hit & ctx_amount_zero &
-              xtz_bought_le_total & not_zero).
-      unfold receive.
-      cbn.
-      destruct_match eqn:updating_check.
-      destruct_match eqn:amount_check.
-      destruct_match eqn:deadline_check.
-      destruct_match eqn:div_check; math_convert; try easy.
-      destruct_match eqn:xtz_pool_check; math_convert; try easy.
-      + apply leb_correct_conv in deadline_not_hit.
-        now rewrite deadline_not_hit in deadline_check.
-      + now apply Z.ltb_ge in ctx_amount_zero.
-      + now rewrite not_updating in updating_check.
-    - intros (new_state & new_acts & receive_some).
-      receive_simpl.
-      math_convert.
-      rewrite leb_iff_conv,Z.ltb_ge in *.
-      now repeat split.
+    split;
+      intros;
+      destruct_hyps;
+      contract_simpl;
+      autorewrite with BoolElim in *;
+      math_convert;
+      try easy;
+      now destruct_address_eq.
   Qed.
 
 
 
   (** ** Init correct *)
   Lemma init_state_eq : forall chain ctx setup state,
-    init chain ctx setup = Some state ->
+    init_cpmm chain ctx setup = Some state ->
       state = {|
         tokenPool := 0;
         xtzPool := 0;
@@ -1601,11 +1441,11 @@ Section Theories.
       |}.
   Proof.
     intros * init_some.
-    now inversion init_some.
+    now contract_simpl.
   Qed.
 
   Lemma init_correct : forall chain ctx setup state,
-    init chain ctx setup = Some state ->
+    init_cpmm chain ctx setup = Some state ->
       tokenPool state = 0 /\
       xtzPool state = 0 /\
       lqtTotal state = setup.(lqtTotal_) /\
@@ -1623,24 +1463,19 @@ Section Theories.
 
   (** Initialization should always succeed *)
   Lemma init_is_some : forall chain ctx setup,
-    exists state, init chain ctx setup = state.
+    exists state, init_cpmm chain ctx setup = state.
   Proof.
-    intros.
     eauto.
   Qed.
 
 
 
   (* begin hide *)
-  Ltac split_hypotheses :=
-    match goal with
-    | [ H : _ /\ _ |- _ ] => destruct H as []
-    end.
-
   Ltac rewrite_acts_correct :=
     match goal with
-    | [ H : receive _ _ _ _ = Some _ |- _ ] =>
-      first [apply set_baker_new_acts_correct in H as new_acts_eq
+    | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
+      first [apply set_baker_new_acts_correct in H as new_acts_eq;
+              rewrite set_delegate_call_nil in new_acts_eq
             |apply set_manager_new_acts_correct in H as new_acts_eq
             |apply set_lqt_address_new_acts_correct in H as new_acts_eq
             |apply default_new_acts_correct in H as new_acts_eq
@@ -1650,13 +1485,13 @@ Section Theories.
             |apply remove_liquidity_new_acts_correct in H as new_acts_eq
             |apply xtz_to_token_new_acts_correct in H as new_acts_eq
             |apply token_to_xtz_new_acts_correct in H as new_acts_eq
-            |apply token_to_token_new_acts_correct in H as new_acts_eq ];
+            |apply token_to_token_new_acts_correct in H as new_acts_eq];
       subst
     end.
 
   Ltac rewrite_state_eq :=
     match goal with
-    | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
       first [apply set_baker_state_eq in H as new_acts_eq
             |apply set_manager_state_eq in H as new_acts_eq
             |apply set_lqt_address_state_eq in H as new_acts_eq
@@ -1673,7 +1508,7 @@ Section Theories.
 
   Ltac rewrite_receive_is_some :=
     match goal with
-    | [ H : receive _ _ _ _ = Some _ |- _ ] =>
+    | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
       first [specialize set_baker_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize set_manager_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize set_lqt_address_is_some as (_ & []); [now (do 2 eexists; apply H) |]
@@ -1685,7 +1520,7 @@ Section Theories.
             |specialize xtz_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize token_to_xtz_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize token_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |] ];
-      repeat split_hypotheses; subst
+      destruct_hyps; subst
     end.
   (* end hide *)
 
@@ -1710,16 +1545,14 @@ Section Theories.
   Proof.
     contract_induction; intros; cbn in *; auto.
     - now apply list.Forall_cons in IH as [_ IH].
-    - destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+    - destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         try (apply Forall_app; split);
         try apply IH; auto;
         rewrite ?list.Forall_cons, ?list.Forall_nil;
         try easy.
-    - destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+    - destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         try (apply Forall_app; split);
@@ -1751,14 +1584,10 @@ Section Theories.
     apply (lift_outgoing_acts_prop contract); auto.
     intros * receive_some.
     cbn in receive_some.
-      destruct msg.
-      + destruct m; try destruct d;
-          try (now receive_simpl);
-          rewrite_acts_correct;
-          rewrite ?list.Forall_cons, list.Forall_nil;
-          intuition.
-          now right.
-      + now receive_simpl.
+    destruct_message;
+      rewrite_acts_correct;
+      rewrite ?list.Forall_cons, list.Forall_nil;
+      easy.
   Qed.
 
   Lemma no_contract_deployment bstate caddr :
@@ -1774,10 +1603,8 @@ Section Theories.
     apply (lift_outgoing_acts_prop contract); auto.
     intros * receive_some.
     cbn in receive_some.
-    destruct msg; try destruct m; try destruct d;
-      try (now receive_simpl);
+    destruct_message;
       rewrite_acts_correct; auto.
-    now cbv.
   Qed.
 
 
@@ -1803,11 +1630,10 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z).
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1821,11 +1647,10 @@ Section Theories.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst;
-      try destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1903,11 +1728,10 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z).
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1921,11 +1745,10 @@ Section Theories.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst;
-      try destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
-        try rewrite_acts_correct;
-        try rewrite_state_eq;
-        try rewrite_receive_is_some;
+      destruct_message;
+        rewrite_acts_correct;
+        rewrite_state_eq;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1963,10 +1786,9 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z /\
         Z.of_N (xtzPool state) <= ctx_contract_balance ctx- sumZ (fun act => act_body_amount act) out_acts).
       destruct facts.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
         rewrite_acts_correct;
-        try rewrite_receive_is_some;
+        rewrite_receive_is_some;
         unfold N_to_amount in *;
         try match goal with
         | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -1979,13 +1801,12 @@ Section Theories.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst.
-      + receive_simpl.
+      + contract_simpl.
         cbn in *.
         lia.
-      + try destruct msg; try destruct m; try destruct d;
-          try (now receive_simpl);
+      + destruct_message;
           rewrite_acts_correct;
-          try rewrite_receive_is_some;
+          rewrite_receive_is_some;
           unfold N_to_amount in *;
           try match goal with
           | H : (?x <= ?y)%Z, G : (?y <= ?x)%Z |- _ => apply Z.le_antisymm in H; auto; rewrite H in *
@@ -2140,8 +1961,7 @@ Section Theories.
         eexists.
         split; eauto.
         intros lqtAddr.
-        destruct msg'; try destruct m; try destruct d;
-          try (now receive_simpl);
+        destruct_message;
           rewrite_acts_correct;
           rewrite_state_eq;
           try (apply sum_eq in lqtAddr as lqtAddr'; clear sum_eq);
@@ -2197,7 +2017,7 @@ Section Theories.
       eapply Permutation_filter in perm.
       eapply Permutation.Permutation_map in perm.
       eapply forall_respects_permutation; eauto.
-Qed.
+  Qed.
 
   Lemma outgoing_acts_all_mint_same_dest : forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -2231,8 +2051,7 @@ Qed.
             end) out_acts).
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         apply Forall_app;
@@ -2260,8 +2079,7 @@ Qed.
     - apply list.Forall_cons in IH as [].
       unfold CallFacts in facts.
       cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         apply Forall_app;
@@ -2415,10 +2233,7 @@ Qed.
               subst.
               clear deployed0 deployed_state deployed_state'.
               assert (lqt_addr_preserved : lqtAddress state' = lqtAddress state \/ exists a, msg' = Some (FA2Token.other_msg (SetLqtAddress a))).
-              { destruct msg'; try destruct m; try destruct d;
-                  try (now receive_simpl);
-                  rewrite_state_eq.
-              }
+              { destruct_message; now rewrite_state_eq. }
               destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
           ---- (* Self call *)
                 rewrite address_eq_refl.
@@ -2575,10 +2390,7 @@ Qed.
               subst.
               clear deployed0 deployed_state deployed_state'.
               assert (lqt_addr_preserved : lqtAddress state' = lqtAddress state \/ exists a, msg' = Some (FA2Token.other_msg (SetLqtAddress a))).
-              { destruct msg'; try destruct m; try destruct d;
-                  try (now receive_simpl);
-                  rewrite_state_eq.
-              }
+              { destruct_message; now rewrite_state_eq. }
               destruct (address_eqb_spec caddr from_addr) as [<-|]; auto.
           ---- (* Self call *)
                 rewrite address_eq_refl.
@@ -2744,10 +2556,10 @@ Qed.
       + now destruct tx_act_match as [_ [_ ->]].
       + now destruct tx_act_match as [_ ->].
     - cbn in receive_some.
-      destruct msg; try destruct m; try destruct d;
-        try (now receive_simpl);
+      destruct_message;
+        try (now contract_simpl);
         rewrite_acts_correct;
-        rewrite_state_eq;
+        rewrite_state_eq; auto;
         rewrite_receive_is_some;
         cbn;
         try rewrite deserialize_serialize;
@@ -2762,12 +2574,12 @@ Qed.
         cbn in IH;
         destruct action_facts as (? & ? & ?);
         subst.
-      + now receive_simpl.
+      + now contract_simpl.
       + cbn in receive_some.
-        destruct msg; try destruct m; try destruct d;
-          try (now receive_simpl);
+        destruct_message;
+          try (now contract_simpl);
           rewrite_acts_correct;
-          rewrite_state_eq;
+          rewrite_state_eq; auto;
           rewrite_receive_is_some;
           cbn;
           try rewrite deserialize_serialize;
