@@ -1,6 +1,6 @@
 (** * Concordium's CIS1 *)
 
-(** See the original CIS1 standard: http://proposals.concordium.software/CIS/cis-1.html *)
+(** See the original CIS1 standard: https://proposals.concordium.software/CIS/cis-1.html *)
 
 (**
  The formalisation defines module types that specify what functionality should be

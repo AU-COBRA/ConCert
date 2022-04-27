@@ -87,7 +87,7 @@ series = {CPP 2021}
 @article{ConCert,
    title={ConCert: a smart contract certification framework in Coq},
    ISBN={9781450370974},
-   url={http://dx.doi.org/10.1145/3372885.3373829},
+   url={https://dx.doi.org/10.1145/3372885.3373829},
    DOI={10.1145/3372885.3373829},
    journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
    publisher={ACM},
