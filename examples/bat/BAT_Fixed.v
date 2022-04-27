@@ -24,7 +24,6 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.EIP20 Require EIP20Token.
-Import RecordSetNotations.
 Import ListNotations.
 
 

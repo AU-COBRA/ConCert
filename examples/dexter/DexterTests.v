@@ -1,24 +1,18 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2Interface.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterGens.
 From ConCert.Utils Require Import Extras.
-From ConCert.Utils Require Import RecordUpdate.
-
-From QuickChick Require Import QuickChick.
 From Coq Require Import ZArith.
 From Coq Require Import List.
-
-Import QcNotation.
 Import ListNotations.
-Import RecordSetNotations.
+
 
 (* the policy which allows both owners and operators to transfer tokens. *)
 Definition policy_all : permissions_descriptor := {|
@@ -42,7 +36,7 @@ Definition token_setup : FA2Token.Setup := {|
 |}.
 
 Definition deploy_fa2token : @ActionBody LocalChainBase := create_deployment 0 FA2Token.contract token_setup.
-Definition fa2_caddr : Address := BoundedN.of_Z_const AddrSize 128%Z.
+Definition fa2_caddr : Address := addr_of_Z 128%Z.
 
 Definition dexter_setup : Dexter.Setup := {|
   fa2_caddr_ := fa2_caddr;
@@ -50,7 +44,7 @@ Definition dexter_setup : Dexter.Setup := {|
 
 (* The Dexter contract gets 30 chain assets initially *)
 Definition deploy_dexter : @ActionBody LocalChainBase := create_deployment 30 Dexter.contract dexter_setup.
-Definition dexter_caddr : Address := BoundedN.of_Z_const AddrSize 129%Z.
+Definition dexter_caddr : Address := addr_of_Z 129%Z.
 
 Section ExplotContract.
 Definition ExploitContractMsg := fa2_token_sender.
@@ -79,7 +73,7 @@ Definition exploit_receive (chain : Chain)
                                     tokens_sold := 200%N;
                                     callback_addr := caddr;
                                   |}) in
-                                  Some (state + 1, [act_call dexter_caddr 0%Z (serialize _ _ token_exchange_msg)])
+                                  Some (state + 1, [act_call dexter_caddr 0%Z (serialize token_exchange_msg)])
   | _ => Some (state, [])
   end.
 
@@ -89,7 +83,7 @@ build_contract exploit_init exploit_receive.
 End ExplotContract.
 
 Definition deploy_exploit : @ActionBody LocalChainBase := create_deployment 0 exploit_contract tt.
-Definition exploit_caddr : Address := BoundedN.of_Z_const AddrSize 130%Z.
+Definition exploit_caddr : Address := addr_of_Z 130%Z.
 
 Definition dexter_other_msg := @other_msg _ DexterMsg.
 
@@ -111,9 +105,9 @@ Definition chain1 : ChainBuilder :=
     build_act creator creator deploy_fa2token ;
     build_act creator creator deploy_dexter ;
     build_act creator creator deploy_exploit ;
-    build_act person_1 person_1 (act_call fa2_caddr 10%Z (serialize _ _ (msg_create_tokens 0%N))) ;
-    build_act creator creator (act_call dexter_caddr 10%Z (serialize _ _ (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
-    build_act person_1 person_1 (act_call fa2_caddr 0%Z  (serialize _ _ (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
+    build_act person_1 person_1 (act_call fa2_caddr 10%Z (serialize (msg_create_tokens 0%N))) ;
+    build_act creator creator (act_call dexter_caddr 10%Z (serialize (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
+    build_act person_1 person_1 (act_call fa2_caddr 0%Z  (serialize (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
                                                                                       add_operator (add_operator_all person_1 dexter_caddr)])))
   ]).
 
@@ -125,10 +119,7 @@ Module TestInfo <: DexterTestsInfo.
   Definition fa2_contract_addr := fa2_caddr.
   Definition dexter_contract_addr := dexter_caddr.
   Definition exploit_contract_addr := exploit_caddr.
-  Definition gAccountAddress := elems_ person_1 test_chain_addrs.
-  Definition gAccountAddrWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in
-    elems_opt addrs.
+  Definition accounts := test_chain_addrs_5.
 End TestInfo.
 Module MG := DexterGens.DexterGens TestInfo. Import MG.
 
@@ -141,8 +132,7 @@ Definition call_dexter owner_addr :=
   build_act owner_addr owner_addr (act_call exploit_caddr 0%Z (@serialize _ _ (tokens_sent dummy_descriptor))).
 
 Definition gExploitAction : GOpt Action :=
-  bindGen (elems [person_1; person_2; person_3])
-          (fun addr => returnGenSome (call_dexter addr)).
+  bindGen gTestAddrs3 (fun addr => returnGenSome (call_dexter addr)).
 
 Definition gExploitChainTraceList max_acts_per_block cb length :=
   TraceGens.gChain cb (fun cb _ => gExploitAction) length 1 max_acts_per_block.

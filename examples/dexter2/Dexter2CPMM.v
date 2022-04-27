@@ -105,7 +105,7 @@ Inductive DexterMsg :=
 | UpdateTokenPool : DexterMsg
 | TokenToToken : token_to_token_param -> DexterMsg.
 
-Definition Msg := @FA2Token.FA2ReceiverMsg BaseTypes DexterMsg.
+Definition Msg := @FA2Token.FA2ReceiverMsg _ DexterMsg.
 
 
 (** ** Storage types *)
@@ -497,7 +497,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       |}.
 
     Definition contract : Contract Setup Msg State :=
-    build_contract init_cpmm receive_cpmm.
+      build_contract init_cpmm receive_cpmm.
 
   End DexterDefs.
 End Dexter2.
@@ -2017,7 +2017,7 @@ Section Theories.
       eapply Permutation_filter in perm.
       eapply Permutation.Permutation_map in perm.
       eapply forall_respects_permutation; eauto.
-Qed.
+  Qed.
 
   Lemma outgoing_acts_all_mint_same_dest : forall bstate caddr (trace : ChainTrace empty_state bstate),
     env_contracts bstate caddr = Some (contract : WeakContract) ->

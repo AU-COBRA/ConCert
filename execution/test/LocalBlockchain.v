@@ -19,13 +19,13 @@ From Coq Require Import Permutation.
 From Coq Require Import List.
 From Coq Require Import Psatz.
 
-Import RecordSetNotations.
 Import ListNotations.
 
 Section LocalBlockchain.
 Local Open Scope bool.
 
 Context {AddrSize : N}.
+Context {DepthFirst : bool}.
 
 Definition ContractAddrBase : N := AddrSize / 2.
 
@@ -494,39 +494,30 @@ Proof.
   unfold add_block_exec in lcopt.
   destruct lcopt as [lc|e] eqn:exec; [|exact (Err e)].
   subst lcopt.
-  cbn -[execute_actions] in exec.
-  destruct (validate_header _) eqn:validate; [|cbn in *; congruence].
-  destruct (find_origin_neq_from _) eqn:no_origin_neq_from;[cbn in *; congruence|].
-  destruct (find_invalid_root_action _) eqn:no_invalid_root_act; [cbn in *; congruence|].
+  destruct (validate_header _) eqn:validate; [|cbn in exec; congruence].
+  destruct (find_origin_neq_from _) eqn:no_origin_neq_from;[cbn in exec; congruence|].
+  destruct (find_invalid_root_action _) eqn:no_invalid_root_act; [cbn in exec; congruence|].
   destruct lcb as [prev_lc_end prev_lcb_trace].
   refine (Ok {| lcb_lc := lc; lcb_trace := _ |}).
   cbn -[execute_actions] in exec.
 
   refine (execute_actions_trace _ _ _ _ _ _ exec).
   refine (snoc prev_lcb_trace _).
-  eapply step_block; eauto.
+  apply (step_block _ _ header); auto.
   apply add_new_block_equiv.
   reflexivity.
 Defined.
 
-Definition LocalChainBuilderDepthFirst : ChainBuilderType :=
+Definition LocalChainBuilderImpl : ChainBuilderType :=
   {| builder_type := LocalChainBuilder;
      builder_initial := lcb_initial;
      builder_env lcb := lcb_lc lcb;
-     builder_add_block := add_block true;
-     builder_trace := lcb_trace; |}.
-
-Definition LocalChainBuilderBreadthFirst : ChainBuilderType :=
-  {| builder_type := LocalChainBuilder;
-     builder_initial := lcb_initial;
-     builder_env lcb := lcb_lc lcb;
-     builder_add_block := add_block false;
+     builder_add_block := add_block DepthFirst;
      builder_trace := lcb_trace; |}.
 
 End LocalBlockchain.
 
 Arguments LocalChainBase : clear implicits.
 Arguments LocalChainBuilder : clear implicits.
-Arguments LocalChainBuilderDepthFirst : clear implicits.
-Arguments LocalChainBuilderBreadthFirst : clear implicits.
+Arguments LocalChainBuilderImpl : clear implicits.
 Arguments lcb_initial : clear implicits.

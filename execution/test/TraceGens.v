@@ -16,9 +16,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ChainedList.
-
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.Test Require Import TestUtils.
 
 Import MonadNotation. Open Scope monad_scope.
 
@@ -30,7 +28,6 @@ Import BoundedN.Stdpp.
 Import ListNotations.
 
 Section TraceGens.
-  Context  {ChainBuilder : ChainBuilderType}.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
 
@@ -129,7 +126,7 @@ Section TraceGens.
         rebuild_chains shrunk_blocks builder_initial
   }.
 
-  (* Adds a block with 50 money as reward. This will be used for all testing. *)
+  (* Adds a block with miner reward of 50. This is used for all testing *)
   Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
         {| block_height := S (chain_height chain);
@@ -314,12 +311,12 @@ Section TraceGens.
 
   (* Asserts that a ChainState property holds on all step_block ChainStates in a ChainTrace *)
   Definition forAllBlocks {prop : Type}
-                             `{Checkable prop}
-                              (maxLength : nat)
-                              (init_lc : ChainBuilder)
-                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                              (pf : ChainState -> prop)
-                              : Checker :=
+                          `{Checkable prop}
+                          (maxLength : nat)
+                          (init_lc : ChainBuilder)
+                          (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                          (pf : ChainState -> prop)
+                          : Checker :=
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => ChainTrace_ChainTraceProp cb.(builder_trace) pf).
 
@@ -413,16 +410,14 @@ Section TraceGens.
 
   Open Scope string_scope.
   (* if pre tests true, then post tests true, for all tested execution traces *)
-  Definition pre_post_assertion {Setup Msg State prop : Type}
+  Definition pre_post_assertion {Msg State prop : Type}
                                `{Checkable prop}
                                `{Serializable Msg}
                                `{Serializable State}
-                               `{Serializable Setup}
                                `{Show Msg}
                                 (maxLength : nat)
                                 (init_chain : ChainBuilder)
                                 (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                                (c : Contract Setup Msg State)
                                 (caddr : Address)
                                 (pre : State -> Msg -> bool)
                                 (post : Environment -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=

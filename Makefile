@@ -73,7 +73,7 @@ html: all
 		--toc \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
-		-R execution/test ConCert.Execution.QCTest \
+		-R execution/test ConCert.Execution.Test \
 		-R embedding/theories ConCert.Embedding \
 		-R embedding/extraction ConCert.Embedding.Extraction \
 		-R embedding/examples ConCert.Embedding.Examples \

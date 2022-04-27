@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Section FA2Interface.
 Context {BaseTypes : ChainBase}.
@@ -70,7 +70,7 @@ Record token_metadata_param := {
 
 Inductive operator_tokens  :=
   | all_tokens : operator_tokens
-  | some_tokens : list token_id -> operator_tokens (* a set could be used here instead of list?*) .
+  | some_tokens : list token_id -> operator_tokens. (* a set could be used here instead of list?*)
 
 Record operator_param := {
   op_param_owner : Address;

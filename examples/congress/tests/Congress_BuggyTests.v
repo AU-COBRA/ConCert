@@ -1,41 +1,22 @@
-Global Set Warnings "-extraction-logical-axiom".
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor.
-From ExtLib.Structures Require Import Applicative.
-
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import LocalBlockchain.
-From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monads.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 From ConCert.Examples.Congress Require Import Congress_BuggyGens.
 From ConCert.Examples.Congress Require Import Congress_BuggyPrinters.
 From ConCert.Utils Require Import Extras.
-From ConCert.Utils Require Import RecordUpdate.
-Close Scope monad_scope.
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
-From Coq Require Import Int.
-From Coq Require Import BinInt.
-From Coq Require Import FunInd.
-
-Import BoundedN.Stdpp.
-Import LocalBlockchain.
 Import ListNotations.
 
-Close Scope address_scope.
 
 (* -------------------------- Tests of the Buggy Congress Implementation -------------------------- *)
 
-Definition creator := BoundedN.of_Z_const AddrSize 10.
+Definition creator := addr_of_Z 10.
 
 Definition rules := {|
   min_vote_count_permille := 200;
@@ -60,7 +41,7 @@ Definition exploit_example : option (Address * ChainBuilder) :=
   let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
   let dep_exploit := create_deployment 0 exploit_contract tt in
   do chain <- add_block chain [dep_congress; dep_exploit];
-  let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
+  let contracts := map fst (FMap.elements (get_contracts chain)) in
   let exploit := nth 0 contracts creator in
   let congress := nth 1 contracts creator in
   (* Add creator to congress *)
@@ -74,9 +55,16 @@ Definition exploit_example : option (Address * ChainBuilder) :=
 Definition unpacked_exploit_example : Address * ChainBuilder :=
   unpack_option exploit_example.
 
-Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
+Definition congress_caddr := addr_of_Z 128%Z.
 
-Definition gCongressChain max_acts_per_block congress_cb max_length := 
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := (fun env => GCongressAction env act_depth congress_caddr).
+  Definition init_cb := (snd unpacked_exploit_example).
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+(* Sample gChain. *)
+
+(* Definition gCongressChain max_acts_per_block congress_cb max_length := 
   let act_depth := 2 in 
   gChain congress_cb
     (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
@@ -86,7 +74,7 @@ Definition forAllCongressChainTraces n :=
 
 Definition pre_post_assertion_congress P c Q :=
   pre_post_assertion 2 (snd unpacked_exploit_example) (gCongressChain 1) Congress_Buggy.contract c P Q.
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50). *)
 
 Local Close Scope Z_scope.
 
@@ -115,11 +103,11 @@ Definition receive_state_well_behaved_P (chain : Chain)
   | _ => checker false
   end.
 
-(* QuickChick ( *)
-(*   {{fun _ _ => true}} *)
-(*   congress_caddr *)
-(*   {{receive_state_well_behaved_P}} *)
-(* ). *)
+(* QuickChick (
+  {{fun _ _ => true}}
+  congress_caddr
+  {{receive_state_well_behaved_P}}
+). *)
 
 (* 
 Chain{| 

@@ -8,7 +8,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.
@@ -33,7 +33,7 @@ Instance Base : ChainBase := LocalBlockchain.LocalChainBase AddrSize.
 
 Module Params <: BoardroomParams.
   Definition H : list positive -> positive := hash_func.
-  Definition Base := Base .
+  Definition Base := Base.
   Definition prime := modulus.
   Definition generator := generator.
 End Params.  

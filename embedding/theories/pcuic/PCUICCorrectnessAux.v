@@ -592,7 +592,7 @@ Lemma pat_to_lam_app_par l params args t v Σ  :
   forallb (closedn 0) args ->
   #|l| = #|args| ->
   Σ |- subst (List.rev args) 0 t ⇓ v ->
-  Σ |- mkApps (lpat_to_lam t params l) args ⇓ v .
+  Σ |- mkApps (lpat_to_lam t params l) args ⇓ v.
 Proof.
   - revert dependent args. revert t v params.
     induction l; intros t0 v params args Hval Hc Heq He.

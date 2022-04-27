@@ -1627,7 +1627,7 @@ Lemma eval_is_expanded_aux {wfl:WcbvFlags} Σ t v k :
   trans_env Σ e⊢ t ▷ v ->
   is_expanded_env Σ ->
   is_expanded_aux k t ->
-  is_expanded_aux k v .
+  is_expanded_aux k v.
 Proof.
   intros ev exp_env exp_t.
   induction ev in t, v, k, ev, exp_t |- *; auto; cbn in *; propify.

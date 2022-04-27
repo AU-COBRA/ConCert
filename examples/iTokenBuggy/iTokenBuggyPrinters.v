@@ -1,9 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import SerializablePrinters.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
-From QuickChick Require Import QuickChick.
 
 Local Open Scope string_scope.
 Instance showMsg : Show Msg :=

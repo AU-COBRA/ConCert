@@ -1,5 +1,4 @@
 From Coq Require Import List.
-From Coq Require Import Program.Basics.
 From Coq Require Import ZArith.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
@@ -11,9 +10,6 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Interface.
 
 Import ListNotations.
-Import RecordSetNotations.
-
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 
 
@@ -151,7 +147,7 @@ Definition policy_disallows_self_transfer (policy : permissions_descriptor) : bo
   match policy.(descr_self) with
   | self_transfer_permitted => false
   | self_transfer_denied => true
-  end .
+  end.
 
 Definition get_owner_operator_tokens (owner operator : Address)
                                      (state : State)
@@ -328,7 +324,7 @@ Definition get_balance_of_callback (param : balance_of_param)
     Build_balance_of_response bal_req owner_bal in
   let responses := map bal_req_iterator param.(bal_requests) in
   let response_msg := serialize (receive_balance_of_param responses) in
-  act_call param.(bal_callback) 0%Z response_msg .
+  act_call param.(bal_callback) 0%Z response_msg.
 
 (* create a 'total_supply' action to send to the callback address *)
 Definition get_total_supply_callback (param : total_supply_param)

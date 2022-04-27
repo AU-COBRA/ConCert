@@ -14,11 +14,12 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require LocalBlockchain.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Section CongressBuggy.
 Context {BaseTypes : ChainBase}.
@@ -294,14 +295,12 @@ End ExploitContract.
 
 (* With this defined we can give the counterexample with relative ease. We use a
 concrete implementation of a blockchain for this. *)
-Require LocalBlockchain.
-
 Section Theories.
   Import LocalBlockchain.
 
   Let AddrSize := (2^128)%N.
   Instance Base : ChainBase := LocalChainBase AddrSize.
-  Instance Builder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+  Instance Builder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
   Open Scope nat.
   Definition exploit_example : option (Address * Builder) :=

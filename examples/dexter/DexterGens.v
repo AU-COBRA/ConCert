@@ -1,24 +1,20 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterPrinters.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
-From Coq Require Import ZArith List. Import ListNotations.
-(* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
+From Coq Require Import ZArith.
+From Coq Require Import List.
+Import ListNotations.
+Import MonadNotation.
 
 Module Type DexterTestsInfo.
   Parameter fa2_contract_addr : Address.
   Parameter dexter_contract_addr : Address.
   Parameter exploit_contract_addr : Address.
-  Parameter gAccountAddress : G Address.
-  Parameter gAccountAddrWithout : list Address -> GOpt Address.
+  Parameter accounts : list Address.
 End DexterTestsInfo.
 
 Module DexterGens (Info : DexterTestsInfo).
@@ -64,7 +60,7 @@ Definition gAddTokensToReserve (env : Environment)
                                (state : FA2Token.State)
                                : GOpt (Address * Amount * Dexter.Msg) :=
   tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
-  caller <- liftOptGen gAccountAddress ;;
+  caller <- liftOptGen (gAddress accounts) ;;
   amount <- liftOptGen (choose (0%Z, env.(env_account_balances) caller)) ;;
   returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
@@ -81,7 +77,7 @@ Definition gDexterAction (env : Environment) : GOpt Action :=
    (1, '(caller, amount, msg) <- gAddTokensToReserve env fa2_state ;;
         mk_call caller amount msg
     ) ;
-    (2, caller <- gAccountAddrWithout [fa2_contract_addr; dexter_contract_addr] ;;
+    (2, caller <- bindGen (gAddrWithout [fa2_contract_addr; dexter_contract_addr] accounts) (fun x => returnGenSome x) ;;
         '(_, msg) <- gTokenExchange fa2_state ;;
         mk_call caller 0%Z msg
     )
@@ -101,12 +97,3 @@ Definition token_reachableFrom_implies_reachable
   reachableFrom_implies_chaintracePropSized length cb (gDexterChain max_acts_per_block) pf1 pf2.
 
 End DexterGens.
-
-Module DummyTestInfo <: DexterTestsInfo.
-  Definition fa2_contract_addr := zero_address.
-  Definition dexter_contract_addr := zero_address.
-  Definition exploit_contract_addr := zero_address.
-  Definition gAccountAddress := returnGen zero_address.
-  Definition gAccountAddrWithout (w : list Address) := returnGenSome zero_address.
-End DummyTestInfo.
-Module MG := DexterGens DummyTestInfo. Import MG.
