@@ -31,13 +31,10 @@ Compiling Rust code with the Concordium infrastructure:
 * use `cargo concordium test` to build and run tests (if tests are available);
 * read the details here: http://developer.concordium.software/en/mainnet/smart-contracts/guides/setup-tools.html#setup-tools
 
-## Extraction results
 
-As part of the CI, the extraction results from the `examples/extracted-code/*-extract/` directories are compiled (and tested, for the targets with tests).
-Moreover, the extracted source code is pushed to another repository https://github.com/AU-COBRA/extraction-resutls, so one can always browse through the code produced by the last successful build.
+## Contents
 
 Some highlights from `theories`:
-
 
 * `theories/ExAst.v` -- An extension of the MetaCoq's certified erasure EAst data-structures with additional information about erased types.
 * `theories/Erasure.v` -- An extension of the MetaCoq's certified erasure with erasure for types and erasing only required dependencies. Also implements erasure for global environments with extra typing information for global definitions.

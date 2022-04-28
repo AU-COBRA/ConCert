@@ -211,27 +211,6 @@ The third property is a hoare-triple on the `receive` function of the token cont
 
 In [EIP20Tests/EIP20TokenBuggyTests.v](tests/EIP20Tests/EIP20TokenBuggyTests.v) we test an implementation which has a bug in the `transfer_from` method, similar to the one discovered in the [iToken](https://bzx.network/blog/incident) contract. The bug allows an attacker to create (mint) arbitrary tokens for themselves by performing self-transfers. When testing this implementation against the first property above, QuickChick reports a counterexample - an execution trace leading to a violation of the property. 
 
-
-The testing framework was developed as part of a Master's Thesis  at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
-
-## Building/Developing
-This project uses the std++ and bignums library. These must be installed first
-and can be installed via Opam in the following way:
-```bash
-opam repo add coq-released https://coq.inria.fr/opam/released
-opam install coq-bignums
-
-opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-opam install coq-stdpp
-```
-
-For more instructions, see [the stdpp readme](https://gitlab.mpi-sws.org/iris/stdpp).
-
-After the dependencies are installed this project should build with
-```bash
-make
-```
-
 ## References
 [1] McCorry, Patrick, Siamak F. Shahandashti, and Feng Hao. "A smart contract for
 boardroom voting with maximum voter privacy." International Conference on
