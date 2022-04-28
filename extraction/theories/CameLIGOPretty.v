@@ -1021,7 +1021,7 @@ Section PPLigo.
 
     "    Init init_args -> (";
     "  match st with ";
-    "      Some st -> (failwith ("Cannot call Init twice"): return)";
+    "      Some st -> (failwith (""Cannot call Init twice""): return)";
     "    | None -> (([]: operation list), Some (init init_args)))";
     "  | Call p -> (" ;
     "    match st with" ;
