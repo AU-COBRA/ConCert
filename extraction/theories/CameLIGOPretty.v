@@ -1030,8 +1030,11 @@ Section PPLigo.
     "| Call of " ++ parameter_name ++ " option" ;
     "";
     "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ;
-    "  match param with  " ;
-    "    Init init_args -> (([]: operation list), Some (init init_args))" ;
+    "  match param with " ;
+    "    Init init_args -> (";
+    "  match st with ";
+    "      Some st -> (failwith (""Cannot call Init twice""): return)";
+    "    | None -> (([]: operation list), Some (init init_args)))";
     "  | Call p -> (" ;
     "    match st with" ;
     "      Some st -> (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
