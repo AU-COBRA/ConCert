@@ -4,10 +4,13 @@ From MetaCoq.Template Require Import LiftSubst.
 From MetaCoq.Template Require Import AstUtils.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
+From MetaCoq.Template Require Import Typing.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.Erasure Require EAst.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
+
 Import PCUICErrors.
+Import MCMonadNotation.
 
 (** Extracts a constant name, inductive name or returns None *)
 Definition to_kername (t : Ast.term) : option kername :=
@@ -45,19 +48,21 @@ Notation "<! t !>" :=
 
 Definition result_of_typing_result
            {A}
-           (Σ : PCUICAst.global_env_ext)
+           (Σ : PCUICAst.PCUICEnvironment.global_env_ext)
            (tr : typing_result A) : result A string :=
   match tr with
   | Checked a => ret a
   | TypeError err => Err (string_of_type_error Σ err)
   end.
 
+Open Scope bs.
+
 Definition string_of_env_error Σ e :=
   match e with
   | IllFormedDecl s e =>
     "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
   | AlreadyDeclared s => "Alreadydeclared " ++ s
-  end%string.
+  end.
 
 Definition result_of_EnvCheck {A} (ec : EnvCheck A) : result A string :=
   match ec with
@@ -131,15 +136,6 @@ Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad program :
   | _ => tmFail ("Not found: " ++ kn.2)
   end.
 
-Fixpoint update_global_env (Σ : global_env) (Σup : global_env) : global_env :=
-  match Σ with
-  | (kn, gd) :: Σ' => match lookup_env Σup kn with
-                    | Some v => (kn,v) :: update_global_env Σ' Σup
-                    | None => (kn, gd) :: update_global_env Σ' Σup
-                    end
-  | [] => []
-  end.
-
 Definition map_subterms (f : term -> term) (t : term) : term :=
   match t with
   | tEvar n ts => tEvar n (map f ts)
@@ -148,8 +144,8 @@ Definition map_subterms (f : term -> term) (t : term) : term :=
   | tLambda na ty body => tLambda na (f ty) (f body)
   | tLetIn na val ty body => tLetIn na (f val) (f ty) (f body)
   | tApp hd arg => tApp (f hd) (map f arg)
-  | tCase p ty disc brs =>
-    tCase p (f ty) (f disc) (map (on_snd f) brs)
+  | tCase ci p disc brs =>
+    tCase ci (map_predicate id f f p) (f disc) (map (map_branch f) brs)
   | tProj p t => tProj p (f t)
   | tFix def i => tFix (map (map_def f f) def) i
   | tCoFix def i => tCoFix (map (map_def f f) def) i
@@ -166,14 +162,20 @@ Fixpoint beta_body (body : term) (args : list term) {struct args} : term :=
     end
   end.
 
-Definition iota_body (body : term) : term :=
+Definition iota_body (Σ : global_env) (body : term) : term :=
   match body with
-  | tCase (ind, pars, _) _ discr brs =>
+  | tCase ci p discr brs =>
     let (hd, args) := decompose_app discr in
     match hd with
     | tConstruct _ c _ =>
       match nth_error brs c with
-      | Some (_, br) => beta_body br (skipn pars args)
+      | Some br =>
+          match TermEquality.lookup_constructor Σ ci.(ci_ind) c with
+          | Some (mib, _, cb) =>
+              let bctx := case_branch_context ci.(ci_ind) mib cb p br in
+              iota_red ci.(ci_npar) args bctx br
+          | None => body
+          end
       | None => body
       end
     | _ => body

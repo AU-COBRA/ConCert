@@ -8,7 +8,7 @@ From ConCert.Extraction Require Import Certifying.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Section betared.
   Context (Σ : global_env).
@@ -37,7 +37,8 @@ Section betared.
   Definition betared_in_constant_body cst :=
     {| cst_type := cst_type cst;
        cst_universes := cst_universes cst;
-       cst_body := option_map betared (cst_body cst) |}.
+       cst_body := option_map betared (cst_body cst);
+       cst_relevance := cst.(cst_relevance) |}.
 
   Definition betared_in_decl d :=
     match d with
@@ -48,7 +49,8 @@ Section betared.
 End betared.
 
 Definition betared_in_env (Σ : global_env) : global_env :=
-  fold_right (fun '(kn, decl) Σ => (kn, betared_in_decl decl) :: Σ) [] Σ.
+  map_global_env_decls
+  (fold_right (fun '(kn, decl) decls => (kn, betared_in_decl decl) :: decls) []) Σ.
 
 Definition betared_global_env_template
            (mpath : modpath)

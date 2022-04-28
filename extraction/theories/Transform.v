@@ -1,10 +1,14 @@
+From MetaCoq.Template Require Import utils.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import WcbvEvalAux.
 
+Import MCString.
+Import MCMonadNotation.
+
 Definition Transform (A : Type) := A -> result A string.
 
-Definition TemplateTransform := Transform Ast.global_env.
+Definition TemplateTransform := Transform Ast.Env.global_env.
 
 Definition ExtractTransform := Transform ExAst.global_env.
 

@@ -1,5 +1,10 @@
+From Coq Require Import List.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Erasure Require Export EAst.
 From MetaCoq.Erasure Require EPretty.
+
+Import ListNotations.
 
 Inductive box_type :=
 | TBox
@@ -66,7 +71,7 @@ Record type_var_info :=
 Record one_inductive_body :=
   { ind_name : ident;
     ind_propositional : bool;
-    ind_kelim : allowed_eliminations;
+    ind_kelim : Universes.allowed_eliminations;
     ind_type_vars : list type_var_info;
     ind_ctors : list (ident * list (name * box_type));
     (* unfortunately needed for erases_one_inductive_body *)
@@ -141,5 +146,5 @@ Definition trans_global_decl (decl : global_decl) : EAst.global_decl :=
 Definition trans_env (Σ : global_env) : EAst.global_context :=
   map (fun '(kn, _, decl) => (kn, trans_global_decl decl)) Σ.
 
-Definition print_term (Σ : global_env) (t : term) : string :=
-  EPretty.print_term (trans_env Σ) [] true false t.
+Definition print_term (Σ : global_env) (t : term) : bytestring.String.t :=
+  EPretty.print_program (trans_env Σ,t).

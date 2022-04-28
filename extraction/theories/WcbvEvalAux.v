@@ -1,11 +1,15 @@
 From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import ClosedAux.
 From Equations Require Import Equations.
+From MetaCoq.Template Require Import MCPrelude.
+From MetaCoq.Template Require Import utils.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
+From MetaCoq.Erasure Require Import EOptimizePropDiscr.
 
 Set Equations Transparent.
 
@@ -138,13 +142,15 @@ Proof.
     + easy.
 Qed.
 
+SearchPattern (forall x y : kername, {x = y} + {x <> y}).
+
 Lemma lookup_env_find Σ kn :
   ETyping.lookup_env Σ kn =
-  option_map snd (find (fun '(kn', _) => if kername_eq_dec kn kn' then true else false) Σ).
+  option_map snd (find (fun '(kn', _) => if eqb kn kn' then true else false) Σ).
 Proof.
   induction Σ as [|(kn' & decl) Σ IH]; [easy|].
   cbn.
-  now destruct (kername_eq_dec kn kn').
+  now destruct (kn == kn');subst.
 Qed.
 
 Lemma closed_constant Σ kn cst body :
@@ -231,18 +237,19 @@ Proof.
   easy.
 Qed.
 
-Lemma closed_iota_red pars c args brs :
+Lemma closed_iota_red pars args br :
   Forall (fun a => closed a) args ->
-  Forall (fun t => closed t.2) brs ->
-  closed (ETyping.iota_red pars c args brs).
+  closedn #|skipn pars args| br.2 ->
+  closed (ETyping.iota_red pars args br).
 Proof.
   intros clos_args clos_brs.
   unfold ETyping.iota_red.
-  apply closed_mkApps.
-  - rewrite nth_nth_error.
-    destruct (nth_error _ _) eqn:nth; [|easy].
-    now eapply nth_error_forall in nth; [|eassumption].
-  - now apply Forall_skipn.
+  apply closed_substl.
+  - apply forallb_Forall.
+    apply Forall_rev.
+    now apply Forall_skipn.
+  - rewrite Nat.add_0_r.
+    rewrite List.rev_length;auto.
 Qed.
 
 Lemma closed_cunfold_fix defs n narg f :
@@ -281,15 +288,21 @@ Proof.
   - apply IHev2.
     apply closed_iota_red.
     + now eapply closed_mkApps_args.
-    + now apply forallb_Forall.
+    + assert (Hin : In br brs) by (eapply nth_error_In;eauto).
+      destruct clos as [Hdiscr Hcl].
+      apply forallb_Forall in Hcl.
+      assert (closedn (#|br.1| + 0) br.2) by
+        apply (PCUICWfUniverses.Forall_In _ _ _ Hcl _ Hin).
+      rewrite Nat.add_0_r in *. easy.
   - subst brs.
     cbn in *.
     propify.
     apply IHev2.
-    apply closed_mkApps; [easy|].
-    clear.
-    induction n; [constructor|].
-    constructor; easy.
+    assert (repeat_tBox : forall k, forallb (closedn 0) (repeat tBox k))
+      by (induction k;cbn;auto).
+    assert (closed_subst_tBox : closedn (#|repeat tBox #|n| | + 0) f)
+      by now rewrite repeat_length.
+    now apply closed_substl.
   - apply IHev3.
     split; [|easy].
     destruct clos as (clos & _).
@@ -298,15 +311,16 @@ Proof.
     apply closed_mkApps; [|easy].
     now eapply closed_cunfold_fix.
   - easy.
-  - apply IHev.
+  - apply IHev2.
     split; [|easy].
     destruct clos as (clos & _).
-    apply closed_mkApps_inv in clos.
-    cbn in *.
+    specialize (IHev1 clos).
+    apply closed_mkApps_inv in IHev1.
     apply closed_mkApps; [|easy].
     now eapply closed_cunfold_cofix.
-  - apply IHev.
-    apply closed_mkApps_inv in clos.
+  - apply IHev2.
+    specialize (IHev1 clos).
+    apply closed_mkApps_inv in IHev1.
     apply closed_mkApps; [|easy].
     now eapply closed_cunfold_cofix.
   - apply IHev.
@@ -327,15 +341,15 @@ Qed.
 Fixpoint deriv_length {Σ t v} (ev : Σ e⊢ t ▷ v) : nat :=
   match ev with
   | eval_atom _ _ => 1
-  | red_cofix_case _ _ _ _ _ _ _ _ _ ev
-  | red_cofix_proj _ _ _ _ _ _ _ _ ev
+  | eval_cofix_proj _ _ _ _ _ _ _ _ _ _ ev
   | eval_delta _ _ _ _ _ _ ev
   | eval_proj_prop _ _ _ _ _ ev _ => S (deriv_length ev)
   | eval_box _ _ _ ev1 ev2
   | eval_zeta _ _ _ _ _ ev1 ev2
-  | eval_iota _ _ _ _ _ _ _ ev1 _ ev2
+  | eval_iota _ _ _ _ _ _ _ _ ev1 _ _ _ ev2
   | eval_iota_sing _ _ _ _ _ _ _ _ ev1 _ _ ev2
   | eval_fix_value _ _ _ _ _ _ _ _ ev1 ev2 _ _
+  | eval_cofix_case _ _ _ _ _ _ _ _ _ ev1 _ ev2
   | eval_proj _ _ _ _ _ _ ev1 _ ev2
   | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
   | eval_beta _ _ _ _ _ _ ev1 ev2 ev3

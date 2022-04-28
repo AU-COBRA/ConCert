@@ -26,8 +26,9 @@ From MetaCoq.SafeChecker Require Import PCUICSafeRetyping.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import config.
 
-Import PCUICEnvTyping.
+Import PCUICAst.PCUICEnvTyping.
 Import PCUICErrors.
+Import PCUICReduction.
 
 Import VectorDef.VectorNotations.
 Set Equations Transparent.
@@ -39,8 +40,12 @@ Import PCUICAst.
 
 Section FixSigmaExt.
 Local Existing Instance extraction_checker_flags.
-Context (Σ : global_env_ext).
+Context (Σ : PCUICWfEnv.wf_env_ext).
+Coercion PCUICWfEnv.wf_env_ext_env : PCUICWfEnv.wf_env_ext >-> global_env_ext.
 Context (wfextΣ : ∥wf_ext Σ∥).
+Context {X_type : PCUICWfEnv.abstract_env_impl}
+        {X : X_type.π1}.
+Context (aEnvRel : PCUICWfEnv.abstract_env_rel X Σ).
 Let wfΣ : ∥wf Σ∥ := ltac:(now sq).
 
 Opaque ErasureFunction.wf_reduction.
@@ -48,7 +53,7 @@ Opaque reduce_term.
 
 Notation term_rel := (ErasureFunction.term_rel Σ).
 Instance WellFounded_term_rel : WellFounded term_rel :=
-  (ErasureFunction.wf_reduction Σ wfΣ).
+  (ErasureFunction.wf_reduction Σ).
 
 Lemma sq_red_transitivity {Γ A} B {C} :
   ∥red Σ Γ A B∥ ->
@@ -76,11 +81,9 @@ Lemma isType_red_sq Γ t t' :
   ∥isType Σ Γ t'∥.
 Proof.
   intros [(s & typ)] [r].
-  destruct wfΣ.
+  destruct wfextΣ.
   constructor.
-  exists s.
-  red in typ |- *.
-  eapply subject_reduction; eauto.
+  exists s. eapply subject_reduction; eauto.
 Qed.
 
 Hint Resolve isType_red_sq : erase.
@@ -111,7 +114,7 @@ Qed.
 
 Hint Resolve isType_prod_cod : erase.
 
-Lemma Is_conv_to_Arity_red Γ T T' :
+Lemma Is_conv_to_Arity_red (Γ : closed_context) (T T' : open_term (ws_context_proj' Γ)) :
   Is_conv_to_Arity Σ Γ T ->
   ∥ red Σ Γ T T' ∥ ->
   Is_conv_to_Arity Σ Γ T'.
@@ -119,11 +122,13 @@ Proof.
   unfold Is_conv_to_Arity.
   intros [T'' (redT'' & is_arity)] red.
   sq.
-  destruct (red_confluence wfΣ red redT'') as (a & reda' & reda'').
+  destruct redT'' as [? ? redT''].
+  destruct (red_confluence red redT'') as (a & reda' & reda'').
   exists a.
-  split; [easy|].
-  clear -is_arity reda''.
-  eapply isArity_red; eauto.
+  split.
+  * sq;destruct T';eapply into_closed_red;eauto.
+  * clear -is_arity reda''.
+    eapply isArity_red; eauto.
 Qed.
 
 Hint Resolve Is_conv_to_Arity_red : erase.
@@ -137,24 +142,27 @@ Definition is_prod_or_sort (t : term) : bool :=
   | _ => false
   end.
 
-Lemma not_prod_or_sort_hnf {Γ t wf} :
-  negb (is_prod_or_sort (hnf wfΣ Γ t wf)) ->
+Lemma not_prod_or_sort_hnf {Γ : closed_context} {t : open_term (ws_context_proj' Γ)}
+      {h : forall Σ : global_env_ext, PCUICWfEnv.abstract_env_rel X Σ -> welltyped Σ Γ t} :
+  negb (is_prod_or_sort (hnf (X_type:=X_type) Γ t h)) ->
   ~Is_conv_to_Arity Σ Γ t.
 Proof.
   intros nar car.
   unfold hnf in nar.
-  pose proof (reduce_term_sound RedFlags.default Σ wfΣ Γ t wf) as [r].
-  pose proof (reduce_term_complete RedFlags.default Σ wfΣ Γ t wf) as wh.
-  destruct wfΣ.
+  destruct wfextΣ as [wΣ];sq.
+  destruct wΣ as [H1 H2].
+  pose proof (reduce_term_sound RedFlags.default _ _ Γ t h Σ aEnvRel) as [r].
+  apply PCUICWellScopedCumulativity.closed_red_red in r as r''.
+  pose proof (reduce_term_complete RedFlags.default _ _ Σ aEnvRel Γ t h) as wh.
   apply Is_conv_to_Arity_inv in car as [(?&?&?&[r'])|(?&[r'])]; auto.
-  - eapply red_confluence in r' as (?&r1&r2); eauto.
-    apply invert_red_prod in r2 as (?&?&(->&?)&?); auto.
+  - eapply closed_red_confluence in r' as (?&r1&r2); eauto.
+    apply invert_red_prod in r2 as [? [? [? ?]]]; subst; auto.
     destruct wh as [wh].
     eapply whnf_red_inv in wh; eauto.
     depelim wh.
     rewrite H in nar.
     now cbn in nar.
-  - eapply red_confluence in r' as (?&r1&r2); eauto.
+  - eapply closed_red_confluence in r' as (?&r1&r2); eauto.
     apply invert_red_sort in r2 as ->; auto.
     destruct wh as [wh].
     eapply whnf_red_inv in wh; eauto.
@@ -172,7 +180,7 @@ Inductive term_sub_ctx : context * term -> context * term -> Prop :=
 
 Derive Signature for term_sub_ctx.
 
-Lemma In_app_inv {X} (x : X) xs ys :
+Lemma In_app_inv {Y} (x : Y) xs ys :
   In x (xs ++ ys) ->
   In x xs \/ In x ys.
 Proof.
@@ -198,7 +206,7 @@ Proof.
     destruct H as [|[|]]; cbn in *; subst; [|easy|easy].
     apply (IHt1 Γ).
     destruct (firstn n l) using List.rev_ind; [easy|].
-    rewrite <- mkApps_nested.
+    rewrite mkApps_app.
     constructor.
     cbn.
     now rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
@@ -240,7 +248,8 @@ Lemma well_founded_erase_rel : well_founded erase_rel.
 Proof.
   intros (Γl & l & wfl).
   destruct wfΣ as [wfΣu].
-  induction (normalisation Σ Γl l wfl) as [l _ IH].
+  destruct wfextΣ.
+  induction (normalisation _ w Γl l wfl) as [l _ IH].
   remember (Γl, l) as p.
   revert wfl IH.
   replace Γl with (fst p) by (now subst).
@@ -259,23 +268,22 @@ Proof.
         constructor. }
       intros y cor wfly.
       cbn in *.
+      assert (Hred_prod : ∥Σ;;; p.1 |- tProd na s B ⇝* tProd na y B ∥).
+      { eapply cored_red in cor as [cor].
+        constructor.
+        now apply red_prod_l. }
+      destruct Hred_prod.
       unshelve eapply (IH (tProd na y B)).
       3: now repeat econstructor.
-      1: { eapply red_welltyped in wfl; eauto.
-           eapply cored_red in cor as [cor].
-           constructor.
-           now apply red_prod_l. }
+      1: { eapply red_welltyped in wfl; eauto. }
       now apply cored_prod_l.
-    + apply Relation_Properties.clos_rtn1_rt in X0.
+    + apply Relation_Properties.clos_rtn1_rt in X1.
       unshelve eapply (IH (tProd na s B)).
       3: now repeat econstructor.
       1: { eapply red_welltyped in wfl; eauto.
-           constructor.
-           etransitivity; [exact X0|].
-           now apply red1_red. }
+           now apply Relation_Properties.clos_rtn1_rt in mred. }
       eapply red_neq_cored.
-      { etransitivity; [exact X0|].
-        now apply red1_red. }
+      { now apply Relation_Properties.clos_rtn1_rt in mred. }
       intros eq.
       rewrite eq in *.
       eapply cored_red_trans in X0; eauto.
@@ -288,31 +296,28 @@ Proof.
         now constructor. }
       intros y cor wfly.
       cbn in *.
+      eapply cored_red in cor as Hcored.
+      destruct Hcored.
       unshelve eapply IH.
       4: { constructor.
            eexists.
            split; try easy.
            constructor. }
       1: { eapply red_welltyped; eauto.
-           eapply cored_red in cor as [cored].
-           constructor.
            rewrite H0.
            now apply red_prod. }
       rewrite H0.
       now apply cored_prod_r.
-    + apply Relation_Properties.clos_rtn1_rt in X0.
+    + apply Relation_Properties.clos_rtn1_rt in X1.
       unshelve eapply IH.
       4: { constructor.
            eexists.
            split; try easy.
            constructor. }
-      1: { eapply red_welltyped; eauto.
-           constructor.
-           etransitivity; [exact X0|].
-           now apply red1_red. }
-      apply red_neq_cored.
-      { etransitivity; [exact X0|].
-        now apply red1_red. }
+      1: { eapply red_welltyped in wfl; eauto.
+           now apply Relation_Properties.clos_rtn1_rt in mred. }
+      eapply red_neq_cored.
+      { now apply Relation_Properties.clos_rtn1_rt in mred. }
       intros eq.
       rewrite eq in *.
       eapply cored_red_trans in X0; eauto.
@@ -327,24 +332,25 @@ Proof.
       cbn in *.
       rewrite decompose_app_rec_mkApps, atom_decompose_app in H0 by easy.
       change (tApp ?hd ?arg) with (mkApps hd [arg]) in *.
-      rewrite mkApps_nested in *.
+      rewrite <- mkApps_app in *.
       set (args := (firstn n l ++ [arg1])%list) in *.
       clearbody args.
       cbn in *.
+      eapply cored_red in cor as [cor].
       apply In_split in H0 as (args_pref & args_suf & ->).
       unshelve eapply (IH (mkApps f (args_pref ++ y :: args_suf))).
       3: { constructor.
            econstructor.
            split; [easy|].
            destruct args_suf using rev_ind.
-           - rewrite <- mkApps_nested.
+           - rewrite mkApps_app.
              constructor.
              cbn.
              rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
              cbn.
              now apply in_or_app; right; left.
            - rewrite <- app_tip_assoc, app_assoc.
-             rewrite <- mkApps_nested.
+             rewrite mkApps_app.
              constructor.
              cbn.
              rewrite decompose_app_rec_mkApps, atom_decompose_app by easy.
@@ -353,24 +359,29 @@ Proof.
              apply in_or_app; left.
              now apply in_or_app; right; left. }
       1: { eapply red_welltyped in wfl; eauto.
-           eapply cored_red in cor as [cor].
-           constructor.
            rewrite H1.
            apply red_mkApps; [easy|].
            apply All2_app; [now apply All2_refl|].
            constructor; [easy|].
            now apply All2_refl. }
+      rewrite H1.
+      eapply cored_red_trans.
+      2: apply PCUICReduction.red1_mkApps_r.
+      2: eapply OnOne2_app.
+
       depelim cor; cycle 1.
-      * apply cored_red in cor as [cor].
+      * admit.
+      * (* apply cored_red in cor as [cor]. *)
         eapply cored_red_trans.
-        2: apply PCUICSubstitution.red1_mkApps_r.
+        2: apply PCUICReduction.red1_mkApps_r.
         2: eapply OnOne2_app.
-        2: now constructor.
+        (* 2: now constructor. *)
         rewrite H1.
         apply red_mkApps; [easy|].
         apply All2_app; [now apply All2_refl|].
         constructor; [easy|].
         now apply All2_refl.
+        constructor.
       * rewrite H1.
         constructor.
         apply PCUICSubstitution.red1_mkApps_r.
