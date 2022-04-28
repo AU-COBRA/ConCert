@@ -3,36 +3,6 @@ From Coq Require Import Ascii.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
-
-Lemma q {T : Type} `{Serializable T} x y :
-  deserialize x <> deserialize y ->
-  x <> y.
-Proof.
-  intros * deser_ne.
-  contradict deser_ne.
-  subst.
-  reflexivity.
-Qed.
-
-Lemma q0 {T : Type} `{Serializable T} x y :
-  deserialize x <> Some y ->
-  x <> serialize y.
-Proof.
-  intros * deser_ne.
-  contradict deser_ne.
-  subst.
-  apply deserialize_serialize.
-Qed.
-
-Lemma q1 {T : Type} `{Serializable T} x y :
-  x = serialize y ->
-  deserialize x = Some y.
-Proof.
-  intros * eq.
-  rewrite eq, deserialize_serialize.
-  reflexivity.
-Qed.
-
 Section RightInverse.
 Local Transparent deserialize serialize.
 

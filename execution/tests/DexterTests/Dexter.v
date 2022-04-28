@@ -1,6 +1,5 @@
 (* A token-asset exchange contract based on Dexter *)
 From Coq Require Import List.
-From Coq Require Import Program.Basics.
 From Coq Require Import ZArith.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
@@ -11,10 +10,6 @@ From ConCert.Execution.Examples Require Import FA2Interface.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
-
-Notation "f 'o' g" := (compose f g) (at level 50).
-
 
 (* A liquidity exchange contract inspired by the Dexter contract.
    Allows for exchanging tokens to money, and allows the owner to add tokens to the
@@ -43,7 +38,7 @@ Inductive DexterMsg :=
 Global Instance DexterMsg_serializable : Serializable DexterMsg :=
   Derive Serializable DexterMsg_rect <tokens_to_asset, add_to_tokens_reserve>.
 
-Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg _.
+Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg.
 
 
 Record State :=
@@ -75,7 +70,7 @@ End Serialization.
 
 Definition address_not_eqb a b := negb (address_eqb a b).
 
-Definition begin_exchange_tokens_to_assets (caller : Address)
+Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                            (params : exchange_param)
                                            (dexter_caddr : Address)
                                            (state : State)
@@ -96,7 +91,7 @@ Definition begin_exchange_tokens_to_assets (caller : Address)
   |} in
   let act := {|
     bal_requests := [owner_balance_param; dexter_balance_param];
-    bal_callback := Build_callback _ None;
+    bal_callback := Build_callback _ None ctx.(ctx_contract_address);
   |} in
   let ser_msg := @serialize _ _ (msg_balance_of act) in
   let acts := [act_call state.(fa2_caddr) 0%Z ser_msg] in
@@ -156,7 +151,7 @@ Definition create_tokens (tokenid : token_id)
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
-                    (ctx : ContractCallContext)
+                   (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
                    : option (State * list ActionBody) :=
@@ -166,7 +161,7 @@ Definition receive (chain : Chain)
   let amount := ctx.(ctx_amount) in
   match maybe_msg with
   | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
-  | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets sender params caddr state
+  | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets ctx params caddr state
   | Some (other_msg (add_to_tokens_reserve tokenid)) => create_tokens tokenid amount state
   | _ => None
   end.

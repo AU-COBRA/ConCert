@@ -1,5 +1,4 @@
 From Coq Require Import List.
-From Coq Require Import Program.Basics.
 From Coq Require Import ZArith.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
@@ -8,14 +7,11 @@ From ConCert.Execution Require Import Extras.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Examples Require Import Common.
+From ConCert.Execution.Examples Require Import FA2Interface.
 
 Import ListNotations.
-Import RecordSetNotations.
-
-Notation "f 'o' g" := (compose f g) (at level 50).
 
 
-Require Import FA2Interface.
 
 Section FA2Token.
 Context {BaseTypes : ChainBase}.
@@ -26,7 +22,7 @@ Open Scope N_scope.
 (* Any contract that wants to receive callback messages from the FA2 contract
    should have this type as its Msg type. The contract may have other endpoints,
    as composed in the 'other_msg' constructor *)
-Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
+Inductive FA2ReceiverMsg {Msg' : Type} :=
   | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
   | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
   | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
@@ -35,7 +31,7 @@ Inductive FA2ReceiverMsg {Msg' : Type} `{Serializable Msg'} :=
   | other_msg : Msg' -> FA2ReceiverMsg.
 
 (* Transfer hook contracts of the FA2 Contract should use this type as their Msg type *)
-Inductive FA2TransferHook {Msg : Type} `{Serializable Msg} :=
+Inductive FA2TransferHook {Msg : Type} :=
   | transfer_hook : transfer_descriptor_param -> FA2TransferHook
   | hook_other_msg : Msg -> FA2TransferHook.
 
@@ -85,19 +81,19 @@ Section Serialization.
 Global Instance setup_serializable : Serializable Setup :=
   Derive Serializable Setup_rect <build_setup>.
 
-Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2ReceiverMsg Msg serMsg) :=
-  Derive Serializable (@FA2ReceiverMsg_rect Msg serMsg) <
-    (@receive_balance_of_param Msg serMsg),
-    (@receive_total_supply_param Msg serMsg),
-    (@receive_metadata_callback Msg serMsg),
-    (@receive_is_operator Msg serMsg),
-    (@receive_permissions_descriptor Msg serMsg),
-    (@other_msg Msg serMsg)>.
+Global Instance FA2ReceiverMsg_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA2ReceiverMsg Msg) :=
+  Derive Serializable (@FA2ReceiverMsg_rect Msg) <
+    (@receive_balance_of_param Msg),
+    (@receive_total_supply_param Msg),
+    (@receive_metadata_callback Msg),
+    (@receive_is_operator Msg),
+    (@receive_permissions_descriptor Msg),
+    (@other_msg Msg)>.
 
-Global Instance FA2TransferHook_serializable {Msg : Type} `{serMsg : Serializable Msg} : Serializable (@FA2TransferHook Msg serMsg) :=
-  Derive Serializable (@FA2TransferHook_rect Msg serMsg) <
-    (@transfer_hook  Msg serMsg),
-    (@hook_other_msg Msg serMsg)>.
+Global Instance FA2TransferHook_serializable {Msg : Type} `{Serializable Msg} : Serializable (@FA2TransferHook Msg) :=
+  Derive Serializable (@FA2TransferHook_rect Msg) <
+    (@transfer_hook  Msg),
+    (@hook_other_msg Msg)>.
 
 Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) := callback_serializable.
 
@@ -151,7 +147,7 @@ Definition policy_disallows_self_transfer (policy : permissions_descriptor) : bo
   match policy.(descr_self) with
   | self_transfer_permitted => false
   | self_transfer_denied => true
-  end .
+  end.
 
 Definition get_owner_operator_tokens (owner operator : Address)
                                      (state : State)
@@ -320,8 +316,7 @@ Definition handle_transfer_hook_receive (caller : Address)
 Close Scope bool_scope.
 
 (* create a 'balance_of' action to send to the callback address *)
-Definition get_balance_of_callback (caller : Address)
-                                   (param : balance_of_param)
+Definition get_balance_of_callback (param : balance_of_param)
                                    (state : State)
                                    : ActionBody :=
   let bal_req_iterator (bal_req : balance_of_request) :=
@@ -329,11 +324,10 @@ Definition get_balance_of_callback (caller : Address)
     Build_balance_of_response bal_req owner_bal in
   let responses := map bal_req_iterator param.(bal_requests) in
   let response_msg := serialize (receive_balance_of_param responses) in
-  act_call caller 0%Z response_msg .
+  act_call param.(bal_callback) 0%Z response_msg.
 
 (* create a 'total_supply' action to send to the callback address *)
-Definition get_total_supply_callback (caller : Address)
-                                     (param : total_supply_param)
+Definition get_total_supply_callback (param : total_supply_param)
                                      (state : State)
                                      : ActionBody :=
   let token_id_balance (token_id : token_id) : N :=
@@ -344,7 +338,7 @@ Definition get_total_supply_callback (caller : Address)
   let mk_response (token_id : token_id) : total_supply_response := Build_total_supply_response token_id (token_id_balance token_id) in
   let responses := map mk_response param.(supply_param_token_ids) in
   let response_msg := serialize (receive_total_supply_param responses) in
-  act_call caller 0%Z response_msg.
+  act_call param.(supply_param_callback) 0%Z response_msg.
 
 (* Updates operators if policy allows it, and if the caller is the owner. *)
 Definition update_operators (caller : Address)
@@ -384,8 +378,7 @@ Definition operator_tokens_eqb (a b : operator_tokens) : bool :=
   | _ => false
   end.
 
-Definition get_is_operator_response_callback (caller : Address)
-                                             (params : is_operator_param)
+Definition get_is_operator_response_callback (params : is_operator_param)
                                              (state : State)
                                              : option (State * list ActionBody) :=
   (* if policy doesn't allow operator transfers, then this operation will fail *)
@@ -398,7 +391,7 @@ Definition get_is_operator_response_callback (caller : Address)
                             | None => false
                             end in
   let response : is_operator_response := {| operator := operator_params; is_operator := is_operator_result |} in
-  let act := act_call caller 0%Z (serialize (receive_is_operator response)) in
+  let act := act_call params.(is_operator_callback) 0%Z (serialize (receive_is_operator response)) in
   Some (state, [act]).
 
 Definition get_permissions_descriptor_callback (caller : Address) (state : State) : ActionBody :=
@@ -414,10 +407,10 @@ Definition try_set_transfer_hook (caller : Address)
   Some (state<| transfer_hook_addr :=  Some params.(hook_addr)|>
              <| permission_policy  := params.(hook_permissions_descriptor) |>).
 
-Definition get_token_metadata_callback (caller : Address)
-                                       (token_ids : list token_id)
+Definition get_token_metadata_callback (param : token_metadata_param)
                                        (state : State)
                                        : ActionBody :=
+  let token_ids := param.(metadata_token_ids) in
   let state_tokens := state.(tokens) in
   let metadata_list : list token_metadata := fold_right (fun id acc =>
       match FMap.find id state_tokens with
@@ -426,7 +419,7 @@ Definition get_token_metadata_callback (caller : Address)
       end
     ) [] token_ids in
   let response := serialize (receive_metadata_callback metadata_list) in
-  act_call caller 0%Z response.
+  act_call param.(metadata_callback) 0%Z response.
 
 (* creates some tokens with a fixed exchange ratio of 1:100 *)
 Definition try_create_tokens (caller : Address)
@@ -464,11 +457,11 @@ Definition receive (chain : Chain)
   else match maybe_msg with
   | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state
   | Some (msg_receive_hook_transfer param) => without_actions (handle_transfer_hook_receive sender param caddr state)
-  | Some (msg_is_operator params) => get_is_operator_response_callback sender params state
-  | Some (msg_balance_of params) => without_statechange [get_balance_of_callback sender params state]
-  | Some (msg_total_supply params) => without_statechange [get_total_supply_callback sender params state]
+  | Some (msg_is_operator params) => get_is_operator_response_callback params state
+  | Some (msg_balance_of params) => without_statechange [get_balance_of_callback params state]
+  | Some (msg_total_supply params) => without_statechange [get_total_supply_callback params state]
   | Some (msg_permissions_descriptor _) => without_statechange [get_permissions_descriptor_callback sender state]
-  | Some (msg_token_metadata param) => without_statechange [get_token_metadata_callback sender param.(metadata_token_ids) state]
+  | Some (msg_token_metadata param) => without_statechange [get_token_metadata_callback param state]
   | Some (msg_update_operators updates) => without_actions (update_operators sender updates state)
   | Some (msg_set_transfer_hook params) => without_actions (try_set_transfer_hook sender params state)
   | _ => None

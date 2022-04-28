@@ -1,6 +1,8 @@
 (* This file implements various helper tactics *)
 
-From Coq Require Import Eqdep List Permutation.
+From Coq Require Import List.
+From Coq Require Import Permutation.
+From Coq Require Import ZArith.
 Import ListNotations.
 
 Lemma Permutation_app_middle {A : Type} (xs l1 l2 l3 l4 : list A) :
@@ -215,6 +217,12 @@ Ltac unset_all :=
       pose proof (eq_refl : var = body); clearbody var
     end.
 
+Ltac destruct_or_hyps :=
+  repeat
+      match goal with
+      | [H: _ \/ _ |- _] => destruct H
+      end.
+
 Ltac destruct_hyps :=
   repeat
     match goal with
@@ -232,4 +240,65 @@ Ltac destruct_and_split :=
     | [H: _ * _ |- _] => destruct H
     | [H: { x : _ & _ } |- _] => destruct H
     | [|- _ /\ _] => split
+    end.
+
+Tactic Notation "tryfalse" :=
+  try solve [ elimtype False; try solve [assumption | discriminate | congruence ]].
+
+Ltac propify :=
+  unfold is_true in *;
+  repeat
+    match goal with
+    | [H: context[Z.eqb _ _ = true] |- _] => rewrite Z.eqb_eq in H
+    | [H: context[Z.eqb _ _ = false] |- _] => rewrite Z.eqb_neq in H
+    | [H: context[Z.ltb _ _ = false] |- _] => rewrite Z.ltb_ge in H
+    | [H: context[Z.ltb _ _ = true] |- _] => rewrite Z.ltb_lt in H
+    | [H: context[Z.leb _ _ = false] |- _] => rewrite Z.leb_gt in H
+    | [H: context[Z.leb _ _ = true] |- _] => rewrite Z.leb_le in H
+    | [H: context[Z.gtb _ _] |- _] => rewrite Z.gtb_ltb in H
+    | [H: context[Z.geb _ _] |- _] => rewrite Z.geb_leb in H
+    | [H: context[N.eqb _ _ = true] |- _] => rewrite N.eqb_eq in H
+    | [H: context[N.eqb _ _ = false] |- _] => rewrite N.eqb_neq in H
+    | [H: context[N.ltb _ _ = false] |- _] => rewrite N.ltb_ge in H
+    | [H: context[N.ltb _ _ = true] |- _] => rewrite N.ltb_lt in H
+    | [H: context[N.leb _ _ = false] |- _] => rewrite N.leb_gt in H
+    | [H: context[N.leb _ _ = true] |- _] => rewrite N.leb_le in H
+    | [H: context[Nat.eqb _ _ = false] |- _] => rewrite Nat.eqb_neq in H
+    | [H: context[Nat.eqb _ _ = true] |- _] => rewrite Nat.eqb_eq in H
+    | [H: context[Nat.ltb _ _ = false] |- _] => rewrite Nat.ltb_ge in H
+    | [H: context[Nat.ltb _ _ = true] |- _] => rewrite Nat.ltb_lt in H
+    | [H: context[Nat.leb _ _ = false] |- _] => rewrite Nat.leb_gt in H
+    | [H: context[Nat.leb _ _ = true] |- _] => rewrite Nat.leb_le in H
+    | [H: context[andb _ _ = false] |- _] => rewrite Bool.andb_false_iff in H
+    | [H: context[andb _ _ = true] |- _] => rewrite Bool.andb_true_iff in H
+    | [H: context[negb _ = false] |- _] => rewrite Bool.negb_false_iff in H
+    | [H: context[negb _ = true] |- _] => rewrite Bool.negb_true_iff in H
+    | [H: context[orb _ _ = false] |- _] => rewrite Bool.orb_false_iff in H
+    | [H: context[orb _ _ = true] |- _] => rewrite Bool.orb_true_iff in H
+    | [|- context[Z.eqb _ _ = true]] => rewrite Z.eqb_eq
+    | [|- context[Z.eqb _ _ = false]] => rewrite Z.eqb_neq
+    | [|- context[Z.ltb _ _ = false]] => rewrite Z.ltb_ge
+    | [|- context[Z.ltb _ _ = true]] => rewrite Z.ltb_lt
+    | [|- context[Z.leb _ _ = false]] => rewrite Z.leb_gt
+    | [|- context[Z.leb _ _ = true]] => rewrite Z.leb_le
+    | [|- context[Z.gtb _ _]] => rewrite Z.gtb_ltb
+    | [|- context[Z.geb _ _]] => rewrite Z.geb_leb
+    | [|- context[N.eqb _ _ = true]] => rewrite N.eqb_eq
+    | [|- context[N.eqb _ _ = false]] => rewrite N.eqb_neq
+    | [|- context[N.ltb _ _ = false]] => rewrite N.ltb_ge
+    | [|- context[N.ltb _ _ = true]] => rewrite N.ltb_lt
+    | [|- context[N.leb _ _ = false]] => rewrite N.leb_gt
+    | [|- context[N.leb _ _ = true]] => rewrite N.leb_le
+    | [|- context[Nat.eqb _ _ = false]] => rewrite Nat.eqb_neq
+    | [|- context[Nat.eqb _ _ = true]] => rewrite Nat.eqb_eq
+    | [|- context[Nat.ltb _ _ = false]] => rewrite Nat.ltb_ge
+    | [|- context[Nat.ltb _ _ = true]] => rewrite Nat.ltb_lt
+    | [|- context[Nat.leb _ _ = false]] => rewrite Nat.leb_gt
+    | [|- context[Nat.leb _ _ = true]] => rewrite Nat.leb_le
+    | [|- context[andb _ _ = false]] => rewrite Bool.andb_false_iff
+    | [|- context[andb _ _ = true]] => rewrite Bool.andb_true_iff
+    | [|- context[negb _ = false]] => rewrite Bool.negb_false_iff
+    | [|- context[negb _ = true]] => rewrite Bool.negb_true_iff
+    | [|- context[orb _ _ = false]] => rewrite Bool.orb_false_iff
+    | [|- context[orb _ _ = true]] => rewrite Bool.orb_true_iff
     end.

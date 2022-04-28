@@ -127,12 +127,12 @@ Definition chain_without_transfer_hook := unpack_result chain_without_transfer_h
 Definition chain_with_transfer_hook := unpack_result chain_with_transfer_hook'.
 
 
-Definition client_other_msg := @other_msg _ FA2ClientMsg _.
+Definition client_other_msg := @other_msg _ FA2ClientMsg.
 
 Definition call_client_is_op_act :=
   let params := Build_is_operator_param
       (Build_operator_param zero_address zero_address all_tokens)
-      (Build_callback is_operator_response None) in
+      (Build_callback is_operator_response None client_contract_addr) in
   let msg := client_other_msg (Call_fa2_is_operator params) in
   act_call client_contract_addr 0%Z (serialize ClientMsg _ msg).
 
