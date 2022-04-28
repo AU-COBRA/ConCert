@@ -1017,8 +1017,6 @@ Section PPLigo.
     "";
     "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ;
     "  match param with " ;
-    "    Init init_args -> (([]: operation list), Some (init init_args))" ;
-
     "    Init init_args -> (";
     "  match st with ";
     "      Some st -> (failwith (""Cannot call Init twice""): return)";
