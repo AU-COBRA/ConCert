@@ -57,9 +57,8 @@ Module EscrowCameLIGOExtraction.
       lmd_receive_prelude := "";
       (* code for the entry point *)
       lmd_entry_point :=
-        printWrapper "escrow_receive" "msg" "state" 
-                     ++ nl
-                     ++ CameLIGOPretty.printMain "state" |}.
+        printMain "escrow_receive" "msg" "state" 
+    |}.
 
   Definition to_inline : list kername := 
     [ <%% Monads.Monad_option %%>

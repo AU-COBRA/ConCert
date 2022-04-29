@@ -135,11 +135,10 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext setupWchain BV.Sta
     lmd_receive := receive_wrapper;
 
     (* code for the entry point *)
-    lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "receive_wrapper")
+    lmd_entry_point := CameLIGOPretty.printMain (PREFIX ++ "receive_wrapper")
                         "msg"
                         "state"
-                        ++ nl
-                        ++ CameLIGOPretty.printMain "state" |}.
+  |}.
 
 Definition inline_boardroom_params : list kername :=
   [

@@ -1022,36 +1022,18 @@ Section PPLigo.
                 bool_ops; time_ops; address_ops;
                 get_contract_def; CameLIGO_Chain_CallContext].
 
-  Definition printWrapper (contract parameter_name storage_name : string): string :=
-    <$
-    "type return = (operation) list * (" ++ storage_name ++ " option)" ;
-    "type parameter_wrapper =" ;
-    "  Init of init_args_ty" ;
-    "| Call of " ++ parameter_name ++ " option" ;
-    "";
-    "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ;
-    "  match param with " ;
-    "    Init init_args -> (";
-    "  match st with ";
-    "      Some st -> (failwith (""Cannot call Init twice""): return)";
-    "    | None -> (([]: operation list), Some (init init_args)))";
-    "  | Call p -> (" ;
-    "    match st with" ;
-    "      Some st -> (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
-    "                    Some v -> (v.0, Some v.1)" ;
-    "                  | None -> (failwith ("""") : return))" ;
-    "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))"
-    $>.
+  Definition printMain (contract parameter_name storage_name : string) : string :=
+    <$ "" ;
+       "type return = (operation) list * " ++ storage_name ;
+       "" ;
+       "let main (p, st : " ++ parameter_name ++ " option * " ++ storage_name ++ ") : return = " ;
+       "   (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
+       "      Some v -> (v.0, v.1)" ;
+       "    | None -> (failwith (""Contract returned None"") : return))" $>.
 
-  Definition printMain (storage_name : string) :=
-    "let main (action, st : parameter_wrapper * " ++ storage_name ++ " option) : return = wrapper (action, st)".
-
-    Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
+  Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
   let st := print_type_name state_nm in
   let rec := print_const_name receive_nm in
   let msg := print_type_name msg_nm in
-  <$ printWrapper rec msg st;
-     "";
-     printMain st $>.
-
+  printMain rec msg st.
 End PPLigo.
