@@ -772,54 +772,19 @@ Section PPLigo.
       let wrap t :=
         "match " ++ t ++ " with" ++ nl ++
         "  Some v -> v"++ nl ++
-        "| None -> (failwith (""""): " ++ printed_outer_ret_ty ++ ")" in
+        "| None -> (failwith (""Init failed""): " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
                 ++ print_term env TT ctx [] true false lam_body body_annot
                 ++ " in" in
-      (* if init takes no parameters, we give it a unit parameter  *)
-      let printed_targs_outer := match printed_targs_inner with
-                                 | _::[] | [] => let arg_name := fresh_string_name ctx nAnon in
-                                         [parens false (arg_name ++ " : unit")]
-                                 | _::xs => xs
-                                 end in
-      (* ignore the first argument because it's a call context *)
+      let printed_targs_outer := printed_targs_inner in
       let decl_outer :=
         "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
-      let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
-      let inner_app := "inner " ++ concat " " ( "ctx" :: tl sargs) in
-      let init_args_ty := "type init_args_ty = " ++
-        match tys with
-        | _::[] => "unit"
-        | [] => "unit"
-        | _::_ => tl tys |> map (print_box_type [] TT)
-                         |> concat " * "
-      end in
-      let init_wrapper_args_printed tys :=
-        match tys with
-        | [] => "()"
-        | [ty] => " args"
-        | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "")
-                     |> snd
-        end in
-      let init_wrapper :=
-           "let init_wrapper (args : init_args_ty) ="
-        ++ nl
-        ++ "  init" ++ (tl tys |> init_wrapper_args_printed) in
+      let inner_app := "inner " ++ concat " " (map (string_of_name ctx) args) in
       ret ("let " ++ decl_outer ++ " = "
-                      ++ nl
-                      ++ init_prelude
-                      ++ nl
                       ++ let_inner
                       ++ nl
-                      ++ let_ctx
-                      ++ nl
-                      ++ wrap (parens false inner_app)
-                      ++ nl
-                      ++ init_args_ty
-                      ++ nl
-                      ++ init_wrapper
-                      ++ nl)
+                      ++ wrap (parens false inner_app))
     | None => fun _ => None
     end.
 

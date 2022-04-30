@@ -20,7 +20,7 @@ From MetaCoq.Template Require Import All.
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
   { lmd_module_name : string ;
     lmd_prelude : string ;
-    lmd_init : ctx -> setup -> option storage;
+    lmd_init : setup -> option storage;
     lmd_init_prelude : string ;
     lmd_receive_prelude : string;
     lmd_receive : Chain -> ctx -> storage -> option msg -> option (list operation * storage);

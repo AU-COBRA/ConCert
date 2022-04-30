@@ -319,9 +319,8 @@ Module CameLIGOInterp.
   Import CameLIGOExtract CameLIGOPretty.
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
-  Definition init (ctx : ContractCallContext) (setup : unit) : option storage :=
-    let ctx0 := ctx in
-    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
+  Definition init (setup : unit) : option storage :=
+    let setup0 := setup in (* prevents optimisations from removing unused [setup]. TODO: override masks instead  *)
     Some [].
 
 

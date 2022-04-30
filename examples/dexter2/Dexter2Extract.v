@@ -157,14 +157,23 @@ Module Dexter2LqtExtraction.
     ; remap <%% @empty_allowance %%> "Map.empty"
      ].
 
-  Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
-    let ctx_ := ctx in
+  (** We redefine the init function, because in the Tezos blockchain
+      there is no concept of initialisation function. However, it's common
+      to provide a function that computes a valid initial storage that can
+      be used for deployment. *)
+  Definition init (setup : Setup) : option State :=
     Some {|
         tokens := ContractCommon.AddressMap.add setup.(lqt_provider) setup.(initial_pool) ContractCommon.AddressMap.empty;
         allowances := empty_allowance;
         admin := setup.(admin_);
         total_supply := setup.(initial_pool);
       |}.
+
+    (** We prove that the "new" init function, which does not use [chain] and [ctx],
+        computes the same result as the contract's init *)
+  Lemma init_total_no_context_use chain ctx setup :
+    Dexter2FA12.DEX2LQT.init_lqt chain ctx setup = init setup.
+  Proof. reflexivity. Qed.
 
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
@@ -270,8 +279,8 @@ Section D2E.
   Definition TT_remap_all :=
     (TT_remap_arith ++ TT_remap_dexter2 ++ TT_Dexter2_CPMM)%list.
 
-  Definition init (ctx : ContractCallContext) (setup : Setup) : option State :=
-    let ctx_ := ctx in
+  (** We redefine [init] for the same reasons as for the liquidity token *)
+  Definition init (setup : Setup) : option State :=
     Some {|
         tokenPool := 0;
         xtzPool := 0;
@@ -283,6 +292,13 @@ Section D2E.
         tokenId := setup.(tokenId_);
         lqtAddress := null_address
       |}.
+
+  (** We prove that the "new" init function, which does not use [chain] and [ctx],
+      is total and computes the same result as the contract's init *)
+  Lemma init_total_no_context_use chain ctx setup :
+    Dexter2CPMM.DEX2.init_cpmm chain ctx setup = init setup.
+  Proof. reflexivity. Qed.
+
 
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
