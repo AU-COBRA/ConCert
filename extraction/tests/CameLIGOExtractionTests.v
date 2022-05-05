@@ -20,6 +20,43 @@ Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
   | None => None
   end.
 
+Module BoolRect.
+
+  (** Previously, this example extracted wrong, because some name
+      annotations of the [bool_rect] are thse same, leading to
+      shadowing in the resulting code  *)
+
+  (** One can see the variable names by quoting and printing the AST, as below *)
+  MetaCoq Quote Recursively Definition bool_rect_quoted := bool_rect.
+
+  Compute lookup_env bool_rect_quoted.1 <%% bool_rect %%>.
+
+  (** This is, of course meaningless in eager languages, so usually we
+      inline such definitions, but here we keep is as it is for the
+      sake of testing *)
+  Definition my_stupid_if {A : Type} (cond : bool) (t_branch f_branch : A) :=
+    bool_rect _ t_branch f_branch cond.
+
+  Definition max_nat (n m : nat) := my_stupid_if (Nat.leb n m) m n.
+
+  Definition harness (func : string) : string :=
+    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some ( " ++ func ++ " 2n 3n))".
+
+  Time MetaCoq Run
+       (t <- CameLIGO_extract_single
+              []
+              []
+              TT_rename_ctors_default
+              "let lebN (a : nat ) (b : nat ) = a <= b"
+              (harness "max_nat")
+              max_nat ;;
+        tmDefinition "cameligo_max" t).
+
+    (** Extraction results in fully functional CameLIGO code *)
+    Redirect "tests/extracted-code/cameligo-extract/max.mligo"
+    MetaCoq Run (tmMsg cameligo_max).
+End BoolRect.
+
 Module FoldLeft.
 
   (** We test how the annotation machinery passes the context with erased variables to
