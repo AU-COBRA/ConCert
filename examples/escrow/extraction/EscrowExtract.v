@@ -17,6 +17,31 @@ Local Open Scope string_scope.
 Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State :=
     Escrow.init (snd s) cctx (fst s).
 
+Definition ligo_init (s : Address * Setup * nat) : option State :=
+  let seller := s.1.1 in
+  let setup := s.1.2 in
+  let curr_slot := s.2 in
+  let buyer := setup_buyer setup in
+  if (buyer =? seller)%address then None
+  else Some {| last_action := curr_slot;
+               next_step := buyer_commit;
+               seller := seller;
+               buyer := buyer;
+               seller_withdrawable := 0;
+               buyer_withdrawable := 0 |}.
+
+Lemma escrow_init_eq_ligo_init cctx s :
+  (* The contract should be deployed with non-zero even amount *)
+  (ctx_amount cctx =? 0 = false)%Z ->
+  Z.even (ctx_amount cctx) ->
+  escrow_init_wrapper cctx s = ligo_init (cctx.(ctx_from),s.1, s.2.(current_slot)).
+Proof.
+  intros Hamount Heven.
+  unfold escrow_init_wrapper,init, ligo_init. cbn.
+  rewrite Hamount.
+  now destruct (_ =? _)%address; destruct (Z.even _).
+Qed.
+
 Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (msg : option Msg) : option (list ActionBody * State) :=
     match Escrow.receive c cctx s msg with
     | Some (s, acts) => Some (acts, s)
@@ -38,7 +63,7 @@ Module EscrowCameLIGOExtraction.
 
   Definition TT_remap_ligo : list (kername * string) := [ remap <%% subAmountOption %%> "subTez" ].
   
-  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext (Setup * Chain) State ActionBody :=
+  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext _ State ActionBody :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_escrow" ;
 
@@ -46,7 +71,7 @@ Module EscrowCameLIGOExtraction.
       lmd_prelude := CameLIGOPrelude;
 
       (* initial storage *)
-      lmd_init := escrow_init_wrapper ;
+      lmd_init := ligo_init ;
 
       (* no extra operations in [init] are required *)
       lmd_init_prelude := "";
@@ -57,9 +82,8 @@ Module EscrowCameLIGOExtraction.
       lmd_receive_prelude := "";
       (* code for the entry point *)
       lmd_entry_point :=
-        printWrapper "escrow_receive" "msg" "state" 
-                     ++ nl
-                     ++ CameLIGOPretty.printMain "state" |}.
+        printMain "escrow_receive" "msg" "state" 
+    |}.
 
   Definition to_inline : list kername := 
     [ <%% Monads.Monad_option %%>
@@ -84,7 +108,7 @@ Module EscrowCameLIGOExtraction.
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
-  (* Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo" *)
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo"
   MetaCoq Run (tmMsg cameLIGO_escrow).
 
 End EscrowCameLIGOExtraction.
@@ -217,14 +241,14 @@ Module EscrowLiquidityExtraction.
     ].
 
   Import MonadNotation.
+  
+  Time MetaCoq Run
+      (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
+        tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
+      ).
 
-  (* Time MetaCoq Run *)
-  (*     (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;; *)
-  (*       tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t *)
-  (*     ). *)
-
-  (* (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *) *)
-  (* Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq" *)
-  (* MetaCoq Run (tmMsg liquidity_escrow). *)
+  (* (** we redirect the extraction result for later processing and compiling with the Liquidity compiler *) *)
+  Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq"
+  MetaCoq Run (tmMsg liquidity_escrow).
 
 End EscrowLiquidityExtraction.

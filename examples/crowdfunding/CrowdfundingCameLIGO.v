@@ -32,8 +32,18 @@ Defined.
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
 
   Definition crowdfunding_init (ctx : ContractCallContext)
-            (setup : (time_coq × Z × address_coq)) : option storage :=
-    if ctx.(ctx_amount) =? 0 then Some (setup, (Maps.mnil, false)) else None.
+              (setup : (time_coq × Z × address_coq)) : option storage :=
+      if ctx.(ctx_amount) =? 0 then Some (setup, (Maps.mnil, false)) else None.
+
+  Definition init (setup : (time_coq × Z × address_coq)) : option storage :=
+    Some (setup, (Maps.mnil, false)).
+
+  Lemma crowdfunding_init_eq_init ctx setup :
+    ctx.(ctx_amount) =? 0 -> (* no money should be sent on deployment *)
+    crowdfunding_init ctx setup = init setup.
+  Proof.
+    intros Hamount. unfold crowdfunding_init. now rewrite Hamount.
+  Qed.
 
   Open Scope Z.
   Import SimpleBlockchainExt.AcornBlockchain.
@@ -63,7 +73,7 @@ Defined.
 
 
   Definition CF_MODULE :
-    CameLIGOMod _ _ (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
+    CameLIGOMod _ _ _ storage SimpleActionBody_coq :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_crowdfunding" ;
 
@@ -78,7 +88,7 @@ Defined.
           (Tezos.now, (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
 
       (* initial storage *)
-      lmd_init := crowdfunding_init ;
+      lmd_init := init ;
 
       (* init requires some extra operations *)
       lmd_init_prelude := "";
@@ -90,11 +100,10 @@ Defined.
 
       (* code for the entry point *)
       lmd_entry_point :=
-        "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ CameLIGOPretty.printWrapper ("crowdfunding_receive")
+      "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ nl
+       ++ CameLIGOPretty.printMain "crowdfunding_receive"
                                     "msg_coq"
-                                    "storage"
-                                    ++ nl
-                                    ++ CameLIGOPretty.printMain "storage" |}.
+                                    "storage" |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure

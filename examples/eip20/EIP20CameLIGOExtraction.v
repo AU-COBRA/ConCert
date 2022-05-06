@@ -20,11 +20,14 @@ Section EIP20TokenExtraction.
 
   Import EIP20Token.
 
-  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    let ctx_ := ctx in
+  Definition init (setup : EIP20Token.Setup) : option EIP20Token.State :=
     Some {| total_supply := setup.(init_amount);
             balances := ContractCommon.AddressMap.add (EIP20Token.owner setup) (init_amount setup) ContractCommon.AddressMap.empty;
             allowances := ContractCommon.AddressMap.empty |}.
+
+  Lemma EIP20Token_init_eq_init chain ctx setup :
+    EIP20Token.init chain ctx setup = init setup.
+  Proof. reflexivity. Qed.
 
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)
@@ -57,8 +60,7 @@ Section EIP20TokenExtraction.
 
       (* code for the entry point *)
       lmd_entry_point :=
-        CameLIGOPretty.printWrapper "receive_" "msg" "state" ++ nl
-        ++ CameLIGOPretty.printMain "state"|}.
+        CameLIGOPretty.printMain "receive_" "msg" "state" |}.
 
   Definition TT_remap_eip20token : list (kername * string) :=
     TT_remap_default ++ [

@@ -772,54 +772,19 @@ Section PPLigo.
       let wrap t :=
         "match " ++ t ++ " with" ++ nl ++
         "  Some v -> v"++ nl ++
-        "| None -> (failwith (""""): " ++ printed_outer_ret_ty ++ ")" in
+        "| None -> (failwith (""Init failed""): " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
                 ++ print_term env TT ctx [] true false lam_body body_annot
                 ++ " in" in
-      (* if init takes no parameters, we give it a unit parameter  *)
-      let printed_targs_outer := match printed_targs_inner with
-                                 | _::[] | [] => let arg_name := fresh_string_name ctx nAnon in
-                                         [parens false (arg_name ++ " : unit")]
-                                 | _::xs => xs
-                                 end in
-      (* ignore the first argument because it's a call context *)
+      let printed_targs_outer := printed_targs_inner in
       let decl_outer :=
         "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
-      let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
-      let inner_app := "inner " ++ concat " " ( "ctx" :: tl sargs) in
-      let init_args_ty := "type init_args_ty = " ++
-        match tys with
-        | _::[] => "unit"
-        | [] => "unit"
-        | _::_ => tl tys |> map (print_box_type [] TT)
-                         |> concat " * "
-      end in
-      let init_wrapper_args_printed tys :=
-        match tys with
-        | [] => "()"
-        | [ty] => " args"
-        | tys => tys |> fold_right (fun _ '(i,s) => (i+1,s ++ " args." ++ string_of_nat i)) (0, "")
-                     |> snd
-        end in
-      let init_wrapper :=
-           "let init_wrapper (args : init_args_ty) ="
-        ++ nl
-        ++ "  init" ++ (tl tys |> init_wrapper_args_printed) in
+      let inner_app := "inner " ++ concat " " sargs in
       ret ("let " ++ decl_outer ++ " = "
-                      ++ nl
-                      ++ init_prelude
-                      ++ nl
                       ++ let_inner
                       ++ nl
-                      ++ let_ctx
-                      ++ nl
-                      ++ wrap (parens false inner_app)
-                      ++ nl
-                      ++ init_args_ty
-                      ++ nl
-                      ++ init_wrapper
-                      ++ nl)
+                      ++ wrap (parens false inner_app))
     | None => fun _ => None
     end.
 
@@ -1022,36 +987,18 @@ Section PPLigo.
                 bool_ops; time_ops; address_ops;
                 get_contract_def; CameLIGO_Chain_CallContext].
 
-  Definition printWrapper (contract parameter_name storage_name : string): string :=
-    <$
-    "type return = (operation) list * (" ++ storage_name ++ " option)" ;
-    "type parameter_wrapper =" ;
-    "  Init of init_args_ty" ;
-    "| Call of " ++ parameter_name ++ " option" ;
-    "";
-    "let wrapper (param, st : parameter_wrapper * (" ++ storage_name ++ ") option) : return =" ;
-    "  match param with " ;
-    "    Init init_args -> (";
-    "  match st with ";
-    "      Some st -> (failwith (""Cannot call Init twice""): return)";
-    "    | None -> (([]: operation list), Some (init init_args)))";
-    "  | Call p -> (" ;
-    "    match st with" ;
-    "      Some st -> (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
-    "                    Some v -> (v.0, Some v.1)" ;
-    "                  | None -> (failwith ("""") : return))" ;
-    "    | None -> (failwith (""cannot call this endpoint before Init has been called""): return))"
-    $>.
+  Definition printMain (contract parameter_name storage_name : string) : string :=
+    <$ "" ;
+       "type return = (operation) list * " ++ storage_name ;
+       "" ;
+       "let main (p, st : " ++ parameter_name ++ " option * " ++ storage_name ++ ") : return = " ;
+       "   (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
+       "      Some v -> (v.0, v.1)" ;
+       "    | None -> (failwith (""Contract returned None"") : return))" $>.
 
-  Definition printMain (storage_name : string) :=
-    "let main (action, st : parameter_wrapper * " ++ storage_name ++ " option) : return = wrapper (action, st)".
-
-    Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
+  Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
   let st := print_type_name state_nm in
   let rec := print_const_name receive_nm in
   let msg := print_type_name msg_nm in
-  <$ printWrapper rec msg st;
-     "";
-     printMain st $>.
-
+  printMain rec msg st.
 End PPLigo.

@@ -164,10 +164,7 @@ Module CameLIGOExtractionSetup.
   Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
 
 
-  Definition init (ctx : ContractCallContext) (setup : Z) : option storage :=
-    (* prevents optimisations from removing unused [ctx]
-       TODO: override masks instead. *)
-    let ctx_ := ctx in 
+  Definition init (setup : Z) : option storage :=
     Some setup.
 
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)

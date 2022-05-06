@@ -319,9 +319,8 @@ Module CameLIGOInterp.
   Import CameLIGOExtract CameLIGOPretty.
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
-  Definition init (ctx : ContractCallContext) (setup : unit) : option storage :=
-    let ctx0 := ctx in
-    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
+  Definition init (setup : unit) : option storage :=
+    let setup0 := setup in (* prevents optimisations from removing unused [setup]. TODO: override masks instead  *)
     Some [].
 
 
@@ -376,9 +375,8 @@ Module CameLIGOInterp.
 
        (* code for the entry point *)
        lmd_entry_point :=
-         CameLIGOPretty.printWrapper "receive_" "params" "value list"
-                                     ++ nl
-                                     ++ CameLIGOPretty.printMain "storage" |}.
+         CameLIGOPretty.printMain "receive_" "params" "value list"
+    |}.
 
     Time MetaCoq Run
     (CameLIGO_prepare_extraction [] TT_remap_ligo TT_rename_ctors_default [] "cctx_instance" LIGO_INTERP_MODULE).

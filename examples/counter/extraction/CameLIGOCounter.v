@@ -29,9 +29,7 @@ Module Counter.
   Definition operation := ActionBody.
   Definition storage := Z × address.
 
-  Definition init (ctx : ContractCallContext) (setup : Z * address) : option storage :=
-    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+  Definition init (setup : Z * address) : option storage := Some setup.
 
   Inductive msg :=
   | Inc (_ : Z)
@@ -87,8 +85,7 @@ Module Counter.
 
         (* code for the entry point *)
         lmd_entry_point :=
-          CameLIGOPretty.printWrapper ("counter") "msg" "storage" ++ nl
-          ++ CameLIGOPretty.printMain "storage" |}.
+          CameLIGOPretty.printMain "counter" "msg" "storage" |}.
 
 End Counter.
 Section CounterExtraction.
