@@ -780,7 +780,7 @@ Section PPLigo.
       let printed_targs_outer := printed_targs_inner in
       let decl_outer :=
         "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
-      let inner_app := "inner " ++ concat " " (map (string_of_name ctx) args) in
+      let inner_app := "inner " ++ concat " " sargs in
       ret ("let " ++ decl_outer ++ " = "
                       ++ let_inner
                       ++ nl

@@ -20,11 +20,14 @@ Section EIP20TokenExtraction.
 
   Import EIP20Token.
 
-  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    let ctx_ := ctx in
+  Definition init (setup : EIP20Token.Setup) : option EIP20Token.State :=
     Some {| total_supply := setup.(init_amount);
             balances := ContractCommon.AddressMap.add (EIP20Token.owner setup) (init_amount setup) ContractCommon.AddressMap.empty;
             allowances := ContractCommon.AddressMap.empty |}.
+
+  Lemma EIP20Token_init_eq_init chain ctx setup :
+    EIP20Token.init chain ctx setup = init setup.
+  Proof. reflexivity. Qed.
 
   Definition receive_ (chain : Chain)
        (ctx : ContractCallContext)

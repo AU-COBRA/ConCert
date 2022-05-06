@@ -78,7 +78,7 @@ Definition crowdfunding_receive
            (st : storage) : option (list SimpleActionBody_coq × storage) :=
   receive params.2 st params.1.
 
-Definition COUNTER_MODULE :
+Definition CROWDFUNDING_MODULE :
   LiquidityMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_crowdfunding" ;
@@ -112,8 +112,8 @@ Definition COUNTER_MODULE :
     that removes application of boxes to constants and constructors. *)
 
 Time MetaCoq Run
-     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) t
+     (t <- liquidity_extraction PREFIX TT_remap TT_rename [] CROWDFUNDING_MODULE ;;
+      tmDefinition CROWDFUNDING_MODULE.(lmd_module_name) t
      ).
 
 Print liquidity_crowdfunding.
