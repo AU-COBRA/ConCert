@@ -183,7 +183,7 @@ Section ExecuteActions.
         (try rewrite FMap.find_partial_alter;
          try rewrite FMap.find_partial_alter_ne by auto;
          cbn); lia.
-  Qed.
+  Defined.
 
   Lemma set_contract_state_equiv addr state (lc : LocalChain) (env : Environment) :
     EnvironmentEquiv lc env ->
@@ -199,7 +199,7 @@ Section ExecuteActions.
     destruct_address_eq.
     - subst. now rewrite FMap.find_add.
     - rewrite FMap.find_add_ne; auto.
-  Qed.
+  Defined.
 
   Lemma add_contract_equiv addr wc (lc : LocalChain) (env : Environment) :
     EnvironmentEquiv lc env ->
@@ -214,7 +214,7 @@ Section ExecuteActions.
     destruct_address_eq.
     - subst. now rewrite FMap.find_add.
     - rewrite FMap.find_add_ne; auto.
-  Qed.
+  Defined.
 
   Local Open Scope Z.
   Lemma gtb_le x y :
@@ -225,7 +225,7 @@ Section ExecuteActions.
     rewrite Z.gtb_ltb in H.
     apply Z.ltb_ge.
     auto.
-  Qed.
+  Defined.
 
   Lemma ltb_ge x y :
     x <? y = false ->
@@ -234,7 +234,7 @@ Section ExecuteActions.
     intros H.
     apply Z.ltb_ge in H.
     lia.
-  Qed.
+  Defined.
 
   Local Hint Resolve gtb_le ltb_ge : core.
 
@@ -287,7 +287,7 @@ Section ExecuteActions.
     match goal with
     | [|- context[N.leb ?a ?b = true]] => destruct (N.leb_spec a b); auto; lia
     end.
-  Qed.
+  Defined.
 
   Local Hint Resolve get_new_contract_addr_is_contract_addr : core.
   Lemma deploy_contract_step origin from amount wc setup act lc_before new_acts lc_after :
@@ -403,7 +403,7 @@ Proof.
   apply Bool.negb_true_iff in to_acc.
   apply build_is_valid_next_block; cbn; auto.
   lia.
-Qed.
+Defined.
 
 Definition find_origin_neq_from (actions : list Action) : option Action :=
   find (fun act => negb (address_eqb (act_origin act) (act_from act))) actions.
@@ -419,7 +419,7 @@ Proof.
   assert (all_nin0 : forall x, In x actions -> (act_origin x =? act_from x)%address = true).
   { intros. now apply ssrbool.negbFE. }
   now apply Forall_forall in all_nin0.
-Qed.
+Defined.
 
 Definition find_invalid_root_action (actions : list Action) : option Action :=
   find (fun act => address_is_contract (act_from act)) actions.
@@ -433,7 +433,7 @@ Proof.
   specialize (List.find_none _ _ find_none) as all_nin.
   unfold act_is_from_account.
   now apply Forall_forall in all_nin.
-Qed.
+Defined.
 
 Definition add_new_block (header : BlockHeader) (lc : LocalChain) : LocalChain :=
   let lc := add_balance (block_creator header) (block_reward header) lc in
@@ -459,7 +459,7 @@ Proof.
     apply eq.
   - rewrite FMap.find_partial_alter_ne; auto.
     apply eq.
-Qed.
+Defined.
 
 (* The computational bits of adding a block *)
 Definition add_block_exec

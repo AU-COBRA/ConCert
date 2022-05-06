@@ -61,7 +61,6 @@ Definition token_setup (hook_addr : option Address): FA2Token.Setup := {|
   setup_tokens := FMap.add 0%N token_metadata_0 FMap.empty;
   initial_permission_policy := policy_all;
   transfer_hook_addr_ := hook_addr;
-
 |}.
 
 Definition token_contract_base_addr : Address := addr_of_Z 128%Z.
