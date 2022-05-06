@@ -57,8 +57,7 @@ Section EIP20TokenExtraction.
 
       (* code for the entry point *)
       lmd_entry_point :=
-        CameLIGOPretty.printWrapper "receive_" "msg" "state" ++ nl
-        ++ CameLIGOPretty.printMain "state"|}.
+        CameLIGOPretty.printMain "receive_" "msg" "state" |}.
 
   Definition TT_remap_eip20token : list (kername * string) :=
     TT_remap_default ++ [

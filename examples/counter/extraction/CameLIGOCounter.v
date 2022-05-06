@@ -87,8 +87,7 @@ Module Counter.
 
         (* code for the entry point *)
         lmd_entry_point :=
-          CameLIGOPretty.printWrapper ("counter") "msg" "storage" ++ nl
-          ++ CameLIGOPretty.printMain "storage" |}.
+          CameLIGOPretty.printMain "counter" "msg" "storage" |}.
 
 End Counter.
 Section CounterExtraction.
