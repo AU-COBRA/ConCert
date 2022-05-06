@@ -13,7 +13,10 @@ From Coq Require Import Bool.
     - max_acts_per_block: Defines the maximum number of actions that the generator will add per block. Default value is 2.
     - act_depth
     - DepthFirst: A boolean value denoting whether actions are executed in a depth first order (true) or breadth first order (false). Default value is true.
-    - AddrSize: The total number of valid addresses in the blockchain. The first half of the address space is reserved for user accounts while the secound half is reserved for smart contracts. Default value is 256.
+    - AddrSize: The total number of valid addresses in the blockchain. The first half of the address space is reserved
+      for user accounts while the secound half is reserved for smart contracts. Default value is 256 (overwriting this value is not recommended).
+    - BlockReward: The reward given to the address adding a block to the chain. Default value is 50.
+    - BlockCreator: The address used when adding new blocks to the chain. Default value is "creator" (address 10).
     
     These values can be overwritten between tests by: << Extract Constant max_trace_length => "3" >>
 *)

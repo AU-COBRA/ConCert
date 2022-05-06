@@ -30,6 +30,8 @@ Import ListNotations.
 Section TraceGens.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
+  Global Definition BlockReward : Amount := 50.
+  Global Definition BlockCreator : Address := creator.
 
   (* Deconstructs a ChainTrace to a list of blockheaders list of the minimum information
       needed to reconstruct a ChainTrace, that being a list of block headers and
@@ -132,8 +134,8 @@ Section TraceGens.
         {| block_height := S (chain_height chain);
           block_slot := S (current_slot chain);
           block_finalized_height := finalized_height chain;
-          block_creator := creator;
-          block_reward := 50; |} in
+          block_creator := BlockCreator;
+          block_reward := BlockReward; |} in
     builder_add_block chain header acts.
 
   Definition gAdd_block (cb : ChainBuilder)
