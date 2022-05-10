@@ -4,7 +4,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import LegacyFA2Interface.
 From ConCert.Examples.FA2 Require Import FA2Printers.
 From ConCert.Examples.FA2 Require Import TestContracts.
 From Coq Require Import ZArith.
