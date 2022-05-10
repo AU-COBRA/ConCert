@@ -95,10 +95,12 @@ Definition gSingleTransfer (state : FA2Token.State)
         returnGenSome
           (caller, {|
             from_ := from;
-            to_ := to;
-            transfer_token_id := tokenid;
-            amount := amount;
-            sender_callback_addr := None;
+            txs := [{|
+              to_ := to;
+              dst_token_id := tokenid;
+              amount := amount;
+            |}];
+            sender_callback_addr := None
           |})
     )
   | None => returnGen None

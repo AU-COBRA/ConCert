@@ -131,9 +131,11 @@ Definition receive_balance_response (responses : list balance_of_response)
   let asset_transfer_msg := act_transfer related_exchange.(exchange_owner) tokens_price in
   let token_transfer_param := msg_transfer [{|
     from_ := related_exchange.(exchange_owner);
-    to_ := dexter_caddr;
-    transfer_token_id := related_exchange.(exchange_token_id);
-    amount := related_exchange.(tokens_sold);
+    txs := [{|
+      to_ := dexter_caddr;
+      dst_token_id := related_exchange.(exchange_token_id);
+      amount := related_exchange.(tokens_sold);
+    |}];
     sender_callback_addr := Some related_exchange.(callback_addr);
   |}] in
   let token_transfer_msg := act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (token_transfer_param)) in

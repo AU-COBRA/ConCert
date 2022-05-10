@@ -12,13 +12,20 @@ Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
   show v := "return address: " ++ show v.(return_addr A)
 |}.
 
+Instance showFA2InterfaceTransferDestination : Show FA2Interface.transfer_destination :=
+{|
+  show t := "{"
+            ++ "to_: " ++ show t.(to_) ++ sep
+            ++ "dst_token_id: " ++ show t.(dst_token_id) ++ sep
+            ++ "amount: " ++ show t.(amount) ++ sep
+            ++ "}"
+|}.
+
 Instance showFA2InterfaceTransfer : Show FA2Interface.transfer :=
 {|
   show t := "{"
             ++ "from_: " ++ show t.(from_) ++ sep
-            ++ "to_: " ++ show t.(to_) ++ sep
-            ++ "transfer_token_id: " ++ show t.(transfer_token_id) ++ sep
-            ++ "amount: " ++ show t.(amount) ++ sep
+            ++ "txs:" ++ show t.(txs) ++ sep
             ++ "callback: " ++ show t.(sender_callback_addr)
             ++ "}"
 |}.
@@ -163,13 +170,20 @@ Instance showFA2Interfacepermissions_descriptor : Show FA2Interface.permissions_
             ++ "}"
 |}.
 
+Instance showFA2Interfacetransfer_destination_descriptor : Show FA2Interface.transfer_destination_descriptor :=
+{|
+  show t := "transfer_destination_descriptor{"
+            ++ "transfer_dst_descr_to_: " ++ show t.(transfer_dst_descr_to_) ++ sep
+            ++ "transfer_dst_descr_token_id: " ++ show t.(transfer_dst_descr_token_id) ++ sep
+            ++ "transfer_dst_descr_amount: " ++ show t.(transfer_dst_descr_amount)
+            ++ "}"
+|}.
+
 Instance showFA2Interfacetransfer_descriptor : Show FA2Interface.transfer_descriptor :=
 {|
   show t := "transfer_descriptor{"
             ++ "transfer_descr_from_: " ++ show t.(transfer_descr_from_) ++ sep
-            ++ "transfer_descr_to_: " ++ show t.(transfer_descr_to_) ++ sep
-            ++ "transfer_descr_token_id: " ++ show t.(transfer_descr_token_id) ++ sep
-            ++ "transfer_descr_amount: " ++ show t.(transfer_descr_amount)
+            ++ "transfer_descr_txs: " ++ show t.(transfer_descr_txs) ++ sep
             ++ "}"
 |}.
 

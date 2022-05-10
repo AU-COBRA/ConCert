@@ -263,7 +263,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       call_to_token state.(tokenAddress)
                     0
                     (FA2Token.msg_transfer
-                      [FA2Interface.build_transfer from to state.(tokenId) amount None]).
+                      [FA2Interface.build_transfer from [FA2Interface.build_transfer_destination to state.(tokenId) amount] None]).
 
     Definition xtz_transfer (to : Address) (amount : N) : option ActionBody :=
       if address_is_contract to

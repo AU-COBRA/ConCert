@@ -24,13 +24,19 @@ Record callback (A : Type) := {
 Definition callback_addr {A : Type} (c : callback A) : Address := c.(return_addr A).
 Global Coercion callback_addr : callback >-> Address.
 
-Record transfer :=
+Record transfer_destination := 
+  build_transfer_destination {
+    to_ : Address;
+    dst_token_id : N;
+    amount : N;
+}.
+
+(*TODO : What to do with callback?*)
+Record transfer := 
   build_transfer {
     from_ : Address;
-    to_ : Address;
-    transfer_token_id : token_id;
-    amount : N;
-    sender_callback_addr : option Address;
+    txs : list transfer_destination;
+    sender_callback_addr : option Address
 }.
 
 Record balance_of_request := {
@@ -115,11 +121,15 @@ Record permissions_descriptor := {
   descr_custom : option Address;
 }.
 
+Record transfer_destination_descriptor := {
+  transfer_dst_descr_to_ : option Address;
+  transfer_dst_descr_token_id : token_id;
+  transfer_dst_descr_amount : N  
+}.
+
 Record transfer_descriptor := {
-  transfer_descr_from_ : Address;
-  transfer_descr_to_ : Address;
-  transfer_descr_token_id : token_id;
-  transfer_descr_amount : N;
+  transfer_descr_from_ : option Address;
+  transfer_descr_txs : list transfer_destination_descriptor
 }.
 
 Record transfer_descriptor_param := {
@@ -143,6 +153,7 @@ End FA2Types.
 
 Section Setters.
 
+MetaCoq Run (make_setters transfer_destination).
 MetaCoq Run (make_setters transfer).
 MetaCoq Run (make_setters balance_of_request).
 MetaCoq Run (make_setters balance_of_response).
@@ -155,6 +166,7 @@ MetaCoq Run (make_setters operator_param).
 MetaCoq Run (make_setters is_operator_response).
 MetaCoq Run (make_setters is_operator_param).
 MetaCoq Run (make_setters permissions_descriptor).
+MetaCoq Run (make_setters transfer_destination_descriptor).
 MetaCoq Run (make_setters transfer_descriptor).
 MetaCoq Run (make_setters transfer_descriptor_param).
 MetaCoq Run (make_setters set_hook_param).
@@ -164,6 +176,9 @@ End Setters.
 Section Serialization.
 Instance callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) :=
 Derive Serializable (callback_rect A) <(Build_callback A)>.
+
+Global Instance transfer_destination_serializable : Serializable transfer_destination :=
+  Derive Serializable transfer_destination_rect<build_transfer_destination>.
 
 Global Instance transfer_serializable : Serializable transfer :=
   Derive Serializable transfer_rect <build_transfer>.
@@ -227,6 +242,9 @@ Global Instance owner_transfer_policy_serializable : Serializable owner_transfer
 
 Global Instance permissions_descriptor_serializable : Serializable permissions_descriptor :=
   Derive Serializable permissions_descriptor_rect <Build_permissions_descriptor>.
+
+Global Instance transfer_destination_descriptor_serializable : Serializable transfer_destination_descriptor :=
+Derive Serializable transfer_destination_descriptor_rect <Build_transfer_destination_descriptor>.
 
 Global Instance transfer_descriptor_serializable : Serializable transfer_descriptor :=
   Derive Serializable transfer_descriptor_rect <Build_transfer_descriptor>.
