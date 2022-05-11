@@ -32,6 +32,7 @@ Section TraceGens.
   Context `{Show ChainState}.
   Global Definition BlockReward : Amount := 50.
   Global Definition BlockCreator : Address := creator.
+  Global Definition MaxGenAttempts : nat := 2.
 
   (* Deconstructs a ChainTrace to a list of blockheaders list of the minimum information
       needed to reconstruct a ChainTrace, that being a list of block headers and
@@ -157,6 +158,9 @@ Section TraceGens.
         | Ok r => returnGen (Ok r)
         end
       end.
+  
+  Definition try_repeated {T E} (default : E) (n : nat) (g : G (result T E)) : G (result T E) :=
+    backtrack_result default (repeat (1, g) n).
 
   Definition gChain (init_lc : ChainBuilder)
                     (gActOptFromChainSized : Environment -> nat -> GOpt Action)
@@ -165,15 +169,16 @@ Section TraceGens.
                     (max_acts_per_block : nat)
                     : G ChainBuilder :=
     let gAdd_block' lc max_acts := gAdd_block lc gActOptFromChainSized act_depth max_acts in
-    let default_error := action_evaluation_depth_exceeded in (* Not ideal approach, but it suffices for now *)
-    let try_twice g := backtrack_result default_error [(1, g);(1, g)] in
-    let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_twice (g n)) in
+    let default_error := action_evaluation_depth_exceeded in (* TODO: Not ideal approach, but it suffices for now *)
+    let try_repeat g := try_repeated default_error MaxGenAttempts g in
+    let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_repeat (g n)) in
     (* Try decreasing max_acts_per_block, this is needed in some cases since there might be blocks
         where it is not possible to generate max_acts_per_block number of valid actions *)
     let fix rec n (lc : ChainBuilder) : G ChainBuilder :=
       match n with
       | 0 => returnGen lc
-      | S n => lc' <- try_decreasing (gAdd_block' lc) ;; (* heuristic: try twice for more expected robustness *)
+      (* heuristic: try multiple time and try decreasing for more expected robustness *)
+      | S n => lc' <- try_decreasing (gAdd_block' lc) ;;
               match lc' with
               | Ok lc' => rec n lc'
               (* if no new chain could be generated without error, return the old chain *)
