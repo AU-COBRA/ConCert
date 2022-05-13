@@ -4,7 +4,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import LegacyFA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.FA2 Require Import TestContracts.
 From ConCert.Utils Require Import Extras.
 From Coq Require Import ZArith.
@@ -258,7 +258,7 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition get_transfers (acts : list Action) : list (Address * list LegacyFA2Interface.transfer) :=
+Definition get_transfers (acts : list Action) : list (Address * list FA2LegacyInterface.transfer) :=
   fold_left (fun trxs act =>
     match act.(act_body) with
     | act_call _ _ msg =>

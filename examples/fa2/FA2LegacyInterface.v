@@ -7,7 +7,7 @@ From ConCert.Utils Require Import RecordUpdate.
 Import ListNotations.
 
 
-Section LegacyFA2Interface.
+Section FA2LegacyInterface.
 Context {BaseTypes : ChainBase}.
 Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
@@ -31,7 +31,6 @@ Record transfer_destination :=
     amount : N;
 }.
 
-(*TODO : What to do with callback?*)
 Record transfer := 
   build_transfer {
     from_ : Address;
@@ -266,4 +265,4 @@ Global Instance set_hook_param_serializable : Serializable set_hook_param :=
 
 End Serialization.
 
-End LegacyFA2Interface.
+End FA2LegacyInterface.

@@ -32,7 +32,7 @@ bat/BATAltFixTests.v
 
 -Q fa2 ConCert.Examples.FA2
 fa2/FA2Interface.v
-fa2/LegacyFA2Interface.v
+fa2/FA2LegacyInterface.v
 fa2/FA2Token.v
 fa2/TestContracts.v
 fa2/FA2Printers.v

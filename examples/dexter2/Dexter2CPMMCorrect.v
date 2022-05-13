@@ -19,7 +19,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import LegacyFA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 From ConCert.Examples.Dexter2 Require Dexter2FA12Correct.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM. Import DEX2.
@@ -393,7 +393,7 @@ Section Theories.
         act_call prev_state.(tokenAddress) 0%Z (serialize
           (msg_balance_of (Build_balance_of_param 
             ([Build_balance_of_request ctx.(ctx_contract_address) prev_state.(tokenId)])
-            (LegacyFA2Interface.Build_callback _ None ctx.(ctx_contract_address)))))
+            (FA2LegacyInterface.Build_callback _ None ctx.(ctx_contract_address)))))
       ].
   Proof.
     intros * receive_some.
