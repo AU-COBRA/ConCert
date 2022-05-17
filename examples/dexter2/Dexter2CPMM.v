@@ -17,7 +17,7 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 From Coq Require Import ZArith_base.
 From Coq Require Import List. Import ListNotations.
@@ -33,10 +33,10 @@ Open Scope N_scope.
 
 (** ** Type synonyms *)
 
-Definition update_token_pool_internal_ := list FA2Interface.balance_of_response.
-Definition token_id := FA2Interface.token_id.
-Definition token_contract_transfer := FA2Interface.transfer.
-Definition balance_of := FA2Interface.balance_of_response.
+Definition update_token_pool_internal_ := list FA2LegacyInterface.balance_of_response.
+Definition token_id := FA2LegacyInterface.token_id.
+Definition token_contract_transfer := FA2LegacyInterface.transfer.
+Definition balance_of := FA2LegacyInterface.balance_of_response.
 Definition mintOrBurn := Dexter2FA12.mintOrBurn_param.
 Definition baker_address := option Address.
 
@@ -263,7 +263,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       call_to_token state.(tokenAddress)
                     0
                     (FA2Token.msg_transfer
-                      [FA2Interface.build_transfer from to state.(tokenId) amount None]).
+                      [FA2LegacyInterface.build_transfer from [FA2LegacyInterface.build_transfer_destination to state.(tokenId) amount] None]).
 
     Definition xtz_transfer (to : Address) (amount : N) : option ActionBody :=
       if address_is_contract to
@@ -394,9 +394,9 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) ; (* error_AMOUNT_MUST_BE_ZERO *)
       do _ <- throwIf state.(selfIsUpdatingTokenPool) ; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
       let balance_of_request :=
-        FA2Interface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
+        FA2LegacyInterface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
       let balance_of_param :=
-        FA2Interface.Build_balance_of_param [balance_of_request] (FA2Interface.Build_callback _ None ctx.(ctx_contract_address)) in
+        FA2LegacyInterface.Build_balance_of_param [balance_of_request] (FA2LegacyInterface.Build_callback _ None ctx.(ctx_contract_address)) in
       let op := call_to_token state.(tokenAddress) 0 (FA2Token.msg_balance_of balance_of_param) in
         Some (state<| selfIsUpdatingTokenPool := true |>, [op]).
 

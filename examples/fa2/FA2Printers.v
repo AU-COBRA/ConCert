@@ -1,29 +1,36 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import TestContracts.
 Local Open Scope string_scope.
 
 
-Instance showCallback {A : Type}: Show (FA2Interface.callback A) :=
+Instance showCallback {A : Type}: Show (FA2LegacyInterface.callback A) :=
 {|
   show v := "return address: " ++ show v.(return_addr A)
 |}.
 
-Instance showFA2InterfaceTransfer : Show FA2Interface.transfer :=
+Instance showFA2InterfaceTransferDestination : Show FA2LegacyInterface.transfer_destination :=
+{|
+  show t := "{"
+            ++ "to_: " ++ show t.(to_) ++ sep
+            ++ "dst_token_id: " ++ show t.(dst_token_id) ++ sep
+            ++ "amount: " ++ show t.(amount) ++ sep
+            ++ "}"
+|}.
+
+Instance showFA2InterfaceTransfer : Show FA2LegacyInterface.transfer :=
 {|
   show t := "{"
             ++ "from_: " ++ show t.(from_) ++ sep
-            ++ "to_: " ++ show t.(to_) ++ sep
-            ++ "transfer_token_id: " ++ show t.(transfer_token_id) ++ sep
-            ++ "amount: " ++ show t.(amount) ++ sep
+            ++ "txs:" ++ show t.(txs) ++ sep
             ++ "callback: " ++ show t.(sender_callback_addr)
             ++ "}"
 |}.
 
-Instance showFA2Interfacebalance_of_request : Show FA2Interface.balance_of_request :=
+Instance showFA2Interfacebalance_of_request : Show FA2LegacyInterface.balance_of_request :=
 {|
   show t := "balance_of_request{"
             ++ "owner: " ++ show t.(owner) ++ sep
@@ -31,7 +38,7 @@ Instance showFA2Interfacebalance_of_request : Show FA2Interface.balance_of_reque
             ++ "}"
 |}.
 
-Instance showFA2Interfacebalance_of_response : Show FA2Interface.balance_of_response :=
+Instance showFA2Interfacebalance_of_response : Show FA2LegacyInterface.balance_of_response :=
 {|
   show t := "balance_of_response{"
             ++ "request: " ++ show t.(request) ++ sep
@@ -39,7 +46,7 @@ Instance showFA2Interfacebalance_of_response : Show FA2Interface.balance_of_resp
             ++ "}"
 |}.
 
-Instance showFA2Interfacebalance_of_param : Show FA2Interface.balance_of_param :=
+Instance showFA2Interfacebalance_of_param : Show FA2LegacyInterface.balance_of_param :=
 {|
   show t := "balance_of_param{"
             ++ "bal_requests: " ++ show t.(bal_requests) ++ sep
@@ -47,7 +54,7 @@ Instance showFA2Interfacebalance_of_param : Show FA2Interface.balance_of_param :
             ++ "}"
 |}.
 
-Instance showFA2Interfacetotal_supply_response : Show FA2Interface.total_supply_response :=
+Instance showFA2Interfacetotal_supply_response : Show FA2LegacyInterface.total_supply_response :=
 {|
   show t := "total_supply_response{"
             ++ "supply_resp_token_id: " ++ show t.(supply_resp_token_id) ++ sep
@@ -55,7 +62,7 @@ Instance showFA2Interfacetotal_supply_response : Show FA2Interface.total_supply_
             ++ "}"
 |}.
 
-Instance showFA2Interfacetotal_supply_param : Show FA2Interface.total_supply_param :=
+Instance showFA2Interfacetotal_supply_param : Show FA2LegacyInterface.total_supply_param :=
 {|
   show t := "total_supply_param{"
             ++ "supply_param_token_ids: " ++ show t.(supply_param_token_ids) ++ sep
@@ -63,7 +70,7 @@ Instance showFA2Interfacetotal_supply_param : Show FA2Interface.total_supply_par
             ++ "}"
 |}.
 
-Instance showFA2Interfacetoken_metadata : Show FA2Interface.token_metadata :=
+Instance showFA2Interfacetoken_metadata : Show FA2LegacyInterface.token_metadata :=
 {|
   show t := "token_metadata{"
             ++ "metadata_token_id: " ++ show t.(metadata_token_id) ++ sep
@@ -71,7 +78,7 @@ Instance showFA2Interfacetoken_metadata : Show FA2Interface.token_metadata :=
             ++ "}"
 |}.
 
-Instance showFA2Interfacetoken_metadata_param : Show FA2Interface.token_metadata_param :=
+Instance showFA2Interfacetoken_metadata_param : Show FA2LegacyInterface.token_metadata_param :=
 {|
   show t := "token_metadata_param{"
             ++ "metadata_token_ids: " ++ show t.(metadata_token_ids) ++ sep
@@ -87,7 +94,7 @@ Instance showoperator_tokens : Show operator_tokens :=
             end
 |}.
 
-Instance showFA2Interfaceoperator_param : Show FA2Interface.operator_param :=
+Instance showFA2Interfaceoperator_param : Show FA2LegacyInterface.operator_param :=
 {|
   show t := "operator_param{"
             ++ "op_param_owner: " ++ show t.(op_param_owner) ++ sep
@@ -104,7 +111,7 @@ Global Instance showupdate_operator : Show update_operator :=
             end
 |}.
 
-Instance showFA2Interfaceis_operator_response : Show FA2Interface.is_operator_response :=
+Instance showFA2Interfaceis_operator_response : Show FA2LegacyInterface.is_operator_response :=
 {|
   show t := "is_operator_response{"
             ++ "operator: " ++ show t.(operator) ++ sep
@@ -112,7 +119,7 @@ Instance showFA2Interfaceis_operator_response : Show FA2Interface.is_operator_re
             ++ "}"
 |}.
 
-Instance showFA2Interfaceis_operator_param : Show FA2Interface.is_operator_param :=
+Instance showFA2Interfaceis_operator_param : Show FA2LegacyInterface.is_operator_param :=
 {|
   show t := "is_operator_param{"
             ++ "is_operator_operator: " ++ show t.(is_operator_operator) ++ sep
@@ -145,14 +152,14 @@ Instance showowner_transfer_policy : Show owner_transfer_policy :=
             end
 |}.
 
-(* Instance showFA2Interfacecustom_permission_policy : Show FA2Interface.custom_permission_policy :=
+(* Instance showFA2Interfacecustom_permission_policy : Show FA2LegacyInterface.custom_permission_policy :=
 {|
   show t := "custom_permission_policy{"
             ++ "custom_policy_config_api: " ++ show t.(custom_policy_config_api)
             ++ "}"
 |}. *)
 
-Instance showFA2Interfacepermissions_descriptor : Show FA2Interface.permissions_descriptor :=
+Instance showFA2Interfacepermissions_descriptor : Show FA2LegacyInterface.permissions_descriptor :=
 {|
   show t := "permissions_descriptor{"
             ++ "descr_self: " ++ show t.(descr_self) ++ sep
@@ -163,17 +170,24 @@ Instance showFA2Interfacepermissions_descriptor : Show FA2Interface.permissions_
             ++ "}"
 |}.
 
-Instance showFA2Interfacetransfer_descriptor : Show FA2Interface.transfer_descriptor :=
+Instance showFA2Interfacetransfer_destination_descriptor : Show FA2LegacyInterface.transfer_destination_descriptor :=
 {|
-  show t := "transfer_descriptor{"
-            ++ "transfer_descr_from_: " ++ show t.(transfer_descr_from_) ++ sep
-            ++ "transfer_descr_to_: " ++ show t.(transfer_descr_to_) ++ sep
-            ++ "transfer_descr_token_id: " ++ show t.(transfer_descr_token_id) ++ sep
-            ++ "transfer_descr_amount: " ++ show t.(transfer_descr_amount)
+  show t := "transfer_destination_descriptor{"
+            ++ "transfer_dst_descr_to_: " ++ show t.(transfer_dst_descr_to_) ++ sep
+            ++ "transfer_dst_descr_token_id: " ++ show t.(transfer_dst_descr_token_id) ++ sep
+            ++ "transfer_dst_descr_amount: " ++ show t.(transfer_dst_descr_amount)
             ++ "}"
 |}.
 
-Instance showFA2Interfacetransfer_descriptor_param : Show FA2Interface.transfer_descriptor_param :=
+Instance showFA2Interfacetransfer_descriptor : Show FA2LegacyInterface.transfer_descriptor :=
+{|
+  show t := "transfer_descriptor{"
+            ++ "transfer_descr_from_: " ++ show t.(transfer_descr_from_) ++ sep
+            ++ "transfer_descr_txs: " ++ show t.(transfer_descr_txs) ++ sep
+            ++ "}"
+|}.
+
+Instance showFA2Interfacetransfer_descriptor_param : Show FA2LegacyInterface.transfer_descriptor_param :=
 {|
   show t := "transfer_descriptor_param{"
             ++ "transfer_descr_fa2: " ++ show t.(transfer_descr_fa2) ++ sep
@@ -196,7 +210,7 @@ Instance showfa2_token_sender : Show fa2_token_sender :=
             end
 |}.
 
-Instance showFA2Interfaceset_hook_param : Show FA2Interface.set_hook_param :=
+Instance showFA2Interfaceset_hook_param : Show FA2LegacyInterface.set_hook_param :=
 {|
   show t := "set_hook_param{"
             ++ "hook_addr: " ++ show t.(hook_addr) ++ sep

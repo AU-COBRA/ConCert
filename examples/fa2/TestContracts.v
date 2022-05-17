@@ -3,7 +3,7 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Utils Require Import RecordUpdate.
 
 From Coq Require Import List.
@@ -144,7 +144,8 @@ Definition check_transfer_permissions (tr : transfer_descriptor)
                                       (operator : Address)
                                       (state : HookState)
                                       : option unit :=
-  if (address_eqb tr.(transfer_descr_from_) operator)
+  do from <- tr.(transfer_descr_from_) ;
+  if (address_eqb from operator)
   then if (FA2Token.policy_disallows_self_transfer state.(hook_policy))
     then None
     else Some tt

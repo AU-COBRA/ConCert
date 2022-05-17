@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterGens.
 From ConCert.Utils Require Import Extras.

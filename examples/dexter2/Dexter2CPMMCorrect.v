@@ -19,7 +19,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 From ConCert.Examples.Dexter2 Require Dexter2FA12Correct.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM. Import DEX2.
@@ -393,7 +393,7 @@ Section Theories.
         act_call prev_state.(tokenAddress) 0%Z (serialize
           (msg_balance_of (Build_balance_of_param 
             ([Build_balance_of_request ctx.(ctx_contract_address) prev_state.(tokenId)])
-            (FA2Interface.Build_callback _ None ctx.(ctx_contract_address)))))
+            (FA2LegacyInterface.Build_callback _ None ctx.(ctx_contract_address)))))
       ].
   Proof.
     intros * receive_some.
@@ -527,7 +527,7 @@ Section Theories.
       [
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
-          [build_transfer ctx.(ctx_from) ctx.(ctx_contract_address) prev_state.(tokenId) tokens_deposited None])));
+          [build_transfer ctx.(ctx_from) [build_transfer_destination ctx.(ctx_contract_address) prev_state.(tokenId) tokens_deposited] None])));
         (act_call prev_state.(lqtAddress) 0%Z
           (serialize (Dexter2FA12.msg_mint_or_burn {| target := param.(owner); quantity := Z.of_N lqt_minted|})))
       ].
@@ -605,7 +605,7 @@ Section Theories.
           (serialize (Dexter2FA12.msg_mint_or_burn {| target := ctx.(ctx_from); quantity := - Z.of_N param.(lqtBurned)|})));
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
-          [build_transfer ctx.(ctx_contract_address) param.(liquidity_to) prev_state.(tokenId) tokens_withdrawn None])));
+          [build_transfer ctx.(ctx_contract_address) [build_transfer_destination param.(liquidity_to) prev_state.(tokenId) tokens_withdrawn] None])));
         (act_transfer param.(liquidity_to) (N_to_amount xtz_withdrawn))
       ].
   Proof.
@@ -689,7 +689,7 @@ Section Theories.
       [
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
-          [build_transfer ctx.(ctx_contract_address) param.(tokens_to) prev_state.(tokenId) tokens_bought None])))
+          [build_transfer ctx.(ctx_contract_address) [build_transfer_destination param.(tokens_to) prev_state.(tokenId) tokens_bought] None])))
       ].
   Proof.
     intros * receive_some.
@@ -759,7 +759,7 @@ Section Theories.
       [
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
-          [build_transfer ctx.(ctx_from) ctx.(ctx_contract_address) prev_state.(tokenId) param.(tokensSold) None])));
+          [build_transfer ctx.(ctx_from) [build_transfer_destination ctx.(ctx_contract_address) prev_state.(tokenId) param.(tokensSold)] None])));
         (act_transfer param.(xtz_to) (N_to_amount xtz_bought))
       ].
   Proof.
@@ -841,7 +841,7 @@ Section Theories.
       [
         (act_call prev_state.(tokenAddress) 0%Z
           (serialize (FA2Token.msg_transfer
-          [build_transfer ctx.(ctx_from) ctx.(ctx_contract_address) prev_state.(tokenId) param.(tokensSold_) None])));
+          [build_transfer ctx.(ctx_from) [build_transfer_destination ctx.(ctx_contract_address) prev_state.(tokenId) param.(tokensSold_)] None])));
         (act_call param.(outputDexterContract) (N_to_amount xtz_bought)
           (serialize ((FA2Token.other_msg (XtzToToken
           {| tokens_to := param.(to_);

@@ -4,7 +4,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.FA2 Require Import TestContracts.
 From ConCert.Utils Require Import Extras.
 From Coq Require Import ZArith.
@@ -156,23 +156,26 @@ Extract Constant max_acts_per_block => "1".
 Local Open Scope Z_scope.
 Definition transfer_state_update_correct prev_state next_state transfers :=
   let balance_diffs_map : FMap (Address * token_id) Z := fold_left (fun current_diff_map trx =>
-    (* subtract amount from sender *)
-    let m1 :=
-      let amount := Z.of_N (trx.(amount)) in
-      let from_key := (trx.(from_), trx.(transfer_token_id)) in
-      match FMap.find from_key current_diff_map with
-      | Some current_diff => FMap.add from_key (current_diff - amount) current_diff_map
-      | None => FMap.add from_key (-amount) current_diff_map
-      end in
-    (* add amount to receiver *)
-    let m2 :=
-      let amount := Z.of_N (trx.(amount)) in
-      let to_key := (trx.(to_), trx.(transfer_token_id)) in
-      match FMap.find to_key m1 with
-      | Some current_diff => FMap.add to_key (current_diff + amount) m1
-      | None => FMap.add to_key amount m1
-      end in
-    m2
+    let from := trx.(from_) in
+    let iter := (fun diff_map trx_dst =>
+      (* subtract amount from sender *)
+      let m1 :=
+        let amount := Z.of_N (trx_dst.(amount)) in
+        let from_key := (from, trx_dst.(dst_token_id)) in
+        match FMap.find from_key current_diff_map with
+        | Some current_diff => FMap.add from_key (current_diff - amount) current_diff_map
+        | None => FMap.add from_key (-amount) current_diff_map
+        end in
+      (* add amount to receiver *)
+      let m2 :=
+        let amount := Z.of_N (trx_dst.(amount)) in
+        let to_key := (trx_dst.(to_), trx_dst.(dst_token_id)) in
+        match FMap.find to_key m1 with
+        | Some current_diff => FMap.add to_key (current_diff + amount) m1
+        | None => FMap.add to_key amount m1
+        end in
+      m2) in 
+      fold_left iter trx.(txs) current_diff_map
   ) transfers FMap.empty in
   let balance_update_correct p balance_diff :=
     let addr := fst p in
@@ -255,7 +258,7 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition get_transfers (acts : list Action) : list (Address * list FA2Interface.transfer) :=
+Definition get_transfers (acts : list Action) : list (Address * list FA2LegacyInterface.transfer) :=
   fold_left (fun trxs act =>
     match act.(act_body) with
     | act_call _ _ msg =>
@@ -276,7 +279,9 @@ Definition transfer_satisfies_policy sender trx state : Checker :=
       | Some all_tokens => checker true
       | Some (some_tokens token_ids) =>
         whenFail "operator didn't have sufficient token_id permissions"
-        (checker (existsb (N.eqb trx.(transfer_token_id)) token_ids))
+        (checker (fold_right ((fun (tx_dst : transfer_destination) (acc: bool) =>
+            if acc then (existsb (N.eqb (tx_dst.(dst_token_id))) token_ids) else false
+        )) true trx.(txs)))
       | None => checker false
       end
     | None => checker false
