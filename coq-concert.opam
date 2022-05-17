@@ -7,8 +7,10 @@ A framework for smart contract verification in Coq
 """
 maintainer: "Danil Annenkov <danil.v.annenkov@gmail.com>"
 authors: "The COBRA team"
-license: "MIT License"
+license: "MIT"
+homepage: "https://github.com/AU-COBRA/ConCert"
 dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"
+bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
   "ocaml" {>= "4.07.1"}
   "coq" {>= "8.11" & < "8.12~"}
