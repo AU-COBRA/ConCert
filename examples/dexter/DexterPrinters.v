@@ -39,7 +39,7 @@ Instance showDexterState : Show Dexter.State :=
 
 Instance showDexterSetup : Show Dexter.Setup :=
 {|
-  show t := "FA2TokenSetup{"
+  show t := "DexterSetup{"
             ++ "fa2_caddr_: " ++ show t.(fa2_caddr_)
             ++ "}"
 |}.
@@ -48,5 +48,7 @@ Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,
     Dexter.Msg,
+    FA2LegacyInterface.fa2_token_sender,
     FA2Token.Setup,
-    Dexter.Setup >.
+    Dexter.Setup,
+    unit >.
