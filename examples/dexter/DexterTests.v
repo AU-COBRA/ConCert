@@ -1,6 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
@@ -101,12 +102,17 @@ Definition chain0 : ChainBuilder :=
 Definition chain1 : ChainBuilder :=
   unpack_result (TraceGens.add_block chain0
   [
+    (* Give 10 to person 1 *)
     build_act creator creator (act_transfer person_1 10) ;
+    (* Deploy contracts *)
     build_act creator creator deploy_fa2token ;
     build_act creator creator deploy_dexter ;
     build_act creator creator deploy_exploit ;
+    (* Person 1 creates 1000 tokens in FA2 contract *)
     build_act person_1 person_1 (act_call fa2_caddr 10%Z (serialize (msg_create_tokens 0%N))) ;
+    (* Dexter contract creates 1000 tokens in FA2 contract *)
     build_act creator creator (act_call dexter_caddr 10%Z (serialize (dexter_other_msg (add_to_tokens_reserve 0%N)))) ;
+    (* Person 1 allows Dexter and exploit contracts to operate on its tokens in the FA2 contract *)
     build_act person_1 person_1 (act_call fa2_caddr 0%Z  (serialize (msg_update_operators [add_operator (add_operator_all person_1 exploit_caddr);
                                                                                       add_operator (add_operator_all person_1 dexter_caddr)])))
   ]).
@@ -164,6 +170,7 @@ Definition account_tokens (env : Environment) (account : Address) : N :=
 Open Scope Z_scope.
 Definition tokens_to_asset_correct_P_opt (env : Environment) : option Checker :=
   do state_dexter <- dexter_state env;
+  do _ <- throwIf (env.(chain_height) <=? 3)%nat;
   let person_1_balance := env_account_balances env person_1 in
   let dexter_balance := env_account_balances env dexter_caddr in
   let dexter_initial_balance := env_account_balances chain1 dexter_caddr in
@@ -181,17 +188,17 @@ Definition tokens_to_asset_correct_P_opt (env : Environment) : option Checker :=
       "dexter tokens: " ++ show (account_tokens env dexter_caddr) ++ nl ++
       "history: " ++ show (state_dexter.(price_history))
     )
-    (checker (expected_dexter_balance <? dexter_balance))
+    (checker (expected_dexter_balance <=? dexter_balance))
   ).
 
 Definition tokens_to_asset_correct_P env :=
   match tokens_to_asset_correct_P_opt env with
   | Some p => p
-  | None => false ==> true
+  | None => checker true
   end.
 
 Definition tokens_to_asset_correct :=
-  TraceGens.forAllBlocks 1 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+  TraceGens.forAllBlocks 2 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
    Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)
@@ -218,7 +225,6 @@ Definition tokens_to_asset_correct :=
 (* Compute (getInputPrice 200 1000 16). *)
 (* 2 *)
 (* total = 16 *)
-
 (* QuickChick (expectFailure tokens_to_asset_correct). *)
 (*
 Begin Trace:
