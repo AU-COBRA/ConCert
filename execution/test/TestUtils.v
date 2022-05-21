@@ -35,6 +35,28 @@ Definition test_chain_addrs_5 := test_chain_addrs_3 ++ [person_4; person_5].
 Definition empty_chain := lcb_initial AddrSize.
 Definition get_contracts (chain : LocalChainBuilder AddrSize ) := lc_contracts (lcb_lc chain).
 
+Definition build_call {A : Type}
+                      {ser : Serializable A}
+                      (from to : Address)
+                      (amount : Amount)
+                      (msg : A) 
+                      : Action :=
+  build_act from from (act_call to amount (@serialize A ser msg)).
+Definition build_transfer (from to : Address)
+                          (amount : Amount)
+                          : Action :=
+  build_act from from (act_transfer to amount).
+Definition build_deploy {Setup Msg State : Type}
+                        `{Serializable Setup}
+                        `{Serializable Msg}
+                        `{Serializable State}
+                        (from : Address)
+                        (amount : Amount)
+                        (contract : Contract Setup Msg State)
+                        (setup : Setup)
+                        : Action :=
+  build_act from from (create_deployment amount contract setup).
+
 (* Misc utility functions *)
 Open Scope list_scope.
 Open Scope string_scope.
