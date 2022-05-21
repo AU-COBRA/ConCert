@@ -168,14 +168,13 @@ Definition account_tokens (env : Environment) (account : Address) : N :=
 (* This property asserts that the token reserve of the dexter contract is consistent
    with how much money has been exchanged for tokens, with respect to the conversion function 'getInputPrice' *)
 Open Scope Z_scope.
-Definition tokens_to_asset_correct_P_opt (env : Environment) : option Checker :=
-  do state_dexter <- dexter_state env;
-  do _ <- throwIf (env.(chain_height) <=? 3)%nat;
-  let person_1_balance := env_account_balances env person_1 in
-  let dexter_balance := env_account_balances env dexter_caddr in
-  let dexter_initial_balance := env_account_balances chain1 dexter_caddr in
-  let dexter_initial_token_reserve := Z.of_N (account_tokens chain1 dexter_caddr) in
-  let dexter_current_token_reserve := Z.of_N (account_tokens env dexter_caddr) in
+Definition tokens_to_asset_correct_P_opt (old_env new_env : Environment) : option Checker :=
+  do state_dexter <- dexter_state new_env;
+  let person_1_balance := env_account_balances new_env person_1 in
+  let dexter_balance := env_account_balances new_env dexter_caddr in
+  let dexter_initial_balance := env_account_balances old_env dexter_caddr in
+  let dexter_initial_token_reserve := Z.of_N (account_tokens old_env dexter_caddr) in
+  let dexter_current_token_reserve := Z.of_N (account_tokens new_env dexter_caddr) in
   let tokens_received := dexter_current_token_reserve - dexter_initial_token_reserve in
   let expected_currency_sold := getInputPrice tokens_received dexter_initial_token_reserve dexter_initial_balance in
   let expected_dexter_balance := dexter_initial_balance - expected_currency_sold in
@@ -183,22 +182,22 @@ Definition tokens_to_asset_correct_P_opt (env : Environment) : option Checker :=
     whenFail (
       "dexter balance was " ++ show dexter_balance ++ " while it was expected to be at least " ++ show expected_dexter_balance ++ nl ++
       "person_1 balance: " ++ show person_1_balance ++ nl ++
-      "person_1 tokens: " ++ show (account_tokens env person_1) ++ nl ++
+      "person_1 tokens: " ++ show (account_tokens new_env person_1) ++ nl ++
       "dexter balance: " ++ show dexter_balance ++ nl ++
-      "dexter tokens: " ++ show (account_tokens env dexter_caddr) ++ nl ++
+      "dexter tokens: " ++ show (account_tokens new_env dexter_caddr) ++ nl ++
       "history: " ++ show (state_dexter.(price_history))
     )
     (checker (expected_dexter_balance <=? dexter_balance))
   ).
 
-Definition tokens_to_asset_correct_P env :=
-  match tokens_to_asset_correct_P_opt env with
+Definition tokens_to_asset_correct_P old_env new_env :=
+  match tokens_to_asset_correct_P_opt old_env new_env with
   | Some p => p
   | None => checker true
   end.
 
 Definition tokens_to_asset_correct :=
-  TraceGens.forAllBlocks 2 chain1 (gExploitChainTraceList 1) tokens_to_asset_correct_P.
+  TraceGens.forAllChainStatePairs 1 chain (gExploitChainTraceList 1) tokens_to_asset_correct_P.
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
    Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)
