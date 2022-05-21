@@ -10,10 +10,10 @@ Local Open Scope string_scope.
 Instance showDexterExchangeParam : Show Dexter.exchange_param :=
 {|
   show t := "exchange{"
-            ++ "exchange_owner: " ++ show t.(exchange_owner) ++ sep
-            ++ "exchange_token_id: " ++ show t.(exchange_token_id) ++ sep
-            ++ "tokens_sold: " ++ show t.(tokens_sold)
-            ++ "}"
+          ++ "exchange_owner: " ++ show t.(exchange_owner) ++ sep
+          ++ "exchange_token_id: " ++ show t.(exchange_token_id) ++ sep
+          ++ "tokens_sold: " ++ show t.(tokens_sold)
+          ++ "}"
 |}.
 
 Instance showDexterMsgMsg : Show Dexter.DexterMsg :=
@@ -32,21 +32,23 @@ Instance showDexterMsg : Show Dexter.Msg :=
 Instance showDexterState : Show Dexter.State :=
 {|
   show t := "DexterState{"
-            ++ "fa2_caddr: " ++ show t.(fa2_caddr) ++ sep
-            ++ "ongoing_exchanges: " ++ show t.(ongoing_exchanges)
-            ++ "}"
+          ++ "fa2_caddr: " ++ show t.(fa2_caddr) ++ sep
+          ++ "ongoing_exchanges: " ++ show t.(ongoing_exchanges)
+          ++ "}"
 |}.
 
 Instance showDexterSetup : Show Dexter.Setup :=
 {|
-  show t := "FA2TokenSetup{"
-            ++ "fa2_caddr_: " ++ show t.(fa2_caddr_)
-            ++ "}"
+  show t := "DexterSetup{"
+          ++ "fa2_caddr_: " ++ show t.(fa2_caddr_)
+          ++ "}"
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,
     Dexter.Msg,
+    FA2LegacyInterface.fa2_token_sender,
     FA2Token.Setup,
-    Dexter.Setup >.
+    Dexter.Setup,
+    unit >.

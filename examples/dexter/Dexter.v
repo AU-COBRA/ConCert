@@ -8,7 +8,6 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Utils Require Import RecordUpdate.
-
 Import ListNotations.
 
 
@@ -77,8 +76,7 @@ Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                            (dexter_caddr : Address)
                                            (state : State)
                                            : option (State * (list ActionBody)) :=
-  (* do _ <- throwIf (address_not_eqb caller params.(exchange_owner)) ; *)
-  (* send out callbacks to check owner token balance, and dexter contract token balance
+  (* Send out callbacks to check owner token balance, and dexter contract token balance
      to determine if:
      1. owner has sufficient tokens to exchange
      2. exchange rate (based off this contract's token balance)
@@ -98,19 +96,17 @@ Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
   let ser_msg := @serialize _ _ (msg_balance_of act) in
   let acts := [act_call state.(fa2_caddr) 0%Z ser_msg] in
   let state := state<| ongoing_exchanges := params :: state.(ongoing_exchanges) |> in
-  (* Some (state, []). *)
   Some (state, acts).
 
-(* calculates exchange rate *)
+(* Calculates exchange rate *)
 Open Scope Z_scope.
 Definition getInputPrice (tokens_to_be_sold : Amount)
                          (tokens_reserve : Amount)
-                         (asset_reserve : Amount)
-                         :=
+                         (asset_reserve : Amount) :=
   Z.div (tokens_to_be_sold * 997 * asset_reserve) (tokens_reserve * 1000 + tokens_to_be_sold * 997).
 
 Open Scope nat.
-(* calculates exchange rate of previously initiated exchange, and returns outgoing transfer actions,
+(* Calculates exchange rate of previously initiated exchange, and returns outgoing transfer actions,
    if the transfer owner has sufficient tokens. *)
 Definition receive_balance_response (responses : list balance_of_response)
                                     (dexter_caddr : Address)
@@ -122,12 +118,12 @@ Definition receive_balance_response (responses : list balance_of_response)
   do dexter_balance_response <- nth_error responses 1 ;
   do _ <- throwIf (address_not_eqb dexter_caddr dexter_balance_response.(request).(owner)) ;
   do related_exchange <- last (map Some state.(ongoing_exchanges)) None ;
-  (* check if transfer owner has enough tokens to perform the exchange *)
+  (* Check if transfer owner has enough tokens to perform the exchange *)
   do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) ;
   let dexter_token_reserve := dexter_balance_response.(balance) in
   let tokens_to_sell := Z.of_N related_exchange.(tokens_sold) in
   let tokens_price := getInputPrice tokens_to_sell (Z.of_N dexter_token_reserve) dexter_asset_reserve in
-  (* send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)
+  (* Send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)
   let asset_transfer_msg := act_transfer related_exchange.(exchange_owner) tokens_price in
   let token_transfer_param := msg_transfer [{|
     from_ := related_exchange.(exchange_owner);
@@ -139,7 +135,7 @@ Definition receive_balance_response (responses : list balance_of_response)
     sender_callback_addr := Some related_exchange.(callback_addr);
   |}] in
   let token_transfer_msg := act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (token_transfer_param)) in
-  (* remove exchange from ongoing exchanges in state *)
+  (* Remove exchange from ongoing exchanges in state *)
   let state := state<| ongoing_exchanges := removelast state.(ongoing_exchanges)|>
                     <| price_history := tokens_price :: state.(price_history)   |> in
   Some (state, [asset_transfer_msg; token_transfer_msg]).
@@ -150,8 +146,7 @@ Definition create_tokens (tokenid : token_id)
                          : option (State * list ActionBody) :=
   let msg := @serialize _ _ (msg_create_tokens tokenid) in
   let create_tokens_act := act_call state.(fa2_caddr) nr_tokens msg in
-  Some (state, [create_tokens_act])
-.
+  Some (state, [create_tokens_act]).
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
@@ -159,23 +154,27 @@ Definition receive (chain : Chain)
                    (state : State)
                    (maybe_msg : option Msg)
                    : option (State * list ActionBody) :=
-  let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
   let dexter_balance := ctx.(ctx_contract_balance) in
   let amount := ctx.(ctx_amount) in
   match maybe_msg with
-  | Some (receive_balance_of_param responses) => receive_balance_response responses caddr dexter_balance state
-  | Some (other_msg (tokens_to_asset params)) => begin_exchange_tokens_to_assets ctx params caddr state
-  | Some (other_msg (add_to_tokens_reserve tokenid)) => create_tokens tokenid amount state
+  | Some (receive_balance_of_param responses) =>
+    receive_balance_response responses caddr dexter_balance state
+  | Some (other_msg (tokens_to_asset params)) =>
+    begin_exchange_tokens_to_assets ctx params caddr state
+  | Some (other_msg (add_to_tokens_reserve tokenid)) =>
+    create_tokens tokenid amount state
   | _ => None
   end.
 
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup) : option State :=
-  Some {| fa2_caddr := setup.(fa2_caddr_);
-          ongoing_exchanges := [];
-          price_history := [] |}.
+  Some {|
+    fa2_caddr := setup.(fa2_caddr_);
+    ongoing_exchanges := [];
+    price_history := []
+  |}.
 
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.

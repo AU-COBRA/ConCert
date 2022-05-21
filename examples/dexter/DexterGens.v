@@ -35,7 +35,7 @@ Definition gTokensToExchange (balance : N) : G (option N) :=
     amount <- choose (0%N, balance) ;;
     returnGenSome amount.
 
-Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexter.Msg)):=
+Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexter.Msg)) :=
   let has_balance p :=
     let ledger := snd p in
     0 <? FMap.size ledger.(balances) in
@@ -49,8 +49,7 @@ Definition gTokenExchange  (state : FA2Token.State) : G (option (Address * Dexte
     tokens_sold := tokens_to_exchange;
     callback_addr := exploit_contract_addr;
   |} in
-  returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg))
-.
+  returnGenSome (addr, other_msg (Dexter.tokens_to_asset exchange_msg)).
 
 Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
   a <- g ;;
@@ -88,7 +87,7 @@ End DexterContractGens.
 Definition gDexterChain max_acts_per_block cb length :=
   gChain cb (fun e _ => gDexterAction e) length 1 max_acts_per_block.
 
-(* the '1' fixes nr of actions per block to 1 *)
+(* The '1' fixes nr of actions per block to 1 *)
 Definition token_reachableFrom max_acts_per_block cb pf : Checker :=
   reachableFrom_chaintrace cb (gDexterChain max_acts_per_block) pf.
 
