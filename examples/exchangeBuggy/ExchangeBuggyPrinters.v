@@ -3,11 +3,11 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2Printers.
-From ConCert.Examples.Dexter Require Import Dexter.
+From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggy.
 
 Local Open Scope string_scope.
 
-Instance showDexterExchangeParam : Show Dexter.exchange_param :=
+Instance showExchangeExchangeParam : Show ExchangeBuggy.exchange_param :=
 {|
   show t := "exchange{"
           ++ "exchange_owner: " ++ show t.(exchange_owner) ++ sep
@@ -16,7 +16,7 @@ Instance showDexterExchangeParam : Show Dexter.exchange_param :=
           ++ "}"
 |}.
 
-Instance showDexterMsgMsg : Show Dexter.DexterMsg :=
+Instance showExchangeMsgMsg : Show ExchangeBuggy.ExchangeMsg :=
 {|
   show m := match m with
             | tokens_to_asset param => "token_to_asset " ++ show param
@@ -24,22 +24,22 @@ Instance showDexterMsgMsg : Show Dexter.DexterMsg :=
             end
 |}.
 
-Instance showDexterMsg : Show Dexter.Msg :=
+Instance showExchangeMsg : Show ExchangeBuggy.Msg :=
 {|
   show m := show m
 |}.
 
-Instance showDexterState : Show Dexter.State :=
+Instance showExchangeState : Show ExchangeBuggy.State :=
 {|
-  show t := "DexterState{"
+  show t := "ExchangeState{"
           ++ "fa2_caddr: " ++ show t.(fa2_caddr) ++ sep
           ++ "ongoing_exchanges: " ++ show t.(ongoing_exchanges)
           ++ "}"
 |}.
 
-Instance showDexterSetup : Show Dexter.Setup :=
+Instance showExchangeSetup : Show ExchangeBuggy.Setup :=
 {|
-  show t := "DexterSetup{"
+  show t := "ExchangeSetup{"
           ++ "fa2_caddr_: " ++ show t.(fa2_caddr_)
           ++ "}"
 |}.
@@ -47,8 +47,8 @@ Instance showDexterSetup : Show Dexter.Setup :=
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,
-    Dexter.Msg,
+    ExchangeBuggy.Msg,
     FA2LegacyInterface.fa2_token_sender,
     FA2Token.Setup,
-    Dexter.Setup,
+    ExchangeBuggy.Setup,
     unit >.

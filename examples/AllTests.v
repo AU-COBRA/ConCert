@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require CongressTests.
 From ConCert.Examples.Congress Require Congress_BuggyTests.
-From ConCert.Examples.Dexter Require DexterTests.
+From ConCert.Examples.ExchangeBuggy Require ExchangeBuggyTests.
 From ConCert.Examples.EIP20 Require EIP20TokenTests.
 From ConCert.Examples.Escrow Require EscrowTests.
 From ConCert.Examples.FA2 Require FA2TokenTests.
@@ -55,12 +55,12 @@ End Congress_Buggy.
 
 
 
-Module Dexter.
-  Import DexterTests.
+Module ExchangeBuggy.
+  Import ExchangeBuggyTests.
 
   Time QuickChick (expectFailure tokens_to_asset_correct).
   (* *** Failed (as expected) after 1 tests and 1 shrinks. (0 discards) *)
-End Dexter.
+End ExchangeBuggy.
 
 
 
