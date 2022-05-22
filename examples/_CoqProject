@@ -50,11 +50,11 @@ dexter2/Dexter2FA12Correct.v
 dexter2/Dexter2CPMMCorrect.v
 dexter2/Dexter2Extract.v
 
--Q dexter ConCert.Examples.Dexter
-dexter/Dexter.v
-dexter/DexterPrinters.v
-dexter/DexterGens.v
-dexter/DexterTests.v
+-Q exchangeBuggy ConCert.Examples.ExchangeBuggy
+exchangeBuggy/ExchangeBuggy.v
+exchangeBuggy/ExchangeBuggyPrinters.v
+exchangeBuggy/ExchangeBuggyGens.v
+exchangeBuggy/ExchangeBuggyTests.v
 
 -Q iTokenBuggy ConCert.Examples.iTokenBuggy
 iTokenBuggy/iTokenBuggy.v

@@ -1,4 +1,4 @@
-(* A token-asset exchange contract based on Dexter *)
+(* A buggy token-asset exchange contract inspired by UniSwap and Dexter *)
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From ConCert.Execution Require Import Blockchain.
@@ -12,10 +12,10 @@ Import ListNotations.
 
 
 
-(* A liquidity exchange contract inspired by the Dexter contract.
+(* A liquidity exchange contract inspired by the UniSwap and Dexter contracts.
    Allows for exchanging tokens to money, and allows the owner to add tokens to the
    reserve held by this contract. *)
-Section Dexter.
+Section ExchangeBuggyContract.
 Context {BaseTypes : ChainBase}.
 Set Primitive Projections.
 Set Nonrecursive Elimination Schemes.
@@ -32,14 +32,14 @@ Record exchange_param :=
 Global Instance exchange_paramserializable : Serializable exchange_param :=
   Derive Serializable exchange_param_rect <build_exchange_param>.
 
-Inductive DexterMsg :=
-  | tokens_to_asset : exchange_param -> DexterMsg
-  | add_to_tokens_reserve : token_id -> DexterMsg.
+Inductive ExchangeMsg :=
+  | tokens_to_asset : exchange_param -> ExchangeMsg
+  | add_to_tokens_reserve : token_id -> ExchangeMsg.
 
-Global Instance DexterMsg_serializable : Serializable DexterMsg :=
-  Derive Serializable DexterMsg_rect <tokens_to_asset, add_to_tokens_reserve>.
+Global Instance ExchangeMsg_serializable : Serializable ExchangeMsg :=
+  Derive Serializable ExchangeMsg_rect <tokens_to_asset, add_to_tokens_reserve>.
 
-Definition Msg := @FA2ReceiverMsg BaseTypes DexterMsg.
+Definition Msg := @FA2ReceiverMsg BaseTypes ExchangeMsg.
 
 
 Record State :=
@@ -73,10 +73,10 @@ Definition address_not_eqb a b := negb (address_eqb a b).
 
 Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                            (params : exchange_param)
-                                           (dexter_caddr : Address)
+                                           (exchange_caddr : Address)
                                            (state : State)
                                            : option (State * (list ActionBody)) :=
-  (* Send out callbacks to check owner token balance, and dexter contract token balance
+  (* Send out callbacks to check owner token balance, and exchange contract token balance
      to determine if:
      1. owner has sufficient tokens to exchange
      2. exchange rate (based off this contract's token balance)
@@ -85,12 +85,12 @@ Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
     owner := params.(exchange_owner);
     bal_req_token_id := params.(exchange_token_id);
   |} in
-  let dexter_balance_param := {|
-    owner := dexter_caddr;
+  let exchange_balance_param := {|
+    owner := exchange_caddr;
     bal_req_token_id := params.(exchange_token_id);
   |} in
   let act := {|
-    bal_requests := [owner_balance_param; dexter_balance_param];
+    bal_requests := [owner_balance_param; exchange_balance_param];
     bal_callback := Build_callback _ None ctx.(ctx_contract_address);
   |} in
   let ser_msg := @serialize _ _ (msg_balance_of act) in
@@ -109,26 +109,26 @@ Open Scope nat.
 (* Calculates exchange rate of previously initiated exchange, and returns outgoing transfer actions,
    if the transfer owner has sufficient tokens. *)
 Definition receive_balance_response (responses : list balance_of_response)
-                                    (dexter_caddr : Address)
-                                    (dexter_asset_reserve : Amount)
+                                    (exchange_caddr : Address)
+                                    (exchange_asset_reserve : Amount)
                                     (state : State)
                                     : option (State * list ActionBody) :=
   do _ <- throwIf (negb (length responses =? 2)) ;
   do trx_owner_balance_response <- nth_error responses 0 ;
-  do dexter_balance_response <- nth_error responses 1 ;
-  do _ <- throwIf (address_not_eqb dexter_caddr dexter_balance_response.(request).(owner)) ;
+  do exchange_balance_response <- nth_error responses 1 ;
+  do _ <- throwIf (address_not_eqb exchange_caddr exchange_balance_response.(request).(owner)) ;
   do related_exchange <- last (map Some state.(ongoing_exchanges)) None ;
   (* Check if transfer owner has enough tokens to perform the exchange *)
   do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) ;
-  let dexter_token_reserve := dexter_balance_response.(balance) in
+  let exchange_token_reserve := exchange_balance_response.(balance) in
   let tokens_to_sell := Z.of_N related_exchange.(tokens_sold) in
-  let tokens_price := getInputPrice tokens_to_sell (Z.of_N dexter_token_reserve) dexter_asset_reserve in
+  let tokens_price := getInputPrice tokens_to_sell (Z.of_N exchange_token_reserve) exchange_asset_reserve in
   (* Send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)
   let asset_transfer_msg := act_transfer related_exchange.(exchange_owner) tokens_price in
   let token_transfer_param := msg_transfer [{|
     from_ := related_exchange.(exchange_owner);
     txs := [{|
-      to_ := dexter_caddr;
+      to_ := exchange_caddr;
       dst_token_id := related_exchange.(exchange_token_id);
       amount := related_exchange.(tokens_sold);
     |}];
@@ -155,11 +155,11 @@ Definition receive (chain : Chain)
                    (maybe_msg : option Msg)
                    : option (State * list ActionBody) :=
   let caddr := ctx.(ctx_contract_address) in
-  let dexter_balance := ctx.(ctx_contract_balance) in
+  let exchange_balance := ctx.(ctx_contract_balance) in
   let amount := ctx.(ctx_amount) in
   match maybe_msg with
   | Some (receive_balance_of_param responses) =>
-    receive_balance_response responses caddr dexter_balance state
+    receive_balance_response responses caddr exchange_balance state
   | Some (other_msg (tokens_to_asset params)) =>
     begin_exchange_tokens_to_assets ctx params caddr state
   | Some (other_msg (add_to_tokens_reserve tokenid)) =>
@@ -179,4 +179,4 @@ Definition init (chain : Chain)
 Definition contract : Contract Setup Msg State :=
   build_contract init receive.
 
-End Dexter.
+End ExchangeBuggyContract.
