@@ -98,8 +98,7 @@ balances: [11%256-->1; 13%256-->2; 10%256-->9] *)
 
 Definition msg_is_not_mint_or_burn (state : iTokenBuggy.State) (msg : iTokenBuggy.Msg) :=
   match msg with
-  | mint _ => false
-  | burn _ => false
+  | mint _ | burn _ => false
   | _ => true
   end.
 

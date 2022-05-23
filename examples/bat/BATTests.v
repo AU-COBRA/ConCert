@@ -803,13 +803,11 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
   let contract_balance := env_account_balances cs contract_base_addr in
   match get_contract_state State cs contract_base_addr with
   | Some cstate =>
-    let is_finalized := cstate.(isFinalized) in
     let bat_fund_balance := with_default 0 (FMap.find batFund (balances cstate)) in
-    let contract_balance_correct := Z.geb contract_balance
-      (Z.of_N (((total_supply cstate) - bat_fund_balance) / cstate.(tokenExchangeRate))) in
-      if is_finalized
+      if cstate.(isFinalized)
       then checker true
-      else checker contract_balance_correct
+      else checker (Z.geb contract_balance
+        (Z.of_N (((total_supply cstate) - bat_fund_balance) / cstate.(tokenExchangeRate))))
   | None => checker true
   end.
 (* Since the initial supply belonging to the batFund address is not supposed to be refundable
@@ -907,6 +905,17 @@ Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 13 tests and 0 shrinks. (0 discards)
 *)
 
+Definition can_always_fully_refund' (cs : ChainState) :=
+  let contract_balance := env_account_balances cs contract_base_addr in
+  match get_contract_state State cs contract_base_addr with
+  | Some cstate =>
+    let bat_fund_balance := with_default 0 (FMap.find batFund (balances cstate)) in
+    if cstate.(isFinalized)
+    then checker true
+    else checker (N.leb ((Z.to_N contract_balance) * cstate.(tokenExchangeRate))
+                       ((total_supply cstate) - bat_fund_balance))
+  | None => checker true
+  end.
 Definition can_always_fully_refund (cs : ChainState) :=
   let no_actions_from_contract :=
     fold_left (fun b action => b && (negb (address_is_contract (act_from action))))
@@ -935,7 +944,7 @@ Definition can_always_fully_refund (cs : ChainState) :=
    Thus if "contract_balance * exchange_rate <= total_supply - batFund_tokens" then it should be
     possible to withdraw the entire contract balance.
 *)
-(* QuickChick (expectFailure ({{can_always_fully_refund}})). *)
+(* QuickChick (expectFailure (forAllBlocks can_always_fully_refund')). *)
 (*
 Chain{|
 Block 1 [
@@ -1081,28 +1090,34 @@ Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
 *)
 
-Definition can_always_finalize check_setup:=
-  let build_init_cb setup :=
+Definition build_init_cb (p : ChainBuilder -> Checker) : (Setup -> Checker) :=
+  let build_init_cb_ setup :=
     TraceGens.add_block empty_chain
     [
-      build_act creator creator (Blockchain.act_transfer person_1 10);
-      build_act creator creator (Blockchain.act_transfer person_2 7);
-      build_act creator creator (Blockchain.act_transfer person_3 6);
-      build_act creator creator (Blockchain.act_transfer person_4 10);
-      build_act creator creator (create_deployment 0 BAT.contract setup)
+      build_transfer creator person_1 10;
+      build_transfer creator person_2 7;
+      build_transfer creator person_3 6;
+      build_transfer creator person_4 10;
+      build_deploy creator 0 BAT.contract setup
     ] in
-  forAll gBATSetup
-         (fun setup =>
-            match (build_init_cb setup) with
-            | ResultMonad.Ok init_cb => check_setup setup init_cb ==> (init_cb ~~> is_finalized)
-            | ResultMonad.Err _ => false ==> true
-            end).
+      (fun setup =>
+        match (build_init_cb_ setup) with
+        | ResultMonad.Ok init_cb => p init_cb
+        | ResultMonad.Err _ => false ==> true
+        end).
+
+Definition can_always_finalize check_setup :=
+  forAll gBATSetup (fun setup =>
+    (build_init_cb (fun cb =>
+      check_setup setup cb ==> (cb ~~> is_finalized)
+    )) setup
+  ).
 (* We would like that BAToken has the property that it is
     always possible to successfully fund the token for any
     setup used when deploying the token *)
 (*
 Extract Constant defNumTests    => "100".
-QuickChick (expectFailure (can_always_finalize (fun _ _ => true))).
+QuickChick (expectFailure (forAll gBATSetup (build_init_cb (fun cb => cb ~~> is_finalized)))).
 Extract Constant defNumTests    => "10000".
 *)
 (*
