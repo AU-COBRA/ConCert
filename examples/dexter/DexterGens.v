@@ -8,13 +8,13 @@ From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith_base.
 Import MonadNotation.
 
-Module Type DexterBuggyTestsInfo.
+Module Type DexterTestsInfo.
   Parameter token_caddr : Address.
   Parameter dexter_contract_addr : Address.
   Parameter test_accounts : list Address.
-End DexterBuggyTestsInfo.
+End DexterTestsInfo.
 
-Module DexterGens (Info : DexterBuggyTestsInfo).
+Module DexterGens (Info : DexterTestsInfo).
   Import Info.
 
   Arguments SerializedValue : clear implicits.
