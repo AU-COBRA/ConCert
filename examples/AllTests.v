@@ -6,6 +6,7 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require CongressTests.
 From ConCert.Examples.Congress Require Congress_BuggyTests.
 From ConCert.Examples.ExchangeBuggy Require ExchangeBuggyTests.
+From ConCert.Examples.Dexter Require DexterTests.
 From ConCert.Examples.EIP20 Require EIP20TokenTests.
 From ConCert.Examples.Escrow Require EscrowTests.
 From ConCert.Examples.FA2 Require FA2TokenTests.
@@ -61,6 +62,20 @@ Module ExchangeBuggy.
   Time QuickChick (expectFailure tokens_to_asset_correct).
   (* *** Failed (as expected) after 1 tests and 1 shrinks. (0 discards) *)
 End ExchangeBuggy.
+
+
+
+Module Dexter.
+  Import DexterTests.
+  
+  Extract Constant DepthFirst => "true".
+  Time QuickChick (tokens_to_asset_correct).
+  (* +++ Passed 10000 tests (0 discards) *)
+
+  Extract Constant DepthFirst => "false".
+  Time QuickChick (expectFailure tokens_to_asset_correct).
+  (* +++ Failed (as expected) after 26 tests and 2 shrinks. (0 discards) *)
+End Dexter.
 
 
 
