@@ -141,7 +141,7 @@ Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GO
               | 0%Z => returnGenSome 0%Z
               | caller_balance => genToOpt (choose (0%Z, caller_balance))
               end ;;
-    returnGenSome (build_act caller_addr caller_addr
+    returnGenSome (build_call caller_addr caller_addr
       (congress_action_to_chain_action (cact_call contract_addr amount (serializeMsg msg)))) in
   congress_state <- returnGen (get_contract_state Congress.State env caddr) ;;
   let members := (map fst o FMap.elements) congress_state.(members) in

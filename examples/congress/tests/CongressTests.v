@@ -15,7 +15,7 @@ Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 Definition chain1 : ChainBuilder := builder_initial.
 Definition chain2 : ChainBuilder := unpack_result (add_block chain1 []).
 Definition chain3 : ChainBuilder := unpack_result
-  (add_block chain2 [build_act creator creator (act_transfer person_1 10)]).
+  (add_block chain2 [build_transfer creator person_1 10]).
 
 Definition setup_rules :=
   {| min_vote_count_permille := 200; (* 20% of congress needs to vote *)
@@ -26,7 +26,7 @@ Definition setup := Congress.build_setup setup_rules.
 Definition deploy_congress : ActionBody :=
   create_deployment 5 Congress.contract setup.
 Definition chain4 : ChainBuilder :=
-  unpack_result (add_block chain3 [build_act person_1 person_1 deploy_congress]).
+  unpack_result (add_block chain3 [build_deploy person_1 5 Congress.contract setup]).
 Definition congress_1 : Address :=
   match outgoing_txs (builder_trace chain4) person_1 with
   | tx :: _ => tx_to tx

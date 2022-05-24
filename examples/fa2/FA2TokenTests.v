@@ -63,57 +63,49 @@ Definition token_setup (hook_addr : option Address): FA2Token.Setup := {|
   transfer_hook_addr_ := hook_addr;
 |}.
 
-Definition token_contract_base_addr : Address := addr_of_Z 128%Z.
+Definition token_contract_base_addr : Address := addr_of_Z 128.
 Definition fa2hook_setup : HookSetup := {|
   hook_fa2_caddr_ := token_contract_base_addr;
   hook_policy_ := policy_self_only;
 |}.
-Definition deploy_fa2hook := create_deployment 0 hook_contract fa2hook_setup.
-Definition fa2hook_contract_addr : Address := addr_of_Z 130%Z.
 
-Definition deploy_fa2token_with_transfer_hook : @ActionBody LocalChainBase :=
-  create_deployment 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr)).
-Definition deploy_fa2token_without_transfer_hook : @ActionBody LocalChainBase :=
-  create_deployment 0 FA2Token.contract (token_setup None).
-
+Definition fa2hook_contract_addr : Address := addr_of_Z 130.
 Definition token_client_setup := build_clientsetup token_contract_base_addr.
-Definition deploy_fa2token_client : @ActionBody LocalChainBase := create_deployment 0 client_contract token_client_setup.
-Definition client_contract_addr : Address := addr_of_Z 129%Z.
-
+Definition client_contract_addr : Address := addr_of_Z 129.
 
 Definition chain_with_token_deployed_with_hook : ChainBuilder :=
   unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 10);
-    build_act creator creator (act_transfer person_2 10);
-    build_act creator creator (act_transfer person_3 10);
-    build_act creator creator deploy_fa2token_with_transfer_hook;
-    build_act creator creator deploy_fa2token_client;
-    build_act creator creator deploy_fa2hook
+    TestUtils.build_transfer creator person_1 10;
+    TestUtils.build_transfer creator person_2 10;
+    TestUtils.build_transfer creator person_3 10;
+    build_deploy creator 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr));
+    build_deploy creator 0 client_contract token_client_setup;
+    build_deploy creator 0 hook_contract fa2hook_setup
   ]).
 
 Definition chain_with_token_deployed_without_hook : ChainBuilder :=
   unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 10);
-    build_act creator creator (act_transfer person_2 10);
-    build_act creator creator (act_transfer person_3 10);
-    build_act creator creator deploy_fa2token_without_transfer_hook;
-    build_act creator creator deploy_fa2token_client
+    TestUtils.build_transfer creator person_1 10;
+    TestUtils.build_transfer creator person_2 10;
+    TestUtils.build_transfer creator person_3 10;
+    build_deploy creator 0 FA2Token.contract (token_setup None);
+    build_deploy creator 0 client_contract token_client_setup
   ]).
 
 Definition chain_without_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_without_hook
   [
-    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N))) ;
-    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N)))
+    build_call person_1 token_contract_base_addr 10%Z (msg_create_tokens 0%N) ;
+    build_call person_2 token_contract_base_addr 10%Z (msg_create_tokens 0%N)
   ]).
 
 Definition chain_with_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_with_hook
   [
-    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N))) ;
-    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N)))
+    build_call person_1 token_contract_base_addr 10%Z (msg_create_tokens 0%N) ;
+    build_call person_2 token_contract_base_addr 10%Z (msg_create_tokens 0%N)
   ]).
 
 Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'.

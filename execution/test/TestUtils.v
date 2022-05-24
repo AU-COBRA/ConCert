@@ -46,6 +46,10 @@ Definition build_transfer (from to : Address)
                           (amount : Amount)
                           : Action :=
   build_act from from (act_transfer to amount).
+Definition build_transfers (from : Address)
+                           (txs : list (Address * Amount))
+                           : list Action :=
+  map (fun '(to, amount) => build_transfer from to amount) txs.
 Definition build_deploy {Setup Msg State : Type}
                         `{Serializable Setup}
                         `{Serializable Msg}

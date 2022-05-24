@@ -29,20 +29,19 @@ Definition bat_setup := BATCommon.build_setup initSupply_
                                               exchangeRate_
                                               tokenCap_
                                               tokenMin_.
-Definition deploy_bat := create_deployment 0 BATFixed.contract bat_setup.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (Blockchain.act_transfer person_1 10);
-    build_act creator creator (Blockchain.act_transfer person_2 7);
-    build_act creator creator (Blockchain.act_transfer person_3 6);
-    build_act creator creator (Blockchain.act_transfer person_4 10);
-    build_act creator creator (Blockchain.act_transfer ethFund 2);
-    build_act creator creator (Blockchain.act_transfer batFund 2);
-    build_act creator creator deploy_bat
+    build_transfer creator person_1 10;
+    build_transfer creator person_2 7;
+    build_transfer creator person_3 6;
+    build_transfer creator person_4 10;
+    build_transfer creator ethFund 2;
+    build_transfer creator batFund 2;
+    build_deploy creator 0 BATFixed.contract bat_setup
   ]).
 
 Module TestInfo <: BATGensInfo.
@@ -808,13 +807,12 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
 Definition partially_funded_cb :=
   ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (Blockchain.act_transfer person_1 10);
-    build_act creator creator (Blockchain.act_transfer person_2 7);
-    build_act creator creator (Blockchain.act_transfer person_3 6);
-    build_act creator creator (Blockchain.act_transfer person_4 10);
-    build_act creator creator deploy_bat;
-    build_act person_1 person_1 (Blockchain.act_call contract_base_addr 1
-                                            ((@serialize BATCommon.Msg _) create_tokens))
+    build_transfer creator person_1 10;
+    build_transfer creator person_2 7;
+    build_transfer creator person_3 6;
+    build_transfer creator person_4 10;
+    build_deploy creator 0 BATFixed.contract bat_setup;
+    build_call person_1 contract_base_addr 1 create_tokens
   ]).
 (* Check that it is possible to fully refund from a state
     where at least one token was created
@@ -923,11 +921,11 @@ Definition can_always_finalize check_setup :=
   let build_init_cb setup :=
     TraceGens.add_block empty_chain
     [
-      build_act creator creator (Blockchain.act_transfer person_1 10);
-      build_act creator creator (Blockchain.act_transfer person_2 7);
-      build_act creator creator (Blockchain.act_transfer person_3 6);
-      build_act creator creator (Blockchain.act_transfer person_4 10);
-      build_act creator creator (create_deployment 0 BATFixed.contract setup)
+      build_transfer creator person_1 10;
+      build_transfer creator person_2 7;
+      build_transfer creator person_3 6;
+      build_transfer creator person_4 10;
+      build_deploy creator 0 BATFixed.contract setup
     ] in
   forAll gBATSetup
          (fun setup =>
