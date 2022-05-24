@@ -11,10 +11,10 @@ Import MonadNotation.
 Module Type DexterBuggyTestsInfo.
   Parameter token_caddr : Address.
   Parameter dexter_contract_addr : Address.
-  Parameter gAccountAddrWithout : list Address -> GOpt Address.
+  Parameter test_accounts : list Address.
 End DexterBuggyTestsInfo.
 
-Module DexterBuggyGensMod (Info : DexterBuggyTestsInfo).
+Module DexterGens (Info : DexterBuggyTestsInfo).
   Import Info.
 
   Arguments SerializedValue : clear implicits.
@@ -51,7 +51,7 @@ Module DexterBuggyGensMod (Info : DexterBuggyTestsInfo).
       |} in
     token_state <- returnGen (get_contract_state EIP20Token.State env token_caddr) ;;
     backtrack [
-      (2, caller <- gAccountAddrWithout [token_caddr; dexter_contract_addr] ;;
+      (2, caller <- bindGen (gAddrWithout [token_caddr; dexter_contract_addr] test_accounts) (fun x => returnGenSome x) ;;
           msg <- gTokenExchange token_state caller ;;
           mk_call caller 0%Z msg
       )
@@ -60,4 +60,4 @@ Module DexterBuggyGensMod (Info : DexterBuggyTestsInfo).
   Definition gDexterChain max_acts_per_block cb length :=
     gChain cb (fun e _ => gDexterAction e) length 1 max_acts_per_block.
 
-End DexterBuggyGensMod.
+End DexterGens.
