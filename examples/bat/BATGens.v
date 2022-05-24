@@ -125,7 +125,7 @@ Definition gTransfer_from (state : BATCommon.State) : GOpt (Address * Msg) :=
 *)
 Definition gBATActionValid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr caller_addr (act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+    returnGenSome (build_call caller_addr contract_addr value msg) in
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -173,7 +173,7 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
 *)
 Definition gBATActionInvalid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr caller_addr (act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+    returnGenSome (build_call caller_addr contract_addr value msg) in
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -231,7 +231,7 @@ Definition gBATAction (env : Environment) : GOpt Action :=
           | act_deploy _ _ _ => returnGen None
           | act_call to _ msg =>
             amount <- choose (0, account_balance env action.(act_from))%Z ;;
-            returnGenSome (build_act action.(act_from) action.(act_from) (act_call to amount msg))
+            returnGenSome (build_call action.(act_from) to amount msg)
           end
         ));
     (65, gBATActionInvalid env);

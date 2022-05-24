@@ -15,17 +15,17 @@ Import ListNotations.
 
 Definition init_supply := (100%N).
 Definition token_setup := EIP20Token.build_setup creator init_supply.
-Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_setup.
+Definition deploy_eip20token := create_deployment .
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 0);
-    build_act creator creator (act_transfer person_2 0);
-    build_act creator creator (act_transfer person_3 0);
-    build_act creator creator deploy_eip20token
+    build_transfer creator person_1 0;
+    build_transfer creator person_2 0;
+    build_transfer creator person_3 0;
+    build_deploy creator 0 EIP20Token.contract token_setup
   ]).
 
 Module TestInfo <: EIP20GensInfo.

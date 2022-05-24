@@ -19,18 +19,17 @@ Notation "x |> f" := (f x) (at level 31, left associativity, only parsing).
 (* i.e. x |> f |> g = (x |> f) |> g, and means g (f x) *)
 
 Definition token_setup := iTokenBuggy.build_setup creator (100%N).
-Definition deploy_iToken := create_deployment 0 iTokenBuggy.contract token_setup.
-Definition token_caddr := addr_of_Z 128%Z.
+Definition token_caddr := addr_of_Z 128.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 0);
-    build_act creator creator (act_transfer person_2 0);
-    build_act creator creator (act_transfer person_3 0);
-    build_act creator creator deploy_iToken
+    build_transfer creator person_1 0;
+    build_transfer creator person_2 0;
+    build_transfer creator person_3 0;
+    build_deploy creator 0 iTokenBuggy.contract token_setup
   ]).
 
 Module TestInfo <: iTokenBuggyGensInfo.
