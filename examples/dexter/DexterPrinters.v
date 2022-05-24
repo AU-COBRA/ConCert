@@ -2,6 +2,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
+From ConCert.Examples.EIP20 Require Import EIP20Token.
+From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
 
 Local Open Scope string_scope.
 
@@ -39,4 +41,9 @@ Instance showDexterSetup : Show Dexter.Setup :=
 |}.
 
 Instance showSerializedMsg : Show SerializedValue :=
-  Derive Show Msg < Msg, Setup >.
+  Derive Show Msg <
+    Dexter.Msg,
+    Dexter.Setup,
+    EIP20Token.Msg,
+    EIP20Token.Setup
+  >.
