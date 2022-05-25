@@ -7,6 +7,7 @@ From ConCert.Examples.Congress Require CongressTests.
 From ConCert.Examples.Congress Require Congress_BuggyTests.
 From ConCert.Examples.ExchangeBuggy Require ExchangeBuggyTests.
 From ConCert.Examples.Dexter Require DexterTests.
+From ConCert.Examples.Dexter2 Require Dexter2Tests.
 From ConCert.Examples.EIP20 Require EIP20TokenTests.
 From ConCert.Examples.Escrow Require EscrowTests.
 From ConCert.Examples.FA2 Require FA2TokenTests.
@@ -67,15 +68,46 @@ End ExchangeBuggy.
 
 Module Dexter.
   Import DexterTests.
-  
-  Extract Constant DepthFirst => "true".
-  Time QuickChick (tokens_to_asset_correct).
-  (* +++ Passed 10000 tests (0 discards) *)
 
   Extract Constant DepthFirst => "false".
   Time QuickChick (expectFailure tokens_to_asset_correct).
   (* +++ Failed (as expected) after 26 tests and 2 shrinks. (0 discards) *)
+
+  Extract Constant DepthFirst => "true".
+  Time QuickChick (tokens_to_asset_correct).
+  (* +++ Passed 10000 tests (0 discards) *)
 End Dexter.
+
+
+
+Module Dexter2.
+  Import Dexter2Tests.
+  Import TestInfo.
+  Import TN.
+
+  (* Run tests in breadth-first execution model *)
+  Extract Constant DepthFirst => "false".
+  Time QuickChick ({{msg_is_balance_of_callback}} cpmm_contract_base_addr {{callback_safe}}).
+  (* +++ Passed 10000 tests (0 discards) *)
+
+  Time QuickChick ({{is_syncing}} cpmm_contract_base_addr {{only_callbacks}}).
+  (* +++ Passed 10000 tests (0 discards) *)
+
+  Time QuickChick (forAllBlocks token_reserve_safe).
+  (* +++ Passed 10000 tests (0 discards) *)
+
+
+  (* Run tests in depth-first execution model *)
+  Extract Constant DepthFirst => "true".
+  Time QuickChick ({{msg_is_balance_of_callback}} cpmm_contract_base_addr {{callback_safe}}).
+  (* +++ Passed 10000 tests (0 discards) *)
+
+  Time QuickChick ({{is_syncing}} cpmm_contract_base_addr {{only_callbacks}}).
+  (* +++ Passed 10000 tests (0 discards) *)
+
+  Time QuickChick (forAllBlocks token_reserve_safe).
+  (* +++ Passed 10000 tests (0 discards) *)
+End Dexter2.
 
 
 

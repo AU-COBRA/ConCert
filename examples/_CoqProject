@@ -49,13 +49,15 @@ dexter/DexterPrinters.v
 dexter/DexterGens.v
 dexter/DexterTests.v
 
-
 -Q dexter2 ConCert.Examples.Dexter2
 dexter2/Dexter2FA12.v
 dexter2/Dexter2CPMM.v
 dexter2/Dexter2FA12Correct.v
 dexter2/Dexter2CPMMCorrect.v
 dexter2/Dexter2Extract.v
+dexter2/Dexter2Printers.v
+dexter2/Dexter2Gens.v
+dexter2/Dexter2Tests.v
 
 -Q exchangeBuggy ConCert.Examples.ExchangeBuggy
 exchangeBuggy/ExchangeBuggy.v
