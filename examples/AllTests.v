@@ -67,14 +67,14 @@ End ExchangeBuggy.
 
 Module Dexter.
   Import DexterTests.
-  
-  Extract Constant DepthFirst => "true".
-  Time QuickChick (tokens_to_asset_correct).
-  (* +++ Passed 10000 tests (0 discards) *)
 
   Extract Constant DepthFirst => "false".
   Time QuickChick (expectFailure tokens_to_asset_correct).
   (* +++ Failed (as expected) after 26 tests and 2 shrinks. (0 discards) *)
+
+  Extract Constant DepthFirst => "true".
+  Time QuickChick (tokens_to_asset_correct).
+  (* +++ Passed 10000 tests (0 discards) *)
 End Dexter.
 
 
