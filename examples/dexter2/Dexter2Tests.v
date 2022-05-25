@@ -17,13 +17,13 @@ Import ListNotations.
 
 (** * Test setup *)
 (** ** Setup parameters *)
-Definition token_contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
-Definition lqt_contract_base_addr := BoundedN.of_Z_const AddrSize 129%Z.
-Definition cpmm_contract_base_addr := BoundedN.of_Z_const AddrSize 130%Z.
-Definition null_address_ := creator.
-Definition token_id_ := 1%N.
-Definition initial_lqt := 10%N.
-Definition initial_tokens := 500%N.
+Definition token_contract_base_addr : Address := addr_of_Z 128.
+Definition lqt_contract_base_addr : Address := addr_of_Z 129.
+Definition cpmm_contract_base_addr : Address := addr_of_Z 130.
+Definition null_address_ : Address := creator.
+Definition token_id_ : N := 1.
+Definition initial_lqt : N := 10.
+Definition initial_tokens : N := 500.
 
 Module TestInfo <: Dexter2Info.
   Definition accounts := [person_1; person_2; person_3; person_4; person_5].
@@ -34,13 +34,9 @@ Module TestInfo <: Dexter2Info.
 End TestInfo.
 Module MG := Dexter2Gens TestInfo. Import MG.
 
-Definition build_act_ action := build_act creator creator action.
-Definition call_token value msg := act_call token_contract_base_addr value (@serialize FA2Token.Msg _ msg).
-Definition call_cpmm value msg := act_call cpmm_contract_base_addr value (@serialize Dexter2CPMM.Msg _ msg).
-
 (** ** Setup actions *)
 (** Transfer some coins to each user address *)
-Definition transfer_initial_funds := map (fun addr => build_act_ (act_transfer addr 8)) TestInfo.accounts.
+Definition transfer_initial_funds := map (fun addr => TestUtils.build_transfer creator addr 8) TestInfo.accounts.
 
 (** We deploy the token contract with a single token id configured *)
 Definition token_setup := {|
@@ -55,21 +51,21 @@ Definition token_setup := {|
   |};
   transfer_hook_addr_       := None; (* No transfer hook configured *)
 |}.
-Definition deploy_token := build_act_ (create_deployment 0 FA2Token.contract token_setup).
+Definition deploy_token := build_deploy creator 0 FA2Token.contract token_setup.
 (** Allow CPMM contract to operate on all user accounts' tokens *)
-Definition setup_operators := map (fun addr => build_act addr addr
-  (call_token 0%Z (msg_update_operators [
+Definition setup_operators := map (fun addr => build_call addr token_contract_base_addr 0
+    (msg_update_operators [
       add_operator (Build_operator_param addr cpmm_contract_base_addr all_tokens)
-    ]))
+    ])
   ) TestInfo.accounts.
 (** Create tokens in some user accounts *)
-Definition create_tokens := map (fun addr => build_act addr addr
-  (call_token 1%Z (msg_create_tokens token_id_))
+Definition create_tokens := map (fun addr => build_call addr token_contract_base_addr 1
+    (msg_create_tokens token_id_)
   ) [person_1; person_2; person_3].
 (** Transfer initial token funds to CPMM contract *)
 Definition transfer_cpmm_tokens := [
-  build_act_ (call_token 5%Z (msg_create_tokens token_id_));
-  build_act_ (call_token 0%Z (msg_transfer [{|
+  build_call creator token_contract_base_addr 5 (msg_create_tokens token_id_);
+  build_call creator token_contract_base_addr 0 (msg_transfer [{|
     from_ := creator;
     txs := [{|
       to_ := cpmm_contract_base_addr;
@@ -77,7 +73,7 @@ Definition transfer_cpmm_tokens := [
       amount := 500%N;
     |}];
     sender_callback_addr := None
-  |}]))
+  |}])
 ].
 Definition setup_token_contract :=
   deploy_token ::
@@ -91,7 +87,7 @@ Definition lqt_setup := {|
   lqt_provider  := null_address_;
   initial_pool  := initial_lqt
 |}.
-Definition deploy_lqt := [build_act_ (create_deployment 0 DEX2LQT.contract lqt_setup)].
+Definition deploy_lqt := [build_deploy creator 0 DEX2LQT.contract lqt_setup].
 
 
 Definition cpmm_setup := {|
@@ -100,13 +96,15 @@ Definition cpmm_setup := {|
   tokenAddress_ := token_contract_base_addr;
   tokenId_      := token_id_
 |}.
-Definition deploy_cpmm := build_act_ (create_deployment 0 DEX2.contract cpmm_setup).
+Definition deploy_cpmm := build_deploy creator 0 DEX2.contract cpmm_setup.
 (** Transfer some tez to CPMM contract *)
-Definition transfer_cpmm_xtz := build_act_ (act_transfer cpmm_contract_base_addr 5%Z).
+Definition transfer_cpmm_xtz := TestUtils.build_transfer creator cpmm_contract_base_addr 5.
 (** Connect CPMM and Lqt token contracts *)
-Definition set_lqt_address := build_act_ (call_cpmm 0%Z (@FA2Token.other_msg _ DexterMsg (SetLqtAddress lqt_contract_base_addr))).
+Definition set_lqt_address := build_call creator cpmm_contract_base_addr 0
+  (@FA2Token.other_msg _ DexterMsg (SetLqtAddress lqt_contract_base_addr)).
 (** Sync token pool counter *)
-Definition update_token_pool := build_act_ (call_cpmm 0%Z (@FA2Token.other_msg _ DexterMsg UpdateTokenPool)).
+Definition update_token_pool := build_call creator cpmm_contract_base_addr 0
+  (@FA2Token.other_msg _ DexterMsg UpdateTokenPool).
 Definition setup_cpmm_contract := [
   deploy_cpmm;
   transfer_cpmm_xtz;
@@ -126,11 +124,12 @@ Definition init_cb' :=
   | Err _ => empty_chain
   end.
 
-(* Chain generator *)
-Definition gTokenChain init_cb (max_acts_per_block max_length : nat) :=
-  let act_depth := 1 in
-      gChain init_cb (fun env act_depth => gAction env) max_length act_depth max_acts_per_block.
-
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := gAction.
+  Definition init_cb := init_cb'.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+(* Sample (gChain). *)
 
 (** * Tests *)
 (** 
