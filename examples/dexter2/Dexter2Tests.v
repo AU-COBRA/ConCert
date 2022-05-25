@@ -132,29 +132,103 @@ Module TN := TestNotations NotationInfo. Import TN.
 (* Sample (gChain). *)
 
 (** * Tests *)
-(** 
-
+(** Dexter2 uses call to balance_of entrypoint on the token contract
+    to sync the token reserves. It is key that there is no way for an
+    attacker to manipulate the reserve by interfering with this sync.
+    Therefore we test in both execution orders that there will never be
+    callbacks with someone elses balance / incorrect balance.
 *)
-Definition test_cb := add_block init_cb' [
-  build_act person_1 person_1 (call_token 0%Z (FA2Token.msg_balance_of {|
-    bal_requests := [
-      {|
-        FA2LegacyInterface.owner := person_1;
-        bal_req_token_id := token_id_
-      |}
-    ];
-    bal_callback := FA2LegacyInterface.Build_callback _ None cpmm_contract_base_addr
-  |}));
-  build_act person_1 person_1 (call_cpmm 0%Z (FA2Token.other_msg UpdateTokenPool))
-].
-
-(* Check unpack_result test_cb : AddBlockError. *)
-
-Definition test_cb' :=
-  match test_cb with
-  | Ok cb => show cb
-  | Err e => show e
+Definition msg_is_balance_of_callback (cstate : Dexter2CPMM.State) (msg : Dexter2CPMM.Msg) : bool :=
+  match msg with
+  | FA2Token.receive_balance_of_param _ => true
+  | _ => false
   end.
 
+Definition callback_safe (env : Environment)
+                                 (cctx : ContractCallContext)
+                                 (old_state : Dexter2CPMM.State)
+                                 (msg : Dexter2CPMM.Msg)
+                                 (result_opt : option (Dexter2CPMM.State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some (new_state, _), FA2Token.receive_balance_of_param responses) =>
+    let length_correct := length responses =? 1 in
+    let owner_correct :=
+      match responses with
+      | h :: t => address_eqb (h.(request).(owner)) cpmm_contract_base_addr
+      | _ => true
+      end in
+    let amount_correct :=
+      match responses with
+      | h :: t => (old_state.(tokenPool) <=? h.(balance))%N
+      | _ => true
+      end in
+    let is_updating := old_state.(selfIsUpdatingTokenPool) in
+    (checker (
+      length_correct &&
+      owner_correct &&
+      amount_correct &&
+      is_updating
+    ))
+  | _ => checker false
+  end.
+
+(* Extract Constant DepthFirst => "false".
+QuickChick ({{msg_is_balance_of_callback}} cpmm_contract_base_addr {{callback_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* Extract Constant DepthFirst => "true".
+QuickChick ({{msg_is_balance_of_callback}} cpmm_contract_base_addr {{callback_safe}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
 
 
+
+(** Next we test that no Dexter operations can happen
+    while token reserve is syncing.
+    Again we test for both execution models.
+*)
+Definition is_syncing (state : Dexter2CPMM.State) (msg : Dexter2CPMM.Msg) : bool :=
+  state.(selfIsUpdatingTokenPool).
+
+Definition only_callbacks (env : Environment)
+                          (cctx : ContractCallContext)
+                          (old_state : Dexter2CPMM.State)
+                          (msg : Dexter2CPMM.Msg)
+                          (result_opt : option (Dexter2CPMM.State * list ActionBody)) :=
+  match (result_opt, msg) with
+  | (Some _, FA2Token.receive_balance_of_param _) => checker true
+  | _ => checker false
+  end.
+
+(* Extract Constant DepthFirst => "false".
+QuickChick ({{is_syncing}} cpmm_contract_base_addr {{only_callbacks}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* Extract Constant DepthFirst => "true".
+QuickChick ({{is_syncing}} cpmm_contract_base_addr {{only_callbacks}}). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+
+(** Finally we test that the token reserve invariant holds.
+    That is the actual token balance should always be less
+    than the token reserve.
+*)
+Definition token_reserve_safe (cs : ChainState) :=
+  match get_contract_state Dexter2CPMM.State cs cpmm_contract_base_addr with
+  | Some dexter_state =>
+    match get_contract_state FA2Token.State cs token_contract_base_addr with
+    | Some token_state =>
+      let token_reserve := dexter_state.(tokenPool) in
+      let token_balance := address_balance dexter_state.(tokenId) cpmm_contract_base_addr token_state in
+        checker (token_reserve <=? token_balance)%N
+    | None => checker true
+    end
+  | None => checker true
+  end.
+
+(* Extract Constant DepthFirst => "false".
+QuickChick (forAllBlocks token_reserve_safe). *)
+(* +++ Passed 10000 tests (0 discards) *)
+
+(* Extract Constant DepthFirst => "true".
+QuickChick (forAllBlocks token_reserve_safe). *)
+(* +++ Passed 10000 tests (0 discards) *)
