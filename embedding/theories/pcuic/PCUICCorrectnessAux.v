@@ -50,6 +50,23 @@ Module PcbvCurr := PCUICWcbvEval.
 
 Notation "Σ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ t1 t2) (at level 50).
 
+(** All contructors of inductives available in the λ-smart environment are available in
+    the PCUIC environment. *)
+(** Eventually, we can translate the whole λ-smart environment, we have a function that
+    does if for inductives [trans_global_dec] and we use it precisely to unquote
+    inductives.But it returns [mutual_inductive_entry] and we need
+    [mutual_inductive_body] *)
+Definition genv_sync (Σ1 : list global_dec) (Σ2 : PCUICEnvironment.global_env ) :=
+  forall ind_name c nparams i tys,
+    resolve_constr Σ1 ind_name c = Some (nparams, i, tys) ->
+    { x | let '(mib, oib, cb) := x in
+          declared_constructor Σ2 (mkInd (kername_of_string ind_name) 0, i) mib oib cb
+          /\ nparams = ind_npars mib /\ #|tys| =  context_assumptions (cstr_args cb) (* same arities *)
+    }.
+
+Notation "Σ1 ⋈ Σ2 " := (genv_sync Σ1 Σ2) (at level 20).
+
+
 Tactic Notation "simpl_vars_to_apps" "in" ident(H) :=
   simpl in H;try rewrite map_app in H; simpl in H;
   rewrite vars_to_apps_unfold in H;simpl in H.
@@ -64,9 +81,9 @@ Section WcbvEvalProp.
     PcbvCurr.atom (tInd (mkInd ind i) u).
   Proof. reflexivity. Qed.
 
-  Lemma tInd_value_head ind i u :
-    PcbvCurr.value_head (tInd (mkInd ind i) u).
-  Proof. reflexivity. Qed.
+  Lemma tInd_value_head (Σ : PCUICEnvironment.global_env) ind i u n :
+    PcbvCurr.value_head Σ n (tInd (mkInd ind i) u).
+  Proof. constructor. Qed.
 
   Lemma All_eq {A} (l1 l2 : list A) : All2 (fun t1 t2 => t1 = t2) l1 l2 -> l1 = l2.
   Proof.
@@ -141,15 +158,21 @@ Proof.
   simpl. rewrite Hci. apply f_equal. rewrite map_map. reflexivity.
 Qed.
 
-Lemma Wcbv_value_vars_to_apps Σ1 :
+
+Lemma Wcbv_value_vars_to_apps Σ1 Σ2 :
   forall (i : inductive) n (l : list val) ci,
+    Σ1 ⋈ Σ2 ->
     resolve_constr Σ1 i n = Some ci ->
-    All (fun v : val => PcbvCurr.value (t⟦ of_val_i v ⟧ Σ1)) l ->
-    PcbvCurr.value (t⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
+    #|l| <= ci.1.1 + #|ci.2| -> (* arity, including parameters *)
+    All (fun v : val => PcbvCurr.value Σ2 (t⟦ of_val_i v ⟧ Σ1)) l ->
+    PcbvCurr.value Σ2 (t⟦ vars_to_apps (eConstr i n) (map of_val_i l) ⟧ Σ1).
 Proof.
-  intros i n l ci Hres Hfa.
+  intros i n l [[??]?] syncEnv Hres Har Hfa.
+  destruct (syncEnv _ _ _ _ _ Hres) as [[[??]?][?[??]]].
   erewrite <- mkApps_vars_to_apps_constr;eauto.
-  eapply PcbvCurr.value_app;auto. now apply All_map.
+  eapply PcbvCurr.value_app.
+  + econstructor;eauto. rewrite map_length;cbn in *. unfold PcbvCurr.cstr_arity. lia.
+  + now apply All_map.
 Qed.
 
 Open Scope bool.
@@ -185,12 +208,12 @@ Proof.
 Qed.
 
 Lemma decompose_inductive_value:
-  forall (t1 : type) (args : list type) ind,
-    PcbvCurr.value (type_to_term t1) ->
+  forall Σ (t1 : type) (args : list type) ind,
+    PcbvCurr.value Σ (type_to_term t1) ->
     decompose_inductive t1 = Some (ind, args) ->
-    All PcbvCurr.value (map type_to_term args).
+    All (PcbvCurr.value Σ) (map type_to_term args).
 Proof.
-  intros t1.
+  intros Σ t1.
   induction t1;intros args ind Hv Hdi;tryfalse.
   + inversion Hdi;subst. constructor.
   + simpl in *.
@@ -200,18 +223,16 @@ Proof.
     rewrite <- mkApps_unfold in Hv.
     remember (tInd _ _) as tind.
     assert (Hna : ~~ isApp tind) by (subst;auto).
-    specialize (PcbvCurr.value_mkApps_inv _ _ Hna Hv).
-    intros W. destruct W.
-    * destruct s.
-      ** destruct p as [H1 ?]. destruct tys;simpl;tryfalse.
-      ** destruct p as [H1 H2]. now rewrite map_app.
-    * destruct p as [H1 H2]. subst;inversion H1.
+    specialize (PcbvCurr.value_mkApps_inv _ _ _ Hna Hv).
+    intros W. destruct W as [p | p].
+    * inversion p. destruct tys;tryfalse.
+    * destruct p as [H1 H2]. now rewrite map_app.
 Qed.
 
-Lemma type_value_term_value ty :
+Lemma type_value_term_value Σ ty :
   iclosed_ty 0 ty ->
   ty_val ty ->
-  PcbvCurr.value (type_to_term ty).
+  PcbvCurr.value Σ (type_to_term ty).
 Proof.
   intros Hc Hty. induction Hty.
   + simpl. constructor. apply tInd_atom.
@@ -309,10 +330,10 @@ Qed.
 
 
 Lemma type_to_term_eval_value :
-  forall Σ (ty ty_v : type) ρ,
-    env_ok Σ ρ  ->
+  forall Σ1 Σ2 (ty ty_v : type) ρ,
+    env_ok Σ1 ρ  ->
     eval_type_i 0 ρ ty = Some ty_v ->
-    PcbvCurr.value (type_to_term ty_v).
+    PcbvCurr.value Σ2 (type_to_term ty_v).
 Proof.
   intros.
   eapply type_value_term_value;eauto with hints.
@@ -332,16 +353,17 @@ Proof.
   eapply type_to_term_eval_value;eauto.
 Qed.
 
-Lemma Wcbv_of_value_value v Σ1 :
+Lemma Wcbv_of_value_value v Σ1 Σ2 :
+  Σ1 ⋈ Σ2 ->
   val_ok Σ1 v ->
-  PcbvCurr.value (t⟦ of_val_i v⟧Σ1).
+  PcbvCurr.value Σ2 (t⟦ of_val_i v⟧Σ1).
 Proof.
-  intros Hok.
+  intros Hsync Hok.
   induction v using val_elim_full.
   + simpl in *.
     inversion Hok;subst.
     eapply Wcbv_value_vars_to_apps;eauto.
-    now eapply All_impl_inner.
+    eapply All_impl_inner;eauto.
   + destruct cm. constructor;auto.
     simpl. now constructor.
   + simpl in *. constructor;auto.
@@ -460,8 +482,8 @@ Proof.
   induction xs;intros;auto.
   simpl.
   assert (closedn (#|xs|) ty) by (eapply closed_upwards;eauto;lia).
-  replace (#|xs| - 0) with #|xs| in * by lia.
-  rewrite subst_closedn by auto. easy.
+  replace (S #|xs| - 1) with #|xs| in * by lia.
+  now rewrite subst_closedn by auto.
 Qed.
 
 Lemma map_lift0 xs : map (lift0 0) xs = xs.
@@ -508,7 +530,7 @@ Proof.
   revert t0 t1.
   induction ts;intros.
   + simpl. easy.
-  + simpl. replace (#|ts| - 0) with #|ts| by lia. rewrite IHts by assumption.
+  + simpl. replace (S #|ts| - 1) with #|ts| by lia. rewrite IHts by assumption.
     rewrite distr_subst. simpl. replace (t0 {#|ts| := a}) with t0 by (symmetry;eauto with hints).
     reflexivity.
 Qed.
@@ -1007,8 +1029,8 @@ Proof.
                 symmetry. eapply subst_env_ty_closed_n_eq with (m:=0). now eapply iclosed_ty_0.
            **** simpl. unfold lookup_ty in *. rewrite H0.
                 destruct k;auto;tryfalse.
-                rewrite Nat.eqb_neq in *. simpl. assert (n-k<>0) by lia.
-                destruct (n - k =? 0)%nat eqn:HH;tryfalse;auto. rewrite Nat.eqb_eq in *.
+                rewrite Nat.eqb_neq in *. simpl. assert (S n- S k <> 0) by lia.
+                destruct (S n - S k =? 0)%nat eqn:HH;tryfalse;auto. rewrite Nat.eqb_eq in *.
                 propify. lia.
        *** remember (S n) as m. simpl. rewrite H0.
            unfold lookup_ty in *. simpl. now rewrite Hneq.
@@ -1016,7 +1038,7 @@ Proof.
          assert (HkSn :  S n <= k) by lia.
          case HkSn.
          *** rewrite PeanoNat.Nat.leb_refl. simpl.
-             replace (n-n) with 0 by lia. simpl.
+             replace (S n - S n) with 0 by lia. simpl.
              now rewrite PeanoNat.Nat.leb_refl.
          *** intros m Hm. assert (H : S n < S m) by lia.
              rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
@@ -1056,7 +1078,7 @@ Proof.
          assert (HkSn :  S n <= k) by lia.
          case HkSn.
          *** rewrite PeanoNat.Nat.leb_refl. simpl.
-             replace (n-n) with 0 by lia. simpl.
+             replace (S n - S n) with 0 by lia. simpl.
              now rewrite PeanoNat.Nat.leb_refl.
          *** intros m Hm. assert (H : S n < S m) by lia.
              rewrite <- PeanoNat.Nat.leb_gt in H. rewrite H.
@@ -1121,7 +1143,7 @@ Proof.
   + simpl. destruct a. simpl in *.
     destruct i.
     * exfalso;lia.
-    * simpl. now replace (i-0) with i by lia.
+    * simpl. now replace (S i-1) with i by lia.
 Qed.
 
 Lemma ty_env_ok_app_rec :
@@ -1387,11 +1409,13 @@ Proof.
       2 : { try (destruct  (expr_eval_general _ _ _ _ e2) eqn:He2);tryfalse. }
     destruct v0;try destruct c;
         destruct  (expr_eval_general _ _ _ _ e2) eqn:He2;tryfalse.
-    * inversion He;subst;clear He. simpl.
+    * simpl in *. destruct (resolve_constr Σ i e) eqn:Hc;tryfalse;eauto.
+      destruct p. destruct p.
+      destruct (_ <=? _);tryfalse;cbn in *.
+      inversion He;subst;clear He. simpl.
       assert (ge_val_ok Σ (vConstr i e l)) by eauto.
       assert (ge_val_ok Σ v0) by eauto.
-      simpl in *. destruct (resolve_constr Σ i e);eauto.
-      simpl in *. rewrite forallb_app. cbn. propify. split;eauto.
+      simpl in *. rewrite Hc in *. rewrite forallb_app. cbn. propify. now split;eauto.
     * assert (ge_val_ok Σ (vClos e _ cmLam t t0 _)) by eauto.
       assert (ge_val_ok Σ v0) by eauto.
       simpl in *.
@@ -1463,7 +1487,7 @@ Proof.
   induction v using val_elim_full;intros Hok.
   + simpl. inversion Hok;subst;clear Hok.
     destruct (resolve_constr Σ i n) eqn:Hres;tryfalse.
-    inversion H0;subst. simpl in *.
+    inversion H1;subst. simpl in *.
     apply All_forallb. eapply All_impl_inner;eauto.
   + simpl. apply All_forallb.
     inversion Hok;subst;clear Hok;eapply All_impl_inner;eauto.
@@ -1631,15 +1655,20 @@ Proof.
     destruct (expr_eval_general _ _ _ _ e2) eqn:He2;tryfalse.
     destruct (expr_eval_general _ _ _ _ e1) eqn:He1;tryfalse.
     destruct v1;try destruct c;tryfalse.
-    * inversion_clear He.
+    * destruct (resolve_constr Σ i _) eqn:Hres;tryfalse.
+      destruct p. destruct p. destruct (_ <=? _) eqn:Har;tryfalse.
+      inversion_clear He.
       assert (Hge_ok : ge_val_ok Σ (vConstr i _ l)) by
           (eapply eval_ge_val_ok;[now apply env_ok_ForallEnv_ge_val_ok | eauto]).
       assert (Hok_constr : val_ok Σ (vConstr i e l)).
       { cbn in *. propify. destruct_hyps.
         clear H2. now eapply IHn. }
-      simpl in Hge_ok. destruct (resolve_constr Σ i _) eqn:Hres;tryfalse.
+      econstructor;eauto.
+      simpl in Hge_ok. rewrite Hres in *.
       inversion Hok_constr. subst. clear Hok_constr.
-      econstructor;eauto. apply All_app_inv;eauto with hints.
+      apply All_app_inv;eauto with hints.
+      rewrite app_length;cbn.
+      now propify;cbn in *.
     * simpl in *. unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
       assert (Hok_v0 : val_ok Σ v0) by now eapply IHn.
       assert (Hok_lam : val_ok Σ (vClos e _ cmLam t t0 _)) by now eapply IHn with (e:=e1).
@@ -1661,6 +1690,7 @@ Proof.
       eapply eval_ty_expr_env_ok;eauto.
   + unfold expr_eval_i in *. simpl in *.
     destruct (resolve_constr _ _ _) eqn:Hres;inversion He;tryfalse;eauto with hints.
+    econstructor;eauto;cbn;lia.
   + tryfalse.
   + unfold expr_eval_i in *. simpl. simpl in He.
     simpl in Hc. unfold is_true in *;propify.
@@ -1894,8 +1924,8 @@ Proof.
   destruct l using MCList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. rewrite <- mkApps_vars_to_apps.
-    unfold PcbvCurr.isFixApp.
-    now rewrite decompose_app_mkApps;simpl;destruct (resolve_constr Σ ind cn).
+    unfold PcbvCurr.isFixApp,isFix;cbn.
+    now rewrite PcbvCurr.head_mkApps;destruct (resolve_constr Σ ind cn).
 Qed.
 
 Lemma vars_to_apps_constr_not_arity ind cn l Σ:
@@ -1921,11 +1951,11 @@ Qed.
 #[export] Hint Constructors All2 : hints.
 
 Lemma All_value_of_val:
-  forall (Σ1 : global_env)
+  forall (Σ1 : global_env) Σ2 (Hsync : Σ1 ⋈ Σ2)
     (l : list val),
-    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value (t⟦ of_val_i v ⟧ Σ1)) l.
+    All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 (t⟦ of_val_i v ⟧ Σ1)) l.
 Proof.
-  intros Σ1 l X.
+  intros Σ1 Σ2 Hsync l X.
   eapply All_impl. apply X.
   intros. eapply Wcbv_of_value_value;eauto with hints.
 Qed.

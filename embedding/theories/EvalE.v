@@ -311,7 +311,15 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
             end
           | vTyClos ρ' nm b, v =>
               eval n (ρ' # [nm ~> v]) b
-          | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
+          | vConstr ind n vs, v =>
+              match (resolve_constr Σ ind n) with
+              | Some (nparam,_,tys) =>
+                  if #|vs| + 1 <=? nparam + #|tys| (* constructor's arity*) then
+                    Ok (vConstr ind n (List.app vs [v]))
+                  else
+                    EvalError "eApp: constructor applied to too many args"
+              | None => EvalError "eApp : No constructor or inductive found"
+              end
           | _, _ => EvalError "eApp : not a constructor or closure"
           end
       | eConstr ind ctor =>

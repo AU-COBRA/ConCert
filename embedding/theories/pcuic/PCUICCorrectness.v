@@ -4,6 +4,7 @@ From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICTyping.
+From MetaCoq.PCUIC Require Import PCUICSubstitution.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.
@@ -19,6 +20,7 @@ From Coq Require Import List.
 From Coq Require Import Basics.
 From Coq Require Import Lia.
 From Coq Require Import ssrbool.
+From Equations Require Import Equations.
 
 Import ListNotations.
 Import NamelessSubst.
@@ -29,19 +31,6 @@ Local Set Keyed Unification.
  Hint Resolve assumption_context_subst
               assumption_context_map_vass
               PCUICSigmaCalculus.context_assumptions_context : hints.
-
-(** All contructors of inductives available in the λ-smart environment are available in
-    the PCUIC environment. *)
-(** Eventually, we can translate the whole λ-smart environment, we have a function that
-    does if for inductives [trans_global_dec] and we use it precisely to unquote
-    inductives.But it returns [mutual_inductive_entry] and we need
-    [mutual_inductive_body] *)
-Definition genv_sync (Σ1 : list global_dec) (Σ2 : PCUICEnvironment.global_env ) :=
-  forall ind_name c nparams i ci,
-    resolve_constr Σ1 ind_name c = Some (nparams, i, ci) ->
-    { x | let '(mib, oib, cb) := x in declared_constructor Σ2 (mkInd (kername_of_string ind_name) 0, i) mib oib cb}.
-
-Notation "Σ1 ⋈ Σ2 " := (genv_sync Σ1 Σ2) (at level 20).
 
 (** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2
@@ -121,14 +110,25 @@ Proof.
       assert (Hneq1 : [t⟦ inst_env_i ρ e1_2 ⟧ Σ1] <> []) by easy.
       destruct v1;tryfalse.
       * (* application evaluates to a constructor *)
+        destruct (resolve_constr _ _ _) eqn:Hres;tryfalse.
+        destruct p as [p tys]. destruct p as [nparams n1]. destruct (_ <=? _) eqn:Har;tryfalse.
+        unfold genv_sync in *.
+        specialize (Hsync _ _ _ _ _ Hres) as HH.
+        destruct HH as [[[??]?] [Hdctor?]].
         inversion_clear He. simpl_vars_to_apps. subst. simpl in *.
         rename e into n0.
-        change (tApp (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) (t⟦ of_val_i v0 ⟧ Σ1))
-          with (mkApps (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ1) [t⟦ of_val_i v0 ⟧ Σ1]).
-
-        eapply PcbvCurr.eval_app_cong;eauto with hints.
-        change (vars_to_apps (eConstr i n0) (map of_val_i l)) with (of_val_i (vConstr i n0 l)).
+        rewrite <- mkApps_vars_to_apps;cbn.
+        rewrite Hres;cbn.
+        repeat rewrite tApp_mkApps.
+        rewrite <- mkApps_app.
+        eapply PcbvCurr.eval_construct;eauto with hints.
+        assert  (Hc : P.mkApps (tConstruct {| inductive_mind := kername_of_string i; inductive_ind := 0 |} n1 [])
+    (map (expr_to_term Σ1) (map of_val_i l)) = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ1).
+        { cbn. rewrite <- mkApps_vars_to_apps;cbn.
+          now rewrite Hres. }
+        rewrite Hc.
         eapply IHn;eauto with hints.
+        repeat rewrite map_length. unfold PcbvCurr.cstr_arity. propify. lia.
       * destruct c.
         ** (* the closure corresponds to lambda *)
           simpl in *. rename e0 into n0.
@@ -191,7 +191,7 @@ Proof.
           { simpl. inversion Hok_fix;subst. subst.
             repeat rewrite subst_env_i_ty_closed_eq;eauto with hints. }
           assert (closed tfix).
-          { rewrite H. apply expr_closed_term_closed;auto.
+          { rewrite H0. apply expr_closed_term_closed;auto.
             inversion Hok_fix;subst.
             simpl. propify;split; eauto with hints. }
           repeat rewrite PCUICCSubst.closed_subst by auto.
@@ -218,8 +218,8 @@ Proof.
           assert (ty_expr_env_ok (nil # [e2 ~> efix] # [n0 ~> args]) 0 (e1.[ exprs ρ']2)).
           { subst.
             eapply ty_expr_env_ok_subst_env.
-            assert (H : ty_expr_env_ok (exprs ((n0, vConstr i e l) :: (e2, vClos ρ' n0 (cmFix e2) t t0 e1) :: ρ'))  0 e1) by (eapply eval_ty_expr_env_ok;eauto).
-            cbn in H. repeat rewrite subst_env_i_ty_closed_0_eq in H by auto. easy.
+            assert (H0 : ty_expr_env_ok (exprs ((n0, vConstr i e l) :: (e2, vClos ρ' n0 (cmFix e2) t t0 e1) :: ρ'))  0 e1) by (eapply eval_ty_expr_env_ok;eauto).
+            cbn in H0. now repeat rewrite subst_env_i_ty_closed_0_eq in H0 by auto.
             now eapply closed_exprs. }
           assert (closed t⟦ args ⟧ Σ1).
           {subst;apply expr_closed_term_closed;auto.
@@ -320,9 +320,14 @@ Proof.
       destruct x as [[mib oib] cb].
 
       (* Constructing PCUIC eval derivation for the pattern-matching case *)
+      (* specialize (Hsync _ _ _ _ _ HresC) as Hsync'. *)
+      (* destruct Hsync' as [[[??]?] [Hdctor?]]. *)
+      specialize Hctor_decl as [H1 H2].
+      destruct H2 as  [Hdctor?].
       eapply PcbvCurr.eval_iota;eauto.
       * now eapply map_nth_error.
-      * cbn. rewrite map_length.
+      * cbn. rewrite map_length. unfold PcbvCurr.cstr_arity. propify. lia.
+      * cbn.
         unfold etrans_branch.
         unfold fun_prod,id;cbn.
         remember (fun (x : pat * expr) => t⟦ x.2.[ exprs ρ] (#|pVars x.1|+0)⟧ Σ1) as f.
@@ -414,7 +419,7 @@ Proof.
           replace #|remove_proj c| with #|pVars v2.1| by (propify;lia).
           now replace (min #|pVars v2.1| #|pVars v2.1|) with #|pVars v2.1| by lia.
         }
-        assert (#|pVars v2.1| = #|skipn nparams l2|) by (rewrite skipn_length;lia).
+        assert (#|pVars v2.1| = #|skipn (ind_npars mib) l2|) by (rewrite skipn_length;lia).
 
         rewrite Hvass_eq1.
 
@@ -426,8 +431,8 @@ Proof.
         remember (fun x : val => t⟦ _ ⟧ _) as f.
         remember (fun x : string * expr => t⟦ snd x ⟧ Σ1) as h.
         remember (t⟦ p_es .[_] _⟧ _) as te3.
-        assert (Hmap : map f (rev (skipn nparams l2)) =
-                       map h (map (fun_prod id of_val_i)(rev (combine (pVars v2.1) (skipn nparams l2))))).
+        assert (Hmap : map f (rev (skipn (ind_npars mib) l2)) =
+                       map h (map (fun_prod id of_val_i)(rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))))).
                { rewrite map_map.
                  subst h;simpl.
                  rewrite <- combine_rev by auto.
@@ -441,13 +446,13 @@ Proof.
         replace (#|pVars v2.1| + 0) with #|pVars v2.1| in * by lia.
         apply Nat.eqb_eq in Hnparams.
         rewrite subst_term_subst_env_par;eauto with hints.
-        eapply IHn with (ρ:=(rev (combine (pVars v2.1) (skipn nparams l2)) ++ ρ)%list);
+        eapply IHn with (ρ:=(rev (combine (pVars v2.1) (skipn (ind_npars mib) l2)) ++ ρ)%list);
           eauto with hints.
         ** eapply All_app_inv;eauto. apply All_rev.
            eapply All_env_ok;eauto with hints. now apply All_skipn.
         **  unfold fun_prod,id.
-            rewrite map_app.  subst nparams.
-            remember (rev (combine (pVars v2.1) (skipn #|l0| l2))) as l_rev.
+            rewrite map_app.
+            remember (rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))) as l_rev.
             assert (Hlrev : #|pVars v2.1| = #|exprs l_rev|).
             { subst. rewrite map_length.
               rewrite rev_length. rewrite combine_length.
@@ -469,14 +474,14 @@ Proof.
              repeat rewrite rev_length. rewrite skipn_length;lia.  }
            rewrite <- Hlen.
            eapply ty_expr_env_ok_subst_env with (k:=0).
-           assert (Hcomb : exprs (rev (combine (pVars v2.1) (skipn nparams l2))) = l_comb).
+           assert (Hcomb : exprs (rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))) = l_comb).
            { subst. repeat rewrite map_rev.  rewrite combine_rev.
              apply f_equal. now rewrite  map_combine_snd_funprod.
              rewrite map_length. rewrite skipn_length;lia. }
            rewrite <- Hcomb. rewrite <- map_app.
-           subst nparams. eapply eval_ty_expr_env_ok;eauto with hints.
+           eapply eval_ty_expr_env_ok;eauto with hints.
            rewrite app_length.
-           replace (#|rev (combine (pVars v2.1) (skipn #|l0| l2))|) with #|pVars v2.1| by
+           replace (#|rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))|) with #|pVars v2.1| by
              (rewrite rev_length, combine_length, skipn_length;lia).
            replace #|ρ| with #|exprs ρ| by apply map_length. eauto with hints.
 
@@ -488,7 +493,7 @@ Proof.
 
            rewrite combine_length. rewrite map_length.
            repeat rewrite rev_length. rewrite skipn_length by lia.
-           replace (min #|pVars v2.1| (#|l2| - nparams)) with #|pVars v2.1| by lia.
+           replace (min #|pVars v2.1| (#|l2| - ind_npars mib)) with #|pVars v2.1| by lia.
            eauto with hints.
 
         ** rewrite <- combine_rev by auto.
@@ -499,6 +504,7 @@ Proof.
              repeat rewrite rev_length. rewrite skipn_length;lia.  }
            rewrite <- Hlen.
            eapply ty_expr_env_ok_subst_env with (k:=0).
+           remember (ind_npars mib) as nparams.
            assert (Hcomb : exprs (rev (combine (pVars v2.1) (skipn nparams l2))) = l_comb).
            { subst. repeat rewrite map_rev.  rewrite combine_rev.
              apply f_equal. now rewrite  map_combine_snd_funprod.
@@ -506,12 +512,12 @@ Proof.
            rewrite <- Hcomb. rewrite <- map_app.
            subst nparams. eapply eval_ty_expr_env_ok;eauto with hints.
            rewrite app_length.
-           replace (#|rev (combine (pVars v2.1) (skipn #|l0| l2))|) with #|pVars v2.1| by
+           replace (#|rev (combine (pVars v2.1) (skipn _ l2))|) with #|pVars v2.1| by
              (rewrite rev_length, combine_length, skipn_length;lia).
            replace #|ρ| with #|exprs ρ| by apply map_length. eauto with hints.
            eapply closed_exprs;eauto.
-        ** rewrite map_length. subst nparams.
-           replace (#|rev (combine (pVars v2.1) (skipn #|l0| l2))|) with #|pVars v2.1| by
+        ** rewrite map_length.
+           replace (#|rev (combine (pVars v2.1) (skipn _ l2))|) with #|pVars v2.1| by
              (rewrite rev_length, combine_length, skipn_length;lia).
            eauto with hints.
         **  apply All_map. subst.
