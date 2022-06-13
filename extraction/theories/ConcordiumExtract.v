@@ -21,21 +21,85 @@ Definition lookup_const (TT : list (kername * string)) (name : kername): option 
   | None => None
   end.
 
-Definition remap_arith : list (kername * string) := Eval compute in
-  [  remap <%% BinPosDef.Pos.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }"
-   ; remap <%% BinPosDef.Pos.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }"
-   ; remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }"
-   ; remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }"
-   ; remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }"
-   ; remap <%% BinIntDef.Z.even %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() == 0 }"
-   ; remap <%% BinIntDef.Z.odd %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() != 0 }"
-   ; remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }"
-   ; remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }"
-   ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }"
-   ; remap <%% Z.gtb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a > b }"
-   ; remap <%% Nat.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }"
-   ; remap <%% Nat.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }"
-   ; remap <%% Nat.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }"].
+Definition remap_pos_arith : list (kername * string) :=
+  [ remap <%% Pos.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }" ;
+    remap <%% Pos.pred %%> "fn ##name##(&'a self, a: u64) -> u64 { if a == 1 { 1 } else { a.checked_sub(1).unwrap() } }" ;
+    remap <%% Pos.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }" ;
+    remap <%% Pos.sub %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { if a <= b { 1 } else { a.checked_sub(b).unwrap() } }" ;
+    remap <%% Pos.mul %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_mul(b).unwrap() }" ;
+    remap <%% Pos.eqb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a == b }" ;
+    remap <%% Pos.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }" ;
+    remap <%% Pos.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }" ;
+    remap <%% Pos.min %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { std::cmp::min(a, b) }" ;
+    remap <%% Pos.max %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { std::cmp::max(a, b) }"
+  ].
+
+Definition remap_nat_arith : list (kername * string) :=
+  [ remap <%% Nat.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }" ;
+    remap <%% Nat.pred %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_sub(1).unwrap_or(0) }" ;
+    remap <%% Nat.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }" ;
+    remap <%% Nat.sub %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_sub(b).unwrap() }" ;
+    remap <%% Nat.mul %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_mul(b).unwrap() }" ;
+    remap <%% Nat.div %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_div(b).unwrap_or(0) }" ;
+    remap <%% Nat.modulo %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_rem(b).unwrap_or(a) }" ;
+    remap <%% Nat.eqb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a == b }" ;
+    remap <%% Nat.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }" ;
+    remap <%% Nat.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }" ;
+    remap <%% Nat.min %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { std::cmp::min(a, b) }" ;
+    remap <%% Nat.max %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { std::cmp::max(a, b) }" ;
+    remap <%% Nat.even %%> "fn ##name##(&'a self, a: u64) -> bool { a.checked_rem(2).unwrap() == 0 }" ;
+    remap <%% Nat.odd %%> "fn ##name##(&'a self, a: u64) -> bool { a.checked_rem(2).unwrap() != 0 }"
+  ].
+
+Definition remap_N_arith : list (kername * string) :=
+  [ remap <%% N.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }" ;
+    remap <%% N.pred %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_sub(1).unwrap_or(0) }" ;
+    remap <%% N.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }" ;
+    remap <%% N.sub %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_sub(b).unwrap() }" ;
+    remap <%% N.mul %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_mul(b).unwrap() }" ;
+    remap <%% N.div %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_div(b).unwrap_or(0) }" ;
+    remap <%% N.modulo %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_rem(b).unwrap_or(a) }" ;
+    remap <%% N.eqb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a == b }" ;
+    remap <%% N.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }" ;
+    remap <%% N.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }" ;
+    remap <%% N.min %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { std::cmp::min(a, b) }" ;
+    remap <%% N.max %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { std::cmp::max(a, b) }" ;
+    remap <%% N.even %%> "fn ##name##(&'a self, a: u64) -> bool { a.checked_rem(2).unwrap() == 0 }" ;
+    remap <%% N.odd %%> "fn ##name##(&'a self, a: u64) -> bool { a.checked_rem(2).unwrap() != 0 }"
+  ].
+
+Definition remap_Z_arith : list (kername * string) :=
+  [ remap <%% Z.succ %%> "fn ##name##(&'a self, a: i64) -> i64 { a.checked_add(1).unwrap() }" ;
+    remap <%% Z.pred %%> "fn ##name##(&'a self, a: i64) -> i64 { a.checked_sub(1).unwrap() }" ;
+    remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }" ;
+    remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }" ;
+    remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }" ;
+    remap <%% Z.div %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_div_euclid(b).unwrap_or(0) }" ;
+    remap <%% Z.modulo %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_rem_euclid(b).unwrap_or(a) }" ;
+    remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }" ;
+    remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }" ;
+    remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }" ;
+    remap <%% Z.geb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a >= b }" ;
+    remap <%% Z.gtb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a > b }" ;
+    remap <%% Z.min %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { std::cmp::min(a, b) }" ;
+    remap <%% Z.max %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { std::cmp::max(a, b) }" ;
+    remap <%% Z.even %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() == 0 }" ;
+    remap <%% Z.odd %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() != 0 }" ;
+    remap <%% Z.opp %%> "fn ##name##(&'a self, a: i64) -> i64 { a.checked_neg().unwrap() }" ;
+    remap <%% Z.abs_N %%> "fn ##name#(&'a self, a: i64) -> u64 { a.unsigned_abs() }" ;
+    remap <%% Z.of_N %%>
+"fn ##name##(&'a self, a: u64) -> i64 {
+  use std::convert::TryFrom;
+  i64::try_from(a).unwrap()
+}" ;
+    remap <%% Z.to_N %%> "fn ##name##(&'a self, a: i64) -> u64 { if a.is_negative() { 0 } else { a.unsigned_abs() } }"
+  ].
+
+Definition remap_arith : list (kername * string) :=
+  remap_pos_arith ++
+  remap_nat_arith ++
+  remap_N_arith ++
+  remap_Z_arith.
 
 Definition remap_blockchain_consts : list (kername * string) :=
   [ remap <! @Address !> "type ##name##<'a> = concordium_std::Address;"
