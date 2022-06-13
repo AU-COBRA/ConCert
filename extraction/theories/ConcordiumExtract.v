@@ -112,13 +112,13 @@ Definition remap_inline_bool_ops := Eval compute in
   [ remap <%% andb %%> "__andb!"
   ; remap <%% orb %%> "__orb!" ].
 
-Definition remap_nat : remapped_inductive:=
+Definition remap_nat : remapped_inductive :=
   {| re_ind_name := "u64";
      re_ind_ctors := ["0"; "__nat_succ"];
      re_ind_match := Some "__nat_elim!"
   |}.
 
-Definition remap_N : remapped_inductive:=
+Definition remap_N : remapped_inductive :=
   {| re_ind_name := "u64";
      re_ind_ctors := ["0"; "__N_frompos"];
      re_ind_match := Some "__N_elim!"
