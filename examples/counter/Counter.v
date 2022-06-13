@@ -171,7 +171,7 @@ Proof.
        always returns an empty list of actions. We instantiate the [CallFacts]
        predicate with the assumption that the from-address is not equal to the
        contract address. We will be asked to prove this goal later. *)
-    instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx);
+    instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
       subst CallFacts; cbn in *; congruence.
   + (* we asked to prove additional assumptions we might have made.
      Since we instantiated only [CallFacts], we instantiate other assumptions

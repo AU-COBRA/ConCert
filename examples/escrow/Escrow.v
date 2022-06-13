@@ -190,7 +190,7 @@ Section Theories.
       destruct_address_eq; congruence.
     - now rewrite <- perm.
     - instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ _ => True).
       instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       unset_all; subst; cbn in *.
       destruct_chain_step; auto.
@@ -510,7 +510,7 @@ Section Theories.
       + (* None *)
         congruence.
     - (* Self call *)
-      instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx);
+      instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
         subst CallFacts; cbn in *; congruence.
     - (* Permuting queue *)
       do 5 (split; try tauto).
