@@ -25,7 +25,7 @@ Redirect "../extraction/tests/extracted-code/concordium-extract/counter.rs"
 MetaCoq Run (concordium_extraction
                COUNTER_MODULE
                (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_arith ++ ConcordiumRemap.remap_blockchain_consts)
+                  (ConcordiumRemap.remap_Z_arith ++ ConcordiumRemap.remap_blockchain_consts)
                   []
                   (ConcordiumRemap.remap_blockchain_inductives
                      ++ ConcordiumRemap.remap_std_types))

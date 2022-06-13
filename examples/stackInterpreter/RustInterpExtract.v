@@ -43,7 +43,7 @@ Redirect "../extraction/tests/extracted-code/concordium-extract/interp.rs"
 MetaCoq Run (concordium_extraction
                STACK_INTERP_MODULE
                (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_arith
+                  (ConcordiumRemap.remap_Z_arith
                      ++ ConcordiumRemap.remap_blockchain_consts
                      ++ remap_extra_consts)
                   ConcordiumRemap.remap_inline_bool_ops

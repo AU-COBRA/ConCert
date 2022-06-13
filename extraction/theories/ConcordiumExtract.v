@@ -109,13 +109,15 @@ Definition remap_blockchain_consts : list (kername * string) :=
           "fn ##name##(&'a self) -> impl Fn(concordium_std::Address) -> &'a dyn Fn(concordium_std::Address) -> bool { move |a| self.alloc(move |b| a == b) }" ].
 
 Definition remap_inline_bool_ops := Eval compute in
-      [ remap <%% andb %%> "__andb!"
-      ; remap <%% orb %%> "__orb!"].
+  [ remap <%% andb %%> "__andb!"
+  ; remap <%% orb %%> "__orb!" ].
 
 Definition remap_nat : remapped_inductive:=
   {| re_ind_name := "u64";
      re_ind_ctors := ["0"; "__nat_succ"];
-     re_ind_match := Some "__nat_elim!" |}.
+     re_ind_match := Some "__nat_elim!"
+  |}.
+
 Definition remap_N : remapped_inductive:=
   {| re_ind_name := "u64";
      re_ind_ctors := ["0"; "__N_frompos"];
@@ -161,7 +163,8 @@ Definition remap_unit : remapped_inductive :=
 Definition remap_string : remapped_inductive :=
   {| re_ind_name := "&'a String";
      re_ind_ctors := [];
-     re_ind_match := None |}.
+     re_ind_match := None
+  |}.
 
 Definition remap_std_types :=
   [ (<! nat !>, remap_nat)
@@ -172,24 +175,30 @@ Definition remap_std_types :=
   ; (<! prod !>, remap_pair)
   ; (<! option !>, remap_option)
   ; (<! unit !>, remap_unit)
-  ; (<! string !>, remap_string) ].
+  ; (<! string !>, remap_string)
+  ].
 
 Definition remap_SerializedValue : remapped_inductive :=
   {| re_ind_name := "&'a SerializedValue<'a>";
      re_ind_ctors := ["__SerializedValue__Is__Opaque"];
-     re_ind_match := None |}.
+     re_ind_match := None
+  |}.
 
 Definition remap_ActionBody : remapped_inductive :=
   {| re_ind_name := "ActionBody<'a>";
      re_ind_ctors := ["ActionBody::Transfer"; "ActionBody::Call"; "__Deploy__Is__Not__Supported"];
-     re_ind_match := None |}.
+     re_ind_match := None
+  |}.
 
 Definition remap_blockchain_inductives : list (inductive * remapped_inductive) :=
   [ (<! Serializable.SerializedValue !>, remap_SerializedValue);
-    (<! @ActionBody !>, remap_ActionBody) ].
+    (<! @ActionBody !>, remap_ActionBody)
+  ].
 
 Definition ignored_concert :=
-  [ <%% Monads.Monad %%>; <%% @RecordSet.SetterFromGetter %%> ].
+  [ <%% Monads.Monad %%> ;
+    <%% @RecordSet.SetterFromGetter %%>
+  ].
 
 Definition lookup_inductive
            (TT_inductives : list (inductive * remapped_inductive))
@@ -203,10 +212,11 @@ Definition build_remaps
            (TT_const : list (kername * string))
            (TT_const_inline : list (kername * string))
            (TT_inductives : list (inductive * remapped_inductive))
-  : remaps :=
+          : remaps :=
   {| remap_inductive := lookup_inductive TT_inductives;
      remap_constant := lookup_const TT_const;
-     remap_inline_constant := lookup_const TT_const_inline; |}.
+     remap_inline_constant := lookup_const TT_const_inline;
+  |}.
 
 End ConcordiumRemap.
 
@@ -214,10 +224,10 @@ Module ConcordiumPreamble.
   Instance concordium_extract_preamble : Preamble :=
 {| top_preamble := [
 "#![allow(dead_code)]";
-"#![allow(non_camel_case_types)]";
 "#![allow(unused_imports)]";
-"#![allow(non_snake_case)]";
 "#![allow(unused_variables)]";
+"#![allow(non_camel_case_types)]";
+"#![allow(non_snake_case)]";
  "";
 "use concordium_std::*;";
 "use concert_std::{ActionBody, ConCertDeserial, ConCertSerial, SerializedValue};";
