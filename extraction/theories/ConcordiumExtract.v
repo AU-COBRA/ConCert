@@ -41,7 +41,7 @@ Definition remap_nat_arith : list (kername * string) :=
     remap <%% Nat.sub %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_sub(b).unwrap() }" ;
     remap <%% Nat.mul %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_mul(b).unwrap() }" ;
     remap <%% Nat.div %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_div(b).unwrap_or(0) }" ;
-    remap <%% Nat.modulo %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_rem(b).unwrap_or(a) }" ;
+    remap <%% Nat.modulo %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { if b == 0 { 0 } else { a.checked_rem(b).unwrap() } }" ;
     remap <%% Nat.eqb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a == b }" ;
     remap <%% Nat.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }" ;
     remap <%% Nat.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }" ;
@@ -58,7 +58,7 @@ Definition remap_N_arith : list (kername * string) :=
     remap <%% N.sub %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_sub(b).unwrap() }" ;
     remap <%% N.mul %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_mul(b).unwrap() }" ;
     remap <%% N.div %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_div(b).unwrap_or(0) }" ;
-    remap <%% N.modulo %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_rem(b).unwrap_or(a) }" ;
+    remap <%% N.modulo %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { if b == 0 { 0 } else { a.checked_rem(b).unwrap() } }" ;
     remap <%% N.eqb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a == b }" ;
     remap <%% N.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }" ;
     remap <%% N.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }" ;
@@ -74,8 +74,9 @@ Definition remap_Z_arith : list (kername * string) :=
     remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }" ;
     remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }" ;
     remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }" ;
-    remap <%% Z.div %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { if b = 0 { 0 } else { a.div_floor(b).unwrap() } }" ;
-    remap <%% Z.modulo %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_rem_euclid(b).unwrap_or(a) }" ;
+    (* TODO: add div and mod once `div_floor` becomes stable feature https://github.com/rust-lang/rust/issues/88581 *)
+    (* remap <%% Z.div %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { if b == 0 { 0 } else { a.div_floor(b) } }" ; *)
+    (* remap <%% Z.modulo %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { if b == 0 { 0 } else { a.checked_rem_euclid(b).unwrap() } }" ; *)
     remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }" ;
     remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }" ;
     remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }" ;
