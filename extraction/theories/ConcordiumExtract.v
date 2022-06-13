@@ -74,7 +74,7 @@ Definition remap_Z_arith : list (kername * string) :=
     remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }" ;
     remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }" ;
     remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }" ;
-    remap <%% Z.div %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_div_euclid(b).unwrap_or(0) }" ;
+    remap <%% Z.div %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { if b = 0 { 0 } else { a.div_floor(b).unwrap() } }" ;
     remap <%% Z.modulo %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_rem_euclid(b).unwrap_or(a) }" ;
     remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }" ;
     remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }" ;
