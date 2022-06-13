@@ -52,6 +52,11 @@ Definition remap_nat : remapped_inductive:=
   {| re_ind_name := "u64";
      re_ind_ctors := ["0"; "__nat_succ"];
      re_ind_match := Some "__nat_elim!" |}.
+Definition remap_N : remapped_inductive:=
+  {| re_ind_name := "u64";
+     re_ind_ctors := ["0"; "__N_frompos"];
+     re_ind_match := Some "__N_elim!"
+  |}.
 
 Definition remap_positive : remapped_inductive :=
   {| re_ind_name := "u64";
@@ -98,6 +103,7 @@ Definition remap_std_types :=
   [ (<! nat !>, remap_nat)
   ; (<! positive !>, remap_positive)
   ; (<! Z !>,  remap_Z)
+  ; (<! N !>,  remap_N)
   ; (<! bool !>, remap_bool)
   ; (<! prod !>, remap_pair)
   ; (<! option !>, remap_option)
