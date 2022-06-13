@@ -781,7 +781,7 @@ Proof.
         rewrite pks_signups.
         specialize (num_signups_assum ltac:(lia)).
         now rewrite (all_signups pks parties) by auto.
-  - [CallFacts]: exact (fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx).
+  - [CallFacts]: exact (fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx).
     subst CallFacts; cbn in *; congruence.
   - auto.
   - [DeployFacts]: exact (fun _ _ => True).
@@ -790,6 +790,7 @@ Proof.
     + destruct valid_header; auto.
     + destruct_action_eval; auto.
       intros.
+      apply trace_reachable in from_reachable.
       pose proof (no_outgoing _ _ from_reachable H0).
       unfold outgoing_acts in H2.
       rewrite queue_prev in H2.

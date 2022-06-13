@@ -529,6 +529,7 @@ Section Theories.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
       intros.
+      apply trace_reachable in from_reachable.
       pose proof (no_self_calls bstate_from to_addr ltac:(assumption) ltac:(assumption))
            as all.
       unfold outgoing_acts in *.

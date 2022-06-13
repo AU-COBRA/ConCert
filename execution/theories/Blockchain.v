@@ -913,6 +913,14 @@ Ltac destruct_action_eval :=
   | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
   end.
 
+Lemma trace_reachable : forall {to},
+    ChainTrace empty_state to ->
+      reachable to.
+Proof.
+  constructor.
+  assumption.
+Qed.
+
 Lemma contract_addr_format {to} (addr : Address) (wc : WeakContract) :
   reachable to ->
   env_contracts to addr = Some wc ->

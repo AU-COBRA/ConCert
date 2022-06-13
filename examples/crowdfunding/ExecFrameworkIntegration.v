@@ -473,6 +473,7 @@ Proof.
     destruct step; auto.
     destruct a; auto.
     intros.
+    apply trace_reachable in from_reachable.
     split; eauto.
 Qed.
 
