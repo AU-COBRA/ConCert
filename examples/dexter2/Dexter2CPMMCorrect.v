@@ -1278,8 +1278,7 @@ Section Theories.
         subst. cbn.
         split.
         * now apply Z.ge_le.
-        * apply (account_balance_nonnegative _ to_addr) in from_reachable as ?H.
-          destruct from_reachable.
+        * specialize (account_balance_nonnegative bstate_from to_addr) as ?H.
           specialize xtz_pool_bound as (? & deployed_state' & ?); eauto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
@@ -1568,7 +1567,6 @@ Section Theories.
       rewrite deployed in deployed'.
       inversion deployed'.
       subst.
-      destruct from_reachable as [trace].
       clear deployed'.
       specialize outgoing_acts_no_mint_before_set_lqt_addr as (state & state_deployed & ?); eauto.
       rewrite deployed_state' in state_deployed.

@@ -1355,8 +1355,9 @@ Proof.
     destruct_action_eval; auto.
     intros ? contract_deployed ?.
     cbn.
-    apply deployed_implies_constants_valid in contract_deployed; auto.
+    apply deployed_implies_constants_valid in contract_deployed; eauto.
     now destruct_hyps.
+    now constructor.
 Qed.
 
 Lemma bat_no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
@@ -1452,7 +1453,8 @@ Proof.
       * apply Z.add_nonneg_nonneg; try lia.
         now apply Z.ge_le, account_balance_nonnegative.
     + (* Prove call fact: ctx_from ctx <> ctx_contract_address ctx *)
-      now eapply bat_no_self_calls'.
+      eapply bat_no_self_calls'; eauto.
+      now constructor.
 Qed.
 
 
@@ -1519,9 +1521,12 @@ Proof.
     intros ? contract_deployed ?.
     subst. cbn.
     split.
-    + now eapply bat_no_self_calls'.
-    + now specialize sum_balances_eq_total_supply as
-        (? & ? & ?).
+    + eapply bat_no_self_calls'; eauto.
+      now constructor.
+    + specialize sum_balances_eq_total_supply as
+        (? & ? & ?); eauto.
+      now constructor.
+      easy.
 Qed.
 
 
@@ -1636,14 +1641,20 @@ Proof.
     subst. cbn.
     repeat split.
     + now apply Z.ge_le.
-    + now specialize deployed_implies_constants_valid as
-        (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _).
-    + now specialize sum_balances_eq_total_supply as
-        (cstate' & deployed_state' & ?).
+    + specialize deployed_implies_constants_valid as
+        (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _); eauto.
+      now constructor.
+      easy.
+    + specialize sum_balances_eq_total_supply as
+        (cstate' & deployed_state' & ?); eauto.
+      now constructor.
+      easy.
     + intros.
       specialize funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
+      now constructor.
       now apply no_acts.
-    + now eapply bat_no_self_calls'.
+    + eapply bat_no_self_calls'; eauto.
+      now constructor.
 Qed.
 
 

@@ -764,7 +764,8 @@ Proof.
       match goal with
       | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
       end.
-      now eapply no_self_calls.
+      eapply no_self_calls; eauto.
+      now constructor.
 Qed.
 
 Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1046,7 +1047,8 @@ Proof.
     match goal with
     | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
     end.
-    now eapply no_self_calls.
+    eapply no_self_calls; eauto.
+    now constructor.
 Qed.
 
 End Theories.
