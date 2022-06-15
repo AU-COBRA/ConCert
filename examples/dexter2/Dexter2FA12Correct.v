@@ -758,7 +758,7 @@ Proof.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ _ => True).
     unset_all; subst;cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -853,7 +853,7 @@ Proof.
     lia.
   - cbn in IH.
     lia.
-  - instantiate (CallFacts := fun _ ctx _ _ =>
+  - instantiate (CallFacts := fun _ ctx _ _ _ =>
       (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (ctx_amount_positive & _).
     simpl in *.
@@ -877,7 +877,8 @@ Proof.
       match goal with
       | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
       end.
-      now eapply no_self_calls.
+      eapply no_self_calls; eauto.
+      now constructor.
 Qed.
 
 Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1182,7 +1183,7 @@ Proof.
   contract_induction;
     intros; auto.
   - now cbn in *;erewrite init_total_supply_correct by eauto.
-  - instantiate (CallFacts := fun _ ctx state _ =>
+  - instantiate (CallFacts := fun _ ctx state _ _ =>
       total_supply state = sum_balances state /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (balances_eq_total_supply & _).
@@ -1219,12 +1220,15 @@ Proof.
     intros.
     subst. cbn.
     split.
-    + now specialize sum_balances_eq_total_supply as (? & ? & ?).
+    + specialize sum_balances_eq_total_supply as (? & ? & ?); eauto.
+      now constructor.
+      easy.
     + rewrite deployed in *.
       match goal with
       | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
       end.
-      now eapply no_self_calls.
+      eapply no_self_calls; eauto.
+      now constructor.
 Qed.
 
 Instance LqtFA12Token : LqtTokenInterface :=

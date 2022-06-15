@@ -1017,7 +1017,7 @@ Section Theories.
     - now rewrite <- perm.
     - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ _ => True).
       unset_all; subst;cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
@@ -1080,7 +1080,7 @@ Section Theories.
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ =>
+    - instantiate (CallFacts := fun _ ctx _ _ _ =>
         (0 <= ctx_amount ctx)%Z).
       unfold CallFacts in facts.
       cbn in receive_some.
@@ -1178,7 +1178,7 @@ Section Theories.
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ =>
+    - instantiate (CallFacts := fun _ ctx _ _ _ =>
         (0 <= ctx_amount ctx)%Z).
       unfold CallFacts in facts.
       cbn in receive_some.
@@ -1236,7 +1236,7 @@ Section Theories.
         (0 <= ctx_amount ctx)%Z).
       auto.
     - lia.
-    - instantiate (CallFacts := fun _ ctx state out_acts =>
+    - instantiate (CallFacts := fun _ ctx state out_acts _ =>
         (0 <= ctx_amount ctx)%Z /\
         Z.of_N (xtzPool state) <= ctx_contract_balance ctx- sumZ (fun act => act_body_amount act) out_acts).
       destruct facts.
@@ -1278,8 +1278,7 @@ Section Theories.
         subst. cbn.
         split.
         * now apply Z.ge_le.
-        * apply (account_balance_nonnegative _ to_addr) in from_reachable as ?H.
-          destruct from_reachable.
+        * specialize (account_balance_nonnegative bstate_from to_addr) as ?H.
           specialize xtz_pool_bound as (? & deployed_state' & ?); eauto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
@@ -1492,7 +1491,7 @@ Section Theories.
       intros; auto.
     - cbn.
       now apply list.Forall_cons in IH as [].
-    - instantiate (CallFacts := fun _ _ state out_acts =>
+    - instantiate (CallFacts := fun _ _ state out_acts _ =>
         state.(lqtAddress) = null_address ->
           Forall (fun act_body =>
             match act_body with
@@ -1568,7 +1567,6 @@ Section Theories.
       rewrite deployed in deployed'.
       inversion deployed'.
       subst.
-      destruct from_reachable as [trace].
       clear deployed'.
       specialize outgoing_acts_no_mint_before_set_lqt_addr as (state & state_deployed & ?); eauto.
       rewrite deployed_state' in state_deployed.
@@ -2048,7 +2046,7 @@ Section Theories.
     - now rewrite <- perm.
     - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ => True).
+      instantiate (CallFacts := fun _ _ _ _ _ => True).
       unset_all; subst;cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.

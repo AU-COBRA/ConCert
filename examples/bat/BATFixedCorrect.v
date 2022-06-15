@@ -680,7 +680,7 @@ Proof.
     now contract_simpl.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ _ => True).
     unset_all; subst; cbn in *.
     destruct_chain_step; auto.
     destruct_action_eval; auto.
@@ -1320,7 +1320,7 @@ Proof.
   - now inversion IH.
   - apply Forall_app; split; auto.
     clear IH.
-    instantiate (CallFacts := fun _ ctx state _ => fundDeposit state <> ctx_contract_address ctx).
+    instantiate (CallFacts := fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
     destruct_message;
       try now erewrite eip20_new_acts_correct by eauto.
     + now contract_simpl.
@@ -1346,6 +1346,7 @@ Proof.
     cbn.
     apply deployed_implies_constants_valid in contract_deployed; auto.
     now destruct_hyps.
+    now constructor.
 Qed.
 
 Lemma bat_no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
@@ -1406,7 +1407,7 @@ Lemma outgoing_acts_positive_amount : forall bstate caddr,
 Proof.
   contract_induction; intros; auto.
   - now inversion IH.
-  - instantiate (CallFacts := fun _ ctx _ _ =>
+  - instantiate (CallFacts := fun _ ctx _ _ _ =>
       (0 <= (ctx_contract_balance ctx))%Z /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (contract_balance_positive & _).
@@ -1441,7 +1442,8 @@ Proof.
       * apply Z.add_nonneg_nonneg; try lia.
         now apply Z.ge_le, account_balance_nonnegative.
     + (* Prove call fact: ctx_from ctx <> ctx_contract_address ctx *)
-      now eapply bat_no_self_calls'.
+      eapply bat_no_self_calls'; eauto.
+      now constructor.
 Qed.
 
 
@@ -1504,7 +1506,7 @@ Proof.
   contract_induction; intros; auto.
   - cbn in init_some.
     now contract_simpl.
-  - instantiate (CallFacts := fun _ ctx state _ =>
+  - instantiate (CallFacts := fun _ ctx state _ _ =>
       total_supply state = sum_balances state /\
       (isFinalized state = false -> FMap.find state.(batFundDeposit) (balances state) = Some state.(initSupply)) /\
       ctx_from ctx <> ctx_contract_address ctx).
@@ -1546,7 +1548,9 @@ Proof.
       rewrite deployed_cstate' in deployed_cstate.
       inversion deployed_cstate.
       now subst cstate'.
-    + now eapply bat_no_self_calls'.
+      now constructor.
+    + eapply bat_no_self_calls'; eauto.
+      now constructor.
 Qed.
 
 
@@ -1593,7 +1597,7 @@ Proof.
       * now rewrite <- finalized_unchanged in funding_not_over.
       * rewrite <- new_supply, <- finalized_unchanged in goal_hit.
         now cbn in goal_hit.
-  - now instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx).
+  - now instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx).
   - apply IH in not_finalized. subst.
     now apply Permutation.Permutation_nil in perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
@@ -1603,7 +1607,8 @@ Proof.
     destruct_action_eval; auto.
     intros.
     subst. cbn.
-    now eapply bat_no_self_calls'.
+    eapply bat_no_self_calls'; eauto.
+    now constructor.
 Qed.
 
 
@@ -1626,7 +1631,7 @@ Proof.
     destruct_match in init_some; try congruence.
     inversion init_some. subst. cbn in *.
     setoid_rewrite FMap.find_add_ne; auto.
-  - instantiate (CallFacts := fun _ ctx state _ =>
+  - instantiate (CallFacts := fun _ ctx state _ _ =>
       tokenExchangeRate state <> 0 /\
       ctx_from ctx <> ctx_contract_address ctx).
     destruct facts as (exchange_rate_nonzero & _).
@@ -1664,9 +1669,12 @@ Proof.
     intros ? contract_deployed ?.
     subst. cbn.
     split.
-    * now specialize deployed_implies_constants_valid as
-        (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _).
-    * now eapply bat_no_self_calls'.
+    * specialize deployed_implies_constants_valid as
+        (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _); eauto.
+      now constructor.
+      easy.
+    * eapply bat_no_self_calls'; eauto.
+      now constructor.
 Qed.
 
 
@@ -1697,7 +1705,7 @@ Proof.
     split; intros.
     + now rewrite <- IH_finalized by assumption.
     + now rewrite <- IH_funding by assumption.
-  - instantiate (CallFacts := fun chain ctx state out_acts =>
+  - instantiate (CallFacts := fun chain ctx state out_acts _ =>
       (0 <= ctx_amount ctx)%Z /\
       initSupply state <= total_supply state /\
       tokenExchangeRate state <> 0 /\
@@ -1796,15 +1804,18 @@ Proof.
       (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _).
     + intros not_finalized from_not_batfund.
       specialize token_balances_divisible as (cstate' & deployed_cstate' & ?); eauto.
+      now constructor.
       rewrite deployed_cstate in deployed_cstate'.
       inversion deployed_cstate'.
       now subst cstate'.
     + intros not_finalized from_not_batfund.
       specialize no_init_supply_refund as (cstate' & deployed_cstate' & batfund_balance); eauto.
+      now constructor.
       rewrite deployed_cstate in deployed_cstate'.
       inversion deployed_cstate'.
       subst cstate'. clear deployed_cstate'.
       specialize sum_balances_eq_total_supply as (cstate' & deployed_cstate' & sum_eq_total); eauto.
+      now constructor.
       rewrite deployed_cstate in deployed_cstate'.
       inversion deployed_cstate'.
       subst cstate'. clear deployed_cstate'.
@@ -1814,8 +1825,10 @@ Proof.
       now apply balance_le_sum_balances_ne.
     + intros.
       specialize funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
+      now constructor.
       now apply no_acts.
-    + now eapply bat_no_self_calls'.
+    + eapply bat_no_self_calls'; eauto.
+      now constructor.
 Qed.
 
 
