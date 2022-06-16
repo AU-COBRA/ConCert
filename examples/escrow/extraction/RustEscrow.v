@@ -24,7 +24,8 @@ Redirect "../extraction/tests/extracted-code/concordium-extract/escrow.rs"
 MetaCoq Run (concordium_extraction
                ESCROW_MODULE
                (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_arith
+                  (ConcordiumRemap.remap_Z_arith
+                     ++ ConcordiumRemap.remap_nat_arith
                      ++ ConcordiumRemap.remap_blockchain_consts)
                   ConcordiumRemap.remap_inline_bool_ops
                   (ConcordiumRemap.remap_std_types
