@@ -1,0 +1,36 @@
+FILENAMES = $(notdir $(VFILES:.v=))
+DPDFILES = $(VFILES:.v=.dpd)
+DOTFILES = $(VFILES:.v=.dot)
+SVGFILES = $(VFILES:.v=.svg)
+
+%.svg: %.dot
+	$(SHOW)'DOT -Tsvg -o $@ $<'
+	$(HIDE)dot -Tsvg -o $@ $<
+
+%.dot: %.dpd
+	$(SHOW)'DPD2DOT -o $@ $<'
+	$(HIDE)if [ -s $< ]; then dpd2dot -graphname $(*F) -o $@ $< >/dev/null; else echo "digraph StringExtra {\n  graph [ratio=0.5]\n  node [style=filled]\n} /* END */" > $@; fi
+
+%.dpd: %.vo
+	$(SHOW)'DPDGRAPH utils/$<'
+	$(HIDE)(echo "From ConCert.Utils Require $(*F)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(*F).') | \
+			$(COQTOP) $(COQFLAGS) $(COQLIBS) -require-import dpdgraph.dpdgraph >/dev/null 2>&1
+
+dpd/utils.dpd: $(VOFILES)
+	$(SHOW)'DPDGRAPH utils'
+	$(HIDE)(echo "From ConCert.Utils Require $(FILENAMES)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(FILENAMES).') | \
+			$(COQTOP) $(COQFLAGS) $(COQLIBS) -require-import dpdgraph.dpdgraph >/dev/null 2>&1
+
+dep-graphs-svg: $(SVGFILES)
+dep-graphs-dot: $(DOTFILES)
+dep-graphs-dpd: $(DPDFILES)
+full-dep-graph-svg: utils.svg
+full-dep-graph-dot: utils.dot
+full-dep-graph-dpd: utils.dpd
+
+.PHONY: clean
+clean::
+	$(SHOW)'CLEAN'
+	$(HIDE)rm -f $(DPDFILES)
+	$(HIDE)rm -f $(DOTFILES)
+	$(HIDE)rm -f $(SVGFILES)
