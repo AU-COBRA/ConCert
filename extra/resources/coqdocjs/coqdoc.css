@@ -205,3 +205,7 @@ ul.doclist {
 html {
     scroll-padding-top: 50px;
 }
+
+.section {
+    position: static!important;
+}
