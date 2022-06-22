@@ -95,7 +95,7 @@ html: all
 		-R examples/boardroomVoting ConCert.Examples.BoardroomVoting \
 		-R examples/counter ConCert.Examples.Counter \
 		-R examples/crowdfunding ConCert.Examples.Crowdfunding \
-		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*extraction/*" -o -wholename "*test/*" \) -name "*.v"`
+		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*extraction/*" -o -wholename "*test/*" \) -name "*.v" ! -name "AllTests.v"`
 	cp extra/resources/coqdocjs/*.js docs
 	cp extra/resources/coqdocjs/*.css docs
 	cp extra/resources/toc/*.js docs
