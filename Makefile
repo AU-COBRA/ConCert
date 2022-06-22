@@ -59,7 +59,7 @@ clean-extraction-out-files:
 
 clean-compiled-extraction:
 	+make -C extraction clean-compiled-extraction
-.PHONY:clean-compiled-extraction
+.PHONY: clean-compiled-extraction
 
 clean-extraction-examples:
 	+make -C extraction clean-extraction-examples
@@ -80,11 +80,24 @@ html: all
 		-R extraction/theories ConCert.Extraction \
 		-R extraction/plugin/theories ConCert.Extraction \
 		-R extraction/tests ConCert.Extraction.Tests \
-		-R examples ConCert.Examples \
+		-R examples/eip20 ConCert.Examples.EIP20 \
+		-R examples/bat ConCert.Examples.BAT \
+		-R examples/fa2 ConCert.Examples.FA2 \
+		-R examples/fa1_2 ConCert.Examples.FA1_2 \
+		-R examples/dexter ConCert.Examples.Dexter \
+		-R examples/dexter2 ConCert.Examples.Dexter2 \
+		-R examples/exchangeBuggy ConCert.Examples.ExchangeBuggy \
+		-R examples/iTokenBuggy ConCert.Examples.iTokenBuggy \
+		-R examples/cis1 ConCert.Examples.CIS1 \
+		-R examples/stackInterpreter ConCert.Examples.StackInterpreter \
+		-R examples/congress ConCert.Examples.Congress \
+		-R examples/escrow ConCert.Examples.Escrow \
+		-R examples/boardroomVoting ConCert.Examples.BoardroomVoting \
+		-R examples/counter ConCert.Examples.Counter \
+		-R examples/crowdfunding ConCert.Examples.Crowdfunding \
 		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*extraction/*" -o -wholename "*test/*" \) -name "*.v"`
 	cp extra/resources/coqdocjs/*.js docs
 	cp extra/resources/coqdocjs/*.css docs
 	cp extra/resources/toc/*.js docs
 	cp extra/resources/toc/*.css docs
-
 .PHONY: html
