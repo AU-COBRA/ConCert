@@ -65,6 +65,13 @@ clean-extraction-examples:
 	+make -C extraction clean-extraction-examples
 .PHONY: clean-extraction-examples
 
+dependency-graphs: utils execution embedding extraction examples
+	+make -C utils dep-graphs-svg
+	+make -C execution dep-graphs-svg
+	+make -C embedding dep-graphs-svg
+	+make -C extraction dep-graphs-svg
+	+make -C examples dep-graphs-svg
+
 html: all
 	rm -rf docs
 	mkdir docs
