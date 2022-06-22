@@ -1,7 +1,3 @@
-post-all::
-	@echo "Done extracting the extraction, processing produced files!"
-	./process_extraction.sh
-
 FILENAMES = $(notdir $(VFILES:.v=))
 DPDFILES = $(VFILES:.v=.dpd)
 DOTFILES = $(VFILES:.v=.dot)
@@ -20,13 +16,13 @@ SVGFILES = $(VFILES:.v=.svg)
 	fi
 
 $(DPDFILES): %.dpd: %.vo
-	$(SHOW)'DPDGRAPH extraction/$<'
-	$(HIDE)(echo "From ConCert.Extraction Require $(*F)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(*F).') | \
+	$(SHOW)'DPDGRAPH embedding/$<'
+	$(HIDE)(echo "From ConCert.Embedding Require $(*F)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(*F).') | \
 			$(COQTOP) $(COQFLAGS) $(COQLIBS) -require-import dpdgraph.dpdgraph >/dev/null 2>&1
 
-extraction.dpd: $(VOFILES)
-	$(SHOW)'DPDGRAPH extraction'
-	$(HIDE)(echo "From ConCert.Extraction Require $(FILENAMES)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(FILENAMES).') | \
+embedding.dpd: $(VOFILES)
+	$(SHOW)'DPDGRAPH embedding'
+	$(HIDE)(echo "From ConCert.Embedding Require $(FILENAMES)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(FILENAMES).') | \
 			$(COQTOP) $(COQFLAGS) $(COQLIBS) -require-import dpdgraph.dpdgraph >/dev/null 2>&1
 
 dep-graphs-svg: $(SVGFILES)
@@ -48,9 +44,9 @@ dep-graphs-dpd: $(DPDFILES)
 			mv $f dpd/$(strip $(subst /,., $(subst $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/, \
 			$(word $(shell expr $i + 2), $(COQMF_COQLIBS_NOML))., $f)));))
 
-full-dep-graph-svg: extraction.svg
-full-dep-graph-dot: extraction.dot
-full-dep-graph-dpd: extraction.dpd
+full-dep-graph-svg: embedding.svg
+full-dep-graph-dot: embedding.dot
+full-dep-graph-dpd: embedding.dpd
 
 .PHONY: clean-dpd
 clean-dpd::
