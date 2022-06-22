@@ -48,9 +48,15 @@ full-dep-graph-svg: utils.svg
 full-dep-graph-dot: utils.dot
 full-dep-graph-dpd: utils.dpd
 
-.PHONY: clean
-clean::
+.PHONY: clean-dpd
+clean-dpd::
 	$(SHOW)'CLEAN'
 	$(HIDE)rm -f $(DPDFILES)
 	$(HIDE)rm -f $(DOTFILES)
 	$(HIDE)rm -f $(SVGFILES)
+	$(HIDE)rm -rf dpd
+	$(HIDE)rm -rf dot
+	$(HIDE)rm -rf svg
+
+.PHONY: clean
+clean:: clean-dpd
