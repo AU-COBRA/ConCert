@@ -1,6 +1,13 @@
 .hidden
+
+# dpd-graph outputs
 *.dpd
 *.dot
+utils/**/*.svg
+execution/**/*.svg
+embedding/**/*.svg
+extraction/**/*.svg
+examples/**/*.svg
 
 ##Coq
 *.vo
