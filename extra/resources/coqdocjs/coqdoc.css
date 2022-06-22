@@ -201,3 +201,11 @@ ul.doclist {
     text-align: center;
     color: darkblue;
 }
+
+html {
+    scroll-padding-top: 50px;
+}
+
+.section {
+    position: static!important;
+}
