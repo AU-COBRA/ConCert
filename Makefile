@@ -81,18 +81,18 @@ file-dependency-graph:
 	@coqdep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
 	
 	@echo "Add node colors"
-	@sed -i '' 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot
-	@sed -i '' 's/"\]/", style=filled, fillcolor="#FFEE93"\]/' execution-file-dep.dot
-	@sed -i '' 's/"\]/", style=filled, fillcolor="#FCF5C7"\]/' embedding-file-dep.dot
-	@sed -i '' 's/"\]/", style=filled, fillcolor="#A0CED9"\]/' extraction-file-dep.dot
-	@sed -i '' 's/"\]/", style=filled, fillcolor="#ADF7B6"\]/' examples-file-dep.dot
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFEE93"\]/' execution-file-dep.dot
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FCF5C7"\]/' embedding-file-dep.dot
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#A0CED9"\]/' extraction-file-dep.dot
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#ADF7B6"\]/' examples-file-dep.dot
 	
 	@echo "Fix paths"
-	@sed -i '' 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot
-	@sed -i '' 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot
-	@sed -i '' 's/"[^"^\/]*\/\.\.\//"/g' embedding-file-dep.dot
-	@sed -i '' 's/"[^"^\/]*\/\.\.\//"/g' extraction-file-dep.dot
-	@sed -i '' 's/"[^"^\/]*\/\.\.\//"/g' examples-file-dep.dot
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' embedding-file-dep.dot
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' extraction-file-dep.dot
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' examples-file-dep.dot
 
 	@echo "Merge files"
 	@dep_utils=$$(cat utils-file-dep.dot | cut -d "{" -f2 | cut -d "}" -f1); \
