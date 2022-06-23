@@ -115,6 +115,10 @@ html: all
 	coqdoc --html --interpolate --parse-comments \
 		--with-header extra/header.html --with-footer extra/footer.html \
 		--toc \
+		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
+		--external https://metacoq.github.io/html MetaCoq \
+		--external https://coq-community.org/coq-ext-lib/v0.11.6 ExtLib \
+		--coqlib http://coq.inria.fr/distrib/V8.11.2/stdlib \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \
