@@ -88,7 +88,7 @@ file-dependency-graph:
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#ADF7B6"\]/' examples-file-dep.dot
 	
 	@echo "Fix paths"
-	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' utils-file-dep.dot
 	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot
 	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' embedding-file-dep.dot
 	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' extraction-file-dep.dot
