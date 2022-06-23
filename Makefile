@@ -73,6 +73,7 @@ html: all
 		--toc \
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
 		--external https://metacoq.github.io/html MetaCoq \
+		--external https://coq-community.org/coq-ext-lib/v0.11.6 ExtLib \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \
