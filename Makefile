@@ -71,6 +71,7 @@ html: all
 	coqdoc --html --interpolate --parse-comments \
 		--with-header extra/header.html --with-footer extra/footer.html \
 		--toc \
+		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \
