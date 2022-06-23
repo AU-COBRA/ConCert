@@ -1,4 +1,5 @@
 .hidden
+*.tmp
 
 # dpd-graph outputs
 *.dpd
