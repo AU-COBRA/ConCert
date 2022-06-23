@@ -72,6 +72,7 @@ html: all
 		--with-header extra/header.html --with-footer extra/footer.html \
 		--toc \
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
+		--external https://metacoq.github.io/html MetaCoq \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \
