@@ -58,6 +58,7 @@ clean-dpd::
 	$(HIDE)rm -f $(DPDFILES)
 	$(HIDE)rm -f $(DOTFILES)
 	$(HIDE)rm -f $(SVGFILES)
+	$(HIDE)rm -f extraction.dpd extraction.dot extraction.svg
 	$(HIDE)rm -rf dpd
 	$(HIDE)rm -rf dot
 	$(HIDE)rm -rf svg
