@@ -65,6 +65,50 @@ clean-extraction-examples:
 	+make -C extraction clean-extraction-examples
 .PHONY: clean-extraction-examples
 
+dependency-graphs: utils execution embedding extraction examples
+	+make -C utils dep-graphs-svg
+	+make -C execution dep-graphs-svg
+	+make -C embedding dep-graphs-svg
+	+make -C extraction dep-graphs-svg
+	+make -C examples dep-graphs-svg
+
+file-dependency-graph:
+	@echo "Generate dot files"
+	@coqdep -dumpgraph utils-file-dep.dot -f utils/_CoqProject >/dev/null 2>&1
+	@coqdep -dumpgraph execution-file-dep.dot -f execution/_CoqProject >/dev/null 2>&1
+	@coqdep -dumpgraph embedding-file-dep.dot -f embedding/_CoqProject >/dev/null 2>&1
+	@coqdep -dumpgraph extraction-file-dep.dot -f extraction/_CoqProject >/dev/null 2>&1
+	@coqdep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
+	
+	@echo "Add node colors"
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFEE93"\]/' execution-file-dep.dot ; rm -f execution-file-dep.dot.tmp
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FCF5C7"\]/' embedding-file-dep.dot ; rm -f embedding-file-dep.dot.tmp
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#A0CED9"\]/' extraction-file-dep.dot ; rm -f extraction-file-dep.dot.tmp
+	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#ADF7B6"\]/' examples-file-dep.dot ; rm -f examples-file-dep.dot.tmp
+	
+	@echo "Fix paths"
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot ; rm -f execution-file-dep.dot.tmp
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' embedding-file-dep.dot ; rm -f embedding-file-dep.dot.tmp
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' extraction-file-dep.dot ; rm -f extraction-file-dep.dot.tmp
+	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' examples-file-dep.dot ; rm -f examples-file-dep.dot.tmp
+
+	@echo "Merge files"
+	@dep_utils=$$(cat utils-file-dep.dot | cut -d "{" -f2 | cut -d "}" -f1); \
+	dep_execution=$$(cat execution-file-dep.dot | cut -d "{" -f2 | cut -d "}" -f1); \
+	dep_embedding=$$(cat embedding-file-dep.dot | cut -d "{" -f2 | cut -d "}" -f1); \
+	dep_extraction=$$(cat extraction-file-dep.dot | cut -d "{" -f2 | cut -d "}" -f1); \
+	dep_examples=$$(cat examples-file-dep.dot | cut -d "{" -f2 | cut -d "}" -f1); \
+	rm -f utils-file-dep.dot execution-file-dep.dot embedding-file-dep.dot extraction-file-dep.dot examples-file-dep.dot; \
+	echo "digraph dependencies {$${dep_utils}$${dep_execution}$${dep_embedding}$${dep_extraction}$${dep_examples}\n}" > file-dep.dot
+
+	@echo "Remove duplicates"
+	@awk '!seen[$$0]++' file-dep.dot > file-dep.tmp; mv file-dep.tmp file-dep.dot
+
+	@echo "Convert to SVG"
+	@dot -Tsvg -o file-dep.svg file-dep.dot ; rm -f file-dep.dot
+
 html: all
 	rm -rf docs
 	mkdir docs
