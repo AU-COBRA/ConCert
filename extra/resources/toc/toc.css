@@ -6,7 +6,7 @@
     border-left-width: 0px;
     color: #333;
     margin-top: 55px;
-    line-height: 2;
+    line-height: 1.8;
     top: 0;
     left: 0;
     bottom: 0;
@@ -17,6 +17,11 @@
     font-size: 18px;
     position: fixed;
     margin-top: 25px;
+}
+
+.toc ul {
+    margin-top: 2px;
+    padding-left: 24px;
 }
 
 .toc a {
