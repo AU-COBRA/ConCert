@@ -6,6 +6,9 @@
     color: #333;
     margin-top: 55px;
     line-height: 2;
+    top: 0;
+    left: 0;
+    bottom: 0;
 }
 
 .toc-header {
