@@ -25,8 +25,10 @@ Fixpoint compose_transforms {A : Type} (transforms : list (Transform A)) : Trans
   | [] => Ok
   | t :: transforms =>
     fun Σ : A =>
-      Σopt <- t Σ;;
-      compose_transforms transforms Σopt
+      match t Σ with
+      | Ok Σopt => compose_transforms transforms Σopt
+      | Err e => Err e
+      end
   end.
 
 Lemma compose_transforms_correct transforms :

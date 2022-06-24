@@ -1,8 +1,7 @@
 (* This file is based on erasure/theories/Extraction.v from MetaCoq *)
 Require Import FSets ExtrOcamlBasic ExtrOcamlString ExtrOcamlZInt.
 
-From MetaCoq.Template Require Import MC_ExtrOCamlInt63.
-From Coq Require Import ExtrOCamlFloats.
+From Coq Require Import ExtrOCamlFloats ExtrOCamlInt63.
 
 
 (* Ignore [Decimal.int] before the extraction issue is solved:
@@ -45,5 +44,5 @@ Extract Constant timed =>
 Cd "plugin/src".
 Separate Extraction PluginExtract.extract
          (* The following directives ensure separate extraction does not produce name clashes *)
-         Bool Nat Coq.Strings.String Common utils ELiftSubst ETyping.
+         Bool Nat Coq.Strings.String Common utils ELiftSubst EGlobalEnv.
 Cd "../..".

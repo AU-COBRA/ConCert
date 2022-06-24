@@ -8,8 +8,16 @@ From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import RustExtract.
 From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import monad_utils.
+From Coq Require Import List.
+From Coq Require Import String.
 
-Instance plugin_extract_preamble : Preamble :=
+Import ListNotations.
+Import MCMonadNotation.
+
+Open Scope string.
+
+Local Instance plugin_extract_preamble : Preamble :=
 {| top_preamble := [
 "#![allow(dead_code)]";
 "#![allow(non_camel_case_types)]";
@@ -127,11 +135,13 @@ Instance RustConfig : RustPrintConfig :=
 
 Definition default_attrs : ind_attr_map := fun _ => "#[derive(Debug, Clone)]".
 
+Module T:=Ast.Env.
+
 Definition extract_lines
            (p : T.program)
            (remaps : remaps)
-           (should_inline : kername -> bool) : result (list string) string :=
-  entry <- match p.2 with
+           (should_inline : kername -> bool) : result (list string) string  :=
+  entry <- match snd p with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)
            | _ => Err "Expected program to be a tConst or tInd"
@@ -140,15 +150,15 @@ Definition extract_lines
       if remap_inductive remaps (mkInd kn 0) then true else
       if remap_constant remaps kn then true else
       if remap_inline_constant remaps kn then true else false in
-  Σ <- extract_template_env
+  Σ <- map_error bs_to_s (extract_template_env
          (extract_rust_within_coq (fun _ => None) should_inline)
-         p.1
+         (fst p)
          (KernameSet.singleton entry)
-         without_deps;;
+         without_deps);;
   let p := print_program Σ remaps default_attrs in
-  '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
+  '(_, s) <- timed (bytestring.String.of_string "Printing") (fun _ => finish_print_lines p);;
   ret s.
 
 Definition extract p remaps should_inline :=
   lines <- extract_lines p remaps should_inline;;
-  ret (String.concat nl lines).
+  ret (String.concat Common.nl lines).

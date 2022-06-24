@@ -1,9 +1,13 @@
+From Coq Require Import List.
 From ConCert.Extraction Require Import ClosedAux.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 From MetaCoq.Erasure Require Import ELiftSubst.
+From MetaCoq.Template Require Import utils.
+
+Import Kernames.
 
 Definition map_subterms (f : term -> term) (t : term) : term :=
   match t with
@@ -68,6 +72,8 @@ Record mib_masks := {
      concatenation of the param_mask and this mask *)
   ctor_masks : list (nat * nat * bitmask); }.
 
+Import BasicAst.
+
 Context (ind_masks : list (kername * mib_masks)).
 Context (const_masks : list (kername * bitmask)).
 
@@ -84,8 +90,8 @@ Fixpoint dearg_single (mask : bitmask) (t : term) (args : list term) : term :=
   end.
 
 (* Get the branch for a branch of an inductive, i.e. without including parameters of the inductive *)
-Definition get_branch_mask (mm : mib_masks) (ind : inductive) (c : nat) : bitmask :=
-  match find (fun '(ind', c', _) => (ind' =? inductive_ind ind) && (c' =? c))
+Definition get_branch_mask (mm : mib_masks) (ind_index : nat) (c : nat) : bitmask :=
+  match find (fun '(ind', c', _) => (ind' =? ind_index) && (c' =? c))
              (ctor_masks mm) with
   | Some (_, _, mask) => mask
   | None => []
@@ -94,7 +100,7 @@ Definition get_branch_mask (mm : mib_masks) (ind : inductive) (c : nat) : bitmas
 (* Get mask for a constructor, i.e. combined parameter and branch mask *)
 Definition get_ctor_mask (ind : inductive) (c : nat) : bitmask :=
   match get_mib_masks (inductive_mind ind) with
-  | Some mm => param_mask mm ++ get_branch_mask mm ind c
+  | Some mm => param_mask mm ++ get_branch_mask mm (inductive_ind ind) c
   | None => []
   end.
 
@@ -102,6 +108,22 @@ Definition get_const_mask (kn : kername) : bitmask :=
   match find (fun '(kn', _) => eq_kername kn' kn) const_masks with
   | Some (_, mask) => mask
   | None => []
+  end.
+
+Open Scope erasure.
+
+Fixpoint masked {X} (mask : bitmask) (xs : list X) :=
+  match mask with
+  | [] => xs
+  | b :: mask =>
+    match xs with
+    | [] => []
+    | x :: xs =>
+      match b with
+      | true => masked mask xs
+      | false => x :: masked mask xs
+      end
+    end
   end.
 
 (* Remove lambda abstractions based on bitmask *)
@@ -117,6 +139,28 @@ Fixpoint dearg_lambdas (mask : bitmask) (body : term) : term :=
   | _ => body
   end.
 
+
+Definition dearg_branch_body_rec (i : nat) (mask : bitmask) (t : term) : nat * term :=
+  fold_left (fun '(i,t) (bit : bool) => if bit then (i,t {i:=tBox}) else (S i, t)) mask (i,t).
+
+Lemma dearg_branch_body_rec_count_zeros i mask t :
+  (dearg_branch_body_rec i mask t).1 = count_zeros mask + i.
+Proof.
+  induction mask in t, i |- *;cbn in *;auto.
+  destruct a.
+  * easy.
+  * cbn. unfold dearg_branch_body_rec in *.
+    rewrite IHmask.
+    unfold count_zeros;lia.
+Qed.
+
+(* NOTE: the context mask is a "usual" mask, but reversed as a list of bits *)
+Definition dearg_branch_body (bctx_mask : bitmask) (bctx : list name) (t : term) : list name * term :=
+  (masked bctx_mask bctx, (dearg_branch_body_rec 0 bctx_mask t).2).
+
+Compute dearg_lambdas [true;false;false] (tLambda (nNamed "a") (tLambda (nNamed "b") (tLambda (nNamed "c") (tApp (tApp (tRel 0) (tRel 1)) (tRel 2))))).
+Compute dearg_branch_body (rev [true;false;false]) ([nNamed "c";nNamed "b"; nNamed "a"]) (tApp (tApp (tRel 0) (tRel 1)) (tRel 2)).
+
 Definition dearged_npars (mm : option mib_masks) (npars : nat) : nat :=
   match mm with
   | Some mm => count_zeros (param_mask mm)
@@ -125,14 +169,16 @@ Definition dearged_npars (mm : option mib_masks) (npars : nat) : nat :=
 
 Definition dearg_case_branch
            (mm : mib_masks) (ind : inductive) (c : nat)
-           (br : nat × term) : nat × term :=
-  let mask := get_branch_mask mm ind c in
-  (br.1 - count_ones mask, dearg_lambdas mask br.2).
+           (br : list name × term) : list name × term :=
+  let mask := get_branch_mask mm (inductive_ind ind) c in
+  if #|mask| <=? #|br.1| then dearg_branch_body (rev mask) br.1 br.2
+  else (* never happens for valid masks *)
+    br.
 
 Definition dearg_case_branches
            (mm : option mib_masks)
            (ind : inductive)
-           (brs : list (nat × term)) :=
+           (brs : list (list name × term)) :=
   match mm with
   | Some mm => mapi (dearg_case_branch mm ind) brs
   | None => brs
@@ -140,22 +186,24 @@ Definition dearg_case_branches
 
 Definition dearged_proj_arg (mm : option mib_masks) (ind : inductive) (arg : nat) : nat :=
   match mm with
-  | Some mm => let mask := get_branch_mask mm ind 0 in
+  | Some mm => let mask := get_branch_mask mm (inductive_ind ind) 0 in
                arg - count_ones (firstn arg mask)
   | None => arg
   end.
+
+From MetaCoq.Template Require All.
 
 Definition dearg_case
            (ind : inductive)
            (npars : nat)
            (discr : term)
-           (brs : list (nat * term)) : term :=
+           (brs : list (list name * term)) : term :=
   let mm := get_mib_masks (inductive_mind ind) in
   tCase (ind, dearged_npars mm npars) discr (dearg_case_branches mm ind brs).
 
 Definition dearg_proj (ind : inductive) (npars arg : nat) (discr : term) : term :=
   let mm := get_mib_masks (inductive_mind ind) in
-  tProj (ind, dearged_npars mm npars, dearged_proj_arg mm ind arg) discr.
+  tProj (mkProjection ind (dearged_npars mm npars) (dearged_proj_arg mm ind arg)) discr.
 
 Fixpoint dearg_aux (args : list term) (t : term) : term :=
   match t with
@@ -166,7 +214,7 @@ Fixpoint dearg_aux (args : list term) (t : term) : term :=
     let discr := dearg_aux [] discr in
     let brs := map (on_snd (dearg_aux [])) brs in
     mkApps (dearg_case ind npars discr brs) args
-  | tProj (ind, npars, arg) t =>
+  | tProj (mkProjection ind npars arg) t =>
     mkApps (dearg_proj ind npars arg (dearg_aux [] t)) args
   | t => mkApps (map_subterms (dearg_aux []) t) args
   end.
@@ -188,19 +236,9 @@ Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
   {| cst_type := on_snd (dearg_cst_type_top mask) (cst_type cst);
      cst_body := option_map (dearg ∘ dearg_lambdas mask) (cst_body cst) |}.
 
-Fixpoint masked {X} (mask : bitmask) (xs : list X) :=
-  match mask with
-  | [] => xs
-  | b :: mask =>
-    match xs with
-    | [] => []
-    | x :: xs =>
-      match b with
-      | true => masked mask xs
-      | false => x :: masked mask xs
-      end
-    end
-  end.
+Definition dearg_ctor (par_mask : bitmask) (ctor_mask : bitmask) (ctor : ident * list (name * box_type) * nat) :=
+  let '(name, fields, orig_arity) := ctor in
+  (name, masked (par_mask ++ ctor_mask) fields, orig_arity).
 
 Definition dearg_oib
            (mib_masks : mib_masks)
@@ -211,16 +249,10 @@ Definition dearg_oib
      ind_kelim := ind_kelim oib;
      ind_type_vars := ind_type_vars oib;
      ind_ctors :=
-       mapi (fun c '(name, fields) =>
-               let ctor_mask :=
-                   match find (fun '(ind', c', _) => (ind' =? oib_index) && (c' =? c))
-                              (ctor_masks mib_masks) with
-                   | Some (_, _, mask) => mask
-                   | None => []
-                   end in
-               (name, masked (param_mask mib_masks ++ ctor_mask) fields))
+       mapi (fun c ctor =>
+               let ctor_mask := get_branch_mask mib_masks oib_index c in
+               dearg_ctor (param_mask mib_masks) ctor_mask ctor)
             (ind_ctors oib);
-     ind_ctor_original_arities := ind_ctor_original_arities oib;
      ind_projs := ind_projs oib |}.
 
 Definition dearg_mib (kn : kername) (mib : mutual_inductive_body) : mutual_inductive_body :=
@@ -249,10 +281,10 @@ Fixpoint is_dead (rel : nat) (t : term) : bool :=
   | tLambda _ body => is_dead (S rel) body
   | tLetIn _ val body => is_dead rel val && is_dead (S rel) body
   | tApp hd arg => is_dead rel hd && is_dead rel arg
-  | tCase _ discr brs => is_dead rel discr && forallb (is_dead rel ∘ snd) brs
+  | tCase _ discr brs => is_dead rel discr && forallb (fun '(ctx,t) => is_dead (#|ctx| + rel) t) brs
   | tProj _ t => is_dead rel t
   | tFix defs _
-  | tCoFix defs _ => forallb (is_dead (#|defs| + rel) ∘ dbody) defs
+  | tCoFix defs _ => forallb (is_dead (#|defs| + rel) ∘ EAst.dbody) defs
   | _ => true
   end.
 
@@ -265,13 +297,22 @@ Fixpoint valid_dearg_mask (mask : bitmask) (body : term) : bool :=
   | _, _ => false
   end.
 
-Definition valid_case_masks (ind : inductive) (npars : nat) (brs : list (nat * term)) : bool :=
+(* INVARIANT: the mask is reversed! *)
+Fixpoint valid_dearg_mask_branch (i : nat) (mask : bitmask) (body : term) : bool :=
+  match mask with
+  |  b :: mask =>
+    (if b then is_dead i body else true) && valid_dearg_mask_branch (S i) mask body
+  | [] => true
+  end.
+
+Definition valid_case_masks (ind : inductive) (npars : nat) (brs : list (list name * term)) : bool :=
   match get_mib_masks (inductive_mind ind) with
   | Some mm =>
     (#|param_mask mm| =? npars) &&
-    alli (fun c '(ar, br) =>
-            (#|get_branch_mask mm ind c| <=? ar) &&
-            (valid_dearg_mask (get_branch_mask mm ind c) br)) brs 0
+      alli (fun c '(ctx, br) =>
+              let ar := #|ctx| in
+              (#|get_branch_mask mm (inductive_ind ind) c| <=? ar) &&
+                (valid_dearg_mask_branch 0 (List.rev (get_branch_mask mm (inductive_ind ind) c)) br)) 0 brs
   | None => true
   end.
 
@@ -279,15 +320,14 @@ Definition valid_proj (ind : inductive) (npars arg : nat) : bool :=
   match get_mib_masks (inductive_mind ind) with
   | Some mm => (#|param_mask mm| =? npars) &&
                (* Projected argument must not be removed *)
-               negb (nth arg (get_branch_mask mm ind 0) false)
+               negb (nth arg (get_branch_mask mm (inductive_ind ind) 0) false)
   | _ => true
   end.
 
-(* Check that all case and projections in a term are valid according
+(* Check that all cases and projections in a term are valid according
    to the masks. They must have the proper number of parameters, and
    1. For cases, their branches must be compatible with the masks,
-      i.e. they are iterated lambdas/let-ins and when "true" appears in the mask,
-      the parameter is unused
+      i.e. when "true" appears in the mask, the parameter is unused
    2. For projections, the projected argument must not be removed *)
 Fixpoint valid_cases (t : term) : bool :=
   match t with
@@ -297,9 +337,9 @@ Fixpoint valid_cases (t : term) : bool :=
   | tApp hd arg => valid_cases hd && valid_cases arg
   | tCase (ind, npars) discr brs =>
     valid_cases discr && forallb (valid_cases ∘ snd) brs && valid_case_masks ind npars brs
-  | tProj (ind, npars, arg) t => valid_cases t && valid_proj ind npars arg
+  | tProj (mkProjection ind npars arg) t => valid_cases t && valid_proj ind npars arg
   | tFix defs _
-  | tCoFix defs _  => forallb (valid_cases ∘ dbody) defs
+  | tCoFix defs _  => forallb (valid_cases ∘ EAst.dbody) defs
   | _ => true
   end.
 
@@ -308,6 +348,11 @@ Definition valid_masks_decl (p : kername * bool * global_decl) : bool :=
   | (kn, _, ConstantDecl {| cst_body := Some body |}) =>
     valid_dearg_mask (get_const_mask kn) body && valid_cases body
   | (kn, _, TypeAliasDecl typ) => #|get_const_mask kn| =? 0
+  | (kn, _, InductiveDecl mib) =>
+      match get_mib_masks kn with
+      | Some mask => #|mask.(param_mask)| =? mib.(ind_npars)
+      | _ => false
+      end
   | _ => true
   end.
 
@@ -332,8 +377,8 @@ Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
   | tCase _ discr brs => is_expanded_aux 0 discr && forallb (is_expanded_aux 0 ∘ snd) brs
   | tProj _ t => is_expanded_aux 0 t
   | tFix defs _
-  | tCoFix defs _ => forallb (is_expanded_aux 0 ∘ dbody) defs
-  | tPrim _ => true
+  | tCoFix defs _ => forallb (is_expanded_aux 0 ∘ EAst.dbody) defs
+  (* | tPrim _ => true *)
   end.
 
 (* Check if all applications are applied enough to be deboxed without eta expansion *)
@@ -352,6 +397,7 @@ Definition is_expanded_env (Σ : global_env) : bool :=
 End dearg.
 
 Section dearg_types.
+
 Context (Σ : global_env).
 
 Definition keep_tvar tvar :=
@@ -367,6 +413,7 @@ Fixpoint dearg_single_bt (tvars : list type_var_info) (t : box_type) (args : lis
       dearg_single_bt tvars t args
   | _, _ => mkTApps t args
   end.
+
 
 Definition get_inductive_tvars (ind : inductive) : list type_var_info :=
   match lookup_inductive Σ ind with
@@ -411,8 +458,7 @@ Definition debox_type_oib (oib : one_inductive_body) : one_inductive_body :=
      ind_propositional := ind_propositional oib;
      ind_kelim := ind_kelim oib;
      ind_type_vars := filter keep_tvar (ind_type_vars oib);
-     ind_ctors := map (on_snd (map (on_snd debox))) (ind_ctors oib);
-     ind_ctor_original_arities := ind_ctor_original_arities oib;
+     ind_ctors := map (fun '(nm, fields, orig_arity) => (nm, map (on_snd debox) fields, orig_arity)) (ind_ctors oib);
      ind_projs := map (on_snd debox) (ind_projs oib); |}.
 
 Definition debox_type_mib (mib : mutual_inductive_body) : mutual_inductive_body :=
@@ -537,19 +583,16 @@ Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :
     let state := analyze state discr in
     match get_mib_masks state.2 (inductive_mind ind) with
     | Some mm =>
-      let analyze_case c '(state, ctor_masks) brs :=
-          let (mask, state) := analyze_top_level analyze state brs.1 brs.2 in
-          (* If mask is too short it means the branch is not an iterated lambda.
-           In this case we cannot know if the remaining args are dead, so pad
-           with 0's *)
-          let mask := mask ++ List.repeat false (brs.1 - #|mask|) in
-          (state, update_ind_ctor_mask (inductive_ind ind) c ctor_masks (bitmask_and mask)) in
+      let analyze_case c '(state, ctor_masks) (brs : list BasicAst.name * term) :=
+        let state := analyze (new_vars state #|brs.1|) brs.2 in
+        let mask := firstn #|brs.1| state.1 in
+        (remove_vars state #|brs.1|, update_ind_ctor_mask (inductive_ind ind) c ctor_masks (bitmask_and mask)) in
       let (state, ctor_masks) := fold_lefti analyze_case 0 brs (state, ctor_masks mm) in
       let mm := {| param_mask := param_mask mm; ctor_masks := ctor_masks |} in
       update_mib_masks state (inductive_mind ind) mm
     | None => state
     end
-  | tProj (ind, npars, arg) t =>
+  | tProj (mkProjection ind npars arg) t =>
     let state := analyze state t in
     match get_mib_masks state.2 (inductive_mind ind) with
     | Some mm =>
@@ -564,7 +607,7 @@ Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :
     let state := new_vars state #|defs| in
     let state := fold_left (fun state d => analyze state (dbody d)) defs state in
     remove_vars state #|defs|
-  | tPrim _ => state
+  (* | tPrim _ => state *)
   end.
 
 Fixpoint decompose_TArr (bt : box_type) : list box_type × box_type :=
@@ -616,7 +659,7 @@ Fixpoint analyze_env
           let ctor_masks :=
               List.concat
                 (mapi (fun ind oib =>
-                         mapi (fun c '(_, args) =>
+                         mapi (fun c '(_, args, _) =>
                                  (ind, c, map (is_box_or_any ∘ snd)
                                               (skipn (ind_npars mib) args)))
                               (ind_ctors oib))
@@ -643,6 +686,15 @@ Definition trim_mib_masks (mm : mib_masks) :=
 Definition trim_ind_masks (im : list (kername × mib_masks)) :=
   map (on_snd trim_mib_masks) im.
 
+Import MCMonadNotation.
+
+Print Instances Monad.
+
+(* Definition res_string := (fun x => result x string). *)
+
+Definition throwIf (b : bool) (err : string) : (fun x => result x string) unit  :=
+  if b then Err err else Ok tt.
+
 Definition dearg_transform
            (overridden_masks : kername -> option bitmask)
            (* If true, trim ends of constant masks to avoid unnecessary eta expansion. *)
@@ -655,26 +707,17 @@ Definition dearg_transform
            (check_expanded : bool)
            (* Check that the dearg masks generated by analysis are valid for dearging *)
            (check_valid_masks : bool) : ExtractTransform :=
-  fun Σ =>
-    (if check_closed && negb (env_closed (trans_env Σ)) then
-       Err "Erased environment is not closed"
-     else
-       Ok tt);;
-
+  fun (Σ : global_env) => throwIf (check_closed && negb (env_closed (trans_env Σ)))
+        "Erased environment is not closed" ;;
     let (const_masks, ind_masks) := timed "Dearg analysis"
                                           (fun _ => analyze_env overridden_masks Σ) in
 
     let const_masks := (if do_trim_const_masks then trim_const_masks else id) const_masks in
     let ind_masks := (if do_trim_ctor_masks then trim_ind_masks else id) ind_masks in
 
-    (if check_expanded && negb (is_expanded_env ind_masks const_masks Σ) then
-       Err "Erased environment is not expanded enough for dearging to be provably correct"
-     else
-       Ok tt);;
+    throwIf (check_expanded && negb (is_expanded_env ind_masks const_masks Σ))
+            "Erased environment is not expanded enough for dearging to be provably correct" ;;
 
-    (if check_valid_masks && negb (valid_masks_env ind_masks const_masks Σ) then
-       Err "Analysis produced masks that ask to remove live arguments"
-     else
-       Ok tt);;
-
-    ret (debox_env_types (timed "Dearging" (fun _ => dearg_env ind_masks const_masks Σ))).
+    throwIf (check_valid_masks && negb (valid_masks_env ind_masks const_masks Σ))
+            "Analysis produced masks that ask to remove live arguments" ;;
+    Ok (debox_env_types (timed "Dearging" (fun _ => dearg_env ind_masks const_masks Σ))).

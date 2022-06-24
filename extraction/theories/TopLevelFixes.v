@@ -1,23 +1,29 @@
 (* This implements an optimization that changes top level fixpoints to use
    tConst instead. For example, the environment [("Foo", tFix [{| dbody := tRel 0 |}] 0)]
    is instead changed into something like [("Foo", tConst "Foo")]. *)
+From Coq Require Import List.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import Utils.
 From MetaCoq.Erasure Require Import ELiftSubst.
+From MetaCoq Require Import utils.
 
-Fixpoint optimize_aux (t : term) (kn : kername) (lams : nat) :=
+Import ListNotations.
+
+Local Open Scope erasure.
+
+Fixpoint optimize_aux (t : term) (kn : Kernames.kername) (lams : nat) :=
   match t with
   | tLambda na body => tLambda na (optimize_aux body kn (S lams))
-  | tFix [def] 0 => (dbody def){0 := mkApps (tConst kn) (rev_map tRel (seq 0 lams))}
+  | tFix [def] 0 => (dbody def){0 := mkApps (tConst kn) (MCList.rev_map tRel (seq 0 lams))}
   | _ => t
   end.
 
-Definition optimize (t : term) (kn : kername) : term :=
+Definition optimize (t : term) (kn : Kernames.kername) : term :=
     optimize_aux t kn 0.
 
-Definition optimize_decl (p : kername * bool * global_decl) :=
+Definition optimize_decl (p : Kernames.kername * bool * global_decl) :=
   let '(kn, includes_deps, decl) := p in
   let new_decl :=
       match decl with
@@ -30,6 +36,8 @@ Definition optimize_decl (p : kername * bool * global_decl) :=
 
 Definition optimize_env (Σ : global_env) : global_env :=
   map optimize_decl Σ.
+
+Open Scope bs.
 
 Definition transform : ExtractTransform :=
   fun Σ =>

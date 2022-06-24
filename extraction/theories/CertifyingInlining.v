@@ -84,7 +84,8 @@ Section inlining.
        ind_type := inline oib.(ind_type);
        ind_kelim := oib.(ind_kelim);
        ind_ctors := map (map_constructor_body npars arities (fun _ => inline )) oib.(ind_ctors);
-       ind_projs := map (fun '(p_nm, p_ty) => (p_nm, inline p_ty)) oib.(ind_projs);
+      ind_projs := map (fun '(Build_projection_body p_nm p_rel p_ty) =>
+                          Build_projection_body p_nm p_rel (inline p_ty)) oib.(ind_projs);
       ind_relevance := oib.(ind_relevance) |}.
 
   Definition inline_context_decl (cd : context_decl) : context_decl :=

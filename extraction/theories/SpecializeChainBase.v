@@ -14,13 +14,16 @@
      a (N.to_nat n).
 
    Note: Only specializes ChainBase when it is the very first abstraction.  *)
+(* From Coq Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 
-Local Open Scope string.
+Import MCMonadNotation.
+
+Local Open Scope bs_scope.
 
 Definition ChainBase_kername : kername :=
   <%% ChainBase %%>.
@@ -38,8 +41,12 @@ Section ChainBaseSpecialization.
   | specialize
   | none.
 
-  Fixpoint specialize_term
-            (specialized : list kername) : list VarInfo -> term -> result term string :=
+  Print Instances Monad.
+
+  Definition result_string A := result A string.
+
+  Definition specialize_term
+            (specialized : list kername) : list VarInfo -> term -> result_string term :=
     fix f Γ t :=
       match t with
       | tRel n =>
@@ -97,16 +104,20 @@ Section ChainBaseSpecialization.
                   ++ "' (or constructor of this) appears unapplied in term; this needs to be specialized")
         else
           ret t
-      | tCase (ind, npars) ret_ty disc brs =>
-        ret_ty <- f Γ ret_ty;;
+      | tCase (mk_case_info ind npars relevance) pr disc brs =>
+        ret_ty <- f Γ pr.(preturn);;
+        let pr' := {| pparams := pr.(pparams);
+                      puinst := pr.(puinst);
+                      pcontext := pr.(pcontext);
+                      preturn := ret_ty |} in
         disc <- f Γ disc;;
-        brs <- monad_map (fun '(ar, t) => t <- f Γ t;; ret (ar, t)) brs;;
+        brs <- monad_map (fun '(mk_branch ctx t) => t <- f Γ t;; ret (mk_branch ctx t)) brs;;
         let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
-        ret (tCase (ind, npars) ret_ty disc brs)
-      | tProj ((ind, npars), arg) body =>
+        ret (tCase (mk_case_info ind npars relevance) pr' disc brs)
+      | tProj (mkProjection ind npars arg) body =>
         body <- f Γ body;;
         let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
-        ret (tProj ((ind, npars), arg) body)
+        ret (tProj (mkProjection ind npars arg) body)
       | tFix defs i =>
         let Γ := (repeat none (List.length defs) ++ Γ)%list in
         defs <- monad_map (fun (d : def term) =>
@@ -127,7 +138,7 @@ Section ChainBaseSpecialization.
                                     dbody := dbody;
                                     rarg := rarg d |}) defs;;
         ret (tCoFix defs i)
-      | tPrim _ => ret t
+      (* | tPrim _ => ret t *)
       end.
 
   Definition specialize_body
@@ -160,10 +171,12 @@ Section ChainBaseSpecialization.
     | false, _ => specialize_term specialized Γ t
     end.
 
+  MetaCoq Quote Recursively Definition blah := list.
+
   Definition specialize_decl
               (specialized : list kername)
               (kn : kername)
-              (decl : global_decl) : result (list kername * global_decl) string :=
+              (decl : global_decl) : result_string (list kername * global_decl) :=
     match decl with
     | ConstantDecl cst =>
       let remove := match cst_type cst with
@@ -184,11 +197,12 @@ Section ChainBaseSpecialization.
               | None => ret None
               end;;
 
-      ret (if remove then kn :: specialized else specialized,
+      Ok (if remove then kn :: specialized else specialized,
             ConstantDecl
               {| cst_type := type;
-                cst_body := body;
-                cst_universes := cst_universes cst |})
+                 cst_body := body;
+                 cst_universes := cst_universes cst;
+                 cst_relevance := cst_relevance cst|})
 
     | InductiveDecl mib =>
       let params := rev (ind_params mib) in
@@ -227,23 +241,26 @@ Section ChainBaseSpecialization.
           let ctorΓ := repeat (if remove then specialize else none)
                               (List.length (ind_bodies mib)) in
           ctors <- monad_map
-                      (fun '(name, t, n) =>
-                        t <- specialize_type specialized (kn.1, name) ctorΓ remove t;;
-                        ret (name, t, n))
+                       (fun '(Build_constructor_body name args indices ty ar) =>
+                          (* TODO: shoule we also specialise args, indices? *)
+                        ty <- specialize_type specialized (kn.1, name) ctorΓ remove ty;;
+                        ret (Build_constructor_body name args indices ty ar))
                       (ind_ctors oib);;
           (* Projections are just the type of the data value and
             checked in a context with parameters and the record value
             itself *)
           let projΓ := none :: repeat none (List.length params) in
           projs <- monad_map
-                      (fun '(name, t) =>
+                      (fun '(Build_projection_body name relevance t) =>
                         t <- map_error (fun s => "While specializing projection "
                                                     ++ name ++ ": " ++ s)
                                         (specialize_term specialized projΓ t);;
-                        ret (name, t))
+                        ret (Build_projection_body name relevance t))
                       (ind_projs oib);;
           ret
             {| ind_name := ind_name oib;
+               ind_indices := ind_indices oib;
+               ind_sort := ind_sort oib;
                ind_type := type;
                ind_kelim := ind_kelim oib;
                ind_ctors := ctors;
@@ -274,11 +291,12 @@ Definition axiomatized_ChainBase_decl : global_decl :=
               inductive_ind := 0; |}
             [];
         cst_body := None;
-        cst_universes := Monomorphic_ctx ContextSet.empty |}.
+        cst_universes := Monomorphic_ctx;
+        cst_relevance := Relevant |}.
 
 (* Specialize ChainBase away in all definitions in an environment.
     Note: this will also add an axiomatized chain base to the environment. *)
-Fixpoint specialize_env_rev (Σ : global_env) : result global_env string :=
+Fixpoint specialize_env_rev (Σ : global_declarations) : result_string global_declarations :=
   match Σ with
   | [] => ret []
   | (name, decl) :: Σ =>
@@ -298,5 +316,5 @@ Fixpoint specialize_env_rev (Σ : global_env) : result global_env string :=
 
 (* TODO: There are many reverses here, we should improve this. *)
 Definition specialize_ChainBase_env (Σ : global_env) : result global_env string :=
-  Σrev <- specialize_env_rev (List.rev Σ);;
-  ret (List.rev Σrev).
+  Σrev <- specialize_env_rev (List.rev (declarations Σ));;
+  ret (Build_global_env (universes Σ) (List.rev Σrev)).
