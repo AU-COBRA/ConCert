@@ -3,6 +3,7 @@
     width: min(250px, 15vw);
     position: fixed;
     border: 1px solid #ddd;
+    border-left-width: 0px;
     color: #333;
     margin-top: 55px;
     line-height: 2;
