@@ -1,6 +1,6 @@
 .toc {
     background: #fefefe;
-    width: 250px;
+    width: min(250px, 15vw);
     position: fixed;
     border: 1px solid #ddd;
     color: #333;
