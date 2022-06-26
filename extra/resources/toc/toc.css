@@ -71,3 +71,8 @@
 .jstoc-hidden {
     display: none;
 }
+
+.jstoc-hidden-main {
+    padding-left: 16px!important;
+    padding-right: 16px!important;
+}
