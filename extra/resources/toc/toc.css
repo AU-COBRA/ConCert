@@ -17,8 +17,13 @@
 .toc-header {
     font-size: 18px;
     position: fixed;
-    margin-top: -27px;
-    margin-left: 10px;
+    margin-top: -39px;
+    z-index: 2;
+    background: inherit;
+    padding-top: 10px;
+    border-bottom: 1px solid #bfbfbf;
+    width: inherit;
+    text-indent: 10px;
 }
 
 .toc ul {

@@ -145,7 +145,7 @@ html, body {
   overflow: hidden;
   position: fixed;
   display: flex;
-  z-index: 2;
+  z-index: 3;
 }
 
 
