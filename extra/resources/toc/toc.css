@@ -11,6 +11,7 @@
     left: 0;
     bottom: 0;
     overflow-y: scroll;
+    z-index: 1;
 }
 
 .toc-header {

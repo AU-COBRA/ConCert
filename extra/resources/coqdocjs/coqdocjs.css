@@ -126,6 +126,7 @@ html, body {
   margin-right: auto;
   max-width: 60em;
   flex: 1 0 auto;
+  z-index: 0;
 }
 
 .libtitle {
@@ -144,6 +145,7 @@ html, body {
   overflow: hidden;
   position: fixed;
   display: flex;
+  z-index: 2;
 }
 
 
