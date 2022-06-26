@@ -266,4 +266,12 @@ h,h1,h2,h3 {
 .paragraph {
   margin: 6px 0px;
 }
+
+#toggle-toc {
+  padding: 0.2em;
+}
+
+#toggle-toc:hover {
+  background-color: rgb(86, 157, 199);
+  color: black;
 }
