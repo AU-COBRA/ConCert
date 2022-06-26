@@ -5,7 +5,7 @@
     border: 1px solid #ddd;
     border-left-width: 0px;
     color: #333;
-    margin-top: 55px;
+    padding-top: 55px;
     line-height: 1.8;
     top: 0;
     left: 0;
@@ -16,7 +16,8 @@
 .toc-header {
     font-size: 18px;
     position: fixed;
-    margin-top: 25px;
+    margin-top: -27px;
+    margin-left: 10px;
 }
 
 .toc ul {

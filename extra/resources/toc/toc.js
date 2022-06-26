@@ -861,7 +861,7 @@ function init(el) {
 
   html += '</ul>';
 
-  el.innerHTML = html;
+  el.innerHTML += html;
   var tocs = find('li', el);
   var anchors = find('a', el);
 
