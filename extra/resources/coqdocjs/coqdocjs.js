@@ -138,6 +138,16 @@ function toggleProofs(){
   updateView();
 }
 
+function toggleTOC() {
+  const jstocDiv = document.getElementById("js-toc");
+  const jstocHeaderDiv = document.getElementById("js-toc-header");
+  const mainDiv = document.getElementById("main");
+
+  jstocDiv.classList.toggle("jstoc-hidden");
+  jstocHeaderDiv.classList.toggle("jstoc-hidden");
+  mainDiv.classList.toggle("jstoc-hidden-main");
+}
+
 function repairDom(){
   // pull whitespace out of command
   toArray(document.getElementsByClassName("command")).forEach(function(node){
@@ -175,6 +185,7 @@ function postprocess(){
   replNodes();
   foldProofs();
   document.getElementById("toggle-proofs").addEventListener("click", toggleProofs);
+  document.getElementById("toggle-toc").addEventListener("click", toggleTOC);
   updateView();
 }
 
