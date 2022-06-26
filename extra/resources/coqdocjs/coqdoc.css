@@ -209,3 +209,19 @@ html {
 .section {
     position: static!important;
 }
+
+#main td {
+    color: #DDD;
+}
+
+#main td a {
+    color: #2D2D2D;
+}
+
+#main td:first-of-type {
+    color: #2D2D2D;
+}
+
+#main td:last-of-type {
+    color: #2D2D2D;
+}
