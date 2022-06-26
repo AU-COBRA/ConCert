@@ -116,16 +116,16 @@ html, body {
 }
 
 #main {
-    display: block;
-    padding: 16px;
-    padding-top: 2em;
-    padding-bottom: 2em;
-    padding-left: min(255px, 16vw);
-    padding-right: min(255px, 16vw);
-    margin-left: auto;
-    margin-right: auto;
-    max-width: 60em;
-    flex: 1 0 auto;
+  display: block;
+  padding: 16px;
+  padding-top: 2em;
+  padding-bottom: 2em;
+  padding-left: min(255px, 16vw);
+  padding-right: min(255px, 16vw);
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 60em;
+  flex: 1 0 auto;
 }
 
 .libtitle {
@@ -138,7 +138,7 @@ html, body {
   padding: 0;
   margin: 0;
   align-items: center;
-  background-color: rgb(21,57,105);
+  background-color: rgb(23,61,89);
   color: white;
   font-weight: bold;
   overflow: hidden;
@@ -189,7 +189,7 @@ html, body {
 }
 
 #header a:hover, #header .button:hover {
-    background-color: rgb(181, 213, 255);
+    background-color: rgb(86, 157, 199);
     color: black;
 }
 
