@@ -19,12 +19,12 @@ jobs:
         opam switch
     - name: Build
       run: |
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        make -j2 && \
-        make -j2 examples && \
-        make -j2 html && \
-        make -j2 test-extraction && \
-        make -j2 clean-extraction-out-files && \
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        make -j2
+        make -j2 examples
+        make -j2 html
+        make -j2 test-extraction
+        make -j2 clean-extraction-out-files
         make -j2 clean-compiled-extraction
     - uses: actions/upload-artifact@v2
       with:
