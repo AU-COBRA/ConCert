@@ -17,10 +17,16 @@ jobs:
         PATH=/home/coq/.cargo/bin:$PATH
         env
         opam switch
-    - name: Build
+    - name: Build core
       run: |
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
-        make -j2
+        make -j2 utils
+        make -j2 execution
+        make -j2 embedding
+        make -j2 extraction
+    - name: Build examples
+      run: |
+        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
         make -j2 examples
     - name: Test extraction
       run: |
