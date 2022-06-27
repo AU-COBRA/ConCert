@@ -26,11 +26,12 @@ jobs:
         make -j2 test-extraction
         make -j2 clean-extraction-out-files
         make -j2 clean-compiled-extraction
-    - uses: actions/upload-artifact@v2
+    - name: Upload Liquidity extraction logs
+      uses: actions/upload-artifact@v2
       with:
         name: Liquidity logs
         path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
-    - name: Push to the extraction repository
+    - name: Push to the extraction results repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
@@ -44,7 +45,7 @@ jobs:
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
       if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-    - name: Deploy the docs to GitHub Pages
+    - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v2
       with:
