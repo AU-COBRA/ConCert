@@ -38,6 +38,19 @@ jobs:
       run: |
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
         make -j2 html
+        opam install -y coq-dpdgraph
+        sudo apt install -y graphviz
+        rm -rf docs/graphs
+        mkdir -p docs
+        mkdir -p docs/graphs
+        make file-dependency-graph
+        mv file-dep.svg docs/graphs/index.svg
+        make dependency-graphs
+        mv utils/svg/* docs/graphs/
+        mv execution/svg/* docs/graphs/
+        mv embedding/svg/* docs/graphs/
+        mv extraction/svg/* docs/graphs/
+        mv examples/svg/* docs/graphs/
     - name: Upload Liquidity extraction logs
       uses: actions/upload-artifact@v2
       with:
