@@ -9,12 +9,16 @@ jobs:
     steps:
     - name: Checkout branch ${{ github.ref_name }}
       uses: actions/checkout@v2
+    - name: Setup environment
+      run: |
+        echo "HOME=/home/coq" >> $GITHUB_ENV
+        export HOME=/home/coq
+        echo "/home/coq/.cargo/bin" >> $GITHUB_PATH
+        PATH=/home/coq/.cargo/bin:$PATH
+        env
+        opam switch
     - name: Build
       run: |
-        export HOME=/home/coq && \
-        PATH=/home/coq/.cargo/bin:$PATH
-        env && \
-        opam switch && \
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
         make -j2 && \
         make -j2 examples && \
