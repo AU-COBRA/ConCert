@@ -19,38 +19,77 @@ jobs:
         opam switch
     - name: Build core
       run: |
+        echo "::group::Setting up switch"
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Build utilities"
         make -j2 utils
+        echo "::endgroup::"
+
+        echo "::group::Build execution layer"
         make -j2 execution
+        echo "::endgroup::"
+
+        echo "::group::Build embedding layer"
         make -j2 embedding
+        echo "::endgroup::"
+
+        echo "::group::Build extraction layer"
         make -j2 extraction
+        echo "::endgroup::"
     - name: Build examples
       run: |
+        echo "::group::Setting up switch"
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Build examples"
         make -j2 examples
+        echo "::endgroup::"
     - name: Test extraction
       run: |
+        echo "::group::Setting up switch"
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Running tests"
         make -j2 test-extraction
+        echo "::endgroup::"
+
+        echo "::group::Cleaning up"
         make -j2 clean-extraction-out-files
         make -j2 clean-compiled-extraction
+        echo "::endgroup::"
     - name: Build documentation
       run: |
+        echo "::group::Setting up switch"
         eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Running coqdoc"
         make -j2 html
+        echo "::endgroup::"
+
+        echo "::group::Install dependencies"
         opam install -y coq-dpdgraph
         sudo apt install -y graphviz
+        echo "::endgroup::"
+
+        echo "::group::Generate dependency graphs"
         rm -rf docs/graphs
         mkdir -p docs
         mkdir -p docs/graphs
         make file-dependency-graph
         mv file-dep.svg docs/graphs/index.svg
+
         make dependency-graphs
         mv utils/svg/* docs/graphs/
         mv execution/svg/* docs/graphs/
         mv embedding/svg/* docs/graphs/
         mv extraction/svg/* docs/graphs/
         mv examples/svg/* docs/graphs/
+        echo "::endgroup::"
     - name: Upload Liquidity extraction logs
       uses: actions/upload-artifact@v2
       with:
