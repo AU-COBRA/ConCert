@@ -15,6 +15,16 @@ Global Instance Monad_result {E} : Monad (fun T => result T E) :=
      | Err e => Err e
      end |}.
 
+Global Instance MonadLaws_Monad_result {E} : MonadLaws (@Monad_result E).
+Proof.
+  constructor.
+  - auto.
+  - intros; cbn.
+    destruct t; auto.
+  - intros; cbn.
+    destruct t; auto.
+Qed.
+
 Definition result_of_option {T E} (o : option T) (err : E) : result T E :=
   match o with
   | Some a => Ok a
