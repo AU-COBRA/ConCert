@@ -147,6 +147,9 @@ Record ContractCallContext :=
     ctx_amount : Amount;
   }.
 
+Inductive Error :=
+  | default_error.
+
 (* Operations that a contract can return or that a user can use
 to interact with a chain. *)
 Inductive ActionBody :=
@@ -159,13 +162,13 @@ with WeakContract :=
             Chain ->
             ContractCallContext ->
             SerializedValue (* setup *) ->
-            option SerializedValue)
+            result SerializedValue Error)
          (receive :
             Chain ->
             ContractCallContext ->
             SerializedValue (* state *) ->
             option SerializedValue (* message *) ->
-            option (SerializedValue * list ActionBody)).
+            result (SerializedValue * list ActionBody) Error).
 
 Definition act_body_amount (ab : ActionBody) : Z :=
   match ab with
@@ -204,40 +207,40 @@ Record Contract
       Chain ->
       ContractCallContext ->
       Setup ->
-      option State;
+      result State Error;
 
     receive :
       Chain ->
       ContractCallContext ->
       State ->
       option Msg ->
-      option (State * list ActionBody);
+      result (State * list ActionBody) Error;
   }.
 
 Global Arguments init {_ _ _ _ _ _}.
 Global Arguments receive {_ _ _ _ _ _}.
 Global Arguments build_contract {_ _ _ _ _ _}.
 
-Program Definition contract_to_weak_contract
+Definition contract_to_weak_contract
           {Setup Msg State : Type}
           `{Serializable Setup}
           `{Serializable Msg}
           `{Serializable State}
           (c : Contract Setup Msg State) : WeakContract :=
       let weak_init chain ctx ser_setup :=
-          do setup <- deserialize ser_setup;
+          do setup <- result_of_option (deserialize ser_setup) default_error;
           do state <- c.(init) chain ctx setup;
-          Some (serialize state) in
+          Ok (serialize state) in
       let weak_recv chain ctx ser_state ser_msg_opt :=
-          do state <- deserialize ser_state;
+          do state <- result_of_option (deserialize ser_state) default_error;
           match ser_msg_opt with
           | Some ser_msg =>
-            do msg <- deserialize ser_msg;
+            do msg <- result_of_option (deserialize ser_msg) default_error;
             do '(new_state, acts) <- c.(receive) chain ctx state (Some msg);
-            Some (serialize new_state, acts)
+            Ok (serialize new_state, acts)
           | None =>
             do '(new_state, acts) <- c.(receive) chain ctx state None;
-            Some (serialize new_state, acts)
+            Ok (serialize new_state, acts)
           end in
       build_weak_contract weak_init weak_recv.
 
@@ -452,7 +455,7 @@ Inductive ActionEvaluation
         wc
         (transfer_balance from_addr to_addr amount prev_env)
         (build_ctx origin from_addr to_addr amount amount)
-        setup = Some state ->
+        setup = Ok state ->
       EnvironmentEquiv
         new_env
         (set_contract_state
@@ -482,7 +485,7 @@ Inductive ActionEvaluation
         (transfer_balance from_addr to_addr amount prev_env)
         (build_ctx origin from_addr to_addr (env_account_balances new_env to_addr) amount)
         prev_state
-        msg = Some (new_state, resp_acts) ->
+        msg = Ok (new_state, resp_acts) ->
       new_acts = map (build_act origin to_addr) resp_acts ->
       EnvironmentEquiv
         new_env
@@ -1302,11 +1305,11 @@ Lemma wc_init_strong {Setup Msg State : Type}
           `{Serializable State}
           {contract : Contract Setup Msg State}
           {chain ctx setup result} :
-  wc_init (contract : WeakContract) chain ctx setup = Some result ->
+  wc_init (contract : WeakContract) chain ctx setup = Ok result ->
   exists setup_strong result_strong,
     deserialize setup = Some setup_strong /\
     serialize result_strong = result /\
-    Blockchain.init contract chain ctx setup_strong = Some result_strong.
+    Blockchain.init contract chain ctx setup_strong = Ok result_strong.
 Proof.
   intros init.
   cbn in *.
@@ -1326,7 +1329,7 @@ Lemma wc_receive_strong {Setup Msg State : Type}
           {contract : Contract Setup Msg State}
           {chain ctx prev_state msg new_state new_acts} :
   wc_receive (contract : WeakContract) chain ctx prev_state msg =
-  Some (new_state, new_acts) ->
+  Ok (new_state, new_acts) ->
   exists prev_state_strong msg_strong new_state_strong,
     deserialize prev_state = Some prev_state_strong /\
     match msg_strong with
@@ -1335,7 +1338,7 @@ Lemma wc_receive_strong {Setup Msg State : Type}
     end /\
     serialize new_state_strong = new_state /\
     Blockchain.receive contract chain ctx prev_state_strong msg_strong =
-    Some (new_state_strong, new_acts).
+    Ok (new_state_strong, new_acts).
 Proof.
   intros receive.
   cbn in *.
@@ -1511,7 +1514,7 @@ Lemma contract_induction
   (* Deploy contract *)
   (forall chain ctx setup result
           (facts : DeployFacts chain ctx)
-          (init_some : init contract chain ctx setup = Some result)
+          (init_some : init contract chain ctx setup = Ok result)
           (tag : TagDeployment),
       P (chain_height chain)
         (current_slot chain)
@@ -1556,7 +1559,7 @@ Lemma contract_induction
                   (ctx_contract_balance ctx - ctx_amount ctx)
                   prev_out_queue prev_inc_calls prev_out_txs)
           (receive_some : receive contract chain ctx prev_state msg =
-                          Some (new_state, new_acts))
+                          Ok (new_state, new_acts))
           (tag : TagNonrecursiveCall),
       P (chain_height chain)
         (current_slot chain)
@@ -1591,7 +1594,7 @@ Lemma contract_induction
              | _ => False
              end)
           (receive_some : receive contract chain ctx prev_state msg =
-                          Some (new_state, new_acts))
+                          Ok (new_state, new_acts))
           (tag : TagRecursiveCall),
       P (chain_height chain)
         (current_slot chain)
@@ -1714,7 +1717,7 @@ Proof.
     + (* Deployment of this contract *)
       replace wc with (contract : WeakContract) in * by congruence.
       match goal with
-      | [ H : wc_init _ _ _ _ = Some _ |- _ ] =>
+      | [ H : wc_init _ _ _ _ = Ok _ |- _ ] =>
         destruct (wc_init_strong H) as (setup_strong & result_strong & deser_setup_eq & <- & init)
       end.
       rewrite deser_setup_eq in *.
@@ -2099,7 +2102,7 @@ Lemma lift_outgoing_acts_prop {P : ActionBody -> Prop}
       (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
   reachable bstate ->
   (forall chain ctx cstate msg new_cstate acts,
-      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      contract.(receive) chain ctx cstate msg = Ok (new_cstate, acts) ->
       Forall P acts) ->
   env_contracts bstate addr = Some (contract : WeakContract) ->
   Forall P (outgoing_acts bstate addr).
@@ -2129,7 +2132,7 @@ Lemma lift_outgoing_acts_nil (contract : Contract Setup Msg State)
       (bstate : ChainState) (addr : Address) :
   reachable bstate ->
   (forall chain ctx cstate msg new_cstate acts,
-      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      contract.(receive) chain ctx cstate msg = Ok (new_cstate, acts) ->
       acts = []) ->
   env_contracts bstate addr = Some (contract : WeakContract) ->
   outgoing_acts bstate addr = [].
@@ -2146,11 +2149,11 @@ Qed.
 Lemma lift_contract_state_prop {P : State -> Prop}
       (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
   (forall chain ctx setup result,
-      contract.(init) chain ctx setup = Some result ->
+      contract.(init) chain ctx setup = Ok result ->
       P result) ->
   (forall chain ctx cstate msg new_cstate acts,
       P cstate ->
-      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      contract.(receive) chain ctx cstate msg = Ok (new_cstate, acts) ->
       P new_cstate) ->
   reachable bstate ->
   env_contracts bstate addr = Some (contract : WeakContract) ->
@@ -2175,12 +2178,12 @@ Lemma lift_dep_info_contract_state_prop {P : DeploymentInfo Setup -> State -> Pr
       (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address)
       (trace : ChainTrace empty_state bstate) :
   (forall chain ctx setup result,
-      contract.(init) chain ctx setup = Some result ->
+      contract.(init) chain ctx setup = Ok result ->
       P (build_deployment_info (ctx_origin ctx) (ctx_from ctx) (ctx_amount ctx) setup)
         result) ->
   (forall chain ctx cstate msg new_cstate acts dep,
       P dep cstate ->
-      contract.(receive) chain ctx cstate msg = Some (new_cstate, acts) ->
+      contract.(receive) chain ctx cstate msg = Ok (new_cstate, acts) ->
       P dep new_cstate) ->
   env_contracts bstate addr = Some (contract : WeakContract) ->
   exists dep cstate,
