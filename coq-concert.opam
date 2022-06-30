@@ -11,6 +11,8 @@ license: "MIT"
 homepage: "https://github.com/AU-COBRA/ConCert"
 dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
+doc: "https://au-cobra.github.io/ConCert/toc.html"
+
 depends: [
   "ocaml" {>= "4.07.1"}
   "coq" {>= "8.11" & < "8.12~"}
@@ -24,7 +26,7 @@ depends: [
   "coq-equations" {= "1.2.3+8.11"}
   "coq-stdpp" {= "1.5.0"}
 ]
-pin-depends : [
+pin-depends: [
   ["coq-metacoq-template.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
   ["coq-metacoq-pcuic.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
   ["coq-metacoq-safechecker.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
@@ -34,5 +36,10 @@ pin-depends : [
 
 build: [
   [make]
+  [make "examples"] {with-test}
+  [make "html"] {with-doc}
 ]
-install: [make "install"]
+install: [
+  [make "install"]
+  [make "-C" "examples" "install"] {with-test}
+]
