@@ -15,7 +15,7 @@ Import ListNotations.
 
 Definition init_supply := (100%N).
 Definition token_setup := EIP20Token.build_setup creator init_supply.
-Definition deploy_eip20token := create_deployment .
+Definition deploy_eip20token := create_deployment.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
@@ -154,7 +154,7 @@ Definition get_allowance state from delegate :=
 
 Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
   let delegate_allowance_before := get_allowance old_state from delegate in
-  let delegate_allowance_after := get_allowance new_state from delegate in 
+  let delegate_allowance_after := get_allowance new_state from delegate in
     delegate_allowance_before =? delegate_allowance_after + tokens.
 
 Definition post_transfer_from_correct (chain : Chain) cctx old_state msg (result_opt : option (State * list ActionBody)) :=
@@ -208,10 +208,10 @@ Definition sum_balances_eq_total_supply (state : EIP20Token.State) :=
   let balances_sum : N := fold_left N.add balances_list 0%N in
   balances_sum =? state.(total_supply).
 
-Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker := 
+Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker :=
   match get_contract_state EIP20Token.State cs contract_base_addr with
   | Some state => checker (pf state)
-  | None => checker true (* trivially true case *) 
+  | None => checker true (* trivially true case *)
   end.
 
 (* Time QuickChick (forAllBlocks (checker_get_state sum_balances_eq_total_supply)). *)
@@ -243,7 +243,7 @@ Definition sum_allowances_le_init_supply_P :=
 (* QuickChick (expectFailure sum_allowances_le_init_supply_P). *)
 
 Definition person_has_tokens person (n : N) :=
-  fun cs => 
+  fun cs =>
     match get_contract_state State cs contract_base_addr with
     | Some state => n =? (FMap_find_ person state.(balances) 0)
     | None => true (* trivial case *)
@@ -407,8 +407,8 @@ Definition reapprove_transfer_from_safe_P :=
 
 (* QuickChick reapprove_transfer_from_safe_P. *)
 
-(* 
-Chain{| 
+(*
+Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};

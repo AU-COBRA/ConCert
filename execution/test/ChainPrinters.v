@@ -223,7 +223,7 @@ Ltac make_show ts :=
         end)
   | tt => constr:(fun (v : SerializedValue) => "<FAILED DESERIALIZATION>")
   end.
-  
+
 (** Tactic to automatically derive [Show] instances for [SerializedValue].
     Takes as input a list of types and will produce a show instance that tries to deserialize
     the serialized value to one of those types and print that value.
@@ -235,7 +235,7 @@ Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
   (let pairs := pair c0 .. (pair cn tt) .. in
    ltac:(
      match goal with
-     | [pairs := ?x |- _] => 
+     | [pairs := ?x |- _] =>
       let s := make_show x in
       let s' := eval cbn beta in s in
         exact {| show := s' |}

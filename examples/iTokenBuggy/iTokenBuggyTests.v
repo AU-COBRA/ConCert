@@ -6,7 +6,7 @@ From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyPrinters.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyGens.
 From Coq Require Import ZArith.
-From Coq Require Import List. 
+From Coq Require Import List.
 Import ListNotations.
 
 
@@ -45,17 +45,17 @@ End NotationInfo.
 Module TN := TestNotations NotationInfo. Import TN.
 (* Sample gChain. *)
 
-Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker := 
+Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker :=
   match get_contract_state iTokenBuggy.State cs token_caddr with
   | Some state => checker (pf state)
-  | None => checker true (* trivially true case *) 
+  | None => checker true (* trivially true case *)
   end.
 
 (* bool variant of checker_get_state *)
-Definition get_state (pf : State -> bool) (cs : ChainState) : bool := 
+Definition get_state (pf : State -> bool) (cs : ChainState) : bool :=
   match get_contract_state iTokenBuggy.State cs token_caddr with
   | Some state => pf state
-  | None => true (* trivially true case *) 
+  | None => true (* trivially true case *)
   end.
 
 Open Scope N_scope.
@@ -69,12 +69,12 @@ Definition sum_balances_eq_init_supply_checker (state : iTokenBuggy.State) :=
        "total_supply: " ++ show state.(total_supply) ++ nl ++
        "balances: " ++ show state.(balances)
     <| N.eqb balances_sum state.(total_supply).
-  
+
 Close Scope string_scope.
 
 Definition sum_balances_eq_init_supply (state : iTokenBuggy.State) : bool :=
   let balances_sum := state.(balances) |> FMap.elements
-                                       |> map snd 
+                                       |> map snd
                                        |> fold_right N.add 0 in
   balances_sum =? state.(total_supply).
 
@@ -82,7 +82,7 @@ Instance genBuggyTokenChainSized : GenSized ChainBuilder := {
   arbitrarySized n := gChain_ token_cb n
 }.
 
-Conjecture token_supply_preserved : forall sig_to : {to | reachable to}, 
+Conjecture token_supply_preserved : forall sig_to : {to | reachable to},
   let to := proj1_sig sig_to in
   get_state sum_balances_eq_init_supply to = true.
 
@@ -108,11 +108,11 @@ Definition sum_balances_unchanged (chain : Chain)
                                   (result_opt : option (State * list ActionBody))
                                   : Checker :=
   (* sum all entries in the balances field of a given iToken contract state *)
-  let balances_sum s := s.(balances) |> FMap.elements 
+  let balances_sum s := s.(balances) |> FMap.elements
                                      |> map snd
                                      |> fold_right N.add 0%N in
   match result_opt with
-  | Some (new_state, _) => checker <| balances_sum old_state =? balances_sum new_state 
+  | Some (new_state, _) => checker <| balances_sum old_state =? balances_sum new_state
   | None => false ==> true
   end.
 

@@ -101,6 +101,6 @@ Definition gEscrowTraceBetter cb length :=
   let max_acts_per_block := 1 in
   gChain cb (fun e _ => gEscrowMsgBetter e) length max_act_depth max_acts_per_block.
 
-Definition forAllEscrowChainBuilder `{Show ChainBuilder} gEscrowTrace length (cb : ChainBuilder) := 
+Definition forAllEscrowChainBuilder `{Show ChainBuilder} gEscrowTrace length (cb : ChainBuilder) :=
   forAllChainBuilder length cb gEscrowTrace.
 End EscrowGens.

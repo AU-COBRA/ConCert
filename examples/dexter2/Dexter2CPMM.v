@@ -185,7 +185,7 @@ Module Type NullAddress.
 
     (** Place holder for tezos set delegate operation *)
     Parameter set_delegate_call : baker_address -> list ActionBody.
-    Axiom delegate_call : forall addr, Forall (fun action => 
+    Axiom delegate_call : forall addr, Forall (fun action =>
       match action with
       | act_transfer _ _ => False
       | act_call _ _ _ => False
@@ -440,7 +440,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                             tokens_to := param.(to_);
                                             minTokensBought := param.(minTokensBought_);
                                             xtt_deadline := param.(ttt_deadline)
-                                          |})) in 
+                                          |})) in
       Some (new_state, [op1; op2]).
 
     (** ** Receive *)
@@ -557,7 +557,7 @@ Module NullAddressAxiom <: NullAddress.
 
     Parameter null_address : Address.
     Parameter set_delegate_call : baker_address -> list ActionBody.
-    Axiom delegate_call : forall addr, Forall (fun action => 
+    Axiom delegate_call : forall addr, Forall (fun action =>
       match action with
       | act_transfer _ _ => False
       | act_call _ _ _ => False

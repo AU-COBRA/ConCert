@@ -238,7 +238,7 @@ Definition transfer_balance_update_correct old_state new_state from to tokens :=
 
 Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
   let delegate_allowance_before := get_allowance old_state from delegate in
-  let delegate_allowance_after := get_allowance new_state from delegate in 
+  let delegate_allowance_after := get_allowance new_state from delegate in
     delegate_allowance_before =? delegate_allowance_after + tokens.
 
 Definition approve_allowance_update_correct (new_state : State) (from delegate : Address) (tokens : TokenValue) :=

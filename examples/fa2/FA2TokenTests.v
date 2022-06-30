@@ -166,7 +166,7 @@ Definition transfer_state_update_correct prev_state next_state transfers :=
         | Some current_diff => FMap.add to_key (current_diff + amount) m1
         | None => FMap.add to_key amount m1
         end in
-      m2) in 
+      m2) in
       fold_left iter trx.(txs) current_diff_map
   ) transfers FMap.empty in
   let balance_update_correct p balance_diff :=
@@ -178,7 +178,7 @@ Definition transfer_state_update_correct prev_state next_state transfers :=
     whenFail (
       "Failed predicate with owner: " ++ show addr ++ nl ++
       "Expected new balance: " ++ show balance_after ++ nl ++
-      "But got: " ++ show balance_before ++ " + " ++ show balance_diff ++ " = " ++ show (balance_before + balance_diff)  
+      "But got: " ++ show balance_before ++ " + " ++ show balance_diff ++ " = " ++ show (balance_before + balance_diff)
       )
     ((balance_before + balance_diff) =? balance_after) in
   forEachMapEntry balance_diffs_map balance_update_correct.
@@ -291,7 +291,7 @@ Definition transfer_satisfies_policy sender trx state : Checker :=
   | (self_transfer_denied, operator_transfer_permitted) =>
     if address_eqb sender trx.(from_)
     then whenFail "self transfer was denied but got transfer with sender = from" false
-    else 
+    else
       (* Note: this case seems to not be hit during testing *)
       is_valid_operator_transfer
   | (self_transfer_permitted, operator_transfer_permitted) =>

@@ -44,14 +44,14 @@ Proof.
   remember empty_state.
   induction trace as [ | Heq from to trace IH step ]; subst.
   - auto.
-  - destruct_chain_step; 
+  - destruct_chain_step;
     try destruct_action_eval;
     rewrite_environment_equiv;
     auto.
     + now inversion valid_header.
 Qed.
 
-(* If a state is reachable and contract state is stored on an address 
+(* If a state is reachable and contract state is stored on an address
     then that address must also have some contract deployed to it *)
 Lemma contract_states_deployed to (addr : Address) (state : SerializedValue) :
   reachable to ->
@@ -70,7 +70,7 @@ Proof.
       destruct_address_eq; now subst.
 Qed.
 
-(* If a state is reachable and contract state is stored on an address 
+(* If a state is reachable and contract state is stored on an address
     then that address must be a contract address *)
 Lemma contract_states_addr_format to (addr : Address) (state : SerializedValue) :
   reachable to ->
@@ -257,7 +257,7 @@ Definition receiver_can_receive_transfer (bstate : ChainState) act_body :=
     provable in any sensible instance of ChainBase *)
 Axiom deployable_address_decidable : forall bstate wc setup act_origin act_from amount,
   reachable bstate ->
-  decidable (exists addr state, address_is_contract addr = true 
+  decidable (exists addr state, address_is_contract addr = true
             /\ env_contracts bstate addr = None
             /\ wc_init wc
                   (transfer_balance act_from addr amount bstate)
@@ -428,7 +428,7 @@ Proof.
   induction queue; intros bstate reach Hqueue_eq HP HP_preserved.
   - (* Case: queue is already empty, thus we are already done *)
     now eexists.
-  - (* Case: queue contains at least one action, 
+  - (* Case: queue contains at least one action,
         thus we need to either discard or evaluate it *)
     apply list.Forall_cons_1 in acts_from_account as [act_from_a acts_from_account].
     apply list.Forall_cons_1 in no_new_acts as [no_new_acts_from_a no_new_acts].

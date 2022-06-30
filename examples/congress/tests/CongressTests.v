@@ -139,7 +139,7 @@ Definition congress_has_votes_on_some_proposal (cs : ChainState) :=
        let proposals := map snd (FMap.elements (proposals state)) in
     existsb (fun proposal =>
       0 <? FMap.size proposal.(votes)
-    ) proposals 
+    ) proposals
   | None => false
   end.
 
@@ -151,12 +151,12 @@ Definition congress_has_votes_on_some_proposal (cs : ChainState) :=
 Definition congress_finished_a_vote (cs : ChainState) :=
   let acts := cs.(chain_state_queue) in
   let act_is_finish_vote (act : Action) := match act.(act_body) with
-                                           | act_call _ _ msg => 
+                                           | act_call _ _ msg =>
                                              match deserialize Congress.Msg _ msg with
                                              | Some (Congress.finish_proposal _) => true
                                              | _ => false
                                              end
-                                           | _ => false 
+                                           | _ => false
                                            end in
     existsb act_is_finish_vote acts.
 

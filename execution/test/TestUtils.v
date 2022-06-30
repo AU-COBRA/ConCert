@@ -39,7 +39,7 @@ Definition build_call {A : Type}
                       {ser : Serializable A}
                       (from to : Address)
                       (amount : Amount)
-                      (msg : A) 
+                      (msg : A)
                       : Action :=
   build_act from from (act_call to amount (@serialize A ser msg)).
 Definition build_transfer (from to : Address)
@@ -260,7 +260,7 @@ Section AddressGenerators.
       (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
       arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
     |}.
-  
+
   (* Generator that returns random addresses from the input list.
      Returns [default] if the list is empty *)
   Definition gAddress_ (default : Address) (addrs : list Address) : G Address :=
@@ -270,33 +270,33 @@ Section AddressGenerators.
      Returns [zero_address] if the list is empty *)
   Definition gAddress (addrs : list Address) : G Address :=
     gAddress_ zero_address addrs.
-  
+
   (* Generator that returns random addresses from the [test_chain_addrs_3] *)
   Definition gTestAddrs3 : G Address :=
     gAddress test_chain_addrs_3.
-  
+
   (* Generator that returns random addresses from the [test_chain_addrs_5] *)
   Definition gTestAddrs5 : G Address :=
     gAddress test_chain_addrs_5.
-  
+
   (* Generator that returns random addresses in the user address space *)
   Definition gUserAddress : GOpt Address :=
     bindGen (choose (0, (@ContractAddrBase AddrSize)-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
-  
+
   (* Generator that returns random addresses in the contract address space *)
   Definition gContractAddress : GOpt Address :=
     bindGen (choose ((@ContractAddrBase AddrSize), AddrSize-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
-  
+
   (* Generator that returns random addresses from [addrs] that are not in [ws].
      Returns [zero_address] if the are no such addresses *)
   Definition gAddrWithout (ws addrs : list Address) :=
-    let addrs_ := filter (fun a => negb (existsb (address_eqb a) ws)) addrs in   
+    let addrs_ := filter (fun a => negb (existsb (address_eqb a) ws)) addrs in
     elems_ zero_address addrs_.
-  
+
   (* Generator that returns unique pairs of addresses from [addrs] *)
   Definition gUniqueAddrPair (addrs : list Address) : GOpt (Address * Address) :=
     addr1 <- elems_opt addrs ;;
-    let addrs_ := filter (fun a => negb (address_eqb addr1 a)) addrs in   
+    let addrs_ := filter (fun a => negb (address_eqb addr1 a)) addrs in
     addr2 <- elems_opt addrs_ ;;
     returnGenSome (addr1, addr2).
 End AddressGenerators.

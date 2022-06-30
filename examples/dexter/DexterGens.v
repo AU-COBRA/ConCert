@@ -35,8 +35,7 @@ Module DexterGens (Info : DexterTestsInfo).
       exchange_owner := caller;
       tokens_sold := tokens_to_exchange;
     |} in
-    returnGenSome (tokens_to_asset exchange_msg)
-  .
+    returnGenSome (tokens_to_asset exchange_msg).
 
   Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
     a <- g ;;

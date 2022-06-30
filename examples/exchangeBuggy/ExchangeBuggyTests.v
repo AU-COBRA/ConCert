@@ -162,13 +162,13 @@ Definition account_tokens (env : Environment) (account : Address) : N :=
 (* Compute exchange_liquidity. *)
 (* 30%Z *)
 
-(* --- PATH-DEPENDENCE --- 
-  This property is a consequence of the *path-dependence* property, 
+(* --- PATH-DEPENDENCE ---
+  This property is a consequence of the *path-dependence* property,
   and asserts that the token reserve of the exchange contract is consistent
   with how much money has been exchanged for tokens, with respect to the conversion function 'getInputPrice'.
   "Consistency" in this case means that given a sequence of trades for some account, the total tokens obtained
   by this sequence of trades should be less than if the trades were combined into a single trade, i.e.
-  *splitting trades should always be more expensive*  
+  *splitting trades should always be more expensive*
 *)
 Open Scope Z_scope.
 Definition tokens_to_asset_correct_P_opt (old_env new_env : Environment) : option Checker :=

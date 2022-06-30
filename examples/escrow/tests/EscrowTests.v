@@ -33,7 +33,7 @@ Section TestSetup.
       build_transfer seller buyer 10;
       build_deploy seller 2 Escrow.contract escrow_setup
     ]).
-    
+
 End TestSetup.
 
 (* To instantiate the EscrowGen module functor, we need to supply
@@ -43,9 +43,9 @@ Module TestInfo <: EscrowGensInfo.
 End TestInfo.
 Module MG := EscrowGens.EscrowGens TestInfo. Import MG.
 Section TestGenInstances.
-  
+
   (* For automation *)
-  Global Instance gEscrowChainBuilder : GenSized ChainBuilder := 
+  Global Instance gEscrowChainBuilder : GenSized ChainBuilder :=
   {|
     arbitrarySized := gEscrowTraceBetter escrow_chain
   |}.
@@ -63,9 +63,9 @@ Section TestProperties.
   Definition escrow_correct_Prop {from to}
                               (caddr : Address)
                               (cstate : Escrow.State)
-                              (trace : ChainTrace from to) 
+                              (trace : ChainTrace from to)
                               (depinfo : DeploymentInfo Setup)
-                              (inc_calls : list (ContractCallInfo Msg)) : Prop := 
+                              (inc_calls : list (ContractCallInfo Msg)) : Prop :=
     let item_worth := deployment_amount depinfo / 2 in
     let seller := deployment_from depinfo in
     let buyer := setup_buyer (deployment_setup depinfo) in
@@ -82,18 +82,18 @@ Section TestProperties.
   Definition escrow_correct_bool {from to}
                               (caddr : Address)
                               (cstate : Escrow.State)
-                              (trace : ChainTrace from to) 
+                              (trace : ChainTrace from to)
                               (depinfo : DeploymentInfo Setup)
-                              (inc_calls : list (ContractCallInfo Msg)) := 
+                              (inc_calls : list (ContractCallInfo Msg)) :=
     let item_worth := deployment_amount depinfo / 2 in
     let seller := deployment_from depinfo in
     let buyer := setup_buyer (deployment_setup depinfo) in
     if is_escrow_finished cstate
     then (buyer_confirmed inc_calls buyer &&
       ((net_balance_effect trace caddr seller =? item_worth) &&
-      (net_balance_effect trace caddr buyer =? -item_worth)) 
+      (net_balance_effect trace caddr buyer =? -item_worth))
       ||
-      (negb (buyer_confirmed inc_calls buyer)) && 
+      (negb (buyer_confirmed inc_calls buyer)) &&
       ((net_balance_effect trace caddr seller =? 0) &&
       (net_balance_effect trace caddr buyer =? 0)))
     else true.
@@ -103,42 +103,42 @@ Section TestProperties.
   Lemma escrow_correct_bool_refl_prop {from to}
                                       (caddr : Address)
                                       (cstate : Escrow.State)
-                                      (trace : ChainTrace from to) 
+                                      (trace : ChainTrace from to)
                                       (depinfo : DeploymentInfo Setup)
-                                      (inc_calls : list (ContractCallInfo Msg)) : 
+                                      (inc_calls : list (ContractCallInfo Msg)) :
     escrow_correct_bool caddr cstate trace depinfo inc_calls = true <->
     escrow_correct_Prop caddr cstate trace depinfo inc_calls.
-  Proof. 
+  Proof.
     unfold escrow_correct_bool.
     split.
     - destruct (is_escrow_finished cstate) eqn:H1.
-      + unfold escrow_correct_Prop. 
-        intros. 
-        propify. 
+      + unfold escrow_correct_Prop.
+        intros.
+        propify.
         apply H.
-      + intros. unfold escrow_correct_Prop. 
+      + intros. unfold escrow_correct_Prop.
         left. rewrite H1 in H0.
         inversion H0.
     - destruct (is_escrow_finished cstate) eqn:H1.
-      + unfold escrow_correct_Prop. 
-        propify. 
-        intros. 
+      + unfold escrow_correct_Prop.
+        propify.
+        intros.
         repeat rewrite Z.eqb_eq.
         apply H.
         apply H1.
       + intros. reflexivity.
   Qed.
 
-  (* Finally, we can show that escrow_correct_Prop is decidable (using escrow_correct_bool as 
+  (* Finally, we can show that escrow_correct_Prop is decidable (using escrow_correct_bool as
     the decision procedure).  *)
-  Global Instance escrow_correct_P_dec {from to caddr cstate trace depinfo inc_calls} 
+  Global Instance escrow_correct_P_dec {from to caddr cstate trace depinfo inc_calls}
     : Dec (@escrow_correct_Prop from to caddr cstate trace depinfo inc_calls).
-  Proof. 
+  Proof.
     constructor. unfold ssrbool.decidable.
     destruct (escrow_correct_bool caddr cstate trace depinfo inc_calls) eqn:H.
     - left. apply escrow_correct_bool_refl_prop. apply H.
-    - right. 
-      unfold not. 
+    - right.
+      unfold not.
       intros.
       apply escrow_correct_bool_refl_prop in H0.
       eauto.
@@ -151,7 +151,7 @@ Section TestProperties.
   Notation "a ===> f" := (isSomeCheck a f) (at level 44).
 
   (* Wrapper for escrow_correct_bool. This is the Checker we will run QC on. *)
-  Definition escrow_correct_P (cb : ChainBuilder) := 
+  Definition escrow_correct_P (cb : ChainBuilder) :=
     let trace := builder_trace cb in
     let depinfo' := deployment_info Escrow.Setup trace escrow_contract_addr in
     let inc_calls' := incoming_calls Escrow.Msg trace escrow_contract_addr in
@@ -159,7 +159,7 @@ Section TestProperties.
     inc_calls' ===>  (fun inc_calls =>
       match get_contract_state Escrow.State cb escrow_contract_addr with
       (* main part of the property: *)
-      | Some cstate => 
+      | Some cstate =>
         is_escrow_finished cstate ==>
         ((escrow_correct_Prop escrow_contract_addr cstate trace depinfo inc_calls)?)
       | None => checker false
@@ -170,22 +170,22 @@ Section TestProperties.
   Scheme Equality for NextStep.
   Instance nextstep_dec_eq : Dec_Eq NextStep.
   Proof. constructor. apply NextStep_eq_dec. Defined.
-  
-  Definition escrow_next_states {from to} 
-                                (escrow_caddr : Address) 
+
+  Definition escrow_next_states {from to}
+                                (escrow_caddr : Address)
                                 (trace : ChainTrace from to) : list NextStep :=
     let fix rec {from to} (trace : ChainTrace from to) acc :=
       match trace with
-      | snoc trace' step => 
+      | snoc trace' step =>
         match acc, get_contract_state Escrow.State to escrow_caddr with
         | nextstep::_, Some state => if (nextstep = state.(next_step))?
                                      then rec trace' acc
                                      else rec trace' (state.(next_step) :: acc)
         | [], Some state => rec trace' (state.(next_step) :: acc)
         | _, _ => rec trace' acc
-        end 
+        end
       | clnil => acc
-      end in 
+      end in
   rec trace [].
 
   (* We want to see what the length of the generated sequences of next_step are,
@@ -195,14 +195,14 @@ Section TestProperties.
   collect (length (escrow_next_states escrow_contract_addr (builder_trace cb)))
   true).
   (* QuickChick (collect_steps_length_distribution gEscrowTrace). *)
-  (* 
+  (*
   4812 : 2
   2470 : 1
   2244 : 3
   474 : 4
   +++ Passed 10000 tests (0 discards) *)
   (* QuickChick (collect_steps_length_distribution gEscrowTraceBetter). *)
-  (* 
+  (*
   6636 : 4
   3364 : 2
   +++ Passed 10000 tests (0 discards) *)
@@ -216,17 +216,17 @@ Section TestProperties.
   Fixpoint is_valid_step_sequence_fix steps prev_step :=
   match prev_step, steps with
   | _, [] => true
-  | None, step::steps' => is_valid_step_sequence_fix steps' (Some step) 
+  | None, step::steps' => is_valid_step_sequence_fix steps' (Some step)
   | Some prev_step, step::steps' => match prev_step, step with
           | buyer_commit, buyer_confirm
-          | buyer_commit, no_next_step 
+          | buyer_commit, no_next_step
           | buyer_confirm, withdrawals
           | withdrawals, no_next_step => is_valid_step_sequence_fix steps' (Some step)
           | _, _ => false
           end
   end.
 
-  Definition is_valid_step_sequence steps := 
+  Definition is_valid_step_sequence steps :=
   is_valid_step_sequence_fix steps None.
 
   (* Test property *)

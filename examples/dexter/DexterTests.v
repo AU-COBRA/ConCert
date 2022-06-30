@@ -27,11 +27,11 @@ Definition dexter_caddr : Address := addr_of_Z 129.
 (* Dexter will have 60 tokens in reverse initially *)
 Definition dexter_setup : Dexter.Setup := {|
   token_caddr_ := token_caddr;
-  token_pool_  := (token_pool_size - 40);  
+  token_pool_  := (token_pool_size - 40);
 |}.
 
 Definition add_as_operator_act owner operator tokens :=
-  build_call owner token_caddr 0 (EIP20Token.approve operator tokens). 
+  build_call owner token_caddr 0 (EIP20Token.approve operator tokens).
 
 Definition exchange_tokens_to_money_act owner amount :=
   build_call owner dexter_caddr 0 (Dexter.tokens_to_asset {|

@@ -863,7 +863,7 @@ Lemma isSome_exists : forall {A : Type} (x : option A),
   isSome x = true <-> exists y : A, x = Some y.
 Proof.
   split.
-  - intros. 
+  - intros.
     destruct x; eauto.
     discriminate.
   - intros (y & x_eq).

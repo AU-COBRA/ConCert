@@ -26,14 +26,14 @@ Record callback (A : Type) := {
 Definition callback_addr {A : Type} (c : callback A) : Address := c.(return_addr A).
 Global Coercion callback_addr : callback >-> Address.
 
-Record transfer_destination := 
+Record transfer_destination :=
   build_transfer_destination {
     to_ : Address;
     dst_token_id : N;
     amount : N;
 }.
 
-Record transfer := 
+Record transfer :=
   build_transfer {
     from_ : Address;
     txs : list transfer_destination;
@@ -72,7 +72,7 @@ Inductive update_operator :=
 Record transfer_destination_descriptor := {
   transfer_dst_descr_to_ : option Address;
   transfer_dst_descr_token_id : token_id;
-  transfer_dst_descr_amount : N  
+  transfer_dst_descr_amount : N
 }.
 
 Record transfer_descriptor := {

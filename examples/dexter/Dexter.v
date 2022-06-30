@@ -78,7 +78,7 @@ Section Dexter.
     let tokens_price := getInputPrice tokens_to_sell (Z.of_N state.(token_pool)) dexter_asset_reserve in
     (* send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)
     let asset_transfer_msg := act_transfer params.(exchange_owner) tokens_price in
-    let token_transfer_param := 
+    let token_transfer_param :=
       EIP20Token.transfer_from params.(exchange_owner) dexter_caddr params.(tokens_sold)  in
     let token_transfer_msg := act_call state.(token_caddr) 0%Z (@serialize EIP20Token.Msg _ (token_transfer_param)) in
     let new_state := state<|token_pool := N.add state.(token_pool) params.(tokens_sold)|>

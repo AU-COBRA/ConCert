@@ -89,7 +89,7 @@ Definition oneN : N := 1%N.
 Definition hash_func (l : list positive) : positive :=
   N.succ_pos (fold_left (fun a p => N.lxor (Npos p) a) l oneN).
 
-  
+
 Definition AddrSize := (2^128)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
 Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.

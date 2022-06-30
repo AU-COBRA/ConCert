@@ -176,7 +176,7 @@ Definition init : ContractIniterSetupState :=
 
 Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
 
-Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
+Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState :=
   do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
   do lift (if AddressMap.find caller (eligible_voters (setup state)) then Some tt else None);
   do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
@@ -193,7 +193,7 @@ Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsg
   accept_call new_state.
 
 
-Definition handle_commit_to_vote hash state caller cur_slot : ContractReceiverStateMsgState := 
+Definition handle_commit_to_vote hash state caller cur_slot : ContractReceiverStateMsgState :=
   do commit_by <- lift (finish_commit_by (setup state));
   do lift (if commit_by <? cur_slot then None else Some tt)%nat;
   do inf <- lift (AddressMap.find caller (registered_voters state));
@@ -681,7 +681,7 @@ Proof.
         auto.
     + (* submit_vote *)
       destruct (_ <? _); cbn -[Nat.ltb] in *; [congruence|].
-      unfold AddressMap.find in *. 
+      unfold AddressMap.find in *.
       destruct (FMap.find _ _) eqn:found; cbn in *; [|congruence].
       destruct (if finish_commit_by _ then _ else _); cbn in *; [|congruence].
       destruct (verify_secret_vote_proof _ _ _ _); cbn in *; [|congruence].
@@ -739,7 +739,7 @@ Proof.
       destruct IH as (finish_before_vote & _ & len_pks & pks_signups & party_count & IH).
       specialize (IH msg_assum order_assum num_signups_assum).
       destruct IH as (perm & perm' & addrs & _).
-      unfold AddressMap.values in *. 
+      unfold AddressMap.values in *.
       unfold FMap.values in bruteforce.
       rewrite map_map in bruteforce.
       rewrite (map_ext_in _ (fun '(_, v) => public_vote v)) in bruteforce

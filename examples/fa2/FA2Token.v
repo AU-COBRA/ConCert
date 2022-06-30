@@ -271,13 +271,13 @@ Definition handle_transfer (caller : Address)
       transfer_descr_fa2 := caddr;
       transfer_descr_batch := batch;
       transfer_descr_operator := caller;
-    |} in 
+    |} in
     let transfer_decr_param := mk_transfer_decr_param (map mk_transfer_descr transfers) in
-    let is_from_contract descriptors := existsb (fun descr => 
+    let is_from_contract descriptors := existsb (fun descr =>
       match descr.(transfer_descr_from_) with
-      | Some addr => address_is_contract addr 
+      | Some addr => address_is_contract addr
       | None => false
-      end) descriptors in 
+      end) descriptors in
     let trx_descriptors_grouped := (group_transfer_descriptors (map mk_transfer_descr transfers)) in
     let self_transfer_act := act_call caddr 0%Z (serialize (msg_receive_hook_transfer transfer_decr_param)) in
 
@@ -304,7 +304,7 @@ Definition handle_transfer (caller : Address)
   end.
 
 Open Scope bool_scope.
-Definition mk_transfer_destination_from_descr (dst_descr: transfer_destination_descriptor) :option transfer_destination := 
+Definition mk_transfer_destination_from_descr (dst_descr: transfer_destination_descriptor) :option transfer_destination :=
   do to <- dst_descr.(transfer_dst_descr_to_) ;
   Some {|
     to_ := to;
@@ -314,7 +314,7 @@ Definition mk_transfer_destination_from_descr (dst_descr: transfer_destination_d
 
 Definition mk_transfer_from_descr (descr: transfer_descriptor) : option transfer :=
   do from <- descr.(transfer_descr_from_) ;
-  let iter := (fun dst_descr acc_opt => 
+  let iter := (fun dst_descr acc_opt =>
     do acc <- acc_opt;
     do tx_dst <- mk_transfer_destination_from_descr dst_descr;
     Some (tx_dst :: acc)) in

@@ -276,7 +276,7 @@ Definition total_balance bstate accounts : Amount :=
 
 (** Sum of balances is always positive *)
 Lemma total_balance_positive : forall bstate accounts,
-  reachable bstate -> 
+  reachable bstate ->
   0 <= total_balance bstate accounts.
 Proof.
   intros * reach.
@@ -322,7 +322,7 @@ Qed.
     at the balance limit of the account. *)
 Definition pending_usage bstate account : Amount :=
   Z.min (sumZ (fun act => if address_eqb act.(act_from) account
-                         then Z.max 0 (act_amount act) 
+                         then Z.max 0 (act_amount act)
                          else 0) bstate.(chain_state_queue))
         (env_account_balances bstate account).
 

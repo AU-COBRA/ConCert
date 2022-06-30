@@ -36,7 +36,7 @@ Ltac destruct_message :=
   end.
 
 Hint Rewrite N.ltb_lt N.ltb_ge N.leb_le N.leb_gt N.eqb_eq N.eqb_neq
-  Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt 
+  Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt
   Z.leb_le Z.leb_gt
   Bool.orb_true_iff Bool.orb_false_iff
   Bool.andb_true_iff Bool.andb_false_iff

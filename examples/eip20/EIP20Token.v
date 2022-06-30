@@ -1,7 +1,7 @@
 (** * EIP20 Token Implementation *)
 (**
   This file contains an implementation of the EIP 20 Token Specification (https://eips.ethereum.org/EIPS/eip-20).
-  
+
   The implementation is essentially a port of
   https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
 *)
@@ -90,7 +90,7 @@ Section EIP20Token.
     else let new_balances := AddressMap.add from (from_balance - amount) state.(balances) in
          let new_balances := increment_balance new_balances to amount in
          Some (state<|balances := new_balances|>).
-  
+
   (** ** transfer_from *)
   (** The delegate tries to transfer [amount] tokens from [from] to [to].
       Succeeds if [from] has indeed allowed the delegate to spend at least [amount] tokens on its behalf. *)

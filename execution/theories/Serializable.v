@@ -748,7 +748,7 @@ Proof.
   induction l as [| hd tl IHl];
     intros * HA deser_some;
     cbn.
-  - 
+  -
     destruct ty;
       try discriminate;
       destruct val;

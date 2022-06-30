@@ -231,7 +231,7 @@ Definition init : ContractIniterSetupState :=
 Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
 Definition twoZ : Z := 2.
 
-Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState := 
+Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState :=
   do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
   do lift (if AddressMap.find caller (eligible_voters (setup state)) then Some tt else None);
   do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
@@ -251,7 +251,7 @@ Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsg
                   |} in
   accept_call new_state.
 
-Definition handle_commit_to_vote hash_ state caller cur_slot : ContractReceiverStateMsgState := 
+Definition handle_commit_to_vote hash_ state caller cur_slot : ContractReceiverStateMsgState :=
   do commit_by <- lift (finish_commit_by (setup state));
   do lift (if commit_by <? cur_slot then None else Some tt)%nat;
   do inf <- lift (AddressMap.find caller (registered_voters state));

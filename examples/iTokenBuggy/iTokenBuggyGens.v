@@ -47,13 +47,13 @@ Definition gTransfer_from (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
             else choose (0, N.min allowance allower_balance)) ;;
   returnGenSome (delegate, transfer_from allower receiver  amount).
 
-Definition gMint (c : Environment) (state : iTokenBuggy.State) : GOpt (Address * Msg) := 
+Definition gMint (c : Environment) (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
  (* '(addr, _) <- sampleFMapOpt state.(balances) ;; *)
   addr <- gAccount ;;
   amount <- choose (0, 2) ;; (* fix nr of minted tokens to 0, 1, or 2*)
   returnGenSome (addr, mint amount ).
 
-Definition gBurn (state : iTokenBuggy.State) : GOpt (Address * Msg) := 
+Definition gBurn (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
  '(addr, balance) <- sampleFMapOpt_filter state.(balances) (fun '(_,balance) => 0 <? balance) ;;
   amount <- choose (0, balance + 2) ;; (* we purposely give it a small chance to try to burn more than allowed, hence +2*)
   returnGenSome (addr, burn amount).

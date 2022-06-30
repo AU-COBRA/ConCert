@@ -168,7 +168,7 @@ Section Theories.
     end.
 
   Hint Rewrite N.ltb_lt N.ltb_ge
-    Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt 
+    Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt
     Z.ltb_ge Z.ltb_lt
     Bool.orb_true_iff Bool.orb_false_iff
     Bool.andb_true_iff Bool.andb_false_iff
@@ -391,7 +391,7 @@ Section Theories.
     receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
       new_acts = [
         act_call prev_state.(tokenAddress) 0%Z (serialize
-          (msg_balance_of (Build_balance_of_param 
+          (msg_balance_of (Build_balance_of_param
             ([Build_balance_of_request ctx.(ctx_contract_address) prev_state.(tokenId)])
             (FA2LegacyInterface.Build_callback _ None ctx.(ctx_contract_address)))))
       ].
@@ -766,7 +766,7 @@ Section Theories.
     intros * receive_some.
     contract_simpl.
     math_convert.
-    unfold xtz_transfer in *. 
+    unfold xtz_transfer in *.
     destruct_match in *; try congruence.
     match goal with
       [H : Some _ = Some _ |- _] => now inversion H
@@ -1580,7 +1580,7 @@ Section Theories.
       contract_state bstate caddr = Some cstate /\
         sumZ mintedOrBurnedTokens_acts (filter (actTo cstate.(lqtAddress)) (outgoing_acts bstate caddr)) =
         sumZ mintedOrBurnedTokens_acts (outgoing_acts bstate caddr).
-  Proof. 
+  Proof.
     intros * [trace] deployed.
     apply outgoing_acts_all_mint_same_dest in deployed as mint_or_burn_to_lqt_addr; auto.
     destruct mint_or_burn_to_lqt_addr as (cstate & deployed_state & mint_or_burn_to_lqt_addr).
@@ -1959,7 +1959,7 @@ Section Theories.
       contract_state bstate caddr = Some cstate /\
         sumZ mintedOrBurnedTokens_tx (filter (txCallTo cstate.(lqtAddress)) (outgoing_txs trace caddr)) =
         sumZ mintedOrBurnedTokens_tx (outgoing_txs trace caddr).
-  Proof. 
+  Proof.
     intros * deployed.
     apply (outgoing_txs_all_mint_same_dest _ _ trace) in deployed as mint_or_burn_to_lqt_addr; auto.
     destruct mint_or_burn_to_lqt_addr as (cstate & deployed_state & mint_or_burn_to_lqt_addr).
@@ -2189,5 +2189,5 @@ Section Theories.
   Proof.
     apply lqt_pool_correct_interface.
   Qed.
-  
+
 End Theories.

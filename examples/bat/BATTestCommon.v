@@ -66,7 +66,7 @@ Definition action_is_refund (action : Action) : bool :=
   end.
 
 (* Get last state before finalize/refund in a chain *)
-Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to) 
+Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to)
                                 (default : ChainState) : ChainState :=
   match trace with
   | ChainedList.snoc trace' (Blockchain.step_action _ _ act _ _ _ _ _ as step) =>
@@ -92,10 +92,10 @@ Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
   end.
 
 Definition fmap_subseteqb {A B} `{countable.Countable A}
-                          (eqb : B -> B -> bool) (fmap : FMap A B) 
+                          (eqb : B -> B -> bool) (fmap : FMap A B)
                           (fmap' : FMap A B) : bool :=
   let elements := FMap.elements fmap in
-    fold_left (fun b elem => 
+    fold_left (fun b elem =>
                 match FMap.lookup (fst elem) fmap' with
                 | Some v => b && (eqb (snd elem) v)
                 | None => false
@@ -106,7 +106,7 @@ Definition fmap_eqb {A B} `{countable.Countable A}
   (fmap_subseteqb eqb fmap fmap') && (fmap_subseteqb eqb fmap' fmap).
 
 Definition fmap_filter_eqb {A B} `{countable.Countable A}
-                           (excluded : list A) (eqb : B -> B -> bool) 
+                           (excluded : list A) (eqb : B -> B -> bool)
                            (fmap : FMap A B) (fmap' : FMap A B) : bool :=
   let map_filter m l := fold_left (fun map elem => FMap.remove elem map) l m in
   let fmap_filtered := map_filter fmap excluded in

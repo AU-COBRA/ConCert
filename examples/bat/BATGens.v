@@ -71,7 +71,7 @@ Definition gRefund (env : Environment) (state : BATCommon.State) : GOpt (Address
           || (state.(tokenCreationMin) <=? (total_supply state))%N))
   then
     returnGen None
-  else 
+  else
     from_addr <- oneOf_ (returnGen None) accounts ;;
     returnGenSome (from_addr, refund).
 
@@ -119,7 +119,7 @@ Definition gTransfer_from (state : BATCommon.State) : GOpt (Address * Msg) :=
   else
     returnGen None.
 
-(* BAT valid call generator 
+(* BAT valid call generator
    Generator that will always return BAToken contract calls that are valid on their own,
    i.e. guaranteed to be valid if it is the first action executed in the block.
 *)
@@ -166,7 +166,7 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
     )
   ].
 
-(* BAT invalid call generator 
+(* BAT invalid call generator
    Generator likely to generate invalid BAToken contract calls.
    It treats the BAToken code mostly as blackbox and only know the expected types of input
     but does not make any assumptions/checks on which values will result in valid or invalid calls

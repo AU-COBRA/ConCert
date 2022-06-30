@@ -143,14 +143,14 @@ Proof.
   - apply inv_inv_l.
 Qed.
 
-Class Generator {A : Type} (field : BoardroomAxioms A) := 
+Class Generator {A : Type} (field : BoardroomAxioms A) :=
   {
     generator : A;
     generator_nonzero : generator !== 0;
     generator_generates a : a !== 0 -> exists! e, 0 <= e < order - 1 /\ generator^e == a;
   }.
 
-Class DiscreteLog {A : Type} (field : BoardroomAxioms A) (g : Generator field) := 
+Class DiscreteLog {A : Type} (field : BoardroomAxioms A) (g : Generator field) :=
   {
     (* This is computationally intractable, but we still require it for ease of specification *)
     log : A -> Z;
@@ -337,7 +337,7 @@ Section WithBoardroomAxioms.
   Lemma compute_public_key_unit sk :
     compute_public_key sk !== 0.
   Proof. apply pow_nonzero, generator_nonzero. Qed.
-  
+
   Hint Resolve compute_public_key_unit : core.
 
   Lemma compute_public_keys_units sks :
@@ -345,7 +345,7 @@ Section WithBoardroomAxioms.
   Proof.
     induction sks as [|sk sks IH]; cbn; auto.
   Qed.
-  
+
   Hint Resolve compute_public_keys_units : core.
 
   Lemma reconstructed_key_unit pks i :
@@ -1074,7 +1074,7 @@ Module Zp.
     revert a r.
     induction x; intros a r ap0 rp0; cbn; auto.
   Qed.
-  
+
   Hint Resolve mod_pow_pos_aux_nonzero : core.
 
   Lemma mod_pow_pos_nonzero a x p :
@@ -1793,7 +1793,7 @@ Module BigZp.
       autorewrite with zsimpl in *.
       auto.
   Defined.
-  
+
 End BigZp.
 
 
@@ -1827,7 +1827,7 @@ refine
   (assert (prime p); apply isprime). *)
   pose proof (prime_ge_2);
   pose proof (isprime).
-  
+
 - intros x y; apply Z.eqb_spec.
 - lia.
 - constructor; auto.
