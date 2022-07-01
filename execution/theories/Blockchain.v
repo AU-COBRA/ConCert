@@ -63,6 +63,7 @@ From Coq Require Import List.
 From Coq Require Import Psatz.
 From Coq Require Import Permutation.
 From Coq Require Import Morphisms.
+From Coq Require Import String.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
@@ -147,9 +148,6 @@ Record ContractCallContext :=
     ctx_amount : Amount;
   }.
 
-Inductive Error :=
-  | default_error.
-
 (* Operations that a contract can return or that a user can use
 to interact with a chain. *)
 Inductive ActionBody :=
@@ -162,13 +160,13 @@ with WeakContract :=
             Chain ->
             ContractCallContext ->
             SerializedValue (* setup *) ->
-            result SerializedValue Error)
+            result SerializedValue SerializedValue)
          (receive :
             Chain ->
             ContractCallContext ->
             SerializedValue (* state *) ->
             option SerializedValue (* message *) ->
-            result (SerializedValue * list ActionBody) Error).
+            result (SerializedValue * list ActionBody) SerializedValue).
 
 Definition act_body_amount (ab : ActionBody) : Z :=
   match ab with
@@ -197,10 +195,11 @@ use and interact with when they want deployment. We keep the weak contract
 only "internally" for blockchains, while any strongly-typed contract can
 be converted to and from *)
 Record Contract
-      (Setup Msg State : Type)
+      (Setup Msg State Error : Type)
       `{Serializable Setup}
       `{Serializable Msg}
-      `{Serializable State} :=
+      `{Serializable State}
+      `{Serializable Error} :=
   build_contract {
 
     init :
@@ -217,29 +216,37 @@ Record Contract
       result (State * list ActionBody) Error;
   }.
 
-Global Arguments init {_ _ _ _ _ _}.
-Global Arguments receive {_ _ _ _ _ _}.
-Global Arguments build_contract {_ _ _ _ _ _}.
+Global Arguments init {_ _ _ _ _ _ _ _}.
+Global Arguments receive {_ _ _ _ _ _ _ _}.
+Global Arguments build_contract {_ _ _ _ _ _ _ _}.
+
+Definition deser_error := serialize "Deserialization failed"%string.
+Definition error_to_weak_error {T E : Type}
+                              `{Serializable E}
+                               (r : result T E) 
+                               : result T SerializedValue :=
+  bind_error (fun err => serialize err) r.
 
 Definition contract_to_weak_contract
-          {Setup Msg State : Type}
-          `{Serializable Setup}
-          `{Serializable Msg}
-          `{Serializable State}
-          (c : Contract Setup Msg State) : WeakContract :=
+          {Setup Msg State Error : Type}
+         `{Serializable Setup}
+         `{Serializable Msg}
+         `{Serializable State}
+         `{Serializable Error}
+          (c : Contract Setup Msg State Error) : WeakContract :=
       let weak_init chain ctx ser_setup :=
-          do setup <- result_of_option (deserialize ser_setup) default_error;
-          do state <- c.(init) chain ctx setup;
+          do setup <- result_of_option (deserialize ser_setup) deser_error;
+          do state <- error_to_weak_error (c.(init) chain ctx setup);
           Ok (serialize state) in
       let weak_recv chain ctx ser_state ser_msg_opt :=
-          do state <- result_of_option (deserialize ser_state) default_error;
+          do state <- result_of_option (deserialize ser_state) deser_error;
           match ser_msg_opt with
           | Some ser_msg =>
-            do msg <- result_of_option (deserialize ser_msg) default_error;
-            do '(new_state, acts) <- c.(receive) chain ctx state (Some msg);
+            do msg <- result_of_option (deserialize ser_msg) deser_error;
+            do '(new_state, acts) <- error_to_weak_error (c.(receive) chain ctx state (Some msg));
             Ok (serialize new_state, acts)
           | None =>
-            do '(new_state, acts) <- c.(receive) chain ctx state None;
+            do '(new_state, acts) <- error_to_weak_error (c.(receive) chain ctx state None);
             Ok (serialize new_state, acts)
           end in
       build_weak_contract weak_init weak_recv.
@@ -248,12 +255,13 @@ Coercion contract_to_weak_contract : Contract >-> WeakContract.
 
 (* Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
-          {Setup Msg State : Type}
-          `{Serializable Setup}
-          `{Serializable Msg}
-          `{Serializable State}
+          {Setup Msg State Error : Type}
+         `{Serializable Setup}
+         `{Serializable Msg}
+         `{Serializable State}
+         `{Serializable Error}
           (amount : Amount)
-          (contract : Contract Setup Msg State)
+          (contract : Contract Setup Msg State Error)
           (setup : Setup) : ActionBody :=
   act_deploy amount contract (serialize setup).
 
@@ -1299,11 +1307,13 @@ Proof.
     now rewrite_environment_equiv.
 Qed.
 
-Lemma wc_init_strong {Setup Msg State : Type}
-          `{Serializable Setup}
-          `{Serializable Msg}
-          `{Serializable State}
-          {contract : Contract Setup Msg State}
+Lemma wc_init_strong
+          {Setup Msg State Error : Type}
+         `{Serializable Setup}
+         `{Serializable Msg}
+         `{Serializable State}
+         `{Serializable Error}
+          {contract : Contract Setup Msg State Error}
           {chain ctx setup result} :
   wc_init (contract : WeakContract) chain ctx setup = Ok result ->
   exists setup_strong result_strong,
@@ -1322,11 +1332,13 @@ Proof.
   repeat split; auto with congruence.
 Qed.
 
-Lemma wc_receive_strong {Setup Msg State : Type}
-          `{Serializable Setup}
-          `{Serializable Msg}
-          `{Serializable State}
-          {contract : Contract Setup Msg State}
+Lemma wc_receive_strong
+          {Setup Msg State Error : Type}
+         `{Serializable Setup}
+         `{Serializable Msg}
+         `{Serializable State}
+         `{Serializable Error}
+          {contract : Contract Setup Msg State Error}
           {chain ctx prev_state msg new_state new_acts} :
   wc_receive (contract : WeakContract) chain ctx prev_state msg =
   Ok (new_state, new_acts) ->
@@ -1357,11 +1369,12 @@ Proof.
 Qed.
 
 Lemma deployed_contract_state_typed
-          {Setup Msg State : Type}
-          `{Serializable Setup}
-          `{Serializable Msg}
-          `{Serializable State}
-          {contract : Contract Setup Msg State}
+          {Setup Msg State Error : Type}
+         `{Serializable Setup}
+         `{Serializable Msg}
+         `{Serializable State}
+         `{Serializable Error}
+          {contract : Contract Setup Msg State Error}
           {bstate : ChainState}
           {caddr} :
   env_contracts bstate caddr = Some (contract : WeakContract) ->
@@ -1398,12 +1411,7 @@ Proof.
       rewrite deserialize_serialize in eq; congruence.
 Qed.
 
-Lemma origin_is_always_account
-          {Setup Msg State : Type}
-          `{Serializable Setup}
-          `{Serializable Msg}
-          `{Serializable State}
-          {bstate : ChainState} :
+Lemma origin_is_always_account {bstate : ChainState} :
   reachable bstate ->
   Forall act_origin_is_account (chain_state_queue bstate).
 Proof.
@@ -1440,15 +1448,16 @@ Inductive TagRecursiveCall := tag_recursive_call.
 Inductive TagPermuteQueue := tag_permute_queue.
 
 Hint Constructors
-     TagFacts TagAddBlock TagDeployment TagOutgoingAct
-     TagNonrecursiveCall TagRecursiveCall TagPermuteQueue : core.
+  TagFacts TagAddBlock TagDeployment TagOutgoingAct
+  TagNonrecursiveCall TagRecursiveCall TagPermuteQueue : core.
 
 Lemma contract_induction
-      {Setup Msg State : Type}
-      `{Serializable Setup}
-      `{Serializable Msg}
-      `{Serializable State}
-      (contract : Contract Setup Msg State)
+      {Setup Msg State Error : Type}
+     `{Serializable Setup}
+     `{Serializable Msg}
+     `{Serializable State}
+     `{Serializable Error}
+      (contract : Contract Setup Msg State Error)
       (AddBlockFacts :
          forall (chain_height : nat) (current_slot : nat) (finalized_height : nat)
                 (new_height : nat) (new_slot : nat) (new_finalized_height : nat), Prop)
@@ -1911,16 +1920,17 @@ End Trace.
 End Semantics.
 
 Inductive ActionEvaluationError :=
-| amount_negative (* amount is negative *)
-| amount_too_high (* sender does not have enough money *)
-| no_such_contract (* there is not contract at that address *)
+| amount_negative (amount : Amount) (* amount is negative *)
+| amount_too_high (amount : Amount) (* sender does not have enough money *)
+| no_such_contract (addr : Address) (* there is not contract at that address *)
 | too_many_contracts (* cannot generate fresh address for new contract *)
-| init_failed (* contract init function failed *)
-| receive_failed (* contract receive function failed *)
+| init_failed (err : SerializedValue) (* contract init function failed *)
+| receive_failed (err : SerializedValue) (* contract receive function failed *)
+| deserialization_failed (val : SerializedValue) (* failed deserializing value *)
 | internal_error. (* unexpected internal error *)
 
 Inductive AddBlockError :=
-| invalid_header (* header for next block is invalid *)
+| invalid_header (header : BlockHeader) (* header for next block is invalid *)
 | invalid_root_action (act : Action) (* a specified root action is invalid *)
 | origin_from_mismatch (act : Action) (* origin and from addresses do not match for an action in a new block *)
 | action_evaluation_depth_exceeded (* out of fuel while evaluating actions recursively *)
@@ -1980,7 +1990,7 @@ Ltac rewrite_environment_equiv :=
   end.
 
 Local Ltac generalize_contract_statement_aux
-      bstate caddr trace is_deployed Setup Msg State post :=
+      bstate caddr trace is_deployed Setup Msg State Error post :=
   let P := fresh "P" in
   evar (P : forall (chain_height : nat) (current_slot : nat) (finalized_height : nat)
                    (caddr : Address) (deployment_info : DeploymentInfo Setup)
@@ -2027,7 +2037,7 @@ Local Ltac generalize_contract_statement_aux
    match goal with
    | [|- ?f _ _ _ _ _ _ _ _ _ _] => instantiate (P := f); exact provenP
    end
-  | post bstate caddr trace is_deployed Setup Msg State P ].
+  | post bstate caddr trace is_deployed Setup Msg State Error P ].
 
 Local Ltac generalize_contract_statement_with_post post :=
   intros;
@@ -2044,9 +2054,9 @@ Local Ltac generalize_contract_statement_with_post post :=
                is_deployed : env_contracts (_ bstate) caddr =
                              Some (contract_to_weak_contract ?c) |- _] =>
       match type of c with
-      | Contract ?Setup ?Msg ?State =>
+      | Contract ?Setup ?Msg ?State ?Error =>
         generalize_contract_statement_aux bstate caddr trace
-                                          is_deployed Setup Msg State post
+                                          is_deployed Setup Msg State Error post
       end
     end
   end.
@@ -2057,7 +2067,7 @@ Ltac generalize_contract_statement :=
 
 Ltac contract_induction :=
   generalize_contract_statement_with_post
-    ltac:(fun bstate caddr _ is_deployed Setup Msg State P =>
+    ltac:(fun bstate caddr _ is_deployed Setup Msg State Error P =>
        revert is_deployed;
        let AddBlockFacts := fresh "AddBlockFacts" in
        let DeployFacts := fresh "DeployFacts" in
@@ -2093,13 +2103,18 @@ Global Notation
 Section LiftTransactionProp.
 
   Context {BaseTypes : ChainBase}
-          {Setup : Type} `{Serializable Setup}
-          {Msg : Type} `{Serializable Msg}
-          {State : Type} `{Serializable State}.
+          {Setup Msg State Error : Type}
+         `{Serializable Setup}
+         `{Serializable Msg}
+         `{Serializable State}
+         `{Serializable Error}.
 
 (** If some property [P] holds for all actions in the output of the receive function, the property can be lifted to all outgoing actions for all reachabile states. *)
-Lemma lift_outgoing_acts_prop {P : ActionBody -> Prop}
-      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
+Lemma lift_outgoing_acts_prop
+        {P : ActionBody -> Prop}
+        (contract : Contract Setup Msg State Error)
+        (bstate : ChainState)
+        (addr : Address) :
   reachable bstate ->
   (forall chain ctx cstate msg new_cstate acts,
       contract.(receive) chain ctx cstate msg = Ok (new_cstate, acts) ->
@@ -2128,8 +2143,10 @@ Qed.
 
 (** If the receive function always returns an empty list of actions,
  the same holds for all reachable states *)
-Lemma lift_outgoing_acts_nil (contract : Contract Setup Msg State)
-      (bstate : ChainState) (addr : Address) :
+Lemma lift_outgoing_acts_nil
+        (contract : Contract Setup Msg State Error)
+        (bstate : ChainState)
+        (addr : Address) :
   reachable bstate ->
   (forall chain ctx cstate msg new_cstate acts,
       contract.(receive) chain ctx cstate msg = Ok (new_cstate, acts) ->
@@ -2141,13 +2158,16 @@ Proof.
   enough (all_false: Forall (fun _ => False) (outgoing_acts bstate addr)) by (now destruct all_false).
   apply (lift_outgoing_acts_prop contract); auto.
   intros.
-  erewrite (H3 _ _ _ _ _ acts); [constructor|eassumption].
+  erewrite (H4 _ _ _ _ _ acts); [constructor|eassumption].
 Qed.
 
 (** If some property [P] holds for all contract states in the output of the receive function,
   the property can be lifted to all contract states for all reachabile states. *)
-Lemma lift_contract_state_prop {P : State -> Prop}
-      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address) :
+Lemma lift_contract_state_prop
+        {P : State -> Prop}
+        (contract : Contract Setup Msg State Error)
+        (bstate : ChainState)
+        (addr : Address) :
   (forall chain ctx setup result,
       contract.(init) chain ctx setup = Ok result ->
       P result) ->
@@ -2174,9 +2194,12 @@ Proof.
     destruct a; auto.
 Qed.
 
-Lemma lift_dep_info_contract_state_prop {P : DeploymentInfo Setup -> State -> Prop}
-      (contract : Contract Setup Msg State) (bstate : ChainState) (addr : Address)
-      (trace : ChainTrace empty_state bstate) :
+Lemma lift_dep_info_contract_state_prop
+        {P : DeploymentInfo Setup -> State -> Prop}
+        (contract : Contract Setup Msg State Error)
+        (bstate : ChainState)
+        (addr : Address)
+        (trace : ChainTrace empty_state bstate) :
   (forall chain ctx setup result,
       contract.(init) chain ctx setup = Ok result ->
       P (build_deployment_info (ctx_origin ctx) (ctx_from ctx) (ctx_amount ctx) setup)
