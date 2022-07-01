@@ -1,12 +1,12 @@
 From Coq Require Import Lia.
-From Coq Require Import List.
+From Coq Require Import List. Import ListNotations.
 From Coq Require Import Logic.Decidable.
 From Coq Require Import ZArith.
-Import ListNotations.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ResultMonad.
 
 Section BuildUtils.
 Context {BaseTypes : ChainBase}.
@@ -246,7 +246,7 @@ Definition receiver_can_receive_transfer (bstate : ChainState) act_body :=
     (exists wc state,
       env_contracts bstate to = Some wc /\
       env_contract_states bstate to = Some state /\
-      forall (bstate_new : ChainState) ctx, exists new_state, wc_receive wc bstate_new ctx state None = Some (new_state, []))
+      forall (bstate_new : ChainState) ctx, exists new_state, wc_receive wc bstate_new ctx state None = Ok (new_state, []))
   | _ => True
   end.
 
@@ -262,7 +262,7 @@ Axiom deployable_address_decidable : forall bstate wc setup act_origin act_from 
             /\ wc_init wc
                   (transfer_balance act_from addr amount bstate)
                   (build_ctx act_origin act_from addr amount amount)
-                  setup = Some state).
+                  setup = Ok state).
 
 Ltac action_not_decidable :=
   right; intro;
@@ -281,8 +281,8 @@ Ltac action_not_decidable :=
 Ltac action_decidable :=
   left; do 2 eexists; constructor;
   match goal with
-  | H : wc_receive _ _ _ _ ?m = Some _ |- _ => eapply (eval_call _ _ _ _ _ m)
-  | H : wc_init _ _ _ _ = Some _ |- _ => eapply eval_deploy
+  | H : wc_receive _ _ _ _ ?m = Ok _ |- _ => eapply (eval_call _ _ _ _ _ m)
+  | H : wc_init _ _ _ _ = Ok _ |- _ => eapply eval_deploy
   | H : context [act_transfer _ _] |- _ => eapply eval_transfer
   end;
   eauto; try now constructor.
@@ -325,7 +325,7 @@ Proof.
         (build_ctx act_origin act_from to new_to_balance amount)
         s None) eqn:receive.
     + (* Case: act_transfer is evaluable by eval_call *)
-      destruct p.
+      destruct t.
       pose (bstate' := (set_contract_state to s0
                        (transfer_balance act_from to amount bstate))).
       action_decidable.
@@ -347,7 +347,7 @@ Proof.
         (build_ctx act_origin act_from to new_to_balance amount)
         s (Some msg)) eqn:receive.
     + (* Case: act_call is evaluable by eval_call *)
-      destruct p.
+      destruct t.
       pose (bstate' := (set_contract_state to s0
                        (transfer_balance act_from to amount bstate))).
       action_decidable.
@@ -458,18 +458,21 @@ Proof.
 Qed.
 
 (* wc_receive and contract receive are equivalent *)
-Lemma wc_receive_to_receive : forall {Setup Msg State : Type}
+Lemma wc_receive_to_receive : forall {Setup Msg State Error : Type}
                                     `{Serializable Setup}
                                     `{Serializable Msg}
                                     `{Serializable State}
-                                    (contract : Contract Setup Msg State)
+                                    `{Serializable Error}
+                                    (contract : Contract Setup Msg State Error)
                                     chain cctx cstate msg new_cstate new_acts,
-  contract.(receive) chain cctx cstate (Some msg) = Some (new_cstate, new_acts) <->
-  wc_receive contract chain cctx ((@serialize State _) cstate) (Some ((@serialize Msg _) msg)) = Some ((@serialize State _) new_cstate, new_acts).
+  contract.(receive) chain cctx cstate (Some msg) = Ok (new_cstate, new_acts) <->
+  wc_receive contract chain cctx ((@serialize State _) cstate) (Some ((@serialize Msg _) msg)) = Ok ((@serialize State _) new_cstate, new_acts).
 Proof.
   split; intros receive_some.
   - cbn.
-    now rewrite !deserialize_serialize, receive_some.
+    rewrite !deserialize_serialize.
+    cbn.
+    now rewrite receive_some.
   - apply wc_receive_strong in receive_some as
       (prev_state' & msg' & new_state' & prev_state_eq & msg_eq & new_state_eq & receive_some).
     apply serialize_injective in new_state_eq. subst.
@@ -482,18 +485,21 @@ Proof.
 Qed.
 
 (* wc_init and contract init are equivalent *)
-Lemma wc_init_to_init : forall {Setup Msg State : Type}
+Lemma wc_init_to_init : forall {Setup Msg State Error : Type}
                                `{Serializable Setup}
                                `{Serializable Msg}
                                `{Serializable State}
-                               (contract : Contract Setup Msg State)
+                               `{Serializable Error}
+                               (contract : Contract Setup Msg State Error)
                                chain cctx cstate setup,
-  contract.(init) chain cctx setup = Some cstate <->
-  wc_init contract chain cctx ((@serialize Setup _) setup) = Some ((@serialize State _) cstate).
+  contract.(init) chain cctx setup = Ok cstate <->
+  wc_init contract chain cctx ((@serialize Setup _) setup) = Ok ((@serialize State _) cstate).
 Proof.
   split; intros init_some.
   - cbn.
-    now rewrite deserialize_serialize, init_some.
+    rewrite deserialize_serialize.
+    cbn.
+    now rewrite init_some.
   - apply wc_init_strong in init_some as
       (setup_strong & result_strong & serialize_setup & serialize_result & init_some).
     apply serialize_injective in serialize_result. subst.
@@ -610,11 +616,12 @@ Qed.
 
 (* Lemma showing that there exists a future ChainState
     where the contract call is evaluated *)
-Lemma evaluate_action : forall {Setup Msg State : Type}
+Lemma evaluate_action : forall {Setup Msg State Error : Type}
                               `{Serializable Setup}
                               `{Serializable Msg}
                               `{Serializable State}
-                               (contract : Contract Setup Msg State)
+                              `{Serializable Error}
+                               (contract : Contract Setup Msg State Error)
                                bstate origin from caddr amount msg acts new_acts
                                cstate new_cstate,
   reachable bstate ->
@@ -629,7 +636,7 @@ Lemma evaluate_action : forall {Setup Msg State : Type}
                      (build_ctx origin from caddr (if (address_eqb from caddr)
                          then (env_account_balances bstate caddr)
                          else (env_account_balances bstate caddr) + amount) amount)
-                     cstate (Some msg) = Some (new_cstate, new_acts) ->
+                     cstate (Some msg) = Ok (new_cstate, new_acts) ->
     (exists bstate',
        reachable_through bstate bstate'
     /\ env_contract_states bstate' caddr = Some ((@serialize State _) new_cstate)
@@ -742,11 +749,12 @@ Qed.
 
 (* Lemma showing that there exists a future ChainState
     where the contract is deployed *)
-Lemma deploy_contract : forall {Setup Msg State : Type}
+Lemma deploy_contract : forall {Setup Msg State Error : Type}
                               `{Serializable Setup}
                               `{Serializable Msg}
                               `{Serializable State}
-                               (contract : Contract Setup Msg State)
+                              `{Serializable Error}
+                               (contract : Contract Setup Msg State Error)
                                bstate origin from caddr amount acts setup cstate,
   reachable bstate ->
   chain_state_queue bstate = {| act_from := from;
@@ -759,7 +767,7 @@ Lemma deploy_contract : forall {Setup Msg State : Type}
   Blockchain.init contract
         (transfer_balance from caddr amount bstate)
         (build_ctx origin from caddr amount amount)
-        setup = Some cstate ->
+        setup = Ok cstate ->
     (exists bstate' (trace : ChainTrace empty_state bstate'),
        reachable_through bstate bstate'
     /\ env_contracts bstate' caddr = Some (contract : WeakContract)

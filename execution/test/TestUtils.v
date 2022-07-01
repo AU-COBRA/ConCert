@@ -50,13 +50,14 @@ Definition build_transfers (from : Address)
                            (txs : list (Address * Amount))
                            : list Action :=
   map (fun '(to, amount) => build_transfer from to amount) txs.
-Definition build_deploy {Setup Msg State : Type}
+Definition build_deploy {Setup Msg State Error : Type}
                         `{Serializable Setup}
                         `{Serializable Msg}
                         `{Serializable State}
+                        `{Serializable Error}
                         (from : Address)
                         (amount : Amount)
-                        (contract : Contract Setup Msg State)
+                        (contract : Contract Setup Msg State Error)
                         (setup : Setup)
                         : Action :=
   build_act from from (create_deployment amount contract setup).

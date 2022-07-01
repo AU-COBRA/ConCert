@@ -25,18 +25,41 @@ Definition sep : string := ", ".
 Derive Show for SerializedType.
 
 Derive Show for result.
-Derive Show for ActionEvaluationError.
 
-Instance showContract {Setup Msg State : Type}
-                     `{Serializable Setup}
-                     `{Serializable Msg}
-                     `{Serializable State}
-                      : Show (Contract Setup Msg State) :=
+Instance showActionEvaluationError
+    `{Show (@Address Base)}
+    `{Show SerializedValue}
+    : Show ActionEvaluationError :=
+{|
+  show err :=
+    match err with
+    | amount_negative amount => "cannot transfer negative amount(" ++ show amount ++ ")"
+    | amount_too_high amount => "cannot transfer amount(" ++
+        show amount ++ ")" ++ "larger than users' balance"
+    | no_such_contract addr => "no contract found with address: " ++ show addr
+    | too_many_contracts => "too many contracts; no unused addresses left"
+    | init_failed err => "init failed with error: " ++ show err
+    | receive_failed err => "receive failed with error: " ++ show err
+    | deserialization_failed val => "failed deserializing value"
+    | internal_error => "internal error"
+    end
+|}.
+
+Instance showContract
+          {Setup Msg State Error: Type}
+          `{Serializable Setup}
+          `{Serializable Msg}
+          `{Serializable State}
+          `{Serializable Error}
+          : Show (Contract Setup Msg State Error) :=
 {|
   show c := "Contract{...}"
 |}.
 
-Instance showEnvironment (BaseTypes : ChainBase) `{Show Chain}: Show Environment :=
+Instance showEnvironment
+          (BaseTypes : ChainBase)
+          `{Show Chain}
+          : Show Environment :=
 {|
   show env := "Environment{"
               ++ "chain: " ++ show (env_chain env) ++ sep
@@ -62,11 +85,15 @@ match st as st0 return interp_type st0 -> string with
 
 Definition ex_serialized_type := ser_pair (ser_list (ser_list ser_bool)) ser_int.
 (* Compute (interp_type ex_serialized_type). *)
+
 Definition ex_val := ([[true;false];[true;true];[false];[]], 2%Z).
 (* Compute (string_of_interp_type ex_serialized_type ex_val). *)
 
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
-Instance showBlockHeader (BaseTypes : ChainBase) `{Show (@Address BaseTypes)} : Show (@BlockHeader BaseTypes) :=
+Instance showBlockHeader
+          (BaseTypes : ChainBase)
+          `{Show (@Address BaseTypes)}
+          : Show (@BlockHeader BaseTypes) :=
   {|
     show bh :=
       "BlockHeader{" ++ "bheight: "     ++ show (block_height bh)           ++ sep
@@ -76,10 +103,17 @@ Instance showBlockHeader (BaseTypes : ChainBase) `{Show (@Address BaseTypes)} : 
                      ++ "bcreator: "    ++ show (block_creator bh)          ++ "}"
   |}.
 
-  (* We dont show the bound because it may be a very large number which, when converted to nat and then to string, gives a memory overflow. *)
-Instance showBoundedN {bound : N} `{Show N} : Show (BoundedN.BoundedN bound) :=
+  (* We dont show the bound because it may be a very large number which,
+     when converted to nat and then to string, gives a memory overflow. *)
+Instance showBoundedN
+          {bound : N}
+          `{Show N}
+          : Show (BoundedN.BoundedN bound) :=
 {|
-  show bn := match bn with | BoundedN.bounded n _ => show n ++ "%" ++ show bound end
+  show bn :=
+    match bn with
+    | BoundedN.bounded n _ => show n ++ "%" ++ show bound
+    end
 |}.
 
 Instance showBoundedNAddrSize : Show (BoundedN.BoundedN AddrSize) :=
@@ -110,7 +144,9 @@ show cctx := "ContractCallContext{"
              ++ "ctx_amount: " ++ show (@ctx_amount Base cctx) ++ "}"
 |}.
 
-Instance showActionBody `{Show SerializedValue} : Show ActionBody :=
+Instance showActionBody
+          `{Show SerializedValue}
+          : Show ActionBody :=
 {|
   show a := match a with
     | act_transfer addr amount =>
@@ -122,33 +158,45 @@ Instance showActionBody `{Show SerializedValue} : Show ActionBody :=
     end
 |}.
 
-Instance showLocalAction `{Show ActionBody} : Show (@Action Base) :=
+Instance showLocalAction
+          `{Show ActionBody}
+          : Show (@Action Base) :=
 {|
   show a := "Action{"
             ++ "act_from: " ++ show (act_from a) ++ sep
             ++ "act_body: " ++ show (act_body a) ++ "}"
 |}.
 
-Instance showLocalActionList `{Show (@Action Base)}: Show (list (@Action Base)) :=
+Instance showLocalActionList
+          `{Show (@Action Base)}
+          : Show (list (@Action Base)) :=
 {|
   show a := String.concat (";" ++ nl) (map show a)
 |}.
 Existing Instance showLocalActionList | 0.
 
-Instance showOptLocalActionList `{Show (option (@Action Base))}: Show (list (option (@Action Base))) :=
+Instance showOptLocalActionList
+          `{Show (option (@Action Base))}
+          : Show (list (option (@Action Base))) :=
 {|
   show a := String.concat (";" ++ nl) (map show a)
 |}.
 Existing Instance showOptLocalActionList | 0.
 
-Instance showChainState `{Show Environment} `{Show (@Action Base)} : Show (@ChainState Base) :=
+Instance showChainState
+          `{Show Environment}
+          `{Show (@Action Base)}
+          : Show (@ChainState Base) :=
 {|
   show a := "ChainState{"
             ++ "env: " ++ show a.(chain_state_env) ++ sep
             ++ "queue: " ++ show a.(chain_state_queue) ++ "}"
 |}.
 
-Instance showContractCallInfo {Msg : Type} `{Show Msg} : Show (ContractCallInfo Msg) :=
+Instance showContractCallInfo
+          {Msg : Type}
+          `{Show Msg}
+          : Show (ContractCallInfo Msg) :=
 {|
   show info := "ContractCallInfo{"
                 ++ "call_from: " ++ show (call_from info) ++ sep
@@ -158,10 +206,13 @@ Instance showContractCallInfo {Msg : Type} `{Show Msg} : Show (ContractCallInfo 
 
 (* Show instanced related to ChainedLists and ChainTraces *)
 
-Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
+Instance showAddBlockError
+          `{Show (@Action Base)}
+          `{Show SerializedValue}
+          : Show AddBlockError :=
 {|
   show err := match err with
-              | invalid_header => "invalid_header"
+              | invalid_header header => "invalid_header: " ++ show header
               | invalid_root_action act => "invalid_root_action: " ++ show act
               | origin_from_mismatch act => "origin_from_mismatch: " ++ show act
               | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded"
@@ -170,7 +221,10 @@ Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
               end
 |}.
 
-Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace from to) :=
+Instance showChainTraceI
+          `{Show (@Action Base)}
+          {from to : ChainState}
+          : Show (ChainTrace from to) :=
 {|
   show :=
     let fix showChainTrace {from to : ChainState} (trace : ChainTrace from to) :=
@@ -190,14 +244,18 @@ Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace fro
     showChainTrace
 |}.
 
-Instance showLCB `{Show (@Action Base)} : Show ChainBuilder :=
+Instance showLCB
+          `{Show (@Action Base)}
+          : Show ChainBuilder :=
 {|
   show cb := "Chain{| " ++ nl
              ++ show cb.(lcb_trace)
              ++ "|}" ++ nl
 |}.
 
-Instance showChainBuilderType {BaseTypes : ChainBase}: Show (@ChainBuilderType BaseTypes) :=
+Instance showChainBuilderType
+          {BaseTypes : ChainBase}
+          : Show (@ChainBuilderType BaseTypes) :=
   {| show a := "ChainBuilderType{...}" |}.
 
 Instance showChain (BaseTypes : ChainBase) : Show Chain :=

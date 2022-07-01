@@ -25,23 +25,29 @@ Proof.
     destruct t; auto.
 Qed.
 
-Definition result_of_option {T E} (o : option T) (err : E) : result T E :=
+Definition result_of_option {T E : Type} (o : option T) (err : E) : result T E :=
   match o with
   | Some a => Ok a
   | None => Err err
   end.
 
-Definition option_of_result {T E} (r : result T E) : option T :=
+Definition option_of_result {T E : Type} (r : result T E) : option T :=
   match r with
   | Ok t => Some t
   | Err e => None
   end.
 
-Definition unpack_result {T E} (r : result T E) :=
+Definition unpack_result {T E : Type} (r : result T E) :=
   match r return match r with
                   | Ok _ => T
                   | Err _ => E
                   end with
   | Ok t => t
   | Err e => e
+  end.
+
+Definition bind_error {T E1 E2 : Type} (f : E1 -> E2) (r : result T E1) : result T E2 :=
+  match r with
+  | Ok t => Ok t
+  | Err e => Err (f e)
   end.
