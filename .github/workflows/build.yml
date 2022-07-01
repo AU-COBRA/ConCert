@@ -1,5 +1,23 @@
 name: Build
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - '**.editorconfig'
+    - 'LICENSE'
+    - 'papers/**'
+    - 'extra/docker/**'
+  pull_request:
+    paths-ignore:
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - '**.editorconfig'
+    - 'LICENSE'
+    - 'papers/**'
+    - 'extra/docker/**'
 jobs:
   build:
     runs-on: ubuntu-latest
