@@ -2,6 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Utils Require Import RecordUpdate.
@@ -63,9 +64,10 @@ Global Instance ClientMsg_serializable : Serializable ClientMsg := FA2Token.FA2R
 End Serialization.
 
 Definition client_init (chain : Chain)
-                (ctx : ContractCallContext)
-                (setup : ClientSetup) : option ClientState :=
-  Some {|
+                       (ctx : ContractCallContext)
+                       (setup : ClientSetup)
+                       : result ClientState unit :=
+  Ok {|
     fa2_caddr := setup.(fa2_caddr_);
     bit := 0;
   |}.
@@ -74,15 +76,15 @@ Definition client_receive (chain : Chain)
                     (ctx : ContractCallContext)
                    (state : ClientState)
                    (maybe_msg : option ClientMsg)
-                   : option (ClientState * list ActionBody) :=
+                   : result (ClientState * list ActionBody) unit :=
   match maybe_msg with
-  | Some (receive_is_operator is_op_response) => Some (state<| bit:= 42|>, [])
+  | Some (receive_is_operator is_op_response) => Ok (state<| bit:= 42|>, [])
   | Some (other_msg (Call_fa2_is_operator is_op_param)) =>
-      Some (state<| bit := 2|>, [act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (FA2Token.msg_is_operator is_op_param))])
-  | _ => None
+      Ok (state<| bit := 2|>, [act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (FA2Token.msg_is_operator is_op_param))])
+  | _ => Err tt
   end.
 
-Definition client_contract : Contract FA2Client.ClientSetup ClientMsg FA2Client.ClientState :=
+Definition client_contract : Contract FA2Client.ClientSetup ClientMsg FA2Client.ClientState unit :=
   build_contract client_init client_receive.
 
 End FA2Client.
@@ -132,9 +134,10 @@ Global Instance hookstate_serializable : Serializable HookState :=
 End Serialization.
 
 Definition hook_init (chain : Chain)
-                (ctx : ContractCallContext)
-                (setup : HookSetup) : option HookState :=
-  Some {|
+                     (ctx : ContractCallContext)
+                     (setup : HookSetup)
+                     : result HookState unit :=
+  Ok {|
     hook_owner := ctx.(ctx_from);
     hook_fa2_caddr := setup.(hook_fa2_caddr_);
     hook_policy := setup.(hook_policy_);
@@ -143,15 +146,15 @@ Definition hook_init (chain : Chain)
 Definition check_transfer_permissions (tr : transfer_descriptor)
                                       (operator : Address)
                                       (state : HookState)
-                                      : option unit :=
-  do from <- tr.(transfer_descr_from_) ;
+                                      : result unit unit :=
+  do from <- result_of_option (tr.(transfer_descr_from_)) tt;
   if (address_eqb from operator)
   then if (FA2Token.policy_disallows_self_transfer state.(hook_policy))
-    then None
-    else Some tt
+    then Err tt
+    else Ok tt
   else if (FA2Token.policy_disallows_operator_transfer state.(hook_policy))
-    then None
-    else Some tt.
+    then Err tt
+    else Ok tt.
 
 (* called whenever this hook receives a transfer from the FA2 contract *)
 (* checks the permission policy, and if all transfers are valid,
@@ -159,41 +162,41 @@ Definition check_transfer_permissions (tr : transfer_descriptor)
 Definition on_hook_receive_transfer (caller : Address)
                                     (param : transfer_descriptor_param)
                                     (state : HookState)
-                                    : option (list ActionBody) :=
-  do _ <- throwIf (negb (address_eqb caller state.(hook_fa2_caddr))) ;
-  do _ <- throwIf (negb (address_eqb param.(transfer_descr_fa2) state.(hook_fa2_caddr))) ;
+                                    : result (list ActionBody) unit :=
+  do _ <- throwIf (negb (address_eqb caller state.(hook_fa2_caddr))) tt;
+  do _ <- throwIf (negb (address_eqb param.(transfer_descr_fa2) state.(hook_fa2_caddr))) tt;
   let operator := param.(transfer_descr_operator) in
   let check_transfer_iterator tr acc :=
     do _ <- check_transfer_permissions tr operator state ;
-    Some tt in
+    Ok tt in
   (* check if all transfers satisfy the permission policy. If at least one does not, the whole operation fails *)
-  do _ <- fold_right check_transfer_iterator (Some tt) param.(transfer_descr_batch) ;
+  do _ <- fold_right check_transfer_iterator (Ok tt) param.(transfer_descr_batch) ;
   (* send out transfer action *)
   let msg := @serialize FA2Token.Msg _ (msg_receive_hook_transfer param) in
-  Some [(act_call caller 0%Z msg)].
+  Ok [(act_call caller 0%Z msg)].
 
 Definition try_update_permission_policy (caller : Address)
-                                    (new_policy : permissions_descriptor)
-                                    (state : HookState)
-                                    : (option HookState) :=
-  do _ <- throwIf (negb (address_eqb caller state.(hook_owner))) ;
-  Some (state<| hook_policy := new_policy |>).
+                                        (new_policy : permissions_descriptor)
+                                        (state : HookState)
+                                        : result HookState unit :=
+  do _ <- throwIf (negb (address_eqb caller state.(hook_owner))) tt;
+  Ok (state<| hook_policy := new_policy |>).
 
 Definition hook_receive (chain : Chain)
-                    (ctx : ContractCallContext)
-                   (state : HookState)
-                   (maybe_msg : option TransferHookMsg)
-                   : option (HookState * list ActionBody) :=
+                        (ctx : ContractCallContext)
+                        (state : HookState)
+                        (maybe_msg : option TransferHookMsg)
+                        : result (HookState * list ActionBody) unit :=
   let sender := ctx.(ctx_from) in
-  let without_actions := option_map (fun new_state => (new_state, [])) in
-  let without_statechange := option_map (fun acts => (state, acts)) in
+  let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
+  let without_statechange x := x >>= (fun acts => Ok (state, acts)) in
   match maybe_msg with
   | Some (transfer_hook param) => without_statechange (on_hook_receive_transfer sender param state)
   | Some (hook_other_msg (set_permission_policy policy)) => without_actions (try_update_permission_policy sender policy state)
-  | _ => None
+  | _ => Err tt
   end.
 
-Definition hook_contract : Contract HookSetup TransferHookMsg HookState :=
+Definition hook_contract : Contract HookSetup TransferHookMsg HookState unit :=
   build_contract hook_init hook_receive.
 
 End FA2TransferHook.
