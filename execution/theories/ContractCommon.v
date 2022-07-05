@@ -81,13 +81,13 @@ Definition throwIf {E : Type} (cond : bool) (err : E) : result unit E := if cond
 
 Ltac destruct_throw_if H :=
   match type of H with
-  | throwIf _ = None =>
+  | throwIf _ _ = @Err _ _ _ =>
     let G := fresh "G" in
       unfold throwIf in H;
       destruct_match eqn:G in H; try congruence;
       clear H;
       rename G into H
-  | throwIf _ = Some ?u =>
+  | throwIf _ _ = @Ok _ _ ?u =>
     let G := fresh "G" in
       unfold throwIf in H;
       destruct_match eqn:G in H; try congruence;
@@ -116,8 +116,8 @@ Ltac contract_simpl_step receive init :=
   | H : context[Blockchain.init] |- _ => unfold Blockchain.init in H; cbn in H
   | |- context[Blockchain.init] => unfold Blockchain.init; cbn
   | p : (_ * list ActionBody) |- _ => destruct p
-  | H : throwIf _ = None |- _ => destruct_throw_if H
-  | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
+  | H : throwIf _ _ = @Err _ _ _ |- _ => destruct_throw_if H
+  | H : throwIf _ _ = @Ok _ _ ?u |- _ => destruct_throw_if H
   | H : ?f ?x = ?f ?y |- _ => try (injection H as H; subst)
 
   | H : _ match ?m with | @Ok _ _ _ => _ | @Err _ _ _ => @Err _ _ _ end = @Ok _ _ _ |- _ =>
@@ -156,3 +156,32 @@ Ltac contract_simpl_step receive init :=
   end.
 
 Tactic Notation "contract_simpl" constr(r) constr(i) := repeat contract_simpl_step r i.
+
+Ltac result_to_option :=
+  match goal with
+  | H : result_of_option _ _ = @Ok _ _ _ |- _ => apply result_of_option_eq_some in H; try (rewrite H in *)
+  | H : result_of_option _ _ = @Err _ _ _ |- _ => apply result_of_option_eq_none in H; try (rewrite H in *)
+  end.
+
+Ltac solve_facts :=
+  repeat match goal with
+    | H := ?f : nat -> nat -> nat -> nat -> nat -> nat -> Prop |- _ =>
+        is_evar f; instantiate (H := fun _ _ _ _ _ _ => Logic.True)
+    | H := ?f : _ -> ContractCallContext -> Prop |- _ =>
+        is_evar f; instantiate (H := fun _ _ => Logic.True)
+    | H := ?f : Chain -> ContractCallContext -> _ ->
+    list ActionBody -> option (list (ContractCallInfo _)) -> Prop |- _ =>
+        is_evar f; instantiate (H := fun _ _ _ _ _ => Logic.True)
+    end;
+    unset_all; subst;
+    destruct_chain_step; [
+       auto
+     | destruct_action_eval; [
+         auto
+       | auto
+       | auto; intros ?cstate ?deployed ?deployed_state;
+          cbn; subst
+       ]
+     | auto
+     | auto
+    ].
