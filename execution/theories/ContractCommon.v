@@ -4,6 +4,7 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import ResultMonad.
 From Coq Require Import ZArith.
 
 (** A type of  finite maps (dictionaries) with addresses as keys.
@@ -76,7 +77,7 @@ Qed.
 Close Scope N_scope.
 
 
-Definition throwIf (cond : bool) := if cond then None else Some tt.
+Definition throwIf {E : Type} (cond : bool) (err : E) : result unit E := if cond then Err err else Ok tt.
 
 Ltac destruct_throw_if H :=
   match type of H with
@@ -117,8 +118,25 @@ Ltac contract_simpl_step receive init :=
   | p : (_ * list ActionBody) |- _ => destruct p
   | H : throwIf _ = None |- _ => destruct_throw_if H
   | H : throwIf _ = Some ?u |- _ => destruct_throw_if H
-  | H : Some _ = Some _ |- _ =>
-      inversion H; clear H; subst
+  | H : ?f ?x = ?f ?y |- _ => try (injection H as H; subst)
+
+  | H : _ match ?m with | @Ok _ _ _ => _ | @Err _ _ _ => @Err _ _ _ end = @Ok _ _ _ |- _ =>
+      destruct_match_some m in H
+  | H : match ?m with | @Ok _ _ _ => _ | @Err _ _ _ => @Err _ _ _ end = @Ok _ _ _ |- _ =>
+      destruct_match_some m in H
+  | H : _ (if ?m then @Err _ _ _ else _) = @Ok _ _ _ |- _ =>
+      destruct_match_some m in H
+  | H : _ (if ?m then _ else @Err _ _ _) = @Ok _ _ _ |- _ =>
+      destruct_match_some m in H
+  | H : (if ?m then @Err _ _ _ else _) = @Ok _ _ _ |- _ =>
+      destruct_match_some m in H
+  | H : (if ?m then _ else @Err _ _ _) = @Ok _ _ _ |- _ =>
+      destruct_match_some m in H
+  | |- context [_ (match ?m with @Ok _ _ _ => _ | @Err _ _ _ => _ end) = @Ok _ _ _] =>
+      destruct m eqn:?H
+  | |- context [match ?m with @Ok _ _ _ => _ | @Err _ _ _ => _ end = @Ok _ _ _] =>
+      destruct m eqn:?H
+
   | H : _ match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
       destruct_match_some m in H
   | H : match ?m with | Some _ => _ | None => None end = Some _ |- _ =>
