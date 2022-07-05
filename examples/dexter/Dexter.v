@@ -6,6 +6,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.EIP20 Require EIP20Token.
 
@@ -63,17 +64,18 @@ Section Dexter.
   (* calculates exchange rate *)
   Open Scope Z_scope.
   Definition getInputPrice (tokens_to_be_sold : Amount)
-                          (tokens_reserve : Amount)
-                          (asset_reserve : Amount) :=
-    Z.div (tokens_to_be_sold * 997 * asset_reserve) (tokens_reserve * 1000 + tokens_to_be_sold * 997).
+                           (tokens_reserve : Amount)
+                           (asset_reserve : Amount) :=
+    Z.div (tokens_to_be_sold * 997 * asset_reserve)
+          (tokens_reserve * 1000 + tokens_to_be_sold * 997).
 
   Definition begin_exchange_tokens_to_assets (dexter_asset_reserve : Amount)
-                                            (caller : Address)
-                                            (params : exchange_param)
-                                            (dexter_caddr : Address)
-                                            (state : State)
-                                            : option (State * (list ActionBody)) :=
-    do _ <- throwIf (negb (address_eqb caller params.(exchange_owner))) ;
+                                             (caller : Address)
+                                             (params : exchange_param)
+                                             (dexter_caddr : Address)
+                                             (state : State)
+                                             : result (State * (list ActionBody)) unit :=
+    do _ <- throwIf (negb (address_eqb caller params.(exchange_owner))) tt;
     let tokens_to_sell := Z.of_N params.(tokens_sold) in
     let tokens_price := getInputPrice tokens_to_sell (Z.of_N state.(token_pool)) dexter_asset_reserve in
     (* send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)
@@ -83,33 +85,35 @@ Section Dexter.
     let token_transfer_msg := act_call state.(token_caddr) 0%Z (@serialize EIP20Token.Msg _ (token_transfer_param)) in
     let new_state := state<|token_pool := N.add state.(token_pool) params.(tokens_sold)|>
                           <| price_history := state.(price_history) ++ [tokens_price]|> in
-    Some (new_state, [asset_transfer_msg; token_transfer_msg]).
+    Ok (new_state, [asset_transfer_msg; token_transfer_msg]).
 
   Open Scope Z_scope.
   Definition receive (chain : Chain)
                      (ctx : ContractCallContext)
                      (state : State)
                      (maybe_msg : option Msg)
-                     : option (State * list ActionBody) :=
+                     : result (State * list ActionBody) unit :=
     let sender := ctx.(ctx_from) in
     let caddr := ctx.(ctx_contract_address) in
     let dexter_balance := ctx.(ctx_contract_balance) in
     match maybe_msg with
-    | Some (tokens_to_asset params) => begin_exchange_tokens_to_assets dexter_balance sender params caddr state
+    | Some (tokens_to_asset params) =>
+        begin_exchange_tokens_to_assets dexter_balance sender params caddr state
     (* Ignore any other type of call to this contract *)
-    | _ => Some (state, [])
+    | _ => Ok (state, [])
     end.
 
   Definition init (chain : Chain)
                   (ctx : ContractCallContext)
-                  (setup : Setup) : option State :=
-    Some {|
+                  (setup : Setup)
+                  : result State unit :=
+    Ok {|
       token_pool := setup.(token_pool_);
       token_caddr := setup.(token_caddr_);
       price_history := []
     |}.
 
-  Definition contract : Contract Setup Msg State :=
+  Definition contract : Contract Setup Msg State unit :=
     build_contract init receive.
 
 End Dexter.
