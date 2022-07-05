@@ -17,6 +17,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.EIP20 Require EIP20Token.
@@ -34,7 +35,8 @@ Open Scope N_scope.
 *)
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
-                (setup : Setup) : option State :=
+                (setup : Setup)
+                : result State unit :=
   (** BAToken should not be deployable if one of the following conditions does not hold on [setup]
       - funding period is non empty
       - funding period does not start before the slot where the contract is deployed
@@ -53,13 +55,13 @@ Definition init (chain : Chain)
           || (setup.(_tokenExchangeRate) =? 0)
           || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))
           || address_eqb setup.(_batFundDeposit) ctx.(ctx_contract_address)
-          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) ;
+          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) tt;
   let token_state := {|
       EIP20Token.balances := FMap.add setup.(_batFundDeposit) setup.(_batFund) FMap.empty;
       EIP20Token.total_supply := setup.(_batFund);
       EIP20Token.allowances := FMap.empty;
     |} in
-  Some {|
+  Ok {|
     (** EIP20Token initialisation: *)
     token_state := token_state;
     (** BAT initialisation: *)
@@ -76,39 +78,46 @@ Definition init (chain : Chain)
 
 (** ** Create Tokens *)
 (** This entrypoint allows users to fund the crowdsale in return for tokens *)
-Definition try_create_tokens sender (sender_payload : Amount) current_slot state :=
+Definition try_create_tokens (sender : Address)
+                             (sender_payload : Amount)
+                             (current_slot : nat)
+                             (state : State)
+                             : result State unit :=
  (** Early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
   do _ <- throwIf (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
           || (Nat.ltb state.(fundingEnd) current_slot)
-          || (address_eqb sender state.(batFundDeposit))) ;
+          || (address_eqb sender state.(batFundDeposit))) tt;
   (** Here we deviate slightly from the reference implementation. They only check for = 0,
       but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
-  do _ <- throwIf (Z.leb sender_payload 0) ;
+  do _ <- throwIf (Z.leb sender_payload 0) tt;
   (** Note: this conversion from Z to N is safe because by assumption sender_payload > 0 *)
   let tokens := (Z.to_N sender_payload) * state.(tokenExchangeRate) in
   let checkedSupply := (total_supply state) + tokens in
-  do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) ;
+  do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) tt;
   let new_token_state : EIP20Token.State := {|
     EIP20Token.total_supply := checkedSupply;
     EIP20Token.balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + tokens)) sender (balances state);
     EIP20Token.allowances := allowances state;
   |} in
-  Some (state<|token_state := new_token_state|>).
+  Ok (state<|token_state := new_token_state|>).
 
 (** ** Refund *)
 (** This entrypoint can be called if crowdsale is not successfully funded.
     Users calling this entrypoint will have their tokens removed and get their money refunded.
 *)
-Definition try_refund sender current_slot state :=
+Definition try_refund (sender : Address)
+                      (current_slot : nat)
+                      (state : State)
+                      : result (State * list ActionBody) unit :=
   (** Early return if funding is finalized, or funding period is NOT over, or if total supply exceeds or is equal to the minimum fund tokens. *)
   do _ <- throwIf (state.(isFinalized)
           || (Nat.leb current_slot state.(fundingEnd))
-          || (state.(tokenCreationMin) <=? (total_supply state))) ;
+          || (state.(tokenCreationMin) <=? (total_supply state))) tt;
   (** Don't allow the the batFundDeposit account to refund *)
-  do _ <- throwIf (address_eqb sender state.(batFundDeposit)) ;
-  do sender_bats <- FMap.find sender (balances state) ;
-  do _ <- throwIf (sender_bats =? 0) ;
+  do _ <- throwIf (address_eqb sender state.(batFundDeposit)) tt;
+  do sender_bats <- result_of_option (FMap.find sender (balances state)) tt ;
+  do _ <- throwIf (sender_bats =? 0) tt;
   let new_total_supply := (total_supply) state - sender_bats in
   (** Convert tokens back to the currency of the blockchain, to be sent back to the sender address *)
   let amount_to_send := Z.of_N (sender_bats / state.(tokenExchangeRate)) in
@@ -119,13 +128,17 @@ Definition try_refund sender current_slot state :=
   |} in
   let new_state := state<|token_state := new_token_state|> in
   let send_act := act_transfer sender amount_to_send in
-    Some (new_state, [send_act]).
+    Ok (new_state, [send_act]).
 
 (** ** Finalize *)
 (** This entrypoint will end the crowdsale and pay out the money to the owner.
     Can only be called if funding was successful.
 *)
-Definition try_finalize sender current_slot contract_balance state :=
+Definition try_finalize (sender : Address)
+                        (current_slot : nat)
+                        (contract_balance : Amount)
+                        (state : State)
+                        : result (State * list ActionBody) unit :=
   (** Early return if funding is finalized, or if sender is NOT the fund deposit address,
       or if the total token supply is less than the minimum required amount,
       or if it is too early to end funding and the total token supply has not reached the cap.
@@ -133,12 +146,12 @@ Definition try_finalize sender current_slot contract_balance state :=
   *)
   do _ <- throwIf (state.(isFinalized) ||
                    (negb (address_eqb sender state.(fundDeposit))) ||
-                   ((total_supply state) <? state.(tokenCreationMin))) ;
-  do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) ;
+                   ((total_supply state) <? state.(tokenCreationMin))) tt;
+  do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) tt;
   (** Send the currency of the contract back to the fund *)
   let send_act := act_transfer state.(fundDeposit) contract_balance in
   let new_state := state<|isFinalized := true|> in
-  Some (new_state, [send_act]).
+  Ok (new_state, [send_act]).
 
 (** ** Receive *)
 (** This is the main entrypoint function.
@@ -146,21 +159,21 @@ Definition try_finalize sender current_slot contract_balance state :=
 *)
 Open Scope Z_scope.
 Definition receive_bat (chain : Chain)
-                    (ctx : ContractCallContext)
-                   (state : State)
-                   (maybe_msg : option Msg)
-                   : option (State * list ActionBody) :=
+                       (ctx : ContractCallContext)
+                       (state : State)
+                       (maybe_msg : option Msg)
+                       : result (State * list ActionBody) unit :=
   let sender := ctx.(ctx_from) in
   let sender_payload := ctx.(ctx_amount) in
   let slot := chain.(current_slot) in
   let contract_balance := ctx.(ctx_contract_balance) in
-  let without_actions := option_map (fun new_state => (new_state, [])) in
-  let not_payable x := do _ <- throwIf (sender_payload >? 0) ; x in
+  let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
+  let not_payable x := do _ <- throwIf (sender_payload >? 0) tt; x in
   match maybe_msg with
   | Some create_tokens => without_actions (try_create_tokens sender sender_payload slot state)
   | Some refund => not_payable (try_refund sender slot state)
   | Some finalize => not_payable (try_finalize sender slot contract_balance state)
-  | _ => None
+  | _ => Err tt
   end.
 Close Scope Z_scope.
 
@@ -170,17 +183,17 @@ Definition receive (chain : Chain)
                     (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
-                   : option (State * list ActionBody) :=
+                   : result (State * list ActionBody) unit :=
   match maybe_msg with
   | Some (tokenMsg msg) =>
-                     do _ <- throwIf (negb (isFinalized state)) ;
+                     do _ <- throwIf (negb (isFinalized state)) tt;
                      do res <- EIP20Token.receive chain ctx state.(token_state) (Some msg) ;
                      let new_state := state<|token_state := fst res|> in
-                         Some (new_state, snd res)
+                         Ok (new_state, snd res)
   | _ => receive_bat chain ctx state maybe_msg
   end.
 
-Definition contract : Contract Setup Msg State :=
+Definition contract : Contract Setup Msg State unit :=
   build_contract init receive.
 
 End BATFixed.
