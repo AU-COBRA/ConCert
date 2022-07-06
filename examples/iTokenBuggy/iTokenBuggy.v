@@ -8,6 +8,7 @@ From Coq Require Import List.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
@@ -58,26 +59,36 @@ Section iTokenBuggy.
   End Serialization.
 
   Definition init (chain : Chain)
-       (ctx : ContractCallContext)
-       (setup : Setup) : option State :=
-    Some {| total_supply := setup.(init_amount);
-            balances := FMap.add setup.(owner) setup.(init_amount) FMap.empty;
-            allowances := FMap.empty |}.
+                  (ctx : ContractCallContext)
+                  (setup : Setup)
+                  : result State unit :=
+    Ok {|
+      total_supply := setup.(init_amount);
+      balances := FMap.add setup.(owner) setup.(init_amount) FMap.empty;
+      allowances := FMap.empty
+    |}.
 
   (* In this implementation we always let users arbitrarily mint (create) tokens. *)
-  Definition try_mint caller amount state : State :=
+  Definition try_mint (caller : Address)
+                      (amount : N)
+                      (state : State)
+                      : result State unit :=
     let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) caller in
-    state<|total_supply ::= N.add amount|><| balances ::= new_balances|>.
+    Ok (state<|total_supply ::= N.add amount|>
+             <| balances ::= new_balances|>).
 
   (* If the caller tries to burn more tokens than they have, fail *)
-  Definition try_burn caller burn_amount state : option State :=
+  Definition try_burn (caller : Address)
+                      (burn_amount : N)
+                      (state : State)
+                      : result State unit :=
     let caller_balance := with_default 0 (FMap.find caller state.(balances)) in
     if caller_balance <? burn_amount
-    then None
+    then Err tt
     else
       let new_balances := FMap.add caller (caller_balance - burn_amount) in
-      Some (state<|total_supply := state.(total_supply) - burn_amount|>
-                 <|balances ::= new_balances|>).
+      Ok (state<|total_supply := state.(total_supply) - burn_amount|>
+                <|balances ::= new_balances|>).
 
 
 (* The delegate tries to transfer <amount> tokens from <from> to <to>.
@@ -87,55 +98,57 @@ Section iTokenBuggy.
                                      (from : Address)
                                      (to : Address)
                                      (amount : N)
-                                     (state : State) : option State :=
-    do from_allowances_map <- FMap.find from state.(allowances) ;
-    do delegate_allowance <- FMap.find delegate from_allowances_map ;
+                                     (state : State)
+                                     : result State unit :=
+    do from_allowances_map <- result_of_option (FMap.find from state.(allowances)) tt;
+    do delegate_allowance <- result_of_option (FMap.find delegate from_allowances_map) tt;
     let from_balance := with_default 0 (FMap.find from state.(balances)) in
     (* Bug starts here! to_balance is calculated too early! *)
     let to_balance := with_default 0 (FMap.find to state.(balances)) in
     if ((delegate_allowance <? amount) && negb (from =? to)%address) || (from_balance <? amount)
-    then None
+    then Err tt
     else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
         let new_balances := FMap.add from (from_balance - amount) state.(balances) in
         (* Bug here! new balance of 'to' is calculated from to_balance. The commented line below is the correct implementation. *)
         let new_balances := FMap.add to (to_balance + amount) new_balances in
         (* let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in *)
-        Some (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
+        Ok (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
 
   (* The caller approves the delegate to transfer up to <amount> tokens on behalf of the caller *)
   Definition try_approve (caller : Address)
-       (delegate : Address)
-       (amount : N)
-       (state : State) : option State :=
+                         (delegate : Address)
+                         (amount : N)
+                         (state : State)
+                         : result State unit :=
     match FMap.find caller state.(allowances) with
     | Some caller_allowances =>
-      Some (state<|allowances ::= FMap.add caller (FMap.add delegate amount caller_allowances) |>)
+      Ok (state<|allowances ::= FMap.add caller (FMap.add delegate amount caller_allowances) |>)
     | None =>
-      Some (state<|allowances ::= FMap.add caller (FMap.add delegate amount FMap.empty) |>)
+      Ok (state<|allowances ::= FMap.add caller (FMap.add delegate amount FMap.empty) |>)
     end.
 
   Open Scope Z_scope.
   Definition receive (chain : Chain)
-       (ctx : ContractCallContext)
-       (state : State)
-       (maybe_msg : option Msg)
-    : option (State * list ActionBody) :=
+                     (ctx : ContractCallContext)
+                     (state : State)
+                     (maybe_msg : option Msg)
+                     : result (State * list ActionBody) unit :=
     let sender := ctx.(ctx_from) in
-    let without_actions := option_map (fun new_state => (new_state, [])) in
+    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     (* Only allow calls with no money attached *)
     if ctx.(ctx_amount) >? 0
-    then None
+    then Err tt
     else match maybe_msg with
-   | Some (transfer_from from to amount) => without_actions (try_transfer_from_buggy sender from to amount state)
-   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-   | Some (mint amount) => without_actions (Some (try_mint sender amount state))
-   | Some (burn amount) => without_actions (try_burn sender amount state)
+    | Some (transfer_from from to amount) => without_actions (try_transfer_from_buggy sender from to amount state)
+    | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
+    | Some (mint amount) => without_actions (try_mint sender amount state)
+    | Some (burn amount) => without_actions (try_burn sender amount state)
    (* transfer actions to this contract are not allowed *)
-         | None => None
+    | None => Err tt
    end.
   Close Scope Z_scope.
 
-  Definition contract : Contract Setup Msg State :=
+  Definition contract : Contract Setup Msg State unit :=
     build_contract init receive.
 
 End iTokenBuggy.
