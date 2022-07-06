@@ -12,6 +12,7 @@ From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 From Coq Require Import String.
@@ -34,9 +35,11 @@ Module CounterRefinementTypes.
 
   Definition storage := Z.
 
-  Definition init (ctx : SimpleCallCtx) (setup : Z) : option storage :=
+  Definition init (ctx : SimpleCallCtx)
+                  (setup : Z)
+                  : result storage unit :=
     let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+    Ok setup.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
 
@@ -54,18 +57,19 @@ Module CounterRefinementTypes.
     now unfold is_true in *.
   Qed.
 
-  Definition counter (msg : msg) (st : storage)
-    : option (Transaction * storage) :=
+  Definition counter (msg : msg)
+                     (st : storage)
+                     : result (Transaction * storage) unit :=
     match msg with
     | Inc i =>
       match (bool_dec true (0 <? i)) with
-      | left H => Some (Transaction_none, proj1_sig (inc_counter st (exist i (eq_sym H))))
-      | right _ => None
+      | left H => Ok (Transaction_none, proj1_sig (inc_counter st (exist i (eq_sym H))))
+      | right _ => Err tt
       end
     | Dec i =>
       match (bool_dec true (0 <? i)) with
-      | left h => Some (Transaction_none, proj1_sig (dec_counter st (exist i (eq_sym h))))
-      | right _ => None
+      | left h => Ok (Transaction_none, proj1_sig (dec_counter st (exist i (eq_sym h))))
+      | right _ => Err tt
       end
     end.
 
@@ -115,7 +119,7 @@ Section LiquidityExtractionSetup.
     ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
     ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-  Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody :=
+  Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody unit :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_counter" ;
 
@@ -160,8 +164,8 @@ Module CameLIGOExtractionSetup.
   Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
 
 
-  Definition init (setup : Z) : option storage :=
-    Some setup.
+  Definition init (setup : Z) : result storage unit :=
+    Ok setup.
 
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
   Definition TT_remap_ligo : list (kername * string) :=
@@ -191,11 +195,11 @@ Module CameLIGOExtractionSetup.
     let ctx_ := ctx in
     match m with
     | Some m => counter m s
-    | None => None
+    | None => Err tt
     end.
 
  
-  Definition COUNTER_MODULE_LIGO : CameLIGOMod msg _ Z storage ActionBody :=
+  Definition COUNTER_MODULE_LIGO : CameLIGOMod msg _ Z storage ActionBody unit :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_counter" ;
 

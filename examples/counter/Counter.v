@@ -8,6 +8,7 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
 
@@ -45,30 +46,41 @@ Section Counter.
 
   (** The main functionality of the contract.
       Dispatches on a message, validates the input and calls the step functions *)
-  Definition counter (st : State) (msg : Msg) : option State :=
+  Definition counter (st : State)
+                     (msg : Msg)
+                     : result State unit :=
     match msg with
-    | Inc i => if (0 <? i) then Some (increment i st)
-              else None
-    | Dec i => if (0 <? i) then Some (decrement i st)
-              else None
+    | Inc i => if (0 <? i)
+               then Ok (increment i st)
+               else Err tt
+    | Dec i => if (0 <? i)
+               then Ok (decrement i st)
+               else Err tt
     end.
 
-  (** The "entry point" of the contract. Dispatches on a message and calls [counter]. *)
-  Definition counter_receive (chain : Chain) (ctx : ContractCallContext)
-             (state : State) (msg : option Msg) : option (State * list ActionBody)
+  (** The "entrypoint" of the contract. Dispatches on a message and calls [counter]. *)
+  Definition counter_receive (chain : Chain)
+                             (ctx : ContractCallContext)
+                             (state : State)
+                             (msg : option Msg)
+                             : result (State * list ActionBody) unit
     := match msg with
        | Some m => match counter state m with
-                   | Some res => Some (res, [])
-                   | None => None
+                   | Ok res => Ok (res, [])
+                   | Err e => Err e
                   end
-       | None => None
+       | None => Err tt
        end.
 
   (** We initialize the contract state with [init_value] and set [owner] to the address from which the contract was deployed *)
-  Definition counter_init (chain : Chain) (ctx : ContractCallContext) (init_value : Z)
-    : option State :=
-    Some {| count := init_value ;
-            owner := ctx.(ctx_from) |}.
+  Definition counter_init (chain : Chain)
+                          (ctx : ContractCallContext)
+                          (init_value : Z)
+                          : result State unit :=
+    Ok {|
+      count := init_value ;
+      owner := ctx.(ctx_from)
+    |}.
 
   (** Deriving the [Serializable] instances for the state and for the messages *)
   Global Instance State_serializable : Serializable State :=
@@ -78,7 +90,7 @@ Section Counter.
     Derive Serializable Msg_rect<Inc, Dec>.
 
   (** The counter contract *)
-  Definition counter_contract : Contract Z Msg State :=
+  Definition counter_contract : Contract Z Msg State unit :=
     build_contract counter_init counter_receive.
 
 End Counter.
@@ -96,7 +108,7 @@ Section FunctionalProperties.
       depending on a message, it either increments or decrements
       by the number sent in the corresponding message *)
   Lemma counter_correct {prev_state next_state msg} :
-  counter prev_state msg = Some next_state ->
+  counter prev_state msg = Ok next_state ->
   match msg with
   | Inc n => prev_state.(count) < next_state.(count)
              /\ next_state.(count) = prev_state.(count) + n
@@ -132,7 +144,7 @@ Open Scope program_scope.
 Import Lia.
 
 Lemma receive_produces_no_calls {chain ctx cstate msg new_cstate} acts :
-  counter_receive chain ctx cstate msg = Some (new_cstate, acts) ->
+  counter_receive chain ctx cstate msg = Ok (new_cstate, acts) ->
   acts = [].
 Proof.
   intros receive_some.

@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From Coq Require Import String.
 From Coq Require Import Lia.
 From Coq Require Import ZArith.
@@ -31,9 +32,11 @@ Module Counter.
   Definition operation := ActionBody.
   Definition storage := Z × address.
 
-  Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
+  Definition init (ctx : SimpleCallCtx)
+                  (setup : Z * address)
+                  : result storage unit :=
     let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+    Ok setup.
 
   Inductive msg :=
   | Inc (_ : Z)
@@ -45,20 +48,21 @@ Module Counter.
   Definition dec_balance (st : storage) (new_balance : Z) :=
     (st.1 - new_balance, st.2).
 
-  Definition counter (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter (msg : msg)
+                     (st : storage)
+                     : result (list operation * storage) unit :=
     match msg with
     | Inc i =>
       if (0 <=? i) then
-        Some ([],inc_balance st i)
-      else None
+        Ok ([],inc_balance st i)
+      else Err tt
     | Dec i =>
       if (0 <=? i) then
-        Some ([],dec_balance st i)
-      else None
+        Ok ([],dec_balance st i)
+      else Err tt
     end.
 
-  Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+  Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
@@ -84,15 +88,18 @@ Module Counter.
   Definition counter_init (ch : Chain) (ctx : ContractCallContext) :=
     init_wrapper init ch ctx.
 
-  Definition counter_receive (chain : Chain) (ctx : ContractCallContext)
-              (st : storage) (msg : option msg) : option (storage * list ActionBody)
-    := match msg with
-        | Some m => match counter m st with
-                  | Some res => Some (res.2,res.1)
-                  | None => None
-                  end
-        | None => None
-        end.
+  Definition counter_receive (chain : Chain) 
+                             (ctx : ContractCallContext)
+                             (st : storage)
+                             (msg : option msg)
+                             : result (storage * list ActionBody) unit :=
+    match msg with
+    | Some m => match counter m st with
+              | Ok res => Ok (res.2,res.1)
+              | Err e => Err e
+              end
+    | None => Err tt
+    end.
 
   (** Deriving the [Serializable] instances for the state and for the messages *)
   Global Instance Msg_serializable : Serializable msg :=
@@ -109,25 +116,31 @@ Import Counter.
 Lemma inc_correct state n m :
   0 <= m ->
   state.1 = n ->
-  exists new_state, counter (Inc m) state = Some ([],new_state)
+  exists new_state, counter (Inc m) state = Ok ([],new_state)
                     /\ new_state.1 = (n + m)%Z.
 Proof.
   intros Hm Hn.
-  eexists. split.
-  - simpl. destruct ?; propify;auto;lia.
-  - simpl. congruence.
+  eexists.
+  split.
+  - simpl.
+    destruct ?; propify;auto;lia.
+  - simpl.
+    congruence.
 Qed.
 
 Lemma dec_correct state n m :
   0 <= m ->
   state.1 = n ->
-  exists new_state, counter (Dec m) state = Some ([],new_state)
+  exists new_state, counter (Dec m) state = Ok ([],new_state)
                     /\ new_state.1 = (n - m)%Z.
 Proof.
   intros Hm Hn.
-  eexists. split.
-  - simpl. destruct ?; propify;auto;lia.
-  - simpl. congruence.
+  eexists.
+  split.
+  - simpl.
+    destruct ?; propify;auto;lia.
+  - simpl.
+    congruence.
 Qed.
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)

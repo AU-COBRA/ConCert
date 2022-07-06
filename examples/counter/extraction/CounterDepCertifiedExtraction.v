@@ -9,6 +9,7 @@ From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
@@ -31,9 +32,11 @@ Module Counter.
   Definition operation := unit.
   Definition storage := Z × address.
 
-  Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
+  Definition init (ctx : SimpleCallCtx)
+                  (setup : Z * address)
+                  : result storage unit :=
     let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+    Ok setup.
 
   Inductive msg :=
   | Inc (_ : Z)
@@ -50,38 +53,40 @@ Module Counter.
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
-  Definition counter (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter (msg : msg)
+                     (st : storage)
+                     : result (list operation * storage) unit :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h =>
-        Some ([], inc_balance st i h)
-      | right _ => None
+        Ok ([], inc_balance st i h)
+      | right _ => Err tt
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
-      | right _ => None
+      | left h => Ok ([], dec_balance st i h)
+      | right _ => Err tt
       end
     end.
 
   (** A version of the counter with [inc_balance] applied only partially.
       Requires eta-expansion for deboxing, because the last argument is logial. *)
-  Definition counter_partially_applied (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter_partially_applied (msg : msg)
+                                       (st : storage)
+                                       : result (list operation * storage) unit :=
   match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h =>
         let f := inc_balance st i in
-        Some ([], f h)
-      | right _ => None
+        Ok ([], f h)
+      | right _ => Err tt
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
-      | right _ => None
+      | left h => Ok ([], dec_balance st i h)
+      | right _ => Err tt
       end
     end.
 
@@ -115,7 +120,7 @@ Definition TT_rename : list (string * string):=
   ; ("true", "true")
   ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
@@ -150,7 +155,7 @@ Print liquidity_counter.
    There is a version of the counter above that it partially applied, and if we
    try to extract that extraction fails. *)
 
-Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter_partially_applied" ;
 
@@ -210,7 +215,7 @@ Check ConCert_Examples_Counter_extraction_CounterDepCertifiedExtraction_Counter_
 
 (* Now we can extract this one successfully. *)
 
-Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter_partially_applied_expanded" ;
 
