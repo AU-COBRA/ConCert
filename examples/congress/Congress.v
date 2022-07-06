@@ -12,6 +12,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
@@ -107,20 +108,25 @@ Definition validate_rules (rules : Rules) : bool :=
         && (rules.(margin_needed_permille) <=? 1000)
         && (0 <=? rules.(debating_period_in_blocks))%nat.
 
-Definition init
-           (chain : Chain)
-           (ctx : ContractCallContext)
-           (setup : Setup) : option State :=
+Definition init (chain : Chain)
+                (ctx : ContractCallContext)
+                (setup : Setup)
+                : result State unit :=
   if validate_rules setup.(setup_rules) then
-    Some {| owner := ctx.(ctx_from);
-            state_rules := setup.(setup_rules);
-            proposals := FMap.empty;
-            next_proposal_id := 1%nat;
-            members := FMap.empty |}
+    Ok {|
+      owner := ctx.(ctx_from);
+      state_rules := setup.(setup_rules);
+      proposals := FMap.empty;
+      next_proposal_id := 1%nat;
+      members := FMap.empty
+    |}
   else
-    None.
+    Err tt.
 
-Definition add_proposal (actions : list CongressAction) (chain : Chain) (state : State) : State :=
+Definition add_proposal (actions : list CongressAction)
+                        (chain : Chain)
+                        (state : State)
+                        : State :=
   let id := state.(next_proposal_id) in
   let slot_num := chain.(current_slot) in
   let proposal := {| actions := actions;
@@ -130,13 +136,12 @@ Definition add_proposal (actions : list CongressAction) (chain : Chain) (state :
   state<|proposals ::= FMap.add id proposal|>
        <|next_proposal_id ::= S|>.
 
-Definition vote_on_proposal
-           (voter : Address)
-           (pid : ProposalId)
-           (vote : Z)
-           (state : State)
-  : option State :=
-  do proposal <- FMap.find pid state.(proposals);
+Definition vote_on_proposal (voter : Address)
+                            (pid : ProposalId)
+                            (vote : Z)
+                            (state : State)
+                            : result State unit :=
+  do proposal <- result_of_option (FMap.find pid state.(proposals)) tt;
   let old_vote := match FMap.find voter proposal.(votes) with
                  | Some old => old
                  | None => 0
@@ -146,21 +151,20 @@ Definition vote_on_proposal
   let new_proposal :=
       proposal<|votes := new_votes|>
               <|vote_result := new_vote_result|> in
-  Some (state<|proposals ::= FMap.add pid new_proposal|>).
+  Ok (state<|proposals ::= FMap.add pid new_proposal|>).
 
-Definition do_retract_vote
-           (voter : Address)
-           (pid : ProposalId)
-           (state : State)
-  : option State :=
-  do proposal <- FMap.find pid state.(proposals);
-  do old_vote <- FMap.find voter proposal.(votes);
+Definition do_retract_vote (voter : Address)
+                           (pid : ProposalId)
+                           (state : State)
+                           : result State unit :=
+  do proposal <- result_of_option (FMap.find pid state.(proposals)) tt;
+  do old_vote <- result_of_option (FMap.find voter proposal.(votes)) tt;
   let new_votes := FMap.remove voter proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote in
   let new_proposal :=
       proposal<|votes := new_votes|>
               <|vote_result := new_vote_result|> in
-  Some (state<|proposals ::= FMap.add pid new_proposal|>).
+  Ok (state<|proposals ::= FMap.add pid new_proposal|>).
 
 Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
   match act with
@@ -168,7 +172,9 @@ Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :
   | cact_call to amt msg => act_call to amt msg
   end.
 
-Definition proposal_passed (proposal : Proposal) (state : State) : bool :=
+Definition proposal_passed (proposal : Proposal)
+                           (state : State)
+                           : bool :=
   let rules := state.(state_rules) in
   let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
   let total_members := Z.of_nat (FMap.size state.(members)) in
@@ -179,17 +185,16 @@ Definition proposal_passed (proposal : Proposal) (state : State) : bool :=
   let enough_ayes := aye_permille >=? rules.(margin_needed_permille) in
   enough_voters && enough_ayes.
 
-Definition do_finish_proposal
-           (pid : ProposalId)
-           (state : State)
-           (chain : Chain)
-  : option (State * list ActionBody) :=
-  do proposal <- FMap.find pid state.(proposals);
+Definition do_finish_proposal (pid : ProposalId)
+                              (state : State)
+                              (chain : Chain)
+                              : result (State * list ActionBody) unit :=
+  do proposal <- result_of_option (FMap.find pid state.(proposals)) tt;
   let rules := state.(state_rules) in
   let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
   let cur_slot := chain.(current_slot) in
   if (cur_slot <? debate_end)%nat then
-    None
+    Err tt
   else
     let response_acts :=
         if proposal_passed proposal state
@@ -197,36 +202,36 @@ Definition do_finish_proposal
         else [] in
     let response_chain_acts := map congress_action_to_chain_action response_acts in
     let new_state := state<|proposals ::= FMap.remove pid|> in
-    Some (new_state, response_chain_acts).
+    Ok (new_state, response_chain_acts).
 
 Definition receive
            (chain : Chain)
            (ctx : ContractCallContext)
            (state : State)
            (maybe_msg : option Msg)
-  : option (State * list ActionBody) :=
+           : result (State * list ActionBody) unit :=
   let sender := ctx.(ctx_from) in
   let is_from_owner := (sender =? state.(owner))%address in
   let is_from_member := FMap.mem sender state.(members) in
-  let without_actions := option_map (fun new_state => (new_state, [])) in
+  let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
   match maybe_msg, is_from_owner, is_from_member with
   | Some (transfer_ownership new_owner), true, _ =>
-    Some (state<|owner := new_owner|>, [])
+    Ok (state<|owner := new_owner|>, [])
 
   | Some (change_rules new_rules), true, _ =>
     if validate_rules new_rules then
-      Some (state<|state_rules := new_rules|>, [])
+      Ok (state<|state_rules := new_rules|>, [])
     else
-      None
+      Err tt
 
   | Some (add_member new_member), true, _ =>
-    Some (state<|members ::= FMap.add new_member tt|>, [])
+    Ok (state<|members ::= FMap.add new_member tt|>, [])
 
   | Some (remove_member old_member), true, _ =>
-    Some (state<|members ::= FMap.remove old_member|>, [])
+    Ok (state<|members ::= FMap.remove old_member|>, [])
 
   | Some (create_proposal actions), _, true =>
-    Some (add_proposal actions chain state, [])
+    Ok (add_proposal actions chain state, [])
 
   | Some (vote_for_proposal pid), _, true =>
     without_actions (vote_on_proposal sender pid 1 state)
@@ -241,14 +246,13 @@ Definition receive
     do_finish_proposal pid state chain
 
   (* Always allow people to donate money for the Congress to spend *)
-  | None, _, _ => Some (state, [])
+  | None, _, _ => Ok (state, [])
 
   | _, _, _ =>
-        None
-
+        Err tt
   end.
 
-Definition contract : Contract Setup Msg State :=
+Definition contract : Contract Setup Msg State unit :=
   build_contract init receive.
 
 Section Theories.
@@ -274,7 +278,7 @@ Proof.
       try solve [
             repeat
               match goal with
-              | [H: Some ?x = Some ?y |- _] => inversion_clear H; auto
+              | [H: Ok ?x = Ok ?y |- _] => inversion_clear H; auto
               | _ => try congruence; let H := fresh in destruct_match eqn:H in *
               end].
     + destruct_match in receive; try congruence.
@@ -305,7 +309,7 @@ Definition num_cacts_in_state state :=
   sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
 
 Lemma num_cacts_in_state_deployment chain ctx setup state :
-  init chain ctx setup = Some state ->
+  init chain ctx setup = Ok state ->
   num_cacts_in_state state = 0.
 Proof.
   intros init.
@@ -342,7 +346,7 @@ Proof.
 Qed.
 
 Lemma vote_on_proposal_cacts_preserved addr pid vote_val state new_state :
-  vote_on_proposal addr pid vote_val state = Some new_state ->
+  vote_on_proposal addr pid vote_val state = Ok new_state ->
   num_cacts_in_state new_state = num_cacts_in_state state.
 Proof.
   intros vote.
@@ -362,7 +366,7 @@ Qed.
 Hint Resolve FMap.find_remove : core.
 
 Lemma do_retract_vote_cacts_preserved addr pid state new_state :
-  do_retract_vote addr pid state = Some new_state ->
+  do_retract_vote addr pid state = Ok new_state ->
   num_cacts_in_state new_state = num_cacts_in_state state.
 Proof.
   intros retract.
@@ -399,7 +403,7 @@ Qed.
 state change will make up for number of outgoing actions queued. *)
 Lemma receive_state_well_behaved
       chain ctx state msg new_state resp_acts :
-  receive chain ctx state msg = Some (new_state, resp_acts) ->
+  receive chain ctx state msg = Ok (new_state, resp_acts) ->
   num_cacts_in_state new_state + length resp_acts <=
   num_cacts_in_state state +
   match msg with
@@ -443,7 +447,7 @@ Proof.
     unfold do_finish_proposal in receive.
     destruct (FMap.find _ _) eqn:found; cbn in *; try congruence.
     match goal with
-    | [H: (if ?a then _ else _) = Some _ |- _] => destruct a
+    | [H: (if ?a then _ else _) = Ok _ |- _] => destruct a
     end; cbn in *; try congruence.
     inversion receive.
     rewrite <- (remove_proposal_cacts _ _ _ found), map_length.
@@ -477,12 +481,7 @@ Proof.
     lia.
   - intros.
     now rewrite <- perm.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-    instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ _ => True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
+  - solve_facts.
 Qed.
 
 Theorem congress_correct_after_block
