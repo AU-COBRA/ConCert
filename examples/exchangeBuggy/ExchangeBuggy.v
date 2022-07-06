@@ -3,6 +3,7 @@ From Coq Require Import List.
 From Coq Require Import ZArith.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
@@ -75,7 +76,7 @@ Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                            (params : exchange_param)
                                            (exchange_caddr : Address)
                                            (state : State)
-                                           : option (State * (list ActionBody)) :=
+                                           : result (State * (list ActionBody)) unit :=
   (* Send out callbacks to check owner token balance, and exchange contract token balance
      to determine if:
      1. owner has sufficient tokens to exchange
@@ -96,14 +97,15 @@ Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
   let ser_msg := @serialize _ _ (msg_balance_of act) in
   let acts := [act_call state.(fa2_caddr) 0%Z ser_msg] in
   let state := state<| ongoing_exchanges := params :: state.(ongoing_exchanges) |> in
-  Some (state, acts).
+    Ok (state, acts).
 
 (* Calculates exchange rate *)
 Open Scope Z_scope.
 Definition getInputPrice (tokens_to_be_sold : Amount)
                          (tokens_reserve : Amount)
                          (asset_reserve : Amount) :=
-  Z.div (tokens_to_be_sold * 997 * asset_reserve) (tokens_reserve * 1000 + tokens_to_be_sold * 997).
+  Z.div (tokens_to_be_sold * 997 * asset_reserve)
+        (tokens_reserve * 1000 + tokens_to_be_sold * 997).
 
 Open Scope nat.
 (* Calculates exchange rate of previously initiated exchange, and returns outgoing transfer actions,
@@ -112,14 +114,14 @@ Definition receive_balance_response (responses : list balance_of_response)
                                     (exchange_caddr : Address)
                                     (exchange_asset_reserve : Amount)
                                     (state : State)
-                                    : option (State * list ActionBody) :=
-  do _ <- throwIf (negb (length responses =? 2)) ;
-  do trx_owner_balance_response <- nth_error responses 0 ;
-  do exchange_balance_response <- nth_error responses 1 ;
-  do _ <- throwIf (address_not_eqb exchange_caddr exchange_balance_response.(request).(owner)) ;
-  do related_exchange <- last (map Some state.(ongoing_exchanges)) None ;
+                                    : result (State * list ActionBody) unit :=
+  do _ <- throwIf (negb (length responses =? 2)) tt;
+  do trx_owner_balance_response <- result_of_option (nth_error responses 0) tt;
+  do exchange_balance_response <- result_of_option (nth_error responses 1) tt;
+  do _ <- throwIf (address_not_eqb exchange_caddr exchange_balance_response.(request).(owner)) tt;
+  do related_exchange <- result_of_option (last (map Some state.(ongoing_exchanges)) None) tt;
   (* Check if transfer owner has enough tokens to perform the exchange *)
-  do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) ;
+  do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) tt;
   let exchange_token_reserve := exchange_balance_response.(balance) in
   let tokens_to_sell := Z.of_N related_exchange.(tokens_sold) in
   let tokens_price := getInputPrice tokens_to_sell (Z.of_N exchange_token_reserve) exchange_asset_reserve in
@@ -138,22 +140,22 @@ Definition receive_balance_response (responses : list balance_of_response)
   (* Remove exchange from ongoing exchanges in state *)
   let state := state<| ongoing_exchanges := removelast state.(ongoing_exchanges)|>
                     <| price_history := tokens_price :: state.(price_history)   |> in
-  Some (state, [asset_transfer_msg; token_transfer_msg]).
+    Ok (state, [asset_transfer_msg; token_transfer_msg]).
 
 Definition create_tokens (tokenid : token_id)
                          (nr_tokens : Z)
                          (state : State)
-                         : option (State * list ActionBody) :=
+                         : result (State * list ActionBody) unit :=
   let msg := @serialize _ _ (msg_create_tokens tokenid) in
   let create_tokens_act := act_call state.(fa2_caddr) nr_tokens msg in
-  Some (state, [create_tokens_act]).
+    Ok (state, [create_tokens_act]).
 
 Open Scope Z_scope.
 Definition receive (chain : Chain)
                    (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
-                   : option (State * list ActionBody) :=
+                   : result (State * list ActionBody) unit :=
   let caddr := ctx.(ctx_contract_address) in
   let exchange_balance := ctx.(ctx_contract_balance) in
   let amount := ctx.(ctx_amount) in
@@ -164,19 +166,20 @@ Definition receive (chain : Chain)
     begin_exchange_tokens_to_assets ctx params caddr state
   | Some (other_msg (add_to_tokens_reserve tokenid)) =>
     create_tokens tokenid amount state
-  | _ => None
+  | _ => Err tt
   end.
 
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
-                (setup : Setup) : option State :=
-  Some {|
+                (setup : Setup)
+                : result State unit :=
+  Ok {|
     fa2_caddr := setup.(fa2_caddr_);
     ongoing_exchanges := [];
     price_history := []
   |}.
 
-Definition contract : Contract Setup Msg State :=
+Definition contract : Contract Setup Msg State unit :=
   build_contract init receive.
 
 End ExchangeBuggyContract.
