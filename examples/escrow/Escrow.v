@@ -23,6 +23,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
@@ -80,68 +81,71 @@ Global Instance Msg_serializable : Serializable Msg :=
   Derive Serializable Msg_rect<commit_money, confirm_item_received, withdraw>.
 
 Open Scope Z.
-Definition init (chain : Chain) (ctx : ContractCallContext) (setup : Setup)
-  : option State :=
+Definition init (chain : Chain)
+                (ctx : ContractCallContext)
+                (setup : Setup)
+                : result State unit :=
   let seller := ctx_from ctx in
   let buyer := setup_buyer setup in
-  do if (buyer =? seller)%address then None else Some tt;
-  do if ctx_amount ctx =? 0 then None else Some tt;
-  do if Z.even (ctx_amount ctx) then Some tt else None;
-  Some (build_state (current_slot chain) buyer_commit seller buyer 0 0).
+  do if (buyer =? seller)%address then Err tt else Ok tt;
+  do if ctx_amount ctx =? 0 then Err tt else Ok tt;
+  do if Z.even (ctx_amount ctx) then Ok tt else Err tt;
+  Ok (build_state (current_slot chain) buyer_commit seller buyer 0 0).
 
 Definition subAmountOption (n m : Amount) : option Amount :=
   if n <? m then None else Some (n - m).
 
-Definition receive
-           (chain : Chain) (ctx : ContractCallContext)
-           (state : State) (msg : option Msg)
-  : option (State * list ActionBody) :=
+Definition receive (chain : Chain)
+                   (ctx : ContractCallContext)
+                   (state : State)
+                   (msg : option Msg)
+                   : result (State * list ActionBody) unit :=
   match msg, next_step state with
   | Some commit_money, buyer_commit =>
-    do diff_ <- subAmountOption (ctx_contract_balance ctx) (ctx_amount ctx) ;
+    do diff_ <- result_of_option (subAmountOption (ctx_contract_balance ctx) (ctx_amount ctx)) tt;
     let item_price := diff_ / 2 in
     let expected := item_price * 2 in
-    do if (ctx_from ctx =? buyer state)%address then Some tt else None;
-    do if ctx_amount ctx =? expected then Some tt else None;
-    Some (state<|next_step := buyer_confirm|>
-               <|last_action := current_slot chain|>, [])
+    do if (ctx_from ctx =? buyer state)%address then Ok tt else Err tt;
+    do if ctx_amount ctx =? expected then Ok tt else Err tt;
+    Ok (state<|next_step := buyer_confirm|>
+             <|last_action := current_slot chain|>, [])
 
   | Some confirm_item_received, buyer_confirm =>
     let item_price := ctx_contract_balance ctx / 4 in
-    do if (ctx_from ctx =? buyer state)%address then Some tt else None;
-    do if ctx_amount ctx =? 0 then Some tt else None;
+    do if (ctx_from ctx =? buyer state)%address then Ok tt else Err tt;
+    do if ctx_amount ctx =? 0 then Ok tt else Err tt;
     let new_state :=
         state<|next_step := withdrawals|>
              <|buyer_withdrawable := item_price|>
              <|seller_withdrawable := item_price * 3|> in
-    Some (new_state, [])
+    Ok (new_state, [])
 
   | Some withdraw, withdrawals =>
-    do if ctx_amount ctx =? 0 then Some tt else None;
+    do if ctx_amount ctx =? 0 then Ok tt else Err tt;
     let from := ctx_from ctx in
     do '(to_pay, new_state) <-
        match from =? buyer state, from =? seller state with
-       | true, _ => Some (buyer_withdrawable state, state<|buyer_withdrawable := 0|>)
-       | _, true => Some (seller_withdrawable state, state<|seller_withdrawable := 0|>)
-       | _, _ => None
+       | true, _ => Ok (buyer_withdrawable state, state<|buyer_withdrawable := 0|>)
+       | _, true => Ok (seller_withdrawable state, state<|seller_withdrawable := 0|>)
+       | _, _ => Err tt
        end%address;
-    do if to_pay >? 0 then Some tt else None;
+    do if to_pay >? 0 then Ok tt else Err tt;
     let new_state :=
         if (buyer_withdrawable new_state =? 0) && (seller_withdrawable new_state =? 0)
         then new_state<|next_step := no_next_step|>
         else new_state in
-    Some (new_state, [act_transfer (ctx_from ctx) to_pay])
+    Ok (new_state, [act_transfer (ctx_from ctx) to_pay])
   | Some withdraw, buyer_commit =>
-    do if ctx_amount ctx =? 0 then Some tt else None;
-    do if (last_action state + 50 <? current_slot chain)%nat then None else Some tt;
-    do if (ctx_from ctx =? seller state)%address then Some tt else None;
+    do if ctx_amount ctx =? 0 then Ok tt else Err tt;
+    do if (last_action state + 50 <? current_slot chain)%nat then Err tt else Ok tt;
+    do if (ctx_from ctx =? seller state)%address then Ok tt else Err tt;
     let balance := ctx_contract_balance ctx in
-    Some (state<|next_step := no_next_step|>, [act_transfer (seller state) balance])
+    Ok (state<|next_step := no_next_step|>, [act_transfer (seller state) balance])
 
-  | _, _ => None
+  | _, _ => Err tt
   end.
 
-Definition contract : Contract Setup Msg State :=
+Definition contract : Contract Setup Msg State unit :=
   build_contract init receive.
 
 Section Theories.
@@ -524,17 +528,13 @@ Section Theories.
         * now rewrite <- perm.
         * destruct IH as [_ [_ [_ [_ [_ [_ [IH | IH]]]]]]];
             [left|right]; rewrite <- perm; auto.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      unset_all; subst; cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
-      intros.
+    - solve_facts.
       apply trace_reachable in from_reachable.
       pose proof (no_self_calls bstate_from to_addr ltac:(assumption) ltac:(assumption))
            as all.
       unfold outgoing_acts in *.
       rewrite queue_prev in *.
-      subst act; cbn in all.
+      cbn in all.
       destruct_address_eq; cbn in *; auto.
       inversion_clear all as [|? ? hd _].
       destruct msg.
@@ -546,7 +546,8 @@ Section Theories.
   Definition net_balance_effect
              {bstate_from bstate_to : ChainState}
              (trace : ChainTrace bstate_from bstate_to)
-             (caddr addr : Address) : Amount :=
+             (caddr addr : Address)
+             : Amount :=
     sumZ tx_amount (txs_to addr (outgoing_txs trace caddr))
     - sumZ tx_amount (txs_from addr (incoming_txs trace caddr)).
 

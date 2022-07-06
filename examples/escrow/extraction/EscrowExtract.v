@@ -3,6 +3,7 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require CameLIGOPretty.
@@ -14,16 +15,18 @@ From Coq Require Import ZArith.
 
 Local Open Scope string_scope.
 
-Definition escrow_init_wrapper (cctx : ContractCallContext) (s : Setup * Chain) : option State :=
-    Escrow.init (snd s) cctx (fst s).
+Definition escrow_init_wrapper (cctx : ContractCallContext)
+                               (s : Setup * Chain)
+                               : result State unit :=
+  Escrow.init (snd s) cctx (fst s).
 
-Definition ligo_init (s : Address * Setup * nat) : option State :=
+Definition ligo_init (s : Address * Setup * nat) : result State unit :=
   let seller := s.1.1 in
   let setup := s.1.2 in
   let curr_slot := s.2 in
   let buyer := setup_buyer setup in
-  if (buyer =? seller)%address then None
-  else Some {| last_action := curr_slot;
+  if (buyer =? seller)%address then Err tt
+  else Ok {| last_action := curr_slot;
                next_step := buyer_commit;
                seller := seller;
                buyer := buyer;
@@ -42,10 +45,14 @@ Proof.
   now destruct (_ =? _)%address; destruct (Z.even _).
 Qed.
 
-Definition escrow_receive (c : Chain) (cctx : ContractCallContext) (s : State) (msg : option Msg) : option (list ActionBody * State) :=
+Definition escrow_receive (c : Chain)
+                          (cctx : ContractCallContext)
+                          (s : State)
+                          (msg : option Msg)
+                          : result (list ActionBody * State) unit :=
     match Escrow.receive c cctx s msg with
-    | Some (s, acts) => Some (acts, s)
-    | None => None
+    | Ok (s, acts) => Ok (acts, s)
+    | Err e => Err e
     end.
 
 
@@ -61,9 +68,10 @@ Module EscrowCameLIGOExtraction.
     ; ("tt", "()")
     ].
 
-  Definition TT_remap_ligo : list (kername * string) := [ remap <%% subAmountOption %%> "subTez" ].
+  Definition TT_remap_ligo : list (kername * string) :=
+    [ remap <%% subAmountOption %%> "subTez" ].
   
-  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext _ State ActionBody :=
+  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext _ State ActionBody unit :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_escrow" ;
 
@@ -128,11 +136,11 @@ Module EscrowLiquidityExtraction.
 
   Definition liquidity_escrow_receive (m : msg) (s : State) := 
     match receive m.2 m.1.2 s (Some m.1.1) with
-    | Some (s, acts) => Some (acts, s)
-    | None => None
+    | Ok (s, acts) => Ok (acts, s)
+    | Err e => Err e
     end.
   
-  Definition ESCROW_MODULE_LIQUIDITY : LiquidityMod msg ContractCallContext (Setup * Chain) State ActionBody :=
+  Definition ESCROW_MODULE_LIQUIDITY : LiquidityMod msg ContractCallContext (Setup * Chain) State ActionBody unit :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_escrow" ;
 
@@ -193,8 +201,9 @@ Module EscrowLiquidityExtraction.
     ; remap <%% @List.length %%> "List.length"
     ; remap <%% @List.app %%> "List.append"
     ].
+
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-  Definition TT_rename_liquidity : list (string * string):=
+  Definition TT_rename_liquidity : list (string * string) :=
 
     [ ("Some", "Some")
     ; ("None", "None")
@@ -237,7 +246,6 @@ Module EscrowLiquidityExtraction.
     ; <%% @set_State_buyer %%>
     ; <%% @set_State_seller_withdrawable %%>
     ; <%% @set_State_buyer_withdrawable %%>
-
     ].
 
   Import MCMonadNotation.
