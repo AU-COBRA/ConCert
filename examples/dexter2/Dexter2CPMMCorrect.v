@@ -18,6 +18,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution Require Import ContractCommon.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
@@ -41,7 +42,7 @@ Section Theories.
   Transparent ceildiv.
   Transparent ceildiv_.
   Lemma div_eq : forall n m p,
-      div n m = Some p ->
+      div n m = Ok p ->
       n / m = p /\ m <> 0.
   Proof.
     intros * div_some.
@@ -53,8 +54,8 @@ Section Theories.
     now apply N.eqb_neq in m_not_zero.
   Qed.
 
-  Lemma div_zero : forall n m,
-    div n m = None ->
+  Lemma div_zero : forall n m e,
+    div n m = Err e ->
     m = 0.
   Proof.
     intros * div_some.
@@ -67,7 +68,7 @@ Section Theories.
   Opaque div.
 
   Lemma ceildiv_eq : forall n m p,
-    ceildiv n m = Some p ->
+    ceildiv n m = Ok p ->
     ceildiv_ n m = p /\ m <> 0.
   Proof.
     intros * ceildiv_some.
@@ -82,8 +83,8 @@ Section Theories.
       now inversion_clear ceildiv_some.
   Qed.
 
-  Lemma ceildiv_zero : forall n m,
-    ceildiv n m = None ->
+  Lemma ceildiv_zero : forall n m e,
+    ceildiv n m = Err e ->
     m = 0.
   Proof.
     intros * ceildiv_some.
@@ -93,6 +94,7 @@ Section Theories.
     - cbn in ceildiv_some.
       destruct_match eqn:div_some in ceildiv_some;
         try congruence.
+      rewrite ceildiv_some in div_some.
       now apply div_zero in div_some.
   Qed.
   Opaque ceildiv.
@@ -100,7 +102,7 @@ Section Theories.
 
   Transparent sub.
   Lemma sub_eq : forall n m p,
-    sub n m = Some p ->
+    sub n m = Ok p ->
     n - m = p /\ m <= n.
   Proof.
     intros * sub_some.
@@ -111,8 +113,8 @@ Section Theories.
     now rewrite <- N.ltb_ge.
   Qed.
 
-  Lemma sub_fail : forall n m,
-    sub n m = None ->
+  Lemma sub_fail : forall n m e,
+    sub n m = Err e ->
     n < m.
   Proof.
     intros * sub_some.
@@ -136,15 +138,14 @@ Section Theories.
 
 
 
-
   Ltac math_convert_step :=
     match goal with
-    | H : sub _ _ = Some _ |- _ => apply sub_eq in H as [<- H]
-    | H : sub _ _ = None |- _ => apply sub_fail in H
-    | H : div _ _ = Some _ |- _ => apply div_eq in H as [<- H]
-    | H : div _ _ = None |- _ => apply div_zero in H
-    | H : ceildiv _ _ = Some _ |- _ => apply ceildiv_eq in H as [<- H]
-    | H : ceildiv _ _ = None |- _ => apply ceildiv_zero in H
+    | H : sub _ _ = Ok _ |- _ => apply sub_eq in H as [<- H]
+    | H : sub _ _ = Err _ |- _ => apply sub_fail in H
+    | H : div _ _ = Ok _ |- _ => apply div_eq in H as [<- H]
+    | H : div _ _ = Err _ |- _ => apply div_zero in H
+    | H : ceildiv _ _ = Ok _ |- _ => apply ceildiv_eq in H as [<- H]
+    | H : ceildiv _ _ = Err _ |- _ => apply ceildiv_zero in H
     end.
 
   Tactic Notation "math_convert" := repeat math_convert_step.
@@ -157,22 +158,15 @@ Section Theories.
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
     | msg : DexterMsg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ (Some (receive_total_supply_param _)) = Some _ |- _ => now contract_simpl
-    | H : receive_cpmm _ _ _ (Some (receive_total_supply_param _)) = Some _ |- _ => now contract_simpl
-    | H : Blockchain.receive _ _ _ _ (Some (receive_metadata_callback _)) = Some _ |- _ => now contract_simpl
-    | H : receive_cpmm _ _ _ (Some (receive_metadata_callback _)) = Some _ |- _ => now contract_simpl
-    | H : Blockchain.receive _ _ _ _ (Some (receive_is_operator _)) = Some _ |- _ => now contract_simpl
-    | H : receive_cpmm _ _ _ (Some (receive_is_operator _)) = Some _ |- _ => now contract_simpl
-    | H : Blockchain.receive _ _ _ _ (Some (receive_permissions_descriptor _)) = Some _ |- _ => now contract_simpl
-    | H : receive_cpmm _ _ _ (Some (receive_permissions_descriptor _)) = Some _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_total_supply_param _)) = Ok _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_total_supply_param _)) = Ok _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_metadata_callback _)) = Ok _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_metadata_callback _)) = Ok _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_is_operator _)) = Ok _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_is_operator _)) = Ok _ |- _ => now contract_simpl
+    | H : Blockchain.receive _ _ _ _ (Some (receive_permissions_descriptor _)) = Ok _ |- _ => now contract_simpl
+    | H : receive_cpmm _ _ _ (Some (receive_permissions_descriptor _)) = Ok _ |- _ => now contract_simpl
     end.
-
-  Hint Rewrite N.ltb_lt N.ltb_ge
-    Nat.ltb_lt Nat.ltb_ge Nat.leb_le Nat.leb_gt
-    Z.ltb_ge Z.ltb_lt
-    Bool.orb_true_iff Bool.orb_false_iff
-    Bool.andb_true_iff Bool.andb_false_iff
-    Bool.negb_false_iff Bool.negb_true_iff : BoolElim.
   (* end hide *)
 
 
@@ -180,7 +174,7 @@ Section Theories.
   (** ** Set baker correct *)
   (** [set_baker] only changes [freezeBaker] in state *)
   Lemma set_baker_state_eq : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Ok (new_state, new_acts) ->
       prev_state<| freezeBaker := param.(freezeBaker_) |> = new_state.
   Proof.
     intros * receive_some.
@@ -188,7 +182,7 @@ Section Theories.
   Qed.
 
   Lemma set_baker_freeze_baker_correct : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Ok (new_state, new_acts) ->
       new_state.(freezeBaker) = param.(freezeBaker_).
   Proof.
     intros * receive_some.
@@ -198,7 +192,7 @@ Section Theories.
 
   (** [set_baker] produces no new_acts *)
   Lemma set_baker_new_acts_correct : forall chain ctx prev_state param new_state new_acts,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Ok (new_state, new_acts) ->
       new_acts = set_delegate_call param.(baker).
   Proof.
     intros * receive_some.
@@ -213,13 +207,13 @@ Section Theories.
     ctx.(ctx_from) = prev_state.(manager) /\
     prev_state.(freezeBaker) = false
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetBaker param))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       try easy;
       now destruct_address_eq.
   Qed.
@@ -229,7 +223,7 @@ Section Theories.
   (** ** Set manager correct *)
   (** [set_manager] only changes [manager] in state *)
   Lemma set_manager_state_eq : forall prev_state new_state chain ctx new_acts new_manager,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Ok (new_state, new_acts) ->
       prev_state<| manager := new_manager |> = new_state.
   Proof.
     intros * receive_some.
@@ -237,7 +231,7 @@ Section Theories.
   Qed.
 
   Lemma set_manager_manager_correct : forall prev_state new_state chain ctx new_acts new_manager,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Ok (new_state, new_acts) ->
       new_state.(manager) = new_manager.
   Proof.
     intros * receive_some.
@@ -247,7 +241,7 @@ Section Theories.
 
   (** [set_manager] produces no new_acts *)
   Lemma set_manager_new_acts_correct : forall chain ctx prev_state new_manager new_state new_acts,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Ok (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
@@ -261,13 +255,13 @@ Section Theories.
     prev_state.(selfIsUpdatingTokenPool) = false /\
     ctx.(ctx_from) = prev_state.(manager)
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetManager new_manager))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       try easy;
       now destruct_address_eq.
   Qed.
@@ -277,7 +271,7 @@ Section Theories.
   (** ** Set liquidity address correct *)
   (** [set_lqt_address] only changes [lqtAddress] in state *)
   Lemma set_lqt_address_state_eq : forall prev_state new_state chain ctx new_acts new_lqt_address,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Ok (new_state, new_acts) ->
       prev_state<| lqtAddress := new_lqt_address |> = new_state.
   Proof.
     intros * receive_some.
@@ -285,7 +279,7 @@ Section Theories.
   Qed.
 
   Lemma set_lqt_address_correct : forall prev_state new_state chain ctx new_acts new_lqt_address,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Ok (new_state, new_acts) ->
       new_state.(lqtAddress) = new_lqt_address.
   Proof.
     intros * receive_some.
@@ -295,7 +289,7 @@ Section Theories.
 
   (** [set_lqt_address] produces no new_acts *)
   Lemma set_lqt_address_new_acts_correct : forall chain ctx prev_state new_lqt_address new_state new_acts,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Ok (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
@@ -310,13 +304,13 @@ Section Theories.
     ctx.(ctx_from) = prev_state.(manager) /\
     prev_state.(lqtAddress) = null_address
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (SetLqtAddress new_lqt_address))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       try easy;
       now destruct_address_eq.
   Qed.
@@ -326,7 +320,7 @@ Section Theories.
   (** ** Default entrypoint correct *)
   (** [default_] only changes [xtzPool] in state *)
   Lemma default_state_eq : forall prev_state new_state chain ctx new_acts,
-    receive_cpmm chain ctx prev_state None = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state None = Ok (new_state, new_acts) ->
       prev_state<| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
     intros * receive_some.
@@ -334,7 +328,7 @@ Section Theories.
   Qed.
 
   Lemma default_correct : forall prev_state new_state chain ctx new_acts,
-    receive_cpmm chain ctx prev_state None = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state None = Ok (new_state, new_acts) ->
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
   Proof.
     intros * receive_some.
@@ -344,7 +338,7 @@ Section Theories.
 
   (** [default_] produces no new_acts *)
   Lemma default_new_acts_correct : forall chain ctx prev_state new_state new_acts,
-    receive_cpmm chain ctx prev_state None = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state None = Ok (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
@@ -356,7 +350,7 @@ Section Theories.
   Lemma default_entrypoint_is_some : forall prev_state chain ctx,
     prev_state.(selfIsUpdatingTokenPool) = false
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state None = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state None = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
@@ -369,7 +363,7 @@ Section Theories.
   (** ** Update token pool correct *)
   (** [update_token_pool] only changes [selfIsUpdatingTokenPool] in state *)
   Lemma update_token_pool_state_eq : forall prev_state new_state chain ctx new_acts,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Ok (new_state, new_acts) ->
       prev_state<| selfIsUpdatingTokenPool := true |> = new_state.
   Proof.
     intros * receive_some.
@@ -377,7 +371,7 @@ Section Theories.
   Qed.
 
   Lemma update_token_pool_correct : forall prev_state new_state chain ctx new_acts,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Ok (new_state, new_acts) ->
       new_state.(selfIsUpdatingTokenPool) = true.
   Proof.
     intros * receive_some.
@@ -388,7 +382,7 @@ Section Theories.
   (** [update_token_pool] produces an call act with amount = 0, calling
       the token contract with a balance of request *)
   Lemma update_token_pool_new_acts_correct : forall chain ctx prev_state new_state new_acts,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Ok (new_state, new_acts) ->
       new_acts = [
         act_call prev_state.(tokenAddress) 0%Z (serialize
           (msg_balance_of (Build_balance_of_param
@@ -407,13 +401,13 @@ Section Theories.
     prev_state.(selfIsUpdatingTokenPool) = false /\
     ctx.(ctx_from) = ctx.(ctx_origin)
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       try easy;
       now destruct_address_eq.
   Qed.
@@ -423,7 +417,7 @@ Section Theories.
     | [H : match ?rs with
            | [] => _
            | _ => _
-           end = Some _ |- _] =>
+           end = Ok _ |- _] =>
         match type of rs with
         | list balance_of_response =>
             destruct rs;inversion H;clear H
@@ -436,7 +430,7 @@ Section Theories.
   (** ** Update token pool internal correct *)
   (** [update_token_pool_internal] only changes [selfIsUpdatingTokenPool] and [tokenPool] in state *)
   Lemma update_token_pool_internal_state_eq : forall prev_state new_state chain ctx new_acts responses,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Ok (new_state, new_acts) ->
       prev_state<| selfIsUpdatingTokenPool := false |>
                 <| tokenPool := match responses with
                                 | [] => 0
@@ -449,7 +443,7 @@ Section Theories.
   Qed.
 
   Lemma update_token_pool_internal_update_correct : forall prev_state new_state chain ctx new_acts responses,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Ok (new_state, new_acts) ->
       new_state.(selfIsUpdatingTokenPool) = false.
   Proof.
     intros * receive_some.
@@ -459,7 +453,7 @@ Section Theories.
 
   (** [update_token_pool_internal] produces no new actions *)
   Lemma update_token_pool_internal_new_acts_correct : forall chain ctx prev_state new_state new_acts responses,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Ok (new_state, new_acts) ->
       new_acts = [].
   Proof.
     intros * receive_some.
@@ -474,14 +468,14 @@ Section Theories.
     ctx.(ctx_from) = prev_state.(tokenAddress) /\
     responses <> []
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.receive_balance_of_param responses)) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl; eauto;
       destruct responses;
-      autorewrite with BoolElim in *;
+      propify;
       destruct_or_hyps;
       try easy;
       now destruct_address_eq.
@@ -494,7 +488,7 @@ Section Theories.
   Lemma add_liquidity_state_eq : forall prev_state new_state chain ctx new_acts param,
     let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
     let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Ok (new_state, new_acts) ->
       prev_state<| lqtTotal := prev_state.(lqtTotal) +  lqt_minted |>
                 <| tokenPool := prev_state.(tokenPool) + tokens_deposited |>
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
@@ -505,7 +499,7 @@ Section Theories.
   Qed.
 
   Lemma add_liquidity_correct : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Ok (new_state, new_acts) ->
       new_state.(lqtTotal) = prev_state.(lqtTotal) + amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) /\
       new_state.(tokenPool) = prev_state.(tokenPool) + ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) /\
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
@@ -522,7 +516,7 @@ Section Theories.
   Lemma add_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
     let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Ok (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -549,17 +543,18 @@ Section Theories.
     prev_state.(xtzPool) <> 0 /\
     prev_state.(lqtAddress) <> null_address
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       math_convert;
       unfold amount_to_N in *;
       try easy;
-      now destruct_address_eq.
+      try now destruct_address_eq.
+
   Qed.
 
 
@@ -569,7 +564,7 @@ Section Theories.
   Lemma remove_liquidity_state_eq : forall prev_state new_state chain ctx new_acts param,
     let xtz_withdrawn := (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal) in
     let tokens_withdrawn := (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Ok (new_state, new_acts) ->
       prev_state<| lqtTotal := prev_state.(lqtTotal) - param.(lqtBurned) |>
                 <| tokenPool := prev_state.(tokenPool) - tokens_withdrawn |>
                 <| xtzPool := prev_state.(xtzPool) - xtz_withdrawn |> = new_state.
@@ -580,7 +575,7 @@ Section Theories.
   Qed.
 
   Lemma remove_liquidity_correct : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Ok (new_state, new_acts) ->
       new_state.(lqtTotal) = prev_state.(lqtTotal) - param.(lqtBurned) /\
       new_state.(tokenPool) = prev_state.(tokenPool) -  (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal).
@@ -598,7 +593,7 @@ Section Theories.
   Lemma remove_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let xtz_withdrawn := (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal) in
     let tokens_withdrawn := (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Ok (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(lqtAddress) 0%Z
@@ -615,7 +610,7 @@ Section Theories.
     unfold xtz_transfer in *.
     destruct_match in *; try congruence.
     match goal with
-      [ H : Some _ = Some _ |- _ ] => now inversion H
+      [ H : Ok _ = Ok _ |- _ ] => now inversion H
     end.
   Qed.
 
@@ -636,13 +631,13 @@ Section Theories.
     address_is_contract param.(liquidity_to) = false /\
     prev_state.(lqtAddress) <> null_address
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       math_convert;
       try easy;
       try now destruct_address_eq.
@@ -658,7 +653,7 @@ Section Theories.
   Lemma xtz_to_token_state_eq : forall prev_state new_state chain ctx new_acts param,
     let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
                             (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Ok (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) - tokens_bought |>
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
@@ -668,7 +663,7 @@ Section Theories.
   Qed.
 
   Lemma xtz_to_token_correct : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Ok (new_state, new_acts) ->
       new_state.(tokenPool) = prev_state.(tokenPool) -  (((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
                             (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ) /\
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
@@ -684,7 +679,7 @@ Section Theories.
   Lemma xtz_to_token_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
                             (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Ok (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -708,13 +703,13 @@ Section Theories.
     param.(minTokensBought) <= tokens_bought /\
     tokens_bought <= prev_state.(tokenPool)
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       math_convert;
       unfold amount_to_N in *;
       try easy;
@@ -727,7 +722,7 @@ Section Theories.
   Lemma token_to_xtz_state_eq : forall prev_state new_state chain ctx new_acts param,
     let xtz_bought := (param.(tokensSold) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Ok (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) + param.(tokensSold) |>
                 <| xtzPool := prev_state.(xtzPool) - xtz_bought |> = new_state.
   Proof.
@@ -737,7 +732,7 @@ Section Theories.
   Qed.
 
   Lemma token_to_xtz_correct : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Ok (new_state, new_acts) ->
       new_state.(tokenPool) = prev_state.(tokenPool) + param.(tokensSold) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - ((param.(tokensSold) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold) * 997))).
@@ -754,7 +749,7 @@ Section Theories.
   Lemma token_to_xtz_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let xtz_bought := (param.(tokensSold) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Ok (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -769,7 +764,7 @@ Section Theories.
     unfold xtz_transfer in *.
     destruct_match in *; try congruence.
     match goal with
-      [H : Some _ = Some _ |- _] => now inversion H
+      [H : Ok _ = Ok _ |- _] => now inversion H
     end.
   Qed.
 
@@ -786,13 +781,13 @@ Section Theories.
     address_is_contract param.(xtz_to) = false /\
     xtz_bought <= prev_state.(xtzPool)
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToXtz param))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       math_convert;
       try easy;
       try now destruct_address_eq.
@@ -809,7 +804,7 @@ Section Theories.
   Lemma token_to_token_state_eq : forall prev_state new_state chain ctx new_acts param,
     let xtz_bought := (param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Ok (new_state, new_acts) ->
       prev_state<| tokenPool := prev_state.(tokenPool) + param.(tokensSold_) |>
                 <| xtzPool := prev_state.(xtzPool) - xtz_bought |> = new_state.
   Proof.
@@ -819,7 +814,7 @@ Section Theories.
   Qed.
 
   Lemma token_to_token_correct : forall prev_state new_state chain ctx new_acts param,
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Ok (new_state, new_acts) ->
       new_state.(tokenPool) = prev_state.(tokenPool) + param.(tokensSold_) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - ((param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold_) * 997))).
@@ -836,7 +831,7 @@ Section Theories.
   Lemma token_to_token_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
     let xtz_bought := (param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
                             (prev_state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) in
-    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts) ->
+    receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Ok (new_state, new_acts) ->
       new_acts =
       [
         (act_call prev_state.(tokenAddress) 0%Z
@@ -865,13 +860,13 @@ Section Theories.
     xtz_bought <= prev_state.(xtzPool) /\
     (prev_state.(tokenPool) <> 0 \/ param.(tokensSold_) <> 0)
     <->
-    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Some (new_state, new_acts).
+    exists new_state new_acts, receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (TokenToToken param))) = Ok (new_state, new_acts).
   Proof.
     split;
       intros;
       destruct_hyps;
       contract_simpl;
-      autorewrite with BoolElim in *;
+      propify;
       math_convert;
       try easy;
       now destruct_address_eq.
@@ -881,7 +876,7 @@ Section Theories.
 
   (** ** Init correct *)
   Lemma init_state_eq : forall chain ctx setup state,
-    init_cpmm chain ctx setup = Some state ->
+    init_cpmm chain ctx setup = Ok state ->
       state = {|
         tokenPool := 0;
         xtzPool := 0;
@@ -899,7 +894,7 @@ Section Theories.
   Qed.
 
   Lemma init_correct : forall chain ctx setup state,
-    init_cpmm chain ctx setup = Some state ->
+    init_cpmm chain ctx setup = Ok state ->
       tokenPool state = 0 /\
       xtzPool state = 0 /\
       lqtTotal state = setup.(lqtTotal_) /\
@@ -927,7 +922,7 @@ Section Theories.
   (* begin hide *)
   Ltac rewrite_acts_correct :=
     match goal with
-    | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
+    | [ H : receive_cpmm _ _ _ _ = Ok _ |- _ ] =>
       first [apply set_baker_new_acts_correct in H as new_acts_eq;
               rewrite set_delegate_call_nil in new_acts_eq
             |apply set_manager_new_acts_correct in H as new_acts_eq
@@ -945,7 +940,7 @@ Section Theories.
 
   Ltac rewrite_state_eq :=
     match goal with
-    | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
+    | [ H : receive_cpmm _ _ _ _ = Ok _ |- _ ] =>
       first [apply set_baker_state_eq in H as new_acts_eq
             |apply set_manager_state_eq in H as new_acts_eq
             |apply set_lqt_address_state_eq in H as new_acts_eq
@@ -962,7 +957,7 @@ Section Theories.
 
   Ltac rewrite_receive_is_some :=
     match goal with
-    | [ H : receive_cpmm _ _ _ _ = Some _ |- _ ] =>
+    | [ H : receive_cpmm _ _ _ _ = Ok _ |- _ ] =>
       first [specialize set_baker_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize set_manager_is_some as (_ & []); [now (do 2 eexists; apply H) |]
             |specialize set_lqt_address_is_some as (_ & []); [now (do 2 eexists; apply H) |]
@@ -1015,12 +1010,7 @@ Section Theories.
         rewrite ?list.Forall_cons, ?list.Forall_nil;
         try easy.
     - now rewrite <- perm.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ _ => True).
-      unset_all; subst;cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
+    - solve_facts.
   Qed.
 
   Local Open Scope Z_scope.
@@ -1112,13 +1102,7 @@ Section Theories.
         cbn;
         try lia.
     - now erewrite sumZ_permutation in IH by eauto.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (DeployFacts := fun _ _ => True).
-      unset_all; subst.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
-      intros.
-      subst. cbn.
+    - solve_facts.
       now apply Z.ge_le.
   Qed.
 
@@ -1210,15 +1194,10 @@ Section Theories.
         cbn;
         try lia.
     - now erewrite sumZ_permutation in IH by eauto.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      unset_all; subst.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
+    - solve_facts.
       + cbn.
         lia.
-      + intros.
-        subst. cbn.
-        now apply Z.ge_le.
+      + now apply Z.ge_le.
   Qed.
 
   Lemma transfer_bound bstate caddr :
@@ -1268,22 +1247,17 @@ Section Theories.
           cbn in *;
           try lia.
     - now rewrite <- perm.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      unset_all; subst.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
+    - solve_facts.
       + cbn.
         lia.
-      + intros ? ? deployed_state_.
-        subst. cbn.
-        split.
+      + split.
         * now apply Z.ge_le.
         * specialize (account_balance_nonnegative bstate_from to_addr) as ?H.
           specialize xtz_pool_bound as (? & deployed_state' & ?); eauto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
-          rewrite deployed_state in deployed_state_.
-          rewrite deployed_state_ in deployed_state'.
+          rewrite deployed_state in deployed_state0.
+          rewrite deployed_state0 in deployed_state'.
           inversion deployed_state'.
           subst.
           destruct_address_eq; try easy; lia.
@@ -1558,18 +1532,13 @@ Section Theories.
         destruct m; auto.
         now apply deserialize_balance_of_ne_mint_or_burn in contradiction.
     - now rewrite <- perm.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (DeployFacts := fun _ _ => True).
-      unset_all; subst.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
-      intros state' deployed' deployed_state'. cbn.
-      rewrite deployed in deployed'.
-      inversion deployed'.
+    - solve_facts.
+      rewrite deployed in deployed0.
+      inversion deployed0.
       subst.
-      clear deployed'.
+      clear deployed0.
       specialize outgoing_acts_no_mint_before_set_lqt_addr as (state & state_deployed & ?); eauto.
-      rewrite deployed_state' in state_deployed.
+      rewrite deployed_state0 in state_deployed.
       now inversion state_deployed.
   Qed.
 
@@ -2044,12 +2013,7 @@ Section Theories.
         * destruct_match eqn:msg_deserialized0;
             try now inversion msg_deserialized0.
     - now rewrite <- perm.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ _ => True).
-      unset_all; subst;cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
+    - solve_facts.
   Qed.
 
   (** [lqtTotal] is equal to the initial tokens + minted tokens - burned tokens *)

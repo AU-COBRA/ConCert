@@ -16,6 +16,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution Require Import ContractCommon.
@@ -130,7 +131,7 @@ Class LqtTokenInterface
       `{Serializable State}
       `{Serializable Msg}
       `{Serializable Setup} :=
-  { lqt_contract : Contract Setup Msg State;
+  { lqt_contract : Contract Setup Msg State unit;
 
     lqt_total_supply_correct :
     forall  (bstate : ChainState) (caddr : Address)
@@ -255,67 +256,84 @@ Section DexterLqtDefs.
 Context `{BaseTypes : ChainBase}.
 Open Scope N_scope.
 
-Definition find_allowance (k : Address * Address) (m : FMap (Address * Address) N) : option N :=
+Definition find_allowance (k : Address * Address)
+                          (m : FMap (Address * Address) N)
+                          : option N :=
   FMap.find k m.
 
-Definition update_allowance (k : Address * Address) (val : option N) (m : FMap (Address * Address) N) :=
+Definition update_allowance (k : Address * Address)
+                            (val : option N)
+                            (m : FMap (Address * Address) N)
+                            : FMap (Address * Address) N :=
   FMap.update k val m.
 
-Definition empty_allowance : FMap (Address * Address) N := FMap.empty.
+Definition empty_allowance : FMap (Address * Address) N :=
+  FMap.empty.
 
 (** ** Transfer *)
 (** Transfers [amount] tokens, if [from] has enough tokens to transfer
     and [sender] is allowed to send that much on behalf of [from] *)
-Definition try_transfer (sender : Address) (param : transfer_param) (state : State) : option State :=
+Definition try_transfer (sender : Address)
+                        (param : transfer_param)
+                        (state : State)
+                        : result State unit :=
   let allowances_ := state.(allowances) in
   let tokens_ := state.(tokens) in
   do allowances_ <- (* Update allowances *)
     (if address_eqb sender param.(from)
-    then Some allowances_
+    then Ok allowances_
     else
       let allowance_key := (param.(from), sender) in
       let authorized_value := with_default 0 (find_allowance allowance_key allowances_) in
-        do _ <- throwIf (authorized_value <? param.(value)) ; (* NotEnoughAllowance *)
-        Some (update_allowance allowance_key (maybe (authorized_value - param.(value))) allowances_)
+        do _ <- throwIf (authorized_value <? param.(value)) tt; (* NotEnoughAllowance *)
+        Ok (update_allowance allowance_key (maybe (authorized_value - param.(value))) allowances_)
     ) ;
   do tokens_ <- (* Update from balance *)
     (let from_balance := with_default 0 (AddressMap.find param.(from) tokens_) in
-      do _ <- throwIf (from_balance <? param.(value)) ; (* NotEnoughBalance *)
-      Some (AddressMap.update param.(from) (maybe (from_balance - param.(value))) tokens_)
+      do _ <- throwIf (from_balance <? param.(value)) tt; (* NotEnoughBalance *)
+      Ok (AddressMap.update param.(from) (maybe (from_balance - param.(value))) tokens_)
     ) ;
   let tokens_ :=
     let to_balance := with_default 0 (AddressMap.find param.(to) tokens_) in
       AddressMap.update param.(to) (maybe (to_balance + param.(value))) tokens_ in
-    Some (state<|tokens := tokens_|>
+    Ok (state<|tokens := tokens_|>
                <|allowances := allowances_|>).
 
 (** ** Approve *)
 (** The caller approves the [spender] to transfer up to [amount] tokens on behalf of the [sender] *)
-Definition try_approve (sender : Address) (param : approve_param) (state : State) : option State :=
+Definition try_approve (sender : Address)
+                       (param : approve_param)
+                       (state : State)
+                       : result State unit :=
   let allowances_ := state.(allowances) in
   let allowance_key := (sender, param.(spender)) in
   let previous_value := with_default 0 (find_allowance allowance_key allowances_) in
-  do _ <- throwIf (andb (0 <? previous_value) (0 <? param.(value_))) ; (* UnsafeAllowanceChange *)
+  do _ <- throwIf (andb (0 <? previous_value) (0 <? param.(value_))) tt; (* UnsafeAllowanceChange *)
   let allowances_ := update_allowance allowance_key (maybe param.(value_)) allowances_ in
-    Some (state<|allowances := allowances_|>).
+    Ok (state<|allowances := allowances_|>).
 
 (** ** Mint or burn *)
 (** If [quantity] is positive
     then creates [quantity] tokens and gives them to [target]
     else removes [quantity] tokens from [target].
     Can only be called by [admin] *)
-Definition try_mint_or_burn (sender : Address) (param : mintOrBurn_param) (state : State) : option State :=
-  do _ <- throwIf (negb (address_eqb sender state.(admin))) ;
+Definition try_mint_or_burn (sender : Address)
+                            (param : mintOrBurn_param)
+                            (state : State)
+                            : result State unit :=
+  do _ <- throwIf (negb (address_eqb sender state.(admin))) tt;
   let tokens_ := state.(tokens) in
   let old_balance := with_default 0 (AddressMap.find param.(target) tokens_) in
   let new_balance := (Z.of_N old_balance + param.(quantity))%Z in
-  do _ <- throwIf (new_balance <? 0)%Z ; (* Cannot burn more than the target's balance. *)
+  do _ <- throwIf (new_balance <? 0)%Z tt; (* Cannot burn more than the target's balance. *)
   let tokens_ := AddressMap.update param.(target) (maybe (Z.to_N new_balance)) tokens_ in
   let total_supply_ := Z.abs_N (Z.of_N state.(total_supply) + param.(quantity))%Z in
-    Some (state<|tokens := tokens_|>
+    Ok (state<|tokens := tokens_|>
                <|total_supply := total_supply_|>).
 
-Definition mk_callback (to_addr : Address) (msg : @FA12ReceiverMsg unit) :=
+Definition mk_callback (to_addr : Address)
+                       (msg : @FA12ReceiverMsg unit)
+                       : ActionBody :=
   act_call to_addr 0 (serialize msg).
 
 Definition receive_allowance_ n := @receive_allowance unit n.
@@ -324,26 +342,38 @@ Definition receive_total_supply_ n := @receive_total_supply unit n.
 
 (** ** Get allowance *)
 (** Get the quantity that [snd request] is allowed to spend on behalf of [fst request] *)
-Definition try_get_allowance (sender : Address) (param : getAllowance_param) (state : State) : list ActionBody :=
+Definition try_get_allowance (sender : Address)
+                             (param : getAllowance_param)
+                             (state : State)
+                             : list ActionBody :=
   let value := with_default 0 (find_allowance param.(request) state.(allowances)) in
     [mk_callback param.(allowance_callback) (receive_allowance_ value)].
 
 (** ** Get balance *)
 (** Get the quantity of tokens belonging to [owner] *)
-Definition try_get_balance (sender : Address) (param : getBalance_param) (state : State) : list ActionBody :=
+Definition try_get_balance (sender : Address)
+                           (param : getBalance_param)
+                           (state : State)
+                           : list ActionBody :=
   let value := with_default 0 (AddressMap.find param.(owner_) state.(tokens)) in
     [mk_callback param.(balance_callback) (receive_balance_of_ value)].
 
 (** ** Get total supply *)
 (** Get the total supply of tokens *)
-Definition try_get_total_supply (sender : Address) (param : getTotalSupply_param) (state : State) : list ActionBody :=
+Definition try_get_total_supply (sender : Address)
+                                (param : getTotalSupply_param)
+                                (state : State)
+                                : list ActionBody :=
   let value := state.(total_supply) in
     [mk_callback param.(supply_callback) (receive_total_supply_ value)].
 
 (** ** Init *)
 (** Initalize contract storage *)
-Definition init_lqt (chain : Chain) (ctx : ContractCallContext) (setup : Setup) : option State :=
-  Some {|
+Definition init_lqt (chain : Chain)
+                    (ctx : ContractCallContext)
+                    (setup : Setup)
+                    : result State unit :=
+  Ok {|
     tokens := AddressMap.add setup.(lqt_provider) setup.(initial_pool) AddressMap.empty;
     allowances := empty_allowance;
     admin := setup.(admin_);
@@ -353,13 +383,15 @@ Definition init_lqt (chain : Chain) (ctx : ContractCallContext) (setup : Setup) 
 (** ** Receive *)
 (** Contract main entrypoint *)
 Open Scope Z_scope.
-Definition receive_lqt (chain : Chain) (ctx : ContractCallContext)
-                   (state : State) (maybe_msg : option Msg)
-                    : option (State * list ActionBody) :=
+Definition receive_lqt (chain : Chain)
+                       (ctx : ContractCallContext)
+                       (state : State)
+                       (maybe_msg : option Msg)
+                       : result (State * list ActionBody) unit :=
   let sender := ctx.(ctx_from) in
-  let without_actions := option_map (fun new_state => (new_state, [])) in
-  let without_statechange acts := Some (state, acts) in
-  do _ <- throwIf (non_zero_amount ctx.(ctx_amount)); (* DontSendTez *)
+  let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
+  let without_statechange acts := Ok (state, acts) in
+  do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* DontSendTez *)
   match maybe_msg with
   | Some (msg_transfer param) => without_actions (try_transfer sender param state)
   | Some (msg_approve param) => without_actions (try_approve sender param state)
@@ -367,11 +399,11 @@ Definition receive_lqt (chain : Chain) (ctx : ContractCallContext)
   | Some (msg_get_allowance param) => without_statechange (try_get_allowance sender param state)
   | Some (msg_get_balance param) => without_statechange (try_get_balance sender param state)
   | Some (msg_get_total_supply param) => without_statechange (try_get_total_supply sender param state)
-  | None => None (* Transfer actions to this contract are not allowed *)
+  | None => Err tt (* Transfer actions to this contract are not allowed *)
   end.
 Close Scope Z_scope.
 
-Definition contract : Contract Setup Msg State :=
+Definition contract : Contract Setup Msg State unit :=
   build_contract init_lqt receive_lqt.
 
   End DexterLqtDefs.
