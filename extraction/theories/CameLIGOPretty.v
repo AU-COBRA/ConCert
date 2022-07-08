@@ -796,7 +796,7 @@ Section PPLigo.
         end in
       let wrap t :=
         "match " ++ t ++ " with" ++ nl ++
-        "  Ok v -> v"++ nl ++
+        "  Ok v -> Ok v"++ nl ++
         "| Err e -> (failwith e: " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
