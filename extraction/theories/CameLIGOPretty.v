@@ -796,8 +796,8 @@ Section PPLigo.
         end in
       let wrap t :=
         "match " ++ t ++ " with" ++ nl ++
-        "  Some v -> v"++ nl ++
-        "| None -> (failwith (""Init failed""): " ++ printed_outer_ret_ty ++ ")" in
+        "  Ok v -> v"++ nl ++
+        "| Err e -> (failwith e: " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
                 ++ print_term env TT ctx [] true false lam_body body_annot
