@@ -27,7 +27,7 @@ Definition PREFIX := "coq_".
 
 Module Counter.
 
-  Notation address := nat.
+  Definition address := nat.
 
   Definition operation := unit.
   Definition storage := Z × address.
@@ -108,7 +108,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% Z.sub %%> "subInt"
   ; remap <%% Z.leb %%> "leInt"
   ; remap <%% Z %%> "int"
-  ; remap <%% nat %%> "key_hash" (* type of account addresses*)
+  ; remap <%% address %%> "key_hash" (* type of account addresses*)
   ; remap <%% operation %%> "operation"
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd" ].

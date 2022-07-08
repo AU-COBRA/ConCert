@@ -25,7 +25,7 @@ Module Counter.
   Set Nonrecursive Elimination Schemes.
 
   (** The definitions in this section are generalized over the [ChainBase] that specifies the type of addresses and which properties such a type must have *)
-  Notation address := nat.
+  Definition address := nat.
 
   Definition operation := ActionBody.
   Definition storage := Z × address.
@@ -110,7 +110,7 @@ Section CounterExtraction.
     ; remap <%% Z.abs_N %%> "abs"
     ; remap <%% address_coq %%> "address"
     ; remap <%% time_coq %%> "timestamp"
-    ; remap <%% nat %%> "address"
+    ; remap <%% address %%> "address"
     ; remap <%% operation %%> "operation"
     ].
 

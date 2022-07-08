@@ -28,7 +28,7 @@ Module CounterRefinementTypes.
   (** Enabling recursors for records allows for deriving [Serializable] instances. *)
   Set Nonrecursive Elimination Schemes.
 
-  Notation address := nat.
+  Definition address := nat.
 
   Definition Transaction := list ActionBody.
   Definition Transaction_none : Transaction := [].
@@ -105,7 +105,7 @@ Section LiquidityExtractionSetup.
     ; remap <%% sig %%> "sig_" (* remapping [sig] to the wrapper *)
     ; remap <%% @proj1_sig %%> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
     ; remap <%% Z %%> "int"
-    ; remap <%% nat %%> "key_hash" (* type of account addresses*)
+    ; remap <%% address %%> "key_hash" (* type of account addresses*)
     ; remap <%% Transaction %%> "operation list"
     ; remap <%% Transaction_none %%> "[]"
     ; remap <%% @fst %%> "fst"
