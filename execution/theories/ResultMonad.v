@@ -1,4 +1,4 @@
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 
 Inductive result T E :=
 | Ok (t : T)
@@ -36,6 +36,16 @@ Definition option_of_result {T E : Type} (r : result T E) : option T :=
   | Ok t => Some t
   | Err e => None
   end.
+
+Global Instance option_to_result
+        {E : Type}
+        : MonadTrans (fun T => E -> result T E) option :=
+  {| lift T (opt : option T) err := @result_of_option T E opt err |}.
+
+Global Instance result_to_option
+        {E : Type}
+        : MonadTrans option (fun T => result T E) :=
+  {| lift T (opt : result T E) := @option_of_result T E opt |}.
 
 Definition unpack_result {T E : Type} (r : result T E) :=
   match r return match r with

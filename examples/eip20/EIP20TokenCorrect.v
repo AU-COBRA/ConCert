@@ -7,7 +7,7 @@ From Coq Require Import List. Import ListNotations.
 From Coq Require Import Lia.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import Automation.

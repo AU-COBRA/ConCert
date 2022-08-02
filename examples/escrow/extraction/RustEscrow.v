@@ -13,8 +13,8 @@ Definition ESCROW_MODULE : ConcordiumMod _ _ :=
      concmd_extra := []; |}.
 
 Definition should_inline kn :=
-  eq_kername kn <%% @Monads.bind %%>
-  || eq_kername kn <%% Monads.Monad_option %%>
+  eq_kername kn <%% @Monad.bind %%>
+  || eq_kername kn <%% OptionMonad.Monad_option %%>
   || if String.index 0 "setter_from_getter" (string_of_kername kn) then true else false.
 
 (* NOTE: it is important to declare a priting config, otherwise MetaCoq evaluation tries to normalise a term with an unresolved instance and runs out of memory. *)

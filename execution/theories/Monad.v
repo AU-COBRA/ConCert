@@ -38,23 +38,6 @@ build_monad_laws {
 Class MonadTrans (m : Type -> Type) (mt : Type -> Type) : Type :=
   { lift : forall {t}, mt t -> m t }.
 
-Global Instance Monad_option : Monad option :=
-  {| ret _ t := Some t;
-     bind _ _ v f := match v with
-                 | Some val => f val
-                 | None => None
-                 end |}.
-
-Global Instance MonadLaws_Monad_option : MonadLaws Monad_option.
-Proof.
-  constructor.
-  - auto.
-  - intros; cbn.
-    destruct t; auto.
-  - intros; cbn.
-    destruct t; auto.
-Qed.
-
 Fixpoint monad_map {A B} {m : Type -> Type} `{Monad m} (f : A -> m B) (xs : list A) : m (list B) :=
   match xs with
   | nil => ret nil

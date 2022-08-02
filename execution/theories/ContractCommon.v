@@ -4,8 +4,10 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
-From Coq Require Import ZArith.
+From Coq Require Import List. Import ListNotations.
+From Coq Require Import ZArith_base.
 
 (** A type of  finite maps (dictionaries) with addresses as keys.
 Basically, it's just a specilisation of [FMap] to [Address] as keys.
@@ -49,35 +51,54 @@ Lemma AddressMap_add_convertible  `{ChainBase} {V : Type} :
   AddressMap.add (V:=V) = FMap.add.
 Proof. reflexivity. Qed.
 
+Section Utility.
+  Open Scope N_scope.
+  Definition maybe (n : N) : option N :=
+    if n =? 0 then None else Some n.
 
-Open Scope N_scope.
-Definition maybe (n : N) : option N := if n =? 0 then None else Some n.
+  Lemma maybe_cases : forall n,
+    (maybe n = None /\ n = 0) \/ (maybe n = Some n /\ n > 0).
+  Proof.
+    destruct n.
+    - auto.
+    - now right.
+  Qed.
 
-Lemma maybe_cases : forall n,
-  (maybe n = None /\ n = 0) \/ (maybe n = Some n /\ n > 0).
-Proof.
-  destruct n.
-  - auto.
-  - now right.
-Qed.
+  Lemma maybe_sub_add : forall n value,
+    value <= n ->
+    (maybe (with_default 0 (maybe (n - value)) + value) = None /\ n = 0) \/
+    maybe (with_default 0 (maybe (n - value)) + value) = Some n.
+  Proof.
+    intros.
+    specialize (maybe_cases (n - value)) as [[-> n_eq_value] | [-> _]]; cbn.
+    - rewrite N.sub_0_le in n_eq_value.
+      erewrite (N.le_antisymm _ n) by eassumption.
+      now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
+    - rewrite N.sub_add by auto.
+      now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
+  Qed.
+  Close Scope N_scope.
 
-Lemma maybe_sub_add : forall n value,
-  value <= n ->
-  (maybe (with_default 0 (maybe (n - value)) + value) = None /\ n = 0) \/
-  maybe (with_default 0 (maybe (n - value)) + value) = Some n.
-Proof.
-  intros.
-  specialize (maybe_cases (n - value)) as [[-> n_eq_value] | [-> _]]; cbn.
-  - rewrite N.sub_0_le in n_eq_value.
-    erewrite (N.le_antisymm _ n) by eassumption.
-    now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
-  - rewrite N.sub_add by auto.
-    now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
-Qed.
-Close Scope N_scope.
+  Definition throwIf {E : Type}
+                    (cond : bool)
+                    (err : E)
+                    : result unit E :=
+    if cond then Err err else Ok tt.
 
+  Context `{Base : ChainBase}.
+  Definition without_actions {T E : Type}
+                             (x : result T E)
+                             : result (T * list ActionBody) E :=
+    x >>= (fun new_state => Ok (new_state, [])).
 
-Definition throwIf {E : Type} (cond : bool) (err : E) : result unit E := if cond then Err err else Ok tt.
+  Definition not_payable {T E : Type}
+                         (ctx : ContractCallContext)
+                         (x : result T E)
+                         (err : E)
+                         : result T E :=
+    do _ <- throwIf (ctx.(ctx_amount) >? 0)%Z err; x.
+
+End Utility.
 
 Ltac destruct_throw_if H :=
   match type of H with

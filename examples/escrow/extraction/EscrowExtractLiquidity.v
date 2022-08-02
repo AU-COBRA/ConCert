@@ -4,6 +4,8 @@ From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Monad.
+From ConCert.Execution Require OptionMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require LPretty.
@@ -126,10 +128,10 @@ Module EscrowLiquidityExtraction.
     ].
 
   Definition to_inline : list kername :=
-    [  <%% Monads.Monad_option %%>
-    ; <%% @Monads.bind %%>
-    ; <%% @Monads.ret %%>
-    ; <%% @Monads.lift %%>
+    [  <%% OptionMonad.Monad_option %%>
+    ; <%% @Monad.bind %%>
+    ; <%% @Monad.ret %%>
+    ; <%% @Monad.lift %%>
     ; <%% bool_rect %%>
     ; <%% bool_rec %%>
     ; <%% option_map %%>

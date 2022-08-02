@@ -41,13 +41,6 @@ Module FA2Gens (Info : FA2TestsInfo).
       end.
 
     Local Open Scope N_scope.
-
-    Definition liftOptGen {A : Type}
-                          (g : G A)
-                          : GOpt A :=
-      a <- g ;;
-      returnGenSome a.
-
     Definition gTransferCallerFromTo (state : FA2Token.State)
                                      (ledger : TokenLedger)
                                      (tokenid : token_id)

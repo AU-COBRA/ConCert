@@ -16,7 +16,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
@@ -172,15 +172,13 @@ Section BATFixed.
     let sender_payload := ctx.(ctx_amount) in
     let slot := chain.(current_slot) in
     let contract_balance := ctx.(ctx_contract_balance) in
-    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
-    let not_payable x := do _ <- throwIf (sender_payload >? 0) default_error; x in
     match maybe_msg with
     | Some create_tokens =>
         without_actions (try_create_tokens sender sender_payload slot state)
     | Some refund =>
-        not_payable (try_refund sender slot state)
+        not_payable ctx (try_refund sender slot state) default_error
     | Some finalize =>
-        not_payable (try_finalize sender slot contract_balance state)
+        not_payable ctx (try_finalize sender slot contract_balance state) default_error
     | _ => Err default_error
     end.
   Close Scope Z_scope.

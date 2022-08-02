@@ -5,7 +5,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
@@ -490,7 +490,6 @@ Section FA2Token.
                      : result (State * list ActionBody) Error :=
     let sender := ctx.(ctx_from) in
     let caddr := ctx.(ctx_contract_address) in
-    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     let without_statechange acts := Ok (state, acts) in
     (* Only 'create_token' messages are allowed to carry money *)
     if ctx.(ctx_amount) >? 0

@@ -9,7 +9,8 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Monads.
+From ConCert.Execution Require Monad.
+From ConCert.Execution Require OptionMonad.
 From ConCert.Execution Require ContractCommon.
 From ConCert.Examples.Dexter2 Require Dexter2CPMM.
 From ConCert.Utils Require Import RecordUpdate.
@@ -105,9 +106,9 @@ Definition TT_remap_dexter2 : list (kername * String.string) :=
 
 (** Definitions to inline *)
 Definition TT_inlines_dexter2 : list kername :=
-  [ <%% Monads.Monad_option %%>
-  ; <%% @Monads.bind %%>
-  ; <%% @Monads.ret %%>
+  [ <%% OptionMonad.Monad_option %%>
+  ; <%% @Monad.bind %%>
+  ; <%% @Monad.ret %%>
   ; <%% @Extras.with_default %%>
   ; <%% option_map %%>
 

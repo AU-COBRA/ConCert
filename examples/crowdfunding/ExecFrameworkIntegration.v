@@ -18,7 +18,7 @@ From Coq Require Import Program.Tactics.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.

@@ -8,7 +8,7 @@
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Logic.Eqdep_dec.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.

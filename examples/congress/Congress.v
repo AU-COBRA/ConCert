@@ -8,9 +8,10 @@ From Coq Require Import ZArith_base.
 From Coq Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import RecordUpdate.
 
 
@@ -220,7 +221,6 @@ Section Congress.
     let sender := ctx.(ctx_from) in
     let is_from_owner := (sender =? state.(owner))%address in
     let is_from_member := FMap.mem sender state.(members) in
-    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     match maybe_msg, is_from_owner, is_from_member with
     | Some (transfer_ownership new_owner), true, _ =>
       Ok (state<|owner := new_owner|>, [])

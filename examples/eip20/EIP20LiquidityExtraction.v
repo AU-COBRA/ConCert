@@ -6,7 +6,8 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require OptionMonad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Examples.EIP20 Require EIP20Token.
@@ -161,9 +162,9 @@ Section EIP20TokenExtraction.
     ; ("tt", "()") ].
 
   Definition TT_inlines_eip20token : list kername :=
-    [ <%% Monads.Monad_option %%>
-    ; <%% @Monads.bind %%>
-    ; <%% @Monads.ret %%>
+    [ <%% OptionMonad.Monad_option %%>
+    ; <%% @Monad.bind %%>
+    ; <%% @Monad.ret %%>
     ; <%% bool_rect %%>
     ; <%% bool_rec %%>
     ; <%% option_map %%>

@@ -5,7 +5,7 @@ From Coq Require Import List. Import ListNotations.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.EIP20 Require EIP20Token.

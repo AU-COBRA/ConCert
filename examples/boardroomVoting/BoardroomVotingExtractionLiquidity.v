@@ -10,6 +10,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import ContractMonads.
 From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution Require Monad.
+From ConCert.Execution Require OptionMonad.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import ZArith.
@@ -203,7 +205,7 @@ Definition to_inline : list kername :=
      inline_contract_monad_projection
   ++ inline_boardroom_params
   ++ [
-    <%% Monads.Monad_option %%>
+    <%% OptionMonad.Monad_option %%>
   ; <%% ContractIniterSetupState %%>
   ; <%% ContractReceiverStateMsgState %%>
   ; <%% @contract_initer_monad %%>
@@ -218,9 +220,9 @@ Definition to_inline : list kername :=
   ; <%% @ContractReceiver %%>
   ; <%% @ContractIniter %%>
 
-  ; <%% @Monads.bind %%>
-  ; <%% @Monads.ret %%>
-  ; <%% @Monads.lift %%>
+  ; <%% @Monad.bind %%>
+  ; <%% @Monad.ret %%>
+  ; <%% @Monad.lift %%>
   ; <%% bool_rect %%>
   ; <%% bool_rec %%>
   ; <%% option_map %%>

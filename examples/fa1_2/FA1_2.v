@@ -5,7 +5,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
@@ -315,7 +315,6 @@ Module FA12 (SI : FA12Serializable).
                        (maybe_msg : option Msg)
                        : result (State * list ActionBody) Error :=
       let sender := ctx.(ctx_from) in
-      let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
       let without_statechange acts := Ok (state, acts) in
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* DontSendTez *)
       match maybe_msg with

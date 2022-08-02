@@ -7,7 +7,7 @@
 *)
 From Coq Require Import ZArith_base.
 From Coq Require Import List. Import ListNotations.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
@@ -148,7 +148,6 @@ Section EIP20Token.
                      (maybe_msg : option Msg)
                      : result (State * list ActionBody) Error :=
     let sender := ctx.(ctx_from) in
-    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     (** Only allow calls with no money attached *)
     if ctx.(ctx_amount) >? 0
     then error

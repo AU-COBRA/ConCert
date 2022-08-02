@@ -52,12 +52,6 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
       |} in
       returnGenSome (addr, other_msg (ExchangeBuggy.tokens_to_asset exchange_msg)).
 
-    Definition liftOptGen {A : Type}
-                          (g : G A)
-                          : GOpt A :=
-      a <- g ;;
-      returnGenSome a.
-
     Definition gAddTokensToReserve (env : Environment)
                                    (state : FA2Token.State)
                                    : GOpt (Address * Amount * ExchangeBuggy.Msg) :=

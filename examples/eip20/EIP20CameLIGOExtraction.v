@@ -9,6 +9,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require ContractCommon.
+From ConCert.Execution Require Monad.
+From ConCert.Execution Require OptionMonad.
 From ConCert.Examples.EIP20 Require EIP20Token.
 
 Local Open Scope string_scope.
@@ -83,9 +85,9 @@ Section EIP20TokenExtraction.
   ].
 
   Definition TT_inlines_eip20token : list kername :=
-    [ <%% Monads.Monad_option %%>
-    ; <%% @Monads.bind %%>
-    ; <%% @Monads.ret %%>
+    [ <%% OptionMonad.Monad_option %%>
+    ; <%% @Monad.bind %%>
+    ; <%% @Monad.ret %%>
     ; <%% bool_rect %%>
     ; <%% bool_rec %%>
     ; <%% option_map %%>

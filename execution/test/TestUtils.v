@@ -191,7 +191,6 @@ Definition get_contract_state (state : Type) `{Serializable state} env addr : op
   end.
 
 (* Utils for Generators *)
-
 Definition elems_opt {A : Type} (l : list A) : GOpt A :=
   match l with
   | x::xs => liftM Some (elems_ x xs)
@@ -199,6 +198,11 @@ Definition elems_opt {A : Type} (l : list A) : GOpt A :=
 
 Definition returnGenSome {A : Type} (a : A) := returnGen (Some a).
 
+Definition liftOptGen {A : Type}
+                      (g : G A)
+                      : GOpt A :=
+  a <- g ;;
+  returnGenSome a.
 
 Definition sampleFMapOpt {A B : Type}
                         `{countable.Countable A}

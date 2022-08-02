@@ -39,10 +39,6 @@ Module DexterGens (Info : DexterTestsInfo).
     |} in
     returnGenSome (tokens_to_asset exchange_msg).
 
-  Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
-    a <- g ;;
-    returnGenSome a.
-
   Definition gDexterAction (env : Environment) : GOpt Action :=
     let mk_call caller_addr amount msg :=
       returnGenSome {|

@@ -7,9 +7,10 @@ From Coq Require Import ZArith.
 From Coq Require Import List.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
@@ -137,7 +138,6 @@ Section iTokenBuggy.
                      (maybe_msg : option Msg)
                      : result (State * list ActionBody) Error :=
     let sender := ctx.(ctx_from) in
-    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     (* Only allow calls with no money attached *)
     if ctx.(ctx_amount) >? 0
     then Err default_error

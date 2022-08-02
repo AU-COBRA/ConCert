@@ -1,5 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require Monad.
+From ConCert.Execution Require OptionMonad.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import CertifyingInlining.
@@ -49,8 +51,8 @@ Definition midlang_escrow_translate (name : kername) : option string :=
 
 Open Scope bool.
 Definition should_inline kn :=
-  eq_kername kn <%% @Monads.bind %%>
-  || eq_kername kn <%% Monads.Monad_option %%>
+  eq_kername kn <%% @Monad.bind %%>
+  || eq_kername kn <%% OptionMonad.Monad_option %%>
   || if String.index 0 "setter_from_getter" (string_of_kername kn) then true else false.
 
 Definition extract_params :=

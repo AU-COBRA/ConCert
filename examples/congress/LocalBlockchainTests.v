@@ -3,7 +3,7 @@ implementation, showing that everything computes from within Coq. It
 also contains specializations of the results proven in Congress.v to
 our particular implementations of blockchains. *)
 
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import BoundedN.

@@ -4,7 +4,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Import DexterPrinters.

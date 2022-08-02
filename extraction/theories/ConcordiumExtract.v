@@ -6,6 +6,7 @@ From Coq Require Import ZArith.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 From ConCert.Utils Require Import StringExtra.
+From ConCert.Execution Require Monad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
@@ -213,7 +214,7 @@ Definition remap_blockchain_inductives : list (inductive * remapped_inductive) :
   ].
 
 Definition ignored_concert :=
-  [ <%% Monads.Monad %%> ;
+  [ <%% Monad.Monad %%> ;
     <%% @RecordSet.SetterFromGetter %%>
   ].
 

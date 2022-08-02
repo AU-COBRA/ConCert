@@ -1,5 +1,5 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import ResultMonad.
@@ -194,7 +194,6 @@ Section FA2TransferHook.
                           (maybe_msg : option TransferHookMsg)
                           : result (HookState * list ActionBody) HookError :=
     let sender := ctx.(ctx_from) in
-    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     let without_statechange x := x >>= (fun acts => Ok (state, acts)) in
     match maybe_msg with
     | Some (transfer_hook param) =>
