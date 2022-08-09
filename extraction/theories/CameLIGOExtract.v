@@ -79,7 +79,6 @@ Program Definition annot_extract_template_env_specalize
            (e : Ast.Env.global_env)
            (seeds : KernameSet.t)
            (ignore : list kername) : result_string (∑ e, env_annots box_type e) :=
-  (* let e := SafeTemplateChecker.fix_global_env_universes e in *)
   let e := TemplateToPCUIC.trans_global_env e in
   e <- specialize_ChainBase_env (PCUICProgram.trans_env_env e) ;;
   wfe <-check_wf_env_func extract_within_coq e;;
@@ -284,6 +283,9 @@ Definition unwrap_string_sum (s : String.string + String.string) : String.string
 
 Open Scope bs_scope.
 
+(** A flag that controls whether info about universes is preserved after quoting *)
+Definition WITH_UNIVERSES := false.
+
 Definition quote_and_preprocess {Base : ChainBase}
            {msg ctx params storage operation : Type}
            (inline : list kername)
@@ -295,16 +297,21 @@ Definition quote_and_preprocess {Base : ChainBase}
   '(Σ,_) <- tmQuoteRecTransp (init,receive) false ;;
   init_nm <- extract_def_name m.(lmd_init);;
   receive_nm <- extract_def_name m.(lmd_receive);;
-  Σ <-
-  (if is_empty inline then ret Σ
+  decls <-
+  (if is_empty inline then ret (Ast.Env.declarations Σ)
    else
+     let decls := Ast.Env.declarations Σ in
      let to_inline kn := existsb (eq_kername kn) inline in
-     Σcert <- tmEval lazy (inline_in_env to_inline Σ) ;;
+     Σcert <- tmEval lazy (inline_globals to_inline decls) ;;
      mpath <- tmCurrentModPath tt;;
-     Certifying.gen_defs_and_proofs Σ Σcert mpath "_cert_pass"
+     Certifying.gen_defs_and_proofs decls Σcert mpath "_cert_pass"
                                     (KernameSetProp.of_list [init_nm;receive_nm]);;
      ret Σcert);;
-  ret (Σ, init_nm,receive_nm).
+  Σret <- tmEval lazy (if WITH_UNIVERSES then
+                         Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
+                       else
+                         Ast.Env.Build_global_env (ContextSet.empty) decls);;
+  ret (Σret, init_nm,receive_nm).
 
 (** Runs all the necessary steps in [TemplateMonad] and adds a definition
     [<module_name>_prepared] to the Coq environment.
@@ -391,14 +398,20 @@ Definition quote_and_preprocess_one_def {A}
   : TemplateMonad (Ast.Env.global_env * kername) :=
   '(Σ,_) <- tmQuoteRecTransp def false ;;
   def_nm <- extract_def_name def;;
-  Σ <-(if is_empty inline then ret Σ
+  decls <-(if is_empty inline then ret (Ast.Env.declarations Σ)
       else
+        let decls := Ast.Env.declarations Σ in
         let to_inline kn := existsb (eq_kername kn) inline in
-        Σcert <- tmEval lazy (inline_in_env to_inline Σ) ;;
+        Σcert <- tmEval lazy (inline_globals to_inline decls) ;;
         mpath <- tmCurrentModPath tt;;
-        Certifying.gen_defs_and_proofs Σ Σcert mpath "_cert_pass" (KernameSetProp.of_list [def_nm]);;
-        ret Σcert);;
-  ret (Σ,def_nm).
+        Certifying.gen_defs_and_proofs decls Σcert mpath "_cert_pass"
+                                       (KernameSetProp.of_list [def_nm]);;
+     ret Σcert);;
+  Σret <- tmEval lazy (if WITH_UNIVERSES then
+                         Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
+                       else
+                         Ast.Env.Build_global_env (ContextSet.empty) decls);;
+  ret (Σret, def_nm).
 
 (** Extraction for testing purposes.
     Simply prints the definitions and allows for appending a prelude and a

@@ -237,8 +237,7 @@ Section PPTerm.
       let '(Γ2, vs1) := go Γ1 vs0 in
       (Γ2, nm :: vs1)
     end in
-    (* context and the list of variables should be in the reversed order *)
-    go Γ (List.rev vs).
+    go Γ vs.
   
   
   (** The [for_ind] flag tells the type printer whether the type is used in an inductive
@@ -732,6 +731,14 @@ Section PPLigo.
     print_forall [] = "".
   Proof. reflexivity. Qed.
 
+  Import bytestring.String.
+  Compute 
+          (let (args,_) :=Edecompose_lam (tLambda (BasicAst.nNamed (bytestring.String.of_string "a")) (tLambda (BasicAst.nNamed (bytestring.String.of_string "b")) (tRel 0))) in
+          fresh_string_names [{|
+           Extract.E.decl_name := BasicAst.nNamed (String "b" EmptyString);
+           Extract.E.decl_body := None
+         |}] args).
+  
   Definition print_decl
              (TT : env string) (* translation table *)
              (env : ExAst.global_env)

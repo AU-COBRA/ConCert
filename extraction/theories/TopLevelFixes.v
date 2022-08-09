@@ -2,6 +2,7 @@
    tConst instead. For example, the environment [("Foo", tFix [{| dbody := tRel 0 |}] 0)]
    is instead changed into something like [("Foo", tConst "Foo")]. *)
 From Coq Require Import List.
+From Coq Require Import String.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Transform.

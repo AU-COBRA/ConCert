@@ -3,14 +3,21 @@ From ConCert.Extraction Require Import ExAst.
 From ConCert.Utils Require Import StringExtra.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import TemplateToPCUIC.
+From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.SafeChecker Require Import SafeTemplateChecker.
+From MetaCoq.SafeChecker Require Import PCUICWfEnvImpl.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import config.
 
-Local Open Scope string_scope.
-Import String.
 Import PCUICErrors.
 Set Equations Transparent.
+
+Import config.
+
+Implicit Types (cf : checker_flags).
+Local Existing Instance extraction_checker_flags.
+Local Existing Instance fake_guard_impl_instance.
+
 
 Local Existing Instance extraction_checker_flags.
 
@@ -20,13 +27,18 @@ Record type_flag_squashed :=
     is_sort : bool;
     is_arity : bool }.
 
-Program Definition flag_of_type_program (p : Ast.program) : type_flag_squashed :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  let f := flag_of_type (empty_ext Σ) _ [] (trans p.2) _ in
+Program Definition flag_of_type_impl (Σ : global_env_ext) (wfextΣ : ∥ wf_ext Σ∥) :=
+  @flag_of_type canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)).
+
+
+Program Definition flag_of_type_program (p : Ast.Env.program) : type_flag_squashed :=
+  let Σ := trans_global_env p.1 in
+  let Σext := empty_ext (PCUICProgram.trans_env_env Σ) in
+  let f := flag_of_type_impl (empty_ext (PCUICProgram.trans_env_env Σ)) _ Σext _ [] (trans Σ p.2) _ in
   {| is_logical := Erasure.is_logical f;
      is_sort := if Erasure.is_sort (conv_ar f) then true else false;
-     is_arity := if Erasure.is_arity (conv_ar f) then true else false |}.
+     is_arity := if Erasure.is_arity _ (conv_ar f) then true else false |}.
+Next Obligation. Admitted.
 Next Obligation. Admitted.
 Next Obligation. Admitted.
 
@@ -92,17 +104,22 @@ Proof. vm_compute. reflexivity. Qed.
 End flag_of_type_tests.
 
 Module erase_type_tests.
+
+Open Scope bs_scope.
+
 Definition string_of_env_error Σ e :=
   match e with
   | IllFormedDecl s e =>
     "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
   | AlreadyDeclared s => "Alreadydeclared " ++ s
-  end%string.
+  end.
 
-Program Definition erase_type_program (p : Ast.program) : P.global_env * (list name * box_type) :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  (Σ, erase_type (empty_ext Σ) _ (trans p.2) _).
+Definition erase_type_impl (Σ : global_env_ext) (wfextΣ : ∥ wf_ext Σ∥) := @erase_type canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)).
+
+Program Definition erase_type_program (p : Ast.Env.program) : global_env_ext * (list name * box_type) :=
+  let Σ := trans_global_env p.1 in
+  let Σext := empty_ext (PCUICProgram.trans_env_env Σ) in
+  (Σext, erase_type_impl Σext _ Σext eq_refl (trans Σ p.2) _).
 Next Obligation.  Admitted.
 Next Obligation.  Admitted.
 
@@ -128,7 +145,7 @@ Definition print_name (na : name) : string :=
   | nAnon => "_"
   end.
 
-Definition print_box_type (Σ : P.global_env) (tvars : list name) :=
+Program Definition print_box_type (Σ : global_env_ext) (wfextΣ : ∥ wf_ext Σ∥) (tvars : list name) :=
   fix f (bt : box_type) :=
     match bt with
     | TBox => "□"
@@ -140,8 +157,8 @@ Definition print_box_type (Σ : P.global_env) (tvars : list name) :=
                 | None => "'a" ++ string_of_nat i
                 end
     | TInd s =>
-      match @PCUICSafeRetyping.lookup_ind_decl (empty_ext Σ) s with
-      | Checked (decl; oib; _) => oib.(P.ind_name)
+      match @PCUICSafeRetyping.lookup_ind_decl _ canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)) s with
+      | Checked (decl; oib; _) => oib.(ind_name)
       | TypeError te => "UndeclaredInductive("
                           ++ string_of_kername s.(inductive_mind)
                                                    ++ "," ++ string_of_nat s.(inductive_ind) ++ ")"
@@ -155,11 +172,12 @@ Definition print_type_vars (l : list name) :=
 Definition erase_and_print_type
            {cf : checker_flags}
            (after_erasure : box_type -> box_type)
-           (p : Ast.program) : string × string :=
+           (p : Ast.Env.program) : string × string :=
   let '(Σ, (tvars, bt)) := erase_type_program p in
-  (print_type_vars tvars, print_box_type Σ tvars bt).
+  (print_type_vars tvars, print_box_type Σ (todo "") tvars bt).
 
 MetaCoq Quote Recursively Definition ex1 := (forall (A B : Type) (a : A * B) (C : Type), A * B * C).
+
 Example ex1_test :
   erase_and_print_type id ex1 =
   ("A B C", "□ → □ → prod A B → □ → prod (prod A B) C").
@@ -362,65 +380,40 @@ End erase_type_tests.
 
 Import PCUICSafeRetyping.
 
-Program Definition type_of_program (p : Ast.program) : term :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  type_of (empty_ext Σ) _ _ [] (trans p.2) _.
-Next Obligation.  Admitted.
+Existing Instance PCUICSN.extraction_normalizing.
+
+Definition type_of_impl (Σ : global_env_ext) (wfextΣ : ∥ wf_ext Σ∥) := type_of canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)).
+
+Program Definition type_of_program (p : Ast.Env.program) : term :=
+  let Σ := trans_global_env p.1 in
+  let Σext := empty_ext (PCUICProgram.trans_env_env Σ) in
+  type_of_impl Σext _ [] _ (trans Σ p.2) _.
 Next Obligation.  Admitted.
 Next Obligation.  Admitted.
 
 
-Program Definition erase_type_of_program (p : Ast.program) : P.global_env * box_type :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  (Σ, erase_type_of (empty_ext Σ) _ [] (Vector.nil _) (trans p.2) _).
+Program Definition erase_type_of_program (p : Ast.Env.program) : global_env_ext * box_type :=
+  let Σ := trans_global_env p.1 in
+  let Σext := empty_ext (PCUICProgram.trans_env_env Σ) in
+  (Σext, erase_type_of Σext _ [] (Vector.nil _) (trans Σ p.2) _).
 Next Obligation.  Admitted.
 Next Obligation.  Admitted.
 
-Definition erase_and_print_type_of
+Program Definition erase_and_print_type_of
            {cf : checker_flags}
            (after_erasure : box_type -> box_type)
-           (p : Ast.program) : string :=
+           (p : Ast.Env.program) : string :=
   let '(Σ, bt) :=  erase_type_of_program p in
-  (erase_type_tests.print_box_type Σ [] bt).
+  (erase_type_tests.print_box_type Σ (todo "assume wf") [] bt).
 
-Program Definition erase_type_program' (p : Ast.global_env * P.term) : P.global_env * ((list name) * box_type) :=
-  let Σ := trans_global_decls p.1 in
-  (Σ, erase_type_aux (empty_ext Σ) _ [] (Vector.nil _) p.2 _ (Some 0)).
-Next Obligation.  Admitted.
-Next Obligation.  Admitted.
-
-
-Fixpoint foldLAlt {A B : Type} (f : A -> B -> A) (l : list B) (a0 : A) : A :=
-      match l with
-      | [] => a0
-      | b :: t => foldLAlt f t (f a0 b)
-      end.
-
-MetaCoq Quote Recursively Definition ex28 := @foldLAlt.
-
-Compute type_of_program ex28.
-Compute match erase_type_program' (ex28.1, type_of_program ex28) with
-        | (Σ, bt) => erase_type_tests.print_box_type Σ bt.1 bt.2
-        end.
-
-Definition poly_func {A B : Set} (a : A) (b : B) : A :=
-    let inner {B : Set} (b : B) : A := a in
-    inner b.
-
-MetaCoq Quote Recursively Definition blah := @poly_func.
-
-Compute type_of_program blah.
-Compute erase_type_of_program blah.
-Compute erase_and_print_type_of id blah.
-
+Definition erase_ind_arity_impl (Σ : global_env_ext) (wfextΣ : ∥ wf_ext Σ∥) :=
+  @erase_ind_arity canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)).
 
 Module erase_ind_arity_tests.
-Program Definition erase_arity_program (p : Ast.program) : list type_var_info :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  erase_ind_arity (empty_ext Σ) _ [] (trans p.2) _.
+Program Definition erase_arity_program (p : Ast.Env.program) : list type_var_info :=
+  let Σ := trans_global_env p.1 in
+  let Σext := empty_ext (PCUICProgram.trans_env_env Σ) in
+  erase_ind_arity_impl Σext _ Σext eq_refl [] (trans Σ p.2) _.
 Next Obligation. Admitted.
 Next Obligation. Admitted.
 
@@ -459,46 +452,58 @@ Definition parenthesize_ctor_type (bt : box_type) : bool :=
   end.
 
 Definition print_one_inductive_body
-           (Σ : global_env)
+           (Σ : global_env_ext)
+           (wf : ∥ wf_ext Σ ∥)
            (oib : ExAst.one_inductive_body) : string :=
   let print_ctor_type bt :=
-      " " ++ parens
+      (" " ++ parens
           (negb (parenthesize_ctor_type bt))
-          (print_box_type Σ (map tvar_name (ExAst.ind_type_vars oib)) bt) in
+          (print_box_type Σ wf (map tvar_name (ExAst.ind_type_vars oib)) bt))%bs in
 
-  let print_ctor '(ctor_name, ctor_types) :=
-      nl ++ "| " ++ ctor_name ++
-         concat "" (map (print_ctor_type ∘ snd) ctor_types) in
+  let print_ctor '(ctor_name, ctor_types, _) :=
+      (nl ++ "| " ++ ctor_name ++
+         String.concat "" (map (print_ctor_type ∘ snd) ctor_types))%bs in
 
-  "data "
-    ++ ExAst.ind_name oib ++ concat "" (map (fun tvar => " " ++ print_name (tvar_name tvar))
+  ("data "
+    ++ ExAst.ind_name oib ++ String.concat "" (map (fun tvar => " " ++ print_name (tvar_name tvar))
                                             (ind_type_vars oib))
-    ++ concat "" (map print_ctor (ExAst.ind_ctors oib)).
+    ++ String.concat "" (map print_ctor (ExAst.ind_ctors oib)))%bs.
 
-Definition print_inductive (Σ : global_env) (mib : ExAst.mutual_inductive_body) : string :=
-  concat nl (map (print_one_inductive_body Σ) (ExAst.ind_bodies mib)).
+Definition print_inductive (Σ : global_env_ext) (wf : ∥ wf_ext Σ ∥) (mib : ExAst.mutual_inductive_body) : string :=
+  String.concat nl (map (print_one_inductive_body Σ wf) (ExAst.ind_bodies mib)).
 
 Axiom assume_wellformed : forall {X}, X.
 Axiom cannot_happen : forall {X}, X.
-Definition erase_and_print_ind_prog (p : Ast.program) : string :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  match trans p.2 with
+
+Definition erase_ind_impl (Σ : global_env_ext) (wf : ∥ wf_ext Σ ∥)
+ := @erase_ind canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)).
+
+Definition erase_and_print_ind_prog (p : Ast.Env.program) : string :=
+  let Σ := trans_global_env p.1 in
+  match trans Σ p.2 with
   | P.tInd ind _ =>
-    match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) Σ with
-    | Some (kn, P.InductiveDecl mib) =>
-      let inder := erase_ind
-                     (Σ, ind_universes mib) assume_wellformed
-                     (inductive_mind ind) mib assume_wellformed in
-      print_inductive Σ inder
+      let decls := declarations (PCUICProgram.trans_env_env Σ) in
+      match List.find (fun '(kn, _) => eq_kername kn (inductive_mind ind)) decls with
+    | Some (kn, InductiveDecl mib) =>
+        let inder := erase_ind_impl
+                       (PCUICProgram.trans_env_env Σ, ind_universes mib) assume_wellformed
+                       (PCUICProgram.trans_env_env Σ, ind_universes mib) eq_refl
+                       (inductive_mind ind) mib assume_wellformed in
+      print_inductive (empty_ext (PCUICProgram.trans_env_env Σ)) assume_wellformed inder
     | _ => cannot_happen
     end
   | _ => cannot_happen
   end.
 
+Close Scope bs.
+Import Strings.String.
+Open Scope string_scope.
+
+Notation to_bs := bytestring.String.of_string.
+
 MetaCoq Quote Recursively Definition ex1 := nat.
 Example ex1_test :
-  erase_and_print_ind_prog ex1 = <$
+  erase_and_print_ind_prog ex1 = to_bs <$
 "data nat";
 "| O";
 "| S nat" $>.
@@ -506,14 +511,14 @@ Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex2 := sig.
 Example ex2_test :
-  erase_and_print_ind_prog ex2 = <$
+  erase_and_print_ind_prog ex2 = to_bs <$
 "data sig A P";
 "| exist □ □ A □" $>.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex3 := list.
 Example ex3_test :
-  erase_and_print_ind_prog ex3 = <$
+  erase_and_print_ind_prog ex3 = to_bs <$
 "data list A";
 "| nil □";
 "| cons □ A (list A)" $>.
@@ -521,15 +526,16 @@ Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex4 := option.
 Example ex4_test :
-  erase_and_print_ind_prog ex4 = <$
+  erase_and_print_ind_prog ex4 = to_bs <$
 "data option A";
 "| Some □ A";
 "| None □" $>.
 Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex5 := Vector.t.
+
 Example ex5_test :
-  erase_and_print_ind_prog ex5 = <$
+  erase_and_print_ind_prog ex5 = to_bs <$
 "data t A _";
 "| nil □";
 "| cons □ A nat (t A 𝕋)" $>.
@@ -542,7 +548,7 @@ with forest (A : Set) : Set :=
 | cons : tree A -> forest A -> forest A.
 MetaCoq Quote Recursively Definition ex6 := tree.
 Example ex6_test :
-  erase_and_print_ind_prog ex6 = <$
+  erase_and_print_ind_prog ex6 = to_bs <$
 "data tree A";
 "| node □ A (forest A)";
 "data forest A";
@@ -562,15 +568,18 @@ with Mod :=
 with MTy :=
 | MSigma : Mod -> MTy.
 MetaCoq Quote Recursively Definition ex7 := Env.
+
+
+
 Example ex7_test :
-  erase_and_print_ind_prog ex7 = <$
+  erase_and_print_ind_prog ex7 = to_bs <$
 "data Env";
 "| EnvCtr MEnv MTEnv";
 "data MEnv";
 "| MEnvCtr □ (list Mod)";
 "data MTEnv";
 "| MTEnvCtr (list MTy)";
-"data Mod" ++ nl ++
+"data Mod";
 "| NonParamMod Env";
 "| Ftor Env MTy";
 "data MTy";
@@ -583,7 +592,7 @@ Inductive Weird (A : Type) : Type :=
 
 MetaCoq Quote Recursively Definition ex8 := Weird.
 Example ex8_test :
-  erase_and_print_ind_prog ex8 = <$
+  erase_and_print_ind_prog ex8 = to_bs <$
 "data Weird A";
 "| Nil □";
 "| Cons □ A (Weird (prod A A))" $>.
@@ -595,7 +604,7 @@ Inductive IndexedList : Type -> Type :=
 
 MetaCoq Quote Recursively Definition ex9 := IndexedList.
 Example ex9_test :
-  erase_and_print_ind_prog ex9 = <$
+  erase_and_print_ind_prog ex9 = to_bs <$
 "data IndexedList _";
 "| inil □";
 "| icons □ 𝕋 (IndexedList 𝕋)" $>.
@@ -603,7 +612,7 @@ Proof. vm_compute. reflexivity. Qed.
 
 MetaCoq Quote Recursively Definition ex10 := Monad.
 Example ex10_test :
-  erase_and_print_ind_prog ex10 = <$
+  erase_and_print_ind_prog ex10 = to_bs <$
 "data Monad m";
 "| Build_Monad (□ → □) (□ → 𝕋 → m) (□ → □ → m → (𝕋 → m) → m)" $>.
 Proof. vm_compute. reflexivity. Qed.
@@ -614,7 +623,7 @@ Inductive ManyParamsInd (A : Type) (P : Prop) (Q : Prop) (B : Type) :=
 MetaCoq Quote Recursively Definition ex11 := ManyParamsInd.
 
 Example ManyParamsInd_test :
-  erase_and_print_ind_prog ex11 = <$
+  erase_and_print_ind_prog ex11 = to_bs <$
 "data ManyParamsInd A P Q B";
 "| MPIConstr □ □ □ □ □ A B" $>.
 Proof. vm_compute. reflexivity. Qed.
@@ -627,7 +636,7 @@ Inductive ManyParamsIndNonArity (A : Type) (P : Prop) (Q : True) (B : Type) :=
 MetaCoq Quote Recursively Definition ex12 := ManyParamsIndNonArity.
 
 Example ManyParamsIndNonArity_test:
-  erase_and_print_ind_prog ex12 = <$
+  erase_and_print_ind_prog ex12 = to_bs <$
 "data ManyParamsIndNonArity A P Q B";
 "| MPINAConstr1 □ □ □ □ □ A B";
 "| MPINAConstr2 □ □ □ □ □ (list □) (prod A B)" $>.
@@ -638,7 +647,7 @@ Inductive PropTypeVarInCtor :=
 MetaCoq Quote Recursively Definition ex13 := PropTypeVarInCtor.
 
 Example PropTypeVarInCtor_test :
-  erase_and_print_ind_prog ex13 = <$
+  erase_and_print_ind_prog ex13 = to_bs <$
 "data PropTypeVarInCtor";
 "| ex13_ctor □" $>.
 Proof. vm_compute. reflexivity. Qed.
@@ -648,7 +657,7 @@ Inductive IndWithIndex : nat -> Type :=
 MetaCoq Quote Recursively Definition ex14 := IndWithIndex.
 
 Example IndWithIndex_test :
-  erase_and_print_ind_prog ex14 = <$
+  erase_and_print_ind_prog ex14 = to_bs <$
 "data IndWithIndex _";
 "| ex14_ctor □" $>.
 Proof. vm_compute. reflexivity. Qed.
@@ -657,21 +666,25 @@ End erase_ind_tests.
 Module erase_type_scheme_tests.
 Axiom assume_wellformed : forall {X}, X.
 Axiom does_not_happen : forall {X}, X.
-Definition erase_and_print_type_scheme (p : Ast.program) : string * string :=
-  let p := fix_program_universes p in
-  let Σ := trans_global_decls p.1 in
-  match trans p.2 with
+
+Definition erase_constant_decl_impl (Σ : global_env_ext) (wf : ∥ wf_ext Σ ∥)
+ := @erase_constant_decl canonical_abstract_env_ext_impl (ltac:(now unshelve econstructor;eauto)).
+
+Definition erase_and_print_type_scheme (p : Ast.Env.program) : string * string :=
+  let Σ := trans_global_env p.1 in
+  match trans Σ p.2 with
   | P.tConst kn _ =>
-    match lookup_env Σ kn with
-    | Some (P.ConstantDecl cst) =>
-      let r := erase_constant_decl
-                 (Σ, cst_universes cst) assume_wellformed
+    match lookup_env (PCUICProgram.trans_env_env Σ) kn with
+    | Some (ConstantDecl cst) =>
+      let Σext := (PCUICProgram.trans_env_env Σ, cst_universes cst) in
+      let r := erase_constant_decl_impl
+                 Σext assume_wellformed Σext eq_refl
                  cst assume_wellformed in
       match r with
       | inr (Some (tvars, bt)) =>
         let tvars := map tvar_name tvars in
         (erase_type_tests.print_type_vars tvars,
-         erase_type_tests.print_box_type Σ tvars bt)
+         erase_type_tests.print_box_type (empty_ext (PCUICProgram.trans_env_env Σ)) assume_wellformed tvars bt)
       | _ => does_not_happen
       end
     | _ => does_not_happen

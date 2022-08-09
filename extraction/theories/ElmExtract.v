@@ -259,7 +259,7 @@ Definition print_define_term
 
 Local Open Scope bool.
 
-(* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm*)
+(* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm *)
 Definition get_infix (s : string) : option string:=
   let len := String.length s in
   let begins := substring_count 1 s in
@@ -269,15 +269,15 @@ Definition get_infix (s : string) : option string:=
   else
     None.
 
-(* Print a constructor as an infix operatior in patterns.
+(** Print a constructor as an infix operatior in patterns.
 
-   E.g. for [infix_op = "::"] it expects the [t] starts with two lambdas
-   [fun x => fun xs => ...],
-   so the corresponding pattern will look like
-   [x :: xs => ...] *)
-Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit) (infix_op : string) (Γ : list ident) (t : term) :=
-  match t with
-    | tLambda name1 (tLambda name2 t) =>
+   E.g. for [infix_op = "::"] it expects the branch context contains
+   two names (the context is reversed)
+   [nNamed "xs", nNamed "x"],
+   so the corresponding pattern will look like [x :: xs => ...] *)
+Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit) (infix_op : string) (Γ : list ident) (br_ctx : list name) (br : term) :=
+  match br_ctx with
+    | [name2; name1] =>
       name1 <- fresh_ident name1 Γ;;
       let Γ := name1 :: Γ in
       name2 <- fresh_ident name2 Γ;;
@@ -286,7 +286,7 @@ Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter
       append (" " ^ name2);;
       append " ->";;
       append_nl;;
-      print_parenthesized (parenthesize_case_branch t) (print (name2 :: Γ) t)
+      print_parenthesized (parenthesize_case_branch br) (print (name2 :: Γ) br)
     | _ => printer_fail "could not decompose branch for infix constructor"
   end.
 
@@ -407,7 +407,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
            let ctor_name := get_ctor_name (fst (inductive_mind ind), ctor_name) in
            (* NOTE: if the constructor name is some operator in parenthesis, we apply a special prining procedure for infix constructors *)
            match get_infix ctor_name with
-           | Some op => print_infix_match_branch print_term op Γ t
+           | Some op => print_infix_match_branch print_term op Γ bctx t
            | None =>
              append (get_ctor_name (fst (inductive_mind ind), s_to_bs ctor_name));;
 
@@ -427,7 +427,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
                     name <- fresh_ident name Γ;;
                     append (" " ^ name);;
                     print_branch bctx0 (name :: args) (name :: Γ)
-                end) bctx [] Γ
+                end) (List.rev bctx) [] Γ
            end;;
 
            pop_indent;;

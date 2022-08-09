@@ -112,25 +112,38 @@ Section inlining.
 End inlining.
 
 
-Definition inline_in_env (should_inline : kername -> bool) (Σ : global_env) : global_env:=
+(* Definition inline_in_decls (should_inline : kername -> bool) (Σ : global_declarations) : global_env:= *)
+(*   let newΣ := *)
+(*     fold_right (fun '(kn, decl) decls => *)
+(*                   let Σ0 := {| universes := Σ.(universes); *)
+(*                                declarations := decls |} in *)
+(*                   (kn, inline_in_decl should_inline Σ0 decl) :: decls) []) Σ in *)
+(*   map_global_env_decls (filter (fun '(kn, _) => negb (should_inline kn))) newΣ. *)
+
+
+
+Definition inline_globals (should_inline : kername -> bool) (Σ : global_declarations) : global_declarations :=
   let newΣ :=
-    map_global_env_decls (fold_right (fun '(kn, decl) decls =>
-                                        let Σ0 := {| universes := Σ.(universes);
-                                                     declarations := decls |} in
-                                        (kn, inline_in_decl should_inline Σ0 decl) :: decls) []) Σ in
-  map_global_env_decls (filter (fun '(kn, _) => negb (should_inline kn))) newΣ.
+    fold_right (fun '(kn, decl) decls =>
+                  (* Universes play no role in inlining, but carrying
+                     universes is expensive if the set is big. However, all
+                     the lookup functions take [global_env]. *)
+                  let Σ0 := {| universes := ContextSet.empty;
+                              declarations := decls |} in
+                  (kn, inline_in_decl should_inline Σ0 decl) :: decls) [] Σ in
+  filter (fun '(kn, _) => negb (should_inline kn)) newΣ.
 
 
-Definition inline_global_env_template
+Definition inline_globals_template
            (mpath : modpath)
-           (Σ : global_env)
+           (Σ : global_declarations)
            (should_inline : kername -> bool)
            (seeds : KernameSet.t)
-  : TemplateMonad global_env :=
+  : TemplateMonad global_declarations :=
   let suffix := "_after_inlining" in
-  Σinlined <- tmEval lazy (inline_in_env should_inline Σ);;
-  gen_defs_and_proofs Σ Σinlined mpath suffix seeds;;
-  ret Σinlined.
+  decls_inlined <- tmEval lazy (inline_globals should_inline Σ);;
+  gen_defs_and_proofs Σ decls_inlined mpath suffix seeds;;
+  ret decls_inlined.
 
 (* Mainly for testing purposes *)
 Definition inline_def {A}
@@ -139,11 +152,11 @@ Definition inline_def {A}
   mpath <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
   kn <- Common.extract_def_name def ;;
-  inline_global_env_template mpath p.1 should_inline (KernameSet.singleton kn).
+  inline_globals_template mpath (declarations p.1) should_inline (KernameSet.singleton kn).
 
 
 Definition template_inline (should_inline : kername -> bool): TemplateTransform :=
-  fun Σ => Ok (timed "Inlining" (fun _ => inline_in_env should_inline Σ)).
+  fun Σ => Ok (timed "Inlining" (fun _ => (Build_global_env (universes Σ) (inline_globals should_inline (declarations Σ))))).
 
 Module Tests.
 
@@ -157,7 +170,7 @@ Module Tests.
     MetaCoq Run (env <- inline_def (fun kn => eq_kername <%% foo %%> kn
                                           ||  eq_kername <%% bar %%> kn)
                                   baz ;;
-                 t <- tmEval lazy (map fst env.(declarations));;
+                 t <- tmEval lazy (map fst env);;
                  tmPrint t).
   End Ex1.
 

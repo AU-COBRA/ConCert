@@ -66,12 +66,6 @@ Definition string_of_env_error Σ e :=
   | AlreadyDeclared s => "Alreadydeclared " ++ s
   end.
 
-(* Definition result_of_EnvCheck {AS A} (ec : EnvCheck AS A) : result A string := *)
-(*   match ec with *)
-(*   | CorrectDecl a => ret a *)
-(*   | EnvError Σ err => Err (string_of_env_error Σ err) *)
-(*   end. *)
-
 Definition result_of_option {A} (o : option A) (err : string) : result A string :=
   match o with
   | Some a => Ok a
@@ -115,12 +109,6 @@ Notation "'unfolded' d" :=
 
 Definition remap (kn : kername) (new_name : String.string) : kername * String.string :=
   (kn, new_name).
-
-(* Definition EnvCheck_to_template { AS A} (ec : EnvCheck AS A) : TemplateMonad A := *)
-(*   match ec with *)
-(*   | CorrectDecl a => ret a *)
-(*   | EnvError Σ e => tmFail (string_of_env_error Σ e) *)
-(*   end. *)
 
 Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad program :=
   p <- tmQuoteRecTransp def false ;;

@@ -1,4 +1,5 @@
 (* This file provides the main function for invoking our extraction. *)
+From Coq Require Import String.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require OptimizePropDiscr.
@@ -51,7 +52,7 @@ Program Definition extract_pcuic_env
            (Σ : global_env)
            (wfΣ : ∥wf Σ ∥)
            (seeds : KernameSet.t)
-           (ignore : kername -> bool) : result ExAst.global_env string :=
+           (ignore : kername -> bool) : result ExAst.global_env _ :=
   let Σ := timed "Erasure" (fun _ => erase_global_decls_deps_recursive (declarations Σ) (universes Σ) wfΣ seeds ignore) in
   if optimize_prop_discr params then
     let Σ := timed "Removal of prop discrimination" (fun _ => OptimizePropDiscr.optimize_env Σ _) in
@@ -85,7 +86,6 @@ Definition extract_template_env_general
            (Σ : Ast.Env.global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
-  (* let Σ := SafeTemplateChecker.fix_global_env_universes Σ in *)
   let Σ := trans_global_env Σ in
   Σ <- pcuic_trans (PCUICProgram.trans_env_env Σ) ;;
   check_wf_and_extract params Σ seeds ignore.
@@ -111,8 +111,8 @@ Definition extract_template_env_certifying_passes
            (ignore : kername -> bool) : TemplateMonad ExAst.global_env :=
   Σtrans <- run_transforms Σ params ;;
   mpath <- tmCurrentModPath tt;;
-  gen_defs_and_proofs Σ Σtrans mpath "_cert_pass" seeds;;
-  res <- tmEval lazy (extract_template_env_general pcuic_trans params  Σtrans seeds ignore) ;;
+  gen_defs_and_proofs (Ast.Env.declarations Σ) (Ast.Env.declarations Σtrans) mpath "_cert_pass" seeds;;
+  res <- tmEval lazy (extract_template_env_general pcuic_trans params Σtrans seeds ignore) ;;
   match res with
     | Ok env => ret env
     | Err e => tmFail e

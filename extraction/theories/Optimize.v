@@ -154,12 +154,27 @@ Proof.
     unfold count_zeros;lia.
 Qed.
 
-(* NOTE: the context mask is a "usual" mask, but reversed as a list of bits *)
-Definition dearg_branch_body (bctx_mask : bitmask) (bctx : list name) (t : term) : list name * term :=
+(** Context masks are build by reversing the original mask and
+    prepending [false], if the original mask is shorter than the contex *)
+Definition complete_ctx_mask (mask : bitmask) (ctx : list name): bitmask :=
+  repeat false (#|ctx| - #|mask|) ++ List.rev mask.
+
+Lemma complete_ctx_mask_length mask ctx :
+  #|mask| <= #|ctx| ->
+  #|complete_ctx_mask mask ctx| = #|ctx|.
+Proof.
+  intros Hlen.
+  unfold complete_ctx_mask.
+  rewrite app_length,repeat_length, List.rev_length.
+  lia.
+Qed.
+
+Definition dearg_branch_body (mask : bitmask) (bctx : list name) (t : term) : list name * term :=
+  let bctx_mask := complete_ctx_mask mask bctx in
   (masked bctx_mask bctx, (dearg_branch_body_rec 0 bctx_mask t).2).
 
-Compute dearg_lambdas [true;false;false] (tLambda (nNamed "a") (tLambda (nNamed "b") (tLambda (nNamed "c") (tApp (tApp (tRel 0) (tRel 1)) (tRel 2))))).
-Compute dearg_branch_body (rev [true;false;false]) ([nNamed "c";nNamed "b"; nNamed "a"]) (tApp (tApp (tRel 0) (tRel 1)) (tRel 2)).
+Compute dearg_lambdas [true;false] (tLambda (nNamed "a") (tLambda (nNamed "b") (tLambda (nNamed "c") (tApp (tApp (tRel 0) (tRel 1)) (tRel 2))))).
+Compute dearg_branch_body ([true;false]) ([nNamed "c";nNamed "b"; nNamed "a"]) (tApp (tApp (tRel 0) (tRel 1)) (tRel 2)).
 
 Definition dearged_npars (mm : option mib_masks) (npars : nat) : nat :=
   match mm with
@@ -171,7 +186,7 @@ Definition dearg_case_branch
            (mm : mib_masks) (ind : inductive) (c : nat)
            (br : list name × term) : list name × term :=
   let mask := get_branch_mask mm (inductive_ind ind) c in
-  if #|mask| <=? #|br.1| then dearg_branch_body (rev mask) br.1 br.2
+  if #|mask| <=? #|br.1| then dearg_branch_body mask br.1 br.2
   else (* never happens for valid masks *)
     br.
 
@@ -190,8 +205,6 @@ Definition dearged_proj_arg (mm : option mib_masks) (ind : inductive) (arg : nat
                arg - count_ones (firstn arg mask)
   | None => arg
   end.
-
-From MetaCoq.Template Require All.
 
 Definition dearg_case
            (ind : inductive)
@@ -230,7 +243,7 @@ Fixpoint dearg_cst_type_top (mask : bitmask) (type : box_type) : box_type :=
   end.
 
 (* Remove lambda abstractions from top level declaration and remove
-   all unused args in applicacations *)
+   all unused args in applications *)
 Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
   let mask := get_const_mask kn in
   {| cst_type := on_snd (dearg_cst_type_top mask) (cst_type cst);
@@ -238,7 +251,7 @@ Definition dearg_cst (kn : kername) (cst : constant_body) : constant_body :=
 
 Definition dearg_ctor (par_mask : bitmask) (ctor_mask : bitmask) (ctor : ident * list (name * box_type) * nat) :=
   let '(name, fields, orig_arity) := ctor in
-  (name, masked (par_mask ++ ctor_mask) fields, orig_arity).
+  (name, masked (par_mask ++ ctor_mask) fields, orig_arity - count_ones ctor_mask).
 
 Definition dearg_oib
            (mib_masks : mib_masks)
@@ -297,7 +310,7 @@ Fixpoint valid_dearg_mask (mask : bitmask) (body : term) : bool :=
   | _, _ => false
   end.
 
-(* INVARIANT: the mask is reversed! *)
+(* INVARIANT: the mask is completed according to the context with [complete_ctx_mask]! *)
 Fixpoint valid_dearg_mask_branch (i : nat) (mask : bitmask) (body : term) : bool :=
   match mask with
   |  b :: mask =>
@@ -312,7 +325,7 @@ Definition valid_case_masks (ind : inductive) (npars : nat) (brs : list (list na
       alli (fun c '(ctx, br) =>
               let ar := #|ctx| in
               (#|get_branch_mask mm (inductive_ind ind) c| <=? ar) &&
-                (valid_dearg_mask_branch 0 (List.rev (get_branch_mask mm (inductive_ind ind) c)) br)) 0 brs
+                (valid_dearg_mask_branch 0 (complete_ctx_mask (get_branch_mask mm (inductive_ind ind) c) ctx) br)) 0 brs
   | None => true
   end.
 
@@ -585,8 +598,9 @@ Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :
     | Some mm =>
       let analyze_case c '(state, ctor_masks) (brs : list BasicAst.name * term) :=
         let state := analyze (new_vars state #|brs.1|) brs.2 in
-        let mask := firstn #|brs.1| state.1 in
-        (remove_vars state #|brs.1|, update_ind_ctor_mask (inductive_ind ind) c ctor_masks (bitmask_and mask)) in
+        (remove_vars state #|brs.1|, ctor_masks) in
+        (* let mask := List.rev (firstn #|brs.1| state.1) in *)
+        (* (remove_vars state #|brs.1|, update_ind_ctor_mask (inductive_ind ind) c ctor_masks (bitmask_and mask)) in *)
       let (state, ctor_masks) := fold_lefti analyze_case 0 brs (state, ctor_masks mm) in
       let mm := {| param_mask := param_mask mm; ctor_masks := ctor_masks |} in
       update_mib_masks state (inductive_mind ind) mm
@@ -695,6 +709,8 @@ Print Instances Monad.
 Definition throwIf (b : bool) (err : string) : (fun x => result x string) unit  :=
   if b then Err err else Ok tt.
 
+From Coq Require Import String.
+
 Definition dearg_transform
            (overridden_masks : kername -> option bitmask)
            (* If true, trim ends of constant masks to avoid unnecessary eta expansion. *)
@@ -709,7 +725,7 @@ Definition dearg_transform
            (check_valid_masks : bool) : ExtractTransform :=
   fun (Σ : global_env) => throwIf (check_closed && negb (env_closed (trans_env Σ)))
         "Erased environment is not closed" ;;
-    let (const_masks, ind_masks) := timed "Dearg analysis"
+    let (const_masks, ind_masks) := timed "Dearg analysis"%string
                                           (fun _ => analyze_env overridden_masks Σ) in
 
     let const_masks := (if do_trim_const_masks then trim_const_masks else id) const_masks in

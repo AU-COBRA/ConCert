@@ -48,19 +48,18 @@ Section betared.
 
 End betared.
 
-Definition betared_in_env (Σ : global_env) : global_env :=
-  map_global_env_decls
-  (fold_right (fun '(kn, decl) decls => (kn, betared_in_decl decl) :: decls) []) Σ.
+Definition betared_globals (Σ : global_declarations) : global_declarations :=
+  fold_right (fun '(kn, decl) decls => (kn, betared_in_decl decl) :: decls) [] Σ.
 
-Definition betared_global_env_template
+Definition betared_globals_template
            (mpath : modpath)
-           (Σ : global_env)
+           (Σ : global_declarations)
            (seeds : KernameSet.t)
-  : TemplateMonad global_env :=
+  : TemplateMonad global_declarations :=
   let suffix := "_after_betared" in
-  Σinlined <- tmEval lazy (betared_in_env Σ);;
-  gen_defs_and_proofs Σ Σinlined mpath suffix seeds;;
-  ret Σinlined.
+  Σbeta <- tmEval lazy (betared_globals Σ);;
+  gen_defs_and_proofs Σ Σbeta mpath suffix seeds;;
+  ret Σbeta.
 
 (* Mainly for testing purposes *)
 Definition betared_def {A}
@@ -68,11 +67,11 @@ Definition betared_def {A}
   mpath <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
   kn <- Common.extract_def_name def ;;
-  betared_global_env_template mpath p.1 (KernameSet.singleton kn).
+  betared_globals_template mpath (declarations p.1) (KernameSet.singleton kn).
 
 
 Definition template_betared : TemplateTransform :=
-  fun Σ => Ok (timed "Inlining" (fun _ => betared_in_env Σ)).
+  fun Σ => Ok (timed "Inlining" (fun _ => Build_global_env (universes Σ) (betared_globals (declarations Σ)))).
 
 Module Ex1.
 

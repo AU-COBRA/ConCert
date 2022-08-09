@@ -140,25 +140,25 @@ Module T:=Ast.Env.
 Definition extract_lines
            (p : T.program)
            (remaps : remaps)
-           (should_inline : kername -> bool) : result (list string) string  :=
+           (should_inline : kername -> bool) : result (list bytestring.string) bytestring.string  :=
   entry <- match snd p with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)
-           | _ => Err "Expected program to be a tConst or tInd"
+           | _ => Err (s_to_bs "Expected program to be a tConst or tInd")
            end;;
   let without_deps kn :=
       if remap_inductive remaps (mkInd kn 0) then true else
       if remap_constant remaps kn then true else
       if remap_inline_constant remaps kn then true else false in
-  Σ <- map_error bs_to_s (extract_template_env
+  Σ <- extract_template_env
          (extract_rust_within_coq (fun _ => None) should_inline)
          (fst p)
          (KernameSet.singleton entry)
-         without_deps);;
+         without_deps;;
   let p := print_program Σ remaps default_attrs in
-  '(_, s) <- timed (bytestring.String.of_string "Printing") (fun _ => finish_print_lines p);;
-  ret s.
+  '(_, s) <- timed "Printing" (fun _ => map_error (fun x => s_to_bs x) (finish_print_lines p));;
+  Ok (map s_to_bs s).
 
 Definition extract p remaps should_inline :=
   lines <- extract_lines p remaps should_inline;;
-  ret (String.concat Common.nl lines).
+  ret (bytestring.String.concat MCString.nl lines).

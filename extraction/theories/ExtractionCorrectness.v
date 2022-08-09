@@ -1,4 +1,4 @@
-
+From Coq Require Import List.
 From ConCert.Extraction Require Import ErasureCorrectness.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Extraction.
@@ -16,6 +16,9 @@ From MetaCoq.PCUIC Require Import PCUICSafeLemmata.
 From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICInversion.
 From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import MCSquash.
+
+Import ListNotations.
 
 Module P := PCUICAst.
 Module E := EAst.
@@ -28,14 +31,14 @@ Lemma wf_squash {Σ} :
 Proof. intros []. now constructor. Qed.
 
 Lemma global_erased_with_deps_erases_deps_tConst Σ Σer kn cst :
-  declared_constant Σ kn cst ->
+  P.declared_constant Σ kn cst ->
   global_erased_with_deps Σ Σer kn ->
   erases_deps Σ Σer (E.tConst kn).
 Proof.
   intros decl glob.
   destruct glob as [(?&?&?&?&?&?)|(?&?&?&?&?)].
   - econstructor; eauto.
-  - unfold ETyping.declared_constant, ETyping.declared_minductive in *.
+  - unfold EGlobalEnv.declared_constant, EGlobalEnv.declared_minductive in *.
     congruence.
 Qed.
 
@@ -62,14 +65,14 @@ Proof.
   + depelim erase_to; [|easy].
     constructor.
     eapply dearg_transform_correct; eauto.
-    now apply (OptimizePropDiscr.optimize_correct _ (tConst kn) (tConstruct ind c)).
+    now apply (OptimizePropDiscr.optimize_correct _ _ (tConst kn) (tConstruct ind c)).
   + eapply inversion_Const in wt as (?&?&?&?&?); auto.
     eapply global_erased_with_deps_erases_deps_tConst; eauto.
-    eapply (erase_global_decls_deps_recursive_correct
-              _ (wf_squash (sq w))
-              (KernameSet.singleton kn)); eauto.
-    * intros ? ->%KernameSet.singleton_spec.
-      now unfold declared_constant, PCUICAst.fst_ctx, fst_ctx in *.
+    destruct Σ as [Σ univ_decls].
+    destruct Σ as [Σ univs].
+    cbn in *.
+    eapply erase_global_decls_deps_recursive_correct;eauto.
+    * now intros ? ->%KernameSet.singleton_spec.
     * now apply KernameSet.singleton_spec.
 Qed.
 
@@ -85,4 +88,7 @@ Print Assumptions extract_correct.
    MetaCoq when they run their erasure).
 
    The rest of the assumptions are normal MetaCoq assumptions
-   (which are justified in Coq Coq Correct!). *)
+   (which are justified in Coq Coq Correct!).
+
+   [JMeq.JMeq_eq] leaks from the use of some tactics and probably can be avoided.
+ *)

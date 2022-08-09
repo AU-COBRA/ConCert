@@ -7,11 +7,13 @@ From ConCert.Utils Require Import StringExtra.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq Require Import utils.
+From Coq Require Import String.
 
 Import PrettyPrinterMonad.
+Import MCMonadNotation.
 Local Open Scope string.
 
-Instance RustConfig : RustPrintConfig :=
+Local Instance RustConfig : RustPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
      any_type_symbol := "()";
@@ -19,11 +21,11 @@ Instance RustConfig : RustPrintConfig :=
 
 Definition default_attrs : ind_attr_map := fun _ => "#[derive(Debug, Clone)]".
 
-Definition extract (p : T.program) : result string string :=
+Definition extract (p : program) : result _ _ :=
   entry <- match p.2 with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)
-           | _ => Err "Expected program to be a tConst or tInd"
+           | _ => Err (s_to_bs "Expected program to be a tConst or tInd")
            end;;
   Σ <- extract_template_env
          (extract_rust_within_coq (fun _ => None) (fun _ => false))
@@ -45,7 +47,7 @@ Definition extract (p : T.program) : result string string :=
       append_nl;;
       print_decls Σ no_remaps default_attrs (filter is_const (List.rev Σ));;
       ret tt in
-  '(_, s) <- finish_print p;;
+  '(_, s) <- map_error (fun x => s_to_bs x) (finish_print p);;
   ret s.
 
 Module ex1.
@@ -293,7 +295,7 @@ End ex5.
 
 Module SafeHead.
 
-  Program Definition safe_head {A} (non_empty_list : {l : list A | length l > 0}) : A :=
+  Program Definition safe_head {A} (non_empty_list : {l : list A | List.length l > 0}) : A :=
     match non_empty_list as l' return l' = non_empty_list -> A  with
     | [] =>
       (* NOTE: we use [False_rect] to make the extracted code a bit nicer.
@@ -321,7 +323,7 @@ Module SafeHead.
   Qed.
 
   MetaCoq Run (p <- Core.tmQuoteRecTransp (@head_of_repeat_plus_one) false;;
-               Core.tmDefinition "Prog" p).
+               Core.tmDefinition (s_to_bs "Prog") p).
 
   Compute extract Prog.
 

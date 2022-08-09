@@ -74,8 +74,8 @@ Definition gen_prog (ty body : term) (kn : kername) : TemplateMonad unit
                    tmDefinition kn.2 ucst;;
                    ret tt).
 
-Definition gen_proof (suffix : string) (Σ : global_env) (mpath : modpath) (kn : kername)  : TemplateMonad unit :=
-  match lookup_env Σ kn with
+Definition gen_proof (suffix : string) (Σ : global_declarations) (mpath : modpath) (kn : kername)  : TemplateMonad unit :=
+  match lookup_global Σ kn with
   | Some (ConstantDecl cb) =>
     let kn_after := (mpath, get_def_name kn ++ suffix) in
     '(p_ty, p_t) <- tmEval lazy (generate_proof_term cb.(cst_type) kn kn_after) ;;
@@ -103,12 +103,12 @@ Definition map_global_env_decls (f : global_declarations -> global_declarations)
     for (syntactic) equality. If they are not equal, we expect them to be convertible, so
     we generate a new definition and save the name to [affected] list, which is returned
     when we traversed all definition in [Σ1] *)
-Definition traverse_env (mpath : modpath) (suffix: string) (Σ1 Σ2 : global_env) :=
+Definition traverse_env (mpath : modpath) (suffix: string) (Σ1 Σ2 : global_declarations) :=
   let f := fix go (affected : KernameSet.t) (dΣ1 dΣ2 : global_declarations) : TemplateMonad KernameSet.t :=
       match dΣ1 with
       | [] => ret affected
       | (kn, ConstantDecl cb1) :: Σtail =>
-          match lookup_env Σ2 kn with
+          match lookup_global Σ2 kn with
           | Some (ConstantDecl cb2) =>
               match cb1, cb2 with
               | Build_constant_body ty1 (Some body1) _ _,
@@ -126,7 +126,7 @@ Definition traverse_env (mpath : modpath) (suffix: string) (Σ1 Σ2 : global_env
           end
       | _ :: Σtail => go affected Σtail dΣ2
       end in
-  f KernameSet.empty Σ1.(declarations) Σ2.(declarations).
+  f KernameSet.empty Σ1 Σ2.
 
 (** We generate new definitions using [traverse_env] and then generate the proofs for all
    affected seeds. The proof is just [eq_refl], since we expect that the generated
@@ -135,15 +135,15 @@ Definition traverse_env (mpath : modpath) (suffix: string) (Σ1 Σ2 : global_env
  *)
 (* NOTE: we generate proofs for all affected constants, but we don't gnerate proofs of
    the types of constructors, that can be affected by inlining within types! *)
-Definition gen_defs_and_proofs (Σold Σnew : global_env) (mpath : modpath) (suffix: string) (seeds : KernameSet.t) : TemplateMonad unit :=
+Definition gen_defs_and_proofs (Σold Σnew : global_declarations) (mpath : modpath) (suffix: string) (seeds : KernameSet.t) : TemplateMonad unit :=
   let filter_decls decls :=
     filter (fun '(kn,gd) =>
               match gd with
               | ConstantDecl cb => negb (is_none cb.(cst_body))
               | _ => false
               end) decls in
-  let filteredΣold := map_global_env_decls filter_decls Σold in
-  let filteredΣnew := map_global_env_decls filter_decls Σnew in
-  affected_defs <- traverse_env mpath suffix (map_global_env_decls (@List.rev _) filteredΣold) filteredΣnew;;
+  let filteredΣold := filter_decls Σold in
+  let filteredΣnew := filter_decls Σnew in
+  affected_defs <- traverse_env mpath suffix (List.rev filteredΣold) filteredΣnew;;
   let affected_seeds := KernameSet.inter affected_defs seeds in
   monad_iter (gen_proof suffix Σnew mpath) (KernameSet.elements affected_seeds).

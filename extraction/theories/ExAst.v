@@ -120,6 +120,20 @@ Definition lookup_constructor
   | None => None
   end.
 
+Definition lookup_constructor_full (Σ : global_env)
+           (ind : inductive) (c : nat) :
+  option (mutual_inductive_body * one_inductive_body * (ident * list (name * box_type) * nat)) :=
+  match lookup_minductive Σ (inductive_mind ind) with
+  | Some mib => match nth_error (ind_bodies mib) (inductive_ind ind) with
+               | Some oib => match nth_error (ind_ctors oib) c with
+                            | Some c => Some (mib, oib, c)
+                            | None => None
+                            end
+               | None => None
+               end
+  | None => None
+  end.
+
 Definition trans_cst (cst : constant_body) : EAst.constant_body :=
   {| EAst.cst_body := cst_body cst |}.
 

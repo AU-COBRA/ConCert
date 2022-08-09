@@ -46,6 +46,9 @@ Context `{RustPrintConfig}.
 
 Import Kernames.
 
+(* TODO: eventually, we should use bytestring everywhere, currently,
+   we convert back and forth between Coq' standard [string] and MetaCoq's
+  [bytestring]. *)
 Notation bs_to_s := bytestring.String.to_string.
 Notation s_to_bs := bytestring.String.of_string.
 
@@ -87,17 +90,17 @@ Definition const_global_ident_of_kername (kn : kername) :=
 (* Get identifier for a global constant meant to be used as a type, without
    taking remappings into account. This is also used for [inductive]. *)
 Definition ty_const_global_ident_of_kername (kn : kername) :=
-  capitalize (clean_global_ident (if print_full_names then bs_to_s (string_of_kername kn) else (bs_to_s (snd kn)))).
+  s_to_bs (capitalize (clean_global_ident (bs_to_s (if print_full_names then string_of_kername kn else (snd kn))))).
 
 (* Get identifier for a global type alias taking remappings into account *)
-Definition get_ty_const_ident (name : kername) : string :=
+Definition get_ty_const_ident (name : kername) : _ :=
   match remap_inline_constant remaps name with
   | Some s => s
   | None => ty_const_global_ident_of_kername name
   end.
 
 (* Get identifier for an inductive taking remappings into account *)
-Definition get_ind_ident (ind : inductive) : PrettyPrinter string :=
+Definition get_ind_ident (ind : inductive) : PrettyPrinter _ :=
   match remap_inductive remaps ind with
   | Some rem => ret (re_ind_name rem)
   | None =>
@@ -114,7 +117,7 @@ Definition is_polymorphic (cst : Ex.constant_body) : bool :=
   0 <? #|fst (Ex.cst_type cst)|.
 
 Definition print_ind (ind : inductive) : PrettyPrinter unit :=
-  get_ind_ident ind >>= append.
+  get_ind_ident ind >>= fun x => append (bs_to_s x).
 
 Definition print_parenthesized
            (parenthesize : bool)
@@ -223,7 +226,7 @@ Fixpoint print_type_aux (Γ : list ident) (t : box_type) (args : list (PrettyPri
       append ">"
 
   | TConst name =>
-    append (get_ty_const_ident name ++ "<");;
+    append (bs_to_s (get_ty_const_ident name) ++ "<");;
     monad_append_join (append ", ") (append "'a" :: args);;
     append ">"
   end.
@@ -268,9 +271,9 @@ Definition print_constructor
                      (bs_to_s (string_of_inductive ind)
                       ^ "' does not remap enough constructors ");;
     if 0 <? #|args| then
-      print_app (append s) args
+      print_app (append (bs_to_s s)) args
     else
-      append s
+      append (bs_to_s s)
   | None =>
     oib <- wrap_result (lookup_ind_decl ind) id;;
     '(ctor, _, _) <- wrap_option
@@ -299,7 +302,7 @@ Definition print_const (kn : kername) (args : list (PrettyPrinter unit)) : Prett
         ("self." ^ const_global_ident_of_kername kn ^ "__curried", 0)
       else
         (match remap_inline_constant remaps kn with
-         | Some s => s
+         | Some s => (bs_to_s s)
          | None => "self." ^ const_global_ident_of_kername kn
          end, num_inline_args) in
   head_col <- get_current_line_length;;
@@ -345,7 +348,7 @@ Section print_term.
            s <- wrap_option (nth_error (re_ind_ctors rem) c)
                             (bs_to_s (string_of_inductive ind)
                              ^ "' does not remap enough constructors");;
-           append s
+           append (bs_to_s s)
 
          | None =>
            append "&";;
@@ -374,7 +377,7 @@ Section print_term.
             | name :: bctx0 =>
               name <- fresh_ident name Γ;;
               print_branch bctx0 (name :: args) (name :: Γ)
-            end) bctx [] Γ;;
+            end) (List.rev bctx) [] Γ;;
 
          pop_indent;;
          append_nl;;
@@ -536,7 +539,7 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
       match remap_inductive remaps ind with
       | Some rem =>
         match re_ind_match rem with
-        | Some s => print_remapped_case print_term Γ ind discr brs s
+        | Some s => print_remapped_case print_term Γ ind discr brs (bs_to_s s)
         | None => print_case print_term Γ ind npars discr brs
         end
       | None => print_case print_term Γ ind npars discr brs
@@ -613,7 +616,7 @@ Definition print_constant
 
   (* Print version with inlined args *)
   match remap_constant remaps kn with
-  | Some s => append (StringExtra.replace "##name##" rname s)
+  | Some s => append (StringExtra.replace "##name##" rname (bs_to_s s))
   | None =>
     if remap_inline_constant remaps kn then
       ret tt
@@ -767,9 +770,9 @@ Definition print_type_alias
            (bt : box_type) : PrettyPrinter unit :=
   let rname := ty_const_global_ident_of_kername nm in
   match remap_constant remaps nm with
-  | Some s => append (StringExtra.replace "##name##" rname s)
+  | Some s => append (StringExtra.replace "##name##" (bs_to_s rname) (bs_to_s s))
   | None =>
-    append ("type " ++ rname ++ "<");;
+    append ("type " ++ (bs_to_s rname) ++ "<");;
     Γrev <- monad_fold_left (fun Γ tvar => name <- fresh_ty_arg_name (tvar_name tvar) Γ;;
                                            ret (name :: Γ))
                           tvars [];;

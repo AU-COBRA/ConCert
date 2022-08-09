@@ -282,9 +282,9 @@ Qed.
 Fixpoint deriv_length {Σ t v} (ev : Σ e⊢ t ▷ v) : nat :=
   match ev with
   | eval_atom _ _ => 1
-  | eval_cofix_proj _ _ _ _ _ _ _ _ _ _ ev
   | eval_delta _ _ _ _ _ _ ev
   | eval_proj_prop _ _ _ ev _ => S (deriv_length ev)
+  | eval_cofix_proj _ _ _ _ _ _ _ _ ev1 _ ev2
   | eval_box _ _ _ ev1 ev2
   | eval_zeta _ _ _ _ _ ev1 ev2
   | eval_iota _ _ _ _ _ _ _ _ _ ev1 _ _ _ _ ev2

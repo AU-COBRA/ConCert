@@ -4047,9 +4047,9 @@ Proof.
           (apply closed_mkApps;[eapply closed_cunfold_cofix;eauto|eauto]).
         assert (valid_cases (mkApps fn args)) by
           now (eapply valid_cases_mkApps;[eapply valid_cases_cunfold_cofix;eauto|eauto]).
-        assert (is_expanded (mkApps fn args)).
-        { apply is_expanded_aux_mkApps;cbn;eauto with dearg.
-          eapply is_expanded_aux_upwards;eauto. lia. }.
+        assert (is_expanded (mkApps fn args)) by
+        (apply is_expanded_aux_mkApps;cbn;eauto with dearg;
+         eapply is_expanded_aux_upwards;eauto;lia).
         eapply IH with (ev:=ev2);cbn;propify;intuition;eauto with dearg.
     + congruence.
   - facts.
@@ -4087,9 +4087,9 @@ Proof.
           (apply closed_mkApps;[eapply closed_cunfold_cofix;eauto|eauto]).
         assert (valid_cases (mkApps fn args)) by
           now (eapply valid_cases_mkApps;[eapply valid_cases_cunfold_cofix;eauto|eauto]).
-        assert (is_expanded (mkApps fn args)).
-        { apply is_expanded_aux_mkApps;cbn;eauto with dearg.
-          eapply is_expanded_aux_upwards;eauto. lia. }.
+        assert (is_expanded (mkApps fn args)) by
+        (apply is_expanded_aux_mkApps;cbn;eauto with dearg;
+         eapply is_expanded_aux_upwards;eauto; lia).
 
         apply IH with (ev:=ev2);cbn;propify;now eauto with dearg.
     + (* Regular projection *)
@@ -4223,31 +4223,73 @@ Proof.
   induction Σ as [|((kn', has_deps), decl) Σ IH]; [easy|].
   cbn.
   unfold eq_kername.
-  destruct kername_eq_dec as [->|]; [easy|].
+    unfold eq_kername.
+  destruct Kername.reflect_kername as [eq Heq].
+  destruct (Heq kn kn'); [easy|].
   apply IH.
 Qed.
 
-Lemma is_propositional_ind_trans_env_debox_env_types Σ ind :
-  is_propositional_ind (trans_env (debox_env_types Σ)) ind =
-  is_propositional_ind (trans_env Σ) ind.
+Lemma constructor_isprop_pars_decl_trans_env_debox_types :
+  forall (Σ : global_env) (ind : inductive) (c : nat) r,
+    constructor_isprop_pars_decl (trans_env Σ) ind c = Some r ->
+    constructor_isprop_pars_decl (trans_env (debox_env_types Σ)) ind c = Some r.
 Proof.
-  unfold is_propositional_ind.
-  rewrite !lookup_env_trans_env, lookup_env_debox_env_types.
-  destruct lookup_env; cbn in *; [|reflexivity].
-  destruct g; cbn in *;auto.
-  * rewrite !nth_error_map. now destruct nth_error.
-  * destruct o;auto. now destruct p.
+  intros Σ ind pars c r.
+  unfold constructor_isprop_pars_decl in *;cbn in *.
+  rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
+  destruct lookup_env; cbn in *;tryfalse.
+  destruct g; cbn in *;tryfalse.
+  rewrite !nth_error_map in *. destruct nth_error;cbn in *;tryfalse.
+  unfold trans_ctors in *;cbn in *.
+  repeat rewrite nth_error_map in *.
+  destruct nth_error;cbn in *;tryfalse.
+  destruct p as [p0].
+  now destruct p0.
+Qed.
+
+Lemma inductive_isprop_and_pars_trans_env_debox_types :
+      forall (Σ : global_env) (ind : inductive) (r : bool * nat),
+        inductive_isprop_and_pars (trans_env Σ) ind = Some r ->
+        inductive_isprop_and_pars (trans_env (debox_env_types Σ)) ind = Some r.
+Proof.
+  intros Σ ind r H.
+  unfold inductive_isprop_and_pars in *;cbn in *.
+  rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
+  destruct lookup_env; cbn in *;tryfalse.
+  destruct g; cbn in *;tryfalse.
+  rewrite !nth_error_map in *.
+  now destruct nth_error;cbn in *;tryfalse.
+Qed.
+
+Lemma lookup_constructor_debox_types:
+      forall (Σ : global_env) (ind : inductive) (c : nat) m o i n l
+             (e : lookup_constructor_full Σ ind c = Some (m, o, (i,n,l))),
+        lookup_constructor_full (debox_env_types Σ) ind c =
+          Some (debox_type_mib Σ m,debox_type_oib Σ o,(i, map (on_snd (fun x : box_type => reindex (ind_type_vars o) (debox_box_type Σ x))) n, l)).
+Proof.
+  intros Σ ind c m o i n l H.
+  unfold lookup_constructor_full in *;cbn in *.
+  unfold lookup_constructor_full,lookup_minductive in *.
+  rewrite lookup_env_debox_env_types.
+  destruct (lookup_env _ _) as [mdecl_e|] eqn:Henv;tryfalse;cbn in *.
+  destruct mdecl_e as [| mib |]eqn:Hgd;tryfalse;cbn in *.
+  rewrite nth_error_map.
+  destruct (nth_error _ _) as [|o1]eqn:nth;tryfalse;cbn in *.
+  rewrite nth_error_map.
+  destruct (nth_error _ c);tryfalse;cbn.
+  destruct p as [p0]. destruct p0;cbn.
+  now inversion H;subst.
 Qed.
 
 Lemma eval_debox_env_types {wfl:WcbvFlags} Σ t v :
   trans_env Σ e⊢ t ▷ v ->
   trans_env (debox_env_types Σ) e⊢ t ▷ v.
 Proof.
-  induction 1; try solve [econstructor; eauto].
+  induction 1; eauto.
   - eapply eval_iota; eauto.
-    now rewrite is_propositional_ind_trans_env_debox_env_types.
+    now apply constructor_isprop_pars_decl_trans_env_debox_types.
   - eapply eval_iota_sing; eauto.
-    now rewrite is_propositional_ind_trans_env_debox_env_types.
+    now apply inductive_isprop_and_pars_trans_env_debox_types.
   - eapply eval_delta; eauto.
     unfold declared_constant in *.
     rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
@@ -4256,9 +4298,17 @@ Proof.
     * congruence.
     * destruct o;auto. now destruct p.
   - eapply eval_proj; eauto.
-    now rewrite is_propositional_ind_trans_env_debox_env_types.
+    now apply constructor_isprop_pars_decl_trans_env_debox_types.
   - eapply eval_proj_prop; eauto.
-    now rewrite is_propositional_ind_trans_env_debox_env_types.
+    now apply inductive_isprop_and_pars_trans_env_debox_types.
+  - apply lookup_ctor_trans_env in e as e0.
+    destruct e0 as (mib & oib & ctor & Hc & Hmib & Hoib & Hctor).
+    subst.
+    destruct ctor as [[i n] l0].
+    eapply lookup_constructor_debox_types in Hc.
+    eapply eval_construct.
+    eapply lookup_ctor_trans_env_inv;eauto.
+    all : eauto.
 Qed.
 
 Lemma eval_const_construct_expanded {wfl:WcbvFlags} Σ kn ind c im cm :

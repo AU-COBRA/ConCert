@@ -198,7 +198,7 @@ Definition eta_global_env_template
   : TemplateMonad global_env :=
   let suffix := "_expanded" in
   Σext <- tmEval lazy (eta_global_env overridden_masks trim_consts trim_inds Σ seeds erasure_ignore);;
-  gen_defs_and_proofs Σ Σext mpath suffix seeds;;
+  gen_defs_and_proofs (declarations Σ) (declarations Σext) mpath suffix seeds;;
   ret Σext.
 
 (* Mainly for testing purposes *)
