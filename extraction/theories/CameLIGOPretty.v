@@ -804,9 +804,9 @@ Section PPLigo.
                 ++ " in" in
       let printed_targs_outer := printed_targs_inner in
       let decl_outer :=
-        "init " ++ concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
-      let inner_app := "inner " ++ concat " " sargs in
-      ret ("let " ++ decl_outer ++ " = "
+        "init " ++ String.concat " " printed_targs_outer ++ " : " ++ printed_outer_ret_ty in
+      let inner_app := "inner " ++ String.concat " " sargs in
+      Some ("let " ++ decl_outer ++ " = "
                       ++ let_inner
                       ++ nl
                       ++ wrap (parens false inner_app))
@@ -965,11 +965,11 @@ Section PPLigo.
   Definition CameLIGO_call_ctx_instance :=
   <$"(* a call context instance with fields filled in with required data *)"
   ; "let cctx_instance : " ^ CameLIGO_call_ctx_type_name ^ "= "
-  ; "{ ctx_origin_ = Tezos.source;"
-  ; "  ctx_from_ = Tezos.sender;"
-  ; "  ctx_contract_address_ = Tezos.self_address;"
-  ; "  ctx_contract_balance_ = Tezos.balance;"
-  ; "  ctx_amount_ = Tezos.amount"
+  ; "{ ctx_origin_ = Tezos.get_source ();"
+  ; "  ctx_from_ = Tezos.get_sender ();"
+  ; "  ctx_contract_address_ = Tezos.get_self_address ();"
+  ; "  ctx_contract_balance_ = Tezos.get_balance ();"
+  ; "  ctx_amount_ = Tezos.get_amount ()"
   ; "}"
   ; ""
   ; "(* context projections as functions *)"
@@ -989,9 +989,9 @@ Section PPLigo.
   ; "}"
   ; ""
   ; "let dummy_chain : chain = {"
-  ; "chain_height_     = Tezos.level;"
-  ; "current_slot_     = Tezos.level;"
-  ; "finalized_height_ = Tezos.level;"
+  ; "chain_height_     = Tezos.get_level ();"
+  ; "current_slot_     = Tezos.get_level ();"
+  ; "finalized_height_ = Tezos.get_level ();"
   ; "}"
   ; ""
   ; "(* chain projections as functions *)"

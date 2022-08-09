@@ -24,8 +24,7 @@ Section EIP20TokenExtraction.
 
   Context `{ChainBase}.
 
-  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    let ctx_ := ctx in
+  Definition init (setup : EIP20Token.Setup) : option EIP20Token.State :=
     Some {| total_supply := setup.(init_amount);
             balances := ContractCommon.AddressMap.add (EIP20Token.owner setup) (init_amount setup) ContractCommon.AddressMap.empty;
             allowances := ContractCommon.AddressMap.empty |}.

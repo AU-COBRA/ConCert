@@ -55,11 +55,11 @@ Module BoolRect.
               "let lebN (a : nat ) (b : nat ) = a <= b"
               (harness "max_nat")
               max_nat ;;
-        tmDefinition "cameligo_max" t).
+        tmDefinition "cameligo_max"%bs t).
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/max.mligo"
-    MetaCoq Run (tmMsg cameligo_max).
+    MetaCoq Run (tmMsg (s_to_bs cameligo_max)).
 End BoolRect.
 
 Module FoldLeft.

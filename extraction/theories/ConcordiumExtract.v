@@ -34,8 +34,11 @@ Definition lookup_const (TT : list (kername * bytestring.string)) (name : kernam
   | None => None
   end.
 
-<<<<<<< HEAD
-Definition remap_pos_arith : list (kername * string) :=
+Open Scope bs_scope.
+
+Definition remap (kn : kername) (new_name : string) := (kn, new_name).
+
+Definition remap_pos_arith : list (kername * bytestring.string) :=
   [ remap <%% Pos.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }" ;
     remap <%% Pos.pred %%> "fn ##name##(&'a self, a: u64) -> u64 { if a == 1 { 1 } else { a.checked_sub(1).unwrap() } }" ;
     remap <%% Pos.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }" ;
@@ -115,27 +118,6 @@ Definition remap_arith : list (kername * string) :=
   remap_nat_arith ++
   remap_N_arith ++
   remap_Z_arith.
-=======
-Open Scope bs_scope.
-
-Definition remap (kn : kername) (new_name : string) := (kn, new_name).
-
-Definition remap_arith : list (kername * bytestring.string) := Eval compute in
-  [  remap <%% BinPosDef.Pos.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }"
-   ; remap <%% BinPosDef.Pos.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }"
-   ; remap <%% Z.add %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_add(b).unwrap() }"
-   ; remap <%% Z.sub %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_sub(b).unwrap() }"
-   ; remap <%% Z.mul %%> "fn ##name##(&'a self, a: i64, b: i64) -> i64 { a.checked_mul(b).unwrap() }"
-   ; remap <%% BinIntDef.Z.even %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() == 0 }"
-   ; remap <%% BinIntDef.Z.odd %%> "fn ##name##(&'a self, a: i64) -> bool { a.checked_rem(2).unwrap() != 0 }"
-   ; remap <%% Z.eqb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a == b }"
-   ; remap <%% Z.leb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a <= b }"
-   ; remap <%% Z.ltb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a < b }"
-   ; remap <%% Z.gtb %%> "fn ##name##(&'a self, a: i64, b: i64) -> bool { a > b }"
-   ; remap <%% Nat.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }"
-   ; remap <%% Nat.leb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a <= b }"
-   ; remap <%% Nat.ltb %%> "fn ##name##(&'a self, a: u64, b: u64) -> bool { a < b }"].
->>>>>>> Done with most of the MetaCoq porting
 
 Definition remap_blockchain_consts : list (kername * string) :=
   [ remap <! @Address !> "type ##name##<'a> = concordium_std::Address;"

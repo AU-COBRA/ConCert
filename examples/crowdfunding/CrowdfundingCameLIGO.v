@@ -81,7 +81,7 @@ Module Crowdfunding.
           ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)"
           ++ nl
           ++ "let init_storage :  (timestamp * (tez * address)) =
-          (Tezos.now, (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
+          (Tezos.get_now (), (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
 
       (* initial storage *)
       lmd_init := init ;
