@@ -7,6 +7,7 @@ From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Utils.
 From Coq Require Import String.
 From Coq Require Import List.
+From Coq Require Import ZArith.
 
 From MetaCoq.Template Require Import All.
 
@@ -20,6 +21,7 @@ Open Scope list.
 the actual definitions of [SmartContracts.Blockchain] which are parameterised with [BaseTypes] *)
 
 Module AcornBlockchain.
+
   Definition Address := Nat.
   Definition Money := Int.
 
@@ -31,14 +33,24 @@ Module AcornBlockchain.
                   "SimpleContractCallContext" ; "Build_ctx" ;
                   "SimpleActionBody"] "_coq").
 
-
   Definition SimpleChainAcorn : global_dec :=
     [\ record SimpleChain :=
        Build_chain { "Chain_height" : BaseTypes.Nat;
                      "Current_slot" : BaseTypes.Nat;
                      "Finalized_height" : BaseTypes.Nat } \].
 
-  MetaCoq Unquote Inductive (global_to_tc SimpleChainAcorn).
+    (* TODO: MetaCoq does not generate projections at the moment.
+     (However, it worked before somehow)
+     Probably related to https://github.com/MetaCoq/metacoq/issues/369
+
+     For now, we just define records explicitly.
+   *)
+
+  (* MetaCoq Unquote Inductive (global_to_tc SimpleChainAcorn). *)
+
+  Record SimpleChain_coq : Set := Build_chain_coq
+  { Chain_height : nat;  Current_slot : nat;  Finalized_height : nat }.
+
 
   Notation "'cur_time' a" := [| {eConst (to_string_name <% Current_slot %>)} {a} |]
                                (in custom expr at level 0).
@@ -57,7 +69,16 @@ Module AcornBlockchain.
            (* Amount of currency passed in call *)
            "Ctx_amount" : Money} \].
 
-  MetaCoq Unquote Inductive (global_to_tc SimpleContractCallContextAcorn).
+  (* MetaCoq Unquote Inductive (global_to_tc SimpleContractCallContextAcorn). *)
+
+  Record SimpleContractCallContext_coq : Set := Build_ctx_coq
+  { Ctx_origin : nat;
+    Ctx_from : nat;
+    Ctx_contract_address : nat;
+    Ctx_contract_balance : Z;
+    Ctx_amount : Z }.
+
+  Open Scope Z.
 
   Definition SimpleActionBodyAcorn : global_dec :=
     [\ data SimpleActionBody =

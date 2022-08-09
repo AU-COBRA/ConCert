@@ -109,7 +109,7 @@ Module EscrowCameLIGOExtraction.
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
   Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo"
-  MetaCoq Run (tmMsg cameLIGO_escrow).
+  MetaCoq Run (tmMsg (String.of_string cameLIGO_escrow)).
 
 End EscrowCameLIGOExtraction.
 
@@ -137,7 +137,7 @@ Module EscrowLiquidityExtraction.
       lmd_module_name := "liquidity_escrow" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := String.concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
+      lmd_prelude := concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
 
       (* initial storage *)
       lmd_init := escrow_init_wrapper;
@@ -240,15 +240,15 @@ Module EscrowLiquidityExtraction.
 
     ].
 
-  Import MonadNotation.
-  
+  Import MCMonadNotation.
+
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
-        tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
+        tmDefinition (String.of_string ESCROW_MODULE_LIQUIDITY.(lmd_module_name)) t
       ).
 
-  (* (** we redirect the extraction result for later processing and compiling with the Liquidity compiler *) *)
+  (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq"
-  MetaCoq Run (tmMsg liquidity_escrow).
+  MetaCoq Run (tmMsg (String.of_string liquidity_escrow)).
 
 End EscrowLiquidityExtraction.

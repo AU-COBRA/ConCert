@@ -13,7 +13,7 @@ From Coq Require Import String.
 From Coq Require Import Lia.
 From Coq Require Import ZArith.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -160,7 +160,7 @@ Definition TT_rename :=
 
 Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
-      tmDefinition COUNTER_MODULE.(lmd_module_name) t).
+      tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t).
 
 Print liquidity_counter.
 

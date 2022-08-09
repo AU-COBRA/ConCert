@@ -13,7 +13,7 @@ From ConCert.Examples.Crowdfunding Require Import CrowdfundingExt.
 From MetaCoq.Template Require Import All.
 
 Import AcornBlockchain.
-Import MonadNotation.
+Import MCMonadNotation.
 Import CrowdfundingContract.
 Import Receive.
 
@@ -23,7 +23,7 @@ Open Scope Z.
 Definition PREFIX := "".
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-Definition TT_remap : list (kername * string) :=
+Definition TT_remap : list (kername * String.string) :=
   [  (* types *)
     remap <%% Z %%> "tez"
   ; remap <%% address_coq %%> "address"
@@ -62,7 +62,7 @@ Definition TT_rename :=
 
 Definition printWrapperAndMain :=
   "let wrapper (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = match receive msg st (Current.time (), (Current.sender (), (Current.amount (), Current.balance ()))) with
-| Some v -> v| None -> failwith ()" ++ nl ++ nl++
+| Some v -> v| None -> failwith ()" ++ Common.nl ++ Common.nl++
 "let%entry main (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = wrapper msg st".
 
 
@@ -86,7 +86,7 @@ Definition CROWDFUNDING_MODULE :
      (* definitions of operations on pairs and ints *)
      lmd_prelude :=
        LiquidityPrelude
-         ++ nl
+         ++ Common.nl
          ++ "type storage = ((timestamp * (tez * address)) * ((address,tez) map * bool))";
 
      (* initial storage *)
@@ -95,9 +95,9 @@ Definition CROWDFUNDING_MODULE :
      (* init requires some extra operations *)
      lmd_init_prelude :=
             "let fst (p : 'a * 'b) : 'a = p.(0) in"
-         ++ nl
+         ++ Common.nl
          ++ "let snd (p : 'a * 'b) : 'b = p.(1) in"
-         ++ nl
+         ++ Common.nl
          ++ "let eqTez (a : tez ) (b : tez ) = a = b in" ;
 
 
@@ -113,7 +113,7 @@ Definition CROWDFUNDING_MODULE :
 
 Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] CROWDFUNDING_MODULE ;;
-      tmDefinition CROWDFUNDING_MODULE.(lmd_module_name) t
+      tmDefinition (String.of_string CROWDFUNDING_MODULE.(lmd_module_name)) t
      ).
 
 Print liquidity_crowdfunding.

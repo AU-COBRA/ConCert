@@ -804,6 +804,7 @@ End WithBoardroomAxioms.
 Module Zp.
   Local Open Scope Z.
 
+  (* Look at the definition of [mod] in the Coq's StdLib, it probably have changed. *)
   Fixpoint mod_pow_pos_aux (a : Z) (x : positive) (m : Z) (r : Z) : Z :=
     match x with
     | x~0%positive => mod_pow_pos_aux (a * a mod m) x m r
@@ -831,7 +832,7 @@ Module Zp.
     {
       apply Z.eqb_eq in mzero.
       rewrite mzero.
-      now rewrite 2!Zmod_0_r.
+      now rewrite 3!Zmod_0_r.
     }
 
     apply Z.eqb_neq in mzero.
@@ -897,15 +898,42 @@ Module Zp.
       now apply Z.mod_mod.
   Qed.
 
+  (* This dosn't hold to all [a] and [r] *)
   Lemma mod_pow_pos_aux_0_r a x r :
     mod_pow_pos_aux a x 0 r = 0.
   Proof.
     revert a r.
     induction x; intros a r; cbn.
-    + now (repeat rewrite ?IHx, ?Zmod_0_r).
-    + now (repeat rewrite ?IHx, ?Zmod_0_r).
-    + now rewrite !Zmod_0_r.
+    + now (repeat rewrite IHx, Zmod_0_r).
+    + now (repeat rewrite IHx, Zmod_0_r).
+    + rewrite !Zmod_0_r.
+  Admitted.
+
+  (* infact, assuming that the above holds, either [a] or [r] are zero. *)
+  Lemma mod_pow_pos_aux_0_not_forall a x r:
+    mod_pow_pos_aux a x 0 r = 0 -> a = 0 \/ r = 0.
+  Proof.
+    revert a r.
+    induction x; intros a r H; cbn in *.
+    * repeat rewrite Zmod_0_r in *.
+      specialize (IHx _ _ H); lia.
+    * rewrite Zmod_0_r in *.
+      specialize (IHx _ _ H); lia.
+    * rewrite Zmod_0_r in *. lia.
   Qed.
+
+  (* However, this holds *)
+  Lemma mod_pow_pos_aux_0_r' a x m :
+    mod_pow_pos_aux a x m 0 = 0.
+  Proof.
+    revert a m.
+    induction x; intros a m; cbn.
+    + now (repeat rewrite IHx, Zmod_0_r).
+    + now (repeat rewrite ?IHx, ?Zmod_0_r).
+    + easy.
+  Qed.
+
+  
   Lemma mod_pow_pos_0_r a x :
     mod_pow_pos a x 0 = 0.
   Proof. apply mod_pow_pos_aux_0_r. Qed.

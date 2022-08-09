@@ -665,13 +665,13 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       rewrite IHowners1 with (owners2 := (remove addr_eq_dec a owners2));eauto with hints.
       intros. split.
       * intros Hin.
-        destruct (Hiff addr) as [HH1 HH2];cbn in.
+        destruct (Hiff addr) as [HH1 HH2];cbn in *.
         specialize (HH1 (or_intror Hin)) as HH1.
         destruct (address_eqb_spec a addr).
         ** now subst.
         ** auto with hints.
       * intros Hin.
-        destruct (Hiff addr);cbn in.
+        destruct (Hiff addr);cbn in *.
         destruct (address_eqb_spec a addr).
         ** assert (~ In addr (remove addr_eq_dec a owners2)).
            { intros Hin0. subst. apply (remove_In _ _ _ Hin0). }
@@ -821,14 +821,14 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       + destruct Hsingle as [Hbal_not_addr [Hbal_other_tokens [? ?]]].
         cbn in *.
         destruct (token_id_eqb_spec token_id a.(cis1_td_token_id)).
-        * assert (addr <> a.(cis1_td_to)) by firstorder.
-           assert (addr <> a.(cis1_td_from)) by firstorder.
+        * assert (addr <> a.(cis1_td_to)) by easy.
+           assert (addr <> a.(cis1_td_from)) by easy.
            subst. symmetry. now apply Hbal_not_addr.
         * now symmetry.
       + cbn in *.
         destruct (address_is_contract (cis1_td_to a));
           inversion Hcalls;
-          eapply IHtransfers;firstorder.
+          eapply IHtransfers;now subst;firstorder.
   Qed.
 
   (** If the properties of the single transfer holds (the transfer succeeds), then
@@ -940,7 +940,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       + cbn in *.
         destruct (address_is_contract (cis1_td_to a));
           inversion Hcalls;
-          eapply IHtransfers;firstorder.
+          eapply IHtransfers;now subst;firstorder.
   Qed.
 
   Lemma balanceOf_preserves_sum_of_balances `{ChainBase} params prev_st next_st token_id ops

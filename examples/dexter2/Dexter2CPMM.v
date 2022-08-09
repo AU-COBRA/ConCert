@@ -538,8 +538,8 @@ Module DSInstances <: Dexter2Serializable.
     Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
       Derive Serializable Setup_rect <build_setup>.
 
-    Global Instance ClientMsg_serializable : Serializable (@FA2Token.FA2ReceiverMsg BaseTypes DexterMsg) :=
-      fun _ => @FA2Token.FA2ReceiverMsg_serializable _ _ _.
+    Global Instance ClientMsg_serializable `{ChainBase} : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg) :=
+       @FA2Token.FA2ReceiverMsg_serializable _ _ _.
 
     Global Instance state_serializable `{ChainBase} : Serializable State :=
       Derive Serializable State_rect <build_state>.

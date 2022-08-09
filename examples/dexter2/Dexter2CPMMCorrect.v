@@ -1444,7 +1444,7 @@ Section Theories.
         rewrite queue_prev, queue_new in *.
         apply forall_filter_cons in lqtAddr.
         subst.
-        rewrite filter_app, map_app, <- Forall_app.
+        rewrite filter_app, map_app, Forall_app.
         split; auto.
         rewrite Extras.filter_map.
         cbn.

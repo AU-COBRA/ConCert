@@ -7,7 +7,7 @@ From MetaCoq.Template Require Import All.
 
 
 Definition ESCROW_MODULE : ConcordiumMod _ _ :=
-  {| concmd_contract_name := "escrow"%string;
+  {| concmd_contract_name := "escrow"%bs;
      concmd_init := @Escrow.init;
      concmd_receive := @Escrow.receive;
      concmd_extra := []; |}.

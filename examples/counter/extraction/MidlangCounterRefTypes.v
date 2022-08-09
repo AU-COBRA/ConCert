@@ -14,7 +14,7 @@ From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
-Import MonadNotation.
+Import MCMonadNotation.
 Open Scope string.
 
 Instance MidlangBoxes : ElmPrintConfig :=
@@ -93,7 +93,7 @@ End CounterRefinmentTypes.
 
 MetaCoq Run
         (p <- tmQuoteRecTransp (CounterRefinmentTypes.counter) false;;
-        tmDefinition "counter_env" p.1).
+        tmDefinition "counter_env"%bs p.1).
 
 Definition counter_name := <%% CounterRefinmentTypes.counter %%>.
 
@@ -107,7 +107,7 @@ Definition TT : list (kername * string) := Eval compute in
      ; remap <%% Z.leb %%> "le"
      ; remap <%% Z.ltb %%> "lt"
      ; remap <%% Z %%> "Int"
-     ; ((<%% Z %%>.1, "Z0"),"0")
+     ; ((<%% Z %%>.1, "Z0"%bs),"0")
      ; remap <%% nat %%> "AccountAddress"
      ; remap <%% CounterRefinmentTypes.Transaction %%> "Transaction"
      ; remap <%% CounterRefinmentTypes.Transaction_none %%> "Transaction.none"
@@ -140,13 +140,13 @@ Definition counter_extract :=
                                  ++ map fst midlang_translation_map
                                  ++ map fst TT)).
 
-Definition counter_result:= Eval vm_compute in
+Definition counter_result:= Eval compute in
      (env <- counter_extract ;;
       '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
       ret lines).
 
 Definition wrap_in_delimiters s :=
-  String.concat nl ["";"{-START-} "; s; "{-END-}"].
+  concat Common.nl ["";"{-START-} "; s; "{-END-}"].
 
 Definition midlang_prelude :=
    ["import Basics exposing (..)";
@@ -159,14 +159,14 @@ Definition midlang_prelude :=
     "import Tuple exposing (..)"].
 
 MetaCoq Run (match counter_result with
-             | Ok s => tmMsg "Extraction of counter succeeded"
-             | Err err => tmFail err
+             | Ok s => tmMsg "Extraction of counter succeeded"%bs
+             | Err err => tmFail (String.of_string err)
              end).
 
 Definition midlang_counter :=
   match counter_result with
-  | Ok s => monad_map tmMsg (midlang_prelude ++ s)
-  | Err s => tmFail s
+  | Ok s => monad_map tmMsg (map String.of_string (midlang_prelude ++ s))
+  | Err s => tmFail (String.of_string s)
   end.
 
 Redirect "../extraction/tests/extracted-code/midlang-extract/MidlangCounterRefTypes.midlang" MetaCoq Run midlang_counter.

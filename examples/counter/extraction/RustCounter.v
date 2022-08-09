@@ -9,7 +9,7 @@ From MetaCoq.Template Require Import All.
 Open Scope string.
 
 Definition COUNTER_MODULE : ConcordiumMod _ _ :=
-  {| concmd_contract_name := "counter";
+  {| concmd_contract_name := "counter"%bs;
      concmd_init := @ConCert.Examples.Counter.Counter.counter_init;
      concmd_receive := @ConCert.Examples.Counter.Counter.counter_receive;
      concmd_extra := []; |}.

@@ -169,6 +169,11 @@ Notation "'Suc' x" := (pConstr "Suc" [x])
 
 Notation "0 'z'" := (eConstr Int "Z0") (in custom expr at level 0).
 
+Notation "a && b" := [| {eConst (to_string_name <% andb %>)} {a} {b} |]
+                         (in custom expr at level 0).
+Notation "~ a" := [| {eConst (to_string_name <% negb %>)} {a} |]
+                        (in custom expr at level 0).
+
 Definition true_name := "true".
 Definition false_name := "false".
 Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).

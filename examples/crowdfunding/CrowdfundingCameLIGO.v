@@ -14,7 +14,7 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -22,12 +22,6 @@ Open Scope Z.
 Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Module Crowdfunding.
-
-  Local Program Instance CB : ChainBase :=
-  build_chain_base nat Nat.eqb _ _ _ _ Nat.odd. (* Odd addresses are addresses of contracts :) *)
-Next Obligation.
-  eapply NPeano.Nat.eqb_spec.
-Defined.
 
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
 
@@ -50,9 +44,12 @@ Defined.
   Import CrowdfundingDataExt.
   Import CrowdfundingContract.Receive.
 
-  Definition to_simple_ctx_addr (addr : Blockchain.Address) : address_coq :=
-    if address_is_contract addr then ContractAddr_coq addr else
-      UserAddr_coq addr.
+  (* We assume that there is a function converting addresses to [nat] *)
+  Parameter addr_to_nat : forall `{ChainBase}, Blockchain.Address -> nat.
+
+  Definition to_simple_ctx_addr `{ChainBase} (addr : Blockchain.Address) : address_coq :=
+    if address_is_contract addr then ContractAddr_coq (addr_to_nat addr) else
+      UserAddr_coq (addr_to_nat addr).
 
   Definition crowdfunding_receive_inner
             (c : Chain)
@@ -70,7 +67,6 @@ Defined.
     | Some msg => crowdfunding_receive_inner c ctx msg st
     | None => None
     end.
-
 
   Definition CF_MODULE :
     CameLIGOMod _ _ _ storage SimpleActionBody_coq :=
@@ -117,7 +113,7 @@ Section CrowdfundingExtraction.
   Import CrowdfundingDataExt.
   Import CrowdfundingContract.Receive.
 
-  Definition TT_remap_crowdfunding : list (kername * string) :=
+  Definition TT_remap_crowdfunding : list (kername * String.string) :=
 
   [  (* types *)
     remap <%% address_coq %%> "address"
@@ -125,7 +121,7 @@ Section CrowdfundingExtraction.
   ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
 
   (* simple addresses and the execution layer addresses are treated as the same *)
-  ; remap <%% to_simple_ctx_addr %%> "(fun (x : address) -> x)"
+  ; remap <%% @to_simple_ctx_addr %%> "(fun (x : address) -> x)"
 
   (* operations *)
   ; remap <%% eqb_addr %%> "eq_addr"
@@ -143,10 +139,10 @@ Section CrowdfundingExtraction.
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
-  MetaCoq Run (tmMsg cameLIGO_crowdfunding).
+  MetaCoq Run (tmMsg (String.of_string cameLIGO_crowdfunding)).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "../extraction/tests/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
-  MetaCoq Run (tmMsg cameLIGO_crowdfunding).
+  MetaCoq Run (tmMsg (String.of_string cameLIGO_crowdfunding)).
 
 End CrowdfundingExtraction.

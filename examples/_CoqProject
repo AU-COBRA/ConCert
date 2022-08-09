@@ -101,15 +101,15 @@ escrow/extraction/EscrowExtract.v
 escrow/extraction/MidlangEscrow.v
 escrow/extraction/RustEscrow.v
 
--Q boardroomVoting ConCert.Examples.BoardroomVoting
-boardroomVoting/BoardroomMath.v
-boardroomVoting/BoardroomVoting.v
-boardroomVoting/BoardroomVotingZ.v
-boardroomVoting/BoardroomVotingTest.v
-boardroomVoting/Egcd.v
-boardroomVoting/Euler.v
-boardroomVoting/BoardroomVotingExtractionCameLIGO.v
-boardroomVoting/BoardroomVotingExtractionLiquidity.v
+# -Q boardroomVoting ConCert.Examples.BoardroomVoting
+# boardroomVoting/BoardroomMath.v
+# boardroomVoting/BoardroomVoting.v
+# boardroomVoting/BoardroomVotingZ.v
+# boardroomVoting/BoardroomVotingTest.v
+# boardroomVoting/Egcd.v
+# boardroomVoting/Euler.v
+# boardroomVoting/BoardroomVotingExtractionCameLIGO.v
+# boardroomVoting/BoardroomVotingExtractionLiquidity.v
 
 -Q counter ConCert.Examples.Counter
 counter/Counter.v

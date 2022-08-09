@@ -64,7 +64,9 @@ Lemma mul_both_r_mod r a a' n :
   a mod n = a' mod n.
 Proof.
   destruct (Z.eqb_spec n 0) as [->|?].
-  { now rewrite !Zmod_0_r. }
+  { rewrite !Zmod_0_r. intros.
+    rewrite <- Zgcd_1_rel_prime in *.
+    rewrite Z.gcd_0_r in *. lia. }
   intros rel eq.
   rewrite <- (Z.mul_1_r a), <- (Z.mul_1_r a').
   rewrite <- (Z.mul_mod_idemp_r a), <- (Z.mul_mod_idemp_r a') by lia.

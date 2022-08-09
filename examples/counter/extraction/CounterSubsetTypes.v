@@ -17,7 +17,7 @@ From Coq Require Import Bool.
 From Coq Require Import String.
 From Coq Require Import Lia.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -44,18 +44,14 @@ Module CounterRefinementTypes.
     {new_st : storage | st <? new_st} :=
     st + inc.
   Next Obligation.
-    intros st inc. unfold is_true in *.
-    destruct inc;simpl.
-    propify. lia.
+    now unfold is_true in *.
   Qed.
 
   Program Definition dec_counter (st : storage) (dec : {z : Z | 0 <? z}) :
     {new_st : storage | new_st <? st} :=
     st - dec.
   Next Obligation.
-    intros st dec. unfold is_true in *.
-    destruct dec;simpl.
-    propify. lia.
+    now unfold is_true in *.
   Qed.
 
   Definition counter (msg : msg) (st : storage)
@@ -117,7 +113,7 @@ Section LiquidityExtractionSetup.
     ; ("nil", "[]")
     ; ("true", "true")
     ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
-    ; (string_of_kername <%% storage %%>, "storage")  (* we add [storage] so it is printed without the prefix *) ].
+    ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
   Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody :=
     {| (* a name for the definition with the extracted code *)
@@ -147,12 +143,12 @@ Section LiquidityExtractionSetup.
 
   Time MetaCoq Run
       (t <- liquidity_extraction PREFIX TT_remap TT_rename to_inline COUNTER_MODULE ;;
-        tmDefinition COUNTER_MODULE.(lmd_module_name) t
+        tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler*)
-  Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
-  MetaCoq Run (tmMsg liquidity_counter).
+  (* Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterSubsetTypes.liq" *)
+  MetaCoq Run (tmMsg (String.of_string liquidity_counter)).
 
 End LiquidityExtractionSetup.
 
@@ -232,9 +228,9 @@ Module CameLIGOExtractionSetup.
 
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
-  MetaCoq Run (tmMsg cameLIGO_counter).
+  MetaCoq Run (tmMsg (String.of_string cameLIGO_counter)).
 
   Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
-  MetaCoq Run (tmMsg cameLIGO_counter).
+  MetaCoq Run (tmMsg (String.of_string cameLIGO_counter)).
 
 End CameLIGOExtractionSetup.
