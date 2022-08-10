@@ -38,7 +38,7 @@ jobs:
     - name: Build core
       run: |
         echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        eval $(opam env --switch=${COMPILER} --set-switch)
         echo "::endgroup::"
 
         echo "::group::Build utilities"
@@ -59,7 +59,7 @@ jobs:
     - name: Build examples
       run: |
         echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        eval $(opam env --switch=${COMPILER} --set-switch)
         echo "::endgroup::"
 
         echo "::group::Build examples"
@@ -68,7 +68,7 @@ jobs:
     - name: Test extraction
       run: |
         echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        eval $(opam env --switch=${COMPILER} --set-switch)
         echo "::endgroup::"
 
         echo "::group::Running tests"
@@ -83,7 +83,7 @@ jobs:
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch)
+        eval $(opam env --switch=${COMPILER} --set-switch)
         echo "::endgroup::"
 
         echo "::group::Running coqdoc"
