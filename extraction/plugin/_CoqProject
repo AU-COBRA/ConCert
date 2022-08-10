@@ -8,8 +8,6 @@
 -R theories ConCert.Extraction
 -I src
 
-src/certifying.ml
-src/certifying.mli
 src/certifyingBeta.ml
 src/certifyingBeta.mli
 src/certifyingInlining.ml
