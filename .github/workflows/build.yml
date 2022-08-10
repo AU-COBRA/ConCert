@@ -54,7 +54,7 @@ jobs:
         echo "::endgroup::"
 
         echo "::group::Build extraction layer"
-        make extraction
+        make -j2 extraction
         echo "::endgroup::"
     - name: Build examples
       run: |
