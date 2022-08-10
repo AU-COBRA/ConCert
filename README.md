@@ -8,8 +8,8 @@ ConCert is able to find real world attacks as explained [here](https://medium.co
 ## How to build
 
 
-Our development works with Coq 8.11.2. and depends on MetaCoq installed from source,
-std++ and coq-bignums. The tests depend on QuickChick. Most of the dependencies can be installed through `opam`.
+Our development works with Coq 8.14 and depends on MetaCoq installed from source,
+std++ and coq-equations. The tests depend on QuickChick. Most of the dependencies can be installed through `opam`.
 
 To set up a switch with the necessary dependencies run the following commands from the root of the project:
 
@@ -17,8 +17,8 @@ To set up a switch with the necessary dependencies run the following commands fr
 opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install -j 4 coq.8.11.2 coq-bignums coq-stdpp.1.5.0 coq-quickchick
-opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447
+opam install -j 4 coq.8.14.1 coq-equations.1.3+8.14 coq-stdpp.1.6.0 coq-quickchick.1.5.1
+opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#f47a91c63206d01b853d8abb016e7f04165cd518
 ```
 
 After completing the procedures above, run `make` to build the development, and `make html` to build the documentation. 
