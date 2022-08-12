@@ -212,7 +212,7 @@ Proof.
         end.
         destruct wfdecl as [wfdecl].
         split.
-        -- apply @type_reduction with (B:=cst_type0) in wfdecl; eauto.
+        -- apply @type_reduction with (B:=cst_type0) in wfdecl as wfdecl1; eauto.
            2: repeat invert_wf;split;auto;split;auto.
            eapply (erases_extends (_, _)).
            2: now eauto.

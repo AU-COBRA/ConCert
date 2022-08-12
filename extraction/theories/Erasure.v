@@ -718,7 +718,11 @@ Next Obligation.
   sq.
   apply BDToPCUIC.infering_typing in HH;sq;eauto.
   specialize (PCUICPrincipality.common_typing _ _ HH tyNf) as [?[?[??]]].
+  (* eapply PCUICCumulProp.cumul_sort_confluence in tyNf as w1;eauto. *)
   specialize (ws_cumul_pb_Sort_r_inv _ w0) as (? & ? & ?).
+  eapply validity in HH as [uK tyK].
+  (* TODO: we should be able to show that [K ⇝* tSort u] for some u,
+     then we can instantiate a hypothesis to prove the contradiction *)
   (* specialize (ws_cumul_pb_Sort_r_inv _ w) as (? & ? & ?). *)
   (* destruct b. *)
   (* assert (arity_v : isArity (tSort v)) by easy. *)
@@ -1138,25 +1142,42 @@ Proof.
 Qed.
 
 Import ExAst.
-Equations? (noeqns) erase_constant_decl
+
+Equations? erase_arity
+         (cst : PCUICEnvironment.constant_body)
+         (car : conv_arity rΣ [] (PCUICEnvironment.cst_type cst))
+         (wt : ∥on_constant_decl (lift_typing typing) rΣ cst∥)
+  : option (list type_var_info × box_type) :=
+  erase_arity cst car wt with inspect (PCUICEnvironment.cst_body cst) := {
+    | exist (Some body) body_eq =>
+                Some (erase_type_scheme [] []%vector body (conv_ar_context car) (conv_ar_univ car) _ 0);
+    | exist None _ => None
+    }.
+Proof.
+  unfold on_constant_decl in wt.
+  rewrite body_eq in wt.
+  cbn in *.
+  assert (rΣ = Σ0).
+  { eapply abstract_env_ext_irr;eauto. }
+  subst.
+  assert (∥ wf Σ0 ∥) by now apply HΣ.
+  destruct car as [ctx univ r].
+  sq.
+  eapply type_reduction in wt; eauto;cbn.
+  now destruct r.
+Qed.
+
+Equations? erase_constant_decl
           (cst : PCUICEnvironment.constant_body)
           (wt : ∥on_constant_decl (lift_typing typing) rΣ cst∥)
   : constant_body + option (list type_var_info × box_type) :=
 erase_constant_decl cst wt with flag_of_type [] (PCUICEnvironment.cst_type cst) _ := {
-  | {| conv_ar := inl car |} with inspect (PCUICEnvironment.cst_body cst) := {
-    | exist (Some body) body_eq =>
-      inr (Some (erase_type_scheme [] []%vector body (conv_ar_context car) (conv_ar_univ car) _ 0));
-    | exist None _ => inr None
-    };
-  | {| conv_ar := inr notar |} =>
-    inl {| cst_type := erase_type (PCUICEnvironment.cst_type cst) _; cst_body := erased_body |}
-    where erased_body : option term := {
-    erased_body with inspect (PCUICEnvironment.cst_body cst) := {
-      | exist (Some body) body_eq => Some (ErasureFunction.erase X_type X [] body _);
-      | exist None _ => None
-      }
-    }
-  }.
+    | {| conv_ar := inl car |} =>
+        inr (erase_arity cst car wt)
+    | {| conv_ar := inr notar |} =>
+        let erased_body := erase_constant_body X_type X cst _ in
+        inl {| cst_type := erase_type (PCUICEnvironment.cst_type cst) _; cst_body := EAst.cst_body (fst erased_body) |}
+    }.
 Proof.
   - assert (rΣ = Σ0).
     { eapply abstract_env_ext_irr;eauto. }
@@ -1167,28 +1188,10 @@ Proof.
     + sq;eapply validity;eauto.
     + destruct wt.
       eexists; eassumption.
-  - unfold on_constant_decl in wt.
-    rewrite body_eq in wt.
-    cbn in *.
-    assert (rΣ = Σ0).
-    { eapply abstract_env_ext_irr;eauto. }
-    subst.
-    assert (∥ wf Σ0 ∥) by now apply HΣ.
-    destruct car as [ctx univ r].
-    sq.
-    eapply type_reduction in wt; eauto;cbn.
-    now destruct r.
+  -  assert (rΣ = Σ).
+     { eapply abstract_env_ext_irr;eauto. }
+     easy.
   - assert (rΣ = Σ).
-    { eapply abstract_env_ext_irr;eauto. }
-    subst.
-    destruct wt as [wt].
-    unfold on_constant_decl in wt.
-    rewrite body_eq in wt.
-    cbn in *.
-    econstructor.
-    eassumption.
-  - clear erased_body.
-    assert (rΣ = Σ).
     { eapply abstract_env_ext_irr;eauto. }
     subst.
     assert (∥ wf Σ ∥) by now apply HΣ.

@@ -38,14 +38,45 @@ Record extract_pcuic_params :=
     (* The transforms to apply after extraction. Only run when optimize_prop_discr is true. *)
     extract_transforms : list ExtractTransform; }.
 
+
 Lemma fresh_global_erase_global_decl_rec :
     forall (Σ0 : global_declarations) (universes0 : ContextSet.t)
            (wfΣ : ∥ wf ({| PEnv.universes := universes0; PEnv.declarations := Σ0 |}) ∥)
+           (seeds : KernameSet.t) (ignore : kername -> bool) kn,
+      EnvMap.EnvMap.fresh_global kn Σ0 ->
+      ExAst.fresh_global kn (erase_global_decls_deps_recursive Σ0 universes0 wfΣ seeds ignore).
+Proof.
+  intros Σ0 universes0 wfΣ seeds ignore kn fresh.
+  revert wfΣ seeds.
+  induction Σ0;intros wfΣ seeds.
+  - constructor.
+  - cbn. destruct a;cbn.
+    inversion fresh;cbn in *;subst;clear fresh.
+    destruct (KernameSet.mem _ _) eqn:Hmem;cbn.
+    * constructor;auto.
+      now apply IHΣ0.
+    * now apply IHΣ0.
+Qed.
+
+Lemma fresh_globals_erase_global_decl_rec :
+    forall (Σ0 : global_declarations) (universes0 : ContextSet.t)
+           (wfΣ : ∥ wf ({| PEnv.universes := universes0; PEnv.declarations := Σ0 |}) ∥)
            (seeds : KernameSet.t) (ignore : kername -> bool),
+      EnvMap.EnvMap.fresh_globals Σ0 ->
       ExAst.fresh_globals (erase_global_decls_deps_recursive Σ0 universes0 wfΣ seeds ignore).
 Proof.
-  intros Σ0 universes0 wfΣ seeds ignore.
-  Admitted.
+  intros Σ0 universes0 wfΣ seeds ignore fresh.
+  revert wfΣ seeds.
+  induction Σ0;intros wfΣ seeds;cbn in *.
+  - constructor.
+  - destruct a;cbn.
+    inversion fresh;subst.
+    destruct (KernameSet.mem _ _).
+    * constructor.
+      ** now apply IHΣ0.
+      ** now apply fresh_global_erase_global_decl_rec.
+    * easy.
+Qed.
 
 Program Definition extract_pcuic_env
            (params : extract_pcuic_params)
@@ -60,7 +91,9 @@ Program Definition extract_pcuic_env
   else
     Ok Σ.
 Next Obligation.
-  apply fresh_global_erase_global_decl_rec.
+  apply fresh_globals_erase_global_decl_rec.
+  sq.
+  now apply PCUICWfEnvImpl.wf_fresh_globals.
 Qed.
 
 Record extract_template_env_params :=

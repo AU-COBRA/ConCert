@@ -12,13 +12,13 @@ Definition TemplateTransform := Transform Ast.Env.global_env.
 
 Definition ExtractTransform := Transform ExAst.global_env.
 
-Definition ExtractTransformCorrect (transform : ExtractTransform) : Type :=
-  forall Σ Σopt kn ind c (wf := EWcbvEval.opt_wcbv_flags),
+Definition ExtractTransformCorrect `{EWcbvEval.WcbvFlags} (transform : ExtractTransform) : Type :=
+  forall Σ Σopt kn ind c,
     transform Σ = Ok Σopt ->
     trans_env Σ e⊢ tConst kn ▷ tConstruct ind c ->
     trans_env Σopt e⊢ tConst kn ▷ tConstruct ind c.
 
-Definition CorrectExtractTransform := ∑ t, ExtractTransformCorrect t.
+Definition CorrectExtractTransform `{EWcbvEval.WcbvFlags} := ∑ t, ExtractTransformCorrect t.
 
 Fixpoint compose_transforms {A : Type} (transforms : list (Transform A)) : Transform A :=
   match transforms with
@@ -31,12 +31,11 @@ Fixpoint compose_transforms {A : Type} (transforms : list (Transform A)) : Trans
       end
   end.
 
-Lemma compose_transforms_correct transforms :
+Lemma compose_transforms_correct `{EWcbvEval.WcbvFlags} transforms :
   All ExtractTransformCorrect transforms ->
   ExtractTransformCorrect (compose_transforms transforms).
 Proof.
-  intros all Σ Σopt kn ind c wf success ev.
-  subst wf.
+  intros all. intros Σ Σopt kn ind c success ev.
   induction all in Σ, success, ev |- *; cbn in *.
   - now injection success as ->.
   - destruct x eqn:teq; [|congruence].

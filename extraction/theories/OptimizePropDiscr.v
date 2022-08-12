@@ -13,6 +13,18 @@ Definition optimize_decl Σ d :=
   | _ => d
   end.
 
+Lemma trans_env_fresh_global:
+      forall (kn : Kernames.kername) (g : global_env),
+        fresh_globals g ->
+        fresh_global kn g ->
+        EnvMap.EnvMap.fresh_global kn (List.map (fun '(kn0, _, decl) => (kn0, trans_global_decl decl)) g).
+Proof.
+  intros kn g fg H.
+  induction H.
+    * constructor.
+    * cbn. inversion fg;subst;cbn in *. now constructor.
+Qed.
+
 Lemma trans_env_fresh_globals Σ :
   fresh_globals Σ ->
   EnvMap.EnvMap.fresh_globals (trans_env Σ).
@@ -21,10 +33,7 @@ Proof.
   induction fg.
   + constructor.
   + cbn. constructor;auto.
-    clear IHfg.
-    induction H.
-    * constructor.
-    * cbn. inversion fg;subst;cbn in *. now constructor.
+    now apply trans_env_fresh_global.
 Qed.
 
 Program Definition optimize_env (Σ : global_env) (fgΣ : fresh_globals Σ) : global_env :=
@@ -39,30 +48,33 @@ Lemma trans_env_optimize_env Σ fgΣ :
   trans_env (optimize_env Σ fgΣ) =
   EOptimizePropDiscr.optimize_env (EEnvMap.GlobalContextMap.make (trans_env Σ) (trans_env_fresh_globals _ fgΣ)).
 Proof.
-(*   unfold trans_env. *)
-(*   unfold EOptimizePropDiscr.optimize_env. *)
-(*   unfold optimize_env. *)
-(*   rewrite !List.map_map. *)
-(*   apply List.map_ext. *)
-(*   intros ((kn&has_deps)&decl). *)
-(*   cbn. *)
-(*   f_equal. *)
-(*   destruct decl; auto. *)
-(*   cbn. *)
-(*   now destruct o. *)
-(* Qed. *)
-Admitted.
+  unfold trans_env.
+  unfold EOptimizePropDiscr.optimize_env.
+  unfold optimize_env.
+  unfold MCProd.on_snd. cbn.
+  rewrite !List.map_map.
+  apply List.map_ext.
+  intros ((kn&has_deps)&decl).
+  cbn.
+  f_equal.
+  destruct decl; auto.
+  cbn.
+  now destruct o.
+Qed.
 
-Lemma optimize_correct Σ fgΣ t v :
-  @Prelim.Ee.eval Ee.default_wcbv_flags (trans_env Σ) t v ->
+Lemma optimize_correct `{EWellformed.EEnvFlags} `{Ee.WcbvFlags} Σ fgΣ t v :
+  ELiftSubst.closed t = true ->
+  EGlobalEnv.closed_env (trans_env Σ) = true ->
+  EWellformed.wf_glob (trans_env Σ) ->
+  @Prelim.Ee.eval _ (trans_env Σ) t v ->
   @Prelim.Ee.eval
-      (EWcbvEval.disable_prop_cases Ee.opt_wcbv_flags)
+      (EWcbvEval.disable_prop_cases _)
       (trans_env (optimize_env Σ fgΣ))
       (optimize (EEnvMap.GlobalContextMap.make (trans_env Σ) (trans_env_fresh_globals _ fgΣ)) t)
       (optimize (EEnvMap.GlobalContextMap.make (trans_env Σ) (trans_env_fresh_globals _ fgΣ)) v).
 Proof.
-  intros ev.
+  intros cl_t cl_env wfg ev.
   rewrite trans_env_optimize_env.
   remember (EEnvMap.GlobalContextMap.make _ _) as Σ0.
-  eapply (EOptimizePropDiscr.optimize_correct (Σ:=Σ0)) with (t0:=t) (v0:=v);eauto.
-Admitted.
+  eapply (EOptimizePropDiscr.optimize_correct (Σ:=Σ0)) with (t0:=t) (v0:=v);subst;cbn;eauto.
+Qed.

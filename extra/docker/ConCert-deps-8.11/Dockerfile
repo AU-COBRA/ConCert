@@ -2,7 +2,7 @@ FROM coqorg/coq:8.11
 
 # build dependencies
 RUN ["/bin/bash", "--login", "-c", "set -x \
-  && eval $(opam env --switch=${COMPILER} --set-switch) \
+  && eval $(opam env --switch=${COMPILER_EDGE} --set-switch) \
   && opam repository add --all-switches --set-default iris-dev https://gitlab.mpi-sws.org/iris/opam.git \
   && opam update -y -u \
   && opam install -y -v -j ${NJOBS} coq-equations.1.2.1+8.11 coq-stdpp coq-quickchick \

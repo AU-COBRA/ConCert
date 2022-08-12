@@ -4335,7 +4335,7 @@ Proof.
     + depelim ev.
 Qed.
 
-Lemma dearg_transform_correct overridden_masks do_trim_const_masks do_trim_ctor_masks :
+Lemma dearg_transform_correct {wfl:WcbvFlags} overridden_masks do_trim_const_masks do_trim_ctor_masks :
   ExtractTransformCorrect (dearg_transform overridden_masks do_trim_const_masks do_trim_ctor_masks true true true).
 Proof.
   red.
