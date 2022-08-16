@@ -17,8 +17,7 @@ To set up a switch with the necessary dependencies run the following commands fr
 opam switch create . 4.07.1
 eval $(opam env)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install -j 4 coq.8.14.1 coq-equations.1.3+8.14 coq-stdpp.1.6.0 coq-quickchick.1.5.1
-opam pin -j 4 add https://github.com/MetaCoq/metacoq.git#f47a91c63206d01b853d8abb016e7f04165cd518
+opam install ./coq-concert.opam --deps-only
 ```
 
 After completing the procedures above, run `make` to build the development, and `make html` to build the documentation. 
