@@ -300,7 +300,7 @@ Fixpoint deriv_length {Σ t v} (ev : Σ e⊢ t ▷ v) : nat :=
   | eval_fix' _ _ _ _ _ _ _ _ _ ev1 _ ev2 ev3
   | eval_fix _ _ _ _ _ _ _ _ _ ev1 ev2 _ ev3 =>
       S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
-  | eval_construct_block _ _ _ _ _ args _ _ _ _ _ => S #|args|
+  | eval_construct_block _ _ _ _ _ args _ _ _ _ _ _ _ _ => S #|args|
   end.
 
 Lemma deriv_length_min {Σ t v} (ev : Σ e⊢ t ▷ v) :

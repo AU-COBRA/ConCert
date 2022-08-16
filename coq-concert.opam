@@ -18,20 +18,12 @@ depends: [
   "coq" {>= "8.11" & < "8.12~"}
   "coq-bignums" {= "8.11.0"}
   "coq-quickchick" {= "1.6.0"}
-  "coq-metacoq-template" {pinned}
-  "coq-metacoq-pcuic" {pinned}
-  "coq-metacoq-safechecker" {pinned}
-  "coq-metacoq-erasure" {pinned}
-  "coq-metacoq-translations" {pinned}
-  "coq-equations" {= "1.2.3+8.11"}
+  "coq-metacoq-template" {= "1.0+8.14"}
+  "coq-metacoq-pcuic" {= "1.0+8.14"}
+  "coq-metacoq-safechecker" {= "1.0+8.14"}
+  "coq-metacoq-erasure" {= "1.0+8.14"}
+  "coq-equations" {= "1.3+8.14"}
   "coq-stdpp" {= "1.7.0"}
-]
-pin-depends: [
-  ["coq-metacoq-template.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
-  ["coq-metacoq-pcuic.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
-  ["coq-metacoq-safechecker.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
-  ["coq-metacoq-erasure.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
-  ["coq-metacoq-translations.pinned" "git+https://github.com/MetaCoq/metacoq.git#75f0cb9b8494cd0a856b77a664c662a59ddde447"]
 ]
 
 build: [
