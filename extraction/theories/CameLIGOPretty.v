@@ -397,7 +397,7 @@ Section PPTerm.
 
   Definition is_record_constr (t : term) : option ExAst.one_inductive_body := 
     match t with
-    | tConstruct (mkInd mind j as ind) i =>
+    | tConstruct (mkInd mind j as ind) i _ =>
       match lookup_ind_decl mind i with
       (* Check if it has only 1 constructor, and projections are specified *)
       | Some oib => match ExAst.ind_projs oib, Nat.eqb 1 (List.length oib.(ExAst.ind_ctors)) with
@@ -557,7 +557,7 @@ Section PPTerm.
           else if nm =? "snd" then
             (String.concat " " (map (parens true) apps)) ++ ".1"
           else parens (top || inapp) (nm ++ " " ++ (String.concat " " (map (parens true) apps)))
-        | tConstruct (mkInd mind j as ind) i =>
+        | tConstruct (mkInd mind j as ind) i [] =>
           let nm := get_constr_name ind i in
              (* is it a pair ? *)
             if (uncapitalize nm =? "pair") then
@@ -599,8 +599,7 @@ Section PPTerm.
         "(Map.empty: " ++ print_box_type ty_ctx TT bt ++ ")"
       else
         nm_tt
-    | tConstruct
-        ind l => fun bt =>
+    | tConstruct ind l [] => fun bt =>
       let nm := get_constr_name ind l in
       match print_num_literal TT t with
       | Some lit => lit
@@ -664,6 +663,7 @@ Section PPTerm.
                   ++ MCString.string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
         end
       end
+    | tConstruct ind l (_ :: _) => fun _ => "Error(constructors_as_blocks_not_supported)"
     | tProj (Kernames.mkProjection (mkInd mind i) pars k) c => fun bt =>
       let ind := mkInd mind i in
       match lookup_ind_decl mind i with

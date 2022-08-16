@@ -221,7 +221,10 @@ Definition dearg_proj (ind : inductive) (npars arg : nat) (discr : term) : term 
 Fixpoint dearg_aux (args : list term) (t : term) : term :=
   match t with
   | tApp hd arg => dearg_aux (dearg_aux [] arg :: args) hd
-  | tConstruct ind c => dearg_single (get_ctor_mask ind c) t args
+  | tConstruct ind c _ =>
+      (* NOTE: we don't support constructors-as-blocks at the moment,
+         Therefore, we ignore the block argument list assuming it's empty *)
+      dearg_single (get_ctor_mask ind c) t args
   | tConst kn => dearg_single (get_const_mask kn) t args
   | tCase (ind, npars) discr brs =>
     let discr := dearg_aux [] discr in
@@ -298,6 +301,7 @@ Fixpoint is_dead (rel : nat) (t : term) : bool :=
   | tProj _ t => is_dead rel t
   | tFix defs _
   | tCoFix defs _ => forallb (is_dead (#|defs| + rel) ∘ EAst.dbody) defs
+  | tConstruct _ _ args => forallb (is_dead rel) args
   | _ => true
   end.
 
@@ -341,7 +345,8 @@ Definition valid_proj (ind : inductive) (npars arg : nat) : bool :=
    to the masks. They must have the proper number of parameters, and
    1. For cases, their branches must be compatible with the masks,
       i.e. when "true" appears in the mask, the parameter is unused
-   2. For projections, the projected argument must not be removed *)
+   2. For projections, the projected argument must not be removed
+   3. For constructors, that they are not blocks *)
 Fixpoint valid_cases (t : term) : bool :=
   match t with
   | tEvar _ ts => forallb valid_cases ts
@@ -353,6 +358,7 @@ Fixpoint valid_cases (t : term) : bool :=
   | tProj (mkProjection ind npars arg) t => valid_cases t && valid_proj ind npars arg
   | tFix defs _
   | tCoFix defs _  => forallb (valid_cases ∘ EAst.dbody) defs
+  | tConstruct _ _ (_ :: _) => false (* check whether constructors are not blocks*)
   | _ => true
   end.
 
@@ -375,7 +381,7 @@ Definition valid_masks_decl (p : kername * bool * global_decl) : bool :=
 Definition valid_masks_env (Σ : global_env) : bool :=
   forallb valid_masks_decl Σ.
 
-(* Check if all applications are applied enough to be deboxed without eta expansion *)
+(* Check if all applications are applied enough to be deboxed without eta expansion. *)
 Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
   match t with
   | tBox => true
@@ -386,7 +392,10 @@ Fixpoint is_expanded_aux (nargs : nat) (t : term) : bool :=
   | tLetIn _ val body => is_expanded_aux 0 val && is_expanded_aux 0 body
   | tApp hd arg => is_expanded_aux 0 arg && is_expanded_aux (S nargs) hd
   | tConst kn => #|get_const_mask kn| <=? nargs
-  | tConstruct ind c => #|get_ctor_mask ind c| <=? nargs
+  | tConstruct ind c _ =>
+      (* NOTE: we don't support constructors-as-blocks at the moment,
+         Therefore, we ignore the block argument list assuming it's empty *)
+      #|get_ctor_mask ind c| <=? nargs
   | tCase _ discr brs => is_expanded_aux 0 discr && forallb (is_expanded_aux 0 ∘ snd) brs
   | tProj _ t => is_expanded_aux 0 t
   | tFix defs _
@@ -581,6 +590,9 @@ Section AnalyzeTop.
     end.
 End AnalyzeTop.
 
+
+(* NOTE: analysis assumes that constructors are in the form [tConstruct ind i [] ],
+   that is, constructors-as-blocks is disabled *)
 Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :=
   match t with
   | tBox => state
@@ -591,7 +603,10 @@ Fixpoint analyze (state : analyze_state) (t : term) {struct t} : analyze_state :
   | tLetIn _ val body => remove_var (analyze (new_var (analyze state val)) body)
   | tApp hd arg => analyze (analyze state hd) arg
   | tConst _ => state
-  | tConstruct _ _ => state
+  | tConstruct _ _ _ =>
+      (* NOTE: we don't support constructors-as-blocks at the moment,
+         Therefore, we ignore the block argument list assuming it's empty *)
+      state
   | tCase (ind, npars) discr brs =>
     let state := analyze state discr in
     match get_mib_masks state.2 (inductive_mind ind) with

@@ -126,7 +126,7 @@ Proof.
   intros cl_t cl_env wfg ev.
   rewrite OptimizePropDiscr.trans_env_optimize_env.
   remember (EEnvMap.GlobalContextMap.make _ _) as Σ0.
-  eapply (EOptimizePropDiscr.optimize_correct (fl:=default_wcbv_flags) (Σ:=Σ0)) with (t0:=t) (v0:=v);subst;cbn;eauto.
+  unshelve eapply (EOptimizePropDiscr.optimize_correct (fl:=default_wcbv_flags) (Σ:=Σ0)) with (t0:=t) (v0:=v);subst;cbn;eauto.
 Qed.
 
 
@@ -143,7 +143,7 @@ Theorem extract_correct
   extract_pcuic_env
     (pcuic_args extract_within_coq)
     Σ (wf_squash wfΣ) (KernameSet.singleton kn) ignored = Ok exΣ ->
-  ∥trans_env exΣ e⊢ E.tConst kn ▷ E.tConstruct ind c∥.
+  ∥trans_env exΣ e⊢ E.tConst kn ▷ E.tConstruct ind c []∥.
 Proof.
   intros ax [T wt] ev not_erasable no_ignores ex.
   cbn -[dearg_transform] in *.
@@ -157,7 +157,7 @@ Proof.
     constructor.
     eapply dearg_transform_correct; eauto.
     clear dt.
-    eapply (@OptimizePropDiscr.optimize_correct _ default_wcbv_flags _ _ (tConst kn) (tConstruct ind c));eauto.
+    eapply (@OptimizePropDiscr.optimize_correct _ default_wcbv_flags _ _ (tConst kn) (tConstruct ind c []));eauto.
     * remember (Erasure.erase_global_decls_deps_recursive _ _ _ _ _) as eΣ.
       assert (EWellformed.wf_glob (trans_env eΣ)) by now subst eΣ;eapply wf_erase_global_decls_recursive.
       now apply EWellformed.wellformed_closed_env.

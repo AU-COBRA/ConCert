@@ -68,9 +68,10 @@ Section printing.
         "(" ^ print_term_annotated Γ hd hda ^ ") "
         ^ "(" ^ print_term_annotated Γ arg arga ^ ") : " ^ print_box_type bt
     | tConst s => fun bt => s.2 ^ " : "  ^ print_box_type bt
-    | tConstruct ind c =>
+    | tConstruct ind c [] =>
       fun bt =>
         print_ind_ctor ind c ^ " : " ^ print_box_type bt
+    | tConstruct ind c (_ :: _) => fun _ => "Error(constructors_as_blocks_not_supported)"
     | _ => fun _ => "error: cannot print"
     end.
 

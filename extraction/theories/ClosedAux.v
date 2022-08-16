@@ -89,6 +89,12 @@ Proof.
     erewrite <- IHt2 by easy.
     easy.
   - easy.
+  - apply forallb_Forall in clos.
+    rewrite forallb_map.
+    apply forallb_Forall.
+    apply All_Forall in X.
+    rewrite Forall_forall in *.
+    intros. eapply X;eauto. now apply clos.
   - split; [easy|].
     destruct clos as (_ & clos).
     induction X; cbn in *; propify;auto.
@@ -146,6 +152,16 @@ Proof.
     + f_equal; lia.
     + rewrite <- (proj2 clos); f_equal; lia.
   - easy.
+  - apply forallb_Forall in clos.
+    rewrite forallb_map.
+    apply forallb_Forall.
+    apply All_Forall in X.
+    clear X.
+    induction clos;auto.
+    constructor.
+    rewrite <- closedn_subst_eq by now apply forallb_Forall.
+    assumption.
+    apply IHclos.
   - split; [easy|].
     induction X; cbn in *; propify;auto.
     replace (#|x.1| + (k + k' + #|s|)) with (k + (#|x.1| + k') + #|s|) in * by lia.

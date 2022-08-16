@@ -46,6 +46,8 @@ src/fin.ml
 src/fin.mli
 src/init0.ml
 src/init0.mli
+src/mCProd.ml
+src/mCProd.mli
 src/optimize.ml
 src/optimize.mli
 src/optimizePropDiscr.ml

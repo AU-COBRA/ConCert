@@ -256,7 +256,7 @@ annot bt (E.tLetIn na eb eb') (tLetIn na' b ty b') wt0 er0 =>
 annot bt (E.tApp ehd earg) (tApp hd arg) wt0 er0 =>
   (bt, (annotate_types Γ erΓ hd _ ehd _, annotate_types Γ erΓ arg _ earg _));
 annot bt (E.tConst _) _ wt0 er0 => bt;
-annot bt (E.tConstruct _ _) _ wt0 er0 => bt;
+annot bt (E.tConstruct _ _ _) _ wt0 er0 => bt; (* NOTE: we ignore the arguments if constructors-as-block is enabled *)
 annot bt (E.tCase _ ediscr ebrs) (tCase _ pr discr brs) wt0 er0 =>
   (bt, (annotate_types Γ erΓ discr _ ediscr _, annotate_branches annotate_types Γ erΓ brs ebrs pr _));
 annot bt (E.tProj _ et0) (tProj _ t0) wt0 er0 => (bt, annotate_types Γ erΓ t0 _ et0 _);

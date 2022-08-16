@@ -99,8 +99,6 @@ mCList.ml
 mCList.mli
 mCOption.ml
 mCOption.mli
-mCProd.ml
-mCProd.mli
 mCRelations.ml
 mCRelations.mli
 mCReflect.mli

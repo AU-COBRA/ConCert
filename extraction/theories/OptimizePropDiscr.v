@@ -63,6 +63,7 @@ Proof.
 Qed.
 
 Lemma optimize_correct `{EWellformed.EEnvFlags} `{Ee.WcbvFlags} Σ fgΣ t v :
+  EWcbvEval.with_constructor_as_block = false ->
   ELiftSubst.closed t = true ->
   EGlobalEnv.closed_env (trans_env Σ) = true ->
   EWellformed.wf_glob (trans_env Σ) ->
@@ -73,8 +74,8 @@ Lemma optimize_correct `{EWellformed.EEnvFlags} `{Ee.WcbvFlags} Σ fgΣ t v :
       (optimize (EEnvMap.GlobalContextMap.make (trans_env Σ) (trans_env_fresh_globals _ fgΣ)) t)
       (optimize (EEnvMap.GlobalContextMap.make (trans_env Σ) (trans_env_fresh_globals _ fgΣ)) v).
 Proof.
-  intros cl_t cl_env wfg ev.
+  intros ? cl_t cl_env wfg ev.
   rewrite trans_env_optimize_env.
   remember (EEnvMap.GlobalContextMap.make _ _) as Σ0.
-  eapply (EOptimizePropDiscr.optimize_correct (Σ:=Σ0)) with (t0:=t) (v0:=v);subst;cbn;eauto.
+  unshelve eapply (EOptimizePropDiscr.optimize_correct (Σ:=Σ0)) with (t0:=t) (v0:=v);subst;cbn;eauto.
 Qed.

@@ -376,7 +376,10 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     print_parenthesized (parenthesize_app_arg arg) (print_term Γ arg)
 
   | tConst name => append (get_fun_name name)
-  | tConstruct ind i => print_ind_ctor ind i
+  | tConstruct ind i [] => print_ind_ctor ind i
+  | tConstruct ind i (_ :: _) =>
+           printer_fail ("Costructors-as-blocks is not supported: "
+                         ^ bs_to_s (string_of_kername ind.(inductive_mind)))
 
   | tCase (ind, npars) discriminee branches =>
     match branches with

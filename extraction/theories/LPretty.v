@@ -346,7 +346,7 @@ Section print_term.
                               (projs : list (ident * ExAst.one_inductive_body))
                               : option ExAst.one_inductive_body := 
     match t with
-    | tConstruct (mkInd mind j as ind) i =>
+    | tConstruct (mkInd mind j as ind) i [] =>
       match lookup_ind_decl mind i with
       (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
       | Some oib => if is_one_constructor_inductive_and_not_record oib
@@ -510,7 +510,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
           else (concat " " (map (parens true) apps)) ++ "." ++ proj_na
         | None => parens (top || inapp) (nm ++ " " ++ (concat " " (map (parens true) apps)))
         end
-    | tConstruct ind i =>
+    | tConstruct ind i [] =>
       let nm := get_constr_name ind i in
       (* is it an natural number literal? *)
       if (nm =? "Z") || (nm =? "S") then
@@ -550,21 +550,13 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
       | None => let nm' := with_default ((capitalize prefix) ++ nm) (look TT nm) in
                 parens top (print_uncurried nm' apps)
       end
-      
-      (* else match is_name_remapped nm TT, is_record_constr b projs with
-        | false, Some oib => let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in 
-        let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e) 
-                                                  |> concat "; " in
-        "{" ++ field_decls_printed ++ "}"
-        | _,_     => let nm' := with_default (look TT nm) ((capitalize prefix) ++ nm) in
-                      parens top (print_uncurried nm' apps)
-        end *)
+    | tConstruct ind l (_ :: _) => "Error(constructors_as_blocks_not_supported)"
     | _ =>  parens (top || inapp) (print_term prefix FT TT Γ false true f ++ " " ++ print_term prefix FT TT Γ false false l)
     end
   | tConst c =>
     let cst_name := string_of_kername c in
     with_default (prefix ++ c.2) (look TT cst_name)
-  | tConstruct ind l =>
+  | tConstruct ind l [] =>
     (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *) 
@@ -575,6 +567,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
       let nm := get_constr_name ind l in
       with_default (capitalize prefix ++ capitalize nm) (look TT nm)
     end
+  | tConstruct ind l (_ :: _) => "Error(constructors_as_blocks_not_supported)"
   | tCase (mkInd mind i as ind, nparam) t brs =>
     match brs with
     | [] => "failwith () (* absurd case *)"

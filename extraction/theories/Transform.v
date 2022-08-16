@@ -12,11 +12,12 @@ Definition TemplateTransform := Transform Ast.Env.global_env.
 
 Definition ExtractTransform := Transform ExAst.global_env.
 
-Definition ExtractTransformCorrect `{EWcbvEval.WcbvFlags} (transform : ExtractTransform) : Type :=
+Definition ExtractTransformCorrect `{wcbvf : EWcbvEval.WcbvFlags} (transform : ExtractTransform) : Type :=
   forall Σ Σopt kn ind c,
+    EWcbvEval.with_constructor_as_block = false ->
     transform Σ = Ok Σopt ->
-    trans_env Σ e⊢ tConst kn ▷ tConstruct ind c ->
-    trans_env Σopt e⊢ tConst kn ▷ tConstruct ind c.
+    trans_env Σ e⊢ tConst kn ▷ tConstruct ind c [] ->
+    trans_env Σopt e⊢ tConst kn ▷ tConstruct ind c [].
 
 Definition CorrectExtractTransform `{EWcbvEval.WcbvFlags} := ∑ t, ExtractTransformCorrect t.
 
@@ -35,7 +36,7 @@ Lemma compose_transforms_correct `{EWcbvEval.WcbvFlags} transforms :
   All ExtractTransformCorrect transforms ->
   ExtractTransformCorrect (compose_transforms transforms).
 Proof.
-  intros all. intros Σ Σopt kn ind c success ev.
+  intros all. intros Σ Σopt kn ind c ? success ev.
   induction all in Σ, success, ev |- *; cbn in *.
   - now injection success as ->.
   - destruct x eqn:teq; [|congruence].

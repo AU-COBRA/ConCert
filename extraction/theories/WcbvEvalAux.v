@@ -2,7 +2,6 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import ClosedAux.
 From Equations Require Import Equations.
 From MetaCoq.Template Require Import MCPrelude.
-From MetaCoq.Template Require Import utils.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
@@ -10,6 +9,7 @@ From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
 From MetaCoq.Erasure Require Import EOptimizePropDiscr.
+From MetaCoq.Template Require Import utils.
 
 Set Equations Transparent.
 
@@ -287,22 +287,27 @@ Fixpoint deriv_length {Σ t v} (ev : Σ e⊢ t ▷ v) : nat :=
   | eval_cofix_proj _ _ _ _ _ _ _ _ ev1 _ ev2
   | eval_box _ _ _ ev1 ev2
   | eval_zeta _ _ _ _ _ ev1 ev2
-  | eval_iota _ _ _ _ _ _ _ _ _ ev1 _ _ _ _ ev2
+  | eval_iota_block _ _ _ _ _ _ _ _ _ _ ev1 _ _ _ _ ev2
+  | eval_iota _ _ _ _ _ _ _ _ _ _ ev1 _ _ _ _ ev2
   | eval_iota_sing _ _ _ _ _ _ _ _ ev1 _ _ ev2
   | eval_fix_value _ _ _ _ _ _ _ _ _ ev1 ev2 _ _
   | eval_cofix_case _ _ _ _ _ _ _ _ _ ev1 _ ev2
-  | eval_proj _ _ _ _ _ _ ev1 _ _ _ ev2
-  | eval_construct _ _ _ _ _ _ _ _ _ _ ev1 _ ev2
+  | eval_proj _ _ _ _ _ _ _ ev1 _ _ _ ev2
+  | eval_proj_block _ _ _ _ _ _ _ ev1 _ _ _ ev2
+  | eval_construct _ _ _ _ _ _ _ _ _ _ _ ev1 _ ev2
   | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
   | eval_beta _ _ _ _ _ _ ev1 ev2 ev3
   | eval_fix' _ _ _ _ _ _ _ _ _ ev1 _ ev2 ev3
   | eval_fix _ _ _ _ _ _ _ _ _ ev1 ev2 _ ev3 =>
-    S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
+      S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
+  | eval_construct_block _ _ _ _ _ args _ _ _ _ _ => S #|args|
   end.
 
 Lemma deriv_length_min {Σ t v} (ev : Σ e⊢ t ▷ v) :
   1 <= deriv_length ev.
-Proof. destruct ev; cbn in *; lia. Qed.
+Proof.
+  destruct ev; cbn in *;lia.
+Qed.
 
 Lemma eval_tApp_deriv {Σ hd arg v} (ev : Σ e⊢ tApp hd arg ▷ v) :
   ∑ hdv (ev_hd : Σ e⊢ hd ▷ hdv) argv (ev_arg : Σ e⊢ arg ▷ argv),

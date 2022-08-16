@@ -175,7 +175,7 @@ Definition iota_body (Σ : global_env) (body : term) : term :=
 
 Fixpoint nat_syn_to_nat (t : EAst.term) : option nat :=
   match t with
-  | EAst.tApp (EAst.tConstruct ind i) t0 =>
+  | EAst.tApp (EAst.tConstruct ind i []) t0 =>
     if eq_kername ind.(inductive_mind) <%% nat %%> then
       match i with
       | 1 => match nat_syn_to_nat t0 with
@@ -185,7 +185,7 @@ Fixpoint nat_syn_to_nat (t : EAst.term) : option nat :=
       | _ => None
       end
     else None
-  | EAst.tConstruct ind 0 =>
+  | EAst.tConstruct ind 0 [] =>
     if eq_kername ind.(inductive_mind) <%% nat %%> then
       Some 0
     else None
@@ -193,27 +193,27 @@ Fixpoint nat_syn_to_nat (t : EAst.term) : option nat :=
   end.
 
 Definition _xI :=
-  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 0.
+  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 0 [].
 
 Definition _xO :=
-  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 1.
+  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 1 [].
 
 Definition _xH :=
-  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 2.
+  EAst.tConstruct {| inductive_mind := <%% positive %%>; inductive_ind := 0 |} 2 [].
 
-Definition _N0 := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 0.
+Definition _N0 := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 0 [].
 
-Definition _Npos := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 1.
+Definition _Npos := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 1 [].
 
-Definition _Z0 :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0.
+Definition _Z0 :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0 [].
 
-Definition _Zpos :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 1.
+Definition _Zpos :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 1 [].
 
-Definition _Zneg :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2.
+Definition _Zneg :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2 [].
 
 Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
   match t with
-  | EAst.tApp (EAst.tConstruct ind i) t0 =>
+  | EAst.tApp (EAst.tConstruct ind i []) t0 =>
     if eq_kername ind.(inductive_mind) <%% positive %%> then
       match i with
       | 0 => match pos_syn_to_nat_aux (n + n) t0 with
@@ -225,7 +225,7 @@ Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
       end
     else None
   | EAst.tApp _xO t0 => pos_syn_to_nat_aux (n + n) t0
-  | EAst.tConstruct ind 2 =>
+  | EAst.tConstruct ind 2 [] =>
     if eq_kername ind.(inductive_mind) <%% positive %%> then Some n
     else None
   | _ => None
@@ -235,10 +235,10 @@ Definition pos_syn_to_nat := pos_syn_to_nat_aux 1.
 
 Definition N_syn_to_nat (t : EAst.term) : option nat :=
   match t with
-  | EAst.tConstruct ind 0 =>
+  | EAst.tConstruct ind 0 [] =>
     if eq_kername ind.(inductive_mind) <%% N %%> then Some 0
     else None
-  | EAst.tApp (EAst.tConstruct ind 1) t0 =>
+  | EAst.tApp (EAst.tConstruct ind 1 []) t0 =>
     if eq_kername ind.(inductive_mind) <%% N %%> then
       match pos_syn_to_nat t0 with
       | Some v => Some v
@@ -250,10 +250,10 @@ Definition N_syn_to_nat (t : EAst.term) : option nat :=
 
 Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   match t with
-  | EAst.tConstruct ind 0 =>
+  | EAst.tConstruct ind 0 [] =>
     if eq_kername ind.(inductive_mind) <%% Z %%> then Some 0%Z
     else None
-  | EAst.tApp (EAst.tConstruct ind i) t0 =>
+  | EAst.tApp (EAst.tConstruct ind i []) t0 =>
     if eq_kername ind.(inductive_mind) <%% Z %%> then
       match i with
       | 1 => match pos_syn_to_nat t0 with

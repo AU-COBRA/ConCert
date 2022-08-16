@@ -506,7 +506,10 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
              if needs_block arg then append " }" else ret tt in
          f head (printed_arg :: args_printed)
 
-       | tConstruct ind i => print_constructor ind i args_printed
+       | tConstruct ind i [] => print_constructor ind i args_printed
+       | tConstruct ind i (_ :: _) =>
+           printer_fail ("Costructors-as-blocks is not supported: "
+                         ^ bs_to_s (string_of_kername ind.(inductive_mind)))
 
        | tConst kn => print_const kn args_printed
 
@@ -528,7 +531,10 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
                     print_term Γ arg]
 
   | tConst kn => print_const kn []
-  | tConstruct ind i => print_constructor ind i []
+  | tConstruct ind i [] => print_constructor ind i []
+  | tConstruct ind i (_ :: _) =>
+                 printer_fail ("Costructors-as-blocks is not supported: "
+                         ^ bs_to_s (string_of_kername ind.(inductive_mind)))
 
   | tCase (ind, npars) discr brs =>
     match brs with
